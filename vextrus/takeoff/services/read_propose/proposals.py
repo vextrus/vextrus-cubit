@@ -174,8 +174,9 @@ def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
     if not listed:
         return
-    step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
-    set_questions(view.project_id, trigger_file=file_id)
+    with step1.progress_at_end():  # the progress lock last, after the Questions' rows (#227)
+        step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+        set_questions(view.project_id, trigger_file=file_id)
 
 
 NAMED_STOREYS = frozenset(
@@ -364,7 +365,13 @@ def _read_lists(
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
     """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before)."""
+    (see the module); how many Questions they hold (asked now or before). Step 1's progress is
+    written once, after every Question's row (`step1.progress_at_end`, #227)."""
+    with step1.progress_at_end():
+        return _set_questions(project_id)
+
+
+def _set_questions(project_id: uuid.UUID) -> int:
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -388,6 +395,11 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     """The set's conflicts asked again after an act decided or undid sheets (confirm, exclude, an
     answer, undo): those of sheets now decided retired, those of sheets undecided again asked again;
     how many are open. No Check is run (its runs are the reads')."""
+    with step1.progress_at_end():
+        return _set_conflicts(project_id)
+
+
+def _set_conflicts(project_id: uuid.UUID) -> int:
     drawing_set = drawings.set_of(project_id)
     listed = drawings.sheets(drawing_set.id) if drawing_set is not None else []
     groups = {f.id: f.group for f in drawings.files(drawing_set.id)} if drawing_set else {}

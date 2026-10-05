@@ -79,7 +79,7 @@ def get_progress(request: HttpRequest, project_id: uuid.UUID) -> Step1ProgressOu
 @router.post(f"{_PREFIX}/confirm", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CONFIRM, project="project_id")
 def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn) -> Step1ActOut:
-    with transaction.atomic():
+    with transaction.atomic(), step1.progress_at_end():
         view = step1.confirm(project_id, payload.proposals, kind=payload.kind, actor_name=actor(request))
         proposals.set_conflicts(project_id)  # a decided sheet is in no conflict (#161)
     return Step1ActOut.from_view(view)
@@ -88,7 +88,7 @@ def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn
 @router.post(f"{_PREFIX}/exclude", response={200: Step1ActOut, 400: Refusal})
 @declare(acts.EXCLUDE, project="project_id")
 def exclude(request: HttpRequest, project_id: uuid.UUID, payload: Step1ExcludeIn) -> Step1ActOut:
-    with transaction.atomic():
+    with transaction.atomic(), step1.progress_at_end():
         view = step1.exclude(
             project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
         )
@@ -108,7 +108,7 @@ def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) 
 @declare(acts.UNDO, project="project_id")
 def undo(request: HttpRequest, project_id: uuid.UUID, payload: Step1UndoIn) -> Step1ActOut:
     """Undo one's own last act on Step 1: the sheets it undecided are compared again."""
-    with transaction.atomic():
+    with transaction.atomic(), step1.progress_at_end():
         view = step1.undo(project_id)
         proposals.set_conflicts(project_id)
     return Step1ActOut.from_view(view)
@@ -150,7 +150,7 @@ def answer_question(
 ) -> Step1QuestionOut:
     """Answer a Question with one of its options (`keep_open` keeps it open). A held file read
     anyway has its read job queued again, in the answer's transaction."""
-    with transaction.atomic():
+    with transaction.atomic(), step1.progress_at_end():
         done = step1.answer(
             project_id, question_id, payload.option, payload.text, actor_name=actor(request)
         )

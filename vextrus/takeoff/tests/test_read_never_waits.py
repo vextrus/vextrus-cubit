@@ -8,12 +8,12 @@ confirm, exclude and answer; here the same harness runs undo (the orchestrator's
 import contextlib
 import threading
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
-from django.db import transaction
+from django.db import connection, transaction
 
 from engine.read import pdf as pdf_reader
 from vextrus.drawings import services as drawings
@@ -22,9 +22,12 @@ from vextrus.takeoff.services import step1 as step1_services
 from vextrus.takeoff.services.read_propose import files
 from vextrus.takeoff.services.read_propose import plot as plot_matching
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
+    answer,
     confirm,
+    exclude,
     jev_says,
     of_number,
+    open_questions,
     proposals,
     readers,
     run_job,
@@ -44,12 +47,14 @@ from vextrus.takeoff.tests.acceptance.t157.test_plot_matched_toolchain import (
 )
 from vextrus.takeoff.tests.acceptance.treadlock.test_acts_never_wait_on_a_read import (
     FAIL_SAFE,
+    FIRST,
     PLOT,
     SECOND_PLOT,
     SHEETS,
     Parked,
     act_while_the_later_file_reads,
     counted_progress,
+    file_state,
     kept_progress,
     read_first_and_plot,
 )
@@ -335,3 +340,231 @@ def test_an_act_between_the_jobs_count_and_its_write_is_never_lost_from_the_prog
     kept = kept_progress(member, project_id)
     assert kept == counted_progress(member, project_id)
     assert kept["structural"][1:3] == (1, 6)
+
+
+# Fix round 2: the progress lock is the last lock any transaction takes ------------------------------
+
+
+def _letting_go_in_keep(
+    qs: QsProject, monkeypatch: pytest.MonkeyPatch, later: uuid.UUID, numbers: dict[str, str]
+) -> ParkedAt:
+    """The later DWG's match lets go the named earlier sheets' pages (`_release`, the #230 case) as
+    `keep()` starts, locking their rows, and parks there once armed: after its proposals (and their
+    Questions), before its progress rows are written."""
+    with qs.member.acting():
+        set_id = drawings.file(later).set_id
+        listed = drawings.sheets(set_id)
+        [plot_pdf] = [f for f in drawings.files(set_id) if f.name == PLOT]
+    let_go = [s.id for s in listed if (s.number, s.revision_mark) in numbers.items()]
+    assert len(let_go) == len(numbers)
+
+    def release() -> None:
+        for sheet_id in let_go:
+            drawings.record_plot(sheet_id, drawings.PlotNone.NO_PAGE, pdf_file_id=plot_pdf.id)
+
+    in_keep = ParkedAt(release, after=True)
+    keep = plot_matching._keep
+
+    def keep_letting_go(*args: Any) -> Any:
+        in_keep()
+        return keep(*args)
+
+    monkeypatch.setattr(plot_matching, "_keep", keep_letting_go)
+    return in_keep
+
+
+def _same_number(api: Any, project_id: uuid.UUID) -> dict[str, Any]:
+    [q] = open_questions(api, project_id, "conflict")
+    return q
+
+
+def test_a_keep_latest_answer_while_the_jobs_match_lets_go_the_earlier_copy_never_deadlocks(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """#227's review round 2: the later DWG's `keep()` lets go S-02 R0's page (its row locked), then
+    writes Step 1's progress rows under the per-Project lock. A `keep_latest` answer confirms R1 and
+    leaves R0 out. Taking the progress lock at R1's confirm, then R0's row, it deadlocked with the
+    job (Postgres aborted the answer: 500). The answer now takes it last: it may wait for the job's
+    commit, then is answered, and the job ends read."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    q = _same_number(api, project_id)
+    in_keep = _letting_go_in_keep(qs_project, monkeypatch, later, {"S-02": "R0"})
+
+    overlap = act_while_the_later_file_reads(
+        qs_project,
+        later,
+        monkeypatch,
+        in_keep,  # type: ignore[arg-type]
+        lambda: answer(api, project_id, q["id"], "keep_latest"),
+    )
+
+    assert overlap.response.status_code == 200, overlap.response.content
+    copies = {p["revision_mark"]: p for p in of_number(proposals(api, project_id), "S-02")}
+    assert copies["R1"]["decision"] == "confirmed"
+    assert (copies["R0"]["decision"], copies["R0"]["excluded_reason"]) == ("excluded", "superseded")
+    member = qs_project.member
+    assert file_state(member, later) == str(drawings.FileState.READ)
+    assert kept_progress(member, project_id) == counted_progress(member, project_id)
+
+
+def _act_answer(option: str) -> Any:
+    def given(api: Any, project_id: uuid.UUID) -> Any:
+        q = _same_number(api, project_id)
+        return lambda: answer(api, project_id, q["id"], option)
+
+    return given
+
+
+def _act_confirm(numbers: Sequence[str]) -> Any:
+    def given(api: Any, project_id: uuid.UUID) -> Any:
+        ids = [the(proposals(api, project_id), n)["id"] for n in numbers]
+        return lambda: confirm(api, project_id, ids)
+
+    return given
+
+
+def _act_exclude(numbers: Sequence[str]) -> Any:
+    def given(api: Any, project_id: uuid.UUID) -> Any:
+        ids = [the(proposals(api, project_id), n)["id"] for n in numbers]
+        return lambda: exclude(api, project_id, ids, "superseded")
+
+    return given
+
+
+def _act_undo(api: Any, project_id: uuid.UUID) -> Any:
+    assert confirm(api, project_id, [the(proposals(api, project_id), "S-03")["id"]]).status_code == 200
+    return lambda: api.post(f"{step1(project_id)}/undo", {})
+
+
+def _act_set_list(api: Any, project_id: uuid.UUID) -> Any:
+    body = {"discipline": "structural", "text": "S-01 to S-05"}
+    return lambda: api.post(f"{step1(project_id)}/drawing-list", body)
+
+
+EVERY_ACT = {
+    "answer_keep_latest": _act_answer("keep_latest"),
+    "answer_keep_all": _act_answer("keep_all"),
+    "answer_keep_open": _act_answer("keep_open"),
+    "confirm_let_go": _act_confirm(["S-01"]),
+    "confirm_other": _act_confirm(["S-03"]),
+    "exclude_let_go": _act_exclude(["S-01"]),
+    "exclude_other": _act_exclude(["S-03"]),
+    "exclude_bulk": _act_exclude(["S-01", "S-03"]),
+    "undo": _act_undo,
+    "set_list": _act_set_list,
+}
+
+
+@pytest.mark.parametrize("act", list(EVERY_ACT))
+def test_no_act_takes_the_progress_lock_before_a_row_the_jobs_keep_holds(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked, act: str
+) -> None:
+    """The guard on fix round 2's rule (the progress lock is the last lock any transaction takes):
+    the later DWG's job parks inside `keep()` holding rows a QS's act also locks (S-01 and S-02 R0
+    let go, and the set's Questions its proposals wrote) and wants the progress lock next. Each act
+    kind run over them neither errors nor deadlocks: it finishes, without waiting or once the job
+    commits, and the job ends read with both counted in the progress rows."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    do_it = EVERY_ACT[act](api, project_id)
+    in_keep = _letting_go_in_keep(qs_project, monkeypatch, later, {"S-01": "R0", "S-02": "R0"})
+
+    overlap = act_while_the_later_file_reads(
+        qs_project,
+        later,
+        monkeypatch,
+        in_keep,  # type: ignore[arg-type]
+        do_it,
+    )
+
+    assert overlap.response.status_code == 200, overlap.response.content
+    member = qs_project.member
+    assert file_state(member, later) == str(drawings.FileState.READ)
+    assert kept_progress(member, project_id) == counted_progress(member, project_id)
+
+
+def _late(sql: str, params: Any) -> bool:
+    """A statement that locks or writes a row (or takes another lock), but the progress rows'."""
+    said_ = " ".join(sql.split()).upper()
+    if said_.startswith(("SAVEPOINT", "RELEASE SAVEPOINT", "ROLLBACK TO SAVEPOINT")):
+        return False
+    if "PG_ADVISORY" in said_:
+        return not (params and str(params[0]).startswith("step1-progress:"))
+    if f'"{StepProgress._meta.db_table.upper()}"' in said_:
+        return False
+    if said_.startswith('INSERT INTO "DRAWINGS_READSTEP"'):
+        return False  # the job's own step kept, on its file's row it holds since `mark_read`
+    return not said_.startswith("SELECT") or " FOR UPDATE" in said_ or " FOR SHARE" in said_
+
+
+def _after_the_progress_lock(do_it: Any) -> tuple[Any, list[str]]:
+    """The act run once; each statement it ran, in a transaction, after that transaction took Step
+    1's progress lock that locks or writes a row other than the progress rows."""
+    late: list[str] = []
+    locked = False
+
+    def watch(execute: Any, sql: str, params: Any, many: bool, context: Any) -> Any:
+        nonlocal locked
+        if not connection.in_atomic_block:
+            locked = False
+        elif locked and _late(sql, params):
+            late.append(" ".join(sql.split())[:160])
+        result = execute(sql, params, many, context)
+        if "pg_advisory_xact_lock" in sql and params and str(params[0]).startswith("step1-progress:"):
+            locked = connection.in_atomic_block
+        return result
+
+    with connection.execute_wrapper(watch):
+        response = do_it()
+    return response, late
+
+
+def _act_discipline(api: Any, project_id: uuid.UUID) -> Any:
+    with transaction.atomic():
+        [first] = [f for f in drawings.files(drawings.set_of(project_id).id) if f.name == FIRST]  # type: ignore[union-attr]
+    path = f"/api/projects/{project_id}/drawings/files/{first.id}/discipline"
+    return lambda: api.send("put", path, {"discipline": "architectural"})
+
+
+@pytest.mark.parametrize("act", [*EVERY_ACT, "discipline"])
+def test_every_act_takes_the_progress_lock_after_its_last_row_lock(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked, act: str
+) -> None:
+    """Fix round 2's rule, by what each act runs (no read job needed): in each transaction, once
+    Step 1's progress lock is taken, nothing but the progress rows is locked or written. A read
+    job's step keeps it so too (`progress_at_end`), so an act and a job never wait on each other
+    in a cycle, whatever rows they share."""
+    read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    with qs_project.member.acting():
+        do_it = (
+            _act_discipline(api, project_id) if act == "discipline" else EVERY_ACT[act](api, project_id)
+        )
+
+    response, late = _after_the_progress_lock(do_it)
+
+    assert response.status_code == 200, response.content
+    assert late == [], f"the {act} locked or wrote these after the progress lock"
+    member = qs_project.member
+    counted = counted_progress(member, project_id)
+    # A Discipline the sheets moved away from keeps its old row (`record_progress` writes the
+    # Disciplines it counts, and deletes none): not this rule's.
+    assert {k: v for k, v in kept_progress(member, project_id).items() if k in counted} == counted
+
+
+@pytest.mark.parametrize("later_file", list(LATER))
+def test_a_read_jobs_step_takes_the_progress_lock_after_its_last_row_lock(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked, later_file: str
+) -> None:
+    """The same rule on the job's side: a later DWG's `finishing` (and a Plot's `matching`) lock or
+    write nothing but the progress rows once they take the progress lock."""
+    later = LATER[later_file](qs_project, monkeypatch)
+    run, late = _after_the_progress_lock(
+        lambda: run_job(qs_project.member, later, monkeypatch, readers(SHEETS))
+    )
+    del run
+    assert late == [], "the read job locked or wrote these after the progress lock"
