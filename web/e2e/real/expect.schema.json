@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vextrus.invalid/factory/walk-expect.schema.json",
+  "title": "A Development Set's expectations: .private/work/walk-expect/<set>.json",
+  "description": "The limits scripts/walk/verdict.py judges a walk's checks by (docs/specs/factory.md 5 'G1'): from Q5's limits and the Answer Key's counts, never from a walk's own recording; prepared by drawing-analyst, reviewed by qs-critic, the counts confirmed by the owner; never in git. A missing key makes its check UNSET, and UNSET fails PASS: files for reads_complete; p95_ms_max for act_p95_during_read; the last three, all of them, for questions_per_discipline.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "files": { "type": "integer", "minimum": 1, "description": "How many files the set holds; every one must be read." },
+    "p95_ms_max": { "type": "number", "minimum": 0, "description": "The act p95 limit, in ms, while a later file reads." },
+    "questions_max_per_discipline": { "type": "integer", "minimum": 0, "description": "Q5: open Questions per Discipline." },
+    "bulk_confirmable_share_min": { "type": "number", "minimum": 0, "maximum": 1, "description": "Q5: the share of a Discipline's Sheets the QS can confirm in bulk." },
+    "false_continuation_max": { "type": "integer", "minimum": 0, "description": "Q5: continuation Questions that are not continuations." }
+  }
+}

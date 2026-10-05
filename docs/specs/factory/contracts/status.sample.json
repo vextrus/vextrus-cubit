@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "written_at": "2026-10-05T00:20:00Z",
+  "watcher": {"pid": 48213, "started_at": "2026-10-04T21:31:07Z"},
+  "clock": {
+    "session": {"started_at": "2026-10-04T16:50:00Z", "budget_minutes": 660, "elapsed_minutes": 450},
+    "phase": {"name": "phase 3", "started_at": "2026-10-04T21:08:14Z", "budget_minutes": 330, "elapsed_minutes": 192}
+  },
+  "resources": {"disk_free_gb": 61.2, "swap_used_gb": 0.0, "mem_available_gb": 14.1},
+  "lock": {
+    "holder": {"kind": "post", "ticket": "t228", "head": "c09bb890b096f7306f688cc6d1dad34e7e52a223", "since": "2026-10-05T00:06:00Z", "elapsed_minutes": 14},
+    "waiters": [
+      {"kind": "post", "ticket": "t229", "head": "619aae029dda528253a6af0ba619b45baa1df115", "since": "2026-10-05T00:09:00Z"},
+      {"kind": "scored", "ticket": "loop-iou", "head": "adfec5772ae8932aa10896037b0779bec915015b", "since": "2026-10-05T00:12:30Z"}
+    ]
+  },
+  "builders": {
+    "cloud": {"working": 4, "ready": 1, "blocked": 0, "quiet": 1, "done": 0, "failed": 0, "stopped": 0, "quiet_max_minutes": 31},
+    "local": {"working": 1, "ready": 0, "blocked": 0, "quiet": 0, "done": 0, "failed": 0, "stopped": 0, "quiet_max_minutes": null},
+    "items": [
+      {"ticket": "f1", "where": "cloud", "state": "ready", "branch": "f1-ci-launcher", "head": "cf1126f67238bf3e85fcc8c8737b72e80ddcfddb", "last_push_at": "2026-10-05T00:02:11Z", "quiet_minutes": 17, "pr": 251},
+      {"ticket": "f3", "where": "cloud", "state": "working", "branch": "f3-local-govern-watch", "head": "fe91c0394869857c0e93272302f4d04fde05a402", "last_push_at": "2026-10-05T00:17:40Z", "quiet_minutes": 2, "pr": null},
+      {"ticket": "f4", "where": "cloud", "state": "working", "branch": "f4-review-gate", "head": "e62f41d02c28cb089872e955dfb86a9ad16d79b6", "last_push_at": "2026-10-05T00:11:02Z", "quiet_minutes": 9, "pr": null},
+      {"ticket": "f6", "where": "cloud", "state": "working", "branch": "f6-session-hooks", "head": "80c7068f531db65831e8fa8ffa3dd5e6824a2eeb", "last_push_at": "2026-10-05T00:14:55Z", "quiet_minutes": 5, "pr": null},
+      {"ticket": "f8", "where": "cloud", "state": "working", "branch": "f8-band", "head": "e117797422d35ce52f036963c7e9603e9955b5c7", "last_push_at": "2026-10-05T00:16:20Z", "quiet_minutes": 3, "pr": null},
+      {"ticket": "f9", "where": "cloud", "state": "quiet", "branch": "f9-jev-client", "head": "443a7bf35f406a4f97f0277e9789737caf247842", "last_push_at": "2026-10-04T23:49:00Z", "quiet_minutes": 31, "pr": null},
+      {"ticket": "f2", "where": "local", "state": "working", "branch": "f2-walls", "head": null, "last_push_at": null, "quiet_minutes": null, "pr": null}
+    ]
+  },
+  "reviews": [
+    {"pr": 250, "round": 1, "head": "fc3cc78a83fa1c5678e9ab21e14caba5f2e4a57c"},
+    {"pr": 251, "round": 2, "head": "cf1126f67238bf3e85fcc8c8737b72e80ddcfddb"}
+  ],
+  "g1": {"main": {"state": "FAIL", "sha": "ca2e1c4acf84011644b1906ba1961d2b6970ac50", "at": "2026-10-05T00:01:00Z"}},
+  "usage": {"session_percent": 41.0, "week_percent": 38.0, "read_at": "2026-10-05T00:15:00Z"},
+  "alarms": [
+    {"code": "BUILDER-QUIET", "subject": "f9", "detail": "no push for 31 min", "since": "2026-10-05T00:19:00Z"}
+  ]
+}

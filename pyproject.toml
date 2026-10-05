@@ -29,6 +29,7 @@ dependencies = [
 dev = [
   "pytest==9.1.1",
   "pytest-django==4.14.0",
+  "pytest-xdist==3.8.0",
   "mypy==2.3.1",
   "django-stubs==6.1.1",
   "ruff==0.16.9",
@@ -89,3 +90,4 @@ markers = [
   "live: calls a live outside service (TypeSafe's Jev); never run in CI or the cloud by default",
 ]
 filterwarnings = ["error"]
+tmp_path_retention_policy = "failed"  # #243: only a failed test's tmp_path is kept

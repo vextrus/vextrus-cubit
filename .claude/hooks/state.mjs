@@ -3,10 +3,11 @@
 // never changes anything. Self-contained, and quiet about what a cloud VM lacks.
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = process.env.CLAUDE_PROJECT_DIR ?? resolve(fileURLToPath(new URL("../..", import.meta.url)));
+// `||`, not `??`: an empty CLAUDE_PROJECT_DIR would resolve to the cwd, not this checkout (issue C11).
+const ROOT = process.env.CLAUDE_PROJECT_DIR || resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
 const read = (command, args) => {
   const result = spawnSync(command, args, { cwd: ROOT, encoding: "utf8", timeout: 5_000 });
@@ -29,7 +30,15 @@ const port = process.env.PGPORT ?? "5432";
 const up = spawnSync("pg_isready", ["-h", "127.0.0.1", "-p", port, "-q"], { timeout: 5_000 }).status === 0;
 lines.push(`postgres 18: ${up ? `up on ${port}` : `not answering on ${port}`}`);
 
-lines.push(`real drawings (.private/): ${existsSync(join(ROOT, ".private")) ? "present (local session)" : "absent (cloud session: committed tests only)"}`);
+// The real sets live only in the main checkout (the common git dir's parent), never in a linked worktree.
+const common = read("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"]);
+const main = common ? dirname(common) : ROOT;
+const drawings = !existsSync(join(main, ".private"))
+  ? "absent (cloud session: committed tests only)"
+  : resolve(main) === resolve(ROOT)
+    ? "present (local session)"
+    : "present (local session; read from the main checkout's .private/, never copy out)";
+lines.push(`real drawings (.private/): ${drawings}`);
 
 const handoffs = join(ROOT, "docs", "handoff");
 if (existsSync(handoffs)) {
