@@ -67,6 +67,7 @@ FRAMES = (
     Frame("FP-402", "ISO-A3", ISO_A3_BORDER, 37.0, (100_000.0, 0.0)),
     Frame("FP-403", "A1-TENTH", (84.1, 59.4), 600.0, (200_000.0, 0.0)),
     Frame("FP-404", "A1-TENTH", (84.1, 59.4), 370.0, (300_000.0, 0.0)),
+    Frame("FP-405", "A1-THIRD", (841.0 / 3, 198.0), 300.0, (400_000.0, 0.0)),
 )
 
 
@@ -92,6 +93,7 @@ def _draw() -> Dxf:
         doc.layers.add(layer)
     _frame(doc.blocks.new("ISO-A3", base_point=(0, 0)), *ISO_A3_BORDER)
     _frame(doc.blocks.new("A1-TENTH", base_point=(0, 0)), 84.1, 59.4)
+    _frame(doc.blocks.new("A1-THIRD", base_point=(0, 0)), 841.0 / 3, 198.0)
     model = doc.modelspace()
     for frame in FRAMES:
         s = frame.insert
@@ -194,6 +196,26 @@ def test_a_tenth_size_a1_frame_is_laid_on_a1_and_its_border_on_an_a1_plot_pages_
         for i, v in enumerate((x0, y0, x1, y1))
     )
     assert on_page == pytest.approx((0.0, 0.0, *A1), abs=WITHIN_MM), (paper, transform)
+
+
+@pytest.mark.needs_toolchain
+def test_a_frame_whose_box_is_a_standard_sheet_at_a_standard_scale_is_read_so(
+    read_sheets: dict[str, Read],
+) -> None:
+    """#160's review, round 2: a frame block drawn at a third of an A1 (280 x 198 units), inserted at
+    300, boxes an exact A1 at 1:100. Its insert's scale gives a paper inside A4's binding window, but
+    the box's own match wins: A1 at 1:100 (as main's buffers read it), spanning its A1 Plot page."""
+    found = _sheet(read_sheets, "FP-405")
+    paper = found.buffers.paper
+    assert paper.mm_per_unit == pytest.approx(1 / 100, rel=1e-6), paper
+    assert paper.source == buffers.PaperSource.STANDARD
+    assert (paper.width_mm, paper.height_mm) == pytest.approx(A1, abs=WITHIN_MM)
+    assert found.views.paper == pytest.approx(A1, abs=WITHIN_MM)
+    page = _page(A1)
+    placed = registration.place(page, found.sheet, found.buffers)
+    assert placed is not None
+    span = placed[0].scale * paper.width_mm / page.width
+    assert span >= 0.98, (paper, placed[0])
 
 
 @pytest.mark.needs_toolchain

@@ -13,12 +13,13 @@ What a sheet holds
   draws what lies in its box, cut to it, on the paper the views (17) lay its boxes on, by the one rule
   (#160): where its Plot page was matched (`build(..., plot)`), that page's paper at the scale that
   fits the box to it, the box centred (`views._plot_paper`, `paper_source` 1); else
-  (`views._paper_scale`) the frame insert's scale when the frame then lies inside a standard sheet
-  within a border's binding margin (the frame block drawn at paper size, in mm; a turned frame keeps
-  model space's axes, so a turned A3 is 297 wide and 420 tall), else a standard sheet (ISO A0-A5,
-  ANSI A-E, ARCH A-E1) when the box is one, within 0.5 %, at a standard scale (both `paper_source` 1,
-  read from the drawing); otherwise the box's long side taken as A1's 841 mm (`paper_source` 2,
-  assumed: a frame drawn as a rectangle, or a frame block drawn at a fraction of its plotted size).
+  (`views._paper_scale`) a standard sheet (ISO A0-A5, ANSI A-E, ARCH A-E1) when the box is exactly
+  one (within 0.1 %) at a standard scale, else the frame insert's scale when the frame then lies inside
+  a standard sheet within a border's binding margin (the frame block drawn at paper size, in mm; a
+  turned frame keeps model space's axes, so a turned A3 is 297 wide and 420 tall), else a standard
+  sheet when the box is one within 0.5 % (all `paper_source` 1, read from the drawing); otherwise the
+  box's long side taken as A1's 841 mm (`paper_source` 2, assumed: a frame drawn as a rectangle, or a
+  frame block drawn at a fraction of its plotted size).
 - **Thin lines** (`LINE`): one record per segment, drawn by the viewer as GL_LINES or quads by its
   lineweight at the current zoom (m0-screens 4.6, ruling 2), with the entity's lineweight in mm as
   plotted and its colour. Linetypes are baked in as dashes.
