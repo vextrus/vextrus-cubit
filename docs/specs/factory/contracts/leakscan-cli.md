@@ -31,7 +31,7 @@ Each scan subcommand prints hit lines and one summary line (section 3) and exits
 | Command | Scans | Writes a stamp |
 |---|---|---|
 | `build` | Rebuilds the corpus from its sources (locally; through the engine's own DWG reader). Prints `corpus: <n> strings, sha256 <first 12 hex>` and exits 0, or 2 if a source cannot be read. | no |
-| `range <base>..<head> [--ref <name>] [--no-stamp]` | **Every commit in the range, one by one** (a push publishes each commit, not only the net diff: text added in one commit and removed in a later one is still sent): each commit's **added lines** (its own diff against its parent, read as text whatever `.gitattributes` says, no textconv; a merge, what it did beyond the automatic merge), the text in each **binary blob** it adds (UTF-16 decoded, gzip and zip opened, PDF streams inflated, printable runs), its **commit message** and every **file name** it touches; with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. (Changed by PR f2's review, round 1; it was the net `git diff <base>..<head>`.) | yes (name = the full `<head>` sha), unless `--no-stamp` |
+| `range <base>..<head> [--ref <name>] [--no-stamp]` | **Every commit in the range, one by one** (a push publishes each commit, not only the net diff: text added in one commit and removed in a later one is still sent): each commit's **added lines** (its own diff against its parent, read as text whatever `.gitattributes` says, no textconv; a merge, what it did beyond the automatic merge), the text in each **binary blob** it adds (UTF-16 decoded, gzip and zip opened, PDF streams inflated and their text operators (`Tj`, `TJ`, `'`, `"`) assembled, printable runs), its **commit message** and every **file name** it touches; with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. (Changed by PR f2's review, round 1; it was the net `git diff <base>..<head>`.) | yes (name = the full `<head>` sha), unless `--no-stamp` |
 | `file <path> [--no-stamp]` | One body file (a `gh ... --body-file` text). | yes (name = the file's sha256), unless `--no-stamp` |
 | `text --stdin [--no-stamp]` | The text on standard input: a cloud launch prompt or a `launch.py say` message. `--stdin` is required (text is never taken from the command line, which `ps` shows). | yes (name = the text's sha256), unless `--no-stamp` |
 | `pr <number>` | A PR as `merge_ready` re-scans it before every merge: the PR's added lines, commit messages, file names, branch name, title, body and every comment (through `gh`, reads only), and, run from a clone, **each of its commits as `range` scans them** (a commit the clone lacks is fetched from `refs/pull/<n>/head`; one still missing is `cannot-scan gh-failed`). | no |
@@ -171,8 +171,10 @@ guard in every session (a corpus built from a chosen folder would make every sca
 
 What the real `build` reads, beyond section 1's list: each Markdown table row's cells as well as the whole
 line (a drawing's text is often quoted in a table cell), and each TEXT, MTEXT, ATTRIB and ATTDEF both as
-stored and as decoded (`engine.text.decode`). `build` also prints one `source <name>: <n> strings read` line
-per real source before its last line (counts only).
+stored and as decoded (`engine.text.decode`). `build` also prints, before its last line, one `source <name>:
+<r> strings read, <k> kept, <s> files skipped` line per real source (`r` tallied as read, `k` the distinct
+strings the source keeps after the corpus filter and the allowlist, `s` the files its skips removed) and one
+`leakscan: work folders without a rule: <n>` line; counts only, never a folder name; `--quiet` hides them.
 
 `allow` also takes several locations at once (`allow <file>:<line> <file>:<line> ...`): it loads the corpus once
 and hashes every hit on every line given, refusing only when none of the lines hits (a superset of section 2).
@@ -184,6 +186,24 @@ caches, the leak-scan home), the files a nested git checkout tracks (a walk's or
 repository; their untracked outputs are read), text files over 2 MB, and from the notes every string that does
 not read like drawing text (one with a lower-case letter or a code or Markdown character). The DWG, PDF, export
 and walk sources are read whole. Result: 5,998 strings, built in about two minutes at 0.55 GB peak.
+
+The notes and walks sources also leave out, whole, the folders and files that hold no drawing text (#311:
+review scratch made 10,303 of the notes' strings, and test output quoted invented test literals):
+- every folder kind of `.private/work/` has a rule in `sources.WORK_RULES` (a glob on the folder name, `read`
+  or `skip`, a reason). Agents' scratch is skipped at any depth: `review`, `review-*`, `reviews`, `scratch`,
+  `scratch-*`, `refuter`, `refuter-*`, `writer`, `adversary`, `premerge-*`, `redtree*`, `ledger`, `ledger-*`,
+  `launches`, `verdicts`, `jev-cache`, `worktree-leftovers`, `leakscan`, `logs`, `log`. The note kinds are
+  read: `session-*` and every topic folder below it, `factory`, `walks`, `walks-smoke`, `walk-expect`,
+  `sheets`, `renders`, `proto-*`, `jev-system-one`, `t*-gate`, `.convert`. A top-level kind no rule covers is
+  read all the same and counted in `work folders without a rule` (0 on a decided tree);
+- a folder holding both `CLAUDE.md` and `pyproject.toml` (a copy of the repository), whatever its name,
+  unless it is a nested git checkout (that keeps its rule above);
+- test output: a note whose lower-cased stem matches `*pytest*`, `*test-output*`, `*test_output*`, `red`,
+  `green`, `red-*`, `green-*`, `*-red`, `*-green`, `*-red-*` or `*-green-*`, or whose text holds a pytest
+  header or summary line (`test session starts`, `short test summary info`, `N passed in 0.1s`) or a `node
+  --test` summary (`# pass N`).
+
+A skip removes whole folders and files only; a file that is read keeps every drawing-like string.
 
 The walks source reads only drawing-like strings (the notes' filter), and skips `walks/_src` (f5's serving
 worktree) and each walk's `public/` and `logs/`: a walk's own closed words (check ids, defect classes, screens)

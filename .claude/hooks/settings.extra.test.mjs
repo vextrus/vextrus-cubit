@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const settings = JSON.parse(readFileSync(join(REPO, ".claude/settings.json"), "utf8"));
-const NON_BLOCKING = ["SessionStart", "UserPromptSubmit", "PreCompact"];
+const NON_BLOCKING = ["SessionStart", "UserPromptSubmit", "PreCompact", "StopFailure"];
 const BLOCKING = ["Stop", "SubagentStop"];
 
 /** [event, file, extra args] for every node hook on the given events. */

@@ -46,7 +46,8 @@
       "Edit(~/.config/gh/**)",
       "Edit(//home/riz/vextrus-cubit/.private/work/leakscan/ok/**)",
       "Edit(//home/riz/vextrus-cubit/.private/work/leakscan/**)",
-      "Edit(//home/riz/vextrus-cubit/.private/work/factory/ledger/**)"
+      "Edit(//home/riz/vextrus-cubit/.private/work/factory/ledger/**)",
+      "mcp__chrome-devtools__resize_page"
     ]
   },
   "hooks": {
@@ -139,6 +140,17 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/walk-gate.mjs",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/stop-failure.mjs",
+            "timeout": 10
           }
         ]
       }

@@ -330,12 +330,39 @@ def load_launches(
         if where not in ("cloud", "local") or not ticket or not branch:
             print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
             continue
+        # A launch refused before its session started has nothing to follow, and one whose STOP was
+        # sent has stopped. A launch the judge refused after its session started keeps running when no
+        # STOP was sent (launch-cli.md), so it is followed like any other (#344, #343).
+        judge = record.get("judge")
+        refused = isinstance(judge, dict) and judge.get("ok") is False
+        if (refused and not record.get("session_id")) or record.get("stop_sent") is True:
+            continue
         if since is not None and started < since:
             continue
         record["_started"] = started
         if ticket not in newest or started >= newest[ticket]["_started"]:
             newest[ticket] = record
-    return newest, reviews
+    # An acceptance writer is followed until a builder starts on its branch; from then on the builder's
+    # record alone follows the branch (one item and one PUSH per head, not two).
+    builders: dict[str, datetime] = {}
+    for record in newest.values():
+        if is_builder(record):
+            builders[record["branch"]] = max(
+                record["_started"], builders.get(record["branch"], record["_started"])
+            )
+    followed = {
+        ticket: record
+        for ticket, record in newest.items()
+        if is_builder(record)
+        or record["branch"] not in builders
+        or builders[record["branch"]] < record["_started"]
+    }
+    return followed, reviews
+
+
+def is_builder(record: dict[str, Any]) -> bool:
+    """A builder's record; an older record without a role is one."""
+    return str(record.get("role") or "builder") == "builder"
 
 
 def read_session() -> dict[str, Any] | None:
@@ -577,6 +604,7 @@ def track(
                 why=trailers.why,
                 outcome_at=status.utc(at),
                 leak=None,
+                acceptance=head is not None and message.startswith("acceptance:"),
             )
             if head is not None:
                 step.event("PUSH", ticket, head[:8])
@@ -598,6 +626,10 @@ def track(
     row = agents_row(rows, record.get("name"))
     if closed:
         state = "done"
+    elif not is_builder(record) and seen.get("acceptance"):
+        state = (
+            "done"  # a writer's work ends at its `acceptance:` commit; it has no Factory-State trailer
+        )
     elif outcome == "READY":
         state = "ready"
     elif outcome == "BLOCKED":

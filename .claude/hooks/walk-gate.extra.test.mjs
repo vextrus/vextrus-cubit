@@ -27,20 +27,20 @@ function project(exit) {
   return dir;
 }
 
-function stop(dir, env = {}) {
+function stop(dir, env = {}, message = "walk now") {
   const base = { ...process.env, ...GIT_ENV, CLAUDE_PROJECT_DIR: dir, ...env };
   for (const name of ["CLAUDE_CODE_REMOTE", "VEXTRUS_ROLE", "VEXTRUS_PYTHON"]) if (!(name in env)) delete base[name];
-  const input = JSON.stringify({ hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: "walk now" });
+  const input = JSON.stringify({ hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: message });
   const done = spawnSync(process.execPath, [HOOK], { cwd: dir, input, env: base, encoding: "utf8", timeout: 20_000 });
   assert.equal(done.status, 0, done.stderr);
-  return done.stdout.trim() === "" ? "allowed" : JSON.parse(done.stdout).decision;
+  return done.stdout.trim() === "" ? "allowed" : JSON.parse(done.stdout);
 }
 
 test("the project's .venv/bin/python runs ready, as a module with origin/main", () => {
   const passing = project(0);
   assert.equal(stop(passing), "allowed");
   assert.equal(readFileSync(join(passing, "venv.marker"), "utf8").trim(), "-m scripts.walk.ready origin/main");
-  assert.equal(stop(project(1)), "block");
+  assert.equal(stop(project(1)).decision, "block");
 });
 
 test("VEXTRUS_PYTHON outranks the venv", () => {
@@ -50,3 +50,35 @@ test("VEXTRUS_PYTHON outranks the venv", () => {
   assert.equal(stop(dir, { VEXTRUS_PYTHON: join(bin, "python") }), "allowed");
   assert.ok(!existsSync(join(dir, "venv.marker")), "the venv was not used");
 });
+
+// Extra (ticket T-HOOKS): the reason quotes the first whole-word match as written, beside ready.py's exit.
+test("the reason quotes the match as written and names ready.py's exit", () => {
+  const { decision, reason } = stop(project(3), {}, "Done; it is Ready For Your Walk, then please walk it.");
+  assert.equal(decision, "block");
+  assert.ok(reason.includes('("Ready For Your Walk")'), reason);
+  assert.ok(reason.includes("exited 3"), reason);
+});
+
+test("a phrase run into a word does not match", () => {
+  for (const message of ["walk_now", "awalk now", "sidewalk now", "Walk nowhere near it.", "Please walked back the claim."]) {
+    assert.equal(stop(project(1), {}, message), "allowed", message);
+  }
+});
+
+// Fix round 1 (PR #360, finding 75): the match fails toward blocking. Only a letter before the phrase frees it, so
+// markdown emphasis (`_`, `*`) still blocks; after it, only the pinned false matches ("nowhere", "walked") are freed,
+// so "walkthrough" and "walking" still block.
+for (const [message, quoted] of [
+  ["The build is ready for your walkthrough.", "ready for your walk"],
+  ["Please walkthrough the screens.", "Please walk"],
+  ["You can _walk now_", "walk now"],
+  ["__Please walk__ the Priced BOQ", "Please walk"],
+  ["**Walk now**, the head is green.", "Walk now"],
+  ["please walking it through", "please walk"],
+]) {
+  test(`a walk request blocks on a failing G1: ${JSON.stringify(message)}`, () => {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+    assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
+  });
+}
