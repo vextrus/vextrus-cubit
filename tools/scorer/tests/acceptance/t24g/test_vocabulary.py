@@ -1,6 +1,10 @@
 """Ticket 24g, R1 "Subjects": "the scorer holds the engine's 14 subject words as a fixed table (a
 committed test fails if it differs from `engine/recognise/conventions/view-default.json`)".
 
+Amended for T-W316 (the owner's rulings of 5 Oct 2026, session 13: site works go to the Site & MEP
+Step; presentation plans are proposed to leave out): the engine's words are now 16, the 14 and
+`site_works` and `presentation`, and the scorer's table follows them.
+
 The scorer stays standard-library only and imports nothing from the project, so the table is a copy;
 these tests compare the copy with the engine's conventions, both ways: every engine word maps to itself,
 and the one table the scorer holds has exactly the engine's words, no more.
@@ -22,8 +26,31 @@ def _folded(word: str) -> str:
     return " ".join(word.replace("_", " ").casefold().split())
 
 
-def test_the_engine_still_has_fourteen_subject_words() -> None:
-    assert len(engine_subjects()) == 14
+# The engine's subject words: 24g's 14, then T-W316's two.
+SIXTEEN = {
+    "pile_cap",
+    "pile",
+    "foundation",
+    "column",
+    "shear_wall",
+    "retaining_wall",
+    "beam",
+    "slab",
+    "stair",
+    "tank",
+    "grid",
+    "fixture",
+    "toilet",
+    "opening",
+    "site_works",
+    "presentation",
+}
+
+
+def test_the_engine_has_sixteen_subject_words_the_fourteen_and_site_works_and_presentation() -> None:
+    words = engine_subjects()
+    assert len(words) == 16
+    assert set(words) == SIXTEEN
 
 
 def test_every_engine_subject_word_written_with_spaces_is_right_against_the_export(
