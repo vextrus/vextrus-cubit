@@ -268,7 +268,9 @@ SECRET_TITLE = "Zanzibar roof plan"
 SECRET_STOREYS = "seventeenth floor"
 SECRET_VIEW_TITLE = "Quixotic beam layout"
 SECRET_SUBJECT = "pile_cap"
-SECRET_DISCIPLINE = "architectural"
+# Outside the engine's Discipline keys: T-249 (PR A, A2 case 4) names a wrong field's Discipline by
+# those keys, a closed list, and any other as "another Discipline", so a key's own word never shows.
+SECRET_DISCIPLINE = "Quillwork trade"
 SECRET_REVISION = "Rev-Q"
 SECRET_DATE = "2031-12-24"
 SECRETS = [
