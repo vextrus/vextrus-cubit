@@ -180,8 +180,10 @@ guard in every session (a corpus built from a chosen folder would make every sca
 
 What the real `build` reads, beyond section 1's list: each Markdown table row's cells as well as the whole
 line (a drawing's text is often quoted in a table cell), and each TEXT, MTEXT, ATTRIB and ATTDEF both as
-stored and as decoded (`engine.text.decode`). `build` also prints one `source <name>: <n> strings read` line
-per real source before its last line (counts only).
+stored and as decoded (`engine.text.decode`). `build` also prints, before its last line, one `source <name>:
+<r> strings read, <k> kept, <s> files skipped` line per real source (`r` tallied as read, `k` the distinct
+strings the source keeps after the corpus filter and the allowlist, `s` the files its skips removed) and one
+`leakscan: work folders without a rule: <n>` line; counts only, never a folder name; `--quiet` hides them.
 
 `allow` also takes several locations at once (`allow <file>:<line> <file>:<line> ...`): it loads the corpus once
 and hashes every hit on every line given, refusing only when none of the lines hits (a superset of section 2).
@@ -193,6 +195,24 @@ caches, the leak-scan home), the files a nested git checkout tracks (a walk's or
 repository; their untracked outputs are read), text files over 2 MB, and from the notes every string that does
 not read like drawing text (one with a lower-case letter or a code or Markdown character). The DWG, PDF, export
 and walk sources are read whole. Result: 5,998 strings, built in about two minutes at 0.55 GB peak.
+
+The notes and walks sources also leave out, whole, the folders and files that hold no drawing text (#311:
+review scratch made 10,303 of the notes' strings, and test output quoted invented test literals):
+- every folder kind of `.private/work/` has a rule in `sources.WORK_RULES` (a glob on the folder name, `read`
+  or `skip`, a reason). Agents' scratch is skipped at any depth: `review`, `review-*`, `reviews`, `scratch`,
+  `scratch-*`, `refuter`, `refuter-*`, `writer`, `adversary`, `premerge-*`, `redtree*`, `ledger`, `ledger-*`,
+  `launches`, `verdicts`, `jev-cache`, `worktree-leftovers`, `leakscan`, `logs`, `log`. The note kinds are
+  read: `session-*` and every topic folder below it, `factory`, `walks`, `walks-smoke`, `walk-expect`,
+  `sheets`, `renders`, `proto-*`, `jev-system-one`, `t*-gate`, `.convert`. A top-level kind no rule covers is
+  read all the same and counted in `work folders without a rule` (0 on a decided tree);
+- a folder holding both `CLAUDE.md` and `pyproject.toml` (a copy of the repository), whatever its name,
+  unless it is a nested git checkout (that keeps its rule above);
+- test output: a note whose lower-cased stem matches `*pytest*`, `*test-output*`, `*test_output*`, `red`,
+  `green`, `red-*`, `green-*`, `*-red`, `*-green`, `*-red-*` or `*-green-*`, or whose text holds a pytest
+  header or summary line (`test session starts`, `short test summary info`, `N passed in 0.1s`) or a `node
+  --test` summary (`# pass N`).
+
+A skip removes whole folders and files only; a file that is read keeps every drawing-like string.
 
 The walks source reads only drawing-like strings (the notes' filter), and skips `walks/_src` (f5's serving
 worktree) and each walk's `public/` and `logs/`: a walk's own closed words (check ids, defect classes, screens)
