@@ -872,14 +872,160 @@ function recursiveDelete(analysis) {
   return false;
 }
 
-/** A `while`/`until` loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line. */
-function selfMatchingWait(analysis) {
-  return analysis.units.some(
-    (text) =>
-      /(?:^|[\s;&|(!])(?:while|until|for)\s/.test(text) &&
-      (/\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--full)\b/.test(text) || /\bps\b[^;&\n]*\|\s*(?:[ef]?grep|rg|ugrep|awk)\b/.test(text)),
-  );
+/**
+ * The simple commands of shell text in order, each `{text, depth, pipe}` (`pipe`: a single `|` follows it), with
+ * the commands of a `$(…)`, `<(…)` or backtick part placed just after the command that holds them (so a loop
+ * opened by that command already covers them). Quotes are opaque except for the substitutions inside `"…"`.
+ * `unsplit` on the result: a quote is left open, so the text past it could not be split.
+ */
+function shellSegments(text, depth = 0) {
+  const out = [];
+  let cur = "";
+  let inner = [];
+  let quote = null;
+  let unsplit = false;
+  const sub = (part) => {
+    const segs = shellSegments(part, depth + 1);
+    if (segs.unsplit) unsplit = true;
+    return segs;
+  };
+  const push = (pipe) => {
+    if (cur.trim() !== "") out.push({ text: cur.trim(), depth, pipe });
+    out.push(...inner);
+    cur = "";
+    inner = [];
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote === "'") {
+      cur += c;
+      if (c === "'") quote = null;
+      continue;
+    }
+    if (c === "\\") {
+      cur += text.slice(i, i + 2);
+      i++;
+      continue;
+    }
+    if (c === "$" && text[i + 1] === "(" || (quote === null && (c === "<" || c === ">") && text[i + 1] === "(")) {
+      const end = closing(text, i + 1);
+      if (depth < 8) inner.push(...sub(text.slice(i + 2, end)));
+      cur += "_";
+      i = end;
+      continue;
+    }
+    if (c === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== "`") j += text[j] === "\\" ? 2 : 1;
+      if (depth < 8) inner.push(...sub(text.slice(i + 1, j)));
+      cur += "_";
+      i = j;
+      continue;
+    }
+    if (quote === '"') {
+      cur += c;
+      if (c === '"') quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      cur += c;
+      continue;
+    }
+    if (c === "#" && (cur.trim() === "" || /\s/.test(text[i - 1]))) {
+      const end = text.indexOf("\n", i);
+      i = (end < 0 ? text.length : end) - 1;
+      continue;
+    }
+    if ("\n;&|()".includes(c)) {
+      if ((c === "&" && (text[i - 1] === ">" || text[i - 1] === "<" || text[i + 1] === ">")) || (c === "|" && text[i - 1] === ">")) {
+        cur += c;
+        continue;
+      }
+      const pipe = c === "|" && text[i + 1] !== "|" && text[i - 1] !== "|";
+      push(pipe);
+      continue;
+    }
+    cur += c;
+  }
+  push(false);
+  out.unsplit = unsplit || quote !== null;
+  return out;
 }
+
+const LOOP_OPENERS = new Set(["for", "while", "until", "select"]);
+const LOOP_PREFIXES = new Set(["!", "{", "if", "then", "elif", "else", "do", "time"]);
+const PS_FILTERS = new Set(["grep", "egrep", "fgrep", "rg", "ugrep", "awk", "gawk", "mawk"]);
+const SELF_MATCHING_LOOK = /\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--full)\b|\bps\b[^;&\n]*\|\s*(?:[ef]?grep|rg|ugrep|[gm]?awk)\b/;
+
+/**
+ * Reads shell text for `pgrep -f` / `ps … | grep` looks inside a `for`/`while`/`until` loop (its condition or
+ * body, to the matching `done`): `{wait, look, unbalanced}`. `inLoop`: the text itself runs inside a loop.
+ */
+function loopLooks(text, inLoop = false) {
+  const { text: cut, docs } = cutHeredocs(text);
+  const segs = shellSegments(cut);
+  let open = 0;
+  let unbalanced = false;
+  let wait = false;
+  let look = false;
+  let loops = false;
+  for (let s = 0; s < segs.length; s++) {
+    const ws = words(segs[s].text);
+    let k = 0;
+    for (;;) {
+      while (k < ws.length && LOOP_PREFIXES.has(ws[k])) k++;
+      if (!LOOP_OPENERS.has(ws[k])) break;
+      open++;
+      loops = true;
+      k++;
+      if (ws[k - 1] === "for" || ws[k - 1] === "select") k = ws.length;
+    }
+    if (/^done(?:[<>]|$)/.test(ws[k] ?? "")) {
+      if (open === 0) unbalanced = true;
+      else open--;
+      continue;
+    }
+    const cmd = commandOf(ws.slice(k));
+    const inside = inLoop || open > 0;
+    let hit = cmd.name === "pgrep" && cmd.args.some((a) => /^-[A-Za-z]*f[A-Za-z]*$/.test(a) || a === "--full");
+    if (cmd.name === "ps") {
+      for (let t = s, next = s + 1; segs[t].pipe && next < segs.length; next++) {
+        if (segs[next].depth !== segs[s].depth) continue;
+        if (PS_FILTERS.has(commandOf(words(segs[next].text)).name)) hit = true;
+        t = next;
+      }
+    }
+    // A shell's own script (`bash -c '…'`, `eval …`) run inside the loop is the loop's too.
+    if (SHELLS.has(cmd.name) || cmd.name === "eval") {
+      const c = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
+      const script = cmd.name === "eval" ? cmd.args.join(" ") : c >= 0 ? cmd.args[c + 1] ?? "" : "";
+      if (script !== "" && loopLooks(script, true).look) hit = true;
+    }
+    if (RUNS_ITS_ARGUMENTS.has(cmd.name)) {
+      const from = cmd.args.findIndex((a) => !a.startsWith("-") && /^(?:pgrep|ps)$|\s/.test(basename(a)));
+      const script = from < 0 ? "" : cmd.args.slice(from).join(" ");
+      if (script !== "" && loopLooks(script, true).look) hit = true;
+    }
+    if (hit) {
+      look = true;
+      if (inside) wait = true;
+    }
+  }
+  if (open > 0) unbalanced = true;
+  // Fail closed where the reader does not follow the look into the loop: a shell's heredoc or a function.
+  if (loops || inLoop) {
+    for (const doc of docs) if (SHELL_WORD.test(doc.opener) && loopLooks(doc.body).look) wait = true;
+    const unquoted = cut.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
+    if (look && /(?:^|[\s;&|{])(?:function\s+[\w.:-]+|[\w.:-]+\s*\(\s*\))/.test(unquoted)) wait = true;
+  }
+  // A text left with an open quote cannot be split: judge it by its words, as a loop word beside a look.
+  if (segs.unsplit && /(?:^|[\s;&|(!])(?:while|until|for|select)\s/.test(cut) && SELF_MATCHING_LOOK.test(cut)) wait = true;
+  return { wait: wait || (unbalanced && look), look, unbalanced };
+}
+
+/** A loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line and never ends. */
+const selfMatchingWait = (analysis) => analysis.units.some((text) => loopLooks(text).wait);
 
 /** Folder of the repository that holds `dir` (the nearest one with `.git`), or `dir` itself. */
 function repoTop(dir) {

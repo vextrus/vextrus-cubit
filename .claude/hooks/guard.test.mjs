@@ -330,6 +330,46 @@ test("f2 bypass: a for loop on pgrep -f is a self-matching wait", () => {
   assert.equal(seen("for i in $(seq 100); do pgrep -f x || break; sleep 5; done"), "SELF_MATCHING_WAIT");
 });
 
+test("T-GUARD-WAITS: a look in a loop's condition or body, nested, in bash -c or unbalanced, is a wait", () => {
+  for (const command of [
+    "while pgrep -f x; do sleep 1; done",
+    "until ps aux | grep x; do sleep 1; done",
+    'while [ -n "$(pgrep -f x)" ]; do sleep 1; done',
+    "while pgrep --full x; do sleep 1; done",
+    "while true; do ps -ef | awk '/x/' || break; sleep 5; done",
+    "echo start; while sleep 5; do pgrep -f x >/dev/null || break; done; echo end",
+    "for a in 1; do while pgrep -f x; do :; done; done",
+    'sh -c "until ! pgrep -f x; do sleep 1; done"',
+    "for i in 1 2; do echo $i; pgrep -f x",
+    "for i in 1; do echo $i; done; done; pgrep -f x",
+  ]) {
+    assert.equal(seen(command), "SELF_MATCHING_WAIT", command);
+  }
+});
+
+test("T-GUARD-WAITS: a loop in a heredoc fed to a shell is shell text; in a heredoc only printed, it is text", () => {
+  assert.equal(seen("bash <<'EOF'\nwhile pgrep -f x; do sleep 1; done\nEOF"), "SELF_MATCHING_WAIT");
+  assert.equal(seen("cat <<'EOF' | sh\nuntil ! pgrep -f x; do sleep 1; done\nEOF"), "SELF_MATCHING_WAIT");
+  assert.equal(seen("cat <<'EOF'\nwhile pgrep -f x; do sleep 1; done\nEOF"), null);
+});
+
+test("T-GUARD-WAITS: a text left with an open quote cannot be split and fails closed", () => {
+  assert.equal(seen("echo 'unclosed; while pgrep -f x; do :; done"), "SELF_MATCHING_WAIT");
+  assert.equal(seen("echo 'unclosed; pgrep -f x"), null);
+});
+
+test("T-GUARD-WAITS: a look after a loop's done, or beside the word, is not a wait", () => {
+  for (const command of [
+    "for i in 1 2; do echo $i; done; pgrep -f foo",
+    "while read l; do echo $l; done < f && ps aux | grep x",
+    "echo wait for the build; pgrep -f foo",
+    'git commit -m "wait for it" && pgrep -f foo',
+    "if pgrep -f x; then echo up; fi",
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
+});
+
 test("f2 bypass: a raw cloud session through npx is refused", () => {
   assert.equal(seen('npx @anthropic-ai/claude-code --cloud "x"'), "RAW_SESSION");
 });
