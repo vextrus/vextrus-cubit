@@ -711,3 +711,29 @@ test("T-GUARD-NARROW: a git folder built at run time is never judged against a f
     assert.notEqual(inCloud(command), null, command);
   }
 });
+
+test("T-GUARD-NARROW round 1: a tilde or a glob in a git folder is one bash builds, never a decoy folder so named", () => {
+  const { repo: own, git } = tempMain();
+  git("checkout", "-q", "-b", "claude/own");
+  // Decoys literally named `~/other` and `rea[l]` in the cwd hold repositories on the session's own branch: bash
+  // expands `~` to the home folder and `rea[l]` to `real`, so judging the decoys would pass a push elsewhere.
+  for (const decoy of ["~/other", "rea[l]"]) spawnSync("git", ["clone", "-q", own, `${own}/${decoy}`], { encoding: "utf8" });
+  const inCloud = (command) => seen(command, { project: own, cwd: own, remote: true });
+  assert.equal(inCloud("git --git-dir=.git push origin HEAD"), null);
+  for (const command of [
+    "GIT_DIR=~/other/.git git-push origin HEAD",
+    "GIT_DIR=~/other/.git /usr/lib/git-core/git-push origin HEAD",
+    "env GIT_DIR=~/other/.git git-push origin HEAD",
+    "GIT_DIR=~/other/.git git push origin HEAD",
+    "git --git-dir ~/other/.git push origin HEAD",
+    "git --git-dir=~/other/.git push origin HEAD",
+    "git --git-dir rea[l]/.git push origin HEAD",
+    "GIT_DIR=rea[l]/.git git-push origin HEAD",
+    "GIT_DIR=rea?l/.git git-push origin HEAD",
+    "GIT_DIR=re*/.git git-push origin HEAD",
+    "git --git-dir={rea[l],x}/.git push origin HEAD",
+    "git --work-tree=~/other --git-dir=~/other/.git push origin HEAD",
+  ]) {
+    assert.notEqual(inCloud(command), null, command);
+  }
+});

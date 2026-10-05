@@ -558,9 +558,10 @@ function gitOf(cmd) {
   // git's exec-path links (`/usr/lib/git-core/git-push`, `git-config`) run as `git <verb>`.
   const dashed = /^git-([a-z][a-z0-9-]*)$/.exec(cmd.name);
   if (!dashed && cmd.name !== "git") return null;
-  // A folder built at run time (`$`, a backtick) cannot be judged: it becomes one no repository can live in,
-  // so every judge run against it fails closed (a literal `$OTHER` folder in the cwd is never read instead).
-  const judgeable = (value) => (/[$`]/.test(value) ? "/dev/null/unjudgeable" : value);
+  // A folder bash may build at run time (`$`, a backtick, `~`, a glob, a brace, a quote, a space: any character
+  // outside a plain path's) cannot be judged: it becomes one no repository can live in, so every judge run
+  // against it fails closed (a literal `$OTHER` or `~` folder in the cwd is never read instead).
+  const judgeable = (value) => (/[^A-Za-z0-9_./@+-]/.test(value) ? "/dev/null/unjudgeable" : value);
   const a = cmd.args;
   const config = [];
   const dirs = [];
