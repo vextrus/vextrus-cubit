@@ -118,8 +118,8 @@ def test_a_package_that_lists_its_own_folder_loads_each_module() -> None:
 
     found = closure_of(tree, ["zq/entry.py"])
 
-    assert {"zq/checks/first.py", "zq/checks/inner/__init__.py"} <= found
-    assert "zq/checks/inner/deep.py" not in found  # a subpackage's modules only by its own imports
+    # Fix round 2: a package loaded by its own name joins whole, at any depth (fail wide).
+    assert {"zq/checks/first.py", "zq/checks/inner/__init__.py", "zq/checks/inner/deep.py"} <= found
     assert "zq/quiet/unloaded.py" not in found  # a logger's name lists nothing
 
 
@@ -209,8 +209,8 @@ def test_a_lazy_getattr_that_imports_by_its_own_name_loads_its_submodules() -> N
 
     found = closure_of(tree, ["zq/entry.py"])
 
-    assert {"zq/tools/first.py", "zq/tools/second.py", "zq/tools/inner/__init__.py"} <= found
-    assert not found & {"zq/tools/inner/deep.py", "zq/elsewhere/other.py"}
+    assert {"zq/tools/first.py", "zq/tools/second.py", "zq/tools/inner/deep.py"} <= found
+    assert "zq/elsewhere/other.py" not in found
 
 
 @pytest.mark.parametrize(
@@ -233,6 +233,102 @@ def test_a_name_built_on_its_own_name_by_other_means_loads_its_submodules(load: 
     }
 
     assert "zq/tools/second.py" in closure_of(tree, ["zq/entry.py"])
+
+
+SIBLING_FORMS = [
+    ("loader.py", 'import_module("." + name, __package__)'),
+    ("loader.py", 'import_module(f".{name}", package=__package__)'),
+    ("loader.py", 'import_module("%s.%s" % (__package__, name))'),
+    ("loader.py", 'import_module("{}.{}".format(__package__, name))'),
+    ("loader.py", "import_module(f\"{__name__.rpartition('.')[0]}.{name}\")"),
+    ("loader.py", "submodules(__package__)"),
+    ("loader.py", 'import_module(__spec__.parent + "." + name)'),
+    ("__init__.py", 'import_module("%s.%s" % (__name__, name))'),
+    ("__init__.py", 'import_module(__spec__.name + "." + name)'),
+    ("__init__.py", 'import_module(f"{__spec__.parent}.{name}")'),
+]
+
+
+@pytest.mark.parametrize(("file", "load"), SIBLING_FORMS)
+def test_a_sibling_loaded_by_its_own_packages_name_in_any_read_form_is_in(file: str, load: str) -> None:
+    """Fix round 2 (review of #429): every form that builds a sibling's name from the module's own
+    name (`__name__`, `__package__`, `__spec__`) loads its package, in an `__init__.py` or not."""
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq.tools import loader\n",
+        "zq/tools/__init__.py": "",
+        "zq/tools/loader.py": "",
+        "zq/tools/second.py": "",
+        "zq/lister.py": "def submodules(package: str) -> list[str]:\n    return [package]\n",
+        "zq/elsewhere/__init__.py": "",
+        "zq/elsewhere/other.py": "",
+    }
+    tree[f"zq/tools/{file}"] = (
+        "from importlib import import_module\n\nfrom zq.lister import submodules\n\n\n"
+        f"def load(name: str) -> object:\n    return {load}\n"
+    )
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert "zq/tools/second.py" in found
+    assert "zq/elsewhere/other.py" not in found
+
+
+@pytest.mark.parametrize(
+    "load",
+    [
+        'import_module(__name__.split(".")[0] + ".second")',  # a split the closure does not read
+        "import_module(__spec__.origin)",  # a spec field that is no module name
+        "import_module(name + __name__)",  # the own name, but its root not known
+    ],
+)
+def test_a_name_built_from_its_own_name_in_an_unread_form_is_a_closure_error(load: str) -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import loader\n",
+        "zq/loader.py": (
+            "from importlib import import_module\n\n\n"
+            f"def load(name: str) -> object:\n    return {load}\n"
+        ),
+    }
+
+    with pytest.raises(ClosureError, match=r"zq/loader\.py:5"):
+        closure_of(tree, ["zq/entry.py"])
+
+
+def test_a_relative_name_resolves_against_the_package_it_is_given() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import loader\n",
+        "zq/loader.py": (
+            "from importlib import import_module\n\n\n"
+            "def load(name: str) -> object:\n"
+            '    return import_module(f"..tools.{name}", package="zq.other")\n'
+        ),
+        "zq/tools/__init__.py": "",
+        "zq/tools/second.py": "",
+        "zq/other/__init__.py": "",
+        "zq/other/third.py": "",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert "zq/tools/second.py" in found
+    assert "zq/other/third.py" not in found
+
+
+def test_a_relative_name_against_no_known_package_is_a_closure_error() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import loader\n",
+        "zq/loader.py": (
+            "from importlib import import_module\n\n\n"
+            'def load(name: str, where: str) -> object:\n    return import_module("." + name, where)\n'
+        ),
+    }
+
+    with pytest.raises(ClosureError, match="no known package"):
+        closure_of(tree, ["zq/entry.py"])
 
 
 def test_every_module_the_takeoff_services_package_loads_lazily_is_in_the_jobs_closure() -> None:
