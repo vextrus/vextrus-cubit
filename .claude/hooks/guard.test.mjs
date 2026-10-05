@@ -849,3 +849,67 @@ test("T-GUARD-A round 1: a written script run by its ./path, and a removed core 
   assert.equal(bash("git config --rename-section core x"), "HOOKS_PATH");
   assert.equal(bash("git config --get core.editor"), null);
 });
+
+test("T-GUARD-A round 1 refuter: python's joined -X/-W values, globs, folders and copies still reach the ledger writer and the scanner", () => {
+  for (const command of [
+    "python3 -Xpycache_prefix=/tmp/p scripts/ledger.py record x",
+    "python3 -Ximporttime scripts/ledger.py record x",
+    "python3 -Xdev -Xpycache_prefix=/t scripts/ledger.py record x",
+    "uv run --no-project python3 -Xcpu_count=2 scripts/ledger.py record",
+    "python3 -Ximporttime -m runpy scripts.ledger record",
+    "python3 -Wignore scripts/ledger.py record x",
+    "python3 scripts/ledger.p? record x",
+    "uv run scripts/ledger.[p]y record x",
+    "python3 scripts/led*.py record x",
+    'env -S "python3 scripts/ledger.py record"',
+    "python3 -m scripts.ledger {r,}ecord x",
+    "python3 -m scripts.ledger reco[r]d x",
+    "cp scripts/ledger.py /tmp/l.py && python3 /tmp/l.py record",
+    "cd tools/leakscan && PYTHONPATH=../.. python3 . build",
+    "PYTHONPATH=. python3 tools/leakscan build",
+    "python3 -Ximporttime tools/leakscan/__main__.py build",
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  for (const command of ["python3 -m scripts.ledger fetch-verdict 12", "uv run pytest tests/test_ledger.py -k record", "python3 -Xpycache_prefix=/tmp/p scripts/verify.py", "python3 -m pytest -k recorded tests"]) {
+    assert.equal(bash(command), null, command);
+  }
+});
+
+test("T-GUARD-A round 1 refuter: a heredoc script run behind options, by another name or path, or written by dd, is read", () => {
+  const body = "import subprocess\nsubprocess.run(['python3', '-m', 'scripts.ledger', 'record'])";
+  for (const [command, rule] of [
+    ["cat > s.sh <<'X'\npython3 -m scripts.ledger record m\nX\nbash -o errexit s.sh", "RECORD_FORGED"],
+    [`cat > s.py <<'X'\n${body}\nX\npython3 -W ignore s.py`, "RECORD_FORGED"],
+    [`cat > s.py <<'X'\n${body}\nX\npython3 -X dev s.py`, "RECORD_FORGED"],
+    [`cat > s.py <<'X'\n${body}\nX\npython3 "$PWD/s.py"`, "RECORD_FORGED"],
+    ["cat > s.sh <<'X'\npython3 -m scripts.ledger record m\nX\nmv s.sh t.sh && bash t.sh", "RECORD_FORGED"],
+    ["dd of=s.sh <<'X'\npython3 -m scripts.ledger record m\nX\nbash s.sh", "RECORD_FORGED"],
+    ["cp /dev/stdin s.sh <<'X'\npython3 -m scripts.ledger record m\nX\nbash s.sh", "RECORD_FORGED"],
+    ["cat > s.sh <<'X'\nwhile pgrep -f foo; do sleep 1; done\nX\nbash -O extglob s.sh", "SELF_MATCHING_WAIT"],
+  ]) {
+    assert.equal(bash(command), rule, command);
+  }
+  assert.equal(bash("cat > notes.md <<'X'\nrun python3 -m scripts.ledger record later\nX\ngit add notes.md"), null);
+});
+
+test("T-GUARD-A round 1 refuter: after a lost cd any reader of the corpus refuses; known variables keep the folder", () => {
+  for (const command of [
+    'cd "$X" && tac corpus',
+    'cd "$X" && sed -n p corpus',
+    'cd "$X" && awk 1 corpus',
+    'cd "$X" && base64 corpus',
+    'cd "$X" && cp corpus /tmp/c.txt',
+    'cd "$X" && xargs -a corpus echo',
+    'cd "$X" && while read l; do echo "$l"; done < corpus',
+    `cd "$X" && python3 -c 'print(open("corpus").read())'`,
+    'cd "$CLAUDE_PROJECT_DIR/.private/work/leakscan" && cat corpus',
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  for (const command of ['cd "$HOME" && cat .gitconfig.md', 'cd "$(git rev-parse --show-toplevel)" && grep -rn foo docs', 'cd "$X" && ls']) {
+    assert.equal(bash(command), null, command);
+  }
+  assert.equal(bash("git config --edit"), "HOOKS_PATH");
+  assert.equal(bash("git config --edi"), "HOOKS_PATH");
+});
