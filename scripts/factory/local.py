@@ -9,8 +9,9 @@ name a sha (a stale local `origin/B` does not count); no live agents row may alr
 a worktree `<main checkout>/.claude/worktrees/T` on a local branch B tracking `origin/B` at origin's tip
 (a local B at another sha is an error, never reset); a carried branch (its tip has no
 `.claude/agents/builder.md`) gets `origin/main` merged in as a recorded merge commit, and a conflict
-aborts the merge and removes the worktree; `uv run manage.py ensure_database` in the worktree; the
-ticket's budget record (`stamp budget`) when `--budget-minutes` is given; then, from the worktree,
+aborts the merge; `uv run manage.py ensure_database` in the worktree; `npm --prefix web ci --no-audit
+--no-fund` when the worktree has `web/package-lock.json` and no `web/node_modules`; the ticket's budget
+record (`stamp budget`) when `--budget-minutes` is given; then, from the worktree,
 
     claude --bg --agent <role> --name N --effort E
         --settings <main>/scripts/factory/builder.settings.json
@@ -24,7 +25,15 @@ main checkout's (the git common dir's parent), absolute, so a carried branch's o
 Last, it reads `claude agents --json --all` and writes the launch record
 `$VEXTRUS_FACTORY_DIR/launches/<T>-<utc>.json` (no prompt text) and the agents snapshot beside it.
 
-`--dry-run` runs the checks that change nothing (governor, fetch, ls-remote, the name) and prints one
+A conflict, or a failing `ensure_database` or `npm ci`, undoes the launch: the worktree is removed
+(never forced) and the branch deleted when this launch created it and it still sits at origin's tip; a
+carried branch holding its merge commit is kept, and the line names `git branch -f <b> origin/<b>`.
+
+The ticket id is the worktree's folder and so its database (`vextrus/settings/db.py`): a slug over 32
+characters is a usage error, and a slug another linked worktree already has is an `ERROR`.
+
+`--dry-run` runs the checks that change nothing (governor, fetch, ls-remote, the name, the database
+name) and prints one
 JSON object `{"argv": [...], "cwd": ..., "env_set": ..., "env_dropped": ...}`; it creates nothing.
 
 First stdout line: `OK launched <name> <session_id>`, `REFUSED <code>: <reason>` (exit 2:
@@ -53,6 +62,9 @@ DROPPED_ENV = (
 )
 BUILDER_AGENT = ".claude/agents/builder.md"
 COMMAND_TIMEOUT = 300
+NPM_TIMEOUT = 900
+MAX_SLUG = 32  # `vextrus_` + 32 is db.py's cut at 40: a longer slug would share a database
+NPM_CI = ("npm", "--prefix", "web", "ci", "--no-audit", "--no-fund")
 
 
 class Stop(Exception):
@@ -70,6 +82,12 @@ class Parser(argparse.ArgumentParser):
         self.exit(64, f"{self.prog}: error: {message}\n")
 
 
+def database_slug(ticket: str) -> str:
+    """The worktree's database is `vextrus_<slug>`: the rule of `vextrus/settings/db.py:44`, which
+    `tests/acceptance/p6_local/test_local_launch.py` (A8) pins against this copy."""
+    return re.sub(r"[^a-z0-9]+", "_", ticket.lower()).strip("_")
+
+
 def parse(argv: list[str] | None) -> argparse.Namespace:
     parser = Parser(prog="python -m scripts.factory.local", description=__doc__)
     parser.add_argument("--ticket", required=True)
@@ -84,6 +102,11 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", args.ticket):
         parser.error(f"--ticket {args.ticket!r} is not a ticket id")
+    if not 1 <= len(slug := database_slug(args.ticket)) <= MAX_SLUG:
+        parser.error(
+            f"--ticket {args.ticket!r} gives the database slug {slug!r}: it must be 1 to {MAX_SLUG}"
+            " characters (a longer one would be cut at 40 and share a database)"
+        )
     if not re.fullmatch(r"[A-Za-z0-9._/-]{1,200}", args.branch) or args.branch.startswith("-"):
         parser.error(f"--branch {args.branch!r} is not a branch name")
     if args.budget_minutes is not None and args.budget_minutes < 1:
@@ -164,6 +187,12 @@ def launch(args: argparse.Namespace) -> list[str]:
         raise Stop(2, f"REFUSED duplicate-name: a live session is named {args.name} (pid {row['pid']})")
 
     worktree = main_checkout / ".claude" / "worktrees" / args.ticket
+    if (other := sharing_database(main_checkout, args.ticket)) is not None:
+        raise Stop(
+            1,
+            f"ERROR the database name vextrus_{database_slug(args.ticket)} is also the database of"
+            f" worktree {other}",
+        )
     argv = claude_argv(args, settings, prompt)
     if args.dry_run:
         plan = {
@@ -176,19 +205,15 @@ def launch(args: argparse.Namespace) -> list[str]:
         }
         return [json.dumps(plan, indent=1)]
 
-    carried_merge = make_worktree(main_checkout, worktree, args.branch, tip)
-    must(
-        subprocess.run(
-            ["uv", "run", "manage.py", "ensure_database"],
-            cwd=worktree,
-            capture_output=True,
-            text=True,
-            stdin=subprocess.DEVNULL,
-            timeout=COMMAND_TIMEOUT,
-            check=False,
-        ),
-        "uv run manage.py ensure_database (the worktree stays)",
-    )
+    carried_merge, created = make_worktree(main_checkout, worktree, args.branch, tip)
+    try:
+        prepare(worktree)
+    except Stop as stop:
+        cleanup = undo(main_checkout, worktree, args.branch, created, tip)
+        raise Stop(stop.code, stop.line + cleanup) from stop
+    except (OSError, subprocess.SubprocessError) as error:
+        cleanup = undo(main_checkout, worktree, args.branch, created, tip)
+        raise Stop(1, f"ERROR {type(error).__name__}: {error}{cleanup}") from error
     if args.budget_minutes is not None:
         stamp.write_budget(args.ticket, args.budget_minutes, worktree)
     version = cli_version()
@@ -217,17 +242,75 @@ def launch(args: argparse.Namespace) -> list[str]:
     return [f"OK launched {args.name} {session_id}", f"record: {record_path}"]
 
 
-def make_worktree(main_checkout: Path, worktree: Path, branch: str, tip: str) -> str | None:
-    """The worktree at origin's tip of `branch`; the merge commit's sha when it was a carried branch."""
+def prepare(worktree: Path) -> None:
+    """The worktree's own database, then the web's dependencies when it has a lockfile and none yet."""
+    ensure = ["uv", "run", "manage.py", "ensure_database"]
+    must(run(ensure, worktree, None, COMMAND_TIMEOUT), "uv run manage.py ensure_database")
+    web = worktree / "web"
+    if (web / "package-lock.json").is_file() and not (web / "node_modules").is_dir():
+        must(run(list(NPM_CI), worktree, child_env(), NPM_TIMEOUT), "npm --prefix web ci")
+
+
+def run(
+    argv: list[str], cwd: Path, env: dict[str, str] | None, timeout: int
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        argv,
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def sharing_database(main_checkout: Path, ticket: str) -> str | None:
+    """The folder of another linked worktree whose database name is this ticket's, if any."""
+    listed = must(git(main_checkout, "worktree", "list", "--porcelain"), "git worktree list")
+    paths = [line[len("worktree ") :] for line in listed.splitlines() if line.startswith("worktree ")]
+    mine = f"vextrus_{database_slug(ticket)}"[:40]
+    for path in paths[1:]:  # the first is the main checkout, whose database is `vextrus`
+        folder = Path(path).name
+        if folder != ticket and f"vextrus_{database_slug(folder)}"[:40] == mine:
+            return folder
+    return None
+
+
+def undo(main_checkout: Path, worktree: Path, branch: str, created: bool, tip: str) -> str:
+    """Removes a refused launch's worktree, and its branch when this launch made it at `tip`; returns
+    the words to end the error line with."""
+    if git(main_checkout, "worktree", "remove", str(worktree)).returncode != 0:
+        return f"; the worktree {worktree} could not be removed"
+    local = git(main_checkout, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
+    if local.returncode != 0:
+        return ""
+    if created and local.stdout.strip() == tip:
+        if git(main_checkout, "branch", "-q", "-d", branch).returncode != 0:
+            return f"; the local branch {branch} could not be deleted"
+        return ""
+    if local.stdout.strip() != tip:
+        return f"; to relaunch: git branch -f {branch} origin/{branch}"
+    return ""
+
+
+def make_worktree(main_checkout: Path, worktree: Path, branch: str, tip: str) -> tuple[str | None, bool]:
+    """The worktree at origin's tip of `branch`: the merge commit's sha when it was a carried branch,
+    and whether this call created the local branch."""
     if worktree.exists():
         raise Stop(1, f"ERROR {worktree} already exists")
     remote_ref = f"refs/remotes/origin/{branch}"
     must(git(main_checkout, "fetch", "-q", "origin", f"+refs/heads/{branch}:{remote_ref}"), "git fetch")
     local = git(main_checkout, "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}")
-    if local.returncode == 0:
+    created = local.returncode != 0
+    if not created:
         if local.stdout.strip() != tip:
             raise Stop(
-                1, f"ERROR local branch {branch} exists at another sha ({local.stdout.strip()[:12]})"
+                1,
+                f"ERROR local branch {branch} exists at another sha ({local.stdout.strip()[:12]});"
+                f" if it is stale: git branch -f {branch} origin/{branch}"
+                " (the launcher never resets it)",
             )
         must(git(main_checkout, "worktree", "add", "-q", str(worktree), branch), "git worktree add")
         must(git(worktree, "branch", "-q", f"--set-upstream-to=origin/{branch}"), "git branch")
@@ -235,7 +318,7 @@ def make_worktree(main_checkout: Path, worktree: Path, branch: str, tip: str) ->
         add = ("worktree", "add", "-q", "--track", "-b", branch, str(worktree), f"origin/{branch}")
         must(git(main_checkout, *add), "git worktree add")
     if git(worktree, "cat-file", "-e", f"HEAD:{BUILDER_AGENT}").returncode == 0:
-        return None
+        return None, created
     merge = git(
         worktree,
         "merge",
@@ -248,10 +331,9 @@ def make_worktree(main_checkout: Path, worktree: Path, branch: str, tip: str) ->
     )
     if merge.returncode != 0:
         git(worktree, "merge", "--abort")
-        removed = git(main_checkout, "worktree", "remove", str(worktree))
-        left = "" if removed.returncode == 0 else f"; the worktree {worktree} could not be removed"
+        left = undo(main_checkout, worktree, branch, created, tip)
         raise Stop(2, f"REFUSED merge-conflict: origin/main does not merge cleanly into {branch}{left}")
-    return must(git(worktree, "rev-parse", "HEAD"), "git rev-parse")
+    return must(git(worktree, "rev-parse", "HEAD"), "git rev-parse"), created
 
 
 def cli_version() -> str:
