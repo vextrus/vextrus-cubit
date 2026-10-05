@@ -7,6 +7,7 @@ cannot run, and run.py never hands a child the owner's database URL.
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -267,8 +268,15 @@ def _cli_for(sha: str, walks: Path, expect_dir: Path) -> subprocess.CompletedPro
 # ready.py ----------------------------------------------------------------------------------------
 
 
+COMMITTED = "2026-10-05T00:00:00Z"
+"""Every test commit's author and committer time: before the verdicts' fixed times, so a test
+never depends on the wall clock (ready.py drops a verdict that finished long before its head)."""
+
+
 def _git(repo: Path, *args: str) -> str:
-    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
+    env = {**os.environ, "GIT_AUTHOR_DATE": COMMITTED, "GIT_COMMITTER_DATE": COMMITTED}
+    command = ["git", "-C", str(repo), *args]
+    done = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
     return done.stdout.strip()
 
 
