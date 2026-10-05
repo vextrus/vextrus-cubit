@@ -377,7 +377,8 @@ def test_a_section_on_a_sheet_whose_title_names_no_subject_is_proposed_for_nothi
         ("tank_details", ("tanks",)),
         ("grid_layout", ("grid",)),
         ("details", ()),
-        ("site_plan", ()),
+        ("site_plan", ("site_mep",)),
+        ("retaining_wall_details", ("foundations",)),
         ("general_notes", ("general_notes",)),
     ],
 )
@@ -442,7 +443,89 @@ def test_every_structural_kind_but_the_general_ones_names_a_step() -> None:
     """The conventions' Structural kinds, each told a Step but those that name no subject."""
     kinds = sheets.default_conventions().sheet_kinds["structural"]
     told = {kind for kind in kinds if views.kind_steps(kind, "structural")}
-    assert set(kinds) - told == {"site_plan", "details", "roof_structure_details"}
+    assert set(kinds) - told == {"details", "roof_structure_details"}
+
+
+@pytest.mark.parametrize(
+    ("title", "named"),
+    [
+        ("COMPOUND WALL ELEVATION", {"site_works"}),
+        ("SECTION THROUGH SURFACE DRAIN", {"site_works"}),
+        ("MAIN GATE AND BOUNDARY WALL", {"site_works"}),
+        ("DRIVEWAY PAVING DETAIL", {"site_works"}),
+        ("RETAINING WALL SECTION", {"retaining_wall"}),
+        ("FURNISHED GROUND FLOOR PLAN", {"presentation"}),
+        ("COLOR SCHEME FOR ENTRY LOBBY", {"presentation"}),
+        ("RENDERED FRONT VIEW", {"presentation"}),
+    ],
+)
+def test_the_subject_words_of_site_works_and_presentation(title: str, named: set[str]) -> None:
+    assert views.subjects(title) == named
+
+
+@pytest.mark.parametrize(
+    ("title", "draws"),
+    [
+        ("BEAM AND SLAB OUTLINE", True),
+        ("SLAB OUTLINE AND COLUMN LAYOUT", True),
+        ("SHEAR WALL AND SLAB PLAN", True),
+        ("SLAB OUTLINE", False),
+        ("SLAB OUTLINE WITH LINTEL", False),
+        ("LINTEL AND BEAM LAYOUT", False),
+        ("STAIR AND BEAM PLAN", False),
+        ("TYPICAL FLOOR PLAN", False),
+    ],
+)
+def test_a_sheet_title_draws_the_structure_by_its_first_subjects(title: str, draws: bool) -> None:
+    assert views._sheet_draws_structure(title, views._reading(CONVENTIONS)) is draws
+
+
+@pytest.mark.parametrize(
+    ("title", "kind"),
+    [
+        ("RETAINING WALL DETAILS", "retaining_wall_details"),
+        ("TYPICAL PILE CAP DETAILS", "pile_cap_details"),
+        ("TYPICAL DETAILS", "details"),
+        ("GENERAL NOTES", "general_notes"),
+        ("OVERALL ARRANGEMENT", None),
+    ],
+)
+def test_a_sheet_titles_named_kind_is_its_longest(title: str, kind: str | None) -> None:
+    assert views._sheet_kind(title, "structural") == kind
+
+
+def test_a_general_notes_sheets_schedules_and_details_go_to_step_2_after_any_subject() -> None:
+    def steps(
+        kind: ViewKind, subject: str | None, discipline: str, on_sheet: tuple[str, ...] = ()
+    ) -> tuple[str, ...]:
+        return views._proposal(kind, subject, discipline, on_sheet, notes_sheet=True)[0]
+
+    assert steps(ViewKind.SCHEDULE, None, "structural") == ("general_notes",)
+    assert steps(ViewKind.DETAIL, None, "architectural") == ("general_notes",)
+    assert steps(ViewKind.SCHEDULE, "column", "structural") == ("columns",)
+    assert steps(ViewKind.SCHEDULE, None, "structural", ("tank",)) == ("tanks",)
+    assert steps(ViewKind.SECTION, None, "structural") == ()
+    assert steps(ViewKind.SCHEDULE, "opening", "architectural") == ("walls", "rooms")
+
+
+def test_a_structural_section_or_detail_naming_nothing_takes_its_sheets_kind() -> None:
+    def steps(kind: ViewKind, subject: str | None) -> tuple[str, ...]:
+        return views._proposal(kind, subject, "structural", sheet_kind_steps=("foundations",))[0]
+
+    assert steps(ViewKind.SECTION, None) == ("foundations",)
+    assert steps(ViewKind.DETAIL, None) == ("foundations",)
+    assert steps(ViewKind.PLAN, None) == ()  # a section or detail only
+    assert steps(ViewKind.DETAIL, "stair") == ("stairs",)
+
+
+def test_a_presentation_plan_is_proposed_out_before_a_structure_one() -> None:
+    plan = views._proposal(ViewKind.PLAN, None, "architectural", presentation=True, structure=True)
+    elevation = views._proposal(ViewKind.ELEVATION, None, "architectural", presentation=True)
+    structural = views._proposal(ViewKind.PLAN, "presentation", "structural", presentation=True)
+
+    assert plan == ((), None, Exclusion(ExclusionReason.FOR_INFORMATION))
+    assert elevation == (("walls", "rooms"), None, None)
+    assert structural == ((), None, None)
 
 
 def test_steps_five_to_ten_are_proposed_for_structural_views_only() -> None:

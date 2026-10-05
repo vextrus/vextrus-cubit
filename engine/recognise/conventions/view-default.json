@@ -162,6 +162,42 @@
       "doors",
       "window",
       "windows"
+    ],
+    "site_works": [
+      "site works",
+      "site work",
+      "external works",
+      "external work",
+      "site development",
+      "site plan",
+      "compound wall",
+      "compound walls",
+      "boundary wall",
+      "boundary walls",
+      "plot boundary",
+      "boundary line",
+      "gate",
+      "gates",
+      "drain",
+      "drains",
+      "site drain",
+      "site drains",
+      "surface drain",
+      "surface drains",
+      "paving",
+      "pavement",
+      "road",
+      "roads",
+      "driveway"
+    ],
+    "presentation": [
+      "presentation",
+      "rendered",
+      "furnished",
+      "coloured",
+      "colored",
+      "colour scheme",
+      "color scheme"
     ]
   },
   "layer_words": {
