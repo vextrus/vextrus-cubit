@@ -1,0 +1,142 @@
+{
+  "recorded": "live",
+  "date": "2026-10-04",
+  "about": "One noul per issue title over an invented defect: 6 reworded duplicates, then 4 near-misses.",
+  "request": {
+    "model": "jev-1.13.0",
+    "state": "Pressing Save twice on the invented quote form creates two identical quotes instead of one.",
+    "questions": {
+      "q0": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Double-clicking Save on the quote form makes a duplicate quote"
+      },
+      "q1": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Quote form: a second Save press saves the same quote again"
+      },
+      "q2": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Two quotes are created when Save is pressed twice quickly"
+      },
+      "q3": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Repeated Save on quotes produces identical copies"
+      },
+      "q4": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Saving a quote twice leaves two of the same quote"
+      },
+      "q5": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Quote saved twice after a double press of the Save button"
+      },
+      "q6": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: The quote form's Save button is hard to see in dark mode"
+      },
+      "q7": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Deleting a quote asks for confirmation twice"
+      },
+      "q8": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: Quote totals round to the wrong decimal place"
+      },
+      "q9": {
+        "type": "noul",
+        "instructions": "Is the defect described the same defect as: The invoice form loses its notes when Save fails"
+      }
+    }
+  },
+  "titles": [
+    {
+      "kind": "dup",
+      "title": "Double-clicking Save on the quote form makes a duplicate quote"
+    },
+    {
+      "kind": "dup",
+      "title": "Quote form: a second Save press saves the same quote again"
+    },
+    {
+      "kind": "dup",
+      "title": "Two quotes are created when Save is pressed twice quickly"
+    },
+    {
+      "kind": "dup",
+      "title": "Repeated Save on quotes produces identical copies"
+    },
+    {
+      "kind": "dup",
+      "title": "Saving a quote twice leaves two of the same quote"
+    },
+    {
+      "kind": "dup",
+      "title": "Quote saved twice after a double press of the Save button"
+    },
+    {
+      "kind": "near",
+      "title": "The quote form's Save button is hard to see in dark mode"
+    },
+    {
+      "kind": "near",
+      "title": "Deleting a quote asks for confirmation twice"
+    },
+    {
+      "kind": "near",
+      "title": "Quote totals round to the wrong decimal place"
+    },
+    {
+      "kind": "near",
+      "title": "The invoice form loses its notes when Save fails"
+    }
+  ],
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "q0": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "q1": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "q2": {
+        "type": "noul",
+        "noul": 0.92
+      },
+      "q3": {
+        "type": "noul",
+        "noul": 0.97
+      },
+      "q4": {
+        "type": "noul",
+        "noul": 0.98
+      },
+      "q5": {
+        "type": "noul",
+        "noul": 0.96
+      },
+      "q6": {
+        "type": "noul",
+        "noul": 0.02
+      },
+      "q7": {
+        "type": "noul",
+        "noul": 0.09
+      },
+      "q8": {
+        "type": "noul",
+        "noul": 0.03
+      },
+      "q9": {
+        "type": "noul",
+        "noul": 0.04
+      }
+    },
+    "usage": {
+      "input_tokens": 539,
+      "output_tokens": 174
+    }
+  }
+}

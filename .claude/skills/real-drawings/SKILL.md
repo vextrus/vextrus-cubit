@@ -71,14 +71,14 @@ unseen; it does not prove a reading right. That rests on the owner's walk.
 **What a PR may quote:** the counts only, per measure ("sheets 0 gained, 0 lost, 3 changed"), plus the
 run id. Titles, numbers, layout names and item lists stay on this machine.
 
-**The posting run is the owner's.** The owner runs `scripts/real-drawings <PR>` from main, accepts or
-rejects the changes (a lost item only with a reason), and the owner's GitHub App posts the status
-through `scripts/owner/post-status`, which runs as the key user with the owner's password. Sessions
-open the PR and stop at `--no-post`.
+**The orchestrator runs the posting and scored runs** (ADR 0041), from the main checkout, under the
+accept rule: no failed stage gained, and nothing lost or changed without a judged reason. It posts the
+status through the existing poster line, `scripts/owner/post-status`. Builders stop at `--no-post`.
+The lock's command is added by the Phase 5 PR.
 
 ## From M1: where expectations live
 Answer Keys (the Sample Project's, Edison's at sheet and view level, later the Held-out Sets and Hand
 Takeoffs) live with the key user (ADR 0026), outside every session's reach. The blind scorer
-(`scripts/score/`, M1 ticket 01) reads the posting run's export from its drop folder and the keys, and
+(`tools/scorer/`, run as `vx-score`) reads the posting run's export from its drop folder and the keys, and
 returns only aggregates (n / N per Takeoff Step); a reading ticket stops when its n / N stops
 improving. The run-to-run diff stays beside it.

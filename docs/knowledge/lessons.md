@@ -184,8 +184,8 @@ session-05 close-out's committed checks cover; confirm each on its merge):
 - Contracts drift at the level of keys; contract faults show only in the merged tree: debt (no check
   yet; the rule is exact keys in both prompts and a merged run before READY).
 - A strict ruleset puts every open PR behind: debt (the orchestrator merges `main` in; no check).
-- A `claude --cloud` session with no git remote: **paid 29 Sep 2026** by `scripts/cloud/launch.py`
-  (its test: `scripts/tests/test_cloud_launch.py`), which refuses a bundled launch from the CLI's debug log.
+- A `claude --cloud` session with no git remote: **paid 29 Sep 2026** by the cloud launcher, now
+  `scripts/factory/launch.py` (its test: `scripts/factory/tests/test_launch_cloud.py`), which refuses a bundled launch from the CLI's debug log.
 - Messaging across config dirs; a builder's `cd` out of its worktree; `--resume` on a running session
   starting a copy: debts (runbook rules; no check).
 - `gh pr edit` failing on the Projects (classic) error: debt (the `gh api` route; no check).
@@ -247,8 +247,8 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   Bundling (reason: github_preflight_failed)", a 91 MB upload: the 40 s). Session 05 guessed at the
   account link and retracted it; the debug log answered in one launch. Once the owner installed the App
   on `vextrus`, a launch took 5 s, cloned `main`, and its session pushed a branch itself. **Check:**
-  `scripts/cloud/launch.py` launches every cloud ticket and exits 2 on a bundle or a wrong revision
-  (`scripts/tests/test_cloud_launch.py`). Diagnose a tool from its own debug log before theorising.
+  `scripts/factory/launch.py` launches every cloud ticket and exits 2 on a bundle or a wrong revision
+  (`scripts/factory/tests/test_launch_cloud.py`). Diagnose a tool from its own debug log before theorising.
 - **A diagnostic that a local push can satisfy proves nothing.** The first start's wait for the cloud
   session's branch was met by a push the orchestrator made locally on the owner's instruction. The
   launch wrapper judges the CLI's log instead. Check: the same.
@@ -315,7 +315,7 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   refused for an unpushed branch, then for a branch that moved mid-run. The orchestrator pushes loop
   branches and freezes them until the run ends. Debt (runbook).
 - **A cloud launch from the main checkout clones main**, not the ticket's branch (one stray session built 22
-  from main twice). Launch `scripts.cloud.launch` from the ticket branch's worktree. **Check:** the launcher's
+  from main twice). Launch through `scripts/factory/launch.py` from the main checkout with `--on-branch`. **Check:** the launcher's
   refusal (it caught it).
 - **Cloud builders are messaged with `claude --cloud <session_id> -p "<msg>" < /dev/null`**; SendMessage
   does not reach them. A cloud builder can also go silent (22's first builder never acted on its round): if a
@@ -336,3 +336,74 @@ session-05 close-out's committed checks cover; confirm each on its merge):
 - **Adversary rounds this session:** the read job (a limit that never reached the QS, 70 → fixed by nrif; a
   pathological file holds the CAD worker, #140) and the scorer/posting path (key fence held against 1,200
   crafted pairs; NaN not refused by the reader, refuted to 25; #149). Each ≥ 50 re-run by an Opus refuter.
+
+## Session 08: M0's merges and fix wave
+Sessions 08 onward are held to the rule above by `tools/lint/docs_paths.py`: each top-level bullet ends
+with `Check:` and a path on main, or `No check:` / `No check yet:` and the reason or the issue.
+- **Messaging a builder the wrong way blocks or duplicates it:** `claude --bg --resume <short id>` opens a
+  picker and blocks; resuming a session still open runs two copies. Message idle local builders with
+  SendMessage; resume a stopped one by its full session id. No check yet: factory: the guard's short-id
+  rule (spec §3.13, C9).
+- **A scored run measures only a branch GitHub holds and that stands still:** runs were refused for an
+  unpushed branch and for a head that moved mid-run. Push the branch and freeze it until the run ends.
+  No check yet: factory: the real-drawing lock (`rdlock`, spec §3.13).
+- **Test fixtures typed unlike the real data pass and prove nothing** (storeys were a list; a helper typed
+  a string). Type fixtures as the real data holds them, and force the failure a test tests. No check:
+  a reviewer's judgement; `pr-reviewer` reads every acceptance file for it.
+- **Two agents sharing one scratch folder overwrote each other.** Give every agent its own folder under
+  `.private/work/`. No check: the folder is private and outside git.
+- **A cloud builder can die with its account** (#168 was never built when account B stopped). Launch
+  every builder from the one account the orchestrator runs on. No check yet: factory: the launcher refuses
+  a builder launched from another account's config (no test checks the account or the config dir today).
+
+## Session 09: landing the reviewed queue
+- **Strict up-to-date merging is serial:** every merge re-runs the next PR's CI (the python job went to
+  35 minutes, #194). Merging main into a PR's worktree and running the suites there first showed every
+  semantic clash before CI did. No check yet: factory: merge queue trial (spec §3.13, C14).
+- **An acceptance amendment needs the owner's approval** unless the owner ruled its class in advance;
+  `tools.lint.acceptance` refuses a builder's change to an acceptance path. Check: `tools/lint/tests/test_acceptance.py`.
+- **A wait loop that greps process lines matches itself** (`pgrep -f` waited on its own command line; a
+  second time after session 07). No check yet: factory: the guard's wait rule (spec §3.13, C8); a
+  CLAUDE.md law line meanwhile.
+- **The scorer refused a main export cached by a PR's run** (#199): score main with `--fresh`. No check
+  yet: #199, still open (`tools/scorer/tests/test_score.py` pins only the symptom).
+
+## Session 10: the export without paper
+- **A change to what a check reads can blind it silently:** after #210 the scorer read the job's export,
+  which had no paper, and main scored 0 sheets until #212; the posting run's diff never compared paper.
+  After such a change, score main before trusting any number. No check yet: factory: reading measures
+  (export G5, S1 diagnostics, S2 proxy) in one custody re-run (spec §3.13, C6).
+- **A merge that combines both sides of an acceptance file is refused** (#186 was replaced by #208):
+  take the file whole from one side, then re-apply the branch's change in an `acceptance:` commit.
+  Check: `tools/lint/tests/test_acceptance.py`.
+- **Real-drawing text reached the public repository** in a scored loop's test literals, for about 25
+  minutes. Scan new literals against the cached exports before pushing an engine branch. No check yet:
+  factory: the leak wall (spec §5, T2; #211).
+- **The cloud launcher refused twice** (cloned at main, not the ticket's branch); local builders worked.
+  Check: `scripts/factory/tests/test_launch_cloud.py`.
+
+## Session 11: the machine's limits
+- **Times estimated from memory were wrong** (four of six sessions). Stamp every event from `date -u`.
+  No check yet: factory: `stamp.py` and the clock hook (spec §3.13, C7); a CLAUDE.md law line meanwhile.
+- **Eight local builders filled swap, and parallel suites filled the disk** (38 GB of test leftovers;
+  `git bundle` dies on a full disk). Check `df` and `free` before every launch. No check yet: factory:
+  the governor's memory and disk floors (spec §3.13).
+- **CI flaked under load** (t16's middle-drag pan, tviewerplot's P cycle, the "bulk act, half refused"
+  toast; #245). Check: `.github/flaky.txt` and `tools/lint/tests/test_ci_shards.py`.
+- **One real-drawing run per engine head on one lock** (~29 min), and every engine merge stales the next
+  PR's head. No check yet: factory: visible real-drawing lock queue (spec §3.13).
+
+## Session 12 (4 Oct 2026): the owner's walk found D1–D10; the factory
+- **"Walk now" was said to the owner twice with no agent walking first,** and the owner's walk found
+  ten defects an agent walk then found in about 50 minutes. No "walk now" without a passing G1 verdict.
+  No check yet: factory: G1 and `ready.py` (spec §5, T7); a CLAUDE.md law line meanwhile.
+- **Design reviews walked the demo seed, where no file is ever really being read,** and web tests used
+  fakes no test checked against the server (D1, D8). The seed proves a UI ticket's mechanics only. No
+  check yet: factory: G2a: fakes validated against OpenAPI; closed Literal keys.
+- **Walk findings and budget cuts were dropped without an issue** (F6 became D2; D6 was a silent cut).
+  Every walk finding of any severity, and every cut, becomes an issue. No check yet: factory:
+  `merge_ready` (c), no silent cuts (spec §3.13).
+- **The living docs named paths gone from the tree** (`scripts/score/` in the architecture and the
+  real-drawings skill, after the scorer moved to `tools/scorer/`). Check: `tools/lint/docs_paths.py`.
+- **A probe's own wait matched itself again** (the cloud probe's `pgrep`, the third time). No check yet:
+  factory: the guard's wait rule (spec §3.13, C8).
