@@ -743,22 +743,30 @@ def _locks(sql: str) -> bool:
 
 
 def _first_locks(do_it: Any) -> tuple[Any, list[list[str]]]:
-    """The act run once; for each transaction it ran that locked anything, its first two locking
-    statements (an advisory lock by its name)."""
+    """The act run once; for each transaction it ran that locked anything, the locks it held, in
+    order (an advisory lock by its name): those taken in a savepoint rolled back are let go."""
     found: list[list[str]] = []
     current: list[str] | None = None
+    savepoints: list[int] = []
 
     def watch(execute: Any, sql: str, params: Any, many: bool, context: Any) -> Any:
         nonlocal current
+        said_ = sql.lstrip().upper()
         if not connection.in_atomic_block:
             current = None
+            savepoints.clear()
+        elif said_.startswith("SAVEPOINT"):
+            savepoints.append(len(current or []))
+        elif said_.startswith("RELEASE SAVEPOINT") and savepoints:
+            savepoints.pop()
+        elif said_.startswith("ROLLBACK TO SAVEPOINT") and savepoints:
+            del (current or [])[savepoints.pop() :]
         elif _locks(sql):
             if current is None:
                 current = []
                 found.append(current)
-            if len(current) < 2:
-                advisory = "pg_advisory" in sql and params
-                current.append(str(params[0]) if advisory else " ".join(sql.split())[:120])
+            advisory = "pg_advisory" in sql and params
+            current.append(str(params[0]) if advisory else " ".join(sql.split())[:120])
         return execute(sql, params, many, context)
 
     with connection.execute_wrapper(watch):
@@ -771,8 +779,9 @@ def test_every_act_takes_step_1s_write_lock_before_any_row(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked, act: str
 ) -> None:
     """Fix round 3's rule, by what each act runs: every transaction of the act that locks or writes
-    anything takes Step 1's write lock on the Project first. The Discipline change takes it just
-    after its file's row (a read job holds its own file's row from `mark_read`, before the lock)."""
+    anything takes Step 1's write lock on the Project first, the Discipline change included (fix
+    round 1 of the re-submission). The change waits first for its file's row in a savepoint it
+    rolls back (a read job holds its own file's row from `mark_read`): it holds nothing then."""
     read_first_and_plot(qs_project, monkeypatch)
     project_id = qs_project.project_id
     api = api_as(qs_project.member)
@@ -785,11 +794,10 @@ def test_every_act_takes_step_1s_write_lock_before_any_row(
 
     assert response.status_code == 200, response.content
     write_lock = f"step1-write:{project_id}"
-    assert found, f"the {act} locked nothing"
-    for first in found:
-        if act == "discipline" and first[0].startswith('SELECT "drawings_drawingfile"'):
-            first = first[1:]
-        assert first[:1] == [write_lock], f"the {act} locked {first} before Step 1's write lock"
+    held = [locks for locks in found if locks]
+    assert held, f"the {act} locked nothing"
+    for locks in held:
+        assert locks[0] == write_lock, f"the {act} locked {locks[:2]} before Step 1's write lock"
 
 
 class _Aborted(Exception):
@@ -815,7 +823,7 @@ def test_an_act_aborted_by_a_deadlock_is_tried_again_and_each_retry_is_logged(
     deadlock (or a serialization failure) is tried again, up to two retries, each logged."""
     act, tries = _aborting(deadlocks.RETRIES)
     with caplog.at_level("WARNING", logger=deadlocks.__name__):
-        assert deadlocks.retried(act, what="step1.confirm", pause=0) == "done"
+        assert deadlocks.retried(act, what="step1.confirm", base=0) == "done"
     assert len(tries) == deadlocks.RETRIES + 1
     assert [r.getMessage() for r in caplog.records] == [
         "step1.confirm: transaction aborted (40P01), retry 1 of 2",
@@ -826,12 +834,12 @@ def test_an_act_aborted_by_a_deadlock_is_tried_again_and_each_retry_is_logged(
 def test_a_deadlock_past_the_retries_inside_a_transaction_or_another_error_is_raised() -> None:
     act, tries = _aborting(deadlocks.RETRIES + 1)
     with pytest.raises(OperationalError):
-        deadlocks.retried(act, what="spent", pause=0)
+        deadlocks.retried(act, what="spent", base=0)
     assert len(tries) == deadlocks.RETRIES + 1
 
     act, tries = _aborting(1)
     with transaction.atomic(), pytest.raises(OperationalError):
-        deadlocks.retried(act, what="inside", pause=0)
+        deadlocks.retried(act, what="inside", base=0)
     assert len(tries) == 1, "only an outermost transaction is tried again"
 
     def other() -> None:
@@ -840,5 +848,107 @@ def test_a_deadlock_past_the_retries_inside_a_transaction_or_another_error_is_ra
 
     tries.clear()
     with pytest.raises(OperationalError):
-        deadlocks.retried(other, what="other", pause=0)
+        deadlocks.retried(other, what="other", base=0)
+    assert len(tries) == 1
+
+
+# Fix round 1 of the re-submission: the retry runs the request again; the Discipline change ------
+
+
+def test_a_plot_pdfs_discipline_change_while_the_job_writes_its_page_reasons_never_deadlocks(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """Review round 1's staged cycle, through the API: the later DWG's `finishing` parked in its
+    write phase (Step 1's write lock held) just before it writes the Plot PDF's page reasons (its
+    file's row), as the QS changes the Plot PDF's Discipline. The change locked the PDF's row, then
+    waited on the write lock; the job then waited on the row: Postgres aborted the change (500).
+    Now the change takes the write lock before any row: it waits for the job's commit, then is
+    answered (200), and the job ends read."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    with qs_project.member.acting():
+        [plot_pdf] = [f for f in drawings.files(drawings.file(later).set_id) if f.name == PLOT]
+    reasons = ParkedAt(plot_matching._keep_reasons)
+    monkeypatch.setattr(plot_matching, "_keep_reasons", reasons)
+    path = f"/api/projects/{project_id}/drawings/files/{plot_pdf.id}/discipline"
+
+    overlap = act_while_the_later_file_reads(
+        qs_project,
+        later,
+        monkeypatch,
+        reasons,  # type: ignore[arg-type]
+        lambda: api.send("put", path, {"discipline": "architectural"}),
+    )
+
+    assert overlap.response.status_code == 200, overlap.response.content
+    member = qs_project.member
+    assert file_state(member, later) == str(drawings.FileState.READ)
+    with member.acting():
+        assert drawings.file(plot_pdf.id).discipline == "architectural"
+
+
+def test_a_confirm_aborted_once_by_postgres_is_run_again_and_answered(
+    qs_project: QsProject,
+    monkeypatch: pytest.MonkeyPatch,
+    parked: Parked,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The backstop through the API: the tenant middleware holds every request in one transaction,
+    so the act's own transaction is never the outermost. A confirm whose act PostgreSQL aborts once
+    (40P01) has its whole request rolled back and run again: 200, confirmed once, the retry logged."""
+    read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    [p01] = of_number(proposals(api, project_id), "S-01")
+    real = step1_services.confirm
+    tries: list[int] = []
+
+    def aborted_once(*args: Any, **kwargs: Any) -> Any:
+        tries.append(1)
+        if len(tries) == 1:
+            raise OperationalError("deadlock detected") from _Aborted()
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(step1_services, "confirm", aborted_once)
+    with caplog.at_level("WARNING", logger=deadlocks.__name__):
+        response = confirm(api, project_id, [p01["id"]])
+
+    assert response.status_code == 200, response.content
+    assert len(tries) == 2
+    assert the(proposals(api, project_id), "S-01")["decision"] == "confirmed"
+    assert [r.getMessage() for r in caplog.records if r.name == deadlocks.__name__] == [
+        "step1.confirm: transaction aborted (40P01), retry 1 of 2"
+    ]
+
+
+def test_a_confirm_aborted_past_the_retries_is_refused_whole_and_any_other_error_is_not_retried(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """Aborted on every try: three tries, then 503 and nothing kept. Another database error: one
+    try, raised as it is."""
+    read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    [p01] = of_number(proposals(api, project_id), "S-01")
+    tries: list[int] = []
+
+    def always_aborted(*args: Any, **kwargs: Any) -> Any:
+        tries.append(1)
+        raise OperationalError("deadlock detected") from _Aborted()
+
+    monkeypatch.setattr(deadlocks, "PAUSE", 0)
+    monkeypatch.setattr(step1_services, "confirm", always_aborted)
+    assert confirm(api, project_id, [p01["id"]]).status_code == 503
+    assert len(tries) == deadlocks.RETRIES + 1
+    assert the(proposals(api, project_id), "S-01")["decision"] in (None, "", "proposed")
+
+    def lost(*args: Any, **kwargs: Any) -> Any:
+        tries.append(1)
+        raise OperationalError("connection lost")
+
+    tries.clear()
+    monkeypatch.setattr(step1_services, "confirm", lost)
+    with pytest.raises(OperationalError):
+        confirm(api, project_id, [p01["id"]])
     assert len(tries) == 1

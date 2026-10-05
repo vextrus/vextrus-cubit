@@ -2426,8 +2426,10 @@ def lock_writes(project_id: uuid.UUID) -> None:
     the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers), which holds
     no row an act locks. So an act and a job share their rows one at a time: an act waits at most
     for a job's write phase (seconds), never for its reading, and the two never wait on each other
-    in a cycle, whatever rows they share (a sheet the match lets go, a Question both retire). Taken
-    again in the same transaction, it is already held."""
+    in a cycle, whatever rows they share (a sheet the match lets go, a Question both retire, a PDF's
+    row). The Discipline change takes it first too (`drawings.before_discipline_change`). Taken
+    again in the same transaction, it is already held; an act aborted anyway is run again
+    (`platform.services.deadlocks`)."""
     assert connection.in_atomic_block, "Step 1's write lock is a transaction's"
     with connection.cursor() as cursor:
         cursor.execute(

@@ -58,6 +58,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from django.db import OperationalError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from ninja import NinjaAPI, Schema
 from ninja.errors import AuthenticationError
@@ -67,7 +68,7 @@ from ninja.utils import check_csrf, contribute_operation_callback
 
 from engine.messages import Message
 from vextrus.platform.messages import auth as codes
-from vextrus.platform.services import auth
+from vextrus.platform.services import auth, deadlocks
 from vextrus.platform.services.auth import Act, Grant
 
 __all__ = [
@@ -223,5 +224,14 @@ def install(api: NinjaAPI) -> None:
         assert isinstance(exc, auth.Refused)
         return refusal(exc.status, exc.message)
 
+    def aborted(request: HttpRequest, exc: object) -> HttpResponse:
+        # An act PostgreSQL aborted, which the tenant middleware runs again (#227): this try's
+        # answer is never sent, so it is no uncaught error. Any other database error is.
+        assert isinstance(exc, OperationalError)
+        if not deadlocks.will_retry(exc):
+            raise exc
+        return HttpResponse(status=503)
+
     api.add_exception_handler(AuthenticationError, signed_out)
     api.add_exception_handler(auth.Refused, refused)
+    api.add_exception_handler(OperationalError, aborted)

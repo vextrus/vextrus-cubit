@@ -761,8 +761,9 @@ def on_discipline_changed(follow: Callable[[uuid.UUID, str], None]) -> None:
 
 DISCIPLINE_CHANGING: list[Callable[[uuid.UUID], None]] = []
 """What a file's Discipline change takes first, each called with the file's Project in the change's
-transaction once the file's row is locked and before any other row is: takeoff's Step 1 takes its
-write lock here (#227), so the change and a read job never wait on each other in a cycle."""
+transaction before any row is locked: takeoff's Step 1 takes its write lock here (#227), as every
+act on Step 1 does, so the change and a read job never wait on each other in a cycle. The change
+first waits, holding nothing, for a read job finishing the file (`_wait_for_row`)."""
 
 
 def before_discipline_change(lock: Callable[[uuid.UUID], None]) -> None:
@@ -774,6 +775,10 @@ def before_discipline_change(lock: Callable[[uuid.UUID], None]) -> None:
 def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
+        project_id = _access.drawing_file(file_id).drawing_set.project_id
+        _wait_for_row(file_id)
+        for lock in DISCIPLINE_CHANGING:
+            lock(project_id)
         row = _access.drawing_file(file_id, lock=True)
         discipline = library_disciplines.by_key(key)
         if discipline is None:
@@ -783,8 +788,6 @@ def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> Fil
                 row.discipline_source = DisciplineSource.QS
                 row.save(update_fields=["discipline_source"])
             return file(row.id)
-        for lock in DISCIPLINE_CHANGING:
-            lock(row.drawing_set.project_id)
         _access.lock("revisions", row.drawing_set_id)
         _move_sheets(row, discipline)
         row.discipline = discipline
@@ -805,6 +808,15 @@ def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> Fil
         for follow in DISCIPLINE_CHANGED:
             follow(row.id, actor_name)
     return file(row.id)
+
+
+def _wait_for_row(file_id: uuid.UUID) -> None:
+    """Wait for the file's row, then let it go: a read job finishing the file holds it from
+    `mark_read` to its commit (its long reading among it). Locked in a savepoint rolled back, so the
+    change holds nothing while it waits, and takes Step 1's write lock only once the job is done."""
+    savepoint = transaction.savepoint_create()
+    _access.drawing_file(file_id, lock=True)
+    transaction.savepoint_rollback(savepoint)
 
 
 def _move_sheets(row: DrawingFile, discipline: Discipline) -> None:
