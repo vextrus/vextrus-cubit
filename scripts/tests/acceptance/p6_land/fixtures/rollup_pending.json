@@ -1,0 +1,92 @@
+{
+ "headRefOid": "0123456789abcdef0123456789abcdef01234567",
+ "statusCheckRollup": [
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T02:56:01Z",
+   "conclusion": "SUCCESS",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330803/job/111597106741",
+   "name": "changes",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "COMPLETED",
+   "workflowName": "ci"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T02:56:01Z",
+   "conclusion": "SUCCESS",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330810/job/111597106742",
+   "name": "changes",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "COMPLETED",
+   "workflowName": "engine"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T02:56:01Z",
+   "conclusion": "SUCCESS",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330815/job/111597106743",
+   "name": "changes",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "COMPLETED",
+   "workflowName": "web"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T02:58:12Z",
+   "conclusion": "SUCCESS",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330803/job/111597106760",
+   "name": "harness",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "COMPLETED",
+   "workflowName": "ci"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "0001-01-01T00:00:00Z",
+   "conclusion": "",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330803/job/111597106777",
+   "name": "python (rest)",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "IN_PROGRESS",
+   "workflowName": "ci"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T02:56:01Z",
+   "conclusion": "SKIPPED",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330810/job/111597106781",
+   "name": "toolchain",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "COMPLETED",
+   "workflowName": "engine"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T03:05:02Z",
+   "conclusion": "SUCCESS",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330815/job/111597106790",
+   "name": "web",
+   "startedAt": "2026-10-05T02:55:54Z",
+   "status": "COMPLETED",
+   "workflowName": "web"
+  },
+  {
+   "__typename": "CheckRun",
+   "completedAt": "2026-10-05T03:09:47Z",
+   "conclusion": "SUCCESS",
+   "detailsUrl": "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330803/job/111597106799",
+   "name": "ci",
+   "startedAt": "2026-10-05T03:09:44Z",
+   "status": "COMPLETED",
+   "workflowName": "ci"
+  },
+  {
+   "__typename": "StatusContext",
+   "context": "design-gate",
+   "startedAt": "2026-10-05T03:13:16Z",
+   "state": "SUCCESS",
+   "targetUrl": ""
+  }
+ ]
+}

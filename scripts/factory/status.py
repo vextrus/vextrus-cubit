@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 UTC_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+UTC_FRACTION_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 MAX_AGE_SECONDS = 180
 STATES = ("working", "ready", "blocked", "quiet", "done", "failed", "stopped")
 REPO = Path(__file__).resolve().parents[2]
@@ -49,8 +50,12 @@ def utc(moment: datetime) -> str:
 
 
 def parse_utc(text: str) -> datetime:
-    """`2026-10-04T21:08:00Z` to an aware datetime; ValueError for any other form."""
-    return datetime.strptime(text, UTC_FORMAT).replace(tzinfo=UTC)
+    """`2026-10-04T21:08:00Z`, or with fractional seconds as the cloud launcher's records carry them
+    (`2026-10-04T21:08:00.196170Z`), to an aware datetime; ValueError for any other form."""
+    try:
+        return datetime.strptime(text, UTC_FORMAT).replace(tzinfo=UTC)
+    except ValueError:
+        return datetime.strptime(text, UTC_FRACTION_FORMAT).replace(tzinfo=UTC)
 
 
 def minutes_between(start: datetime, end: datetime) -> int:
