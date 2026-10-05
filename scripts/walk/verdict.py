@@ -351,9 +351,11 @@ def result_of(verdict: Mapping[str, Any]) -> str:
     return "PASS" if passed else "FAIL"
 
 
-def _acts(acts: list[Any]) -> dict[str, Any]:
+def _acts(acts: list[Any], confirm_targets: object = None) -> dict[str, Any]:
     """Act timing: samples are acts of a read that ran before and after them and that answered (a
-    status of 1 to 399, or none recorded); an act answered 0 (never) or 400 and up is a failed act."""
+    status of 1 to 399, or none recorded); an act answered 0 (never) or 400 and up is a failed act.
+    A walk that found no Sheet offering a confirm (`confirm_targets` 0) and timed none is not
+    measured (`no_confirm_target`): it fails for want of a target, never as slow acts."""
     during: list[float] = []
     kinds = dict.fromkeys(ACT_KINDS, 0)
     failed = 0
@@ -373,6 +375,9 @@ def _acts(acts: list[Any]) -> dict[str, Any]:
     measured: dict[str, Any] = {"samples": len(during), **kinds, "failed_acts": failed}
     if during:
         measured |= {"p95_ms": p95(during), "max_ms": max(during)}
+    targets = _optional_count(confirm_targets, "confirm_targets")
+    if targets == 0 and kinds["confirm"] == 0:
+        measured |= {"unmeasured": 1, "no_confirm_target": 1}
     return measured
 
 
@@ -472,7 +477,7 @@ def _set_checks(
     act_check = _check(
         "act_p95_during_read",
         name,
-        _acts(acts),
+        _acts(acts, record.get("confirm_targets")),
         limits(
             ("p95_ms_max", "act_max_ms", "act_samples_min"),
             {

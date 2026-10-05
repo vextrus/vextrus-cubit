@@ -350,3 +350,42 @@ def test_a_bulk_count_read_after_other_acts_is_refused(
     judged = verdict.evaluate(measured, {"set-c": _expect()}, LAYER, ref="main", leak_hits=0, **TIMES)
     [share] = [c for c in judged["checks"] if c["check"] == "bulk_confirmable_share"]
     assert share["measured"].get("unmeasured", 0) == (0 if before == 0 else 1)
+
+
+@pytest.mark.parametrize("duplicate", [True, False], ids=["with-a-duplicate-number", "exactly-the-pair"])
+def test_a_same_title_conflict_holding_a_duplicate_number_does_not_raise_a_stale_pair(
+    tmp_path: Path, duplicate: bool
+) -> None:
+    entry = _entry()
+    entry["sheets"].append(_sheet("d1", "P-01"))  # a second Sheet under P-01's file and number
+    held = ["p1", "d1", "p2"] if duplicate else ["p1", "p2"]
+    entry["questions"].append(_question("c1", measures.SAME_TITLE, *held))
+    expect = _expect(
+        sheets_per_discipline={"plumbing": 11},
+        true_questions=[{"discipline": "plumbing", "code": measures.SAME_TITLE, "sheets": STALE_PAIR}],
+        stale_title_pairs=[{"discipline": "plumbing", "sheets": STALE_PAIR}],
+    )
+
+    judged = _judge(tmp_path, entry, expect)
+
+    assert _status(judged, "true_questions_raised") == ("FAIL" if duplicate else "PASS")
+
+
+@pytest.mark.parametrize(
+    ("targets", "unmeasured"), [(0, 1), (3, 0)], ids=["no-target", "targets-but-none-timed"]
+)
+def test_no_confirm_target_reads_as_not_measured_never_as_slow(
+    tmp_path: Path, targets: int, unmeasured: int
+) -> None:
+    walk = _attach(tmp_path, _entry(), _expect())
+    record = walk["sets"]["set-c"]
+    record["acts"] = [a for a in record["acts"] if a["kind"] != "confirm"]
+    record["confirm_targets"] = targets
+
+    judged = verdict.evaluate(walk, {"set-c": _expect()}, LAYER, ref="main", leak_hits=0, **TIMES)
+
+    [acts] = [c for c in judged["checks"] if c["check"] == "act_p95_during_read"]
+    assert acts["status"] == "FAIL"
+    assert acts["measured"].get("unmeasured", 0) == unmeasured
+    assert acts["measured"].get("no_confirm_target", 0) == unmeasured
+    assert ready.consistent(judged) is True

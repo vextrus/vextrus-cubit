@@ -364,7 +364,9 @@ def matches(question: Question, listed: TrueQuestion) -> bool:
             question.kind == CONFLICT
             and question.code == listed.code
             and question.discipline == listed.discipline
-            and all(ids & held for ids in listed.sheets)
+            # Exactly one Sheet per listed key and nothing else: a duplicate-number Sheet fails.
+            and all(len(ids & held) == 1 for ids in listed.sheets)
+            and len(held) == len(listed.sheets)
             and held <= frozenset().union(*listed.sheets)
         )
     if listed.code not in (question.code, question.check_code):

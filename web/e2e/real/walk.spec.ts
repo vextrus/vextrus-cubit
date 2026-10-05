@@ -63,6 +63,7 @@ type SetRecord = {
   bulk_project: string
   acts_project: string
   project_acts: number
+  confirm_targets: number
   files: FileRecord[]
   acts: ActRecord[]
   questions: Record<string, Record<string, number>>
@@ -90,6 +91,7 @@ type ApiProposal = {
   title: string
   layout: string | null
   proposed_exclusion: string | null
+  decision: string | null
   plot_page: number | null
   views: { storeys: string[] }[]
   /** The Sheet's storeys as titled (T-W318); absent on a head without them. */
@@ -245,8 +247,10 @@ const ACT_PATHS: Record<string, RegExp> = {
  */
 async function timedAct(page: Page, api: Api, projectId: string, kind: string, keys: string[]): Promise<ActRecord | null> {
   const before = await api.reading(projectId)
-  const pattern = ACT_PATHS[kind]!
-  const sent = page.waitForRequest((r) => r.method() === 'POST' && pattern.test(new URL(r.url()).pathname), { timeout: 4000 }).catch(() => null)
+  // Any act's request: the record names the act the request was, not the one the keys aimed at.
+  const isAct = (r: { method(): string; url(): string }) =>
+    r.method() === 'POST' && actOf(new URL(r.url()).pathname) !== null
+  const sent = page.waitForRequest(isAct, { timeout: 4000 }).catch(() => null)
   let started = Date.now()
   for (const [i, key] of keys.entries()) {
     if (i > 0) await page.waitForTimeout(400) // the screen settles between keys (a sheet opening)
@@ -256,7 +260,7 @@ async function timedAct(page: Page, api: Api, projectId: string, kind: string, k
   let request = await sent
   if (!request && kind === 'answer') {
     // An option picked by its number may wait for Enter (the card's own key).
-    const again = page.waitForRequest((r) => r.method() === 'POST' && pattern.test(new URL(r.url()).pathname), { timeout: 4000 }).catch(() => null)
+    const again = page.waitForRequest(isAct, { timeout: 4000 }).catch(() => null)
     started = Date.now()
     await page.keyboard.press('Enter')
     request = await again
@@ -271,7 +275,26 @@ async function timedAct(page: Page, api: Api, projectId: string, kind: string, k
     status = response.status()
   }
   const after = await api.reading(projectId)
-  return { kind, ms, read_running: before && after, status }
+  return { kind: actOf(new URL(request.url()).pathname)!, ms, read_running: before && after, status }
+}
+
+/** The act a Step 1 request is, by its path; null for any other request. */
+function actOf(path: string): string | null {
+  return Object.entries(ACT_PATHS).find(([, pattern]) => pattern.test(path))?.[0] ?? null
+}
+
+/** Focuses the row of a Sheet that offers a single confirm (its Proposal agrees and is undecided,
+ * and no Question holds it), by the row's attribute; false when no row offers one. */
+async function focusConfirmable(page: Page, api: Api, projectId: string): Promise<boolean> {
+  const { proposals } = await api.get<{ proposals: ApiProposal[] }>(`/api/projects/${projectId}/takeoff/step1/proposals`)
+  const grid = page.getByRole('grid', { name: 'Sheets' })
+  for (const p of proposals.filter((q) => q.agrees && !q.held && q.decision === null)) {
+    const row = grid.locator(`[data-row="p:${p.id}"]`)
+    if ((await row.count()) === 0) continue
+    await row.first().click()
+    return true
+  }
+  return false
 }
 
 /** Focuses the first sheet row of Step 1's list (by its row attribute, never its words). */
@@ -291,7 +314,8 @@ function sampled(acts: ActRecord[]): boolean {
 
 /** Acts on Step 1 while a later file reads: rounds of the four acts until each kind has its samples,
  * at most ROUNDS_PER_FILE rounds for this file. */
-async function actWhileReading(page: Page, api: Api, project: { id: string; code: string }, acts: ActRecord[]) {
+async function actWhileReading(page: Page, api: Api, project: { id: string; code: string }, record: SetRecord) {
+  const acts = record.acts
   await page.goto(`/p/${project.code}/takeoff/1`)
   const grid = page.getByRole('grid', { name: 'Sheets' })
   try {
@@ -301,23 +325,26 @@ async function actWhileReading(page: Page, api: Api, project: { id: string; code
   }
   for (let round = 0; round < ROUNDS_PER_FILE && !sampled(acts); round++) {
     if (!(await api.reading(project.id))) return
-    const record = async (kind: string, keys: string[]) => {
-      const act = await timedAct(page, api, project.id, kind, keys)
-      if (act) acts.push(act)
-      return act
+    const act = async (kind: string, keys: string[]) => {
+      const done = await timedAct(page, api, project.id, kind, keys)
+      if (done) acts.push(done)
+      return done
     }
-    if (await focusFirstRow(page)) {
-      // The bulk confirmation when the bar offers one (where D1 lived); else one sheet, opened.
-      let confirmed = await record('confirm', ['Escape', 'Enter'])
-      if (!confirmed && (await focusFirstRow(page))) confirmed = await record('confirm', ['Space', 'Enter'])
-      if (confirmed) await record('undo', ['Control+z'])
+    // A confirm only on a Sheet that offers one; with none, the round has no confirm target (counted:
+    // walk.json's confirm_targets, so a walk with none reads as not measured, never as slow).
+    if (await focusConfirmable(page, api, project.id)) {
+      record.confirm_targets += 1
+      // One sheet, opened and confirmed; else the bulk confirmation when the bar offers one.
+      let confirmed = await act('confirm', ['Space', 'Enter'])
+      if (!confirmed && (await focusConfirmable(page, api, project.id))) confirmed = await act('confirm', ['Escape', 'Enter'])
+      if (confirmed) await act('undo', ['Control+z'])
       await page.keyboard.press('Escape')
     }
     if (await focusFirstRow(page)) {
-      if (await record('exclude', ['x', '1'])) await record('undo', ['Control+z'])
+      if (await act('exclude', ['x', '1'])) await act('undo', ['Control+z'])
       else await page.keyboard.press('Escape')
     }
-    await record('answer', ['q', '1'])
+    await act('answer', ['q', '1'])
   }
 }
 
@@ -464,6 +491,7 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
         bulk_project: bulkCode,
         acts_project: actsCode,
         project_acts: 0,
+        confirm_targets: 0,
         files: [],
         acts: [],
         questions: {},
@@ -488,7 +516,7 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
       // (3) The Project the acts are timed in: the same files, read again, acted on while they read.
       const acting = await api.post<{ id: string; code: string }>('/api/projects', { code: actsCode, name: `Walk set ${n} acts` })
       for (const [i, file] of files.entries()) {
-        await uploadAndRead(page, api, acting, file, i > 0 ? () => actWhileReading(page, api, acting, record.acts) : undefined)
+        await uploadAndRead(page, api, acting, file, i > 0 ? () => actWhileReading(page, api, acting, record) : undefined)
       }
       record.project_acts = stepPosts.get(project.id) ?? 0
       await page.goto(`/p/${project.code}/takeoff/1`)

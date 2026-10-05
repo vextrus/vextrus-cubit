@@ -235,7 +235,7 @@
         },
         "measured": {
           "type": "object",
-          "description": "The numbers the walk measured; keys by check. reads_complete: {files, completed}. act_p95_during_read: {p95_ms, max_ms, samples, confirm, undo, exclude, answer, failed_acts} (samples are acts while a read ran that answered 1 to 399; p95_ms and max_ms absent with no sample). questions_per_discipline: {questions_max_per_discipline, disciplines}. sheets_match: {sheets_found, missing, phantoms}. true_questions_raised: {true_listed, true_raised}. false_continuations: {false_questions, stale_grouped}. bulk_confirmable_share: {bulk_confirmable_sheets, sheets_expected}. storeys_match: {storeys_listed, storeys_wrong}. Any of them: {unmeasured: 1} alone when the set's snapshot could not measure it, which fails the check.",
+          "description": "The numbers the walk measured; keys by check. reads_complete: {files, completed}. act_p95_during_read: {p95_ms, max_ms, samples, confirm, undo, exclude, answer, failed_acts} (samples are acts while a read ran that answered 1 to 399; p95_ms and max_ms absent with no sample; with `unmeasured` and `no_confirm_target` 1 when the walk found no Sheet offering a confirm). questions_per_discipline: {questions_max_per_discipline, disciplines}. sheets_match: {sheets_found, missing, phantoms}. true_questions_raised: {true_listed, true_raised}. false_continuations: {false_questions, stale_grouped}. bulk_confirmable_share: {bulk_confirmable_sheets, sheets_expected}. storeys_match: {storeys_listed, storeys_wrong}. Any of them: {unmeasured: 1} alone when the set's snapshot could not measure it, which fails the check.",
           "additionalProperties": {
             "$ref": "#/$defs/number"
           }
