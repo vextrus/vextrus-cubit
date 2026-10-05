@@ -23,10 +23,12 @@ layers =
     platform
 # Ticket 19a's committed acceptance tests run the whole demo seed (a layer above takeoff) on the API; a
 # builder may not change them, so their imports of the seed alone are let through; 182's likewise (they
-# seed with the toolchain switched off).
+# seed with the toolchain switched off), and 236's two that read the seed's Plot, by module.
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.* -> vextrus.seed.*
     vextrus.takeoff.tests.acceptance.t182.* -> vextrus.seed.*
+    vextrus.takeoff.tests.acceptance.t236.test_kr01_pdfs -> vextrus.seed.*
+    vextrus.takeoff.tests.acceptance.t236.test_seeded_plot -> vextrus.seed.*
 unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:engine]
