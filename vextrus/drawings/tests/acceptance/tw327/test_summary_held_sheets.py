@@ -1,11 +1,12 @@
 """T-W327 (#327, G1 walk item FL4): the Drawing Set's summary line says how many of the sheets it
 counts as read come from a held file.
 
-The ticket's seam: `SUMMARY` gets one more param, `held_sheets`, so `SUMMARY(files, sheets,
-held_sheets, reading, failed, held, refused)`. `sheets` counts the sheet list as before (a held file's
-sheets are in it once it was read anyway and its read ended); `held_sheets` is the part of it that
-comes from held files read anyway. A held file set aside counts in neither (on main its row has no
-`sheets_found`, whatever sheets it once recorded).
+The ticket's seam: `SUMMARY` gets two more params, `held_sheets` and `held_files_read`, so
+`SUMMARY(files, sheets, held_sheets, held_files_read, reading, failed, held, refused)`. `sheets` counts
+the sheet list as before (a held file's sheets are in it once it was read anyway and its read ended);
+`held_sheets` is the part of it that comes from held files read anyway, and `held_files_read` the
+number of those files (the words' plural follows it). A held file set aside counts in none of them (on
+main its row has no `sheets_found`, whatever sheets it once recorded).
 
 Every file name here is invented.
 """
@@ -63,7 +64,9 @@ def a_held_dwg(project: QsProject, name: str, numbers: list[str], *answers: str)
 def test_the_summary_names_the_sheets_that_come_from_a_held_file(qs_project: QsProject) -> None:
     read = a_read_dwg(qs_project, "QV-ARC-R2.dwg", ["A-41", "A-42"])
     a_held_dwg(qs_project, "QV-STR-old.dwg", ["S-51", "S-52", "S-53"], "read_anyway")
-    expected = said.SUMMARY(files=2, sheets=5, held_sheets=3, reading=0, failed=0, held=1, refused=0)
+    expected = said.SUMMARY(
+        files=2, sheets=5, held_sheets=3, held_files_read=1, reading=0, failed=0, held=1, refused=0
+    )
 
     assert services.summary(views(qs_project.member, read)) == expected
     assert listed(qs_project) == expected
@@ -72,7 +75,9 @@ def test_the_summary_names_the_sheets_that_come_from_a_held_file(qs_project: QsP
 def test_a_held_file_not_yet_answered_adds_no_sheets(qs_project: QsProject) -> None:
     read = a_read_dwg(qs_project, "QV-ARC-R2.dwg", ["A-41", "A-42"])
     a_held_dwg(qs_project, "QV-ELE-old.dwg", [])
-    expected = said.SUMMARY(files=2, sheets=2, held_sheets=0, reading=0, failed=0, held=1, refused=0)
+    expected = said.SUMMARY(
+        files=2, sheets=2, held_sheets=0, held_files_read=0, reading=0, failed=0, held=1, refused=0
+    )
 
     assert services.summary(views(qs_project.member, read)) == expected
     assert listed(qs_project) == expected
@@ -81,7 +86,9 @@ def test_a_held_file_not_yet_answered_adds_no_sheets(qs_project: QsProject) -> N
 def test_with_no_held_file_no_sheets_are_named_held(qs_project: QsProject) -> None:
     first = a_read_dwg(qs_project, "QV-ARC-R2.dwg", ["A-41", "A-42"])
     a_read_dwg(qs_project, "QV-PLB-R1.dwg", ["P-61"])
-    expected = said.SUMMARY(files=2, sheets=3, held_sheets=0, reading=0, failed=0, held=0, refused=0)
+    expected = said.SUMMARY(
+        files=2, sheets=3, held_sheets=0, held_files_read=0, reading=0, failed=0, held=0, refused=0
+    )
 
     assert services.summary(views(qs_project.member, first)) == expected
     assert listed(qs_project)["params"]["held_sheets"] == 0
@@ -93,7 +100,9 @@ def test_a_held_file_set_aside_after_it_was_read_anyway_counts_none_of_its_sheet
 ) -> None:
     read = a_read_dwg(qs_project, "QV-ARC-R2.dwg", ["A-41", "A-42"])
     a_held_dwg(qs_project, "QV-MEC-old.dwg", ["M-71", "M-72", "M-73", "M-74"], "read_anyway", set_aside)
-    expected = said.SUMMARY(files=2, sheets=2, held_sheets=0, reading=0, failed=0, held=1, refused=0)
+    expected = said.SUMMARY(
+        files=2, sheets=2, held_sheets=0, held_files_read=0, reading=0, failed=0, held=1, refused=0
+    )
 
     assert services.summary(views(qs_project.member, read)) == expected
     assert listed(qs_project) == expected

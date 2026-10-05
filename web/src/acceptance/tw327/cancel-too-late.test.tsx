@@ -3,8 +3,8 @@
  * ended well is told in a toast, not hidden and not shown as an error.
  *
  * The ticket's seams: the cancel answers `409 {"code": "drawings.files.cancel_too_late", "params": {}}`;
- * the page shows the toast "This file finished reading before the cancel arrived, so nothing was undone.
- * Its row shows how it ended." in the `role="status"` region, no error bar, the row as the API now has
+ * the page shows the toast "This file had finished reading before you cancelled, so nothing was
+ * undone. Its row shows how it ended." in the `role="status"` region, no error bar, the row as the API now has
  * it, and the focus on the row's new act (m0-screens §8 item 7). Any other refusal stays in the error
  * bar. The words are the catalogue's (`web/src/messages/drawings/files/en.po`), with no code, path or
  * engine word in them (m0-screens §1.1).
@@ -27,7 +27,7 @@ afterEach(() => {
 })
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
-const TOO_LATE = 'This file finished reading before the cancel arrived, so nothing was undone. Its row shows how it ended.'
+const TOO_LATE = 'This file had finished reading before you cancelled, so nothing was undone. Its row shows how it ended.'
 const NAME = 'KR-LFT-R1.dwg'
 
 function rowOf(name: string): HTMLElement {
@@ -54,14 +54,14 @@ async function readingFile(status: number, code: string, endsRead: boolean) {
   const set = new FakeDrawingSet(api, 'KR-01')
   const reading = file({ name: NAME, state: 'reading', status: msg('drawings.files.finishing') })
   set.files.push(reading)
-  set.summary = msg('drawings.files.summary', { files: 1, sheets: 0, held_sheets: 0, reading: 1, failed: 0, held: 0, refused: 0 })
+  set.summary = msg('drawings.files.summary', { files: 1, sheets: 0, held_sheets: 0, held_files_read: 0, reading: 1, failed: 0, held: 0, refused: 0 })
   api.failOnce((m, p) => m === 'POST' && p.endsWith(`/files/${reading.id}/cancel`), status, refusalOf(code))
   const handle = api.handle
   api.handle = async (request: Request) => {
     const path = new URL(request.url, location.origin).pathname
     if (endsRead && request.method === 'POST' && path.endsWith(`/files/${reading.id}/cancel`)) {
       set.files = [{ ...reading, state: 'read', status: msg('drawings.files.read'), sheets_found: 11 }]
-      set.summary = msg('drawings.files.summary', { files: 1, sheets: 11, held_sheets: 0, reading: 0, failed: 0, held: 0, refused: 0 })
+      set.summary = msg('drawings.files.summary', { files: 1, sheets: 11, held_sheets: 0, held_files_read: 0, reading: 0, failed: 0, held: 0, refused: 0 })
     }
     return handle(request)
   }
