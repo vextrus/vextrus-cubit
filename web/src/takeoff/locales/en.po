@@ -172,10 +172,6 @@ msgstr "Esc goes back."
 msgid "Answering keeps {entryName} in the count as missing."
 msgstr "Answering keeps {entryName} in the count as missing."
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "Excluded, by reason"
-msgstr "Excluded, by reason"
-
 #: src/takeoff/Bar.tsx
 msgid "Step 1 is confirmed. You are reading it as a Guest."
 msgstr "Step 1 is confirmed. You are reading it as a Guest."
@@ -2579,6 +2575,10 @@ msgstr "Cover or index (its drawing list kept)"
 #: src/takeoff/SheetList.tsx
 msgid "found, {listed} on the drawing list found in the drawings"
 msgstr "found, {listed} on the drawing list found in the drawings"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded or proposed out, by reason"
+msgstr "Excluded or proposed out, by reason"
 
 #: src/takeoff/questionWords.tsx
 msgid "Withdrawn when {sheet} was left out. {Sheet} can be confirmed back in once this is answered."

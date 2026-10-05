@@ -977,7 +977,7 @@ export function CoveragePanel({ coverage, held, reading }: { coverage: CoverageO
         </Block>
       ) : null}
       {reasons.length > 0 ? (
-        <Block title={<Trans>Excluded, by reason</Trans>}>
+        <Block title={<Trans>Excluded or proposed out, by reason</Trans>}>
           <dl className="flex flex-col gap-1">
             {reasons.map(([reason, count]) => (
               <Fact key={reason} label={i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON)}>

@@ -943,7 +943,8 @@ canvas foot and inspector is section 6 (layout A). Wireframes: `step1-shell-1440
 **Settled** (every string and count here is 6.18's).
 - Toolbar: "Step 1", "Sheets", the Count "Confirmed 0 / 24" (sheets confirmed / sheets found, with
   ", 2 excluded" once any sheet is excluded: an excluded sheet stays in N and the count shows the gap
-  with its reason, Takeoff ruling 4; per-Discipline N from the drawing list or the Plot sits in the
+  with its reason, Takeoff ruling 4; a sheet the read proposed out with no number is not counted in N,
+  nor in k excluded, unless the QS confirms it in (blanks and covers are not phantom sheets, #324); per-Discipline N from the drawing list or the Plot sits in the
   list, section 6.3), the sheet label and the viewer's switches.
 - The Confirmation bar floats at the canvas foot, 44 px, at most 820 px wide in list and sheet mode,
   centred: what ("17 sheets agree: Structural, Architectural"), why ("Each has a number and title from
@@ -1475,7 +1476,8 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
   read"; "A view counts once it is assigned to a step that will read it, or excluded with a reason.
   Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up
   to more than the views."; "Unaccounted" (each "S-20 8th floor beam layout", in amber); "Views by the
-  step that will read them, proposed or assigned" (step and count, two columns); "Excluded, by reason";
+  step that will read them, proposed or assigned" (step and count, two columns); "Excluded or proposed out,
+  by reason" (a view excluded or only proposed to be, so its rows may add up to more than "k excluded");
   the held-file line "NT-ARCH-Details-R1.dwg is held: its views are not counted unless you read it
   anyway."; while reading, "NT-ARCH-R1.dwg is still reading; its views join as its sheets arrive."
 - **A Discipline's Step 1 is confirmed** (5) when none of its files is reading, every sheet of it is
@@ -1588,7 +1590,7 @@ owner's reversal at the M0 walk; ticket 22's design gate checks every row.
 | 1 | The held file's Question (screens.md Step 1 ruling 3) | 1 "Read it anyway: its sheets join the list, marked held" · 2 "Set this file aside: I'll re-save it from AutoCAD (open it, run AUDIT, save) and add it again" · 3 "Set this file aside and mark it for Vextrus to look at" · 4 "Keep open, ask the consultant". Before the answer the file is "Held"; after it "Held, read anyway" (its sheets listed, each marked "held", their figures flagged later) or "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" (5, 6.7, 6.13, 4.5) | 5's re-save, mark for Vextrus, leave out; the prototype's re-save, send, leave out; "Set aside" also named the held state | The ruling's own two answers, with the ways to get a clean file kept |
 | 2 | The combined bulk act (ruling 1) | What: "Confirm 56 sheets that agree, and leave out 5: for information, cover or index, duplicate"; button "Confirm 56, leave out 5 ↵"; toast "Confirmed 56 sheets; left out 5, each with its reason." (6.4). On the seed: "Confirm 16, leave out 1 ↵" (4.7) | Not prototyped | First judged at 22's gate |
 | 3 | What a view is proposed for | Excluded: title blocks, key plans, 3D and perspective views ("for information"), an architect's plan that draws structure ("duplicate: the structural set governs"). Assigned: legends, to their Discipline's Part (Step 2 for Structural and Architectural); steps 5–10 for Structural views only; fixture plans and toilet details also to the Plumbing and sanitary Part (5) | Legends excluded (5, the seed); the prototype assigned title blocks to Step 1 | The plan's QS review, Q2 and Q7 |
-| 4 | The toolbar's Count | "Confirmed n / N" (n confirmed, N found), then ", k excluded" once any is: "Confirmed 1 / 68, 1 excluded"; when every Discipline is confirmed, "✓ Confirmed 62 / 68, 6 excluded" (4.7, 6.11) | 4.7: "confirmed or excluded / found" | Takeoff ruling 4: an excluded item stays in N, and the count shows the gap with its reason; the prototype |
+| 4 | The toolbar's Count | "Confirmed n / N" (n confirmed, N found), then ", k excluded" once any is: "Confirmed 1 / 68, 1 excluded"; when every Discipline is confirmed, "✓ Confirmed 62 / 68, 6 excluded" (4.7, 6.11). A sheet the read proposed out with no number is not counted in N, nor in k excluded, unless the QS confirms it in (blanks and covers are not phantom sheets) | 4.7: "confirmed or excluded / found" | Takeoff ruling 4: an excluded item stays in N, and the count shows the gap with its reason; the prototype |
 | 5 | The bar's width | At most 820 px (the canvas less 32 px) in list and sheet mode; the exclusion picker 820 × 72 px, seven buttons in one row (6.4, 6.9) | 4.7: 720 px; the prototype: 820 in list mode, 800 in sheet mode | Seven reasons must fit one row |
 | 6 | The Questions' order | Section 5's: the held file, then the Questions holding the most sheets, then conflicts, missing, low confidence, then sheet order. The overview: "Answer 8 Questions: the held file first, then those holding the most sheets" (6.3, 6.6) | The prototype: files, count, numbers, storeys | Section 5, the spec's side |
 | 7 | The Questions' wording | Section 5's templates, filled in by 6.7: the no-number card keeps "Type a number"; the drawing-list card ends with "Keep open, ask the consultant"; the boundary storey has two forms (what one storey means; where a range ends) | The prototype's cards | One source per kind |

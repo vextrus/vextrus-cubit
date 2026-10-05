@@ -200,6 +200,15 @@ export function answeredQueue(questions: readonly QuestionOut[], proposals: read
 }
 
 const decided = (p: ProposalOut) => p.decision !== null
+
+/**
+ * Whether a sheet is in Step 1's N, mirroring `vextrus/takeoff/services/step1.py:_counted_sheet`: a sheet the
+ * read proposed out with no number (null or '') is not counted unless the QS confirmed it in (a blank or a
+ * cover is never a phantom sheet).
+ */
+export function countedSheet(p: ProposalOut): boolean {
+  return !(p.proposed_exclusion && !p.number) || p.decision === 'confirmed'
+}
 const sameState = (a: ProposalOut, b: ProposalOut) => a.decision === b.decision && a.excluded_reason === b.excluded_reason
 
 /** Consecutive numbers of one series with the same title: one continuation (m0-screens §5, Q3). */
@@ -294,6 +303,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const outIds = new Set(proposedOut.flatMap((r) => r.sheets.map((p) => p.id)))
 
   const coverageDone = data.coverage.unaccounted === 0
+  const counted = proposals.filter(countedSheet)
   const progressOf = new Map(data.progress.disciplines.map((d) => [d.discipline, d]))
   const keys = [...new Set(proposals.map((p) => p.discipline))].sort((a, b) => disciplineRank(a) - disciplineRank(b))
   const disciplines: DisciplineSection[] = keys
@@ -304,17 +314,19 @@ export function step1Model(data: Step1Data): Step1Model {
       const list = data.lists[discipline] ?? null
       const hasList = list !== null && list.source !== null && list.numbers.length > 0
       const openQuestions = progress?.open_questions ?? queue.filter((e) => e.question.discipline === discipline).length
-      const settled = mine.filter(decided).length
+      // N's sheets of this Discipline: `mine` still holds the uncounted ones, which keep it open until decided.
+      const countedMine = mine.filter(countedSheet)
+      const settled = countedMine.filter(decided).length
       return {
         discipline,
         rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
-        found: progress?.found ?? mine.length,
+        found: progress?.found ?? countedMine.length,
         settled,
-        total: progress ? progress.total ?? null : mine.length,
+        total: progress ? progress.total ?? null : countedMine.length,
         openQuestions,
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
-        confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
+        confirmed: mine.length > 0 && mine.every(decided) && openQuestions === 0 && coverageDone,
       }
     })
 
@@ -324,6 +336,8 @@ export function step1Model(data: Step1Data): Step1Model {
   const reasons = REASONS.filter((r) => bulkOut.some((p) => p.proposed_exclusion === r))
 
   const rows = [...needsYou, ...withdrawn, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
+  // Only the counted sheets of no Discipline: a sheet outside N cannot be inside "k excluded" either (#324).
+  const noDiscipline = counted.filter((p) => p.discipline === null).length
   return {
     needsYou,
     withdrawn,
@@ -334,12 +348,12 @@ export function step1Model(data: Step1Data): Step1Model {
     answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
-    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
-    excluded: proposals.filter((p) => p.decision === 'excluded').length,
-    found: proposals.length,
+    confirmed: counted.filter((p) => p.decision === 'confirmed').length,
+    excluded: counted.filter((p) => p.decision === 'excluded').length,
+    // N is the Discipline rows plus the no-Discipline remainder, so the header agrees with the rows under it.
+    found: disciplines.reduce((n, d) => n + d.found, 0) + noDiscipline,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
-    // Every Proposal of no Discipline, as the toolbar's Count counts it (19a's progress row leaves out a sheet proposed out, #167's refuter).
-    noDiscipline: proposals.filter((p) => p.discipline === null).length,
+    noDiscipline,
     allConfirmed: disciplines.length > 0 && disciplines.every((d) => d.confirmed),
     unaccounted: data.coverage.unaccounted,
     fileNames: data.fileNames ?? {},
