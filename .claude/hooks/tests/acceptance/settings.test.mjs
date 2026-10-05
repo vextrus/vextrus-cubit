@@ -100,7 +100,7 @@ test("every hook is a command running an existing file; each new one has a numer
 });
 
 test("hooks register only on the events the spec names", () => {
-  const allowed = ["SessionStart", "PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "SubagentStop", "PreCompact"];
+  const allowed = ["SessionStart", "PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "SubagentStop", "PreCompact", "StopFailure"];
   for (const event of Object.keys(settings().hooks)) assert.ok(allowed.includes(event), `unexpected hook event ${event}`);
 });
 
