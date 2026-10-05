@@ -77,17 +77,23 @@ def test_a_member_of_other_projects_reads_no_step_1_act(
 def test_the_event_is_written_before_the_act_s_progress(
     step1_project: Step1Project, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Every `record_progress` call an act makes (one, or more once the read lock adds its own)
+    already sees that act's event."""
     qs, project = step1_project.member, step1_project.project_id
-    written_then: list[int] = []
+    acting = [0]
+    seen: list[tuple[int, int]] = []
     recorded = step1.record_progress
 
     def counting(project_id: uuid.UUID) -> None:
-        written_then.append(step1_acts().count())
+        seen.append((acting[0], step1_acts().count()))
         recorded(project_id)
 
     monkeypatch.setattr(step1, "record_progress", counting)
     with qs.acting():
+        acting[0] = 1
         step1.confirm(project, [step1_project.proposals[0]], actor_name=qs.user.name)
+        acting[0] = 2
         step1.undo(project)
 
-    assert written_then == [1, 2]
+    assert {act for act, _count in seen} == {1, 2}
+    assert all(count >= act for act, count in seen), seen

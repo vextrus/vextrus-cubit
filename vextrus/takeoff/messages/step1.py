@@ -45,7 +45,7 @@ payload ids and counts only; the activity API adds `actor`):
 - `answered`: a Question answered (any option but "keep open"); its confirm or exclusion is no
   event of its own.
 - `kept_open`: a Question kept open, to ask the consultant.
-- `list_changed`: a Discipline's drawing list given.
+- `list_changed`: a Discipline's drawing list set (a first one, or one replacing it).
 - `undone`: the acting user's last act taken back (its subject the act taken back).
 """
 

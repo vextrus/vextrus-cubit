@@ -84,10 +84,10 @@ msgstr "{actor} answered a Question in Step 1"
 msgid "takeoff.step1.kept_open"
 msgstr "{actor} kept a Question open in Step 1"
 
-#. A drawing list given.
+#. A drawing list set (a first list, or one replacing it).
 msgid "takeoff.step1.list_changed"
-msgstr "{actor} changed a drawing list in Step 1"
+msgstr "{actor} set a drawing list in Step 1"
 
 #. The actor's last act taken back.
 msgid "takeoff.step1.undone"
-msgstr "{actor} took back their last act in Step 1"
+msgstr "{actor} undid their last change in Step 1"
