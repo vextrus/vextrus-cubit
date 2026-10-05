@@ -430,7 +430,8 @@ function cdTarget(cmd, cwd) {
   const target = cmd.args.filter((a) => !a.startsWith("-") || a === "-")[0];
   if (cwd === null) return null;
   if (target === undefined || target === "~") return process.env.HOME ?? null;
-  if (target === "-" || target.includes("$") || target.includes("`")) return null;
+  // `-`, a variable, and `~-`, `~+` or `~user` (OLDPWD, PWD, another home) are not known here.
+  if (target === "-" || target.includes("$") || target.includes("`") || /^~(?!\/|$)/.test(target)) return null;
   if (target.startsWith("~/")) return process.env.HOME ? join(process.env.HOME, target.slice(2)) : null;
   return resolve(cwd, target);
 }
@@ -448,6 +449,8 @@ function analyse(command, startCwd) {
   let budget = 300;
   let truncated = false;
   let fed = false;
+  // Heredoc bodies written to a file (`cat > s.py <<'EOF'`): a script the same command may then run.
+  const written = [];
   for (let pass = 0; pass < 2; pass++) {
   while (queue.length > 0) {
     if (budget-- <= 0) {
@@ -533,19 +536,26 @@ function analyse(command, startCwd) {
         else truncated = true;
       }
       if (INTERPRETER_WORD.test(doc.opener)) codes.push(doc.body);
+      if (/>|\btee\b/.test(doc.opener)) written.push({ body: doc.body, cwd });
     }
   }
   // A shell or an interpreter fed from stdin, a process substitution or a script written in the same
-  // command runs what echo and printf produce: read their words as shell text and as code, once.
+  // command runs what echo and printf produce, or a heredoc wrote: read them as shell text and as code, once.
   if (fed || pass > 0) break;
   const flat = flatten(command);
-  const readers = cmds.filter((cmd) => readsCommands(cmd, flat));
+  // A script the same command wrote, run by its path (`./s.sh`), reads it as a shell would (or an interpreter).
+  const readers = cmds.filter((cmd) => readsCommands(cmd, flat) || (/\//.test(cmd.words[0] ?? "") && writtenHere(cmd.words[0], flat)));
   if (readers.length === 0) break;
   fed = true;
   for (const producer of cmds.filter((cmd) => cmd.name === "echo" || cmd.name === "printf")) {
     const text = producer.args.filter((a) => !/^-[neE]+$/.test(a)).join(" ").replace(/\\n/g, "\n");
     if (readers.some((cmd) => SHELLS.has(cmd.name) || cmd.name === "source" || cmd.name === ".")) queue.push({ text, depth: 1, cwd: producer.cwd });
     if (readers.some((cmd) => INTERPRETER.test(cmd.name))) codes.push(text);
+  }
+  for (const doc of written) {
+    const byPath = readers.some((cmd) => !SHELLS.has(cmd.name) && !INTERPRETER.test(cmd.name) && cmd.name !== "source" && cmd.name !== ".");
+    if (byPath || readers.some((cmd) => SHELLS.has(cmd.name) || cmd.name === "source" || cmd.name === ".")) queue.push({ text: doc.body, depth: 1, cwd: doc.cwd });
+    if (byPath || readers.some((cmd) => INTERPRETER.test(cmd.name))) codes.push(doc.body);
   }
   }
   return { cmds, codes, units, truncated };
@@ -1143,6 +1153,12 @@ const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 const CONFIG_READS = new Set(["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"]);
 const CONFIG_WRITES = new Set(["--add", "--replace-all", "--unset", "--unset-all", "--edit", "-e", "--rename-section", "--remove-section"]);
 const CONFIG_VALUED = new Set(["-f", "--file", "--blob", "--type", "--default", "--comment", "--value"]);
+// git config's long options: git takes any unique prefix (`--unset-a` is `--unset-all`).
+const CONFIG_LONG = [
+  ...[...CONFIG_READS, ...CONFIG_WRITES, ...CONFIG_VALUED].filter((o) => o.startsWith("--")).map((o) => o.slice(2)),
+  ...["get-color", "get-colorbool", "global", "system", "local", "worktree", "bool", "int", "bool-or-int", "path", "expiry-date", "null", "name-only"],
+  ...["show-origin", "show-scope", "includes", "no-includes", "fixed-value", "all", "regexp", "url", "show-names", "no-show-names", "no-type", "no-value"],
+];
 
 /** True when a `git config` only reads: a read option or the get/list subcommand, or one operand, and no write. */
 function configRead(g) {
@@ -1150,7 +1166,14 @@ function configRead(g) {
   let read = false;
   for (let k = 0; k < g.args.length; k++) {
     const a = g.args[k];
-    const key = a.split("=")[0];
+    let key = a.split("=")[0];
+    if (key.startsWith("--") && key !== "--") {
+      const name = key.slice(2).toLowerCase();
+      const matches = CONFIG_LONG.includes(name) ? [name] : CONFIG_LONG.filter((o) => o.startsWith(name));
+      // An ambiguous or unknown long option cannot be judged a read.
+      if (matches.length !== 1) return false;
+      key = `--${matches[0]}`;
+    }
     if (CONFIG_WRITES.has(key)) return false;
     if (CONFIG_READS.has(key)) read = true;
     else if (CONFIG_VALUED.has(key) && !a.includes("=")) k++;
@@ -1169,6 +1192,8 @@ function hooksPathSet(analysis, command) {
     if (g.assigns.some((a) => /^(?:HOME|XDG_CONFIG_HOME|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_EXEC_PATH|GIT_TEMPLATE_DIR)=/.test(a))) return true;
     if (configKeys(g).some((k) => k === "core.hookspath" || k.startsWith("include"))) return true;
     if (g.assigns.some((a) => /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_KEY_\d+|_VALUE_\d+|_GLOBAL|_SYSTEM)?=/.test(a) && !/^GIT_CONFIG_(?:GLOBAL|SYSTEM)=\/dev\/null$/.test(a))) return true;
+    // Removing or renaming the `core` section removes core.hooksPath without naming it.
+    if (g.verb === "config" && !configRead(g) && g.args.some((a) => /^core$/i.test(a))) return true;
     if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a)) && !configRead(g)) {
       const lawful = orchestrators && !cloud && g.dirs.length === 0 && g.gitDir === null && JSON.stringify(g.args.filter((a) => a !== "--local")) === JSON.stringify(["core.hooksPath", "scripts/git-hooks"]);
       if (!lawful) return true;
@@ -1217,12 +1242,6 @@ function prefixOf(cmd) {
 }
 
 /**
- * How a simple command runs the scanner: null when it does not, "exact" for `[uv run <flags>] python[3] -m
- * tools.leakscan <command> …` where the flags are value-less (`--quiet`, `--no-sync`, `--frozen`…), "other" for
- * any other way to reach it (`-mtools.leakscan`, `tools.leakscan.__main__`, a script path, PYTHONPATH, a uv
- * project, interpreter or index), which could run a different scanner or a corpus of the caller's choosing.
- */
-/**
  * Index of the word that names a module matching `name` (`-m x`, `-Im x`, `-mx`, `--module x`, `--module=x`), of
  * a script under `script` run by python or uv, or of a script fed on stdin (`python - < x.py`); -1 when none.
  */
@@ -1237,12 +1256,43 @@ function moduleAt(cmd, name, script) {
       (script.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
   );
   if (at >= 0) return at;
+  // The program at the command's own position, whatever word is in front: the first word after `uv run
+  // [flags]`, and python's first operand after its options (`-m runpy <module>` runs <module>).
+  const off = all.length - cmd.words.length;
+  if (script.test(cmd.words[0] ?? "")) return off;
+  if (/^(?:python|pypy)[0-9.]*$/.test(cmd.name)) {
+    for (let k = 1; k < cmd.words.length; k++) {
+      const w = cmd.words[k];
+      if (/^-[A-Za-z]*[WX]$/.test(w) || w === "--check-hash-based-pycs") k++;
+      else if (/^-[A-Za-z]*m/.test(w)) {
+        const joined = !/^-[A-Za-z]*m$/.test(w);
+        let m = joined ? k : k + 1;
+        let module = joined ? w.slice(w.indexOf("m") + 1) : cmd.words[m] ?? "";
+        if (module === "runpy") module = cmd.words[++m] ?? "";
+        if (named(module) || script.test(module)) return off + m;
+        break;
+      } else if (/^-[A-Za-z]*c/.test(w)) break;
+      else if (w === "--") {
+        if (script.test(cmd.words[k + 1] ?? "")) return off + k + 1;
+        break;
+      } else if (!w.startsWith("-") || w === "-") {
+        if (script.test(w)) return off + k;
+        break;
+      }
+    }
+  }
   if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !prefixOf(cmd).includes("uv")) return -1;
   return redirectsOf(cmd.raw ?? "").some(({ op, target }) => op.startsWith("<") && script.test(words(target)[0] ?? "")) ? all.length : -1;
 }
 
+/**
+ * How a simple command runs the scanner: null when it does not, "exact" for `[uv run <flags>] python[3] -m
+ * tools.leakscan <command> …` where the flags are value-less (`--quiet`, `--no-sync`, `--frozen`…), "other" for
+ * any other way to reach it (`-mtools.leakscan`, `tools.leakscan.__main__`, a script path, PYTHONPATH, a uv
+ * project, interpreter or index), which could run a different scanner or a corpus of the caller's choosing.
+ */
 function scannerRun(cmd) {
-  if (moduleAt(cmd, /^(?:\S*[./])?leakscan(?:$|[./])/, /(?:^|\/)tools\/leakscan\/\S*\.py$/) < 0) return null;
+  if (moduleAt(cmd, /^(?:\S*[./])?leakscan(?:$|[./])/, /(?:^|\/)leakscan\/\S*\.py$/) < 0) return null;
   const prefix = prefixOf(cmd);
   const exact =
     cmd.assigns.length === 0 &&
@@ -1261,7 +1311,8 @@ const scannerWrites = (cmd) =>
 /** True when a simple command runs the ledger writer's `record` (by argv: a message or a pattern that says it is text). */
 function ledgerRecord(cmd) {
   const prefix = prefixOf(cmd);
-  if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !(prefix.includes("uv") && prefix.includes("run"))) return false;
+  // Run by python, by uv, or as its own program (`./scripts/ledger.py record`, by its shebang).
+  if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !(prefix.includes("uv") && prefix.includes("run")) && !/(?:^|\/)ledger\.py$/.test(cmd.words[0] ?? "")) return false;
   const all = words(cmd.raw ?? "");
   const at = moduleAt(cmd, /^(?:\S*[./])?ledger(?:$|[./])/, /(?:^|\/)ledger\.py$/);
   // A word expanded at run time, or arguments from xargs, could spell `record`; a script on stdin takes any.
@@ -1377,7 +1428,7 @@ const CONTENT_VIEWERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep"
 const VIEWER_ACTS = {
   find: /^-(?:exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls|files0-from)$/,
   sort: /^-[A-Za-z]*[oT]|^--(?:o|com|t|f)/,
-  tree: /^-[A-Za-z]*[oR]|^--f/,
+  tree: /^-[A-Za-z]*[oR]|^--(?:f|hi|ho|inf)/,
   rg: /^--pre(?:=|$)/,
   less: /^-[A-Za-z]*[oO]|^--(?:log|LOG)/,
   file: /^-[A-Za-z]*[fm]|^--(?:files|magic)/,
@@ -1422,13 +1473,30 @@ function recordUnsafe(cmd, eventCwd) {
     return !(scanner && !cmd.words.some((w) => namesRecord(w, cwd)) && (cwd === null || !recordPath(cwd)));
   }
   if (viewerActs(cmd)) return true;
+  // An option's value is read as a file by some viewers (`tree --hintro=<corpus>`).
+  if (cmd.args.some((w) => /^-[^=]*=/.test(w) && namesCorpus(w.slice(w.indexOf("=") + 1), cwd, true))) return true;
   if (CONTENT_VIEWERS.has(cmd.name) || jsonTool) {
-    // Run from the leak home itself, a viewer with no path (or `grep -r`) reads the corpus.
-    if (cwd !== null && corpusPath(cwd)) return true;
+    // Run from the leak home itself, or from a folder the reader lost (a cd to a variable, `-`, `~-`), a viewer
+    // with no path (or `grep -r`) reads the corpus.
+    if (cwd === null || corpusPath(cwd)) return true;
     // A word expanded at run time (`C=…corpus; cat $C`) could name the corpus.
     if (cmd.args.some((w) => namesCorpus(w, cwd) || /[$`]/.test(w))) return true;
   }
   return false;
+}
+
+/**
+ * True when a content viewer runs in a folder the reader lost (a cd to a variable, `-` or `~-`, which may be
+ * the leak home) and reads a relative path, or searches that folder: it could print the corpus.
+ */
+function blindRead(cmd) {
+  if (cmd.cwd !== null) return false;
+  const jsonTool = /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "json.tool";
+  if (!CONTENT_VIEWERS.has(cmd.name) && !jsonTool) return false;
+  const operands = cmd.args.slice(jsonTool ? 2 : 0).filter((w) => !w.startsWith("-") || w === "-");
+  const searches = ["rg"].includes(cmd.name) || cmd.args.some((w) => /^-[A-Za-z]*[rR]|^--(?:recursive|dereference-recursive)$/.test(w));
+  const relative = redirectsOf(cmd.raw ?? "").some(({ op, target }) => op.startsWith("<") && !op.includes("&") && !target.startsWith("/"));
+  return relative || searches || operands.some((w) => w !== "-" && !w.startsWith("/"));
 }
 
 /** True when code spawns or imports the scanner or the ledger writer, sets a seam, or names a record's path. */
@@ -1462,6 +1530,7 @@ function recordForged(analysis, command, eventCwd) {
     if (scannerWrites(cmd) && !(orchestrators && cmd.cwd === MAIN_CHECKOUT)) return true;
   }
   if (analysis.codes.some(codeTouchesRecords)) return true;
+  if (analysis.cmds.some(blindRead)) return true;
   const names = (cmd) => (cmd.cwd !== null && recordPath(cmd.cwd)) || words(cmd.raw ?? "").some((w) => namesRecord(w, cmd.cwd ?? eventCwd));
   if (!analysis.cmds.some(names)) return analysis.truncated && RECORD_TEXT.test(tidy(flat));
   // CDPATH moves a relative cd where the reader does not follow.
@@ -1872,8 +1941,13 @@ function readsCommands(cmd, flat) {
   if (interpreter && (codeOf(cmd) !== null || cmd.args.includes("-m"))) return false;
   const operands = cmd.args.filter((a) => (!a.startsWith("-") || a === "-") && !/^\d*(?:[<>]&?\d*|>>)$/.test(a));
   if (operands.length === 0 || operands[0] === "-" || operands[0].startsWith("<(") || operands[0].startsWith("<<<") || operands[0] === "/dev/stdin") return true;
-  const script = operands[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`>\\s*(?:\\S*/)?${script}(?:[\\s;&|)]|$)`).test(flat);
+  return writtenHere(operands[0], flat);
+}
+
+/** True when the command itself writes the file `path` (`> s.sh`, `tee s.sh`), so running it runs that text. */
+function writtenHere(path, flat) {
+  const script = path.replace(/^(?:\.\/)+/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:>|\\btee(?:\\s+-\\S+)*)\\s*(?:\\S*/)?${script}(?:[\\s;&|)]|$)`).test(flat);
 }
 
 const PUSH_REASONS = {

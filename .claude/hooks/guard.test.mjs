@@ -756,3 +756,96 @@ test("T-GUARD-A: the corpus named by a brace, a variable or a substitution stays
   assert.equal(bash(`for f in ${L}/ok/*; do echo $f; done`), null);
   assert.equal(bash(`for f in ${L}/ok/*; do cat $f; done`), "RECORD_FORGED");
 });
+
+test("T-GUARD-A round 1: the ledger writer at the command's own position is a run, from a builder", () => {
+  for (const command of [
+    "uv run scripts/ledger.py record --ticket x",
+    "uv run --no-sync scripts/ledger.py record --ticket x",
+    "uv run ./scripts/ledger.py record --ticket x",
+    "uv run --script scripts/ledger.py record --ticket x",
+    "uv run --no-project scripts/ledger.py record --ticket x",
+    "python3 -m runpy scripts.ledger record --ticket x",
+    "python3 -I -m runpy scripts.ledger record",
+    "./scripts/ledger.py record --ticket x",
+    "uv run --no-project tools/leakscan/__main__.py build --source /tmp/x",
+    "python3 -m runpy tools.leakscan build --source /tmp/x",
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(inMain("uv run scripts/ledger.py record --ticket x"), null);
+  assert.equal(bash("uv run pytest scripts/tests/test_ledger.py"), null);
+});
+
+test("T-GUARD-A round 1: a script a heredoc writes and the same command runs is read whole", () => {
+  const C = "/home/riz/vextrus-cubit/.private/work/leakscan/corpus";
+  for (const [command, rule] of [
+    [`cat > s.py <<'EOF'\nprint(open('${C}').read())\nEOF\npython3 s.py`, "RECORD_FORGED"],
+    ["cat > s.sh <<'EOF'\ncp /dev/null /home/riz/vextrus-cubit/.private/work/factory/ledger/9-abc.json\nEOF\nbash s.sh", "RECORD_FORGED"],
+    ["cat > s.sh <<'EOF'\necho x > /home/riz/vextrus-cubit/.private/work/leakscan/ok/abc\nEOF\nsh s.sh", "RECORD_FORGED"],
+    ["cat > s.sh <<'EOF'\npython3 -m scripts.ledger record --ticket x\nEOF\nbash s.sh", "RECORD_FORGED"],
+    ["cat > s.py <<'EOF'\nimport subprocess\nsubprocess.run(['python3', '-m', 'scripts.ledger', 'record'])\nEOF\npython3 s.py", "RECORD_FORGED"],
+    ["cat > w.sh <<'EOF'\nwhile pgrep -f x; do sleep 1; done\nEOF\nbash w.sh", "SELF_MATCHING_WAIT"],
+    ["tee w.sh <<'EOF' >/dev/null\nwhile pgrep -f x; do sleep 1; done\nEOF\nbash w.sh", "SELF_MATCHING_WAIT"],
+  ]) {
+    assert.equal(bash(command), rule, command);
+  }
+  assert.equal(bash("cat > s.py <<'EOF'\nprint('hello')\nEOF\npython3 s.py"), null);
+});
+
+test("T-GUARD-A round 1: after a cd the reader cannot follow, content viewers do not print the corpus", () => {
+  for (const command of [
+    'cd "$CLAUDE_PROJECT_DIR/.private/work/leakscan" && grep -r x .',
+    'cd "$CLAUDE_PROJECT_DIR/.private/work/leakscan" && cat corpus',
+    'cd "$CLAUDE_PROJECT_DIR/.private/work/leakscan" && sort corpus | head',
+    "M=/home/riz/vextrus-cubit; cd $M/.private/work/leakscan && cat corpus",
+    "cd .private/work/leakscan && cd /tmp && cd - && cat corpus",
+    "cd ~- && cat corpus",
+    "cd $OLDPWD && cat corpus",
+    "cd $OLDPWD && grep -r x",
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash("cd .private/work/s12 && cat notes.md"), null);
+  assert.equal(bash('cd "$HOME" && ls'), null);
+});
+
+test("T-GUARD-A round 1: tree's file-reading options do not print the corpus", () => {
+  const C = "/home/riz/vextrus-cubit/.private/work/leakscan/corpus";
+  for (const command of [`tree -H . --hintro=${C} /tmp`, `tree -H . --houtro=${C} /tmp`, `tree -H . --houtro ${C} /tmp`, `tree --infofile=${C} /tmp`, `tree -H . --hin ${C} /tmp`]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash("tree -L 1 .private/work/leakscan"), null);
+});
+
+test("T-GUARD-A round 1: git config write options by unique prefix are writes", () => {
+  const G = ".git/config";
+  for (const command of [
+    "git config --unset-a core.hooksPath",
+    "git config --unset-al core.hooksPath",
+    "git config --local --unset-a core.hooksPath",
+    `git config --file ${G} --unset-a core.hooksPath`,
+    "git-config --unset-a core.hooksPath",
+    "git config --rep core.hooksPath /tmp/x",
+    "git config --ad core.hooksPath /tmp/x",
+    "git config --zzz core.hooksPath",
+  ]) {
+    assert.equal(bash(command), "HOOKS_PATH", command);
+  }
+  for (const command of ["git config --get-a core.hooksPath", "git config --show-o --get core.hooksPath", "git config --loc --get core.hooksPath"]) {
+    assert.equal(bash(command), null, command);
+  }
+});
+
+test("T-GUARD-A round 1: a written script run by its ./path, and a removed core section, are judged", () => {
+  const C = "/home/riz/vextrus-cubit/.private/work/leakscan/corpus";
+  for (const command of [
+    `cat > s.sh <<'EOF'\ncat ${C}\nEOF\nchmod +x s.sh && bash ./s.sh`,
+    `cat > s.sh <<'EOF'\ncat ${C}\nEOF\nchmod +x s.sh && ./s.sh`,
+    `cat 1>s.py <<'EOF'\nprint(open('${C}').read())\nEOF\npython3 s.py`,
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash("git config --remove-section core"), "HOOKS_PATH");
+  assert.equal(bash("git config --rename-section core x"), "HOOKS_PATH");
+  assert.equal(bash("git config --get core.editor"), null);
+});
