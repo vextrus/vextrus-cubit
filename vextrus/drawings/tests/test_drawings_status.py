@@ -81,7 +81,7 @@ def test_the_summary_counts_what_could_not_be_read_and_every_listed_sheet(
         shown = services.files(held.set_id)
 
     assert services.summary(shown) == said.SUMMARY(
-        files=3, sheets=2, held_sheets=2, reading=0, failed=2, held=1, refused=0
+        files=3, sheets=2, held_sheets=2, held_files_read=1, reading=0, failed=2, held=1, refused=0
     )
     assert status(member, failed.id) == ("failed", said.FAILED(tries=3))
 
@@ -256,7 +256,7 @@ def test_a_pdf_says_its_plot_and_sits_under_its_dwg(qs_project: QsProject) -> No
     assert shown[loose.id].status == said.PLOT_MATCHED(matched=0, pages=2)
     assert shown[dwg.id].sheets_found == 2
     assert services.summary(shown.values()) == said.SUMMARY(
-        files=5, sheets=2, held_sheets=0, reading=0, failed=0, held=0, refused=0
+        files=5, sheets=2, held_sheets=0, held_files_read=0, reading=0, failed=0, held=0, refused=0
     )
 
 
@@ -285,7 +285,7 @@ def test_the_summary_counts_as_reading_only_the_files_being_read(qs_project: QsP
         shown = services.files(waiting.set_id)
     assert [f.state for f in shown] == ["waiting", "reading"]
     assert services.summary(shown) == said.SUMMARY(
-        files=2, sheets=0, held_sheets=0, reading=1, failed=0, held=0, refused=0
+        files=2, sheets=0, held_sheets=0, held_files_read=0, reading=1, failed=0, held=0, refused=0
     )
 
 

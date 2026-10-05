@@ -686,7 +686,8 @@ PDF files here to add them, or choose files." The whole page accepts a drop, sho
 Status · Sheets found. A DWG's PDF sits under it once its pages match its sheets. Selecting a row
 (click or `Enter`) opens the file's report in a 480 px docked panel on the right; the table keeps at
 least 752 px at 1280. The sheets of a held file read anyway are in the summary's count and named:
-"221 sheets read (28 of them from a held file), 1 held".
+"221 sheets read (28 of them from a held file), 1 held"; with more than one such file, "(23 of them from 2
+held files)"; when every sheet read came from them, "(all from a held file)".
 
 **Discipline** defaults from the file (spec amendment 8; proposed from the sheet numbers' prefix and
 the file name), shown as a quiet select the QS may change on the row; Step 1 starts from it. Its
@@ -730,7 +731,7 @@ Messages that do not make a row (a toast, or an ErrorBar for several files at on
 | A zip | "drawings.zip is a zip file. Unzip it and drop the DWG and PDF files inside." |
 | Too large | "KR-ARC-R0.dwg is larger than 500 MB, so it was not added. Tell Vextrus if your drawings need more." (the limit is ticket 14's; the figure here is a placeholder) |
 | Several at once | "3 files added; 1 was already here." |
-| Cancel reading after the read ended | "This file finished reading before the cancel arrived, so nothing was undone. Its row shows how it ended." (a toast; the row shows how it ended) |
+| Cancel reading after the read ended | "This file had finished reading before you cancelled, so nothing was undone. Its row shows how it ended." (a toast; the row shows how it ended) |
 
 **The report panel for a DWG** (sections in this order, each hidden when it has nothing to say):
 - **Header:** the file's name; "Architectural. Added 26 Sep 2026 by Nusrat Jahan"; "Close  Esc".

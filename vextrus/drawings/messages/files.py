@@ -62,10 +62,11 @@ REFUSED_SCAN = MessageCode("drawings.files.refused_scan")
 
 SUMMARY = MessageCode(
     "drawings.files.summary",
-    params=("files", "sheets", "held_sheets", "reading", "failed", "held", "refused"),
+    params=("files", "sheets", "held_sheets", "held_files_read", "reading", "failed", "held", "refused"),
 )
 """The page's one-line summary: the files; the sheets in the sheet list (of read files, and held
-files read anyway); the part of those sheets that comes from held files read anyway; the files
+files read anyway); the part of those sheets that comes from held files read anyway, and how many
+such held files there are (the clause's plural, #327 review); the files
 being read (not those waiting, stopping or about to be tried again: the orchestrator's ruling);
 those that could not be read (failed, or saved by an old AutoCAD); held; refused."""
 

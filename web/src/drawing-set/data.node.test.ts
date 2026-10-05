@@ -156,10 +156,18 @@ describe('every PDF report code has its section on purpose', () => {
 })
 
 describe('summaryLine', () => {
+  const bare = { code: 'drawings.files.summary', params: { files: 4, sheets: 30, reading: 0, failed: 0, held: 1, refused: 0 } }
+
   it('reads a summary without held_sheets as none from a held file, never NaN', () => {
-    const bare = { code: 'drawings.files.summary', params: { files: 4, sheets: 30, reading: 0, failed: 0, held: 1, refused: 0 } }
-    expect(summaryLine(bare).params).toEqual({ ...bare.params, held_sheets: 0 })
-    const full = { code: 'drawings.files.summary', params: { ...bare.params, held_sheets: 6 } }
-    expect(summaryLine(full)).toBe(full)
+    expect(summaryLine(bare).params).toMatchObject({ held_sheets: 0, held_files_read: 0, held_all: 'no' })
+  })
+
+  it('reads a summary without held_files_read as one held file', () => {
+    expect(summaryLine({ ...bare, params: { ...bare.params, held_sheets: 6 } }).params).toMatchObject({ held_files_read: 1, held_all: 'no' })
+  })
+
+  it('says all when every sheet read came from held files', () => {
+    const all = { ...bare, params: { ...bare.params, held_sheets: 30, held_files_read: 2 } }
+    expect(summaryLine(all).params).toMatchObject({ held_files_read: 2, held_all: 'yes' })
   })
 })

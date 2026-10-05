@@ -88,4 +88,4 @@ def test_the_summary_counts_a_held_files_sheets_in_both_numbers(qs_project: QsPr
         services.answer_held(held.id, "read_anyway")
         services.mark_read(held.id)
         params = services.summary(services.files(read.set_id))["params"]
-    assert (params["sheets"], params["held_sheets"]) == (3, 2)
+    assert (params["sheets"], params["held_sheets"], params["held_files_read"]) == (3, 2, 1)

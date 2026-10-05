@@ -31,7 +31,7 @@ describe('a cancel that came too late', () => {
 
     await waitFor(() =>
       expect(clean([...document.querySelectorAll('[role="status"]')].map((s) => s.textContent).join(' '))).toContain(
-        'finished reading before the cancel arrived',
+        'had finished reading before you cancelled',
       ),
     )
     expect(document.querySelector('[role="alert"]')).toBeNull()

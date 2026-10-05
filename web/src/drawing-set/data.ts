@@ -56,12 +56,17 @@ export function rowActs(file: Pick<FileOut, 'state' | 'format'>, changes: boolea
 }
 
 /**
- * The summary line's message as the page words it: `held_sheets` (the sheets from held files read
- * anyway, #327) is 0 when the API's summary does not carry it, so the clause is left out, never "NaN".
+ * The summary line's message as the page words it (#327). A reply without `held_sheets` (the sheets
+ * from held files read anyway) reads as 0, so the clause is left out, never "NaN"; one without
+ * `held_files_read` reads as one held file. `held_all` ("yes" when every sheet read came from held
+ * files: "(all from a held file)") is the page's own, since the words cannot compare two counts.
  */
 export function summaryLine(summary: MachineMessage): MachineMessage {
-  const held = summary.params.held_sheets
-  return typeof held === 'number' ? summary : { ...summary, params: { ...summary.params, held_sheets: 0 } }
+  const { params } = summary
+  const heldSheets = typeof params.held_sheets === 'number' ? params.held_sheets : 0
+  const heldFiles = typeof params.held_files_read === 'number' ? params.held_files_read : heldSheets > 0 ? 1 : 0
+  const all = heldSheets > 0 && heldSheets === params.sheets ? 'yes' : 'no'
+  return { ...summary, params: { ...params, held_sheets: heldSheets, held_files_read: heldFiles, held_all: all } }
 }
 
 /** A determinate share for the progress line, when the status counts its steps ("sheet 12 of 38"). */

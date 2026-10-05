@@ -251,6 +251,7 @@ def summary(views: Iterable[FileView]) -> Message:
         files=len(shown),
         sheets=sum(view.sheets_found or 0 for view in shown),
         held_sheets=sum(view.sheets_found or 0 for view in shown if view.state == FileState.HELD),
+        held_files_read=sum(1 for view in shown if view.state == FileState.HELD and view.sheets_found),
         reading=states[FileState.READING],
         failed=states[FileState.FAILED] + states[FileState.UNREADABLE],
         held=states[FileState.HELD],
