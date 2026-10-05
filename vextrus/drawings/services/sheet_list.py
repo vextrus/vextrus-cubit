@@ -145,6 +145,8 @@ class ViewView:
     storeys_as_stated: str
     storeys: tuple[str, ...]
     storeys_meaning: str | None
+    storeys_source: str | None
+    """Where its storeys were read: None for its own title, else "sheet_title" (T-W318)."""
     subject: str | None
     layer: str | None
     steps: tuple[str, ...]
@@ -567,11 +569,13 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
             subject = _text.read(candidate.subject)
             layer = _text.read(candidate.layer)
             meaning = _text.read(candidate.storeys_meaning)
+            source = _text.read(candidate.storeys_source)
             if not _text.fits(
                 (scale, _length(View, "stated_scale_text")),
                 (subject, _length(View, "subject")),
                 (layer, _length(View, "layer")),
                 (meaning, _length(View, "storeys_meaning")),
+                (source, _length(View, "storeys_source")),
             ):
                 continue
             made.append(
@@ -589,6 +593,7 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
                     storeys_as_stated=_text.read(candidate.storeys_as_stated),
                     storeys=_text.read_json(list(candidate.storeys)),
                     storeys_meaning=meaning,
+                    storeys_source=source,
                     subject=subject,
                     layer=layer,
                     steps=_text.read_json(list(candidate.steps)),
@@ -925,6 +930,7 @@ def _view_view(view: View) -> ViewView:
         storeys_as_stated=view.storeys_as_stated,
         storeys=tuple(view.storeys),
         storeys_meaning=view.storeys_meaning or None,
+        storeys_source=view.storeys_source or None,
         subject=view.subject or None,
         layer=view.layer or None,
         steps=tuple(view.steps),

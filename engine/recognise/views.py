@@ -99,7 +99,13 @@ range runs to), so "typical" is a storey only beside a floor or plan word; they 
 (`at_floor_level`) unless its subject is one drawn floor to floor (`FLOOR_TO_FLOOR`). Its subject is the
 conventions' subject whose words stand first in the title (the longest words first: "pile cap" before
 "pile"); its layer the top or bottom words ("top" before a floor or level word is a storey, not a
-layer). A view drawn with no title has none of these.
+layer). A view drawn with no title has none of these. **A sheet's only plan whose own title states no
+storey** (none, or no title) takes the storeys its sheet's title states (13's `storeys_as_stated`, read
+the same way), recorded as read from the sheet's title (`StoreysSource.SHEET_TITLE`; the owner's
+ruling of 5 Oct 2026 on #318); their meaning is decided by its own subject, else by the sheet title's
+when it names exactly one, and its own subject is left as read. A sheet of two or more plans gives
+none of them its title's storeys (a plan that states none stays `not_stated`), and no view of another
+kind takes any.
 
 **What it is proposed for** (m0-screens 6.18; the plan's review Q2 and Q7), by its sheet's Discipline:
 every view of a sheet whose Discipline is a notes one (`ViewConventions.notes_disciplines`, a Market's
@@ -169,6 +175,7 @@ from engine.recognise.types import (
     Layer,
     SheetCandidate,
     StoreysMeaning,
+    StoreysSource,
     ViewCandidate,
     ViewConventions,
     ViewKind,
@@ -1406,10 +1413,43 @@ def find(
         found.append(_View(None, None, ViewKind.TITLE_BLOCK, block))
     discipline = sheet.discipline.value if sheet.discipline is not None else None
     on_sheet = _subjects_in_order(sheet.title.value, reading) if sheet.title is not None else ()
-    result = FoundViews(_candidate(v, paper, reading, discipline, on_sheet) for v in found)
+    made = [_candidate(v, paper, reading, discipline, on_sheet) for v in found]
+    result = FoundViews(_inherit(made, sheet, on_sheet))
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(artefact)
     return result
+
+
+def _inherit(
+    made: Sequence[ViewCandidate], sheet: SheetCandidate, on_sheet: Sequence[str]
+) -> list[ViewCandidate]:
+    """The sheet's only plan, when its own title states no storey, given the storeys its sheet's
+    title states (the module's docstring, "Its storeys"); every other view as made."""
+    plans = [i for i, v in enumerate(made) if v.kind is ViewKind.PLAN]
+    stated = sheet.storeys_as_stated.value if sheet.storeys_as_stated is not None else ""
+    if len(plans) != 1 or not stated or made[plans[0]].storeys not in _STATES_NONE:
+        return list(made)
+    read = storeys.read(stated, sheet_finder.default_conventions(), plan_title=True)
+    keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))
+    if not keys or keys == _STATES_NONE[1]:
+        return list(made)
+    plan = made[plans[0]]
+    subject = plan.subject or (on_sheet[0] if len(on_sheet) == 1 else None)
+    meaning = (
+        StoreysMeaning.FLOOR_TO_FLOOR if subject in FLOOR_TO_FLOOR else StoreysMeaning.AT_FLOOR_LEVEL
+    )
+    given = replace(
+        plan,
+        storeys=keys,
+        storeys_as_stated=" ".join(stated.split()),
+        storeys_meaning=meaning,
+        storeys_source=StoreysSource.SHEET_TITLE,
+    )
+    return [given if i == plans[0] else v for i, v in enumerate(made)]
+
+
+_STATES_NONE = ((), ("not_stated",))
+"""A plan's storeys when its own title states none: no title, or one naming no storey."""
 
 
 def _report(artefact: ReadArtefact) -> dict[str, int]:

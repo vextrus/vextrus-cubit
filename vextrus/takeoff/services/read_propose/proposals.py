@@ -27,8 +27,11 @@ answered one is never touched); the conflicts are asked again after every act on
 (`set_conflicts`); two plans of one subject whose floor-to-floor ranges meet at a storey asked where
 the first ends (a `convention` Question: 19b raises no conflict for them); the drawing list read on
 a sheet (13's register) kept per Discipline, and 19b's register Check run (`CheckRun`, trigger
-`read`), each finding a `check` Question. A Question raised again is the one asked
-(`step1.raise_question`).
+`read`), each finding a `check` Question; 19b's storey-titles Check (a sheet's title storeys against
+its plans', `CheckRun` too), its findings asked as one `check` Question per Discipline holding that
+Discipline's undecided disagreeing sheets (none undecided: nothing asked), retired when none is found
+again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet). A Question
+raised again is the one asked (`step1.raise_question`).
 """
 
 import uuid
@@ -37,8 +40,11 @@ from dataclasses import replace
 from typing import Any
 
 from engine.check import register as register_check
+from engine.check import storey_titles
+from engine.messages import Message
 from engine.messages import conflicts as conflict_codes
 from engine.messages import register_check as list_codes
+from engine.messages import storey_titles as storey_codes
 from engine.read import ReadArtefact
 from engine.recognise import conflicts as finder
 from engine.recognise import register as register_reader
@@ -58,6 +64,7 @@ from engine.recognise.types import (
     SheetLocation,
     Sourced,
     StoreysMeaning,
+    StoreysSource,
     ValueSource,
     ViewCandidate,
     ViewKind,
@@ -77,6 +84,9 @@ MISSING_OPTIONS = ("no_number", "type_number", KEEP_OPEN)
 LISTS_OPTIONS = ("use_read", "use_given", KEEP_OPEN)
 BOUNDARY_OPTIONS = ("includes_storey", "excludes_storey", KEEP_OPEN)
 CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
+STOREY_TITLE_OPTIONS = ("plans_right", "title_right", KEEP_OPEN)
+"""The storey-titles Question's options: each is recorded only (the QS corrects a plan's storeys in
+the list, story 28)."""
 
 
 def options(keys: Sequence[str]) -> list[dict[str, object]]:
@@ -306,12 +316,15 @@ def candidate(sheet: drawings.SheetView, group: str | None = None) -> SheetCandi
 def view_candidate(view: drawings.ViewView) -> ViewCandidate:
     x0, y0, x1, y1 = (float(v) for v in view.box)
     meaning = StoreysMeaning(view.storeys_meaning) if view.storeys and view.storeys_meaning else None
+    sources = {str(s) for s in StoreysSource}
+    source = view.storeys_source if meaning and view.storeys_source in sources else None
     return ViewCandidate(
         box=Box(x0, y0, x1, y1),
         kind=ViewKind(view.kind),
         title=view.title or None,
         storeys=tuple(view.storeys) if meaning else (),
         storeys_meaning=meaning,
+        storeys_source=StoreysSource(source) if source else None,
         subject=view.subject,
         layer=Layer(view.layer) if view.layer in {str(v) for v in Layer} else None,
     )
@@ -351,8 +364,8 @@ def _read_lists(
 
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
-    """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before)."""
+    """The set's conflicts, boundary storeys, register Check and storey-titles Check, over every sheet
+    in the sheet list (see the module); how many Questions they hold (asked now or before)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -369,6 +382,7 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     asked = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
     asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    asked += _storey_titles(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
     return asked
 
 
@@ -632,3 +646,68 @@ def _register(
         findings=findings,
     )
     return len(fired)
+
+
+def _storey_titles(
+    project_id: uuid.UUID,
+    listed: Sequence[drawings.SheetView],
+    sheets: Sequence[SheetCandidate],
+    views: Sequence[Sequence[ViewCandidate]],
+    proposal_of: Mapping[uuid.UUID, uuid.UUID],
+    recognisers: finder.Recognisers,
+    conventions: SheetConventions,
+) -> int:
+    """19b's storey-titles Check over the set: each sheet whose title names storeys its plans do not
+    agree with, asked as one `check` Question per Discipline (`storey_codes.DIFFERS`, the first such
+    sheet named as the example) holding its undecided disagreeing sheets; a sheet of no Discipline, or
+    a decided one, is held by none. The Check's run is recorded with each finding. How many Questions
+    were asked."""
+    reading = SetReading(
+        sheets=tuple(sheets),
+        views=tuple(tuple(vs) for vs in views),
+        read=frozenset({"views"}),
+        conventions=conventions,
+    )
+    results = storey_titles.check(reading, recognisers=recognisers)
+    at = {id(c): i for i, c in enumerate(sheets)}
+    fired: list[tuple[Message, drawings.SheetView | None]] = []
+    asked: dict[str, list[tuple[Message, drawings.SheetView]]] = {}
+    for result in results:
+        if result.outcome != CheckOutcome.FIRED or result.finding is None:
+            continue
+        index = at.get(id(result.subject)) if result.subject is not None else None
+        sheet = listed[index] if index is not None else None
+        fired.append((result.finding, sheet))
+        if sheet is not None and sheet.discipline and not sheet.decision:
+            asked.setdefault(sheet.discipline, []).append((result.finding, sheet))
+    raised: dict[str, uuid.UUID] = {}
+    for discipline, found in asked.items():
+        example = dict(found[0][0]["params"])
+        message = storey_codes.DIFFERS(discipline=discipline, count=len(found), **example)
+        raised[discipline] = step1.raise_question(
+            project_id,
+            "check",
+            message,
+            discipline=discipline,
+            options=options(STOREY_TITLE_OPTIONS),
+            check_code=storey_titles.CODE,
+            blocks=[proposal_of[s.id] for _, s in found if s.id in proposal_of],
+        )
+    step1.retire_questions(project_id, (storey_codes.DIFFERS.code,), raised.values())
+    findings = [
+        (
+            finding,
+            [sheet.id] if sheet is not None else [],
+            raised.get(sheet.discipline or "") if sheet is not None and not sheet.decision else None,
+        )
+        for finding, sheet in fired
+    ]
+    step1.record_check_run(
+        project_id,
+        storey_titles.CODE,
+        storey_titles.VERSION,
+        passed=len(results) - len(fired),
+        total=len(results),
+        findings=findings,
+    )
+    return len(raised)

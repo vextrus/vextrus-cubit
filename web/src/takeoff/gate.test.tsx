@@ -339,21 +339,23 @@ describe('M2: the files band and the Storeys and Views columns', () => {
   })
 })
 
-describe('M12: a title that states its storeys never reads "not stated"', () => {
-  it('reads storeys from the stated text when the keys are empty (a level stays not stated); a typical floor reads "typical (range from Step 3)"', async () => {
+describe('M12: a title that states its storeys never reads "not stated" (as T-W318 amended it)', () => {
+  it('shows a plan’s storeys taken from its sheet’s title "as titled", never fills a plan’s missing keys from text, and words a sheet with no plan by its title', async () => {
     const { api, step1 } = kr01()
-    const plan = (id: string, asStated: string) => ({ id, ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys: [], storeys_as_stated: asStated, storeys_meaning: null, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, { storeys_as_stated: '3RD, 5TH & 7TH FLOOR', views: [plan('m1', '')] })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { storeys_as_stated: '', views: [plan('m2', '2ND  FLOOR')] })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { storeys_as_stated: 'TYPICAL FLOOR', views: [plan('m3', '')] })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { storeys_as_stated: '', views: [plan('m4', '')] })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { storeys_as_stated: 'EL. +16\'-6"', views: [plan('m5', '')] })
-    Object.assign(step1.proposals.find((p) => p.number === 'S-08')!, { storeys_as_stated: '6TH FLOOR TO ROOF', views: [plan('m6', '')] })
+    const plan = (id: string, storeys: string[], asStated = '', source: string | null = null) => ({ id, ordinal: 1, kind: 'plan', title: 'PLAN', stated_scale: '', not_to_scale: false, storeys, storeys_as_stated: asStated, storeys_meaning: storeys.length ? 'at_floor_level' : null, storeys_source: source, steps: [], part: null, proposed_exclusion: null, decision: null, excluded_reason: null, box: ['0', '0', '1', '1'] })
+    const section = { ...plan('m7', []), kind: 'section', title: 'SECTION' }
+    Object.assign(step1.proposals.find((p) => p.number === 'S-06')!, { storeys_as_stated: '3RD, 5TH & 7TH FLOOR', views: [plan('m1', ['floor_3', 'floor_5', 'floor_7'], '3RD, 5TH & 7TH FLOOR', 'sheet_title')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-05')!, { storeys_as_stated: '', views: [plan('m2', [], '2ND  FLOOR')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-04')!, { storeys_as_stated: 'TYPICAL FLOOR', views: [plan('m3', ['typical'], 'TYPICAL FLOOR', 'sheet_title')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-03')!, { storeys_as_stated: '4TH FLOOR', views: [plan('m4', ['not_stated']), plan('m8', ['not_stated'])] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-02')!, { storeys_as_stated: 'EL. +16\'-6"', views: [plan('m5', ['not_stated'])] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-08')!, { storeys_as_stated: '6TH FLOOR TO ROOF', views: [plan('m6', ['floor_6', 'roof', 'top'], '6TH FLOOR TO ROOF', 'sheet_title')] })
+    Object.assign(step1.proposals.find((p) => p.number === 'S-01')!, { storeys_as_stated: '2ND & 9TH FLOOR', storeys_titled: ['floor_2', 'floor_9'], views: [section] })
     await open(api)
-    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th, 7th')
+    expect(clean(rowOf('S-06').textContent)).toContain('3rd, 5th, 7th as titled')
     expect(clean(rowOf('S-06').textContent)).not.toContain('not stated')
-    expect(clean(rowOf('S-05').textContent)).toContain('2nd')
-    expect(clean(rowOf('S-05').textContent)).not.toContain('not stated')
+    // The engine decided: a plan with no keys is "not stated", whatever text it carries.
+    expect(clean(rowOf('S-05').textContent)).toContain('not stated')
     for (const [said, keys] of [
       ['2ND BASEMENT FLOOR', ['basement_2']],
       ['6TH FLOOR TO ROOF', ['floor_6', 'top', 'roof']],
@@ -368,9 +370,13 @@ describe('M12: a title that states its storeys never reads "not stated"', () => 
     // A level is not a storey: amber "not stated" beside its Question (6.8), never the level as text.
     expect(clean(rowOf('S-02').textContent)).toContain('not stated')
     expect(clean(rowOf('S-02').textContent)).not.toContain('16')
-    expect(clean(rowOf('S-08').textContent)).toContain('6th to Roof (floors between from Step 3)')
+    expect(clean(rowOf('S-08').textContent)).toContain('6th to Roof (floors between from Step 3) as titled')
     expect(clean(rowOf('S-04').textContent)).toContain('typical (range from Step 3)')
+    // Two plans stating none stay "not stated", whatever the sheet's title states (the owner's ruling).
     expect(clean(rowOf('S-03').textContent)).toContain('not stated')
+    expect(clean(rowOf('S-03').textContent)).not.toContain('4th')
+    // No plan view: the title's storeys, from the API's keys, muted, as titled.
+    expect(clean(rowOf('S-01').textContent)).toContain('2nd, 9th as titled')
   })
 })
 

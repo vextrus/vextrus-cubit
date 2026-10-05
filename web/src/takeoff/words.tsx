@@ -91,6 +91,7 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.register_check.gap': msg`A gap in the numbering`,
   'engine.register_check.not_found': msg`On the drawing list, in no file`,
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
+  'engine.storey_titles.differs': msg`Title and plans name different storeys`,
   'takeoff.step1.no_number': msg`No number`,
   'takeoff.step1.which_kind': msg`Sheet kind unclear`,
   'takeoff.proposals.which_kind': msg`Sheet kind unclear`,
@@ -128,6 +129,8 @@ export const OPTION_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   not_sent_yet: msg`Not sent yet: keep it in the count as missing and ask the consultant`,
   not_in_set: msg`Not part of this set: record it; it stays on the drawing list`,
   file_not_added: msg`It is in a file I haven’t added yet`,
+  plans_right: msg`The plans are right: keep the storeys they name`,
+  title_right: msg`The titles are right: I’ll correct the plans’ storeys in the list`,
   keep_open: msg`Keep open, ask the consultant`,
 }
 

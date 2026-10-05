@@ -61,6 +61,7 @@ from django.utils import timezone
 from engine.check import register
 from engine.messages import Message
 from engine.messages import register_check as list_codes
+from engine.recognise import storeys
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
@@ -154,6 +155,9 @@ class ProposalView:
     """Where its number was read: "title_block_attribute", "title_block_text", …; None for none."""
     title_source: str | None = None
     storeys_as_stated: str = ""
+    storeys_titled: tuple[str, ...] | None = None
+    """The storey keys its title's storey words read to (13's `storeys.read`, with where a range runs
+    to), derived on the read and stored nowhere; None when it states none or they read to no key."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
     plot_file: str | None = None
@@ -178,6 +182,8 @@ class SheetViewView:
     storeys: list[str]
     storeys_as_stated: str
     storeys_meaning: str | None
+    storeys_source: str | None
+    """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -365,15 +371,31 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
+    titled = _titled({s.storeys_as_stated for s in sheets})
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), names, who, order),
             agrees=s.id in agreeing,
+            storeys_titled=titled.get(s.storeys_as_stated),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
         )
         for s in sheets
     ]
+
+
+def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
+    """Each distinct storey wording a sheet's title states, read once to its storey keys
+    (`ProposalView.storeys_titled`)."""
+    conventions = default_conventions()
+    found: dict[str, tuple[str, ...] | None] = {}
+    for text in stated:
+        if not text:
+            continue
+        read = storeys.read(text, conventions, plan_title=True)
+        keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))
+        found[text] = keys if keys and keys != ("not_stated",) else None
+    return found
 
 
 _TITLE_BLOCK = frozenset({ValueSource.TITLE_BLOCK_ATTRIBUTE, ValueSource.TITLE_BLOCK_TEXT})
@@ -494,6 +516,7 @@ def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
         storeys=list(view.storeys),
         storeys_as_stated=view.storeys_as_stated,
         storeys_meaning=view.storeys_meaning,
+        storeys_source=view.storeys_source,
         steps=list(view.steps),
         part=view.part,
         proposed_exclusion=view.proposed_exclusion,

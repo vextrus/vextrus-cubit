@@ -581,7 +581,11 @@ function SheetRow({
           <>
             <StoreyStrip slots={slots} views={row.sheets.flatMap((p) => p.views ?? [])} muted={excluded} />
             <span className="min-w-0 truncate">
-              <StoreysText views={row.sheets.flatMap((p) => p.views ?? [])} stated={[...new Set(row.sheets.map((p) => p.storeys_as_stated).filter(Boolean))].join(', ')} />
+              <StoreysText
+                views={row.sheets.flatMap((p) => p.views ?? [])}
+                stated={[...new Set(row.sheets.map((p) => p.storeys_as_stated).filter(Boolean))].join(', ')}
+                titled={row.sheets.length === 1 ? first.storeys_titled : undefined}
+              />
             </span>
           </>
         ) : null}

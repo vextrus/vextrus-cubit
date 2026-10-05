@@ -682,6 +682,13 @@ class View(models.Model):
     storeys_as_stated = models.TextField(blank=True)
     storeys = models.JSONField(default=list, blank=True)
     storeys_meaning = models.CharField(max_length=16, blank=True, default="")
+    storeys_source = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        db_default="",
+        help_text="Where its storeys were read: empty for its own title, else 'sheet_title'.",
+    )
     subject = models.CharField(max_length=64, blank=True, default="")
     layer = models.CharField(max_length=8, blank=True, default="")
     steps = models.JSONField(default=list, blank=True)

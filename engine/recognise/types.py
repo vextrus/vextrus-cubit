@@ -148,6 +148,13 @@ class StoreysMeaning(StrEnum):
     """The storeys, floor to floor (a column layout from the 1st to the 10th floor)."""
 
 
+class StoreysSource(StrEnum):
+    """Where a plan view's storeys were read when not from its own title (none: its own title)."""
+
+    SHEET_TITLE = "sheet_title"
+    """Its sheet's title: the sheet's only plan, whose own title states no storey (T-W318)."""
+
+
 class Layer(StrEnum):
     """Which layer of a two-layer drawing a view draws (a slab's top or bottom bars)."""
 
@@ -294,6 +301,8 @@ class ViewCandidate:
     storeys: tuple[str, ...] = ()
     """An explicit list of canonical storeys (13's `storeys.py`), never a first-to-last range."""
     storeys_meaning: StoreysMeaning | None = None
+    storeys_source: StoreysSource | None = None
+    """Where its storeys were read: none for its own title, else `StoreysSource` (only with storeys)."""
     subject: str | None = None
     """What a plan draws (a key of the conventions' subject words)."""
     layer: Layer | None = None
@@ -323,6 +332,10 @@ class ViewCandidate:
         _unique(self.steps, "the Takeoff Step")
         if self.storeys_meaning is not None:
             StoreysMeaning(self.storeys_meaning)
+        if self.storeys_source is not None:
+            StoreysSource(self.storeys_source)
+            if not self.storeys:
+                raise ValueError("a view's storeys source comes only with its storeys")
         if self.subject is not None:
             _key(self.subject, "a view's subject")
         if self.layer is not None:

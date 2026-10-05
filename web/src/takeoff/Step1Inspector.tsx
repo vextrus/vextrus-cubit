@@ -330,7 +330,7 @@ function ReadFrom({ source }: { source: string | null | undefined }) {
   return null
 }
 
-/** "3rd, 5th, 7th, at floor level" with the strip, from the plan views; amber "not stated"; "—" with no plan view (6.6, 6.8). */
+/** "3rd, 5th, 7th, at floor level" with the strip, from the plan views; amber "not stated"; with no plan view, the title's storeys muted "as titled", else "—" (6.6, 6.8). */
 function StoreysFact({ sheet, slots }: { sheet: ProposalOut; slots: readonly string[] }) {
   const { i18n } = useLingui()
   const plans = (sheet.views ?? []).filter((v) => v.kind === 'plan')
@@ -340,7 +340,7 @@ function StoreysFact({ sheet, slots }: { sheet: ProposalOut; slots: readonly str
   return (
     <span className="flex flex-col gap-1">
       <span>
-        <StoreysText views={sheet.views} stated={sheet.storeys_as_stated} />
+        <StoreysText views={sheet.views} stated={sheet.storeys_as_stated} titled={sheet.storeys_titled} />
         {stated && meaning ? <>, {meaning}</> : null}
       </span>
       <StoreyStrip slots={slots} views={sheet.views} size={6} />
@@ -455,8 +455,6 @@ function Views({ sheet, selected, onSelect, readOnly }: { sheet: ProposalOut; se
   const words = useStoreysWords()
   const views = sheet.views ?? []
   const n = views.length
-  // The title's stated storeys belong to its one plan view; with several, each shows only its own.
-  const titleStated = views.filter((v) => v.kind === 'plan').length === 1 ? sheet.storeys_as_stated : ''
   return (
     <Block
       title={
@@ -491,7 +489,7 @@ function Views({ sheet, selected, onSelect, readOnly }: { sheet: ProposalOut; se
               </span>
               {v.kind === 'plan' ? (
                 <span className="text-xs text-ink-secondary">
-                  <StoreysText views={[v]} stated={titleStated} />
+                  <StoreysText views={[v]} />
                   {storeys && meaning && !v.storeys.includes('typical') ? <>, {meaning}</> : null}
                 </span>
               ) : storeys ? (

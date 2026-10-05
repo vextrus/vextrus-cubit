@@ -1028,6 +1028,7 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Read and pasted drawing lists disagree (`conflict`) | "The drawing list on S-01 and the one you pasted differ" (N shows "—" until answered) | 1 "Use the list on S-01" · 2 "Use the pasted list" · 3 "Keep open, ask the consultant" |
 | Boundary storey (amendment 2) | "Does GROUND FLOOR BEAM LAYOUT mean the members at ground-floor level?" | 1 "Members at floor level" · 2 "The storey, floor to floor" · 3 "Keep open, ask the consultant" |
 | Floors that do not run, typical floor, a level title (6.7) | as 6.7 | as 6.7 |
+| Title and plans name different storeys (Check, one per Discipline; T-W318) | "The titles of 3 sheets name storeys their plans do not agree with, for example S-11, which names “3RD, 5TH & 7TH FLOOR” (1 storey in the title has no plan, and 1 storey on a plan is not in the title). Vextrus takes the storeys from the plans." Trace: "the title blocks and plans of S-11, S-12 and S-14" (links). Answered: "Q4 answered. Recorded: the plans’ storeys stand." / "Q4 answered. Recorded: the titles are right; correct each plan’s storeys in the list." | 1 "The plans are right: keep the storeys they name" · 2 "The titles are right: I’ll correct the plans’ storeys in the list" · 3 "Keep open, ask the consultant" (none pre-picked; each is recorded only: the QS corrects a plan's storeys in the inspector, story 28) |
 
 A sheet with neither number nor title is named by its layout and its file, never by an empty quotation:
 "an untitled sheet on layout “Layout2” of NT-ARC-R1.dwg" ("an untitled sheet laid out in the drawing of
@@ -1177,7 +1178,7 @@ to a second line at 1280 and 1440.
 | Title, as drawn | the rest (about 260) | the rest (about 260) | DrawingText (3), cut with an ellipsis, tooltip with the full title |
 | Discipline | 78 | 78 | The Discipline's one name (1.1), cut with an ellipsis where it does not fit ("Plumbing and s…", "Architectur…"); tooltip "Plumbing and sanitary, from the file KR-PLU-R0.dwg" |
 | Revision and date | 106 | 106 | "R1, 14 Sep 2026"; a mark read only from the file name shows "R0" with the tooltip "R0, from the file name KR-STR-R0.dwg"; "—" when neither has one; the older copy of a duplicated number in amber |
-| Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; "—" for a sheet with no plan view |
+| Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; a sheet with no plan view shows the storeys its title states, muted, "as titled" (else "—"), and so does a sheet whose only plan took its title's storeys |
 | Views | 40 | 40 | The number of views, title block included |
 | File | not shown | 104 | The source file; tooltip adds where in it ("laid out in the drawing", "layout "A-24"") |
 | State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Proposal, one source" (5: not in the bulk act) · "Question Q3" · "Q3 kept open" · a proposed exclusion, in the "Proposed to leave out" section whose heading already says so, shows its reason's short form alone, in the Proposal colour with the dashed mark ("cover or index", "for information", "duplicate"; 5) · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
@@ -1389,9 +1390,14 @@ what one storey means (members at floor level or floor to floor): both are bound
   plans, sections). A sheet's storeys are its views' storeys together; its meaning is the views'
   meaning, or "mixed". Shown compactly: a run of three or more storeys one above another reads
   "2nd–8th"; anything else is listed ("3rd, 5th, 7th"). The roofs above the roof never form a run.
-- **Ruling 2: a missing storey is a Question only on plan views.** A sheet with a plan view whose title
-  states no storey shows amber "not stated" (and a Question when no second source settles it); a sheet
-  with no plan view (notes, details, schedules, elevations) shows "—" and raises nothing. An untitled
+- **Ruling 2: a missing storey is a Question only on plan views** (as amended by the owner's ruling of
+  5 Oct 2026 on #318, "Show the title's storeys, marked 'as titled'"). A sheet with a plan view whose
+  title states no storey takes the sheet title's storeys when that view is the sheet's only plan,
+  recorded as read from the sheet's title. A plan view that still states none, on a sheet that draws
+  several plans, shows amber "not stated" (and a Question when no second source settles it). A sheet
+  with no plan view (notes, details, schedules, elevations) shows the storeys its title states, muted,
+  "as titled", with no Question; with none stated it shows "—". A title whose storeys its plans
+  contradict raises one Question per Discipline, not one per sheet (section 5's table). An untitled
   typical floor shows amber "typical (range from Step 3)" until answered.
 - **Ruling 4: the storey strip stays.** A row of slots, one per storey of the building, low to high:
   foundations (pile, pile cap, grade beam) as one slot, Basement, Ground, Mezzanine, 1st…9th, Roof,
