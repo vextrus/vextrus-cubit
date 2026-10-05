@@ -396,6 +396,27 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
         "## Cut\nNone.\n| the export | later |\n",
         "## Cut\nNone.\n\n## Deferred\nThe export.\n",
         "## Cut\n```\nthe export\n```\n",
+        # The refuter's bodies against the first build: each hides an unlinked cut.
+        "## Cut\n- export (#5)\n  ```\n  # x\n  ```\n- tier 2 not built\n",
+        "## Cut\n- export (#5)\n  <!--\n  # x\n  -->\n- tier 2 not built\n",
+        "## Cut\n- export (#5)\u2028# \n- tier 2 not built\n",
+        "## Cut\n- export (#5)\x1c# \n- tier 2 not built\n",
+        "## Cut\nNone.\n<!--\n# x\n-->\n- tier 2 not built\n",
+        "## Cut\n- export (#5)\n  > - tier 2 not built\n",
+        "## Cut\nNone.\n> - tier 2 not built\n",
+        "## Cut\n- export (#5)\n  <ul><li>tier 2 not built</li></ul>\n",
+        "## \u200bCut\n- tier 2 not built\n",
+        "## \u0421ut\n- tier 2 not built\n",
+        "## Not d\u043ene\n- tier 2 not built\n",
+        "## **1. Cut**\n- tier 2 not built\n",
+        "Cut\n---\n- tier 2 not built\n",
+        "<h2>Cut</h2>\n\n- tier 2 not built\n",
+        "## Cuts\n- tier 2 not built\n",
+        "## Cut\n- tier 2 not built <!-- #5 -->\n",
+        "## Cut\n- tier 2 not built [](#5)\n",
+        "## Cut\n- tier 2 not built ``#5``\n",
+        "## Cut\n- export (#5)\n  # x\n- tier 2 not built\n",
+        "## Cut\nFactory-State: READY\nNone.\nTier 2 was not built.\n",
     ],
     ids=[
         "none-line-after-an-item",
@@ -403,6 +424,26 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
         "table-after-a-none-line",
         "next-gated-section-starts-afresh",
         "code-fence",
+        "fence-in-a-continuation-hides-a-heading",
+        "comment-in-a-continuation-hides-a-heading",
+        "line-separator-is-no-line-break",
+        "file-separator-is-no-line-break",
+        "comment-after-a-none-line-hides-a-heading",
+        "quoted-list-in-a-continuation",
+        "quoted-list-after-a-none-line",
+        "html-list-in-a-continuation",
+        "zero-width-space-in-the-heading",
+        "cyrillic-letter-in-the-heading",
+        "cyrillic-letter-in-the-second-word",
+        "bold-numbered-heading",
+        "setext-heading",
+        "html-heading",
+        "plural-heading",
+        "link-in-a-comment",
+        "link-as-an-empty-anchor",
+        "link-in-code",
+        "heading-inside-an-item",
+        "none-line-after-an-ending-line",
     ],
 )
 def test_the_cut_gate_fails_closed_past_the_acceptance_cases(body: str) -> None:
@@ -416,7 +457,7 @@ def test_the_cut_gate_fails_closed_past_the_acceptance_cases(body: str) -> None:
     [
         "## Deferred\nNothing deferred.\n",
         "## Cut\n1. a (#5)\n2) b\n   wrapped (#5)\n",
-        "## Cut\n- a (#5)\n\nHarness net: +3 / −1\n",
+        "## Cut\n- a (#5)\n\nHarness net: +3 / \u22121\n",
         "## Cut\nFactory-State: BLOCKED\n",
         "## Cut\n- a (#5)\n\n## Notes\nThe export was cut.\n",
     ],
@@ -433,4 +474,5 @@ def test_a_refused_cut_line_says_how_to_write_it() -> None:
 
     [problem] = cut_problems("## Cut\nThe export was cut.\n", lambda n: True)
     assert problem.startswith("'cut' body line 2 is not a cut item")
-    assert "`- <what> (#<issue>)`" in problem and "`None.`" in problem
+    assert "`- <what> (#<issue>)`" in problem
+    assert "`None.`" in problem

@@ -28,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+import unicodedata
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -66,23 +67,31 @@ MARKER = re.compile(
 SHA = re.compile(r"[0-9a-f]{40}")
 KINDS = ("diff", "messages", "files", "branch", "title", "body", "comments")
 HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
+HTML_HEADING = re.compile(r" {0,3}<h[1-6]\b[^>]*>(.*)", re.IGNORECASE)
+SETEXT = re.compile(r" {0,3}(?:=+|-+)[ \t]*")
 # A section starts at a heading whose first word is Cut or Deferred, or whose first two are Not done
-# ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading.
-GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
-# A section's first line may say nothing was cut; then only prose may follow it.
+# ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading at the line's start. Only an
+# ATX heading ends one: a heading in a list item, a setext or an HTML heading only opens one.
+GATED = re.compile(r"(cuts?|deferred|deferrals?|not[ \t]+done)\b", re.IGNORECASE)
+LINE_BREAK = re.compile(r"\r\n|\r|\n")
+# A section's first line may say nothing was cut; then only plain prose may follow it.
 NOTHING = re.compile(
     r"(?:[-*+][ \t]+)?(?:none|nothing(?:[ \t]+(?:was[ \t]+)?(?:cut|deferred))?|no[ \t]+cuts)\.?",
     re.IGNORECASE,
 )
-LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|[0-9]+[.)])(?:[ \t]|$)")
+LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|[0-9]+[.)])(?:[ \t]+|$)")
 TABLE_ROW = re.compile(r"[ \t]*\|")
+# Plain text starts with a word, a bracket or a quote, never with markup that opens a block (a quote,
+# a fence, a heading, HTML), and holds no HTML (a comment or a tag can hide lines and links).
+PLAIN = re.compile(r"(?:\*\*|__)?[\w(\"'\[][^<]*")
+CODE_SPAN = re.compile(r"`+[^`]*`+")
 # The only other lines a gated section may hold, each in its exact form: the trailers, the Harness
 # net line and the PR footer. Anything after the form is free text, and free text may hide a cut.
 SESSION_URL = r"https://claude\.ai/code/session_[A-Za-z0-9]+"
 ENDING = re.compile(
     r"Factory-State: (?:READY|BLOCKED)"
     r"|Factory-Verify: [0-9a-f]{40} ok"
-    r"|Harness net: \+[0-9]+ / [-−][0-9]+"
+    r"|Harness net: \+[0-9]+ / [-\u2212][0-9]+"
     r"|Co-Authored-By: Claude [A-Z][a-z]+ [0-9]+(?:\.[0-9]+)* <noreply@anthropic\.com>"
     rf"|(?:Claude-Session: )?{SESSION_URL}"
     r"|\U0001f916 Generated with \[Claude Code\]\(https://claude\.com/claude-code\)"
@@ -92,7 +101,7 @@ HOW_TO_CUT = (
     "and put prose, Harness net and trailers under the next heading"
 )
 ISSUE_LINK = re.compile(
-    r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
+    r"(?<![\w/&])(?<!\]\()#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
 )
 REVIEW_QUERY = """
 query($owner: String!, $name: String!, $pr: Int!) {
@@ -296,48 +305,78 @@ def scan_problems(facts: dict[str, Any], scan: Scan) -> list[str]:
 def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository.
 
-    Fail closed: a section ends at the next heading; every list item, at any depth, is its own item; an
-    item goes on only on an indented plain line straight after it; a first line saying nothing was cut
-    lets prose follow; the ending lines pass in their exact forms; any other line is refused."""
+    Fail closed: a section ends at the next heading at a line's start; every list item, at any depth, is
+    its own item; an item goes on only on an indented plain line straight after it; a first line saying
+    nothing was cut lets plain prose follow; the ending lines pass in their exact forms; any other line,
+    and any markup that could hide a line or a link, is refused."""
     found: list[str] = []
     section: str | None = None
     items: list[str] = []
-    nothing = open_item = False
-    for number, line in enumerate(body.splitlines(), start=1):
-        if heading := HEADING.match(line):
+    seen = nothing = open_item = False
+    paragraph: list[str] = []
+    for number, line in enumerate(LINE_BREAK.split(body), start=1):
+        heading = HEADING.match(line)
+        if heading and (section is None or line[0] == "#"):
             found += _unlinked(section, items, issue_open)
-            gated = GATED.match(heading[1].strip())
-            section = " ".join(gated[1].lower().split()) if gated else None
-            items, nothing, open_item = [], False, False
+            section = _gated(heading[1], number, found)
+            items, paragraph, seen, nothing, open_item = [], [], False, False, False
             continue
         if section is None:
+            opened = HTML_HEADING.fullmatch(line)
+            if opened or (paragraph and SETEXT.fullmatch(line)):
+                text = re.sub(r"<[^>]*>", "", opened[1]) if opened else " ".join(paragraph)
+                section, paragraph = _gated(text, number, found), []
+            else:
+                paragraph = [*paragraph, line.strip()] if line.strip() else []
             continue
         text = line.strip()
-        first = not items and not nothing
         if not text:
             open_item = False
-        elif first and NOTHING.fullmatch(text):
+            continue
+        first, seen = not seen, True
+        if first and NOTHING.fullmatch(text):
             nothing = True
+        elif ENDING.fullmatch(text):
+            open_item = False
         elif TABLE_ROW.match(line):
             found.append(f"'{section}' body line {number} is a table row: {HOW_TO_CUT}")
             open_item = False
-        elif LIST_ITEM.match(line):
-            items.append(line)
+        elif marker := LIST_ITEM.match(line):
+            content = line[marker.end() :]
+            if content and not PLAIN.fullmatch(content):
+                found.append(f"'{section}' body line {number} holds markup: {HOW_TO_CUT}")
+            items.append(content)
             open_item = True
-        elif open_item and line[0] in " \t":
-            items[-1] += "\n" + line
-        elif nothing or ENDING.fullmatch(text):
-            open_item = False
+        elif (open_item or nothing) and PLAIN.fullmatch(text):
+            if open_item and line[0] in " \t":
+                items[-1] += "\n" + text
+            else:
+                open_item = False
+                if not nothing:
+                    found.append(f"'{section}' body line {number} is not a cut item: {HOW_TO_CUT}")
         else:
             found.append(f"'{section}' body line {number} is not a cut item: {HOW_TO_CUT}")
             open_item = False
     return found + _unlinked(section, items, issue_open)
 
 
+def _gated(heading: str, number: int, found: list[str]) -> str | None:
+    """The gated section a heading opens, or None. Its first word is read in plain ASCII letters (format
+    characters dropped, leading marks and numbers skipped); first words in other letters cannot be read,
+    so they open a gated section and are refused."""
+    text = "".join(c for c in unicodedata.normalize("NFKC", heading) if unicodedata.category(c) != "Cf")
+    text = re.sub(r"^[\W\d_]+", "", text)
+    if not "".join(text.split()[:2]).isascii():
+        found.append(f"the heading on body line {number}: write its first word in plain ASCII letters")
+        return "heading"
+    gated = GATED.match(text)
+    return " ".join(gated[1].lower().split()) if gated else None
+
+
 def _unlinked(section: str | None, items: list[str], issue_open: IssueOpen) -> list[str]:
     found = []
     for item, text in enumerate(items, start=1):
-        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(text)}
+        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(CODE_SPAN.sub("", text))}
         where = f"'{section}' item {item}"
         if not numbers:
             found.append(f"{where} links no issue: file one and link it (#<n>)")
