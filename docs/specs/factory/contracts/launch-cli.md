@@ -99,7 +99,8 @@ launch say <session_id> --file <file>
 ```
 
 Leak-scans the text (`tools/leakscan text --stdin`; a hit is exit 2 `prompt-leak`), prefixes `[elapsed n/m min]` (ADR
-0041 item 4: `--elapsed N/M`, else `--ticket`'s newest launch record (`started_at` and `budget_minutes`; a cloud
+0041 item 4: `--elapsed N/M`, else `--ticket`'s launch record judged OK (the one naming the session, else the newest; never a
+refused or failed run's), from its `started_at` and `budget_minutes`; a cloud
 launch writes no budget file, which linked worktrees' clocks would read), else the session's own `stamp elapsed` clock; none of them is a usage error), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
 and reads `{ok}`. Prints `OK sent <session_id>` on `ok: true`, else `REFUSED send-failed: <reason>` with exit 2.
 One message per review round. A CLI-sent message has no reply address; two-way exchange is the orchestrator's main

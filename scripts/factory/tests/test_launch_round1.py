@@ -478,3 +478,40 @@ def test_the_kill_tree_is_only_the_launched_processes() -> None:
     finally:
         child.kill()
         child.wait()
+
+
+def launch_at(tmp_path: Path, main: Path, fake: Fake, minute: int, **changes: object) -> int:
+    """One budgeted cloud launch of z1 into the default records folder, started at 01:<minute>."""
+    return launch_cloud(
+        request(tmp_path, budget_minutes=60, record_dir=None, **changes),
+        root=main,
+        claude=fake,
+        scan=lambda _: ScanResult(True, "hits=0"),
+        govern=None,
+        snapshot=lambda: "{}",
+        now=lambda: datetime(2026, 10, 5, 1, minute, 0, tzinfo=UTC),
+    ).exit_code
+
+
+def test_a_refused_relaunch_does_not_restart_the_clock_say_reports(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 2 of PR #371: a refused run writes a record too; `say` must not read it."""
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
+    assert launch_at(tmp_path, main, Fake(), 0) == 0
+    assert launch_at(tmp_path, main, Fake(), 40, branch="s12-absent") == 2
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:45:00Z")
+    code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
+    assert code == 0
+    assert sent == ["[elapsed 45/60 min] Round 1.\n"]
+
+
+def test_say_reads_the_record_of_the_session_it_messages(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
+    assert launch_at(tmp_path, main, Fake(), 0) == 0
+    assert launch_at(tmp_path, main, Fake(text=log(session="session_01New")), 30) == 0
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:45:00Z")
+    code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
+    assert (code, sent) == (0, ["[elapsed 45/60 min] Round 1.\n"])

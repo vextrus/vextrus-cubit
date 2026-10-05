@@ -947,32 +947,32 @@ def say(
     return Outcome(0, line, session_id)
 
 
-def _record_elapsed(ticket: str) -> str | None:
-    """`n/m` from the ticket's newest launch record with a budget (`started_at`, `budget_minutes`).
-    No budget file is written for a cloud launch: linked worktrees share `.git/vextrus/`, and the
-    local builders' clock would read a cloud ticket's budget as theirs (review round 1 of PR #371)."""
-    newest: tuple[datetime, int] | None = None
+def _record_elapsed(ticket: str, session_id: str) -> str | None:
+    """`n/m` from the ticket's launch record (`started_at`, `budget_minutes`): the one naming the
+    session being messaged, else the newest. Only a launch judged OK counts: a refused or failed run
+    writes a record too, and must never restart the clock (review round 2 of PR #371). No budget file
+    is written for a cloud launch: linked worktrees share `.git/vextrus/`, and the local builders'
+    clock would read a cloud ticket's budget as theirs (review round 1)."""
+    launched: list[tuple[bool, datetime, int]] = []
     for path in launches_dir().glob(f"{ticket}-*.json"):
         try:
             record = json.loads(path.read_text())
             started, minutes = status.parse_utc(record["started_at"]), record["budget_minutes"]
+            ok = record["judge"]["ok"] is True and record.get("stop_sent") is not True
         except OSError, ValueError, KeyError, TypeError:
             continue
-        if (
-            record.get("ticket") == ticket
-            and type(minutes) is int
-            and (newest is None or started > newest[0])
-        ):
-            newest = (started, minutes)
-    if newest is None:
+        if record.get("ticket") == ticket and type(minutes) is int and ok:
+            launched.append((record.get("session_id") == session_id, started, minutes))
+    if not launched:
         return None
-    return f"{status.minutes_between(newest[0], status.now())}/{newest[1]}"
+    _, started, minutes = max(launched)
+    return f"{status.minutes_between(started, status.now())}/{minutes}"
 
 
-def _stamp_elapsed(ticket: str | None) -> str | None:
+def _stamp_elapsed(ticket: str | None, session_id: str) -> str | None:
     """`n/m` from the ticket's newest launch record, else from the session's own `stamp elapsed`
     line (`session h:mm/h:mm`); None when neither exists."""
-    if ticket and (found := _record_elapsed(ticket)):
+    if ticket and (found := _record_elapsed(ticket, session_id)):
         return found
     try:
         line = stamp.elapsed(None)
@@ -995,7 +995,7 @@ def main_say(argv: list[str]) -> int:
     if (refused := _wrong_account()) is not None:
         return refused
     root = Path.cwd()
-    elapsed = a.elapsed if a.elapsed is not None else _stamp_elapsed(a.ticket)
+    elapsed = a.elapsed if a.elapsed is not None else _stamp_elapsed(a.ticket, a.session_id)
     if elapsed is None or not ELAPSED.match(elapsed):
         p.error("no elapsed time: give --elapsed N/M, or --ticket of a launch with a budget")
     try:
