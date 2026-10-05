@@ -11,6 +11,9 @@ every check passed does its last line read `Factory-Verify: <tree> ok`, the buil
 
 A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: <test title>` per line)
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
+A check run as root (uid 0, a cloud container) whose every failing test is listed in
+`.github/flaky-root.txt` (the same line format) is not rerun: it is recorded `exit_code` 0 with
+`raw_exit_code` and `root_only` naming the listed lines, and its `verify:` line says `root-only`.
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -30,6 +33,7 @@ from pathlib import Path
 PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
 FLAKY = ".github/flaky.txt"
+FLAKY_ROOT = ".github/flaky-root.txt"
 PYTEST_FAILURE = re.compile(r"^(?:FAILED|ERROR) (\S.*)$")
 VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
 
@@ -129,9 +133,9 @@ def plan(paths: Iterable[str], *, have: Have = _have, root: Path | None = None) 
     return plan_with_notes(paths, have=have, root=root)[0]
 
 
-def flaky_entries(root: Path) -> list[tuple[str, str, str]]:
-    """`.github/flaky.txt`'s entries: (the line, its path, its test title)."""
-    path = root / FLAKY
+def flaky_entries(root: Path, name: str = FLAKY) -> list[tuple[str, str, str]]:
+    """`.github/flaky.txt`'s (or `name`'s) entries: (the line, its path, its test title)."""
+    path = root / name
     if not path.is_file():
         return []
     entries = []
@@ -233,11 +237,18 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
     outputs = Path(".private/work/verify") / tree
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
+    root_entries = flaky_entries(root, FLAKY_ROOT)
     results = []
     for check in checks:
         code, output = run(check)
-        raw, flakes = code, []
-        if code != 0 and (listed := flakes_in(output, entries)) is not None:
+        raw, flakes, root_only = code, [], []
+        if (
+            code != 0
+            and os.geteuid() == 0
+            and (listed_root := flakes_in(output, root_entries)) is not None
+        ):
+            code, root_only = 0, listed_root
+        elif code != 0 and (listed := flakes_in(output, entries)) is not None:
             again, rerun = run(check)
             output += f"\n--- rerun (flakes listed in {FLAKY}) ---\n{rerun}"
             if again == 0:
@@ -253,10 +264,15 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
                 "exit_code": clamp(code),
                 "raw_exit_code": clamp(raw),
                 "flakes": flakes,
+                "root_only": root_only,
                 "output_file": name.as_posix(),
             }
         )
-        print(f"verify: {check.name} {code}" + (f" (flakes: {len(flakes)})" if flakes else ""))
+        print(
+            f"verify: {check.name} {code}"
+            + (f" (flakes: {len(flakes)})" if flakes else "")
+            + (f" (root-only: {len(root_only)})" if root_only else "")
+        )
     ok = all(result["exit_code"] == 0 for result in results)
     record = {"schema_version": 1, "tree": tree, "written_at": utc_now(), "ok": ok, "checks": results}
     folder = common / "vextrus"

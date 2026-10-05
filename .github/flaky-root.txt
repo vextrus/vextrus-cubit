@@ -1,0 +1,4 @@
+# Tests that fail only when run as root (uid 0, a cloud container), one per line: <repo path> :: <test title>.
+# `python -m scripts.verify` records such a failure as root-only, not a failure, when it runs as root.
+# Prefer `@pytest.mark.skipif(os.geteuid() == 0, ...)` on the test; tools.lint.root_only enforces it.
+tools/leakscan/tests/acceptance/test_scan.py :: test_an_unreadable_file_named_with_a_string_prints_neither_name_nor_text

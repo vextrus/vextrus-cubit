@@ -86,6 +86,8 @@ jobs:
         run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs'
       - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)
         run: python3 -m tools.lint.ci_shards
+      - name: Root-only check (a test that removes permissions with chmod carries the root skipif guard)
+        run: python3 -m tools.lint.root_only
       - name: Acceptance check (only `acceptance:` commits change acceptance tests; ADR 0041)
         if: github.event_name == 'pull_request'
         env:
