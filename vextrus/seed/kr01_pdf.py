@@ -146,4 +146,3 @@ class _Sheet:
         if not autocad:
             return frame + views + block + titles
         return on_layer("L0", frame + block) + on_layer("L1", views) + on_layer("L2", titles)
-

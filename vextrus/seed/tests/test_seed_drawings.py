@@ -9,6 +9,7 @@ import pytest
 from django.db import connection
 from django.utils import timezone
 
+from engine.messages import plot as plot_codes
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
@@ -53,7 +54,9 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
         "KR-ARC-R0.dwg": said.READ_BANGLA(),
         "KR-ELE-R0.dwg": said.READ(),
         "KR-STR-R0.pdf": said.PLOT_MATCHED(matched=11, pages=12),
-        "KR-ARC-R0.pdf": said.PLOT_MATCHED_LINES(matched=8, pages=8),
+        # The read job's (#236): the unnumbered schedule's page names no sheet, and its ink is not
+        # replayed, so it is the one page of eight left unmatched.
+        "KR-ARC-R0.pdf": said.PLOT_MATCHED_LINES(matched=7, pages=8),
         "KR-STR-old.dwg": said.HELD(),
         "site-photos.pdf": said.REFUSED_SCAN(),
     }
@@ -123,10 +126,8 @@ def test_kr_01s_reports_say_what_section_7_says(demo: Demo) -> None:
         "code": "drawings.reports.pages_matched",
         "params": {"matched": 11, "pages": 12},
     }
-    assert {
-        "code": "drawings.reports.page_sheet_not_in_dwg",
-        "params": {"page": 12, "sheet": "S-13"},
-    } in (structural_pdf.pages)
+    # The read job's line (#236): page 12 prints S-13, which no DWG carries, so it names no sheet.
+    assert dict(plot_codes.REASONS["names_no_sheet"](page=12)) in structural_pdf.pages
     assert held.readers[0]["code"] == "engine.decoders_agree.disagree"
 
 

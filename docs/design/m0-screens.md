@@ -760,7 +760,7 @@ Messages that do not make a row (a toast, or an ErrorBar for several files at on
   text may run slightly long" · "A little narrower" · "Not found: drawn with Liberation Sans; letters
   may differ" · "Bangla in an old font: see above". Font names are family names without extension;
   AutoCAD's stroke fonts read "Romans (AutoCAD lettering)".
-- **Plot.** "Its Plot is KR-ARC-R0.pdf: 8 of 8 sheets have a page." or "No PDF added for these
+- **Plot.** "Its Plot is KR-ARC-R0.pdf: 7 of 8 sheets have a page." or "No PDF added for these
   sheets. Add the PDFs plotted from this file to compare them with what Vextrus read."
 
 Not shown to the QS (logged for Vextrus, and under `?perf` where timed): the reader names and
@@ -1670,9 +1670,9 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 | File | What it carries | Its states |
 |---|---|---|
 | KR-STR-R0.dwg | 13 sheet borders laid out in the drawing: S-01 general notes with a legend, a standard hook and bend detail, and a drawing list naming S-01 to S-13; S-02 pile layout; S-03 pile cap layout; S-04 ground floor beam layout, with a lift pit detail drawn inside the plan and a tie detail marked N.T.S.; S-05 1st floor beam layout; S-06 "3RD, 5TH & 7TH FLOOR BEAM LAYOUT" (a non-run list); S-07 rev B "TYPICAL FLOOR SLAB LAYOUT" (an untitled typical floor) and S-07 rev A, superseded, beside it; S-08 column layout, pile cap to 2nd floor; S-09 column schedule; S-10 stair details; S-11 roof beam layout; S-12 overhead tank and lift machine room. Text uses `%%C`, `%%D`, `%%P`, MTEXT `\P` and a stacked ½ | Read; two readers agree; fonts Arial, Romans (AutoCAD lettering), Swiss 721 Condensed |
-| KR-STR-R0.pdf | 12 pages plotted from it: 11 match; page 12 shows S-13 (in no DWG); 2 pages turned 90°; AutoCAD lettering kept as text; layers kept; one logo | Plot: 11 of 12 matched |
+| KR-STR-R0.pdf | 12 pages plotted from it: 11 match; page 12 shows S-13 (in no DWG), so it names no sheet; 2 pages turned 90°; AutoCAD lettering kept as text; layers kept; one logo | Plot: 11 of 12 matched |
 | KR-ARC-R0.dwg | 8 sheets: A-01 site plan with a key plan, A-02 ground floor plan, A-03 typical floor plan, A-04 roof plan, A-05 "SECTION A-A & ELEVATION" (kind unclear), a door and window schedule with no number (its title block's number left blank), and on layout tabs A-06 and A-07 (a 3D view alone on its sheet: the view proposed out by default, "for information"; the sheet is not: #182); no drawing list; and one stale layout tab showing nothing, which is not a sheet (4.5). Room names on A-02 and A-03 typed in SutonnyMJ | Read; two readers agree; 1 flag: Bangla text (9 texts on 2 sheets) |
-| KR-ARC-R0.pdf | 8 pages, all matched; made by a PDF tool other than AutoCAD; lettering drawn as lines; no layers | Plot: 8 of 8 matched; lettering as lines |
+| KR-ARC-R0.pdf | 8 pages, 7 matched: the unnumbered schedule's page names no sheet; made by a PDF tool other than AutoCAD; lettering drawn as lines; no layers | Plot: 7 of 8 matched; lettering as lines |
 | KR-ELE-R0.dwg | 3 electrical sheets: E-01 electrical legend and notes (the legend assigned to the Electrical Part), E-02 and E-03 "TYPICAL FLOOR LIGHTING AND POWER LAYOUT" (one continuation of 2 sheets, no Question); no drawing list and no PDF | Read; two readers agree; Discipline Electrical; its sheets are Proposals with one source each (5), confirmed one by one; their views proposed to the Electrical Part, "M3 onwards" |
 | KR-STR-old.dwg | an older structural file | Held: the readers disagree (the planted-disagreement stub) |
 | site-photos.pdf | pictures only | Refused: a scan |
