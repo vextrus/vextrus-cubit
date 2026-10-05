@@ -1,12 +1,13 @@
 """land's ledger reading, beside the acceptance tests."""
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from scripts.land import Gh, Refused, failed_tests, has_pass, order, pending, red, reviewed
+from scripts.land import Gh, Refused, failed_tests, has_pass, land, order, pending, red, reviewed
 
 HEAD = "0123456789abcdef0123456789abcdef01234567"
 
@@ -101,3 +102,66 @@ def test_an_unknown_conclusion_is_red_and_pending_contexts_wait() -> None:
 def test_merge_refuses_before_ci_was_read(tmp_path: Path) -> None:
     with pytest.raises(Refused, match="CI was not read"):
         Stuck(tmp_path).merge(12)
+
+
+def test_a_failure_line_that_cannot_be_read_is_never_a_listed_flake() -> None:
+    log = "\n".join(
+        [
+            "\x1b[31m FAIL \x1b[39m src/takeoff/acts.test.tsx > acts > says it",
+            " FAIL  src/x.test.tsx [ src/x.test.tsx ]",
+            "Unhandled Rejection",
+            "ERROR vextrus/a/tests/test_x.py - ImportError",
+        ]
+    )
+    found = failed_tests(log)
+    assert found[0] == "web/src/takeoff/acts.test.tsx :: says it", "colour codes are stripped"
+    assert len(found) == 4
+    assert all(test.startswith("unread: ") for test in found[1:])
+
+
+def test_main_is_pulled_only_where_main_is_checked_out(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "feature", str(tmp_path)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.email=a@b",
+            "-c",
+            "user.name=a",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "x",
+        ],
+        check=True,
+    )
+    with pytest.raises(Refused, match="not main"):
+        Gh(tmp_path).pull_main()
+
+
+class Merged:
+    """A PR that merges, then main cannot be pulled here."""
+
+    def head_sha(self, pr: int) -> str:
+        return HEAD
+
+    def mark_ready(self, pr: int) -> None: ...
+    def update_branch(self, pr: int) -> None: ...
+    def wait_ci(self, pr: int) -> list[str]:
+        return []
+
+    def rerun_failed(self, pr: int) -> None: ...
+    def merge(self, pr: int) -> None: ...
+    def pull_main(self) -> None:
+        raise Refused("this checkout is on 'feature', not main")
+
+
+def test_a_merged_pr_whose_pull_fails_is_reported_merged(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write(tmp_path)
+    assert land(12, Merged(), ledger_dir=tmp_path, flaky=set(), ready=lambda _: 0) == 0
+    assert "PR 12 merged, but main was not pulled" in capsys.readouterr().out

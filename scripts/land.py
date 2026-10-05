@@ -32,6 +32,8 @@ PENDING_STATES = {"PENDING", "EXPECTED"}
 JOB_URL = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 PYTEST_FAILED = re.compile(r"\bFAILED (\S+?)::(\S+?)(?:\[.*?\])?(?: - |\s*$)")
 VITEST_FAIL = re.compile(r"\bFAIL\s+(\S+)\s+>\s+(.+?)\s*$")
+UNREAD_FAILURE = re.compile(r"\bFAIL(?:ED)?\s|\bERROR\s|Unhandled (?:Error|Rejection)")
+ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
 class Refused(Exception):
@@ -105,6 +107,8 @@ def land(
         print(f"land: refused: PR {pr}: {refused}")
     except subprocess.CalledProcessError as error:
         print(f"land: refused: PR {pr}: {failed_call(error)}")
+    except (OSError, ValueError) as error:
+        print(f"land: refused: PR {pr}: {type(error).__name__}: {str(error).splitlines()[0][:200]}")
     return 3
 
 
@@ -132,7 +136,12 @@ def _land(
     if ready(pr) != 0:
         raise Refused("merge_ready refuses it")
     gh.merge(pr)
-    gh.pull_main()
+    try:
+        gh.pull_main()
+    except (Refused, subprocess.CalledProcessError, OSError) as error:
+        why = failed_call(error) if isinstance(error, subprocess.CalledProcessError) else str(error)
+        print(f"land: PR {pr} merged, but main was not pulled here: {why}")
+        return 0
     print(f"land: PR {pr} merged")
     return 0
 
@@ -140,6 +149,8 @@ def _land(
 def failed_call(error: subprocess.CalledProcessError) -> str:
     """One plain line for a failed `gh` or `git` call: its first words and its last error line."""
     argv = [str(part) for part in error.cmd] if isinstance(error.cmd, list | tuple) else [str(error.cmd)]
+    if argv[1:2] == ["-C"]:
+        argv = argv[:1] + argv[3:]
     words = " ".join(part for part in argv[:3] if not part.startswith("-"))
     stderr = error.stderr if isinstance(error.stderr, str) else ""
     lines = [line.strip() for line in stderr.splitlines() if line.strip()]
@@ -163,14 +174,17 @@ def failed_tests(log: str) -> list[str]:
     """The failed tests a `gh run view --log-failed` output names, as `.github/flaky.txt` lists them:
     pytest `FAILED <path>::<name>[...] - ...` is `<path> :: <name>`; vitest
     `FAIL  <path> > ... > <title>` is `web/<path> :: <title>`
-    (the vitest line shape is unverified against a live log)."""
+    (the vitest line shape is unverified against a live log). Any other failure line (a vitest file or
+    unhandled error, a pytest `ERROR`) is named `unread: <line>`, which no flaky entry matches."""
     found: list[str] = []
-    for line in log.splitlines():
+    for line in ANSI.sub("", log).splitlines():
         if pytest := PYTEST_FAILED.search(line):
             test = f"{pytest[1]} :: {pytest[2]}"
         elif vitest := VITEST_FAIL.search(line):
             path = vitest[1] if vitest[1].startswith("web/") else f"web/{vitest[1]}"
             test = f"{path} :: {vitest[2].split(' > ')[-1].strip()}"
+        elif unread := UNREAD_FAILURE.search(line):
+            test = f"unread: {line[unread.start() :].strip()[:200]}"
         else:
             continue
         if test not in found:
@@ -370,6 +384,10 @@ class Gh:
         )
 
     def pull_main(self) -> None:
+        """Fast-forwards main, and only when main is what this checkout has checked out."""
+        branch = self._run("git", "-C", str(self.repo), "symbolic-ref", "-q", "--short", "HEAD").strip()
+        if branch != "main":
+            raise Refused(f"this checkout is on {branch!r}, not main")
         self._run("git", "-C", str(self.repo), "pull", "--ff-only", "origin", "main")
 
 
