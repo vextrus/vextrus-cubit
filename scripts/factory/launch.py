@@ -44,7 +44,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
 
-from scripts.factory import status
+from scripts.factory import stamp, status
 
 REPOSITORY = "github.com/vextrus/vextrus-cubit"
 MODEL = "claude-opus-5-5"
@@ -834,6 +834,12 @@ def launch_cloud(
     except OSError as error:
         return run.error(f"cannot make the debug log's folder ({type(error).__name__})")
 
+    if req.budget_minutes is not None:
+        # The ticket's clock, as `local.py` writes it: `say --ticket` and the clock hook read it.
+        try:
+            stamp.write_budget(req.ticket, req.budget_minutes, root)
+        except (stamp.Refused, OSError) as error:
+            return run.error(f"cannot write the ticket's budget ({error})")
     proving = _Proving(root / FACTORY, run.cli_version)
     if not proving.proven() and not proving.acquire():
         return run.error(
@@ -932,19 +938,20 @@ def say(
 
 
 def _stamp_elapsed(root: Path, ticket: str | None) -> str | None:
-    """f3's `stamp elapsed --ticket T`, when this tree has it and a ticket is given."""
-    if ticket is None or not (root / "scripts" / "factory" / "stamp.py").is_file():
+    """`n/m` from the ticket's budget record (`launch cloud --budget-minutes` writes it), else from the
+    session's own `stamp elapsed` line (`session h:mm/h:mm`); None when neither exists."""
+    try:
+        found = stamp.ticket_elapsed(ticket, status.now(), root) if ticket else None
+        if found is not None:
+            return f"{found[0]}/{found[1]}"
+        line = stamp.elapsed(None)
+    except stamp.Refused:
         return None
-    done = subprocess.run(
-        [sys.executable, "-m", "scripts.factory.stamp", "elapsed", "--ticket", ticket],
-        cwd=root,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    found = re.search(r"\b(\d+/\d+)\b", done.stdout) if done.returncode == 0 else None
-    return found.group(1) if found else None
+    clock = re.search(r"session (\d+):(\d\d)/(\d+):(\d\d)", line)
+    if clock is None:
+        return None
+    h, m, budget_h, budget_m = (int(g) for g in clock.groups())
+    return f"{h * 60 + m}/{budget_h * 60 + budget_m}"
 
 
 def main_say(argv: list[str]) -> int:
@@ -959,7 +966,7 @@ def main_say(argv: list[str]) -> int:
     root = Path.cwd()
     elapsed = a.elapsed if a.elapsed is not None else _stamp_elapsed(root, a.ticket)
     if elapsed is None or not ELAPSED.match(elapsed):
-        p.error("no elapsed time: give --elapsed N/M (f3's stamp gives it once merged)")
+        p.error("no elapsed time: give --elapsed N/M, or --ticket of a launch with a budget")
     try:
         text = a.file.read_text()
     except (OSError, UnicodeDecodeError) as error:

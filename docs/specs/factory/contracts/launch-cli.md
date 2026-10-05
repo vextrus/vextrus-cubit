@@ -99,7 +99,8 @@ launch say <session_id> --file <file>
 ```
 
 Leak-scans the text (`tools/leakscan text --stdin`; a hit is exit 2 `prompt-leak`), prefixes `[elapsed n/m min]` (ADR
-0041 item 4, from `stamp elapsed`), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
+0041 item 4: `--elapsed N/M`, else the budget record of `--ticket` that `launch cloud --budget-minutes` writes
+with `stamp.write_budget`, else the session's own `stamp elapsed` clock; none of them is a usage error), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
 and reads `{ok}`. Prints `OK sent <session_id>` on `ok: true`, else `REFUSED send-failed: <reason>` with exit 2.
 One message per review round. A CLI-sent message has no reply address; two-way exchange is the orchestrator's main
 conversation by SendMessage (not this command).

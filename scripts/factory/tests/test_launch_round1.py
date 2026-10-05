@@ -344,3 +344,58 @@ def test_a_launch_that_ran_records_its_start_in_whole_seconds(tmp_path: Path, ma
     )
     [record] = records(tmp_path)
     assert record["started_at"] == "2026-10-05T01:02:03Z"
+
+
+# --- addendum 3: `say` finds its elapsed time without --elapsed ------------------------------------
+
+SAY_CLAUDE = """\
+import json, os, sys
+with open(os.environ["SAY_CALLS"], "a") as out:
+    out.write(json.dumps(sys.argv[1:]) + "\\n")
+print(json.dumps({"ok": True}))
+"""
+
+
+def say_from_main(main: Path, monkeypatch: pytest.MonkeyPatch, *extra: str) -> tuple[int, list[str]]:
+    """`launch say session_01Zed --file <f> <extra>` from the main checkout, the CLI faked."""
+    tmp = main.parent
+    bin_dir = tmp / "say-bin"
+    bin_dir.mkdir()
+    (bin_dir / "claude").write_text(f"#!{sys.executable}\n{SAY_CLAUDE}")
+    (bin_dir / "claude").chmod(0o755)
+    calls = tmp / "say-calls.jsonl"
+    monkeypatch.setenv("SAY_CALLS", str(calls))
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(launch, "default_scan", lambda root: lambda text: ScanResult(True, "hits=0"))
+    monkeypatch.chdir(main)
+    message = tmp / "message.md"
+    message.write_text("Round 1.\n")
+    code = launch.main(["say", SESSION, "--file", str(message), *extra])
+    sent = [json.loads(line) for line in calls.read_text().splitlines()] if calls.exists() else []
+    return code, [argv[argv.index("-p") + 1] for argv in sent]
+
+
+def test_say_with_the_ticket_of_a_budgeted_cloud_launch_sends_its_elapsed_line(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:02:00Z")
+    assert run(tmp_path, main, Fake(), budget_minutes=60).exit_code == 0
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:12:00Z")
+    code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
+    assert code == 0
+    assert sent == ["[elapsed 10/60 min] Round 1.\n"]
+
+
+def test_say_with_only_a_file_falls_back_to_the_sessions_clock(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    factory = tmp_path / "factory"
+    factory.mkdir()
+    session = {"schema": 1, "started_utc": "2026-10-05T00:00:00Z", "budget_minutes": 660, "phases": []}
+    (factory / "session.json").write_text(json.dumps(session))
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(factory))
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:30:00Z")
+    code, sent = say_from_main(main, monkeypatch)
+    assert code == 0
+    assert sent == ["[elapsed 90/660 min] Round 1.\n"]
