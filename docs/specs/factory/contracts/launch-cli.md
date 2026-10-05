@@ -32,7 +32,7 @@ orchestrator adds it to the owner's list to delete in claude.ai/code (O8).
 `prompt-leak`, `leakscan-unavailable`, `bundled`, `wrong-repository`, `wrong-revision`, `no-git-source`,
 `no-session`, `wrong-environment` (the log names another environment, or the CLI fell back to the first one),
 `launch-timeout` (the CLI did not finish in 180 s and a session exists), `branch-not-rd` (a `--drawings` launch on a branch not starting `rd/`), `duplicate-name` (local),
-`merge-conflict` (local, carried branch), `no-preflight` (before f3: neither `--preflight` nor governor),
+`merge-conflict` (local, carried branch; the worktree is removed and a branch this launch created is deleted), `no-preflight` (before f3: neither `--preflight` nor governor),
 `send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit),
 `wrong-account` (all three subcommands, before anything runs: `CLAUDE_CONFIG_DIR` is set and is not `~/.claude`, account A's
 config; a session can message only sessions of its own config), `ambiguous-log` (the CLI's own lines name two sessions,
@@ -80,6 +80,14 @@ launch cloud --branch <branch> --prompt-file <file> --ticket <ticket> --effort <
    (leakscan-cli.md), or, before f2, `--prompt-scanned` is absent.
 6. `branch-not-rd`: `--drawings` with a branch not starting `rd/`.
 
+**Jev's advice (#260; J-f: "a warning, never a refusal").** After a clean leak scan and before the launch, for `--role`
+`builder` or `acceptance-writer` with no `--review-file` (a reviewer's prompt holds the nonce: never sent), `main` asks
+`jev.ask(<prompt file text>, questions, task="launch-warn")` two `noul` questions, `needs_real_drawings` (real drawings or a
+private folder a cloud session lacks) and `needs_other_ticket` (another ticket's file or an unlanded change). Each `p >= 0.9`
+(`JEV_WARN_AT`) prints `JEV-DISAGREES <needs-real-drawings|needs-other-ticket> p=<0.00>` just before `record:`. The reading is
+advice only: it changes no exit code, refusal, STOP or argv; Jev down adds at most its 6 s deadline. Called directly,
+`launch_cloud` asks no one unless given `jev=`.
+
 If none refuses, it runs **exactly the proven argv** (`cloud/launch_probe.py:65-72`; the prompt is the last element,
 the same text the scan passed):
 
@@ -116,8 +124,14 @@ launch local --branch <branch> --prompt-file <file> --ticket <ticket> --name <na
 `launch.py` parses it and `scripts/factory/local.py` (PR f3) runs it: the governor first (`check local-agent`: exit 3
 when it refuses); `git fetch origin`; a worktree at `origin/<branch>` under `.claude/worktrees/<ticket>`; if the branch
 lacks `.claude/agents/builder.md`, `origin/main` is merged into it first as a recorded merge commit (`merge-conflict`,
-exit 2, on a conflict); `ensure_database` for the worktree; `duplicate-name` (exit 2) if a live session already has
-`--name`. From inside the worktree it runs `claude --bg --agent builder --name <name> --effort <e> --settings
+exit 2, on a conflict); `ensure_database` for the worktree; `npm --prefix web ci --no-audit --no-fund` (its own 900 s
+timeout) when the worktree has `web/package-lock.json` and no `web/node_modules`; `duplicate-name` (exit 2) if a live
+session already has `--name`. A conflict, or a failing `ensure_database` or `npm ci` (exit 1, `ERROR`), undoes the launch:
+the worktree is removed (never forced) and the branch deleted only when this launch created it and it still sits at
+origin's tip; a kept branch at another sha, and the existing-branch error, name `git branch -f <b> origin/<b>` (the
+launcher never resets a branch). The ticket is the worktree's folder and so its database (`vextrus_<slug>`, cut at 40):
+a slug over 32 characters is a usage error (exit 64), and a slug another linked worktree already has is an `ERROR`
+naming that database and folder, under `--dry-run` too. From inside the worktree it runs `claude --bg --agent builder --name <name> --effort <e> --settings
 /home/riz/vextrus-cubit/scripts/factory/builder.settings.json "<prompt>"` with the child environment
 `VEXTRUS_ROLE=builder`, and without `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS` and `CLAUDE_CODE_PLUGIN_DIRS`. It never
 passes `--plugin-dir`. First stdout line: `OK launched <name> <session_id>`. A local builder is never started by a raw
@@ -146,6 +160,7 @@ read them):
 | `stop_sent` | boolean | true if a STOP message was sent after a refusal |
 | `untestable` | string or null | the `--untestable` reason |
 | `review` | object or null | present only for `review_cloud.py` launches: `{"pr": int, "head_sha": "<40 hex>", "nonce": "<32 hex>", "branch": "review/<pr>-<nonce8>"}`. **Only this record and that reviewer's prompt hold the nonce** (review-verdict.schema.json). |
+| `jev` | object | Jev's advice: `{"status": "ok" or "unavailable" or "off" or "not-asked", "warnings": [<code>...], "p": {<question>: <0..1>}}`, plus `"why"` (`jev.Why`'s value, or `failed` when the call raised) when unavailable. `off`: no `jev=` seam; `not-asked`: refused before the call, or a reviewer or refuter. Never the prompt. |
 
 The record holds no prompt text and no key. (The nonce is a launch-time secret between the launcher and one reviewer;
 it is not a drawing or an API key but is still never printed in a PR or a log.)

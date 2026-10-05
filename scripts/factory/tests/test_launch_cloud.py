@@ -4,9 +4,24 @@ now carries the `Selected environment` line real logs have, PR #286 round 1); th
 pin the launcher's small pieces. The whole command is pinned by tests/acceptance/tf1/."""
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
-from scripts.factory.launch import LocalRequest, _Proving, _read_review, judge, preamble
+import pytest
+
+from scripts.factory import jev, launch
+from scripts.factory.jev import Answers, Unavailable, Why
+from scripts.factory.launch import (
+    JEV_QUESTIONS,
+    LocalRequest,
+    _Proving,
+    _read_review,
+    jev_reading,
+    judge,
+    preamble,
+)
 
 REPO = "github.com/vextrus/vextrus-cubit"
 
@@ -127,3 +142,107 @@ def test_a_log_with_no_selected_environment_is_refused_by_default() -> None:
     log = cloned("x").replace("[DEBUG] Selected environment: env_01x (vextrus, anthropic_cloud)\n", "")
     verdict = judge(log, repository=REPO, branch="x")
     assert (verdict.ok, verdict.code) == (False, "wrong-environment")
+
+
+def test_jev_reading_warns_at_the_line_and_names_every_outage() -> None:
+    def answering(p: float) -> Answers:
+        return Answers(
+            {name: {"p": p} for name in JEV_QUESTIONS},
+            model="jev",
+            input_tokens=1,
+            output_tokens=1,
+            latency_ms=1,
+        )
+
+    def broken(state: str, questions: object) -> Answers:
+        raise ValueError(state)
+
+    both = ["needs-real-drawings", "needs-other-ticket"]
+    assert jev_reading("t", lambda s, q: answering(0.9))["warnings"] == both
+    assert jev_reading("t", lambda s, q: answering(0.8999))["warnings"] == []
+    down = jev_reading("t", lambda s, q: Unavailable(Why.NO_KEY))
+    assert down == {"status": "unavailable", "why": "no_key", "warnings": [], "p": {}}
+    assert jev_reading("t", broken) == {
+        "status": "unavailable",
+        "why": "failed",
+        "warnings": [],
+        "p": {},
+    }
+
+
+# A `claude` on PATH for `main`'s default runner: `--version`, `agents`, and a launch that writes
+# $FAKE_CLAUDE_LOG's text to its `--debug-file`.
+FAKE_CLI = """\
+import json, os, sys
+from pathlib import Path
+args = sys.argv[1:]
+if args[:1] == ["--version"]:
+    print("9.9.9 (Claude Code)")
+elif args[:1] == ["agents"]:
+    print(json.dumps({"agents": []}))
+elif "--debug-file" in args:
+    text = Path(os.environ["FAKE_CLAUDE_LOG"]).read_text()
+    Path(args[args.index("--debug-file") + 1]).write_text(text)
+"""
+
+
+def _stats(paths: tuple[Path, ...]) -> list[tuple[int, int] | None]:
+    """Size and mtime of each path, None when absent; never a walk (the real folder is huge)."""
+    return [(p.stat().st_size, p.stat().st_mtime_ns) if p.exists() else None for p in paths]
+
+
+def test_main_cloud_reaches_the_tests_jev_and_writes_nothing_outside_tmp_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    main_checkout: Path,
+    no_jev_key: list[tuple[object, object]],
+) -> None:
+    """`launch.main` passes the real seam; under these tests it reaches conftest's fake, and neither
+    Jev's log and cache nor the launch record lands in the checkout's own factory folder."""
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
+    monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+
+    def git(cwd: Path, *args: str) -> None:
+        who = ["-c", "user.name=W", "-c", "user.email=w@example.invalid", "-c", "commit.gpgsign=false"]
+        subprocess.run(["git", *who, "-C", str(cwd), *args], check=True, capture_output=True)
+
+    origin = tmp_path / "origin.git"
+    git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
+    git(tmp_path, "init", "-q", "-b", "main", str(main_checkout))
+    git(main_checkout, "remote", "add", "origin", str(origin))
+    git(main_checkout, "commit", "-q", "--allow-empty", "-m", "first")
+    git(main_checkout, "push", "-q", "origin", "main")
+    git(main_checkout, "checkout", "-q", "-b", "s12-z")
+    git(main_checkout, "commit", "-q", "--allow-empty", "-m", "acceptance: z pins it")
+    git(main_checkout, "push", "-q", "origin", "s12-z")
+    git(main_checkout, "checkout", "-q", "main")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "claude").write_text(f"#!{sys.executable}\n{FAKE_CLI}")
+    (bin_dir / "claude").chmod(0o755)
+    (tmp_path / "launch-log.txt").write_text(cloned("s12-z"))
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(tmp_path / "launch-log.txt"))
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.chdir(main_checkout)
+    prompt = tmp_path / "prompt.md"
+    prompt.write_text("the brief\n")
+
+    # What `jev.ask` writes in the real checkout: its log, and a cache file (adding one changes the
+    # cache folder's own mtime, read without listing it).
+    checkout = Path(__file__).resolve().parents[3] / ".private" / "work" / "factory"
+    touched = (checkout / "jev.log", checkout / "jev-cache")
+    before = _stats(touched)
+    code = launch.main(
+        [
+            "cloud",
+            *("--branch", "s12-z", "--prompt-file", str(prompt), "--ticket", "z1"),
+            *("--effort", "medium", "--record-dir", str(tmp_path / "records")),
+            *("--preflight", "df ok", "--prompt-scanned", "lits2: 0 literals"),
+        ]
+    )
+    assert code == 0
+    assert no_jev_key == [("the brief\n", JEV_QUESTIONS)]
+    assert jev.factory_dir().is_relative_to(tmp_path)
+    assert _stats(touched) == before
+    (record,) = (tmp_path / "records").glob("z1-*Z.json")
+    assert json.loads(record.read_text())["jev"]["why"] == "no_key"
