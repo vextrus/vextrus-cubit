@@ -7,15 +7,18 @@ output folder writable, the same limits), and reads what it wrote strictly (dump
 
 **How the dumper arrives, and why it is trusted** (the M0 plan, ticket 10: pinned and verifiable, as
 LibreDWG is). The dumper is one self-contained file, the .NET runtime inside it, built reproducibly from
-tools/acadsharp-dump/ with the pinned SDK (its global.json), the packages its lock file pins by hash,
-and the .NET runtime pack the lock does not list, pinned by its own sha512
-(`toolchain/acadsharp-dump.runtime.sha512`); the file's sha256 is pinned in
-`toolchain/acadsharp-dump.sha256`, read from the checkout this code runs from.
-scripts/owner/toolchain.sh builds it and installs it under `/opt/vextrus/acadsharp-dump/` only when its
-hash is the pin; that is the one install today (the product's worker, when it is built, installs it the
-same way). `VEXTRUS_ACADSHARP_DUMP` names another folder, for tests and a machine that installs it
-elsewhere: it moves where the program is looked for, never the pin. Nothing is restored, built or
-downloaded when a file is read.
+tools/acadsharp-dump/ with the pinned SDK (its global.json), ACadSharp compiled from its source (ticket
+W317: ACadSharp 3.8.0's commit and its CSUtilities submodule's, each file pinned by a manifest, plus
+DomCR/ACadSharp#1205's DWG scale repair, a patch pinned by sha256, all in
+`toolchain/acadsharp-source.lock`), the packages its lock files pin by hash, and the .NET runtime pack
+no lock lists, pinned by its own sha512 (`toolchain/acadsharp-dump.runtime.sha512`); the file's sha256
+is pinned in `toolchain/acadsharp-dump.sha256`, read from the checkout this code runs from.
+scripts/owner/toolchain.sh builds it and installs it in `/opt/vextrus/acadsharp-dump/<sha256[:12]>/`,
+a folder of its pin's own, only when its hash is the pin, and removes no other pin's: a checkout runs
+the dumper its own pin names, so checkouts on two pins read side by side. That is the one install today
+(the product's worker, when it is built, installs it the same way). `VEXTRUS_ACADSHARP_DUMP` names
+another install folder, for tests and a machine that installs it elsewhere: it moves where the program
+is looked for, never the pin. Nothing is restored, built or downloaded when a file is read.
 
 **Every run checks the program's hash against the pin first** and refuses a program that is missing
 (`DumperNotInstalled`) or differs (`DumperNotPinned`): a swapped or rebuilt dumper never reads a file.
@@ -109,8 +112,10 @@ def pinned_sha256() -> str:
 
 
 def dump(path: Path, *, limits: Limits = DEFAULT_LIMITS) -> Dump:
-    """ACadSharp's reading of the DWG at `path`, by the installed dumper at its pin."""
-    return run_dumper(prefix() / DUMPER, Path(path), sha256=pinned_sha256(), limits=limits)
+    """ACadSharp's reading of the DWG at `path`, by the dumper installed at the checkout's pin, in
+    the install folder's `<sha256[:12]>/`."""
+    pinned = pinned_sha256()
+    return run_dumper(prefix() / pinned[:12] / DUMPER, Path(path), sha256=pinned, limits=limits)
 
 
 def run_dumper(program: Path, path: Path, *, sha256: str, limits: Limits = DEFAULT_LIMITS) -> Dump:

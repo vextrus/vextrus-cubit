@@ -21,8 +21,8 @@
 // and raises an Error notification, "Could not read <TYPE> with handle: <decimal>" (or "<DXF name>
 // number <class> with handle: …" for a class-based type; its DwgObjectReader.Read, 3.8.0). Each such
 // notification whose type is an entity's is written as an `unread` line, with the exception's type
-// and never its message (which may quote the drawing). The case that asked for it: an INSERT whose
-// stored Z scale is 0, which `Insert.ZScale` refuses (ArgumentOutOfRangeException;
+// and never its message (which may quote the drawing). The case that asked for it, an INSERT whose
+// stored scale is 0, is now read as 1 (ACadSharp built with DomCR/ACadSharp#1205's repair, W317;
 // engine/fixtures/dwg/zero_z_scale.py). **Every other Error notification** (an object that is not an
 // entity, a message of any other shape, one without its exception) **and any exception that escapes
 // is a failure**: exit 1, the error's type on stderr, never a dump with things silently missing.
