@@ -37,7 +37,7 @@ def answer(*ranked: tuple[str, str]) -> jev.Judgement:
         ("BEAMLAYOUT", ["beam_layout"], []),
         ("TYPICAL COLUMN SCHEDULES", ["column_schedule"], ["column_schedule"]),
         # one-word kinds sit inside other kinds' titles (the refuter's finding B, score 55)
-        ("STAIR SECTION & DETAILS", ["stair_details", "section"], []),
+        ("STAIR SECTION & DETAILS", ["stair_details", "section"], ["stair_details"]),
         ("TOILET PLAN, ELEVATION & SECTION", ["toilet_details", "elevation", "section"], []),
         ("KITCHEN PLAN AND ELEVATION", ["kitchen_details", "elevation"], []),
         ("BOUNDARY WALL & GATE ELEVATION", ["boundary_wall_gate_details", "elevation"], []),
@@ -134,3 +134,71 @@ def test_a_named_kind_of_jevs_firsts_subject_contradicts_it_without_its_last_wor
     the other kind of the subject, so it asks."""
     clear = answer((first, "0.60"), (named, "0.10"), ("details", "0.10"))
     assert unsure(clear, title)
+
+
+@pytest.mark.parametrize(
+    ("title", "kinds", "named"),
+    [
+        ("BEAM LAYOUT & DETAILS", ["beam_layout", "beam_details"], ["beam_layout", "beam_details"]),
+        (
+            "COLUMN LAYOUTS AND SCHEDULE",
+            ["column_schedule", "column_layout"],
+            ["column_schedule", "column_layout"],
+        ),
+        (
+            "COLUMN LAYOUT & BEAM DETAILS",
+            ["beam_layout", "column_layout", "beam_details"],
+            ["column_layout", "beam_details"],
+        ),
+        ("COLUMN & BEAM LAYOUT", ["beam_layout", "column_layout"], ["beam_layout", "column_layout"]),
+        (
+            "PILE, PILE CAP / COLUMN LAYOUT",
+            ["pile_layout", "pile_cap_layout", "column_layout"],
+            ["pile_layout", "pile_cap_layout", "column_layout"],
+        ),
+        (
+            "TIE BEAM LAYOUT, SECTIONS & DETAILS",
+            ["beam_layout", "beam_details", "beam_section", "details"],
+            ["beam_layout", "beam_details", "beam_section"],
+        ),
+        ("DETAILS & BEAM LAYOUT", ["beam_details", "beam_layout"], ["beam_layout"]),
+        ("SLAB LAYOUT & MISC. DETAILS", ["slab_details", "slab_layout"], ["slab_layout"]),
+        (
+            "ISLAND & STAIR DETAILS",
+            ["island_details", "stair_details"],
+            ["island_details", "stair_details"],
+        ),
+    ],
+)
+def test_a_segment_of_only_a_kinds_last_word_takes_the_subject_beside_it(
+    title: str, kinds: list[str], named: list[str]
+) -> None:
+    """An elided subject expanded (review 3): a last word alone takes the subject words of the
+    segment before it; a subject alone takes the last word of the segment after it."""
+    assert kinds_named(title, kinds) == named
+
+
+@pytest.mark.parametrize(
+    ("first", "others", "title"),
+    [
+        ("beam_layout", ("column_layout", "beam_details"), "COLUMN LAYOUT & BEAM DETAILS"),
+        ("pile_details", ("pile_layout", "pile_cap_details"), "PILE LAYOUT & PILE CAP DETAILS"),
+        ("slab_details", ("slab_layout", "details"), "ROOF SLAB LAYOUT & MISC. DETAILS"),
+        ("slab_details", ("slab_layout", "details"), "SLAB LAYOUT, TYPICAL DETAILS"),
+        ("column_schedule", ("column_layout", "beam_details"), "COLUMN LAYOUT & BEAM SCHEDULE"),
+    ],
+)
+def test_a_kinds_last_word_borrowed_from_another_subject_never_clears_a_contradiction(
+    first: str, others: tuple[str, str], title: str
+) -> None:
+    """Review 3's finding (score 50): fix round 2 proposed each of these, Jev's first's last word
+    being somewhere in the title; the title names other kinds and not Jev's first, so it asks."""
+    clear = answer((first, "0.60"), (others[0], "0.10"), (others[1], "0.10"))
+    assert unsure(clear, title)
+
+
+def test_a_title_naming_jevs_first_by_an_elided_subject_does_not_contradict_it() -> None:
+    """A subject sharing the last word of the segment after it: either kind, as Jev's first, is
+    proposed."""
+    for first, other in (("beam_layout", "column_layout"), ("column_layout", "beam_layout")):
+        assert not unsure(answer((first, "0.60"), (other, "0.10")), "COLUMN & BEAM LAYOUT")

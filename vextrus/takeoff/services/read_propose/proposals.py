@@ -255,10 +255,10 @@ def _propose_sheet(
 def unsure(answer: jev.Judgement, title: str) -> bool:
     """Whether Jev's kind for a sheet is asked rather than proposed (#228): never when Jev is sure
     (`jev.SHEET_TYPE.proposes`); else when its top two are close (its first's lead under
-    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first: `kinds_named` names kinds
-    offered and none clears it. A named kind of its first's subject clears it only when the title
-    also holds its first's last word: "BEAM LAYOUT & DETAILS" does not contradict `beam_details`,
-    "BEAM LAYOUT" alone does (review 2, finding 2)."""
+    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first: it names kinds offered
+    (`kinds_named`) and not Jev's first. "BEAM LAYOUT & DETAILS" names `beam_details` and so does
+    not contradict it; "BEAM LAYOUT" and "COLUMN LAYOUT & BEAM DETAILS" contradict `beam_layout`'s
+    neighbour `beam_details` and `beam_layout` (reviews 2 and 3)."""
     if jev.SHEET_TYPE.proposes(answer):
         return False
     ranked = answer.ranked()
@@ -268,24 +268,49 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
         if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY:
             return True
     named = kinds_named(title, ranked)
-    said = f" {_words(title)} "
-    last = f" {_words(first.rpartition('_')[2])} "
-    return bool(named) and not any(subject(k) == subject(first) and last in said for k in named)
-
-
-def subject(kind: str) -> str:
-    """A kind's subject: every word of its key but the last ("pile cap" of `pile_cap_details`)."""
-    return kind.rpartition("_")[0]
+    return bool(named) and first not in named
 
 
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
     """The kinds a sheet's title names word for word: each kind of two words or more whose key's
-    words ("column schedule") stand together, whole, in the title ("TYPICAL COLUMN SCHEDULES"), case,
-    punctuation and a plural "s" aside. Conservative: a one-word kind (`details`, `section`,
-    `elevation`, `legend`) names nothing, as its word sits in many titles of other kinds ("STAIR
-    SECTION & DETAILS" is `stair_details`); "SLAB REINFORCEMENT" names no kind at all."""
-    said = f" {_words(title)} "
-    return [kind for kind in kinds if "_" in kind and f" {_words(kind)} " in said]
+    words ("column schedule") stand together, whole, in the title ("TYPICAL COLUMN SCHEDULES") or in
+    one of its phrases with an elided subject expanded (`expanded`), case, punctuation and a plural
+    "s" aside. Conservative: a one-word kind (`details`, `section`, `elevation`, `legend`) names
+    nothing, as its word sits in many titles of other kinds ("TOILET PLAN, ELEVATION & SECTION" is
+    `toilet_details`); "SLAB REINFORCEMENT" names no kind at all."""
+    said = [f" {phrase} " for phrase in (_words(title), *expanded(title, kinds))]
+    return [k for k in kinds if "_" in k and any(f" {_words(k)} " in s for s in said)]
+
+
+_JOINERS = re.compile(r"[&,/]|\band\b", re.IGNORECASE)
+"""What joins a title's segments: "BEAM LAYOUT & DETAILS", "PILE, PILE CAP / COLUMN LAYOUT"."""
+
+
+def expanded(title: str, kinds: Sequence[str]) -> list[str]:
+    """A title's segments whose subject it elides, each with that subject (or last word) restored, as
+    `_words` gives them. The title is split on its joiners (`_JOINERS`); a kind's last word is the
+    last word of any of `kinds`. A segment holding only a kind's last word takes the subject words of
+    the segment before it: its words but a last kind word ("BEAM LAYOUT & DETAILS": "beam detail");
+    a segment ending in no kind's last word takes the last word of the next segment that ends in one
+    ("COLUMN & BEAM LAYOUT": "column layout"). Nothing is borrowed across a segment that names its
+    own subject: "COLUMN LAYOUT & BEAM DETAILS" expands nothing."""
+    lasts = {_words(k.rpartition("_")[2]) for k in kinds}
+    segments = [words for part in _JOINERS.split(title) if (words := _words(part).split())]
+    phrases: list[str] = []
+    subject: list[str] = []
+    for words in segments:
+        if len(words) == 1 and words[0] in lasts:
+            if subject:
+                phrases.append(" ".join([*subject, words[0]]))
+        else:
+            subject = words[:-1] if words[-1] in lasts else words
+    shared = ""
+    for words in reversed(segments):
+        if words[-1] in lasts:
+            shared = words[-1]
+        elif shared:
+            phrases.append(" ".join([*words, shared]))
+    return phrases
 
 
 def _words(text: str) -> str:
