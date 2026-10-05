@@ -70,8 +70,10 @@ from them) on the head the watcher last saw READY (the lander's merge) stays REA
   `Factory-Verify` raises the READY event (the builder's state is `ready`); READY with no matching tree raises
   `READY-NO-VERIFY`; BLOCKED shows the builder as `blocked` with its reason in `events.log` (public words only); a
   READY head unmerged for 10 minutes raises `READY-WAITING`. It also fires for a READY head already present when it
-  starts. A local builder that has committed, whose head is neither READY nor BLOCKED, and whose `claude agents` row
-  has read `status: idle` for 10 minutes raises `LOCAL-IDLE` (a builder that stopped without its trailer).
+  starts. A local builder (never an acceptance-writer, nor one whose PR is closed) that has committed, whose head is
+  neither READY nor BLOCKED, and whose `claude agents` row has read idle for 10 minutes (`status: idle`, or its
+  session ended: no pid, state done, stopped or failed) raises `LOCAL-IDLE` (a builder that stopped without its
+  trailer). A re-read of seen heads (a new trailer reading) keeps a READY inherited onto clean merges of main.
 - **`.claude/hooks/stop-gate.mjs`** (builder sessions only): a stop with uncommitted tracked changes and no trailer,
   or a READY or malformed (`READY-NO-VERIFY`) head with no green verify record (a malformed one: always), is blocked
   once with the text "commit with explicit paths and run

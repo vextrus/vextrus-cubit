@@ -633,7 +633,7 @@ def track(
                     seen["leak"] = leak_scan(head, main_sha)
                     step.state["leakscan"] = seen["leak"]["result"]
     elif seen["head"] is not None and step.state.get("parser") != PARSER:
-        reread(step, ticket, seen)
+        reread(step, ticket, seen, main_sha)
     head = seen["head"]
     outcome = seen.get("outcome")
     pr = pr_for(branch, prs)
@@ -673,7 +673,10 @@ def track(
         step.alarm(f"{ticket}|{last_push}", "BUILDER-QUIET", ticket, f"no push for {quiet} min")
     if where == "local" and row is not None and row.get("state") == "blocked" and not closed:
         step.alarm(ticket, "BUILDER-BLOCKED", ticket, "local builder blocked (claude agents)")
-    local_idle(step, ticket, seen, row, closed)
+    if where == "local" and is_builder(record) and not closed:
+        local_idle(step, ticket, seen, row)
+    else:
+        seen["idle_since"] = None
     budget = record.get("budget_minutes")
     if isinstance(budget, int) and state not in ("ready", "blocked", "done"):
         spent = status.minutes_between(record["_started"], at)
@@ -698,15 +701,26 @@ def track(
     }
 
 
-def local_idle(
-    step: Pass, ticket: str, seen: dict[str, Any], row: dict[str, Any] | None, closed: bool
-) -> None:
-    """LOCAL-IDLE: a local builder that has committed, whose head is not READY or BLOCKED, and whose
-    `claude agents` row has read `status: idle` for IDLE_MINUTES since the head was first seen idle (a
-    finished turn waiting on nobody: a builder that stopped without its trailer)."""
+ENDED_ROW_STATES = {"done", "stopped", "failed"}
+
+
+def is_idle(row: dict[str, Any] | None) -> bool:
+    """A `claude agents` row of a session waiting on nobody: a live one whose `status` is `idle` (its
+    turn finished), or one whose session has exited (no pid, its state done, stopped or failed)."""
+    if row is None:
+        return False
+    if row.get("status") == "idle":
+        return True
+    return row.get("pid") is None and row.get("state") in ENDED_ROW_STATES
+
+
+def local_idle(step: Pass, ticket: str, seen: dict[str, Any], row: dict[str, Any] | None) -> None:
+    """LOCAL-IDLE, for a local builder (never a writer, whose work ends at its `acceptance:` commit, nor
+    one whose PR is closed): it has committed, its head is not READY or BLOCKED, and its `claude agents`
+    row has read idle (`is_idle`) for IDLE_MINUTES since the head was first seen so (a builder that
+    stopped, or whose session ended, without its trailer)."""
     head = seen["head"]
-    idle = row is not None and row.get("status") == "idle"
-    if not idle or closed or head is None or not seen.get("committed"):
+    if not is_idle(row) or head is None or not seen.get("committed"):
         seen["idle_since"] = None
         return
     if seen.get("outcome") in ("READY", "BLOCKED"):
@@ -717,17 +731,22 @@ def local_idle(
     idle_for = status.minutes_between(status.parse_utc(since), step.at)
     if idle_for >= IDLE_MINUTES:
         detail = f"{head[:8]} idle {idle_for} min after a commit, no READY or BLOCKED (claude agents)"
+        if row is not None and row.get("pid") is None:
+            detail = f"{head[:8]} session ended {idle_for} min ago after a commit, no READY or BLOCKED"
         step.alarm(f"{ticket}|{head}", "LOCAL-IDLE", ticket, detail)
 
 
-def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
+def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) -> None:
     """Read a seen head's outcome again: the state was written by another version of the trailer
-    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both."""
+    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both. A READY
+    inherited onto clean merges of main (track's rule) stays READY."""
     head = seen["head"]
     info = read_head(seen["branch"], head)
     if info is None:
         return
     trailers = parse_trailers(*info)
+    if trailers.outcome is None and seen.get("outcome") == "READY" and inherits_ready(head, main_sha):
+        return
     if trailers.outcome == "READY":  # every READY records its head, unchanged or not
         seen["ready_head"] = head
     if trailers.outcome == seen.get("outcome"):
@@ -743,6 +762,24 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
         step.event("READY", ticket, head[:8])
     elif trailers.outcome == "BLOCKED":
         step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
+
+
+def inherits_ready(head: str, main_sha: str | None) -> bool:
+    """Whether `head` is clean merges of main on a commit that reads READY: track() records such a merge
+    as its own READY head, so the READY commit under it is found again by walking first parents."""
+    sha = head
+    for _ in range(MERGE_DEPTH):
+        parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
+        if len(parents) != 2:
+            return False
+        sha = parents[0]
+        message = git_out("log", "-1", "--format=%B", sha)
+        tree = git_out("rev-parse", f"{sha}^{{tree}}")
+        if message is None or tree is None:
+            return False
+        if parse_trailers(message, tree.strip()).outcome == "READY":
+            return clean_merges_of_main(head, sha, main_sha)
+    return False
 
 
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:

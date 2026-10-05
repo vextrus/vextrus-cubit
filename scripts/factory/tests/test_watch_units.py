@@ -419,9 +419,9 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     idle = {"name": "t-local", "status": "idle", "pid": 1}
     busy = {**idle, "status": "busy"}
 
-    def at(minutes: int, row: dict[str, Any] | None, closed: bool = False) -> list[str]:
+    def at(minutes: int, row: dict[str, Any] | None) -> list[str]:
         step = watch.Pass(tmp_path, AT + timedelta(minutes=minutes), {})
-        watch.local_idle(step, "t", seen, row, closed)
+        watch.local_idle(step, "t", seen, row)
         return [code for code, _subject, _detail in step.alarms.values()]
 
     assert at(0, idle) == []
@@ -431,7 +431,6 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     assert at(12, idle) == []
     assert at(21, idle) == []
     assert at(22, idle) == ["LOCAL-IDLE"]
-    assert at(23, idle, closed=True) == []  # a merged or closed PR: nothing to wait for
     assert at(40, None) == []  # no row: not this alarm's reading
     for outcome in ("READY", "BLOCKED"):
         seen.update(outcome=outcome, idle_since=None)
