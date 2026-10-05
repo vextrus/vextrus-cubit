@@ -2,10 +2,10 @@
 
 ## Starting the session (the owner)
 1. In a WSL terminal: `cd ~/vextrus-cubit && git pull`, then `df -h /` and `free -g`. Keep at least 40 GB free (the
-   governor refuses every local unit under 30 GB and warns under 40); 42 GB were free at 09:34Z on 5 Oct. If it is under
+   governor refuses every local unit under 30 GB and warns under 40); 41 GB were free at 11:00Z on 5 Oct (42 at 09:34Z). If it is under
    40, run the two cleanup steps below first.
    Session 12's cleanup (about 2 GB): `uv run python -m scripts.factory.sweep --apply` removes only clean, merged
-   worktrees (its dry run listed 4 at 09:34Z, 5 Oct). Then clear the review slots: run
+   worktrees (its dry run at 11:00Z, 5 Oct, listed 0 removals and 4 `prune` lines for scratch worktrees that no longer exist, and kept 139 worktrees; read it again before `--apply`). Then clear the review slots: run
    `VEXTRUS_CLEAN_ROOTS=$PWD/.private/work/factory/review scripts/owner/clean.sh` (a dry run, 1.7 GB), then add `--yes`.
    The slots are rebuilt on demand. Never point `clean.sh` at `.claude/worktrees/`: it holds the carried branches
    (t182, t-readlock, t228, t229, t160, loop-iou).
@@ -52,7 +52,7 @@ a gate to close it.
    M0-FL13 table); the PASS rule in `docs/specs/factory/contracts/walk-verdict.schema.json`.
 5. `.private/work/session-11/review-main/report.md` (D1–D11), `.private/work/session-12/research/bar-90.md` (the 90 %
    plan, its order and targets) and `verified-answers.md` beside it (D1–D10 per defect).
-6. `CLAUDE.md`, `.claude/rules/` and `.claude/skills/orchestrate-wave/SKILL.md` (the runbook).
+6. `CLAUDE.md`, `.claude/rules/` and `.claude/skills/orchestrate-wave/SKILL.md` (the runbook) and `.claude/skills/orchestrate-wave/commands.md` beside it (each command in the form the guard accepts; `tools.lint.docs_paths` lints it).
 
 ## Where M0 stands (tool results, 5 Oct 2026)
 - **main** at session 12's handover is 3c62f67da or later. Since 8b2b8d4df (G1 #1's head), main's product paths changed
@@ -90,7 +90,7 @@ a gate to close it.
   groups / 15 Sheets, plus each group file's full list of true Sheet numbers (Edison 4 files / 175 numbers, Sample 1 /
   37; 5 of 5 files equal the product's last read). A number its file does not hold is a misread and leaves the set
   unmeasured (check 3 fails closed). G1 judges by M0's one-title groups; the mark-range count is reported beside it.
-- **CI's `e2e` workflow has not passed on main in its last 100 runs** (checked 09:05Z, 5 Oct): the browser smoke
+- **CI's `e2e` workflow has failed on every main run on record** (32 of 32 since 01:53Z, 5 Oct; checked 11:00Z): the browser smoke
   `web/e2e/acceptance/t22/smoke.spec.ts` fails because `/opt/vextrus/acadsharp-dump` is missing on the runner. It is
   not a required check. It is M0's #31 (the Step 1 screen and the browser smoke test): Phase 2 decides it.
 - **Expectations:** `.private/work/walk-expect/edison.json` (7 files) and `sample-project.json` (4 files), counts
@@ -181,15 +181,18 @@ a gate to close it.
   after session-11".
 - 30 Sep: "the job is the scored reader". It stands unless Q17 changes it.
 
-## The factory you drive (command card; run from `/home/riz/vextrus-cubit`; each tool prints its contract with `--help`)
+## The factory you drive (command card; run from `/home/riz/vextrus-cubit`; each tool prints its contract with `--help`; `.claude/skills/orchestrate-wave/commands.md` lists the runbook's commands in the forms the guard accepts, and says: what the guard or the classifier refuses is the owner's to run as `! <command>`)
 - **Start:** `scripts/factory/orchestrator.sh [--resume <full session id>]`.
 - **Clock:** `uv run python -m scripts.factory.stamp start --budget 11h --state .private/work/session-13/STATE.md
   --phases "p0=30,p1=300,p2=270,p3=180,p4=330,p5=45"` (the phases below; `stamp phase` refuses an unplanned
   name, and re-planning needs `start --force`); `… stamp "<text>"` (every STATE line); `… stamp phase <name>`; `… stamp elapsed [--ticket <t>]`;
   `… stamp budget --ticket <t> --minutes <n>`; `… stamp end` (closes the session). If `start` is refused because
-  session 12's clock is still open, run `… stamp end` first; never `--force` over a live clock.
+  a clock is still open (session 12's ended at 10:39Z, 5 Oct, and `session.json` is absent at 11:00Z), run `… stamp end` first; never `--force` over a live clock.
 - **Preflight:** `uv run python -m scripts.factory.governor check cloud-session|local-agent|review|pytest|web-tests|walk|rd-run`
   (exit 0 OK, 3 REFUSED; `--usage-checked "<your /usage lines>"` if it cannot read usage).
+  Usage holds stop a launch only at a used-up limit (session or week 100%): the owner's ruling of 5 Oct 2026,
+  "don't make those threshold of week 85% or session 80%, make them 100% both" (#404). Usage is the owner's
+  concern: when a limit is used up, tell the owner and cut scope to work that needs no launch.
 - **Launch:** `uv run python -m scripts.factory.launch cloud --branch <b> --prompt-file <f> --ticket <t> --effort
   medium|high [--role acceptance-writer] [--budget-minutes <n>]`; `… launch local --ticket <t> --branch <b> --effort <e>
   --name <n> --prompt-file <f> [--role builder|acceptance-writer] [--budget-minutes <n>]` (the branch must be on origin).
@@ -197,7 +200,7 @@ a gate to close it.
   (it acts 1–3.5 min later); a local one `uv run python -m scripts.factory.say <full sessionId> --file <f> --elapsed <n>/<m>`.
   Write every prompt and message to a file with the Write tool first.
 - **Watch:** Monitor on `tail -n0 -F .private/work/factory/events.log`, re-armed at its deadline;
-  `uv run python -m scripts.factory.status age` (exit 0 while the watcher writes).
+  `uv run python -m scripts.factory.status age` (exit 0 while the watcher writes); `uv run python -m scripts.factory.watch ensure` starts the watcher when its pidfile is stale (`orchestrator.sh` already runs it).
 - **Amend an acceptance test:** `uv run python -m scripts.factory.amend --subject "<text>" --red <n> --green <n> <path>…`.
 - **Review:** `/review-pr <PR> <40-hex head> <round> [security75|crash|false-statement|fix-regression]`. If its Record
   step is refused, record the same decision file by hand: `uv run python -m scripts.ledger record <PR> --round <n> --head
@@ -215,14 +218,14 @@ a gate to close it.
   statusCheckRollup` (gh 2.45 has no `gh pr checks --json`).
 - **Land:** `uv run python -m scripts.merge_ready <PR>` (exit 0 ready), then `uv run python -m scripts.land <PR>` (ledger
   PASS, update-branch, CI, one listed-flake rerun, `merge_ready`, merge pinned to the head). It runs no posting run and
-  posts no gate: do both on the head it will land.
+  posts no gate: do both on the head it will land. Until #398 is fixed, `land` can read a freshly updated head before its `ci` registers and refuse with `merge-ready: ci: not succeeded` (#391 and #393 on 5 Oct, 09:58Z and 09:59Z). So land one PR at a time: update its branch yourself (`gh api --method PUT repos/vextrus/vextrus-cubit/pulls/<n>/update-branch -f expected_head_sha=<sha40>`), wait until the new head's `ci` is green, then run `scripts.land <n>` while nothing else merges (it skips the update when main is already in).
 - **G1:** `… governor check walk`; `uv run python -m scripts.walk.run <sha40> > .private/work/session-13/g1-<sha8>.log
   2>&1` (`run_in_background`); Monitor `events.log` until `WALK - <sha8> done`; then `/real-set-walk <sha40>`; then
   `uv run python -m scripts.walk.ready origin/main` (0 ready, 1 not, 2 malformed).
 - **Sweep:** `uv run python -m scripts.factory.sweep` (a dry run; `--apply` removes only clean, merged worktrees).
 
 ## The factory at handover (session 12 phase 6, 5 Oct 2026; filled by the orchestrator)
-**Landed in phase 6:** #339 /review-pr verdict outside the slot, #345 root-safe tests, #346 T-SETTINGS, #347 T-LEAK-CORPUS, #348 T-AMEND, #349 T-WALK-1, #350 T-LAND (scripts.land), #351 T-LEAK-PDF, #353 T-WATCH, #355 T-MOD, #356 T-LEAK-HOOK, #358 the fix-regression exception, #359 T-STAMP, #360 T-HOOKS, #361 T-PRECOMPACT, #362 T-JEV-DEDUPE, #363 T-JEV-CLIENT, #364 T-SWEEP, #371 T-LAUNCH, #372 T-WATCH-LOCAL, #377 T-WEB-REP, #378 and #381 (leak allowlist), #382 T-GUARD-NARROW, #386 T-LAND-PULL, #387 T-WALK-3. Each landed through `/review-pr` and `scripts.land`. The end-to-end proof was T-GUARD-NARROW (#382): `launch cloud` writer → acceptance commit → `launch cloud` builder → `/review-pr` → a fix round through `launch say` → round 2 PASS → `scripts.land`. Body patching was the only manual step (gap 1).
+**Landed in phase 6:** #339 /review-pr verdict outside the slot, #345 root-safe tests, #346 T-SETTINGS, #347 T-LEAK-CORPUS, #348 T-AMEND, #349 T-WALK-1, #350 T-LAND (scripts.land), #351 T-LEAK-PDF, #353 T-WATCH, #355 T-MOD, #356 T-LEAK-HOOK, #358 the fix-regression exception, #359 T-STAMP, #360 T-HOOKS, #361 T-PRECOMPACT, #362 T-JEV-DEDUPE, #363 T-JEV-CLIENT, #364 T-SWEEP, #371 T-LAUNCH, #372 T-WATCH-LOCAL, #377 T-WEB-REP, #378 and #381 (leak allowlist), #382 T-GUARD-NARROW, #386 T-LAND-PULL, #387 T-WALK-3. Each landed through `/review-pr` and `scripts.land`. Also merged: #375 T-XDIST (09:49Z), #391 T-JEV-LAUNCH (10:08Z), #393 T-LOCAL (10:16Z), #394 this brief (10:18Z), #400 T-DOCS-RUNBOOK (10:40Z; the re-submission of #392): 31 PRs in phase 6 in all (`.private/work/session-12/STATE.md`, 10:40Z). The end-to-end proof was T-GUARD-NARROW (#382): `launch cloud` writer → acceptance commit → `launch cloud` builder → `/review-pr` → a fix round through `launch say` → round 2 PASS → `scripts.land`. Body patching was the only manual step (gap 1).
 
 **Not landed (each ticket file under `.private/work/session-12/phase6/tickets/` holds the redesign notes):**
 - **Closed after their review cap, then deferred:**
@@ -243,24 +246,22 @@ a gate to close it.
    - heredocs or loops that name `leakscan` or the ledger, and `ls` of the ledger folder: write files with the Write tool, read review outcomes from the workflow's `journal.jsonl`;
    - a GitHub body over 72 characters inline: use `--body-file` after `leakscan file`;
    - a push in the same call as anything else: push alone, after `leakscan range <merge-base>..<head> --ref <b>`.
-3. **The auto-mode classifier sometimes denies `/review-pr`'s Record step** ("Self-Approval", "CI Bypass", "Logging/Audit Tampering"). Record it from the main checkout with `uv run python -m scripts.ledger record <PR> --round <n> --head <sha> --from <file>`:
+3. **`/review-pr`'s Record step was often denied by the auto-mode classifier** ("Self-Approval", "CI Bypass", "Logging/Audit Tampering") until the owner added classifier rules R1-R5 to `~/.claude/settings.json` `autoMode.allow` (12:39Z, 5 Oct: launches, cleanup dry runs, the verdict record, landing, gate posting); #405's review recorded its verdict with no denial. If a Record step is still refused, record it from the main checkout with `uv run python -m scripts.ledger record <PR> --round <n> --head <sha> --from <file>`:
    - the file holds `VERDICT: <v> at <sha>`, one line per lens (lens 1 is pr-reviewer, lens 2 the adversary);
    - then `FINDING l<lens>-f<i> <score> <CONFIRMED|REFUTED|UNPROVEN|->` lines, sorted by score.
 
-   An owner classifier rule (R3) would end this.
+   If the classifier refuses that too, give the owner the exact `uv run python -m scripts.ledger record ...` line to type as `! <command>` (CLAUDE.md:59, `commands.md`:6).
 4. **The leak corpus absorbs the factory's own words** from session notes: ticket ids, review vocabulary, commit SHAs from real-drawing outputs. A false hit is allowlisted by hash, in a one-line PR (#378, #381): `leakscan allow <file>:<line>`. T-LEAK-2 (#380: merge-base stamps, `allow commit:<sha12>:<n>`, whole-sha drops, slug reads) was capped and is split into an exact part and a heuristic part (ticket note). The class fix, skipping the orchestrator's cloud-bound tickets and prompts folders, is a ticket note.
-5. **Local fix rounds use `uv run python -m scripts.factory.say <full uuid> --file <f> --elapsed n/m`.** T-LOCAL (#393, the re-submission of #388) makes `say` judge liveness by a pid on any of the session's rows and refuse a gone worktree folder. If it refuses a stale `blocked`/`done` row (after a reboot), resume headless from the worktree:
-   - `env -u CLAUDE_PROJECT_DIR -u CLAUDE_CODE_PLUGIN_DIRS -u CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS VEXTRUS_ROLE=builder claude --resume <uuid> -p --agent builder --effort <e> --settings <main>/scripts/factory/builder.settings.json "<prompt>"`;
-   - run it in the background; the guard refuses `--bg`.
+5. **Local fix rounds use `uv run python -m scripts.factory.say <full uuid> --file <f> --elapsed n/m`.** T-LOCAL (#393, merged 10:16Z, the re-submission of #388) makes `say` judge liveness by a pid on any of the session's rows: a session with no pid on any row, whatever its state (`done`, `blocked` or `working` after a reboot), is resumed by `say` itself. It refuses a folder that is gone or outside `.claude/worktrees/`, no row, or `stopped`/`failed` with a pid. If `say` refuses or exits with any other code than 0, do not improvise a resume (no second `claude --resume`, no `claude rm`): tell the owner the session id and `say`'s output, and carry on with other work. An exit 6 (ALARM-RESUME-COPY) means the CLI copied the conversation into a new session that already received your message as its prompt; tell the owner that too, so the copy's id can be found for the next round.
 6. **`/review-pr` does not read CI.** #377 passed review with a red web job. Check `gh pr checks <n>` before landing.
 7. **Gates live on the exact head that lands.** For a web PR (design gate) or an engine PR (posting real-drawings run):
    - update the branch first, with `gh api --method PUT repos/vextrus/vextrus-cubit/pulls/<n>/update-branch -f expected_head_sha=<sha>`;
    - post the gate, or run the posting run, on the new head;
-   - then land it while nothing else merges.
-8. **CI's `e2e` workflow has not passed on main in its last 100 runs.** The browser smoke `web/e2e/acceptance/t22/smoke.spec.ts` fails because `/opt/vextrus/acadsharp-dump` is missing on the runner. It is not a required check. This is M0's #31: decide in Phase 2.
-9. **A capped PR is closed and re-submitted complete** (#373→#379, #374→#387, #388→#393). Only the orchestrator amends acceptance tests, through `scripts.factory.amend` (2f654dafe, 131047313). Its lint refuses an amendment that pins nothing new.
+   - wait until that head's `ci` check is green (#398: `scripts.land` can read a new head before `ci` registers), then land it while nothing else merges.
+8. **CI's `e2e` workflow has failed on every main run on record (32 of 32).** The browser smoke `web/e2e/acceptance/t22/smoke.spec.ts` fails because `/opt/vextrus/acadsharp-dump` is missing on the runner. It is not a required check. This is M0's #31: decide in Phase 2.
+9. **A capped PR is closed and re-submitted complete** (#373→#379, #374→#387, #388→#393, #392→#400). Only the orchestrator amends acceptance tests, through `scripts.factory.amend` (2f654dafe, 131047313). Its lint refuses an amendment that pins nothing new.
 
-**Open factory PRs at handover** (each reviewed or in review; land one when its ledger reads PASS, through `scripts.land`, as reviewed work, not new work): #391 T-JEV-LAUNCH, #392 T-DOCS-RUNBOOK (the runbook's `commands.md`), #393 T-LOCAL. `gh pr list --label factory` shows which are still open.
+**Open factory PRs at handover:** none, once the PR carrying this line (#405) lands; #403 was closed after its review cap. #401 was closed (superseded by the owner's usage ruling, landed as #404). The only other open PR is #237 (M0's). #391 T-JEV-LAUNCH (10:08Z), #393 T-LOCAL (10:16Z) and #400 T-DOCS-RUNBOOK (10:40Z) are merged; #392 was closed after its review cap and re-submitted as #400. Open factory issues you may meet: #398 (the lander, gap 7), #396 (guard: the gh write rule for local builders), #397 (`guard.test.mjs` fails in cloud sessions), #399 (`docs_paths` is not a CI step).
 
 ## Phase 0: orient, clock, machine (≤ 30 min)
 Budget: ~11 h of work, cut at +8 h: at the cut, anything not on the finish line becomes an issue. Phases 1–4 overlap;
@@ -285,7 +286,7 @@ the walk-blocker tickets, D9, D10, D7, #235, J1 last. Cut first at +8 h: J1 (to 
 
 1. Start the clock (card); check `… stamp elapsed` reads about 0:00.
 2. Read the machine: `governor check cloud-session` and `check local-agent`; `df -h /`, `free -g`, `git worktree list |
-   wc -l` (133 at 07:51Z), `… status age`, `… sweep` (dry run). At most 3 local agents at once.
+   wc -l` (133 at 07:51Z; 144 at 11:00Z), `… status age`, `… sweep` (dry run). At most 3 local agents at once.
 3. Read the factory state above, `gh pr list`, and `… scripts.walk.ready origin/main` (expect exit 1). T-WALK-3 is on
    main (#387), so G1 #2 can judge check 3.
 4. Ask Q13, then the others in "Owner questions" order, one at a time.
@@ -449,7 +450,7 @@ Ask only what STATE.md does not already answer. Start the work on the defaults; 
   time against its budget.
 - **Message a local builder with `scripts.factory.say <full session id>`.** It prints the text for SendMessage when
   the session is live (a row with a pid) and resumes it otherwise. After a reboot a dead session's row can still read
-  `done` or `blocked`: see gap 5 under the command card. Never message a running workflow agent: it starts a second
+  `done` or `blocked`: `say` resumes it itself when no row has a pid (#393); see gap 5 only if it refuses. Never message a running workflow agent: it starts a second
   copy (two measure strands ran twice in session 12, and one overwrote the other).
 - **A capped PR is closed and re-submitted complete as a new PR** (#352 → #358, #365 → #377). A gate hand-built across
   review rounds thrashed (#354): pin the whole behaviour with an acceptance writer first.
