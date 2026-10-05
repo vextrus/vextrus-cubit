@@ -6,7 +6,13 @@ issues, commenting the new sha on an existing one; ... the leak scan runs on eve
 findings counted = issues drafted + dedup comments (+ findings merged into another of the same run);
 a free-text field in a draft is refused.
 
-    drafts = draft(findings, open_issues, sha=sha40, scan=leakscan_text)
+    drafts = draft(findings, open_issues, sha=sha40, scan=leakscan_text, advise=None)
+
+Jev advises beside the exact rule (`advise`; `dedupe.advise` from the command line; #258): the exact rule
+decides, and a missing, late or odd answer is a new issue. A group with no exact match (at most
+`dedupe.MAX_ADVISED` of them) is put to the advisor with only its public title and the open issues'
+titles rebuilt from their keys: `comment` on an open issue makes it a dedup comment (`"advised": True`),
+`possible` adds the body line `- Possibly the same as: #<n>` to its new issue (`"possibly": <n>`).
 
 A title is `walk: <defect_class> on <screen>`; a body holds only `Item`, `Severity`, `Delta`,
 `Walk: <sha40>` and the marker `<!-- walk-key: <class>/<screen> -->`. Every refusal raises `Refused`
@@ -15,11 +21,12 @@ leak scan that cannot run refuses every draft.
 
 The command line (run by `/real-set-walk`'s triage agent; paths under `.private/work/walks/<sha40>/`):
 
-    python -m scripts.walk.issues draft <sha40> [--walks-dir D]
+    python -m scripts.walk.issues draft <sha40> [--advise] [--walks-dir D]
         reads triage.json ({"items", "findings"}: allowlisted keys only) and open-issues.json (`gh issue
         list --label walk --state open --json number,body`), writes public/issue-drafts.json and one
         body file per draft (public/new-<n>.md, public/comment-<n>.md), and the private drafts.json
-        (which findings each draft carries). Exit 0, or 2 refused.
+        (which findings each draft carries); `--advise` asks Jev about each group with no exact
+        match (above). Exit 0, or 2 refused.
     python -m scripts.walk.issues record <sha40> [--walks-dir D] --created <n>=<issue number> ...
         writes findings.json (the agent layer's record for verdict.py): each finding with the issue
         drafted for it or the open issue it commented on. Exit 0, or 2 refused.
@@ -34,6 +41,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scripts.walk import dedupe
 from scripts.walk.cli import QuietParser
 from scripts.walk.sanitize import ALLOWED_KEYS, ITEMS, sanitize_finding
 from scripts.walk.verdict import ISSUE_LIMIT
@@ -45,6 +53,7 @@ SUMMARY = re.compile(r"^leakscan: hits=([0-9]+) scanned=[0-9]+ corpus=[0-9a-f]{1
 ROOT = Path(__file__).resolve().parents[2]
 
 type Scan = Callable[[str], int]
+type Advise = Callable[[str, list[tuple[int, str]]], object]
 
 
 class Refused(Exception):
@@ -54,9 +63,9 @@ class Refused(Exception):
 @dataclass
 class Drafts:
     new: list[dict[str, Any]] = field(default_factory=list)
-    """Each `{"key", "title", "body", "findings": [finding ids]}`: an issue to open."""
+    """Each `{"key", "title", "body", "findings": [finding ids]}` (+ `"possibly": <n>`): an issue."""
     comments: list[dict[str, Any]] = field(default_factory=list)
-    """Each `{"key", "number", "body", "findings": [finding ids]}`: a comment on an open issue."""
+    """Each `{"key", "number", "body", "findings": [finding ids]}` (+ `"advised": True`): a comment."""
     merged: int = 0
     """Findings folded into another of the same run (same class and screen)."""
 
@@ -81,8 +90,13 @@ def _delta(findings: list[dict[str, Any]]) -> str:
     return "none"
 
 
-def _body(sha: str, key: str, findings: list[dict[str, Any]]) -> str:
-    """Only closed values: item codes, a severity word, a number, the sha and the marker."""
+def _title(key: str) -> str:
+    defect_class, screen = key.split("/", 1)
+    return f"walk: {defect_class} on {screen}"
+
+
+def _body(sha: str, key: str, findings: list[dict[str, Any]], possibly: int | None = None) -> str:
+    """Only closed values: item codes, a severity word, numbers, the sha and the marker."""
     items = [item for item in ITEMS if any(f["item"] == item for f in findings)]
     severity = "BLOCKS" if any(f["severity"] == "BLOCKS" for f in findings) else "OTHER"
     if any(f["misleading"] for f in findings):
@@ -93,6 +107,7 @@ def _body(sha: str, key: str, findings: list[dict[str, Any]]) -> str:
             f"- Severity: {severity}",
             f"- Delta: {_delta(findings)}",
             f"- Walk: {sha}",
+            *([f"- Possibly the same as: #{possibly}"] if possibly is not None else []),
             "",
             _marker(key),
             "",
@@ -141,7 +156,23 @@ def _scanned(scan: Scan, text: str) -> None:
         raise Refused("the leak scan hit a draft")
 
 
-def draft(findings: Iterable[object], open_issues: Iterable[object], *, sha: str, scan: Scan) -> Drafts:
+def _advised(advise: Advise, title: str, titles: list[tuple[int, str]]) -> dedupe.Advice:
+    """The advisor's answer if it is a well-formed one on an open issue, else `new`."""
+    try:
+        answer = advise(title, list(titles))
+    except Exception:
+        return dedupe.NEW
+    return dedupe.checked(answer, [number for number, _ in titles])
+
+
+def draft(
+    findings: Iterable[object],
+    open_issues: Iterable[object],
+    *,
+    sha: str,
+    scan: Scan,
+    advise: Advise | None = None,
+) -> Drafts:
     """The run's issue drafts and dedup comments; every one leak-scanned, or nothing at all."""
     if not isinstance(sha, str) or not SHA.fullmatch(sha):
         raise Refused("the sha is not 40 hex")
@@ -153,7 +184,10 @@ def draft(findings: Iterable[object], open_issues: Iterable[object], *, sha: str
     groups: dict[str, list[dict[str, Any]]] = {}
     for finding in clean:
         groups.setdefault(f"{finding['defect_class']}/{finding['screen']}", []).append(finding)
+    titles = sorted((number, _title(key)) for key, number in existing.items())
     drafts = Drafts()
+    advised: list[dict[str, Any]] = []
+    asked = 0
     for key, group in groups.items():
         drafts.merged += len(group) - 1
         body = _body(sha, key, group)
@@ -162,10 +196,23 @@ def draft(findings: Iterable[object], open_issues: Iterable[object], *, sha: str
             drafts.comments.append(
                 {"key": key, "number": existing[key], "body": body, "findings": members}
             )
+            continue
+        title, advice = _title(key), dedupe.NEW
+        if advise is not None and titles and asked < dedupe.MAX_ADVISED:
+            asked += 1
+            advice = _advised(advise, title, titles)
+        if advice.decision == "comment":
+            advised.append(
+                {"key": key, "number": advice.issue, "body": body, "findings": members, "advised": True}
+            )
+        elif advice.decision == "possible":
+            body = _body(sha, key, group, advice.issue)
+            drafts.new.append(
+                {"key": key, "title": title, "body": body, "findings": members, "possibly": advice.issue}
+            )
         else:
-            defect_class, screen = key.split("/", 1)
-            title = f"walk: {defect_class} on {screen}"
             drafts.new.append({"key": key, "title": title, "body": body, "findings": members})
+    drafts.comments.extend(advised)  # the exact ones first
     for new in drafts.new:
         _scanned(scan, f"{new['title']}\n{new['body']}")
     for comment in drafts.comments:
@@ -229,8 +276,9 @@ def _triage(folder: Path) -> dict[str, Any]:
     return {"items": items, "findings": layer["findings"]}
 
 
-def _command_draft(folder: Path, sha: str) -> int:
+def _command_draft(folder: Path, sha: str, *, advise: bool = False) -> int:
     scan: Scan = leakscan_text  # looked up at call time, so a test can stand a stub in
+    advisor: Advise | None = dedupe.advise if advise else None  # likewise
     layer = _triage(folder)
     rows = _load(folder / "open-issues.json")
     if not isinstance(rows, list):
@@ -240,7 +288,7 @@ def _command_draft(folder: Path, sha: str) -> int:
         if not isinstance(row, dict):
             raise Refused("an open issue is not an object")
         open_issues.append({"number": row.get("number"), "key": key_of(str(row.get("body", "")))})
-    drafts = draft(layer["findings"], open_issues, sha=sha, scan=scan)
+    drafts = draft(layer["findings"], open_issues, sha=sha, scan=scan, advise=advisor)
     public = folder / "public"
     # Private: which findings each draft carries (finding ids stay in the walk's folder).
     record: dict[str, Any] = {"sha": sha, "new": [], "comments": [], "merged": drafts.merged}
@@ -251,16 +299,21 @@ def _command_draft(folder: Path, sha: str) -> int:
         record["new"].append({"n": n, "findings": new["findings"]})
         shown["new"].append(
             {"n": n, "key": new["key"], "title": new["title"], "body_file": f"new-{n}.md"}
+            | ({"possibly": new["possibly"]} if "possibly" in new else {})
         )
     for n, comment in enumerate(drafts.comments, start=1):
         _write(public / f"comment-{n}.md", comment["body"])
         record["comments"].append({"n": n, "number": comment["number"], "findings": comment["findings"]})
         shown["comments"].append(
             {"n": n, "key": comment["key"], "number": comment["number"], "body_file": f"comment-{n}.md"}
+            | ({"advised": True} if comment.get("advised") else {})
         )
     _write(folder / "drafts.json", json.dumps(record, indent=2, sort_keys=True) + "\n")
     _write(public / "issue-drafts.json", json.dumps(shown, indent=2, sort_keys=True) + "\n")
-    print(f"issues: {len(drafts.new)} new, {len(drafts.comments)} comments, {drafts.merged} merged")
+    counts = f"issues: {len(drafts.new)} new, {len(drafts.comments)} comments, {drafts.merged} merged"
+    if advise:
+        counts += f", {sum(1 for comment in drafts.comments if comment.get('advised'))} advised"
+    print(counts)
     return 0
 
 
@@ -302,6 +355,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("sha")
     parser.add_argument("--walks-dir", type=Path, default=Path(".private/work/walks"))
     parser.add_argument("--created", action="append", default=[])
+    parser.add_argument("--advise", action="store_true")
     try:
         args = parser.parse_args(argv)
     except SystemExit:
@@ -311,7 +365,7 @@ def main(argv: list[str] | None = None) -> int:
             raise Refused("the sha is not 40 hex")
         folder = args.walks_dir / args.sha
         if args.command == "draft":
-            return _command_draft(folder, args.sha)
+            return _command_draft(folder, args.sha, advise=args.advise)
         return _command_record(folder, args.sha, args.created)
     except (Refused, OSError, ValueError, KeyError, TypeError, RecursionError) as error:
         reason = str(error) if isinstance(error, Refused) else type(error).__name__
