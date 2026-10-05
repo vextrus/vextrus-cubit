@@ -1,17 +1,42 @@
 #!/bin/sh
 # The leak scan for every push (docs/specs/factory.md 5 item 4; leakscan-cli.md 6): for each ref git is
 # about to push, `python -m tools.leakscan range <base>..<local sha> --ref <ref> --no-stamp`, where <base> is
-# the remote's old sha, or for a new branch the merge-base with origin/main. A hit, a missing corpus or any
-# failure refuses the push (fails closed). It prints locations and counts only. It runs once the
-# orchestrator sets `git config core.hooksPath scripts/git-hooks` in the main checkout. A cloud session has no
-# corpus and skips, saying so.
-# The scanner is found from this file's own place, not the pushing repository.
+# the merge-base with origin/main (a superset of the branch's unpublished commits, never main's). A hit, a
+# missing corpus or any failure refuses the push (fails closed). It prints locations and counts only. It runs
+# once the orchestrator sets `git config core.hooksPath scripts/git-hooks` in the main checkout. A cloud
+# session has no corpus and skips, saying so.
+# The scanner and its corpus are the main checkout's (leakscan-cli.md 8), never the pushed branch's: a linked
+# worktree runs its own copy of this file, so the main checkout is VEXTRUS_MAIN_CHECKOUT, else the folder
+# holding the common .git, else this file's own checkout when that is another repository.
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P) || exit 1
 checkout=$(CDPATH= cd -- "$here/../.." && pwd -P) || exit 1
-if [ -x "$checkout/.venv/bin/python" ]; then python=$checkout/.venv/bin/python; else python=python3; fi
 zero=0000000000000000000000000000000000000000
 
-if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ -z "${VEXTRUS_LEAKSCAN_HOME:-}" ] && [ ! -e "$checkout/.private" ]; then
+common=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || common=
+common=$(CDPATH= cd -- "$common" 2>/dev/null && pwd -P) || common=
+if [ -n "${VEXTRUS_MAIN_CHECKOUT:-}" ]; then
+  main=$VEXTRUS_MAIN_CHECKOUT
+else
+  main=
+  case $common in
+    */.git) [ -f "${common%/.git}/tools/leakscan/__main__.py" ] && main=${common%/.git} ;;
+  esac
+  if [ -z "$main" ]; then
+    own=$(unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY
+          CDPATH= cd -- "$checkout" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || own=
+    own=$(CDPATH= cd -- "$own" 2>/dev/null && pwd -P) || own=
+    # This file's checkout is trusted only outside the pushing repository: inside it, it is the branch's.
+    [ -n "$common" ] && [ "$own" != "$common" ] && main=$checkout
+  fi
+fi
+if [ -z "$main" ] || [ ! -d "$main" ] || [ ! -f "$main/tools/leakscan/__main__.py" ]; then
+  echo "pre-push: cannot find the main checkout's leak scanner (set VEXTRUS_MAIN_CHECKOUT, or push from a checkout of the main repository); refusing" >&2
+  exit 1
+fi
+main=$(CDPATH= cd -- "$main" && pwd -P) || exit 1
+if [ -x "$main/.venv/bin/python" ]; then python=$main/.venv/bin/python; else python=python3; fi
+
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && [ -z "${VEXTRUS_LEAKSCAN_HOME:-}" ] && [ ! -e "$main/.private" ]; then
   echo "pre-push: leak scan skipped (cloud session: no corpus)" >&2
   exit 0
 fi
@@ -26,20 +51,18 @@ while read -r local_ref local_sha remote_ref remote_sha; do
       status=1
       continue ;;
   esac
-  if [ "$remote_sha" = "$zero" ] || ! git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
-    base=$(git merge-base "$local_sha" refs/remotes/origin/main 2>/dev/null) || base=
-    if [ -z "$base" ]; then
-      echo "pre-push: a pushed ref has no merge-base with origin/main; refusing (fetch origin first)" >&2
-      status=1
-      continue
-    fi
-  else
-    base=$remote_sha
+  base=$(git merge-base "$local_sha" refs/remotes/origin/main 2>/dev/null) || base=
+  if [ -z "$base" ]; then
+    echo "pre-push: a pushed ref has no merge-base with origin/main; refusing (fetch origin first)" >&2
+    status=1
+    continue
   fi
-  PYTHONPATH="$checkout${PYTHONPATH:+:$PYTHONPATH}" "$python" -m tools.leakscan range "$base..$local_sha" --ref "$remote_ref" --no-stamp >&2
+  # From the pushing folder (the scanner reads its repository there), with that folder kept off sys.path.
+  VEXTRUS_MAIN_CHECKOUT=${VEXTRUS_MAIN_CHECKOUT:-$main} PYTHONPATH=$main PYTHONSAFEPATH=1 \
+    "$python" -m tools.leakscan range "$base..$local_sha" --ref "$remote_ref" --no-stamp </dev/null >&2
   code=$?
   if [ "$code" -ne 0 ]; then
-    echo "pre-push: the leak scan refused a pushed ref (exit $code); remove the text, or allowlist a generic line with \`python -m tools.leakscan allow <file>:<line>\`" >&2
+    echo "pre-push: the leak scan (the main checkout's scanner and corpus) refused a pushed ref (exit $code); remove the text, or allowlist a generic line with \`python -m tools.leakscan allow <file>:<line>\`" >&2
     status=1
   fi
 done
