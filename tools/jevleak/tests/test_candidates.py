@@ -198,3 +198,25 @@ def test_a_version_is_not_asked(token: str) -> None:
 @pytest.mark.parametrize("sentence", ["The client signed.", "It was done. The client signed."])
 def test_a_function_word_is_never_asked(sentence: str) -> None:
     assert texts(sentence) == []
+
+
+# PR #379 round 2: a token holding `/` or `\` is read whole as a code first, then split.
+
+
+@pytest.mark.parametrize(
+    ("sentence", "code"),
+    [
+        ("sheet S/101", "S/101"),
+        ("drawing A/201", "A/201"),
+        ("grid C/7", "C/7"),
+        ("see TW/ST/12 here.", "TW/ST/12"),
+        ("see QX/2026/014 here.", "QX/2026/014"),
+        ("see QX\\2026\\014 here.", "QX\\2026\\014"),
+    ],
+)
+def test_a_slash_written_code_is_asked_whole(sentence: str, code: str) -> None:
+    assert code in texts(sentence)
+
+
+def test_names_joined_by_a_slash_are_still_two_candidates_and_no_whole() -> None:
+    assert texts("Client: Haverford/Quillon") == ["Haverford", "Quillon"]

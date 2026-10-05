@@ -21,7 +21,9 @@ CODE, NAMES, WORD = 0, 1, 2
 """The ranks: codes, sizes and levels first; then runs of capitalised words; then single words."""
 
 _TOKEN = re.compile(r"[^\s/\\]+")
-"""Tokens are cut at whitespace and at `/` and `\\`, as the literal wall's split does."""
+"""Tokens are cut at whitespace and at `/` and `\\` (so `Haverford/Quillon` is two names); a whitespace
+token holding `/` or `\\` is also read whole as a code first (`S/101`, `QX/2026/014`)."""
+_WHOLE = re.compile(r"\S+")
 _SIZE = re.compile(r"(?<![\w.])[0-9]{2,5} {0,3}[xX\u00d7] {0,3}[0-9]{2,5}(?![\w.])")
 _LEVEL = re.compile(r"[+\u00b1\u2212-][0-9]{1,3}\.[0-9]{2,3}")
 _CODE_CHARS = re.compile(r"[A-Za-z0-9][A-Za-z0-9./_-]*")
@@ -164,6 +166,14 @@ def _line(number: int, line: str) -> list[Candidate]:
     found: list[Candidate] = []
     for match in _SIZE.finditer(line):
         found.append(Candidate(number, match.group(), CODE, match.start()))
+    for match in _WHOLE.finditer(line):
+        raw = match.group()
+        if len(raw) > LONGEST + 8 or ("/" not in raw and "\\" not in raw):
+            continue
+        lead = len(raw) - len(raw.lstrip(_OPEN))
+        whole = raw.strip(_OPEN).rstrip(_ENDS + _CLOSE)
+        if _code(whole.replace("\\", "/")) and key(whole) not in known():
+            found.append(Candidate(number, whole, CODE, match.start() + lead))
     tokens = _tokens(line)
     run: list[_Token] = []
 
