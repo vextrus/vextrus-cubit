@@ -80,6 +80,14 @@ launch cloud --branch <branch> --prompt-file <file> --ticket <ticket> --effort <
    (leakscan-cli.md), or, before f2, `--prompt-scanned` is absent.
 6. `branch-not-rd`: `--drawings` with a branch not starting `rd/`.
 
+**Jev's advice (#260; J-f: "a warning, never a refusal").** After a clean leak scan and before the launch, for `--role`
+`builder` or `acceptance-writer` with no `--review-file` (a reviewer's prompt holds the nonce: never sent), `main` asks
+`jev.ask(<prompt file text>, questions, task="launch-warn")` two `noul` questions, `needs_real_drawings` (real drawings or a
+private folder a cloud session lacks) and `needs_other_ticket` (another ticket's file or an unlanded change). Each `p >= 0.9`
+(`JEV_WARN_AT`) prints `JEV-DISAGREES <needs-real-drawings|needs-other-ticket> p=<0.00>` just before `record:`. The reading is
+advice only: it changes no exit code, refusal, STOP or argv; Jev down adds at most its 6 s deadline. Called directly,
+`launch_cloud` asks no one unless given `jev=`.
+
 If none refuses, it runs **exactly the proven argv** (`cloud/launch_probe.py:65-72`; the prompt is the last element,
 the same text the scan passed):
 
@@ -146,6 +154,7 @@ read them):
 | `stop_sent` | boolean | true if a STOP message was sent after a refusal |
 | `untestable` | string or null | the `--untestable` reason |
 | `review` | object or null | present only for `review_cloud.py` launches: `{"pr": int, "head_sha": "<40 hex>", "nonce": "<32 hex>", "branch": "review/<pr>-<nonce8>"}`. **Only this record and that reviewer's prompt hold the nonce** (review-verdict.schema.json). |
+| `jev` | object | Jev's advice: `{"status": "ok" or "unavailable" or "off" or "not-asked", "warnings": [<code>...], "p": {<question>: <0..1>}}`, plus `"why"` (`jev.Why`'s value, or `failed` when the call raised) when unavailable. `off`: no `jev=` seam; `not-asked`: refused before the call, or a reviewer or refuter. Never the prompt. |
 
 The record holds no prompt text and no key. (The nonce is a launch-time secret between the launcher and one reviewer;
 it is not a drawing or an API key but is still never printed in a PR or a log.)

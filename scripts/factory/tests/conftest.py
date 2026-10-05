@@ -19,3 +19,9 @@ def account_a(monkeypatch: pytest.MonkeyPatch) -> None:
     """The launcher refuses another account's config; a VM that sets CLAUDE_CONFIG_DIR must not leak
     it into these tests (a test that wants it sets it itself)."""
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_jev_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A cloud VM carries TYPESAFE_API_KEY: no test here may reach the real Jev."""
+    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)

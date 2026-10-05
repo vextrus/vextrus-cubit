@@ -6,7 +6,16 @@ pin the launcher's small pieces. The whole command is pinned by tests/acceptance
 import json
 from pathlib import Path
 
-from scripts.factory.launch import LocalRequest, _Proving, _read_review, judge, preamble
+from scripts.factory.jev import Answers, Unavailable, Why
+from scripts.factory.launch import (
+    JEV_QUESTIONS,
+    LocalRequest,
+    _Proving,
+    _read_review,
+    jev_reading,
+    judge,
+    preamble,
+)
 
 REPO = "github.com/vextrus/vextrus-cubit"
 
@@ -127,3 +136,29 @@ def test_a_log_with_no_selected_environment_is_refused_by_default() -> None:
     log = cloned("x").replace("[DEBUG] Selected environment: env_01x (vextrus, anthropic_cloud)\n", "")
     verdict = judge(log, repository=REPO, branch="x")
     assert (verdict.ok, verdict.code) == (False, "wrong-environment")
+
+
+def test_jev_reading_warns_at_the_line_and_names_every_outage() -> None:
+    def answering(p: float) -> Answers:
+        return Answers(
+            {name: {"p": p} for name in JEV_QUESTIONS},
+            model="jev",
+            input_tokens=1,
+            output_tokens=1,
+            latency_ms=1,
+        )
+
+    def broken(state: str, questions: object) -> Answers:
+        raise ValueError(state)
+
+    both = ["needs-real-drawings", "needs-other-ticket"]
+    assert jev_reading("t", lambda s, q: answering(0.9))["warnings"] == both
+    assert jev_reading("t", lambda s, q: answering(0.8999))["warnings"] == []
+    down = jev_reading("t", lambda s, q: Unavailable(Why.NO_KEY))
+    assert down == {"status": "unavailable", "why": "no_key", "warnings": [], "p": {}}
+    assert jev_reading("t", broken) == {
+        "status": "unavailable",
+        "why": "failed",
+        "warnings": [],
+        "p": {},
+    }
