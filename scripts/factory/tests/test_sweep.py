@@ -1,10 +1,13 @@
-"""sweep's rules with the runner injected: each one tested without a repository (T-SWEEP)."""
+"""sweep's rules with the runner injected, each tested without a repository (T-SWEEP), and review
+round 1's four data-safety cases on a real git fixture."""
 
 from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import subprocess
+import sys
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -175,7 +178,7 @@ def test_hours_parsing(text: str, ok: bool) -> None:
         (".private/work/factory/review/slot1", "review"),
         (".private/work/session-12/review/pr-3-r1", "review"),
         (".private/work/session-12/phase4/red/r1", "red-proof"),
-        (".private/work/walks/_src", "scratch"),
+        (".private/work/session-12/scratch/wt", "scratch"),
     ],
 )
 def test_kind_naming(relative: str, kind: str) -> None:
@@ -215,3 +218,175 @@ def test_the_source_never_names_a_forced_or_recursive_delete() -> None:
     source = Path(sweep.__file__).read_text()
     for word in ("rmtree", '"rm"', "--force", '"-f"'):
         assert word not in source, word
+
+
+# Review round 1: real git, the sweep run as a subprocess ----------------------------------------------
+
+REPO = Path(__file__).resolve().parents[3]
+NOW_TEXT = "2026-10-05T12:00:00Z"
+COMMIT_DATE = "2026-10-01T09:00:00+0000"
+REAL_GIT = shutil.which("git") or "git"
+
+
+def _env() -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("VEXTRUS_", "GIT_"))}
+    env.update(
+        PYTHONPATH=str(REPO),
+        VEXTRUS_NOW=NOW_TEXT,
+        GIT_CONFIG_GLOBAL=os.devnull,
+        GIT_CONFIG_NOSYSTEM="1",
+        GIT_AUTHOR_NAME="Unit",
+        GIT_AUTHOR_EMAIL="unit@example.invalid",
+        GIT_COMMITTER_NAME="Unit",
+        GIT_COMMITTER_EMAIL="unit@example.invalid",
+        GIT_AUTHOR_DATE=COMMIT_DATE,
+        GIT_COMMITTER_DATE=COMMIT_DATE,
+    )
+    return env
+
+
+def _git(cwd: Path, *args: str) -> str:
+    done = subprocess.run(
+        [REAL_GIT, *args], cwd=cwd, env=_env(), capture_output=True, text=True, timeout=60, check=False
+    )
+    assert done.returncode == 0, f"git {' '.join(args)}: {done.stderr}"
+    return done.stdout
+
+
+def _sweep(main: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    tmp = main.parent / "tmpdir"
+    tmp.mkdir(exist_ok=True)
+    return subprocess.run(
+        [sys.executable, "-m", "scripts.factory.sweep", "--repo", str(main), "--tmp", str(tmp), *args],
+        cwd=main,
+        env=_env(),
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+        check=False,
+    )
+
+
+def _repo(root: Path) -> Path:
+    """A bare origin and its clone `main`, whose one commit ignores `.private/` and `__pycache__/`."""
+    origin, main = root / "origin.git", root / "main"
+    _git(root, "init", "-q", "--bare", "-b", "main", str(origin))
+    _git(root, "init", "-q", "-b", "main", str(main))
+    (main / "README").write_text("the fixture\n")
+    (main / ".gitignore").write_text(".private/\n__pycache__/\n")
+    _git(main, "add", "README", ".gitignore")
+    _git(main, "commit", "-q", "-m", "first")
+    _git(main, "remote", "add", "origin", str(origin))
+    _git(main, "push", "-q", "origin", "main")
+    return main
+
+
+def _worktree(main: Path, path: Path, branch: str | None = None) -> Path:
+    where = ["-b", branch] if branch else ["--detach"]
+    _git(main, "worktree", "add", "-q", *where, str(path), "origin/main")
+    return path
+
+
+def _age(worktree: Path, moment: float = IDLE) -> None:
+    """Everything in the worktree and its git dir at `moment`, the index refreshed first: the index is
+    then stale against the files' mtimes, so a `git status` that may write would rewrite it."""
+    _git(worktree, "update-index", "-q", "--refresh")
+    gitdir = Path(_git(worktree, "rev-parse", "--absolute-git-dir").strip())
+    for top in (worktree, gitdir):
+        for folder, dirs, files in os.walk(top, topdown=False):
+            for name in files + dirs:
+                os.utime(Path(folder) / name, (moment, moment), follow_symlinks=False)
+        os.utime(top, (moment, moment))
+
+
+@pytest.fixture
+def main(tmp_path: Path) -> Path:
+    return _repo(tmp_path.resolve())
+
+
+def test_a_worktree_holding_a_dirty_nested_worktree_is_kept_with_it(main: Path) -> None:
+    outer = _worktree(main, main / ".claude" / "worktrees" / "t1", branch="t1")
+    inner = _worktree(main, outer / ".private" / "work" / "red" / "wt")
+    (inner / "README").write_text("uncommitted\n")
+    _age(inner)
+    _age(outer)
+
+    done = _sweep(main, "--apply")
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert f"keep worktree {outer}: holds worktree {inner}" in done.stdout, done.stdout
+    assert (inner / "README").read_text() == "uncommitted\n"
+
+
+def test_a_stray_repository_below_a_worktree_keeps_it(main: Path) -> None:
+    wt = _worktree(main, main / ".claude" / "worktrees" / "t1", branch="t1")
+    (wt / "__pycache__" / "clone" / ".git").mkdir(parents=True)
+    _age(wt)
+
+    done = _sweep(main, "--apply")
+
+    found = wt / "__pycache__" / "clone" / ".git"
+    assert f"keep worktree {wt}: holds a repository at {found}" in done.stdout, done.stdout
+    assert wt.is_dir()
+
+
+def test_recent_ignored_notes_keep_the_worktree(main: Path) -> None:
+    wt = _worktree(main, main / ".claude" / "worktrees" / "t1", branch="t1")
+    notes = wt / ".private" / "work" / "t1" / "NOTES.txt"
+    notes.parent.mkdir(parents=True)
+    notes.write_text("progress\n")
+    _age(wt)
+    os.utime(notes, (CLOCK.timestamp() - 60, CLOCK.timestamp() - 60))
+
+    done = _sweep(main, "--apply")
+
+    assert f"keep worktree {wt}: ignored content: .private/" in done.stdout, done.stdout
+    assert notes.read_text() == "progress\n"
+
+
+def test_disposable_ignored_content_is_read_for_idle_time(main: Path) -> None:
+    wt = _worktree(main, main / ".claude" / "worktrees" / "t1", branch="t1")
+    cache = wt / "__pycache__" / "m.pyc"
+    cache.parent.mkdir()
+    cache.write_bytes(b"x")
+    _age(wt)
+    os.utime(cache, (CLOCK.timestamp() - 60, CLOCK.timestamp() - 60))
+
+    recent = _sweep(main)
+    assert f"keep worktree {wt}: recent: 0h" in recent.stdout, recent.stdout
+
+    _age(wt)
+    idle = _sweep(main, "--apply")
+    assert idle.returncode == 0, idle.stdout + idle.stderr
+    assert not wt.exists(), idle.stdout
+
+
+def test_the_walk_checkout_is_never_picked_and_a_locked_worktree_is_kept(main: Path) -> None:
+    src = _worktree(main, main / ".private" / "work" / "walks" / "_src")
+    slot = _worktree(main, main / ".private" / "work" / "factory" / "review" / "slot1")
+    _git(main, "worktree", "lock", str(slot))
+    _age(src)
+    _age(slot)
+
+    done = _sweep(main, "--apply")
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert f"keep worktree {src}: never swept" in done.stdout, done.stdout
+    assert f"keep worktree {slot}: locked" in done.stdout, done.stdout
+    assert src.is_dir()
+    assert slot.is_dir()
+    assert not sweep.is_candidate(MAIN, MAIN / ".private/work/walks/_src/web")
+
+
+def test_a_dry_run_never_rewrites_an_index(main: Path) -> None:
+    wt = _worktree(main, main / ".private" / "work" / "factory" / "review" / "slot1")
+    _age(wt)
+    index = Path(_git(wt, "rev-parse", "--path-format=absolute", "--git-path", "index").strip())
+    before = index.stat().st_mtime_ns
+
+    done = _sweep(main)
+
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert index.stat().st_mtime_ns == before
+    assert f"remove worktree {wt}" in done.stdout, done.stdout

@@ -38,6 +38,12 @@ IN_PROGRESS = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", 
 GIT_TIMEOUT = 120
 # A hook's environment can point git elsewhere; `-C` must decide the repository alone.
 GIT_ENV_DROP = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
+# Ignored folders a worktree may lose with nothing of value in them; any other ignored content keeps it.
+DISPOSABLE = frozenset(
+    {".venv", "node_modules", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+)
+# G1's walk checkout, reused and never deleted (`scripts/walk/run.py`).
+NEVER = (Path(".private") / "work" / "walks" / "_src",)
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -47,11 +53,12 @@ class Refused(Exception):
 
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    """The single runner: `git -C <repo> <args>`, no shell, never raising on a non-zero exit."""
+    """The single runner: `git --no-optional-locks -C <repo> <args>`, no shell, never raising on a
+    non-zero exit. No optional locks: a read never refreshes and rewrites a worktree's index."""
     env = {k: v for k, v in os.environ.items() if k not in GIT_ENV_DROP}
     try:
         return subprocess.run(
-            ["git", "-C", str(repo), *args],
+            ["git", "--no-optional-locks", "-C", str(repo), *args],
             capture_output=True,
             text=True,
             stdin=subprocess.DEVNULL,
@@ -136,6 +143,8 @@ def kind_of(main: Path, path: Path) -> str:
 
 def is_candidate(main: Path, path: Path) -> bool:
     homes = (main / ".claude" / "worktrees", main / ".private" / "work")
+    if any(inside(path, main / never) for never in NEVER):
+        return False
     return any(path != home and inside(path, home) for home in homes)
 
 
@@ -186,9 +195,27 @@ class Probe:
         count = ahead.stdout.strip() if ahead.returncode == 0 else "?"
         return f"unmerged: {count} ahead"
 
+    def ignored(self, path: Path) -> str | None:
+        """Ignored content `git worktree remove` would delete unasked, outside the disposable set."""
+        done = self.run(
+            path, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"
+        )
+        if done.returncode != 0:
+            return f"ignored content unreadable: {first_line(done.stderr)}"
+        kept = [
+            entry
+            for entry in done.stdout.split("\0")
+            if entry and not DISPOSABLE.intersection(Path(entry).parts)
+        ]
+        if kept:
+            more = f" and {len(kept) - 3} more" if len(kept) > 3 else ""
+            return f"ignored content: {', '.join(kept[:3])}{more}"
+        return None
+
     def newest(self, path: Path) -> float:
-        """The newest of the folder's, `<gitdir>/HEAD`'s, `index`'s and `logs/HEAD`'s mtimes."""
-        times = [path.stat().st_mtime]
+        """The newest mtime in the worktree (every entry, ignored ones too, links not followed) and
+        of `<gitdir>/HEAD`, `index` and `logs/HEAD`."""
+        times = [newest_in_tree(path)]
         for name in ("HEAD", "index", "logs/HEAD"):
             done = self.run(path, "rev-parse", "--path-format=absolute", "--git-path", name)
             if done.returncode != 0:
@@ -201,26 +228,65 @@ class Probe:
 
     def recheck(self, path: Path) -> str | None:
         """The checks `--apply` repeats immediately before a removal."""
-        return self.current(path) or self.in_use(path) or self.dirty(path)
+        return (
+            self.current(path)
+            or self.in_use(path)
+            or nested(path, ())
+            or self.dirty(path)
+            or self.ignored(path)
+        )
 
 
-def judge(probe: Probe, main: Path, tree: Worktree) -> tuple[str | None, str]:
-    """(the first failing rule's reason, or None when removable; the detail of a removable one)."""
+def nested(path: Path, others: Iterable[Path]) -> str | None:
+    """A worktree holding another listed worktree, or any `.git` below its own top: removing it would
+    take the inner one with it, whatever state that one is in."""
+    for other in others:
+        if other != path and inside(other, path):
+            return f"holds worktree {other}"
+    try:
+        found = git_below(path)
+    except OSError as error:
+        return f"unreadable: {error.strerror}"
+    return f"holds a repository at {found}" if found is not None else None
+
+
+def git_below(top: Path) -> Path | None:
+    """The first `.git` file or folder under `top` other than its own, walked without following links."""
+    stack = [top]
+    while stack:
+        folder = stack.pop()
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                if entry.name == ".git" and folder != top:
+                    return Path(entry.path)
+                if entry.is_dir(follow_symlinks=False) and entry.name != ".git":
+                    stack.append(Path(entry.path))
+    return None
+
+
+def judge(
+    probe: Probe, main: Path, tree: Worktree, others: Iterable[Path] = ()
+) -> tuple[str | None, str]:
+    """(the first failing rule's reason, or None when removable; the detail of a removable one).
+    `others` are every listed worktree's paths, the main checkout's and the prunable ones' included."""
     path = tree.path
+    if any(inside(path, main / never) for never in NEVER):
+        return "never swept: G1's walk checkout", ""
     if not is_candidate(main, path):
         return "outside", ""
     if tree.locked:
         return "locked", ""
-    reason = probe.current(path) or probe.in_use(path)
+    reason = probe.current(path) or probe.in_use(path) or nested(path, others)
+    if reason:
+        return reason, ""
+    reason = probe.in_progress(path) or probe.dirty(path) or probe.unmerged(path, tree)
+    reason = reason or probe.ignored(path)
     if reason:
         return reason, ""
     try:
-        moment = probe.newest(path)  # read before `git status`, which may touch the index
+        moment = probe.newest(path)
     except OSError as error:
         return f"unreadable: {error.strerror}", ""
-    reason = probe.in_progress(path) or probe.dirty(path) or probe.unmerged(path, tree)
-    if reason:
-        return reason, ""
     idle = hours_since(moment, probe.clock)
     if idle < probe.hours:
         return f"recent: {int(idle)}h", ""
@@ -243,7 +309,9 @@ def sweep_worktrees(probe: Probe, main: Path, apply: bool, tally: Tally) -> None
     listed = probe.run(main, "worktree", "list", "--porcelain", "-z")
     if listed.returncode != 0:
         raise Refused(f"git worktree list failed: {first_line(listed.stderr)}")
-    trees = parse_worktrees(listed.stdout)[1:]  # the first entry is the main checkout
+    every = parse_worktrees(listed.stdout)
+    paths = [tree.path for tree in every]
+    trees = every[1:]  # the first entry is the main checkout
     prunable = [tree for tree in trees if tree.prunable]
     for tree in prunable:
         tally.say(f"prune worktree {tree.path}")
@@ -256,7 +324,7 @@ def sweep_worktrees(probe: Probe, main: Path, apply: bool, tally: Tally) -> None
     for tree in trees:
         if tree.prunable:
             continue
-        reason, detail = judge(probe, main, tree)
+        reason, detail = judge(probe, main, tree, paths)
         if reason is None and apply:
             reason = probe.recheck(tree.path)
         if reason is not None:
