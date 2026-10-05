@@ -554,16 +554,33 @@ def test_b1_trailers_in_free_text_earlier_in_the_body_are_never_read(world: Worl
     assert world.item("tc3")["state"] == "working"
 
 
-# Addendum 1.2: the lander merges origin/main on top of a READY head
+# Addendum 1.2, as amended (PR #372 round 1): the lander merges origin/main on top of a READY head. A
+# merge of main inherits its first parent's outcome only when its resolution is empty (`git diff-tree
+# --cc <merge>` prints nothing, as merge_ready requires) and its first parent is the head already seen
+# with that outcome; an inherited outcome raises no new READY event.
+def clean_merge(world: World, branch: str, first: str, second: str, message: str) -> str:
+    """`second` merged into `first` with git's own merge result as its tree (an empty resolution),
+    set as origin's `branch`."""
+    world.git(world.work, "fetch", "-q", "origin")
+    tree = world.git(world.work, "merge-tree", "--write-tree", first, second).splitlines()[0]
+    text = world.tmp / "message.txt"
+    text.write_text(message)
+    sha = world.git(world.work, "commit-tree", tree, "-p", first, "-p", second, "-F", str(text))
+    resolution = world.git(world.work, "diff-tree", "--no-commit-id", "--cc", sha)
+    assert resolution == "", "the merge's resolution is not empty"
+    world.git(world.work, "push", "-q", "origin", f"+{sha}:refs/heads/{branch}")
+    return sha
+
+
 def merge_main(world: World, branch: str) -> str:
-    """origin/main merged into origin's `branch` (first parent: the branch's tip)."""
+    """origin/main merged cleanly into origin's `branch` (first parent: the branch's tip)."""
     tip, main = world.tip(branch), world.tip("main")
     assert tip
     assert main
-    return world.push(branch, lambda _tree: f"Merge origin/main into {branch}\n", tip, main)
+    return clean_merge(world, branch, tip, main, f"Merge origin/main into {branch}\n")
 
 
-def test_b2_a_merge_of_main_on_a_ready_head_keeps_it_ready(world: World) -> None:
+def test_b2_a_clean_merge_of_main_on_a_ready_head_keeps_it_ready(world: World) -> None:
     world.launch_cloud("tc4", "tc4-branch")
     world.push("tc4-branch", ready)
     world.once(NOW)
@@ -574,19 +591,39 @@ def test_b2_a_merge_of_main_on_a_ready_head_keeps_it_ready(world: World) -> None
     world.once("2026-10-04T21:10:00Z")
     item = world.item("tc4")
     assert (item["head"], item["state"]) == (merged, "ready"), item
+    assert len(world.events("READY", "tc4")) == 1, world.lines()
 
     world.push("main", plain)  # main moves again: the first merge's main parent is now behind its tip
     again = merge_main(world, "tc4-branch")
     world.once("2026-10-04T21:12:00Z")
     item = world.item("tc4")
     assert (item["head"], item["state"]) == (again, "ready"), item
+    assert len(world.events("READY", "tc4")) == 1, world.lines()
+
+
+def test_b2_an_edited_merge_of_main_on_a_ready_head_is_not_ready(world: World) -> None:
+    world.launch_cloud("tc8", "tc8-branch")
+    ready_head = world.push("tc8-branch", ready)
+    world.once(NOW)
+    assert world.item("tc8")["state"] == "ready"
+
+    main = world.push("main", plain)
+    edited = world.push(  # the merge's own tree adds a file neither parent has
+        "tc8-branch", lambda _tree: "Merge origin/main into tc8-branch\n", ready_head, main
+    )
+    assert world.git(world.work, "diff-tree", "--no-commit-id", "--cc", edited) != ""
+    world.once("2026-10-04T21:10:00Z")
+    item = world.item("tc8")
+    assert (item["head"], item["state"]) == (edited, "working"), item
+    assert len(world.events("READY", "tc8")) == 1, world.lines()
 
 
 def test_b2_a_merge_of_another_branch_on_a_ready_head_is_not_ready(world: World) -> None:
     world.launch_cloud("tc5", "tc5-branch")
     ready_head = world.push("tc5-branch", ready)
+    world.once(NOW)
     side = world.push("side", plain)  # not on origin/main
-    world.push("tc5-branch", lambda _tree: "Merge side into tc5-branch\n", ready_head, side)
-    world.once()
+    clean_merge(world, "tc5-branch", ready_head, side, "Merge side into tc5-branch\n")
+    world.once("2026-10-04T21:10:00Z")
 
     assert world.item("tc5")["state"] == "working"
