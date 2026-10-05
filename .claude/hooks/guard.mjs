@@ -557,15 +557,17 @@ function analyse(command, startCwd) {
 function gitOf(cmd) {
   // git's exec-path links (`/usr/lib/git-core/git-push`, `git-config`) run as `git <verb>`.
   const dashed = /^git-([a-z][a-z0-9-]*)$/.exec(cmd.name);
-  if (dashed) return { verb: dashed[1], args: cmd.args.map((a) => longOption(dashed[1], a)), config: [], dirs: [], gitDir: null, workTree: null, assigns: cmd.assigns, cwd: cmd.cwd };
-  if (cmd.name !== "git") return null;
+  if (!dashed && cmd.name !== "git") return null;
+  // A folder built at run time (`$`, a backtick) cannot be judged: it becomes one no repository can live in,
+  // so every judge run against it fails closed (a literal `$OTHER` folder in the cwd is never read instead).
+  const judgeable = (value) => (/[$`]/.test(value) ? "/dev/null/unjudgeable" : value);
   const a = cmd.args;
   const config = [];
   const dirs = [];
   let gitDir = null;
   let workTree = null;
   let i = 0;
-  while (i < a.length && a[i].startsWith("-")) {
+  while (!dashed && i < a.length && a[i].startsWith("-")) {
     const w = a[i];
     const eq = w.indexOf("=");
     const key = eq > 0 ? w.slice(0, eq) : w;
@@ -580,18 +582,20 @@ function gitOf(cmd) {
       i++;
     } else if (key === "--git-dir" || key === "--work-tree" || key === "--config-env" || key === "--namespace" || key === "--exec-path" || key === "--super-prefix" || key === "--attr-source") {
       const value = eq > 0 ? w.slice(eq + 1) : a[i + 1];
-      if (key === "--git-dir") gitDir = value ?? "";
-      if (key === "--work-tree") workTree = value ?? "";
+      if (key === "--git-dir") gitDir = judgeable(value ?? "");
+      if (key === "--work-tree") workTree = judgeable(value ?? "");
       if (key === "--config-env") config.push(value ?? "");
       i += eq > 0 ? 1 : 2;
     } else i++;
   }
+  // GIT_DIR and GIT_WORK_TREE (bare or through `env`) name the repository both forms use.
   for (const assign of cmd.assigns) {
-    if (assign.startsWith("GIT_DIR=")) gitDir = assign.slice(8);
-    if (assign.startsWith("GIT_WORK_TREE=")) workTree = assign.slice(14);
+    if (assign.startsWith("GIT_DIR=")) gitDir = judgeable(assign.slice(8));
+    if (assign.startsWith("GIT_WORK_TREE=")) workTree = judgeable(assign.slice(14));
   }
-  const verb = a[i] ?? "";
-  return { verb, args: a.slice(i + 1).map((arg) => longOption(verb, arg)), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
+  const verb = dashed ? dashed[1] : a[i] ?? "";
+  const rest = dashed ? a : a.slice(i + 1);
+  return { verb, args: rest.map((arg) => longOption(verb, arg)), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
 }
 
 // Git accepts any unique prefix of a long option (`--mirr` is `--mirror`). The options the rules judge are
@@ -1005,6 +1009,22 @@ const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 
 /** True when a command sets core.hooksPath (or hides config from the guard), except the one lawful line. */
 function hooksPathSet(analysis, command) {
+  // A `git config` is a read when it asks one (a read flag, the `get`/`list` subcommand, or a single operand)
+  // and every option is exactly a read flag or a scope. Git takes any unique prefix of a long option (`--unset-a`
+  // is `--unset-all`, `--rep` is `--replace-all`), so any other option, abbreviated or not, makes it a write.
+  const configRead = (args) => {
+    const reads = ["--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin", "--show-scope", "--name-only"];
+    const operands = [];
+    let asks = false;
+    for (let k = 0; k < args.length; k++) {
+      if (reads.includes(args[k])) asks = true;
+      else if (args[k] === "--file") k++;
+      else if (args[k].startsWith("-") && !["--local", "--global", "--no-includes"].includes(args[k])) return false;
+      else if (!args[k].startsWith("-")) operands.push(args[k]);
+    }
+    if (["set", "unset", "edit", "rename-section", "remove-section"].includes(operands[0])) return false;
+    return asks || operands[0] === "get" || operands[0] === "list" || operands.length === 1;
+  };
   const flat = flatten(command);
   if (/\bGIT_CONFIG_(?:PARAMETERS|COUNT|KEY_|VALUE_)/.test(flat)) return true;
   if (/(?:^|[\s/])\.git\/(?:config|worktrees\/[^\s/]+\/config\.worktree)\b/.test(flat) && (/[^<]>|\btee\b|\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-[a-z]*i|\b(?:cp|mv|ln|install|dd|truncate|python[0-9.]*|node)\b/.test(flat))) return true;
@@ -1013,6 +1033,7 @@ function hooksPathSet(analysis, command) {
     if (configKeys(g).some((k) => k === "core.hookspath" || k.startsWith("include"))) return true;
     if (g.assigns.some((a) => /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_KEY_\d+|_VALUE_\d+|_GLOBAL|_SYSTEM)?=/.test(a) && !/^GIT_CONFIG_(?:GLOBAL|SYSTEM)=\/dev\/null$/.test(a))) return true;
     if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a))) {
+      if (!g.args.some((a) => /^include(?:if)?\./i.test(a)) && configRead(g.args)) continue;
       const lawful = orchestrators && !cloud && g.dirs.length === 0 && g.gitDir === null && JSON.stringify(g.args.filter((a) => a !== "--local")) === JSON.stringify(["core.hooksPath", "scripts/git-hooks"]);
       if (!lawful) return true;
     }
