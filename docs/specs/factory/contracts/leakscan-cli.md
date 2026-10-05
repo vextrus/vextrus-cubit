@@ -31,13 +31,13 @@ Each scan subcommand prints hit lines and one summary line (section 3) and exits
 | Command | Scans | Writes a stamp |
 |---|---|---|
 | `build` | Rebuilds the corpus from its sources (locally; through the engine's own DWG reader). Prints `corpus: <n> strings, sha256 <first 12 hex>` and exits 0, or 2 if a source cannot be read. | no |
-| `range <base>..<head> [--ref <name>] [--no-stamp]` | **Every commit in the range, one by one** (a push publishes each commit, not only the net diff: text added in one commit and removed in a later one is still sent): each commit's **added lines** (its own diff against its parent, read as text whatever `.gitattributes` says, no textconv; a merge, what it did beyond the automatic merge), the text in each **binary blob** it adds (UTF-16 decoded, gzip and zip opened, PDF streams inflated and their text operators (`Tj`, `TJ`, `'`, `"`) assembled, printable runs), its **commit message** and every **file name** it touches; with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. (Changed by PR f2's review, round 1; it was the net `git diff <base>..<head>`.) | yes (name = the full `<head>` sha), unless `--no-stamp` |
+| `range <base>..<head> [--ref <name>] [--no-stamp]` | **Every commit in the range, one by one** (a push publishes each commit, not only the net diff: text added in one commit and removed in a later one is still sent): each commit's **added lines** (its own diff against its parent, read as text whatever `.gitattributes` says, no textconv; a merge, what it did beyond the automatic merge), the text in each **binary blob** it adds (UTF-16 decoded, gzip and zip opened, PDF streams inflated and their text operators (`Tj`, `TJ`, `'`, `"`) assembled, printable runs), its **commit message** and every **file name** it touches; with `--ref`, the **ref name** being pushed. `<base>` and `<head>` are revisions; the stamp pins both as full shas. (Changed by PR f2's review, round 1; it was the net `git diff <base>..<head>`.) When `<base>` is not an ancestor of `<head>` (the natural `origin/main..HEAD` after another PR landed) and their merge-base is an ancestor of `origin/main`, it scans `<merge-base>..<head>` instead (a superset of what the push publishes) and stamps that (section 4). A clean scan that writes no stamp for any other reason prints one line on standard error, `leakscan: clean, but no stamp written: <base12> is not an ancestor of origin/main and of the head; scan <merge-base12>..<head12>` (the merge-base of `origin/main` and the head; the `; scan ...` part is left out when they have none), unless `--no-stamp`. | yes (name = the full `<head>` sha), unless `--no-stamp` |
 | `file <path> [--no-stamp]` | One body file (a `gh ... --body-file` text). | yes (name = the file's sha256), unless `--no-stamp` |
 | `text --stdin [--no-stamp]` | The text on standard input: a cloud launch prompt or a `launch.py say` message. `--stdin` is required (text is never taken from the command line, which `ps` shows). | yes (name = the text's sha256), unless `--no-stamp` |
 | `pr <number>` | A PR as `merge_ready` re-scans it before every merge: the PR's added lines, commit messages, file names, branch name, title, body and every comment (through `gh`, reads only), and, run from a clone, **each of its commits as `range` scans them** (a commit the clone lacks is fetched from `refs/pull/<n>/head`; one still missing is `cannot-scan gh-failed`). | no |
 | `dir <path>` | Every file under a folder (a walk's outputs, `.private/work/walks/<sha40>/`), text files by line, other files by name only; binary files are scanned as bytes for a corpus string. | no |
 | `bodies --since <date>` | Every issue and PR body edited since `<date>` (`YYYY-MM-DD` or a UTC timestamp), and their comments. Run each wave. | no |
-| `allow <file>:<line>` | Hashes the corpus strings that hit on that line of that file into `tools/leakscan/allowlist.txt` (appends sha256 lines; never prints a string). Refused if the line has no hit. | no |
+| `allow [--range <base>..<head>] <location> ...` | Hashes the corpus strings that hit at each location into `tools/leakscan/allowlist.txt` (appends sha256 lines; never prints a string or a hash). A location is `<file>:<line>` (a line of a working-tree file), `commit:<sha>:<line>` (a line of a commit message; `<sha>` is 7 to 40 lower-case hex naming exactly one commit), `name:<i>` (the `<i>`th file name of the range `--range` gives, required, listed as `range` lists it, merge-base substitution included) or `ref:<name>` (a ref name). Each is read as the scan reads it (slug forms included, section 8), a line joined with the next one too. Refused (exit 1, nothing appended) if no location hits, a `commit:` sha names no commit, or a line or index is past the end; a malformed location, or `name:` without `--range`, is a usage error (64). A path that itself starts `commit:`, `name:` or `ref:` is written `./<path>:<line>`. | no |
 | `verify-stamp <name>` | Exits 0 if `.private/work/leakscan/ok/<name>` exists, parses and is **valid** (section 4: the corpus hash is current and, for a range stamp, its base is an ancestor of both `origin/main` and `<name>` and its end equals `<name>`); else 1. This is the check the guard performs in its own code; the command exists for tests and humans. | no |
 
 Common options: `--quiet` (print only the summary line), `--json` (print the hit list and summary as one JSON object,
@@ -106,7 +106,12 @@ only when all of these hold:
    (`<head40>` is the head being pushed, `HEAD` for a plain push). So a stamp for a narrow range (`HEAD~1..HEAD`) never
    vouches for a push that carries unscanned commits not yet on main.
 
-A scan that would write a stamp failing rule 3 still scans and exits as usual, but writes no stamp.
+A scan that would write a stamp failing rule 3 still scans and exits as usual, but writes no stamp, and says so in
+one line on standard error (section 2; not with `--no-stamp`). **The merge-base substitution:** for `range
+<base>..<head>` where `<base>` is not an ancestor of `<head>`, the scan runs on `<m>..<head>`, `<m>` being `git
+merge-base <base> <head>`, when `<m>` exists and is an ancestor of `origin/main`: it scans every commit
+`<base>..<head>` holds and perhaps more, never fewer, and a clean scan stamps `"<m40>..<head40>"`, which rule 3
+holds by construction. Otherwise it scans `<base>..<head>` as asked. Exit codes are the same either way.
 
 **What the guard checks** (a file check and the two `git merge-base --is-ancestor` calls of rule 3; no scan, so it
 cannot fail open on the 10 s hook timeout): for a `git push` from the main checkout, the stamp named by the head sha
@@ -227,3 +232,12 @@ rebuild that would keep fewer than half the current corpus's strings is refused 
 --force` is given (run, like every `build`, only from the orchestrator's main-checkout session), and outside
 the test seam a corpus under 100 strings is refused by every scan and by the guard (`cannot-scan
 corpus-unreadable`). `allow` hashes, from the next line, only strings that span the line break.
+
+**Slug forms, run ids** (T-LEAK-2). A file name, a ref name, a commit message line and a body line (`file`,
+`text`, and a PR's or an issue's title, body, comments and branch) is tested as written **and** as its slug
+form: a space put at each lower-to-upper and letter-to-digit boundary, each run of `-`, `_`, `.`, `/`, `\` and
+`+` replaced by one space, then normalised; so the `a-b_c.d/e` and `CamelCase` spellings of a corpus string hit.
+The count is the union of the strings found either way (never one string twice). An added line of a diff, a line
+of a file under `dir` and the text in a binary blob are not slug-read: code is full of such separators. A
+normalised string of the shape `<8 digits>T<6 digits>Z-<12 hex>-<4 hex>` (a real-drawing run id, a tool-made
+name) is not a corpus string; a longer string holding one still is.
