@@ -51,10 +51,13 @@ def joined(first: str, second: str) -> str:
 
 
 def found_in(corpus: Corpus, text: str, slug: bool) -> set[str]:
-    """The corpus strings `text` holds as written, and with `slug` also as a slug (`slug_forms`): the
-    union, so a string found both ways counts once. Never print what this returns."""
+    """The corpus strings `text` holds as written, and with `slug` also as a slug: its slug form
+    (`slug_forms`) holding a corpus string or that string's own slug form. The union, so a string found
+    several ways counts once. Never print what this returns."""
     found = corpus.found(text)
-    return found | corpus.found(slug_forms(text)) if slug else found
+    if slug:
+        found |= corpus.found(slug_forms(text)) | corpus.found_slug(text)
+    return found
 
 
 def line_found(corpus: Corpus, lines: list[str], number: int, slug: bool) -> set[str]:

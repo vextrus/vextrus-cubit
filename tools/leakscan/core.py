@@ -23,8 +23,12 @@ _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 # A real-drawing run id (scripts/real_drawings/command.py), normalised: tool-made, not drawing text.
 _RUN_ID = re.compile(r"\d{8}T\d{6}Z-[0-9A-F]{12}-[0-9A-F]{4}")
-# Slug boundaries: letter to digit and lower to upper (camel case); runs of the slug separators.
-_CAMEL = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=[a-z])(?=[A-Z])")
+# A git object id (a commit sha, short or full, perhaps with a run id's hyphens), as one whitespace-free
+# token: hex only, 7 or more hex characters, at least one digit and one letter A-F (so a drawing's long
+# number, a phone number on a title block, or a word like `DEFACED` is never taken for one).
+_OBJECT_ID = re.compile(r"(?=[0-9A-F-]*\d)(?=[0-9A-F-]*[A-F])[0-9A-F]+(?:-[0-9A-F]+)*")
+# Slug boundaries: letter beside digit (either way) and lower to upper (camel case); separator runs.
+_CAMEL = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=\d)(?=[^\W\d_])|(?<=[a-z])(?=[A-Z])")
 _SEPARATORS = re.compile(r"[-_./\\+]+")
 
 
@@ -66,16 +70,23 @@ def normalise(text: str) -> str:
 
 
 def keeps(normalised: str) -> bool:
-    """A corpus string: 8 or more characters with a run of three letters, and not a run id."""
+    """A corpus string: 8 or more characters with a run of three letters; not a run id, and holding no
+    git object id as a whole token (tool-made names: a public commit message or marker naming a sha
+    would hit)."""
     return (
         len(normalised) >= MIN_LENGTH
         and _LETTER_RUN.search(normalised) is not None
         and _RUN_ID.fullmatch(normalised) is None
+        and not any(_is_object_id(token) for token in normalised.split(" "))
     )
 
 
+def _is_object_id(token: str) -> bool:
+    return _OBJECT_ID.fullmatch(token) is not None and len(token.replace("-", "")) >= 7
+
+
 def slug_forms(text: str) -> str:
-    """`text` read as a slug: a space at each letter-to-digit and lower-to-upper boundary, each run of
+    """`text` read as a slug: a space at each letter-digit and lower-to-upper boundary, each run of
     `-_./\\+` one space, then normalised (`zebra-quarry_7` and `ZebraQuarry7` read `ZEBRA QUARRY 7`)."""
     spaced = _CAMEL.sub(" ", unicodedata.normalize("NFKC", text))
     return normalise(_SEPARATORS.sub(" ", spaced))
@@ -145,6 +156,7 @@ class Corpus:
         self.sha256 = hashlib.sha256(data).hexdigest()
         allowed = allowlist()
         self._by_prefix: dict[str, list[str]] = {}
+        self._by_slug: tuple[dict[str, list[tuple[str, str]]], list[tuple[str, str]]] | None = None
         self.strings = 0
         for value in data.decode("utf-8").splitlines():
             self.strings += keeps(value)
@@ -186,6 +198,39 @@ class Corpus:
 
     def count(self, text: str) -> int:
         return len(self.found(text))
+
+    def found_slug(self, text: str) -> set[str]:
+        """The corpus strings whose own slug form, two or more words, lies inside the slug form of one
+        whitespace-free run of `text` (so `kestrel-block-c1` meets `KESTREL BLOCK C1` and `plot_12_row`
+        meets `PLOT-12 ROW`), as the corpus holds them. A one-word slug form (`WORD.` reads `WORD`) and
+        a match across the text's own spaces are respellings, not slugs. Never print what this
+        returns."""
+        if self._by_slug is None:
+            # Built on first use: a slug form may be shorter than 8 characters (`A--B` reads `A B`).
+            keyed: dict[str, list[tuple[str, str]]] = {}
+            short: list[tuple[str, str]] = []
+            for values in self._by_prefix.values():
+                for value in values:
+                    slug = slug_forms(value)
+                    if " " not in slug:
+                        continue
+                    if len(slug) >= MIN_LENGTH:
+                        keyed.setdefault(slug[:MIN_LENGTH], []).append((slug, value))
+                    else:
+                        short.append((slug, value))
+            self._by_slug = (keyed, short)
+        keyed, short = self._by_slug
+        found: set[str] = set()
+        for run in text.split():
+            line = slug_forms(run)
+            found |= {value for slug, value in short if slug in line}
+            for start in range(len(line) - MIN_LENGTH + 1):
+                candidates = keyed.get(line[start : start + MIN_LENGTH])
+                if candidates is not None:
+                    for slug, value in candidates:
+                        if line.startswith(slug, start):
+                            found.add(value)
+        return found
 
 
 # ---------------------------------------------------------------------------------------------- stamps

@@ -235,9 +235,19 @@ corpus-unreadable`). `allow` hashes, from the next line, only strings that span 
 
 **Slug forms, run ids** (T-LEAK-2). A file name, a ref name, a commit message line and a body line (`file`,
 `text`, and a PR's or an issue's title, body, comments and branch) is tested as written **and** as its slug
-form: a space put at each lower-to-upper and letter-to-digit boundary, each run of `-`, `_`, `.`, `/`, `\` and
-`+` replaced by one space, then normalised; so the `a-b_c.d/e` and `CamelCase` spellings of a corpus string hit.
+form: a space put at each lower-to-upper and each letter-digit boundary (either way), each run of `-`, `_`,
+`.`, `/`, `\` and `+` replaced by one space, then normalised. The slug form is tested for each corpus string and
+for that string's own slug form, so the `a-b_c.d/e` and `CamelCase` spellings hit even for a corpus string that
+holds `C1` or `Plot-12`.
 The count is the union of the strings found either way (never one string twice). An added line of a diff, a line
 of a file under `dir` and the text in a binary blob are not slug-read: code is full of such separators. A
 normalised string of the shape `<8 digits>T<6 digits>Z-<12 hex>-<4 hex>` (a real-drawing run id, a tool-made
-name) is not a corpus string; a longer string holding one still is.
+name) is not a corpus string; a longer string holding one still is. Nor is a string holding, as a whole
+whitespace-free token, a git object id: hex only (hyphens allowed between hex runs), 7 or more hex characters,
+at least one digit and one letter A-F (a commit sha, a sha256; a long number or a word of the letters A-F is not
+one). Both rules live in the corpus filter, so a corpus built before them drops those strings on load.
+
+A corpus string's own slug form is matched only when it has two or more words and lies inside the slug form of
+one whitespace-free run of the scanned text: a one-word slug form (`WORD.` reads `WORD`) or a match across the
+text's own spaces is a respelling, not a slug (T-LEAK-2's measure on the real corpus: 21 such hits in 60 merges
+of commit messages, none a slug).

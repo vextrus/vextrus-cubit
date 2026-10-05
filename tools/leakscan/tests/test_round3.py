@@ -101,7 +101,7 @@ def test_a_rebuild_that_loses_half_the_corpus_is_refused_unless_forced(leak: Lea
         ("a\\b+c..d//e", "A B C D E"),
         ("ZEBRA QUARRY", "ZEBRA QUARRY"),
         ("\uff3aebra\uff31uarry", "ZEBRA QUARRY"),  # NFKC first: full-width Z and Q split as ASCII
-        ("Pvt7731x", "PVT 7731X"),  # a digit to a letter is no boundary
+        ("Pvt7731x", "PVT 7731 X"),  # letter to digit and digit to letter
     ],
 )
 def test_slug_forms(text: str, read: str) -> None:
@@ -201,3 +201,83 @@ def test_a_range_without_origin_main_says_why_with_no_scan_advice(leak: Leak) ->
             "of the head"
         )
     ]
+
+
+# Corpus strings whose own slug form differs from them (the refuter's round on T-LEAK-2): a letter
+# beside a digit, a separator inside. Invented strings.
+KESTREL = "Kestrel Block C1 Annex"
+HERONSGATE = "Plot-12 Heronsgate Row"
+
+
+@pytest.fixture
+def slugged(tmp_path: Path) -> Leak:
+    built = Leak(tmp_path)
+    (built.sources / "more.txt").write_text(f"{KESTREL}\n{HERONSGATE}\n")
+    built.build()
+    return built
+
+
+@pytest.mark.parametrize(
+    "form",
+    [
+        "kestrel-block-c1-annex",
+        "KestrelBlockC1Annex",
+        "kestrel_block_c1_annex",
+        "plot-12-heronsgate-row",
+        "plot_12_heronsgate_row",
+        "QuillmoorEstates",
+        "quillmoor_estates",
+    ],
+)
+def test_a_slug_of_a_corpus_string_with_digits_or_separators_hits(slugged: Leak, form: str) -> None:
+    repo, base = temp_repo(slugged.tmp / "work")
+    head = commit(repo, {f"docs/{form}.md": "clean\n"}, f"docs: a note\n\n{form}")
+    done = slugged.run("range", f"{base}..{head}", "--ref", form, "--no-stamp", cwd=repo)
+    assert hits(done) == [(f"commit:{head[:12]}:3", 1), ("name:0", 1), ("ref", 1)]
+    assert form.upper() not in done.stdout.upper()
+
+
+def test_a_short_slug_form_of_a_corpus_string_is_matched_too() -> None:
+    corpus = core.Corpus(b"ABC----D\n")  # its slug form, `ABC D`, is under 8 characters
+    assert corpus.found_slug("see abc_d here") == {"ABC----D"}
+    assert corpus.found_slug("abcd") == set()
+
+
+def test_a_corpus_slug_never_hits_in_a_diff_line(slugged: Leak) -> None:
+    repo, base = temp_repo(slugged.tmp / "work")
+    head = commit(repo, {"src/a.py": "kestrel_block_c1_annex = 1\n"}, "feat: a clean change")
+    done = slugged.run("range", f"{base}..{head}", "--no-stamp", cwd=repo)
+    assert done.returncode == 0
+
+
+# Git object ids are tool-made names (the orchestrator's addendum to T-LEAK-2): a corpus string that is
+# one, or holds one as a whole token, is dropped. Invented ids.
+SHA40 = "4f2a9c0d1e3b5a7c9e0f2a4b6c8d0e1f3a5b7c9d"
+RUN_ID = "20261004T042700Z-0123456789ab-9fac"
+
+
+def test_a_sha_and_a_run_id_never_enter_the_corpus_and_their_neighbours_do(tmp_path: Path) -> None:
+    built = Leak(tmp_path)
+    (built.sources / "run.txt").write_text(f"{SHA40}\n{RUN_ID}\nHEAD {SHA40[:12]} BUILT\n{KESTREL}\n")
+    built.build()
+    kept = (built.home / "corpus").read_text().splitlines()
+    # Booleans only: a failure never prints a corpus line.
+    ids_kept = [value for value in kept if SHA40[:12].upper() in value or "9FAC" in value]
+    assert ids_kept == [], "an object id or run id is kept"
+    assert KESTREL.upper() in kept, "the drawing-like string beside them was dropped"
+
+
+@pytest.mark.parametrize(
+    ("text", "kept"),
+    [
+        ("COMMIT A1B2C3D DONE", False),
+        ("HEAD 0123456789AB-9FAC", False),
+        (SHA40.upper(), False),
+        ("PHONE 01711234567", True),  # digits only: a number, not an object id
+        ("DEFACED WALLS", True),  # letters A-F only: a word
+        ("BLOCK A1B2C3 WEST", True),  # 6 hex: under 7
+        ("SHA:A1B2C3D4E5 NOTE", True),  # not a whole token
+    ],
+)
+def test_an_object_id_token_is_dropped_only_when_it_is_one(text: str, kept: bool) -> None:
+    assert core.keeps(text) is kept
