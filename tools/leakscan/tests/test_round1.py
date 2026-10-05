@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.leakscan import core, sources
+from tools.leakscan import cli, core, sources
 from tools.leakscan.tests.acceptance import _gh_stub
 from tools.leakscan.tests.acceptance._leak import (
     MARIGOLD,
@@ -177,3 +177,70 @@ def test_the_pre_push_hook_refuses_a_tag(leak: Leak) -> None:
     )
     assert done.returncode != 0
     assert "tags are not pushed" in done.stderr
+
+
+def _notes_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, dict[str, sources.Tally]]:
+    """A main checkout under `tmp_path` whose notes folder the real sources read (no other source)."""
+    monkeypatch.setenv("VEXTRUS_MAIN_CHECKOUT", str(tmp_path / "main"))
+    monkeypatch.setenv("VEXTRUS_LEAKSCAN_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("VEXTRUS_LEAKSCAN_ALLOWLIST", str(tmp_path / "allow.txt"))
+    monkeypatch.setenv("HOME", str(tmp_path / "user"))
+    work = tmp_path / "main/.private/work"
+    work.mkdir(parents=True)
+    return work, {}
+
+
+def _note(work: Path, path: str, text: str) -> None:
+    (work / path).parent.mkdir(parents=True, exist_ok=True)
+    (work / path).write_text(text)
+
+
+def test_a_nested_git_checkout_with_the_repository_markers_keeps_its_untracked_notes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work, counts = _notes_source(tmp_path, monkeypatch)
+    for name in ("plain", "checkout"):
+        _note(work, f"session-1/{name}/CLAUDE.md", "COPY OF THE RULES\n")
+        _note(work, f"session-1/{name}/pyproject.toml", "")
+        _note(work, f"session-1/{name}/out.md", f"{name.upper()} {ZEBRA.upper()}\n")
+    git(work / "session-1/checkout", "init", "-q")
+    git(work / "session-1/checkout", "add", "CLAUDE.md", "pyproject.toml")
+    read = {value for _, value in sources.real_sources(counts)}
+    # The plain copy is skipped whole; the checkout's tracked copy is skipped, its untracked note read.
+    assert read == {f"CHECKOUT {ZEBRA.upper()}"}
+    assert (counts["notes"].read, counts["notes"].skipped) == (1, 2)
+
+
+def test_test_output_by_its_text_and_scratch_kinds_in_any_case_give_no_string(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    work, counts = _notes_source(tmp_path, monkeypatch)
+    _note(work, "session-1/f2/node.md", f"{ZEBRA.upper()}\n# tests 3\n# pass 3\n")
+    _note(work, "session-1/f2/slow.md", f"{ZEBRA.upper()}\n==== 2 failed, 1 passed in 12.5s ====\n")
+    _note(work, "session-1/Review/r.md", f"{ZEBRA.upper()}\n")
+    _note(work, "session-1/f2/redline-notes.md", f"{MARIGOLD.upper()}\n")
+    _note(work, "session-1/f2/pass.md", f"{MARIGOLD.upper()}\n# pass the slab\n")
+    read = [value for _, value in sources.real_sources(counts)]
+    assert read == [MARIGOLD.upper()] * 2
+    assert counts["notes"].skipped == 3
+    assert sources.work_rule("session-9/anything") == "read"
+    assert sources.work_rule("redesign") is None
+
+
+def test_a_quiet_build_prints_no_count_line_and_kept_counts_follow_the_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    work, _ = _notes_source(tmp_path, monkeypatch)
+    _note(work, "factory/a.md", f"{ZEBRA.upper()}\n{ZEBRA.upper()}\n{MARIGOLD.upper()}\n")
+    (work / "mystery").mkdir()
+    assert cli.run(["build", "--quiet"]) == 0
+    assert capsys.readouterr().out.splitlines()[:-1] == []
+    (tmp_path / "allow.txt").write_text(core.digest(core.normalise(MARIGOLD)) + "\n")
+    assert cli.run(["build"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[:2] == [
+        "source notes: 3 strings read, 1 kept, 0 files skipped",
+        "leakscan: work folders without a rule: 1",
+    ]
