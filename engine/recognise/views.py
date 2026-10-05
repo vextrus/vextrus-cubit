@@ -31,9 +31,10 @@ These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long)
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
 **view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most (two letters or more:
-"B-7 (10"X14")" is none; past `MAX_TITLE_WORDS` tokens, at most `MAX_TITLE_TOKENS` and no reference
-word, `REFERENCE_WORDS`: "SEE ... ON SHEET ..." is a callout) holding a kind's words (the kind listed
-first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is a detail),
+"B-7 (10"X14")" is none; past `MAX_TITLE_WORDS` tokens, only a title and its second line, each line
+within that many tokens and no reference word, `REFERENCE_WORDS`: "SEE ... ON SHEET ..." is a
+callout) holding a kind's words (the kind listed first in the conventions wins where several are
+named: "TYPICAL BEAM SECTION DETAIL" is a detail),
 not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER` of the
 paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines alike
 (a note's; a scale text in the column is the title's scale line, not a note's). A title lying under
@@ -48,7 +49,8 @@ of titled details, its rules dividing them); a table with no title is a schedule
 and whatever its size. So is a smaller one (`_ruled_tables`: rules across of one length, rows of one
 height but its header's, framed down both ends, a rule down between, `TABLE_CELLS` texts a row): a
 column schedule set beside its plan; but never one within a titled schedule's box (its own rows),
-nor one within a titled drawing's piece covering `TABLE_DRAWN` of it (a wardrobe's compartments). Each
+nor one within a titled drawing's piece, no plan's, covering `TABLE_DRAWN` of it (a wardrobe's
+compartments). Each
 title
 takes the piece it lies under (a drawing titled beneath, the convention; within `TITLE_GAP` of its
 height), else the piece it lies over (within `TITLE_GAP_UNDER`; a notes, legend or schedule heading
@@ -202,13 +204,10 @@ GAP_MM = 8.0
 """What is drawn closer than this on paper, in mm, is one piece."""
 MAX_TITLE_WORDS = 12
 """A text of more words is a note, not a view title."""
-MAX_TITLE_TOKENS = 2 * MAX_TITLE_WORDS
-"""A text of more tokens (its marks', sizes' and levels' figures too) is a note, however few its
-words."""
-REFERENCE_WORDS = frozenset({"see", "refer", "ref", "sheet"})
+REFERENCE_WORDS = frozenset({"see", "refer", "ref", "sheet", "drg", "dwg", "drawing", "similar", "per"})
 """Words pointing elsewhere: a text of more tokens than `MAX_TITLE_WORDS` holding one is a callout
 ("SEE DETAIL 3 ON SHEET S-7 FOR ..."), never a title."""
-STOREY_JOINS = frozenset({"to", "and", "floor", "floors"})
+STOREY_JOINS = frozenset({"to", "and", "floor", "floors", "level", "levels", "typ", "onwards"})
 """The words a bracketed storeys line may hold besides the storeys it names ("(2ND AND 3RD FLOOR)")."""
 TITLE_GAP = 20.0
 """The farthest a title lies under its drawing, in the title's heights (the real sets put a scale line
@@ -235,15 +234,15 @@ median a title is measured by."""
 MIN_DRAWING = 3.0
 """A piece less tall than this many of a title's heights is a band (its frame, a row of labels), never
 the title's drawing; one meeting the title is part of its view."""
-MIN_PART = 1.0
+MIN_PART = 0.5
 """A part a shared section piece is cut into is a drawing only when at least this many of its titles'
 heights tall, with a line outside its titles' frames (a thin cross section is a drawing; a 1 mm band
-or a title's frame is not)."""
+or a title's frame is not), and no row of the other part's (`_row_of`)."""
 MIN_VIEW_MM = 10.0
 """A titled piece's longer side on paper is at least this, in mm."""
 TABLE_DRAWN = 0.25
-"""An untitled ruled table covering this share of a titled drawing's piece, within it, is that
-drawing's (a cabinet's compartments), never a schedule."""
+"""An untitled ruled table covering this share of a titled drawing's piece (no plan's), within it, is
+that drawing's (a cabinet's compartments), never a schedule."""
 MIN_UNTITLED = 0.02
 """A piece with no title is a view when its box covers this share of the paper."""
 JOIN_MM = 10.0
@@ -1322,6 +1321,18 @@ def _lettered(tokens: Sequence[str]) -> list[str]:
     return [t for t in tokens if sum(c.isalpha() for c in t) >= 2]
 
 
+def _title_and_line(text: _Text, words: Sequence[str]) -> bool:
+    """Whether a text of more tokens than `MAX_TITLE_WORDS` (`words`) may still be a title: a title and
+    its second line in one text (a long section's title over its drop and invert), each line within
+    `MAX_TITLE_WORDS` tokens (so twice that at most: a title has two lines at most), pointing nowhere
+    else (`REFERENCE_WORDS`). One line of that many tokens is a callout ("DETAIL 3 ON S-7 FOR BEAM
+    B-12 (250X450) AT GRID C/4-5"; review round 1, F4 and its refuter)."""
+    lines = text.placed.shown.strip().split("\n")
+    return all(
+        len(_tokens(line)) <= MAX_TITLE_WORDS for line in lines
+    ) and not REFERENCE_WORDS.intersection(words)
+
+
 def _tokens(text: str) -> list[str]:
     return "".join(c if c.isalnum() else " " for c in text.casefold()).split()
 
@@ -1578,10 +1589,7 @@ def _views(
             len(titles) < MAX_TITLES
             and len(words) > 0
             and len(_lettered(words)) <= MAX_TITLE_WORDS  # a mark's or a size's figures are no words
-            and (  # but a long text of figures is a callout when it points elsewhere, or runs on
-                len(words) <= MAX_TITLE_WORDS
-                or (len(words) <= MAX_TITLE_TOKENS and not REFERENCE_WORDS.intersection(words))
-            )
+            and (len(words) <= MAX_TITLE_WORDS or _title_and_line(t, words))
             and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
             and _named_kind(t.shown, reading) is not None  # a heading word alone is no title's
@@ -1936,6 +1944,11 @@ def _widest_cut(
                 and _drawn(lines[~under], [heights[i] for i in above], [titles[i] for i in above])
             ):
                 continue
+            if axis == 1 and (
+                _row_of(lines[under], lines[~under], [heights[i] for i in below])
+                or _row_of(lines[~under], lines[under], [heights[i] for i in above])
+            ):
+                continue  # a drawing's detached row (its dimensions, a title's frame), never a drawing
             if bridged and not (
                 _cross_section(lines[under], axis, below, above, titles, heights)
                 or _cross_section(lines[~under], axis, above, below, titles, heights)
@@ -2042,8 +2055,9 @@ def _cross_section(
 def _drawn(lines: NDArray[np.float64], heights: Sequence[float], titles: Sequence[Bounds]) -> bool:
     """Whether `lines` are a drawing for titles of `heights` boxed by `titles`: some lines, at least
     `MIN_PART` of the tallest title's height tall (a band less tall is a row of labels or a 1 mm
-    strip), and one of them not in a title's band (within its height of it up and down: the lines
-    boxing or underlining it, however wide; a title stands under its drawing, never beside it).
+    strip), and one of them not in a title's band (from its height over it to `SUBTITLE_GAP` of its
+    heights under it, where its own lines stand: the lines boxing or underlining it and its scale line,
+    however wide; a title stands under its drawing, never beside it).
     `MIN_DRAWING` would refuse a thin cross section under a title half its height (review round 1,
     F5)."""
     if not len(lines):
@@ -2054,21 +2068,37 @@ def _drawn(lines: NDArray[np.float64], heights: Sequence[float], titles: Sequenc
     low, high = np.minimum(lines[:, 1], lines[:, 3]), np.maximum(lines[:, 1], lines[:, 3])
     framed = np.zeros(len(lines), dtype=bool)
     for (_, y0, _, y1), h in zip(titles, heights, strict=True):
-        framed |= (low >= y0 - h) & (high <= y1 + h)
+        framed |= (low >= y0 - SUBTITLE_GAP * h) & (high <= y1 + h)  # its lines under it, too
     return not bool(framed.all())
+
+
+def _row_of(part: NDArray[np.float64], other: NDArray[np.float64], heights: Sequence[float]) -> bool:
+    """Whether `part`, one side of a band across, is the other side's detached row: less tall than
+    `MIN_DRAWING` of its titles' heights and no taller than `ROW_SHARE` of the other side (a dimension
+    row or a title's frame under a long section). Two thin sections stacked alike are each other's
+    peers, never rows (review round 1, F5 and its refuter)."""
+    tall = float(part[:, [1, 3]].max() - part[:, [1, 3]].min())
+    body = float(other[:, [1, 3]].max() - other[:, [1, 3]].min())
+    return tall < MIN_DRAWING * max(heights, default=0.0) and tall <= ROW_SHARE * body
 
 
 def _drawing_of(table: _Piece, views: Sequence[_View]) -> bool:
     """Whether an untitled ruled table is a titled view's own: it lies within a titled schedule's box
-    (its rows' sub-tables, never a second schedule), or within a titled drawing's piece covering
-    `TABLE_DRAWN` of its box (a wardrobe's shelves and partition, a window's panes: the drawing's bulk).
-    A schedule set within a plan's box covers a sliver of it (review round 1, lens 2's F2)."""
+    (its rows' sub-tables, never a second schedule), or within the piece of a titled drawing that is no
+    plan, covering `TABLE_DRAWN` of its box (a wardrobe's shelves and partition, a window's panes: the
+    drawing's bulk; review round 1, lens 2's F2). A table within a plan's piece stays a schedule,
+    however much of a small plan it covers: a column schedule is set beside its plan, close enough to
+    join its piece, or in an L-shaped plan's notch."""
     return any(
         v.title is not None
         and v.piece is not None
         and (
             (v.kind is ViewKind.SCHEDULE and _holds(v.box, table.box))
-            or (_holds(v.piece.box, table.box) and _area(table.box) >= TABLE_DRAWN * _area(v.piece.box))
+            or (
+                v.kind is not ViewKind.PLAN  # a plan's table is a schedule set by it (refuter, round 1)
+                and _holds(v.piece.box, table.box)
+                and _area(table.box) >= TABLE_DRAWN * _area(v.piece.box)
+            )
         )
         for v in views
     )
