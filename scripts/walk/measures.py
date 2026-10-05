@@ -35,7 +35,9 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
 - machine doubt per Discipline: open Questions matching no listed one, numbering-gap Questions once
   per file (the file of the first Sheet held; those holding none, once per Discipline);
 - bulk-confirmable per Discipline: Sheets that agree and are not held, or, where a gap Question is
-  open, `bulk_after_gaps` (absent: that row's count is null, the share unmeasured);
+  open, `bulk_after_gaps` (absent: that row's count is null, the share unmeasured); verdict.py
+  judges the share on the key-named total over N and on each row over its own `sheets` ("Total +
+  own split");
 - stale: listed pairs of equal titles (case and spacing folded) that no open or answered Question
   holds together (a withdrawn one asks nothing; a
   listed Sheet absent from the snapshot cannot be shown grouped: it counts); a listed true Question

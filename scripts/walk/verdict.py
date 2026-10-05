@@ -318,17 +318,20 @@ def _holds(name: str, m: Any, e: Any, rows: Sequence[Mapping[str, Any]]) -> bool
                 and m("stale_grouped") <= caps[1]
             )
         case "bulk_confirmable_share":
-            judged = [row for row in rows if row.get("sheets_expected") is not None]
+            # The owner, 5 Oct 2026 ("Total + own split"): (a) the bulk Sheets of the Disciplines the
+            # key names, over the key's N for the set; (b) each Discipline's bulk Sheets over the
+            # Sheets the product itself files under it. Against the key's N per Discipline: reported.
             share = e("bulk_confirmable_share_min")
-            bulk = [row["bulk_confirmable_sheets"] for row in judged]
-            if share is None or None in bulk:
+            if share is None or any(row["bulk_confirmable_sheets"] is None for row in rows):
                 return False
+            named = [row for row in rows if row.get("sheets_expected") is not None]
+            total = sum(row["bulk_confirmable_sheets"] for row in named)
+            n = sum(row["sheets_expected"] for row in named)
             return (
-                m("bulk_confirmable_sheets") == sum(bulk)
-                and m("sheets_expected") == sum(row["sheets_expected"] for row in judged)
+                (m("bulk_confirmable_sheets"), m("sheets_expected")) == (total, n)
+                and total >= share * n - SHARE_SLACK
                 and all(
-                    row["bulk_confirmable_sheets"] >= share * row["sheets_expected"] - SHARE_SLACK
-                    for row in judged
+                    row["bulk_confirmable_sheets"] >= share * row["sheets"] - SHARE_SLACK for row in rows
                 )
             )
         case "storeys_match":
@@ -561,7 +564,7 @@ def _set_checks(
             name,
             # A Discipline with an open gap Question and no count after its answer: unmeasured.
             dict(UNMEASURED)
-            if measures is None or None in bulk
+            if measures is None or any(row["bulk_confirmable_sheets"] is None for row in rows)
             else {
                 "bulk_confirmable_sheets": sum(b or 0 for b in bulk),
                 "sheets_expected": sum(row["sheets_expected"] for row in judged),

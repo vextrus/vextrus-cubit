@@ -219,7 +219,7 @@
             "bulk_confirmable_share",
             "storeys_match"
           ],
-          "description": "The owner's Q5 refined limits (5 Oct 2026). reads_complete: (1) every file's read completes. act_p95_during_read: (2) acts (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived): the p95, the worst act, a sample minimum of each kind and no failed act. questions_per_discipline: (3) machine-doubt Questions per Discipline (D2): open Questions not on the expectation's true list, numbering gaps once per file. sheets_match: (4) the set's total of Sheets against the sum of N, less its phantoms (blanks beyond the total, within the limit); the split per Discipline is reported in the burden rows, never judged. true_questions_raised: (5) every listed true Question raised. false_continuations: (6) conflict Questions on no true list, and listed stale-title pairs grouped by no Question. bulk_confirmable_share: (7) per Discipline, Sheets the QS can confirm in bulk over N. storeys_match: (8) listed Sheets whose storeys differ. Checks 3 to 8 read the snapshot taken before any act; a set it cannot measure has them FAIL with measured.unmeasured 1."
+          "description": "The owner's Q5 refined limits (5 Oct 2026). reads_complete: (1) every file's read completes. act_p95_during_read: (2) acts (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived): the p95, the worst act, a sample minimum of each kind and no failed act. questions_per_discipline: (3) machine-doubt Questions per Discipline (D2): open Questions not on the expectation's true list, numbering gaps once per file. sheets_match: (4) the set's total of Sheets against the sum of N, less its phantoms (blanks beyond the total, within the limit); the split per Discipline is reported in the burden rows, never judged. true_questions_raised: (5) every listed true Question raised. false_continuations: (6) conflict Questions on no true list, and listed stale-title pairs grouped by no Question. bulk_confirmable_share: (7) the Sheets the QS can confirm in bulk: (a) the bulk Sheets of the Disciplines the key names are at least the share of the key's N for the set, and (b) each Discipline's bulk Sheets are at least the share of the Sheets the product itself files under it; the numbers against the key's N per Discipline are reported, never judged (the owner, 5 Oct 2026: \"Total + own split\"). storeys_match: (8) listed Sheets whose storeys differ. Checks 3 to 8 read the snapshot taken before any act; a set it cannot measure has them FAIL with measured.unmeasured 1."
         },
         "set": {
           "$ref": "#/$defs/slug",
@@ -339,7 +339,7 @@
             "null"
           ],
           "minimum": 0,
-          "description": "Sheets the QS can confirm in bulk (they agree and are not held; where a numbering gap is open, counted after the walk answered it). Q5's limit: 80 % or more of N. null when a gap was open and no count was read after it."
+          "description": "Sheets the QS can confirm in bulk (they agree and are not held; where a numbering gap is open, counted after the walk answered it). Q5: 80 % or more of the Sheets the product files under the Discipline (`sheets`), and the key-named Disciplines' total 80 % or more of the sum of N; this row's count against `sheets_expected` is reported, never judged. null when a gap was open and no count was read after it."
         },
         "blank_sheets": {
           "type": [
