@@ -278,25 +278,27 @@ function Step1({
     return row && first ? { row: row.key, sheet: first.id } : null
   })
   const misreadOf = (q: QuestionEntry['question']) => q.kind === 'file_misread' && !!askedFile && q.subject_id === askedFile
-  const [fileStart] = useState(() => {
-    if (start || !askedFile) return null
-    const row = model.rows.find((r) => r.question && misreadOf(r.question.question))
-    if (row) return { row: row.key, report: false }
-    return model.answered.some((e) => misreadOf(e.question)) ? { row: null, report: true } : null
-  })
   const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
-  const [focused, setFocused] = useState<string | null>(start?.row ?? fileStart?.row ?? null)
+  const [focused, setFocused] = useState<string | null>(start?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<'coverage' | { file: FileOut } | null>(null)
-  // An answered held file's Question has no row: its report opens instead, once the files are here.
   const filesNow = useQuery(filesQuery(project.id)).data?.files
-  const [reportOpened, setReportOpened] = useState(false)
-  const heldFile = fileStart?.report && !reportOpened ? filesNow?.find((f) => f.id === askedFile) : undefined
-  if (heldFile) {
-    setReportOpened(true)
-    setPanel({ file: heldFile })
+  // `?file=`'s target, found once: Step 1's answers may be cached from before the file was held, so it is
+  // looked for again as they arrive, until found or until the QS has chosen something else (the review, F1).
+  // An answered Question has no row: the file's report opens instead.
+  const [fileTarget, setFileTarget] = useState<{ row: string } | 'report' | null>(null)
+  if (askedFile && !start && fileTarget === null && mode === 'list' && focused === null && panel === null) {
+    const row = model.rows.find((r) => r.question && misreadOf(r.question.question))
+    const held = !row && model.answered.some((e) => misreadOf(e.question)) ? filesNow?.find((f) => f.id === askedFile) : undefined
+    if (row) {
+      setFileTarget({ row: row.key })
+      setFocused(row.key)
+    } else if (held) {
+      setFileTarget('report')
+      setPanel({ file: held })
+    }
   }
   const disciplines = useQuery(disciplinesQuery(project.id))
   /** The view selected in sheet mode (→ ←, a click on its outline), of the sheet it was selected on. */
@@ -305,7 +307,7 @@ function Step1({
   const [look, setLook] = useState<LookSetting>(PAPER_AS_READ)
   const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const focusNext = useRef<string | null>(fileStart?.row ?? null)
+  const focusNext = useRef<string | null>(null)
   /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
   const [picks, setPicks] = useState<Readonly<Record<string, Pick>>>({})
   /**
@@ -346,6 +348,17 @@ function Step1({
       el.focus({ preventScroll: false })
       el.scrollIntoView({ block: 'nearest' })
     }
+  })
+
+  // `?file=`'s Question row takes the browser's focus once it is drawn, once.
+  const fileFocused = useRef(false)
+  useLayoutEffect(() => {
+    if (fileFocused.current || fileTarget === null || fileTarget === 'report' || mode !== 'list') return
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-row="${CSS.escape(fileTarget.row)}"]`)
+    if (!el) return
+    fileFocused.current = true
+    el.focus({ preventScroll: false })
+    el.scrollIntoView({ block: 'nearest' })
   })
 
   /** After the last Question is answered: focus the first open row of the reloaded Step 1. */

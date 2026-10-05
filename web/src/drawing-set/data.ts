@@ -55,6 +55,15 @@ export function rowActs(file: Pick<FileOut, 'state' | 'format'>, changes: boolea
   }
 }
 
+/**
+ * The summary line's message as the page words it: `held_sheets` (the sheets from held files read
+ * anyway, #327) is 0 when the API's summary does not carry it, so the clause is left out, never "NaN".
+ */
+export function summaryLine(summary: MachineMessage): MachineMessage {
+  const held = summary.params.held_sheets
+  return typeof held === 'number' ? summary : { ...summary, params: { ...summary.params, held_sheets: 0 } }
+}
+
 /** A determinate share for the progress line, when the status counts its steps ("sheet 12 of 38"). */
 export function progressShare(file: Pick<FileOut, 'status'>): number | undefined {
   const { position, total } = file.status.params

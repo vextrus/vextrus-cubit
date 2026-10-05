@@ -28,6 +28,7 @@ import { LoadProblem, ProblemBar, ProblemWords, can, useReadOnlyToast, problemOf
 import { EMPTY, useFormat } from '@/format'
 import { MachineText, machineText } from '@/format/machine'
 import { Button, DrawingText, ErrorBar, ProgressLine, ExcludedGlyph, KeyRegion, QuestionGlyph, ReadOnlyChip, Skeleton, cn, useKeys, useToast } from '@/ui'
+import { step1Key } from '@/takeoff/data'
 import { step1FilePath } from '@/takeoff/paths'
 import {
   cancelReading,
@@ -37,6 +38,7 @@ import {
   progressShare,
   restartReading,
   rowActs,
+  summaryLine,
   tableOrder,
   upload,
   type DisciplineOut,
@@ -499,7 +501,11 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
   function act(which: RowAct, file: FileOut) {
     const key = `${which}:${file.id}`
     if (which === 'open_step1') return go(PATHS.takeoff(project.code, 1))
-    if (which === 'open_question') return go(step1FilePath(project.code, file.id))
+    if (which === 'open_question') {
+      // Step 1's answers may be cached from before this file was held: they are asked for again.
+      void queryClient.invalidateQueries({ queryKey: step1Key(project.id) })
+      return go(step1FilePath(project.code, file.id))
+    }
     // The pressed button goes with the state it belonged to: focus follows to the row's new act.
     refocusRow.current = file.id
     if (which === 'cancel') {
@@ -670,7 +676,7 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
           </h1>
           {list && list.files.length > 0 ? (
             <p className="text-sm text-ink-secondary">
-              <MachineText message={list.summary} />
+              <MachineText message={summaryLine(list.summary)} />
             </p>
           ) : null}
         </div>

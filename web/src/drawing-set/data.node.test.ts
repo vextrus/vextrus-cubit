@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { englishMessages } from '@/i18n/catalogues'
-import { disciplineName, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
+import { disciplineName, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, summaryLine, tableOrder, type FileOut } from './data'
 
 const msg = (code: string, params: Record<string, string | number> = {}) => ({ code, params })
 
@@ -152,5 +152,14 @@ describe('every PDF report code has its section on purpose', () => {
     expect(codes.length).toBeGreaterThan(0)
     // A new code fails here until it is given its section in pdfSectionOf and in this table.
     expect(Object.fromEntries(codes.map((c) => [c, pdfSectionOf(c)]))).toEqual(Object.fromEntries(codes.map((c) => [c, placed[c.slice('engine.pdf_report.'.length)]])))
+  })
+})
+
+describe('summaryLine', () => {
+  it('reads a summary without held_sheets as none from a held file, never NaN', () => {
+    const bare = { code: 'drawings.files.summary', params: { files: 4, sheets: 30, reading: 0, failed: 0, held: 1, refused: 0 } }
+    expect(summaryLine(bare).params).toEqual({ ...bare.params, held_sheets: 0 })
+    const full = { code: 'drawings.files.summary', params: { ...bare.params, held_sheets: 6 } }
+    expect(summaryLine(full)).toBe(full)
   })
 })
