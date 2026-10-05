@@ -23,13 +23,20 @@ _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 # A real-drawing run id (scripts/real_drawings/command.py), normalised: tool-made, not drawing text.
 _RUN_ID = re.compile(r"\d{8}T\d{6}Z-[0-9A-F]{12}-[0-9A-F]{4}")
-# A git object id (a commit sha, short or full, perhaps with a run id's hyphens), as one whitespace-free
-# token: hex only, 7 or more hex characters, at least one digit and one letter A-F (so a drawing's long
-# number, a phone number on a title block, or a word like `DEFACED` is never taken for one).
-_OBJECT_ID = re.compile(r"(?=[0-9A-F-]*\d)(?=[0-9A-F-]*[A-F])[0-9A-F]+(?:-[0-9A-F]+)*")
-# Slug boundaries: letter beside digit (either way) and lower to upper (camel case); separator runs.
+# A full git object id or a sha256, the WHOLE normalised string. Never a short or hyphenated hex token,
+# and never one token among others: drawing tokens (`FACADE-3`, `ACB-1250A`, `C1-C2-C3`) look like hex.
+_OBJECT_ID = re.compile(r"[0-9A-F]{40}|[0-9A-F]{64}")
+# Slug boundaries: letter beside digit (either way) and lower to upper (camel case).
 _CAMEL = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=\d)(?=[^\W\d_])|(?<=[a-z])(?=[A-Z])")
-_SEPARATORS = re.compile(r"[-_./\\+]+")
+# Apostrophes join (`zebra's` reads `ZEBRAS`); every other character but a letter, a digit or a
+# combining mark (Bengali vowel signs are marks) separates.
+_APOSTROPHES = str.maketrans("", "", "'`" + chr(0x2018) + chr(0x2019) + chr(0x02BC))
+_MARKS = "".join(
+    re.escape(chr(point))
+    for point in range(0x300, 0x10000)
+    if unicodedata.category(chr(point))[0] == "M"
+)
+_SEPARATORS = re.compile(rf"(?:[^\w{_MARKS}]|_)+")
 
 
 _UNREADABLE = (OSError, ValueError)  # UnicodeDecodeError is a ValueError
@@ -70,26 +77,23 @@ def normalise(text: str) -> str:
 
 
 def keeps(normalised: str) -> bool:
-    """A corpus string: 8 or more characters with a run of three letters; not a run id, and holding no
-    git object id as a whole token (tool-made names: a public commit message or marker naming a sha
-    would hit)."""
+    """A corpus string: 8 or more characters with a run of three letters, and not, as a whole, a
+    tool-made name: a run id or a full git object id or sha256 (a public commit message or marker
+    naming one would hit). A short sha a note quotes stays, and is allowlisted by hash if it hits."""
     return (
         len(normalised) >= MIN_LENGTH
         and _LETTER_RUN.search(normalised) is not None
         and _RUN_ID.fullmatch(normalised) is None
-        and not any(_is_object_id(token) for token in normalised.split(" "))
+        and _OBJECT_ID.fullmatch(normalised) is None
     )
 
 
-def _is_object_id(token: str) -> bool:
-    return _OBJECT_ID.fullmatch(token) is not None and len(token.replace("-", "")) >= 7
-
-
 def slug_forms(text: str) -> str:
-    """`text` read as a slug: a space at each letter-digit and lower-to-upper boundary, each run of
-    `-_./\\+` one space, then normalised (`zebra-quarry_7` and `ZebraQuarry7` read `ZEBRA QUARRY 7`)."""
-    spaced = _CAMEL.sub(" ", unicodedata.normalize("NFKC", text))
-    return normalise(_SEPARATORS.sub(" ", spaced))
+    """`text` read as a slug: apostrophes dropped, a space at each letter-digit and lower-to-upper
+    boundary, each run of anything but letters, digits and combining marks one space, then normalised
+    (`zebra-quarry_7`, `ZebraQuarry7` and `Zebra (Quarry), 7.` all read `ZEBRA QUARRY 7`)."""
+    joined = unicodedata.normalize("NFKC", text).translate(_APOSTROPHES)
+    return normalise(_SEPARATORS.sub(" ", _CAMEL.sub(" ", joined)))
 
 
 def digest(text: str) -> str:

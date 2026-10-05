@@ -250,15 +250,28 @@ def test_a_corpus_slug_never_hits_in_a_diff_line(slugged: Leak) -> None:
     assert done.returncode == 0
 
 
-# Git object ids are tool-made names (the orchestrator's addendum to T-LEAK-2): a corpus string that is
-# one, or holds one as a whole token, is dropped. Invented ids.
+# Tool-made names leave the corpus only as WHOLE strings (fix round 1 of PR #380): a full git object id,
+# a sha256, a run id. Drawing tokens that look like hex stay, alone and in a sentence. Invented ids.
 SHA40 = "4f2a9c0d1e3b5a7c9e0f2a4b6c8d0e1f3a5b7c9d"
+SHA64 = SHA40 + "0a1b2c3d4e5f60718293a4b5c6d7e8f9"[:24]
 RUN_ID = "20261004T042700Z-0123456789ab-9fac"
+HEXLIKE = [
+    "FACADE-3",
+    "ACB-1250A",
+    "FDB-1250A",
+    "DB-1F-A12",
+    "C1-C2-C3-C4",
+    "1F-2F-3F-4F",
+    "CB-12-CB-13",
+    "A1-B2-C3-D4",
+    "AC-01-B12",
+    "ACE-2024-001",
+]
 
 
 def test_a_sha_and_a_run_id_never_enter_the_corpus_and_their_neighbours_do(tmp_path: Path) -> None:
     built = Leak(tmp_path)
-    (built.sources / "run.txt").write_text(f"{SHA40}\n{RUN_ID}\nHEAD {SHA40[:12]} BUILT\n{KESTREL}\n")
+    (built.sources / "run.txt").write_text(f"{SHA40}\n{SHA64}\n{RUN_ID}\n{KESTREL}\n")
     built.build()
     kept = (built.home / "corpus").read_text().splitlines()
     # Booleans only: a failure never prints a corpus line.
@@ -267,17 +280,53 @@ def test_a_sha_and_a_run_id_never_enter_the_corpus_and_their_neighbours_do(tmp_p
     assert KESTREL.upper() in kept, "the drawing-like string beside them was dropped"
 
 
+@pytest.mark.parametrize("token", HEXLIKE)
+def test_a_hex_like_drawing_token_stays_alone_and_in_a_sentence(token: str) -> None:
+    alone = core.normalise(token)
+    assert core.keeps(alone) or len(alone) < core.MIN_LENGTH or not core._LETTER_RUN.search(alone)
+    assert core.keeps(core.normalise(f"See {token} for cladding"))
+
+
 @pytest.mark.parametrize(
     ("text", "kept"),
     [
-        ("COMMIT A1B2C3D DONE", False),
-        ("HEAD 0123456789AB-9FAC", False),
         (SHA40.upper(), False),
-        ("PHONE 01711234567", True),  # digits only: a number, not an object id
-        ("DEFACED WALLS", True),  # letters A-F only: a word
-        ("BLOCK A1B2C3 WEST", True),  # 6 hex: under 7
-        ("SHA:A1B2C3D4E5 NOTE", True),  # not a whole token
+        (SHA64.upper(), False),
+        (RUN_ID.upper(), False),
+        (f"HEAD {SHA40.upper()} BUILT", True),  # a sha among words: the whole string is not one
+        ("ABCDEF" + SHA40.upper()[:33], True),  # 39 hex: not an object id
+        ("COMMIT A1B2C3D DONE", True),  # a short sha a note quotes stays (allowlisted by hash)
+        ("0123456789AB-9FAC-DEADBEEF", True),  # hyphenated hex
     ],
 )
-def test_an_object_id_token_is_dropped_only_when_it_is_one(text: str, kept: bool) -> None:
+def test_only_a_whole_object_id_or_run_id_leaves_the_corpus(text: str, kept: bool) -> None:
     assert core.keeps(text) is kept
+
+
+# Punctuation separates in a slug read (fix round 1 of PR #380): invented strings.
+PUNCTUATED = [
+    ("Zebra Quarry Developers (Pvt.) Ltd.", "zebra-quarry-developers-pvt-ltd"),
+    ("Heron Tower, Lane 9", "heron-tower-lane-9"),
+    ("Marsh & Sons Kilnworks", "marsh-sons-kilnworks"),
+    ("Kestrel Kiln: Phase Two", "kestrel_kiln_phase_two"),
+    ("ZEBRA'S QUARRY TOWER", "zebras-quarry-tower"),
+]
+
+
+@pytest.mark.parametrize(("value", "form"), PUNCTUATED, ids=["pvt", "comma", "amp", "colon", "apos"])
+def test_a_punctuated_corpus_string_meets_its_slug_at_every_place(
+    tmp_path: Path, value: str, form: str
+) -> None:
+    built = Leak(tmp_path)
+    (built.sources / "more.txt").write_text(f"{value}\n")
+    built.build()
+    repo, base = temp_repo(built.tmp / "work")
+    head = commit(repo, {f"docs/{form}.md": "clean\n"}, f"docs: a note\n\n{form}")
+    done = built.run("range", f"{base}..{head}", "--ref", form, "--no-stamp", cwd=repo)
+    assert hits(done) == [(f"commit:{head[:12]}:3", 1), ("name:0", 1), ("ref", 1)]
+    assert form.upper() not in done.stdout.upper()
+
+
+def test_a_bengali_word_keeps_its_vowel_signs_in_a_slug_read() -> None:
+    word = "কলাম"  # a letter, a letter, a vowel sign (a mark), a letter
+    assert core.slug_forms(f"{word}-{word}") == f"{word} {word}"

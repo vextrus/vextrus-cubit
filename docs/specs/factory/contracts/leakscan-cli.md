@@ -235,17 +235,19 @@ corpus-unreadable`). `allow` hashes, from the next line, only strings that span 
 
 **Slug forms, run ids** (T-LEAK-2). A file name, a ref name, a commit message line and a body line (`file`,
 `text`, and a PR's or an issue's title, body, comments and branch) is tested as written **and** as its slug
-form: a space put at each lower-to-upper and each letter-digit boundary (either way), each run of `-`, `_`,
-`.`, `/`, `\` and `+` replaced by one space, then normalised. The slug form is tested for each corpus string and
+form: apostrophes dropped (`zebra's` reads `ZEBRAS`), a space put at each lower-to-upper and each letter-digit
+boundary (either way), each run of any other character that is not a letter, a digit or a combining mark (`-`,
+`_`, `.`, `/`, `(`, `,`, `&`, `:` ...) replaced by one space, then normalised. The slug form is tested for each corpus string and
 for that string's own slug form, so the `a-b_c.d/e` and `CamelCase` spellings hit even for a corpus string that
 holds `C1` or `Plot-12`.
 The count is the union of the strings found either way (never one string twice). An added line of a diff, a line
 of a file under `dir` and the text in a binary blob are not slug-read: code is full of such separators. A
 normalised string of the shape `<8 digits>T<6 digits>Z-<12 hex>-<4 hex>` (a real-drawing run id, a tool-made
-name) is not a corpus string; a longer string holding one still is. Nor is a string holding, as a whole
-whitespace-free token, a git object id: hex only (hyphens allowed between hex runs), 7 or more hex characters,
-at least one digit and one letter A-F (a commit sha, a sha256; a long number or a word of the letters A-F is not
-one). Both rules live in the corpus filter, so a corpus built before them drops those strings on load.
+name) is not a corpus string; a longer string holding one still is. Nor is a string that is, as a whole, a
+full git object id or a sha256 (40 or 64 hex characters, nothing else). A short or hyphenated hex token, or one
+among other words, never removes a string: drawing tokens (`FACADE-3`, `C1-C2-C3`) look like hex; a short sha a
+note quotes stays and is allowlisted by hash if it hits. Both rules live in the corpus filter, so a corpus built
+before them drops those strings on load.
 
 A corpus string's own slug form is matched only when it has two or more words and lies inside the slug form of
 one whitespace-free run of the scanned text: a one-word slug form (`WORD.` reads `WORD`) or a match across the
