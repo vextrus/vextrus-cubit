@@ -115,6 +115,21 @@ An `acceptance:` commit without both lines fails the lint, unless its full sha i
 `tools/lint/acceptance_legacy.txt` (the carried branches' older commits). An untestable ticket carries no acceptance
 commit and says why in the launch (`--untestable "<why>"`, launch-cli.md).
 
+From S14-AL the message also states why each file is red and what values the tests pin, each on its own line
+anywhere in the message, read by the acceptance lint (`python -m tools.lint.acceptance_lint <base> <branch>...`,
+which the orchestrator runs on each acceptance commit before launching its builder; not a CI check):
+
+| Line (exact form) | Regular expression | Meaning |
+|---|---|---|
+| `red-for: <path> <reason>` | `^red-for:[ \t]+(\S+)[ \t]+(\S.*?)[ \t]*$` | `<path>` is a test file the acceptance commits add, as in the commit. Every test of it red on the base fails with a line containing `<reason>` (one line per reason; any one may match). A file with a red test and no `red-for:` line fails the lint. |
+| `pin: <key> = <value>` | `^pin:[ \t]+([^=\s]+)[ \t]*=[ \t]*(\S.*?)[ \t]*$` | The tests pin `<key>` to `<value>` (a dotted name the writer chooses, e.g. `review.allowlist_only_tier`). Across the branches linted together, two pins of one key to different values fail, naming both branches and the key; so does a pin against a `ruling: <key> = <value>` line in `docs/rulings.md` at the base (no register, no rulings). |
+
+The lint also refuses a test file that does not collect (an import of a module that does not exist yet is the
+one collection error allowed), `lint-imports` or `mypy` failing on the acceptance files, and a test red for
+another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
+does not). It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
+fail its stated-reason check: run it on new acceptance commits.
+
 ## 4. Fixtures every consumer tests against
 
 Only PR f3 commits trailer fixture files: one commit message per case, under `scripts/factory/tests/fixtures/trailers/`.
