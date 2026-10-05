@@ -91,8 +91,8 @@ describe('a Step 1 act in the Acts panel (T-W323, m0-screens §4.4)', () => {
   it('14. words an answer, a Question kept open, a drawing list and an undo', async () => {
     expect(await worded('takeoff.step1.answered')).toBe('Tahmina Chowdhury (Vextrus) answered a Question in Step 1')
     expect(await worded('takeoff.step1.kept_open')).toBe('Tahmina Chowdhury (Vextrus) kept a Question open in Step 1')
-    expect(await worded('takeoff.step1.list_changed')).toBe('Tahmina Chowdhury (Vextrus) changed a drawing list in Step 1')
-    expect(await worded('takeoff.step1.undone')).toBe('Tahmina Chowdhury (Vextrus) took back their last act in Step 1')
+    expect(await worded('takeoff.step1.list_changed')).toBe('Tahmina Chowdhury (Vextrus) set a drawing list in Step 1')
+    expect(await worded('takeoff.step1.undone')).toBe('Tahmina Chowdhury (Vextrus) undid their last change in Step 1')
   })
 })
 
@@ -133,10 +133,10 @@ describe('no Step 1 act falls back to "no words" (T-W323)', () => {
     const items = (await within(panel).findAllByRole('listitem')).map((li) => clean(li.textContent))
 
     expect(items.map((line) => line.split(' · ')[0])).toEqual([
-      'Tahmina Chowdhury (Vextrus) took back their last act in Step 1',
+      'Tahmina Chowdhury (Vextrus) undid their last change in Step 1',
       'Tahmina Chowdhury (Vextrus) kept a Question open in Step 1',
       'Tahmina Chowdhury (Vextrus) answered a Question in Step 1',
-      'Tahmina Chowdhury (Vextrus) changed a drawing list in Step 1',
+      'Tahmina Chowdhury (Vextrus) set a drawing list in Step 1',
     ])
     expect(items.every((line) => line.includes(' · Kadam Residence · '))).toBe(true)
     expect(clean(panel.textContent)).not.toContain(UNWORDED)
