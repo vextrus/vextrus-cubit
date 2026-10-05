@@ -21,11 +21,13 @@ web does (ADR 0038). `TIME_ZONE` stays UTC; any other request is left as it is.
 """
 
 from collections.abc import Callable
+from functools import cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from django.conf import settings
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse
-from django.urls import reverse
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
 from vextrus.platform.services import markets, tenancy
@@ -65,10 +67,23 @@ class AdminTimeZoneMiddleware:
     def _zone(request: HttpRequest) -> ZoneInfo | None:
         """The acting Developer's Market's zone on an admin page; None elsewhere, with no Developer,
         or when the Market's zone name is not a zone (shown in UTC, never a 500)."""
+        prefix = _admin_prefix(getattr(request, "urlconf", None) or settings.ROOT_URLCONF)
+        if prefix is None or not request.path.startswith(prefix):
+            return None
         tenant_id = tenancy.current_tenant_id()
-        if tenant_id is None or not request.path.startswith(reverse("admin:index")):
+        if tenant_id is None:
             return None
         try:
             return ZoneInfo(markets.of_developer(tenant_id).time_zone)
         except markets.MarketNotFound, ZoneInfoNotFoundError, ValueError:
             return None
+
+
+@cache
+def _admin_prefix(urlconf: str) -> str | None:
+    """The admin's path under a URL configuration, found once per configuration; None where it
+    serves no admin (the job's, or a test's API-only one), so no request there is an admin page."""
+    try:
+        return reverse("admin:index", urlconf=urlconf)
+    except NoReverseMatch:
+        return None
