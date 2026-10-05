@@ -337,6 +337,22 @@
           ],
           "minimum": 0,
           "description": "Continuation Questions the Answer Key says were not continuations; null when no expectation exists. Q5's limit: 0."
+        },
+        "false_continuation_questions_qs_view": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Informational, never judged: conflict Questions wholly inside one continuation group of any title form (a mark range too), as a QS would count them; absent or null when not measured."
+        },
+        "continuation_questions_unsure": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Informational, never judged: conflict Questions wholly inside one near miss the ground truth marks unsure; absent or null when not measured."
         }
       }
     },

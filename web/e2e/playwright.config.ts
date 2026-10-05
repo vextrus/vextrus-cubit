@@ -27,7 +27,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 120_000,
-  reporter: [['list']],
+  reporter: [['list'], ['../scripts/failure-reporter.mjs']],
   use: {
     baseURL: process.env.WALK_URL ?? 'http://127.0.0.1:5410',
     ...devices['Desktop Chrome'],

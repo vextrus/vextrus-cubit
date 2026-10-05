@@ -4,11 +4,12 @@
 For each PR, engine PRs with a ledger PASS first, then the rest by number (a PR with no PASS is left
 out): it refuses (exit 3) unless the local review ledger covers the PR's head (a PASS for it, or for an
 older head followed only by clean merges of main, as `merge_ready` decides), then marks the PR ready,
-brings main in (`gh pr update-branch`, skipped when main is already in), waits for CI (read from `gh pr
-view --json headRefOid,statusCheckRollup`: gh 2.45 has no `gh pr checks --json`), reruns the failed jobs
-**once** and only when every failed test is listed in `.github/flaky.txt`, runs `merge_ready`, merges the
-head CI was green on (`--match-head-commit`) and pulls main. It never raises privilege, never runs a
-shell and never moves a branch or a worktree of its own. Exit codes: 0 landed, 2 usage, 3 refused.
+brings main in (`PUT .../pulls/<n>/update-branch`, skipped when main is already in), waits for CI
+(read from `gh pr view --json headRefOid,statusCheckRollup`: gh 2.45 has no `gh pr checks --json`),
+reruns the failed jobs **once** and only when every failed test is listed in `.github/flaky.txt`, runs
+`merge_ready`, merges the head CI was green on (`--match-head-commit`) and pulls main. It never raises
+privilege, never runs a shell and never moves a branch or a worktree of its own. Exit codes: 0 landed,
+2 usage, 3 refused.
 """
 
 import contextlib
@@ -429,11 +430,23 @@ class Gh:
         )
 
     def pull_main(self) -> None:
-        """Fast-forwards main, and only when main is what this checkout has checked out."""
+        """Fast-forwards main, and only when main is what this checkout has checked out. Never `git
+        pull`: it reads `FETCH_HEAD`, which every other fetch in this checkout rewrites ("Cannot
+        fast-forward to multiple branches"); main is fetched into `origin/main` and fast-forwarded to
+        that ref. Another fetch moving `origin/main` at the same moment makes ours fail ("cannot lock
+        ref"), so the fetch is tried at most twice more, 2 s apart."""
         branch = self._run("git", "-C", str(self.repo), "symbolic-ref", "-q", "--short", "HEAD").strip()
         if branch != "main":
             raise Refused(f"this checkout is on {branch!r}, not main")
-        self._run("git", "-C", str(self.repo), "pull", "--ff-only", "origin", "main")
+        for attempt in range(3):
+            try:
+                self._run("git", "-C", str(self.repo), "fetch", "-q", "origin", "main")
+                break
+            except subprocess.CalledProcessError:
+                if attempt == 2:
+                    raise
+                self.sleep(2)
+        self._run("git", "-C", str(self.repo), "merge", "-q", "--ff-only", "refs/remotes/origin/main")
 
 
 def main(argv: list[str] | None = None) -> int:
