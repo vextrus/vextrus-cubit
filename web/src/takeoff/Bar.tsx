@@ -309,7 +309,14 @@ export function useBar(c: BarContext): BarSpec | null {
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Enter confirms it and opens the next open sheet.</Trans>
           </>
         ),
-        ghost: n > 0 ? { label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Trans>Confirm all {n} that agree</Trans>, run: c.bulk } : undefined,
+        // One that agrees is worded as the bulk act's what says it (BulkWhat), never "Confirm all 1 that agree".
+        ghost:
+          n > 0
+            ? {
+                label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Plural value={n} one="Confirm # sheet that agrees" other="Confirm all # that agree" />,
+                run: c.bulk,
+              }
+            : undefined,
         button: { label: <Trans>Confirm {name}</Trans>, run: () => c.confirmRow(row, true) },
       }
     }

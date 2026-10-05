@@ -241,6 +241,10 @@ msgstr "Loading the Plot…"
 msgid "Confirmed by {name}, {date}"
 msgstr "Confirmed by {name}, {date}"
 
+#: src/takeoff/Bar.tsx
+msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm all # that agree}}"
+msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm all # that agree}}"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "List"
 msgstr "List"
@@ -1282,10 +1286,6 @@ msgstr "In a file, not on the drawing list"
 #: src/takeoff/questionWords.tsx
 msgid "Use the drawing list you pasted"
 msgstr "Use the drawing list you pasted"
-
-#: src/takeoff/Bar.tsx
-msgid "Confirm all {n} that agree"
-msgstr "Confirm all {n} that agree"
 
 #: src/takeoff/words.tsx
 msgid "Not sent yet: keep it in the count as missing and ask the consultant"
