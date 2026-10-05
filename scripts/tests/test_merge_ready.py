@@ -429,6 +429,13 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
         "## Not&nbsp;done\n- tier 2 not built\n",
         "<h2>C&#117;t</h2>\n\n- tier 2 not built\n",
         "## Cut\n- tier 2 `` <!-- ` (#5) -->\n",
+        # Round 3: code spans and escapes that pair across a comment, links that spell the heading.
+        "## Cut\n- tier 2 `not\n  built` <!-- ` #5 -->\n",
+        "## Cut\n- tier 2 not built \\` <!-- ` #5 -->\n",
+        "## [C](x)ut\n- tier 2 not built\n",
+        "## ![](x)Cut\n- tier 2 not built\n",
+        "## C[]()ut\n- tier 2 not built\n",
+        "## Cut\n- [Tier 2 not built]: #5\n",
     ],
     ids=[
         "none-line-after-an-item",
@@ -467,6 +474,12 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
         "entity-space-in-not-done",
         "html-heading-with-an-entity",
         "unclosed-code-span-opens-a-comment",
+        "code-span-across-lines-pairs-into-a-comment",
+        "escaped-backtick-pairs-into-a-comment",
+        "link-spells-the-heading",
+        "image-before-the-heading",
+        "empty-link-inside-the-heading",
+        "link-reference-definition-as-the-item",
     ],
 )
 def test_the_cut_gate_fails_closed_past_the_acceptance_cases(body: str) -> None:

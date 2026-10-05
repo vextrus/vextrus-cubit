@@ -86,10 +86,11 @@ TABLE_ROW = re.compile(r"[ \t]*\|")
 # code spans, holds no HTML: a comment or a tag can hide lines and links.
 BLOCK_START = re.compile(
     r"[ \t]*(?:>|#{1,6}(?:[ \t]|$)|`{3,}|~{3,}|[|=]|[-*+](?:[ \t]|$)|[-_*](?:[ \t]*[-_*]){2,}[ \t]*$"
-    r"|[0-9]+[.)](?:[ \t]|$))"
+    r"|[0-9]+[.)](?:[ \t]|$)|\[[^\]]*\]:)"
 )
 HTML = re.compile(r"<[A-Za-z/!?]")
-CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)")
+CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)", re.DOTALL)
+ESCAPED = re.compile(r"\\[!-/:-@\[-`{-~]")
 # The only other lines a gated section may hold, each in its exact form: the trailers, the Harness
 # net line and the PR footer. Anything after the form is free text, and free text may hide a cut.
 SESSION_URL = r"https://claude\.ai/code/session_[A-Za-z0-9]+"
@@ -317,14 +318,16 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     found: list[str] = []
     section: str | None = None
     items: list[str] = []
-    seen = nothing = open_item = False
+    seen = nothing = open_item = hidden = False
     paragraph: list[str] = []
+    block: list[str] = []
     for number, line in enumerate(LINE_BREAK.split(body), start=1):
         heading = HEADING.match(line)
         if heading and (section is None or line[0] == "#"):
             found += _unlinked(section, items, issue_open)
             section = _opened([heading[1]], number, found)
-            items, paragraph, seen, nothing, open_item = [], [], False, False, False
+            items, paragraph, block = [], [], []
+            seen = nothing = open_item = hidden = False
             continue
         if section is None:
             opened = HTML_HEADING.fullmatch(line)
@@ -338,9 +341,15 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
             continue
         text = line.strip()
         if not text:
-            open_item = False
+            block, open_item, hidden = [], False, False
             continue
         first, seen = not seen, True
+        if not ENDING.fullmatch(text):
+            # A code span runs across a paragraph's lines, so HTML is looked for in the whole block.
+            block.append(line)
+            if not hidden and HTML.search(_bare("\n".join(block))):
+                hidden = True
+                found.append(f"'{section}' body line {number} holds HTML: {HOW_TO_CUT}")
         if first and NOTHING.fullmatch(text):
             nothing = True
         elif ENDING.fullmatch(text):
@@ -368,7 +377,12 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
 
 
 def _plain(text: str) -> bool:
-    return not BLOCK_START.match(text) and not HTML.search(CODE_SPAN.sub("", text))
+    return not BLOCK_START.match(text) and not HTML.search(_bare(text))
+
+
+def _bare(text: str) -> str:
+    """The text without its escapes and code spans, which show no HTML and link no issue."""
+    return CODE_SPAN.sub("", ESCAPED.sub("", text))
 
 
 def _opened(headings: list[str], number: int, found: list[str]) -> str | None:
@@ -377,7 +391,8 @@ def _opened(headings: list[str], number: int, found: list[str]) -> str | None:
     numbers skipped. Its first two words in other than ASCII letters cannot be read, so they open a
     gated section and are refused."""
     for heading in headings:
-        text = html.unescape(re.sub(r"<!--.*?-->|<[^>]*>", "", heading))
+        text = re.sub(r"<!--.*?-->|<[^>]*>", "", heading)
+        text = html.unescape(re.sub(r"!?\[([^\]]*)\](?:\([^)]*\)|\[[^\]]*\])?", r"\1", text))
         text = unicodedata.normalize("NFKC", re.sub(r"[*_`~\\]", "", text))
         text = re.sub(r"^[\W\d_]+", "", "".join(c for c in text if unicodedata.category(c) != "Cf"))
         if not "".join(re.findall(r"[^\W\d_]+", text)[:2]).isascii():
@@ -391,7 +406,7 @@ def _opened(headings: list[str], number: int, found: list[str]) -> str | None:
 def _unlinked(section: str | None, items: list[str], issue_open: IssueOpen) -> list[str]:
     found = []
     for item, text in enumerate(items, start=1):
-        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(CODE_SPAN.sub("", text))}
+        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(_bare(text))}
         where = f"'{section}' item {item}"
         if not numbers:
             found.append(f"{where} links no issue: file one and link it (#<n>)")
