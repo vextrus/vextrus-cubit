@@ -7,4 +7,4 @@ msgstr ""
 "Language: en\n"
 
 msgid "platform.jev.sheet_type_source"
-msgstr "Vextrus's reading of this sheet's title and view titles"
+msgstr "Vextrus’s reading of this sheet’s title and view titles"

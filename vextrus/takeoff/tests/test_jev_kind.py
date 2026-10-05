@@ -165,8 +165,12 @@ def clear_over(discipline: str, first: str, second: str) -> jev.Judgement:
         ("structural", "DETAILS & BEAM LAYOUT", ["beam_layout"]),
         ("structural", "SLAB LAYOUT & MISC. DETAILS", ["slab_layout"]),
         ("structural", "LEVEL 4 SLAB LAYOUT + DETAILS (TYP.)", ["slab_layout", "slab_details"]),
-        # never past the adjacent segment: a segment of two words or more lends nothing
-        ("structural", "PILE, PILE CAP & COLUMN LAYOUT", ["column_layout"]),
+        # a run of subjects reads together (review 3); a view kind's word ends it (review 1)
+        (
+            "structural",
+            "PILE, PILE CAP & COLUMN LAYOUT",
+            ["pile_layout", "pile_cap_layout", "column_layout"],
+        ),
         ("structural", "PILE & GRADE BEAM SECTION, COLUMN LAYOUT", ["column_layout"]),
         ("structural", "TIE BEAM LAYOUT, SECTIONS & DETAILS", ["beam_layout"]),
         ("architectural", "DOOR & WINDOW SCHEDULE & DETAILS", ["door_window_schedule"]),
@@ -284,3 +288,52 @@ def test_a_kind_titled_by_its_english_name_with_and_names_it_as_with_an_ampersan
     assert kind in kinds_named(worded, offered(discipline))
     assert unsure(clear_over(discipline, first, kind), worded)
     assert not unsure(clear_over(discipline, kind, first), worded)
+
+
+@pytest.mark.parametrize(
+    ("discipline", "kind", "first", "title"),
+    [
+        (
+            "architectural",
+            "lintel_layout",
+            "ceiling_layout",
+            "LINTEL, SUNSHADE & FALSE SLAB LAYOUT (BLOCK B)",
+        ),
+        (
+            "structural",
+            "tank_details",
+            "retaining_wall_details",
+            "UNDERGROUND RESERVOIR, TANK AND PIT DETAILS",
+        ),
+        (
+            "plumbing",
+            "septic_tank_details",
+            "pit_chamber_details",
+            "SEPTIC TANK & SOAK WELL DETAILS (TYP.)",
+        ),
+        (
+            "architectural",
+            "slab_outline_layout",
+            "lintel_layout",
+            "LEVEL 2 SLAB OUTLINE AND BEAM LAYOUT",
+        ),
+        (
+            "architectural",
+            "door_window_schedule",
+            "door_window_details",
+            "DOOR, WINDOW & VENTILATOR SCHEDULE",
+        ),
+        ("plumbing", "pit_chamber_details", "septic_tank_details", "INSPECTION PIT AND CHAMBER DETAILS"),
+        ("architectural", "stair_details", "toilet_details", "STAIR AND RAMP DETAILS"),
+        ("architectural", "finish_schedule", "door_window_schedule", "WALL & FACADE FINISH SCHEDULE"),
+    ],
+)
+def test_a_run_of_subjects_names_each_kind_whose_subject_it_holds(
+    discipline: str, kind: str, first: str, title: str
+) -> None:
+    """#426 review 3 (score 50): a title worded as a kind's catalogue name, three or more subjects
+    or more than the kind's own, names it; so Jev's other first asks, and Jev's first of that kind
+    is proposed."""
+    assert kind in kinds_named(title, offered(discipline))
+    assert unsure(clear_over(discipline, first, kind), title)
+    assert not unsure(clear_over(discipline, kind, first), title)

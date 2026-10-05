@@ -26,7 +26,7 @@ describe("the kind Question's pre-pick (#228; m0-screens §5)", () => {
     const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
     const radio = (await screen.findAllByRole('radio', { name: (n: string) => clean(n).includes('Slab details') }))[0] as HTMLInputElement
     expect(radio.checked).toBe(true)
-    expect(clean(card.textContent)).toMatch(/Picked for you: Vextrus.s reading of this sheet.s title and view titles/)
+    expect(clean(card.textContent)).toMatch(/Picked for you: Vextrus’s reading of this sheet’s title and view titles/)
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(fake.posted).toHaveLength(1))
     expect(fake.posted[0]!.body).toMatchObject({ option: 'slab_details' })

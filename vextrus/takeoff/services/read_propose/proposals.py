@@ -37,6 +37,7 @@ import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
+from itertools import permutations
 from typing import Any
 
 from django.conf import settings
@@ -301,8 +302,12 @@ def expanded(title: str, kinds: Sequence[str]) -> list[str]:
     DETAILS": "beam detail"); a segment holding only a subject, one word that is no kind's last
     word, takes the last word of the segment just after it when that segment ends in one ("COLUMN &
     BEAM LAYOUT": "column layout"). A segment of two words or more names its own subject and lends or
-    borrows nothing, and nothing reaches past the adjacent segment (#426, review 1): "COLUMN LAYOUT
-    & BEAM DETAILS" expands nothing, nor does "COLUMN & BEAM SECTION, SLAB LAYOUT"."""
+    borrows nothing past the adjacent segment (#426, review 1): "COLUMN LAYOUT & BEAM DETAILS"
+    expands nothing, nor does "COLUMN & BEAM SECTION, SLAB LAYOUT".
+
+    One exception reads further: a run of subjects (`_runs`), segments joined one to the next and
+    the last ending in a kind's last word ("DOOR, WINDOW & VENTILATOR SCHEDULE"), names each kind
+    whose subject is one, two or three of its subjects, in any order (#426, review 3)."""
     lasts = {_words(k.rpartition("_")[2]) for k in kinds}
     segments = [
         words
@@ -319,12 +324,45 @@ def expanded(title: str, kinds: Sequence[str]) -> list[str]:
             phrases += [" ".join([*subject, words[0]])] if subject else []
         elif words[0] not in lasts and at + 1 < len(segments) and segments[at + 1][-1] in lasts:
             phrases.append(" ".join([words[0], segments[at + 1][-1]]))
+    return phrases + _runs(segments, lasts)
+
+
+def _runs(segments: Sequence[Sequence[str]], lasts: set[str]) -> list[str]:
+    """The phrases of each run of subjects among a title's segments: two or more segments, each but
+    the last no kind's last word and no view kind's word ("door", "window", "ventilator"), the last
+    a subject ending in a kind's last word ("schedule"). Each phrase is one, two or three of the
+    run's subjects, whole, in any order, with that last word: "door window schedule" among them.
+    A segment holding a view kind's word ("BEAM SECTION") ends a run, as does one ending in a
+    kind's last word: nothing is read across them."""
+    phrases: list[str] = []
+    run: list[tuple[str, ...]] = []
+    for words in segments:
+        last = words[-1] if words[-1] in lasts else ""
+        own = tuple(words[:-1] if last else words)
+        if any(w in _VIEW_WORDS for w in own):
+            run = []
+            continue
+        if not last:
+            run.append(own)
+            continue
+        subjects = [*run, own] if own else run
+        run = []
+        if len(subjects) < 2:
+            continue
+        for size in range(1, min(3, len(subjects)) + 1):
+            for chosen in permutations(subjects, size):
+                phrases.append(" ".join([*(w for subject in chosen for w in subject), last]))
     return phrases
 
 
 def _words(text: str) -> str:
     """A title's or key's words as `kinds_named` compares them: case, punctuation, a plural "s" aside."""
     return " ".join(w.removesuffix("s") for w in re.findall(r"[^\W_]+", text.casefold()))
+
+
+_VIEW_WORDS = frozenset(_words(str(k)) for k in ViewKind if "_" not in str(k))
+"""The view kinds' words ("section", "elevation", "plan"): a segment holding one names a drawing of
+its own, and so is no subject of a run."""
 
 
 def _sheet_traces(sheet: drawings.SheetView) -> list[tuple[str, dict[str, Any]]]:
