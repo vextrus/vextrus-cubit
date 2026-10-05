@@ -7,6 +7,10 @@ shows three times: tight (nothing between shown strings), spaced (a space wherev
 and measured (a space where a glyph lands further on than its neighbours' glyph advances, for
 glyphs placed one by one with no space glyph drawn). The work and memory are linear in the stream's
 size; an unclosed string or array runs to the stream's end, scanned.
+
+The measured text knows where each glyph starts, never how wide it is (the font's `/Widths` are in
+the page's resources, not the stream): glyphs of a proportional font placed one by one, their word
+spaces drawn as gaps, can still be missed by all three texts (an open issue, like `/ToUnicode`).
 """
 
 import math
