@@ -49,8 +49,11 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "$EVENT" != pull_request ]; then echo engine=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # The demo seed's recording and the drawing it is of (#182) run the toolchain's tests too
+          # (test_recorded re-reads them), without being engine paths (no real-drawing status).
           touched=$(git diff --name-only "$BASE"...HEAD | python3 tools/lint/engine_paths.py \
-            --patterns .github/engine-paths.txt --pattern .github/workflows/engine.yml)
+            --patterns .github/engine-paths.txt --pattern .github/workflows/engine.yml \
+            --pattern 'vextrus/seed/recorded/**' --pattern vextrus/seed/kr01.py)
           if [ -n "$touched" ]; then echo engine=true; else echo engine=false; fi >> "$GITHUB_OUTPUT"
       - id: check
         name: Does this change touch the real-drawing check or the reader's sandbox?
