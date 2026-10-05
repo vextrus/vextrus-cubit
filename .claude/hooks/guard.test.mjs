@@ -382,6 +382,29 @@ test("T-GUARD-WAITS refuter: a look behind a wrapper, a group, a variable, a she
   }
 });
 
+test("T-GUARD-WAITS refuter 2: any arithmetic shift, an interpreter's loop; not docker ps, quoted words or a $(…) look", () => {
+  for (const command of [
+    "echo $[1<<2]\nwhile pgrep -f x; do sleep 1; done",
+    "echo $(( ((1)) << 2 ))\nwhile pgrep -f x; do sleep 1; done",
+    "python3 -c \"import os,time\nwhile os.system('pgrep -f x')==0: time.sleep(1)\"",
+    "python3 <<'EOF'\nimport os,time\nwhile os.system('pgrep -f x')==0: time.sleep(1)\nEOF",
+    "while echo 'ps aux | grep x' | sh; do sleep 1; done",
+    "while /bin/ps aux | grep -q x; do sleep 1; done",
+  ]) {
+    assert.equal(seen(command), "SELF_MATCHING_WAIT", command);
+  }
+  for (const command of [
+    'for f in a b; do $EDITOR "$f"; done; old=$(pgrep -f x)',
+    'PY=.venv/bin/python; pid=$(pgrep -f uvicorn); for f in a b; do $PY -m x "$f"; done',
+    "until docker ps | grep -q web; do sleep 2; done",
+    "until docker compose ps | grep -q web; do sleep 2; done",
+    "for f in docs/*.md; do grep -l 'pgrep -f' \"$f\"; done",
+    'for f in a b; do echo "never use pgrep -f"; done',
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
+});
+
 test("T-GUARD-WAITS: a text left with an open quote cannot be split and fails closed", () => {
   assert.equal(seen("echo 'unclosed; while pgrep -f x; do :; done"), "SELF_MATCHING_WAIT");
   assert.equal(seen("echo 'unclosed; pgrep -f x"), null);

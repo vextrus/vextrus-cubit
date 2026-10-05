@@ -963,15 +963,44 @@ const LOOP_PREFIXES = new Set(["!", "{", "if", "then", "elif", "else", "do", "ti
 const PS_FILTERS = new Set(["grep", "egrep", "fgrep", "rg", "ugrep", "awk", "gawk", "mawk"]);
 const SELF_MATCHING_LOOK = /\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--fu(?:ll?)?)\b|\bps\b[^;&\n]*\|\s*(?:busybox\s+)?(?:[ef]?grep|rg|ugrep|[gm]?awk)\b/;
 const PGREP_FULL = /^(?:-[A-Za-z]*f[A-Za-z]*|--fu(?:ll?)?)$/;
+// The pipeline's own text, not its arguments, as a look: `ps` at a command's start (`docker ps` is not one).
+const WRITTEN_LOOK = /\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--fu(?:ll?)?)\b|(?:^|[;&|('"`]\s*|\/)ps\b[^;&\n]*\|\s*(?:busybox\s+)?(?:[ef]?grep|rg|ugrep|[gm]?awk)\b/;
+// A pipeline that runs text as code, so a look in its quotes runs too.
+const RUNS_TEXT = /(?:^|[\s|/])(?:(?:ba|z|da|k|mk|rb)?sh|python[\d.]*|node|perl|ruby|eval|xargs)(?=\s|$)/;
+const LOOP_CODE = /\b(?:while|for|until)\b/;
+
+/** `$((1<<2))`, `((x<<1))` and `$[1<<2]` are shifts, not heredocs: their `<` is hidden so the cut keeps the lines after. */
+function maskArithmetic(text) {
+  let out = "";
+  for (let i = 0; i < text.length; i++) {
+    let end = -1;
+    if (text[i] === "(" && text[i + 1] === "(") end = closing(text, i);
+    else if (text[i] === "$" && text[i + 1] === "[") {
+      for (let j = i + 2, depth = 1; j < text.length; j++) {
+        if (text[j] === "[") depth++;
+        else if (text[j] === "]" && --depth === 0) {
+          end = j;
+          break;
+        }
+      }
+      if (end < 0) end = text.length;
+    }
+    if (end < 0) {
+      out += text[i];
+      continue;
+    }
+    out += text.slice(i, end + 1).replace(/</g, " ");
+    i = end;
+  }
+  return out;
+}
 
 /**
  * Reads shell text for `pgrep -f` / `ps … | grep` looks inside a `for`/`while`/`until` loop (its condition or
  * body, to the matching `done`): `{wait, look, unbalanced}`. `inLoop`: the text itself runs inside a loop.
  */
 function loopLooks(text, inLoop = false) {
-  // `$((1<<2))` is a shift, not a heredoc: hide its `<` so the heredoc cut keeps the lines after it.
-  const arithmetic = text.replace(/\(\((?:[^()]|\([^()]*\))*\)\)/g, (m) => m.replace(/</g, " "));
-  const { text: cut, docs } = cutHeredocs(arithmetic);
+  const { text: cut, docs } = cutHeredocs(maskArithmetic(text));
   const segs = shellSegments(cut);
   let open = 0;
   let unbalanced = false;
@@ -1007,9 +1036,11 @@ function loopLooks(text, inLoop = false) {
       pipeline += ` | ${segs[next].text}`;
       t = next;
     }
-    if (inside && SELF_MATCHING_LOOK.test(pipeline)) hit = true;
-    // A command word held in a variable (`P='pgrep -f'; while $P x`): a look assigned anywhere counts.
-    if (inside && /^["']?\$/.test(ws[k] ?? "") && (cut.match(/\b[A-Za-z_]\w*(?:\[[^\]]*\])?\+?=[^;&|\n]*/g) ?? []).some((a) => SELF_MATCHING_LOOK.test(a))) hit = true;
+    const unquotedPipeline = pipeline.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
+    if (inside && WRITTEN_LOOK.test(RUNS_TEXT.test(unquotedPipeline) ? pipeline : unquotedPipeline)) hit = true;
+    // A command word held in a variable (`P='pgrep -f'; while $P x`): a look assigned as text, not run in `$(…)`.
+    const held = (a) => !/^[^=]*=\s*(?:\$\(|`)/.test(a) && SELF_MATCHING_LOOK.test(a);
+    if (inside && /^["']?\$/.test(ws[k] ?? "") && (cut.match(/\b[A-Za-z_]\w*(?:\[[^\]]*\])?\+?=[^;&|\n]*/g) ?? []).some(held)) hit = true;
     // A shell's own script (`bash -c '…'`, `eval …`) run inside the loop is the loop's too.
     if (SHELLS.has(cmd.name) || cmd.name === "eval") {
       const c = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
@@ -1039,7 +1070,10 @@ function loopLooks(text, inLoop = false) {
 }
 
 /** A loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line and never ends. */
-const selfMatchingWait = (analysis) => analysis.units.some((text) => loopLooks(text).wait);
+const selfMatchingWait = (analysis) =>
+  analysis.units.some((text) => loopLooks(text).wait) ||
+  // An interpreter's own loop (`python3 -c "while os.system('pgrep -f x') == 0: …"`) is judged by its words.
+  analysis.codes.some((code) => LOOP_CODE.test(code) && SELF_MATCHING_LOOK.test(code));
 
 /** Folder of the repository that holds `dir` (the nearest one with `.git`), or `dir` itself. */
 function repoTop(dir) {
