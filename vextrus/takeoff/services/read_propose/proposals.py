@@ -289,7 +289,7 @@ def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
 
 
 def _words(text: str) -> str:
-    """A title's or key's words, as `kinds_named` compares them: case, punctuation and a plural "s" aside."""
+    """A title's or key's words as `kinds_named` compares them: case, punctuation, a plural "s" aside."""
     return " ".join(w.removesuffix("s") for w in re.findall(r"[^\W_]+", text.casefold()))
 
 
