@@ -279,3 +279,37 @@ def test_a_stale_pair_listed_as_a_true_question_is_counted_once(tmp_path: Path, 
     )
     assert false["status"] == ("PASS" if raised else "FAIL")
     assert _status(judged, "true_questions_raised") == "PASS"  # judged by the stale count alone
+
+
+def test_a_withdrawn_question_never_groups_a_stale_pair(tmp_path: Path) -> None:
+    entry = _entry()
+    for sheet in entry["sheets"][:2]:
+        sheet["title"] = "Invented Riser Schedule"
+    entry["questions"].append(
+        {**_question("w1", measures.SAME_TITLE, "p1", "p2"), "status": "withdrawn"}
+    )
+    pair = [{"file": "oscar.dwg", "number": "P-01"}, {"file": "oscar.dwg", "number": "P-02"}]
+
+    measured = _attach(
+        tmp_path, entry, _expect(stale_title_pairs=[{"discipline": "plumbing", "sheets": pair}])
+    )
+
+    assert measured["sets"]["set-c"]["measures"]["stale_grouped"] == 1
+
+
+@pytest.mark.parametrize(
+    ("before", "bulk"), [(0, 9), (3, None)], ids=["gap-answers-only", "after-other-acts"]
+)
+def test_a_bulk_count_read_after_other_acts_is_refused(
+    tmp_path: Path, before: int, bulk: int | None
+) -> None:
+    entry = _entry()
+    entry["questions"].append({**_question("g1", "engine.register_check.gap", "p3"), "kind": "missing"})
+    entry.update(bulk_after_gaps={"plumbing": 9}, acts_before_bulk=before)
+
+    measured = _attach(tmp_path, entry, _expect())
+
+    assert measured["sets"]["set-c"]["burden"]["plumbing"]["bulk_confirmable"] == bulk
+    judged = verdict.evaluate(measured, {"set-c": _expect()}, LAYER, ref="main", leak_hits=0, **TIMES)
+    [share] = [c for c in judged["checks"] if c["check"] == "bulk_confirmable_share"]
+    assert share["measured"].get("unmeasured", 0) == (0 if before == 0 else 1)

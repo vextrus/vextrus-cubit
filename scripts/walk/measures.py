@@ -8,7 +8,14 @@ writes `<walks>/<sha>/snapshot.json` (private, never in git):
                   "held", "agrees", "storeys", "storeys_titled"}],
       "questions": [{"id", "kind", "status", "code", "check_code", "discipline", "proposals"}],
       "bulk_after_gaps": {<discipline>: <Sheets that agree and are not held, after the walk
-                          answered each open numbering-gap Question once>}}}}
+                          answered each open numbering-gap Question once>},
+      "acts_before_bulk": 0}}}
+
+`bulk_after_gaps` is read in the snapshot's own Project once the snapshot is taken, after the gap
+answers and no other act; `acts_before_bulk` counts any other act made there first. A count read after
+other answers or exclusions is inflated (an answered Question no longer holds its Sheets out of the
+bulk act), so `acts_before_bulk` above 0 refuses `bulk_after_gaps`: those rows' bulk is null, the
+share unmeasured.
 
 `attach(walk, folder, expect)` returns a copy of `walk` in which every set the snapshot measures has
 its Questions by kind and its burden rows counted from the snapshot, each row with `sheets_expected`
@@ -29,7 +36,8 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
   per file (the file of the first Sheet held; those holding none, once per Discipline);
 - bulk-confirmable per Discipline: Sheets that agree and are not held, or, where a gap Question is
   open, `bulk_after_gaps` (absent: that row's count is null, the share unmeasured);
-- stale: listed pairs of equal titles (case and spacing folded) that no Question holds together (a
+- stale: listed pairs of equal titles (case and spacing folded) that no open or answered Question
+  holds together (a withdrawn one asks nothing; a
   listed Sheet absent from the snapshot cannot be shown grouped: it counts); a listed true Question
   that only restates a stale pair (a same_title conflict over its two Sheets) is judged here alone,
   never also as a true Question not raised;
@@ -58,11 +66,12 @@ CONFLICT_CODES = frozenset({SAME_TITLE, SAME_STOREY, SAME_NUMBER})
 GAP_CODES = frozenset({"engine.register_check.gap", "engine.register_check.gaps"})
 """A numbering gap, asked per missing number or (t229) all of a Discipline's at once."""
 OPEN = "open"
+WITHDRAWN = "withdrawn"
 BLANK = "blank"
 """The product's exclusion reason for a blank Sheet (vextrus/drawings/models.py `ExclusionReason`)."""
 NOT_STATED = frozenset({"not_stated"})
 """The storey code of a title that states none (engine/recognise/storeys.py): no storey."""
-STATUSES = frozenset({OPEN, "answered", "withdrawn"})
+STATUSES = frozenset({OPEN, "answered", WITHDRAWN})
 """The product's Question statuses; any other leaves the set unmeasured (it would vanish from every
 count, and a Question must never pass unseen)."""
 NONE = "none"
@@ -267,6 +276,8 @@ def parse_set(entry: object) -> SetSnapshot:
     if not isinstance(after, Mapping):
         raise Unmeasurable("bulk_after_gaps is not counts by Discipline")
     bulk_after = {_row_key(key): _count(value) for key, value in after.items()}
+    if _count(entry.get("acts_before_bulk", 0)) != 0:
+        bulk_after = {}  # read after other acts: not the gap answers' count
     return SetSnapshot(sheets, questions, bulk_after)
 
 
@@ -425,7 +436,9 @@ def stale_grouped(snap: SetSnapshot, pairs: object) -> int:
         }
         if not titles - {None}:
             continue
-        held = any(first & set(q.proposals) and second & set(q.proposals) for q in snap.questions)
+        # A withdrawn Question (a later read no longer raised it) asks nothing: it groups nothing.
+        asking = [q for q in snap.questions if q.status != WITHDRAWN]
+        held = any(first & set(q.proposals) and second & set(q.proposals) for q in asking)
         stale += 0 if held else 1
     return stale
 
