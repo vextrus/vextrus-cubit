@@ -1,0 +1,155 @@
+"""T-LEAK-PDF's assembler (`tools/leakscan/pdftext.py`) and the PDF reading in `scan.py`: the text a
+content stream shows, the bounded inflate and the stream cap. Invented text only."""
+
+import time
+import zlib
+
+import pytest
+
+from tools.leakscan import scan
+from tools.leakscan.core import CannotScan, normalise
+from tools.leakscan.pdftext import assemble, decode
+
+TEXT = "Lantern Weavers Guild 2290"
+
+
+def _shown(stream: bytes, text: str = TEXT) -> bool:
+    """`text` is in one of the assembled texts, as the corpus matcher folds them."""
+    return any(normalise(text) in normalise(assembled) for assembled in assemble(stream))
+
+
+def _pdf(*contents: bytes, deflate: bool = True) -> bytes:
+    out = [b"%PDF-1.4\n"]
+    for content in contents:
+        body = zlib.compress(content) if deflate else content
+        out.append(b"1 0 obj\n<< /Length %d >>\nstream\n%s\nendstream\nendobj\n" % (len(body), body))
+    return b"".join(out)
+
+
+def _found(data: bytes, text: str = TEXT) -> bool:
+    return any(normalise(text) in normalise(t) for t in scan.blob_texts(data))
+
+
+# ---------------------------------------------------------------- strings
+
+
+def test_the_escapes_octal_and_continuation_are_read() -> None:
+    assert assemble(rb"(a\(b\)c\\d\n\t\101\60\0609) Tj") == ["a(b)c\\d\n\tA009"] * 2
+    assert assemble(b"(Lan\\\ntern\\\r\nWea\\\rvers) Tj")[0] == "LanternWeavers"
+    assert assemble(rb"(\q\777) Tj")[0] == "q\xff"  # an unknown escape is the character; octal & 0xFF
+
+
+def test_a_string_split_at_an_escape_is_whole() -> None:
+    assert _shown(rb"BT (Lantern\040Weavers Gu\151ld 2290) Tj ET")
+    assert _shown(b"BT (Lantern Weav\\\ners Guild 2290) Tj ET")
+
+
+def test_nesting_is_counted_and_an_unclosed_string_runs_to_the_end() -> None:
+    assert assemble(b"((a(b)c)) Tj")[0] == "(a(b)c)"
+    assert assemble(b"BT (" + b"(" * 50_000 + TEXT.encode())[0].endswith(TEXT)
+    assert assemble(b"BT (\\")[0] == ""
+
+
+def test_hex_skips_non_digits_pads_an_odd_digit_and_ends_at_the_stream() -> None:
+    assert assemble(b"<4C 61zz6E> Tj")[0] == "Lan"
+    assert assemble(b"<4C6> Tj")[0] == "L`"
+    assert assemble(b"<4C61")[0] == "La"
+    assert assemble(b"<<>> <> Tj")[0] == ""
+
+
+def test_utf16be_hex_and_literals_decode_as_text() -> None:
+    assert decode(b"\x00L\x00a") == "La"
+    assert decode(b"\xfe\xff\x00L\x00a") == "La"
+    assert decode(b"\x00\x00") == "\x00\x00"
+    assert _shown(b"BT " + b" ".join(b"<00%02X> Tj" % ord(c) for c in TEXT) + b" ET")
+
+
+# ---------------------------------------------------------------- operators
+
+
+def test_every_show_operator_shows_its_string() -> None:
+    assert _shown(b"BT (Lantern ) Tj (Weavers ) ' 1 2 (Guild 2290) \" ET")
+    assert assemble(b"(a) Tj (b) ' 0 0 (c) \"")[0] == "abc"
+
+
+def test_a_kerning_number_between_two_halves_of_a_word_is_ignored() -> None:
+    for number in (b"-20", b"-199", b"0", b"250", b"-250", b"-1e3"):
+        stream = b"[(Lantern Wea)" + number + b"(vers Guild 2290)] TJ"
+        assert _shown(stream), number
+    tight, spaced = assemble(b"[(Lantern)-250(Weavers)] TJ")
+    assert (tight, spaced) == ("LanternWeavers", "Lantern Weavers")
+
+
+def test_text_moved_by_td_is_read_with_a_space_and_each_block_joined() -> None:
+    tight, spaced = assemble(b"BT (Lantern) Tj 0 -12 Td (Weavers) Tj ET")
+    assert (tight, spaced) == ("LanternWeavers", " Lantern Weavers ")
+    per_block = b"\n".join(b"BT %d 0 Td (%s) Tj ET" % (i, c.encode()) for i, c in enumerate(TEXT))
+    assert _shown(per_block)
+
+
+def test_malformed_streams_still_show_their_strings() -> None:
+    assert _shown(b"(Lantern Weavers ) Tj ET ET (Guild 2290) Tj BT")  # ET without BT, BT without ET
+    assert _shown(b"BT [(Lantern Weavers )(Guild 2290) Tj")  # an operator inside an array
+    assert _shown(b"BT [[(Lantern Weavers ) [(Guild 2290)]]] TJ ET")  # nested arrays
+    assert _shown(b"BT (Lantern Weavers Guild 2290) Tx ET")  # a string no show operator draws
+    assert _shown(b"/Span << /ActualText (Lantern Weavers Guild 2290) >> BDC EMC")
+    assert _shown(b"BT (Lantern Weavers Guild 2290)")  # no operator before the stream ends
+    assert assemble(b"] ) > } { 1 2 3 Tj true null /Name % (x) Tj\n")[0] == ""
+
+
+def test_an_inline_image_is_skipped_to_its_end() -> None:
+    stream = b"BI /W 1 ID \x00(\x01\x02 EI BT (Lantern Weavers Guild 2290) Tj ET"
+    assert _shown(stream)
+    assert _shown(b"q % a comment (not text)\n BT (Lantern Weavers Guild 2290) Tj ET")
+
+
+@pytest.mark.parametrize("filler", [b"(", b"[", b"<", b"\\", b"(\\", b"1 ", b"/a", b"<<", b"%"])
+def test_large_hostile_streams_are_linear(filler: bytes) -> None:
+    stream = filler * (4_000_000 // len(filler))
+    started = time.monotonic()
+    assemble(stream)
+    assert time.monotonic() - started < 30  # a quadratic pass would take hours on this input
+
+
+# ---------------------------------------------------------------- the PDF in scan.py
+
+
+def test_raw_and_inflated_streams_are_assembled() -> None:
+    glyphs = b"BT " + b" ".join(b"(%s) Tj" % c.encode() for c in TEXT) + b" ET"
+    assert _found(_pdf(glyphs))
+    assert _found(_pdf(glyphs, deflate=False))
+    assert not _found(_pdf(b"BT (Lantern Weavers Guild 2291) Tj ET"))
+
+
+def test_an_unterminated_last_stream_is_read_to_the_end() -> None:
+    assert _found(b"%PDF-1.4\n1 0 obj\n<< >>\nstream\nBT [(Lantern Weavers )-5(Guild 2290)] TJ")
+
+
+def test_deflated_data_holding_endstream_is_read_on_past_it() -> None:
+    content = b"BT " + b" ".join(b"(%s) Tj" % c.encode() for c in TEXT) + b" ET"
+    stored = zlib.compressobj(0)  # stored blocks: `endstream` appears as it is in the compressed data
+    data = stored.compress(b"x endstream y " + content) + stored.flush()
+    assert b"endstream" in data
+    assert _found(b"%PDF-1.4\n1 0 obj\n<< >>\nstream\n" + data + b"\nendstream\nendobj\n")
+
+
+def test_an_inflate_over_the_limit_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scan, "MAX_BLOB", 1000)
+    with pytest.raises(CannotScan) as refused:
+        scan.blob_texts(_pdf(bytes(1001)))
+    assert refused.value.reason == "source-unreadable"
+    assert scan.blob_texts(_pdf(bytes(1000)))  # exactly the limit is read
+
+
+def test_the_inflate_budget_is_for_the_whole_pdf(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scan, "MAX_BLOB", 1000)
+    scan.blob_texts(_pdf(bytes(600)))
+    with pytest.raises(CannotScan):
+        scan.blob_texts(_pdf(bytes(600), bytes(600)))
+
+
+def test_more_streams_than_the_cap_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scan, "MAX_STREAMS", 3)
+    scan.blob_texts(_pdf(b"BT ET", b"BT ET", b"BT ET"))
+    with pytest.raises(CannotScan):
+        scan.blob_texts(_pdf(b"BT ET", b"BT ET", b"BT ET", b"BT ET"))
