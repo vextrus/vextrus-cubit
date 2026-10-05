@@ -17,16 +17,23 @@ the agent layer did not run) and judges each walk once (a verdict already holdin
 last; an earlier walk's verdict already there is kept as `verdict.<its finished_at>.json`.
 Exit 0 PASS, 1 FAIL, 2 error (nothing written). `--smoke` writes `smoke-verdict.json` (a name
 `ready.py` never reads) with `"smoke": true`, and never `verdict.json`.
+
+A run holds an exclusive `flock` on `<D>/<sha40>/.walk.lock` (a name without "verdict", which
+`ready.py` would refuse) from before it reads walk.json until its verdict is written, so the
+one-judgement check and the write are one step: a second run waits, then meets the first's verdict
+and refuses. The lock is made only in an existing walk folder; the kernel frees it when a run dies.
 """
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import re
 import sys
 import tempfile
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -508,6 +515,27 @@ def _keep_older(folder: Path) -> None:
     os.replace(current, target)
 
 
+LOCK_NAME = ".walk.lock"
+"""One walk folder's lock; never "verdict" in its name (ready.py refuses any such stray file)."""
+
+
+@contextlib.contextmanager
+def walk_lock(folder: Path) -> Iterator[None]:
+    """An exclusive, blocking `flock` on `folder`'s lock file, made only in an existing folder (no
+    link followed). A lock file left by a dead run holds nothing: the kernel frees a lock with its
+    holder."""
+    handle = os.open(folder / LOCK_NAME, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        # A temporary verdict here is a dead run's (no live one writes without the lock); left, its
+        # name would make ready.py refuse every walk.
+        for stale in folder.glob(".*verdict.json.*.tmp"):
+            stale.unlink(missing_ok=True)
+        yield
+    finally:
+        os.close(handle)
+
+
 def _arguments(argv: list[str] | None) -> argparse.Namespace:
     parser = QuietParser(prog="python -m scripts.walk.verdict")
     parser.add_argument("sha")
@@ -524,12 +552,23 @@ def main(argv: list[str] | None = None) -> int:
         args = _arguments(argv)
     except SystemExit:
         return 2
+    with contextlib.ExitStack() as held:
+        try:
+            if not SHA.fullmatch(args.sha):
+                raise Malformed("the sha is not 40 hex")
+            if args.leak_hits != 0:
+                raise LeakHits("the leak scan hit or did not run")
+            folder = args.walks_dir / args.sha
+            held.enter_context(walk_lock(folder))  # until the verdict is written
+        except (OSError, ValueError) as error:
+            print(f"verdict: not judged ({type(error).__name__})", file=sys.stderr)
+            return 2
+        return _judge(args, folder)
+
+
+def _judge(args: argparse.Namespace, folder: Path) -> int:
+    """Judges the walk in `folder` and writes its verdict; the caller holds the walk's lock."""
     try:
-        if not SHA.fullmatch(args.sha):
-            raise Malformed("the sha is not 40 hex")
-        if args.leak_hits != 0:
-            raise LeakHits("the leak scan hit or did not run")
-        folder = args.walks_dir / args.sha
         walk = _read_json(folder / "walk.json")
         if not isinstance(walk, Mapping) or walk.get("sha") != args.sha:
             raise Malformed("walk.json is not this sha's")
@@ -572,13 +611,17 @@ def main(argv: list[str] | None = None) -> int:
         print("verdict: not judged (the verdict breaks its contract)", file=sys.stderr)
         return 2
     summary = sanitize_walk(verdict)
-    if args.smoke:
-        write_atomic(folder / "public" / "smoke-summary.json", {**summary, "smoke": True})
-        write_atomic(folder / "smoke-verdict.json", {**verdict, "smoke": True})
-    else:
-        write_atomic(folder / "public" / "summary.json", summary)
-        _keep_older(folder)
-        write_atomic(folder / "verdict.json", verdict)  # last: its existence means the walk is over
+    try:
+        if args.smoke:
+            write_atomic(folder / "public" / "smoke-summary.json", {**summary, "smoke": True})
+            write_atomic(folder / "smoke-verdict.json", {**verdict, "smoke": True})
+        else:
+            write_atomic(folder / "public" / "summary.json", summary)
+            _keep_older(folder)
+            write_atomic(folder / "verdict.json", verdict)  # last: its existence ends the walk
+    except OSError as error:  # an error, never a FAIL's exit 1
+        print(f"verdict: not written ({type(error).__name__})", file=sys.stderr)
+        return 2
     print(f"verdict: {verdict['result']} {args.sha[:8]}")
     return 0 if verdict["result"] == "PASS" else 1
 
