@@ -31,7 +31,11 @@ FINE = {"SUCCESS", "SKIPPED", "NEUTRAL"}
 PENDING_STATES = {"PENDING", "EXPECTED"}
 JOB_URL = re.compile(r"/actions/runs/(\d+)/job/(\d+)")
 PYTEST_FAILED = re.compile(r"\bFAILED (\S+?)::(\S+?)(?:\[.*?\])?(?: - |\s*$)")
-VITEST_FAIL = re.compile(r"\bFAIL\s+(\S+)\s+>\s+(.+?)\s*$")
+# vitest 5 may print a project between FAIL and the path: `|node|`, or a label with an optional
+# `(browser)`, as in `FAIL   browser (chromium)  src/a.test.tsx > ... > title`.
+VITEST_FAIL = re.compile(
+    r"\bFAIL\s+(?:\|[^|]*\|\s+|[\w.-]+(?:\s+\([^)]*\))?\s+(?=\S+\s+>\s))?(\S+)\s+>\s+(.+?)\s*$"
+)
 UNREAD_FAILURE = re.compile(r"\bFAIL(?:ED)?\s|\bERROR\s|Unhandled (?:Error|Rejection)")
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
@@ -265,25 +269,41 @@ class Gh:
         )
 
     def update_branch(self, pr: int) -> None:
-        """A server-side merge of main into the PR's branch, skipped when main is already in it; then
-        the new head is waited for and fetched."""
+        """A server-side merge of main into the PR's branch (`PUT .../pulls/<n>/update-branch`: gh 2.45
+        has no `gh pr update-branch`), skipped when main is already in it; then the new head is waited
+        for and fetched. GitHub's own reason is reported; a conflict is named only when GitHub
+        says so."""
         self.fetch(pr)
         old = self.head_sha(pr)
         if self._git("merge-base", "--is-ancestor", "origin/main", old) == 0:
             return
         try:
-            self._run("gh", "pr", "update-branch", str(pr), "--repo", REPOSITORY)
+            self._run(
+                "gh",
+                "api",
+                "--method",
+                "PUT",
+                f"repos/{REPOSITORY}/pulls/{pr}/update-branch",
+                "-f",
+                f"expected_head_sha={old}",
+            )
         except subprocess.CalledProcessError as error:
+            said = f"{error.stdout or ''}\n{error.stderr or ''}".lower()
+            if "up to date" in said or "no new commits" in said:
+                return
+            if "conflict" in said:
+                raise Refused(
+                    f"its branch conflicts with main ({failed_call(error)}): its builder must fix it"
+                ) from None
             raise Refused(
-                f"its branch conflicts with main or cannot take it ({failed_call(error)}): "
-                "its builder must fix it"
+                f"GitHub would not bring main into its branch ({failed_call(error)})"
             ) from None
         for _ in range(self.polls):
             if self.head_sha(pr) != old:
                 self.fetch(pr)
                 return
             self.sleep(20)
-        raise Refused("gh pr update-branch succeeded but the head never moved")
+        raise Refused("GitHub accepted the update of its branch but the head never moved")
 
     def rollup(self, pr: int) -> dict[str, Any]:
         payload = json.loads(
@@ -324,30 +344,46 @@ class Gh:
             return self.failed_ids()
         raise Refused("CI did not settle")
 
+    def job_log(self, job: str) -> str:
+        """A job's whole log (gh 2.45's `gh run view --log-failed` printed nothing for a failed job)."""
+        return self._run("gh", "api", f"repos/{REPOSITORY}/actions/jobs/{job}/logs")
+
     def failed_ids(self) -> list[str]:
+        """The failed tests of the red checks; a red check with no test line is named by itself. A red
+        aggregate (a job named as its workflow, `ci / ci`, `engine / engine`: `if: always()` and red
+        when a job it needs failed) is followed instead when another job of its run is red."""
         found: list[str] = []
+        named: dict[str, list[str]] = {}
         for entry in self._red:
             job = JOB_URL.search(str(entry.get("detailsUrl") or ""))
             tests: list[str] = []
             if entry.get("__typename") != "StatusContext" and job:
                 try:
-                    tests = failed_tests(
-                        self._run(
-                            "gh",
-                            "run",
-                            "view",
-                            job[1],
-                            "--job",
-                            job[2],
-                            "--log-failed",
-                            "--repo",
-                            REPOSITORY,
-                        )
-                    )
+                    tests = failed_tests(self.job_log(job[2]))
                 except subprocess.CalledProcessError:
                     tests = []
+            named[check_key(entry)] = tests
+        for entry in self._red:
+            tests = named[check_key(entry)]
+            if not tests and self._aggregate_followed(entry):
+                continue
             found.extend(test for test in tests or [check_key(entry)] if test not in found)
         return found
+
+    def _aggregate_followed(self, entry: dict[str, Any]) -> bool:
+        """The other red jobs of its run then stand for it: each yields its tests or its own check."""
+        if entry.get("__typename") == "StatusContext" or entry.get("name") != entry.get("workflowName"):
+            return False
+        run = JOB_URL.search(str(entry.get("detailsUrl") or ""))
+        others = [
+            other
+            for other in self._red
+            if other is not entry
+            and (job := JOB_URL.search(str(other.get("detailsUrl") or ""))) is not None
+            and run is not None
+            and job[1] == run[1]
+        ]
+        return bool(others)
 
     def rerun_failed(self, pr: int) -> None:
         """One `gh run rerun <run> --failed` per run of the last red checks; the next `wait_ci` waits for

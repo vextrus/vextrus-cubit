@@ -165,3 +165,124 @@ def test_a_merged_pr_whose_pull_fails_is_reported_merged(
     write(tmp_path)
     assert land(12, Merged(), ledger_dir=tmp_path, flaky=set(), ready=lambda _: 0) == 0
     assert "PR 12 merged, but main was not pulled" in capsys.readouterr().out
+
+
+def test_vitest_5_failure_lines_with_a_project_name_their_test() -> None:
+    log = "\n".join(
+        [
+            "2026-10-05T03:09:31.1234567Z  FAIL  |node| src/a.test.ts > Viewer > title",
+            "2026-10-05T03:09:32.1234567Z  FAIL   browser (chromium)  src/b.test.tsx > Plot > cycles",
+        ]
+    )
+    assert failed_tests(log) == ["web/src/a.test.ts :: title", "web/src/b.test.tsx :: cycles"]
+
+
+RUN = "https://github.com/vextrus/vextrus-cubit/actions/runs/37257330803/job/"
+
+
+def check(name: str, workflow: str, job: str, conclusion: str = "FAILURE") -> dict[str, Any]:
+    return {
+        "__typename": "CheckRun",
+        "name": name,
+        "workflowName": workflow,
+        "status": "COMPLETED",
+        "conclusion": conclusion,
+        "completedAt": "2026-10-05T03:09:40Z",
+        "detailsUrl": RUN + job,
+    }
+
+
+class Rollup(Gh):
+    """A settled rollup on HEAD; job logs by job id."""
+
+    def __init__(self, entries: list[dict[str, Any]], logs: dict[str, str]) -> None:
+        super().__init__(Path("."), sleep=lambda _: None, polls=2)
+        self.entries, self.logs = entries, logs
+
+    def head_sha(self, pr: int) -> str:
+        return HEAD
+
+    def rollup(self, pr: int) -> dict[str, Any]:
+        return {"headRefOid": HEAD, "statusCheckRollup": self.entries}
+
+    def job_log(self, job: str) -> str:
+        return self.logs.get(job, "##[error]Process completed with exit code 1.")
+
+
+FLAKE = "FAILED vextrus/x/tests/test_a.py::test_flaky - assert 1 == 2"
+
+
+def test_the_ci_aggregate_red_beside_a_failed_shard_follows_the_shard() -> None:
+    entries = [
+        check("python (rest)", "ci", "1"),
+        check("ci", "ci", "2"),
+        check("web", "web", "3", "SUCCESS"),
+    ]
+    assert Rollup(entries, {"1": FLAKE}).wait_ci(12) == ["vextrus/x/tests/test_a.py :: test_flaky"]
+
+
+def test_an_aggregate_red_on_its_own_or_beside_an_unread_job_is_named() -> None:
+    alone = [check("ci", "ci", "2")]
+    assert Rollup(alone, {}).wait_ci(12) == ["check: ci / ci"]
+    unread = [check("python (rest)", "ci", "1"), check("ci", "ci", "2")]
+    assert Rollup(unread, {}).wait_ci(12) == ["check: ci / python (rest)"]
+
+
+class Update(Gh):
+    """update_branch against scripted answers: the head moves after `moves` reads."""
+
+    def __init__(self, tmp_path: Path, answer: subprocess.CalledProcessError | None) -> None:
+        super().__init__(tmp_path, sleep=lambda _: None, polls=3)
+        self.answer, self.reads = answer, 0
+        self.argv: list[list[str]] = []
+
+    def fetch(self, pr: int) -> None: ...
+    def _git(self, *args: str) -> int:
+        return 1  # main is not in the head
+
+    def head_sha(self, pr: int) -> str:
+        self.reads += 1
+        return HEAD if self.reads == 1 else "e" * 40
+
+    def _run(self, *argv: str) -> str:
+        self.argv.append(list(argv))
+        if self.answer is not None:
+            raise self.answer
+        return "{}"
+
+
+def refusal(stderr: str) -> subprocess.CalledProcessError:
+    return subprocess.CalledProcessError(1, ["gh", "api"], output="", stderr=stderr)
+
+
+def test_update_branch_puts_to_the_rest_api_with_the_expected_head(tmp_path: Path) -> None:
+    gh = Update(tmp_path, None)
+    gh.update_branch(12)
+    assert gh.argv == [
+        [
+            "gh",
+            "api",
+            "--method",
+            "PUT",
+            "repos/vextrus/vextrus-cubit/pulls/12/update-branch",
+            "-f",
+            f"expected_head_sha={HEAD}",
+        ]
+    ]
+    assert gh.reads == 2, "it waits for the new head"
+
+
+def test_update_branch_names_a_conflict_only_when_github_says_so(tmp_path: Path) -> None:
+    Update(
+        tmp_path, refusal("gh: There are no new commits on the base branch. (HTTP 422)")
+    ).update_branch(12)
+    with pytest.raises(Refused, match=r"conflicts with main.*builder"):
+        Update(tmp_path, refusal("gh: merge conflict between base and head (HTTP 422)")).update_branch(
+            12
+        )
+    with pytest.raises(Refused) as refused:
+        Update(
+            tmp_path, refusal("gh: expected head sha didn't match current head ref. (HTTP 422)")
+        ).update_branch(12)
+    assert "conflict" not in str(refused.value)
+    assert "expected head sha" in str(refused.value)
