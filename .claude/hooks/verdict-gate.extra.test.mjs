@@ -78,3 +78,25 @@ test("only the last 2 MB is read: a handback after a 3 MB prefix is found, the l
   const early = transcript([said("x".repeat(3 * 1024 * 1024))], `${JSON.stringify(handback(REPORT))}\n`);
   assert.equal(gate("pr-reviewer", early, `${REPORT}\nVERDICT: PASS at ${SHA}`), "allowed", "a handback older than the tail is not read");
 });
+
+// Extra (ticket T-HOOKS): a StructuredOutput verdict from /review-pr's schemas; the last call decides, even inside one
+// assistant message, and a StructuredOutput whose input is not an object falls back to the closing text.
+const calls = (...parts) => ({
+  type: "assistant",
+  message: { role: "assistant", content: parts.map(([name, input], i) => ({ type: "tool_use", id: `toolu_${i}`, name, input })) },
+});
+
+test("both calls in one message: the later part wins", () => {
+  const valid = ["StructuredOutput", { verdict: "PASS", head: SHA, findings: [], report: REPORT }];
+  const bare = ["SubagentHandback", { message: REPORT }];
+  assert.equal(gate("pr-reviewer", transcript([calls(bare, valid)]), "Done."), "allowed");
+  assert.equal(gate("pr-reviewer", transcript([calls(valid, bare)]), "Done."), "block");
+});
+
+for (const input of [null, "PASS", ["PASS"], 7]) {
+  test(`a StructuredOutput input of ${JSON.stringify(input)} falls back to the closing text`, () => {
+    const path = transcript([calls(["StructuredOutput", input])]);
+    assert.equal(gate("refuter", path, "Done."), "block");
+    assert.equal(gate("refuter", path, "REFUTED"), "allowed");
+  });
+}
