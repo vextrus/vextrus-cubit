@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin, type PluginOption } from 'vite'
@@ -8,6 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { lingui, linguiTransformerBabelPreset } from '@lingui/vite-plugin'
 import { playwright } from '@vitest/browser-playwright'
+import { configDefaults } from 'vitest/config'
 
 const MACHINE_CATALOGUES = '/src/messages/'
 
@@ -156,7 +156,8 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       // Each failing test's name is kept in test-results/failures.log (issue #271).
-      reporters: ['default', ...(process.env.GITHUB_ACTIONS === 'true' ? ['github-actions'] : []), './scripts/failure-reporter.mjs'],
+      // Vitest's own first reporter ('minimal' in an agent session, else 'default') stays first.
+      reporters: [configDefaults.reporters[0] ?? 'default', ...(process.env.GITHUB_ACTIONS === 'true' ? ['github-actions'] : []), './scripts/failure-reporter.mjs'],
       projects: [
         {
           extends: true,
