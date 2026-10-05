@@ -1069,11 +1069,96 @@ function loopLooks(text, inLoop = false) {
   return { wait: wait || (unbalanced && look), look, unbalanced };
 }
 
-/** A loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line and never ends. */
-const selfMatchingWait = (analysis) =>
-  analysis.units.some((text) => loopLooks(text).wait) ||
-  // An interpreter's own loop (`python3 -c "while os.system('pgrep -f x') == 0: …"`) is judged by its words.
-  analysis.codes.some((code) => LOOP_CODE.test(code) && SELF_MATCHING_LOOK.test(code));
+// Main's text rule, the baseline: a loop word anywhere and a self-matching look anywhere.
+const TEXT_WAIT = (text) =>
+  /(?:^|[\s;&|(!])(?:while|until|for)\s/.test(text) &&
+  (/\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--full)\b/.test(text) || /\bps\b[^;&\n]*\|\s*(?:[ef]?grep|rg|ugrep|awk)\b/.test(text));
+// A word that runs text another way (a shell, an interpreter, a wrapper, a script path): such a command is not simple.
+const RUNNER =
+  /(?<![\w.-])(?:bash|sh|zsh|dash|ksh|fish|eval|source|exec|python(?:\d(?:\.\d+)?)?|node|perl|ruby|php|tmux|screen|ssh|parallel|sg|runuser|su|sudo|doas|timeout|nohup|setsid|xargs|env|nice|ionice|watch|script|expect|make|npx|uvx)(?![\w.-])|(?<![\w.-])uv\s+run(?![\w.-])|(?:^|[\s;&|(`])\.(?=[ \t])|\.\/|\w\.sh(?![\w-])/;
+// `bash -c '<body>'` / `sh -c '<body>'` alone in its unit, the body single-quoted: read as a subshell `(<body>)`.
+const PLAIN_SHELL_C = /(^|;|&&|\|\||\n)([ \t]*)(?:bash|sh)[ \t]+-c[ \t]+'([^']*)'(?=[ \t]*(?:;|&&|\|\||\n|$))/g;
+
+/** Heredoc bodies (and their operators) dropped from shell text, quote- and `$(…)`-aware; null when unreadable. */
+function blankHeredocs(text) {
+  let out = "";
+  const stack = ["sh"];
+  let pending = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const top = stack[stack.length - 1];
+    if (top === "'") {
+      out += c;
+      if (c === "'") stack.pop();
+      continue;
+    }
+    if (c === "\\") {
+      out += text.slice(i, i + 2);
+      i++;
+      continue;
+    }
+    if (top === '"') {
+      if (c === '"') stack.pop();
+      else if (c === "$" && text[i + 1] === "(") {
+        stack.push(")");
+        out += "$(";
+        i++;
+        continue;
+      }
+      out += c;
+      continue;
+    }
+    if (c === "'" || c === '"') stack.push(c);
+    else if (c === "(") stack.push(")");
+    else if (c === ")" && top === ")") stack.pop();
+    else if (c === "#" && (i === 0 || /[\s;&|(]/.test(text[i - 1]))) {
+      const e = text.indexOf("\n", i);
+      i = (e < 0 ? text.length : e) - 1;
+      continue;
+    } else if (c === "<" && text[i + 1] === "<" && text[i + 2] !== "<" && text[i - 1] !== "<") {
+      const m = /^<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|\\?([^\s;&|()<>'"]+))/.exec(text.slice(i));
+      if (m === null) return null;
+      pending.push({ strip: m[1] === "-", word: m[2] ?? m[3] ?? m[4] });
+      i += m[0].length - 1;
+      continue;
+    } else if (c === "\n" && pending.length > 0) {
+      let j = i + 1;
+      for (const doc of pending) {
+        for (;;) {
+          if (j >= text.length) return null;
+          const e = text.indexOf("\n", j);
+          const end = e < 0 ? text.length : e;
+          const line = doc.strip ? text.slice(j, end).replace(/^\t+/, "") : text.slice(j, end);
+          j = end + 1;
+          if (line === doc.word) break;
+        }
+      }
+      pending = [];
+      out += "\n";
+      i = j - 1;
+      continue;
+    }
+    out += c;
+  }
+  return pending.length > 0 || stack.length !== 1 ? null : out;
+}
+
+/** The text the structure reader may judge, or null when the command is not simple (main's rule then decides). */
+function simpleCommand(command) {
+  const read = command.replace(PLAIN_SHELL_C, (whole, sep, gap, body) => (RUNNER.test(body) ? whole : `${sep}${gap}(${body})`));
+  if (RUNNER.test(read)) return null;
+  return blankHeredocs(maskArithmetic(read));
+}
+
+/**
+ * A loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line and never ends. Main's text
+ * rule decides; the structure reader may only clear its refusal, and only for a simple command.
+ */
+function selfMatchingWait(analysis) {
+  if (!analysis.units.some(TEXT_WAIT)) return false;
+  const simple = simpleCommand(analysis.units[0] ?? "");
+  return simple === null || loopLooks(simple).wait;
+}
 
 /** Folder of the repository that holds `dir` (the nearest one with `.git`), or `dir` itself. */
 function repoTop(dir) {
