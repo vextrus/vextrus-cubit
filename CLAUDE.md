@@ -69,8 +69,7 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Secrets** are never printed, written or committed (`TYPESAFE_API_KEY` lives in `~/.bashrc`).
 - **Real drawings** (the Edison set, the Sample Project, client sets) are read locally under
   `.private/`. Nothing from them enters git, an issue or a PR; carry out conventions, never content.
-  Their text may go to TypeSafe's Jev during development: the Development Sets' under either key, all
-  other sets' under the local key only (ADR 0013, 5 Oct 2026).
+  Their text may go to Jev in development: the Development Sets' under either key, others' local only (ADR 0013).
 - **OpenConstructionERP is AGPL-3.0:** learn from it, never copy its code, schemas, strings or data.
   **cad2data's converters are proprietary** and are never run; nor are converters OCE downloads.
 - **The repository is public for now** (the owner, 29 Sep 2026: "For temporary please make our repo public
