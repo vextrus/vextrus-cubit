@@ -45,6 +45,8 @@ class Say:
         self.main = tmp / "main"
         self.main.mkdir()
         subprocess.run(["git", "init", "-q", "-b", "main"], cwd=self.main, check=True)
+        # The rows' worktree folder exists, as a live builder's does (say.py refuses a removed one).
+        (self.main / ".claude" / "worktrees" / "t901").mkdir(parents=True)
         self.factory = tmp / "factory"
         self.factory.mkdir()
         self.agents = tmp / "agents.json"
@@ -173,3 +175,14 @@ def test_y5_a_resume_that_copies_the_conversation_exits_6_and_alarms(say: Say) -
     assert done.returncode == 6, show(done)
     events = (say.factory / "events.log").read_text().splitlines()
     assert any("ALARM-RESUME-COPY" in line for line in events), events
+
+
+# Y6 (amended by the orchestrator after #388 round 2): a row whose worktree folder is gone is refused.
+@pytest.mark.parametrize("state", ["stopped", "failed"])
+def test_y6_a_session_whose_worktree_folder_is_gone_is_refused(say: Say, state: str) -> None:
+    say.row(state, None)
+    (say.main / ".claude" / "worktrees" / "t901").rmdir()
+    done = say.say()
+    assert done.returncode == 2, show(done)
+    assert "No module named" not in done.stderr, show(done)
+    assert say.claude_calls() == []
