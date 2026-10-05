@@ -66,6 +66,10 @@ LIST_TEXT = "S-01 to S-03"
 """The fixture's three sheets as a typed range: their second source, so they may be confirmed
 together (ticket 166)."""
 
+LIST_WITHOUT_S02 = "S-01, S-03"
+"""A drawing list naming S-01 and S-03 but not S-02: S-01 agrees (its list names it) and S-02 has one
+source, whether or not unbroken numbering counts as a second source (#320)."""
+
 
 def url(project_id: uuid.UUID, path: str) -> str:
     return f"/api/projects/{project_id}/takeoff/step1/{path}"
@@ -395,9 +399,22 @@ def test_an_answer_leaving_two_sheets_out_and_one_in_is_still_one_event(
 
 
 def test_a_refused_act_writes_no_event_and_no_confirmation(step1_project: Step1Project) -> None:
+    """S-02 is left off the drawing list, so it has one source under either rule (a list standing,
+    a sheet it does not name) and a bulk act naming it is refused."""
     project, qs = step1_project.project_id, step1_project.member
     acting = api_as(qs)
     first, second, third = (str(p) for p in step1_project.proposals)
+
+    def refused(act: Callable[[], Any], status: int, code: str) -> None:
+        events_before = len(step1_events(qs))
+        acts_before = confirmations(qs, project)
+        response = act()
+        assert (response.status_code, response.json()["code"]) == (status, code)
+        assert len(step1_events(qs)) == events_before, code
+        assert confirmations(qs, project) == acts_before, code
+
+    refused(lambda: acting.post(url(project, "undo"), {}), 409, "takeoff.step1.nothing_to_undo")
+    ok(acting.post(url(project, "drawing-list"), {"discipline": "structural", "text": LIST_WITHOUT_S02}))
     with qs.acting():
         step1.raise_question(
             project,
@@ -407,14 +424,6 @@ def test_a_refused_act_writes_no_event_and_no_confirmation(step1_project: Step1P
             discipline="structural",
             blocks=[step1_project.proposals[2]],
         )
-
-    def refused(act: Callable[[], Any], status: int, code: str) -> None:
-        events_before = len(step1_events(qs))
-        acts_before = confirmations(qs, project)
-        response = act()
-        assert (response.status_code, response.json()["code"]) == (status, code)
-        assert len(step1_events(qs)) == events_before, code
-        assert confirmations(qs, project) == acts_before, code
 
     refused(
         lambda: acting.post(url(project, "confirm"), {"proposals": []}),
@@ -437,7 +446,6 @@ def test_a_refused_act_writes_no_event_and_no_confirmation(step1_project: Step1P
         409,
         "takeoff.step1.question_first",
     )
-    refused(lambda: acting.post(url(project, "undo"), {}), 409, "takeoff.step1.nothing_to_undo")
     refused(
         lambda: answer(acting, project, asked, "pile_layout"),
         400,
