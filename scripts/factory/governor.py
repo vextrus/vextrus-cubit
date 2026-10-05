@@ -17,9 +17,13 @@ that names no pid counts as live.
 Usage (`cloud-session`, `local-agent`, `review`): only `Current session: N% used` and `Current week (all
 models): N% used` are read (any other line, the per-model week lines among them, is ignored). A new
 launch is refused at session >= 80 or week >= 85; `review` is never held but prints `DEGRADE
-pr-reviewer-only` at session or week >= 90. Cloud sessions are capped: 8 while session < 50 and week
-< 70, else 4; with `--rate` (measured % per builder-hour) and `--hours-to-reset`, `min(16, floor((80 -
-session) / (rate x hours)))`. `--running N` (sessions running now) is refused at or above the cap.
+pr-reviewer-only` at session or week >= 90. The owner may move these three lines (a spend decision:
+usage credits keep work going past a plan's limit) with `VEXTRUS_SESSION_HOLD`, `VEXTRUS_WEEK_HOLD` and
+`VEXTRUS_DEGRADE_AT`, each a number from 0 to 100 (100 holds only a used-up limit); a value that is not
+such a number is ignored and the default stands. Cloud sessions are capped: 8 while session < 50 and
+week < 70, else 4; with `--rate` (measured % per builder-hour) and `--hours-to-reset`, `min(16,
+floor((session hold - session) / (rate x hours)))`. `--running N` (sessions running now) is refused at
+or above the cap.
 
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
 status.schema.json reports them.
@@ -62,6 +66,11 @@ MAX_LOCAL_AGENTS = 3
 SESSION_HOLD = 80.0
 WEEK_HOLD = 85.0
 DEGRADE_AT = 90.0
+HOLD_ENV = {
+    "session": "VEXTRUS_SESSION_HOLD",
+    "week": "VEXTRUS_WEEK_HOLD",
+    "degrade": "VEXTRUS_DEGRADE_AT",
+}
 CAP_HIGH, CAP_LOW, CAP_MAX = 8, 4, 16
 REVIEW_DEFAULT_AGENTS = 8
 
@@ -275,9 +284,25 @@ def _number(value: float | None) -> float | int | None:
     return int(value) if value == int(value) else value
 
 
+def _hold(kind: str, default: float) -> float:
+    """The owner's line for one hold (`HOLD_ENV`), or the default when unset or not a number in 0-100."""
+    raw = os.environ.get(HOLD_ENV[kind], "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if 0.0 <= value <= 100.0 else default
+
+
+def holds() -> tuple[float, float, float]:
+    """(session hold, week hold, degrade line) in force now."""
+    return _hold("session", SESSION_HOLD), _hold("week", WEEK_HOLD), _hold("degrade", DEGRADE_AT)
+
+
 def cloud_cap(usage: Usage, rate: float | None, hours: float | None) -> int:
     if rate is not None and hours is not None and rate > 0 and hours > 0:
-        return max(0, min(CAP_MAX, math.floor((SESSION_HOLD - usage.session) / (rate * hours))))
+        session_hold = holds()[0]
+        return max(0, min(CAP_MAX, math.floor((session_hold - usage.session) / (rate * hours))))
     return CAP_HIGH if usage.session < 50 and usage.week < 70 else CAP_LOW
 
 
@@ -368,14 +393,15 @@ def _check_usage(
         return
     usage = reading.usage
     verdict.session_pct, verdict.week_pct = usage.session, usage.week
+    session_hold, week_hold, degrade_at = holds()
     if verdict.unit == "review":
-        if usage.session >= DEGRADE_AT or usage.week >= DEGRADE_AT:
+        if usage.session >= degrade_at or usage.week >= degrade_at:
             verdict.degrade = True
         return
-    if usage.session >= SESSION_HOLD:
-        verdict.reasons.append(f"session usage {usage.session:g}% is at or over {SESSION_HOLD:g}%")
-    if usage.week >= WEEK_HOLD:
-        verdict.reasons.append(f"week usage {usage.week:g}% is at or over {WEEK_HOLD:g}%")
+    if usage.session >= session_hold:
+        verdict.reasons.append(f"session usage {usage.session:g}% is at or over {session_hold:g}%")
+    if usage.week >= week_hold:
+        verdict.reasons.append(f"week usage {usage.week:g}% is at or over {week_hold:g}%")
     if verdict.unit == "cloud-session":
         verdict.cap = cloud_cap(usage, rate, hours)
         if running >= verdict.cap:
