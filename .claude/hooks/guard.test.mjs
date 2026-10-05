@@ -632,3 +632,66 @@ test("f2 round 3: a corpus under the floor vouches for no push (outside the test
   stamp(Array.from({ length: 120 }, (_, i) => `INVENTED STRING NUMBER ${i}\n`).join(""));
   assert.equal(seen("git push origin x", { project: repo, main: repo, cwd: repo }), null);
 });
+
+// ---------------------------------------------------------------- T-GUARD-NARROW: hooksPath reads, GIT_DIR on dashed pushes
+// The acceptance file (tests/acceptance/guard-a-git.test.mjs) pins the ticket's rows; these pin the extra spellings.
+
+test("T-GUARD-NARROW: a git config naming core.hooksPath with any option but a read flag or a scope is a write", () => {
+  for (const command of [
+    // Git takes any unique prefix of a long option: each of these is a write under another spelling.
+    "git config --unset-a core.hooksPath",
+    "git config --rep core.hooksPath /tmp/x",
+    "git config --ad core.hooksPath /tmp/x",
+    "git config --unset-al core.hooksPath",
+    "git config --replace-a core.hooksPath /tmp/x",
+    "/usr/lib/git-core/git-config --unset-a core.hooksPath",
+    "git config --get-all core.hooksPath --unset-a",
+    "git config -e core.hooksPath",
+    "git config --file=x.cfg core.hooksPath /tmp/x",
+    "git config --file x.cfg core.hooksPath /tmp/x",
+    "git config --system core.hooksPath",
+    "git config --worktree core.hooksPath",
+    "git config get --all core.hooksPath",
+    "git config core.hooksPath ''",
+    "git config remove-section core.hooksPath",
+    "git config --get include.path",
+    "git config include.path",
+  ]) {
+    assert.equal(seen(command), "HOOKS_PATH", command);
+  }
+});
+
+test("T-GUARD-NARROW: reads of core.hooksPath with a scope or a file pass", () => {
+  for (const command of [
+    "git config --no-includes --get core.hooksPath",
+    "git config --show-scope --get core.hooksPath",
+    "git config --file x.cfg --get-regexp core.hooksPath",
+    "git config --name-only --get-regexp core.hooksPath",
+    "git config list --show-origin",
+    "/usr/lib/git-core/git-config --get core.hooksPath",
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
+});
+
+test("T-GUARD-NARROW: a git folder built at run time is never judged against a folder literally so named", () => {
+  const { repo: own, git } = tempMain();
+  git("checkout", "-q", "-b", "claude/own");
+  // A folder literally named `$OTHER` in the cwd holds a repository on the session's own branch: the shell
+  // expands `$OTHER` to another repository, so judging the literal folder would pass a push into that one.
+  spawnSync("git", ["clone", "-q", own, `${own}/$OTHER`], { encoding: "utf8" });
+  const inCloud = (command) => seen(command, { project: own, cwd: own, remote: true });
+  assert.equal(inCloud("git-push origin HEAD"), null);
+  for (const command of [
+    "GIT_DIR=$OTHER/.git git-push origin HEAD",
+    "GIT_DIR=$OTHER/.git /usr/lib/git-core/git-push origin HEAD",
+    "env GIT_DIR=$OTHER/.git git-push origin HEAD",
+    "GIT_DIR=${OTHER}/.git git-push origin HEAD",
+    "GIT_DIR=$OTHER/.git git push origin HEAD",
+    "git --git-dir=$OTHER/.git push origin HEAD",
+    "git --git-dir $OTHER/.git push origin HEAD",
+    "GIT_DIR=`cat d`/.git git-push origin HEAD",
+  ]) {
+    assert.notEqual(inCloud(command), null, command);
+  }
+});
