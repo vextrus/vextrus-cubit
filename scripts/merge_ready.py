@@ -333,7 +333,7 @@ def record_problems(record: Any, pr: int, head: str) -> list[str]:
         or (
             isinstance(exception, dict)
             and set(exception) == {"kind", "reason"}
-            and exception["kind"] in ("security75", "crash", "false-statement")
+            and exception["kind"] in ("security75", "crash", "false-statement", "fix-regression")
             and isinstance(exception["reason"], str)
             and 1 <= len(exception["reason"]) <= 300
         ),
