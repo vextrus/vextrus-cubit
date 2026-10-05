@@ -1,6 +1,10 @@
 """#227: Step 1's acts never wait on a read job. The acceptance tests (`acceptance/treadlock`) pin
 confirm, exclude and answer; here the same harness runs undo (the orchestrator's ruling), and
 `step1.progress_at_end`, which keeps a read job's progress write to the moment before it commits.
+Fix round 2's rule, that Step 1's progress lock is the last lock any transaction takes, is pinned
+twice: by every act run while the job is parked inside `keep()` holding rows the act locks too (no
+deadlock), and by what each act and each read job's step runs after taking the lock (nothing but
+the progress rows).
 
     uv run pytest -rf vextrus/takeoff/tests/test_read_never_waits.py
 """
