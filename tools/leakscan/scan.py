@@ -29,7 +29,11 @@ _INFLATE_ERRORS = (OSError, EOFError, zlib.error)
 _ZIP_ERRORS = (OSError, zipfile.BadZipFile, RuntimeError, ValueError, EOFError, zlib.error)
 MAX_BLOB = 64 * 1024 * 1024
 MAX_STREAMS = 20000
-_STREAM = re.compile(rb"stream\r?\n")
+_STREAM = re.compile(rb"(?<!end)stream\r?\n")  # an `endstream` never opens a stream
+_WHITE = rb"[\x00\t\n\x0c\r ]"
+_ENDSTREAM = re.compile(_WHITE + rb"*endstream")
+# A direct `/Length n` (never an indirect `n 0 R`, and never part of a longer number).
+_LENGTH = re.compile(rb"/Length%s+(\d{1,12})(?!\d)(?!%s+\d+%s+R)" % (_WHITE, _WHITE, _WHITE))
 _CHUNK = 64 * 1024
 
 
@@ -160,24 +164,12 @@ def blob_texts(data: bytes, depth: int = 0) -> list[str]:
     return texts
 
 
-def _pdf_streams(data: bytes) -> Iterator[tuple[int, int]]:
-    """Each `stream ... endstream` body as `(start, end)`, an unterminated last one to the data's end
-    (linear: each search starts where the last stream ended)."""
-    position = 0
-    while (opening := _STREAM.search(data, position)) is not None:
-        close = data.find(b"endstream", opening.end())
-        if close < 0:
-            yield opening.end(), len(data)
-            return
-        yield opening.end(), close
-        position = close + len(b"endstream")
-
-
-def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> bytes | None:
-    """The stream `data[start:end]` inflated by zlib, or None when it is not a zlib stream. A stream
-    whose zlib data runs past its `endstream` (those bytes inside the compressed data) is read on into
-    the bytes after it, as a reader taking `/Length` would. More than `MAX_BLOB` out, or more than
-    `budget` (bytes out and bytes read on, for the whole PDF), refuses the scan: never a silent cut."""
+def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> tuple[bytes, int] | None:
+    """The stream `data[start:end]` inflated by zlib and where its zlib data ended, or None when it is
+    not a zlib stream. Zlib data that runs past `end` (an `endstream` inside the compressed bytes) is
+    read on into the bytes after it, as a reader taking `/Length` would. More than `MAX_BLOB` out, or
+    more than `budget` (bytes out and bytes read on, for the whole PDF), refuses the scan: never a
+    silent cut."""
     inflater = zlib.decompressobj()
     try:
         out = inflater.decompress(data[start:end], MAX_BLOB + 1)
@@ -197,24 +189,51 @@ def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> bytes | No
     budget[0] -= len(out)
     if len(out) > MAX_BLOB or budget[0] < 0:
         raise CannotScan("source-unreadable")
-    return out
+    stop = position - len(inflater.unused_data) if inflater.eof and position > end else end
+    return out, stop
+
+
+def _declared_end(data: bytes, keyword: int, start: int, end: int) -> int:
+    """Where a raw stream ends: at `end` (its first `endstream`), or further when its dictionary's
+    direct `/Length` says so and an `endstream` follows there (an `endstream` inside the stream's own
+    text, as a reader taking `/Length` reads it)."""
+    own = max(0, keyword - 1024, data.rfind(b"obj", max(0, keyword - 1024), keyword))
+    lengths = list(_LENGTH.finditer(data, own, keyword))
+    declared = start + int(lengths[-1][1]) if lengths else end
+    if end < declared < len(data) and _ENDSTREAM.match(data[declared : declared + 64]):
+        return declared
+    return end
 
 
 def _pdf_texts(data: bytes, depth: int) -> list[str]:
-    """A PDF's streams: each inflated one's text (as any blob's), and every stream's shown text,
-    assembled from its text operators (`pdftext`), inflated or raw. More than `MAX_STREAMS` streams
-    refuses the scan."""
+    """A PDF's streams, in order (an unterminated last one runs to the data's end): each inflated one's
+    text (as any blob's), and every stream's shown text, assembled from its text operators (`pdftext`),
+    inflated or raw. Each search starts after the last stream's true end (where its zlib data or its
+    `/Length` ended), so the pass is linear. More than `MAX_STREAMS` streams refuses the scan."""
     texts: list[str] = []
     budget = [MAX_BLOB]
-    for count, (start, end) in enumerate(_pdf_streams(data), start=1):
+    position = 0
+    count = 0
+    while (opening := _STREAM.search(data, position)) is not None:
+        count += 1
         if count > MAX_STREAMS:
             raise CannotScan("source-unreadable")
+        start = opening.end()
+        close = data.find(b"endstream", start)
+        end = len(data) if close < 0 else close
         inflated = _inflate(data, start, end, budget)
         if inflated is None:
-            texts += pdftext.assemble(data[start:end])
+            stop = _declared_end(data, opening.start(), start, end)
+            texts += pdftext.assemble(data[start:stop])
         else:
-            texts += blob_texts(inflated, depth + 1)
-            texts += pdftext.assemble(inflated)
+            stop = inflated[1]
+            texts += blob_texts(inflated[0], depth + 1)
+            texts += pdftext.assemble(inflated[0])
+        if stop > end:
+            close = data.find(b"endstream", stop)
+        if close < 0:
+            break
+        position = close + len(b"endstream")
     return texts
 
 

@@ -133,6 +133,50 @@ def test_deflated_data_holding_endstream_is_read_on_past_it() -> None:
     assert _found(b"%PDF-1.4\n1 0 obj\n<< >>\nstream\n" + data + b"\nendstream\nendobj\n")
 
 
+GLYPHS = b"BT " + b" ".join(b"(%s) Tj" % c.encode() for c in TEXT) + b" ET"
+
+
+def _object(dictionary: bytes, body: bytes) -> bytes:
+    return b"1 0 obj\n<< " + dictionary + b" >>\nstream\n" + body + b"\nendstream\nendobj\n"
+
+
+def test_a_raw_stream_holding_endstream_is_read_to_its_length() -> None:
+    body = b"BT (endstream) Tj ET " + GLYPHS
+    assert _found(b"%PDF-1.4\n" + _object(b"/Length %d" % len(body), body))
+    # a following deflated stream is still found where it starts, and inflated
+    after = _object(b"/Filter /FlateDecode", zlib.compress(GLYPHS))
+    raw = _object(b"/Length %d" % len(body), b"BT (endstream\n) Tj ET")
+    assert _found(b"%PDF-1.4\n" + _object(b"/Length 21", b"BT (endstream\n) Tj ET") + after)
+    assert _found(b"%PDF-1.4\n" + raw + after)
+
+
+def test_a_length_that_does_not_end_at_endstream_is_not_trusted() -> None:
+    body = b"BT (endstream) Tj ET " + GLYPHS
+    for length in (b"%d 0 R" % len(body), b"%d" % (len(body) + 3), b"999999999"):
+        data = b"%PDF-1.4\n" + _object(b"/Length " + length, body)
+        # the first `endstream` ends it, as a reader repairing a wrong `/Length` reads it
+        assert _found(b"%PDF-1.4\n" + _object(b"/Length 1", GLYPHS))
+        assert scan.blob_texts(data)
+
+
+def test_the_length_pattern_reads_only_a_direct_whole_number() -> None:
+    def length(text: bytes) -> bytes | None:
+        match = scan._LENGTH.search(text)
+        return match[1] if match else None
+
+    assert length(b"/Length 12 0 R") is None
+    assert length(b"/Length 120 >>") == b"120"
+    assert length(b"/Length 12 /Foo 3 0 R") == b"12"
+    assert length(b"/Length 7>>") == b"7"
+
+
+def test_deflated_data_holding_endstream_does_not_shift_the_next_stream() -> None:
+    stored = zlib.compressobj(0)
+    first = stored.compress(b"x endstream\n y") + stored.flush()
+    data = b"%PDF-1.4\n" + _object(b"", first) + _object(b"", zlib.compress(GLYPHS))
+    assert _found(data)
+
+
 def test_an_inflate_over_the_limit_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(scan, "MAX_BLOB", 1000)
     with pytest.raises(CannotScan) as refused:
