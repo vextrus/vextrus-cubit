@@ -4,6 +4,10 @@
 orchestrator and every builder, cloud launches go only through the committed launcher, and cloud sessions may read
 the two Development Sets (the owner's Q7 ruling); item 5 — `merge_ready` enforces the review from a local ledger.
 
+**Amended** (5 Oct 2026; the owner, on the review cap: "Allow a fix-regression round (Recommended)"): item 5 — a
+third review is also allowed when every finding left at round 2 was introduced by fix round 1, as its refuter
+confirms (`fix-regression` in `scripts/ledger.py`); never more than three reviews.
+
 The owner decides product and scope and walks each milestone's finish line on real drawings; everything
 between is done by agents, without waiting for the owner:
 

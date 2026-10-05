@@ -6,19 +6,25 @@
     python -m scripts.factory.stamp phase <name>
     python -m scripts.factory.stamp elapsed [--ticket <t>]
     python -m scripts.factory.stamp budget --ticket <t> --minutes <n>
+    python -m scripts.factory.stamp end
 
 `start` writes `$VEXTRUS_FACTORY_DIR/session.json`:
 
     {"schema": 1, "started_utc": "<UTC>", "budget_minutes": 660, "state_file": "<absolute STATE.md>",
      "phases": [{"name": "p3", "minutes": 330, "start_utc": null}]}
 
-and refuses a second start unless `--force`. A line of text is appended to the state file as `<UTC>
-<text>`. `phase <name>` fills a planned phase's `start_utc` (the newest started phase is the current one,
-so starting one ends the one before; time between phases is in no phase). `budget` writes a builder's
-record `<git common dir>/vextrus/budget-<t>.json` = `{"schema": 1, "ticket": "<t>", "minutes": <n>,
-"started_utc": "<UTC>"}` for the repository at the cwd (a linked worktree writes into the main
-repository's `.git`). `elapsed` prints `now <YYYY-MM-DD HH:MMZ> · session h:mm/h:mm[ · phase <name>
-h:mm/h:mm]`, or `ticket <t> n/m min`, or `no budget set`; the clock hook (f6) prints the same form.
+and refuses a second start unless `--force`. `start` makes a missing state folder and refuses a
+state path that is a folder or whose folder cannot be made. A line of text is appended to the state
+file as `<UTC> <text>`. `phase <name>` fills a planned phase's `start_utc` (the newest started phase is
+the current one, so starting one ends the one before; time between phases is in no phase). `budget`
+writes a builder's record `<git common dir>/vextrus/budget-<t>.json` = `{"schema": 1, "ticket": "<t>",
+"minutes": <n>, "started_utc": "<UTC>"}` for the repository at the cwd (a linked worktree writes into
+the main repository's `.git`). `elapsed` prints `now <YYYY-MM-DD HH:MMZ> · session h:mm/h:mm[ · phase
+<name> h:mm/h:mm]`, or `ticket <t> n/m min`, or `no budget set`; the clock hook (f6) prints the same
+form. `end` closes the session: it stamps `session ended h:mm/h:mm` first (a failure keeps
+`session.json`), then writes `<state folder>/session-<started_utc as YYYYMMDDTHHMMSSZ>.json` = the
+session plus `"ended_utc"`, then removes `session.json`. `end` takes no arguments; text that starts
+with a subcommand's name is stamped with `stamp stamp "end of wave"`.
 
 Budgets and phase lengths are minutes: `90`, `330m`, `11h` or `5h30m`. The clock is `VEXTRUS_NOW` when
 set. Exit 0 done, 2 refused or usage error.
@@ -37,7 +43,7 @@ from typing import Any
 from scripts.factory import status
 
 DURATION = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?$|^(\d+)$")
-SUBCOMMANDS = ("start", "phase", "elapsed", "budget", "stamp")
+SUBCOMMANDS = ("start", "phase", "elapsed", "budget", "stamp", "end")
 
 
 class Refused(Exception):
@@ -84,6 +90,16 @@ def current_phase(session: dict[str, Any]) -> dict[str, Any] | None:
     return max(started, key=lambda p: status.parse_utc(p["start_utc"]), default=None)
 
 
+def make_state_folder(state: Path) -> None:
+    """Refuse a state path that is a folder or whose folder cannot be made; make a missing folder."""
+    if state.is_dir():
+        raise Refused(f"{state} is a folder, not a state file")
+    try:
+        state.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as error:
+        raise Refused(f"the folder of {state} cannot be made: {error}") from error
+
+
 def start(budget: str, state: str, phases: str | None, force: bool) -> None:
     minutes = parse_minutes(budget)
     planned: list[dict[str, Any]] = []
@@ -98,11 +114,13 @@ def start(budget: str, state: str, phases: str | None, force: bool) -> None:
         planned.append({"name": name.strip(), "minutes": parse_minutes(length), "start_utc": None})
     if session_path().exists() and not force:
         raise Refused(f"{session_path()} exists: a session has started (pass --force to replace it)")
+    state_file = Path(state).resolve()
+    make_state_folder(state_file)
     session = {
         "schema": 1,
         "started_utc": status.utc(status.now()),
         "budget_minutes": minutes,
-        "state_file": str(Path(state).resolve()),
+        "state_file": str(state_file),
         "phases": planned,
     }
     status.write_atomic(session_path(), session)
@@ -121,10 +139,32 @@ def stamp_line(text: str) -> None:
         previous = state.read_text() if state.exists() else ""
     except OSError as error:
         raise Refused(f"{state} is unreadable: {error}") from error
-    with state.open("a") as handle:
-        if previous and not previous.endswith("\n"):
-            handle.write("\n")
-        handle.write(f"{status.utc(status.now())} {line}\n")
+    try:
+        with state.open("a") as handle:
+            if previous and not previous.endswith("\n"):
+                handle.write("\n")
+            handle.write(f"{status.utc(status.now())} {line}\n")
+    except OSError as error:
+        raise Refused(f"{state} cannot be written: {error}") from error
+
+
+def end() -> Path:
+    """Stamp the final line, archive the session beside the state file, remove session.json."""
+    session = load_session()
+    if session is None:
+        raise Refused("no session.json: nothing to end")
+    at = status.now()
+    started = status.parse_utc(session["started_utc"])
+    spent = f"{hmm(status.minutes_between(started, at))}/{hmm(int(session['budget_minutes']))}"
+    stamp_line(f"session ended {spent}")
+    archive = Path(session["state_file"]).parent / f"session-{started.strftime('%Y%m%dT%H%M%SZ')}.json"
+    try:
+        status.write_atomic(archive, {**session, "ended_utc": status.utc(at)})
+    except OSError as error:
+        raise Refused(f"{archive} cannot be written: {error}") from error
+    session_path().unlink()
+    print(f"session ended: {spent}, archived {archive}")
+    return archive
 
 
 def phase(name: str) -> None:
@@ -207,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     one = sub.add_parser("budget")
     one.add_argument("--ticket", required=True)
     one.add_argument("--minutes", required=True)
+    sub.add_parser("end")
     args = parser.parse_args(args_in)
     try:
         if args.command == "start":
@@ -215,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
             stamp_line(" ".join(args.text))
         elif args.command == "phase":
             phase(args.name)
+        elif args.command == "end":
+            end()
         elif args.command == "elapsed":
             print(elapsed(args.ticket))
         else:

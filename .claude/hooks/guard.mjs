@@ -557,15 +557,18 @@ function analyse(command, startCwd) {
 function gitOf(cmd) {
   // git's exec-path links (`/usr/lib/git-core/git-push`, `git-config`) run as `git <verb>`.
   const dashed = /^git-([a-z][a-z0-9-]*)$/.exec(cmd.name);
-  if (dashed) return { verb: dashed[1], args: cmd.args.map((a) => longOption(dashed[1], a)), config: [], dirs: [], gitDir: null, workTree: null, assigns: cmd.assigns, cwd: cmd.cwd };
-  if (cmd.name !== "git") return null;
+  if (!dashed && cmd.name !== "git") return null;
+  // A folder bash may build at run time (`$`, a backtick, `~`, a glob, a brace, a quote, a space: any character
+  // outside a plain path's) cannot be judged: it becomes one no repository can live in, so every judge run
+  // against it fails closed (a literal `$OTHER` or `~` folder in the cwd is never read instead).
+  const judgeable = (value) => (/[^A-Za-z0-9_./@+-]/.test(value) ? "/dev/null/unjudgeable" : value);
   const a = cmd.args;
   const config = [];
   const dirs = [];
   let gitDir = null;
   let workTree = null;
   let i = 0;
-  while (i < a.length && a[i].startsWith("-")) {
+  while (!dashed && i < a.length && a[i].startsWith("-")) {
     const w = a[i];
     const eq = w.indexOf("=");
     const key = eq > 0 ? w.slice(0, eq) : w;
@@ -580,18 +583,20 @@ function gitOf(cmd) {
       i++;
     } else if (key === "--git-dir" || key === "--work-tree" || key === "--config-env" || key === "--namespace" || key === "--exec-path" || key === "--super-prefix" || key === "--attr-source") {
       const value = eq > 0 ? w.slice(eq + 1) : a[i + 1];
-      if (key === "--git-dir") gitDir = value ?? "";
-      if (key === "--work-tree") workTree = value ?? "";
+      if (key === "--git-dir") gitDir = judgeable(value ?? "");
+      if (key === "--work-tree") workTree = judgeable(value ?? "");
       if (key === "--config-env") config.push(value ?? "");
       i += eq > 0 ? 1 : 2;
     } else i++;
   }
+  // GIT_DIR and GIT_WORK_TREE (bare or through `env`) name the repository both forms use.
   for (const assign of cmd.assigns) {
-    if (assign.startsWith("GIT_DIR=")) gitDir = assign.slice(8);
-    if (assign.startsWith("GIT_WORK_TREE=")) workTree = assign.slice(14);
+    if (assign.startsWith("GIT_DIR=")) gitDir = judgeable(assign.slice(8));
+    if (assign.startsWith("GIT_WORK_TREE=")) workTree = judgeable(assign.slice(14));
   }
-  const verb = a[i] ?? "";
-  return { verb, args: a.slice(i + 1).map((arg) => longOption(verb, arg)), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
+  const verb = dashed ? dashed[1] : a[i] ?? "";
+  const rest = dashed ? a : a.slice(i + 1);
+  return { verb, args: rest.map((arg) => longOption(verb, arg)), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
 }
 
 // Git accepts any unique prefix of a long option (`--mirr` is `--mirror`). The options the rules judge are
@@ -1005,6 +1010,11 @@ const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 
 /** True when a command sets core.hooksPath (or hides config from the guard), except the one lawful line. */
 function hooksPathSet(analysis, command) {
+  // The reads of core.hooksPath that pass are exactly these whole commands, matched on the command's text: no
+  // wrapper, no expansion, nothing else in it but a trailing `|| echo <plain words>`. Bash and xargs can turn
+  // what argv shows into a write (`core.hooksPath${IFS}/x`, `{core.hooksPath,/x}`, `xargs git config
+  // core.hooksPath`), so any other shape naming the key keeps the write judgement below.
+  const read = /^git( -C [A-Za-z0-9_./-]+)? config( --local| --global| --show-origin| --show-scope| --file [A-Za-z0-9_./-]+)*( --get| --get-all| get)? [cC][oO][rR][eE]\.[hH][oO][oO][kK][sS][pP][aA][tT][hH]( \|\| echo [A-Za-z0-9 _.-]*)?$/.test(command);
   const flat = flatten(command);
   if (/\bGIT_CONFIG_(?:PARAMETERS|COUNT|KEY_|VALUE_)/.test(flat)) return true;
   if (/(?:^|[\s/])\.git\/(?:config|worktrees\/[^\s/]+\/config\.worktree)\b/.test(flat) && (/[^<]>|\btee\b|\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-[a-z]*i|\b(?:cp|mv|ln|install|dd|truncate|python[0-9.]*|node)\b/.test(flat))) return true;
@@ -1013,6 +1023,7 @@ function hooksPathSet(analysis, command) {
     if (configKeys(g).some((k) => k === "core.hookspath" || k.startsWith("include"))) return true;
     if (g.assigns.some((a) => /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_KEY_\d+|_VALUE_\d+|_GLOBAL|_SYSTEM)?=/.test(a) && !/^GIT_CONFIG_(?:GLOBAL|SYSTEM)=\/dev\/null$/.test(a))) return true;
     if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a))) {
+      if (read) continue;
       const lawful = orchestrators && !cloud && g.dirs.length === 0 && g.gitDir === null && JSON.stringify(g.args.filter((a) => a !== "--local")) === JSON.stringify(["core.hooksPath", "scripts/git-hooks"]);
       if (!lawful) return true;
     }
