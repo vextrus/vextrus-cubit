@@ -353,6 +353,35 @@ test("T-GUARD-WAITS: a loop in a heredoc fed to a shell is shell text; in a here
   assert.equal(seen("cat <<'EOF'\nwhile pgrep -f x; do sleep 1; done\nEOF"), null);
 });
 
+test("T-GUARD-WAITS refuter: a look behind a wrapper, a group, a variable, a shell's stdin or an arithmetic shift stays a wait", () => {
+  for (const command of [
+    "echo $((1<<2))\nwhile pgrep -f x; do sleep 1; done",
+    "x=1; while (( x<<1 )) && pgrep -f x; do sleep 1; done",
+    "while /usr/bin/time -q pgrep -f x; do sleep 1; done",
+    "while taskset -c 0 pgrep -f x; do sleep 1; done",
+    "while strace -o /dev/null pgrep -f x; do sleep 1; done",
+    "while (ps aux) | grep -q [x]yz; do sleep 1; done",
+    "while { ps aux; } | grep -q xyz; do sleep 1; done",
+    "while ps aux | busybox grep -q xyz; do sleep 1; done",
+    "while bash -c -- 'pgrep -f x'; do sleep 1; done",
+    "while bash <<< 'pgrep -f x'; do sleep 1; done",
+    "while echo 'pgrep -f x' | sh; do sleep 1; done",
+    "while python3 -c \"import os,sys; sys.exit(os.system('pgrep -f x'))\"; do sleep 1; done",
+    "P='pgrep -f'; while $P x >/dev/null; do sleep 1; done",
+    "while pgrep --ful x; do sleep 1; done",
+    "select a in 1; do pgrep -f x; done",
+  ]) {
+    assert.equal(seen(command), "SELF_MATCHING_WAIT", command);
+  }
+  for (const command of [
+    "for f in a; do $EDITOR f; done; pgrep -f x",
+    "x=$((1<<2)); for i in 1; do echo $i; done; pgrep -f x",
+    "(cd a && for i in 1; do make; done) | tee log; pgrep -f x",
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
+});
+
 test("T-GUARD-WAITS: a text left with an open quote cannot be split and fails closed", () => {
   assert.equal(seen("echo 'unclosed; while pgrep -f x; do :; done"), "SELF_MATCHING_WAIT");
   assert.equal(seen("echo 'unclosed; pgrep -f x"), null);

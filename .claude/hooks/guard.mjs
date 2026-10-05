@@ -890,7 +890,12 @@ function shellSegments(text, depth = 0) {
     return segs;
   };
   const push = (pipe) => {
-    if (cur.trim() !== "") out.push({ text: cur.trim(), depth, pipe });
+    if (cur.trim() !== "" && !(pipe && cur.trim() === "}")) out.push({ text: cur.trim(), depth, pipe });
+    // `(ps aux) | grep`, `{ ps aux; } | grep`: the pipe follows the group, so it is the group's last command's.
+    else if (pipe) for (let o = out.length - 1; o >= 0; o--) if (out[o].depth === depth) {
+      out[o].pipe = true;
+      break;
+    }
     out.push(...inner);
     cur = "";
     inner = [];
@@ -956,14 +961,17 @@ function shellSegments(text, depth = 0) {
 const LOOP_OPENERS = new Set(["for", "while", "until", "select"]);
 const LOOP_PREFIXES = new Set(["!", "{", "if", "then", "elif", "else", "do", "time"]);
 const PS_FILTERS = new Set(["grep", "egrep", "fgrep", "rg", "ugrep", "awk", "gawk", "mawk"]);
-const SELF_MATCHING_LOOK = /\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--full)\b|\bps\b[^;&\n]*\|\s*(?:[ef]?grep|rg|ugrep|[gm]?awk)\b/;
+const SELF_MATCHING_LOOK = /\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--fu(?:ll?)?)\b|\bps\b[^;&\n]*\|\s*(?:busybox\s+)?(?:[ef]?grep|rg|ugrep|[gm]?awk)\b/;
+const PGREP_FULL = /^(?:-[A-Za-z]*f[A-Za-z]*|--fu(?:ll?)?)$/;
 
 /**
  * Reads shell text for `pgrep -f` / `ps … | grep` looks inside a `for`/`while`/`until` loop (its condition or
  * body, to the matching `done`): `{wait, look, unbalanced}`. `inLoop`: the text itself runs inside a loop.
  */
 function loopLooks(text, inLoop = false) {
-  const { text: cut, docs } = cutHeredocs(text);
+  // `$((1<<2))` is a shift, not a heredoc: hide its `<` so the heredoc cut keeps the lines after it.
+  const arithmetic = text.replace(/\(\((?:[^()]|\([^()]*\))*\)\)/g, (m) => m.replace(/</g, " "));
+  const { text: cut, docs } = cutHeredocs(arithmetic);
   const segs = shellSegments(cut);
   let open = 0;
   let unbalanced = false;
@@ -988,18 +996,24 @@ function loopLooks(text, inLoop = false) {
     }
     const cmd = commandOf(ws.slice(k));
     const inside = inLoop || open > 0;
-    let hit = cmd.name === "pgrep" && cmd.args.some((a) => /^-[A-Za-z]*f[A-Za-z]*$/.test(a) || a === "--full");
-    if (cmd.name === "ps") {
-      for (let t = s, next = s + 1; segs[t].pipe && next < segs.length; next++) {
-        if (segs[next].depth !== segs[s].depth) continue;
-        if (PS_FILTERS.has(commandOf(words(segs[next].text)).name)) hit = true;
-        t = next;
-      }
+    let hit = cmd.name === "pgrep" && cmd.args.some((a) => PGREP_FULL.test(a));
+    // The pipeline from here, as written: a look behind a wrapper (`taskset … pgrep -f`), quoted for a shell
+    // (`echo 'pgrep -f x' | sh`, `bash <<< …`, `python3 -c …`) or behind `busybox` still counts in a loop.
+    let pipeline = segs[s].text;
+    for (let t = s, next = s + 1; segs[t].pipe && next < segs.length; next++) {
+      if (segs[next].depth !== segs[s].depth) continue;
+      const filter = commandOf(words(segs[next].text));
+      if (cmd.name === "ps" && (PS_FILTERS.has(filter.name) || (filter.name === "busybox" && PS_FILTERS.has(filter.args[0])))) hit = true;
+      pipeline += ` | ${segs[next].text}`;
+      t = next;
     }
+    if (inside && SELF_MATCHING_LOOK.test(pipeline)) hit = true;
+    // A command word held in a variable (`P='pgrep -f'; while $P x`): a look assigned anywhere counts.
+    if (inside && /^["']?\$/.test(ws[k] ?? "") && (cut.match(/\b[A-Za-z_]\w*(?:\[[^\]]*\])?\+?=[^;&|\n]*/g) ?? []).some((a) => SELF_MATCHING_LOOK.test(a))) hit = true;
     // A shell's own script (`bash -c '…'`, `eval …`) run inside the loop is the loop's too.
     if (SHELLS.has(cmd.name) || cmd.name === "eval") {
       const c = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
-      const script = cmd.name === "eval" ? cmd.args.join(" ") : c >= 0 ? cmd.args[c + 1] ?? "" : "";
+      const script = cmd.name === "eval" ? cmd.args.join(" ") : c >= 0 ? cmd.args[cmd.args[c + 1] === "--" ? c + 2 : c + 1] ?? "" : "";
       if (script !== "" && loopLooks(script, true).look) hit = true;
     }
     if (RUNS_ITS_ARGUMENTS.has(cmd.name)) {
