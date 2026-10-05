@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -30,6 +31,7 @@ from tools.lint.acceptance import count_problems, is_acceptance, problems
 Run = Callable[[Check, Path], tuple[int, str]]
 GLOB = set("*?[")
 SHOWN = 40
+TRAILER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*: \S")
 
 
 def run_command(check: Check, cwd: Path) -> tuple[int, str]:
@@ -84,8 +86,15 @@ def acceptance_path(root: Path, raw: str) -> str:
 
 
 def message(subject: str, body: str, red: int, green: int) -> str:
+    """The counts close the message; when the body ends in a trailer block (`Co-Authored-By: ...`) they
+    join that paragraph, so git reads the attribution and the counts as trailers alike."""
     counts = f"red-on-main: {red} failed\ngreen-on-throwaway: {green} passed\n"
-    return f"acceptance: {subject}\n\n" + (f"{body.strip(chr(10))}\n\n" if body.strip() else "") + counts
+    body = body.strip("\n")
+    if not body.strip():
+        return f"acceptance: {subject}\n\n{counts}"
+    last = body.split("\n\n")[-1].splitlines()
+    joint = "\n" if all(TRAILER.match(line) for line in last) else "\n\n"
+    return f"acceptance: {subject}\n\n{body}{joint}{counts}"
 
 
 def plan(paths: list[str]) -> tuple[list[Check], list[str]]:
@@ -144,17 +153,23 @@ def check(paths: list[str], text: str, run: Run, root: Path) -> bool:
 
 
 def commit(paths: list[str], base: str, text: str, root: Path) -> int:
-    """Stage the paths, build the commit, let the real lint judge it, and only then move HEAD."""
+    """Stage the paths, build the commit, let the real lint judge it, and only then move HEAD. Any
+    failure before HEAD moves (a refusal, a git error, HEAD moved meanwhile) puts the index back."""
     found_index, head = _git(root, "write-tree"), _git(root, "rev-parse", "HEAD")
-    _git(root, "add", "--", *paths)
-    tree = _git(root, "write-tree")
-    new = _git(root, "commit-tree", tree, "-p", head, "-F", "-", stdin=text)
-    if found := problems(root, base, new):
-        _git(root, "read-tree", found_index)
-        print("amend: acceptance 1")
-        print("\n".join(found))
-        return 3
-    _git(root, "update-ref", "-m", "amend: acceptance", "HEAD", new, head)
+    committed = False
+    try:
+        _git(root, "add", "--", *paths)
+        tree = _git(root, "write-tree")
+        new = _git(root, "commit-tree", tree, "-p", head, "-F", "-", stdin=text)
+        if found := problems(root, base, new):
+            print("amend: acceptance 1")
+            print("\n".join(found))
+            return 3
+        _git(root, "update-ref", "-m", "amend: acceptance", "HEAD", new, head)
+        committed = True
+    finally:
+        if not committed:
+            _git(root, "read-tree", found_index)
     print(f"amend: committed {new[:12]}")
     return 0
 
