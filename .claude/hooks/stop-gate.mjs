@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+// Stop, builder sessions only: a nudge before a builder stops with its work in a state the factory cannot read.
+// Blocked once (stop_hook_active lets the second stop through): uncommitted tracked changes with no finish trailer
+// on HEAD, or a READY-looking HEAD (docs/specs/factory/contracts/trailers.md) without a green verify record for its
+// tree. The guard's READY push gate is the wall; this only reminds. Keyed on CLAUDE_PROJECT_DIR, not the event's
+// cwd (which follows `cd`). Fails open: any parse or git failure lets the stop through.
+import { spawnSync } from "node:child_process";
+import { readFileSync, realpathSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+const project = process.env.CLAUDE_PROJECT_DIR || "";
+const LAWFUL =
+  "Before stopping: commit with explicit paths and run verify, or finish `Factory-State: BLOCKED` with a reason " +
+  "(a `Factory-Reason:` trailer).";
+
+const git = (args, input) => {
+  const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", input, timeout: 5_000 });
+  if (done.status !== 0) throw new Error(`git ${args[0]} failed`);
+  return done.stdout;
+};
+const real = (path) => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return resolve(path);
+  }
+};
+
+/** The orchestrator's checkout: not cloud, not a builder, and not a linked worktree. */
+function mainCheckout() {
+  if (process.env.CLAUDE_CODE_REMOTE === "true" || process.env.VEXTRUS_ROLE === "builder") return false;
+  const dir = git(["rev-parse", "--git-dir"]).trim();
+  const common = git(["rev-parse", "--git-common-dir"]).trim();
+  return real(resolve(project, dir)) === real(resolve(project, common));
+}
+
+/** HEAD's finish state per trailers.md 1: "ready", "ready-malformed", "blocked" or "none". */
+function finishState(tree) {
+  const parsed = git(["interpret-trailers", "--parse"], git(["log", "-1", "--format=%B"]));
+  const values = {};
+  for (const line of parsed.split("\n")) {
+    const match = /^([^:]+):\s?(.*)$/.exec(line);
+    if (!match) continue;
+    const key = match[1].trim().toLowerCase();
+    if (key.startsWith("factory-")) (values[key] ??= []).push(match[2].trim());
+  }
+  const state = values["factory-state"] ?? [];
+  const verify = values["factory-verify"] ?? [];
+  const reason = values["factory-reason"] ?? [];
+  if (state.some((value) => /^ready$/i.test(value))) {
+    const wellFormed = state.length === 1 && state[0] === "READY" && verify.length === 1 && verify[0] === `${tree} ok` && reason.length === 0;
+    return wellFormed ? "ready" : "ready-malformed";
+  }
+  const blocked = state.length === 1 && state[0] === "BLOCKED" && verify.length <= 1 && reason.length === 1 && /^[^\r\n]{1,200}$/.test(reason[0]);
+  return blocked ? "blocked" : "none";
+}
+
+/** A green record (verify-record.schema.json): parses, schema_version 1, non-empty checks, every exit_code 0. */
+function verified(tree) {
+  const common = git(["rev-parse", "--git-common-dir"]).trim();
+  try {
+    const record = JSON.parse(readFileSync(join(resolve(project, common), "vextrus", `verify-${tree}.json`), "utf8"));
+    return record?.schema_version === 1 && Array.isArray(record.checks) && record.checks.length > 0 && record.checks.every((check) => check?.exit_code === 0);
+  } catch {
+    return false;
+  }
+}
+
+function verdict() {
+  const event = JSON.parse(readFileSync(0, "utf8"));
+  if (event === null || typeof event !== "object" || Array.isArray(event) || event.stop_hook_active === true) return null;
+  if (project === "" || mainCheckout()) return null;
+  const tree = git(["rev-parse", "HEAD^{tree}"]).trim();
+  const state = finishState(tree);
+  if (state === "blocked") return null;
+  if (state === "ready" || state === "ready-malformed") {
+    if (state === "ready" && verified(tree)) return null;
+    return `HEAD says Factory-State: READY but carries no green verify record for its tree (a malformed trailer, or verify not run on this commit). ${LAWFUL}`;
+  }
+  const dirty = git(["status", "--porcelain", "--untracked-files=no"]).trim() !== "";
+  return dirty ? `Uncommitted tracked changes and no Factory-State trailer on HEAD. ${LAWFUL}` : null;
+}
+
+try {
+  const reason = verdict();
+  if (reason !== null) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
+} catch {
+  // A nudge fails open.
+}
