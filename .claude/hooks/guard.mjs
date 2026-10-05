@@ -1009,17 +1009,21 @@ const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 
 /** True when a command sets core.hooksPath (or hides config from the guard), except the one lawful line. */
 function hooksPathSet(analysis, command) {
-  // A `git config` is a read when it asks one (a read flag, the `get`/`list` subcommand, or a single operand)
-  // and every option is exactly a read flag or a scope. Git takes any unique prefix of a long option (`--unset-a`
-  // is `--unset-all`, `--rep` is `--replace-all`), so any other option, abbreviated or not, makes it a write.
+  // A `git config` is a read when it asks one (a read action, the `get`/`list` subcommand, or a single operand)
+  // and every option is exactly a read action, a display flag or a scope. Git takes any unique prefix of a long
+  // option (`--unset-a` is `--unset-all`, `--rep` is `--replace-all`), so any other option, abbreviated or not,
+  // makes it a write. Git stops reading options at the first operand (`core.hooksPath /x --get` sets), so an
+  // option after an operand makes it a write too; display flags (`--show-scope`) never ask a read.
   const configRead = (args) => {
-    const reads = ["--get", "--get-all", "--get-regexp", "--list", "-l", "--show-origin", "--show-scope", "--name-only"];
+    const actions = ["--get", "--get-all", "--get-regexp", "--list", "-l"];
+    const others = ["--show-origin", "--show-scope", "--name-only", "--local", "--global", "--no-includes"];
     const operands = [];
     let asks = false;
     for (let k = 0; k < args.length; k++) {
-      if (reads.includes(args[k])) asks = true;
+      if (args[k].startsWith("-") && operands.length > 0) return false;
+      if (actions.includes(args[k])) asks = true;
       else if (args[k] === "--file") k++;
-      else if (args[k].startsWith("-") && !["--local", "--global", "--no-includes"].includes(args[k])) return false;
+      else if (args[k].startsWith("-") && !others.includes(args[k])) return false;
       else if (!args[k].startsWith("-")) operands.push(args[k]);
     }
     if (["set", "unset", "edit", "rename-section", "remove-section"].includes(operands[0])) return false;

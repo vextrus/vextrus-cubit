@@ -656,6 +656,21 @@ test("T-GUARD-NARROW: a git config naming core.hooksPath with any option but a r
     "git config remove-section core.hooksPath",
     "git config --get include.path",
     "git config include.path",
+    // The refuter's breaks: a display flag asks no read, and git stops reading options at the first operand.
+    "git config --show-scope core.hooksPath /evil",
+    "git config --local --show-scope core.hooksPath /evil",
+    "git config --global --show-scope core.hooksPath /evil",
+    "git config --file .git/config --show-scope core.hooksPath /evil",
+    "git config --show-origin core.hooksPath /evil",
+    "git config --name-only core.hooksPath /evil",
+    "git config core.hooksPath /evil --get",
+    "git config core.hooksPath /evil --list",
+    "git config core.hooksPath /evil -l",
+    "git config core.hooksPath /evil --get-all",
+    "git config core.hooksPath /evil --show-origin",
+    "git config core.hooksPath /evil --name-only",
+    "git config core.hooksPath --get",
+    "git config get core.hooksPath --unset",
   ]) {
     assert.equal(seen(command), "HOOKS_PATH", command);
   }
@@ -665,6 +680,7 @@ test("T-GUARD-NARROW: reads of core.hooksPath with a scope or a file pass", () =
   for (const command of [
     "git config --no-includes --get core.hooksPath",
     "git config --show-scope --get core.hooksPath",
+    "git config --show-scope core.hooksPath",
     "git config --file x.cfg --get-regexp core.hooksPath",
     "git config --name-only --get-regexp core.hooksPath",
     "git config list --show-origin",
