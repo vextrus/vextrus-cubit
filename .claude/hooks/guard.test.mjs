@@ -964,3 +964,80 @@ test("T-GUARD-A round 1 refuter 4: text that the same command runs is not text",
   assert.equal(bash(`echo "next: ${L}" >> .private/work/session-12/STATE.md`), null);
   assert.equal(bash(`git commit -m "docs: ${L}"`), null);
 });
+
+test("T-GUARD-A round 2 (1, 3): a file the command writes and may run is judged, whatever runs it", () => {
+  const L = "python3 -m scripts.ledger record 1";
+  for (const command of [
+    `cat > .git/hooks/pre-commit <<'X'\n${L}\nX\nchmod +x .git/hooks/pre-commit && git commit -m x`,
+    `cat > d.sh <<'X'\n${L}\nX\ngit difftool -y -x ./d.sh`,
+    `cat > d.sh <<'X'\n${L}\nX\ngit diff --ext-diff`,
+    `cat > p.sh <<'X'\n${L}\nX\nrg --pre ./p.sh x .`,
+    `cat > c.sh <<'X'\n${L}\nX\nsort -S 1 --compress-program=./c.sh big.txt`,
+    `echo '${L}' > s.sh && chmod +x s.sh && ./s.sh`,
+    `printf 'all:\\n\\t${L}\\n' > Makefile && make`,
+    `echo 'import os; os.system("${L}")' > conftest.py && uv run pytest`,
+    `echo '${L}' | python3 -c 'import os, sys; os.system(sys.stdin.read())'`,
+    `git commit -m '${L}' && $(git log -1 --format=%B)`,
+    `printf 'python3 -m scripts.ledger re%s 1' cord > s.sh && bash s.sh`,
+    `echo "python3 -m scripts.ledger $R 1" > s.sh && bash s.sh`,
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+});
+
+test("T-GUARD-A round 2 (5): a heredoc that is only a message or notes stays text", () => {
+  for (const command of [
+    "git commit -m \"$(cat <<'EOF'\nfix: never run `git push --force` here\nEOF\n)\" && uv run pytest -q",
+    "cat > .private/work/s12/notes.md <<'X'\nthe orchestrator runs python3 -m scripts.ledger record\nX\nuv run pytest -q",
+    'echo "STATE 05:00 ledger read PASS" >> .private/work/session-12/STATE.md && uv run pytest -q',
+    "uv run pytest -q > .private/work/s12/out.txt 2>&1; echo exit=$?; tail -3 .private/work/s12/out.txt | head -2",
+  ]) {
+    assert.equal(bash(command), null, command);
+  }
+});
+
+test("T-GUARD-A round 2 (2): a reassigned HOME makes ~ and a bare cd unknown; HOME set to the leak home refuses", () => {
+  const H = "/home/riz/vextrus-cubit/.private/work/leakscan";
+  for (const command of [`HOME=${H}; cd ~ && cat corpus`, `HOME=${H}; cd && cat corpus`, `HOME=${H}; cat ~/corpus`, "HOME=$X; cat ~/corpus", "HOME=$X; cd && cat corpus"]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash("cd ~ && ls"), null);
+});
+
+test("T-GUARD-A round 2 (4): a recursive viewer over an ancestor of the leak home is refused", () => {
+  for (const command of ["grep -r x .private/work/leakscan .private/work", "grep -rn x .private/work/leakscan/ok .private", "rg x .private/work/leakscan/ok ."]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash("grep -rn PASS .private/work/factory/ledger"), null);
+});
+
+test("T-GUARD-A round 2 (6): a run-time script path is not the ledger writer unless -m or its own assignment says so", () => {
+  for (const command of ["python3 $W/snap.py $W/out.json", "M=/x; uv run python $M/compare.py a $M/b.json"]) {
+    assert.equal(bash(command), null, command);
+  }
+  for (const command of ["S=scripts/ledger.py; python3 $S record", "M=scripts.ledger; python3 -m $M record", "S=scripts/ledger.py; uv run python ${S} rec"]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+});
+
+test("T-GUARD-A round 2 (7): after a lost cd, grep's pattern is not a file and grep on stdin passes", () => {
+  for (const command of ['cd "$WT" && git log --oneline -3 | grep fix', 'cd "$WT" && grep -n foo /etc/hostname', 'cd "$WT" && git status | grep -e modified']) {
+    assert.equal(bash(command), null, command);
+  }
+  for (const command of ['cd "$WT" && grep -r x', 'cd "$WT" && grep x notes.md', 'cd "$WT" && grep -e x corpus']) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+});
+
+test("T-GUARD-A round 2: an inert file is inert only while nothing else names it, by name or glob", () => {
+  const L = "python3 -m scripts.ledger record 1";
+  for (const command of [
+    `cat > notes.txt <<'X'\n${L}\nX\ncp notes.txt s.sh && bash s.sh`,
+    `cat > notes.md <<'X'\n${L}\nX\nbash notes.md`,
+    `cat <<'X' | tee s.sh\n${L}\nX\nbash s.sh`,
+    `cat > notes.md <<'X'\n>>> import os; os.system("${L}")\nX\nuv run pytest --doctest-glob='*.md'`,
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash(`cat > notes.md <<'X'\n${L} later\nX\nuv run pytest -rf tests`), null);
+});

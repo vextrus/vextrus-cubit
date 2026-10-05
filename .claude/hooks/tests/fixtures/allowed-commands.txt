@@ -120,3 +120,53 @@ if ps aux | grep -q "[u]vicorn"; then echo up; else echo down; fi
 for f in .private/work/leakscan/ok/*; do echo "$f"; done | wc -l
 %%
 ls -la .private/work/leakscan/{ok,tmp} 2>/dev/null
+%%
+python3 $W/snap.py $W/out.json
+%%
+W=.private/work/s12-x; python3 $W/snap.py $W/out.json
+%%
+M=/tmp/m; uv run python $M/compare.py a $M/b.json
+%%
+uv run python $W/compare.py $W/a.json $W/b.json > $W/diff.txt 2>&1; echo $?
+%%
+python3 "$W/snap.py" "$W/out.json"
+%%
+python3 ${W}/snap.py ${W}/out.json --limit 5
+%%
+W=.private/work/s12-x; mkdir -p $W && python3 $W/snap.py $W/out.json
+%%
+uv run python $W/probe.py --head 3 $W/case.json
+%%
+uv run --quiet python $W/probe.py $W/case.json
+%%
+python3 $D/check.py $D/one.json $D/two.json
+%%
+python3 $SCRATCH/measure.py > $SCRATCH/measure.txt 2>&1
+%%
+P=$(git rev-parse --show-toplevel); python3 $P/.private/work/s12-x/snap.py
+%%
+for f in $W/*.json; do python3 $W/snap.py "$f"; done
+%%
+python3 $W/snap.py $W/out.json && head -5 $W/out.json
+%%
+uv run python $M/compare.py a $M/b.json | tail -3
+%%
+timeout 60 python3 $W/snap.py $W/out.json
+%%
+python3 -X importtime $W/snap.py 2> $W/imports.txt
+%%
+python3 -u $W/snap.py $W/out.json
+%%
+uv run python -u $W/snap.py --json $W/out.json
+%%
+W=.private/work/s12-x; uv run python $W/compare.py $W/before.json $W/after.json
+%%
+python3 $HOME/tools/snap.py $W/out.json
+%%
+python3 $W/snap.py $W/out.json; echo exit=$?
+%%
+uv run python $W/report.py $W/run1.json $W/run2.json > $W/report.md
+%%
+python3 $W/fixtures/make.py --out $W/fixture.dxf
+%%
+M=/tmp/m; uv run python $M/compare.py a $M/b.json && echo ok

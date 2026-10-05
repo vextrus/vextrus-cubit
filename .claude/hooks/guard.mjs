@@ -434,6 +434,7 @@ function cdTarget(cmd, cwd) {
     .filter((a) => !a.startsWith("-") || a === "-")[0]
     ?.replace(/^\$(?:\{(HOME|CLAUDE_PROJECT_DIR|PWD)\}|(HOME|CLAUDE_PROJECT_DIR|PWD)(?![A-Za-z0-9_]))/, (m, a, b) => known[a ?? b] || m);
   if (cwd === null) return null;
+  if (reassigned.has("HOME") && (target === undefined || /^~(?:\/|$)/.test(target))) return null;
   if (target === undefined || target === "~") return process.env.HOME ?? null;
   if (target === "$(git rev-parse --show-toplevel)") return repoTop(cwd);
   // `-`, a variable, and `~-`, `~+` or `~user` (OLDPWD, PWD, another home) are not known here.
@@ -459,6 +460,7 @@ function analyse(command, startCwd) {
   let budget = 300;
   let truncated = false;
   let fed = false;
+  let unjudged = false;
   // Heredoc bodies written to a file (`cat > s.py <<'EOF'`): a script the same command may then run.
   const written = [];
   for (let pass = 0; pass < 2; pass++) {
@@ -562,21 +564,42 @@ function analyse(command, startCwd) {
       }
       if (INTERPRETER_WORD.test(doc.opener)) codes.push(doc.body);
       // (A heredoc a shell or an interpreter reads itself is judged above, as what it is.)
-      if (!SHELL_WORD.test(doc.opener) && !INTERPRETER_WORD.test(doc.opener)) written.push({ body: doc.body, cwd });
+      if (!SHELL_WORD.test(doc.opener) && !INTERPRETER_WORD.test(doc.opener)) {
+        const targets = writeTargets(doc.opener);
+        if (targets.length > 0) written.push({ text: doc.body, cwd, targets, unjudgeable: !doc.quoted && /[$`\\]/.test(doc.body) });
+      }
     }
   }
   // A shell or an interpreter fed from stdin, a process substitution or a script written in the same
   // command runs what echo and printf produce, or a heredoc wrote: read them as shell text and as code, once.
   if (fed || pass > 0) break;
   const flat = flatten(command);
-  // A command that writes a heredoc and runs a script (a shell or an interpreter on a file, a program by its
-  // path, `source`) may run that heredoc: it is read as shell text and as code.
-  const runners = cmds.filter((cmd) => !AFTER_WRITE_PLAIN.has(cmd.name) || /\//.test(cmd.words[0] ?? "") || prefixOf(cmd).some((w) => basename(w) === "xargs"));
-  if (written.length > 0 && runners.length > 0) {
+  // A file the command writes (by a heredoc, or by echo/printf into a file or a pipe) may be run by anything
+  // else it runs: a script by its path, make, a test runner's conftest.py, a git hook, `rg --pre`. Unless every
+  // other command is plain, the written text is read as shell text and as code; text that cannot be read whole
+  // (`$`, backticks, printf formats, escapes) is unjudgeable and the command is refused.
+  for (const producer of cmds.filter((cmd) => cmd.name === "echo" || cmd.name === "printf")) {
+    const targets = redirectsOf(producer.raw ?? "").filter(({ op, target }) => op.includes(">") && !(op.includes("&") && /^(?:\d+|-)$/.test(target))).map(({ target }) => target);
+    // Its output is piped when a single `|` follows it (not found in the text as written: fail closed).
+    const at = command.indexOf(producer.raw ?? "");
+    const piped = at < 0 || /^\s*\|(?!\|)/.test(command.slice(at + (producer.raw ?? "").length));
+    if (targets.length === 0 && !piped) continue;
+    const text = producer.args.filter((a) => !/^-[neE]+$/.test(a)).join(" ");
+    const unjudgeable = /[$`]/.test(producer.raw ?? "") || (producer.name === "printf" && /%/.test(text)) || /\\(?![nt])/.test(text);
+    written.push({ text: text.replace(/\\n/g, "\n").replace(/\\t/g, "\t"), cwd: producer.cwd, targets: targets.length > 0 ? targets : ["|"], unjudgeable });
+  }
+  const runners = cmds.filter(runsWritten);
+  // An inert file (notes.md) stays inert only while no other command names it (`cp notes.txt s.sh`, `bash notes.md`).
+  // A glob can name it too (`pytest --doctest-glob='*.md'` runs the code in markdown).
+  const reach = (w, target) => w.includes(basename(target)) || w.split("=").some((part) => GLOB.test(part) && globRegex(basename(part)).test(basename(target)));
+  const named = (target) => cmds.filter((cmd) => !redirectsOf(cmd.raw ?? "").some(({ target: t }) => t === target)).some((cmd) => words(cmd.raw ?? "").some((w) => reach(w, target)));
+  const live = written.filter((doc) => doc.targets.some((t) => t === "|" || !INERT_TARGET.test(t) || named(t)));
+  if (live.length > 0 && runners.length > 0) {
     fed = true;
-    for (const doc of written) {
-      queue.push({ text: doc.body, depth: 1, cwd: doc.cwd });
-      codes.push(doc.body);
+    for (const doc of live) {
+      if (doc.unjudgeable) unjudged = true;
+      queue.push({ text: doc.text, depth: 1, cwd: doc.cwd });
+      codes.push(doc.text);
     }
   }
   // A script the same command wrote, run by its path (`./s.sh`), reads it as a shell would (or an interpreter).
@@ -592,13 +615,37 @@ function analyse(command, startCwd) {
     if (readers.some((cmd) => INTERPRETER.test(cmd.name))) codes.push(text);
   }
   }
-  return { cmds, codes, units, truncated };
+  return { cmds, codes, units, truncated, unjudged };
+}
+
+/** The files a heredoc's opener writes: its `>` targets, tee's files, dd's of=; "?" when it may write (fail closed). */
+function writeTargets(opener) {
+  const out = redirectsOf(opener)
+    .filter(({ op, target }) => op.includes(">") && !(op.includes("&") && /^(?:\d+|-)$/.test(target)) && !/^\/dev\/(?:null|stdout|stderr)$/.test(target))
+    .map(({ target }) => target);
+  const cmd = commandOf(words(opener));
+  // A body piped on (`cat <<X | tee s.sh`) goes where the reader does not follow.
+  if (/\|/.test(opener.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''"))) out.push("?");
+  if (cmd.name === "tee") out.push(...cmd.args.filter((a) => !a.startsWith("-") && !/^\d*[<>]/.test(a)));
+  else if (cmd.name === "dd") out.push(...cmd.args.filter((a) => a.startsWith("of=")).map((a) => a.slice(3)));
+  else if (!["cat", "git", "gh", "wc", "grep", "egrep", "fgrep", "head", "tail", "jq", "sort", "uniq", "diff", "cmp", "base64", "sha256sum", "true", ":", ""].includes(cmd.name)) out.push("?");
+  return out;
+}
+
+// A written file no program runs by its kind (unless a runner names it).
+const INERT_TARGET = /\.(?:md|txt|log|csv|out)$|^\/dev\/(?:null|stdout|stderr)$/i;
+
+/** True when a command may run a file the same command wrote (anything but a plain command; git only to add or look). */
+function runsWritten(cmd) {
+  if (/\//.test(cmd.words[0] ?? "") || /[$`]/.test(cmd.words[0] ?? "") || prefixOf(cmd).some((w) => basename(w) === "xargs")) return true;
+  if (cmd.name === "git") return !["add", "status"].includes(gitOf(cmd)?.verb ?? "");
+  return !AFTER_WRITE_PLAIN.has(cmd.name);
 }
 
 // ------------------------------------------------------------------------------------------------ git reading
 
 // Commands that run no file a heredoc may have written (anything else, `awk -f`, `make -f`, a shell, may).
-const AFTER_WRITE_PLAIN = new Set(["cat", "echo", "printf", "ls", "wc", "head", "tail", "grep", "egrep", "fgrep", "rg", "git", "cd", "mkdir", "true", ":", "test", "[", "chmod", "cp", "mv", "rm", "touch", "tee", "dd", "sort", "uniq", "diff", "cmp", "jq", "date", "sleep", "", "stat", "sha256sum", "file", "du", "df", "free"]);
+const AFTER_WRITE_PLAIN = new Set(["cat", "echo", "printf", "ls", "wc", "head", "tail", "grep", "egrep", "fgrep", "cd", "mkdir", "true", ":", "test", "[", "chmod", "cp", "mv", "rm", "touch", "tee", "dd", "uniq", "diff", "cmp", "jq", "date", "sleep", "", "stat", "sha256sum", "file", "du", "df", "free"]);
 
 /** A git invocation: its global options and verb, or null for any other command. */
 function gitOf(cmd) {
@@ -1375,6 +1422,7 @@ const SCHEDULERS = new Set(["at", "batch", "crontab", "busybox", "toybox"]);
  */
 function runsData(cmd) {
   if (prefixOf(cmd).some((w) => basename(w) === "xargs") || cmd.name === "eval" || SCHEDULERS.has(cmd.name) || RUNS_ITS_ARGUMENTS.has(cmd.name)) return true;
+  if (/[$`]/.test(cmd.words[0] ?? "") || codeOf(cmd) !== null) return true;
   if (readsCommands(cmd, flatten(cmd.raw ?? ""))) return true;
   const c = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
   return SHELLS.has(cmd.name) && c >= 0 && /[$`]/.test(cmd.args[c + 1] ?? "");
@@ -1384,7 +1432,8 @@ function runsData(cmd) {
 function runnableWords(analysis, cmd) {
   const ws = words(cmd.raw ?? "");
   // When anything in the command runs data as commands, text stays text nowhere (main's whole-text reading).
-  if (analysis.cmds.some(runsData)) return ws;
+  // (An interpreter's own code is judged as code.)
+  if (analysis.cmds.some(runsData)) return ws.filter((w) => w !== codeOf(cmd));
   if (TEXT_TAKERS.has(cmd.name) && cmd.assigns.length === 0) return [];
   if (cmd.name === "eval") return [];
   if (cmd.name === "echo" || cmd.name === "printf") return ws.slice(0, ws.length - cmd.words.length);
@@ -1420,6 +1469,14 @@ function ledgerCopied(analysis, cmd) {
   );
 }
 
+/** True when python's program word is a variable the same command sets to name the ledger writer. */
+function ledgerVariable(analysis, cmd) {
+  if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !prefixOf(cmd).includes("uv")) return false;
+  const vars = cmd.words.flatMap((w) => [...w.matchAll(/\$\{?([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1]));
+  if (vars.length === 0) return false;
+  return analysis.cmds.some((other) => words(other.raw ?? "").some((w) => vars.some((v) => w.startsWith(`${v}=`) && /ledger/.test(w))));
+}
+
 /** True when xargs supplies python's module or script (`echo m | xargs python3 -m`): what runs is not judgeable. */
 function moduleFromXargs(cmd) {
   if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) || !prefixOf(cmd).some((w) => basename(w) === "xargs")) return false;
@@ -1436,7 +1493,7 @@ function ledgerRecord(cmd) {
   if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !(prefix.includes("uv") && prefix.includes("run")) && !/(?:^|\/)ledger\.p|[*?[]/.test(cmd.words[0] ?? "")) return false;
   const all = words(cmd.raw ?? "");
   // A module or script named at run time (`python3 -m $M record`) cannot be judged.
-  const dynamic = all.findIndex((w, k) => /[$`]/.test(w) && (/^-[A-Za-z]*m$/.test(all[k - 1] ?? "") || /^-[A-Za-z]*m[$`]/.test(w) || k === all.length - cmd.words.length + 1));
+  const dynamic = all.findIndex((w, k) => /[$`]/.test(w) && (/^-[A-Za-z]*m$/.test(all[k - 1] ?? "") || /^-[A-Za-z]*m[$`]/.test(w)));
   if (/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && dynamic >= 0 && all.slice(dynamic + 1).some((w) => /record|[$`*?[{]/.test(w))) return true;
   const at = moduleAt(cmd, /^(?:\S*[./])?ledger(?:$|[./])/, /(?:^|\/)ledger\.py$/, ["scripts/ledger.py"]);
   // A word expanded at run time, or arguments from xargs, could spell `record`; a script on stdin takes any.
@@ -1585,7 +1642,8 @@ function recordUnsafe(cmd, eventCwd) {
   }
   // An assignment alone (`D=…`) is inert; one in front of a command, or a wrapper (`env -S`, `xargs`, `timeout`),
   // changes what runs (`LESSOPEN=…`).
-  if (cmd.name === "") return !words(cmd.raw ?? "").every((w) => ASSIGNMENT.test(w) || RESERVED.has(w));
+  // An assignment alone is inert, unless its value is the leak home (`HOME=<leak home>; cd ~`).
+  if (cmd.name === "") return !words(cmd.raw ?? "").every((w) => (ASSIGNMENT.test(w) && !namesCorpus(w.slice(w.indexOf("=") + 1), cwd ?? eventCwd, true) && !/(?:^|\/)work\/leakscan\/?$/.test(w)) || RESERVED.has(w));
   const scanner = scannerRun(cmd) === "exact";
   if (!scanner && prefixOf(cmd).some((w) => !RESERVED.has(w))) return true;
   // pushd with no folder (or +N) and popd move to a folder the reader does not follow.
@@ -1603,6 +1661,14 @@ function recordUnsafe(cmd, eventCwd) {
     // Run from the leak home itself, or from a folder the reader lost (a cd to a variable, `-`, `~-`), a viewer
     // with no path (or `grep -r`) reads the corpus.
     if (cwd === null || corpusPath(cwd)) return true;
+    const recursive = cmd.name === "rg" || (["grep", "egrep", "fgrep", "diff"].includes(cmd.name) && cmd.args.some((w) => /^-[A-Za-z]*[rR]|^--(?:recursive|dereference-recursive)$/.test(w)));
+    if (recursive) {
+      const homes = [LEAK_FOLDER, join(repoTop(cwd), ".private/work/leakscan"), join(MAIN_CHECKOUT, ".private/work/leakscan")];
+      // Its roots: every operand but grep's pattern (any operand may be one: fail closed), or the folder itself.
+      const operands = cmd.args.filter((w) => !w.startsWith("-"));
+      const roots = (operands.length > (cmd.name === "diff" ? 0 : 1) ? operands : [".", ...operands]).map((w) => resolve(cwd, w));
+      if (roots.some((root) => homes.some((home) => home === root || home.startsWith(`${root.replace(/\/+$/, "")}/`)))) return true;
+    }
     // A word expanded at run time (`C=…corpus; cat $C`) could name the corpus.
     if (cmd.args.some((w) => namesCorpus(w, cwd) || /[$`]/.test(w))) return true;
   }
@@ -1620,7 +1686,8 @@ function blindRead(cmd) {
   if ((!METADATA_VIEWERS.has(cmd.name) || prefixOf(cmd).some((w) => !RESERVED.has(w))) && words(cmd.raw ?? "").some(corpusWord)) return true;
   const jsonTool = /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "json.tool";
   if (!CONTENT_VIEWERS.has(cmd.name) && !jsonTool) return false;
-  const operands = cmd.args.slice(jsonTool ? 2 : 0).filter((w) => !w.startsWith("-") || w === "-");
+  let operands = cmd.args.slice(jsonTool ? 2 : 0).filter((w, k, all) => (!w.startsWith("-") || w === "-") && !/^(?:-e|--regexp|-f|--file|-m|--max-count|-A|-B|-C|--context)$/.test(all[k - 1] ?? ""));
+  if (["grep", "egrep", "fgrep", "rg"].includes(cmd.name) && !cmd.args.some((w) => /^(?:-e|--regexp|-f|--file)(?:=|$)|^-[A-Za-z]*[ef]$/.test(w))) operands = operands.slice(1);
   const searches = ["rg"].includes(cmd.name) || cmd.args.some((w) => /^-[A-Za-z]*[rR]|^--(?:recursive|dereference-recursive)$/.test(w));
   const relative = redirectsOf(cmd.raw ?? "").some(({ op, target }) => op.startsWith("<") && !op.includes("&") && !target.startsWith("/"));
   return relative || searches || operands.some((w) => w !== "-" && !w.startsWith("/"));
@@ -1646,6 +1713,12 @@ function codeTouchesRecords(code) {
 function recordForged(analysis, command, eventCwd) {
   const flat = flatten(command);
   if (/\b(?:VEXTRUS_LEAKSCAN_HOME|VEXTRUS_LEAKSCAN_ALLOWLIST|VEXTRUS_MAIN_CHECKOUT)\s*=/.test(flat)) return true;
+  // Text the command writes and may then run, which cannot be read whole.
+  if (analysis.unjudged) return true;
+  // With HOME set by the command itself, `~` names a folder the reader does not know.
+  if (reassigned.has("HOME") && analysis.cmds.some((cmd) => words(cmd.raw ?? "").some((w) => /^~(?:\/|$)/.test(w)))) return true;
+  // A program at run time from a variable the command sets to the ledger writer (`S=scripts/ledger.py; python3 $S record`).
+  if (!orchestrators && analysis.cmds.some((cmd) => ledgerVariable(analysis, cmd))) return true;
   for (const cmd of analysis.cmds) {
     if (!orchestrators && (ledgerRecord(cmd) || ledgerNamed(analysis, cmd) || ledgerCopied(analysis, cmd) || moduleFromXargs(cmd))) return true;
     const run = scannerRun(cmd);
