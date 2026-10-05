@@ -127,7 +127,7 @@ def test_y1_a_session_that_is_not_a_full_uuid_is_refused(say: Say) -> None:
 
 
 # Y2
-@pytest.mark.parametrize(("state", "pid"), [("done", None), ("working", 4242), ("blocked", 4242)])
+@pytest.mark.parametrize(("state", "pid"), [("done", 4242), ("working", 4242), ("blocked", 4242)])
 def test_y2_a_live_session_gets_the_prefixed_text_for_sendmessage_and_no_resume(
     say: Say, state: str, pid: int | None
 ) -> None:
