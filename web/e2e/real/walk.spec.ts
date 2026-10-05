@@ -97,7 +97,7 @@ type SnapshotSheet = {
   id: string
   file: string
   number: string | null
-  title: string
+  title: string | null
   discipline: string | null
   layout: boolean
   proposed_exclusion: string | null
@@ -332,11 +332,12 @@ async function snapshotOf(api: Api, projectId: string, actsBefore: number): Prom
   const sheets: SnapshotSheet[] = proposals.map((p) => ({
     id: p.id,
     file: p.file_name,
-    number: p.number,
-    title: p.title,
+    // An untitled or unnumbered Sheet reads "" in the API: the snapshot holds null.
+    number: p.number || null,
+    title: p.title || null,
     discipline: snapshotDiscipline(p.discipline),
     layout: p.layout !== null,
-    proposed_exclusion: p.proposed_exclusion,
+    proposed_exclusion: p.proposed_exclusion || null,
     held: p.held,
     agrees: p.agrees,
     storeys: [...new Set(p.views.flatMap((v) => v.storeys))],

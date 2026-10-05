@@ -234,3 +234,24 @@ def test_a_question_status_the_product_never_gives_leaves_the_set_unmeasured(
     measured = _attach(tmp_path, entry, _expect())
 
     assert measured["sets"]["set-c"]["measures"] == {"unmeasured": 1}
+
+
+@pytest.mark.parametrize("blank", ["title", "number", "proposed_exclusion"])
+def test_an_untitled_sheet_reading_empty_text_is_measured(tmp_path: Path, blank: str) -> None:
+    entry = _entry()
+    entry["sheets"][0][blank] = ""  # the API's untitled Sheet, as an older snapshot holds it
+
+    measured = _attach(tmp_path, entry, _expect())
+
+    assert measured["sets"]["set-c"]["measures"]["unmeasured"] == 0
+
+
+@pytest.mark.parametrize("views", [["not_stated"], []])
+def test_a_view_that_states_no_storey_falls_back_to_the_title(tmp_path: Path, views: list[str]) -> None:
+    entry = _entry()
+    entry["sheets"][0].update(storeys=views, storeys_titled=["U2", "U3"])
+    listed = [{"file": "oscar.dwg", "number": "P-01", "storeys": ["U3", "U2"]}]
+
+    measured = _attach(tmp_path, entry, _expect(storeys=listed))
+
+    assert measured["sets"]["set-c"]["measures"]["storeys_wrong"] == 0

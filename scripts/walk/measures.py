@@ -31,7 +31,8 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
   open, `bulk_after_gaps` (absent: that row's count is null, the share unmeasured);
 - stale: listed pairs of equal titles (case and spacing folded) that no Question holds together (a
   listed Sheet absent from the snapshot cannot be shown grouped: it counts);
-- storeys: the Views' union, else the as-titled storeys; a listed Sheet absent is wrong.
+- storeys: the Views' union, else the as-titled storeys (`not_stated` is none); a listed Sheet absent
+  is wrong.
 """
 
 import copy
@@ -52,6 +53,8 @@ CONFLICT_CODES = frozenset({SAME_TITLE, SAME_STOREY, SAME_NUMBER})
 GAP_CODES = frozenset({"engine.register_check.gap", "engine.register_check.gaps"})
 """A numbering gap, asked per missing number or (t229) all of a Discipline's at once."""
 OPEN = "open"
+NOT_STATED = frozenset({"not_stated"})
+"""The storey code of a title that states none (engine/recognise/storeys.py): no storey."""
 STATUSES = frozenset({OPEN, "answered", "withdrawn"})
 """The product's Question statuses; any other leaves the set unmeasured (it would vanish from every
 count, and a Question must never pass unseen)."""
@@ -125,7 +128,8 @@ Key = tuple[str, str]
 
 
 def _text(value: object, *, optional: bool = False) -> str | None:
-    if value is None and optional:
+    """Text; where it is optional, null or "" (the API's untitled Sheet, an older snapshot) is None."""
+    if optional and (value is None or value == ""):
         return None
     if not isinstance(value, str) or not value or len(value) > TEXT_LIMIT:
         raise Unmeasurable("a value is not text")
@@ -412,7 +416,10 @@ def storeys_wrong(snap: SetSnapshot, listed: object) -> tuple[int, int]:
 
 
 def _product_storeys(sheet: Sheet) -> frozenset[str]:
-    return sheet.storeys or sheet.storeys_titled or frozenset()
+    """The Views' storeys, else the as-titled ones; `not_stated` is no storey (so a View that states
+    none falls back to the title)."""
+    views = sheet.storeys - NOT_STATED
+    return views or (sheet.storeys_titled or frozenset()) - NOT_STATED
 
 
 def bulk_by_discipline(snap: SetSnapshot) -> dict[str, int | None]:
