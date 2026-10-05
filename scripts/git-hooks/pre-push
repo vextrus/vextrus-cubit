@@ -64,7 +64,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     "$python" -m tools.leakscan range "$base..$local_sha" --ref "$remote_ref" --no-stamp </dev/null >&2
   code=$?
   if [ "$code" -ne 0 ]; then
-    echo "pre-push: the leak scan (the main checkout's scanner and corpus) refused a pushed ref (exit $code); remove the text, or allowlist a generic line with \`python -m tools.leakscan allow <file>:<line>\`" >&2
+    echo "pre-push: the leak scan (the main checkout's scanner and corpus) refused a pushed ref (exit $code); remove the text, or allowlist generic words with \`python -m tools.leakscan allow <file>:<line>\`, \`allow commit:<sha12>:<n>\`, \`allow --range <base>..<head> name:<i>\` or \`allow ref:<name>\`; a hit in a commit message is cleared by rewording the commit, or by \`allow commit:<sha12>:<n>\` when the words are generic" >&2
     status=1
   fi
 done

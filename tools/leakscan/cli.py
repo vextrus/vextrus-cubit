@@ -19,6 +19,12 @@ from tools.leakscan.core import CannotScan, Corpus
 
 USAGE = 64
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?Z?)?")
+_HEX40 = re.compile(r"[0-9a-f]{40}")
+_ORIGIN_MAIN = "refs/remotes/origin/main"
+# `allow`'s locations (contract section 2): a commit message line, a range's file name, a ref name.
+_AT_COMMIT = re.compile(r"commit:([0-9a-f]{7,40}):([0-9]+)")
+_AT_NAME = re.compile(r"name:([0-9]+)")
+_LINE = re.compile(r"[0-9]+")
 
 
 class UsageError(Exception):
@@ -60,6 +66,7 @@ def _parser() -> argparse.ArgumentParser:
     bodies = commands.add_parser("bodies", parents=[common], allow_abbrev=False)
     bodies.add_argument("--since", required=True)
     allow = commands.add_parser("allow", parents=[common], allow_abbrev=False)
+    allow.add_argument("--range")
     allow.add_argument("locations", nargs="+")
     verify = commands.add_parser("verify-stamp", parents=[common], allow_abbrev=False)
     verify.add_argument("name")
@@ -114,18 +121,16 @@ def _scan(options: argparse.Namespace) -> int:
         _report(None, None, options, "skipped", "no-corpus")
         return 0
     stamp: tuple[str, str] | None = None
+    unstamped: str | None = None
     command = options.command
     if command == "range":
-        if options.span.count("..") != 1 or "..." in options.span:
-            raise UsageError("range takes <base>..<head>")
-        base_rev, head_rev = options.span.split("..")
         repo = Path.cwd()
-        base, head = scan.resolve(repo, base_rev), scan.resolve(repo, head_rev)
-        result = scan.scan_range(corpus, repo, base, head, options.ref)
-        if core.is_ancestor(repo, base, "refs/remotes/origin/main") and core.is_ancestor(
-            repo, base, head
-        ):
-            stamp = (head, f"{base}..{head}")
+        base, head, scanned, stampable = _span(repo, options.span)
+        result = scan.scan_range(corpus, repo, scanned, head, options.ref)
+        if stampable:
+            stamp = (head, f"{scanned}..{head}")
+        elif result.total == 0 and not options.no_stamp:
+            unstamped = _unstamped_line(repo, base, head)
     elif command in ("file", "text"):
         if command == "file":
             try:
@@ -148,7 +153,44 @@ def _scan(options: argparse.Namespace) -> int:
     if result.total == 0 and stamp is not None and not getattr(options, "no_stamp", False):
         core.write_stamp(stamp[0], corpus.sha256, stamp[1])
     _report(result, corpus, options, "hits" if result.total else "clean", None)
+    if unstamped is not None:
+        print(unstamped, file=sys.stderr)
     return 1 if result.total else 0
+
+
+def _span(repo: Path, span: str) -> tuple[str, str, str, bool]:
+    """`<base>..<head>` resolved: `(base, head, the base to scan from, whether a clean scan stamps)`.
+
+    A base that is an ancestor of the head is scanned as given, and stamps when it is also an ancestor
+    of origin/main (contract section 4, rule 3). A base that is not (the natural `origin/main..HEAD`
+    once another PR has landed) gives way to its merge-base with the head when that is an ancestor of
+    origin/main: `merge-base..head` holds every commit `base..head` does, never fewer."""
+    if span.count("..") != 1 or "..." in span:
+        raise UsageError("range takes <base>..<head>")
+    base_rev, head_rev = span.split("..")
+    base, head = scan.resolve(repo, base_rev), scan.resolve(repo, head_rev)
+    if core.is_ancestor(repo, base, head):
+        return base, head, base, core.is_ancestor(repo, base, _ORIGIN_MAIN)
+    merge = _merge_base(repo, base, head)
+    if merge is not None and core.is_ancestor(repo, merge, _ORIGIN_MAIN):
+        return base, head, merge, True
+    return base, head, base, False
+
+
+def _merge_base(repo: Path, one: str, two: str) -> str | None:
+    done = core.git(repo, "merge-base", one, two)
+    merge = done.stdout.strip()
+    return merge if done.returncode == 0 and _HEX40.fullmatch(merge) else None
+
+
+def _unstamped_line(repo: Path, base: str, head: str) -> str:
+    """Why a clean range wrote no stamp, and the range that would (shas only, never scanned text)."""
+    line = (
+        f"leakscan: clean, but no stamp written: {base[:12]} is not an ancestor of origin/main "
+        "and of the head"
+    )
+    merge = _merge_base(repo, _ORIGIN_MAIN, head)
+    return line if merge is None else f"{line}; scan {merge[:12]}..{head[:12]}"
 
 
 def _build(options: argparse.Namespace) -> int:
@@ -193,31 +235,71 @@ def _build(options: argparse.Namespace) -> int:
     return 0
 
 
+def _location(location: str, ranged: bool) -> tuple[str, str, int]:
+    """One `allow` location as `(kind, text, number)`; a malformed one is a usage error."""
+    if location.startswith("commit:"):
+        match = _AT_COMMIT.fullmatch(location)
+        if match is None or int(match[2]) < 1:
+            raise UsageError("allow takes commit:<sha>:<line>")
+        return "commit", match[1], int(match[2])
+    if location.startswith("name:"):
+        match = _AT_NAME.fullmatch(location)
+        if match is None or not ranged:
+            raise UsageError("allow takes --range <base>..<head> name:<i>")
+        return "name", "", int(match[1])
+    if location.startswith("ref:"):
+        if location == "ref:":
+            raise UsageError("allow takes ref:<name>")
+        return "ref", location[len("ref:") :], 0
+    file, _, number = location.rpartition(":")
+    if not file or not _LINE.fullmatch(number) or int(number) < 1:
+        raise UsageError("allow takes <file>:<line>")
+    return "file", file, int(number)
+
+
 def _allow(options: argparse.Namespace) -> int:
-    """Hashes the corpus strings that hit on each `<file>:<line>` into the allowlist (none: refused)."""
-    places: list[tuple[str, int]] = []
-    for location in options.locations:
-        file, _, number = location.rpartition(":")
-        if not file or not number.isdigit() or int(number) < 1:
-            raise UsageError("allow takes <file>:<line>")
-        places.append((file, int(number)))
+    """Hashes the corpus strings that hit at each location into the allowlist: `<file>:<line>`,
+    `commit:<sha>:<line>`, `name:<i>` (of `--range`) or `ref:<name>`, each read as the scan reads it.
+    No hit at all, a sha that names no commit, or a message line or name index past the end: refused,
+    nothing appended."""
+    places = [_location(location, options.range is not None) for location in options.locations]
+    repo = Path.cwd()
+    names: list[str] = []
+    if any(kind == "name" for kind, _, _ in places):
+        _, head, scanned, _ = _span(repo, options.range)
+        names = scan.range_names(repo, scanned, head)
     corpus = Corpus.load()
     found: set[str] = set()
     files: dict[str, list[str]] = {}
-    for file, number in places:
-        if file not in files:
-            try:
-                files[file] = Path(file).read_bytes().decode("utf-8", "replace").split("\n")
-            except OSError:
-                raise CannotScan("source-unreadable") from None
-        lines = files[file]
-        line = lines[number - 1] if number <= len(lines) else ""
-        found |= corpus.found(line)
-        if number < len(lines):
-            # The scan also tests a line joined with the next one (a string wrapped over two lines).
-            # Only strings that span the break: one wholly on the next line is that line's own hit.
-            nxt = lines[number]
-            found |= corpus.found(scan.joined(line, nxt)) - corpus.found(nxt) - corpus.found(line)
+    for kind, text, number in places:
+        if kind == "file":
+            if text not in files:
+                try:
+                    files[text] = Path(text).read_bytes().decode("utf-8", "replace").split("\n")
+                except OSError:
+                    raise CannotScan("source-unreadable") from None
+            # A file line reads as an added line does: as written, not as a slug.
+            found |= scan.line_found(corpus, files[text], number, slug=False)
+        elif kind == "commit":
+            done = core.git(
+                repo, "rev-parse", "--verify", "-q", "--end-of-options", f"{text}^{{commit}}"
+            )
+            sha = done.stdout.strip()
+            if done.returncode != 0 or not sha.startswith(text):
+                print("leakscan: allow refused: a commit location names no commit", file=sys.stderr)
+                return 1
+            lines = scan.message_lines(repo, sha)
+            if number > len(lines):
+                print("leakscan: allow refused: a line past the message's end", file=sys.stderr)
+                return 1
+            found |= scan.line_found(corpus, lines, number, slug=True)
+        elif kind == "name":
+            if number >= len(names):
+                print("leakscan: allow refused: a name index past the range's names", file=sys.stderr)
+                return 1
+            found |= scan.found_in(corpus, names[number], slug=True)
+        else:
+            found |= scan.found_in(corpus, text, slug=True)
     if not found:
         print("leakscan: allow refused: no hit on the given lines", file=sys.stderr)
         return 1

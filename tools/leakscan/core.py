@@ -21,6 +21,11 @@ CORPUS_FLOOR = 100
 _LETTER_RUN = re.compile(r"[^\W\d_]{3}")
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
+# A real-drawing run id (scripts/real_drawings/command.py), normalised: tool-made, not drawing text.
+_RUN_ID = re.compile(r"\d{8}T\d{6}Z-[0-9A-F]{12}-[0-9A-F]{4}")
+# Slug boundaries: letter to digit and lower to upper (camel case); runs of the slug separators.
+_CAMEL = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=[a-z])(?=[A-Z])")
+_SEPARATORS = re.compile(r"[-_./\\+]+")
 
 
 _UNREADABLE = (OSError, ValueError)  # UnicodeDecodeError is a ValueError
@@ -61,8 +66,19 @@ def normalise(text: str) -> str:
 
 
 def keeps(normalised: str) -> bool:
-    """A corpus string: 8 or more characters with a run of three letters."""
-    return len(normalised) >= MIN_LENGTH and _LETTER_RUN.search(normalised) is not None
+    """A corpus string: 8 or more characters with a run of three letters, and not a run id."""
+    return (
+        len(normalised) >= MIN_LENGTH
+        and _LETTER_RUN.search(normalised) is not None
+        and _RUN_ID.fullmatch(normalised) is None
+    )
+
+
+def slug_forms(text: str) -> str:
+    """`text` read as a slug: a space at each letter-to-digit and lower-to-upper boundary, each run of
+    `-_./\\+` one space, then normalised (`zebra-quarry_7` and `ZebraQuarry7` read `ZEBRA QUARRY 7`)."""
+    spaced = _CAMEL.sub(" ", unicodedata.normalize("NFKC", text))
+    return normalise(_SEPARATORS.sub(" ", spaced))
 
 
 def digest(text: str) -> str:

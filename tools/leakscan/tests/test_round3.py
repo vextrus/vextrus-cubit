@@ -7,7 +7,19 @@ from pathlib import Path
 
 import pytest
 
-from tools.leakscan.tests.acceptance._leak import MARIGOLD, REPO, ZEBRA, Leak, git_env
+from tools.leakscan import core
+from tools.leakscan.tests.acceptance._leak import (
+    MARIGOLD,
+    REPO,
+    ZEBRA,
+    Leak,
+    assert_no_text,
+    commit,
+    git,
+    git_env,
+    hits,
+    temp_repo,
+)
 
 
 @pytest.fixture
@@ -76,3 +88,116 @@ def test_a_rebuild_that_loses_half_the_corpus_is_refused_unless_forced(leak: Lea
     assert leak.corpus_hash == before
     assert leak.run("build", "--source", str(small), "--force").returncode == 0
     assert leak.corpus_hash != before
+
+
+# ------------------------------------------------------------ T-LEAK-2: slugs, run ids, allow, stamps
+
+
+@pytest.mark.parametrize(
+    ("text", "read"),
+    [
+        ("zebra-quarry_7", "ZEBRA QUARRY 7"),
+        ("ZebraQuarry7", "ZEBRA QUARRY 7"),
+        ("a\\b+c..d//e", "A B C D E"),
+        ("ZEBRA QUARRY", "ZEBRA QUARRY"),
+        ("\uff3aebra\uff31uarry", "ZEBRA QUARRY"),  # NFKC first: full-width Z and Q split as ASCII
+        ("Pvt7731x", "PVT 7731X"),  # a digit to a letter is no boundary
+    ],
+)
+def test_slug_forms(text: str, read: str) -> None:
+    assert core.slug_forms(text) == read
+
+
+def test_a_run_id_is_dropped_only_whole_and_only_in_its_shape() -> None:
+    assert not core.keeps("20261004T042700Z-0123456789AB-9FAC")
+    assert core.keeps("20261004T042700Z-0123456789AB-9FACE")
+    assert core.keeps("X20261004T042700Z-0123456789AB-9FAC")
+    assert core.keeps("20261004T042700Z-0123456789AB-ZZZZ")
+
+
+def test_a_string_found_as_written_and_as_a_slug_counts_once(leak: Leak) -> None:
+    line = f"{ZEBRA} zebra-quarry-holdings-pvt-7731\n"
+    assert hits(leak.run("text", "--stdin", "--no-stamp", stdin=line)) == [("stdin:1", 1)]
+
+
+def test_a_slug_wrapped_over_two_message_lines_hits_at_the_first(leak: Leak) -> None:
+    repo, base = temp_repo(leak.tmp / "work")
+    head = commit(repo, {"b.txt": "clean\n"}, "docs: a note\n\nzebra-quarry-\nholdings-pvt-7731")
+    done = leak.run("range", f"{base}..{head}", "--no-stamp", cwd=repo)
+    assert hits(done) == [(f"commit:{head[:12]}:3", 1)]
+
+
+def test_a_hit_inside_a_slug_named_file_never_prints_its_path(leak: Leak) -> None:
+    repo, base = temp_repo(leak.tmp / "work")
+    head = commit(repo, {"docs/ZebraQuarryHoldingsPvt7731.md": f"{MARIGOLD}\n"}, "docs: a note")
+    done = leak.run("range", f"{base}..{head}", "--no-stamp", cwd=repo)
+    assert hits(done) == [("name:0:1", 1), ("name:0", 1)]
+    assert "docs/" not in done.stdout
+    assert_no_text(done)
+
+
+def test_allow_refuses_a_hex_ref_that_is_not_the_commit_it_names(leak: Leak) -> None:
+    repo, _ = temp_repo(leak.tmp / "work")
+    head = commit(repo, {"b.txt": "clean\n"}, f"docs: a note\n\n{ZEBRA}")
+    git(repo, "branch", "0123456789ab", head)  # a branch named like a sha resolves, but not as one
+    done = leak.run("allow", "commit:0123456789ab:3", cwd=repo)
+    assert done.returncode == 1
+    assert leak.allowlist.read_text().strip() == ""
+
+
+def test_allow_reads_a_file_line_as_written_never_as_a_slug(leak: Leak) -> None:
+    body = leak.tmp / "f.md"
+    body.write_text("zebra-quarry-holdings-pvt-7731\n")
+    assert leak.run("allow", f"{body}:1").returncode == 1
+    assert leak.allowlist.read_text().strip() == ""
+
+
+@pytest.mark.parametrize("location", ["commit:0123456:0", "commit:0123456789ABC:1", "ref:", "x:0"])
+def test_allow_refuses_more_bad_forms_as_usage(leak: Leak, location: str) -> None:
+    assert leak.run("allow", location).returncode == 64
+
+
+def test_allow_name_follows_the_merge_base_substitution(leak: Leak) -> None:
+    repo, _ = temp_repo(leak.tmp / "work")
+    git(repo, "checkout", "-q", "-b", "b")
+    commit(repo, {"docs/zebra-quarry-holdings-pvt-7731.md": "clean\n"}, "docs: a note")
+    git(repo, "checkout", "-q", "main")
+    newer = commit(repo, {"m.txt": "landed\n"}, "main: another PR landed")
+    git(repo, "update-ref", "refs/remotes/origin/main", newer)
+    # From the newer main, `range` scans merge-base..b: one name, the slug's; `allow` sees the same.
+    assert hits(leak.run("range", "origin/main..b", "--no-stamp", cwd=repo)) == [("name:0", 1)]
+    assert leak.run("allow", "--range", "origin/main..b", "name:0", cwd=repo).returncode == 0
+    assert leak.run("range", "origin/main..b", cwd=repo).returncode == 0
+    assert (leak.home / "ok" / git(repo, "rev-parse", "b")).is_file()
+
+
+def test_a_base_whose_merge_base_is_off_main_scans_as_asked_and_says_why(leak: Leak) -> None:
+    repo, base = temp_repo(leak.tmp / "work")
+    side = commit(repo, {"s.txt": "side\n"}, "side: not on origin/main")
+    git(repo, "checkout", "-q", "-b", "x", side)
+    left = commit(repo, {"l.txt": "left\n"}, "left")
+    git(repo, "checkout", "-q", "-b", "y", side)
+    right = commit(repo, {"r.txt": "right\n"}, "right")
+    done = leak.run("range", f"{left}..{right}", cwd=repo)
+    assert done.returncode == 0
+    assert leak.stamps() == []
+    assert done.stderr.splitlines() == [
+        (
+            f"leakscan: clean, but no stamp written: {left[:12]} is not an ancestor of origin/main and "
+            f"of the head; scan {base[:12]}..{right[:12]}"
+        )
+    ]
+
+
+def test_a_range_without_origin_main_says_why_with_no_scan_advice(leak: Leak) -> None:
+    repo, base = temp_repo(leak.tmp / "work")
+    git(repo, "update-ref", "-d", "refs/remotes/origin/main")
+    head = commit(repo, {"b.txt": "clean\n"}, "feat: clean")
+    done = leak.run("range", f"{base}..{head}", cwd=repo)
+    assert done.returncode == 0
+    assert done.stderr.splitlines() == [
+        (
+            f"leakscan: clean, but no stamp written: {base[:12]} is not an ancestor of origin/main and "
+            "of the head"
+        )
+    ]

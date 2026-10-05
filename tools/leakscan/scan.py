@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.leakscan import pdftext
-from tools.leakscan.core import CannotScan, Corpus, git
+from tools.leakscan.core import CannotScan, Corpus, git, slug_forms
 
 _GH_FAILED = (OSError, subprocess.TimeoutExpired)
 _HUNK = re.compile(r"^@@+ -\d+(?:,\d+)?(?: -\d+(?:,\d+)?)* \+(\d+)(?:,\d+)? @@")
@@ -50,6 +50,26 @@ def joined(first: str, second: str) -> str:
     return f"{_PREFIX.sub('', first)} {_PREFIX.sub('', second)}"
 
 
+def found_in(corpus: Corpus, text: str, slug: bool) -> set[str]:
+    """The corpus strings `text` holds as written, and with `slug` also as a slug (`slug_forms`): the
+    union, so a string found both ways counts once. Never print what this returns."""
+    found = corpus.found(text)
+    return found | corpus.found(slug_forms(text)) if slug else found
+
+
+def line_found(corpus: Corpus, lines: list[str], number: int, slug: bool) -> set[str]:
+    """What `Result.block` counts at line `number` (1-based) of `lines`: its own strings and those found
+    only by joining it with the next line. A line past the end holds nothing."""
+    if not 1 <= number <= len(lines):
+        return set()
+    line = lines[number - 1]
+    found = found_in(corpus, line, slug)
+    if number < len(lines):
+        nxt = lines[number]
+        found |= found_in(corpus, joined(line, nxt), slug) - found_in(corpus, nxt, slug) - found
+    return found
+
+
 @dataclass
 class Result:
     """The hits (`where`, count) in scan order and the number of lines, messages and names examined."""
@@ -58,21 +78,24 @@ class Result:
     scanned: int = 0
 
     def test(self, corpus: Corpus, where: str, text: str) -> int:
+        """One name, ref, title or branch: read as written and as a slug."""
         self.scanned += 1
-        count = corpus.count(text)
+        count = len(found_in(corpus, text, slug=True))
         if count:
             self.hits.append((where, count))
         return count
 
-    def block(self, corpus: Corpus, rows: list[tuple[str, int, str]]) -> None:
+    def block(self, corpus: Corpus, rows: list[tuple[str, int, str]], slug: bool = False) -> None:
         """Lines of one file in order, `(where, line number, text)`. Each pair of adjacent lines is also
         tested joined, comment and list markers dropped, so a string wrapped over two lines is found; a
-        string found only that way counts at the first line."""
-        found = [corpus.found(text) for _, _, text in rows]
+        string found only that way counts at the first line. `slug`: messages and bodies are also read
+        as slugs; a diff's, a folder's or a blob's lines are not."""
+        found = [found_in(corpus, text, slug) for _, _, text in rows]
         extra: list[set[str]] = [set() for _ in rows]
         for i in range(len(rows) - 1):
             if rows[i + 1][1] == rows[i][1] + 1:
-                extra[i] = corpus.found(joined(rows[i][2], rows[i + 1][2])) - found[i] - found[i + 1]
+                pair = joined(rows[i][2], rows[i + 1][2])
+                extra[i] = found_in(corpus, pair, slug) - found[i] - found[i + 1]
         for (where, _, _), own, more in zip(rows, found, extra, strict=True):
             self.scanned += 1
             count = len(own | more)
@@ -130,7 +153,7 @@ def scan_diff(corpus: Corpus, result: Result, diff: str, names: list[str]) -> No
     """Added lines by `<path>:<line>`; `name:<i>:<line>` where the path holds a corpus string, and
     `unknown:<line>` for a path git's name list does not hold (a path is printed only from that list)."""
     named = {name: i for i, name in enumerate(names)}
-    matched = {name for name in names if corpus.count(name)}
+    matched = {name for name in names if found_in(corpus, name, slug=True)}
     rows: dict[str, list[tuple[str, int, str]]] = {}
     for path, number, text in added_lines(diff):
         if path not in named:
@@ -261,9 +284,14 @@ def scan_blob(corpus: Corpus, result: Result, where: str, data: bytes) -> None:
     result.block(corpus, [(f"{where}:{n}", 0, text) for n, text in enumerate(texts, start=1)])
 
 
+def message_lines(repo: Path, sha: str) -> list[str]:
+    """A commit's message as `range` reads it, by line (`commit:<sha12>:<n>` is line n)."""
+    return _run(repo, "log", "-1", "--format=%B", sha, "--").strip("\n").split("\n")
+
+
 def scan_message(corpus: Corpus, result: Result, sha: str, message: str) -> None:
     rows = [(f"commit:{sha[:12]}:{n}", n, text) for n, text in enumerate(message.split("\n"), start=1)]
-    result.block(corpus, rows)
+    result.block(corpus, rows, slug=True)
 
 
 def scan_names(corpus: Corpus, result: Result, names: list[str]) -> None:
@@ -298,13 +326,34 @@ def scan_commit(corpus: Corpus, result: Result, repo: Path, sha: str, names: lis
     """One commit's own changes (against its parent; a merge, what it did beyond the automatic merge):
     its added lines, read as text whatever `.gitattributes` says, and every binary blob it adds. New file
     names are appended to `names`."""
-    parents = _run(repo, "rev-list", "--parents", "-n", "1", sha).split()[1:]
+    parents = _parents(repo, sha)
     common = ["--no-color", "--no-ext-diff", "--no-textconv", "--text", "--unified=0", "--no-renames"]
     if len(parents) > 1:
         patch = _run(repo, "show", "--remerge-diff", "--format=", *common, sha, "--")
-        raw = _run(repo, "diff-tree", "-r", "-z", "--no-renames", "-m", "--first-parent", sha, "--")
     else:
         patch = _run(repo, "diff-tree", "-p", "-r", "--root", *common, sha, "--")
+    changed = _changed(repo, sha, parents)
+    _add_names(names, changed)
+    scan_diff(corpus, result, patch, names)
+    for mode, blob, path in changed:
+        if blob == _ZERO or mode.startswith("160") or mode == "000000":
+            continue
+        data = _blob(repo, blob)
+        if b"\0" in data[:8000] or data.startswith((b"\x1f\x8b", b"PK\x03\x04", b"%PDF")):
+            index = names.index(path)
+            where = f"name:{index}" if found_in(corpus, path, slug=True) else path
+            scan_blob(corpus, result, where, data)
+
+
+def _parents(repo: Path, sha: str) -> list[str]:
+    return _run(repo, "rev-list", "--parents", "-n", "1", sha).split()[1:]
+
+
+def _changed(repo: Path, sha: str, parents: list[str]) -> list[tuple[str, str, str]]:
+    """`(new mode, new blob, path)` per path a commit changes (a merge: against its first parent)."""
+    if len(parents) > 1:
+        raw = _run(repo, "diff-tree", "-r", "-z", "--no-renames", "-m", "--first-parent", sha, "--")
+    else:
         raw = _run(repo, "diff-tree", "-r", "-z", "--root", "--no-renames", sha, "--")
     fields = raw.split("\0")
     changed: list[tuple[str, str, str]] = []
@@ -317,29 +366,35 @@ def scan_commit(corpus: Corpus, result: Result, repo: Path, sha: str, names: lis
             i += 2
         else:
             i += 1
+    return changed
+
+
+def _add_names(names: list[str], changed: list[tuple[str, str, str]]) -> None:
     for _, _, path in changed:
         if path not in names:
             names.append(path)
-    scan_diff(corpus, result, patch, names)
-    for mode, blob, path in changed:
-        if blob == _ZERO or mode.startswith("160") or mode == "000000":
-            continue
-        data = _blob(repo, blob)
-        if b"\0" in data[:8000] or data.startswith((b"\x1f\x8b", b"PK\x03\x04", b"%PDF")):
-            index = names.index(path)
-            where = f"name:{index}" if corpus.count(path) else path
-            scan_blob(corpus, result, where, data)
+
+
+def _commits(repo: Path, base: str, head: str) -> list[str]:
+    return _run(repo, "rev-list", "--reverse", "--topo-order", f"{base}..{head}", "--").split()
+
+
+def range_names(repo: Path, base: str, head: str) -> list[str]:
+    """The file names `scan_range` reports as `name:<i>`, in the same order (`allow name:<i>`)."""
+    names: list[str] = []
+    for sha in _commits(repo, base, head):
+        _add_names(names, _changed(repo, sha, _parents(repo, sha)))
+    return names
 
 
 def scan_range(corpus: Corpus, repo: Path, base: str, head: str, ref: str | None) -> Result:
     """A push range, commit by commit (what the push publishes, not only the net diff): each commit's
     added lines and binary blobs, its message, every file name it touches, and the ref name."""
     result = Result()
-    commits = _run(repo, "rev-list", "--reverse", "--topo-order", f"{base}..{head}", "--").split()
     names: list[str] = []
-    for sha in commits:
+    for sha in _commits(repo, base, head):
         scan_commit(corpus, result, repo, sha, names)
-        scan_message(corpus, result, sha, _run(repo, "log", "-1", "--format=%B", sha, "--").strip("\n"))
+        scan_message(corpus, result, sha, "\n".join(message_lines(repo, sha)))
     scan_names(corpus, result, names)
     if ref is not None:
         result.test(corpus, "ref", ref)
@@ -347,10 +402,12 @@ def scan_range(corpus: Corpus, repo: Path, base: str, head: str, ref: str | None
 
 
 def scan_lines(corpus: Corpus, data: bytes, label: str) -> Result:
-    """A body file or standard input, by `<label>:<line>`; bytes that are not UTF-8 read as replaced."""
+    """A body file or standard input, by `<label>:<line>`, each line also read as a slug; bytes that are
+    not UTF-8 read as replaced."""
     result = Result()
     text = data.decode("utf-8", "replace").split("\n")
-    result.block(corpus, [(f"{label}:{n}", n, line) for n, line in enumerate(text, start=1)])
+    rows = [(f"{label}:{n}", n, line) for n, line in enumerate(text, start=1)]
+    result.block(corpus, rows, slug=True)
     if b"\0" in data or data.startswith(b"%PDF"):
         scan_blob(corpus, result, f"{label}:bin", data)
     return result
@@ -422,7 +479,8 @@ def _text(value: object) -> str:
 
 def _body(corpus: Corpus, result: Result, prefix: str, text: str) -> None:
     lines = text.split("\n")
-    result.block(corpus, [(f"{prefix}:{n}", n, line) for n, line in enumerate(lines, start=1)])
+    rows = [(f"{prefix}:{n}", n, line) for n, line in enumerate(lines, start=1)]
+    result.block(corpus, rows, slug=True)
 
 
 def _comments(corpus: Corpus, result: Result, prefix: str, comments: Iterable[object]) -> None:
