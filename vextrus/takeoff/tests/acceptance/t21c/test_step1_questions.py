@@ -211,7 +211,7 @@ def test_two_plans_of_one_storey_subject_and_layer_raise_a_same_storey_conflict(
     read(qs_project, monkeypatch, [
         Sheet("S-01", "SLAB LAYOUT", (plan,)),
         Sheet("S-02", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
-        Sheet("S-03", "SLAB REINFORCEMENT DETAILS", (plan,)),
+        Sheet("S-03", "SLAB REINFORCEMENT PLAN", (plan,)),  # a layout Sheet: T-W334
     ])  # fmt: skip
     api = api_as(qs_project.member)
     listed = proposals(api, qs_project.project_id)
