@@ -415,8 +415,8 @@ Findings scored under 50 are issues #283 (band), #289 (Jev client), #290 (sessio
 ### First act (≤ 30 min, inside the first hour)
 1. `mkdir -p .private/work/session-13`, then `uv run python -m scripts.factory.stamp start --budget <owner's> --state
    .private/work/session-13/STATE.md --phases "hour1=60"`. Every STATE line goes through `uv run python -m
-   scripts.factory.stamp "<text>"`. If `git log origin/main --oneline -20` lacks "/review-pr records its verdict
-   outside the review folder", land #339 first: without it `/review-pr` cannot record its own verdict.
+   scripts.factory.stamp "<text>"`. `/review-pr` records its own verdict in the ledger since #339 (merged 5 Oct,
+   03:03Z): if a Record step reports a refusal, record by hand with `scripts.ledger record` and file it.
 2. Read the machine:
    - `uv run python -m scripts.factory.governor check cloud-session` and `… check local-agent`;
    - `/usage` (pass its lines with `--usage-checked` if the governor cannot read them);
