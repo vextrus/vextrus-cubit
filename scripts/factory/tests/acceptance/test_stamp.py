@@ -203,6 +203,7 @@ def test_s6_a_builders_budget_record_lives_in_the_main_repos_git_folder(
         "ticket": "f3",
         "minutes": 150,
         "started_utc": "2026-10-04T21:00:00Z",
+        "branch": "f3-branch",
     }
     assert not (linked / ".git").is_dir()
 
