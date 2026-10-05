@@ -984,3 +984,34 @@ def test_the_drop_hands_psql_no_pg_setting(tmp_path: Path, monkeypatch: pytest.M
     run.drop_database(walk, tmp_path / "logs" / "drop.txt")
 
     assert seen.read_text().splitlines() == [f"PGPASSFILE={tmp_path / 'pass'}"]
+
+
+def test_the_lock_clears_a_dead_runs_temporary_verdict(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    left = walks / c2 / ".verdict.json.dead.tmp"  # a run killed between its write and its rename
+    left.write_text("{")
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+    with verdict.walk_lock(walks / c2):
+        pass
+
+    assert not left.exists()
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is True
+
+
+def test_a_verdict_that_cannot_be_written_is_an_error_not_a_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    walks, expect_dir, folder = _lay_out(tmp_path, _walk(started_at="2026-10-05T00:00:00Z"))
+
+    def full(path: Path, data: Any) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(verdict, "write_atomic", full)
+    argv = [SHA, "--leak-hits", "0"]
+    argv += ["--walks-dir", str(walks), "--expect-dir", str(expect_dir)]
+
+    assert verdict.main(argv) == 2
+    assert not (folder / "verdict.json").exists()

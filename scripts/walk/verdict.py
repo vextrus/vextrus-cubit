@@ -527,6 +527,10 @@ def walk_lock(folder: Path) -> Iterator[None]:
     handle = os.open(folder / LOCK_NAME, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
     try:
         fcntl.flock(handle, fcntl.LOCK_EX)
+        # A temporary verdict here is a dead run's (no live one writes without the lock); left, its
+        # name would make ready.py refuse every walk.
+        for stale in folder.glob(".*verdict.json.*.tmp"):
+            stale.unlink(missing_ok=True)
         yield
     finally:
         os.close(handle)
@@ -607,13 +611,17 @@ def _judge(args: argparse.Namespace, folder: Path) -> int:
         print("verdict: not judged (the verdict breaks its contract)", file=sys.stderr)
         return 2
     summary = sanitize_walk(verdict)
-    if args.smoke:
-        write_atomic(folder / "public" / "smoke-summary.json", {**summary, "smoke": True})
-        write_atomic(folder / "smoke-verdict.json", {**verdict, "smoke": True})
-    else:
-        write_atomic(folder / "public" / "summary.json", summary)
-        _keep_older(folder)
-        write_atomic(folder / "verdict.json", verdict)  # last: its existence means the walk is over
+    try:
+        if args.smoke:
+            write_atomic(folder / "public" / "smoke-summary.json", {**summary, "smoke": True})
+            write_atomic(folder / "smoke-verdict.json", {**verdict, "smoke": True})
+        else:
+            write_atomic(folder / "public" / "summary.json", summary)
+            _keep_older(folder)
+            write_atomic(folder / "verdict.json", verdict)  # last: its existence ends the walk
+    except OSError as error:  # an error, never a FAIL's exit 1
+        print(f"verdict: not written ({type(error).__name__})", file=sys.stderr)
+        return 2
     print(f"verdict: {verdict['result']} {args.sha[:8]}")
     return 0 if verdict["result"] == "PASS" else 1
 
