@@ -1,7 +1,7 @@
 """The governor: may this machine and this account take one more unit of work now?
 
     python -m scripts.factory.governor check <unit> [--json] [--usage-checked "<lines>"]
-        [--running N] [--agents N] [--rate R --hours-to-reset H]
+        [--running N] [--agents N] [--rate R --hours-to-reset H] [--owns PATH ...]
 
 Units and their memory cost (spec 2.3): `cloud-session` (none: the cloud VM is not this machine, so
 memory, swap and disk are not read), `local-agent` 0.9, `review` (`--agents` x 0.3 + 0.7; default 8
@@ -23,6 +23,18 @@ usage tokens expansion". Cloud sessions are capped at 8 whatever the usage; with
 per builder-hour) and `--hours-to-reset`, `min(16, floor((100 - session) / (rate x hours)))`.
 `--running N` (sessions running now) is refused at or above the cap.
 
+Work in flight (`cloud-session` and `local-agent`, S14-W1): at most 5 builders in flight, counted as
+the open PRs plus the launched builders whose branch has no merged PR (`$VEXTRUS_FACTORY_DIR/launches/
+*.json`: a cloud record whose judge is ok, or a local one; never a reviewer or one whose STOP was sent);
+a builder and its open PR count once (joined on the branch). With `--owns PATH` (repeatable: the files
+the ticket owns): at most 2 open PRs or builders in any hot-file area the owned files touch
+(`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>": ["<repo path or fnmatch glob>",
+...]}}`), and no owned file may be one an open PR changes (the refusal names that PR). Open PRs are the
+stdout of `gh pr list --state all --json number,headRefName,state,files` (`VEXTRUS_PRS_FILE` stands in
+for it). An unreadable record or hot-file list refuses, and so does an unreadable PR list when files are
+named; with none named, the reading says so and the cap counts the records alone. A builder's record
+names its `owns` when the launch gave them.
+
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
 status.schema.json reports them.
 
@@ -42,6 +54,7 @@ usage_checked, readings). Exit 0 ok, 3 refused, 2 usage error.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import math
 import os
@@ -66,6 +79,11 @@ WEEK_HOLD = 100.0
 DEGRADE_AT = 100.0
 CAP_HIGH, CAP_MAX = 8, 16
 REVIEW_DEFAULT_AGENTS = 8
+WIP_CAP = 5
+AREA_CAP = 2
+WORK_UNITS = ("cloud-session", "local-agent")
+HOT_FILES = Path(__file__).with_name("hot-files.json")
+PR_LIST_LIMIT = "500"
 
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
 UNITS = ("cloud-session", "local-agent", "review", "pytest", "web-tests", "walk", "rd-run")
@@ -211,6 +229,93 @@ def parse_agents(text: str) -> list[dict[str, Any]] | None:
     return loaded
 
 
+def prs_text() -> str:
+    seam = _seam("VEXTRUS_PRS_FILE")
+    if seam is not None:
+        return seam
+    return (
+        _run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "all",
+                "--limit",
+                PR_LIST_LIMIT,
+                "--json",
+                "number,headRefName,state,files",
+            ]
+        )
+        or ""
+    )
+
+
+def parse_prs(text: str) -> list[dict[str, Any]] | None:
+    """The `gh pr list` rows, or None unless every row has a number, a branch, a state and file paths."""
+    try:
+        loaded = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(loaded, list):
+        return None
+    for row in loaded:
+        if not (
+            isinstance(row, dict)
+            and isinstance(row.get("number"), int)
+            and isinstance(row.get("headRefName"), str)
+            and isinstance(row.get("state"), str)
+            and isinstance(row.get("files"), list)
+            and all(isinstance(f, dict) and isinstance(f.get("path"), str) for f in row["files"])
+        ):
+            return None
+    return loaded
+
+
+def read_prs() -> list[dict[str, Any]] | None:
+    return parse_prs(prs_text())
+
+
+def read_builders() -> list[dict[str, Any]] | None:
+    """The launched builders: cloud records whose judge is ok and local ones, never a reviewer.
+    None when a record is unreadable (it may be a builder: fail closed)."""
+    builders: list[dict[str, Any]] = []
+    for path in sorted((status.factory_dir() / "launches").glob("*.json")):
+        if path.name.endswith(".agents.json"):
+            continue
+        try:
+            record = json.loads(path.read_text())
+        except status.RECORD_ERRORS:
+            return None
+        if not isinstance(record, dict) or not isinstance(record.get("branch"), str):
+            return None
+        if record.get("role", "builder") == "reviewer" or record.get("review") is not None:
+            continue
+        if record.get("stop_sent") is True:
+            continue
+        judge = record.get("judge")
+        if record.get("where") == "local" or (isinstance(judge, dict) and judge.get("ok") is True):
+            builders.append(record)
+    return builders
+
+
+def read_hot_areas() -> dict[str, list[str]] | None:
+    try:
+        areas = json.loads(HOT_FILES.read_text())["areas"]
+    except status.RECORD_ERRORS:
+        return None
+    if not isinstance(areas, dict) or not all(
+        isinstance(paths, list) and all(isinstance(entry, str) for entry in paths)
+        for paths in areas.values()
+    ):
+        return None
+    return areas
+
+
+def in_area(path: str, entries: list[str]) -> bool:
+    return any(path == entry or fnmatch.fnmatchcase(path, entry) for entry in entries)
+
+
 def read_memory() -> Memory | None:
     return parse_meminfo(meminfo_text())
 
@@ -291,6 +396,7 @@ def check(
     rate: float | None = None,
     hours_to_reset: float | None = None,
     usage_checked: str | None = None,
+    owns: tuple[str, ...] | list[str] = (),
 ) -> Verdict:
     verdict = Verdict(unit)
     if unit != "cloud-session":
@@ -306,6 +412,8 @@ def check(
             verdict.readings["local_agents"] = count
             if count >= MAX_LOCAL_AGENTS:
                 verdict.reasons.append(f"{count} local agents running, the most is {MAX_LOCAL_AGENTS}")
+    if unit in WORK_UNITS:
+        _check_work(verdict, list(owns))
     _check_exclusions(verdict)
     return verdict
 
@@ -384,6 +492,71 @@ def _check_usage(
             verdict.reasons.append(f"{running} cloud sessions running, the cap is {verdict.cap}")
 
 
+def _check_work(verdict: Verdict, owns: list[str]) -> None:
+    """The WIP cap, the hot-file areas and the open PRs' files (S14-W1)."""
+    prs = read_prs()
+    builders = read_builders()
+    if builders is None:
+        verdict.reasons.append("a launch record is unreadable")
+        return
+    if prs is None:
+        if owns:
+            verdict.reasons.append("the open PR list (gh pr list --state all) is unreadable")
+            return
+        # A launch that names no files keeps today's checks: only the cap sees less.
+        verdict.readings["open_prs"] = "unreadable: WIP counts launch records only"
+        prs = []
+    open_prs = [row for row in prs if row["state"] == "OPEN"]
+    landed = {row["headRefName"] for row in prs if row["state"] == "MERGED"}
+    open_branches = {row["headRefName"] for row in open_prs}
+    # One entry per unit of work: an open PR, or a launched builder with no open PR yet.
+    units: list[dict[str, Any]] = [
+        {
+            "label": f"PR {row['number']}",
+            "files": [f["path"] for f in row["files"]],
+        }
+        for row in open_prs
+    ]
+    counted = set(open_branches)
+    for record in builders:
+        branch = record["branch"]
+        if branch in landed or branch in counted:
+            continue
+        counted.add(branch)
+        owned = record.get("owns")
+        units.append(
+            {
+                "label": f"builder {branch}",
+                "files": [p for p in owned if isinstance(p, str)] if isinstance(owned, list) else [],
+            }
+        )
+    verdict.readings["wip"] = len(units)
+    if len(units) >= WIP_CAP:
+        names = ", ".join(unit["label"] for unit in units)
+        verdict.reasons.append(f"WIP: {len(units)} builders in flight, the cap is {WIP_CAP} ({names})")
+    if not owns:
+        return
+    holders = [row["number"] for row in open_prs if {f["path"] for f in row["files"]} & set(owns)]
+    if holders:
+        verdict.reasons.append(
+            "an open PR changes files this launch owns: "
+            + ", ".join(f"PR {number}" for number in holders)
+        )
+    areas = read_hot_areas()
+    if areas is None:
+        verdict.reasons.append("the hot-file list (scripts/factory/hot-files.json) is unreadable")
+        return
+    for area, entries in areas.items():
+        if not any(in_area(path, entries) for path in owns):
+            continue
+        busy = [unit["label"] for unit in units if any(in_area(p, entries) for p in unit["files"])]
+        if len(busy) >= AREA_CAP:
+            verdict.reasons.append(
+                f"hot-file area {area}: {len(busy)} open PRs or builders already hold it,"
+                f" the most is {AREA_CAP} ({', '.join(busy)})"
+            )
+
+
 def _check_exclusions(verdict: Verdict) -> None:
     folder = status.factory_dir()
     for name, excluded, what in (
@@ -424,6 +597,7 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--agents", type=int)
     one.add_argument("--rate", type=float)
     one.add_argument("--hours-to-reset", type=float)
+    one.add_argument("--owns", action="append", default=[], metavar="PATH")
     args = parser.parse_args(argv)
     for option in ("running", "agents", "rate", "hours_to_reset"):
         value = getattr(args, option)
@@ -438,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
         rate=args.rate,
         hours_to_reset=args.hours_to_reset,
         usage_checked=args.usage_checked,
+        owns=args.owns,
     )
     if args.json:
         print(json.dumps(verdict.as_json()))

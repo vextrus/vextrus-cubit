@@ -98,6 +98,7 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--role", default="builder", choices=["builder", "acceptance-writer"])
     parser.add_argument("--budget-minutes", type=int)
+    parser.add_argument("--owns", action="append", default=[], metavar="PATH")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", args.ticket):
@@ -152,7 +153,7 @@ def live_row(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
 
 
 def launch(args: argparse.Namespace) -> list[str]:
-    verdict = governor.check("local-agent")
+    verdict = governor.check("local-agent", owns=getattr(args, "owns", ()))
     if not verdict.ok:
         raise Stop(3, f"REFUSED governor: {verdict.reason}")
     main_checkout = status.main_checkout()
@@ -389,6 +390,8 @@ def write_record(
         "worktree": str(worktree),
         "carried_merge_sha": carried_merge,
     }
+    if owns := getattr(args, "owns", None):
+        record["owns"] = list(owns)
     path = folder / f"{stem}.json"
     with path.open("x") as handle:  # append-only: a record is never overwritten
         handle.write(json.dumps(record, indent=1) + "\n")
