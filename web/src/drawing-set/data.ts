@@ -60,6 +60,17 @@ export function progressShare(file: Pick<FileOut, 'status'>): number | undefined
 }
 
 /**
+ * The Sheets found cell's number: the server's once the file is read; while a DWG is read, the total
+ * its status already counts ("sheet 13 of 57"); otherwise none (the cell's dash).
+ */
+export function sheetsShown(file: Pick<FileOut, 'sheets_found' | 'state' | 'format' | 'status'>): number | null {
+  if (file.sheets_found !== null) return file.sheets_found
+  const { total } = file.status.params
+  if (file.state === 'reading' && file.format === 'dwg' && typeof total === 'number' && total > 0) return total
+  return null
+}
+
+/**
  * The files in the table's order: the API's (the order added), with each PDF whose pages match a DWG's
  * sheets moved under that DWG (§4.5: "A DWG's PDF sits under it once its pages match its sheets").
  */

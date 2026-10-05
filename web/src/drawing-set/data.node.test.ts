@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { englishMessages } from '@/i18n/catalogues'
-import { disciplineName, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
+import { disciplineName, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, sheetsShown, tableOrder, type FileOut } from './data'
 
 const msg = (code: string, params: Record<string, string | number> = {}) => ({ code, params })
 
@@ -151,5 +151,19 @@ describe('every PDF report code has its section on purpose', () => {
     expect(codes.length).toBeGreaterThan(0)
     // A new code fails here until it is given its section in pdfSectionOf and in this table.
     expect(Object.fromEntries(codes.map((c) => [c, pdfSectionOf(c)]))).toEqual(Object.fromEntries(codes.map((c) => [c, placed[c.slice('engine.pdf_report.'.length)]])))
+  })
+})
+
+describe('sheetsShown', () => {
+  it("shows the server's count once read, and a reading DWG's known total before that", () => {
+    expect(sheetsShown(f({ sheets_found: 8 }))).toBe(8)
+    expect(sheetsShown(f({ state: 'reading', status: msg('drawings.files.reading_sheet', { position: 3, total: 22 }) }))).toBe(22)
+  })
+
+  it('shows none while the total is unknown, for a PDF, or once the reading has stopped', () => {
+    expect(sheetsShown(f({ state: 'reading', status: msg('drawings.files.reading_drawing') }))).toBeNull()
+    expect(sheetsShown(f({ state: 'reading', status: msg('drawings.files.reading_sheet', { position: 0, total: 0 }) }))).toBeNull()
+    expect(sheetsShown(f({ format: 'pdf', state: 'reading', status: msg('drawings.files.reading_sheet', { position: 1, total: 5 }) }))).toBeNull()
+    expect(sheetsShown(f({ state: 'failed', status: msg('drawings.files.reading_sheet', { position: 4, total: 9 }) }))).toBeNull()
   })
 })

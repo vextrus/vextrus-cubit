@@ -755,7 +755,7 @@ function ModeSwitch({ mode, title, onList, onSheet }: { mode: 'list' | 'sheet'; 
 function ListRegion({ label, onSpace, children }: { label: string; onSpace: () => void; children: ReactNode }) {
   const { t } = useLingui()
   return (
-    <KeyRegion name="list" role="grid" aria-label={t`Sheets`} className="min-h-0 flex-1 overflow-auto pb-24">
+    <KeyRegion name="list" role="grid" aria-label={t`Sheets`} className="min-h-0 flex-1 overflow-auto pb-24 scroll-pb-24">
       <SpaceKey label={label} run={onSpace} />
       {children}
     </KeyRegion>

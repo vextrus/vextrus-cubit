@@ -6,6 +6,7 @@
  */
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
+import { redirect } from '@tanstack/react-router'
 import type { STEP_GLYPHS } from '@/ui/glyphs'
 
 export interface TakeoffStep {
@@ -42,4 +43,16 @@ export function stepFor(param: string): TakeoffStep | undefined {
 /** The step a project opens on: its first step still to confirm. In M0 always Step 1, the only one open. */
 export function currentStep(): TakeoffStep {
   return TAKEOFF_STEPS.find((s) => s.open) ?? TAKEOFF_STEPS[0]!
+}
+
+/**
+ * The redirect a project's address and the bare Takeoff throw: its current step, by Step 1's own static
+ * route when that is the step (the static `takeoff/1` outranks `$step`, and the dynamic form makes the
+ * router warn that the path it built matched another route).
+ */
+export function stepRedirect(code: string) {
+  const step = currentStep().number
+  return step === 1
+    ? redirect({ to: '/p/$code/takeoff/1', params: { code }, replace: true })
+    : redirect({ to: '/p/$code/takeoff/$step', params: { code, step: String(step) }, replace: true })
 }

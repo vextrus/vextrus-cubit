@@ -36,6 +36,7 @@ import {
   progressShare,
   restartReading,
   rowActs,
+  sheetsShown,
   tableOrder,
   upload,
   type DisciplineOut,
@@ -232,6 +233,7 @@ function FilesTable(props: TableProps) {
           {rows.map(({ file, under }) => {
             const acts = rowActs(file, changes)
             const open = openId === file.id
+            const shown = sheetsShown(file)
             return (
               <tr
                 key={file.id}
@@ -273,7 +275,9 @@ function FilesTable(props: TableProps) {
                   )}
                 </td>
                 <StatusCell file={file} />
-                <td className="num h-row px-2 text-end align-middle">{file.sheets_found === null ? EMPTY : f.integer(file.sheets_found)}</td>
+                <td className={cn('num h-row px-2 text-end align-middle', shown !== file.sheets_found && 'text-muted-foreground')}>
+                  {shown === null ? EMPTY : f.integer(shown)}
+                </td>
                 <td className={cn('sticky end-0 h-row px-2 text-end align-middle whitespace-nowrap', open ? 'bg-selected' : 'bg-paper')}>
                   <span className="inline-flex justify-end gap-1.5">
                     {acts.map((act) => (

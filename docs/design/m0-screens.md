@@ -683,7 +683,8 @@ in Step 1** (ux-critic #13): this page lists files and their reports. Wireframes
 1 held, 1 refused") and "Add files" (primary). Under it a 36 px dashed drop strip "Drop DWG and
 PDF files here to add them, or choose files." The whole page accepts a drop, showing an overlay
 "Drop to add to Kadam Residence's Drawing Set". The file table (28 px rows): File · Discipline ·
-Status · Sheets found. A DWG's PDF sits under it once its pages match its sheets. Selecting a row
+Status · Sheets found (while a DWG is read, the sheet total its status counts, in muted ink). A DWG's PDF
+sits under it once its pages match its sheets. Selecting a row
 (click or `Enter`) opens the file's report in a 480 px docked panel on the right; the table keeps at
 least 752 px at 1280.
 
@@ -1261,6 +1262,7 @@ never in the bulk act; the QS confirms each in sheet mode (6.5).
 | A Question's row | "Question Q3: Two sheets are numbered S-19" · the card's first line (6.7) | "Answer Q3 ↵"; with nothing picked, disabled and showing "Pick an answer 1 2 3" |
 | A Question kept open | "Question Q5 is kept open for the consultant" · "Its sheets are not read until it is answered. Pick another answer in the card to settle it." | ghost "Next open Question Q" |
 | A confirmed sheet | "S-20 is confirmed by Rafiq Hasan" (", Vextrus Engineer" after an Engineer's name) · "26 Sep 2026, 10:42. X excludes it, with a reason." | "Next open item ↵" |
+| A sheet with one source (not in the bulk act) | "E-03 has one source: number and title from its title block" · "Open it to confirm it." | "Open E-03 ↵"; ghost "Confirm 12, leave out 2" (the bulk act, no key) |
 | An excluded sheet | "S-19 is excluded: superseded" · "By Rafiq Hasan, 26 Sep 2026, 10:50. It stays in the count." | "Confirm back in ↵" |
 | A row with nothing to act on | e.g. "On the drawing list, in no file. It stays in the count." · "Nothing to confirm here." | none |
 | Nothing left, files reading | "Reading NT-ARCH-R1.dwg: sheet 14 of 28" · "Its sheets join the list as they are read." | none |

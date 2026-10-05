@@ -277,8 +277,9 @@ export function useBar(c: BarContext): BarSpec | null {
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Open it to confirm it.</Trans>
           </>
         ),
-        ghost: { label: <Trans>Open {name}</Trans>, run: () => c.openRow(row), combo: 'Space' },
-        button: bulkable ? bulkSpec.button : undefined,
+        // Enter opens the sheet the line names (#235); the bulk act stays one click away, with no key.
+        ghost: bulkable ? { label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Trans>Confirm all {n} that agree</Trans>, run: c.bulk } : undefined,
+        button: { label: <Trans>Open {name}</Trans>, run: () => c.openRow(row) },
       }
     }
   }
