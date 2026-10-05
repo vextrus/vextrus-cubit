@@ -13,6 +13,7 @@
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 
 const WEB = fileURLToPath(new URL('..', import.meta.url))
 const ERROR_CAP = 300
@@ -23,7 +24,7 @@ export function defaultLogPath(env = process.env) {
   return env.VEXTRUS_WEB_FAILURES_LOG || join(WEB, 'test-results', 'failures.log')
 }
 
-const collapse = (text) => String(text ?? '').replace(/\s+/g, ' ').trim()
+const collapse = (text) => stripVTControlCharacters(String(text ?? '')).replace(/\s+/g, ' ').trim()
 
 /** `file` relative to `base` when it lies inside it, else as given. */
 function shown(file, base) {
@@ -31,10 +32,13 @@ function shown(file, base) {
   return rel && !rel.startsWith('..') && !isAbsolute(rel) ? rel.split('\\').join('/') : file
 }
 
-/** One log line, newline included: the error's first non-blank line; tabs and line breaks become spaces. */
+/**
+ * One log line, newline included: the error's first non-blank line; terminal colour codes are dropped,
+ * tabs and line breaks become spaces.
+ */
 export function failureLine(kind, runner, test, message, now = new Date()) {
   const time = now.toISOString().replace(/\.\d{3}Z$/, 'Z')
-  const lines = String(message ?? '').split('\n')
+  const lines = stripVTControlCharacters(String(message ?? '')).split('\n')
   const first = collapse(lines.find((line) => line.trim() !== '') ?? '').slice(0, ERROR_CAP)
   return [time, kind, runner, collapse(test), first].join('\t') + '\n'
 }
@@ -44,6 +48,7 @@ export default class FailureReporter {
     this.logPath = options.logPath ?? defaultLogPath()
     this.root = WEB
     this.seen = new Set()
+    this.pending = new Map()
     this.running = false
     this.warned = false
   }
@@ -103,11 +108,26 @@ export default class FailureReporter {
     this.start()
   }
 
+  /**
+   * A test is written when its outcome is unexpected at its last attempt (a test.fail() that passes
+   * counts; an expected failure and a pass on retry do not), or when it is interrupted. An unexpected
+   * attempt with retries left waits for onEnd, in case the retry never runs. Objects without
+   * outcome() are judged by their status.
+   */
   onTestEnd(test, result) {
-    if (!FAILED.has(result?.status)) return
     this.start()
+    if (result?.status === 'interrupted') return this.playwrightTest(test, result)
+    if (typeof test.outcome !== 'function') return FAILED.has(result?.status) ? this.playwrightTest(test, result) : undefined
+    if (test.outcome() !== 'unexpected') return this.pending.delete(test)
+    if ((result?.retry ?? 0) < (test.retries ?? 0)) return this.pending.set(test, result)
+    this.playwrightTest(test, result)
+  }
+
+  playwrightTest(test, result) {
+    this.pending.delete(test)
     const title = test.titlePath?.().filter(Boolean).join(' > ') ?? test.title
-    const message = result.error?.message ?? result.errors?.[0]?.message
+    const message =
+      result?.error?.message ?? result?.errors?.[0]?.message ?? `expected ${test.expectedStatus ?? 'passed'}, got ${result?.status}`
     this.append(failureLine('failed', 'playwright', `${shown(test.location?.file ?? '', WEB)}::${title}`, message))
   }
 
@@ -123,6 +143,7 @@ export default class FailureReporter {
 
   onEnd() {
     this.start()
+    for (const [test, result] of this.pending) if (test.outcome() === 'unexpected') this.playwrightTest(test, result)
     this.running = false
   }
 
@@ -132,6 +153,7 @@ export default class FailureReporter {
     if (this.running) return
     this.running = true
     this.seen = new Set()
+    this.pending = new Map()
     this.write(() => writeFileSync(this.logPath, ''))
   }
 

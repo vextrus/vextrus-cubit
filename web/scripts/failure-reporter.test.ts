@@ -155,6 +155,71 @@ describe('the real Playwright', () => {
     },
     RUN,
   )
+
+  it(
+    "writes an expect failure's message without terminal colour codes",
+    () => {
+      const dir = project({
+        'playwright.config.mjs': playwrightConfig(),
+        'colour.spec.mjs': ["import { expect, test } from '@playwright/test'", "test('compares', () => { expect(2).toBe(3) })", ''].join('\n'),
+      })
+
+      const { status, output } = run(dir, 'playwright', ['test', '-c', 'playwright.config.mjs'])
+
+      expect(status, output).toBe(1)
+      const text = readFileSync(join(dir, 'f.log'), 'utf8')
+      expect(text).toContain('compares')
+      expect(text).toContain('expect(received).toBe(expected)')
+      expect(text).not.toContain('\u001b')
+    },
+    RUN,
+  )
+
+  it(
+    "judges by the test's outcome: an unexpected pass of test.fail() is written; an expected failure and a pass on retry are not",
+    () => {
+      const dir = project({
+        'playwright.config.mjs': playwrightConfig('retries: 1,'),
+        'outcome.spec.mjs': [
+          "import { test } from '@playwright/test'",
+          "test('passes against its fail mark', () => { test.fail() })",
+          "test('fails as marked', () => { test.fail(); throw new Error('as marked') })",
+          "test('passes on retry', ({}, info) => { if (info.retry === 0) throw new Error('first try') })",
+          '',
+        ].join('\n'),
+      })
+
+      const { status, output } = run(dir, 'playwright', ['test', '-c', 'playwright.config.mjs'])
+
+      expect(status, output).toBe(1)
+      const found = logLines(join(dir, 'f.log'))
+      expect(found.map(([, kind, runner, test]) => [kind, runner, test?.split('::')[1]]), output).toEqual([
+        ['failed', 'playwright', 'outcome.spec.mjs > passes against its fail mark'],
+      ])
+    },
+    RUN,
+  )
+
+  it(
+    'leaves the log empty when the only failures are expected or pass on retry',
+    () => {
+      const dir = project({
+        'playwright.config.mjs': playwrightConfig('retries: 1,'),
+        'fine.spec.mjs': [
+          "import { test } from '@playwright/test'",
+          "test('fails as marked', () => { test.fail(); throw new Error('as marked') })",
+          "test('passes on retry', ({}, info) => { if (info.retry === 0) throw new Error('first try') })",
+          '',
+        ].join('\n'),
+      })
+
+      const { status, output } = run(dir, 'playwright', ['test', '-c', 'playwright.config.mjs'])
+
+      expect(status, output).toBe(0)
+      expect(readFileSync(join(dir, 'f.log'), 'utf8')).toBe('')
+    },
+    RUN,
+  )
 })
 
 describe('a run cut short', () => {
