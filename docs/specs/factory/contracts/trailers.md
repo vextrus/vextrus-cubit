@@ -13,7 +13,8 @@ blocked on review" literally; spec 2.2 and 3.14).
 
 Three trailer keys, in the commit message's last paragraph, in git's trailer form (`Key: value`, one per line;
 `git interpret-trailers --parse` reads them; they may sit among the attribution trailers `Co-Authored-By` and
-`Claude-Session`, which the factory ignores).
+`Claude-Session`, which the factory ignores). The attribution lines belong IN that last paragraph, not after a blank
+line: a factory trailer in any earlier paragraph counts for no consumer.
 
 | Key | Value (exact) | Meaning |
 |---|---|---|
@@ -43,7 +44,9 @@ Key spelling: producers write the keys exactly as above; a parser may match the 
 the values stay case-sensitive.
 
 **Only the branch tip counts.** A consumer reads the trailers of the tip commit (`HEAD` of the builder's branch).
-A trailer on an older commit means nothing.
+A trailer on an older commit means nothing, with one exception in `scripts/factory/watch.py`: a tip with no factory
+trailer that is only clean merges of main (two parents, the second on origin/main, the tree `git merge-tree` makes
+from them) on the head the watcher last saw READY (the lander's merge) stays READY, with no new READY event.
 
 ### What each consumer does with them
 
