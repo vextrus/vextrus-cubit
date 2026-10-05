@@ -95,6 +95,13 @@ def test_the_live_row_wins_whichever_order_the_rows_come_in(say: Say) -> None:
     assert say.calls() == []
 
 
+def test_a_row_whose_folder_was_removed_is_refused(say: Say) -> None:
+    say.rows({"state": "done"})
+    say.worktree.rmdir()
+    assert say.say().returncode == 2
+    assert say.calls() == []
+
+
 def test_a_row_whose_folder_is_a_file_is_refused(say: Say) -> None:
     say.worktree.rmdir()
     say.worktree.write_text("")

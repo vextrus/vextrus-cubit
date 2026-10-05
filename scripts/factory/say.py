@@ -13,8 +13,8 @@ rows (one attached interactively has a background row with no pid and an interac
   `blocked` or `working`): it is resumed in its own folder, `claude --resume <id> --bg --settings <main
   checkout>/scripts/factory/builder.settings.json "<prefixed text>"`, with the local launcher's child
   environment (VEXTRUS_ROLE=builder, the orchestrator's variables dropped);
-- refused: `stopped`/`failed` with a `pid`, no row, or a row to resume whose `cwd` is not under
-  `<main checkout>/.claude/worktrees/` or names a file.
+- refused: `stopped`/`failed` with a `pid`, no row, or a row to resume whose `cwd` is not an existing
+  folder under `<main checkout>/.claude/worktrees/`.
 
 A resume whose output has a line starting `note:` (the CLI copied the conversation into a new session)
 exits 6 and appends `ALARM-RESUME-COPY` to `$VEXTRUS_FACTORY_DIR/events.log`.
@@ -64,9 +64,10 @@ def resume(session: str, row: dict[str, Any], text: str) -> int:
     if folder.exists() and not folder.is_dir():
         print(f"REFUSED: session {session}'s folder {folder} is not a folder", file=sys.stderr)
         return 2
-    # A removed folder should be refused too (fix round 1, finding 2), but test_say.py Y3 and Y5 resume a
-    # row whose folder they never make; until they are amended it resumes from the main checkout.
-    cwd = folder if folder.is_dir() else main_checkout
+    if not folder.is_dir():
+        print(f"REFUSED: session {session}'s folder {folder} is gone: not resumable", file=sys.stderr)
+        return 2
+    cwd = folder
     argv = ["claude", "--resume", session, "--bg", "--settings", str(settings), text]
     done = subprocess.run(
         argv,
