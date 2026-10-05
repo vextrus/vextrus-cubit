@@ -1909,6 +1909,10 @@ msgstr "Fire pump details"
 msgid "gas"
 msgstr "gas"
 
+#: src/takeoff/questionWords.tsx
+msgid "“{title}” is the only title read. Only one can be read."
+msgstr "“{title}” is the only title read. Only one can be read."
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
 msgstr "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
@@ -1982,6 +1986,10 @@ msgstr "Pile"
 #: src/takeoff/Step1Screen.tsx
 msgid "Back to the list; in the list, clear the focus"
 msgstr "Back to the list; in the list, clear the focus"
+
+#: src/takeoff/questionWords.tsx
+msgid "no title read"
+msgstr "no title read"
 
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, =2 {Two sheets may draw one thing} other {# sheets may draw one thing}}"

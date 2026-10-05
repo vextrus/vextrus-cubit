@@ -369,3 +369,19 @@ describe('the server’s continuation id is trusted for its members (#322 review
     expect(rows[0]!.title).toBe('STAIR CORE SECTIONS')
   })
 })
+
+describe('a title not read, and a same_title Question, by its code (#447, round 1)', () => {
+  it('never counts an empty title as a different title', () => {
+    expect(titlesDiffer([sheet('M-03', { title: 'PUMP ROOM LAYOUT' }), sheet('M-03', { title: '  ' })])).toBe(false)
+    expect(titlesDiffer([sheet('M-03', { title: '' }), sheet('M-03', { title: '' })])).toBe(false)
+    expect(titlesDiffer([sheet('M-03', { title: 'PUMP ROOM LAYOUT' }), sheet('M-03', { title: '' }), sheet('M-03', { title: 'PUMP ROOM SECTION' })])).toBe(true)
+    const sameNumber = question('conflict', { code: 'engine.conflicts.same_number' })
+    expect(rowKindOf([sheet('M-03', { title: 'PUMP ROOM LAYOUT' }), sheet('M-03', { title: '' })], sameNumber)).toBe('copies')
+  })
+
+  it('never calls a same_title Question’s row copies, whatever its numbers normalise to', () => {
+    const sameTitle = question('conflict', { code: 'engine.conflicts.same_title' })
+    expect(rowKindOf([sheet('M-07', { title: 'VALVE CHAMBER' }), sheet('M-007', { title: 'VALVE CHAMBER' })], sameTitle)).toBe('title-shared')
+    expect(rowKindOf([sheet(null, { title: 'VALVE CHAMBER' }), sheet(null, { title: 'valve chamber' })], sameTitle)).toBe('title-shared')
+  })
+})

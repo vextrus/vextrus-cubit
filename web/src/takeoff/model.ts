@@ -211,13 +211,16 @@ export function answeredQueue(questions: readonly QuestionOut[], proposals: read
 /** A title as compared: trimmed, its spaces collapsed, case ignored. */
 const titleKey = (title: string) => title.trim().replace(/\s+/g, ' ').toLowerCase()
 
-/** The sheets' titles, each once (compared as `titleKey` does), in the sheets' order. */
+/**
+ * The sheets' titles read, each once (compared as `titleKey` does), in the sheets' order. A title not
+ * read (empty) is none of them: it says nothing about the sheet (#447, round 1).
+ */
 export function distinctTitles(holds: readonly ProposalOut[]): ProposalOut[] {
-  const seen = new Set<string>()
+  const seen = new Set<string>([''])
   return holds.filter((p) => !seen.has(titleKey(p.title)) && !!seen.add(titleKey(p.title)))
 }
 
-/** The sheets' titles differ (compared as `titleKey` does). */
+/** Two or more titles read differ (compared as `titleKey` does); a title not read never differs. */
 export function titlesDiffer(holds: readonly ProposalOut[]): boolean {
   return distinctTitles(holds).length > 1
 }
@@ -241,6 +244,8 @@ export function numberKey(number: string | null): string | null {
  */
 export function rowKindOf(holds: readonly ProposalOut[], question: QuestionOut | null = null): RowKind {
   if (holds.length < 2) return 'sheet'
+  // By the Question's code first: one title on sheets the engine numbered apart is never copies (#447, round 1).
+  if (question?.code === 'engine.conflicts.same_title') return 'title-shared'
   const oneNumber = question?.code === 'engine.conflicts.same_number' || new Set(holds.map((p) => numberKey(p.number))).size === 1
   const oneTitle = !titlesDiffer(holds)
   if (oneNumber && oneTitle) return 'copies'

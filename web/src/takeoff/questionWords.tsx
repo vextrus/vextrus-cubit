@@ -31,8 +31,9 @@ const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.confl
 /** Two or more sheets of one number whose titles differ: likely different sheets, so never worded as copies or "superseded" (#322). */
 export const isTitledApart = (entry: QuestionEntry) => isCopies(entry) && titlesDiffer(entry.holds)
 
-/** A sheet's title in quotes, as a card names it: “PLAN”. */
+/** A sheet's title in quotes, as a card names it: “PLAN”; "no title read" for a sheet whose title was not read. */
 function Titled({ sheet }: { sheet: ProposalOut }) {
+  if (!sheet.title.trim()) return <Trans>no title read</Trans>
   const title = <DrawingText kind="title" text={sheet.title} truncate={false} />
   return <Trans>“{title}”</Trans>
 }
@@ -127,6 +128,14 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+    }
+    // A title not read is no different title (#447, round 1): said as what was read.
+    const read = distinctTitles(entry.holds)
+    if (read.length === 0)
+      return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
+    if (read.length === 1) {
+      const title = <DrawingText kind="title" text={read[0]!.title} truncate={false} />
+      return <Trans>“{title}” is the only title read. Only one can be read.</Trans>
     }
     if (isTitledApart(entry)) {
       const named = <Joined items={distinctTitles(entry.holds).map((h) => <Titled key={h.id} sheet={h} />)} />
