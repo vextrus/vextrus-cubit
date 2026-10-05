@@ -262,13 +262,31 @@ def code_units(text: str) -> Iterator[tuple[int, str]]:
 
 
 def prose_lines(text: str) -> Iterator[tuple[int, str]]:
-    """Each line outside fences, its inline code removed (an open span runs to the line's end)."""
+    """Each line outside fences with its inline code blanked out. Spans are paired over the whole
+    paragraph (lines joined with a space, as `inline_tokens` does), so a line that opens inside a span
+    begun on the line before is not misread; a backtick left unpaired blanks the rest."""
+    paragraph: list[tuple[int, str]] = []
+
+    def blanked() -> Iterator[tuple[int, str]]:
+        joined = " ".join(line for _, line in paragraph)
+        code = INLINE.sub(lambda m: " " * len(m.group(0)), joined)
+        if "`" in code:
+            code = code[: code.index("`")] + " " * (len(code) - code.index("`"))
+        offset = 0
+        for number, line in paragraph:
+            yield number, code[offset : offset + len(line)]
+            offset += len(line) + 1
+
     fenced = False
     for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE.match(line):
-            fenced = not fenced
-        elif not fenced:
-            yield number, INLINE.sub(" ", line).split("`")[0]
+        if FENCE.match(line) or fenced or not line.strip():
+            yield from blanked()
+            paragraph = []
+            if FENCE.match(line):
+                fenced = not fenced
+            continue
+        paragraph.append((number, line))
+    yield from blanked()
 
 
 class Usage:

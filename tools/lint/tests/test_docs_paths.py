@@ -116,3 +116,14 @@ def test_a_span_wrapped_between_the_module_and_its_word_is_judged(tmp_path: Path
         "CLAUDE.md:1: `scripts.land` takes no subcommand, so `order` is wrong",
         "CLAUDE.md:5: `scripts.land` takes no subcommand, so `order` is wrong",
     ]
+
+
+def test_prose_pairs_spans_over_the_paragraph_not_the_line(tmp_path: Path) -> None:
+    land = 'import argparse\nargparse.ArgumentParser(prog="land").parse_args()\n'
+    clean = "Use `foo\nbar` then `python -m scripts.land`, `order` next.\n"
+    wrapped = "\nThen `uv run python -m scripts.land\norder` here.\n"
+    tree(tmp_path, {"scripts/__init__.py": "", "scripts/land.py": land, "CLAUDE.md": clean + wrapped})
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    assert docs_paths.problems(tmp_path) == [
+        "CLAUDE.md:4: `scripts.land` takes no subcommand, so `order` is wrong"
+    ]
