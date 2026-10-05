@@ -7,6 +7,16 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
+#. placeholder {0}: words.files
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Reading # file} other {Reading # files}}"
+msgstr "{0, plural, one {Reading # file} other {Reading # files}}"
+
+#. placeholder {0}: words.files
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Reading # file, sheet {position} of {total}} other {Reading # files, sheet {position} of {total}}}"
+msgstr "{0, plural, one {Reading # file, sheet {position} of {total}} other {Reading # files, sheet {position} of {total}}}"
+
 #: src/projects/ProjectsPage.tsx
 msgid "Projects"
 msgstr "Projects"
@@ -44,6 +54,11 @@ msgstr "No projects yet. You will see them here once {developer} creates them."
 msgid "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
 msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
 
+#. placeholder {0}: words.sheets
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Step 1: # sheet to confirm} other {Step 1: # sheets to confirm}}"
+msgstr "{0, plural, one {Step 1: # sheet to confirm} other {Step 1: # sheets to confirm}}"
+
 #: src/projects/discard.tsx
 msgid "Discard"
 msgstr "Discard"
@@ -55,11 +70,6 @@ msgstr "{held} held"
 #: src/projects/ProjectsPage.tsx
 msgid "{stopped} stopped"
 msgstr "{stopped} stopped"
-
-#. placeholder {0}: words.read
-#: src/projects/ProjectsPage.tsx
-msgid "{0, plural, one {{read} file read} other {{read} files read}}"
-msgstr "{0, plural, one {{read} file read} other {{read} files read}}"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Cancel"
@@ -109,23 +119,9 @@ msgstr "{refused} refused"
 msgid "Opening the projects…"
 msgstr "Opening the projects…"
 
-#. placeholder {0}: words.open
-#: src/projects/ProjectsPage.tsx
-msgid "{0, plural, one {Step 1: {open} Question open} other {Step 1: {open} Questions open}}"
-msgstr "{0, plural, one {Step 1: {open} Question open} other {Step 1: {open} Questions open}}"
-
 #: src/projects/ProjectsPage.tsx
 msgid "No projects yet. Create one for each development whose drawings you will take off."
 msgstr "No projects yet. Create one for each development whose drawings you will take off."
-
-#. placeholder {0}: words.files
-#: src/projects/ProjectsPage.tsx
-msgid "{0, plural, one {Reading {count} file} other {Reading {count} files}}"
-msgstr "{0, plural, one {Reading {count} file} other {Reading {count} files}}"
-
-#: src/projects/ProjectsPage.tsx
-msgid "Reading {count} file, sheet {position} of {total}"
-msgstr "Reading {count} file, sheet {position} of {total}"
 
 #: src/projects/ProjectsPage.tsx
 msgid "{name}: a view unaccounted"
@@ -147,10 +143,10 @@ msgstr "Open the project"
 msgid "None of the projects you were given is open now. Ask whoever invited you to give you another."
 msgstr "None of the projects you were given is open now. Ask whoever invited you to give you another."
 
-#. placeholder {0}: words.sheets
+#. placeholder {0}: words.read
 #: src/projects/ProjectsPage.tsx
-msgid "{0, plural, one {Step 1: {sheets} sheet to confirm} other {Step 1: {sheets} sheets to confirm}}"
-msgstr "{0, plural, one {Step 1: {sheets} sheet to confirm} other {Step 1: {sheets} sheets to confirm}}"
+msgid "{0, plural, one {# file read} other {# files read}}"
+msgstr "{0, plural, one {# file read} other {# files read}}"
 
 #: src/projects/ProjectsPage.tsx
 msgid "Step 1: {parts}"
@@ -188,9 +184,19 @@ msgstr "Members and access"
 msgid "Step 1 confirmed"
 msgstr "Step 1 confirmed"
 
+#. placeholder {0}: words.files
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Reading # file, page {position} of {total}} other {Reading # files, page {position} of {total}}}"
+msgstr "{0, plural, one {Reading # file, page {position} of {total}} other {Reading # files, page {position} of {total}}}"
+
 #: src/projects/ProjectsPage.tsx
 msgid "{name}: 1 Question open"
 msgstr "{name}: 1 Question open"
+
+#. placeholder {0}: words.open
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Step 1: # Question open} other {Step 1: # Questions open}}"
+msgstr "{0, plural, one {Step 1: # Question open} other {Step 1: # Questions open}}"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Short, like KR-01"

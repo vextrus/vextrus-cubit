@@ -17,6 +17,7 @@ import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { activatePseudoRtl } from '@/i18n/pseudo'
 import { UiProviders, expectKeyMapSound, notationProblems } from '@/ui'
+import { FakeReadings, aFile, aRow, cellOf, files, rowOf, type Column } from '@/acceptance/tw325/readings.fixture'
 import { ProjectsLoading } from './ProjectsPage'
 
 beforeEach(async () => {
@@ -321,5 +322,51 @@ describe('at 1280 × 800', () => {
     expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth)
     for (const row of rows()) expect(row.getBoundingClientRect().height).toBe(28)
     expect(within(header()).getByRole('button', { name: named(/New project/) }).getBoundingClientRect().right).toBeLessThanOrEqual(1280 - 80 + 1)
+  })
+})
+
+describe('the readings, review round 1 (#445)', () => {
+  const cell = async (code: string, column: Column) => clean(cellOf(rowOf(code), column).textContent).replace(/[‎‏]/g, '').trim()
+
+  it('counts a PDF’s pages as pages while it is read, a DWG’s as sheets', async () => {
+    const api = new FakeApi()
+    const readings = new FakeReadings(api)
+    readings.setFiles('KR-01', [aFile('elevations.pdf', 'reading', { status: { code: 'drawings.files.reading_page', params: { position: 3, total: 14 } } })])
+    readings.setFiles('BP-02', [aFile('slab.dwg', 'reading', { status: { code: 'drawings.files.reading_sheet_left', params: { position: 6, total: 8, minutes: 2 } } })])
+    await projects(PEOPLE.qs, api)
+    await waitFor(async () => expect(await cell('KR-01', 'Drawing Set')).toBe('Reading 1 file, page 3 of 14'))
+    await waitFor(async () => expect(await cell('BP-02', 'Drawing Set')).toBe('Reading 1 file, sheet 6 of 8'))
+  })
+
+  it('shows the empty figure for Updated when the project’s files cannot be read, never an older day', async () => {
+    const api = new FakeApi()
+    const readings = new FakeReadings(api)
+    readings.fail('KR-01', 'files', 404)
+    readings.setProgress('KR-01', [aRow('structural', { found: 4 })])
+    await projects(PEOPLE.engineer, api)
+    await waitFor(async () => expect(await cell('KR-01', 'Takeoff')).toBe('Step 1: 4 sheets to confirm'))
+    await waitFor(() => expect(readings.count('files', 'KR-01')).toBeGreaterThanOrEqual(1))
+    await waitFor(async () => expect(await cell('BP-02', 'Updated')).not.toBe('—'))
+    expect(await cell('KR-01', 'Updated')).toBe('—')
+  })
+
+  it('shows the empty figure for Updated when the newest act cannot be read', async () => {
+    const api = new FakeApi()
+    const readings = new FakeReadings(api)
+    readings.setFiles('SG-03', files(2, 'read'))
+    const inner = api.handle
+    api.handle = async (request: Request) => {
+      const url = new URL(request.url, location.origin)
+      if (url.pathname === '/api/activity' && url.searchParams.get('project') === readings.id('SG-03')) {
+        await inner(request) // recorded by the readings fake
+        return new Response(JSON.stringify({ code: 'platform.auth.not_found', params: {} }), { status: 404, headers: { 'Content-Type': 'application/json' } })
+      }
+      return inner(request)
+    }
+    await projects(PEOPLE.qs, api)
+    await waitFor(async () => expect(await cell('SG-03', 'Drawing Set')).toBe('2 files read'))
+    await waitFor(() => expect(readings.count('activity', 'SG-03')).toBeGreaterThanOrEqual(1))
+    await waitFor(async () => expect(await cell('KR-01', 'Updated')).not.toBe('—'))
+    expect(await cell('SG-03', 'Updated')).toBe('—')
   })
 })

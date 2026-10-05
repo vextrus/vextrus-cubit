@@ -80,16 +80,16 @@ function useDriveText(): (words: DriveWords) => string {
   return (words) => {
     if (words.kind === 'none') return t`No drawings yet`
     if (words.kind === 'reading') {
-      const count = f.integer(words.files)
-      if (words.sheet) {
-        const position = f.integer(words.sheet.position)
-        const total = f.integer(words.sheet.total)
-        return t`Reading ${count} file, sheet ${position} of ${total}`
+      if (words.at) {
+        const position = f.integer(words.at.position)
+        const total = f.integer(words.at.total)
+        return words.at.unit === 'page'
+          ? t({ message: plural(words.files, { one: `Reading # file, page ${position} of ${total}`, other: `Reading # files, page ${position} of ${total}` }) })
+          : t({ message: plural(words.files, { one: `Reading # file, sheet ${position} of ${total}`, other: `Reading # files, sheet ${position} of ${total}` }) })
       }
-      return t({ message: plural(words.files, { one: `Reading ${count} file`, other: `Reading ${count} files` }) })
+      return t({ message: plural(words.files, { one: 'Reading # file', other: 'Reading # files' }) })
     }
-    const read = f.integer(words.read)
-    const parts = [words.read === 0 ? t`No files read` : t({ message: plural(words.read, { one: `${read} file read`, other: `${read} files read` }) })]
+    const parts = [words.read === 0 ? t`No files read` : t({ message: plural(words.read, { one: '# file read', other: '# files read' }) })]
     const held = f.integer(words.held)
     const trouble = f.integer(words.trouble)
     const refused = f.integer(words.refused)
@@ -124,12 +124,10 @@ function useTakeoffText(): (words: TakeoffWords) => string {
       case 'not_started':
         return t`Not started`
       case 'questions': {
-        const open = f.integer(words.open)
-        return t({ message: plural(words.open, { one: `Step 1: ${open} Question open`, other: `Step 1: ${open} Questions open` }) })
+        return t({ message: plural(words.open, { one: 'Step 1: # Question open', other: 'Step 1: # Questions open' }) })
       }
       case 'to_confirm': {
-        const sheets = f.integer(words.sheets)
-        return t({ message: plural(words.sheets, { one: `Step 1: ${sheets} sheet to confirm`, other: `Step 1: ${sheets} sheets to confirm` }) })
+        return t({ message: plural(words.sheets, { one: 'Step 1: # sheet to confirm', other: 'Step 1: # sheets to confirm' }) })
       }
       case 'not_confirmed':
         return t`Step 1: not yet confirmed`
@@ -160,7 +158,8 @@ function UpdatedCell({ project, mayActs }: { project: ProjectSummary; mayActs: b
   const f = useFormat()
   const files = useQuery(filesQuery(project.id))
   const act = useQuery(latestActQuery(project.id, mayActs))
-  const settled = !files.isPending && !(mayActs && act.isPending)
+  // A reading that cannot be had (refused or failed) leaves the date unknown: the empty figure, never an older day.
+  const settled = files.isSuccess && (!mayActs || act.isSuccess)
   const at = settled ? updatedAt(project.createdAt, files.data?.files ?? [], mayActs ? act.data?.occurred_at : null) : null
   return <Cell text={at ? f.date(at) : null} className="text-end" />
 }

@@ -584,9 +584,10 @@ Drawing Set · Takeoff · Updated.
 | Updated | date |
 
 Each row reads its own project's files, Step 1 progress and newest act; a reading that cannot be had
-(not in yet, refused, failed) shows the empty figure (1.2) in its cell and nothing else, never an error.
-Drawing Set: while any file moves, "Reading 2 files" (", sheet 7 of 12" only when exactly one moves and
-counts its sheets); else "5 files read" ("No files read" at none), then, each only above none and in
+(not in yet, refused, failed) shows the empty figure (1.2) in its cell and nothing else, never an error;
+Updated too is the empty figure when any of its readings cannot be had, never an older day.
+Drawing Set: while any file moves, "Reading 2 files" (", sheet 7 of 12", for a PDF ", page 7 of 12",
+only when exactly one moves and counts them); else "5 files read" ("No files read" at none), then, each only above none and in
 this order, ", 1 held", ", 2 could not be read", ", 1 refused", ", 1 stopped". Takeoff counts only the
 Disciplines with sheets found: none, "Not started"; none confirmed, "Step 1: 5 Questions open", else
 "Step 1: 9 sheets to confirm", else "Step 1: not yet confirmed"; once one is confirmed, each Discipline

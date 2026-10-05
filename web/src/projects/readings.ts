@@ -43,21 +43,31 @@ export function latestActQuery(projectId: string, enabled: boolean) {
 
 export type DriveWords =
   | { kind: 'none' }
-  | { kind: 'reading'; files: number; sheet: { position: number; total: number } | null }
+  | { kind: 'reading'; files: number; at: { unit: 'sheet' | 'page'; position: number; total: number } | null }
   | { kind: 'read'; read: number; held: number; trouble: number; refused: number; stopped: number }
 
+/** The status codes that count a file's sheets (a DWG) or its pages (a PDF), as Step 1's still-reading line reads them. */
+const COUNTS: Record<string, 'sheet' | 'page'> = {
+  'drawings.files.reading_sheet': 'sheet',
+  'drawings.files.reading_sheet_left': 'sheet',
+  'drawings.files.reading_page': 'page',
+  'drawings.files.reading_page_left': 'page',
+}
+
 /**
- * "No drawings yet"; "Reading 2 files" (with ", sheet 7 of 12" when exactly one file moves and its
- * status counts its sheets); else the files read and, above 0, those held, could not be read (`failed`
+ * "No drawings yet"; "Reading 2 files" (with ", sheet 7 of 12", or ", page 7 of 12" for a PDF, when
+ * exactly one file moves and its status counts its sheets or pages); else the files read and, above 0, those held, could not be read (`failed`
  * and `unreadable`), refused, and stopped (`cancelled`).
  */
 export function driveWords(files: readonly Pick<FileOut, 'state' | 'status'>[]): DriveWords {
   if (files.length === 0) return { kind: 'none' }
   const moving = files.filter(isMoving)
   if (moving.length > 0) {
-    const { position, total } = moving.length === 1 ? moving[0]!.status.params : {}
-    const counted = typeof position === 'number' && typeof total === 'number' && total > 0
-    return { kind: 'reading', files: moving.length, sheet: counted ? { position, total } : null }
+    const status = moving.length === 1 ? moving[0]!.status : null
+    const unit = status ? COUNTS[status.code] : undefined
+    const { position, total } = status?.params ?? {}
+    const counted = unit !== undefined && typeof position === 'number' && typeof total === 'number' && total > 0
+    return { kind: 'reading', files: moving.length, at: counted ? { unit, position, total } : null }
   }
   const n = (...states: string[]) => files.filter((f) => states.includes(f.state)).length
   return { kind: 'read', read: n('read'), held: n('held'), trouble: n('failed', 'unreadable'), refused: n('refused'), stopped: n('cancelled') }

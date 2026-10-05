@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { driveWords, takeoffWords, updatedAt } from './readings'
 
-const file = (state: string, params: Record<string, string | number> = {}) => ({ state, status: { code: 'drawings.files.read', params } })
+const file = (state: string, params: Record<string, string | number> = {}, code = 'drawings.files.read') => ({ state, status: { code, params } })
 const row = (discipline: string | null, found: number, confirmed = 0, open_questions = 0, status = 'in_review') => ({
   discipline,
   found,
@@ -25,10 +25,21 @@ describe('driveWords', () => {
   })
 
   it('counts the moving files, with the sheet only for exactly one that counts its sheets', () => {
-    expect(driveWords([file('reading', { position: 3, total: 9 }), file('read')])).toEqual({ kind: 'reading', files: 1, sheet: { position: 3, total: 9 } })
-    expect(driveWords([file('reading', { position: 3, total: 9 }), file('waiting')])).toEqual({ kind: 'reading', files: 2, sheet: null })
-    expect(driveWords([file('retrying', { position: 0, total: 0 })])).toEqual({ kind: 'reading', files: 1, sheet: null })
-    expect(driveWords([file('stopping', { position: '2', total: 5 })])).toEqual({ kind: 'reading', files: 1, sheet: null })
+    const sheet = 'drawings.files.reading_sheet'
+    expect(driveWords([file('reading', { position: 3, total: 9 }, sheet), file('read')])).toEqual({ kind: 'reading', files: 1, at: { unit: 'sheet', position: 3, total: 9 } })
+    expect(driveWords([file('reading', { position: 3, total: 9, minutes: 4 }, 'drawings.files.reading_sheet_left')])).toEqual({ kind: 'reading', files: 1, at: { unit: 'sheet', position: 3, total: 9 } })
+    expect(driveWords([file('reading', { position: 3, total: 9 }, sheet), file('waiting')])).toEqual({ kind: 'reading', files: 2, at: null })
+    expect(driveWords([file('retrying', { position: 0, total: 0 }, sheet)])).toEqual({ kind: 'reading', files: 1, at: null })
+    expect(driveWords([file('stopping', { position: '2', total: 5 }, sheet)])).toEqual({ kind: 'reading', files: 1, at: null })
+  })
+
+  it('counts a PDF’s pages as pages, never as sheets', () => {
+    expect(driveWords([file('reading', { position: 2, total: 11 }, 'drawings.files.reading_page')])).toEqual({ kind: 'reading', files: 1, at: { unit: 'page', position: 2, total: 11 } })
+    expect(driveWords([file('reading', { position: 2, total: 11, minutes: 1 }, 'drawings.files.reading_page_left')])).toEqual({ kind: 'reading', files: 1, at: { unit: 'page', position: 2, total: 11 } })
+  })
+
+  it('says no count for a status that counts nothing, whatever its params', () => {
+    expect(driveWords([file('reading', { position: 2, total: 11 }, 'drawings.files.reading_drawing')])).toEqual({ kind: 'reading', files: 1, at: null })
   })
 
   it('counts each settled state in its group', () => {
