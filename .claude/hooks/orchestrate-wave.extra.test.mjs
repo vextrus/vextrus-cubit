@@ -31,3 +31,9 @@ test("a local builder's READY head is pushed from the main checkout after the le
   assert.match(flat, /leak scan/);
   assert.match(flat, /scripts\/owner\/toolchain\.sh/);
 });
+
+test("the resume goes through scripts.factory.say, and the command lines live in commands.md", () => {
+  assert.match(flat, /scripts\.factory\.say/);
+  assert.match(flat, /`commands\.md`/);
+  assert.doesNotMatch(flat, /\/home\/riz\//, "no machine path in the runbook");
+});

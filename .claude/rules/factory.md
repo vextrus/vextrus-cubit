@@ -11,7 +11,9 @@ paths:
   `after-bash.mjs` runs `sync` after each commit.
 - **Launches:** `uv run python -m scripts.factory.launch cloud|say|local ...` from the main checkout
   (`scripts/factory/launch.py`; its contract: `docs/specs/factory/contracts/launch-cli.md`). It judges
-  each cloud launch's debug log and refuses a bundled session or one cloned at the wrong branch.
+  each cloud launch's debug log and refuses a bundled session or one cloned at the wrong branch. Every
+  runbook line (the clock's `stamp start`/`stamp end`, `scripts.land <PR>`, `scripts.factory.amend`, the
+  PR and issue recipes) is in `.claude/skills/orchestrate-wave/commands.md`; `docs_paths` lints it.
 - **Committed checks** carry the lessons: CI's lints and scans (`tools/lint/`, the acceptance check and
   `docs_paths` among them), the guard's test and each module's tests. Merges pass `scripts/merge_ready.py`.
 - **Agents** (`.claude/agents/`): `acceptance-writer` (a ticket's failing acceptance tests, before its
