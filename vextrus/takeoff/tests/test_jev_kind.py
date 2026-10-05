@@ -202,3 +202,33 @@ def test_a_title_naming_jevs_first_by_an_elided_subject_does_not_contradict_it()
     proposed."""
     for first, other in (("beam_layout", "column_layout"), ("column_layout", "beam_layout")):
         assert not unsure(answer((first, "0.60"), (other, "0.10")), "COLUMN & BEAM LAYOUT")
+
+
+@pytest.mark.parametrize(
+    ("first", "others", "title"),
+    [
+        ("beam_details", ("beam_layout", "details"), "BEAM LAYOUT & DETAILS (LEVELS 2-6)"),
+        ("beam_details", ("beam_layout", "details"), "BEAM LAYOUT & DETAILS-2"),
+        ("beam_details", ("beam_layout", "details"), "BEAM LAYOUT WITH DETAILS"),
+        ("slab_details", ("slab_layout", "details"), "LEVEL 4 SLAB LAYOUT + DETAILS"),
+        (
+            "door_window_details",
+            ("door_window_schedule", "details"),
+            "DOOR & WINDOW SCHEDULE & DETAILS",
+        ),
+        (
+            "door_window_schedule",
+            ("door_window_details", "details"),
+            "DOOR/WINDOW DETAILS, SCHEDULE",
+        ),
+        ("door_window_layout", ("door_window_details", "details"), "DOOR AND WINDOW LAYOUT"),
+    ],
+)
+def test_an_elided_subject_with_a_qualifier_or_a_joiner_of_its_own_still_names_jevs_first(
+    first: str, others: tuple[str, str], title: str
+) -> None:
+    """The fix round 3 refuter's regressions (scores 60 and 55): f6548980e proposed each of these and
+    the first draft of the expansion asked all but the last (a run of subjects read joined); the
+    title names Jev's first, so it is proposed."""
+    clear = answer((first, "0.60"), (others[0], "0.10"), (others[1], "0.10"))
+    assert not unsure(clear, title)

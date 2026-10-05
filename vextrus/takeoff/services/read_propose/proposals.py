@@ -282,28 +282,43 @@ def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
     return [k for k in kinds if "_" in k and any(f" {_words(k)} " in s for s in said)]
 
 
-_JOINERS = re.compile(r"[&,/]|\band\b", re.IGNORECASE)
+_JOINERS = re.compile(r"[&,/+]|\b(?:and|with)\b", re.IGNORECASE)
 """What joins a title's segments: "BEAM LAYOUT & DETAILS", "PILE, PILE CAP / COLUMN LAYOUT"."""
+_QUALIFIER = re.compile(r"\([^)]*\)")
+"""A segment's bracketed qualifier ("DETAILS (LEVELS 1-5)"): no subject's and no kind's words."""
 
 
 def expanded(title: str, kinds: Sequence[str]) -> list[str]:
     """A title's segments whose subject it elides, each with that subject (or last word) restored, as
-    `_words` gives them. The title is split on its joiners (`_JOINERS`); a kind's last word is the
-    last word of any of `kinds`. A segment holding only a kind's last word takes the subject words of
-    the segment before it: its words but a last kind word ("BEAM LAYOUT & DETAILS": "beam detail");
-    a segment ending in no kind's last word takes the last word of the next segment that ends in one
-    ("COLUMN & BEAM LAYOUT": "column layout"). Nothing is borrowed across a segment that names its
-    own subject: "COLUMN LAYOUT & BEAM DETAILS" expands nothing."""
+    `_words` gives them. The title is split on its joiners (`_JOINERS`), each segment's bracketed
+    qualifier and words holding a digit ("DETAILS-2", "LEVEL 7") aside; a kind's last word is the last
+    word of any of `kinds`. A segment holding only a kind's last word takes the subject words of the
+    segment before it: its words but a last kind word ("BEAM LAYOUT & DETAILS": "beam detail"), and
+    that segment's subject joined to the subject-only segments before it ("DOOR & WINDOW SCHEDULE &
+    DETAILS": "door window detail" too). A segment ending in no kind's last word takes the last word
+    of the next segment that ends in one ("COLUMN & BEAM LAYOUT": "column layout"), and the run of
+    them is read joined to it ("DOOR AND WINDOW LAYOUT": "door window layout"). Nothing is borrowed
+    across a segment that names its own subject: "COLUMN LAYOUT & BEAM DETAILS" expands nothing."""
     lasts = {_words(k.rpartition("_")[2]) for k in kinds}
-    segments = [words for part in _JOINERS.split(title) if (words := _words(part).split())]
+    segments = [
+        words
+        for part in _JOINERS.split(_QUALIFIER.sub(" ", title))
+        if (words := [w for w in _words(part).split() if not any(c.isdigit() for c in w)])
+    ]
     phrases: list[str] = []
-    subject: list[str] = []
+    subjects: list[list[str]] = []
+    run: list[str] = []
     for words in segments:
-        if len(words) == 1 and words[0] in lasts:
-            if subject:
-                phrases.append(" ".join([*subject, words[0]]))
+        if words[-1] not in lasts:
+            subjects, run = [words], [*run, *words]
+        elif len(words) == 1:
+            phrases += [" ".join([*subject, words[0]]) for subject in subjects]
+            run = []
         else:
-            subject = words[:-1] if words[-1] in lasts else words
+            own = words[:-1]
+            subjects = [own, [*run, *own]] if run else [own]
+            phrases += [" ".join([*run, *words])] if run else []
+            run = []
     shared = ""
     for words in reversed(segments):
         if words[-1] in lasts:
