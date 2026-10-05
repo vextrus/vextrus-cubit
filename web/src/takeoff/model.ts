@@ -211,9 +211,15 @@ export function answeredQueue(questions: readonly QuestionOut[], proposals: read
 /** A title as compared: trimmed, its spaces collapsed, case ignored. */
 const titleKey = (title: string) => title.trim().replace(/\s+/g, ' ').toLowerCase()
 
+/** The sheets' titles, each once (compared as `titleKey` does), in the sheets' order. */
+export function distinctTitles(holds: readonly ProposalOut[]): ProposalOut[] {
+  const seen = new Set<string>()
+  return holds.filter((p) => !seen.has(titleKey(p.title)) && !!seen.add(titleKey(p.title)))
+}
+
 /** The sheets' titles differ (compared as `titleKey` does). */
 export function titlesDiffer(holds: readonly ProposalOut[]): boolean {
-  return new Set(holds.map((p) => titleKey(p.title))).size > 1
+  return distinctTitles(holds).length > 1
 }
 
 /** What a row of two or more held sheets is (RowKind); one sheet is a `sheet`. */

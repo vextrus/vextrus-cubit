@@ -11,7 +11,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { gapOf, titlesDiffer, type QuestionEntry, type Step1Model } from './model'
+import { distinctTitles, gapOf, titlesDiffer, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { DISCIPLINE_NAMES, OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -128,10 +128,7 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
     }
     if (isTitledApart(entry)) {
-      const seen = new Set<string>()
-      const key = (h: ProposalOut) => h.title.trim().replace(/\s+/g, ' ').toLowerCase()
-      const apart = entry.holds.filter((h) => !seen.has(key(h)) && !!seen.add(key(h)))
-      const named = <Joined items={apart.map((h) => <Titled key={h.id} sheet={h} />)} />
+      const named = <Joined items={distinctTitles(entry.holds).map((h) => <Titled key={h.id} sheet={h} />)} />
       return <Trans>They carry the same number, but their titles differ: {named}. They may be different sheets.</Trans>
     }
     return <Trans>Their titles differ. Only one can be read, unless they are different sheets.</Trans>

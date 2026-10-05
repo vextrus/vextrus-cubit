@@ -15,7 +15,7 @@ import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
 import { QuestionTitle } from './questionWords'
-import { listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
+import { distinctTitles, listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
@@ -633,13 +633,7 @@ function SheetRow({
 
 /** Each distinct title of a row's sheets, joined by "; ", cut by the cell; the whole list in its tooltip. */
 function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
-  const seen = new Set<string>()
-  const titles = sheets.map((p) => p.title).filter((t) => {
-    const key = t.trim().replace(/\s+/g, ' ').toLowerCase()
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  const titles = distinctTitles(sheets).map((p) => p.title)
   const items = titles.flatMap((t, i) => [...(i > 0 ? ['; '] : []), <DrawingText key={i} kind="title" text={t} truncate={false} />])
   return (
     <Tooltip>
