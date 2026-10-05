@@ -234,12 +234,16 @@ the test seam a corpus under 100 strings is refused by every scan and by the gua
 corpus-unreadable`). `allow` hashes, from the next line, only strings that span the line break.
 
 **Slug forms, run ids** (T-LEAK-2). A file name, a ref name, a commit message line and a body line (`file`,
-`text`, and a PR's or an issue's title, body, comments and branch) is tested as written **and** as its slug
-form: apostrophes dropped (`zebra's` reads `ZEBRAS`), a space put at each lower-to-upper and each letter-digit
-boundary (either way), each run of any other character that is not a letter, a digit or a combining mark (`-`,
-`_`, `.`, `/`, `(`, `,`, `&`, `:` ...) replaced by one space, then normalised. The slug form is tested for each corpus string and
-for that string's own slug form, so the `a-b_c.d/e` and `CamelCase` spellings hit even for a corpus string that
-holds `C1` or `Plot-12`.
+`text`, and a PR's or an issue's title, body, comments and branch) is tested as written **and** in every slug
+reading (a reading only adds hits; the count is their union). The splits: a space at each lower-to-upper and
+each letter-digit boundary (either way); at the letter-digit boundaries only; or none (`McLaren` stays one
+word). The separators: round 0's `-`, `_`, `.`, `/`, `\`, `+` only (other punctuation kept as written); or every
+character that is not a letter, a digit or a combining mark (`(`, `,`, `&`, `:` ...), with an apostrophe
+dropped (`zebra's` reads `ZEBRAS`) or separating (`ZEBRA S`). Each split with each separator rule, then
+normalised. Each reading is tested for each corpus string as written and for each of that string's own
+readings, so the `a-b_c.d/e` and `CamelCase` spellings hit even for a corpus string that holds `C1`, `Plot-12`,
+`(Pvt.)` or `Zebra's`. A spelling with no separator at all (`McLarenHeightsTower`) meets only a corpus
+string written with its capitals split the same way: squashing every space is not a reading.
 The count is the union of the strings found either way (never one string twice). An added line of a diff, a line
 of a file under `dir` and the text in a binary blob are not slug-read: code is full of such separators. A
 normalised string of the shape `<8 digits>T<6 digits>Z-<12 hex>-<4 hex>` (a real-drawing run id, a tool-made
@@ -249,7 +253,7 @@ among other words, never removes a string: drawing tokens (`FACADE-3`, `C1-C2-C3
 note quotes stays and is allowlisted by hash if it hits. Both rules live in the corpus filter, so a corpus built
 before them drops those strings on load.
 
-A corpus string's own slug form is matched only when it has two or more words and lies inside the slug form of
-one whitespace-free run of the scanned text: a one-word slug form (`WORD.` reads `WORD`) or a match across the
+A corpus string's own reading is matched only when it has two or more words and lies inside a reading of
+one whitespace-free run of the scanned text: a one-word reading (`WORD.` reads `WORD`) or a match across the
 text's own spaces is a respelling, not a slug (T-LEAK-2's measure on the real corpus: 21 such hits in 60 merges
 of commit messages, none a slug).

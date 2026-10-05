@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from tools.leakscan import pdftext
-from tools.leakscan.core import CannotScan, Corpus, git, slug_forms
+from tools.leakscan.core import CannotScan, Corpus, git, slug_readings
 
 _GH_FAILED = (OSError, subprocess.TimeoutExpired)
 _HUNK = re.compile(r"^@@+ -\d+(?:,\d+)?(?: -\d+(?:,\d+)?)* \+(\d+)(?:,\d+)? @@")
@@ -51,12 +51,15 @@ def joined(first: str, second: str) -> str:
 
 
 def found_in(corpus: Corpus, text: str, slug: bool) -> set[str]:
-    """The corpus strings `text` holds as written, and with `slug` also as a slug: its slug form
-    (`slug_forms`) holding a corpus string or that string's own slug form. The union, so a string found
-    several ways counts once. Never print what this returns."""
+    """The corpus strings `text` holds as written, and with `slug` also as a slug: any slug reading
+    (`slug_readings`) of it holding a corpus string as written, or one of that string's own readings
+    (`Corpus.found_slug`). The union, so a string found several ways counts once. Never print what
+    this returns."""
     found = corpus.found(text)
     if slug:
-        found |= corpus.found(slug_forms(text)) | corpus.found_slug(text)
+        for reading in slug_readings(text):
+            found |= corpus.found(reading)
+        found |= corpus.found_slug(text)
     return found
 
 

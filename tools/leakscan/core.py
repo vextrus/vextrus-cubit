@@ -26,8 +26,12 @@ _RUN_ID = re.compile(r"\d{8}T\d{6}Z-[0-9A-F]{12}-[0-9A-F]{4}")
 # A full git object id or a sha256, the WHOLE normalised string. Never a short or hyphenated hex token,
 # and never one token among others: drawing tokens (`FACADE-3`, `ACB-1250A`, `C1-C2-C3`) look like hex.
 _OBJECT_ID = re.compile(r"[0-9A-F]{40}|[0-9A-F]{64}")
-# Slug boundaries: letter beside digit (either way) and lower to upper (camel case).
+# Slug boundaries: letter beside digit (either way) and lower to upper (camel case); or the digit
+# boundaries alone (`McLaren7` keeps `MCLAREN`).
 _CAMEL = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=\d)(?=[^\W\d_])|(?<=[a-z])(?=[A-Z])")
+_DIGIT_LETTER = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=\d)(?=[^\W\d_])")
+# Round 0's separators (a slug's usual ones; other punctuation kept as written).
+_SLUG_MARKS = re.compile(r"[-_./\\+]+")
 # Apostrophes join (`zebra's` reads `ZEBRAS`); every other character but a letter, a digit or a
 # combining mark (Bengali vowel signs are marks) separates.
 _APOSTROPHES = str.maketrans("", "", "'`" + chr(0x2018) + chr(0x2019) + chr(0x02BC))
@@ -94,6 +98,22 @@ def slug_forms(text: str) -> str:
     (`zebra-quarry_7`, `ZebraQuarry7` and `Zebra (Quarry), 7.` all read `ZEBRA QUARRY 7`)."""
     joined = unicodedata.normalize("NFKC", text).translate(_APOSTROPHES)
     return normalise(_SEPARATORS.sub(" ", _CAMEL.sub(" ", joined)))
+
+
+def slug_readings(text: str) -> frozenset[str]:
+    """Every way `text` may be read as a slug, normalised; a match in any of them counts (a reading
+    only adds hits). Splits: camel and letter-digit, letter-digit only, none (`McLaren` stays one
+    word). Separators: round 0's `-_./\\+` only (other punctuation kept), or every character but a
+    letter, a digit or a combining mark, with an apostrophe dropped (`zebra's` reads `ZEBRAS`) or
+    separating (`ZEBRA S`)."""
+    base = unicodedata.normalize("NFKC", text)
+    readings: set[str] = set()
+    for split in (_CAMEL, _DIGIT_LETTER, None):
+        spaced = base if split is None else split.sub(" ", base)
+        readings.add(normalise(_SLUG_MARKS.sub(" ", spaced)))
+        readings.add(normalise(_SEPARATORS.sub(" ", spaced.translate(_APOSTROPHES))))
+        readings.add(normalise(_SEPARATORS.sub(" ", spaced)))
+    return frozenset(readings)
 
 
 def digest(text: str) -> str:
@@ -204,36 +224,36 @@ class Corpus:
         return len(self.found(text))
 
     def found_slug(self, text: str) -> set[str]:
-        """The corpus strings whose own slug form, two or more words, lies inside the slug form of one
-        whitespace-free run of `text` (so `kestrel-block-c1` meets `KESTREL BLOCK C1` and `plot_12_row`
-        meets `PLOT-12 ROW`), as the corpus holds them. A one-word slug form (`WORD.` reads `WORD`) and
-        a match across the text's own spaces are respellings, not slugs. Never print what this
-        returns."""
+        """The corpus strings one of whose own slug readings (`slug_readings`), two or more words, lies
+        inside a slug reading of one whitespace-free run of `text` (so `kestrel-block-c1` meets
+        `KESTREL BLOCK C1`, `plot_12_row` meets `PLOT-12 ROW`, `zebra-s-tower` meets `ZEBRA'S TOWER`),
+        as the corpus holds them. A one-word reading (`WORD.` reads `WORD`) and a match across the
+        text's own spaces are respellings, not slugs. Never print what this returns."""
         if self._by_slug is None:
-            # Built on first use: a slug form may be shorter than 8 characters (`A--B` reads `A B`).
+            # Built on first use: a reading may be shorter than 8 characters (`A--B` reads `A B`).
             keyed: dict[str, list[tuple[str, str]]] = {}
             short: list[tuple[str, str]] = []
             for values in self._by_prefix.values():
                 for value in values:
-                    slug = slug_forms(value)
-                    if " " not in slug:
-                        continue
-                    if len(slug) >= MIN_LENGTH:
-                        keyed.setdefault(slug[:MIN_LENGTH], []).append((slug, value))
-                    else:
-                        short.append((slug, value))
+                    for slug in slug_readings(value):
+                        if " " not in slug:
+                            continue
+                        if len(slug) >= MIN_LENGTH:
+                            keyed.setdefault(slug[:MIN_LENGTH], []).append((slug, value))
+                        else:
+                            short.append((slug, value))
             self._by_slug = (keyed, short)
         keyed, short = self._by_slug
         found: set[str] = set()
         for run in text.split():
-            line = slug_forms(run)
-            found |= {value for slug, value in short if slug in line}
-            for start in range(len(line) - MIN_LENGTH + 1):
-                candidates = keyed.get(line[start : start + MIN_LENGTH])
-                if candidates is not None:
-                    for slug, value in candidates:
-                        if line.startswith(slug, start):
-                            found.add(value)
+            for line in slug_readings(run):
+                found |= {value for slug, value in short if slug in line}
+                for start in range(len(line) - MIN_LENGTH + 1):
+                    candidates = keyed.get(line[start : start + MIN_LENGTH])
+                    if candidates is not None:
+                        for slug, value in candidates:
+                            if line.startswith(slug, start):
+                                found.add(value)
         return found
 
 

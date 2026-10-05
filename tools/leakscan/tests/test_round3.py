@@ -330,3 +330,53 @@ def test_a_punctuated_corpus_string_meets_its_slug_at_every_place(
 def test_a_bengali_word_keeps_its_vowel_signs_in_a_slug_read() -> None:
     word = "কলাম"  # a letter, a letter, a vowel sign (a mark), a letter
     assert core.slug_forms(f"{word}-{word}") == f"{word} {word}"
+
+
+# Fix round 2 of PR #380: every reading is matched, so no reading loses an older match. Invented strings.
+def _three_places(built: Leak, form: str, ref: str | None = None) -> list[tuple[str, int]]:
+    repo, base = temp_repo(built.tmp / "work")
+    head = commit(repo, {f"docs/{form}.md": "clean\n"}, f"docs: a note\n\n{form}")
+    done = built.run("range", f"{base}..{head}", "--ref", ref or form, "--no-stamp", cwd=repo)
+    assert form.upper() not in done.stdout.upper()
+    return [(where.replace(head[:12], "<head>"), n) for where, n in hits(done)]
+
+
+THREE = [("commit:<head>:3", 1), ("name:0", 1), ("ref", 1)]
+
+
+def _built(tmp_path: Path, value: str) -> Leak:
+    built = Leak(tmp_path)
+    (built.sources / "more.txt").write_text(f"{value}\n")
+    built.build()
+    return built
+
+
+@pytest.mark.parametrize("form", ["McLaren-Heights-Tower", "mclaren_heights_tower"])
+def test_drawing_capitals_meet_without_the_camel_split(tmp_path: Path, form: str) -> None:
+    # `McLarenHeightsTower` (no separator at all) stays unmatched: only a reading with every space
+    # squashed would meet it, and a squashed form is pinned as not a slug (acceptance test 4).
+    built = _built(tmp_path, "McLaren Heights Tower")
+    assert _three_places(built, form, ref=f"feat/{form}") == THREE
+
+
+def test_an_apostrophe_read_as_a_separator_meets(tmp_path: Path) -> None:
+    built = _built(tmp_path, "Zebra's Quarry Tower")
+    assert _three_places(built, "zebra-s-quarry-tower") == THREE
+
+
+def test_a_punctuated_corpus_string_meets_the_texts_round_0_slug_as_written(tmp_path: Path) -> None:
+    # Two runs: the corpus string holds punctuation and spaces, and only round 0's reading (punctuation
+    # other than `-_./\+` kept) of the whole line holds it as written.
+    built = _built(tmp_path, "Marsh (Pvt) Kilnworks Ltd")
+    repo, base = temp_repo(built.tmp / "work")
+    head = commit(repo, {"b.txt": "clean\n"}, "docs: a note\n\nmarsh_(pvt) kilnworks_ltd")
+    done = built.run("range", f"{base}..{head}", "--no-stamp", cwd=repo)
+    assert hits(done) == [(f"commit:{head[:12]}:3", 1)]
+    body = built.tmp / "body.md"
+    body.write_text("marsh_(pvt) kilnworks_ltd\n")
+    assert hits(built.run("file", str(body), "--no-stamp")) == [("file:1", 1)]
+
+
+def test_slug_readings_hold_every_split_and_apostrophe_reading() -> None:
+    readings = core.slug_readings("McLaren's-Tower7")
+    assert {"MCLARENS TOWER 7", "MCLAREN S TOWER 7", "MC LARENS TOWER 7", "MCLAREN'S TOWER7"} <= readings
