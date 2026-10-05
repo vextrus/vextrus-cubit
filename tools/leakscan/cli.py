@@ -10,7 +10,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import NoReturn
 
@@ -156,14 +156,19 @@ def _build(options: argparse.Namespace) -> int:
         # `--source` is a test seam: it never writes the real corpus (the guard refuses the seam).
         print("leakscan: build --source needs the test seam VEXTRUS_LEAKSCAN_HOME", file=sys.stderr)
         return USAGE
-    counts: dict[str, int] = {}
-    values = sources.text_sources(options.source) if options.source else sources.real_sources(counts)
+    counts: dict[str, sources.Tally] = {}
+    pairs: Iterator[tuple[str, str]]
+    if options.source:
+        pairs = (("source", value) for value in sources.text_sources(options.source))
+    else:
+        pairs = sources.real_sources(counts)
     allowed = core.allowlist()
-    kept = {
-        value
-        for value in sources.normalised(values)
-        if core.keeps(value) and core.digest(value) not in allowed
-    }
+    kept_by: dict[str, set[str]] = {}
+    for name, raw in pairs:
+        value = core.normalise(raw)
+        if core.keeps(value) and core.digest(value) not in allowed:
+            kept_by.setdefault(name, set()).add(value)
+    kept = set().union(*kept_by.values())
     previous = core.corpus_strings()
     floor = max(previous // 2, 0 if os.environ.get("VEXTRUS_LEAKSCAN_HOME") else core.CORPUS_FLOOR)
     if len(kept) < floor and not options.force:
@@ -174,9 +179,16 @@ def _build(options: argparse.Namespace) -> int:
         )
         return 2
     count, sha256 = core.write_corpus(kept)
-    if not options.quiet:
-        for name, read in counts.items():
-            print(f"source {name}: {read} strings read")
+    if not options.quiet and not options.source:
+        # Counts only, never a folder name: how much each source read, kept after the allowlist and
+        # de-duplication, and how many files its skips removed; then the notes' undecided folder kinds.
+        for name, tally in counts.items():
+            print(
+                f"source {name}: {tally.read} strings read, {len(kept_by.get(name, ()))} kept, "
+                f"{tally.skipped} files skipped"
+            )
+        unruled = sources.unclassified_work_folders(sources.notes_folder())
+        print(f"leakscan: work folders without a rule: {len(unruled)}")
     print(f"corpus: {count} strings, sha256 {sha256[:12]}")
     return 0
 
