@@ -169,7 +169,7 @@ def commit(paths: list[str], base: str, text: str, root: Path) -> int:
         committed = True
     finally:
         if not committed:
-            _git(root, "read-tree", found_index)
+            _git(root, "restore", "--staged", f"--source={found_index}", "--", *paths)
     print(f"amend: committed {new[:12]}")
     return 0
 

@@ -172,3 +172,21 @@ def test_head_moving_before_the_update_puts_the_index_back(
     monkeypatch.setattr(amend, "problems", moved)
     _refused_with_the_index_as_found(repo)
     assert _git(repo, "log", "-1", "--format=%s") == "meanwhile"
+
+
+def test_a_concurrent_commit_during_the_lint_is_kept_and_not_reversed(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def another_commits(root: Path, base: str, head: str) -> list[str]:
+        (root / "b.txt").write_text("b\n")
+        _git(root, "add", "--", "b.txt")
+        _git(root, "commit", "-q", "-m", "other", "--", "b.txt")
+        return []
+
+    monkeypatch.setattr(amend, "problems", another_commits)
+    head = _git(repo, "rev-parse", "HEAD")
+    with pytest.raises(amend.Refused):
+        amend.commit([PATH], head, amend.message("pin y", "", 1, 1), repo)
+    assert _git(repo, "log", "-1", "--format=%s") == "other"
+    assert _git(repo, "diff", "--cached", "--name-status") == ""
+    assert _git(repo, "show", "HEAD:b.txt") == "b"
