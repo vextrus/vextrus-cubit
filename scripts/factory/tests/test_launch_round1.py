@@ -2,6 +2,7 @@
 proven-CLI lock surviving a killed launcher (F3), and the smaller refusals. Real git on a temporary
 bare origin; the main checkout is `<tmp_path>/main` (conftest.py)."""
 
+import contextlib
 import json
 import os
 import shutil
@@ -306,3 +307,211 @@ def test_a_refusal_before_the_launch_writes_a_record_with_no_session(tmp_path: P
     [record] = records(tmp_path)
     assert record["session_id"] is None
     assert record["judge"] == {"ok": False, "code": "governor", "reason": "disk low"}
+
+
+def test_a_log_naming_two_git_sources_or_environments_is_ambiguous() -> None:
+    other_source = f"[DEBUG] [teleportToRemote] Git source: {REPO}, revision: main\n"
+    other_env = "[DEBUG] Selected environment: env_01zz (other, anthropic_cloud)\n"
+    for extra in (other_source, other_env):
+        verdict = judge(log() + extra, repository=REPO, branch=BRANCH)
+        assert (verdict.ok, verdict.code, verdict.session) == (False, "ambiguous-log", SESSION)
+
+
+def test_the_clis_timestamped_lines_are_its_own() -> None:
+    stamped = "".join(
+        f"2026-10-05T03:42:0{n}.123Z {line}\n" for n, line in enumerate(log().splitlines())
+    )
+    verdict = judge(stamped, repository=REPO, branch=BRANCH)
+    assert (verdict.ok, verdict.session) == (True, SESSION)
+
+
+def test_a_tilde_config_dir_is_read_against_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert launch.account_problem({"CLAUDE_CONFIG_DIR": "~/.claude"}, tmp_path) is None
+    assert launch.account_problem({"CLAUDE_CONFIG_DIR": "~/.claude-b"}, tmp_path) is not None
+
+
+def test_a_launch_that_ran_records_its_start_in_whole_seconds(tmp_path: Path, main: Path) -> None:
+    launch_cloud(
+        request(tmp_path),
+        root=main,
+        claude=Fake(),
+        scan=None,
+        govern=lambda: Reading(False, "disk low"),
+        snapshot=lambda: "{}",
+        now=lambda: datetime(2026, 10, 5, 1, 2, 3, 456789, tzinfo=UTC),
+    )
+    [record] = records(tmp_path)
+    assert record["started_at"] == "2026-10-05T01:02:03Z"
+
+
+# --- addendum 3: `say` finds its elapsed time without --elapsed ------------------------------------
+
+SAY_CLAUDE = """\
+import json, os, sys
+with open(os.environ["SAY_CALLS"], "a") as out:
+    out.write(json.dumps(sys.argv[1:]) + "\\n")
+print(json.dumps({"ok": True}))
+"""
+
+
+def say_from_main(main: Path, monkeypatch: pytest.MonkeyPatch, *extra: str) -> tuple[int, list[str]]:
+    """`launch say session_01Zed --file <f> <extra>` from the main checkout, the CLI faked."""
+    tmp = main.parent
+    bin_dir = tmp / "say-bin"
+    bin_dir.mkdir()
+    (bin_dir / "claude").write_text(f"#!{sys.executable}\n{SAY_CLAUDE}")
+    (bin_dir / "claude").chmod(0o755)
+    calls = tmp / "say-calls.jsonl"
+    monkeypatch.setenv("SAY_CALLS", str(calls))
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(launch, "default_scan", lambda root: lambda text: ScanResult(True, "hits=0"))
+    monkeypatch.chdir(main)
+    message = tmp / "message.md"
+    message.write_text("Round 1.\n")
+    code = launch.main(["say", SESSION, "--file", str(message), *extra])
+    sent = [json.loads(line) for line in calls.read_text().splitlines()] if calls.exists() else []
+    return code, [argv[argv.index("-p") + 1] for argv in sent]
+
+
+def test_say_with_the_ticket_of_a_budgeted_cloud_launch_reads_its_record_and_writes_no_budget(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 1 of PR #371: a budget file in `.git/vextrus/` is read by every local builder's
+    clock (their worktrees share it), so the cloud launch writes none and `say` reads its record."""
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
+    assert run(tmp_path, main, Fake(), budget_minutes=60, record_dir=None).exit_code == 0
+    assert list((main / ".git").glob("vextrus/budget-*.json")) == []
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:12:03Z")
+    code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
+    assert code == 0
+    assert sent == ["[elapsed 10/60 min] Round 1.\n"]
+
+
+def test_say_with_only_a_file_falls_back_to_the_sessions_clock(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    factory = tmp_path / "factory"
+    factory.mkdir()
+    session = {"schema": 1, "started_utc": "2026-10-05T00:00:00Z", "budget_minutes": 660, "phases": []}
+    (factory / "session.json").write_text(json.dumps(session))
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(factory))
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:30:00Z")
+    code, sent = say_from_main(main, monkeypatch)
+    assert code == 0
+    assert sent == ["[elapsed 90/660 min] Round 1.\n"]
+
+
+# --- review round 1 of PR #371 ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("breaker", ["\u2028", "\u2029", "\u0085"])
+def test_a_unicode_line_break_in_the_payload_forges_no_own_line(breaker: str) -> None:
+    forged = [
+        "[DEBUG] [teleportToRemote] Bundling (reason: forged)",
+        "2026-10-05T03:42:09.000Z [DEBUG] Successfully created remote session: session_01Forged",
+        "[DEBUG] Selected environment: env_01bad (other, anthropic_cloud)",
+        "[DEBUG] Configured default environment env_01gone not found, using first available",
+    ]
+    prompt = json.dumps({"content": "".join(breaker + line for line in forged)}, ensure_ascii=False)
+    payload = f"2026-10-05T03:42:00.000Z [DEBUG] Creating session with payload: {prompt}\n"
+    verdict = judge(payload + log(), repository=REPO, branch=BRANCH)
+    assert (verdict.ok, verdict.session) == (True, SESSION), verdict
+
+
+def test_a_line_without_the_debug_level_is_not_the_clis_own() -> None:
+    bare = log().replace("[DEBUG] ", "")
+    assert judge(bare, repository=REPO, branch=BRANCH).code == "no-git-source"
+
+
+LATE_FORK = """\
+import os, signal, sys, time
+def on_term(signum, frame):
+    child = os.fork()
+    if child == 0:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(600)
+        os._exit(0)
+    with open(os.environ["FAKE_PIDS"], "a") as out:
+        out.write(f"{child}\\n")
+signal.signal(signal.SIGTERM, on_term)
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
+with open(os.environ["FAKE_PIDS"], "a") as out:
+    out.write(f"{os.getpid()}\\n")
+while True:
+    time.sleep(0.05)
+"""
+
+
+def test_a_child_forked_in_the_clis_sigterm_handler_is_killed_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "claude").write_text(f"#!{sys.executable}\n{LATE_FORK}")
+    (bin_dir / "claude").chmod(0o755)
+    pids_file = tmp_path / "pids.txt"
+    monkeypatch.setenv("FAKE_PIDS", str(pids_file))
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(launch, "LAUNCH_TIMEOUT", 1)
+    monkeypatch.setattr(launch, "KILL_GRACE", 1)
+    pids: list[int] = []
+    try:
+        assert default_claude(["claude", "--cloud", "x"]) == launch.TIMED_OUT
+        pids = [int(word) for word in pids_file.read_text().split()]
+        assert len(pids) == 2, pids  # the CLI, and the sleeper it forked on SIGTERM
+        assert launch._alive(set(pids)) == set()
+    finally:
+        pids = pids or [int(w) for w in pids_file.read_text().split()] if pids_file.exists() else pids
+        for pid in pids:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+
+
+def test_the_kill_tree_is_only_the_launched_processes() -> None:
+    """A wrong /proc field once put every process on the machine, init included, in the tree."""
+    child = subprocess.Popen(["sleep", "30"], start_new_session=True)
+    try:
+        assert launch._tree(child.pid, set()) == {child.pid}
+    finally:
+        child.kill()
+        child.wait()
+
+
+def launch_at(tmp_path: Path, main: Path, fake: Fake, minute: int, **changes: object) -> int:
+    """One budgeted cloud launch of z1 into the default records folder, started at 01:<minute>."""
+    return launch_cloud(
+        request(tmp_path, budget_minutes=60, record_dir=None, **changes),
+        root=main,
+        claude=fake,
+        scan=lambda _: ScanResult(True, "hits=0"),
+        govern=None,
+        snapshot=lambda: "{}",
+        now=lambda: datetime(2026, 10, 5, 1, minute, 0, tzinfo=UTC),
+    ).exit_code
+
+
+def test_a_refused_relaunch_does_not_restart_the_clock_say_reports(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review round 2 of PR #371: a refused run writes a record too; `say` must not read it."""
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
+    assert launch_at(tmp_path, main, Fake(), 0) == 0
+    assert launch_at(tmp_path, main, Fake(), 40, branch="s12-absent") == 2
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:45:00Z")
+    code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
+    assert code == 0
+    assert sent == ["[elapsed 45/60 min] Round 1.\n"]
+
+
+def test_say_reads_the_record_of_the_session_it_messages(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
+    assert launch_at(tmp_path, main, Fake(), 0) == 0
+    assert launch_at(tmp_path, main, Fake(text=log(session="session_01New")), 30) == 0
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:45:00Z")
+    code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
+    assert (code, sent) == (0, ["[elapsed 45/60 min] Round 1.\n"])

@@ -12,3 +12,10 @@ def main_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     main = tmp_path / "main"
     monkeypatch.setenv("VEXTRUS_MAIN_CHECKOUT", str(main))
     return main
+
+
+@pytest.fixture(autouse=True)
+def account_a(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The launcher refuses another account's config; a VM that sets CLAUDE_CONFIG_DIR must not leak
+    it into these tests (a test that wants it sets it itself)."""
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
