@@ -146,9 +146,10 @@ a module is added, never per feature.
   database, named by an environment variable; test databases are named by a hash of the migrations.
 
 ## The harness around the product (ADRs 0025, 0026, 0030; docs/sdlc.md)
-Not part of the product and never imported by it: `scripts/score/` (vx-score, the blind scorer, from
+Not part of the product and never imported by it: `tools/scorer/` (vx-score, the blind scorer, from
 M1), `scripts/real-drawings` with `scripts/real_drawings/` (the owner's real-drawing command),
-`scripts/owner/`, `scripts/cloud/` and `.github/`. The owner reads these and `engine/read/sandbox.py` in
+`scripts/owner/`, `scripts/factory/` (the launcher), `scripts/cloud/` (the cloud sessions' setup) and
+`.github/`. The owner reads these and `engine/read/sandbox.py` in
 full.
 - **The real-drawing command runs as the owner, inside bwrap:** no network, environment cleared;
   read-only `/usr`, the toolchain under `/opt/vextrus`, a scratch checkout of the PR's head and the
