@@ -47,6 +47,7 @@ from engine.recognise.types import (
     PlotMatch,
     SheetCandidate,
     SheetLocation,
+    Sourced,
     ValueSource,
     ViewCandidate,
 )
@@ -966,6 +967,37 @@ def record_kind(sheet_revision_id: uuid.UUID, kind: str | None) -> SheetView:
             raise auth.Refused(refusal.DECIDED(file=file_name), status=409)
         sheet_revision.kind = kind or ""
         sheet_revision.save(update_fields=["kind"])
+    return _sheet_view(_all().get(id=sheet_revision.id))
+
+
+def record_sheet_title(
+    sheet_revision_id: uuid.UUID, *, title: Sourced, storeys_as_stated: Sourced | None = None
+) -> SheetView:
+    """Keep a printed sheet's title (and the storeys it states) read after its sheet, from its one
+    drawing view (21b's `sheet_<n>` step, #332), with its source. Never over a title already kept or
+    on a sheet the QS has decided (it is then returned as it is); the numbered Sheet takes only what
+    it has empty, so another revision's title stays. A raw code is refused as `record_sheets` does."""
+    with transaction.atomic():
+        sheet_revision = _access.sheet_revision(sheet_revision_id, lock=True)
+        given = [title, *([storeys_as_stated] if storeys_as_stated is not None else [])]
+        _decoded(sheet_revision.source_file.original_name, *(field.value for field in given))
+        text = _text.read(title.value)
+        if sheet_revision.title or sheet_revision.decision or not text.strip():
+            return _sheet_view(_all().get(id=sheet_revision.id))
+        sources = dict(sheet_revision.sources)
+        sheet_revision.title = text
+        sources["title"] = str(title.source)
+        mirrored = {"title": text}
+        if storeys_as_stated is not None and not sheet_revision.storeys_as_stated:
+            sheet_revision.storeys_as_stated = _text.read(storeys_as_stated.value)
+            sources["storeys_as_stated"] = str(storeys_as_stated.source)
+            mirrored["storeys_as_stated"] = sheet_revision.storeys_as_stated
+        sheet_revision.sources = _text.read_json(sources)
+        sheet_revision.save(update_fields=["title", "storeys_as_stated", "sources"])
+        sheet = Sheet.objects.get(id=sheet_revision.sheet_id)
+        empty = {name: value for name, value in mirrored.items() if not getattr(sheet, name)}
+        if sheet.number and empty:
+            Sheet.objects.filter(id=sheet.id).update(**empty)
     return _sheet_view(_all().get(id=sheet_revision.id))
 
 

@@ -137,6 +137,8 @@ class ValueSource(StrEnum):
     FILE_NAME = "file_name"
     FILE = "file"
     """The file itself: its Discipline default, for example."""
+    VIEW_TITLE = "view_title"
+    """The title of the sheet's one drawing view, where its title block gives none (#332)."""
 
 
 class StoreysMeaning(StrEnum):

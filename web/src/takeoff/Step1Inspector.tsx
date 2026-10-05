@@ -320,13 +320,14 @@ function RevisionFact({ sheet }: { sheet: ProposalOut }) {
   )
 }
 
-/** Where a number or title was read (6.6): "title-block attribute", "text in the title block"; nothing where the API names no source. */
+/** Where a number or title was read (6.6): "title-block attribute", "text in the title block", "the title of its view"; nothing where the API names no source. */
 function ReadFrom({ source }: { source: string | null | undefined }) {
   if (source === 'title_block_attribute') return <Trans>title-block attribute</Trans>
   if (source === 'title_block_text') return <Trans>text in the title block</Trans>
   if (source === 'jev') return <Trans>read by Vextrus from the title</Trans>
   if (source === 'register') return <Trans>the drawing list</Trans>
   if (source === 'file_name') return <Trans>the file name</Trans>
+  if (source === 'view_title') return <Trans>the title of its view</Trans>
   return null
 }
 

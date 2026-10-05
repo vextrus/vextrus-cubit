@@ -2050,6 +2050,10 @@ msgctxt "role"
 msgid "Guest"
 msgstr "Guest"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "the title of its view"
+msgstr "the title of its view"
+
 #: src/takeoff/FilesBand.tsx
 msgid "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers agree}}"
 msgstr "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers agree}}"

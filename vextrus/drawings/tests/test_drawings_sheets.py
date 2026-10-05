@@ -528,3 +528,18 @@ def test_a_choice_refused_while_reading_is_kept_beside_a_limit_that_cut_the_read
         "code": "drawings.files.discipline_choice_undone",
         "params": {"discipline": "Structural", "sheet": "01"},
     }
+
+
+# A title read from a sheet's one view (#332) ---------------------------------------------------------
+
+
+def test_an_unnumbered_sheet_takes_a_view_title_on_its_own_row(qs_project: QsProject) -> None:
+    found = kept_dwg(qs_project, frames=1)
+    with qs_project.member.acting():
+        [unnumbered] = services.record_sheets(found.id, [sheet_candidate(0, found.group)])
+        titled = services.record_sheet_title(
+            unnumbered.id, title=Sourced("BOUNDARY WALL DETAIL", ValueSource.VIEW_TITLE)
+        )
+
+    assert (titled.title, titled.sources["title"]) == ("BOUNDARY WALL DETAIL", "view_title")
+    assert titled.number is None

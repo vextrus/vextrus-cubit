@@ -34,6 +34,8 @@ from engine.recognise.types import (
     SheetLocation,
     Sourced,
     ValueSource,
+    ViewCandidate,
+    ViewKind,
 )
 from engine.render import buffers as render_buffers
 from engine.render import fonts
@@ -571,3 +573,46 @@ def test_the_files_render_time_is_bounded_across_its_sheets_and_said_once(
     assert said == [sheets.RENDER_BUDGET]
     with qs_project.member.acting():
         assert drawings.file(spent).state == drawings.FileState.READ
+
+
+# A sheet titled by its one view (#332) ---------------------------------------------------------------
+
+
+def _untitled(stated: Sourced | None = None) -> SheetCandidate:
+    return SheetCandidate(
+        SheetLocation(box=Box(0.0, 0.0, 42_000.0, 29_700.0)),
+        number=Sourced("S-77", ValueSource.TITLE_BLOCK_TEXT),
+        storeys_as_stated=stated,
+    )
+
+
+def _one_view(title: str) -> list[ViewCandidate]:
+    return [
+        ViewCandidate(box=Box(1_000.0, 8_000.0, 9_000.0, 20_000.0), kind=ViewKind.DETAIL, title=title),
+        ViewCandidate(box=Box(34_000.0, 0.0, 42_000.0, 6_000.0), kind=ViewKind.TITLE_BLOCK),
+    ]
+
+
+def test_a_view_title_is_taken_with_its_inner_spaces_collapsed() -> None:
+    found = sheets.named_by_view(
+        _untitled(), _one_view("  PUMP HOUSE\n   ROOF  DETAIL "), finder.default_conventions()
+    )
+
+    assert found.title == Sourced("PUMP HOUSE ROOF DETAIL", ValueSource.VIEW_TITLE)
+
+
+def test_a_word_in_any_script_names_a_view() -> None:
+    found = sheets.named_by_view(_untitled(), _one_view("ছাদ 2"), finder.default_conventions())
+
+    assert found.title == Sourced("ছাদ 2", ValueSource.VIEW_TITLE)
+
+
+def test_storeys_already_stated_are_kept() -> None:
+    stated = Sourced("ROOF", ValueSource.TITLE_BLOCK_TEXT)
+
+    found = sheets.named_by_view(
+        _untitled(stated), _one_view("5TH FLOOR LINTEL DETAIL"), finder.default_conventions()
+    )
+
+    assert found.title == Sourced("5TH FLOOR LINTEL DETAIL", ValueSource.VIEW_TITLE)
+    assert found.storeys_as_stated == stated
