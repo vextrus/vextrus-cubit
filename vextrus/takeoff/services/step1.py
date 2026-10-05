@@ -52,6 +52,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
+from itertools import pairwise
 from typing import Any, cast
 
 from django.db import transaction
@@ -396,14 +397,17 @@ def _agreeing(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
     asked: set[uuid.UUID] = set()
-    gaps: list[tuple[str, dict[str, Any]]] = []
-    for subject_id, code, params, discipline in open_questions.values_list(
-        "subject_id", "message_code", "params", "discipline"
-    ):
-        if subject_id is not None:
+    answered: list[tuple[str, dict[str, Any]]] = []
+    for subject_id, code, params, discipline, status in Question.objects.filter(
+        Q(status=QuestionStatus.OPEN)
+        | Q(message_code=list_codes.GAP.code, status=QuestionStatus.ANSWERED),
+        project_id=project_id,
+        step=SHEETS,
+    ).values_list("subject_id", "message_code", "params", "discipline", "status"):
+        if status == QuestionStatus.OPEN and subject_id is not None:
             asked.add(subject_id)
-        if code == list_codes.GAP.code:
-            gaps.append((discipline or str(params.get("discipline", "")), params))
+        if code == list_codes.GAP.code and status == QuestionStatus.ANSWERED:
+            answered.append((discipline or str(params.get("discipline", "")), params))
     linked = set(
         QuestionLink.objects.filter(project_id=project_id, question__in=open_questions).values_list(
             "proposal_id", flat=True
@@ -411,7 +415,7 @@ def _agreeing(
     )
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
-    beside = _beside_gaps(numbers, gaps)
+    released = _answered_gaps(numbers, answered)
     of_discipline: dict[str, list[drawings.SheetView]] = {}
     for sheet in sheets:
         if sheet.discipline is not None:
@@ -431,13 +435,13 @@ def _agreeing(
             }
         elif standing is None:
             plotted = _without_gap(numbers, discipline, everyone)
-            held_by_gap = beside.get(discipline, set())
+            held_by_gap = _beside_gaps(numbers, discipline, everyone, released.get(discipline, set()))
             for s in mine:
                 if plotted and s.plot.page is not None:
                     second[s.id] = "plot"
                 elif _place(numbers, s.number, discipline) not in held_by_gap | {None}:
-                    # The title-block basis (#320): one source, in numbering without an
-                    # unanswered gap beside it.
+                    # The title-block basis (#320): one source, with no gap beside it in the
+                    # numbering as read now, unless the QS answered that gap.
                     second[s.id] = "title_block"
         for sheet in mine:
             proposal = by_sheet.get(sheet.id)
@@ -460,18 +464,51 @@ def _place(numbers: Numbers, number: str | None, discipline: str) -> tuple[str, 
     return None if parts is None else (parts[0], parts[1])
 
 
+Gap = tuple[tuple[str, int], tuple[str, int]]
+"""A gap in a Discipline's numbering, by the places either side of it."""
+
+
+def _gaps(numbers: Numbers, discipline: str, sheets: Iterable[drawings.SheetView]) -> list[Gap]:
+    """The gaps in a Discipline's numbering as its sheets print it now: in each series, every two
+    running numbers in turn with a number missing between them. A number printed twice is no gap;
+    a number that does not parse sits out."""
+    runs: dict[str, set[int]] = {}
+    for sheet in sheets:
+        place = _place(numbers, sheet.number, discipline)
+        if place is not None:
+            runs.setdefault(place[0], set()).add(place[1])
+    found: list[Gap] = []
+    for series, running in runs.items():
+        ordered = sorted(running)
+        found += [((series, a), (series, b)) for a, b in pairwise(ordered) if b - a > 1]
+    return found
+
+
+def _answered_gaps(
+    numbers: Numbers, answered: Iterable[tuple[str, Mapping[str, Any]]]
+) -> dict[str, set[Gap]]:
+    """Each Discipline's gaps the QS answered (a gap Question answered, not kept open), by their
+    ends (`after` and `before`, as their sheets printed them)."""
+    released: dict[str, set[Gap]] = {}
+    for discipline, params in answered:
+        after = _place(numbers, str(params.get("after") or ""), discipline)
+        before = _place(numbers, str(params.get("before") or ""), discipline)
+        if after is not None and before is not None:
+            released.setdefault(discipline, set()).add((after, before))
+    return released
+
+
 def _beside_gaps(
-    numbers: Numbers, gaps: Iterable[tuple[str, Mapping[str, Any]]]
-) -> dict[str, set[tuple[str, int] | None]]:
-    """Each Discipline's places beside a gap an open Question asks about: the numbers printed either
-    side of it (its `after` and `before`). A gap answered, not kept open, holds nothing."""
-    beside: dict[str, set[tuple[str, int] | None]] = {}
-    for discipline, params in gaps:
-        for end in ("after", "before"):
-            place = _place(numbers, str(params.get(end) or ""), discipline)
-            if place is not None:
-                beside.setdefault(discipline, set()).add(place)
-    return beside
+    numbers: Numbers,
+    discipline: str,
+    sheets: Iterable[drawings.SheetView],
+    answered: Iterable[Gap] = (),
+) -> set[tuple[str, int] | None]:
+    """The places beside a gap in the Discipline's numbering as read now (#229, "gap local": a gap
+    holds only the two sheets either side of it), whatever Questions exist; a gap the QS answered
+    holds nothing. A gap that has closed (its number arrived) holds nothing either."""
+    released = set(answered)
+    return {end for gap in _gaps(numbers, discipline, sheets) if gap not in released for end in gap}
 
 
 def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.SheetView]) -> bool:
@@ -1026,8 +1063,49 @@ def set_list(project_id: uuid.UUID, discipline: str, text: str, *, actor_name: s
             for e in _unique(parsed)
         )
         _ask_if_lists_differ(project_id, key)
+        _ask_the_set_again(project_id)
         record_progress(project_id)
     return drawing_list(project_id, key)
+
+
+def _ask_the_set_again(project_id: uuid.UUID) -> None:
+    """A drawing list given or taken back changes where the register Check numbers the sheets (a
+    Discipline with no list): its gaps are asked again at once, as the read job's Check asks them (the
+    same words, so the same Question), and a gap Question no longer found is retired (#320). The
+    Check's other findings wait for the next read, as before."""
+    # The read job's module imports this one; it is imported where it is used.
+    from vextrus.takeoff.services.read_propose import proposals as read_proposals
+
+    drawing_set = drawings.set_of(project_id)
+    if drawing_set is None:
+        return
+    groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
+    with_list = {r.discipline for r in read_lists(project_id)} | {
+        g.discipline for g in given_lists(project_id)
+    }
+    unlisted = [
+        read_proposals.candidate(s, groups.get(s.file_id, "site"))
+        for s in drawings.sheets(drawing_set.id)
+        if s.discipline is not None and s.discipline not in with_list
+    ]
+    conventions = _conventions()
+    raised = [
+        raise_question(
+            project_id,
+            "check",
+            list_codes.GAP(
+                after=gap.after, before=gap.before, missing=gap.missing, discipline=run.discipline
+            ),
+            discipline=run.discipline,
+            options=read_proposals.options(read_proposals.CHECK_OPTIONS),
+            check_code=register.CODE,
+        )
+        for run in register.numbering(
+            unlisted, conventions=conventions, recognisers=recognisers(conventions)
+        )
+        for gap in run.gaps
+    ]
+    _retire_closed_gaps(project_id, raised)
 
 
 def _ask_if_lists_differ(project_id: uuid.UUID, discipline: str) -> None:
@@ -1709,6 +1787,8 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
+        if act.act == ConfirmationAct.DRAWING_LIST:
+            _ask_the_set_again(project_id)
         record_progress(project_id)
     return _act_view(act)
 
@@ -2044,6 +2124,11 @@ def record_check_run(
         passed=passed,
         total=total,
     )
+    if check_key == register.CODE:
+        _retire_closed_gaps(
+            project_id,
+            [q for m, _s, q in findings if q is not None and m["code"] == list_codes.GAP.code],
+        )
     for message, subjects, question_id in findings:
         CheckFinding.objects.create(
             tenant_id=run.tenant_id,
@@ -2055,6 +2140,19 @@ def record_check_run(
             question_id=question_id,
         )
     return run.id
+
+
+def _retire_closed_gaps(project_id: uuid.UUID, raised: Iterable[uuid.UUID]) -> None:
+    """After a run of the register Check over the set: a gap Question the run no longer raises (its
+    number arrived, or a drawing list now covers its Discipline) is retired, `withdrawn` and still
+    listed; one raised again that a past run retired is open again. An answered one is never
+    touched. (Not `retire_questions`: a gap holds no sheet, so a kept-open answer has no heir.)"""
+    asked = set(raised)
+    gaps = Question.objects.filter(project_id=project_id, step=SHEETS, message_code=list_codes.GAP.code)
+    gaps.filter(id__in=asked, status=QuestionStatus.WITHDRAWN, withdrawn_by__isnull=True).update(
+        status=QuestionStatus.OPEN
+    )
+    gaps.filter(status=QuestionStatus.OPEN).exclude(id__in=asked).update(status=QuestionStatus.WITHDRAWN)
 
 
 def _project_of(sheet: drawings.SheetView) -> uuid.UUID:

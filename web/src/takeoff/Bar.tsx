@@ -9,7 +9,7 @@ import { useFormat } from '@/format'
 import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { REASONS, gapBeside, whyOneSource, type Reason, type Row, type Step1Model } from './model'
+import { REASONS, gapBeside, numberingHasGap, whyOneSource, type Reason, type Row, type Step1Model } from './model'
 import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
 import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
@@ -79,7 +79,11 @@ function BulkWhy({ model, reading }: { model: Step1Model; reading: number }) {
 
 function BulkReasons({ model }: { model: Step1Model }) {
   // A Sheet in the bulk act on its title block alone (#320) is told apart: it has one source.
-  const titleBlock = model.bulk.confirm.filter((p) => p.agrees_on === 'title_block').length
+  const onTitleBlock = model.bulk.confirm.filter((p) => p.agrees_on === 'title_block')
+  const titleBlock = onTitleBlock.length
+  // "In numbering without a gap" is true only where the Discipline skips no number; a Sheet that
+  // joins beside no gap while its Discipline has one elsewhere has "no gap beside it" (#320).
+  const gapElsewhere = onTitleBlock.some((p) => numberingHasGap(model.disciplines.find((d) => d.discipline === p.discipline)))
   const bulk = new Set(model.bulk.confirm.filter((p) => p.agrees_on !== 'title_block').map((p) => p.discipline))
   const sections = model.disciplines.filter((d) => bulk.has(d.discipline))
   const listed = sections.some((d) => d.list)
@@ -87,7 +91,13 @@ function BulkReasons({ model }: { model: Step1Model }) {
   const out = model.bulk.leaveOut.length > 0
   const tail = out ? <Trans>Left-out sheets stay in the count with their reason.</Trans> : null
   const alone =
-    titleBlock > 0 ? (
+    titleBlock > 0 && gapElsewhere ? (
+      <Plural
+        value={titleBlock}
+        one="# of them has one source: its title block, with no gap beside it."
+        other="# of them have one source each, their title block, with no gap beside them."
+      />
+    ) : titleBlock > 0 ? (
       <Plural
         value={titleBlock}
         one="# of them has one source: its title block, in numbering without a gap."
@@ -110,6 +120,12 @@ function BulkReasons({ model }: { model: Step1Model }) {
     return (
       <>
         <Trans>Each has a number and title from its title block, in numbering without a gap, and its Plot page matches.</Trans> {alone} {tail}
+      </>
+    )
+  if (titleBlock > 0 && gapElsewhere)
+    return (
+      <>
+        <Trans>Each has a number and title from its title block, with no gap beside it; no drawing list or Plot page confirms them.</Trans> {tail}
       </>
     )
   if (titleBlock > 0)
@@ -274,7 +290,9 @@ export function useBar(c: BarContext): BarSpec | null {
       const section = model.disciplines.find((d) => d.discipline === sheet.discipline)
       return {
         what: agrees ? (
-          row.sheets.some((s) => s.agrees_on === 'title_block') ? (
+          row.sheets.some((s) => s.agrees_on === 'title_block') && numberingHasGap(section) ? (
+            <Trans>{Name} is in the bulk act on one source: number and title from the title block, with no gap beside it</Trans>
+          ) : row.sheets.some((s) => s.agrees_on === 'title_block') ? (
             <Trans>{Name} is in the bulk act on one source: number and title from the title block, in numbering without a gap</Trans>
           ) : section?.list ? (
             <Trans>{Name} agrees: number and title from the title block, on the drawing list</Trans>

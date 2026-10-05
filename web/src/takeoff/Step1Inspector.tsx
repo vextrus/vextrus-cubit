@@ -650,7 +650,8 @@ function SourcesFact({ row }: { row: Row }) {
   if (tag) return <Trans>held by Question {tag}</Trans>
   if (!row.sheets.every((s) => s.agrees)) return <Trans>one source</Trans>
   // In the bulk act on its title block alone (#320): still one source, which the card says.
-  if (row.sheets.some((s) => s.agrees_on === 'title_block')) return <Trans>one, the title block, in numbering without a gap</Trans>
+  if (row.sheets.some((s) => s.agrees_on === 'title_block'))
+    return row.gapInNumbering ? <Trans>one, the title block, with no gap beside it</Trans> : <Trans>one, the title block, in numbering without a gap</Trans>
   return <Trans>two, agreeing</Trans>
 }
 

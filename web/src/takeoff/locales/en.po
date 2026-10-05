@@ -81,6 +81,10 @@ msgctxt "storey"
 msgid "Roof"
 msgstr "Roof"
 
+#: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, with no gap beside it; no drawing list or Plot page confirms them."
+msgstr "Each has a number and title from its title block, with no gap beside it; no drawing list or Plot page confirms them."
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: keep them all; no sheet was confirmed."
 msgstr "{tag} answered. Recorded: keep them all; no sheet was confirmed."
@@ -1723,6 +1727,10 @@ msgstr "The lift drawing list"
 msgid "None: its PDF is still being read"
 msgstr "None: its PDF is still being read"
 
+#: src/takeoff/Bar.tsx
+msgid "{titleBlock, plural, one {# of them has one source: its title block, with no gap beside it.} other {# of them have one source each, their title block, with no gap beside them.}}"
+msgstr "{titleBlock, plural, one {# of them has one source: its title block, with no gap beside it.} other {# of them have one source each, their title block, with no gap beside them.}}"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} confirmed"
 msgstr "{name} confirmed"
@@ -2542,6 +2550,10 @@ msgstr "Floor plan"
 msgid "None: its PDF could not be read"
 msgstr "None: its PDF could not be read"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "one, the title block, with no gap beside it"
+msgstr "one, the title block, with no gap beside it"
+
 #: src/takeoff/SheetList.tsx
 msgid "State mark"
 msgstr "State mark"
@@ -2571,6 +2583,10 @@ msgstr "A Proposal counts toward nothing until the QS confirms it."
 #: src/takeoff/Step1Inspector.tsx
 msgid "Discipline"
 msgstr "Discipline"
+
+#: src/takeoff/Bar.tsx
+msgid "{Name} is in the bulk act on one source: number and title from the title block, with no gap beside it"
+msgstr "{Name} is in the bulk act on one source: number and title from the title block, with no gap beside it"
 
 #: src/takeoff/words.tsx
 msgid "Riser diagram"

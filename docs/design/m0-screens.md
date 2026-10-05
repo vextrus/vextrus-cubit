@@ -1006,9 +1006,11 @@ last present once) and its Plot page matched. **With no drawing list and no Plot
 (the title-block basis, the owner's ruling 5 of 5 Oct 2026), a sheet still joins the bulk act on its
 one source when all of these hold: its number and title both come from its title block, and its file
 is not held; its number reads as a series and a running number, and no other sheet of its Discipline
-prints it; no open Question holds it; and it does not sit beside a gap in the numbering that an open
-Question asks about (a gap holds only the two sheets either side of it, until the QS answers it; a gap
-kept open still holds them). Its State still reads "Proposal, one source", so the QS sees what it
+prints it; no open Question holds it; and it does not sit beside a gap in its Discipline's numbering
+as read now (a gap holds only the two sheets either side of it, whatever Questions exist, until the
+QS answers that gap's Question; a gap kept open still holds them; a gap that closes, its number
+arrived or a list now covering it, holds nothing, and its Question is retired). Giving or taking back
+a drawing list asks its Discipline's gaps again at once. Its State still reads "Proposal, one source", so the QS sees what it
 rests on. A sheet a list does not name, or one in a Discipline whose two lists disagree, never joins
 on its title block. A sheet "with only one source" is one that fails these: it is not in the bulk act,
 and the QS confirms it on its own (6.5). The heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
@@ -1255,7 +1257,9 @@ any agreeing sheet or proposed exclusion, the bar reads:
   block alone (5): "Each has a number and title from its title block, in numbering without a gap; no
   drawing list or Plot page confirms them." When some do, among others: the clause for the others,
   then "3 of them have one source each, their title block, in numbering without a gap." ("1 of them
-  has one source: its title block, in numbering without a gap.");
+  has one source: its title block, in numbering without a gap."). Where such a sheet's Discipline
+  skips a number elsewhere, "in numbering without a gap" would be false: the words read "with no gap
+  beside it" ("…, with no gap beside them.");
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1308,7 +1312,9 @@ and sheet mode alike (6.18). The toast sits just above it.
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet in the bulk act on its
   title block alone (5): "E-02 is in the bulk act on one source: number and title from the title
-  block, in numbering without a gap", with the same ghost. For a sheet with one source, out of the
+  block, in numbering without a gap" (", with no gap beside it" where its Discipline skips a number
+  elsewhere), with the same ghost; its card's Sources reads "one, the title block, in numbering
+  without a gap" (or "…, with no gap beside it"). For a sheet with one source, out of the
   bulk act (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
   them against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵"; when it sits

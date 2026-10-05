@@ -47,6 +47,8 @@ export interface Row {
   /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
+  /** Its Discipline's numbering skips a number somewhere (a Discipline section's row; #320's words). */
+  gapInNumbering?: boolean
 }
 
 export interface QuestionEntry {
@@ -307,15 +309,17 @@ export function step1Model(data: Step1Data): Step1Model {
       const hasList = list !== null && list.source !== null && list.numbers.length > 0
       const openQuestions = progress?.open_questions ?? queue.filter((e) => e.question.discipline === discipline).length
       const settled = mine.filter(decided).length
+      const numbering = hasList ? null : numberingOf(mine)
+      const gapInNumbering = !!numbering && numbering.missing.length > 0
       return {
         discipline,
-        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
+        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))).map((r) => (gapInNumbering ? { ...r, gapInNumbering } : r)),
         found: progress?.found ?? mine.length,
         settled,
         total: progress ? progress.total ?? null : mine.length,
         openQuestions,
         list: hasList ? list : null,
-        numbering: hasList ? null : numberingOf(mine),
+        numbering,
         confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
         gaps: queue
           .filter((e) => e.question.discipline === discipline && e.question.code === GAP_CODE)
@@ -382,6 +386,11 @@ export type OneSourceWhy = 'not-listed' | 'gap-asked' | 'gap' | 'no-list-no-plot
 export function gapBeside(sheet: ProposalOut, section: DisciplineSection | undefined): { tag: string } | undefined {
   if (!section || section.list || !sheet.number) return undefined
   return section.gaps.find((g) => sameNumber(g.after, sheet.number!) || sameNumber(g.before, sheet.number!))
+}
+
+/** The Discipline's numbering skips a number somewhere (its heading names what is missing). */
+export function numberingHasGap(section: DisciplineSection | undefined): boolean {
+  return !!section?.numbering && section.numbering.missing.length > 0
 }
 
 /** One number however it is printed: by its prefix, running number and suffix. */

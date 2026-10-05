@@ -295,3 +295,19 @@ describe('the sheets of no Discipline (#167; its refuter)', () => {
     expect(step1Model(data([sheet('S-01'), cover])).noDiscipline).toBe(1)
   })
 })
+
+describe('a title-block Sheet in a Discipline with a gap elsewhere (#320, PR 428 round 1)', () => {
+  it('marks the Discipline’s rows as numbering with a gap, so the words say "no gap beside it"', () => {
+    const on = (n: string) => sheet(n, { discipline: 'electrical', agrees: true, agrees_on: 'title_block' })
+    const model = step1Model(data([on('E-01'), on('E-02'), sheet('E-05', { discipline: 'electrical' })]))
+    const rows = model.disciplines.find((d) => d.discipline === 'electrical')!.rows
+    expect(rows.every((r) => r.gapInNumbering === true)).toBe(true)
+    expect(rowState(rows[0]!)).toEqual({ kind: 'proposal', oneSource: true })
+  })
+
+  it('leaves the rows unmarked when the numbering runs without a gap', () => {
+    const on = (n: string) => sheet(n, { discipline: 'electrical', agrees: true, agrees_on: 'title_block' })
+    const model = step1Model(data([on('E-01'), on('E-02'), on('E-03')]))
+    expect(model.disciplines[0]!.rows.some((r) => r.gapInNumbering)).toBe(false)
+  })
+})
