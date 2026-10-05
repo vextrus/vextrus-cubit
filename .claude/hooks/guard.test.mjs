@@ -684,3 +684,66 @@ test("T-GUARD-A: a git config read with a valued option is a read; two operands 
   assert.equal(bash("git config --type path core.hooksPath /tmp/x"), "HOOKS_PATH");
   assert.equal(bash("git config --show-origin core.hooksPath /tmp/x"), "HOOKS_PATH");
 });
+
+test("T-GUARD-A refuter: writers and printers dressed as viewers near the records stay refused", () => {
+  const OK = ".private/work/leakscan/ok/a1b2";
+  const CORPUS = ".private/work/leakscan/corpus";
+  for (const command of [
+    `echo '{}' | sort --out=${OK}`,
+    `echo '{}' | sort --outp=${OK}`,
+    `echo x | sort --out=.private/work/factory/ledger/r.json`,
+    `printf 'cp /tmp/f ${OK}\\n' | sort -S 1 --compress-program=sh`,
+    `env -S 'cp /tmp/f ${OK}'`,
+    `env --split-string='cp /tmp/f ${OK}'`,
+    `CDPATH=.private/work/leakscan cd ok && echo x > a1b2`,
+    `pushd .private/work/leakscan/ok && pushd /tmp && popd && echo x > a1b2`,
+    `LESSOPEN='|cp /tmp/f ${OK} %s' less ${OK}`,
+    `ugrep --save-config=${OK}`,
+    `tree -R -L 1 -H . .private/work/leakscan/ok`,
+    `file -f ${CORPUS}`,
+    `wc --files0-from=${CORPUS}`,
+    `du --files0-from=${CORPUS}`,
+    `find -files0-from ${CORPUS}`,
+    `tree --fromfile ${CORPUS}`,
+    `sha256sum -c ${CORPUS}`,
+    "cd .private/work/leakscan && grep -rv qqqq",
+    "cd .private/work/leakscan && rg -v qqqq",
+    "timeout 5 cat .private/work/leakscan/corpus",
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+});
+
+test("T-GUARD-A refuter: the scanner and the ledger writer by --module, combined flags or stdin are their runs", () => {
+  for (const command of [
+    "uv run --module scripts.ledger record --ticket x",
+    "uv run --module=scripts.ledger record --ticket x",
+    "python3 -Im scripts.ledger record --ticket x",
+    "python - record --ticket x < scripts/ledger.py",
+    "uv run --module tools.leakscan build --source /tmp/x",
+    "python3 -Im tools.leakscan build --source /tmp/x",
+    "python3 - build < tools/leakscan/__main__.py",
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+});
+
+test("T-GUARD-A: a loop running watch on pgrep -f is still a wait", () => {
+  assert.equal(bash("while true; do watch -n1 pgrep -f x; done"), "SELF_MATCHING_WAIT");
+  assert.equal(bash("watch -n1 pgrep -f x"), null);
+});
+
+test("T-GUARD-A: --git-dir wins over GIT_DIR, as in git, so the push is judged where it goes", async () => {
+  const { git, ruleOf, tempRepo } = await import("./tests/acceptance/_guard.mjs");
+  const repo = (branch) => {
+    const { repo: r } = tempRepo({ branch, files: { [`docs/${branch.replace("/", "-")}.md`]: "x\n" } });
+    git(r, "remote", "add", "origin", "https://example.invalid/vextrus/vextrus-cubit.git");
+    return r;
+  };
+  const own = repo("claude/own");
+  const other = repo("main");
+  const { repo: main } = tempRepo();
+  const cloudPush = (command) => ruleOf({ input: { command }, project: own, cwd: own, main, remote: true });
+  assert.equal(cloudPush(`GIT_DIR=${own}/.git git --git-dir=${other}/.git push origin HEAD`), "CLOUD_PUSH");
+  assert.equal(cloudPush(`GIT_DIR=${other}/.git git --git-dir=${own}/.git push origin HEAD`), null);
+});

@@ -586,9 +586,10 @@ function gitOf(cmd) {
       i += eq > 0 ? 1 : 2;
     } else i++;
   }
+  // The variables, for dashed and plain git alike; git's own --git-dir and --work-tree win over them.
   for (const assign of cmd.assigns) {
-    if (assign.startsWith("GIT_DIR=")) gitDir = assign.slice(8);
-    if (assign.startsWith("GIT_WORK_TREE=")) workTree = assign.slice(14);
+    if (assign.startsWith("GIT_DIR=") && !a.slice(0, i).some((w) => /^--git-dir(?:=|$)/.test(w))) gitDir = assign.slice(8);
+    if (assign.startsWith("GIT_WORK_TREE=") && !a.slice(0, i).some((w) => /^--work-tree(?:=|$)/.test(w))) workTree = assign.slice(14);
   }
   const verb = a[i] ?? "";
   return { verb, args: a.slice(i + 1).map((arg) => longOption(verb, arg)), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
@@ -994,6 +995,11 @@ function loopLooks(text, inLoop = false) {
       const script = cmd.name === "eval" ? cmd.args.join(" ") : c >= 0 ? cmd.args[c + 1] ?? "" : "";
       if (script !== "" && loopLooks(script, true).look) hit = true;
     }
+    if (RUNS_ITS_ARGUMENTS.has(cmd.name)) {
+      const from = cmd.args.findIndex((a) => !a.startsWith("-") && /^(?:pgrep|ps)$|\s/.test(basename(a)));
+      const script = from < 0 ? "" : cmd.args.slice(from).join(" ");
+      if (script !== "" && loopLooks(script, true).look) hit = true;
+    }
     if (hit) {
       look = true;
       if (inside) wait = true;
@@ -1216,15 +1222,27 @@ function prefixOf(cmd) {
  * any other way to reach it (`-mtools.leakscan`, `tools.leakscan.__main__`, a script path, PYTHONPATH, a uv
  * project, interpreter or index), which could run a different scanner or a corpus of the caller's choosing.
  */
-function scannerRun(cmd) {
+/**
+ * Index of the word that names a module matching `name` (`-m x`, `-Im x`, `-mx`, `--module x`, `--module=x`), of
+ * a script under `script` run by python or uv, or of a script fed on stdin (`python - < x.py`); -1 when none.
+ */
+function moduleAt(cmd, name, script) {
   const all = words(cmd.raw ?? "");
-  const mention = all.some(
+  const named = (v) => name.test(v.replace(/^\s+/, ""));
+  const at = all.findIndex(
     (w, k) =>
-      /^-m\s*(?:\S*[./])?leakscan\b/.test(w) ||
-      (all[k - 1] === "-m" && /(?:^|[./])leakscan(?:$|[./])/.test(w)) ||
-      (/^(?:\.\/)?tools\/leakscan\/\S*\.py$/.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
+      (/^-[A-Za-z]*m./.test(w) && named(w.slice(w.indexOf("m") + 1))) ||
+      (/^--module=/.test(w) && named(w.slice(9))) ||
+      ((/^-[A-Za-z]*m$/.test(all[k - 1] ?? "") || all[k - 1] === "--module") && named(w)) ||
+      (script.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
   );
-  if (!mention) return null;
+  if (at >= 0) return at;
+  if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !prefixOf(cmd).includes("uv")) return -1;
+  return redirectsOf(cmd.raw ?? "").some(({ op, target }) => op.startsWith("<") && script.test(words(target)[0] ?? "")) ? all.length : -1;
+}
+
+function scannerRun(cmd) {
+  if (moduleAt(cmd, /^(?:\S*[./])?leakscan(?:$|[./])/, /(?:^|\/)tools\/leakscan\/\S*\.py$/) < 0) return null;
   const prefix = prefixOf(cmd);
   const exact =
     cmd.assigns.length === 0 &&
@@ -1245,11 +1263,9 @@ function ledgerRecord(cmd) {
   const prefix = prefixOf(cmd);
   if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !(prefix.includes("uv") && prefix.includes("run"))) return false;
   const all = words(cmd.raw ?? "");
-  const at = all.findIndex(
-    (w, k) => /^-m\s*(?:\S*[./])?ledger\b/.test(w) || (all[k - 1] === "-m" && /(?:^|[./])ledger(?:$|[./])/.test(w)) || /(?:^|\/)ledger\.py$/.test(w),
-  );
-  // A word expanded at run time, or arguments from xargs, could spell `record`.
-  return at >= 0 && (all.slice(at + 1).some((w) => /record|[$`]/.test(w)) || prefix.some((w) => basename(w) === "xargs"));
+  const at = moduleAt(cmd, /^(?:\S*[./])?ledger(?:$|[./])/, /(?:^|\/)ledger\.py$/);
+  // A word expanded at run time, or arguments from xargs, could spell `record`; a script on stdin takes any.
+  return at >= 0 && (at === all.length || all.slice(at + 1).some((w) => /record|[$`]/.test(w)) || prefix.some((w) => basename(w) === "xargs"));
 }
 
 // The records' folders (spec 3.6, 3.7): the leak home (stamps and the corpus) and the ledger.
@@ -1353,31 +1369,37 @@ function redirectsOf(raw) {
   return out;
 }
 
-const NEUTRAL = new Set(["", "cd", "pushd", "popd", "true", "false", ":"]);
+const NEUTRAL = new Set(["cd", "pushd", "true", "false", ":"]);
 const METADATA_VIEWERS = new Set(["ls", "stat", "file", "wc", "du", "sha256sum", "find", "realpath", "readlink", "test", "[", "tree", "basename", "dirname", "echo", "printf"]);
-const CONTENT_VIEWERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep", "rg", "ugrep", "jq", "diff", "cmp", "sort", "uniq", "less", "more", "cut", "tr", "nl", "column"]);
-const FIND_ACTIONS = /^-(?:exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls)$/;
+const CONTENT_VIEWERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep", "rg", "jq", "diff", "cmp", "sort", "uniq", "less", "more", "cut", "tr", "nl", "column"]);
+// Options by which a viewer writes, runs a program, or reads a file as a list of names (and so prints it). Long
+// options are matched by prefix: GNU tools take any unique one (`sort --out=`).
+const VIEWER_ACTS = {
+  find: /^-(?:exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls|files0-from)$/,
+  sort: /^-[A-Za-z]*[oT]|^--(?:o|com|t|f)/,
+  tree: /^-[A-Za-z]*[oR]|^--f/,
+  rg: /^--pre(?:=|$)/,
+  less: /^-[A-Za-z]*[oO]|^--(?:log|LOG)/,
+  file: /^-[A-Za-z]*[fm]|^--(?:files|magic)/,
+  sha256sum: /^-[A-Za-z]*c|^--c/,
+  wc: /^--f/,
+  du: /^--f|^-[A-Za-z]*X|^--exclude-from/,
+};
 
 /** True when a viewer's own options write or run something (`sort -o`, `uniq in out`, `rg --pre`, `find -exec`…). */
 function viewerActs(cmd) {
-  const a = cmd.args;
-  if (cmd.name === "find") return a.some((w) => FIND_ACTIONS.test(w));
-  if (cmd.name === "sort") return a.some((w) => /^(?:-o|--output)/.test(w) || /^-[A-Za-z]*o/.test(w));
-  if (cmd.name === "uniq") return a.filter((w) => !w.startsWith("-") || w === "-").length > 1;
-  if (cmd.name === "tree") return a.some((w) => /^-[A-Za-z]*o/.test(w));
-  if (cmd.name === "rg") return a.some((w) => /^--pre(?:=|$)/.test(w));
-  if (cmd.name === "less") return a.some((w) => /^-[A-Za-z]*[oO]|^--(?:log-file|LOG-FILE)/.test(w));
-  return false;
+  if (cmd.name === "uniq") return cmd.args.filter((w) => !w.startsWith("-") || w === "-").length > 1;
+  const acts = VIEWER_ACTS[cmd.name];
+  return acts !== undefined && cmd.args.some((w) => acts.test(w));
 }
 
 /**
  * True when one simple command, in a command that names a record, is not a plain look: every operation there
- * must be a read-only viewer whose redirects go to literal paths outside the records, and the corpus file
- * (strings taken from real drawings) is only listed, never printed.
+ * must be a read-only viewer, run bare (no assignment or wrapper in front), whose redirects go to literal paths
+ * outside the records, and the corpus file (strings taken from real drawings) is only listed, never printed.
  */
 function recordUnsafe(cmd, eventCwd) {
   const cwd = cmd.cwd;
-  if (prefixOf(cmd).some((w) => basename(w) === "xargs")) return true;
   for (const { op, target } of redirectsOf(cmd.raw ?? "")) {
     if (op.includes("&") && /^(?:\d+|-)$/.test(target)) continue;
     if (/^\/dev\/(?:null|stdout|stderr)$/.test(target)) continue;
@@ -1386,15 +1408,23 @@ function recordUnsafe(cmd, eventCwd) {
     if (cwd === null && !isAbsolute(path)) return true;
     if (namesRecord(path, cwd ?? eventCwd, true) && (op.includes(">") || namesCorpus(path, cwd ?? eventCwd, true))) return true;
   }
-  const jsonTool = /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "json.tool" && prefixOf(cmd).length === 0;
+  // An assignment alone (`D=…`) is inert; one in front of a command, or a wrapper (`env -S`, `xargs`, `timeout`),
+  // changes what runs (`LESSOPEN=…`).
+  if (cmd.name === "") return !words(cmd.raw ?? "").every((w) => ASSIGNMENT.test(w));
+  const scanner = scannerRun(cmd) === "exact";
+  if (!scanner && prefixOf(cmd).some((w) => !RESERVED.has(w))) return true;
+  // pushd with no folder (or +N) and popd move to a folder the reader does not follow.
+  if (cmd.name === "popd" || (cmd.name === "pushd" && !cmd.args.some((a) => !/^[+-]/.test(a)))) return true;
   if (NEUTRAL.has(cmd.name)) return false;
+  const jsonTool = /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "json.tool";
   if (!METADATA_VIEWERS.has(cmd.name) && !CONTENT_VIEWERS.has(cmd.name) && !jsonTool) {
     // The scanner, run exactly and naming no record, is judged by its own rule.
-    return !(scannerRun(cmd) === "exact" && !cmd.words.some((w) => namesRecord(w, cwd)) && (cwd === null || !recordPath(cwd)));
+    return !(scanner && !cmd.words.some((w) => namesRecord(w, cwd)) && (cwd === null || !recordPath(cwd)));
   }
   if (viewerActs(cmd)) return true;
   if (CONTENT_VIEWERS.has(cmd.name) || jsonTool) {
-    if (cwd !== null && corpusPath(cwd) && cmd.args.some((w) => w === "corpus" || GLOB.test(w) || w === ".")) return true;
+    // Run from the leak home itself, a viewer with no path (or `grep -r`) reads the corpus.
+    if (cwd !== null && corpusPath(cwd)) return true;
     if (cmd.args.some((w) => namesCorpus(w, cwd))) return true;
   }
   return false;
@@ -1433,7 +1463,8 @@ function recordForged(analysis, command, eventCwd) {
   if (analysis.codes.some(codeTouchesRecords)) return true;
   const names = (cmd) => (cmd.cwd !== null && recordPath(cmd.cwd)) || words(cmd.raw ?? "").some((w) => namesRecord(w, cmd.cwd ?? eventCwd));
   if (!analysis.cmds.some(names)) return analysis.truncated && RECORD_TEXT.test(tidy(flat));
-  return analysis.truncated || analysis.cmds.some((cmd) => recordUnsafe(cmd, eventCwd));
+  // CDPATH moves a relative cd where the reader does not follow.
+  return analysis.truncated || /\bCDPATH\b/.test(flat) || analysis.cmds.some((cmd) => recordUnsafe(cmd, eventCwd));
 }
 
 const TEST_RUNNERS = new Set(["npm", "npx", "pnpm", "pnpx", "yarn", "vitest", "jest", "bun", "bunx", "playwright", "node", "deno", "pytest", "tox", "nox", "make"]);
