@@ -186,10 +186,9 @@ elif "--debug-file" in args:
 """
 
 
-def _files(folder: Path) -> set[tuple[str, int, int]]:
-    if not folder.exists():
-        return set()
-    return {(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in folder.rglob("*") if p.is_file()}
+def _stats(paths: tuple[Path, ...]) -> list[tuple[int, int] | None]:
+    """Size and mtime of each path, None when absent; never a walk (the real folder is huge)."""
+    return [(p.stat().st_size, p.stat().st_mtime_ns) if p.exists() else None for p in paths]
 
 
 def test_main_cloud_reaches_the_tests_jev_and_writes_nothing_outside_tmp_path(
@@ -228,8 +227,11 @@ def test_main_cloud_reaches_the_tests_jev_and_writes_nothing_outside_tmp_path(
     prompt = tmp_path / "prompt.md"
     prompt.write_text("the brief\n")
 
+    # What `jev.ask` writes in the real checkout: its log, and a cache file (adding one changes the
+    # cache folder's own mtime, read without listing it).
     checkout = Path(__file__).resolve().parents[3] / ".private" / "work" / "factory"
-    before = _files(checkout)
+    touched = (checkout / "jev.log", checkout / "jev-cache")
+    before = _stats(touched)
     code = launch.main(
         [
             "cloud",
@@ -241,6 +243,6 @@ def test_main_cloud_reaches_the_tests_jev_and_writes_nothing_outside_tmp_path(
     assert code == 0
     assert no_jev_key == [("the brief\n", JEV_QUESTIONS)]
     assert jev.factory_dir().is_relative_to(tmp_path)
-    assert _files(checkout) == before
+    assert _stats(touched) == before
     (record,) = (tmp_path / "records").glob("z1-*Z.json")
     assert json.loads(record.read_text())["jev"]["why"] == "no_key"
