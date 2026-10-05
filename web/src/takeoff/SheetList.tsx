@@ -514,14 +514,36 @@ function SheetRow({
         <span className="shrink-0 whitespace-nowrap">, {count} copies</span>
       </Trans>
     )
-  else if (row.sheets.length > 1)
+  else if (row.kind === 'number-shared') {
+    const titles = <Titles sheets={row.sheets} />
+    title = (
+      <Trans>
+        <span className="shrink-0 whitespace-nowrap">{count} sheets share the number, titles differ:</span> {titles}
+      </Trans>
+    )
+  } else if (row.kind === 'title-shared')
     title = (
       <Trans>
         <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+        <span className="shrink-0 whitespace-nowrap">, {count} sheets that may draw the same thing</span>
+      </Trans>
+    )
+  else if (row.kind === 'sheets') {
+    const titles = <Titles sheets={row.sheets} />
+    title = (
+      <Trans>
+        <span className="shrink-0 whitespace-nowrap">{count} sheets:</span> {titles}
+      </Trans>
+    )
+  } else if (row.sheets.length > 1)
+    title = (
+      <Trans>
+        <DrawingText kind="title" text={row.title ?? first?.title ?? ''} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )
-  else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+  else title = <DrawingText kind="title" text={row.title ?? first?.title ?? ''} className="min-w-0" />
+  const series = row.series !== undefined ? f.integer(row.series) : null
 
   return (
     <div
@@ -569,6 +591,15 @@ function SheetRow({
       {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
       <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
         {title}
+        {series !== null ? (
+          <>
+            {' '}
+            <span className="ms-2 shrink-0 text-xs text-muted-foreground">
+              <Trans>{series} sheets share this title</Trans>
+            </span>
+          </>
+        ) : null}
+        {row.sheets.some((s) => s.held) ? <HeldMark /> : null}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <DisciplineCell sheet={first} /> : null}
@@ -597,6 +628,44 @@ function SheetRow({
         <State row={row} />
       </span>
     </div>
+  )
+}
+
+/** Each distinct title of a row's sheets, joined by "; ", cut by the cell; the whole list in its tooltip. */
+function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
+  const seen = new Set<string>()
+  const titles = sheets.map((p) => p.title).filter((t) => {
+    const key = t.trim().replace(/\s+/g, ' ').toLowerCase()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  const items = titles.flatMap((t, i) => [...(i > 0 ? ['; '] : []), <DrawingText key={i} kind="title" text={t} truncate={false} />])
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} className="ms-1 min-w-0 truncate">
+          {items}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm">{items}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** A read-anyway file's sheet (#322, FL4): the Drawing Set's held chip promises "its sheets are marked". */
+function HeldMark() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} className="ms-2 inline-flex h-4 shrink-0 items-center self-center rounded-sm border border-question bg-question-surface px-1 text-xs leading-none text-question">
+          <Trans>held</Trans>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <Trans>From a file read anyway; its figures are flagged later</Trans>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

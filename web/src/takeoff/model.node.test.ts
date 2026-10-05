@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowState, step1Model } from './model'
+import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowKindOf, rowState, step1Model, titlesDiffer } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -293,5 +293,40 @@ describe('the sheets of no Discipline (#167; its refuter)', () => {
     expect(model.noDiscipline).toBe(2)
     expect(model.found).toBe(3)
     expect(step1Model(data([sheet('S-01'), cover])).noDiscipline).toBe(1)
+  })
+})
+
+describe('what a row of several sheets is (#322)', () => {
+  it('names copies, a shared number, a shared title and other sheets apart', () => {
+    expect(rowKindOf([sheet('S-05', { title: 'Beam  layout' }), sheet('S-05', { title: ' BEAM LAYOUT' })])).toBe('copies')
+    expect(rowKindOf([sheet('S-05', { title: 'BEAM LAYOUT B1' }), sheet('S-05', { title: 'BEAM LAYOUT B2' })])).toBe('number-shared')
+    expect(rowKindOf([sheet('S-05', { title: 'STAIR' }), sheet('S-09', { title: 'stair' })])).toBe('title-shared')
+    expect(rowKindOf([sheet('S-05', { title: 'A' }), sheet('S-09', { title: 'B' })])).toBe('sheets')
+    expect(rowKindOf([sheet('S-05')])).toBe('sheet')
+  })
+
+  it('compares titles trimmed, spaces collapsed and case ignored', () => {
+    expect(titlesDiffer([sheet('S-01', { title: ' Pile cap ' }), sheet('S-01', { title: 'PILE  CAP' })])).toBe(false)
+    expect(titlesDiffer([sheet('S-01', { title: 'PILE CAP 1' }), sheet('S-01', { title: 'PILE CAP 2' })])).toBe(true)
+  })
+})
+
+describe('the server’s groups (T-W334’s fields, #334)', () => {
+  const grouped = (number: string, title: string, over: Record<string, unknown>) => sheet(number, { title, ...over } as Partial<ProposalOut>)
+
+  it('joins one continuation by its id and titles the row by its group, only while it holds the whole group', () => {
+    const parts = [grouped('S-21', 'RAFT R1', { continuation: 'g', continuation_title: 'RAFT R1-R3' }), grouped('S-22', 'RAFT R2', { continuation: 'g', continuation_title: 'RAFT R1-R3' }), grouped('S-23', 'RAFT R3', { continuation: 'g', continuation_title: 'RAFT R1-R3' })]
+    const rows = step1Model(data(parts)).disciplines[0]!.rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.title).toBe('RAFT R1-R3')
+    parts[2]!.decision = 'confirmed'
+    const split = step1Model(data(parts)).disciplines[0]!.rows
+    expect(split.map((r) => r.sheets.length)).toEqual([2, 1])
+    expect(split[0]!.title).toBeUndefined()
+  })
+
+  it('counts a series over every Proposal of it, and none outside one', () => {
+    const rows = step1Model(data([grouped('S-31', 'TIE BEAM', { series: 'x' }), grouped('S-35', 'TIE BEAM', { series: 'x' }), grouped('S-38', 'GRADE BEAM', { series: null })])).disciplines[0]!.rows
+    expect(rows.map((r) => r.series)).toEqual([2, 2, undefined])
   })
 })

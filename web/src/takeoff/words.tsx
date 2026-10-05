@@ -87,7 +87,7 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.agree.disagree': msg`This file may be misread`,
   'engine.conflicts.same_number': msg`Two sheets, one number`,
   'engine.conflicts.same_storey': msg`Two plans draw one thing`,
-  'engine.conflicts.same_title': msg`One title on two sheets`,
+  'engine.conflicts.same_title': msg`One title on several sheets`,
   'engine.register_check.gap': msg`A gap in the numbering`,
   'engine.register_check.not_found': msg`On the drawing list, in no file`,
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,

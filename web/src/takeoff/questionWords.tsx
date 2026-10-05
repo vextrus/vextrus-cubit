@@ -11,18 +11,30 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { gapOf, type QuestionEntry, type Step1Model } from './model'
+import { gapOf, titlesDiffer, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { DISCIPLINE_NAMES, OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
 
 type Option = { key?: string; picked?: boolean }
 
+/** The options in the card's order: where one number's sheets are titled apart, "keep both" first (#322), so keys 1–9 take them in that order. */
 export function optionsOf(entry: QuestionEntry): Option[] {
-  return entry.question.options.map((o) => (typeof o === 'object' && o !== null ? (o as Option) : {}))
+  const options = entry.question.options.map((o) => (typeof o === 'object' && o !== null ? (o as Option) : {}))
+  if (!isTitledApart(entry)) return options
+  return [...options.filter((o) => o.key === 'keep_all'), ...options.filter((o) => o.key !== 'keep_all')]
 }
 
 const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+
+/** Two or more sheets of one number whose titles differ: likely different sheets, so never worded as copies or "superseded" (#322). */
+export const isTitledApart = (entry: QuestionEntry) => isCopies(entry) && titlesDiffer(entry.holds)
+
+/** A sheet's title in quotes, as a card names it: “PLAN”. */
+function Titled({ sheet }: { sheet: ProposalOut }) {
+  const title = <DrawingText kind="title" text={sheet.title} truncate={false} />
+  return <Trans>“{title}”</Trans>
+}
 
 function params(entry: QuestionEntry): Record<string, string | number> {
   return Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
@@ -33,12 +45,11 @@ export function useKindLine(entry: QuestionEntry): string {
   const { i18n, t } = useLingui()
   const f = useFormat()
   const q = entry.question
-  if (q.code === 'engine.conflicts.same_title') {
-    // Counted as its body counts them (#167's words gate): "One title on 3 sheets".
-    const n = typeof q.params.sheets === 'number' ? q.params.sheets : entry.holds.length
-    const count = f.integer(n)
-    if (n > 2) return t`One title on ${count} sheets`
-  }
+  // Counted as the card lists them, from `params.sheets` (#321); without it, the generic words.
+  const n = typeof q.params.sheets === 'number' && q.params.sheets > 1 ? q.params.sheets : null
+  const count = n === null ? '' : f.integer(n)
+  if (q.code === 'engine.conflicts.same_title' && n !== null) return n === 2 ? t`One title on two sheets` : t`One title on ${count} sheets`
+  if (q.code === 'engine.conflicts.same_storey' && n !== null) return n === 2 ? t`Two sheets may draw one thing` : t`${count} sheets may draw one thing`
   return i18n._(QUESTION_KIND_BY_CODE[q.code] ?? QUESTION_KINDS[q.kind] ?? OTHER_QUESTION)
 }
 
@@ -115,6 +126,13 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+    }
+    if (isTitledApart(entry)) {
+      const seen = new Set<string>()
+      const key = (h: ProposalOut) => h.title.trim().replace(/\s+/g, ' ').toLowerCase()
+      const apart = entry.holds.filter((h) => !seen.has(key(h)) && !!seen.add(key(h)))
+      const named = <Joined items={apart.map((h) => <Titled key={h.id} sheet={h} />)} />
+      return <Trans>They carry the same number, but their titles differ: {named}. They may be different sheets.</Trans>
     }
     return <Trans>Their titles differ. Only one can be read, unless they are different sheets.</Trans>
   }
@@ -275,7 +293,8 @@ export function prePick(entry: QuestionEntry, context: CardContext): { key: stri
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
   // Only two copies of one number have sources the card can name yet; any other pick is not shown.
-  if (!isCopies(entry) || pickSources(entry, context, picked.key).count < 2) return null
+  // Titled apart, they may be two sheets: nothing is picked for the QS (#322).
+  if (!isCopies(entry) || isTitledApart(entry) || pickSources(entry, context, picked.key).count < 2) return null
   return { key: picked.key }
 }
 
@@ -327,6 +346,22 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const f = useFormat()
   const key = option.key ?? ''
   const pair = keptAndDropped(entry, key)
+  if (pair && isTitledApart(entry)) {
+    const kept = <Titled sheet={pair.keep} />
+    const dropped = <Titled sheet={pair.drop} />
+    const others = entry.holds.length - 1
+    if (others > 1)
+      return (
+        <Trans>
+          Keep {kept}; leave the other <Plural value={others} one="# sheet" other="# sheets" /> out
+        </Trans>
+      )
+    return (
+      <Trans>
+        Keep {kept}; leave {dropped} out
+      </Trans>
+    )
+  }
   if (pair) {
     const { keep, drop } = pair
     const later = entry.holds[0]
@@ -488,6 +523,24 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const [later] = entry.holds as [ProposalOut, ProposalOut]
     const number = <SheetName sheets={[later]} />
     const pair = keptAndDropped(entry, picked)
+    if (pair && isTitledApart(entry)) {
+      const kept = <Titled sheet={pair.keep} />
+      const dropped = <Titled sheet={pair.drop} />
+      const others = n - 1
+      if (others > 1)
+        return (
+          <Trans>
+            Answering confirms {kept} and leaves the other <Plural value={others} one="# sheet" other="# sheets" /> out.
+          </Trans>
+        )
+      return (
+        <Trans>
+          Answering confirms {kept} and leaves {dropped} out.
+        </Trans>
+      )
+    }
+    if (isTitledApart(entry) && picked === 'keep_all' && n === 2) return <Trans>Answering confirms both sheets.</Trans>
+    if (isTitledApart(entry) && picked === 'keep_open' && n === 2) return <Trans>Answering keeps both sheets open. Neither is read until the consultant replies.</Trans>
     if (pair) {
       const { keep, drop } = pair
       const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
@@ -506,7 +559,7 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       )
     }
     if (picked === 'keep_all' && n === 2) return <Trans>Answering confirms both copies.</Trans>
-    if (picked === 'keep_open') return <Trans>Answering keeps both copies open. Neither is read until the consultant replies.</Trans>
+    if (picked === 'keep_open' && !isTitledApart(entry)) return <Trans>Answering keeps both copies open. Neither is read until the consultant replies.</Trans>
   }
   if (picked === 'keep_open' && n > 0) {
     const name = <SheetName sheets={entry.holds} />
@@ -576,6 +629,22 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
   if (option === 'keep_open') return <Trans>{tag} kept open for the consultant.</Trans>
   if (RECORDED_ONLY.has(option)) return <Trans>{tag} answered. Its sheets are unchanged: confirm or exclude them in the list.</Trans>
   const pair = keptAndDropped(entry, option)
+  if (pair && isTitledApart(entry)) {
+    const kept = <Titled sheet={pair.keep} />
+    const dropped = <Titled sheet={pair.drop} />
+    const others = n - 1
+    if (others > 1)
+      return (
+        <Trans>
+          {tag} answered. Confirms {kept} and leaves the other <Plural value={others} one="# sheet" other="# sheets" /> out.
+        </Trans>
+      )
+    return (
+      <Trans>
+        {tag} answered. Confirms {kept} and leaves {dropped} out.
+      </Trans>
+    )
+  }
   if (pair) {
     // A toast is drawn outside the format's provider: the copies go by their marks, never their dates.
     const number = <SheetName sheets={[pair.keep]} />
