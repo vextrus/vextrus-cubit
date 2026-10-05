@@ -73,6 +73,30 @@ class Step1ProposalOut(_FromView):
     agrees_on: Literal["list", "plot", "title_block"] | None = None
     """What it agrees on: its drawing list, its Plot page, or its title block alone in numbering
     without a gap beside it (#320); null exactly when `agrees` is false."""
+    why_not: list[
+        Literal[
+            "held",
+            "question",
+            "no_discipline",
+            "number_not_from_title_block",
+            "title_not_from_title_block",
+            "no_number",
+            "number_repeated",
+            "lists_disagree",
+            "not_listed",
+            "number_unparsed",
+            "gap_beside",
+            "gap_asked",
+        ]
+    ] = Field(default_factory=list)
+    """Why it does not agree, every reason in the screen's order (m0-screens §5); empty exactly when
+    it agrees. `gap_beside`: a gap in its Discipline's numbering as read now sits beside it, no
+    Question asking about it yet; `gap_asked`: one does (`gap_question`)."""
+    gap_question: uuid.UUID | None = None
+    """With `gap_asked`: the open Question asking about the gap beside it."""
+    numbering_gap: bool | None = None
+    """Its Discipline has no list and its numbering skips a number, answered or not (always sent;
+    optional so a client of an older server reads its absence as false)."""
     decided_by_role: str | None
     """The actor's role in the Developer ("qs", "vextrus_engineer", …): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int

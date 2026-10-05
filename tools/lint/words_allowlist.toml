@@ -348,3 +348,8 @@ reason = "m0-screens 6.17 (line 1571): \"two readers agree\" / \"the two readers
 msgid = "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 rule = "count without a plural"
 reason = "\"excludes\" is the verb after the Confirmed sheet's number, not a plural noun: one sheet is confirmed and the rest excluded."
+
+[[allow]]
+msgid = "It sits beside a gap in the numbering that {tag} asks about; answer {tag} and it joins the bulk act."
+rule = "count without a plural"
+reason = "{tag} is a Question's tag (\"Q2\"), not a count, and \"asks\" is its verb; m0-screens 6.5 words the bar so (#320)."

@@ -47,8 +47,6 @@ export interface Row {
   /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
-  /** Its Discipline's numbering skips a number somewhere (a Discipline section's row; #320's words). */
-  gapInNumbering?: boolean
 }
 
 export interface QuestionEntry {
@@ -310,10 +308,9 @@ export function step1Model(data: Step1Data): Step1Model {
       const openQuestions = progress?.open_questions ?? queue.filter((e) => e.question.discipline === discipline).length
       const settled = mine.filter(decided).length
       const numbering = hasList ? null : numberingOf(mine)
-      const gapInNumbering = !!numbering && numbering.missing.length > 0
       return {
         discipline,
-        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))).map((r) => (gapInNumbering ? { ...r, gapInNumbering } : r)),
+        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
         found: progress?.found ?? mine.length,
         settled,
         total: progress ? progress.total ?? null : mine.length,
@@ -382,15 +379,18 @@ const GAP_CODE = 'engine.register_check.gap'
 /** Why a sheet has one source (6.5), for the bar to say. */
 export type OneSourceWhy = 'not-listed' | 'gap-asked' | 'gap' | 'no-list-no-plot' | 'other'
 
-/** The open gap Question a Sheet sits beside (its number printed either side of the gap), if any. */
-export function gapBeside(sheet: ProposalOut, section: DisciplineSection | undefined): { tag: string } | undefined {
+/**
+ * The tag of the open gap Question a Sheet sits beside, if any. The server names it
+ * (`gap_question`); from an older server that sends no `why_not`, the queue's gap Question whose ends
+ * print the Sheet's number.
+ */
+export function gapBeside(sheet: ProposalOut, section: DisciplineSection | undefined, queue: readonly QuestionEntry[] = []): { tag: string } | undefined {
+  if (sheet.why_not !== undefined) {
+    const entry = sheet.gap_question ? queue.find((e) => e.question.id === sheet.gap_question) : undefined
+    return entry ? { tag: entry.tag } : undefined
+  }
   if (!section || section.list || !sheet.number) return undefined
   return section.gaps.find((g) => sameNumber(g.after, sheet.number!) || sameNumber(g.before, sheet.number!))
-}
-
-/** The Discipline's numbering skips a number somewhere (its heading names what is missing). */
-export function numberingHasGap(section: DisciplineSection | undefined): boolean {
-  return !!section?.numbering && section.numbering.missing.length > 0
 }
 
 /** One number however it is printed: by its prefix, running number and suffix. */
@@ -401,7 +401,19 @@ function sameNumber(a: string, b: string): boolean {
   return !!x && !!y && x.prefix === y.prefix && x.running === y.running && x.suffix === y.suffix
 }
 
+/**
+ * Why a Sheet is not in the bulk act, as the server says (`why_not`, #320): the web reads no gap of
+ * its own. "Answer Q1 and it joins" (`gap-asked`) only when the asked gap is the only reason.
+ */
 export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | undefined): OneSourceWhy {
+  const why = sheet.why_not
+  if (why !== undefined && why.length > 0) {
+    if (why.length === 1 && why[0] === 'gap_asked') return 'gap-asked'
+    if (why.includes('not_listed')) return 'not-listed'
+    if (why.includes('gap_beside') || why.includes('gap_asked') || why.includes('number_repeated')) return 'gap'
+    return 'other'
+  }
+  // An older server, which sends no `why_not`: read from the section, as before.
   if (!section) return 'other'
   if (section.list) {
     const named = !!sheet.number && section.list.numbers.some((n) => sameNumber(n, sheet.number!))

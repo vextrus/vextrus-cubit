@@ -5,6 +5,7 @@ acceptance tests' (`acceptance/w320`); every number here is invented."""
 
 import uuid
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -185,3 +186,77 @@ def test_a_list_given_retires_the_gap_it_now_covers(
 
     assert given.status_code == 200, given.content
     assert _gaps_asked(qs_project) == []
+
+
+# The review's round 2: the server says why a sheet does not agree; the web words only that --------
+
+
+def _why(qs: QsProject) -> dict[str | None, dict[str, Any]]:
+    return {
+        p["number"]: {k: p[k] for k in ("agrees_on", "why_not", "gap_question", "numbering_gap")}
+        for p in proposals(api_as(qs.member), qs.project_id)
+    }
+
+
+def test_a_mixed_series_gap_is_read_by_the_server_and_named_on_each_sheet_beside_it(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """E-01, E-02, E-03A, E-05: a suffix the web's own numbering cannot read; the server reads a gap
+    between E-03A and E-05 and names the Question that asks about it."""
+    jev_says(jev_offline, "0.97")
+    _read(qs_project, monkeypatch, "ZX-ELE-C.dwg", "E-01", "E-02", "E-03A", "E-05")
+    [asked] = [
+        q["id"]
+        for q in open_questions(api_as(qs_project.member), qs_project.project_id)
+        if q["code"] == "engine.register_check.gap"
+    ]
+
+    seen = _why(qs_project)
+
+    beside = {"agrees_on": None, "why_not": ["gap_asked"], "gap_question": asked, "numbering_gap": True}
+    assert seen["E-03A"] == beside
+    assert seen["E-05"] == beside
+    assert seen["E-01"] == {
+        "agrees_on": TB, "why_not": [], "gap_question": None, "numbering_gap": True,
+    }  # fmt: skip
+
+
+def test_every_reason_is_named_not_only_the_gap(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """A sheet beside an asked gap whose title is also read from its file name: answering the gap
+    alone would not let it join, so the server names both."""
+    jev_says(jev_offline, "0.97")
+    _read(qs_project, monkeypatch, "ZX-ELE-D.dwg", "E-01", "E-02", "E-04")
+    sheets_of = step1._sheets
+
+    def from_file_name(project_id: uuid.UUID) -> list[drawings.SheetView]:
+        return [
+            replace(s, sources={**s.sources, "title": "file_name"}) if s.number == "E-04" else s
+            for s in sheets_of(project_id)
+        ]
+
+    monkeypatch.setattr(step1, "_sheets", from_file_name)
+
+    seen = _why(qs_project)
+
+    assert seen["E-04"]["why_not"] == ["title_not_from_title_block", "gap_asked"]
+    assert seen["E-02"]["why_not"] == ["gap_asked"]
+
+
+def test_an_agreeing_sheet_has_no_reason_and_a_list_names_what_it_lacks(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    jev_says(jev_offline, "0.97")
+    _read(qs_project, monkeypatch, "ZX-ELE-E.dwg", "E-01", "E-02", "E-03")
+    given = api_as(qs_project.member).post(
+        f"{step1_path(qs_project.project_id)}/drawing-list",
+        {"discipline": "electrical", "text": "E-01 to E-02"},
+    )
+    assert given.status_code == 200, given.content
+
+    seen = _why(qs_project)
+
+    assert seen["E-01"]["why_not"] == []
+    assert seen["E-03"]["why_not"] == ["not_listed"]
+    assert seen["E-03"]["numbering_gap"] is False

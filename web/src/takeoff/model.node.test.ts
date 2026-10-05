@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowState, step1Model } from './model'
+import { compareNumbers, gapBeside, nextOpenRow, numberingOf, questionQueue, rowState, step1Model, whyOneSource } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -296,18 +296,29 @@ describe('the sheets of no Discipline (#167; its refuter)', () => {
   })
 })
 
-describe('a title-block Sheet in a Discipline with a gap elsewhere (#320, PR 428 round 1)', () => {
-  it('marks the Discipline’s rows as numbering with a gap, so the words say "no gap beside it"', () => {
-    const on = (n: string) => sheet(n, { discipline: 'electrical', agrees: true, agrees_on: 'title_block' })
-    const model = step1Model(data([on('E-01'), on('E-02'), sheet('E-05', { discipline: 'electrical' })]))
-    const rows = model.disciplines.find((d) => d.discipline === 'electrical')!.rows
-    expect(rows.every((r) => r.gapInNumbering === true)).toBe(true)
-    expect(rowState(rows[0]!)).toEqual({ kind: 'proposal', oneSource: true })
+describe('why a Sheet is out of the bulk act is the server’s (#320, PR 428 round 2)', () => {
+  const electrical = (n: string, over: Partial<ProposalOut> = {}) => sheet(n, { discipline: 'electrical', ...over })
+
+  it('words a mixed-series gap the web cannot read itself, and names its Question’s tag', () => {
+    const q = question('check', { id: 'qgap', code: 'engine.register_check.gap', params: { after: 'E-03A', before: 'E-05', missing: 1, discipline: 'electrical' }, discipline: 'electrical', subject_id: null })
+    const beside = { agrees: false, agrees_on: null, why_not: ['gap_asked' as const], gap_question: 'qgap', numbering_gap: true }
+    const ps = [electrical('E-01', { agrees: true, agrees_on: 'title_block', why_not: [], numbering_gap: true }), electrical('E-02', { agrees: true, agrees_on: 'title_block', why_not: [], numbering_gap: true }), electrical('E-03A', beside), electrical('E-05', beside)]
+    const model = step1Model(data(ps, [q]))
+    const section = model.disciplines.find((d) => d.discipline === 'electrical')
+    expect(section?.numbering ?? null).toBeNull() // the web's own numbering cannot read E-03A
+    expect(whyOneSource(ps[3]!, section)).toBe('gap-asked')
+    expect(gapBeside(ps[3]!, section, model.queue)).toEqual({ tag: model.queue.find((e) => e.question.id === 'qgap')!.tag })
   })
 
-  it('leaves the rows unmarked when the numbering runs without a gap', () => {
-    const on = (n: string) => sheet(n, { discipline: 'electrical', agrees: true, agrees_on: 'title_block' })
-    const model = step1Model(data([on('E-01'), on('E-02'), on('E-03')]))
-    expect(model.disciplines[0]!.rows.some((r) => r.gapInNumbering)).toBe(false)
+  it('promises "answer it and it joins" only when the asked gap is the only reason', () => {
+    const also = electrical('E-04', { agrees: false, why_not: ['title_not_from_title_block', 'gap_asked'], gap_question: 'qgap' })
+    expect(whyOneSource(also, undefined)).toBe('gap')
+    expect(whyOneSource(electrical('E-06', { agrees: false, why_not: ['not_listed'] }), undefined)).toBe('not-listed')
+    expect(whyOneSource(electrical('E-07', { agrees: false, why_not: ['number_not_from_title_block'] }), undefined)).toBe('other')
+  })
+
+  it('still marks a title-block Sheet "one source" in the State column', () => {
+    const model = step1Model(data([electrical('E-01', { agrees: true, agrees_on: 'title_block', why_not: [] })]))
+    expect(rowState(model.disciplines[0]!.rows[0]!)).toEqual({ kind: 'proposal', oneSource: true })
   })
 })

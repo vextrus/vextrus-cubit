@@ -1010,7 +1010,10 @@ prints it; no open Question holds it; and it does not sit beside a gap in its Di
 as read now (a gap holds only the two sheets either side of it, whatever Questions exist, until the
 QS answers that gap's Question; a gap kept open still holds them; a gap that closes, its number
 arrived or a list now covering it, holds nothing, and its Question is retired). Giving or taking back
-a drawing list asks its Discipline's gaps again at once. Its State still reads "Proposal, one source", so the QS sees what it
+a drawing list asks its Discipline's gaps again at once. The server says why each sheet is out (`why_not`: a held
+file, an open Question, a number or title not from the title block, a number repeated or not read, a
+list not naming it or two disagreeing, a gap beside it unasked or asked); the screen words only that,
+and promises "answer Q2 and it joins" only when the asked gap is the one reason. Its State still reads "Proposal, one source", so the QS sees what it
 rests on. A sheet a list does not name, or one in a Discipline whose two lists disagree, never joins
 on its title block. A sheet "with only one source" is one that fails these: it is not in the bulk act,
 and the QS confirms it on its own (6.5). The heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"

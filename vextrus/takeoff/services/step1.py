@@ -152,6 +152,14 @@ class ProposalView:
     agrees_on: str | None = None
     """What it agrees on: `list`, `plot` or `title_block` (in that precedence); None exactly when
     `agrees` is false. A `title_block` sheet still has one source, which the screen says."""
+    why_not: list[str] = field(default_factory=list)
+    """Why it does not agree, every reason in `WHY_NOT`'s order; empty exactly when it agrees. The
+    screen words these, never its own reading of the numbering."""
+    gap_question: uuid.UUID | None = None
+    """With `gap_asked`: the open Question asking about the gap beside it."""
+    numbering_gap: bool = False
+    """Its Discipline has no list and its numbering skips a number (answered or not): "in numbering
+    without a gap" is then not true of it."""
     decided_by_role: str | None = None
     """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
@@ -369,13 +377,17 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     roles = invitations.roles_of({c.user_id for c in acts})
     role = {c.id: roles.get(c.user_id) for c in acts}
     size = {c.id: c.proposals for c in acts}
-    agreeing = _agreeing(project_id, sheets, by_sheet)
+    judged = _judged(project_id, sheets, by_sheet)
+    agreeing = judged.basis
     order = markets.of_developer(_tenant()).date_order
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), names, who, order),
             agrees=s.id in agreeing,
             agrees_on=agreeing.get(s.id),
+            why_not=judged.why_not.get(s.id, []),
+            gap_question=judged.gap_question.get(s.id) if s.id not in agreeing else None,
+            numbering_gap=s.discipline in judged.numbering_gap,
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
         )
@@ -393,21 +405,71 @@ def _agreeing(
 ) -> dict[uuid.UUID, str]:
     """The printed sheets that agree (`ProposalView.agrees`), each with what it agrees on
     (`ProposalView.agrees_on`): `list`, else `plot`, else `title_block`."""
+    return _judged(project_id, sheets, by_sheet).basis
+
+
+@dataclass(frozen=True)
+class _Judged:
+    """Step 1's judgement of each printed sheet against the bulk act (m0-screens §5)."""
+
+    basis: dict[uuid.UUID, str]
+    """The sheets that agree, each with what it agrees on."""
+    why_not: dict[uuid.UUID, list[str]]
+    """Each sheet that does not agree, with every reason, in `WHY_NOT`'s order."""
+    gap_question: dict[uuid.UUID, uuid.UUID]
+    """A sheet beside a gap an open Question asks about: that Question."""
+    numbering_gap: set[str]
+    """The Disciplines with no list whose numbering skips a number, answered or not."""
+
+
+WHY_NOT = (
+    "held",
+    "question",
+    "no_discipline",
+    "number_not_from_title_block",
+    "title_not_from_title_block",
+    "no_number",
+    "number_repeated",
+    "lists_disagree",
+    "not_listed",
+    "number_unparsed",
+    "gap_beside",
+    "gap_asked",
+)
+"""Why a sheet does not agree (`ProposalView.why_not`), in the order the screen weighs them: a held
+file; an open Question holding it; no Discipline; its number or title not from its title block; no
+number, or one another sheet of its Discipline prints; its Discipline's two lists disagreeing, or the
+standing list not naming it; with no list, a number that does not parse, or a gap beside it in the
+numbering as read now, no Question asking about it yet (`gap_beside`) or one asking (`gap_asked`)."""
+
+
+def _judged(
+    project_id: uuid.UUID,
+    sheets: Sequence[drawings.SheetView],
+    by_sheet: Mapping[uuid.UUID, Proposal],
+) -> _Judged:
+    """`_agreeing`, with why each other sheet does not agree. Its reads do not grow with the
+    sheets: the Questions and their links once, each Discipline's lists once."""
     open_questions = Question.objects.filter(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
     asked: set[uuid.UUID] = set()
     answered: list[tuple[str, dict[str, Any]]] = []
-    for subject_id, code, params, discipline, status in Question.objects.filter(
+    asking: list[tuple[str, dict[str, Any], uuid.UUID]] = []
+    for question_id, subject_id, code, params, discipline, status in Question.objects.filter(
         Q(status=QuestionStatus.OPEN)
         | Q(message_code=list_codes.GAP.code, status=QuestionStatus.ANSWERED),
         project_id=project_id,
         step=SHEETS,
-    ).values_list("subject_id", "message_code", "params", "discipline", "status"):
+    ).values_list("id", "subject_id", "message_code", "params", "discipline", "status"):
         if status == QuestionStatus.OPEN and subject_id is not None:
             asked.add(subject_id)
-        if code == list_codes.GAP.code and status == QuestionStatus.ANSWERED:
-            answered.append((discipline or str(params.get("discipline", "")), params))
+        if code == list_codes.GAP.code:
+            key = discipline or str(params.get("discipline", ""))
+            if status == QuestionStatus.ANSWERED:
+                answered.append((key, params))
+            else:
+                asking.append((key, params, question_id))
     linked = set(
         QuestionLink.objects.filter(project_id=project_id, question__in=open_questions).values_list(
             "proposal_id", flat=True
@@ -416,45 +478,88 @@ def _agreeing(
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
     released = _answered_gaps(numbers, answered)
+    asked_gaps: dict[tuple[str, Gap], uuid.UUID] = {}
+    for discipline, params, question_id in asking:
+        for gap in _answered_gaps(numbers, [(discipline, params)]).get(discipline, ()):
+            asked_gaps.setdefault((discipline, gap), question_id)
     of_discipline: dict[str, list[drawings.SheetView]] = {}
     for sheet in sheets:
         if sheet.discipline is not None:
             of_discipline.setdefault(sheet.discipline, []).append(sheet)
-    agreeing: dict[uuid.UUID, str] = {}
+    why: dict[uuid.UUID, list[str]] = {}
+    for sheet in sheets:
+        proposal = by_sheet.get(sheet.id)
+        reasons = why.setdefault(sheet.id, [])
+        if sheet.held:
+            reasons.append("held")
+        if sheet.id in asked or (proposal is not None and proposal.id in linked):
+            reasons.append("question")
+        if sheet.discipline is None:
+            reasons.append("no_discipline")
+        if sheet.sources.get("number") not in _TITLE_BLOCK:
+            reasons.append("number_not_from_title_block")
+        if sheet.sources.get("title") not in _TITLE_BLOCK:
+            reasons.append("title_not_from_title_block")
+        if not sheet.number:
+            reasons.append("no_number")
+    basis: dict[uuid.UUID, str] = {}
+    gap_question: dict[uuid.UUID, uuid.UUID] = {}
+    numbering_gap: set[str] = set()
     for discipline, everyone in of_discipline.items():
         # Two sheets of one number never agree: which of them is the sheet is a Question's.
         keys = Counter(numbers.key(s.number, discipline) for s in everyone if s.number)
-        mine = [s for s in everyone if s.number and keys[numbers.key(s.number, discipline)] == 1]
+        for s in everyone:
+            if s.number and keys[numbers.key(s.number, discipline)] > 1:
+                why[s.id].append("number_repeated")
         lists = _lists(project_id, discipline)
         standing = lists.standing
         second: dict[uuid.UUID, str] = {}
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
-            second = {
-                s.id: "list" for s in mine if s.number and numbers.key(s.number, discipline) in listed
-            }
+            for s in everyone:
+                if s.number and numbers.key(s.number, discipline) in listed:
+                    second[s.id] = "list"
+                else:
+                    why[s.id].append("not_listed")
         elif standing is None:
             plotted = _without_gap(numbers, discipline, everyone)
-            held_by_gap = _beside_gaps(numbers, discipline, everyone, released.get(discipline, set()))
-            for s in mine:
+            gaps = _gaps(numbers, discipline, everyone)
+            if gaps:
+                numbering_gap.add(discipline)
+            holding = [g for g in gaps if g not in released.get(discipline, set())]
+            for s in everyone:
+                place = _place(numbers, s.number, discipline)
+                beside = [g for g in holding if place in g]
                 if plotted and s.plot.page is not None:
                     second[s.id] = "plot"
-                elif _place(numbers, s.number, discipline) not in held_by_gap | {None}:
+                elif place is None:
+                    if s.number:
+                        why[s.id].append("number_unparsed")
+                elif beside:
+                    # A gap holds only the two sheets either side of it (#229, "gap local").
+                    for gap in beside:
+                        asking_id = asked_gaps.get((discipline, gap))
+                        if asking_id is None:
+                            why[s.id].append("gap_beside")
+                        else:
+                            why[s.id].append("gap_asked")
+                            gap_question.setdefault(s.id, asking_id)
+                else:
                     # The title-block basis (#320): one source, with no gap beside it in the
                     # numbering as read now, unless the QS answered that gap.
                     second[s.id] = "title_block"
-        for sheet in mine:
-            proposal = by_sheet.get(sheet.id)
-            if (
-                sheet.id in second
-                and not sheet.held
-                and sheet.sources.get("number") in _TITLE_BLOCK
-                and sheet.sources.get("title") in _TITLE_BLOCK
-                and sheet.id not in asked
-                and (proposal is None or proposal.id not in linked)
-            ):
-                agreeing[sheet.id] = second[sheet.id]
-    return agreeing
+        else:
+            for s in everyone:
+                why[s.id].append("lists_disagree")
+        for s in everyone:
+            if s.id in second and not why[s.id]:
+                basis[s.id] = second[s.id]
+    why_not = {
+        sheet_id: sorted(set(reasons), key=WHY_NOT.index)
+        for sheet_id, reasons in why.items()
+        if sheet_id not in basis
+    }
+    return _Judged(basis, why_not, gap_question, numbering_gap)
 
 
 def _place(numbers: Numbers, number: str | None, discipline: str) -> tuple[str, int] | None:

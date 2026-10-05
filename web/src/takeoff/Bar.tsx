@@ -9,7 +9,7 @@ import { useFormat } from '@/format'
 import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { REASONS, gapBeside, numberingHasGap, whyOneSource, type Reason, type Row, type Step1Model } from './model'
+import { REASONS, gapBeside, whyOneSource, type Reason, type Row, type Step1Model } from './model'
 import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
 import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
@@ -83,7 +83,7 @@ function BulkReasons({ model }: { model: Step1Model }) {
   const titleBlock = onTitleBlock.length
   // "In numbering without a gap" is true only where the Discipline skips no number; a Sheet that
   // joins beside no gap while its Discipline has one elsewhere has "no gap beside it" (#320).
-  const gapElsewhere = onTitleBlock.some((p) => numberingHasGap(model.disciplines.find((d) => d.discipline === p.discipline)))
+  const gapElsewhere = onTitleBlock.some((p) => p.numbering_gap === true)
   const bulk = new Set(model.bulk.confirm.filter((p) => p.agrees_on !== 'title_block').map((p) => p.discipline))
   const sections = model.disciplines.filter((d) => bulk.has(d.discipline))
   const listed = sections.some((d) => d.list)
@@ -145,7 +145,7 @@ function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model 
   )
   if (why === 'not-listed') return <Trans>The drawing list does not name it.</Trans>
   if (why === 'gap-asked') {
-    const tag = gapBeside(sheet, model.disciplines.find((d) => d.discipline === sheet.discipline))?.tag
+    const tag = gapBeside(sheet, model.disciplines.find((d) => d.discipline === sheet.discipline), model.queue)?.tag
     return tag ? (
       <Trans>It sits beside a gap in the numbering that {tag} asks about; answer {tag} and it joins the bulk act.</Trans>
     ) : (
@@ -290,7 +290,7 @@ export function useBar(c: BarContext): BarSpec | null {
       const section = model.disciplines.find((d) => d.discipline === sheet.discipline)
       return {
         what: agrees ? (
-          row.sheets.some((s) => s.agrees_on === 'title_block') && numberingHasGap(section) ? (
+          row.sheets.some((s) => s.agrees_on === 'title_block' && s.numbering_gap === true) ? (
             <Trans>{Name} is in the bulk act on one source: number and title from the title block, with no gap beside it</Trans>
           ) : row.sheets.some((s) => s.agrees_on === 'title_block') ? (
             <Trans>{Name} is in the bulk act on one source: number and title from the title block, in numbering without a gap</Trans>
