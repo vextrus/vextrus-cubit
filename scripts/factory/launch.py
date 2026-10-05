@@ -385,13 +385,11 @@ def default_ask(state: str, questions: dict[str, dict[str, str]]) -> Answers | U
 def jev_reading(text: str, ask: Ask) -> dict[str, object]:
     """Jev's advisory reading of a ticket prompt: always `status`, `warnings` and `p` (and `why` when
     unavailable). Advice only: no caller decides anything on it, and it never holds the prompt."""
-    from scripts.factory.jev import Unavailable
-
     try:
         answered = ask(text, JEV_QUESTIONS)
     except Exception:
         return {"status": "unavailable", "why": "failed", "warnings": [], "p": {}}
-    if isinstance(answered, Unavailable):
+    if not isinstance(answered, Mapping):  # an `Unavailable` (by shape: `jev` may be reloaded)
         return {"status": "unavailable", "why": answered.why.value, "warnings": [], "p": {}}
     p = {name: float(answered[name]["p"]) for name in JEV_QUESTIONS}
     warnings = [name.replace("_", "-") for name, value in p.items() if value >= JEV_WARN_AT]
