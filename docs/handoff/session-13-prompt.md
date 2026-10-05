@@ -191,8 +191,8 @@ Never hide the gap. Never bend a gate to close it.
     tested in `tools/leakscan/tests/test_round1.py`) but still open: close it with that link.
   - #239–#241, and the design-gate mays #218–#224: only if lane B has room.
   - #150 and #204 close with #237.
-- **Factory issues:** 56 open, labelled `factory`: #248–#281, #283, #289, #290, #294–#298, #300–#303, #306–#313,
-  #340 and #341. The first hour takes nine of them; lanes A to D pick up the ones the product needs.
+- **Factory issues:** 57 open, labelled `factory`: #248–#281, #283, #289, #290, #294–#298, #300–#303, #306–#313,
+  #340–#342. The first hour takes nine of them; lanes A to D pick up the ones the product needs.
 
 ## The factory as built (every component merged on main by 01:53Z, 5 Oct)
 f0 #247 (spec, ADR 0042, contracts), f1 #286, f2 #291, f3 #288, f4 #287, f5 #293, f6 #284, f7 #299, f8 #282 and
@@ -206,7 +206,8 @@ checkout, `/home/riz/vextrus-cubit`. Every Python tool prints its own contract w
 then crashes (#340). `uv run python -m scripts.factory.stamp start --budget 11h --state .private/work/session-13/STATE.md
 [--phases "hour1=60,a=300"] [--force]`; `… stamp "<text>"` appends `<UTC> <text>` to STATE.md; `… stamp phase <name>`;
 `… stamp elapsed [--ticket <t>]`; `… stamp budget --ticket <t> --minutes <n>`. `start` cannot backdate, and a second
-start is refused without `--force`. The clock hook prints `now … · session h:mm/h:mm` on every prompt.
+start is refused without `--force` (session 12's session.json is still there, so session 13's first `start` passes
+`--force`: see the first act). The clock hook prints `now … · session h:mm/h:mm` on every prompt.
 
 **Preflight** (f3). `uv run python -m scripts.factory.governor check <unit> [--json] [--usage-checked "<lines>"]
 [--running N] [--agents N] [--rate R --hours-to-reset H]`. Units: `cloud-session`, `local-agent`, `review`, `pytest`,
@@ -285,8 +286,10 @@ its first use.
   state (176 staged reversals): never commit there. f5 is merged, so ask the owner to remove it
   (`! git worktree remove --force .claude/worktrees/s12-f5`).
 - **After any landing step pushes a merge to a carried branch** and then stops (red CI, `merge_ready` refusing), run
-  `git -C .claude/worktrees/<t> pull --ff-only` before the next fix commit there. Otherwise the push is refused as
-  not a fast-forward.
+  `git -C .claude/worktrees/<t> fetch -q origin` and then `git -C .claude/worktrees/<t> merge --ff-only origin/<t>`
+  before the next fix commit there. Otherwise the push is refused as not a fast-forward. Not `pull`: t-readlock,
+  t228, t229 and t160 track origin/main and loop-iou tracks nothing, so a bare `pull --ff-only` fails (measured in
+  a scratch repo: exit 128; the named merge fast-forwards, exit 0).
 
 **Gates** (unchanged). `design-gate`, from an independent verdict, never the builder's: `sudo -n -u vxkeys
 /usr/local/lib/vextrus/post-status design-gate <PR> <full sha> --passed <items> --failed <items> --not-applicable
@@ -414,7 +417,10 @@ Findings scored under 50 are issues #283 (band), #289 (Jev client), #290 (sessio
 
 ### First act (≤ 30 min, inside the first hour)
 1. `mkdir -p .private/work/session-13`, then `uv run python -m scripts.factory.stamp start --budget <owner's> --state
-   .private/work/session-13/STATE.md --phases "hour1=60"`. Every STATE line goes through `uv run python -m
+   .private/work/session-13/STATE.md --phases "hour1=60" --force`. **`--force` is required:** session 12's
+   `.private/work/factory/session.json` is still there (stamp.py has no close command), so without it `start` is
+   refused, and every later stamp line, the clock hook and the elapsed time would all be session 12's. Then check
+   `uv run python -m scripts.factory.stamp elapsed` reads about 0:00. Every STATE line goes through `uv run python -m
    scripts.factory.stamp "<text>"`. `/review-pr` records its own verdict in the ledger since #339 (merged 5 Oct,
    03:03Z): if a Record step reports a refusal, record by hand with `scripts.ledger record` and file it.
 2. Read the machine:
@@ -474,7 +480,9 @@ brief's `mkdir -p` covers it) and **#341** (nothing refuses a STATE line typed b
 hostile-boundary ticket).
 
 ### Lane A, the critical path (lock-bound; ~5 h)
-The carried PRs land **in this order: #237 → t-readlock → t228 → t229 → t160 → loop-iou**, then xdist. Lane A starts
+The carried PRs land **in this order: #237 → t-readlock → t228 → t229 → t160 → loop-iou**, then xdist. This order and
+the deferred t229 review **supersede `docs/specs/factory.md` §6** (t229 before t228, t229 in the minute-0 batch),
+which was written before the conflicts were measured. Lane A starts
 as soon as the first hour's launches are out: its review batch needs no launch.
 
 All six are **engine PRs**: each owes one posting run on its final head, about 30 min under `rdlock`. Every engine
