@@ -64,6 +64,7 @@ RECORD_KEYS = {
     "stop_sent",
     "untestable",
     "review",
+    "jev",
 }
 
 

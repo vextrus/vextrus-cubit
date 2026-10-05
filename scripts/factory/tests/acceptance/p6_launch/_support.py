@@ -43,6 +43,7 @@ RECORD_KEYS = {
     "stop_sent",
     "untestable",
     "review",
+    "jev",
 }
 REAL_GIT = shutil.which("git") or "/usr/bin/git"
 IDENTITY = ["-c", "user.name=W", "-c", "user.email=w@example.invalid", "-c", "commit.gpgsign=false"]
