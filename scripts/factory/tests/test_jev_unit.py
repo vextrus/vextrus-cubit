@@ -4,6 +4,7 @@ the acceptance path may hold no deselected test."""
 
 import json
 import os
+import re
 import socket
 import threading
 import time
@@ -259,19 +260,129 @@ def test_after_the_cool_off_one_probe_goes_while_the_others_wait(
     monkeypatch.setattr(jev, "_now", lambda: now[0])
     health = jev._Health()
     for _ in range(3):
-        assert health.admit()
-        health.settle(jev.Why.FAILED)
-    assert not health.admit()
+        admitted = health.admit()
+        assert admitted
+        health.settle(admitted, jev.Why.FAILED)
+    assert health.admit() is None
     now[0] += 60.0
-    assert health.admit(), "the probe"
-    assert not health.admit(), "another caller while the probe is out"
-    health.settle(jev.Why.FAILED)
-    assert not health.admit(), "the probe failed: cooling off again"
+    probe = health.admit()
+    assert probe, "the probe"
+    assert probe.probe
+    assert health.admit() is None, "another caller while the probe is out"
+    health.settle(probe, jev.Why.FAILED)
+    assert health.admit() is None, "the probe failed: cooling off again"
     now[0] += 60.0
-    assert health.admit()
-    health.settle(None)
+    probe = health.admit()
+    assert probe
+    health.settle(probe, None)
     assert health.admit(), "an answer ends the cool-off"
     assert health.admit()
+
+
+# T-JEV-CLIENT: the persisted cool-off, the bounded helper and the cache's order names --------------
+
+
+def test_the_health_file_holds_numbers_only_and_an_answer_deletes_it(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path
+) -> None:
+    monkeypatch.setattr(jev, "_now", lambda: 500.0)
+    monkeypatch.setattr(jev, "_wall", lambda: 1_800_000_000.0)
+    health = jev._Health()
+    path = isolated / "jev-health.json"
+    admitted = health.admit()
+    assert admitted
+    health.settle(admitted, jev.Why.REQUEST_REFUSED)
+    assert not path.exists(), "a refusal is not an outage"
+    for count in (1, 2, 3):
+        admitted = health.admit()
+        assert admitted
+        health.settle(admitted, jev.Why.TIMED_OUT)
+        record = json.loads(path.read_text())
+        assert set(record) == {"failures", "last_failure_wall", "until_wall"}
+        assert record["failures"] == count
+        assert record["last_failure_wall"] == 1_800_000_000.0
+    assert record["until_wall"] == 1_800_000_000.0 + jev_settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+    tripped = jev._Health()
+    assert tripped.admit() is None, "another run reads the cool-off"
+    monkeypatch.setattr(jev, "_now", lambda: 560.0)
+    probe = health.admit()
+    assert probe
+    health.settle(probe, None)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"failures": 3, "last_failure_wall": 1e9, "until_wall": 1e9 + 60},
+        {"failures": True, "last_failure_wall": 1_800_000_000.0, "until_wall": None},
+        {"failures": 0, "last_failure_wall": 1_800_000_000.0, "until_wall": None},
+        {"failures": 3, "last_failure_wall": None, "until_wall": 1_800_000_060.0},
+        {"failures": 3, "last_failure_wall": 1_800_000_000.0, "until_wall": "soon"},
+    ],
+    ids=["stale", "bool", "zero", "no-last", "until-text"],
+)
+def test_a_stale_or_malformed_health_file_is_ignored(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path, record: dict[str, object]
+) -> None:
+    monkeypatch.setattr(jev, "_wall", lambda: 1_800_000_000.0)
+    isolated.mkdir(parents=True)
+    (isolated / "jev-health.json").write_text(json.dumps(record))
+    health = jev._Health()
+    admitted = health.admit()
+    assert admitted
+    assert not admitted.probe
+    health.settle(admitted, jev.Why.FAILED)
+    assert json.loads((isolated / "jev-health.json").read_text())["failures"] == 1
+
+
+def test_a_cool_off_from_a_clock_ahead_is_held_no_longer_than_the_cool_off(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path
+) -> None:
+    now = [10.0]
+    monkeypatch.setattr(jev, "_now", lambda: now[0])
+    monkeypatch.setattr(jev, "_wall", lambda: 1_800_000_000.0)
+    isolated.mkdir(parents=True)
+    record = {"failures": 3, "last_failure_wall": 1_800_000_000.0, "until_wall": 1_900_000_000.0}
+    (isolated / "jev-health.json").write_text(json.dumps(record))
+    health = jev._Health()
+    assert health.admit() is None
+    now[0] += jev_settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+    assert health.admit(), "the probe goes after one cool-off at most"
+
+
+def test_bounded_returns_raises_or_times_out() -> None:
+    assert jev._bounded(lambda: 7, 1.0) == 7
+
+    def fails() -> int:
+        raise OSError("invented")
+
+    with pytest.raises(OSError, match="invented"):
+        jev._bounded(fails, 1.0)
+    release = threading.Event()
+    with pytest.raises(TimeoutError):
+        jev._bounded(lambda: release.wait(5.0), 0.05)
+    release.set()
+
+
+def test_bounded_carries_the_calls_deadline_into_its_thread() -> None:
+    token = jev._DEADLINE.set((lambda: 0.0, 3.0))
+    try:
+        assert jev._bounded(lambda: jev._left(None, TimeoutError), 1.0) == 3.0
+    finally:
+        jev._DEADLINE.reset(token)
+
+
+def test_the_sorted_order_keeps_the_digests_name_and_another_order_its_own() -> None:
+    wet = {"kind": "noul", "text": "Is the invented towel wet?"}
+    green = {"kind": "noul", "text": "Is the invented leaf green?"}
+    first = jev._prepare("Invented.", {"green": green, "wet": wet}, "jev-1.13.0")
+    second = jev._prepare("Invented.", {"wet": wet, "green": green}, "jev-1.13.0")
+    assert not isinstance(first, jev.Unavailable)
+    assert not isinstance(second, jev.Unavailable)
+    assert first.digest == second.digest
+    assert jev._cache_path(first).name == f"{first.digest}.json"
+    assert re.fullmatch(rf"{first.digest}-[0-9a-f]{{12}}\.json", jev._cache_path(second).name)
 
 
 @pytest.mark.live

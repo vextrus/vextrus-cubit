@@ -34,10 +34,26 @@ Behaviour, each with a test in `scripts/factory/tests/test_jev.py` on recorded a
   cached or put in an exception text. No key: `Unavailable("no_key")` with no call made.
 - **Size:** a request body over the maximum is refused (`too_large`), never cut.
 - **Retry:** 429, 529 and a dropped connection retry with backoff inside the one 6 s deadline; past it, `Unavailable`.
+- **Deadline:** the 6 s holds for the whole call: each socket wait is cut to what is left of it, and name resolution
+  too (a stalled resolver costs the deadline, then `timed_out`). `ask` also takes `client=` (an `httpx.Client`): a test
+  seam, never a caller's way around the deadline; a passed client's exchange is held to the same 6 s (`timed_out`
+  when it is not done by then).
 - **Concurrency:** at most 10 calls at once across the process.
-- **Cache:** every `Answers` is stored at `.private/work/factory/jev-cache/<sha256(state, questions, model)>.json`
-  (the sha256 of the canonical JSON of the three, sorted keys). A cache hit returns without a call. A recorded answer
-  is a test fixture (`scripts/factory/tests/fixtures/jev/`, invented text only). `Unavailable` is never cached.
+- **Cool-off:** after 3 outages in a row (`timed_out`, `busy`, `failed`, `unreachable`, `malformed`, `oversized`;
+  a refusal is not one) every call is `cooling_off` for 60 s, then one call (the probe) tries again while the others
+  still cool off; only the probe's own end frees its place. The cool-off holds **across processes** (every
+  subcommand is its own short run): `.private/work/factory/jev-health.json`, numbers only
+  (`{"failures": <n>, "last_failure_wall": <unix s>, "until_wall": <unix s> | null}`), written atomically when an
+  outage changes the count or the cool-off, deleted by name when an answer comes, read once at a run's first call.
+  A file that is unreadable or malformed, or whose last failure is older than the cool-off's 60 s, is ignored; a
+  write that fails is ignored. A refusal before any request (`no_key`, `bad_question`, `too_large`) never touches it.
+- **Cache:** every `Answers` is stored under `.private/work/factory/jev-cache/`, named by
+  `<sha256(state, questions, model)>` (the sha256 of the canonical JSON of the three, sorted keys, so the same
+  questions in any order give one digest): `<digest>.json` when the questions were asked in sorted name order, else
+  `<digest>-<first 12 hex of sha256 of the names in the asked order, joined by NUL>.json`, so each order keeps its
+  own answers. The file records the names in order and is read only for that order. A cache hit returns without a
+  call. A recorded answer is a test fixture (`scripts/factory/tests/fixtures/jev/`, invented text only).
+  `Unavailable` is never cached.
 - **Log:** one line per call appended to `.private/work/factory/jev.log`:
   `<UTC> task=<name> model=<id the response named, or the requested id> status=<ok|unavailable:<why>> latency_ms=<n> input_tokens=<n> cache=<hit|miss>`.
   `task` is the caller's label (`triage`, `same-issue`, `models-check`). **Never the state, a question or an answer.**
@@ -97,6 +113,9 @@ response's `model` field, and reads `GET https://api.typesafe.ai/v1/models` for 
 | `jev-model ok <version>` | 0 |
 | `JEV-MODEL-MOVED <pinned> -> <seen>` (the `model` field left the pin) or `JEV-MODEL-MOVED release-date <old> -> <new>` | 1 |
 | `unavailable <why>` | 2 (no alarm either way) |
+
+The line is printed before the record (`jev-models.json`) is written, and the exit code follows the line: a record
+that cannot be written is only a lost record, never exit 2 or a second line.
 
 On exit 1 `watch.py` raises the `JEV-MODEL-MOVED` alarm (status.schema.json) and adds a "re-run `jev_spot_check`" item
 to the milestone issue (ADR 0011 rule 3). `models-check` also reads the `model` field of every factory call in
