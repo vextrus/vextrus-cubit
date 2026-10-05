@@ -7,8 +7,15 @@ argv log. The script answers only what is scripted, as gh 2.45.0 does (`--repo R
 - `pr view <n> --json headRefOid [-q .headRefOid]`: the PR's current head (`state["head"]`);
 - `pr view <n> --json headRefOid,statusCheckRollup [-q .field]`: the next payload of `state["views"]`
   (the last one repeats); a payload's `_then_head` becomes the PR's head once it has been served;
-- `pr ready`: ok; `pr update-branch`: `state["update"]` is `"ok"`, `"conflict"` (exit 1, `merge
-  conflict` on stderr) or `{"head": <sha>, "update_ref": [<git dir>, <ref>]}` (the head moves);
+- `pr ready`: ok;
+- `pr update-branch`: exit 1, `unknown command "update-branch" for "gh pr"` (gh 2.45 has no such
+  command; the orchestrator's amendment 1, confirmed on the real gh);
+- `api --method PUT repos/vextrus/vextrus-cubit/pulls/<n>/update-branch -f expected_head_sha=<sha>`
+  (`-X PUT` too), GitHub's REST route: an `expected_head_sha` that is not the PR's head answers 422;
+  else `state["update"]` decides: `"conflict"` answers 422 (merge conflict), `{"head": <sha>,
+  "update_ref": [<git dir>, <ref>]}` answers 202 and moves the head, and anything else (the default)
+  is a head already up to date: 422. A 422 exits 1 with the body on stdout and `gh: <message> (HTTP
+  422)` on stderr, as `gh api` does;
 - `run view [<run>] --job <job> --log-failed`: `state["logs"][<job>]`;
 - `run rerun <run> --failed`: `state["views"]` becomes `state["after_rerun"]`;
 - `pr merge <n> ... --match-head-commit <sha>`: ok (recorded);
@@ -17,6 +24,7 @@ argv log. The script answers only what is scripted, as gh 2.45.0 does (`--repo R
 """
 
 import importlib
+import itertools
 import json
 import os
 import stat
@@ -36,8 +44,10 @@ FLAKY_LINE = "FAILED vextrus/x/tests/test_a.py::test_flaky - assert 1 == 2"
 FLAKY_ID = "vextrus/x/tests/test_a.py :: test_flaky"
 
 SCRIPT = """#!{python}
-import json, subprocess, sys
+import json, re, subprocess, sys
 from pathlib import Path
+
+DOCS = "https://docs.github.com/rest/pulls/pulls#update-a-pull-request-branch"
 
 STATE = Path({state!r})
 LOG = Path({log!r})
@@ -110,16 +120,43 @@ if args[:2] == ["pr", "view"]:
 if args[:2] == ["pr", "ready"]:
     sys.exit(0)
 if args[:2] == ["pr", "update-branch"]:
-    update = state.get("update", "ok")
+    fail('unknown command "update-branch" for "gh pr"\\n\\nUsage:  gh pr <command> [flags]')
+method = option(args, "--method") or option(args, "-X")
+for part in args:
+    if part.startswith("--method="):
+        method = part.split("=", 1)[1]
+path = next((part for part in args[1:] if "/pulls/" in part), "").lstrip("/")
+if args[:1] == ["api"] and method == "PUT" and path.endswith("/update-branch"):
+    if not re.fullmatch(r"repos/vextrus/vextrus-cubit/pulls/[0-9]+/update-branch", path):
+        fail("gh: Not Found (HTTP 404)")
+    fields = {{}}
+    for index, part in enumerate(args[:-1]):
+        if part in ("-f", "-F", "--field", "--raw-field") and "=" in args[index + 1]:
+            key, value = args[index + 1].split("=", 1)
+            fields[key] = value
+
+
+    def refuse(message):
+        print(json.dumps({{"message": message, "documentation_url": DOCS}}))
+        fail("gh: " + message + " (HTTP 422)")
+
+
+    update = state.get("update", "up to date")
+    if "expected_head_sha" in fields and fields["expected_head_sha"] != state["head"]:
+        refuse("expected head sha didn't match current head ref.")
     if update == "conflict":
-        fail("X Cannot update PR branch: merge conflict between base and head (HTTP 422)")
-    if isinstance(update, dict):
-        state["head"] = update["head"]
-        if update.get("update_ref"):
-            git_dir, ref = update["update_ref"]
-            subprocess.run(["git", "--git-dir", git_dir, "update-ref", ref, update["head"]], check=True)
-        save()
-    print("✓ PR branch updated")
+        refuse("merge conflict between base and head")
+    if not isinstance(update, dict):
+        refuse("There are no new commits on the base branch.")
+    state["head"] = update["head"]
+    state["update"] = "up to date"
+    if update.get("update_ref"):
+        git_dir, ref = update["update_ref"]
+        subprocess.run(["git", "--git-dir", git_dir, "update-ref", ref, update["head"]], check=True)
+    save()
+    pull = path.removeprefix("repos/").removesuffix("/update-branch").replace("/pulls/", "/pull/")
+    url = "https://github.com/" + pull
+    print(json.dumps({{"message": "Updating pull request branch.", "url": url}}))
     sys.exit(0)
 job = option(args, "--job")
 if args[:2] == ["run", "view"] and "--log-failed" in args and job in state.get("logs", {{}}):
@@ -177,6 +214,25 @@ class FakeGh:
 
     def called(self, *prefix: str) -> list[list[str]]:
         return [argv for argv in self.calls() if argv[: len(prefix)] == list(prefix)]
+
+    def updates(self) -> list[list[str]]:
+        """Every request to bring main into the PR: `gh pr update-branch` (gh 2.45 has none) or the
+        REST route through `gh api`."""
+        return self.called("pr", "update-branch") + [
+            argv for argv in self.called("api") if any(p.endswith("/update-branch") for p in argv)
+        ]
+
+
+def update_request(argv: list[str], head: str) -> bool:
+    """`argv` is `api --method PUT repos/vextrus/vextrus-cubit/pulls/12/update-branch -f
+    expected_head_sha=<head>` (flags in any order; `-X PUT` and `--method=PUT` too)."""
+    pairs = list(itertools.pairwise(argv))
+    return (
+        argv[:1] == ["api"]
+        and (("--method", "PUT") in pairs or ("-X", "PUT") in pairs or "--method=PUT" in argv)
+        and any(p.lstrip("/") == f"repos/vextrus/vextrus-cubit/pulls/{PR}/update-branch" for p in argv)
+        and ("-f", f"expected_head_sha={head}") in pairs
+    )
 
 
 def install(root: Path, monkeypatch: pytest.MonkeyPatch, **state: Any) -> FakeGh:

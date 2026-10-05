@@ -1,6 +1,8 @@
 """T-LAND 4: `land()` through the real `Gh` class and a fake gh 2.45 on PATH, end to end: each refusal is
 exit 3 with one plain `land: ...` line (no traceback), the merge is pinned to the head CI was green on,
-an `update-branch` conflict is the builder's to fix, and the lander never moves a branch itself.
+an `update-branch` conflict is the builder's to fix, and the lander never moves a branch itself. Main
+is brought in through GitHub's REST route (`gh api --method PUT .../pulls/<n>/update-branch -f
+expected_head_sha=<head>`): gh 2.45 has no `gh pr update-branch` (amendment 1).
 
 Seams (fixed by the ticket): `scripts.land.Gh(repo, *, sleep, polls)`, `land(..., repo=)`.
 """
@@ -23,6 +25,7 @@ from scripts.tests.acceptance.p6_land._fakegh import (
     lander,
     record,
     rollup,
+    update_request,
 )
 
 FORBIDDEN = {"checkout", "switch", "reset", "push", "branch", "worktree", "merge", "rebase"}
@@ -147,7 +150,7 @@ def test_d_an_update_branch_conflict_is_the_builder_s_to_fix(env: Fixtures) -> N
     line = done.refused_plainly()
     assert "conflicts with main" in line
     assert "builder" in line
-    assert done.fake.called("pr", "update-branch")
+    assert [update_request(argv, done.repo.reviewed) for argv in done.fake.updates()] == [True]
     assert "served" not in done.fake.state, "CI was waited on for a branch that cannot take main"
     assert not done.fake.called("pr", "merge")
 
@@ -156,7 +159,7 @@ def test_e_a_head_moved_by_update_branch_lands_on_the_new_head(env: Fixtures) ->
     done = landing(*env, behind=True)
     assert done.code == 0, done.out + done.err
     assert done.repo.merged is not None
-    assert len(done.fake.called("pr", "update-branch")) == 1
+    assert [update_request(argv, done.repo.reviewed) for argv in done.fake.updates()] == [True]
     assert done.fake.called("pr", "merge") == [
         ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.merged]
     ]
@@ -169,6 +172,21 @@ def test_e_a_head_moved_by_update_branch_lands_on_the_new_head(env: Fixtures) ->
     assert pulls, "main is pulled, fast-forward only"
     assert pulls[0] > merge_at, "main is pulled after the merge"
     assert "Traceback" not in done.err
+
+
+def test_j_a_reviewed_green_pr_one_commit_behind_main_lands(env: Fixtures) -> None:
+    """Amendment 1: `gh pr update-branch` is an unknown command on gh 2.45, so a lander that calls it
+    refuses every PR behind main with a false "conflicts with main"."""
+    done = landing(*env, behind=True)
+    assert "conflicts with main" not in done.out
+    assert done.code == 0, done.out + done.err
+    assert not done.fake.called("pr", "update-branch"), "gh 2.45 has no `gh pr update-branch`"
+    assert done.repo.merged is not None
+    assert done.fake.state["head"] == done.repo.merged, "main was brought into the PR"
+    assert done.fake.called("pr", "merge") == [
+        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.merged]
+    ]
+    assert done.lines() == [f"land: PR {PR} merged"]
 
 
 def test_f_a_head_pushed_after_ci_went_green_is_not_merged(env: Fixtures) -> None:
@@ -197,7 +215,7 @@ def test_f_a_head_pushed_after_ci_went_green_is_not_merged(env: Fixtures) -> Non
 def test_g_a_head_that_already_holds_main_is_not_updated(env: Fixtures) -> None:
     done = landing(*env, behind=False)
     assert done.code == 0, done.out + done.err
-    assert not done.fake.called("pr", "update-branch")
+    assert not done.fake.updates()
     assert done.fake.called("pr", "merge") == [
         ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.reviewed]
     ]
