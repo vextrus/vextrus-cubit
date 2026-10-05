@@ -63,6 +63,7 @@ from vextrus.takeoff.tests.acceptance.treadlock.test_acts_never_wait_on_a_read i
     Overlap,
     Parked,
     act_while_the_later_file_reads,
+    blocked_by,
     counted_progress,
     file_state,
     finishes_unblocked,
@@ -952,3 +953,79 @@ def test_a_confirm_aborted_past_the_retries_is_refused_whole_and_any_other_error
     with pytest.raises(OperationalError):
         confirm(api, project_id, [p01["id"]])
     assert len(tries) == 1
+
+
+# Fix round 2 of the re-submission: the Discipline change never waits on a reading -----------------
+
+ANSWERED_WITHIN = 10.0
+"""Seconds an act is given to answer: far beyond a write phase, far below a reading."""
+
+
+def _waits_on_another(outcome: Any) -> None:
+    """Until Postgres shows the outcome's backend waiting on another (or it ends)."""
+    assert outcome.started.wait(FAIL_SAFE), "the thread never started"
+    for _ in range(int(FAIL_SAFE / 0.02)):
+        if outcome.done.is_set() or (outcome.pid is not None and blocked_by(outcome.pid)):
+            return
+        outcome.done.wait(0.02)
+    raise AssertionError("the act neither waited nor ended")
+
+
+def test_a_discipline_change_queued_behind_step_1s_write_lock_never_waits_on_the_jobs_reading(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
+) -> None:
+    """Review round 2 of the re-submission, staged through the API: another writer holds Step 1's
+    write lock; the QS changes the later DWG's Discipline (it waits on the lock, holding nothing);
+    that DWG's read job marks it read (its file's row held) and parks in the Plot's reading; the
+    writer commits. Holding the write lock, the change waited on the file's row for the job's whole
+    reading, and every Step 1 act waited behind it (the D1 freeze), then a deadlock. Now the change
+    takes the row at once or is refused (409 `drawings.files.reading`) within moments; a confirm
+    then proceeds while the job reads, and the job ends read."""
+    later = read_first_and_plot(qs_project, monkeypatch)
+    project_id = qs_project.project_id
+    api = api_as(qs_project.member)
+    [p01] = of_number(proposals(api, project_id), "S-01")
+    holding, release_writer = threading.Event(), threading.Event()
+
+    def writer() -> None:
+        with transaction.atomic():
+            step1_services.lock_writes(project_id)
+            holding.set()
+            assert release_writer.wait(FAIL_SAFE), "the test never released the writer"
+
+    path = f"/api/projects/{project_id}/drawings/files/{later}/discipline"
+    use = readers(SHEETS)
+    monkeypatch.setattr(files, "READERS", use)
+    writer_thread, written = in_thread(writer)
+    job_thread = change_thread = None
+    try:
+        assert holding.wait(FAIL_SAFE), f"the writer never took the lock: {written.error!r}"
+        change_thread, changed = in_thread(
+            lambda: api.send("put", path, {"discipline": "architectural"})
+        )
+        _waits_on_another(changed)
+        assert not changed.done.is_set(), "the change did not wait on the writer's lock"
+        parked.armed = True
+        job_thread, job = in_thread(lambda: run_job(qs_project.member, later, monkeypatch, use))
+        assert parked.reached.wait(FAIL_SAFE), f"the job never read the Plot: {job.error!r}"
+        release_writer.set()
+        assert changed.done.wait(ANSWERED_WITHIN), "the change froze behind the job's reading"
+        if changed.error is not None:
+            raise changed.error
+        assert changed.result.status_code in (200, 409), changed.result.content
+        if changed.result.status_code == 409:
+            assert changed.result.json()["code"] == "drawings.files.reading"
+
+        acted_thread, acted = in_thread(lambda: confirm(api, project_id, [p01["id"]]))
+        assert finishes_unblocked(acted, job), "a confirm waited while the job read"
+        acted_thread.join(FAIL_SAFE)
+        assert acted.error is None, acted.error
+        assert acted.result.status_code == 200, acted.result.content
+    finally:
+        release_writer.set()
+        parked.released.set()
+        for thread in (writer_thread, change_thread, job_thread):
+            if thread is not None:
+                thread.join(FAIL_SAFE)
+    assert job.error is None, job.error
+    assert file_state(qs_project.member, later) == str(drawings.FileState.READ)
