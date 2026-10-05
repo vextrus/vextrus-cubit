@@ -30,7 +30,7 @@ import hashlib
 import json
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
@@ -760,34 +760,95 @@ def _decimal_of(value: float, places: int) -> Decimal:
 # The sheet list and its views ----------------------------------------------------------------------
 
 
-def sheets(set_id: uuid.UUID, discipline: str | None = None, *, anchors: bool = True) -> list[SheetView]:
+def sheets(
+    set_id: uuid.UUID,
+    discipline: str | None = None,
+    *,
+    anchors: bool = True,
+    among: Collection[uuid.UUID] | None = None,
+) -> list[SheetView]:
     """The set's printed sheets Step 1 lists: of its read files (and held files read anyway), of one
     Discipline by key when given, by Discipline, then number (naturally), then place. In a fixed
     number of statements whatever the set's size: why a sheet has no Plot is worked out from one read
     of the set's PDFs (`_PlotContext`). `anchors=False` leaves the anchors unread (Step 1's lists and
-    acts never read them): each sheet's `anchors` is then `UNLOADED`, which refuses to be read."""
+    acts never read them): each sheet's `anchors` is then `UNLOADED`, which refuses to be read.
+    `among`: only the listed sheets with these ids (an act's named sheets)."""
     drawing_set = _access.drawing_set(set_id)
     found = _printed().filter(sheet__drawing_set=drawing_set)
     if discipline is not None:
         found = found.filter(sheet__discipline__key=discipline)
+    if among is not None:
+        found = found.filter(id__in=list(among))
     if not anchors:
         found = found.defer("anchors")
     market = library_disciplines.market()
     order = {d.key: d.sort_order for d in market}
     context = _PlotContext(drawing_set.id, market)
+    viewed = (_sheet_view(sr, context, anchors=anchors) for sr in found)
+    return sorted(viewed, key=lambda v: _placed(order, v.discipline, v.number, v.file_id, v.ordinal))
 
-    def placed(view: SheetView) -> tuple[Any, ...]:
-        return (
-            view.discipline is None,
-            order.get(view.discipline or "", 0),
-            view.number is None,
-            [(0, int(p), "") if p.isdigit() else (1, 0, p.casefold())
-             for p in _NATURAL.split(view.number or "") if p],
-            str(view.file_id),
-            view.ordinal,
-        )  # fmt: skip
 
-    return sorted((_sheet_view(sr, context, anchors=anchors) for sr in found), key=placed)
+@dataclass(frozen=True)
+class SheetFacts:
+    """What Step 1 counts and checks of a printed sheet, without its view (`sheet_facts`)."""
+
+    id: uuid.UUID
+    discipline: str | None
+    number: str | None
+    decision: str | None
+    proposed_exclusion: str | None
+    confirmation_id: uuid.UUID | None
+    plot_file_id: uuid.UUID | None
+    plot_page: int | None
+
+
+def sheet_facts(set_id: uuid.UUID) -> list[SheetFacts]:
+    """The set's printed sheets `sheets` lists, in its order, as facts read in one statement (no Plot
+    reason, no anchors, no texts): Step 1's counts and an act's membership tests."""
+    drawing_set = _access.drawing_set(set_id)
+    rows = (
+        _printed()
+        .filter(sheet__drawing_set=drawing_set)
+        .values_list(
+            "id",
+            "sheet__discipline__key",
+            "sheet__number",
+            "decision",
+            "proposed_exclusion",
+            "confirmation_id",
+            "plot_file_id",
+            "plot_page",
+            "source_file_id",
+            "ordinal",
+        )
+    )
+    order = {d.key: d.sort_order for d in library_disciplines.market()}
+    placed = []
+    for sr_id, key, number, decision, out, act, plot_file, page, file_id, ordinal in rows:
+        fact = SheetFacts(
+            sr_id, key, number or None, decision or None, out or None, act, plot_file, page
+        )
+        placed.append((_placed(order, fact.discipline, fact.number, file_id, ordinal), fact))
+    return [fact for _key, fact in sorted(placed, key=lambda pair: pair[0])]
+
+
+def _placed(
+    order: Mapping[str, int],
+    discipline: str | None,
+    number: str | None,
+    file_id: uuid.UUID,
+    ordinal: int,
+) -> tuple[Any, ...]:
+    """A printed sheet's place in the sheet list (see `sheets`)."""
+    return (
+        discipline is None,
+        order.get(discipline or "", 0),
+        number is None,
+        [(0, int(p), "") if p.isdigit() else (1, 0, p.casefold())
+         for p in _NATURAL.split(number or "") if p],
+        str(file_id),
+        ordinal,
+    )  # fmt: skip
 
 
 def sheet(sheet_revision_id: uuid.UUID) -> SheetView:
@@ -983,14 +1044,23 @@ def views(sheet_revision_id: uuid.UUID) -> list[ViewView]:
 
 
 def views_of_set(set_id: uuid.UUID, *, anchors: bool = True) -> dict[uuid.UUID, list[ViewView]]:
-    """Every printed sheet's views of a Drawing Set at once (in one statement, the scope checked once
-    for the set), by printed sheet id, each as `views` gives it: at the sheet's kept reader version,
-    in reading order; a sheet with no views is not a key. `anchors=False` as `sheets`'s."""
+    """Every printed sheet's views of a Drawing Set at once (in a fixed number of statements, the
+    scope checked once for the set), by printed sheet id, each as `views` gives it: at the sheet's
+    kept reader version, in reading order; a sheet with no views is not a key. `anchors=False` as
+    `sheets`'s. The sheets are read first and their views by id, a version at a time (a join of the
+    views to their sheets' versions let the planner scan for seconds on 220 sheets)."""
     drawing_set = _access.drawing_set(set_id)
-    listed = _printed().filter(sheet__drawing_set=drawing_set).values("id")
-    found = View.objects.select_related("part").filter(
-        sheet_revision_id__in=listed, reader_version=models.F("sheet_revision__reader_version")
-    )
+    of_version: dict[str, list[uuid.UUID]] = {}
+    for sheet_revision_id, version in (
+        _printed().filter(sheet__drawing_set=drawing_set).values_list("id", "reader_version")
+    ):
+        of_version.setdefault(version, []).append(sheet_revision_id)
+    if not of_version:
+        return {}
+    kept = Q()
+    for version, ids in of_version.items():
+        kept |= Q(sheet_revision_id__in=ids, reader_version=version)
+    found = View.objects.select_related("part").filter(kept)
     if not anchors:
         found = found.defer("anchors")
     grouped: dict[uuid.UUID, list[ViewView]] = {}

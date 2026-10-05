@@ -341,12 +341,19 @@ def _sheets(project_id: uuid.UUID) -> list[drawings.SheetView]:
     return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
 
 
-def _proposals_of(project_id: uuid.UUID) -> list[Proposal]:
-    return list(
-        Proposal.objects.filter(
-            project_id=project_id, step=SHEETS, subject=ProposalSubject.SHEET
-        ).exclude(status=ProposalStatus.SUPERSEDED)
-    )
+def _facts(project_id: uuid.UUID) -> list[drawings.SheetFacts]:
+    """`_sheets` as facts (`drawings.sheet_facts`, one statement): for counts and membership tests."""
+    projects.get(project_id)
+    drawing_set = drawings.set_of(project_id)
+    return drawings.sheet_facts(drawing_set.id) if drawing_set else []
+
+
+def _proposals_of(project_id: uuid.UUID, among: Q | None = None) -> list[Proposal]:
+    """The Project's sheet Proposals not superseded; `among`: only those it matches."""
+    found = Proposal.objects.filter(
+        project_id=project_id, step=SHEETS, subject=ProposalSubject.SHEET
+    ).exclude(status=ProposalStatus.SUPERSEDED)
+    return list(found if among is None else found.filter(among))
 
 
 def proposals(project_id: uuid.UUID) -> list[ProposalView]:
@@ -537,26 +544,31 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
         )
 
     return [
-        QuestionView(
-            id=q.id,
-            kind=q.kind,
-            status=q.status,
-            code=q.message_code,
-            params=dict(q.params),
-            options=list(q.options),
-            discipline=q.discipline or None,
-            subject_id=q.subject_id,
-            check_code=q.check_code or None,
-            answer=q.answer,
-            answered_at=q.answered_at,
-            proposals=held.get(q.id, []),
-            withdrawn_by=q.withdrawn_by_id if q.status == QuestionStatus.WITHDRAWN else None,
-            blocking=q.kind in FIRST
-            and (q.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(q)),
-            raised=raised.get(q.id),
-        )
-        for q in sorted(found, key=queued)
+        _question_view_of(q, held.get(q.id, []), raised.get(q.id)) for q in sorted(found, key=queued)
     ]
+
+
+def _question_view_of(q: Question, held: list[uuid.UUID], raised: int | None) -> QuestionView:
+    """A Question as `questions` lists it: `held`, its Proposals in link order; `raised`, its place
+    among the Project's Step 1 Questions by when raised."""
+    return QuestionView(
+        id=q.id,
+        kind=q.kind,
+        status=q.status,
+        code=q.message_code,
+        params=dict(q.params),
+        options=list(q.options),
+        discipline=q.discipline or None,
+        subject_id=q.subject_id,
+        check_code=q.check_code or None,
+        answer=q.answer,
+        answered_at=q.answered_at,
+        proposals=held,
+        withdrawn_by=q.withdrawn_by_id if q.status == QuestionStatus.WITHDRAWN else None,
+        blocking=q.kind in FIRST
+        and (q.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(q)),
+        raised=raised,
+    )
 
 
 _QUEUE: dict[str, int] = {
@@ -585,7 +597,7 @@ def _asked(
 ) -> list[Question]:
     """The Questions still asked: one holding only sheets no longer in the sheet list (their file
     cancelled, or set aside) is not, so it neither shows nor holds its Discipline open."""
-    on_list = listed if listed is not None else {s.id for s in _sheets(project_id)}
+    on_list = listed if listed is not None else {s.id for s in _facts(project_id)}
     sheet_of = dict(
         Proposal.objects.filter(project_id=project_id, step=SHEETS).values_list("id", "subject_id")
     )
@@ -597,7 +609,7 @@ def _asked(
 def coverage(project_id: uuid.UUID) -> CoverageView:
     """Every view of every sheet in the sheet list, counted once (a held file's views are not
     counted until it is read anyway): assigned, excluded, proposed or unaccounted; used from M1."""
-    deciding = {s.id: s.confirmation_id for s in _sheets(project_id)}
+    deciding = {s.id: s.confirmation_id for s in _facts(project_id)}
     rows = [r for r in Coverage.objects.filter(project_id=project_id) if r.sheet_revision_id in deciding]
     counts: Counter[str] = Counter()
     by_step: Counter[str] = Counter()
@@ -677,7 +689,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
     row, last), and the Market's expected Disciplines not yet received. A sheet proposed out with no
     number is not counted unless the QS confirmed it."""
-    sheets = [s for s in _sheets(project_id) if _counted_sheet(s)]
+    sheets = [s for s in _facts(project_id) if _counted_sheet(s)]
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
     decided: Counter[str | None] = Counter()
@@ -712,8 +724,8 @@ def progress(project_id: uuid.UUID) -> ProgressView:
     )
     paged: dict[str | None, set[uuid.UUID]] = {}
     for sheet in sheets:
-        if sheet.plot.page is not None and sheet.plot.file_id is not None:
-            paged.setdefault(sheet.discipline, set()).add(sheet.plot.file_id)
+        if sheet.plot_page is not None and sheet.plot_file_id is not None:
+            paged.setdefault(sheet.discipline, set()).add(sheet.plot_file_id)
     read_pdfs = sorted(
         (f for f in files if f.format == "pdf" and f.state == drawings.FileState.READ),
         key=lambda f: (f.added_at, str(f.id)),
@@ -778,13 +790,13 @@ def _outstanding(
     return held
 
 
-def proposed_out(sheet: drawings.SheetView) -> bool:
+def proposed_out(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     """The read proposed the sheet out and it has no number (a cover, a stale layout; #162): it is
     asked nothing, and Step 1 does not count it unless the QS confirms it in."""
     return bool(sheet.proposed_exclusion) and not sheet.number
 
 
-def _counted_sheet(sheet: drawings.SheetView) -> bool:
+def _counted_sheet(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     return not proposed_out(sheet) or sheet.decision == "confirmed"
 
 
@@ -1085,16 +1097,25 @@ def _chosen(
     number, its Discipline) are raised with its Proposal, so it is not decided before them."""
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NOTHING_CHOSEN(), status=400)
-    listed = {s.id: s for s in _sheets(project_id)}
-    proposed = _proposals_of(project_id)
-    by_id = {p.id: p for p in proposed}
-    by_sheet = {p.subject_id: p for p in proposed}
-    chosen: dict[uuid.UUID, tuple[drawings.SheetView, Proposal | None]] = {}
+    projects.get(project_id)
+    drawing_set = drawings.set_of(project_id)
+    named_ids: list[uuid.UUID] = []
     for given in ids:
         try:
-            named = given if isinstance(given, uuid.UUID) else uuid.UUID(str(given))
+            named_ids.append(given if isinstance(given, uuid.UUID) else uuid.UUID(str(given)))
         except ValueError:
             raise auth.NotFound from None
+    # Only the named sheets and their Proposals are read (an id names a Proposal or a sheet).
+    by_id = {p.id: p for p in _proposals_of(project_id, Q(id__in=named_ids))}
+    sheet_ids = {p.subject_id for p in by_id.values()} | set(named_ids)
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id, Q(subject_id__in=sheet_ids))}
+    listed = (
+        {s.id: s for s in drawings.sheets(drawing_set.id, anchors=False, among=sheet_ids)}
+        if drawing_set
+        else {}
+    )
+    chosen: dict[uuid.UUID, tuple[drawings.SheetView, Proposal | None]] = {}
+    for named in named_ids:
         proposal = by_id.get(named)
         sheet_id = proposal.subject_id if proposal else named
         if sheet_id not in listed or (listed[sheet_id].held and sheet_id not in by_sheet):
@@ -1431,7 +1452,7 @@ def _exclude_views(
     Coverage excluded under the act; its sheet's later confirmation keeps it so."""
     if not views:
         return
-    listed = {s.id for s in _sheets(project_id)}
+    listed = {s.id for s in _facts(project_id)}
     rows = {
         r.view_id: r
         for r in Coverage.objects.select_for_update().filter(
@@ -1623,7 +1644,7 @@ def undo(project_id: uuid.UUID) -> ActView:
             # An answer has no undo: taking back its confirm or exclusion would leave the Question
             # answered by sheets it no longer decides. Its sheets are still excluded or confirmed.
             raise auth.Refused(said.ANSWER_STAYS(), status=409)
-        listed = {s.id for s in _sheets(project_id) if s.confirmation_id == act.id}
+        listed = {s.id for s in _facts(project_id) if s.confirmation_id == act.id}
         # Every sheet the act still decides, those off the sheet list now included (a held file set
         # aside after the act): drawings clears them all; a sheet off the list cannot be decided
         # again, so its Proposal and Coverage go back to undecided with it.
@@ -1719,7 +1740,7 @@ def _standing_before(
 def _put_back_sheet(
     project_id: uuid.UUID, sheet_id: uuid.UUID, standing: tuple[Confirmation, dict[str, Any]] | None
 ) -> None:
-    proposal = next((p for p in _proposals_of(project_id) if p.subject_id == sheet_id), None)
+    proposal = next(iter(_proposals_of(project_id, Q(subject_id=sheet_id))), None)
     if standing is None:
         if proposal is not None:
             proposal.status, proposal.confirmation, proposal.rejected_reason = (
@@ -2370,7 +2391,23 @@ def answer_disciplines(
 
 
 def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:
-    return next(q for q in questions(project_id) if q.id == question_id)
+    """The one Question as `questions` lists it, read on its own (not every Question of the Project)."""
+    projects.get(project_id)
+    of_step = Question.objects.filter(project_id=project_id, step=SHEETS)
+    q = of_step.filter(id=question_id).first()
+    held = (
+        list(
+            QuestionLink.objects.filter(project_id=project_id, question_id=question_id)
+            .order_by("id")
+            .values_list("proposal_id", flat=True)
+        )
+        if q is not None
+        else []
+    )
+    if q is None or not _asked(project_id, [q], {q.id: held}):
+        return next(q for q in questions(project_id) if q.id == question_id)  # as it always was
+    before = Q(created_at__lt=q.created_at) | Q(created_at=q.created_at, id__lt=q.id)
+    return _question_view_of(q, held, of_step.filter(before).count() + 1)
 
 
 def _apply(
@@ -2413,7 +2450,7 @@ def _apply(
         except auth.Refused as refused:  # its number or Discipline is still asked: keep the kind
             if refused.message["code"] != said.QUESTION_FIRST.code:
                 raise
-            left_out = {s.id for s in _sheets(project_id) if s.decision == "excluded"}
+            left_out = {s.id for s in _facts(project_id) if s.decision == "excluded"}
             for proposal in Proposal.objects.filter(project_id=project_id, id__in=held):
                 # A sheet left out keeps its kind in the answer alone (a decided sheet's kind is
                 # not rewritten); the QS confirms it back in once its number is answered.
