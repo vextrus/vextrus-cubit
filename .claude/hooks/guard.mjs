@@ -429,6 +429,7 @@ function codeOf(cmd) {
 function cdTarget(cmd, cwd) {
   // $HOME, $CLAUDE_PROJECT_DIR and $PWD are the hook's own (the session's); any other variable is unknown.
   const known = { HOME: process.env.HOME ?? "", CLAUDE_PROJECT_DIR: PROJECT, PWD: cwd ?? "" };
+  for (const name of reassigned) delete known[name];
   const target = cmd.args
     .filter((a) => !a.startsWith("-") || a === "-")[0]
     ?.replace(/^\$(?:\{(HOME|CLAUDE_PROJECT_DIR|PWD)\}|(HOME|CLAUDE_PROJECT_DIR|PWD)(?![A-Za-z0-9_]))/, (m, a, b) => known[a ?? b] || m);
@@ -446,7 +447,11 @@ function cdTarget(cmd, cwd) {
  * every code string handed to an interpreter, and every shell text looked at, following `$(…)`, backticks,
  * `bash -c`, `eval`, heredocs fed to a shell or an interpreter, `find -exec` and `xargs`.
  */
+// The variables cdTarget expands that the command being read may set itself (`HOME=$X; cd "$HOME"`).
+let reassigned = new Set();
+
 function analyse(command, startCwd) {
+  reassigned = new Set(["HOME", "PWD", "CLAUDE_PROJECT_DIR"].filter((name) => new RegExp(`(?<![$\\w{])${name}(?!\\w)`).test(command.replace(/\$\{?(?:HOME|PWD|CLAUDE_PROJECT_DIR)\}?/g, ""))));
   const cmds = [];
   const codes = [];
   const units = [];
@@ -519,12 +524,19 @@ function analyse(command, startCwd) {
           if ((g.verb === "rebase" && (g.args[k] === "--exec" || g.args[k] === "-x")) || (g.verb === "bisect" && g.args[k] === "run")) deeper(g.args.slice(k + 1).join(" "));
           if (g.verb === "rebase" && g.args[k].startsWith("--exec=")) deeper(g.args[k].slice(7));
         }
-        // `git -c alias.x='!cmd' x` runs cmd through the shell.
+        // `git -c alias.x='!cmd' x` runs cmd through the shell, and so do the editor, pager, diff, filter and
+        // ssh settings (`-c core.editor=…`).
         for (let k = 0; k < cmd.args.length; k++) {
-          const value = cmd.args[k] === "-c" ? cmd.args[k + 1] : null;
+          const value = cmd.args[k] === "-c" ? cmd.args[k + 1] : /^-c./.test(cmd.args[k]) ? cmd.args[k].slice(2) : null;
           const alias = value ? /^alias\.[^=]+=!(.*)$/is.exec(value) : null;
           if (alias) deeper(alias[1]);
+          const runs = value ? /^((?:core|sequence)\.editor|diff\.external|(?:core\.)?pager(?:\.[^=]*)?|core\.(?:sshcommand|fsmonitor|askpass)|interactive\.difffilter|filter\.[^=]*\.(?:clean|smudge|process)|diff\.[^=]*\.(?:command|textconv)|merge\.[^=]*\.driver|gpg\.(?:[^=]*\.)?program|credential\.helper)=(.*)$/is.exec(value) : null;
+          if (runs) deeper(runs[2].replace(/^!/, ""));
         }
+      }
+      for (const assign of cmd.assigns) {
+        const m = /^(GIT_EDITOR|GIT_SEQUENCE_EDITOR|GIT_PAGER|GIT_EXTERNAL_DIFF|GIT_SSH_COMMAND|GIT_SSH|GIT_ASKPASS|EDITOR|VISUAL|PAGER)=(.*)$/s.exec(assign);
+        if (m) deeper(m[2]);
       }
       return cmd;
     };
@@ -559,14 +571,7 @@ function analyse(command, startCwd) {
   const flat = flatten(command);
   // A command that writes a heredoc and runs a script (a shell or an interpreter on a file, a program by its
   // path, `source`) may run that heredoc: it is read as shell text and as code.
-  const runners = cmds.filter(
-    (cmd) =>
-      cmd.name === "source" ||
-      cmd.name === "." ||
-      /\//.test(cmd.words[0] ?? "") ||
-      (SHELLS.has(cmd.name) && !cmd.args.some((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a))) ||
-      (INTERPRETER.test(cmd.name) && codeOf(cmd) === null && !cmd.args.includes("-m")),
-  );
+  const runners = cmds.filter((cmd) => !AFTER_WRITE_PLAIN.has(cmd.name) || /\//.test(cmd.words[0] ?? "") || prefixOf(cmd).some((w) => basename(w) === "xargs"));
   if (written.length > 0 && runners.length > 0) {
     fed = true;
     for (const doc of written) {
@@ -591,6 +596,9 @@ function analyse(command, startCwd) {
 }
 
 // ------------------------------------------------------------------------------------------------ git reading
+
+// Commands that run no file a heredoc may have written (anything else, `awk -f`, `make -f`, a shell, may).
+const AFTER_WRITE_PLAIN = new Set(["cat", "echo", "printf", "ls", "wc", "head", "tail", "grep", "egrep", "fgrep", "rg", "git", "cd", "mkdir", "true", ":", "test", "[", "chmod", "cp", "mv", "rm", "touch", "tee", "dd", "sort", "uniq", "diff", "cmp", "jq", "date", "sleep", "", "stat", "sha256sum", "file", "du", "df", "free"]);
 
 /** A git invocation: its global options and verb, or null for any other command. */
 function gitOf(cmd) {
@@ -1355,32 +1363,59 @@ function scannerRun(cmd) {
 const scannerWrites = (cmd) =>
   cmd.args[2] === "build" || (["range", "file", "text"].includes(cmd.args[2]) && !cmd.args.includes("--no-stamp"));
 
-// Commands whose words are text (a message, a pattern, a listing): naming the ledger writer there runs nothing.
-const TEXT_TAKERS = new Set(["echo", "printf", "grep", "egrep", "fgrep", "rg", "ugrep", "git", "cat", "head", "tail", "less", "more", "wc", "ls", "jq", "sort", "uniq", "diff", "cmp", "test", "[", "true", ":", "cd"]);
+// Commands that never run their words: naming the ledger writer there is text. (echo and printf are text only
+// when nothing in the command runs what they print; git only in its message.)
+const TEXT_TAKERS = new Set(["grep", "egrep", "fgrep", "rg", "ugrep", "cat", "head", "tail", "less", "more", "wc", "ls", "jq", "sort", "uniq", "diff", "cmp", "test", "[", "true", ":", "cd"]);
+
+/** The words of a command that may run something (its message, pattern or code words left out). */
+function runnableWords(analysis, cmd) {
+  const ws = words(cmd.raw ?? "");
+  if (prefixOf(cmd).some((w) => basename(w) === "xargs")) return ws;
+  if (TEXT_TAKERS.has(cmd.name) && cmd.assigns.length === 0) return [];
+  if (cmd.name === "eval") return [];
+  if (cmd.name === "echo" || cmd.name === "printf") {
+    const fed = analysis.cmds.some((other) => prefixOf(other).some((w) => basename(w) === "xargs") || readsCommands(other, flatten(other.raw ?? "")) || other.name === "eval");
+    return fed ? ws : ws.slice(0, ws.length - cmd.words.length);
+  }
+  // Code, a shell's -c script and env -S's string are judged on their own; a git message is text.
+  const own = new Set([codeOf(cmd)]);
+  const message = cmd.name === "git" && ["commit", "tag", "merge", "notes", "stash"].includes(gitOf(cmd)?.verb ?? "");
+  ws.forEach((w, k) => {
+    const before = ws[k - 1] ?? "";
+    if ((SHELLS.has(cmd.name) && /^-[A-Za-z]*c[A-Za-z]*$/.test(before)) || /^(?:-S|--split-string)$/.test(before)) own.add(w);
+    if (message && (/^(?:-m|--message)$/.test(before) || /^(?:-m.|--message=)/.test(w))) own.add(w);
+  });
+  return ws.filter((w) => !own.has(w));
+}
 
 /**
- * True when a command that is not a text-taker names the ledger writer and `record` (main's flat-text test, kept
- * as a backstop: `env -S`, `-X` spellings and paths the argv reader does not follow). Code is judged as code.
+ * True when a builder's command names the ledger writer and `record` in words that may run (main's flat-text test,
+ * kept as a backstop for spellings the argv reader does not follow).
  */
-function ledgerNamed(cmd) {
-  if (TEXT_TAKERS.has(cmd.name)) return false;
-  // Code, a shell's -c script, eval's words and env -S's string are judged on their own.
-  if (cmd.name === "eval") return false;
-  const own = new Set([codeOf(cmd)]);
-  const ws = words(cmd.raw ?? "");
-  ws.forEach((w, k) => {
-    if ((SHELLS.has(cmd.name) && /^-[A-Za-z]*c[A-Za-z]*$/.test(ws[k - 1] ?? "")) || /^(?:-S|--split-string)$/.test(ws[k - 1] ?? "")) own.add(w);
-  });
-  const text = ws.filter((w) => !own.has(w)).join(" ");
+function ledgerNamed(analysis, cmd) {
+  const text = runnableWords(analysis, cmd).join(" ");
   return /scripts(?:\.|\/)ledger(?:\.p\S*)?\b[\s\S]*\brecord\b/.test(text) || (/scripts\/l\S*[*?[]/.test(text) && /\brecord\b/.test(text));
 }
 
-/** True when a command copies or names the ledger writer (not as text) and another runs a program with `record`. */
+/** True when a command copies the ledger writer (any command naming it but a plain look) and another runs a program with `record`. */
 function ledgerCopied(analysis, cmd) {
-  if (TEXT_TAKERS.has(cmd.name) || !words(cmd.raw ?? "").some((w) => /scripts[./]ledger|(?:^|\/)ledger\.py/.test(w))) return false;
+  if (!words(cmd.raw ?? "").some((w) => /scripts[./]ledger|(?:^|\/)ledger\.py/.test(w))) return false;
+  const copies = ["cp", "mv", "ln", "install", "rsync", "dd", "tee", "curl", "wget"].includes(cmd.name) || redirectsOf(cmd.raw ?? "").some(({ op }) => op.includes(">"));
+  if (!copies) return false;
+  // (A shell's -c script is read as its own command, not as this one's arguments.)
+  const own = (other) => other.args.filter((w, k) => !(SHELLS.has(other.name) && /^-[A-Za-z]*c[A-Za-z]*$/.test(other.args[k - 1] ?? "")));
   return analysis.cmds.some(
-    (other) => other !== cmd && !TEXT_TAKERS.has(other.name) && other.args.some((w) => /record|[$`*?[{]/.test(w)) && (/^(?:python|pypy)[0-9.]*$/.test(other.name) || SHELLS.has(other.name) || /\//.test(other.words[0] ?? "") || prefixOf(other).includes("uv")),
+    (other) => other !== cmd && !TEXT_TAKERS.has(other.name) && own(other).some((w) => /record|[$`*?[{]/.test(w)) && (/^(?:python|pypy)[0-9.]*$/.test(other.name) || SHELLS.has(other.name) || /\//.test(other.words[0] ?? "") || prefixOf(other).includes("uv")),
   );
+}
+
+/** True when xargs supplies python's module or script (`echo m | xargs python3 -m`): what runs is not judgeable. */
+function moduleFromXargs(cmd) {
+  if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) || !prefixOf(cmd).some((w) => basename(w) === "xargs")) return false;
+  // (Redirect words are not arguments: `xargs python3 -m < args.txt`.)
+  const args = cmd.args.filter((a, k) => !/^\d*[<>]/.test(a) && !/^\d*[<>]+&?$/.test(cmd.args[k - 1] ?? ""));
+  const last = args[args.length - 1] ?? "-m";
+  return args.length === 0 || /^-[A-Za-z]*m$/.test(last) || args.every((a) => a.startsWith("-"));
 }
 
 /** True when a simple command runs the ledger writer's `record` (by argv: a message or a pattern that says it is text). */
@@ -1389,6 +1424,9 @@ function ledgerRecord(cmd) {
   // Run by python, by uv, or as its own program (`./scripts/ledger.py record`, by its shebang).
   if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !(prefix.includes("uv") && prefix.includes("run")) && !/(?:^|\/)ledger\.p|[*?[]/.test(cmd.words[0] ?? "")) return false;
   const all = words(cmd.raw ?? "");
+  // A module or script named at run time (`python3 -m $M record`) cannot be judged.
+  const dynamic = all.findIndex((w, k) => /[$`]/.test(w) && (/^-[A-Za-z]*m$/.test(all[k - 1] ?? "") || /^-[A-Za-z]*m[$`]/.test(w) || k === all.length - cmd.words.length + 1));
+  if (/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && dynamic >= 0 && all.slice(dynamic + 1).some((w) => /record|[$`*?[{]/.test(w))) return true;
   const at = moduleAt(cmd, /^(?:\S*[./])?ledger(?:$|[./])/, /(?:^|\/)ledger\.py$/, ["scripts/ledger.py"]);
   // A word expanded at run time, or arguments from xargs, could spell `record`; a script on stdin takes any.
   return at >= 0 && (at === all.length || all.slice(at + 1).some((w) => /record|[$`*?[{]/.test(w)) || prefix.some((w) => basename(w) === "xargs"));
@@ -1567,7 +1605,8 @@ function recordUnsafe(cmd, eventCwd) {
 function blindRead(cmd) {
   if (cmd.cwd !== null) return false;
   // Any reader (`sed`, `awk`, `cp`, `python3 -c`, `done < corpus`) of a word naming the corpus there.
-  if ((!METADATA_VIEWERS.has(cmd.name) || prefixOf(cmd).some((w) => !RESERVED.has(w))) && words(cmd.raw ?? "").some((w) => /corpus/i.test(w))) return true;
+  const corpusWord = (w) => /(?:^|[/"'(\s=<])corpus(?:$|["')\s])/i.test(w) || (GLOB.test(w) && globRegex(basename(w)).test("corpus"));
+  if ((!METADATA_VIEWERS.has(cmd.name) || prefixOf(cmd).some((w) => !RESERVED.has(w))) && words(cmd.raw ?? "").some(corpusWord)) return true;
   const jsonTool = /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "json.tool";
   if (!CONTENT_VIEWERS.has(cmd.name) && !jsonTool) return false;
   const operands = cmd.args.slice(jsonTool ? 2 : 0).filter((w) => !w.startsWith("-") || w === "-");
@@ -1597,7 +1636,7 @@ function recordForged(analysis, command, eventCwd) {
   const flat = flatten(command);
   if (/\b(?:VEXTRUS_LEAKSCAN_HOME|VEXTRUS_LEAKSCAN_ALLOWLIST|VEXTRUS_MAIN_CHECKOUT)\s*=/.test(flat)) return true;
   for (const cmd of analysis.cmds) {
-    if (!orchestrators && (ledgerRecord(cmd) || ledgerNamed(cmd) || ledgerCopied(analysis, cmd))) return true;
+    if (!orchestrators && (ledgerRecord(cmd) || ledgerNamed(analysis, cmd) || ledgerCopied(analysis, cmd) || moduleFromXargs(cmd))) return true;
     const run = scannerRun(cmd);
     if (run === "other") return true;
     if (run !== "exact") continue;

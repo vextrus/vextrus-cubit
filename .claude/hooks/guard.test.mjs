@@ -913,3 +913,39 @@ test("T-GUARD-A round 1 refuter: after a lost cd any reader of the corpus refuse
   assert.equal(bash("git config --edit"), "HOOKS_PATH");
   assert.equal(bash("git config --edi"), "HOOKS_PATH");
 });
+
+test("T-GUARD-A round 1 refuter 3: git's command settings, xargs, other runners, reassigned variables and globs are judged", () => {
+  const L = "python3 -m scripts.ledger record";
+  for (const command of [
+    `echo scripts.ledger record | xargs python3 -m`,
+    `printf '%s\\n' scripts.ledger record | xargs python3 -m`,
+    "xargs python3 -m < args.txt",
+    "M=scripts.ledger; python3 -m $M record",
+    `GIT_EDITOR='${L}' git commit --amend`,
+    `git -c core.editor='${L}' commit --amend`,
+    `GIT_SEQUENCE_EDITOR='${L}' git rebase -i HEAD~1`,
+    `git -c diff.external='${L}' diff`,
+    `cat > s.awk <<'X'\nBEGIN { system("${L} m") }\nX\nawk -f s.awk`,
+    `cat > m.mk <<'X'\nall:\n\t${L} m\nX\nmake -f m.mk`,
+    `cat > s.sh <<'X'\n${L} m\nX\nxargs -a s.sh -I{} sh -c {}`,
+    "cat scripts/ledger.py > /tmp/l.py && python3 /tmp/l.py record",
+    "git show HEAD:scripts/ledger.py > l.py && python3 l.py record",
+    'HOME=$X; cd "$HOME" && cat corpus',
+    'PWD=$X; cd "$PWD" && sed -n p corpus',
+    'CLAUDE_PROJECT_DIR=$X; cd "$CLAUDE_PROJECT_DIR" && cat corpus',
+    'cd "$X" && sed -n p c*',
+    'cd "$X" && awk 1 cor?us',
+    'cd "$X" && cp c* /tmp/x',
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  for (const command of [
+    'git commit -m "docs: the orchestrator runs python3 -m scripts.ledger record"',
+    'cd "$X" && pytest tests/test_corpus.py',
+    'cd "$HOME" && cat notes.txt',
+    "cat > s.sh <<'X'\necho hi\nX\nchmod +x s.sh && ./s.sh",
+    "uv run pytest scripts/tests/test_ledger.py -k record -rf",
+  ]) {
+    assert.equal(bash(command), null, command);
+  }
+});
