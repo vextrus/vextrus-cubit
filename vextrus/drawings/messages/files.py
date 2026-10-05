@@ -61,12 +61,13 @@ PLOT_WAITING = MessageCode("drawings.files.plot_waiting")
 REFUSED_SCAN = MessageCode("drawings.files.refused_scan")
 
 SUMMARY = MessageCode(
-    "drawings.files.summary", params=("files", "sheets", "reading", "failed", "held", "refused")
+    "drawings.files.summary",
+    params=("files", "sheets", "held_sheets", "reading", "failed", "held", "refused"),
 )
 """The page's one-line summary: the files; the sheets in the sheet list (of read files, and held
-files read anyway); the files being read (not those waiting, stopping or about to be tried again:
-the orchestrator's ruling); those that could not be read (failed, or saved by an old AutoCAD);
-held; refused."""
+files read anyway); the part of those sheets that comes from held files read anyway; the files
+being read (not those waiting, stopping or about to be tried again: the orchestrator's ruling);
+those that could not be read (failed, or saved by an old AutoCAD); held; refused."""
 
 # The acts, in the event log -----------------------------------------------------------------------
 
@@ -84,6 +85,9 @@ NOT_STOPPED = MessageCode("drawings.files.not_stopped")
 the first started it again. A file saved by an old AutoCAD is refused with OLD_VERSION."""
 ALREADY_ENDED = MessageCode("drawings.files.already_ended")
 """Read again or Try again on a file whose reading has ended (read, held or refused) (409)."""
+CANCEL_TOO_LATE = MessageCode("drawings.files.cancel_too_late")
+"""Cancel reading on a file whose reading ended well: read, held, or its job done (409). Nothing was
+undone."""
 NOT_FAILED = MessageCode("drawings.files.not_failed")
 """Mark for Vextrus on a file that did not fail to be read (waiting, being read, read, held, refused
 or cancelled) (409): only a file that could not be read is marked."""

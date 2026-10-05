@@ -60,10 +60,11 @@ def get_file(request: HttpRequest, project_id: uuid.UUID, file_id: uuid.UUID) ->
     return FileOut.from_view(in_project(services.file(file_id), project_id))
 
 
-@router.post(f"{_PREFIX}/files/{{file_id}}/cancel", response=FileOut)
+@router.post(f"{_PREFIX}/files/{{file_id}}/cancel", response={200: FileOut, 409: Refusal})
 @declare(acts.CANCEL, project="project_id")
 def cancel_reading(request: HttpRequest, project_id: uuid.UUID, file_id: uuid.UUID) -> FileOut:
-    """Cancel the file's reading ("Cancel reading"); a file already ended is left as it is."""
+    """Cancel the file's reading ("Cancel reading"); a file whose reading ended well (read, held, or
+    its job done) is 409 `cancel_too_late`, and one that failed or was cancelled is left as it is."""
     in_project(services.file(file_id), project_id)
     return FileOut.from_view(services.cancel(file_id, actor_name=actor(request)))
 

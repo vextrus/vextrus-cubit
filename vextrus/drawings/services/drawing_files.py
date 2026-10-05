@@ -243,12 +243,14 @@ def file(file_id: uuid.UUID) -> FileView:
 
 
 def summary(views: Iterable[FileView]) -> Message:
-    """The page's one-line summary ("7 files: 21 sheets read, 1 file reading, 1 held, 1 refused")."""
+    """The page's one-line summary ("7 files: 21 sheets read (4 of them from a held file), 1 held").
+    A held file's `sheets_found` is set only once it was read anyway and its read ended."""
     shown = list(views)
     states = Counter(view.state for view in shown)
     return said.SUMMARY(
         files=len(shown),
         sheets=sum(view.sheets_found or 0 for view in shown),
+        held_sheets=sum(view.sheets_found or 0 for view in shown if view.state == FileState.HELD),
         reading=states[FileState.READING],
         failed=states[FileState.FAILED] + states[FileState.UNREADABLE],
         held=states[FileState.HELD],
@@ -842,17 +844,23 @@ def _move_sheets(row: DrawingFile, discipline: Discipline) -> None:
 
 def cancel(file_id: uuid.UUID, *, actor_name: str = "") -> FileView:
     """Cancel the file's reading: a waiting read never runs, a running one stops at its next step and
-    its current step rolls back. A file whose reading has ended (read, held, failed, refused or
-    cancelled already) is left as it is, and nothing is written."""
+    its current step rolls back. A file whose reading ended well (read; held and not being read
+    again; or its job done while its row has not yet ended) is 409 `cancel_too_late`: the cancel
+    came too late and nothing was undone (#331). A file that failed, was refused or is cancelled
+    already is left as it is (a second click stays harmless). Nothing is written in either case."""
     with transaction.atomic():
         row = _access.drawing_file(file_id, lock=True)
         held = reading_anyway(row)  # a held file read anyway, read again: it stays held (#165)
+        if row.read_status in (ReadStatus.READ, ReadStatus.QUARANTINED) and not held:
+            raise auth.Refused(said.CANCEL_TOO_LATE(), status=409)
         if row.read_status not in (ReadStatus.QUEUED, ReadStatus.READING) and not held:
             return file(row.id)
         if held and row.read_job_id is None:
             return file(row.id)
         if row.read_job_id is not None:
             job = jobs.state(row.read_job_id)
+            if job is not None and job.status == "done":
+                raise auth.Refused(said.CANCEL_TOO_LATE(), status=409)
             if job is None or job.status not in ("waiting", "running", "retrying"):
                 return file(row.id)
             if not jobs.cancel(row.read_job_id):

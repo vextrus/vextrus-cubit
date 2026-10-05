@@ -128,16 +128,19 @@ def test_a_running_read_is_cancelled_its_step_rolls_back_and_it_reads_again_once
     assert steps_kept(member, file_id) == sorted(stub.STUB_STEPS)
 
 
-def test_a_cancel_after_the_last_step_leaves_the_file_read(sign_in: Callable[..., Member]) -> None:
+def test_a_cancel_after_the_last_step_is_too_late_and_leaves_the_file_read(
+    sign_in: Callable[..., Member],
+) -> None:
     member = sign_in(role="qs")
     file_id = a_file(member)
     read_later(member, file_id)
     finish(stub.start_worker())
 
-    with member.acting():
-        after = services.cancel(file_id, actor_name=member.user.name)
+    with member.acting(), pytest.raises(auth.Refused) as refused:
+        services.cancel(file_id, actor_name=member.user.name)
 
-    assert after.status == said.READ()
+    assert (refused.value.status, refused.value.message) == (409, said.CANCEL_TOO_LATE())
+    assert shown(member, file_id).status == said.READ()
 
 
 def test_a_read_job_that_crashed_reads_failed_though_it_never_wrote_so(

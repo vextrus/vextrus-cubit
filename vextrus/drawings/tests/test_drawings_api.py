@@ -66,7 +66,15 @@ def test_the_list_shows_every_file_in_its_words_and_the_summary(kr: dict[str, An
     assert body["summary"] == {
         "code": "drawings.files.summary",
         # The waiting file is not being read (the orchestrator's ruling on "reading").
-        "params": {"files": 3, "sheets": 2, "reading": 0, "failed": 0, "held": 0, "refused": 0},
+        "params": {
+            "files": 3,
+            "sheets": 2,
+            "held_sheets": 0,
+            "reading": 0,
+            "failed": 0,
+            "held": 0,
+            "refused": 0,
+        },
     }
     assert set(dwg) == {
         "id", "name", "format", "size", "discipline", "state", "status", "finding",
@@ -84,7 +92,15 @@ def test_an_empty_project_lists_no_set(qs_project: QsProject) -> None:
         "set_id": None,
         "summary": {
             "code": "drawings.files.summary",
-            "params": {"files": 0, "sheets": 0, "reading": 0, "failed": 0, "held": 0, "refused": 0},
+            "params": {
+                "files": 0,
+                "sheets": 0,
+                "held_sheets": 0,
+                "reading": 0,
+                "failed": 0,
+                "held": 0,
+                "refused": 0,
+            },
         },
         "files": [],
     }

@@ -62,7 +62,9 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
         "architectural": 8,
         "electrical": 3,
     }
-    assert summary == said.SUMMARY(files=7, sheets=24, reading=0, failed=0, held=1, refused=1)
+    assert summary == said.SUMMARY(
+        files=7, sheets=24, held_sheets=0, reading=0, failed=0, held=1, refused=1
+    )
     assert shown["KR-STR-old.dwg"].sheets_found is None
     # Electrical has no PDF: the refused site photographs (of no Discipline) are not its Plot.
     electrical = [s.plot.none for s in sheets if s.discipline == "electrical"]
