@@ -555,17 +555,17 @@ function analyse(command, startCwd) {
 
 /** A git invocation: its global options and verb, or null for any other command. */
 function gitOf(cmd) {
-  // git's exec-path links (`/usr/lib/git-core/git-push`, `git-config`) run as `git <verb>`.
+  // git's exec-path links (`/usr/lib/git-core/git-push`, `git-config`) run as `git <verb>`: no global options,
+  // but GIT_DIR and GIT_WORK_TREE apply all the same.
   const dashed = /^git-([a-z][a-z0-9-]*)$/.exec(cmd.name);
-  if (dashed) return { verb: dashed[1], args: cmd.args.map((a) => longOption(dashed[1], a)), config: [], dirs: [], gitDir: null, workTree: null, assigns: cmd.assigns, cwd: cmd.cwd };
-  if (cmd.name !== "git") return null;
-  const a = cmd.args;
+  if (!dashed && cmd.name !== "git") return null;
+  const a = dashed ? [dashed[1], ...cmd.args] : cmd.args;
   const config = [];
   const dirs = [];
   let gitDir = null;
   let workTree = null;
   let i = 0;
-  while (i < a.length && a[i].startsWith("-")) {
+  while (!dashed && i < a.length && a[i].startsWith("-")) {
     const w = a[i];
     const eq = w.indexOf("=");
     const key = eq > 0 ? w.slice(0, eq) : w;
@@ -639,6 +639,7 @@ function gitFolder(g) {
 function runGit(g, args) {
   const dir = gitFolder(g);
   if (dir === null) throw new GuardError("the working folder cannot be known (a cd to a variable or `-`)");
+  if ([g.gitDir, g.workTree].some((v) => v !== null && /[$`]/.test(v))) throw new GuardError("GIT_DIR or GIT_WORK_TREE is expanded at run time");
   const pre = [];
   if (g.gitDir !== null) pre.push(`--git-dir=${resolve(dir, g.gitDir)}`);
   if (g.workTree !== null) pre.push(`--work-tree=${resolve(dir, g.workTree)}`);
@@ -872,14 +873,144 @@ function recursiveDelete(analysis) {
   return false;
 }
 
-/** A `while`/`until` loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line. */
-function selfMatchingWait(analysis) {
-  return analysis.units.some(
-    (text) =>
-      /(?:^|[\s;&|(!])(?:while|until|for)\s/.test(text) &&
-      (/\bpgrep\b[^;&|\n]*\s(?:-[A-Za-z]*f[A-Za-z]*|--full)\b/.test(text) || /\bps\b[^;&\n]*\|\s*(?:[ef]?grep|rg|ugrep|awk)\b/.test(text)),
-  );
+/**
+ * The simple commands of shell text in order, each `{text, depth, pipe}` (`pipe`: a single `|` follows it), with
+ * the commands of a `$(…)`, `<(…)` or backtick part placed just after the command that holds them (so a loop
+ * opened by that command already covers them). Quotes are opaque except for the substitutions inside `"…"`.
+ */
+function shellSegments(text, depth = 0) {
+  const out = [];
+  let cur = "";
+  let inner = [];
+  let quote = null;
+  const push = (pipe) => {
+    if (cur.trim() !== "") out.push({ text: cur.trim(), depth, pipe });
+    out.push(...inner);
+    cur = "";
+    inner = [];
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote === "'") {
+      cur += c;
+      if (c === "'") quote = null;
+      continue;
+    }
+    if (c === "\\") {
+      cur += text.slice(i, i + 2);
+      i++;
+      continue;
+    }
+    if (c === "$" && text[i + 1] === "(" || (quote === null && (c === "<" || c === ">") && text[i + 1] === "(")) {
+      const end = closing(text, i + 1);
+      if (depth < 8) inner.push(...shellSegments(text.slice(i + 2, end), depth + 1));
+      cur += "_";
+      i = end;
+      continue;
+    }
+    if (c === "`") {
+      let j = i + 1;
+      while (j < text.length && text[j] !== "`") j += text[j] === "\\" ? 2 : 1;
+      if (depth < 8) inner.push(...shellSegments(text.slice(i + 1, j), depth + 1));
+      cur += "_";
+      i = j;
+      continue;
+    }
+    if (quote === '"') {
+      cur += c;
+      if (c === '"') quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      cur += c;
+      continue;
+    }
+    if (c === "#" && (cur.trim() === "" || /\s/.test(text[i - 1]))) {
+      const end = text.indexOf("\n", i);
+      i = (end < 0 ? text.length : end) - 1;
+      continue;
+    }
+    if ("\n;&|()".includes(c)) {
+      if ((c === "&" && (text[i - 1] === ">" || text[i - 1] === "<" || text[i + 1] === ">")) || (c === "|" && text[i - 1] === ">")) {
+        cur += c;
+        continue;
+      }
+      const pipe = c === "|" && text[i + 1] !== "|" && text[i - 1] !== "|";
+      push(pipe);
+      continue;
+    }
+    cur += c;
+  }
+  push(false);
+  return out;
 }
+
+const LOOP_OPENERS = new Set(["for", "while", "until", "select"]);
+const LOOP_PREFIXES = new Set(["!", "{", "if", "then", "elif", "else", "do", "time"]);
+const PS_FILTERS = new Set(["grep", "egrep", "fgrep", "rg", "ugrep", "awk", "gawk", "mawk"]);
+
+/**
+ * Reads shell text for `pgrep -f` / `ps … | grep` looks inside a `for`/`while`/`until` loop (its condition or
+ * body, to the matching `done`): `{wait, look, unbalanced}`. `inLoop`: the text itself runs inside a loop.
+ */
+function loopLooks(text, inLoop = false) {
+  const { text: cut, docs } = cutHeredocs(text);
+  const segs = shellSegments(cut);
+  let open = 0;
+  let unbalanced = false;
+  let wait = false;
+  let look = false;
+  let loops = false;
+  for (let s = 0; s < segs.length; s++) {
+    const ws = words(segs[s].text);
+    let k = 0;
+    for (;;) {
+      while (k < ws.length && LOOP_PREFIXES.has(ws[k])) k++;
+      if (!LOOP_OPENERS.has(ws[k])) break;
+      open++;
+      loops = true;
+      k++;
+      if (ws[k - 1] === "for" || ws[k - 1] === "select") k = ws.length;
+    }
+    if (/^done(?:[<>]|$)/.test(ws[k] ?? "")) {
+      if (open === 0) unbalanced = true;
+      else open--;
+      continue;
+    }
+    const cmd = commandOf(ws.slice(k));
+    const inside = inLoop || open > 0;
+    let hit = cmd.name === "pgrep" && cmd.args.some((a) => /^-[A-Za-z]*f[A-Za-z]*$/.test(a) || a === "--full");
+    if (cmd.name === "ps") {
+      for (let t = s, next = s + 1; segs[t].pipe && next < segs.length; next++) {
+        if (segs[next].depth !== segs[s].depth) continue;
+        if (PS_FILTERS.has(commandOf(words(segs[next].text)).name)) hit = true;
+        t = next;
+      }
+    }
+    // A shell's own script (`bash -c '…'`, `eval …`) run inside the loop is the loop's too.
+    if (SHELLS.has(cmd.name) || cmd.name === "eval") {
+      const c = cmd.args.findIndex((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
+      const script = cmd.name === "eval" ? cmd.args.join(" ") : c >= 0 ? cmd.args[c + 1] ?? "" : "";
+      if (script !== "" && loopLooks(script, true).look) hit = true;
+    }
+    if (hit) {
+      look = true;
+      if (inside) wait = true;
+    }
+  }
+  if (open > 0) unbalanced = true;
+  // Fail closed where the reader does not follow the look into the loop: a shell's heredoc or a function.
+  if (loops || inLoop) {
+    for (const doc of docs) if (SHELL_WORD.test(doc.opener) && loopLooks(doc.body).look) wait = true;
+    const unquoted = cut.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
+    if (look && /(?:^|[\s;&|{])(?:function\s+[\w.:-]+|[\w.:-]+\s*\(\s*\))/.test(unquoted)) wait = true;
+  }
+  return { wait: wait || (unbalanced && look), look, unbalanced };
+}
+
+/** A loop waiting on `pgrep -f` or `ps … | grep`, which matches its own command line and never ends. */
+const selfMatchingWait = (analysis) => analysis.units.some((text) => loopLooks(text).wait);
 
 /** Folder of the repository that holds `dir` (the nearest one with `.git`), or `dir` itself. */
 function repoTop(dir) {
@@ -1003,6 +1134,26 @@ function discards(g) {
 /** The keys a git invocation sets for itself (`-c`, `--config-env`, GIT_CONFIG_* variables). */
 const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 
+const CONFIG_READS = new Set(["--get", "--get-all", "--get-regexp", "--get-urlmatch", "--list", "-l"]);
+const CONFIG_WRITES = new Set(["--add", "--replace-all", "--unset", "--unset-all", "--edit", "-e", "--rename-section", "--remove-section"]);
+const CONFIG_VALUED = new Set(["-f", "--file", "--blob", "--type", "--default", "--comment", "--value"]);
+
+/** True when a `git config` only reads: a read option or the get/list subcommand, or one operand, and no write. */
+function configRead(g) {
+  const operands = [];
+  let read = false;
+  for (let k = 0; k < g.args.length; k++) {
+    const a = g.args[k];
+    const key = a.split("=")[0];
+    if (CONFIG_WRITES.has(key)) return false;
+    if (CONFIG_READS.has(key)) read = true;
+    else if (CONFIG_VALUED.has(key) && !a.includes("=")) k++;
+    else if (!a.startsWith("-")) operands.push(a);
+  }
+  if (["set", "unset", "edit", "rename-section", "remove-section"].includes(operands[0])) return false;
+  return read || operands[0] === "get" || operands[0] === "list" || operands.length <= 1;
+}
+
 /** True when a command sets core.hooksPath (or hides config from the guard), except the one lawful line. */
 function hooksPathSet(analysis, command) {
   const flat = flatten(command);
@@ -1012,7 +1163,7 @@ function hooksPathSet(analysis, command) {
     if (g.assigns.some((a) => /^(?:HOME|XDG_CONFIG_HOME|GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|GIT_CONFIG_NOSYSTEM|GIT_EXEC_PATH|GIT_TEMPLATE_DIR)=/.test(a))) return true;
     if (configKeys(g).some((k) => k === "core.hookspath" || k.startsWith("include"))) return true;
     if (g.assigns.some((a) => /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_KEY_\d+|_VALUE_\d+|_GLOBAL|_SYSTEM)?=/.test(a) && !/^GIT_CONFIG_(?:GLOBAL|SYSTEM)=\/dev\/null$/.test(a))) return true;
-    if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a))) {
+    if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a)) && !configRead(g)) {
       const lawful = orchestrators && !cloud && g.dirs.length === 0 && g.gitDir === null && JSON.stringify(g.args.filter((a) => a !== "--local")) === JSON.stringify(["core.hooksPath", "scripts/git-hooks"]);
       if (!lawful) return true;
     }
@@ -1051,14 +1202,19 @@ function rawSession(analysis) {
   return false;
 }
 
-const LEDGER_TOOL = /scripts(?:\.|\/)ledger(?:\.py)?\b/;
-const SCANNER = (cmd) => /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "tools.leakscan";
+const UV_PLAIN_FLAGS = new Set(["--quiet", "-q", "--no-sync", "--frozen", "--locked", "--offline", "--no-progress"]);
+
+/** The words in front of a simple command's own (its assignments and wrappers). */
+function prefixOf(cmd) {
+  const all = words(cmd.raw ?? "");
+  return all.slice(0, Math.max(0, all.length - cmd.words.length));
+}
 
 /**
- * How a simple command runs the scanner: null when it does not, "exact" for `[uv run [--no-sync]]
- * python[3] -m tools.leakscan <command> …` with nothing else in front, "other" for any other way to reach it
- * (`-mtools.leakscan`, `tools.leakscan.__main__`, a script path, PYTHONPATH or a uv project), which could
- * run a different scanner or a corpus of the caller's choosing.
+ * How a simple command runs the scanner: null when it does not, "exact" for `[uv run <flags>] python[3] -m
+ * tools.leakscan <command> …` where the flags are value-less (`--quiet`, `--no-sync`, `--frozen`…), "other" for
+ * any other way to reach it (`-mtools.leakscan`, `tools.leakscan.__main__`, a script path, PYTHONPATH, a uv
+ * project, interpreter or index), which could run a different scanner or a corpus of the caller's choosing.
  */
 function scannerRun(cmd) {
   const all = words(cmd.raw ?? "");
@@ -1069,14 +1225,14 @@ function scannerRun(cmd) {
       (/^(?:\.\/)?tools\/leakscan\/\S*\.py$/.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
   );
   if (!mention) return null;
-  const prefix = all.slice(0, all.length - cmd.words.length).join(" ");
+  const prefix = prefixOf(cmd);
   const exact =
     cmd.assigns.length === 0 &&
     /^python3?(?:\.[0-9]+)?$/.test(cmd.name) &&
     cmd.words[0] === cmd.name &&
     cmd.args[0] === "-m" &&
     cmd.args[1] === "tools.leakscan" &&
-    ["", "uv run", "uv run --no-sync"].includes(prefix);
+    (prefix.length === 0 || (prefix[0] === "uv" && prefix[1] === "run" && prefix.slice(2).every((w) => UV_PLAIN_FLAGS.has(w))));
   return exact ? "exact" : "other";
 }
 
@@ -1084,14 +1240,184 @@ function scannerRun(cmd) {
 const scannerWrites = (cmd) =>
   cmd.args[2] === "build" || (["range", "file", "text"].includes(cmd.args[2]) && !cmd.args.includes("--no-stamp"));
 
-/** A forged stamp, ledger record or corpus: naming them other than through their own tools (spec 3.6, 3.7). */
-function recordForged(analysis, command) {
-  const flat = flatten(command).replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
+/** True when a simple command runs the ledger writer's `record` (by argv: a message or a pattern that says it is text). */
+function ledgerRecord(cmd) {
+  const prefix = prefixOf(cmd);
+  if (!/^(?:python|pypy)[0-9.]*$/.test(cmd.name) && !(prefix.includes("uv") && prefix.includes("run"))) return false;
+  const all = words(cmd.raw ?? "");
+  const at = all.findIndex(
+    (w, k) => /^-m\s*(?:\S*[./])?ledger\b/.test(w) || (all[k - 1] === "-m" && /(?:^|[./])ledger(?:$|[./])/.test(w)) || /(?:^|\/)ledger\.py$/.test(w),
+  );
+  // A word expanded at run time, or arguments from xargs, could spell `record`.
+  return at >= 0 && (all.slice(at + 1).some((w) => /record|[$`]/.test(w)) || prefix.some((w) => basename(w) === "xargs"));
+}
+
+// The records' folders (spec 3.6, 3.7): the leak home (stamps and the corpus) and the ledger.
+const RECORD_TEXT = /(?:work\/leakscan|leakscan\/(?:ok|corpus)|factory\/ledger)(?=\/|$|[^A-Za-z0-9_.-])/;
+const CORPUS_TEXT = /leakscan\/corpus(?=$|[^A-Za-z0-9_.-])|work\/leakscan\/?$/;
+const LEAK_FOLDER = LEAK_HOME.replace(/\/+$/, "");
+const CORPUS_FILE = join(LEAK_FOLDER, "corpus");
+const recordPath = (abs) => abs === LEAK_FOLDER || abs.startsWith(`${LEAK_FOLDER}/`) || /\/\.private\/work\/(?:leakscan|factory\/ledger)(?:\/|$)/.test(abs);
+const corpusPath = (abs) => abs === CORPUS_FILE || abs === LEAK_FOLDER || /\/\.private\/work\/leakscan(?:\/corpus)?$/.test(abs);
+const tidy = (w) => w.replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
+const GLOB = /[*?[]/;
+
+/** A shell glob over an absolute path as a regex (`*` and `?` never match a leading dot, as in bash). */
+function globRegex(abs) {
+  const body = abs
+    .replace(/\[[^\]]*\]?/g, "?")
+    .replace(/[.+^${}()|\\\]]/g, "\\$&")
+    .replace(/(^|\/)\*/g, "$1(?!\\.)[^/]*")
+    .replace(/(^|\/)\?/g, "$1[^/.]")
+    .replace(/([^/(])\*/g, "$1[^/]*")
+    .replace(/([^/[])\?/g, "$1[^/]");
+  return new RegExp(`^${body}$`);
+}
+
+/** True when the word names a record (by its text, its resolved path, or a glob that reaches one). */
+function namesRecord(word, cwd, path = false) {
+  const w = tidy(word);
+  if (RECORD_TEXT.test(w) || w.includes(LEAK_FOLDER)) return true;
+  if (!path && !/^[^$`~]*\/|^\.\.?$/.test(w)) return false;
+  const abs = resolve(cwd ?? "/", w);
+  if (recordPath(abs)) return true;
+  if (!GLOB.test(w)) return false;
+  const top = repoTop(cwd ?? "/");
+  const samples = [CORPUS_FILE, join(LEAK_FOLDER, "ok", "x"), ...[MAIN_CHECKOUT, top].flatMap((d) => [join(d, ".private/work/leakscan/corpus"), join(d, ".private/work/leakscan/ok/x"), join(d, ".private/work/factory/ledger/x")])];
+  const pattern = globRegex(abs);
+  return samples.some((s) => pattern.test(s) || pattern.test(dirname(s)) || pattern.test(dirname(dirname(s))));
+}
+
+/** True when the word names the corpus file or its folder (so a content viewer would print the corpus). */
+function namesCorpus(word, cwd, path = false) {
+  const w = tidy(word);
+  if (CORPUS_TEXT.test(w) || w === LEAK_FOLDER || w.includes(CORPUS_FILE)) return true;
+  if (!path && !/^[^$`~]*\/|^\.\.?$|^corpus$/.test(w)) return false;
+  const abs = resolve(cwd ?? "/", w);
+  if (corpusPath(abs)) return true;
+  return GLOB.test(w) && [CORPUS_FILE, join(repoTop(cwd ?? "/"), ".private/work/leakscan/corpus"), join(MAIN_CHECKOUT, ".private/work/leakscan/corpus")].some((s) => globRegex(abs).test(s));
+}
+
+/** The redirects of one simple command's text: `[{op, target}]`, the target as written (heredoc words skipped). */
+function redirectsOf(raw) {
+  const out = [];
+  const token = (j) => {
+    let k = j;
+    let q = null;
+    while (k < raw.length) {
+      const d = raw[k];
+      if (q !== null) {
+        if (d === "\\" && q === '"') k++;
+        else if (d === q) q = null;
+      } else if (d === "\\") k++;
+      else if (d === "'" || d === '"') q = d;
+      else if (/[\s;&|<>()]/.test(d)) break;
+      k++;
+    }
+    return k;
+  };
+  let quote = null;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (quote !== null) {
+      if (c === "\\" && quote === '"') i++;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "\\") {
+      i++;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      continue;
+    }
+    if ((c !== "<" && c !== ">") || raw[i + 1] === "(") continue;
+    let j = i + 1;
+    if (c === "<" && raw[j] === "<") {
+      j += raw[j + 1] === "<" ? 2 : 1;
+      if (raw[j] === "-") j++;
+      while (/[ \t]/.test(raw[j] ?? "")) j++;
+      i = token(j) - 1;
+      continue;
+    }
+    while (j < raw.length && /[>|&]/.test(raw[j])) j++;
+    const op = raw.slice(i, j);
+    while (/[ \t]/.test(raw[j] ?? "")) j++;
+    const k = token(j);
+    out.push({ op, target: raw.slice(j, k) });
+    i = k - 1;
+  }
+  return out;
+}
+
+const NEUTRAL = new Set(["", "cd", "pushd", "popd", "true", "false", ":"]);
+const METADATA_VIEWERS = new Set(["ls", "stat", "file", "wc", "du", "sha256sum", "find", "realpath", "readlink", "test", "[", "tree", "basename", "dirname", "echo", "printf"]);
+const CONTENT_VIEWERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep", "rg", "ugrep", "jq", "diff", "cmp", "sort", "uniq", "less", "more", "cut", "tr", "nl", "column"]);
+const FIND_ACTIONS = /^-(?:exec|execdir|ok|okdir|delete|fprint0?|fprintf|fls)$/;
+
+/** True when a viewer's own options write or run something (`sort -o`, `uniq in out`, `rg --pre`, `find -exec`…). */
+function viewerActs(cmd) {
+  const a = cmd.args;
+  if (cmd.name === "find") return a.some((w) => FIND_ACTIONS.test(w));
+  if (cmd.name === "sort") return a.some((w) => /^(?:-o|--output)/.test(w) || /^-[A-Za-z]*o/.test(w));
+  if (cmd.name === "uniq") return a.filter((w) => !w.startsWith("-")).length > 1;
+  if (cmd.name === "tree") return a.some((w) => /^-[A-Za-z]*o/.test(w));
+  if (cmd.name === "rg") return a.some((w) => /^--pre(?:=|$)/.test(w));
+  if (cmd.name === "less") return a.some((w) => /^-[A-Za-z]*[oO]|^--(?:log-file|LOG-FILE)/.test(w));
+  return false;
+}
+
+/**
+ * True when one simple command, in a command that names a record, is not a plain look: every operation there
+ * must be a read-only viewer whose redirects go to literal paths outside the records, and the corpus file
+ * (strings taken from real drawings) is only listed, never printed.
+ */
+function recordUnsafe(cmd, eventCwd) {
+  const cwd = cmd.cwd;
+  if (prefixOf(cmd).some((w) => basename(w) === "xargs")) return true;
+  for (const { op, target } of redirectsOf(cmd.raw ?? "")) {
+    if (op.includes("&") && /^(?:\d+|-)$/.test(target)) continue;
+    if (/^\/dev\/(?:null|stdout|stderr)$/.test(target)) continue;
+    if (target === "" || /[$`*?[~{]/.test(target)) return true;
+    const path = words(target)[0] ?? "";
+    if (cwd === null && !isAbsolute(path)) return true;
+    if (namesRecord(path, cwd ?? eventCwd, true) && (op.includes(">") || namesCorpus(path, cwd ?? eventCwd, true))) return true;
+  }
+  const jsonTool = /^python[0-9.]*$/.test(cmd.name) && cmd.args[0] === "-m" && cmd.args[1] === "json.tool" && prefixOf(cmd).length === 0;
+  if (NEUTRAL.has(cmd.name)) return false;
+  if (!METADATA_VIEWERS.has(cmd.name) && !CONTENT_VIEWERS.has(cmd.name) && !jsonTool) {
+    // The scanner, run exactly and naming no record, is judged by its own rule.
+    return !(scannerRun(cmd) === "exact" && !cmd.words.some((w) => namesRecord(w, cwd)) && (cwd === null || !recordPath(cwd)));
+  }
+  if (viewerActs(cmd)) return true;
+  if (CONTENT_VIEWERS.has(cmd.name) || jsonTool) {
+    if (cwd !== null && corpusPath(cwd) && cmd.args.some((w) => w === "corpus" || GLOB.test(w) || w === ".")) return true;
+    if (cmd.args.some((w) => namesCorpus(w, cwd))) return true;
+  }
+  return false;
+}
+
+/** True when code spawns or imports the scanner or the ledger writer, sets a seam, or names a record's path. */
+function codeTouchesRecords(code) {
+  if (RECORD_TEXT.test(code) || code.includes(LEAK_FOLDER)) return true;
+  if (/\bVEXTRUS_LEAKSCAN_\w*/.test(code)) return true;
+  const tool = /leakscan|scripts[./]ledger\b|\bfrom\s+scripts\s+import\b[^\n]*\bledger\b|import_module\s*\([^)]*ledger/;
+  const runs =
+    /\bsubprocess\b|\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*)|\bPopen\b|child_process|\bexec(?:File)?(?:Sync)?\b|\bspawn(?:Sync)?\b|\bimport\b|\bimportlib\b|__import__|\brunpy\b|\brequire\s*\(|\bsystem\b|\bqx\b|\bDeno\s*\.\s*(?:run|Command)\b|\bBun\s*\.\s*spawn/;
+  return tool.test(code) && runs.test(code);
+}
+
+/**
+ * A forged stamp, ledger record or corpus (spec 3.6, 3.7), judged by command and write target: a seam set, the
+ * scanner reached another way or writing from a worktree, a builder's ledger record, code that runs either
+ * tool or names a record, or a command naming a record that does more than look.
+ */
+function recordForged(analysis, command, eventCwd) {
+  const flat = flatten(command);
   if (/\b(?:VEXTRUS_LEAKSCAN_HOME|VEXTRUS_LEAKSCAN_ALLOWLIST|VEXTRUS_MAIN_CHECKOUT)\s*=/.test(flat)) return true;
-  if (!orchestrators && analysis.units.some((u) => /scripts(?:\.|\/)ledger(?:\.py)?\b[^;&|\n]*\brecord\b/.test(flatten(u)))) return true;
-  if (analysis.codes.some((code) => /leakscan/.test(code))) return true;
-  const scannerOnly = analysis.cmds.length === 1 && SCANNER(analysis.cmds[0]) && !/[<>]/.test(command);
   for (const cmd of analysis.cmds) {
+    if (!orchestrators && ledgerRecord(cmd)) return true;
     const run = scannerRun(cmd);
     if (run === "other") return true;
     if (run !== "exact") continue;
@@ -1100,20 +1426,10 @@ function recordForged(analysis, command) {
     // session: a worktree's scanner is that branch's code.
     if (scannerWrites(cmd) && !(orchestrators && cmd.cwd === MAIN_CHECKOUT)) return true;
   }
-  if (/leakscan\/(?:ok|corpus)(?:\/|\b|$)|work\/leakscan(?:\/|\b|$)/.test(flat) && !scannerOnly) return true;
-  const home = LEAK_HOME.replace(/\/+$/, "");
-  if (home !== "" && flat.includes(home) && !scannerOnly) return true;
-  for (const cmd of analysis.cmds) {
-    if ((cmd.name === "cd" || cmd.name === "pushd") && cmd.cwd !== null) {
-      const target = cdTarget(cmd, cmd.cwd);
-      if (target !== null && (target === home || target.startsWith(`${home}/`) || /\/leakscan(?:\/|$)/.test(target))) return true;
-    }
-  }
-  // The ledger folder: only scripts.ledger writes it.
-  if (/factory\/ledger(?:\/|\b)/.test(flat) && !LEDGER_TOOL.test(flat)) {
-    if (/>|\b(?:tee|cp|mv|ln|install|rsync|dd|touch|truncate|rm|sed|perl|python[0-9.]*|node)\b/.test(flat)) return true;
-  }
-  return false;
+  if (analysis.codes.some(codeTouchesRecords)) return true;
+  const names = (cmd) => (cmd.cwd !== null && recordPath(cmd.cwd)) || words(cmd.raw ?? "").some((w) => namesRecord(w, cmd.cwd ?? eventCwd));
+  if (!analysis.cmds.some(names)) return analysis.truncated && RECORD_TEXT.test(tidy(flat));
+  return analysis.truncated || analysis.cmds.some((cmd) => recordUnsafe(cmd, eventCwd));
 }
 
 const TEST_RUNNERS = new Set(["npm", "npx", "pnpm", "pnpx", "yarn", "vitest", "jest", "bun", "bunx", "playwright", "node", "deno", "pytest", "tox", "nox", "make"]);
@@ -1417,9 +1733,9 @@ const BASH_RULES = [
   },
   {
     rule: "RECORD_FORGED",
-    fires: (_parts, command, ctx) => recordForged(ctx.analysis, command),
+    fires: (_parts, command, ctx) => recordForged(ctx.analysis, command, ctx.cwd),
     reason:
-      "Leak stamps, the leak corpus and ledger records are written only by their own tools: `uv run python -m tools.leakscan …` (never with --source, never with VEXTRUS_LEAKSCAN_* set) and, from the main checkout only, `uv run python -m scripts.ledger record …`. Nothing else names .private/work/leakscan/.",
+      "Leak stamps, the leak corpus and ledger records are written only by their own tools: `uv run python -m tools.leakscan …` (never with --source, never with VEXTRUS_LEAKSCAN_* set) and, from the main checkout only, `uv run python -m scripts.ledger record …`. Judged by command and write target: reading the stamps and the ledger passes, writing them does not, and the corpus is listed, never printed.",
   },
   {
     rule: "REVIEW_CODE_RUN",
