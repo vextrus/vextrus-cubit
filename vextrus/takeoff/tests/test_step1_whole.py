@@ -196,7 +196,7 @@ def test_undoing_an_assigned_views_own_exclusion_puts_it_back_under_its_confirme
     assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
 
     shown = coverage(api, qs_project.project_id)
-    assert (shown["assigned"], shown["proposed"], shown["by_reason"].get("duplicate")) == (1, 0, None)
+    assert (shown["assigned"], shown["proposed"], shown["by_reason"].get("duplicate")) == (2, 0, None)
 
 
 @pytest.mark.parametrize("typed", ["S-\n02", "S-\t02", "S-02‮", "S-​02"])

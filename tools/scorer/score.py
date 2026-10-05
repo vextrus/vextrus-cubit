@@ -120,6 +120,8 @@ SUBJECTS = (
     "fixture",
     "toilet",
     "opening",
+    "site_works",
+    "presentation",
 )
 # The key brief's "3D/perspective" and its parts, and the engine's `perspective`: one kind (R1).
 WORD = re.compile(r"[^\W_]+")  # a whole word of a phrase: letters and digits, `_` a separator
