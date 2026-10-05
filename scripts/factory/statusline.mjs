@@ -17,7 +17,7 @@
 import { readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 
-import { bandText, parseStatus } from "../../tools/mod/vextrus-factory/hooks/text.js"
+import { MAX_STATUS_BYTES, bandText, parseStatus } from "../../tools/mod/vextrus-factory/hooks/text.js"
 
 const STATUS_REL = ".private/work/factory/status.json"
 
@@ -51,7 +51,9 @@ function line() {
     try {
       const path = statusPath(input)
       // A regular file only: a FIFO or a device would block the read and the line never prints.
-      if (statSync(path).isFile()) text = readFileSync(path, "utf8")
+      // Over the band's cap (text.js) it is not read: WATCHER DOWN, as the band.
+      const stat = statSync(path)
+      if (stat.isFile() && stat.size <= MAX_STATUS_BYTES) text = readFileSync(path, "utf8")
     } catch {
       // missing or unreadable: parseStatus("") is WATCHER DOWN
     }

@@ -4,6 +4,12 @@
 // docs/specs/factory/contracts/status.schema.json; field names are its own.
 
 export const STALE_MS = 180_000
+// A `written_at` more than a minute ahead of now is not fresh: skew or a hand-edited file over a
+// dead watcher. Within a minute it is clock skew and stays fresh.
+export const FUTURE_MS = 60_000
+// The one size cap both readers share: the band measures the text in UTF-16 units, the status line
+// the file in bytes; they differ only for non-ASCII text, which status.json is not expected to hold.
+export const MAX_STATUS_BYTES = 4 * 1024 * 1024
 export const DOWN = "WATCHER DOWN"
 const SEP = " · "
 const UTC = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
@@ -54,7 +60,7 @@ function isStatus(s) {
 // "WATCHER DOWN with 'status schema'"). Never throws.
 export function parseStatus(text) {
   try {
-    if (typeof text !== "string" || text.trim() === "") return { status: null, schema: false }
+    if (typeof text !== "string" || text.length > MAX_STATUS_BYTES || text.trim() === "") return { status: null, schema: false }
     const value = JSON.parse(text)
     if (isStatus(value)) return { status: value, schema: false }
     return { status: null, schema: isObj(value) && typeof value.schema_version === "number" && value.schema_version !== 1 }
@@ -92,7 +98,7 @@ function groupText(name, g, working) {
 export function segments(status, nowMs, ctx = null, schema = false) {
   const out = [clockText(nowMs)]
   const age = status === null ? Infinity : nowMs - Date.parse(status.written_at)
-  if (!(age <= STALE_MS)) {
+  if (!(age <= STALE_MS) || age < -FUTURE_MS) {
     out.push(schema ? `${DOWN} status schema` : DOWN)
     if (ctx !== null) out.push(`ctx ${ctx}%`)
     return out
@@ -118,8 +124,9 @@ export function segments(status, nowMs, ctx = null, schema = false) {
   return out
 }
 
-// Belt and braces: whatever passed the checks, no segment carries a line break or a control character.
-const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, " ")
+// Belt and braces: whatever passed the checks, no segment carries a line break, a control character
+// or a bidi embedding, override or isolate (U+202A-202E, U+2066-2069), which could reorder the band.
+const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ")
 
 export function bandText(status, nowMs, ctx = null, schema = false) {
   return segments(status, nowMs, ctx, schema).map(oneLine).join(SEP)
