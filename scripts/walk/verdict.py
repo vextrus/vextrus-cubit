@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.walk.cli import QuietParser
-from scripts.walk.measures import MEASURES, attach
+from scripts.walk.measures import MEASURES, attach, stale_pair_entries
 from scripts.walk.sanitize import (
     ALLOWED_KEYS,
     CHECK_IDS,
@@ -236,19 +236,14 @@ def _row_holds(row: Mapping[str, Any]) -> bool:
 
 
 def _sheets_count(rows: Sequence[Mapping[str, Any]]) -> tuple[int, int, int, int]:
-    """(found, missing, phantoms, N) over a set's rows: a row with no N (a Discipline the expectation
-    does not list, or none) is all phantoms."""
-    found = missing = phantoms = expected = 0
-    for row in rows:
-        sheets, n = row["sheets"], row.get("sheets_expected")
-        found += sheets
-        if n is None:
-            phantoms += sheets
-        else:
-            expected += n
-            missing += max(0, n - sheets)
-            phantoms += max(0, sheets - n)
-    return found, missing, phantoms, expected
+    """(found, missing, phantoms, N) over a set's rows, judged on the set's total (the owner, 5 Oct
+    2026: "Judge the total; report the split"): every Sheet of every Discipline and of none against
+    the sum of N; a phantom is a blank beyond the total (a numbered Sheet beyond it is no phantom, and
+    the count is still wrong). The rows report the split; it is never judged."""
+    found = sum(row["sheets"] for row in rows)
+    expected = sum(row["sheets_expected"] or 0 for row in rows)
+    blanks = sum(row.get("blank_sheets") or 0 for row in rows)
+    return found, max(0, expected - found), min(max(0, found - expected), blanks), expected
 
 
 def status_of(check: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> str:
@@ -306,7 +301,7 @@ def _holds(name: str, m: Any, e: Any, rows: Sequence[Mapping[str, Any]]) -> bool
             return (
                 (m("sheets_found"), m("missing"), m("phantoms"), e("sheets"))
                 == (found, missing, phantoms, n)
-                and missing == 0
+                and found - phantoms == n  # the total, less its blanks, is N
                 and e("phantoms_max") is not None
                 and phantoms <= e("phantoms_max")
             )
@@ -407,8 +402,11 @@ def _rows(name: str, questions: Mapping[str, Any], burden: Mapping[str, Any]) ->
         counts = burden.get(discipline, {})
         if not isinstance(counts, Mapping):
             raise Malformed("a burden row is not an object")
+        # Blanks are listed only where a Discipline has one (only blanks beyond the total are phantoms).
+        blanks = _optional_count(counts.get("blank_sheets"), "blank_sheets")
         rows.append(
             {
+                **({"blank_sheets": blanks} if blanks else {}),
                 "set": name,
                 "discipline": discipline,
                 "questions_by_kind": by_kind,
@@ -534,7 +532,12 @@ def _set_checks(
             "true_questions_raised",
             name,
             measured({"true_listed": got["true_listed"], "true_raised": got["true_raised"]}),
-            limits(("true_questions",), {"true_questions": lambda x: len(x["true_questions"])}),
+            limits(
+                ("true_questions",),
+                # A true Question that only restates a listed stale pair is judged by
+                # false_continuations' stale_grouped alone.
+                {"true_questions": lambda x: len(x["true_questions"]) - len(stale_pair_entries(x))},
+            ),
         ),
         _check(
             "false_continuations",

@@ -90,7 +90,7 @@
         },
         "burden": {
           "type": "object",
-          "description": "G5's burden counts per Discipline key, in the snapshot taken before any act. The walk writes false_continuation_questions as null; scripts/walk/measures.py counts every row afresh from snapshot.json and the set's expectation (adding sheets_expected and machine_doubt_questions), and a set it cannot measure keeps the walk's rows and fails its snapshot checks closed. bulk_confirmable is null where a numbering gap is open and no count was read after its answer.",
+          "description": "G5's burden counts per Discipline key, in the snapshot taken before any act. The walk writes false_continuation_questions as null; scripts/walk/measures.py counts every row afresh from snapshot.json and the set's expectation (adding sheets_expected, blank_sheets and machine_doubt_questions), and a set it cannot measure keeps the walk's rows and fails its snapshot checks closed. bulk_confirmable is null where a numbering gap is open and no count was read after its answer.",
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,24}$" },
           "additionalProperties": {
             "type": "object",
@@ -103,7 +103,8 @@
               "continuation_questions": { "$ref": "#/$defs/count" },
               "false_continuation_questions": { "type": ["integer", "null"], "minimum": 0 },
               "sheets_expected": { "type": ["integer", "null"], "minimum": 0 },
-              "machine_doubt_questions": { "$ref": "#/$defs/count" }
+              "machine_doubt_questions": { "$ref": "#/$defs/count" },
+              "blank_sheets": { "$ref": "#/$defs/count" }
             }
           }
         }

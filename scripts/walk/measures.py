@@ -26,11 +26,16 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
   Discipline is the listed one and it holds a Sheet for every listed `{file, number}`;
 - false: open Questions coded `same_title`, `same_storey` or `same_number` matching no listed one;
 - machine doubt per Discipline: open Questions matching no listed one, numbering-gap Questions once
-  per file (the file of the first Sheet held; one holding none counts as its own);
+  per file (the file of the first Sheet held; those holding none, once per Discipline);
 - bulk-confirmable per Discipline: Sheets that agree and are not held, or, where a gap Question is
   open, `bulk_after_gaps` (absent: that row's count is null, the share unmeasured);
 - stale: listed pairs of equal titles (case and spacing folded) that no Question holds together (a
-  listed Sheet absent from the snapshot cannot be shown grouped: it counts);
+  listed Sheet absent from the snapshot cannot be shown grouped: it counts); a listed true Question
+  that only restates a stale pair (a same_title conflict over its two Sheets) is judged here alone,
+  never also as a true Question not raised;
+- Sheets: the rows carry each Discipline's Sheets, N and blanks (no number, proposed out `blank`);
+  verdict.py judges the set's total, and only blanks beyond it are phantoms (the owner, 5 Oct 2026:
+  "Judge the total; report the split");
 - storeys: the Views' union, else the as-titled storeys (`not_stated` is none); a listed Sheet absent
   is wrong.
 """
@@ -53,6 +58,8 @@ CONFLICT_CODES = frozenset({SAME_TITLE, SAME_STOREY, SAME_NUMBER})
 GAP_CODES = frozenset({"engine.register_check.gap", "engine.register_check.gaps"})
 """A numbering gap, asked per missing number or (t229) all of a Discipline's at once."""
 OPEN = "open"
+BLANK = "blank"
+"""The product's exclusion reason for a blank Sheet (vextrus/drawings/models.py `ExclusionReason`)."""
 NOT_STATED = frozenset({"not_stated"})
 """The storey code of a title that states none (engine/recognise/storeys.py): no storey."""
 STATUSES = frozenset({OPEN, "answered", "withdrawn"})
@@ -90,6 +97,9 @@ class Sheet:
     discipline: str
     held: bool
     agrees: bool
+    blank: bool
+    """An empty layout or an unnumbered blank: no number, proposed out `blank`; only such a Sheet
+    beyond the set's total is a phantom."""
     storeys: frozenset[str]
     storeys_titled: frozenset[str] | None
 
@@ -192,14 +202,16 @@ def _sheet(raw: object) -> Sheet:
     if not isinstance(raw, Mapping) or set(raw) != SHEET_KEYS:
         raise Unmeasurable("a Sheet is not its keys")
     _flag(raw["layout"])
-    _text(raw["proposed_exclusion"], optional=True)
+    number = _text(raw["number"], optional=True)
+    excluded = _text(raw["proposed_exclusion"], optional=True)
     return Sheet(
         id=str(_text(raw["id"])),
         file=str(_text(raw["file"])),
-        number=_text(raw["number"], optional=True),
+        number=number,
         title=_text(raw["title"], optional=True),
         discipline=_discipline(raw["discipline"]),
         held=_flag(raw["held"]),
+        blank=number is None and excluded == BLANK,
         agrees=_flag(raw["agrees"]),
         storeys=_storeys(raw["storeys"]) or frozenset(),
         storeys_titled=_storeys(raw["storeys_titled"], optional=True),
@@ -331,6 +343,28 @@ def true_raised(snap: SetSnapshot, listed: list[TrueQuestion]) -> int:
     return sum(1 for t in listed if any(matches(q, t) for q in open_))
 
 
+def stale_pair_entries(expect: Mapping[str, Any]) -> set[int]:
+    """The indexes of `true_questions` that only restate a listed stale-title pair (a same_title
+    conflict over exactly its two Sheets): stale_grouped judges that defect, so true_questions_raised
+    leaves it out (one defect, one count). Read from the expectation alone, so verdict.py counts the
+    listed ones the same way."""
+    listed, pairs = expect.get("true_questions"), expect.get("stale_title_pairs")
+    if not isinstance(listed, list) or not isinstance(pairs, list):
+        return set()
+    keys = {
+        (pair.get("discipline"), frozenset(_keys(pair.get("sheets"))))
+        for pair in pairs
+        if isinstance(pair, Mapping)
+    }
+    found = set()
+    for n, entry in enumerate(listed):
+        if isinstance(entry, Mapping) and entry.get("code") == SAME_TITLE:
+            key = (entry.get("discipline"), frozenset(_keys(entry.get("sheets"))))
+            if key in keys:
+                found.add(n)
+    return found
+
+
 def is_true(question: Question, listed: list[TrueQuestion]) -> bool:
     return any(matches(question, t) for t in listed)
 
@@ -354,14 +388,16 @@ def continuations_by_discipline(snap: SetSnapshot) -> dict[str, int]:
 
 
 def machine_doubt_by_discipline(snap: SetSnapshot, listed: list[TrueQuestion]) -> dict[str, int]:
-    """Open Questions on no true list; numbering gaps once per file of their first Sheet."""
+    """Open Questions on no true list; numbering gaps once per file of their first Sheet, and those
+    holding no Sheet (no file) once per Discipline."""
     found: dict[str, int] = {}
-    gap_files: dict[str, set[str]] = {}
+    gap_files: dict[str, set[str | None]] = {}
     for q in snap.questions:
         if not q.open or is_true(q, listed):
             continue
-        if q.gap and q.proposals:
-            gap_files.setdefault(q.discipline, set()).add(snap.sheets[q.proposals[0]].file)
+        if q.gap:
+            file = snap.sheets[q.proposals[0]].file if q.proposals else None
+            gap_files.setdefault(q.discipline, set()).add(file)
             continue
         found[q.discipline] = found.get(q.discipline, 0) + 1
     for discipline, files in gap_files.items():
@@ -450,6 +486,8 @@ def _sheets_per_discipline(raw: object) -> dict[str, int]:
 def _measure(record: Mapping[str, Any], snap: SetSnapshot, expect: Mapping[str, Any]) -> dict[str, Any]:
     """The set record with its Questions, rows and measures counted from the snapshot."""
     listed = true_questions(snap, expect.get("true_questions", []))
+    restated = stale_pair_entries(expect)
+    counted = [t for n, t in enumerate(listed) if n not in restated]
     expected_n = _sheets_per_discipline(expect.get("sheets_per_discipline"))
     storeys_listed, wrong = storeys_wrong(snap, expect.get("storeys", []))
     stale = stale_grouped(snap, expect.get("stale_title_pairs", []))
@@ -485,6 +523,7 @@ def _measure(record: Mapping[str, Any], snap: SetSnapshot, expect: Mapping[str, 
             {
                 "sheets": len(of_discipline),
                 "one_source": sum(1 for s in of_discipline if not s.agrees),
+                "blank_sheets": sum(1 for s in of_discipline if s.blank),
                 "bulk_confirmable": bulk.get(discipline, 0),
                 "sheets_expected": expected_n.get(discipline),
                 "machine_doubt_questions": doubt.get(discipline, 0),
@@ -494,8 +533,8 @@ def _measure(record: Mapping[str, Any], snap: SetSnapshot, expect: Mapping[str, 
         )
     measures = {
         "unmeasured": 0,
-        "true_listed": len(listed),
-        "true_raised": true_raised(snap, listed),
+        "true_listed": len(counted),
+        "true_raised": true_raised(snap, counted),
         "stale_grouped": stale,
         "storeys_listed": storeys_listed,
         "storeys_wrong": wrong,

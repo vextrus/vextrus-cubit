@@ -255,3 +255,27 @@ def test_a_view_that_states_no_storey_falls_back_to_the_title(tmp_path: Path, vi
     measured = _attach(tmp_path, entry, _expect(storeys=listed))
 
     assert measured["sets"]["set-c"]["measures"]["storeys_wrong"] == 0
+
+
+@pytest.mark.parametrize("raised", [True, False], ids=["raised-as-same-title", "grouped-silently"])
+def test_a_stale_pair_listed_as_a_true_question_is_counted_once(tmp_path: Path, raised: bool) -> None:
+    entry = _entry()
+    for sheet in entry["sheets"][:2]:
+        sheet["title"] = "Invented Riser Schedule"
+    if raised:
+        entry["questions"].append(_question("c1", measures.SAME_TITLE, "p2", "p1"))
+    pair = [{"file": "oscar.dwg", "number": "P-01"}, {"file": "oscar.dwg", "number": "P-02"}]
+    expect = _expect(
+        true_questions=[{"discipline": "plumbing", "code": measures.SAME_TITLE, "sheets": pair}],
+        stale_title_pairs=[{"discipline": "plumbing", "sheets": pair}],
+    )
+
+    judged = _judge(tmp_path, entry, expect)
+
+    [false] = [c for c in judged["checks"] if c["check"] == "false_continuations"]
+    assert (false["measured"]["false_questions"], false["measured"]["stale_grouped"]) == (
+        0,
+        0 if raised else 1,
+    )
+    assert false["status"] == ("PASS" if raised else "FAIL")
+    assert _status(judged, "true_questions_raised") == "PASS"  # judged by the stale count alone

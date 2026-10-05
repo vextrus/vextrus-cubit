@@ -219,7 +219,7 @@
             "bulk_confirmable_share",
             "storeys_match"
           ],
-          "description": "The owner's Q5 refined limits (5 Oct 2026). reads_complete: (1) every file's read completes. act_p95_during_read: (2) acts (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived): the p95, the worst act, a sample minimum of each kind and no failed act. questions_per_discipline: (3) machine-doubt Questions per Discipline (D2): open Questions not on the expectation's true list, numbering gaps once per file. sheets_match: (4) the Sheets found per Discipline against the expectation's N, none missing and phantoms within the limit. true_questions_raised: (5) every listed true Question raised. false_continuations: (6) conflict Questions on no true list, and listed stale-title pairs grouped by no Question. bulk_confirmable_share: (7) per Discipline, Sheets the QS can confirm in bulk over N. storeys_match: (8) listed Sheets whose storeys differ. Checks 3 to 8 read the snapshot taken before any act; a set it cannot measure has them FAIL with measured.unmeasured 1."
+          "description": "The owner's Q5 refined limits (5 Oct 2026). reads_complete: (1) every file's read completes. act_p95_during_read: (2) acts (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived): the p95, the worst act, a sample minimum of each kind and no failed act. questions_per_discipline: (3) machine-doubt Questions per Discipline (D2): open Questions not on the expectation's true list, numbering gaps once per file. sheets_match: (4) the set's total of Sheets against the sum of N, less its phantoms (blanks beyond the total, within the limit); the split per Discipline is reported in the burden rows, never judged. true_questions_raised: (5) every listed true Question raised. false_continuations: (6) conflict Questions on no true list, and listed stale-title pairs grouped by no Question. bulk_confirmable_share: (7) per Discipline, Sheets the QS can confirm in bulk over N. storeys_match: (8) listed Sheets whose storeys differ. Checks 3 to 8 read the snapshot taken before any act; a set it cannot measure has them FAIL with measured.unmeasured 1."
         },
         "set": {
           "$ref": "#/$defs/slug",
@@ -247,7 +247,7 @@
             },
             {
               "type": "object",
-              "description": "The limits, from Q5 and the Answer Key's counts (reads_complete: {files}; act_p95_during_read: {p95_ms_max, max_ms_max, samples_each_min}; questions_per_discipline: {questions_max_per_discipline}; sheets_match: {sheets (the sum of N), phantoms_max}; true_questions_raised: {true_questions (how many are listed)}; false_continuations: {false_continuation_max, stale_title_grouped_max}; bulk_confirmable_share: {bulk_confirmable_share_min}; storeys_match: {storeys_wrong_max}). Never taken from a walk's own recording.",
+              "description": "The limits, from Q5 and the Answer Key's counts (reads_complete: {files}; act_p95_during_read: {p95_ms_max, max_ms_max, samples_each_min}; questions_per_discipline: {questions_max_per_discipline}; sheets_match: {sheets (the sum of N), phantoms_max}; true_questions_raised: {true_questions (how many are listed, less those that only restate a listed stale-title pair)}; false_continuations: {false_continuation_max, stale_title_grouped_max}; bulk_confirmable_share: {bulk_confirmable_share_min}; storeys_match: {storeys_wrong_max}). Never taken from a walk's own recording.",
               "additionalProperties": {
                 "$ref": "#/$defs/number"
               }
@@ -340,6 +340,14 @@
           ],
           "minimum": 0,
           "description": "Sheets the QS can confirm in bulk (they agree and are not held; where a numbering gap is open, counted after the walk answered it). Q5's limit: 80 % or more of N. null when a gap was open and no count was read after it."
+        },
+        "blank_sheets": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Present only when the Discipline has one: blanks among `sheets` (no number, proposed out `blank`): only blanks beyond the set's total are phantoms. sheets_match judges the set's total (the owner, 5 Oct 2026: \"Judge the total; report the split\"); `sheets` and `sheets_expected` report the split per Discipline, never judged."
         },
         "machine_doubt_questions": {
           "type": [

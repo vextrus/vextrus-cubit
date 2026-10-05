@@ -190,6 +190,7 @@ BURDEN_NUMBERS: tuple[str, ...] = (
     "sheets_expected",
     "bulk_confirmable_sheets",
     "one_source_sheets",
+    "blank_sheets",
     "machine_doubt_questions",
     "continuation_questions",
     "false_continuation_questions",
