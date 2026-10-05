@@ -330,6 +330,13 @@ def load_launches(
         if where not in ("cloud", "local") or not ticket or not branch:
             print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
             continue
+        # Only builders are tracked: an acceptance writer's commits carry no Factory-State trailer,
+        # and a launch the launcher refused started nothing (#344 round 1).
+        if str(record.get("role") or "builder") != "builder":
+            continue
+        judge = record.get("judge")
+        if isinstance(judge, dict) and judge.get("ok") is False:
+            continue
         if since is not None and started < since:
             continue
         record["_started"] = started

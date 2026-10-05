@@ -7,7 +7,7 @@ Each side was tested only against its own fake record. This test writes a record
 launcher's own `_Run.write` and reads it back through the watcher's own `load_launches`.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -17,20 +17,52 @@ from scripts.factory import launch, status, watch
 STARTED = datetime(2026, 10, 5, 3, 42, 44, 196170, tzinfo=UTC)
 
 
-def test_the_watcher_tracks_a_record_the_cloud_launcher_wrote(tmp_path: Path) -> None:
-    request = launch.CloudRequest(
-        branch="s12-x", prompt_file=tmp_path / "p.md", ticket="T-X", effort="medium"
-    )
-    run = launch._Run(
-        req=request, record_dir=tmp_path / "launches", started=STARTED, snapshot=lambda: "[]"
-    )
-    run.write(launch.Verdict(ok=True, reason="cloned at s12-x", session="session_01Abc"))
+SINCE = datetime(2026, 10, 5, tzinfo=UTC)
 
-    records, _ = watch.load_launches(tmp_path, datetime(2026, 10, 5, tzinfo=UTC))
+
+def launched(
+    folder: Path, ticket: str, branch: str, *, role: str = "builder", ok: bool = True, minutes: int = 0
+) -> None:
+    """One record, written by the cloud launcher's own `_Run.write`."""
+    request = launch.CloudRequest(
+        branch=branch, prompt_file=folder / "p.md", ticket=ticket, effort="medium", role=role
+    )
+    started = STARTED + timedelta(minutes=minutes)
+    run = launch._Run(
+        req=request, record_dir=folder / "launches", started=started, snapshot=lambda: "[]"
+    )
+    session = "session_01Abc" if ok else None
+    run.write(launch.Verdict(ok=ok, reason=f"cloned at {branch}" if ok else "refused", session=session))
+
+
+def test_the_watcher_tracks_a_record_the_cloud_launcher_wrote(tmp_path: Path) -> None:
+    launched(tmp_path, "T-X", "s12-x")
+
+    records, _ = watch.load_launches(tmp_path, SINCE)
 
     assert sorted(records) == ["T-X"]
     assert records["T-X"]["branch"] == "s12-x"
     assert records["T-X"]["_started"] == STARTED
+
+
+def test_an_acceptance_writer_on_the_same_branch_is_not_tracked_as_a_builder(tmp_path: Path) -> None:
+    launched(tmp_path, "T-X-writer", "s12-x", role="acceptance-writer")
+    launched(tmp_path, "T-X", "s12-x", minutes=20)
+
+    records, _ = watch.load_launches(tmp_path, SINCE)
+
+    assert sorted(records) == ["T-X"]
+
+
+def test_a_refused_launch_is_not_tracked_and_does_not_replace_a_running_builder(tmp_path: Path) -> None:
+    launched(tmp_path, "T-S", "s12-s")
+    launched(tmp_path, "T-S", "s12-other", ok=False, minutes=5)
+    launched(tmp_path, "T-R", "s12-r", ok=False)
+
+    records, _ = watch.load_launches(tmp_path, SINCE)
+
+    assert sorted(records) == ["T-S"]
+    assert records["T-S"]["branch"] == "s12-s"
 
 
 def test_parse_utc_reads_whole_and_fractional_seconds() -> None:
