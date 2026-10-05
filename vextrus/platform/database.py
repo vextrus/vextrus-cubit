@@ -5,16 +5,19 @@ owns nothing and is never granted TRUNCATE (docs/data-model.md §2). So:
 - `OwnerMigrates` (DATABASE_ROUTERS) lets migrations run only through the `owner` alias;
 - this module's `migrate` and `flush` commands always run through the `owner` alias, whatever
   `--database` says, so a test's flush and a plain `manage.py migrate` never run as the app;
-- `ensure_database` creates the worktree's database, or a test database, as the owner.
+- `ensure_database` creates the worktree's database, or a test database, as the owner;
+- `empty_job_queue` empties procrastinate's tables, which Django's flush skips (they are not managed).
 """
 
 from typing import Any
 
 import psycopg
 from django.conf import settings
+from django.db import connections
 from psycopg import sql
 
 OWNER_ALIAS: str = settings.VEXTRUS_OWNER_ALIAS
+JOB_TABLES = ("procrastinate_jobs", "procrastinate_workers")  # their events and defers cascade
 
 
 class OwnerMigrates:
@@ -45,3 +48,13 @@ def ensure_database(name: str) -> bool:
         except psycopg.errors.DuplicateDatabase:  # made meanwhile by a parallel run
             return False
         return True
+
+
+def empty_job_queue() -> None:
+    """Truncate the job queue's tables as the owner, when they exist (before the first migrate they
+    do not). A job committed outside a test's transaction otherwise outlives every flush."""
+    with connections[OWNER_ALIAS].cursor() as cursor:
+        cursor.execute("select to_regclass(%s) is not null", [JOB_TABLES[0]])
+        row = cursor.fetchone()
+        if row is not None and row[0]:
+            cursor.execute(f"truncate {', '.join(JOB_TABLES)} cascade")

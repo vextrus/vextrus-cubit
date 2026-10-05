@@ -1,5 +1,6 @@
 """The one API: session auth with CSRF, every module's router, every message code in the schema."""
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,10 @@ def write_codes(root: Path, package: str, submodule: str, body: str) -> None:
 
 @pytest.fixture
 def fake_packages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A sibling test's fake modules are cached under the same names, their tmp_path since deleted
+    # (`tmp_path_retention_policy = "failed"`): import this test's own.
+    for name in [name for name in sys.modules if name.split(".")[0] in ("fake_engine", "fake_vextrus")]:
+        monkeypatch.delitem(sys.modules, name)
     write_codes(
         tmp_path, "fake_engine.messages", "read", 'A = MessageCode("fake_engine.read.no_layouts")\n'
     )
