@@ -2,7 +2,11 @@
 the Drawing Set's read PDFs' pages matched to its listed sheets and placed on them, each kept through
 `drawings.services.record_plot`, in whichever order the DWG and its Plot are read.
 
-    counts = plot.match(file_id)      # in the step that marks the file read, in its transaction
+    counts = plot.match(file_id, use)  # in the step that marks the file read, in its transaction
+
+`use` is the read job's `files.Readers` (None: the engine's): its `pages` reads a PDF's pages again,
+and with `ink` false a page is placed by its text and sizes alone, never aligned by its ink (the demo
+seed's replay, which starts no process; ticket 236).
 
 It runs in the transaction that marks the file read (a PDF's `matching` step, a DWG's `finishing`),
 so no read PDF and read sheet are ever seen together unmatched: a sheet list asked in between sees
@@ -37,7 +41,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import ExitStack
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from engine.messages import Message
 from engine.messages import plot as plot_codes
@@ -51,6 +55,9 @@ from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services as drawings
 from vextrus.platform.services import auth, jobs, storage
 
+if TYPE_CHECKING:
+    from vextrus.takeoff.services.read_propose.files import Readers
+
 KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
 needs them, never all together under the cad worker's memory cap)."""
@@ -59,9 +66,11 @@ _MAY_BE_ANY = frozenset({"names_several_sheets", "no_text"})
 """A page's reasons, named without geometry, that its geometry may still turn into a match."""
 
 
-def match(file_id: uuid.UUID) -> jobs.StepResult:
+def match(file_id: uuid.UUID, readers: Readers | None = None) -> jobs.StepResult:
     """Match the set's Plot pages for the file just marked read (see the module); how many pages
     were tried and matched, for the step's result."""
+    read_pages = readers.pages if readers is not None else pdf_reader.page_text
+    ink = readers.ink if readers is not None else True
     view = drawings.file(file_id)
     drawings.hold_plots(view.set_id)
     listed = drawings.sheets(view.set_id)
@@ -77,18 +86,19 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
         for pdf in tried:
             try:
                 path = stack.enter_context(drawings.original(pdf.id))
-                pages += pdf_reader.page_text(path)
+                pages += read_pages(path)
             except ReadError, storage.StorageError:
                 if pdf.id == file_id:
                     raise  # this PDF's own copy or reading: the file's reason (the job's `not_read`)
                 continue  # another PDF, read before, that cannot be read again now: left as it was
             paths[pdf.sha256] = path
         geometry = _Geometry(listed)
+        plots = paths if ink else None  # `paths` still names every PDF tried, for `_keep`
         if view.format == "pdf":
-            found = registration.match(pages, candidates, geometry, paths, disciplines)
+            found = registration.match(pages, candidates, geometry, plots, disciplines)
             full = set(range(len(found)))
         else:
-            found, full = _for_dwg(file_id, listed, pages, candidates, geometry, paths, disciplines)
+            found, full = _for_dwg(file_id, listed, pages, candidates, geometry, plots, disciplines)
     matched = _keep(
         listed, candidates, found, full, pdfs, set(paths), file_id if view.format == "dwg" else None
     )
@@ -111,7 +121,7 @@ def _for_dwg(
     pages: list[Page],
     candidates: list[SheetCandidate],
     geometry: Sequence[SheetBuffers | None],
-    paths: dict[str, Path],
+    paths: dict[str, Path] | None,
     disciplines: dict[str, str | None],
 ) -> tuple[list[PlotMatch], set[int]]:
     """Every page's match: named without geometry, then matched in full where it could be one of

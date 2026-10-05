@@ -50,7 +50,7 @@ from engine.messages import read as read_codes
 from engine.read import ReadArtefact, ReadError
 from engine.read import pdf as pdf_reader
 from engine.read import read as read_dwg
-from engine.read.pdf.types import PdfReport
+from engine.read.pdf.types import Page, PdfReport
 from engine.recognise.types import CheckOutcome, CheckResult
 from engine.render import fonts
 from engine.render.fonts import FontReport
@@ -89,6 +89,11 @@ class Readers:
     fonts: Callable[[ReadArtefact], FontReport]
     bangla_ansi: Callable[[ReadArtefact], BanglaAnsi]
     pdf: Callable[[Path], PdfReport]
+    pages: Callable[[Path], list[Page]] = pdf_reader.page_text
+    """A read PDF's pages, as the Plot's matching reads them again (`plot.match`)."""
+    ink: bool = True
+    """Whether a page may be placed by its ink (in the engine's sandbox); false places a page by its
+    text and sizes alone (the demo seed's replay, which starts no process)."""
 
 
 def _read_dwg(path: Path, name: str) -> ReadArtefact:
@@ -164,7 +169,7 @@ def _steps(
         steps.expect(len(PDF_STEPS))
         if opened.get("refused"):
             return Read(file_id, "pdf", "refused")  # a scan: refused by its report, nothing to match
-        steps.run(drawings.MATCHING, lambda: _match(file_id), inputs={"sha256": sha256})
+        steps.run(drawings.MATCHING, lambda: _match(file_id, use), inputs={"sha256": sha256})
         return Read(file_id, "pdf", "read")
     kept = steps.run(drawings.READING, lambda: _first(file_id, use), inputs={"sha256": sha256})
     reader = {"reader": kept["reader"], "reader_version": kept["reader_version"]}
@@ -279,7 +284,7 @@ def _finish(
     proposed = propose()
     # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
     # sheet is never listed beside a read PDF it was not matched against.
-    matched = plot.match(file_id)
+    matched = plot.match(file_id, use)
     result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
@@ -296,11 +301,11 @@ def _propose(file_id: uuid.UUID, load: Callable[[], ReadArtefact], unread: int) 
     return proposals.propose(file_id, load, sheets.conventions(file_id)[0], unread=unread)
 
 
-def _match(file_id: uuid.UUID) -> jobs.StepResult:
+def _match(file_id: uuid.UUID, use: Readers) -> jobs.StepResult:
     """A PDF marked read and its pages matched to the set's sheets, in one transaction (157)."""
     state = str(drawings.mark_read(file_id).state)
     try:
-        matched = plot.match(file_id)
+        matched = plot.match(file_id, use)
     except ReadError as error:
         raise _Unread(error.message) from error
     except storage.FileMissing as missing:

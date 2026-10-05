@@ -11,10 +11,11 @@ KR-STR-old.dwg is added and read first; its second reader is the planted disagre
 holds it and raises its Question first (Q1). The job finds 24 sheets (Structural 13, Architectural 8,
 Electrical 3) and 70 views: 26 proposed out "for information" (24 title blocks, the key plan, the 3D
 view), 42 to a Takeoff Step or a Discipline Part, 2 unaccounted (S-01's drawing list and its hook and
-bend detail: no Step reads them). No PDF is read by the job here: KR-STR-R0.pdf (11 of its 12 pages;
-page 12 shows S-13, in no DWG; neither S-07 has a page) and KR-ARC-R0.pdf (8 of 8, lettering as lines)
-are matched to the job's sheets through the services, the Electrical sheets have no PDF, and
-site-photos.pdf is refused.
+bend detail: no Step reads them). Its two Plot PDFs, drawn by `vextrus.seed.kr01_pdf`, are then read
+by the job too (in this process, placed by text and sizes): KR-STR-R0.pdf matches 11 of its 12 pages
+(page 12 shows S-13, in no DWG, and names no sheet; neither S-07 has a page) and KR-ARC-R0.pdf 7 of 8
+(lettering as lines; the unnumbered door and window schedule's page names no sheet). The Electrical
+sheets have no PDF, and site-photos.pdf is refused.
 
 **BP-02** holds a row for each state its own columns hold, no read job: BP-STR-R0.dwg stalled at
 "Reading sheet 7 of 12", BP-STR-R0.pdf read before its DWG, BP-ARC-R0.dwg waiting, BP-ARC-old.dwg held
@@ -529,9 +530,9 @@ def library_ready() -> None:
 
 
 def kadam(demo: Demo) -> None:
-    """KR-01's DWGs through the product's read job, replaying the recording (`vextrus.seed.kr01`):
-    each added, then read step by step as its worker would, its Proposals and Questions the job's.
-    The PDFs, which no job reads here, are matched to the job's sheets through the services."""
+    """KR-01's DWGs, then its two Plot PDFs, through the product's read job, replaying the recording
+    and reading the PDFs in this process (`vextrus.seed.kr01`): each added, then read step by step as
+    its worker would, its Proposals, Questions and Plot matches the job's."""
     from vextrus.seed import kr01  # it draws `drawings`' sheets: imported here, not at the top
 
     code = "KR-01"
@@ -541,7 +542,7 @@ def kadam(demo: Demo) -> None:
         # The older structural file first, as it came: its Question is the first raised (Q1, §7).
         held = added(demo, code, project_id, kr01.HELD, kr01.content(kr01.HELD))
         _read(demo, held.id, use)
-        structural, architectural, electrical = (
+        _structural, _architectural, electrical = (
             by_the_job(demo, code, project_id, name, sheets, use)
             for name, sheets in (
                 ("KR-STR-R0.dwg", STRUCTURAL),
@@ -549,19 +550,11 @@ def kadam(demo: Demo) -> None:
                 ("KR-ELE-R0.dwg", ELECTRICAL),
             )
         )
+        # The Plot, matched by the job's `matching` step against the sheets the DWGs listed.
+        for name in kr01.PDFS:
+            _read(demo, added(demo, code, project_id, name, kr01.draw_pdf(name)).id, use)
     for sheet in electrical.values():
         services.record_plot(sheet.id, services.PlotNone.NO_PDF)
-    structural_pdf, facts = pdf(
-        demo, code, project_id, "KR-STR-R0.pdf", pages=12, turned=(3, 8), maker="autocad"
-    )
-    plot(structural_pdf, facts, structural, skip=("S-07 rev A", "S-07 rev B"))
-    services.record_page_reasons(
-        structural_pdf.id, [report_words.PAGE_SHEET_NOT_IN_DWG(page=12, sheet="S-13")]
-    )
-    architectural_pdf, facts = pdf(
-        demo, code, project_id, "KR-ARC-R0.pdf", pages=8, maker="other", lines=True
-    )
-    plot(architectural_pdf, facts, architectural)
     scan = added(demo, code, project_id, "site-photos.pdf", invented("pdf", "site-photos"))
     services.record_reports(scan.id, upload_report=pdf_rules.report(scan_facts(3), scan.sha256))
 

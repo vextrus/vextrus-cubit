@@ -5,6 +5,7 @@ nothing from a real Drawing Set; it proves the demo's mechanics, never a reading
 
     doc = draw("KR-STR-R0.dwg")          # an ezdxf Drawing; `record(folder)` writes it as DWG
     use = replayed()                     # the read job's readers, replaying the recording
+    content = draw_pdf("KR-STR-R0.pdf")  # a Plot PDF (`kr01_pdf`), read by `use` in this process
 
 **The recording** (`recorded/`, committed): each file's DWG as the repo's writer saved it, and what the
 engine's two readers read from it (the first's ReadArtefact, the second's check), made once by
@@ -12,7 +13,9 @@ engine's two readers read from it (the first's ReadArtefact, the second's check)
 product's read job (`read_propose.files.read`) with `replayed()`: no toolchain and no process, the
 readers' answers looked up by the file's sha256; the fonts and the Bangla-ANSI Check run as they are.
 KR-STR-old.dwg's second reader is the planted disagreement (m0-screens §7: "the planted-disagreement
-stub"), so the job holds it.
+stub"), so the job holds it. The two Plot PDFs (`PDFS`, drawn by `kr01_pdf`) are read by the job
+too: `replayed()` reads them in this process with the engine's own walk and rules (no sandbox), and
+places their pages by text and sizes (`ink=False`).
 
 What each file carries is `vextrus.seed.drawings`' sheets (`STRUCTURAL`, `ARCHITECTURAL`,
 `ELECTRICAL`, `OLD_STRUCTURAL`): their numbers, titles, revision marks, dates, views (kind words in
@@ -39,7 +42,11 @@ from ezdxf.layouts.base import BaseLayout
 from engine.check import bangla_ansi
 from engine.messages import decoders_agree as agree_codes
 from engine.read import ReadArtefact
-from engine.read.pdf.types import PdfReport
+from engine.read.pdf import READER as PDF_READER
+from engine.read.pdf import READER_VERSION as PDF_READER_VERSION
+from engine.read.pdf import child, rules, walk
+from engine.read.pdf import facts as pdf_facts
+from engine.read.pdf.types import Page, PdfReport
 from engine.recognise.types import CheckOutcome, CheckResult, ViewKind
 from engine.render import fonts as font_report
 from vextrus.platform.services import jev
@@ -56,6 +63,8 @@ from vextrus.seed.drawings import (
     S,
     V,
 )
+from vextrus.seed.kr01_pdf import PDFS as PDFS
+from vextrus.seed.kr01_pdf import draw_pdf as draw_pdf
 from vextrus.takeoff.services.read_propose import files
 
 VERSION = "AC1032"
@@ -548,12 +557,35 @@ def replayed() -> files.Readers:
             code=said["code"], outcome=CheckOutcome(said["outcome"]), finding=said["finding"]
         )
 
+    drawn = {hashlib.sha256(draw_pdf(name)).hexdigest() for name in PDFS}
+
     def pdf(path: Path) -> PdfReport:
-        raise NotRecorded(f"{path.name}: the seed's PDFs are not read by the job, so none is recorded")
+        sha256, facts = facts_of(path, drawn)
+        return rules.report(facts, sha256)
+
+    def pages(path: Path) -> list[Page]:
+        sha256, facts = facts_of(path, drawn)
+        return rules.pages(facts, sha256, PDF_READER, PDF_READER_VERSION)
 
     return files.Readers(
-        dwg=first, second=second, fonts=font_report.report, bangla_ansi=bangla_ansi.run, pdf=pdf
+        dwg=first,
+        second=second,
+        fonts=font_report.report,
+        bangla_ansi=bangla_ansi.run,
+        pdf=pdf,
+        pages=pages,
+        ink=False,  # placing a page by its ink renders it in a sandbox: by its text and sizes here
     )
+
+
+def facts_of(path: Path, drawn: set[str]) -> tuple[str, pdf_facts.DocumentFacts]:
+    """A PDF of `PDFS` (by its sha256, among `drawn`) read in this process, as the engine's child
+    reads it and its parent checks what the child said (`walk`, `child._encode`, `facts.parse`): the
+    seed's own PDF, drawn here, never a file from outside. Any other PDF is `NotRecorded`."""
+    sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+    if sha256 not in drawn:
+        raise NotRecorded(f"{path.name} ({sha256}) is not one of the seed's PDFs {PDFS}")
+    return sha256, pdf_facts.parse(json.loads(child._encode(walk.read_file(path))))
 
 
 # Jev, as the demo has it ----------------------------------------------------------------------------
