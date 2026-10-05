@@ -16,6 +16,7 @@ from engine.recognise.conflicts import member_ranges, range_key
 from engine.recognise.tests.candidates import plan, sheet
 from engine.recognise.types import (
     MAX_PATTERN_TEXT,
+    Conflict,
     Continuation,
     Series,
     SheetCandidate,
@@ -218,3 +219,53 @@ def test_a_pattern_that_reads_no_number_or_letters_reads_no_range_and_never_rais
     pattern: str, title: str
 ) -> None:
     assert member_ranges(title, pattern) == ()
+
+
+# The owner's ruling of 5 Oct 2026, 17:06Z: a stale-title pair is a Question --------------------
+
+
+def kinds(found: list[Any]) -> list[str]:
+    return [f.kind if isinstance(f, Conflict) else type(f).__name__ for f in found]
+
+
+def test_two_consecutive_sheets_of_one_title_whose_views_state_different_storeys_are_a_question() -> (
+    None
+):
+    sheets = [sheet("S-71", "RAMP WALL DETAILS"), sheet("S-72", "RAMP WALL DETAILS")]
+    views = [(plan(["floor_2"], None),), (plan(["floor_6"], None),)]
+
+    assert kinds(compare(sheets, views)) == [conflicts.SAME_TITLE]
+
+
+def test_two_consecutive_sheets_of_one_title_whose_views_name_different_subjects_are_a_question() -> (
+    None
+):
+    sheets = [sheet("S-71", "TYPICAL FRAMING DETAILS"), sheet("S-72", "TYPICAL FRAMING DETAILS")]
+    views = [(plan([], "beam", title="SUMP PIT"),), (plan([], "stair", title="DOG LEGGED STAIR"),)]
+
+    assert kinds(compare(sheets, views)) == [conflicts.SAME_TITLE]
+
+
+def test_two_consecutive_sheets_of_one_title_drawing_one_storey_and_subject_are_a_continuation() -> None:
+    sheets = [sheet("S-71", "RAMP WALL DETAILS"), sheet("S-72", "RAMP WALL DETAILS")]
+    views = [(plan(["floor_2"], "beam"),), (plan(["floor_2"], "beam"),)]
+
+    assert kinds(compare(sheets, views)) == ["Continuation"]
+
+
+def test_separate_runs_of_one_title_on_different_storeys_are_a_series() -> None:
+    sheets = [sheet(n, "RAMP WALL DETAILS") for n in ("S-71", "S-72", "S-76")]
+    views = [(plan(["floor_2"], None),), (plan(["floor_2"], None),), (plan(["floor_6"], None),)]
+
+    assert kinds(compare(sheets, views)) == ["Continuation", "Series"]
+
+
+def test_a_stale_pair_keeps_the_whole_title_a_question_never_a_series() -> None:
+    """S-71 and S-72 part on their storeys; S-76 is a run of its own: one Question holds all three."""
+    sheets = [sheet(n, "RAMP WALL DETAILS") for n in ("S-71", "S-72", "S-76")]
+    views = [(plan(["floor_2"], None),), (plan(["floor_4"], None),), (plan(["floor_6"], None),)]
+
+    found = compare(sheets, views)
+
+    assert kinds(found) == [conflicts.SAME_TITLE]
+    assert [s.number.value for s in found[0].candidates if s.number] == ["S-71", "S-72", "S-76"]

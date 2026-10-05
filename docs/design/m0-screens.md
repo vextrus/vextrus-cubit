@@ -1052,7 +1052,8 @@ missing, so that Discipline can still be confirmed.
 **No Question for these** (the plan's QS review, Q3; the owner, 5 Oct 2026): **identical titles on
 consecutive numbers are one continuation** ("Column schedule, 3 sheets"), and so are **titles equal but
 for a member-mark range** ("Grade beam details GB2-GB5", "GB6-GB9", "GB10-GB14": "Grade beam details GB2-GB14, 3 sheets"),
-grouped in the list (6.2) with no Question. **One title on several runs that draw different storeys,
+grouped in the list (6.2) with no Question, unless two consecutive sheets' views state different
+storeys or name different subjects: a stale title block is a conflict, never grouped. **One title on several runs that draw different storeys,
 marks or members is a series** ("6 sheets share this title": each floor's beam details after that
 floor's layout plan), with no Question. Two plans of one storey that draw different subjects (a beam
 layout and a slab layout) or different layers (a slab's top and bottom reinforcement) are normal
@@ -1839,3 +1840,6 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
   of one title draw the same thing; `same_storey` never compares a layout sheet's plan with a details
   sheet's plan views; and "Continuation groups by member-mark range: In M0": titles equal but for a
   member-mark range group as one continuation (5, 6.2; T-W334).
+- **Stale-title pairs are true Questions** (17:06Z): two consecutive sheets of one printed title whose
+  views state different storeys or name different subjects raise the one-title conflict; they are never
+  a continuation and never folded into a series (5; T-W334).

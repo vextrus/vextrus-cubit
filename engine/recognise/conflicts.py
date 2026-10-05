@@ -39,6 +39,10 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
   its title does not, or its views of its title's kind all disagree with it by layer or by every other
   word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
+  Nor do two consecutive numbers whose views state different storeys, or name different subjects
+  (`_Drawn`: each states some, none shared; a stale title block on the next sheet, the owner's ruling of
+  5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. Views that state the
+  same storey and subject, or nothing, join as before.
 - **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
   ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9 DETAILS") are one title: a title is grouped by
   `range_key`, the normal form of the words around its ranges (the conventions' `member_range_pattern`;
@@ -49,15 +53,16 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
   GB2-GB9 DETAILS"), its joiner kept.
 - **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
-  places or more that do not all run on, none of its sheets contradicted, whose runs draw different
-  things (`_apart`). What a run draws, in this order: (a) the storeys its views state, not symbolic; (b)
-  the member marks its views' titles name (a range, or a word of one to three letters then one to four
-  digits, "GRADE BEAM GB7") and its own titles' ranges, each an interval; and only when it has neither,
-  (c) the storeys, not symbolic, of the plan views of the nearest sheet numbered before it (its group,
-  Discipline and prefix) whose title reads as a plan (17's `describe`): the layout each floor's details
-  follow. The runs are a series when every run draws something and no two share a storey or overlap in
-  marks; else the title is `same_title` (one overlap keeps every sheet: no part is a series). What was
-  not read is not different: a run that draws nothing keeps the Question.
+  places or more that do not all run on, none of its sheets contradicted and no consecutive pair parted
+  on what its views draw, whose runs draw different things (`_apart`). What a run draws, in this order:
+  (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a range, or
+  a word of one to three letters then one to four digits, "GRADE BEAM GB7") and its own titles' ranges,
+  each an interval; and only when it has neither, (c) the storeys, not symbolic, of the plan views of the
+  nearest sheet numbered before it (its group, Discipline and prefix) whose title reads as a plan (17's
+  `describe`): the layout each floor's details follow. The runs are a series when every run draws
+  something and no two share a storey or overlap in marks; else the title is `same_title` (one overlap
+  keeps every sheet: no part is a series). What was not read is not different: a run that draws nothing
+  keeps the Question.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
   and not two places), and not a series: two of its runs may draw the same thing. One Conflict naming
@@ -269,9 +274,22 @@ def compare(
         alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
 
         spans = [_span([ranges[i] for i in unit]) for unit in units]
+        drawn = [_Drawn(unit, views, reader) for unit in units]
+        stale: list[bool] = []  # a consecutive pair parted because its views draw different things
 
-        def fits(before: int, after: int, spans: list[list[_Span]] = spans) -> bool:
-            return _ascending(spans[before], spans[after])
+        def fits(
+            before: int,
+            after: int,
+            spans: list[list[_Span]] = spans,
+            drawn: list[_Drawn] = drawn,
+            stale: list[bool] = stale,
+        ) -> bool:
+            if not _ascending(spans[before], spans[after]):
+                return False
+            if drawn[before].differs(drawn[after]):
+                stale.append(True)
+                return False
+            return True
 
         runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits)
         members_of = [[i for unit in run for i in unit] for run in runs]
@@ -288,7 +306,11 @@ def compare(
             ordered = [i for members in members_of for i in members]
             title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
-            if not any(alone) and _apart(members_of, views, ranges, reader, plans, pattern):
+            if (
+                not any(alone)
+                and not stale
+                and _apart(members_of, views, ranges, reader, plans, pattern)
+            ):
                 series.append((min(ordered), Series(title, candidates)))
                 continue
             evidence = codes.SAME_TITLE(title=title, sheets=len(ordered))["params"]
@@ -300,6 +322,33 @@ def compare(
     for batch in (by_number, by_title, by_storey):
         found.extend(conflict for _, conflict in sorted(batch, key=_first))
     return found
+
+
+class _Drawn:
+    """What one number's sheets (its copies) state they draw in their views, read when first asked:
+    the storeys (not symbolic) and the subjects (each view's, and those its title names)."""
+
+    def __init__(
+        self, unit: Sequence[int], views: Sequence[Sequence[ViewCandidate]], reader: _Reader
+    ) -> None:
+        self.unit, self.views, self.reader = unit, views, reader
+        self._read: tuple[frozenset[str], frozenset[str]] | None = None
+
+    def read(self) -> tuple[frozenset[str], frozenset[str]]:
+        from engine.recognise.views import subjects  # 17's, imported where it is used
+
+        if self._read is None:
+            seen = [v for i in self.unit for v in self.views[i]]
+            storeys = {s for v in seen for s in v.storeys if not self.reader.symbolic(s)}
+            named = {v.subject for v in seen if v.subject is not None}
+            named |= {key for v in seen if v.title for key in subjects(v.title)}
+            self._read = frozenset(storeys), frozenset(named)
+        return self._read
+
+    def differs(self, other: _Drawn) -> bool:
+        """Whether the two state different storeys or different subjects: each states some, and
+        none is shared (a stale title block on the next sheet; the owner's ruling of 5 Oct 2026)."""
+        return any(a and b and not a & b for a, b in zip(self.read(), other.read(), strict=True))
 
 
 def _drawn(sheet: SheetCandidate) -> str:
