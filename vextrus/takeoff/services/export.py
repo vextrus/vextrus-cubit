@@ -348,6 +348,7 @@ def export(
     from engine.export import RunInfo, build
     from vextrus.drawings import services as drawings
     from vextrus.platform.services import tenancy
+    from vextrus.takeoff.services.burden import burden as burden_of
     from vextrus.takeoff.services.read_propose import sheets as job_sheets
 
     targets = {stage.name: stage.target for stage in harness.STAGES}
@@ -369,6 +370,8 @@ def export(
             )
             for path, view in joined
         ]
+        # What Step 1 would ask of the QS, in counts only, before any act (the export acts for no one).
+        burden = burden_of(project)
     # Each file's own process (`read_each`), where the job read it in one: its time and how it ended.
     readings = [
         replace(reading, process=(processes or {}).get(view.id, reading.process))
@@ -386,7 +389,7 @@ def export(
             for stage in harness.STAGES
         },
     )
-    return dict(build(info, readings, outcome))
+    return dict(build(info, readings, outcome, burden=burden))
 
 
 JOB_STAGES = {

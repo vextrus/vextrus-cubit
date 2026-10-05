@@ -72,6 +72,7 @@ import re
 import stat
 import sys
 import unicodedata
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, TextIO
@@ -150,6 +151,58 @@ CAUSES = (
     "same kind, best IoU < 0.2",
 )
 SEPARATORS = re.compile(r",|&|\band\b")  # between two storeys of a list stated as text
+# The engine's Discipline keys, `disciplines[].key` of engine/recognise/conventions/sheet-default.json,
+# copied as SUBJECTS is (a committed test fails when the two differ): a wrong Discipline is named by
+# them, and any other, of the key or the export, as "another Discipline" (T-249), so no key's text can
+# reach an answer.
+DISCIPLINES = (
+    "structural",
+    "architectural",
+    "electrical",
+    "plumbing",
+    "fire",
+    "mechanical",
+    "lift",
+    "gas",
+)
+# T-249's diagnostics, closed words only. A same-kind near miss (best IoU 0.2 to 0.8) is said by where
+# the export's box lies against the key's; a failing key view of a joined sheet by its class; a wrong
+# sheet field by its shape.
+NEAR = 0.2
+SAME_SIZE = 0.1  # "shifted": both sides within 10 % of the key's
+DIRECTIONS = ("export larger", "export smaller", "export shifted", "export overlaps otherwise")
+CLASSES = (
+    "missing",
+    "wrong kind",
+    "box taken",
+    "box near-miss",
+    "box far",
+    "title wrong",
+    "subject wrong",
+)
+FIELD_WORDS = {
+    "number": "number",
+    "title": "title",
+    "discipline": "Discipline",
+    "storeys": "storeys",
+    "revision": "revision",
+    "date": "date",
+}
+SHAPES = {
+    "number": ("export blank", "different"),
+    "title": ("export blank", "key inside export", "export inside key", "different"),
+    "storeys": (
+        "export blank",
+        "export lists more",
+        "export lists fewer",
+        "same storeys, other order",
+        "different",
+    ),
+    "revision": ("export blank", "different"),
+    "date": ("export blank", "day and month swapped", "year differs", "different"),
+}
+YEAR = re.compile(r"\A[0-9]{4}\Z")
+AGREEMENT = "--agreement"
 
 
 class Refused(Exception):
@@ -179,6 +232,13 @@ class Score:
         self.no_export_subject = 0
         self.outside = 0
         self.aligned: int | None = None
+        # T-249's: per (key kind, export kind) the unjoined key views an export view of another kind
+        # took the place of; per (key kind, direction) the same-kind near misses; per (key kind, class)
+        # the failing key views of joined sheets; per (key Discipline, field, shape) the wrong fields.
+        self.confused: dict[tuple[str, str], int] = {}
+        self.directions: dict[tuple[str, str], int] = {}
+        self.classes: dict[tuple[str, str], int] = {}
+        self.shapes: dict[tuple[str, str, str], int] = {}
 
     def count(self, field: str, right: bool) -> None:
         self.right[field] = self.right.get(field, 0) + int(right)
@@ -205,6 +265,8 @@ def main(argv: list[str], *, drop: Path, keys: Path, log: Path, writer: int) -> 
 
 
 def _call(argv: list[str], drop: Path, keys: Path, writer: int, journal: TextIO) -> int:
+    if argv[:1] == [AGREEMENT]:
+        return _agreement_call(argv[1:], keys, journal)
     run_id = argv[0] if len(argv) == 1 and RUN_ID.match(argv[0]) else None
     named = run_id or f"(not a run id: {ascii(argv)[:80]})"
     try:
@@ -338,10 +400,15 @@ def _read(folder: int, name: str, writer: int) -> bytes:
 def _key(keys: Path, name: str) -> dict[str, Any] | None:
     """The set's key: a regular file of the scorer's own user that nobody else may write, opened
     without following a link (a key that is a link could lead to a file the owner's user holds)."""
+    return _key_file(keys, name)[0]
+
+
+def _key_file(keys: Path, name: str) -> tuple[dict[str, Any] | None, tuple[int, int]]:
+    """`_key`, and the key file's device and inode ((0, 0) when there is no key)."""
     try:
         handle = os.open(keys / f"{name}.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except FileNotFoundError:
-        return None
+        return None, (0, 0)
     except OSError:
         raise Refused(f"the key for {name} cannot be read (a link is never followed)") from None
     try:
@@ -358,7 +425,93 @@ def _key(keys: Path, name: str) -> dict[str, Any] | None:
     key = _json(b"".join(chunks), f"the key for {name}")
     if key.get("set") != name or not isinstance(key.get("sheets"), list):
         raise Refused(f"the key for {name} is not a key of that set")
-    return key
+    return key, (info.st_dev, info.st_ino)
+
+
+# A second keyer's agreement ---------------------------------------------------------------------------
+
+
+def _agreement_call(argv: list[str], keys: Path, journal: TextIO) -> int:
+    """`vx-score --agreement <set> <draft>`: a second keyer's blind draft of a set's key, scored
+    against the key as an export would be (T-249, A3): both read by the key's own reader, sheets joined
+    by the key's rule, views by IoU 0.8 and kind. The answer is the totals, N the key's, and how many
+    sheets and views only the draft holds; nothing per sheet, no layout, no value. The key is read as
+    `_key` reads it (the caller must own it), and every call is logged, a refused one too."""
+    name = argv[0] if len(argv) == 2 else ""
+    named = name if SET_NAME.match(name) else f"(not a plain name: {ascii(name)[:80]})"
+    try:
+        if len(argv) != 2:
+            raise Refused(f"give {AGREEMENT}, a set's name and the path of a second keyer's draft")
+        score = _agreed(keys, name, Path(argv[1]))
+    except Refused as refused:
+        _log(journal, f"agreement {named} refused: {refused}")
+        print(f"vx-score: refused: {refused}", file=sys.stderr)
+        return REFUSED
+    except Exception as error:
+        _log(journal, f"agreement {named} failed: {type(error).__name__}")
+        print(f"vx-score: failed ({type(error).__name__}); nothing is scored", file=sys.stderr)
+        return BROKEN
+    lines = [f"agreement {name}: a second keyer's draft against the key, in aggregate only"]
+    order = ["sheets", "views", *(field for field, _n, _r in FIELDS), "view titles", "view subjects"]
+    lines += [f"  {field:14} {score.right.get(field, 0)} / {score.of.get(field, 0)}" for field in order]
+    totals = "; ".join(line.strip() for line in lines if " / " in line)
+    lines.append(f"  sheets in the draft only: {score.extra_sheets}")
+    lines.append(f"  views in the draft only: {score.extra_views}")
+    _log(journal, f"agreement {name} scored: {totals}")
+    for line in lines:
+        print(line)
+    return 0
+
+
+def _agreed(keys: Path, name: str, draft: Path) -> Score:
+    if not SET_NAME.match(name):
+        raise Refused("the set's name is not a plain name")
+    key, where = _key_file(keys, name)
+    if key is None:
+        raise Refused("that set has no key")
+    drafted = _draft(draft, where)
+    keyed_files, drafted_files = _files(key.get("files")), _files(drafted.get("files"))
+    if keyed_files is None:
+        raise Refused("the key records no drawings (`files`) to hold the draft to")
+    if drafted_files != keyed_files:
+        raise Refused("the draft does not record exactly the key's drawings, by name and sha256")
+    if not isinstance(drafted.get("sheets"), list):
+        raise Refused("the draft holds no list of sheets")
+    return _compare(_keyed(key), _keyed(drafted))
+
+
+def _files(value: Any) -> dict[str, str] | None:
+    """A key's or a draft's `files`, `{name: sha256}`, its digests in lower case; None when it is not
+    a non-empty map of names to text."""
+    if not isinstance(value, dict) or not value:
+        return None
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+        return None
+    return {k: v.lower() for k, v in value.items()}
+
+
+def _draft(path: Path, key: tuple[int, int]) -> dict[str, Any]:
+    """The draft: a regular file within MOST bytes, opened without following a link, and never the
+    key's own file (a key against itself, by a hard link too, is no agreement)."""
+    try:
+        handle = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        raise Refused("the draft cannot be opened (a link is never followed)") from None
+    try:
+        info = os.fstat(handle)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MOST:
+            raise Refused("the draft is not a plain file within the size limit")
+        if (info.st_dev, info.st_ino) == key:
+            raise Refused("the draft is the key's own file: a key against itself is no agreement")
+        chunks, size = [], 0
+        while chunk := os.read(handle, 1 << 20):
+            size += len(chunk)
+            if size > MOST:
+                raise Refused("the draft is not a plain file within the size limit")
+            chunks.append(chunk)
+    finally:
+        os.close(handle)
+    return _json(b"".join(chunks), "the draft")
 
 
 def _same_drawings(name: str, key: dict[str, Any], entry: Any) -> None:
@@ -403,43 +556,7 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
         for sheet in (file.get("sheets") or [])
         if isinstance(sheet, dict)
     ]
-    keyed = [
-        _sheet(sheet, sheet.get("file"), "key") for sheet in key["sheets"] if isinstance(sheet, dict)
-    ]
-    score = Score()
-    joined = _join_sheets(keyed, found)
-    score.extra_sheets = len(found) - len(joined)
-    for index, sheet in enumerate(keyed):
-        match = joined.get(index)
-        if match is None:
-            score.count("sheets", False)
-            for field, _name, _reason in FIELDS:
-                score.count(field, False)
-            for _view in sheet.views:
-                score.count("views", False)
-            score.sheets.append(("", ["the sheet missing"], 0, False))
-            score.missing_kinds.append({})
-            continue
-        other = found[match]
-        reasons = []
-        for field, _name, reason in FIELDS:
-            right = sheet.fields[field] == other.fields[field]
-            score.count(field, right)
-            if not right:
-                reasons.append(reason)
-        # Session 06's ruling 14:20: a model-space sheet's (a keyed frame's) export boxes are scaled by
-        # the key's paper over the export's before the IoU; a layout sheet's never are.
-        scale, unknown = (1.0, 1.0), False
-        if sheet.framed:
-            ratio = _paper_ratio(sheet.paper, other.paper)
-            scale, unknown = ratio or scale, ratio is None
-        found_views = [_moved(view, scale) for view in other.views]
-        wrong, extra, joined_views = _score_views(score, sheet.views, found_views)
-        reasons += wrong
-        _diagnose(score, sheet, other, found_views, joined_views)
-        score.count("sheets", not reasons)
-        score.sheets.append((other.layout or "", reasons, extra, unknown))
-    return score
+    return _compare(_keyed(key), found)
 
 
 Box = tuple[float, float, float, float]
@@ -540,6 +657,57 @@ def _sheet(sheet: dict[str, Any], origin: Any, side: str) -> _Sheet:
     return made
 
 
+def _keyed(key: dict[str, Any]) -> list[_Sheet]:
+    """A key's sheets (or a second keyer's draft's, read as a key), normalised."""
+    sheets = key.get("sheets")
+    return [
+        _sheet(sheet, sheet.get("file"), "key")
+        for sheet in (sheets if isinstance(sheets, list) else [])
+        if isinstance(sheet, dict)
+    ]
+
+
+def _compare(keyed: list[_Sheet], found: list[_Sheet]) -> Score:
+    """The score of `found` (an export's sheets, or a draft's) against `keyed`, both normalised."""
+    score = Score()
+    joined = _join_sheets(keyed, found)
+    score.extra_sheets = len(found) - len(joined)
+    for index, sheet in enumerate(keyed):
+        match = joined.get(index)
+        if match is None:
+            score.count("sheets", False)
+            for field, _name, _reason in FIELDS:
+                score.count(field, False)
+            for _view in sheet.views:
+                score.count("views", False)
+            score.sheets.append(("", ["the sheet missing"], 0, False))
+            score.missing_kinds.append({})
+            continue
+        other = found[match]
+        reasons = []
+        for field, _name, reason in FIELDS:
+            right = sheet.fields[field] == other.fields[field]
+            score.count(field, right)
+            if not right:
+                reasons.append(reason)
+                shape = _shape(field, sheet.fields[field], other.fields[field])
+                said = (_discipline(sheet.fields["discipline"]), field, shape)
+                score.shapes[said] = score.shapes.get(said, 0) + 1
+        # Session 06's ruling 14:20: a model-space sheet's (a keyed frame's) export boxes are scaled by
+        # the key's paper over the export's before the IoU; a layout sheet's never are.
+        scale, unknown = (1.0, 1.0), False
+        if sheet.framed:
+            ratio = _paper_ratio(sheet.paper, other.paper)
+            scale, unknown = ratio or scale, ratio is None
+        found_views = [_moved(view, scale) for view in other.views]
+        wrong, extra, joined_views = _score_views(score, sheet.views, found_views)
+        reasons += wrong
+        _diagnose(score, sheet, other, found_views, joined_views)
+        score.count("sheets", not reasons)
+        score.sheets.append((other.layout or "", reasons, extra, unknown))
+    return score
+
+
 def _box(value: Any) -> Box | None:
     """Four finite numbers, as (min x, min y, max x, max y); None for anything else."""
     if not isinstance(value, list) or len(value) != 4:
@@ -629,10 +797,14 @@ def _diagnose(
     taken = set(joined.values())
     missing: dict[str, int] = {}
     for k, view in enumerate(keyed):
-        if k not in joined:
-            kind = _named(view.kind)
-            missing[kind] = missing.get(kind, 0) + 1
-            score.key_causes[_cause(view, found)] += 1
+        if k in joined:
+            _joined_class(score, view, found[joined[k]])
+            continue
+        kind = _named(view.kind)
+        missing[kind] = missing.get(kind, 0) + 1
+        why = _cause(view, found)
+        score.key_causes[why] += 1
+        _unjoined_class(score, view, found, why)
     score.missing_kinds.append(missing)
     for f, view in enumerate(found):
         if f not in taken:
@@ -646,6 +818,118 @@ def _diagnose(
         return
     aligned = _one_to_one(_view_pairs(keyed, [_moved(view, (1.0, 1.0), shift) for view in found]))
     score.aligned += sum(1 for k in aligned if k not in joined)
+
+
+def _add(counts: dict[Any, int], key: Any) -> None:
+    counts[key] = counts.get(key, 0) + 1
+
+
+def _joined_class(score: Score, view: _View, other: _View) -> None:
+    """A joined key view's failing classes: its title, its subject (as `_score_views` compares them)."""
+    kind = _named(view.kind)
+    if view.title != other.title:
+        _add(score.classes, (kind, "title wrong"))
+    if view.word is not None and view.word != other.subject:
+        _add(score.classes, (kind, "subject wrong"))
+
+
+def _unjoined_class(score: Score, view: _View, found: list[_View], cause: int) -> None:
+    """An unjoined key view's class, from its cause (CAUSES): another kind in its place (and which), no
+    export view of its kind, its place taken, or a box near (0.5-0.8) or far (< 0.5); and for a near
+    miss of 0.2 to 0.8, where the best same-kind export box lies against the key's."""
+    kind = _named(view.kind)
+    if cause == 0:
+        ious = [(_iou(view.box, o.box), n) for n, o in enumerate(found) if o.kind != view.kind]
+        best = max(ious, key=lambda pair: (pair[0], -pair[1]))[1]
+        _add(score.confused, (kind, _named(found[best].kind)))
+        _add(score.classes, (kind, "wrong kind"))
+        return
+    if cause == 1:
+        _add(score.classes, (kind, "missing"))
+        return
+    if cause == 2:
+        _add(score.classes, (kind, "box taken"))
+        return
+    ious = [(_iou(view.box, o.box), n) for n, o in enumerate(found) if o.kind == view.kind]
+    iou, best = max(ious, key=lambda pair: (pair[0], -pair[1]))
+    _add(score.classes, (kind, "box near-miss" if cause == 3 else "box far"))
+    other = found[best].box
+    if iou >= NEAR - 1e-9 and view.box is not None and other is not None:
+        _add(score.directions, (kind, _direction(view.box, other)))
+
+
+def _direction(key: Box, found: Box) -> str:
+    """Where the export's box lies against the key's: containing it and larger, inside it and smaller,
+    the same size within SAME_SIZE but moved, or otherwise."""
+    kx0, ky0, kx1, ky1 = key
+    fx0, fy0, fx1, fy1 = found
+    kw, kh, fw, fh = kx1 - kx0, ky1 - ky0, fx1 - fx0, fy1 - fy0
+    if fx0 <= kx0 and fy0 <= ky0 and fx1 >= kx1 and fy1 >= ky1 and fw * fh > kw * kh:
+        return DIRECTIONS[0]
+    if kx0 <= fx0 and ky0 <= fy0 and kx1 >= fx1 and ky1 >= fy1 and fw * fh < kw * kh:
+        return DIRECTIONS[1]
+    if abs(fw - kw) <= SAME_SIZE * abs(kw) and abs(fh - kh) <= SAME_SIZE * abs(kh):
+        return DIRECTIONS[2]
+    return DIRECTIONS[3]
+
+
+def _discipline(value: Any) -> str:
+    """A Discipline as the diagnostic may print it: one of DISCIPLINES, else "another Discipline"."""
+    return value if value in DISCIPLINES else "another Discipline"
+
+
+def _shape(field: str, key: Any, found: Any) -> str:
+    """The shape of a wrong field, in SHAPES' closed words (the Discipline: its key -> export pair),
+    from the two normal forms; never a value."""
+    if field == "discipline":
+        return f"{_discipline(key)} -> {_discipline(found)}"
+    if found in ("", []):
+        return "export blank"
+    if field == "storeys":
+        if Counter(key) == Counter(found):
+            return "same storeys, other order"
+        if len(found) > len(key) and not _beyond(key, found):
+            return "export lists more"
+        if len(found) < len(key) and not _beyond(found, key):
+            return "export lists fewer"
+        return "different"
+    if field == "title":
+        if key and key in found:
+            return "key inside export"
+        if found in key:
+            return "export inside key"
+        return "different"
+    if field == "date":
+        return _date_shape(key, found)
+    return "different"
+
+
+def _beyond(some: list[str], other: list[str]) -> bool:
+    """Whether `some` holds an item (counted with its repeats) that `other` does not."""
+    return bool(Counter(some) - Counter(other))
+
+
+def _date_shape(key: str, found: str) -> str:
+    """A wrong date's shape: day and month swapped (the year the same), the year alone differing, or
+    different; a date is three groups of digits, its year the four-digit one (else the last)."""
+    k, f = _date_parts(key), _date_parts(found)
+    if k is None or f is None:
+        return "different"
+    (key_year, key_rest), (found_year, found_rest) = k, f
+    if key_year == found_year and key_rest != found_rest and key_rest == found_rest[::-1]:
+        return "day and month swapped"
+    if key_rest == found_rest and key_year != found_year:
+        return "year differs"
+    return "different"
+
+
+def _date_parts(text: str) -> tuple[int, tuple[int, ...]] | None:
+    groups = re.findall(r"[0-9]+", text)
+    if len(groups) != 3 or any(len(group) > 4 for group in groups):
+        return None
+    at = next((n for n, group in enumerate(groups) if YEAR.match(group)), 2)
+    numbers = [int(group) for group in groups]
+    return numbers[at], tuple(numbers[:at] + numbers[at + 1 :])
 
 
 def _named(kind: str) -> str:
@@ -864,6 +1148,34 @@ def _diagnostic(score: Score) -> list[str]:
         )
     lines.append(f"  joined views with no export subject: {score.no_export_subject}")
     lines.append(f"  subjects outside the vocabulary: {score.outside}")
+    lines.append("  views taken for another kind, key kind -> export kind:")
+    lines += [f"    {key} -> {found}: {n}" for (key, found), n in sorted(score.confused.items())] or [
+        "    none"
+    ]
+    lines.append("  same-kind near misses (best IoU 0.2-0.8), per key kind, by the export box:")
+    lines += [
+        f"    {kind}: {direction}: {n}"
+        for (kind, direction), n in sorted(
+            score.directions.items(), key=lambda item: (item[0][0], DIRECTIONS.index(item[0][1]))
+        )
+    ] or ["    none"]
+    lines.append("  failing key views of joined sheets, per key kind, by class:")
+    lines += [
+        f"    {kind}: {said}: {n}"
+        for (kind, said), n in sorted(
+            score.classes.items(), key=lambda item: (item[0][0], CLASSES.index(item[0][1]))
+        )
+    ] or ["    none"]
+    lines.append("  sheet fields not as keyed, per key Discipline, by field and shape:")
+    order = list(FIELD_WORDS)
+    lines += [
+        f"    Discipline: {shape}: {n}"
+        if field == "discipline"
+        else f"    {discipline}: {FIELD_WORDS[field]}: {shape}: {n}"
+        for (discipline, field, shape), n in sorted(
+            score.shapes.items(), key=lambda item: (order.index(item[0][1]), item[0][0], item[0][2])
+        )
+    ] or ["    none"]
     return lines
 
 

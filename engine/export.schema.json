@@ -28,9 +28,77 @@
     "plot": {"type": "array", "items": {"$ref": "#/$defs/plot_match"}},
     "conflicts": {"type": "array", "items": {"$ref": "#/$defs/conflict"}},
     "continuations": {"type": "array", "items": {"$ref": "#/$defs/continuation"}},
-    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}}
+    "checks": {"type": "array", "items": {"$ref": "#/$defs/check"}},
+    "burden": {"$ref": "#/$defs/burden"}
   },
   "$defs": {
+    "burden": {
+      "description": "What Step 1 would ask of the QS, per Discipline, in counts only (the product job's export alone writes it: vextrus/takeoff/services/burden.py; the harness's has none). Every leaf a count, every key a Discipline key or a word of a closed list.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "disciplines"],
+      "properties": {
+        "version": {"const": 1},
+        "disciplines": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/key"},
+          "additionalProperties": {"$ref": "#/$defs/burden_row"}
+        }
+      }
+    },
+    "burden_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sheets", "sheets_counted", "bulk_confirmable", "one_source", "held", "questions_open",
+        "conflicts", "gap_questions", "gap_files", "machine_doubt", "counted_toward_cap",
+        "plan_sheets_no_storey", "proposed_out", "proposed_out_by_reason"
+      ],
+      "properties": {
+        "sheets": {"$ref": "#/$defs/count"},
+        "sheets_counted": {"$ref": "#/$defs/count"},
+        "bulk_confirmable": {"$ref": "#/$defs/count"},
+        "one_source": {"$ref": "#/$defs/count"},
+        "held": {"$ref": "#/$defs/count"},
+        "questions_open": {
+          "description": "Open Questions by kind (the product's QuestionKind values).",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "missing", "conflict", "low_confidence", "check", "file_misread", "labour_source",
+              "relation", "missing_discipline", "convention"
+            ]
+          },
+          "additionalProperties": {"$ref": "#/$defs/count"}
+        },
+        "conflicts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["same_number", "same_title", "same_storey"],
+          "properties": {
+            "same_number": {"$ref": "#/$defs/count"},
+            "same_title": {"$ref": "#/$defs/count"},
+            "same_storey": {"$ref": "#/$defs/count"}
+          }
+        },
+        "gap_questions": {"$ref": "#/$defs/count"},
+        "gap_files": {"$ref": "#/$defs/count"},
+        "machine_doubt": {"$ref": "#/$defs/count"},
+        "counted_toward_cap": {"$ref": "#/$defs/count"},
+        "plan_sheets_no_storey": {"$ref": "#/$defs/count"},
+        "proposed_out": {"$ref": "#/$defs/count"},
+        "proposed_out_by_reason": {
+          "description": "Sheets proposed out by the exclusion reason (engine.recognise.types.ExclusionReason).",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "superseded", "duplicate", "cover_index", "for_information", "by_others", "blank", "other"
+            ]
+          },
+          "additionalProperties": {"$ref": "#/$defs/count"}
+        }
+      }
+    },
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
     "text": {"type": ["string", "null"], "minLength": 1},

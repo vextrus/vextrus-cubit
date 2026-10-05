@@ -256,8 +256,16 @@ class References:
         return dict[str, JSON](ref)
 
 
-def build(run: RunInfo, files: Sequence[FileReading], outcome: SetOutcome) -> dict[str, JSON]:
-    """The export's document for a run; `ExportError` when it would not meet its schema."""
+def build(
+    run: RunInfo,
+    files: Sequence[FileReading],
+    outcome: SetOutcome,
+    *,
+    burden: Mapping[str, Any] | None = None,
+) -> dict[str, JSON]:
+    """The export's document for a run; `ExportError` when it would not meet its schema. `burden` is
+    the product job's burden block (counts only, `vextrus/takeoff/services/burden.py`), written only
+    when given: the harness's export has none."""
     refs = References(files)
     f1 = {id(sheet): score for sheet, score in outcome.render_f1}
     document: dict[str, JSON] = {
@@ -297,6 +305,8 @@ def build(run: RunInfo, files: Sequence[FileReading], outcome: SetOutcome) -> di
             for check in outcome.checks
         ],
     }
+    if burden is not None:
+        document["burden"] = to_json(burden)
     errors = validate(document, load_schema())
     if errors:
         raise ExportError("the export does not meet its schema:\n" + "\n".join(errors[:20]))
