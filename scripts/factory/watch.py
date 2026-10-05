@@ -13,10 +13,10 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   `refs/heads/<branch>` in this checkout (its worktree shares the refs; it never pushes), origin's tip
   until that ref exists. A new head is a push (a heartbeat; on a local branch a commit): it is fetched,
   its tip's trailers are read exactly as trailers.md 1 defines them (never a reading of free text; a
-  merge of main takes its first parent's), and on a cloud branch `python -m tools.leakscan range
-  origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and messages; the scan's
-  output is reduced to `file:line` and a count, its text is never kept. No scanner (before PR f2) is
-  recorded as `absent` in `watch-state.json` and is not an alarm;
+  clean merge of main on the head last seen READY stays READY), and on a cloud branch `python -m
+  tools.leakscan range origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and
+  messages; the scan's output is reduced to `file:line` and a count, its text is never kept. No scanner
+  (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm;
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -92,23 +92,16 @@ class Trailers:
 
 
 KEYS = {"factory-state", "factory-verify", "factory-reason"}
-ATTRIBUTION = {"co-authored-by", "claude-session"}
 TRAILER = re.compile(r"^([A-Za-z0-9-]+):[ \t]*(.*?)\s*$")
 MERGE_DEPTH = 20
-
-
-def is_attribution(paragraph: str) -> bool:
-    """A paragraph of attribution trailers (`Co-Authored-By`, `Claude-Session`) and nothing else."""
-    keys = [TRAILER.match(line) for line in paragraph.splitlines() if line.strip()]
-    return bool(keys) and all(m is not None and m.group(1).lower() in ATTRIBUTION for m in keys)
+# The trailer reading's version: a state written by another version has every seen head re-read once.
+PARSER = 2
 
 
 def parse_trailers(message: str, tree: str) -> Trailers:
-    """The tip commit's factory trailers, from its last paragraph, or from the one before it when the
-    last holds only attribution trailers (trailers.md 1). Never from free text earlier in the body."""
+    """The tip commit's factory trailers, from its last paragraph only (trailers.md 1), the rule the
+    guard's push gate and the stop gate read too."""
     paragraphs = [p for p in re.split(r"\n[ \t]*\n", message.strip()) if p.strip()]
-    if len(paragraphs) > 1 and is_attribution(paragraphs[-1]):
-        paragraphs.pop()
     if not paragraphs:
         return Trailers(None)
     found: dict[str, list[str]] = {}
@@ -216,29 +209,29 @@ def local_head(branch: str) -> str | None:
     return sha if SHA40.match(sha) else None
 
 
-def head_trailers(sha: str, message: str, tree: str, main_sha: str | None) -> Trailers:
-    """The head's trailers; when it is a merge of main (two parents, the second on origin/main) with no
-    outcome of its own, its first parent's, through further merges of main (the lander's merge)."""
-    trailers = parse_trailers(message, tree)
+def clean_merges_of_main(sha: str, ready_head: str, main_sha: str | None) -> bool:
+    """Whether `sha` is `ready_head` followed only by clean merges of main: each a two-parent merge whose
+    first parent is the one before, whose second is on origin/main, and whose tree is the one
+    `git merge-tree` makes from the two with no conflict (merge_ready's rule: a resolved conflict, a
+    `-s ours` or an edit inside the merge is new work)."""
     main = main_sha or "refs/remotes/origin/main"
+    if main_sha is not None:
+        fetch("main", main_sha)
     for _ in range(MERGE_DEPTH):
-        if trailers.outcome is not None:
-            break
         parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
         if len(parents) != 2:
-            break
-        if main_sha is not None:
-            fetch("main", main_sha)
+            return False
         on_main = git("merge-base", "--is-ancestor", parents[1], main)
-        if on_main is None or on_main.returncode != 0:
-            break
+        clean = git_out("merge-tree", "--write-tree", "--no-messages", *parents)
+        tree = git_out("rev-parse", f"{sha}^{{tree}}")
+        if on_main is None or on_main.returncode != 0 or clean is None or tree is None:
+            return False
+        if clean.split()[:1] != tree.split():
+            return False
+        if parents[0] == ready_head:
+            return True
         sha = parents[0]
-        message_out = git_out("log", "-1", "--format=%B", sha)
-        tree_out = git_out("rev-parse", f"{sha}^{{tree}}")
-        if message_out is None or tree_out is None:
-            break
-        trailers = parse_trailers(message_out, tree_out.strip())
-    return trailers
+    return False
 
 
 # --- the leak scan (leakscan-cli.md 6: the watcher only alarms, never stamps)
@@ -592,6 +585,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
         track(step, ticket, record, refs, main_sha, prs, rows)
         for ticket, record in sorted(records.items())
     ]
+    state["parser"] = PARSER  # every seen head has now been read by this version
 
     if refs is not None:
         watch_branches(step, refs, reviews)
@@ -646,16 +640,26 @@ def track(
         info = read_head(branch, head) if head is not None else ("", "")
         if info is not None:
             message, tree = info
-            trailers = (
-                head_trailers(head, message, tree, main_sha) if head is not None else Trailers(None)
+            trailers = parse_trailers(message, tree) if head is not None else Trailers(None)
+            # A clean merge of main on the head last seen READY (the lander's) keeps that READY, its
+            # time and its event; anything else in the merge is new work.
+            ready_head = seen.get("ready_head")
+            inherited = (
+                head is not None
+                and trailers.outcome is None
+                and isinstance(ready_head, str)
+                and clean_merges_of_main(head, ready_head, main_sha)
             )
+            if inherited:
+                trailers = Trailers("READY")
             seen.update(
                 head=head,
                 last_push_at=status.utc(at) if head is not None else seen["last_push_at"],
                 outcome=trailers.outcome,
                 reason=trailers.reason,
                 why=trailers.why,
-                outcome_at=status.utc(at),
+                outcome_at=seen.get("outcome_at") if inherited else status.utc(at),
+                ready_head=head if trailers.outcome == "READY" else None,
                 leak=None,
                 acceptance=head is not None and message.startswith("acceptance:"),
             )
@@ -664,13 +668,15 @@ def track(
                     step.event("PUSH", ticket, head[:8])
                 elif head != tip:  # equal to origin's tip: the launch tip or a head already pushed
                     step.event("COMMIT", ticket, head[:8])
-                if trailers.outcome == "READY":
+                if trailers.outcome == "READY" and not inherited:
                     step.event("READY", ticket, head[:8])
                 elif trailers.outcome == "BLOCKED":
                     step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
                 if where == "cloud":
                     seen["leak"] = leak_scan(head, main_sha)
                     step.state["leakscan"] = seen["leak"]["result"]
+    elif seen["head"] is not None and step.state.get("parser") != PARSER:
+        reread(step, ticket, seen)
     head = seen["head"]
     outcome = seen.get("outcome")
     pr = pr_for(branch, prs)
@@ -732,6 +738,29 @@ def track(
         "quiet_minutes": quiet if where == "cloud" else None,
         "pr": pr["number"] if pr is not None and pr["number"] >= 1 else None,
     }
+
+
+def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
+    """Read a seen head's outcome again: the state was written by another version of the trailer
+    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both."""
+    head = seen["head"]
+    info = read_head(seen["branch"], head)
+    if info is None:
+        return
+    trailers = parse_trailers(*info)
+    if trailers.outcome == seen.get("outcome"):
+        return
+    seen.update(
+        outcome=trailers.outcome,
+        reason=trailers.reason,
+        why=trailers.why,
+        outcome_at=status.utc(step.at),
+        ready_head=head if trailers.outcome == "READY" else None,
+    )
+    if trailers.outcome == "READY":
+        step.event("READY", ticket, head[:8])
+    elif trailers.outcome == "BLOCKED":
+        step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
 
 
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:

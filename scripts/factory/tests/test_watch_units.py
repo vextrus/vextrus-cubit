@@ -8,6 +8,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -218,14 +219,14 @@ def test_every_models_check_that_ran_is_stamped(
 ATTRIBUTION = "Co-Authored-By: x <x@example.invalid>\nClaude-Session: https://example.invalid/s"
 
 
-def test_trailers_before_an_attribution_only_paragraph_are_read() -> None:
-    ready = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(ready, TREE).outcome == "READY"
-    prose = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\nA note.\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(prose, TREE).outcome is None
-    assert watch.parse_trailers(f"{ATTRIBUTION}\n", TREE).outcome is None
-    mixed = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\nNote: y\n"
-    assert watch.parse_trailers(mixed, TREE).outcome is None
+def test_only_the_last_paragraph_counts_even_before_attribution() -> None:
+    """One rule for every consumer: the guard's push gate and the stop gate read the last paragraph."""
+    before = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\n"
+    assert watch.parse_trailers(before, TREE).outcome is None
+    blocked = f"feat: x\n\nFactory-State: BLOCKED\nFactory-Reason: r\n\n{ATTRIBUTION}\n"
+    assert watch.parse_trailers(blocked, TREE).outcome is None
+    within = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n{ATTRIBUTION}\n"
+    assert watch.parse_trailers(within, TREE).outcome == "READY"
 
 
 def git_in(repo: Path, *args: str) -> str:
@@ -257,21 +258,122 @@ def test_the_local_head_is_the_checkouts_own_ref(
     assert watch.local_head("a..b") is None
 
 
-def test_a_merge_of_main_takes_its_first_parents_outcome(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    git_in(tmp_path, "init", "-q", "-b", "main")
-    git_in(tmp_path, "commit", "-q", "--allow-empty", "-m", "seed")
-    seed = git_in(tmp_path, "rev-parse", "HEAD")
-    tree = git_in(tmp_path, "rev-parse", "HEAD^{tree}")
-    message = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {tree} ok\n"
-    ready = git_in(tmp_path, "commit-tree", tree, "-p", seed, "-m", message)
-    main = git_in(tmp_path, "commit-tree", tree, "-p", seed, "-m", "main moves")
-    side = git_in(tmp_path, "commit-tree", tree, "-p", seed, "-m", "a side branch")
-    git_in(tmp_path, "update-ref", "refs/heads/main", main)
-    merged = git_in(tmp_path, "commit-tree", tree, "-p", ready, "-p", main, "-m", "Merge main")
-    not_main = git_in(tmp_path, "commit-tree", tree, "-p", ready, "-p", side, "-m", "Merge side")
+class Repo:
+    """A git repository at `path` with main, a ticket branch and helpers for the track() seam."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        git_in(path, "init", "-q", "-b", "main")
+        self.commit("seed", "seed.txt")
+        self.seed = self.sha("HEAD")
+
+    def sha(self, ref: str) -> str:
+        return git_in(self.path, "rev-parse", ref)
+
+    def commit(self, message: str, name: str) -> str:
+        (self.path / name).write_text(f"{name}\n")
+        git_in(self.path, "add", name)
+        git_in(self.path, "commit", "-q", "-m", message)
+        return self.sha("HEAD")
+
+    def ready(self, name: str) -> str:
+        (self.path / name).write_text(f"{name}\n")
+        git_in(self.path, "add", name)
+        tree = git_in(self.path, "write-tree")
+        message = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {tree} ok"
+        git_in(self.path, "commit", "-q", "-m", message)
+        return self.sha("HEAD")
+
+
+def cloud_record(branch: str) -> dict[str, Any]:
+    return {
+        "ticket": "tu",
+        "branch": branch,
+        "where": "cloud",
+        "budget_minutes": 30,
+        "_started": datetime(2026, 10, 4, 19, 0, tzinfo=UTC),
+    }
+
+
+def seen_ready(head: str, *, stale: bool = False) -> dict[str, Any]:
+    ticket = {
+        "branch": "tu-branch",
+        "head": head,
+        "last_push_at": "2026-10-04T19:10:00Z",
+        "outcome": "READY",
+        "outcome_at": "2026-10-04T19:10:00Z",
+        "ready_head": head,
+    }
+    state: dict[str, Any] = {"schema": 1, "alarms": {}, "tickets": {"tu": ticket}}
+    if not stale:  # a state an older watcher wrote has no parser version
+        state["parser"] = watch.PARSER
+    return state
+
+
+def track_once(state: dict[str, Any], head: str, main: str) -> tuple[watch.Pass, dict[str, Any]]:
+    step = watch.Pass(Path("unused"), AT, state)
+    refs = {"tu-branch": head, "main": main}
+    return step, watch.track(step, "tu", cloud_record("tu-branch"), refs, main, [], None)
+
+
+@pytest.fixture
+def repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Repo:
     monkeypatch.chdir(tmp_path)
-    outcome = watch.head_trailers(merged, "Merge main\n", tree, main).outcome
-    assert outcome == "READY"
-    assert watch.head_trailers(not_main, "Merge side\n", tree, main).outcome is None
+    monkeypatch.setattr(watch, "leak_scan", lambda head, main: {"result": "clean"})
+    return Repo(tmp_path)
+
+
+def test_an_outcome_cached_by_an_older_parser_is_read_again_once(repo: Repo) -> None:
+    git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
+    head = repo.ready("r.txt")
+    state = seen_ready(head, stale=True)
+    state["tickets"]["tu"].update(outcome=None, ready_head=None)
+    step, item = track_once(state, head, repo.seed)
+    assert item["state"] == "ready"
+    assert [e for e in step.events if e[0] == "READY"] == [("READY", "tu", head[:8])]
+    assert not [a for a in step.alarms.values() if a[0] in ("BUDGET-PASSED", "BUILDER-QUIET")]
+
+    state["parser"] = watch.PARSER  # run_pass marks the state read
+    step, item = track_once(state, head, repo.seed)
+    assert item["state"] == "ready"
+    assert step.events == []
+
+
+def test_a_clean_merge_of_main_on_the_ready_head_stays_ready_without_a_new_event(
+    repo: Repo,
+) -> None:
+    git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
+    ready = repo.ready("r.txt")
+    git_in(repo.path, "checkout", "-q", "main")
+    main = repo.commit("main moves", "m.txt")
+    git_in(repo.path, "checkout", "-q", "tu-branch")
+    git_in(repo.path, "merge", "-q", "--no-edit", "main")
+    merged = repo.sha("HEAD")
+    state = seen_ready(ready)
+
+    step, item = track_once(state, merged, main)
+    assert (item["head"], item["state"]) == (merged, "ready")
+    assert [e[0] for e in step.events] == ["PUSH"]  # one READY in all: the first, not the merge's
+    assert state["tickets"]["tu"]["outcome_at"] == "2026-10-04T19:10:00Z"
+
+
+def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo) -> None:
+    git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
+    ready = repo.ready("r.txt")
+    git_in(repo.path, "checkout", "-q", "main")
+    main = repo.commit("main moves", "m.txt")
+    git_in(repo.path, "checkout", "-q", "tu-branch")
+    git_in(repo.path, "merge", "-q", "--no-commit", "main")
+    (repo.path / "fix.txt").write_text("a fix inside the merge\n")
+    git_in(repo.path, "add", "fix.txt")
+    git_in(repo.path, "commit", "-q", "--no-edit")
+    edited = repo.sha("HEAD")
+
+    _, item = track_once(seen_ready(ready), edited, main)
+    assert item["state"] == "working"
+
+    git_in(repo.path, "reset", "-q", "--hard", ready)
+    git_in(repo.path, "merge", "-q", "--no-edit", "main")
+    clean = repo.sha("HEAD")
+    _, item = track_once(seen_ready(repo.seed), clean, main)  # READY last seen on another head
+    assert item["state"] == "working"
