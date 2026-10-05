@@ -372,3 +372,214 @@ def test_a_bracketed_remark_under_a_title_is_not_its_title() -> None:
         d.text(line, (40, 279, 0.0), height=6.0)
         (view,) = drawn(d, one_sheet(d))
         assert view.title == title
+
+
+# Review round 1 (PR 409): each finding's case, red on 59eb6cb44 ----------------------------------------
+
+
+def test_two_thin_sections_stacked_in_one_piece_are_still_parted() -> None:
+    """Round 1, F5: two cross sections 12 mm tall stacked in one piece, joined by bar labels, their
+    titles 6 mm tall: each part is a drawing taller than its title (`MIN_PART`), so the piece is cut
+    and both are views."""
+    labels = [("2-16 ST.", (402.0, 312.0 + 8 * i)) for i in range(4)]
+    d, sheet = labelled_sections(
+        [("SECTION 1-1", (330, 300, 400, 312)), ("SECTION 2-2", (330, 340, 400, 352))], labels
+    )
+    found = drawn(d, sheet)
+    assert sorted(v.title for v in found if v.title) == ["SECTION 1-1", "SECTION 2-2"]
+
+
+def test_a_titles_frame_alone_is_never_a_part() -> None:
+    """The guard: a frame boxed round the long section's title, 2.4 title heights tall, under the
+    drawing. A part holding only lines round its titles is their frame, never a drawing, so the piece
+    is the long section's and the frame its."""
+    d, sheet = labelled_sections(
+        [(None, (40, 300, 300, 380)), (None, (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    for y in (340, 370):
+        line(d, (290, y), (345, y))  # two lines running into both: no band down
+    for a, b in (
+        ((38, 282), (200, 282)),
+        ((38, 294), (200, 294)),
+        ((38, 282), (38, 294)),
+        ((200, 282), (200, 294)),
+    ):
+        line(d, a, b)  # the title's frame, 12 mm tall
+    d.text("LONG SECTION OF BEAM B1", (OX + 40 * SCALE, 285 * SCALE, 0.0), height=5.0 * SCALE)
+    d.text("SEC. 1-1", (OX + 330 * SCALE, 296 * SCALE, 0.0), height=4.0 * SCALE)
+    (view,) = drawn(d, sheet)
+    assert view.title == "LONG SECTION OF BEAM B1"
+    assert view.box.y1 == pytest.approx(380, abs=1)
+
+
+def callout_beside_a_plan(callout: str) -> list[object]:
+    """A beam plan with its member labels (the sheet's lettering), an untitled drawing beside it and
+    a one-line callout under that drawing at the sheet's lettering."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    grid(d, (400, 300, 560, 420))
+    d.text("GROUND FLOOR BEAM LAYOUT PLAN", (40, 288, 0.0), height=6.0)
+    for i in range(12):
+        d.text(f"B{i + 1}", (60 + 20 * i, 330, 0.0), height=2.5)
+    d.text(callout, (400, 292, 0.0), height=2.5)
+    return drawn(d, one_sheet(d))  # type: ignore[return-value]
+
+
+@pytest.mark.parametrize(
+    "callout",
+    [
+        "SEE DETAIL D-3 ON SHEET S-07 FOR BEAM B-12 (250X450) AT GRID C/4-5",
+        "SECTION AT GRID 3-3 BETWEEN C-D, EL. +3.050 TO +6.100, SEE S-12",
+        "SECTION THRU BEAM B-4 (250X450) REFER S-9 FOR BARS AT GRID 2/C-D",
+    ],
+)
+def test_a_callout_full_of_figures_and_references_is_no_title(callout: str) -> None:
+    """Round 1, F4: a callout of more tokens than `MAX_TITLE_WORDS`, few of them words, pointing
+    elsewhere (see, refer, sheet): no title, so the drawing beside it stays untitled."""
+    found = callout_beside_a_plan(callout)
+    assert [v.title for v in found if v.title] == ["GROUND FLOOR BEAM LAYOUT PLAN"]  # type: ignore[attr-defined]
+
+
+def test_a_text_of_more_tokens_than_twice_a_titles_words_is_no_title() -> None:
+    """Round 1, F4: past `2 * MAX_TITLE_WORDS` tokens a text is a note however few its words."""
+    found = callout_beside_a_plan(
+        "DETAIL B-1 B-2 B-3 B-4 B-5 B-6 B-7 B-8 B-9 B-10 B-11 B-12 B-13 (10X14) (12X16) (8X10)"
+    )
+    assert [v.title for v in found if v.title] == ["GROUND FLOOR BEAM LAYOUT PLAN"]  # type: ignore[attr-defined]
+
+
+def test_a_wardrobes_compartments_in_its_titled_elevation_are_no_schedule() -> None:
+    """Round 1, lens 2's F2: a wardrobe elevation, its shelves evenly spaced, its sides framing them,
+    its partition stopping under a loft spanning the top, a word in each compartment: a ruled grid
+    making the bulk of a titled drawing is that drawing (`TABLE_DRAWN`), never a schedule."""
+    d = Sheets()
+    grid(d, (200, 300, 300, 400))  # another drawing, apart
+    d.text("GROUND FLOOR PLAN", (200, 288, 0.0), height=6.0)
+    for a, b in (
+        ((60, 315), (120, 315)),
+        ((60, 315), (60, 390)),
+        ((120, 315), (120, 390)),
+        ((60, 390), (120, 390)),
+    ):
+        d.line(a, b)  # the carcass
+    rows = [320.0, 335.0, 350.0, 365.0, 380.0]
+    for y in rows:
+        d.line((70.0, y), (110.0, y))
+    for x in (70.0, 110.0):
+        d.line((x, rows[0]), (x, rows[-1]))
+    d.line((90.0, rows[0]), (90.0, rows[-2]))  # the partition, under the loft
+    for y in rows[:-2]:
+        d.text("SHELF", (72.0, y + 5, 0.0), height=2.0)
+        d.text("HOOKS", (92.0, y + 5, 0.0), height=2.0)
+    d.text("LOFT", (72.0, rows[-2] + 5, 0.0), height=2.0)
+    d.text("FLAP", (92.0, rows[-2] + 5, 0.0), height=2.0)
+    d.text("WARDROBE W1 ELEVATION", (60, 305, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    assert not [v for v in found if v.kind is ViewKind.SCHEDULE]
+    elevation = next(v for v in found if v.kind is ViewKind.ELEVATION)
+    assert near(elevation.box, (60, 305, 120, 390), by=40.0)
+
+
+def plan_over(line_under: str) -> object:
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("WASHROOM FITTINGS PLAN", (40, 288, 0.0), height=6.0)
+    d.text(line_under, (40, 279, 0.0), height=6.0)
+    (view,) = drawn(d, one_sheet(d))
+    return view
+
+
+@pytest.mark.parametrize(
+    "line_under",
+    [
+        "(EXCEPT 5TH FLOOR)",
+        "(SEE 2ND FLOOR PLAN)",
+        "(SAME AS 3RD FLOOR)",
+        "(FOR 2ND FLOOR SLAB)",
+        "(5TH FLOOR ONLY)",
+        "(SIMILAR TO 4TH FLOOR)",
+    ],
+)
+def test_a_bracketed_line_excepting_or_pointing_at_a_storey_is_no_storeys_line(line_under: str) -> None:
+    """Round 1, F3: a bracketed line naming a storey among other words (it excepts it, points at it or
+    says what of it) is no statement of the storeys the plan draws: the title stays its own."""
+    view = plan_over(line_under)
+    assert view.title == "WASHROOM FITTINGS PLAN"  # type: ignore[attr-defined]
+    assert not {"floor_2", "floor_3", "floor_4", "floor_5"} & set(view.storeys)  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "line_under", ["(2ND, 4TH & 6TH FLOORS)", "(14TH - 17TH FLOOR)", "(2ND AND 3RD FLOOR)", "(ROOF)"]
+)
+def test_a_bracketed_list_or_range_of_storeys_is_the_titles(line_under: str) -> None:
+    """The guard: storeys listed or ranged, with nothing else, continue the title."""
+    view = plan_over(line_under)
+    assert view.title == f"WASHROOM FITTINGS PLAN {line_under}"  # type: ignore[attr-defined]
+
+
+def test_plans_whose_storeys_are_only_bracketed_raise_no_same_storey_conflict() -> None:
+    """Round 1, F2: two plumbing sheets, each a different washroom's fittings plan over one bracketed
+    range of storeys. The line continues each title, but the storeys it names are where the plan
+    applies, not the storey it draws: the plans' storeys stay their titles' own (none stated), so the
+    two give no same_storey Conflict (a part plan is no storey drawn twice)."""
+    from dataclasses import replace
+
+    from engine.recognise import conflicts, sheets
+    from engine.recognise.tests.drawing import DEFAULT, frame_block
+    from engine.recognise.tests.test_views import CONVENTIONS, framed
+
+    found_sheets, found_views = [], []
+    for number, sheet_title in (("P-01", "WASHROOM W1 DETAILS"), ("P-02", "WASHROOM W2 DETAILS")):
+        d = Sheets()
+        grid(d, (40, 300, 340, 560))
+        d.text("SANITARY FITTINGS PLAN", (40, 288, 0.0), height=6.0)
+        d.text("(2ND TO 6TH FLOOR)", (40, 279, 0.0), height=6.0)
+        framed(d, frame_block(d), (0.0, 0.0), 1.0, {0: sheet_title, 2: number})
+        (sheet,) = sheets.find(d.artefact(), "plumbing", DEFAULT)
+        plans = [v for v in views.find(d.artefact(), sheet, CONVENTIONS) if v.kind is ViewKind.PLAN]
+        assert [v.title for v in plans] == ["SANITARY FITTINGS PLAN (2ND TO 6TH FLOOR)"]
+        assert plans[0].subject == "fixture"
+        found_sheets.append(replace(sheet, group="b1"))
+        found_views.append(plans)
+    found = conflicts.find(found_sheets, found_views, DEFAULT)
+    assert not [c for c in found if getattr(c, "kind", None) == conflicts.SAME_STOREY]
+
+
+def test_a_titled_schedules_own_ruled_rows_are_no_second_schedule() -> None:
+    """Round 1's measure (the Sample Project's general sheet): a titled schedule whose ruled rows are
+    also a small table, and a sub-table in its corner. Both lie in the titled schedule's box: its own,
+    never an untitled schedule (each would be a view no Step accounts for)."""
+    d = Sheets()
+    grid(d, (40, 300, 340, 560))
+    d.text("GROUND FLOOR PLAN", (40, 288, 0.0), height=6.0)
+    table(d, [400.0, 410.0, 420.0, 430.0, 440.0, 450.0], x0=400.0, x1=560.0)
+    table(d, [452.0, 456.0, 460.0, 464.0, 468.0, 472.0], x0=500.0, x1=560.0)
+    d.text("QX FIXING SCHEDULE", (400, 476, 0.0), height=6.0)
+    found = drawn(d, one_sheet(d))
+    schedules = [v for v in found if v.kind is ViewKind.SCHEDULE]
+    assert [v.title for v in schedules] == ["QX FIXING SCHEDULE"]
+
+
+def test_a_thin_strip_clear_of_its_titles_band_is_still_no_part() -> None:
+    """The guard for `MIN_PART`: the 1 mm band under the long section, but its title set lower, clear of
+    the band by more than its height: no frame of the title, yet a part less tall than its title is no
+    drawing, so the piece stays the long section's."""
+    d, sheet = labelled_sections(
+        [(None, (40, 300, 300, 380)), (None, (330, 300, 370, 380))],
+        LABELS_ACROSS,
+    )
+    for y in (340, 370):
+        line(d, (290, y), (345, y))  # two lines running into both: no band down
+    for a, b in (
+        ((40, 293), (300, 293)),
+        ((40, 294), (300, 294)),
+        ((40, 293), (40, 294)),
+        ((300, 293), (300, 294)),
+    ):
+        line(d, a, b)  # a closed band, 1 mm tall
+    d.text("LONG SECTION OF BEAM B1", (OX + 40 * SCALE, 280 * SCALE, 0.0), height=5.0 * SCALE)
+    d.text("SEC. 1-1", (OX + 330 * SCALE, 296 * SCALE, 0.0), height=4.0 * SCALE)
+    (view,) = drawn(d, sheet)
+    assert view.title == "LONG SECTION OF BEAM B1"
+    assert view.box.y1 == pytest.approx(380, abs=1)
