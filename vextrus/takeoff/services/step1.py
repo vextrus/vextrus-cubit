@@ -334,10 +334,11 @@ def _user() -> uuid.UUID:
 
 
 def _sheets(project_id: uuid.UUID) -> list[drawings.SheetView]:
-    """The Project's printed sheets in the sheet list (the scope checked first); none before a file."""
+    """The Project's printed sheets in the sheet list (the scope checked first); none before a file.
+    Their anchors are not read (`drawings.UNLOADED`): Step 1's lists and acts never use them."""
     projects.get(project_id)
     drawing_set = drawings.set_of(project_id)
-    return drawings.sheets(drawing_set.id) if drawing_set else []
+    return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
 
 
 def _proposals_of(project_id: uuid.UUID) -> list[Proposal]:
@@ -355,6 +356,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
     drawing_set = drawings.set_of(project_id)
     names = {f.id: f.name for f in drawings.files(drawing_set.id)} if drawing_set else {}
+    viewed = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
@@ -367,7 +369,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     order = markets.of_developer(_tenant()).date_order
     return [
         replace(
-            _proposal_view(s, by_sheet.get(s.id), names, who, order),
+            _proposal_view(s, by_sheet.get(s.id), viewed.get(s.id, []), names, who, order),
             agrees=s.id in agreeing,
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
@@ -442,6 +444,7 @@ def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.Sh
 def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
+    views: Sequence[drawings.ViewView],
     names: Mapping[uuid.UUID, str],
     who: Mapping[uuid.UUID, tuple[str, datetime, str]],
     date_order: str,
@@ -479,7 +482,7 @@ def _proposal_view(
         plot_page=sheet.plot.page,
         plot_residual=sheet.plot.residual,
         plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
-        views=[_sheet_view_view(v) for v in drawings.views(sheet.id)],
+        views=[_sheet_view_view(v) for v in views],
     )
 
 
@@ -1145,7 +1148,9 @@ def _confirm(
                 raise auth.Refused(said.KIND_NOT_OFFERED(), status=400)
             given = kind if kind is not None else answered.get(proposal.id)
             wanted = given if given is not None else (pick.get("choice") or sheet.kind)
-            drawings.confirm_sheet(sheet.id, confirmation_id=act.id, kind=wanted)
+            decided = drawings.confirm_sheet(
+                sheet.id, confirmation_id=act.id, kind=wanted, anchors=False
+            )
             _stamp(proposal, ProposalStatus.CONFIRMED, act)
             if given is not None and proposal.jev_answer_id and given != pick.get("choice"):
                 # A kind Jev was not offered changes no answer of the node's: nothing to log.
@@ -1156,7 +1161,7 @@ def _confirm(
                         qs_choice=given,
                         project_id=project_id,
                     )
-            _decide_views(sheet.id, act, None, "")
+            _decide_views(sheet.id, act, None, "", confirmed=decided)
         record_progress(project_id)
     return _act_view(act)
 
@@ -1550,11 +1555,15 @@ def _steps_standing(
     return found
 
 
-def _standing_steps(row: Coverage) -> list[str]:
-    try:
-        deciding = drawings.sheet(row.sheet_revision_id).confirmation_id
-    except auth.NotFound:
-        deciding = None
+def _standing_steps(row: Coverage, sheet: drawings.SheetView | None = None) -> list[str]:
+    """The view's standing steps; `sheet`: its sheet as it stands, when already in hand (else read)."""
+    if sheet is not None:
+        deciding = sheet.confirmation_id
+    else:
+        try:
+            deciding = drawings.sheet(row.sheet_revision_id).confirmation_id
+        except auth.NotFound:
+            deciding = None
     return [s.step for s in _steps_standing([row], {row.sheet_revision_id: deciding}).get(row.id, [])]
 
 
@@ -1570,14 +1579,21 @@ def _give_step(row: Coverage, step: str, act: Confirmation) -> None:
     )
 
 
-def _account(row: Coverage, sheet: drawings.SheetView, act: Confirmation) -> bool:
+def _account(
+    row: Coverage,
+    sheet: drawings.SheetView,
+    act: Confirmation,
+    standing: Sequence[str] | None = None,
+) -> bool:
     """A view the read gave no step, on a sheet confirmed by `act`: assigned under the act when a step
     stands for it (the QS's `assign`), else when its sheet's confirmed kind names Steps, given them by
-    the act (a Structural `beam_details`: beams). False when neither: it stays unaccounted."""
-    if not _standing_steps(row):
-        for step in view_finder.kind_steps(sheet.confirmed_kind or "", sheet.discipline):
+    the act (a Structural `beam_details`: beams). False when neither: it stays unaccounted.
+    `standing`: its standing steps, when already read (`_steps_standing` of the sheet's views)."""
+    if not (_standing_steps(row, sheet) if standing is None else standing):
+        given = view_finder.kind_steps(sheet.confirmed_kind or "", sheet.discipline)
+        for step in given:
             _give_step(row, step, act)
-        if not _standing_steps(row):
+        if not given or not _standing_steps(row, sheet):
             return False
     row.status, row.reason, row.reason_text = CoverageStatus.ASSIGNED, "", ""
     row.confirmation = act
@@ -1770,19 +1786,38 @@ def _act_view(act: Confirmation) -> ActView:
     return ActView(act.id, act.act, act.proposals, act.by_name, act.at)
 
 
-def _decide_views(sheet_id: uuid.UUID, act: Confirmation, reason: str | None, text: str) -> None:
+def _decide_views(
+    sheet_id: uuid.UUID,
+    act: Confirmation,
+    reason: str | None,
+    text: str,
+    *,
+    confirmed: drawings.SheetView | None = None,
+) -> None:
     """The sheet's views' Coverage follows it: confirmed as proposed (an unaccounted view stays so),
-    or excluded with the sheet's reason."""
+    or excluded with the sheet's reason. `confirmed`: the sheet as its confirmation left it, when in
+    hand (read once here otherwise, never once a view)."""
     own = _excluded_on_their_own(act.project_id, sheet_id)
-    sheet = drawings.sheet(sheet_id) if reason is None else None
-    for row in Coverage.objects.select_for_update().filter(
-        project_id=act.project_id, sheet_revision_id=sheet_id
-    ):
+    sheet = None
+    if reason is None:
+        sheet = confirmed if confirmed is not None else drawings.sheet(sheet_id)
+    rows = list(
+        Coverage.objects.select_for_update().filter(
+            project_id=act.project_id, sheet_revision_id=sheet_id
+        )
+    )
+    standing: dict[uuid.UUID, list[CoverageStep]] | None = None
+    for row in rows:
         if reason is None and row.view_id in own:
             continue  # the QS left this view out on its own: confirming its sheet keeps it so
         if sheet is not None and row.proposed_status == CoverageStatus.UNACCOUNTED:
-            if not _account(row, sheet, act):
-                _put_back(row)
+            if standing is None:  # the sheet's views' standing steps, read once
+                standing = _steps_standing(rows, {sheet_id: sheet.confirmation_id})
+            steps = [s.step for s in standing.get(row.id, [])]
+            if not _account(row, sheet, act, steps):
+                # Nothing given by its kind: its standing steps are still those read.
+                kind = view_finder.kind_steps(sheet.confirmed_kind or "", sheet.discipline)
+                _put_back(row, sheet, None if kind else steps)
             continue
         if reason is None:
             row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
@@ -1823,7 +1858,7 @@ def _follow_sheet(row: Coverage) -> None:
         row.reason_text = sheet.excluded_text
     elif row.proposed_status == CoverageStatus.UNACCOUNTED:
         if not _account(row, sheet, act):
-            _put_back(row)
+            _put_back(row, sheet)
         return
     else:
         row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
@@ -1832,10 +1867,16 @@ def _follow_sheet(row: Coverage) -> None:
     row.save(update_fields=["status", "reason", "reason_text", "confirmation", "confirmed_by"])
 
 
-def _put_back(row: Coverage) -> None:
-    """The view as proposed: as the read proposed it, or proposed with the steps the QS put it in."""
+def _put_back(
+    row: Coverage, sheet: drawings.SheetView | None = None, standing: Sequence[str] | None = None
+) -> None:
+    """The view as proposed: as the read proposed it, or proposed with the steps the QS put it in;
+    `sheet`: its sheet as it stands, and `standing`: its standing steps, when in hand."""
     row.status, row.reason, row.reason_text = row.proposed_status, row.proposed_reason, ""
-    if row.status == CoverageStatus.UNACCOUNTED and _standing_steps(row):
+    steps = standing if standing is not None else None
+    if row.status == CoverageStatus.UNACCOUNTED and (
+        steps if steps is not None else _standing_steps(row, sheet)
+    ):
         row.status = CoverageStatus.ASSIGNED
     row.confirmation = None
     row.confirmed_by = None

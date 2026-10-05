@@ -269,8 +269,11 @@ def _anchor_json(anchor: drawings.StoredAnchor) -> dict[str, Any]:
 # The sheets as the engine's candidates -------------------------------------------------------------
 
 
-def candidate(sheet: drawings.SheetView, group: str | None = None) -> SheetCandidate:
-    """A printed sheet as 13's candidate again: its place, what was read on it, its group."""
+def candidate(
+    sheet: drawings.SheetView, group: str | None = None, *, anchors: bool = True
+) -> SheetCandidate:
+    """A printed sheet as 13's candidate again: its place, what was read on it, its group; its anchors
+    unless `anchors=False` (a sheet listed without them: the conflict check does not read them)."""
     location = sheet.location
     if "layout" in location:
         place = SheetLocation(layout=str(location["layout"]))
@@ -284,10 +287,10 @@ def candidate(sheet: drawings.SheetView, group: str | None = None) -> SheetCandi
         source = sheet.sources.get(name) or ValueSource.TITLE_BLOCK_TEXT
         return Sourced(value, ValueSource(source))
 
-    anchors = []
-    for stored in sheet.anchors:
+    found = []
+    for stored in sheet.anchors if anchors else ():
         try:
-            anchors.append(stored.anchor())
+            found.append(stored.anchor())
         except KeyError, TypeError, ValueError:  # an anchor kept in an older shape: not needed here
             continue
     return SheetCandidate(
@@ -298,7 +301,7 @@ def candidate(sheet: drawings.SheetView, group: str | None = None) -> SheetCandi
         revision_mark=sourced(sheet.revision_mark, "revision_mark"),
         issue_date=sourced(sheet.issue_date, "issue_date"),
         storeys_as_stated=sourced(sheet.storeys_as_stated, "storeys_as_stated"),
-        anchors=tuple(anchors),
+        anchors=tuple(found),
         group=group,
     )
 
@@ -362,7 +365,8 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
     conventions = step1.sheet_conventions()
     sheets = [candidate(s, groups.get(s.file_id, "site")) for s in listed]
-    viewed = [drawings.views(s.id) for s in listed]
+    of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
+    viewed = [of_sheet.get(s.id, []) for s in listed]
     views = [[view_candidate(v) for v in vs] for vs in viewed]
     proposal_of = step1.proposal_ids(project_id)
     recognisers = finder.recognisers(conventions)
@@ -377,14 +381,20 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     answer, undo): those of sheets now decided retired, those of sheets undecided again asked again;
     how many are open. No Check is run (its runs are the reads')."""
     drawing_set = drawings.set_of(project_id)
-    listed = drawings.sheets(drawing_set.id) if drawing_set is not None else []
-    groups = {f.id: f.group for f in drawings.files(drawing_set.id)} if drawing_set else {}
+    if drawing_set is None:
+        listed: list[drawings.SheetView] = []
+        groups: dict[uuid.UUID, str] = {}
+        of_sheet: dict[uuid.UUID, list[drawings.ViewView]] = {}
+    else:
+        listed = drawings.sheets(drawing_set.id, anchors=False)
+        groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
+        of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
     conventions = step1.sheet_conventions()
     return _conflicts(
         project_id,
         listed,
-        [candidate(s, groups.get(s.file_id, "site")) for s in listed],
-        [[view_candidate(v) for v in drawings.views(s.id)] for s in listed],
+        [candidate(s, groups.get(s.file_id, "site"), anchors=False) for s in listed],
+        [[view_candidate(v) for v in of_sheet.get(s.id, [])] for s in listed],
         step1.proposal_ids(project_id),
         finder.recognisers(conventions),
         conventions,
