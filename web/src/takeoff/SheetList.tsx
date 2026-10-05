@@ -15,7 +15,7 @@ import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
 import { QuestionTitle } from './questionWords'
-import { distinctTitles, listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
+import { distinctTitles, listSheet, rowState, titlesDiffer, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
@@ -514,28 +514,35 @@ function SheetRow({
         <span className="shrink-0 whitespace-nowrap">, {count} copies</span>
       </Trans>
     )
-  else if (row.kind === 'number-shared') {
-    const titles = <Titles sheets={row.sheets} />
+  else if (row.kind === 'number-shared')
     title = (
-      <Trans>
-        <span className="shrink-0 whitespace-nowrap">{count} sheets share the number, titles differ:</span> {titles}
-      </Trans>
+      <>
+        <Titles sheets={row.sheets} />
+        <KindWords>
+          <Plural value={row.sheets.length} one="# sheet shares the number" other="# sheets share the number, titles differ" />
+        </KindWords>
+      </>
     )
-  } else if (row.kind === 'title-shared')
+  else if (row.kind === 'title-shared')
     title = (
-      <Trans>
-        <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
-        <span className="shrink-0 whitespace-nowrap">, {count} sheets that may draw the same thing</span>
-      </Trans>
+      <>
+        <Titles sheets={row.sheets} />
+        <KindWords>
+          <Plural value={row.sheets.length} one="# sheet that may draw the same thing" other="# sheets that may draw the same thing" />
+        </KindWords>
+      </>
     )
-  else if (row.kind === 'sheets') {
-    const titles = <Titles sheets={row.sheets} />
+  else if (row.kind === 'sheets' || (row.sheets.length > 1 && !row.title && titlesDiffer(row.sheets)))
+    // A Question's sheets of other numbers and titles, or a continuation split by a decision (its group's title no longer fits).
     title = (
-      <Trans>
-        <span className="shrink-0 whitespace-nowrap">{count} sheets:</span> {titles}
-      </Trans>
+      <>
+        <Titles sheets={row.sheets} />
+        <KindWords>
+          <Plural value={row.sheets.length} one="# sheet" other="# sheets" />
+        </KindWords>
+      </>
     )
-  } else if (row.sheets.length > 1)
+  else if (row.sheets.length > 1)
     title = (
       <Trans>
         <DrawingText kind="title" text={row.title ?? first?.title ?? ''} className="min-w-0" />
@@ -543,7 +550,6 @@ function SheetRow({
       </Trans>
     )
   else title = <DrawingText kind="title" text={row.title ?? first?.title ?? ''} className="min-w-0" />
-  const series = row.series !== undefined ? f.integer(row.series) : null
 
   return (
     <div
@@ -588,18 +594,16 @@ function SheetRow({
           </span>
         )}
       </span>
-      {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
+      {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left).
+          The held mark leads, so it is never clipped; the kind and series words give up their width before the titles do (#322, round 1). */}
       <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
-        {title}
-        {series !== null ? (
-          <>
-            {' '}
-            <span className="ms-2 shrink-0 text-xs text-muted-foreground">
-              <Trans>{series} sheets share this title</Trans>
-            </span>
-          </>
-        ) : null}
         {row.sheets.some((s) => s.held) ? <HeldMark /> : null}
+        {title}
+        {row.series !== undefined ? (
+          <KindWords>
+            <Plural value={row.series} one="# sheet shares this title" other="# sheets share this title" />
+          </KindWords>
+        ) : null}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <DisciplineCell sheet={first} /> : null}
@@ -638,7 +642,7 @@ function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={-1} className="ms-1 min-w-0 truncate">
+        <span tabIndex={-1} data-titles="" className="min-w-[4ch] truncate">
           {items}
         </span>
       </TooltipTrigger>
@@ -647,12 +651,32 @@ function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
   )
 }
 
+/**
+ * What a row's sheets are, after their titles ("2 sheets share the number, titles differ"), muted. It
+ * gives up its width before the titles do, never below a few characters, and its tooltip reads it whole.
+ */
+function KindWords({ children }: { children: ReactNode }) {
+  return (
+    <>
+      {' '}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={-1} data-kind-words="" className="ms-1.5 min-w-[9ch] shrink-[20] truncate text-xs text-muted-foreground">
+            {children}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">{children}</TooltipContent>
+      </Tooltip>
+    </>
+  )
+}
+
 /** A read-anyway file's sheet (#322, FL4): the Drawing Set's held chip promises "its sheets are marked". */
 function HeldMark() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={-1} className="ms-2 inline-flex h-4 shrink-0 items-center self-center rounded-sm border border-question bg-question-surface px-1 text-xs leading-none text-question">
+        <span tabIndex={-1} data-held="" className="me-1.5 inline-flex h-4 shrink-0 items-center self-center rounded-sm border border-question bg-question-surface px-1 text-xs leading-none text-question">
           <Trans>held</Trans>
         </span>
       </TooltipTrigger>

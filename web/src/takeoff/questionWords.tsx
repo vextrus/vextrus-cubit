@@ -5,6 +5,7 @@
  * Drawing Set's files; a copy's mark and date from the sheets it holds), the words use what the screen has.
  */
 import type { ReactNode } from 'react'
+import { plural } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
@@ -49,7 +50,7 @@ export function useKindLine(entry: QuestionEntry): string {
   const n = typeof q.params.sheets === 'number' && q.params.sheets > 1 ? q.params.sheets : null
   const count = n === null ? '' : f.integer(n)
   if (q.code === 'engine.conflicts.same_title' && n !== null) return n === 2 ? t`One title on two sheets` : t`One title on ${count} sheets`
-  if (q.code === 'engine.conflicts.same_storey' && n !== null) return n === 2 ? t`Two sheets may draw one thing` : t`${count} sheets may draw one thing`
+  if (q.code === 'engine.conflicts.same_storey' && n !== null) return t({ message: plural(n, { 2: 'Two sheets may draw one thing', other: '# sheets may draw one thing' }) })
   return i18n._(QUESTION_KIND_BY_CODE[q.code] ?? QUESTION_KINDS[q.kind] ?? OTHER_QUESTION)
 }
 
@@ -527,12 +528,12 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       if (others > 1)
         return (
           <Trans>
-            Answering confirms {kept} and leaves the other <Plural value={others} one="# sheet" other="# sheets" /> out.
+            Answering confirms {kept}; the other <Plural value={others} one="# sheet is" other="# sheets are" /> left out.
           </Trans>
         )
       return (
         <Trans>
-          Answering confirms {kept} and leaves {dropped} out.
+          Answering confirms {kept}; {dropped} is left out.
         </Trans>
       )
     }
@@ -633,12 +634,12 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     if (others > 1)
       return (
         <Trans>
-          {tag} answered. Confirms {kept} and leaves the other <Plural value={others} one="# sheet" other="# sheets" /> out.
+          {tag} answered. Confirms {kept}; the other <Plural value={others} one="# sheet is" other="# sheets are" /> left out.
         </Trans>
       )
     return (
       <Trans>
-        {tag} answered. Confirms {kept} and leaves {dropped} out.
+        {tag} answered. Confirms {kept}; {dropped} is left out.
       </Trans>
     )
   }

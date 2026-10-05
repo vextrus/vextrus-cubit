@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowKindOf, rowState, step1Model, titlesDiffer } from './model'
+import { compareNumbers, nextOpenRow, numberKey, numberingOf, questionQueue, rowKindOf, rowState, step1Model, titlesDiffer } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -328,5 +328,34 @@ describe('the server’s groups (T-W334’s fields, #334)', () => {
   it('counts a series over every Proposal of it, and none outside one', () => {
     const rows = step1Model(data([grouped('S-31', 'TIE BEAM', { series: 'x' }), grouped('S-35', 'TIE BEAM', { series: 'x' }), grouped('S-38', 'GRADE BEAM', { series: null })])).disciplines[0]!.rows
     expect(rows.map((r) => r.series)).toEqual([2, 2, undefined])
+  })
+})
+
+describe('one number as the engine judges it (#322 review, round 1)', () => {
+  const sameNumber = question('conflict', { code: 'engine.conflicts.same_number' })
+
+  it('reads a same_number Question’s sheets as one number by its code, so only their titles decide', () => {
+    expect(rowKindOf([sheet('E-08 R1', { title: 'RISER DIAGRAM' }), sheet('E-08 R2', { title: 'riser  diagram' })], sameNumber)).toBe('copies')
+    expect(rowKindOf([sheet('E-08', { title: 'RISER DIAGRAM' }), sheet('EL-08', { title: 'RISER DIAGRAM' })], sameNumber)).toBe('copies')
+    expect(rowKindOf([sheet('E-08 R1', { title: 'RISER DIAGRAM 1' }), sheet('E-08 R2', { title: 'RISER DIAGRAM 2' })], sameNumber)).toBe('number-shared')
+  })
+
+  it('compares numbers with the revision split off, punctuation and padding ignored', () => {
+    expect(['E-08', 'E08', 'e-008', 'E-08 R3', 'E-08 rev B'].map(numberKey)).toEqual(['e8', 'e8', 'e8', 'e8', 'e8'])
+    expect(numberKey('E-18')).not.toBe(numberKey('E-08'))
+    expect(rowKindOf([sheet('E-08', { title: 'PANEL' }), sheet('E08', { title: 'PANEL' })])).toBe('copies')
+  })
+})
+
+describe('a continuation by the server’s id still runs on (#322 review, round 1)', () => {
+  it('does not join two members around one a Question holds', () => {
+    const group = { continuation: 'k', continuation_title: 'SUMP S1-S3' } as Partial<ProposalOut>
+    const [first, held1, held2, last] = [sheet('P-11', { title: 'SUMP S1', ...group }), sheet('P-12', { title: 'SUMP S2', ...group }), sheet('P-12', { title: 'SUMP S2', ...group }), sheet('P-13', { title: 'SUMP S3', ...group })]
+    const asked = question('conflict', { code: 'engine.conflicts.same_number', proposals: [held1!.id, held2!.id] } as Partial<QuestionOut>)
+    const rows = step1Model(data([first!, held1!, held2!, last!], [asked])).disciplines[0]!.rows
+    expect(rows.map((r) => [r.number, r.numberTo, r.sheets.length])).toEqual([
+      ['P-11', null, 1],
+      ['P-13', null, 1],
+    ])
   })
 })
