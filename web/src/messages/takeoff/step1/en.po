@@ -63,3 +63,31 @@ msgstr "No view was chosen, so nothing was assigned. Choose one or more views, t
 
 msgid "takeoff.step1.view_accounted"
 msgstr "Nothing was assigned: {count, plural, one {a view you chose already has} other {# views you chose already have}} a Takeoff Step, a Discipline Part or an exclusion. Only a view still unaccounted can be assigned, so choose only those and assign again."
+
+#. T-W323: the acts, in the event log (the Acts panel in Members and access); `actor` carries "(Vextrus)" already. A confirm, one sheet or in bulk.
+msgid "takeoff.step1.confirmed"
+msgstr "{actor} confirmed {sheets, plural, one {# sheet} other {# sheets}} in Step 1"
+
+#. An exclusion: its sheets, and its views left out on their own.
+msgid "takeoff.step1.left_out"
+msgstr "{actor} left out {sheets, plural, =0 {{views, plural, one {# view} other {# views}}} one {# sheet{views, plural, =0 {} one { and # view} other { and # views}}} other {# sheets{views, plural, =0 {} one { and # view} other { and # views}}}} in Step 1"
+
+#. Views put in Takeoff Steps.
+msgid "takeoff.step1.views_assigned"
+msgstr "{actor} put {views, plural, one {# view} other {# views}} in Takeoff Steps"
+
+#. A Question answered (any option but keep open).
+msgid "takeoff.step1.answered"
+msgstr "{actor} answered a Question in Step 1"
+
+#. A Question kept open, to ask the consultant.
+msgid "takeoff.step1.kept_open"
+msgstr "{actor} kept a Question open in Step 1"
+
+#. A drawing list given.
+msgid "takeoff.step1.list_changed"
+msgstr "{actor} changed a drawing list in Step 1"
+
+#. The actor's last act taken back.
+msgid "takeoff.step1.undone"
+msgstr "{actor} took back their last act in Step 1"

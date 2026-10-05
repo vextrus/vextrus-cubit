@@ -36,6 +36,17 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   sheets neither confirmed nor excluded), `lists_disagree` (two drawing lists disagree: N is "—"),
   `questions_open` (its Questions open or kept open) and `views_unaccounted` (its views with no step,
   Part or exclusion).
+
+The acts, in the event log (T-W323; each a DomainEvent written in the act's own transaction, its
+payload ids and counts only; the activity API adds `actor`):
+- `confirmed`: sheets confirmed in one act, one or in bulk (`sheets`, how many).
+- `left_out`: sheets left out (`sheets`) and views left out on their own (`views`; 0 when none).
+- `views_assigned`: views put in Takeoff Steps (`views`).
+- `answered`: a Question answered (any option but "keep open"); its confirm or exclusion is no
+  event of its own.
+- `kept_open`: a Question kept open, to ask the consultant.
+- `list_changed`: a Discipline's drawing list given.
+- `undone`: the acting user's last act taken back (its subject the act taken back).
 """
 
 from engine.messages import MessageCode
@@ -64,3 +75,11 @@ SHEETS_UNDECIDED = MessageCode("takeoff.step1.sheets_undecided", params=("count"
 LISTS_DISAGREE = MessageCode("takeoff.step1.lists_disagree")
 QUESTIONS_OPEN = MessageCode("takeoff.step1.questions_open", params=("count",))
 VIEWS_UNACCOUNTED = MessageCode("takeoff.step1.views_unaccounted", params=("count",))
+
+CONFIRMED = MessageCode("takeoff.step1.confirmed", params=("sheets",), event=True)
+LEFT_OUT = MessageCode("takeoff.step1.left_out", params=("sheets", "views"), event=True)
+VIEWS_ASSIGNED = MessageCode("takeoff.step1.views_assigned", params=("views",), event=True)
+ANSWERED = MessageCode("takeoff.step1.answered", event=True)
+KEPT_OPEN = MessageCode("takeoff.step1.kept_open", event=True)
+LIST_CHANGED = MessageCode("takeoff.step1.list_changed", event=True)
+UNDONE = MessageCode("takeoff.step1.undone", event=True)

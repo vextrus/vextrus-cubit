@@ -41,6 +41,12 @@ the API's only in M0: m0-screens 6.9). A step given by an act stands while the a
 
 For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_question`,
 `answer_question` and `record_progress` write the rows Step 1 reads.
+
+**Each act is one DomainEvent** (T-W323; `said`'s "acts, in the event log"), written in the act's
+transaction just before its `record_progress`: `confirm` (`confirmed`), `exclude` (`left_out`),
+`assign` (`views_assigned`), `set_list` (`list_changed`), `undo` (`undone`) and `answer` (`answered`,
+or `kept_open`; the confirm or exclusion an answer makes is no event of its own). A refused act
+writes none; the seed's and the read job's writes write none.
 """
 
 import contextlib
@@ -59,14 +65,14 @@ from django.db.models import Q
 from django.utils import timezone
 
 from engine.check import register
-from engine.messages import Message
+from engine.messages import Message, MessageCode
 from engine.messages import register_check as list_codes
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, invitations, jev, markets, tenancy
+from vextrus.platform.services import auth, events, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -980,6 +986,7 @@ def set_list(project_id: uuid.UUID, discipline: str, text: str, *, actor_name: s
             for e in _unique(parsed)
         )
         _ask_if_lists_differ(project_id, key)
+        _record(said.LIST_CHANGED, project_id, "confirmation", act.id)
         record_progress(project_id)
     return drawing_list(project_id, key)
 
@@ -1073,6 +1080,25 @@ def _act(
     )
 
 
+def _record(
+    kind: MessageCode,
+    project_id: uuid.UUID,
+    subject_type: str,
+    subject_id: uuid.UUID,
+    **counts: int,
+) -> None:
+    """The act's DomainEvent (T-W323), in its transaction: what the MD's Members and access counts
+    and the Acts panel words under the actor's name. Ids and counts only."""
+    events.record(
+        kind,
+        subject_type=subject_type,
+        subject_id=subject_id,
+        actor_user_id=_user(),
+        project_id=project_id,
+        payload=counts,
+    )
+
+
 def _chosen(
     project_id: uuid.UUID, ids: Sequence[object]
 ) -> list[tuple[drawings.SheetView, Proposal | None]]:
@@ -1157,6 +1183,8 @@ def _confirm(
                         project_id=project_id,
                     )
             _decide_views(sheet.id, act, None, "")
+        if not answering:
+            _record(said.CONFIRMED, project_id, "confirmation", act.id, sheets=len(chosen))
         record_progress(project_id)
     return _act_view(act)
 
@@ -1388,6 +1416,15 @@ def _exclude(
             _stamp(proposal, ProposalStatus.REJECTED, act)
             _decide_views(sheet.id, act, reason, words.strip())
         _exclude_views(project_id, act, views, reason, words)
+        if not answering:
+            _record(
+                said.LEFT_OUT,
+                project_id,
+                "confirmation",
+                act.id,
+                sheets=len(chosen),
+                views=len(views),
+            )
         record_progress(project_id)
     return _act_view(act)
 
@@ -1503,6 +1540,7 @@ def assign(
                 _give_step(row, str(step), act)
             if row.status == CoverageStatus.UNACCOUNTED:
                 _follow_sheet(row)
+        _record(said.VIEWS_ASSIGNED, project_id, "confirmation", act.id, views=len(chosen))
         record_progress(project_id)
     return _act_view(act)
 
@@ -1663,6 +1701,7 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
+        _record(said.UNDONE, project_id, "confirmation", act.id)
         record_progress(project_id)
     return _act_view(act)
 
@@ -2277,6 +2316,7 @@ def answer(
         if option == KEEP_OPEN:
             row.answer = given
             row.save(update_fields=["answer"])
+            _record(said.KEPT_OPEN, project_id, "question", row.id)
             record_progress(project_id)
             return Answered(_question_view(project_id, row.id), None)
         held = list(
@@ -2293,6 +2333,7 @@ def answer(
         row.answered_by_id = _user()
         row.answered_at = timezone.now()
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
+        _record(said.ANSWERED, project_id, "question", row.id)
         record_progress(project_id)
     return Answered(_question_view(project_id, row.id), read_again, corrected)
 
