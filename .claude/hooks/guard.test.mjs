@@ -1041,3 +1041,15 @@ test("T-GUARD-A round 2: an inert file is inert only while nothing else names it
   }
   assert.equal(bash(`cat > notes.md <<'X'\n${L} later\nX\nuv run pytest -rf tests`), null);
 });
+
+test("T-GUARD-A round 2 refuter: an inert file run by a name chosen at run time is judged", () => {
+  const L = "python3 -m scripts.ledger record m";
+  for (const [command, rule] of [
+    [`cat > notes.md <<'X'\n${L}\nX\nls -t | head -1 | xargs sh`, "RECORD_FORGED"],
+    [`cat > notes.md <<'X'\n${L}\nX\nsh "$(ls -t | head -1)"`, "RECORD_FORGED"],
+    [`cat > notes.txt <<'X'\n${L}\nX\npython3 -c "import os,subprocess;f=max(os.listdir(),key=os.path.getmtime);subprocess.run(['sh',f])"`, "RECORD_FORGED"],
+    ["cat > notes.md <<'X'\nwhile pgrep -f foo; do sleep 1; done\nX\nsh \"$(ls -t | head -1)\"", "SELF_MATCHING_WAIT"],
+  ]) {
+    assert.equal(bash(command), rule, command);
+  }
+});

@@ -593,7 +593,9 @@ function analyse(command, startCwd) {
   // A glob can name it too (`pytest --doctest-glob='*.md'` runs the code in markdown).
   const reach = (w, target) => w.includes(basename(target)) || w.split("=").some((part) => GLOB.test(part) && globRegex(basename(part)).test(basename(target)));
   const named = (target) => cmds.filter((cmd) => !redirectsOf(cmd.raw ?? "").some(({ target: t }) => t === target)).some((cmd) => words(cmd.raw ?? "").some((w) => reach(w, target)));
-  const live = written.filter((doc) => doc.targets.some((t) => t === "|" || !INERT_TARGET.test(t) || named(t)));
+  // A runner that picks its file at run time (`sh "$(ls -t | head -1)"`, `| xargs sh`, code) may pick any of them.
+  const blind = runners.some((cmd) => runsData(cmd) || codeOf(cmd) !== null || words(cmd.raw ?? "").some((w) => /[$`]/.test(w)));
+  const live = written.filter((doc) => blind || doc.targets.some((t) => t === "|" || !INERT_TARGET.test(t) || named(t)));
   if (live.length > 0 && runners.length > 0) {
     fed = true;
     for (const doc of live) {
