@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from tools.leakscan import pdftext
 from tools.leakscan.core import CannotScan, Corpus, git
 
 _GH_FAILED = (OSError, subprocess.TimeoutExpired)
@@ -27,6 +28,21 @@ _ZERO = "0" * 40
 _INFLATE_ERRORS = (OSError, EOFError, zlib.error)
 _ZIP_ERRORS = (OSError, zipfile.BadZipFile, RuntimeError, ValueError, EOFError, zlib.error)
 MAX_BLOB = 64 * 1024 * 1024
+MAX_STREAMS = 20000
+_STREAM = re.compile(rb"(?<!end)stream[ \t]*+(?:\r\n|\r|\n)")  # an `endstream` never opens one
+_W = rb"[\x00\t\n\x0c\r ]"
+_ENDSTREAM = re.compile(_W + rb"*endstream")
+# `/Length n` (group 1), or an indirect `/Length n g R` (groups 1 and 2); never part of a longer number.
+_LENGTH = re.compile(
+    rb"/Length%s++(\d{1,12})(?!\d)" % _W
+    + rb"(?:%s++(\d{1,5})%s++R(?![^\x00\t\n\x0c\r ()<>\[\]{}/%%]))?" % (_W, _W)
+)
+# An object that is a whole number: `n g obj <number> endobj` (an indirect `/Length`).
+_NUMBER_OBJECT = re.compile(
+    rb"(?<!\d)(\d{1,10})%s++(\d{1,5})%s++obj%s*+(\d{1,12})%s*+endobj" % ((_W,) * 4)
+)
+_ENCRYPT = re.compile(rb"/Encrypt%s*+(?:\d|<<)" % _W)
+_DICTIONARY = 64 * 1024  # how far back a stream's dictionary is read for its `/Length`
 
 
 def joined(first: str, second: str) -> str:
@@ -128,27 +144,26 @@ def scan_diff(corpus: Corpus, result: Result, diff: str, names: list[str]) -> No
         result.block(corpus, block)
 
 
-def blob_texts(data: bytes, depth: int = 0) -> list[str]:
+def blob_texts(data: bytes, depth: int = 0, budget: list[int] | None = None) -> list[str]:
     """The text a binary blob may hold: UTF-16 decoded, gzip and zip members opened, PDF streams
-    inflated, and printable runs of 8 or more characters (ASCII and UTF-16LE), as `strings` does."""
+    inflated and their text operators assembled, and printable runs of 8 or more characters (ASCII
+    and UTF-16LE), as `strings` does. Every PDF stream in the blob, nested ones included, inflates
+    from one `MAX_BLOB` budget (`budget`, made at the top level and passed down)."""
     texts: list[str] = []
     if depth > 2:
         return texts
+    budget = [MAX_BLOB] if budget is None else budget
     if data.startswith(b"\x1f\x8b"):
         with contextlib.suppress(*_INFLATE_ERRORS):
-            texts += blob_texts(gzip.decompress(data)[:MAX_BLOB], depth + 1)
+            texts += blob_texts(gzip.decompress(data)[:MAX_BLOB], depth + 1, budget)
     if data.startswith(b"PK\x03\x04"):
         with contextlib.suppress(*_ZIP_ERRORS), zipfile.ZipFile(io.BytesIO(data)) as archive:
             for member in archive.infolist()[:2000]:
                 texts.append(member.filename)
                 if member.file_size <= MAX_BLOB:
-                    texts += blob_texts(archive.read(member), depth + 1)
+                    texts += blob_texts(archive.read(member), depth + 1, budget)
     if data.startswith(b"%PDF"):
-        for stream in re.findall(rb"stream\r?\n(.*?)endstream", data, re.DOTALL)[:20000]:
-            try:
-                texts += blob_texts(zlib.decompress(stream)[:MAX_BLOB], depth + 1)
-            except zlib.error:
-                continue
+        texts += _pdf_texts(data, depth, budget)
     if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
         texts += data.decode("utf-16", "replace").split("\n")
     elif len(data) >= 4 and data[1::2].count(0) > len(data) // 4:
@@ -157,6 +172,86 @@ def blob_texts(data: bytes, depth: int = 0) -> list[str]:
         texts += data.decode("utf-8", "replace").split("\n")
     texts += [run.decode("ascii") for run in re.findall(rb"[\x20-\x7e\t]{8,}", data)]
     texts += [run.decode("utf-16-le") for run in re.findall(rb"(?:[\x20-\x7e]\x00){8,}", data)]
+    return texts
+
+
+def _inflate(stream: bytes, budget: list[int]) -> bytes | None:
+    """A stream inflated by zlib (as far as its data goes), or None when it is not a zlib stream. More
+    out than `MAX_BLOB`, or than what is left of `budget` (the bytes every PDF stream in the scanned
+    blob inflates to, nested PDFs included), refuses the scan: never a silent cut."""
+    limit = min(MAX_BLOB, budget[0])
+    try:
+        out = zlib.decompressobj().decompress(stream, limit + 1)
+    except zlib.error:
+        return None
+    budget[0] -= len(out)
+    if len(out) > limit:
+        raise CannotScan("source-unreadable")
+    return out
+
+
+def _declared_end(
+    data: bytes, floor: int, keyword: int, start: int, end: int, objects: dict[str, Any]
+) -> int:
+    """Where a stream ends: at `end` (its first `endstream`), or further when its dictionary's
+    `/Length` (direct, or an indirect whole-number object) says so, an `endstream` follows there and
+    no other stream opens between (an `endstream` inside the stream's own text, as a reader taking
+    `/Length` reads it). `objects` caches the whole-number objects, read once per PDF."""
+    window = max(floor, keyword - _DICTIONARY)  # never before the last stream's end: linear
+    lengths = list(_LENGTH.finditer(data, max(window, data.rfind(b"obj", window, keyword)), keyword))
+    if not lengths:
+        return end
+    length = lengths[-1]
+    if length[2] is None:
+        declared = start + int(length[1])
+    else:
+        if "numbers" not in objects:
+            objects["numbers"] = {
+                (int(found[1]), int(found[2])): int(found[3]) for found in _NUMBER_OBJECT.finditer(data)
+            }
+        value = objects["numbers"].get((int(length[1]), int(length[2])))
+        declared = end if value is None else start + value
+    if (
+        end < declared < len(data)
+        and _ENDSTREAM.match(data[declared : declared + 64])
+        and _STREAM.search(data, end, declared) is None
+    ):
+        return declared
+    return end
+
+
+def _pdf_texts(data: bytes, depth: int, budget: list[int]) -> list[str]:
+    """A PDF's streams, in order (an unterminated last one runs to the data's end): each inflated one's
+    text (as any blob's), and every stream's shown text, assembled from its text operators (`pdftext`),
+    inflated or raw. A stream ends at its first `endstream` or a consistent `/Length` (`_declared_end`),
+    never further, and each search starts after the last stream's end, so the pass is linear. More
+    than `MAX_STREAMS` streams, an encrypted PDF (its streams unreadable), or inflating past `budget`
+    refuses the scan."""
+    if _ENCRYPT.search(data):
+        raise CannotScan("source-unreadable")
+    texts: list[str] = []
+    objects: dict[str, Any] = {}
+    position = 0
+    count = 0
+    while (opening := _STREAM.search(data, position)) is not None:
+        count += 1
+        if count > MAX_STREAMS:
+            raise CannotScan("source-unreadable")
+        start = opening.end()
+        close = data.find(b"endstream", start)
+        end = len(data) if close < 0 else close
+        stop = _declared_end(data, position, opening.start(), start, end, objects)
+        inflated = _inflate(data[start:stop], budget)
+        if inflated is None:
+            texts += pdftext.assemble(data[start:stop])
+        else:
+            texts += blob_texts(inflated, depth + 1, budget)
+            texts += pdftext.assemble(inflated)
+        if stop > end:
+            close = data.find(b"endstream", stop)
+        if close < 0:
+            break
+        position = close + len(b"endstream")
     return texts
 
 
@@ -256,7 +351,7 @@ def scan_lines(corpus: Corpus, data: bytes, label: str) -> Result:
     result = Result()
     text = data.decode("utf-8", "replace").split("\n")
     result.block(corpus, [(f"{label}:{n}", n, line) for n, line in enumerate(text, start=1)])
-    if b"\0" in data:
+    if b"\0" in data or data.startswith(b"%PDF"):
         scan_blob(corpus, result, f"{label}:bin", data)
     return result
 

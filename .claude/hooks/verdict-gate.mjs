@@ -4,10 +4,11 @@
 // CONFIRMED, REFUTED or UNPROVEN, `acceptance-writer` with both counts (trailers.md 3). A report missing its line is
 // sent back once (stop_hook_active lets the second stop through). Every other agent, and any input this hook
 // cannot read, passes. The verdict line is the report's LAST non-empty line, as f4's agents write it (spec §3.3).
-// The report is the one the agent handed back: a subagent that reports through the SubagentHandback tool leaves only
-// its closing text in `last_assistant_message`, so the handback's `input.message` is read from the end of the agent's
-// transcript (`agent_transcript_path`, its last 2 MB). Without a handback, `last_assistant_message` is the report;
-// `tool_input.message` is the last fallback.
+// The agent's last tool call among SubagentHandback and StructuredOutput, read from the end of its transcript
+// (`agent_transcript_path`, its last 2 MB), decides first: /review-pr runs `pr-reviewer` and `refuter` with a schema
+// (`REVIEW` and `REFUTE` in .claude/workflows/review-pr.js), so they answer through StructuredOutput, and a valid
+// verdict there passes. A handback's `input.message` is the report (the closing text is then not read). Otherwise
+// `last_assistant_message` is the report; `tool_input.message` is the last fallback.
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";
 
 const TRANSCRIPT_TAIL = 2 * 1024 * 1024;
@@ -42,8 +43,17 @@ const RULES = {
   },
 };
 
-/** The `input.message` of the transcript's last SubagentHandback call, or null. */
-function handedBack(path) {
+/** Whether a StructuredOutput call's input is a verdict of this agent type (the REVIEW and REFUTE schemas). */
+const STRUCTURED = {
+  "pr-reviewer": (input) => ["PASS", "FIX", "BLOCK"].includes(input?.verdict) && /^[0-9a-f]{40}$/.test(input?.head ?? ""),
+  refuter: (input) => ["CONFIRMED", "REFUTED", "UNPROVEN"].includes(input?.verdict),
+};
+
+const HAND_BACK_AGAIN =
+  " Hand the whole report back again through SubagentHandback, its last line being the required line: the closing text is not read.";
+
+/** The transcript's last SubagentHandback or StructuredOutput call as `{kind, input}`, or null. */
+function lastCall(path) {
   if (typeof path !== "string" || path === "") return null;
   let text;
   let fd;
@@ -62,7 +72,7 @@ function handedBack(path) {
   }
   let found = null;
   for (const line of text.split("\n")) {
-    if (!line.includes("SubagentHandback")) continue;
+    if (!line.includes("SubagentHandback") && !line.includes("StructuredOutput")) continue;
     let entry;
     try {
       entry = JSON.parse(line);
@@ -72,7 +82,9 @@ function handedBack(path) {
     const message = entry?.message;
     if (entry?.type !== "assistant" || !Array.isArray(message?.content)) continue;
     for (const part of message.content) {
-      if (part?.type === "tool_use" && part.name === "SubagentHandback" && typeof part.input?.message === "string") found = part.input.message;
+      if (part?.type !== "tool_use") continue;
+      if (part.name === "SubagentHandback" && typeof part.input?.message === "string") found = { kind: part.name, input: part.input };
+      else if (part.name === "StructuredOutput") found = { kind: part.name, input: part.input };
     }
   }
   return found;
@@ -83,9 +95,13 @@ function verdict() {
   if (event === null || typeof event !== "object" || event.stop_hook_active === true) return null;
   const rule = Object.hasOwn(RULES, event.agent_type) ? RULES[event.agent_type] : null;
   if (rule === null) return null;
-  const report =
-    handedBack(event.agent_transcript_path) ??
-    (typeof event.last_assistant_message === "string" ? event.last_assistant_message : event.tool_input?.message);
+  const call = lastCall(event.agent_transcript_path);
+  if (call?.kind === "SubagentHandback") {
+    const reason = rule(call.input.message);
+    return reason === null ? null : reason + HAND_BACK_AGAIN;
+  }
+  if (call?.kind === "StructuredOutput" && STRUCTURED[event.agent_type]?.(call.input)) return null;
+  const report = typeof event.last_assistant_message === "string" ? event.last_assistant_message : event.tool_input?.message;
   return typeof report === "string" ? rule(report) : null;
 }
 

@@ -1,9 +1,10 @@
 """`python -m scripts.ledger <check|decide|record|fetch-verdict>`: the review ledger
 (docs/specs/factory.md 2.2 "Review record"; `docs/specs/factory/contracts/ledger-record.schema.json`).
 
-- `check <PR> --round n [--exception security75|crash|false-statement --reason "<text>"]`: may
-  review round n start? Rounds 1 and 2 may; round 3 only with an allowed exception; never a round
-  at or below the highest already recorded for the PR (a round cannot be relabelled lower).
+- `check <PR> --round n [--exception <kind> --reason "<text>"]` (kinds: security75, crash,
+  false-statement, fix-regression): may review round n start? Rounds 1 and 2 may; round 3 only with
+  an allowed exception; never a round at or below the highest already recorded for the PR (a round
+  cannot be relabelled lower).
 - `decide --from <file> --head <sha>`: the verdict, computed here and nowhere else, from the reviewers'
   and refuters' final lines, one per line: `VERDICT: PASS|FIX|BLOCK at <40-hex>` (one per reviewer lens)
   and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|->` (the refuter's verdict; `-`: none
@@ -45,7 +46,7 @@ SHA = re.compile(r"[0-9a-f]{40}")
 NONCE = re.compile(r"[0-9a-f]{32}")
 VERDICT = re.compile(r"VERDICT: (PASS|FIX|BLOCK) at (\S+)")
 FINDING = re.compile(r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)")
-EXCEPTIONS = ("security75", "crash", "false-statement")
+EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression")
 RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
 STANDS = {"CONFIRMED", "UNPROVEN"}
 MAX_ROUND = 3
@@ -173,8 +174,8 @@ def check_round(ledger_dir: Path, pr: int, round_: int, exception: str | None) -
         raise Refused(f"exception {exception!r} is not one of {', '.join(EXCEPTIONS)}")
     if round_ == MAX_ROUND and exception is None:
         raise Refused(
-            "round 3 needs a recorded exception (--exception security75|crash|false-statement "
-            "--reason ...): two fix rounds at most"
+            "round 3 needs a recorded exception (--exception "
+            "security75|crash|false-statement|fix-regression --reason ...): two fix rounds at most"
         )
     if round_ < MAX_ROUND and exception is not None:
         raise BadInput("an exception is for round 3 only")
