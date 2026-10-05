@@ -1097,23 +1097,20 @@ def _chosen(
     number, its Discipline) are raised with its Proposal, so it is not decided before them."""
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NOTHING_CHOSEN(), status=400)
-    projects.get(project_id)
-    drawing_set = drawings.set_of(project_id)
     named_ids: list[uuid.UUID] = []
     for given in ids:
         try:
             named_ids.append(given if isinstance(given, uuid.UUID) else uuid.UUID(str(given)))
         except ValueError:
             raise auth.NotFound from None
-    # Only the named sheets and their Proposals are read (an id names a Proposal or a sheet).
+    # Only the named sheets' Proposals are read (an id names a Proposal or a sheet). The sheets come
+    # through `_sheets` (the list Step 1 sees, the scope checked first), in a fixed number of
+    # statements whatever the Project's size.
+    listed_all = _sheets(project_id)
     by_id = {p.id: p for p in _proposals_of(project_id, Q(id__in=named_ids))}
     sheet_ids = {p.subject_id for p in by_id.values()} | set(named_ids)
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id, Q(subject_id__in=sheet_ids))}
-    listed = (
-        {s.id: s for s in drawings.sheets(drawing_set.id, anchors=False, among=sheet_ids)}
-        if drawing_set
-        else {}
-    )
+    listed = {s.id: s for s in listed_all if s.id in sheet_ids}
     chosen: dict[uuid.UUID, tuple[drawings.SheetView, Proposal | None]] = {}
     for named in named_ids:
         proposal = by_id.get(named)
