@@ -35,12 +35,16 @@ function mainCheckout() {
   return real(resolve(project, dir)) === real(resolve(project, common));
 }
 
-/** HEAD's finish state per trailers.md 1 (the shared reader): "ready", "ready-malformed", "blocked" or "none". */
+/**
+ * HEAD's finish state per trailers.md 1 (the shared reader): { state, why }, state "ready", "ready-malformed" (gated as
+ * READY, or a factory line outside the read paragraph: the watcher alarms on it), "blocked" or "none" (a malformed
+ * BLOCKED, or a folded `Factory-State:` value, reads as no trailer: trailers.md 4).
+ */
 function finishState(tree) {
-  const { outcome, gated } = readTrailers(git(["log", "-1", "--format=%B"]), tree);
-  if (outcome === "READY") return "ready";
-  if (gated) return "ready-malformed";
-  return outcome === "BLOCKED" ? "blocked" : "none";
+  const { outcome, why, gated } = readTrailers(git(["log", "-1", "--format=%B"]), tree);
+  if (outcome === "READY") return { state: "ready", why };
+  if (gated || outcome === "READY-NO-VERIFY") return { state: "ready-malformed", why };
+  return { state: outcome === "BLOCKED" ? "blocked" : "none", why };
 }
 
 /** A green record (verify-record.schema.json): parses, schema_version 1, non-empty checks, every exit_code 0. */
@@ -59,12 +63,13 @@ function verdict() {
   if (event === null || typeof event !== "object" || Array.isArray(event) || event.stop_hook_active === true) return null;
   if (project === "" || mainCheckout()) return null;
   const tree = git(["rev-parse", "HEAD^{tree}"]).trim();
-  const state = finishState(tree);
+  const { state, why } = finishState(tree);
   if (state === "blocked") return null;
-  if (state === "ready" || state === "ready-malformed") {
-    if (state === "ready" && verified(tree)) return null;
-    return `HEAD says Factory-State: READY but carries no green verify record for its tree (a malformed trailer, or verify not run on this commit). ${LAWFUL}`;
+  if (state === "ready") {
+    if (verified(tree)) return null;
+    return `HEAD says Factory-State: READY but carries no green verify record for its tree (verify not run on this commit). ${LAWFUL}`;
   }
+  if (state === "ready-malformed") return `HEAD's factory trailers are malformed (${why}), so the factory cannot read them. ${LAWFUL}`;
   const dirty = git(["status", "--porcelain", "--untracked-files=no"]).trim() !== "";
   return dirty ? `Uncommitted tracked changes and no Factory-State trailer on HEAD. ${LAWFUL}` : null;
 }

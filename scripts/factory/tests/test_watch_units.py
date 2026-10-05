@@ -6,13 +6,13 @@ import json
 import os
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from scripts.factory import watch
+from scripts.factory import trailers, watch
 
 TREE = "a" * 40
 OTHER = "b" * 40
@@ -232,7 +232,7 @@ def test_a_factory_block_before_the_attribution_paragraph_is_read() -> None:
     before = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\n"
     assert watch.parse_trailers(before, TREE).outcome == "READY"
     blocked = f"feat: x\n\nFactory-State: BLOCKED\nFactory-Reason: r\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(blocked, TREE) == watch.Trailers("BLOCKED", "r")
+    assert watch.parse_trailers(blocked, TREE) == trailers.Trailers("BLOCKED", "r")
     within = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n{ATTRIBUTION}\n"
     assert watch.parse_trailers(within, TREE).outcome == "READY"
     block = "Factory-State: BLOCKED\nFactory-Reason: r"
@@ -412,3 +412,31 @@ def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_la
     assert (item["head"], item["state"]) == (merged, "ready")
     assert [e[0] for e in step.events] == ["PUSH"]
     assert not [a for a in step.alarms.values() if a[0] == "BUDGET-PASSED"]
+
+
+def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tmp_path: Path) -> None:
+    seen: dict[str, Any] = {"head": TREE, "committed": True, "outcome": None, "idle_since": None}
+    idle = {"name": "t-local", "status": "idle", "pid": 1}
+    busy = {**idle, "status": "busy"}
+
+    def at(minutes: int, row: dict[str, Any] | None, closed: bool = False) -> list[str]:
+        step = watch.Pass(tmp_path, AT + timedelta(minutes=minutes), {})
+        watch.local_idle(step, "t", seen, row, closed)
+        return [code for code, _subject, _detail in step.alarms.values()]
+
+    assert at(0, idle) == []
+    assert at(9, idle) == []
+    assert at(10, idle) == ["LOCAL-IDLE"]
+    assert at(11, busy) == []  # a running turn clears the clock
+    assert at(12, idle) == []
+    assert at(21, idle) == []
+    assert at(22, idle) == ["LOCAL-IDLE"]
+    assert at(23, idle, closed=True) == []  # a merged or closed PR: nothing to wait for
+    assert at(40, None) == []  # no row: not this alarm's reading
+    for outcome in ("READY", "BLOCKED"):
+        seen.update(outcome=outcome, idle_since=None)
+        assert at(50, idle) == []
+        assert at(70, idle) == []
+    seen.update(outcome="READY-NO-VERIFY", idle_since=None, committed=False)
+    assert at(80, idle) == []  # no commit of its own yet
+    assert at(95, idle) == []

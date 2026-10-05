@@ -13,7 +13,9 @@
  * READY-NO-VERIFY). ASCII classes and `\n` splits only, written to agree with the Python reader on every input.
  */
 function readTrailers(message, tree) {
-  const WS = "[ \\t\\v\\f\\x1c-\\x1f\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]";
+  const WS_CHARS = " \\t\\v\\f\\x1c-\\x1f\\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff";
+  const WS = `[${WS_CHARS}]`;
+  const NOT_BLANK = new RegExp(`[^\\n${WS_CHARS}]`); // a paragraph of whitespace alone is no paragraph
   const TRAILER = /^([A-Za-z0-9-]+):[ \t]*([^\n]*?)[ \t]*$/;
   const LOOSE_STATE = new RegExp(`^${WS}*factory[-_ ]?state${WS}*:${WS}*([^\\n]*)$`, "i");
   const KEYS = new Set(["factory-state", "factory-verify", "factory-reason"]);
@@ -60,7 +62,7 @@ function readTrailers(message, tree) {
   const paragraphs = message
     .replace(/\r/g, "")
     .split(/\n[ \t]*\n/)
-    .filter((p) => /[^ \t\n]/.test(p))
+    .filter((p) => NOT_BLANK.test(p))
     .map((p) => p.split("\n"));
   const holds = paragraphs.map((lines) => lines.some(isFactory));
   const lastTwo = [paragraphs.length - 1, paragraphs.length - 2].filter((i) => i >= 0);

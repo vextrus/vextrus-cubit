@@ -37,10 +37,12 @@ class Trailers:
 
 KEYS = {"factory-state", "factory-verify", "factory-reason"}
 PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n")
-NOT_BLANK = re.compile(r"[^ \t\n]")
 TRAILER = re.compile(r"^([A-Za-z0-9-]+):[ \t]*([^\n]*?)[ \t]*$")
 # Whitespace written out, so Python and JavaScript mean the same characters.
-_WS = r"[ \t\v\f\x1c-\x1f\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]"
+_WS_CHARS = r" \t\v\f\x1c-\x1f\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+_WS = f"[{_WS_CHARS}]"
+# A paragraph of whitespace alone is no paragraph (as JavaScript's trim() and Python's strip() both say).
+NOT_BLANK = re.compile(rf"[^\n{_WS_CHARS}]")
 LOOSE_STATE = re.compile(rf"^{_WS}*factory[-_ ]?state{_WS}*:{_WS}*([^\n]*)$", re.IGNORECASE | re.ASCII)
 READY_WORD = re.compile(r"ready", re.IGNORECASE | re.ASCII)
 VERIFY = re.compile(r"[0-9a-f]{40} ok")
