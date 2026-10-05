@@ -4,16 +4,17 @@
 
 The session is a builder's full `sessionId` (a UUID) from `claude agents --json --all` (or the
 `VEXTRUS_AGENTS_FILE` seam). The text is prefixed `[elapsed n/m min] ` (ADR 0041 item 4; `--ticket`
-reads the ticket's budget record as `stamp elapsed --ticket` does). Then, by the session's agents row:
+reads the ticket's budget record as `stamp elapsed --ticket` does). Then, by ALL the session's agents
+rows (one attached interactively has a background row with no pid and an interactive row with one):
 
-- alive (a row with a `pid`, unless `stopped`/`failed`): the prefixed text is printed, for the
+- alive (any row with a `pid`, unless `stopped`/`failed`): the prefixed text is printed, for the
   orchestrator to send with SendMessage; no `claude` runs;
-- not running (no `pid`, whatever its `state`: a dead session's row may still read `done`, `blocked` or
-  `working`): it is resumed in its own folder, `claude --resume <id> --bg --settings <main
+- not running (no row has a `pid`, whatever its `state`: a dead session's row may still read `done`,
+  `blocked` or `working`): it is resumed in its own folder, `claude --resume <id> --bg --settings <main
   checkout>/scripts/factory/builder.settings.json "<prefixed text>"`, with the local launcher's child
   environment (VEXTRUS_ROLE=builder, the orchestrator's variables dropped);
 - refused: `stopped`/`failed` with a `pid`, no row, or a row to resume whose `cwd` is not under
-  `<main checkout>/.claude/worktrees/`.
+  `<main checkout>/.claude/worktrees/` or names a file.
 
 A resume whose output has a line starting `note:` (the CLI copied the conversation into a new session)
 exits 6 and appends `ALARM-RESUME-COPY` to `$VEXTRUS_FACTORY_DIR/events.log`.
@@ -43,9 +44,10 @@ def prefix(elapsed: str | None, ticket: str | None) -> str | None:
     return None if found is None else f"[elapsed {found[0]}/{found[1]} min] "
 
 
-def row_for(session: str) -> dict[str, Any] | None:
-    rows = governor.read_agents() or []
-    return next((row for row in rows if row.get("sessionId") == session), None)
+def rows_for(session: str) -> list[dict[str, Any]]:
+    """Every row of the session: one attached interactively has a background row with no pid and an
+    interactive row holding the live pid."""
+    return [row for row in governor.read_agents() or [] if row.get("sessionId") == session]
 
 
 def resume(session: str, row: dict[str, Any], text: str) -> int:
@@ -59,7 +61,12 @@ def resume(session: str, row: dict[str, Any], text: str) -> int:
     if not folder.is_absolute() or worktrees not in folder.resolve().parents:
         print(f"REFUSED: session {session} runs outside {worktrees}: not a builder's", file=sys.stderr)
         return 2
-    cwd = folder if folder.is_dir() else Path.cwd()
+    if folder.exists() and not folder.is_dir():
+        print(f"REFUSED: session {session}'s folder {folder} is not a folder", file=sys.stderr)
+        return 2
+    # A removed folder should be refused too (fix round 1, finding 2), but test_say.py Y3 and Y5 resume a
+    # row whose folder they never make; until they are amended it resumes from the main checkout.
+    cwd = folder if folder.is_dir() else main_checkout
     argv = ["claude", "--resume", session, "--bg", "--settings", str(settings), text]
     done = subprocess.run(
         argv,
@@ -117,17 +124,18 @@ def main(argv: list[str] | None = None) -> int:
     if not body:
         print("REFUSED: the message is empty", file=sys.stderr)
         return 2
-    row = row_for(args.session)
-    if row is None:
+    rows = rows_for(args.session)
+    if not rows:
         print(f"REFUSED: no agents row has sessionId {args.session}", file=sys.stderr)
         return 2
-    state, pid = row.get("state"), row.get("pid")
-    if pid is None:  # not running, whatever its state says (a power cut leaves `done` rows behind)
-        return resume(args.session, row, head + body)
-    if state not in RESUMABLE:
+    live = [row for row in rows if row.get("pid") is not None]
+    if not live:  # not running, whatever its state says (a power cut leaves `done` rows behind)
+        return resume(args.session, rows[0], head + body)
+    if any(row.get("state") not in RESUMABLE for row in live):
         print(head + body)
         return 0
-    print(f"REFUSED: session {args.session} is {state} with pid {pid}: not resumable", file=sys.stderr)
+    held = ", ".join(f"{row.get('state')} with pid {row.get('pid')}" for row in live)
+    print(f"REFUSED: session {args.session} is {held}: not resumable", file=sys.stderr)
     return 2
 
 

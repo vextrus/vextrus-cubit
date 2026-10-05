@@ -3,8 +3,10 @@ the undo of a refused launch, each against a fake `git`."""
 
 from __future__ import annotations
 
+import json
 import subprocess
 from collections.abc import Callable
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
@@ -106,3 +108,76 @@ def test_undo_leaves_the_branch_when_the_worktree_cannot_be_removed(
 def test_undo_says_when_the_branch_cannot_be_deleted(fake: Callable[..., FakeGit]) -> None:
     fake({("rev-parse",): (0, TIP), ("branch",): (1, "")})
     assert local.undo(MAIN, TREE, "f-ok", True, TIP) == "; the local branch f-ok could not be deleted"
+
+
+# The builder's settings deny every gh command that writes or publishes (fix round 1); reads stay open.
+# `matches()` is the acceptance test's rule (test_builder_settings_gh.py), restated.
+SETTINGS = Path(__file__).resolve().parents[1] / "builder.settings.json"
+GH_WRITES = [
+    *(
+        f"gh {group} x"
+        for group in ("gist list", "gist create f", "alias set a b", "extension install o/r")
+    ),
+    *(
+        f"gh {group} x"
+        for group in ("project create", "ssh-key add k", "gpg-key add k", "codespace ssh")
+    ),
+    *(f"gh {group} x" for group in ("secret list", "variable list", "auth login", "auth token")),
+    "gh config set editor vim",
+    "gh label create x",
+    "gh label clone o/r",
+    "gh label delete x",
+    "gh label edit x",
+    "gh release create v1",
+    "gh release edit v1",
+    "gh release upload v1 f",
+    "gh release delete-asset v1 f",
+    "gh workflow run ci.yml",
+    "gh workflow enable ci.yml",
+    "gh workflow disable ci.yml",
+    "gh cache delete 1",
+    "gh run rerun 9",
+    "gh run cancel 9",
+    "gh run delete 9",
+    *(f"gh repo {verb} x" for verb in ("fork", "sync", "deploy-key", "autolink", "create", "delete")),
+    *(f"gh repo {verb} x" for verb in ("edit", "rename", "archive", "unarchive", "set-default")),
+    *(f"gh issue {verb} 5" for verb in ("develop", "transfer", "pin", "unpin", "lock", "unlock")),
+    *(f"gh issue {verb} 5" for verb in ("delete", "reopen", "edit", "create", "comment", "close")),
+    *(f"gh pr {verb} 5" for verb in ("create", "edit", "comment", "review", "merge", "close", "ready")),
+    *(f"gh pr {verb} 5" for verb in ("reopen", "update-branch", "lock", "unlock", "revert")),
+    *(f"gh api repos/o/r/labels {flag} x" for flag in ("-X", "--method", "-f", "-F", "--field")),
+    *(f"gh api repos/o/r/labels {flag} x" for flag in ("--raw-field", "--input")),
+]
+GH_READS = [
+    *(f"gh pr {verb} 5" for verb in ("view", "list", "diff", "checks", "status")),
+    *(f"gh issue {verb}" for verb in ("view 5", "list", "status")),
+    *(f"gh run {verb}" for verb in ("view 9", "list", "watch 9")),
+    "gh repo view",
+    "gh label list",
+    "gh release list",
+    "gh workflow list",
+    "gh ruleset list",
+    "gh ruleset check",
+]
+
+
+def matches(rule: str, command: str) -> bool:
+    if not (rule.startswith("Bash(") and rule.endswith(")")):
+        return False
+    pattern = rule[len("Bash(") : -1]
+    return fnmatchcase(command, pattern) or fnmatchcase(command, pattern.removesuffix(" *"))
+
+
+def deny_rules() -> list[str]:
+    rules: list[str] = json.loads(SETTINGS.read_text())["permissions"]["deny"]
+    return rules
+
+
+@pytest.mark.parametrize("command", GH_WRITES)
+def test_every_gh_write_is_denied(command: str) -> None:
+    assert any(matches(rule, command) for rule in deny_rules()), command
+
+
+@pytest.mark.parametrize("command", GH_READS)
+def test_gh_reads_stay_open(command: str) -> None:
+    assert [rule for rule in deny_rules() if matches(rule, command)] == []
