@@ -278,7 +278,12 @@ export function useBar(c: BarContext): BarSpec | null {
           </>
         ),
         // Enter opens the sheet the line names (#235); the bulk act stays one click away, with no key.
-        ghost: bulkable ? { label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Trans>Confirm all {n} that agree</Trans>, run: c.bulk } : undefined,
+        ghost: bulkable
+          ? {
+              label: n === 0 ? <Trans>Leave out {m}</Trans> : m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Trans>Confirm all {n} that agree</Trans>,
+              run: c.bulk,
+            }
+          : undefined,
         button: { label: <Trans>Open {name}</Trans>, run: () => c.openRow(row) },
       }
     }
