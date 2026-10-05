@@ -190,9 +190,9 @@ a gate to close it.
   a clock is still open (session 12's ended at 10:39Z, 5 Oct, and `session.json` is absent at 11:00Z), run `… stamp end` first; never `--force` over a live clock.
 - **Preflight:** `uv run python -m scripts.factory.governor check cloud-session|local-agent|review|pytest|web-tests|walk|rd-run`
   (exit 0 OK, 3 REFUSED; `--usage-checked "<your /usage lines>"` if it cannot read usage).
-  A usage hold (session 80%, week 85%) refuses launches; it is the owner's spend line. Only the owner moves it,
-  in `~/.claude/settings.json` `env` (`VEXTRUS_WEEK_HOLD`, `VEXTRUS_SESSION_HOLD`, `VEXTRUS_DEGRADE_AT`, #401):
-  never set them yourself; when a hold refuses, tell the owner the week's % and wait or cut scope.
+  A usage hold refuses launches at session 80% or week 85% (`governor.py`, fixed on main). It is the owner's
+  spend line, never yours to move: when it refuses, tell the owner the week's %, then wait for the reset or cut
+  scope to work that needs no launch. Whether and how the owner may move it is open (#401, not merged).
 - **Launch:** `uv run python -m scripts.factory.launch cloud --branch <b> --prompt-file <f> --ticket <t> --effort
   medium|high [--role acceptance-writer] [--budget-minutes <n>]`; `… launch local --ticket <t> --branch <b> --effort <e>
   --name <n> --prompt-file <f> [--role builder|acceptance-writer] [--budget-minutes <n>]` (the branch must be on origin).
@@ -218,7 +218,7 @@ a gate to close it.
   statusCheckRollup` (gh 2.45 has no `gh pr checks --json`).
 - **Land:** `uv run python -m scripts.merge_ready <PR>` (exit 0 ready), then `uv run python -m scripts.land <PR>` (ledger
   PASS, update-branch, CI, one listed-flake rerun, `merge_ready`, merge pinned to the head). It runs no posting run and
-  posts no gate: do both on the head it will land. Until #398 is fixed, queue a PR only once its current head's `ci` check is green: `land` can read a freshly updated head before `ci` registers and refuse with `merge-ready: ci: not succeeded` (#391 and #393 on 5 Oct, 09:58Z and 09:59Z).
+  posts no gate: do both on the head it will land. Until #398 is fixed, `land` can read a freshly updated head before its `ci` registers and refuse with `merge-ready: ci: not succeeded` (#391 and #393 on 5 Oct, 09:58Z and 09:59Z). So land one PR at a time: update its branch yourself (`gh api --method PUT repos/vextrus/vextrus-cubit/pulls/<n>/update-branch -f expected_head_sha=<sha40>`), wait until the new head's `ci` is green, then run `scripts.land <n>` while nothing else merges (it skips the update when main is already in).
 - **G1:** `… governor check walk`; `uv run python -m scripts.walk.run <sha40> > .private/work/session-13/g1-<sha8>.log
   2>&1` (`run_in_background`); Monitor `events.log` until `WALK - <sha8> done`; then `/real-set-walk <sha40>`; then
   `uv run python -m scripts.walk.ready origin/main` (0 ready, 1 not, 2 malformed).
@@ -252,7 +252,7 @@ a gate to close it.
 
    If the classifier refuses that too, give the owner the exact `uv run python -m scripts.ledger record ...` line to type as `! <command>` (CLAUDE.md:59, `commands.md`:6). An owner classifier rule (R3) would end this; none is in `~/.claude/settings.json` yet (11:00Z).
 4. **The leak corpus absorbs the factory's own words** from session notes: ticket ids, review vocabulary, commit SHAs from real-drawing outputs. A false hit is allowlisted by hash, in a one-line PR (#378, #381): `leakscan allow <file>:<line>`. T-LEAK-2 (#380: merge-base stamps, `allow commit:<sha12>:<n>`, whole-sha drops, slug reads) was capped and is split into an exact part and a heuristic part (ticket note). The class fix, skipping the orchestrator's cloud-bound tickets and prompts folders, is a ticket note.
-5. **Local fix rounds use `uv run python -m scripts.factory.say <full uuid> --file <f> --elapsed n/m`.** T-LOCAL (#393, merged 10:16Z, the re-submission of #388) makes `say` judge liveness by a pid on any of the session's rows: a session with no pid on any row, whatever its state (`done`, `blocked` or `working` after a reboot), is resumed by `say` itself. It refuses a folder that is gone or outside `.claude/worktrees/`, no row, or `stopped`/`failed` with a pid. Only if `say` refuses a session whose worktree folder still exists, resume headless from the worktree:
+5. **Local fix rounds use `uv run python -m scripts.factory.say <full uuid> --file <f> --elapsed n/m`.** T-LOCAL (#393, merged 10:16Z, the re-submission of #388) makes `say` judge liveness by a pid on any of the session's rows: a session with no pid on any row, whatever its state (`done`, `blocked` or `working` after a reboot), is resumed by `say` itself. It refuses a folder that is gone or outside `.claude/worktrees/`, no row, or `stopped`/`failed` with a pid. If `say` refuses because a row still holds a pid (`stopped`/`failed` with a pid), a process may still be alive: never start a second one beside it. Read `claude agents --json` and `claude logs <id>`; if the job is gone ("job not found"), remove the stale row with `claude rm <id>` and run `say` again. Only if `say` still cannot resume a session whose worktree folder exists and no process is recorded, resume headless from the worktree:
    - `env -u CLAUDE_PROJECT_DIR -u CLAUDE_CODE_PLUGIN_DIRS -u CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS VEXTRUS_ROLE=builder claude --resume <uuid> -p --agent builder --effort <e> --settings <main>/scripts/factory/builder.settings.json "<prompt>"`;
    - run it in the background; the guard refuses `--bg`.
 6. **`/review-pr` does not read CI.** #377 passed review with a red web job. Check `gh pr checks <n>` before landing.
@@ -263,7 +263,7 @@ a gate to close it.
 8. **CI's `e2e` workflow has failed on every main run on record (32 of 32).** The browser smoke `web/e2e/acceptance/t22/smoke.spec.ts` fails because `/opt/vextrus/acadsharp-dump` is missing on the runner. It is not a required check. This is M0's #31: decide in Phase 2.
 9. **A capped PR is closed and re-submitted complete** (#373→#379, #374→#387, #388→#393, #392→#400). Only the orchestrator amends acceptance tests, through `scripts.factory.amend` (2f654dafe, 131047313). Its lint refuses an amendment that pins nothing new.
 
-**Open factory PRs at handover:** none. At 11:00Z, 5 Oct, `gh pr list --state open --label factory` prints nothing; the only open PR is #237 (M0's). #391 T-JEV-LAUNCH (10:08Z), #393 T-LOCAL (10:16Z) and #400 T-DOCS-RUNBOOK (10:40Z) are merged; #392 was closed after its review cap and re-submitted as #400. Open factory issues you may meet: #398 (the lander, gap 7), #396 (guard: the gh write rule for local builders), #397 (`guard.test.mjs` fails in cloud sessions), #399 (`docs_paths` is not a CI step).
+**Open factory PRs at handover:** #401 only: the owner's usage-hold change, paused after review round 1 for the owner's decision. Do not land, fix or rebuild it unless the owner says so. Besides it, the only open PR is #237 (M0's). #391 T-JEV-LAUNCH (10:08Z), #393 T-LOCAL (10:16Z) and #400 T-DOCS-RUNBOOK (10:40Z) are merged; #392 was closed after its review cap and re-submitted as #400. Open factory issues you may meet: #398 (the lander, gap 7), #396 (guard: the gh write rule for local builders), #397 (`guard.test.mjs` fails in cloud sessions), #399 (`docs_paths` is not a CI step).
 
 ## Phase 0: orient, clock, machine (≤ 30 min)
 Budget: ~11 h of work, cut at +8 h: at the cut, anything not on the finish line becomes an issue. Phases 1–4 overlap;
