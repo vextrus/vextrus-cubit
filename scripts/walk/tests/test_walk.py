@@ -6,10 +6,12 @@ verdict, an unmeasured false-continuation count fails its check, the leak scan f
 cannot run, and run.py never hands a child the owner's database URL.
 """
 
+import contextlib
 import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -181,7 +183,9 @@ def test_a_rewalk_keeps_the_older_verdict(tmp_path: Path) -> None:
     assert _cli(walks, expect_dir).returncode == 0
     first = json.loads((folder / "verdict.json").read_text())
     run.set_aside(folder)  # what run.py does before a new walk of the same head
+    assert not (folder / "findings.json").exists()  # the re-walk's agent layer writes its own
     (folder / "walk.json").write_text(json.dumps(_walk(started_at="2026-10-05T00:30:00Z")))
+    (folder / "findings.json").write_text(json.dumps(LAYER))
     assert _cli(walks, expect_dir).returncode == 0
 
     stamp = first["finished_at"].replace("-", "").replace(":", "")
@@ -909,3 +913,108 @@ def test_an_older_pass_off_the_refs_history_is_not_counted_as_mains(tmp_path: Pa
     _put(walks, c1, _verdict(c1, "PASS", "2026-10-05T02:00:00Z"))
 
     assert ready.ready("main", walks_dir=walks, repo=repo).ok is False
+
+
+# T-WALK-1: the walk lock, the group kill and the drop ---------------------------------------------
+
+
+def test_the_walk_lock_never_trips_ready(tmp_path: Path) -> None:
+    repo, walks, c1, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    for sha in (c1, c2):
+        with verdict.walk_lock(walks / sha):
+            pass
+
+    assert (walks / c2 / verdict.LOCK_NAME).exists()
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is True
+
+
+def test_a_verdict_of_a_missing_walk_folder_makes_no_folder(tmp_path: Path) -> None:
+    walks = tmp_path / "walks"
+    walks.mkdir()
+
+    assert verdict.main(["0" * 40, "--leak-hits", "0", "--walks-dir", str(walks)]) == 2
+    assert list(walks.iterdir()) == []
+
+
+def test_ending_a_group_kills_a_grandchild_its_leader_left(tmp_path: Path) -> None:
+    import signal
+
+    leader = subprocess.Popen(
+        ["sh", "-c", "sleep 120 >/dev/null & echo $!"],
+        stdout=subprocess.PIPE,
+        start_new_session=True,
+    )
+    # The leader exits normally; its grandchild lives on.
+    grandchild = int(leader.communicate(timeout=10)[0])
+    try:
+        run.end_groups([leader], grace=1)
+        state = ""
+        for _ in range(100):
+            try:
+                state = Path(f"/proc/{grandchild}/stat").read_text().rsplit(")", 1)[1].split()[0]
+            except OSError:
+                state = "gone"
+            if state in {"gone", "Z"}:
+                break
+            time.sleep(0.05)
+        assert state in {"gone", "Z"}
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(grandchild, signal.SIGKILL)
+
+
+def test_the_drop_hands_psql_no_pg_setting(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    seen = tmp_path / "seen.txt"
+    psql = bin_dir / "psql"
+    psql.write_text(f'#!/bin/sh\nenv | grep "^PG" > "{seen}"\nexit 0\n')
+    psql.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("PGDATABASE", "vextrus")
+    monkeypatch.setenv("PGPASSFILE", str(tmp_path / "pass"))
+    walk = run.Plan(
+        sha="0" * 40,
+        sha8="0" * 8,
+        db_name=f"{run.DB_PREFIX}{'0' * 8}",
+        out_dir=tmp_path / "out",
+        worktree=tmp_path / "src",
+        web_port=5511,
+        api_port=8811,
+    )
+
+    run.drop_database(walk, tmp_path / "logs" / "drop.txt")
+
+    assert seen.read_text().splitlines() == [f"PGPASSFILE={tmp_path / 'pass'}"]
+
+
+def test_the_lock_clears_a_dead_runs_temporary_verdict(tmp_path: Path) -> None:
+    repo, walks, _, c2 = _two_passes(tmp_path)
+    _put(walks, c2, _verdict(c2, "PASS", "2026-10-05T02:00:00Z"))
+    left = walks / c2 / ".verdict.json.dead.tmp"  # a run killed between its write and its rename
+    left.write_text("{")
+    with pytest.raises(ready.Unreadable):
+        ready.ready("main", walks_dir=walks, repo=repo)
+
+    with verdict.walk_lock(walks / c2):
+        pass
+
+    assert not left.exists()
+    assert ready.ready("main", walks_dir=walks, repo=repo).ok is True
+
+
+def test_a_verdict_that_cannot_be_written_is_an_error_not_a_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    walks, expect_dir, folder = _lay_out(tmp_path, _walk(started_at="2026-10-05T00:00:00Z"))
+
+    def full(path: Path, data: Any) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(verdict, "write_atomic", full)
+    argv = [SHA, "--leak-hits", "0"]
+    argv += ["--walks-dir", str(walks), "--expect-dir", str(expect_dir)]
+
+    assert verdict.main(argv) == 2
+    assert not (folder / "verdict.json").exists()
