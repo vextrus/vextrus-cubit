@@ -372,11 +372,11 @@ describe('the server’s continuation id is trusted for its members (#322 review
 
 describe('a title not read, and a same_title Question, by its code (#447, round 1)', () => {
   it('never counts an empty title as a different title', () => {
-    expect(titlesDiffer([sheet('M-03', { title: 'PUMP ROOM LAYOUT' }), sheet('M-03', { title: '  ' })])).toBe(false)
+    expect(titlesDiffer([sheet('M-03', { title: 'GLIMMERWICK ALCOVE PLAN' }), sheet('M-03', { title: '  ' })])).toBe(false)
     expect(titlesDiffer([sheet('M-03', { title: '' }), sheet('M-03', { title: '' })])).toBe(false)
-    expect(titlesDiffer([sheet('M-03', { title: 'PUMP ROOM LAYOUT' }), sheet('M-03', { title: '' }), sheet('M-03', { title: 'PUMP ROOM SECTION' })])).toBe(true)
+    expect(titlesDiffer([sheet('M-03', { title: 'GLIMMERWICK ALCOVE PLAN' }), sheet('M-03', { title: '' }), sheet('M-03', { title: 'GLIMMERWICK ALCOVE CUT' })])).toBe(true)
     const sameNumber = question('conflict', { code: 'engine.conflicts.same_number' })
-    expect(rowKindOf([sheet('M-03', { title: 'PUMP ROOM LAYOUT' }), sheet('M-03', { title: '' })], sameNumber)).toBe('copies')
+    expect(rowKindOf([sheet('M-03', { title: 'GLIMMERWICK ALCOVE PLAN' }), sheet('M-03', { title: '' })], sameNumber)).toBe('copies')
   })
 
   it('never calls a same_title Question’s row copies, whatever its numbers normalise to', () => {

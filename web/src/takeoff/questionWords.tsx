@@ -135,6 +135,8 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
       return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
     if (read.length === 1) {
       const title = <DrawingText kind="title" text={read[0]!.title} truncate={false} />
+      // Every title read, equal but for case or spacing: one title, the copies' words (#447, round 2).
+      if (entry.holds.every((h) => h.title.trim())) return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
       return <Trans>“{title}” is the only title read. Only one can be read.</Trans>
     }
     if (isTitledApart(entry)) {
