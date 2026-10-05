@@ -318,11 +318,6 @@ rule = "count without a plural"
 reason = "{n} is a floor number, not a count (storeys.tsx:61: the second basement and below)."
 
 [[allow]]
-msgid = "Confirm all {n} that agree"
-rule = "count without a plural"
-reason = "No noun follows the count: \"Confirm 1\" reads right; the bar's verb takes a number, not a plural."
-
-[[allow]]
 msgid = "{count} with no Discipline"
 rule = "count without a plural"
 reason = "No noun follows the count, and one reads \"1 with no Discipline\" (Step1Inspector.tsx:61 guards it)."
