@@ -173,3 +173,32 @@ def test_attach_counts_each_measurable_set_and_leaves_the_rest(tmp_path: Path) -
 def test_attach_without_its_files_changes_nothing(tmp_path: Path) -> None:
     assert c.attach(_walk(), tmp_path, tmp_path) == _walk()
     assert c.attach(["not a walk"], tmp_path, tmp_path) == ["not a walk"]
+
+
+def test_a_malformed_set_in_conflicts_json_leaves_only_that_set_unmeasured(tmp_path: Path) -> None:
+    group = {"groups": [_group("same", _sheet("S-1"), _sheet("S-2"))], "near_misses": []}
+    _truth_file(tmp_path, {"set-a": group, "set-b": group})
+    inside = [
+        {"file": "A.dwg", "number": "S-1", "plot_page": None},
+        {"file": "A.dwg", "number": "S-2", "plot_page": None},
+    ]
+    (tmp_path / "conflicts.json").write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "sha": SHA,
+                "started_at": STARTED,
+                "sets": {
+                    "set-a": {"questions": [{"code": TITLE, "proposals": inside}]},
+                    "set-b": {"questions": [{"code": TITLE, "proposals": [inside[0], None]}]},
+                },
+            }
+        )
+    )
+    walk = _walk()
+    walk["sets"]["set-b"]["burden"] = {"structural": dict(walk["sets"]["set-a"]["burden"]["structural"])}
+
+    counted = c.attach(walk, tmp_path, tmp_path)
+
+    assert counted["sets"]["set-a"]["burden"]["structural"][c.JUDGED] == 1
+    assert counted["sets"]["set-b"] == walk["sets"]["set-b"]

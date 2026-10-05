@@ -143,9 +143,25 @@ def _proposal(raw: object) -> Key:
     return (_text(raw["file"]), number, _page(raw["plot_page"]))
 
 
-def load_questions(path: Path, walk: Mapping[str, Any]) -> dict[str, list[tuple[str, list[Key]]]]:
-    """The walk's conflict Questions by set slug, each `(code, its Proposals' keys)`; raises when the
-    file is not this walk's (its sha and started_at) or is malformed."""
+def _set_questions(entry: object) -> list[tuple[str, list[Key]]]:
+    """One set's conflict Questions, each `(code, its Proposals' keys)`; raises when malformed."""
+    questions = entry.get("questions") if isinstance(entry, Mapping) else None
+    if not isinstance(questions, list):
+        raise Unmeasurable("a set's Questions are not a list")
+    listed = []
+    for question in questions:
+        if not isinstance(question, Mapping):
+            raise Unmeasurable("a Question is not an object")
+        code, proposals = question.get("code"), question.get("proposals")
+        if not isinstance(code, str) or not isinstance(proposals, list):
+            raise Unmeasurable("a Question has no code or Proposals")
+        listed.append((code, [_proposal(p) for p in proposals]))
+    return listed
+
+
+def load_questions(path: Path, walk: Mapping[str, Any]) -> dict[str, list[tuple[str, list[Key]]] | None]:
+    """The walk's conflict Questions by set slug (None: that set's are malformed, so it cannot be
+    measured); raises when the file is not this walk's (its sha and started_at) or not schema 1."""
     raw = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, Mapping) or raw.get("schema") != SCHEMA:
         raise Unmeasurable("conflicts.json is not schema 1")
@@ -155,20 +171,14 @@ def load_questions(path: Path, walk: Mapping[str, Any]) -> dict[str, list[tuple[
     sets = raw.get("sets")
     if not isinstance(sets, Mapping):
         raise Unmeasurable("conflicts.json has no sets")
-    found: dict[str, list[tuple[str, list[Key]]]] = {}
+    found: dict[str, list[tuple[str, list[Key]]] | None] = {}
     for slug, entry in sets.items():
-        questions = entry.get("questions") if isinstance(entry, Mapping) else None
-        if not isinstance(slug, str) or not isinstance(questions, list):
-            raise Unmeasurable("a set's Questions are not a list")
-        listed = []
-        for question in questions:
-            if not isinstance(question, Mapping):
-                raise Unmeasurable("a Question is not an object")
-            code, proposals = question.get("code"), question.get("proposals")
-            if not isinstance(code, str) or not isinstance(proposals, list):
-                raise Unmeasurable("a Question has no code or Proposals")
-            listed.append((code, [_proposal(p) for p in proposals]))
-        found[slug] = listed
+        if not isinstance(slug, str):
+            raise Unmeasurable("a set's name is not text")
+        try:
+            found[slug] = _set_questions(entry)
+        except Unmeasurable:
+            found[slug] = None  # this set only: the others are still measured
     return found
 
 
@@ -227,10 +237,11 @@ def attach(walk: Any, folder: Path, expect_dir: Path) -> Any:
         return counted  # nothing can be measured: every set stays as the walk wrote it
     for slug, record in counted["sets"].items():
         burden = record.get("burden") if isinstance(record, Mapping) else None
-        if slug not in truth or slug not in questions or not isinstance(burden, dict):
+        listed = questions.get(slug)
+        if slug not in truth or listed is None or not isinstance(burden, dict):
             continue
         try:
-            rows = count(questions[slug], truth[slug])
+            rows = count(listed, truth[slug])
         except Unmeasurable:
             continue
         if not all(isinstance(row, dict) for row in burden.values()):
