@@ -148,6 +148,8 @@ BURDEN_NUMBERS: tuple[str, ...] = (
     "one_source_sheets",
     "continuation_questions",
     "false_continuation_questions",
+    "false_continuation_questions_qs_view",
+    "continuation_questions_unsure",
 )
 
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")

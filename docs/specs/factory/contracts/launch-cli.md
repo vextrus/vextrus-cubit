@@ -33,7 +33,11 @@ orchestrator adds it to the owner's list to delete in claude.ai/code (O8).
 `no-session`, `wrong-environment` (the log names another environment, or the CLI fell back to the first one),
 `launch-timeout` (the CLI did not finish in 180 s and a session exists), `branch-not-rd` (a `--drawings` launch on a branch not starting `rd/`), `duplicate-name` (local),
 `merge-conflict` (local, carried branch), `no-preflight` (before f3: neither `--preflight` nor governor),
-`send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit). The list is closed: a new code is added here first.
+`send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit),
+`wrong-account` (all three subcommands, before anything runs: `CLAUDE_CONFIG_DIR` is set and is not `~/.claude`, account A's
+config; a session can message only sessions of its own config), `ambiguous-log` (the CLI's own lines name two sessions,
+git sources or environments). The judge reads only the CLI's own lines (split at `\n` only; each pattern at the start of a line's
+message, after `[DEBUG] ` and the CLI's optional `<ISO>Z` time), never text the prompt quotes in the payload line. The list is closed: a new code is added here first.
 
 ## 2. `launch cloud`
 
@@ -95,7 +99,9 @@ launch say <session_id> --file <file>
 ```
 
 Leak-scans the text (`tools/leakscan text --stdin`; a hit is exit 2 `prompt-leak`), prefixes `[elapsed n/m min]` (ADR
-0041 item 4, from `stamp elapsed`), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
+0041 item 4: `--elapsed N/M`, else `--ticket`'s launch record judged OK (the one naming the session, else the newest; never a
+refused or failed run's), from its `started_at` and `budget_minutes`; a cloud
+launch writes no budget file, which linked worktrees' clocks would read), else the session's own `stamp elapsed` clock; none of them is a usage error), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
 and reads `{ok}`. Prints `OK sent <session_id>` on `ok: true`, else `REFUSED send-failed: <reason>` with exit 2.
 One message per review round. A CLI-sent message has no reply address; two-way exchange is the orchestrator's main
 conversation by SendMessage (not this command).
@@ -119,7 +125,7 @@ passes `--plugin-dir`. First stdout line: `OK launched <name> <session_id>`. A l
 
 ## 5. The launch record
 
-Both paths write `.private/work/factory/launches/<ticket>-<utc>.json` (`<utc>` = `YYYYMMDDTHHMMSSZ`) and, beside it,
+Both paths write, for every cloud run past the usage checks (OK, REFUSED or ERROR), `.private/work/factory/launches/<ticket>-<utc>.json` (`<utc>` = `YYYYMMDDTHHMMSSZ`) and, beside it,
 `<ticket>-<utc>.agents.json` (the output of `claude agents --json --all`). Append-only: never overwritten. The
 launcher prints a last line `record: <path>`. Fields (the watcher, `review_cloud.py` and `ledger.py fetch-verdict`
 read them):
@@ -133,10 +139,10 @@ read them):
 | `budget_minutes` | integer or null | |
 | `session_id` | string or null | `session_...` for cloud, the full UUID for local; null if refused before launch |
 | `cli_version` | string | `claude --version`'s version |
-| `started_at` | UTC string | |
+| `started_at` | UTC string | whole seconds, `YYYY-MM-DDTHH:MM:SSZ` (`status.utc`) |
 | `governor` | object | the governor's reading (or the `--preflight` / `--usage-checked` lines) |
 | `leak_scan` | object | `{"status": "clean" or "interim", "line": "<summary or --prompt-scanned line>"}` |
-| `judge` | object | `{"ok": bool, "code": "<code>", "reason": "<text>"}` (cloud) |
+| `judge` | object | `{"ok": bool, "code": "<code>", "reason": "<text>"}` (cloud); an exit-1 run's code is `error`, its reason the `ERROR` line's |
 | `stop_sent` | boolean | true if a STOP message was sent after a refusal |
 | `untestable` | string or null | the `--untestable` reason |
 | `review` | object or null | present only for `review_cloud.py` launches: `{"pr": int, "head_sha": "<40 hex>", "nonce": "<32 hex>", "branch": "review/<pr>-<nonce8>"}`. **Only this record and that reviewer's prompt hold the nonce** (review-verdict.schema.json). |
