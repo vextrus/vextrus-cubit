@@ -46,14 +46,14 @@
     "checks": {
       "type": "array",
       "minItems": 1,
-      "description": "The script layer's three measured checks (`web/e2e/real/walk.spec.ts`), once per Development Set walked. Selectors use roles and test ids, never a title.",
+      "description": "The script layer's eight measured checks (`web/e2e/real/walk.spec.ts`, judged by `scripts/walk/verdict.py`), once per Development Set walked, in the order of `check`'s enum. Selectors use roles and test ids, never a title.",
       "items": {
         "$ref": "#/$defs/check"
       }
     },
     "burden": {
       "type": "array",
-      "description": "G5, the QS's burden, counted beside check 3: one element per (set, Discipline), from the screen and the API on a real read. Counts only.",
+      "description": "G5, the QS's burden: one element per (set, Discipline), from the snapshot the walk took from the API in a Project no act touched, once its last read ended (`scripts/walk/measures.py`). Counts only. Checks 3 to 8 are re-derived from these rows by `ready.py`.",
       "items": {
         "$ref": "#/$defs/burdenRow"
       }
@@ -212,9 +212,14 @@
           "enum": [
             "reads_complete",
             "act_p95_during_read",
-            "questions_per_discipline"
+            "questions_per_discipline",
+            "sheets_match",
+            "true_questions_raised",
+            "false_continuations",
+            "bulk_confirmable_share",
+            "storeys_match"
           ],
-          "description": "reads_complete: (1) every file's read completes. act_p95_during_read: (2) act p95 (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived). questions_per_discipline: (3) Questions per Discipline by kind (D2), with the burden counts."
+          "description": "The owner's Q5 refined limits (5 Oct 2026). reads_complete: (1) every file's read completes. act_p95_during_read: (2) acts (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived): the p95, the worst act, a sample minimum of each kind and no failed act. questions_per_discipline: (3) machine-doubt Questions per Discipline (D2): open Questions not on the expectation's true list, numbering gaps once per file. sheets_match: (4) the Sheets found per Discipline against the expectation's N, none missing and phantoms within the limit. true_questions_raised: (5) every listed true Question raised. false_continuations: (6) conflict Questions on no true list, and listed stale-title pairs grouped by no Question. bulk_confirmable_share: (7) per Discipline, Sheets the QS can confirm in bulk over N. storeys_match: (8) listed Sheets whose storeys differ. Checks 3 to 8 read the snapshot taken before any act; a set it cannot measure has them FAIL with measured.unmeasured 1."
         },
         "set": {
           "$ref": "#/$defs/slug",
@@ -230,7 +235,7 @@
         },
         "measured": {
           "type": "object",
-          "description": "The numbers the walk measured; keys by check. reads_complete: {files, completed}. act_p95_during_read: {p95_ms, samples}. questions_per_discipline: {questions_max_per_discipline, disciplines}.",
+          "description": "The numbers the walk measured; keys by check. reads_complete: {files, completed}. act_p95_during_read: {p95_ms, max_ms, samples, confirm, undo, exclude, answer, failed_acts} (samples are acts while a read ran that answered 1 to 399; p95_ms and max_ms absent with no sample). questions_per_discipline: {questions_max_per_discipline, disciplines}. sheets_match: {sheets_found, missing, phantoms}. true_questions_raised: {true_listed, true_raised}. false_continuations: {false_questions, stale_grouped}. bulk_confirmable_share: {bulk_confirmable_sheets, sheets_expected}. storeys_match: {storeys_listed, storeys_wrong}. Any of them: {unmeasured: 1} alone when the set's snapshot could not measure it, which fails the check.",
           "additionalProperties": {
             "$ref": "#/$defs/number"
           }
@@ -242,7 +247,7 @@
             },
             {
               "type": "object",
-              "description": "The limits, from Q5 and the Answer Key's counts, same keys as `measured` where they compare (reads_complete: {files}; act_p95_during_read: {p95_ms_max}; questions_per_discipline: {questions_max_per_discipline}). Never taken from a walk's own recording.",
+              "description": "The limits, from Q5 and the Answer Key's counts (reads_complete: {files}; act_p95_during_read: {p95_ms_max, max_ms_max, samples_each_min}; questions_per_discipline: {questions_max_per_discipline}; sheets_match: {sheets (the sum of N), phantoms_max}; true_questions_raised: {true_questions (how many are listed)}; false_continuations: {false_continuation_max, stale_title_grouped_max}; bulk_confirmable_share: {bulk_confirmable_share_min}; storeys_match: {storeys_wrong_max}). Never taken from a walk's own recording.",
               "additionalProperties": {
                 "$ref": "#/$defs/number"
               }
@@ -282,8 +287,10 @@
         "questions_by_kind",
         "questions_total",
         "sheets",
+        "sheets_expected",
         "bulk_confirmable_sheets",
         "one_source_sheets",
+        "machine_doubt_questions",
         "continuation_questions",
         "false_continuation_questions"
       ],
@@ -311,16 +318,36 @@
         "questions_total": {
           "type": "integer",
           "minimum": 0,
-          "description": "The sum of questions_by_kind. Q5's limit: 3 or fewer per Discipline."
+          "description": "The sum of questions_by_kind: every open Question, true defects too."
         },
         "sheets": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "The Sheets found, every one (a Sheet proposed out and an empty layout too)."
+        },
+        "sheets_expected": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "N, the expectation's Sheet count for the Discipline; null when the expectation does not list it (its Sheets are phantoms) or the set was not measured."
         },
         "bulk_confirmable_sheets": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 0,
-          "description": "Sheets the QS can confirm in bulk. Q5's limit: 80 % or more of `sheets`."
+          "description": "Sheets the QS can confirm in bulk (they agree and are not held; where a numbering gap is open, counted after the walk answered it). Q5's limit: 80 % or more of N. null when a gap was open and no count was read after it."
+        },
+        "machine_doubt_questions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Open Questions not on the true list, numbering gaps once per file. Q5's limit: 3 or fewer per Discipline. null when the set was not measured."
         },
         "one_source_sheets": {
           "type": "integer",
@@ -328,7 +355,8 @@
         },
         "continuation_questions": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Informational: open same_title and same_storey Questions, true or false."
         },
         "false_continuation_questions": {
           "type": [
@@ -336,23 +364,7 @@
             "null"
           ],
           "minimum": 0,
-          "description": "Continuation Questions the Answer Key says were not continuations; null when no expectation exists. Q5's limit: 0."
-        },
-        "false_continuation_questions_qs_view": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0,
-          "description": "Informational, never judged: conflict Questions wholly inside one continuation group of any title form (a mark range too), as a QS would count them; absent or null when not measured."
-        },
-        "continuation_questions_unsure": {
-          "type": [
-            "integer",
-            "null"
-          ],
-          "minimum": 0,
-          "description": "Informational, never judged: conflict Questions wholly inside one near miss the ground truth marks unsure; absent or null when not measured."
+          "description": "Open conflict Questions (same_title, same_storey, same_number) on no true list; null when the set was not measured. Q5's limit: 0."
         }
       }
     },

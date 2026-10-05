@@ -2,8 +2,8 @@
 
 They pin the fail-closed choices the ticket leaves to the builder: a refused verdict stands as a
 not-PASS in ready.py's order, a smoke walk is never judged as a verdict, a re-walk keeps the older
-verdict, an unmeasured false-continuation count fails its check, the leak scan fails closed when it
-cannot run, and run.py never hands a child the owner's database URL.
+verdict, a walk never measured from its snapshot fails its snapshot checks closed, the leak scan fails
+closed when it cannot run, and run.py never hands a child the owner's database URL.
 """
 
 import contextlib
@@ -11,13 +11,14 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from scripts.walk import issues, ready, run, sanitize, schema, verdict
+from scripts.walk import issues, measures, ready, run, sanitize, schema, verdict
 
 ROOT = Path(__file__).resolve().parents[3]
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -29,11 +30,15 @@ def _walk(**change: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
         "schema": 1,
         "sha": SHA,
+        "started_at": TIMES["started_at"],
         "urls": {"web": "http://127.0.0.1:5511", "api": "http://127.0.0.1:8811"},
         "sets": {
             "set-a": {
                 "files": [{"id": 1, "state": "done", "read_seconds": 3}],
-                "acts": [{"kind": "confirm", "ms": 50, "read_running": True}],
+                "acts": [
+                    {"kind": kind, "ms": 50, "read_running": True, "status": 200}
+                    for kind in ("confirm", "undo", "exclude", "answer")
+                ],
                 "questions": {"structural": {"low_confidence": 1}},
                 "burden": {
                     "structural": {
@@ -41,7 +46,7 @@ def _walk(**change: Any) -> dict[str, Any]:
                         "one_source": 0,
                         "bulk_confirmable": 4,
                         "continuation_questions": 0,
-                        "false_continuation_questions": 0,
+                        "false_continuation_questions": None,
                     }
                 },
             }
@@ -51,35 +56,100 @@ def _walk(**change: Any) -> dict[str, Any]:
     return body
 
 
+def _snapshot_set() -> dict[str, Any]:
+    """The snapshot `_walk()`'s set was counted from: four structural Sheets, one open Question."""
+    sheets: list[dict[str, Any]] = [
+        {
+            "id": f"s{n}",
+            "file": "synthetic-a.dwg",
+            "number": f"Q-{n}",
+            "title": f"Synthetic Sheet {n}",
+            "discipline": "structural",
+            "layout": True,
+            "proposed_exclusion": None,
+            "held": False,
+            "agrees": True,
+            "storeys": [],
+            "storeys_titled": None,
+        }
+        for n in range(1, 5)
+    ]
+    question = {
+        "id": "q1",
+        "kind": "low_confidence",
+        "status": "open",
+        "code": "takeoff.step1.which_kind",
+        "check_code": None,
+        "discipline": "structural",
+        "proposals": ["s1"],
+    }
+    return {"acts_before_snapshot": 0, "sheets": sheets, "questions": [question], "bulk_after_gaps": {}}
+
+
+def _snapshot(walk: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema": 1,
+        "sha": walk["sha"],
+        "started_at": walk.get("started_at"),
+        "sets": {"set-a": _snapshot_set()},
+    }
+
+
 EXPECT = {
     "set-a": {
         "files": 1,
         "p95_ms_max": 1000,
+        "act_max_ms": 3000,
+        "act_samples_min": 1,
         "questions_max_per_discipline": 3,
         "bulk_confirmable_share_min": 0.8,
         "false_continuation_max": 0,
+        "phantom_sheets_max": 0,
+        "stale_title_grouped_max": 0,
+        "storeys_wrong_max": 0,
+        "sheets_per_discipline": {"structural": 4},
+        "true_questions": [],
+        "stale_title_pairs": [],
+        "storeys": [],
     }
 }
 LAYER = {"items": [{"item": i, "status": "PASS"} for i in sanitize.ITEMS], "findings": []}
 
 
+def _measured(walk: dict[str, Any]) -> dict[str, Any]:
+    """`walk` measured from its snapshot (`_snapshot`), as verdict.main measures it."""
+    with tempfile.TemporaryDirectory() as folder:
+        (Path(folder) / "snapshot.json").write_text(json.dumps(_snapshot(walk)))
+        found: dict[str, Any] = measures.attach(walk, Path(folder), EXPECT)
+    return found
+
+
 def _evaluate(walk: dict[str, Any]) -> dict[str, Any]:
-    return verdict.evaluate(walk, EXPECT, LAYER, ref="main", leak_hits=0, **TIMES)
+    return verdict.evaluate(_measured(walk), EXPECT, LAYER, ref="main", leak_hits=0, **TIMES)
 
 
 # verdict.py --------------------------------------------------------------------------------------
 
 
-def test_an_unmeasured_false_continuation_count_fails_its_check() -> None:
-    walk = _walk()
-    walk["sets"]["set-a"]["burden"]["structural"]["false_continuation_questions"] = None
+def test_the_measured_walk_passes() -> None:
+    judged = _evaluate(_walk())
 
-    judged = _evaluate(walk)
+    assert [c["status"] for c in judged["checks"]] == ["PASS"] * len(sanitize.CHECK_IDS)
+    assert judged["result"] == "PASS"
+    assert ready.consistent(judged) is True
 
-    [check] = [c for c in judged["checks"] if c["check"] == "questions_per_discipline"]
-    assert check["status"] == "FAIL"
+
+def test_a_walk_never_measured_fails_its_snapshot_checks_closed() -> None:
+    judged = verdict.evaluate(_walk(), EXPECT, LAYER, ref="main", leak_hits=0, **TIMES)
+
+    by_check = {c["check"]: c for c in judged["checks"]}
+    assert by_check["reads_complete"]["status"] == "PASS"
+    for name in sanitize.CHECK_IDS[2:]:
+        assert by_check[name]["status"] == "FAIL", name
+        assert by_check[name]["measured"] == {"unmeasured": 1}
     assert judged["result"] == "FAIL"
     assert schema.verdict_errors(judged) == []
+    assert ready.consistent(judged) is True
 
 
 def test_a_walk_that_breaks_its_schema_is_not_judged() -> None:
@@ -153,6 +223,7 @@ def _lay_out(tmp_path: Path, walk: dict[str, Any]) -> tuple[Path, Path, Path]:
     expect_dir.mkdir()
     (expect_dir / "set-a.json").write_text(json.dumps(EXPECT["set-a"]))
     (folder / "walk.json").write_text(json.dumps(walk))
+    (folder / "snapshot.json").write_text(json.dumps(_snapshot(walk)))
     (folder / "findings.json").write_text(json.dumps(LAYER))
     return walks, expect_dir, folder
 
@@ -184,7 +255,9 @@ def test_a_rewalk_keeps_the_older_verdict(tmp_path: Path) -> None:
     first = json.loads((folder / "verdict.json").read_text())
     run.set_aside(folder)  # what run.py does before a new walk of the same head
     assert not (folder / "findings.json").exists()  # the re-walk's agent layer writes its own
-    (folder / "walk.json").write_text(json.dumps(_walk(started_at="2026-10-05T00:30:00Z")))
+    rewalk = _walk(started_at="2026-10-05T00:30:00Z")
+    (folder / "walk.json").write_text(json.dumps(rewalk))
+    (folder / "snapshot.json").write_text(json.dumps(_snapshot(rewalk)))
     (folder / "findings.json").write_text(json.dumps(LAYER))
     assert _cli(walks, expect_dir).returncode == 0
 
@@ -203,7 +276,9 @@ def test_one_walk_judged_twice_is_not_two_passes(tmp_path: Path) -> None:
     (expect_dir / "set-a.json").write_text(json.dumps(EXPECT["set-a"]))
     folder = walks / sha
     folder.mkdir(parents=True)
-    (folder / "walk.json").write_text(json.dumps(_walk(sha=sha, started_at=_a_minute_ago())))
+    walk = _walk(sha=sha, started_at=_a_minute_ago())
+    (folder / "walk.json").write_text(json.dumps(walk))
+    (folder / "snapshot.json").write_text(json.dumps(_snapshot(walk)))
     (folder / "findings.json").write_text(json.dumps(LAYER))
 
     assert _cli_for(sha, walks, expect_dir).returncode == 0
@@ -233,9 +308,12 @@ def test_a_fail_rejudged_against_new_expectations_stays_one_fail(tmp_path: Path)
 
 
 def test_a_walk_with_no_start_is_judged_only_into_an_empty_folder(tmp_path: Path) -> None:
-    walks, expect_dir, folder = _lay_out(tmp_path, _walk())
+    walk = _walk()
+    del walk["started_at"]
+    walks, expect_dir, folder = _lay_out(tmp_path, walk)
 
-    assert _cli(walks, expect_dir).returncode == 0
+    # No snapshot can be shown to be its own: judged, unmeasured, so FAIL.
+    assert _cli(walks, expect_dir).returncode == 1
     (folder / "walk.json").touch()  # a new mtime is not a new walk
 
     assert _cli(walks, expect_dir).returncode == 2
@@ -306,7 +384,7 @@ def _verdict(sha: str, result: str, finished_at: str) -> dict[str, Any]:
     if result == "FAIL":
         walk["sets"]["set-a"]["acts"][0]["ms"] = 5000
     return verdict.evaluate(
-        walk,
+        _measured(walk),
         EXPECT,
         LAYER,
         ref="main",

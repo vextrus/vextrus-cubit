@@ -2,14 +2,79 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://vextrus.invalid/factory/walk-expect.schema.json",
   "title": "A Development Set's expectations: .private/work/walk-expect/<set>.json",
-  "description": "The limits scripts/walk/verdict.py judges a walk's checks by (docs/specs/factory.md 5 'G1'): from Q5's limits and the Answer Key's counts, never from a walk's own recording; prepared by drawing-analyst, reviewed by qs-critic, the counts confirmed by the owner; never in git. A missing key makes its check UNSET, and UNSET fails PASS: files for reads_complete; p95_ms_max for act_p95_during_read; the last three, all of them, for questions_per_discipline.",
+  "description": "The limits scripts/walk/verdict.py judges a walk's eight checks by (docs/specs/factory.md 5 'G1'; the owner's Q5 refined limits, 5 Oct 2026): from Q5's limits and the Answer Key's counts, never from a walk's own recording; prepared by drawing-analyst, reviewed by qs-critic, the counts confirmed by the owner. Private; never in git: the structures name real files and Sheet numbers, so no test, issue or PR holds one. A missing key makes the checks that need it UNSET, and UNSET fails PASS: files for reads_complete; p95_ms_max, act_max_ms and act_samples_min for act_p95_during_read; questions_max_per_discipline for questions_per_discipline; sheets_per_discipline and phantom_sheets_max for sheets_match; true_questions for true_questions_raised; false_continuation_max, stale_title_grouped_max and stale_title_pairs for false_continuations; bulk_confirmable_share_min and sheets_per_discipline for bulk_confirmable_share; storeys_wrong_max and storeys for storeys_match. A wrong shape, a negative or non-integer count, a share above 1 or an unknown key is malformed: nothing is judged.",
   "type": "object",
   "additionalProperties": false,
+  "$defs": {
+    "discipline": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,24}$", "description": "A Market Discipline key (never `none`)." },
+    "sheet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "number"],
+      "description": "A Sheet by its file's name as uploaded and its Sheet number.",
+      "properties": {
+        "file": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "number": { "type": "string", "minLength": 1, "maxLength": 200 }
+      }
+    }
+  },
   "properties": {
     "files": { "type": "integer", "minimum": 1, "description": "How many files the set holds; every one must be read." },
     "p95_ms_max": { "type": "number", "minimum": 0, "description": "The act p95 limit, in ms, while a later file reads." },
-    "questions_max_per_discipline": { "type": "integer", "minimum": 0, "description": "Q5: open Questions per Discipline." },
-    "bulk_confirmable_share_min": { "type": "number", "minimum": 0, "maximum": 1, "description": "Q5: the share of a Discipline's Sheets the QS can confirm in bulk." },
-    "false_continuation_max": { "type": "integer", "minimum": 0, "description": "Q5: continuation Questions that are not continuations." }
+    "act_max_ms": { "type": "number", "minimum": 0, "description": "The worst act's limit, in ms, while a later file reads." },
+    "act_samples_min": { "type": "integer", "minimum": 0, "description": "Acts of each kind (confirm, undo, exclude, answer) the walk must time while a read runs." },
+    "questions_max_per_discipline": { "type": "integer", "minimum": 0, "description": "Q5: machine-doubt Questions per Discipline (open Questions not on true_questions, numbering gaps once per file)." },
+    "bulk_confirmable_share_min": { "type": "number", "minimum": 0, "maximum": 1, "description": "Q5: per Discipline, the Sheets the QS can confirm in bulk over N (sheets_per_discipline)." },
+    "false_continuation_max": { "type": "integer", "minimum": 0, "description": "Q5: open conflict Questions (same_title, same_storey, same_number) not on true_questions." },
+    "phantom_sheets_max": { "type": "integer", "minimum": 0, "description": "Sheets found beyond N, or in a Discipline not listed (or none)." },
+    "stale_title_grouped_max": { "type": "integer", "minimum": 0, "description": "Listed stale-title pairs grouped silently (equal titles, no Question holding both)." },
+    "storeys_wrong_max": { "type": "integer", "minimum": 0, "description": "Listed storey-bearing Sheets whose storeys the product reads otherwise." },
+    "sheets_per_discipline": {
+      "type": "object",
+      "description": "N: the true Sheet count of each Discipline, every Sheet (one proposed out and an empty layout too).",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,24}$" },
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "true_questions": {
+      "type": "array",
+      "description": "The true defects the product must raise (outside the machine-doubt cap): a Question matches when its code or check_code is `code`, its Discipline is `discipline` and it holds a Sheet for every listed one. An empty list means none.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["discipline", "code", "sheets"],
+        "properties": {
+          "discipline": { "$ref": "#/$defs/discipline" },
+          "code": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{0,99}$" },
+          "sheets": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/sheet" } }
+        }
+      }
+    },
+    "stale_title_pairs": {
+      "type": "array",
+      "description": "Pairs of Sheets whose titles are equal though they are not one series: a Question of any kind must hold both.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["discipline", "sheets"],
+        "properties": {
+          "discipline": { "$ref": "#/$defs/discipline" },
+          "sheets": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/sheet" } }
+        }
+      }
+    },
+    "storeys": {
+      "type": "array",
+      "description": "Each storey-bearing Sheet and its true storeys (order ignored); a Sheet not listed is never judged.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "number", "storeys"],
+        "properties": {
+          "file": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "number": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "storeys": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1, "maxLength": 200 } }
+        }
+      }
+    }
   }
 }

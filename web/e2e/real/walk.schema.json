@@ -33,7 +33,22 @@
       "additionalProperties": false,
       "required": ["files", "acts", "questions", "burden"],
       "properties": {
-        "project": { "type": "string", "pattern": "^WK-[0-9]{2}$", "description": "The project the walk made for the set (the agent layer walks it)." },
+        "project": { "type": "string", "pattern": "^WK-[0-9]{2}$", "description": "The project the walk made for the set and read with no act (its snapshot.json is the burden; the agent layer walks it)." },
+        "acts_project": { "type": "string", "pattern": "^WK-A[0-9]{2}$", "description": "The second project the walk made for the set: the same files, read again, acted on while they read." },
+        "measures": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["unmeasured"],
+          "description": "Never written by the walk: scripts/walk/measures.py adds it from snapshot.json (counts only). unmeasured 1: the snapshot could not measure the set, and the other keys are absent.",
+          "properties": {
+            "unmeasured": { "enum": [0, 1] },
+            "true_listed": { "$ref": "#/$defs/count" },
+            "true_raised": { "$ref": "#/$defs/count" },
+            "stale_grouped": { "$ref": "#/$defs/count" },
+            "storeys_listed": { "$ref": "#/$defs/count" },
+            "storeys_wrong": { "$ref": "#/$defs/count" }
+          }
+        },
         "files": {
           "type": "array",
           "description": "Each file in upload order. state: done (read), or the product's end state (failed, held, unreadable, refused, cancelled), or timeout.",
@@ -65,7 +80,7 @@
         },
         "questions": {
           "type": "object",
-          "description": "Open Questions (and those this walk answered) per Discipline key, by the product's Question kind.",
+          "description": "Open Questions per Discipline key, by the product's Question kind, in the snapshot taken before any act.",
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,24}$" },
           "additionalProperties": {
             "type": "object",
@@ -75,7 +90,7 @@
         },
         "burden": {
           "type": "object",
-          "description": "G5's burden counts per Discipline key. The walk writes false_continuation_questions as null; scripts/walk/verdict.py (scripts/walk/continuations.py) fills it, and the two informational counts beside it, from conflicts.json and the local ground truth, and fails the check closed on a null it cannot fill.",
+          "description": "G5's burden counts per Discipline key, in the snapshot taken before any act. The walk writes false_continuation_questions as null; scripts/walk/measures.py counts every row afresh from snapshot.json and the set's expectation (adding sheets_expected and machine_doubt_questions), and a set it cannot measure keeps the walk's rows and fails its snapshot checks closed. bulk_confirmable is null where a numbering gap is open and no count was read after its answer.",
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,24}$" },
           "additionalProperties": {
             "type": "object",
@@ -84,11 +99,11 @@
             "properties": {
               "sheets": { "$ref": "#/$defs/count" },
               "one_source": { "$ref": "#/$defs/count" },
-              "bulk_confirmable": { "$ref": "#/$defs/count" },
+              "bulk_confirmable": { "type": ["integer", "null"], "minimum": 0 },
               "continuation_questions": { "$ref": "#/$defs/count" },
               "false_continuation_questions": { "type": ["integer", "null"], "minimum": 0 },
-              "false_continuation_questions_qs_view": { "type": ["integer", "null"], "minimum": 0 },
-              "continuation_questions_unsure": { "type": ["integer", "null"], "minimum": 0 }
+              "sheets_expected": { "type": ["integer", "null"], "minimum": 0 },
+              "machine_doubt_questions": { "$ref": "#/$defs/count" }
             }
           }
         }
