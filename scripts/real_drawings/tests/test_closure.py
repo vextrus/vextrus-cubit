@@ -4,7 +4,10 @@ refuses, and the key's fallback when the job's installed apps cannot be known. I
 invented git repository only (`world.py`)."""
 
 import ast
+import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,6 +26,20 @@ from tools.lint.import_closure import ClosureError, closure
 
 PATTERNS = (REPO / ".github" / "engine-paths.txt").read_text(encoding="utf-8")
 CHECKOUT_ALSO_TEXT = (REPO / ".github" / "checkout-also.txt").read_text(encoding="utf-8")
+
+
+def repository_tree() -> list[str]:
+    """This checkout's files on the engine paths and beside them, as the run's checkout holds them."""
+    listed = subprocess.run(
+        ["git", "-C", str(REPO), "ls-files", "-z"], capture_output=True, check=True
+    ).stdout.decode()
+    patterns = [*read_patterns(PATTERNS), *read_patterns(CHECKOUT_ALSO_TEXT)]
+    return matching(sorted(filter(None, listed.split("\0"))), patterns)
+
+
+def read_repository(name: str) -> bytes | None:
+    path = REPO / name
+    return path.read_bytes() if path.is_file() else None
 
 
 def closure_of(tree: dict[str, str], entries: list[str]) -> frozenset[str]:
@@ -128,9 +145,10 @@ def test_a_lister_loads_each_module_of_a_package_its_file_names() -> None:
         "zq/__init__.py": "",
         "zq/entry.py": "from zq import catalogue\n",
         "zq/catalogue.py": (
-            'import pkgutil\n\nPACKAGE = "zq.rules"\n\n\n'
-            "def scan() -> object:\n    return pkgutil.iter_modules([PACKAGE])\n"
+            'from zq.lister import submodules\n\nPACKAGE = "zq.rules"\n\n\n'
+            "def scan() -> object:\n    return submodules(PACKAGE)\n"
         ),
+        "zq/lister.py": "def submodules(package: str) -> list[str]:\n    return [package]\n",
         "zq/rules/__init__.py": "",
         "zq/rules/one.py": "",
         "zq/other/__init__.py": "",
@@ -331,20 +349,185 @@ def test_a_relative_name_against_no_known_package_is_a_closure_error() -> None:
         closure_of(tree, ["zq/entry.py"])
 
 
+def loader_tree(load: str, head: str = "") -> dict[str, str]:
+    return {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import loader\n",
+        "zq/loader.py": (
+            f"from importlib import import_module\n\nfrom zq.lister import submodules\n{head}\n\n"
+            f"def load(name: str, table: dict[str, str]) -> object:\n    return {load}\n"
+        ),
+        "zq/lister.py": "def submodules(package: str) -> list[str]:\n    return [package]\n",
+        "zq/readers/__init__.py": "",
+        "zq/readers/first.py": "",
+        "zq/readers/deep/__init__.py": "",
+        "zq/readers/deep/second.py": "",
+        "zq/elsewhere/__init__.py": "",
+        "zq/elsewhere/other.py": "",
+    }
+
+
+@pytest.mark.parametrize(
+    ("head", "load"),
+    [
+        ('READERS = "zq.readers"', 'import_module(f"{READERS}.{name}")'),
+        ('READERS: str = "zq.readers"', 'import_module(READERS + "." + name)'),
+        ('READERS = "zq.readers"', "submodules(READERS)"),
+        ("", 'import_module("zq.readers." + name)'),
+        ('KINDS = ("zq.readers.first", "zq.readers.deep.second")', "[import_module(k) for k in KINDS]"),
+    ],
+)
+def test_a_name_with_a_literal_root_in_the_same_module_loads_what_it_can_name(
+    head: str, load: str
+) -> None:
+    """Review round 1 of #446: a module-level string constant is a root only when it is a literal
+    bound once in the same module; a variable's value then stands for any name parts."""
+    found = closure_of(loader_tree(load, head), ["zq/entry.py"])
+
+    assert {"zq/readers/first.py", "zq/readers/deep/second.py"} <= found
+    assert "zq/elsewhere/other.py" not in found
+
+
+@pytest.mark.parametrize(
+    ("head", "load"),
+    [
+        ("from zq.elsewhere import READERS", 'import_module(f"{READERS}.{name}")'),  # not a literal here
+        ('READERS = "zq.readers"\nREADERS = "zq.elsewhere"', 'import_module(f"{READERS}.{name}")'),
+        ('READERS = "zq." + "readers"', 'import_module(f"{READERS}.{name}")'),  # not a literal
+        ("", "import_module(name)"),  # a parameter
+        ("", "import_module(table[name])"),  # a table's entry
+        ("", 'import_module(__name__.replace("loader", name))'),  # a call on its own name
+        ("", "import_module(__name__[:3] + name)"),  # a slice of its own name
+        ("", "submodules(name)"),  # a lister given a parameter
+        ("", "__import__(name)"),
+        ("", "import_module(f'{name}.x')"),  # no root
+    ],
+)
+def test_a_computed_name_no_recognised_form_reads_is_a_closure_error(head: str, load: str) -> None:
+    """Review round 1 of #446: an import by a computed name either resolves through a recognised
+    form or raises; nothing falls through to "loads nothing" or "loads the module itself"."""
+    with pytest.raises(ClosureError, match=r"zq/loader\.py:\d+"):
+        closure_of(loader_tree(load, head), ["zq/entry.py"])
+
+
+def test_its_own_name_passed_on_in_an_unread_form_is_a_closure_error() -> None:
+    tree = loader_tree('submodules(__name__.replace("loader", "readers"))')
+
+    with pytest.raises(ClosureError, match=r"zq/loader\.py:\d+"):
+        closure_of(tree, ["zq/entry.py"])
+
+
+def test_a_declared_loaders_callers_must_give_a_name_a_form_reads() -> None:
+    """`engine.collect.submodules` is declared: inside it nothing is refused, but a caller must give
+    it a name a recognised form reads."""
+    tree = {
+        "engine/__init__.py": "",
+        "engine/collect.py": (
+            "from importlib import import_module\n\n\n"
+            "def submodules(package: str) -> list[object]:\n"
+            '    return [import_module(package), import_module(f"{package}.x")]\n'
+        ),
+        "engine/entry.py": "from engine import parts\n",
+        "engine/parts/__init__.py": "from engine.collect import submodules\n\nsubmodules(__name__)\n",
+        "engine/parts/one.py": "",
+        "engine/bad.py": (
+            "from engine.collect import submodules\n\n\ndef f(p: str) -> None:\n    submodules(p)\n"
+        ),
+    }
+
+    assert "engine/parts/one.py" in closure_of(tree, ["engine/entry.py"])
+    with pytest.raises(ClosureError, match=r"engine/bad\.py:5"):
+        closure_of(tree, ["engine/bad.py"])
+
+
+def test_admin_modules_join_when_the_jobs_settings_install_djangos_admin(world: World) -> None:
+    """Review round 1 of #446: Django's admin imports each installed app's `admin` at setup when
+    `django.contrib.admin` is installed; the job's settings decide it."""
+    admin = "vextrus/takeoff/admin/__init__.py"
+    world.commit("main", {admin: "ZQ_ADMIN = 1\n"})
+    before, _ = key_at(world, world.repo_commit("main"))
+    plain = world.commit("plain", {admin: "ZQ_ADMIN = 2\n"})
+    assert key_at(world, plain) == (before, "")
+
+    settings = 'INSTALLED_APPS = ["django.contrib.admin", "vextrus.takeoff"]\n'
+    installed = world.commit("installed", {"vextrus/settings/__init__.py": settings})
+    with_admin, _ = key_at(world, installed)
+    edited = world.commit("edited", {admin: "ZQ_ADMIN = 3\n"}, parent="installed")
+
+    after, why = key_at(world, edited)
+    assert (after != with_admin, why) == (True, "")
+
+
+RUNTIME = """
+import importlib, json, os, pathlib, sys
+os.environ["DJANGO_SETTINGS_MODULE"] = "vextrus.settings.job"
+import django
+django.setup()
+from django.apps import apps
+from django.core.management import get_commands, load_command_class
+from django.db.migrations.loader import MigrationLoader
+import vextrus.takeoff.tasks.read_file
+import vextrus.takeoff.services.export
+import vextrus.takeoff.services as services
+for name in services.__all__:
+    getattr(services, name)
+from engine import harness, messages
+from engine.check import catalogue
+for stage in harness.STAGES:
+    harness.resolve(stage.target)
+catalogue.scan()
+messages.codes()
+for app in apps.get_app_configs():
+    if app.name.startswith("vextrus."):
+        for part in ("messages", "library", "tasks"):
+            if importlib.util.find_spec(f"{app.name}.{part}") is not None:
+                module = importlib.import_module(f"{app.name}.{part}")
+                if part == "messages":
+                    module.codes()
+for command, app in get_commands().items():
+    if app.startswith("vextrus."):
+        load_command_class(app, command)
+MigrationLoader(None, ignore_no_migrations=True)
+root = pathlib.Path.cwd().resolve()
+found = set()
+for module in list(sys.modules.values()):
+    path = getattr(module, "__file__", None)
+    if path and pathlib.Path(path).resolve().is_relative_to(root):
+        relative = pathlib.Path(path).resolve().relative_to(root).as_posix()
+        if not relative.startswith(".venv/"):
+            found.add(relative)
+print(json.dumps(sorted(found)))
+"""
+"""The read job as the sandbox starts it, as far as importing goes (T-249's B3 case 6): Django set up
+on the job's settings, both entries, every lazily loaded service, every stage target, the Checks'
+catalogue, every message code, each installed app's `library` and `tasks`, every management command
+and the migrations; the repository files it imported, as JSON."""
+
+
+def test_every_file_the_job_imports_at_run_time_is_in_its_closure() -> None:
+    """T-249's B3 case 6, committed (review round 1 of #446): the repository files the read job
+    imports, run under `vextrus.settings.job`, are each in the job's closure on this checkout."""
+    env = {**os.environ, "PYTHONPATH": str(REPO)}
+    env.pop("DJANGO_SETTINGS_MODULE", None)
+    done = subprocess.run(
+        [sys.executable, "-c", RUNTIME], cwd=REPO, env=env, capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    imported = set(json.loads(done.stdout.strip().splitlines()[-1]))
+    tree = repository_tree()
+
+    found = closure(read_repository, [*READ_ENTRIES, *_installed(read_repository, tree)], tree)
+
+    assert imported
+    assert sorted(imported - found) == []
+
+
 def test_every_module_the_takeoff_services_package_loads_lazily_is_in_the_jobs_closure() -> None:
     """On this repository: `vextrus/takeoff/services/__init__.py` imports each name of its `__all__`
     on first use, by its own name; each one is in the read job's closure."""
-    listed = subprocess.run(
-        ["git", "-C", str(REPO), "ls-files", "-z"], capture_output=True, check=True
-    ).stdout.decode()
-    patterns = [*read_patterns(PATTERNS), *read_patterns(CHECKOUT_ALSO_TEXT)]
-    tree = matching(sorted(filter(None, listed.split("\0"))), patterns)
+    tree = repository_tree()
 
-    def read(name: str) -> bytes | None:
-        path = REPO / name
-        return path.read_bytes() if path.is_file() else None
-
-    found = closure(read, [*READ_ENTRIES, *_installed(read, tree)], tree)
+    found = closure(read_repository, [*READ_ENTRIES, *_installed(read_repository, tree)], tree)
 
     package = "vextrus/takeoff/services"
     module = ast.parse((REPO / package / "__init__.py").read_text(encoding="utf-8"))

@@ -14,27 +14,27 @@ From each entry it follows, as `vextrus/takeoff/tests/acceptance/t21c/test_job_i
 - every string literal naming a module of the tree, `a.b.c` or `a.b.c:attr` (an entry point, a
   settings module, a stage's target), which a plain import does not show;
 - every import written inside a string (`python -c "from a.b import c"`, a child process's code);
-- every name built at run time (an f-string, a `+`, a `%` or `.format` of strings, a `".".join`)
-  whose root is written out (`f"vextrus.{name}.library"`), as each module of the tree it can name, one
-  name part per unknown piece;
-- in every module, not only an `__init__.py`: a name built on the module's own name (`__name__`,
-  `__package__`, `__spec__.name`, `__spec__.parent`, `x.rpartition(".")[0]` of one), or a relative
-  name given to `import_module`, `find_spec` or `__import__` with its package, loads the package
-  before the first unknown piece whole, at any depth (a lazy `__getattr__`'s
-  `import_module(f"{__name__}.{name}")`, `submodules(__package__)`, `collect_codes(__name__)`); a
-  name built on the module's own name in any other form, or a relative one against no known package,
-  raises `ClosureError` (fail closed). A logger's or an error's name (`getLogger(__name__)`,
-  `AttributeError(f"{__name__} ...")`) and a comparison (`__name__ == "__main__"`) load nothing;
-- a package found by listing its folder (`engine.collect.submodules`, `pkgutil`): a file that calls
-  `submodules`, `iter_modules` or `walk_packages` loads every module of each package a string in it
-  names, and of its own package when the call is given its own name, `__file__` or `__path__`;
+- every import by a name computed at run time, which fails closed: each call to `import_module`,
+  `find_spec`, `__import__` or a lister (`submodules`, `pkgutil.iter_modules`, `walk_packages`), and
+  each call to a declared loader (`LOADERS`) or any call given the module's own name, must name its
+  module through a recognised form, or the closure raises `ClosureError`. The forms: a literal; a
+  module-level constant (a literal bound once in the same module); a loop variable over a constant
+  sequence of literals; the own name (`__name__`, `__package__`, `__spec__.name`, `__spec__.parent`,
+  and `x.rpartition(".")[0]` or `x.rsplit(".", 1)[0]` of one); a plain variable after a known root;
+  and an f-string, `+`, `%`, `.format` or `".".join` of these. A relative name resolves against the
+  package given with it. What it loads: the module it names, or, for a lister, a loader or the own
+  name passed on, its package whole; with a variable in it, every module it can name (a variable's
+  value standing for any name parts). Anything else (a parameter, a table's entry, a method or a
+  slice of the own name) raises. A logger's or an error's name loads nothing;
 - each followed module's parent packages' `__init__.py`;
 - and every file that is not Python in a followed file's own folder or in a folder below it that is no
   package (its data: conventions, schemas, fonts), whose bytes the code reads.
 
-What it cannot see: a module imported by a name held in a variable that is not built on the module's
-own name (`import_module(name)`, `f"{package}.{name}"` with `package` a parameter) and that no string,
-built name or listing above names; and a file read by a path built from more than its own folder.
+What it cannot see: a file read by a path built from more than its own folder, and what a declared
+loader is given by a caller the closure does not reach by name (`getattr(module, "scan")`), and
+what `engine.harness.resolve` is given (a stage table's entry, whose written targets it follows).
+`scripts/real_drawings/tests/test_closure.py` runs the read job's imports under its settings and
+checks every repository file it imports is in the closure.
 
 Tests (a `tests` folder, `test_*.py`) and `conftest.py` are never entries and never followed. A file
 that does not parse, an entry not in the tree, or a followed file that cannot be read raises
@@ -46,12 +46,26 @@ Standard library only.
 import ast
 import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 LISTERS = frozenset({"submodules", "iter_modules", "walk_packages"})
 """The calls that load a package's modules by listing its folder."""
 IMPORTERS = frozenset({"import_module", "__import__", "find_spec"})
 """The calls that import a module by a name given at run time."""
+LOADERS: dict[str, tuple[tuple[int | None, str], ...] | None] = {
+    "engine.collect.submodules": ((0, "package"),),
+    "engine.messages.collect_codes": ((0, "package"),),
+    "engine.check.catalogue.scan": ((0, "package"),),
+    "engine.check.catalogue.run": ((None, "package"),),
+    "engine.harness.resolve": None,
+}
+"""The functions that import by a name their callers give (by parameter), so each call to one must
+give a name a recognised form reads (or leave the parameter's default, read the same way): each
+parameter by its position (None: keyword-only) and name. Inside
+them nothing is refused. `engine.harness.resolve` (None) imports a stage's target, which the stage
+table writes out as `module:function` strings the closure follows as dotted strings; its callers
+pass a table's entry, which no form reads."""
 SELF_NAMES = frozenset({"__name__", "__package__", "__spec__"})
 """The module's own name, from which a sibling's can be built."""
 
@@ -212,81 +226,84 @@ def _module_name(name: str) -> str:
 
 
 class _Unread(Exception):
-    """A name built from the module's own name in a form `_pieces` does not read."""
+    """A module name built in a form `_Names.pieces` does not read."""
 
 
-def _pieces(node: ast.AST, own: str, package: str) -> list[str | None]:
-    """A string expression's pieces in order: each known text, or None for a value not known from the
-    source. The module's own name is known (`__name__`, `__package__`, `__spec__.name` and
-    `.parent`); a form that builds on it but is not one of these raises `_Unread`."""
-    if isinstance(node, ast.Constant):
-        return [node.value] if isinstance(node.value, str) else [None]
-    if isinstance(node, ast.Name):
-        if node.id in ("__name__", "__package__"):
-            return [own if node.id == "__name__" else package]
-        return _unknown(node)
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "__spec__"
-    ):
-        if node.attr in ("name", "parent"):
-            return [own if node.attr == "name" else package]
-        raise _Unread
-    if isinstance(node, ast.JoinedStr):
-        found: list[str | None] = []
-        for value in node.values:
-            inner = value.value if isinstance(value, ast.FormattedValue) else value
-            found += _pieces(inner, own, package)
-        return found
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _pieces(node.left, own, package) + _pieces(node.right, own, package)
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod) and _text(node.left) is not None:
-        values = node.right.elts if isinstance(node.right, ast.Tuple) else [node.right]
-        return _fill(re.split(r"%[sr]", str(_text(node.left))), values, own, package, node)
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-        text = _text(node.func.value)
-        if text is not None and node.func.attr == "format" and not node.keywords:
-            texts = re.split(r"\{\}", text)
-            return _fill(texts, node.args, own, package, node)
-        if text is not None and node.func.attr == "join" and len(node.args) == 1:
-            items = node.args[0]
-            if isinstance(items, (ast.List, ast.Tuple)) and items.elts:
+@dataclass
+class _Names:
+    """What a file's module names can be built from: its own name and package, its module-level
+    string constants (a literal bound once), and the loop variables over a constant sequence."""
+
+    own: str
+    package: str
+    constants: dict[str, str]
+    sequences: dict[str, list[str]]
+    loops: dict[str, list[str]]
+
+    def pieces(self, node: ast.AST) -> list[str | None]:
+        """A module name's pieces in order: known text, or None for a variable's value. Anything
+        but the recognised forms raises `_Unread` (fail closed): a literal; the own name
+        (`__name__`, `__package__`, `__spec__.name`, `__spec__.parent`, `x.rpartition(".")[0]` or
+        `x.rsplit(".", 1)[0]` of a known name); a module-level constant; a plain variable; and an
+        f-string, `+`, `%` or `.format` of strings or a `".".join` of these."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return [node.value]
+        if isinstance(node, ast.Name):
+            if node.id in ("__name__", "__package__"):
+                return [self.own if node.id == "__name__" else self.package]
+            if node.id in SELF_NAMES:
+                raise _Unread
+            return [self.constants[node.id]] if node.id in self.constants else [None]
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            if node.value.id == "__spec__" and node.attr in ("name", "parent"):
+                return [self.own if node.attr == "name" else self.package]
+            raise _Unread
+        if isinstance(node, ast.JoinedStr):
+            found: list[str | None] = []
+            for value in node.values:
+                found += self.pieces(value.value if isinstance(value, ast.FormattedValue) else value)
+            return found
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return self.pieces(node.left) + self.pieces(node.right)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod) and _text(node.left) is not None:
+            values = node.right.elts if isinstance(node.right, ast.Tuple) else [node.right]
+            return self._fill(re.split(r"%[sr]", str(_text(node.left))), values)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and not node.keywords:
+            text = _text(node.func.value)
+            if text is not None and node.func.attr == "format":
+                return self._fill(re.split(r"\{\}", text), node.args)
+            items = node.args[0] if len(node.args) == 1 else None
+            if (
+                text is not None
+                and node.func.attr == "join"
+                and isinstance(items, (ast.List, ast.Tuple))
+            ):
                 joined: list[str | None] = []
                 for index, item in enumerate(items.elts):
-                    joined += ([text] if index else []) + _pieces(item, own, package)
+                    joined += ([text] if index else []) + self.pieces(item)
                 return joined
-    parent = _parent_of(node) if isinstance(node, ast.Subscript) else None
-    if parent is not None:
-        whole = _pieces(parent, own, package)
-        if None in whole:
-            return _unknown(node)
-        return ["".join(str(piece) for piece in whole).rpartition(".")[0]]
-    return _unknown(node)
-
-
-def _unknown(node: ast.AST) -> list[str | None]:
-    if _refers_to_self(node):
+        parent = _parent_of(node) if isinstance(node, ast.Subscript) else None
+        if parent is not None:
+            whole = self.pieces(parent)
+            if None in whole:
+                raise _Unread
+            return ["".join(str(piece) for piece in whole).rpartition(".")[0]]
         raise _Unread
-    return [None]
+
+    def _fill(self, texts: list[str], values: list[ast.expr]) -> list[str | None]:
+        """Format texts with one value between each two (`%s`, `{}`); anything else is not read."""
+        if len(texts) != len(values) + 1 or any(
+            "%" in t.replace("%%", "") or "{" in t or "}" in t for t in texts
+        ):
+            raise _Unread
+        found: list[str | None] = [texts[0]]
+        for value, text in zip(values, texts[1:], strict=True):
+            found += [*self.pieces(value), text]
+        return found
 
 
 def _text(node: ast.AST) -> str | None:
     return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
-
-
-def _fill(
-    texts: list[str], values: list[ast.expr], own: str, package: str, node: ast.AST
-) -> list[str | None]:
-    """Format texts with one value between each two (`%s`, `{}`); anything else is not read."""
-    if len(texts) != len(values) + 1 or any(
-        "%" in t.replace("%%", "") or "{" in t or "}" in t for t in texts
-    ):
-        return _unknown(node)
-    found: list[str | None] = [texts[0]]
-    for value, text in zip(values, texts[1:], strict=True):
-        found += [*_pieces(value, own, package), text]
-    return found
 
 
 def _parent_of(node: ast.Subscript) -> ast.expr | None:
@@ -309,151 +326,254 @@ def _refers_to_self(node: ast.AST) -> bool:
     return any(isinstance(n, ast.Name) and n.id in SELF_NAMES for n in ast.walk(node))
 
 
-def _is_self(node: ast.AST) -> bool:
-    return (isinstance(node, ast.Name) and node.id in SELF_NAMES) or (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "__spec__"
-    )
+def _constants(tree: ast.Module) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """The module-level names bound once, and only there, to a string literal or to a tuple or list
+    of string literals."""
+    stored: dict[str, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            stored[node.id] = stored.get(node.id, 0) + 1
+    strings, sequences = {}, {}
+    for statement in tree.body:
+        target, value = None, None
+        if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
+            target, value = statement.targets[0], statement.value
+        elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+            target, value = statement.target, statement.value
+        if value is None or not (isinstance(target, ast.Name) and stored.get(target.id) == 1):
+            continue
+        if _text(value) is not None:
+            strings[target.id] = str(_text(value))
+        elif isinstance(value, (ast.Tuple, ast.List)) and all(_text(v) is not None for v in value.elts):
+            sequences[target.id] = [str(_text(v)) for v in value.elts]
+    return strings, sequences
 
 
-BUILT = (ast.JoinedStr, ast.BinOp, ast.Subscript, ast.Call, ast.Name, ast.Attribute)
+def _loops(tree: ast.Module, sequences: dict[str, list[str]]) -> dict[str, list[str]]:
+    """The loop variables (a `for` or a comprehension's) over a constant sequence of string literals,
+    each with the values it takes; only a name the module binds nowhere else."""
+    stored: dict[str, int] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            stored[node.id] = stored.get(node.id, 0) + 1
+    found: dict[str, list[str]] = {}
+    bound: dict[str, int] = {}
+    for node in ast.walk(tree):
+        if not (isinstance(node, (ast.For, ast.comprehension)) and isinstance(node.target, ast.Name)):
+            continue
+        values = sequences.get(node.iter.id) if isinstance(node.iter, ast.Name) else None
+        if isinstance(node.iter, (ast.Tuple, ast.List)) and all(
+            _text(v) is not None for v in node.iter.elts
+        ):
+            values = [str(_text(v)) for v in node.iter.elts]
+        if values is not None:
+            found.setdefault(node.target.id, []).extend(values)
+            bound[node.target.id] = bound.get(node.target.id, 0) + 1
+    return {key: values for key, values in found.items() if bound[key] == stored.get(key)}
+
+
+def _aliases(name: str, tree: ast.Module) -> dict[str, str]:
+    """What each name a file binds by an import or a `def` stands for, as a dotted name."""
+    package = _package(name)
+    found = {
+        node.name: f"{_module_name(name)}.{node.name}"
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+    }
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                found[alias.asname or alias.name.split(".")[0]] = (
+                    alias.name if alias.asname else alias.name.split(".")[0]
+                )
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if node.level:
+                parts = package[: len(package) - node.level + 1]
+                base = ".".join([*parts, *([node.module] if node.module else [])])
+            for alias in node.names:
+                found[alias.asname or alias.name] = f"{base}.{alias.name}"
+    return found
+
+
+def _function_value(call: ast.Call) -> ast.AST:
+    """What a method is called on (`"."` in `".".join(...)`), or the call itself."""
+    return call.func.value if isinstance(call.func, ast.Attribute) else call
+
+
+def _dotted(call: ast.Call, aliases: dict[str, str]) -> str:
+    function = call.func
+    if isinstance(function, ast.Name):
+        return aliases.get(function.id, function.id)
+    if isinstance(function, ast.Attribute) and isinstance(function.value, ast.Name):
+        return f"{aliases.get(function.value.id, function.value.id)}.{function.attr}"
+    return ""
 
 
 def _dynamic(name: str, tree: ast.Module) -> tuple[list[re.Pattern[str]], list[str]]:
-    """The modules a file loads by a name built at run time, as patterns over module names, and the
-    packages it loads whole (see the module); `ClosureError` for a name built from its own name that
-    no recognised form reads."""
-    own, package = _module_name(name), ".".join(_package(name))
+    """The modules a file loads by a name computed at run time (see the module), as patterns over
+    module names and as packages loaded whole; `ClosureError` for any such name no recognised form
+    reads."""
+    strings, sequences = _constants(tree)
+    names = _Names(
+        _module_name(name), ".".join(_package(name)), strings, sequences, _loops(tree, sequences)
+    )
+    aliases = _aliases(name, tree)
     patterns: list[re.Pattern[str]] = []
     packages: list[str] = []
-    listing = False
 
-    def take(node: ast.AST) -> bool:
-        """Reads one built name; True when `node` was one (its parts are not visited again)."""
-        if isinstance(node, ast.Call) and _callee(node) not in ("format", "join"):
-            return False
-        if isinstance(node, (ast.Name, ast.Attribute)) and not _is_self(node):
-            return False
-        if isinstance(node, ast.BinOp) and not isinstance(node.op, (ast.Add, ast.Mod)):
-            return False
-        if isinstance(node, ast.Subscript) and _parent_of(node) is None:
-            return False
-        if isinstance(node, ast.Name) and node.id == "__spec__":
-            return True  # the spec itself, a test or a reload of this module: no sibling's name
-        selfish = _refers_to_self(node)
+    def refuse(node: ast.AST, why: str) -> ClosureError:
+        return ClosureError(f"{name}:{getattr(node, 'lineno', '?')} {why}, so the closure is not known")
+
+    def loads(node: ast.AST, *, whole: bool, base: str = "", dots: str = "") -> None:
+        r"""What a module name loads: the module, or with `whole` its package entire; one with a
+        variable's value in it, every module it can name (`[\w.]+` per value)."""
+        if isinstance(node, ast.Name) and node.id in names.loops:
+            for value in names.loops[node.id]:
+                patterns.append(re.compile(re.escape(value)))
+            return
+        if isinstance(node, ast.Name) and node.id in names.sequences:
+            raise refuse(node, "names a module by a whole sequence")
         try:
-            pieces = [piece for piece in _pieces(node, own, package) if piece != ""]
+            pieces = [p for p in [dots, *names.pieces(node)] if p != ""]
         except _Unread:
-            line = getattr(node, "lineno", "?")
-            raise ClosureError(
-                f"{name}:{line} builds a module name from its own name in a form the closure does"
-                " not read"
-            ) from None
-        add(pieces, selfish, getattr(node, "lineno", "?"))
-        return True
-
-    def add(pieces: list[str | None], wide: bool, line: object) -> None:
-        """A name's pieces as what it loads. `wide` (built on the module's own name, or relative):
-        the package before the first unknown piece, whole; else each module it can name, one name
-        part per unknown piece."""
-        if not pieces:
-            return
-        cut = next((i for i, piece in enumerate(pieces) if piece is None), len(pieces))
-        known = "".join(str(piece) for piece in pieces[:cut])
-        if cut == len(pieces):
-            if wide:
-                packages.append(known.rstrip("."))
-            elif re.fullmatch(r"[A-Za-z_][\w.]*", known):
-                patterns.append(re.compile(re.escape(known)))
-            return
-        if wide:
-            whole = known[:-1] if known.endswith(".") else known.rpartition(".")[0]
-            if not re.fullmatch(r"[A-Za-z_][\w]*(?:\.[A-Za-z_]\w*)*", whole):
-                raise ClosureError(f"{name}:{line} builds a module name whose root is not known")
-            packages.append(whole)
-        elif re.match(SEGMENT, known):
-            text = "".join(re.escape(p) if p is not None else SEGMENT for p in pieces)
-            patterns.append(re.compile(text.split(":", 1)[0]))
-
-    def relative(call: ast.Call) -> None:
-        """`import_module(".x", package)` and `__import__(name, ..., level)`: against the package."""
-        callee = _callee(call)
-        target = call.args[0] if call.args else _keyword(call, "name")
-        if target is None:
-            return
-        if callee == "__import__":
-            level = call.args[4] if len(call.args) > 4 else _keyword(call, "level")
-            if level is None or (isinstance(level, ast.Constant) and level.value == 0):
-                return
-            if not (isinstance(level, ast.Constant) and isinstance(level.value, int)):
-                raise ClosureError(f"{name}:{call.lineno} imports at a level not known")
-            dots, base = "." * level.value, package
-        else:
-            dots, base = "", ""
-            where = call.args[1] if len(call.args) > 1 else _keyword(call, "package")
-            if where is not None:
-                try:
-                    known = _pieces(where, own, package)
-                except _Unread:
-                    known = [None]
-                base = "".join(str(p) for p in known) if None not in known else ""
-        try:
-            pieces = [p for p in [dots, *_pieces(target, own, package)] if p != ""]
-        except _Unread:
-            return  # take() refuses it
+            raise refuse(node, "computes a module name in a form the closure does not read") from None
         head = pieces[0] if pieces else None
-        if not (isinstance(head, str) and head.startswith(".")):
+        if isinstance(head, str) and head.startswith("."):
+            if not base:
+                raise refuse(node, "imports a relative name against no known package")
+            level = len(head) - len(head.lstrip("."))
+            parts = base.split(".")
+            pieces = [".".join(parts[: len(parts) - level + 1]), f".{head[level:]}", *pieces[1:]]
+        if not pieces or not isinstance(pieces[0], str) or not re.match(SEGMENT, pieces[0]):
+            raise refuse(node, "computes a module name whose root is not known")
+        if None not in pieces:
+            text = "".join(str(p) for p in pieces).rstrip(".")
+            if whole:
+                packages.append(text)
+            else:
+                patterns.append(re.compile(re.escape(text)))
             return
-        level_count = len(head) - len(head.lstrip("."))
-        if not base:
-            raise ClosureError(f"{name}:{call.lineno} imports a relative name against no known package")
-        parts = base.split(".")
-        root = ".".join(parts[: len(parts) - level_count + 1])
-        rest = head[level_count:]
-        add([root, f".{rest}", *pieces[1:]], True, call.lineno)
+        patterns.append(
+            re.compile("".join(re.escape(p) if p is not None else r"[A-Za-z0-9_.]+" for p in pieces))
+        )
 
-    def visit(node: ast.AST) -> None:
-        nonlocal listing
+    def package_of(node: ast.AST | None) -> str:
+        """The package a relative name is resolved against, or "" when none is given."""
+        if node is None:
+            return ""
+        try:
+            known = names.pieces(node)
+        except _Unread:
+            raise refuse(node, "gives a package the closure does not read") from None
+        if None in known:
+            raise refuse(node, "imports a relative name against no known package")
+        return "".join(str(p) for p in known)
+
+    def importer(call: ast.Call, callee: str) -> None:
+        """A call that imports, or lists, by a name given at run time: resolved, or refused."""
+        if callee in ("iter_modules", "walk_packages"):
+            given = [*call.args, *(k.value for k in call.keywords)]
+            if not any(
+                isinstance(n, ast.Name) and n.id in ("__path__", "__file__")
+                for a in given
+                for n in ast.walk(a)
+            ):
+                raise refuse(call, f"lists folders by {callee} the closure cannot name")
+            packages.append(names.package)
+            return
+        target = (
+            call.args[0]
+            if call.args
+            else _keyword(call, "package" if callee == "submodules" else "name")
+        )
+        if target is None:
+            raise refuse(call, f"calls {callee} with no name")
+        if callee == "submodules":
+            loads(target, whole=True)
+        elif callee == "__import__":
+            level = call.args[4] if len(call.args) > 4 else _keyword(call, "level")
+            if level is not None and not (
+                isinstance(level, ast.Constant) and isinstance(level.value, int)
+            ):
+                raise refuse(call, "imports at a level not known")
+            count = (
+                level.value if isinstance(level, ast.Constant) and isinstance(level.value, int) else 0
+            )
+            loads(target, whole=False, base=names.package if count else "", dots="." * count)
+        else:
+            where = call.args[1] if len(call.args) > 1 else _keyword(call, "package")
+            loads(target, whole=False, base=package_of(where))
+
+    def loader(call: ast.Call, parameters: tuple[tuple[int | None, str], ...]) -> None:
+        """A call to a declared loader: each parameter it is given must be read."""
+        if any(isinstance(a, ast.Starred) for a in call.args) or any(
+            k.arg is None for k in call.keywords
+        ):
+            raise refuse(call, "gives a loader its names by unpacking")
+        for position, parameter in parameters:
+            positional = position is not None and len(call.args) > position
+            given = call.args[position] if positional else _keyword(call, parameter)  # type: ignore[index]
+            if given is not None:
+                loads(given, whole=True)
+
+    def visit(node: ast.AST, inside: str) -> None:
         if isinstance(node, ast.If) and _type_checking(node):
             for statement in node.orelse:
-                visit(statement)
+                visit(statement, inside)
             return
-        if isinstance(node, ast.Call):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            dotted = f"{names.own}.{node.name}"
+            if LOADERS.get(dotted):
+                defaults = {
+                    **{
+                        a.arg: d
+                        for a, d in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=True)
+                        if d
+                    },
+                    **dict(
+                        zip(
+                            [a.arg for a in node.args.args][::-1], node.args.defaults[::-1], strict=False
+                        )
+                    ),
+                }
+                for _position, parameter in LOADERS[dotted] or ():
+                    if parameter in defaults:
+                        loads(defaults[parameter], whole=True)
+            inside = dotted if dotted in LOADERS else inside
+        if isinstance(node, ast.Call) and not inside:
             callee = _callee(node)
+            dotted = _dotted(node, aliases)
             if callee == "getLogger" or callee.endswith(("Error", "Exception", "Warning")):
                 return  # a logger's or an error's name loads nothing
-            if callee in LISTERS:
-                listing = True
-                own_folder = ("__file__", "__path__", *SELF_NAMES)
-                arguments = [*node.args, *(k.value for k in node.keywords)]
-                if any(
-                    isinstance(n, ast.Name) and n.id in own_folder
-                    for a in arguments
-                    for n in ast.walk(a)
-                ):
-                    packages.append(package)
-            if callee in IMPORTERS:
-                relative(node)
-        if isinstance(node, ast.Compare):
-            for side in (node.left, *node.comparators):
-                if not _is_self(side):
-                    visit(side)
-            return
-        if isinstance(node, BUILT) and take(node):
-            return
+            if callee in IMPORTERS or callee in LISTERS:
+                importer(node, callee)
+            elif dotted in LOADERS:
+                if LOADERS[dotted] is not None:
+                    loader(node, LOADERS[dotted] or ())
+            elif not (callee in ("format", "join") and _text(_function_value(node)) is not None):
+                for given in [*node.args, *(k.value for k in node.keywords)]:
+                    if _refers_to_self(given):
+                        own_name(given)
         for child in ast.iter_child_nodes(node):
-            visit(child)
+            visit(child, inside)
 
-    visit(tree)  # the module itself, whose statements are its children
-    if listing:
-        packages += [
-            node.value.split(":", 1)[0]
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Constant)
-            and isinstance(node.value, str)
-            and (DOTTED.match(node.value) or re.fullmatch(SEGMENT, node.value))
-        ]
+    def own_name(node: ast.AST) -> None:
+        """An argument built on the module's own name, given to any other call: read, or refused."""
+        if isinstance(node, ast.Name) and node.id == "__spec__":
+            return  # the spec itself is no name
+        try:
+            pieces = [p for p in names.pieces(node) if p != ""]
+        except _Unread:
+            raise refuse(node, "passes its own name on in a form the closure does not read") from None
+        if None not in pieces:
+            text = "".join(str(p) for p in pieces)
+            if re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", text):
+                packages.append(text)
+            return
+        loads(node, whole=True)
+
+    visit(tree, "")
     return patterns, packages
 
 

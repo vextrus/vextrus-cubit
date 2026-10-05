@@ -41,8 +41,11 @@ INSTALLED_PARTS = (
     "tasks.py",  # Procrastinate imports each app's `tasks` (vextrus/settings/jobs.py's autodiscovery)
     "tasks/**",
 )
-"""What each app the job installs loads without an import naming it. Its `admin` is left out (the
-owner's Q16 ruling): Django's admin imports it to register pages and it reads no drawing."""
+"""What each app the job installs loads without an import naming it."""
+ADMIN_PARTS = ("admin.py", "admin/**")
+"""Each installed app's `admin`, which Django's admin autodiscovery imports at setup when the job's
+settings install `django.contrib.admin` (review round 1 of #446: the five admin modules the job
+imports were outside the key). Where the settings do not, they stay out, as the Q16 ruling had them."""
 ALWAYS_IN = (
     "pyproject.toml",
     "uv.lock",
@@ -194,8 +197,17 @@ def _installed(read: Callable[[str], bytes | None], tree: list[str]) -> list[str
         isinstance(a, str) and a.isidentifier() for a in apps
     ):
         raise ClosureError(f"{JOB_SETTINGS} names no JOB_MODULES as a list of plain names")
-    patterns = [f"vextrus/{app}/{part}" for app in apps for part in INSTALLED_PARTS]
+    parts = (*INSTALLED_PARTS, *(ADMIN_PARTS if _admin_installed(read, tree) else ()))
+    patterns = [f"vextrus/{app}/{part}" for app in apps for part in parts]
     return [path for path in matching(tree, patterns) if path.endswith(".py") and not is_test(path)]
+
+
+def _admin_installed(read: Callable[[str], bytes | None], tree: list[str]) -> bool:
+    """Whether the job's settings may install Django's admin, whose autodiscovery imports every
+    installed app's `admin` at setup: a settings file names `django.contrib.admin` (fail wide: named
+    is taken as installed)."""
+    settings = [path for path in tree if path.startswith("vextrus/settings/") and path.endswith(".py")]
+    return any(b"django.contrib.admin" in (read(path) or b"") for path in settings)
 
 
 def contents(repo: Path, files: list[Blob]) -> list[bytes]:
