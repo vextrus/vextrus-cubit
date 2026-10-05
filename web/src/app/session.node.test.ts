@@ -128,7 +128,7 @@ describe('sessionFrom', () => {
     const session = sessionFrom(meFrom(scoped), projects)
     expect(session.scope).toEqual(['KR-01'])
     expect(session.projects.map((p) => p.code)).toEqual(['BP-02', 'KR-01'])
-    expect(session.projects[1]).toEqual({ id: 'p-1', code: 'KR-01', name: 'Kadam Residence', address: 'Plot 14', unitSystem: 'imperial', step1: { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 } })
+    expect(session.projects[1]).toEqual({ id: 'p-1', code: 'KR-01', name: 'Kadam Residence', address: 'Plot 14', unitSystem: 'imperial', createdAt: '2026-09-24T00:00:00Z', step1: { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 } })
   })
 
   it('keeps no currency or Market of a project (never shown, m0-screens §1.9)', () => {

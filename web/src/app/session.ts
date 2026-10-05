@@ -35,6 +35,8 @@ export interface ProjectSummary {
   name: string
   address: string
   unitSystem: string
+  /** When the project was created (UTC, as the API sends it). */
+  createdAt: string
   /** Step 1's counts: sheets found (null when unknown), confirmed, excluded, and open Questions. */
   step1: { found: number | null; confirmed: number; excluded: number; questionsOpen: number }
 }
@@ -185,7 +187,7 @@ export function sessionFrom(me: Me, projects: readonly ProjectOut[]): Session {
   const membership = me.memberships.find((m) => m.developer.id === me.developerId)
   if (!membership || !me.market) throw new NoDeveloper(me)
   const summaries = projects
-    .map<ProjectSummary>((p) => ({ id: p.id, code: p.code, name: p.name, address: p.address, unitSystem: p.unit_system, step1: STEP1_NOT_STARTED }))
+    .map<ProjectSummary>((p) => ({ id: p.id, code: p.code, name: p.name, address: p.address, unitSystem: p.unit_system, createdAt: p.created_at, step1: STEP1_NOT_STARTED }))
     .sort((a, b) => a.code.localeCompare(b.code))
   const scope = membership.projectIds.length === 0 ? 'all' : summaries.filter((p) => membership.projectIds.includes(p.id)).map((p) => p.code)
   return {

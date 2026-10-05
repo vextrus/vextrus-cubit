@@ -68,7 +68,8 @@ describe('the list, by role (§4.3, §1.4)', () => {
     const table = screen.getByRole('listbox', { name: 'Projects' }).parentElement!
     expect(clean(table.firstElementChild?.textContent)).toBe('CodeNameAddressDrawing SetTakeoffUpdated')
     expect(codes()).toEqual(['BP-02', 'KR-01', 'SG-03'])
-    expect(clean(rows()[1]!.textContent)).toBe('KR-01Kadam ResidencePlot 14, Road 7, Block C, Dhaka———')
+    // The readings' cells are pinned by the acceptance tests (src/acceptance/tw325); here the row's own words.
+    expect(clean(rows()[1]!.textContent)).toMatch(/^KR-01Kadam ResidencePlot 14, Road 7, Block C, Dhaka/)
     expect(within(header()).getByRole('link', { name: 'Members and access' })).toHaveAttribute('href', '/members')
     expect(within(header()).getByRole('button', { name: 'New project' })).toBeVisible()
     expect(within(header()).queryByText(/Read only/)).toBeNull()
@@ -233,10 +234,14 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
     await userEvent.type(within(dialog).getByLabelText('Address'), 'Plot 3, Road 2, Dhaka')
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Metric' }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/p/HT-04/takeoff/1'))
+    // Created, it opens on its Drawing Set (§4.3: "After create: straight to its Drawing Set").
+    await waitFor(() => expect(router.state.location.pathname).toBe('/p/HT-04/drawing-set'))
     expect(bodies).toEqual([{ name: 'Hasnahena Tower', code: 'HT-04', address: 'Plot 3, Road 2, Dhaka', unit_system: 'metric' }])
     // Closed before the navigation starts; it leaves the page once its close animation ends.
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New project' })).toBeNull())
+    expect(await screen.findByRole('heading', { name: 'Drawing Set' })).toBeVisible()
+    // Its Step 1 bills in the unit system chosen.
+    await router.navigate({ to: '/p/$code/takeoff/$step', params: { code: 'HT-04', step: '1' } })
     expect(await screen.findByTestId('unit-system')).toHaveTextContent('Metric')
   })
 

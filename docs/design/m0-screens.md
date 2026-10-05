@@ -583,6 +583,20 @@ Drawing Set · Takeoff · Updated.
 | Takeoff | "Not started" / "Step 1: 5 Questions open" / per Discipline Part once one is confirmed (5): "Step 1: Structural confirmed · Electrical 3 to confirm" / "Step 1 confirmed" (every Discipline received) |
 | Updated | date |
 
+Each row reads its own project's files, Step 1 progress and newest act; a reading that cannot be had
+(not in yet, refused, failed) shows the empty figure (1.2) in its cell and nothing else, never an error.
+Drawing Set: while any file moves, "Reading 2 files" (", sheet 7 of 12" only when exactly one moves and
+counts its sheets); else "5 files read" ("No files read" at none), then, each only above none and in
+this order, ", 1 held", ", 2 could not be read", ", 1 refused", ", 1 stopped". Takeoff counts only the
+Disciplines with sheets found: none, "Not started"; none confirmed, "Step 1: 5 Questions open", else
+"Step 1: 9 sheets to confirm", else "Step 1: not yet confirmed"; once one is confirmed, each Discipline
+as Step 1's inspector words it ("Electrical: 2 Questions open", "Electrical: a view unaccounted"), and
+"Step 1 confirmed" only when every one is and none is still to come. When a project's files stop
+moving its Takeoff and Updated are read again. Updated is the newest of the day the project was
+created, its newest file's added day and (for the QS and the MD, who may see acts) its newest act, as
+the Market writes a date in its time zone. Drawing Set and Takeoff stay one line, their full text in
+the cell's title.
+
 **New project dialog.** Title "New project". Fields: Name (required), Code (required, unique in the
 Developer: "Short, like KR-01"), Address, Display Units (segmented "Imperial (cft, sft, rft)" |
 "Metric", Imperial chosen, with the line "How quantities will be billed. You can change it later.").
@@ -590,8 +604,7 @@ The Display Units offered and the one chosen are the Market's (1.9); for Banglad
 these. No Market, currency or Building field (1.9, 1.10). Buttons "Create project" and "Cancel".
 Errors under fields: "Give the project a name." / "Give it a short code, like KR-01." / "KR-01 is
 already used by Kadam Residence. Choose another code." Creating the project also makes its Site and
-one Building, unseen (1.10). After create: straight to its Drawing Set (empty state); until 20b builds
-the Drawing Set, to the project's frame, `/p/<code>`.
+one Building, unseen (1.10). After create: straight to its Drawing Set (empty state).
 
 **States.** Loading: five Skeleton rows. Empty: glyph, "No projects yet. Create one for each
 development whose drawings you will take off." [New project] (MD: "No projects yet. Your QS creates
