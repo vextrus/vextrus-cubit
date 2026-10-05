@@ -684,6 +684,7 @@ def _storey_titles(
     for discipline, found in asked.items():
         example = dict(found[0][0]["params"])
         message = storey_codes.DIFFERS(discipline=discipline, count=len(found), **example)
+        blocks = [proposal_of[s.id] for _, s in found if s.id in proposal_of]
         raised[discipline] = step1.raise_question(
             project_id,
             "check",
@@ -691,7 +692,8 @@ def _storey_titles(
             discipline=discipline,
             options=options(STOREY_TITLE_OPTIONS),
             check_code=storey_titles.CODE,
-            blocks=[proposal_of[s.id] for _, s in found if s.id in proposal_of],
+            blocks=blocks,
+            keyed_by_holds=True,  # the same words over other sheets: another Question
         )
     step1.retire_questions(project_id, (storey_codes.DIFFERS.code,), raised.values())
     findings = [

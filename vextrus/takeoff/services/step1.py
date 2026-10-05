@@ -2115,14 +2115,19 @@ def raise_question(
     options: Sequence[Any] = (),
     check_code: str = "",
     blocks: Sequence[uuid.UUID] = (),
+    keyed_by_holds: bool = False,
 ) -> uuid.UUID:
     """A Step 1 Question, as a code and its parameters, once per (kind, subject, evidence): the
-    same Question raised again is the one already asked. `blocks`: the Proposals it holds."""
+    same Question raised again is the one already asked. `blocks`: the Proposals it holds.
+    `keyed_by_holds`: the Proposals it holds are part of its evidence too (a Question over a group of
+    sheets, T-W318's per Discipline: the same words over other sheets are another Question, since a
+    Question's holds are only ever added to)."""
     projects.get(project_id)
     chosen = QuestionKind(kind)
-    identity = json.dumps(
-        [chosen, str(subject_id or ""), message["code"], message["params"]], sort_keys=True, default=str
-    )
+    evidence: list[Any] = [chosen, str(subject_id or ""), message["code"], message["params"]]
+    if keyed_by_holds:
+        evidence.append(sorted(str(b) for b in blocks))
+    identity = json.dumps(evidence, sort_keys=True, default=str)
     key = hashlib.sha256(identity.encode()).hexdigest()
     row, _made = Question.objects.get_or_create(
         tenant_id=_tenant(),

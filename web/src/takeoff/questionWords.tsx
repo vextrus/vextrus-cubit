@@ -426,11 +426,18 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       )
     return named ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
   }
-  if (q.code === STOREY_TITLES && picked && picked !== 'keep_open') {
-    // Recorded only: the QS corrects a plan's storeys in the list (story 28); no sheet is decided.
-    if (picked === 'plans_right') return <Trans>Answering records that the plans’ storeys stand; no sheet changes.</Trans>
-    if (picked === 'title_right') return <Trans>Answering records that the titles are right; correct each plan’s storeys in the list.</Trans>
+  if (q.code === STOREY_TITLES && picked) {
+    // Recorded only: no sheet and no storey changes (nothing edits a plan's storeys yet, story 28).
+    if (picked === 'plans_right') return <Trans>Answering records that the plans’ storeys are right; the sheets stay as they are, to confirm in the list.</Trans>
+    if (picked === 'title_right') return <Trans>Answering records that the titles are right. Vextrus still takes the storeys from the plans.</Trans>
+    if (picked === 'keep_open') return <Trans>Answering keeps this Question open; its sheets wait for the consultant.</Trans>
   }
+  if (q.code === STOREY_TITLES && !picked)
+    return hint ? (
+      <Trans>Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}.</Trans>
+    ) : (
+      <Trans>Answering records whether the titles or the plans are right; no sheet changes.</Trans>
+    )
   if (q.kind === 'check' && picked) {
     // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
     const gap = gapOf(q)

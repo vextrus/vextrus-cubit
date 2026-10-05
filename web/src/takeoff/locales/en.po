@@ -142,6 +142,10 @@ msgstr "Leave out {name}"
 msgid "{count, plural, one {# sheet line found; other lines are ignored.} other {# sheet lines found; other lines are ignored.}}"
 msgstr "{count, plural, one {# sheet line found; other lines are ignored.} other {# sheet lines found; other lines are ignored.}}"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering records whether the titles or the plans are right; no sheet changes."
+msgstr "Answering records whether the titles or the plans are right; no sheet changes."
+
 #: src/takeoff/words.tsx
 msgctxt "view kind"
 msgid "3D or perspective"
@@ -290,6 +294,10 @@ msgctxt "view kind"
 msgid "Plan"
 msgstr "Plan"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering keeps this Question open; its sheets wait for the consultant."
+msgstr "Answering keeps this Question open; its sheets wait for the consultant."
+
 #: src/takeoff/words.tsx
 msgid "Roof details"
 msgstr "Roof details"
@@ -358,6 +366,10 @@ msgstr "By others (not in this Estimate)"
 #: src/takeoff/Bar.tsx
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering records that the plans’ storeys are right; the sheets stay as they are, to confirm in the list."
+msgstr "Answering records that the plans’ storeys are right; the sheets stay as they are, to confirm in the list."
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering records that the sheet is not part of this set; it stays on the drawing list."
@@ -1514,10 +1526,6 @@ msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # s
 msgid "{name} is waiting to be read."
 msgstr "{name} is waiting to be read."
 
-#: src/takeoff/questionWords.tsx
-msgid "Answering records that the plans’ storeys stand; no sheet changes."
-msgstr "Answering records that the plans’ storeys stand; no sheet changes."
-
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
 msgstr "Enter confirms it and opens the next open sheet."
@@ -1691,6 +1699,10 @@ msgstr "Its title, “{title}”, does not say which kind of sheet {number} is. 
 msgid "Who did what"
 msgstr "Who did what"
 
+#: src/takeoff/questionWords.tsx
+msgid "Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}."
+msgstr "Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}."
+
 #: src/takeoff/words.tsx
 msgid "Another Discipline"
 msgstr "Another Discipline"
@@ -1772,6 +1784,10 @@ msgstr "Pick an answer: {keys}."
 #: src/takeoff/Step1Inspector.tsx
 msgid "Kept open"
 msgstr "Kept open"
+
+#: src/takeoff/words.tsx
+msgid "Sheet titles and plans name different storeys"
+msgstr "Sheet titles and plans name different storeys"
 
 #: src/takeoff/words.tsx
 msgid "Septic tank details"
@@ -1904,10 +1920,6 @@ msgstr "{Name} is confirmed by {by}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Picked for you: {sources}"
 msgstr "Picked for you: {sources}"
-
-#: src/takeoff/words.tsx
-msgid "Title and plans name different storeys"
-msgstr "Title and plans name different storeys"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Reading {name} was interrupted and is starting again."
@@ -2158,10 +2170,6 @@ msgstr "Title, as drawn"
 msgid "{example}, or the list as the consultant sent it"
 msgstr "{example}, or the list as the consultant sent it"
 
-#: src/takeoff/questionWords.tsx
-msgid "Answering records that the titles are right; correct each plan’s storeys in the list."
-msgstr "Answering records that the titles are right; correct each plan’s storeys in the list."
-
 #: src/takeoff/words.tsx
 msgid "Plumbing layout"
 msgstr "Plumbing layout"
@@ -2216,6 +2224,10 @@ msgstr "Podium"
 #: src/takeoff/words.tsx
 msgid "Details"
 msgstr "Details"
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering records that the titles are right. Vextrus still takes the storeys from the plans."
+msgstr "Answering records that the titles are right. Vextrus still takes the storeys from the plans."
 
 #: src/takeoff/questionWords.tsx
 msgid "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"

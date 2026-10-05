@@ -13,7 +13,7 @@ from engine.recognise import storeys
 from engine.recognise.types import ViewKind
 from vextrus.takeoff.models import CheckFinding, CheckRun, Question
 from vextrus.takeoff.services import step1
-from vextrus.takeoff.tests.acceptance.w318.storey_set import CODE, Plan, Sheet, ask, record
+from vextrus.takeoff.tests.acceptance.w318.storey_set import CODE, Plan, Sheet, ask, record, redraw
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject
 
@@ -90,3 +90,60 @@ def test_the_titles_storeys_are_read_once_per_distinct_wording(
     titled = {p.number: p.storeys_titled for p in listed}
     assert titled["Q-20"] == ("floor_3", "floor_9")
     assert titled["Q-30"] is None
+
+
+def test_a_question_asked_again_in_the_same_words_lets_go_of_a_sheet_that_now_agrees(
+    qs_project: QsProject,
+) -> None:
+    """Two disagreeing sheets, then the second's plan corrected and a third found disagreeing: the
+    count and the example are unchanged, yet the open Question holds the first and the third only
+    (the one holding the second is withdrawn: a Question's holds are only ever added to)."""
+    member, project_id = qs_project.member, qs_project.project_id
+    first, second = record(
+        member, project_id, "QV-STR-R2.dwg", [disagreeing("Q-11"), disagreeing("Q-12")]
+    )
+    ask(member, project_id)
+    redraw(member, second, 1, [Plan(("floor_2", "floor_8"), title="2ND & 8TH FLOOR WAFFLE SLAB PLAN")])
+    [third] = record(member, project_id, "QV-STR-R3.dwg", [disagreeing("Q-13")])
+    ask(member, project_id)
+
+    response = api_as(member).get(f"/api/projects/{project_id}/takeoff/step1/questions")
+    ours = [q for q in response.json()["questions"] if q["code"] == CODE]
+    [question] = [q for q in ours if q["status"] == "open"]
+    ids = {p["sheet_id"]: p["id"] for p in proposals_of(qs_project)}
+
+    assert sorted(q["status"] for q in ours) == ["open", "withdrawn"]
+    assert question["params"]["count"] == 2
+    assert set(question["proposals"]) == {ids[str(first)], ids[str(third)]}
+
+
+def proposals_of(qs: QsProject) -> list[dict[str, str]]:
+    response = api_as(qs.member).get(f"/api/projects/{qs.project_id}/takeoff/step1/proposals")
+    listed: list[dict[str, str]] = response.json()["proposals"]
+    return listed
+
+
+def test_an_answered_question_never_takes_a_sheet_found_later(qs_project: QsProject) -> None:
+    """Answered "the plans are right" over two sheets; then one is corrected and another found
+    disagreeing with the same count and example: the answered Question keeps what it held, and the
+    new sheet is asked by a new open Question."""
+    member, project_id = qs_project.member, qs_project.project_id
+    first, second = record(
+        member, project_id, "QV-STR-R2.dwg", [disagreeing("Q-11"), disagreeing("Q-12")]
+    )
+    ask(member, project_id)
+    questions = f"/api/projects/{project_id}/takeoff/step1/questions"
+    [asked] = [q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE]
+    answered = api_as(member).post(f"{questions}/{asked['id']}/answer", {"option": "plans_right"})
+    assert answered.status_code == 200, answered.content
+    redraw(member, second, 1, [Plan(("floor_2", "floor_8"), title="2ND & 8TH FLOOR WAFFLE SLAB PLAN")])
+    [third] = record(member, project_id, "QV-STR-R3.dwg", [disagreeing("Q-13")])
+    ask(member, project_id)
+
+    ours = {q["id"]: q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE}
+    ids = {p["sheet_id"]: p["id"] for p in proposals_of(qs_project)}
+
+    assert ours[asked["id"]]["status"] == "answered"
+    assert set(ours[asked["id"]]["proposals"]) == {ids[str(first)], ids[str(second)]}
+    [now] = [q for q in ours.values() if q["status"] == "open"]
+    assert set(now["proposals"]) == {ids[str(first)], ids[str(third)]}
