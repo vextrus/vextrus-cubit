@@ -407,9 +407,10 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 
 ## Session 11: the machine's limits
 - **Times estimated from memory were wrong** (four of six sessions). Stamp every event from `date -u`.
-  Check: `.claude/hooks/tests/acceptance/clock.test.mjs` (the clock hook prints the UTC time and elapsed
-  against budget on every prompt) and `scripts/factory/tests/acceptance/test_stamp.py` (STATE lines are
-  stamped by `scripts/factory/stamp.py`, never typed).
+  Mitigated, not checked: the clock hook prints the UTC time and elapsed against budget on every prompt
+  (`.claude/hooks/tests/acceptance/clock.test.mjs`), and `scripts/factory/stamp.py` stamps lines from the
+  clock (`scripts/factory/tests/acceptance/test_stamp.py`). Nothing refuses a STATE line typed by hand.
+  No check yet: #341.
 - **Eight local builders filled swap, and parallel suites filled the disk** (38 GB of test leftovers;
   `git bundle` dies on a full disk). Check `df` and `free` before every launch. Check:
   `scripts/factory/tests/acceptance/test_governor.py` (the governor's memory, swap and disk floors, and at
@@ -463,9 +464,13 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   were refused. Over-blocking is a repeated class; never route around it. No check yet: #307 and #303.
 - **The orchestrator's own acceptance amendments broke CI twice** (E501 on #286; E501 and SIM300 on #287),
   the only round-2 blockers of those PRs. Run ruff, format, mypy and the acceptance lint before every
-  amendment commit. No check yet: an issue is owed ("factory: orchestrator acceptance amendments pass
-  ruff, format, mypy and the acceptance lint before commit").
+  amendment commit. No check yet: #313.
 - **A tool tested only against a fake failed against the real one:** `scripts/land.py` reads CI with
   `gh pr checks --json`, which gh 2.45 on this machine lacks, and its tests use a fake GitHub; session 12
   landed through an interim script instead. Test a wrapper against the real tool's output shape once.
-  No check yet: an issue is owed ("factory: scripts.land cannot land with gh 2.45").
+  No check yet: #312.
+- **A committed workflow was never run before it merged:** `/review-pr`'s first real run (#338) reviewed
+  and refuted as designed, but its Record step wrote the verdict inside the review folder, which the
+  guard refuses to run anything in, so no ledger entry was recorded. Run a new workflow once, end to end,
+  before its PR merges. Check: `.claude/hooks/tests/review-pr-record.test.mjs` (#339: the workflow's own
+  record and triage commands, asked of the guard).

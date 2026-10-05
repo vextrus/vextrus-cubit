@@ -191,8 +191,8 @@ Never hide the gap. Never bend a gate to close it.
     tested in `tools/leakscan/tests/test_round1.py`) but still open: close it with that link.
   - #239–#241, and the design-gate mays #218–#224: only if lane B has room.
   - #150 and #204 close with #237.
-- **Factory issues:** 52 open, labelled `factory`: #248–#281, #283, #289, #290, #294–#298, #300–#303 and #306–#311.
-  The first hour takes seven of them; lanes A to D pick up the ones the product needs.
+- **Factory issues:** 56 open, labelled `factory`: #248–#281, #283, #289, #290, #294–#298, #300–#303, #306–#313,
+  #340 and #341. The first hour takes nine of them; lanes A to D pick up the ones the product needs.
 
 ## The factory as built (every component merged on main by 01:53Z, 5 Oct)
 f0 #247 (spec, ADR 0042, contracts), f1 #286, f2 #291, f3 #288, f4 #287, f5 #293, f6 #284, f7 #299, f8 #282 and
@@ -202,7 +202,8 @@ checkout, `/home/riz/vextrus-cubit`. Every Python tool prints its own contract w
 **Start** (f3). `scripts/factory/orchestrator.sh [claude arguments…]`, e.g. `--resume <full session id>`. Refuses
 (exit 3) on a live `g1.pid` or `rd.pid`.
 
-**Clock** (f3, f6). `uv run python -m scripts.factory.stamp start --budget 11h --state .private/work/session-13/STATE.md
+**Clock** (f3, f6). `mkdir -p .private/work/session-13` first: `start` accepts a missing folder and the first line
+then crashes (#340). `uv run python -m scripts.factory.stamp start --budget 11h --state .private/work/session-13/STATE.md
 [--phases "hour1=60,a=300"] [--force]`; `… stamp "<text>"` appends `<UTC> <text>` to STATE.md; `… stamp phase <name>`;
 `… stamp elapsed [--ticket <t>]`; `… stamp budget --ticket <t> --minutes <n>`. `start` cannot backdate, and a second
 start is refused without `--force`. The clock hook prints `now … · session h:mm/h:mm` on every prompt.
@@ -272,12 +273,20 @@ the head. But:
   `merge_ready` would accept that clean merge. An engine PR needs its posting run on the updated head before
   `merge_ready` passes, so it lands through `scripts.land` only if main does not move between its review and its
   landing.
-Its tests use a fake GitHub, so none of this failed in CI. Until a fix lands (the first hour's last item), land the
+Its tests use a fake GitHub, so none of this failed in CI. Until a fix lands (#312, in the first hour), land the
 way session 12 landed its factory PRs: `.private/work/session-12/cloud/land.sh <PR> <branch>`. It merges `origin/main` in
-the landing worktree, takes the leak stamp and pushes from the main checkout, waits on `gh pr view --json
-statusCheckRollup`, runs `merge_ready`, and merges pinned to the head. Its last line writes the MERGED line through
-session 12's own `stamp.sh` into session 12's STATE.md: copy it to `.private/work/session-13/land.sh` and change that
-line to `uv run python -m scripts.factory.stamp "<text>"` before its first use.
+the landing worktree on a detached HEAD, takes the leak stamp and pushes that head to the branch from the main
+checkout, waits on `gh pr view --json statusCheckRollup`, runs `merge_ready`, and merges pinned to the head. Its last
+line writes the MERGED line through session 12's own `stamp.sh` into session 12's STATE.md: copy it to
+`.private/work/session-13/land.sh` and change that line to `uv run python -m scripts.factory.stamp "<text>"` before
+its first use.
+- **Its first version moved branches under their worktrees** (`git checkout -B`; #338's round 1): the worktree's
+  index stayed on the old tree, and its next commit would undo main's merge. `.claude/worktrees/s12-f5` is in that
+  state (176 staged reversals): never commit there. f5 is merged, so ask the owner to remove it
+  (`! git worktree remove --force .claude/worktrees/s12-f5`).
+- **After any landing step pushes a merge to a carried branch** and then stops (red CI, `merge_ready` refusing), run
+  `git -C .claude/worktrees/<t> pull --ff-only` before the next fix commit there. Otherwise the push is refused as
+  not a fast-forward.
 
 **Gates** (unchanged). `design-gate`, from an independent verdict, never the builder's: `sudo -n -u vxkeys
 /usr/local/lib/vextrus/post-status design-gate <PR> <full sha> --passed <items> --failed <items> --not-applicable
@@ -330,7 +339,7 @@ with a check's path or "No check yet:" and an issue.
   PRs with a ledger PASS first, then the rest, by number.
 - The same step says the lander "prints the gates still owed". It prints none: post `design-gate` and run the
   posting run yourself before landing.
-- Fix both lines with the lander's fix (the first hour's last item), with `writing-for-agents`.
+- Fix both lines with the lander's fix (#312), with `writing-for-agents`.
 
 ### What each factory PR's review caught (records: `.private/work/session-12/ledger/`, `.private/work/factory/ledger/`)
 Rounds: f0 2 (by hand), f8 1, f2 and f5 3 each (both under a recorded round-3 exception), every other PR 2. 48 distinct
@@ -404,8 +413,10 @@ Findings scored under 50 are issues #283 (band), #289 (Jev client), #290 (sessio
   neither.
 
 ### First act (≤ 30 min, inside the first hour)
-1. `uv run python -m scripts.factory.stamp start --budget <owner's> --state .private/work/session-13/STATE.md --phases
-   "hour1=60"`. Every STATE line goes through `uv run python -m scripts.factory.stamp "<text>"`.
+1. `mkdir -p .private/work/session-13`, then `uv run python -m scripts.factory.stamp start --budget <owner's> --state
+   .private/work/session-13/STATE.md --phases "hour1=60"`. Every STATE line goes through `uv run python -m
+   scripts.factory.stamp "<text>"`. If `git log origin/main --oneline -20` lacks "/review-pr records its verdict
+   outside the review folder", land #339 first: without it `/review-pr` cannot record its own verdict.
 2. Read the machine:
    - `uv run python -m scripts.factory.governor check cloud-session` and `… check local-agent`;
    - `/usage` (pass its lines with `--usage-checked` if the governor cannot read them);
@@ -453,26 +464,32 @@ and a refuter). Launch them through the committed launcher in the first 30 min, 
    never edits permission settings. Draft each sentence, ask once, and record the owner's answer verbatim.
 9. **Also found while writing this brief: the lander and the runbook** (above). Fix `scripts/land.py` (CI read through
    `gh pr view --json statusCheckRollup`, a real rerun of listed flakes, and a PASS that accepts what `merge_ready`
-   accepts), add a test against gh's real output shape, and fix the runbook's two lines. File it first if no issue
-   exists (`gh issue list --label factory --search land`).
+   accepts), add a test against gh's real output shape, and fix the runbook's two lines. This is **#312**.
+10. **#313, orchestrator acceptance amendments pass ruff before commit.** Twice the orchestrator's own amendment broke
+   CI (E501 on #286; E501 and SIM300 on #287). Give it a committed check: a script the amendment goes through, or a
+   pre-commit refusal for `acceptance:` commits.
 
-Also owed, from session 12 (no issue yet): **orchestrator acceptance amendments pass ruff before commit.** Twice the
-orchestrator's own amendment broke CI (E501 on #286; E501 and SIM300 on #287). File "factory: orchestrator acceptance
-amendments pass ruff, format, mypy and the acceptance lint before commit" and give it a committed check (a script the
-amendment goes through, or a pre-commit refusal for `acceptance:` commits).
+Filed at session 12's close, not in the first hour: **#340** (`stamp start` accepts a missing state folder; the
+brief's `mkdir -p` covers it) and **#341** (nothing refuses a STATE line typed by hand; a guard change, so a
+hostile-boundary ticket).
 
 ### Lane A, the critical path (lock-bound; ~5 h)
-The carried PRs land **in this order: #237 → t-readlock → t229 → t228 → t160 → loop-iou**, then xdist. Lane A starts
+The carried PRs land **in this order: #237 → t-readlock → t228 → t229 → t160 → loop-iou**, then xdist. Lane A starts
 as soon as the first hour's launches are out: its review batch needs no launch.
 
 All six are **engine PRs**: each owes one posting run on its final head, about 30 min under `rdlock`. Every engine
 merge changes the code hash, so the next PR needs a fresh run. A head already run is cached.
 
 Run one `/review-pr` batch first, so each PR gets a ledger record:
-- t-readlock and t229 as **round 2**: session 11's round 1 and fix round 1 count.
+- t-readlock and t228 as **round 2**: session 11's round 1 and fix round 1 count.
 - t160 and loop-iou as round 1.
 - #237 joins after its fix round.
-- t228's round 2 waits for t229 to land (see its row).
+- t229's round 2 waits until t-readlock and t228 have landed and its conflicts are resolved (see its row).
+
+Measured with `git merge-tree --write-tree` on 5 Oct at 02:55Z, at the heads below: t-readlock, t228, t160, loop-iou
+and t182 each merge main cleanly, and t228 merges t-readlock and t229 cleanly. **t229 conflicts with t-readlock** in
+`vextrus/takeoff/services/step1.py` and **with main** in `web/src/takeoff/locales/en.po`. Re-measure before each
+review: a conflict resolved after a PASS voids it.
 
 You push the local branches from the main checkout. Before each push: `git merge-base origin/main <b>`, then `uv run
 python -m tools.leakscan range <base>..<b> --ref <b>` on the exact head, then `git push origin <b>`.
@@ -481,8 +498,8 @@ python -m tools.leakscan range <base>..<b> --ref <b>` on the exact head, then `g
 |---|---|---|---|---|
 | 1 | **#237 `t182`** | the demo seed is the real read job's recorded output (absorbs #150, #204) | a28db350, pushed | **The CI cause is measured:** the function-scoped demo fixture now runs the real read job in every test that asks for it (88 → 103 seeding tests; one seed 2.6–2.9× slower; cancelled at 35 min at 53 % and 34 %). **The fix round has two steps:** (1) the acceptance writer, at high effort, re-scopes `vextrus/takeoff/tests/acceptance/t19a/step1.py:35` and `vextrus/seed/tests/acceptance/t136/seeded.py:28` (seeded once per module for read-only tests) in a one-path `acceptance:` commit with counts; (2) the builder does `vextrus/seed/tests/test_seed_drawings.py:26` and a savepoint helper (cloud: tests only). Then: merge main, `/review-pr` round 1 (session 11's PASS is not in the ledger), CI (4 shards), posting run, land. Close #150 and #204. Its four count-less acceptance commits are in `tools/lint/acceptance_legacy.txt` (f4). |
 | 2 | **`t-readlock`** (#227, D1) | Step 1's acts never wait on a read job | 675bdc7b, local | Fix round 1 is committed: the Plot match runs after the proposals, and progress writes are serialised. It is a carried branch: merge main (a recorded merge commit), push, open the PR, round-2 review, posting run, land. It carries G3's first test (#251): an act returns while the read's finishing step is held. |
-| 3 | **`t229`** (#229, D3) | a matched Plot page is a second source; a gap holds only its neighbours (the owner's ruling) | 8738bfc4, local | Fix round 1 is committed: the title is read in order near the number; keep-open is carried by gaps. Merge main, push, PR, round-2 review. It changes `web/src/messages/**`: a `ux-critic` words review, and a design gate with the m0-screens §8 keyboard walk. Its first real-drawing run is the posting run. Land. |
-| 4 | **`t228`** (#228, D2) | Jev's top kind proposed and shown; a Question only when close or contradicted; Slab details (the owner's ruling) | 9800dc4b, local | Fix round 1 is committed: the pre-pick is shown, §5 is amended, subject-sharing titles are handled. Its count-less acceptance commits (449fd7956 and the E501 re-wrap 050b96e60) are on the legacy list. **It conflicts with t229:** both change `web/src/takeoff/{questionWords,words}.tsx` and `web/src/takeoff/locales/en.po`. So merge main *after t229 lands*, resolve, and only then run its round-2 review: a conflict resolved after the PASS voids it (`merge_ready` (a)), and a round 3 needs an exception. Then the words gate, the design gate, the posting run, land. |
+| 3 | **`t228`** (#228, D2) | Jev's top kind proposed and shown; a Question only when close or contradicted; Slab details (the owner's ruling) | 9800dc4b, local | Fix round 1 is committed: the pre-pick is shown, §5 is amended, subject-sharing titles are handled. Its count-less acceptance commits (449fd7956 and the E501 re-wrap 050b96e60) are on the legacy list. It merges main, t-readlock and t229 cleanly (measured above), so its round-2 review runs in the first batch. Merge main (a clean merge keeps the PASS), push, PR, the words gate, the design gate, the posting run, land. |
+| 4 | **`t229`** (#229, D3) | a matched Plot page is a second source; a gap holds only its neighbours (the owner's ruling) | 8738bfc4, local | Fix round 1 is committed: the title is read in order near the number; keep-open is carried by gaps. **It conflicts with t-readlock** (`vextrus/takeoff/services/step1.py`) **and with main** (`web/src/takeoff/locales/en.po`). So, after t-readlock and t228 land: merge main into t229, resolve both by hand in that merge commit, run its tests, push, PR, and only then the round-2 review. A conflict resolved after the PASS voids it (`merge_ready` (a)), and a round 3 needs an exception that none of the three covers. It changes `web/src/messages/**`: a `ux-critic` words review, and a design gate with the m0-screens §8 keyboard walk. Its first real-drawing run is the posting run. Land. |
 | 5 | **`t160`** (#160, D4) | one paper scale: outlines lie on their paper | d6f22236, pushed | Sheets off paper went from 117 to 5, but render_f1 lost 46 and changed 84 (the structural A0 guess without Plot paper). **It needs the owner's #160 trade ruling** (below). With no ruling by its turn, it lands after loop-iou. Merge main (session 11 hit conflicts in the harness and buffers), round 1, posting run under the accept rule (its render_f1 loss needs the ruling as its "judged" reason), land. |
 | 6 | **`loop-iou`** | scored loop 3: tighter view boxes | 2973a919, local (99abbf56 pushed) | +10 Edison / +23 Sample Views at ae25e64e; later heads unscored. Its PR body is written; it has not been reviewed. Push, PR, round 1, posting run (state the scored delta), land. |
 | 7 | **xdist** (#248) | a database per worker and checkout; stable ids; the acceptance plugin aware of xdist; `tmp_path_retention_policy = "failed"` (#243) | — | An engine PR (`uv.lock`, `pyproject.toml`), last in the lane. Measured 1,276 s → 385 s at `-n 8`. **Cut first at +8 h.** |
@@ -581,7 +598,7 @@ proposed to leave out).
 2. **J5** (#263, ~30 min, live, local key): re-measure `sheet_type` with view titles and per-Discipline options, and
    count its Question queue per Discipline. This is the measure behind D2 and Q5.
 3. **Check 2's semantics** (blocker 4 above) and **#294** (blocker 2), before G1 #2.
-4. **G1 #2** on main after lane A's first three merges (t-readlock, t229, t228; about hour 5).
+4. **G1 #2** on main after lane A's first three merges (t-readlock, t228, t229; about hour 5).
    - Every BLOCKS finding becomes a fix ticket in this session.
    - Every other finding, of any severity, becomes an issue, or a comment on its open issue.
 5. **G1 #3** on the next head (about hour 8). **G1 #4 is budgeted,** because `ready.py` needs the newer PASS on main's
@@ -609,8 +626,8 @@ proposed to leave out).
 | Lane | Work | Where | Budget (estimate) |
 |---|---|---|---|
 | First act | clock, governor, questions | orchestrator | ≤ 30 min |
-| First hour | #306, #307, #303, #310, #311, #308, #309, R1 and R2, the lander | cloud (high, refuters) + the owner | launched by 0:30; landed by ~2:30 |
-| A | #237 → t-readlock → t229 → t228 → t160 → loop-iou → xdist | orchestrator + lock | ~5 h |
+| First hour | #306, #307, #303, #310, #311, #308, #309, R1 and R2, #312 (the lander), #313 | cloud (high, refuters) + the owner | launched by 0:30; landed by ~2:30 |
+| A | #237 → t-readlock → t228 → t229 → t160 → loop-iou → xdist | orchestrator + lock | ~5 h |
 | A, beside | the reading-measures PR + J2; then the custody re-run | local, high, a refuter | 2.5 h + the owner's re-run |
 | B, cloud | #257, G2a (web), D7, #235, #236, J1, J-d, J-e (local), `Literal` keys | cloud (ramp 8 → 16) | 3–4 h, in parallel |
 | B, drawings | D9, D10 | `vextrus-drawings` cloud, else local | 3 h |
@@ -622,7 +639,7 @@ proposed to leave out).
 ## Finish line (session 13 is done when each holds, with a tool result)
 *Part 0, the factory's debts:*
 
-0. The first hour's tickets (#306, #307, #303, #310, #311, #308, #309 and the lander) are merged, each with a check
+0. The first hour's tickets (#306, #307, #303, #310, #311, #308, #309, #312 and #313) are merged, each with a check
    that fails on its class, or each not merged is named with its reason; R1 and R2 are answered by the owner.
 
 *Part 1, the walk-ready product. All must hold before "walk now".*
