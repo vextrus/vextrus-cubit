@@ -156,32 +156,15 @@ describe('the real Playwright', () => {
     RUN,
   )
 
+  // One project for these cases: each real Playwright run costs a second of CPU while the browser projects run.
   it(
-    "writes an expect failure's message without terminal colour codes",
-    () => {
-      const dir = project({
-        'playwright.config.mjs': playwrightConfig(),
-        'colour.spec.mjs': ["import { expect, test } from '@playwright/test'", "test('compares', () => { expect(2).toBe(3) })", ''].join('\n'),
-      })
-
-      const { status, output } = run(dir, 'playwright', ['test', '-c', 'playwright.config.mjs'])
-
-      expect(status, output).toBe(1)
-      const text = readFileSync(join(dir, 'f.log'), 'utf8')
-      expect(text).toContain('compares')
-      expect(text).toContain('expect(received).toBe(expected)')
-      expect(text).not.toContain('\u001b')
-    },
-    RUN,
-  )
-
-  it(
-    "judges by the test's outcome: an unexpected pass of test.fail() is written; an expected failure and a pass on retry are not",
+    "judges by the test's outcome and writes an expect failure without terminal colour codes",
     () => {
       const dir = project({
         'playwright.config.mjs': playwrightConfig('retries: 1,'),
         'outcome.spec.mjs': [
-          "import { test } from '@playwright/test'",
+          "import { expect, test } from '@playwright/test'",
+          "test('compares', () => { expect(2).toBe(3) })",
           "test('passes against its fail mark', () => { test.fail() })",
           "test('fails as marked', () => { test.fail(); throw new Error('as marked') })",
           "test('passes on retry', ({}, info) => { if (info.retry === 0) throw new Error('first try') })",
@@ -192,31 +175,15 @@ describe('the real Playwright', () => {
       const { status, output } = run(dir, 'playwright', ['test', '-c', 'playwright.config.mjs'])
 
       expect(status, output).toBe(1)
+      const text = readFileSync(join(dir, 'f.log'), 'utf8')
+      expect(text).not.toContain('\u001b')
       const found = logLines(join(dir, 'f.log'))
-      expect(found.map(([, kind, runner, test]) => [kind, runner, test?.split('::')[1]]), output).toEqual([
-        ['failed', 'playwright', 'outcome.spec.mjs > passes against its fail mark'],
+        .map(([, kind, runner, test, error]) => [kind, runner, test?.split('::')[1], error])
+        .sort((x, y) => String(x[2]).localeCompare(String(y[2])))
+      expect(found, output).toEqual([
+        ['failed', 'playwright', 'outcome.spec.mjs > compares', 'Error: expect(received).toBe(expected) // Object.is equality'],
+        ['failed', 'playwright', 'outcome.spec.mjs > passes against its fail mark', 'expected failed, got passed'],
       ])
-    },
-    RUN,
-  )
-
-  it(
-    'leaves the log empty when the only failures are expected or pass on retry',
-    () => {
-      const dir = project({
-        'playwright.config.mjs': playwrightConfig('retries: 1,'),
-        'fine.spec.mjs': [
-          "import { test } from '@playwright/test'",
-          "test('fails as marked', () => { test.fail(); throw new Error('as marked') })",
-          "test('passes on retry', ({}, info) => { if (info.retry === 0) throw new Error('first try') })",
-          '',
-        ].join('\n'),
-      })
-
-      const { status, output } = run(dir, 'playwright', ['test', '-c', 'playwright.config.mjs'])
-
-      expect(status, output).toBe(0)
-      expect(readFileSync(join(dir, 'f.log'), 'utf8')).toBe('')
     },
     RUN,
   )
@@ -273,5 +240,6 @@ describe('web/vite.config.ts', () => {
     const reporters = config({ mode: 'test', command: 'serve' }).test?.reporters ?? []
     expect(reporters[0]).toBe(configDefaults.reporters[0])
     expect(String(reporters.at(-1))).toContain('failure-reporter.mjs')
-  })
+    // Loading the config builds every plugin (no network): under 1 s alone, over 5 s on a CI runner busy with the browser projects.
+  }, 30_000)
 })
