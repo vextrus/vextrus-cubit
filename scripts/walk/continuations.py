@@ -23,10 +23,17 @@ Discipline row:
 - `false_continuation_questions_qs_view` (informational): Questions inside one group of any form;
 - `continuation_questions_unsure` (informational): Questions inside one unsure near miss.
 
+A Proposal the engine may have misread is doubt, not a miss: one that matches no group sheet but
+shares a group sheet's `file` and `plot_page` (both present) under another or no number, or one with
+no number in a file that holds a group sheet. A misread number would otherwise break a run in two
+and count its false continuation Question as none; so a counted-code Question holding two or more
+Proposals, one of them doubtful, leaves its set unmeasured.
+
 `attach` returns a copy of the walk with the three counts on every burden row of each set it can
 measure (a Discipline with a count and no row gets a zero row). Any doubt (a file missing, another
-walk's `conflicts.json`, a set the truth does not hold, a `null` or malformed Proposal, a sheet that
-lies in two groups) leaves that set exactly as the walk wrote it: its null fails the check closed.
+walk's `conflicts.json`, a set the truth does not hold, a `null` or malformed Proposal, a doubtful
+Proposal, a Question that lies inside two groups) leaves that set exactly as the walk wrote it: its
+null fails the check closed.
 """
 
 import copy
@@ -190,6 +197,19 @@ def matches(proposal: Key, sheet: Key) -> bool:
     return page is None or sheet_page is None or page == sheet_page
 
 
+def doubtful(proposal: Key, groups: tuple[Group, ...]) -> bool:
+    """A Proposal that matches no group sheet yet may be one misread: it shares a group sheet's file
+    and plot page (both present) under another or no number, or it has no number in a file that
+    holds a group sheet."""
+    sheets = [s for g in groups for s in g.sheets]
+    if any(matches(proposal, s) for s in sheets):
+        return False
+    file, number, page = proposal
+    if number is None and any(s[0] == file for s in sheets):
+        return True
+    return page is not None and any(s[0] == file and s[2] == page for s in sheets)
+
+
 def _inside(proposals: list[Key], groups: tuple[Group, ...]) -> Group | None:
     """The one group every Proposal matches a sheet of; None for none; raises for two."""
     holding = [g for g in groups if all(any(matches(p, s) for s in g.sheets) for p in proposals)]
@@ -210,6 +230,8 @@ def count(questions: list[tuple[str, list[Key]]], truth: Truth) -> dict[str, dic
     for code, proposals in questions:
         if code not in CODES or len(proposals) < 2:
             continue
+        if any(doubtful(p, truth.groups) for p in proposals):
+            raise Unmeasurable("a Proposal may be a group sheet misread")
         group = _inside(proposals, truth.groups)
         if group is not None:
             add(group.discipline, QS_VIEW)

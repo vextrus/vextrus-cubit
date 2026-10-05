@@ -202,3 +202,57 @@ def test_a_malformed_set_in_conflicts_json_leaves_only_that_set_unmeasured(tmp_p
 
     assert counted["sets"]["set-a"]["burden"]["structural"][c.JUDGED] == 1
     assert counted["sets"]["set-b"] == walk["sets"]["set-b"]
+
+
+def _three() -> c.Truth:
+    """A `same` group of three sheets in one file, each on its own plot page."""
+    return _truth([_group("same", *(_sheet(f"S-0{n}", plot_page=n) for n in (1, 2, 3)))])
+
+
+@pytest.mark.parametrize(
+    "third",
+    [("A.dwg", "S-O3", 3), ("A.dwg", None, 3), ("A.dwg", None, None)],
+    ids=["a-misread-number", "no-number-on-its-plot-page", "no-number-and-no-plot-page"],
+)
+def test_a_question_over_a_group_with_a_misread_sheet_cannot_be_measured(third: c.Key) -> None:
+    proposals = [("A.dwg", "S-01", 1), ("A.dwg", "S-02", 2), third]
+    with pytest.raises(c.Unmeasurable):
+        c.count([(TITLE, proposals)], _three())
+
+
+def test_a_misread_sheet_leaves_its_set_null_through_attach(tmp_path: Path) -> None:
+    sheets = [_sheet(f"S-0{n}", plot_page=n) for n in (1, 2, 3)]
+    _truth_file(tmp_path, {"set-a": {"groups": [_group("same", *sheets)], "near_misses": []}})
+    keys = [{"file": "A.dwg", "number": n, "plot_page": p} for n, p in (("S-01", 1), ("S-O3", 3))]
+    (tmp_path / "conflicts.json").write_text(
+        json.dumps(
+            {
+                "schema": 1,
+                "sha": SHA,
+                "started_at": STARTED,
+                "sets": {"set-a": {"questions": [{"code": TITLE, "proposals": keys}]}},
+            }
+        )
+    )
+
+    counted = c.attach(_walk(), tmp_path, tmp_path)
+
+    assert counted["sets"]["set-a"]["burden"]["structural"][c.JUDGED] is None
+
+
+@pytest.mark.parametrize(
+    "outside",
+    [("B.dwg", "S-09", 3), ("A.dwg", "S-09", 7), ("B.dwg", None, None)],
+    ids=["another-file", "another-plot-page", "no-number-in-a-file-with-no-group"],
+)
+def test_a_proposal_that_cannot_be_a_group_sheet_counts_nothing_and_stays_measured(
+    outside: c.Key,
+) -> None:
+    proposals = [("A.dwg", "S-01", 1), ("A.dwg", "S-02", 2), outside]
+    assert c.count([(TITLE, proposals)], _three()) == {}
+    assert c.count([(TITLE, proposals[:2])], _three())["structural"][c.JUDGED] == 1
+
+
+def test_doubt_only_matters_for_a_question_that_could_count() -> None:
+    misread: list[c.Key] = [("A.dwg", "S-01", 1), ("A.dwg", "S-O3", 3)]
+    assert c.count([("engine.conflicts.same_number", misread), (TITLE, misread[:1])], _three()) == {}
