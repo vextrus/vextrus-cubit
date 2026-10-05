@@ -20,7 +20,10 @@ paths:
   with Ctrl-C or SIGTERM: a running job finishes its current step and is tried again later, its completed
   steps skipped.
 - `uv run pytest`: as `vextrus_app`, on a test database named by the migrations' hash (`-m
-  needs_toolchain`, `needs_bwrap` or `live` runs those left out). **Fast check:** `uv run pytest
+  needs_toolchain`, `needs_bwrap` or `live` runs those left out). `uv run pytest -n 8` runs the suite in
+  parallel (pytest-xdist), each worker on its own test database, `<name>_test_<hash>_gw<N>`, at about
+  3 GB more memory; never put `-n` in `PYTEST_ADDOPTS` (the tests that spawn pytest would inherit it).
+  **Fast check:** `uv run pytest
   vextrus/<module> && uv run mypy && uv run lint-imports`. Keep every run's output in a file under
   `.private/work/` (`-rf`).
 - **Lints and scans** (as `ci.yml` runs them): `uv run ruff check . && uv run ruff format --check .`;

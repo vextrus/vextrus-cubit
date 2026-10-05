@@ -117,6 +117,12 @@ def git_subcommand(argv: list[str]) -> str | None:
     return rest[0] if rest else None
 
 
+def fast_forward(argv: list[str]) -> bool:
+    """Main fast-forwarded to origin's main after the merge (T-LAND-PULL): the one merge allowed."""
+    ref = argv[-1:] in (["refs/remotes/origin/main"], ["origin/main"])
+    return git_subcommand(argv) == "merge" and argv[-3:-1] == ["-q", "--ff-only"] and ref
+
+
 Fixtures = tuple[Path, pytest.MonkeyPatch, pytest.CaptureFixture[str]]
 
 
@@ -164,13 +170,16 @@ def test_e_a_head_moved_by_update_branch_lands_on_the_new_head(env: Fixtures) ->
         ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.merged]
     ]
     merge_at = next(i for i, argv in enumerate(done.started) if argv[:3] == ["gh", "pr", "merge"])
-    pulls = [
+    # T-LAND-PULL: main is fetched, then fast-forwarded to origin/main; `git pull` reads FETCH_HEAD.
+    fetches = [
         i
         for i, argv in enumerate(done.started)
-        if git_subcommand(argv) == "pull" and argv[-3:] == ["--ff-only", "origin", "main"]
+        if git_subcommand(argv) == "fetch" and argv[-3:] == ["-q", "origin", "main"]
     ]
+    pulls = [i for i, argv in enumerate(done.started) if fast_forward(argv)]
     assert pulls, "main is pulled, fast-forward only"
     assert pulls[0] > merge_at, "main is pulled after the merge"
+    assert [i for i in fetches if merge_at < i < pulls[0]], "main is fetched before it is pulled"
     assert "Traceback" not in done.err
 
 
@@ -224,7 +233,11 @@ def test_g_a_head_that_already_holds_main_is_not_updated(env: Fixtures) -> None:
 def test_h_the_lander_never_moves_a_branch_or_a_worktree(env: Fixtures) -> None:
     done = landing(*env, behind=True)
     assert done.code == 0, done.out + done.err
-    ran = {sub for argv in done.started if (sub := git_subcommand(argv)) is not None}
+    ran = {
+        sub
+        for argv in done.started
+        if (sub := git_subcommand(argv)) is not None and not fast_forward(argv)
+    }
     assert ran, "the flow reads git (fetch, merge-base) through subprocess"
     assert not ran & FORBIDDEN, sorted(ran & FORBIDDEN)
 

@@ -258,6 +258,8 @@ def test_the_limit_bounds_the_signed_out_before_they_are_refused(
         ("notes.dwg", b"not a drawing at all", 415, "drawings.uploads.not_a_drawing"),
         ("empty.dwg", b"", 400, "drawings.uploads.empty"),
     ],
+    # drawing() makes unique bytes, so fixed ids keep collection the same in every xdist worker.
+    ids=["pdf-named-dwg", "dwg-named-pdf", "zip", "zip-named-dwg", "not-a-drawing", "empty"],
 )
 def test_the_kind_is_the_first_bytes_through_the_real_parse(
     upload_urls: Path, qs_project: QsProject, name: str, content: bytes, status: int, code: str | None

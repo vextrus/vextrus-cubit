@@ -10,9 +10,14 @@
  *   3. Questions per Discipline by kind (D2), with the burden counts beside them (one-source and
  *      bulk-confirmable Sheets, continuation Questions), from the API the screen reads.
  *
+ * Beside walk.json it writes conflicts.json (to WALK_CONFLICTS, private like walk.json): each counted
+ * `conflict` Question's code and its Proposals' keys (`{file, number, plot_page}`, null for an id with
+ * no Proposal), with the walk's sha and started_at. scripts/walk/continuations.py counts the false
+ * continuations from it and the local ground truth; walk.json's false_continuation_questions stays null.
+ *
  * It judges nothing (no limit is written here; they live in the private expectation files) and records
- * no page text: ordinals, the product's enum codes and numbers only, never a file name, Sheet title or
- * Question text. Selectors are roles, labels and attributes, never text or a title. Run only by
+ * no page text in walk.json: ordinals, the product's enum codes and numbers only, never a file name,
+ * Sheet title or Question text (conflicts.json holds file names and sheet numbers to join by, no title). Selectors are roles, labels and attributes, never text or a title. Run only by
  * `python -m scripts.walk.run <sha40>` (playwright.config.ts here says what it sets).
  */
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
@@ -44,8 +49,27 @@ type SetRecord = {
 }
 
 type ApiFile = { id: string; state: string }
-type ApiQuestion = { id: string; kind: string; status: string; code: string; check_code: string | null; discipline: string | null }
-type ApiProposal = { discipline: string | null; agrees: boolean; held: boolean }
+type ApiQuestion = {
+  id: string
+  kind: string
+  status: string
+  code: string
+  check_code: string | null
+  discipline: string | null
+  proposals: string[]
+}
+type ApiProposal = {
+  id: string
+  discipline: string | null
+  agrees: boolean
+  held: boolean
+  file_name: string
+  number: string | null
+  plot_page: number | null
+}
+/** A Proposal by the keys the ground truth joins on; null for an id the Proposals list lacks. */
+type ProposalKeys = { file: string; number: string | null; plot_page: number | null } | null
+type ConflictRecord = { code: string; proposals: ProposalKeys[] }
 
 /** A Discipline's key as a code (a Library key already is one); none becomes `none`. */
 function disciplineCode(key: string | null): string {
@@ -58,7 +82,7 @@ function kindCode(kind: string): string {
   return /^[a-z][a-z0-9_]{0,39}$/.test(kind) ? kind : 'other'
 }
 
-/** The walk.json, written whole by a rename so a reader never sees half of it. */
+/** A JSON record (walk.json, conflicts.json), written whole by a rename so a reader never sees half. */
 function writeWalk(path: string, record: unknown) {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(`${path}.tmp`, `${JSON.stringify(record, null, 2)}\n`)
@@ -221,12 +245,24 @@ async function actWhileReading(page: Page, api: Api, project: { id: string; code
   }
 }
 
-/** Questions per Discipline by kind, and the burden counts, from the API the screen reads. */
-async function countBurden(api: Api, projectId: string, answered: Set<string>, record: SetRecord) {
+/** Questions per Discipline by kind, and the burden counts, from the API the screen reads; returns
+ * each counted `conflict` Question with its Proposals' keys (conflicts.json). */
+async function countBurden(
+  api: Api,
+  projectId: string,
+  answered: Set<string>,
+  record: SetRecord,
+): Promise<ConflictRecord[]> {
   const { questions } = await api.get<{ questions: ApiQuestion[] }>(`/api/projects/${projectId}/takeoff/step1/questions`)
   const { proposals } = await api.get<{ proposals: ApiProposal[] }>(`/api/projects/${projectId}/takeoff/step1/proposals`)
   const burden = (discipline: string): Burden =>
     (record.burden[discipline] ??= { sheets: 0, one_source: 0, bulk_confirmable: 0, continuation_questions: 0, false_continuation_questions: null })
+  const byId = new Map(proposals.map((p) => [p.id, p]))
+  const keys = (id: string): ProposalKeys => {
+    const p = byId.get(id)
+    return p ? { file: p.file_name, number: p.number, plot_page: p.plot_page } : null
+  }
+  const conflicts: ConflictRecord[] = []
   for (const q of questions) {
     // Open, or answered by this walk's own acts (an act must not lower the count it is judged by).
     if (q.status !== 'open' && !answered.has(q.id)) continue
@@ -235,6 +271,7 @@ async function countBurden(api: Api, projectId: string, answered: Set<string>, r
     const kind = kindCode(q.kind)
     kinds[kind] = (kinds[kind] ?? 0) + 1
     if (/continu/.test(`${q.code} ${q.check_code ?? ''}`)) burden(discipline).continuation_questions += 1
+    if (q.kind === 'conflict') conflicts.push({ code: q.code, proposals: (q.proposals ?? []).map(keys) })
   }
   for (const p of proposals) {
     const row = burden(disciplineCode(p.discipline))
@@ -242,11 +279,13 @@ async function countBurden(api: Api, projectId: string, answered: Set<string>, r
     if (p.agrees && !p.held) row.bulk_confirmable += 1
     if (!p.agrees) row.one_source += 1
   }
+  return conflicts
 }
 
 test('G1: reads complete, acts while reading, Questions per Discipline', async ({ page }) => {
   const password = required('VEXTRUS_DEMO_PASSWORD')
   const out = required('WALK_JSON')
+  const conflictsOut = required('WALK_CONFLICTS')
   const sets = JSON.parse(readFileSync(required('WALK_SETS'), 'utf8')) as Record<string, string[]>
   const origin = new URL(required('WALK_URL')).origin
   const walk = {
@@ -256,6 +295,12 @@ test('G1: reads complete, acts while reading, Questions per Discipline', async (
     ...(process.env.WALK_SMOKE ? { smoke: true } : {}),
     urls: { web: origin, api: required('WALK_API_URL') },
     sets: {} as Record<string, SetRecord>,
+  }
+  const conflicts = {
+    schema: 1,
+    sha: walk.sha,
+    started_at: walk.started_at,
+    sets: {} as Record<string, { questions: ConflictRecord[] }>,
   }
   const api = new Api(page, origin)
   try {
@@ -275,10 +320,11 @@ test('G1: reads complete, acts while reading, Questions per Discipline', async (
         const end = await readEnd(api, project.id, fileId, since)
         record.files.push({ id: i + 1, state: end.state, read_seconds: end.seconds })
       }
-      await countBurden(api, project.id, answered, record)
+      conflicts.sets[slug] = { questions: await countBurden(api, project.id, answered, record) }
       await page.goto(`/p/${project.code}/takeoff/1`)
     }
   } finally {
+    writeWalk(conflictsOut, conflicts) // first: walk.json's existence is what the run waits on
     writeWalk(out, walk)
   }
 })
