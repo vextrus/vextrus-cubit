@@ -87,3 +87,22 @@ def test_ensure_database_creates_a_missing_database_once() -> None:
     finally:
         with psycopg.connect(**params, autocommit=True) as connection:
             connection.execute(f'drop database if exists "{name}"')
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_flush_empties_the_job_queue_too() -> None:
+    """procrastinate's tables are not Django-managed, so Django's own flush left a job a transactional
+    test committed for the next test on that database (T-XDIST: t19a's seed job failed t21a's counts)."""
+    owner = connections["owner"]
+    with owner.cursor() as cursor:
+        cursor.execute(
+            "insert into procrastinate_jobs (queue_name, task_name, args)"
+            " values (%s, 'vextrus.probe', '{}'::jsonb)",
+            [settings.VEXTRUS_CAD_QUEUE],
+        )
+
+    call_command("flush", interactive=False, verbosity=0)
+
+    with owner.cursor() as cursor:
+        cursor.execute("select count(*) from procrastinate_jobs")
+        assert cursor.fetchone() == (0,)
