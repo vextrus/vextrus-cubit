@@ -186,11 +186,13 @@ session-05 close-out's committed checks cover; confirm each on its merge):
 - A strict ruleset puts every open PR behind: debt (the orchestrator merges `main` in; no check).
 - A `claude --cloud` session with no git remote: **paid 29 Sep 2026** by the cloud launcher, now
   `scripts/factory/launch.py` (its test: `scripts/factory/tests/test_launch_cloud.py`), which refuses a bundled launch from the CLI's debug log.
-- Messaging across config dirs; a builder's `cd` out of its worktree; `--resume` on a running session
-  starting a copy: debts (runbook rules; no check).
+- Messaging across config dirs; a builder's `cd` out of its worktree: debts (runbook rules; no check).
+  `--resume` on a running session starting a copy: paid by `scripts/factory/say.py` (its test:
+  `scripts/factory/tests/acceptance/test_say.py`).
 - `gh pr edit` failing on the Projects (classic) error: debt (the `gh api` route; no check).
 - The wave slower than the owner expected: the time budgets and the two-round cap (the autonomy ADR);
-  a measure in #45, not a check.
+  a measure in #45. The cap now has a check: `scripts/tests/acceptance/tf4/test_ledger.py` (a third round
+  is refused without an allowed exception).
 
 - **A `claude --cloud` session can come up with no git remote.** When the Claude GitHub App does not cover
   the repository for the signed-in account, the CLI uploads a local copy instead of linking GitHub, "even
@@ -211,7 +213,9 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   re-using an id covers every row whose delete cascades to it, not only the row's own table.
 - **`claude --bg --resume <id> "<message>"` on an idle but running session starts a copy of it in the
   caller's directory.** 13's copy started in the main checkout (stopped within a minute; it had only
-  read). Stop the session first (`claude stop <id>`), then resume it from its own worktree.
+  read). Stop the session first (`claude stop <id>`), then resume it from its own worktree. Check:
+  `scripts/factory/tests/acceptance/test_say.py` (a live session is never resumed; a resume that copies
+  the conversation exits 6 and alarms).
 - **Keep every suite run's output in a file.** Twice a failure's name was lost: #82's builder saw one
   engine test fail once in 19 runs, and it was never identified (12 more runs passed); 20a's sign-in
   failure was found only in a reviewer's screenshot. Run pytest with `-rf` into a log under `.private/work/`.
@@ -234,7 +238,9 @@ session-05 close-out's committed checks cover; confirm each on its merge):
 - **The owner expected a much faster wave.** Up to four code reviews on one ticket (13) and one
   builder's five refuter rounds before its READY (14: 175 min): four of wave 3's five tickets merged
   6 h 13 min after launch, and the owner stopped further rounds (29 Sep 2026). The fix is to cap rounds
-  and budget time per ticket and per wave; the owner rules on both at session 06's start.
+  and budget time per ticket and per wave; the owner rules on both at session 06's start. Check:
+  `scripts/tests/acceptance/tf4/test_ledger.py` and `scripts/tests/acceptance/tf4/test_merge_ready_gate.py`
+  (a third review round without an allowed exception is refused, and never merged).
 - **A strict ruleset puts every open PR behind after each merge.** `main` requires an up-to-date branch
   with every check and `design-gate`: after each wave-3 merge the owner updated the next PR and posted
   its gate again on the new head (four merges took 32 minutes). The orchestrator merges `main` into the
@@ -256,7 +262,9 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   component's props, a key format), and a builder may not change a pinned test: the orchestrator rules
   each report's "not pinned" list before the builder starts. Debt (a runbook step; no check).
 - **`claude --bg -w <name>` makes a new `worktree-<name>` branch**, not the ticket's: create the worktree
-  on the ticket's branch first so the acceptance commits are under the builder. Debt (runbook; no check).
+  on the ticket's branch first so the acceptance commits are under the builder. Check:
+  `scripts/factory/tests/acceptance/test_launch_local.py` (the local launcher makes the worktree on the
+  ticket's branch at origin's tip).
 
 
 ## Session 06, second start (29 Sep 2026): seven tickets merged, the scorer's first answer, a power cut
@@ -279,11 +287,13 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   attackers. Every finding at 50 or more was re-run by an Opus refuter before acting (one fell from 55 to
   40, one rose from 45 to 65). Debt (a runbook step: adversaries after each merge wave).
 - **`claude --bg --resume <short id>` opens a picker and blocks**; a fix round sent that way sat 25
-  minutes. Message an idle local builder with SendMessage, or resume with the full session id. Debt.
+  minutes. Message an idle local builder with SendMessage, or resume with the full session id. Check:
+  `.claude/hooks/tests/acceptance/guard-sessions-records.test.mjs` (the guard refuses a short id).
 - **Cloud builders push to a harness-named `claude/<slug>` branch, not the ticket's**: two BLOCKED
   reports sat unseen 45 minutes while the watcher watched `t16`/`t21a`, and a READY head present at the
   watcher's start never fired. The watcher now lists every `claude/*` branch each loop and keeps the heads
-  it has handled. Debt (the watcher is a session script, not committed).
+  it has handled. Check: `scripts/factory/tests/acceptance/test_watch.py` (w5: a new `claude/*` branch
+  alarms; w2: a READY head fires once, even one present while the watcher was down).
 - **A power cut stopped every local session and agent for ~70 minutes.** STATE.md, NOTES.txt and the
   review files let every piece restart within 10 minutes; one empty git object (a write cut mid-way) was
   found by a reviewer and removed. Keep writing state to files after every event.
@@ -319,20 +329,26 @@ session-05 close-out's committed checks cover; confirm each on its merge):
   refusal (it caught it).
 - **Cloud builders are messaged with `claude --cloud <session_id> -p "<msg>" < /dev/null`**; SendMessage
   does not reach them. A cloud builder can also go silent (22's first builder never acted on its round): if a
-  branch has not moved in an hour after a round, launch a fresh builder from the branch head. Debt (runbook).
+  branch has not moved in an hour after a round, launch a fresh builder from the branch head. Check:
+  `scripts/factory/tests/acceptance/tf1/test_launch_say.py` (`launch say` sends the message command with
+  stdin closed) and `scripts/factory/tests/acceptance/test_watch.py` (w4: a quiet cloud builder alarms).
 - **The guard refuses any shell command whose text names the privilege tool** (a heredoc prompt that said
   "sudoers" was refused): write such prompts with the Write tool; `post-status` runs alone on its line.
 - **A wait loop that greps process lines matches itself** (`pgrep -f real-drawings-run` waited forever on its
-  own command line): match `comm`, not the whole line. Debt.
+  own command line): match `comm`, not the whole line. Check:
+  `.claude/hooks/tests/acceptance/guard-deletes-waits.test.mjs` (the guard's `SELF_MATCHING_WAIT`).
 - **Every merge makes every other open PR stale** (the ruleset requires up to date): each merge costs the
   others a CI re-run and, for engine PRs, a posting run on the new head (cached, but the lock serialises).
-  Merge in an order that puts engine PRs first. Debt (runbook).
+  Merge in an order that puts engine PRs first. Check: `scripts/tests/acceptance/tf4/test_land.py` (engine
+  PRs with a PASS land first; the lander itself cannot run here yet, see "A tool tested only against a fake"
+  under session 12).
 - **A fix can re-open the class it fixes:** 22's double-act fix dropped Undo during the reload (caught only by
   122's slowed CI run); loop-views' fallback re-opened the sheet-eating box on one synthetic case. The
   re-check's mutation runs and 122's latency shard caught both. **Check:** 122's slowed Vitest step; the
   reviewers' mutation runs (practice).
 - **Two copies of a local builder** run when `claude --bg --resume` meets a session still open: stop the
-  original first (`claude stop <id>`). Debt.
+  original first (`claude stop <id>`). Check: `scripts/factory/tests/acceptance/test_say.py` (a live
+  session is never resumed).
 - **Adversary rounds this session:** the read job (a limit that never reached the QS, 70 → fixed by nrif; a
   pathological file holds the CAD worker, #140) and the scorer/posting path (key fence held against 1,200
   crafted pairs; NaN not refused by the reader, refuted to 25; #149). Each ≥ 50 re-run by an Opus refuter.
@@ -342,68 +358,114 @@ Sessions 08 onward are held to the rule above by `tools/lint/docs_paths.py`: eac
 with `Check:` and a path on main, or `No check:` / `No check yet:` and the reason or the issue.
 - **Messaging a builder the wrong way blocks or duplicates it:** `claude --bg --resume <short id>` opens a
   picker and blocks; resuming a session still open runs two copies. Message idle local builders with
-  SendMessage; resume a stopped one by its full session id. No check yet: factory: the guard's short-id
-  rule (spec §3.13, C9).
+  SendMessage; resume a stopped one by its full session id. Check:
+  `.claude/hooks/tests/acceptance/guard-sessions-records.test.mjs` (the guard's `RAW_SESSION` refuses a
+  `--resume` by a short id) and `scripts/factory/tests/acceptance/test_say.py` (a live session gets text for
+  SendMessage, never a resume; a resume that copies the conversation exits 6 and alarms).
 - **A scored run measures only a branch GitHub holds and that stands still:** runs were refused for an
   unpushed branch and for a head that moved mid-run. Push the branch and freeze it until the run ends.
-  No check yet: factory: the real-drawing lock (`rdlock`, spec §3.13).
+  No check yet: the lock (`scripts/factory/rdlock.py`) queues runs but checks neither the push nor the
+  freeze, and `scripts/real_drawings/tests/test_post_status.py` refuses only a posting whose PR head moved;
+  the scored-loop workflow (#252) owes it.
 - **Test fixtures typed unlike the real data pass and prove nothing** (storeys were a list; a helper typed
   a string). Type fixtures as the real data holds them, and force the failure a test tests. No check:
   a reviewer's judgement; `pr-reviewer` reads every acceptance file for it.
 - **Two agents sharing one scratch folder overwrote each other.** Give every agent its own folder under
   `.private/work/`. No check: the folder is private and outside git.
 - **A cloud builder can die with its account** (#168 was never built when account B stopped). Launch
-  every builder from the one account the orchestrator runs on. No check yet: factory: the launcher refuses
-  a builder launched from another account's config (no test checks the account or the config dir today).
+  every builder from the one account the orchestrator runs on. No check yet: #301 (the launcher refuses
+  a builder launched from another account's config; no test checks the account or the config dir today).
 
 ## Session 09: landing the reviewed queue
 - **Strict up-to-date merging is serial:** every merge re-runs the next PR's CI (the python job went to
   35 minutes, #194). Merging main into a PR's worktree and running the suites there first showed every
-  semantic clash before CI did. No check yet: factory: merge queue trial (spec §3.13, C14).
+  semantic clash before CI did. No check yet: #279 (merge queue trial, spec §3.13, C14).
 - **An acceptance amendment needs the owner's approval** unless the owner ruled its class in advance;
   `tools.lint.acceptance` refuses a builder's change to an acceptance path. Check: `tools/lint/tests/test_acceptance.py`.
 - **A wait loop that greps process lines matches itself** (`pgrep -f` waited on its own command line; a
-  second time after session 07). No check yet: factory: the guard's wait rule (spec §3.13, C8); a
-  CLAUDE.md law line meanwhile.
+  second time after session 07). Check: `.claude/hooks/tests/acceptance/guard-deletes-waits.test.mjs` (the
+  guard's `SELF_MATCHING_WAIT`; 3 of its 27 tests fail with the rule turned off). Its over-block of some
+  ordinary waits is #303.
 - **The scorer refused a main export cached by a PR's run** (#199): score main with `--fresh`. No check
   yet: #199, still open (`tools/scorer/tests/test_score.py` pins only the symptom).
 
 ## Session 10: the export without paper
 - **A change to what a check reads can blind it silently:** after #210 the scorer read the job's export,
   which had no paper, and main scored 0 sheets until #212; the posting run's diff never compared paper.
-  After such a change, score main before trusting any number. No check yet: factory: reading measures
-  (export G5, S1 diagnostics, S2 proxy) in one custody re-run (spec §3.13, C6).
+  After such a change, score main before trusting any number. No check yet: #249 (reading measures:
+  export G5, S1 diagnostics, S2 proxy, in one custody re-run; spec §3.13, C6).
 - **A merge that combines both sides of an acceptance file is refused** (#186 was replaced by #208):
   take the file whole from one side, then re-apply the branch's change in an `acceptance:` commit.
   Check: `tools/lint/tests/test_acceptance.py`.
 - **Real-drawing text reached the public repository** in a scored loop's test literals, for about 25
-  minutes. Scan new literals against the cached exports before pushing an engine branch. No check yet:
-  factory: the leak wall (spec §5, T2; #211).
+  minutes. Scan new literals against the cached exports before pushing an engine branch. Check:
+  `tools/leakscan/tests/acceptance/test_prepush_hook.py` (a push adding a corpus string, in a line, a
+  message or a file name, is refused by `scripts/git-hooks/pre-push`) and
+  `tools/leakscan/tests/acceptance/test_scan.py` (every commit of a range, PR bodies and walk outputs).
 - **The cloud launcher refused twice** (cloned at main, not the ticket's branch); local builders worked.
   Check: `scripts/factory/tests/test_launch_cloud.py`.
 
 ## Session 11: the machine's limits
 - **Times estimated from memory were wrong** (four of six sessions). Stamp every event from `date -u`.
-  No check yet: factory: `stamp.py` and the clock hook (spec §3.13, C7); a CLAUDE.md law line meanwhile.
+  Check: `.claude/hooks/tests/acceptance/clock.test.mjs` (the clock hook prints the UTC time and elapsed
+  against budget on every prompt) and `scripts/factory/tests/acceptance/test_stamp.py` (STATE lines are
+  stamped by `scripts/factory/stamp.py`, never typed).
 - **Eight local builders filled swap, and parallel suites filled the disk** (38 GB of test leftovers;
-  `git bundle` dies on a full disk). Check `df` and `free` before every launch. No check yet: factory:
-  the governor's memory and disk floors (spec §3.13).
+  `git bundle` dies on a full disk). Check `df` and `free` before every launch. Check:
+  `scripts/factory/tests/acceptance/test_governor.py` (the governor's memory, swap and disk floors, and at
+  most 3 local agents).
 - **CI flaked under load** (t16's middle-drag pan, tviewerplot's P cycle, the "bulk act, half refused"
   toast; #245). Check: `.github/flaky.txt` and `tools/lint/tests/test_ci_shards.py`.
 - **One real-drawing run per engine head on one lock** (~29 min), and every engine merge stales the next
-  PR's head. No check yet: factory: visible real-drawing lock queue (spec §3.13).
+  PR's head. Check: `scripts/factory/tests/acceptance/test_rdlock.py` (one lock, posting before scored
+  before no-post, and a queue `rdlock status` shows).
 
 ## Session 12 (4 Oct 2026): the owner's walk found D1–D10; the factory
 - **"Walk now" was said to the owner twice with no agent walking first,** and the owner's walk found
   ten defects an agent walk then found in about 50 minutes. No "walk now" without a passing G1 verdict.
-  No check yet: factory: G1 and `ready.py` (spec §5, T7); a CLAUDE.md law line meanwhile.
+  Check: `scripts/walk/tests/acceptance/test_f5_ready.py` (`ready.py` passes only on two passing G1
+  verdicts, the newer on main's current product code) and
+  `.claude/hooks/tests/acceptance/walk-gate.test.mjs` (the Stop hook blocks "walk now" without it).
 - **Design reviews walked the demo seed, where no file is ever really being read,** and web tests used
   fakes no test checked against the server (D1, D8). The seed proves a UI ticket's mechanics only. No
-  check yet: factory: G2a: fakes validated against OpenAPI; closed Literal keys.
+  check yet: #250 (G2a: fakes validated against OpenAPI; closed Literal keys).
 - **Walk findings and budget cuts were dropped without an issue** (F6 became D2; D6 was a silent cut).
-  Every walk finding of any severity, and every cut, becomes an issue. No check yet: factory:
-  `merge_ready` (c), no silent cuts (spec §3.13).
+  Every walk finding of any severity, and every cut, becomes an issue. Check:
+  `scripts/tests/acceptance/tf4/test_merge_ready_gate.py` (`merge_ready` (c): every Cut, Not done or
+  Deferred item links an open issue) and `scripts/walk/tests/acceptance/test_f5_issues.py` (every walk
+  finding is an issue drafted or a comment on an open one).
 - **The living docs named paths gone from the tree** (`scripts/score/` in the architecture and the
   real-drawings skill, after the scorer moved to `tools/scorer/`). Check: `tools/lint/docs_paths.py`.
-- **A probe's own wait matched itself again** (the cloud probe's `pgrep`, the third time). No check yet:
-  factory: the guard's wait rule (spec §3.13, C8).
+- **A probe's own wait matched itself again** (the cloud probe's `pgrep`, the third time). Check:
+  `.claude/hooks/tests/acceptance/guard-deletes-waits.test.mjs` (the guard's `SELF_MATCHING_WAIT`).
+- **A test pinned to a wall-clock time went red once that time passed** (5 Oct): f5's acceptance tests
+  pinned verdict times at 01:00Z against commits made at the wall clock, and `ready.py`'s 10-minute skew
+  rightly dropped them, so #293's CI went red after 01:10Z; round 3 then found the same bomb in the
+  builder's own `test_walk.py` (75), passing for the wrong reason. Pin every time a test compares, commit
+  dates included, or make the times relative. No check yet: #308.
+- **A SendMessage to a running workflow agent starts a second copy:** two measures strands ran twice, and
+  one overwrote the other's file. Wait for the workflow, or stop it and relaunch. No check yet: #309
+  (`scripts/factory/say.py`'s `ALARM-RESUME-COPY` covers a resume, not a SendMessage, and has not been
+  seen live).
+- **The auto-mode classifier denied two actions:** writing the cleanup script, and the drawings probe's
+  cloud launch (read as data exfiltration). The owner ran both with `!`; never route around a denial.
+  Classifier rules are plain sentences in the owner's user settings (the CLI ignores them in project
+  settings), so only the owner adds them. No check yet: #309 (the owner's two rules: the committed
+  launcher and the drawings environment).
+- **The leak corpus absorbed a builder's invented test literal** from its private build notes, then
+  refused a push that carried the literal (7 hits on f4's push; allowlisted by hash in #305). No check
+  yet: #311 (the corpus build skips test outputs in the notes).
+- **The pre-push hook scans from the remote's old sha:** after a merge of main it re-scanned main's
+  already-public commits and refused f4's push, and a push from a worktree fails closed (the corpus and
+  venv are read from the pushing checkout). Push from the main checkout. No check yet: #306.
+- **The guard over-blocks text that only names the scanner, the ledger or `core.hooksPath`:** commit
+  messages, stamp lines, heredocs, a read-only listing of the ledger folders and a `git config --get`
+  were refused. Over-blocking is a repeated class; never route around it. No check yet: #307 and #303.
+- **The orchestrator's own acceptance amendments broke CI twice** (E501 on #286; E501 and SIM300 on #287),
+  the only round-2 blockers of those PRs. Run ruff, format, mypy and the acceptance lint before every
+  amendment commit. No check yet: an issue is owed ("factory: orchestrator acceptance amendments pass
+  ruff, format, mypy and the acceptance lint before commit").
+- **A tool tested only against a fake failed against the real one:** `scripts/land.py` reads CI with
+  `gh pr checks --json`, which gh 2.45 on this machine lacks, and its tests use a fake GitHub; session 12
+  landed through an interim script instead. Test a wrapper against the real tool's output shape once.
+  No check yet: an issue is owed ("factory: scripts.land cannot land with gh 2.45").
