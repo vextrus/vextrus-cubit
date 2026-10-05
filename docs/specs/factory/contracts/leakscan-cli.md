@@ -192,3 +192,9 @@ stamping scan, runs only as the orchestrator's `uv run python -m tools.leakscan 
 its working folder (the guard refuses any other form, so a branch's own scanner code never writes a stamp or
 the corpus); option abbreviations are usage errors; an empty corpus is refused (`cannot-scan
 corpus-unreadable`), never trusted.
+
+`build --source` writes a corpus only under the test seam `VEXTRUS_LEAKSCAN_HOME` (otherwise exit 64). A
+rebuild that would keep fewer than half the current corpus's strings is refused (exit 2) unless `build
+--force` is given (run, like every `build`, only from the orchestrator's main-checkout session), and outside
+the test seam a corpus under 100 strings is refused by every scan and by the guard (`cannot-scan
+corpus-unreadable`). `allow` hashes, from the next line, only strings that span the line break.

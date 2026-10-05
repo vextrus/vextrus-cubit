@@ -17,12 +17,13 @@ from pathlib import Path
 
 DEFAULT_MAIN_CHECKOUT = "/home/riz/vextrus-cubit"
 MIN_LENGTH = 8
+CORPUS_FLOOR = 100
 _LETTER_RUN = re.compile(r"[^\W\d_]{3}")
 _HEX40 = re.compile(r"[0-9a-f]{40}")
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 
 
-_UNREADABLE = (OSError, ValueError)
+_UNREADABLE = (OSError, ValueError)  # UnicodeDecodeError is a ValueError
 
 
 class CannotScan(Exception):
@@ -105,6 +106,14 @@ def write_private(path: Path, data: bytes) -> None:
         raise
 
 
+def corpus_strings() -> int:
+    """How many strings the current corpus holds (0 when there is none)."""
+    try:
+        return sum(1 for line in corpus_file().read_text(encoding="utf-8").splitlines() if keeps(line))
+    except _UNREADABLE:
+        return 0
+
+
 def write_corpus(strings: Iterable[str]) -> tuple[int, str]:
     """Writes the corpus (one normalised string per line, sorted); returns its count and sha256."""
     kept = sorted({value for value in strings if keeps(value)})
@@ -138,8 +147,11 @@ class Corpus:
             corpus = cls(data)
         except UnicodeDecodeError:
             raise CannotScan("corpus-unreadable") from None
-        if corpus.strings == 0:
-            # An empty corpus makes every scan clean: it is refused, never trusted.
+        if corpus.strings == 0 or (
+            corpus.strings < CORPUS_FLOOR and not os.environ.get("VEXTRUS_LEAKSCAN_HOME")
+        ):
+            # An empty or tiny corpus makes every scan clean: refused, never trusted. (The test
+            # seam allows small invented corpora.)
             raise CannotScan("corpus-unreadable")
         return corpus
 

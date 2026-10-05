@@ -7,6 +7,7 @@ words, a path given on the command line, or scanned text), and any unexpected er
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from collections.abc import Sequence
@@ -41,6 +42,7 @@ def _parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True, parser_class=_Parser)
     build = commands.add_parser("build", parents=[common], allow_abbrev=False)
     build.add_argument("--source", action="append", type=Path, default=[])
+    build.add_argument("--force", action="store_true")
     ranged = commands.add_parser("range", parents=[common], allow_abbrev=False)
     ranged.add_argument("span")
     ranged.add_argument("--ref")
@@ -150,6 +152,10 @@ def _scan(options: argparse.Namespace) -> int:
 
 
 def _build(options: argparse.Namespace) -> int:
+    if options.source and not os.environ.get("VEXTRUS_LEAKSCAN_HOME"):
+        # `--source` is a test seam: it never writes the real corpus (the guard refuses the seam).
+        print("leakscan: build --source needs the test seam VEXTRUS_LEAKSCAN_HOME", file=sys.stderr)
+        return USAGE
     counts: dict[str, int] = {}
     values = sources.text_sources(options.source) if options.source else sources.real_sources(counts)
     allowed = core.allowlist()
@@ -158,6 +164,15 @@ def _build(options: argparse.Namespace) -> int:
         for value in sources.normalised(values)
         if core.keeps(value) and core.digest(value) not in allowed
     }
+    previous = core.corpus_strings()
+    floor = max(previous // 2, 0 if os.environ.get("VEXTRUS_LEAKSCAN_HOME") else core.CORPUS_FLOOR)
+    if len(kept) < floor and not options.force:
+        # A rebuild losing half the corpus (or under the floor) would make scans clean: refused.
+        print(
+            f"leakscan: build refused: {len(kept)} strings, under the floor of {floor} "
+            "(--force overrides)"
+        )
+        return 2
     count, sha256 = core.write_corpus(kept)
     if not options.quiet:
         for name, read in counts.items():
@@ -188,7 +203,9 @@ def _allow(options: argparse.Namespace) -> int:
         found |= corpus.found(line)
         if number < len(lines):
             # The scan also tests a line joined with the next one (a string wrapped over two lines).
-            found |= corpus.found(scan.joined(line, lines[number]))
+            # Only strings that span the break: one wholly on the next line is that line's own hit.
+            nxt = lines[number]
+            found |= corpus.found(scan.joined(line, nxt)) - corpus.found(nxt) - corpus.found(line)
     if not found:
         print("leakscan: allow refused: no hit on the given lines", file=sys.stderr)
         return 1
