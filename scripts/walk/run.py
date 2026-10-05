@@ -23,7 +23,9 @@ It runs in the foreground (the orchestrator detaches it) and:
    `.private/work/factory/events.log` (each check judged against `.private/work/walk-expect/`, with no
    agent layer, so this is never a verdict);
 7. keeps the stack served for `/real-set-walk`'s agent layer until `verdict.json` appears, SIGTERM, or
-   `--hold-minutes` pass; then stops what it started, by pid (never by pattern), and frees g1.pid.
+   `--hold-minutes` pass; then stops what it started, by process group (never by pattern), drops
+   `vextrus_walk_<sha8>` (once step 3 began; a failed drop is an event line, never the walk's code)
+   and frees g1.pid.
 
 `--smoke <file>` (repeatable) walks those files as the set `smoke` into
 `.private/work/walks-smoke/<sha40>/` (a `"smoke": true` walk.json), never holds, and never writes a
@@ -59,6 +61,8 @@ SLUG = re.compile(r"[a-z0-9][a-z0-9_-]{0,39}")
 OWNER_PORTS = frozenset({5410, 8000})
 """The owner's dev server and API (CLAUDE.md): a walk never takes them."""
 DB_PREFIX = "vextrus_walk_"
+WALK_DB = re.compile(re.escape(DB_PREFIX) + "[0-9a-f]{8}")
+"""The only names `drop_database` drops."""
 DEFAULT_SETS = ("edison", "sample-project")
 """The Development Sets: folders under `.private/reference/` (CLAUDE.md names them)."""
 SET_SUFFIXES = (".dwg", ".pdf")
@@ -68,6 +72,9 @@ WHEELS = (
 )
 STEP_TIMEOUT = 1800
 SERVE_TIMEOUT = 240
+SPEC_TIMEOUT = 4 * 3600
+STOP_GRACE = 30
+DROP_TIMEOUT = 300
 
 
 class AlreadyRunning(RuntimeError):
@@ -221,7 +228,15 @@ def _child_env(walk: Plan, extra: dict[str, str] | None = None) -> dict[str, str
     return env
 
 
-def _step(name: str, args: list[str], *, cwd: Path, env: dict[str, str], log: Path) -> None:
+def _step(
+    name: str,
+    args: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    log: Path,
+    timeout: float = STEP_TIMEOUT,
+) -> None:
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as out:
         out.write(f"--- {utc()} {name}\n")
@@ -233,7 +248,7 @@ def _step(name: str, args: list[str], *, cwd: Path, env: dict[str, str], log: Pa
             stdout=out,
             stderr=subprocess.STDOUT,
             check=False,
-            timeout=STEP_TIMEOUT,
+            timeout=timeout,
         )
     if done.returncode != 0:
         raise WalkError(f"{name} exited {done.returncode}")
@@ -318,6 +333,48 @@ def prepare_database(walk: Plan, password: str, log: Path) -> None:
         _step(name, [python, "manage.py", *args], cwd=walk.worktree, env=env, log=log)
 
 
+def drop_database(walk: Plan, log: Path) -> None:
+    """Drops the walk's own database (it holds data read from real drawings), connected to
+    `postgres` as `vextrus`, whose password psql reads from the owner's pass file (never argv or the
+    environment; .claude/rules/machine.md). Refuses, running nothing, any name but `vextrus_walk_`
+    and 8 hex digits."""
+    if not WALK_DB.fullmatch(walk.db_name):
+        raise WalkError("only a walk's own database is dropped")
+    # No PG* setting but the pass file's place may steer psql away from the flags below.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PG") or k == "PGPASSFILE"}
+    sql = f'DROP DATABASE IF EXISTS "{walk.db_name}" WITH (FORCE)'
+    connect = ["-h", "127.0.0.1", "-p", "5432", "-U", "vextrus", "-d", "postgres", "-w"]
+    _step(
+        "drop database",
+        ["psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", *connect, "-c", sql],
+        cwd=log.parent,
+        env=env,
+        log=log,
+        timeout=DROP_TIMEOUT,
+    )
+
+
+def _signal_group(process: subprocess.Popen[bytes], signum: int) -> None:
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(process.pid, signum)
+
+
+def end_groups(processes: list[subprocess.Popen[bytes]], *, grace: float) -> None:
+    """Each process's group (started with `start_new_session=True`, so its group is its pid): TERM,
+    a grace for the leaders to exit, then KILL to whatever is left of the group, a grandchild that
+    outlived its leader included."""
+    for process in processes:
+        _signal_group(process, signal.SIGTERM)
+    deadline = time.monotonic() + grace
+    for process in processes:
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=max(0.1, deadline - time.monotonic()))
+    for process in processes:
+        _signal_group(process, signal.SIGKILL)
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=10)
+
+
 @dataclass
 class Stack:
     processes: list[subprocess.Popen[bytes]] = field(default_factory=list)
@@ -333,18 +390,7 @@ class Stack:
 
     def stop(self) -> None:
         """Each process group this walk started, by its pid: TERM, then KILL after a grace."""
-        for process in self.processes:
-            if process.poll() is None:
-                with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.killpg(process.pid, signal.SIGTERM)
-        deadline = time.monotonic() + 30
-        for process in self.processes:
-            try:
-                process.wait(timeout=max(0.1, deadline - time.monotonic()))
-            except subprocess.TimeoutExpired:
-                with contextlib.suppress(ProcessLookupError, PermissionError):
-                    os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=10)
+        end_groups(self.processes, grace=STOP_GRACE)
 
     def all_running(self) -> bool:
         return all(process.poll() is None for process in self.processes)
@@ -404,7 +450,8 @@ def serve(walk: Plan, password: str, stack: Stack) -> None:
 def walk_spec(
     root: Path, walk: Plan, password: str, sets: dict[str, list[str]], *, smoke: bool, started_at: str
 ) -> int:
-    """Runs this checkout's `web/e2e/real/walk.spec.ts` against the served head."""
+    """Runs this checkout's `web/e2e/real/walk.spec.ts` against the served head, in its own process
+    group, which ends with it (a leftover node or chromium would hold the next walk's ports)."""
     walk.out_dir.mkdir(parents=True, exist_ok=True)
     manifest = walk.out_dir / "sets.json"  # private: the files' paths
     manifest.write_text(json.dumps(sets), encoding="utf-8")
@@ -424,7 +471,7 @@ def walk_spec(
     )
     web = CODE / "web"
     with (walk.out_dir / "logs" / "playwright.txt").open("ab") as out:
-        done = subprocess.run(
+        process = subprocess.Popen(
             [
                 "npx",
                 "--prefix",
@@ -438,10 +485,12 @@ def walk_spec(
             env=env,
             stdout=out,
             stderr=subprocess.STDOUT,
-            check=False,
-            timeout=4 * 3600,
+            start_new_session=True,
         )
-    return done.returncode
+        try:
+            return process.wait(timeout=SPEC_TIMEOUT)
+        finally:  # a signal, the timeout, or a grandchild left after a normal exit
+            end_groups([process], grace=STOP_GRACE)
 
 
 def judge_checks(root: Path, walk: Plan, events: Events) -> bool:
@@ -470,12 +519,25 @@ def verdict_written(out_dir: Path, since: float) -> bool:
         return False
 
 
+SET_ASIDE = ("walk", "findings", "triage", "drafts")
+"""A walk's record and its agent layer's files (issues.py writes triage.json and drafts.json)."""
+
+
 def set_aside(out_dir: Path) -> None:
-    """An earlier walk's walk.json moves aside, so a new one exists only once this walk wrote it."""
-    current = out_dir / "walk.json"
-    if current.exists():
+    """An earlier walk's walk.json, findings.json, triage.json and drafts.json move aside, each to
+    `<name>.<its mtime>.json` (`-2`, `-3` after a move of the same second; never over one), so a new
+    walk exists only once it wrote its own walk.json and is judged only on its own findings."""
+    for name in SET_ASIDE:
+        current = out_dir / f"{name}.json"
+        if not current.exists():
+            continue
         stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(current.stat().st_mtime))
-        current.replace(out_dir / f"walk.{stamp}.json")
+        target = out_dir / f"{name}.{stamp}.json"
+        n = 1
+        while target.exists():
+            n += 1
+            target = out_dir / f"{name}.{stamp}-{n}.json"
+        current.replace(target)
 
 
 def hold(walk: Plan, stack: Stack, minutes: float, stopping: list[bool], since: float) -> None:
@@ -522,12 +584,14 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
     log = walk.out_dir / "logs" / "prepare.txt"
     started_at = utc()
     since = time.time()
+    made_database = False
     events("started")
     try:
         with _signals(stopping, holding):
             walk.out_dir.mkdir(parents=True, exist_ok=True)
             set_aside(walk.out_dir)
             prepare_checkout(root, walk, log)
+            made_database = True  # from here the database may exist: the walk drops it
             prepare_database(walk, password, log)
             serve(walk, password, stack)
             if not smoke:
@@ -552,6 +616,11 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
     finally:
         sign_in.unlink(missing_ok=True)
         stack.stop()
+        if made_database:
+            try:
+                drop_database(walk, log)
+            except WalkError, OSError, subprocess.SubprocessError:
+                events("drop failed")  # never the walk's code
         release(pidfile, pid=os.getpid())
 
 
