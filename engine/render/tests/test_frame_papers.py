@@ -68,6 +68,9 @@ FRAMES = (
     Frame("FP-403", "A1-TENTH", (84.1, 59.4), 600.0, (200_000.0, 0.0)),
     Frame("FP-404", "A1-TENTH", (84.1, 59.4), 370.0, (300_000.0, 0.0)),
     Frame("FP-405", "A1-THIRD", (841.0 / 3, 198.0), 300.0, (400_000.0, 0.0)),
+    Frame("FP-406", "A1-840", (840.0, 594.0), 100.0, (500_000.0, 0.0)),
+    Frame("FP-407", "A2", (594.0, 420.0), 50.0, (600_000.0, 0.0)),
+    Frame("FP-408", "ANSI-C", (558.8, 431.8), 48.0, (700_000.0, 0.0)),
 )
 
 
@@ -94,6 +97,9 @@ def _draw() -> Dxf:
     _frame(doc.blocks.new("ISO-A3", base_point=(0, 0)), *ISO_A3_BORDER)
     _frame(doc.blocks.new("A1-TENTH", base_point=(0, 0)), 84.1, 59.4)
     _frame(doc.blocks.new("A1-THIRD", base_point=(0, 0)), 841.0 / 3, 198.0)
+    _frame(doc.blocks.new("A1-840", base_point=(0, 0)), 840.0, 594.0)
+    _frame(doc.blocks.new("A2", base_point=(0, 0)), 594.0, 420.0)
+    _frame(doc.blocks.new("ANSI-C", base_point=(0, 0)), 558.8, 431.8)
     model = doc.modelspace()
     for frame in FRAMES:
         s = frame.insert
@@ -216,6 +222,24 @@ def test_a_frame_whose_box_is_a_standard_sheet_at_a_standard_scale_is_read_so(
     assert placed is not None
     span = placed[0].scale * paper.width_mm / page.width
     assert span >= 0.98, (paper, placed[0])
+
+
+@pytest.mark.needs_toolchain
+@pytest.mark.parametrize("number", ["FP-406", "FP-407", "FP-408"])
+def test_a_frame_drawn_at_its_sheets_size_is_read_at_its_inserts_scale(
+    read_sheets: dict[str, Read], number: str
+) -> None:
+    """#160's review, round 3: a sheet twice another (A1 = 2 x A3, A2 = 2 x A4, ANSI C = 2 x ANSI A)
+    boxes both at standard scales; a frame block drawn at its own sheet's size says which: an A1 drawn
+    840 x 594 at 1:100 is A1 (not A3 at 1:200), an A2 at 1:50 is A2 (not A4 at 1:100), an ANSI C at
+    1:48 is ANSI C (not ANSI A at 1:96)."""
+    found = _sheet(read_sheets, number)
+    frame = next(f for f in FRAMES if f.number == number)
+    paper = found.buffers.paper
+    assert paper.mm_per_unit == pytest.approx(1 / frame.insert, rel=1e-6), paper
+    assert paper.source == buffers.PaperSource.STANDARD
+    assert (paper.width_mm, paper.height_mm) == pytest.approx(frame.size, abs=WITHIN_MM)
+    assert found.views.paper == pytest.approx(frame.size, abs=WITHIN_MM)
 
 
 @pytest.mark.needs_toolchain

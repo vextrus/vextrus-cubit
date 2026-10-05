@@ -20,16 +20,18 @@ first anchor, 13's: the frame insert with everything it draws, or its rectangle)
 texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left corner** (the rulings,
 "24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20): a
 layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
-model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being a
-standard sheet's at a standard scale when the box is exactly one (`EXACT_MATCH`, both sides, in the
-drawing's units, the render buffers' `_standard_sheet`: a frame block drawn at a fraction of its paper
-can give a paper inside a smaller sheet), else its frame insert's when the frame then lies inside a
-standard sheet (`BINDING_MM` within its edge, a border's binding margin, `FRAME_MATCH` past it; the
-frame block drawn at paper size, in mm or in the drawing's units, the frame as it stands in model
-space's axes: a turned A3 is 297 wide and 420 tall; the paper is the frame's box at that scale), else a
-standard sheet's when the box is one within 0.5 %, else, for a frame drawn as a rectangle or a scale
-giving no standard sheet (a frame block drawn at a fraction of its plotted size), the box's long side
-taken as A1's (`FALLBACK_LONG_MM`: never a smaller paper than the buffers laid before).
+model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being, in order
+(`_paper_scale`): its frame insert's when the frame block is drawn at a standard sheet's size (within
+0.5 %, in mm or in the drawing's units; a sheet twice another, A1 and A3, boxes both at standard scales,
+and only the insert says which); else a standard sheet's at a standard scale when the box is exactly one
+(`EXACT_MATCH`, both sides, in the drawing's units, the render buffers' `_standard_sheet`: a frame block
+drawn at a fraction of its paper can give a paper inside a smaller sheet); else its frame insert's when
+the frame lies inside a standard sheet (`BINDING_MM` within its edge, a border's binding margin,
+`FRAME_MATCH` past it); else a standard sheet's when the box is one within 0.5 %; else, for a frame
+drawn as a rectangle or a frame block drawn at a fraction of its plotted size, the box's long side taken
+as A1's (`FALLBACK_LONG_MM`: never a smaller paper than the buffers laid before). The frame stands as in
+model space's axes (a turned A3 is 297 wide and 420 tall), and its paper is the frame's box at the scale
+taken.
 Where the sheet's Plot page was matched (the harness passes its paper, `find(..., plot)`), its paper is
 that page's at the scale that fits the frame's box to it, the box centred (`_plot_paper`), before any
 of these. This is the one rule for a model-space sheet's paper: the render buffers lay theirs by
@@ -325,10 +327,11 @@ FRAME_MATCH = 0.05
 outside the sheet's edge)."""
 EXACT_MATCH = 0.001
 """A box this close to a standard sheet at a standard scale, on both sides, is that sheet before any
-frame insert's binding window (`BINDING_MM`) is tried: a frame block drawn at a third of an A1 and
-inserted at 300 boxes an exact A1 at 1:100, though its insert gives a paper inside A4's window. Looser
-(the render buffers' 0.5 %), a border's box can match another sheet by chance: a 409 x 288 mm A3 border
-at 1:73 boxes an A0 at 1:25 within 0.44 %, and its insert's scale is the truer reading."""
+frame insert's binding window (`BINDING_MM`) is tried (after a frame block drawn at a sheet's size): a
+frame block drawn at a third of an A1 and inserted at 300 boxes an exact A1 at 1:100, though its insert
+gives a paper inside A4's window. Looser (the render buffers' 0.5 %), a border's box can match another
+sheet by chance: a 409 x 288 mm A3 border at 1:73 boxes an A0 at 1:25 within 0.44 %, and its insert's
+scale is the truer reading."""
 BINDING_MM = 31.0
 """How much smaller than a standard sheet, on either side, a frame's paper may be and still be that
 sheet's (a border drawn inside the paper's edge: ISO 5457's 20 mm binding and 10 mm opposite, as 30 mm a
@@ -850,43 +853,60 @@ def _plot_paper(
 
 def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> tuple[float, bool]:
     """Model units per paper mm for a model-space sheet (the module's docstring), and whether the drawing
-    gave it (a box that is exactly a standard sheet at a standard scale, else the frame insert's scale,
-    else a box within 0.5 % of one) rather than the fallback, A1's long side (`FALLBACK_LONG_MM`). The
-    render buffers' paper is laid by this too (`buffers._model_paper`)."""
+    gave it rather than the fallback, A1's long side (`FALLBACK_LONG_MM`). In order: the frame insert's
+    scale where the frame block is drawn at a standard sheet's size (within the buffers' 0.5 %); the box
+    exactly a standard sheet at a standard scale (`EXACT_MATCH`); the frame insert's scale where its
+    paper lies inside a standard sheet's binding window (`BINDING_MM`); the box a standard sheet at a
+    standard scale within 0.5 %. The render buffers' paper is laid by this too
+    (`buffers._model_paper`)."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
     long, short = max(width, height), min(width, height)
+    if not short > 0:
+        scale = long / FALLBACK_LONG_MM
+        return (scale, False) if scale > 0 and math.isfinite(scale) else (1.0, False)
     unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
-    # The box exactly a standard sheet at a standard scale first (`EXACT_MATCH`): a frame block drawn at
-    # a fraction of its paper (a third of an A1, inserted at 300) gives a paper inside a smaller sheet's
-    # binding window, and its box says which sheet it is (#160's review, round 2).
-    exact = _standard_sheet(long, short, (unit,), SCALES, EXACT_MATCH) if short > 0 else None
+    readings = _insert_readings(artefact, frame, unit)
+    # 1. A frame block drawn at a standard sheet's size states its sheet: a sheet twice another (A1 and
+    # A3, A2 and A4, ANSI C and A) boxes both at standard scales, and only the insert says which (#160's
+    # review, round 3).
+    for per_mm in readings:
+        if _standard_sheet(long / per_mm, short / per_mm, (1.0,), (1,)) is not None:
+            return per_mm, True
+    # 2. The box exactly a standard sheet at a standard scale: a frame block drawn at a fraction of its
+    # paper (a third of an A1, inserted at 300) gives a paper inside a smaller sheet's binding window,
+    # and its box says which sheet it is (round 2).
+    exact = _standard_sheet(long, short, (unit,), SCALES, EXACT_MATCH)
     if exact is not None:
         return 1 / exact, True
-    if frame is not None:
-        entity = artefact.entities.get(frame.handle)
-        if isinstance(entity, Insert):
-            try:
-                placed = chain_transform((*chain_of(artefact, frame.inserts), link(artefact, entity)))
-                scale = placed.xy_scale
-            except PlacementError, ValueError:
-                scale = 0.0
-            # The frame block drawn in mm (at paper size), else in the drawing's own units (an A3 frame
-            # 16.5 inches long in a drawing in inches).
-            for per_mm in (scale, scale / unit):
-                if (
-                    per_mm > 0
-                    and math.isfinite(per_mm)
-                    and short > 0
-                    and _inside_a_sheet(long / per_mm, short / per_mm)
-                ):
-                    return per_mm, True
-    matched = _standard_sheet(long, short, (unit,), SCALES) if short > 0 else None
+    # 3. A border drawn inside its sheet's edge (round 1).
+    for per_mm in readings:
+        if _inside_a_sheet(long / per_mm, short / per_mm):
+            return per_mm, True
+    # 4. The box a standard sheet at a standard scale, within the buffers' 0.5 %.
+    matched = _standard_sheet(long, short, (unit,), SCALES)
     if matched is not None:
         return 1 / matched, True
     scale = long / FALLBACK_LONG_MM
     if not (scale > 0 and math.isfinite(scale)):
         return 1.0, False  # a box with no size a float holds: its units taken as mm
     return scale, False
+
+
+def _insert_readings(artefact: ReadArtefact, frame: DwgAnchor | None, unit: float) -> tuple[float, ...]:
+    """The scales (model units per paper mm) a frame insert may state: its block drawn in mm (at paper
+    size), else in the drawing's own units (an A3 frame 16.5 inches long in a drawing in inches); none
+    for a frame drawn as a rectangle or an insert with no finite scale."""
+    if frame is None:
+        return ()
+    entity = artefact.entities.get(frame.handle)
+    if not isinstance(entity, Insert):
+        return ()
+    try:
+        placed = chain_transform((*chain_of(artefact, frame.inserts), link(artefact, entity)))
+        scale = placed.xy_scale
+    except PlacementError, ValueError:
+        return ()
+    return tuple(v for v in (scale, scale / unit) if v > 0 and math.isfinite(v))
 
 
 def _inside_a_sheet(long_mm: float, short_mm: float) -> bool:
