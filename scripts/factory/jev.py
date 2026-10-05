@@ -13,12 +13,14 @@ answer is `Unavailable`, and every caller then runs exactly as it would without 
 The constants are the product's (`vextrus.settings.jev`); the product's own client is tenant-bound
 and is not used here. The key is read from the environment at call time into the request's header
 and nowhere else: never logged, printed, cached or put in an error. The cache, the log, the triage
-sidecars and the model watch's record live under `VEXTRUS_FACTORY_DIR` (default
-`.private/work/factory` in the repository).
+sidecars, the model watch's record and the cool-off's record (`jev-health.json`) live under
+`VEXTRUS_FACTORY_DIR` (default `.private/work/factory` in the repository).
 """
 
 import argparse
 import contextlib
+import contextvars
+import fcntl
 import hashlib
 import json
 import os
@@ -78,6 +80,8 @@ POSSIBLE_AT = 0.3
 # Seams for tests: called through the module, so a test can replace them.
 _now: Callable[[], float] = time.monotonic
 _sleep: Callable[[float], None] = time.sleep
+_wall: Callable[[], float] = time.time
+"""The wall clock, read only for the cool-off another run left in `jev-health.json`."""
 
 _BEARER = re.compile(r"[\x21-\x7e]+")
 _HEX40 = re.compile(r"[0-9a-f]{40}")
@@ -206,36 +210,167 @@ def _label(value: str) -> str:
 # The cool-off and the concurrency limit ------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class _Admission:
+    """A call `_Health.admit` let through; `probe` when it is the one call after a cool-off."""
+
+    probe: bool
+
+
+def _health_path() -> Path:
+    return factory_dir() / "jev-health.json"
+
+
+@contextlib.contextmanager
+def _health_lock() -> Iterator[None]:
+    """`jev-health.lock` held while a run claims the probe, so two runs never both probe. A lock that
+    cannot be taken is gone without: the claim is then only as good as the file."""
+    try:
+        path = factory_dir() / "jev-health.lock"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = path.open("a", encoding="ascii")
+    except OSError:
+        yield
+        return
+    with handle:
+        with contextlib.suppress(OSError):
+            fcntl.flock(handle, fcntl.LOCK_EX)  # released when the file closes
+        yield
+
+
+def _number(value: object) -> float | None:
+    if type(value) not in (int, float):
+        return None
+    number = float(value)  # type: ignore[arg-type]
+    return number if number == number and abs(number) != float("inf") else None
+
+
+@dataclass(frozen=True)
+class _Record:
+    """`jev-health.json`: failures in a row, the last one's wall time, the cool-off's end (None until
+    it trips) and the wall time a run claimed the probe (None when none is out)."""
+
+    failures: int
+    last_failure_wall: float
+    until_wall: float | None
+    probe_wall: float | None
+
+
+def _read_record() -> _Record | None:
+    """The record, or None when it is missing, unreadable or malformed, or when any of its times is
+    more than a cool-off ahead of the wall clock (written while the clock was ahead: honouring it
+    would keep every later run silent)."""
+    try:
+        data = json.loads(_health_path().read_text(encoding="ascii"))
+    except OSError, ValueError, UnicodeDecodeError, RecursionError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    failures, last = data.get("failures"), _number(data.get("last_failure_wall"))
+    if type(failures) is not int or failures < 1 or last is None:
+        return None
+    times: list[float | None] = []
+    for key in ("until_wall", "probe_wall"):
+        value = data.get(key)
+        number = None if value is None else _number(value)
+        if value is not None and number is None:
+            return None
+        times.append(number)
+    horizon = _wall() + settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+    if any(time is not None and time > horizon for time in (last, *times)):
+        return None
+    return _Record(failures, last, times[0], times[1])
+
+
 class _Health:
-    """Failures in a row across the process; after `VEXTRUS_JEV_COOL_OFF_AFTER` of them, every call is
-    `cooling_off` for `VEXTRUS_JEV_COOL_OFF_SECONDS`, then one call (the probe) tries again while the
-    others still cool off. Every admitted call is settled, so a probe never stays open."""
+    """Failures in a row; after `VEXTRUS_JEV_COOL_OFF_AFTER` of them, every call is `cooling_off` for
+    `VEXTRUS_JEV_COOL_OFF_SECONDS`, then one call (the probe) tries again while the others still cool
+    off; a probe that fails trips it again at once. Every admitted call is settled, and only the
+    probe's own end frees the probe's place.
+
+    Each CLI run is its own process, so the state is kept in `jev-health.json` (numbers only), read
+    once at the first `admit` and kept in memory after. A tripped record stays until an answer
+    deletes it: once its cool-off ends, the next run to claim the probe (under `jev-health.lock`)
+    marks it, and the other runs cool off while that mark is younger than the cool-off. Failures
+    that never tripped expire after the cool-off; an unreadable record is ignored."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._failures = 0
+        self._last_wall: float | None = None
         self._until: float | None = None
         self._probing = False
+        self._loaded = False
 
-    def admit(self) -> bool:
+    def admit(self) -> _Admission | None:
         with self._lock:
+            if not self._loaded:
+                self._loaded = True
+                self._load()
             if self._until is None:
-                return True
-            if _now() < self._until or self._probing:
-                return False
+                return _Admission(probe=False)
+            if _now() < self._until or self._probing or not self._claim():
+                return None
             self._probing = True
-            return True
+            return _Admission(probe=True)
 
-    def settle(self, why: Why | None) -> None:
+    def settle(self, admission: _Admission, why: Why | None) -> None:
         """An admitted call's end: `None` for an answer, else why it failed."""
         with self._lock:
-            self._probing = False
+            if admission.probe:
+                self._probing = False
             if why is None:
-                self._failures, self._until = 0, None
+                self._failures, self._until, self._last_wall = 0, None, None
+                with contextlib.suppress(OSError):
+                    _health_path().unlink(missing_ok=True)
             elif why in _OUTAGES:
                 self._failures += 1
+                self._last_wall = _wall()
                 if self._failures >= settings.VEXTRUS_JEV_COOL_OFF_AFTER:
                     self._until = _now() + settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+                self._save(probe_wall=None)
+            elif admission.probe:
+                self._save(probe_wall=None)  # a refused probe hands the probe back
+
+    def _load(self) -> None:
+        record = _read_record()
+        if record is None:
+            return
+        wall, cool_off = _wall(), settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+        if record.until_wall is None and wall - record.last_failure_wall > cool_off:
+            return  # failures that never tripped expire
+        self._failures, self._last_wall = record.failures, record.last_failure_wall
+        if record.until_wall is not None:
+            self._until = _now() + min(record.until_wall - wall, cool_off)
+
+    def _claim(self) -> bool:
+        """This run's claim on the probe once the cool-off ended: refused while another run's probe
+        is out (its mark younger than the cool-off) or another run tripped it again."""
+        with _health_lock():
+            record, wall = _read_record(), _wall()
+            if record is not None:
+                again = record.until_wall is not None and record.failures > self._failures
+                if again and record.until_wall is not None and record.until_wall > wall:
+                    self._failures = record.failures  # another run's probe failed: cool off anew
+                    self._until = _now() + (record.until_wall - wall)
+                    return False
+                cool_off = settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+                if record.probe_wall is not None and wall - record.probe_wall < cool_off:
+                    return False
+            self._save(probe_wall=wall)
+            return True
+
+    def _save(self, probe_wall: float | None) -> None:
+        wall = _wall()
+        until = None if self._until is None else wall + (self._until - _now())
+        record = {
+            "failures": self._failures,
+            "last_failure_wall": wall if self._last_wall is None else self._last_wall,
+            "until_wall": until,
+            "probe_wall": probe_wall,
+        }
+        with contextlib.suppress(OSError, ValueError):  # a lost record costs one run's deadline
+            _write_atomically(_health_path(), json.dumps(record, allow_nan=False) + "\n")
 
 
 _health = _Health()
@@ -506,8 +641,8 @@ def _validated(data: object, call: _Call) -> tuple[dict[str, dict[str, Any]], st
 
 def _record(call: _Call, answers: Answers) -> str:
     """What the cache keeps: the validated response in the API's shape (no state, no key), with the
-    question names in the order their wire ids were given. The file's digest sorts the questions, so
-    the same questions in another order name the same file: the names tell them apart."""
+    question names in the order their wire ids were given (`_cache_path` names each order's file;
+    the names still guard against another order's answers)."""
     wire_answers = {
         wire_id: _wire_answer(question["type"], answers[name])
         for (wire_id, question), name in zip(call.wire.items(), call.names, strict=True)
@@ -520,6 +655,16 @@ def _record(call: _Call, answers: Answers) -> str:
         "usage": usage,
     }
     return json.dumps(record, allow_nan=False)
+
+
+def _cache_path(call: _Call) -> Path:
+    """`<digest>.json` for the questions in sorted name order (the digest sorts them), else
+    `<digest>-<12 hex of the asked order>.json`: each order keeps its own answers."""
+    name = call.digest
+    if list(call.names) != sorted(call.names):
+        order = hashlib.sha256("\0".join(call.names).encode("utf-8", "surrogatepass"))
+        name = f"{name}-{order.hexdigest()[:12]}"
+    return factory_dir() / "jev-cache" / f"{name}.json"
 
 
 def _from_cache(path: Path, call: _Call) -> Answers | None:
@@ -545,14 +690,39 @@ def _from_cache(path: Path, call: _Call) -> Answers | None:
 # httpx times each socket read on its own, so a server sending a header line or a body byte just inside
 # the read timeout, again and again, would hold a call for ever. The module's own client runs on these
 # sockets, each wait cut to what is left of the call's deadline (re-implemented after the product's
-# client, `vextrus/platform/services/jev.py`, which is tenant-bound and not imported). A client a caller
-# passes to `ask` (the tests' mock transports) is used as given: the deadline then holds between tries
-# and body chunks only.
+# client, `vextrus/platform/services/jev.py`, which is tenant-bound and not imported). Name resolution
+# has no timeout of its own, so it runs under `_bounded`. A client passed to `ask` (a test seam: the
+# tests' mock transports) has no such sockets, so its whole exchange runs under `_bounded` instead.
 
 _DEADLINE: ContextVar[tuple[Callable[[], float], float] | None] = ContextVar(
     "factory_jev_deadline", default=None
 )
 """The call in progress in this thread: its clock and the time it must end by."""
+
+
+def _bounded[T](work: Callable[[], T], seconds: float) -> T:
+    """`work()`'s result or exception, or `TimeoutError` when it has not ended within `seconds`. It
+    runs in a daemon thread under a copy of this thread's context (the deadline included); a thread
+    left behind ends on its own, holding nothing the caller waits on. That is the cost of a stalled
+    resolver or a stalled passed client only: the module's own sockets never need it."""
+    outcome: list[T] = []
+    failure: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            outcome.append(work())
+        except BaseException as raised:  # carried to the caller, never left to the thread
+            failure.append(raised)
+
+    context = contextvars.copy_context()
+    worker = threading.Thread(target=context.run, args=(run,), daemon=True, name="factory-jev")
+    worker.start()
+    worker.join(max(seconds, 0.0))
+    if worker.is_alive():
+        raise TimeoutError("not done within the call's deadline")
+    if failure:
+        raise failure[0]
+    return outcome[0]
 
 
 def _left(timeout: float | None, expired: type[Exception]) -> float | None:
@@ -596,8 +766,8 @@ class _Stream(httpcore.NetworkStream):
 
 
 class _Sockets(httpcore.NetworkBackend):
-    """httpcore's sockets, connecting to each address in turn with what is left of the deadline.
-    Name resolution is the system resolver's own and is not cut."""
+    """httpcore's sockets: the name resolved, then each address connected to in turn, each step with
+    what is left of the deadline."""
 
     def __init__(self) -> None:
         self._sockets = httpcore.SyncBackend()
@@ -610,8 +780,15 @@ class _Sockets(httpcore.NetworkBackend):
         local_address: str | None = None,
         socket_options: Iterable[Any] | None = None,
     ) -> httpcore.NetworkStream:
+        wait = _left(timeout, httpcore.ConnectTimeout)
+
+        def resolve() -> list[Any]:
+            return socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+
         try:
-            found = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+            found = resolve() if wait is None else _bounded(resolve, wait)
+        except TimeoutError:
+            raise httpcore.ConnectTimeout("name resolution outlasted the deadline") from None
         except OSError as failed:
             raise httpcore.ConnectError("cannot resolve the host") from failed
         failure: Exception = httpcore.ConnectError("the host has no address")
@@ -802,10 +979,16 @@ def _exchange(
     owned: httpx.Client | None = None
     token = _DEADLINE.set((_now, deadline))
     try:
-        http = client
-        if http is None:
-            owned = http = _own_client(url)
-        outcome = _send(http, method, url, key, deadline, body)
+        if client is None:
+            owned = _own_client(url)
+            outcome = _send(owned, method, url, key, deadline, body)
+        else:
+            passed = client
+            outcome = _bounded(
+                lambda: _send(passed, method, url, key, deadline, body), deadline - _now()
+            )
+    except TimeoutError:
+        outcome = Why.TIMED_OUT
     except Exception:  # nothing TypeSafe sends may raise into the caller
         outcome = Why.FAILED
     finally:
@@ -826,7 +1009,7 @@ def _ask(
     url = _url()
     if url is None:
         return Unavailable(Why.FAILED), False
-    path = factory_dir() / "jev-cache" / f"{call.digest}.json"
+    path = _cache_path(call)
     if cache:
         cached = _from_cache(path, call)
         if cached is not None:
@@ -834,7 +1017,8 @@ def _ask(
     key = _key()
     if key is None:
         return Unavailable(Why.NO_KEY), False
-    if not _health.admit():
+    admission = _health.admit()
+    if admission is None:
         return Unavailable(Why.COOLING_OFF), False
     validated: tuple[dict[str, dict[str, Any]], str, int, int] | None = None
     why: Why | None = Why.FAILED
@@ -849,7 +1033,7 @@ def _ask(
                 validated = None
             why = None if validated is not None else Why.MALFORMED
     finally:
-        _health.settle(why)
+        _health.settle(admission, why)
     if why is not None or validated is None:
         return Unavailable(why or Why.MALFORMED), False
     named, seen, input_tokens, output_tokens = validated
@@ -879,8 +1063,8 @@ def ask(
     deadline when it does not answer, never an exception.
 
     A cache hit returns without a key and without a call; `cache=False` asks afresh (the model
-    watch). `task` labels the log line; `client` is an optional `httpx.Client` (the module opens and
-    closes its own otherwise)."""
+    watch). `task` labels the log line; `client` is an optional `httpx.Client`, a test seam held to
+    the same whole-call deadline (the module opens and closes its own otherwise)."""
     start = _now()
     try:
         outcome, hit = _ask(state, questions, model, client, cache)
@@ -1202,7 +1386,8 @@ def models_check(pin_file: Path) -> int:
         "release_date": released,
         "checked_at": checked_at,
     }
-    _write_atomically(record, json.dumps(state) + "\n")
+    with contextlib.suppress(OSError):  # a record not written is only a lost record: the line stands
+        _write_atomically(record, json.dumps(state) + "\n")
     return 1 if alarm else 0
 
 
