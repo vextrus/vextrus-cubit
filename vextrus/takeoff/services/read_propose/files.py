@@ -14,8 +14,10 @@ the first is its finding, `takeoff.read_file.not_read_in_full {limit}`; and with
 sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
 Its order holds the rows a QS's act on Step 1 locks only for the moment before it commits (#227):
 the set's Plot found first (minutes on a large set, writing nothing: `plot.find`), then the
-proposals, then the Plot's matches kept and Step 1's progress rows written once
-(`step1.progress_at_end`); so a QS's act never waits on its reading.
+proposals (Jev asked first, writing nothing), then, under Step 1's write lock (`step1.lock_writes`,
+taken first by every act too), the proposals' rows, the Plot's matches kept and Step 1's progress
+rows written once (`step1.progress_at_end`); so a QS's act never waits on its reading, and waits at
+most for its short write phase.
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read, and its pages matched to the set's sheets in the same transaction:
@@ -288,7 +290,8 @@ def _finish(
         # 1's proposals, Questions and Checks, so a read file is never listed without them.
         proposed = propose()
         # The rows a QS's act on Step 1 locks too (a sheet the match lets go, its progress rows,
-        # written as this block ends) are held only for the moment before the step commits.
+        # written as this block ends) are held only for the moment before the step commits, under
+        # Step 1's write lock, which `propose` takes after Jev's answers (fix round 3).
         matched = keep()
     result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
