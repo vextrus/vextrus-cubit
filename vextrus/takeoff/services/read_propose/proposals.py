@@ -129,12 +129,17 @@ def _propose(
     view = drawings.file(file_id)
     project_id = view.project_id
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
+    # The long part first, writing nothing: Jev's answer about each sheet's kind, and the drawing
+    # lists read on the sheets. Then Step 1's write lock, before the first row written (#227).
+    viewed = [(sheet, drawings.views(sheet.id)) for sheet in listed]
+    judged = [(sheet, views, _judged(sheet, views, conventions)) for sheet, views in viewed]
+    lists = _lists_read(listed, load, conventions) if listed else []
+    step1.lock_writes(project_id)
     step1.record_unread(project_id, file_id, sheet_found=len(listed), unread=unread)
     proposed = 0
-    for sheet in listed:
-        views = drawings.views(sheet.id)
+    for sheet, views, answer in judged:
         out = step1.proposed_out(sheet)
-        proposal_id = _propose_sheet(project_id, sheet, views, conventions, ask=not out)
+        proposal_id = _propose_sheet(project_id, sheet, answer, ask=not out)
         for seen in views:
             step1.propose_view(project_id, seen, traces=_view_traces(seen))
         step1.record_coverage(sheet.id)
@@ -159,8 +164,8 @@ def _propose(
                 blocks=[proposal_id],
             )
         proposed += 1
-    if listed:
-        _read_lists(listed, load, conventions)
+    for sheet_id, discipline, rows in lists:
+        step1.record_read_list(sheet_id, discipline, rows)
     asked = set_questions(project_id, trigger_file=file_id)
     return {"sheets": proposed, "questions": asked}
 
@@ -226,18 +231,23 @@ def named(sheet: drawings.SheetView, prefix: str = "") -> dict[str, str]:
     return {f"{prefix}sheet": "", f"{prefix}named": "none"}
 
 
-def _propose_sheet(
-    project_id: uuid.UUID,
-    sheet: drawings.SheetView,
-    views: Sequence[drawings.ViewView],
-    conventions: SheetConventions,
-    *,
-    ask: bool = True,
-) -> uuid.UUID:
+def _judged(
+    sheet: drawings.SheetView, views: Sequence[drawings.ViewView], conventions: SheetConventions
+) -> jev.Answer | jev.Unavailable | None:
+    """Jev's answer about the sheet's kind (13's question), asked before anything is written."""
     request = sheet_finder.judgement(
         candidate(sheet), [v.title for v in views if v.title], conventions=conventions
     )
-    answer = jev.ask_judgement(request) if request is not None else None
+    return jev.ask_judgement(request) if request is not None else None
+
+
+def _propose_sheet(
+    project_id: uuid.UUID,
+    sheet: drawings.SheetView,
+    answer: jev.Answer | jev.Unavailable | None,
+    *,
+    ask: bool = True,
+) -> uuid.UUID:
     sure = isinstance(answer, jev.Answer) and jev.SHEET_TYPE.proposes(answer)
     proposal_id = step1.propose_sheet(
         sheet.id,
@@ -333,16 +343,17 @@ def view_candidate(view: drawings.ViewView) -> ViewCandidate:
 # The drawing lists read on the file's sheets -------------------------------------------------------
 
 
-def _read_lists(
+def _lists_read(
     listed: Sequence[drawings.SheetView],
     load: Callable[[], ReadArtefact],
     conventions: SheetConventions,
-) -> None:
-    """13's register on the file's sheets: each list kept for its Discipline, on its sheet."""
+) -> list[tuple[uuid.UUID, str, list[tuple[str, str]]]]:
+    """13's register on the file's sheets: each list for its Discipline, on its sheet (kept by the
+    caller: `step1.record_read_list`)."""
     candidates = [candidate(s, "file") for s in listed]
     entries = register_reader.find(load(), candidates, conventions=conventions)
     if not entries:
-        return
+        return []
     numbers = finder.Numbers(conventions, finder.recognisers(conventions))
     by_sheet: dict[int, dict[str, list[tuple[str, str]]]] = {}
     position = {id(c): i for i, c in enumerate(candidates)}
@@ -355,9 +366,11 @@ def _read_lists(
             continue
         rows = by_sheet.setdefault(position[id(entry.sheet)], {}).setdefault(discipline, [])
         rows.append((entry.number, entry.title or ""))
-    for index, lists in by_sheet.items():
-        for discipline, rows in lists.items():
-            step1.record_read_list(listed[index].id, discipline, rows)
+    return [
+        (listed[index].id, discipline, rows)
+        for index, lists in by_sheet.items()
+        for discipline, rows in lists.items()
+    ]
 
 
 # The set's Questions ------------------------------------------------------------------------------

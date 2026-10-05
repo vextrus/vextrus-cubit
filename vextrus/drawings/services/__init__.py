@@ -44,6 +44,7 @@ For the page (20b), through `drawings/http/` (list, one file, cancel, restart, D
     services.file(file_id); services.report(file_id)     # a file's status; its report panel
     services.set_discipline(file_id, "electrical")       # its unconfirmed sheets move with it
     services.on_discipline_changed(follow)               # follow(file_id) after each such change
+    services.before_discipline_change(lock)              # lock(project_id) first, in each change
     services.cancel(file_id, actor_name=user.name); services.restart(file_id)
     services.mark_for_vextrus(file_id)                   # a file that could not be read (21c)
     services.disciplines()                               # the Market's, one name each (labels)
@@ -79,6 +80,7 @@ from vextrus.drawings.services.drawing_files import (
     FileView,
     SetView,
     add_file,
+    before_discipline_change,
     cancel,
     clean_name,
     file,
@@ -166,6 +168,7 @@ __all__ = [
     "answer_held",
     "artefact",
     "attach_read_job",
+    "before_discipline_change",
     "cancel",
     "clean_name",
     "confirm_sheet",

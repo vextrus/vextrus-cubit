@@ -759,6 +759,18 @@ def on_discipline_changed(follow: Callable[[uuid.UUID, str], None]) -> None:
         DISCIPLINE_CHANGED.append(follow)
 
 
+DISCIPLINE_CHANGING: list[Callable[[uuid.UUID], None]] = []
+"""What a file's Discipline change takes first, each called with the file's Project in the change's
+transaction once the file's row is locked and before any other row is: takeoff's Step 1 takes its
+write lock here (#227), so the change and a read job never wait on each other in a cycle."""
+
+
+def before_discipline_change(lock: Callable[[uuid.UUID], None]) -> None:
+    """Register `lock` once (see `DISCIPLINE_CHANGING`)."""
+    if lock not in DISCIPLINE_CHANGING:
+        DISCIPLINE_CHANGING.append(lock)
+
+
 def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
@@ -771,6 +783,8 @@ def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> Fil
                 row.discipline_source = DisciplineSource.QS
                 row.save(update_fields=["discipline_source"])
             return file(row.id)
+        for lock in DISCIPLINE_CHANGING:
+            lock(row.drawing_set.project_id)
         _access.lock("revisions", row.drawing_set_id)
         _move_sheets(row, discipline)
         row.discipline = discipline

@@ -53,6 +53,7 @@ from engine.recognise.types import Box, PlotMatch, SheetCandidate, SheetLocation
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services as drawings
 from vextrus.platform.services import auth, jobs, storage
+from vextrus.takeoff.services import step1
 
 KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
@@ -105,6 +106,7 @@ def find(file_id: uuid.UUID) -> Callable[[], jobs.StepResult]:
     dwg_id = file_id if view.format == "dwg" else None
 
     def keep() -> jobs.StepResult:
+        step1.lock_writes(view.project_id)  # before the sheets it locks, as every act (#227)
         matched = _keep(listed, candidates, found, full, pdfs, read_again, dwg_id)
         _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in read_again])
         return {"pages": len(found), "matched": matched}
