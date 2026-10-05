@@ -10,6 +10,7 @@ genuine verdict written here is a valid walk-verdict.schema.json object made by 
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -25,8 +26,14 @@ from _f5_contract import (  # type: ignore[import-not-found, unused-ignore]
 T1, T2, T3 = "2026-10-05T01:00:00Z", "2026-10-05T03:00:00Z", "2026-10-05T05:00:00Z"
 
 
+COMMITTED = "2026-10-05T00:00:00Z"
+"""Every commit's author and committer time: before T1, so a verdict never predates its head."""
+
+
 def _git(repo: Path, *args: str) -> str:
-    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
+    env = {**os.environ, "GIT_AUTHOR_DATE": COMMITTED, "GIT_COMMITTER_DATE": COMMITTED}
+    command = ["git", "-C", str(repo), *args]
+    done = subprocess.run(command, capture_output=True, text=True, check=True, env=env)
     return done.stdout.strip()
 
 
