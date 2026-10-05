@@ -98,32 +98,43 @@ def _code(token: str) -> bool:
     )
 
 
+_TITLES = frozenset(["MR.", "MRS.", "MS.", "DR.", "NO.", "RD.", "ST."])
+"""Abbreviations that end in a full stop without ending a sentence (`Mr. Haverford`)."""
+
+
 @dataclass
 class _Token:
     text: str
     start: int
     initial: bool
     ends: bool
+    soft: bool = False
+    """After a label's colon or a table bar: not a sentence's start (`Client: Haverford`)."""
 
 
 def _tokens(line: str) -> list[_Token]:
-    """The line's tokens, quotes and brackets trimmed, each marked as a sentence's first or not."""
+    """The line's tokens, quotes and brackets trimmed, each marked as a sentence's first, as after a
+    label or a table bar (`soft`), or neither."""
     found: list[_Token] = []
-    initial = True
+    initial, soft = True, False
     for match in _TOKEN.finditer(line):
         raw = match.group()
         if len(raw) > LONGEST + 8:
-            found.append(_Token("", match.start(), initial, False))
-            initial = False
+            found.append(_Token("", match.start(), initial, False, soft))
+            initial = soft = False
             continue
         if initial and _MARKERS.fullmatch(raw):
             continue
         lead = len(raw) - len(raw.lstrip(_OPEN))
         text = raw.strip(_OPEN).rstrip(_CLOSE)
-        ends = text.endswith(_ENDINGS) or raw.rstrip(_CLOSE + _OPEN).endswith(_ENDINGS)
+        bare = raw.rstrip(_CLOSE + _OPEN)
+        title = text.upper() in _TITLES
+        ends = not title and (text.endswith(_ENDINGS) or bare.endswith(_ENDINGS))
         text = text.rstrip(_ENDS + _CLOSE)
-        found.append(_Token(text, match.start() + lead, initial, ends))
-        initial = ends or raw == "|"
+        found.append(_Token(text, match.start() + lead, initial, ends, soft))
+        label = ends and bare.endswith(":")
+        initial = ends and not label
+        soft = label or raw == "|"
     return found
 
 
@@ -139,6 +150,8 @@ def _line(number: int, line: str) -> list[Candidate]:
         run.clear()
         if words and words[0].initial and (len(words) == 1 or key(words[0].text) in _LEADS):
             words = words[1:]  # a sentence's first word is a common word, not a name
+        elif words and words[0].soft and key(words[0].text) in _LEADS:
+            words = words[1:]  # after a label or a bar, only a common word is dropped
         begin = 0
         while begin < len(words):  # a run longer than LONGEST is taken in parts that fit
             end = begin + 1
@@ -159,7 +172,7 @@ def _line(number: int, line: str) -> list[Candidate]:
             close()
             continue
         if _word(text):
-            if token.initial:
+            if token.initial or token.soft:
                 close()
             run.append(token)
             if token.ends:
@@ -169,6 +182,7 @@ def _line(number: int, line: str) -> list[Candidate]:
             start = token.start
             if (
                 run
+                and key(text) not in known()
                 and not token.initial
                 and key(run[-1].text) not in known()
                 and token.start + len(text) - run[-1].start <= LONGEST

@@ -42,7 +42,8 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
    - runs of two or more capitalised words (`Willowbrook Tannery Annex`);
    - single capitalised words that do not start a sentence.
 
-   Left out: a sentence's first word, git shas, issue numbers, ISO dates, versions (`jev-1.13.0`), words listed in
+   Left out: a sentence's first word (a label's colon, a table bar and an abbreviation such as `Mr.` or `Rd.` start
+   no sentence: after them only a common word is dropped), git shas, issue numbers, ISO dates, versions (`jev-1.13.0`), words listed in
    `tools/jevleak/known.txt` (the factory's own words, one per line, committed), any candidate whose
    `sha256(normalise(text))` is in the wall's allowlist, and tokens longer than 64 characters. Candidates are
    deduplicated by their normalised form (spaces dropped) and ranked: codes, sizes and levels first, then

@@ -90,3 +90,34 @@ def test_a_whole_read_of_one_run_of_capitals_is_taken_in_bounded_parts() -> None
     found = candidates.occurrences(("A " * candidates.READ_MOST)[: candidates.READ_MOST])
     assert 1 <= len(found) <= 2
     assert all(len(first.text) <= LONGEST for first, _ in found)
+
+
+# Fix round 1 (PR #373): a name before a known code; a name after a label, an honorific or a bar.
+
+
+@pytest.mark.parametrize("code", ["3D", "2D", "G1", "M1", "UTF-8", "SHA-256"])
+def test_a_name_before_a_known_code_is_kept(code: str) -> None:
+    assert texts(f"We checked it against the Thistlewood {code} model.") == ["Thistlewood"]
+    assert texts(f"the Thistlewood Granary {code} model.") == ["Thistlewood Granary"]
+
+
+@pytest.mark.parametrize(
+    ("sentence", "expected"),
+    [
+        ("Client: Haverford", ["Haverford"]),
+        ("Owner: Mr. Haverford", ["Mr. Haverford"]),
+        ("The architect is Mr. Haverford of the firm.", ["Mr. Haverford"]),
+        ("| Client | Haverford |", ["Haverford"]),
+        ("The client is Haverford of the firm.", ["Haverford"]),
+        ("Site: Dr. Quillon Rd. east", ["Dr. Quillon Rd"]),
+    ],
+)
+def test_a_name_after_a_label_an_honorific_or_a_table_bar_is_kept(
+    sentence: str, expected: list[str]
+) -> None:
+    assert texts(sentence) == expected
+
+
+@pytest.mark.parametrize("sentence", ["Summary: This moved the check.", "| Note | The check moved |"])
+def test_a_common_word_after_a_label_is_still_not_a_name(sentence: str) -> None:
+    assert texts(sentence) == []
