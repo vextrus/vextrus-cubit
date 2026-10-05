@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from tools.leakscan import pdftext
 from tools.leakscan.core import CannotScan, Corpus, git
 
 _GH_FAILED = (OSError, subprocess.TimeoutExpired)
@@ -27,6 +28,9 @@ _ZERO = "0" * 40
 _INFLATE_ERRORS = (OSError, EOFError, zlib.error)
 _ZIP_ERRORS = (OSError, zipfile.BadZipFile, RuntimeError, ValueError, EOFError, zlib.error)
 MAX_BLOB = 64 * 1024 * 1024
+MAX_STREAMS = 20000
+_STREAM = re.compile(rb"stream\r?\n")
+_CHUNK = 64 * 1024
 
 
 def joined(first: str, second: str) -> str:
@@ -144,11 +148,7 @@ def blob_texts(data: bytes, depth: int = 0) -> list[str]:
                 if member.file_size <= MAX_BLOB:
                     texts += blob_texts(archive.read(member), depth + 1)
     if data.startswith(b"%PDF"):
-        for stream in re.findall(rb"stream\r?\n(.*?)endstream", data, re.DOTALL)[:20000]:
-            try:
-                texts += blob_texts(zlib.decompress(stream)[:MAX_BLOB], depth + 1)
-            except zlib.error:
-                continue
+        texts += _pdf_texts(data, depth)
     if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
         texts += data.decode("utf-16", "replace").split("\n")
     elif len(data) >= 4 and data[1::2].count(0) > len(data) // 4:
@@ -157,6 +157,64 @@ def blob_texts(data: bytes, depth: int = 0) -> list[str]:
         texts += data.decode("utf-8", "replace").split("\n")
     texts += [run.decode("ascii") for run in re.findall(rb"[\x20-\x7e\t]{8,}", data)]
     texts += [run.decode("utf-16-le") for run in re.findall(rb"(?:[\x20-\x7e]\x00){8,}", data)]
+    return texts
+
+
+def _pdf_streams(data: bytes) -> Iterator[tuple[int, int]]:
+    """Each `stream ... endstream` body as `(start, end)`, an unterminated last one to the data's end
+    (linear: each search starts where the last stream ended)."""
+    position = 0
+    while (opening := _STREAM.search(data, position)) is not None:
+        close = data.find(b"endstream", opening.end())
+        if close < 0:
+            yield opening.end(), len(data)
+            return
+        yield opening.end(), close
+        position = close + len(b"endstream")
+
+
+def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> bytes | None:
+    """The stream `data[start:end]` inflated by zlib, or None when it is not a zlib stream. A stream
+    whose zlib data runs past its `endstream` (those bytes inside the compressed data) is read on into
+    the bytes after it, as a reader taking `/Length` would. More than `MAX_BLOB` out, or more than
+    `budget` (bytes out and bytes read on, for the whole PDF), refuses the scan: never a silent cut."""
+    inflater = zlib.decompressobj()
+    try:
+        out = inflater.decompress(data[start:end], MAX_BLOB + 1)
+    except zlib.error:
+        return None
+    position = end
+    while not inflater.eof and not inflater.unconsumed_tail and position < len(data):
+        chunk = data[position : position + _CHUNK]
+        position += len(chunk)
+        budget[0] -= len(chunk)
+        try:
+            out += inflater.decompress(chunk, MAX_BLOB + 1 - len(out))
+        except zlib.error:
+            break
+        if budget[0] < 0:
+            break
+    budget[0] -= len(out)
+    if len(out) > MAX_BLOB or budget[0] < 0:
+        raise CannotScan("source-unreadable")
+    return out
+
+
+def _pdf_texts(data: bytes, depth: int) -> list[str]:
+    """A PDF's streams: each inflated one's text (as any blob's), and every stream's shown text,
+    assembled from its text operators (`pdftext`), inflated or raw. More than `MAX_STREAMS` streams
+    refuses the scan."""
+    texts: list[str] = []
+    budget = [MAX_BLOB]
+    for count, (start, end) in enumerate(_pdf_streams(data), start=1):
+        if count > MAX_STREAMS:
+            raise CannotScan("source-unreadable")
+        inflated = _inflate(data, start, end, budget)
+        if inflated is None:
+            texts += pdftext.assemble(data[start:end])
+        else:
+            texts += blob_texts(inflated, depth + 1)
+            texts += pdftext.assemble(inflated)
     return texts
 
 
@@ -256,7 +314,7 @@ def scan_lines(corpus: Corpus, data: bytes, label: str) -> Result:
     result = Result()
     text = data.decode("utf-8", "replace").split("\n")
     result.block(corpus, [(f"{label}:{n}", n, line) for n, line in enumerate(text, start=1)])
-    if b"\0" in data:
+    if b"\0" in data or data.startswith(b"%PDF"):
         scan_blob(corpus, result, f"{label}:bin", data)
     return result
 
