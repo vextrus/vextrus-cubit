@@ -34,7 +34,7 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
 
 1. The literal pass: `tools.leakscan.scan.scan_lines` over the draft, exactly as `leakscan file|text` runs it. Its
    `HIT <where> <n>` lines are printed as the wall prints them. **If it finds any hit, nothing is sent anywhere**:
-   the summary is printed with `jev=off` and the exit code is 1.
+   the summary is printed with `candidates=0 asked=0 jev=off` (no candidate is looked for) and the exit code is 1.
 2. Candidates (`tools.jevleak.candidates.extract`), from the first 256 KiB of the draft (the literal pass reads all
    of it; the rest is not read for candidates), with linear-time patterns only:
    - codes holding letters and digits (`RC-14B`, `7B`, `DWG-2231-04`), member sizes (`450 x 230`, `450x230`) and
@@ -68,8 +68,8 @@ jevleak: hits=<H> scanned=<M> advise=<A> candidates=<C> asked=<Q> jev=<ok|off|un
 
 `ADVISE` is printed for every line (within the part read for candidates) holding an advised candidate, in line
 order. The last line is always the summary: `H` the total of the hits' `<n>`, `M` the lines examined by the literal
-pass, `A` the number of advised candidates, `C` the candidates found, `Q` the candidates asked, and `jev=` `ok` (Jev
-answered), `off` (not asked: `--no-jev`, a literal hit, or no candidate) or `unavailable:<why>` (`<why>` one of the
+pass, `A` the number of advised candidates, `C` the candidates found, `Q` the candidates chosen to ask (sent unless
+`--no-jev`; so a run without Jev prints what a run with it prints, but for `jev=`), and `jev=` `ok` (Jev answered), `off` (not asked: `--no-jev`, a literal hit, or no candidate) or `unavailable:<why>` (`<why>` one of the
 Jev client's words: `no_key`, `timed_out`, `malformed`, `failed`, ...).
 
 When it cannot scan: `jevleak: cannot-scan <reason>` on standard output and `jevleak: cannot scan (<reason>)` on
