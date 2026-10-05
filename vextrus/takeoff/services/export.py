@@ -29,6 +29,10 @@ render F1 (`read_propose.sheets`: "not run here yet"), and the set's Conflicts, 
 Checks (the job raises them as Questions), are the harness's own set stages
 (`engine.harness.read_set`), run over the job's readings: the PDFs' pages from 12's `page_text` on
 the set's files. What is not kept at all is said as absent: see `GAPS`.
+
+Beyond the harness's, the export carries the burden block (ticket T-249, `services/burden.py`): what
+Step 1 would ask of the QS per Discipline, in counts only, read through Step 1's own answers before
+any act, so the check's posting run sees a change in the Questions a reading raises.
 """
 
 import argparse
