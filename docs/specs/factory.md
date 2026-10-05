@@ -335,27 +335,30 @@ folder per round (the guard refuses recursive deletes, so nothing would reclaim 
 **Usage.** `claude -p "/usage" --output-format json` works headless and costs nothing (VCC:438-440). Its text is
 undocumented, so the parser fails closed. The format seen today: `Current session: 12% used · resets …` and
 `Current week (all models): 27% used · resets …` (`audits/slash-usage.json`).
-- Refuse a new launch at session ≥ 80 % or week ≥ 85 % (estimates; the owner may move them).
-- At ≥ 90 %, `/review-pr` drops to `pr-reviewer` only, and refuters run only on findings ≥ 75, recorded in the
+- Refuse a new launch only at a used-up limit, session or week ≥ 100 %. The owner's ruling (5 Oct 2026):
+  "don't make those threshold of week 85% or session 80%, make them 100% both and I'll take actions
+  whatever needed for usage tokens expansion" (usage is the owner's concern; #404).
+- At ≥ 100 %, `/review-pr` drops to `pr-reviewer` only, and refuters run only on findings ≥ 75, recorded in the
   ledger as an exception. Local work does not save quota: local and cloud sessions share one plan's limits
   (VCC:331-332).
 - Unreadable text refuses and prints the raw lines. The orchestrator may pass `--usage-checked "<lines>"` after reading
   `/usage` itself; the launch record keeps the lines.
 - After the first hour the governor computes "% per builder-hour" from its own readings and caps cloud sessions at
-  `min(16, floor((80 − session %) / (rate × hours to the reset)))`. Worked example (estimate): at 1.5 % of the session
-  window per Opus builder-hour, `s` = 20 and 3 h to the reset give `floor(60 / 4.5)` = 13.
+  `min(16, floor((100 − session %) / (rate × hours to the reset)))`. Worked example (estimate): at 1.5 % of the session
+  window per Opus builder-hour, `s` = 40 and 3 h to the reset give `floor(60 / 4.5)` = 13.
 - **Week projection.** Phase 4 projects session 13's week use from Phase 3's rate × session 13's planned
   builder-hours. The week resets on 9 Oct at 14:59 Dhaka, so Phase 3 and all of session 13 fall in one window. If the
-  projection passes 85 %, the owner is asked once, before session 13, whether to turn on extra usage (money outside
-  the plan; the owner said spend "will comes later").
+  projection passes 100 %, the owner adds usage (credits or accounts): usage is the owner's concern (the ruling of
+  5 Oct 2026, #404).
 - **The cloud cap is a governor-driven ramp** (the owner's "More cloud, more parallel"; every number an estimate
   until Phase 3 measures "% per builder-hour", `research/cloud-max.md` §4). Builders, writers and cloud reviewers all
   count.
-  - **Start at 8** at once, only if `/usage` reads session < 50 % and week < 70 %; otherwise start at 4.
-  - **Raise by 2 every 30 min, to 12, then 16**, while session < 60 %, the projected session % at the reset
-    (`s + rate × n × hours to the reset`) < 80 %, and the week projection < 85 %. 16 matches the workflow concurrency
+  - **Start at 8** at once, whatever `/usage` reads (the owner's usage ruling, #404).
+  - **Raise by 2 every 30 min, to 12, then 16**, while the projected session % at the reset
+    (`s + rate × n × hours to the reset`) stays under 100 % (the owner's usage ruling, #404). 16 matches the workflow concurrency
     ceiling (VCC:304) and what one main conversation can track (estimate).
-  - **Hold** (no new launch) at session ≥ 80 % or week ≥ 85 %; **shed** at ≥ 90 % (the degrade above).
+  - **Hold** (no new launch) only at a used-up limit, session or week ≥ 100 %; **shed** there too (the degrade
+    above).
   - No per-account cap on concurrent cloud sessions is documented; they share the account's limits, and "running
     multiple tasks in parallel consumes more rate limits proportionately" (`docs-raw/claude-code-on-the-web.md:428`;
     VCC:331-332). Ten background sessions use quota about ten times as fast as one (VCC:365;
@@ -1091,7 +1094,7 @@ and is asked alone, after approval and before Phase 3's first launch:
 |---|---|---|
 | `--on-branch` changes in a CLI update (a new version installed on each of the last three days) | every launch is judged from its own log; an unlisted CLI version gets one judged launch before it joins the private list; the prompt's first lines make the session check its remote and branch and stop | the documented route: `claude --cloud` from a linked worktree on the ticket's branch clones "your current branch" (VCC:320-322; one test in Phase 3); then local builders, ≤ 3, with finish line 3 recorded as unmet and the failure named |
 | A refused cloud session keeps running and pushes (S07, S10; VCC:463) | the launcher sends it a STOP message at once; the watcher alarms on any new `claude/*` branch | the owner deletes the session (O8) |
-| Weekly usage runs out (27 % on day 3 of the week) | the governor, fail-closed; Phase 4's week projection | at ≥ 90 %, reviews drop to `pr-reviewer` and refuters to findings ≥ 75 (recorded); local work saves nothing, because local and cloud share one plan; ask the owner about extra usage before session 13 if the projection passes 85 % |
+| Weekly usage runs out (27 % on day 3 of the week) | the governor, fail-closed at a used-up limit (100 %, the owner's ruling of 5 Oct 2026) | usage is the owner's concern: the owner adds usage credits or accounts; at 100 %, reviews drop to `pr-reviewer` and refuters to findings ≥ 75 (recorded); local work saves nothing, because local and cloud share one plan |
 | The lock is session 13's critical path, over-subscribed (§6) | the queue's priority; the proxy (session 13); the lock budget's cut order | Q16 |
 | A cloud builder stalls unseen (session 12's `pgrep` wait) | pushes as heartbeat; 30-min quiet alarm; the guard refuses the wait; `launch.py say` nudges | relaunch on the same branch (the clone carries its pushes) |
 | Walk issues leak drawing text | allowlisted fields only, the stamp, `merge_ready`'s re-scan, the wave body scan | the guard refuses the `gh` write |
