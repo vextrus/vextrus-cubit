@@ -90,7 +90,6 @@ for (const command of [
   "mkdir -p .private/work/leakscan/ok",
   `python3 -c "open('.private/work/leakscan/ok/abc','w').write('{}')"`,
   "rm .private/work/leakscan/ok/abc",
-  "ls .private/work/leakscan/ok/",
 ]) {
   test(`a command naming the stamp folder is refused unless it is the scanner: ${command}`, () => {
     assert.notEqual(inMain(command), null);

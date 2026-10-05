@@ -1,0 +1,194 @@
+for i in 1 2 3; do echo "attempt $i"; done; pgrep -f "uvicorn vextrus"
+%%
+for f in web/src/*.tsx; do wc -l "$f"; done && ps aux | grep -c vite
+%%
+for t in a b; do echo $t; done || pgrep -f pytest
+%%
+for n in 1 2
+do
+  echo $n
+done
+pgrep -fl node
+%%
+while read line; do echo "$line"; done < .private/work/s12/files.txt; ps aux | grep -c uvicorn
+%%
+until [ -f .private/work/s12/ready.txt ]; do sleep 5; done; pgrep -f "node --test"
+%%
+for i in 1 2; do for j in a b; do echo $i$j; done; done && pgrep -f vitest
+%%
+(for d in docs scripts; do ls $d | head -3; done); ps -ef | grep -v grep | grep vite
+%%
+for i in 1 2 3; do echo $i; done | tee .private/work/s12/loop.txt; pgrep -f uvicorn
+%%
+bash -c 'for i in 1 2; do echo $i; done'; pgrep -f playwright
+%%
+for p in 8000 5173; do ss -ltn | grep -c ":$p"; done; ps aux | grep -E 'uvicorn|vite'
+%%
+while IFS= read -r f; do echo "$f"; done < <(git diff --name-only origin/main...HEAD); pgrep -af pytest
+%%
+for f in $(git ls-files 'docs/*.md'); do grep -c TODO "$f"; done; pgrep -f mkdocs
+%%
+for i in 1 2; do
+  echo "$i"
+done
+ps aux | grep -c "[u]vicorn"
+%%
+while read -r sha; do git show --stat "$sha" | head -3; done < .private/work/s12/shas.txt && pgrep -f "git gc"
+%%
+for f in a.txt b.txt; do test -f "$f" && echo "$f"; done; ps aux | awk '/uvicorn/ {print $2}'
+%%
+until git ls-remote --exit-code origin s12-x >/dev/null; do sleep 10; done; pgrep -f "uv run"
+%%
+for i in $(seq 3); do echo $i; done; pgrep --full uvicorn
+%%
+for i in 1 2; do echo $i; done; pgrep -f x || echo none
+%%
+for i in 1 2; do echo $i; done; if pgrep -f vite >/dev/null; then echo up; fi
+%%
+ps aux | grep -c vite; for i in 1 2; do echo $i; done; pgrep -f vite
+%%
+echo "for the record"; for i in 1; do echo $i; done; ps aux | grep -c uvicorn
+%%
+for f in docs/a.md docs/b.md; do
+  head -1 "$f"
+done
+ps -ef | grep -c "[n]ode --test"
+%%
+while read -r n; do echo "$n"; done <<'EOF'
+1
+2
+EOF
+pgrep -f uvicorn
+%%
+timeout 5 bash -c 'for i in 1 2; do echo $i; done'; pgrep -f vite
+%%
+for f in web/e2e/a.spec.ts web/e2e/b.spec.ts; do grep -c "test(" "$f"; done | sort; pgrep -f playwright
+%%
+for i in 1 2; do echo $i; done && sleep 1 && ps aux | grep -c "[p]ytest"
+%%
+for s in 1 2; do echo $s; done; echo next; pgrep -f "python -m scripts.verify"
+%%
+echo "waiting for the build"; pgrep -f vite
+%%
+git commit -m "fix: wait for the server while it starts" && pgrep -f uvicorn
+%%
+if pgrep -f uvicorn >/dev/null; then echo up; else echo down; fi
+%%
+ls .private/work/leakscan/
+%%
+ls -la .private/work/leakscan/ok/ 2>/dev/null
+%%
+cat .private/work/leakscan/ok/abc123def
+%%
+ls .private/work/factory/ledger 2>/dev/null
+%%
+cat .private/work/factory/ledger/12-abc123.json | python3 -m json.tool
+%%
+cat .private/work/factory/ledger/12-abc123.json | jq -r .verdict
+%%
+grep -rn PASS .private/work/factory/ledger
+%%
+find .private/work/leakscan -name abc123def
+%%
+head -20 .private/work/factory/ledger/12-abc123.json
+%%
+wc -l .private/work/leakscan/corpus
+%%
+sha256sum .private/work/leakscan/corpus
+%%
+stat .private/work/leakscan/ok/abc123def
+%%
+ls -t .private/work/factory/ledger | head -5
+%%
+grep -l abc123 .private/work/factory/ledger/12-abc123.json > /tmp/hits.txt
+%%
+@main
+ls .private/work/leakscan/ok | wc -l
+%%
+@main
+find .private/work/factory/ledger -type f
+%%
+uv run --quiet python -m tools.leakscan range origin/main..HEAD --no-stamp
+%%
+uv run -q python -m tools.leakscan file .private/work/s12/pr-body.md --no-stamp
+%%
+uv run --no-sync --quiet python -m tools.leakscan range origin/main..HEAD --no-stamp
+%%
+uv run --frozen python -m tools.leakscan range origin/main..HEAD --no-stamp
+%%
+uv run --offline python -m tools.leakscan verify-stamp abc123def
+%%
+uv run --no-progress python -m tools.leakscan range origin/main..HEAD --no-stamp > .private/work/s12/scan.txt 2>&1
+%%
+@main
+uv run --quiet python -m tools.leakscan range origin/main..HEAD --ref s12-x
+%%
+@main
+uv run -q --no-sync python -m tools.leakscan file .private/work/s12/pr-body.md
+%%
+python3 - <<'EOF'
+open('docs/notes.md', 'a').write('scan with python -m tools.leakscan range\n')
+EOF
+%%
+node -e 'console.log("see tools/leakscan/contract.md")'
+%%
+python3 -c "print('the orchestrator runs scripts.ledger record')"
+%%
+cat > .private/work/s12/brief.md <<'EOF'
+Scan with `uv run python -m tools.leakscan range <base>..<head>` before a push.
+Records come from `python -m scripts.ledger record`, in the main checkout.
+EOF
+%%
+bash <<'EOF'
+echo "read tools/leakscan/contract.md"
+EOF
+%%
+python3 - <<EOF
+text = open('docs/a.md').read()
+print(text.count('leakscan'))
+EOF
+%%
+sh -c 'echo "python -m scripts.ledger record runs in main only"'
+%%
+echo "STATE 03:50 ledger .private/work/factory/ledger/12-abc123.json PASS" >> .private/work/session-12/STATE.md
+%%
+echo "STATE 03:55 stamp .private/work/leakscan/ok/abc123def written by the scanner" >> .private/work/session-12/STATE.md
+%%
+printf 'STATE 04:00 scan clean (uv run python -m tools.leakscan range)\n' >> .private/work/session-12/STATE.md
+%%
+echo "STATE 04:05 ledger record for PR 12 written from main" >> .private/work/session-12/STATE.md
+%%
+@main
+echo "STATE 04:10 corpus .private/work/leakscan/corpus rebuilt" >> .private/work/session-12/STATE.md
+%%
+git config --get core.hooksPath
+%%
+git config --get-all core.hooksPath
+%%
+git config --local --get core.hooksPath
+%%
+git -C . config --get core.hooksPath
+%%
+@main
+git config --show-origin --get core.hooksPath
+%%
+@cloud
+git config --get core.hooksPath || echo unset
+%%
+@cloud
+git config core.hooksPath
+%%
+@cloud
+git push -u origin HEAD
+%%
+git status --short
+%%
+uv run pytest -rf vextrus/takeoff > .private/work/s12/pytest.txt 2>&1; echo $?
+%%
+node --test '.claude/hooks/**/*.test.mjs' > .private/work/s12/node.txt 2>&1; echo $?
+%%
+git log --oneline -5
+%%
+date -u
+%%
+df -h . && free -m
