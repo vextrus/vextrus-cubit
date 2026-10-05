@@ -306,3 +306,41 @@ def test_a_refusal_before_the_launch_writes_a_record_with_no_session(tmp_path: P
     [record] = records(tmp_path)
     assert record["session_id"] is None
     assert record["judge"] == {"ok": False, "code": "governor", "reason": "disk low"}
+
+
+def test_a_log_naming_two_git_sources_or_environments_is_ambiguous() -> None:
+    other_source = f"[DEBUG] [teleportToRemote] Git source: {REPO}, revision: main\n"
+    other_env = "[DEBUG] Selected environment: env_01zz (other, anthropic_cloud)\n"
+    for extra in (other_source, other_env):
+        verdict = judge(log() + extra, repository=REPO, branch=BRANCH)
+        assert (verdict.ok, verdict.code, verdict.session) == (False, "ambiguous-log", SESSION)
+
+
+def test_the_clis_timestamped_lines_are_its_own() -> None:
+    stamped = "".join(
+        f"2026-10-05T03:42:0{n}.123Z {line}\n" for n, line in enumerate(log().splitlines())
+    )
+    verdict = judge(stamped, repository=REPO, branch=BRANCH)
+    assert (verdict.ok, verdict.session) == (True, SESSION)
+
+
+def test_a_tilde_config_dir_is_read_against_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert launch.account_problem({"CLAUDE_CONFIG_DIR": "~/.claude"}, tmp_path) is None
+    assert launch.account_problem({"CLAUDE_CONFIG_DIR": "~/.claude-b"}, tmp_path) is not None
+
+
+def test_a_launch_that_ran_records_its_start_in_whole_seconds(tmp_path: Path, main: Path) -> None:
+    launch_cloud(
+        request(tmp_path),
+        root=main,
+        claude=Fake(),
+        scan=None,
+        govern=lambda: Reading(False, "disk low"),
+        snapshot=lambda: "{}",
+        now=lambda: datetime(2026, 10, 5, 1, 2, 3, 456789, tzinfo=UTC),
+    )
+    [record] = records(tmp_path)
+    assert record["started_at"] == "2026-10-05T01:02:03Z"
