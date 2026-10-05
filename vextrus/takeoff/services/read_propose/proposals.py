@@ -86,7 +86,7 @@ CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
 
 def options(keys: Sequence[str]) -> list[dict[str, object]]:
     """A Question's options by key, in order, none pre-picked (a pick needs two sources: 22; the one
-    exception is #228's kind Question, Jev's first picked by the orchestrator's ruling)."""
+    exception is #228's kind Question, Jev's first picked by the owner's "Propose Jev's top kind")."""
     return [{"key": key, "picked": False} for key in keys]
 
 
@@ -274,16 +274,20 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
     """The kinds a sheet's title names word for word: each kind of two words or more whose key's
     words ("column schedule") stand together, whole, in the title ("TYPICAL COLUMN SCHEDULES") or in
-    one of its phrases with an elided subject expanded (`expanded`), case, punctuation and a plural
-    "s" aside. Conservative: a one-word kind (`details`, `section`, `elevation`, `legend`) names
+    one of its phrases with an elided subject expanded (`expanded`), case, punctuation, a plural "s"
+    and the word AND aside: a run of subject words joined by AND reads together, as by "&" (#426
+    review 2). Conservative: a one-word kind (`details`, `section`, `elevation`, `legend`) names
     nothing, as its word sits in many titles of other kinds ("TOILET PLAN, ELEVATION & SECTION" is
     `toilet_details`); "SLAB REINFORCEMENT" names no kind at all."""
-    said = [f" {phrase} " for phrase in (_words(title), *expanded(title, kinds))]
+    whole = _words(_AND.sub(" & ", title))
+    said = [f" {phrase} " for phrase in (whole, *expanded(title, kinds))]
     return [k for k in kinds if "_" in k and any(f" {_words(k)} " in s for s in said)]
 
 
 _JOINERS = re.compile(r"[&,/+]|\b(?:and|with)\b", re.IGNORECASE)
 """What joins a title's segments: "BEAM LAYOUT & DETAILS", "PILE, PILE CAP / COLUMN LAYOUT"."""
+_AND = re.compile(r"\band\b", re.IGNORECASE)
+"""The word AND, which joins as "&" does."""
 _QUALIFIER = re.compile(r"\([^)]*\)")
 """A segment's bracketed qualifier ("DETAILS (LEVELS 1-5)"): no subject's and no kind's words."""
 

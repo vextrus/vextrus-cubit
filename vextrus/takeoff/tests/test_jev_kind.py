@@ -245,3 +245,42 @@ def test_a_title_naming_jevs_first_by_an_elided_subject_proposes_it(
     """Review 1's shape and the fix round 3 refuter's (scores 60 and 55): the title names Jev's
     first once its one-word segment is expanded, so it is proposed."""
     assert not unsure(clear_over(discipline, first, second), title)
+
+
+@pytest.mark.parametrize("joiner", [" AND ", " & ", " and "])
+@pytest.mark.parametrize(
+    ("discipline", "kind", "first", "title"),
+    [
+        (
+            "architectural",
+            "door_window_schedule",
+            "door_window_details",
+            "TYPICAL DOOR{}WINDOW SCHEDULE",
+        ),
+        ("architectural", "door_window_details", "door_window_schedule", "DOOR{}WINDOW DETAILS (TYP.)"),
+        ("architectural", "door_window_layout", "door_window_details", "LEVEL 3 DOOR{}WINDOW LAYOUT"),
+        ("architectural", "boundary_wall_gate_details", "details", "BOUNDARY WALL{}GATE DETAILS"),
+        (
+            "electrical",
+            "substation_generator_layout",
+            "single_line_diagram",
+            "SUBSTATION{}GENERATOR LAYOUT",
+        ),
+        (
+            "fire",
+            "extinguisher_signage_layout",
+            "fire_alarm_layout",
+            "PODIUM EXTINGUISHER{}SIGNAGE LAYOUT",
+        ),
+        ("plumbing", "pit_chamber_details", "septic_tank_details", "SITE PIT{}CHAMBER DETAILS"),
+    ],
+)
+def test_a_kind_titled_by_its_english_name_with_and_names_it_as_with_an_ampersand(
+    discipline: str, kind: str, first: str, title: str, joiner: str
+) -> None:
+    """#426 review 2 (score 75): a run of subject words joined by AND reads together, as by "&":
+    the title names its kind, so Jev's other first asks, and Jev's first of that kind is proposed."""
+    worded = title.format(joiner)
+    assert kind in kinds_named(worded, offered(discipline))
+    assert unsure(clear_over(discipline, first, kind), worded)
+    assert not unsure(clear_over(discipline, kind, first), worded)
