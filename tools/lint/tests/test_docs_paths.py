@@ -127,3 +127,16 @@ def test_prose_pairs_spans_over_the_paragraph_not_the_line(tmp_path: Path) -> No
     assert docs_paths.problems(tmp_path) == [
         "CLAUDE.md:4: `scripts.land` takes no subcommand, so `order` is wrong"
     ]
+
+
+def test_a_lone_backtick_never_shifts_the_pairing_past_its_block(tmp_path: Path) -> None:
+    land = 'import argparse\nargparse.ArgumentParser(prog="land").parse_args()\n'
+    across_heading = "A lone ` tick.\n## Then `python -m scripts.land`, `order` next\n\n"
+    across_items = "- a lone ` here\n- then `python -m scripts.land`, `order` next.\n\n"
+    wrapped = "Then `uv run python -m scripts.land\norder` here.\n"
+    doc = across_heading + across_items + wrapped
+    tree(tmp_path, {"scripts/__init__.py": "", "scripts/land.py": land, "CLAUDE.md": doc})
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    assert docs_paths.problems(tmp_path) == [
+        "CLAUDE.md:7: `scripts.land` takes no subcommand, so `order` is wrong"
+    ]

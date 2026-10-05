@@ -67,6 +67,7 @@ CHOICES = re.compile(r"\{([\w,.-]+)\}")
 GH = re.compile(r"(?:^|[\s;&|(])gh\s+(.*)$")
 GH_VIEW = re.compile(r"(?:issue|pr)\s+view\b(.*)$")
 GH_PR_EDIT = re.compile(r"pr\s+edit\b")
+BLOCK_START = re.compile(r"^ {0,3}(#{1,6}(\s|$)|[-*+]\s|\d{1,9}[.)]\s|>)")
 INLINE_BODY = re.compile(r"--body(?![-\w])")
 
 
@@ -262,30 +263,30 @@ def code_units(text: str) -> Iterator[tuple[int, str]]:
 
 
 def prose_lines(text: str) -> Iterator[tuple[int, str]]:
-    """Each line outside fences with its inline code blanked out. Spans are paired over the whole
-    paragraph (lines joined with a space, as `inline_tokens` does), so a line that opens inside a span
-    begun on the line before is not misread; a backtick left unpaired blanks the rest."""
-    paragraph: list[tuple[int, str]] = []
+    """Each line outside fences with its inline code blanked out. Spans are paired per CommonMark
+    block: a run of non-blank lines, where an ATX heading, a list item, a block quote or a fence opens
+    a new block. A span never crosses a block boundary, and a backtick left unpaired in a block is
+    literal text, never carried into the next block."""
+    block: list[tuple[int, str]] = []
 
     def blanked() -> Iterator[tuple[int, str]]:
-        joined = " ".join(line for _, line in paragraph)
+        joined = " ".join(line for _, line in block)
         code = INLINE.sub(lambda m: " " * len(m.group(0)), joined)
-        if "`" in code:
-            code = code[: code.index("`")] + " " * (len(code) - code.index("`"))
         offset = 0
-        for number, line in paragraph:
+        for number, line in block:
             yield number, code[offset : offset + len(line)]
             offset += len(line) + 1
 
     fenced = False
     for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE.match(line) or fenced or not line.strip():
+        if FENCE.match(line) or fenced or not line.strip() or BLOCK_START.match(line):
             yield from blanked()
-            paragraph = []
+            block = []
             if FENCE.match(line):
                 fenced = not fenced
-            continue
-        paragraph.append((number, line))
+            if fenced or FENCE.match(line) or not line.strip():
+                continue
+        block.append((number, line))
     yield from blanked()
 
 
