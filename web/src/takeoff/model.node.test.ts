@@ -359,3 +359,13 @@ describe('a continuation by the server’s id still runs on (#322 review, round 
     ])
   })
 })
+
+describe('the server’s continuation id is trusted for its members (#322 review, round 2)', () => {
+  it('keeps a lettered run of one continuation one row', () => {
+    const group = { continuation: 'm', continuation_title: 'STAIR CORE SECTIONS' } as Partial<ProposalOut>
+    const run = ['W-204A', 'W-204B', 'W-204C'].map((n) => sheet(n, { title: 'STAIR CORE SECTIONS', ...group }))
+    const rows = step1Model(data(run)).disciplines[0]!.rows
+    expect(rows.map((r) => [r.number, r.numberTo, r.sheets.length])).toEqual([['W-204A', 'W-204C', 3]])
+    expect(rows[0]!.title).toBe('STAIR CORE SECTIONS')
+  })
+})

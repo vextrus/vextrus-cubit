@@ -40,7 +40,7 @@ function rowFrom(number: string): HTMLElement {
 const titleCell = (row: HTMLElement) => row.querySelectorAll<HTMLElement>('[role="gridcell"]')[2]!
 
 /** How many px of `el` show inside `cell` (the cell clips what overflows it). */
-function shown(el: Element, cell: Element): number {
+function shown(el: { getBoundingClientRect(): DOMRect }, cell: Element): number {
   const a = el.getBoundingClientRect()
   const c = cell.getBoundingClientRect()
   return Math.max(0, Math.min(a.right, c.right) - Math.max(a.left, c.left))
@@ -83,6 +83,43 @@ describe.each([1280, 1440])('the Title cell at %i px, the Selection open (#322, 
     const { series, alone } = seriesScene()
     await show(width, [...series, alone])
     expectTitleShown(rowFrom('D-81'), series[0]!.title)
+  })
+})
+
+/** The cell's words as the eye reads them: what is shown inside the cell, screen-reader-only text left out. */
+function seen(cell: HTMLElement): string {
+  const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+  let out = ''
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const el = node.parentElement!
+    if (el.closest('.sr-only')) continue
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    if (shown(range, cell) > 0) out += node.textContent
+  }
+  return clean(out)
+}
+
+describe.each([1280, 1440])('each row’s count is true of that row, and shown whole, at %i px (#322, round 2)', (width) => {
+  it('says a one-sheet series member is of a series of 5, never "5 sheets"', async () => {
+    const { series, alone } = seriesScene()
+    await show(width, [...series, alone].map((p, i) => (i === 2 ? held(p) : p)))
+    const one = rowFrom('D-85')
+    const words = seen(titleCell(one))
+    expect(words).toContain('series of 5')
+    expect(words).not.toMatch(/\b5 sheets\b/)
+    expectTitleShown(one, series[2]!.title)
+    expectHeldWhole(one)
+    const run = seen(titleCell(rowFrom('D-81')))
+    expect(run).toContain('2 sheets')
+    expect(run).toContain('series of 5')
+  })
+
+  it('shows a number-shared row’s count whole beside its titles', async () => {
+    const { sheets, question } = numberShared()
+    await show(width, sheets, [question])
+    const words = seen(titleCell(rowFrom('D-14')))
+    expect(words).toMatch(/2 sheets$/)
   })
 })
 

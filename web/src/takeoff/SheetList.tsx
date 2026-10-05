@@ -518,18 +518,20 @@ function SheetRow({
     title = (
       <>
         <Titles sheets={row.sheets} />
-        <KindWords>
-          <Plural value={row.sheets.length} one="# sheet shares the number" other="# sheets share the number, titles differ" />
-        </KindWords>
+        <KindBadge
+          short={<Plural value={row.sheets.length} one="# sheet" other="# sheets" />}
+          full={<Plural value={row.sheets.length} one="# sheet shares the number" other="# sheets share the number, titles differ" />}
+        />
       </>
     )
   else if (row.kind === 'title-shared')
     title = (
       <>
         <Titles sheets={row.sheets} />
-        <KindWords>
-          <Plural value={row.sheets.length} one="# sheet that may draw the same thing" other="# sheets that may draw the same thing" />
-        </KindWords>
+        <KindBadge
+          short={<Plural value={row.sheets.length} one="# sheet" other="# sheets" />}
+          full={<Plural value={row.sheets.length} one="# sheet that may draw the same thing" other="# sheets that may draw the same thing" />}
+        />
       </>
     )
   else if (row.kind === 'sheets' || (row.sheets.length > 1 && !row.title && titlesDiffer(row.sheets)))
@@ -537,9 +539,7 @@ function SheetRow({
     title = (
       <>
         <Titles sheets={row.sheets} />
-        <KindWords>
-          <Plural value={row.sheets.length} one="# sheet" other="# sheets" />
-        </KindWords>
+        <KindBadge short={<Plural value={row.sheets.length} one="# sheet" other="# sheets" />} />
       </>
     )
   else if (row.sheets.length > 1)
@@ -600,9 +600,8 @@ function SheetRow({
         {row.sheets.some((s) => s.held) ? <HeldMark /> : null}
         {title}
         {row.series !== undefined ? (
-          <KindWords>
-            <Plural value={row.series} one="# sheet shares this title" other="# sheets share this title" />
-          </KindWords>
+          // Counted for the series, said as the series': a row of one sheet in a series of 5 is never "5 sheets" (round 2).
+          <KindBadge short={<Plural value={row.series} one="series of #" other="series of #" />} full={<Plural value={row.series} one="# sheet shares this title" other="# sheets share this title" />} />
         ) : null}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
@@ -642,7 +641,7 @@ function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span tabIndex={-1} data-titles="" className="min-w-[4ch] truncate">
+        <span tabIndex={-1} data-titles="" className="min-w-0 truncate">
           {items}
         </span>
       </TooltipTrigger>
@@ -652,20 +651,28 @@ function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
 }
 
 /**
- * What a row's sheets are, after their titles ("2 sheets share the number, titles differ"), muted. It
- * gives up its width before the titles do, never below a few characters, and its tooltip reads it whole.
+ * What a row's sheets are, after their titles: a short count that is true of this row ("2 sheets",
+ * "series of 5"), never cut, so the titles alone give up width (#322, round 2). Its whole words ("2 sheets
+ * share the number, titles differ") are what a screen reader reads and what its tooltip shows.
  */
-function KindWords({ children }: { children: ReactNode }) {
+function KindBadge({ short, full }: { short: ReactNode; full?: ReactNode }) {
   return (
     <>
       {' '}
       <Tooltip>
         <TooltipTrigger asChild>
-          <span tabIndex={-1} data-kind-words="" className="ms-1.5 min-w-[9ch] shrink-[20] truncate text-xs text-muted-foreground">
-            {children}
+          <span tabIndex={-1} data-kind-badge="" className="ms-1.5 shrink-0 text-xs text-muted-foreground">
+            {full ? (
+              <>
+                <span aria-hidden="true">{short}</span>
+                <span className="sr-only">{full}</span>
+              </>
+            ) : (
+              short
+            )}
           </span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-sm">{children}</TooltipContent>
+        <TooltipContent className="max-w-sm">{full ?? short}</TooltipContent>
       </Tooltip>
     </>
   )

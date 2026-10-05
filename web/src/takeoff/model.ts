@@ -258,15 +258,18 @@ const decided = (p: ProposalOut) => p.decision !== null
 const sameState = (a: ProposalOut, b: ProposalOut) => a.decision === b.decision && a.excluded_reason === b.excluded_reason
 
 /**
- * One continuation (m0-screens §5, Q3): numbers that run on, of one Discipline and one state, either
- * with the same title or in one continuation by the server's id (its titles may differ). Numbers must
- * run on even then, so a member held elsewhere (by a Question) is never inside a row's range.
+ * One continuation (m0-screens §5, Q3), of one Discipline and one state: the same title on numbers that
+ * run on; or one continuation by the server's id (its titles and numbers its own: "A-101A", "A-101B"),
+ * unless another sheet of the Discipline lies between the two in number order (held by a Question, or
+ * left out), so a row's range never claims a sheet it does not hold (#322, rounds 1 and 2).
  */
-function continues(a: ProposalOut, b: ProposalOut): boolean {
-  if (!a.number || !b.number || a.discipline !== b.discipline || !sameState(a, b)) return false
+function continues(a: ProposalOut, b: ProposalOut, all: readonly ProposalOut[]): boolean {
+  if (a.discipline !== b.discipline || !sameState(a, b)) return false
   const group = continuationOf(a)
-  const byGroup = group !== null && group === continuationOf(b)
-  if (!byGroup && (a.title.trim() === '' || a.title !== b.title)) return false
+  if (group !== null && group === continuationOf(b)) {
+    return !all.some((p) => p !== a && p !== b && p.discipline === a.discipline && compareNumbers(a.number, p.number) <= 0 && compareNumbers(p.number, b.number) <= 0)
+  }
+  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title) return false
   const x = numberParts(a.number)
   const y = numberParts(b.number)
   return !!x && !!y && x.prefix === y.prefix && x.suffix === y.suffix && y.running === x.running + 1
@@ -276,7 +279,7 @@ function sheetRows(sheets: readonly ProposalOut[], all: readonly ProposalOut[]):
   const rows: Row[] = []
   for (const p of sheets) {
     const last = rows.at(-1)
-    if (last && continues(last.sheets.at(-1)!, p)) {
+    if (last && continues(last.sheets.at(-1)!, p, all)) {
       rows[rows.length - 1] = { ...last, sheets: [...last.sheets, p], numberTo: p.number }
       continue
     }

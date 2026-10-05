@@ -830,6 +830,11 @@ msgstr "Left-out sheets stay in the count with their reason."
 msgid "Distribution board details"
 msgstr "Distribution board details"
 
+#. placeholder {0}: row.series
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {series of #} other {series of #}}"
+msgstr "{0, plural, one {series of #} other {series of #}}"
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 msgstr "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
