@@ -3,16 +3,26 @@
 refuses, and the key's fallback when the job's installed apps cannot be known. Invented trees and an
 invented git repository only (`world.py`)."""
 
+import ast
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from scripts.real_drawings.command import run
-from scripts.real_drawings.source import code_hash, engine_files, read_key
+from scripts.real_drawings.source import (
+    READ_ENTRIES,
+    _installed,
+    code_hash,
+    engine_files,
+    read_key,
+)
 from scripts.real_drawings.tests.world import REPO, World, make_world, run_git
+from tools.lint.engine_paths import matching, read_patterns
 from tools.lint.import_closure import ClosureError, closure
 
 PATTERNS = (REPO / ".github" / "engine-paths.txt").read_text(encoding="utf-8")
+CHECKOUT_ALSO_TEXT = (REPO / ".github" / "checkout-also.txt").read_text(encoding="utf-8")
 
 
 def closure_of(tree: dict[str, str], entries: list[str]) -> frozenset[str]:
@@ -173,6 +183,83 @@ def test_an_import_written_in_a_child_processs_code_string_is_followed() -> None
 
     assert {"zq/child.py", "zq/spare.py", "zq/helper.py"} <= found
     assert "zq/unnamed.py" not in found
+
+
+def test_a_lazy_getattr_that_imports_by_its_own_name_loads_its_submodules() -> None:
+    """Fix round 1 (review of #429): `import_module(f"{__name__}.{name}")`, as a package's lazy
+    `__getattr__` writes it, names every submodule of that package, never none."""
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import tools\n\nUSED = tools.second\n",
+        "zq/tools/__init__.py": (
+            "from importlib import import_module\n\n"
+            '__all__ = ["first", "second"]\n\n\n'
+            "def __getattr__(name: str) -> object:\n"
+            "    if name in __all__:\n"
+            '        return import_module(f"{__name__}.{name}")\n'
+            "    raise AttributeError(name)\n"
+        ),
+        "zq/tools/first.py": "",
+        "zq/tools/second.py": "",
+        "zq/tools/inner/__init__.py": "",
+        "zq/tools/inner/deep.py": "",
+        "zq/elsewhere/__init__.py": "",
+        "zq/elsewhere/other.py": "",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert {"zq/tools/first.py", "zq/tools/second.py", "zq/tools/inner/__init__.py"} <= found
+    assert not found & {"zq/tools/inner/deep.py", "zq/elsewhere/other.py"}
+
+
+@pytest.mark.parametrize(
+    "load",
+    [
+        'import_module(__name__ + "." + name)',
+        'import_module(__package__ + ".second")',
+        'import_module(".".join([__name__, name]))',
+    ],
+)
+def test_a_name_built_on_its_own_name_by_other_means_loads_its_submodules(load: str) -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import tools\n",
+        "zq/tools/__init__.py": (
+            "from importlib import import_module\n\n\n"
+            f"def __getattr__(name: str) -> object:\n    return {load}\n"
+        ),
+        "zq/tools/second.py": "",
+    }
+
+    assert "zq/tools/second.py" in closure_of(tree, ["zq/entry.py"])
+
+
+def test_every_module_the_takeoff_services_package_loads_lazily_is_in_the_jobs_closure() -> None:
+    """On this repository: `vextrus/takeoff/services/__init__.py` imports each name of its `__all__`
+    on first use, by its own name; each one is in the read job's closure."""
+    listed = subprocess.run(
+        ["git", "-C", str(REPO), "ls-files", "-z"], capture_output=True, check=True
+    ).stdout.decode()
+    patterns = [*read_patterns(PATTERNS), *read_patterns(CHECKOUT_ALSO_TEXT)]
+    tree = matching(sorted(filter(None, listed.split("\0"))), patterns)
+
+    def read(name: str) -> bytes | None:
+        path = REPO / name
+        return path.read_bytes() if path.is_file() else None
+
+    found = closure(read, [*READ_ENTRIES, *_installed(read, tree)], tree)
+
+    package = "vextrus/takeoff/services"
+    module = ast.parse((REPO / package / "__init__.py").read_text(encoding="utf-8"))
+    [names] = [
+        ast.literal_eval(node.value)
+        for node in module.body
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "__all__" for t in node.targets)
+    ]
+    assert names
+    for name in names:
+        assert {f"{package}/{name}.py", f"{package}/{name}/__init__.py"} & found, name
 
 
 def test_a_test_is_never_followed_and_never_an_entry() -> None:

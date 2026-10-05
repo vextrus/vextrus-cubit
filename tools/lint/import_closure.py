@@ -14,8 +14,9 @@ From each entry it follows, as `vextrus/takeoff/tests/acceptance/t21c/test_job_i
 - every string literal naming a module of the tree, `a.b.c` or `a.b.c:attr` (an entry point, a
   settings module, a stage's target), which a plain import does not show;
 - every import written inside a string (`python -c "from a.b import c"`, a child process's code);
-- every f-string whose root is written out (`f"vextrus.{name}.library"`, a module found by a computed
-  name), as each module of the tree it can name, one name part per `{}` (`{__name__}` the file's own);
+- every name built at run time (an f-string, a `+` of strings, a `".".join`) whose root is written out
+  (`f"vextrus.{name}.library"`) or is the file's own name (`f"{__name__}.{name}"`, a package's lazy
+  `__getattr__`), as each module of the tree it can name, one name part per unknown piece;
 - a package found by listing its folder (`engine.collect.submodules`, `pkgutil`): a file that calls a
   function with `__name__` (or `__package__`) loads every module of its own package, and a file that
   calls `submodules`, `iter_modules` or `walk_packages` every module of each package a string in it
@@ -201,24 +202,30 @@ def _module_name(name: str) -> str:
 
 
 def _patterns(name: str, tree: ast.Module) -> Iterator[re.Pattern[str]]:
-    """The module names an f-string with a written-out root can be: one name part per `{}`."""
-    own = re.escape(_module_name(name))
+    """The module names a name built at run time can be, one name part per unknown piece: an f-string,
+    a `+` of strings, or a `".".join([...])`, whose root is written out or is the file's own name
+    (`__name__`, `__package__`). A lazy `import_module(f"{__name__}.{name}")` so names every
+    submodule of its own package, never none."""
+    dunders = {
+        "__name__": re.escape(_module_name(name)),
+        "__package__": re.escape(".".join(_package(name))),
+    }
     for node in _walk(tree):
-        if not isinstance(node, ast.JoinedStr) or not node.values:
+        parts = _built(node)
+        if parts is None:
             continue
-        first = node.values[0]
-        if not (isinstance(first, ast.Constant) and re.match(SEGMENT, str(first.value))):
-            continue  # the root is not written out: any module could be meant
         pieces = []
-        for value in node.values:
-            if isinstance(value, ast.FormattedValue):
-                named = value.value
-                dunder = isinstance(named, ast.Name) and named.id in ("__name__", "__package__")
-                pieces.append(own if dunder else SEGMENT)
+        for part in parts:
+            if isinstance(part, ast.Name) and part.id in dunders:
+                pieces.append(dunders[part.id])
                 continue
-            text = str(value.value) if isinstance(value, ast.Constant) else "?"
-            head, colon, _attr = text.partition(":")
-            if not re.fullmatch(r"[A-Za-z0-9_.]*", head):
+            if not (isinstance(part, ast.Constant) and isinstance(part.value, str)):
+                if not pieces:
+                    break  # the root is not written out: any module could be meant
+                pieces.append(SEGMENT)
+                continue
+            head, colon, _attr = part.value.partition(":")
+            if not re.fullmatch(r"[A-Za-z0-9_.]*", head) or (not pieces and not re.match(SEGMENT, head)):
                 pieces = []  # not a module's name
                 break
             pieces.append(re.escape(head))
@@ -226,6 +233,30 @@ def _patterns(name: str, tree: ast.Module) -> Iterator[re.Pattern[str]]:
                 break  # an attribute follows
         if len(pieces) > 1 and r"\." in "".join(pieces):
             yield re.compile("".join(pieces))
+
+
+def _built(node: ast.AST) -> list[ast.expr] | None:
+    """The pieces of a string built at run time, in order, or None for any other node."""
+    if isinstance(node, ast.JoinedStr) and node.values:
+        return [v.value if isinstance(v, ast.FormattedValue) else v for v in node.values]
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        pieces = []
+        for side in (node.left, node.right):
+            inner = _built(side) if isinstance(side, (ast.BinOp, ast.JoinedStr)) else None
+            pieces += inner if inner is not None else [side]
+        return pieces
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "join"
+        and isinstance(node.func.value, ast.Constant)
+        and node.func.value.value == "."
+        and len(node.args) == 1
+        and isinstance(node.args[0], (ast.List, ast.Tuple))
+    ):
+        dot = ast.Constant(".")
+        return [piece for item in node.args[0].elts for piece in (dot, item)][1:]
+    return None
 
 
 def _listed(name: str, tree: ast.Module) -> Iterator[str]:
