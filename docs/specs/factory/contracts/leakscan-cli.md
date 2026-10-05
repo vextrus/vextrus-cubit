@@ -43,7 +43,7 @@ Each scan subcommand prints hit lines and one summary line (section 3) and exits
 Common options: `--quiet` (print only the summary line), `--json` (print the hit list and summary as one JSON object,
 section 3, instead of lines). `--no-stamp` (`range`, `file`, `text` only): scan and exit exactly as without it, but
 write no stamp; for a caller that scans for its own decision and must not create or replace the stamp the guard reads
-(the watcher, the pre-push hook; section 6).
+(the watcher, and the pre-push hook, which is the gate itself and never writes a stamp; section 6).
 
 ## 3. Output
 
@@ -134,7 +134,7 @@ one-line reason to standard error; neither holds scanned text.
 | `launch.py cloud` and `launch.py say` | `python -m tools.leakscan text --stdin < <prompt>` | refuse the launch or message (launch-cli.md exit 2) |
 | the orchestrator, before `git push` | `python -m tools.leakscan range <merge-base>..<head> --ref <branch>` | the guard refuses the push |
 | the orchestrator, before `gh ... --body-file f` | `python -m tools.leakscan file f` | the guard refuses the write |
-| `scripts/git-hooks/pre-push` | `python -m tools.leakscan range <remote-sha-or-merge-base>..<local-sha> --ref <ref> --no-stamp` for each pushed ref (it is the gate itself; a base of the remote branch's old head is not an ancestor of `origin/main`, so a stamp from it would replace the guard's valid one with an invalid one) | the push is refused |
+| `scripts/git-hooks/pre-push` | `python -m tools.leakscan range <merge-base with origin/main>..<local-sha> --ref <ref> --no-stamp` for each pushed ref, new or existing (a superset of the branch's own unpublished commits and never main's, so a merge of main's added lines are not rescanned; its file names and binary blobs are, since `range` lists a merge's paths against its first parent: a known gap that refuses more, never less; a stale `origin/main` only widens it: fetch first; none refuses). A tag, by name or by sha, or any object that is not a commit, is refused. It runs the main checkout's scanner on the main checkout's corpus (section 8) | the push is refused |
 | `merge_ready` | `python -m tools.leakscan pr <PR>` | not ready |
 | `watch.py`, each new cloud head | `python -m tools.leakscan range origin/main..<head> --no-stamp` (the watcher only alarms; it never writes a stamp) | `LEAK-HIT` alarm (status.schema.json) |
 | `scripts/walk/` | `python -m tools.leakscan dir .private/work/walks/<sha40>/` and `text --stdin` per issue draft | the verdict is not written |
@@ -157,6 +157,15 @@ refine them only by changing this file first.
 
 Added by PR f2 as section 7 asks. These exist so tests run in a temporary folder; the harness never sets
 them, and the guard refuses any command that sets one inline (`RECORD_FORGED`).
+
+The pre-push hook from a worktree: `core.hooksPath` is relative, so a linked worktree runs its own copy of the hook,
+which finds the main checkout as `VEXTRUS_MAIN_CHECKOUT` when set, else the folder holding the repository's common
+`.git`, else (that folder holds no scanner and the hook lives in another repository, as when `core.hooksPath` is
+absolute) the hook's own checkout. It runs `<main>/.venv/bin/python` (else `python3`) from the pushing folder with
+`PYTHONPATH=<main>` and `PYTHONSAFEPATH=1`, so the main checkout's scanner runs, never the pushed branch's, and exports
+`VEXTRUS_MAIN_CHECKOUT=<main>` unless set, so the corpus is the main checkout's. No scanner there, or a linked worktree
+of the pushing repository as the only candidate, prints one `pre-push: cannot find the main checkout's leak scanner`
+line and refuses.
 
 | Seam | Read by | Default | What a test sets it to |
 |---|---|---|---|
