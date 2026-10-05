@@ -202,12 +202,14 @@ def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> tuple[byte
     return out, stop
 
 
-def _declared_end(data: bytes, keyword: int, start: int, end: int, objects: dict[str, Any]) -> int:
+def _declared_end(
+    data: bytes, floor: int, keyword: int, start: int, end: int, objects: dict[str, Any]
+) -> int:
     """Where a raw stream ends: at `end` (its first `endstream`), or further when its dictionary's
     `/Length` (direct, or an indirect whole-number object) says so, an `endstream` follows there and
     no other stream opens between (an `endstream` inside the stream's own text, as a reader taking
     `/Length` reads it). `objects` caches the whole-number objects, read once per PDF."""
-    window = max(0, keyword - _DICTIONARY)
+    window = max(floor, keyword - _DICTIONARY)  # never before the last stream's end: linear
     lengths = list(_LENGTH.finditer(data, max(window, data.rfind(b"obj", window, keyword)), keyword))
     if not lengths:
         return end
@@ -252,7 +254,7 @@ def _pdf_texts(data: bytes, depth: int) -> list[str]:
         end = len(data) if close < 0 else close
         inflated = _inflate(data, start, end, budget)
         if inflated is None:
-            stop = _declared_end(data, opening.start(), start, end, objects)
+            stop = _declared_end(data, position, opening.start(), start, end, objects)
             texts += pdftext.assemble(data[start:stop])
         else:
             stop = inflated[1]

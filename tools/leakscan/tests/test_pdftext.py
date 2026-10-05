@@ -292,3 +292,35 @@ def test_an_encrypted_pdf_is_refused() -> None:
     with pytest.raises(CannotScan) as refused:
         scan.blob_texts(data)
     assert refused.value.reason == "source-unreadable"
+
+
+# ---------------------------------------------------------------- the refuter's breaks (round 2)
+
+
+def _glyphs_at(text: str, x: float, y: float, advance: float, *, vertical: bool = False) -> bytes:
+    """`text` placed glyph by glyph (spaces as positions), across or (rotated) up the page."""
+    out = []
+    for i, char in enumerate(text):
+        if char != " ":
+            gx, gy = (x, y + advance * i) if vertical else (x + advance * i, y)
+            matrix = b"0 1 -1 0" if vertical else b"1 0 0 1"
+            out.append(b"BT %s %.2f %.2f Tm (%s) Tj ET\n" % (matrix, gx, gy, char.encode()))
+    return b"".join(out)
+
+
+def test_text_of_several_heights_in_one_stream_is_read_at_each_size() -> None:
+    notes = b"".join(_glyphs_at("small note text here", 50, 100 + 4 * row, 2.5) for row in range(20))
+    assert _shown(notes + _glyphs_at(TEXT, 50, 600, 6))  # a title among many small notes
+    titles = b"".join(_glyphs_at("A LARGE TITLE", 50, 300 + 20 * row, 12) for row in range(20))
+    assert _shown(titles + _glyphs_at(TEXT, 50, 50, 2.5))  # a small label among large titles
+
+
+def test_rotated_glyph_by_glyph_text_is_found() -> None:
+    assert _shown(_glyphs_at(TEXT, 300, 100, 6, vertical=True))
+
+
+def test_many_raw_streams_after_long_dictionaries_stay_linear() -> None:
+    data = b"%PDF-1.4\n" + (b"/Length 1 " * 10 + b"stream\nqq endstream ") * 20_000
+    started = time.monotonic()
+    scan.blob_texts(data)
+    assert time.monotonic() - started < 15  # each window was rescanned from 64 KiB back

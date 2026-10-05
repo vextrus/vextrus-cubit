@@ -4,13 +4,13 @@ A producer may draw a string one glyph per `Tj`, as a kerned `TJ` array, as a he
 `BT ... ET`, or with octal escapes: none holds the text as one run of bytes. `assemble` reads the
 stream's tokens in one iterative pass (no recursion, no regex that backtracks) and returns the text it
 shows three times: tight (nothing between shown strings), spaced (a space wherever the text moves on)
-and measured (a space where a glyph lands further on than the stream's typical glyph advance, for
+and measured (a space where a glyph lands further on than its neighbours' glyph advances, for
 glyphs placed one by one with no space glyph drawn). The work and memory are linear in the stream's
 size; an unclosed string or array runs to the stream's end, scanned.
 """
 
+import math
 import re
-import statistics
 from array import array
 
 _WHITE = b"\x00\t\n\x0c\r "
@@ -36,6 +36,7 @@ WORD_GAP = -200  # a TJ number this far or further moves the next glyph a word's
 NARROW_GAP = -100  # the same for the measured text: a narrow font's word space
 MAX_DEPTH = 64  # array nesting kept; deeper brackets are counted, their strings kept in the innermost
 MAX_OPERANDS = 4096  # operands held before an operator; beyond, the oldest are shown (never dropped)
+NEIGHBOURS = 2  # the steps each side a glyph step is measured against (the measured text)
 
 
 def decode(raw: bytes) -> str:
@@ -173,26 +174,35 @@ class _Text:
         self.pending = self.pending or word in (b"T*", b"'", b'"')
 
     def measured(self) -> str:
-        """The shown strings, a space wherever the next lands on another line, back, or further on than
-        its predecessor's length in typical glyph advances (the median over the stream) and a half."""
+        """The shown strings, a space where the next lands further from its predecessor, per glyph of
+        the predecessor and in any direction (rotated text too), than half again its nearest steps' (up
+        to `NEIGHBOURS` each side, wide against both: a local measure, so text of several heights in
+        one stream is read each at its own size), and at a new line (`T*`, `'`, `"`) or a wide `TJ`
+        gap."""
         count = len(self.tight)
-        advances = array("d")
+        steps = array("d", bytes(8 * max(count, 1)))  # steps[i]: from string i-1 to i, per glyph; 0 none
         for i in range(1, count):
-            step = self.xs[i] - self.xs[i - 1]
-            if self.ys[i] == self.ys[i - 1] and step > 0 and self.tight[i - 1]:
-                advances.append(step / len(self.tight[i - 1]))
-        typical = statistics.median(advances) if advances else 0.0
+            distance = math.hypot(self.xs[i] - self.xs[i - 1], self.ys[i] - self.ys[i - 1])
+            if distance > 0 and self.tight[i - 1]:
+                steps[i] = distance / len(self.tight[i - 1])
         out: list[str] = []
         for i in range(count):
-            if i and (
-                self.breaks[i]
-                or self.ys[i] != self.ys[i - 1]
-                or self.xs[i] < self.xs[i - 1]
-                or (typical and self.xs[i] - self.xs[i - 1] > typical * (len(self.tight[i - 1]) + 0.5))
-            ):
+            if i and (self.breaks[i] or self._wide(steps, i)):
                 out.append(" ")
             out.append(self.tight[i])
         return "".join(out)
+
+    def _wide(self, steps: array[float], i: int) -> bool:
+        """The step to string i is a word's or a line's: wider by half than the nearest steps on each
+        side that has any (so a change of size or line on one side never splits a word); with none
+        on either side, any move but forward along the same line."""
+        if not steps[i]:
+            return False
+        left = [steps[j] for j in range(max(1, i - NEIGHBOURS), i) if steps[j]]
+        right = [steps[j] for j in range(i + 1, min(len(steps), i + NEIGHBOURS + 1)) if steps[j]]
+        if not left and not right:
+            return self.ys[i] != self.ys[i - 1] or self.xs[i] < self.xs[i - 1]
+        return all(steps[i] > min(side) * 1.5 for side in (left, right) if side)
 
 
 def assemble(stream: bytes) -> list[str]:
