@@ -52,6 +52,9 @@ CONFLICT_CODES = frozenset({SAME_TITLE, SAME_STOREY, SAME_NUMBER})
 GAP_CODES = frozenset({"engine.register_check.gap", "engine.register_check.gaps"})
 """A numbering gap, asked per missing number or (t229) all of a Discipline's at once."""
 OPEN = "open"
+STATUSES = frozenset({OPEN, "answered", "withdrawn"})
+"""The product's Question statuses; any other leaves the set unmeasured (it would vanish from every
+count, and a Question must never pass unseen)."""
 NONE = "none"
 """The burden row of Sheets and Questions with no Discipline."""
 DISCIPLINE = re.compile(r"[a-z][a-z0-9_]{1,24}")
@@ -199,6 +202,12 @@ def _sheet(raw: object) -> Sheet:
     )
 
 
+def _status(value: object) -> str:
+    if not isinstance(value, str) or value not in STATUSES:
+        raise Unmeasurable("a Question's status is not the product's")
+    return value
+
+
 def _question(raw: object, ids: Mapping[str, Sheet]) -> Question:
     if not isinstance(raw, Mapping) or set(raw) != QUESTION_KEYS:
         raise Unmeasurable("a Question is not its keys")
@@ -214,7 +223,7 @@ def _question(raw: object, ids: Mapping[str, Sheet]) -> Question:
     return Question(
         id=str(_text(raw["id"])),
         kind=kind,
-        status=str(_text(raw["status"])),
+        status=_status(raw["status"]),
         code=str(_text(raw["code"])),
         check_code=_text(raw["check_code"], optional=True),
         discipline=_discipline(raw["discipline"]),

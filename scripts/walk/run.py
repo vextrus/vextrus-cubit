@@ -610,7 +610,14 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
                 holding.append(True)
                 hold(walk, stack, hold_minutes, stopping, since)
             return 0 if passed else 1
-    except (KeyboardInterrupt, WalkError, OSError, ValueError, subprocess.SubprocessError) as error:
+    except (
+        KeyboardInterrupt,
+        WalkError,
+        OSError,
+        ValueError,
+        RecursionError,
+        subprocess.SubprocessError,
+    ) as error:
         events("error")
         print(
             f"walk: {walk.sha8} error ({type(error).__name__}: {_said(error)})",

@@ -222,3 +222,15 @@ def test_gaps_answered_join_the_bulk_count_after_their_answer(tmp_path: Path) ->
     [row] = [r for r in judged["burden"] if r["discipline"] == "plumbing"]
     assert (row["bulk_confirmable_sheets"], row["machine_doubt_questions"]) == (9, 1)
     assert _status(judged, "bulk_confirmable_share") == "PASS"
+
+
+@pytest.mark.parametrize("status", ["OPEN", "pending", "", None])
+def test_a_question_status_the_product_never_gives_leaves_the_set_unmeasured(
+    tmp_path: Path, status: Any
+) -> None:
+    entry = _entry()
+    entry["questions"].append({**_question("c1", measures.SAME_TITLE, "p1", "p2"), "status": status})
+
+    measured = _attach(tmp_path, entry, _expect())
+
+    assert measured["sets"]["set-c"]["measures"] == {"unmeasured": 1}
