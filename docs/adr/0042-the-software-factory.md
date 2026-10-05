@@ -35,7 +35,8 @@ Every gate that decides a merge or a walk is a committed check that fails on its
    - **Local, only what must stay:** the orchestrator, the ledger, `merge_ready`, `post-status`, the blind scorer and
      its keys, posting and scored runs under the lock, the governor, the launcher, the leak scan and its corpus, the
      G1 gate walk and its verdict, Held-out Sets, drawing-content analyst work (no private return channel yet), Jev
-     calls carrying drawing text (until ADR 0013 is amended), and, while the cloud routes are unproven, the guard
+     calls carrying drawing text from any set but the two Development Sets (ADR 0013, amended 5 Oct 2026), and,
+     while the cloud routes are unproven, the guard
      ticket and real-drawing builders. At most three local agents at once.
 4. **Builders finish in one machine-readable way.** A builder's last commit carries `Factory-State: READY` (with
    `Factory-Verify: <tree> ok`) or `BLOCKED`. The guard refuses to push a READY head unless the `verify` record for
@@ -81,7 +82,8 @@ Every gate that decides a merge or a walk is a committed check that fails on its
     findings to refuters only after it agrees with refuter verdicts on at least 90 % of at least 30 findings, recorded
     here. In the product, ADR 0011's rule holds: Jev nodes go where the scorer names a failing class (view subject
     first), each after a live probe that beats the reader and a spot-check row; recorded answers carry Jev's gains
-    into the offline scored run. Drawing text goes to Jev only under the owner's local key until ADR 0013 is amended.
+    into the offline scored run. Drawing text goes to Jev under the owner's local key, or, for the two Development
+    Sets only, under the cloud key (ADR 0013, amended 5 Oct 2026).
 
 The machinery: `docs/specs/factory.md` §2.2 names every file and what it does; §9 lists the eight tier-1 components
 session 13 cannot run without, each with its check, and the finish-line obligations exempt from the cut line.
@@ -169,9 +171,9 @@ Each of the three drawing changes rests on the owner's Q7 ruling of 4 Oct 2026, 
 allowing to be more easy going on this case and cloud sessions may read drawing and enabling Remote Control for most
 cases if that means more power and performance by allowing some privacy issues that I'm allowing willingly".
 
-Does not amend ADR 0011 or ADR 0013. Two owner questions stay open: whether cloud sessions may send drawing text to
-Jev under the cloud key (ADR 0013), and whether a Claude vision proposer may run inside the product's read
-(ADR 0011).
+Does not amend ADR 0011 or ADR 0013. Two owner questions were left open here: whether cloud sessions may send
+drawing text to Jev under the cloud key (ADR 0013; ruled 5 Oct 2026, see History), and whether a Claude vision
+proposer may run inside the product's read (ADR 0011; still open).
 
 ## History
 - 4 Oct 2026: proposed in session 12, Phase 2. Three independent designs (quality-first, speed-first, risk-first)
@@ -186,3 +188,7 @@ Jev under the cloud key (ADR 0013), and whether a Claude vision proposer may run
   unverified, re-measured Jev's model pin live, and aligned the approval pack's summary and tier-1 list with the spec.
 - 4 Oct 2026, 21:08Z: accepted by the owner as written: "Approve as written (Recommended)". Phase 3 starts (PR f0
   commits the data contracts first).
+- 5 Oct 2026 (session 13, owner's Q23, "Yes, now"): ADR 0013 is amended so cloud sessions may send the two
+  Development Sets' text to Jev under the cloud key; every other set's text stays under the local key. The lines
+  above that said "until ADR 0013 is amended" now say so. The vision question (ADR 0011) stays open; session 13's
+  Q8 allows only a development-time prototype after S1.
