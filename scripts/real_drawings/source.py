@@ -32,6 +32,17 @@ real-drawings-na.yml reads too, so a PR changing only these is never "not applic
 READ_ENTRIES = ("vextrus/takeoff/tasks/read_file.py", "vextrus/takeoff/services/export.py")
 """What the sandbox runs of the product (21c): the read job and its export entry point."""
 JOB_SETTINGS = "vextrus/settings/job.py"
+INSTALLED_PARTS = (
+    "models.py",
+    "models/**",
+    "apps.py",
+    "migrations/**",
+    "management/**",
+    "tasks.py",  # Procrastinate imports each app's `tasks` (vextrus/settings/jobs.py's autodiscovery)
+    "tasks/**",
+)
+"""What each app the job installs loads without an import naming it. Its `admin` is left out (the
+owner's Q16 ruling): Django's admin imports it to register pages and it reads no drawing."""
 ALWAYS_IN = (
     "pyproject.toml",
     "uv.lock",
@@ -132,12 +143,13 @@ def read_key(repo: Path, commit: str, files: list[Blob]) -> tuple[str, str]:
     """The run cache's key for a commit's engine files (the owner's Q16 ruling, ticket T-Q16), and why
     it is the whole code hash ("" when it is the closure's): `code_hash` over only what the read job can
     load. That is the import closure (`tools.lint.import_closure`) of the job's entries (`READ_ENTRIES`)
-    and of its installed apps' `models`, `apps.py`, `migrations/` and `management/` (the apps
+    and of its installed apps' `models`, `apps.py`, `migrations/`, `management/` and `tasks` (the apps
     `vextrus/settings/job.py`'s `JOB_MODULES` names), with the always-in set (`ALWAYS_IN`: the
     toolchain, the lock, the settings, the schema, and the path lists, which are no engine paths and are
-    taken from the commit's tree). A test, an admin module or a view the job never imports changes the
-    code hash but not this key, so such a PR reuses main's run. When the closure cannot be known (an
-    entry is missing, a file does not parse), the key is the whole code hash.
+    taken from the commit's tree). A test, an admin module (registered by Django's admin, never run on
+    a drawing) or a view the job never imports changes the code hash but not this key, so such a PR
+    reuses main's run. When the closure cannot be known (an entry is missing, a file does not parse),
+    the key is the whole code hash.
     """
     blobs = {f.path: f for f in files}
     python = [f for f in files if f.path.endswith(".py")]
@@ -158,9 +170,9 @@ def read_key(repo: Path, commit: str, files: list[Blob]) -> tuple[str, str]:
 
 
 def _installed(read: Callable[[str], bytes | None], tree: list[str]) -> list[str]:
-    """The installed apps' files the job loads by Django, not by an import: each `JOB_MODULES` app's
-    `models` (a module or a package), `apps.py`, and every Python file of its `migrations/` and
-    `management/`, as entries of the closure (their own imports are followed from them)."""
+    """The installed apps' files the job loads by Django or Procrastinate, not by an import: each
+    `JOB_MODULES` app's `INSTALLED_PARTS`, as entries of the closure (their own imports, and the
+    modules their packages list, are followed from them)."""
     data = read(JOB_SETTINGS)
     if data is None:
         raise ClosureError(f"the entry {JOB_SETTINGS} is not in the tree")
@@ -182,11 +194,7 @@ def _installed(read: Callable[[str], bytes | None], tree: list[str]) -> list[str
         isinstance(a, str) and a.isidentifier() for a in apps
     ):
         raise ClosureError(f"{JOB_SETTINGS} names no JOB_MODULES as a list of plain names")
-    patterns = [
-        f"vextrus/{app}/{part}"
-        for app in apps
-        for part in ("models.py", "models/**", "apps.py", "migrations/**", "management/**")
-    ]
+    patterns = [f"vextrus/{app}/{part}" for app in apps for part in INSTALLED_PARTS]
     return [path for path in matching(tree, patterns) if path.endswith(".py") and not is_test(path)]
 
 

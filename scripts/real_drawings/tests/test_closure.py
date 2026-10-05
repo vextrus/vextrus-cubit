@@ -66,6 +66,7 @@ def test_a_string_target_and_a_data_file_beside_a_followed_module_are_in() -> No
         "zq/steps/__init__.py": "",
         "zq/steps/later.py": "def go() -> None: ...\n",
         "zq/steps/rules.toml": "invented = 1\n",
+        "zq/elsewhere/__init__.py": "",  # a package: its data is its own modules'
         "zq/elsewhere/table.toml": "invented = 2\n",
     }
 
@@ -73,6 +74,105 @@ def test_a_string_target_and_a_data_file_beside_a_followed_module_are_in() -> No
 
     assert {"zq/steps/later.py", "zq/steps/rules.toml"} <= found
     assert "zq/elsewhere/table.toml" not in found
+
+
+def test_data_in_a_folder_below_that_is_no_package_is_in_but_not_in_a_subpackage() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "",
+        "zq/rules/default.json": "{}",
+        "zq/rules/deeper/more.json": "{}",
+        "zq/sub/__init__.py": "",
+        "zq/sub/own.json": "{}",
+        "zq/tests/data/case.json": "{}",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert {"zq/rules/default.json", "zq/rules/deeper/more.json"} <= found
+    assert not found & {"zq/sub/own.json", "zq/tests/data/case.json"}
+
+
+def test_a_package_that_lists_its_own_folder_loads_each_module() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import checks, quiet\n",
+        "zq/checks/__init__.py": "from zq.lister import submodules\n\nsubmodules(__name__)\n",
+        "zq/checks/first.py": "",
+        "zq/checks/inner/__init__.py": "",
+        "zq/checks/inner/deep.py": "",
+        "zq/quiet/__init__.py": "import logging\n\nLOG = logging.getLogger(__name__)\n",
+        "zq/quiet/unloaded.py": "",
+        "zq/lister.py": "def submodules(package: str) -> list[str]:\n    return [package]\n",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert {"zq/checks/first.py", "zq/checks/inner/__init__.py"} <= found
+    assert "zq/checks/inner/deep.py" not in found  # a subpackage's modules only by its own imports
+    assert "zq/quiet/unloaded.py" not in found  # a logger's name lists nothing
+
+
+def test_a_lister_loads_each_module_of_a_package_its_file_names() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": "from zq import catalogue\n",
+        "zq/catalogue.py": (
+            'import pkgutil\n\nPACKAGE = "zq.rules"\n\n\n'
+            "def scan() -> object:\n    return pkgutil.iter_modules([PACKAGE])\n"
+        ),
+        "zq/rules/__init__.py": "",
+        "zq/rules/one.py": "",
+        "zq/other/__init__.py": "",
+        "zq/other/two.py": "",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert "zq/rules/one.py" in found
+    assert "zq/other/two.py" not in found
+
+
+def test_an_f_string_with_a_written_root_names_each_module_it_can() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": (
+            "from importlib import import_module\n\n\n"
+            "def load(part: str) -> object:\n"
+            '    first = import_module(f"zq.{part}.extra")\n'
+            '    return first, f"{part}.anything", f"zq.{part} is not a module"\n'
+        ),
+        "zq/alpha/__init__.py": "",
+        "zq/alpha/extra.py": "",
+        "zq/beta/__init__.py": "",
+        "zq/beta/extra.py": "",
+        "zq/beta/plain.py": "",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert {"zq/alpha/extra.py", "zq/beta/extra.py", "zq/beta/__init__.py"} <= found
+    assert "zq/beta/plain.py" not in found
+
+
+def test_an_import_written_in_a_child_processs_code_string_is_followed() -> None:
+    tree = {
+        "zq/__init__.py": "",
+        "zq/entry.py": (
+            'PRELUDE = "import sys; "\n'
+            'CHILD = PRELUDE + "from zq import (child,\\n spare); child.main()"\n'
+            'OTHER = "import zq.helper as h"\n'
+        ),
+        "zq/child.py": "",
+        "zq/spare.py": "",
+        "zq/helper.py": "",
+        "zq/unnamed.py": "",
+    }
+
+    found = closure_of(tree, ["zq/entry.py"])
+
+    assert {"zq/child.py", "zq/spare.py", "zq/helper.py"} <= found
+    assert "zq/unnamed.py" not in found
 
 
 def test_a_test_is_never_followed_and_never_an_entry() -> None:
@@ -118,6 +218,7 @@ JOB: dict[str, str | None] = {
     "vextrus/takeoff/migrations/0001_zq.py": "from vextrus.takeoff import zq_fields\n",
     "vextrus/takeoff/zq_fields.py": "ZQ_FIELD = 2\n",
     "vextrus/takeoff/zq_page.py": "ZQ_PAGE = 3\n",
+    "vextrus/takeoff/tasks/zq_sweep.py": "ZQ_SWEEP = 9\n",
     "vextrus/projects/__init__.py": "",
     "vextrus/projects/models.py": "ZQ_NOT_INSTALLED = 4\n",
 }
@@ -147,6 +248,15 @@ def test_a_module_an_installed_apps_migration_imports_is_in_the_key(world: World
     after, why = key_at(world, moved)
     assert (after != before, why) == (True, "")
     assert key_at(world, stayed) == (before, "")
+
+
+def test_a_task_module_procrastinate_finds_is_in_the_key(world: World) -> None:
+    before, _ = key_at(world, world.repo_commit("main"))
+
+    head = world.commit("sweep", {"vextrus/takeoff/tasks/zq_sweep.py": "ZQ_SWEEP = 10\n"})
+
+    after, why = key_at(world, head)
+    assert (after != before, why) == (True, "")
 
 
 def test_an_app_job_modules_does_not_name_is_not_in_the_key(world: World) -> None:

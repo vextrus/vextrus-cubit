@@ -13,9 +13,19 @@ From each entry it follows, as `vextrus/takeoff/tests/acceptance/t21c/test_job_i
 - relative imports, resolved from the file's own package;
 - every string literal naming a module of the tree, `a.b.c` or `a.b.c:attr` (an entry point, a
   settings module, a stage's target), which a plain import does not show;
+- every import written inside a string (`python -c "from a.b import c"`, a child process's code);
+- every f-string whose root is written out (`f"vextrus.{name}.library"`, a module found by a computed
+  name), as each module of the tree it can name, one name part per `{}` (`{__name__}` the file's own);
+- a package found by listing its folder (`engine.collect.submodules`, `pkgutil`): a file that calls a
+  function with `__name__` (or `__package__`) loads every module of its own package, and a file that
+  calls `submodules`, `iter_modules` or `walk_packages` every module of each package a string in it
+  names (each direct module and subpackage, which are then followed);
 - each followed module's parent packages' `__init__.py`;
-- and every file that is not Python in a followed file's own folder (its data: conventions, schemas),
-  whose bytes the code reads.
+- and every file that is not Python in a followed file's own folder or in a folder below it that is no
+  package (its data: conventions, schemas, fonts), whose bytes the code reads.
+
+What it cannot see: a module imported by a name held in a variable (`import_module(name)`) that no
+string or f-string above names, and a file read by a path built from more than its own folder.
 
 Tests (a `tests` folder, `test_*.py`) and `conftest.py` are never entries and never followed. A file
 that does not parse, an entry not in the tree, or a followed file that cannot be read raises
@@ -29,8 +39,15 @@ import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import PurePosixPath
 
+LISTERS = frozenset({"submodules", "iter_modules", "walk_packages"})
+"""The calls that load a package's modules by listing its folder."""
+SEGMENT = r"[A-Za-z_][A-Za-z0-9_]*"
 DOTTED = re.compile(r"\A[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+(?::[A-Za-z_][\w.]*)?\Z")
 """A string naming a module: `a.b` or `a.b.c:attr`."""
+CODE_IMPORT = re.compile(
+    r"(?<![\w.])(?:from\s+([A-Za-z_][\w.]*)\s+import\s+([\w\s,()]+)|import\s+([A-Za-z_][\w.]*))"
+)
+"""An import written inside a string: code another interpreter runs (`python -c "from a import b"`)."""
 
 
 class ClosureError(Exception):
@@ -45,6 +62,7 @@ def closure(
     folders: dict[str, list[str]] = {}
     for name in files:
         folders.setdefault(str(PurePosixPath(name).parent), []).append(name)
+    modules = _modules(files)
     found: set[str] = set()
     todo: list[str] = []
     for entry in entries:
@@ -61,10 +79,15 @@ def closure(
         found.add(name)
         if not name.endswith(".py"):
             continue
-        for module in _named(name, _source(read, name)):
+        source = _source(read, name)
+        for module in _named(name, source):
             todo += _files_of(module, files)
-        parent = str(PurePosixPath(name).parent)
-        todo += [other for other in folders.get(parent, ()) if not other.endswith(".py")]
+        for pattern in _patterns(name, source):
+            for module in filter(pattern.fullmatch, modules):
+                todo += _files_of(module, files)
+        for package in _listed(name, source):
+            todo += _package_files(package.replace(".", "/"), folders)
+        todo += _data(str(PurePosixPath(name).parent), folders)
     return frozenset(found)
 
 
@@ -89,6 +112,52 @@ def _source(read: Callable[[str], bytes | None], name: str) -> ast.Module:
         return ast.parse(data, filename=name)
     except (SyntaxError, ValueError) as error:
         raise ClosureError(f"{name} does not parse: {type(error).__name__}") from None
+
+
+def _modules(files: set[str]) -> dict[str, str]:
+    """Every Python module of the tree by its dotted name, and its file."""
+    found = {}
+    for name in files:
+        path = PurePosixPath(name)
+        if path.suffix != ".py" or is_test(name):
+            continue
+        parts = path.parent.parts if path.name == "__init__.py" else path.with_suffix("").parts
+        if parts and all(re.fullmatch(SEGMENT, part) for part in parts):
+            found[".".join(parts)] = name
+    return found
+
+
+def _data(folder: str, folders: dict[str, list[str]]) -> list[str]:
+    """The files that are not Python in a folder and in every folder below it that is no package (nor
+    a `tests` folder, nor below one)."""
+    found = [name for name in folders.get(folder, ()) if not name.endswith(".py")]
+    top = PurePosixPath(folder)
+    for below in folders:
+        path = PurePosixPath(below)
+        if path == top or top not in path.parents:
+            continue
+        chain = [
+            top.joinpath(*path.relative_to(top).parts[: i + 1])
+            for i in range(len(path.parts) - len(top.parts))
+        ]
+        if any(
+            step.name == "tests" or f"{step}/__init__.py" in folders.get(str(step), ()) for step in chain
+        ):
+            continue
+        found += [name for name in folders[below] if not name.endswith(".py")]
+    return found
+
+
+def _package_files(folder: str, folders: dict[str, list[str]]) -> list[str]:
+    """A package's modules found by listing its folder: its direct modules and subpackages."""
+    if f"{folder}/__init__.py" not in folders.get(folder, ()):
+        return []
+    found = [name for name in folders[folder] if name.endswith(".py")]
+    for below, names in folders.items():
+        init = f"{below}/__init__.py"
+        if str(PurePosixPath(below).parent) == folder and init in names:
+            found.append(init)
+    return found
 
 
 def _files_of(module: str, files: set[str]) -> list[str]:
@@ -125,6 +194,79 @@ def _walk(node: ast.AST) -> Iterator[ast.AST]:
         yield from _walk(child)
 
 
+def _module_name(name: str) -> str:
+    path = PurePosixPath(name)
+    parts = path.parent.parts if path.name == "__init__.py" else path.with_suffix("").parts
+    return ".".join(parts)
+
+
+def _patterns(name: str, tree: ast.Module) -> Iterator[re.Pattern[str]]:
+    """The module names an f-string with a written-out root can be: one name part per `{}`."""
+    own = re.escape(_module_name(name))
+    for node in _walk(tree):
+        if not isinstance(node, ast.JoinedStr) or not node.values:
+            continue
+        first = node.values[0]
+        if not (isinstance(first, ast.Constant) and re.match(SEGMENT, str(first.value))):
+            continue  # the root is not written out: any module could be meant
+        pieces = []
+        for value in node.values:
+            if isinstance(value, ast.FormattedValue):
+                named = value.value
+                dunder = isinstance(named, ast.Name) and named.id in ("__name__", "__package__")
+                pieces.append(own if dunder else SEGMENT)
+                continue
+            text = str(value.value) if isinstance(value, ast.Constant) else "?"
+            head, colon, _attr = text.partition(":")
+            if not re.fullmatch(r"[A-Za-z0-9_.]*", head):
+                pieces = []  # not a module's name
+                break
+            pieces.append(re.escape(head))
+            if colon:
+                break  # an attribute follows
+        if len(pieces) > 1 and r"\." in "".join(pieces):
+            yield re.compile("".join(pieces))
+
+
+def _listed(name: str, tree: ast.Module) -> Iterator[str]:
+    """The packages a file loads by listing their folders (see the module): its own, when a package's
+    `__init__.py` calls a function with `__name__`; each one a string names, when it calls a lister."""
+    calls = [node for node in _walk(tree) if isinstance(node, ast.Call)]
+    if PurePosixPath(name).name == "__init__.py":
+        for call in calls:
+            arguments = [*call.args, *(keyword.value for keyword in call.keywords)]
+            if _callee(call) != "getLogger" and any(
+                isinstance(a, ast.Name) and a.id in ("__name__", "__package__") for a in arguments
+            ):
+                yield _module_name(name)
+    if any(_callee(call) in LISTERS for call in calls):
+        for node in _walk(tree):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and (DOTTED.match(node.value) or re.fullmatch(SEGMENT, node.value))
+            ):
+                yield node.value.split(":", 1)[0]
+
+
+def _imports_in_text(text: str) -> Iterator[str]:
+    """The modules the imports written in a string name (a prose word after "import" names none)."""
+    for match in CODE_IMPORT.finditer(text):
+        module, names, plain = match.groups()
+        if plain:
+            yield plain
+            continue
+        yield module
+        yield from (f"{module}.{name}" for name in re.findall(r"[A-Za-z_]\w*", names))
+
+
+def _callee(call: ast.Call) -> str:
+    function = call.func
+    if isinstance(function, ast.Name):
+        return function.id
+    return function.attr if isinstance(function, ast.Attribute) else ""
+
+
 def _named(name: str, tree: ast.Module) -> Iterator[str]:
     """The module names a file can load: its imports (relative ones resolved) and dotted strings."""
     package = _package(name)
@@ -142,5 +284,7 @@ def _named(name: str, tree: ast.Module) -> Iterator[str]:
             if module:
                 yield module
             yield from (f"{module}.{alias.name}" if module else alias.name for alias in node.names)
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and DOTTED.match(node.value):
-            yield node.value.split(":", 1)[0]
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if DOTTED.match(node.value):
+                yield node.value.split(":", 1)[0]
+            yield from _imports_in_text(node.value)
