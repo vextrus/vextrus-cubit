@@ -116,3 +116,7 @@ timeout 120 uv run python -m scripts.verify > .private/work/s12-x/verify.txt 2>&
 gh pr view 312 --json state,mergeable
 %%
 if ps aux | grep -q "[u]vicorn"; then echo up; else echo down; fi
+%%
+for f in .private/work/leakscan/ok/*; do echo "$f"; done | wc -l
+%%
+ls -la .private/work/leakscan/{ok,tmp} 2>/dev/null

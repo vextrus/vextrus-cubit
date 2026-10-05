@@ -747,3 +747,12 @@ test("T-GUARD-A: --git-dir wins over GIT_DIR, as in git, so the push is judged w
   assert.equal(cloudPush(`GIT_DIR=${own}/.git git --git-dir=${other}/.git push origin HEAD`), "CLOUD_PUSH");
   assert.equal(cloudPush(`GIT_DIR=${other}/.git git --git-dir=${own}/.git push origin HEAD`), null);
 });
+
+test("T-GUARD-A: the corpus named by a brace, a variable or a substitution stays unprinted; a loop over stamps passes", () => {
+  const L = ".private/work/leakscan";
+  for (const command of [`cat ${L}/{corpus,x}`, `C=${L}/corpus; cat $C`, `cat $(echo ${L}/corpus)`, `cd ${L}/ok && cat ../corpus`, `while read l; do echo $l; done < ${L}/corpus`]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  assert.equal(bash(`for f in ${L}/ok/*; do echo $f; done`), null);
+  assert.equal(bash(`for f in ${L}/ok/*; do cat $f; done`), "RECORD_FORGED");
+});

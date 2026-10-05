@@ -1276,12 +1276,12 @@ const CORPUS_FILE = join(LEAK_FOLDER, "corpus");
 const recordPath = (abs) => abs === LEAK_FOLDER || abs.startsWith(`${LEAK_FOLDER}/`) || /\/\.private\/work\/(?:leakscan|factory\/ledger)(?:\/|$)/.test(abs);
 const corpusPath = (abs) => abs === CORPUS_FILE || abs === LEAK_FOLDER || /\/\.private\/work\/leakscan(?:\/corpus)?$/.test(abs);
 const tidy = (w) => w.replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
-const GLOB = /[*?[]/;
+const GLOB = /[*?[{]/;
 
 /** A shell glob over an absolute path as a regex (`*` and `?` never match a leading dot, as in bash). */
 function globRegex(abs) {
   let body = "";
-  const text = abs.replace(/\[[^\]]*\]?/g, "?");
+  const text = abs.replace(/\[[^\]]*\]?/g, "?").replace(/\{[^}]*\}?/g, "*");
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     const lead = i === 0 || text[i - 1] === "/";
@@ -1369,7 +1369,7 @@ function redirectsOf(raw) {
   return out;
 }
 
-const NEUTRAL = new Set(["cd", "pushd", "true", "false", ":"]);
+const NEUTRAL = new Set(["cd", "pushd", "true", "false", ":", "for", "select", "case"]);
 const METADATA_VIEWERS = new Set(["ls", "stat", "file", "wc", "du", "sha256sum", "find", "realpath", "readlink", "test", "[", "tree", "basename", "dirname", "echo", "printf"]);
 const CONTENT_VIEWERS = new Set(["cat", "head", "tail", "grep", "egrep", "fgrep", "rg", "jq", "diff", "cmp", "sort", "uniq", "less", "more", "cut", "tr", "nl", "column"]);
 // Options by which a viewer writes, runs a program, or reads a file as a list of names (and so prints it). Long
@@ -1410,7 +1410,7 @@ function recordUnsafe(cmd, eventCwd) {
   }
   // An assignment alone (`D=…`) is inert; one in front of a command, or a wrapper (`env -S`, `xargs`, `timeout`),
   // changes what runs (`LESSOPEN=…`).
-  if (cmd.name === "") return !words(cmd.raw ?? "").every((w) => ASSIGNMENT.test(w));
+  if (cmd.name === "") return !words(cmd.raw ?? "").every((w) => ASSIGNMENT.test(w) || RESERVED.has(w));
   const scanner = scannerRun(cmd) === "exact";
   if (!scanner && prefixOf(cmd).some((w) => !RESERVED.has(w))) return true;
   // pushd with no folder (or +N) and popd move to a folder the reader does not follow.
@@ -1425,7 +1425,8 @@ function recordUnsafe(cmd, eventCwd) {
   if (CONTENT_VIEWERS.has(cmd.name) || jsonTool) {
     // Run from the leak home itself, a viewer with no path (or `grep -r`) reads the corpus.
     if (cwd !== null && corpusPath(cwd)) return true;
-    if (cmd.args.some((w) => namesCorpus(w, cwd))) return true;
+    // A word expanded at run time (`C=…corpus; cat $C`) could name the corpus.
+    if (cmd.args.some((w) => namesCorpus(w, cwd) || /[$`]/.test(w))) return true;
   }
   return false;
 }
