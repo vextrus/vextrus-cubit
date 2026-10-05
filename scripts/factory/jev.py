@@ -13,8 +13,8 @@ answer is `Unavailable`, and every caller then runs exactly as it would without 
 The constants are the product's (`vextrus.settings.jev`); the product's own client is tenant-bound
 and is not used here. The key is read from the environment at call time into the request's header
 and nowhere else: never logged, printed, cached or put in an error. The cache, the log, the triage
-sidecars and the model watch's record live under `VEXTRUS_FACTORY_DIR` (default
-`.private/work/factory` in the repository).
+sidecars, the model watch's record and the cool-off's record (`jev-health.json`) live under
+`VEXTRUS_FACTORY_DIR` (default `.private/work/factory` in the repository).
 """
 
 import argparse
