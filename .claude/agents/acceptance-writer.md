@@ -48,6 +48,8 @@ seam (it fails with an import or 404 until the builder makes it) and say so.
 - **It can pass:** write a throwaway implementation in a scratch copy under `.private/work/` (never
   committed) and run the tests against it; a test no implementation can pass is a broken promise.
 - No sleeps, no wall-clock bounds, no network, no `skip`, no `xfail`. Deterministic data.
+- A test that fixes a timestamp pins its git commits' dates (`GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE`)
+  and reads no wall clock; `python3 -m tools.lint.time_bombs` fails on it (#308, #293).
 
 ## Committing
 Stage the acceptance files by explicit path and commit on the ticket's branch:

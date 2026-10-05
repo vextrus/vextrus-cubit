@@ -1,0 +1,43 @@
+# The time-bomb lint's allowlist (tools/lint/time_bombs.py; #308).
+# Each entry: `path`, a glob from the repository's root; `reason`, why the file's fixed time is never
+# compared with its wall-clock read or its commits' time (required). An entry matching no hit fails.
+
+[[allow]]
+path = "scripts/factory/tests/test_launch_round1.py"
+reason = "Its times are fake log lines and an injected now or VEXTRUS_NOW; no test reads a commit's time."
+
+[[allow]]
+path = "scripts/factory/tests/acceptance/test_stamp.py"
+reason = "Every time is passed in with now=; no test reads a commit's time."
+
+[[allow]]
+path = "scripts/tests/test_land.py"
+reason = "Its times are fake CI log lines and check results; no test reads a commit's time."
+
+[[allow]]
+path = "scripts/tests/test_merge_ready.py"
+reason = "recorded_at is ledger data whose shape merge_ready checks; it never compares it with a commit's time."
+
+[[allow]]
+path = "scripts/tests/acceptance/p6_land/_fakegh.py"
+reason = "Its times are fake CI log lines and recorded_at ledger data; nothing compares them with a commit's time."
+
+[[allow]]
+path = "scripts/tests/acceptance/tf4/test_ledger_fetch_verdict.py"
+reason = "started_at is launch-record data; no test compares it with a commit's time."
+
+[[allow]]
+path = "scripts/tests/acceptance/tf4/test_merge_ready_gate.py"
+reason = "recorded_at is ledger data whose shape merge_ready checks; it never compares it with a commit's time."
+
+[[allow]]
+path = "scripts/walk/tests/test_walk.py"
+reason = "Its commits are pinned (COMMITTED); time.time() only dates a fresh walk a minute ago, never a fixed time."
+
+[[allow]]
+path = "tools/lint/tests/acceptance/p6_lint1/test_time_bombs.py"
+reason = "Fixtures are strings written to a tmp tree."
+
+[[allow]]
+path = "tools/lint/tests/test_time_bombs.py"
+reason = "Fixtures are strings written to a tmp tree."

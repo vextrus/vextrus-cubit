@@ -53,6 +53,8 @@ refuses an unlinked cut item).
   to break your claim before READY.
 - If you add or change words under `web/src/messages/**`, ask `ux-critic` for the words-only design gate
   before READY.
+- A test that fixes a timestamp pins its git commits' dates (`GIT_AUTHOR_DATE` and `GIT_COMMITTER_DATE`)
+  and reads no wall clock; `python3 -m tools.lint.time_bombs` fails on it (#308, #293).
 - Two failed rounds of fixes on the same failure: stop and finish BLOCKED with the reason.
 
 ## The laws

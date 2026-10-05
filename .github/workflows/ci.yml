@@ -65,8 +65,8 @@ jobs:
         run: python -m tools.lint.market_literals
 
   harness:
-    # The workflow check, every node test and the shard check (01c; s02 review R3; f1), on every
-    # change: all are quick.
+    # The workflow check, the workflow-script and time-bomb lints, every node test and the shard check
+    # (01c; s02 review R3; f1; #308), on every change: all are quick.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -82,6 +82,10 @@ jobs:
           python-version-file: .python-version
       - name: Workflow check (only main's not-applicable workflow may post those two statuses)
         run: python3 -m tools.lint.workflows
+      - name: Workflow-script check (no clock, random or import( in .claude/workflows/*.js; each parses)
+        run: python3 -m tools.lint.workflows_js
+      - name: Time-bomb check (no test fixes a timestamp beside a wall-clock read or an unpinned git commit)
+        run: python3 -m tools.lint.time_bombs
       - name: Every node test under .claude/ and scripts/ (quoted globs; Node 24 runs a directory argument as a file)
         run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs'
       - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)
