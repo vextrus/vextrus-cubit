@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 
 from engine.geometry.placement import chain, chain_transform
-from engine.recognise import sheets, views
+from engine.recognise import conflicts, sheets, views
+from engine.recognise.tests.acceptance.w316 import drawing as w316
 from engine.recognise.tests.drawing import DEFAULT, H, Sheets, W, frame_block, rectangle, value_at
 from engine.recognise.types import (
     Box,
@@ -460,7 +461,107 @@ def test_every_structural_kind_but_the_general_ones_names_a_step() -> None:
     ],
 )
 def test_the_subject_words_of_site_works_and_presentation(title: str, named: set[str]) -> None:
-    assert views.subjects(title) == named
+    reading = views._reading(CONVENTIONS)
+    found = {key for _, _, key in reading.subjects.matches(views._tokens(title))}
+    assert found == named
+    assert views.subjects(title) == named - views.NOT_MEMBERS  # no continuation's evidence
+
+
+# Review round 1 of PR #431: no View already homed moves, conflicts stay as before ---------------------
+
+
+@pytest.mark.parametrize(
+    ("title", "steps"),
+    [
+        ("SITE PLAN WITH PILE POSITIONS", ("foundations",)),
+        ("BOUNDARY WALL FOOTING DETAIL", ("foundations",)),
+        ("GATE COLUMN DETAIL", ("columns",)),
+        ("DRIVEWAY SLAB DETAIL", ("slabs",)),
+        ("DRAIN AND RETAINING WALL SECTION", ("foundations",)),
+    ],
+)
+def test_site_works_words_rank_below_a_member_subject(title: str, steps: tuple[str, ...]) -> None:
+    """A title naming a member keeps that member's Steps, by its own title or its sheet's."""
+    reading = views._reading(CONVENTIONS)
+    own = views._proposal(ViewKind.DETAIL, views._subject(title, reading), "structural")
+    on_sheet = views._proposal(
+        ViewKind.DETAIL, None, "structural", views._subjects_in_order(title, reading)
+    )
+    assert (own[0], on_sheet[0]) == (steps, steps)
+
+
+@pytest.mark.parametrize(
+    "sheet_title", ["FIRST FLOOR PLAN AND COLUMN LAYOUT", "TYPICAL FLOOR PLAN AND BEAM LAYOUT"]
+)
+def test_a_working_plan_on_a_sheet_naming_its_plan_before_the_structure_stays_in(
+    sheet_title: str,
+) -> None:
+    d, sheet = w316.model_sheet(
+        ["FIRST FLOOR PLAN", None], title=sheet_title, discipline="architectural"
+    )
+    found = [(v.kind, w316.proposed(v)) for v in w316.drawn(d, sheet)]
+    assert found == [(ViewKind.PLAN, (("walls", "rooms"), None, None))] * 2
+
+
+@pytest.mark.parametrize(
+    "sheet_title",
+    [
+        "STAIRCASE DETAILS AND NOTES",
+        "PANTRY DETAILS WITH NOTES",
+        "SCHEDULE OF FLOOR FINISHES AND SPECIFICATIONS",
+        "REAR FACADE DETAILS AND NOTES",
+    ],
+)
+def test_a_trailing_notes_word_makes_no_general_notes_sheet(sheet_title: str) -> None:
+    d, sheet = w316.model_sheet(
+        ["TYPICAL NOSING DETAIL", "SCHEDULE OF TILES"], title=sheet_title, discipline="architectural"
+    )
+    found = [(v.kind, w316.proposed(v)) for v in w316.drawn(d, sheet)]
+    assert found == [
+        (ViewKind.DETAIL, (("walls", "rooms"), None, None)),
+        (ViewKind.SCHEDULE, (("walls", "rooms"), None, None)),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("title", "notes"),
+    [
+        ("GENERAL NOTES", True),
+        ("NOTES AND TYPICAL DETAILS", True),
+        ("SPECIFICATIONS FOR FINISHES", True),
+        ("SCHEDULE OF SKIRTING AND GENERAL NOTES", True),
+        ("LIFT LOBBY DETAILS AND NOTES", False),
+    ],
+)
+def test_a_general_notes_sheet_says_general_notes_or_leads_with_notes(title: str, notes: bool) -> None:
+    assert views._notes_sheet(title, views._reading(CONVENTIONS)) is notes
+
+
+@pytest.mark.parametrize(
+    ("sheet_title", "titles"),
+    [
+        ("COMPOUND WALL DETAILS", ["COMPOUND WALL FOOTING DETAIL", "SECTION 4-4"]),
+        ("SITE PLAN", ["SEPTIC TANK DETAIL", "FOOTING DETAIL"]),
+    ],
+)
+def test_site_works_words_are_no_continuations_evidence(
+    sheet_title: str, titles: list[str | None]
+) -> None:
+    """A run's later sheet holding a member's details under a site-works title is not contradicted
+    (`conflicts.contradicted`, 19b): its title names no member, so it is one Continuation as before."""
+    d, sheet = w316.model_sheet(titles, title=sheet_title, discipline="structural")
+    assert views.subjects(sheet_title) == frozenset()
+    assert not conflicts.contradicted(sheet, w316.drawn(d, sheet), None)
+
+
+def test_a_presentation_plan_has_no_subject_so_it_buckets_no_same_storey_conflict() -> None:
+    """`conflicts`' same-storey rule buckets plans by subject and passes a subject-less one by: two
+    presentation plans of one floor on two sheets raise no Conflict, as before the presentation words."""
+    for title in ("FURNISHED SECOND FLOOR PLAN", "COLOURED SECOND FLOOR PLAN"):
+        d, sheet = w316.model_sheet([title], title="GENERAL ARRANGEMENT", discipline="architectural")
+        (found,) = w316.drawn(d, sheet)
+        assert (found.kind, found.subject, bool(found.storeys)) == (ViewKind.PLAN, None, True)
+        assert w316.proposed(found) == ((), None, "for_information")
 
 
 @pytest.mark.parametrize(
