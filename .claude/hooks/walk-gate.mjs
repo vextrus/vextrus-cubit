@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Stop, main checkout only: no "walk now" to the owner without a passing G1 on main (docs/specs/factory.md §5). The
 // owner was told "walk now" twice with no agent walking first (spec D3). A last message asking for the walk is
-// blocked unless `python3 -m scripts.walk.ready origin/main` exits 0 within 8 s. The phrases match as whole words, and
-// each block reason quotes the words that matched, so a message that only discusses the rule can be rephrased. Fails
-// closed where it matters:
-// ready.py absent (G1 not installed), failing, or hung blocks. Every other failure (no message, garbage stdin, a
-// builder session) lets the stop through. stop_hook_active is not honoured: Claude Code's cap of 8 blocks in a
-// row is the backstop, and a second "walk now" is no more true than the first.
+// blocked unless `python3 -m scripts.walk.ready origin/main` exits 0 within 8 s. A phrase inside a longer word
+// ("sidewalk now", "walk nowhere") does not count, and each block reason quotes the words that matched, so a message
+// that only discusses the rule can be rephrased. Fails closed where it matters: ready.py absent (G1 not installed),
+// failing, or hung blocks. Every other failure (no message, garbage stdin, a builder session) lets the stop through.
+// stop_hook_active is not honoured: Claude Code's cap of 8 blocks in a row is the backstop, and a second "walk now" is
+// no more true than the first.
 import { spawnSync } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
@@ -15,7 +15,9 @@ import { join, resolve } from "node:path";
 const project = process.env.CLAUDE_PROJECT_DIR || "";
 // Registered with a 15 s timeout, and a timed-out hook fails open: the whole hook ends inside 10 s.
 const DEADLINE_MS = 10_000;
-const PHRASES = /\b(?:walk now|ready for your walk|please walk)\b/i;
+// Fails toward blocking: only a letter before a phrase frees it (markdown's `_` and `*` do not), and after it only the
+// two false matches "walk nowhere" and "walked"; "walkthrough" and "walking" still block.
+const PHRASES = /(?<![A-Za-z])(?:walk now(?!here)|ready for your walk|please walk(?!ed))/i;
 
 const git = (...args) => {
   const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 1_000 });

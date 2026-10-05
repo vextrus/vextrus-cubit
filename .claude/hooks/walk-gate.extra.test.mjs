@@ -59,6 +59,26 @@ test("the reason quotes the match as written and names ready.py's exit", () => {
   assert.ok(reason.includes("exited 3"), reason);
 });
 
-test("a phrase run into a word or an underscore does not match", () => {
-  for (const message of ["walk_now", "please walking", "awalk now"]) assert.equal(stop(project(1), {}, message), "allowed");
+test("a phrase run into a word does not match", () => {
+  for (const message of ["walk_now", "awalk now", "sidewalk now", "Walk nowhere near it.", "Please walked back the claim."]) {
+    assert.equal(stop(project(1), {}, message), "allowed", message);
+  }
 });
+
+// Fix round 1 (PR #360, finding 75): the match fails toward blocking. Only a letter before the phrase frees it, so
+// markdown emphasis (`_`, `*`) still blocks; after it, only the pinned false matches ("nowhere", "walked") are freed,
+// so "walkthrough" and "walking" still block.
+for (const [message, quoted] of [
+  ["The build is ready for your walkthrough.", "ready for your walk"],
+  ["Please walkthrough the screens.", "Please walk"],
+  ["You can _walk now_", "walk now"],
+  ["__Please walk__ the Priced BOQ", "Please walk"],
+  ["**Walk now**, the head is green.", "Walk now"],
+  ["please walking it through", "please walk"],
+]) {
+  test(`a walk request blocks on a failing G1: ${JSON.stringify(message)}`, () => {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+    assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
+  });
+}
