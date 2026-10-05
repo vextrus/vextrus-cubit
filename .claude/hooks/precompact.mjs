@@ -2,11 +2,12 @@
 // PreCompact (manual|auto): write what a compaction must not lose (branch, head, budgets, open review rounds, the
 // last STATE lines) to `.private/work/factory/precompact-<utc>.md`. With `restore` (SessionStart `compact`): print the
 // newest dump back into the fresh context, at most 8000 characters. It writes only where `.private/work/factory/`
-// already exists (never in a cloud clone), reads nothing else under `.private/` but session.json's state file and the
-// ledger, never blocks and always exits 0. `VEXTRUS_NOW_UTC` stands in for the wall clock in tests.
+// already exists (never in a cloud clone), reads nothing else under `.private/` but the ledger and session.json's state
+// file (absolute, as `stamp start` records it, or relative to the project; its real path must lie under the project's
+// `.private/work/`), never blocks and always exits 0. `VEXTRUS_NOW_UTC` stands in for the wall clock in tests.
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, normalize } from "node:path";
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const project = process.env.CLAUDE_PROJECT_DIR || "";
 const factory = join(project, ".private/work/factory");
@@ -68,11 +69,25 @@ function openRounds() {
   return open.length > 0 ? open : ["- none"];
 }
 
-/** The last 20 lines of session.json's state file, which must lie under .private/work/. */
+/** True when `path`, relative to `base`, lies strictly inside it (segments compared, never a bare string prefix). */
+const inside = (base, path) => {
+  const rel = relative(base, path);
+  return rel !== "" && !isAbsolute(rel) && rel.split(sep)[0] !== "..";
+};
+
+/** The last 20 lines of session.json's state file, which must lie under .private/work/, by its path and its real path. */
 function stateLines(session) {
-  const file = isObject(session) && typeof session.state_file === "string" ? normalize(session.state_file) : null;
-  if (file === null || !file.startsWith(".private/work/") || file.includes("..")) return ["(no state file)"];
-  const text = attempt(() => readFileSync(join(project, file), "utf8"));
+  if (!isObject(session) || typeof session.state_file !== "string" || session.state_file === "") return ["(no state file)"];
+  const wanted = resolve(project, session.state_file);
+  const realProject = attempt(() => realpathSync(project), resolve(project));
+  const work = join(realProject, ".private", "work");
+  // Re-base a path given through the project's own (possibly symlinked) path onto its real path.
+  const checked = inside(resolve(project), wanted) ? join(realProject, relative(resolve(project), wanted)) : wanted;
+  if (!inside(work, checked)) return ["(no state file)"];
+  const real = attempt(() => realpathSync(checked));
+  if (real === null) return ["(state file unreadable)"];
+  if (!inside(work, real)) return ["(no state file)"];
+  const text = attempt(() => readFileSync(real, "utf8"));
   if (text === null) return ["(state file unreadable)"];
   return text.replace(/\n$/, "").split("\n").slice(-20);
 }
