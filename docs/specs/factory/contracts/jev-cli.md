@@ -19,7 +19,7 @@ ask(state, questions, *, model="jev-1.13.0") -> Answers | Unavailable
 
 | Part | Contract |
 |---|---|
-| `state` | A string, mapping or list: what Jev reads. Public text only unless the caller is a local step whose text may carry drawing text under the local key (ADR 0013; never from a cloud session until Q23). |
+| `state` | A string, mapping or list: what Jev reads. Public text only unless the caller is a local step whose text may carry drawing text under the local key (ADR 0013; from a cloud session only the two Development Sets' text, since Q23 of 5 Oct 2026). |
 | `questions` | A mapping of question name to a typed question: `{"kind": "noul", "text": ...}`, `{"kind": "choice", "text": ..., "options": {...}}` or `{"kind": "score", "text": ..., "levels": [...]}` (TypeSafe's three primitives: P(yes); a choice among up to 255 options with probabilities and confidence; a score on 2 to 10 ordered levels). Question names are not sent to the model. |
 | `model` | Default `jev-1.13.0`, pinned. The aliases `jev-latest` and `jev-preview` are used only by `models-check`. |
 | returns `Answers` | A mapping from question name to its answer (`noul`: `p` in 0 to 1; `choice`: the choice, its probabilities and `confidence`; `score`: the score, legend, probabilities and `confidence`), plus `model` (the id the response named), `input_tokens` and `latency_ms`. Every shape is validated against what was asked; an answer that is not an answer to the question is `Unavailable("malformed")`. |
