@@ -4,9 +4,9 @@
     groups.among(listed, viewed, file_groups, conventions)    # {sheet id: Group}, alone: absent
 
 - **A continuation** (`engine.recognise.types.Continuation`): one title on consecutive numbers, or
-  titles equal but for a member-mark range ("BEAM B1-B6 DETAILS", "BEAM B7-B12 DETAILS"). Every sheet
-  of one run carries the run's id, its first sheet's id as text, and its title, the ranges joined
-  ("BEAM B1-B12 DETAILS").
+  titles equal but for a member-mark range ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9
+  DETAILS"). Every sheet of one run carries the run's id, its first sheet's id as text, and its title,
+  the ranges joined ("GRADE BEAM GB2-GB9 DETAILS").
 - **A series** (`engine.recognise.types.Series`): one title on several runs that draw different
   storeys, marks or members ("N sheets share this title"), no Question. Every sheet of one series
   carries its first sheet's id as text.

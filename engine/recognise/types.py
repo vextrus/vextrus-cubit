@@ -686,7 +686,7 @@ class SheetConventions:
     common_sheet_kinds: tuple[str, ...] = ()
     """The kinds every Discipline has (a cover or index, general notes, other)."""
     member_range_pattern: str | None = None
-    """A range of member marks in a title ("B1-B6", "C2 TO C5"; T-W334): its named groups `a` and
+    """A range of member marks in a title ("GB2-GB5", "W3 TO W6"; T-W334): its named groups `a` and
     `low` are the first mark's letters and digits, `b` and `high` the second's. Titles equal but for
     such ranges are one title to 19b's conflicts (`conflicts.range_key`); none: no range is read."""
 

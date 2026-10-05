@@ -166,7 +166,7 @@ class ProposalView:
     continuation: str | None = None
     """The continuation run it is in, by the run's first sheet's id (`groups`, T-W334); None alone."""
     continuation_title: str | None = None
-    """The run's title, its member-mark ranges joined ("BEAM B1-B18 DETAILS"); None alone."""
+    """The run's title, its member-mark ranges joined ("GRADE BEAM GB2-GB14 DETAILS"); None alone."""
     series: str | None = None
     """The series it is in, by the series' first sheet's id; None when it is in none."""
 

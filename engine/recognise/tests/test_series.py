@@ -5,6 +5,7 @@ title, number and mark is invented."""
 import itertools
 import json
 import random
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -30,7 +31,7 @@ PATTERN = CONV.member_range_pattern
 
 
 def compare(
-    sheets: list[SheetCandidate], views: list[tuple[ViewCandidate, ...]] | None = None
+    sheets: list[SheetCandidate], views: Sequence[Sequence[ViewCandidate]] | None = None
 ) -> list[Any]:
     return list(
         conflicts.compare(
@@ -77,7 +78,7 @@ def test_what_is_no_range_leaves_the_title_as_it_is(title: str) -> None:
 
 
 def test_a_title_longer_than_a_pattern_runs_on_has_no_range() -> None:
-    title = "BEAM B1-B6 " + "X" * MAX_PATTERN_TEXT
+    title = "STRAP BEAM SB1-SB4 " + "X" * MAX_PATTERN_TEXT
 
     assert member_ranges(title, PATTERN) == ()
 
@@ -91,7 +92,9 @@ def test_a_wider_pattern_still_reads_no_mark_of_running_limit_or_more() -> None:
 
 
 def test_ranges_of_other_letters_on_consecutive_numbers_are_two_runs_and_a_series() -> None:
-    found = compare([sheet("S-40", "BEAM B1-B6 DETAILS"), sheet("S-41", "BEAM C1-C6 DETAILS")])
+    found = compare(
+        [sheet("S-40", "STRAP BEAM SB1-SB4 DETAILS"), sheet("S-41", "STRAP BEAM TB1-TB4 DETAILS")]
+    )
 
     assert [numbers(s) for s in found if isinstance(s, Series)] == [["S-40", "S-41"]]
     assert [c for c in found if isinstance(c, Continuation)] == []
@@ -167,3 +170,51 @@ def test_a_member_range_pattern_is_bounded_like_every_other() -> None:
         SheetConventions.from_json(
             {**DEFAULT, "member_range_pattern": r"(?P<a>(B+)+)(?P<low>\d)-(?P<b>B)(?P<high>\d)"}
         )
+
+
+# The refuter's cases (T-W334's review) ----------------------------------------------------------
+
+WIDE = "".join(chr(ord(c) + 0xFEE0) if c != "-" else c for c in "SB1-SB4")
+"""The range "SB1-SB4" in fullwidth letters and digits, which NFKC reads as ASCII."""
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        "STRAP BEAM SB1​-SB4 DETAILS",  # a format character inside the range
+        "STRAP BEAM SB1­-SB4 DETAILS",
+        "STRAP BEAM SB1-SB4 DETAILS" + " " * 240,  # longer than a pattern runs on, until cleaned
+        "STRAP BEAM " + WIDE + " DETAILS",  # fullwidth
+    ],
+)
+def test_a_title_its_normal_form_joins_is_read_as_one_title(other: str) -> None:
+    found = compare([sheet("S-40", "STRAP BEAM SB1-SB4 DETAILS"), sheet("S-47", other)])
+
+    assert [f.kind for f in found] == [conflicts.SAME_TITLE]
+
+
+def test_copies_of_a_number_run_on_only_when_every_copys_range_is_below_the_next() -> None:
+    found = compare(
+        [
+            sheet("S-10", "STRAP BEAM SB1-SB4 DETAILS"),
+            sheet("S-10", "STRAP BEAM SB20-SB30 DETAILS"),
+            sheet("S-11", "STRAP BEAM SB5-SB9 DETAILS"),
+        ]
+    )
+
+    assert [c for c in found if isinstance(c, Continuation)] == []
+    assert conflicts.SAME_NUMBER in [f.kind for f in found if not isinstance(f, Series)]
+
+
+@pytest.mark.parametrize(
+    ("pattern", "title"),
+    [
+        (r"(?P<a>[A-Z])(?P<low>\d)?-(?P<b>[A-Z])(?P<high>\d)", "STRAP BEAM S-S1 DETAILS"),
+        (r"(?P<a>[A-Z])(?P<low>\w{1,3})-(?P<b>[A-Z])(?P<high>\w{1,3})", "STRAP BEAM SX-S1 DETAILS"),
+        (r"(?P<a>[A-Z])?(?P<low>\d)-(?P<b>[A-Z])(?P<high>\d)", "STRAP BEAM 1-S4 DETAILS"),
+    ],
+)
+def test_a_pattern_that_reads_no_number_or_letters_reads_no_range_and_never_raises(
+    pattern: str, title: str
+) -> None:
+    assert member_ranges(title, pattern) == ()

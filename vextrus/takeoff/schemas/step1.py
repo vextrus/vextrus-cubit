@@ -98,7 +98,7 @@ class Step1ProposalOut(_FromView):
     continuation_title: str | None = Field(
         None,
         description="The run's title as its row shows it, its member-mark ranges joined "
-        '("BEAM B1-B18 DETAILS"). Null when `continuation` is.',
+        '("GRADE BEAM GB2-GB14 DETAILS"). Null when `continuation` is.',
     )
     series: str | None = Field(
         None,

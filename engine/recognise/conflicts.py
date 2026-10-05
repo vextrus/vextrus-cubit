@@ -40,24 +40,24 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   its title does not, or its views of its title's kind all disagree with it by layer or by every other
   word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
 - **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
-  ("BEAM B1-B6 DETAILS", "BEAM B7-B12 DETAILS") are one title: a title is grouped by `range_key`, the
-  normal form of the words around its ranges (the conventions' `member_range_pattern`; none, or a
-  title with no range: its normal form), so a title with a range never joins the same words without
-  one. A range's marks share their letters and ascend, below `RUNNING_LIMIT`; else it is no range. Two
-  sheets of such a title run on only when their numbers do and each range of the first lies below the
-  next's, of one letters ("B1-B6" then "B7-B12"; "B1-B6" then "B4-B9" do not); the run's title is the
-  first sheet's as drawn, each range running on to the last sheet's second mark ("BEAM B1-B12
-  DETAILS"), its joiner kept.
-- **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on
-  two places or more that do not all run on, none of its sheets contradicted, whose runs draw
-  different things (`_apart`). What a run draws, in this order: (a) the storeys its views state, not
-  symbolic; (b) the member marks its views' titles name (a range, or a word of one to three letters
-  then one to four digits, "BEAM B7") and its own titles' ranges, each an interval; and only when it
-  has neither, (c) the storeys, not symbolic, of the plan views of the nearest sheet numbered before it
-  (its group, Discipline and prefix) whose title reads as a plan (17's `describe`): the layout each
-  floor's details follow. The runs are a series when every run draws something and no two share a
-  storey or overlap in marks; else the title is `same_title` (one overlap keeps every sheet: no part
-  is a series). What was not read is not different: a run that draws nothing keeps the Question.
+  ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9 DETAILS") are one title: a title is grouped by
+  `range_key`, the normal form of the words around its ranges (the conventions' `member_range_pattern`;
+  none, or a title with no range: its normal form), so a title with a range never joins the same words
+  without one. A range's marks share their letters and ascend, below `RUNNING_LIMIT`; else it is no
+  range. Two sheets of such a title run on only when their numbers do and each range of the first lies
+  below the next's, of one letters ("GB2-GB5" then "GB6-GB9"; "GB2-GB5" then "GB4-GB8" do not); the run's
+  title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
+  GB2-GB9 DETAILS"), its joiner kept.
+- **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
+  places or more that do not all run on, none of its sheets contradicted, whose runs draw different
+  things (`_apart`). What a run draws, in this order: (a) the storeys its views state, not symbolic; (b)
+  the member marks its views' titles name (a range, or a word of one to three letters then one to four
+  digits, "GRADE BEAM GB7") and its own titles' ranges, each an interval; and only when it has neither,
+  (c) the storeys, not symbolic, of the plan views of the nearest sheet numbered before it (its group,
+  Discipline and prefix) whose title reads as a plan (17's `describe`): the layout each floor's details
+  follow. The runs are a series when every run draws something and no two share a storey or overlap in
+  marks; else the title is `same_title` (one overlap keeps every sheet: no part is a series). What was
+  not read is not different: a run that draws nothing keeps the Question.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
   and not two places), and not a series: two of its runs may draw the same thing. One Conflict naming
@@ -234,9 +234,10 @@ def compare(
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
     numbers = [reader.key(sheet) for sheet in sheets]
     pattern = None if conventions is None else conventions.member_range_pattern
-    keyed = [(None, ()) if s.title is None else _keyed(s.title.value, pattern) for s in sheets]
-    titles = [key for key, _ in keyed]
-    ranges = [found for _, found in keyed]
+    keyed = [(None, (), "") if s.title is None else _keyed(s.title.value, pattern) for s in sheets]
+    titles = [key for key, _, _ in keyed]
+    ranges = [found for _, found, _ in keyed]
+    cleaned = [text for _, _, text in keyed]  # the text each title's ranges lie in
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
     plans = _Plans(sheets, numbers, reader)
 
@@ -267,8 +268,10 @@ def compare(
             continue
         alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
 
-        def fits(before: int, after: int, units: list[list[int]] = units) -> bool:
-            return _ascending(ranges[units[before][0]], ranges[units[after][0]])
+        spans = [_span([ranges[i] for i in unit]) for unit in units]
+
+        def fits(before: int, after: int, spans: list[list[_Span]] = spans) -> bool:
+            return _ascending(spans[before], spans[after])
 
         runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits)
         members_of = [[i for unit in run for i in unit] for run in runs]
@@ -276,7 +279,9 @@ def compare(
             places.join(members)
             if len(run) > 1:
                 first, last = members[0], members[-1]
-                title = _joined(_drawn(sheets[first]), ranges[first], _drawn(sheets[last]), ranges[last])
+                title = _drawn(sheets[first])
+                if ranges[first]:
+                    title = _joined(cleaned[first], ranges[first], cleaned[last], ranges[last])
                 continuation = Continuation(title, tuple(sheets[i] for i in members))
                 continuations.append((min(members), continuation))
         if len(runs) > 1:
@@ -581,7 +586,7 @@ def _runs(
 
 @dataclass(frozen=True)
 class MemberRange:
-    """A range of member marks as a title draws it ("B1-B6", "C2 TO C5"): the marks' letters (in
+    """A range of member marks as a title draws it ("GB2-GB5", "W3 TO W6"): the marks' letters (in
     normal form, one for both), the lowest and highest number, and where it lies in the drawn text
     (`at` to `end`; `high_at` where its second mark starts)."""
 
@@ -599,13 +604,17 @@ RANGE_DIGITS = len(str(RUNNING_LIMIT)) - 1
 
 def member_ranges(text: str, pattern: str | None) -> tuple[MemberRange, ...]:
     """The member ranges a text draws, by the conventions' pattern (none: none); a match whose marks'
-    letters differ, whose numbers descend or reach `RUNNING_LIMIT` is no range. A text longer than
-    a pattern runs on has none (`pattern_finditer`)."""
+    letters differ or are missing, whose numbers are missing, not decimal digits, descend or reach
+    `RUNNING_LIMIT` is no range. A text longer than a pattern runs on has none (`pattern_finditer`).
+    Titles are read in their clean form (`_keyed`), so a format character or a fullwidth digit never
+    hides a range their normal form shows."""
     if pattern is None:
         return ()
     found = []
     for match in pattern_finditer(pattern, text):
         low, high = match.group("low"), match.group("high")
+        if not (low and high and low.isdecimal() and high.isdecimal()):
+            continue  # a pattern of the conventions' may leave a mark's number out, or read letters
         if len(low) > RANGE_DIGITS or len(high) > RANGE_DIGITS:
             continue
         letters = normal(match.group("a"))
@@ -619,29 +628,51 @@ def member_ranges(text: str, pattern: str | None) -> tuple[MemberRange, ...]:
 
 def range_key(title: str, pattern: str | None) -> Hashable | None:
     """What a title is grouped by: its normal form, or, when it draws member ranges, the normal forms
-    of the words around them ("BEAM B1-B6 DETAILS" and "BEAM B7-B12 DETAILS" are one title, never
-    "BEAM DETAILS"); none when nothing is left."""
+    of the words around them ("GRADE BEAM GB2-GB5 DETAILS" and "GRADE BEAM GB6-GB9 DETAILS" are one
+    title, never "GRADE BEAM DETAILS"); none when nothing is left."""
     return _keyed(title, pattern)[0]
 
 
-def _keyed(title: str, pattern: str | None) -> tuple[Hashable | None, tuple[MemberRange, ...]]:
-    whole = normal(title)
-    found = member_ranges(title, pattern) if whole is not None else ()
+def _keyed(title: str, pattern: str | None) -> tuple[Hashable | None, tuple[MemberRange, ...], str]:
+    """A title's key (`range_key`), its ranges, and the clean text they lie in: the ranges are read
+    in the title's clean form, whose case folded is its normal form, so the key never parts titles
+    the normal form joins."""
+    text = clean(title)
+    whole = text.casefold() or None
+    found = member_ranges(text, pattern) if whole is not None else ()
     if not found:
-        return whole, ()
-    edges = [0, *(i for r in found for i in (r.at, r.end)), len(title)]
-    words = tuple(normal(title[a:b]) or "" for a, b in zip(edges[::2], edges[1::2], strict=True))
-    return ("ranged", *words), found
+        return whole, (), text
+    edges = [0, *(i for r in found for i in (r.at, r.end)), len(text)]
+    words = tuple(normal(text[a:b]) or "" for a, b in zip(edges[::2], edges[1::2], strict=True))
+    return ("ranged", *words), found, text
 
 
-def _ascending(before: Sequence[MemberRange], after: Sequence[MemberRange]) -> bool:
-    """Whether a sheet's ranges run on to the next's: each of one letters and below the next."""
-    return all(a.letters == b.letters and a.high < b.low for a, b in zip(before, after, strict=True))
+type _Span = tuple[str | None, int, int]
+"""One range of a number's copies: their letters (none when they differ), lowest and highest."""
+
+
+def _span(copies: Sequence[Sequence[MemberRange]]) -> list[_Span]:
+    """The ranges of one number's copies (one key, so as many each), each spanning all of them."""
+    spans: list[_Span] = []
+    for alike in zip(*copies, strict=True):
+        letters = {r.letters for r in alike}
+        one = letters.pop() if len(letters) == 1 else None
+        spans.append((one, min(r.low for r in alike), max(r.high for r in alike)))
+    return spans
+
+
+def _ascending(before: Sequence[_Span], after: Sequence[_Span]) -> bool:
+    """Whether a number's ranges run on to the next's: each of one letters, every copy's below every
+    copy of the next's."""
+    return all(
+        a[0] is not None and a[0] == b[0] and a[2] < b[1] for a, b in zip(before, after, strict=True)
+    )
 
 
 def _joined(first: str, firsts: Sequence[MemberRange], last: str, lasts: Sequence[MemberRange]) -> str:
     """A run's title: the first sheet's as drawn, each range running on to the last sheet's second
-    mark ("BEAM B1-B6 DETAILS" to "BEAM B13-B18 DETAILS": "BEAM B1-B18 DETAILS")."""
+    mark ("GRADE BEAM GB2-GB5 DETAILS" to "GRADE BEAM GB10-GB14 DETAILS": "GRADE BEAM GB2-GB14
+    DETAILS")."""
     text = first
     for a, b in reversed(list(zip(firsts, lasts, strict=True))):
         text = text[: a.high_at] + last[b.high_at : b.end] + text[a.end :]
@@ -650,12 +681,12 @@ def _joined(first: str, firsts: Sequence[MemberRange], last: str, lasts: Sequenc
 
 _MARK = re.compile(r"(?<![^\W_])([^\W\d_]{1,3})(\d{1,4})(?![^\W_])")
 """A single member mark in a view's title: a word of one to three letters then one to four digits
-("BEAM B7", "C12"), the marks the member range pattern joins."""
+("GRADE BEAM GB7", "C12"), the marks the member range pattern joins."""
 
 
 def _marks(text: str, pattern: str | None) -> list[tuple[str, int, int]]:
     """The member marks a view's title names, each an interval: its ranges and its single marks."""
-    found = [(r.letters, r.low, r.high) for r in member_ranges(text, pattern)]
+    found = [(r.letters, r.low, r.high) for r in member_ranges(clean(text), pattern)]
     for match in _MARK.finditer(text):
         letters = normal(match.group(1))
         if letters is not None:

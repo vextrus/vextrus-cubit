@@ -63,8 +63,11 @@ wording on this page stays as specified except where listed here.
 11. **Assign is hidden until M1** (Q10): M0 shows each view's proposed steps and Part, and the QS may
     exclude a view or confirm it back in; `A` is reserved (2.2, 6.9). The revision mark is also read
     from the file name, as its own source ("R0, from the file name"; Q10).
-12. **Sheets a QS reads as one** (Q3, Q4): identical titles on consecutive numbers are one continuation,
-    with no Question; a same-storey conflict needs the same Discipline, subject and layer; with no
+12. **Sheets a QS reads as one** (Q3, Q4): identical titles on consecutive numbers, or titles equal but
+    for a member-mark range ("GB2-GB5", "GB6-GB9"), are one continuation, with no Question; one title on
+    several runs that draw different storeys, marks or members is a series, with no Question (the owner,
+    5 Oct 2026); a same-storey conflict needs the same Discipline, subject and layer, and never sets a
+    layout sheet's plan against a details sheet's enlarged plans; with no
     drawing list the heading says "no drawing list; numbering runs 01–57 without a gap", and the QS may
     type a range as the drawing list (5, 6.2, 6.3, 6.7, 6.10).
 13. **Keys** (U1): Space is bound at region scope on Step 1's list and canvas, so it always swaps List ⇄
@@ -1046,12 +1049,18 @@ Reload the page to see it."
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
 missing, so that Discipline can still be confirmed.
 
-**No Question for these** (the plan's QS review, Q3): **identical titles on consecutive numbers are one
-continuation** ("Column schedule, 3 sheets"), grouped in the list (6.2) with no Question; two plans of
-one storey that draw different subjects (a beam layout and a slab layout) or different layers (a slab's
-top and bottom reinforcement) are normal practice, never a conflict. One title on sheets whose numbers
-do not run on is a conflict headed "One title on two sheets" ("One title on 3 sheets" for more; whatever
-their kind: schedules, elevations); "Two plans draw one thing" heads only two plans of one storey.
+**No Question for these** (the plan's QS review, Q3; the owner, 5 Oct 2026): **identical titles on
+consecutive numbers are one continuation** ("Column schedule, 3 sheets"), and so are **titles equal but
+for a member-mark range** ("Grade beam details GB2-GB5", "GB6-GB9", "GB10-GB14": "Grade beam details GB2-GB14, 3 sheets"),
+grouped in the list (6.2) with no Question. **One title on several runs that draw different storeys,
+marks or members is a series** ("6 sheets share this title": each floor's beam details after that
+floor's layout plan), with no Question. Two plans of one storey that draw different subjects (a beam
+layout and a slab layout) or different layers (a slab's top and bottom reinforcement) are normal
+practice, never a conflict, and a layout sheet's plan is never compared with a details sheet's enlarged
+plans of its subject and storey. One title on sheets that may draw the same thing (two continuations
+or single sheets that share a storey or a mark, or that nothing read tells apart) is a conflict headed "One title on two sheets"
+("One title on 3 sheets" for more; whatever their kind: schedules, elevations), its count the sheets it
+holds; "Two plans draw one thing" heads only two plans of one storey.
 
 **Storeys.** A sheet's storeys come from its plan views as an explicit list, never an expanded
 first–last (amendment 1): shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th";
@@ -1198,7 +1207,10 @@ are one continuation and one row: Number "S-09–S-11", Title "Column schedule, 
 columns as for one sheet (the Views column adds up the three). A chevron at the row's start (or `→`
 with the row focused) opens it to show the three sheets' own rows, indented; `←` closes it. Space opens
 its first sheet, and sheet mode pages through the three. Confirming or excluding the row does it to all
-three, and the Count counts three sheets. No Question is raised for them.
+three, and the Count counts three sheets. No Question is raised for them. Titles equal but for a
+member-mark range are one continuation too: Title "Grade beam details GB2-GB14, 3 sheets", the ranges joined
+first to last. A **series** (one title on runs that draw different storeys, marks or members) raises no
+Question; its sheets say "N sheets share this title" (T-W322 shows it).
 
 ### 6.3 Grouping and order
 Sections, top to bottom:
@@ -1375,7 +1387,7 @@ Questions, section 7, follow the same templates), and one conflict by subject an
 | Floors that do not run | "3rd, 5th & 7th: three floors, or 3rd to 7th?" | "The title lists floors that do not run: "3rd, 5th & 7th floor beam layout". Vextrus read it as three floors. S-19 draws the 4th and 6th." Trace: "S-18 title block; the drawing list on S-01, row 18; S-19 title block" | 1 "3rd, 5th and 7th only, as written" (pre-picked: "the title and the drawing list agree, and S-19 draws the 4th and 6th") · 2 "3rd to 7th, five floors" · 3 "Keep open, ask the consultant" | "Answering confirms S-18 for the 3rd, 5th and 7th floor levels." |
 | Typical floor | "Which floors are "typical" on S-21?" | "S-21 "Typical floor slab layout" names no floors." Trace: "S-21 title block; the drawing list on S-01, row 21; A-5 title block" | 1 "2nd to 8th floor" (pre-picked: "the drawing list on S-01 ("typical floor, 2nd–8th") and A-5 "Typical floor plan, 2nd to 8th floor" agree") · 2 "Typical: take the floors from Step 3 (Storeys and levels)" · 3 "Keep open, ask the consultant" | 1: "Answering confirms S-21 for the 2nd to 8th floor levels." · 2: "Answering confirms S-21 as typical; its floors come from Step 3." |
 | Storey not read (an EL title) | "Which storey is EL +16′-6″?" | "S-22's title names a level, not a storey: "Beam layout plan at EL. +16′-6″". No title in the set names that level." Trace: "S-22 title block; S-38 building section" | 1 "Mezzanine: the building section on S-38 marks +16′-6″ as the mezzanine floor" · 2 "Keep "EL +16′-6″"; bind it to a storey in Step 3" · 3 "Keep open, ask the consultant" (none: one source only) | 1: "Answering confirms S-22 at the Mezzanine floor level." · 2: "Answering confirms S-22 at EL +16′-6″; Step 3 binds it to a storey." |
-| Two plans draw one thing (`conflict`; not in the prototype) | "S-24 and S-31 both draw the 5th floor slab, bottom layer" | "Both are structural slab plans of the 5th floor, bottom-layer reinforcement, and they are not one continuation (S-24 and S-31 are not consecutive). One may be superseded or misnumbered." Trace: "S-24 title block; S-31 title block" | 1 "Keep S-31 (R1, 14 Sep 2026); leave S-24 out as superseded" · 2 "Keep S-24; leave S-31 out as superseded" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" (none unless a second source agrees) | 1: "Answering confirms S-31 and excludes S-24 as superseded." · 3: "Answering confirms both." |
+| Two plans draw one thing (`conflict`; not in the prototype; two layout sheets or two details sheets, never one of each; its count the sheets it holds) | "S-24 and S-31 both draw the 5th floor slab, bottom layer" | "Both are structural slab plans of the 5th floor, bottom-layer reinforcement, and they are not one continuation (S-24 and S-31 are not consecutive). One may be superseded or misnumbered." Trace: "S-24 title block; S-31 title block" | 1 "Keep S-31 (R1, 14 Sep 2026); leave S-24 out as superseded" · 2 "Keep S-24; leave S-31 out as superseded" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" (none unless a second source agrees) | 1: "Answering confirms S-31 and excludes S-24 as superseded." · 3: "Answering confirms both." |
 
 Every "Keep open" option's first line reads "Answering keeps S-18 open." (or the file or copies it
 holds). A Plot page with no sheet ("Page 12 of … shows S-13, which no DWG has") uses the drawing-list
@@ -1820,3 +1832,10 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
 - **4.4, the Vextrus access line: "Split by role"** (on 20a's design gate). The MD, who can end any
   Vextrus access, reads "… You can end it at any time."; a QS, who can end only the access they gave,
   reads "… You can end the access you gave; your MD can end any."
+
+## The owner's rulings (5 Oct 2026, session 13)
+- **#334, "A series, no Question":** one title on several runs that draw different storeys, marks or
+  members is one series ("N sheets share this title"), no Question; the Question stays when two sheets
+  of one title draw the same thing; `same_storey` never compares a layout sheet's plan with a details
+  sheet's plan views; and "Continuation groups by member-mark range: In M0": titles equal but for a
+  member-mark range group as one continuation (5, 6.2; T-W334).

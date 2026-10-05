@@ -134,7 +134,7 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
 
     assert words == [
         "3 sheets are numbered S-07",
-        "3 sheets are titled \u201cColumn schedule\u201d and may draw the same thing",  # T-W334
+        "3 sheets are titled \u201cColumn schedule\u201d, and nothing read tells them all apart",
         "S-14 and S-15 both draw \u201c5TH FLOOR SLAB, TOP\u201d, top layer",
         "S-24 and S-31 both draw \u201c5TH FLOOR SLAB, BOTTOM\u201d, bottom layer",
         "S-50, S-51 and 1 more sheet draw \u201c5TH FLOOR BEAM LAYOUT\u201d",  # T-W334: sheets
@@ -157,6 +157,11 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
     )
     two: dict[str, str | int] = {"title": "Notes", "sheets": 2}
     assert render(ALL["engine.conflicts.same_title"], two).startswith("Two sheets are titled")
+    # T-W334: a Question counts the sheets it still holds, one once the others are decided
+    assert render(ALL["engine.conflicts.same_title"], {**two, "sheets": 1}).startswith("One sheet is")
+    assert render(ALL["engine.conflicts.same_storey"], {**untitled, "sheets": 1}) == (
+        "S-14 and S-15 both draw a plan of one storey, bottom layer"
+    )
     assert branches(ALL["engine.conflicts.same_storey"], "layer") >= {str(layer) for layer in Layer}
     assert branches(ALL["engine.conflicts.same_storey"], "titled") >= {"same", "differ"}
     assert branches(ALL["engine.conflicts.same_storey"], "first_named") >= {"title"}
