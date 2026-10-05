@@ -21,7 +21,7 @@ export type DisciplineOut = components['schemas']['DisciplineOut']
 export type UploadOut = components['schemas']['UploadOut']
 
 /** A file's row state (14's `FileState`): which acts its row offers. */
-export type RowAct = 'cancel' | 'read_again' | 'try_again' | 'open_step1'
+export type RowAct = 'cancel' | 'read_again' | 'try_again' | 'open_step1' | 'open_question'
 
 /** States whose reading is under way: the row shows a progress line, and the list is read again. */
 const MOVING = new Set(['waiting', 'reading', 'stopping', 'retrying'])
@@ -32,7 +32,8 @@ export function isMoving(file: Pick<FileOut, 'state'>): boolean {
 
 /**
  * The acts §4.5's table gives a row, for a role that changes the Drawing Set (`change`) or one that
- * only looks. "Mark for Vextrus" and "Open the Question" have no operation yet (not built in M0's 20b).
+ * only looks. "Mark for Vextrus" has no operation here yet (not built in M0's 20b). "Open the Question"
+ * reads, so every role has it on a held row, answered or not (#327).
  */
 export function rowActs(file: Pick<FileOut, 'state' | 'format'>, changes: boolean): RowAct[] {
   switch (file.state) {
@@ -47,6 +48,8 @@ export function rowActs(file: Pick<FileOut, 'state' | 'format'>, changes: boolea
     case 'read':
       // A PDF is a Plot: its pages are seen from its DWG's sheets, never opened in Step 1 on their own.
       return file.format === 'dwg' ? ['open_step1'] : []
+    case 'held':
+      return ['open_question']
     default:
       return []
   }

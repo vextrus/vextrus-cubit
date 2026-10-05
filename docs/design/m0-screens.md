@@ -685,7 +685,8 @@ PDF files here to add them, or choose files." The whole page accepts a drop, sho
 "Drop to add to Kadam Residence's Drawing Set". The file table (28 px rows): File · Discipline ·
 Status · Sheets found. A DWG's PDF sits under it once its pages match its sheets. Selecting a row
 (click or `Enter`) opens the file's report in a 480 px docked panel on the right; the table keeps at
-least 752 px at 1280.
+least 752 px at 1280. The sheets of a held file read anyway are in the summary's count and named:
+"221 sheets read (28 of them from a held file), 1 held".
 
 **Discipline** defaults from the file (spec amendment 8; proposed from the sheet numbers' prefix and
 the file name), shown as a quiet select the QS may change on the row; Step 1 starts from it. Its
@@ -713,8 +714,8 @@ of a Discipline that has no file yet opens only that Discipline's Step 1 (5); it
 | Old AutoCAD version | "Saved by a version of AutoCAD that Vextrus cannot read yet. Save it from AutoCAD as a 2018 DWG and add it again." | |
 | Read, readers agree | "Read. Two readers agree" | "Open in Step 1" |
 | Read, with flags | "Read. Two readers agree. 1 flag: Bangla text" | "Open in Step 1" |
-| Held | "Held: the two readers disagree, so it may be misread" (amber, Question glyph) | "Open the Question" |
-| Held, answered (5) | "Held, read anyway: its sheets are marked" / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" | "Open the Question" |
+| Held | "Held: the two readers disagree, so it may be misread" (amber, Question glyph) | "Open the Question" (to Step 1: the open Question, or the file's report once it is answered) |
+| Held, answered (5) | "Held, read anyway: its sheets are marked" / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" | "Open the Question" (to Step 1: the open Question, or the file's report once it is answered) |
 | MEP | *(Row removed in session 02: an MEP file reads like any other, "Read. Two readers agree", its Discipline in the Discipline column; its sheets are confirmed in Step 1, ADR 0040.)* | |
 | PDF matched | "Plot: 11 of 12 pages matched" (+ "; lettering as lines" when so) | |
 | PDF before its DWG | "Plot: waiting for its DWG. Its pages are matched when the DWG is read." | |
@@ -729,6 +730,7 @@ Messages that do not make a row (a toast, or an ErrorBar for several files at on
 | A zip | "drawings.zip is a zip file. Unzip it and drop the DWG and PDF files inside." |
 | Too large | "KR-ARC-R0.dwg is larger than 500 MB, so it was not added. Tell Vextrus if your drawings need more." (the limit is ticket 14's; the figure here is a placeholder) |
 | Several at once | "3 files added; 1 was already here." |
+| Cancel reading after the read ended | "This file finished reading before the cancel arrived, so nothing was undone. Its row shows how it ended." (a toast; the row shows how it ended) |
 
 **The report panel for a DWG** (sections in this order, each hidden when it has nothing to say):
 - **Header:** the file's name; "Architectural. Added 26 Sep 2026 by Nusrat Jahan"; "Close  Esc".
@@ -1344,7 +1346,8 @@ drawing list pasted by Rafiq Hasan, 26 Sep 2026 09:58; 28 found (see the list)."
    "Confirm back in".
 
 **Selection, a file or drawing-list row focused:** its Question card; for a held file, "Open the
-file's report".
+file's report". The Drawing Set's "Open the Question" opens Step 1 here, on the held file's Question
+row, or on the file's report once its Question is answered.
 
 **Questions tab:** every open or kept Question's card in queue order (a click on "Question Q3" in a
 card's header focuses its row), then "Answered": one line each, "Q3 Keep R1 (14 Sep 2026); leave R0

@@ -270,18 +270,34 @@ function Step1({
   useSummaryCounts(project, model)
 
   // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
-  const { sheet: asked } = useSearch({ strict: false }) as { sheet?: string }
+  // `?file=<held file's id>` opens its Question's row, or its report once answered ("Open the Question", #327).
+  const { sheet: asked, file: askedFile } = useSearch({ strict: false }) as { sheet?: string; file?: string }
   const [start] = useState(() => {
     const row = asked ? model.rows.find((r) => r.sheets.some((p) => p.sheet_id === asked)) : undefined
     const first = row?.sheets.find((p) => p.sheet_id === asked)
     return row && first ? { row: row.key, sheet: first.id } : null
   })
+  const misreadOf = (q: QuestionEntry['question']) => q.kind === 'file_misread' && !!askedFile && q.subject_id === askedFile
+  const [fileStart] = useState(() => {
+    if (start || !askedFile) return null
+    const row = model.rows.find((r) => r.question && misreadOf(r.question.question))
+    if (row) return { row: row.key, report: false }
+    return model.answered.some((e) => misreadOf(e.question)) ? { row: null, report: true } : null
+  })
   const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
-  const [focused, setFocused] = useState<string | null>(start?.row ?? null)
+  const [focused, setFocused] = useState<string | null>(start?.row ?? fileStart?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
   const [listFor, setListFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<'coverage' | { file: FileOut } | null>(null)
+  // An answered held file's Question has no row: its report opens instead, once the files are here.
+  const filesNow = useQuery(filesQuery(project.id)).data?.files
+  const [reportOpened, setReportOpened] = useState(false)
+  const heldFile = fileStart?.report && !reportOpened ? filesNow?.find((f) => f.id === askedFile) : undefined
+  if (heldFile) {
+    setReportOpened(true)
+    setPanel({ file: heldFile })
+  }
   const disciplines = useQuery(disciplinesQuery(project.id))
   /** The view selected in sheet mode (→ ←, a click on its outline), of the sheet it was selected on. */
   const [sheetPicker, setSheetPicker] = useState(false)
@@ -289,7 +305,7 @@ function Step1({
   const [look, setLook] = useState<LookSetting>(PAPER_AS_READ)
   const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const focusNext = useRef<string | null>(null)
+  const focusNext = useRef<string | null>(fileStart?.row ?? null)
   /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
   const [picks, setPicks] = useState<Readonly<Record<string, Pick>>>({})
   /**

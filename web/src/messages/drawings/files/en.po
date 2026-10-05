@@ -16,6 +16,9 @@ msgstr "This file's reading has already ended, so it was not started again. Its 
 msgid "drawings.files.await_resaved"
 msgstr "Set aside: waiting for the re-saved file"
 
+msgid "drawings.files.cancel_too_late"
+msgstr "This file finished reading before the cancel arrived, so nothing was undone. Its row shows how it ended."
+
 msgid "drawings.files.cancelled"
 msgstr "Cancelled by {actor}{vextrus, select, yes { (Vextrus)} other {}}, {cancelled_date}. Nothing from it is in the sheet list."
 
@@ -128,7 +131,7 @@ msgid "drawings.files.stopping"
 msgstr "Stopping…"
 
 msgid "drawings.files.summary"
-msgstr "{files, plural, one {# file} other {# files}}: {sheets, plural, one {# sheet read} other {# sheets read}}{reading, plural, =0 {} one {, # file reading} other {, # files reading}}{failed, plural, =0 {} other {, # could not be read}}{held, plural, =0 {} other {, # held}}{refused, plural, =0 {} other {, # refused}}"
+msgstr "{files, plural, one {# file} other {# files}}: {sheets, plural, one {# sheet read} other {# sheets read}}{held_sheets, plural, =0 {} other { (# of them from a held file)}}{reading, plural, =0 {} one {, # file reading} other {, # files reading}}{failed, plural, =0 {} other {, # could not be read}}{held, plural, =0 {} other {, # held}}{refused, plural, =0 {} other {, # refused}}"
 
 msgid "drawings.files.waiting"
 msgstr "Waiting to be read ({ahead, plural, =0 {next} one {# file ahead} other {# files ahead}})"

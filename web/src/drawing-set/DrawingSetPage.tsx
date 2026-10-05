@@ -28,6 +28,7 @@ import { LoadProblem, ProblemBar, ProblemWords, can, useReadOnlyToast, problemOf
 import { EMPTY, useFormat } from '@/format'
 import { MachineText, machineText } from '@/format/machine'
 import { Button, DrawingText, ErrorBar, ProgressLine, ExcludedGlyph, KeyRegion, QuestionGlyph, ReadOnlyChip, Skeleton, cn, useKeys, useToast } from '@/ui'
+import { step1FilePath } from '@/takeoff/paths'
 import {
   cancelReading,
   changeDiscipline,
@@ -47,6 +48,9 @@ import {
 import { DisciplineSelect, useDisciplineName } from './discipline'
 import { hold, useHeld } from './held'
 import { ReportPanel } from './ReportPanel'
+
+/** Cancel reading on a file whose read had already ended well (409): told in a toast (#331). */
+const CANCEL_TOO_LATE = 'drawings.files.cancel_too_late'
 
 const projectRoute = getRouteApi('/_app/p/$code')
 
@@ -126,6 +130,7 @@ function ActButton({ act, busy, describedBy, onAct }: { act: RowAct; busy: boole
     read_again: <Trans>Read again</Trans>,
     try_again: <Trans>Try again</Trans>,
     open_step1: <Trans>Open in Step 1</Trans>,
+    open_question: <Trans>Open the Question</Trans>,
   }
   return (
     <Button
@@ -494,12 +499,23 @@ export function DrawingSetView({ project }: { project: ProjectSummary }) {
   function act(which: RowAct, file: FileOut) {
     const key = `${which}:${file.id}`
     if (which === 'open_step1') return go(PATHS.takeoff(project.code, 1))
+    if (which === 'open_question') return go(step1FilePath(project.code, file.id))
     // The pressed button goes with the state it belonged to: focus follows to the row's new act.
     refocusRow.current = file.id
     if (which === 'cancel') {
       return void run(key, async (current) => {
-        const next = await cancelReading(project.id, file.id)
-        if (current()) putFile(next)
+        try {
+          const next = await cancelReading(project.id, file.id)
+          if (current()) putFile(next)
+        } catch (error) {
+          // The read ended well before the cancel arrived (#331): nothing went wrong, so a toast, not
+          // the error bar. The row's new state is fetched before the act ends, so the focus can follow
+          // to the row's new act.
+          if (!(error instanceof ApiRefused) || error.refusal?.code !== CANCEL_TOO_LATE) throw error
+          if (!current()) return
+          await queryClient.invalidateQueries({ queryKey: ['drawing-set', project.id] })
+          if (current()) toast.show({ message: machineText(error.refusal, f, i18n) })
+        }
       })
     }
     void run(key, async (current) => {

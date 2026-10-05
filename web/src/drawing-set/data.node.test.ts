@@ -40,16 +40,17 @@ describe('rowActs', () => {
     ['failed', ['try_again']],
     ['unreadable', []],
     ['read', ['open_step1']],
-    ['held', []],
+    ['held', ['open_question']],
     ['refused', []],
     ['a state the web does not know', []],
   ])('offers a QS on a %s file %j', (state, acts) => {
     expect(rowActs({ state, format: 'dwg' }, true)).toEqual(acts)
   })
 
-  it('offers the MD and a Guest only "Open in Step 1", never a change', () => {
-    for (const state of ['waiting', 'reading', 'retrying', 'cancelled', 'failed', 'held']) expect(rowActs({ state, format: 'dwg' }, false)).toEqual([])
+  it('offers the MD and a Guest only "Open in Step 1" and "Open the Question", never a change', () => {
+    for (const state of ['waiting', 'reading', 'retrying', 'cancelled', 'failed']) expect(rowActs({ state, format: 'dwg' }, false)).toEqual([])
     expect(rowActs({ state: 'read', format: 'dwg' }, false)).toEqual(['open_step1'])
+    expect(rowActs({ state: 'held', format: 'dwg' }, false)).toEqual(['open_question'])
   })
 
   it('never opens a PDF in Step 1: its pages are its DWG sheets', () => {

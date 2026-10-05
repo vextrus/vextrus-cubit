@@ -251,6 +251,10 @@ msgstr "{projectName}’s Drawing Set: {count}"
 msgid "{name} was not added. <0/>"
 msgstr "{name} was not added. <0/>"
 
+#: src/drawing-set/DrawingSetPage.tsx
+msgid "Open the Question"
+msgstr "Open the Question"
+
 #: src/drawing-set/ReportPanel.tsx
 msgid "Refused"
 msgstr "Refused"
