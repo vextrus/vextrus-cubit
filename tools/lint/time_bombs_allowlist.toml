@@ -1,43 +1,125 @@
 # The time-bomb lint's allowlist (tools/lint/time_bombs.py; #308).
-# Each entry: `path`, a glob from the repository's root; `reason`, why the file's fixed time is never
-# compared with its wall-clock read or its commits' time (required). An entry matching no hit fails.
+# Each entry excuses only the hits of one `kind` (`read` or `commit`) in one `function` (its qualified
+# name, or `<module>`) or at one `line` of the files `path` (a glob from the root) names; `reason`
+# says why that fixed time is never compared with that clock read or commit (required). An entry that
+# excuses no hit fails. Narrow entries only: a second hit in a listed file is still reported.
 
 [[allow]]
 path = "scripts/factory/tests/test_launch_round1.py"
-reason = "Its times are fake log lines and an injected now or VEXTRUS_NOW; no test reads a commit's time."
+kind = "commit"
+function = "main"
+reason = "It commits a fake main checkout; launch never reads a commit's time, and its times are fake log lines or an injected now."
 
 [[allow]]
 path = "scripts/factory/tests/acceptance/test_stamp.py"
-reason = "Every time is passed in with now=; no test reads a commit's time."
+kind = "commit"
+function = "test_s6_a_builders_budget_record_lives_in_the_main_repos_git_folder"
+reason = "The commit only makes a repository whose git folder holds the budget record; stamp never reads a commit's time."
+
+[[allow]]
+path = "scripts/factory/tests/acceptance/p6_launch/_support.py"
+kind = "commit"
+function = "World.commit"
+reason = "Launch never reads a commit's time; the fixed times are fake log lines and launch records."
+
+[[allow]]
+path = "scripts/factory/tests/acceptance/tf1/test_launch_cloud.py"
+kind = "commit"
+function = "World.commit"
+reason = "Launch never reads a commit's time; the fixed times are fake log lines and launch records."
 
 [[allow]]
 path = "scripts/tests/test_land.py"
-reason = "Its times are fake CI log lines and check results; no test reads a commit's time."
+kind = "commit"
+function = "test_main_is_pulled_only_where_main_is_checked_out"
+reason = "Land never reads a commit's time; the fixed times are fake CI log lines."
 
 [[allow]]
 path = "scripts/tests/test_merge_ready.py"
-reason = "recorded_at is ledger data whose shape merge_ready checks; it never compares it with a commit's time."
+kind = "commit"
+function = "Git.commit"
+reason = "merge_ready checks recorded_at's shape only and never reads a commit's time."
+
+[[allow]]
+path = "scripts/tests/test_merge_ready.py"
+kind = "commit"
+function = "test_a_fix_on_a_later_clean_merge_outranks_an_older_pass.commit"
+reason = "merge_ready checks recorded_at's shape only and never reads a commit's time."
+
+[[allow]]
+path = "scripts/tests/test_merge_ready.py"
+kind = "commit"
+function = "test_only_a_clean_two_parent_merge_of_main_extends_a_pass"
+reason = "merge_ready checks recorded_at's shape only and never reads a commit's time."
 
 [[allow]]
 path = "scripts/tests/acceptance/p6_land/_fakegh.py"
-reason = "Its times are fake CI log lines and recorded_at ledger data; nothing compares them with a commit's time."
+kind = "commit"
+function = "commit"
+reason = "Land and merge_ready never read a commit's time; the fixed times are fake CI log lines and recorded_at data."
 
 [[allow]]
 path = "scripts/tests/acceptance/tf4/test_ledger_fetch_verdict.py"
-reason = "started_at is launch-record data; no test compares it with a commit's time."
+kind = "commit"
+function = "Origin.__init__"
+reason = "The ledger fetch never reads a commit's time; started_at is launch-record data."
+
+[[allow]]
+path = "scripts/tests/acceptance/tf4/test_ledger_fetch_verdict.py"
+kind = "commit"
+function = "Origin.review_branch"
+reason = "The ledger fetch never reads a commit's time; started_at is launch-record data."
 
 [[allow]]
 path = "scripts/tests/acceptance/tf4/test_merge_ready_gate.py"
-reason = "recorded_at is ledger data whose shape merge_ready checks; it never compares it with a commit's time."
+kind = "commit"
+function = "commit"
+reason = "merge_ready checks recorded_at's shape only and never reads a commit's time."
+
+[[allow]]
+path = "scripts/tests/acceptance/tf4/test_merge_ready_gate.py"
+kind = "commit"
+function = "test_a_merge_resolved_by_hand_after_the_reviewed_head_needs_re_review"
+reason = "merge_ready checks recorded_at's shape only and never reads a commit's time."
 
 [[allow]]
 path = "scripts/walk/tests/test_walk.py"
-reason = "Its commits are pinned (COMMITTED); time.time() only dates a fresh walk a minute ago, never a fixed time."
+kind = "read"
+function = "_a_minute_ago"
+reason = "It dates a fresh walk a minute before now, relative to the clock, never against a fixed time."
 
 [[allow]]
-path = "tools/lint/tests/acceptance/p6_lint1/test_time_bombs.py"
-reason = "Fixtures are strings written to a tmp tree."
+path = "scripts/walk/tests/test_walk.py"
+kind = "read"
+function = "test_a_rewalks_older_verdict_does_not_end_the_hold"
+reason = "It compares the clock with a file's mtime set in the test, never with a fixed time."
 
 [[allow]]
 path = "tools/lint/tests/test_time_bombs.py"
-reason = "Fixtures are strings written to a tmp tree."
+kind = "commit"
+function = "test_an_unpinned_helper_beside_pinned_ones_is_a_commit"
+reason = "Fixtures are strings written to a tmp tree, and expected hits; nothing is committed."
+
+[[allow]]
+path = "tools/lint/tests/test_time_bombs.py"
+kind = "commit"
+function = "test_both_pin_names_in_a_comment_or_docstring_do_not_pin"
+reason = "Fixtures are strings written to a tmp tree, and expected hits; nothing is committed."
+
+[[allow]]
+path = "tools/lint/tests/test_time_bombs.py"
+kind = "commit"
+function = "test_a_shell_string_commit_is_a_commit"
+reason = "Fixtures are strings written to a tmp tree, and expected hits; nothing is committed."
+
+[[allow]]
+path = "tools/lint/tests/test_time_bombs.py"
+kind = "commit"
+function = "test_a_shell_string_commit_with_both_dates_set_beside_it_is_pinned"
+reason = "Fixtures are strings written to a tmp tree, and expected hits; nothing is committed."
+
+[[allow]]
+path = "tools/lint/tests/test_time_bombs.py"
+kind = "commit"
+function = "test_every_hit_is_found_in_line_order"
+reason = "Fixtures are strings written to a tmp tree, and expected hits; nothing is committed."
