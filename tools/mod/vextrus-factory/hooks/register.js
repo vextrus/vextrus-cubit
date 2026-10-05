@@ -69,7 +69,12 @@ export function register(on) {
       if (await isOrchestrator($)) {
         if (timer !== null) timer.cancel()
         timer = null
-        await recordActivation($)
+        // Its own try: a $.store failure must not stop the poll and the timer below.
+        try {
+          await recordActivation($)
+        } catch {
+          // the activation record is lost; the band still runs
+        }
         const path = await statusFile($)
         await poll($, path)
         timer = $.clock.every(POLL_MS, () => {
