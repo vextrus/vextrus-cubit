@@ -36,7 +36,7 @@ const exceptionFlags = exception
   ? ` --exception ${quote(exception)}` + (reason ? ` --reason ${quote(reason)}` : '')
   : ''
 const slotPath = `.private/work/factory/review/slot${slot}`
-const decisionFile = `.private/work/factory/review/${pr}-${head.slice(0, 12)}-r${round}.txt`
+const decisionFile = `.private/work/factory/verdicts/${pr}-${head.slice(0, 12)}-r${round}.txt`
 
 const EXIT = {
   type: 'object',
@@ -199,7 +199,7 @@ async function review() {
 
   // Shadow (tier 2): Jev's triage writes a sidecar nothing reads for a decision; its failure changes nothing.
   if (findings.length) {
-    const triageFile = `.private/work/factory/review/${pr}-${head.slice(0, 12)}-r${round}.jev.json`
+    const triageFile = `.private/work/factory/verdicts/${pr}-${head.slice(0, 12)}-r${round}.jev.json`
     const triageInput = JSON.stringify({
       pr,
       head_sha: head,
