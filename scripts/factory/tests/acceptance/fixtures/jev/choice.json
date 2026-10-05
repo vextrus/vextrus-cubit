@@ -1,0 +1,37 @@
+{
+  "recorded": "live",
+  "date": "2026-10-04",
+  "about": "One choice of two options over an invented build-log line.",
+  "request": {
+    "model": "jev-1.13.0",
+    "state": "Invented note: the build log ends with 'ModuleNotFoundError: No module named yaml'.",
+    "questions": {
+      "q0": {
+        "type": "choice",
+        "instructions": "Which kind of failure is this?",
+        "criteria": {
+          "a": "a missing dependency",
+          "b": "a failing assertion in a test"
+        }
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "q0": {
+        "type": "choice",
+        "choice": "a",
+        "confidence": 1.0,
+        "probabilities": {
+          "a": 1.0,
+          "b": 0.0
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 338,
+      "output_tokens": 32
+    }
+  }
+}

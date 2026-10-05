@@ -2,7 +2,7 @@
 
 Issues and specs for this repo live as GitHub issues on `vextrus/vextrus-cubit`. Use the `gh` CLI for all operations.
 
-**The repository is private (ADR 0024), but issues are still written as if they could leak.** An issue
+**The repository is public for now (the owner, 29 Sep 2026; ADR 0024's private setting returns when the owner says), so issues are written as if anyone could read them.** An issue
 or PR never carries a secret or key, anything from `.private/` (the Edison set, the Sample Project,
 client drawings: their names, figures or content), or a client's data. Refer to the owner by role.
 Labels beyond triage: `cloud` (provable by committed tests) and `local` (needs real drawings or the
