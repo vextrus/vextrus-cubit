@@ -42,8 +42,9 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    builder never pushes: push its READY head yourself from the main checkout once the leak scan passes on the
    range, and open its PR with `gh pr create --body-file <its last commit's body>`.
 5. **Review with `/review-pr`.** On each READY head, merged with `main` and any PR it meets: one review, then at
-   most two fix rounds (the ledger refuses a third unless it is a security hole scoring 75 or more, a crash, or a
-   false statement a QS meets). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message
+   most two fix rounds (the ledger refuses a third unless it is a security hole scoring 75 or more, a crash, a
+   false statement a QS meets, or `fix-regression`: every finding left at round 2 was introduced by fix round 1,
+   as its refuter confirms; the owner, 5 Oct 2026). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message
    per round: elapsed, what held, each finding with its score, failing scenario and fix direction; each fix with a
    test that fails without it, and a committed check for a finding of 50 or more or a repeated class. A finding
    after the cap becomes an issue (`needs-triage`, "found after the cap").

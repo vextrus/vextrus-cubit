@@ -35,7 +35,7 @@
         "additionalProperties": false,
         "required": ["kind", "reason"],
         "properties": {
-          "kind": {"enum": ["security75", "crash", "false-statement"], "description": "security75: a security hole scored 75 or more. crash: a crash. false-statement: a false statement a QS meets. (ADR 0041 item 5; spec 5, definition of done 4.)"},
+          "kind": {"enum": ["security75", "crash", "false-statement", "fix-regression"], "description": "security75: a security hole scored 75 or more. crash: a crash. false-statement: a false statement a QS meets. fix-regression: every finding left at round 2 was introduced by fix round 1, as its refuter confirms (the owner, 5 Oct 2026). (ADR 0041 item 5; spec 5, definition of done 4.)"},
           "reason": {"type": "string", "minLength": 1, "maxLength": 300, "description": "One line in public words."}
         }
       }],
