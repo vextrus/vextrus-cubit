@@ -399,9 +399,9 @@ def test_once_the_pipelines_user_exists_only_its_runs_are_posted(tmp_path: Path)
     path = config(tmp_path, world.drop)
 
     written = path.read_text()
-    path.write_text(
-        written.replace(f'writer = "{getpass.getuser()}"', 'writer = "root"')
-    )  # not the writer
+    # Another user that exists: root, or `nobody` when the tests themselves run as root (cloud sessions).
+    other = "root" if getpass.getuser() != "root" else "nobody"
+    path.write_text(written.replace(f'writer = "{getpass.getuser()}"', f'writer = "{other}"'))
     refused = post_status.main(
         ["real-drawings", run_id], config_path=path, transport=github, sign=lambda d: b"s"
     )
