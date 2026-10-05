@@ -50,7 +50,7 @@ import re
 import uuid
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
 
@@ -163,6 +163,12 @@ class ProposalView:
     """Why it has no Plot (a message), or None when a page matched or no PDF was added."""
     views: list[SheetViewView] = field(default_factory=list)
     """Its views in reading order, title block included."""
+    continuation: str | None = None
+    """The continuation run it is in, by the run's first sheet's id (`groups`, T-W334); None alone."""
+    continuation_title: str | None = None
+    """The run's title, its member-mark ranges joined ("BEAM B1-B18 DETAILS"); None alone."""
+    series: str | None = None
+    """The series it is in, by the series' first sheet's id; None when it is in none."""
 
 
 @dataclass(frozen=True)
@@ -351,10 +357,15 @@ def _proposals_of(project_id: uuid.UUID) -> list[Proposal]:
 def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     """One per printed sheet in the sheet list, by Discipline in the Market's order (a sheet of no
     Discipline last), then number in natural order (S-2 before S-10), unnumbered last."""
+    from vextrus.takeoff.services import groups  # it reads 19b's candidates of the read job's
+
     sheets = _sheets(project_id)
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
     drawing_set = drawings.set_of(project_id)
-    names = {f.id: f.name for f in drawings.files(drawing_set.id)} if drawing_set else {}
+    files = drawings.files(drawing_set.id) if drawing_set else []
+    names = {f.id: f.name for f in files}
+    viewed = [drawings.views(s.id) for s in sheets]  # read once: each row's and the groups'
+    grouped = groups.among(sheets, viewed, {f.id: f.group for f in files}, sheet_conventions())
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
@@ -367,12 +378,13 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     order = markets.of_developer(_tenant()).date_order
     return [
         replace(
-            _proposal_view(s, by_sheet.get(s.id), names, who, order),
+            _proposal_view(s, by_sheet.get(s.id), names, who, order, views),
             agrees=s.id in agreeing,
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
+            **asdict(grouped.get(s.id, groups.ALONE)),
         )
-        for s in sheets
+        for s, views in zip(sheets, viewed, strict=True)
     ]
 
 
@@ -445,6 +457,7 @@ def _proposal_view(
     names: Mapping[uuid.UUID, str],
     who: Mapping[uuid.UUID, tuple[str, datetime, str]],
     date_order: str,
+    views: Sequence[drawings.ViewView],
 ) -> ProposalView:
     found = who.get(sheet.confirmation_id) if sheet.confirmation_id else None
     by, at, act = found if found else (None, None, None)
@@ -479,7 +492,7 @@ def _proposal_view(
         plot_page=sheet.plot.page,
         plot_residual=sheet.plot.residual,
         plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
-        views=[_sheet_view_view(v) for v in drawings.views(sheet.id)],
+        views=[_sheet_view_view(v) for v in views],
     )
 
 

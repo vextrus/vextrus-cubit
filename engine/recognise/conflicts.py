@@ -1,15 +1,16 @@
 """Conflicts (ticket 19b): candidates of one group that cannot all be right, and the continuations
-that look like conflicts and are not. Found by code; 21c raises each Conflict as a `conflict` Question.
-They are not Checks: nothing independent is compared (the M0 plan, "The Checks M0 brings").
+and series that look like conflicts and are not. Found by code; 21c raises each Conflict as a
+`conflict` Question. They are not Checks: nothing independent is compared (the M0 plan, "The Checks
+M0 brings").
 
     find(sheets, views, conventions)          # the harness's stage (engine/harness.py)
     compare(sheets, views, recognisers=...)   # the pure function, for 21c and the tests
 
 `views[i]` are the views of `sheets[i]` (`()` where views were not read). Both return `Continuation`s,
-then `Conflict`s by kind (`same_number`, `same_title`, `same_storey`), each in the order of its first
-candidate in `sheets`, naming **the very objects given**: the export names candidates by identity, and
-two equal-by-value copies of a sheet in two files are two sheets, so nothing here keys a dict or a set,
-`in` or `.index()` by a candidate; everything goes by position.
+then `Series`, then `Conflict`s by kind (`same_number`, `same_title`, `same_storey`), each in the order
+of its first candidate in `sheets`, naming **the very objects given**: the export names candidates by
+identity, and two equal-by-value copies of a sheet in two files are two sheets, so nothing here keys a
+dict or a set, `in` or `.index()` by a candidate; everything goes by position.
 
 **The rules** (a test each side of every edge, engine/recognise/tests/test_conflicts.py):
 - **Within a group and a Discipline.** A sheet is compared only with sheets of its own group (the
@@ -38,33 +39,58 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
   its title does not, or its views of its title's kind all disagree with it by layer or by every other
   word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
+- **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
+  ("BEAM B1-B6 DETAILS", "BEAM B7-B12 DETAILS") are one title: a title is grouped by `range_key`, the
+  normal form of the words around its ranges (the conventions' `member_range_pattern`; none, or a
+  title with no range: its normal form), so a title with a range never joins the same words without
+  one. A range's marks share their letters and ascend, below `RUNNING_LIMIT`; else it is no range. Two
+  sheets of such a title run on only when their numbers do and each range of the first lies below the
+  next's, of one letters ("B1-B6" then "B7-B12"; "B1-B6" then "B4-B9" do not); the run's title is the
+  first sheet's as drawn, each range running on to the last sheet's second mark ("BEAM B1-B12
+  DETAILS"), its joiner kept.
+- **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on
+  two places or more that do not all run on, none of its sheets contradicted, whose runs draw
+  different things (`_apart`). What a run draws, in this order: (a) the storeys its views state, not
+  symbolic; (b) the member marks its views' titles name (a range, or a word of one to three letters
+  then one to four digits, "BEAM B7") and its own titles' ranges, each an interval; and only when it
+  has neither, (c) the storeys, not symbolic, of the plan views of the nearest sheet numbered before it
+  (its group, Discipline and prefix) whose title reads as a plan (17's `describe`): the layout each
+  floor's details follow. The runs are a series when every run draws something and no two share a
+  storey or overlap in marks; else the title is `same_title` (one overlap keeps every sheet: no part
+  is a series). What was not read is not different: a run that draws nothing keeps the Question.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
-  and not two places): one Conflict naming every sheet of the title, in number order (a run among them
-  is also a Continuation); evidence: the title as the first sheet draws it, and how many sheets.
-  Copies of one number under one title are only `same_number`.
+  and not two places), and not a series: two of its runs may draw the same thing. One Conflict naming
+  every sheet of the title, in number order (a run among them is also a Continuation); evidence: the
+  title as the first sheet draws it, and how many sheets (`sheets`). Copies of one number under one
+  title are only `same_number`.
 - **`same_storey`** (one storey drawn twice; the M0 plan's review Q3): plan views of one Discipline
   (their sheets'), one subject (known: none matches nothing) and one layer (none matches none: a beam
   plan has no layer) whose storey lists share a storey that is not symbolic ("typical", "top" and "not
-  stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`). Never two
-  views of one sheet, or of one continuation, alone: the views must lie on two places or more. One
-  Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on two
-  floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the 5th
-  floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn, of their
-  plans in the set (they state the storey and what is drawn), one when they are alike, both when they
-  differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has no title (the
-  words then name no plan: a title read on one sheet is never said of the other); the layer (`none` for
-  none) and how many views; and, for 21c, the Discipline's, the subject's and the first shared storey's
-  keys (in the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a
-  column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
-  to 6th floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with
-  neither number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word
-  m0-screens §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words
-  are its evidence line until then.
+  stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`), on sheets of
+  one class (`sheet_class`: a details sheet's title reads as a detail, a section or a schedule; every
+  other is a layout sheet's): a layout sheet's plan is never compared with a details sheet's enlarged
+  plan views (the owner's ruling of 5 Oct 2026). Never two views of one sheet, or of one continuation,
+  alone: the views must lie on two places or more. One Conflict per set of views: those sharing a storey,
+  grouped by the set, so two plans overlapping on two floors are one Conflict. Evidence, for the words
+  (m0-screens §5's "S-14 and S-15 both draw the 5th floor slab, bottom layer"): the first two sheets'
+  numbers (else titles); the titles, as drawn, of their plans in the set (they state the storey and what
+  is drawn), one when they are alike, both when they differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH
+  FLOOR SLAB"), none when either plan has no title (the words then name no plan: a title read on one
+  sheet is never said of the other); the layer (`none` for none), how many views and how many sheets they
+  lie on (`sheets`); and, for 21c, the Discipline's, the subject's and the first shared storey's keys (in
+  the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
+  layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
+  floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with neither
+  number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens
+  §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words are its
+  evidence line until then.
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
-never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each
-number is read once.
+never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs; a title's
+runs are told apart by one sweep of their marks, `_overlap`), each number is read once, a title's
+ranges are read only up to `MAX_PATTERN_TEXT` characters, and a title's kind is read only where a rule
+needs it (a sheet with a plan view, a run that draws nothing of its own).
 
 **The trust boundary** (each refused with a `ValueError` or `TypeError`, so the stage fails, never
 passes): `views` not one list per sheet; one sheet or view object given twice; a sheet with no group;

@@ -57,11 +57,11 @@ def run(
     return compare(sheets, views, conventions=CONVENTIONS, recognisers=readers)
 
 
-def conflicts_of(found: list[Conflict | Continuation], kind: str | None = None) -> list[Conflict]:
+def conflicts_of(found: Sequence[object], kind: str | None = None) -> list[Conflict]:
     return [c for c in found if isinstance(c, Conflict) and (kind is None or c.kind == kind)]
 
 
-def continuations_of(found: list[Conflict | Continuation]) -> list[Continuation]:
+def continuations_of(found: Sequence[object]) -> list[Continuation]:
     return [c for c in found if isinstance(c, Continuation)]
 
 

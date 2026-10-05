@@ -8,7 +8,6 @@ another Developer, or none at all is the one 404 (`platform.auth.not_found`), an
 """
 
 import uuid
-from dataclasses import asdict
 
 from django.db import transaction
 from django.http import HttpRequest
@@ -33,7 +32,7 @@ from vextrus.takeoff.schemas.step1 import (
     Step1QuestionsOut,
     Step1UndoIn,
 )
-from vextrus.takeoff.services import groups, step1
+from vextrus.takeoff.services import step1
 from vextrus.takeoff.services.read_propose import proposals
 from vextrus.takeoff.tasks import read_file
 
@@ -49,15 +48,9 @@ def actor(request: HttpRequest) -> str:
 @router.get(f"{_PREFIX}/proposals", response=Step1ProposalsOut)
 @declare(acts.LOOK, project="project_id")
 def list_proposals(request: HttpRequest, project_id: uuid.UUID) -> Step1ProposalsOut:
-    """One per printed sheet: by Discipline, then number in natural order, with who decided it and
-    the continuation and series it is in (T-W334)."""
-    listed = step1.proposals(project_id)
-    grouped = groups.of(project_id)
+    """One per printed sheet: by Discipline, then number in natural order, with who decided it."""
     return Step1ProposalsOut(
-        proposals=[
-            Step1ProposalOut.model_validate(asdict(p) | asdict(grouped.get(p.sheet_id, groups.ALONE)))
-            for p in listed
-        ]
+        proposals=[Step1ProposalOut.from_view(p) for p in step1.proposals(project_id)]
     )
 
 

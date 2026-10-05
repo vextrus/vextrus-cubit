@@ -391,18 +391,16 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     )
 
 
-def compared_set(
-    project_id: uuid.UUID,
-) -> tuple[list[drawings.SheetView], list[SheetCandidate], list[list[ViewCandidate]], SheetConventions]:
-    """The set's listed sheets, each as 19b compares it (`candidate` under its file's group, then
-    `_compared`), with its views and the conventions they are read under: what `_conflicts` compares,
-    for the groups Step 1 shows (`vextrus.takeoff.services.groups`)."""
-    drawing_set = drawings.set_of(project_id)
-    listed = drawings.sheets(drawing_set.id) if drawing_set is not None else []
-    groups = {f.id: f.group for f in drawings.files(drawing_set.id)} if drawing_set else {}
+def as_compared(
+    listed: Sequence[drawings.SheetView],
+    viewed: Sequence[Sequence[drawings.ViewView]],
+    groups: Mapping[uuid.UUID, str],
+) -> tuple[list[SheetCandidate], list[list[ViewCandidate]]]:
+    """The listed sheets as 19b compares them (`candidate` under its file's group, then `_compared`),
+    with their views: what `_conflicts` compares, for the groups Step 1 shows (T-W334's
+    `vextrus.takeoff.services.groups`)."""
     sheets = [_compared(s, candidate(s, groups.get(s.file_id, "site"))) for s in listed]
-    views = [[view_candidate(v) for v in drawings.views(s.id)] for s in listed]
-    return listed, sheets, views, step1.sheet_conventions()
+    return sheets, [[view_candidate(v) for v in vs] for vs in viewed]
 
 
 def _conflicts(
