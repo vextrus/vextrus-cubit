@@ -26,7 +26,7 @@ from vextrus.seed.demo import Demo, seed_demo
 from vextrus.testing.auth import Api
 from vextrus.testing.jev import TEST_KEY, FakeClock, Recorded
 
-__all__ = ["as_person", "demo", "demo_once", "nusrat", "tanvir"]
+__all__ = ["as_person", "demo", "demo_once", "demo_released_for_commits", "nusrat", "tanvir"]
 
 SEEDED = (("shapla", "KR-01"), ("shapla", "BP-02"), ("shapla", "SG-03"), ("meghna", "MG-01"))
 """Every seeded project with the Developer it is of (§7's "Projects")."""
@@ -48,7 +48,8 @@ def seeded_offline() -> Demo:
 class ModuleSeed:
     """The demo seed made once for a test module, inside a transaction held open on both aliases.
     pytest-django opens each non-transactional test's own block inside it (a savepoint) and rolls
-    the test back to it, so every test sees the seed untouched; the module's end rolls it back."""
+    the test back to it, so every test sees the seed untouched; the module's end rolls it back, and so
+    does any test that commits (`demo_released_for_commits`), before it runs."""
 
     def __init__(self, blocker: DjangoDbBlocker) -> None:
         self._blocker = blocker
@@ -62,6 +63,7 @@ class ModuleSeed:
                     block = transaction.atomic(using=alias)
                     block.__enter__()
                     self._open.append((alias, block))
+                OPEN.append(self)
                 self.demo = seeded_offline()
             except BaseException:
                 self.close()
@@ -74,7 +76,13 @@ class ModuleSeed:
                 alias, block = self._open.pop()
                 transaction.set_rollback(True, using=alias)
                 block.__exit__(None, None, None)
+        if self in OPEN:
+            OPEN.remove(self)
         self.demo = None
+
+
+OPEN: list[ModuleSeed] = []
+"""The module seeds whose transaction is open: at most the running module's."""
 
 
 def transactional(item: pytest.Item) -> bool:
@@ -86,6 +94,16 @@ def transactional(item: pytest.Item) -> bool:
         return False
     commits, resets_sequences, *_ = validate_django_db(marker)
     return commits or resets_sequences
+
+
+@pytest.fixture(autouse=True)
+def demo_released_for_commits(request: pytest.FixtureRequest) -> None:
+    """Before a test that commits, whether or not it asks for `demo` (pytest-django runs those last, a
+    module's after its other tests), the module's seed is rolled back: its `flush` or commit would
+    otherwise wait forever on the seed's open transaction."""
+    if transactional(request.node):
+        for seed in list(OPEN):
+            seed.close()
 
 
 @pytest.fixture(scope="module")
