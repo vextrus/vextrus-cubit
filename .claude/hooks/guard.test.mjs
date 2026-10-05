@@ -540,3 +540,95 @@ test("f2 round 1: everyday commands near the new rules still pass", () => {
     assert.equal(seen(command), null, command);
   }
 });
+
+
+// ---------------------------------------------------------------- f2 review round 3 (PR #291, round 2's findings)
+test("f2 round 3: interpreter code that only says push is not a push", () => {
+  const { repo } = tempMain();
+  for (const command of [
+    `node -e "const a=[]; a.push(1); console.log(a)"`,
+    `node --input-type=module -e "const xs=[]; xs.push('a')"`,
+    "node - <<'EOF'\nconst xs=[];xs.push(1);console.log(xs);\nEOF",
+    `python3 -c "print('push')"`,
+    "node -e 'const a=[]; for (const f of process.argv.slice(1)) a.push(f); console.log(a.length)' x y",
+    `gh pr view 291 --json commits | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const o=[];JSON.parse(s).commits.forEach(c=>o.push(c.oid));console.log(o)})'`,
+    "cat > /tmp/x.mjs <<'EOF'\nconst a=[];a.push(1);\nEOF\nnode /tmp/x.mjs",
+  ]) {
+    assert.equal(seen(command), null, command);
+  }
+  assert.equal(seen("uv run python - <<'EOF'\nprint('push rate', 1)\nEOF", { project: repo, main: repo, cwd: repo }), null);
+  assert.equal(seen(`node -e 'require("child_process").execSync("git push origin HEAD")'`), "LOCAL_PUSH");
+});
+
+test("f2 round 3: git's dashed exec-path forms are git", () => {
+  const { repo, home } = stampedMain();
+  assert.equal(seen("/usr/lib/git-core/git-push --no-verify origin x", { project: repo, main: repo, cwd: repo, home }), "HOOKS_SKIPPED");
+  assert.equal(seen("/usr/lib/git-core/git-push --force origin main"), "HISTORY_REWRITTEN");
+  assert.equal(seen("git-push origin +HEAD:main"), "HISTORY_REWRITTEN");
+  assert.equal(seen("git-push origin HEAD"), "LOCAL_PUSH");
+  assert.equal(seen("/usr/lib/git-core/git-commit --no-verify -m x"), "HOOKS_SKIPPED");
+  assert.equal(seen("/usr/lib/git-core/git-config core.hooksPath /tmp/x"), "HOOKS_PATH");
+  assert.equal(seen("/usr/lib/git-core/git-checkout -- ."), "DISCARD");
+  assert.equal(seen("/usr/lib/git-core/git-add -A"), "STAGE_ALL");
+  const { repo: own, git } = tempMain();
+  git("checkout", "-q", "-b", "claude/own");
+  assert.equal(seen("/usr/lib/git-core/git-push origin HEAD:main", { project: own, cwd: own, remote: true }), "CLOUD_PUSH");
+});
+
+test("f2 round 3: git's long-option prefixes are judged by their full names", () => {
+  const { repo, home } = stampedMain();
+  const inMain = (command) => seen(command, { project: repo, main: repo, cwd: repo, home });
+  for (const command of ["git push --mirr origin", "git push --prun origin HEAD:refs/heads/x", "git push --del origin x", "git push --pru origin x"]) {
+    assert.equal(inMain(command), "HISTORY_REWRITTEN", command);
+  }
+  for (const command of ["git push --foll origin x", "git push --follow-tag origin x", "git push --tag origin x", "git push --ta origin", "git push --al origin", "git push --branc origin", "git push --zzz origin x"]) {
+    assert.equal(inMain(command), "LEAK_STAMP", command);
+  }
+  assert.equal(inMain("git push --no-verif --al origin"), "HOOKS_SKIPPED");
+  assert.equal(seen("git commit --no-verif -m x"), "HOOKS_SKIPPED");
+  assert.equal(seen("git reset --har"), "DISCARD");
+  assert.equal(seen("git branch --del --forc x"), "DISCARD");
+  const { repo: own, git } = tempMain();
+  git("checkout", "-q", "-b", "claude/own");
+  const inCloud = (command) => seen(command, { project: own, cwd: own, remote: true });
+  assert.equal(inCloud("git push --foll origin HEAD"), "CLOUD_PUSH");
+  assert.equal(inCloud("git push --mirr origin"), "HISTORY_REWRITTEN");
+  assert.equal(inCloud("git push --del origin feat"), "HISTORY_REWRITTEN");
+  assert.equal(inCloud("git push --set-up origin HEAD"), null);
+});
+
+test("f2 round 3: here-strings touching their command or behind a fd are read", () => {
+  const { repo, home } = stampedMain();
+  assert.equal(seen("sh<<<'git push origin HEAD'"), "LOCAL_PUSH");
+  assert.equal(seen("sh 0<<<'git push origin HEAD'"), "LOCAL_PUSH");
+  assert.equal(seen("sh<<<'git push origin unstamped'", { project: repo, main: repo, cwd: repo, home }), "LEAK_STAMP");
+  assert.equal(seen("bash 0<<< 'git push origin unstamped'", { project: repo, main: repo, cwd: repo, home }), "LEAK_STAMP");
+  assert.equal(seen("bash<<<'rm -rf x'"), "RECURSIVE_DELETE");
+  assert.equal(seen("bash 0<<< 'rm -rf x'"), "RECURSIVE_DELETE");
+  assert.equal(seen("python3<<<'import os;print(os.environ)'"), "SECRET_PRINTED");
+});
+
+test("f2 round 3: the scanner run as a bare module from tools/ is not its exact form", () => {
+  const { repo, home } = stampedMain();
+  assert.equal(seen("cd tools && PYTHONPATH=.. uv run python -m leakscan build --source /tmp/e", { project: repo, main: repo, cwd: repo, home }), "RECORD_FORGED");
+});
+
+test("f2 round 3: a corpus under the floor vouches for no push (outside the test seam)", () => {
+  const { repo, git } = tempMain();
+  const home = `${repo}/.private/work/leakscan`;
+  makeDir(`${home}/ok`, { recursive: true });
+  const base = git("rev-parse", "HEAD");
+  git("checkout", "-q", "-b", "x");
+  writeFile(`${repo}/b.md`, "b\n");
+  git("add", "b.md");
+  git("commit", "-q", "-m", "b");
+  const head = git("rev-parse", "HEAD");
+  const stamp = (corpus) => {
+    writeFile(`${home}/corpus`, corpus);
+    writeFile(`${home}/ok/${head}`, JSON.stringify({ corpus: createHash("sha256").update(corpus).digest("hex"), range: `${base}..${head}` }));
+  };
+  stamp("ZEBRA QUARRY HOLDINGS PVT 7731\n");
+  assert.notEqual(seen("git push origin x", { project: repo, main: repo, cwd: repo }), null);
+  stamp(Array.from({ length: 120 }, (_, i) => `INVENTED STRING NUMBER ${i}\n`).join(""));
+  assert.equal(seen("git push origin x", { project: repo, main: repo, cwd: repo }), null);
+});

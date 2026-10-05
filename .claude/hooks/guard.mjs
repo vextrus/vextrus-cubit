@@ -26,6 +26,8 @@ const orchestrators = PROJECT !== "" && resolve(PROJECT) === MAIN_CHECKOUT;
 const cloud = process.env.CLAUDE_CODE_REMOTE === "true";
 const LEAK_HOME = resolve(process.env.VEXTRUS_LEAKSCAN_HOME || join(MAIN_CHECKOUT, ".private/work/leakscan"));
 
+const CORPUS_FLOOR = 100;
+
 /** A refusal raised inside a fail-closed rule. */
 class GuardError extends Error {}
 
@@ -308,6 +310,20 @@ function words(text) {
       i++;
       continue;
     }
+    // A here-string is its own word whatever touches it (`sh<<<'x'`, `bash 0<<< 'x'`; a fd number is
+    // dropped), and a process substitution starts a word (`bash<(…)`).
+    if (c === "<" && text.startsWith("<<<", i)) {
+      if (inWord && !/^\d+$/.test(cur)) out.push(cur);
+      out.push("<<<");
+      cur = "";
+      inWord = false;
+      i += 3;
+      continue;
+    }
+    if ((c === "<" || c === ">") && text[i + 1] === "(" && inWord) {
+      out.push(cur);
+      cur = "";
+    }
     cur += c;
     inWord = true;
     i++;
@@ -539,6 +555,9 @@ function analyse(command, startCwd) {
 
 /** A git invocation: its global options and verb, or null for any other command. */
 function gitOf(cmd) {
+  // git's exec-path links (`/usr/lib/git-core/git-push`, `git-config`) run as `git <verb>`.
+  const dashed = /^git-([a-z][a-z0-9-]*)$/.exec(cmd.name);
+  if (dashed) return { verb: dashed[1], args: cmd.args.map((a) => longOption(dashed[1], a)), config: [], dirs: [], gitDir: null, workTree: null, assigns: cmd.assigns, cwd: cmd.cwd };
   if (cmd.name !== "git") return null;
   const a = cmd.args;
   const config = [];
@@ -572,7 +591,34 @@ function gitOf(cmd) {
     if (assign.startsWith("GIT_WORK_TREE=")) workTree = assign.slice(14);
   }
   const verb = a[i] ?? "";
-  return { verb, args: a.slice(i + 1), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
+  return { verb, args: a.slice(i + 1).map((arg) => longOption(verb, arg)), config, dirs, gitDir, workTree, assigns: cmd.assigns, cwd: cmd.cwd };
+}
+
+// Git accepts any unique prefix of a long option (`--mirr` is `--mirror`). The options the rules judge are
+// expanded to their full names; a prefix that is ambiguous or names no option becomes "--?" (judged unknown).
+const GIT_LONG_OPTIONS = {
+  push: ["all", "branches", "mirror", "delete", "tags", "follow-tags", "force", "force-with-lease", "force-if-includes", "prune", "dry-run", "porcelain", "receive-pack", "exec", "repo", "set-upstream", "thin", "progress", "no-verify", "verify", "signed", "atomic", "push-option", "recurse-submodules", "ipv4", "ipv6", "quiet", "verbose"],
+  commit: ["no-verify", "verify", "all", "amend", "message", "file", "no-edit", "edit", "author", "date", "signoff", "allow-empty", "allow-empty-message", "quiet", "verbose", "patch", "include", "only", "pathspec-from-file", "fixup", "squash", "reuse-message", "reedit-message", "cleanup", "status", "no-status", "gpg-sign", "no-gpg-sign", "trailer", "dry-run", "porcelain", "short", "branch", "long", "null", "template", "untracked-files", "reset-author", "interactive", "no-post-rewrite", "pathspec-file-nul"],
+  merge: ["no-verify", "verify", "commit", "no-commit", "edit", "no-edit", "ff", "no-ff", "ff-only", "squash", "no-squash", "message", "file", "strategy", "strategy-option", "abort", "continue", "quit", "stat", "no-stat", "log", "no-log", "signoff", "allow-unrelated-histories", "autostash", "verify-signatures", "quiet", "verbose", "progress", "rerere-autoupdate", "into-name", "cleanup", "gpg-sign", "overwrite-ignore", "summary"],
+  reset: ["hard", "soft", "mixed", "merge", "keep", "quiet", "no-quiet", "patch", "pathspec-from-file", "pathspec-file-nul", "recurse-submodules", "intent-to-add", "no-refresh", "refresh"],
+  checkout: ["force", "quiet", "progress", "ours", "theirs", "track", "no-track", "guess", "no-guess", "detach", "orphan", "ignore-skip-worktree-bits", "merge", "conflict", "patch", "ignore-other-worktrees", "overwrite-ignore", "recurse-submodules", "overlay", "no-overlay", "pathspec-from-file", "pathspec-file-nul"],
+  restore: ["source", "patch", "worktree", "staged", "quiet", "progress", "ours", "theirs", "merge", "conflict", "ignore-unmerged", "ignore-skip-worktree-bits", "recurse-submodules", "overlay", "no-overlay", "pathspec-from-file", "pathspec-file-nul"],
+  branch: ["delete", "force", "move", "copy", "list", "all", "remotes", "verbose", "quiet", "track", "no-track", "set-upstream-to", "unset-upstream", "edit-description", "contains", "no-contains", "merged", "no-merged", "column", "no-column", "sort", "points-at", "format", "show-current", "create-reflog", "abbrev", "no-abbrev", "ignore-case", "omit-empty", "recurse-submodules", "color", "no-color"],
+  worktree: ["force", "detach", "checkout", "no-checkout", "lock", "reason", "orphan", "track", "no-track", "guess-remote", "quiet", "verbose", "expire", "porcelain", "dry-run", "relative-paths", "z"],
+  clean: ["force", "dry-run", "quiet", "exclude", "interactive"],
+};
+
+/** A long option of `verb` expanded from a unique prefix to its full name (or "--?" when it is not one). */
+function longOption(verb, arg) {
+  const names = GIT_LONG_OPTIONS[verb];
+  if (names === undefined || !arg.startsWith("--") || arg === "--") return arg;
+  const eq = arg.indexOf("=");
+  const key = (eq > 0 ? arg.slice(2, eq) : arg.slice(2)).toLowerCase();
+  const value = eq > 0 ? arg.slice(eq) : "";
+  const all = [...new Set([...names, ...names.filter((n) => !n.startsWith("no-")).map((n) => `no-${n}`)])];
+  if (all.includes(key)) return `--${key}${value}`;
+  const matches = all.filter((n) => n.startsWith(key));
+  return matches.length === 1 ? `--${matches[0]}${value}` : "--?";
 }
 
 /** Every git invocation in the analysed command. */
@@ -646,7 +692,7 @@ function pushOf(g) {
   }
   const remote = repoOption ?? positional[0] ?? null;
   const refspecs = repoOption !== null ? positional : positional.slice(1);
-  return { flags, remote, refspecs };
+  return { flags, remote, refspecs, unknown: flags.has("--?") };
 }
 
 const isPush = (g) => g.verb === "push" || (g.verb === "subtree" && g.args.includes("push"));
@@ -664,7 +710,10 @@ function corpusHash() {
     throw new GuardError(`there is no leak corpus at ${join(LEAK_HOME, "corpus")}: build it with \`uv run python -m tools.leakscan build\` in the main checkout`);
   }
   // An empty corpus makes every scan clean, so it vouches for nothing.
-  if (!data.toString("utf8").split("\n").some((line) => line.length >= 8)) throw new GuardError("the leak corpus is empty: rebuild it in the main checkout");
+  const strings = data.toString("utf8").split("\n").filter((line) => line.length >= 8).length;
+  // A corpus of a few strings vouches for almost nothing: the real one holds thousands. (The test seam
+  // VEXTRUS_LEAKSCAN_HOME allows small invented corpora.)
+  if (strings === 0 || (strings < CORPUS_FLOOR && !process.env.VEXTRUS_LEAKSCAN_HOME)) throw new GuardError(`the leak corpus holds ${strings} strings, under the floor of ${CORPUS_FLOOR}: rebuild it in the main checkout`);
   return sha256(data);
 }
 
@@ -1015,8 +1064,8 @@ function scannerRun(cmd) {
   const all = words(cmd.raw ?? "");
   const mention = all.some(
     (w, k) =>
-      /^-m\s*tools[./]leakscan/.test(w) ||
-      (all[k - 1] === "-m" && /^tools[./]leakscan/.test(w)) ||
+      /^-m\s*(?:\S*[./])?leakscan\b/.test(w) ||
+      (all[k - 1] === "-m" && /(?:^|[./])leakscan(?:$|[./])/.test(w)) ||
       (/^(?:\.\/)?tools\/leakscan\/\S*\.py$/.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
   );
   if (!mention) return null;
@@ -1292,7 +1341,7 @@ const BASH_RULES = [
     rule: "HOOKS_SKIPPED",
     fires: (parts, _command, ctx) =>
       parts.some((part) => /^(?:[A-Z_]+=\S*\s+)*git\s/.test(part) && /\s--no-verify\b/.test(part)) ||
-      gitsOf(ctx.analysis).some((g) => g.args.includes("--no-verify") || ((g.verb === "commit" || g.verb === "merge") && g.args.some((a) => /^-[a-zA-Z]*n[a-zA-Z]*$/.test(a) && g.verb === "commit"))),
+      gitsOf(ctx.analysis).some((g) => g.args.includes("--no-verify") || g.args.some((a) => /^--no-veri/.test(a)) || ((g.verb === "commit" || g.verb === "merge") && g.args.some((a) => /^-[a-zA-Z]*n[a-zA-Z]*$/.test(a) && g.verb === "commit"))),
     reason: "`--no-verify` skips the checks a commit or push is owed. Fix what they refuse instead.",
   },
   {
@@ -1426,8 +1475,10 @@ const BASH_RULES = [
             (cmd.name === "git" && /^$|[$`]/.test(gitOf(cmd).verb)) ||
             (cmd.name === "git" && gitOf(cmd).verb === "push" && cmd.words.slice(1).some((w) => /[$`]/.test(w))) ||
             readsCommands(cmd, flat),
-        ) || ctx.analysis.codes.some((code) => /\bpush\b/.test(code));
-      if ((dynamic || ctx.analysis.truncated) && /\bpush\b/.test(flat)) {
+        ) || ctx.analysis.codes.some((code) => /\bgit\b/.test(code) && /(?<![.\w$])push\b/.test(code));
+      // A push needs git somewhere in the text (`G=git; $G push`, `["git","push"]`); a word "push" alone
+      // (`a.push(x)`, `print('push')`) is not one.
+      if ((dynamic || ctx.analysis.truncated) && /(?<![.\w$])push\b/.test(flat) && /\bgit\b|send-pack/.test(flat)) {
         const rule = orchestrators ? "LEAK_STAMP" : cloud ? "CLOUD_PUSH" : "LOCAL_PUSH";
         return { rule, reason: `A push whose command is built at run time cannot be judged. ${PUSH_REASONS[rule]}` };
       }
@@ -1467,7 +1518,7 @@ function readsCommands(cmd, flat) {
   if (!shell && !interpreter) return false;
   if (shell && cmd.args.some((a) => /^-[A-Za-z]*c[A-Za-z]*$/.test(a))) return false;
   if (interpreter && (codeOf(cmd) !== null || cmd.args.includes("-m"))) return false;
-  const operands = cmd.args.filter((a) => !a.startsWith("-") || a === "-");
+  const operands = cmd.args.filter((a) => (!a.startsWith("-") || a === "-") && !/^\d*(?:[<>]&?\d*|>>)$/.test(a));
   if (operands.length === 0 || operands[0] === "-" || operands[0].startsWith("<(") || operands[0].startsWith("<<<") || operands[0] === "/dev/stdin") return true;
   const script = operands[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`>\\s*(?:\\S*/)?${script}(?:[\\s;&|)]|$)`).test(flat);
@@ -1484,7 +1535,11 @@ const PUSH_REASONS = {
 function judgePush(g) {
   if (g.verb === "send-pack") return { rule: orchestrators ? "LEAK_STAMP" : cloud ? "CLOUD_PUSH" : "LOCAL_PUSH", reason: "Push with `git push`, which the guard can judge." };
   if (!orchestrators && !cloud) return { rule: "LOCAL_PUSH" };
-  const { flags, remote, refspecs } = pushOf(g);
+  const { flags, remote, refspecs, unknown } = pushOf(g);
+  if (unknown) {
+    const rule = orchestrators ? "LEAK_STAMP" : "CLOUD_PUSH";
+    return { rule, reason: `A push option that is ambiguous or unknown cannot be judged: spell options out in full. ${PUSH_REASONS[rule]}` };
+  }
   const configured = runGit(g, ["config", "--get-regexp", String.raw`^(remote\..*\.(push|mirror)|push\.(default|followtags))$`]);
   if (configured.status !== 0 && configured.status !== 1) throw new GuardError("git config could not be read");
   const unusual = configured.stdout
