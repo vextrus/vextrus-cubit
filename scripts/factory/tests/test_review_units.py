@@ -366,3 +366,220 @@ def test_the_lens_runs_with_its_slot_database_and_no_inherited_project(
     env = review.lens_env(3)
     assert env["VEXTRUS_DB_NAME"] == "vextrus_rv_slot3"
     assert "CLAUDE_PROJECT_DIR" not in env
+
+
+# ---------------------------------------------------------------- the refuter's findings (S14-R1)
+
+
+def git(where: Path, *args: str) -> str:
+    done = subprocess.run(["git", "-C", str(where), *args], capture_output=True, text=True, check=True)
+    return done.stdout.strip()
+
+
+def repo(tmp_path: Path) -> Path:
+    root = tmp_path / "repo"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    for key, value in (("user.email", "t@example.com"), ("user.name", "t"), ("commit.gpgsign", "false")):
+        git(root, "config", key, value)
+    allowlist = root / review.ALLOWLIST
+    allowlist.parent.mkdir(parents=True)
+    allowlist.write_text(f"{HASH}\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "base")
+    git(root, "update-ref", "refs/remotes/origin/main", "HEAD")
+    return root
+
+
+def test_lines_added_as_plus_plus_are_read_and_never_pass_as_hashes(tmp_path: Path) -> None:
+    """Refuted: `++ text` added to the allowlist showed as `+++ text` and was skipped as a header."""
+    root = repo(tmp_path)
+    (root / review.ALLOWLIST).write_text(f"{HASH}\n{'b' * 64}\n++ any text at all\n+++ b/also\n")
+    git(root, "commit", "-q", "-am", "the change")
+    rows, added = review.changes(root, git(root, "rev-parse", "HEAD"))
+    assert added == ["b" * 64, "++ any text at all", "+++ b/also"]
+    assert review.tier(rows, added) != "allowlist-only"
+
+
+def test_an_added_line_count_unlike_numstat_is_never_allowlist_only() -> None:
+    assert review.tier([(review.ALLOWLIST, 2, 0)], [HASH]) != "allowlist-only"
+
+
+def test_a_coloured_failure_still_confirms_and_replay_runs_without_colour(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuted: with FORCE_COLOR in the orchestrator's shell pytest wrote `\\x1b[31mFAILED`, so no
+    replay ever confirmed."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    script = bin_dir / "uv"
+    script.write_text(
+        '#!/bin/sh\nenv > "$0.env"\n'
+        "printf '\\033[31mFAILED\\033[0m tests/test_a.py::test_attack - AssertionError\\n'\nexit 1\n"
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.setenv("FORCE_COLOR", "3")
+    assert review.replay(tmp_path, 1, "tests/test_a.py") is True
+    seen = (bin_dir / "uv.env").read_text().splitlines()
+    assert "NO_COLOR=1" in seen
+    assert not [line for line in seen if line.startswith("FORCE_COLOR=")]
+
+
+def test_files_the_lens_left_besides_its_repro_are_gone_before_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuted: an untracked pytest.ini the lens wrote (addopts naming a file outside rv) survived
+    `git reset --hard` and made the replay run code outside the worktree."""
+    rv = repo(tmp_path)
+    head = git(rv, "rev-parse", "HEAD")
+    (rv / review.ALLOWLIST).write_text("edited by the lens\n")
+    (rv / "pytest.ini").write_text("[pytest]\naddopts = /elsewhere/test_out.py\n")
+    (rv / "tests").mkdir()
+    (rv / "tests" / "conftest.py").write_text("x = 1\n")
+    (rv / "tests" / "test_attack.py").write_text("def test_attack():\n    assert False\n")
+    seen: list[list[str]] = []
+
+    def replay(where: Path, slot: int, test_file: str) -> bool:
+        seen.append(sorted(str(p.relative_to(where)) for p in where.rglob("*") if ".git" not in p.parts))
+        return True
+
+    monkeypatch.setattr(review, "replay", replay)
+    run = review.Run(pr=12, round_=1, head=head, merged=head, slot=1)
+    run.findings = [
+        review.Finding("l1-f1", 70, "a.py", 1, "s", "tests/test_attack.py"),
+        review.Finding("l1-f2", 60, "a.py", 1, "s", "pytest.ini"),
+    ]
+    review.confirm(run, rv)
+    assert seen == [["tests", "tests/test_attack.py", "tools", "tools/leakscan", review.ALLOWLIST]]
+    assert (rv / review.ALLOWLIST).read_text() == f"{HASH}\n"
+    assert [item.word for item in run.findings] == ["CONFIRMED", "UNPROVEN"]
+
+
+@pytest.mark.parametrize("name", ["tests/test_[a].py", "tests/test a.py", "tests/!a.py", "tests/a*.py"])
+def test_a_repro_name_that_is_not_a_plain_path_is_never_replayed(tmp_path: Path, name: str) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / name).write_text("x")
+    assert review.replay_target(tmp_path, name) is None
+
+
+def test_the_words_lens_cannot_write_and_no_lens_starts_agents(tmp_path: Path) -> None:
+    """Refuted: ux-critic is read-only by its own file, but was given Edit and Write."""
+    words = review.lens_command(review.WORDS, tmp_path)
+    allowed = option(words, "--allowedTools").split(",")
+    assert not [tool for tool in allowed if tool.startswith(("Edit", "Write"))]
+    assert {"Edit", "Write", "Agent"} <= set(option(words, "--disallowedTools").split(","))
+    for lens in (review.LENS_A, review.LENS_B):
+        command = review.lens_command(lens, tmp_path)
+        assert "Agent" in option(command, "--disallowedTools").split(",")
+        assert "Edit(./**)" in option(command, "--allowedTools").split(",")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ".mcp.json",
+        ".gitignore",
+        "pyproject.toml",
+        "uv.lock",
+        "conftest.py",
+        "web/package.json",
+        "vextrus/settings/base.py",
+        "vextrus/api/middleware.py",
+    ],
+)
+def test_harness_and_config_paths_are_never_small(path: str) -> None:
+    """Refuted: these took the one-lens tier."""
+    assert review.tier([(path, 1, 0)], []) == "normal"
+
+
+def staged_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, forge: bool) -> tuple[Path, list[str]]:
+    """`review.review` with every outside step replaced; `forge`: the PR's code writes a record."""
+    main = tmp_path / "main"
+    ledger_dir = main / ".private" / "work" / "factory" / "ledger"
+    recorded: list[str] = []
+
+    def lenses_in(*_: object) -> list[dict[str, Any]]:
+        if forge:
+            ledger_dir.mkdir(parents=True, exist_ok=True)
+            (ledger_dir / f"12-{H}.json").write_text('{"round": 1, "verdict": "PASS"}')
+        return [{"verdict": "PASS", "findings": []}]
+
+    monkeypatch.setattr(review, "resolve", lambda pr: H)
+    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: H)
+    monkeypatch.setattr(review, "changes", lambda main, head: ([("a.py", 1, 0)], []))
+    monkeypatch.setattr(review, "claim_slot", lambda where: (1, (tmp_path / "held").open("a")))
+    monkeypatch.setattr(review, "prepare", lambda *_, **__: None)
+    monkeypatch.setattr(review, "lenses_in", lenses_in)
+    monkeypatch.setattr(review, "record", lambda *_: recorded.append("record"))
+    return main, recorded
+
+
+def test_a_record_that_appears_while_the_prs_code_ran_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    main, recorded = staged_run(tmp_path, monkeypatch, forge=True)
+    args = review.parse(["run", "12", "--round", "1"])
+    run = review.Run(pr=12, round_=1)
+    with pytest.raises(review.Refused, match="appeared"):
+        review.review(run, args, main)
+    assert recorded == []
+
+
+def test_without_a_forged_record_the_round_is_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    main, recorded = staged_run(tmp_path, monkeypatch, forge=False)
+    review.review(review.Run(pr=12, round_=1), review.parse(["run", "12", "--round", "1"]), main)
+    assert recorded == ["record"]
+
+
+def test_a_head_already_recorded_starts_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    main, recorded = staged_run(tmp_path, monkeypatch, forge=False)
+    monkeypatch.setattr(review, "merged_head", lambda *_: pytest.fail("a merge was started"))
+    ledger_dir = main / ".private" / "work" / "factory" / "ledger"
+    ledger_dir.mkdir(parents=True)
+    (ledger_dir / f"12-{H}.json").write_text('{"round": 1, "verdict": "FIX"}')
+    with pytest.raises(review.Refused, match="already recorded"):
+        review.review(review.Run(pr=12, round_=2), review.parse(["run", "12", "--round", "2"]), main)
+    assert recorded == []
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "web/eslint/vextrus.js",
+        "web/scripts/lint-css.mjs",
+        "vextrus/testing/database.py",
+        "web/.npmrc",
+        "web/eslint.config.js",
+        "web/vite.config.ts",
+        "web/tsconfig.app.json",
+        "scripts/factory/review.py",
+    ],
+)
+def test_lint_test_harness_and_nested_config_paths_are_never_small(path: str) -> None:
+    """Refuted in the fix round: these still took the one-lens tier."""
+    assert review.tier([(path, 1, 0)], []) == "normal"
+
+
+def test_an_ignored_file_beside_the_repro_is_gone_before_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuted in the fix round: an ignored `pytest.ini` beside the repro survived `git clean -fd`."""
+    rv = repo(tmp_path)
+    head = git(rv, "rev-parse", "HEAD")
+    attack = rv / "tests" / "attack"
+    attack.mkdir(parents=True)
+    (attack / ".gitignore").write_text("*\n")
+    (attack / "pytest.ini").write_text("[pytest]\naddopts = /elsewhere/test_out.py\n")
+    (attack / "test_r.py").write_text("def test_attack():\n    assert False\n")
+    seen: list[bool] = []
+    monkeypatch.setattr(
+        review, "replay", lambda where, slot, test_file: seen.append((attack / "pytest.ini").exists())
+    )
+    run = review.Run(pr=12, round_=1, head=head, merged=head, slot=1)
+    run.findings = [review.Finding("l1-f1", 70, "a.py", 1, "s", "tests/attack/test_r.py")]
+    review.confirm(run, rv)
+    assert seen == [False]
+    assert (attack / "test_r.py").is_file()

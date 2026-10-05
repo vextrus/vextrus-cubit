@@ -59,13 +59,20 @@ MAX_SLOTS = 4
 LENS_TIMEOUT = 45 * 60
 REPLAY_TIMEOUT = 20 * 60
 GIT_TIMEOUT = 10 * 60
+COLOUR = ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "PYTEST_ADDOPTS")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 FAILING = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"}
 
 # A path on a trust boundary is never "small": the guard and the harness, the factory's gates and
 # records, CI, the leak scan, and code that walls tenants, authenticates or parses hostile input.
 TRUST_BOUNDARY = re.compile(
-    r"^(?:\.claude/|\.github/|scripts/|tools/|CLAUDE\.md$)"
-    r"|(?:^|/)(?:[^/]*(?:guard|auth|tenant|permission|ledger|parser|reader|leak|secret)[^/]*)(?:/|$)"
+    r"^(?:\.claude/|\.github/|tools/|CLAUDE\.md$|vextrus/settings/|vextrus/testing/)"
+    r"|(?:^|/)\.[^/]+(?:/|$)"  # a dotfile or dot-folder at any depth (.npmrc, .mcp.json, .env)
+    r"|(?:^|/)(?:scripts|eslint|lint|hooks)/"
+    r"|(?:^|/)(?:[^/]*(?:guard|auth|tenant|permission|ledger|parser|reader|leak|secret|middleware)"
+    r"[^/]*)(?:/|$)"
+    r"|(?:^|/)(?:pyproject\.toml|uv\.lock|package(?:-lock)?\.json|conftest\.py|manage\.py|setup\.cfg"
+    r"|pytest\.ini|tox\.ini|Makefile|Dockerfile|[^/]*\.config\.[cm]?[jt]s|tsconfig[^/]*\.json)$"
     r"|/migrations/",
     re.IGNORECASE,
 )
@@ -84,6 +91,10 @@ ALLOWED_TOOLS = (
     "Bash(git status:*)",
     "Bash(uv run pytest:*)",
 )
+WRITERS = ("Edit", "Write", "NotebookEdit")
+# Tools that need no permission and would widen a lens: subagents, the web.
+NO_TOOLS = ("Agent", "Task", "WebFetch", "WebSearch")
+PLAIN_PATH = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./-]*")  # also a literal git-clean exclude pattern
 # Belt and braces: nothing a lens is given allows these, and a denial beats any allow.
 LENS_DENY = ("Bash(gh:*)", "Bash(git push:*)", "Bash(git commit:*)", "Bash(sudo:*)", "Bash(curl:*)")
 # The review code's own checkout (the main checkout, run as `uv run python -m ...` there): the lens's
@@ -146,6 +157,7 @@ class Lens:
     agent: str
     model: str
     task: str
+    writes: bool = True  # False: a read-only lens (its agent file disallows Edit and Write)
 
 
 LENS_A = Lens(
@@ -166,6 +178,7 @@ WORDS = Lens(
     "ux-critic",
     "sonnet",
     f"The words-only design gate on the changed {MESSAGES}** words, against CONTEXT.md.",
+    writes=False,
 )
 
 
@@ -222,7 +235,10 @@ def main_checkout() -> Path:
 
 
 def git(where: Path, *args: str, env: dict[str, str] | None = None) -> str:
-    done = _run(["git", "-C", str(where), *args], timeout=GIT_TIMEOUT, env=env)
+    try:
+        done = _run(["git", "-C", str(where), *args], timeout=GIT_TIMEOUT, env=env)
+    except subprocess.TimeoutExpired as error:
+        raise Refused(f"git {args[0]} ran past {GIT_TIMEOUT // 60} minutes") from error
     if done.returncode != 0:
         raise Refused(f"git {args[0]} failed: {done.stderr.strip()[-300:]}")
     return done.stdout
@@ -299,10 +315,20 @@ def changes(main: Path, head: str) -> tuple[list[tuple[str, int | None, int | No
             (path, int(added) if added != "-" else None, int(removed) if removed != "-" else None)
         )
     patch = git(main, "diff", "--no-renames", "-U0", f"origin/main...{head}", "--", ALLOWLIST)
-    added_lines = [
-        line[1:] for line in patch.splitlines() if line.startswith("+") and not line.startswith("+++")
-    ]
-    return rows, added_lines
+    return rows, added_lines(patch)
+
+
+def added_lines(patch: str) -> list[str]:
+    """The added lines of a one-file `-U0` patch: every `+` line after the first hunk header (a line
+    added as `++…` is a line like any other, never mistaken for the `+++ b/<path>` header)."""
+    found: list[str] = []
+    in_hunk = False
+    for line in patch.split("\n"):
+        if line.startswith("@@"):
+            in_hunk = True
+        elif in_hunk and line.startswith("+"):
+            found.append(line[1:])
+    return found
 
 
 def tier(rows: list[tuple[str, int | None, int | None]], allowlist_added: list[str]) -> str:
@@ -313,6 +339,7 @@ def tier(rows: list[tuple[str, int | None, int | None]], allowlist_added: list[s
         paths == [ALLOWLIST]
         and rows[0][2] == 0
         and allowlist_added
+        and rows[0][1] == len(allowlist_added)  # every added line was read, none skipped
         and all(HASH_LINE.fullmatch(line) for line in allowlist_added)
     ):
         return "allowlist-only"
@@ -349,7 +376,10 @@ def prepare(main: Path, path: Path, sha: str, *, clean: bool) -> None:
 
 
 def gh_json(*args: str) -> Any:
-    done = _run(["gh", *args, "--repo", REPOSITORY], timeout=120)
+    try:
+        done = _run(["gh", *args, "--repo", REPOSITORY], timeout=120)
+    except subprocess.TimeoutExpired as error:
+        raise Refused(f"gh {' '.join(args[:2])} ran past two minutes") from error
     if done.returncode != 0:
         raise Refused(f"gh {' '.join(args[:2])} failed: {done.stderr.strip()[-300:]}")
     try:
@@ -487,7 +517,9 @@ def lens_command(lens: Lens, main: Path) -> list[str]:
         "--json-schema",
         json.dumps(REVIEW_SCHEMA, separators=(",", ":")),
         "--allowedTools",
-        ",".join(ALLOWED_TOOLS),
+        ",".join(tool for tool in ALLOWED_TOOLS if lens.writes or not tool.startswith(WRITERS)),
+        "--disallowedTools",
+        ",".join([*NO_TOOLS, *([] if lens.writes else WRITERS)]),
         "--permission-mode",
         "dontAsk",
         "--no-session-persistence",
@@ -556,7 +588,7 @@ def replay_target(rv: Path, test_file: str) -> str | None:
         or ".." in pure.parts
         or test_file.startswith("-")
         or pure.suffix != ".py"
-        or any(char in test_file for char in "\n\r\0:")
+        or not PLAIN_PATH.fullmatch(test_file)
     ):
         return None
     path = (rv / pure).resolve()
@@ -567,14 +599,20 @@ def replay_target(rv: Path, test_file: str) -> str | None:
 
 def replay(rv: Path, slot: int, test_file: str) -> bool:
     """Run the test file in `rv` (never the lens's own command): True when it fails by name."""
+    env = {key: value for key, value in lens_env(slot).items() if key not in COLOUR}
+    env["NO_COLOR"] = "1"
     try:
         done = _run(
-            ["uv", "run", "pytest", "-rf", test_file], cwd=rv, env=lens_env(slot), timeout=REPLAY_TIMEOUT
+            ["uv", "run", "pytest", "-rf", "--color=no", test_file],
+            cwd=rv,
+            env=env,
+            timeout=REPLAY_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
         return False
+    plain = ANSI.sub("", done.stdout)  # FORCE_COLOR in the caller's shell colours pytest's words
     named = re.compile(rf"^FAILED {re.escape(test_file)}(?:::|\s|$)", re.MULTILINE)
-    return done.returncode != 0 and named.search(done.stdout) is not None
+    return done.returncode != 0 and named.search(plain) is not None
 
 
 # ---------------------------------------------------------------------------------------------- the run
@@ -585,7 +623,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
         def error(self, message: str) -> Any:
             raise BadInput(message)
 
-    top = _Parser(prog="python -m scripts.factory.review", add_help=False)
+    top = _Parser(prog="python -m scripts.factory.review")
     commands = top.add_subparsers(dest="command", required=True, parser_class=_Parser)
     run = commands.add_parser("run", add_help=False)
     run.add_argument("pr")
@@ -634,6 +672,8 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     ledger.check_exception(run.round_, args.exception, args.reason)
     ledger.check_round(ledger_dir, run.pr, run.round_, args.exception)
     run.head = resolve(run.pr)
+    if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
+        raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
     with locked(review_dir / ".git.lock"):
         run.merged = merged_head(main, run.pr, run.head)
         rows, allowlist_added = changes(main, run.head)
@@ -666,6 +706,12 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
                     )
                 )
         confirm(run, rv)
+        if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
+            # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
+            raise Refused(
+                f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code ran: "
+                "nothing recorded; the owner must look at it before any merge"
+            )
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
@@ -707,10 +753,20 @@ def confirm(run: Run, rv: Path) -> None:
     assert run.merged is not None
     assert run.slot is not None
     serious = [item for item in run.findings if item.score >= 50]
-    if any(item.repro for item in serious):
-        git(rv, "reset", "-q", "--hard", run.merged)  # the lens's edits to tracked files are undone
+    targets = {item.id: replay_target(rv, item.repro) if item.repro else None for item in serious}
+    keep = sorted({target for target in targets.values() if target is not None})
+    if keep:
+        # Only the repro files survive: the lens's edits to tracked files are undone and every other
+        # file it left (a pytest.ini or conftest.py that changes what pytest runs) is removed.
+        git(rv, "reset", "-q", "--hard", run.merged)
+        # -x: ignored files go too (an ignored pytest.ini next to the repro); the venv and the node
+        # packages stay, so code the lens put there is not removed (the sandbox issue, filed).
+        excluded = [f"--exclude=/{target}" for target in keep]
+        git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules", *excluded)
     for item in serious:
-        target = replay_target(rv, item.repro) if item.repro else None
+        target = targets[item.id]
+        if target is not None and not (rv / target).is_file():
+            target = None
         if target is not None and replay(rv, run.slot, target):
             item.word, item.method = "CONFIRMED", "replay"
         else:
