@@ -146,7 +146,7 @@ def test_a_name_after_any_honorific_or_initial_is_asked(sentence: str) -> None:
 
 def test_a_name_in_a_tables_first_column_is_asked() -> None:
     found = texts("| Haverford | Client |\n| Quillon | Architect |\n")
-    assert found == ["Haverford", "Quillon"]
+    assert found == ["Haverford", "Client", "Quillon", "Architect"]  # a later cell is a label's value
 
 
 @pytest.mark.parametrize("sentence", ["The client signed.", "Approved by the client."])
@@ -156,3 +156,45 @@ def test_a_common_word_at_a_sentence_start_is_still_dropped(sentence: str) -> No
 
 def test_an_uncommon_word_at_a_sentence_start_is_asked() -> None:
     assert texts("Haverford signed. Quillon too.") == ["Haverford", "Quillon"]
+
+
+# PR #379 round 1: no list of content words may drop a name where a label's value or a name run stands;
+# dotted sheet numbers are codes; names joined by `/` are separate.
+
+
+def asked(text: str, *names: str) -> bool:
+    found = texts(text)
+    return all(any(name in candidate for candidate in found) for name in names)
+
+
+@pytest.mark.parametrize(
+    ("sentence", "names"),
+    [
+        ("Site: North Court", ["North Court"]),
+        ("| East Annex | Site |", ["East Annex"]),
+        ("CLIENT: COURT", ["COURT"]),
+        ("Owner: June", ["June"]),
+        ("Sheet A-1.01 shows the slab", ["A-1.01"]),
+        ("see S-2.03 and E-1.02", ["S-2.03", "E-1.02"]),
+        ("see ST-3.1 and GF-1.10 here", ["ST-3.1", "GF-1.10"]),
+        ("Client: Haverford/Quillon", ["Haverford", "Quillon"]),
+        ("Haverford\\Quillon Tower", ["Haverford", "Quillon Tower"]),
+        ("North Court was measured.", ["North Court"]),
+    ],
+)
+def test_a_name_or_a_sheet_number_in_a_label_or_a_run_is_asked(sentence: str, names: list[str]) -> None:
+    assert asked(sentence, *names), texts(sentence)
+
+
+def test_names_joined_by_a_slash_are_two_candidates() -> None:
+    assert texts("Client: Haverford/Quillon") == ["Haverford", "Quillon"]
+
+
+@pytest.mark.parametrize("token", ["v1.2", "V2.0.1", "1.2.3", "jev-1.13.0", "ruff-0.6.9"])
+def test_a_version_is_not_asked(token: str) -> None:
+    assert texts(f"see {token} here.") == []
+
+
+@pytest.mark.parametrize("sentence", ["The client signed.", "It was done. The client signed."])
+def test_a_function_word_is_never_asked(sentence: str) -> None:
+    assert texts(sentence) == []

@@ -42,10 +42,13 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
    - runs of two or more capitalised words (`Willowbrook Tannery Annex`);
    - single capitalised words, of two letters or more.
 
-   Left out, by one rule: a capitalised word where a sentence may start (the line's first token, or after `.`, `!`,
-   `?`, `:`, a table bar or a list marker) is dropped **only when it is a common word** (`candidates.COMMON`, a fixed
-   list of everyday words, honorifics such as `Mr` and `Engr` among them); a common word or a single letter is
-   never asked alone. Also left out: git shas, issue numbers, ISO dates, versions (`jev-1.13.0`), words listed in
+   Left out: a capitalised word alone that is a function word (`candidates.FUNCTION_WORDS`, English's closed
+   classes: articles, pronouns, prepositions, conjunctions, auxiliaries, determiners) or a title (`Mr`, `Engr`,
+   `Md`, ...), wherever it stands, and a function word leading a run (`The Thistlewood Granary`); a single
+   letter alone; and an everyday word (`candidates.START_WORDS`) standing alone at a true sentence start (a line's
+   first word after list markers, or after `.`, `!`, `?`; never after a label's colon or a table bar, and never in
+   a run). A run of two or more capitalised words is always asked. Tokens are cut at whitespace, `/` and `\`.
+   Also left out: git shas, issue numbers, ISO dates, versions (a `v` prefix or a lower-case word's: `v1.2`, `jev-1.13.0`; `A-1.01` is a sheet number), words listed in
    `tools/jevleak/known.txt` (the factory's own words, one per line, committed), any candidate whose
    `sha256(normalise(text))` is in the wall's allowlist, and tokens longer than 64 characters. Candidates are
    deduplicated by their normalised form (spaces dropped) and ranked: codes, sizes and levels first, then

@@ -20,53 +20,54 @@ LONGEST = 64
 CODE, NAMES, WORD = 0, 1, 2
 """The ranks: codes, sizes and levels first; then runs of capitalised words; then single words."""
 
-_TOKEN = re.compile(r"\S+")
+_TOKEN = re.compile(r"[^\s/\\]+")
+"""Tokens are cut at whitespace and at `/` and `\\`, as the literal wall's split does."""
 _SIZE = re.compile(r"(?<![\w.])[0-9]{2,5} {0,3}[xX\u00d7] {0,3}[0-9]{2,5}(?![\w.])")
 _LEVEL = re.compile(r"[+\u00b1\u2212-][0-9]{1,3}\.[0-9]{2,3}")
 _CODE_CHARS = re.compile(r"[A-Za-z0-9][A-Za-z0-9./_-]*")
 _SHA = re.compile(r"[0-9a-f]{7,64}")
 _DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:T[0-9:]{2,8}Z?)?")
 _VERSION = re.compile(
-    r"(?:[A-Za-z][A-Za-z0-9]*[-_])?[vV]?[0-9]{1,4}(?:\.[0-9]{1,4}){1,3}(?:[-+.][A-Za-z0-9]{1,16})?"
+    r"(?:[vV]|[a-z][a-z0-9]*[-_][vV]?)[0-9]{1,4}(?:\.[0-9]{1,4}){1,3}(?:[-+.][A-Za-z0-9]{1,16})?"
 )
+"""A version: a `v` prefix (`v1.2`) or a lower-case word's (`jev-1.13.0`); bare dotted numbers hold no
+letter, so are never codes. `A-1.01`, `ST-3.1` are sheet numbers, not versions."""
 _ORDINAL = re.compile(r"[0-9]{1,4}(?:st|nd|rd|th|s)")
 _OPEN = "\"'`*_([{<\u201c\u2018\u00ab"
 _CLOSE = "\"'`*_)]}>\u201d\u2019\u00bb,;"
 _ENDS = ".!?:"
 _ENDINGS = tuple(_ENDS)
 _MARKERS = re.compile(r"(?:#{1,6}|[-*+>|\u2022]|[0-9]{1,3}[.)]|\[[ xX]\])")
-COMMON = frozenset(
+FUNCTION_WORDS = frozenset(
     """
-    a about above across after again against all also although always am among an and another any are
-    around as at away back be because been before being below between both but by can could did do
-    does done down during each either else enough even ever every few for from further had has have
-    he her here hers him his how however i if in into is it its just least less let like many may me
-    might more most much must my neither never next no nor not nothing now of off often on once only
-    or other otherwise our out over own per perhaps please rather same she should since so some soon
-    still such than that the their them then there these they this those though through thus to today
-    together too under unless until up upon us very was we well were what when where whether which
-    while who whom whose why will with within without yes yet you your
-    one two three four five six seven eight nine ten first second third last
-    monday tuesday wednesday thursday friday saturday sunday january february march april may june
-    july august september october november december
-    mr mrs ms miss dr md mst engr ar prof sir madam sk sri shri
-    add added adds adding allow allowed answer answered approve approved ask asked asks build builds
-    built call called change changed changes check checked checks close closed cut cuts design
-    designed do drawn drop dropped end ends ended fail failed find found fine fix fixed fixes follow
-    follows following give given ignore ignored keep keeps kept land landed lands make makes made
-    measure measured merge merged move moved moves need needs note noted open opened pass passed
-    print printed push pushed read reads refuse refused remove removed removes return returns review
-    reviewed run runs ran send sends sent set sets show shows shown sign signed start started stop
-    stopped take takes taken test tested tests try tried update updated use used uses verify verified
-    want write writes written wrote
-    annex area architect beam building client column consultant contractor court date designer
-    detail details door drawing drawings east elevation engineer floor footing grid ground issue item
-    items level line lines model north note notes owner page part plan plot project revision roof room
-    scale schedule section sheet site size slab south stair step steps structure summary system title
-    total type version wall walls water west window branch commit phase round session ticket wave
+    a an the this that these those it its i we you he she they me us him her them my our your his
+    their in on at for to of by from with into onto about over under after before up down out off
+    and but or nor so yet if when while as than then because though although is are was were be been
+    being am has have had do does did can could will would shall should must might not no all any
+    each every some both either neither nothing
     """.upper().split()
 )
-"""Everyday words: dropped where a sentence may start, and never asked alone (contract 2)."""
+"""English's closed classes: never a name alone, and never a name run's first word (contract 2)."""
+TITLES = frozenset("MR MRS MS MISS DR MD MST ENGR AR PROF SIR SK SRI SHRI".split())
+"""Honorifics: a name's title, never a name alone."""
+START_WORDS = frozenset(
+    """
+    add added adds allow allowed answer answered approve approved ask asked build built call called
+    change changed check checked close closed cut design designed done drop dropped end ended fail
+    failed find found fine fix fixed follow following give ignore ignored keep kept landed make made
+    measure measured merge merged move moved need note noted open opened pass passed print printed
+    push pushed read refuse refused remove removed return review reviewed run ran send sent set show
+    sign signed start started stop stopped take test tested try tried update updated use used verify
+    verified want write wrote also here there today yes please however otherwise
+    architect client consultant contractor date designer drawing engineer issue item owner page plan
+    project revision scale schedule section sheet site summary system title total type version water
+    commit round session ticket
+    """.upper().split()
+)
+"""Everyday words that open a draft's sentences (`Water runs down the drain.`, `Landed on ...`): dropped
+only when one stands alone at a true sentence start (a line's first word, or after `.`, `!`, `?`), never
+after a label's colon or a table bar and never in a run. Words that start site or building names
+(points of the compass, `Court`, `Annex`, months) are left out on purpose."""
 _SEPARATORS = "-'\u2019"
 
 
@@ -130,30 +131,32 @@ class _Token:
     text: str
     start: int
     initial: bool
-    """Where a sentence may start: the line's first token, or after `.`, `!`, `?`, `:`, a table bar
-    or a list marker."""
+    """A true sentence start: the line's first token (after list markers), or after `.`, `!`, `?`."""
     ends: bool
+    split: bool = False
+    """Cut from the token before at `/` or `\\`: a new name, never the same run."""
 
 
 def _tokens(line: str) -> list[_Token]:
-    """The line's tokens, quotes and brackets trimmed, each marked as where a sentence may start."""
+    """The line's tokens, quotes and brackets trimmed, each marked as a sentence's first or not."""
     found: list[_Token] = []
     initial = True
     for match in _TOKEN.finditer(line):
         raw = match.group()
+        split = match.start() > 0 and line[match.start() - 1] in "/\\"
         if len(raw) > LONGEST + 8:
             found.append(_Token("", match.start(), initial, False))
             initial = False
             continue
-        if _MARKERS.fullmatch(raw) and (initial or raw == "|"):
-            initial = True  # a list marker or a table bar: what follows may start a sentence
+        if initial and _MARKERS.fullmatch(raw):
             continue
         lead = len(raw) - len(raw.lstrip(_OPEN))
         text = raw.strip(_OPEN).rstrip(_CLOSE)
-        ends = text.endswith(_ENDINGS) or raw.rstrip(_CLOSE + _OPEN).endswith(_ENDINGS)
+        bare = raw.rstrip(_CLOSE + _OPEN)
+        ends = text.endswith(_ENDINGS) or bare.endswith(_ENDINGS)
         text = text.rstrip(_ENDS + _CLOSE)
-        found.append(_Token(text, match.start() + lead, initial, ends))
-        initial = ends
+        found.append(_Token(text, match.start() + lead, initial, ends, split))
+        initial = ends and not bare.endswith(":")
     return found
 
 
@@ -167,8 +170,10 @@ def _line(number: int, line: str) -> list[Candidate]:
     def close() -> None:
         words = list(run)
         run.clear()
-        if words and words[0].initial and key(words[0].text) in COMMON:
-            words = words[1:]  # a common word where a sentence may start is not a name
+        if words and key(words[0].text) in FUNCTION_WORDS:
+            words = words[1:]  # `The Thistlewood Granary`: the article is not the name
+        if len(words) == 1 and words[0].initial and key(words[0].text) in START_WORDS:
+            words = []  # `Water runs down the drain.`: an everyday word opening a sentence
         begin = 0
         while begin < len(words):  # a run longer than LONGEST is taken in parts that fit
             end = begin + 1
@@ -180,8 +185,9 @@ def _line(number: int, line: str) -> list[Candidate]:
             part, begin = words[begin:end], end
             if all(key(w.text) in known() for w in part):
                 continue
-            if len(part) == 1 and (len(part[0].text) < 2 or key(part[0].text) in COMMON):
-                continue  # an initial or an everyday word alone is not a name
+            alone = key(part[0].text)
+            if len(part) == 1 and (len(alone) < 2 or alone in FUNCTION_WORDS or alone in TITLES):
+                continue  # an initial, a function word or a title alone is not a name
             text = line[part[0].start : part[-1].start + len(part[-1].text)]
             found.append(Candidate(number, text, NAMES if len(part) > 1 else WORD, part[0].start))
 
@@ -191,7 +197,7 @@ def _line(number: int, line: str) -> list[Candidate]:
             close()
             continue
         if _word(text):
-            if token.initial:
+            if token.initial or token.split:
                 close()
             run.append(token)
             if token.ends:
@@ -202,7 +208,9 @@ def _line(number: int, line: str) -> list[Candidate]:
             if (
                 run
                 and key(text) not in known()
+                and key(run[-1].text) not in FUNCTION_WORDS
                 and not token.initial
+                and not token.split
                 and key(run[-1].text) not in known()
                 and token.start + len(text) - run[-1].start <= LONGEST
             ):
