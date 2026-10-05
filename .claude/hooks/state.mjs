@@ -6,7 +6,8 @@ import { existsSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = process.env.CLAUDE_PROJECT_DIR ?? resolve(fileURLToPath(new URL("../..", import.meta.url)));
+// `||`, not `??`: an empty CLAUDE_PROJECT_DIR would resolve to the cwd, not this checkout (issue C11).
+const ROOT = process.env.CLAUDE_PROJECT_DIR || resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
 const read = (command, args) => {
   const result = spawnSync(command, args, { cwd: ROOT, encoding: "utf8", timeout: 5_000 });
