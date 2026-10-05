@@ -114,6 +114,10 @@ PASSING = [
     "Up to {limit, plural, one {# item} other {# items}}.",
     "Added on {date, date} at {time, time}.",  # a date is no count
     "{actor} of Vextrus opened it.",  # a name, not a count
+    "{0, plural, one {# floor} other {# floors}} kept.",  # a positional that only selects
+    "{0, selectordinal, one {#st} other {#th}} slab.",
+    "{owner} belongs to it and confirms the plan.",  # verbs after a singular argument
+    "{kind} and carries a note.",
 ]
 
 
