@@ -175,7 +175,9 @@ leave them; `sweep` lists them by name.
 ## Owner questions (one at a time; recommendation first, its reason in a line)
 1. Approve the CLAUDE.md "Effort and models" text in `factory-next.md` §3 and ADR 0043 (superseding ADR 0042's review part)?
    Recommended: yes, it carries your instruction of 5 Oct and keeps your Q20 line for acceptance-writers.
-2. Orchestrator at Opus 5.5 `medium` or `high` for the session? Recommended: `medium` throughout; never switch mid-session (the cache).
+2. Settled before the session starts, not asked here: step 2 of "Starting the session" fixes the orchestrator's effort (`medium`
+   throughout, by the owner's instruction of 5 Oct 2026), and switching mid-session would lose the cache. If the owner wants `high`,
+   they choose it when they start the orchestrator; the session only confirms which one it runs.
 3. The light path: an allowlist-only PR (only 64-hex lines added) gets code checks and no model. Recommended: yes (4 full reviews spent
    on them in session 13).
 4. Spend on `claude ultrareview` ($5-25 a review after 3 free runs)? Recommended: no in Part A; keep the free runs for the riskiest PR
