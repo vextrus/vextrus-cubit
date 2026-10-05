@@ -41,12 +41,16 @@ Behaviour, each with a test in `scripts/factory/tests/test_jev.py` on recorded a
 - **Concurrency:** at most 10 calls at once across the process.
 - **Cool-off:** after 3 outages in a row (`timed_out`, `busy`, `failed`, `unreachable`, `malformed`, `oversized`;
   a refusal is not one) every call is `cooling_off` for 60 s, then one call (the probe) tries again while the others
-  still cool off; only the probe's own end frees its place. The cool-off holds **across processes** (every
-  subcommand is its own short run): `.private/work/factory/jev-health.json`, numbers only
-  (`{"failures": <n>, "last_failure_wall": <unix s>, "until_wall": <unix s> | null}`), written atomically when an
-  outage changes the count or the cool-off, deleted by name when an answer comes, read once at a run's first call.
-  A file that is unreadable or malformed, or whose last failure is older than the cool-off's 60 s, is ignored; a
-  write that fails is ignored. A refusal before any request (`no_key`, `bad_question`, `too_large`) never touches it.
+  still cool off; only the probe's own end frees its place, and a probe that fails trips the cool-off again at once.
+  The cool-off holds **across processes** (every subcommand is its own short run):
+  `.private/work/factory/jev-health.json`, numbers only (`{"failures": <n>, "last_failure_wall": <unix s>,
+  "until_wall": <unix s> | null, "probe_wall": <unix s> | null}`), written atomically when an outage changes the
+  count or the cool-off, deleted by name when an answer comes, read once at a run's first call. A tripped record
+  stays until an answer deletes it: once its cool-off ends, the one run that claims the probe (under
+  `jev-health.lock`) marks `probe_wall`, and every other run cools off while that mark is younger than 60 s (a run
+  that dies with its probe out costs one cool-off). Failures that never tripped expire after 60 s. A file that is
+  unreadable or malformed, or carries a time more than 60 s ahead of the wall clock, is ignored; a write that fails
+  is ignored. A refusal before any request (`no_key`, `bad_question`, `too_large`) never touches it.
 - **Cache:** every `Answers` is stored under `.private/work/factory/jev-cache/`, named by
   `<sha256(state, questions, model)>` (the sha256 of the canonical JSON of the three, sorted keys, so the same
   questions in any order give one digest): `<digest>.json` when the questions were asked in sorted name order, else

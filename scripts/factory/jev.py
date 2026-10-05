@@ -20,6 +20,7 @@ sidecars, the model watch's record and the cool-off's record (`jev-health.json`)
 import argparse
 import contextlib
 import contextvars
+import fcntl
 import hashlib
 import json
 import os
@@ -220,6 +221,23 @@ def _health_path() -> Path:
     return factory_dir() / "jev-health.json"
 
 
+@contextlib.contextmanager
+def _health_lock() -> Iterator[None]:
+    """`jev-health.lock` held while a run claims the probe, so two runs never both probe. A lock that
+    cannot be taken is gone without: the claim is then only as good as the file."""
+    try:
+        path = factory_dir() / "jev-health.lock"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        handle = path.open("a", encoding="ascii")
+    except OSError:
+        yield
+        return
+    with handle:
+        with contextlib.suppress(OSError):
+            fcntl.flock(handle, fcntl.LOCK_EX)  # released when the file closes
+        yield
+
+
 def _number(value: object) -> float | None:
     if type(value) not in (int, float):
         return None
@@ -227,18 +245,59 @@ def _number(value: object) -> float | None:
     return number if number == number and abs(number) != float("inf") else None
 
 
+@dataclass(frozen=True)
+class _Record:
+    """`jev-health.json`: failures in a row, the last one's wall time, the cool-off's end (None until
+    it trips) and the wall time a run claimed the probe (None when none is out)."""
+
+    failures: int
+    last_failure_wall: float
+    until_wall: float | None
+    probe_wall: float | None
+
+
+def _read_record() -> _Record | None:
+    """The record, or None when it is missing, unreadable or malformed, or when any of its times is
+    more than a cool-off ahead of the wall clock (written while the clock was ahead: honouring it
+    would keep every later run silent)."""
+    try:
+        data = json.loads(_health_path().read_text(encoding="ascii"))
+    except OSError, ValueError, UnicodeDecodeError, RecursionError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    failures, last = data.get("failures"), _number(data.get("last_failure_wall"))
+    if type(failures) is not int or failures < 1 or last is None:
+        return None
+    times: list[float | None] = []
+    for key in ("until_wall", "probe_wall"):
+        value = data.get(key)
+        number = None if value is None else _number(value)
+        if value is not None and number is None:
+            return None
+        times.append(number)
+    horizon = _wall() + settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+    if any(time is not None and time > horizon for time in (last, *times)):
+        return None
+    return _Record(failures, last, times[0], times[1])
+
+
 class _Health:
     """Failures in a row; after `VEXTRUS_JEV_COOL_OFF_AFTER` of them, every call is `cooling_off` for
     `VEXTRUS_JEV_COOL_OFF_SECONDS`, then one call (the probe) tries again while the others still cool
-    off. Every admitted call is settled, and only the probe's own end frees the probe's place.
+    off; a probe that fails trips it again at once. Every admitted call is settled, and only the
+    probe's own end frees the probe's place.
 
-    Each CLI run is its own process, so the count and the cool-off are kept in `jev-health.json`
-    (numbers only), read once at the first `admit` and kept in memory after; an unreadable file, or
-    one whose last failure is older than the cool-off, is ignored."""
+    Each CLI run is its own process, so the state is kept in `jev-health.json` (numbers only), read
+    once at the first `admit` and kept in memory after. A tripped record stays until an answer
+    deletes it: once its cool-off ends, the next run to claim the probe (under `jev-health.lock`)
+    marks it, and the other runs cool off while that mark is younger than the cool-off. Failures
+    that never tripped expire after the cool-off; an unreadable record is ignored."""
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._failures = 0
+        self._last_wall: float | None = None
         self._until: float | None = None
         self._probing = False
         self._loaded = False
@@ -250,7 +309,7 @@ class _Health:
                 self._load()
             if self._until is None:
                 return _Admission(probe=False)
-            if _now() < self._until or self._probing:
+            if _now() < self._until or self._probing or not self._claim():
                 return None
             self._probing = True
             return _Admission(probe=True)
@@ -261,42 +320,55 @@ class _Health:
             if admission.probe:
                 self._probing = False
             if why is None:
-                self._failures, self._until = 0, None
+                self._failures, self._until, self._last_wall = 0, None, None
                 with contextlib.suppress(OSError):
                     _health_path().unlink(missing_ok=True)
             elif why in _OUTAGES:
                 self._failures += 1
+                self._last_wall = _wall()
                 if self._failures >= settings.VEXTRUS_JEV_COOL_OFF_AFTER:
                     self._until = _now() + settings.VEXTRUS_JEV_COOL_OFF_SECONDS
-                self._save()
+                self._save(probe_wall=None)
+            elif admission.probe:
+                self._save(probe_wall=None)  # a refused probe hands the probe back
 
     def _load(self) -> None:
-        try:
-            data = json.loads(_health_path().read_text(encoding="ascii"))
-        except OSError, ValueError, UnicodeDecodeError, RecursionError:
-            return
-        if not isinstance(data, dict):
-            return
-        failures, last = data.get("failures"), _number(data.get("last_failure_wall"))
-        until = data.get("until_wall")
-        if type(failures) is not int or failures < 1 or last is None:
+        record = _read_record()
+        if record is None:
             return
         wall, cool_off = _wall(), settings.VEXTRUS_JEV_COOL_OFF_SECONDS
-        if wall - last > cool_off:
-            return  # old failures expire
-        if until is None:
-            self._failures = failures
-            return
-        until_wall = _number(until)
-        if until_wall is None:
-            return
-        self._failures = failures
-        self._until = _now() + min(until_wall - wall, cool_off)
+        if record.until_wall is None and wall - record.last_failure_wall > cool_off:
+            return  # failures that never tripped expire
+        self._failures, self._last_wall = record.failures, record.last_failure_wall
+        if record.until_wall is not None:
+            self._until = _now() + min(record.until_wall - wall, cool_off)
 
-    def _save(self) -> None:
+    def _claim(self) -> bool:
+        """This run's claim on the probe once the cool-off ended: refused while another run's probe
+        is out (its mark younger than the cool-off) or another run tripped it again."""
+        with _health_lock():
+            record, wall = _read_record(), _wall()
+            if record is not None:
+                again = record.until_wall is not None and record.failures > self._failures
+                if again and record.until_wall is not None and record.until_wall > wall:
+                    self._failures = record.failures  # another run's probe failed: cool off anew
+                    self._until = _now() + (record.until_wall - wall)
+                    return False
+                cool_off = settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+                if record.probe_wall is not None and wall - record.probe_wall < cool_off:
+                    return False
+            self._save(probe_wall=wall)
+            return True
+
+    def _save(self, probe_wall: float | None) -> None:
         wall = _wall()
         until = None if self._until is None else wall + (self._until - _now())
-        record = {"failures": self._failures, "last_failure_wall": wall, "until_wall": until}
+        record = {
+            "failures": self._failures,
+            "last_failure_wall": wall if self._last_wall is None else self._last_wall,
+            "until_wall": until,
+            "probe_wall": probe_wall,
+        }
         with contextlib.suppress(OSError, ValueError):  # a lost record costs one run's deadline
             _write_atomically(_health_path(), json.dumps(record, allow_nan=False) + "\n")
 
