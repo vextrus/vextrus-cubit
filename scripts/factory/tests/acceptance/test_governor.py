@@ -248,26 +248,24 @@ def test_g3_disk_refuses_under_30_gb_after_the_unit_and_warns_under_40(gov: Gove
     assert warn_lines(done) == [], show(done)
 
 
-# G4
+# G4 (amended 5 Oct 2026 for the owner's ruling: "don't make those threshold of week 85% or session 80%,
+# make them 100% both and I'll take actions whatever needed for usage tokens expansion")
 @pytest.mark.parametrize("unit", ["cloud-session", "local-agent"])
-def test_g4_usage_holds_new_launches_at_80_session_or_85_week(gov: Governor, unit: str) -> None:
-    gov.set(usage=usage_json(85, 27))
+def test_g4_usage_holds_new_launches_only_at_a_used_up_100_percent(gov: Governor, unit: str) -> None:
+    gov.set(usage=usage_json(100, 27))
     assert_refused(gov.check(unit), unit, "session")
-    gov.set(usage=usage_json(12, 90))
+    gov.set(usage=usage_json(12, 100))
     assert_refused(gov.check(unit), unit, "week")
-    gov.set(usage=usage_json(12, 27))
-    assert_ok(gov.check(unit), unit)
-
-
-def test_g4_the_cloud_cap_starts_at_8_when_usage_is_low_else_4(gov: Governor) -> None:
-    for session, week in ((55, 20), (20, 75)):
+    for session, week in ((85, 27), (12, 90), (99, 99), (12, 27)):
         gov.set(usage=usage_json(session, week))
-        assert_refused(gov.check("cloud-session", "--running", "4"), "cloud-session")
-        assert_ok(gov.check("cloud-session", "--running", "3"), "cloud-session")
+        assert_ok(gov.check(unit), unit)
 
-    gov.set(usage=usage_json(12, 27))
-    assert_refused(gov.check("cloud-session", "--running", "8"), "cloud-session")
-    assert_ok(gov.check("cloud-session", "--running", "7"), "cloud-session")
+
+def test_g4_the_cloud_cap_is_8_whatever_the_usage(gov: Governor) -> None:
+    for session, week in ((12, 27), (55, 20), (20, 75), (95, 99)):
+        gov.set(usage=usage_json(session, week))
+        assert_refused(gov.check("cloud-session", "--running", "8"), "cloud-session")
+        assert_ok(gov.check("cloud-session", "--running", "7"), "cloud-session")
 
 
 # G5
@@ -374,11 +372,11 @@ def test_g9_a_live_g1_walk_or_real_drawing_run_excludes_the_units_it_would_starv
 
 # G10 (tier 2 inside f3, cut 4)
 def test_g10_the_ramp_caps_cloud_sessions_from_the_measured_rate(gov: Governor) -> None:
-    gov.set(usage=usage_json(20, 27))
+    gov.set(usage=usage_json(40, 27))
     ramp = ("--rate", "1.5", "--hours-to-reset", "3")
     done = gov.check("cloud-session", "--running", "12", *ramp, "--json")
     assert done.returncode == 0, show(done)
-    assert json.loads(done.stdout)["cap"] == 13  # floor((80 - 20) / (1.5 * 3))
+    assert json.loads(done.stdout)["cap"] == 13  # floor((100 - 40) / (1.5 * 3)), the hold at 100
     assert_refused(gov.check("cloud-session", "--running", "13", *ramp), "cloud-session")
 
     slow = ("--rate", "0.1", "--hours-to-reset", "3")
@@ -389,13 +387,13 @@ def test_g10_the_ramp_caps_cloud_sessions_from_the_measured_rate(gov: Governor) 
 
 
 # G11
-def test_g11_review_degrades_to_pr_reviewer_only_at_90_percent(gov: Governor) -> None:
-    gov.set(usage=usage_json(92, 27))
+def test_g11_review_degrades_to_pr_reviewer_only_only_at_a_used_up_100_percent(gov: Governor) -> None:
+    gov.set(usage=usage_json(100, 27))
     done = gov.check("review", "--agents", "8")
     assert done.returncode == 0, show(done)
     assert "DEGRADE pr-reviewer-only" in done.stdout.splitlines(), show(done)
 
-    gov.set(usage=usage_json(40, 27))
+    gov.set(usage=usage_json(92, 99))
     done = gov.check("review", "--agents", "8")
     assert_ok(done, "review")
     assert "DEGRADE" not in done.stdout, show(done)
