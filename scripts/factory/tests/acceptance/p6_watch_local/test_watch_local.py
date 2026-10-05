@@ -1,5 +1,6 @@
-"""Ticket T-WATCH-LOCAL (session 12 phase 6), section 3 A and addendum 1: the watcher reads a local
-builder's own commits, and reads the Factory-* trailers the way builders and the lander leave them.
+"""Ticket T-WATCH-LOCAL (session 12 phase 6), section 3 A and addendum 1 (its first rule amended in
+PR #372 round 1): the watcher reads a local builder's own commits, reads the Factory-* trailers from
+the last paragraph only (as the guard does), and reads a merge of main on top of an outcome.
 
 Black-box, as `scripts/factory/tests/acceptance/test_watch.py` (its `World` helper copied in the parts
 needed, never imported): a tmp bare `origin.git`, a `work` clone that pushes, and a `main` clone that is
@@ -495,28 +496,46 @@ def test_a9_a_finished_local_builder_is_counted_done(world: World) -> None:
     assert world.status()["builders"]["local"]["done"] == 1
 
 
-# Addendum 1.1: the Factory-* trailers sit in the paragraph before an attribution-only last paragraph
-def test_b1_a_ready_before_an_attribution_paragraph_is_ready(world: World) -> None:
+# Addendum 1.1, as amended (PR #372 round 1, the orchestrator's decision): ONE rule everywhere, the
+# guard's READY push gate and stop-gate.mjs included. Factory-* trailers count only in the LAST
+# paragraph, which may also hold the Co-Authored-By and Claude-Session lines; trailers in the
+# paragraph before an attribution-only last paragraph are not read.
+def test_b1_a_ready_before_an_attribution_paragraph_is_not_ready(world: World) -> None:
     world.launch_cloud("tc2", "tc2-branch")
-    head = world.push("tc2-branch", lambda tree: f"{ready(tree)}\n{ATTRIBUTION}")
+    world.push("tc2-branch", lambda tree: f"{ready(tree)}\n{ATTRIBUTION}")
     world.once()
 
-    events = world.events("READY", "tc2")
-    assert len(events) == 1, world.lines()
-    assert detail(events[0]).startswith(head[:8]), events
-    assert world.item("tc2")["state"] == "ready"
+    for kind in ("READY", "BLOCKED", "READY-NO-VERIFY"):
+        assert world.events(kind, "tc2") == [], world.lines()
+    assert world.item("tc2")["state"] == "working"
 
 
-def test_b1_a_blocked_before_an_attribution_paragraph_is_blocked(world: World) -> None:
+def test_b1_a_blocked_before_an_attribution_paragraph_is_not_blocked(world: World) -> None:
     world.launch_cloud("tc6", "tc6-branch")
     reason = "the spec names no exit code"
-    head = world.push("tc6-branch", lambda tree: f"{blocked(reason)(tree)}\n{ATTRIBUTION}")
+    world.push("tc6-branch", lambda tree: f"{blocked(reason)(tree)}\n{ATTRIBUTION}")
     world.once()
 
-    events = world.events("BLOCKED", "tc6")
+    for kind in ("READY", "BLOCKED", "READY-NO-VERIFY"):
+        assert world.events(kind, "tc6") == [], world.lines()
+    assert world.item("tc6")["state"] == "working"
+
+
+def test_b1_a_ready_sharing_the_last_paragraph_with_attribution_is_ready(world: World) -> None:
+    world.launch_cloud("tc7", "tc7-branch")
+    head = world.push(
+        "tc7-branch",
+        lambda tree: (
+            f"factory: the thing\n\nBody.\n\n"
+            f"Factory-State: READY\nFactory-Verify: {tree} ok\n{ATTRIBUTION}"
+        ),
+    )
+    world.once()
+
+    events = world.events("READY", "tc7")
     assert len(events) == 1, world.lines()
-    assert detail(events[0]) == f"{head[:8]} {reason}", events
-    assert world.item("tc6")["state"] == "blocked"
+    assert detail(events[0]).startswith(head[:8]), events
+    assert world.item("tc7")["state"] == "ready"
 
 
 def test_b1_trailers_in_free_text_earlier_in_the_body_are_never_read(world: World) -> None:
