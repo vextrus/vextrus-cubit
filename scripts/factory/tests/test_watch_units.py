@@ -49,9 +49,16 @@ def test_trailers_follow_trailers_md(last_paragraph: str, outcome: str | None) -
     assert watch.parse_trailers(message, TREE).outcome == outcome
 
 
-def test_only_the_last_paragraph_counts() -> None:
-    message = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\nA closing line.\n"
-    assert watch.parse_trailers(message, TREE).outcome is None
+def test_the_factory_block_is_read_from_the_last_two_paragraphs_only() -> None:
+    """trailers.md 1: the read paragraph is the last of the last two holding a `Factory-*` line; one
+    further back raises READY-NO-VERIFY, never silence."""
+    block = f"Factory-State: READY\nFactory-Verify: {TREE} ok"
+    second_last = f"feat: x\n\n{block}\n\nA closing line.\n"
+    assert watch.parse_trailers(second_last, TREE).outcome == "READY"
+    third_last = f"feat: x\n\n{block}\n\nA closing line.\n\n{ATTRIBUTION}\n"
+    parsed = watch.parse_trailers(third_last, TREE)
+    assert parsed.outcome == "READY-NO-VERIFY"
+    assert parsed.why == "factory trailer not in the last paragraph"
     assert watch.parse_trailers("", TREE).outcome is None
 
 
@@ -219,14 +226,18 @@ def test_every_models_check_that_ran_is_stamped(
 ATTRIBUTION = "Co-Authored-By: x <x@example.invalid>\nClaude-Session: https://example.invalid/s"
 
 
-def test_only_the_last_paragraph_counts_even_before_attribution() -> None:
-    """One rule for every consumer: the guard's push gate and the stop gate read the last paragraph."""
+def test_a_factory_block_before_the_attribution_paragraph_is_read() -> None:
+    """One rule for every consumer (the guard's push gate and the stop gate share it): the T-W317 shape,
+    a Factory block, a blank line, then the attribution block, reads as written."""
     before = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(before, TREE).outcome is None
+    assert watch.parse_trailers(before, TREE).outcome == "READY"
     blocked = f"feat: x\n\nFactory-State: BLOCKED\nFactory-Reason: r\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(blocked, TREE).outcome is None
+    assert watch.parse_trailers(blocked, TREE) == watch.Trailers("BLOCKED", "r")
     within = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n{ATTRIBUTION}\n"
     assert watch.parse_trailers(within, TREE).outcome == "READY"
+    block = "Factory-State: BLOCKED\nFactory-Reason: r"
+    both = f"feat: x\n\n{block}\n\n{block}\n"
+    assert watch.parse_trailers(both, TREE).why == "factory trailer not in the last paragraph"
 
 
 def git_in(repo: Path, *args: str) -> str:

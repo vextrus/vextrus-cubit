@@ -27,7 +27,7 @@ It writes one `status.json` (status.schema.json, atomically, through `status.py`
 `<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, COMMIT (a local head
 that is not origin's tip), READY, BLOCKED (events)
 and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
-BUILDER-BLOCKED, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
+BUILDER-BLOCKED, LOCAL-IDLE, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
 JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
 leaves `status.json` when its cause clears. Its memory is `watch-state.json`, so a READY head already
 on origin at the first run fires, and a restart does not fire it again. Before PR f4's `verify` exists
@@ -56,7 +56,6 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import FrameType
@@ -66,9 +65,12 @@ if not __package__:  # the script form, `python3 scripts/factory/watch.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.factory import governor, stamp, status
+from scripts.factory.trailers import Trailers
+from scripts.factory.trailers import read as read_trailers
 
 QUIET_MINUTES = 30
 READY_WAIT_MINUTES = 10
+IDLE_MINUTES = 10
 USAGE_EVERY = timedelta(minutes=15)
 PRS_EVERY = timedelta(minutes=5)
 JEV_EVERY = timedelta(hours=24)
@@ -83,65 +85,18 @@ BUILDER_ROW_STATES = {"working", "blocked", "done", "failed", "stopped"}
 CLOSED_PR = {"MERGED", "CLOSED"}
 
 
-# --- trailers (trailers.md 1)
-@dataclass(frozen=True)
-class Trailers:
-    outcome: str | None  # READY, BLOCKED, READY-NO-VERIFY (a malformed READY) or None
-    reason: str | None = None
-    why: str | None = None
-
-
-KEYS = {"factory-state", "factory-verify", "factory-reason"}
-TRAILER = re.compile(r"^([A-Za-z0-9-]+):[ \t]*(.*?)\s*$")
+# --- trailers (trailers.md 1: scripts/factory/trailers.py, the reading the guard and stop gate share)
 MERGE_DEPTH = 20
 # The trailer reading's version: a state written by another version has every seen head re-read once.
-PARSER = 2
+PARSER = 3
 
 
 def parse_trailers(message: str, tree: str) -> Trailers:
-    """The tip commit's factory trailers, from its last paragraph only (trailers.md 1), the rule the
-    guard's push gate and the stop gate read too."""
-    paragraphs = [p for p in re.split(r"\n[ \t]*\n", message.strip()) if p.strip()]
-    if not paragraphs:
-        return Trailers(None)
-    found: dict[str, list[str]] = {}
-    for line in paragraphs[-1].splitlines():
-        match = TRAILER.match(line)
-        if match and match.group(1).lower().startswith("factory-"):
-            found.setdefault(match.group(1).lower(), []).append(match.group(2))
-    if not found:
-        return Trailers(None)
-    states = found.get("factory-state", [])
-    looks_ready = any(value.upper() == "READY" for value in states)
-
-    def malformed(why: str) -> Trailers:
-        return Trailers("READY-NO-VERIFY" if looks_ready else None, None, why)
-
-    if any(len(values) > 1 for values in found.values()):
-        return malformed("a factory trailer is repeated")
-    if set(found) - KEYS:
-        return malformed("an unknown factory trailer")
-    if not states:
-        return malformed("factory trailers without Factory-State")
-    state = states[0]
-    verify = found.get("factory-verify", [None])[0]
-    reason = found.get("factory-reason", [None])[0]
-    verify_ok = verify is None or re.fullmatch(r"[0-9a-f]{40} ok", verify) is not None
-    if state == "READY":
-        if reason is not None:
-            return malformed("READY carries a Factory-Reason")
-        if verify is None:
-            return malformed("no Factory-Verify")
-        if not verify_ok:
-            return malformed("Factory-Verify is malformed")
-        if verify.split()[0] != tree:
-            return malformed("the Factory-Verify tree is not the head's tree")
-        return Trailers("READY")
-    if state == "BLOCKED":
-        if reason is None or not re.fullmatch(r"[^\r\n]{1,200}", reason) or not verify_ok:
-            return malformed("BLOCKED without a one-line Factory-Reason")
-        return Trailers("BLOCKED", public(reason, 200))
-    return malformed("Factory-State is not READY or BLOCKED")
+    """The tip commit's factory trailers (trailers.md 1), its reason made one public line."""
+    read = read_trailers(message, tree)
+    if read.reason is None:
+        return read
+    return Trailers(read.outcome, public(read.reason, 200), read.why, read.gated)
 
 
 def public(text: str, limit: int) -> str:
@@ -662,12 +617,14 @@ def track(
                 ready_head=head if trailers.outcome == "READY" else None,
                 leak=None,
                 acceptance=head is not None and message.startswith("acceptance:"),
+                idle_since=None,
             )
             if head is not None:
                 if mine is None:
                     step.event("PUSH", ticket, head[:8])
                 elif head != tip:  # equal to origin's tip: the launch tip or a head already pushed
                     step.event("COMMIT", ticket, head[:8])
+                    seen["committed"] = True
                 if trailers.outcome == "READY" and not inherited:
                     step.event("READY", ticket, head[:8])
                 elif trailers.outcome == "BLOCKED":
@@ -716,6 +673,7 @@ def track(
         step.alarm(f"{ticket}|{last_push}", "BUILDER-QUIET", ticket, f"no push for {quiet} min")
     if where == "local" and row is not None and row.get("state") == "blocked" and not closed:
         step.alarm(ticket, "BUILDER-BLOCKED", ticket, "local builder blocked (claude agents)")
+    local_idle(step, ticket, seen, row, closed)
     budget = record.get("budget_minutes")
     if isinstance(budget, int) and state not in ("ready", "blocked", "done"):
         spent = status.minutes_between(record["_started"], at)
@@ -738,6 +696,28 @@ def track(
         "quiet_minutes": quiet if where == "cloud" else None,
         "pr": pr["number"] if pr is not None and pr["number"] >= 1 else None,
     }
+
+
+def local_idle(
+    step: Pass, ticket: str, seen: dict[str, Any], row: dict[str, Any] | None, closed: bool
+) -> None:
+    """LOCAL-IDLE: a local builder that has committed, whose head is not READY or BLOCKED, and whose
+    `claude agents` row has read `status: idle` for IDLE_MINUTES since the head was first seen idle (a
+    finished turn waiting on nobody: a builder that stopped without its trailer)."""
+    head = seen["head"]
+    idle = row is not None and row.get("status") == "idle"
+    if not idle or closed or head is None or not seen.get("committed"):
+        seen["idle_since"] = None
+        return
+    if seen.get("outcome") in ("READY", "BLOCKED"):
+        seen["idle_since"] = None
+        return
+    since = seen.get("idle_since") or status.utc(step.at)
+    seen["idle_since"] = since
+    idle_for = status.minutes_between(status.parse_utc(since), step.at)
+    if idle_for >= IDLE_MINUTES:
+        detail = f"{head[:8]} idle {idle_for} min after a commit, no READY or BLOCKED (claude agents)"
+        step.alarm(f"{ticket}|{head}", "LOCAL-IDLE", ticket, detail)
 
 
 def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:

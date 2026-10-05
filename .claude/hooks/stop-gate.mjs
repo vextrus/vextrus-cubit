@@ -7,6 +7,7 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { readTrailers } from "./trailers.mjs";
 
 const project = process.env.CLAUDE_PROJECT_DIR || "";
 const LAWFUL =
@@ -34,25 +35,12 @@ function mainCheckout() {
   return real(resolve(project, dir)) === real(resolve(project, common));
 }
 
-/** HEAD's finish state per trailers.md 1: "ready", "ready-malformed", "blocked" or "none". */
+/** HEAD's finish state per trailers.md 1 (the shared reader): "ready", "ready-malformed", "blocked" or "none". */
 function finishState(tree) {
-  const parsed = git(["interpret-trailers", "--parse"], git(["log", "-1", "--format=%B"]));
-  const values = {};
-  for (const line of parsed.split("\n")) {
-    const match = /^([^:]+):\s?(.*)$/.exec(line);
-    if (!match) continue;
-    const key = match[1].trim().toLowerCase();
-    if (key.startsWith("factory-")) (values[key] ??= []).push(match[2].trim());
-  }
-  const state = values["factory-state"] ?? [];
-  const verify = values["factory-verify"] ?? [];
-  const reason = values["factory-reason"] ?? [];
-  if (state.some((value) => /^ready$/i.test(value))) {
-    const wellFormed = state.length === 1 && state[0] === "READY" && verify.length === 1 && verify[0] === `${tree} ok` && reason.length === 0;
-    return wellFormed ? "ready" : "ready-malformed";
-  }
-  const blocked = state.length === 1 && state[0] === "BLOCKED" && verify.length <= 1 && reason.length === 1 && /^[^\r\n]{1,200}$/.test(reason[0]);
-  return blocked ? "blocked" : "none";
+  const { outcome, gated } = readTrailers(git(["log", "-1", "--format=%B"]), tree);
+  if (outcome === "READY") return "ready";
+  if (gated) return "ready-malformed";
+  return outcome === "BLOCKED" ? "blocked" : "none";
 }
 
 /** A green record (verify-record.schema.json): parses, schema_version 1, non-empty checks, every exit_code 0. */
