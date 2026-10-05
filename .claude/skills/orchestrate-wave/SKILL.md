@@ -30,26 +30,24 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    lacks, a branch without an acceptance commit and a bundled upload). Real drawings, the guard and G1's builder:
    `uv run python -m scripts.factory.launch local …` (its own worktree and database, `VEXTRUS_ROLE=builder`).
    Effort `medium`; `high` for drawings, hostile input and security walls. Launch one first and check it cloned
-   `vextrus/vextrus-cubit` and pushed its branch; then fan out. Message a cloud builder through the launcher's `say`,
-   a local one with SendMessage. Resume a stopped local builder only by its full `sessionId` (from `claude agents
-   --json --all`), only when its state is `stopped` or `failed` and its row has no `pid`, from its worktree, passing
-   `--settings /home/riz/vextrus-cubit/scripts/factory/builder.settings.json` again; a `done` session is alive and
+   `vextrus/vextrus-cubit` and pushed its branch; then fan out. Every command line is in `commands.md` beside this
+   file. Message and resume a local builder only through `scripts.factory.say` by its full `sessionId`: it resumes
+   only `stopped` or `failed` with no `pid`, with `--settings` again; a `done` session is alive and
    waiting: SendMessage it, never resume it. Never restart a builder over its work.
 4. **Watch.** Monitor on the event log (`events.log` under `.private/work/factory/`), re-armed at its deadline, and
    `notify_when_idle` for local builders. No polling and no foreground sleep; never wait on a process listing. The
-   SessionStart hook restarts the watcher when its pidfile is stale. A builder finishes with a `Factory-State:
+   SessionStart hook restarts the watcher when its pidfile is stale (or `watch ensure`, `commands.md`). A builder finishes with a `Factory-State:
    READY` (verified) or `BLOCKED` trailer; a READY head with no verify record is bounced, not reviewed. A local
-   builder never pushes: push its READY head yourself from the main checkout once the leak scan passes on the
-   range, and open its PR with `gh pr create --body-file <its last commit's body>`.
+   builder never pushes: push its READY head yourself after the leak scan, by `commands.md`'s PR recipe.
 5. **Review with `/review-pr`.** On each READY head, merged with `main` and any PR it meets: one review, then at
    most two fix rounds (a third only under a recorded exception: `security75`, `crash`, `false-statement` or
    `fix-regression`). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message per round:
    elapsed, what held, each finding with its score, failing scenario and fix direction; each fix with a test that
    fails without it, and a committed check for a finding of 50 or more or a repeated class. A finding after the cap
    becomes an issue (`needs-triage`, "found after the cap").
-6. **Land.** `uv run python -m scripts.land order` picks the order (engine PRs as their posting runs finish, the
-   rest in the gaps); `scripts.land <PR>` needs a ledger PASS for the head, brings the branch up to date, waits for
-   CI, prints the gates still owed and merges after `scripts.merge_ready`. The guard accepts only these exact
+6. **Land.** `uv run python -m scripts.land <PR> [<PR> ...]` orders them itself (engine PRs with a ledger PASS
+   first), needs a ledger PASS for each head, brings the branch up to date, waits for CI, prints the gates still
+   owed and merges after `scripts.merge_ready` (`commands.md`). The guard accepts only these exact
    lines, typed by you in the main checkout. **design-gate**, from the independent gate's verdict, never the
    builder's: `sudo -n -u vxkeys /usr/local/lib/vextrus/post-status design-gate <PR> <full sha> --passed <items>
    --failed <items> --not-applicable <items>`, nothing else on the line; then `gh pr view <PR> --json
@@ -75,6 +73,6 @@ to `scripts/real_drawings/` or `tools/scorer/` needs the owner's custody re-run 
 ## Standing rules
 - Nothing from real drawings leaves `.private/`; reviewers never run the real-drawing check.
 - After each merge wave, adversaries attack what merged, one surface each; a `refuter` re-runs each finding of 50+.
-- A builder BLOCKED on an acceptance test, with proof, is answered in minutes: its writer amends the test in an
-  `acceptance:` commit on the branch, and the builder merges it.
+- A builder BLOCKED on an acceptance test, with proof, is answered in minutes: its writer amends the test through
+  `scripts.factory.amend` (`commands.md`), never by hand, and the builder merges it.
 - After a reboot `/tmp` and subagents are gone: re-launch fresh agents from their `NOTES.txt`; re-check every head.

@@ -112,7 +112,9 @@ stays, capped, and the orchestrator does what the owner did.
    accepts only under the accept rule (no failed stage gained; nothing lost or changed without a judged
    reason; gains judged), posting through `post-status` as the key user from the main checkout; then
    merges when `python -m scripts.merge_ready <PR>` passes (each gate posted by the App or main's
-   not-applicable workflow, every check green).
+   not-applicable workflow, every check green), through `python -m scripts.land <PR>`. Each command (the
+   clock's `stamp end`, `scripts.factory.amend` for an acceptance amendment, the PR recipe) is in
+   `.claude/skills/orchestrate-wave/commands.md`.
 6. **Measures** go to the milestone issue per PR and per wave: time to first PR against budget, review
    rounds, findings filed after the cap, gate and posting-run outcomes, checks added.
 

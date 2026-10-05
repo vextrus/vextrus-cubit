@@ -55,6 +55,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   - A backend ticket that words codes in `web/src/messages/` gets a `ux-critic` review of those words.
   - Every suite run's output is kept in a file under `.private/work/` (pytest with `-rf`).
   - Never delete recursively: delete files by name, or leave build output and say so.
+  - Message only finished agents; wait for running ones (a message to a running one starts a copy).
+  - The classifier can refuse an owner-approved launch: give the owner its exact `! <command>`.
 
 ## Law
 - **Account A runs the orchestrator and every builder.** The default config (`~/.claude`) is account A;

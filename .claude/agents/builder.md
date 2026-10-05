@@ -12,10 +12,9 @@ never wait for a user: the session is autonomous (ADR 0041).
 1. Run `git remote get-url origin` and `git branch --show-current`. Origin must be
    `github.com/vextrus/vextrus-cubit` (https or ssh form) and the branch the ticket's. If either is wrong,
    stop without pushing and say so.
-2. Write your budget record so the clock hook can read it: `<git-common-dir>/vextrus/budget-<ticket>.json`
-   holding `{"schema":1,"ticket":"<ticket>","minutes":<budget>,"started_utc":"<UTC now, YYYY-MM-DDTHH:MM:SSZ>"}`
-   (`git rev-parse --git-common-dir` names the folder). Use `python -m scripts.factory.stamp budget --ticket
-   <ticket> --minutes <n>` where that command exists on your branch; otherwise write the file by hand.
+2. Write your budget record so the clock hook can read it: run `uv run python -m scripts.factory.stamp budget
+   --ticket <ticket> --minutes <n>` (it writes `budget-<ticket>.json`, `started_utc` now, under the git common
+   folder); never write the file by hand (the guard refuses it).
 3. Read the acceptance tests on your branch (the commit starting `acceptance:`), then the spec sections and
    contracts the ticket names.
 
