@@ -45,13 +45,55 @@ def test_the_watcher_tracks_a_record_the_cloud_launcher_wrote(tmp_path: Path) ->
     assert records["T-X"]["_started"] == STARTED
 
 
-def test_an_acceptance_writer_on_the_same_branch_is_not_tracked_as_a_builder(tmp_path: Path) -> None:
+def test_an_acceptance_writer_is_followed_until_its_builder_starts_on_the_branch(tmp_path: Path) -> None:
     launched(tmp_path, "T-X-writer", "s12-x", role="acceptance-writer")
+    launched(tmp_path, "T-Y-writer", "s12-y", role="acceptance-writer")
+
+    alone, _ = watch.load_launches(tmp_path, SINCE)
     launched(tmp_path, "T-X", "s12-x", minutes=20)
+    after, _ = watch.load_launches(tmp_path, SINCE)
 
+    assert sorted(alone) == ["T-X-writer", "T-Y-writer"]
+    assert sorted(after) == ["T-X", "T-Y-writer"]
+
+
+def follow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, message: str, minutes: int) -> watch.Pass:
+    """Two watcher passes over the writer T-W's branch, whose head commit carries `message`: one a
+    minute after the launch (the head is seen), one `minutes` after it (the head unchanged)."""
+    launched(tmp_path, "T-W", "s12-w", role="acceptance-writer")
     records, _ = watch.load_launches(tmp_path, SINCE)
+    monkeypatch.setattr(watch, "read_head", lambda branch, sha: (message, "f" * 40))
+    monkeypatch.setattr(watch, "leak_scan", lambda head, main: {"result": "clean", "where": "-", "n": 0})
+    state: dict[str, object] = {}
+    for at in (1, minutes):
+        step = watch.Pass(tmp_path, STARTED + timedelta(minutes=at), state)
+        item = watch.track(step, "T-W", records["T-W"], {"s12-w": "a" * 40}, "b" * 40, [], None)
+        step.item = item  # type: ignore[attr-defined]
+        if at == 1:
+            first = step
+    step.first = first  # type: ignore[attr-defined]
+    return step
 
-    assert sorted(records) == ["T-X"]
+
+def test_a_writer_is_done_at_its_acceptance_commit_and_its_push_is_scanned(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    step = follow(tmp_path, monkeypatch, "acceptance: T-W pins x\n\nred-on-main: 1 failed\n", minutes=60)
+
+    assert step.item["state"] == "done"  # type: ignore[attr-defined]
+    assert ("PUSH", "T-W", "a" * 8) in step.first.events  # type: ignore[attr-defined]
+    assert not [
+        code for code, _, _ in step.alarms.values() if code in ("BUILDER-QUIET", "BUDGET-PASSED")
+    ]
+
+
+def test_a_writer_that_never_pushed_its_acceptance_commit_still_raises_alarms(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    step = follow(tmp_path, monkeypatch, "Merge pull request #1 from x/y\n", minutes=60)
+
+    assert step.item["state"] == "quiet"  # type: ignore[attr-defined]
+    assert "BUILDER-QUIET" in [code for code, _, _ in step.alarms.values()]
 
 
 def test_a_refused_launch_is_not_tracked_and_does_not_replace_a_running_builder(tmp_path: Path) -> None:
