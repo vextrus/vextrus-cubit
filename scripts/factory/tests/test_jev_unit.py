@@ -4,6 +4,7 @@ the acceptance path may hold no deselected test."""
 
 import json
 import os
+import re
 import socket
 import threading
 import time
@@ -259,19 +260,248 @@ def test_after_the_cool_off_one_probe_goes_while_the_others_wait(
     monkeypatch.setattr(jev, "_now", lambda: now[0])
     health = jev._Health()
     for _ in range(3):
-        assert health.admit()
-        health.settle(jev.Why.FAILED)
-    assert not health.admit()
+        admitted = health.admit()
+        assert admitted
+        health.settle(admitted, jev.Why.FAILED)
+    assert health.admit() is None
     now[0] += 60.0
-    assert health.admit(), "the probe"
-    assert not health.admit(), "another caller while the probe is out"
-    health.settle(jev.Why.FAILED)
-    assert not health.admit(), "the probe failed: cooling off again"
+    probe = health.admit()
+    assert probe, "the probe"
+    assert probe.probe
+    assert health.admit() is None, "another caller while the probe is out"
+    health.settle(probe, jev.Why.FAILED)
+    assert health.admit() is None, "the probe failed: cooling off again"
     now[0] += 60.0
-    assert health.admit()
-    health.settle(None)
+    probe = health.admit()
+    assert probe
+    health.settle(probe, None)
     assert health.admit(), "an answer ends the cool-off"
     assert health.admit()
+
+
+# T-JEV-CLIENT: the persisted cool-off, the bounded helper and the cache's order names --------------
+
+
+class Clocks:
+    """One run's monotonic clock and the wall clock all runs share."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, wall: float = 1_800_000_000.0) -> None:
+        self.mono, self.wall = 500.0, wall
+        monkeypatch.setattr(jev, "_now", lambda: self.mono)
+        monkeypatch.setattr(jev, "_wall", lambda: self.wall)
+
+    def advance(self, seconds: float) -> None:
+        self.mono += seconds
+        self.wall += seconds
+
+
+def run_once(monkeypatch: pytest.MonkeyPatch, client: httpx.Client) -> object:
+    """One short CLI run: a fresh `_Health` (a new process's memory) and one ask."""
+    monkeypatch.setattr(jev, "_health", jev._Health())
+    question = {"q": {"kind": "noul", "text": "Invented?"}}
+    return jev.ask("Invented state.", question, client=client, cache=False)
+
+
+def failing(sent: list[httpx.Request]) -> Callable[[httpx.Request], httpx.Response]:
+    def respond(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(500)
+
+    return respond
+
+
+def test_the_health_file_holds_numbers_only_and_an_answer_deletes_it(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path
+) -> None:
+    clocks = Clocks(monkeypatch)
+    health = jev._Health()
+    path = isolated / "jev-health.json"
+    admitted = health.admit()
+    assert admitted
+    health.settle(admitted, jev.Why.REQUEST_REFUSED)
+    assert not path.exists(), "a refusal is not an outage"
+    for count in (1, 2, 3):
+        admitted = health.admit()
+        assert admitted
+        health.settle(admitted, jev.Why.TIMED_OUT)
+        record = json.loads(path.read_text())
+        assert set(record) == {"failures", "last_failure_wall", "until_wall", "probe_wall"}
+        assert record["failures"] == count
+        assert record["last_failure_wall"] == 1_800_000_000.0
+        assert record["probe_wall"] is None
+    assert record["until_wall"] == 1_800_000_000.0 + jev_settings.VEXTRUS_JEV_COOL_OFF_SECONDS
+    assert jev._Health().admit() is None, "another run reads the cool-off"
+    clocks.advance(60.0)
+    probe = health.admit()
+    assert probe
+    assert json.loads(path.read_text())["probe_wall"] == clocks.wall, "the probe is marked"
+    health.settle(probe, None)
+    assert not path.exists()
+
+
+def test_after_a_cool_off_the_next_runs_send_one_probe_not_a_call_each(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fix round 1: three outages, the wall clock past the cool-off, then three fresh runs: one probe
+    goes, it fails and trips the cool-off again, and the other two runs cool off."""
+    monkeypatch.setenv("TYPESAFE_API_KEY", SENTINEL)
+    clocks = Clocks(monkeypatch)
+    sent: list[httpx.Request] = []
+    with mocked(failing(sent)) as client:
+        for _ in range(3):
+            assert run_once(monkeypatch, client) == jev.Unavailable(jev.Why.FAILED)
+        clocks.advance(61.0)
+        outcomes = [run_once(monkeypatch, client) for _ in range(3)]
+    assert len(sent) == 4
+    assert outcomes == [
+        jev.Unavailable(jev.Why.FAILED),
+        jev.Unavailable(jev.Why.COOLING_OFF),
+        jev.Unavailable(jev.Why.COOLING_OFF),
+    ]
+
+
+def test_two_runs_past_the_cool_off_never_both_probe(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path
+) -> None:
+    clocks = Clocks(monkeypatch)
+    tripping = jev._Health()
+    for _ in range(3):
+        admitted = tripping.admit()
+        assert admitted
+        tripping.settle(admitted, jev.Why.FAILED)
+    clocks.advance(61.0)
+    first, second = jev._Health(), jev._Health()
+    probe = first.admit()
+    assert probe
+    assert probe.probe
+    assert second.admit() is None, "another run's probe is out"
+    first.settle(probe, jev.Why.REQUEST_REFUSED)
+    handed_back = second.admit()
+    assert handed_back, "a refused probe hands the probe back"
+    assert handed_back.probe
+    second.settle(handed_back, None)
+    assert jev._Health().admit(), "an answer clears it for every run"
+    clocks.advance(61.0)
+    stale = jev._Health()
+    for _ in range(3):
+        admitted = stale.admit()
+        assert admitted
+        stale.settle(admitted, jev.Why.FAILED)
+    clocks.advance(61.0)
+    lost = jev._Health().admit()  # a run that dies with its probe out
+    assert lost
+    assert lost.probe
+    assert jev._Health().admit() is None
+    clocks.advance(60.0)
+    assert jev._Health().admit(), "a lost probe's mark lasts one cool-off"
+
+
+def test_a_record_written_while_the_clock_was_ahead_never_silences_later_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Fix round 1: three outages with the clock an hour ahead, then the clock set right and a run
+    every 5 minutes for 50 minutes while TypeSafe answers: the first run asks, and all answer."""
+    monkeypatch.setenv("TYPESAFE_API_KEY", SENTINEL)
+    clocks = Clocks(monkeypatch, wall=1_800_003_600.0)
+    sent: list[httpx.Request] = []
+    with mocked(failing(sent)) as client:
+        for _ in range(3):
+            run_once(monkeypatch, client)
+    clocks.wall = 1_800_000_000.0
+
+    def answering(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return noul_answer(request)
+
+    outcomes = []
+    with mocked(answering) as client:
+        for _ in range(10):
+            outcomes.append(run_once(monkeypatch, client))
+            clocks.advance(300.0)
+    assert all(isinstance(outcome, jev.Answers) for outcome in outcomes), outcomes
+    assert len(sent) == 3 + 10
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"failures": 2, "last_failure_wall": 1e9, "until_wall": None},
+        {"failures": True, "last_failure_wall": 1_800_000_000.0, "until_wall": None},
+        {"failures": 0, "last_failure_wall": 1_800_000_000.0, "until_wall": None},
+        {"failures": 3, "last_failure_wall": None, "until_wall": 1_800_000_060.0},
+        {"failures": 3, "last_failure_wall": 1_800_000_000.0, "until_wall": "soon"},
+        {"failures": 3, "last_failure_wall": 1_800_000_000.0, "until_wall": 1_900_000_000.0},
+        {"failures": 2, "last_failure_wall": 1_800_003_600.0, "until_wall": None},
+        {
+            "failures": 3,
+            "last_failure_wall": 1_799_999_000.0,
+            "until_wall": 1_799_999_060.0,
+            "probe_wall": "now",
+        },
+    ],
+    ids=["stale", "bool", "zero", "no-last", "until-text", "until-ahead", "last-ahead", "probe-text"],
+)
+def test_a_stale_malformed_or_future_health_file_is_ignored(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path, record: dict[str, object]
+) -> None:
+    Clocks(monkeypatch)
+    isolated.mkdir(parents=True)
+    (isolated / "jev-health.json").write_text(json.dumps(record))
+    health = jev._Health()
+    admitted = health.admit()
+    assert admitted
+    assert not admitted.probe
+    health.settle(admitted, jev.Why.FAILED)
+    assert json.loads((isolated / "jev-health.json").read_text())["failures"] == 1
+
+
+def test_an_old_tripped_record_lets_one_probe_go_and_a_failure_trips_it_again(
+    monkeypatch: pytest.MonkeyPatch, isolated: Path
+) -> None:
+    Clocks(monkeypatch)
+    isolated.mkdir(parents=True)
+    record = {"failures": 3, "last_failure_wall": 1e9, "until_wall": 1e9 + 60}
+    (isolated / "jev-health.json").write_text(json.dumps(record))
+    run = jev._Health()
+    probe = run.admit()
+    assert probe
+    assert probe.probe, "a tripped record stays half-open until an answer"
+    run.settle(probe, jev.Why.FAILED)
+    assert jev._Health().admit() is None
+
+
+def test_bounded_returns_raises_or_times_out() -> None:
+    assert jev._bounded(lambda: 7, 1.0) == 7
+
+    def fails() -> int:
+        raise OSError("invented")
+
+    with pytest.raises(OSError, match="invented"):
+        jev._bounded(fails, 1.0)
+    release = threading.Event()
+    with pytest.raises(TimeoutError):
+        jev._bounded(lambda: release.wait(5.0), 0.05)
+    release.set()
+
+
+def test_bounded_carries_the_calls_deadline_into_its_thread() -> None:
+    token = jev._DEADLINE.set((lambda: 0.0, 3.0))
+    try:
+        assert jev._bounded(lambda: jev._left(None, TimeoutError), 1.0) == 3.0
+    finally:
+        jev._DEADLINE.reset(token)
+
+
+def test_the_sorted_order_keeps_the_digests_name_and_another_order_its_own() -> None:
+    wet = {"kind": "noul", "text": "Is the invented towel wet?"}
+    green = {"kind": "noul", "text": "Is the invented leaf green?"}
+    first = jev._prepare("Invented.", {"green": green, "wet": wet}, "jev-1.13.0")
+    second = jev._prepare("Invented.", {"wet": wet, "green": green}, "jev-1.13.0")
+    assert not isinstance(first, jev.Unavailable)
+    assert not isinstance(second, jev.Unavailable)
+    assert first.digest == second.digest
+    assert jev._cache_path(first).name == f"{first.digest}.json"
+    assert re.fullmatch(rf"{first.digest}-[0-9a-f]{{12}}\.json", jev._cache_path(second).name)
 
 
 @pytest.mark.live

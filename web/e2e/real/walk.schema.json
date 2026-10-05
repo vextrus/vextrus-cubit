@@ -75,7 +75,7 @@
         },
         "burden": {
           "type": "object",
-          "description": "G5's burden counts per Discipline key. false_continuation_questions is null until something can count it (the Answer Key's continuation groups); verdict.py fails the check closed on null.",
+          "description": "G5's burden counts per Discipline key. The walk writes false_continuation_questions as null; scripts/walk/verdict.py (scripts/walk/continuations.py) fills it, and the two informational counts beside it, from conflicts.json and the local ground truth, and fails the check closed on a null it cannot fill.",
           "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,24}$" },
           "additionalProperties": {
             "type": "object",
@@ -86,7 +86,9 @@
               "one_source": { "$ref": "#/$defs/count" },
               "bulk_confirmable": { "$ref": "#/$defs/count" },
               "continuation_questions": { "$ref": "#/$defs/count" },
-              "false_continuation_questions": { "type": ["integer", "null"], "minimum": 0 }
+              "false_continuation_questions": { "type": ["integer", "null"], "minimum": 0 },
+              "false_continuation_questions_qs_view": { "type": ["integer", "null"], "minimum": 0 },
+              "continuation_questions_unsure": { "type": ["integer", "null"], "minimum": 0 }
             }
           }
         }

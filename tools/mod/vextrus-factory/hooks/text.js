@@ -82,14 +82,18 @@ const hm = (m) => `${Math.floor(m / 60)}h${two(m % 60)}`
 const gb = (v) => (v === null ? "?" : `${Math.round(v)}G`)
 const gb1 = (v) => (v === null ? "?" : `${v.toFixed(1)}G`)
 
-// "cloud 4 working, 1 READY, 1 quiet 31m"; "local 1" (local builders are never quiet: the schema's
-// quiet is a cloud state). Zero counts other than working are left out.
+// "cloud 4 working, 1 READY, 1 quiet 31m"; "local 1, 1 done" (local builders are never quiet: the
+// schema's quiet is a cloud state). Zero counts other than working are left out. Only the local group
+// prints done and stopped: a finished local builder waits for the orchestrator to push it, while a
+// cloud builder's done is a merged PR.
 function groupText(name, g, working) {
   const parts = [working ? `${g.working} working` : `${g.working}`]
   if (g.ready) parts.push(`${g.ready} READY`)
   if (g.blocked) parts.push(`${g.blocked} BLOCKED`)
   if (g.quiet) parts.push(g.quiet_max_minutes === null ? `${g.quiet} quiet` : `${g.quiet} quiet ${g.quiet_max_minutes}m`)
   if (g.failed) parts.push(`${g.failed} failed`)
+  if (name === "local" && g.done) parts.push(`${g.done} done`)
+  if (name === "local" && g.stopped) parts.push(`${g.stopped} stopped`)
   return `${name} ${parts.join(", ")}`
 }
 

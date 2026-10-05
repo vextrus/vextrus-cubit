@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.walk.cli import QuietParser
+from scripts.walk.continuations import attach
 from scripts.walk.sanitize import (
     ALLOWED_KEYS,
     CHECK_IDS,
@@ -79,6 +80,8 @@ BURDEN_KEYS = (
     "continuation_questions",
     "false_continuation_questions",
 )
+INFORMATIONAL = ("false_continuation_questions_qs_view", "continuation_questions_unsure")
+"""Counts a burden row carries beside the judged one when they were measured; never judged."""
 
 
 class Malformed(ValueError):
@@ -287,6 +290,11 @@ def _set_checks(
         continuations = _count(counts.get("continuation_questions", 0), "continuation_questions")
         false_raw = counts.get("false_continuation_questions")
         false = None if false_raw is None else _count(false_raw, "false_continuation_questions")
+        informational = {
+            key: None if counts[key] is None else _count(counts[key], key)
+            for key in INFORMATIONAL
+            if key in counts
+        }
         rows.append(
             {
                 "set": name,
@@ -298,6 +306,7 @@ def _set_checks(
                 "one_source_sheets": one_source,
                 "continuation_questions": continuations,
                 "false_continuation_questions": false,
+                **informational,
             }
         )
     most = max(totals, default=0)
@@ -572,6 +581,9 @@ def _judge(args: argparse.Namespace, folder: Path) -> int:
         walk = _read_json(folder / "walk.json")
         if not isinstance(walk, Mapping) or walk.get("sha") != args.sha:
             raise Malformed("walk.json is not this sha's")
+        # The false continuation counts, from conflicts.json and the ground truth (what cannot be
+        # measured stays as the walk wrote it), inside the lock like the rest of the judgement.
+        walk = attach(walk, folder, args.expect_dir)
         if (walk.get("smoke") is True) != args.smoke:
             raise Malformed("a smoke walk is judged only with --smoke, and only a smoke walk is")
         findings_path = folder / "findings.json"

@@ -463,6 +463,7 @@ def walk_spec(
             "WALK_API_URL": f"http://127.0.0.1:{walk.api_port}",
             "WALK_OUT": str(walk.out_dir / "playwright"),
             "WALK_JSON": str(walk.out_dir / "walk.json"),
+            "WALK_CONFLICTS": str(walk.out_dir / "conflicts.json"),
             "WALK_SETS": str(manifest),
             "WALK_SHA": walk.sha,
             "WALK_STARTED_AT": started_at,
@@ -495,10 +496,12 @@ def walk_spec(
 
 def judge_checks(root: Path, walk: Plan, events: Events) -> bool:
     """Logs each scripted check against the expectations (no agent layer: never a verdict)."""
+    from scripts.walk.continuations import attach
     from scripts.walk.verdict import evaluate
 
-    record = json.loads((walk.out_dir / "walk.json").read_text(encoding="utf-8"))
     expect_dir = root / ".private" / "work" / "walk-expect"
+    record = json.loads((walk.out_dir / "walk.json").read_text(encoding="utf-8"))
+    record = attach(record, walk.out_dir, expect_dir)
     expect = {}
     for name in record.get("sets", {}):
         path = expect_dir / f"{name}.json"
@@ -519,14 +522,16 @@ def verdict_written(out_dir: Path, since: float) -> bool:
         return False
 
 
-SET_ASIDE = ("walk", "findings", "triage", "drafts")
-"""A walk's record and its agent layer's files (issues.py writes triage.json and drafts.json)."""
+SET_ASIDE = ("walk", "conflicts", "findings", "triage", "drafts")
+"""A walk's record (walk.json and its conflict Questions' keys, conflicts.json) and its agent layer's
+files (issues.py writes triage.json and drafts.json)."""
 
 
 def set_aside(out_dir: Path) -> None:
-    """An earlier walk's walk.json, findings.json, triage.json and drafts.json move aside, each to
-    `<name>.<its mtime>.json` (`-2`, `-3` after a move of the same second; never over one), so a new
-    walk exists only once it wrote its own walk.json and is judged only on its own findings."""
+    """An earlier walk's walk.json, conflicts.json, findings.json, triage.json and drafts.json move
+    aside, each to `<name>.<its mtime>.json` (`-2`, `-3` after a move of the same second; never over
+    one), so a new walk exists only once it wrote its own walk.json and is judged only on its own
+    findings."""
     for name in SET_ASIDE:
         current = out_dir / f"{name}.json"
         if not current.exists():
