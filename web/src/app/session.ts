@@ -36,7 +36,7 @@ export interface ProjectSummary {
   address: string
   unitSystem: string
   /** Step 1's counts: sheets found (null when unknown), confirmed, excluded, and open Questions. */
-  step1: { found: number | null; confirmed: number; excluded: number; questionsOpen: number }
+  step1: { found: number | null; confirmed: number; excluded: number; questionsOpen: number; undecided: number }
 }
 
 /** One of the user's current Memberships, in any of their Developers. */
@@ -97,7 +97,7 @@ export interface Session {
   projects: readonly ProjectSummary[]
 }
 
-const STEP1_NOT_STARTED: ProjectSummary['step1'] = { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 }
+const STEP1_NOT_STARTED: ProjectSummary['step1'] = { found: null, confirmed: 0, excluded: 0, questionsOpen: 0, undecided: 0 }
 
 /**
  * The Market on the web (ADR 0038): `/api/me`'s MarketOut as the formatters take it. Only a shipped

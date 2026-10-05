@@ -26,9 +26,17 @@ import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 type Step1 = ProjectSummary['step1']
 
 /** Step 1's state mark (screens.md): a Question wins, then all confirmed, then Proposals ready; none before. */
+/**
+ * Step 1 is done when every sheet in N is confirmed or excluded and no sheet waits on the QS, counted or
+ * not: an undecided blank the read proposed out is outside N but still open (#324 round 1).
+ */
+function step1Done(s: Step1): boolean {
+  return s.questionsOpen === 0 && s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found && s.undecided === 0
+}
+
 function step1Mark(s: Step1): 'question' | 'confirmed' | 'proposal' | null {
   if (s.questionsOpen > 0) return 'question'
-  if (s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found) return 'confirmed'
+  if (step1Done(s)) return 'confirmed'
   if (s.found !== null && s.found > 0) return 'proposal'
   return null
 }
@@ -135,6 +143,7 @@ function Toolbar({ session, project, step }: { session: Session; project: Projec
       <span className="text-sm font-semibold whitespace-nowrap">{i18n._(step.name)}</span>
       {step.number === 1 ? (
         <span className="text-sm whitespace-nowrap text-ink-secondary">
+          {step1Done(s) ? <ConfirmedGlyph size={14} className="me-1 inline align-[-2px] text-confirmed" /> : null}
           <Trans>
             Confirmed <Count n={s.confirmed} N={s.found} format={f.integer} />
           </Trans>

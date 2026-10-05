@@ -43,7 +43,7 @@ export function PartsLine({ model }: { model: Step1Model }) {
     const name = disciplineName(d.discipline, i18n)
     if (d.confirmed) return t`${name} confirmed`
     if (anyConfirmed) {
-      const left = d.found - d.settled
+      const left = d.found - d.settled + d.waitingOut
       const leftText = f.integer(left)
       if (left > 0) return t`${name} ${leftText} to confirm`
       const open = d.openQuestions

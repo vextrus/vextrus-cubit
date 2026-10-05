@@ -215,12 +215,12 @@ function useSummaryCounts(project: ProjectSummary, model: Step1Model) {
   const queryClient = useQueryClient()
   const { data: session } = useSuspenseQuery(sessionQuery)
   const counts = useMemo(
-    () => ({ found: model.found, confirmed: model.confirmed, excluded: model.excluded, questionsOpen: model.queue.length }),
-    [model.found, model.confirmed, model.excluded, model.queue.length],
+    () => ({ found: model.found, confirmed: model.confirmed, excluded: model.excluded, questionsOpen: model.queue.length, undecided: model.undecided }),
+    [model.found, model.confirmed, model.excluded, model.queue.length, model.undecided],
   )
   const shown = session.projects.find((p) => p.id === project.id)?.step1
   useEffect(() => {
-    if (shown && shown.found === counts.found && shown.confirmed === counts.confirmed && shown.excluded === counts.excluded && shown.questionsOpen === counts.questionsOpen) return
+    if (shown && shown.found === counts.found && shown.confirmed === counts.confirmed && shown.excluded === counts.excluded && shown.questionsOpen === counts.questionsOpen && shown.undecided === counts.undecided) return
     queryClient.setQueryData<Session>(sessionQuery.queryKey, (s) => (s ? { ...s, projects: s.projects.map((p) => (p.id === project.id ? { ...p, step1: counts } : p)) } : s))
   }, [queryClient, project.id, counts, shown])
 }

@@ -283,6 +283,18 @@ describe('Questions holding no sheet (ticket 164: every one was worded as a held
 })
 
 describe('the sheets of no Discipline (#167; its refuter)', () => {
+  it('counts every undecided sheet as waiting, counted in N or not (#444 round 1)', () => {
+    const blank = sheet(null, { proposed_exclusion: 'blank' })
+    const open = step1Model(data([sheet('S-31', { decision: 'confirmed' }), blank]))
+    expect(open.found).toBe(1)
+    expect(open.confirmed).toBe(1)
+    expect(open.undecided, 'the blank still waits').toBe(1)
+    expect(open.disciplines[0]!.confirmed).toBe(false)
+    const done = step1Model(data([sheet('S-31', { decision: 'confirmed' }), { ...blank, decision: 'excluded', excluded_reason: 'blank' }]))
+    expect(done.undecided).toBe(0)
+    expect(done.disciplines[0]!.confirmed).toBe(true)
+  })
+
   it('counts only the counted Proposals of no Discipline, as the server counts N (#324)', () => {
     const cover = sheet(null, { discipline: null, proposed_exclusion: 'cover_index' })
     const plumbing = sheet('M-01', { discipline: null })

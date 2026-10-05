@@ -66,6 +66,8 @@ export interface DisciplineSection {
   rows: readonly Row[]
   found: number
   settled: number
+  /** Undecided sheets outside N (proposed out, no number): not in found, yet still to decide (#444 round 1). */
+  waitingOut: number
   /** N: the drawing list's count, else the sheets found; null ("—") while two lists disagree. */
   total: number | null
   openQuestions: number
@@ -107,6 +109,8 @@ export interface Step1Model {
   noDiscipline: number
   /** Every Discipline received is confirmed. */
   allConfirmed: boolean
+  /** Sheets the QS has not decided, counted in N or not: Step 1 is not done while any waits (#324 round 1). */
+  undecided: number
   /** Views neither assigned nor excluded (6.11). */
   unaccounted: number
   fileNames: Readonly<Record<string, string>>
@@ -322,6 +326,7 @@ export function step1Model(data: Step1Data): Step1Model {
         rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
         found: progress?.found ?? countedMine.length,
         settled,
+        waitingOut: mine.filter((p) => !countedSheet(p) && !decided(p)).length,
         total: progress ? progress.total ?? null : countedMine.length,
         openQuestions,
         list: hasList ? list : null,
@@ -355,6 +360,7 @@ export function step1Model(data: Step1Data): Step1Model {
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
     noDiscipline,
     allConfirmed: disciplines.length > 0 && disciplines.every((d) => d.confirmed),
+    undecided: proposals.filter((p) => !decided(p)).length,
     unaccounted: data.coverage.unaccounted,
     fileNames: data.fileNames ?? {},
     qs: data.progress.qs ?? [],

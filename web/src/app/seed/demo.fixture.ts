@@ -24,5 +24,5 @@ export const BANGLADESH: MarketFormat = {
 
 /** Step 1's counts per project after reading (m0-screens §7): 24 sheets found, 5 Questions open. */
 export const STEP1: Readonly<Record<string, ProjectSummary['step1']>> = {
-  'KR-01': { found: 24, confirmed: 0, excluded: 0, questionsOpen: 5 },
+  'KR-01': { found: 24, confirmed: 0, excluded: 0, questionsOpen: 5, undecided: 24 },
 }
