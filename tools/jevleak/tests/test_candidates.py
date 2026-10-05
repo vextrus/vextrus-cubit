@@ -84,3 +84,9 @@ def test_only_the_first_part_of_a_huge_draft_is_read() -> None:
 def test_a_candidates_repr_never_holds_its_text() -> None:
     (found,) = candidates.extract("see RC-14B here.")
     assert "RC-14B" not in repr(found)
+
+
+def test_a_whole_read_of_one_run_of_capitals_is_taken_in_bounded_parts() -> None:
+    found = candidates.occurrences(("A " * candidates.READ_MOST)[: candidates.READ_MOST])
+    assert 1 <= len(found) <= 2
+    assert all(len(first.text) <= LONGEST for first, _ in found)

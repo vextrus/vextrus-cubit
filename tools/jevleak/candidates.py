@@ -139,13 +139,15 @@ def _line(number: int, line: str) -> list[Candidate]:
         run.clear()
         if words and words[0].initial and (len(words) == 1 or key(words[0].text) in _LEADS):
             words = words[1:]  # a sentence's first word is a common word, not a name
-        while words:  # a run longer than LONGEST is taken in parts that fit
-            end = 1
+        begin = 0
+        while begin < len(words):  # a run longer than LONGEST is taken in parts that fit
+            end = begin + 1
             while (
-                end < len(words) and words[end].start + len(words[end].text) - words[0].start <= LONGEST
+                end < len(words)
+                and words[end].start + len(words[end].text) - words[begin].start <= LONGEST
             ):
                 end += 1
-            part, words = words[:end], words[end:]
+            part, begin = words[begin:end], end
             if all(key(w.text) in known() for w in part):
                 continue
             text = line[part[0].start : part[-1].start + len(part[-1].text)]

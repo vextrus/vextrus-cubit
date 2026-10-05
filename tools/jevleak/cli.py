@@ -108,35 +108,43 @@ def request(
 
 
 def _probability(answer: object) -> float | None:
-    """`answer["p"]` when it is a real number (not a bool), finite, from 0 to 1; else None."""
-    if not isinstance(answer, Mapping):
+    """`answer["p"]` when it is exactly an int or a float (no subclass, not a bool), finite, from 0
+    to 1; else None."""
+    if not isinstance(answer, Mapping) or "p" not in answer:
         return None
-    p = answer.get("p")
-    if isinstance(p, bool) or not isinstance(p, (int, float)):
+    p = answer["p"]
+    if type(p) is not float and type(p) is not int:
         return None
     value = float(p)
     return value if math.isfinite(value) and 0.0 <= value <= 1.0 else None
 
 
 def judged(outcome: object, names: list[str]) -> list[float] | str:
-    """Each question's `p`, in order; or the `unavailable:` word (`malformed` for any bad shape: an
-    answer that is not checked here never mints advice)."""
+    """Each question's `p`, in order; or the `unavailable:` word (`malformed` for any bad shape, an
+    answer that raises while it is read included: an answer not checked here never mints advice)."""
     if isinstance(outcome, jev.Unavailable):
         why = outcome.why
         word = why.value if isinstance(why, jev.Why) else ""
         return word if _WHY.fullmatch(word) else "malformed"
-    if not isinstance(outcome, Mapping) or sorted(outcome) != sorted(names):
+    try:
+        if not isinstance(outcome, Mapping) or sorted(outcome) != sorted(names):
+            return "malformed"
+        found = [_probability(outcome[name]) for name in names]
+    except Exception:
         return "malformed"
-    found = [_probability(outcome[name]) for name in names]
     values = [p for p in found if p is not None]
     return values if len(values) == len(names) else "malformed"
 
 
 def _ask(ask: Ask, windows: list[str], questions: dict[str, dict[str, str]]) -> list[float] | str:
+    """One call, on copies (a callee that changes what it is given cannot move or hide advice); an
+    exception from the call is `failed`."""
+    names = list(questions)
     try:
-        return judged(ask(windows, questions, task=TASK), list(questions))
+        outcome = ask(list(windows), {name: dict(q) for name, q in questions.items()}, task=TASK)
     except Exception:  # never BaseException: Ctrl-C still stops the run
         return "failed"
+    return judged(outcome, names)
 
 
 def _read(options: argparse.Namespace, stdin: bytes) -> bytes:
@@ -182,7 +190,7 @@ def run(argv: Sequence[str], *, ask: Ask = jev.ask, stdin: bytes = b"") -> int:
     state = "off"
     ps: list[float] = []
     if any(corpus.found(text) for text in windows):
-        questions = {}  # not reached after a clean literal pass: a corpus string is sent nowhere
+        questions = {}  # a line can be clean while a cut of it is not (NFKC): sent nowhere
     if questions and not options.no_jev:
         outcome = _ask(ask, windows, questions)
         state = f"unavailable:{outcome}" if isinstance(outcome, str) else "ok"

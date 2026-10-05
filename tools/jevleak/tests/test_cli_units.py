@@ -12,7 +12,7 @@ from scripts.factory import jev
 from tools.jevleak import candidates, cli
 from vextrus.settings.jev import VEXTRUS_JEV_MAX_REQUEST_BYTES
 
-CORPUS = ["MARIGOLD TANNERY LANE 42", "ZEBRA QUARRY HOLDINGS PVT 7731"]
+CORPUS = ["COPPERFIELD ORCHARD TERRACE", "MARIGOLD TANNERY LANE 42", "ZEBRA QUARRY HOLDINGS PVT 7731"]
 
 
 @pytest.fixture(autouse=True)
@@ -60,13 +60,28 @@ class Half(float):
     pass
 
 
+class Lift(int):
+    """An int that claims to be 0.95 as a float."""
+
+    def __float__(self) -> float:
+        return 0.95
+
+
+class Two(dict[str, Any]):
+    """A dict whose `get` says one thing and whose item says another."""
+
+    def get(self, name: str, default: Any = None) -> Any:
+        return 0.99
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
         (0.8, [0.8]),
         (1, [1.0]),
         (0, [0.0]),
-        (Half(0.9), [0.9]),
+        (Half(0.9), "malformed"),
+        (Lift(0), "malformed"),
         (True, "malformed"),
         (-0.01, "malformed"),
         (math.inf, "malformed"),
@@ -91,15 +106,50 @@ def test_judged_names_the_why_only_when_it_is_the_clients_word() -> None:
     assert cli.judged(jev.Unavailable("RC-14B"), ["q0"]) == "malformed"  # type: ignore[arg-type]
 
 
-def test_a_lying_mapping_ends_failed_not_in_a_traceback(capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_lying_mapping_ends_malformed_not_in_a_traceback(capsys: pytest.CaptureFixture[str]) -> None:
     def lying(state: object, questions: Any, **kwargs: object) -> Any:
         return Lying(list(questions))
 
     code = cli.run(["text", "--stdin"], ask=lying, stdin=b"see RC-14B here.\n")
     out = capsys.readouterr()
     assert code == 0
-    assert out.out.splitlines()[-1].endswith("jev=unavailable:failed")
+    assert out.out.splitlines()[-1].endswith("jev=unavailable:malformed")
     assert "RC-14B" not in out.out + out.err
+
+
+def test_an_answer_read_by_item_not_by_get() -> None:
+    assert cli.judged({"q0": Two(p=0.1)}, ["q0"]) == [0.1]
+
+
+def test_a_callee_that_changes_its_questions_cannot_move_or_hide_advice(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def moving(state: Any, questions: Any, **kwargs: object) -> Any:
+        questions.pop("q0")
+        state.clear()
+        return answers(dict.fromkeys(questions, 0.99))
+
+    data = b"Ref RC-14B here.\nnothing\nwe met at Thistlewood Granary Court.\n"
+    assert cli.run(["text", "--stdin"], ask=moving, stdin=data) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == ["jevleak: hits=0 scanned=4 advise=0 candidates=2 asked=2 jev=unavailable:malformed"]
+
+
+def test_a_window_holding_a_corpus_string_is_never_sent(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The line is clean (NFKC joins the accent to the string's last letter); a cut of it is not.
+    line = "RC-14B " + "x" * 126 + "Copperfield Orchard Terrace" + "\u0301 and so on"
+    calls: list[object] = []
+
+    def record(*args: object, **kwargs: object) -> Any:
+        calls.append(args)
+
+    code = cli.run(["text", "--stdin"], ask=record, stdin=line.encode())
+    out = capsys.readouterr().out.splitlines()
+    assert code == 0
+    assert calls == []
+    assert out[-1].endswith("asked=0 jev=off")
 
 
 def test_a_repeated_candidate_is_advised_on_every_line_it_is_on(

@@ -47,7 +47,8 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
    `sha256(normalise(text))` is in the wall's allowlist, and tokens longer than 64 characters. Candidates are
    deduplicated by their normalised form (spaces dropped) and ranked: codes, sizes and levels first, then
    multi-word nouns, then single words; within a class, by first place in the draft. The ranking is deterministic.
-   A window holding a corpus string is never sent (not reached after a clean literal pass): then nothing is asked.
+   A window holding a corpus string is never sent (a line can be clean under NFKC while a cut of it is not, as
+   when a combining mark follows the string): then nothing is asked.
 3. **At most `MAX_ASKED = 40`** candidates are asked, in **one batched call**
    `jev.ask(state, questions, task="leak-advice")`: `state` is a list of context windows, one per question, each at
    most **160 characters** of the candidate's own line around it (never the whole draft); question `q<i>` is a
@@ -55,7 +56,8 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
    would pass `VEXTRUS_JEV_MAX_REQUEST_BYTES`. The rest are counted in `candidates=` and never sent.
 4. An answer advises a candidate when its `p` is a real number (not a bool), finite, from 0 to 1, and
    **`p >= 0.8`**. Every asked question must have such an answer; anything else (a missing or extra name, `p` out of
-   range, `nan`, a string, a non-mapping) is `unavailable:malformed` and advises nothing. `Unavailable(<why>)` is
+   range, `nan`, a string, a subclass of a number, a non-mapping, an answer that raises while it is read) is
+   `unavailable:malformed` and advises nothing. `Unavailable(<why>)` is
    `unavailable:<why>`; an exception raised by the call is `unavailable:failed`. Each of these runs exactly as
    `--no-jev` does, but for the `jev=` field.
 
