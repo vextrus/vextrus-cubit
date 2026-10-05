@@ -29,11 +29,20 @@ _INFLATE_ERRORS = (OSError, EOFError, zlib.error)
 _ZIP_ERRORS = (OSError, zipfile.BadZipFile, RuntimeError, ValueError, EOFError, zlib.error)
 MAX_BLOB = 64 * 1024 * 1024
 MAX_STREAMS = 20000
-_STREAM = re.compile(rb"(?<!end)stream\r?\n")  # an `endstream` never opens a stream
-_WHITE = rb"[\x00\t\n\x0c\r ]"
-_ENDSTREAM = re.compile(_WHITE + rb"*endstream")
-# A direct `/Length n` (never an indirect `n 0 R`, and never part of a longer number).
-_LENGTH = re.compile(rb"/Length%s+(\d{1,12})(?!\d)(?!%s+\d+%s+R)" % (_WHITE, _WHITE, _WHITE))
+_STREAM = re.compile(rb"(?<!end)stream[ \t]*+(?:\r\n|\r|\n)")  # an `endstream` never opens one
+_W = rb"[\x00\t\n\x0c\r ]"
+_ENDSTREAM = re.compile(_W + rb"*endstream")
+# `/Length n` (group 1), or an indirect `/Length n g R` (groups 1 and 2); never part of a longer number.
+_LENGTH = re.compile(
+    rb"/Length%s++(\d{1,12})(?!\d)" % _W
+    + rb"(?:%s++(\d{1,5})%s++R(?![^\x00\t\n\x0c\r ()<>\[\]{}/%%]))?" % (_W, _W)
+)
+# An object that is a whole number: `n g obj <number> endobj` (an indirect `/Length`).
+_NUMBER_OBJECT = re.compile(
+    rb"(?<!\d)(\d{1,10})%s++(\d{1,5})%s++obj%s*+(\d{1,12})%s*+endobj" % ((_W,) * 4)
+)
+_ENCRYPT = re.compile(rb"/Encrypt%s*+(?:\d|<<)" % _W)
+_DICTIONARY = 64 * 1024  # how far back a stream's dictionary is read for its `/Length`
 _CHUNK = 64 * 1024
 
 
@@ -193,14 +202,30 @@ def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> tuple[byte
     return out, stop
 
 
-def _declared_end(data: bytes, keyword: int, start: int, end: int) -> int:
+def _declared_end(data: bytes, keyword: int, start: int, end: int, objects: dict[str, Any]) -> int:
     """Where a raw stream ends: at `end` (its first `endstream`), or further when its dictionary's
-    direct `/Length` says so and an `endstream` follows there (an `endstream` inside the stream's own
-    text, as a reader taking `/Length` reads it)."""
-    own = max(0, keyword - 1024, data.rfind(b"obj", max(0, keyword - 1024), keyword))
-    lengths = list(_LENGTH.finditer(data, own, keyword))
-    declared = start + int(lengths[-1][1]) if lengths else end
-    if end < declared < len(data) and _ENDSTREAM.match(data[declared : declared + 64]):
+    `/Length` (direct, or an indirect whole-number object) says so, an `endstream` follows there and
+    no other stream opens between (an `endstream` inside the stream's own text, as a reader taking
+    `/Length` reads it). `objects` caches the whole-number objects, read once per PDF."""
+    window = max(0, keyword - _DICTIONARY)
+    lengths = list(_LENGTH.finditer(data, max(window, data.rfind(b"obj", window, keyword)), keyword))
+    if not lengths:
+        return end
+    length = lengths[-1]
+    if length[2] is None:
+        declared = start + int(length[1])
+    else:
+        if "numbers" not in objects:
+            objects["numbers"] = {
+                (int(found[1]), int(found[2])): int(found[3]) for found in _NUMBER_OBJECT.finditer(data)
+            }
+        value = objects["numbers"].get((int(length[1]), int(length[2])))
+        declared = end if value is None else start + value
+    if (
+        end < declared < len(data)
+        and _ENDSTREAM.match(data[declared : declared + 64])
+        and _STREAM.search(data, end, declared) is None
+    ):
         return declared
     return end
 
@@ -209,9 +234,13 @@ def _pdf_texts(data: bytes, depth: int) -> list[str]:
     """A PDF's streams, in order (an unterminated last one runs to the data's end): each inflated one's
     text (as any blob's), and every stream's shown text, assembled from its text operators (`pdftext`),
     inflated or raw. Each search starts after the last stream's true end (where its zlib data or its
-    `/Length` ended), so the pass is linear. More than `MAX_STREAMS` streams refuses the scan."""
+    `/Length` ended), so the pass is linear. More than `MAX_STREAMS` streams, or an encrypted PDF (its
+    streams unreadable), refuses the scan."""
+    if _ENCRYPT.search(data):
+        raise CannotScan("source-unreadable")
     texts: list[str] = []
     budget = [MAX_BLOB]
+    objects: dict[str, Any] = {}
     position = 0
     count = 0
     while (opening := _STREAM.search(data, position)) is not None:
@@ -223,7 +252,7 @@ def _pdf_texts(data: bytes, depth: int) -> list[str]:
         end = len(data) if close < 0 else close
         inflated = _inflate(data, start, end, budget)
         if inflated is None:
-            stop = _declared_end(data, opening.start(), start, end)
+            stop = _declared_end(data, opening.start(), start, end, objects)
             texts += pdftext.assemble(data[start:stop])
         else:
             stop = inflated[1]
