@@ -107,6 +107,32 @@ def test_a_refused_launch_is_not_tracked_and_does_not_replace_a_running_builder(
     assert records["T-S"]["branch"] == "s12-s"
 
 
+def judged(folder: Path, ticket: str, branch: str, *, stop_sent: bool, minutes: int = 0) -> None:
+    """One record the judge refused after its session started, written by the launcher's `_Run.write`."""
+    request = launch.CloudRequest(
+        branch=branch, prompt_file=folder / "p.md", ticket=ticket, effort="medium"
+    )
+    run = launch._Run(
+        req=request,
+        record_dir=folder / "launches",
+        started=STARTED + timedelta(minutes=minutes),
+        snapshot=lambda: "[]",
+    )
+    run.write(launch.Verdict(False, "bundled", "session_01Run", "bundled"), stop_sent=stop_sent)
+
+
+def test_a_launch_refused_after_its_session_started_is_followed_unless_stopped(tmp_path: Path) -> None:
+    judged(tmp_path, "T-D", "s12-d", stop_sent=False)
+    launched(tmp_path, "T-S", "s12-s")
+    judged(tmp_path, "T-S", "s12-other", stop_sent=True, minutes=5)
+
+    records, _ = watch.load_launches(tmp_path, SINCE)
+
+    assert sorted(records) == ["T-D", "T-S"]
+    assert records["T-D"]["branch"] == "s12-d"
+    assert records["T-S"]["branch"] == "s12-s"
+
+
 def test_parse_utc_reads_whole_and_fractional_seconds() -> None:
     assert status.parse_utc("2026-10-05T03:42:44Z") == STARTED.replace(microsecond=0)
     assert status.parse_utc("2026-10-05T03:42:44.196170Z") == STARTED

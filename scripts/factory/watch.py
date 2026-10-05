@@ -330,9 +330,12 @@ def load_launches(
         if where not in ("cloud", "local") or not ticket or not branch:
             print(f"watch: unreadable launch record {path.name}", file=sys.stderr)
             continue
-        # A launch the launcher refused started nothing to follow (#344).
+        # A launch refused before its session started has nothing to follow, and one whose STOP was
+        # sent has stopped. A launch the judge refused after its session started keeps running when no
+        # STOP was sent (launch-cli.md), so it is followed like any other (#344, #343).
         judge = record.get("judge")
-        if isinstance(judge, dict) and judge.get("ok") is False:
+        refused = isinstance(judge, dict) and judge.get("ok") is False
+        if (refused and not record.get("session_id")) or record.get("stop_sent") is True:
             continue
         if since is not None and started < since:
             continue
