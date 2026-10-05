@@ -7,7 +7,9 @@ Questions with code engine.conflicts.same_title, same_storey or same_number that
 Question, however many Sheets or series they span." "stale_grouped: listed pairs whose two Sheets have
 equal titles (case and whitespace folded) and are held together by no Question of any kind or code."
 "machine_doubt_questions per Discipline: its open Questions minus those matching a listed true Question,
-with the numbering-gap Questions ... counted once per file (the file of its first held Sheet)."
+with the numbering-gap Questions ... counted once per file (the file of its first held Sheet)." The
+owner's Q5 refined limits count numbering gaps "once per file"; a gap Question holding no Sheet has no
+file, so such Questions count once per Discipline (T-WALK-4's first addendum, 5 Oct 2026).
 Synthetic data only.
 """
 
@@ -295,15 +297,32 @@ def test_gaps_over_two_files_count_twice(tmp_path: Path) -> None:
     assert found["status"] == "PASS"
 
 
-def test_a_gap_question_holding_no_sheet_counts_as_its_own(tmp_path: Path) -> None:
+def test_gap_questions_holding_no_sheet_count_once_per_discipline(tmp_path: Path) -> None:
     entry = standard_set()
     entry["questions"] += [gap("g1", STRUCTURAL, "s1"), gap("g2", STRUCTURAL), gap("g3", STRUCTURAL)]
     entry["bulk_after_gaps"] = {STRUCTURAL: 9}
 
     verdict, found = _doubt(tmp_path, entry)
 
-    assert row(verdict, STRUCTURAL)["machine_doubt_questions"] == 5
+    # Two which_kind, kilo.dwg's gap once, and the two gaps holding no Sheet once: 4 against 3.
+    assert row(verdict, STRUCTURAL)["machine_doubt_questions"] == 4
+    assert found["measured"]["questions_max_per_discipline"] == 4
     assert found["status"] == "FAIL"
+
+
+def test_many_gap_questions_holding_no_sheet_count_once_in_each_discipline(tmp_path: Path) -> None:
+    entry = standard_set()
+    entry["questions"] += [gap(f"g{n}", STRUCTURAL) for n in range(11)]
+    entry["questions"].append(gap("h1", ARCHITECTURAL))
+    entry["bulk_after_gaps"] = {STRUCTURAL: 9, ARCHITECTURAL: 5}
+
+    verdict, found = _doubt(tmp_path, entry)
+
+    assert row(verdict, STRUCTURAL)["machine_doubt_questions"] == 3
+    assert row(verdict, ARCHITECTURAL)["machine_doubt_questions"] == 2
+    assert row(verdict, STRUCTURAL)["questions_total"] == 14
+    assert found["measured"]["questions_max_per_discipline"] == 3
+    assert found["status"] == "PASS"
 
 
 def test_listed_true_questions_fall_outside_the_cap(tmp_path: Path) -> None:

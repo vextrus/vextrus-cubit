@@ -3,7 +3,10 @@ what `status_of` derives from its own measured, expected and burden rows.
 
 "A verdict with the old three checks is refused (consistent false); case 2's verdict is accepted;
 changing measured.phantoms to 0 in a verdict whose rows say otherwise, or true_raised above the rows'
-truth, makes it inconsistent (the status no longer matches status_of)." Synthetic data only.
+truth, makes it inconsistent (the status no longer matches status_of)." With the owner's ruling of
+5 Oct 2026 ("Judge the total; report the split"), `status_of` judges the set's total from the rows:
+the right total in another split is a consistent PASS, and the phantoms are blanks beyond the total
+(no number, no title, proposed out `blank`). Synthetic data only.
 """
 
 import copy
@@ -12,11 +15,10 @@ from typing import Any
 
 from _s13_fixture import (  # type: ignore[import-not-found, unused-ignore]
     ARCHITECTURAL,
-    FILE_A,
     FILE_B,
     SAME_NUMBER,
     SET_A,
-    STRUCTURAL,
+    by_id,
     check,
     judged,
     sheet,
@@ -25,6 +27,13 @@ from _s13_fixture import (  # type: ignore[import-not-found, unused-ignore]
 )
 
 OLD_THREE = ("reads_complete", "act_p95_during_read", "questions_per_discipline")
+
+
+def _blank(sid: str, discipline: str | None) -> dict[str, Any]:
+    """An empty layout or an unnumbered blank: no number, no title, proposed out `blank`."""
+    made: dict[str, Any] = sheet(sid, FILE_B, "", "", discipline, proposed_exclusion="blank")
+    made.update(number=None, title=None, agrees=False)
+    return made
 
 
 def _forged_pass(verdict: dict[str, Any], name: str, **measured: int) -> dict[str, Any]:
@@ -56,16 +65,28 @@ def test_a_verdict_of_the_old_three_checks_is_refused(tmp_path: Path) -> None:
     assert consistent(old) is False
 
 
+def test_the_right_total_in_another_split_is_a_consistent_pass(tmp_path: Path) -> None:
+    from scripts.walk.ready import consistent
+
+    entry = standard_set()
+    by_id(entry, "s9")["discipline"] = ARCHITECTURAL
+    verdict = judged(tmp_path, {SET_A: entry}, {SET_A: standard_expect()})
+
+    assert check(verdict, "sheets_match")["status"] == "PASS"
+    assert verdict["result"] == "PASS"
+    assert consistent(verdict) is True
+
+
 def test_phantoms_written_away_against_the_rows_are_inconsistent(tmp_path: Path) -> None:
     from scripts.walk.ready import consistent
     from scripts.walk.verdict import status_of
 
     entry = standard_set()
-    entry["sheets"] += [
-        sheet(f"s{n}", FILE_A, f"K-{n:02d}", f"Made-up Plan K{n}", STRUCTURAL) for n in (11, 12)
-    ]
+    by_id(entry, "s10")["discipline"] = ARCHITECTURAL  # the split differs; the total is right
+    entry["sheets"] += [_blank("p1", ARCHITECTURAL), _blank("p2", None)]
     verdict = judged(tmp_path, {SET_A: entry}, {SET_A: standard_expect()})
-    assert check(verdict, "sheets_match")["measured"]["phantoms"] == 2
+    sheets = check(verdict, "sheets_match")["measured"]
+    assert (sheets["sheets_found"], sheets["missing"], sheets["phantoms"]) == (17, 0, 2)
     assert verdict["result"] == "FAIL"
     assert consistent(verdict) is True, "the honest verdict is consistent"
 
