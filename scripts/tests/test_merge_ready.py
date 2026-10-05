@@ -386,3 +386,51 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
     from scripts.merge_ready import cut_problems
 
     assert bool(cut_problems(f"{heading}\n- the land script\n", lambda n: True)) is gated
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Cut\n- a (#5)\nNone.\nThe export was cut.\n",
+        "## Cut\n- a (#5)\n\n  the export was cut too\n",
+        "## Cut\nNone.\n| the export | later |\n",
+        "## Cut\nNone.\n\n## Deferred\nThe export.\n",
+        "## Cut\n```\nthe export\n```\n",
+    ],
+    ids=[
+        "none-line-after-an-item",
+        "indented-line-after-a-blank",
+        "table-after-a-none-line",
+        "next-gated-section-starts-afresh",
+        "code-fence",
+    ],
+)
+def test_the_cut_gate_fails_closed_past_the_acceptance_cases(body: str) -> None:
+    from scripts.merge_ready import cut_problems
+
+    assert cut_problems(body, lambda n: n == 5)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Deferred\nNothing deferred.\n",
+        "## Cut\n1. a (#5)\n2) b\n   wrapped (#5)\n",
+        "## Cut\n- a (#5)\n\nHarness net: +3 / −1\n",
+        "## Cut\nFactory-State: BLOCKED\n",
+        "## Cut\n- a (#5)\n\n## Notes\nThe export was cut.\n",
+    ],
+    ids=["nothing-deferred", "numbered-items", "minus-sign", "blocked", "ungated-heading-ends-it"],
+)
+def test_the_cut_gate_passes_what_builder_md_writes(body: str) -> None:
+    from scripts.merge_ready import cut_problems
+
+    assert cut_problems(body, lambda n: n == 5) == []
+
+
+def test_a_refused_cut_line_says_how_to_write_it() -> None:
+    from scripts.merge_ready import cut_problems
+
+    [problem] = cut_problems("## Cut\nThe export was cut.\n", lambda n: True)
+    assert problem.startswith("'cut' body line 2 is not a cut item")
+    assert "`- <what> (#<issue>)`" in problem and "`None.`" in problem

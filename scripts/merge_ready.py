@@ -69,7 +69,28 @@ HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
 # A section starts at a heading whose first word is Cut or Deferred, or whose first two are Not done
 # ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading.
 GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
-NOTHING = re.compile(r"^(?:[-*+][ \t]+)?(?:none|nothing)\.?$", re.IGNORECASE)
+# A section's first line may say nothing was cut; then only prose may follow it.
+NOTHING = re.compile(
+    r"(?:[-*+][ \t]+)?(?:none|nothing(?:[ \t]+(?:was[ \t]+)?(?:cut|deferred))?|no[ \t]+cuts)\.?",
+    re.IGNORECASE,
+)
+LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|[0-9]+[.)])(?:[ \t]|$)")
+TABLE_ROW = re.compile(r"[ \t]*\|")
+# The only other lines a gated section may hold, each in its exact form: the trailers, the Harness
+# net line and the PR footer. Anything after the form is free text, and free text may hide a cut.
+SESSION_URL = r"https://claude\.ai/code/session_[A-Za-z0-9]+"
+ENDING = re.compile(
+    r"Factory-State: (?:READY|BLOCKED)"
+    r"|Factory-Verify: [0-9a-f]{40} ok"
+    r"|Harness net: \+[0-9]+ / [-−][0-9]+"
+    r"|Co-Authored-By: Claude [A-Z][a-z]+ [0-9]+(?:\.[0-9]+)* <noreply@anthropic\.com>"
+    rf"|(?:Claude-Session: )?{SESSION_URL}"
+    r"|\U0001f916 Generated with \[Claude Code\]\(https://claude\.com/claude-code\)"
+)
+HOW_TO_CUT = (
+    "write each cut as one `- <what> (#<issue>)` item, or `None.` alone, "
+    "and put prose, Harness net and trailers under the next heading"
+)
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
 )
@@ -273,19 +294,50 @@ def scan_problems(facts: dict[str, Any], scan: Scan) -> list[str]:
 
 
 def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
-    """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository."""
-    found = []
+    """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository.
+
+    Fail closed: a section ends at the next heading; every list item, at any depth, is its own item; an
+    item goes on only on an indented plain line straight after it; a first line saying nothing was cut
+    lets prose follow; the ending lines pass in their exact forms; any other line is refused."""
+    found: list[str] = []
     section: str | None = None
-    item = 0
-    for line in body.splitlines():
+    items: list[str] = []
+    nothing = open_item = False
+    for number, line in enumerate(body.splitlines(), start=1):
         if heading := HEADING.match(line):
+            found += _unlinked(section, items, issue_open)
             gated = GATED.match(heading[1].strip())
-            section, item = (" ".join(gated[1].lower().split()), 0) if gated else (None, 0)
+            section = " ".join(gated[1].lower().split()) if gated else None
+            items, nothing, open_item = [], False, False
             continue
-        if section is None or not line.strip() or NOTHING.match(line.strip()):
+        if section is None:
             continue
-        item += 1
-        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(line)}
+        text = line.strip()
+        first = not items and not nothing
+        if not text:
+            open_item = False
+        elif first and NOTHING.fullmatch(text):
+            nothing = True
+        elif TABLE_ROW.match(line):
+            found.append(f"'{section}' body line {number} is a table row: {HOW_TO_CUT}")
+            open_item = False
+        elif LIST_ITEM.match(line):
+            items.append(line)
+            open_item = True
+        elif open_item and line[0] in " \t":
+            items[-1] += "\n" + line
+        elif nothing or ENDING.fullmatch(text):
+            open_item = False
+        else:
+            found.append(f"'{section}' body line {number} is not a cut item: {HOW_TO_CUT}")
+            open_item = False
+    return found + _unlinked(section, items, issue_open)
+
+
+def _unlinked(section: str | None, items: list[str], issue_open: IssueOpen) -> list[str]:
+    found = []
+    for item, text in enumerate(items, start=1):
+        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(text)}
         where = f"'{section}' item {item}"
         if not numbers:
             found.append(f"{where} links no issue: file one and link it (#<n>)")
