@@ -2,6 +2,7 @@
 
     python -m scripts.factory.governor check <unit> [--json] [--usage-checked "<lines>"]
         [--running N] [--agents N] [--rate R --hours-to-reset H] [--owns PATH ...]
+        [--role R] [--branch B]
 
 Units and their memory cost (spec 2.3): `cloud-session` (none: the cloud VM is not this machine, so
 memory, swap and disk are not read), `local-agent` 0.9, `review` (`--agents` x 0.3 + 0.7; default 8
@@ -24,16 +25,20 @@ per builder-hour) and `--hours-to-reset`, `min(16, floor((100 - session) / (rate
 `--running N` (sessions running now) is refused at or above the cap.
 
 Work in flight (`cloud-session` and `local-agent`, S14-W1): at most 5 builders in flight, counted as
-the open PRs plus the launched builders whose branch has no merged PR (`$VEXTRUS_FACTORY_DIR/launches/
-*.json`: a cloud record whose judge is ok, or a local one; never a reviewer or one whose STOP was sent);
-a builder and its open PR count once (joined on the branch). With `--owns PATH` (repeatable: the files
-the ticket owns): at most 2 open PRs or builders in any hot-file area the owned files touch
-(`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>": ["<repo path or fnmatch glob>",
-...]}}`), and no owned file may be one an open PR changes (the refusal names that PR). Open PRs are the
-stdout of `gh pr list --state all --json number,headRefName,state,files` (`VEXTRUS_PRS_FILE` stands in
-for it). An unreadable record or hot-file list refuses, and so does an unreadable PR list when files are
-named; with none named, the reading says so and the cap counts the records alone. A builder's record
-names its `owns` when the launch gave them.
+the open PRs plus the launched builders (`$VEXTRUS_FACTORY_DIR/launches/*.json`: a cloud record whose
+judge is ok, or a local one; never an acceptance-writer, reviewer or refuter record, one whose STOP was
+sent, one whose branch has a merged or closed PR and none open, or one older than its `started_at` plus
+`budget_minutes` (120 when absent) plus a 60-minute grace); a builder and its open PR count once (joined
+on the branch). `--role reviewer|refuter` takes no new work and skips these checks; `--branch B` marks
+a launch on a branch that already holds a unit (an open PR or a builder) as no new work: it meets
+neither the cap nor its own unit. With `--owns PATH` (repeatable: the files the ticket owns; a path
+ending in `/` is a folder and covers every file under it): at most 2 open PRs or builders in any
+hot-file area the owned files touch (`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>":
+["<repo path, folder ending in /, or fnmatch glob>", ...]}}`), and no owned file may be one an open PR
+changes (the refusal names that PR). Open PRs are the stdout of `gh pr list --state all --json
+number,headRefName,state,files` (`VEXTRUS_PRS_FILE` stands in for it). An unreadable record or hot-file
+list refuses, and so does an unreadable PR list when files are named; with none named, the reading says
+so and the cap counts the records alone. A builder's record names its `owns` when the launch gave them.
 
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
 status.schema.json reports them.
@@ -62,6 +67,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -84,6 +90,11 @@ AREA_CAP = 2
 WORK_UNITS = ("cloud-session", "local-agent")
 HOT_FILES = Path(__file__).with_name("hot-files.json")
 PR_LIST_LIMIT = "500"
+NOT_BUILDER_ROLES = ("acceptance-writer", "reviewer", "refuter")
+NO_NEW_WORK_ROLES = ("reviewer", "refuter")
+DEFAULT_BUDGET_MINUTES = 120
+GRACE_MINUTES = 60
+START_ERRORS = (KeyError, TypeError, ValueError)
 
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
 UNITS = ("cloud-session", "local-agent", "review", "pytest", "web-tests", "walk", "rd-run")
@@ -277,8 +288,9 @@ def read_prs() -> list[dict[str, Any]] | None:
 
 
 def read_builders() -> list[dict[str, Any]] | None:
-    """The launched builders: cloud records whose judge is ok and local ones, never a reviewer.
-    None when a record is unreadable (it may be a builder: fail closed)."""
+    """The launched builders: cloud records whose judge is ok and local ones, never an
+    acceptance-writer, a reviewer or a refuter. None when a record is unreadable (it may be a
+    builder: fail closed)."""
     builders: list[dict[str, Any]] = []
     for path in sorted((status.factory_dir() / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
@@ -289,7 +301,7 @@ def read_builders() -> list[dict[str, Any]] | None:
             return None
         if not isinstance(record, dict) or not isinstance(record.get("branch"), str):
             return None
-        if record.get("role", "builder") == "reviewer" or record.get("review") is not None:
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
             continue
         if record.get("stop_sent") is True:
             continue
@@ -297,6 +309,19 @@ def read_builders() -> list[dict[str, Any]] | None:
         if record.get("where") == "local" or (isinstance(judge, dict) and judge.get("ok") is True):
             builders.append(record)
     return builders
+
+
+def aged_out(record: dict[str, Any]) -> bool:
+    """A record is no builder in flight once its start, its budget and a grace have passed; a record
+    with no readable start counts (fail closed)."""
+    try:
+        started = status.parse_utc(record["started_at"])
+    except START_ERRORS:
+        return False
+    budget = record.get("budget_minutes")
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0:
+        budget = DEFAULT_BUDGET_MINUTES
+    return status.now() > started + timedelta(minutes=budget + GRACE_MINUTES)
 
 
 def read_hot_areas() -> dict[str, list[str]] | None:
@@ -312,8 +337,21 @@ def read_hot_areas() -> dict[str, list[str]] | None:
     return areas
 
 
+def touches(path: str, entries: list[str]) -> bool:
+    """Whether a repo path is one of `entries`, matches one (fnmatch) or lies under one that ends in
+    `/`; a `path` ending in `/` is a folder, and touches an entry that lies under it."""
+    for entry in entries:
+        if path == entry or fnmatch.fnmatchcase(path, entry):
+            return True
+        if entry.endswith("/") and path.startswith(entry):
+            return True
+        if path.endswith("/") and entry.startswith(path):
+            return True
+    return False
+
+
 def in_area(path: str, entries: list[str]) -> bool:
-    return any(path == entry or fnmatch.fnmatchcase(path, entry) for entry in entries)
+    return touches(path, entries)
 
 
 def read_memory() -> Memory | None:
@@ -397,6 +435,8 @@ def check(
     hours_to_reset: float | None = None,
     usage_checked: str | None = None,
     owns: tuple[str, ...] | list[str] = (),
+    role: str | None = None,
+    branch: str | None = None,
 ) -> Verdict:
     verdict = Verdict(unit)
     if unit != "cloud-session":
@@ -413,7 +453,7 @@ def check(
             if count >= MAX_LOCAL_AGENTS:
                 verdict.reasons.append(f"{count} local agents running, the most is {MAX_LOCAL_AGENTS}")
     if unit in WORK_UNITS:
-        _check_work(verdict, list(owns))
+        _check_work(verdict, list(owns), role, branch)
     _check_exclusions(verdict)
     return verdict
 
@@ -492,8 +532,14 @@ def _check_usage(
             verdict.reasons.append(f"{running} cloud sessions running, the cap is {verdict.cap}")
 
 
-def _check_work(verdict: Verdict, owns: list[str]) -> None:
-    """The WIP cap, the hot-file areas and the open PRs' files (S14-W1)."""
+def _check_work(
+    verdict: Verdict, owns: list[str], role: str | None = None, branch: str | None = None
+) -> None:
+    """The WIP cap, the hot-file areas and the open PRs' files (S14-W1). A reviewer or refuter takes no
+    new work; a launch on a branch that already holds a unit (an open PR or a builder) is not new
+    work, so it meets neither the cap nor the PR or builder it would collide with: itself."""
+    if role in NO_NEW_WORK_ROLES:
+        return
     prs = read_prs()
     builders = read_builders()
     if builders is None:
@@ -507,36 +553,48 @@ def _check_work(verdict: Verdict, owns: list[str]) -> None:
         verdict.readings["open_prs"] = "unreadable: WIP counts launch records only"
         prs = []
     open_prs = [row for row in prs if row["state"] == "OPEN"]
-    landed = {row["headRefName"] for row in prs if row["state"] == "MERGED"}
     open_branches = {row["headRefName"] for row in open_prs}
+    # A branch whose PRs are all merged or closed has left the work in flight.
+    released = {
+        row["headRefName"] for row in prs if row["state"] in ("MERGED", "CLOSED")
+    } - open_branches
     # One entry per unit of work: an open PR, or a launched builder with no open PR yet.
     units: list[dict[str, Any]] = [
         {
             "label": f"PR {row['number']}",
+            "branch": row["headRefName"],
             "files": [f["path"] for f in row["files"]],
         }
         for row in open_prs
     ]
     counted = set(open_branches)
     for record in builders:
-        branch = record["branch"]
-        if branch in landed or branch in counted:
+        name = record["branch"]
+        if name in released or name in counted or aged_out(record):
             continue
-        counted.add(branch)
+        counted.add(name)
         owned = record.get("owns")
         units.append(
             {
-                "label": f"builder {branch}",
+                "label": f"builder {name}",
+                "branch": name,
                 "files": [p for p in owned if isinstance(p, str)] if isinstance(owned, list) else [],
             }
         )
     verdict.readings["wip"] = len(units)
-    if len(units) >= WIP_CAP:
+    held = branch is not None and branch in counted
+    if len(units) >= WIP_CAP and not held:
         names = ", ".join(unit["label"] for unit in units)
         verdict.reasons.append(f"WIP: {len(units)} builders in flight, the cap is {WIP_CAP} ({names})")
     if not owns:
         return
-    holders = [row["number"] for row in open_prs if {f["path"] for f in row["files"]} & set(owns)]
+    others = [unit for unit in units if unit["branch"] != branch]
+    holders = [
+        row["number"]
+        for row in open_prs
+        if row["headRefName"] != branch
+        and any(touches(path, owns) for path in (f["path"] for f in row["files"]))
+    ]
     if holders:
         verdict.reasons.append(
             "an open PR changes files this launch owns: "
@@ -547,9 +605,9 @@ def _check_work(verdict: Verdict, owns: list[str]) -> None:
         verdict.reasons.append("the hot-file list (scripts/factory/hot-files.json) is unreadable")
         return
     for area, entries in areas.items():
-        if not any(in_area(path, entries) for path in owns):
+        if not any(touches(path, entries) for path in owns):
             continue
-        busy = [unit["label"] for unit in units if any(in_area(p, entries) for p in unit["files"])]
+        busy = [unit["label"] for unit in others if any(touches(p, entries) for p in unit["files"])]
         if len(busy) >= AREA_CAP:
             verdict.reasons.append(
                 f"hot-file area {area}: {len(busy)} open PRs or builders already hold it,"
@@ -598,6 +656,8 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--rate", type=float)
     one.add_argument("--hours-to-reset", type=float)
     one.add_argument("--owns", action="append", default=[], metavar="PATH")
+    one.add_argument("--role")
+    one.add_argument("--branch")
     args = parser.parse_args(argv)
     for option in ("running", "agents", "rate", "hours_to_reset"):
         value = getattr(args, option)
@@ -613,6 +673,8 @@ def main(argv: list[str] | None = None) -> int:
         hours_to_reset=args.hours_to_reset,
         usage_checked=args.usage_checked,
         owns=args.owns,
+        role=args.role,
+        branch=args.branch,
     )
     if args.json:
         print(json.dumps(verdict.as_json()))

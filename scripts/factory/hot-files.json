@@ -12,7 +12,9 @@
     ],
     "engine-recognise-views": ["engine/recognise/views.py"],
     "web-takeoff-model": ["web/src/takeoff/model.ts"],
-    "web-messages-en": ["web/src/*en.po"],
+    "web-takeoff-locales-en": ["web/src/takeoff/locales/en.po"],
+    "web-messages-takeoff-step1-en": ["web/src/messages/takeoff/step1/en.po"],
+    "web-messages-takeoff-proposals-en": ["web/src/messages/takeoff/proposals/en.po"],
     "design-m0-screens": ["docs/design/m0-screens.md"]
   }
 }

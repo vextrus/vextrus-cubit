@@ -149,3 +149,156 @@ def test_the_launcher_passes_the_owned_files_on(tmp_path: Path) -> None:
 def test_an_owned_path_must_be_repo_relative(bad: str) -> None:
     with pytest.raises(SystemExit):
         launch.parse_cloud([*CLOUD, "--owns", bad])
+
+
+# --- fix round 1 (review of PR #469)
+def test_closed_prs_release_their_builders(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    prs(world, monkeypatch, [pr(n, f"t{n}", f"x/{n}.py", state="CLOSED") for n in range(1, 8)])
+    for n in range(1, 8):
+        record(world, f"t{n}")
+    assert governor.check("cloud-session").readings["wip"] == 0
+
+
+def test_a_branch_with_a_closed_and_an_open_pr_still_counts(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prs(world, monkeypatch, [pr(1, "a", "x.py", state="CLOSED"), pr(2, "a", "x.py")])
+    record(world, "a")
+    assert governor.check("cloud-session").readings["wip"] == 1
+
+
+@pytest.mark.parametrize("role", ["acceptance-writer", "reviewer", "refuter"])
+def test_records_of_other_roles_are_not_builders_in_flight(
+    world: Path, monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    prs(world, monkeypatch, [])
+    for n in range(1, 8):
+        record(world, f"t{n}", role=role)
+    assert governor.check("cloud-session").readings["wip"] == 0
+
+
+def test_an_old_record_with_no_pr_ages_out(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-06T10:00:00Z")
+    prs(world, monkeypatch, [])
+    record(world, "old", started_at="2026-10-01T08:00:00Z", budget_minutes=90)
+    record(world, "fresh", started_at="2026-10-06T08:00:00Z", budget_minutes=90)
+    record(world, "unstamped")
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == 2
+    assert "builder old" not in (verdict.reason or "")
+
+
+def test_a_record_inside_its_budget_and_grace_still_counts(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-06T10:00:00Z")
+    prs(world, monkeypatch, [])
+    record(
+        world, "a", started_at="2026-10-06T07:00:00Z", budget_minutes=90
+    )  # 07:00 + 90 + 60 = 09:30 < 10:00
+    record(world, "b", started_at="2026-10-06T08:00:00Z", budget_minutes=90)  # 11:00 > 10:00
+    assert governor.check("cloud-session").readings["wip"] == 1
+
+
+def fill_the_cap(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    prs(world, monkeypatch, [pr(n, f"t{n}", f"x/{n}.py") for n in range(1, 6)])
+
+
+@pytest.mark.parametrize("role", ["reviewer", "refuter"])
+def test_a_reviewer_or_refuter_launch_is_refused_by_neither_cap_nor_area(
+    world: Path, monkeypatch: pytest.MonkeyPatch, role: str
+) -> None:
+    fill_the_cap(world, monkeypatch)
+    assert not governor.check("cloud-session", branch="new").ok
+    assert governor.check("cloud-session", role=role, branch="t1").ok
+    assert governor.check("cloud-session", role=role, branch="new", owns=["x/1.py"]).ok
+
+
+def test_a_launch_on_a_branch_that_already_holds_a_unit_is_not_new_work(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fill_the_cap(world, monkeypatch)
+    assert governor.check("cloud-session", branch="t1").ok
+    # its own open PR's files and area do not refuse its relaunch
+    assert governor.check("cloud-session", branch="t1", owns=["x/1.py"]).ok
+    refused = governor.check("cloud-session", branch="t9", owns=["x/1.py"])
+    assert not refused.ok
+    assert "PR 1" in (refused.reason or "")
+
+
+def test_a_builder_record_alone_also_holds_its_branch(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prs(world, monkeypatch, [])
+    for n in range(1, 6):
+        record(world, f"t{n}")
+    assert not governor.check("cloud-session", branch="t9").ok
+    assert governor.check("cloud-session", branch="t3").ok
+
+
+def test_the_launcher_passes_role_and_branch_to_the_governor(tmp_path: Path) -> None:
+    root = tmp_path
+    (root / "scripts" / "factory").mkdir(parents=True)
+    (root / "scripts" / "factory" / "governor.py").write_text(
+        "import sys\nprint(' '.join(sys.argv[1:]))\n"
+    )
+    govern = launch.default_govern(root, None, (), "reviewer", "t1")
+    assert govern is not None
+    said = govern().text
+    assert "--role reviewer" in said
+    assert "--branch t1" in said
+
+
+def test_a_folder_path_covers_the_files_under_it(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    prs(world, monkeypatch, [pr(1, "a", "vextrus/takeoff/services/step1.py")])
+    refused = governor.check("cloud-session", owns=["vextrus/takeoff/"])
+    assert not refused.ok
+    assert "PR 1" in (refused.reason or "")
+    assert governor.check("cloud-session", owns=["vextrus/takeoffer/"]).ok
+
+
+def test_a_folder_path_touches_the_areas_under_it(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (world / "hot.json").write_text(
+        json.dumps({"areas": {"step1": ["vextrus/takeoff/services/step1.py"], "docs": ["docs/x.md/"]}})
+    )
+    prs(
+        world,
+        monkeypatch,
+        [
+            pr(1, "a", "vextrus/takeoff/services/step1.py"),
+            pr(2, "b", "vextrus/takeoff/services/step1.py"),
+        ],
+    )
+    refused = governor.check("cloud-session", owns=["vextrus/other.py", "vextrus/takeoff/"])
+    assert "hot-file area step1" in (refused.reason or "")
+
+
+def test_an_area_entry_ending_in_a_slash_covers_the_files_under_it(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (world / "hot.json").write_text(json.dumps({"areas": {"takeoff": ["vextrus/takeoff/"]}}))
+    prs(world, monkeypatch, [pr(1, "a", "vextrus/takeoff/a.py"), pr(2, "b", "vextrus/takeoff/b.py")])
+    refused = governor.check("cloud-session", owns=["vextrus/takeoff/c.py"])
+    assert "hot-file area takeoff" in (refused.reason or "")
+
+
+def test_the_committed_catalogue_areas_are_separate() -> None:
+    areas = json.loads(governor.HOT_FILES.with_name("hot-files.json").read_text())["areas"]
+    catalogues = [name for name, entries in areas.items() if any(e.endswith("en.po") for e in entries)]
+    assert len(catalogues) >= 2
+    for name in catalogues:
+        assert not any("*" in entry for entry in areas[name]), name
+    shared = [set(areas[a]) & set(areas[b]) for a in catalogues for b in catalogues if a < b]
+    assert not any(shared)
+
+
+def test_two_prs_on_unrelated_catalogues_do_not_refuse_a_third(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(governor, "HOT_FILES", Path(governor.__file__).with_name("hot-files.json"))
+    prs(
+        world,
+        monkeypatch,
+        [pr(1, "a", "web/src/ui/locales/en.po"), pr(2, "b", "web/src/members/locales/en.po")],
+    )
+    assert governor.check("cloud-session", owns=["web/src/takeoff/locales/en.po"]).ok

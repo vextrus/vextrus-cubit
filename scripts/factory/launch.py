@@ -288,7 +288,11 @@ def default_scan(root: Path) -> Scan | None:
 
 
 def default_govern(
-    root: Path, usage_checked: str | None = None, owns: tuple[str, ...] = ()
+    root: Path,
+    usage_checked: str | None = None,
+    owns: tuple[str, ...] = (),
+    role: str | None = None,
+    branch: str | None = None,
 ) -> Govern | None:
     """This tree's governor (f3's `scripts/factory/governor.py`), or None when the tree has none."""
     if not (root / "scripts" / "factory" / "governor.py").is_file():
@@ -297,6 +301,8 @@ def default_govern(
     command += ["--usage-checked", usage_checked] if usage_checked else []
     for path in owns:
         command += ["--owns", path]
+    command += ["--role", role] if role else []
+    command += ["--branch", branch] if branch else []
 
     def govern() -> Reading:
         try:
@@ -838,7 +844,11 @@ def launch_cloud(
     out, they are this tree's own. `jev` None (left out) asks no one; `DEFAULT` (only `main`) asks
     the real Jev for advice. Every run past the usage checks writes one record."""
     scan = default_scan(root) if isinstance(scan, Default) else scan
-    govern = default_govern(root, req.usage_checked, req.owns) if isinstance(govern, Default) else govern
+    govern = (
+        default_govern(root, req.usage_checked, req.owns, req.role, req.branch)
+        if isinstance(govern, Default)
+        else govern
+    )
     if not BRANCH.match(req.branch) or ".." in req.branch or not TICKET.match(req.ticket):
         print("error: a malformed --branch or --ticket", file=sys.stderr)
         return Outcome(USAGE, "usage: a malformed --branch or --ticket")

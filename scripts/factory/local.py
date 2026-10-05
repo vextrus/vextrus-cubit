@@ -153,7 +153,9 @@ def live_row(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
 
 
 def launch(args: argparse.Namespace) -> list[str]:
-    verdict = governor.check("local-agent", owns=getattr(args, "owns", ()))
+    verdict = governor.check(
+        "local-agent", owns=getattr(args, "owns", ()), branch=getattr(args, "branch", None)
+    )
     if not verdict.ok:
         raise Stop(3, f"REFUSED governor: {verdict.reason}")
     main_checkout = status.main_checkout()
