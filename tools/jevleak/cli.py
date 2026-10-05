@@ -7,6 +7,7 @@ candidate, a window, a corpus string, a path from the command line or an excepti
 import argparse
 import json
 import math
+import os
 import re
 import sys
 from collections.abc import Callable, Mapping, Sequence
@@ -70,6 +71,12 @@ def _cannot(reason: str) -> int:
     print(f"jevleak: cannot-scan {word}")
     print(f"jevleak: cannot scan ({word})", file=sys.stderr)
     return 2
+
+
+def in_cloud() -> bool:
+    """The wall's own test, and any other set value but `false` or `0`: local only fails closed."""
+    remote = os.environ.get("CLAUDE_CODE_REMOTE", "").strip().lower()
+    return core.in_cloud() or remote not in ("", "false", "0")
 
 
 def window(line: str, start: int, length: int) -> str:
@@ -151,7 +158,7 @@ def run(argv: Sequence[str], *, ask: Ask = jev.ask, stdin: bytes = b"") -> int:
             file=sys.stderr,
         )
         return USAGE
-    if core.in_cloud():
+    if in_cloud():
         print("jevleak: skipped local-only")
         return 0
     label = "file" if options.command == "file" else "stdin"
@@ -174,6 +181,8 @@ def run(argv: Sequence[str], *, ask: Ask = jev.ask, stdin: bytes = b"") -> int:
     windows, questions = request([first for first, _ in found[:MAX_ASKED]], lines)
     state = "off"
     ps: list[float] = []
+    if any(corpus.found(text) for text in windows):
+        questions = {}  # not reached after a clean literal pass: a corpus string is sent nowhere
     if questions and not options.no_jev:
         outcome = _ask(ask, windows, questions)
         state = f"unavailable:{outcome}" if isinstance(outcome, str) else "ok"

@@ -168,3 +168,24 @@ def test_main_turns_an_unexpected_error_into_a_fixed_line(
     out = capsys.readouterr()
     assert out.out == "jevleak: cannot-scan source-unreadable\n"
     assert "RC-14B" not in out.out + out.err
+
+
+@pytest.mark.parametrize("value", ["TRUE", "1", "yes", " true "])
+def test_any_set_remote_value_is_the_cloud_and_asks_nothing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], value: str
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", value)
+    calls: list[object] = []
+
+    def record(*args: object, **kwargs: object) -> Any:
+        calls.append(args)
+
+    assert cli.run(["text", "--stdin"], ask=record, stdin=b"see RC-14B here.\n") == 0
+    assert capsys.readouterr().out == "jevleak: skipped local-only\n"
+    assert calls == []
+
+
+@pytest.mark.parametrize("value", ["false", "0", ""])
+def test_a_remote_value_of_false_is_local(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", value)
+    assert not cli.in_cloud()

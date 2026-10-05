@@ -22,7 +22,7 @@ context window, a corpus string, a line of the draft, a path given on the comman
 `--no-jev` runs the literal pass and the candidate extraction and asks nothing (`jev=off`). Anything else is a usage
 error (exit 64).
 
-**Local only.** With `CLAUDE_CODE_REMOTE=true` the tool prints `jevleak: skipped local-only` and exits 0 before it
+**Local only.** With `CLAUDE_CODE_REMOTE` set to anything but empty, `false` or `0` (fail closed) the tool prints `jevleak: skipped local-only` and exits 0 before it
 reads the draft or loads the corpus: no cloud session holds the corpus or the drawings, and Jev is asked only under
 the owner's local key (ADR 0013). The key is read by the Jev client from `TYPESAFE_API_KEY` at call time, never
 printed; without it the run ends `jev=unavailable:no_key`.
@@ -47,6 +47,7 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
    `sha256(normalise(text))` is in the wall's allowlist, and tokens longer than 64 characters. Candidates are
    deduplicated by their normalised form (spaces dropped) and ranked: codes, sizes and levels first, then
    multi-word nouns, then single words; within a class, by first place in the draft. The ranking is deterministic.
+   A window holding a corpus string is never sent (not reached after a clean literal pass): then nothing is asked.
 3. **At most `MAX_ASKED = 40`** candidates are asked, in **one batched call**
    `jev.ask(state, questions, task="leak-advice")`: `state` is a list of context windows, one per question, each at
    most **160 characters** of the candidate's own line around it (never the whole draft); question `q<i>` is a
