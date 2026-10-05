@@ -35,11 +35,38 @@ _CLOSE = "\"'`*_)]}>\u201d\u2019\u00bb,;"
 _ENDS = ".!?:"
 _ENDINGS = tuple(_ENDS)
 _MARKERS = re.compile(r"(?:#{1,6}|[-*+>|\u2022]|[0-9]{1,3}[.)]|\[[ xX]\])")
-_LEADS = frozenset(
-    "THE A AN THIS THAT THESE THOSE IT ITS IN ON AT FOR FROM TO AND BUT OR IF WHEN SEE OUR WE ALL "
-    "EACH EVERY NO NOT WITH BY AS AFTER BEFORE THEN SO ALSO ONLY ONE TWO HERE THERE WHERE WHAT WHY "
-    "HOW".split()
+COMMON = frozenset(
+    """
+    a about above across after again against all also although always am among an and another any are
+    around as at away back be because been before being below between both but by can could did do
+    does done down during each either else enough even ever every few for from further had has have
+    he her here hers him his how however i if in into is it its just least less let like many may me
+    might more most much must my neither never next no nor not nothing now of off often on once only
+    or other otherwise our out over own per perhaps please rather same she should since so some soon
+    still such than that the their them then there these they this those though through thus to today
+    together too under unless until up upon us very was we well were what when where whether which
+    while who whom whose why will with within without yes yet you your
+    one two three four five six seven eight nine ten first second third last
+    monday tuesday wednesday thursday friday saturday sunday january february march april may june
+    july august september october november december
+    mr mrs ms miss dr md mst engr ar prof sir madam sk sri shri
+    add added adds adding allow allowed answer answered approve approved ask asked asks build builds
+    built call called change changed changes check checked checks close closed cut cuts design
+    designed do drawn drop dropped end ends ended fail failed find found fine fix fixed fixes follow
+    follows following give given ignore ignored keep keeps kept land landed lands make makes made
+    measure measured merge merged move moved moves need needs note noted open opened pass passed
+    print printed push pushed read reads refuse refused remove removed removes return returns review
+    reviewed run runs ran send sends sent set sets show shows shown sign signed start started stop
+    stopped take takes taken test tested tests try tried update updated use used uses verify verified
+    want write writes written wrote
+    annex area architect beam building client column consultant contractor court date designer
+    detail details door drawing drawings east elevation engineer floor footing grid ground issue item
+    items level line lines model north note notes owner page part plan plot project revision roof room
+    scale schedule section sheet site size slab south stair step steps structure summary system title
+    total type version wall walls water west window branch commit phase round session ticket wave
+    """.upper().split()
 )
+"""Everyday words: dropped where a sentence may start, and never asked alone (contract 2)."""
 _SEPARATORS = "-'\u2019"
 
 
@@ -98,43 +125,35 @@ def _code(token: str) -> bool:
     )
 
 
-_TITLES = frozenset(["MR.", "MRS.", "MS.", "DR.", "NO.", "RD.", "ST."])
-"""Abbreviations that end in a full stop without ending a sentence (`Mr. Haverford`)."""
-
-
 @dataclass
 class _Token:
     text: str
     start: int
     initial: bool
+    """Where a sentence may start: the line's first token, or after `.`, `!`, `?`, `:`, a table bar
+    or a list marker."""
     ends: bool
-    soft: bool = False
-    """After a label's colon or a table bar: not a sentence's start (`Client: Haverford`)."""
 
 
 def _tokens(line: str) -> list[_Token]:
-    """The line's tokens, quotes and brackets trimmed, each marked as a sentence's first, as after a
-    label or a table bar (`soft`), or neither."""
+    """The line's tokens, quotes and brackets trimmed, each marked as where a sentence may start."""
     found: list[_Token] = []
-    initial, soft = True, False
+    initial = True
     for match in _TOKEN.finditer(line):
         raw = match.group()
         if len(raw) > LONGEST + 8:
-            found.append(_Token("", match.start(), initial, False, soft))
-            initial = soft = False
+            found.append(_Token("", match.start(), initial, False))
+            initial = False
             continue
-        if initial and _MARKERS.fullmatch(raw):
+        if _MARKERS.fullmatch(raw) and (initial or raw == "|"):
+            initial = True  # a list marker or a table bar: what follows may start a sentence
             continue
         lead = len(raw) - len(raw.lstrip(_OPEN))
         text = raw.strip(_OPEN).rstrip(_CLOSE)
-        bare = raw.rstrip(_CLOSE + _OPEN)
-        title = text.upper() in _TITLES
-        ends = not title and (text.endswith(_ENDINGS) or bare.endswith(_ENDINGS))
+        ends = text.endswith(_ENDINGS) or raw.rstrip(_CLOSE + _OPEN).endswith(_ENDINGS)
         text = text.rstrip(_ENDS + _CLOSE)
-        found.append(_Token(text, match.start() + lead, initial, ends, soft))
-        label = ends and bare.endswith(":")
-        initial = ends and not label
-        soft = label or raw == "|"
+        found.append(_Token(text, match.start() + lead, initial, ends))
+        initial = ends
     return found
 
 
@@ -148,10 +167,8 @@ def _line(number: int, line: str) -> list[Candidate]:
     def close() -> None:
         words = list(run)
         run.clear()
-        if words and words[0].initial and (len(words) == 1 or key(words[0].text) in _LEADS):
-            words = words[1:]  # a sentence's first word is a common word, not a name
-        elif words and words[0].soft and key(words[0].text) in _LEADS:
-            words = words[1:]  # after a label or a bar, only a common word is dropped
+        if words and words[0].initial and key(words[0].text) in COMMON:
+            words = words[1:]  # a common word where a sentence may start is not a name
         begin = 0
         while begin < len(words):  # a run longer than LONGEST is taken in parts that fit
             end = begin + 1
@@ -163,6 +180,8 @@ def _line(number: int, line: str) -> list[Candidate]:
             part, begin = words[begin:end], end
             if all(key(w.text) in known() for w in part):
                 continue
+            if len(part) == 1 and (len(part[0].text) < 2 or key(part[0].text) in COMMON):
+                continue  # an initial or an everyday word alone is not a name
             text = line[part[0].start : part[-1].start + len(part[-1].text)]
             found.append(Candidate(number, text, NAMES if len(part) > 1 else WORD, part[0].start))
 
@@ -172,7 +191,7 @@ def _line(number: int, line: str) -> list[Candidate]:
             close()
             continue
         if _word(text):
-            if token.initial or token.soft:
+            if token.initial:
                 close()
             run.append(token)
             if token.ends:

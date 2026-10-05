@@ -40,10 +40,12 @@ labelled `task=leak-advice`, and its answer cache under the factory folder; neit
    - codes holding letters and digits (`RC-14B`, `7B`, `DWG-2231-04`), member sizes (`450 x 230`, `450x230`) and
      signed levels (`+3.150`);
    - runs of two or more capitalised words (`Willowbrook Tannery Annex`);
-   - single capitalised words that do not start a sentence.
+   - single capitalised words, of two letters or more.
 
-   Left out: a sentence's first word (a label's colon, a table bar and an abbreviation such as `Mr.` or `Rd.` start
-   no sentence: after them only a common word is dropped), git shas, issue numbers, ISO dates, versions (`jev-1.13.0`), words listed in
+   Left out, by one rule: a capitalised word where a sentence may start (the line's first token, or after `.`, `!`,
+   `?`, `:`, a table bar or a list marker) is dropped **only when it is a common word** (`candidates.COMMON`, a fixed
+   list of everyday words, honorifics such as `Mr` and `Engr` among them); a common word or a single letter is
+   never asked alone. Also left out: git shas, issue numbers, ISO dates, versions (`jev-1.13.0`), words listed in
    `tools/jevleak/known.txt` (the factory's own words, one per line, committed), any candidate whose
    `sha256(normalise(text))` is in the wall's allowlist, and tokens longer than 64 characters. Candidates are
    deduplicated by their normalised form (spaces dropped) and ranked: codes, sizes and levels first, then

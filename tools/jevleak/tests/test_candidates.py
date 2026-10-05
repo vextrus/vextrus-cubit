@@ -27,11 +27,11 @@ def texts(text: str) -> list[str]:
         "## Summary",
         "- Moved the check.",
         "1. Moved the check.",
-        "> Quoted words here.",
-        '"Quoted" words here.',
+        "> Some words here.",
+        '"Some" words here.',
     ],
 )
-def test_a_sentences_first_word_is_never_a_candidate(sentence: str) -> None:
+def test_a_common_word_where_a_sentence_may_start_is_never_a_candidate(sentence: str) -> None:
     assert texts(sentence) == []
 
 
@@ -105,11 +105,11 @@ def test_a_name_before_a_known_code_is_kept(code: str) -> None:
     ("sentence", "expected"),
     [
         ("Client: Haverford", ["Haverford"]),
-        ("Owner: Mr. Haverford", ["Mr. Haverford"]),
-        ("The architect is Mr. Haverford of the firm.", ["Mr. Haverford"]),
+        ("Owner: Mr. Haverford", ["Haverford"]),
+        ("The architect is Mr. Haverford of the firm.", ["Haverford"]),
         ("| Client | Haverford |", ["Haverford"]),
         ("The client is Haverford of the firm.", ["Haverford"]),
-        ("Site: Dr. Quillon Rd. east", ["Dr. Quillon Rd"]),
+        ("Site: Dr. Quillon Rd. east", ["Quillon Rd"]),
     ],
 )
 def test_a_name_after_a_label_an_honorific_or_a_table_bar_is_kept(
@@ -121,3 +121,38 @@ def test_a_name_after_a_label_an_honorific_or_a_table_bar_is_kept(
 @pytest.mark.parametrize("sentence", ["Summary: This moved the check.", "| Note | The check moved |"])
 def test_a_common_word_after_a_label_is_still_not_a_name(sentence: str) -> None:
     assert texts(sentence) == []
+
+
+# Fix round 2 (PR #373): one rule. A capitalised word where a sentence may start (the text's first
+# token, or after `.`, `!`, `?`, `:`, a table bar or a list marker) is dropped only when it is a
+# common word; any other capitalised word there is a candidate.
+
+HAVERFORD = [
+    "Approved by Engr. Haverford of the firm.",
+    "Owner: Mst. Haverford",
+    "Designed by S. M. Haverford of the firm.",
+    "A.K.M. Haverford",
+    "Engineer: A. Haverford",
+    "Md. Haverford",
+    "Ar. Haverford",
+    "Prof. Haverford",
+]
+
+
+@pytest.mark.parametrize("sentence", HAVERFORD)
+def test_a_name_after_any_honorific_or_initial_is_asked(sentence: str) -> None:
+    assert texts(sentence) == ["Haverford"]
+
+
+def test_a_name_in_a_tables_first_column_is_asked() -> None:
+    found = texts("| Haverford | Client |\n| Quillon | Architect |\n")
+    assert found == ["Haverford", "Quillon"]
+
+
+@pytest.mark.parametrize("sentence", ["The client signed.", "Approved by the client."])
+def test_a_common_word_at_a_sentence_start_is_still_dropped(sentence: str) -> None:
+    assert texts(sentence) == []
+
+
+def test_an_uncommon_word_at_a_sentence_start_is_asked() -> None:
+    assert texts("Haverford signed. Quillon too.") == ["Haverford", "Quillon"]
