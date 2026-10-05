@@ -472,6 +472,6 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **A committed workflow was never run before it merged:** `/review-pr`'s first real run (#338) reviewed
   and refuted as designed, but its Record step wrote the verdict inside the review folder, which the
   guard refuses to run anything in, so no ledger entry was recorded. Run a new workflow once, end to end,
-  before its PR merges. This instance's check: `.claude/hooks/tests/review-pr-record.test.mjs` (#339:
-  `/review-pr`'s own record and triage commands, asked of the guard). No check yet for the class (any
-  workflow merged without one run): #342.
+  before its PR merges. `.claude/hooks/tests/review-pr-record.test.mjs` (#339) checks this instance only
+  (`/review-pr`'s own record and triage commands, asked of the guard). No check yet: #342 (any workflow
+  merged without one run).
