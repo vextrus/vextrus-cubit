@@ -205,7 +205,7 @@ class Rollup(Gh):
     def rollup(self, pr: int) -> dict[str, Any]:
         return {"headRefOid": HEAD, "statusCheckRollup": self.entries}
 
-    def job_log(self, job: str) -> str:
+    def job_log(self, run: str, job: str) -> str:
         return self.logs.get(job, "##[error]Process completed with exit code 1.")
 
 
@@ -286,3 +286,25 @@ def test_update_branch_names_a_conflict_only_when_github_says_so(tmp_path: Path)
         ).update_branch(12)
     assert "conflict" not in str(refused.value)
     assert "expected head sha" in str(refused.value)
+
+
+class Logs(Gh):
+    """`gh run view --log-failed` and the REST job log, scripted."""
+
+    def __init__(self, failed: str, whole: str) -> None:
+        super().__init__(Path("."))
+        self.failed, self.whole = failed, whole
+        self.argv: list[list[str]] = []
+
+    def _run(self, *argv: str) -> str:
+        self.argv.append(list(argv))
+        return self.failed if argv[:2] == ("gh", "run") else self.whole
+
+
+def test_an_empty_log_failed_falls_back_to_the_job_s_whole_log() -> None:
+    gh = Logs("", " FAIL  |node| src/a.test.ts > Viewer > title\n")
+    assert failed_tests(gh.job_log("1", "2")) == ["web/src/a.test.ts :: title"]
+    assert gh.argv[-1] == ["gh", "api", "repos/vextrus/vextrus-cubit/actions/jobs/2/logs"]
+    named = Logs(FLAKE, "")
+    assert failed_tests(named.job_log("1", "2")) == ["vextrus/x/tests/test_a.py :: test_flaky"]
+    assert len(named.argv) == 1, "a log that names its tests needs no second read"

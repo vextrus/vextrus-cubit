@@ -11,6 +11,7 @@ head CI was green on (`--match-head-commit`) and pulls main. It never raises pri
 shell and never moves a branch or a worktree of its own. Exit codes: 0 landed, 2 usage, 3 refused.
 """
 
+import contextlib
 import json
 import re
 import subprocess
@@ -344,9 +345,20 @@ class Gh:
             return self.failed_ids()
         raise Refused("CI did not settle")
 
-    def job_log(self, job: str) -> str:
-        """A job's whole log (gh 2.45's `gh run view --log-failed` printed nothing for a failed job)."""
-        return self._run("gh", "api", f"repos/{REPOSITORY}/actions/jobs/{job}/logs")
+    def job_log(self, run: str, job: str) -> str:
+        """A failed job's log: `gh run view --log-failed`, and when that names no test (gh 2.45 printed
+        nothing for a failed web job) the whole log from `GET .../actions/jobs/<job>/logs`."""
+        failed = ""
+        with contextlib.suppress(subprocess.CalledProcessError):
+            failed = self._run(
+                "gh", "run", "view", run, "--job", job, "--log-failed", "--repo", REPOSITORY
+            )
+        if failed_tests(failed):
+            return failed
+        try:
+            return failed + "\n" + self._run("gh", "api", f"repos/{REPOSITORY}/actions/jobs/{job}/logs")
+        except subprocess.CalledProcessError:
+            return failed
 
     def failed_ids(self) -> list[str]:
         """The failed tests of the red checks; a red check with no test line is named by itself. A red
@@ -358,10 +370,7 @@ class Gh:
             job = JOB_URL.search(str(entry.get("detailsUrl") or ""))
             tests: list[str] = []
             if entry.get("__typename") != "StatusContext" and job:
-                try:
-                    tests = failed_tests(self.job_log(job[2]))
-                except subprocess.CalledProcessError:
-                    tests = []
+                tests = failed_tests(self.job_log(job[1], job[2]))
             named[check_key(entry)] = tests
         for entry in self._red:
             tests = named[check_key(entry)]
