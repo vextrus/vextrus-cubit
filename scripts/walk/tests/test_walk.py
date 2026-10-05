@@ -788,6 +788,9 @@ def test_a_signal_interrupts_the_walk_but_ends_the_hold_quietly() -> None:
 # ready.py, the third refuter pass ----------------------------------------------------------------
 
 
+@pytest.mark.skipif(
+    os.geteuid() == 0, reason="root reads a chmod 0 folder (cloud sessions run as root); CI is not root"
+)
 def test_an_unreadable_walk_folder_is_malformed(tmp_path: Path) -> None:
     repo, walks, _, c2 = _two_passes(tmp_path)
     _put(walks, c2, _verdict(c2, "FAIL", "2026-10-05T02:00:00Z"))
