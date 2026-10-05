@@ -433,11 +433,19 @@ class Gh:
         """Fast-forwards main, and only when main is what this checkout has checked out. Never `git
         pull`: it reads `FETCH_HEAD`, which every other fetch in this checkout rewrites ("Cannot
         fast-forward to multiple branches"); main is fetched into `origin/main` and fast-forwarded to
-        that ref."""
+        that ref. Another fetch moving `origin/main` at the same moment makes ours fail ("cannot lock
+        ref"), so the fetch is tried at most twice more, 2 s apart."""
         branch = self._run("git", "-C", str(self.repo), "symbolic-ref", "-q", "--short", "HEAD").strip()
         if branch != "main":
             raise Refused(f"this checkout is on {branch!r}, not main")
-        self._run("git", "-C", str(self.repo), "fetch", "-q", "origin", "main")
+        for attempt in range(3):
+            try:
+                self._run("git", "-C", str(self.repo), "fetch", "-q", "origin", "main")
+                break
+            except subprocess.CalledProcessError:
+                if attempt == 2:
+                    raise
+                self.sleep(2)
         self._run("git", "-C", str(self.repo), "merge", "-q", "--ff-only", "refs/remotes/origin/main")
 
 
