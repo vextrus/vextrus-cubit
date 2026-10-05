@@ -238,14 +238,37 @@ def lesson_problems(text: str, tree: Tree) -> Iterator[tuple[int, str]]:
 
 
 def code_units(text: str) -> Iterator[tuple[int, str]]:
-    """Each inline-code span (as `inline_tokens` pairs them) and each fenced line, with its line."""
+    """Each inline-code span (as `inline_tokens` pairs them) and each fenced command, with the line it
+    opens on; a fenced line ending in `\\` is joined with the next."""
     yield from inline_tokens(text)
+    fenced = False
+    held: tuple[int, str] | None = None
+    for number, line in enumerate(text.splitlines(), start=1):
+        if FENCE.match(line):
+            if held:
+                yield held
+                held = None
+            fenced = not fenced
+        elif fenced and line.strip():
+            start, joined = held if held else (number, "")
+            joined = f"{joined} {line.strip()}".strip()
+            if joined.endswith("\\"):
+                held = (start, joined[:-1].rstrip())
+            else:
+                held = None
+                yield start, joined
+    if held:
+        yield held
+
+
+def prose_lines(text: str) -> Iterator[tuple[int, str]]:
+    """Each line outside fences, its inline code removed (an open span runs to the line's end)."""
     fenced = False
     for number, line in enumerate(text.splitlines(), start=1):
         if FENCE.match(line):
             fenced = not fenced
-        elif fenced and line.strip():
-            yield number, line.strip()
+        elif not fenced:
+            yield number, INLINE.sub(" ", line).split("`")[0]
 
 
 class Usage:
@@ -302,8 +325,9 @@ def module_problem(module: str, word: str | None, tree: Tree, usage: Usage) -> s
 
 
 def module_problems(text: str, tree: Tree, usage: Usage) -> Iterator[tuple[int, str]]:
-    """Each `python -m <module> [word]` line naming a module or subcommand the tree lacks."""
-    for number, line in enumerate(text.splitlines(), start=1):
+    """Each `python -m <module> [word]` naming a module or subcommand the tree lacks, judged per code
+    span or fenced command (a span wrapped across lines joined first) and per line of prose."""
+    for number, line in [*code_units(text), *prose_lines(text)]:
         for match in MODULE.finditer(line):
             module = match.group(1).rstrip(TRAILING)
             if not MODULE_NAME.fullmatch(module) or module.split(".")[0] not in tree.top:

@@ -37,3 +37,10 @@ test("the resume goes through scripts.factory.say, and the command lines live in
   assert.match(flat, /`commands\.md`/);
   assert.doesNotMatch(flat, /\/home\/riz\//, "no machine path in the runbook");
 });
+
+test("every launch line in commands.md carries --budget-minutes (the watcher and say read the ticket's budget)", () => {
+  const commands = readFileSync(fileURLToPath(new URL("../skills/orchestrate-wave/commands.md", import.meta.url)), "utf8");
+  const launches = commands.split("\n").filter((line) => /scripts\.factory\.launch (?:cloud|local)\b/.test(line));
+  assert.ok(launches.length >= 2, "no launch lines");
+  for (const line of launches) assert.match(line, /--budget-minutes\b/, line);
+});

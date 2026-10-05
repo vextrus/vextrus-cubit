@@ -18,8 +18,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   `pytest`, `web-tests`, `walk`, `rd-run`. A refusal waits or holds the ticket.
 
 ## 3. Launch and messages
-- `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --effort medium --prompt-file <f>`
-- `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --effort medium --name <name> --prompt-file <f>`
+- `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --effort medium --prompt-file <f> --budget-minutes <n>`
+- `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --effort medium --name <name> --prompt-file <f> --budget-minutes <n>`
 - `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`: prints the text to send
   with SendMessage when the builder is alive, and runs the resume itself when it is `stopped` or `failed`
   with no `pid`. Never type `claude --bg --resume` by hand: the guard refuses it.

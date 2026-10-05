@@ -35,7 +35,8 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 - **Comment / label / close**: `gh pr comment <number> --body-file <f>` (scanned first), labels with
   `gh issue edit <number> --add-label "..."` (one number space; gh pr edit dies on gh 2.45), `gh pr close`.
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42 --json number` and fall back to `gh issue view 42 --json number`.
+GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42 --json number,state` and fall back to `gh issue view 42 --json number,state`
+(gh 2.45 exits 0 for `--json number` alone even on an issue; with `state` it exits 1 on an issue).
 
 ## When a skill says "publish to the issue tracker"
 

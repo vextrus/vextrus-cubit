@@ -101,3 +101,18 @@ def test_a_module_closing_its_span_takes_no_word(tmp_path: Path) -> None:
     text = "Run `python -m scripts.land` then go.\nAnd `python -m tools.lint.<scan>` too.\n"
     assert list(docs_paths.module_problems(text, t, usage)) == []
     assert usage.seen == {}  # no word to judge, so no --help ran
+
+
+def test_a_span_wrapped_between_the_module_and_its_word_is_judged(tmp_path: Path) -> None:
+    land = 'import argparse\nargparse.ArgumentParser(prog="land").parse_args()\n'
+    doc = (
+        "Order with `uv run python -m scripts.land\norder` first.\n\n"
+        "```\npython -m scripts.land \\\n  order\n```\n"
+    )
+    tree(tmp_path, {"scripts/__init__.py": "", "scripts/land.py": land, "CLAUDE.md": doc})
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    found = docs_paths.problems(tmp_path)
+    assert found == [
+        "CLAUDE.md:1: `scripts.land` takes no subcommand, so `order` is wrong",
+        "CLAUDE.md:5: `scripts.land` takes no subcommand, so `order` is wrong",
+    ]
