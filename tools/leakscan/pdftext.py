@@ -217,6 +217,7 @@ def assemble(stream: bytes) -> list[str]:
     deeper = 0  # brackets opened past MAX_DEPTH
     position = 0
     end = len(stream)
+    no_image_end = end  # from here on no inline image has an `EI`
 
     def push(item: object) -> None:
         nonlocal operands
@@ -290,10 +291,14 @@ def assemble(stream: bytes) -> list[str]:
             else:
                 text.aside(operands)
             operands = []
-            if word == b"ID":  # inline image data: skipped to its `EI` (none: read on as tokens)
+            # Inline image data: skipped to its `EI` (none: read on as tokens). Once a search from a
+            # position finds no `EI`, none from a later one can, so no search runs twice: linear.
+            if word == b"ID" and position < no_image_end:
                 image_end = _INLINE_IMAGE_END.search(stream, position)
                 if image_end:
                     position = image_end.end()
+                else:
+                    no_image_end = position
     close_all()
     for operand in operands:  # a stream that ends before its operator: its strings are still shown
         text.shown(operand)

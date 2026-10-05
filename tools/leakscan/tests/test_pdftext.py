@@ -1,12 +1,13 @@
 """T-LEAK-PDF's assembler (`tools/leakscan/pdftext.py`) and the PDF reading in `scan.py`: the text a
 content stream shows, the bounded inflate and the stream cap. Invented text only."""
 
+import re
 import time
 import zlib
 
 import pytest
 
-from tools.leakscan import scan
+from tools.leakscan import pdftext, scan
 from tools.leakscan.core import CannotScan, normalise
 from tools.leakscan.pdftext import assemble, decode
 
@@ -126,12 +127,13 @@ def test_an_unterminated_last_stream_is_read_to_the_end() -> None:
     assert _found(b"%PDF-1.4\n1 0 obj\n<< >>\nstream\nBT [(Lantern Weavers )-5(Guild 2290)] TJ")
 
 
-def test_deflated_data_holding_endstream_is_read_on_past_it() -> None:
+def test_deflated_data_holding_endstream_is_read_to_its_length() -> None:
     content = b"BT " + b" ".join(b"(%s) Tj" % c.encode() for c in TEXT) + b" ET"
     stored = zlib.compressobj(0)  # stored blocks: `endstream` appears as it is in the compressed data
     data = stored.compress(b"x endstream y " + content) + stored.flush()
     assert b"endstream" in data
-    assert _found(b"%PDF-1.4\n1 0 obj\n<< >>\nstream\n" + data + b"\nendstream\nendobj\n")
+    dictionary = b"<< /Length %d /Filter /FlateDecode >>" % len(data)
+    assert _found(b"%PDF-1.4\n1 0 obj\n" + dictionary + b"\nstream\n" + data + b"\nendstream\nendobj\n")
 
 
 GLYPHS = b"BT " + b" ".join(b"(%s) Tj" % c.encode() for c in TEXT) + b" ET"
@@ -324,3 +326,63 @@ def test_many_raw_streams_after_long_dictionaries_stay_linear() -> None:
     started = time.monotonic()
     scan.blob_texts(data)
     assert time.monotonic() - started < 15  # each window was rescanned from 64 KiB back
+
+
+# ---------------------------------------------------------------- PR review, round 1
+
+
+class _CountedSearch:
+    """A pattern whose searches count the bytes they may scan (from the position to the end)."""
+
+    def __init__(self, pattern: re.Pattern[bytes]) -> None:
+        self.pattern = pattern
+        self.scanned = 0
+
+    def search(self, data: bytes, position: int) -> re.Match[bytes] | None:
+        self.scanned += len(data) - position
+        return self.pattern.search(data, position)
+
+
+@pytest.mark.parametrize("count", [40_000, 80_000])
+def test_inline_images_without_an_end_are_searched_once(
+    monkeypatch: pytest.MonkeyPatch, count: int
+) -> None:
+    counted = _CountedSearch(pdftext._INLINE_IMAGE_END)
+    monkeypatch.setattr(pdftext, "_INLINE_IMAGE_END", counted)
+    stream = b"ID\n" * count
+    assemble(stream)
+    assert counted.scanned <= 2 * len(stream)  # each `ID` searched to the end: quadratic
+    counted.scanned = 0
+    assert _shown(b"BI ID \x00 EI " + b"ID\n" * 1000 + b"BT (Lantern Weavers Guild 2290) Tj ET")
+    assert counted.scanned <= 4 * 3000
+
+
+def test_zlib_data_running_past_its_length_never_hides_the_next_stream() -> None:
+    following = (
+        b"\nendstream\nendobj\n2 0 obj\n<< /Filter /FlateDecode >>\nstream\n"
+        + zlib.compress(b"BT (Lantern Weavers Guild 2290) Tj ET")
+        + b"\nendstream\nendobj\n"
+    )
+    # stream 1: /Length 7 is a zlib header and a stored block's header; the stored block's bytes are
+    # everything after, object 2 included, so zlib data ends past object 2's opening
+    header = b"\x78\x01\x01" + len(following).to_bytes(2, "little")
+    header += (0xFFFF - len(following)).to_bytes(2, "little")
+    adler = zlib.adler32(following).to_bytes(4, "big")
+    data = b"%PDF-1.4\n1 0 obj\n<< /Length 7 /Filter /FlateDecode >>\nstream\n" + header
+    data += following + adler + b"\ntrailer\n<< >>\n"
+    assert zlib.decompress(header + following + adler) == following  # the crafted data is valid
+    assert _found(data)
+
+
+def _nested(inner_pdfs: int, size: int) -> bytes:
+    inner = _pdf(bytes(size))
+    middle = _pdf(*([inner] * inner_pdfs))
+    return _pdf(middle)
+
+
+def test_nested_pdfs_inflate_from_one_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scan, "MAX_BLOB", 10_000)
+    scan.blob_texts(_nested(2, 3000))  # about 6,500 bytes inflated: read
+    with pytest.raises(CannotScan) as refused:
+        scan.blob_texts(_nested(4, 3000))  # about 12,500: each PDF under the limit, the blob over it
+    assert refused.value.reason == "source-unreadable"

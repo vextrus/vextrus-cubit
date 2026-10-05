@@ -43,7 +43,6 @@ _NUMBER_OBJECT = re.compile(
 )
 _ENCRYPT = re.compile(rb"/Encrypt%s*+(?:\d|<<)" % _W)
 _DICTIONARY = 64 * 1024  # how far back a stream's dictionary is read for its `/Length`
-_CHUNK = 64 * 1024
 
 
 def joined(first: str, second: str) -> str:
@@ -145,23 +144,26 @@ def scan_diff(corpus: Corpus, result: Result, diff: str, names: list[str]) -> No
         result.block(corpus, block)
 
 
-def blob_texts(data: bytes, depth: int = 0) -> list[str]:
+def blob_texts(data: bytes, depth: int = 0, budget: list[int] | None = None) -> list[str]:
     """The text a binary blob may hold: UTF-16 decoded, gzip and zip members opened, PDF streams
-    inflated, and printable runs of 8 or more characters (ASCII and UTF-16LE), as `strings` does."""
+    inflated and their text operators assembled, and printable runs of 8 or more characters (ASCII
+    and UTF-16LE), as `strings` does. Every PDF stream in the blob, nested ones included, inflates
+    from one `MAX_BLOB` budget (`budget`, made at the top level and passed down)."""
     texts: list[str] = []
     if depth > 2:
         return texts
+    budget = [MAX_BLOB] if budget is None else budget
     if data.startswith(b"\x1f\x8b"):
         with contextlib.suppress(*_INFLATE_ERRORS):
-            texts += blob_texts(gzip.decompress(data)[:MAX_BLOB], depth + 1)
+            texts += blob_texts(gzip.decompress(data)[:MAX_BLOB], depth + 1, budget)
     if data.startswith(b"PK\x03\x04"):
         with contextlib.suppress(*_ZIP_ERRORS), zipfile.ZipFile(io.BytesIO(data)) as archive:
             for member in archive.infolist()[:2000]:
                 texts.append(member.filename)
                 if member.file_size <= MAX_BLOB:
-                    texts += blob_texts(archive.read(member), depth + 1)
+                    texts += blob_texts(archive.read(member), depth + 1, budget)
     if data.startswith(b"%PDF"):
-        texts += _pdf_texts(data, depth)
+        texts += _pdf_texts(data, depth, budget)
     if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
         texts += data.decode("utf-16", "replace").split("\n")
     elif len(data) >= 4 and data[1::2].count(0) > len(data) // 4:
@@ -173,39 +175,25 @@ def blob_texts(data: bytes, depth: int = 0) -> list[str]:
     return texts
 
 
-def _inflate(data: bytes, start: int, end: int, budget: list[int]) -> tuple[bytes, int] | None:
-    """The stream `data[start:end]` inflated by zlib and where its zlib data ended, or None when it is
-    not a zlib stream. Zlib data that runs past `end` (an `endstream` inside the compressed bytes) is
-    read on into the bytes after it, as a reader taking `/Length` would. More than `MAX_BLOB` out, or
-    more than `budget` (bytes out and bytes read on, for the whole PDF), refuses the scan: never a
-    silent cut."""
-    inflater = zlib.decompressobj()
+def _inflate(stream: bytes, budget: list[int]) -> bytes | None:
+    """A stream inflated by zlib (as far as its data goes), or None when it is not a zlib stream. More
+    out than `MAX_BLOB`, or than what is left of `budget` (the bytes every PDF stream in the scanned
+    blob inflates to, nested PDFs included), refuses the scan: never a silent cut."""
+    limit = min(MAX_BLOB, budget[0])
     try:
-        out = inflater.decompress(data[start:end], MAX_BLOB + 1)
+        out = zlib.decompressobj().decompress(stream, limit + 1)
     except zlib.error:
         return None
-    position = end
-    while not inflater.eof and not inflater.unconsumed_tail and position < len(data):
-        chunk = data[position : position + _CHUNK]
-        position += len(chunk)
-        budget[0] -= len(chunk)
-        try:
-            out += inflater.decompress(chunk, MAX_BLOB + 1 - len(out))
-        except zlib.error:
-            break
-        if budget[0] < 0:
-            break
     budget[0] -= len(out)
-    if len(out) > MAX_BLOB or budget[0] < 0:
+    if len(out) > limit:
         raise CannotScan("source-unreadable")
-    stop = position - len(inflater.unused_data) if inflater.eof and position > end else end
-    return out, stop
+    return out
 
 
 def _declared_end(
     data: bytes, floor: int, keyword: int, start: int, end: int, objects: dict[str, Any]
 ) -> int:
-    """Where a raw stream ends: at `end` (its first `endstream`), or further when its dictionary's
+    """Where a stream ends: at `end` (its first `endstream`), or further when its dictionary's
     `/Length` (direct, or an indirect whole-number object) says so, an `endstream` follows there and
     no other stream opens between (an `endstream` inside the stream's own text, as a reader taking
     `/Length` reads it). `objects` caches the whole-number objects, read once per PDF."""
@@ -232,16 +220,16 @@ def _declared_end(
     return end
 
 
-def _pdf_texts(data: bytes, depth: int) -> list[str]:
+def _pdf_texts(data: bytes, depth: int, budget: list[int]) -> list[str]:
     """A PDF's streams, in order (an unterminated last one runs to the data's end): each inflated one's
     text (as any blob's), and every stream's shown text, assembled from its text operators (`pdftext`),
-    inflated or raw. Each search starts after the last stream's true end (where its zlib data or its
-    `/Length` ended), so the pass is linear. More than `MAX_STREAMS` streams, or an encrypted PDF (its
-    streams unreadable), refuses the scan."""
+    inflated or raw. A stream ends at its first `endstream` or a consistent `/Length` (`_declared_end`),
+    never further, and each search starts after the last stream's end, so the pass is linear. More
+    than `MAX_STREAMS` streams, an encrypted PDF (its streams unreadable), or inflating past `budget`
+    refuses the scan."""
     if _ENCRYPT.search(data):
         raise CannotScan("source-unreadable")
     texts: list[str] = []
-    budget = [MAX_BLOB]
     objects: dict[str, Any] = {}
     position = 0
     count = 0
@@ -252,14 +240,13 @@ def _pdf_texts(data: bytes, depth: int) -> list[str]:
         start = opening.end()
         close = data.find(b"endstream", start)
         end = len(data) if close < 0 else close
-        inflated = _inflate(data, start, end, budget)
+        stop = _declared_end(data, position, opening.start(), start, end, objects)
+        inflated = _inflate(data[start:stop], budget)
         if inflated is None:
-            stop = _declared_end(data, position, opening.start(), start, end, objects)
             texts += pdftext.assemble(data[start:stop])
         else:
-            stop = inflated[1]
-            texts += blob_texts(inflated[0], depth + 1)
-            texts += pdftext.assemble(inflated[0])
+            texts += blob_texts(inflated, depth + 1, budget)
+            texts += pdftext.assemble(inflated)
         if stop > end:
             close = data.find(b"endstream", stop)
         if close < 0:
