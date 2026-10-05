@@ -1,4 +1,8 @@
 # Tests that fail only when run as root (uid 0, a cloud container), one per line: <repo path> :: <test title>.
 # `python -m scripts.verify` records such a failure as root-only, not a failure, when it runs as root.
 # Prefer `@pytest.mark.skipif(os.geteuid() == 0, ...)` on the test; tools.lint.root_only enforces it.
+# Exception: a test under an acceptance path (tests/acceptance/, web/**/acceptance/) is listed here, never
+# skipped: as root the acceptance plugin fails a skipped acceptance test with no FAILED line, so only this
+# listing rescues it (verify excuses it only when the run's failed count equals the listed lines, with no
+# errors and no acceptance test that did not run). An entry names the test exactly: <path> :: <test name>.
 tools/leakscan/tests/acceptance/test_scan.py :: test_an_unreadable_file_named_with_a_string_prints_neither_name_nor_text

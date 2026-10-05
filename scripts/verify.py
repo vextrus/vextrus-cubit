@@ -13,7 +13,11 @@ A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: 
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
 A check run as root (uid 0, a cloud container) whose every failing test is listed in
 `.github/flaky-root.txt` (the same line format) is not rerun: it is recorded `exit_code` 0 with
-`raw_exit_code` and `root_only` naming the listed lines, and its `verify:` line says `root-only`.
+`raw_exit_code` and `root_only` naming the listed lines, and its `verify:` line says `root-only`. That
+holds only when the run's own counts agree (see `root_only_in`): pytest's exit code 1, its summary's
+failed count equal to the listed FAILED lines, no errors, and no "acceptance tests that did not run"
+section; otherwise the command's exit code stands. An entry names a test exactly: `<path>::<title>`
+followed by `[`, a space or the end of the line (a vitest line: the title ends the line).
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -36,6 +40,8 @@ FLAKY = ".github/flaky.txt"
 FLAKY_ROOT = ".github/flaky-root.txt"
 PYTEST_FAILURE = re.compile(r"^(?:FAILED|ERROR) (\S.*)$")
 VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
+SUMMARY_LINE = re.compile(r"^=*\s*\d+ \w.*\bin \d+(?:\.\d+)?s\b")
+NOT_RUN_SECTION = "acceptance tests that did not run"
 
 
 @dataclass(frozen=True)
@@ -157,6 +163,16 @@ def failure_lines(output: str) -> list[str]:
     return found
 
 
+def names_failure(where: str, title: str, failure: str) -> bool:
+    """Whether a failure line names exactly this test: a pytest node id `<path>::<title>` followed by
+    `[`, a space or the end of the line, or a vitest line (`<path> > ... > <title>`) the title ends."""
+    if re.search(rf"(?:^|\s){re.escape(where)}::{re.escape(title)}(?:\[| |$)", failure):
+        return True
+    return (where in failure or where.removeprefix("web/") in failure) and (
+        re.search(rf"(?:^|>\s){re.escape(title)}$", failure.rstrip()) is not None
+    )
+
+
 def flakes_in(output: str, entries: list[tuple[str, str, str]]) -> list[str] | None:
     """The listed flakes every failure line matches, or None when some failure is not listed."""
     failures = failure_lines(output)
@@ -164,15 +180,31 @@ def flakes_in(output: str, entries: list[tuple[str, str, str]]) -> list[str] | N
         return None
     matched: list[str] = []
     for failure in failures:
-        hits = [
-            entry
-            for entry, where, title in entries
-            if title in failure and (where in failure or where.removeprefix("web/") in failure)
-        ]
+        hits = [entry for entry, where, title in entries if names_failure(where, title, failure)]
         if not hits:
             return None
         matched += [entry for entry in hits if entry not in matched]
     return matched
+
+
+def root_only_in(code: int, output: str, entries: list[tuple[str, str, str]]) -> list[str] | None:
+    """The `.github/flaky-root.txt` lines a run as root failed on, when those are the only reasons it
+    failed, else None. A listed FAILED line alone excuses nothing: `-rf` drops ERROR lines (a fixture or
+    teardown error shows only in the summary's count), and the acceptance plugin fails a run with no
+    FAILED line, so the run's own counts must agree: exit code 1,
+    the summary's failed count equal to the failure lines, no errors, and no section naming acceptance
+    tests that did not run. Anything else (no summary included) keeps the command's exit code."""
+    if code != 1 or NOT_RUN_SECTION in output:
+        return None
+    summary = [line for line in output.splitlines() if SUMMARY_LINE.match(line)]
+    if not summary:
+        return None
+    counts = {word: int(n) for n, word in re.findall(r"(\d+) (failed|errors?)\b", summary[-1])}
+    if counts.get("error", 0) or counts.get("errors", 0) or re.search(r"^ERROR ", output, re.M):
+        return None
+    if counts.get("failed", 0) != len(failure_lines(output)):
+        return None
+    return flakes_in(output, entries)
 
 
 def _git(*args: str) -> str:
@@ -245,7 +277,7 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
         if (
             code != 0
             and os.geteuid() == 0
-            and (listed_root := flakes_in(output, root_entries)) is not None
+            and (listed_root := root_only_in(code, output, root_entries)) is not None
         ):
             code, root_only = 0, listed_root
         elif code != 0 and (listed := flakes_in(output, entries)) is not None:
