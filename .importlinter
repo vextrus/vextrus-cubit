@@ -23,8 +23,11 @@ layers =
     platform
 # Ticket 19a's committed acceptance tests run the whole demo seed (a layer above takeoff) on the API; a
 # builder may not change them, so their imports of the seed alone are let through.
+# Ticket W327's committed acceptance tests read the message catalogue and the OpenAPI schema (vextrus.api);
+# a builder may not change them, so their imports alone are let through.
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.* -> vextrus.seed.*
+    vextrus.drawings.tests.acceptance.tw327.test_cancel_too_late -> vextrus.api
 unmatched_ignore_imports_alerting = none
 
 [importlinter:contract:engine]
