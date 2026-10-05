@@ -74,6 +74,8 @@ export interface DisciplineSection {
   numbering: { first: string; last: string; missing: readonly string[]; twice: readonly string[] } | null
   /** Every sheet settled, none of its Questions open, no view unaccounted (m0-screens §5). */
   confirmed: boolean
+  /** Its open gap Questions: the numbers printed either side of each gap and the Question's tag (a Sheet beside one waits for its answer, #320). */
+  gaps: readonly { tag: string; after: string; before: string }[]
 }
 
 export interface Bulk {
@@ -315,6 +317,9 @@ export function step1Model(data: Step1Data): Step1Model {
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
         confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
+        gaps: queue
+          .filter((e) => e.question.discipline === discipline && e.question.code === GAP_CODE)
+          .map((e) => ({ tag: e.tag, after: String(e.question.params.after ?? ''), before: String(e.question.params.before ?? '') })),
       }
     })
 
@@ -363,23 +368,37 @@ export function rowState(row: Row): RowState {
   if (p.decision === 'confirmed') return { kind: 'confirmed' }
   if (p.decision === 'excluded') return { kind: 'excluded', reason: p.excluded_reason, text: p.excluded_text }
   if (p.proposed_exclusion) return { kind: 'proposed-out', reason: p.proposed_exclusion }
-  return { kind: 'proposal', oneSource: row.sheets.some((s) => !s.agrees) }
+  // A Sheet in the bulk act on its title block alone still has one source, and the QS sees it (#320).
+  return { kind: 'proposal', oneSource: row.sheets.some((s) => !s.agrees || s.agrees_on === 'title_block') }
 }
 
+/** The read's gap Question (the drawing-list Check's `gap`). */
+const GAP_CODE = 'engine.register_check.gap'
+
 /** Why a sheet has one source (6.5), for the bar to say. */
-export type OneSourceWhy = 'not-listed' | 'gap' | 'no-list-no-plot' | 'other'
+export type OneSourceWhy = 'not-listed' | 'gap-asked' | 'gap' | 'no-list-no-plot' | 'other'
+
+/** The open gap Question a Sheet sits beside (its number printed either side of the gap), if any. */
+export function gapBeside(sheet: ProposalOut, section: DisciplineSection | undefined): { tag: string } | undefined {
+  if (!section || section.list || !sheet.number) return undefined
+  return section.gaps.find((g) => sameNumber(g.after, sheet.number!) || sameNumber(g.before, sheet.number!))
+}
+
+/** One number however it is printed: by its prefix, running number and suffix. */
+function sameNumber(a: string, b: string): boolean {
+  if (a === b) return true
+  const x = numberParts(a)
+  const y = numberParts(b)
+  return !!x && !!y && x.prefix === y.prefix && x.running === y.running && x.suffix === y.suffix
+}
 
 export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | undefined): OneSourceWhy {
   if (!section) return 'other'
   if (section.list) {
-    const parts = sheet.number ? numberParts(sheet.number) : null
-    const named = section.list.numbers.some((n) => {
-      if (n === sheet.number) return true
-      const q = numberParts(n)
-      return !!parts && !!q && q.prefix === parts.prefix && q.running === parts.running && q.suffix === parts.suffix
-    })
+    const named = !!sheet.number && section.list.numbers.some((n) => sameNumber(n, sheet.number!))
     return named ? 'other' : 'not-listed'
   }
+  if (gapBeside(sheet, section)) return 'gap-asked'
   const run = section.numbering
   if (!run || run.missing.length > 0 || run.twice.length > 0) return 'gap'
   return 'no-list-no-plot'

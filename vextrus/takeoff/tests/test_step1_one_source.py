@@ -2,11 +2,15 @@
 holds (a conflict, a low confidence) is refused as `question_first`, naming that Question, never as
 `one_source` ("S-02 has one source" was false: the Question, not a lone confirm, settles it)."""
 
+import uuid
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any
 
 import pytest
 
+from vextrus.drawings import services as drawings
+from vextrus.takeoff.services import step1 as step1_service
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
     answer,
@@ -118,12 +122,23 @@ def test_a_bulk_act_naming_a_held_files_sheet_read_anyway_is_refused_as_held_not
     [q] = open_questions(api, qs_project.project_id, "file_misread")
     assert answer(api, qs_project.project_id, q["id"], "read_anyway").status_code == 200
     run_job(qs_project.member, held, monkeypatch, use)
+    # S-01 and S-02 with their titles read from the file name: one source each, off the
+    # title-block basis (#320) too.
+    sheets_of = step1_service._sheets
+
+    def from_file_names(project_id: uuid.UUID) -> list[drawings.SheetView]:
+        return [
+            replace(s, sources={**s.sources, "title": "file_name"}) if s.number != "S-03" else s
+            for s in sheets_of(project_id)
+        ]
+
+    monkeypatch.setattr(step1_service, "_sheets", from_file_names)
     shown = proposals(api, qs_project.project_id)
     read_anyway = the(shown, "S-03")
     assert read_anyway["agrees"] is False
 
     lone = the(shown, "S-02")
-    assert lone["agrees"] is False  # S-01 and S-02 with no list or Plot: one source each
+    assert lone["agrees"] is False
 
     refused = confirm(api, qs_project.project_id, [lone["id"], read_anyway["id"]])
 

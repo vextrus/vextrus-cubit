@@ -5,7 +5,7 @@ label, a person by their name; nothing here names a storage key or a sha256."""
 import uuid
 from dataclasses import asdict
 from datetime import datetime
-from typing import Any, Self
+from typing import Any, Literal, Self
 
 from ninja import Field, Schema
 
@@ -69,7 +69,10 @@ class Step1ProposalOut(_FromView):
     """The kind of the act that decided it: `single`, `bulk` (with other sheets in one act) or
     `question_answer` (answering a Question confirmed or left it out); null while undecided."""
     agrees: bool
-    """Two sources agree on it (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
+    """It agrees (m0-screens §5): it joins the bulk act; else "Proposal, one source"."""
+    agrees_on: Literal["list", "plot", "title_block"] | None = None
+    """What it agrees on: its drawing list, its Plot page, or its title block alone in numbering
+    without a gap beside it (#320); null exactly when `agrees` is false."""
     decided_by_role: str | None
     """The actor's role in the Developer ("qs", "vextrus_engineer", …): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int

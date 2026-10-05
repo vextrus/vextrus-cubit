@@ -9,7 +9,7 @@ import { useFormat } from '@/format'
 import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { REASONS, whyOneSource, type Reason, type Row, type Step1Model } from './model'
+import { REASONS, gapBeside, whyOneSource, type Reason, type Row, type Step1Model } from './model'
 import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
 import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
@@ -78,28 +78,44 @@ function BulkWhy({ model, reading }: { model: Step1Model; reading: number }) {
 }
 
 function BulkReasons({ model }: { model: Step1Model }) {
-  const bulk = new Set(model.bulk.confirm.map((p) => p.discipline))
+  // A Sheet in the bulk act on its title block alone (#320) is told apart: it has one source.
+  const titleBlock = model.bulk.confirm.filter((p) => p.agrees_on === 'title_block').length
+  const bulk = new Set(model.bulk.confirm.filter((p) => p.agrees_on !== 'title_block').map((p) => p.discipline))
   const sections = model.disciplines.filter((d) => bulk.has(d.discipline))
   const listed = sections.some((d) => d.list)
   const unlisted = sections.some((d) => !d.list)
   const out = model.bulk.leaveOut.length > 0
   const tail = out ? <Trans>Left-out sheets stay in the count with their reason.</Trans> : null
+  const alone =
+    titleBlock > 0 ? (
+      <Plural
+        value={titleBlock}
+        one="# of them has one source: its title block, in numbering without a gap."
+        other="# of them have one source each, their title block, in numbering without a gap."
+      />
+    ) : null
   if (listed && unlisted)
     return (
       <>
-        <Trans>Each has a number and title from its title block, on its drawing list or in numbering without a gap.</Trans> {tail}
+        <Trans>Each has a number and title from its title block, on its drawing list or in numbering without a gap.</Trans> {alone} {tail}
       </>
     )
   if (listed)
     return (
       <>
-        <Trans>Each has a number and title from its title block and is on its drawing list.</Trans> {tail}
+        <Trans>Each has a number and title from its title block and is on its drawing list.</Trans> {alone} {tail}
       </>
     )
   if (unlisted)
     return (
       <>
-        <Trans>Each has a number and title from its title block, in numbering without a gap, and its Plot page matches.</Trans> {tail}
+        <Trans>Each has a number and title from its title block, in numbering without a gap, and its Plot page matches.</Trans> {alone} {tail}
+      </>
+    )
+  if (titleBlock > 0)
+    return (
+      <>
+        <Trans>Each has a number and title from its title block, in numbering without a gap; no drawing list or Plot page confirms them.</Trans> {tail}
       </>
     )
   return tail
@@ -112,6 +128,14 @@ function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model 
     model.disciplines.find((d) => d.discipline === sheet.discipline),
   )
   if (why === 'not-listed') return <Trans>The drawing list does not name it.</Trans>
+  if (why === 'gap-asked') {
+    const tag = gapBeside(sheet, model.disciplines.find((d) => d.discipline === sheet.discipline))?.tag
+    return tag ? (
+      <Trans>It sits beside a gap in the numbering that {tag} asks about; answer {tag} and it joins the bulk act.</Trans>
+    ) : (
+      <Trans>It sits beside a gap in the numbering; answering its Question lets it join the bulk act.</Trans>
+    )
+  }
   if (why === 'gap') return <Trans>Its Discipline’s numbering has a gap or a number twice.</Trans>
   if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check them against.</Trans>
   return <Trans>Nothing else confirms it.</Trans>
@@ -250,7 +274,9 @@ export function useBar(c: BarContext): BarSpec | null {
       const section = model.disciplines.find((d) => d.discipline === sheet.discipline)
       return {
         what: agrees ? (
-          section?.list ? (
+          row.sheets.some((s) => s.agrees_on === 'title_block') ? (
+            <Trans>{Name} is in the bulk act on one source: number and title from the title block, in numbering without a gap</Trans>
+          ) : section?.list ? (
             <Trans>{Name} agrees: number and title from the title block, on the drawing list</Trans>
           ) : (
             <Trans>{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>

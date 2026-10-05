@@ -142,10 +142,15 @@ class ProposalView:
     """The kind of the act that decided it (`ConfirmationKind`: `single`, `bulk`, or
     `question_answer` when answering a Question confirmed or left it out); None while undecided."""
     agrees: bool = False
-    """Two sources agree on it (m0-screens §5, "What 'agrees' means"): its number and title from its
-    title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
-    numbering running without a gap and its Plot page matched; never while held or in an open
-    Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
+    """It agrees (m0-screens §5, "What 'agrees' means"): its number and title from its title block,
+    and its Discipline's drawing list naming it; or, with no list, its Discipline's numbering running
+    without a gap and its Plot page matched; or, with no list (the title-block basis, #320), its
+    number parsed and printed by no other sheet of the Discipline, and no gap an open Question asks
+    about beside it. Never while held or in an open Question. Only such a sheet joins the bulk act
+    (6.4); the others are Proposals "with one source"."""
+    agrees_on: str | None = None
+    """What it agrees on: `list`, `plot` or `title_block` (in that precedence); None exactly when
+    `agrees` is false. A `title_block` sheet still has one source, which the screen says."""
     decided_by_role: str | None = None
     """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
@@ -369,6 +374,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
         replace(
             _proposal_view(s, by_sheet.get(s.id), names, who, order),
             agrees=s.id in agreeing,
+            agrees_on=agreeing.get(s.id),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
         )
@@ -383,12 +389,21 @@ def _agreeing(
     project_id: uuid.UUID,
     sheets: Sequence[drawings.SheetView],
     by_sheet: Mapping[uuid.UUID, Proposal],
-) -> set[uuid.UUID]:
-    """The printed sheets two sources agree on (`ProposalView.agrees`)."""
+) -> dict[uuid.UUID, str]:
+    """The printed sheets that agree (`ProposalView.agrees`), each with what it agrees on
+    (`ProposalView.agrees_on`): `list`, else `plot`, else `title_block`."""
     open_questions = Question.objects.filter(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
-    asked = set(open_questions.exclude(subject_id=None).values_list("subject_id", flat=True))
+    asked: set[uuid.UUID] = set()
+    gaps: list[tuple[str, dict[str, Any]]] = []
+    for subject_id, code, params, discipline in open_questions.values_list(
+        "subject_id", "message_code", "params", "discipline"
+    ):
+        if subject_id is not None:
+            asked.add(subject_id)
+        if code == list_codes.GAP.code:
+            gaps.append((discipline or str(params.get("discipline", "")), params))
     linked = set(
         QuestionLink.objects.filter(project_id=project_id, question__in=open_questions).values_list(
             "proposal_id", flat=True
@@ -396,24 +411,34 @@ def _agreeing(
     )
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
+    beside = _beside_gaps(numbers, gaps)
     of_discipline: dict[str, list[drawings.SheetView]] = {}
     for sheet in sheets:
         if sheet.discipline is not None:
             of_discipline.setdefault(sheet.discipline, []).append(sheet)
-    agreeing: set[uuid.UUID] = set()
+    agreeing: dict[uuid.UUID, str] = {}
     for discipline, everyone in of_discipline.items():
         # Two sheets of one number never agree: which of them is the sheet is a Question's.
         keys = Counter(numbers.key(s.number, discipline) for s in everyone if s.number)
         mine = [s for s in everyone if s.number and keys[numbers.key(s.number, discipline)] == 1]
         lists = _lists(project_id, discipline)
         standing = lists.standing
+        second: dict[uuid.UUID, str] = {}
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
-            second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
-        elif standing is None and _without_gap(numbers, discipline, everyone):
-            second = {s.id for s in mine if s.plot.page is not None}
-        else:
-            second = set()
+            second = {
+                s.id: "list" for s in mine if s.number and numbers.key(s.number, discipline) in listed
+            }
+        elif standing is None:
+            plotted = _without_gap(numbers, discipline, everyone)
+            held_by_gap = beside.get(discipline, set())
+            for s in mine:
+                if plotted and s.plot.page is not None:
+                    second[s.id] = "plot"
+                elif _place(numbers, s.number, discipline) not in held_by_gap | {None}:
+                    # The title-block basis (#320): one source, in numbering without an
+                    # unanswered gap beside it.
+                    second[s.id] = "title_block"
         for sheet in mine:
             proposal = by_sheet.get(sheet.id)
             if (
@@ -424,8 +449,29 @@ def _agreeing(
                 and sheet.id not in asked
                 and (proposal is None or proposal.id not in linked)
             ):
-                agreeing.add(sheet.id)
+                agreeing[sheet.id] = second[sheet.id]
     return agreeing
+
+
+def _place(numbers: Numbers, number: str | None, discipline: str) -> tuple[str, int] | None:
+    """Where a number sits in its Discipline's numbering: its series and running number (never the
+    printed string, which a suffix changes); None for no number or one that does not parse."""
+    parts = numbers.parts_in(number, discipline) if number else None
+    return None if parts is None else (parts[0], parts[1])
+
+
+def _beside_gaps(
+    numbers: Numbers, gaps: Iterable[tuple[str, Mapping[str, Any]]]
+) -> dict[str, set[tuple[str, int] | None]]:
+    """Each Discipline's places beside a gap an open Question asks about: the numbers printed either
+    side of it (its `after` and `before`). A gap answered, not kept open, holds nothing."""
+    beside: dict[str, set[tuple[str, int] | None]] = {}
+    for discipline, params in gaps:
+        for end in ("after", "before"):
+            place = _place(numbers, str(params.get(end) or ""), discipline)
+            if place is not None:
+                beside.setdefault(discipline, set()).add(place)
+    return beside
 
 
 def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.SheetView]) -> bool:
@@ -1106,9 +1152,9 @@ def confirm(
     """Confirm the named sheets, one or in bulk, each with `kind` when given, else the kind its
     `low_confidence` Question was answered with (an answer given while the sheet was left out, kept
     for its confirmation back in), else its proposed kind (Jev's pick, else the kind read). Each
-    change to Jev's pick is logged under the QS. Only sheets two sources agree on join a bulk act
-    (m0-screens 6.4): one naming any sheet with one source is refused whole (409); such a sheet is
-    confirmed on its own."""
+    change to Jev's pick is logged under the QS. Only sheets that agree (`ProposalView.agrees`: on a
+    list, a Plot page or their title blocks) join a bulk act (m0-screens 6.4): one naming any other
+    sheet is refused whole (409); such a sheet is confirmed on its own."""
     return _confirm(project_id, ids, kind=kind, actor_name=actor_name, answering=False)
 
 

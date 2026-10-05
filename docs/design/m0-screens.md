@@ -1002,9 +1002,16 @@ given (the title it read).
 **What "agrees" means** (the plan's QS review, Q4). A sheet agrees when its number and title come from
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
 no drawing list**, its Discipline's numbering runs without a gap (every number from the first to the
-last present once) and its Plot page matched. A sheet with only one source (no list and no Plot) is a
-Proposal "with one source": it is not in the bulk act, and the QS confirms it on its own (6.5). The
-heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
+last present once) and its Plot page matched. **With no drawing list and no Plot page to confirm it**
+(the title-block basis, the owner's ruling 5 of 5 Oct 2026), a sheet still joins the bulk act on its
+one source when all of these hold: its number and title both come from its title block, and its file
+is not held; its number reads as a series and a running number, and no other sheet of its Discipline
+prints it; no open Question holds it; and it does not sit beside a gap in the numbering that an open
+Question asks about (a gap holds only the two sheets either side of it, until the QS answers it; a gap
+kept open still holds them). Its State still reads "Proposal, one source", so the QS sees what it
+rests on. A sheet a list does not name, or one in a Discipline whose two lists disagree, never joins
+on its title block. A sheet "with only one source" is one that fails these: it is not in the bulk act,
+and the QS confirms it on its own (6.5). The heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
 (never "—"; 6.3).
 
 **The Questions' order** (no money in M0; 6.18): a held file first (it blocks a whole file); then the
@@ -1180,7 +1187,7 @@ to a second line at 1280 and 1440.
 | Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; "—" for a sheet with no plan view |
 | Views | 40 | 40 | The number of views, title block included |
 | File | not shown | 104 | The source file; tooltip adds where in it ("laid out in the drawing", "layout "A-24"") |
-| State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Proposal, one source" (5: not in the bulk act) · "Question Q3" · "Q3 kept open" · a proposed exclusion, in the "Proposed to leave out" section whose heading already says so, shows its reason's short form alone, in the Proposal colour with the dashed mark ("cover or index", "for information", "duplicate"; 5) · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
+| State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Proposal, one source" (5: one source, whether or not it joins the bulk act on its title block) · "Question Q3" · "Q3 kept open" · a proposed exclusion, in the "Proposed to leave out" section whose heading already says so, shows its reason's short form alone, in the Proposal colour with the dashed mark ("cover or index", "for information", "duplicate"; 5) · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
 
 The file column appears when the list is at least 1000 px wide. An excluded sheet's number is struck
 through, its title and strip muted. Rows that are not sheets use the same height: a held file
@@ -1244,7 +1251,11 @@ any agreeing sheet or proposed exclusion, the bar reads:
   view titles. Left-out sheets stay in the count with their reason." With no drawing list (5): "Each
   has a number and title from its title block, in numbering without a gap, and its Plot page matches;
   storeys from its view titles." With both kinds: "Each has a number and title from its title block,
-  on its drawing list or in numbering without a gap; …";
+  on its drawing list or in numbering without a gap; …". When every sheet in it agrees on its title
+  block alone (5): "Each has a number and title from its title block, in numbering without a gap; no
+  drawing list or Plot page confirms them." When some do, among others: the clause for the others,
+  then "3 of them have one source each, their title block, in numbering without a gap." ("1 of them
+  has one source: its title block, in numbering without a gap.");
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1252,8 +1263,8 @@ any agreeing sheet or proposed exclusion, the bar reads:
 with its reason." with "Undo  Ctrl Z", and one undo reverses both. A clean set therefore confirms in
 one key. (The prototype still takes two: a "Confirm 56" act, then "Leave out 5"; this wording was
 not prototyped and is first judged at 22's gate.) While a file is still reading: why = "NT-ARCH-R1.dwg
-is still reading (13 of 28); confirm its sheets when they arrive". Sheets "with one source" (5) are
-never in the bulk act; the QS confirms each in sheet mode (6.5).
+is still reading (13 of 28); confirm its sheets when they arrive". Sheets "with one source" (5) that
+fail the title-block basis are never in the bulk act; the QS confirms each in sheet mode (6.5).
 
 **Other bar states** (list mode, by what is focused):
 | Focus | What · why | Button |
@@ -1295,9 +1306,14 @@ and sheet mode alike (6.18). The toast sits just above it.
 - **The bar (ruling 5): Enter confirms the sheet and opens the next one needing the QS.** For an
   agreeing sheet: "S-20 agrees: number and title from the title block, on the drawing list" · "3 views;
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
-  that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
+  that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet in the bulk act on its
+  title block alone (5): "E-02 is in the bulk act on one source: number and title from the title
+  block, in numbering without a gap", with the same ghost. For a sheet with one source, out of the
+  bulk act (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
-  them against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
+  them against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵"; when it sits
+  beside a gap an open Question asks about, the why is "It sits beside a gap in the numbering that Q2
+  asks about; answer Q2 and it joins the bulk act." For a proposed
   exclusion: "Leave out S-39: for information" · "It stays in the count with its reason. X picks
   another reason." · "Leave out S-39 ↵". For a sheet a Question holds: that Question's bar. After the
   act, the next
@@ -1517,7 +1533,7 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
 | **A held file (ruling 3)** | Its row heads "Needs you" with Question Q1; nothing from it is listed or counted; Coverage says so. Its Discipline may be confirmed once Q1 is answered (5's options); the file's chip and row stay marked: "Held, read anyway" (its sheets listed, each marked "held") / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" |
 | **A Discipline not yet received** | 6.3's last section; the overview names it; nothing blocks the other Disciplines |
 | **A new Discipline's file arrives** (after others are confirmed) | Its sheets join under their own heading as Proposals; the confirmed Disciplines keep "✓ confirmed"; the rail shows Proposals ready again; the Projects page reads "Step 1: Structural confirmed · Electrical 38 to confirm" |
-| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; sheets agree on numbering and the Plot, else have one source (5) |
+| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; sheets agree on numbering and the Plot, else on their title blocks away from an unanswered gap, else have one source (5) |
 | **No Plot, and why** | "As read" only; Plot and Compare disabled with the reason as tooltip; `P` shows the note "No Plot for this sheet:" and the reason, top-left: "NT-ARCH-R1.dwg came with no PDF" · "the sheet has no number, so no PDF page could be matched to it" · "the PDF has no page for S-19 R0; its page 19 matched R1" · "PDF page 21 could not be matched: neither its title block nor the text on the page names a sheet" (a title block drawn as strokes is matched by the page's body text instead, 5). The inspector's Plot line repeats it ("None: …") |
 | **Bangla-font flag** | The file's chip "Bangla font" (amber); on an affected sheet, a canvas note "Bangla in a legacy font reads as "…"" and in the inspector "Bangla text here is set in SutonnyMJ, a legacy ANSI font. Vextrus reads it as "…", not as Bangla. The title and number are not affected." The file's report uses 4.5's wording |
 | **Kept open** | 6.7 |
@@ -1602,7 +1618,7 @@ owner's reversal at the M0 walk; ticket 22's design gate checks every row.
 | 15 | A read and a pasted drawing list that disagree | A Question (5); N shows "—" until it is answered (6.10) | Unspecified | The plan's Coverage contract |
 | 16 | Progress | Per Discipline Part: "Structural confirmed · Electrical 3 to confirm" (5, 6.3, 6.6, 4.3); the missing ones as "Disciplines not yet received" (6.3). The progress summary keeps "3 to confirm"; the Discipline's heading gives the breakdown of what keeps it from confirmed (6.9, #158) | One Step 1 across Disciplines | The plan's QS review, Q6 |
 | 17 | Exclusion reasons | Seven, keys `1`–`7`, each with a short form (5) | Six (session 02), with "Reference only" and "3D or perspective" | The plan's QS review, Q9 |
-| 18 | A sheet with one source | State "Proposal, one source"; never in the bulk act; confirmed one by one (5, 6.4, 6.5) | Undefined | "Agrees" needs two sources (Q4) |
+| 18 | A sheet with one source | State "Proposal, one source"; in the bulk act on its title block when it meets the title-block basis, else confirmed one by one (5, 6.4, 6.5) | Undefined | "Agrees" needs two sources (Q4); the owner's ruling 5 of 5 Oct 2026 |
 | 19 | A Discipline with no drawing list | "no drawing list; numbering runs 01–57 without a gap", or "…; 14 and 31 missing" (6.3) | "—" | The plan's QS review, Q4 |
 
 ---
@@ -1682,8 +1698,8 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 |---|---|
 | Sheets found | 24: Structural 13, Architectural 8, Electrical 3 (KR-STR-old.dwg held, not counted). Toolbar "Confirmed 0 / 24" |
 | Headings (6.3) | "Structural 13 found, 13 on the drawing list on S-01 \| 0 / 13 settled" · "Architectural 8 found; no drawing list; numbering runs A-01–A-07 without a gap \| 0 / 8 settled" · "Electrical 3 found; no drawing list; numbering runs E-01–E-03 without a gap \| 0 / 3 settled" · "Disciplines not yet received: Plumbing and sanitary · Fire (a building of 7 storeys or more) · Lift" |
-| The bulk act | 17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04, A-06, A-07); "Confirm 16, leave out 1 ↵", A-07 left out "for information" |
-| One source | 3: E-01 to E-03, "Proposal, one source" |
+| The bulk act | 20 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04, A-06, A-07), Electrical 3 (E-01 to E-03, on their title blocks); "Confirm 19, leave out 1 ↵", A-07 left out "for information" |
+| One source | 3: E-01 to E-03, "Proposal, one source", in the bulk act on their title blocks (5) |
 | Questions, 5 open, in queue order | Q1 KR-STR-old.dwg may be misread (no pre-pick) · Q2 two sheets numbered S-07 (pre-picked "keep rev B": the later revision mark and the drawing list agree) · Q3 the unnumbered architectural schedule (no list names it: "Leave it without a number", "Type a number", "Keep open"; no pre-pick) · Q4 the kind of A-05 (no pre-pick) · Q5 the drawing list and the Plot both name S-13, which no DWG has (no pre-pick) |
 | Views, 70 | Proposed excluded 25 (23 title blocks, the key plan and the 3D view, "for information") · proposed to a step or Part 43 (the legends of S-01 and E-01 among them) · unaccounted 2 (the loose boxes on S-10). Status bar: "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted" |
 | After the QS's walk | The bulk act; Q1 "Set this file aside…"; Q2 keep rev B (rev A's plan excluded, superseded); Q3 typed "A-08"; Q4 answered; Q5 "Not sent yet" (S-13 in the count as missing); the two loose boxes excluded, "other: part of the title block". Then "Step 1: Structural confirmed · Architectural confirmed · Electrical 3 to confirm"; then E-01 to E-03 confirmed one by one: "✓ Confirmed 22 / 24, 2 excluded", "Coverage 70 views: 42 assigned, 28 excluded, 0 proposed, 0 unaccounted" |
@@ -1820,3 +1836,9 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
 - **4.4, the Vextrus access line: "Split by role"** (on 20a's design gate). The MD, who can end any
   Vextrus access, reads "… You can end it at any time."; a QS, who can end only the access they gave,
   reads "… You can end the access you gave; your MD can end any."
+
+## The owner's rulings (5 Oct 2026, session 13)
+- **5, one-source Sheets: "Make them bulk-confirmable"** (#320). A sheet with no drawing list and no
+  Plot page joins the bulk act on its title block when its number and title come from it, its number
+  is its Discipline's once, no open Question holds it and no unanswered gap sits beside it (5, "What
+  'agrees' means"). Its State still reads "Proposal, one source".

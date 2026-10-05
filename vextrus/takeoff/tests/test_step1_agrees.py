@@ -1,7 +1,8 @@
 """A Proposal's `agrees` (ticket 22; m0-screens §5, "What 'agrees' means"): the field Step 1's bulk act
 ("Confirm 16, leave out 1 ↵", 6.4) is worked out from. A sheet read from its title block agrees once
 a second source confirms it: its Discipline's drawing list names it (or, with no list, the numbering
-runs without a gap and its Plot page matched). A sheet in an open Question, or with one source, never
+runs without a gap and its Plot page matched; or, with neither, its title block alone in numbering
+without an unanswered gap beside it, #320). A sheet in an open Question, or with one source, never
 agrees."""
 
 import uuid
@@ -30,8 +31,11 @@ def agrees(project: Step1Project) -> dict[str | None, bool]:
     return {p["number"]: p["agrees"] for p in body["proposals"]}
 
 
-def test_with_no_list_and_no_plot_every_sheet_has_one_source(step1_project: Step1Project) -> None:
-    assert agrees(step1_project) == {"S-01": False, "S-02": False, "S-03": False}
+def test_with_no_list_and_no_plot_a_run_without_a_gap_agrees_on_its_title_blocks(
+    step1_project: Step1Project,
+) -> None:
+    """The title-block basis (#320): numbers and titles from the title block, no gap, no Question."""
+    assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": True}
 
 
 def test_a_drawing_list_naming_a_sheet_is_its_second_source(step1_project: Step1Project) -> None:
@@ -147,7 +151,7 @@ def test_with_no_list_a_run_without_a_gap_and_its_plot_pages_agree(
     step1_project: Step1Project, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The no-list branch (m0-screens §5): S-01 to S-03 run without a gap, and each sheet whose Plot
-    page matched agrees; S-03, with no Plot page, has one source."""
+    page matched agrees on it; S-03, with no Plot page, agrees on its title block alone (#320)."""
     real = step1._sheets
 
     def with_plots(project_id: uuid.UUID) -> list[drawings.SheetView]:
@@ -158,7 +162,14 @@ def test_with_no_list_a_run_without_a_gap_and_its_plot_pages_agree(
 
     monkeypatch.setattr(step1, "_sheets", with_plots)
 
-    assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": False}
+    body = api_as(step1_project.member).get(
+        f"/api/projects/{step1_project.project_id}/takeoff/step1/proposals"
+    )
+    assert {p["number"]: p["agrees_on"] for p in body.json()["proposals"]} == {
+        "S-01": "plot",
+        "S-02": "plot",
+        "S-03": "title_block",
+    }
 
 
 def test_an_issue_date_reaches_the_web_as_an_iso_date_in_the_markets_order(
