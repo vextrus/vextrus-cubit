@@ -267,14 +267,15 @@ def run(
 
 
 def sharing_database(main_checkout: Path, ticket: str) -> str | None:
-    """The folder of another linked worktree whose database name is this ticket's, if any."""
+    """Another linked worktree whose database name is this ticket's, if any: any but this ticket's own
+    `<main>/.claude/worktrees/<ticket>` (the "already exists" case); a same-named one elsewhere too."""
     listed = must(git(main_checkout, "worktree", "list", "--porcelain"), "git worktree list")
     paths = [line[len("worktree ") :] for line in listed.splitlines() if line.startswith("worktree ")]
     mine = f"vextrus_{database_slug(ticket)}"[:40]
+    own = (main_checkout / ".claude" / "worktrees" / ticket).resolve()
     for path in paths[1:]:  # the first is the main checkout, whose database is `vextrus`
-        folder = Path(path).name
-        if folder != ticket and f"vextrus_{database_slug(folder)}"[:40] == mine:
-            return folder
+        if Path(path).resolve() != own and f"vextrus_{database_slug(Path(path).name)}"[:40] == mine:
+            return path
     return None
 
 

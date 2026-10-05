@@ -67,7 +67,14 @@ def worktrees(*paths: str) -> Answer:
 
 def test_sharing_database_finds_another_folder_with_the_same_slug(fake: Callable[..., FakeGit]) -> None:
     fake({("worktree", "list"): worktrees("/repo", "/repo/.claude/worktrees/t-1")})
-    assert local.sharing_database(MAIN, "T.1") == "t-1"
+    assert local.sharing_database(MAIN, "T.1") == "/repo/.claude/worktrees/t-1"
+
+
+def test_sharing_database_refuses_a_same_named_worktree_outside_the_worktrees_folder(
+    fake: Callable[..., FakeGit],
+) -> None:
+    fake({("worktree", "list"): worktrees("/repo", "/elsewhere/T.1", "/repo/.claude/worktrees/T.1")})
+    assert local.sharing_database(MAIN, "T.1") == "/elsewhere/T.1"
 
 
 def test_sharing_database_skips_the_main_checkout_and_the_same_folder(
@@ -124,6 +131,14 @@ GH_WRITES = [
     ),
     *(f"gh {group} x" for group in ("secret list", "variable list", "auth login", "auth token")),
     "gh config set editor vim",
+    # gh's built-in aliases of write verbs
+    "gh issue new",
+    "gh pr new",
+    "gh release new v1",
+    "gh repo new x",
+    "gh cs create",
+    "gh ext install o/r",
+    "gh extensions install o/r",
     "gh label create x",
     "gh label clone o/r",
     "gh label delete x",
