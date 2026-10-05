@@ -1,6 +1,6 @@
 /*
  * G1's scripted walk (docs/specs/factory.md 5 "G1"): signs in as the seed's QS on the served head and,
- * per Development Set, makes two Projects with the same files:
+ * per Development Set, makes three Projects with the same files:
  *
  *   - the first (WK-nn, `project`) is uploaded file by file through the Drawing Set page with no act;
  *     when its last read ends, the walk takes the burden snapshot from the API the screen reads
@@ -8,20 +8,21 @@
  *     never in git): every Sheet's file, number, title, Discipline, layout, proposed exclusion, held,
  *     agrees and storeys (its Views' union, and the as-titled `storeys_titled` where the API has them),
  *     every Question's kind, status, codes, Discipline and Sheets, and `acts_before_snapshot` (0: no act
- *     came before it). Then, in this Project and before any other act, the walk answers each
- *     numbering-gap Question still open with its first option and counts, per Discipline, the Sheets
- *     that agree and are not held: `bulk_after_gaps` (Sheets beside a gap join the bulk act once it is
- *     answered), with `acts_before_bulk` (0: no other act came first; an answer cannot be undone, so a
- *     count read after other answers would be inflated). The agent layer walks this Project, which no
- *     act but those gap answers touched;
- *   - the second (WK-Ann, `acts_project`) takes the same files and the acts: confirm, undo, exclude,
+ *     came before it). No act ever touches this Project (walk.json's `project_acts`, 0: the Step 1 posts
+ *     made in it); the agent layer walks it;
+ *   - the second (WK-Bnn, `bulk_project`) takes the same files, read with no act; then the walk answers
+ *     each numbering-gap Question still open with its first option and counts, per Discipline, the
+ *     Sheets that agree and are not held: `bulk_after_gaps` (Sheets beside a gap join the bulk act once
+ *     it is answered), with `acts_before_bulk` (0: no other act came first; an answer cannot be undone,
+ *     so a count read after other answers would be inflated);
+ *   - the third (WK-Ann, `acts_project`) takes the same files and the acts: confirm, undo, exclude,
  *     undo and answer on Step 1 by their keys while a later file reads, in rounds until each kind has
  *     five samples or the files run out, each timed from its key to its answer and recorded with the
  *     answer's status. An act counts as during a read only if the API showed a file reading both
  *     before and after it.
  *
  * walk.json (walk.schema.json) records each file's end state and read time (the first Project), the
- * acts (the second), and Questions per Discipline by kind with the burden counts (the snapshot). Beside
+ * acts (the third), and Questions per Discipline by kind with the burden counts (the snapshot). Beside
  * it, conflicts.json (WALK_CONFLICTS) keeps each conflict Question of the snapshot with its Proposals'
  * keys. scripts/walk/measures.py and verdict.py judge them against the private expectations.
  *
@@ -59,7 +60,9 @@ type ActRecord = { kind: string; ms: number; read_running: boolean; status: numb
 type Burden = { sheets: number; one_source: number; bulk_confirmable: number; continuation_questions: number; false_continuation_questions: number | null }
 type SetRecord = {
   project: string
+  bulk_project: string
   acts_project: string
+  project_acts: number
   files: FileRecord[]
   acts: ActRecord[]
   questions: Record<string, Record<string, number>>
@@ -149,6 +152,15 @@ function writeWalk(path: string, record: unknown) {
   renameSync(`${path}.tmp`, path)
 }
 
+/** Step 1 posts (acts and answers) per Project id, by the page or by the API: a Project's count says
+ * whether anything acted on it. */
+const stepPosts = new Map<string, number>()
+
+function countStepPost(path: string) {
+  const id = /^\/api\/projects\/([0-9a-f-]{36})\/takeoff\//.exec(path)?.[1]
+  if (id) stepPosts.set(id, (stepPosts.get(id) ?? 0) + 1)
+}
+
 class Api {
   constructor(
     private readonly page: Page,
@@ -169,6 +181,7 @@ class Api {
 
   async post<T>(path: string, data: unknown): Promise<T> {
     await this.page.request.get('/api/auth/csrf')
+    countStepPost(new URL(path, this.origin).pathname)
     const response = await this.page.request.post(path, { data, headers: await this.headers() })
     expect(response.status(), `POST ${path}`).toBeLessThan(400)
     return (await response.json()) as T
@@ -381,7 +394,7 @@ function countBurden(snapshot: SnapshotSet, record: SetRecord) {
   }
 }
 
-/** In the snapshot's Project, after its snapshot and before any other act: answers each
+/** In the bulk Project, once every file has read and before any other act: answers each
  * numbering-gap Question still open (its first option, once each), then counts per Discipline the
  * Sheets that agree and are not held. These answers are not timed acts: no read is running. */
 async function bulkAfterGaps(api: Api, projectId: string): Promise<Record<string, number>> {
@@ -434,6 +447,9 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
     sets: {} as Record<string, SnapshotSet>,
   }
   const api = new Api(page, origin)
+  page.on('request', (r) => {
+    if (r.method() === 'POST') countStepPost(new URL(r.url()).pathname)
+  })
   try {
     await signIn(page, password)
     let n = 0
@@ -441,8 +457,18 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
       n += 1
       const ordinal = String(n).padStart(2, '0')
       const code = `WK-${ordinal}`
+      const bulkCode = `WK-B${ordinal}`
       const actsCode = `WK-A${ordinal}`
-      const record: SetRecord = { project: code, acts_project: actsCode, files: [], acts: [], questions: {}, burden: {} }
+      const record: SetRecord = {
+        project: code,
+        bulk_project: bulkCode,
+        acts_project: actsCode,
+        project_acts: 0,
+        files: [],
+        acts: [],
+        questions: {},
+        burden: {},
+      }
       walk.sets[slug] = record
       // (1) The Project no act touches: every file read, then the snapshot.
       const project = await api.post<{ id: string; code: string }>('/api/projects', { code, name: `Walk set ${n}` })
@@ -454,13 +480,17 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
       snapshot.sets[slug] = taken.snapshot
       conflicts.sets[slug] = { questions: taken.conflicts }
       countBurden(taken.snapshot, record)
-      // The gap answers alone, then the bulk count (no other act in this Project, before or after).
-      taken.snapshot.bulk_after_gaps = await bulkAfterGaps(api, project.id)
-      // (2) The Project the acts are timed in: the same files, read again, acted on while they read.
+      // (2) The bulk Project: the same files read with no act, then the gap answers alone and the count.
+      const bulk = await api.post<{ id: string; code: string }>('/api/projects', { code: bulkCode, name: `Walk set ${n} bulk` })
+      for (const file of files) await uploadAndRead(page, api, bulk, file)
+      taken.snapshot.acts_before_bulk = stepPosts.get(bulk.id) ?? 0
+      taken.snapshot.bulk_after_gaps = await bulkAfterGaps(api, bulk.id)
+      // (3) The Project the acts are timed in: the same files, read again, acted on while they read.
       const acting = await api.post<{ id: string; code: string }>('/api/projects', { code: actsCode, name: `Walk set ${n} acts` })
       for (const [i, file] of files.entries()) {
         await uploadAndRead(page, api, acting, file, i > 0 ? () => actWhileReading(page, api, acting, record.acts) : undefined)
       }
+      record.project_acts = stepPosts.get(project.id) ?? 0
       await page.goto(`/p/${project.code}/takeoff/1`)
     }
   } finally {

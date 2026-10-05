@@ -247,7 +247,7 @@
             },
             {
               "type": "object",
-              "description": "The limits, from Q5 and the Answer Key's counts (reads_complete: {files}; act_p95_during_read: {p95_ms_max, max_ms_max, samples_each_min}; questions_per_discipline: {questions_max_per_discipline}; sheets_match: {sheets (the sum of N), phantoms_max}; true_questions_raised: {true_questions (how many are listed, less those that only restate a listed stale-title pair)}; false_continuations: {false_continuation_max, stale_title_grouped_max}; bulk_confirmable_share: {bulk_confirmable_share_min}; storeys_match: {storeys_wrong_max}). Never taken from a walk's own recording.",
+              "description": "The limits, from Q5 and the Answer Key's counts (reads_complete: {files}; act_p95_during_read: {p95_ms_max, max_ms_max, samples_each_min}; questions_per_discipline: {questions_max_per_discipline}; sheets_match: {sheets (the sum of N), phantoms_max}; true_questions_raised: {true_questions (how many are listed; one restating a stale-title pair is raised only by a same_title conflict holding exactly its two Sheets)}; false_continuations: {false_continuation_max, stale_title_grouped_max}; bulk_confirmable_share: {bulk_confirmable_share_min}; storeys_match: {storeys_wrong_max}). Never taken from a walk's own recording.",
               "additionalProperties": {
                 "$ref": "#/$defs/number"
               }

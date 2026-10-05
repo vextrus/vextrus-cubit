@@ -34,6 +34,8 @@
       "required": ["files", "acts", "questions", "burden"],
       "properties": {
         "project": { "type": "string", "pattern": "^WK-[0-9]{2}$", "description": "The project the walk made for the set and read with no act (its snapshot.json is the burden; the agent layer walks it)." },
+        "bulk_project": { "type": "string", "pattern": "^WK-B[0-9]{2}$", "description": "The Project the walk made for the set's bulk count after its gap answers: the same files, read with no act, then each open numbering-gap Question answered once." },
+        "project_acts": { "const": 0, "description": "Step 1 posts (acts, answers) made in `project`, the Project the agent layer walks: always 0; a walk that acted on it is refused." },
         "acts_project": { "type": "string", "pattern": "^WK-A[0-9]{2}$", "description": "The second project the walk made for the set: the same files, read again, acted on while they read." },
         "measures": {
           "type": "object",

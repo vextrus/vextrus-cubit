@@ -257,28 +257,65 @@ def test_a_view_that_states_no_storey_falls_back_to_the_title(tmp_path: Path, vi
     assert measured["sets"]["set-c"]["measures"]["storeys_wrong"] == 0
 
 
-@pytest.mark.parametrize("raised", [True, False], ids=["raised-as-same-title", "grouped-silently"])
-def test_a_stale_pair_listed_as_a_true_question_is_counted_once(tmp_path: Path, raised: bool) -> None:
+STALE_PAIR = [{"file": "oscar.dwg", "number": "P-01"}, {"file": "oscar.dwg", "number": "P-02"}]
+STALE_CASES = {
+    # case: (titles of P-01 and P-02, the Question added, true_questions_raised, stale_grouped)
+    "raised-as-same-title": (
+        ("Invented Riser Schedule",) * 2,
+        ("conflict", measures.SAME_TITLE, ["p2", "p1"]),
+        "PASS",
+        0,
+    ),
+    "untitled-raised": ((None, None), ("conflict", measures.SAME_TITLE, ["p1", "p2"]), "PASS", 0),
+    "grouped-silently": (("Invented Riser Schedule",) * 2, None, "FAIL", 1),
+    "held-by-another-kind": (
+        ("Invented Riser Schedule",) * 2,
+        ("low_confidence", "takeoff.step1.which_kind", ["p1", "p2"]),
+        "FAIL",
+        0,
+    ),
+    "same-title-with-a-third-sheet": (
+        ("Invented Riser Schedule",) * 2,
+        ("conflict", measures.SAME_TITLE, ["p1", "p2", "p3"]),
+        "FAIL",
+        0,
+    ),
+    "titles-differ-not-raised": (("Invented Riser A", "Invented Riser B"), None, "FAIL", 0),
+}
+
+
+@pytest.mark.parametrize("case", sorted(STALE_CASES))
+def test_a_stale_pair_is_raised_only_as_a_same_title_conflict_over_its_two_sheets(
+    tmp_path: Path, case: str
+) -> None:
+    titles, added, raised, stale = STALE_CASES[case]
     entry = _entry()
-    for sheet in entry["sheets"][:2]:
-        sheet["title"] = "Invented Riser Schedule"
-    if raised:
-        entry["questions"].append(_question("c1", measures.SAME_TITLE, "p2", "p1"))
-    pair = [{"file": "oscar.dwg", "number": "P-01"}, {"file": "oscar.dwg", "number": "P-02"}]
+    for sheet, title in zip(entry["sheets"][:2], titles, strict=True):
+        sheet["title"] = title
+    if added is not None:
+        kind, code, held = added
+        entry["questions"].append({**_question("c1", code, *held), "kind": kind})
     expect = _expect(
-        true_questions=[{"discipline": "plumbing", "code": measures.SAME_TITLE, "sheets": pair}],
-        stale_title_pairs=[{"discipline": "plumbing", "sheets": pair}],
+        true_questions=[{"discipline": "plumbing", "code": measures.SAME_TITLE, "sheets": STALE_PAIR}],
+        stale_title_pairs=[{"discipline": "plumbing", "sheets": STALE_PAIR}],
     )
 
     judged = _judge(tmp_path, entry, expect)
 
     [false] = [c for c in judged["checks"] if c["check"] == "false_continuations"]
-    assert (false["measured"]["false_questions"], false["measured"]["stale_grouped"]) == (
-        0,
-        0 if raised else 1,
-    )
-    assert false["status"] == ("PASS" if raised else "FAIL")
-    assert _status(judged, "true_questions_raised") == "PASS"  # judged by the stale count alone
+    assert false["measured"]["stale_grouped"] == stale
+    assert _status(judged, "true_questions_raised") == raised
+
+
+def test_an_agent_project_that_carries_an_act_is_refused() -> None:
+    walk = _walk()
+    walk["sets"]["set-c"]["project_acts"] = 0
+    assert schema.walk_errors(walk) == []
+
+    walk["sets"]["set-c"]["project_acts"] = 1
+    assert schema.walk_errors(walk) != []
+    with pytest.raises(verdict.Malformed):
+        verdict.evaluate(walk, {"set-c": _expect()}, LAYER, ref="main", leak_hits=0, **TIMES)
 
 
 def test_a_withdrawn_question_never_groups_a_stale_pair(tmp_path: Path) -> None:

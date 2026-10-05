@@ -51,7 +51,7 @@
     },
     "stale_title_pairs": {
       "type": "array",
-      "description": "Pairs of Sheets whose titles are equal though they are not one series: a Question of any kind must hold both.",
+      "description": "Pairs of Sheets whose titles are equal though they are not one series: a Question of any kind must hold both (stale_title_grouped_max counts those none holds). List each pair in true_questions too, as a same_title conflict over its two Sheets: only an open or answered same_title conflict holding exactly those two raises it (true_questions_raised), whatever titles the product reads.",
       "items": {
         "type": "object",
         "additionalProperties": false,

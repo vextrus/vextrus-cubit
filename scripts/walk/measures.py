@@ -39,8 +39,8 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
 - stale: listed pairs of equal titles (case and spacing folded) that no open or answered Question
   holds together (a withdrawn one asks nothing; a
   listed Sheet absent from the snapshot cannot be shown grouped: it counts); a listed true Question
-  that only restates a stale pair (a same_title conflict over its two Sheets) is judged here alone,
-  never also as a true Question not raised;
+  that restates a stale pair is raised only by a same_title conflict holding exactly its two Sheets,
+  open or answered (true_questions_raised), whatever the titles read;
 - Sheets: the rows carry each Discipline's Sheets, N and blanks (no number, proposed out `blank`);
   verdict.py judges the set's total, and only blanks beyond it are phantoms (the owner, 5 Oct 2026:
   "Judge the total; report the split");
@@ -66,6 +66,8 @@ CONFLICT_CODES = frozenset({SAME_TITLE, SAME_STOREY, SAME_NUMBER})
 GAP_CODES = frozenset({"engine.register_check.gap", "engine.register_check.gaps"})
 """A numbering gap, asked per missing number or (t229) all of a Discipline's at once."""
 OPEN = "open"
+CONFLICT = "conflict"
+"""The product's Question kind of a conflict (vextrus/takeoff/models.py `QuestionKind`)."""
 WITHDRAWN = "withdrawn"
 BLANK = "blank"
 """The product's exclusion reason for a blank Sheet (vextrus/drawings/models.py `ExclusionReason`)."""
@@ -325,40 +327,63 @@ class TrueQuestion:
     code: str
     sheets: tuple[frozenset[str], ...]
     """Per listed Sheet, the ids of the snapshot's Sheets it may be."""
+    stale_pair: bool = False
+    """It restates a listed stale-title pair: only a same_title conflict holding exactly its two
+    Sheets, open or answered, raises it (the owner, 5 Oct 2026: each stale pair "must be raised as a
+    same-title conflict")."""
 
 
-def true_questions(snap: SetSnapshot, listed: object) -> list[TrueQuestion]:
+def true_questions(
+    snap: SetSnapshot, listed: object, pairs: set[int] | None = None
+) -> list[TrueQuestion]:
+    """The listed true Questions; `pairs` holds the indexes that restate a stale-title pair."""
     if not isinstance(listed, list):
         raise Unmeasurable("true_questions is not a list")
     found = []
-    for entry in listed:
+    for n, entry in enumerate(listed):
         if not isinstance(entry, Mapping):
             raise Unmeasurable("a true Question is not an object")
         sheets = tuple(frozenset(_holding(snap, key)) for key in _keys(entry.get("sheets")))
         found.append(
-            TrueQuestion(_discipline(entry.get("discipline")), str(_text(entry.get("code"))), sheets)
+            TrueQuestion(
+                _discipline(entry.get("discipline")),
+                str(_text(entry.get("code"))),
+                sheets,
+                stale_pair=n in (pairs or set()),
+            )
         )
     return found
 
 
 def matches(question: Question, listed: TrueQuestion) -> bool:
-    """Its code (or check code) and Discipline the listed ones, holding a Sheet for every listed one."""
+    """Its code (or check code) and Discipline the listed ones, holding a Sheet for every listed one;
+    for a stale pair, a same_title conflict holding exactly the pair's two Sheets."""
+    held = set(question.proposals)
+    if listed.stale_pair:
+        return (
+            question.kind == CONFLICT
+            and question.code == listed.code
+            and question.discipline == listed.discipline
+            and all(ids & held for ids in listed.sheets)
+            and held <= frozenset().union(*listed.sheets)
+        )
     if listed.code not in (question.code, question.check_code):
         return False
-    held = set(question.proposals)
     return question.discipline == listed.discipline and all(ids & held for ids in listed.sheets)
 
 
 def true_raised(snap: SetSnapshot, listed: list[TrueQuestion]) -> int:
+    """Listed ones an open Question raises (a stale pair: an open or answered one, never withdrawn)."""
     open_ = [q for q in snap.questions if q.open]
-    return sum(1 for t in listed if any(matches(q, t) for q in open_))
+    asking = [q for q in snap.questions if q.status != WITHDRAWN]
+    return sum(1 for t in listed if any(matches(q, t) for q in (asking if t.stale_pair else open_)))
 
 
 def stale_pair_entries(expect: Mapping[str, Any]) -> set[int]:
-    """The indexes of `true_questions` that only restate a listed stale-title pair (a same_title
-    conflict over exactly its two Sheets): stale_grouped judges that defect, so true_questions_raised
-    leaves it out (one defect, one count). Read from the expectation alone, so verdict.py counts the
-    listed ones the same way."""
+    """The indexes of `true_questions` that restate a listed stale-title pair (a same_title conflict
+    over exactly its two Sheets): each is counted in true_questions_raised, matched strictly
+    (`matches`), and stale_grouped still judges silent grouping apart. Read from the expectation
+    alone."""
     listed, pairs = expect.get("true_questions"), expect.get("stale_title_pairs")
     if not isinstance(listed, list) or not isinstance(pairs, list):
         return set()
@@ -498,9 +523,8 @@ def _sheets_per_discipline(raw: object) -> dict[str, int]:
 
 def _measure(record: Mapping[str, Any], snap: SetSnapshot, expect: Mapping[str, Any]) -> dict[str, Any]:
     """The set record with its Questions, rows and measures counted from the snapshot."""
-    listed = true_questions(snap, expect.get("true_questions", []))
-    restated = stale_pair_entries(expect)
-    counted = [t for n, t in enumerate(listed) if n not in restated]
+    listed = true_questions(snap, expect.get("true_questions", []), stale_pair_entries(expect))
+
     expected_n = _sheets_per_discipline(expect.get("sheets_per_discipline"))
     storeys_listed, wrong = storeys_wrong(snap, expect.get("storeys", []))
     stale = stale_grouped(snap, expect.get("stale_title_pairs", []))
@@ -546,8 +570,8 @@ def _measure(record: Mapping[str, Any], snap: SetSnapshot, expect: Mapping[str, 
         )
     measures = {
         "unmeasured": 0,
-        "true_listed": len(counted),
-        "true_raised": true_raised(snap, counted),
+        "true_listed": len(listed),
+        "true_raised": true_raised(snap, listed),
         "stale_grouped": stale,
         "storeys_listed": storeys_listed,
         "storeys_wrong": wrong,

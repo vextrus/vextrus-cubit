@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.walk.cli import QuietParser
-from scripts.walk.measures import MEASURES, attach, stale_pair_entries
+from scripts.walk.measures import MEASURES, attach
 from scripts.walk.sanitize import (
     ALLOWED_KEYS,
     CHECK_IDS,
@@ -532,12 +532,7 @@ def _set_checks(
             "true_questions_raised",
             name,
             measured({"true_listed": got["true_listed"], "true_raised": got["true_raised"]}),
-            limits(
-                ("true_questions",),
-                # A true Question that only restates a listed stale pair is judged by
-                # false_continuations' stale_grouped alone.
-                {"true_questions": lambda x: len(x["true_questions"]) - len(stale_pair_entries(x))},
-            ),
+            limits(("true_questions",), {"true_questions": lambda x: len(x["true_questions"])}),
         ),
         _check(
             "false_continuations",
