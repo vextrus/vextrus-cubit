@@ -2,8 +2,8 @@
 
 ## Starting the session (the owner)
 1. In a WSL terminal: `cd ~/vextrus-cubit && git pull`, then `df -h /` and `free -g`. Keep at least 40 GB free (the
-   governor refuses every local unit under 30 GB and warns under 40); 45 GB were free at 07:51Z on 5 Oct. If it is under
-   40, run `scripts/owner/clean.sh` (a dry run), then `scripts/owner/clean.sh --yes`.
+   governor refuses every local unit under 30 GB and warns under 40); 42 GB were free at 09:34Z on 5 Oct. If it is under
+   40, run the two cleanup steps below first.
    Session 12's cleanup (about 2 GB): `uv run python -m scripts.factory.sweep --apply` removes only clean, merged
    worktrees (its dry run listed 4 at 09:34Z, 5 Oct). Then clear the review slots: run
    `VEXTRUS_CLEAN_ROOTS=$PWD/.private/work/factory/review scripts/owner/clean.sh` (a dry run, 1.7 GB), then add `--yes`.
@@ -55,12 +55,12 @@ a gate to close it.
 6. `CLAUDE.md`, `.claude/rules/` and `.claude/skills/orchestrate-wave/SKILL.md` (the runbook).
 
 ## Where M0 stands (tool results, 5 Oct 2026)
-- **main** 471b443cd at session 12's handover. Until then no product path (`vextrus/`, `engine/`, `web/src/`,
-  `pyproject.toml`, `uv.lock`) changed since 8b2b8d4df (`git diff --name-only 8b2b8d4df origin/main`), so G1's verdict on
-  8b2b8d4df judged main's product. #375 (T-XDIST: pytest-xdist, a test database per worker) changes `pyproject.toml`,
-  `uv.lock` and test plumbing; once it lands, the old verdict no longer counts for main and G1 #2 runs on the new head
-  anyway. Its posting real-drawing run was clean (every measure 0/0/0), so main's reading code is still the code last
-  scored.
+- **main** at session 12's handover is 3c62f67da or later. Since 8b2b8d4df (G1 #1's head), main's product paths changed
+  in two factory PRs only: #377 added two test files under `web/src/acceptance/` (the web failure log), and #375
+  (T-XDIST: pytest-xdist, a test database per worker) changed `pyproject.toml`, `uv.lock`, `vextrus/` test plumbing and
+  `manage.py flush`. `scripts/walk/ready.py` counts those paths, so G1 #1's verdict no longer counts for main; G1 #2
+  runs on the new head anyway. #375's posting real-drawing run was clean (every measure 0/0/0 against main), so the
+  reading code is the code last scored.
 - **Readiness:** `uv run python -m scripts.walk.ready origin/main` → "not walk-ready: 0 counted PASS verdict(s) on main,
   2 needed", exit 1 (07:51Z).
 - **The PASS rule** (the schema): every check PASS; all 12 walked items (M0-FL1 to FL11 and FL13) PASS; 0 BLOCKS; 0
@@ -184,7 +184,8 @@ a gate to close it.
 ## The factory you drive (command card; run from `/home/riz/vextrus-cubit`; each tool prints its contract with `--help`)
 - **Start:** `scripts/factory/orchestrator.sh [--resume <full session id>]`.
 - **Clock:** `uv run python -m scripts.factory.stamp start --budget 11h --state .private/work/session-13/STATE.md
-  --phases "p0=30"`; `… stamp "<text>"` (every STATE line); `… stamp phase <name>`; `… stamp elapsed [--ticket <t>]`;
+  --phases "p0=30,p1=300,p2=270,p3=180,p4=330,p5=45"` (the phases below; `stamp phase` refuses an unplanned
+  name, and re-planning needs `start --force`); `… stamp "<text>"` (every STATE line); `… stamp phase <name>`; `… stamp elapsed [--ticket <t>]`;
   `… stamp budget --ticket <t> --minutes <n>`; `… stamp end` (closes the session). If `start` is refused because
   session 12's clock is still open, run `… stamp end` first; never `--force` over a live clock.
 - **Preflight:** `uv run python -m scripts.factory.governor check cloud-session|local-agent|review|pytest|web-tests|walk|rd-run`
@@ -259,7 +260,7 @@ a gate to close it.
 8. **CI's `e2e` workflow has not passed on main in its last 100 runs.** The browser smoke `web/e2e/acceptance/t22/smoke.spec.ts` fails because `/opt/vextrus/acadsharp-dump` is missing on the runner. It is not a required check. This is M0's #31: decide in Phase 2.
 9. **A capped PR is closed and re-submitted complete** (#373→#379, #374→#387, #388→#393). Only the orchestrator amends acceptance tests, through `scripts.factory.amend` (2f654dafe, 131047313). Its lint refuses an amendment that pins nothing new.
 
-**Open factory PRs at handover** (each reviewed or in review; land one when its ledger reads PASS, through `scripts.land`, as reviewed work, not new work): #375 T-XDIST (posting run clean on its final head; landing), #391 T-JEV-LAUNCH, #392 T-DOCS-RUNBOOK (the runbook's `commands.md`), #393 T-LOCAL. `gh pr list --label factory` shows which are still open.
+**Open factory PRs at handover** (each reviewed or in review; land one when its ledger reads PASS, through `scripts.land`, as reviewed work, not new work): #391 T-JEV-LAUNCH, #392 T-DOCS-RUNBOOK (the runbook's `commands.md`), #393 T-LOCAL. `gh pr list --label factory` shows which are still open.
 
 ## Phase 0: orient, clock, machine (≤ 30 min)
 Budget: ~11 h of work, cut at +8 h: at the cut, anything not on the finish line becomes an issue. Phases 1–4 overlap;
@@ -267,8 +268,9 @@ each heading carries its own budget; stamp each phase's start and end as a STATE
 
 **The lock and the landing slot are the binding limits, not builders.** Lock demand: ~14–17 posting runs (Phase 1's 6,
 #249, D7, about 1 of #235, D9, D10, J1, 1–3 walk-blocker tickets on engine paths (unmeasured), 1–2 G1 fixes) at ~27–30
-min, ≈ 6.5–8.5 h, plus ≤ 4 scored runs (~2 h): over-subscribed in ~11 h. Lock order: Phase 1 in order, then the walk-
-blocker tickets, D9, D10, D7, #235, #249, J1 last. Cut first at +8 h: J1 (to session 14), scored runs beyond 2,
+min, ≈ 6.5–8.5 h, plus ≤ 4 scored runs (~2 h): over-subscribed in ~11 h. Lock order: #237, `t-readlock`, then #249's
+run (Phase 3's S1 needs its `--agreement` and the custody re-run from hour 2), then `t228`, `t229`, `t160`, `loop-iou`,
+the walk-blocker tickets, D9, D10, D7, #235, J1 last. Cut first at +8 h: J1 (to session 14), scored runs beyond 2,
 #218–#224 and #239–#241, then S2/S3 loops. Landing: ~18–24 product PRs at ~8–13 min each (#362 landed through
 `scripts.land` in ~8 min), one at a time on one main.
 
@@ -349,7 +351,8 @@ start of the Sheet fields.
    to restate the convention before any further loop.
 3. **The Sheet fields** from S1's diagnostics: storeys, title, Discipline, then date. J3 (#264) only if its 40-item probe
    beats the reader. Target: Edison all-six-right ≥ 205/217; Sample storeys ≥ 65/67.
-4. **The 221 near-miss boxes** (overlap 0.5–0.8): S2 proxy loops (#252), at most 3 local; S3, the Plot PDF as a second
+4. **The 221 near-miss boxes** (overlap 0.5–0.8): S2 proxy loops run by hand, at most 3
+   local (#252's scored-loop workflow is factory work for later: do not build it); S3, the Plot PDF as a second
    source for text extents, Sample Project first. **Misses and wrong kinds:** the J4 probe (#265); S4 only if Q8 is yes.
 5. **J1** (#261, the `view_subject` Jev node; an engine PR): an estimated upper bound of +10–11 Edison and +2–3 Sample
    Sheets. Cut first to session 14 if the lock is full.
