@@ -64,6 +64,7 @@ FILES = (
     "tools/__init__.py",
     "tools/lint/__init__.py",
     "tools/lint/engine_paths.py",
+    "tools/lint/import_closure.py",
     "tools/lint/lock_sources.py",
 )
 
