@@ -1,6 +1,7 @@
 # Session 14: rebuild the factory to be fast and lean (Part A), then sweep M0 to its walk (Part B)
 
 ## Starting the session (the owner)
+0. This brief is PR #467 (its review was stopped at session 13's close; CI was down). Land it first: review r1 on its head, CI, `scripts.land 467`. Until then read the private copy `.private/work/session-13/close/session-14-prompt.md`.
 1. In a WSL terminal: `cd ~/vextrus-cubit && git pull`, then `df -h /` and `free -g` (keep 40 GB free; 69 GB were free at the
    close of session 13). Check https://www.githubstatus.com: session 13 ended inside a GitHub Actions outage, and nothing lands
    while Actions is down.
@@ -150,10 +151,10 @@ loaded reader (the cache must miss) and on a docs-only change (it must hit).
 | #417 | T-235a admin time | 3ff13d9e | r2 PASS; real-drawings posted | CI (Actions outage), then `scripts.land 417` |
 | #418 | T-235b bar | 97ae9483 | r3 PASS | CI rerun; design-gate needs a ux-critic walk |
 | #427 | T-W319 act cost | 85644ff5 | r2 PASS | update-branch, posting run, CI, land (after T-W320 by the merge order) |
-| #432 | T-W323 events | 004f1cc1 | r2 PASS (4 "may" words to file) | posting run was running at the close (read its log), CI, land |
+| #432 | T-W323 events | 004f1cc1 | r2 PASS (4 "may" words to file) | posting run stopped at the close: run it again, then CI, land |
 | #434 | T-W332 view title | 75154c83 | r2 PASS; real-drawings posted (1 sheet changed, accepted) | CI, land |
 | #443 | T-W317 ACadSharp | d3c4cfec | r1 PASS | update-branch, posting run, land, then the owner's `toolchain.sh` at once (until then every DWG read fails `decoders_agree`) |
-| #435 | T-W327 Drawing Set | fdbb08d3 | r2 running at the close | read its ledger record |
+| #435 | T-W327 Drawing Set | fdbb08d3 | r2 stopped at the close (no record) | run r2 on fdbb08d3 |
 | #431 | T-W316 views home | f0a4aa89 | r1 FIX; builder BLOCKED: the seed pins t19a/t182 (68 proposed, 2 unaccounted -> 70, 0) need an acceptance amendment | amend, unblock, r2 |
 | #436 | T-W318 storeys | 39c514da | r1 FIX (70: words promise a storey edit the product lacks; 70: an answered storey Question is asked again) | local builder ended; relaunch the fix |
 | #437 | t160 D4 paper | 42df53c2 | r1 FIX (60: the binding window gives a bordered A1 sheet its border's paper) | local builder ended; relaunch the fix; land only on G1 FL6 |
