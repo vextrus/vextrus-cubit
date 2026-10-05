@@ -1,10 +1,16 @@
-"""A builder's PR body, in the order `.claude/agents/builder.md` gives, is read by merge_ready's cut
-gate as the builder meant it. On 5 Oct 2026 PR #347's body, written exactly to that order (`## Cut`,
-"Nothing cut.", then what a later ticket must know, the Harness net line and the trailers, with no
-heading between), was refused: every line after `## Cut` was read as a cut item linking no issue.
-Only list items are cut items now, and "Nothing cut." means none."""
+"""A builder's PR body, in the shape `.claude/agents/builder.md` gives, passes merge_ready's cut gate; a
+cut that slips past the list form is refused, never skipped (fail closed). On 5 Oct 2026 PR #347's
+body was refused: every line after `## Cut` (later-ticket prose, the Harness net line, the trailers)
+was read as an unlinked cut item, and "Nothing cut." was not a none. Round 1 of #354 then let a prose
+cut through."""
+
+from pathlib import Path
+
+import pytest
 
 from scripts.merge_ready import cut_problems
+
+BUILDER_MD = Path(__file__).resolve().parents[2] / ".claude" / "agents" / "builder.md"
 
 AS_BUILDER_MD_SAYS = """## Not verified
 - The live call.
@@ -12,9 +18,10 @@ AS_BUILDER_MD_SAYS = """## Not verified
 ruff 0, ruff-format 0, mypy 0, pytest 0
 
 ## Cut
-Nothing cut.
+- the band test (#5)
 
-A later ticket must know: the corpus skips test output.
+## For a later ticket
+The corpus skips test output.
 
 Harness net: +567 / -52
 
@@ -22,22 +29,59 @@ Factory-State: READY
 Factory-Verify: 873e8dca76545a6a5112f9e12ead6d55bfcb62bd ok
 """
 
+AS_PR_347_WAS = """## Cut
+Nothing cut.
 
-def test_a_body_in_builder_md_order_with_nothing_cut_passes() -> None:
-    assert cut_problems(AS_BUILDER_MD_SAYS, lambda number: True) == []
+A later ticket must know: the corpus skips test output.
+
+Harness net: +567 / -52
+
+Factory-State: READY
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_x
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+"""
 
 
-def test_the_none_forms_mean_nothing_was_cut() -> None:
-    for line in ("None.", "Nothing.", "Nothing cut.", "Nothing was cut.", "No cuts.", "- None"):
-        assert cut_problems(f"## Cut\n{line}\n\nprose after it\n", lambda number: True) == [], line
+def test_builder_md_prescribes_the_shape_this_test_uses() -> None:
+    text = " ".join(BUILDER_MD.read_text().split())
+    assert "`## Cut` with one list item (`- `) per cut" in text
+    assert "or `None.`" in text
+    assert "`## For a later ticket`" in text
 
 
-def test_each_list_item_under_cut_still_needs_an_open_issue() -> None:
-    body = "## Cut\n- the band test (#5)\n* the export\n1. the replay\n\nA later ticket must know: x\n"
+@pytest.mark.parametrize("body", [AS_BUILDER_MD_SAYS, AS_PR_347_WAS], ids=["builder-md", "pr-347"])
+def test_a_builders_body_passes(body: str) -> None:
+    assert cut_problems(body, lambda number: True) == []
 
-    found = cut_problems(body, lambda number: True)
 
-    assert found == [
+@pytest.mark.parametrize(
+    "line", ["None.", "Nothing.", "Nothing cut.", "Nothing was cut.", "No cuts.", "- None"]
+)
+def test_a_none_line_closes_the_section(line: str) -> None:
+    assert cut_problems(f"## Cut\n{line}\n\nprose after it\n", lambda number: True) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Cut\nThe PDF export was cut: it needs its own ticket.\n",
+        "## Cut\nNothing cut except the export.\n",
+        "## Cut\nCut: the replay test.\n",
+        "## Not done\nthe replay test, for lack of time\n",
+        "## Deferred\n| item | why |\n|---|---|\n| export | time |\n",
+    ],
+    ids=["prose", "nothing-except", "cut-colon", "not-done-prose", "deferred-table"],
+)
+def test_a_cut_not_written_as_a_list_item_is_refused(body: str) -> None:
+    assert cut_problems(body, lambda number: True), body
+
+
+def test_each_list_item_still_needs_an_open_issue() -> None:
+    body = "## Cut\n- the band test (#5)\n* the export\n1. the replay\n"
+
+    assert cut_problems(body, lambda number: True) == [
         "'cut' item 2 links no issue: file one and link it (#<n>)",
         "'cut' item 3 links no issue: file one and link it (#<n>)",
     ]

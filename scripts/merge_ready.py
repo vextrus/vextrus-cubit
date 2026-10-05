@@ -72,8 +72,13 @@ GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
 NOTHING = re.compile(
     r"^(?:[-*+][ \t]+)?(?:none|nothing(?:[ \t]+(?:was[ \t]+)?cut)?|no[ \t]+cuts?)\.?$", re.IGNORECASE
 )
-# A cut item is a list item (`- x`, `* x`, `1. x`); prose and trailers in the section are not items.
+# A cut item is a list item (`- x`, `* x`, `1. x`). A none-line closes its section. Any other line
+# there is refused (fail closed: a cut in prose or a table would otherwise slip through unfiled),
+# except the lines a builder's body ends with: trailers, the Harness net line, the generated footer.
 LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|[0-9]{1,3}[.)])[ \t]+\S")
+ENDING = re.compile(
+    r"^(?:(?:Factory-[A-Za-z-]+|Co-Authored-By|Claude-Session|Harness net):|🤖 Generated with |https://claude\.ai/code/)"
+)
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
 )
@@ -280,13 +285,25 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository."""
     found = []
     section: str | None = None
-    item = 0
+    item, closed = 0, False
     for line in body.splitlines():
         if heading := HEADING.match(line):
             gated = GATED.match(heading[1].strip())
-            section, item = (" ".join(gated[1].lower().split()), 0) if gated else (None, 0)
+            section, item, closed = (
+                (" ".join(gated[1].lower().split()), 0, False) if gated else (None, 0, False)
+            )
             continue
-        if section is None or not LIST_ITEM.match(line) or NOTHING.match(line.strip()):
+        text = line.strip()
+        if section is None or closed or not text or ENDING.match(text):
+            continue
+        if NOTHING.match(text):
+            closed = True
+            continue
+        if not LIST_ITEM.match(line):
+            found.append(
+                f"'{section}' has a line that is not a list item: write each cut as a `- ` item "
+                "linking its issue (#<n>), or `None.`"
+            )
             continue
         item += 1
         numbers = {int(a or b) for a, b in ISSUE_LINK.findall(line)}
