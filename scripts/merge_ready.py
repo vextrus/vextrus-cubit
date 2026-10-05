@@ -69,7 +69,11 @@ HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
 # A section starts at a heading whose first word is Cut or Deferred, or whose first two are Not done
 # ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading.
 GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
-NOTHING = re.compile(r"^(?:[-*+][ \t]+)?(?:none|nothing)\.?$", re.IGNORECASE)
+NOTHING = re.compile(
+    r"^(?:[-*+][ \t]+)?(?:none|nothing(?:[ \t]+(?:was[ \t]+)?cut)?|no[ \t]+cuts?)\.?$", re.IGNORECASE
+)
+# A cut item is a list item (`- x`, `* x`, `1. x`); prose and trailers in the section are not items.
+LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|[0-9]{1,3}[.)])[ \t]+\S")
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
 )
@@ -282,7 +286,7 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
             gated = GATED.match(heading[1].strip())
             section, item = (" ".join(gated[1].lower().split()), 0) if gated else (None, 0)
             continue
-        if section is None or not line.strip() or NOTHING.match(line.strip()):
+        if section is None or not LIST_ITEM.match(line) or NOTHING.match(line.strip()):
             continue
         item += 1
         numbers = {int(a or b) for a, b in ISSUE_LINK.findall(line)}
