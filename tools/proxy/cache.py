@@ -24,10 +24,8 @@ import re
 import secrets
 import stat
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TypeVar, cast
-
-from tools.lint.import_closure import closure, is_test
 
 T = TypeVar("T")
 
@@ -120,6 +118,8 @@ def file_sha256(path: Path) -> str:
 
 def reader_hash(root: Path) -> str:
     """The sha256 over the import closure of `engine/read/__init__.py` under `root` (see the module)."""
+    from tools.lint.import_closure import closure  # T-Q16's module (s13-q16b)
+
     root = Path(root)
     tree = list(_tree(root))
 
@@ -145,6 +145,16 @@ def _tree(root: Path) -> list[str]:
             names[:] = sorted(n for n in names if n not in SKIPPED and not n.startswith("."))
             for name in files:
                 relative = (Path(folder) / name).relative_to(root).as_posix()
-                if not is_test(relative):
+                if not _test(relative):
                     found.append(relative)
     return found
+
+
+def _test(name: str) -> bool:
+    """A test or a test's helper (a `tests` folder, `test_*.py`, `conftest.py`): never the reader's."""
+    path = PurePosixPath(name)
+    return (
+        "tests" in path.parts[:-1]
+        or path.name == "conftest.py"
+        or (path.name.startswith("test_") and path.suffix == ".py")
+    )

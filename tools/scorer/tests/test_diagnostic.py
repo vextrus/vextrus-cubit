@@ -112,6 +112,12 @@ FIXED = (
     "key views that would join if frame corners were aligned (lower-left, translation only)",
     "joined views with no export subject",
     "subjects outside the vocabulary",
+    # T-249 (A2): the new lines' headings, then their closed words below.
+    "views taken for another kind, key kind -> export kind",
+    "same-kind near misses (best IoU 0.2-0.8), per key kind, by the export box",
+    "failing key views of joined sheets, per key kind, by class",
+    "sheet fields not as keyed, per key Discipline, by field and shape",
+    "another Discipline",
 )
 
 
@@ -141,6 +147,8 @@ def test_every_word_the_diagnostic_prints_comes_from_a_closed_list(
     printed = [line for line in lines if " missing view" in line] + lines[start + 1 : end]
     assert any("another kind" in line for line in printed), printed
     closed = [*FIXED, *score.KINDS, *(c.format(side=s) for c in score.CAUSES for s in ("key", "export"))]
+    closed += [*score.DIRECTIONS, *score.CLASSES, *score.DISCIPLINES, *score.FIELD_WORDS.values()]
+    closed += [shape for shapes in score.SHAPES.values() for shape in shapes]
     allowed = {word for sentence in closed for word in re.findall(r"[^\W\d_]+", sentence.casefold())}
     for line in printed:
         assert set(re.findall(r"[^\W\d_]+", line.casefold())) <= allowed, line

@@ -54,7 +54,9 @@ def found_plan(views: list[dict[str, object]] | None = None, **values: object) -
     ("field", "value", "reason"),
     [
         ("title", "Another plan", "title wrong"),
-        ("discipline", "architectural", "Discipline wrong"),
+        # Outside the engine's Discipline keys: T-249 (A2 case 4) names a wrong Discipline by those
+        # keys, a closed list, and any other as "another Discipline", so a key's own word never shows.
+        ("discipline", "Qx made-up trade", "Discipline wrong"),
         ("revision", "R9", "revision wrong"),
         ("date", "2030-02-02", "date wrong"),
     ],
