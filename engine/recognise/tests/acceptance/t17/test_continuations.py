@@ -11,6 +11,7 @@ Hand-made candidates, read with 13's own readers under the default sheet convent
 
 import itertools
 import json
+from collections.abc import Sequence
 from pathlib import Path
 
 from engine.recognise import conflicts
@@ -51,7 +52,7 @@ def view(title: str, kind: ViewKind) -> ViewCandidate:
     return ViewCandidate(box=Box(40.0, 60.0, 660.0, 560.0), kind=kind, title=title)
 
 
-def continuations(found: list[Conflict | Continuation]) -> list[list[str]]:
+def continuations(found: Sequence[object]) -> list[list[str]]:
     return [
         [s.number.value for s in c.sheets if s.number is not None]
         for c in found
@@ -59,7 +60,7 @@ def continuations(found: list[Conflict | Continuation]) -> list[list[str]]:
     ]
 
 
-def same_titles(found: list[Conflict | Continuation]) -> list[list[str]]:
+def same_titles(found: Sequence[object]) -> list[list[str]]:
     return [
         [s.number.value for s in c.candidates if isinstance(s, SheetCandidate) and s.number is not None]
         for c in found

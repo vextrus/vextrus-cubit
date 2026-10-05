@@ -75,7 +75,7 @@ def test_the_conflicts_stage_takes_a_series_and_exports_its_runs_as_continuation
 
     [found] = returned
     [series] = [f for f in found if isinstance(f, Series)]
-    assert [s.number.value for s in series.sheets] == ["S-03", "S-04", "S-08"]
+    assert [s.number.value for s in series.sheets if s.number] == ["S-03", "S-04", "S-08"]
     assert validate(document, load_schema()) == []
     assert document["set_stages"]["conflicts"]["state"] == "ok"
     assert document["set_stages"]["conflicts"].get("error") is None
