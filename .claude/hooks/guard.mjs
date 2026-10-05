@@ -1010,26 +1010,11 @@ const configKeys = (g) => g.config.map((kv) => kv.split("=")[0].toLowerCase());
 
 /** True when a command sets core.hooksPath (or hides config from the guard), except the one lawful line. */
 function hooksPathSet(analysis, command) {
-  // A `git config` is a read when it asks one (a read action, the `get`/`list` subcommand, or a single operand)
-  // and every option is exactly a read action, a display flag or a scope. Git takes any unique prefix of a long
-  // option (`--unset-a` is `--unset-all`, `--rep` is `--replace-all`), so any other option, abbreviated or not,
-  // makes it a write. Git stops reading options at the first operand (`core.hooksPath /x --get` sets), so an
-  // option after an operand makes it a write too; display flags (`--show-scope`) never ask a read.
-  const configRead = (args) => {
-    const actions = ["--get", "--get-all", "--get-regexp", "--list", "-l"];
-    const others = ["--show-origin", "--show-scope", "--name-only", "--local", "--global", "--no-includes"];
-    const operands = [];
-    let asks = false;
-    for (let k = 0; k < args.length; k++) {
-      if (args[k].startsWith("-") && operands.length > 0) return false;
-      if (actions.includes(args[k])) asks = true;
-      else if (args[k] === "--file") k++;
-      else if (args[k].startsWith("-") && !others.includes(args[k])) return false;
-      else if (!args[k].startsWith("-")) operands.push(args[k]);
-    }
-    if (["set", "unset", "edit", "rename-section", "remove-section"].includes(operands[0])) return false;
-    return asks || operands[0] === "get" || operands[0] === "list" || operands.length === 1;
-  };
+  // The reads of core.hooksPath that pass are exactly these whole commands, matched on the command's text: no
+  // wrapper, no expansion, nothing else in it but a trailing `|| echo <plain words>`. Bash and xargs can turn
+  // what argv shows into a write (`core.hooksPath${IFS}/x`, `{core.hooksPath,/x}`, `xargs git config
+  // core.hooksPath`), so any other shape naming the key keeps the write judgement below.
+  const read = /^git( -C [A-Za-z0-9_./-]+)? config( --local| --global| --show-origin| --show-scope| --file [A-Za-z0-9_./-]+)*( --get| --get-all| get)? [cC][oO][rR][eE]\.[hH][oO][oO][kK][sS][pP][aA][tT][hH]( \|\| echo [A-Za-z0-9 _.-]*)?$/.test(command);
   const flat = flatten(command);
   if (/\bGIT_CONFIG_(?:PARAMETERS|COUNT|KEY_|VALUE_)/.test(flat)) return true;
   if (/(?:^|[\s/])\.git\/(?:config|worktrees\/[^\s/]+\/config\.worktree)\b/.test(flat) && (/[^<]>|\btee\b|\bsed\b[^|;&]*\s-i|\bperl\b[^|;&]*\s-[a-z]*i|\b(?:cp|mv|ln|install|dd|truncate|python[0-9.]*|node)\b/.test(flat))) return true;
@@ -1038,7 +1023,7 @@ function hooksPathSet(analysis, command) {
     if (configKeys(g).some((k) => k === "core.hookspath" || k.startsWith("include"))) return true;
     if (g.assigns.some((a) => /^GIT_CONFIG(?:_PARAMETERS|_COUNT|_KEY_\d+|_VALUE_\d+|_GLOBAL|_SYSTEM)?=/.test(a) && !/^GIT_CONFIG_(?:GLOBAL|SYSTEM)=\/dev\/null$/.test(a))) return true;
     if (g.verb === "config" && g.args.some((a) => /core\.hookspath/i.test(a) || /^include(?:if)?\./i.test(a))) {
-      if (!g.args.some((a) => /^include(?:if)?\./i.test(a)) && configRead(g.args)) continue;
+      if (read) continue;
       const lawful = orchestrators && !cloud && g.dirs.length === 0 && g.gitDir === null && JSON.stringify(g.args.filter((a) => a !== "--local")) === JSON.stringify(["core.hooksPath", "scripts/git-hooks"]);
       if (!lawful) return true;
     }

@@ -676,17 +676,59 @@ test("T-GUARD-NARROW: a git config naming core.hooksPath with any option but a r
   }
 });
 
-test("T-GUARD-NARROW: reads of core.hooksPath with a scope or a file pass", () => {
+test("T-GUARD-NARROW: the whitelisted reads of core.hooksPath pass, and no other shape", () => {
   for (const command of [
-    "git config --no-includes --get core.hooksPath",
     "git config --show-scope --get core.hooksPath",
     "git config --show-scope core.hooksPath",
-    "git config --file x.cfg --get-regexp core.hooksPath",
-    "git config --name-only --get-regexp core.hooksPath",
+    "git config --show-origin --file x.cfg --get-all core.hooksPath",
+    "git config --global get core.hooksPath",
+    "git -C ./a/b config --local --get core.hooksPath",
+    "git config --get core.HOOKSPATH || echo not set",
     "git config list --show-origin",
-    "/usr/lib/git-core/git-config --get core.hooksPath",
   ]) {
     assert.equal(seen(command), null, command);
+  }
+  // Reads outside the whitelist keep the write judgement (the round-1 rule: when unsure, refuse).
+  for (const command of [
+    "git config --no-includes --get core.hooksPath",
+    "git config --file x.cfg --get-regexp core.hooksPath",
+    "git config --name-only --get-regexp core.hooksPath",
+    "/usr/lib/git-core/git-config --get core.hooksPath",
+    "git  config --get core.hooksPath",
+    "git config --get core.hooksPath ",
+    "git config --get core.hooksPath | cat",
+    "git config --get core.hooksPath; echo x",
+    "git config --get core.hooksPath && echo x",
+    "git config --get core.hooksPath || echo $X",
+    "git config --get core.hooksPath || echo `id`",
+    "git config --file 'x.cfg' --get core.hooksPath",
+    "git -C ~/r config --get core.hooksPath",
+  ]) {
+    assert.equal(seen(command), "HOOKS_PATH", command);
+  }
+});
+
+test("T-GUARD-NARROW round 1: xargs, bash's word splitting and expansion never reach a hooksPath write", () => {
+  for (const command of [
+    // Finding 1: xargs appends operands the guard cannot see.
+    "echo /x | xargs git config core.hooksPath",
+    "xargs -a f git config core.hooksPath",
+    "printf '%s\\0' /x | xargs -0 git config core.hooksPath",
+    // Finding 2: bash splits and expands what argv shows as one word.
+    "git config core.hooksPath${IFS}/evil",
+    "git config core.hooksPath$IFS/evil",
+    "A=' /evil'; git config core.hooksPath$A",
+    "git config {core.hooksPath,/evil}",
+    "git config core.hooksPath{,\\ /x}",
+    "git config --global {core.hooksPath,/x}",
+    "bash -c 'git config core.hooksPath${IFS}/x'",
+    "git-config core.hooksPath${IFS}/x",
+    // The ruling's extra refusals.
+    "git config --file x.cfg core.hooksPath /x",
+    "git config --show-origin core.hooksPath$IFS/x",
+    "git config --get core.hooksPath || git config core.hooksPath /x",
+  ]) {
+    assert.equal(seen(command), "HOOKS_PATH", command);
   }
 });
 
