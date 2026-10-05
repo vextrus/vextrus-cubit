@@ -36,8 +36,8 @@ orchestrator adds it to the owner's list to delete in claude.ai/code (O8).
 `send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit),
 `wrong-account` (all three subcommands, before anything runs: `CLAUDE_CONFIG_DIR` is set and is not `~/.claude`, account A's
 config; a session can message only sessions of its own config), `ambiguous-log` (the CLI's own lines name two sessions,
-git sources or environments). The judge reads only the CLI's own lines (each pattern at the start of a line's message,
-after `<ISO> [LEVEL] `), never text the prompt quotes in the payload line. The list is closed: a new code is added here first.
+git sources or environments). The judge reads only the CLI's own lines (split at `\n` only; each pattern at the start of a line's
+message, after `[DEBUG] ` and the CLI's optional `<ISO>Z` time), never text the prompt quotes in the payload line. The list is closed: a new code is added here first.
 
 ## 2. `launch cloud`
 
@@ -99,8 +99,8 @@ launch say <session_id> --file <file>
 ```
 
 Leak-scans the text (`tools/leakscan text --stdin`; a hit is exit 2 `prompt-leak`), prefixes `[elapsed n/m min]` (ADR
-0041 item 4: `--elapsed N/M`, else the budget record of `--ticket` that `launch cloud --budget-minutes` writes
-with `stamp.write_budget`, else the session's own `stamp elapsed` clock; none of them is a usage error), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
+0041 item 4: `--elapsed N/M`, else `--ticket`'s newest launch record (`started_at` and `budget_minutes`; a cloud
+launch writes no budget file, which linked worktrees' clocks would read), else the session's own `stamp elapsed` clock; none of them is a usage error), sends `claude -p "<msg>" --cloud <session_id> --output-format json < /dev/null`
 and reads `{ok}`. Prints `OK sent <session_id>` on `ok: true`, else `REFUSED send-failed: <reason>` with exit 2.
 One message per review round. A CLI-sent message has no reply address; two-way exchange is the orchestrator's main
 conversation by SendMessage (not this command).

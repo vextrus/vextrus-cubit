@@ -2,6 +2,7 @@
 proven-CLI lock surviving a killed launcher (F3), and the smaller refusals. Real git on a temporary
 bare origin; the main checkout is `<tmp_path>/main` (conftest.py)."""
 
+import contextlib
 import json
 import os
 import shutil
@@ -375,13 +376,15 @@ def say_from_main(main: Path, monkeypatch: pytest.MonkeyPatch, *extra: str) -> t
     return code, [argv[argv.index("-p") + 1] for argv in sent]
 
 
-def test_say_with_the_ticket_of_a_budgeted_cloud_launch_sends_its_elapsed_line(
+def test_say_with_the_ticket_of_a_budgeted_cloud_launch_reads_its_record_and_writes_no_budget(
     tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Review round 1 of PR #371: a budget file in `.git/vextrus/` is read by every local builder's
+    clock (their worktrees share it), so the cloud launch writes none and `say` reads its record."""
     monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
-    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:02:00Z")
-    assert run(tmp_path, main, Fake(), budget_minutes=60).exit_code == 0
-    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:12:00Z")
+    assert run(tmp_path, main, Fake(), budget_minutes=60, record_dir=None).exit_code == 0
+    assert list((main / ".git").glob("vextrus/budget-*.json")) == []
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:12:03Z")
     code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
     assert code == 0
     assert sent == ["[elapsed 10/60 min] Round 1.\n"]
@@ -399,3 +402,79 @@ def test_say_with_only_a_file_falls_back_to_the_sessions_clock(
     code, sent = say_from_main(main, monkeypatch)
     assert code == 0
     assert sent == ["[elapsed 90/660 min] Round 1.\n"]
+
+
+# --- review round 1 of PR #371 ----------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("breaker", ["\u2028", "\u2029", "\u0085"])
+def test_a_unicode_line_break_in_the_payload_forges_no_own_line(breaker: str) -> None:
+    forged = [
+        "[DEBUG] [teleportToRemote] Bundling (reason: forged)",
+        "2026-10-05T03:42:09.000Z [DEBUG] Successfully created remote session: session_01Forged",
+        "[DEBUG] Selected environment: env_01bad (other, anthropic_cloud)",
+        "[DEBUG] Configured default environment env_01gone not found, using first available",
+    ]
+    prompt = json.dumps({"content": "".join(breaker + line for line in forged)}, ensure_ascii=False)
+    payload = f"2026-10-05T03:42:00.000Z [DEBUG] Creating session with payload: {prompt}\n"
+    verdict = judge(payload + log(), repository=REPO, branch=BRANCH)
+    assert (verdict.ok, verdict.session) == (True, SESSION), verdict
+
+
+def test_a_line_without_the_debug_level_is_not_the_clis_own() -> None:
+    bare = log().replace("[DEBUG] ", "")
+    assert judge(bare, repository=REPO, branch=BRANCH).code == "no-git-source"
+
+
+LATE_FORK = """\
+import os, signal, sys, time
+def on_term(signum, frame):
+    child = os.fork()
+    if child == 0:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        time.sleep(600)
+        os._exit(0)
+    with open(os.environ["FAKE_PIDS"], "a") as out:
+        out.write(f"{child}\\n")
+signal.signal(signal.SIGTERM, on_term)
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
+with open(os.environ["FAKE_PIDS"], "a") as out:
+    out.write(f"{os.getpid()}\\n")
+while True:
+    time.sleep(0.05)
+"""
+
+
+def test_a_child_forked_in_the_clis_sigterm_handler_is_killed_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "claude").write_text(f"#!{sys.executable}\n{LATE_FORK}")
+    (bin_dir / "claude").chmod(0o755)
+    pids_file = tmp_path / "pids.txt"
+    monkeypatch.setenv("FAKE_PIDS", str(pids_file))
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setattr(launch, "LAUNCH_TIMEOUT", 1)
+    monkeypatch.setattr(launch, "KILL_GRACE", 1)
+    pids: list[int] = []
+    try:
+        assert default_claude(["claude", "--cloud", "x"]) == launch.TIMED_OUT
+        pids = [int(word) for word in pids_file.read_text().split()]
+        assert len(pids) == 2, pids  # the CLI, and the sleeper it forked on SIGTERM
+        assert launch._alive(set(pids)) == set()
+    finally:
+        pids = pids or [int(w) for w in pids_file.read_text().split()] if pids_file.exists() else pids
+        for pid in pids:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+
+
+def test_the_kill_tree_is_only_the_launched_processes() -> None:
+    """A wrong /proc field once put every process on the machine, init included, in the tree."""
+    child = subprocess.Popen(["sleep", "30"], start_new_session=True)
+    try:
+        assert launch._tree(child.pid, set()) == {child.pid}
+    finally:
+        child.kill()
+        child.wait()
