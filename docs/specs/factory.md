@@ -756,7 +756,8 @@ equals the no-Jev run):
 - **Keys:** local steps use the owner's local key (`$TYPESAFE_API_KEY`, never printed). A cloud session may call Jev on
   public text (diffs, findings, invented text) once the cloud key is verified by one cloud session running
   `[ -n "$TYPESAFE_API_KEY" ] && echo set` (f9's writer does it; ADR 0013 gives cloud sessions their own key). Drawing
-  text goes to Jev only from local steps until Q23 amends ADR 0013:24-25. Held-out text never.
+  text from the two Development Sets may go to Jev from cloud sessions too since the owner's Q23 ruling of 5 Oct 2026
+  ("Yes, now"; ADR 0013's History); every other set's text only from local steps. Held-out text never.
 - **Budget:** a few thousand factory calls a session at ~500 tokens is about $0.06 (estimate); far under the current
   limits of 100K tokens/s and 80 requests/s, which "can change without notice" (`models.md:14,24`). Cost is not the
   constraint; correctness and the leak boundary are. `jev.log` makes the spend a measure.
