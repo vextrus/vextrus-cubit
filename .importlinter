@@ -22,11 +22,13 @@ layers =
     projects
     platform
 # Ticket 19a's committed acceptance tests run the whole demo seed (a layer above takeoff) on the API; a
-# builder may not change them, so their imports of the seed alone are let through.
+# builder may not change them, so their imports of the seed alone are let through; 182's likewise (they
+# seed with the toolchain switched off).
 # Ticket W327's committed acceptance tests read the message catalogue and the OpenAPI schema (vextrus.api);
 # a builder may not change them, so their imports alone are let through.
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.* -> vextrus.seed.*
+    vextrus.takeoff.tests.acceptance.t182.* -> vextrus.seed.*
     vextrus.drawings.tests.acceptance.tw327.test_cancel_too_late -> vextrus.api
 unmatched_ignore_imports_alerting = none
 
@@ -52,9 +54,10 @@ allowed_importers =
     vextrus.seed.platform
     vextrus.testing
 # Ticket 19a's committed acceptance tests read a user and the override log (JevOverride) directly, and
-# 136's a User; a builder may not change them, so their imports alone are let through.
+# 136's and 182's a User; a builder may not change them, so their imports alone are let through.
 ignore_imports =
     vextrus.takeoff.tests.acceptance.t19a.step1 -> vextrus.platform.models
+    vextrus.takeoff.tests.acceptance.t182.test_seed_without_the_toolchain -> vextrus.platform.models
     vextrus.takeoff.tests.acceptance.t19a.test_step1_confirm -> vextrus.platform.models
     vextrus.seed.tests.acceptance.t136.seeded -> vextrus.platform.models
 unmatched_ignore_imports_alerting = none

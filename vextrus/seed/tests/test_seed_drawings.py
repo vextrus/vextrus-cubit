@@ -71,14 +71,16 @@ def test_kr_01_is_at_section_7s_state(demo: Demo) -> None:
     assert electrical == [sheet_words.PLOT_NO_PDF(discipline="Electrical")] * 3
     every_view = [v for listed in views.values() for v in listed]
     assert len(every_view) == 70
-    assert sum(v.kind == "title_block" for v in every_view) == 23
+    assert sum(v.kind == "title_block" for v in every_view) == 24
     excluded = [v for v in every_view if v.proposed_exclusion]
     proposed = [v for v in every_view if not v.proposed_exclusion and (v.steps or v.part)]
     unaccounted = [v for v in every_view if not v.proposed_exclusion and not v.steps and not v.part]
-    assert (len(excluded), len(proposed), len(unaccounted)) == (25, 43, 2)
+    assert (len(excluded), len(proposed), len(unaccounted)) == (26, 42, 2)
     by_number = {(s.number, s.revision_mark): s for s in sheets}
-    assert {v.title for v in unaccounted} == {""}
-    assert all(v.sheet_revision_id == by_number[("S-10", "R0")].id for v in unaccounted)
+    # The read job's (#182): S-01's drawing list and its hook and bend detail name no member a Step
+    # reads, and S-01's title names none either.
+    assert {v.title for v in unaccounted} == {"DRAWING SCHEDULE", "STANDARD HOOK AND BEND DETAIL"}
+    assert all(v.sheet_revision_id == by_number[("S-01", "R0")].id for v in unaccounted)
     assert by_number[("S-07", "A")].sheet_id == by_number[("S-07", "B")].sheet_id
     assert [s.title for s in sheets if s.number is None] == ["DOOR AND WINDOW SCHEDULE"]
     for sheet, content in zip(sheets, renders, strict=True):
@@ -293,7 +295,7 @@ def test_every_seeded_plan_view_states_its_storeys_with_their_meaning(demo: Demo
     )
     assert plans[("S-07", "B", "TYPICAL FLOOR SLAB LAYOUT")] == (("typical",), "at_floor_level")
     assert plans[("S-07", "A", "TYPICAL FLOOR SLAB LAYOUT")] == (("typical",), "at_floor_level")
-    assert plans[("S-08", "R0", "COLUMN LAYOUT")] == (
+    assert plans[("S-08", "R0", "COLUMN LAYOUT, PILE CAP TO 2ND FLOOR")] == (
         ("pile_cap", "ground", "floor_1", "floor_2"),  # a range never puts in a foundation (13)
         "floor_to_floor",
     )
@@ -302,6 +304,7 @@ def test_every_seeded_plan_view_states_its_storeys_with_their_meaning(demo: Demo
     assert sorted(key[2] for key, (keys, _) in plans.items() if keys == ("not_stated",)) == [
         "OVERHEAD TANK PLAN",
         "SITE PLAN",
+        "STAIR PLAN",
     ]
 
 
@@ -309,7 +312,8 @@ def test_every_seeded_plan_view_states_its_storeys_with_their_meaning(demo: Demo
 def test_s01s_legend_is_assigned_to_step_2(demo: Demo) -> None:
     [legend] = [v for s, v in _kr01_views(demo) if s.number == "S-01" and v.kind == "legend"]
 
-    assert (tuple(legend.steps), legend.part) == (("general_notes",), "structural")
+    # The read job proposes a legend to Step 2 and no Part (17's `_proposal`; #182).
+    assert (tuple(legend.steps), legend.part) == (("general_notes",), None)
 
 
 @pytest.mark.django_db(databases=["default", "owner"])
