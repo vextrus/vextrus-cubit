@@ -255,9 +255,10 @@ def _propose_sheet(
 def unsure(answer: jev.Judgement, title: str) -> bool:
     """Whether Jev's kind for a sheet is asked rather than proposed (#228): never when Jev is sure
     (`jev.SHEET_TYPE.proposes`); else when its top two are close (its first's lead under
-    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first (`kinds_named` names
-    kinds offered, none of them of its first's subject: "BEAM LAYOUT & DETAILS" does not contradict
-    `beam_details`)."""
+    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first: `kinds_named` names kinds
+    offered and none clears it. A named kind of its first's subject clears it only when the title
+    also holds its first's last word: "BEAM LAYOUT & DETAILS" does not contradict `beam_details`,
+    "BEAM LAYOUT" alone does (review 2, finding 2)."""
     if jev.SHEET_TYPE.proposes(answer):
         return False
     ranked = answer.ranked()
@@ -267,7 +268,9 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
         if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY:
             return True
     named = kinds_named(title, ranked)
-    return bool(named) and all(subject(kind) != subject(first) for kind in named)
+    said = f" {_words(title)} "
+    last = f" {_words(first.rpartition('_')[2])} "
+    return bool(named) and not any(subject(k) == subject(first) and last in said for k in named)
 
 
 def subject(kind: str) -> str:
@@ -281,12 +284,13 @@ def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
     punctuation and a plural "s" aside. Conservative: a one-word kind (`details`, `section`,
     `elevation`, `legend`) names nothing, as its word sits in many titles of other kinds ("STAIR
     SECTION & DETAILS" is `stair_details`); "SLAB REINFORCEMENT" names no kind at all."""
+    said = f" {_words(title)} "
+    return [kind for kind in kinds if "_" in kind and f" {_words(kind)} " in said]
 
-    def words(text: str) -> str:
-        return " ".join(w.removesuffix("s") for w in re.findall(r"[^\W_]+", text.casefold()))
 
-    said = f" {words(title)} "
-    return [kind for kind in kinds if "_" in kind and f" {words(kind)} " in said]
+def _words(text: str) -> str:
+    """A title's or key's words, as `kinds_named` compares them: case, punctuation and a plural "s" aside."""
+    return " ".join(w.removesuffix("s") for w in re.findall(r"[^\W_]+", text.casefold()))
 
 
 def _sheet_traces(sheet: drawings.SheetView) -> list[tuple[str, dict[str, Any]]]:

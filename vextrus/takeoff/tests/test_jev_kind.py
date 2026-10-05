@@ -114,3 +114,23 @@ def test_a_named_kind_of_another_subject_still_contradicts() -> None:
     clear = answer(("beam_details", "0.60"), ("column_layout", "0.10"), ("pile_details", "0.10"))
     assert unsure(clear, "COLUMN LAYOUT & DETAILS")
     assert unsure(answer(("pile_details", "0.60"), ("pile_cap_layout", "0.10")), "PILE CAP LAYOUT")
+
+
+@pytest.mark.parametrize(
+    ("first", "named", "title"),
+    [
+        ("slab_details", "slab_layout", "LEVEL 7 SLAB LAYOUT, BLOCK Q"),
+        ("beam_details", "beam_layout", "BEAM LAYOUT, BLOCK Q"),
+        ("pile_details", "pile_layout", "PILE LAYOUT, ZONE Q"),
+        ("column_schedule", "column_layout", "COLUMN LAYOUT, LEVELS 2-9 (BLOCK Q)"),
+        ("door_window_details", "door_window_schedule", "DOOR & WINDOW SCHEDULE, BLOCK Q"),
+        ("roof_details", "roof_plan", "UPPER ROOF PLAN, BLOCK Q"),
+    ],
+)
+def test_a_named_kind_of_jevs_firsts_subject_contradicts_it_without_its_last_word(
+    first: str, named: str, title: str
+) -> None:
+    """Review 2's finding 2 (score 50): fix round 1 proposed each of these; the title names only
+    the other kind of the subject, so it asks."""
+    clear = answer((first, "0.60"), (named, "0.10"), ("details", "0.10"))
+    assert unsure(clear, title)

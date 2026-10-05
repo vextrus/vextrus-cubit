@@ -31,4 +31,28 @@ describe("the kind Question's pre-pick (#228; m0-screens §5)", () => {
     await waitFor(() => expect(fake.posted).toHaveLength(1))
     expect(fake.posted[0]!.body).toMatchObject({ option: 'slab_details' })
   })
+
+  it('kept open, shows no pick and a second Enter answers nothing (review 2, finding 1)', async () => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind().low_confidence!
+    question.discipline = 'structural'
+    question.options = ['slab_details', 'slab_layout', 'details', 'keep_open'].map((key, i) => ({ key, picked: i === 0 }))
+    fake.questions = [question]
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard('4')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    expect(fake.posted[0]!.body).toMatchObject({ option: 'keep_open' })
+    await waitFor(() => expect(clean(card.textContent)).toMatch(/Kept open/))
+    const radio = (await screen.findAllByRole('radio', { name: (n: string) => clean(n).includes('Slab details') }))[0] as HTMLInputElement
+    expect(radio.checked).toBe(false)
+    expect(clean(card.textContent)).not.toMatch(/Picked for you/)
+    expect(clean(card.textContent)).not.toMatch(/sets the kind of A-05 to Slab details/)
+    await userEvent.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 300))
+    expect(fake.posted).toHaveLength(1)
+  })
 })

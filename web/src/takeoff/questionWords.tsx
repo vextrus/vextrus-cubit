@@ -277,7 +277,8 @@ export function usePick(entry: QuestionEntry, context: CardContext): { key: stri
 export function prePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
-  if (isJevKind(entry)) return { key: picked.key }
+  // Kept open or answered, the QS has decided: Jev's kind is no longer offered (review 2, finding 1).
+  if (isJevKind(entry)) return entry.kept || entry.question.status !== 'open' || entry.question.answer != null ? null : { key: picked.key }
   // Else only two copies of one number have sources the card can name yet; any other pick is not shown.
   if (!isCopies(entry) || pickSources(entry, context, picked.key).count < 2) return null
   return { key: picked.key }
