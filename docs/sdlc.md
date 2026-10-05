@@ -105,7 +105,8 @@ stays, capped, and the orchestrator does what the owner did.
 4. **At most two fix rounds,** enforced by `merge_ready`, one message each, every fix re-checked by the same agents on the new
    head. Findings at 50 and above are fixed; each serious finding (50 or more, or a repeated class) leaves
    a committed check. A finding after the second round is filed as an issue, unless it is a security hole
-   scoring 75 or more, or a crash or false statement a QS meets.
+   scoring 75 or more, a crash or false statement a QS meets, or a regression the first fix round introduced
+   (`fix-regression`, the owner, 5 Oct 2026).
 5. **The orchestrator gates and merges:** pushes and opens the PR; merges `main` into it; posts
    `design-gate` from the independent gate's verdict and, on engine PRs, runs `scripts/real-drawings` and
    accepts only under the accept rule (no failed stage gained; nothing lost or changed without a judged
@@ -123,7 +124,8 @@ stays, capped, and the orchestrator does what the owner did.
 3. `ci`, `web` and `engine` green, with at most one recorded rerun of a listed flake (`.github/flaky.txt`).
 4. Review in at most two fix rounds; every finding of 50 or more passed a refuter, was fixed and left a
    committed check whose red output path is in the body. Round 3 only with a recorded exception (a
-   security hole of 75 or more, a crash, or a false statement a QS meets).
+   security hole of 75 or more, a crash, a false statement a QS meets, or `fix-regression`: every finding left
+   at round 2 was introduced by fix round 1, as its refuter confirms; the owner, 5 Oct 2026).
 5. `design-gate` (web) and `real-drawings` (engine paths) posted through `post-status`.
 6. The body leads with what is not verified, including "not walked on a real set" where true. Every cut
    item links an open issue. A harness PR carries `Harness net: +a / -r`.
