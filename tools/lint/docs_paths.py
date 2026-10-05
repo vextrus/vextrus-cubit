@@ -67,7 +67,8 @@ CHOICES = re.compile(r"\{([\w,.-]+)\}")
 GH = re.compile(r"(?:^|[\s;&|(])gh\s+(.*)$")
 GH_VIEW = re.compile(r"(?:issue|pr)\s+view\b(.*)$")
 GH_PR_EDIT = re.compile(r"pr\s+edit\b")
-BLOCK_START = re.compile(r"^ {0,3}(#{1,6}(\s|$)|[-*+]\s|\d{1,9}[.)]\s|>)")
+BLOCK_START = re.compile(r"^ {0,3}([-*+]\s|\d{1,9}[.)]\s|>)")
+HEADING = re.compile(r"^ {0,3}#{1,6}(\s|$)")
 INLINE_BODY = re.compile(r"--body(?![-\w])")
 
 
@@ -121,34 +122,48 @@ class Tree:
         return sorted({*self.scan_set(), *agents})
 
 
+def blocks(text: str) -> Iterator[list[tuple[int, str]]]:
+    """The CommonMark blocks outside fences that inline code pairs within, each a list of (1-based
+    line, text): a run of non-blank lines, where a list item, a block quote or a fence starts a new
+    block and an ATX heading is a block by itself. A span never crosses a block boundary, and a
+    backtick left unpaired in a block is literal text."""
+    block: list[tuple[int, str]] = []
+    fenced = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        fence = FENCE.match(line) is not None
+        if fence or fenced or not line.strip() or BLOCK_START.match(line):
+            if block:
+                yield block
+            block = []
+            if fence:
+                fenced = not fenced
+            if fence or fenced or not line.strip():
+                continue
+        if HEADING.match(line):
+            if block:
+                yield block
+            block = []
+            yield [(number, line)]
+            continue
+        block.append((number, line))
+    if block:
+        yield block
+
+
 def inline_tokens(text: str) -> Iterator[tuple[int, str]]:
     """Each inline-code token outside fenced blocks, with the 1-based line its span opens on.
 
-    The docs are hard-wrapped, so a span can cross a line break: each paragraph (lines between blank
-    lines and fences) is joined with spaces before its spans are paired, and each match is mapped back
-    to the line it starts on."""
-    paragraph: list[tuple[int, str]] = []
-
-    def spans() -> Iterator[tuple[int, str]]:
+    The docs are hard-wrapped, so a span can cross a line break: each block (`blocks`) is joined with
+    spaces before its spans are paired, and each match is mapped back to the line it starts on."""
+    for block in blocks(text):
         joined = ""
         starts: list[tuple[int, int]] = []  # (offset in joined, line number)
-        for number, line in paragraph:
+        for number, line in block:
             starts.append((len(joined), number))
             joined += line + " "
         for match in INLINE.finditer(joined):
             opened = next(n for offset, n in reversed(starts) if offset <= match.start())
             yield opened, match.group(1)
-
-    fenced = False
-    for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE.match(line) or fenced or not line.strip():
-            yield from spans()
-            paragraph = []
-            if FENCE.match(line):
-                fenced = not fenced
-            continue
-        paragraph.append((number, line))
-    yield from spans()
 
 
 def candidate(token: str, tree: Tree) -> str | None:
@@ -263,31 +278,14 @@ def code_units(text: str) -> Iterator[tuple[int, str]]:
 
 
 def prose_lines(text: str) -> Iterator[tuple[int, str]]:
-    """Each line outside fences with its inline code blanked out. Spans are paired per CommonMark
-    block: a run of non-blank lines, where an ATX heading, a list item, a block quote or a fence opens
-    a new block. A span never crosses a block boundary, and a backtick left unpaired in a block is
-    literal text, never carried into the next block."""
-    block: list[tuple[int, str]] = []
-
-    def blanked() -> Iterator[tuple[int, str]]:
+    """Each line outside fences with its inline code blanked out, spans paired per block (`blocks`)."""
+    for block in blocks(text):
         joined = " ".join(line for _, line in block)
         code = INLINE.sub(lambda m: " " * len(m.group(0)), joined)
         offset = 0
         for number, line in block:
             yield number, code[offset : offset + len(line)]
             offset += len(line) + 1
-
-    fenced = False
-    for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE.match(line) or fenced or not line.strip() or BLOCK_START.match(line):
-            yield from blanked()
-            block = []
-            if FENCE.match(line):
-                fenced = not fenced
-            if fenced or FENCE.match(line) or not line.strip():
-                continue
-        block.append((number, line))
-    yield from blanked()
 
 
 class Usage:

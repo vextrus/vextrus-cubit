@@ -140,3 +140,21 @@ def test_a_lone_backtick_never_shifts_the_pairing_past_its_block(tmp_path: Path)
     assert docs_paths.problems(tmp_path) == [
         "CLAUDE.md:7: `scripts.land` takes no subcommand, so `order` is wrong"
     ]
+
+
+def test_one_block_splitter_serves_spans_and_prose(tmp_path: Path) -> None:
+    land = 'import argparse\nargparse.ArgumentParser(prog="land").parse_args()\n'
+    heading = "## The ` key\nRun `python -m scripts.land` once; then `order` here.\n\n"
+    item_span = "- a lone ` tick\n- read it with `gh pr view 5` first\n\n"
+    item_prose = "- a lone ` tick\n- never gh pr view 5 bare; see `x`\n"
+    doc = heading + item_span + item_prose
+    tree(tmp_path, {"scripts/__init__.py": "", "scripts/land.py": land, "CLAUDE.md": doc})
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    found = docs_paths.problems(tmp_path)
+    assert [row.split(": ", 1)[0] for row in found] == ["CLAUDE.md:5"], found
+    assert "without `--json`" in found[0]
+
+
+def test_a_heading_is_a_block_by_itself() -> None:
+    text = "intro `a\n# H `b` c\nd` e\n"
+    assert [[n for n, _ in block] for block in docs_paths.blocks(text)] == [[1], [2], [3]]
