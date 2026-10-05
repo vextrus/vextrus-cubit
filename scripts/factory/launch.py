@@ -26,6 +26,7 @@ refused session keeps running, it is sent STOP at once and listed for deletion i
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fcntl
 import importlib
 import json
@@ -33,13 +34,17 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import NoReturn
+
+from scripts.factory import stamp, status
 
 REPOSITORY = "github.com/vextrus/vextrus-cubit"
 MODEL = "claude-opus-5-5"
@@ -57,6 +62,12 @@ ELAPSED = re.compile(r"^(\d+)/(\d+)$")
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX32 = re.compile(r"^[0-9a-f]{32}$")
 
+# The judge's patterns match only at the start of a line's message, after the CLI's `<ISO> [LEVEL] `:
+# the CLI writes the prompt into the same log (one `Creating session with payload: {...}` line), and
+# a prompt quoting these lines must never choose the session, the source or the environment.
+# Lines are split at "\n" only: `str.splitlines()` also breaks at U+2028, U+2029 and U+0085, which
+# JSON leaves raw inside the payload line. An own line must carry `[DEBUG] ` (after the CLI's ISO time).
+LINE_PREFIX = re.compile(r"^(?:\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z )?\[DEBUG\] ")
 BUNDLED = re.compile(r"\[teleportToRemote\] Bundling \(reason: ([^)]*)\)")
 SOURCE = re.compile(r"\[teleportToRemote\] Git source: (\S+), revision: (\S+)")
 CREATED = re.compile(r"Successfully created remote session: (session_\w+)")
@@ -67,6 +78,8 @@ ENVIRONMENT = "vextrus"
 # then unknown (fail closed; review round 1 of PR #286, F1).
 REQUIRE_ENVIRONMENT_LINE = True
 LAUNCH_TIMEOUT = 180
+KILL_GRACE = 5  # seconds a timed-out launch's processes get between SIGTERM and SIGKILL
+LOG_GRACE = 5  # seconds to wait after a timeout before the log is read again (a late session)
 MESSAGE_TIMEOUT = 120
 TOOL_TIMEOUT = 60
 TIMED_OUT = 124  # what a ClaudeRunner returns when the CLI ran out of time (as timeout(1) does)
@@ -88,12 +101,23 @@ class Verdict:
 def judge(log: str, *, repository: str, branch: str, environment: str = ENVIRONMENT) -> Verdict:
     """Read a `claude --debug-file` log of one `--cloud` launch. The environment is checked by name:
     the CLI takes it from the user's `remote.defaultEnvironmentId` and, when that id is unknown,
-    silently falls back to the first environment (which carries the drawings token)."""
-    session = m.group(1) if (m := CREATED.search(log)) else None
-    if bundled := BUNDLED.search(log):
+    silently falls back to the first environment (which carries the drawings token). Only the
+    CLI's own lines count (`LINE_PREFIX`); a line that must appear once naming two values is refused."""
+    messages = [line[m.end() :] for line in log.split("\n") if (m := LINE_PREFIX.match(line))]
+
+    def found(pattern: re.Pattern[str]) -> list[re.Match[str]]:
+        return [m for text in messages if (m := pattern.match(text))]
+
+    sessions = {m.group(1) for m in found(CREATED)}
+    session = next(iter(sessions)) if len(sessions) == 1 else None
+    for what, pattern in (("session", CREATED), ("git source", SOURCE), ("environment", ENV)):
+        if len({m.groups() for m in found(pattern)}) > 1:
+            why = f"the log names more than one {what}: which one is meant is unknown"
+            return Verdict(False, why, session, "ambiguous-log")
+    if bundled := next(iter(found(BUNDLED)), None):
         why = f"bundled, not cloned ({bundled.group(1)}): the session has no origin"
         return Verdict(False, why, session, "bundled")
-    source = SOURCE.search(log)
+    source = next(iter(found(SOURCE)), None)
     if source is None:
         why = "the log names no git source: how it was seeded is unknown"
         return Verdict(False, why, session, "no-git-source")
@@ -102,9 +126,9 @@ def judge(log: str, *, repository: str, branch: str, environment: str = ENVIRONM
     if source.group(2) != branch:
         why = f"cloned at revision {source.group(2)}, not the ticket's branch {branch}"
         return Verdict(False, why, session, "wrong-revision")
-    selected = ENV.search(log)
+    selected = next(iter(found(ENV)), None)
     name = selected.group(2).strip() if selected else None
-    fell_back = FALLBACK.search(log) is not None
+    fell_back = bool(found(FALLBACK))
     if (
         fell_back
         or (name is not None and name != environment)
@@ -155,19 +179,77 @@ def default_claude(argv: list[str]) -> int:
         code, out = default_send(argv)
         return 0 if code == 0 and _json_ok(out) else 1
     try:
-        done = subprocess.run(
+        child = subprocess.Popen(
             ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             env={**os.environ, "SHELL": "/bin/sh"},
-            check=False,
-            timeout=LAUNCH_TIMEOUT,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired:
-        return TIMED_OUT
     except OSError:
         return NOT_FOUND
-    return done.returncode
+    try:
+        return child.wait(timeout=LAUNCH_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        _kill_tree(child)
+        return TIMED_OUT
+    except BaseException:
+        _kill_tree(child)
+        raise
+
+
+def _proc_stats() -> Iterator[tuple[int, str, int, int]]:
+    """(pid, state, parent pid, session id) of every process `/proc` lists (Linux: the factory runs
+    on WSL and cloud Linux)."""
+    for stat in Path("/proc").glob("[0-9]*/stat"):
+        try:
+            fields = stat.read_text().rpartition(")")[2].split()
+        except OSError:
+            continue
+        yield int(stat.parent.name), fields[0], int(fields[1]), int(fields[3])
+
+
+def _tree(root: int, known: set[int]) -> set[int]:
+    """`root`, `known`, their descendants, and every process in one of their sessions: `script`
+    gives the CLI a session of its own, and a child the CLI forks late (in its SIGTERM handler, say)
+    stays in that session after it is reparented, so each round finds it again."""
+    # Never the launcher's own session, itself or init, whatever /proc says (a wrong field once
+    # took in every process on the machine).
+    spared = {0, os.getsid(0)}
+    stats = [s for s in _proc_stats() if s[0] not in (1, os.getpid()) and s[3] not in spared]
+    tree = {root, *known}
+    sessions = {sid for pid, _, _, sid in stats if pid in tree}
+    grown = True
+    while grown:
+        more = {pid for pid, _, parent, sid in stats if parent in tree or sid in sessions} - tree
+        sessions |= {sid for pid, _, _, sid in stats if pid in more}
+        tree |= more
+        grown = bool(more)
+    return tree
+
+
+def _alive(pids: set[int]) -> set[int]:
+    """Those of `pids` still running (a zombie is dead: only its parent's wait is missing)."""
+    return pids & {pid for pid, state, _, _ in _proc_stats() if state != "Z"}
+
+
+def _kill_tree(child: subprocess.Popen[bytes]) -> None:
+    """SIGTERM the child's whole tree (`_tree`) and process groups, then SIGKILL what outlives
+    `KILL_GRACE`, and return only when each is gone. The tree is read again before every signal and
+    while waiting, so neither an orphan nor a late fork escapes."""
+    tree: set[int] = set()
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        tree = _tree(child.pid, tree)
+        for pid in _alive(tree):
+            with contextlib.suppress(OSError):
+                os.kill(pid, sig)
+            with contextlib.suppress(OSError):
+                os.killpg(pid, sig)
+        deadline = time.monotonic() + KILL_GRACE
+        while child.poll() is None or _alive(tree := _tree(child.pid, tree)):
+            if time.monotonic() > deadline:
+                break
+            time.sleep(0.05)
 
 
 def _json_ok(out: str) -> bool:
@@ -401,6 +483,19 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
 # --- git -------------------------------------------------------------------------------------------
 
 
+class GitFailed(Exception):
+    """A git command that did not answer (failed, timed out or missing): the launcher's own error,
+    never a refusal saying the branch or the checkout is wrong."""
+
+
+def _git_ok(root: Path, *args: str) -> str:
+    """One git command's output, or GitFailed naming it."""
+    done = _git(root, *args)
+    if done.returncode:
+        raise GitFailed(f"git {args[0]} failed: {_last_line(done.stderr) or f'exit {done.returncode}'}")
+    return done.stdout
+
+
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     """One git command; a hang or a missing git reads as a failed command, never a traceback."""
     command = ["git", "-C", str(root), *args]
@@ -421,6 +516,29 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(command, 127, "", f"git did not run ({type(error).__name__})")
 
 
+def launches_dir() -> Path:
+    """Where `cloud` writes its records by default, and where `say` reads a ticket's budget."""
+    return main_checkout() / FACTORY / "launches"
+
+
+def account_problem(environ: Mapping[str, str], home: Path) -> str | None:
+    """None when this is account A's config (`CLAUDE_CONFIG_DIR` unset, empty or `~/.claude`), else
+    why not, in one line: a session can message only sessions of its own config (CLAUDE.md)."""
+    value = environ.get("CLAUDE_CONFIG_DIR", "")
+    if not value or Path(value).expanduser().resolve() == (home / ".claude").resolve():
+        return None
+    return (
+        f"CLAUDE_CONFIG_DIR is {value}, not account A's {home / '.claude'}:"
+        " launch from the default config, whose sessions the orchestrator can message"
+    )
+
+
+def _wrong_account() -> int | None:
+    """2 after printing the refusal when this is not account A's config; None when it is."""
+    problem = account_problem(os.environ, Path.home())
+    return None if problem is None else _refused("wrong-account", problem).exit_code
+
+
 def main_checkout() -> Path:
     """The one folder launches run from (`VEXTRUS_MAIN_CHECKOUT` moves it, for tests)."""
     return Path(os.environ.get("VEXTRUS_MAIN_CHECKOUT", MAIN_CHECKOUT_DEFAULT)).resolve()
@@ -429,25 +547,21 @@ def main_checkout() -> Path:
 def is_main_checkout(root: Path) -> bool:
     """True only at the top of the main checkout: the configured folder, its own top level, and a
     git dir that is the common one (a linked worktree's is not). A standalone clone elsewhere hangs
-    at the CLI's trust dialog; a subdirectory is not the checkout."""
+    at the CLI's trust dialog; a subdirectory is not the checkout. GitFailed when git did not answer."""
     if root.resolve() != main_checkout():
         return False
-    top = _git(root, "rev-parse", "--show-toplevel")
-    own = _git(root, "rev-parse", "--path-format=absolute", "--absolute-git-dir")
-    common = _git(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    if top.returncode or own.returncode or common.returncode:
+    top = _git_ok(root, "rev-parse", "--show-toplevel")
+    own = _git_ok(root, "rev-parse", "--path-format=absolute", "--absolute-git-dir")
+    common = _git_ok(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if Path(top.strip()).resolve() != root.resolve():
         return False
-    if Path(top.stdout.strip()).resolve() != root.resolve():
-        return False
-    return Path(own.stdout.strip()).resolve() == Path(common.stdout.strip()).resolve()
+    return Path(own.strip()).resolve() == Path(common.strip()).resolve()
 
 
 def origin_sha(root: Path, branch: str) -> str | None:
-    """The sha of exactly `refs/heads/<branch>` on origin, by `git ls-remote` (never a local ref)."""
-    listed = _git(root, "ls-remote", "--heads", "origin", branch)
-    if listed.returncode:
-        return None
-    for line in listed.stdout.splitlines():
+    """The sha of exactly `refs/heads/<branch>` on origin, by `git ls-remote` (never a local ref);
+    None when origin answers without it, GitFailed when it does not answer."""
+    for line in _git_ok(root, "ls-remote", "--heads", "origin", branch).splitlines():
         sha, _, ref = line.partition("\t")
         if ref.strip() == f"refs/heads/{branch}":
             return sha.strip()
@@ -590,6 +704,8 @@ class _Run:
             "budget_minutes": self.req.budget_minutes,
             "session_id": verdict.session,
             "cli_version": self.cli_version,
+            # The moment as given; `launch_cloud` gives whole seconds, the canonical `status.utc`
+            # form the watcher reads (`status.parse_utc` reads an older record's fraction too).
             "started_at": self.started.isoformat().replace("+00:00", "Z"),
             "governor": self.governor,
             "leak_scan": self.leak_scan,
@@ -628,6 +744,12 @@ class _Run:
         self.write(Verdict(False, reason, None, code))
         return outcome
 
+    def error(self, message: str) -> Outcome:
+        """The launcher's own failure (exit 1), recorded like a refusal with the code `error`."""
+        outcome = _error(message)
+        self.write(Verdict(False, message, None, "error"))
+        return outcome
+
 
 def launch_cloud(
     req: CloudRequest,
@@ -638,11 +760,12 @@ def launch_cloud(
     govern: Govern | Default | None = DEFAULT,
     snapshot: Callable[[], str] = default_snapshot,
     now: Callable[[], datetime] = utcnow,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> Outcome:
     """Refuse, or launch and judge one cloud session; print the run's lines and write its record
     (refusals before the launch too, with no session). `scan` and `govern` None mean the tree has no
     leak scan or governor yet (then `--prompt-scanned` and `--preflight` stand in for them); left
-    out, they are this tree's own."""
+    out, they are this tree's own. Every run past the usage checks writes one record."""
     scan = default_scan(root) if isinstance(scan, Default) else scan
     govern = default_govern(root, req.usage_checked) if isinstance(govern, Default) else govern
     if not BRANCH.match(req.branch) or ".." in req.branch or not TICKET.match(req.ticket):
@@ -651,22 +774,27 @@ def launch_cloud(
     if req.untestable is not None and not req.untestable.strip():
         print("error: --untestable needs a reason", file=sys.stderr)
         return Outcome(USAGE, "usage: --untestable needs a reason")
+    record_dir = req.record_dir or launches_dir()
+    run = _Run(req, record_dir, now().astimezone(UTC).replace(microsecond=0), snapshot)
+    if problem := account_problem(os.environ, Path.home()):
+        return run.refuse("wrong-account", problem)
     try:
         text = req.prompt_file.read_text()
     except (OSError, UnicodeDecodeError) as error:
-        return _error(f"cannot read the prompt file ({type(error).__name__})")
-
-    record_dir = req.record_dir or main_checkout() / FACTORY / "launches"
-    run = _Run(req, record_dir, now().astimezone(UTC), snapshot)
+        return run.error(f"cannot read the prompt file ({type(error).__name__})")
     run.cli_version = cli_version()
 
-    if not is_main_checkout(root):
+    try:
+        at_main = is_main_checkout(root)
+        sha = origin_sha(root, req.branch) if at_main else None
+    except GitFailed as error:
+        return run.error(str(error))
+    if not at_main:
         return run.refuse(
             "not-main-checkout",
             f"{root} is not the top of the main checkout {main_checkout()}"
             " (a linked worktree, another clone or a subdirectory)",
         )
-    sha = origin_sha(root, req.branch)
     if sha is None:
         return run.refuse(
             "branch-not-on-origin", f"git ls-remote finds no refs/heads/{req.branch} on origin"
@@ -674,7 +802,7 @@ def launch_cloud(
     if req.role not in NO_ACCEPTANCE_NEEDED and req.untestable is None:
         found = has_acceptance_commit(root, req.branch, sha)
         if isinstance(found, str):
-            return _error(found)
+            return run.error(found)
         if not found:
             return run.refuse(
                 "no-acceptance-commit",
@@ -716,15 +844,15 @@ def launch_cloud(
     log = req.log or record_dir / f"{req.ticket}-{run.stamp}.debug.log"
     if log.exists():
         # Never overwritten: an earlier launch's lines must never judge this one.
-        return _error(f"the debug log {log} already exists; give a new --log")
+        return run.error(f"the debug log {log} already exists; give a new --log")
     try:
         log.parent.mkdir(parents=True, exist_ok=True)
     except OSError as error:
-        return _error(f"cannot make the debug log's folder ({type(error).__name__})")
+        return run.error(f"cannot make the debug log's folder ({type(error).__name__})")
 
     proving = _Proving(root / FACTORY, run.cli_version)
     if not proving.proven() and not proving.acquire():
-        return _error(
+        return run.error(
             f"CLI {run.cli_version} is not yet proven and another launch holds"
             f" {proving.lock}; wait for it"
         )
@@ -733,7 +861,9 @@ def launch_cloud(
         argv = ["claude", "--debug-file", str(log), "--model", req.model, "--effort", req.effort]
         code = claude([*argv, "--on-branch", req.branch, "--cloud", prompt])
         if code == NOT_FOUND:
-            return _error("the claude CLI is not on PATH")
+            return run.error("the claude CLI is not on PATH")
+        if code == TIMED_OUT:
+            sleep(LOG_GRACE)  # the CLI may name its session a moment after the time ran out
         try:
             judged = log.read_text(errors="replace")
         except OSError:
@@ -817,20 +947,42 @@ def say(
     return Outcome(0, line, session_id)
 
 
-def _stamp_elapsed(root: Path, ticket: str | None) -> str | None:
-    """f3's `stamp elapsed --ticket T`, when this tree has it and a ticket is given."""
-    if ticket is None or not (root / "scripts" / "factory" / "stamp.py").is_file():
+def _record_elapsed(ticket: str, session_id: str) -> str | None:
+    """`n/m` from the ticket's launch record (`started_at`, `budget_minutes`): the one naming the
+    session being messaged, else the newest. Only a launch judged OK counts: a refused or failed run
+    writes a record too, and must never restart the clock (review round 2 of PR #371). No budget file
+    is written for a cloud launch: linked worktrees share `.git/vextrus/`, and the local builders'
+    clock would read a cloud ticket's budget as theirs (review round 1)."""
+    launched: list[tuple[bool, datetime, int]] = []
+    for path in launches_dir().glob(f"{ticket}-*.json"):
+        try:
+            record = json.loads(path.read_text())
+            started, minutes = status.parse_utc(record["started_at"]), record["budget_minutes"]
+            ok = record["judge"]["ok"] is True and record.get("stop_sent") is not True
+        except OSError, ValueError, KeyError, TypeError:
+            continue
+        if record.get("ticket") == ticket and type(minutes) is int and ok:
+            launched.append((record.get("session_id") == session_id, started, minutes))
+    if not launched:
         return None
-    done = subprocess.run(
-        [sys.executable, "-m", "scripts.factory.stamp", "elapsed", "--ticket", ticket],
-        cwd=root,
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    found = re.search(r"\b(\d+/\d+)\b", done.stdout) if done.returncode == 0 else None
-    return found.group(1) if found else None
+    _, started, minutes = max(launched)
+    return f"{status.minutes_between(started, status.now())}/{minutes}"
+
+
+def _stamp_elapsed(ticket: str | None, session_id: str) -> str | None:
+    """`n/m` from the ticket's newest launch record, else from the session's own `stamp elapsed`
+    line (`session h:mm/h:mm`); None when neither exists."""
+    if ticket and (found := _record_elapsed(ticket, session_id)):
+        return found
+    try:
+        line = stamp.elapsed(None)
+    except stamp.Refused:
+        return None
+    clock = re.search(r"session (\d+):(\d\d)/(\d+):(\d\d)", line)
+    if clock is None:
+        return None
+    h, m, budget_h, budget_m = (int(g) for g in clock.groups())
+    return f"{h * 60 + m}/{budget_h * 60 + budget_m}"
 
 
 def main_say(argv: list[str]) -> int:
@@ -840,10 +992,12 @@ def main_say(argv: list[str]) -> int:
     p.add_argument("--ticket", type=_shaped(TICKET, "ticket id"))
     p.add_argument("--elapsed")
     a = p.parse_args(argv)
+    if (refused := _wrong_account()) is not None:
+        return refused
     root = Path.cwd()
-    elapsed = a.elapsed if a.elapsed is not None else _stamp_elapsed(root, a.ticket)
+    elapsed = a.elapsed if a.elapsed is not None else _stamp_elapsed(a.ticket, a.session_id)
     if elapsed is None or not ELAPSED.match(elapsed):
-        p.error("no elapsed time: give --elapsed N/M (f3's stamp gives it once merged)")
+        p.error("no elapsed time: give --elapsed N/M, or --ticket of a launch with a budget")
     try:
         text = a.file.read_text()
     except (OSError, UnicodeDecodeError) as error:
@@ -903,6 +1057,8 @@ def _default_local_run(request: LocalRequest) -> int:
 def launch_local(argv: list[str], *, local_run: Callable[[LocalRequest], int] | None = None) -> int:
     """Parse `local`'s arguments here; f3's `scripts/factory/local.py` runs them."""
     request = parse_local(argv)
+    if (refused := _wrong_account()) is not None:
+        return refused
     return (local_run or _default_local_run)(request)
 
 

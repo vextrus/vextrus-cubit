@@ -6,6 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -133,4 +134,114 @@ test("an empty message from a gated type is blocked", () => {
 
 test("garbage stdin: allowed, exit 0", () => {
   for (const raw of ["not json", "", "[]", "null"]) assertAllowed(gate({}, raw));
+});
+
+// Ticket T-HOOKS (#290): /review-pr runs `pr-reviewer` and `refuter` with a schema, so they answer by calling the
+// StructuredOutput tool (`REVIEW` {verdict, head, findings, report} and `REFUTE` {verdict, evidence} in
+// .claude/workflows/review-pr.js); their closing text has no verdict line. The gate reads the agent's transcript
+// (`agent_transcript_path`): the LAST call among SubagentHandback and StructuredOutput decides. A valid
+// StructuredOutput verdict passes; anything else falls back to the closing-text rule. A handed-back report missing its
+// line is told to hand the whole report back again through SubagentHandback.
+const said = (text) => ({ type: "assistant", message: { role: "assistant", content: [{ type: "text", text }] } });
+const asked = (text) => ({ type: "user", message: { role: "user", content: [{ type: "text", text }] } });
+const toolCall = (name, input) => ({
+  type: "assistant",
+  message: { role: "assistant", content: [{ type: "tool_use", id: `toolu_${name}`, name, input }] },
+});
+const structured = (input) => toolCall("StructuredOutput", input);
+const handback = (message) => toolCall("SubagentHandback", { message });
+
+function transcript(entries) {
+  const file = join(mkdtempSync(join(tmpdir(), "t-hooks-verdict-")), "agent.jsonl");
+  writeFileSync(file, entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
+  return file;
+}
+
+const closing = (agent_type, entries, last_assistant_message = "Done.") =>
+  as(agent_type, last_assistant_message, { agent_transcript_path: transcript(entries) });
+
+for (const verdict of ["PASS", "FIX", "BLOCK"]) {
+  test(`pr-reviewer whose last call is StructuredOutput {verdict: "${verdict}", head: <40 hex>} is allowed without a VERDICT line`, () => {
+    assertAllowed(closing("pr-reviewer", [asked("review PR 1"), said("Working."), structured({ verdict, head: SHA, findings: [], report: REPORT })]));
+  });
+}
+
+for (const verdict of ["CONFIRMED", "REFUTED", "UNPROVEN"]) {
+  test(`refuter whose last call is StructuredOutput {verdict: "${verdict}"} is allowed with closing text "Done."`, () => {
+    assertAllowed(closing("refuter", [asked("refute"), structured({ verdict, evidence: "I ran the narrowest proof." })]));
+  });
+}
+
+for (const [name, input] of [
+  ["an unknown verdict", { verdict: "MAYBE", head: SHA, findings: [], report: REPORT }],
+  ["a 39-hex head", { verdict: "PASS", head: SHA.slice(0, 39), findings: [], report: REPORT }],
+  ["a 41-hex head", { verdict: "PASS", head: `${SHA}a`, findings: [], report: REPORT }],
+  ["a head that is not a sha", { verdict: "PASS", head: "main", findings: [], report: REPORT }],
+  ["no head", { verdict: "PASS", findings: [], report: REPORT }],
+  ["no verdict", { head: SHA, findings: [], report: REPORT }],
+]) {
+  test(`pr-reviewer StructuredOutput with ${name} falls back to the closing text`, () => {
+    assert.match(blockReason(closing("pr-reviewer", [structured(input)])), /VERDICT/);
+    assertAllowed(closing("pr-reviewer", [structured(input)], `${REPORT}\nVERDICT: FIX at ${SHA}`));
+  });
+}
+
+test('refuter StructuredOutput {verdict: "PASS"} (not a refuter verdict) falls back to the closing text', () => {
+  blockReason(closing("refuter", [structured({ verdict: "PASS", evidence: "x" })]));
+  assertAllowed(closing("refuter", [structured({ verdict: "PASS", evidence: "x" })], "I ran the proof.\nREFUTED"));
+});
+
+test("acceptance-writer: a StructuredOutput verdict changes nothing, its two-count rule stands", () => {
+  assert.match(blockReason(closing("acceptance-writer", [structured({ verdict: "PASS", head: SHA })])), /red-on-main/);
+  assertAllowed(closing("acceptance-writer", [structured({ verdict: "PASS" })], "Committed.\nred-on-main: 3 failed\ngreen-on-throwaway: 9 passed"));
+});
+
+test("the last call wins: a valid StructuredOutput then a handback without a verdict is blocked", () => {
+  blockReason(closing("pr-reviewer", [structured({ verdict: "PASS", head: SHA, findings: [], report: REPORT }), handback(REPORT)]));
+  blockReason(closing("refuter", [structured({ verdict: "REFUTED", evidence: "x" }), handback("maybe")]));
+});
+
+test("the last call wins: a handback without a verdict then a valid StructuredOutput is allowed", () => {
+  assertAllowed(closing("pr-reviewer", [handback(REPORT), asked("blocked"), structured({ verdict: "FIX", head: SHA, findings: [], report: REPORT })]));
+  assertAllowed(closing("refuter", [handback("maybe"), structured({ verdict: "UNPROVEN", evidence: "x" })]));
+});
+
+test("stop_hook_active still allows, whatever the transcript holds", () => {
+  const path = transcript([structured({ verdict: "MAYBE", head: SHA }), handback(REPORT)]);
+  assertAllowed(as("pr-reviewer", "Done.", { agent_transcript_path: path, stop_hook_active: true }));
+});
+
+test("pr-reviewer: a handed-back report without its line is told to hand the whole report back through SubagentHandback", () => {
+  const reason = blockReason(closing("pr-reviewer", [handback(REPORT)], `${REPORT}\nVERDICT: PASS at ${SHA}`));
+  assert.ok(reason.includes("SubagentHandback"), reason);
+  assert.match(reason, /whole report/i);
+  assert.ok(reason.includes("VERDICT: PASS|FIX|BLOCK at <40-hex sha>"), reason);
+});
+
+test("refuter: a handed-back report without its verdict is told to hand the whole report back through SubagentHandback", () => {
+  const reason = blockReason(closing("refuter", [handback("I looked.\nmaybe")], "CONFIRMED"));
+  assert.ok(reason.includes("SubagentHandback"), reason);
+  assert.match(reason, /whole report/i);
+  assert.ok(reason.includes("CONFIRMED, REFUTED or UNPROVEN"), reason);
+});
+
+test('a report that did not come through a handback keeps today\'s reason ("Add it as the final line")', () => {
+  const reviewer = blockReason(closing("pr-reviewer", [asked("review"), said("Working.")], REPORT));
+  assert.ok(reviewer.includes("VERDICT: PASS|FIX|BLOCK at <40-hex sha>"), reviewer);
+  assert.ok(reviewer.includes("Add it as the final line"), reviewer);
+  const refuter = blockReason(as("refuter", "I looked.\nmaybe"));
+  assert.ok(refuter.includes("CONFIRMED, REFUTED or UNPROVEN"), refuter);
+  assert.ok(refuter.includes("Add it as the final line"), refuter);
+});
+
+test("a transcript missing, unreadable or without either call: the closing-text rule as today", () => {
+  const unreadable = join(mkdtempSync(join(tmpdir(), "t-hooks-verdict-")), "agent.jsonl");
+  writeFileSync(unreadable, "not json\n{\n");
+  const neither = transcript([asked("review"), said("Working."), toolCall("Bash", { command: "true" })]);
+  for (const path of ["/nonexistent/agent.jsonl", unreadable, neither, mkdtempSync(join(tmpdir(), "t-hooks-verdict-dir-"))]) {
+    assertAllowed(as("pr-reviewer", `${REPORT}\nVERDICT: BLOCK at ${SHA}`, { agent_transcript_path: path }));
+    blockReason(as("pr-reviewer", REPORT, { agent_transcript_path: path }));
+    assertAllowed(as("refuter", "UNPROVEN", { agent_transcript_path: path }));
+    blockReason(as("refuter", "unsure", { agent_transcript_path: path }));
+  }
 });

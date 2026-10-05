@@ -3,7 +3,7 @@
 // lost track of time in 4 of 6 runs (spec C7), so this is the only surface that puts the clock in front of the
 // model. The orchestrator's line comes from `.private/work/factory/session.json`; a builder's from its own
 // budget record, `<git-common-dir>/vextrus/budget-<ticket>.json`. Both shapes are f3's (`stamp.py` writes them);
-// anything else reads as "no budget set". A display, never a gate: every failure prints the quiet line, exit 0.
+// a session with an `ended_utc` time is closed, and it and anything else read as "no budget set". A display, never a gate: every failure prints the quiet line, exit 0.
 // `VEXTRUS_NOW_UTC` stands in for the wall clock in tests.
 import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
@@ -54,6 +54,7 @@ function readJson(path) {
 function sessionLine() {
   const session = readJson(join(project, ".private/work/factory/session.json"));
   if (!isObject(session) || !isTime(session.started_utc) || !isBudget(session.budget_minutes)) return null;
+  if (isTime(session.ended_utc)) return null;
   const budget = Math.round(session.budget_minutes);
   const elapsed = minutesSince(session.started_utc);
   let text = `session ${hm(elapsed)}/${hm(budget)}${over(elapsed, budget)}`;
