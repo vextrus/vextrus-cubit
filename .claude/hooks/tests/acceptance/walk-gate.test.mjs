@@ -155,6 +155,39 @@ test("a ready.py that hangs: the hook returns within 13 s with a block (fails cl
   blockReason(done);
 });
 
+// Ticket T-HOOKS (#290): the phrases match as whole words only; each block reason quotes the words that matched, as
+// written; a hung ready.py is answered with a block well inside the registered 15 s timeout (a 4 s margin).
+for (const message of ["The sidewalk now closed.", "Walk nowhere near it.", "Please walked back the claim."]) {
+  test(`"${message}": the phrases inside other words are allowed without running ready.py`, () => {
+    const dir = project({ exit: 1 });
+    assertAllowed(stop(dir, message));
+    assert.ok(!ran(dir), "ready.py must not run");
+  });
+}
+
+test('a failing G1: the reason quotes the matched words as written ("Please walk"), nothing else of the message', () => {
+  const reason = blockReason(stop(project({ exit: 1 }), "Please walk the build."));
+  assert.ok(reason.includes('"Please walk"'), reason);
+  assert.ok(!reason.includes("the build"), reason);
+  assert.match(reason, /G1/);
+});
+
+test('ready.py absent: the reason says G1 is not installed and quotes the matched words ("Please walk")', () => {
+  const reason = blockReason(stop(project(), "Please walk the build."));
+  assert.ok(reason.includes('"Please walk"'), reason);
+  assert.ok(!reason.includes("the build"), reason);
+  assert.match(reason, /G1 is not installed/);
+});
+
+test("a ready.py that hangs: the hook blocks in under 11 s, saying it did not answer within its cap", () => {
+  const dir = project({ exit: 0, hang: true });
+  const began = performance.now();
+  const done = stop(dir, "walk now");
+  const ms = performance.now() - began;
+  assert.ok(ms < 11_000, `took ${Math.round(ms)} ms`);
+  assert.match(blockReason(done), /did not answer within/);
+});
+
 test("garbage stdin, or no last_assistant_message: allowed", () => {
   const dir = project({ exit: 1 });
   for (const stdin of ["not json", "", "[]", JSON.stringify({ hook_event_name: "Stop", stop_hook_active: false })]) {
