@@ -14,9 +14,10 @@ from tools.lint.acceptance_lint import (
     Ticket,
     _failures,
     _stated,
-    collects,
     contradictions,
     main,
+    not_built,
+    read_ticket,
     rulings_at,
 )
 
@@ -102,10 +103,12 @@ def test_the_register_is_read_as_it_is_at_the_base(tmp_path: Path) -> None:
 
 
 def test_only_a_module_not_built_yet_may_stop_collection() -> None:
-    assert collects(f"E   {MISSING}\n")
-    assert collects("E   ImportError: cannot import name 'count' from 'pkg.units'\n")
-    assert not collects(f"E   {MISSING}\nE   FileNotFoundError: cases.json\n")
-    assert not collects("ERROR: usage: pytest [options]\n")
+    assert not_built(f"E   {MISSING}\n") == [("pkg.storeys", None)]
+    assert not_built(
+        "E   ImportError: cannot import name 'count' from 'pkg.units' (/t/pkg/units.py)\n"
+    ) == [("pkg.units", "count")]
+    assert not_built(f"E   {MISSING}\nE   FileNotFoundError: cases.json\n") is None
+    assert not_built("ERROR: usage: pytest [options]\n") is None
 
 
 def test_a_reason_is_stated_when_one_line_of_the_failure_contains_it() -> None:
@@ -114,17 +117,43 @@ def test_a_reason_is_stated_when_one_line_of_the_failure_contains_it() -> None:
     assert not _stated(f"E   {MISSING}\n", [])
 
 
-def test_the_failures_of_a_junit_report_are_each_test_red_with_its_text(tmp_path: Path) -> None:
+def test_the_failures_of_a_junit_report_are_each_red_test_with_its_error_lines(tmp_path: Path) -> None:
+    """The source lines pytest quotes are left out: a reason written in the test's own code (a string
+    naming the module) cannot be matched by them."""
     report = tmp_path / "report.xml"
     report.write_text(
         '<testsuites><testsuite><testcase classname="m" name="ok"/>'
-        '<testcase classname="m" name="red"><failure message="boom">E   why</failure></testcase>'
+        '<testcase classname="m" name="red"><failure message="boom">'
+        '    target = "pkg.storeys"\n&gt;   assert not ok\nE   AssertionError: why</failure></testcase>'
         '<testcase classname="m" name="setup"><error message="fixture">E   other</error></testcase>'
         "</testsuite></testsuites>"
     )
 
-    assert _failures(report) == [("m::red", "boom\nE   why"), ("m::setup", "fixture\nE   other")]
+    assert _failures(report) == [
+        ("m::red", "boom\nE   AssertionError: why"),
+        ("m::setup", "fixture\nE   other"),
+    ]
     assert _failures(tmp_path / "none.xml") is None
+
+
+def test_a_withdrawn_file_keeps_no_reason_and_a_path_never_added_is_named(tmp_path: Path) -> None:
+    root = repo(tmp_path, {"README.md": "x\n"})
+    git(root, "checkout", "-q", "-b", "t")
+    a, b = "p/tests/acceptance/t1/test_a.py", "p/tests/acceptance/t1/test_b.py"
+    for name in (a, b):
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text("")
+        git(root, "add", name)
+    message = f"acceptance: t\n\nred-for: {a} x\nred-for: {b} y\nred-for: p/test_c.py z\n"
+    git(root, "commit", "-q", "-m", message)
+    git(root, "rm", "-q", b)
+    git(root, "commit", "-q", "-m", "acceptance: withdraw b")
+
+    ticket = read_ticket(root, "main", "t")
+
+    assert ticket.files == [a]
+    assert ticket.reasons == {a: ["x"]}
+    assert ticket.unknown == ["p/test_c.py"]
 
 
 def test_an_unknown_branch_is_a_verdict_not_a_traceback(

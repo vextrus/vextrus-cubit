@@ -121,11 +121,12 @@ which the orchestrator runs on each acceptance commit before launching its build
 
 | Line (exact form) | Regular expression | Meaning |
 |---|---|---|
-| `red-for: <path> <reason>` | `^red-for:[ \t]+(\S+)[ \t]+(\S.*?)[ \t]*$` | `<path>` is a test file the acceptance commits add, as in the commit. Every test of it red on the base fails with a line containing `<reason>` (one line per reason; any one may match). A file with a red test and no `red-for:` line fails the lint. |
+| `red-for: <path> <reason>` | `^red-for:[ \t]+(\S+)[ \t]+(\S.*?)[ \t]*$` | `<path>` is a test file the acceptance commits add, as in the commit. Every test of it red on the base fails with an error line (pytest's `E` lines or the failure's message, never the quoted source) containing `<reason>` (one line per reason; any one may match). A Python test file with a red test and no `red-for:` line fails the lint; a file a later `acceptance:` commit deletes keeps no reason; a web file's line is recorded, not checked. |
 | `pin: <key> = <value>` | `^pin:[ \t]+([^=\s]+)[ \t]*=[ \t]*(\S.*?)[ \t]*$` | The tests pin `<key>` to `<value>` (a dotted name the writer chooses, e.g. `review.allowlist_only_tier`). Across the branches linted together, two pins of one key to different values fail, naming both branches and the key; so does a pin against a `ruling: <key> = <value>` line in `docs/rulings.md` at the base (no register, no rulings). |
 
-The lint also refuses a test file that does not collect (an import of a module that does not exist yet is the
-one collection error allowed), `lint-imports` or `mypy` failing on the acceptance files, and a test red for
+The lint also refuses a test file that does not collect (an import of a module of the tree's own packages that
+does not exist yet is the one collection error allowed; the lint stubs that module and collects again, so an
+error behind the import is still found), `lint-imports` or `mypy` failing on the acceptance files, and a test red for
 another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
 does not). It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
 fail its stated-reason check: run it on new acceptance commits.

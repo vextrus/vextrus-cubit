@@ -4,21 +4,22 @@ so a broken acceptance test is caught at its writer, not as a builder's BLOCK.
     python -m tools.lint.acceptance_lint <base> <branch>...
 
 Run in the repository. For each branch, its `acceptance:` commits in base..branch and the Python files
-they add, laid over a copy of the base's tree:
+they leave on the branch, laid over a copy of the base's tree:
 
-- the test files collect, but for an import of a module that does not exist yet (the module under
-  test, built later);
+- the test files collect. An import of a module of the tree's own packages that does not exist yet (the
+  module under test, or a name in a module, built later) is let through: the lint stands a stub in for
+  it and collects again, so an error behind that import is still found;
 - `lint-imports` (when the tree has an import-linter configuration) and `mypy` pass on them;
-- every test red on the base fails with a line containing a reason stated for its file in the commit
-  message, `red-for: <path> <reason>` (one line per reason). A file with a red test and no `red-for:`
-  line is flagged. The tests run as a non-root user (`nobody` when the lint runs as root) and as root
-  (the lint itself when root, else `unshare -r` when the kernel allows it): red for the stated reason
-  under both;
+- every test red on the base fails with an error line (pytest's `E` lines, or the failure's message)
+  containing a reason stated for its file in the commit message, `red-for: <path> <reason>` (one line
+  per reason). A file with a red test and no `red-for:` line is flagged. The tests run as a non-root
+  user (`nobody` when the lint runs as root) and as root (the lint itself when root, else `unshare -r`
+  when the kernel allows it): red for the stated reason under both;
 
 and across the branches given, each `pin: <key> = <value>` line in their `acceptance:` commits: two
 pins of one key to different values fail naming both branches and the key, and so does a pin
 contradicting a `ruling: <key> = <value>` line in `docs/rulings.md` as it is at the base (no register,
-no rulings).
+no rulings). Acceptance files that are not Python (the web's) are named as not checked.
 
 Exit 0 clean, 1 with each problem printed. The tools run from this interpreter (`sys.executable -m
 pytest`, `-m mypy`, the `lint-imports` beside it) with the checked tree as the working folder. Standard
@@ -28,6 +29,7 @@ library only.
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -44,13 +46,36 @@ RULING = re.compile(
 )
 RULINGS = "docs/rulings.md"
 TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
-# A module that does not exist yet: the only collection error the lint lets through.
-NOT_YET = re.compile(
-    r"^E?\s*(?:ModuleNotFoundError: No module named |ImportError: cannot import name )", re.MULTILINE
-)
+ERROR_LINE = re.compile(r"^E\s+(\w+(?:Error|Exception))\b(.*)$")
+# The modules not built yet: the only collection errors the lint lets through, once stubbed.
+NO_MODULE = re.compile(r"^: No module named '([\w.]+)'")
+NO_NAME = re.compile(r"^: cannot import name '(\w+)' from '([\w.]+)'")
 IMPORT_LINTER = (".importlinter", "setup.cfg", "pyproject.toml")
 NOBODY = 65534
-TIMEOUT = 900
+TIMEOUT = 300
+STUBS = 20
+
+# A module not built yet, for collection only: every name in it is a class that answers anything.
+STUB = """
+
+class _Stub(type):
+    def __getattr__(cls, name: str) -> "_Stub":
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return _Stub(name, (), {})
+
+    def __call__(cls, *args: object, **kwargs: object) -> "_Stub":
+        return _Stub(cls.__name__, (), {})
+
+    def __iter__(cls) -> object:
+        return iter(())
+
+
+def __getattr__(name: str) -> _Stub:
+    if name.startswith("__"):
+        raise AttributeError(name)
+    return _Stub(name, (), {})
+"""
 
 
 class Refused(Exception):
@@ -63,6 +88,7 @@ class Ticket:
     files: list[str] = field(default_factory=list)
     reasons: dict[str, list[str]] = field(default_factory=dict)
     pins: list[tuple[str, str]] = field(default_factory=list)
+    unknown: list[str] = field(default_factory=list)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -73,29 +99,27 @@ def _git(root: Path, *args: str) -> str:
 
 
 def read_ticket(root: Path, base: str, branch: str) -> Ticket:
-    """The branch's `acceptance:` commits in base..branch: the files they leave on the branch, their
-    stated reasons and their pins."""
+    """The branch's `acceptance:` commits in base..branch: the files they leave on the branch, the
+    reasons stated for those files, the `red-for:` paths they never added, and their pins."""
     ticket = Ticket(branch)
     ids = _git(root, "rev-list", "--no-merges", "--reverse", f"{base}..{branch}").split()
-    seen: set[str] = set()
+    added: list[str] = []
+    reasons: dict[str, list[str]] = {}
     for commit in ids:
         message = _git(root, "log", "-1", "--format=%B", commit)
         if not message.startswith(PREFIX):
             continue
         changed = _git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", "-z", commit)
-        for name in changed.split("\0"):
-            if name and name not in seen:
-                seen.add(name)
-                ticket.files.append(name)
+        added += [name for name in changed.split("\0") if name and name not in added]
         for path, reason in RED_FOR.findall(message):
-            ticket.reasons.setdefault(path, []).append(reason)
+            reasons.setdefault(path, []).append(reason)
         ticket.pins.extend(PIN.findall(message))
-    present = (
-        set(_git(root, "ls-tree", "-r", "--name-only", "-z", branch, "--", *ticket.files).split("\0"))
-        if ticket.files
-        else set()
-    )
-    ticket.files = [name for name in ticket.files if name in present]
+    listed = _git(root, "ls-tree", "-r", "--name-only", "-z", branch, "--", *added) if added else ""
+    present = set(listed.split("\0"))
+    ticket.files = [name for name in added if name in present]
+    # A file a later commit withdrew keeps no reason; a path never added is a mistake.
+    ticket.reasons = {path: said for path, said in reasons.items() if path in present}
+    ticket.unknown = [path for path in reasons if path not in added]
     return ticket
 
 
@@ -145,6 +169,7 @@ def _environment(tree: Path) -> dict[str, str]:
 def _run(
     command: Sequence[str], tree: Path, env: dict[str, str], *, as_nobody: bool = False
 ) -> subprocess.CompletedProcess[str]:
+    """The command's run; a run past TIMEOUT comes back as exit 124 saying so, not as an error."""
     try:
         return subprocess.run(
             list(command),
@@ -158,6 +183,8 @@ def _run(
             group=NOBODY if as_nobody else None,
             extra_groups=[] if as_nobody else None,
         )
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(list(command), 124, "", f"timed out after {TIMEOUT} s")
     except (OSError, subprocess.SubprocessError) as error:
         raise Refused(f"{command[0]} could not run: {error}") from None
 
@@ -178,8 +205,8 @@ def _has_import_linter(tree: Path) -> bool:
 
 
 def _failures(report: Path) -> list[tuple[str, str]] | None:
-    """Each failing or erroring test in a junit report: its name and its whole text. None if the run
-    wrote no report."""
+    """Each failing or erroring test in a junit report: its name, and its message and error lines
+    (pytest's `E` lines; never the source lines it quotes). None if the run wrote no report."""
     if not report.is_file():
         return None
     try:
@@ -190,19 +217,41 @@ def _failures(report: Path) -> list[tuple[str, str]] | None:
     for case in suite.iter("testcase"):
         for outcome in list(case.findall("failure")) + list(case.findall("error")):
             name = f"{case.get('classname', '')}::{case.get('name', '')}"
-            found.append((name, f"{outcome.get('message', '')}\n{outcome.text or ''}"))
+            errors = [line for line in (outcome.text or "").splitlines() if line.startswith("E ")]
+            found.append((name, "\n".join([outcome.get("message", ""), *errors])))
     return found
 
 
-def collects(output: str) -> bool:
-    """Whether a failed collection's output shows only modules not built yet: every `E   <Error>`
-    line an import of a module (or a name in one) that does not exist."""
-    errors = [line for line in output.splitlines() if re.match(r"^E\s+\w+(?:Error|Exception)\b", line)]
-    return bool(errors) and all(NOT_YET.match(line) for line in errors)
+def not_built(output: str) -> list[tuple[str, str | None]] | None:
+    """The modules (and names) a failed collection's output says are missing: `(module, None)` for
+    `No module named`, `(module, name)` for `cannot import name`. None when any other error is in it."""
+    missing: list[tuple[str, str | None]] = []
+    for line in output.splitlines():
+        error = ERROR_LINE.match(line)
+        if error is None:
+            continue
+        kind, rest = error.groups()
+        module, name = NO_MODULE.match(rest), NO_NAME.match(rest)
+        if kind == "ModuleNotFoundError" and module:
+            missing.append((module.group(1), None))
+        elif kind == "ImportError" and name:
+            missing.append((name.group(2), name.group(1)))
+        else:
+            return None
+    return missing or None
 
 
 def _stated(text: str, reasons: Sequence[str]) -> bool:
     return any(reason in line for line in text.splitlines() for reason in reasons)
+
+
+def _work_parent() -> str | None:
+    """A temp folder every user can reach (the non-root run reads the tree under it)."""
+    for candidate in (tempfile.gettempdir(), "/var/tmp", "/tmp"):
+        path = Path(candidate).resolve()
+        if path.is_dir() and all(part.stat().st_mode & stat.S_IXOTH for part in (path, *path.parents)):
+            return str(path)
+    return None
 
 
 class Checker:
@@ -260,12 +309,14 @@ class Checker:
     def check(self) -> list[str]:
         if not self.ticket.files:
             span = f"{self.base}..{self.ticket.branch}"
-            return [f"{self.ticket.branch}: no `{PREFIX}` commit in {span} adds a file"]
+            return [f"{self.ticket.branch}: no `{PREFIX}` commit in {span} leaves a file"]
         problems = [
             f"{self.label(path)}: red-for names a file the acceptance commits do not add"
-            for path in self.ticket.reasons
-            if path not in self.tests
+            for path in self.ticket.unknown
         ]
+        others = [name for name in self.ticket.files if not name.endswith(".py")]
+        if others:
+            print(f"{self.ticket.branch}: not checked (not Python): {', '.join(others)}")
         if not self.python:
             return problems
         self.lay_out()
@@ -275,18 +326,52 @@ class Checker:
         problems += self.check_red()
         return problems
 
+    def stub(self, module: str, name: str | None, made: dict[Path, bytes | None]) -> bool:
+        """Stand a stub in for a module (or a name in one) of the tree's packages not built yet,
+        remembering what it changed in `made`. False when it cannot (not the tree's own, or done)."""
+        parts = module.split(".")
+        if not (self.tree / parts[0]).is_dir():
+            return False
+        package = self.tree.joinpath(*parts)
+        path = package / "__init__.py" if package.is_dir() else package.with_suffix(".py")
+        if name is None and path.exists():
+            return False
+        if name is not None and (not path.is_file() or path in made):
+            return False
+        for depth in range(1, len(parts)):
+            init = self.tree.joinpath(*parts[:depth], "__init__.py")
+            if not init.exists():
+                made[init] = None
+                init.parent.mkdir(parents=True, exist_ok=True)
+                init.write_text("")
+        made[path] = path.read_bytes() if path.exists() else None
+        path.write_text((path.read_text() if path.exists() else "") + STUB)
+        return True
+
     def check_collection(self) -> list[str]:
         problems = []
         for path in self.tests:
-            done, _ = self.pytest(path, "collect", "--collect-only", "-q")
-            if done.returncode in (0, 5):
-                continue
-            output = done.stdout + done.stderr
-            if collects(output):
-                continue
-            problems.append(
-                f"{self.label(path)}: does not collect (exit {done.returncode}):\n{_tail(output)}"
-            )
+            made: dict[Path, bytes | None] = {}
+            try:
+                for _ in range(STUBS):
+                    done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
+                    output = done.stdout + done.stderr
+                    if done.returncode in (0, 5):
+                        break
+                    missing = not_built(output)
+                    if not missing or not all(self.stub(module, name, made) for module, name in missing):
+                        stubbed = f" (with {len(made)} stub(s) for modules not built)" if made else ""
+                        problems.append(
+                            f"{self.label(path)}: does not collect{stubbed} (exit {done.returncode}):\n"
+                            f"{_tail(output)}"
+                        )
+                        break
+            finally:
+                for changed, before in made.items():
+                    if before is None:
+                        changed.unlink(missing_ok=True)
+                    else:
+                        changed.write_bytes(before)
         return problems
 
     def check_imports(self) -> list[str]:
@@ -381,11 +466,12 @@ class Checker:
 def lint(root: Path, base: str, branches: Sequence[str]) -> list[str]:
     problems: list[str] = []
     tickets = []
+    parent = _work_parent() if os.geteuid() == 0 else None
     for branch in branches:
         try:
             ticket = read_ticket(root, base, branch)
             tickets.append(ticket)
-            with tempfile.TemporaryDirectory(prefix="acceptance-lint-") as work:
+            with tempfile.TemporaryDirectory(prefix="acceptance-lint-", dir=parent) as work:
                 problems += Checker(root, base, ticket, Path(work)).check()
         except Refused as error:
             problems.append(f"{branch}: {error}")
