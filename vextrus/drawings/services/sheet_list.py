@@ -406,6 +406,17 @@ def _keep_sheet(
         sheet_key = texts.layout
     discipline = row.discipline or (market[candidate.discipline.value] if candidate.discipline else None)
     number, title, storeys = texts.number, texts.title, texts.storeys
+    existing = SheetRevision.objects.filter(source_file=row, location_key=place).first()
+    sources = _sources(candidate)
+    # A title the sheet's step read from its one view (#332) is no part of the finder's candidate:
+    # recording the same reading again carries it, so it is neither dropped nor seen as a change.
+    if existing is not None:
+        for name in _from_view(existing, candidate):
+            sources[name] = str(ValueSource.VIEW_TITLE)
+            if name == "title":
+                title = existing.title
+            else:
+                storeys = existing.storeys_as_stated
     if number:
         sheet, _ = Sheet.objects.get_or_create(
             tenant_id=row.tenant_id,
@@ -440,13 +451,12 @@ def _keep_sheet(
         "revision_mark": texts.revision_mark,
         "issue_date": texts.issue_date,
         "storeys_as_stated": storeys,
-        "sources": _text.read_json(_sources(candidate)),
+        "sources": _text.read_json(sources),
         "source_sha256": row.sha256,
         "reader_version": reader_version,
         "proposed_exclusion": str(exclusion.reason) if exclusion else "",
         "proposed_exclusion_text": texts.exclusion_text,
     }
-    existing = SheetRevision.objects.filter(source_file=row, location_key=place).first()
     anchors = [_text.read_json(_detail(a)) for a in candidate.anchors]
     if existing is None:
         created = SheetRevision.objects.create(
@@ -482,6 +492,19 @@ def _keep_sheet(
             sheet_revision=existing,
         )
     return existing
+
+
+def _from_view(existing: SheetRevision, candidate: SheetCandidate) -> list[str]:
+    """The stored fields a sheet's view gave (`record_sheet_title`) that its candidate leaves empty."""
+    if candidate.title is not None or existing.sources.get("title") != ValueSource.VIEW_TITLE:
+        return []
+    names = ["title"]
+    if (
+        candidate.storeys_as_stated is None
+        and existing.sources.get("storeys_as_stated") == ValueSource.VIEW_TITLE
+    ):
+        names.append("storeys_as_stated")
+    return names
 
 
 def _differs(existing: SheetRevision, name: str, value: object) -> bool:
@@ -974,30 +997,55 @@ def record_sheet_title(
     sheet_revision_id: uuid.UUID, *, title: Sourced, storeys_as_stated: Sourced | None = None
 ) -> SheetView:
     """Keep a printed sheet's title (and the storeys it states) read after its sheet, from its one
-    drawing view (21b's `sheet_<n>` step, #332), with its source. Never over a title already kept or
-    on a sheet the QS has decided (it is then returned as it is); the numbered Sheet takes only what
-    it has empty, so another revision's title stays. A raw code is refused as `record_sheets` does."""
+    drawing view (21b's `sheet_<n>` step, #332), with its source. Never over a title of another
+    source, nor on a sheet the QS has decided with no title (it is returned as it is); the same
+    title again is nothing; a view's title that changed replaces the old one, and on a decided sheet
+    is refused as `record_sheets` refuses a changed reading (`reads.decided`, 409). The numbered
+    Sheet takes only what it has empty or had from this view, so another revision's title stays. A
+    raw code is refused as `record_sheets` does."""
     with transaction.atomic():
         sheet_revision = _access.sheet_revision(sheet_revision_id, lock=True)
+        file_name = sheet_revision.source_file.original_name
         given = [title, *([storeys_as_stated] if storeys_as_stated is not None else [])]
-        _decoded(sheet_revision.source_file.original_name, *(field.value for field in given))
+        _decoded(file_name, *(field.value for field in given))
         text = _text.read(title.value)
-        if sheet_revision.title or sheet_revision.decision or not text.strip():
-            return _sheet_view(_all().get(id=sheet_revision.id))
         sources = dict(sheet_revision.sources)
-        sheet_revision.title = text
+        by_view = sources.get("title") == ValueSource.VIEW_TITLE
+        as_it_is = _sheet_view(_all().get(id=sheet_revision.id))
+        if not text.strip() or (sheet_revision.title and not by_view):
+            return as_it_is
+        if not sheet_revision.title and sheet_revision.decision:
+            return as_it_is
+        old = {"title": sheet_revision.title, "storeys_as_stated": ""}
+        new = {"title": text, "storeys_as_stated": sheet_revision.storeys_as_stated}
         sources["title"] = str(title.source)
-        mirrored = {"title": text}
-        if storeys_as_stated is not None and not sheet_revision.storeys_as_stated:
-            sheet_revision.storeys_as_stated = _text.read(storeys_as_stated.value)
-            sources["storeys_as_stated"] = str(storeys_as_stated.source)
-            mirrored["storeys_as_stated"] = sheet_revision.storeys_as_stated
-        sheet_revision.sources = _text.read_json(sources)
+        stated_by_view = sources.get("storeys_as_stated") == ValueSource.VIEW_TITLE
+        if stated_by_view or not sheet_revision.storeys_as_stated:
+            if stated_by_view:
+                old["storeys_as_stated"] = sheet_revision.storeys_as_stated
+            if storeys_as_stated is not None:
+                new["storeys_as_stated"] = _text.read(storeys_as_stated.value)
+                sources["storeys_as_stated"] = str(storeys_as_stated.source)
+            else:
+                new["storeys_as_stated"] = ""
+                sources.pop("storeys_as_stated", None)
+        sources = _text.read_json(sources)
+        if new == {k: getattr(sheet_revision, k) for k in new} and sources == sheet_revision.sources:
+            return as_it_is
+        if sheet_revision.decision:
+            raise auth.Refused(refusal.DECIDED(file=file_name), status=409)
+        for name, value in new.items():
+            setattr(sheet_revision, name, value)
+        sheet_revision.sources = sources
         sheet_revision.save(update_fields=["title", "storeys_as_stated", "sources"])
         sheet = Sheet.objects.get(id=sheet_revision.sheet_id)
-        empty = {name: value for name, value in mirrored.items() if not getattr(sheet, name)}
-        if sheet.number and empty:
-            Sheet.objects.filter(id=sheet.id).update(**empty)
+        mirrored = {
+            name: value
+            for name, value in new.items()
+            if getattr(sheet, name) in {"", old[name]} and getattr(sheet, name) != value
+        }
+        if sheet.number and mirrored:
+            Sheet.objects.filter(id=sheet.id).update(**mirrored)
     return _sheet_view(_all().get(id=sheet_revision.id))
 
 
