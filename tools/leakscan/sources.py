@@ -158,9 +158,13 @@ def unclassified_work_folders(work: Path) -> list[str]:
     """The sorted names of the folders directly under the notes folder that no rule covers."""
     if not work.is_dir():
         return []
+    try:
+        entries = list(work.iterdir())
+    except OSError:
+        raise CannotScan("source-unreadable") from None
     return sorted(
         entry.name
-        for entry in work.iterdir()
+        for entry in entries
         if entry.is_dir()
         and not entry.is_symlink()
         and entry.name not in SKIPPED_FOLDERS
@@ -178,11 +182,9 @@ def _repository_copy(folder: Path) -> bool:
     )
 
 
-def _test_output(path: Path, text: str) -> bool:
+def _test_output_name(path: Path) -> bool:
     stem = path.stem.lower()
-    return any(fnmatchcase(stem, glob) for glob in _TEST_OUTPUT_STEMS) or bool(
-        _TEST_OUTPUT_LINE.search(text)
-    )
+    return any(fnmatchcase(stem, glob) for glob in _TEST_OUTPUT_STEMS)
 
 
 def _files_in(folder: Path, suffixes: set[str]) -> int:
@@ -289,8 +291,11 @@ def drawing_like(value: str) -> bool:
 
 def _note_strings(path: Path, tally: Tally) -> Iterator[str]:
     """A note's drawing-like strings; test output (by its name or its pytest lines) gives none."""
+    if _test_output_name(path):
+        tally.skipped += 1
+        return
     text = _file_text(path)
-    if _test_output(path, text):
+    if _TEST_OUTPUT_LINE.search(text):
         tally.skipped += 1
         return
     yield from (value for value in _text_strings(path, text) if drawing_like(value.strip()))

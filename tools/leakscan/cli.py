@@ -169,6 +169,7 @@ def _build(options: argparse.Namespace) -> int:
         if core.keeps(value) and core.digest(value) not in allowed:
             kept_by.setdefault(name, set()).add(value)
     kept = set().union(*kept_by.values())
+    unruled = [] if options.source else sources.unclassified_work_folders(sources.notes_folder())
     previous = core.corpus_strings()
     floor = max(previous // 2, 0 if os.environ.get("VEXTRUS_LEAKSCAN_HOME") else core.CORPUS_FLOOR)
     if len(kept) < floor and not options.force:
@@ -187,7 +188,6 @@ def _build(options: argparse.Namespace) -> int:
                 f"source {name}: {tally.read} strings read, {len(kept_by.get(name, ()))} kept, "
                 f"{tally.skipped} files skipped"
             )
-        unruled = sources.unclassified_work_folders(sources.notes_folder())
         print(f"leakscan: work folders without a rule: {len(unruled)}")
     print(f"corpus: {count} strings, sha256 {sha256[:12]}")
     return 0
