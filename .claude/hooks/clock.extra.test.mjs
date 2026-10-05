@@ -57,3 +57,13 @@ test("a phase past its budget says OVER too", () => {
   );
   assert.equal(clock(dir), "now 2026-10-04 22:42Z · session 1:34/11:00 · phase writers 1:32/0:30 OVER");
 });
+
+test("a session closed by `stamp end` (an ended_utc time) reads as no budget set", () => {
+  const dir = repo("main");
+  mkdirSync(join(dir, ".private/work/factory"), { recursive: true });
+  writeFileSync(
+    join(dir, ".private/work/factory/session.json"),
+    JSON.stringify({ schema: 1, started_utc: "2026-10-04T21:08:00Z", budget_minutes: 660, phases: [], ended_utc: "2026-10-04T22:40:00Z" }),
+  );
+  assert.equal(clock(dir), "now 2026-10-04 22:42Z · no budget set");
+});
