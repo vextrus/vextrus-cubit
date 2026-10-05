@@ -79,7 +79,8 @@ def test_cloud_cap_from_the_ramp_is_never_negative_nor_above_16() -> None:
     assert governor.cloud_cap(governor.Usage(79, 10), 5.0, 5.0) == 0
     assert governor.cloud_cap(governor.Usage(0, 0), 0.01, 1.0) == 16
     assert governor.cloud_cap(governor.Usage(49, 69), None, None) == 8
-    assert governor.cloud_cap(governor.Usage(50, 10), None, None) == 4
+    assert governor.cloud_cap(governor.Usage(50, 10), None, None) == 8
+    assert governor.cloud_cap(governor.Usage(99, 99), None, None) == 8
 
 
 def test_df_runs_df_k_output_avail_on_root(no_seams: Path) -> None:

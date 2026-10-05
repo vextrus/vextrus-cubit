@@ -16,10 +16,12 @@ that names no pid counts as live.
 
 Usage (`cloud-session`, `local-agent`, `review`): only `Current session: N% used` and `Current week (all
 models): N% used` are read (any other line, the per-model week lines among them, is ignored). A new
-launch is refused at session >= 80 or week >= 85; `review` is never held but prints `DEGRADE
-pr-reviewer-only` at session or week >= 90. Cloud sessions are capped: 8 while session < 50 and week
-< 70, else 4; with `--rate` (measured % per builder-hour) and `--hours-to-reset`, `min(16, floor((80 -
-session) / (rate x hours)))`. `--running N` (sessions running now) is refused at or above the cap.
+launch is refused only at a used-up limit, session or week >= 100; `review` is never held but prints
+`DEGRADE pr-reviewer-only` at session or week >= 100. The owner's ruling (5 Oct 2026): "don't make those
+threshold of week 85% or session 80%, make them 100% both and I'll take actions whatever needed for
+usage tokens expansion". Cloud sessions are capped at 8 whatever the usage; with `--rate` (measured %
+per builder-hour) and `--hours-to-reset`, `min(16, floor((100 - session) / (rate x hours)))`.
+`--running N` (sessions running now) is refused at or above the cap.
 
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
 status.schema.json reports them.
@@ -59,10 +61,10 @@ SWAP_WARN_GB = 1.0
 DISK_REFUSE_GB = 30.0
 DISK_WARN_GB = 40.0
 MAX_LOCAL_AGENTS = 3
-SESSION_HOLD = 80.0
-WEEK_HOLD = 85.0
-DEGRADE_AT = 90.0
-CAP_HIGH, CAP_LOW, CAP_MAX = 8, 4, 16
+SESSION_HOLD = 100.0
+WEEK_HOLD = 100.0
+DEGRADE_AT = 100.0
+CAP_HIGH, CAP_MAX = 8, 16
 REVIEW_DEFAULT_AGENTS = 8
 
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
@@ -278,7 +280,7 @@ def _number(value: float | None) -> float | int | None:
 def cloud_cap(usage: Usage, rate: float | None, hours: float | None) -> int:
     if rate is not None and hours is not None and rate > 0 and hours > 0:
         return max(0, min(CAP_MAX, math.floor((SESSION_HOLD - usage.session) / (rate * hours))))
-    return CAP_HIGH if usage.session < 50 and usage.week < 70 else CAP_LOW
+    return CAP_HIGH
 
 
 def check(
