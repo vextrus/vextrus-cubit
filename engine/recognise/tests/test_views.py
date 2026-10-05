@@ -95,17 +95,18 @@ def test_a_model_space_views_box_is_on_paper_in_mm_from_the_frames_corner() -> N
     assert near(view.box, (40, 288, 340, 560))
 
 
-def test_a_frame_drawn_as_a_rectangle_takes_the_paper_that_makes_its_scale_round() -> None:
+def test_a_frame_drawn_as_a_rectangle_is_a_standard_sheet_else_on_a1s_long_side() -> None:
     """No insert to read the scale from: an A1 rectangle 100 times its size is at 1:100, read (a
-    standard sheet at a standard scale); a box that is no standard sheet takes the standard side at the
-    roundest scale, assumed."""
+    standard sheet at a standard scale); a box that is no standard sheet has its long side taken as
+    A1's, assumed (#160's review: a roundest-scale guess of A3 or A4 laid a sheet plotted on A1 at a
+    quarter of its page)."""
     artefact = Sheets().artefact()
     for box in (Box(0, 0, 84_100, 59_400), Box(0, 0, 42_000, 29_700)):
         scale, read = views._paper_scale(artefact, None, box)
         assert scale == pytest.approx(100)
         assert read
     scale, read = views._paper_scale(artefact, None, Box(0, 0, 1000, 700))
-    assert 1000 / scale == pytest.approx(420)
+    assert 1000 / scale == pytest.approx(841)
     assert not read
 
 

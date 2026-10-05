@@ -21,16 +21,17 @@ texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left
 "24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20): a
 layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
 model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being its frame
-insert's when the frame is then a standard sheet (`FRAME_MATCH`; the frame block drawn at paper size,
-in mm or in the drawing's units, the frame as it stands in model space's axes: a turned A3 is 297 wide
-and 420 tall), else, for a frame drawn as a rectangle or a scale giving no standard sheet (a frame
-block drawn at a fraction of its plotted size), a standard sheet when the box is one at a standard scale
-in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the scale that makes the
-frame a standard paper size (`PAPER_SIDES`) at the roundest scale (`ROUND_SCALES`). Where the sheet's
-Plot page was matched (the harness passes its paper, `find(..., plot)`), its paper is that page's at the
-scale that fits the frame's box to it, the box centred (`_plot_paper`), before any of these. This
-is the one rule for a model-space sheet's paper: the render buffers lay theirs by `_paper_scale` too, so
-a view's box and the drawing under it cannot drift apart (#160).
+insert's when the frame then lies inside a standard sheet (`BINDING_MM` within its edge, a border's
+binding margin, `FRAME_MATCH` past it; the frame block drawn at paper size, in mm or in the drawing's
+units, the frame as it stands in model space's axes: a turned A3 is 297 wide and 420 tall; the paper is
+the frame's box at that scale), else, for a frame drawn as a rectangle or a scale giving no standard
+sheet (a frame block drawn at a fraction of its plotted size), a standard sheet when the box is one at a
+standard scale in the drawing's units (both sides, the render buffers' `_standard_sheet`), else the box's
+long side taken as A1's (`FALLBACK_LONG_MM`: never a smaller paper than the buffers laid before).
+Where the sheet's Plot page was matched (the harness passes its paper, `find(..., plot)`), its paper is
+that page's at the scale that fits the frame's box to it, the box centred (`_plot_paper`), before any
+of these. This is the one rule for a model-space sheet's paper: the render buffers lay theirs by
+`_paper_scale` too, so a view's box and the drawing under it cannot drift apart (#160).
 
 **How views are found.** The sheet's lines and texts are laid on a grid of `CELL_MM` cells over its
 paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split into connected pieces.
@@ -184,6 +185,7 @@ from engine.render import _shapes
 from engine.render.buffers import (
     MAX_PAPER_MM,
     SCALES,
+    SHEETS_MM,
     UNIT_MM,
     _standard_sheet,
     is_main_viewport,
@@ -312,14 +314,19 @@ MAX_VIEWS = 200
 MAX_RULES = 200_000
 """The most straight lines along one axis weighed for a sheet's title block."""
 
-PAPER_SIDES = (1189.0, 841.0, 594.0, 420.0, 297.0, 210.0)
-"""The long sides of the standard papers (ISO A0 to A5), in mm."""
-ROUND_SCALES = (1.0, 1.25, 2.0, 2.5, 5.0, 7.5)
-"""The scales a frame is drawn at, times a power of ten."""
+FALLBACK_LONG_MM = 841.0
+"""A model-space sheet whose drawing states no paper has its box's long side taken as A1's, as the render
+buffers took it before #160: never a smaller paper than that (a guess of A3 or A4 laid a sheet plotted on
+A1 at a quarter of its page, #160's review)."""
 FRAME_MATCH = 0.05
-"""A frame insert's scale gives the paper when the frame is then a standard sheet within this share of
-each side (a border drawn inside the paper's edge); else the frame block was drawn at a fraction of its
-plotted size (#160) and the paper is the box's, as for a frame drawn as a rectangle."""
+"""How much larger than a standard sheet, on either side, a frame's paper may be (a trim line drawn just
+outside the sheet's edge)."""
+BINDING_MM = 31.0
+"""How much smaller than a standard sheet, on either side, a frame's paper may be and still be that
+sheet's (a border drawn inside the paper's edge: ISO 5457's 20 mm binding and 10 mm opposite, as 30 mm a
+side, and a millimetre for the drawing's rounding). A frame insert whose scale gives a paper inside no
+standard sheet by this margin was drawn at a fraction of its plotted size (#160: the real sets' blocks
+of 130 x 92 mm), and the paper is the box's, as for a frame drawn as a rectangle."""
 
 STEP_DISCIPLINES = frozenset({"structural", "architectural"})
 """The Disciplines M0 measures: every other one's views go to its Part (MEP, M3 onwards)."""
@@ -805,8 +812,8 @@ def _plot_paper(
     orientation differs from the box's plotted the sheet turned (the Plot's registration turns it
     back), so its sides are taken in the box's orientation. A page larger than any sheet
     (`MAX_PAPER_MM`) gives none, and the sheet keeps the paper its drawing gives. `read` is the scale
-    the drawing gave (`_paper_scale`, read): where it lays the box on the page within `FRAME_MATCH`
-    (a frame's border drawn inside the sheet's edge, as set L's A3 frames: 409 mm on a 420 mm page),
+    the drawing gave (`_paper_scale`, read): where it lays the box on the page within `BINDING_MM`
+    of its edge (a frame's border drawn inside the sheet's edge: 409 mm or 390 mm on a 420 mm page),
     it is kept, since fitting the border to the page's edge would enlarge the drawing by its margin."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
     sides = (width, height, *plot)
@@ -819,7 +826,13 @@ def _plot_paper(
     scale = max(width / paper_w, height / paper_h)
     if not (math.isfinite(scale) and scale > 0):
         return None
-    if read is not None and math.isfinite(read) and scale <= read <= scale / (1 - FRAME_MATCH):
+    if (
+        read is not None
+        and math.isfinite(read)
+        and scale <= read
+        and width / read >= paper_w - BINDING_MM
+        and height / read >= paper_h - BINDING_MM
+    ):
         scale = read  # the drawing's scale lays the box on the page, inside its edge
     origin = (box.x0 - (paper_w * scale - width) / 2, box.y0 - (paper_h * scale - height) / 2)
     if not all(map(math.isfinite, origin)):
@@ -830,7 +843,8 @@ def _plot_paper(
 def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> tuple[float, bool]:
     """Model units per paper mm for a model-space sheet (the module's docstring), and whether the drawing
     gave it (the frame insert's scale, or a box that is a standard sheet at a standard scale) rather than
-    the roundest guess. The render buffers' paper is laid by this too (`buffers._model_paper`)."""
+    the fallback, A1's long side (`FALLBACK_LONG_MM`). The render buffers' paper is laid by this too
+    (`buffers._model_paper`)."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
     long, short = max(width, height), min(width, height)
     if frame is not None:
@@ -849,25 +863,27 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> t
                     per_mm > 0
                     and math.isfinite(per_mm)
                     and short > 0
-                    and _standard_sheet(long / per_mm, short / per_mm, (1.0,), (1,), FRAME_MATCH)
+                    and _inside_a_sheet(long / per_mm, short / per_mm)
                 ):
                     return per_mm, True
     unit = UNIT_MM.get(artefact.summary.insunits, 1.0)
     matched = _standard_sheet(long, short, (unit,), SCALES) if short > 0 else None
     if matched is not None:
         return 1 / matched, True
-    best, best_score = 1.0, math.inf
-    for side in PAPER_SIDES:
-        scale = long / side
-        if not scale > 0 or not math.isfinite(scale):
-            continue
-        power = 10 ** math.floor(math.log10(scale))
-        if not power > 0:
-            continue  # a scale past what a float's power of ten holds (a box of 1e-320 units)
-        score = min(abs(math.log(scale / (r * p))) for r in ROUND_SCALES for p in (power, power * 10))
-        if score < best_score:
-            best, best_score = scale, score
-    return best, False
+    scale = long / FALLBACK_LONG_MM
+    if not (scale > 0 and math.isfinite(scale)):
+        return 1.0, False  # a box with no size a float holds: its units taken as mm
+    return scale, False
+
+
+def _inside_a_sheet(long_mm: float, short_mm: float) -> bool:
+    """Whether a frame's paper (its long and short sides, mm) lies inside a standard sheet, within
+    `BINDING_MM` of its edge on each side (and at most `FRAME_MATCH` past it)."""
+    return any(
+        sheet_long - BINDING_MM <= long_mm <= sheet_long * (1 + FRAME_MATCH)
+        and sheet_short - BINDING_MM <= short_mm <= sheet_short * (1 + FRAME_MATCH)
+        for sheet_long, sheet_short in SHEETS_MM
+    )
 
 
 def _move(segments: NDArray[np.float64], transform: Transform) -> NDArray[np.float64]:

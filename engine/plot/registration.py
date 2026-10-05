@@ -30,14 +30,16 @@ draws alike) keeps its reason (`names_several_sheets`, `no_text`).
 **Where** (`PlotTransform`: sheet to page, a scale, a turn in 90° steps, then an offset in page units,
 points; the sheet in its paper millimetres, as the buffers draw it). From the sizes first: the sheet is
 turned when the page's orientation (landscape or portrait) differs from its paper's; it is plotted at
-1:1 (72/25.4 points a millimetre) when its paper fits the page so, else fitted to the page; and it is
-centred on the page. Then from the text both carry: each of the sheet's value texts (its anchors after
-the frame: number, title, revision and date, where the buffers draw them) is paired with each page
-item that reads one of those values; each pair says where the sheet's origin lands, and a place that
-at least `MIN_PAIRS` pairs agree on, within `AGREE_MM` on paper, is taken, at each of the four turns
-(the one most pairs agree on wins). **The residual** is how far those pairs lie from the place taken,
-root mean square, in millimetres on paper; none when fewer than two pairs agree, since then nothing
-measured the fit (the sizes alone place the sheet).
+1:1 (72/25.4 points a millimetre) when its paper fits the page so, else (a paper larger than the page,
+or a model-space sheet's assumed paper, `paper_source` 2, whose size says nothing of the page's) fitted
+to the page, which the ink's alignment may rescale (`ink.align`); and it is centred on the page. Then
+from the text both carry: each of the sheet's value texts (its anchors after the frame: number, title,
+revision and date, where the buffers draw them) is paired with each page item that reads one of those
+values; each pair says where the sheet's origin lands, and a place that at least `MIN_PAIRS` pairs agree
+on, within `AGREE_MM` on paper, is taken, at each of the four turns (the one most pairs agree on wins).
+**The residual** is how far those pairs lie from the place taken, root mean square, in millimetres on
+paper; none when fewer than two pairs agree, since then nothing measured the fit (the sizes alone place
+the sheet).
 
 Nothing here reads a file: pages, sheets and buffers are values already read in their sandboxes.
 """
@@ -57,7 +59,7 @@ from engine.read.anchor import DwgAnchor
 from engine.read.pdf.types import Page, TextItem
 from engine.recognise.conflicts import normal
 from engine.recognise.types import PlotMatch, PlotTransform, SheetCandidate
-from engine.render.buffers import Paper, SheetBuffers
+from engine.render.buffers import Paper, PaperSource, SheetBuffers
 
 PT_PER_MM = 72 / 25.4
 """A PDF point is 1/72 inch: a sheet plotted at 1:1 is this many points a paper millimetre."""
@@ -395,13 +397,16 @@ def place(
     sizes = (page.width, page.height, paper.width_mm, paper.height_mm)
     if not all(math.isfinite(v) and v >= MIN_SIDE for v in sizes):
         return None
+    # A model-space sheet's assumed paper (A1's long side, `paper_source` 2) says nothing of its page's
+    # size; a layout's assumed paper is its own units taken as mm, at the size it is drawn.
+    sized = paper.source != PaperSource.ASSUMED or sheet.location.layout is not None
     anchors = [a for a in sheet.anchors[1:] if isinstance(a, DwgAnchor)][:MAX_DRAWN]
     drawn = [box for a in anchors if (box := drawn_at(buffers, a)) is not None]
     printed = [
         i.anchor.box for i in page.items if _on_page(i.anchor.box, page) and _reads_a_value(i, sheet)
     ][:MAX_PRINTED]
     with np.errstate(all="ignore"):
-        fits = [_fit(page, paper, turn, drawn, printed) for turn in TURNS]
+        fits = [_fit(page, paper, turn, drawn, printed, sized) for turn in TURNS]
     upright = (paper.width_mm >= paper.height_mm) == (page.width >= page.height)
     default = fits[0] if upright else fits[1]
     best = max(fits, key=lambda f: (f.pairs >= MIN_PAIRS, f.pairs, f is default))
@@ -422,9 +427,11 @@ def _on_page(box: tuple[float, float, float, float], page: Page) -> bool:
     )  # fmt: skip
 
 
-def _scale(page: Page, paper: Paper, turn: int) -> float:
+def _scale(page: Page, paper: Paper, turn: int, sized: bool = True) -> float:
+    """Points a paper mm: 1:1 when the paper fits the page so and `sized` (its size is the drawing's),
+    else the paper fitted to the page."""
     w, h = (paper.width_mm, paper.height_mm) if turn in (0, 180) else (paper.height_mm, paper.width_mm)
-    if w * PT_PER_MM <= page.width * FITS and h * PT_PER_MM <= page.height * FITS:
+    if sized and w * PT_PER_MM <= page.width * FITS and h * PT_PER_MM <= page.height * FITS:
         return PT_PER_MM
     return min(page.width / w, page.height / h)
 
@@ -448,8 +455,10 @@ def _marks(box: _Box) -> tuple[bool, list[tuple[float, float]]]:
     return False, [(cx, y0), (cx, cy), (cx, y1)]
 
 
-def _fit(page: Page, paper: Paper, turn: int, drawn: list[_Box], printed: list[_Box]) -> _Fit:
-    scale = _scale(page, paper, turn)
+def _fit(
+    page: Page, paper: Paper, turn: int, drawn: list[_Box], printed: list[_Box], sized: bool = True
+) -> _Fit:
+    scale = _scale(page, paper, turn, sized)
     cx, cy = _turn(turn, paper.width_mm / 2, paper.height_mm / 2)
     centred = (page.width / 2 - scale * cx, page.height / 2 - scale * cy)
     offsets: list[tuple[float, float]] = []

@@ -64,12 +64,10 @@ def test_a_standard_sheet_at_a_standard_scale_gives_its_millimetres() -> None:
     assert float(built.lines["x1"][0]) == pytest.approx(100.0, abs=1e-3)
 
 
-def test_an_unrecognised_box_takes_the_standard_side_at_the_roundest_scale_and_says_so() -> None:
-    """#160: views' one rule (it was A1's 841 mm, which views did not share): 1000 units wide is A3's
-    420 mm at 1:2.38, the roundest of the standard sides' scales."""
+def test_an_unrecognised_box_is_assumed_a1_wide_and_says_so() -> None:
     built = build(Drawing().artefact(), model_sheet(0, 0, 1000, 700))
     assert built.paper.source == PaperSource.ASSUMED
-    assert built.paper.width_mm == pytest.approx(420.0)
+    assert built.paper.width_mm == pytest.approx(841.0)
 
 
 def test_what_crosses_the_box_is_cut_to_it_and_what_is_outside_is_left_out() -> None:
