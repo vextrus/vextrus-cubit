@@ -16,7 +16,11 @@ seams it names, pinned here:
   and the same group (or, for the unsure count, of one near miss with `why: unsure`). The judged
   `false_continuation_questions` counts Questions inside one `same` group (M0's one-title rule), per
   the group's Discipline row; beside it `false_continuation_questions_qs_view` (any group) and
-  `continuation_questions_unsure`. What cannot be measured stays as the walk wrote it (null: FAIL).
+  `continuation_questions_unsure`. What cannot be measured stays as the walk wrote it (null: FAIL);
+- amendment 1: truth schema 2 adds, per set, `file_sheets`: each file holding a group sheet mapped to
+  the sorted list of every true sheet number in it. A counted-code Question with a Proposal in such a
+  file whose number is not listed (or is null) leaves its set unmeasured; a listed number in no group
+  is a real outside sheet. A schema 2 truth missing a group file is malformed. Schema 1 reads as before.
 
 Everything goes through `verdict.main` and `run.judge_checks`; only the copy test calls
 `continuations.attach` itself. Synthetic data only (invented file names, sheet numbers `S-1`, f5's
@@ -36,6 +40,7 @@ from _f5_contract import (  # type: ignore[import-not-found, unused-ignore]
     PLANTED_DISCIPLINE,
     PLANTED_FILE,
     PLANTED_NOTE,
+    PLANTED_PATH,
     PLANTED_QUESTION,
     PLANTED_TITLE,
     WALKED_ITEMS,
@@ -117,20 +122,32 @@ def _truth(
     slug: str = SET,
     schema: int = 1,
     method: str = "synthetic method",
+    file_sheets: dict[str, list[str]] | None = None,
+    extra_numbers: dict[str, list[str]] | None = None,
+    without_file_sheets: bool = False,
 ) -> dict[str, Any]:
+    """The truth file. At schema 2 each set carries `file_sheets`: every file holding a group sheet,
+    mapped to the sorted list of every true sheet number in it (the truth's own sheets there, plus
+    `extra_numbers`), unless `file_sheets` is given or `without_file_sheets` drops the key."""
     groups = _standard_groups() if groups is None else groups
     near_misses = [] if near_misses is None else near_misses
-    return {
-        "schema": schema,
-        "method": method,
-        "sets": {
-            slug: {
-                "groups": groups,
-                "near_misses": near_misses,
-                "counts": {"groups": len(groups), "near_misses": len(near_misses)},
-            }
-        },
+    entry: dict[str, Any] = {
+        "groups": groups,
+        "near_misses": near_misses,
+        "counts": {"groups": len(groups), "near_misses": len(near_misses)},
     }
+    if schema >= 2 and not without_file_sheets:
+        if file_sheets is None:
+            files = {sheet["file"] for group in groups for sheet in group["sheets"]}
+            numbers: dict[str, set[str]] = {file: set() for file in files}
+            for sheet in (s for entry_ in [*groups, *near_misses] for s in entry_["sheets"]):
+                if sheet["file"] in numbers:
+                    numbers[sheet["file"]].add(sheet["sheet_number"])
+            for file, extra in (extra_numbers or {}).items():
+                numbers.setdefault(file, set()).update(extra)
+            file_sheets = {file: sorted(found) for file, found in sorted(numbers.items())}
+        entry["file_sheets"] = file_sheets
+    return {"schema": schema, "method": method, "sets": {slug: entry}}
 
 
 def _question(code: str, *proposals: dict[str, Any] | None) -> dict[str, Any]:
@@ -505,8 +522,8 @@ def _stale(case: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
             truth = None
         case "the-set-not-in-the-truth":
             truth = _truth(slug="set-b")
-        case "truth-schema-2":
-            truth = _truth(schema=2)
+        case "truth-schema-3":
+            truth = _truth(schema=3)
         case "a-null-proposal":
             conflicts = _conflicts([_question(SAME_TITLE, _key("S-7", "B.dwg"), None)])
         case "a-number-that-is-not-text":
@@ -527,7 +544,7 @@ STALE = [
     "conflicts-schema-2",
     "no-truth-file",
     "the-set-not-in-the-truth",
-    "truth-schema-2",
+    "truth-schema-3",
     "a-null-proposal",
     "a-number-that-is-not-text",
     "a-proposal-without-its-file",
@@ -579,8 +596,9 @@ def test_a_walk_that_claims_zero_does_not_win_over_the_count(tmp_path: Path) -> 
 # T8 -----------------------------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("schema", [1, 2], ids=["schema-1", "schema-2-file-sheets"])
 def test_only_counts_leave_the_truth_and_the_keys(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], schema: int
 ) -> None:
     from scripts.walk import run
 
@@ -601,6 +619,10 @@ def test_only_counts_leave_the_truth_and_the_keys(
             [_group("structural", "same", group, title=PLANTED_TITLE)],
             [_near_miss("structural", "unsure", near)],
             method=PLANTED_QUESTION,
+            schema=schema,
+            # At schema 2, file_sheets maps the planted file name to every true number in it, a
+            # planted number held only there among them.
+            extra_numbers={PLANTED_FILE: [PLANTED_PATH]},
         ),
     )
 
@@ -624,6 +646,158 @@ def test_only_counts_leave_the_truth_and_the_keys(
     }
     for name, text in outputs.items():
         assert has_planted(text) == [], f"{name} carries a planted marker"
+
+
+# Amendment 1: schema 2's file_sheets --------------------------------------------------------------
+#
+# A group with no Plot (no plot pages) cannot tell a misread number (S-O3 for S-3) from a real sheet
+# outside the group by plot page. Schema 2's `file_sheets` lists every true sheet number in each file
+# that holds a group sheet: a Proposal in such a file whose number is not listed (or is null) may be a
+# misread group sheet, so its set cannot be measured; a listed number outside every group is a real
+# outside sheet, and the Question spanning it counts none.
+
+PAGE_LESS = [_sheet(f"S-{n}", "G.dwg") for n in (1, 2, 3)]
+OUTSIDE_NUMBER = "S-4"  # a true sheet of G.dwg in no group
+MISREAD_NUMBER = "S-O3"  # in no list: S-3 misread
+
+
+def _page_less_truth(**given: Any) -> dict[str, Any]:
+    """Schema 2: the page-less `same` group in G.dwg and the standard group in C.dwg."""
+    return _truth(
+        [_group("structural", "same", PAGE_LESS), _group("structural", "same", GROUP_TWO)],
+        schema=2,
+        **{"extra_numbers": {"G.dwg": [OUTSIDE_NUMBER]}, **given},
+    )
+
+
+def _spanning(code: str, number: str | None) -> dict[str, Any]:
+    """Two sheets of the page-less group and a third Proposal in G.dwg with `number`."""
+    third: dict[str, Any] = {"file": "G.dwg", "number": number, "plot_page": None}
+    return _question(code, _key("S-1", "G.dwg"), _key("S-2", "G.dwg"), third)
+
+
+def _assert_measured_zero(verdict: dict[str, Any], code: int) -> None:
+    for discipline in ("structural", "architectural"):
+        assert _count(_row(verdict, discipline), JUDGED) == 0, f"{discipline} was not measured as 0"
+    assert _status(verdict) == "PASS"
+    assert code == 0
+
+
+def _assert_unmeasured(verdict: dict[str, Any], code: int, why: str) -> None:
+    for discipline in ("structural", "architectural"):
+        row = _row(verdict, discipline)
+        assert row[JUDGED] is None, f"{why}: {discipline} was counted"
+        assert row.get(QS_VIEW) is None, why
+        assert row.get(UNSURE) is None, why
+    assert _status(verdict) == "FAIL"
+    assert code == 1
+
+
+@pytest.mark.parametrize("code", [SAME_TITLE, SAME_STOREY], ids=["same-title", "same-storey"])
+@pytest.mark.parametrize(
+    "number", [MISREAD_NUMBER, None], ids=["a-number-not-in-file-sheets", "a-null-number"]
+)
+def test_schema_2_a_page_less_group_with_a_number_its_file_does_not_hold_is_unmeasured(
+    tmp_path: Path, code: str, number: str | None
+) -> None:
+    outside_root, doubt_root = tmp_path / "outside", tmp_path / "doubt"
+    _lay_out(
+        outside_root,
+        conflicts=_conflicts([_spanning(code, OUTSIDE_NUMBER)]),
+        truth=_page_less_truth(),
+    )
+    _lay_out(doubt_root, conflicts=_conflicts([_spanning(code, number)]), truth=_page_less_truth())
+
+    outside_code, outside = _judge(outside_root)
+    doubt_code, doubt = _judge(doubt_root)
+
+    _assert_measured_zero(outside, outside_code)
+    _assert_unmeasured(doubt, doubt_code, f"a third Proposal numbered {number!r}")
+
+
+@pytest.mark.parametrize("code", [SAME_TITLE, SAME_STOREY], ids=["same-title", "same-storey"])
+def test_schema_2_a_real_sheet_outside_the_group_counts_none_and_the_set_stays_measured(
+    tmp_path: Path, code: str
+) -> None:
+    _lay_out(
+        tmp_path,
+        conflicts=_conflicts([_spanning(code, OUTSIDE_NUMBER)]),
+        truth=_page_less_truth(),
+    )
+
+    exit_code, verdict = _judge(tmp_path)
+
+    _assert_measured_zero(verdict, exit_code)
+    assert _count(_row(verdict, "structural"), QS_VIEW) == 0
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"file_sheets": {"C.dwg": ["S-11", "S-12"]}},
+        {"without_file_sheets": True},
+    ],
+    ids=["a-group-file-missing-from-file-sheets", "no-file-sheets"],
+)
+def test_schema_2_file_sheets_without_every_group_file_is_malformed_and_unmeasured(
+    tmp_path: Path, broken: dict[str, Any]
+) -> None:
+    whole_root, broken_root = tmp_path / "whole", tmp_path / "broken"
+    question = _spanning(SAME_TITLE, OUTSIDE_NUMBER)
+    _lay_out(whole_root, conflicts=_conflicts([question]), truth=_page_less_truth())
+    _lay_out(broken_root, conflicts=_conflicts([question]), truth=_page_less_truth(**broken))
+
+    whole_code, whole = _judge(whole_root)
+    broken_code, broken_verdict = _judge(broken_root)
+
+    _assert_measured_zero(whole, whole_code)
+    _assert_unmeasured(broken_verdict, broken_code, "a malformed file_sheets")
+
+
+SCHEMA_2_LAYOUTS: dict[str, tuple[list[dict[str, Any]], dict[str, Any], dict[str, int]]] = {
+    "one-false-continuation": (
+        [_question(SAME_TITLE, _key("S-1", plot_page=1), _key("S-2", plot_page=2))],
+        {},
+        {JUDGED: 1, QS_VIEW: 1, UNSURE: 0},
+    ),
+    "sheets-in-no-group": (
+        [_question(SAME_TITLE, _key("S-7", "B.dwg"), _key("S-8", "B.dwg"))],
+        {},
+        {JUDGED: 0, QS_VIEW: 0, UNSURE: 0},
+    ),
+    "a-mark-range-group": (
+        [_question(SAME_TITLE, _key("S-1", plot_page=1), _key("S-2", plot_page=2))],
+        {"groups": [_group("structural", "mark_range", GROUP_ONE)]},
+        {JUDGED: 0, QS_VIEW: 1, UNSURE: 0},
+    ),
+    "an-unsure-near-miss": (
+        [_question(SAME_TITLE, _key("S-21", "D.dwg"), _key("S-22", "D.dwg"))],
+        {
+            "near_misses": [
+                _near_miss("structural", "unsure", [_sheet("S-21", "D.dwg"), _sheet("S-22", "D.dwg")])
+            ]
+        },
+        {JUDGED: 0, QS_VIEW: 0, UNSURE: 1},
+    ),
+}
+
+
+@pytest.mark.parametrize("layout", sorted(SCHEMA_2_LAYOUTS))
+def test_schema_2_counts_as_schema_1_where_no_number_is_in_doubt(tmp_path: Path, layout: str) -> None:
+    questions, truth_given, want = SCHEMA_2_LAYOUTS[layout]
+    _lay_out(
+        tmp_path,
+        conflicts=_conflicts(copy.deepcopy(questions)),
+        truth=_truth(schema=2, **copy.deepcopy(truth_given)),
+    )
+
+    code, verdict = _judge(tmp_path)
+
+    row = _row(verdict, "structural")
+    for key, value in want.items():
+        assert _count(row, key) == value, f"{layout}: {key}"
+    assert _status(verdict) == ("FAIL" if want[JUDGED] else "PASS")
+    assert code == (1 if want[JUDGED] else 0)
 
 
 # T9 -----------------------------------------------------------------------------------------------
