@@ -149,3 +149,28 @@ def test_every_new_line_is_closed_words_and_counts(
     for line in new:
         assert set(re.findall(r"[^\W\d_]+", line.casefold())) <= allowed, line
     assert "secret" not in "\n".join(new).casefold()
+
+
+@pytest.mark.parametrize(
+    ("field", "key", "found"),
+    [
+        ("date", "04.09.2025", "11-" * 100_000),
+        ("title", "made-up title", "made-up title " * 10_000),
+        ("storeys", ["a", "b"], ["a", "b", *(["c"] * 100_000)]),
+        ("storeys", ["a"], ["a", "z" * 100_000]),
+    ],
+)
+def test_a_value_past_the_shaped_length_is_different_before_any_shape_is_sought(
+    field: str, key: object, found: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The refuter's finding (T-249, 60): a huge export date cost a joined sheet 150 times an
+    unjoined one's time. No shape is sought past SHAPED, so no regex, Counter or search runs."""
+
+    def never(*args: object) -> object:
+        raise AssertionError("a shape was sought")
+
+    monkeypatch.setattr(score, "_date_parts", never)
+    monkeypatch.setattr(score, "_beyond", never)
+    monkeypatch.setattr(score, "Counter", never)
+
+    assert score._shape(field, key, found) == "different"

@@ -3,6 +3,7 @@ folder others may write (no pickle is loaded from it), keeps a None reading as a
 entry it did not write whole; the CLI writes a document with no DWG, and with two workers. Invented
 bytes only; nothing reads a DWG."""
 
+import dataclasses
 import hashlib
 import json
 import os
@@ -130,3 +131,75 @@ def test_one_worker_keeps_the_sets_order(tmp_path: Path, monkeypatch: pytest.Mon
     )
 
     assert [f["path"] for f in json.loads(out.read_text())["files"]] == ["b.dwg", "sub/a.DWG"]
+
+
+# The refuter's findings (T-249, 60 and 30): a reading carries its file's name, and a file can
+# change while it is read.
+
+
+@dataclasses.dataclass(frozen=True)
+class Summary:
+    source_name: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Artefact:
+    summary: Summary
+
+
+def test_a_hit_under_another_name_gives_the_finders_that_files_own_name(tmp_path: Path) -> None:
+    names: list[str] = []
+
+    def find_sheets(artefact: Artefact) -> list[object]:
+        names.append(artefact.summary.source_name)
+        return []
+
+    cache = DecodeCache(tmp_path / "cache", HASH)
+    for name in ("qx-first-R1.dwg", "qx-second-R2.dwg"):
+        (tmp_path / name).write_bytes(b"the same made-up bytes")
+        snap.snapshot(
+            tmp_path / name,
+            cache,
+            read=lambda p: Artefact(Summary(snap.NEUTRAL)),
+            find_sheets=find_sheets,
+            find_views=lambda a, s: [],
+        )
+
+    assert names == ["qx-first-R1.dwg", "qx-second-R2.dwg"]
+    assert (cache.hits, cache.misses) == (1, 1)
+    for entry in (tmp_path / "cache").rglob("*"):
+        assert b"qx-first" not in (entry.read_bytes() if entry.is_file() else b"")
+
+
+def test_the_engine_is_read_under_the_neutral_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import engine.read
+
+    given: dict[str, Any] = {}
+
+    def read(path: Path, **kwargs: Any) -> str:
+        given.update(kwargs)
+        return "made-up"
+
+    monkeypatch.setattr(engine.read, "read", read)
+
+    assert snap.engine_read(tmp_path / "qx-named.dwg") == "made-up"
+    assert given == {"source_name": snap.NEUTRAL}
+
+
+def test_a_file_changed_while_it_is_read_is_not_kept(tmp_path: Path) -> None:
+    path = tmp_path / "qx-moving.dwg"
+    path.write_bytes(b"made-up bytes before")
+
+    def read(p: Path) -> bytes:
+        found = p.read_bytes()
+        p.write_bytes(b"made-up bytes after the edit")
+        return found
+
+    DecodeCache(tmp_path / "cache", HASH).get(path, read)
+    path.write_bytes(b"made-up bytes before")
+    again = DecodeCache(tmp_path / "cache", HASH)
+
+    assert again.get(path, lambda p: b"read again") == b"read again"
+    assert (again.hits, again.misses) == (0, 1)

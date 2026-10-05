@@ -6,7 +6,9 @@ hash, so a renamed file missed and an edited one hit stale).
 
 An entry is `<root>/<reader_hash>/<sha256 of the file's bytes>.pickle`: the same bytes under another
 path hit, changed bytes miss, and a changed reader (another `reader_hash`) misses while the old
-entries stay for the old hash. Names are hex only, so the cache holds no drawing file's name. An entry
+entries stay for the old hash. A file whose bytes change while it is read is not kept. Names are hex
+only, so no entry's name holds a drawing file's name (the reading itself must not either: the
+snapshot reads under a neutral name and puts the file's own back on every hit). An entry
 is the pickle behind its own sha256, written to a temporary file and renamed into place, so a
 truncated or half-written entry is a miss and is replaced, never a wrong value. Pickle is loaded only
 from a folder this user owns and nobody else may write.
@@ -59,7 +61,9 @@ class DecodeCache:
             return cast(T, found[0])
         self.misses += 1
         value = read(Path(path))
-        self._store(entry, value)
+        # A file changed while it was read is not kept: its reading may be of other bytes than the key's.
+        if entry.name == f"{file_sha256(Path(path))}.pickle":
+            self._store(entry, value)
         return value
 
     def _load(self, entry: Path) -> tuple[object] | None:

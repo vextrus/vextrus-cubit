@@ -201,6 +201,7 @@ SHAPES = {
     "revision": ("export blank", "different"),
     "date": ("export blank", "day and month swapped", "year differs", "different"),
 }
+SHAPED = 512  # the longest value whose shape is looked for; a longer one is "different"
 YEAR = re.compile(r"\A[0-9]{4}\Z")
 AGREEMENT = "--agreement"
 
@@ -885,6 +886,11 @@ def _shape(field: str, key: Any, found: Any) -> str:
         return f"{_discipline(key)} -> {_discipline(found)}"
     if found in ("", []):
         return "export blank"
+    # A value past SHAPED is "different" before any shape is looked for: the shape is worked out only
+    # for a joined sheet, so its cost must stay that of the comparison already made (24f's rule: a
+    # Held-out Set's joins are never told by the time or memory a call takes).
+    if _size(key) > SHAPED or _size(found) > SHAPED:
+        return "different"
     if field == "storeys":
         if Counter(key) == Counter(found):
             return "same storeys, other order"
@@ -902,6 +908,13 @@ def _shape(field: str, key: Any, found: Any) -> str:
     if field == "date":
         return _date_shape(key, found)
     return "different"
+
+
+def _size(value: Any) -> int:
+    """A normalised value's length: a text's characters, a list's items' characters and items."""
+    if isinstance(value, list):
+        return len(value) + sum(len(item) for item in value if isinstance(item, str))
+    return len(value) if isinstance(value, str) else 0
 
 
 def _beyond(some: list[str], other: list[str]) -> bool:

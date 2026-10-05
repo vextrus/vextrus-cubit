@@ -16,6 +16,7 @@ The screen gets counts and seconds only, and the names of the files skipped.
 """
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import os
@@ -31,6 +32,8 @@ from tools.proxy.cache import DecodeCache, file_sha256, reader_hash
 
 ROOT = Path(__file__).resolve().parents[2]
 DWG = ".dwg"
+NEUTRAL = "drawing.dwg"
+"""The source name a reading is made and kept under (see `_named`)."""
 FIELDS = ("number", "title", "discipline", "revision_mark", "issue_date", "storeys_as_stated")
 
 
@@ -43,7 +46,7 @@ def snapshot(
     find_views: Callable[[Any, Any], Sequence[Any]],
 ) -> dict[str, Any]:
     """One DWG's snapshot: its sha256, and its sheets and views as the finders give them."""
-    artefact = cache.get(Path(path), read)
+    artefact = _named(cache.get(Path(path), read), Path(path).name)
     sheets = []
     for sheet in find_sheets(artefact):
         views = find_views(artefact, sheet)
@@ -65,6 +68,19 @@ def snapshot(
     return {"sha256": file_sha256(Path(path)), "sheets": sheets}
 
 
+def _named(artefact: Any, name: str) -> Any:
+    """The reading with the file's own name as its source name: a reading is kept by its bytes, read
+    under NEUTRAL (so the cache holds no file name, and the same bytes under another name hit), while
+    the sheet finder reads a revision mark from the name, so each file's own goes back on."""
+    summary: Any = getattr(artefact, "summary", None)
+    if not dataclasses.is_dataclass(artefact) or not dataclasses.is_dataclass(summary):
+        return artefact
+    if not hasattr(summary, "source_name") or isinstance(summary, type):
+        return artefact
+    renamed = dataclasses.replace(summary, source_name=name)
+    return dataclasses.replace(artefact, summary=renamed)  # type: ignore[type-var]
+
+
 def _box(box: Any) -> list[float] | None:
     return None if box is None else list(box.to_json())
 
@@ -79,7 +95,7 @@ def _sourced(value: Any) -> dict[str, Any] | None:
 def engine_read(path: Path) -> Any:
     from engine.read import read
 
-    return read(path)
+    return read(path, source_name=NEUTRAL)
 
 
 def engine_sheets(artefact: Any, discipline: str | None) -> Sequence[Any]:
