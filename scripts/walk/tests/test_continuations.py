@@ -114,7 +114,7 @@ def test_a_malformed_truth_is_refused(tmp_path: Path, broken: dict[str, Any]) ->
 
 def test_a_truth_of_another_schema_is_refused(tmp_path: Path) -> None:
     with pytest.raises(c.Unmeasurable):
-        c.load_truth(_truth_file(tmp_path, {}, schema=2))
+        c.load_truth(_truth_file(tmp_path, {}, schema=3))
 
 
 def _walk() -> dict[str, Any]:
@@ -256,3 +256,59 @@ def test_a_proposal_that_cannot_be_a_group_sheet_counts_nothing_and_stays_measur
 def test_doubt_only_matters_for_a_question_that_could_count() -> None:
     misread: list[c.Key] = [("A.dwg", "S-01", 1), ("A.dwg", "S-O3", 3)]
     assert c.count([("engine.conflicts.same_number", misread), (TITLE, misread[:1])], _three()) == {}
+
+
+def _schema_2(file_sheets: object) -> dict[str, Any]:
+    """A schema 2 set: a page-less `same` group of S-1 and S-2 in A.dwg."""
+    return {
+        "groups": [_group("same", _sheet("S-1"), _sheet("S-2"))],
+        "near_misses": [],
+        "file_sheets": file_sheets,
+    }
+
+
+@pytest.mark.parametrize(
+    ("third", "doubt"),
+    [
+        (("A.dwg", "S-3", None), False),
+        (("A.dwg", "S-O2", None), True),
+        (("A.dwg", None, None), True),
+        (("B.dwg", "S-O2", None), False),
+    ],
+    ids=["a-listed-outside-sheet", "a-number-its-file-lacks", "no-number", "a-file-with-no-group"],
+)
+def test_schema_2_a_number_its_file_does_not_hold_is_doubt(
+    tmp_path: Path, third: c.Key, doubt: bool
+) -> None:
+    path = _truth_file(tmp_path, {"set-a": _schema_2({"A.dwg": ["S-3", "S-2", "S-1"]})}, schema=2)
+    truth = c.load_truth(path)["set-a"]
+    questions: list[tuple[str, list[c.Key]]] = [
+        (STOREY, [("A.dwg", "S-1", None), ("A.dwg", "S-2", None), third])
+    ]
+
+    if doubt:
+        with pytest.raises(c.Unmeasurable):
+            c.count(questions, truth)
+    else:
+        assert c.count(questions, truth) == {}
+    assert c.count([(STOREY, questions[0][1][:2])], truth)["structural"][c.JUDGED] == 1
+
+
+@pytest.mark.parametrize(
+    "file_sheets",
+    [None, {"A.dwg": ["S-1"]}, {"B.dwg": ["S-1", "S-2"]}, {"A.dwg": "S-1 S-2"}, {"A.dwg": [1, 2]}],
+    ids=["absent", "a-group-number-missing", "the-group-file-missing", "not-a-list", "not-text"],
+)
+def test_schema_2_file_sheets_without_every_group_sheet_is_refused(
+    tmp_path: Path, file_sheets: object
+) -> None:
+    with pytest.raises(c.Unmeasurable):
+        c.load_truth(_truth_file(tmp_path, {"set-a": _schema_2(file_sheets)}, schema=2))
+
+
+def test_schema_1_ignores_file_sheets(tmp_path: Path) -> None:
+    path = _truth_file(tmp_path, {"set-a": _schema_2({"B.dwg": []})}, schema=1)
+    truth = c.load_truth(path)["set-a"]
+    assert truth.file_sheets is None
+    proposals: list[c.Key] = [("A.dwg", "S-1", None), ("A.dwg", "S-2", None), ("A.dwg", "S-O2", None)]
+    assert c.count([(TITLE, proposals)], truth) == {}
