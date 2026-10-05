@@ -58,10 +58,12 @@ AGREEING = [
 
 ONE_SOURCE = [
     Sheet("E-01", "ELECTRICAL LEGEND AND NOTES", ("ELECTRICAL LEGEND AND NOTES",)),
-    Sheet("E-02", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
-    Sheet("E-03", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
+    Sheet("E-03", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
+    Sheet("E-05", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
 ]
-"""Electrical with no drawing list and no Plot (m0-screens §7's KR-ELE-R0.dwg): one source each."""
+"""Electrical with no drawing list and no Plot, its numbering skipping E-02 and E-04: each sheet sits
+beside an unanswered gap, so it has one source (W320: numbering without a gap beside it is the title
+block's second source)."""
 
 SAME_TITLE = [
     Sheet("S-01", "BEAM LAYOUT PLAN", ("BEAM LAYOUT PLAN",)),
@@ -139,7 +141,7 @@ def test_the_electrical_sheets_have_one_source_and_the_structural_ones_agree(
     listed = proposals(api_as(qs_project.member), qs_project.project_id)
 
     assert {p["number"]: p["agrees"] for p in listed} == {
-        "S-01": True, "S-02": True, "S-03": True, "E-01": False, "E-02": False, "E-03": False,
+        "S-01": True, "S-02": True, "S-03": True, "E-01": False, "E-03": False, "E-05": False,
     }  # fmt: skip
 
 
@@ -169,7 +171,7 @@ def test_a_bulk_act_with_one_one_source_sheet_among_agreeing_ones_confirms_nothi
     api = api_as(qs_project.member)
     listed = proposals(api, qs_project.project_id)
     agreeing = [the(listed, n) for n in ("S-01", "S-02", "S-03")]
-    lone = the(listed, "E-02")
+    lone = the(listed, "E-03")
 
     body = refused_one_source(confirm(api, qs_project.project_id, [p["id"] for p in [*agreeing, lone]]))
 
@@ -188,11 +190,11 @@ def test_one_source_sheets_named_by_their_printed_sheet_ids_are_refused_alike(
     listed = proposals(api, qs_project.project_id)
 
     body = refused_one_source(
-        confirm(api, qs_project.project_id, [the(listed, n)["sheet_id"] for n in ("E-01", "E-03")])
+        confirm(api, qs_project.project_id, [the(listed, n)["sheet_id"] for n in ("E-01", "E-05")])
     )
 
     assert named(body, the(listed, "E-01")), body
-    assert named(body, the(listed, "E-03")), body
+    assert named(body, the(listed, "E-05")), body
     assert [p["decision"] for p in proposals(api, qs_project.project_id)] == [None] * 3
 
 
@@ -208,7 +210,7 @@ def test_a_one_source_sheet_confirmed_on_its_own_is_confirmed(
 
     assert response.status_code == 200, response.content
     after = {p["number"]: p["decision"] for p in proposals(api, qs_project.project_id)}
-    assert after == {"E-01": "confirmed", "E-02": None, "E-03": None}
+    assert after == {"E-01": "confirmed", "E-03": None, "E-05": None}
 
 
 def test_each_one_source_sheet_confirmed_one_by_one_ends_all_confirmed(
@@ -218,7 +220,7 @@ def test_each_one_source_sheet_confirmed_one_by_one_ends_all_confirmed(
     read(qs_project, monkeypatch, {ELECTRICAL: ONE_SOURCE})
     api = api_as(qs_project.member)
 
-    for number in ("E-01", "E-02", "E-03"):
+    for number in ("E-01", "E-03", "E-05"):
         lone = the(proposals(api, qs_project.project_id), number)
         response = confirm(api, qs_project.project_id, [lone["id"]])
         assert response.status_code == 200, (number, response.content)
@@ -241,7 +243,7 @@ def test_the_bulk_act_of_agreeing_sheets_still_confirms_them_in_one_act(
     after = {p["number"]: p["decision"] for p in proposals(api, qs_project.project_id)}
     assert after == {
         "S-01": "confirmed", "S-02": "confirmed", "S-03": "confirmed",
-        "E-01": None, "E-02": None, "E-03": None,
+        "E-01": None, "E-03": None, "E-05": None,
     }  # fmt: skip
 
 
