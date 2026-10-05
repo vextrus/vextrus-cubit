@@ -5,13 +5,16 @@
 # web's dev server.
 #
 # The DWG is 13's synthetic set A, built by the repo's writer; never a real drawing. The demo password is
-# made for this run only and masked. Until 21c's job proposes sheets from a read, the test waits for the
-# sheet list and fails there (the plan: "not reachable until 21c"), so until then it runs by hand only.
+# made for this run only and masked. The real-set walk (G1) never runs here: it runs locally only.
 name: e2e
 
-# Run by hand only (the orchestrator's ruling on 22): the test cannot pass before 21c, and a check red
-# on every PR would block them all. 21c adds `pull_request` and `push` here once its job proposes sheets.
+# On each push to main and nightly (docs/specs/factory.md 3.9); it moves to PRs only after five green
+# runs on main (a measure, not a gate). By hand too.
 on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 21 * * *"
   workflow_dispatch:
 
 permissions:
