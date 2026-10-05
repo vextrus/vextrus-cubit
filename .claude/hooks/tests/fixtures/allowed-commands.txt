@@ -1,0 +1,118 @@
+# The guard's allowed-commands corpus (replayed by .claude/hooks/tests/allowed-commands.test.mjs).
+# A refusal of a plain command a session ran is a bug: append it here, then fix the guard.
+# Blocks are separated by a line holding only `%%`. An optional first line `@main` (the orchestrator in the
+# main checkout), `@worktree` (a builder's worktree; the default) or `@cloud` (a cloud session on its own
+# branch) picks the session. Lines starting with `#` before the first block are this header. Every block is
+# synthetic and real-shaped: no drawing text, no client name, no real sha, no key.
+%%
+git remote get-url origin && git branch --show-current
+%%
+git fetch origin s12-x 2>&1 | tail -2; git log --oneline -5 origin/s12-x
+%%
+git merge --ff-only origin/s12-x && git log -1 --format=%B
+%%
+git show --stat HEAD | tail -10
+%%
+git diff --numstat origin/main...HEAD
+%%
+git log --grep=^acceptance: -1 --format=%B
+%%
+git add .claude/hooks/guard.mjs .claude/hooks/guard.test.mjs && git commit -q -m "guard: a heartbeat"
+%%
+git commit -m "docs: the orchestrator writes the ledger with python -m scripts.ledger record"
+%%
+git config --get-regexp '^remote\.|^push\.'
+%%
+git -C .claude/worktrees/t-x config --get core.hooksPath
+%%
+git config --list --show-origin | grep -i hookspath
+%%
+@cloud
+git push -u origin HEAD
+%%
+mkdir -p .private/work/s12-x && node --test '.claude/hooks/**/*.test.mjs' > .private/work/s12-x/node.txt 2>&1; echo exit=$?
+%%
+grep -E "^ℹ (tests|pass|fail)" .private/work/s12-x/node.txt; grep "^✖" .private/work/s12-x/node.txt | head -30
+%%
+uv run python -m scripts.verify > .private/work/s12-x/verify.txt 2>&1; echo $?; tail -3 .private/work/s12-x/verify.txt
+%%
+python3 -m tools.lint.acceptance origin/main HEAD
+%%
+uv run pytest -rf -q vextrus/takeoff > .private/work/s12-x/pytest.txt 2>&1; tail -5 .private/work/s12-x/pytest.txt
+%%
+for f in .claude/hooks/tests/acceptance/guard-*.test.mjs; do node --test "$f" > /dev/null 2>&1 || echo "FAIL $f"; done; pgrep -f "node --test" || echo idle
+%%
+for t in waits records git; do grep -c "^✔" .private/work/s12-x/$t.txt; done && ps aux | grep -c "[n]ode"
+%%
+while read -r f; do wc -l "$f"; done < <(git diff --name-only origin/main...HEAD); pgrep -fa uvicorn || true
+%%
+until [ -s .private/work/s12-x/node.txt ]; do sleep 2; done; ps -ef | grep -v grep | grep -c vitest
+%%
+for i in 1 2 3
+do
+  curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8000/healthz
+done
+pgrep -f "uvicorn vextrus" >/dev/null && echo up
+%%
+echo "until the build ends, while vite runs"; pgrep -f vite
+%%
+cat <<'EOF' > .private/work/s12-x/notes.md
+for each ticket, while the suite runs, until it is green
+EOF
+pgrep -f pytest || echo none
+%%
+ls .private/work/factory/ledger/ 2>/dev/null | wc -l
+%%
+cat .private/work/factory/ledger/12-0a1b2c3.json | jq -r '.verdict, .round'
+%%
+jq -r .verdict .private/work/factory/ledger/12-0a1b2c3.json 2>/dev/null || echo missing
+%%
+tail -n 3 .private/work/factory/ledger/12-0a1b2c3.json
+%%
+du -sh .private/work/leakscan
+%%
+find .private/work/leakscan/ok -type f -newer .private/work/s12-x/node.txt
+%%
+test -f .private/work/leakscan/ok/0a1b2c3d && echo stamped || echo unstamped
+%%
+@main
+ls -l .private/work/leakscan/corpus && sha256sum .private/work/leakscan/corpus
+%%
+@main
+uv run --quiet python -m tools.leakscan range origin/main..HEAD --ref s12-x && ls .private/work/leakscan/ok | tail -1
+%%
+uv run --locked python -m tools.leakscan text "a short title" --no-stamp
+%%
+python3 - <<'EOF'
+from pathlib import Path
+p = Path('docs/notes.md')
+p.write_text(p.read_text() + 'scan with tools.leakscan before a push\n')
+EOF
+%%
+node -e 'console.log(["python -m scripts.ledger record", "tools/leakscan/contract.md"].join("\n"))'
+%%
+echo "STATE 05:00 ledger read .private/work/factory/ledger/12-0a1b2c3.json PASS round 1" >> .private/work/session-12/STATE.md
+%%
+printf 'STATE 05:05 leakscan ok/ holds %s stamps\n' "$(ls .private/work/leakscan/ok | wc -l)" >> .private/work/session-12/STATE.md
+%%
+grep -rn "scripts.ledger record" docs .claude/agents | head -5
+%%
+date -u && df -h . && free -m
+%%
+ls -la .claude/hooks/tests/ .claude/hooks/tests/acceptance | head -40
+%%
+wc -l .claude/hooks/guard.mjs .claude/hooks/guard.test.mjs
+%%
+grep -n "function recordForged\|function loopLooks" .claude/hooks/guard.mjs
+%%
+sed -n '1,40p' .claude/hooks/guard.mjs
+%%
+node --check .claude/hooks/guard.mjs && echo ok
+%%
+npm --prefix web run typecheck > .private/work/s12-x/typecheck.txt 2>&1; echo $?
+%%
+timeout 120 uv run python -m scripts.verify > .private/work/s12-x/verify.txt 2>&1; echo $?
+%%
+gh pr view 312 --json state,mergeable
+%%
+if ps aux | grep -q "[u]vicorn"; then echo up; else echo down; fi

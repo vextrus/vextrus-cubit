@@ -1264,13 +1264,15 @@ const GLOB = /[*?[]/;
 
 /** A shell glob over an absolute path as a regex (`*` and `?` never match a leading dot, as in bash). */
 function globRegex(abs) {
-  const body = abs
-    .replace(/\[[^\]]*\]?/g, "?")
-    .replace(/[.+^${}()|\\\]]/g, "\\$&")
-    .replace(/(^|\/)\*/g, "$1(?!\\.)[^/]*")
-    .replace(/(^|\/)\?/g, "$1[^/.]")
-    .replace(/([^/(])\*/g, "$1[^/]*")
-    .replace(/([^/[])\?/g, "$1[^/]");
+  let body = "";
+  const text = abs.replace(/\[[^\]]*\]?/g, "?");
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    const lead = i === 0 || text[i - 1] === "/";
+    if (c === "*") body += lead ? "(?!\\.)[^/]*" : "[^/]*";
+    else if (c === "?") body += lead ? "[^/.]" : "[^/]";
+    else body += c.replace(/[.+^${}()|\\\]]/, "\\$&");
+  }
   return new RegExp(`^${body}$`);
 }
 
@@ -1361,7 +1363,7 @@ function viewerActs(cmd) {
   const a = cmd.args;
   if (cmd.name === "find") return a.some((w) => FIND_ACTIONS.test(w));
   if (cmd.name === "sort") return a.some((w) => /^(?:-o|--output)/.test(w) || /^-[A-Za-z]*o/.test(w));
-  if (cmd.name === "uniq") return a.filter((w) => !w.startsWith("-")).length > 1;
+  if (cmd.name === "uniq") return a.filter((w) => !w.startsWith("-") || w === "-").length > 1;
   if (cmd.name === "tree") return a.some((w) => /^-[A-Za-z]*o/.test(w));
   if (cmd.name === "rg") return a.some((w) => /^--pre(?:=|$)/.test(w));
   if (cmd.name === "less") return a.some((w) => /^-[A-Za-z]*[oO]|^--(?:log-file|LOG-FILE)/.test(w));
@@ -1404,8 +1406,10 @@ function codeTouchesRecords(code) {
   if (/\bVEXTRUS_LEAKSCAN_\w*/.test(code)) return true;
   const tool = /leakscan|scripts[./]ledger\b|\bfrom\s+scripts\s+import\b[^\n]*\bledger\b|import_module\s*\([^)]*ledger/;
   const runs =
-    /\bsubprocess\b|\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*)|\bPopen\b|child_process|\bexec(?:File)?(?:Sync)?\b|\bspawn(?:Sync)?\b|\bimport\b|\bimportlib\b|__import__|\brunpy\b|\brequire\s*\(|\bsystem\b|\bqx\b|\bDeno\s*\.\s*(?:run|Command)\b|\bBun\s*\.\s*spawn/;
-  return tool.test(code) && runs.test(code);
+    /\bsubprocess\b|\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*)|\bPopen\b|child_process|\bexec(?:File)?(?:Sync)?\b|\bspawn(?:Sync)?\b|\bimportlib\b|__import__|\brunpy\b|\bsystem\b|\bqx\b|\bDeno\s*\.\s*(?:run|Command)\b|\bBun\s*\.\s*spawn/;
+  // An import of the tool itself (an editing script's `from pathlib import Path` beside a string is not one).
+  const imports = /\b(?:from|import)\s+[^\n;]*?(?:leakscan|scripts[./]ledger|\bledger\b)|\b(?:require|import)\s*\([^)]*(?:leakscan|ledger)/;
+  return (tool.test(code) && runs.test(code)) || imports.test(code);
 }
 
 /**

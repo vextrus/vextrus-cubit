@@ -632,3 +632,55 @@ test("f2 round 3: a corpus under the floor vouches for no push (outside the test
   stamp(Array.from({ length: 120 }, (_, i) => `INVENTED STRING NUMBER ${i}\n`).join(""));
   assert.equal(seen("git push origin x", { project: repo, main: repo, cwd: repo }), null);
 });
+
+test("T-GUARD-A: a look the loop reaches through a shell, a heredoc or a function stays a wait", () => {
+  for (const command of [
+    "while bash -c 'pgrep -f x'; do sleep 1; done",
+    "while true; do eval 'pgrep -f x' || break; done",
+    "while true; do ps aux | sort | grep x || break; sleep 1; done",
+    "while true; do sh <<'EOF'\npgrep -f x\nEOF\nsleep 1; done",
+    "f() { pgrep -f x; }; while f; do sleep 1; done",
+    "function f { pgrep -f x; }; until ! f; do sleep 1; done",
+    "x=$(for i in 1 2; do pgrep -f x; done); echo $x",
+  ]) {
+    assert.equal(bash(command), "SELF_MATCHING_WAIT", command);
+  }
+  for (const command of [
+    "# while it builds\npgrep -f x",
+    "python3 -c 'print()'; for i in 1 2; do echo $i; done; pgrep -f x",
+    "for i in 1 2; do echo $i; done; ps aux | sort | grep -c x",
+  ]) {
+    assert.equal(bash(command), null, command);
+  }
+});
+
+test("T-GUARD-A: a record reached by a glob, `..` or a cd is judged as named", () => {
+  for (const command of [
+    "cat .private/work/*/corpus",
+    "grep -r x .private/work/leakscan",
+    "cat .private/work/factory/x/../ledger/a.json > /tmp/a && cp /tmp/a .private/work/factory/x/../ledger/b.json",
+    "cd .private/work/leakscan && cat corpus",
+    "cd .private/work/factory/ledger && python3 w.py",
+    "ls .private/work/factory/ledger | sort -o .private/work/factory/ledger/a.json",
+    "rg --pre ./x.sh y .private/work/factory/ledger",
+    "ls .private/work/leakscan/ok | uniq - .private/work/leakscan/ok/a",
+    `python3 -c "from scripts import ledger; ledger.main(['record'])"`,
+  ]) {
+    assert.equal(bash(command), "RECORD_FORGED", command);
+  }
+  for (const command of [
+    "cat .private/work/*/ok/a1b2",
+    "python3 - <<'EOF'\nfrom pathlib import Path\nPath('n.md').write_text('python -m tools.leakscan range')\nEOF",
+    "cat tools/leakscan/corpus.py",
+    "ls tools/leakscan/",
+  ]) {
+    assert.equal(bash(command), null, command);
+  }
+});
+
+test("T-GUARD-A: a git config read with a valued option is a read; two operands are a write", () => {
+  assert.equal(bash("git config --file x.cfg --get core.hooksPath"), null);
+  assert.equal(bash("git config --type path core.hooksPath"), null);
+  assert.equal(bash("git config --type path core.hooksPath /tmp/x"), "HOOKS_PATH");
+  assert.equal(bash("git config --show-origin core.hooksPath /tmp/x"), "HOOKS_PATH");
+});
