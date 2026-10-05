@@ -22,7 +22,7 @@ export type ParsedListOut = components['schemas']['Step1ParsedListOut']
 export type DrawingListOut = components['schemas']['Step1DrawingListOut']
 
 /** A refusal is an answer, never tried again; an unreachable server keeps being tried. */
-function retry(failures: number, error: unknown): boolean {
+export function retry(failures: number, error: unknown): boolean {
   if (error instanceof ApiRefused) return false
   return error instanceof TypeError || failures < 2
 }

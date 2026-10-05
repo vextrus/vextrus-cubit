@@ -1,5 +1,8 @@
 """The two roles in use: the app connects as vextrus_app; migrations and flushes run as the owner."""
 
+import io
+from collections.abc import Callable
+
 import psycopg
 import pytest
 from django.conf import settings
@@ -87,3 +90,64 @@ def test_ensure_database_creates_a_missing_database_once() -> None:
     finally:
         with psycopg.connect(**params, autocommit=True) as connection:
             connection.execute(f'drop database if exists "{name}"')
+
+
+def queue_a_job() -> None:
+    with connections["owner"].cursor() as cursor:
+        cursor.execute(
+            "insert into procrastinate_jobs (queue_name, task_name, args)"
+            " values (%s, 'vextrus.probe', '{}'::jsonb)",
+            [settings.VEXTRUS_CAD_QUEUE],
+        )
+
+
+def queued_jobs() -> int:
+    with connections["owner"].cursor() as cursor:
+        cursor.execute("select count(*) from procrastinate_jobs")
+        [count] = cursor.fetchone() or (0,)
+    return int(count)
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_flush_empties_the_job_queue_too() -> None:
+    """procrastinate's tables are not Django-managed, so Django's own flush left a job a transactional
+    test committed for the next test on that database (T-XDIST: t19a's seed job failed t21a's counts)."""
+    queue_a_job()
+
+    call_command("flush", interactive=False, verbosity=0)
+
+    assert queued_jobs() == 0
+
+
+def answering(answer: str, asked: list[str]) -> Callable[[str], str]:
+    def ask(question: str) -> str:
+        asked.append(question)
+        return answer
+
+    return ask
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_flush_answered_no_empties_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    queue_a_job()
+    asked: list[str] = []
+    monkeypatch.setattr("builtins.input", answering("no", asked))
+    out = io.StringIO()
+
+    call_command("flush", interactive=True, verbosity=0, stdout=out)
+
+    assert queued_jobs() == 1
+    assert len(asked) == 1, asked
+    assert "Flush cancelled." in out.getvalue()
+
+
+@pytest.mark.django_db(databases=["default", "owner"])
+def test_flush_answered_yes_asks_once_and_empties_the_queue(monkeypatch: pytest.MonkeyPatch) -> None:
+    queue_a_job()
+    asked: list[str] = []
+    monkeypatch.setattr("builtins.input", answering("yes", asked))
+
+    call_command("flush", interactive=True, verbosity=0)
+
+    assert queued_jobs() == 0
+    assert len(asked) == 1, asked

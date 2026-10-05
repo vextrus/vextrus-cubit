@@ -47,6 +47,10 @@ msgstr "✓ confirmed"
 msgid "{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range."
 msgstr "{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range."
 
+#: src/takeoff/SheetLook.tsx
+msgid "Plot: {file} page {page}"
+msgstr "Plot: {file} page {page}"
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}"
 msgstr "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}"
@@ -221,6 +225,14 @@ msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets th
 msgid "The general drawing list"
 msgstr "The general drawing list"
 
+#: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
+msgstr "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
+
+#: src/takeoff/SheetLook.tsx
+msgid "Loading the Plot…"
+msgstr "Loading the Plot…"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name}, {date}"
 msgstr "Confirmed by {name}, {date}"
@@ -262,6 +274,10 @@ msgid "Use the drawing list on the sheet"
 msgstr "Use the drawing list on the sheet"
 
 #: src/takeoff/Step1Screen.tsx
+msgid "Still reading {name}."
+msgstr "Still reading {name}."
+
+#: src/takeoff/Step1Screen.tsx
 msgid "Go to the Drawing Set"
 msgstr "Go to the Drawing Set"
 
@@ -281,6 +297,10 @@ msgstr "Roof details"
 #: src/takeoff/words.tsx
 msgid "Presentation plan"
 msgstr "Presentation plan"
+
+#: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet."
+msgstr "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet."
 
 #: src/takeoff/acts.tsx
 msgid "your last change to Step 1"
@@ -842,6 +862,10 @@ msgstr "Gas line layout"
 msgid "ELV layout"
 msgstr "ELV layout"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet: they arrive as {name} is read."
+msgstr "No sheets yet: they arrive as {name} is read."
+
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the range on {sheet} includes its top storey."
 msgstr "{tag} answered. Recorded: the range on {sheet} includes its top storey."
@@ -886,6 +910,10 @@ msgstr "{tag} answered. The sheet stays without a number."
 msgid "the drawing list pasted by {who}"
 msgstr "the drawing list pasted by {who}"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Still reading {name}: page {at} of {of}."
+msgstr "Still reading {name}: page {at} of {of}."
+
 #: src/takeoff/words.tsx
 msgid "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again"
 msgstr "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again"
@@ -897,6 +925,10 @@ msgstr "HVAC layout"
 #: src/takeoff/questionWords.tsx
 msgid "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
 msgstr "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
+
+#: src/takeoff/SheetLook.tsx
+msgid "Compare: what was read in red over the Plot"
+msgstr "Compare: what was read in red over the Plot"
 
 #: src/takeoff/SheetList.tsx
 msgid "Paste the drawing list"
@@ -1013,6 +1045,10 @@ msgstr "{mark}, {date}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{mark}, from the file name; dated {date}"
 msgstr "{mark}, from the file name; dated {date}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Still reading {name}: sheet {at} of {of}."
+msgstr "Still reading {name}: sheet {at} of {of}."
 
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {copies}"
@@ -1206,6 +1242,10 @@ msgstr "Basement {n}"
 msgid "superseded"
 msgstr "superseded"
 
+#: src/takeoff/SheetLook.tsx
+msgid "No Plot for this sheet: page {page} of <0/> matches it, but its drawing could not be lined up with the sheet."
+msgstr "No Plot for this sheet: page {page} of <0/> matches it, but its drawing could not be lined up with the sheet."
+
 #. placeholder {0}: model.withdrawn.length
 #: src/takeoff/SheetList.tsx
 msgid "{0, plural, one {# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in} other {# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in}}"
@@ -1291,6 +1331,10 @@ msgstr "{count} with no Discipline"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {twice} twice"
 msgstr "found; no drawing list; numbering runs {range}; {twice} twice"
+
+#: src/takeoff/SheetLook.tsx
+msgid "Plot: {file} page {page}, registered to {residual} mm"
+msgstr "Plot: {file} page {page}, registered to {residual} mm"
 
 #: src/takeoff/questionWords.tsx
 msgid "rev {mark}"
@@ -1449,6 +1493,10 @@ msgstr "AC pipe layout"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
 msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{name} is waiting to be read."
+msgstr "{name} is waiting to be read."
 
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
@@ -1717,6 +1765,10 @@ msgstr "It has neither a number nor a title, so nothing says which kind of sheet
 msgid "The pasted drawing list"
 msgstr "The pasted drawing list"
 
+#: src/takeoff/SheetLook.tsx
+msgid "The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again."
+msgstr "The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again."
+
 #: src/takeoff/words.tsx
 msgid "floor to floor"
 msgstr "floor to floor"
@@ -1736,6 +1788,10 @@ msgstr "Answering records your pick; {entryName} stays in the list, to confirm o
 #: src/takeoff/SheetList.tsx
 msgid "Revision and date"
 msgstr "Revision and date"
+
+#: src/takeoff/Bar.tsx
+msgid "{reading, plural, one {This does not include the sheets of the file still to be read.} other {This does not include the sheets of the # files still to be read.}}"
+msgstr "{reading, plural, one {This does not include the sheets of the file still to be read.} other {This does not include the sheets of the # files still to be read.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Reading the file again: its sheets join the list, marked held, once it is read."
@@ -1829,6 +1885,10 @@ msgstr "{Name} is confirmed by {by}"
 msgid "Picked for you: {sources}"
 msgstr "Picked for you: {sources}"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Reading {name} was interrupted and is starting again."
+msgstr "Reading {name} was interrupted and is starting again."
+
 #: src/takeoff/Bar.tsx
 msgid "Question {tag}, withdrawn: {title}"
 msgstr "Question {tag}, withdrawn: {title}"
@@ -1887,6 +1947,10 @@ msgstr "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage 
 msgid "by others"
 msgstr "by others"
 
+#: src/takeoff/SheetLook.tsx
+msgid "Compare: what was read in orange over the Plot"
+msgstr "Compare: what was read in orange over the Plot"
+
 #: src/takeoff/SheetList.tsx
 msgid "{name}, from the file {file}"
 msgstr "{name}, from the file {file}"
@@ -1902,6 +1966,10 @@ msgstr "excluded: {reason}"
 #: src/takeoff/Step1Screen.tsx
 msgid "Sheets"
 msgstr "Sheets"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet: they arrive as the files are read."
+msgstr "No sheets yet: they arrive as the files are read."
 
 #: src/takeoff/storeys.tsx
 msgctxt "storey"
@@ -1943,6 +2011,10 @@ msgstr "Door and window details"
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}"
 msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Its sheets join the list when it is read."
+msgstr "Its sheets join the list when it is read."
 
 #: src/takeoff/Bar.tsx
 msgid "Cancel the exclusion"
@@ -2095,6 +2167,10 @@ msgstr "Exclusion reasons"
 #: src/takeoff/questionWords.tsx
 msgid "A pick changes nothing until you answer."
 msgstr "A pick changes nothing until you answer."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Its pages are matched to sheets when it is read."
+msgstr "Its pages are matched to sheets when it is read."
 
 #: src/takeoff/storeys.tsx
 msgctxt "storey"
@@ -2329,6 +2405,10 @@ msgstr "Plot"
 msgid "Water tank details"
 msgstr "Water tank details"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} is still reading; its views join as its sheets arrive."
+msgstr "{file} is still reading; its views join as its sheets arrive."
+
 #: src/takeoff/SheetList.tsx
 msgid "{file}, layout “<0/>”"
 msgstr "{file}, layout “<0/>”"
@@ -2336,6 +2416,10 @@ msgstr "{file}, layout “<0/>”"
 #: src/takeoff/questionWords.tsx
 msgid "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 msgstr "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}, M3 onwards"
+msgstr "{name}, M3 onwards"
 
 #: src/takeoff/SheetList.tsx
 msgid "{file}, laid out in the drawing"

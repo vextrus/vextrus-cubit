@@ -8,28 +8,32 @@ Tests prove contracts; they do not prove the product is good. Cubit passed its g
 front of the owner (docs/postmortem.md). This is how a session looks at the product itself.
 
 ## 1. Serve it
-- Start the app with the dev command in `CLAUDE.md`. Use `127.0.0.1`, never `localhost`.
+- **G1's agent layer** starts from the script's state: `scripts/walk/run.py <sha40>` serves the head and
+  writes `.private/work/walks/<sha40>/walk.json`; walk its served URLs, never your own server.
+  Otherwise start the app with the dev command in `CLAUDE.md`. Use `127.0.0.1`, never `localhost`.
 - Use a real Drawing Set: the Sample Project or the Edison set (`.private/reference/`), in a local
   session. A cloud session has no real drawings. Say so, and review only what committed data can
   show.
 
 ## 2. Walk it (chrome-devtools MCP, headless Chromium, 1440x900)
-- `new_page` the sign-in, then `take_snapshot` and `fill_form`, and sign in.
+- `new_page` the sign-in, then `take_snapshot` and `fill_form`, and sign in. The browser is shared:
+  select your own page by URL before every action.
 - Walk the job in order, as the user does it, saying at each step what they are trying to achieve and
   whether the screen lets them:
   - **The QS:** upload the set, confirm sheets and storeys, then each Takeoff Step (grid, columns,
     beams, slabs, walls…), answering Questions; then the Priced BOQ, the Material Schedule and the
     exports.
   - **The MD:** the Project Summary, the Target Cost, the 3D Building Model, the Revision Comparison.
-- **Evidence.** Save `take_screenshot` to `.private/work/review/<area>-<step>.png`, then Read the PNG
-  and look at it. Every claim about a screen cites a picture you looked at. `resize_page` 1280x800 for
-  the second viewport. `list_console_messages` (an error is a defect) and `list_network_requests` (a
-  slow or failed call is a defect with a cause).
+- **Evidence.** Save `take_screenshot` to `.private/work/review/<area>-<step>.png` (on a G1 walk, under
+  `.private/work/walks/<sha40>/evidence/<finding id>/`), then Read the PNG and look at it. Every claim
+  about a screen cites a picture you looked at. Per-page `emulate` 1280x800 for the second viewport.
+  `list_console_messages` (an error is a defect) and `list_network_requests` (a slow or failed call is
+  a defect with a cause).
 
 ## 3. Judge it
 Judge against, in order:
 1. the QS's real workflow and words (`CONTEXT.md`);
-2. trust: the Trace in one click, Rod Basis, Questions answerable in place;
+2. trust: the Trace in one click, Rebar Basis, Questions answerable in place;
 3. numbers: ৳ in lakh and crore, Display Units, and the same figure on screen, in Excel and in PDF;
 4. craft and accessibility;
 5. OpenConstructionERP's weaknesses (docs/research/oce-product-walk.md), which we must beat.

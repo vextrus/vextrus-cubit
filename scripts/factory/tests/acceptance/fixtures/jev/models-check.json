@@ -1,0 +1,28 @@
+{
+  "recorded": "live",
+  "date": "2026-10-04",
+  "about": "The model watch's one-question noul call on the alias jev-latest; the answer's model names the version.",
+  "request": {
+    "model": "jev-latest",
+    "state": "Invented text: the sky is blue on a clear day.",
+    "questions": {
+      "q0": {
+        "type": "noul",
+        "instructions": "Is this sentence about the weather or the sky?"
+      }
+    }
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "answers": {
+      "q0": {
+        "type": "noul",
+        "noul": 0.81
+      }
+    },
+    "usage": {
+      "input_tokens": 290,
+      "output_tokens": 21
+    }
+  }
+}
