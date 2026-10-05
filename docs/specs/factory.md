@@ -256,7 +256,8 @@ prompt-injected reviewer writing PASS, the same risk as in-process, held by CI, 
 **The local machine's rule (fewer local agents):** only what must stay runs here: the orchestrator, the ledger,
 `merge_ready`, `post-status` (key user), the blind scorer and its keys, posting and scored runs under the lock, the
 governor, the launcher and `judge()`, the leak scan and its corpus, the G1 gate walk and its verdict, Held-out Sets,
-Jev calls that carry drawing text (until Q23), and drawing-content analyst work (no private return channel from the
+Jev calls that carry drawing text from any set but the two Development Sets (Q23, ruled 5 Oct 2026), and
+drawing-content analyst work (no private return channel from the
 cloud yet, `research/cloud-drawings.md:25-28`). In Phase 3, f2 (it builds and tests the literal corpus from the real
 drawings, and its stamp must be proven from the main checkout before it merges, §8) and f5 (G1 is built and smoked on
 the real sets, and the gate walk stays local) are local too. A web test suite (9.5 GB) never runs locally while a walk
@@ -405,8 +406,10 @@ The owner now lets cloud sessions read drawings. The public repository still nev
   `drawing-analyst` for convention findings; practice runs of G1's script layer. **What stays local**, with reasons:
   the blind scorer and its keys (ADR 0041:29-30, 94-97); `post-status` (ADR 0041:14-17); posting runs under the accept
   rule (ADR 0041:22-24); the G1 gate walk and its verdict (its screenshots are content; its verdict feeds a status
-  only the local poster sets); Held-out Sets (ADR 0013:25-27); Jev calls carrying drawing text (ADR 0013:24-25, until
-  Q23); content-bearing results, because no private return channel from the cloud is proven (Remote Control +
+  only the local poster sets); Held-out Sets (ADR 0013:25-27); Jev calls carrying drawing text from any set but
+  the two Development Sets (ADR 0013, as amended
+  by Q23 on 5 Oct 2026); content-bearing results, because no private return channel from the cloud is proven
+  (Remote Control +
   SendMessage has not run live).
 - **Guards with it:** a drawing ticket's prompt forbids PR comments and every push but code; `watch.py` leak-scans the
   PR comments and bodies of drawing-environment sessions with the local literal scan (built-in GitHub tools post
@@ -764,7 +767,8 @@ equals the no-Jev run):
 
 **Jev in the product, toward 90 %** (`research/jev-product.md`, refuter-corrected; ADR 0011's rule holds: code finds
 candidates and computes every number, Jev picks with a confidence, the QS confirms; ADR 0013: development calls with
-drawing text under the owner's local key only):
+drawing text under the owner's local key, or under the cloud key for the two Development Sets since Q23 of
+5 Oct 2026):
 - **Today: one node (`sheet_type`) on an unscored field, so Jev moves the score by 0.** Its only effect is the QS's
   Question queue (D2).
 - **Measured live** (130 real items, `jev-1.13.0`, local key; one builder's labels, not the Answer Key; every gain is
@@ -793,7 +797,8 @@ drawing text under the owner's local key only):
 - **How the scored loop uses Jev:** a node per failing class the scorer names, never a free-text call; a 40-item live
   probe before any node ships (~$0.005, ~1 min, estimate), shipped only if it beats the reader on labels; every new or
   changed node carries its spot-check row (counts only) in `docs/knowledge/jev-nodes.md` before its PR, and J-c's
-  alarm re-runs every row on a model change. Cloud builders use recorded answers or invented text until Q23. A full
+  alarm re-runs every row on a model change. Cloud builders may call Jev live on the Development Sets' text
+  (Q23, ruled 5 Oct 2026); tests use recorded answers. A full
   two-set pass costs about $0.02 batched or ~$0.04 one item per request (estimate), so cost never limits probes.
 
 ---
@@ -1046,7 +1051,7 @@ and is asked alone, after approval and before Phase 3's first launch:
 | Q4 the M0 bar | **Ruled: 90 %** (Edison 196/217 and 666/739; Sample 61/67 and 376/417). Session 13's walk is the product walk (Part 1 of §6's finish line) with the reading gap reported (Part 2); M0 closes on reading only when a scored run shows the four bars | no evidence reaches 90 % in one session (`research/bar-90.md` §0) |
 | Q5 burden limits | ≤ 3 Questions per Discipline; ≥ 80 % of Sheets bulk-confirmable; 0 false continuation Questions; act p95 ≤ 1 s during a read; every plan Sheet states its storey | G1 and G5 need numbers to pass or fail |
 | Q6 custody re-run cadence | one batched re-run per wave at a fixed point (session 13: after the reading-measures PR) | the re-run is root and your hands |
-| Q7 drawing data through Claude Code | **Ruled: relaxed.** Cloud sessions may read the two Development Sets through route A (§2.4) once its probe passes; Remote Control stays on (`remoteControlAtStartup: true`, `~/.claude/settings.json:162`; the key's effect is Unverified 13), and the orchestrator uses it to list and message cloud sessions (VCC:297-299). Still never: drawing content in git, an issue, a PR or a workflow file; Held-out Sets in any build session; drawing text to Jev under the cloud key (Q23). Recommended, not required: model training off at claude.ai/settings/data-privacy-controls (retention 30 days instead of 5 years, VCC:378-381) | Remote Control stores the transcript while connected (VCC:381; `docs-raw/remote-control.md:221`); you accepted that |
+| Q7 drawing data through Claude Code | **Ruled: relaxed.** Cloud sessions may read the two Development Sets through route A (§2.4) once its probe passes; Remote Control stays on (`remoteControlAtStartup: true`, `~/.claude/settings.json:162`; the key's effect is Unverified 13), and the orchestrator uses it to list and message cloud sessions (VCC:297-299). Still never: drawing content in git, an issue, a PR or a workflow file; Held-out Sets in any build session; drawing text from any set but the two Development Sets to Jev under the cloud key (Q23, ruled 5 Oct 2026: the Development Sets' text may go). Recommended, not required: model training off at claude.ai/settings/data-privacy-controls (retention 30 days instead of 5 years, VCC:378-381) | Remote Control stores the transcript while connected (VCC:381; `docs-raw/remote-control.md:221`); you accepted that |
 | Q8 S4 vision | **Development-time** (prototype, labelling, proxy-key help): yes to a 10-sheet Sample Project prototype with recorded responses, through Claude Code (the plan's quota), after S1; no ADR change. **In the product's read:** it would amend ADR 0011's "no LLM in the MVP"; you decide after the prototype | the only strategy for the 209–258 Views rules miss or mis-kind; ADR 0011 keeps Claude out of the MVP |
 | Q12 App-pinned statuses in the ruleset | yes (your ruleset edit; the guard refuses agents) | closes "who posted the gate" by rule, not only in `merge_ready` |
 | Q13 Answer Key conventions | answer before any reading loop: turned title blocks, the slab-detail kind, Edison's 6 storey Sheets, the box convention for notes; then measure two-keyer agreement | loops otherwise tune toward an inconsistent key |
@@ -1060,7 +1065,7 @@ and is asked alone, after approval and before Phase 3's first launch:
 | Q20 acceptance writers at high effort | **Ruled: yes for most.** Every writer at high, reading tickets included; medium only for a docs-only ticket (none in Phase 3) | wrong acceptance tests cost ~29 amendments in six sessions |
 | Q21 (new) landing throughput | keep "branches must be up to date" for session 13 and budget the landing slot (~5 h, §6); trial a GitHub merge queue later (an issue; `ci.yml` would need a merge-queue trigger first, untested here) | changing the ruleset mid-milestone risks the gate that keeps main green; the slot is known and budgeted |
 | Q22 (new) account B as a second usage pool | no for now: stay on account A until the governor has measured "% per builder-hour" (Phase 4); usage is the owner's concern (the ruling of 5 Oct 2026, #404): the owner decides when to add accounts or credits | B would double capacity, but A's orchestrator could not list or message B's cloud sessions (`docs-raw/remote-control.md:195`) |
-| Q23 (new) amend ADR 0013 so cloud sessions may send drawing text to Jev under the cloud key | yes, but only after one cloud session shows the cloud key is set and it has a spending limit (ADR 0013 "Cloud sessions"); until then drawing-text Jev calls stay local and cloud builders use recorded answers | your Q7 lets cloud sessions read drawings; ADR 0013:24-25 still says "under the owner's local key, never the cloud key" |
+| Q23 (new) amend ADR 0013 so cloud sessions may send drawing text to Jev under the cloud key | **Ruled 5 Oct 2026: "Yes, now".** Cloud sessions may send the two Development Sets' text to Jev under the cloud key, before it has a spending limit; ADR 0013 is amended (its History) | your Q7 lets cloud sessions read drawings |
 | Q24 (new) recorded Jev answers inside the scored run (J2) | yes: answers recorded outside the sandbox, keyed by the product's own cache key, replayed inside; a miss is `Unavailable` and counted; no key in the sandbox; rides the one custody re-run | without it every Jev gain is invisible to the score (`scripts/real_drawings/sandbox.py:3`) |
 
 **Owner actions (one checklist, given once at Phase 3's start):**
