@@ -836,7 +836,21 @@ Phase 3 ended at T+285 against T+330. A builder's launch to its READY took 9–8
   verdict (`verdict.json` in the folder above), its ranked list (counts, defect classes and screens only, never drawing
   text), the `walk` issues it filed and the leak scan's count over its `public/` folder (must be 0) go here:
 
-<!-- G1 ranked list: filled at Phase 5 -->
+- **Verdict: FAIL** (02:39Z), as T7's red proof requires. Finish-line items M0-FL1, FL2, FL3 and FL11 PASS; FL4, FL5,
+  FL6, FL7, FL8, FL9, FL10 and FL13 FAIL. 38 findings: 14 BLOCKS, 13 misleading. The leak scan over its `public/`
+  folder: 0 hits (507 lines); over every issue and PR body edited since 02:00Z: 0 hits (817 lines).
+- **Ranked list** (the walk issues it filed; closed defect classes and screens only):
+  - BLOCKS: #317 read_quarantined (drawing-set, FL4); #315 too_many_questions, #318 storeys_wrong, #334
+    false_continuation (takeoff.step1, FL5); #314 misleading_display (takeoff.step1.sheet, FL6); #316 views_left_over
+    (takeoff.step1, FL7), #335 views_left_over (status-bar, FL7), #336 proposed_exclusion_wrong (takeoff.step1.views,
+    FL7); #320 not_bulk_confirmable (takeoff.step1, FL8), #333 too_many_questions (takeoff.step1.questions, FL8); #322
+    misleading_display (takeoff.step1, FL9).
+  - Other: #337 act_waits_on_read and #319 slow_screen (FL8); #321 false_continuation, #330 key_missing, #332 other
+    (FL5); #324 number_wrong (FL7); #326 report_missing, #327 other (FL4); #331 cancel_restart_broken (FL3); #328 other
+    (FL1); #323 misleading_display (members, FL10); #325 data_shape_mismatch, #329 words_wrong (FL13).
+- Read with the script layer above: D1 (acts wait on reads) and D2 (the Question flood) still hold on main, because
+  their fixes ride the carried branches (t-readlock, t228). Triage the 24 issues against D1-D10 first; many are the
+  same defects measured.
 
 This list is lane D's and lane B's input.
 
