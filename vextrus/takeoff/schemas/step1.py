@@ -90,6 +90,21 @@ class Step1ProposalOut(_FromView):
     """Why it has no Plot, as a message `{code, params}`; null when a page matched or none was added."""
     views: list[Step1ViewOut]
     """Its views in reading order, title block included (the Views column counts them)."""
+    continuation: str | None = Field(
+        None,
+        description="The continuation run it is in (one title on consecutive numbers, or titles equal "
+        "but for a member-mark range): one value on every sheet of the run. Null for a sheet alone.",
+    )
+    continuation_title: str | None = Field(
+        None,
+        description="The run's title as its row shows it, its member-mark ranges joined "
+        '("BEAM B1-B18 DETAILS"). Null when `continuation` is.',
+    )
+    series: str | None = Field(
+        None,
+        description="The series it is in (one title on several runs that draw different storeys, "
+        "marks or members: no Question): one value on every sheet of the series. Null otherwise.",
+    )
 
 
 class Step1ProposalsOut(Schema):

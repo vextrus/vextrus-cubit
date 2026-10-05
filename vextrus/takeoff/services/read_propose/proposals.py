@@ -391,6 +391,20 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     )
 
 
+def compared_set(
+    project_id: uuid.UUID,
+) -> tuple[list[drawings.SheetView], list[SheetCandidate], list[list[ViewCandidate]], SheetConventions]:
+    """The set's listed sheets, each as 19b compares it (`candidate` under its file's group, then
+    `_compared`), with its views and the conventions they are read under: what `_conflicts` compares,
+    for the groups Step 1 shows (`vextrus.takeoff.services.groups`)."""
+    drawing_set = drawings.set_of(project_id)
+    listed = drawings.sheets(drawing_set.id) if drawing_set is not None else []
+    groups = {f.id: f.group for f in drawings.files(drawing_set.id)} if drawing_set else {}
+    sheets = [_compared(s, candidate(s, groups.get(s.file_id, "site"))) for s in listed]
+    views = [[view_candidate(v) for v in drawings.views(s.id)] for s in listed]
+    return listed, sheets, views, step1.sheet_conventions()
+
+
 def _conflicts(
     project_id: uuid.UUID,
     listed: Sequence[drawings.SheetView],
@@ -426,7 +440,8 @@ def _undecided(
     confirmed or left-out sheet never grouped with another (#161). Copies of one number are a
     `same_number` Question only while none of them is confirmed (ruling 2 and the refuter's case of a
     copy confirmed by hand: a Revision's question) and two or more are undecided, its words counting
-    those; a same title or storey stands while any of its sheets is undecided, its words the set's.
+    those; a same title or storey stands while any of its sheets is undecided, its words the set's
+    but its `sheets` the undecided sheets it holds (T-W334: the words count what the Question holds).
     None: nothing to ask."""
     undecided = [s for s in held if not s.decision]
     evidence = dict(conflict.evidence)
@@ -437,6 +452,8 @@ def _undecided(
         evidence |= {"number": undecided[0].number, "copies": len(undecided)}
     elif not undecided:
         return None
+    else:
+        evidence["sheets"] = len(undecided)
     return evidence, undecided
 
 

@@ -129,6 +129,7 @@ from engine.recognise.types import (
     Continuation,
     PlotMatch,
     RegisterEntry,
+    Series,
     SetReading,
     SheetCandidate,
     SheetConventions,
@@ -992,8 +993,10 @@ def read_set(
     if find := stages.open("conflicts", needs("sheets")):
         ok, result = stages.call("conflicts", find, sheets, views, conventions)
         found = _list_of(stages, "conflicts", result, object) if ok else None
-        if found is not None and not all(isinstance(c, Conflict | Continuation) for c in found):
-            stages.fail("conflicts", "it returned something other than Conflicts and Continuations")
+        if found is not None and not all(isinstance(c, Conflict | Continuation | Series) for c in found):
+            stages.fail(
+                "conflicts", "it returned something other than Conflicts, Continuations and Series"
+            )
         elif found is not None:
             conflicts = [c for c in found if isinstance(c, Conflict)]
             continuations = [c for c in found if isinstance(c, Continuation)]

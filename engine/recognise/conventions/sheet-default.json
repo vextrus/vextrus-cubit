@@ -17,6 +17,7 @@
     {"field": "issue_date", "words": ["issue date", "date of issue", "date"], "position": null}
   ],
   "revision_mark_pattern": "(?i)(?:^|[\\s_.-])(R\\d{1,2}|REV[\\s._-]?[A-Z0-9]{1,2})(?=$|[\\s_.-])",
+  "member_range_pattern": "(?i)(?<![A-Z0-9])(?P<a>[A-Z]{1,3})(?P<low>\\d{1,4})(?:\\s?[-\u2013]\\s?|\\s(?:TO|THRU)\\s)(?P<b>[A-Z]{1,3})(?P<high>\\d{1,4})(?![A-Z0-9])",
   "storey_words": [
     {"storey": "pile", "words": ["pile", "piles", "pile head"]},
     {"storey": "pile_cap", "words": ["pile cap", "pile caps", "pilecap", "pilecaps"]},
