@@ -377,3 +377,27 @@ def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo)
     clean = repo.sha("HEAD")
     _, item = track_once(seen_ready(repo.seed), clean, main)  # READY last seen on another head
     assert item["state"] == "working"
+
+
+def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_landers_merge(
+    repo: Repo,
+) -> None:
+    git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
+    ready = repo.ready("r.txt")
+    state = seen_ready(ready)
+    state["parser"] = 1  # written by the watcher before the parser version, READY already cached
+    del state["tickets"]["tu"]["ready_head"]
+    step, item = track_once(state, ready, repo.seed)
+    assert item["state"] == "ready"
+    assert step.events == []  # unchanged: no second READY
+    state["parser"] = watch.PARSER  # run_pass marks the state read
+
+    git_in(repo.path, "checkout", "-q", "main")
+    main = repo.commit("main moves", "m.txt")
+    git_in(repo.path, "checkout", "-q", "tu-branch")
+    git_in(repo.path, "merge", "-q", "--no-edit", "main")
+    merged = repo.sha("HEAD")
+    step, item = track_once(state, merged, main)
+    assert (item["head"], item["state"]) == (merged, "ready")
+    assert [e[0] for e in step.events] == ["PUSH"]
+    assert not [a for a in step.alarms.values() if a[0] == "BUDGET-PASSED"]

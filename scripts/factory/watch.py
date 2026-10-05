@@ -748,6 +748,8 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
     if info is None:
         return
     trailers = parse_trailers(*info)
+    if trailers.outcome == "READY":  # every READY records its head, unchanged or not
+        seen["ready_head"] = head
     if trailers.outcome == seen.get("outcome"):
         return
     seen.update(
