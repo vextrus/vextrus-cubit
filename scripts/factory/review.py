@@ -79,17 +79,19 @@ TRUST_BOUNDARY = re.compile(
 
 # What a lens may do: read, write its attack test in its own worktree, read git, and run tests.
 # Every Bash entry is one exact command prefix, never all of Bash.
+# The review code's own checkout (the main checkout, run as `uv run python -m ...` there): the lens's
+# agents, its guard and its test command come from here, never from the PR under review.
+HARNESS = Path(__file__).resolve().parents[2]
+# The one test command: no git (`git diff --output=<path>` writes anywhere) and no bare pytest
+# (`--basetemp=<dir>` empties a folder); the wrapper takes the pytest lock (review round 1).
+LENS_TEST = f"uv run python {shlex.quote(str(HARNESS / 'scripts' / 'factory' / 'lens_pytest.py'))}"
 ALLOWED_TOOLS = (
     "Read",
     "Grep",
     "Glob",
     "Edit(./**)",
     "Write(./**)",
-    "Bash(git diff:*)",
-    "Bash(git log:*)",
-    "Bash(git show:*)",
-    "Bash(git status:*)",
-    "Bash(uv run pytest:*)",
+    f"Bash({LENS_TEST}:*)",
 )
 WRITERS = ("Edit", "Write", "NotebookEdit")
 # Tools that need no permission and would widen a lens: subagents, the web.
@@ -97,9 +99,6 @@ NO_TOOLS = ("Agent", "Task", "WebFetch", "WebSearch")
 PLAIN_PATH = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./-]*")  # also a literal git-clean exclude pattern
 # Belt and braces: nothing a lens is given allows these, and a denial beats any allow.
 LENS_DENY = ("Bash(gh:*)", "Bash(git push:*)", "Bash(git commit:*)", "Bash(sudo:*)", "Bash(curl:*)")
-# The review code's own checkout (the main checkout, run as `uv run python -m ...` there): the lens's
-# agents and its guard come from here, never from the PR under review.
-HARNESS = Path(__file__).resolve().parents[2]
 
 FINDING_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -306,16 +305,40 @@ def merged_head(main: Path, pr: int, head: str) -> str:
     ).strip()
 
 
-def changes(main: Path, head: str) -> tuple[list[tuple[str, int | None, int | None]], list[str]]:
-    """The changed files `(path, added, removed)` (None: binary) and the allowlist's added lines."""
-    rows = []
-    for line in git(main, "diff", "--no-renames", "--numstat", f"origin/main...{head}").splitlines():
-        added, removed, path = line.split("\t", 2)
+Rows = list[tuple[str, int | None, int | None]]
+
+
+def changes(main: Path, merged: str) -> tuple[Rows, list[str]]:
+    """The changed files `(path, added, removed)` (None: binary) and the allowlist's added lines, of the
+    merged head against main: what merging would change, never a three-dot diff from one merge base
+    (with a criss-cross history that hides code an earlier merge brought in; review round 1). Read
+    with `-z` and `core.quotePath=false`: a non-ASCII path is never C-quoted past the path rules."""
+    rows: Rows = []
+    raw = git(
+        main,
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "--no-renames",
+        "-z",
+        "--numstat",
+        "origin/main",
+        merged,
+    )
+    for record in raw.split("\0"):
+        if not record:
+            continue
+        added, removed, path = record.split("\t", 2)
         rows.append(
             (path, int(added) if added != "-" else None, int(removed) if removed != "-" else None)
         )
-    patch = git(main, "diff", "--no-renames", "-U0", f"origin/main...{head}", "--", ALLOWLIST)
+    patch = git(main, "diff", "--no-renames", "-U0", "origin/main", merged, "--", ALLOWLIST)
     return rows, added_lines(patch)
+
+
+def merge_bases(main: Path, head: str) -> int:
+    """How many merge bases the head has with main (more than one: a criss-cross history)."""
+    return len(git(main, "merge-base", "--all", "origin/main", head).split())
 
 
 def added_lines(patch: str) -> list[str]:
@@ -331,19 +354,22 @@ def added_lines(patch: str) -> list[str]:
     return found
 
 
-def tier(rows: list[tuple[str, int | None, int | None]], allowlist_added: list[str]) -> str:
+def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
+    """The review tier. A criss-cross history (`bases` > 1) never gets a no-model tier."""
     paths = [path for path, _, _ in rows]
     if not rows:
         raise Refused("the PR changes nothing against main")
+    no_model = bases == 1
     if (
-        paths == [ALLOWLIST]
+        no_model
+        and paths == [ALLOWLIST]
         and rows[0][2] == 0
         and allowlist_added
         and rows[0][1] == len(allowlist_added)  # every added line was read, none skipped
         and all(HASH_LINE.fullmatch(line) for line in allowlist_added)
     ):
         return "allowlist-only"
-    if all(path.startswith("docs/") and path.endswith(".md") for path in paths):
+    if no_model and all(path.startswith("docs/") and path.endswith(".md") for path in paths):
         return "docs-only"
     lines = sum((a or 0) + (r or 0) for _, a, r in rows)
     binary = any(a is None or r is None for _, a, r in rows)
@@ -429,9 +455,9 @@ def resolve(pr: int) -> str:
 # ---------------------------------------------------------------------------------------------- lenses
 
 
-def brief(run: Run, lens: Lens, rv: Path, slot: Path) -> str:
-    """The lens's prompt (stdin). It names the PR, the heads, the worktree and the slot, and nothing
-    about where verdicts are kept."""
+def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] | None = None) -> str:
+    """The lens's prompt (stdin). It names the PR, the heads, the worktree, the slot, the files holding
+    the change's diff and log, and nothing about where verdicts are kept."""
     assert run.head is not None
     assert run.merged is not None
     assert run.slot is not None
@@ -445,14 +471,23 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path) -> str:
             f"PR {run.pr}, head {run.head}, review round {run.round_}.",
             f"Your working directory {rv} holds {merged};",
             f"a read-only copy of the same commit is at {slot} (read it, never run code there).",
-            f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{run.slot}.",
-            f"The PR's change: git diff origin/main...{run.head}. Authority: the ticket in the PR body.",
-            "Run only the PR's changed test files and your own attack tests, each with",
-            "`uv run pytest -rf <files>`. Never push, commit or post anything. Public words only.",
+            f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{run.slot}, shared with the other lenses.",
+            *(
+                [
+                    f"The change merging the PR makes (read it; there is no git command): {facts[0]}",
+                    f"and its commits: {facts[1]}. Authority: the ticket in the PR body.",
+                ]
+                if facts
+                else ["Authority: the ticket in the PR body."]
+            ),
+            "Run only the PR's changed test files and your own attack tests, with exactly",
+            f"`{LENS_TEST} -rf <test files>` (it waits its turn for the database; no other pytest",
+            "options). Never push, commit or post anything. Public words only.",
             lens.task,
-            "For each finding scored 50 or more, write a failing test under this worktree that proves",
-            "it and give it as `repro` (test_file relative to this worktree, the command, expect_fail",
-            "true); repro null if you could not. Your answer is the JSON the schema asks for; its",
+            "For each finding scored 50 or more, write a failing test that proves it, only under",
+            f"review_attacks/{lens.label}/ in this worktree (other lenses write beside you); give it",
+            "as `repro` (test_file relative to this worktree, the command, expect_fail true); repro",
+            "null if you could not. Your answer is the JSON the schema asks for; its",
             f"`head` is {run.head}.",
         ]
     )
@@ -597,10 +632,23 @@ def replay_target(rv: Path, test_file: str) -> str | None:
     return str(pure)
 
 
+def pytest_lock(where: Path) -> IO[str]:
+    """The main checkout's pytest lock, held (the lenses' wrapper takes the same one)."""
+    common = _run(["git", "-C", str(where), "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if common.returncode != 0:
+        raise Refused("the worktree's git folder cannot be found")
+    path = Path(common.stdout.strip()).parent / ".private" / "work" / "factory" / "pytest.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = path.open("a")
+    fcntl.flock(handle, fcntl.LOCK_EX)
+    return handle
+
+
 def replay(rv: Path, slot: int, test_file: str) -> bool:
     """Run the test file in `rv` (never the lens's own command): True when it fails by name."""
     env = {key: value for key, value in lens_env(slot).items() if key not in COLOUR}
     env["NO_COLOR"] = "1"
+    held = pytest_lock(rv)
     try:
         done = _run(
             ["uv", "run", "pytest", "-rf", "--color=no", test_file],
@@ -610,6 +658,8 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
         )
     except subprocess.TimeoutExpired:
         return False
+    finally:
+        held.close()
     plain = ANSI.sub("", done.stdout)  # FORCE_COLOR in the caller's shell colours pytest's words
     named = re.compile(rf"^FAILED {re.escape(test_file)}(?:::|\s|$)", re.MULTILINE)
     return done.returncode != 0 and named.search(plain) is not None
@@ -676,8 +726,9 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
     with locked(review_dir / ".git.lock"):
         run.merged = merged_head(main, run.pr, run.head)
-        rows, allowlist_added = changes(main, run.head)
-    run.tier = tier(rows, allowlist_added)
+        rows, allowlist_added = changes(main, run.merged)
+        bases = merge_bases(main, run.head)
+    run.tier = tier(rows, allowlist_added, bases=bases)
     if run.tier in ("allowlist-only", "docs-only"):
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
         return
@@ -722,11 +773,17 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
     assert run.head is not None
     assert run.slot is not None
     n, head = run.slot, run.head
+    assert run.merged is not None
     out = main / ".private" / "work" / "factory" / "review" / "out"
+    out.mkdir(parents=True, exist_ok=True)
+    stem = f"{run.pr}-{head[:12]}-r{run.round_}"
+    facts = (out / f"{stem}.diff", out / f"{stem}.log")
+    facts[0].write_text(git(main, "diff", "--no-renames", "origin/main", run.merged))
+    facts[1].write_text(git(main, "log", "--stat", "--format=%H %an %ad%n%B", f"origin/main..{head}"))
 
     def one(lens: Lens) -> dict[str, Any]:
-        keep = out / f"{run.pr}-{head[:12]}-r{run.round_}-{lens.label}.json"
-        result = run_lens(lens, brief(run, lens, rv, slot), rv, n, keep, main)
+        keep = out / f"{stem}-{lens.label}.json"
+        result = run_lens(lens, brief(run, lens, rv, slot, facts), rv, n, keep, main)
         run.lenses.append(
             {
                 "label": lens.label,

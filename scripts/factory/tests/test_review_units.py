@@ -2,6 +2,7 @@
 replay path, the lens's answer, the slot lock and the words a lens is given."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -192,7 +193,7 @@ def test_only_a_failure_naming_the_test_file_confirms(
 ) -> None:
     fake_uv(tmp_path / "bin", output, code)
     monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:/usr/bin:/bin")
-    assert review.replay(tmp_path, 1, "tests/test_a.py") is confirmed
+    assert review.replay(repo(tmp_path), 1, "tests/test_a.py") is confirmed
 
 
 # ---------------------------------------------------------------- the lens's answer
@@ -420,7 +421,7 @@ def test_a_coloured_failure_still_confirms_and_replay_runs_without_colour(
     script.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
     monkeypatch.setenv("FORCE_COLOR", "3")
-    assert review.replay(tmp_path, 1, "tests/test_a.py") is True
+    assert review.replay(repo(tmp_path), 1, "tests/test_a.py") is True
     seen = (bin_dir / "uv.env").read_text().splitlines()
     assert "NO_COLOR=1" in seen
     assert not [line for line in seen if line.startswith("FORCE_COLOR=")]
@@ -508,6 +509,7 @@ def staged_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, forge: bool) -> 
     monkeypatch.setattr(review, "resolve", lambda pr: H)
     monkeypatch.setattr(review, "merged_head", lambda main, pr, head: H)
     monkeypatch.setattr(review, "changes", lambda main, head: ([("a.py", 1, 0)], []))
+    monkeypatch.setattr(review, "merge_bases", lambda main, head: 1)
     monkeypatch.setattr(review, "claim_slot", lambda where: (1, (tmp_path / "held").open("a")))
     monkeypatch.setattr(review, "prepare", lambda *_, **__: None)
     monkeypatch.setattr(review, "lenses_in", lenses_in)
@@ -583,3 +585,215 @@ def test_an_ignored_file_beside_the_repro_is_gone_before_replay(
     review.confirm(run, rv)
     assert seen == [False]
     assert (attack / "test_r.py").is_file()
+
+
+# ---------------------------------------------------------------- review round 1 on PR #472
+
+
+def criss_cross(tmp_path: Path) -> tuple[Path, str]:
+    """main and the PR merged each other (a criss-cross); the PR's second merge quietly reverts a
+    code change main has, then adds a doc. Merging it changes `a.py` on main."""
+    root = tmp_path / "criss"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    for key, value in (("user.email", "t@example.com"), ("user.name", "t"), ("commit.gpgsign", "false")):
+        git(root, "config", key, value)
+    (root / "docs").mkdir()
+    (root / "a.py").write_text("x = 1\n")
+    (root / "docs" / "n.md").write_text("# n\n")
+    git(root, "add", "a.py", "docs/n.md")
+    git(root, "commit", "-q", "-m", "O")
+    git(root, "switch", "-q", "-c", "topic")
+    (root / "a.py").write_text("x = 2\n")
+    git(root, "commit", "-q", "-am", "T1")
+    git(root, "switch", "-q", "main")
+    (root / "docs" / "n.md").write_text("# n2\n")
+    git(root, "commit", "-q", "-am", "M1")
+    m1 = git(root, "rev-parse", "HEAD")
+    git(root, "merge", "-q", "--no-edit", "topic")
+    git(root, "switch", "-q", "topic")
+    git(root, "merge", "-q", "--no-commit", m1)
+    (root / "a.py").write_text("x = 1\n")
+    git(root, "add", "a.py")
+    git(root, "commit", "-q", "-m", "T2, an evil merge")
+    (root / "docs" / "t.md").write_text("# t3\n")
+    git(root, "add", "docs/t.md")
+    git(root, "commit", "-q", "-m", "T3")
+    git(root, "update-ref", "refs/remotes/origin/main", "main")
+    return root, git(root, "rev-parse", "HEAD")
+
+
+def test_a_criss_cross_merge_that_changes_code_is_never_docs_only(tmp_path: Path) -> None:
+    root, head = criss_cross(tmp_path)
+    tree = git(root, "merge-tree", "--write-tree", "origin/main", head).split()[0]
+    merged = git(root, "commit-tree", tree, "-p", head, "-p", "origin/main", "-m", "merged")
+    assert review.merge_bases(root, head) == 2
+    for rows, _ in (review.changes(root, merged), review.changes(root, head)):
+        assert "a.py" in [path for path, _, _ in rows], rows
+        assert review.tier(rows, [], bases=2) not in ("docs-only", "allowlist-only")
+        assert review.tier(rows, []) not in ("docs-only", "allowlist-only")
+
+
+def test_more_than_one_merge_base_never_gets_a_no_model_tier() -> None:
+    assert review.tier([("docs/a.md", 1, 0)], [], bases=2) != "docs-only"
+    assert review.tier([(review.ALLOWLIST, 1, 0)], [HASH], bases=2) != "allowlist-only"
+    assert review.tier([("docs/a.md", 1, 0)], [], bases=1) == "docs-only"
+
+
+@pytest.mark.parametrize(
+    ("path", "words"),
+    [(".github/workflows/cé.yml", False), ("web/src/messages/bn-é.json", True)],
+)
+def test_a_non_ascii_path_is_read_as_itself(tmp_path: Path, path: str, words: bool) -> None:
+    # The CI workflow must take two lenses; the messages file must bring the words lens.
+    """Round 1: numstat without -z C-quoted these, so no path rule matched them."""
+    root = repo(tmp_path)
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("on: push\n")
+    git(root, "add", path)
+    git(root, "commit", "-q", "-m", "a non-ASCII path")
+    rows, added = review.changes(root, git(root, "rev-parse", "HEAD"))
+    assert [row[0] for row in rows] == [path]
+    assert (review.tier(rows, added) == "normal") is not words
+    assert any(name.startswith(review.MESSAGES) for name, _, _ in rows) is words
+
+
+WRAPPER = review.HARNESS / "scripts" / "factory" / "lens_pytest.py"
+
+
+def lens_pytest() -> Any:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("lens_pytest", WRAPPER)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_lens_has_one_bash_command_the_harness_wrapper_and_no_git() -> None:
+    """Round 1: `git diff --output=<path>` and `uv run pytest --basetemp=<dir>` write or delete
+    anywhere, and the guard lets them through for a lens."""
+    bash = [tool for tool in review.ALLOWED_TOOLS if tool.startswith("Bash")]
+    assert bash == [f"Bash({review.LENS_TEST}:*)"]
+    assert f"uv run python {WRAPPER}" == review.LENS_TEST
+    assert not [tool for tool in review.ALLOWED_TOOLS if "git" in tool]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--basetemp=victim", "tests/test_a.py"],
+        ["--basetemp", "victim", "tests/test_a.py"],
+        ["--junitxml=out.xml", "tests/test_a.py"],
+        ["--junit-xml=out.xml", "tests/test_a.py"],
+        ["-o", "cache_dir=/elsewhere", "tests/test_a.py"],
+        ["-p", "evil", "tests/test_a.py"],
+        ["-c", "other.ini", "tests/test_a.py"],
+        ["--rootdir=/", "tests/test_a.py"],
+        ["--output=x", "tests/test_a.py"],
+        ["--result-log=x", "tests/test_a.py"],
+        ["--confcutdir=/", "tests/test_a.py"],
+        ["--override-ini=x=y", "tests/test_a.py"],
+        ["-k", "--basetemp=victim", "tests/test_a.py"],
+        ["-k"],
+        ["/etc/hosts"],
+        ["../outside.py"],
+        ["tests/missing.py"],
+        ["-rf"],
+        [],
+    ],
+)
+def test_the_wrapper_refuses_every_option_but_its_few(tmp_path: Path, argv: list[str]) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    module = lens_pytest()
+    with pytest.raises(module.Refused):
+        module.check(argv, tmp_path)
+
+
+def test_the_wrapper_takes_test_paths_and_its_flags(tmp_path: Path) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    argv = ["-rf", "-q", "--tb=short", "-k", "a and not b", "tests/test_a.py::test_a", "tests"]
+    assert lens_pytest().check(argv, tmp_path) == argv
+
+
+def wrapper_run(where: Path, *argv: str) -> subprocess.Popen[str]:
+    # The outer run's Django settings would make pytest-django import vextrus in a scratch repo.
+    env = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+    return subprocess.Popen(
+        [sys.executable, str(WRAPPER), *argv],
+        cwd=where,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def test_basetemp_through_the_wrapper_deletes_nothing(tmp_path: Path) -> None:
+    root = repo(tmp_path)
+    (root / "victim").mkdir()
+    (root / "victim" / "keep.txt").write_text("kept\n")
+    (root / "tests").mkdir()
+    (root / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    done = wrapper_run(root, "--basetemp=victim", "tests/test_a.py")
+    _, err = done.communicate(timeout=120)
+    assert done.returncode == 2, err
+    assert (root / "victim" / "keep.txt").is_file()
+
+
+def test_the_wrapper_waits_for_the_pytest_lock(tmp_path: Path) -> None:
+    """Round 1: two lenses share rv<N> and its database; overlapping runs errored. Every lens test
+    run, and every replay, takes the main checkout's pytest lock."""
+    import fcntl
+
+    root = repo(tmp_path)
+    (root / "tests").mkdir()
+    (root / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    lock = root / ".private" / "work" / "factory" / "pytest.lock"
+    lock.parent.mkdir(parents=True)
+    with lock.open("a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        waiting = wrapper_run(root, "-q", "tests/test_a.py")
+        with pytest.raises(subprocess.TimeoutExpired):
+            waiting.wait(timeout=2)
+    out, err = waiting.communicate(timeout=120)
+    assert waiting.returncode == 0, out + err
+
+
+def test_replay_takes_the_pytest_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import fcntl
+
+    root = repo(tmp_path)
+    real = review._run
+    held: list[bool] = []
+
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if argv[0] == "git":
+            return real(argv, **kwargs)
+        with (root / ".private" / "work" / "factory" / "pytest.lock").open("a") as probe:
+            try:
+                fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held.append(False)
+            except BlockingIOError:
+                held.append(True)
+        return subprocess.CompletedProcess(argv, 0, "1 passed", "")
+
+    monkeypatch.setattr(review, "_run", run)
+    assert review.replay(root, 1, "tests/test_a.py") is False
+    assert held == [True]
+
+
+def test_each_lens_writes_its_attack_tests_in_its_own_folder(tmp_path: Path) -> None:
+    run = review.Run(pr=12, round_=1, head=H, merged=H, slot=1)
+    folders = set()
+    for lens in (review.LENS_A, review.LENS_B, review.WORDS):
+        text = review.brief(run, lens, tmp_path / "rv1", tmp_path / "slot1")
+        assert f"review_attacks/{lens.label}/" in text
+        assert review.LENS_TEST in text
+        folders.add(lens.label)
+    assert len(folders) == 3
