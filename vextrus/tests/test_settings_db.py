@@ -126,3 +126,27 @@ def test_the_migrations_hash_ignores_everything_but_migrations(tmp_path: Path) -
     (tmp_path / "vextrus" / "platform" / "models.py").write_text("# changed\n")
 
     assert migrations_hash(tmp_path) == before
+
+
+def name_for_tests(checkout: Path) -> str:
+    name: str = databases({}, checkout)["default"]["TEST"]["NAME"]
+    return name
+
+
+def test_a_checkout_reached_through_a_symlink_keeps_its_test_database(tmp_path: Path) -> None:
+    (tmp_path / "real").mkdir()
+    checkout = main_checkout(tmp_path / "real")
+    link = tmp_path / "link"
+    link.symlink_to(checkout)
+
+    assert name_for_tests(link) == name_for_tests(checkout)
+
+
+def test_a_moved_checkout_gets_a_fresh_test_database(tmp_path: Path) -> None:
+    (tmp_path / "before").mkdir()
+    checkout = main_checkout(tmp_path / "before")
+    before = name_for_tests(checkout)
+
+    moved = checkout.rename(tmp_path / "after")
+
+    assert name_for_tests(moved) != before

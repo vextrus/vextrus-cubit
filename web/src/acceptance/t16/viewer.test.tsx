@@ -33,6 +33,7 @@ import { KeyMap } from '@/ui/keys/registry'
 import { expectKeyMapSound } from '@/ui/keys/testing'
 import { SheetViewer } from '@/sheet'
 import { fixtureBuffer, inkBox, snapshot, type InkBox } from './sheet.fixture'
+import { untilBox } from './settle'
 
 const WIDTH = 1000
 const HEIGHT = 700
@@ -196,16 +197,18 @@ describe('<SheetViewer>: one sheet, fitted, zoomed, panned and fitted again', ()
     const { stage } = await open()
     const before = await opened(stage)
     await drag(stage, 'MouseLeft', [WIDTH / 2, HEIGHT / 2], [60, 40])
-    const after = await changed(stage, before)
-    expect(near(after, { x0: before.x0 + 60, y0: before.y0 + 40, x1: before.x1 + 60, y1: before.y1 + 40 }, 2)).toBe(true)
+    const want = { x0: before.x0 + 60, y0: before.y0 + 40, x1: before.x1 + 60, y1: before.y1 + 40 }
+    const after = await untilBox(() => paperBox(stage), want, { timeout: 10_000, px: 2 })
+    expect(near(after, want, 2)).toBe(true)
   })
 
   it('pans on a drag with the middle button', async () => {
     const { stage } = await open()
     const before = await opened(stage)
     await drag(stage, 'MouseMiddle', [WIDTH / 2, HEIGHT / 2], [-50, 30])
-    const after = await changed(stage, before)
-    expect(near(after, { x0: before.x0 - 50, y0: before.y0 + 30, x1: before.x1 - 50, y1: before.y1 + 30 }, 2)).toBe(true)
+    const want = { x0: before.x0 - 50, y0: before.y0 + 30, x1: before.x1 - 50, y1: before.y1 + 30 }
+    const after = await untilBox(() => paperBox(stage), want, { timeout: 10_000, px: 2 })
+    expect(near(after, want, 2)).toBe(true)
   })
 
   it('fits the whole sheet again on F', async () => {

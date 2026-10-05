@@ -11,6 +11,9 @@
 # Worktrees made by sessions and workflows
 /.claude/worktrees/
 
+# Agents' own memory (spec 3.3): never committed; the guard refuses staging it too
+.claude/agent-memory*/
+
 # Python
 __pycache__/
 *.py[cod]

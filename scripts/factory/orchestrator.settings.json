@@ -1,0 +1,7 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node /home/riz/vextrus-cubit/scripts/factory/statusline.mjs",
+    "refreshInterval": 15
+  }
+}

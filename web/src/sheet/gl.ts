@@ -11,6 +11,7 @@
  * Where marks overlap the darker wins (the blend takes the minimum colour and the maximum alpha), as
  * the raster does; off the paper a mark is black at its own alpha, premultiplied.
  */
+import { colourRgb } from './colours'
 import type { DecodedSheet } from './decode'
 import type { ViewTransform } from './view'
 
@@ -41,22 +42,37 @@ uniform vec2 uSize;
 out vec4 outColor;
 // Canvas pixel coordinates, rows from the top, a pixel's centre at +0.5 (the raster's convention).
 vec2 here() { return vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y); }
-void ink(float a) { if (a <= 0.0) discard; outColor = vec4(1.0 - a, 1.0 - a, 1.0 - a, a); }
+// The palette (Palette, below): 0 Paper, every colour black; 1 CAD-dark, each mark's colour over the ground;
+// 2 Compare, the ink colour at 55 % on white; 3 Compare on CAD-dark, the ink colour on black.
+uniform int uPalette;
+uniform vec3 uGround;
+uniform vec3 uInk;
+flat in vec3 vColour;
+void ink(float a) {
+  if (a <= 0.0) discard;
+  if (uPalette == 1) outColor = vec4(mix(uGround, vColour, a), 1.0);
+  else if (uPalette == 2) outColor = vec4(mix(vec3(1.0), uInk, 0.55 * a), 0.55 * a);
+  else if (uPalette == 3) outColor = vec4(uInk * a, 1.0);
+  else outColor = vec4(1.0 - a, 1.0 - a, 1.0 - a, a);
+}
 `
 
 const FILL_VS = `${PREAMBLE}
 in vec2 aPos;
-void main() { gl_Position = toClip(toPx(aPos)); }`
-const FILL_FS = `#version 300 es
-precision highp float;
+in vec3 aColour;
+flat out vec3 vColour;
+void main() { vColour = aColour; gl_Position = toClip(toPx(aPos)); }`
+const FILL_FS = `${FRAGMENT_PREAMBLE}
 uniform vec4 uColor;
-out vec4 outColor;
-void main() { outColor = uColor; }`
+uniform int uInked;
+void main() { if (uInked == 1) ink(1.0); else outColor = uColor; }`
 
 const LINE_VS = `${PREAMBLE}
 in vec2 aCorner;
 in vec4 aSeg;
 in float aWeight;
+in vec3 aColour;
+flat out vec3 vColour;
 flat out vec2 vA;
 flat out vec2 vB;
 flat out float vHalf;
@@ -70,6 +86,7 @@ void main() {
   vHalf = thick ? w * 0.5 : 0.5;
   vAlpha = thick ? 1.0 : clamp(w * 1.1, 0.42, 1.0);
   vThick = thick ? 1.0 : 0.0;
+  vColour = aColour;
   vA = a;
   vB = b;
   vec2 d = b - a;
@@ -113,7 +130,9 @@ in vec2 aAxisY;   // y axis (mm)
 in vec4 aUv;      // u0, v0, u1, v1 (atlas pixels, v from the top row)
 in vec4 aRect;    // x0, y0, x1, y1 (text units)
 in float aRun;    // the run's text height (mm): its glyphs greek together
+in vec3 aColour;
 uniform float uGreekPx;
+flat out vec3 vColour;
 out vec2 vUv;
 flat out float vTextPx;
 flat out float vGreek;
@@ -124,6 +143,7 @@ void main() {
   float det = aPlace.z * aAxisY.y - aPlace.w * aAxisY.x;
   vTextPx = sqrt(abs(det)) * uScale;
   vGreek = aRun * uScale < uGreekPx ? 1.0 : 0.0;
+  vColour = aColour;
   gl_Position = toClip(toPx(mm));
 }`
 const GLYPH_FS = `${FRAGMENT_PREAMBLE}
@@ -189,7 +209,24 @@ interface Uploaded {
   buffers: WebGLBuffer[]
 }
 
+/**
+ * How the marks are coloured (4.6, "Colour"): Paper, every colour black on white; CAD-dark, each
+ * mark's AutoCAD colour on #101318; Compare, every mark #D0342C at 55 % on white (laid over the Plot by
+ * multiplying); Compare on CAD-dark, every mark orange on black (laid over the inverted Plot by screening).
+ */
+export type Palette = 'paper' | 'dark' | 'compare' | 'compare-dark'
+
+const PALETTE: Record<Palette, number> = { paper: 0, dark: 1, compare: 2, 'compare-dark': 3 }
+/** 4.6's colours, 0 to 1. */
+export const CAD_DARK_GROUND = [0x10 / 255, 0x13 / 255, 0x18 / 255] as const
+/** Off the paper on CAD-dark: a shade darker, so the paper's edge shows. */
+const CAD_DARK_OFF_PAPER = [0x0a / 255, 0x0c / 255, 0x10 / 255] as const
+const COMPARE_RED = [0xd0 / 255, 0x34 / 255, 0x2c / 255] as const
+const COMPARE_ORANGE = [0xff / 255, 0x9a / 255, 0x2e / 255] as const
+
 export interface DrawOptions {
+  /** Paper unless said (4.6). */
+  palette?: Palette
   /** Text whose glyphs are shorter than this on screen, in device px, is drawn as grey bars (4.6). */
   greekBelowPx?: number
   /** Those bars' ink, 0 to 1 (`--canvas-dim-greek` on white). */
@@ -228,7 +265,7 @@ export class SheetRenderer {
   }
 
   /** Draws `sheet` at `view` over the whole canvas (its size in device pixels). */
-  draw(sheet: DecodedSheet, view: ViewTransform, { greekBelowPx = 0, greekInk = 0.3 }: DrawOptions = {}): void {
+  draw(sheet: DecodedSheet, view: ViewTransform, { greekBelowPx = 0, greekInk = 0.3, palette = 'paper' }: DrawOptions = {}): void {
     const gl = this.gl
     if (gl.isContextLost()) return
     const up = this.upload(sheet)
@@ -237,28 +274,37 @@ export class SheetRenderer {
     if (frameWork(sheet, view, width, height) > WORK_PER_PIXEL * width * height + WORK_FLOOR) {
       throw new SheetGlError('the sheet draws over itself too many times to draw')
     }
+    const dark = palette === 'dark' || palette === 'compare-dark'
     gl.viewport(0, 0, width, height)
-    gl.clearColor(0, 0, 0, 0)
+    if (palette === 'dark') gl.clearColor(...CAD_DARK_OFF_PAPER, 1)
+    else gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
 
+    const ground = palette === 'dark' ? CAD_DARK_GROUND : palette === 'compare-dark' ? ([0, 0, 0] as const) : ([1, 1, 1] as const)
+    const inkColour = palette === 'compare-dark' ? COMPARE_ORANGE : COMPARE_RED
     const common = (p: Program) => {
       gl.useProgram(p.program)
       gl.uniform2f(p.uniform('uSize'), width, height)
       gl.uniform1f(p.uniform('uScale'), view.scale)
       gl.uniform2f(p.uniform('uOffset'), view.x, view.y)
+      gl.uniform1i(p.uniform('uPalette'), PALETTE[palette])
+      gl.uniform3f(p.uniform('uGround'), ...ground)
+      gl.uniform3f(p.uniform('uInk'), ...inkColour)
     }
-    // The paper, white and opaque.
+    // The paper, its ground and opaque.
     gl.disable(gl.BLEND)
     common(this.fill)
-    gl.uniform4f(this.fill.uniform('uColor'), 1, 1, 1, 1)
+    gl.uniform1i(this.fill.uniform('uInked'), 0)
+    gl.uniform4f(this.fill.uniform('uColor'), ...ground, 1)
     gl.bindVertexArray(up.paper)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    // Ink: the darker wins.
+    // Ink: on white the darker wins; on a dark ground the lighter.
     gl.enable(gl.BLEND)
-    gl.blendEquationSeparate(gl.MIN, gl.MAX)
+    if (dark) gl.blendEquation(gl.MAX)
+    else gl.blendEquationSeparate(gl.MIN, gl.MAX)
     gl.blendFunc(gl.ONE, gl.ONE)
     if (up.fillCount) {
-      gl.uniform4f(this.fill.uniform('uColor'), 0, 0, 0, 1)
+      gl.uniform1i(this.fill.uniform('uInked'), 1)
       gl.bindVertexArray(up.fills)
       gl.drawArrays(gl.TRIANGLES, 0, up.fillCount * 3)
     }
@@ -318,6 +364,20 @@ export class SheetRenderer {
       gl.vertexAttribPointer(at, size, gl.FLOAT, false, stride, offset)
       gl.vertexAttribDivisor(at, divisor)
     }
+    const bytes = (array: Uint8Array) => {
+      const b = gl.createBuffer()
+      buffers.push(b)
+      gl.bindBuffer(gl.ARRAY_BUFFER, b)
+      gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW)
+    }
+    /** Each record's colour as three bytes (the buffer bound last), for CAD-dark. */
+    const colour = (p: Program, divisor: number) => {
+      const at = p.attribute('aColour')
+      if (at < 0) return
+      gl.enableVertexAttribArray(at)
+      gl.vertexAttribPointer(at, 3, gl.UNSIGNED_BYTE, true, 3, 0)
+      gl.vertexAttribDivisor(at, divisor)
+    }
     const { widthMm: w, heightMm: h } = sheet.paper
 
     const paper = gl.createVertexArray()
@@ -332,6 +392,8 @@ export class SheetRenderer {
     gl.bindVertexArray(fills)
     data(positions)
     attribute(this.fill, 'aPos', 2, 8, 0, 0)
+    bytes(colours(t, 6, 3))
+    colour(this.fill, 0)
 
     const lines = gl.createVertexArray()
     gl.bindVertexArray(lines)
@@ -340,6 +402,8 @@ export class SheetRenderer {
     data(sheet.lines.f32)
     attribute(this.line, 'aSeg', 4, 28, 0, 1)
     attribute(this.line, 'aWeight', 1, 28, 16, 1)
+    bytes(colours(sheet.lines, 5, 1))
+    colour(this.line, 1)
 
     // Each glyph instance with its atlas glyph's rectangles and its run's height, 17 floats.
     const g = sheet.glyphs
@@ -368,6 +432,8 @@ export class SheetRenderer {
     attribute(this.glyph, 'aUv', 4, 68, 24, 1)
     attribute(this.glyph, 'aRect', 4, 68, 40, 1)
     attribute(this.glyph, 'aRun', 1, 68, 64, 1)
+    bytes(colours(g, 7, 1))
+    colour(this.glyph, 1)
     gl.bindVertexArray(null)
 
     const atlas = gl.createTexture()
@@ -384,6 +450,16 @@ export class SheetRenderer {
     this.current = { sheet, paper, fills, fillCount: t.count, lines, glyphs, atlas, buffers }
     return this.current
   }
+}
+
+/** Each record's colour (the u32 at word `at`) as RGB bytes, `repeat` times over (a triangle's corners). */
+function colours(records: { count: number; stride: number; u32: Uint32Array }, at: number, repeat: number): Uint8Array {
+  const out = new Uint8Array(records.count * 3 * repeat)
+  for (let i = 0; i < records.count; i++) {
+    const rgb = colourRgb(records.u32[i * records.stride + at]!)
+    for (let r = 0; r < repeat; r++) out.set(rgb, (i * repeat + r) * 3)
+  }
+  return out
 }
 
 /**

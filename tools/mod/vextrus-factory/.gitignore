@@ -1,0 +1,3 @@
+.claude-plugin/types/
+# The mod runtime regenerates this on every load (it extends .claude-plugin/types/tsconfig.json).
+/tsconfig.json

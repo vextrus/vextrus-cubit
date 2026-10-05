@@ -624,9 +624,13 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
         elif row.status == CoverageStatus.ASSIGNED:
             # A view counts under every step and Part it serves (a toilet detail under the walls,
             # the rooms and the Plumbing and sanitary Part).
-            for step in steps.get(row.id, ()):
-                by_step[step.step] += 1
-            if row.part_key and row.part_key not in {s.step for s in steps.get(row.id, ())}:
+            served = [s.step for s in steps.get(row.id, ())]
+            for step in served:
+                by_step[step] += 1
+            # A Structural or Architectural view's own Part is Step 2's Notes (m0-screens 6.11 names it
+            # so): a view already in Step 2 is not counted there twice.
+            notes = row.part_key in view_finder.STEP_DISCIPLINES and view_finder.GENERAL_NOTES in served
+            if row.part_key and row.part_key not in served and not notes:
                 by_step[row.part_key] += 1
     return CoverageView(
         views=len(rows),
