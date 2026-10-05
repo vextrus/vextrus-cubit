@@ -88,3 +88,41 @@ def test_each_list_item_still_needs_an_open_issue() -> None:
     assert cut_problems("## Cut\n- the band test (#5)\n", lambda number: False) == [
         "'cut' item 1 links no open issue"
     ]
+
+
+def test_a_wrapped_item_is_one_item_and_its_link_may_be_on_any_line() -> None:
+    first = (
+        "## Cut\n- Band width in terminal cells (#5): measure cells, not UTF-16\n"
+        "  units, in a later ticket.\n"
+    )
+    second = "## Cut\n- Band width in terminal cells: measure cells, not\n  UTF-16 units (#5).\n"
+
+    assert cut_problems(first, lambda number: True) == []
+    assert cut_problems(second, lambda number: True) == []
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Cut\nNone.\n- the PDF export\n",
+        "## Cut\n- None\n- the PDF export\n",
+        "## Cut\n- the band test (#5)\nThe replay was cut too.\n",
+    ],
+    ids=["item-after-none", "item-after-listed-none", "unindented-line-after-item"],
+)
+def test_a_cut_after_a_none_or_after_an_item_is_still_caught(body: str) -> None:
+    assert cut_problems(body, lambda number: True), body
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Harness net: the PDF export was cut",
+        "Factory-Cut: the PDF export",
+        "Co-Authored-By: the replay test was not done",
+        "https://claude.ai/code/ the export was cut",
+        "\U0001f916 Generated with the export cut",
+    ],
+)
+def test_a_cut_dressed_as_a_trailer_is_refused(line: str) -> None:
+    assert cut_problems(f"## Cut\n{line}\n", lambda number: True), line

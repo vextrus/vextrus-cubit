@@ -72,12 +72,16 @@ GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
 NOTHING = re.compile(
     r"^(?:[-*+][ \t]+)?(?:none|nothing(?:[ \t]+(?:was[ \t]+)?cut)?|no[ \t]+cuts?)\.?$", re.IGNORECASE
 )
-# A cut item is a list item (`- x`, `* x`, `1. x`). A none-line closes its section. Any other line
-# there is refused (fail closed: a cut in prose or a table would otherwise slip through unfiled),
-# except the lines a builder's body ends with: trailers, the Harness net line, the generated footer.
+# A cut item is a list item (`- x`, `* x`, `1. x`) with its indented continuation lines. The lines a
+# builder's body ends with pass only in their exact forms (ENDING); see cut_problems for the rest.
 LIST_ITEM = re.compile(r"^ {0,3}(?:[-*+]|[0-9]{1,3}[.)])[ \t]+\S")
 ENDING = re.compile(
-    r"^(?:(?:Factory-[A-Za-z-]+|Co-Authored-By|Claude-Session|Harness net):|🤖 Generated with |https://claude\.ai/code/)"
+    r"Factory-(?:State|Verify|Reason): \S.*"
+    r"|Co-Authored-By: [^<>]+ <[^<>\s]+@[^<>\s]+>"
+    r"|Claude-Session: https://claude\.ai/code/session_[A-Za-z0-9]+"
+    r"|Harness net: \+?[0-9]+ / [-\u2212]?[0-9]+(?: \([^()]*\))?"
+    r"|\U0001f916 Generated with \[Claude Code\]\(https://claude\.com/claude-code\)"
+    r"|https://claude\.ai/code/session_[A-Za-z0-9]+"
 )
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
@@ -282,40 +286,62 @@ def scan_problems(facts: dict[str, Any], scan: Scan) -> list[str]:
 
 
 def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
-    """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository."""
-    found = []
+    """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository.
+
+    An item is a list item plus its indented continuation lines, and its link may be on any of them.
+    A none-line (`None.`, `Nothing cut.`) lets the prose after it pass, but every list item is still
+    checked. The lines a builder's body ends with pass only in their exact forms (ENDING). Any other
+    line is refused: the gate fails closed, so a cut written as prose or a table never slips
+    through."""
+    found: list[str] = []
     section: str | None = None
-    item, closed = 0, False
-    for line in body.splitlines():
+    items: list[list[str]] = []
+    after_none = False
+
+    def check(name: str, chunks: list[list[str]]) -> None:
+        for number, chunk in enumerate(chunks, start=1):
+            where = f"'{name}' item {number}"
+            linked = {int(a or b) for a, b in ISSUE_LINK.findall(" ".join(chunk))}
+            if not linked:
+                found.append(f"{where} links no issue: file one and link it (#<n>)")
+                continue
+            try:
+                if not any(issue_open(issue) for issue in sorted(linked)):
+                    found.append(f"{where} links no open issue")
+            except Exception:
+                found.append(f"{where}: its issue's state cannot be read")
+
+    for line in [*body.splitlines(), "# end"]:
         if heading := HEADING.match(line):
+            if section is not None:
+                check(section, items)
             gated = GATED.match(heading[1].strip())
-            section, item, closed = (
-                (" ".join(gated[1].lower().split()), 0, False) if gated else (None, 0, False)
-            )
+            section = " ".join(gated[1].lower().split()) if gated else None
+            items, after_none = [], False
             continue
         text = line.strip()
-        if section is None or closed or not text or ENDING.match(text):
+        if section is None or not text:
+            continue
+        if LIST_ITEM.match(line):
+            if NOTHING.match(text):
+                after_none = True
+            else:
+                items.append([text])
+            continue
+        if items and line[:1].isspace():
+            items[-1].append(text)
+            continue
+        if ENDING.fullmatch(text):
             continue
         if NOTHING.match(text):
-            closed = True
+            after_none = True
             continue
-        if not LIST_ITEM.match(line):
-            found.append(
-                f"'{section}' has a line that is not a list item: write each cut as a `- ` item "
-                "linking its issue (#<n>), or `None.`"
-            )
+        if after_none:
             continue
-        item += 1
-        numbers = {int(a or b) for a, b in ISSUE_LINK.findall(line)}
-        where = f"'{section}' item {item}"
-        if not numbers:
-            found.append(f"{where} links no issue: file one and link it (#<n>)")
-            continue
-        try:
-            if not any(issue_open(number) for number in sorted(numbers)):
-                found.append(f"{where} links no open issue")
-        except Exception:
-            found.append(f"{where}: its issue's state cannot be read")
+        found.append(
+            f"'{section}' has a line that is not a list item: write each cut as a `- ` item "
+            "linking its issue (#<n>), or `None.`"
+        )
     return found
 
 
