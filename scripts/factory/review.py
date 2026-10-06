@@ -7,10 +7,11 @@ of a PR head, by code (issues #452, #406, #420; the session-13 close's review re
 2. **Merge (code).** `git fetch origin refs/pull/<PR>/head main`; the head merged with `origin/main`
    (`git merge-tree`, no worktree touched). A head that does not merge exits 3, nothing started.
 3. **Tier (code).** From the changed paths and lines: allowlist-only (every added line a 64-hex hash
-   in `tools/leakscan/allowlist.txt`, nothing removed) and docs-only (`docs/**.md`) get no model and a
-   PASS by code (the owner's ruling Q3, 5 Oct 2026); small (under 150 changed lines, no trust-boundary
-   path) gets lens B; anything else gets lens A and lens B; a change under `web/src/messages/` adds the
-   `ux-critic` words lens.
+   in `tools/leakscan/allowlist.txt`, nothing removed) and docs-only (every path on the safe docs
+   list of `review_tiers.toml`) get no model and a PASS by code (the owner's ruling Q3, 5 Oct 2026);
+   small (under 150 changed lines, every path on that file's small list) gets lens B; EVERYTHING ELSE
+   gets lens A and lens B (the lists name what is safe, never the walls); a change under
+   `web/src/messages/` adds the `ux-critic` words lens.
 4. **Slot (code).** Review slot N is claimed by an exclusive `flock` on `.slot<N>.lock`, held until the
    run ends (two concurrent runs never share one). The read-only `.private/work/factory/review/slot<N>`
    and the runnable `.claude/worktrees/rv<N>` both hold the merged head.
@@ -35,6 +36,7 @@ Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing record
 import argparse
 import contextlib
 import fcntl
+import functools
 import json
 import os
 import re
@@ -44,7 +46,9 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+import tomllib
 import traceback
 from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -70,22 +74,12 @@ COLOUR = ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "PYTEST_ADDOPTS")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 FAILING = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"}
 
-# A path on a trust boundary is never "small": the guard and the harness, the factory's gates and
-# records, CI, the leak scan, and code that walls tenants, authenticates or parses hostile input.
-TRUST_BOUNDARY = re.compile(
-    r"^(?:\.claude/|\.github/|tools/|CLAUDE\.md$|vextrus/settings/|vextrus/testing/|engine/read/"
-    r"|vextrus/platform/http/)"
-    r"|(?:^|/)\.[^/]+(?:/|$)"  # a dotfile or dot-folder at any depth (.npmrc, .mcp.json, .env)
-    r"|(?:^|/)(?:scripts|eslint|lint|hooks)/"
-    r"|(?:^|/)(?:[^/]*(?:guard|auth|tenan|permission|ledger|parser|reader|leak|secret|middleware"
-    r"|sandbox|upload|bwrap|access)"
-    r"[^/]*)(?:/|$)"
-    r"|(?:^|/)(?:pyproject\.toml|uv\.lock|package(?:-lock)?\.json|conftest\.py|manage\.py|setup\.cfg"
-    r"|pytest\.ini|tox\.ini|Makefile|Dockerfile|[^/]*\.config\.[cm]?[jt]s|tsconfig[^/]*\.json"
-    r"|routers\.py|urls\.py|api\.py)$"
-    r"|/migrations/",
-    re.IGNORECASE,
-)
+# The tiers' path lists: what is SAFE for no model (docs-only) or one lens (small); every other path
+# is normal (PR #478 review, round 2: the denylist of walls kept missing walls).
+TIERS_FILE = Path(__file__).with_name("review_tiers.toml")
+# Secret-looking variables never reach a lens, its tests or a replay (TYPESAFE_API_KEY for one).
+SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PASSWD", re.IGNORECASE)
+
 
 # What a lens may do: read, write its attack test in its own worktree, read git, and run tests.
 # Every Bash entry is one exact command prefix, never all of Bash.
@@ -374,22 +368,47 @@ def added_lines(patch: str) -> list[str]:
 
 
 # Files under docs/ that code or agents read as data or instructions: never "docs-only".
-DOCS_READ = re.compile(
-    r"^docs/(?:knowledge/jev-nodes\.md$|specs/factory/contracts/|agents/|handoff/)"
-    r"|(?:^|/)(?:CLAUDE|AGENTS)\.md$",
-    re.IGNORECASE,
-)
+def glob_regex(pattern: str, *, ignore_case: bool = False) -> re.Pattern[str]:
+    """A tier list's glob as a whole-path regex: `*` no `/`, `**/` any folders (or none), `**` all."""
+    out, index = "", 0
+    while index < len(pattern):
+        if pattern.startswith("**/", index):
+            out, index = out + "(?:.*/)?", index + 3
+        elif pattern.startswith("**", index):
+            out, index = out + ".*", index + 2
+        elif pattern[index] == "*":
+            out, index = out + "[^/]*", index + 1
+        elif pattern[index] == "?":
+            out, index = out + "[^/]", index + 1
+        else:
+            out, index = out + re.escape(pattern[index]), index + 1
+    return re.compile(out, re.DOTALL | (re.IGNORECASE if ignore_case else 0))
+
+
+@functools.cache
+def tier_lists() -> dict[str, tuple[list[re.Pattern[str]], list[re.Pattern[str]]]]:
+    """`{tier: (paths, never)}` from `review_tiers.toml`; empty (every path normal) if unreadable."""
+    try:
+        data = tomllib.loads(TIERS_FILE.read_text())
+        return {
+            name: (
+                [glob_regex(item) for item in data[name]["paths"]],
+                [glob_regex(item, ignore_case=True) for item in data[name]["never"]],
+            )
+            for name in ("docs_only", "small")
+        }
+    except OSError, ValueError, KeyError, TypeError:
+        return {"docs_only": ([], []), "small": ([], [])}
+
+
+def listed(name: str, path: str) -> bool:
+    """True when `path` matches the tier's safe list and none of its `never` patterns."""
+    paths, never = tier_lists()[name]
+    return any(p.fullmatch(path) for p in paths) and not any(n.fullmatch(path) for n in never)
 
 
 def docs_only(path: str) -> bool:
-    """A Markdown file under docs/ that nothing runs or obeys: not on a trust boundary, not under a
-    dot-folder, not a CLAUDE.md or AGENTS.md, not a file a script reads (PR #478 review, round 1)."""
-    return (
-        path.startswith("docs/")
-        and path.endswith(".md")
-        and not TRUST_BOUNDARY.search(path)
-        and not DOCS_READ.search(path)
-    )
+    return listed("docs_only", path)
 
 
 def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
@@ -411,7 +430,7 @@ def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
         return "docs-only"
     lines = sum((a or 0) + (r or 0) for _, a, r in rows)
     binary = any(a is None or r is None for _, a, r in rows)
-    if lines < SMALL_LINES and not binary and not any(TRUST_BOUNDARY.search(path) for path in paths):
+    if lines < SMALL_LINES and not binary and all(listed("small", path) for path in paths):
         return "small"
     return "normal"
 
@@ -606,12 +625,60 @@ def lens_command(lens: Lens, main: Path) -> list[str]:
 
 
 def lens_env(slot: int) -> dict[str, str]:
-    env = {key: value for key, value in os.environ.items() if key != "CLAUDE_PROJECT_DIR"}
+    """The lens's (and a replay's) environment: its slot's database, no inherited project, and no
+    secret-looking variable (a lens's tests run the PR's code)."""
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key != "CLAUDE_PROJECT_DIR" and not SECRET_NAME.search(key)
+    }
     env["VEXTRUS_DB_NAME"] = f"vextrus_rv_slot{slot}"
     return env
 
 
 TOKEN = "VEXTRUS_REVIEW_PROCESS"
+# The process groups running now (lenses, replays): `{pgid: token}`, stopped on SIGTERM/HUP/INT.
+LIVE: dict[int, str] = {}
+LIVE_LOCK = threading.Lock()
+
+
+class Stopped(Exception):
+    """review.py was told to stop (a signal): every lens and replay has been killed."""
+
+    def __init__(self, signum: int) -> None:
+        super().__init__(f"stopped by signal {signum}: every lens and replay was killed")
+        self.signum = signum
+
+
+def stop_everything(signum: int, _frame: object) -> None:
+    with LIVE_LOCK:
+        running = list(LIVE.items())
+    for pgid, token in running:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(pgid, signal.SIGKILL)
+        kill_leftovers(token)
+    raise Stopped(signum)
+
+
+def install_stop_handlers() -> None:
+    """On SIGTERM, SIGHUP or SIGINT, kill every lens's and replay's process group, then stop."""
+    if threading.current_thread() is threading.main_thread():
+        for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+            signal.signal(signum, stop_everything)
+
+
+@contextlib.contextmanager
+def signals_held() -> Iterator[None]:
+    """Hold the stop signals (delivered after) while the ledger posts and writes a record."""
+    held = {signal.SIGTERM, signal.SIGHUP, signal.SIGINT}
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    signal.pthread_sigmask(signal.SIG_BLOCK, held)
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_UNBLOCK, held)
 
 
 def kill_leftovers(token: str) -> int:
@@ -656,7 +723,10 @@ def run_group(
             stdout=stdout,
             stderr=stderr,
             start_new_session=True,
+            preexec_fn=lambda: lens_pytest.die_with_parent(signal.SIGKILL),  # dies with review.py
         )
+        with LIVE_LOCK:
+            LIVE[child.pid] = token
         try:
             child.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -665,6 +735,8 @@ def run_group(
             child.wait()
             raise
         finally:
+            with LIVE_LOCK:
+                LIVE.pop(child.pid, None)
             kill_leftovers(token)
         stdout.seek(0)
         stderr.seek(0)
@@ -845,7 +917,8 @@ def record(
     exception = [] if args.exception is None else ["--exception", args.exception]
     reason = [] if args.reason is None else ["--reason", args.reason]
     argv = ["record", str(run.pr), "--round", str(run.round_), "--head", run.head, "--from", str(source)]
-    code = ledger_call([*argv, *exception, *reason], ledger_dir)
+    with signals_held():
+        code = ledger_call([*argv, *exception, *reason], ledger_dir)
     if code == ledger.BAD:
         raise BadInput("the ledger refused the decision input")
     if code != ledger.OK:
@@ -1026,11 +1099,14 @@ def main(argv: list[str] | None = None) -> int:
         args = parse(sys.argv[1:] if argv is None else argv)
         run.pr, run.round_ = args.pr, args.round
         home = main_checkout()
+        install_stop_handlers()
         review(run, args, home)
     except (BadInput, ledger.BadInput) as error:
         code, why = ledger.BAD, str(error)
     except (Refused, ledger.Refused) as error:
         code, why = ledger.REFUSED, str(error)
+    except Stopped as error:
+        code, why = 128 + error.signum, str(error)
     except Exception as error:  # a crash is never an exit 0, and its cost line says so
         traceback.print_exc()
         code, why = CRASHED, f"crashed: {type(error).__name__}: {error}"

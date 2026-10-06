@@ -39,6 +39,7 @@ TB = re.compile(rf"--tb=(?:{'|'.join(TB_STYLES)})")
 EXPRESSION = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_ .:()\[\]-]*")
 NODE = re.compile(r"([A-Za-z0-9_][A-Za-z0-9_./-]*)((?:::[A-Za-z0-9_\[\]-]+)*)")
 DROPPED = ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")
+SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PASSWD", re.IGNORECASE)
 HARNESS = Path(__file__).resolve().parents[2]
 # `live` calls an outside service with the owner's key: never selectable, and every -m expression
 # gets `and not live` (PR #478 review, round 1).
@@ -71,7 +72,7 @@ def check(argv: list[str], cwd: Path) -> list[str]:
         elif part == "-m":
             if index + 1 >= len(argv) or not marker_expression(argv[index + 1]):
                 raise Refused(
-                    "-m takes only the markers declared in pyproject.toml with and/or/not and brackets"
+                    "-m takes only declared markers joined by `or` (no brackets, and, not or live)"
                 )
             out += ["-m", f"({argv[index + 1]}) and not {' and not '.join(sorted(FORBIDDEN_MARKERS))}"]
             index += 1
@@ -105,10 +106,14 @@ def declared_markers() -> set[str]:
 
 
 def marker_expression(text: str) -> bool:
-    """True when every word of `text` is a declared marker or and/or/not, between brackets."""
-    words = re.findall(r"[()]|[^\s()]+", text)
-    allowed = (declared_markers() - FORBIDDEN_MARKERS) | {"and", "or", "not", "(", ")"}
-    return bool(words) and any(w not in "()" for w in words) and all(w in allowed for w in words)
+    """True for `<marker>` or `<marker> or <marker> ...` of the declared markers but `live`: no
+    brackets, `and` or `not` (PR #478 review, round 2: an unbalanced bracket slipped out of the
+    `(<expression>) and not live` the wrapper builds)."""
+    names = sorted(declared_markers() - FORBIDDEN_MARKERS)
+    if not names:
+        return False
+    one = "|".join(re.escape(name) for name in names)
+    return re.fullmatch(rf"(?:{one})(?: or (?:{one}))*", text) is not None
 
 
 def options_text() -> str:
@@ -117,7 +122,7 @@ def options_text() -> str:
     markers = ", ".join(sorted(declared_markers() - FORBIDDEN_MARKERS))
     return (
         f"{' '.join(FLAGS)}; --tb={'|'.join(TB_STYLES)}; -k <test-name expression>; "
-        f"-m <expression of the markers {markers} with and/or/not and brackets>"
+        f"-m <marker> or -m '<marker> or <marker>', of the markers {markers}"
     )
 
 
@@ -171,7 +176,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     die_with_parent(signal.SIGTERM)
     lock.parent.mkdir(parents=True, exist_ok=True)
-    env = {key: value for key, value in os.environ.items() if key not in DROPPED}
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in DROPPED and not SECRET_NAME.search(key)
+    }
     timeout = bounded("VEXTRUS_LENS_PYTEST_TIMEOUT", TIMEOUT)
     with lock.open("a") as handle:
         if not wait_for(handle, bounded("VEXTRUS_LENS_PYTEST_LOCK_WAIT", LOCK_WAIT)):

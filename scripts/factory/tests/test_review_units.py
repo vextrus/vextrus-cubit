@@ -1,6 +1,7 @@
 """Unit tests of `scripts.factory.review` at its seams: the tier, the red-CI rule, the PR argument, the
 replay path, the lens's answer, the slot lock and the words a lens is given."""
 
+import contextlib
 import json
 import os
 import re
@@ -43,7 +44,9 @@ def test_anything_more_than_hash_lines_is_not_allowlist_only(
 
 
 def test_docs_only_is_markdown_under_docs() -> None:
-    assert review.tier([("docs/adr/0050-x.md", 40, 2), ("docs/notes/a.md", 1, 0)], []) == "docs-only"
+    assert (
+        review.tier([("docs/research/0050-x.md", 40, 2), ("docs/notes/a.md", 1, 0)], []) == "docs-only"
+    )
     assert review.tier([("docs/specs/factory/contracts/x.schema.json", 1, 0)], []) != "docs-only"
     assert review.tier([("CLAUDE.md", 1, 0)], []) != "docs-only"
 
@@ -68,7 +71,7 @@ def test_a_small_change_on_a_trust_boundary_is_normal(path: str) -> None:
 
 def test_a_small_change_is_small_and_a_large_or_binary_one_normal() -> None:
     assert review.tier([("web/src/components/badge.tsx", 3, 1)], []) == "small"
-    assert review.tier([("vextrus/rates/table.py", 149, 0)], []) == "small"
+    assert review.tier([("vextrus/rates/tests/test_table.py", 149, 0)], []) == "small"
     assert review.tier([("vextrus/rates/table.py", 100, 50)], []) == "normal"
     assert review.tier([("web/public/logo.png", None, None)], []) == "normal"
 
@@ -638,7 +641,7 @@ def test_a_criss_cross_merge_that_changes_code_is_never_docs_only(tmp_path: Path
 def test_more_than_one_merge_base_never_gets_a_no_model_tier() -> None:
     assert review.tier([("docs/a.md", 1, 0)], [], bases=2) != "docs-only"
     assert review.tier([(review.ALLOWLIST, 1, 0)], [HASH], bases=2) != "allowlist-only"
-    assert review.tier([("docs/a.md", 1, 0)], [], bases=1) == "docs-only"
+    assert review.tier([("docs/research/a.md", 1, 0)], [], bases=1) == "docs-only"
 
 
 @pytest.mark.parametrize(
@@ -914,7 +917,7 @@ def test_a_refusal_after_the_tier_has_its_exit_in_the_cost_line(
     [
         "needs_toolchain",
         "needs_toolchain or needs_bwrap",
-        "(needs_toolchain or needs_bwrap) and not needs_bwrap",
+        "needs_bwrap or needs_toolchain",
     ],
 )
 def test_the_wrapper_takes_a_marker_expression_of_declared_markers(
@@ -1049,7 +1052,7 @@ def test_a_toolchain_marked_repro_is_replayed_not_deselected(
         "docs/knowledge/jev-nodes.md",
         "docs/specs/factory/contracts/trailers.md",
         "docs/agents/domain.md",
-        "docs/handoff/session-15-prompt.md",
+        "docs/plans/M1.md",
         "docs/adr/0099-auth-wall.md",
     ],
 )
@@ -1067,7 +1070,10 @@ def test_jevs_pin_table_is_never_docs_only() -> None:
 
 
 def test_plain_docs_stay_docs_only() -> None:
-    assert review.tier([("docs/notes/howto.md", 3, 0), ("docs/adr/0050-x.md", 9, 1)], []) == "docs-only"
+    assert (
+        review.tier([("docs/notes/howto.md", 3, 0), ("docs/research/review.md", 9, 1)], [])
+        == "docs-only"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1313,3 +1319,228 @@ def test_the_replays_lock_wait_is_bounded(tmp_path: Path, monkeypatch: pytest.Mo
         fcntl.flock(held, fcntl.LOCK_EX)
         with pytest.raises(review.Refused, match="busy"):
             review.pytest_lock(root)
+
+
+# ---------------------------------------------------------------- PR #478 review, round 2
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "vextrus/drawings/http/files.py",
+        "vextrus/projects/http/invitations.py",
+        "vextrus/takeoff/http/step1.py",
+        "vextrus/drawings/acts.py",
+        "docs/plans/M1.md",
+        "docs/specs/factory.md",
+        "vextrus/a_module_nobody_listed/thing.py",
+        "engine/read/anything.py",
+        "scripts/factory/review.py",
+        ".claude/agents/pr-reviewer.md",
+        ".github/workflows/ci.yml",
+        "docs/research/CLAUDE.md",
+        "docs/research/.hidden/x.md",
+        "vextrus/rates/tests/conftest.py",
+        "scripts/tests/acceptance/ts99/test_x.py",
+    ],
+)
+def test_a_path_no_safe_list_names_is_normal(path: str) -> None:
+    """Round 2 finding 1: a denylist of walls kept missing walls; now only listed paths are safe."""
+    assert review.tier([(path, 30, 0)], []) == "normal"
+    assert review.tier([(path, 30, 0), ("docs/research/a.md", 1, 0)], []) == "normal"
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("docs/research/x.md", "docs-only"),
+        ("docs/handoff/session-15-prompt.md", "docs-only"),
+        ("docs/knowledge/lessons.md", "docs-only"),
+        ("web/src/messages/rates.ts", "small"),
+        ("web/src/components/badge.tsx", "small"),
+        ("vextrus/rates/tests/test_table.py", "small"),
+        ("web/src/takeoff/step.test.tsx", "small"),
+    ],
+)
+def test_listed_safe_paths_take_their_tier(path: str, expected: str) -> None:
+    assert review.tier([(path, 30, 0)], []) == expected
+
+
+def test_the_safe_lists_live_in_one_committed_data_file() -> None:
+    import tomllib
+
+    data = tomllib.loads(review.TIERS_FILE.read_text())
+    assert review.TIERS_FILE == review.HARNESS / "scripts" / "factory" / "review_tiers.toml"
+    assert set(data["docs_only"]["paths"]) <= set(data["small"]["paths"])
+    assert set(data["docs_only"]["never"]) <= set(data["small"]["never"])
+    for name in ("docs_only", "small"):
+        for pattern in [*data[name]["paths"], *data[name]["never"]]:
+            review.glob_regex(pattern)
+
+
+def test_without_the_data_file_every_path_is_normal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(review, "TIERS_FILE", tmp_path / "missing.toml")
+    review.tier_lists.cache_clear()
+    try:
+        assert review.tier([("docs/research/x.md", 1, 0)], []) == "normal"
+        assert review.tier([("web/src/components/badge.tsx", 1, 0)], []) == "normal"
+    finally:
+        monkeypatch.undo()
+        review.tier_lists.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("pattern", "path", "matches"),
+    [
+        ("docs/research/**", "docs/research/a/b.md", True),
+        ("docs/research/**", "docs/researchers.md", False),
+        ("**/tests/**/test_*.py", "vextrus/x/tests/test_a.py", True),
+        ("**/tests/**/test_*.py", "tests/sub/test_a.py", True),
+        ("**/tests/**/test_*.py", "vextrus/x/tests/helper.py", False),
+        ("**/.*", "docs/research/.env", True),
+        ("**/.*/**", "docs/.claude/skills/x.md", True),
+        ("**/CLAUDE.md", "CLAUDE.md", True),
+        ("web/src/**/*.test.ts", "web/src/a.test.ts", True),
+    ],
+)
+def test_the_glob_rules(pattern: str, path: str, matches: bool) -> None:
+    assert (review.glob_regex(pattern).fullmatch(path) is not None) is matches
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "needs_toolchain) or (needs_toolchain",
+        "needs_toolchain or needs_bwrap) or (needs_toolchain",
+        "(needs_toolchain)",
+        "needs_toolchain or (needs_bwrap)",
+        "not needs_bwrap",
+        "needs_toolchain and needs_bwrap",
+        "needs_toolchain or",
+        "needs_toolchainx",
+        "needs_toolchain  or needs_bwrap",
+    ],
+)
+def test_the_wrapper_takes_only_markers_joined_by_or(tmp_path: Path, expression: str) -> None:
+    """Round 2 finding 2: an unbalanced bracket slipped out of the `(<expression>) and not live`
+    the wrapper builds, so a live test could run."""
+    (tmp_path / "test_a.py").write_text("def test_a():\n    pass\n")
+    module = lens_pytest()
+    with pytest.raises(module.Refused):
+        module.check(["-m", expression, "test_a.py"], tmp_path)
+
+
+SECRET_NAMES = ("TYPESAFE_API_KEY", "GH_TOKEN", "CLAUDE_CODE_MESSAGING_TOKEN", "A_SECRET", "DB_PASSWORD")
+
+
+def test_no_secret_reaches_a_lens_or_a_replay(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Round 2 finding 2: the lens's tests and the replays ran the PR's code with the Jev key."""
+    for name in SECRET_NAMES:
+        monkeypatch.setenv(name, "fixture-not-a-secret")
+    env = review.lens_env(1)
+    assert not [name for name in env if review.SECRET_NAME.search(name)]
+    assert not set(SECRET_NAMES) & set(env)
+    seen: list[dict[str, str]] = []
+
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        seen.append(kwargs["env"])
+        return subprocess.CompletedProcess(argv, 0, "1 passed", "")
+
+    monkeypatch.setattr(review, "run_group", run)
+    review.replay(repo(tmp_path), 1, "tests/test_a.py")
+    assert seen
+    assert not set(SECRET_NAMES) & set(seen[0])
+
+
+def test_the_wrapper_runs_pytest_without_secrets(tmp_path: Path) -> None:
+    root = repo(tmp_path)
+    (root / "tests").mkdir()
+    (root / "tests" / "test_env.py").write_text(
+        f"import os\n\n\ndef test_env():\n    assert not set({list(SECRET_NAMES)!r}) & set(os.environ)\n"
+    )
+    env = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+    env |= dict.fromkeys(SECRET_NAMES, "fixture-not-a-secret")
+    done = subprocess.run(
+        [sys.executable, str(WRAPPER), "-q", "tests/test_env.py"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+STOPPABLE = """
+import os, sys
+sys.path.insert(0, {repo!r})
+from pathlib import Path
+from scripts.factory import review
+review.install_stop_handlers()
+try:
+    review.run_group(
+        ["sh", "-c", "sleep 600 & echo $! > {pid}; echo $$ > {lens}; wait"],
+        cwd=Path({cwd!r}), env=dict(os.environ), timeout=600,
+    )
+except review.Stopped as stopped:
+    sys.exit(128 + stopped.signum)
+"""
+
+
+@pytest.mark.parametrize("signum", [15, 1, 2], ids=["SIGTERM", "SIGHUP", "SIGINT"])
+def test_a_signal_to_review_py_leaves_no_lens_process(tmp_path: Path, signum: int) -> None:
+    """Round 2 finding 3: each lens runs in its own session, so stopping review.py left it running."""
+    pid_file, lens_file = tmp_path / "child.pid", tmp_path / "lens.pid"
+    script = STOPPABLE.format(repo=str(review.HARNESS), pid=pid_file, lens=lens_file, cwd=str(tmp_path))
+    runner = subprocess.Popen([sys.executable, "-c", script])
+    child, lens = read_pid(pid_file), read_pid(lens_file)
+    runner.send_signal(signum)
+    assert runner.wait(timeout=30) == 128 + signum
+    assert gone(child), "the lens's child outlived review.py"
+    assert gone(lens), "the lens outlived review.py"
+
+
+def test_a_lens_dies_when_review_py_is_killed(tmp_path: Path) -> None:
+    """No handler runs on SIGKILL: the lens itself dies with review.py (PR_SET_PDEATHSIG)."""
+    pid_file, lens_file = tmp_path / "child.pid", tmp_path / "lens.pid"
+    script = STOPPABLE.format(repo=str(review.HARNESS), pid=pid_file, lens=lens_file, cwd=str(tmp_path))
+    runner = subprocess.Popen([sys.executable, "-c", script])
+    child, lens = read_pid(pid_file), read_pid(lens_file)
+    runner.kill()
+    runner.wait(timeout=30)
+    assert gone(lens), "the lens outlived a killed review.py"
+    with contextlib.suppress(ProcessLookupError):
+        os.kill(child, 9)  # a grandchild is out of reach here; the wrapper's own limits bound it
+
+
+def test_a_stopped_run_exits_128_plus_the_signal_and_logs_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def stopped(run: review.Run, args: object, main: Path) -> None:
+        run.tier = "normal"
+        raise review.Stopped(15)
+
+    monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
+    monkeypatch.setattr(review, "review", stopped)
+    monkeypatch.setattr(review, "install_stop_handlers", lambda: None)
+    assert review.main(["run", "12", "--round", "1"]) == 143
+    text = (tmp_path / ".private" / "work" / "factory" / "review-cost.jsonl").read_text()
+    assert json.loads(text)["exit"] == 143
+
+
+def test_the_ledger_record_is_never_cut_by_a_stop_signal() -> None:
+    import signal as signals
+
+    seen: list[int] = []
+    old = signals.signal(signals.SIGHUP, lambda signum, _frame: seen.append(signum))
+    try:
+        with review.signals_held():
+            os.kill(os.getpid(), signals.SIGHUP)
+            assert seen == []  # held while the ledger writes
+            assert signals.SIGHUP in signals.sigpending()
+        assert seen == [signals.SIGHUP]  # delivered once the record is written
+    finally:
+        signals.signal(signals.SIGHUP, old)

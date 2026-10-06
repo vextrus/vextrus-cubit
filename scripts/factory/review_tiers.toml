@@ -1,0 +1,61 @@
+# The review tiers' path lists, read by scripts/factory/review.py and its tests (PR #478 review,
+# round 2: a denylist of walls kept missing walls, so the lists name what is SAFE instead).
+#
+# - allowlist-only (no model) is decided in code: only 64-hex lines added to the leak-scan allowlist.
+# - docs-only (no model, PASS by code): every changed path matches `docs_only.paths` and none matches
+#   `docs_only.never`.
+# - small (one lens): under 150 changed lines, no binary file, every changed path matches
+#   `small.paths` and none matches `small.never`.
+# - normal (two lenses): everything else. A path nobody listed is normal.
+#
+# Patterns are globs on the repository path: `*` is any run of characters but `/`, `**/` any number
+# of folders (none included), a trailing `/**` everything below a folder.
+
+[docs_only]
+# Plain reading for people: research notes, session briefs, notes, the lessons list.
+paths = [
+  "docs/research/**",
+  "docs/handoff/**",
+  "docs/notes/**",
+  "docs/knowledge/lessons.md",
+]
+# Instructions or authority an agent obeys or code reads: never without a model.
+never = [
+  "**/CLAUDE.md",
+  "**/AGENTS.md",
+  "**/.*",
+  "**/.*/**",
+  "docs/plans/**",
+  "docs/specs/**",
+  "docs/adr/**",
+  "docs/agents/**",
+  "docs/knowledge/jev-nodes.md",
+]
+
+[small]
+# What one lens may review: plain docs, the words, presentational web components, and test files.
+# `web/src/components/**` is pinned small by the S14-R1 acceptance tests (a three-line badge).
+paths = [
+  "docs/research/**",
+  "docs/handoff/**",
+  "docs/notes/**",
+  "docs/knowledge/lessons.md",
+  "web/src/messages/**",
+  "web/src/components/**",
+  "**/tests/**/test_*.py",
+  "web/src/**/*.test.ts",
+  "web/src/**/*.test.tsx",
+]
+never = [
+  "**/CLAUDE.md",
+  "**/AGENTS.md",
+  "**/.*",
+  "**/.*/**",
+  "**/acceptance/**",
+  "**/conftest.py",
+  "docs/plans/**",
+  "docs/specs/**",
+  "docs/adr/**",
+  "docs/agents/**",
+  "docs/knowledge/jev-nodes.md",
+]
