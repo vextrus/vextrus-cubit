@@ -407,3 +407,22 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   real-drawings skill, after the scorer moved to `tools/scorer/`). Check: `tools/lint/docs_paths.py`.
 - **A probe's own wait matched itself again** (the cloud probe's `pgrep`, the third time). No check yet:
   factory: the guard's wait rule (spec §3.13, C8).
+
+## Session 14 (5 Oct 2026): the review command and the pane
+- **The watcher ran stale code and missed READY commits twice.** Restart it after any `watch.py` merge; a parser
+  bump re-reads every seen head. Check: `scripts/factory/tests/test_watch_idle_reread.py`.
+- **An orchestrator CLAUDE.md edit made without the docs lint broke CI** (97 of 90 lines, a pinned phrase
+  dropped). Run `tools.lint.docs_paths` and the line tests before pushing. Check:
+  `tools/lint/tests/acceptance/f7/test_laws_and_stale_lines.py`.
+- **A fix instruction listed a path as safe that the allowlist must not hold.** Check:
+  `scripts/factory/tests/test_review_units.py` (`test_harness_and_config_paths_are_never_small`).
+- **Denylists in review tiers lose; allowlists hold.** Check: `scripts/factory/tests/test_review_units.py`
+  (`test_agent_instructions_and_files_code_reads_are_never_docs_only`).
+- **Fix rounds regress.** Builders re-run every earlier round's cases. Check:
+  `scripts/tests/test_fix_regression.py`.
+- **Derived UI state needs one source** (U2's Reviews tab). Check:
+  `tools/mod/vextrus-factory/tests/acceptance/ts14u2/pane.test.mjs`.
+- **Acceptance pins can contradict a later owner ruling:** use `scripts.factory.amend`. Check:
+  `scripts/factory/tests/test_amend.py`.
+- **The old review workflow ignored CI** (PASS on red heads). Check:
+  `scripts/factory/tests/test_review_units.py` (`test_a_failed_ci_check_or_ci_workflow_job_is_red`).

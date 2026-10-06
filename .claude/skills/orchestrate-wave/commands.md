@@ -39,12 +39,15 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   from the PR, a claimed slot, the tier, the lenses, the replays, the ledger record); it prints one JSON
   object and appends a line to `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing
   recorded (its `refused` field says why).
-- `/review-pr <PR> <head> <round>` on each READY head (until S14-R3 retires it); the ledger holds its
-  verdict.
+  An allowlist-only PR gets no model (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3
+  retires it; the ledger holds the verdict.
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS
   first, then by number), brings each up to date, waits for CI, prints the gates still owed and merges.
+- `scripts.land update <PR>` (words, not a line to type): main into the PR's branch, merging nothing; the
+  lander's own step.
+- `uv run python -m scripts.land <PR>`: one PR, the same way.
 - `uv run python -m scripts.merge_ready <PR>`: the last check before any merge, by hand or by the lander.
 
 ## Open a PR (a local builder's READY head)
