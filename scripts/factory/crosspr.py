@@ -39,7 +39,7 @@ IDENTITY = ("-c", "user.name=crosspr", "-c", "user.email=crosspr@example.invalid
 TRUSTED_AUTHORS = Path(__file__).with_name("trusted-authors.txt")
 OUTPUT_TAIL = 60
 QUICK = 120
-TESTS = 900
+TESTS = int(os.environ.get("CROSSPR_TEST_SECONDS", "900"))
 
 
 class Refusal(Exception):
@@ -228,6 +228,11 @@ def check_pr(
             raise Refusal(f"#{number} merged into main alone failed: {joined.stderr.strip()}")
         baseline = Tests(tree, kept, f"pr-{number}-main")
         theirs = baseline.run(changed)
+        if theirs.timed_out:
+            notes.append(
+                f"crosspr: #{number} hangs on main: not yours; its tests are not run with yours"
+            )
+            return None, notes, unrun, "hangs-on-main"
         joined = git(*IDENTITY, "merge", "--no-edit", "-q", tip, cwd=tree)
         if joined.returncode != 0:
             said = f"crosspr: #{number} and {branch} conflict on origin/main:\n"
@@ -235,7 +240,10 @@ def check_pr(
         union = Tests(tree, kept, f"pr-{number}")
         mine = union.run(changed)
         status = "ok"
-        if theirs.failed:
+        if theirs.had_files and theirs.collected == 0:
+            notes.append(f"crosspr: #{number} uncheckable (collects nothing on main)")
+            status = "uncheckable"
+        elif theirs.failed:
             notes.append(f"crosspr: #{number} fails on main: not yours")
             status = "fails-on-main"
         notes += union.notes
@@ -264,6 +272,8 @@ class Tests:
         self.failed_ids: set[str] = set()
         self.pytest_exit: int | None = None
         self.counts = {"failed": 0, "error": 0}
+        self.collected = 0
+        self.had_files = False
         self.output = ""
         self.timed_out = ""
         self.node_unrun = False
@@ -272,8 +282,19 @@ class Tests:
     def run(self, changed: list[str]) -> Tests:
         pytests = [p for p in changed if TEST_FILE.search(p) and (self.tree / p).is_file()]
         nodes = [p for p in changed if NODE_TEST.search(p) and (self.tree / p).is_file()]
+        self.had_files = bool(pytests)
         if pytests:
-            argv = [sys.executable, "-m", "pytest", "-rfE", "-q", "-p", "no:cacheprovider", *pytests]
+            argv = [
+                sys.executable,
+                "-m",
+                "pytest",
+                "--continue-on-collection-errors",
+                "-rfE",
+                "-q",
+                "-p",
+                "no:cacheprovider",
+                *pytests,
+            ]
             self.collect(argv, self.name, "Python", pytests, ok=(0, 5))
         if nodes and shutil.which("node") is None:
             self.notes.append("node not run: node is absent")
@@ -297,6 +318,10 @@ class Tests:
             for word in self.counts:
                 found = re.search(rf"(\d+) {word}s?\b", output.splitlines()[-1] if output else "")
                 self.counts[word] = int(found[1]) if found else 0
+            last = output.splitlines()[-1] if output else ""
+            self.collected = sum(
+                int(n) for n, w in re.findall(r"(\d+) (passed|failed|skipped|xfailed|xpassed)", last)
+            )
         if ran.returncode == 5:
             self.notes.append("no Python test ran (none collected or all deselected)")
         elif ran.returncode in ok:
