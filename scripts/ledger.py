@@ -32,6 +32,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -385,9 +386,11 @@ def fetch_verdict(
     agent = "refuter" if role == "refuter" else "pr-reviewer"
     handed = ledger_dir.parent / "review" / "cloud"
     if agent == "pr-reviewer" and any(handed.glob(f"{pr}-{head}-r*.handoff.json")):
+        command = ["uv", "run", "python", "-m", "scripts.factory.review", "collect", str(pr)]
+        command += ["--round", str(round_), *handoff_flags(handed, pr, head, round_)]
         raise Refused(
             "this head's lenses were handed off together: record them all at once with "
-            f"`python -m scripts.factory.review collect {pr} --round {round_}`"
+            f"`{shlex.join(command)}`"
         )
     verdict_file, text, name = read_cloud_verdict(pr, head, nonce, branch, agent)
     if head_of(pr) != head:
@@ -415,6 +418,19 @@ def fetch_verdict(
             ledger_dir=ledger_dir,
         )
     _git("push", "-q", "origin", "--delete", branch)
+
+
+def handoff_flags(handed: Path, pr: int, head: str, round_: int) -> list[str]:
+    """The round's own `--exception` and `--reason`, as the hand-off keeps them (none if unread)."""
+    try:
+        manifest = json.loads((handed / f"{pr}-{head}-r{round_}.handoff.json").read_text())
+    except OSError, ValueError:
+        return []
+    flags: list[str] = []
+    for key in ("exception", "reason"):
+        if isinstance(manifest, dict) and isinstance(manifest.get(key), str):
+            flags += [f"--{key}", manifest[key]]
+    return flags
 
 
 def read_cloud_verdict(

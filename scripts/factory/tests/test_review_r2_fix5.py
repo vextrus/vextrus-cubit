@@ -16,7 +16,10 @@ from scripts.factory import review, review_cloud
 from scripts.factory.tests.test_review_r2_fix1 import PR, Cloud
 
 NONCES = [f"{n}" * 32 for n in "89abcdef"]
-ADVICE = r"`review run (\S+) --round (\S+) --where cloud((?: --relaunch \S+)*)`"
+ADVICE = (
+    r"`uv run python -m scripts\.factory\.review run (\S+) --round (\S+) --where cloud"
+    r"((?: --relaunch \S+)*)`"
+)
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 
 
@@ -153,14 +156,16 @@ def test_a_sigterm_during_lens_b_s_launcher_leaves_an_unconfirmed_launch_a_rerun
 
 
 R3 = ["--round", "3", "--exception", "fix-regression", "--reason", "the advice's round-3 flags"]
-COMMAND = re.compile(r"`(review run [^`]+)`")
+COMMAND = re.compile(r"`(uv run python -m scripts\.factory\.review [^`]+)`")
 
 
 def follow(cloud: Cloud, monkeypatch: pytest.MonkeyPatch, text: str, which: int = 0) -> None:
     """Run the `which`-th command `text` advises, exactly as printed, through review.py's own run."""
     commands = COMMAND.findall(text)
     assert commands, f"no command in {text!r}"
-    args = review.parse(shlex.split(commands[which])[1:])
+    argv = shlex.split(commands[which])
+    assert argv[:5] == list(review.REVIEW_COMMAND), argv
+    args = review.parse(argv[5:])
     monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (head, head))
     monkeypatch.setattr(review, "changes", lambda *_: ([("vextrus/rates/table.py", 400, 0)], []))
     monkeypatch.setattr(review, "merge_bases", lambda *_: 1)

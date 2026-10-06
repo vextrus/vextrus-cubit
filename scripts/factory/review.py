@@ -60,6 +60,7 @@ import argparse
 import contextlib
 import fcntl
 import functools
+import hashlib
 import json
 import os
 import re
@@ -215,6 +216,15 @@ def conforms(value: Any, schema: dict[str, Any]) -> bool:
 
 class Refused(Exception):
     """A refusal (exit 3): nothing recorded."""
+
+
+class LensFailed(Refused):
+    """A lens process that answered with an error (capped in turns or dollars, or failed): its result
+    object is kept, so its spend reaches the cost line."""
+
+    def __init__(self, message: str, result: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.result = result
 
 
 class BadInput(Exception):
@@ -906,9 +916,18 @@ def run_lens(
         result = json.loads(done.stdout)
     except ValueError as error:
         raise Refused(f"{lens.label} printed no JSON result (exit {done.returncode})") from error
-    if done.returncode != 0 or not isinstance(result, dict) or result.get("is_error"):
-        raise Refused(f"{lens.label} failed (exit {done.returncode})")
+    if not isinstance(result, dict):
+        raise Refused(f"{lens.label} printed no result object (exit {done.returncode})")
+    if done.returncode != 0 or result.get("is_error"):
+        subtype = result.get("subtype") or "error"
+        raise LensFailed(f"{lens.label} failed (exit {done.returncode}, {subtype})", result)
     return result
+
+
+def spend(result: dict[str, Any]) -> dict[str, Any]:
+    """What a lens process spent, for the cost line."""
+    keys = ("total_cost_usd", "duration_ms", "usage", "num_turns", "subtype")
+    return {key: result.get(key) for key in keys}
 
 
 def read_review(lens: Lens, result: dict[str, Any], head: str) -> dict[str, Any]:
@@ -1118,17 +1137,17 @@ def record(
 
 @contextlib.contextmanager
 def round_lock(main: Path, run: Run) -> Iterator[None]:
-    """An exclusive, non-blocking lock on this PR, head and round, held for the whole run (local or
-    cloud, run or collect): a second run of the round is refused, never run beside the first."""
+    """An exclusive, non-blocking lock on this PR's head (every round of it), held for the whole run
+    (local or cloud, run or collect): a second run is refused, never run beside the first."""
     path = main / ".private" / "work" / "factory" / "review" / "runs"
     path.mkdir(parents=True, exist_ok=True)
-    with (path / f"{run.pr}-{run.head}-r{run.round_}.lock").open("a") as handle:
+    with (path / f"{run.pr}-{run.head}.lock").open("a") as handle:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise Refused(
-                f"another run of this round is going (PR {run.pr} at {run.head}, round "
-                f"{run.round_}): wait for it to end"
+                f"another run of this round is going, or of another round of PR {run.pr} at "
+                f"{run.head}: wait for it to end"
             ) from error
         yield
 
@@ -1178,20 +1197,64 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        try:  # the PR's code runs from here on: the record check runs on every exit
-            reviews = lenses_in(run, lenses, rv, slot, main)
-            confirm_and_refute(run, rv, slot, main, reviews)
-        finally:
-            # Under the round lock no run records this head but this one: a record that appeared
-            # while the PR's tests and the lens's ran unsandboxed is forged.
-            if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
-                raise Refused(
-                    f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code "
-                    "ran: nothing recorded; the owner must look at it before any merge"
-                )
+        # The ledger's lock, held shared while the PR's code runs: no record is written meanwhile
+        # (the ledger writes under it exclusively), so any change to the folder is the PR's code.
+        with ledger_held(ledger_dir):
+            before = ledger_snapshot(ledger_dir)
+            try:  # the PR's code runs from here on: the ledger check runs on every exit
+                reviews = lenses_in(run, lenses, rv, slot, main)
+                confirm_and_refute(run, rv, slot, main, reviews)
+            finally:
+                check_ledger(ledger_dir, before, run)
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
+
+
+QUARANTINE = "quarantine"
+
+
+@contextlib.contextmanager
+def ledger_held(ledger_dir: Path) -> Iterator[None]:
+    """The ledger's own lock file (`scripts.ledger.ledger_lock`), held shared."""
+    ledger_dir.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_dir.with_name(ledger_dir.name + ".lock").open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_SH)
+        yield
+
+
+def ledger_snapshot(ledger_dir: Path) -> dict[str, str]:
+    """Every file under the ledger folder but the quarantine: its name and sha256."""
+    if not ledger_dir.is_dir():
+        return {}
+    return {
+        path.relative_to(ledger_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(ledger_dir.rglob("*"))
+        if path.is_file() and path.relative_to(ledger_dir).parts[0] != QUARANTINE
+    }
+
+
+def check_ledger(ledger_dir: Path, before: dict[str, str], run: Run) -> None:
+    """Every ledger file added, changed or removed while the PR's code ran is named and refused; each
+    one added or changed is moved to `quarantine/`, where neither merge_ready nor a rerun reads it."""
+    now = ledger_snapshot(ledger_dir)
+    added = sorted(set(now) - set(before))
+    changed = sorted(name for name in set(now) & set(before) if now[name] != before[name])
+    removed = sorted(set(before) - set(now))
+    if not (added or changed or removed):
+        return
+    stamp = ledger.utc_now().replace(":", "")
+    for name in [*added, *changed]:
+        target = ledger_dir / QUARANTINE / f"{name}.{stamp}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        (ledger_dir / name).replace(target)
+    parts = [f"{word}: {', '.join(names)}" for word, names in
+             (("added", added), ("changed", changed), ("removed", removed)) if names]  # fmt: skip
+    raise Refused(
+        f"a ledger file appeared while the PR's code ran, or was changed or removed "
+        f"({'; '.join(parts)}): each added or changed file is moved to {QUARANTINE}/, nothing "
+        "recorded; the owner must look at it before any merge"
+    )
 
 
 def confirm_and_refute(
@@ -1255,17 +1318,13 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
 
     def one(lens: Lens) -> dict[str, Any]:
         keep = out / f"{stem}-{lens.label}.json"
-        result = run_lens(lens, brief(run, lens, rv, slot, facts), rv, n, keep, main)
-        run.lenses.append(
-            {
-                "label": lens.label,
-                "agent": lens.agent,
-                "model": lens.model,
-                "total_cost_usd": result.get("total_cost_usd"),
-                "duration_ms": result.get("duration_ms"),
-                "usage": result.get("usage"),
-            }
-        )
+        about = {"label": lens.label, "agent": lens.agent, "model": lens.model}
+        try:
+            result = run_lens(lens, brief(run, lens, rv, slot, facts), rv, n, keep, main)
+        except LensFailed as error:
+            run.lenses.append({**about, **spend(error.result), "refused": str(error)})
+            raise
+        run.lenses.append({**about, **spend(result)})
         return read_review(lens, result, head)
 
     with ThreadPoolExecutor(max_workers=len(lenses)) as pool:
@@ -1443,16 +1502,12 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     try:
         result = run_lens(REFUTER, prompt, rv, run.slot, keep, main, REFUTER_SCHEMA)
     except Refused as error:
+        if isinstance(error, LensFailed):
+            entry.update(spend(error.result))
         entry["refused"] = str(error)
         print(f"review: {error}: it refutes nothing", file=sys.stderr)
         return
-    entry.update(
-        {
-            "total_cost_usd": result.get("total_cost_usd"),
-            "duration_ms": result.get("duration_ms"),
-            "usage": result.get("usage"),
-        }
-    )
+    entry.update(spend(result))
     answer = result.get("structured_output")
     if not isinstance(answer, dict) or not conforms(answer, REFUTER_SCHEMA):
         entry["refused"] = "the refuter answered outside its schema"
@@ -1513,6 +1568,8 @@ def hand_off(
             "round": run.round_,
             "tier": run.tier,
             "required": [lens.label for lens in lenses],
+            "exception": run.exception,
+            "reason": run.reason,
             "lenses": [entries[lens.label] for lens in lenses],
         }
         write_handoff(path, manifest)
@@ -1612,14 +1669,21 @@ def write_handoff(path: Path, manifest: dict[str, Any]) -> None:
 def rerun_command(run: Run, relaunch: Sequence[str] = ()) -> str:
     """The command that runs this round again in the cloud, with the round's own `--exception` and
     `--reason` (round 3 is refused without them), shell-quoted, naming each lens in `relaunch`."""
-    parts = ["review", "run", str(run.pr), "--round", str(run.round_), "--where", "cloud"]
-    if run.exception is not None:
-        parts += ["--exception", run.exception]
-    if run.reason is not None:
-        parts += ["--reason", run.reason]
+    parts = ["run", str(run.pr), "--round", str(run.round_), "--where", "cloud"]
     for name in relaunch:
         parts += ["--relaunch", name]
-    return shlex.join(parts)
+    return review_command(parts, run.exception, run.reason)
+
+
+REVIEW_COMMAND = ("uv", "run", "python", "-m", "scripts.factory.review")
+
+
+def review_command(parts: Sequence[str], exception: str | None, reason: str | None) -> str:
+    """A `scripts.factory.review` command as it runs from the main checkout, with the round's own
+    `--exception` and `--reason`, shell-quoted: every piece of advice review.py prints."""
+    flags = [] if exception is None else ["--exception", exception]
+    flags += [] if reason is None else ["--reason", reason]
+    return shlex.join([*REVIEW_COMMAND, *parts, *flags])
 
 
 def relaunch_advice(run: Run, dead: list[str]) -> str:
@@ -1725,7 +1789,7 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
     if not manifest:
         raise Refused(
             f"no cloud hand-off of PR {run.pr} at {run.head} in round {run.round_}: "
-            "run `review run --where cloud` first"
+            f"run `{rerun_command(run)}` first"
         )
     run.tier = str(manifest.get("tier"))
     required = [str(label) for label in manifest["required"]]
@@ -1816,7 +1880,8 @@ def from_verdict(pr: int, main: Path) -> str:
         key = (int(loaded.get("round") or 0), str(loaded.get("recorded_at") or ""), found[1])
         latest = key if latest is None or key > latest else latest
     if latest is None:
-        raise Refused(f"PR {pr} has no recorded review: run `review run {pr}` first")
+        command = review_command(["run", str(pr), "--round", "1"], None, None)
+        raise Refused(f"PR {pr} has no recorded review: run `{command}` first")
     head = latest[2]
     try:
         views = json.loads(findings_file(factory / "verdicts", pr, head).read_text())
