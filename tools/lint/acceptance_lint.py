@@ -49,6 +49,7 @@ TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
 ERROR_LINE = re.compile(r"^E\s+(\w+(?:Error|Exception))\b(.*)$")
 # The modules not built yet: the only collection errors the lint lets through, once stubbed.
 NO_MODULE = re.compile(r"^: No module named '([\w.]+)'")
+NAMED = re.compile(r"No module named '([\w.]+)'")
 NO_NAME = re.compile(r"^: cannot import name '(\w+)' from '([\w.]+)'")
 IMPORT_LINTER = (".importlinter", "setup.cfg", "pyproject.toml")
 NOBODY = 65534
@@ -305,7 +306,33 @@ def not_built(output: str) -> list[tuple[str, str | None]] | None:
 
 
 def _stated(text: str, reasons: Sequence[str]) -> bool:
-    return any(reason in line for line in text.splitlines() for reason in reasons)
+    """Whether a line of `text` contains a reason. A reason naming a module not built (`No module
+    named 'a.b.c'`) also matches the same error naming a parent package of it (`'a.b'`): when the
+    package is new too, Python names the first part it cannot find."""
+    for reason in reasons:
+        named = NAMED.search(reason)
+        parents = named.group(1).split(".") if named else []
+        accepted = [reason] + [
+            reason.replace(named.group(0), f"No module named '{'.'.join(parents[:depth])}'")
+            for depth in range(1, len(parents))
+            if named
+        ]
+        if any(form in line for line in text.splitlines() for form in accepted):
+            return True
+    return False
+
+
+def _undo(made: dict[Path, bytes | None]) -> None:
+    """Undo what stub() did: each file restored or removed, then each folder it made, deepest first,
+    when empty."""
+    for changed, before in made.items():
+        if before is not None:
+            changed.write_bytes(before)
+        elif not changed.is_dir():
+            changed.unlink(missing_ok=True)
+    for folder in reversed([changed for changed, before in made.items() if before is None]):
+        if folder.is_dir() and not folder.is_symlink() and not any(folder.iterdir()):
+            folder.rmdir()
 
 
 def _work_parent() -> str | None:
@@ -449,7 +476,8 @@ class Checker:
 
     def stub(self, module: str, name: str | None, made: dict[Path, bytes | None]) -> bool:
         """Stand a stub in for a module (or a name in one) of the tree's packages not built yet,
-        remembering what it changed in `made`. False when it cannot (not the tree's own, or done)."""
+        remembering what it changed in `made` (each folder it made among them, mapped to None, before
+        the files in it). False when it cannot (not the tree's own, or done)."""
         parts = module.split(".")
         package = self.tree.joinpath(*parts)
         inits = [self.tree.joinpath(*parts[:depth], "__init__.py") for depth in range(1, len(parts))]
@@ -468,9 +496,11 @@ class Checker:
         if name is not None and (not path.is_file() or path in made):
             return False
         for init in inits:
+            if not init.parent.is_dir():
+                init.parent.mkdir()  # its parent's `__init__.py`, one step up, made the folder above
+                made[init.parent] = None
             if not init.exists():
                 made[init] = None
-                init.parent.mkdir(parents=True, exist_ok=True)
                 init.write_text("")
         made[path] = path.read_bytes() if path.exists() else None
         path.write_text((path.read_text() if path.exists() else "") + STUB)
@@ -519,12 +549,13 @@ class Checker:
                             f"{_tail(output)}"
                         )
                         break
+                else:
+                    problems.append(
+                        f"{self.label(path)}: does not collect (stub limit reached: {STUBS} modules "
+                        "not built, and still failing)"
+                    )
             finally:
-                for changed, before in made.items():
-                    if before is None:
-                        changed.unlink(missing_ok=True)
-                    else:
-                        changed.write_bytes(before)
+                _undo(made)
         return problems
 
     def check_imports(self) -> list[str]:

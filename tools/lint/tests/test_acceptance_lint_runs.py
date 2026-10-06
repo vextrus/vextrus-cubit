@@ -414,3 +414,67 @@ def test_a_stub_never_appends_to_a_package_init_linked_to_an_outside_file(tmp_pa
 
     assert not checker.stub("fixturepkg.side", "count_storeys", {})
     assert target.read_text() == ""
+
+
+# PR #482, review round 1.
+
+NEW_PACKAGE = '''"""A fixture ticket: the walls of a package not built yet."""
+
+from fixturepkg.low.assemble_nb.walls import count_walls  # type: ignore[import-not-found, unused-ignore]
+
+
+def test_counts_walls() -> None:
+    assert count_walls(4) == 4
+'''
+
+
+@pytest.mark.parametrize(
+    "named",
+    ["fixturepkg.low.assemble_nb", "fixturepkg.low.assemble_nb.walls"],
+    ids=["package", "module"],
+)
+def test_a_test_of_a_package_not_built_yet_passes(tmp_path: Path, named: str) -> None:
+    """The base names the first part it cannot find (`fixturepkg.low.assemble_nb`), as the writer saw
+    it; a reason naming the module under test is accepted too. The stub's folder is gone before the
+    base run, so the base run fails as on the base itself."""
+    root = make_repo(tmp_path)
+    reason = f"ModuleNotFoundError: No module named '{named}'"
+    ticket(root, BRANCH, FOLDER, test=NEW_PACKAGE, reasons=(reason,))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+def test_undoing_a_stub_removes_the_folders_it_made(tmp_path: Path) -> None:
+    from tools.lint.acceptance_lint import _undo
+
+    root = make_repo(tmp_path)
+    checker = laid_out(root, tmp_path)
+    made: dict[Path, bytes | None] = {}
+
+    assert checker.stub("fixturepkg.low.assemble_nb.deeper.walls", None, made)
+    _undo(made)
+
+    assert not (checker.tree / "fixturepkg/low/assemble_nb").exists()
+    assert (checker.tree / "fixturepkg/low/units.py").is_file()
+
+
+def test_a_file_still_failing_after_the_stub_limit_does_not_collect(tmp_path: Path) -> None:
+    """21 modules not built (one stub each), then a data file the test reads at import."""
+    from tools.lint.acceptance_lint import STUBS
+
+    imports = "".join(
+        f"from fixturepkg.low.m{n} import x{n}  # type: ignore[import-not-found, unused-ignore]\n"
+        for n in range(STUBS + 1)
+    )
+    test = (
+        '"""Too many modules."""\n\nfrom pathlib import Path\n\n'
+        + imports
+        + '\nCASES = (Path(__file__).parent / "cases.json").read_text()\n\n\n'
+        "def test_counts() -> None:\n    assert x0 == CASES\n"
+    )
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=test, reasons=("No module named 'fixturepkg.low.m0'",))
+
+    assert "stub limit reached" in refused(root)

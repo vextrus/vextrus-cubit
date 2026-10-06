@@ -166,3 +166,12 @@ def test_an_unknown_branch_is_a_verdict_not_a_traceback(
     printed = capsys.readouterr()
     assert "no-such-branch" in printed.out
     assert "Traceback" not in printed.out + printed.err
+
+
+def test_a_reason_naming_a_module_matches_the_error_naming_a_parent_package() -> None:
+    reason = "ModuleNotFoundError: No module named 'pkg.new.walls'"
+
+    assert _stated("E   ModuleNotFoundError: No module named 'pkg.new'\n", [reason])
+    assert _stated(f"E   {reason}\n", [reason])
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.other'\n", [reason])
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.new.wall'\n", [reason])
