@@ -341,6 +341,12 @@ def commit_age_days(head: str) -> float | None:
     return (status.now().timestamp() - int(out.strip())) / 86400
 
 
+def committed_after(head: str, moment: Any) -> bool:
+    """Whether `head`'s commit was made after `moment` (a datetime): the builder's own work."""
+    out = watch.git_out("log", "-1", "--format=%ct", head)
+    return out is not None and out.strip().isdigit() and int(out.strip()) > moment.timestamp()
+
+
 def collect() -> tuple[list[Row], list[str]] | None:
     """The rows and the notes under them; None when origin cannot be read."""
     origin = watch.remote_heads()
@@ -368,11 +374,13 @@ def collect() -> tuple[list[Row], list[str]] | None:
         pr = pr_for(branch, prs) if prs is not None else None
         if pr is not None and pr.get("state") == "MERGED":
             continue
-        # a launched builder still at main's tip has no work yet; a head strictly inside main is merged
-        if base is not None and head != base and ahead(head, base):
-            continue
-        if base is not None and head == base and branch not in started:
-            continue
+        # Inside main is merged only on evidence: no launch record at all, or a commit made after the
+        # launch (a PR known MERGED is dropped above). A launched builder with no commit of its own yet
+        # stays, whatever main has moved on to.
+        if base is not None and ahead(head, base):
+            launch = started.get(branch)
+            if launch is None or committed_after(head, launch["_started"]):
+                continue
         row, outcome = row_for(branch, head, prs, book, started.get(branch), agents, base)
         age = commit_age_days(head)
         if (
