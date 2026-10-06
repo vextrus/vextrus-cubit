@@ -682,3 +682,43 @@ def test_another_branch_named_is_read_for_its_pins_only(tmp_path: Path) -> None:
     ticket(contradicting, "s91-old", "ts91old", reasons=(), pins=("storeys.count = 4",))
     ticket(contradicting, BRANCH, FOLDER, pins=("storeys.count = 3",))
     assert "s91-old" in refused(contradicting, BRANCH, "s91-old")
+
+
+# PR #499, review round 2.
+
+
+def parametrized(fixture: str, cases: str = "CASES") -> str:
+    return (
+        '"""A parametrize over a stubbed value."""\n\n'
+        "from pathlib import Path\n\nimport pytest\n\n"
+        "from fixturepkg.low.storeys import CASES"
+        "  # type: ignore[import-not-found, unused-ignore]\n\n\n"
+        f'@pytest.mark.parametrize("case", {cases})\n'
+        f"def test_counts(case: int, {fixture}: Path) -> None:\n    assert case in CASES\n"
+    )
+
+
+def test_a_parametrize_over_a_stubbed_value_with_a_misspelt_fixture_is_refused(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=parametrized("tmp_pth"), reasons=(MISSING,))
+
+    output = refused(root)
+
+    assert "cannot be set up" in output
+    assert "tmp_pth" in output
+
+
+def test_a_parametrize_over_a_stubbed_value_with_its_fixtures_is_clean(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=parametrized("tmp_path"), reasons=(MISSING,))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+def test_a_test_with_an_empty_parameter_set_is_named(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=parametrized("tmp_path", cases="[]"), reasons=(MISSING,))
+
+    assert "empty parameter set" in refused(root)

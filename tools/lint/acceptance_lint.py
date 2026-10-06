@@ -88,13 +88,14 @@ class _Stub(type):
     __lt__ = __le__ = __gt__ = __ge__ = _false
 
     def __iter__(cls) -> object:
-        return iter(())
+        # One value, so a parametrize over a stubbed value makes one case whose fixtures are planned.
+        return iter((_Stub(cls.__name__, (), {}),))
 
     def __index__(cls) -> int:
         return 0
 
     def __len__(cls) -> int:
-        return 0
+        return 1
 
     def __bool__(cls) -> bool:
         return False
@@ -611,12 +612,23 @@ class Checker:
                         break
                     if done.returncode == 0:
                         # Fixtures resolve only at setup: plan it, the stubs still standing in.
-                        plan, _folder = self.pytest(path, "plan", "--setup-plan", "-q")
+                        plan, _folder = self.pytest(path, "plan", "--setup-plan", "-q", "-rs")
+                        output = plan.stdout + plan.stderr
                         if plan.returncode != 0:
-                            output = _tail(plan.stdout + plan.stderr)
                             code = f"exit {plan.returncode}"
+                            unknown = sorted(set(re.findall(r"fixture '([^']+)' not found", output)))
+                            named = f", no fixture {', '.join(unknown)}" if unknown else ""
                             problems.append(
-                                f"{self.label(path)}: a test cannot be set up ({code}):\n{output}"
+                                f"{self.label(path)}: a test cannot be set up ({code}{named}):\n"
+                                f"{_tail(output)}"
+                            )
+                        # A test skipped for an empty parameter set never has its fixtures planned.
+                        empty = [line for line in output.splitlines() if "empty parameter set" in line]
+                        if empty:
+                            problems.append(
+                                f"{self.label(path)}: a test has an empty parameter set, so its "
+                                f"fixtures are never planned:\n"
+                                + "\n".join(f"    {line[:200]}" for line in empty)
                             )
                         break
                     if done.returncode == 5:
