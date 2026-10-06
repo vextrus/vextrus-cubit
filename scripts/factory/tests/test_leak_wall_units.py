@@ -73,7 +73,7 @@ def test_the_watcher_reads_a_hit_whose_path_holds_brackets(
     monkeypatch.setenv("VEXTRUS_LEAKSCAN_CMD", str(scanner))
     found = watch.leak_scan("a" * 40, None)
     assert found["result"] == "hit"
-    assert [where for where, _ in found["found"]] == ["docs/plan(1),v2.md:2"]
+    assert [where for _, where in found["found"]] == ["docs/plan(1),v2.md:2"]
     assert "docs/plan(1),v2.md:2" in watch.leak_message(found)
 
 

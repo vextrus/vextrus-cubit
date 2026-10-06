@@ -268,12 +268,16 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     if status == "cannot-scan":
         return True, [f"verify: refused: the leak scan cannot scan ({summary.get('reason')})"]
     if hits or done.returncode != 0:
+        # Each hit with the commit whose own added text the scanner matched (each commit alone), and
+        # that commit's remedy once.
         head = staged.stdout.strip()
-        lines = []
-        for where, n in hits:
-            shas = leakwhere.commits_of(root, base.stdout.strip(), head, where)
-            lines.append(f"verify: leak hit {where} {n}")
-            lines += [f"verify: {remedy(root, sha, head)}" for sha in shas]
+        attributed = leakwhere.commit_hits(root, argv, base.stdout.strip(), head)
+        if not attributed:
+            lines = [f"verify: leak hit {where} {n}" for where, n in hits]
+        else:
+            lines = [f"verify: leak hit {sha[:12]} {where} {n}" for sha, where, n in attributed]
+            for sha in dict.fromkeys(sha for sha, _, _ in attributed):
+                lines.append(f"verify: {remedy(root, sha, head)}")
         return True, [*lines, "verify: refused: no verify record written"]
     return False, [f"verify: leak scan clean (hits=0 scanned={summary.get('scanned')})"]
 

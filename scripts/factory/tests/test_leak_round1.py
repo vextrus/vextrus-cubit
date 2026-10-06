@@ -18,6 +18,7 @@ from scripts.tests.acceptance.ts14p7._world import (
     BRAMBLE,
     KB_PER_GB,
     NOW,
+    TAMARIND,
     USAGE,
     World,
     assert_no_text,
@@ -76,7 +77,7 @@ def test_publish_names_the_commit_of_each_hit(world: World) -> None:
 
     assert_no_text(done.stdout, done.stderr)
     assert done.returncode != 0, show(done)
-    assert f"docs/plan.md:2 {first[:12]}" in done.stderr, show(done)
+    assert f"{first[:12]} docs/plan.md:2 (1)" in done.stderr, show(done)
 
 
 def test_a_hit_whose_line_a_later_commit_moved_is_read_in_its_own_commit(world: World) -> None:
@@ -218,3 +219,56 @@ def test_a_later_push_with_the_same_hits_sends_nothing_and_a_new_hit_sends_one_m
 
     assert len(sent(cloud)) == 2
     assert "docs/other.md:3" in sent(cloud)[1]
+
+
+# --- PR #483 review round 2: a hit's commit is the one whose own ADDED text the scanner matched
+def test_a_clean_line_inserted_just_above_the_hit_later_names_only_the_hits_commit(
+    world: World,
+) -> None:
+    """C1 adds the hit on line 2; C2 inserts a clean line between lines 1 and 2, so C2's own change
+    puts a (clean) line at line 2: only C1 is named."""
+    c1 = world.commit("s99-p2", {"docs/plan.md": hit_file(2)}, "feat: the plan\n")
+    rows = hit_file(2).splitlines(keepends=True)
+    tip = commit_ready(
+        world, "s99-p2", {"docs/plan.md": "".join([rows[0], "an inserted line\n", *rows[1:]])}
+    )
+    world.to_main("s99-p2")
+
+    done = world.publish("s99-p2")
+
+    assert_no_text(done.stdout, done.stderr)
+    assert done.returncode != 0, show(done)
+    assert f"{c1[:12]} docs/plan.md:2 (1)" in done.stderr, show(done)
+    assert tip[:12] not in done.stderr, show(done)
+
+
+def test_a_hits_line_naming_the_tip_for_a_hit_its_first_commit_added_is_refused(
+    world: World,
+) -> None:
+    """C1 adds hits on lines 2 and 3; the tip inserts a clean line at the top, so its line 3 holds
+    C1's line-2 string: naming the tip for `docs/plan.md:3` must not allowlist that string."""
+    rows = hit_file(2).splitlines(keepends=True)
+    rows[2] = f"the row is {TAMARIND} today\n"
+    world.commit("s99-a2", {"docs/plan.md": "".join(rows)}, "feat: the plan\n")
+    tip = world.commit("s99-a2", {"docs/plan.md": "".join(["a new top line\n", *rows])}, "feat: top\n")
+    world.to_origin("s99-a2")
+    before = world.origin_refs()
+
+    done = batch(world, f"s99-a2:docs/plan.md:3 {tip[:12]}")
+
+    assert_no_text(done.stdout, done.stderr)
+    assert done.returncode != 0, show(done)
+    assert world.origin_refs() == before
+    assert world.gh_writes() == []
+
+
+def test_a_follow_up_push_replacing_the_hit_in_place_sends_no_second_message(cloud: World) -> None:
+    cloud.commit(BRANCH, {"docs/plan.md": hit_file(2)}, "feat: the plan\n")
+    cloud.to_origin(BRANCH)
+    watch_once(cloud)
+    replaced = hit_file(2).replace(BRAMBLE, "an invented stand-in")
+    cloud.commit(BRANCH, {"docs/plan.md": replaced}, "fix: the plan's stand-in\n")
+    cloud.to_origin(BRANCH)
+    watch_once(cloud)
+
+    assert len(sent(cloud)) == 1, "a push replacing the hit in place sent a second message"

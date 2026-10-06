@@ -1,24 +1,30 @@
-"""Which commit of a range put a leak hit where the scanner says (S14-P7 review round 1).
+"""Which commit of a range holds each leak hit, by the scanner's own reading of that commit
+(S14-P7 review rounds 1 and 2).
 
-The range scan (`tools.leakscan range <base>..<head>`) numbers a file hit `<path>:<line>` within the
-commit that added the line, in the file as that commit holds it; a message hit is `commit:<sha12>:<n>`
-already. `commits_of` finds, for a file hit, the commits of the range that added that line (`git blame`
-at each commit touching the path names the commit itself), so a reader can take the line from
-`<sha>:<path>` and a message can name the commit. Locations and shas only: no line is ever returned.
+The range scan (`tools.leakscan range <base>..<head>`) reads each commit's own changes: its added lines,
+numbered `<path>:<line>` in the file as that commit holds it, its message (`commit:<sha12>:<n>`) and its
+new file names. `commit_hits` runs the scanner over each commit of the range alone (`<c>^..<c>`,
+never stamped), so each hit is named `(<sha>, <where>, <n>)` by the commit whose added text matched,
+with that commit's own line number: never a commit that merely touched the same line number. A merge's
+own hits are its scan's less those its merged-in commits report (they are scanned on their own).
+Locations, shas and counts only: no scanned text is ever returned.
 
 This module compiles on Python 3.11 (the watcher imports it).
 """
 
 from __future__ import annotations
 
-import re
+import json
 import subprocess
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 GIT_TIMEOUT = 120
+SCAN_TIMEOUT = 600
 RUN_ERRORS = (OSError, subprocess.SubprocessError)  # a name, not `except A, B:` (3.14 only)
-FILE_HIT = re.compile(r"(.+):([0-9]{1,9})")
-MESSAGE_HIT = re.compile(r"commit:([0-9a-f]{7,40}):[0-9]+")
+READ_ERRORS = (IndexError, ValueError, KeyError, TypeError)
+
+Hit = tuple[str, str, int]  # (commit sha, where within that commit's own scan, count)
 
 
 def _git(repo: Path, *args: str) -> str | None:
@@ -39,33 +45,56 @@ def _git(repo: Path, *args: str) -> str | None:
     return done.stdout if done.returncode == 0 else None
 
 
-def file_hit(where: str) -> tuple[str, int] | None:
-    """`(path, line)` of a file hit; None for a message, name, ref or blob location."""
-    if where.startswith(("commit:", "name:", "ref")) or where.endswith(":bin"):
+def scan_span(
+    repo: Path, scanner: Sequence[str], span: str, env: Mapping[str, str] | None = None
+) -> list[tuple[str, int]] | None:
+    """The scanner's hits over `span` (`--no-stamp --json`); None when it could not scan."""
+    try:
+        done = subprocess.run(
+            [*scanner, "range", span, "--no-stamp", "--json"],
+            cwd=repo,
+            env=None if env is None else dict(env),
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=SCAN_TIMEOUT,
+            check=False,
+        )
+        report = json.loads(done.stdout.strip().splitlines()[-1])
+        if report["summary"]["status"] not in ("clean", "hits"):
+            return None
+        return [(str(hit["where"]), int(hit["n"])) for hit in report["hits"]]
+    except RUN_ERRORS:
         return None
-    match = FILE_HIT.fullmatch(where)
-    if match is None or int(match.group(2)) < 1:
+    except READ_ERRORS:
         return None
-    return match.group(1), int(match.group(2))
 
 
-def commits_of(repo: Path, base: str, head: str, where: str) -> list[str]:
-    """The full shas of the commits in `base..head` whose own changes put the hit at `where`."""
-    message = MESSAGE_HIT.fullmatch(where)
-    if message is not None:
-        found = _git(repo, "rev-parse", "--verify", "-q", f"{message.group(1)}^{{commit}}")
-        return [found.strip()] if found else []
-    place = file_hit(where)
-    if place is None:
-        return []
-    path, line = place
-    listed = _git(repo, "rev-list", "--full-history", f"{base}..{head}", "--", path)
-    shas: list[str] = []
-    for sha in (listed or "").split():
-        blamed = _git(repo, "blame", "--porcelain", "-L", f"{line},{line}", sha, "--", path)
-        if blamed and blamed.split(" ", 1)[0] == sha:
-            shas.append(sha)
-    return shas
+def commit_hits(
+    repo: Path, scanner: Sequence[str], base: str, head: str, env: Mapping[str, str] | None = None
+) -> list[Hit] | None:
+    """Every hit of `base..head` with the commit whose own change holds it; None when a commit could
+    not be scanned (the caller then names the range's locations without commits)."""
+    listed = _git(repo, "rev-list", "--reverse", "--topo-order", "--parents", f"{base}..{head}", "--")
+    if listed is None:
+        return None
+    found: list[Hit] = []
+    own: dict[str, set[str]] = {}
+    for row in listed.splitlines():
+        sha, *parents = row.split()
+        if not parents:
+            return None
+        hits = scan_span(repo, scanner, f"{sha}^..{sha}", env)
+        if hits is None:
+            return None
+        if len(parents) > 1:
+            # `<merge>^..<merge>` also reads the merged-in commits: theirs are theirs.
+            side = _git(repo, "rev-list", f"{sha}^..{sha}", "--") or ""
+            theirs = set().union(*(own.get(c, set()) for c in side.split() if c != sha))
+            hits = [(where, n) for where, n in hits if where not in theirs]
+        own[sha] = {where for where, _ in hits}
+        found += [(sha, where, n) for where, n in hits]
+    return found
 
 
 def is_pushed(repo: Path, sha: str) -> bool:

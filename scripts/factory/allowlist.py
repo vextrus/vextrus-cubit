@@ -3,10 +3,11 @@ branch and one PR (#461, part A).
 
 Run it from the main checkout. The hits file holds one `<branch>:<file>:<line> [<commit>]` per line
 (blank lines and `#` lines skipped): a hit the scanner named on a builder's branch that the orchestrator
-judged public, and optionally the commit publish named with it. The line is read in the commit that
-added it (the range scan's numbering), never at the branch's tip. Every line is checked before anything
-is written; any bad one (malformed, no branch, line zero, a path outside the tree, a branch neither here
-nor on origin, no commit or several adding that line, a line with no new hit) refuses the whole batch,
+judged public, and optionally the commit publish named with it. The line is read in the commit whose
+own added text the scanner matched there (each commit scanned alone), never at the branch's tip. Every
+line is checked before anything is written; any bad one (malformed, no branch, line zero, a path outside
+the tree, a branch neither here nor on origin, a commit given that adds no hit there, no commit or
+several adding a hit there, a line with no new hit) refuses the whole batch,
 naming the line's number in the file, and nothing is pushed.
 
 Then: the scanner's own `allow` hashes the hits' strings into a scratch copy of origin/main's allowlist;
@@ -68,12 +69,12 @@ def parse(text: str) -> list[Hit]:
     return hits
 
 
-def resolve(root: Path, hit: Hit, main: str) -> Hit:
-    """The hit with the commit that put it there: the range scan numbers a line within the commit that
-    added it, so the line is read from `<that commit>:<path>`, never from the branch's tip (a later
-    commit may have moved it). The commit is the one given on the hits line, else the only commit of
-    `<merge-base>..<branch>` that added that line (`leakwhere.commits_of`); none, or several without
-    one given, refuses."""
+def resolve(root: Path, hit: Hit, main: str, scanned: dict[tuple[str, str], list[leakwhere.Hit]]) -> Hit:
+    """The hit with the commit whose own added text the scanner matched there: the range scan numbers a
+    line within the commit that added it, so the line is read from `<that commit>:<path>`, never from
+    the branch's tip. The commits are the scanner's own reading of each commit of
+    `<merge-base>..<branch>` (`leakwhere.commit_hits`, once per branch in `scanned`): a commit given on
+    the hits line must be one of them with a hit at that place; without one, exactly one must."""
     if not publish.valid_branch(root, hit.branch):
         raise Refused(f"hits line {hit.number}: not a branch name")
     tip = None
@@ -86,16 +87,25 @@ def resolve(root: Path, hit: Hit, main: str) -> Hit:
     base = git_out(root, "merge-base", main, tip)
     if base is None:
         raise Refused(f"hits line {hit.number}: the branch shares no history with origin/main")
+    if (base, tip) not in scanned:
+        attributed = leakwhere.commit_hits(
+            root, publish.leakscan_argv(), base, tip, publish.scanner_env()
+        )
+        if attributed is None:
+            raise Refused(f"hits line {hit.number}: the branch's commits cannot be scanned")
+        scanned[(base, tip)] = attributed
+    where = f"{hit.path}:{hit.line}"
+    found = sorted({sha for sha, at, _ in scanned[(base, tip)] if at == where})
     if hit.rev:
         rev = git_out(root, "rev-parse", "--verify", "-q", f"{hit.rev}^{{commit}}")
         inside = rev is not None and not publish.is_ancestor(root, rev, base)
         if not inside or not publish.is_ancestor(root, rev or "", tip):
             raise Refused(f"hits line {hit.number}: that commit is not in the branch's range")
+        if rev not in found:
+            raise Refused(f"hits line {hit.number}: that commit adds no hit there")
         found = [rev or ""]
-    else:
-        found = leakwhere.commits_of(root, base, tip, f"{hit.path}:{hit.line}")
     if not found:
-        raise Refused(f"hits line {hit.number}: no commit of the branch adds that line")
+        raise Refused(f"hits line {hit.number}: no commit of the branch adds a hit there")
     if len(found) > 1:
         named = ", ".join(sha[:12] for sha in found)
         raise Refused(f"hits line {hit.number}: several commits add that line ({named}): give one")
@@ -147,7 +157,8 @@ def batch(root: Path, hits_file: Path) -> int:
     for branch in sorted({hit.branch for hit in hits}):
         if publish.valid_branch(root, branch):
             git(root, "fetch", "-q", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
-    hits = [resolve(root, hit, main) for hit in hits]
+    scanned: dict[tuple[str, str], list[leakwhere.Hit]] = {}
+    hits = [resolve(root, hit, main, scanned) for hit in hits]
 
     with tempfile.TemporaryDirectory(prefix="allowlist-", dir=root / ".private" / "work") as scratch:
         place = Path(scratch)

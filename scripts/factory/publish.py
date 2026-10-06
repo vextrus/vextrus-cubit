@@ -27,7 +27,6 @@ import re
 import shlex
 import subprocess
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -135,16 +134,21 @@ def stamp_valid(root: Path, name: str) -> bool:
     return done.returncode == 0 and "stamp valid" in done.stdout
 
 
-def refuse_hits(scan: Scan, what: str, commits: Callable[[str], list[str]] | None = None) -> None:
-    """Refuse on any hit, naming each location and, for a range, the commit that put it there (the
-    allowlist batch reads the line in that commit: `<branch>:<file>:<line> <commit>`)."""
+def hit_names(scan: Scan, attributed: list[leakwhere.Hit] | None) -> list[str]:
+    """Each hit as `<sha12> <where> (<n>)`, its commit and that commit's own location (the allowlist
+    batch's `<branch>:<file>:<line> <commit>`); the ref name's hit, and every hit when the commits could
+    not be read, as `<where> (<n>)`."""
+    if not attributed:
+        return [f"{where} ({n})" for where, n in scan.hits]
+    named = [f"{sha[:12]} {where} ({n})" for sha, where, n in attributed]
+    return named + [f"{where} ({n})" for where, n in scan.hits if where == "ref"]
+
+
+def refuse_hits(scan: Scan, what: str, attributed: list[leakwhere.Hit] | None = None) -> None:
     if not scan.clean:
-        named = []
-        for where, n in scan.hits[:20]:
-            shas = commits(where) if commits is not None else []
-            named.append(f"{where}{''.join(f' {sha[:12]}' for sha in shas)} ({n})")
-        places = ", ".join(named) or "no location given"
-        more = f" and {len(scan.hits) - 20} more" if len(scan.hits) > 20 else ""
+        named = hit_names(scan, attributed)
+        places = ", ".join(named[:20]) or "no location given"
+        more = f" and {len(named) - 20} more" if len(named) > 20 else ""
         raise Refused(f"{what} has leak hits at {places}{more}: nothing is pushed")
 
 
@@ -155,7 +159,9 @@ def is_ancestor(root: Path, ancestor: str, tip: str) -> bool:
 def range_scan(root: Path, base: str, head: str, ref: str) -> None:
     """Scan `base..head` (every commit), require its stamp; refuse on a hit or a missing stamp."""
     scan = leakscan(root, "range", f"{base}..{head}", "--ref", ref)
-    refuse_hits(scan, "the range", lambda where: leakwhere.commits_of(root, base, head, where))
+    if not scan.clean:
+        attributed = leakwhere.commit_hits(root, leakscan_argv(), base, head, scanner_env())
+        refuse_hits(scan, "the range", attributed)
     if not stamp_valid(root, head):
         raise Refused("the scanned head has no valid leak stamp: nothing is pushed")
     print(f"publish: range {base[:8]}..{head[:8]} clean ({scan.line})")

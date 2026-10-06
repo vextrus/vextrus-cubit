@@ -237,19 +237,23 @@ def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
         if cannot:
             word = cannot.group(1)
     if done.returncode == 1 and hits:
-        # Each hit's commit (the range numbers a line within the commit that added it): the message
-        # names the commits, and the set of hits keys the message, so a later clean push says nothing.
-        found = [
-            [where, [sha[:12] for sha in leakwhere.commits_of(Path.cwd(), "origin/main", head, where)]]
-            for where, _ in hits[:SAY_PLACES]
-        ]
+        # Each hit with the commit whose own added text the scanner matched (each commit scanned
+        # alone): the message names them, and the set of `<sha> <where>` keys it, so a later push that
+        # keeps the same hits (a fix in a new commit cannot clear a pushed one) says nothing again.
+        attributed = leakwhere.commit_hits(Path.cwd(), argv, "origin/main", head)
+        entries = (
+            [[sha[:12], where] for sha, where, _ in attributed]
+            + [["", where] for where, _ in hits if where == "ref"]
+            if attributed
+            else [["", where] for where, _ in hits]
+        )
         return {
             "result": "hit",
             "where": hits[0][0],
             "n": sum(n for _, n in hits),
-            "places": len(hits),
-            "found": found,
-            "set": sorted(where for where, _ in hits) + sorted(s for _, shas in found for s in shas),
+            "places": len(entries),
+            "found": entries[:SAY_PLACES],
+            "set": sorted(f"{sha} {where}" for sha, where in entries),
         }
     return {"result": "cannot-scan", "where": f"cannot-scan:{word}", "n": 0}
 
@@ -259,11 +263,11 @@ def leak_message(leak: dict[str, Any]) -> str:
     """The pushed-hit remedy (session 13's re-submit-squashed rule): a pushed commit is never
     rewritten (the guard refuses force pushes) and the range scan reads every commit, so no new commit
     clears it."""
-    found = leak.get("found") or [[leak["where"], []]]
-    places = ", ".join(where + (f" (commit {', '.join(shas)})" if shas else "") for where, shas in found)
+    found = leak.get("found") or [["", leak["where"]]]
+    places = ", ".join(where + (f" (commit {sha})" if sha else "") for sha, where in found)
     more = leak.get("places", 1) - len(found)
     places += f" and {more} more" if more > 0 else ""
-    commits = sorted({sha for _, shas in found for sha in shas})
+    commits = sorted({sha for sha, _ in found if sha})
     if len(commits) == 1:
         where = f"The hit is in commit {commits[0]} (already pushed)"
     elif commits:
