@@ -386,3 +386,32 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
     from scripts.merge_ready import cut_problems
 
     assert bool(cut_problems(f"{heading}\n- the land script\n", lambda n: True)) is gated
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Cut\n- None.\n- dropped the web half\n",
+        "## Cut\nNone.\n\n- the web half was cut\n",
+        "## Not done\nNothing.\n- the export\n",
+        "## Cut\nNone.\n1. the web half\n",
+    ],
+)
+def test_a_list_item_after_none_is_still_a_cut_item(body: str) -> None:
+    from scripts.merge_ready import cut_problems
+
+    assert len(cut_problems(body, lambda n: True)) == 1
+    assert (
+        cut_problems(body.replace("\n- ", "\n- #7 ").replace("\n1. ", "\n1. #7 "), lambda n: True) == []
+    )
+
+
+def test_prose_after_none_in_a_cut_section_is_not_a_cut_item() -> None:
+    from scripts.merge_ready import cut_problems
+
+    body = "## Cut\nNone.\n\nLater tickets: the lander waits.\nmore prose\n\n## Cut\n- real item\n"
+    assert cut_problems(body, lambda n: True) == [
+        "'cut' item 1 links no issue: file one and link it (#<n>)"
+    ]
+    assert cut_problems("## Cut\nNone.\nafter it\n", lambda n: True) == []
+    assert cut_problems("## Cut\n- an item\nNone.\n", lambda n: True) != []

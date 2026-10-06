@@ -117,3 +117,38 @@ def test_a_resume_runs_in_the_rows_own_folder(say: Say) -> None:
     [call] = say.calls()
     assert Path(call["cwd"]).resolve() == say.worktree.resolve()
     assert call["argv"][:3] == ["--resume", SESSION, "--bg"]
+
+
+def _record(say: Say, model: str, effort: str, session: str = SESSION) -> None:
+    folder = say.tmp / "factory" / "launches"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "t901-20261006T000000Z.json").write_text(
+        json.dumps({"ticket": "t901", "session_id": session, "model": model, "effort": effort})
+    )
+
+
+def _after(argv: list[str], flag: str) -> str:
+    return argv[argv.index(flag) + 1]
+
+
+@pytest.mark.parametrize(
+    ("model", "effort"), [("claude-sonnet-5-5", "medium"), ("claude-opus-5-5", "high")]
+)
+def test_a_resume_keeps_the_model_and_effort_its_launch_record_names(
+    say: Say, model: str, effort: str
+) -> None:
+    say.rows({"state": "done"})
+    _record(say, model, effort)
+    assert say.say().returncode == 0
+    [call] = say.calls()
+    assert (_after(call["argv"], "--model"), _after(call["argv"], "--effort")) == (model, effort)
+    assert call["argv"][-1].endswith("\n") is False  # the prefixed text stays the last argument
+
+
+def test_another_sessions_record_is_not_used(say: Say) -> None:
+    say.rows({"state": "done"})
+    _record(say, "claude-sonnet-5-5", "medium", session="00000000-0000-0000-0000-000000000000")
+    done = say.say()
+    [call] = say.calls()
+    assert "--model" not in call["argv"]
+    assert "no launch record" in done.stderr
