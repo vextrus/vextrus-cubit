@@ -389,6 +389,8 @@ def test_where_cloud_on_a_no_model_tier_records_nothing(
     monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (H, BASE))
     monkeypatch.setattr(review, "changes", lambda main, merged, base: ([("docs/a.md", 1, 0)], []))
     monkeypatch.setattr(review, "merge_bases", lambda main, head, base: 1)
+    monkeypatch.setattr(review, "tier", lambda *_, **__: "docs-only")  # R1's lists decide which
+    monkeypatch.setattr(review, "hand_off", lambda *_: pytest.fail("a cloud reviewer was launched"))
     monkeypatch.setattr(review, "record", lambda *_: recorded.append("record"))
     args = review.parse(["run", "12", "--round", "1", "--where", "cloud"])
     with pytest.raises(review.Refused, match="no reviewer"):
