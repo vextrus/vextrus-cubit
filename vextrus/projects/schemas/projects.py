@@ -38,6 +38,10 @@ class ProjectOut(Schema):
 
     @classmethod
     def from_view(cls, view: ProjectView) -> ProjectOut:
+        if view.updated_at is None:
+            raise ValueError(
+                "a Project goes out with its updated_at: read it with list, detail or create"
+            )
         return cls(
             id=view.id,
             code=view.code,
