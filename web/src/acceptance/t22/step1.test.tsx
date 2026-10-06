@@ -13,6 +13,7 @@ import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { expectKeyMapSound, notationProblems } from '@/ui'
+import { neverShownIn } from '@/test/never-shown'
 import { FakeStep1, LONGEST_TITLE } from './step1.fixture'
 
 beforeEach(async () => {
@@ -60,7 +61,9 @@ async function focusRow(number: string) {
 /** m0-screens §1.1's words, §1.9's Market and currency, §1.10's Building, and raw CAD codes (§8 3, 4, 10). */
 function gateGreps() {
   const text = clean(document.body.textContent)
-  for (const word of ['handle', 'entity', 'entities', 'SDF', 'DXF', 'LibreDWG', 'ACadSharp', 'JSON', 'worker', 'queue', 'hash', 'tenant', 'API', 'null', 'undefined', 'NaN', 'UUID', 'Engine', 'model space', 'decoder', 'Building 1', 'Bangladesh', 'BDT', '৳']) {
+  // Amended by S15-W7: §1.1's words come from the one list (web/src/test/never-shown.json).
+  expect(neverShownIn(text), 'm0-screens §1.1').toEqual([])
+  for (const word of ['Engine', 'decoder', 'Building 1', 'Bangladesh', 'BDT', '৳']) {
     expect(text, word).not.toMatch(new RegExp(`\\b${word}\\b`))
   }
   expect(text, 'no message key').not.toMatch(/\b[a-z_]+\.[a-z_0-9]+\.[a-z_0-9]+\b/)
