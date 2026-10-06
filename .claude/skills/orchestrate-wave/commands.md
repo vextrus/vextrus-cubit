@@ -23,11 +23,12 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`: prints the text to send
   with SendMessage when the builder is alive, and runs the resume itself when it is `stopped` or `failed`
   with no `pid`. Never type `claude --bg --resume` by hand: the guard refuses it.
-- A cloud builder is messaged through `uv run python -m scripts.factory.launch say ...`.
+- A cloud builder is messaged through `uv run python -m scripts.factory.launch say --ticket <ticket> --file <f>`.
 
 ## 4. Watch
 - `uv run python -m scripts.factory.watch ensure`: starts the watcher when its pidfile is stale; then Monitor
   on `events.log` under `.private/work/factory/`.
+- The one tail, event kinds to watch: READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, LOCAL-IDLE.
 
 ## Real drawings
 - `uv run python -m scripts.factory.rdlock run --kind <kind> --head <sha> -- <cmd>`: one real-drawing run at a
@@ -85,3 +86,6 @@ leak stamp. Change a PR body the same way, scanned first:
 
 ## Housekeeping
 - `uv run python -m scripts.factory.sweep`: lists stale worktrees and storage; `--apply` removes them.
+- `uv run python -m scripts.factory.sweep --old-sessions [--days N] [--apply]`: lists the `.venv` and
+  `node_modules` folders older than N days under `.claude/worktrees/` and `.private/work/`; `--apply` removes
+  those by name and keeps their folders.
