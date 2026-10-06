@@ -327,6 +327,8 @@ class Run:
     round_: int
     head: str | None = None
     merged: str | None = None
+    exception: str | None = None  # the round's --exception and --reason, for any advice printed
+    reason: str | None = None
     base: str | None = None  # main's sha at the fetch
     tier: str | None = None
     slot: int | None = None
@@ -1115,6 +1117,7 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     factory = main / ".private" / "work" / "factory"
     review_dir = factory / "review"
     ledger_dir = factory / "ledger"
+    run.exception, run.reason = args.exception, args.reason
     ledger.check_exception(run.round_, args.exception, args.reason)
     ledger.check_round(ledger_dir, run.pr, run.round_, args.exception)
     lens_timeout()  # a malformed cap is bad input before anything starts
@@ -1641,7 +1644,10 @@ def hand_off(
             run.lenses.append({**about, "where": "cloud", "reused": True})
             continue
         if launches and lens.label not in relaunch:  # launched before: never twice unless named
-            note = f"{lens.label}: launched, no verdict; relaunch with --relaunch {lens.label}"
+            note = (
+                f"{lens.label}: launched, no verdict; relaunch with --relaunch {lens.label} "
+                f"(`{rerun_command(run, [lens.label])}`)"
+            )
             print(f"review: {note}", file=sys.stderr)
             run.launched.append(launches[-1]["branch"])
             run.lenses.append({**about, "where": "cloud", "reused": True, "note": note})
@@ -1672,11 +1678,11 @@ def hand_off(
         if entry["state"] != "launched":
             failed.append(lens.label)
     if failed:
-        raise Refused(
-            f"the cloud launch of {', '.join(failed)} failed; nothing recorded: run the round again "
-            "with --where cloud (a lens with no launch is launched; name a lens whose session died "
-            "with --relaunch <lens>)"
-        )
+        unsure = [label for label in failed if entries[label]["launches"]]  # stopped mid-launch
+        advice = f"`{rerun_command(run)}` launches every lens with no launch"
+        if unsure:
+            advice += f"; if {', '.join(unsure)} never started, `{rerun_command(run, unsure)}`"
+        raise Refused(f"the cloud launch of {', '.join(failed)} failed; nothing recorded: {advice}")
 
 
 def write_handoff(path: Path, manifest: dict[str, Any]) -> None:
@@ -1694,11 +1700,23 @@ def write_handoff(path: Path, manifest: dict[str, Any]) -> None:
         os.replace(temporary, path)
 
 
+def rerun_command(run: Run, relaunch: Sequence[str] = ()) -> str:
+    """The command that runs this round again in the cloud, with the round's own `--exception` and
+    `--reason` (round 3 is refused without them), shell-quoted, naming each lens in `relaunch`."""
+    parts = ["review", "run", str(run.pr), "--round", str(run.round_), "--where", "cloud"]
+    if run.exception is not None:
+        parts += ["--exception", run.exception]
+    if run.reason is not None:
+        parts += ["--reason", run.reason]
+    for name in relaunch:
+        parts += ["--relaunch", name]
+    return shlex.join(parts)
+
+
 def relaunch_advice(run: Run, dead: list[str]) -> str:
     """What to run when lenses have not answered: a lens with no launch is launched by a plain rerun;
     one launched whose session died only when named with `--relaunch <lens>`."""
-    named = "".join(f" --relaunch {name}" for name in dead)
-    command = f"review run {run.pr} --round {run.round_} --where cloud{named}"
+    command = rerun_command(run, dead)
     if dead:
         return f"if {', '.join(dead)} died, launch again with `{command}`"
     return f"launch the missing lenses with `{command}`"
@@ -1781,6 +1799,7 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     together (the worst verdict, every finding), or nothing is recorded while any lens is missing."""
     factory = main / ".private" / "work" / "factory"
     ledger_dir = factory / "ledger"
+    run.exception, run.reason = args.exception, args.reason
     ledger.check_exception(run.round_, args.exception, args.reason)
     ledger.check_round(ledger_dir, run.pr, run.round_, args.exception)
     run.head = resolve(run.pr)

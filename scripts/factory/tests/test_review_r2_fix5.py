@@ -4,6 +4,7 @@ relaunches the dead lenses; a stop while the launcher runs leaves an `unconfirme
 
 import json
 import re
+import shlex
 import signal
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,7 @@ class Launcher:
     def __init__(self, monkeypatch: pytest.MonkeyPatch, head: str) -> None:
         self.head = head
         self.killing: set[str] = set()
+        self.failing: set[str] = set()
         self.launched: list[tuple[str, str]] = []  # (model, nonce)
         monkeypatch.setattr(review_cloud, "run", self.run)
 
@@ -36,6 +38,9 @@ class Launcher:
         review_file = records_dir / f"review-{PR}-{nonce[:8]}.json"
         review_file.write_text(json.dumps({"pr": PR, "head_sha": self.head, "nonce": nonce}))
         branch = f"review/{PR}-{nonce[:8]}"
+        if model in self.failing:
+            self.launched.pop()
+            return 3  # the push or the launch failed: nothing launched
         command = ["true"]
         if model in self.killing:
             command = ["sh", "-c", "kill -TERM $PPID; sleep 30"]
@@ -142,3 +147,72 @@ def test_a_sigterm_during_lens_b_s_launcher_leaves_an_unconfirmed_launch_a_rerun
     collect(cloud)
     (recorded,) = list(cloud.ledger_dir.iterdir())
     assert json.loads(recorded.read_text())["counts"]["reviewers"] == 2
+
+
+# ---------------------------------------------------------------- 3. round 3's advice keeps its flags
+
+
+R3 = ["--round", "3", "--exception", "fix-regression", "--reason", "the advice's round-3 flags"]
+COMMAND = re.compile(r"`(review run [^`]+)`")
+
+
+def follow(cloud: Cloud, monkeypatch: pytest.MonkeyPatch, text: str, which: int = 0) -> None:
+    """Run the `which`-th command `text` advises, exactly as printed, through review.py's own run."""
+    commands = COMMAND.findall(text)
+    assert commands, f"no command in {text!r}"
+    args = review.parse(shlex.split(commands[which])[1:])
+    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (head, head))
+    monkeypatch.setattr(review, "changes", lambda *_: ([("vextrus/rates/table.py", 400, 0)], []))
+    monkeypatch.setattr(review, "merge_bases", lambda *_: 1)
+    monkeypatch.setattr(review, "tier", lambda *_, **__: "normal")
+    review.review(review.Run(pr=PR, round_=args.round), args, cloud.main)
+
+
+def round3(cloud: Cloud) -> review.Run:
+    args = review.parse(["run", str(PR), *R3, "--where", "cloud"])
+    run = review.Run(pr=PR, round_=3, head=cloud.head, tier="normal")
+    run.exception, run.reason = args.exception, args.reason
+    return run
+
+
+def test_collects_round_3_advice_keeps_the_exception_and_relaunches(
+    cloud: Cloud, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuted: in round 3 the advice left out --exception and --reason, so check_round refused it
+    ("round 3 needs a recorded exception")."""
+    launcher = Launcher(monkeypatch, cloud.head)
+    review.hand_off(round3(cloud), [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
+    with pytest.raises(review.Refused) as refused:
+        review.collect(review.Run(pr=PR, round_=3), review.parse(["collect", str(PR), *R3]), cloud.main)
+    follow(cloud, monkeypatch, str(refused.value))  # the advice, exactly: accepted, both relaunched
+    assert len(launcher.launched) == 4
+    now = json.loads(review.handoff_path(cloud.records, PR, cloud.head, 3).read_text())
+    assert [entry["count"] for entry in now["lenses"]] == [2, 2]
+
+
+def test_hand_offs_failure_advice_in_round_3_keeps_the_exception(
+    cloud: Cloud, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    launcher = Launcher(monkeypatch, cloud.head)
+    launcher.failing = {review.LENS_B.model}
+    with pytest.raises(review.Refused) as refused:
+        review.hand_off(round3(cloud), [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
+    launcher.failing = set()
+    follow(cloud, monkeypatch, str(refused.value))
+    assert [model for model, _ in launcher.launched] == [review.LENS_A.model, review.LENS_B.model]
+
+
+def test_a_reruns_launched_no_verdict_line_in_round_3_keeps_the_exception(
+    cloud: Cloud, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    launcher = Launcher(monkeypatch, cloud.head)
+    review.hand_off(round3(cloud), [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
+    capfd.readouterr()
+    review.hand_off(round3(cloud), [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
+    line = next(line for line in capfd.readouterr().err.splitlines() if "lens-a: launched" in line)
+    follow(cloud, monkeypatch, line)
+    assert [model for model, _ in launcher.launched] == [
+        review.LENS_A.model,
+        review.LENS_B.model,
+        review.LENS_A.model,
+    ]
