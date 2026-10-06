@@ -341,17 +341,30 @@ function drewNothing(w: World, drawn: { text: string }, why: string): void {
   expect(w.statusTexts.filter(t => typeof t === 'string' && t !== ''), `${why}: no ui.status text`).toEqual([])
 }
 
-test('M1 registers exactly session.start and ui.render on AbovePrompt, and nothing that intercepts', async () => {
-  const seen: { event: string; matcher: unknown }[] = []
+// Amended 5 Oct 2026: S14-U2's /wip, /factory pane and spinner suffix (the owner's session-14 brief) need these hooks; still read-only (Q6).
+// Tightened 5 Oct 2026: whole matchers, so a Pane hook is scoped to requestId factory.
+test('M1 registers exactly session.start, command.run on /wip and /factory, and ui.render on AbovePrompt, Pane and Spinner, and nothing that intercepts', async () => {
+  const seen: { event: string; matcher: any }[] = []
   const recording: any = (event: string, matcherOrHook: unknown, hook?: unknown) => {
     seen.push({ event, matcher: hook === undefined ? undefined : matcherOrHook })
   }
   register(recording, {})
-  const events = seen.map(s => s.event).sort()
-  expect(events).toEqual(['session.start', 'ui.render'])
+  const events = [...new Set(seen.map(s => s.event))].sort()
   for (const name of FORBIDDEN_EVENTS) expect(events).not.toContain(name)
   for (const name of events) expect(name).not.toMatch(/^(tool|prompt|agent)\./)
-  expect(seen.find(s => s.event === 'ui.render')?.matcher).toEqual({ component: 'AbovePrompt' })
+  // Every hook, as its event and its whole matcher (keys sorted), in a sorted list: no hook added,
+  // dropped, duplicated or widened (a Pane hook without requestId "factory" would draw every pane).
+  const canon = (m: any): string =>
+    m === undefined || m === null ? 'null' : JSON.stringify(Object.fromEntries(Object.entries(m).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))))
+  const hooks = seen.map(s => `${s.event} ${canon(s.matcher)}`).sort()
+  expect(hooks).toEqual([
+    'command.run {"command":"factory"}',
+    'command.run {"command":"wip"}',
+    'session.start null',
+    'ui.render {"component":"AbovePrompt"}',
+    'ui.render {"component":"Pane","requestId":"factory"}',
+    'ui.render {"component":"Spinner"}',
+  ])
 })
 
 test('M2 as the orchestrator, the AbovePrompt band carries every segment of the sample in at most 2 rows of Box and Text', async ($, on) => {
