@@ -1,0 +1,149 @@
+// The factory's words for /wip, the /factory pane and the spinner suffix: pure functions, no `$`, no
+// Node, no I/O (the mod's register.js reads the files and draws; this module only turns text into text).
+// Data: status.json (parsed by text.js's parseStatus), the last line of review-cost.jsonl and the
+// clock's session.json (scripts/factory/stamp.py's `start` writes it).
+//
+// A row begins with a word of this module's own (a state, a kind, #PR), never with a name from a file,
+// and a name from a file is shown only when it is one line of printable text (TICKET): a crafted
+// ticket cannot forge a row, a section heading or a control sequence.
+
+import { DOWN, FUTURE_MS, STALE_MS, TICKET, fitRow, hm, oneLine } from "./text.js"
+
+export const TABS = ["Builders", "Reviews", "Lock", "PR queue"]
+
+const UTC = /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$/
+const STATES = ["working", "ready", "blocked", "quiet", "done", "failed", "stopped"]
+const BIDI = /[‪-‮⁦-⁩]/
+// One session is never longer than this many minutes (a week of minutes, with room): a larger
+// budget in session.json is a broken file, not a plan.
+const BUDGET_MAX = 100_000
+const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
+const isCount = (v) => Number.isInteger(v) && v >= 0 && v <= 1_000_000_000
+const isUtc = (v) => typeof v === "string" && UTC.test(v) && Number.isFinite(Date.parse(v))
+
+// The clock's session as { elapsed_minutes, budget_minutes } at `nowMs`, else null (broken file).
+export function sessionBudget(text, nowMs) {
+  try {
+    if (typeof text !== "string" || !Number.isFinite(nowMs)) return null
+    const { started_utc: started, budget_minutes: budget } = JSON.parse(text)
+    if (!isUtc(started) || !Number.isInteger(budget) || budget < 1 || budget > BUDGET_MAX) return null
+    return { elapsed_minutes: Math.max(0, Math.floor((nowMs - Date.parse(started)) / 60_000)), budget_minutes: budget }
+  } catch {
+    return null
+  }
+}
+
+// `1h16/5h00`, the form the orchestrator's status line writes.
+export const budgetText = (b) => `${hm(b.elapsed_minutes)}/${hm(b.budget_minutes)}`
+
+// The last non-empty line of review-cost.jsonl's `total_cost_usd`, else null.
+export function lastCost(text) {
+  try {
+    if (typeof text !== "string") return null
+    const last = text.split("\n").map((l) => l.trim()).filter((l) => l !== "").pop()
+    const usd = JSON.parse(last ?? "").total_cost_usd
+    return typeof usd === "number" && Number.isFinite(usd) && usd >= 0 && usd < 1_000_000 ? usd : null
+  } catch {
+    return null
+  }
+}
+
+// A ticket name from a file: itself when it is safe to print, else "?".
+const ticketOf = (t) => (typeof t === "string" && TICKET.test(t) && !BIDI.test(t) ? t : "?")
+const stateOf = (s) => (STATES.includes(s) ? s : "?")
+const whereOf = (w) => (w === "cloud" || w === "local" ? w : "?")
+const kindOf = (k) => (k === "post" || k === "scored" || k === "no-post" ? k : "?")
+const minutes = (m) => (isCount(m) ? (m >= 60 ? hm(m) : `${m}m`) : "-")
+const since = (at, nowMs) => (isUtc(at) ? minutes(Math.max(0, Math.floor((nowMs - Date.parse(at)) / 60_000))) : "-")
+const prOf = (p) => (isCount(p) && p > 0 ? p : null)
+
+const NEXT = {
+  working: "wait",
+  ready: "review its head",
+  blocked: "read its reason",
+  quiet: "check the session",
+  done: "nothing",
+  failed: "relaunch or take over",
+  stopped: "restart or drop",
+}
+
+const items = (status) => (Array.isArray(status.builders.items) ? status.builders.items.filter(isObj) : [])
+
+function builderRows(status, nowMs) {
+  const rows = items(status).map((b) => {
+    const state = stateOf(b.state)
+    const age = b.where === "cloud" ? minutes(b.quiet_minutes) : since(b.last_push_at, nowMs)
+    return `${state} · ${ticketOf(b.ticket)} · ${whereOf(b.where)} · ${age} · next: ${NEXT[state] ?? "look"}`
+  })
+  return rows.length ? rows : ["no builders"]
+}
+
+function reviewRows(status, cost) {
+  const byPr = new Map()
+  for (const b of items(status)) if (prOf(b.pr) !== null) byPr.set(b.pr, ticketOf(b.ticket))
+  const rows = (Array.isArray(status.reviews) ? status.reviews.filter(isObj) : []).map((r) => {
+    const sha = typeof r.head === "string" && /^[0-9a-f]{40}$/.test(r.head) ? ` · ${r.head.slice(0, 7)}` : ""
+    const who = byPr.has(r.pr) ? ` · ${byPr.get(r.pr)}` : ""
+    const next = r.round >= 2 ? "last round: merge or take over" : "wait for the verdict"
+    return `#${isCount(r.pr) ? r.pr : "?"} · round ${isCount(r.round) ? r.round : "?"}${sha}${who} · next: ${next}`
+  })
+  if (rows.length === 0) rows.push("no review running")
+  rows.push(typeof cost === "number" ? `last review cost $${cost.toFixed(2)}` : "last review cost unknown")
+  return rows
+}
+
+function lockRows(status, nowMs) {
+  const { holder, waiters } = status.lock
+  const rows = []
+  const queue = Array.isArray(waiters) ? waiters.filter(isObj) : []
+  if (!isObj(holder)) rows.push(queue.length ? `free · ${queue.length} waiting` : "free")
+  else rows.push(`held · ${kindOf(holder.kind)} · ${ticketOf(holder.ticket)} · ${minutes(holder.elapsed_minutes)} · next: wait`)
+  for (const w of queue) rows.push(`waiting · ${kindOf(w.kind)} · ${ticketOf(w.ticket)} · ${since(w.since, nowMs)}`)
+  return rows
+}
+
+function queueRows(status, nowMs) {
+  const rows = items(status)
+    .filter((b) => prOf(b.pr) !== null)
+    .map((b) => {
+      const state = stateOf(b.state)
+      const next = state === "ready" ? "review, then merge" : (NEXT[state] ?? "look")
+      return `PR #${b.pr} · ${state} · ${ticketOf(b.ticket)} · ${since(b.last_push_at, nowMs)} · next: ${next}`
+    })
+  return rows.length ? rows : ["no builder has an open PR"]
+}
+
+// The four tabs as { down, tabs: { Builders: [row], ... }, age } at `nowMs`. `status` is a parsed,
+// valid status or null (text.js's parseStatus); `schema` its second result; `cost` the last review's
+// dollars or null. A stale or missing status is DOWN, as the band: every tab then says so.
+export function factoryView(status, nowMs, schema, cost) {
+  const age = status === null ? Infinity : nowMs - Date.parse(status.written_at)
+  if (!(age <= STALE_MS) || age < -FUTURE_MS) {
+    const down = schema ? `${DOWN} status schema` : DOWN
+    return { down, age: null, tabs: Object.fromEntries(TABS.map((name) => [name, ["no reading"]])) }
+  }
+  return {
+    down: null,
+    age: Math.floor(Math.max(0, age) / 60_000),
+    tabs: {
+      Builders: builderRows(status, nowMs),
+      Reviews: reviewRows(status, cost),
+      Lock: lockRows(status, nowMs),
+      "PR queue": queueRows(status, nowMs),
+    },
+  }
+}
+
+const WIP_COLUMNS = 160
+
+// /wip's text: DOWN when the watcher is, then each tab as a heading line and its rows, indented.
+export function wipText(view) {
+  const out = []
+  if (view.down !== null) out.push(view.down)
+  for (const name of TABS) {
+    out.push(name)
+    for (const row of view.tabs[name]) out.push(`  ${fitRow(row, WIP_COLUMNS)}`)
+  }
+  if (view.age !== null) out.push(`status ${view.age}m old`)
+  return out.map(oneLine).join("\n")
+}

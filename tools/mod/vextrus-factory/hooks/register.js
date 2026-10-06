@@ -13,7 +13,8 @@
 //
 // Every handler catches its own errors: a throw out of a hook could end the session.
 
-import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, parseEvents, parseStatus, toastText } from "./text.js"
+import { TABS, budgetText, factoryView, lastCost, sessionBudget, wipText } from "./factory.js"
+import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, oneLine, parseEvents, parseStatus, toastText } from "./text.js"
 
 // "band" draws above the prompt (AbovePrompt); "status" is the verified fallback, $.ui.status(text).
 const SURFACE = "band"
@@ -24,8 +25,16 @@ const EVENTS_REL = ".private/work/factory/events.log"
 // not read; watch.py leaves its tail in events.tail (the last 200 lines the mod shows or toasts).
 const TAIL_REL = ".private/work/factory/events.tail"
 const LOG_READ_MAX = 1024 * 1024
+// /wip and /factory (S14-U2) and the spinner's elapsed/budget read these beside status.json.
+const COST_REL = ".private/work/factory/review-cost.jsonl"
+const SESSION_REL = ".private/work/factory/session.json"
+const SESSION_MAX = 64 * 1024
+const PANE = "factory"
 const READING = { plugin: "vextrus-factory", key: "reading" }
 const EVENTS = { plugin: "vextrus-factory", key: "events" }
+const SESSION = { plugin: "vextrus-factory", key: "session" }
+const COST = { plugin: "vextrus-factory", key: "cost" }
+const TAB = { plugin: "vextrus-factory", key: "tab" }
 // A toast is raised for an owner-action line at most this old, and its line is remembered in the
 // store (across polls, reloads and sessions) so it is raised once.
 const TOAST_WINDOW_MS = 6 * 3_600_000
@@ -57,6 +66,26 @@ async function readText($, path) {
     return typeof read === "string" ? read : null
   } catch {
     return null
+  }
+}
+
+// A file of at most `max` bytes as text, else null (missing, too large, unreadable).
+async function readSmall($, path, max) {
+  try {
+    const { size } = await $.fs.stat(path)
+    return typeof size === "number" && size <= max ? await readText($, path) : null
+  } catch {
+    return null
+  }
+}
+
+async function factoryPaths($) {
+  return {
+    status: await factoryFile($, STATUS_REL),
+    events: await factoryFile($, EVENTS_REL),
+    tail: await factoryFile($, TAIL_REL),
+    cost: await factoryFile($, COST_REL),
+    session: await factoryFile($, SESSION_REL),
   }
 }
 
@@ -112,6 +141,8 @@ async function poll($, paths) {
     const { text: log, unreadable } = await readEvents($, paths)
     await $.state.set(READING, { text })
     await $.state.set(EVENTS, { events: bandEvents(log), unreadable })
+    await $.state.set(SESSION, { text: await readSmall($, paths.session, SESSION_MAX) })
+    await $.state.set(COST, { usd: lastCost(await readSmall($, paths.cost, LOG_READ_MAX)) })
     if (SURFACE === "status") {
       const { status, schema } = parseStatus(text)
       $.ui.status(bandText(status, await $.clock.now(), null, schema))
@@ -122,6 +153,14 @@ async function poll($, paths) {
   } finally {
     polling = false
   }
+}
+
+// The four tabs from the poll's last readings, drawn at the clock's now.
+async function currentView($) {
+  const held = (await $.state.get(READING)).value
+  const { status, schema } = parseStatus(held === undefined ? null : held.text)
+  const cost = (await $.state.get(COST)).value
+  return factoryView(status, await $.clock.now(), schema, cost === undefined ? null : cost.usd)
 }
 
 export function register(on) {
@@ -136,7 +175,13 @@ export function register(on) {
         } catch {
           // the activation record is lost; the band still runs
         }
-        const paths = { status: await factoryFile($, STATUS_REL), events: await factoryFile($, EVENTS_REL), tail: await factoryFile($, TAIL_REL) }
+        const paths = await factoryPaths($)
+        try {
+          await $.command.register({ name: "wip", description: "Print the factory's builders, reviews, lock and PR queue (no model turn)", immediate: true })
+          await $.command.register({ name: "factory", description: "Open the factory pane: Builders | Reviews | Lock | PR queue", immediate: true })
+        } catch {
+          // the commands are lost; the band still runs
+        }
         await poll($, paths)
         timer = $.clock.every(POLL_MS, () => {
           poll($, paths)
@@ -169,5 +214,70 @@ export function register(on) {
       tree = null
     }
     return tree === null ? next(e) : tree
+  })
+
+  // /wip: the four sections as text, from the files as of now. It answers itself (no `next`: the
+  // engine's own run of a plugin command is a model turn) and calls nothing that submits or runs.
+  on("command.run", { command: "wip" }, async ($, e, next) => {
+    try {
+      if (!(await isOrchestrator($))) return next(e)
+      await poll($, await factoryPaths($))
+      return { text: wipText(await currentView($)) }
+    } catch {
+      return { text: "WATCHER DOWN" }
+    }
+  })
+
+  on("command.run", { command: "factory" }, async ($, e, next) => {
+    try {
+      if (!(await isOrchestrator($))) return next(e)
+      await poll($, await factoryPaths($))
+      const opened = await $.ui.open({ id: PANE, title: "Factory" })
+      const placed = opened === undefined || opened === null || opened.isPlaced !== false
+      return { text: placed ? "Factory pane opened." : "Factory pane opened; it shows when the window is wide enough." }
+    } catch {
+      return { text: "The factory pane could not open." }
+    }
+  })
+
+  // The pane: one tab row (Buttons that change only the local tab value) and the tab's rows.
+  on("ui.render", { component: "Pane", requestId: PANE }, async ($, e, next) => {
+    let tree = null
+    try {
+      if (await isOrchestrator($)) {
+        const view = await currentView($)
+        const held = (await $.state.get(TAB)).value
+        const tab = held !== undefined && TABS.includes(held.name) ? held.name : TABS[0]
+        const { Box, Text, Button } = $.ui.resolve(e)
+        const columns = e.props.bodyColumns
+        const tabs = TABS.map((name, i) => {
+          const props = { label: name, hotkey: String(i + 1), onPress: () => $.state.set(TAB, { name }) }
+          if (name === tab) props.variant = "primary"
+          return h(Button, props)
+        })
+        const rows = view.tabs[tab].map((row) => h(Text, null, fitRow(row, columns)))
+        const head = view.down === null ? [] : [h(Text, { bold: true }, fitRow(view.down, columns))]
+        const foot = view.age === null ? [] : [h(Text, { dimColor: true }, fitRow(`status ${view.age}m old`, columns))]
+        tree = h(Box, { flexDirection: "column" }, h(Box, { flexDirection: "row", gap: 1 }, ...tabs), ...head, ...rows, ...foot)
+      }
+    } catch {
+      tree = null
+    }
+    return tree === null ? next(e) : tree
+  })
+
+  // The spinner: its word stays; the suffix gains the session's elapsed/budget from session.json.
+  // A missing or broken session.json leaves the engine's own spinner.
+  on("ui.render", { component: "Spinner" }, async ($, e, next) => {
+    try {
+      if (await isOrchestrator($)) {
+        const held = (await $.state.get(SESSION)).value
+        const budget = held === undefined ? null : sessionBudget(held.text, await $.clock.now())
+        if (budget !== null) return next({ ...e, props: { ...e.props, suffix: oneLine(`${e.props.suffix} ${budgetText(budget)}`) } })
+      }
+    } catch {
+      // the engine's own spinner
+    }
+    return next(e)
   })
 }

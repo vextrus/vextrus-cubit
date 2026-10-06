@@ -13,8 +13,24 @@ export type Events = {
   events: { at: string; kind: string; ticket: string; detail: string }[]
 }
 
+/** The poll's last reading of the clock's session.json (stamp.py's `start`): the spinner's elapsed/budget reads it. */
+export type Session = {
+  /** The file's text as read; null when missing, over 64 KiB or unreadable. */
+  text: string | null
+}
+
+/** The last review's cost: `total_cost_usd` of review-cost.jsonl's last line; null when it holds none. */
+export type Cost = {
+  usd: number | null
+}
+
+/** The /factory pane's tab: local UI state, set by a tab Button's press. */
+export type Tab = {
+  name: 'Builders' | 'Reviews' | 'Lock' | 'PR queue'
+}
+
 declare module 'claude-code' {
   interface PluginState {
-    'vextrus-factory': { reading: Reading; events: Events }
+    'vextrus-factory': { reading: Reading; events: Events; session: Session; cost: Cost; tab: Tab }
   }
 }
