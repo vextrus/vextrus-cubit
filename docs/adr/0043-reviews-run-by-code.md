@@ -16,7 +16,9 @@ The spec is `docs/specs/factory.md` §3.8.
    revoke. Denylists lost in rounds on PRs #478 and #489, so no tier is decided by what is excluded.
 3. **Lens models** follow CLAUDE.md "Effort and models": the adversary lens and the refuter on Sonnet 5.5
    `high`, the depth lens on Opus 5.5 `high`.
-4. **CI counts.** A head with a red check is never a PASS.
+4. **A failed `ci` check stops a review.** `review run` refuses a PR whose `ci` check (or any check of the `ci`
+   workflow) has failed, read once when the head is resolved. A pending `ci`, or a failed web, e2e or engine check,
+   is not refused by the command. `merge_ready` still requires every required check green before a merge.
 5. **The cap is unchanged:** two fix rounds, a third only under a recorded exception (ADR 0041).
 
 ## Consequences

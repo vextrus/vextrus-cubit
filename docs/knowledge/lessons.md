@@ -416,7 +416,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `scripts/factory/tests/test_review_units.py`
   (`test_agent_instructions_and_files_code_reads_are_never_docs_only`).
 - **Denylists in review tiers lose; allowlists hold.** Check: `scripts/factory/tests/test_review_units.py`
-  (`test_agent_instructions_and_files_code_reads_are_never_docs_only`).
+  (`test_an_unlisted_docs_path_is_never_docs_only`).
 - **Fix rounds regress.** Builders re-run every earlier round's cases. Check:
   `scripts/tests/test_fix_regression.py`.
 - **Derived UI state needs one source** (U2's Reviews tab). Check:
