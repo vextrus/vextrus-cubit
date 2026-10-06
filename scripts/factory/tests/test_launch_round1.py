@@ -515,3 +515,52 @@ def test_say_reads_the_record_of_the_session_it_messages(
     monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:45:00Z")
     code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
     assert (code, sent) == (0, ["[elapsed 45/60 min] Round 1.\n"])
+
+
+# --- S14-K1 fix round 2: the platform enforces the concurrent-session limit, the launcher reports it
+LIMIT_LOG = log(session=None).split("[DEBUG] Successfully")[0] + (
+    "[ERROR] Failed to create remote session: concurrent session limit reached\n"
+)
+
+
+def last_record(tmp_path: Path) -> dict[str, object]:
+    records = sorted((tmp_path / "records").glob("z1-*.json"))
+    record: dict[str, object] = json.loads(records[-1].read_text())
+    return record
+
+
+def test_the_platforms_session_limit_is_reported_plainly_and_recorded_refused(
+    tmp_path: Path, main: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    outcome = run(tmp_path, main, Fake(text=LIMIT_LOG, code=1))
+    said = (
+        "REFUSED cloud: the platform's concurrent-session limit is reached (16):"
+        " wait for a session to finish"
+    )
+    assert outcome.exit_code == 2
+    assert outcome.line == said
+    assert said in capsys.readouterr().out
+    judge_ = last_record(tmp_path)["judge"]
+    assert isinstance(judge_, dict)
+    assert judge_["ok"] is False
+    assert judge_["code"] == "cloud"
+
+
+def test_another_platform_error_is_reported_verbatim(tmp_path: Path, main: Path) -> None:
+    text = log(session=None).split("[DEBUG] Successfully")[0] + "[ERROR] 503 upstream unavailable\n"
+    outcome = run(tmp_path, main, Fake(text=text, code=1))
+    assert outcome.exit_code == 2
+    assert outcome.line == "REFUSED cloud-launch-failed: cloud launch failed: 503 upstream unavailable"
+
+
+def test_a_limit_quoted_outside_an_error_line_is_not_the_platform_speaking(
+    tmp_path: Path, main: Path
+) -> None:
+    text = log(session=None) + '[DEBUG] Creating session with payload: {"prompt": "concurrent limit"}\n'
+    outcome = run(tmp_path, main, Fake(text=text, code=1))
+    assert "concurrent-session limit" not in outcome.line
+
+
+def test_a_limit_message_beside_a_created_session_is_not_a_refusal(tmp_path: Path, main: Path) -> None:
+    outcome = run(tmp_path, main, Fake(text=log() + "[ERROR] concurrent limit warning\n", code=1))
+    assert "concurrent-session limit" not in outcome.line

@@ -23,10 +23,9 @@ threshold of week 85% or session 80%, make them 100% both and I'll take actions 
 usage tokens expansion". Cloud sessions are capped at 16 whatever the usage (the owner, 6 Oct 2026);
 with `--rate` (measured % per builder-hour) and `--hours-to-reset`,
 `min(16, floor((100 - session) / (rate x hours)))`.
-Without `--running` the governor counts the running cloud sessions itself (S14-K1,
-`cloud_sessions_running`: live cloud launch records of any role not merged, closed or aged out, and
-the pending ones; an open PR keeps its builder's record); `--running N` stands in for that count (the
-tests' seam). Either is refused at or above the cap.
+`--running N` (sessions running now, the caller's own count; the governor derives none from launch
+records) is refused at or above the cap; the platform enforces the limit itself and `launch cloud`
+reports its refusal.
 
 Work in flight (`cloud-session` and `local-agent`, S14-W1; no count of them refuses a launch since
 S14-K1, the owner, 6 Oct 2026): the open PRs plus the launched builders
@@ -330,12 +329,12 @@ def _read_record(path: Path) -> dict[str, Any] | None:
     return record
 
 
-def _launch_records(*, builders_only: bool) -> list[dict[str, Any]] | None:
-    """The launch records (cloud ones whose judge is ok, and local ones) and the pending records of
-    launches still running (`admit`), each while its launcher's pid lives; with `builders_only`, never an
-    acceptance-writer, a reviewer or a refuter. None when a record is unreadable (it may count: fail
-    closed)."""
-    records: list[dict[str, Any]] = []
+def read_builders() -> list[dict[str, Any]] | None:
+    """The launched builders: cloud records whose judge is ok and local ones, never an
+    acceptance-writer, a reviewer or a refuter; and the pending records of launches still running
+    (`admit`), each while its launcher's pid lives. None when a record is unreadable (it may be a
+    builder: fail closed)."""
+    builders: list[dict[str, Any]] = []
     folder = status.factory_dir()
     for path in sorted((folder / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
@@ -343,67 +342,21 @@ def _launch_records(*, builders_only: bool) -> list[dict[str, Any]] | None:
         record = _read_record(path)
         if record is None:
             return None
-        if builders_only and (
-            record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None
-        ):
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
             continue
         if record.get("stop_sent") is True:
             continue
         judge = record.get("judge")
         if record.get("where") == "local" or (isinstance(judge, dict) and judge.get("ok") is True):
-            records.append(record)
+            builders.append(record)
     for path in sorted((folder / PENDING).glob("*.json")):
         record = _read_record(path)
         if record is None:
             return None
         pid = record.get("pid")
         if isinstance(pid, int) and not isinstance(pid, bool) and status.pid_alive(pid):
-            records.append(record)
-    return records
-
-
-def read_builders() -> list[dict[str, Any]] | None:
-    """The launched builders: cloud records whose judge is ok and local ones, never an
-    acceptance-writer, a reviewer or a refuter; and the pending records of launches still running
-    (`admit`), each while its launcher's pid lives. None when a record is unreadable (it may be a
-    builder: fail closed)."""
-    return _launch_records(builders_only=True)
-
-
-def cloud_sessions_running(
-    prs: list[dict[str, Any]],
-    agent_rows: Callable[[], list[dict[str, Any]] | None],
-    *,
-    branch: str | None = None,
-    role: str | None = None,
-) -> tuple[int, list[str]] | None:
-    """The cloud sessions running now, from the units the governor already reads (S14-K1): the live
-    cloud launch records of any role (builder, acceptance-writer, reviewer, refuter) whose branch has no
-    merged or closed PR that ended after the record started (an open PR on the branch keeps it) and
-    that have not aged out, and the pending records of cloud launches in progress. A fix round or a
-    reviewer on one branch replaces its predecessor, so a role on a branch counts once; the launch's
-    own branch and role count for nothing (it replaces them). Returns the count and what counted, or
-    None when a record is unreadable."""
-    records = _launch_records(builders_only=False)
-    if records is None:
-        return None
-    open_branches = {row["headRefName"] for row in prs if row["state"] == "OPEN"}
-    released = _released(prs)
-    own = (branch, role or "builder")
-    seen: dict[tuple[str, str], str] = {}
-    for record in records:
-        if record.get("where") != "cloud":
-            continue
-        name = record["branch"]
-        key = (name, str(record.get("role") or "builder"))
-        if key == own:
-            continue
-        if name not in open_branches and _release(record, released)[0]:
-            continue
-        if ageing(record, agent_rows)[0]:
-            continue
-        seen[key] = f"{key[1]} {name}"
-    return len(seen), sorted(seen.values())
+            builders.append(record)
+    return builders
 
 
 def pending_path(ticket: str, pid: int) -> Path:
@@ -642,7 +595,7 @@ def cloud_cap(usage: Usage, rate: float | None, hours: float | None) -> int:
 def check(
     unit: str,
     *,
-    running: int | None = None,
+    running: int = 0,
     agents: int | None = None,
     rate: float | None = None,
     hours_to_reset: float | None = None,
@@ -654,15 +607,6 @@ def check(
     verdict = Verdict(unit)
     if unit != "cloud-session":
         _check_machine(verdict, agents)
-    prs = read_prs() if unit in WORK_UNITS or unit == "cloud-session" else None
-    if unit == "cloud-session" and running is None:
-        counted = cloud_sessions_running(prs or [], _agent_rows(), branch=branch, role=role)
-        if counted is None:
-            verdict.reasons.append("a launch record is unreadable")
-        else:
-            running = counted[0]
-            verdict.readings["cloud_running"] = counted[0]
-            verdict.readings["cloud_counted"] = counted[1]
     if unit in USAGE_UNITS:
         _check_usage(verdict, running, rate, hours_to_reset, usage_checked)
     if unit == "local-agent":
@@ -675,7 +619,7 @@ def check(
             if count >= MAX_LOCAL_AGENTS:
                 verdict.reasons.append(f"{count} local agents running, the most is {MAX_LOCAL_AGENTS}")
     if unit in WORK_UNITS:
-        _check_work(verdict, list(owns), role, branch, prs)
+        _check_work(verdict, list(owns), role, branch)
     _check_exclusions(verdict)
     return verdict
 
@@ -723,7 +667,7 @@ def _check_machine(verdict: Verdict, agents: int | None) -> None:
 
 def _check_usage(
     verdict: Verdict,
-    running: int | None,
+    running: int,
     rate: float | None,
     hours: float | None,
     usage_checked: str | None,
@@ -750,7 +694,7 @@ def _check_usage(
         verdict.reasons.append(f"week usage {usage.week:g}% is at or over {WEEK_HOLD:g}%")
     if verdict.unit == "cloud-session":
         verdict.cap = cloud_cap(usage, rate, hours)
-        if running is not None and running >= verdict.cap:
+        if running >= verdict.cap:
             verdict.reasons.append(f"{running} cloud sessions running, the cap is {verdict.cap}")
 
 
@@ -818,21 +762,17 @@ def _agent_rows() -> Callable[[], list[dict[str, Any]] | None]:
 
 
 def _check_work(
-    verdict: Verdict,
-    owns: list[str],
-    role: str | None = None,
-    branch: str | None = None,
-    prs: list[dict[str, Any]] | None = None,
+    verdict: Verdict, owns: list[str], role: str | None = None, branch: str | None = None
 ) -> None:
     """The hot-file areas and the open PRs' files (S14-W1). A reviewer or refuter takes no
     new work; a launch on a branch that already holds a unit (an open PR or a builder) is not new
     work, so it does not collide with the PR or builder it would collide with: itself."""
     if role in NO_NEW_WORK_ROLES:
         return
+    prs = read_prs()
     builders = read_builders()
     if builders is None:
-        if "a launch record is unreadable" not in verdict.reasons:
-            verdict.reasons.append("a launch record is unreadable")
+        verdict.reasons.append("a launch record is unreadable")
         return
     if prs is None:
         if owns:
@@ -948,7 +888,7 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("unit", choices=UNITS)
     one.add_argument("--json", action="store_true")
     one.add_argument("--usage-checked")
-    one.add_argument("--running", type=int)
+    one.add_argument("--running", type=int, default=0)
     one.add_argument("--agents", type=int)
     one.add_argument("--rate", type=float)
     one.add_argument("--hours-to-reset", type=float)

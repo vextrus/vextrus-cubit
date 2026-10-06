@@ -22,6 +22,12 @@ a PR. Session 05's six cloud tickets and session 06's first diagnostics came up 
 the cause was read from the CLI's own debug log: "GitHub app is not installed ... Bundling (reason:
 github_preflight_failed)"). So every launch runs with a debug log and the log is judged; and since a
 refused session keeps running, it is sent STOP at once and listed for deletion in claude.ai/code.
+
+The concurrent-session limit (16) is enforced by the cloud platform, not counted here (S14-K1): a launch
+that created no session and exited non-zero reads the CLI's own `[ERROR]` line; one naming a limit is
+`REFUSED cloud: the platform's concurrent-session limit is reached (16): wait for a session to
+finish`, any other is `REFUSED cloud-launch-failed: cloud launch failed: <the platform's message>`.
+The record says refused, so nothing is counted.
 """
 
 from __future__ import annotations
@@ -93,6 +99,14 @@ SOURCE = re.compile(r"\[teleportToRemote\] Git source: (\S+), revision: (\S+)")
 CREATED = re.compile(r"Successfully created remote session: (session_\w+)")
 ENV = re.compile(r"Selected environment: (env_\w+) \(([^,]+),")
 FALLBACK = re.compile(r"Configured default environment \S+ not found, using first available")
+ERROR_PREFIX = re.compile(r"^(?:\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z )?\[ERROR\] ")
+# The cloud platform enforces the concurrent-session limit (S14-K1: the governor no longer guesses it
+# from launch records). Its refusal of a new session reaches the log as an error line naming a limit.
+PLATFORM_LIMIT = re.compile(
+    r"concurrent|too many (?:\w+ )?sessions|session limit|limit of \d+ (?:\w+ )?sessions|"
+    r"sessions? limit",
+    re.IGNORECASE,
+)
 ENVIRONMENT = "vextrus"
 # A log with no `Selected environment` line is refused: how the session's environment was chosen is
 # then unknown (fail closed; review round 1 of PR #286, F1).
@@ -160,6 +174,26 @@ def judge(log: str, *, repository: str, branch: str, environment: str = ENVIRONM
     if session is None:
         return Verdict(False, "cloned, but no session was created", None, "no-session")
     return Verdict(True, f"cloned {repository} at {branch}", session)
+
+
+def platform_refusal(log: str, code: int) -> Verdict | None:
+    """What the platform said when a launch that created no session failed (exit `code` not 0): its
+    own error line. One naming a limit is the concurrent-session limit (`governor.CAP_MAX`), reported
+    plainly as `REFUSED cloud`; any other error line is reported verbatim after "cloud launch failed:".
+    None when the launch failed with no error line (the judge's own verdict stands). Only the CLI's own
+    `[ERROR]` lines count, so a prompt quoted in the payload line never speaks for the platform."""
+    if code == 0:
+        return None
+    errors = [line[m.end() :].strip() for line in log.split("\n") if (m := ERROR_PREFIX.match(line))]
+    if not errors:
+        return None
+    if any(PLATFORM_LIMIT.search(e) for e in errors):
+        why = (
+            f"the platform's concurrent-session limit is reached ({governor.CAP_MAX}):"
+            " wait for a session to finish"
+        )
+        return Verdict(False, why, None, "cloud")
+    return Verdict(False, f"cloud launch failed: {errors[-1]}", None, "cloud-launch-failed")
 
 
 # --- the seams -------------------------------------------------------------------------------------
@@ -1010,6 +1044,8 @@ def _launch_cloud(
         except OSError:
             judged = ""
         verdict = judge(judged, repository=req.repository, branch=req.branch)
+        if verdict.session is None and code != TIMED_OUT:
+            verdict = platform_refusal(judged, code) or verdict
         if code == TIMED_OUT:
             why = f"the launch did not finish in {LAUNCH_TIMEOUT} s ({verdict.reason})"
             verdict = Verdict(

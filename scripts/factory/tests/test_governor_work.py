@@ -623,3 +623,33 @@ def test_a_relaunchs_owned_files_join_its_branch_unit_in_the_areas(
     assert verdict.readings["wip"] == 3
     assert not verdict.ok
     assert "hot-file area web-en" in (verdict.reason or "")
+
+
+# --- S14-K1 fix round 2: the platform enforces the limit; the governor derives no count from records
+def test_twenty_old_cloud_records_never_refuse_a_launch_from_the_governor(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    prs(world, monkeypatch, [])
+    for n in range(20):
+        record(
+            world,
+            f"old{n:02d}",
+            where="cloud",
+            judge={"ok": True},
+            started_at=START,
+            budget_minutes=90,
+            role="builder" if n % 2 else "reviewer",
+        )
+    verdict = governor.check("cloud-session", branch="new")
+    assert verdict.ok, verdict.reason
+    govern = launch.default_govern(Path.cwd(), None, (), None, "new")  # through the launcher too
+    assert govern is not None
+    assert govern().ok
+
+
+def test_an_explicit_running_16_still_refuses_and_15_does_not(world: Path) -> None:
+    refused = governor.check("cloud-session", running=16)
+    assert not refused.ok
+    assert "16 cloud sessions running, the cap is 16" in (refused.reason or "")
+    assert governor.check("cloud-session", running=15).ok
