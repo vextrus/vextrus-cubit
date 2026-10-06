@@ -1,4 +1,13 @@
-"""S15-I2 (#441, G1 walk item FL3): after "Read again" on a file whose read was cancelled, the row's
+"""S15-I2 (#541): a file's row on the Drawing Set shows its read step.
+
+The Finishing step (#440). m0-screens 4.5, "Reading a DWG": "Opening the file" → … → "Reading sheet 12
+of 38" → "Finishing". The files list sends a file in that step as `reading` with the words
+`drawings.files.finishing`, both while its read job runs the step and in the moment after the job ended
+before its row has (T-W327's "Finishing moment", whose cancel is 409 `drawings.files.cancel_too_late`).
+The page's rule for the row's acts (`web/src/acceptance/ts15i2/finishing.test.tsx`) rests on these
+words; these tests hold them.
+
+Read again (#441, G1 walk item FL3): after "Read again" on a file whose read was cancelled, the row's
 progress counts from the new run's start; nothing is carried from the cancelled run.
 
 m0-screens 4.5, "The file's life": "Reading sheet 12 of 38"; the time left is "Appended once 3 sheets
@@ -19,6 +28,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
+from django.db import connection
 from django.utils import timezone
 
 from vextrus.drawings import services
@@ -27,6 +37,7 @@ from vextrus.drawings.services.reads import ReadStepStore
 from vextrus.platform.services import jobs
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
+from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db
 
@@ -137,3 +148,62 @@ def test_the_time_left_is_the_new_runs_own_rate(
         "reading",
         said.READING_SHEET_LEFT(position=15, total=SHEETS, minutes=12),
     )
+
+
+# The Finishing step (#440) ------------------------------------------------------------------------
+
+FINISHING = {"code": "drawings.files.finishing", "params": {}}
+
+
+def job_says(monkeypatch: pytest.MonkeyPatch, status: str) -> None:
+    monkeypatch.setattr(
+        jobs, "state", lambda job_id: jobs.JobState(job_id, "read", status, 1, 3, said.READ())
+    )
+
+
+def given_a_job(member: Member, file_id: uuid.UUID) -> None:
+    with member.acting(), connection.cursor() as cursor:
+        cursor.execute(
+            "update drawings_drawingfile set read_job_id = 7, read_status = 'reading' where id = %s",
+            [file_id],
+        )
+
+
+def a_dwg_at_its_last_step(project: QsProject, name: str) -> uuid.UUID:
+    found = add(project.member, project.project_id, name, drawing()).file
+    read_dwg(project.member, found.id, ["S-21", "S-22", "S-23"], mark_read=False)
+    given_a_job(project.member, found.id)
+    return found.id
+
+
+def test_a_dwg_whose_job_runs_its_finishing_step_is_listed_reading_finishing(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = a_dwg_at_its_last_step(qs_project, "FN-STR-R1.dwg")
+    job_says(monkeypatch, "running")
+    with qs_project.member.acting():
+        services.step_store().progress(file_id, jobs.Progress(6, 7, services.FINISHING))
+
+    assert row(qs_project, file_id) == ("reading", FINISHING)
+
+
+def test_a_dwg_whose_job_ended_before_its_row_is_listed_reading_finishing(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = a_dwg_at_its_last_step(qs_project, "FN-ARC-R1.dwg")
+    with qs_project.member.acting():
+        services.step_store().progress(file_id, jobs.Progress(5, 7, services.sheet_step(3)))
+    job_says(monkeypatch, "done")
+
+    assert row(qs_project, file_id) == ("reading", FINISHING)
+
+
+def test_a_dwg_reading_its_last_sheet_is_not_yet_finishing(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_id = a_dwg_at_its_last_step(qs_project, "FN-ELE-R1.dwg")
+    job_says(monkeypatch, "running")
+    with qs_project.member.acting():
+        services.step_store().progress(file_id, jobs.Progress(5, 7, services.sheet_step(3)))
+
+    assert row(qs_project, file_id) == ("reading", said.READING_SHEET(position=3, total=3))

@@ -4,7 +4,7 @@
  *
  * m0-screens §4.5, "Reading a DWG": "Opening the file" → … → "Reading sheet 12 of 38" → "Finishing". The
  * files API sends a file in that step as state `reading` with the words `drawings.files.finishing`
- * ("Finishing"; vextrus/drawings/tests/acceptance/ts15i2/test_finishing_row.py). Every earlier step keeps
+ * ("Finishing"; vextrus/drawings/tests/acceptance/ts15i2/test_row_read_step.py). Every earlier step keeps
  * "Cancel reading"; the 409 `drawings.files.cancel_too_late` stays for the race (../tw327). The MD and a
  * Guest never had it (§4.5 "MD or Guest"). Every file name here is invented.
  */
