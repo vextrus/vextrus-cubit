@@ -97,17 +97,60 @@ def test_an_unreadable_open_pr_list_refuses_the_launch(world: World) -> None:
     refusal(world.check("cloud-session", "scripts/factory/watch.py"), "cloud-session")
 
 
-HOT_FILES = ("step1.py", "proposals.py", "views.py", "model.ts", "en.po", "m0-screens.md")
+# views.py's place in the session-13 list is pinned by the views test below: S15-E4 (#524) makes
+# engine/recognise/views.py the package engine/recognise/views/, so a file named views.py goes away
+# while the views area stays hot.
+HOT_FILES = ("step1.py", "proposals.py", "model.ts", "en.po", "m0-screens.md")
+VIEWS_PACKAGE = "engine/recognise/views/"
+VIEWS_MODULE = "engine/recognise/views.py"
+
+
+def committed_areas() -> dict[str, list[str]]:
+    listed = json.loads((REPO / "scripts" / "factory" / "hot-files.json").read_text())
+    areas: dict[str, list[str]] = listed["areas"]
+    return areas
+
+
+def tracked_files() -> list[str]:
+    return subprocess.run(
+        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+
+
+def covers(entry: str, path: str) -> bool:
+    """An entry of the list is a repo path, a folder ending in /, or an fnmatch glob (governor.py)."""
+    return (
+        path == entry
+        or fnmatch.fnmatchcase(path, entry)
+        or (entry.endswith("/") and path.startswith(entry))
+    )
 
 
 @pytest.mark.parametrize("name", HOT_FILES)
 def test_the_committed_hot_file_list_holds_the_session_13_hot_files(name: str) -> None:
-    listed = json.loads((REPO / "scripts" / "factory" / "hot-files.json").read_text())
-    entries = [entry for paths in listed["areas"].values() for entry in paths]
-    tracked = subprocess.run(
-        ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
-    ).stdout.splitlines()
-    named = [path for path in tracked if Path(path).name == name]
+    entries = [entry for paths in committed_areas().values() for entry in paths]
+    named = [path for path in tracked_files() if Path(path).name == name]
     assert any(fnmatch.fnmatch(path, entry) for path in named for entry in entries), (
         f"no area of scripts/factory/hot-files.json covers a tracked {name}"
+    )
+
+
+def test_one_hot_area_covers_every_file_of_the_views_package_or_the_views_module() -> None:
+    tracked = tracked_files()
+    package = [path for path in tracked if path.startswith(VIEWS_PACKAGE)]
+    views = package or [path for path in tracked if path == VIEWS_MODULE]
+    assert views, f"neither {VIEWS_PACKAGE} nor {VIEWS_MODULE} is tracked"
+    holding = [
+        area
+        for area, entries in committed_areas().items()
+        if all(any(covers(entry, path) for entry in entries) for path in views)
+    ]
+    uncovered = sorted(
+        path
+        for path in views
+        if not any(covers(entry, path) for paths in committed_areas().values() for entry in paths)
+    )
+    assert holding, (
+        "no one area of scripts/factory/hot-files.json covers every views file; "
+        f"uncovered: {uncovered or 'none, but they are split across areas'}"
     )
