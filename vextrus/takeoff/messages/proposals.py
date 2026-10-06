@@ -6,7 +6,9 @@ quoted) or `none` (neither: "this sheet").
 
 - `which_discipline`: a Question, which Discipline the sheet belongs to (it has none: #102).
 - `which_kind`: a Question, what kind of sheet it is (Jev is unsure, #228: its top two close or the
-  title naming another kind; the kinds most likely first, its first picked).
+  title naming another kind; the kinds most likely first, its first picked). One Question asks every
+  sheet of a Discipline that Jev ranks with the same two kinds first (S15-Q1), `sheets` of them:
+  with two or more `named` is `group` and `sheet` empty ("these 12 sheets").
 - `lists_disagree`: a Question, the drawing list read on the sheet and the one the QS gave (`source`:
   `pasted` or `typed`) differ.
 - `boundary_storey`: a Question, whether the range `range` on the sheet (its storeys as the drawing
@@ -21,7 +23,7 @@ quoted) or `none` (neither: "this sheet").
 from engine.messages import MessageCode
 
 WHICH_DISCIPLINE = MessageCode("takeoff.proposals.which_discipline", params=("sheet", "named"))
-WHICH_KIND = MessageCode("takeoff.proposals.which_kind", params=("sheet", "named"))
+WHICH_KIND = MessageCode("takeoff.proposals.which_kind", params=("sheet", "named", "sheets"))
 LISTS_DISAGREE = MessageCode("takeoff.proposals.lists_disagree", params=("sheet", "named", "source"))
 BOUNDARY_STOREY = MessageCode(
     "takeoff.proposals.boundary_storey",

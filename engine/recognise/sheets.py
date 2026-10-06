@@ -1738,14 +1738,15 @@ def judgement(
     text of a JSON array, `"[]"` when there are none); each title bounded to `MAX_FACT` characters.
     The number is no fact. The options are the kinds of the sheet's Discipline, then the kinds every
     Discipline has (the owner's ruling of 29 Sep 2026, "Per-Discipline kinds"), from `conventions`
-    (the default when none are given); ranking them is Jev's. None when the sheet has no Discipline,
-    its Discipline has no kinds, or there is nothing to judge from (no title and no view title)."""
+    (the default when none are given), narrowed by the title's words (`narrowed`, S15-Q1); ranking
+    them is Jev's. None when the sheet has no Discipline, its Discipline has no kinds, or there is
+    nothing to judge from (no title and no view title)."""
     held = conventions if conventions is not None else default_conventions()
     if sheet.discipline is None:
         return None
-    options = held.kinds(sheet.discipline.value)
     titles = [fact for t in view_titles if isinstance(t, str) and (fact := _fact(t))][:MAX_FACTS]
     title = _fact(sheet.title.value) if sheet.title is not None else ""
+    options = narrowed(title, held.kinds(sheet.discipline.value), held)
     if len(options) < 2 or not (title or titles):
         return None
     facts = {
@@ -1758,6 +1759,44 @@ def judgement(
 
 def _fact(text: str) -> str:
     return " ".join(_visible(_plain(text)).split())[:MAX_FACT]
+
+
+def narrowed(title: str, kinds: Sequence[str], conventions: SheetConventions) -> tuple[str, ...]:
+    """The kinds a sheet titled so is offered (S15-Q1, "code narrows them" before Jev): when the title
+    names any of `kinds`' words (`SheetConventions.sheet_kind_words`, matched whole, case, punctuation
+    and a plural "s" aside, a phrase's words standing together), those kinds and every kind with no
+    words, in `kinds`' order; else every kind. So "BEAM DRAWING A" keeps the beam kinds, the
+    generic kinds (`details`, `other`) and drops the pile, column and stair kinds; "SECTION 1" of an
+    office naming no subject keeps them all. Code never settles a kind here: Jev still ranks what is
+    left."""
+    said = f" {_kind_words(title)} "
+    words = conventions.sheet_kind_words
+    named = {
+        kind
+        for kind in kinds
+        if any((w := _kind_words(word)) and f" {w} " in said for word in words.get(kind, ()))
+    }
+    if not named:
+        return tuple(kinds)
+    return tuple(kind for kind in kinds if kind in named or not words.get(kind))
+
+
+def _kind_words(text: str) -> str:
+    """Text as `narrowed` compares it: lower case, its words alone, each without a plural "s", and a
+    run of single letters one word ("U.G.W.R" is "ugwr", "C/L" is "cl")."""
+    words: list[str] = []
+    letters = ""
+    for word in re.findall(r"[^\W_]+", text.casefold()):
+        if len(word) == 1 and word.isalpha():
+            letters += word
+            continue
+        if letters:
+            words.append(letters)
+            letters = ""
+        words.append(word.removesuffix("s"))
+    if letters:
+        words.append(letters)
+    return " ".join(w for w in words if w)
 
 
 # Texts on a sheet, for the register (13's `register.find`) ---------------------------------------------

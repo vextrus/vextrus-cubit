@@ -43,6 +43,7 @@ from typing import Any
 from django.conf import settings
 
 from engine.check import register as register_check
+from engine.messages import Message
 from engine.messages import conflicts as conflict_codes
 from engine.messages import register_check as list_codes
 from engine.read import ReadArtefact
@@ -239,18 +240,30 @@ def _propose_sheet(
         traces=_sheet_traces(sheet),
     )
     if isinstance(answer, jev.Answer) and not sure and ask:
-        step1.raise_question(
+        ranked = answer.ranked()
+
+        def words(sheets: int) -> Message:
+            if sheets == 1:
+                return said.WHICH_KIND(**named(sheet), sheets=1)
+            return said.WHICH_KIND(sheet="", named="group", sheets=sheets)
+
+        step1.ask_group(
             project_id,
             "low_confidence",
-            said.WHICH_KIND(**named(sheet)),
-            subject_id=sheet.id,
+            kind_group(sheet.discipline, ranked),
+            words,
+            proposal_id=proposal_id,
             discipline=sheet.discipline,
-            options=[
-                {"key": key, "picked": at == 0} for at, key in enumerate([*answer.ranked(), KEEP_OPEN])
-            ],
-            blocks=[proposal_id],
+            options=[{"key": key, "picked": at == 0} for at, key in enumerate([*ranked, KEEP_OPEN])],
         )
     return proposal_id
+
+
+def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:
+    """What the sheets one kind Question asks share (S15-Q1, grouped by Discipline and Jev's top two
+    kinds): its Discipline's key and Jev's first and second kinds, in that order (so the kind picked
+    first is one for all of them). Never a sheet's name or number."""
+    return ["which_kind", discipline or "", *ranked[:2]]
 
 
 def unsure(answer: jev.Judgement, title: str) -> bool:
