@@ -69,6 +69,16 @@ refuses an unlinked cut item).
 - **Local:** you work in a worktree under `.claude/worktrees/<ticket>`; commit, never push (the orchestrator
   pushes). Real drawings may be read there under `.private/`, and never enter a commit.
 
+## READY checklist
+Before the READY commit:
+1. Run `uv run python -m scripts.factory.crosspr <your branch>` (it only reads; `verify` runs it too). It
+   merge-trees your branch with each open PR that touches your files and runs the union's changed tests.
+   A conflict or a failing test refuses: fix it or finish BLOCKED, naming the PR.
+2. Re-read your whole diff once more against every finding class your ticket's reviews found (re-read it
+   for each class, not for the tests alone), and fix what you find.
+3. Put the line crosspr printed last (`Cross-PR: #51 #53 ok` or `Cross-PR: none ok`) in the READY commit
+   message's body.
+
 ## Finishing
 Your last commit's message body is the PR body; its last paragraph carries the trailers
 (`docs/specs/factory/contracts/trailers.md`), exactly:
@@ -76,7 +86,7 @@ Your last commit's message body is the PR body; its last paragraph carries the t
   and no `Factory-Reason:`; or
 - `Factory-State: BLOCKED` and `Factory-Reason: <one line, public words>`.
 The body, in this order: what was **not verified** first (honestly: the live calls, the paths no test
-reaches, anything cut); then the verify summary (each check and its exit code); then `## Cut` with each cut
+reaches, anything cut); then the verify summary (each check and its exit code); then the `Cross-PR:` line, then `## Cut` with each cut
 item and the issue title to file; then what a later ticket must know. A harness PR (`.claude`, `scripts`,
 `tools`, `.github`) carries `Harness net: +a / −r` from `git diff --numstat origin/main...HEAD`.
 READY and BLOCKED are these trailers and nothing else: free text never counts. Reply with `READY <sha>` or

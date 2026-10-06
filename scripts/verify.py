@@ -7,7 +7,8 @@ exactly the tree `git write-tree` names, which the next commit will carry. It ma
 (staged against HEAD, plus the commits since the merge base with `origin/main`) to checks, runs them one
 after another in the foreground, keeps each one's output under `.private/work/verify/<tree>/`, and
 writes `<git-common-dir>/vextrus/verify-<tree>.json` (the guard's READY push gate reads it). Only when
-every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer.
+every check passed (the cross-PR check, `scripts.factory.crosspr`, among them) does its last line
+read `Factory-Verify: <tree> ok`, the builder's trailer.
 
 A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: <test title>` per line)
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
@@ -230,6 +231,9 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
         print(f"verify: {note}", file=sys.stderr)
     if not checks:
         checks = [Check("diff-check", ("git", "diff", "--cached", "--check", "HEAD"))]
+    if branch := _git("branch", "--show-current"):
+        # Not in plan(paths): it depends on the open PRs, not the changed paths.
+        checks.append(Check("crosspr", (sys.executable, "-m", "scripts.factory.crosspr", branch)))
     outputs = Path(".private/work/verify") / tree
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
