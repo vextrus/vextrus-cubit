@@ -582,7 +582,7 @@ nothing.
 workflow named like any built-in command or alias in `docs-raw/commands.md`'s list (`review`, `help`, `run`, …).
 
 The review itself is no longer a workflow: ADR 0043 supersedes ADR 0042's review part with
-`uv run python -m scripts.factory.review run <PR>` (no model on allowlist-only PRs).
+`uv run python -m scripts.factory.review run <PR> --round <n>` (no model on allowlist-only or docs-only PRs).
 
 | Workflow | What it does | PR | Check | Tier |
 |---|---|---|---|---|

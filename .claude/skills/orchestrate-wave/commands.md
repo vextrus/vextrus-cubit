@@ -34,12 +34,12 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   time (`posting`, `scored` or `no-post`), queued visibly.
 
 ## 5. Review
-- `uv run python -m scripts.factory.review run <PR> --round n [--exception <kind> --reason "<text>"]`
+- `uv run python -m scripts.factory.review run <PR> --round <n> [--exception <kind> --reason "<text>"]`
   from the main checkout, with the Bash tool's `run_in_background`: one review round by code (the head
   from the PR, a claimed slot, the tier, the lenses, the replays, the ledger record); it prints one JSON
   object and appends a line to `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing
   recorded (its `refused` field says why).
-  An allowlist-only PR gets no model (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3
+  An allowlist-only PR and a docs-only PR (`review_tiers.toml` `docs_only`) get no model and pass by code checks (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3
   retires it; the ledger holds the verdict.
 
 ## 6. Land
