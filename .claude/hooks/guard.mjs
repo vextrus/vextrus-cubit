@@ -154,14 +154,23 @@ function substitutions(text) {
   return found;
 }
 
-/** Top-level simple commands of `text` (quote-aware), and the texts of its `$(…)`, `<(…)` and backtick parts. */
+/**
+ * Top-level simple commands of `text` (quote-aware), the separator after each (`&&`, `||`, `;`, `|`, `&`, a
+ * newline, `(` or `)`; "" for the last), and the texts of its `$(…)`, `<(…)` and backtick parts.
+ */
 function splitTop(text) {
   const segs = [];
+  const seps = [];
   const nested = [];
   let cur = "";
   let quote = null;
-  const push = () => {
-    if (cur.trim() !== "") segs.push(cur.trim());
+  const push = (sep = "") => {
+    if (cur.trim() !== "") {
+      segs.push(cur.trim());
+      seps.push(sep);
+    } else if (seps.length > 0 && sep !== "" && seps[seps.length - 1] !== sep) {
+      seps[seps.length - 1] = "?";
+    }
     cur = "";
   };
   let i = 0;
@@ -224,15 +233,16 @@ function splitTop(text) {
         i++;
         continue;
       }
-      push();
-      i++;
+      const pair = (c === "&" || c === "|") && text[i + 1] === c;
+      push(pair ? c + c : c);
+      i += pair ? 2 : 1;
       continue;
     }
     cur += c;
     i++;
   }
   push();
-  return { segs, nested };
+  return { segs, seps, nested };
 }
 
 const ANSI_C = { n: "\n", t: "\t", r: "\r", a: "\x07", b: "\b", e: "\x1b", E: "\x1b", f: "\f", v: "\v", "\\": "\\", "'": "'", '"': '"', "?": "?" };
@@ -455,9 +465,10 @@ function analyse(command, startCwd) {
       break;
     }
     const unit = queue.shift();
+    const unitId = units.length;
     units.push(unit.text);
     const { text, docs } = cutHeredocs(unit.text);
-    const { segs, nested } = splitTop(text);
+    const { segs, seps, nested } = splitTop(text);
     let cwd = unit.cwd;
     const add = (ws, raw) => {
       const cmd = commandOf(ws);
@@ -512,8 +523,10 @@ function analyse(command, startCwd) {
       }
       return cmd;
     };
-    for (const seg of segs) {
+    for (const [k, seg] of segs.entries()) {
       const cmd = add(words(seg), seg);
+      // Where it sits: its unit, its place there and the separator after it (a chain of `&&` is read from these).
+      Object.assign(cmd, { unit: unitId, seg: k, sep: seps[k] });
       if (cmd.name === "cd" || cmd.name === "pushd") cwd = cdTarget(cmd, cwd);
     }
     for (const inner of nested) {
@@ -1023,8 +1036,56 @@ function stagesFolder(g) {
   return false;
 }
 
+/** True when `path` is a plain relative path below the folder: named segments only, never `.`, `..` or a glob. */
+const plainBelow = (path) => /^[A-Za-z0-9_@+-][A-Za-z0-9_.@+\/-]*$/.test(path) && path.split("/").every((part) => part !== "." && part !== "..");
+
+/**
+ * True when `git checkout <rev> -- <paths>` has nothing to discard (issue #451): each path a plain one below
+ * the folder, the call no loop, and every command before it in the call a cd or a read-only filter, so the
+ * folder is as the guard sees it now. Then either `git status --porcelain` for the paths there is empty (no
+ * change, staged or not, and no untracked file a checkout could overwrite), or the folder does not exist
+ * yet and a `git worktree add` of it (or of a folder holding it) comes earlier in the same `&&` chain, so the
+ * checkout runs only in the fresh worktree.
+ */
+function nothingToDiscard(g, cmd, analysis, paths) {
+  if (cmd === undefined || analysis === undefined || analysis.truncated || cmd.unit === undefined) return false;
+  if (g.gitDir !== null || g.workTree !== null || paths.length === 0 || !paths.every(plainBelow) || looped(analysis)) return false;
+  const base = gitFolder(g);
+  if (base === null) return false;
+  const at = analysis.cmds.indexOf(cmd);
+  const earlier = analysis.cmds.filter((c, k) => k < at || (c.unit !== cmd.unit && c !== cmd));
+  const benign = (c) => (READ_ONLY_FILTERS.has(c.name) && !redirects(c.raw ?? "")) || (c.name === "" && c.assigns.length === 0);
+  if (!existsSync(base)) {
+    const add = earlier.find((c) => {
+      const w = gitOf(c);
+      if (w === null || w.verb !== "worktree" || w.args[0] !== "add" || w.gitDir !== null || w.workTree !== null) return false;
+      if (c.unit !== cmd.unit || c.seg === undefined || c.seg >= cmd.seg) return false;
+      const operands = [];
+      for (let k = 1; k < w.args.length; k++) {
+        if (["-b", "-B", "--reason"].includes(w.args[k])) k++;
+        else if (!w.args[k].startsWith("-")) operands.push(w.args[k]);
+      }
+      const from = gitFolder(w);
+      if (from === null || operands.length === 0 || !/^[A-Za-z0-9_.\/@+-]+$/.test(operands[0])) return false;
+      const made = resolve(from, operands[0]);
+      return base === made || base.startsWith(`${made}/`);
+    });
+    if (add === undefined) return false;
+    const chain = analysis.cmds.filter((c) => c.unit === cmd.unit && c.seg !== undefined && c.seg >= add.seg && c.seg < cmd.seg);
+    if (!chain.every((c) => c.sep === "&&")) return false;
+    return earlier.every((c) => c === add || benign(c));
+  }
+  if (!earlier.every(benign)) return false;
+  try {
+    const run = runGit(g, ["status", "--porcelain", "--untracked-files=all", "--", ...paths]);
+    return run.status === 0 && run.stdout.trim() === "";
+  } catch {
+    return false;
+  }
+}
+
 /** True when a git invocation discards work (spec 3.6 "Local discards"). */
-function discards(g) {
+function discards(g, cmd, analysis) {
   const { verb, args } = g;
   const opts = args.filter((a) => a.startsWith("-") && a !== "--");
   const dashes = args.indexOf("--");
@@ -1044,7 +1105,9 @@ function discards(g) {
     if (opts.some((a) => a === "-f" || a === "--force" || a === "--discard-changes" || /^-[a-zA-Z]*f/.test(a) && !a.startsWith("--"))) return true;
     if (verb === "checkout") {
       const before = (dashes >= 0 ? args.slice(0, dashes) : args).filter((a) => !a.startsWith("-"));
-      if (paths.some(wide)) return true;
+      // A rev before `--` that names a commit: then the paths come from it, and may have nothing to lose.
+      const fromRev = before.length === 1 && dashes >= 0;
+      if (paths.some(wide) && !(fromRev && nothingToDiscard(g, cmd, analysis, paths))) return true;
       if (before.slice(dashes >= 0 ? 0 : 1).some((p) => p === "." || p === "./" || p === ":/" || p === "*")) return true;
       if (before.length >= 1 && dashes < 0 && (before[0] === "." || before[0] === "./")) return true;
     }
@@ -1143,7 +1206,10 @@ function scannerRun(cmd) {
       (/^(?:\.\/)?tools\/leakscan\/\S*\.py$/.test(w) && k > 0 && /python|pypy|^uv$/.test(basename(all[k - 1]))),
   );
   if (!mention) return null;
-  const prefix = all.slice(0, all.length - cmd.words.length).join(" ");
+  // The shell's own words in front (`do`, `then`, `!`: a loop or a branch) are grammar, not a wrapper.
+  const lead = leadOf(cmd);
+  while (lead.length > 0 && RESERVED.has(lead[0])) lead.shift();
+  const prefix = lead.join(" ");
   const exact =
     cmd.assigns.length === 0 &&
     /^python3?(?:\.[0-9]+)?$/.test(cmd.name) &&
@@ -1158,9 +1224,134 @@ function scannerRun(cmd) {
 const scannerWrites = (cmd) =>
   cmd.args[2] === "build" || (["range", "file", "text"].includes(cmd.args[2]) && !cmd.args.includes("--no-stamp"));
 
+/** The words bash reads in front of a simple command's own (reserved words, assignments, wrappers). */
+function leadOf(cmd) {
+  const all = words(cmd.raw ?? "");
+  return all.slice(0, all.length - cmd.words.length);
+}
+
+/** True when the call has a loop (`for`, `while`, `until`, `select`: each has a `do`). */
+const looped = (analysis) => analysis.cmds.some((cmd) => leadOf(cmd).includes("do"));
+
+// The commands that may share a call with a quoted heredoc whose body is data only (issue #307): none runs
+// text, so the body is never a command. A heredoc any other command shares a call with keeps its body
+// judged (a script written then run, `cat <<'EOF' | bash`, a module written then imported).
+const DATA_ONLY = new Set(["cat", "mkdir", "cd", "chmod", "ls", "echo", "printf", "true", "wc", "head", "tail", "grep", "diff", "cmp"]);
+
+/**
+ * The command with its heredoc bodies cut when they are data only: every heredoc quoted (so nothing in it
+ * expands) and every command a plain DATA_ONLY one, by its own name, with nothing in front but the shell's
+ * reserved words (no assignment, no wrapper). Otherwise the command whole. The file a heredoc is written to
+ * stays: its opener line is kept.
+ */
+function dataText(analysis, command) {
+  const { text, docs } = cutHeredocs(command);
+  if (docs.length === 0 || analysis.truncated || docs.some((doc) => !doc.quoted)) return command;
+  const inert = (cmd) =>
+    cmd.assigns.length === 0 &&
+    leadOf(cmd).every((w) => RESERVED.has(w)) &&
+    (cmd.name === "" || (DATA_ONLY.has(cmd.name) && cmd.words[0] === cmd.name));
+  return analysis.cmds.every(inert) ? text : command;
+}
+
+// A call that names the ledger folder without scripts.ledger passes only when it reads (issue #451): each
+// command a reader below or one that neither reaches the ledger nor writes, and nothing redirected into a
+// file. The readers are taken by their own name with nothing in front; sed and find only without a write.
+const LEDGER_READERS = new Set(["ls", "cat", "grep", "egrep", "fgrep", "head", "tail", "wc", "sort", "cd", "echo", "true", "sed", "find"]);
+const LEDGER_WRITERS = /^(?:tee|cp|mv|ln|install|rsync|dd|touch|truncate|rm|rmdir|unlink|shred|tar|unzip|patch|chmod|chown)$/;
+const LEDGER_PATH = /(?:^|\/)factory\/ledger(?:\/|$)/;
+const FIND_ACTION = /^-(?:delete|exec|execdir|ok|okdir|fprint|fprint0|fprintf|fls)$/;
+const SORT_READ = /^-(?:[bdfghiMnRrsuVz]+|[kt].*)$/;
+
+/**
+ * True when a sed script only prints or edits the stream: commands p d q Q = n N P D h H g G x l z and `s`
+ * (without its `w` or `e` flag), each after an optional address, joined by `;` or newlines. Anything else
+ * (`w`, `W`, `r`, `e`, a block, a label, a custom regex delimiter) is not judged a read.
+ */
+function sedScriptReads(script) {
+  const addr = String.raw`(?:[0-9]+(?:~[0-9]+)?|\$|/(?:[^/\\\n]|\\.)*/[IM]*)`;
+  const head = new RegExp(String.raw`^\s*(?:${addr}(?:\s*,\s*(?:${addr}|[+~][0-9]+))?)?\s*(?:!\s*)?`);
+  let rest = script;
+  for (let guard = 0; guard < 200; guard++) {
+    rest = rest.slice(head.exec(rest)[0].length);
+    if (rest === "") return true;
+    const c = rest[0];
+    if ("pdqQ=nNPDhHgGxlz".includes(c)) {
+      rest = rest.slice(1);
+      if (c === "q" || c === "Q") rest = rest.replace(/^\s*[0-9]*/, "");
+    } else if (c === "s") {
+      const delim = rest[1];
+      if (delim === undefined || delim === "\\" || delim === "\n" || /\s/.test(delim)) return false;
+      let i = 2;
+      for (let part = 0; part < 2; part++) {
+        while (i < rest.length && rest[i] !== delim) i += rest[i] === "\\" ? 2 : 1;
+        if (i >= rest.length) return false;
+        i++;
+      }
+      rest = rest.slice(i).replace(/^[gpiImM0-9]*/, "");
+    } else return false;
+    rest = rest.replace(/^[ \t]*/, "");
+    if (rest === "") return true;
+    if (rest[0] !== ";" && rest[0] !== "\n") return false;
+    rest = rest.slice(1);
+  }
+  return false;
+}
+
+/** True when a sed invocation only reads: no -i, no script file, no unknown option, every script a read. */
+function sedReads(args) {
+  const scripts = [];
+  const operands = [];
+  const flags = ["--quiet", "--silent", "--regexp-extended", "--separate", "--unbuffered", "--null-data", "--posix", "--debug", "--sandbox"];
+  for (let k = 0; k < args.length; k++) {
+    const a = args[k];
+    if (a === "-e" || a === "--expression" || /^-[nrEsuz]+e$/.test(a)) scripts.push(args[++k] ?? "");
+    else if (a.startsWith("--expression=")) scripts.push(a.slice(13));
+    else if (/^-[nrEsuz]+$/.test(a) || flags.includes(a)) continue;
+    else if (a.startsWith("-") && a !== "-") return false;
+    else operands.push(a);
+  }
+  if (scripts.length === 0 && operands.length > 0) scripts.push(operands[0]);
+  return scripts.length > 0 && scripts.every(sedScriptReads);
+}
+
+/** True when a command names a path in a ledger folder, runs in one, or runs where its folder is unknown. */
+function touchesLedger(cmd) {
+  const raw = flatten(cmd.raw ?? "").replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
+  if (/factory\/ledger(?:\/|\b)/.test(raw)) return true;
+  if (cmd.cwd === null || LEDGER_PATH.test(cmd.cwd)) return true;
+  return cmd.words.some((w) =>
+    [w, w.slice(w.indexOf("=") + 1)].some((form) => {
+      const path = form.replace(/^[0-9]*[<>]+&?/, "");
+      return path !== "" && LEDGER_PATH.test(resolve(cmd.cwd, path));
+    }),
+  );
+}
+
+/** True when every command of a call that names the ledger folder only reads (see LEDGER_READERS). */
+function ledgerReadOnly(analysis, command) {
+  if (analysis.truncated || analysis.codes.length > 0) return false;
+  const flat = flatten(command);
+  for (const cmd of analysis.cmds) {
+    const raw = cmd.raw ?? "";
+    const lead = leadOf(cmd);
+    if (readsCommands(cmd, flat) || redirects(raw)) return false;
+    if (cmd.name === "sed" && !sedReads(cmd.args)) return false;
+    if (cmd.name === "find" && cmd.args.some((a) => FIND_ACTION.test(a))) return false;
+    if (cmd.name === "sort" && !cmd.args.every((a) => !a.startsWith("-") || SORT_READ.test(a))) return false;
+    if (LEDGER_READERS.has(cmd.name) && cmd.words[0] === cmd.name && cmd.assigns.length === 0 && lead.every((w) => RESERVED.has(w))) continue;
+    if (touchesLedger(cmd) || LEDGER_WRITERS.test(cmd.name)) return false;
+    // An interpreter only as `python -m <module>` (a tool such as scripts.merge_ready), never code or a script.
+    if (INTERPRETER.test(cmd.name) && !(/^(?:python|pypy)/.test(cmd.name) && cmd.args[0] === "-m")) return false;
+    // A path built at run time (`$f`, a substitution) or fed by xargs could still be the ledger's.
+    if (/[$`]/.test(raw) || lead.some((w) => basename(w) === "xargs")) return false;
+  }
+  return true;
+}
+
 /** A forged stamp, ledger record or corpus: naming them other than through their own tools (spec 3.6, 3.7). */
 function recordForged(analysis, command) {
-  const flat = flatten(command).replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
+  const flat = flatten(dataText(analysis, command)).replace(/\/(?:\.\/)+/g, "/").replace(/\/{2,}/g, "/");
   if (/\b(?:VEXTRUS_LEAKSCAN_HOME|VEXTRUS_LEAKSCAN_ALLOWLIST|VEXTRUS_MAIN_CHECKOUT)\s*=/.test(flat)) return true;
   if (!orchestrators && analysis.units.some((u) => /scripts(?:\.|\/)ledger(?:\.py)?\b[^;&|\n]*\brecord\b/.test(flatten(u)))) return true;
   if (analysis.codes.some((code) => /leakscan/.test(code))) return true;
@@ -1171,8 +1362,10 @@ function recordForged(analysis, command) {
     if (run !== "exact") continue;
     if (cmd.args[2] === "build" && cmd.args.slice(3).some((a) => /^--s/.test(a))) return true;
     // A stamp or a corpus is written only by the main checkout's own scanner, from the orchestrator's
-    // session: a worktree's scanner is that branch's code.
+    // session: a worktree's scanner is that branch's code. In a loop that also changes folder, a later
+    // pass may run from where the cd left it, so the folder read in order is not the one it runs in.
     if (scannerWrites(cmd) && !(orchestrators && cmd.cwd === MAIN_CHECKOUT)) return true;
+    if (scannerWrites(cmd) && looped(analysis) && analysis.cmds.some((c) => ["cd", "pushd", "popd"].includes(c.name) || c.chdirs.length > 0)) return true;
   }
   if (/leakscan\/(?:ok|corpus)(?:\/|\b|$)|work\/leakscan(?:\/|\b|$)/.test(flat) && !scannerOnly) return true;
   const home = LEAK_HOME.replace(/\/+$/, "");
@@ -1183,9 +1376,11 @@ function recordForged(analysis, command) {
       if (target !== null && (target === home || target.startsWith(`${home}/`) || /\/leakscan(?:\/|$)/.test(target))) return true;
     }
   }
-  // The ledger folder: only scripts.ledger writes it.
+  // The ledger folder: only scripts.ledger writes it. A call naming it with a redirect or a writing tool
+  // anywhere is refused unless each of its commands only reads (issue #451).
   if (/factory\/ledger(?:\/|\b)/.test(flat) && !LEDGER_TOOL.test(flat)) {
-    if (/>|\b(?:tee|cp|mv|ln|install|rsync|dd|touch|truncate|rm|sed|perl|python[0-9.]*|node)\b/.test(flat)) return true;
+    const writes = />|\b(?:tee|cp|mv|ln|install|rsync|dd|touch|truncate|rm|sed|perl|python[0-9.]*|node)\b/.test(flat);
+    if (writes && !ledgerReadOnly(analysis, command)) return true;
   }
   return false;
 }
@@ -1308,13 +1503,16 @@ function ghBodies(cmd) {
 // The demo seed's own synthetic drawings (vextrus/seed/kr01.py, written by the repo's writer; the owner's
 // ruling, session 11: "Allow that path only"): exactly these, by name, and nothing under .private/.
 const AS_KEY_USER = String.raw`^sudo -n -u vxkeys `;
+// An item list for the design gate: numbers and ranges, or the empty list the poster takes for "none" (its
+// default), quoted as `''` or `""` (issue #451); never a word bash expands.
+const ITEMS = String.raw`(?:[0-9,-]+|''|"")`;
 // One plain argument (a run id, a PR number or a branch name): a letter or digit first, so never an option
 // (issue #107); the sudoers rule autonomy-setup.sh installs for the scorer is this same pattern.
 const ONE_ARGUMENT = String.raw`[0-9A-Za-z][0-9A-Za-z-]*`;
 const KEY_USER_COMMANDS = [
   new RegExp(
     AS_KEY_USER +
-      String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings ${ONE_ARGUMENT}|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =][0-9,-]+)*)$`,
+      String.raw`/usr/local/lib/vextrus/post-status (?:-h|--help|real-drawings ${ONE_ARGUMENT}|design-gate [0-9]+ [0-9a-f]{40}(?: --(?:passed|failed|not-applicable)[ =]${ITEMS})*)$`,
   ),
   new RegExp(AS_KEY_USER + String.raw`/usr/local/bin/vx-score ${ONE_ARGUMENT}$`),
 ];
@@ -1432,7 +1630,11 @@ const BASH_RULES = [
   },
   {
     rule: "DISCARD",
-    fires: (_parts, _command, ctx) => gitsOf(ctx.analysis).some(discards),
+    fires: (_parts, _command, ctx) =>
+      ctx.analysis.cmds.some((cmd) => {
+        const g = gitOf(cmd);
+        return g !== null && discards(g, cmd, ctx.analysis);
+      }),
     reason:
       "This discards work (`reset --hard`, `checkout -- <folder>`, `restore <folder>`, `branch -D`, `worktree remove --force`, `stash drop|clear`). Commit or stash it, restore single files by name, or ask the owner, who decides what is thrown away.",
   },
