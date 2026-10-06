@@ -99,7 +99,7 @@ def test_an_unreadable_open_pr_list_refuses_the_launch(world: World) -> None:
 
 # views.py's place in the session-13 list is pinned by the views test below: S15-E4 (#524) makes
 # engine/recognise/views.py the package engine/recognise/views/, so a file named views.py goes away
-# while the views area stays hot.
+# while the views area stays hot: one area covers every file of the package.
 HOT_FILES = ("step1.py", "proposals.py", "model.ts", "en.po", "m0-screens.md")
 VIEWS_PACKAGE = "engine/recognise/views/"
 VIEWS_MODULE = "engine/recognise/views.py"
@@ -139,19 +139,19 @@ def test_the_committed_hot_file_list_holds_the_session_13_hot_files(name: str) -
     )
 
 
-def test_one_hot_area_covers_every_file_of_the_views_package_or_the_views_module() -> None:
+def test_one_hot_area_covers_every_file_of_the_views_package() -> None:
     tracked = tracked_files()
     package = [path for path in tracked if path.startswith(VIEWS_PACKAGE)]
-    views = package or [path for path in tracked if path == VIEWS_MODULE]
-    assert views, f"neither {VIEWS_PACKAGE} nor {VIEWS_MODULE} is tracked"
+    assert package, f"no tracked file under {VIEWS_PACKAGE} (S15-E4 makes {VIEWS_MODULE} the package)"
+    assert VIEWS_MODULE not in tracked, f"{VIEWS_MODULE} is still tracked beside the package"
     holding = [
         area
         for area, entries in committed_areas().items()
-        if all(any(covers(entry, path) for entry in entries) for path in views)
+        if all(any(covers(entry, path) for entry in entries) for path in package)
     ]
     uncovered = sorted(
         path
-        for path in views
+        for path in package
         if not any(covers(entry, path) for paths in committed_areas().values() for entry in paths)
     )
     assert holding, (
