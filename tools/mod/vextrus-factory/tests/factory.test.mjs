@@ -2,7 +2,12 @@
 // Run: node --test 'tools/mod/**/*.test.mjs'
 
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
+import { mkdirSync, mkdtempSync, rmSync, rmdirSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { dirname, join, resolve } from "node:path"
 import { test } from "node:test"
+import { fileURLToPath } from "node:url"
 
 import { TABS, budgetText, factoryView, lastCost, sessionBudget, wipText } from "../hooks/factory.js"
 import { parseStatus } from "../hooks/text.js"
@@ -81,7 +86,7 @@ test("each tab has its own rows; empty ones say so", () => {
   assert.deepEqual(v.tabs.Builders, ["no builders"])
   assert.deepEqual(v.tabs["PR queue"], ["no builder has an open PR"])
   assert.deepEqual(v.tabs.Lock, ["free"])
-  assert.deepEqual(v.tabs.Reviews, ["no review recorded", "last review cost unknown"])
+  assert.deepEqual(v.tabs.Reviews, ["no open review round", "last review cost unknown"])
   assert.equal(view(status([]), 0.4).tabs.Reviews.at(-1), "last review cost $0.40")
 })
 
@@ -118,10 +123,56 @@ test("a missing verdict is ?, a builder with no usable head is current head unkn
   for (const text of [row(1, "PASS"), row(1, "FIX", { head: NEW }), noBuilder]) assert.ok(!/next:|land|fix round|re-submit|owner decides|review round/.test(text), text)
 })
 
-test("the next action lives in the Builders tab alone", () => {
-  const v = view(status([item({ ticket: "t9", state: "ready", pr: 12, head: NEW })], { reviews: [{ pr: 12, round: 1, head: SHA }] }), null, { [`12-${SHA}`]: "FIX" })
-  assert.match(v.tabs.Builders[0], /^ready \u00b7 t9 .* next: review its head$/)
-  assert.ok(!/next:/.test(v.tabs.Reviews[0]), v.tabs.Reviews[0])
+const ADVICE = /next:|\breview\b|\bmerge\b|\bland\b|re-submit|owner decides|fix round|take over|relaunch|restart|wait\b/i
+// The cost row's own label, "last review cost", is a fact and the one place the word review may appear.
+const everyRow = (v) => TABS.flatMap((name) => v.tabs[name]).filter((row) => !row.startsWith("last review cost"))
+
+test("no tab gives advice: a ready builder at a FIX head, at a BLOCK head and after a PASS (#495 findings 1 and 2)", () => {
+  const heads = { fix: "1".repeat(40), block: "2".repeat(40), pass: "3".repeat(40) }
+  const s = status(
+    [
+      item({ ticket: "t-fix", state: "ready", pr: 21, head: heads.fix }),
+      item({ ticket: "t-block", state: "ready", pr: 22, head: heads.block }),
+      item({ ticket: "t-pass", state: "ready", pr: 23, head: heads.pass }),
+      item({ ticket: "t-w", state: "working", pr: 24 }),
+      item({ ticket: "t-b", state: "blocked" }),
+      item({ ticket: "t-f", state: "failed", where: "local" }),
+      item({ ticket: "t-s", state: "stopped", where: "local" }),
+      item({ ticket: "t-q", state: "quiet" }),
+      item({ ticket: "t-d", state: "done" }),
+    ],
+    {
+      // watch.py's reviews_view drops the PASS at its current head: only the FIX and the BLOCK are open
+      reviews: [{ pr: 21, round: 1, head: heads.fix }, { pr: 22, round: 1, head: heads.block }],
+      lock: { holder: { kind: "post", ticket: "t-fix", head: heads.fix, since: iso(NOW), elapsed_minutes: 3 }, waiters: [] },
+    },
+  )
+  const v = view(s, 0.5, { [`21-${heads.fix}`]: "FIX", [`22-${heads.block}`]: "BLOCK" })
+  for (const row of everyRow(v)) assert.ok(!ADVICE.test(row), row)
+  assert.match(v.tabs.Builders[0], /^ready \u00b7 t-fix \u00b7 cloud \u00b7 branch t1 \u00b7 head 111111111111 \u00b7 3m$/)
+  assert.match(v.tabs["PR queue"][2], /^PR #23 \u00b7 ready \u00b7 t-pass \u00b7 head 333333333333 \u00b7 -$/)
+  assert.ok(!/next:/.test(wipText(v)), "/wip carries no advice either")
+})
+
+test("an empty Reviews list says no open review round, fed reviews_view's real output after a PASS (#495 finding 3)", () => {
+  const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..")
+  const dir = mkdtempSync(join(tmpdir(), "reviews-view-"))
+  const h = "a".repeat(40)
+  try {
+    mkdirSync(join(dir, "ledger"))
+    writeFileSync(join(dir, "ledger", `12-${h}.json`), JSON.stringify({ pr: 12, round: 1, head: h, verdict: "PASS", recorded_at: "2026-10-06T01:00:00Z" }))
+    const code = "import json, sys, pathlib\nfrom scripts.factory import watch\nprint(json.dumps(watch.reviews_view(pathlib.Path(sys.argv[1]), [{'number': 12, 'state': 'OPEN', 'headRefOid': sys.argv[2]}])))"
+    const out = spawnSync("python3", ["-c", code, dir, h], { cwd: root, encoding: "utf8" })
+    assert.equal(out.status, 0, out.stderr)
+    const reviews = JSON.parse(out.stdout)
+    assert.deepEqual(reviews, [], "reviews_view drops a PR whose ledger holds a PASS for its current head")
+    const v = view(status([item({ ticket: "t9", state: "ready", pr: 12, head: h })], { reviews }), null)
+    assert.deepEqual(v.tabs.Reviews, ["no open review round", "last review cost unknown"])
+  } finally {
+    rmSync(join(dir, "ledger", `12-${h}.json`))
+    rmdirSync(join(dir, "ledger"))
+    rmdirSync(dir)
+  }
 })
 
 test("through the mod: the Reviews tab reads each listed review's ledger record, and only that", async () => {
