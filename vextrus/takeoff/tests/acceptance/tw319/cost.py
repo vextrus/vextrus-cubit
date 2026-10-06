@@ -177,3 +177,41 @@ def posted(api: Api, path: str, body: dict[str, Any]) -> Callable[[], Any]:
         return response
 
     return call
+
+
+# The acts, measured at both sizes (T-W319 section 3) ------------------------------------------
+
+
+def at_both_sizes[T](qs_project: QsProject, measure: Callable[[CostProject, Api], T]) -> dict[int, T]:
+    """`measure` on a fresh Project of `SMALL` sheets and on one of `LARGE`: its counts by size."""
+    counts = {}
+    for size in (SMALL, LARGE):
+        project = project_of(qs_project, size)
+        counts[size] = measure(project, ready_api(project))
+    return counts
+
+
+def confirm_one(project: CostProject, api: Api) -> Callable[[], object]:
+    return posted(api, f"{project.path}/confirm", {"proposals": [str(project.proposal_of[ACTED_ON])]})
+
+
+def exclude_one(project: CostProject, api: Api) -> Callable[[], object]:
+    return posted(
+        api,
+        f"{project.path}/exclude",
+        {"proposals": [str(project.proposal_of[ACTED_ON])], "reason": "duplicate"},
+    )
+
+
+def undo(project: CostProject, api: Api) -> Callable[[], object]:
+    return posted(api, f"{project.path}/undo", {})
+
+
+def answering(project: CostProject, api: Api, question: object, option: str, text: str = "") -> int:
+    return queries(
+        posted(
+            api,
+            f"{project.path}/questions/{question}/answer",
+            {"option": option, "text": text},
+        )
+    )
