@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       python: ${{ steps.paths.outputs.python }}
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,6 +50,14 @@ jobs:
           # Only the web, the documents and the harness's prose leave the backend untouched.
           backend=$(grep -vE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)' <<< "$changed" || true)
           if [ -n "$backend" ]; then echo python=true; else echo python=false; fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's heavy jobs run only then; main's always do)
+        # Fails closed: a commit the gate cannot read fails the step, and so the roll-up. The runner sets
+        # GITHUB_EVENT_NAME; standard library only (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
 
   markets:
     # The market-literal scan reads vextrus/, engine/ and web/src/, so it runs on every change.
@@ -114,7 +123,7 @@ jobs:
   python-checks:
     # The once-only items: lints, types, scans, Django's checks and the migrations.
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.python == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
@@ -185,7 +194,7 @@ jobs:
     # The tests, one leg per shard of .github/ci-shards.json (tools.lint.ci_shards proves they
     # partition the suite); `ci` needs this job, so every leg is required.
     needs: [changes, shards]
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.python == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
