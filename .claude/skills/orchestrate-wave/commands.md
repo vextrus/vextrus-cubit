@@ -59,8 +59,23 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - `uv run python -m scripts.land <PR>`: one PR, the same way.
 - `uv run python -m scripts.merge_ready <PR>`: the last check before any merge, by hand or by the lander.
 
-## Open a PR (a local builder's READY head)
-Each step is its own call:
+## Open a PR (a READY head, local or cloud)
+One call, from the main checkout:
+
+```
+uv run python -m scripts.factory.publish <branch>
+```
+
+It range-scans `<merge-base>..<head>` (every commit, `--ref <branch>`), refuses a hit naming only `file:line`
+and pushes nothing, pushes exactly that head (`git push origin <branch>`), builds the body from the READY
+commit's message without its `Factory-` and attribution trailers, scans it and opens the PR with
+`--body-file`. On a branch with an open PR it names the PR and changes nothing. Judged-public hits go into
+one allowlist PR: `uv run python -m scripts.factory.allowlist batch --from <hits file>` (one
+`<branch>:<file>:<line> [<commit>]` per line, the commit publish names beside the hit; any bad line
+refuses the batch).
+
+Only when publish cannot run, the same steps by hand, each its own call (body: the last commit's body,
+written to `.private/work/<id>/pr-body.md` first):
 
 ```
 uv run python -m tools.leakscan range <merge-base>..<head> --ref <branch>
@@ -68,6 +83,9 @@ git push origin <branch>
 uv run python -m tools.leakscan file .private/work/<id>/pr-body.md
 gh pr create --title "<at most 72 characters>" --body-file .private/work/<id>/pr-body.md --base main --head <branch>
 ```
+
+`gh pr create` runs as its own call: the guard refuses a body-file write that shares a call with anything
+else, and one whose file has no leak stamp.
 
 CI runs its heavy jobs on a PR only while the head reads READY (`scripts/factory/ci_gate.py`), and `ci` and
 `engine` fail on any other head when the PR's changes need a heavy job: a fix round must end with a
@@ -77,9 +95,7 @@ answers for the backend and the web (`web`'s own check is a skipped job without 
 `engine` for the engine.
 `merge_ready` refuses a head the gate reads not READY unless the PR changes documents alone.
 
-Write the body (its last commit's body) to `.private/work/<id>/pr-body.md` first. `gh pr create` runs as its own
-call: the guard refuses a body-file write that shares a call with anything else, and one whose file has no
-leak stamp. Change a PR body the same way, scanned first:
+Change a PR body as the hand steps do, scanned first:
 `gh api -X PATCH repos/vextrus/vextrus-cubit/pulls/<PR> -F body=@<f>` (gh pr edit dies on gh 2.45).
 
 ## Issues
