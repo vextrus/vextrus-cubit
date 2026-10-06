@@ -53,12 +53,8 @@ def two_prs_in_the_area(world: World) -> None:
     )
 
 
-def test_a_launch_in_a_hot_area_with_two_open_prs_is_refused_naming_both(world: World) -> None:
-    two_prs_in_the_area(world)
-    line = refusal(world.check("cloud-session", OWNS), "cloud-session")
-    assert names_pr(line, 471), line
-    assert names_pr(line, 482), line
-    assert not names_pr(line, 493), f"a PR outside the area is not a blocker\n{line}"
+# "A launch in a hot area with two open PRs is refused" was withdrawn by S14-K1 (an area holds 3 or
+# more): scripts/tests/acceptance/ts14k1/test_hot_areas.py pins the raised area cap.
 
 
 def test_a_launch_in_a_hot_area_with_one_open_pr_is_allowed(world: World) -> None:

@@ -261,13 +261,6 @@ def test_g4_usage_holds_new_launches_only_at_a_used_up_100_percent(gov: Governor
         assert_ok(gov.check(unit), unit)
 
 
-def test_g4_the_cloud_cap_is_8_whatever_the_usage(gov: Governor) -> None:
-    for session, week in ((12, 27), (55, 20), (20, 75), (95, 99)):
-        gov.set(usage=usage_json(session, week))
-        assert_refused(gov.check("cloud-session", "--running", "8"), "cloud-session")
-        assert_ok(gov.check("cloud-session", "--running", "7"), "cloud-session")
-
-
 # G5
 UNREADABLE = {
     "empty": "",
@@ -328,22 +321,8 @@ def test_g7_an_unreadable_meminfo_or_df_refuses_every_local_unit(
     assert_refused(gov.check(unit, *args), unit)
 
 
-# G8
-def test_g8_at_most_three_local_agents_counting_rows_with_a_pid_that_are_not_interactive(
-    gov: Governor,
-) -> None:
-    three = [agent_row(f"builder-{i}", "working", pid=4100 + i) for i in range(3)]
-    gov.set(agents=three)
-    assert_refused(gov.check("local-agent"), "local-agent")
-
-    mixed = [
-        agent_row("alive-1", "working", pid=4201),
-        agent_row("alive-2", "blocked", pid=4202),
-        *(agent_row(f"done-{i}", "done", pid=None) for i in range(5)),
-        agent_row("the-orchestrator", "working", pid=4300, kind="interactive"),
-    ]
-    gov.set(agents=mixed)
-    assert_ok(gov.check("local-agent"), "local-agent")
+# G8 (at most three local agents) was withdrawn by S14-K1 (the owner, 6 Oct 2026: "4-6 local
+# sessions"): scripts/tests/acceptance/ts14k1/test_local_agents.py pins six and the counting rule.
 
 
 # G9
