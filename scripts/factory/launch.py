@@ -23,11 +23,9 @@ the cause was read from the CLI's own debug log: "GitHub app is not installed ..
 github_preflight_failed)"). So every launch runs with a debug log and the log is judged; and since a
 refused session keeps running, it is sent STOP at once and listed for deletion in claude.ai/code.
 
-The concurrent-session limit (16) is enforced by the cloud platform, not counted here (S14-K1): a launch
-that created no session and exited non-zero reads the CLI's own `[ERROR]` line; one naming a limit is
-`REFUSED cloud: the platform's concurrent-session limit is reached (16): wait for a session to
-finish`, any other is `REFUSED cloud-launch-failed: cloud launch failed: <the platform's message>`.
-The record says refused, so nothing is counted.
+The concurrent-session limit (16) is enforced by the cloud platform, not counted here (S14-K1): when a
+launch created no session, the CLI's own `[ERROR]` lines (else the last 5 lines of its screen) are
+printed verbatim after the REFUSED line.
 """
 
 from __future__ import annotations
@@ -99,14 +97,7 @@ SOURCE = re.compile(r"\[teleportToRemote\] Git source: (\S+), revision: (\S+)")
 CREATED = re.compile(r"Successfully created remote session: (session_\w+)")
 ENV = re.compile(r"Selected environment: (env_\w+) \(([^,]+),")
 FALLBACK = re.compile(r"Configured default environment \S+ not found, using first available")
-ERROR_PREFIX = re.compile(r"^(?:\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z )?\[ERROR\] ")
-# The cloud platform enforces the concurrent-session limit (S14-K1: the governor no longer guesses it
-# from launch records). Its refusal of a new session reaches the log as an error line naming a limit.
-PLATFORM_LIMIT = re.compile(
-    r"concurrent|too many (?:\w+ )?sessions|session limit|limit of \d+ (?:\w+ )?sessions|"
-    r"sessions? limit",
-    re.IGNORECASE,
-)
+ERROR_MARK = re.compile(r"\[ERROR\] ")
 ENVIRONMENT = "vextrus"
 # A log with no `Selected environment` line is refused: how the session's environment was chosen is
 # then unknown (fail closed; review round 1 of PR #286, F1).
@@ -176,24 +167,21 @@ def judge(log: str, *, repository: str, branch: str, environment: str = ENVIRONM
     return Verdict(True, f"cloned {repository} at {branch}", session)
 
 
-def platform_refusal(log: str, code: int) -> Verdict | None:
-    """What the platform said when a launch that created no session failed (exit `code` not 0): its
-    own error line. One naming a limit is the concurrent-session limit (`governor.CAP_MAX`), reported
-    plainly as `REFUSED cloud`; any other error line is reported verbatim after "cloud launch failed:".
-    None when the launch failed with no error line (the judge's own verdict stands). Only the CLI's own
-    `[ERROR]` lines count, so a prompt quoted in the payload line never speaks for the platform."""
-    if code == 0:
-        return None
-    errors = [line[m.end() :].strip() for line in log.split("\n") if (m := ERROR_PREFIX.match(line))]
-    if not errors:
-        return None
-    if any(PLATFORM_LIMIT.search(e) for e in errors):
-        why = (
-            f"the platform's concurrent-session limit is reached ({governor.CAP_MAX}):"
-            " wait for a session to finish"
-        )
-        return Verdict(False, why, None, "cloud")
-    return Verdict(False, f"cloud launch failed: {errors[-1]}", None, "cloud-launch-failed")
+ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+TAIL_LINES = 5
+
+
+def platform_lines(log: str, screen: str) -> list[str]:
+    """What the CLI said when a launch created no session, verbatim and never interpreted: its own
+    `[ERROR]` lines (in the debug log or on its screen), else the last 5 lines of its screen (the log
+    when it has no screen text). The platform enforces the concurrent-session limit (16) and words its
+    own refusal; no pattern of its wording is matched here."""
+    text = ANSI.sub("", screen).replace("\r", "")
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    errors = [line[m.start() :] for line in [*log.split("\n"), *lines] if (m := ERROR_MARK.search(line))]
+    if errors:
+        return list(dict.fromkeys(errors))
+    return lines[-TAIL_LINES:] if lines else [x for x in log.split("\n") if x.strip()][-TAIL_LINES:]
 
 
 # --- the seams -------------------------------------------------------------------------------------
@@ -224,6 +212,13 @@ Govern = Callable[[], Reading]
 Send = Callable[[list[str]], tuple[int, str]]
 
 
+def screen_path(argv: list[str]) -> Path | None:
+    """Where a launch's screen is kept: beside its `--debug-file`, as `<log>.screen`."""
+    if "--debug-file" not in argv:
+        return None
+    return Path(argv[argv.index("--debug-file") + 1] + ".screen")
+
+
 def default_claude(argv: list[str]) -> int:
     """Run one CLI command. A launch wants a terminal: `script` gives it one and keeps its screen out
     of ours (`shlex.join` quotes the prompt for `/bin/sh`). A `-p` message needs none."""
@@ -232,24 +227,26 @@ def default_claude(argv: list[str]) -> int:
     if "-p" in argv:
         code, out = default_send(argv)
         return 0 if code == 0 and _json_ok(out) else 1
+    screen = screen_path(argv)
     try:
-        child = subprocess.Popen(
-            ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            env={**os.environ, "SHELL": "/bin/sh"},
-            start_new_session=True,
-        )
+        with screen.open("wb") if screen else open(os.devnull, "wb") as kept:
+            child = subprocess.Popen(
+                ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
+                stdin=subprocess.DEVNULL,
+                stdout=kept,
+                env={**os.environ, "SHELL": "/bin/sh"},
+                start_new_session=True,
+            )
+            try:
+                return child.wait(timeout=LAUNCH_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                _kill_tree(child)
+                return TIMED_OUT
+            except BaseException:
+                _kill_tree(child)
+                raise
     except OSError:
         return NOT_FOUND
-    try:
-        return child.wait(timeout=LAUNCH_TIMEOUT)
-    except subprocess.TimeoutExpired:
-        _kill_tree(child)
-        return TIMED_OUT
-    except BaseException:
-        _kill_tree(child)
-        raise
 
 
 def _proc_stats() -> Iterator[tuple[int, str, int, int]]:
@@ -1033,6 +1030,7 @@ def _launch_cloud(
         )
     verdict = Verdict(False, "the launch did not run", None, "no-session")
     try:
+        screen_file = Path(str(log) + ".screen")
         argv = ["claude", "--debug-file", str(log), "--model", req.model, "--effort", req.effort]
         code = claude([*argv, "--on-branch", req.branch, "--cloud", prompt])
         if code == NOT_FOUND:
@@ -1044,8 +1042,6 @@ def _launch_cloud(
         except OSError:
             judged = ""
         verdict = judge(judged, repository=req.repository, branch=req.branch)
-        if verdict.session is None and code != TIMED_OUT:
-            verdict = platform_refusal(judged, code) or verdict
         if code == TIMED_OUT:
             why = f"the launch did not finish in {LAUNCH_TIMEOUT} s ({verdict.reason})"
             verdict = Verdict(
@@ -1062,6 +1058,13 @@ def _launch_cloud(
         outcome = Outcome(0, line, session)
     else:
         outcome = _refused(verdict.code, verdict.reason, session)
+        if session is None:
+            try:
+                kept = screen_file.read_text(errors="replace")
+            except OSError:
+                kept = ""
+            for said in platform_lines(judged, kept):
+                print(said)
         if session:
             stop_sent = (
                 claude(["claude", "-p", STOP, "--cloud", session, "--output-format", "json"]) == 0

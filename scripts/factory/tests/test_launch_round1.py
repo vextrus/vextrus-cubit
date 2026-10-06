@@ -517,50 +517,55 @@ def test_say_reads_the_record_of_the_session_it_messages(
     assert (code, sent) == (0, ["[elapsed 45/60 min] Round 1.\n"])
 
 
-# --- S14-K1 fix round 2: the platform enforces the concurrent-session limit, the launcher reports it
-LIMIT_LOG = log(session=None).split("[DEBUG] Successfully")[0] + (
-    "[ERROR] Failed to create remote session: concurrent session limit reached\n"
-)
+# --- S14-K1 fix round 3: the platform enforces the session limit; a refused launch prints its error
+def cli_on_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str) -> None:
+    """A `claude` on PATH: `--version` answers, any other call runs `body`."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    cli = bin_dir / "claude"
+    cli.write_text(
+        f'#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9 (fake)"; exit 0; fi\n{body}\n'
+    )
+    cli.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
 
 
-def last_record(tmp_path: Path) -> dict[str, object]:
-    records = sorted((tmp_path / "records").glob("z1-*.json"))
-    record: dict[str, object] = json.loads(records[-1].read_text())
-    return record
+def through_default_claude(tmp_path: Path, root: Path) -> launch.Outcome:
+    return launch_cloud(
+        request(tmp_path),
+        root=root,
+        scan=lambda _: ScanResult(True, "hits=0"),
+        govern=None,
+        snapshot=lambda: "{}",
+        now=lambda: datetime(2026, 10, 5, 1, 2, 3, tzinfo=UTC),
+    )
 
 
-def test_the_platforms_session_limit_is_reported_plainly_and_recorded_refused(
+def test_the_platforms_error_is_printed_after_the_refused_line_on_the_real_path(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli_on_path(tmp_path, monkeypatch, 'echo "[ERROR] concurrent session limit reached"; exit 1')
+    outcome = through_default_claude(tmp_path, main)
+    lines = capsys.readouterr().out.splitlines()
+    assert outcome.exit_code == 2
+    assert lines[0].startswith("REFUSED "), lines
+    assert "[ERROR] concurrent session limit reached" in lines[1:], lines
+    assert records(tmp_path)[-1]["judge"]["ok"] is False  # type: ignore[index]
+
+
+def test_with_no_error_line_the_last_five_lines_of_the_screen_follow(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli_on_path(tmp_path, monkeypatch, 'for n in 1 2 3 4 5 6 7; do echo "line $n"; done; exit 0')
+    through_default_claude(tmp_path, main)
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[1:6] == [f"line {n}" for n in range(3, 8)], lines
+
+
+def test_a_failed_launch_with_an_error_in_the_debug_log_prints_it_too(
     tmp_path: Path, main: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    outcome = run(tmp_path, main, Fake(text=LIMIT_LOG, code=1))
-    said = (
-        "REFUSED cloud: the platform's concurrent-session limit is reached (16):"
-        " wait for a session to finish"
-    )
-    assert outcome.exit_code == 2
-    assert outcome.line == said
-    assert said in capsys.readouterr().out
-    judge_ = last_record(tmp_path)["judge"]
-    assert isinstance(judge_, dict)
-    assert judge_["ok"] is False
-    assert judge_["code"] == "cloud"
-
-
-def test_another_platform_error_is_reported_verbatim(tmp_path: Path, main: Path) -> None:
-    text = log(session=None).split("[DEBUG] Successfully")[0] + "[ERROR] 503 upstream unavailable\n"
+    text = log(session=None) + "[ERROR] 503 upstream unavailable\n"
     outcome = run(tmp_path, main, Fake(text=text, code=1))
     assert outcome.exit_code == 2
-    assert outcome.line == "REFUSED cloud-launch-failed: cloud launch failed: 503 upstream unavailable"
-
-
-def test_a_limit_quoted_outside_an_error_line_is_not_the_platform_speaking(
-    tmp_path: Path, main: Path
-) -> None:
-    text = log(session=None) + '[DEBUG] Creating session with payload: {"prompt": "concurrent limit"}\n'
-    outcome = run(tmp_path, main, Fake(text=text, code=1))
-    assert "concurrent-session limit" not in outcome.line
-
-
-def test_a_limit_message_beside_a_created_session_is_not_a_refusal(tmp_path: Path, main: Path) -> None:
-    outcome = run(tmp_path, main, Fake(text=log() + "[ERROR] concurrent limit warning\n", code=1))
-    assert "concurrent-session limit" not in outcome.line
+    assert "[ERROR] 503 upstream unavailable" in capsys.readouterr().out.splitlines()
