@@ -16,9 +16,9 @@ from tools.lint.acceptance_lint import (
     _outcomes,
     _stated,
     contradictions,
-    forbidden_marks,
     imports_of,
     main,
+    marks_used,
     not_built,
     read_ticket,
     rulings_at,
@@ -225,22 +225,18 @@ def test_a_module_loaded_by_name_counts_as_imported() -> None:
     assert imports_of(source) == {"importlib", "importlib.import_module", "a.b", "c.d", "e"}
 
 
-def test_the_forbidden_marks_are_read_in_every_spelling() -> None:
+def test_every_use_of_a_refused_mark_is_read_anywhere_in_the_file() -> None:
+    """PR #514 round 2: one rule, any reference through pytest.mark (or an alias) anywhere."""
     source = (
         "import pytest as pt\nfrom pytest import mark as m\n\n"
-        "later = pt.mark.xfail\npytestmark = [pt.mark.slow, pt.mark.skip]\n\n\n"
-        "@pt.mark.live\ndef test_a() -> None: ...\n\n\n"
-        "@m.skipif(True, reason='x')\ndef test_b() -> None: ...\n\n\n"
-        "@later\nclass TestC:\n    @pt.mark.skip()\n    def test_d(self) -> None: ...\n\n\n"
-        "@pt.mark.slow\ndef test_e() -> None: ...\n\n\n"
-        "@pt.mark.skip\ndef helper() -> None: ...\n"
+        "marks = pt.mark\nlater = pt.mark.slow\n\n\n"
+        "class TestC:\n    pytestmark = pt.mark.live\n\n\n"
+        "pytestmark: list[object] = [m.skipif(True, reason='x')]\n"
+        "CASES = [pt.param(1, marks=marks.xfail)]\n\n\n"
+        "def helper() -> object:\n    return pt.mark.skip\n"
     )
 
-    assert sorted(forbidden_marks(source)) == [
-        ("TestC", "xfail"),
-        ("pytestmark", "skip"),
-        ("test_a", "live"),
-        ("test_b", "skipif"),
-        ("test_d", "skip"),
-    ]
-    assert forbidden_marks("def (:\n") == []
+    assert marks_used(source) == ["live", "skip", "skipif", "xfail"]
+    assert marks_used("import pytest\n\n\n@pytest.mark.slow\ndef test_a() -> None: ...\n") == []
+    assert marks_used("from other import mark\n\n\n@mark.skip\ndef test_a() -> None: ...\n") == []
+    assert marks_used("def (:\n") == []

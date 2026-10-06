@@ -322,65 +322,49 @@ def _loads_by_name(call: ast.Call) -> bool:
 FORBIDDEN_MARKS = {"live", "skip", "skipif", "xfail"}
 
 
-def forbidden_marks(source: str) -> list[tuple[str, str]]:
-    """Each test (a `test*` function or a `Test*` class, or `pytestmark` for the module) marked live,
-    skip, skipif or xfail in `source`, read without importing it: `@pytest.mark.x` (pytest under any
-    alias), `@mark.x` after `from pytest import mark`, `@x` for a module-level `x = pytest.mark.x`, each
-    called or not, and a module-level `pytestmark` holding one or a list of them. Empty when the source
-    does not parse."""
+def marks_used(source: str) -> list[str]:
+    """The marks among live, skip, skipif and xfail that `source` references through `pytest.mark`
+    anywhere (a decorator, a class body, a plain or annotated `pytestmark`, `pytest.param(marks=...)`,
+    any expression), read without importing it. `pytest.mark` is reached through `pytest` under any
+    alias, a `mark` imported from pytest under any alias, or a name assigned `pytest.mark`. Empty when
+    the source does not parse."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return []
     pytests: set[str] = {"pytest"}
     marks: set[str] = set()
-    aliases: dict[str, str] = {}
-    for node in tree.body:
+    for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             pytests |= {alias.asname or alias.name for alias in node.names if alias.name == "pytest"}
         elif isinstance(node, ast.ImportFrom) and node.module == "pytest":
             marks |= {alias.asname or alias.name for alias in node.names if alias.name == "mark"}
 
-    def mark_of(expression: ast.expr) -> str | None:
-        if isinstance(expression, ast.Call):
-            expression = expression.func
+    def is_mark(expression: ast.expr) -> bool:
         if isinstance(expression, ast.Name):
-            return aliases.get(expression.id)
-        chain: list[str] = []
-        while isinstance(expression, ast.Attribute):
-            chain.insert(0, expression.attr)
-            expression = expression.value
-        if not isinstance(expression, ast.Name):
-            return None
-        if expression.id in pytests and len(chain) == 2 and chain[0] == "mark":
-            return chain[1]
-        if expression.id in marks and len(chain) == 1:
-            return chain[0]
-        return None
+            return expression.id in marks
+        return (
+            isinstance(expression, ast.Attribute)
+            and expression.attr == "mark"
+            and isinstance(expression.value, ast.Name)
+            and expression.value.id in pytests
+        )
 
-    found: list[tuple[str, str]] = []
-    for node in tree.body:
+    for node in ast.walk(tree):  # names assigned `pytest.mark` are aliases of it too
         if (
-            isinstance(node, ast.Assign)
-            and len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
+            isinstance(node, (ast.Assign, ast.AnnAssign))
+            and node.value is not None
+            and is_mark(node.value)
         ):
-            values = node.value.elts if isinstance(node.value, (ast.List, ast.Tuple)) else [node.value]
-            named = [mark for value in values if (mark := mark_of(value))]
-            if node.targets[0].id == "pytestmark":
-                found += [("pytestmark", mark) for mark in named if mark in FORBIDDEN_MARKS]
-            elif len(values) == 1 and named:
-                aliases[node.targets[0].id] = named[0]
-    for item in ast.walk(tree):
-        if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            continue
-        if not item.name.startswith("Test" if isinstance(item, ast.ClassDef) else "test"):
-            continue
-        for decorator in item.decorator_list:
-            mark = mark_of(decorator)
-            if mark is not None and mark in FORBIDDEN_MARKS:
-                found.append((item.name, mark))
-    return found
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            marks |= {target.id for target in targets if isinstance(target, ast.Name)}
+    return sorted(
+        {
+            node.attr
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Attribute) and node.attr in FORBIDDEN_MARKS and is_mark(node.value)
+        }
+    )
 
 
 def _stated(text: str, reasons: Sequence[str], imported: Collection[str] = ()) -> bool:
@@ -596,18 +580,13 @@ class Checker:
         return problems
 
     def marks_unbuilt(self, path: str) -> list[str]:
-        """A file that collects only after the build has its marks read from its source: a test marked
-        live, skip, skipif or xfail is refused with the words the collected path uses."""
-        marked = forbidden_marks((self.tree / path).read_text(errors="replace"))
-        problems = []
-        live = [name for name, mark in marked if mark == "live"]
-        if live:
-            why = "CI's acceptance check never runs a live test (it fails as deselected)"
-            problems.append(f"{self.label(path)}: marked live: {why}: {', '.join(live)}")
-        skipped = [f"{name} ({mark})" for name, mark in marked if mark != "live"]
-        if skipped:
-            problems.append(f"{self.label(path)}: skipped or xfail on {self.base}: {', '.join(skipped)}")
-        return problems
+        """A file that collects only after the build may not use live, skip, skipif or xfail through
+        `pytest.mark` anywhere: it cannot be judged before the build."""
+        return [
+            f"{self.label(path)}: uses pytest.mark.{name}; a file that imports an unbuilt module "
+            "may not use it (it cannot be judged before the build)"
+            for name in marks_used((self.tree / path).read_text(errors="replace"))
+        ]
 
     def check_plan(self, path: str) -> list[str]:
         """A collected file's setup plan: a fixture pytest does not have, or a test skipped for an empty

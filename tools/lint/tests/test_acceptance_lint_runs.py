@@ -567,20 +567,19 @@ def test_a_file_with_a_syntax_error_is_refused(tmp_path: Path) -> None:
 # PR #514, review round 1: a file that collects only after the build has its marks read from source.
 
 
-@pytest.mark.parametrize(
-    ("mark", "words"),
-    [("live", "marked live"), ("skip", "skipped or xfail"), ("xfail", "skipped or xfail")],
-)
+UNBUILT_USE = "a file that imports an unbuilt module may not use it"
+
+
+@pytest.mark.parametrize("mark", ["live", "skip", "xfail", "skipif(True, reason='x')"])
 def test_a_marked_test_in_a_file_waiting_on_a_module_not_built_yet_is_refused(
-    tmp_path: Path, mark: str, words: str
+    tmp_path: Path, mark: str
 ) -> None:
     root = make_repo(tmp_path)
     ticket(root, BRANCH, FOLDER, test=marked(mark, TOP_IMPORT))
 
     output = refused(root)
 
-    assert words in output
-    assert "test_counts_three_storeys" in output
+    assert f"uses pytest.mark.{mark.split('(')[0]}; {UNBUILT_USE}" in output
 
 
 def test_a_module_level_skip_in_a_file_waiting_on_a_module_not_built_yet_is_refused(
@@ -590,10 +589,7 @@ def test_a_module_level_skip_in_a_file_waiting_on_a_module_not_built_yet_is_refu
     test = changed(TOP_IMPORT, '"""\n\n', '"""\n\nimport pytest\n\npytestmark = pytest.mark.skip\n\n')
     ticket(root, BRANCH, FOLDER, test=test)
 
-    output = refused(root)
-
-    assert "skipped or xfail" in output
-    assert "pytestmark" in output
+    assert f"uses pytest.mark.skip; {UNBUILT_USE}" in refused(root)
 
 
 def test_an_unmarked_file_waiting_on_a_module_not_built_yet_stays_a_note(tmp_path: Path) -> None:
@@ -604,3 +600,25 @@ def test_an_unmarked_file_waiting_on_a_module_not_built_yet_stays_a_note(tmp_pat
 
     assert done.returncode == 0, said(done)
     assert "collects after build" in said(done)
+
+
+# PR #514, review round 2: one rule, any use of a refused mark anywhere in the file.
+
+
+@pytest.mark.parametrize(
+    ("use", "mark"),
+    [
+        ("class TestLater:\n    pytestmark = pytest.mark.skip\n", "skip"),
+        ("pytestmark: list[pytest.MarkDecorator] = [pytest.mark.xfail]\n", "xfail"),
+        ("CASES = [pytest.param(1, marks=pytest.mark.xfail)]\n", "xfail"),
+    ],
+    ids=["a class-level pytestmark", "an annotated pytestmark", "pytest.param(marks=...)"],
+)
+def test_any_use_of_a_refused_mark_in_a_file_waiting_on_a_module_not_built_yet_is_refused(
+    tmp_path: Path, use: str, mark: str
+) -> None:
+    root = make_repo(tmp_path)
+    test = changed(TOP_IMPORT, '"""\n\n', f'"""\n\nimport pytest\n\n{use}\n')
+    ticket(root, BRANCH, FOLDER, test=test)
+
+    assert f"uses pytest.mark.{mark}; {UNBUILT_USE}" in refused(root)
