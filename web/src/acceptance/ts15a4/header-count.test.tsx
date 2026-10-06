@@ -7,7 +7,7 @@
  *
  * To tell a shown count from a derived one, the fake server's count differs from anything the Proposals
  * alone would give: 14 Proposals, every one numbered and none proposed out, of which the server counts
- * 10 found, 3 confirmed and 2 excluded (as if four of them were sheets the read could not count). A web
+ * 10 found, 3 confirmed and 2 excluded (as if four of them were blank layouts). A web
  * that counts the Proposals, by any rule, reads 14 or 4 or 3 and fails.
  *
  * Through ticket 22's in-memory fake (`../t22/step1.fixture.ts`, read only), its progress reply answered

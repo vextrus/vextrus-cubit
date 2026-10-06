@@ -2,12 +2,9 @@
 confirming it back in, never changes its Discipline's N found. m0-screens 6.3: "Excluded sheets stay in
 the count with their reason"; the exclusion toast says it "stays in the count".
 
-The walk saw an unnumbered sheet (a cover) leave N when excluded and come back when confirmed back in:
-the server counted a cover proposed out with no number only while it stood confirmed. With
-`test_one_count.py`'s pins (a cover is not counted until the QS confirms it in, and one excluded while
-undecided counts nowhere), the rule both files hold is: a cover the QS has confirmed in is a sheet found,
-and stays one when excluded and when confirmed back in. The header's Count and the files' Sheets found
-follow it (the ticket: header, rows and per-file Sheets found agree).
+The walk saw an unnumbered sheet (a cover) leave N when excluded and come back when confirmed back in.
+The rule (the orchestrator's ruling, 6 Oct 2026, no history): N found counts every sheet that is not a
+blank layout, numbered or not, decided or not; the header's Count and the files' Sheets found follow it.
 
 Synthetic only: `test_one_count`'s invented files, read by the read job with invented readers.
 """
@@ -15,58 +12,56 @@ Synthetic only: `test_one_count`'s invented files, read by the read job with inv
 import pytest
 
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import confirm, exclude, the
-from vextrus.takeoff.tests.acceptance.ts15a4.test_one_count import ARC, STR, Read, read
+from vextrus.takeoff.tests.acceptance.ts15a4.test_one_count import ARC, STR, Read, counted, files, read
 
 pytestmark = pytest.mark.django_db
 
 __all__ = ["read"]  # the fixture, used by name
 
 
-def found(read: Read, discipline: str) -> int:
-    """The Discipline's N found, as the server's progress row sends it."""
-    rows = {row["discipline"]: row for row in read.progress()["disciplines"]}
-    n: int = rows[discipline]["found"]
-    return n
+def through(read: Read, discipline: str, acts: list[tuple[str, str]]) -> list[int]:
+    """The Discipline's N found before and after each act, each `(act, proposal id)`."""
+    seen = [read.found(discipline)]
+    for act, proposal in acts:
+        done = (
+            confirm(read.api, read.project_id, [proposal])
+            if act == "confirm"
+            else exclude(read.api, read.project_id, [proposal], act)
+        )
+        assert done.status_code == 200, done.content
+        seen.append(read.found(discipline))
+    return seen
 
 
-def test_excluding_a_cover_the_qs_confirmed_in_keeps_its_discipline_s_n_found(read: Read) -> None:
-    cover = read.covers()[STR]
-    assert confirm(read.api, read.project_id, [cover["id"]]).status_code == 200
-    assert found(read, "structural") == 3
-    assert exclude(read.api, read.project_id, [cover["id"]], "cover_index").status_code == 200
-    n = found(read, "structural")
-    assert n == 3, f"excluding the cover took it out of the count: Structural N found {n}"
-
-
-def test_confirming_the_excluded_cover_back_in_keeps_its_discipline_s_n_found(read: Read) -> None:
-    cover = read.covers()[STR]
-    assert confirm(read.api, read.project_id, [cover["id"]]).status_code == 200
-    assert exclude(read.api, read.project_id, [cover["id"]], "cover_index").status_code == 200
-    before = found(read, "structural")
-    assert confirm(read.api, read.project_id, [cover["id"]]).status_code == 200
-    n = found(read, "structural")
-    assert n == before == 3, (
-        f"excluding the cover took it out of the count: Structural N found {before}, then {n}"
+def test_excluding_a_cover_and_confirming_it_back_in_keeps_its_discipline_s_n_found(read: Read) -> None:
+    cover = read.covers()[STR]["id"]
+    seen = through(read, "structural", [("cover_index", cover), ("confirm", cover)])
+    assert seen == [3, 3, 3], (
+        f"Structural N found is not the one rule's before and after each act: {seen}"
     )
 
 
-def test_the_excluded_cover_stays_in_the_header_and_its_file_as_excluded(read: Read) -> None:
-    cover = read.covers()[STR]
-    assert confirm(read.api, read.project_id, [cover["id"]]).status_code == 200
-    assert exclude(read.api, read.project_id, [cover["id"]], "cover_index").status_code == 200
-    count = read.count()
-    assert count == {"found": 6, "confirmed": 0, "excluded": 1}, (
-        f"excluding the cover took it out of the count: {count}"
+def test_confirming_a_cover_in_then_excluding_it_keeps_its_discipline_s_n_found(read: Read) -> None:
+    cover = read.covers()[ARC]["id"]
+    seen = through(
+        read, "architectural", [("confirm", cover), ("cover_index", cover), ("confirm", cover)]
     )
-    assert read.sheets_found() == {STR: 3, ARC: 3}
+    assert seen == [4, 4, 4, 4], (
+        f"Architectural N found is not the one rule's before and after each act: {seen}"
+    )
 
 
 def test_excluding_and_confirming_back_a_numbered_sheet_keeps_n_found(read: Read) -> None:
-    sheet = the(read.proposals(), "A-72")
-    seen = [found(read, "architectural")]
-    assert exclude(read.api, read.project_id, [sheet["id"]], "superseded").status_code == 200
-    seen.append(found(read, "architectural"))
-    assert confirm(read.api, read.project_id, [sheet["id"]]).status_code == 200
-    seen.append(found(read, "architectural"))
-    assert seen == [3, 3, 3]
-    assert read.count() == {"found": 5, "confirmed": 1, "excluded": 0}
+    sheet = the(read.proposals(), "A-72")["id"]
+    seen = through(read, "architectural", [("superseded", sheet), ("confirm", sheet)])
+    assert seen == [4, 4, 4], (
+        f"Architectural N found is not the one rule's before and after each act: {seen}"
+    )
+    counted(read, {"found": 7, "confirmed": 1, "excluded": 0})
+
+
+def test_the_excluded_cover_stays_in_the_header_and_its_file_as_excluded(read: Read) -> None:
+    cover = read.covers()[STR]["id"]
+    assert exclude(read.api, read.project_id, [cover], "cover_index").status_code == 200
+    counted(read, {"found": 7, "confirmed": 0, "excluded": 1})
+    files(read)
