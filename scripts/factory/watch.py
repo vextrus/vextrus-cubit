@@ -16,7 +16,9 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   clean merge of main on the head last seen READY stays READY), and on a cloud branch `python -m
   tools.leakscan range origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and
   messages; the scan's output is reduced to `file:line` and a count, its text is never kept. No scanner
-  (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm;
+  (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm. A hit on a cloud
+  head also sends that builder's session one message (once per head, the launcher's `say` route) naming
+  each `file:line`, itself scanned first (`text --stdin --no-stamp`), and writes a SAY event;
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -78,7 +80,10 @@ ENSURE_WAIT_STEPS = 600
 ENSURE_WAIT_SECONDS = 0.05
 GIT_TIMEOUT = 120
 SCAN_TIMEOUT = 600
+SAY_TIMEOUT = 120
+SAY_PLACES = 10
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
+SESSION = re.compile(r"^session_[A-Za-z0-9]+$")
 REVIEW_BRANCH = re.compile(r"^review/(\d+)-[0-9a-f]{8}$")
 LOCK_KINDS = {"posting": "post", "post": "post", "scored": "scored", "no-post": "no-post"}
 BUILDER_ROW_STATES = {"working", "blocked", "done", "failed", "stopped"}
@@ -230,8 +235,76 @@ def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
         if cannot:
             word = cannot.group(1)
     if done.returncode == 1 and hits:
-        return {"result": "hit", "where": hits[0][0], "n": sum(n for _, n in hits), "places": len(hits)}
+        return {
+            "result": "hit",
+            "where": hits[0][0],
+            "n": sum(n for _, n in hits),
+            "places": len(hits),
+            "wheres": [where for where, _ in hits[:SAY_PLACES]],
+        }
     return {"result": "cannot-scan", "where": f"cannot-scan:{word}", "n": 0}
+
+
+def scans_clean(text: str) -> bool:
+    """The leak scan of one outgoing message (`text --stdin`, never stamped): True only when clean."""
+    argv = leakscan_command()
+    if argv is None:
+        return False
+    try:
+        done = subprocess.run(
+            [*argv, "text", "--stdin", "--no-stamp"],
+            input=text,
+            capture_output=True,
+            text=True,
+            timeout=SCAN_TIMEOUT,
+            check=False,
+        )
+    except status.RUN_ERRORS:
+        return False
+    return done.returncode == 0
+
+
+# --- the leak say (#461 B): a cloud builder hears of a hit on its head once, by location only
+def leak_message(head: str, leak: dict[str, Any]) -> str:
+    places = ", ".join(leak.get("wheres") or [leak["where"]])
+    more = leak.get("places", 1) - len(leak.get("wheres") or [leak["where"]])
+    places += f" and {more} more" if more > 0 else ""
+    return (
+        f"LEAK-HIT on your head {head[:8]}: the leak scan found {leak['n']} hit(s) at {places}. "
+        "Replace each with an invented stand-in in a new commit, and push again."
+    )
+
+
+def say_leak(step: Pass, ticket: str, record: dict[str, Any], head: str, leak: dict[str, Any]) -> None:
+    """One message to the builder's cloud session, the launcher's route (`launch say`, launch-cli.md
+    3): `claude -p "[elapsed n/m min] <text>" --cloud <session> --output-format json`, its `{ok}` read.
+    The message is leak-scanned first; it carries locations and counts, never the scanned text."""
+    session = record.get("session_id")
+    if not isinstance(session, str) or not SESSION.match(session):
+        step.event("SAY", ticket, f"{head[:8]} leak not sent: no session id")
+        return
+    text = leak_message(head, leak)
+    budget = record.get("budget_minutes")
+    if isinstance(budget, int):
+        text = f"[elapsed {status.minutes_between(record['_started'], step.at)}/{budget} min] {text}"
+    if not scans_clean(text):
+        step.event("SAY", ticket, f"{head[:8]} leak not sent: the message did not scan clean")
+        return
+    argv = ["claude", "-p", text, "--cloud", session, "--output-format", "json"]
+    try:
+        done = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=SAY_TIMEOUT,
+            check=False,
+        )
+        reply = json.loads(done.stdout) if done.returncode == 0 else None
+    except (*status.RUN_ERRORS, ValueError):
+        reply = None
+    sent = isinstance(reply, dict) and reply.get("ok") is True
+    step.event("SAY", ticket, f"{head[:8]} leak {'sent' if sent else 'not sent: the CLI failed'}")
 
 
 # --- readings with a cadence
@@ -688,6 +761,9 @@ def track(
         if leak.get("places", 1) > 1:
             detail += f" ({leak['places']} places)"
         step.alarm(f"{ticket}|{head}", "LEAK-HIT", ticket, detail)
+        if where == "cloud" and leak["result"] == "hit" and seen.get("leak_said") != head:
+            seen["leak_said"] = head  # once per head, sent or not: the alarm stays for the orchestrator
+            say_leak(step, ticket, record, head, leak)
 
     return {
         "ticket": public(ticket, 80),

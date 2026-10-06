@@ -7,7 +7,9 @@ exactly the tree `git write-tree` names, which the next commit will carry. It ma
 (staged against HEAD, plus the commits since the merge base with `origin/main`) to checks, runs them one
 after another in the foreground, keeps each one's output under `.private/work/verify/<tree>/`, and
 writes `<git-common-dir>/vextrus/verify-<tree>.json` (the guard's READY push gate reads it). Only when
-every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer.
+every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer. First
+it leak-scans `<merge-base>..<the staged tree>` (never stamped; #412) where a corpus is present: a hit
+names its locations, writes no record and exits 1, so a local builder learns of it before READY.
 
 A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: <test title>` per line)
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
@@ -189,6 +191,64 @@ def changed_paths() -> list[str]:
     return sorted({*staged, *since} - {""})
 
 
+def _leakscan_argv(root: Path) -> list[str] | None:
+    chosen = os.environ.get("VEXTRUS_LEAKSCAN_CMD")  # a test seam, as the watcher's
+    if chosen:
+        return shlex.split(chosen)
+    if (root / "tools" / "leakscan" / "__main__.py").is_file():
+        return [sys.executable, "-m", "tools.leakscan"]
+    return None
+
+
+def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
+    """The range `<merge-base with origin/main>..<the staged tree>` leak-scanned, never stamped (#412):
+    (refused, lines). The staged tree is scanned as a commit on HEAD (`git commit-tree`, an unreferenced
+    object), so the READY commit's own additions are in the range. A hit refuses, naming locations and
+    counts only; with no scanner, no origin/main or no corpus (a cloud session) it is a note."""
+    argv = _leakscan_argv(root)
+    if argv is None:
+        return False, ["verify: leak scan not run: no tools/leakscan here"]
+    base = subprocess.run(
+        ["git", "merge-base", "origin/main", "HEAD"], capture_output=True, text=True, check=False
+    )
+    if base.returncode != 0:
+        return False, ["verify: leak scan not run: no merge base with origin/main"]
+    staged = subprocess.run(
+        ["git", "commit-tree", tree, "-p", "HEAD", "-m", "verify: the staged tree"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    head = staged.stdout.strip() if staged.returncode == 0 else "HEAD"
+    span = f"{base.stdout.strip()}..{head}"
+    done = subprocess.run(
+        [*argv, "range", span, "--no-stamp", "--json"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+    try:
+        report = json.loads(done.stdout.strip().splitlines()[-1])
+        summary = report["summary"]
+        hits = [(str(hit["where"]), int(hit["n"])) for hit in report["hits"]]
+    except IndexError, ValueError, KeyError, TypeError:
+        return True, [f"verify: refused: the leak scan's report is unreadable (exit {done.returncode})"]
+    status = summary.get("status")
+    if status == "skipped" or (status == "cannot-scan" and summary.get("reason") == "no-corpus"):
+        return False, ["verify: leak scan not run: no corpus here"]
+    if status == "cannot-scan":
+        return True, [f"verify: refused: the leak scan cannot scan ({summary.get('reason')})"]
+    if hits or done.returncode != 0:
+        lines = [f"verify: leak hit {where} {n}" for where, n in hits]
+        return True, [
+            *lines,
+            "verify: refused: replace each hit with an invented stand-in; no verify record written",
+        ]
+    return False, [f"verify: leak scan clean (hits=0 scanned={summary.get('scanned')})"]
+
+
 def run_command(check: Check) -> tuple[int, str]:
     done = subprocess.run(
         check.argv,
@@ -209,7 +269,12 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    run: Run = run_command,
+    leak: Callable[[Path, str], tuple[bool, list[str]]] = leak_scan,
+) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args:
         print("usage: python -m scripts.verify (on the staged tree)", file=sys.stderr)
@@ -224,6 +289,11 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
     root = Path(_git("rev-parse", "--show-toplevel"))
     tree = _git("write-tree")
     common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir"))
+    refused, said = leak(root, tree)
+    for line in said:
+        print(line, file=sys.stderr if refused else sys.stdout)
+    if refused:
+        return 1
     (root / WEB_SCHEMA).parent.mkdir(parents=True, exist_ok=True)
     checks, notes = plan_with_notes(changed_paths(), root=root)
     for note in notes:
