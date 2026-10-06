@@ -17,6 +17,10 @@ commit; then `scripts.factory.publish`'s steps: the range scan and its stamp, `g
 <branch>`, a scanned body and `gh pr create --body-file`. The scanner reads each hit's file as the
 branch holds it, from a scratch copy; the committed allowlist beside this tree's scanner is never
 written. No matched string is ever printed.
+
+A rerun finishes what a failed run began (`finish`): the batch's commit already on origin, or on the
+local branch, is reused when it adds exactly these hashes to the allowlist and nothing else; a head
+origin holds is not pushed again; a PR is opened only when none is open.
 """
 
 from __future__ import annotations
@@ -199,32 +203,53 @@ def batch(root: Path, hits_file: Path) -> int:
         if not added:
             raise Refused("every hit's string is already allowlisted: nothing to do")
         branch = "allowlist-" + hashlib.sha256("".join(added).encode()).hexdigest()[:12]
-        if git_out(root, "ls-remote", "--heads", "origin", branch):
-            raise Refused(f"{branch} is already on origin: nothing is pushed")
-
-        tree = place / "worktree"
-        if git(root, "worktree", "add", "-q", "--detach", str(tree), main).returncode != 0:
-            raise Refused("git worktree add failed")
-        try:
-            return finish(root, tree, added, hits, branch, main)
-        finally:
-            git(root, "worktree", "remove", "--force", str(tree))
+        return finish(root, place, added, hits, branch, main)
 
 
-def finish(root: Path, tree: Path, added: list[str], hits: list[Hit], branch: str, main: str) -> int:
-    # The hashes the scanner's `allow` computed, appended: every existing line keeps its place (the
-    # scanner's own rewrite sorts the file and drops any line that is not a hash).
-    allowlist = tree / ALLOWLIST
-    allowlist.parent.mkdir(parents=True, exist_ok=True)
-    before = allowlist.read_text(encoding="utf-8") if allowlist.exists() else ""
-    if before and not before.endswith("\n"):
-        before += "\n"
-    allowlist.write_text(before + "".join(f"{value}\n" for value in added), encoding="utf-8")
+def same_batch(root: Path, main: str, head: str | None, added: list[str]) -> bool:
+    """True when `head` is this batch's commit: from its merge base with main it changes only the
+    allowlist, by exactly `added` as new lines and nothing removed (main may have moved since)."""
+    if head is None:
+        return False
+    base = git_out(root, "merge-base", main, head)
+    if base is None or git_out(root, "rev-list", "--count", f"{base}..{head}") != "1":
+        return False
+    if (git_out(root, "diff", "--name-only", base, head) or "").splitlines() != [ALLOWLIST]:
+        return False
+    diff = git_out(root, "diff", "--unified=0", base, head, "--", ALLOWLIST) or ""
+    body = [line for line in diff.splitlines() if line[:1] in "+-" and line[:3] not in ("+++", "---")]
+    return not [x for x in body if x.startswith("-")] and sorted(x[1:] for x in body) == sorted(added)
+
+
+def build(root: Path, place: Path, added: list[str], main: str, message: str) -> str:
+    """This batch's commit on main, made in a scratch worktree (removed after): the hashes the scanner's
+    `allow` computed, appended, so every existing line keeps its place (the scanner's own rewrite sorts
+    the file and drops any line that is not a hash)."""
+    tree = place / "worktree"
+    if git(root, "worktree", "add", "-q", "--detach", str(tree), main).returncode != 0:
+        raise Refused("git worktree add failed")
+    try:
+        allowlist = tree / ALLOWLIST
+        allowlist.parent.mkdir(parents=True, exist_ok=True)
+        before = allowlist.read_text(encoding="utf-8") if allowlist.exists() else ""
+        if before and not before.endswith("\n"):
+            before += "\n"
+        allowlist.write_text(before + "".join(f"{value}\n" for value in added), encoding="utf-8")
+        if git(tree, "add", "--", ALLOWLIST).returncode != 0:
+            raise Refused("git add failed")
+        if git(tree, "commit", "-q", "-m", message).returncode != 0:
+            raise Refused("git commit failed")
+        return git_out(tree, "rev-parse", "HEAD") or ""
+    finally:
+        git(root, "worktree", "remove", "--force", str(tree))
+
+
+def finish(root: Path, place: Path, added: list[str], hits: list[Hit], branch: str, main: str) -> int:
+    """Resumable: every step looks first at what an earlier run left. This batch's commit already on
+    origin is reused (no push), else the local branch's when it is this batch's, else a new one (the
+    local branch is moved to it); the range is scanned; a head origin lacks is pushed; and a PR is
+    opened only when none is open. A branch on origin with other changes is refused."""
     count = len(added)
-    if git(tree, "checkout", "-q", "-b", branch).returncode != 0:
-        raise Refused("git checkout -b failed")
-    if git(tree, "add", "--", ALLOWLIST).returncode != 0:
-        raise Refused("git add failed")
     names = ", ".join(sorted({hit.branch for hit in hits}))
     message = (
         f"leakscan: allowlist {count} hashes from {len(hits)} judged hits\n\n"
@@ -232,18 +257,35 @@ def finish(root: Path, tree: Path, added: list[str], hits: list[Hit], branch: st
         f"Only `{ALLOWLIST}` changes, by {count} added sha256 lines, "
         "hashed by `tools.leakscan allow`.\n"
     )
-    if git(tree, "commit", "-q", "-m", message).returncode != 0:
-        raise Refused("git commit failed")
-    head = git_out(tree, "rev-parse", "HEAD") or ""
-    changed = (git_out(root, "diff", "--name-only", main, head) or "").splitlines()
-    if changed != [ALLOWLIST]:
-        raise Refused("the batch commit changes more than the allowlist: nothing is pushed")
-    publish.range_scan(root, main, head, branch)
-    # The same push as publish's, READY gate included: this commit carries no Factory trailer, so the
-    # gate (the guard's) asks no verify record of it.
-    publish.push(root, branch, head)
-    print(f"allowlist: pushed {branch} at {head[:8]} ({count} hashes)")
-    title, body = publish.pr_body(message, head)
+    tracking = f"refs/remotes/origin/{branch}"
+    if git(root, "fetch", "-q", "origin", f"+refs/heads/{branch}:{tracking}").returncode != 0:
+        git(root, "update-ref", "-d", tracking)  # not on origin
+    remote = git_out(root, "rev-parse", "--verify", "-q", f"{tracking}^{{commit}}")
+    local = git_out(root, "rev-parse", "--verify", "-q", f"refs/heads/{branch}^{{commit}}")
+    if remote is not None and not same_batch(root, main, remote, added):
+        raise Refused(f"{branch} is on origin with other changes")
+    if remote is not None:
+        head = remote
+    elif same_batch(root, main, local, added):
+        head = local or ""
+    else:
+        head = build(root, place, added, main, message)
+    if git(root, "update-ref", f"refs/heads/{branch}", head).returncode != 0:
+        raise Refused("git update-ref failed")
+    base = git_out(root, "merge-base", main, head) or main
+    publish.range_scan(root, base, head, branch)
+    if remote != head:
+        # The same push as publish's, READY gate included: this commit carries no Factory trailer, so
+        # the gate (the guard's) asks no verify record of it.
+        publish.push(root, branch, head)
+        print(f"allowlist: pushed {branch} at {head[:8]} ({count} hashes)")
+    else:
+        print(f"allowlist: {branch} at {head[:8]} is already on origin")
+    found = publish.open_pr(branch)
+    if found is not None:
+        print(f"allowlist: the branch has open PR #{found['number']} ({found.get('url')})")
+        return 0
+    title, body = publish.pr_body(git_out(root, "log", "-1", "--format=%B", head) or message, head)
     path = publish.body_file(root, branch, head, body)
     publish.scan_body(root, path)
     url = publish.create_pr(branch, title, path)
