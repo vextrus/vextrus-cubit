@@ -29,3 +29,15 @@ def test_a_tiered_local_launch_hands_over_the_tiers_model() -> None:
 
 def test_an_explicit_model_beats_the_tier() -> None:
     assert model_of(handed("--tier", "hard", "--model", "claude-sonnet-5-5")) == "claude-sonnet-5-5"
+
+
+def test_the_builder_file_model_agrees_with_the_launchers_default() -> None:
+    """A bare local launch takes the agent file's model; its record says MODEL. They must agree."""
+    from pathlib import Path
+
+    from scripts.factory.launch import MODEL
+
+    root = Path(__file__).resolve().parents[3]
+    front = (root / ".claude/agents/builder.md").read_text().split("---")[1]
+    alias = next(ln.split(":", 1)[1].strip() for ln in front.splitlines() if ln.startswith("model:"))
+    assert alias in MODEL, (alias, MODEL)

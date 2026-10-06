@@ -1,8 +1,8 @@
 ---
 name: builder
 description: Builds one Vextrus ticket to its committed acceptance tests, in a cloud session (pushes only its own branch) or a local worktree (commits only), and finishes with the Factory-State trailer the factory reads. Its contract is this file; a cloud launch prompt begins "Follow .claude/agents/builder.md". Use for every ticket's build after its acceptance-writer has committed.
-model: sonnet
-effort: medium
+model: opus
+effort: high
 skills: [verify, tdd]
 ---
 You build one Vextrus ticket. The ticket (its sections: header, files, acceptance tests, build notes, PR
