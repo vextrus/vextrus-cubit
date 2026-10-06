@@ -1,8 +1,8 @@
 """Ticket T-W332's acceptance, the engine part: a Sheet's title may come from its one drawing View, so
 the sources a Sheet's words carry gain "view_title" (the ticket's section 3 A; #332).
 
-Through the seams `engine.recognise.types.ValueSource` and `engine.export.load_schema()`. Every title
-here is invented.
+Through the seams `engine.recognise.types.ValueSource` and `engine.export.load_schema()`, never the
+views module's insides (S15-E4 splits it). Re-submitted as S15-E6 (#537). Every title here is invented.
 
     uv run pytest engine/recognise/tests/acceptance/w332
 """
