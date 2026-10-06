@@ -104,8 +104,9 @@ def test_a_rerun_whose_launches_fail_never_drops_a_launch(
     good = {entry["label"]: entry["launches"] for entry in manifest(records)["lenses"]}
     launcher.failing = {review.LENS_A.model, review.LENS_B.model}
     run, _ = handed(tmp_path)
+    both = frozenset({"lens-a", "lens-b"})  # both sessions died: named to launch again
     with pytest.raises(review.Refused):
-        review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
+        review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records, both)
     now = {entry["label"]: entry for entry in manifest(records)["lenses"]}
     assert {label: entry["launches"] for label, entry in now.items()} == good
     assert [now[label]["count"] for label in ("lens-a", "lens-b")] == [2, 2]
@@ -180,6 +181,7 @@ def test_two_claims_on_one_line_each_keep_the_refuters_verdict(
         return {"structured_output": {"findings": reply}}
 
     monkeypatch.setattr(review, "run_lens", run_lens)
+    monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)  # matching only, no tree
     review.refute(run, tmp_path, tmp_path, tmp_path)
     assert [item.word for item in run.findings] == ["REFUTED", "CONFIRMED"]
     assert '"claim": "l1-f1"' in prompts[0]

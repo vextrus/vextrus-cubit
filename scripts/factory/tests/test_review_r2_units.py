@@ -199,6 +199,7 @@ def refuted_with(
         return {"structured_output": reply, "total_cost_usd": 0.1}
 
     monkeypatch.setattr(review, "run_lens", fake)
+    monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)  # matching only, no tree
     review.refute(run, tmp_path / "rv1", tmp_path / "slot1", tmp_path)
     return run, prompts
 
@@ -252,6 +253,7 @@ def test_a_refuter_that_fails_refutes_nothing(tmp_path: Path, monkeypatch: pytes
         raise review.Refused("refuter ran past its cap of 2 seconds and was killed")
 
     monkeypatch.setattr(review, "run_lens", past_cap)
+    monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)  # matching only, no tree
     review.refute(run, tmp_path, tmp_path, tmp_path)
     assert words(run) == words(claims_run())
     assert run.lenses[-1]["refused"].startswith("refuter ran past")
@@ -413,6 +415,7 @@ def test_the_refuter_prompt_masks_the_records_name_and_still_matches(
         return {"structured_output": {"findings": [judged(file, 3, summary, "REFUTED")]}}
 
     monkeypatch.setattr(review, "run_lens", fake)
+    monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)  # matching only, no tree
     review.refute(run, tmp_path, tmp_path, tmp_path)
     assert "ledger" not in prompts[0].lower()
     assert run.findings[0].word == "REFUTED"

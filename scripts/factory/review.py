@@ -1057,6 +1057,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     run.add_argument("--exception")
     run.add_argument("--reason")
     run.add_argument("--where", choices=("local", "cloud"), default="local")
+    run.add_argument("--relaunch", action="append", default=[], metavar="LENS")
     gather = commands.add_parser("collect", add_help=False)
     gather.add_argument("pr")
     gather.add_argument("--round", type=int, required=True)
@@ -1117,6 +1118,8 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     ledger.check_exception(run.round_, args.exception, args.reason)
     ledger.check_round(ledger_dir, run.pr, run.round_, args.exception)
     lens_timeout()  # a malformed cap is bad input before anything starts
+    if getattr(args, "relaunch", None) and getattr(args, "where", "local") != "cloud":
+        raise BadInput("--relaunch is for --where cloud")
     run.head = resolve(run.pr)
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
@@ -1134,7 +1137,10 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         return
     lenses = tier_lenses(run.tier, run.paths)
     if cloud:
-        hand_off(run, lenses, main, review_dir / "cloud")
+        relaunch = frozenset(getattr(args, "relaunch", None) or [])
+        if unknown := relaunch - {lens.label for lens in lenses}:
+            raise BadInput(f"--relaunch names no lens of this tier: {', '.join(sorted(unknown))}")
+        hand_off(run, lenses, main, review_dir / "cloud", relaunch)
         return
     run.slot, claim = claim_slot(review_dir)
     with claim:
@@ -1497,6 +1503,16 @@ def refuter_brief(run: Run, rv: Path, slot: Path, claims: list[Finding]) -> str:
     )
 
 
+def refuter_tree(run: Run, rv: Path) -> None:
+    """The tree the refuter judges: `rv` reset to the merged head and cleaned (the lenses' edits to
+    tracked files and every file they left are gone), keeping only the attack folders, less every
+    conftest.py and pytest configuration file in them. Done whether or not any repro exists."""
+    assert run.merged is not None
+    git(rv, "reset", "-q", "--hard", run.merged)
+    git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules", f"--exclude=/{ATTACKS}")
+    drop_attack_config(rv)  # no folder of its own: every conftest.py goes too
+
+
 def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     """One batched refuter judges every finding of 50 or more that replay did not confirm; its verdict
     per finding (matched by file and line) is the one recorded. A refuter that fails, runs past its
@@ -1506,6 +1522,7 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     claims = [item for item in run.findings if item.score >= 50 and item.word != "CONFIRMED"]
     if not claims:
         return
+    refuter_tree(run, rv)
     out = main / ".private" / "work" / "factory" / "review" / "out"
     keep = out / f"{run.pr}-{run.head[:12]}-r{run.round_}-refuter.json"
     prompt = refuter_brief(run, rv, slot, claims)
@@ -1550,21 +1567,43 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
 # ---------------------------------------------------------------------------------------------- cloud
 
 
-def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
+def hand_off(
+    run: Run, lenses: list[Lens], main: Path, records: Path, relaunch: frozenset[str] = frozenset()
+) -> None:
     """`--where cloud`: one cloud reviewer per lens, on the map's model, each launched by
     `scripts.factory.review_cloud` (a fresh review branch holding the head, its review file, and
     `uv run python -m scripts.factory.launch cloud --role reviewer` from the main checkout). Nothing
     is recorded here: each reviewer answers later on its branch. The cloud verdict file knows only the
     `pr-reviewer` and `refuter` agents, so the words lens runs there as `pr-reviewer` given its task.
 
-    The hand-off file always names every lens the tier requires, each with every launch it had (its
-    branch and review file), how many launches were tried, and the last one's state. A rerun of the
-    round launches again every required lens that has no accepted verdict yet (its session died, ran
-    out of turns, or pushed a verdict the ledger rejects, or its launch failed); a lens with an
-    accepted verdict is kept as it is, and no launch is ever dropped."""
+    The hand-off file names every lens the tier requires, each with every launch it had (its branch
+    and review file), how many launches were tried and its state. It is written (atomically, the stop
+    signals held) before anything is launched, before each launch (the lens `launching`) and right
+    after each launch returns or raises: a stop, a crash or a timeout part-way keeps every launch
+    already made, and `ledger fetch-verdict` refuses the head from the first write on. A rerun never
+    launches again a lens that has a launch; a lens whose session died is launched again only when
+    named in `relaunch` (and only while it has no accepted verdict)."""
     assert run.head is not None
     path = handoff_path(records, run.pr, run.head, run.round_)
     previous = {str(entry.get("label")): entry for entry in read_manifest(path, run).get("lenses", [])}
+    entries: dict[str, dict[str, Any]] = {}
+    for lens in lenses:
+        old = previous.get(lens.label, {})
+        launches = launches_of(old)
+        count = old.get("count") if KINDS["integer"](old.get("count")) else len(launches)
+        state = str(old.get("state", "pending")) if launches else "pending"
+        entries[lens.label] = {"label": lens.label, "state": state, "count": count, "launches": launches}
+
+    def save() -> None:
+        manifest = {
+            "pr": run.pr,
+            "head": run.head,
+            "round": run.round_,
+            "tier": run.tier,
+            "required": [lens.label for lens in lenses],
+            "lenses": [entries[lens.label] for lens in lenses],
+        }
+        write_handoff(path, manifest)
 
     def push(argv: list[str]) -> int:
         return _run(argv, cwd=main, timeout=GIT_TIMEOUT).returncode
@@ -1578,16 +1617,19 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
             started["review_file"] = argv[argv.index("--review-file") + 1]
         return done.returncode
 
-    entries: list[dict[str, Any]] = []
+    save()
     failed = []
     for lens in lenses:
         about: dict[str, Any] = {"label": lens.label, "agent": lens.agent, "model": lens.model}
-        old = previous.get(lens.label, {})
-        launches = launches_of(old)
-        count = old.get("count") if KINDS["integer"](old.get("count")) else len(launches)
-        if newest_verdict(main, run, lens.label, launches) is not None:
-            entries.append({"label": lens.label, "state": "answered", "count": count,
-                            "launches": launches})  # fmt: skip
+        entry = entries[lens.label]
+        launches = entry["launches"]
+        if launches and newest_verdict(main, run, lens.label, launches) is not None:
+            entry["state"] = "answered"
+            save()
+            run.launched.append(launches[-1]["branch"])
+            run.lenses.append({**about, "where": "cloud", "reused": True})
+            continue
+        if launches and lens.label not in relaunch:  # launched before: never twice unless named
             run.launched.append(launches[-1]["branch"])
             run.lenses.append({**about, "where": "cloud", "reused": True})
             continue
@@ -1597,32 +1639,42 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
         argv = ["--pr", str(run.pr), "--head", run.head, "--agent", "pr-reviewer"]
         argv += ["--model", lens.model, "--task", task]
         started.clear()
-        with contextlib.redirect_stdout(sys.stderr):
-            code = review_cloud.run(argv, push=push, launch=launch, records_dir=records)
-        run.lenses.append({**about, "where": "cloud", "launch": count + 1})
-        if code == 0 and started:
-            run.launched.append(started["branch"])
-            launches = [*launches, dict(started)]
-            state = "launched"
-        else:
+        entry.update(state="launching", count=entry["count"] + 1)
+        save()
+        code: int | None = None
+        try:
+            with contextlib.redirect_stdout(sys.stderr):
+                code = review_cloud.run(argv, push=push, launch=launch, records_dir=records)
+        finally:  # a launch that returned, raised or was stopped: kept before anything else
+            if started:
+                entry["launches"] = [*launches, dict(started)]
+                run.launched.append(started["branch"])
+            entry["state"] = "launched" if code == 0 and started else "failed"
+            save()
+        run.lenses.append({**about, "where": "cloud", "launch": entry["count"]})
+        if entry["state"] == "failed":
             failed.append(lens.label)
-            state = "failed"
-        entries.append({"label": lens.label, "state": state, "count": count + 1, "launches": launches})
-    manifest = {
-        "pr": run.pr,
-        "head": run.head,
-        "round": run.round_,
-        "tier": run.tier,
-        "required": [lens.label for lens in lenses],
-        "lenses": entries,
-    }
-    path.unlink(missing_ok=True)
-    review_cloud.private_write(path, json.dumps(manifest) + "\n")
     if failed:
         raise Refused(
             f"the cloud launch of {', '.join(failed)} failed; nothing recorded: run the round again "
-            "with --where cloud (every lens with no accepted verdict launches again)"
+            "with --where cloud (a lens with no launch is launched; name a lens whose session died "
+            "with --relaunch <lens>)"
         )
+
+
+def write_handoff(path: Path, manifest: dict[str, Any]) -> None:
+    """The hand-off file, replaced atomically (a private temporary file, then a rename), with the
+    stop signals held: it is never half written, and never lost to a stop."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    with signals_held():
+        temporary.unlink(missing_ok=True)
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "w") as out:
+            out.write(json.dumps(manifest) + "\n")
+            out.flush()
+            os.fsync(out.fileno())
+        os.replace(temporary, path)
 
 
 def launches_of(entry: dict[str, Any]) -> list[dict[str, str]]:

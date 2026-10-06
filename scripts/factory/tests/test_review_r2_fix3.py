@@ -48,9 +48,9 @@ def cloud(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Cloud:
     return made
 
 
-def hand_off(cloud: Cloud) -> None:
+def hand_off(cloud: Cloud, relaunch: frozenset[str] = frozenset()) -> None:
     run = review.Run(pr=PR, round_=1, head=cloud.head, tier="normal")
-    review.hand_off(run, [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
+    review.hand_off(run, [review.LENS_A, review.LENS_B], cloud.main, cloud.records, relaunch)
 
 
 def collect(cloud: Cloud) -> None:
@@ -74,7 +74,7 @@ def test_a_lens_whose_session_died_is_launched_again_and_collect_records_once_bo
     cloud.answer(launcher.nonce_of(review.LENS_B.model), "FIX", [FIX])  # lens A's session died
     with pytest.raises(review.Refused, match="lens-a: no accepted verdict"):
         collect(cloud)
-    hand_off(cloud)  # the rerun: lens A only
+    hand_off(cloud, frozenset({"lens-a"}))  # the rerun, lens A named as dead: lens A only
     assert [model for model, _ in launcher.launched] == [
         review.LENS_A.model,
         review.LENS_B.model,
@@ -99,7 +99,7 @@ def test_collect_takes_each_lens_s_newest_accepted_verdict(
     hand_off(cloud)
     first_a = launcher.nonce_of(review.LENS_A.model)
     cloud.answer(launcher.nonce_of(review.LENS_B.model), "PASS", [])
-    hand_off(cloud)  # lens A has no verdict yet: launched again
+    hand_off(cloud, frozenset({"lens-a"}))  # lens A has no verdict yet: named, launched again
     cloud.answer(first_a, "PASS", [])
     cloud.answer(launcher.nonce_of(review.LENS_A.model), "BLOCK", [FIX])
     collect(cloud)
