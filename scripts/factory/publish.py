@@ -24,7 +24,6 @@ import hashlib
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -75,8 +74,9 @@ def git_out(root: Path, *args: str) -> str | None:
 
 
 def leakscan_argv() -> list[str]:
-    chosen = os.environ.get("VEXTRUS_LEAKSCAN_CMD")
-    return shlex.split(chosen) if chosen else [sys.executable, "-m", "tools.leakscan"]
+    """The real scanner, always: publish's range, stamp and body scans are gates, so no environment
+    variable chooses them (`VEXTRUS_LEAKSCAN_CMD` is the watcher's read-only seam alone)."""
+    return [sys.executable, "-m", "tools.leakscan"]
 
 
 def scanner_env() -> dict[str, str]:
@@ -214,7 +214,45 @@ def create_pr(branch: str, title: str, body: Path) -> str:
     return lines[-1] if lines else "(no URL printed)"
 
 
-def push(root: Path, branch: str) -> None:
+def ready_problem(root: Path, head: str) -> str | None:
+    """The guard's READY push gate (`readyProblem` in `.claude/hooks/guard.mjs`): a head whose trailers
+    gate it as READY needs a green verify record for its tree at
+    `<git-common-dir>/vextrus/verify-<tree>.json` (schema 1, that tree, checks non-empty, every
+    `exit_code` 0). None when the head may be pushed; a head that is not gated (the allowlist batch's
+    commit carries no Factory trailer) needs none, as the guard says."""
+    message = git_out(root, "log", "-1", "--format=%B", head) or ""
+    tree = git_out(root, "rev-parse", "--verify", "-q", f"{head}^{{tree}}")
+    common = git_out(root, "rev-parse", "--git-common-dir")
+    if tree is None or common is None:
+        return "the pushed tree or the git folder cannot be read"
+    if not read_trailers(message, tree).gated:
+        return None
+    path = (root / common).resolve() / "vextrus" / f"verify-{tree}.json"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return f"no readable verify record for tree {tree}"
+    checks = record.get("checks") if isinstance(record, dict) else None
+    if (
+        not isinstance(record, dict)
+        or record.get("schema_version") != 1
+        or record.get("tree") != tree
+        or not isinstance(checks, list)
+        or not checks
+    ):
+        return f"the verify record for tree {tree} is malformed or names another tree"
+    if not all(isinstance(check, dict) and check.get("exit_code") == 0 for check in checks):
+        return f"a check in the verify record for tree {tree} did not pass"
+    return None
+
+
+def push(root: Path, branch: str, head: str) -> None:
+    """`git push origin <branch>` of exactly `head`, after the guard's READY gate (`ready_problem`)."""
+    if git_out(root, "rev-parse", "--verify", "-q", f"refs/heads/{branch}") != head:
+        raise Refused("the branch moved during the scan: nothing is pushed")
+    problem = ready_problem(root, head)
+    if problem is not None:
+        raise Refused(f"{problem}: run scripts.verify on that tree; nothing is pushed")
     done = git(root, "push", "origin", branch)
     if done.returncode != 0:
         raise Refused(f"git push failed (exit {done.returncode})")
@@ -283,9 +321,7 @@ def publish(root: Path, branch: str) -> int:
         raise Refused("the head shares no history with origin/main")
     range_scan(root, base, head, branch)
     if local is not None and local != remote:
-        if git_out(root, "rev-parse", "--verify", "-q", f"refs/heads/{branch}") != head:
-            raise Refused("the branch moved during the scan: nothing is pushed")
-        push(root, branch)
+        push(root, branch, head)
         print(f"publish: pushed {branch} at {head[:8]}")
     else:
         print(f"publish: {branch} at {head[:8]} is already on origin")

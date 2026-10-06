@@ -241,13 +241,16 @@ def changed_paths() -> list[str]:
     return sorted({*staged, *since} - {""})
 
 
-def _leakscan_argv(root: Path) -> list[str] | None:
-    chosen = os.environ.get("VEXTRUS_LEAKSCAN_CMD")  # a test seam, as the watcher's
-    if chosen:
-        return shlex.split(chosen)
-    if (root / "tools" / "leakscan" / "__main__.py").is_file():
-        return [sys.executable, "-m", "tools.leakscan"]
-    return None
+def _leakscan_env(root: Path) -> dict[str, str] | None:
+    """The environment for the real scanner (`python -m tools.leakscan`): this checkout's, else the
+    tree holding verify; None when neither has one. Verify's record gates READY, so no environment
+    variable chooses the scanner (`VEXTRUS_LEAKSCAN_CMD` is the watcher's read-only seam alone)."""
+    own = Path(__file__).resolve().parents[1]
+    trees = [tree for tree in (root, own) if (tree / "tools" / "leakscan" / "__main__.py").is_file()]
+    if not trees:
+        return None
+    paths = [str(trees[0]), *filter(None, os.environ.get("PYTHONPATH", "").split(os.pathsep))]
+    return {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}
 
 
 def remedy(root: Path, sha: str, staged: str) -> str:
@@ -272,8 +275,9 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     (refused, lines). The staged tree is scanned as a commit on HEAD (`git commit-tree`, an unreferenced
     object), so the READY commit's own additions are in the range. A hit refuses, naming locations and
     counts only; with no scanner, no origin/main or no corpus (a cloud session) it is a note."""
-    argv = _leakscan_argv(root)
-    if argv is None:
+    env = _leakscan_env(root)
+    argv = [sys.executable, "-m", "tools.leakscan"]
+    if env is None:
         return False, ["verify: leak scan not run: no tools/leakscan here"]
     base = subprocess.run(
         ["git", "merge-base", "origin/main", "HEAD"], capture_output=True, text=True, check=False
@@ -299,6 +303,7 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     done = subprocess.run(
         [*argv, "range", span, "--no-stamp", "--json"],
         cwd=root,
+        env=env,
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
@@ -319,7 +324,7 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
         # Each hit with the commit whose own added text the scanner matched (each commit alone), and
         # that commit's remedy once.
         head = staged.stdout.strip()
-        attributed = leakwhere.commit_hits(root, argv, base.stdout.strip(), head)
+        attributed = leakwhere.commit_hits(root, argv, base.stdout.strip(), head, env)
         if not attributed:
             lines = [f"verify: leak hit {where} {n}" for where, n in hits]
         else:

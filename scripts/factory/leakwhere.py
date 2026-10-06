@@ -25,6 +25,7 @@ GIT_TIMEOUT = 120
 SCAN_TIMEOUT = 600
 RUN_ERRORS = (OSError, subprocess.SubprocessError)  # a name, not `except A, B:` (3.14 only)
 READ_ERRORS = (IndexError, ValueError, KeyError, TypeError)
+CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")  # a control character in a name: no clean row
 HUNK = re.compile(r"^(@{3,}) (?:-\d+(?:,\d+)? )+\+(\d+)(?:,\d+)? @{3,}")
 
 Hit = tuple[str, str, int]  # (commit sha, where within that commit's own scan, count)
@@ -154,10 +155,18 @@ def scan_rows(
     return hits
 
 
+def checkable(names: Sequence[str]) -> list[str]:
+    """The names as scanned: one holding a newline or another control character is blanked (it would
+    break the one-row-per-line mapping, and `place` calls it `unknown`), so the others keep their
+    rows."""
+    return ["" if CONTROL.search(name) else name for name in names]
+
+
 def place(path: str, names: list[str], named: list[tuple[int, int]]) -> str:
     """A merge's file as the scanner names one: `name:<i>` when its name holds a hit (never the path),
-    `unknown` when it is not in the merge's name list (never a path left unchecked), else the path."""
-    if path not in names:
+    `unknown` when it is not in the merge's name list or holds a control character (never a path left
+    unchecked), else the path."""
+    if path not in names or CONTROL.search(path):
         return "unknown"
     index = names.index(path)
     return f"name:{index}" if index in {i for i, _ in named} else path
@@ -177,7 +186,7 @@ def merge_hits(
     hits: list[tuple[str, int]] = []
     if rows:
         found = scan_rows(repo, scanner, [r[2] for r in rows], env)
-        named = scan_rows(repo, scanner, names, env)
+        named = scan_rows(repo, scanner, checkable(names), env)
         if found is None or named is None:
             return None
         for i, n in found:

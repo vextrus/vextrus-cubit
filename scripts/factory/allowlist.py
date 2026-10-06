@@ -239,7 +239,9 @@ def finish(root: Path, tree: Path, added: list[str], hits: list[Hit], branch: st
     if changed != [ALLOWLIST]:
         raise Refused("the batch commit changes more than the allowlist: nothing is pushed")
     publish.range_scan(root, main, head, branch)
-    publish.push(root, branch)
+    # The same push as publish's, READY gate included: this commit carries no Factory trailer, so the
+    # gate (the guard's) asks no verify record of it.
+    publish.push(root, branch, head)
     print(f"allowlist: pushed {branch} at {head[:8]} ({count} hashes)")
     title, body = publish.pr_body(message, head)
     path = publish.body_file(root, branch, head, body)

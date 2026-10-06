@@ -25,6 +25,7 @@ from scripts.tests.acceptance.ts14p7._world import (
     hit_file,
     ready_message,
     show,
+    write_verify_record,
 )
 
 SCANNER = [sys.executable, "-m", "tools.leakscan"]
@@ -76,6 +77,8 @@ def test_a_merges_hit_in_a_corpus_named_file_is_named_by_index_never_by_path(wor
 def test_publish_never_prints_a_corpus_named_merge_file(world: World) -> None:
     merge = merge_adding(world, "s99-n1", {NAMED: hit_file(2)}, ready=True)
     world.to_main("s99-n1")
+    # The READY head's green record, as `commit_ready` writes one: only the hit refuses it.
+    write_verify_record(world, world.tree(merge))
 
     done = world.publish("s99-n1")
 

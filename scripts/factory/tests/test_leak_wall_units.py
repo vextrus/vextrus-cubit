@@ -56,7 +56,10 @@ def test_the_batch_scanner_finds_a_hit_from_any_folder_without_pythonpath(
 def test_a_scanner_that_cannot_run_is_an_error_never_a_no_hit(
     corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("VEXTRUS_LEAKSCAN_CMD", f"{sys.executable} -m no_such_scanner_module")
+    # No environment variable chooses a gate's scanner (PR #498 r2): a broken one is patched in here.
+    monkeypatch.setattr(
+        publish, "leakscan_argv", lambda: [sys.executable, "-m", "no_such_scanner_module"]
+    )
     with pytest.raises(publish.Refused):
         allowlist.scanner_allow(tmp_path / "x.txt", f"{corpus}:2")
 

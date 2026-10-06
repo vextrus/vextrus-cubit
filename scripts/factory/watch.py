@@ -281,10 +281,15 @@ def leak_message(leak: dict[str, Any]) -> str:
     )
 
 
+WATCH_TREE = (
+    Path(__file__).resolve().parents[2]
+)  # the tree holding the watcher, the launcher, the scanner
+
+
 def launch_command() -> list[str]:
-    """The launcher in this checkout: its own environment's Python (the watcher's own `python3` may be
-    older than the launcher needs), else this interpreter."""
-    venv = Path.cwd() / ".venv" / "bin" / "python"
+    """The launcher in the watcher's own tree (in use, the main checkout), run with that tree's Python
+    (the watcher's own `python3` may be older than the launcher needs), else this interpreter."""
+    venv = WATCH_TREE / ".venv" / "bin" / "python"
     return [str(venv) if venv.is_file() else sys.executable, "-m", "scripts.factory.launch"]
 
 
@@ -301,10 +306,13 @@ def say_leak(step: Pass, ticket: str, record: dict[str, Any], head: str, leak: d
     folder.mkdir(parents=True, exist_ok=True)
     message = folder / f"{public(ticket, 80).replace(' ', '_')}-{head[:12]}.txt"
     message.write_text(leak_message(leak) + "\n")
-    argv = [*launch_command(), "say", session, "--ticket", ticket, "--file", str(message)]
+    argv = [*launch_command(), "say", session, "--ticket", ticket, "--file", str(message.resolve())]
     try:
+        # From the watcher's own tree: `say` scans with that tree's real scanner (a gate takes no
+        # environment seam), wherever the watcher's checkout is.
         done = subprocess.run(
             argv,
+            cwd=WATCH_TREE,
             stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,

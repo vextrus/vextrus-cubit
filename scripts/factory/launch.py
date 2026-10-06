@@ -281,18 +281,16 @@ def _json_ok(out: str) -> bool:
 
 
 def default_scan(root: Path) -> Scan | None:
-    """This tree's leak scan (f2's `tools/leakscan`), or None when the tree has none.
-    `VEXTRUS_LEAKSCAN_CMD` names another scanner command line (the watcher's seam, which `say` shares
-    when the watcher sends a leak message from a checkout without the scanner, as in its tests)."""
-    chosen = shlex.split(os.environ.get("VEXTRUS_LEAKSCAN_CMD", ""))
-    if not chosen and not (root / "tools" / "leakscan" / "__main__.py").is_file():
+    """This tree's leak scan (f2's `tools/leakscan`), or None when the tree has none. A gate: no
+    environment variable chooses the scanner (`VEXTRUS_LEAKSCAN_CMD` is the watcher's read-only seam
+    alone; the watcher runs `say` from its own tree, which holds the scanner)."""
+    if not (root / "tools" / "leakscan" / "__main__.py").is_file():
         return None
-    argv = chosen or [sys.executable, "-m", "tools.leakscan"]
 
     def scan(text: str) -> ScanResult:
         try:
             done = subprocess.run(
-                [*argv, "text", "--stdin"],
+                [sys.executable, "-m", "tools.leakscan", "text", "--stdin"],
                 cwd=root,
                 input=text,
                 capture_output=True,
