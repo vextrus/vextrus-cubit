@@ -10,7 +10,7 @@
       "vextrus/takeoff/services/read_propose/proposals.py",
       "vextrus/takeoff/messages/proposals.py"
     ],
-    "engine-recognise-views": ["engine/recognise/views.py"],
+    "engine-recognise-views": ["engine/recognise/views/"],
     "web-takeoff-model": ["web/src/takeoff/model.ts"],
     "web-takeoff-locales-en": ["web/src/takeoff/locales/en.po"],
     "web-messages-takeoff-step1-en": ["web/src/messages/takeoff/step1/en.po"],

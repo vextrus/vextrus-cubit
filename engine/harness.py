@@ -19,7 +19,9 @@ what the contract does not allow, is `failed`, and the stages that need it are s
   sheet_conventions)` (each sheet then stamped with the file's group), `register.find(artefact,
   sheets)` (given the finder's file budget, `budget=`, when its list carries one: 13's; its
   `report()` is the file's `sheet_report`), and per sheet `views.find(artefact, sheet,
-  view_conventions)`, `buffers.build(artefact, sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
+  view_conventions)` (given one `ViewBudget(artefact)` for the file's sheets, `budget=`, when the
+  stage's module has one: 17's), `buffers.build(artefact, sheet)` and `raster.rasterise(buffers,
+  PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
 Then across the set: `registration.match(pages, sheets, geometry, plots, disciplines)` (`geometry[i]` is
@@ -417,6 +419,11 @@ def _read_dwg(job: Mapping[str, Any], stages: Stages) -> dict[str, Any]:
     papers: list[tuple[float, float] | None] = [None for _ in sheets or []]
     missing = needs_sheets or (None if view_conventions is not None else "view conventions")
     if find_views := stages.open("views", missing):
+        view_budget = getattr(
+            importlib.import_module(stages.targets["views"].partition(":")[0]), "ViewBudget", None
+        )
+        if callable(view_budget):  # one for the file: its sheets spend its bounds together
+            find_views = partial(find_views, budget=view_budget(artefact))
         for j, sheet in enumerate(sheets or []):
             ok, result = stages.call("views", find_views, artefact, sheet, view_conventions)
             listed_views = _list_of(stages, "views", result, ViewCandidate) if ok else None
