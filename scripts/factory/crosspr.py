@@ -9,9 +9,14 @@ or a failing test refuses, naming the PR and the branch (exit 1); the last line 
 Running a PR's tests runs its code, so only a PR from one of this repository's own branches by an author
 listed in `trusted-authors.txt` has its tests run; every other PR gets `merge-tree` only and the output
 says so. Python tests (test_*.py) and node tests (`*.test.mjs` under .claude/hooks, tools/mod and
-scripts/factory) run; an open PR that conflicts with main alone is stale and is reported, not refused.
-Web tests do not run: when a union changes them the last line reads
-`Cross-PR: #51 web not run` in place of `ok` (exit 0, the web side unchecked). `--tree <sha>` checks that
+scripts/factory) run. The rule, with no subtraction: each PR's tests run first on main + the PR alone
+(the baseline). Only a fully clean baseline (every test passed; no failure, error, collection error or
+time-out, Python or node) lets the union run, where a failure or time-out refuses, naming both. Any
+other baseline skips the union: the PR is "#N not checked (its own tests are not green on main)",
+never `ok` and never a refusal, and the line says `not checked`. A PR that conflicts with main alone is
+`stale`, one whose tests were not run is `merge-only`; the line then names each PR's status. Web tests
+do not run: when a union changes them the last line reads `Cross-PR: #51 web not run` in place of `ok`
+(exit 0, the web side unchecked). `--tree <sha>` checks that
 tree (verify's staged tree) as a commit on the branch's tip instead of the tip itself.
 
 It only reads: no push, no mutating `gh` call, no change to the clone's branches, index or working tree.
@@ -33,13 +38,12 @@ from pathlib import Path
 TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
 NODE_TEST = re.compile(r"^(?:\.claude/hooks|tools/mod|scripts/factory)/.*\.test\.mjs$")
 DESELECTED = re.compile(r"(\d+) deselected")
-PYTEST_ID = re.compile(r"^(?:FAILED|ERROR) (\S+)", re.MULTILINE)
 WEB_TEST = re.compile(r"^web/.*\.(?:test|spec)\.tsx?$")
 IDENTITY = ("-c", "user.name=crosspr", "-c", "user.email=crosspr@example.invalid")
 TRUSTED_AUTHORS = Path(__file__).with_name("trusted-authors.txt")
 OUTPUT_TAIL = 60
 QUICK = 120
-TESTS = int(os.environ.get("CROSSPR_TEST_SECONDS", "900"))
+TESTS = 900
 
 
 class Refusal(Exception):
@@ -188,10 +192,8 @@ def drop_stale_worktrees(root: Path, kept: Path) -> None:
 def check_pr(
     root: Path, kept: Path, branch: str, tip: str, pr: dict[str, object], head: str
 ) -> tuple[str | None, list[str], list[str], str]:
-    """(the reason it refuses or None, notes, what was not run, the PR's status). One baseline rule:
-    only what appears when the builder's tree is added on top of main + the PR refuses. A PR that
-    conflicts with main alone is `stale`; tests failing on main + the PR alone are the PR's own
-    (`fails-on-main`) and never counted against the builder; a PR not trusted is `merge-only`."""
+    """(the reason it refuses or None, notes, what was not run, the PR's status): `stale`, `merge-only`,
+    `not checked` (its own tests are not green on main + the PR alone) or `ok`."""
     number = int(pr["number"])  # type: ignore[call-overload]
     notes: list[str] = []
     unrun: list[str] = []
@@ -226,86 +228,63 @@ def check_pr(
         joined = git(*IDENTITY, "merge", "--no-edit", "-q", head, cwd=tree)
         if joined.returncode != 0:
             raise Refusal(f"#{number} merged into main alone failed: {joined.stderr.strip()}")
-        baseline = Tests(tree, kept, f"pr-{number}-main")
-        theirs = baseline.run(changed)
-        if theirs.timed_out:
-            notes.append(
-                f"crosspr: #{number} hangs on main: not yours; its tests are not run with yours"
-            )
-            return None, notes, unrun, "hangs-on-main"
+        baseline = Tests(tree, kept, f"pr-{number}-main").run(changed)
+        if not baseline.green:
+            notes.append(f"crosspr: #{number} not checked (its own tests are not green on main)")
+            return None, notes, unrun, "not checked"
         joined = git(*IDENTITY, "merge", "--no-edit", "-q", tip, cwd=tree)
         if joined.returncode != 0:
             said = f"crosspr: #{number} and {branch} conflict on origin/main:\n"
             return said + tail(joined.stdout + joined.stderr), notes, unrun, "ok"
-        union = Tests(tree, kept, f"pr-{number}")
-        mine = union.run(changed)
-        status = "ok"
-        if theirs.had_files and theirs.collected == 0:
-            notes.append(f"crosspr: #{number} uncheckable (collects nothing on main)")
-            status = "uncheckable"
-        elif theirs.failed:
-            notes.append(f"crosspr: #{number} fails on main: not yours")
-            status = "fails-on-main"
-        notes += union.notes
-        notes = [
-            f"crosspr: #{number} {note}" if not note.startswith("crosspr:") else note for note in notes
-        ]
-        if mine.timed_out:
-            return f"crosspr: #{number} and {branch}: {mine.timed_out}", notes, unrun, status
-        if mine.broke_beyond(theirs):
-            said = f"crosspr: #{number} and {branch} break each other: tests failed on their union "
-            said += f"({', '.join(changed)}); output in .private/work/crosspr/pr-{number}.txt\n"
-            return said + tail(mine.output), notes, unrun, status
-        if mine.node_unrun:
+        union = Tests(tree, kept, f"pr-{number}").run(changed)
+        notes += [f"crosspr: #{number} {note}" for note in union.notes]
+        if union.node_unrun:
             unrun.append("node not run")
-        return None, notes, unrun, status
+        if union.timed_out or union.failed:
+            what = union.timed_out or "tests failed on their union"
+            said = f"crosspr: #{number} and {branch} break each other: {what} "
+            said += f"({', '.join(changed)}); output in .private/work/crosspr/pr-{number}.txt\n"
+            return said + tail(union.output), notes, unrun, "ok"
+        return None, notes, unrun, "ok"
     finally:
         git("worktree", "remove", "--force", str(tree), cwd=root)
 
 
 class Tests:
-    """One run of the changed Python and node tests in a worktree: what failed, by test id."""
+    """One run of the changed Python and node tests in a worktree. `green`: every test ran and passed
+    (no failure, error, collection error or time-out, on either side). `failed`: a run that is not
+    clean (exit 5, no test collected, is not a failure here)."""
 
     def __init__(self, tree: Path, kept: Path, name: str) -> None:
         self.tree, self.kept, self.name = tree, kept, name
-        self.failed = False
-        self.failed_ids: set[str] = set()
-        self.pytest_exit: int | None = None
-        self.counts = {"failed": 0, "error": 0}
-        self.collected = 0
-        self.had_files = False
+        self.exits: list[int] = []
         self.output = ""
         self.timed_out = ""
         self.node_unrun = False
         self.notes: list[str] = []
 
+    @property
+    def green(self) -> bool:
+        return not self.timed_out and all(code == 0 for code in self.exits)
+
+    @property
+    def failed(self) -> bool:
+        return any(code not in (0, 5) for code in self.exits)
+
     def run(self, changed: list[str]) -> Tests:
         pytests = [p for p in changed if TEST_FILE.search(p) and (self.tree / p).is_file()]
         nodes = [p for p in changed if NODE_TEST.search(p) and (self.tree / p).is_file()]
-        self.had_files = bool(pytests)
         if pytests:
-            argv = [
-                sys.executable,
-                "-m",
-                "pytest",
-                "--continue-on-collection-errors",
-                "-rfE",
-                "-q",
-                "-p",
-                "no:cacheprovider",
-                *pytests,
-            ]
-            self.collect(argv, self.name, "Python", pytests, ok=(0, 5))
+            argv = [sys.executable, "-m", "pytest", "-rfE", "-q", "-p", "no:cacheprovider", *pytests]
+            self.collect(argv, self.name, "Python", pytests)
         if nodes and shutil.which("node") is None:
             self.notes.append("node not run: node is absent")
             self.node_unrun = True
         elif nodes:
-            self.collect(["node", "--test", *nodes], f"{self.name}-node", "node", nodes, ok=(0,))
+            self.collect(["node", "--test", *nodes], f"{self.name}-node", "node", nodes)
         return self
 
-    def collect(
-        self, argv: list[str], name: str, kind: str, files: list[str], ok: tuple[int, ...]
-    ) -> None:
+    def collect(self, argv: list[str], name: str, kind: str, files: list[str]) -> None:
         try:
             ran = call(argv, cwd=self.tree, limit=TESTS)
         except Refusal as error:
@@ -313,42 +292,14 @@ class Tests:
             return
         output = ran.stdout + ran.stderr
         (self.kept / f"{name}.txt").write_text(output)
-        if kind == "Python":
-            self.pytest_exit = ran.returncode
-            for word in self.counts:
-                found = re.search(rf"(\d+) {word}s?\b", output.splitlines()[-1] if output else "")
-                self.counts[word] = int(found[1]) if found else 0
-            last = output.splitlines()[-1] if output else ""
-            self.collected = sum(
-                int(n) for n, w in re.findall(r"(\d+) (passed|failed|skipped|xfailed|xpassed)", last)
-            )
+        self.exits.append(ran.returncode)
         if ran.returncode == 5:
             self.notes.append("no Python test ran (none collected or all deselected)")
-        elif ran.returncode in ok:
+        elif ran.returncode == 0:
             if found := DESELECTED.search(output):
                 self.notes.append(f"{found[1]} Python tests deselected, not run")
-            return
-        if ran.returncode not in ok:
-            self.failed = True
+        else:
             self.output += output
-            ids = set(PYTEST_ID.findall(output)) if kind == "Python" else set()
-            self.failed_ids |= ids
-            if kind == "node":
-                named = {f"node:{f}" for f in files if f in output}
-                self.failed_ids |= named or {"node:no-file-named"}
-
-    def broke_beyond(self, base: Tests) -> bool:
-        """Did this run break something the baseline run (main + the PR alone) did not? New failing ids,
-        an exit other than 0, 1 or 5 the baseline did not share, more failed or error counts, or a
-        failure naming nothing when the baseline had none."""
-        odd = self.pytest_exit not in (None, 0, 1, 5) and self.pytest_exit != base.pytest_exit
-        worse = any(self.counts[word] > base.counts[word] for word in self.counts)
-        return (
-            bool(self.failed_ids - base.failed_ids)
-            or odd
-            or worse
-            or (self.failed and not self.failed_ids and not base.failed)
-        )
 
 
 def summary(statuses: dict[int, str], unrun: list[str]) -> str:

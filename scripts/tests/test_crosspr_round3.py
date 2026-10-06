@@ -26,28 +26,6 @@ OWN = {
 }
 
 
-def test_a_pr_test_already_failing_on_main_plus_the_pr_is_not_the_builders(tmp_path: Path) -> None:
-    world = World(tmp_path)
-    world.open_pr(51, "s14-x1", {"calc.py": WITH_DOUBLE, "tests/test_x1_red.py": FAILING_TEST})
-    describe(world, 51, **TRUSTED)
-    world.own(OWN)
-    done = run(world)
-    assert done.returncode == 0, done.stderr
-    assert "#51 fails on main: not yours" in done.stderr
-    assert done.stdout.strip() == "Cross-PR: #51 fails-on-main"
-
-
-def test_a_new_failure_on_top_of_a_prs_own_failure_still_refuses(tmp_path: Path) -> None:
-    world = World(tmp_path)
-    world.open_pr(51, "s14-x1", {"calc.py": WITH_DOUBLE, "tests/test_x1_red.py": FAILING_TEST})
-    describe(world, 51, **TRUSTED)
-    broken = {"calc.py": CALC.replace("return 2", "return 3"), "tests/test_x1_red.py": FAILING_TEST}
-    world.own({**broken, "tests/test_own.py": "def test_b():\n    assert False\n"})
-    done = run(world)
-    assert done.returncode == 1, done.stderr
-    assert "#51 and s14-b9 break each other" in done.stderr
-
-
 def test_a_test_main_added_that_a_stale_pr_breaks_is_not_the_builders(tmp_path: Path) -> None:
     """Main gains a test on `rate()` after the PR was cut; the PR changes rate, so that test fails on
     main + the PR. It is in neither side's changed set (three-dot), so it is not run against the
