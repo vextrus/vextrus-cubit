@@ -535,3 +535,70 @@ def test_the_stub_limit_is_exactly_its_count(tmp_path: Path, count: int, accepte
 
     assert (done.returncode == 0) is accepted, said(done)
     assert ("stub limit reached" in said(done)) is not accepted, said(done)
+
+
+# PR #482, review round 3.
+
+BY_NAME = '''"""A fixture ticket: walls in a new package, loaded by name."""
+
+import importlib
+
+
+def test_counts_walls() -> None:
+    walls = importlib.import_module("fixturepkg.newtop.walls")
+    assert walls.count_walls(4) == 4
+'''
+
+HELPER = '''"""Loads the module under test by name."""
+
+import importlib
+from types import ModuleType
+
+
+def walls() -> ModuleType:
+    return importlib.import_module("fixturepkg.newtop.walls")
+'''
+
+THROUGH_HELPER = '''"""A fixture ticket: walls in a new package, loaded by a helper beside the test."""
+
+from ._load import walls
+
+
+def test_counts_walls() -> None:
+    assert walls().count_walls(4) == 4
+'''
+
+
+@pytest.mark.parametrize(
+    ("named", "accepted"),
+    [("fixturepkg.newtop.walls", True), ("fixturepkg.newtop.wals", False)],
+    ids=["the module loaded", "a misspelling"],
+)
+def test_a_module_loaded_by_name_in_the_test_widens_to_its_parent(
+    tmp_path: Path, named: str, accepted: bool
+) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=BY_NAME, reasons=(f"No module named '{named}'",))
+
+    done = lint(root, "main", BRANCH)
+
+    assert (done.returncode == 0) is accepted, said(done)
+
+
+def test_a_module_loaded_by_name_in_a_helper_beside_the_test_widens_to_its_parent(
+    tmp_path: Path,
+) -> None:
+    root = make_repo(tmp_path)
+    ticket(
+        root, BRANCH, FOLDER, test=THROUGH_HELPER, reasons=("No module named 'fixturepkg.newtop.walls'",)
+    )
+    git(root, "checkout", "-q", BRANCH)
+    helper = root / file_of(FOLDER).replace("test_storeys.py", "_load.py")
+    helper.write_text(HELPER)
+    git(root, "add", str(helper))
+    git(root, "commit", "-q", "-m", "acceptance: the helper\n\nred-on-main: 1 failed\n")
+    git(root, "checkout", "-q", "main")
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)

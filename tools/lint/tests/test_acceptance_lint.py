@@ -211,3 +211,14 @@ def test_every_table_row_of_the_trailers_contract_is_one_line() -> None:
     ]
 
     assert broken == []
+
+
+def test_a_module_loaded_by_name_counts_as_imported() -> None:
+    """PR #482 round 3: `importlib.import_module` and `__import__` with a literal name."""
+    source = (
+        "import importlib\nfrom importlib import import_module\n\n"
+        'importlib.import_module("a.b")\nimport_module("c.d")\n__import__("e")\n'
+        'import_module(".rel", "pkg")\nimport_module(name)\n'
+    )
+
+    assert imports_of(source) == {"importlib", "importlib.import_module", "a.b", "c.d", "e"}

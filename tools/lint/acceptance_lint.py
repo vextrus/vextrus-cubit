@@ -307,8 +307,9 @@ def not_built(output: str) -> list[tuple[str, str | None]] | None:
 
 
 def imports_of(source: str) -> set[str]:
-    """The absolute modules a test file imports: `import a.b` gives `a.b`; `from a.b import c` gives
-    `a.b` and `a.b.c` (c may be a module). Empty when the file does not parse."""
+    """The absolute modules a file imports: `import a.b` gives `a.b`; `from a.b import c` gives `a.b`
+    and `a.b.c` (c may be a module); a module loaded by name, `importlib.import_module("a.b")` or
+    `__import__("a.b")` with a literal, gives `a.b`. Empty when the file does not parse."""
     try:
         tree = ast.parse(source)
     except SyntaxError:
@@ -320,7 +321,26 @@ def imports_of(source: str) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
             found.add(node.module)
             found.update(f"{node.module}.{alias.name}" for alias in node.names)
+        elif isinstance(node, ast.Call) and _loads_by_name(node):
+            found.add(node.args[0].value)  # type: ignore[attr-defined]
     return found
+
+
+def _loads_by_name(call: ast.Call) -> bool:
+    """Whether a call is `import_module("<absolute name>")` (as `importlib.import_module` or bare) or
+    `__import__("<absolute name>")`."""
+    func = call.func
+    name = (
+        func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+    )
+    if name not in {"import_module", "__import__"} or not call.args:
+        return False
+    first = call.args[0]
+    return (
+        isinstance(first, ast.Constant)
+        and isinstance(first.value, str)
+        and not first.value.startswith(".")
+    )
 
 
 def _stated(text: str, reasons: Sequence[str], imported: Collection[str] = ()) -> bool:
@@ -656,13 +676,23 @@ class Checker:
             found.append(("unshare", "as root (unshare -r)"))
         return found
 
+    def imports_beside(self, path: str) -> set[str]:
+        """The modules the test file and the helpers beside it (each `.py` in its folder, never through
+        a link) import or load by name."""
+        folder = (self.tree / path).parent
+        found: set[str] = set()
+        for helper in sorted(folder.glob("*.py")):
+            if not _through_link(self.tree, helper):
+                found |= imports_of(helper.read_text(errors="replace"))
+        return found
+
     def check_red(self) -> list[str]:
         problems = []
         for path in self.tests:
             if path in self.unjudged:
                 continue
             reasons = self.ticket.reasons.get(path, [])
-            imported = imports_of((self.tree / path).read_text(errors="replace"))
+            imported = self.imports_beside(path)
             for how, who in self.runs():
                 done, folder = self.pytest(path, how)
                 outcomes = _outcomes(folder / "report.xml")
