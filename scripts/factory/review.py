@@ -53,6 +53,8 @@ Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing record
 """
 
 import argparse
+import base64
+import binascii
 import contextlib
 import fcntl
 import functools
@@ -161,6 +163,7 @@ REVIEW_SCHEMA: dict[str, Any] = {
 JUDGED_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
+        "claim": {"type": "string", "description": "the claim's id, as given"},
         "file": {"type": "string", "description": "the finding's file, as given"},
         "line": {"type": "integer", "minimum": 0, "description": "the finding's line, as given"},
         "score": {"type": "integer", "minimum": 0, "maximum": 100},
@@ -1007,7 +1010,8 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
     showed (exit, output tail) is kept in REPLAYS for the refuter."""
     env = {key: value for key, value in lens_env(slot).items() if key not in COLOUR}
     env["NO_COLOR"] = "1"
-    command = ["uv", "run", "pytest", "-rf", "--color=no", *replay_marks(rv / test_file), test_file]
+    marks = replay_marks(rv / test_file)
+    command = ["uv", "run", "pytest", "-rf", "--color=no", *repo_config(rv), *marks, test_file]
     held = pytest_lock(rv)
     try:
         done = run_group(command, cwd=rv, env=env, timeout=REPLAY_TIMEOUT)
@@ -1123,9 +1127,7 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     if run.tier in ("allowlist-only", "docs-only"):
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
         return
-    lenses = [LENS_B] if run.tier == "small" else [LENS_A, LENS_B]
-    if any(path.startswith(MESSAGES) for path in run.paths):
-        lenses.append(WORDS)
+    lenses = tier_lenses(run.tier, run.paths)
     if cloud:
         hand_off(run, lenses, main, review_dir / "cloud")
         return
@@ -1163,6 +1165,15 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
+
+
+def tier_lenses(tier: str, paths: list[str]) -> list[Lens]:
+    """The lenses a model tier requires: lens B (small) or lens A and lens B, and the words lens when
+    a change is under web/src/messages/."""
+    lenses = [LENS_B] if tier == "small" else [LENS_A, LENS_B]
+    if any(path.startswith(MESSAGES) for path in paths):
+        lenses.append(WORDS)
+    return lenses
 
 
 def write_facts(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
@@ -1217,7 +1228,7 @@ def save_finished(out: Path, run: Run, lens: Lens, answer: dict[str, Any], rv: P
         repro = item.get("repro")
         target = replay_target(rv, repro["test_file"]) if isinstance(repro, dict) else None
         if target is not None and (rv / target).stat().st_size <= ATTACK_BYTES:
-            attacks[target] = (rv / target).read_text(errors="surrogateescape")
+            attacks[target] = base64.b64encode((rv / target).read_bytes()).decode()
     folder = rv / ATTACKS / lens.label
     inside = rv.resolve()
     if folder.is_dir() and not folder.is_symlink() and folder.resolve().is_relative_to(inside):
@@ -1231,7 +1242,7 @@ def save_finished(out: Path, run: Run, lens: Lens, answer: dict[str, Any], rv: P
                 or sum(len(text) for text in attacks.values()) > ATTACKS_BYTES
             ):
                 continue
-            attacks[name] = path.read_text(errors="surrogateescape")
+            attacks[name] = base64.b64encode(path.read_bytes()).decode()
     saved = {
         "head": run.head,
         "base": run.base,
@@ -1267,11 +1278,16 @@ def check_kept(out: Path, run: Run) -> None:
 
 
 def restore_attacks(rv: Path, attacks: dict[str, Any]) -> None:
-    """Write a reused lens's attack files back into `rv`, each only at a plain path inside it."""
+    """Write a reused lens's attack files back into `rv`, byte for byte (each kept as base64), each
+    only at a plain path inside it."""
     inside = rv.resolve()
     for name, text in attacks.items():
         pure = plain_relative(name) if isinstance(name, str) else None
         if pure is None or not isinstance(text, str):
+            continue
+        try:
+            data = base64.b64decode(text, validate=True)
+        except binascii.Error, ValueError:
             continue
         target, folder = rv / pure, rv
         linked = False
@@ -1283,7 +1299,7 @@ def restore_attacks(rv: Path, attacks: dict[str, Any]) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         if not target.parent.resolve().is_relative_to(inside):
             continue
-        target.write_text(text, errors="surrogateescape")
+        target.write_bytes(data)
 
 
 # ---------------------------------------------------------------------------------------------- lenses
@@ -1360,7 +1376,7 @@ def confirm(run: Run, rv: Path) -> None:
         excluded = [f"--exclude=/{target}" for target in keep]
         excluded.append(f"--exclude=/{ATTACKS}")
         git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules", *excluded)
-    drop_attack_config(rv)
+    drop_attack_config(rv, frozenset(PurePosixPath(target).parent.as_posix() for target in keep))
     for item in serious:
         target = targets[item.id]
         if item.repro is not None and target is None:
@@ -1379,18 +1395,42 @@ def confirm(run: Run, rv: Path) -> None:
 
 
 ATTACKS = "review_attacks"
-PYTEST_CONFIG = frozenset({"pytest.ini", ".pytest.ini", "tox.ini", "setup.cfg", "pyproject.toml"})
+# Every file pytest 9 reads its configuration from (a lens's `addopts` there would steer a replay).
+PYTEST_CONFIG = frozenset(
+    {
+        "pytest.ini",
+        ".pytest.ini",
+        "pytest.toml",
+        ".pytest.toml",
+        "pyproject.toml",
+        "tox.ini",
+        "setup.cfg",
+    }
+)
 
 
-def drop_attack_config(rv: Path) -> None:
-    """Remove every pytest configuration file under the attack folders (a lens's `addopts` would
-    change what a replay runs); its tests, conftest.py and helpers stay."""
+def drop_attack_config(rv: Path, own: frozenset[str] = frozenset()) -> None:
+    """Remove every pytest configuration file under the attack folders, and every conftest.py there
+    but one in a replayed test's own folder (`own`, relative folders): a lens's options or hooks
+    elsewhere would change what a replay runs; its tests and helpers stay."""
     root = rv / ATTACKS
     if root.is_symlink() or not root.is_dir():
         return
     for path in root.rglob("*"):
-        if path.name in PYTEST_CONFIG and (path.is_file() or path.is_symlink()):
+        if not (path.is_file() or path.is_symlink()):
+            continue
+        config = path.name in PYTEST_CONFIG
+        stray = path.name == "conftest.py" and path.parent.relative_to(rv).as_posix() not in own
+        if config or stray:
             path.unlink()
+
+
+def repo_config(rv: Path) -> list[str]:
+    """The replay's own configuration: the merged head's pyproject.toml (no config if it has none or
+    it is a link) and `rv` as the rootdir, so no config file a lens left is ever searched for."""
+    config = rv / "pyproject.toml"
+    chosen = "pyproject.toml" if config.is_file() and not config.is_symlink() else os.devnull
+    return ["-c", chosen, "--rootdir", "."]
 
 
 RECORD_WORD = re.compile(r"ledger", re.IGNORECASE)
@@ -1402,13 +1442,19 @@ def unnamed(text: str) -> str:
     return RECORD_WORD.sub(lambda found: f"{found[0][0]}*{found[0][2:]}", text)
 
 
+def as_sent(text: str) -> str:
+    """`text` as the refuter's brief carries it: the record's name masked, no backticks."""
+    return unnamed(text).replace("`", "'")
+
+
 def refuter_brief(run: Run, rv: Path, slot: Path, claims: list[Finding]) -> str:
     """The batched refuter's prompt: the PR, the worktree, and each claim it is to judge (no other)."""
     assert run.head is not None
     listed = [
-        unnamed(
+        as_sent(
             json.dumps(
                 {
+                    "claim": c.id,
                     "file": c.file,
                     "line": c.line,
                     "score": c.score,
@@ -1417,7 +1463,7 @@ def refuter_brief(run: Run, rv: Path, slot: Path, claims: list[Finding]) -> str:
                     "replay": c.replayed,
                 }
             )
-        ).replace("`", "'")
+        )
         for c in claims
     ]
     return "\n".join(
@@ -1439,9 +1485,9 @@ def refuter_brief(run: Run, rv: Path, slot: Path, claims: list[Finding]) -> str:
             "",
             *listed,
             "",
-            "Your answer is the JSON the schema asks for: one item per claim, with its file, line,",
-            "score and summary exactly as given above, your verdict (CONFIRMED: you reproduced it;",
-            "REFUTED: you proved it false; UNPROVEN: neither) and your evidence.",
+            "Your answer is the JSON the schema asks for: one item per claim, with its claim id,",
+            "file, line, score and summary exactly as given above, your verdict (CONFIRMED: you",
+            "reproduced it; REFUTED: you proved it false; UNPROVEN: neither) and your evidence.",
         ]
     )
 
@@ -1479,11 +1525,15 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
         print("review: the refuter answered outside its schema: it refutes nothing", file=sys.stderr)
         return
     judged: dict[str, set[str]] = {}
+    by_id = {claim.id: claim for claim in claims}
     for verdict in answer["findings"]:
-        place = (verdict["file"], verdict["line"])
-        matches = [c for c in claims if place in ((c.file, c.line), (unnamed(c.file), c.line))]
-        if len(matches) > 1:
-            matches = [c for c in matches if verdict["summary"] in (c.summary, unnamed(c.summary))]
+        if verdict.get("claim") in by_id:  # the stable id the brief gave it
+            matches = [by_id[verdict["claim"]]]
+        else:  # no id: by file and line, then by the summary as the brief sent it
+            place = (verdict["file"], verdict["line"])
+            matches = [c for c in claims if place in ((c.file, c.line), (as_sent(c.file), c.line))]
+            if len(matches) > 1:
+                matches = [c for c in matches if verdict["summary"] in (c.summary, as_sent(c.summary))]
         if len(matches) == 1:
             judged.setdefault(matches[0].id, set()).add(verdict["verdict"])
     for claim in claims:
@@ -1500,47 +1550,86 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
     `scripts.factory.review_cloud` (a fresh review branch holding the head, its review file, and
     `uv run python -m scripts.factory.launch cloud --role reviewer` from the main checkout). Nothing
     is recorded here: each reviewer answers later on its branch. The cloud verdict file knows only the
-    `pr-reviewer` and `refuter` agents, so the words lens runs there as `pr-reviewer` given its task."""
+    `pr-reviewer` and `refuter` agents, so the words lens runs there as `pr-reviewer` given its task.
+
+    The hand-off file always names every lens the tier requires, each with its launch state; a rerun
+    of the round keeps each lens already launched and launches again only those that failed."""
     assert run.head is not None
+    path = handoff_path(records, run.pr, run.head, run.round_)
+    previous = {
+        entry["label"]: entry
+        for entry in read_manifest(path, run).get("lenses", [])
+        if entry.get("state") == "launched" and entry.get("branch") and entry.get("review_file")
+    }
 
     def push(argv: list[str]) -> int:
         return _run(argv, cwd=main, timeout=GIT_TIMEOUT).returncode
 
-    handed: list[dict[str, str]] = []
-    label = ""
+    started: dict[str, str] = {}
 
     def launch(argv: list[str], _prompt: str) -> int:
         done = subprocess.run(argv, cwd=main, check=False, stdout=sys.stderr)
         if done.returncode == 0:
-            branch = argv[argv.index("--branch") + 1]
-            run.launched.append(branch)
-            review_file = argv[argv.index("--review-file") + 1]
-            handed.append({"label": label, "branch": branch, "review_file": review_file})
+            started["branch"] = argv[argv.index("--branch") + 1]
+            started["review_file"] = argv[argv.index("--review-file") + 1]
         return done.returncode
 
+    entries: list[dict[str, str]] = []
     failed = []
     for lens in lenses:
-        label = lens.label
+        entry: dict[str, Any] = {"label": lens.label, "agent": lens.agent, "model": lens.model}
+        if lens.label in previous:
+            entries.append(previous[lens.label])
+            run.launched.append(previous[lens.label]["branch"])
+            run.lenses.append({**entry, "where": "cloud", "reused": True})
+            continue
         task = lens.task
         if lens.writes and any(path.startswith(GUARD_PATHS) for path in run.paths):
             task = f"{task} {GUARD_ATTACK}"
         argv = ["--pr", str(run.pr), "--head", run.head, "--agent", "pr-reviewer"]
         argv += ["--model", lens.model, "--task", task]
+        started.clear()
         with contextlib.redirect_stdout(sys.stderr):
             code = review_cloud.run(argv, push=push, launch=launch, records_dir=records)
-        run.lenses.append(
-            {"label": lens.label, "agent": lens.agent, "model": lens.model, "where": "cloud"}
-        )
-        if code != 0:
+        run.lenses.append({**entry, "where": "cloud"})
+        if code == 0 and started:
+            run.launched.append(started["branch"])
+            entries.append({"label": lens.label, "state": "launched", **started})
+        else:
+            entries.append({"label": lens.label, "state": "failed"})
             failed.append(lens.label)
-    if handed:
-        # Every lens's answer is recorded together, by `collect`, never one lens alone.
-        manifest = {"pr": run.pr, "head": run.head, "round": run.round_, "tier": run.tier}
-        path = handoff_path(records, run.pr, run.head, run.round_)
-        path.unlink(missing_ok=True)
-        review_cloud.private_write(path, json.dumps({**manifest, "lenses": handed}) + "\n")
+    manifest = {
+        "pr": run.pr,
+        "head": run.head,
+        "round": run.round_,
+        "tier": run.tier,
+        "required": [lens.label for lens in lenses],
+        "lenses": entries,
+    }
+    path.unlink(missing_ok=True)
+    review_cloud.private_write(path, json.dumps(manifest) + "\n")
     if failed:
-        raise Refused(f"the cloud launch of {', '.join(failed)} failed; nothing recorded")
+        raise Refused(
+            f"the cloud launch of {', '.join(failed)} failed; nothing recorded: run the round again "
+            "with --where cloud (only the failed lenses launch again)"
+        )
+
+
+def read_manifest(path: Path, run: Run) -> dict[str, Any]:
+    """The hand-off file for this PR, head and round, or {} when there is none or it is not one."""
+    try:
+        manifest = json.loads(path.read_text())
+    except OSError, ValueError:
+        return {}
+    if not (
+        isinstance(manifest, dict)
+        and [manifest.get(key) for key in ("pr", "head", "round")] == [run.pr, run.head, run.round_]
+        and isinstance(manifest.get("required"), list)
+        and isinstance(manifest.get("lenses"), list)
+        and all(isinstance(entry, dict) for entry in manifest["lenses"])
+    ):
+        return {}
+    return manifest
 
 
 def handoff_path(records: Path, pr: int, head: str, round_: int) -> Path:
@@ -1573,21 +1662,25 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
     path = handoff_path(factory / "review" / "cloud", run.pr, run.head, run.round_)
-    try:
-        manifest = json.loads(path.read_text())
-        handed = manifest["lenses"]
-        run.tier = str(manifest["tier"])
-    except (OSError, ValueError, KeyError, TypeError) as error:
+    manifest = read_manifest(path, run)
+    if not manifest:
         raise Refused(
             f"no cloud hand-off of PR {run.pr} at {run.head} in round {run.round_}: "
             "run `review run --where cloud` first"
-        ) from error
-    if not isinstance(handed, list) or not handed:
-        raise Refused("the hand-off names no lens")
+        )
+    run.tier = str(manifest.get("tier"))
+    required = [str(label) for label in manifest["required"]]
+    floor = [lens.label for lens in tier_lenses(run.tier, [])]
+    if not required or not set(floor) <= set(required):
+        raise Refused(f"the hand-off leaves out a lens its {run.tier} tier requires: nothing recorded")
+    entries = {str(entry.get("label")): entry for entry in manifest["lenses"]}
     answers: list[tuple[str, dict[str, Any], str]] = []
     missing: list[str] = []
-    for lens in handed:
-        name = str(lens.get("label", "?")) if isinstance(lens, dict) else "?"
+    for name in required:
+        lens = entries.get(name)
+        if lens is None or lens.get("state") != "launched":
+            missing.append(f"{name}: never launched (run the round again with --where cloud)")
+            continue
         try:
             answers.append(read_handed(main, run, lens))
         except (ledger.Refused, ledger.BadInput, Refused) as error:

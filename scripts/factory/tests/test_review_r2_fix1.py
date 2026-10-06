@@ -52,8 +52,11 @@ class Cloud:
         review_file = self.records / f"review-{PR}-{nonce[:8]}.json"
         review_file.write_text(json.dumps({"pr": PR, "head_sha": self.head, "nonce": nonce}))
         branch = f"review/{PR}-{nonce[:8]}"
-        self.lenses.append({"label": label, "branch": branch, "review_file": str(review_file)})
-        manifest = {"pr": PR, "head": self.head, "round": 1, "tier": "normal", "lenses": self.lenses}
+        entry = {"label": label, "state": "launched", "branch": branch, "review_file": str(review_file)}
+        self.lenses.append(entry)
+        required = ["lens-a", "lens-b"]
+        manifest = {"pr": PR, "head": self.head, "round": 1, "tier": "normal",
+                    "required": required, "lenses": self.lenses}  # fmt: skip
         review.handoff_path(self.records, PR, self.head, 1).write_text(json.dumps(manifest))
 
     def answer(self, nonce: str, verdict: str, findings: list[dict[str, Any]]) -> None:
