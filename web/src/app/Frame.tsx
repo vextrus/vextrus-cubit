@@ -8,7 +8,7 @@
 import { useLayoutEffect, useSyncExternalStore, type ReactNode } from 'react'
 import { Trans } from '@lingui/react/macro'
 import { i18n } from '@lingui/core'
-import { onlineManager, useQueryClient, useSuspenseQuery, type QueryClient } from '@tanstack/react-query'
+import { onlineManager, useQueryClient, useSuspenseQuery, type Query, type QueryClient } from '@tanstack/react-query'
 import { useParams, useRouterState } from '@tanstack/react-router'
 import { SearchX } from 'lucide-react'
 import { FormatProvider, type MarketFormat } from '@/format'
@@ -38,16 +38,22 @@ function useMarketLanguage(market: MarketFormat) {
   }, [language, market])
 }
 
+/** Failed tries in a row before the ErrorBar shows (the policy keeps trying after it does). */
+const UNREACHABLE_AFTER = 2
+
 function isNetworkFailure(error: unknown): boolean {
   return error instanceof TypeError
 }
 
+/** A query whose last try could not reach the server: it failed for good, or is still being tried. */
+function cannotReach(state: Query['state']): boolean {
+  if (state.status === 'error') return isNetworkFailure(state.error)
+  return state.fetchFailureCount >= UNREACHABLE_AFTER && isNetworkFailure(state.fetchFailureReason)
+}
+
 function unreachable(client: QueryClient): boolean {
   if (!onlineManager.isOnline()) return true
-  return client
-    .getQueryCache()
-    .getAll()
-    .some((q) => q.state.status === 'error' && isNetworkFailure(q.state.error))
+  return client.getQueryCache().getAll().some((q) => cannotReach(q.state))
 }
 
 /** True while the browser is offline or the last try of any query failed to reach the server. */

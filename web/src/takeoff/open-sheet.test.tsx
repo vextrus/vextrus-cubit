@@ -46,12 +46,13 @@ describe('#115: a sheet image that fails again after Try again', () => {
       return served(request)
     }
     await mountApp(step1SheetPath('KR-01', s02.sheet_id), { as: PEOPLE.qs, api })
-    const first = await screen.findByRole('button', { name: 'Try again' })
+    // The query policy tries a fault again (1 s, 2 s, 4 s, real time here) before it is shown.
+    const first = await screen.findByRole('button', { name: 'Try again' }, { timeout: 15_000 })
     const before = renders
     first.focus()
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(renders).toBeGreaterThan(before))
-    const again = await screen.findByRole('button', { name: 'Try again' })
+    const again = await screen.findByRole('button', { name: 'Try again' }, { timeout: 15_000 })
     await waitFor(() => expect(document.activeElement).toBe(again))
     const region = again.closest('[data-region-focus]')!
     expect(region).not.toBeNull()
@@ -61,6 +62,6 @@ describe('#115: a sheet image that fails again after Try again', () => {
     expect(document.activeElement).toBe(again)
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(renders).toBeGreaterThan(tried))
-  })
+  }, 60_000)
 })
 
