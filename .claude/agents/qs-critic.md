@@ -28,6 +28,8 @@ What you review (the orchestrator names the scope; stay inside it):
   hand on each real set: Questions per Discipline, Sheets that cannot join the bulk confirmation, false
   continuation Questions, proposed leave-outs a QS would undo. Report counts and codes only.
 
+**Cloud.** In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). Figures, documents and files can still be reviewed without one.
+
 Real drawings (the Edison set, the Sample Project, client sets) are read in place under `.private/`.
 Their content never goes into the repo, an issue or a PR.
 

@@ -164,9 +164,26 @@ def failed_call(error: subprocess.CalledProcessError) -> str:
 
 
 def order(prs: Iterable[dict[str, Any]]) -> list[int]:
-    """Engine PRs with a PASS first, then the rest with a PASS, each by number."""
-    passing = [pr for pr in prs if pr["pass"]]
-    return [pr["number"] for pr in sorted(passing, key=lambda pr: (not pr["engine"], pr["number"]))]
+    """Engine PRs with a PASS first, then the rest with a PASS, each by number; a PR whose `files`
+    overlap a lower-numbered PR's comes after that PR (number order for PRs that touch the same file)."""
+    passing = sorted((pr for pr in prs if pr["pass"]), key=lambda pr: (not pr["engine"], pr["number"]))
+    waiting = list(passing)
+    placed: list[int] = []
+    while waiting:
+        ready = next(
+            pr
+            for pr in waiting
+            if all(
+                other["number"] in placed
+                or other["number"] > pr["number"]
+                or other is pr
+                or not set(other.get("files", ())) & set(pr.get("files", ()))
+                for other in waiting
+            )
+        )
+        waiting.remove(ready)
+        placed.append(ready["number"])
+    return placed
 
 
 def flaky_list(path: Path = FLAKY) -> set[str]:
@@ -202,6 +219,11 @@ def check_key(entry: dict[str, Any]) -> str:
     if entry.get("__typename") == "StatusContext":
         return f"status: {entry.get('context')}"
     return f"check: {entry.get('workflowName')} / {entry.get('name')}"
+
+
+def has_ci(entries: Iterable[dict[str, Any]]) -> bool:
+    """The required `ci` check run exists: a head without it is still pending, never green."""
+    return any(e.get("__typename") != "StatusContext" and e.get("name") == "ci" for e in entries)
 
 
 def pending(entry: dict[str, Any]) -> bool:
@@ -293,6 +315,11 @@ class Gh:
             said = f"{error.stdout or ''}\n{error.stderr or ''}".lower()
             if "up to date" in said or "no new commits" in said:
                 return
+            if "expected head" in said:
+                raise Refused(
+                    f"its head moved: GitHub refused the update (expected head sha {old[:12]}); "
+                    "look at the new head and ask again"
+                ) from None
             if "conflict" in said:
                 raise Refused(
                     f"its branch conflicts with main ({failed_call(error)}): its builder must fix it"
@@ -336,7 +363,7 @@ class Gh:
             if payload.get("headRefOid") != head:
                 continue
             entries = [e for e in payload.get("statusCheckRollup") or [] if isinstance(e, dict)]
-            if not entries or any(pending(entry) for entry in entries):
+            if not has_ci(entries) or any(pending(entry) for entry in entries):
                 continue
             completed = {check_key(e): e.get("completedAt") for e in entries}
             if any(completed.get(key) == old for key, old in self._rerun_from.items()):
@@ -345,6 +372,18 @@ class Gh:
             self._red = [entry for entry in entries if red(entry)]
             return self.failed_ids()
         raise Refused("CI did not settle")
+
+    def wait_ci_check(self, pr: int) -> str:
+        """The PR's head once it has a `ci` check run (any state), polled a bounded number of times."""
+        for attempt in range(self.polls):
+            if attempt:
+                self.sleep(20)
+            payload = self.rollup(pr)
+            head = str(payload.get("headRefOid"))
+            entries = [e for e in payload.get("statusCheckRollup") or [] if isinstance(e, dict)]
+            if has_ci(entries):
+                return head
+        raise Refused("its head never got a `ci` check")
 
     def job_log(self, run: str, job: str) -> str:
         """A failed job's log: `gh run view --log-failed`, and when that names no test (gh 2.45 printed
@@ -449,25 +488,53 @@ class Gh:
         self._run("git", "-C", str(self.repo), "merge", "-q", "--ff-only", "refs/remotes/origin/main")
 
 
+def update(pr: int, gh: Gh) -> int:
+    """`land update <PR>`: main into the PR's branch (one request), the new head printed once its `ci`
+    check exists; merges nothing."""
+    try:
+        gh.update_branch(pr)
+        head = gh.wait_ci_check(pr)
+    except Refused as refused:
+        print(f"land: refused: PR {pr}: {refused}")
+        return 3
+    except subprocess.CalledProcessError as error:
+        print(f"land: refused: PR {pr}: {failed_call(error)}")
+        return 3
+    print(f"land: PR {pr} head {head}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
-    if not args or not all(arg.isdigit() for arg in args):
-        print("usage: python -m scripts.land <PR> [<PR> ...]", file=sys.stderr)
+    command = args[0] if args and args[0] in ("update", "order") else None
+    if command:
+        args = args[1:]
+    if not args or not all(arg.isdigit() for arg in args) or (command == "update" and len(args) != 1):
+        print(
+            "usage: python -m scripts.land <PR> [<PR> ...] | update <PR> | order <PR> [<PR> ...]",
+            file=sys.stderr,
+        )
         return 2
+    if command == "update":
+        return update(int(args[0]), Gh())
     from scripts.merge_ready import main as merge_ready
 
     gh, store = Gh(), default_ledger_dir()
     patterns = read_patterns(ENGINE_PATHS.read_text()) if ENGINE_PATHS.is_file() else []
     prs = []
+    heads: dict[int, str] = {}
     for arg in args:
         try:
             gh.fetch(int(arg))
             covered = reviewed(store, int(arg), gh.head_sha(int(arg)), repo=gh.repo)
+            files = gh.files(int(arg))
+            heads[int(arg)] = gh.head_sha(int(arg))
             prs.append(
                 {
                     "number": int(arg),
-                    "engine": bool(matching(gh.files(int(arg)), patterns)),
+                    "engine": bool(matching(files, patterns)),
                     "pass": covered,
+                    "files": files,
                 }
             )
         except Refused as refused:
@@ -479,6 +546,10 @@ def main(argv: list[str] | None = None) -> int:
     skipped = sorted({int(arg) for arg in args} - set(order(prs)))
     for pr in skipped:
         print(f"land: PR {pr} has no ledger PASS covering its head: left out")
+    if command == "order":
+        for pr in order(prs):
+            print(f"land: PR {pr} {heads[pr]}")
+        return 0
     for pr in order(prs):
         code = land(pr, gh, ledger_dir=store, flaky=flaky_list(), ready=lambda n: merge_ready([str(n)]))
         if code != 0:
