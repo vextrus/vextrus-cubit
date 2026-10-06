@@ -186,3 +186,19 @@ def test_fetch_verdicts_collect_advice_runs_as_printed_in_round_3(
     ledger.check_round(cloud.ledger_dir, args.pr, args.round, args.exception)
     assert args.reason == R3[-1]
     assert git(cloud.main, "rev-parse", "HEAD") == cloud.head
+
+
+def test_a_record_the_ledger_journaled_meanwhile_is_not_flagged(tmp_path: Path) -> None:
+    """Another PR's run records beside this one (R1's concurrent slots): the ledger's journal names
+    it, so it is neither flagged nor moved; an unjournaled file is."""
+    ledger_dir = tmp_path / "ledger"
+    ledger_dir.mkdir()
+    before, mark = review.ledger_snapshot(ledger_dir), review.journal_mark(ledger_dir)
+    (ledger_dir / f"13-{'1' * 40}.json").write_text("{}")
+    ledger.journal_path(ledger_dir).write_text(f"13-{'1' * 40}.json\n")
+    run = review.Run(pr=PR, round_=1, head="a" * 40)
+    review.check_ledger(ledger_dir, before, run, review.journaled_since(ledger_dir, mark))
+    assert (ledger_dir / f"13-{'1' * 40}.json").exists()
+    (ledger_dir / f"14-{'2' * 40}.json").write_text("{}")
+    with pytest.raises(review.Refused, match=f"added: 14-{'2' * 40}.json"):
+        review.check_ledger(ledger_dir, before, run, review.journaled_since(ledger_dir, mark))

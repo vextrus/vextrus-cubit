@@ -1197,15 +1197,12 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        # The ledger's lock, held shared while the PR's code runs: no record is written meanwhile
-        # (the ledger writes under it exclusively), so any change to the folder is the PR's code.
-        with ledger_held(ledger_dir):
-            before = ledger_snapshot(ledger_dir)
-            try:  # the PR's code runs from here on: the ledger check runs on every exit
-                reviews = lenses_in(run, lenses, rv, slot, main)
-                confirm_and_refute(run, rv, slot, main, reviews)
-            finally:
-                check_ledger(ledger_dir, before, run)
+        before, mark = ledger_snapshot(ledger_dir), journal_mark(ledger_dir)
+        try:  # the PR's code runs from here on: the ledger check runs on every exit
+            reviews = lenses_in(run, lenses, rv, slot, main)
+            confirm_and_refute(run, rv, slot, main, reviews)
+        finally:
+            check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
@@ -1214,13 +1211,22 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
 QUARANTINE = "quarantine"
 
 
-@contextlib.contextmanager
-def ledger_held(ledger_dir: Path) -> Iterator[None]:
-    """The ledger's own lock file (`scripts.ledger.ledger_lock`), held shared."""
-    ledger_dir.parent.mkdir(parents=True, exist_ok=True)
-    with ledger_dir.with_name(ledger_dir.name + ".lock").open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_SH)
-        yield
+def journal_mark(ledger_dir: Path) -> int:
+    """Where the ledger's journal of records ends now."""
+    try:
+        return ledger.journal_path(ledger_dir).stat().st_size
+    except OSError:
+        return 0
+
+
+def journaled_since(ledger_dir: Path, mark: int) -> set[str]:
+    """The records the ledger wrote since `mark` (another PR's run, recording beside this one)."""
+    try:
+        with ledger.journal_path(ledger_dir).open("rb") as journal:
+            journal.seek(mark)
+            return set(journal.read().decode(errors="replace").split())
+    except OSError:
+        return set()
 
 
 def ledger_snapshot(ledger_dir: Path) -> dict[str, str]:
@@ -1234,11 +1240,18 @@ def ledger_snapshot(ledger_dir: Path) -> dict[str, str]:
     }
 
 
-def check_ledger(ledger_dir: Path, before: dict[str, str], run: Run) -> None:
+def check_ledger(
+    ledger_dir: Path,
+    before: dict[str, str],
+    run: Run,
+    journaled: frozenset[str] | set[str] = frozenset(),
+) -> None:
     """Every ledger file added, changed or removed while the PR's code ran is named and refused; each
-    one added or changed is moved to `quarantine/`, where neither merge_ready nor a rerun reads it."""
+    one added or changed is moved to `quarantine/`, where neither merge_ready nor a rerun reads it. A
+    record the ledger itself wrote meanwhile (its journal names it: another PR's run) is not flagged;
+    the journal is a file the PR's code could also write (#488)."""
     now = ledger_snapshot(ledger_dir)
-    added = sorted(set(now) - set(before))
+    added = sorted(set(now) - set(before) - journaled)
     changed = sorted(name for name in set(now) & set(before) if now[name] != before[name])
     removed = sorted(set(before) - set(now))
     if not (added or changed or removed):

@@ -279,7 +279,14 @@ def commit_record(
             "recorded_at": utc_now(),
         },
     )
+    with journal_path(ledger_dir).open("a") as journal:  # under the ledger lock, as every record
+        journal.write(f"{path.name}\n")
     print(f"ledger: recorded PR {pr} round {round_}: {decision.verdict} ({path.name})")
+
+
+def journal_path(ledger_dir: Path) -> Path:
+    """Each record's name, appended as the ledger writes it (beside the ledger, never in it)."""
+    return ledger_dir.with_name(ledger_dir.name + ".journal")
 
 
 # The cloud review channel (tier 2).
