@@ -425,3 +425,14 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `scripts/factory/tests/acceptance/p6_amend/test_amend_command.py`.
 - **The old review workflow ignored CI** (PASS on red heads). Check:
   `scripts/factory/tests/test_review_units.py` (`test_a_failed_ci_check_or_ci_workflow_job_is_red`).
+
+## Session 15: test health (S15-T2, #532)
+- **The demo seed ran anew in every test module and worker** (~11,000 SQL statements, 9-13 s of set-up a
+  module; 18-26 s under `-n 8`). The layers above `platform` are made once a session and copied.
+  Check: `vextrus/tests/acceptance/ts15t2/test_seed_template.py` (a later test's set-up sends at most 1,100
+  statements) and `vextrus/tests/test_seed_template.py` (the copy equals a real seed, and survives a flush).
+- **A test folder outside pytest's own basetemp is never bounded** (2,778 storage folders, 18.5 GB of
+  `pytest-of-*`; #243). The storage root is a folder of the basetemp and a failed run keeps only the failed
+  tests' own folders. Check: `vextrus/tests/acceptance/ts15t2/test_basetemp.py`.
+- **A rerun hides a flake** (#245): the three listed web flakes could not be forced on main, so the list is
+  empty and a red web job is a red PR. Check: `scripts/tests/acceptance/ts15t2/test_no_rerun.py`.

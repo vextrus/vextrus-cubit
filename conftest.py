@@ -1,7 +1,9 @@
 """The root of the tests: every M0 fixture module, named once so no ticket edits this list."""
 
 pytest_plugins = [
+    "vextrus.testing.basetemp",
     "vextrus.testing.database",
+    "vextrus.testing.seed_template",
     "vextrus.testing.tenancy",
     "vextrus.testing.auth",
     "vextrus.testing.jobs",
