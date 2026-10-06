@@ -64,13 +64,18 @@ def test_a_glob_entry_covers_the_files_it_matches(world: Path, monkeypatch: pyte
     prs(
         world,
         monkeypatch,
-        [pr(1, "a", "web/src/ui/locales/en.po"), pr(2, "b", "web/src/app/locales/en.po")],
+        [
+            pr(1, "a", "web/src/ui/locales/en.po"),
+            pr(2, "b", "web/src/app/locales/en.po"),
+            pr(3, "c", "web/src/members/locales/en.po"),
+        ],
     )
     verdict = governor.check("cloud-session", owns=["web/src/takeoff/locales/en.po"])
     assert not verdict.ok
     assert "hot-file area web-en" in (verdict.reason or "")
     assert "PR 1" in (verdict.reason or "")
     assert "PR 2" in (verdict.reason or "")
+    assert "PR 3" in (verdict.reason or "")
 
 
 def test_builders_that_recorded_owned_files_hold_the_area(
@@ -78,21 +83,21 @@ def test_builders_that_recorded_owned_files_hold_the_area(
 ) -> None:
     prs(world, monkeypatch, [pr(1, "a", "web/src/ui/locales/en.po")])
     record(world, "b", owns=["web/src/app/locales/en.po"])
+    record(world, "c", owns=["web/src/members/locales/en.po"])
     verdict = governor.check("local-agent", owns=["web/src/takeoff/locales/en.po"])
     assert not verdict.ok
     assert "builder b" in (verdict.reason or "")
 
 
-def test_a_builder_with_an_open_pr_counts_once_under_the_cap(
+def test_a_builder_with_an_open_pr_counts_once_and_no_count_refuses(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     prs(world, monkeypatch, [pr(n, f"t{n}", f"x/{n}.py") for n in range(1, 6)])
     for n in range(1, 6):
         record(world, f"t{n}")
     verdict = governor.check("cloud-session")
-    assert not verdict.ok
+    assert verdict.ok, verdict.reason  # S14-K1: no count of PRs or builders refuses a launch
     assert verdict.readings["wip"] == 5
-    assert "WIP" in (verdict.reason or "")
 
 
 def test_a_stopped_builder_and_an_agents_snapshot_are_not_in_flight(
@@ -120,7 +125,7 @@ def test_an_unreadable_pr_list_refuses_named_files_and_releases_no_record(
     assert not governor.check("cloud-session", owns=["a.py"]).ok
     assert governor.check("cloud-session", role="reviewer", owns=["a.py"]).ok
     record(world, "t5")  # its PR may have merged; unread, it still counts
-    assert not governor.check("cloud-session").ok
+    assert governor.check("cloud-session").readings["wip"] == 5
 
 
 def test_a_pr_row_without_files_is_an_unreadable_list() -> None:
@@ -242,7 +247,7 @@ def test_a_reviewer_or_refuter_launch_is_refused_by_neither_cap_nor_area(
     world: Path, monkeypatch: pytest.MonkeyPatch, role: str
 ) -> None:
     fill_the_cap(world, monkeypatch)
-    assert not governor.check("cloud-session", branch="new").ok
+    assert not governor.check("cloud-session", branch="new", owns=["x/1.py"]).ok
     assert governor.check("cloud-session", role=role, branch="t1").ok
     assert governor.check("cloud-session", role=role, branch="new", owns=["x/1.py"]).ok
 
@@ -259,14 +264,14 @@ def test_a_launch_on_a_branch_that_already_holds_a_unit_is_not_new_work(
     assert "PR 1" in (refused.reason or "")
 
 
-def test_a_builder_record_alone_also_holds_its_branch(
+def test_a_builder_record_alone_holds_its_branch_unit_and_no_count_refuses(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     prs(world, monkeypatch, [])
     for n in range(1, 6):
         record(world, f"t{n}")
-    assert not governor.check("cloud-session", branch="t9").ok
-    assert governor.check("cloud-session", branch="t3").ok
+    assert governor.check("cloud-session", branch="t9").ok
+    assert governor.check("cloud-session", branch="t3").readings["wip"] == 5
 
 
 def test_the_launcher_passes_role_and_branch_to_the_governor(tmp_path: Path) -> None:
@@ -300,6 +305,7 @@ def test_a_folder_path_touches_the_areas_under_it(world: Path, monkeypatch: pyte
         [
             pr(1, "a", "vextrus/takeoff/services/step1.py"),
             pr(2, "b", "vextrus/takeoff/services/step1.py"),
+            pr(3, "c", "vextrus/takeoff/services/step1.py"),
         ],
     )
     refused = governor.check("cloud-session", owns=["vextrus/other.py", "vextrus/takeoff/"])
@@ -310,7 +316,7 @@ def test_an_area_entry_ending_in_a_slash_covers_the_files_under_it(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     (world / "hot.json").write_text(json.dumps({"areas": {"takeoff": ["vextrus/takeoff/"]}}))
-    prs(world, monkeypatch, [pr(1, "a", "vextrus/takeoff/a.py"), pr(2, "b", "vextrus/takeoff/b.py")])
+    prs(world, monkeypatch, [pr(n, f"t{n}", f"vextrus/takeoff/{n}.py") for n in range(1, 4)])
     refused = governor.check("cloud-session", owns=["vextrus/takeoff/c.py"])
     assert "hot-file area takeoff" in (refused.reason or "")
 
@@ -351,8 +357,10 @@ def test_a_closed_pr_older_than_the_record_leaves_the_record_counted(
     prs(world, monkeypatch, [closed, merged, *others])
     verdict = governor.check("cloud-session")
     assert verdict.readings["wip"] == 5  # four open PRs and t160, not t161
-    assert "builder t160" in (verdict.reason or "")
-    assert "builder t161" not in (verdict.reason or "")
+    assert verdict.ok, verdict.reason
+    counted = " ".join(verdict.readings["counted"])
+    assert "builder t160" in counted
+    assert "builder t161" not in counted
 
 
 def test_a_pr_row_without_created_at_still_releases_every_record(
@@ -376,6 +384,7 @@ def test_a_relaunched_builder_and_an_open_pr_hold_the_area_against_a_third(
         monkeypatch,
         [
             pr(1, "other", step1),
+            pr(3, "another", step1),
             pr(2, "t160", step1, state="CLOSED") | {"createdAt": "2026-10-02T08:00:00Z"},
         ],
     )
@@ -539,24 +548,25 @@ def test_a_local_builder_inside_its_budget_counts_with_no_agent_row(
     assert governor.check("cloud-session").readings["wip"] == 1
 
 
-def test_an_acceptance_writer_launch_is_new_work_the_cap_refuses(
+def test_an_acceptance_writer_launch_is_new_work_the_areas_refuse(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fill_the_cap(world, monkeypatch)
-    refused = governor.check("local-agent", role="acceptance-writer", branch="new")
+    prs(world, monkeypatch, [pr(n, f"t{n}", f"web/src/{n}en.po") for n in range(1, 4)])
+    owned = ["web/src/9en.po"]
+    refused = governor.check("local-agent", role="acceptance-writer", branch="new", owns=owned)
     assert not refused.ok
-    assert "WIP" in (refused.reason or "")
+    assert "hot-file area web-en" in (refused.reason or "")
 
 
 def test_a_launch_on_a_branch_whose_records_were_released_is_new_work(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("VEXTRUS_NOW", NOW)
-    others = [pr(n, f"o{n}", f"o/{n}.py") for n in range(1, 6)]
+    others = [pr(n, f"o{n}", f"web/src/{n}en.po") for n in range(1, 4)]
     merged = ended(9, "MERGED", createdAt=BEFORE, closedAt=AFTER, mergedAt=AFTER)
     prs(world, monkeypatch, [*others, merged])
     record(world, "t", started_at=START, budget_minutes=90)
-    assert not governor.check("cloud-session", branch="t").ok
+    assert not governor.check("cloud-session", branch="t", owns=["web/src/9en.po"]).ok
 
 
 def test_the_reading_says_why_each_counted_unit_counts(
@@ -598,7 +608,11 @@ def test_a_relaunchs_owned_files_join_its_branch_unit_in_the_areas(
 ) -> None:
     # the refuter's E: the second live record on a branch owns a hot file the first did not
     monkeypatch.setenv("VEXTRUS_NOW", NOW)
-    prs(world, monkeypatch, [pr(1, "a", "web/src/ui/locales/en.po")])
+    prs(
+        world,
+        monkeypatch,
+        [pr(1, "a", "web/src/ui/locales/en.po"), pr(2, "b", "web/src/members/locales/en.po")],
+    )
     body = {"ticket": "t", "branch": "t", "where": "local", "role": "builder", "judge": None}
     launches = world / "factory" / "launches"
     first = body | {"started_at": START, "budget_minutes": 90, "owns": ["x.py"]}
@@ -606,6 +620,6 @@ def test_a_relaunchs_owned_files_join_its_branch_unit_in_the_areas(
     (launches / "t-1.json").write_text(json.dumps(first))
     (launches / "t-2.json").write_text(json.dumps(again))
     verdict = governor.check("cloud-session", owns=["web/src/takeoff/locales/en.po"], branch="new")
-    assert verdict.readings["wip"] == 2
+    assert verdict.readings["wip"] == 3
     assert not verdict.ok
     assert "hot-file area web-en" in (verdict.reason or "")
