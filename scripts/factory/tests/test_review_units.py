@@ -1654,3 +1654,11 @@ def test_a_messages_only_change_is_small() -> None:
 def test_an_instruction_file_by_name_is_never_docs_only(path: str) -> None:
     """Finding 2: Claude Code loads CLAUDE.md and CLAUDE.local.md in any folder as instructions."""
     assert review.tier([(path, 3, 0)], []) != "docs-only"
+
+
+@pytest.mark.parametrize("path", ["docs/guides/x.md", "docs/howto/y.txt", "docs/x.md"])
+def test_an_unlisted_docs_path_is_never_docs_only(path: str) -> None:
+    """S14-D1 fix round 2: the docs-only tier is an allowlist. A docs path nobody listed gets a model;
+    a tier that took every `docs/**` as safe unless `never` names it would fail here."""
+    assert review.tier([(path, 3, 0)], []) != "docs-only"
+    assert review.tier([("docs/notes/howto.md", 3, 0), (path, 3, 0)], []) != "docs-only"

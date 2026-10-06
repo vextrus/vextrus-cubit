@@ -1,5 +1,7 @@
 # The software factory: the harness is committed code, builders and reviewers run in the cloud, custody stays local, Jev advises, and gates are checks
 
+**Review part superseded by ADR 0043** (reviews run by `scripts.factory.review run <PR>`); the rest stands.
+
 Status: accepted 2026-10-04T21:08:14Z by the owner: "Approve as written (Recommended)". The spec is
 `docs/specs/factory.md`; the data contracts are in `docs/specs/factory/contracts/`.
 
