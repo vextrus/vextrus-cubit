@@ -49,6 +49,7 @@ from pathlib import Path, PurePosixPath
 from typing import IO, Any
 
 from scripts import ledger
+from scripts.factory import lens_pytest
 
 REPOSITORY = ledger.REPOSITORY
 CRASHED = 1  # an uncaught error (beside the ledger's 0 ok, 2 bad input, 3 refused)
@@ -477,6 +478,7 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] |
         if run.merged == run.head
         else f"{run.merged} (the head merged with main)"
     )
+    marked = ", ".join(sorted(lens_pytest.declared_markers()))
     return "\n".join(
         [
             f"PR {run.pr}, head {run.head}, review round {run.round_}.",
@@ -492,8 +494,13 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] |
                 else ["Authority: the ticket in the PR body."]
             ),
             "Run only the PR's changed test files and your own attack tests, with exactly",
-            f"`{LENS_TEST} -rf <test files>` (it waits its turn for the database; no other pytest",
-            "options). Never push, commit or post anything. Public words only.",
+            f"`{LENS_TEST} [options] <test files>` (it waits its turn for the database). Its options,",
+            f"and no others: {lens_pytest.options_text()}.",
+            f"The repo's pytest addopts deselect tests marked {marked}: when a file you run",
+            "carries such a mark, add `-m <that mark>` (for example `-m needs_toolchain`), or nothing",
+            "runs (exit 5); never select `live` (it calls an outside service). Mark an attack test",
+            "the way the module it tests is marked.",
+            "Never push, commit or post anything. Public words only.",
             lens.task,
             "For each finding scored 50 or more, write a failing test that proves it, only under",
             f"review_attacks/{lens.label}/ in this worktree (other lenses write beside you); give it",
@@ -655,6 +662,29 @@ def pytest_lock(where: Path) -> IO[str]:
     return handle
 
 
+REPLAYED_MARKS = frozenset({"needs_toolchain", "needs_bwrap"})  # never `live`: an outside service
+
+
+def replay_marks(test_file: Path) -> list[str]:
+    """`-m <expression>` selecting every test of the repro module when it carries a mark the repo's
+    addopts deselect (`needs_toolchain`, `needs_bwrap`), else nothing: `-m "m or not (m)"` keeps the
+    module's marked and unmarked tests alike (review round 3: a toolchain repro was deselected,
+    exit 5, and stood UNPROVEN)."""
+    try:
+        text = test_file.read_text(errors="replace")
+    except OSError:
+        return []
+    marks = sorted(
+        mark
+        for mark in REPLAYED_MARKS & lens_pytest.declared_markers()
+        if re.search(rf"\bmark\.{re.escape(mark)}\b", text)
+    )
+    if not marks:
+        return []
+    either = " or ".join(marks)
+    return ["-m", f"{either} or not ({either})"]
+
+
 def replay(rv: Path, slot: int, test_file: str) -> bool:
     """Run the test file in `rv` (never the lens's own command): True when it fails by name."""
     env = {key: value for key, value in lens_env(slot).items() if key not in COLOUR}
@@ -662,7 +692,7 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
     held = pytest_lock(rv)
     try:
         done = _run(
-            ["uv", "run", "pytest", "-rf", "--color=no", test_file],
+            ["uv", "run", "pytest", "-rf", "--color=no", *replay_marks(rv / test_file), test_file],
             cwd=rv,
             env=env,
             timeout=REPLAY_TIMEOUT,

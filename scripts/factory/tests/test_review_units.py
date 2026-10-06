@@ -3,6 +3,7 @@ replay path, the lens's answer, the slot lock and the words a lens is given."""
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -956,3 +957,79 @@ def test_the_wrapper_runs_a_toolchain_marked_test_when_asked(tmp_path: Path) -> 
     asked = wrapper_run(root, "-q", "-m", "needs_toolchain", "tests/test_t.py")
     out, err = asked.communicate(timeout=120)
     assert asked.returncode == 1, out + err  # it ran (and fails, as written)
+
+
+# ---------------------------------------------------------------- review round 3 on PR #472
+
+
+def test_the_brief_names_exactly_the_options_the_wrapper_takes(tmp_path: Path) -> None:
+    """Round 3: the wrapper took `-m <declared marker>` but the brief said `-rf` and no other option,
+    so a lens's run of a toolchain-marked module deselected everything (exit 5)."""
+    module = lens_pytest()
+    text = review.brief(
+        review.Run(pr=12, round_=1, head=H, merged=H, slot=1), review.LENS_B, tmp_path, tmp_path
+    )
+    assert module.options_text() in text
+    (tmp_path / "test_a.py").write_text("def test_a():\n    pass\n")
+    named = re.findall(r"(?<![\w-])(-[A-Za-z]+|--tb=\w+)", module.options_text())
+    for flag in module.FLAGS:
+        assert flag in named
+        assert module.check([flag, "test_a.py"], tmp_path) == [flag, "test_a.py"]
+    for style in module.TB_STYLES:
+        assert module.check([f"--tb={style}", "test_a.py"], tmp_path)
+    assert "-k" in named
+    assert "-m" in named
+    for marker in sorted(module.declared_markers()):
+        assert marker in text
+        assert module.check(["-m", marker, "test_a.py"], tmp_path)
+    assert "`-m needs_toolchain`" in text
+    for option in set(named) - {*module.FLAGS, "-k", "-m"}:
+        assert option.startswith("--tb="), f"the brief names {option}, which the wrapper refuses"
+
+
+def test_replay_selects_a_marked_modules_tests_and_never_live(tmp_path: Path) -> None:
+    (tmp_path / "plain.py").write_text("def test_a():\n    assert False\n")
+    (tmp_path / "tool.py").write_text(
+        "import pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_a(): ...\n"
+    )
+    (tmp_path / "live.py").write_text("import pytest\n\npytestmark = pytest.mark.live\n")
+    (tmp_path / "both.py").write_text(
+        "pytestmark = [pytest.mark.needs_bwrap, pytest.mark.needs_toolchain]\n"
+    )
+    assert review.replay_marks(tmp_path / "plain.py") == []
+    assert review.replay_marks(tmp_path / "live.py") == []
+    assert review.replay_marks(tmp_path / "missing.py") == []
+    assert review.replay_marks(tmp_path / "tool.py") == [
+        "-m",
+        "needs_toolchain or not (needs_toolchain)",
+    ]
+    assert review.replay_marks(tmp_path / "both.py") == [
+        "-m",
+        "needs_bwrap or needs_toolchain or not (needs_bwrap or needs_toolchain)",
+    ]
+
+
+def test_a_toolchain_marked_repro_is_replayed_not_deselected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 3: the replay's `uv run pytest -rf <file>` deselected a needs_toolchain repro (exit 5),
+    which then stood UNPROVEN. Real pytest, behind a `uv` that runs it."""
+    root = repo(tmp_path)
+    (root / "pytest.ini").write_text(
+        "[pytest]\naddopts = -m 'not needs_toolchain and not needs_bwrap'\n"
+        "markers =\n    needs_toolchain: x\n    needs_bwrap: y\n"
+    )
+    (root / "tests").mkdir()
+    (root / "tests" / "test_repro.py").write_text(
+        "import pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_attack():\n    assert False\n\n\n"
+        "def test_plain():\n    pass\n"
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "uv").write_text(
+        f'#!/bin/sh\nshift 2\nexec {sys.executable} -m pytest -p no:cacheprovider "$@"\n'
+    )
+    (bin_dir / "uv").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.delenv("DJANGO_SETTINGS_MODULE", raising=False)
+    assert review.replay(root, 1, "tests/test_repro.py") is True

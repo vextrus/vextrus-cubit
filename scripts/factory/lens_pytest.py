@@ -25,8 +25,9 @@ import sys
 import tomllib
 from pathlib import Path, PurePosixPath
 
-FLAGS = {"-q", "-v", "-vv", "-x", "-s", "-rf", "-ra", "-rA", "-rfE"}
-TB = re.compile(r"--tb=(?:short|long|line|no|native)")
+FLAGS = ("-q", "-v", "-vv", "-x", "-s", "-rf", "-ra", "-rA", "-rfE")
+TB_STYLES = ("short", "long", "line", "no", "native")
+TB = re.compile(rf"--tb=(?:{'|'.join(TB_STYLES)})")
 EXPRESSION = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_ .:()\[\]-]*")
 NODE = re.compile(r"([A-Za-z0-9_][A-Za-z0-9_./-]*)((?:::[A-Za-z0-9_\[\]-]+)*)")
 DROPPED = ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")
@@ -92,6 +93,16 @@ def marker_expression(text: str) -> bool:
     words = re.findall(r"[()]|[^\s()]+", text)
     allowed = declared_markers() | {"and", "or", "not", "(", ")"}
     return bool(words) and any(w not in "()" for w in words) and all(w in allowed for w in words)
+
+
+def options_text() -> str:
+    """The options this wrapper takes, in words for a lens's brief (review.py builds the brief from
+    this, so the brief never names an option the wrapper refuses, nor leaves one out)."""
+    markers = ", ".join(sorted(declared_markers()))
+    return (
+        f"{' '.join(FLAGS)}; --tb={'|'.join(TB_STYLES)}; -k <test-name expression>; "
+        f"-m <expression of the markers {markers} with and/or/not and brackets>"
+    )
 
 
 def lock_path(cwd: Path) -> Path:
