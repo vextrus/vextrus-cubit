@@ -553,6 +553,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     watch_jev(step)
 
     raise_alarms(step)
+    write_events_tail(folder)
     save_state(folder, state)
     payload = status.build(
         written_at=at,
@@ -915,6 +916,40 @@ def raise_alarms(step: Pass) -> None:
             for kind, subject, detail in step.events:
                 who = "-" if not subject else public(subject, 80).replace(" ", "_")
                 log.write(f"{status.utc(step.at)} {kind} {who} {public(detail, 200)}\n")
+
+
+# The mod cannot read a file over 4 MiB (the host's fs.read rejects it) and events.log only grows, so
+# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES lines of the kinds it shows or toasts,
+# from the last EVENTS_TAIL_BYTES of the log, in `events.tail`.
+EVENTS_TAIL_KINDS = frozenset(
+    {"READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-RED", "OWNER-COMMAND", "OWNER-RULING"}
+)
+EVENTS_TAIL_LINES = 200
+EVENTS_TAIL_BYTES = 512 * 1024
+
+
+def write_events_tail(folder: Path) -> None:
+    try:
+        with (folder / "events.log").open("rb") as log:
+            size = log.seek(0, os.SEEK_END)
+            log.seek(max(0, size - EVENTS_TAIL_BYTES))
+            raw = log.read()
+        if size > EVENTS_TAIL_BYTES:
+            raw = raw.partition(b"\n")[2]  # the first line is cut
+        lines = [
+            line
+            for line in raw.decode("utf-8", "replace").splitlines()
+            if len(parts := line.split(" ", 2)) > 1 and parts[1] in EVENTS_TAIL_KINDS
+        ]
+        text = "".join(f"{line}\n" for line in lines[-EVENTS_TAIL_LINES:])
+        path = folder / "events.tail"
+        if path.exists() and path.read_text() == text:
+            return
+        temp = path.with_name("events.tail.tmp")
+        temp.write_text(text)
+        os.replace(temp, path)
+    except OSError:
+        pass  # no log yet, or an unwritable folder: the mod reads events.log itself while it is small
 
 
 def load_state(folder: Path) -> dict[str, Any]:

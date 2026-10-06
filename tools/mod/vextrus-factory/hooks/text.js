@@ -199,7 +199,8 @@ export const HIGH_KINDS = ["READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-
 // The kinds the owner must act on: each raises one toast.
 export const OWNER_KINDS = ["OWNER-COMMAND", "OWNER-RULING"]
 export const BAND_EVENTS = 5
-// Only the log's tail is read: a log grows without end.
+// Only the log's tail is parsed here: a log grows without end (the mod reads only small logs or
+// watch.py's events.tail; see register.js).
 const LOG_TAIL = 256 * 1024
 const EVENT = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z) ([A-Z][A-Z-]*) ([^ ]+)(?: (.*))?$/
 
@@ -230,11 +231,16 @@ export function bandEvents(text, limit = BAND_EVENTS) {
     .map(({ e }) => ({ at: e.at, kind: e.kind, ticket: e.ticket, detail: e.detail }))
 }
 
+// `text` as one row of at most `columns` cells (80 when the width is not known).
+export function fitRow(text, columns) {
+  const width = Number.isInteger(columns) && columns > 10 ? columns : 80
+  return cutCells(oneLine(text), width)
+}
+
 // One event as a row of at most `columns` cells: `01:57Z BLOCKED s14-w1 detail`.
 export function eventRow(event, columns) {
-  const width = Number.isInteger(columns) && columns > 10 ? columns : 80
   const at = clockText(Date.parse(event.at))
-  return cutCells(oneLine(`${at} ${event.kind} ${event.ticket}${event.detail === "" ? "" : ` ${event.detail}`}`), width)
+  return fitRow(`${at} ${event.kind} ${event.ticket}${event.detail === "" ? "" : ` ${event.detail}`}`, columns)
 }
 
 // The toast's words for an owner-action event.

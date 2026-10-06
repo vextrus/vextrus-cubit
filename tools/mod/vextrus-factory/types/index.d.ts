@@ -8,6 +8,8 @@ export type Reading = {
 
 /** The poll's last reading of events.log: its newest high-signal events, newest first (READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, CI-RED). */
 export type Events = {
+  /** True when events.log exists but neither it nor events.tail could be read: the band says so. */
+  unreadable?: boolean
   events: { at: string; kind: string; ticket: string; detail: string }[]
 }
 

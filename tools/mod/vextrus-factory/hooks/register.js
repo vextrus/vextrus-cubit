@@ -13,13 +13,17 @@
 //
 // Every handler catches its own errors: a throw out of a hook could end the session.
 
-import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, parseEvents, parseStatus, toastText } from "./text.js"
+import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, parseEvents, parseStatus, toastText } from "./text.js"
 
 // "band" draws above the prompt (AbovePrompt); "status" is the verified fallback, $.ui.status(text).
 const SURFACE = "band"
 const POLL_MS = 15_000
 const STATUS_REL = ".private/work/factory/status.json"
 const EVENTS_REL = ".private/work/factory/events.log"
+// The host's $.fs.read rejects a file over 4 MiB and events.log only grows: a log over this size is
+// not read; watch.py leaves its tail in events.tail (the last 200 lines the mod shows or toasts).
+const TAIL_REL = ".private/work/factory/events.tail"
+const LOG_READ_MAX = 1024 * 1024
 const READING = { plugin: "vextrus-factory", key: "reading" }
 const EVENTS = { plugin: "vextrus-factory", key: "events" }
 // A toast is raised for an owner-action line at most this old, and its line is remembered in the
@@ -56,6 +60,24 @@ async function readText($, path) {
   }
 }
 
+// The events text: events.log while it is small, else events.tail. { text: null, unreadable: true }
+// when the log exists and neither can be read; { text: null } when there is no log at all.
+async function readEvents($, paths) {
+  let size = null
+  try {
+    size = (await $.fs.stat(paths.events)).size
+  } catch {
+    size = null
+  }
+  if (size !== null && size <= LOG_READ_MAX) {
+    const text = await readText($, paths.events)
+    if (text !== null) return { text, unreadable: false }
+  }
+  const tail = await readText($, paths.tail)
+  if (tail !== null) return { text: tail, unreadable: false }
+  return { text: null, unreadable: size !== null }
+}
+
 // Raises one toast for each owner-action line not raised before. The line is stored first: a toast
 // lost to a failed store write is better than one raised again on every poll.
 async function toastOwnerLines($, text, nowMs) {
@@ -87,9 +109,9 @@ async function poll($, paths) {
   try {
     if (!(await isOrchestrator($))) return
     const text = await readText($, paths.status)
-    const log = await readText($, paths.events)
+    const { text: log, unreadable } = await readEvents($, paths)
     await $.state.set(READING, { text })
-    await $.state.set(EVENTS, { events: bandEvents(log) })
+    await $.state.set(EVENTS, { events: bandEvents(log), unreadable })
     if (SURFACE === "status") {
       const { status, schema } = parseStatus(text)
       $.ui.status(bandText(status, await $.clock.now(), null, schema))
@@ -114,7 +136,7 @@ export function register(on) {
         } catch {
           // the activation record is lost; the band still runs
         }
-        const paths = { status: await factoryFile($, STATUS_REL), events: await factoryFile($, EVENTS_REL) }
+        const paths = { status: await factoryFile($, STATUS_REL), events: await factoryFile($, EVENTS_REL), tail: await factoryFile($, TAIL_REL) }
         await poll($, paths)
         timer = $.clock.every(POLL_MS, () => {
           poll($, paths)
@@ -137,7 +159,9 @@ export function register(on) {
           const { Box, Text } = $.ui.resolve(e)
           const held = (await $.state.get(EVENTS)).value
           const events = held !== undefined && Array.isArray(held.events) ? held.events : []
+          const unreadable = held !== undefined && held.unreadable === true
           const all = [...rows, ...events.map((event) => eventRow(event, e.props.bodyColumns))]
+          if (unreadable) all.push(fitRow("events: unreadable", e.props.bodyColumns))
           tree = h(Box, { flexDirection: "column" }, ...all.map((row) => h(Text, null, row)))
         }
       }

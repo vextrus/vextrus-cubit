@@ -503,3 +503,31 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     seen.update(outcome="READY-NO-VERIFY", idle_since=None, committed=False)
     assert at(80, idle) == []  # no commit of its own yet
     assert at(95, idle) == []
+
+
+def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
+    tmp_path: Path,
+) -> None:
+    routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
+    wanted = [
+        "2026-10-06T01:00:00Z READY t abc1234",
+        "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
+        "2026-10-06T01:02:00Z CI-RED t #7 abc1234 required check ci failed",
+    ]
+    (tmp_path / "events.log").write_text(routine + "\n".join(wanted) + "\n")
+    assert (tmp_path / "events.log").stat().st_size > 4 * 1024 * 1024
+    watch.write_events_tail(tmp_path)
+    assert (tmp_path / "events.tail").read_text() == "".join(f"{line}\n" for line in wanted)
+    assert not (tmp_path / "events.tail.tmp").exists()
+    (tmp_path / "events.log").write_text(
+        "".join(f"2026-10-06T02:00:{i % 60:02d}Z READY t{i} x\n" for i in range(300))
+    )
+    watch.write_events_tail(tmp_path)
+    kept = (tmp_path / "events.tail").read_text().splitlines()
+    assert len(kept) == watch.EVENTS_TAIL_LINES
+    assert kept[-1].endswith(" READY t299 x")
+
+
+def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
+    watch.write_events_tail(tmp_path)
+    assert not (tmp_path / "events.tail").exists()
