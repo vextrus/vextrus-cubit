@@ -24,6 +24,11 @@ export type Cost = {
   usd: number | null
 }
 
+/** The ledger's verdict of each listed review, keyed `<pr>-<head>` (ledger/<pr>-<head>.json). */
+export type Verdicts = {
+  byReview: Record<string, 'PASS' | 'FIX' | 'BLOCK'>
+}
+
 /** The /factory pane's tab: local UI state, set by a tab Button's press. */
 export type Tab = {
   name: 'Builders' | 'Reviews' | 'Lock' | 'PR queue'
@@ -31,6 +36,6 @@ export type Tab = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'vextrus-factory': { reading: Reading; events: Events; session: Session; cost: Cost; tab: Tab }
+    'vextrus-factory': { reading: Reading; events: Events; session: Session; cost: Cost; verdicts: Verdicts; tab: Tab }
   }
 }

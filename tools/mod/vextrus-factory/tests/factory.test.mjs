@@ -28,7 +28,7 @@ function status(items = [], extra = {}) {
   }
 }
 
-const view = (s, cost = null) => factoryView(parseStatus(JSON.stringify(s)).status, NOW, false, cost)
+const view = (s, cost = null, verdicts = {}) => factoryView(parseStatus(JSON.stringify(s)).status, NOW, false, cost, verdicts)
 const item = (over) => ({ ticket: "t1", where: "cloud", state: "working", branch: "t1", head: null, last_push_at: null, quiet_minutes: 3, pr: null, ...over })
 
 test("sessionBudget: minutes elapsed and the budget; a broken file is null", () => {
@@ -81,11 +81,44 @@ test("each tab has its own rows; empty ones say so", () => {
   assert.deepEqual(v.tabs.Builders, ["no builders"])
   assert.deepEqual(v.tabs["PR queue"], ["no builder has an open PR"])
   assert.deepEqual(v.tabs.Lock, ["free"])
-  assert.deepEqual(v.tabs.Reviews, ["no review running", "last review cost unknown"])
+  assert.deepEqual(v.tabs.Reviews, ["no review recorded", "last review cost unknown"])
   assert.equal(view(status([]), 0.4).tabs.Reviews.at(-1), "last review cost $0.40")
 })
 
-test("a review's PR names its builder; the last round says so", () => {
-  const s = status([item({ ticket: "t9", state: "ready", pr: 12 })], { reviews: [{ pr: 12, round: 2, head: "b".repeat(40) }] })
-  assert.equal(view(s).tabs.Reviews[0], "#12 · round 2 · bbbbbbb · t9 · next: last round: merge or take over")
+const SHA = "b".repeat(40)
+const reviewRow = (round, verdicts) => view(status([item({ ticket: "t9", state: "ready", pr: 12 })], { reviews: [{ pr: 12, round, head: SHA }] }), null, verdicts).tabs.Reviews[0]
+
+test("a review row's next action follows the ledger's verdict and the round", () => {
+  const rows = {
+    "PASS 1": reviewRow(1, { [`12-${SHA}`]: "PASS" }),
+    "FIX 1": reviewRow(1, { [`12-${SHA}`]: "FIX" }),
+    "FIX 2": reviewRow(2, { [`12-${SHA}`]: "FIX" }),
+    "FIX 3": reviewRow(3, { [`12-${SHA}`]: "FIX" }),
+    "BLOCK 2": reviewRow(2, { [`12-${SHA}`]: "BLOCK" }),
+    "none": reviewRow(1, {}),
+    "bogus": reviewRow(1, { [`12-${SHA}`]: "MERGE" }),
+  }
+  assert.equal(rows["PASS 1"], "#12 \u00b7 round 1 \u00b7 PASS \u00b7 bbbbbbb \u00b7 t9 \u00b7 next: land it")
+  assert.equal(rows["FIX 1"], "#12 \u00b7 round 1 \u00b7 FIX \u00b7 bbbbbbb \u00b7 t9 \u00b7 next: fix round 1")
+  assert.match(rows["FIX 2"], /FIX .* next: fix round 2$/)
+  assert.match(rows["FIX 3"], /FIX .* next: re-submit$/)
+  assert.match(rows["BLOCK 2"], /BLOCK .* next: owner decides$/)
+  assert.match(rows.none, /round 1 \u00b7 \? .* next: verdict not recorded$/)
+  assert.match(rows.bogus, /next: verdict not recorded$/)
+  for (const row of Object.values(rows)) assert.ok(!/wait for the verdict|merge or take over/.test(row), row)
+})
+
+test("through the mod: the Reviews tab reads each listed review's ledger record, and only that", async () => {
+  const { factoryFiles, world } = await import("./acceptance/ts14u2/_world.mjs")
+  const files = {
+    ...factoryFiles(),
+    [`ledger/250-${"b".repeat(40)}.json`]: JSON.stringify({ pr: 250, round: 1, head: "b".repeat(40), verdict: "FIX" }),
+    [`ledger/251-${"d".repeat(40)}.json`]: "{not json",
+  }
+  const w = await world({ files }).boot()
+  const { text } = await w.command("wip")
+  assert.match(text, /^ {2}#250 · round 1 · FIX · bbbbbbb .* next: fix round 1$/m)
+  assert.match(text, /^ {2}#251 · round 2 · \? · ddddddd .* next: verdict not recorded$/m)
+  assert.deepEqual(w.forbidden(), [])
+  assert.ok(new Set(w.factoryReads().filter((p) => p.includes("/ledger/"))).size <= 2, "only the listed reviews' records are read")
 })

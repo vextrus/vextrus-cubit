@@ -13,7 +13,7 @@
 //
 // Every handler catches its own errors: a throw out of a hook could end the session.
 
-import { TABS, budgetText, factoryView, lastCost, sessionBudget, wipText } from "./factory.js"
+import { TABS, VERDICTS, budgetText, factoryView, lastCost, sessionBudget, verdictKey, wipText } from "./factory.js"
 import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, oneLine, parseEvents, parseStatus, toastText } from "./text.js"
 
 // "band" draws above the prompt (AbovePrompt); "status" is the verified fallback, $.ui.status(text).
@@ -29,11 +29,16 @@ const LOG_READ_MAX = 1024 * 1024
 const COST_REL = ".private/work/factory/review-cost.jsonl"
 const SESSION_REL = ".private/work/factory/session.json"
 const SESSION_MAX = 64 * 1024
+// A ledger record (scripts/ledger.py) is `<pr>-<head>.json`; at most this many listed reviews are read.
+const LEDGER_REL = ".private/work/factory/ledger"
+const RECORD_MAX = 16 * 1024
+const REVIEWS_MAX = 20
 const PANE = "factory"
 const READING = { plugin: "vextrus-factory", key: "reading" }
 const EVENTS = { plugin: "vextrus-factory", key: "events" }
 const SESSION = { plugin: "vextrus-factory", key: "session" }
 const COST = { plugin: "vextrus-factory", key: "cost" }
+const VERDICTS_REF = { plugin: "vextrus-factory", key: "verdicts" }
 const TAB = { plugin: "vextrus-factory", key: "tab" }
 // A toast is raised for an owner-action line at most this old, and its line is remembered in the
 // store (across polls, reloads and sessions) so it is raised once.
@@ -86,7 +91,27 @@ async function factoryPaths($) {
     tail: await factoryFile($, TAIL_REL),
     cost: await factoryFile($, COST_REL),
     session: await factoryFile($, SESSION_REL),
+    ledger: await factoryFile($, LEDGER_REL),
   }
+}
+
+// The verdicts of the status's listed reviews, each from its ledger record `<pr>-<head>.json`:
+// { "<pr>-<head>": "PASS" | "FIX" | "BLOCK" }. A record that is missing or off-form is left out.
+async function readVerdicts($, paths, text) {
+  const out = {}
+  const { status } = parseStatus(text)
+  const listed = status === null ? [] : status.reviews.slice(0, REVIEWS_MAX)
+  for (const r of listed) {
+    if (typeof r.head !== "string" || !/^[0-9a-f]{40}$/.test(r.head)) continue
+    const record = await readSmall($, `${paths.ledger}/${verdictKey(r.pr, r.head)}.json`, RECORD_MAX)
+    try {
+      const verdict = record === null ? null : JSON.parse(record).verdict
+      if (VERDICTS.includes(verdict)) out[verdictKey(r.pr, r.head)] = verdict
+    } catch {
+      // off-form record: no verdict
+    }
+  }
+  return out
 }
 
 // The events text: events.log while it is small, else events.tail. { text: null, unreadable: true }
@@ -142,6 +167,7 @@ async function poll($, paths) {
     await $.state.set(READING, { text })
     await $.state.set(EVENTS, { events: bandEvents(log), unreadable })
     await $.state.set(SESSION, { text: await readSmall($, paths.session, SESSION_MAX) })
+    await $.state.set(VERDICTS_REF, { byReview: await readVerdicts($, paths, text) })
     await $.state.set(COST, { usd: lastCost(await readSmall($, paths.cost, LOG_READ_MAX)) })
     if (SURFACE === "status") {
       const { status, schema } = parseStatus(text)
@@ -160,7 +186,8 @@ async function currentView($) {
   const held = (await $.state.get(READING)).value
   const { status, schema } = parseStatus(held === undefined ? null : held.text)
   const cost = (await $.state.get(COST)).value
-  return factoryView(status, await $.clock.now(), schema, cost === undefined ? null : cost.usd)
+  const verdicts = (await $.state.get(VERDICTS_REF)).value
+  return factoryView(status, await $.clock.now(), schema, cost === undefined ? null : cost.usd, verdicts === undefined ? {} : verdicts.byReview)
 }
 
 export function register(on) {
