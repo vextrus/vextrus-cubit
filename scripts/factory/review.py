@@ -565,6 +565,9 @@ def prepare(main: Path, path: Path, sha: str, *, clean: bool) -> None:
         mine = git(main, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
         if common.returncode != 0 or common.stdout.strip() != mine or (path / ".git").is_dir():
             raise Refused(f"{path.name} exists and is not a worktree of this repository")
+        # Under the slot's claim no git runs here: an index.lock is one the PR's code left behind.
+        gitdir = git(path, "rev-parse", "--path-format=absolute", "--git-dir").strip()
+        Path(gitdir, "index.lock").unlink(missing_ok=True)
         git(path, "checkout", "-q", "--detach", "-f", sha)
         if clean:
             git(path, "clean", "-fdq")
@@ -1113,7 +1116,29 @@ def record(
     run.verdict = str(loaded["verdict"])
 
 
+@contextlib.contextmanager
+def round_lock(main: Path, run: Run) -> Iterator[None]:
+    """An exclusive, non-blocking lock on this PR, head and round, held for the whole run (local or
+    cloud, run or collect): a second run of the round is refused, never run beside the first."""
+    path = main / ".private" / "work" / "factory" / "review" / "runs"
+    path.mkdir(parents=True, exist_ok=True)
+    with (path / f"{run.pr}-{run.head}-r{run.round_}.lock").open("a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise Refused(
+                f"another run of this round is going (PR {run.pr} at {run.head}, round "
+                f"{run.round_}): wait for it to end"
+            ) from error
+        yield
+
+
 def review(run: Run, args: argparse.Namespace, main: Path) -> None:
+    with contextlib.ExitStack() as held:
+        review_round(run, args, main, held)
+
+
+def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextlib.ExitStack) -> None:
     factory = main / ".private" / "work" / "factory"
     review_dir = factory / "review"
     ledger_dir = factory / "ledger"
@@ -1126,6 +1151,7 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     run.head = resolve(run.pr)
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
+    held.enter_context(round_lock(main, run))
     with locked(review_dir / ".git.lock"):
         run.merged, run.base = merged_head(main, run.pr, run.head)
         rows, allowlist_added = changes(main, run.merged, run.base)
@@ -1152,33 +1178,59 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        reviews = lenses_in(run, lenses, rv, slot, main)
-        for number, out in enumerate(reviews, start=1):
-            for index, item in enumerate(out["findings"], start=1):
-                repro = item.get("repro")
-                run.findings.append(
-                    Finding(
-                        f"l{number}-f{index}",
-                        item["score"],
-                        item["file"],
-                        item["line"],
-                        item["summary"],
-                        repro.get("test_file") if isinstance(repro, dict) else None,
-                        proof=repro if isinstance(repro, dict) else None,
-                    )
-                )
-        confirm(run, rv)
-        refute(run, rv, slot, main)
-        check_kept(review_dir / "out", run)
-        if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
-            # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
-            raise Refused(
-                f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code ran: "
-                "nothing recorded; the owner must look at it before any merge"
-            )
+        try:  # the PR's code runs from here on: whatever ends the run, the checks below run
+            reviews = lenses_in(run, lenses, rv, slot, main)
+            retire_kept(review_dir / "out", run)
+            confirm_and_refute(run, rv, slot, main, reviews)
+        finally:
+            after_pr_code(review_dir / "out", ledger_dir, run)
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
+
+
+def confirm_and_refute(
+    run: Run, rv: Path, slot: Path, main: Path, reviews: list[dict[str, Any]]
+) -> None:
+    """The lenses' findings, each replayed by its test, the rest judged by the batched refuter."""
+    for number, out in enumerate(reviews, start=1):
+        for index, item in enumerate(out["findings"], start=1):
+            repro = item.get("repro")
+            run.findings.append(
+                Finding(
+                    f"l{number}-f{index}",
+                    item["score"],
+                    item["file"],
+                    item["line"],
+                    item["summary"],
+                    repro.get("test_file") if isinstance(repro, dict) else None,
+                    proof=repro if isinstance(repro, dict) else None,
+                )
+            )
+    confirm(run, rv)
+    refute(run, rv, slot, main)
+
+
+def retire_kept(out: Path, run: Run) -> None:
+    """Before the first replay, every kept lens answer of this head and round is moved to a `.used`
+    name `load_finished` never reads: once the PR's code has run past the lens stage, no rerun
+    reuses an answer it could have rewritten (only a run stopped in the lens stage reuses any)."""
+    pattern = f"{run.pr}-{run.head}-r{run.round_}-*.done.json"
+    for path in out.glob(pattern):
+        path.replace(path.with_name(f"{path.name}.used"))
+    run.kept = kept_answers(out, run)
+
+
+def after_pr_code(out: Path, ledger_dir: Path, run: Run) -> None:
+    """On every exit once the PR's code has run (a refusal, a crash, a stop or the way to the
+    record): a kept answer written or changed is deleted and refused, and so is a forged record."""
+    check_kept(out, run)
+    if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
+        # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
+        raise Refused(
+            f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code ran: "
+            "nothing recorded; the owner must look at it before any merge"
+        )
 
 
 def tier_lenses(tier: str, paths: list[str]) -> list[Lens]:
@@ -1797,6 +1849,11 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     """`collect <PR> --round n`: every lens handed off to the cloud for the PR's head answered, each
     verdict file checked by the ledger's own reader; ONE decision is recorded from all of them
     together (the worst verdict, every finding), or nothing is recorded while any lens is missing."""
+    with contextlib.ExitStack() as held:
+        collect_round(run, args, main, held)
+
+
+def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextlib.ExitStack) -> None:
     factory = main / ".private" / "work" / "factory"
     ledger_dir = factory / "ledger"
     run.exception, run.reason = args.exception, args.reason
@@ -1805,6 +1862,7 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     run.head = resolve(run.pr)
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
+    held.enter_context(round_lock(main, run))
     path = handoff_path(factory / "review" / "cloud", run.pr, run.head, run.round_)
     manifest = read_manifest(path, run)
     if not manifest:
