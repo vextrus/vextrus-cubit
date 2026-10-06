@@ -21,7 +21,6 @@ web does (ADR 0038). `TIME_ZONE` stays UTC; any other request is left as it is.
 """
 
 from collections.abc import Callable
-from functools import cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
@@ -67,8 +66,7 @@ class AdminTimeZoneMiddleware:
     def _zone(request: HttpRequest) -> ZoneInfo | None:
         """The acting Developer's Market's zone on an admin page; None elsewhere, with no Developer,
         or when the Market's zone name is not a zone (shown in UTC, never a 500)."""
-        prefix = _admin_prefix(getattr(request, "urlconf", None) or settings.ROOT_URLCONF)
-        if prefix is None or not request.path.startswith(prefix):
+        if not _in_admin(request):
             return None
         tenant_id = tenancy.current_tenant_id()
         if tenant_id is None:
@@ -79,11 +77,14 @@ class AdminTimeZoneMiddleware:
             return None
 
 
-@cache
-def _admin_prefix(urlconf: str) -> str | None:
-    """The admin's path under a URL configuration, found once per configuration; None where it
-    serves no admin (the job's, or a test's API-only one), so no request there is an admin page."""
+def _in_admin(request: HttpRequest) -> bool:
+    """Whether the request is an admin page; False where the URL configuration serves no admin (the
+    job's, or a test's API-only one). Reversed on each call: `reverse` includes the script prefix,
+    which is the request's own, as `path` does (`path_info` does not)."""
     try:
-        return reverse("admin:index", urlconf=urlconf)
+        prefix = reverse(
+            "admin:index", urlconf=getattr(request, "urlconf", None) or settings.ROOT_URLCONF
+        )
     except NoReverseMatch:
-        return None
+        return False
+    return request.path.startswith(prefix)

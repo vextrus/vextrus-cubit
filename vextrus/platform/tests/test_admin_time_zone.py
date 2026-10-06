@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from django.http import HttpRequest, HttpResponse
 from django.test import RequestFactory
+from django.urls import set_script_prefix
 from django.utils import timezone, translation
 
 from vextrus.platform.admin.tenancy import REGION_NAMES, market_name, region_name
@@ -70,3 +71,28 @@ def test_a_tenant_request_under_a_url_configuration_with_no_admin_is_answered_in
 
     assert response.status_code == 200
     assert seen == ["UTC"]
+
+
+@pytest.mark.django_db
+def test_the_admin_is_answered_in_the_market_s_zone_under_a_script_prefix_after_one_at_the_root(
+    make_developer: Callable[..., uuid.UUID],
+) -> None:
+    """A request served at the root first must not fix the admin's path for those under a prefix."""
+    developer = make_developer("Wrenfield Quay Ltd")
+    seen: list[str] = []
+
+    def get_response(request: HttpRequest) -> HttpResponse:
+        seen.append(timezone.get_current_timezone_name())
+        return HttpResponse()
+
+    middleware = AdminTimeZoneMiddleware(get_response)
+    with tenancy.acting_in(developer):
+        middleware(RequestFactory().get("/admin/"))
+        set_script_prefix("/app/")
+        try:
+            middleware(RequestFactory().get("/admin/", SCRIPT_NAME="/app"))
+        finally:
+            set_script_prefix("/")
+
+    assert seen[0] != "UTC"
+    assert seen[1] == seen[0]
