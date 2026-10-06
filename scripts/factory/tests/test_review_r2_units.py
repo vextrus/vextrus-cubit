@@ -410,3 +410,67 @@ def test_a_kept_answer_the_prs_code_changed_or_added_is_deleted_and_refused(
     with pytest.raises(review.Refused, match="changed while the PR's code ran"):
         review.check_kept(out, run)
     assert list(out.iterdir()) == []
+
+
+# ---------------------------------------------------------------- the refuter's round 1 (S14-R2)
+
+
+def test_a_capped_process_whose_pipe_outlives_its_group_never_hangs(tmp_path: Path) -> None:
+    """Refuted: a child in its own session kept the pipes open and the final drain never returned."""
+    script = (
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],"
+        " start_new_session=True)\n"
+        "time.sleep(300)\n"
+    )
+    started = time.monotonic()
+    done = review.capped(
+        [sys.executable, "-c", script], cwd=tmp_path, env=dict(os.environ), prompt="", timeout=1
+    )
+    assert done is None
+    assert time.monotonic() - started < 30
+
+
+def test_an_attack_is_never_restored_under_a_linked_folder(tmp_path: Path) -> None:
+    """Refuted: `mkdir(parents=True)` made folders through a committed link before the check."""
+    rv, outside = tmp_path / "rv1", tmp_path / "outside"
+    rv.mkdir()
+    outside.mkdir()
+    (rv / "review_attacks").symlink_to(outside)
+    review.restore_attacks(rv, {"review_attacks/lens-a/deep/test_x.py": "x"})
+    assert list(outside.iterdir()) == []
+
+
+def test_where_cloud_on_a_no_model_tier_records_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    recorded: list[str] = []
+    monkeypatch.setattr(review, "resolve", lambda pr: H)
+    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (H, BASE))
+    monkeypatch.setattr(review, "changes", lambda main, merged, base: ([("docs/a.md", 1, 0)], []))
+    monkeypatch.setattr(review, "merge_bases", lambda main, head, base: 1)
+    monkeypatch.setattr(review, "record", lambda *_: recorded.append("record"))
+    args = review.parse(["run", "12", "--round", "1", "--where", "cloud"])
+    with pytest.raises(review.Refused, match="no reviewer"):
+        review.review(review.Run(pr=12, round_=1), args, tmp_path)
+    assert recorded == []
+
+
+def test_the_refuter_prompt_masks_the_records_name_and_still_matches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Refuted: a finding on scripts/ledger.py put the word in the refuter's prompt."""
+    run = review.Run(pr=12, round_=1, head=H, merged=H, slot=1)
+    run.findings = [review.Finding("l1-f1", 70, "scripts/ledger.py", 3, "the Ledger drops a row", None,
+                                   "UNPROVEN")]  # fmt: skip
+    prompts: list[str] = []
+
+    def fake(lens: review.Lens, prompt: str, *_: Any, **__: Any) -> dict[str, Any]:
+        prompts.append(prompt)
+        file, summary = review.unnamed("scripts/ledger.py"), review.unnamed("the Ledger drops a row")
+        return {"structured_output": {"findings": [judged(file, 3, summary, "REFUTED")]}}
+
+    monkeypatch.setattr(review, "run_lens", fake)
+    review.refute(run, tmp_path, tmp_path, tmp_path)
+    assert "ledger" not in prompts[0].lower()
+    assert run.findings[0].word == "REFUTED"

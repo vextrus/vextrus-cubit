@@ -41,7 +41,7 @@ recorded round: one line per standing finding (`file:line (score): summary`), no
 
 `--where cloud` stops after the tier: each lens is one cloud reviewer launched through
 `scripts.factory.review_cloud` (`launch cloud --role reviewer`, the lens's model), and nothing is
-recorded.
+recorded (a no-model tier is refused: it needs no reviewer).
 
 Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing recorded).
 """
@@ -736,7 +736,13 @@ def capped(
                 continue
         with contextlib.suppress(ProcessLookupError, PermissionError):
             os.killpg(process.pid, signal.SIGKILL)  # whatever of the group is left
-        process.communicate()
+        # A process that left the group may still hold the pipes: never drain them, only reap.
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=GRACE[-1][1])
+        for pipe in (process.stdin, process.stdout, process.stderr):
+            with contextlib.suppress(OSError):
+                if pipe is not None:
+                    pipe.close()
         return None
     return subprocess.CompletedProcess(argv, process.returncode, out, err)
 
@@ -941,13 +947,16 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         bases = merge_bases(main, run.head, run.base)
     run.paths = [path for path, _, _ in rows]
     run.tier = tier(rows, allowlist_added, bases=bases)
+    cloud = getattr(args, "where", "local") == "cloud"
+    if cloud and run.tier in ("allowlist-only", "docs-only"):
+        raise Refused(f"a {run.tier} PR is passed by code, with no reviewer: run it without --where")
     if run.tier in ("allowlist-only", "docs-only"):
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
         return
     lenses = [LENS_B] if run.tier == "small" else [LENS_A, LENS_B]
     if any(path.startswith(MESSAGES) for path in run.paths):
         lenses.append(WORDS)
-    if getattr(args, "where", "local") == "cloud":
+    if cloud:
         hand_off(run, lenses, main, review_dir / "cloud")
         return
     run.slot, claim = claim_slot(review_dir)
@@ -1078,9 +1087,15 @@ def restore_attacks(rv: Path, attacks: dict[str, Any]) -> None:
         pure = plain_test_path(name) if isinstance(name, str) else None
         if pure is None or not isinstance(text, str):
             continue
-        target = rv / pure
+        target, folder = rv / pure, rv
+        linked = False
+        for part in pure.parent.parts:  # no folder on the way may be a link (the PR can commit one)
+            folder = folder / part
+            linked = linked or folder.is_symlink() or (folder.exists() and not folder.is_dir())
+        if linked or target.is_symlink():
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        if target.is_symlink() or not target.parent.resolve().is_relative_to(inside):
+        if not target.parent.resolve().is_relative_to(inside):
             continue
         target.write_text(text, errors="surrogateescape")
 
@@ -1166,11 +1181,22 @@ def confirm(run: Run, rv: Path) -> None:
             item.word, item.method = "UNPROVEN", None
 
 
+RECORD_WORD = re.compile(r"ledger", re.IGNORECASE)
+
+
+def unnamed(text: str) -> str:
+    """`text` with the record's name masked (`l*dger`): a claim's file or summary may name it, and no
+    prompt a lens or the refuter gets ever does."""
+    return RECORD_WORD.sub(lambda found: f"{found[0][0]}*{found[0][2:]}", text)
+
+
 def refuter_brief(run: Run, rv: Path, slot: Path, claims: list[Finding]) -> str:
     """The batched refuter's prompt: the PR, the worktree, and each claim it is to judge (no other)."""
     assert run.head is not None
     listed = [
-        json.dumps({"file": c.file, "line": c.line, "score": c.score, "summary": c.summary})
+        json.dumps(
+            {"file": unnamed(c.file), "line": c.line, "score": c.score, "summary": unnamed(c.summary)}
+        )
         for c in claims
     ]
     return "\n".join(
@@ -1229,9 +1255,10 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
         return
     judged: dict[str, set[str]] = {}
     for verdict in answer["findings"]:
-        matches = [c for c in claims if (c.file, c.line) == (verdict["file"], verdict["line"])]
+        place = (verdict["file"], verdict["line"])
+        matches = [c for c in claims if place in ((c.file, c.line), (unnamed(c.file), c.line))]
         if len(matches) > 1:
-            matches = [c for c in matches if c.summary == verdict["summary"]]
+            matches = [c for c in matches if verdict["summary"] in (c.summary, unnamed(c.summary))]
         if len(matches) == 1:
             judged.setdefault(matches[0].id, set()).add(verdict["verdict"])
     for claim in claims:
@@ -1247,7 +1274,8 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
     """`--where cloud`: one cloud reviewer per lens, on the map's model, each launched by
     `scripts.factory.review_cloud` (a fresh review branch holding the head, its review file, and
     `uv run python -m scripts.factory.launch cloud --role reviewer` from the main checkout). Nothing
-    is recorded here: each reviewer answers later on its branch."""
+    is recorded here: each reviewer answers later on its branch. The cloud verdict file knows only the
+    `pr-reviewer` and `refuter` agents, so the words lens runs there as `pr-reviewer` given its task."""
     assert run.head is not None
 
     def push(argv: list[str]) -> int:
