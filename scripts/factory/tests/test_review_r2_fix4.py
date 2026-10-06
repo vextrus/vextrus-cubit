@@ -75,7 +75,7 @@ class Launcher:
         real = review._run
 
         def git_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-            if argv[:2] == ["git", "push"] and self.interrupt == "timeout":
+            if argv[:1] == ["git"] and "push" in argv and self.interrupt == "timeout":
                 raise subprocess.TimeoutExpired(argv, review.GIT_TIMEOUT)
             return real(argv, **kwargs)
 

@@ -51,7 +51,10 @@ and records ONE decision from all of them (the worst verdict, every finding), or
 has not answered. `ledger fetch-verdict` refuses such a head: one lens alone never makes its record.
 
 The PR's code runs as the orchestrator's user without a sandbox, so it can write any file the user
-can (#488); review.py does not claim to stop that.
+can (#488); review.py does not claim to stop that. It runs only in `rv<N>`: the lenses' and the
+refuter's test runs and the replays. git never runs the PR's own hooks (every git command passes
+`-c core.hooksPath=/dev/null`). The ledger folder is snapshotted before the review worktrees are
+prepared and compared, on every exit, after the refuter.
 
 Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing recorded).
 """
@@ -95,6 +98,9 @@ LENS_TIMEOUT = 45 * 60  # seconds; VEXTRUS_REVIEW_LENS_TIMEOUT overrides it
 TIMEOUT_ENV = "VEXTRUS_REVIEW_LENS_TIMEOUT"
 REPLAY_TIMEOUT = 20 * 60
 GIT_TIMEOUT = 10 * 60
+# Every git command review.py runs: the main checkout's relative core.hooksPath (scripts/git-hooks)
+# would make git run the PR's OWN hooks (post-checkout, ...) inside a review worktree.
+GIT = ("git", "-c", "core.hooksPath=/dev/null")
 COLOUR = ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "PYTEST_ADDOPTS")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 FAILING = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"}
@@ -358,7 +364,7 @@ class Run:
 
 def main_checkout() -> Path:
     """The main checkout: the parent of the cwd's git common dir."""
-    done = _run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    done = _run([*GIT, "rev-parse", "--path-format=absolute", "--git-common-dir"])
     if done.returncode != 0:
         raise BadInput("run from inside the repository's main checkout")
     return Path(done.stdout.strip()).parent
@@ -366,7 +372,7 @@ def main_checkout() -> Path:
 
 def git(where: Path, *args: str, env: dict[str, str] | None = None) -> str:
     try:
-        done = _run(["git", "-C", str(where), *args], timeout=GIT_TIMEOUT, env=env)
+        done = _run([*GIT, "-C", str(where), *args], timeout=GIT_TIMEOUT, env=env)
     except subprocess.TimeoutExpired as error:
         raise Refused(f"git {args[0]} ran past {GIT_TIMEOUT // 60} minutes") from error
     if done.returncode != 0:
@@ -409,13 +415,13 @@ def merged_head(main: Path, pr: int, head: str) -> tuple[str, str]:
         f"refs/pull/{pr}/head",
         "+refs/heads/main:refs/remotes/origin/main",
     )
-    if _run(["git", "-C", str(main), "cat-file", "-e", f"{head}^{{commit}}"]).returncode != 0:
+    if _run([*GIT, "-C", str(main), "cat-file", "-e", f"{head}^{{commit}}"]).returncode != 0:
         raise Refused("the PR's head was not fetched (it moved?): run again")
     base = git(main, "rev-parse", "--verify", "origin/main^{commit}").strip()
-    ancestor = _run(["git", "-C", str(main), "merge-base", "--is-ancestor", base, head])
+    ancestor = _run([*GIT, "-C", str(main), "merge-base", "--is-ancestor", base, head])
     if ancestor.returncode == 0:
         return head, base
-    tree = _run(["git", "-C", str(main), "merge-tree", "--write-tree", base, head])
+    tree = _run([*GIT, "-C", str(main), "merge-tree", "--write-tree", base, head])
     if tree.returncode != 0:
         raise Refused("the head does not merge with main: the builder merges main first")
     who = {
@@ -569,9 +575,7 @@ def prepare(main: Path, path: Path, sha: str, *, clean: bool) -> None:
         git(main, "worktree", "prune")
         git(main, "worktree", "add", "-q", "--detach", str(path), sha)
     else:
-        common = _run(
-            ["git", "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"]
-        )
+        common = _run([*GIT, "-C", str(path), "rev-parse", "--path-format=absolute", "--git-common-dir"])
         mine = git(main, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
         if common.returncode != 0 or common.stdout.strip() != mine or (path / ".git").is_dir():
             raise Refused(f"{path.name} exists and is not a worktree of this repository")
@@ -976,7 +980,7 @@ def replay_target(rv: Path, test_file: str) -> str | None:
 
 def pytest_lock(where: Path) -> IO[str]:
     """The main checkout's pytest lock, held (the lenses' wrapper takes the same one)."""
-    common = _run(["git", "-C", str(where), "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    common = _run([*GIT, "-C", str(where), "rev-parse", "--path-format=absolute", "--git-common-dir"])
     if common.returncode != 0:
         raise Refused("the worktree's git folder cannot be found")
     path = Path(common.stdout.strip()).parent / ".private" / "work" / "factory" / "pytest.lock"
@@ -1194,17 +1198,22 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
     with claim:
         slot = review_dir / f"slot{run.slot}"
         rv = main / ".claude" / "worktrees" / f"rv{run.slot}"
-        with locked(review_dir / ".git.lock"):
-            prepare(main, slot, run.merged, clean=True)
-            prepare(main, rv, run.merged, clean=True)
-        # The journal's mark first: a record another run writes between the two is in both.
-        mark = journal_mark(ledger_dir)
-        before = ledger_snapshot(ledger_dir)
-        try:  # the PR's code runs from here on: the ledger check runs on every exit
+        # Both ends under the ledger's own lock, which every record (its link and its journal line)
+        # is written under: no record of another run lands between the steps of either end. The
+        # start comes before the review worktrees hold the PR's files, so everything after it is
+        # checked on every exit.
+        with ledger.ledger_lock(ledger_dir):
+            mark = journal_mark(ledger_dir)
+            before = ledger_snapshot(ledger_dir)
+        try:
+            with locked(review_dir / ".git.lock"):
+                prepare(main, slot, run.merged, clean=True)
+                prepare(main, rv, run.merged, clean=True)
             reviews = lenses_in(run, lenses, rv, slot, main)
             confirm_and_refute(run, rv, slot, main, reviews)
         finally:
-            check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
+            with ledger.ledger_lock(ledger_dir):
+                check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
@@ -1600,7 +1609,8 @@ def hand_off(
         write_handoff(path, manifest)
 
     def push(argv: list[str]) -> int:
-        return _run(argv, cwd=main, timeout=GIT_TIMEOUT).returncode
+        command = [*GIT, *argv[1:]] if argv[:1] == [GIT[0]] else argv
+        return _run(command, cwd=main, timeout=GIT_TIMEOUT).returncode
 
     started: dict[str, str] = {}
     current: dict[str, Any] = {}  # "entry": the hand-off entry of the lens being launched
@@ -1862,7 +1872,7 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
     record(run, args, ledger_dir, [found["verdict"] for _, found, _ in answers], factory / "verdicts")
     served = sorted({one["branch"] for name in required for one in launches_of(entries[name])})
     for branch in served:  # every launch's review branch has served: removed, as fetch-verdict does
-        _run(["git", "-C", str(main), "push", "-q", "origin", "--delete", branch], timeout=GIT_TIMEOUT)
+        _run([*GIT, "-C", str(main), "push", "-q", "origin", "--delete", branch], timeout=GIT_TIMEOUT)
 
 
 # ------------------------------------------------------------------------------------------ fix message

@@ -18,6 +18,10 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
 - (b) a round-3 record with no exception;
 - (c) an item under a `## Cut`, `## Not done` or `## Deferred` heading of the body that links no open
   issue;
+- (e) a head that `scripts/factory/ci_gate.py` reads not READY (no `Factory-State: READY` with this
+  tree's `Factory-Verify`, and not a merge of main onto such a head) when the PR changes a file outside
+  the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a green `ci` proves nothing
+  ran. A PR of documents alone needs no heavy job and no trailer;
 - (d) a leak-scan hit (or no leak scan) on the PR's added lines, commit messages, file names, branch
   name, title, body or comments. A problem names the part and the count, never the text.
 
@@ -32,6 +36,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from scripts.factory import ci_gate
 from scripts.ledger import default_ledger_dir
 
 REPOSITORY = ("vextrus", "vextrus-cubit")
@@ -63,6 +68,9 @@ IssueOpen = Callable[[int], bool]
 MARKER = re.compile(
     r"<!-- vextrus-review round=(\d+) head=([0-9a-f]{40}) verdict=(PASS|FIX|BLOCK) findings=(\d+) -->"
 )
+# The paths no heavy job reads (ci.yml's `changes` job leaves the backend untouched by these, and
+# no web or engine path is among them): a PR of these alone passes CI whatever its head's trailer says.
+LIGHT_PATHS = re.compile(r"(docs/|\.claude/(agents|skills)/|[^/]+\.md$)")
 SHA = re.compile(r"[0-9a-f]{40}")
 KINDS = ("diff", "messages", "files", "branch", "title", "body", "comments")
 HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
@@ -468,6 +476,25 @@ def review_problems(
     ]
 
 
+def ready_problems(head: str, files: list[str], head_ready: Callable[[str], bool]) -> list[str]:
+    """(e): the head reads READY by CI's own rule, else the heavy jobs were skipped on it (unless the
+    PR changes documents alone, which need none)."""
+    if all(LIGHT_PATHS.match(path) for path in files):
+        return []
+    try:
+        ready = head_ready(head)
+    except ci_gate.Unreadable as error:
+        return [f"the head's READY trailer cannot be read: {error}"]
+    if ready:
+        return []
+    return [
+        (
+            f"the head {head[:12]} is not Factory-State: READY (nor a merge of main onto one): CI "
+            "skipped its heavy jobs; it needs a READY head"
+        )
+    ]
+
+
 def main(
     argv: list[str] | None = None,
     get: Fetch = fetch,
@@ -477,6 +504,7 @@ def main(
     repo: Path | None = None,
     scan: Scan | None = None,
     issue_open: IssueOpen = issue_is_open,
+    head_ready: Callable[[str], bool] | None = None,
 ) -> int:
     args = sys.argv[1:] if argv is None else argv
     if len(args) != 1 or not args[0].isdigit():
@@ -490,6 +518,12 @@ def main(
         found.append("the head moved while reading the PR: run again")
     if review.get("base_branch", "main") != "main":
         found.append(f"the PR's base is {review['base_branch']}, not main")
+    # The real head was fetched by `fetch_review`, so git can read it; facts a caller injects name no
+    # commit git holds, so the READY reading runs on them only when the caller supplies it.
+    if head_ready is None and facts is fetch_review:
+        head_ready = ci_gate.is_ready
+    if head_ready is not None:
+        found += ready_problems(review["head"], review["files"], head_ready)
     found += review_problems(
         review,
         ledger_dir=default_ledger_dir() if ledger_dir is None else ledger_dir,
