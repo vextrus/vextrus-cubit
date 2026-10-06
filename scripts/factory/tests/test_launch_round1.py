@@ -541,31 +541,17 @@ def through_default_claude(tmp_path: Path, root: Path) -> launch.Outcome:
     )
 
 
-def test_the_platforms_error_is_printed_after_the_refused_line_on_the_real_path(
+def test_a_launch_that_created_no_session_names_the_screen_and_the_log(
     tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     cli_on_path(tmp_path, monkeypatch, 'echo "[ERROR] concurrent session limit reached"; exit 1')
     outcome = through_default_claude(tmp_path, main)
     lines = capsys.readouterr().out.splitlines()
+    log_file = tmp_path / "records" / "z1-20261005T010203Z.debug.log"
     assert outcome.exit_code == 2
     assert lines[0].startswith("REFUSED "), lines
-    assert "[ERROR] concurrent session limit reached" in lines[1:], lines
-    assert records(tmp_path)[-1]["judge"]["ok"] is False  # type: ignore[index]
-
-
-def test_with_no_error_line_the_last_five_lines_of_the_screen_follow(
-    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    cli_on_path(tmp_path, monkeypatch, 'for n in 1 2 3 4 5 6 7; do echo "line $n"; done; exit 0')
-    through_default_claude(tmp_path, main)
-    lines = capsys.readouterr().out.splitlines()
-    assert lines[1:6] == [f"line {n}" for n in range(3, 8)], lines
-
-
-def test_a_failed_launch_with_an_error_in_the_debug_log_prints_it_too(
-    tmp_path: Path, main: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    text = log(session=None) + "[ERROR] 503 upstream unavailable\n"
-    outcome = run(tmp_path, main, Fake(text=text, code=1))
-    assert outcome.exit_code == 2
-    assert "[ERROR] 503 upstream unavailable" in capsys.readouterr().out.splitlines()
+    assert lines[1] == f"see {log_file}.screen and {log_file}", (
+        lines
+    )  # and nothing parsed: no error line
+    assert not any("concurrent" in line for line in lines), lines
+    assert "concurrent session limit reached" in Path(f"{log_file}.screen").read_text()

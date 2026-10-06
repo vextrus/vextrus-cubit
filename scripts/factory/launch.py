@@ -24,8 +24,8 @@ github_preflight_failed)"). So every launch runs with a debug log and the log is
 refused session keeps running, it is sent STOP at once and listed for deletion in claude.ai/code.
 
 The concurrent-session limit (16) is enforced by the cloud platform, not counted here (S14-K1): when a
-launch created no session, the CLI's own `[ERROR]` lines (else the last 5 lines of its screen) are
-printed verbatim after the REFUSED line.
+launch created no session, a line after the REFUSED line names the kept screen file and the debug log
+("see <screen> and <log>"); nothing in them is parsed.
 """
 
 from __future__ import annotations
@@ -97,7 +97,6 @@ SOURCE = re.compile(r"\[teleportToRemote\] Git source: (\S+), revision: (\S+)")
 CREATED = re.compile(r"Successfully created remote session: (session_\w+)")
 ENV = re.compile(r"Selected environment: (env_\w+) \(([^,]+),")
 FALLBACK = re.compile(r"Configured default environment \S+ not found, using first available")
-ERROR_MARK = re.compile(r"\[ERROR\] ")
 ENVIRONMENT = "vextrus"
 # A log with no `Selected environment` line is refused: how the session's environment was chosen is
 # then unknown (fail closed; review round 1 of PR #286, F1).
@@ -165,23 +164,6 @@ def judge(log: str, *, repository: str, branch: str, environment: str = ENVIRONM
     if session is None:
         return Verdict(False, "cloned, but no session was created", None, "no-session")
     return Verdict(True, f"cloned {repository} at {branch}", session)
-
-
-ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
-TAIL_LINES = 5
-
-
-def platform_lines(log: str, screen: str) -> list[str]:
-    """What the CLI said when a launch created no session, verbatim and never interpreted: its own
-    `[ERROR]` lines (in the debug log or on its screen), else the last 5 lines of its screen (the log
-    when it has no screen text). The platform enforces the concurrent-session limit (16) and words its
-    own refusal; no pattern of its wording is matched here."""
-    text = ANSI.sub("", screen).replace("\r", "")
-    lines = [line.strip() for line in text.split("\n") if line.strip()]
-    errors = [line[m.start() :] for line in [*log.split("\n"), *lines] if (m := ERROR_MARK.search(line))]
-    if errors:
-        return list(dict.fromkeys(errors))
-    return lines[-TAIL_LINES:] if lines else [x for x in log.split("\n") if x.strip()][-TAIL_LINES:]
 
 
 # --- the seams -------------------------------------------------------------------------------------
@@ -1059,12 +1041,7 @@ def _launch_cloud(
     else:
         outcome = _refused(verdict.code, verdict.reason, session)
         if session is None:
-            try:
-                kept = screen_file.read_text(errors="replace")
-            except OSError:
-                kept = ""
-            for said in platform_lines(judged, kept):
-                print(said)
+            print(f"see {screen_file} and {log}")
         if session:
             stop_sent = (
                 claude(["claude", "-p", STOP, "--cloud", session, "--output-format", "json"]) == 0
