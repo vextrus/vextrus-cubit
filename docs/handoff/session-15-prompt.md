@@ -23,7 +23,8 @@ quality, ready for M1. Product work only: the factory is the tool.
 ## Finish line (each condition is checked by its command; the evidence goes where it says)
 1. The gap map exists, with evidence for every M0 clause: `.private/work/session-15/gap-map.md`.
 2. Every open M0 issue is mapped into a new ticket or closed with its reason:
-   `gh issue list --label M0 --state open` shows only the new set.
+   `gh issue list --label M0 --state open --search '-label:factory' --limit 500 --json number` lists exactly the new set's
+   numbers (compare the two lists; never trust the default page of 30).
 3. G1 passes twice in a row on main's current product code: `uv run python -m scripts.walk.ready origin/main` exits 0.
 4. Your own browser walk of both real sets finds no open BLOCKS:
    `.private/work/session-15/walk/` holds the defect list, and each finding is fixed or filed.
@@ -159,7 +160,8 @@ Lead with what is broken.
 2. **Close the old issues as superseded.** For each open M0 issue, either:
    - map it into a new ticket and close it with "Superseded by #<new>" (a short comment; keep the issue's history);
    - or, if the gap map shows it fixed or obsolete, close it with the evidence.
-   - Factory issues stay open unless fixed.
+   - Factory issues stay open unless fixed. The 13 issues labelled both `factory` and `M0` (#249-#252, #256, #261-#265, #269,
+     #272, #277: reading-measurement tooling, which Q10 makes M1's) move from the M0 label to M1.
    - Do it in batches and say the count.
 3. Write each ticket's acceptance tests (acceptance-writer, Opus high), as many in parallel as the floors allow.
 
