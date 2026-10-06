@@ -85,6 +85,7 @@ from typing import IO, Any
 
 from scripts import ledger
 from scripts.factory import lens_pytest, review_cloud
+from scripts.factory.governor import REVIEW_SLOTS
 
 REPOSITORY = ledger.REPOSITORY
 CRASHED = 1  # an uncaught error (beside the ledger's 0 ok, 2 bad input, 3 refused)
@@ -93,7 +94,7 @@ HASH_LINE = re.compile(r"[0-9a-f]{64}")
 ALLOWLIST = "tools/leakscan/allowlist.txt"
 MESSAGES = "web/src/messages/"
 SMALL_LINES = 150
-MAX_SLOTS = 4
+MAX_SLOTS = REVIEW_SLOTS
 LENS_TIMEOUT = 45 * 60  # seconds; VEXTRUS_REVIEW_LENS_TIMEOUT overrides it
 TIMEOUT_ENV = "VEXTRUS_REVIEW_LENS_TIMEOUT"
 REPLAY_TIMEOUT = 20 * 60

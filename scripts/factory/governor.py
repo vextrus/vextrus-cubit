@@ -10,7 +10,7 @@ agents), `pytest` 3.3, `web-tests` 9.5, `walk` 5.6, `rd-run` 3.0.
 
 Floors, every local unit: `MemAvailable - cost >= 5.4`; swap used above 2 refuses, above 1 warns;
 disk free (`df -k --output=avail /`) under 30 refuses, under 40 warns (the spec names no disk cost per
-unit, so it is 0); at most 3 local agents (`claude agents --json --all` rows with a `pid` and a `kind`
+unit, so it is 0); at most 6 local agents (`claude agents --json --all` rows with a `pid` and a `kind`
 other than `interactive`) for `local-agent`. A live `g1.pid` (the G1 walk) refuses `web-tests`,
 `pytest` and `walk`; a live `rd.pid` (a real-drawing run) refuses `web-tests` and `rd-run`; a pidfile
 that names no pid counts as live.
@@ -20,14 +20,18 @@ models): N% used` are read (any other line, the per-model week lines among them,
 launch is refused only at a used-up limit, session or week >= 100; `review` is never held but prints
 `DEGRADE pr-reviewer-only` at session or week >= 100. The owner's ruling (5 Oct 2026): "don't make those
 threshold of week 85% or session 80%, make them 100% both and I'll take actions whatever needed for
-usage tokens expansion". Cloud sessions are capped at 8 whatever the usage; with `--rate` (measured %
-per builder-hour) and `--hours-to-reset`, `min(16, floor((100 - session) / (rate x hours)))`.
-`--running N` (sessions running now) is refused at or above the cap.
+usage tokens expansion". Cloud sessions are capped at 16 whatever the usage (the owner, 6 Oct 2026);
+with `--rate` (measured % per builder-hour) and `--hours-to-reset`,
+`min(16, floor((100 - session) / (rate x hours)))`.
+`--running N` (sessions running now, the caller's own count; the governor derives none from launch
+records) is refused at or above the cap; the platform enforces the limit itself and `launch cloud`
+reports its refusal.
 
-Work in flight (`cloud-session` and `local-agent`, S14-W1): at most 5 builders in flight, counted as the
-open PRs plus the launched builders (`$VEXTRUS_FACTORY_DIR/launches/*.json`: a cloud record whose judge
-is ok, or a local one; never an acceptance-writer, reviewer or refuter record, nor one whose STOP was
-sent); a builder and its open PR count once (joined on the branch). The release rule, one table in
+Work in flight (`cloud-session` and `local-agent`, S14-W1; no count of them refuses a launch since
+S14-K1, the owner, 6 Oct 2026): the open PRs plus the launched builders
+(`$VEXTRUS_FACTORY_DIR/launches/*.json`: a cloud record whose judge is ok, or a local one; never an
+acceptance-writer, reviewer or refuter record, nor one whose STOP was sent); a builder and its
+open PR count once (joined on the branch). The release rule, one table in
 tests/test_governor_work.py: a merged or closed PR on a record's branch releases the record only if
 it started before that PR ended (the latest such PR's `mergedAt` or `closedAt`; with neither, its
 `createdAt`; with no time at all, every record on the branch), so a fix-round launch is released when
@@ -38,9 +42,9 @@ pid stopped or failed (a `done` session is alive and waiting; an unreadable list
 cloud one after the longer of 4 x its budget and 6 hours. The reading names why each unit counts
 (`counted`) and why each record aged out (`aged_out`). `--role reviewer|refuter` takes no new work and
 skips these checks; `--branch B` marks a launch on a branch that already holds a unit (an open PR or a
-counted builder) as no new work: it meets neither the cap nor its own unit. With `--owns PATH`
+counted builder) as no new work: it does not collide with its own unit. With `--owns PATH`
 (repeatable: the files the ticket owns; a path ending in `/` is a folder and covers every file under
-it): at most 2 open PRs or builders in any hot-file area the owned files touch
+it): at most 3 open PRs or builders in any hot-file area the owned files touch
 (`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>": ["<repo path, folder ending in /, or
 fnmatch glob>", ...]}}`), and no owned file may be one an open PR changes (the refusal names that PR).
 The PRs are the stdout of `gh pr list --state all --json
@@ -100,14 +104,14 @@ SWAP_REFUSE_GB = 2.0
 SWAP_WARN_GB = 1.0
 DISK_REFUSE_GB = 30.0
 DISK_WARN_GB = 40.0
-MAX_LOCAL_AGENTS = 3
+MAX_LOCAL_AGENTS = 6
 SESSION_HOLD = 100.0
 WEEK_HOLD = 100.0
 DEGRADE_AT = 100.0
-CAP_HIGH, CAP_MAX = 8, 16
+CAP_MAX = 16
+REVIEW_SLOTS = 8
 REVIEW_DEFAULT_AGENTS = 8
-WIP_CAP = 5
-AREA_CAP = 2
+AREA_CAP = 3
 WORK_UNITS = ("cloud-session", "local-agent")
 HOT_FILES = Path(__file__).with_name("hot-files.json")
 PR_LIST_LIMIT = "500"
@@ -585,7 +589,7 @@ def _number(value: float | None) -> float | int | None:
 def cloud_cap(usage: Usage, rate: float | None, hours: float | None) -> int:
     if rate is not None and hours is not None and rate > 0 and hours > 0:
         return max(0, min(CAP_MAX, math.floor((SESSION_HOLD - usage.session) / (rate * hours))))
-    return CAP_HIGH
+    return CAP_MAX
 
 
 def check(
@@ -760,9 +764,9 @@ def _agent_rows() -> Callable[[], list[dict[str, Any]] | None]:
 def _check_work(
     verdict: Verdict, owns: list[str], role: str | None = None, branch: str | None = None
 ) -> None:
-    """The WIP cap, the hot-file areas and the open PRs' files (S14-W1). A reviewer or refuter takes no
+    """The hot-file areas and the open PRs' files (S14-W1). A reviewer or refuter takes no
     new work; a launch on a branch that already holds a unit (an open PR or a builder) is not new
-    work, so it meets neither the cap nor the PR or builder it would collide with: itself."""
+    work, so it does not collide with the PR or builder it would collide with: itself."""
     if role in NO_NEW_WORK_ROLES:
         return
     prs = read_prs()
@@ -819,10 +823,6 @@ def _check_work(
     verdict.readings["counted"] = counts
     if aged:
         verdict.readings["aged_out"] = aged
-    held = branch is not None and branch in counted
-    if len(units) >= WIP_CAP and not held:
-        names = ", ".join(unit["label"] for unit in units)
-        verdict.reasons.append(f"WIP: {len(units)} builders in flight, the cap is {WIP_CAP} ({names})")
     if not owns:
         return
     others = [unit for unit in units if unit["branch"] != branch]

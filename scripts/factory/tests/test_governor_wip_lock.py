@@ -1,6 +1,8 @@
-"""PR #477 review round 1: two launches at once must not both pass the WIP cap. The governor's
-`admit` checks and writes a pending record under one `flock`; the pending record counts at once,
-while its launcher's pid lives, and both launchers remove it when their launch ends, failed or not."""
+"""PR #477 review round 1: two launches at once must not both pass a hot-file area's cap (S14-K1: the
+PR-count WIP cap is gone; the area cap of 3 is what two racing launches could both slip past).
+The governor's `admit` checks and writes a pending record under one `flock`; the pending record counts
+at once, while its launcher's pid lives, and both launchers remove it when their launch ends, failed or
+not."""
 
 from __future__ import annotations
 
@@ -47,15 +49,23 @@ def factory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return folder
 
 
+@pytest.fixture
+def area(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The area `x` holds PR 1 and PR 2; a launch owning `x/9.py` would be the third."""
+    hot = tmp_path / "hot.json"
+    hot.write_text(json.dumps({"areas": {"x": ["x/1.py", "x/2.py", "x/9.py"]}}))
+    monkeypatch.setattr(governor, "HOT_FILES", hot)
+
+
 def wip() -> int:
     return int(governor.check("cloud-session").readings["wip"])
 
 
-def test_two_launches_at_once_with_four_in_flight_exactly_one_passes(
-    factory: Path, monkeypatch: pytest.MonkeyPatch
+def test_two_launches_at_once_with_two_in_an_area_exactly_one_passes(
+    factory: Path, monkeypatch: pytest.MonkeyPatch, area: None
 ) -> None:
     # Both read the PR list together and slowly (a real `gh` call takes seconds), so without the
-    # lock both would read 4 and pass.
+    # lock both would read two in the area and pass.
     barrier = threading.Barrier(2)
     reading = governor.read_prs
 
@@ -70,7 +80,11 @@ def test_two_launches_at_once_with_four_in_flight_exactly_one_passes(
     def launch_one(ticket: str) -> None:
         barrier.wait()
         verdicts[ticket] = governor.admit(
-            "cloud-session", hold=os.getpid(), ticket=ticket, branch=f"new-{ticket}"
+            "cloud-session",
+            hold=os.getpid(),
+            ticket=ticket,
+            branch=f"new-{ticket}",
+            owns=["x/9.py"],
         )
 
     threads = [threading.Thread(target=launch_one, args=(t,)) for t in ("a", "b")]
@@ -81,7 +95,7 @@ def test_two_launches_at_once_with_four_in_flight_exactly_one_passes(
     passed = [t for t, v in verdicts.items() if v.ok]
     refused = [v for v in verdicts.values() if not v.ok]
     assert len(passed) == 1, {t: v.reason for t, v in verdicts.items()}
-    assert "WIP: 5 builders in flight, the cap is 5" in (refused[0].reason or "")
+    assert "hot-file area x: 3 open PRs or builders already hold it" in (refused[0].reason or "")
     assert f"builder new-{passed[0]}" in (refused[0].reason or "")
     assert wip() == 5  # the pending record counts at once
 
@@ -93,13 +107,13 @@ def test_the_pending_record_holds_the_hot_file_area(
     hot.write_text(json.dumps({"areas": {"step1": ["vextrus/s.py"]}}))
     monkeypatch.setattr(governor, "HOT_FILES", hot)
     (tmp_path / "prs.json").write_text(json.dumps([]))
-    for ticket in ("a", "b"):
+    for ticket in ("a", "b", "c"):
         verdict = governor.admit(
             "cloud-session", hold=os.getpid(), ticket=ticket, branch=ticket, owns=["vextrus/s.py"]
         )
         assert verdict.ok, verdict.reason
-    third = governor.check("cloud-session", owns=["vextrus/s.py"], branch="c")
-    assert "hot-file area step1" in (third.reason or "")
+    fourth = governor.check("cloud-session", owns=["vextrus/s.py"], branch="d")
+    assert "hot-file area step1" in (fourth.reason or "")
 
 
 def test_a_pending_record_counts_only_while_its_launcher_lives(factory: Path) -> None:
@@ -138,7 +152,7 @@ def test_the_cli_admits_with_hold_and_ticket(factory: Path) -> None:
     assert record["branch"] == "na"
     assert record["budget_minutes"] == 30
     assert wip() == 5
-    second = governor.main(["check", "cloud-session", "--hold", "1", "--ticket", "b"])
+    second = governor.main(["check", "cloud-session", "--running", "16", "--hold", "1", "--ticket", "b"])
     assert second == 3
     with pytest.raises(SystemExit):
         governor.main(["check", "cloud-session", "--hold", "1"])
@@ -202,7 +216,7 @@ def test_a_good_cloud_launch_hands_its_place_to_its_launch_record(
     assert not list((factory / "pending").glob("*.json"))
     verdict = governor.check("cloud-session")
     assert verdict.readings["wip"] == 5
-    assert f"builder {BRANCH}" in (verdict.reason or "")
+    assert any(f"builder {BRANCH}" in line for line in verdict.readings["counted"])
 
 
 def test_a_failed_local_launch_leaves_no_pending_record(

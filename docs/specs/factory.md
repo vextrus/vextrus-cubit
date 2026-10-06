@@ -227,11 +227,11 @@ one config folder and can message each other (VCC:496).
 | Role | Where | Model, effort | Starts with | At once |
 |---|---|---|---|---|
 | Orchestrator | local, main checkout | Opus 5.5; effort the owner sets | `scripts/factory/orchestrator.sh` | 1 |
-| Builder for a ticket proved by committed tests | **cloud** | Opus 5.5 (`builder.md`); `--effort medium`, `high` for walls, gates and hostile input | `uv run python -m scripts.factory.launch cloud …` | the governor's ramp: 8 cloud sessions at once to start (writers and cloud reviewers included), up to 16 (§2.3) |
+| Builder for a ticket proved by committed tests | **cloud** | Opus 5.5 (`builder.md`); `--effort medium`, `high` for walls, gates and hostile input | `uv run python -m scripts.factory.launch cloud …` | 16 concurrent cloud sessions, enforced by the platform; a launch that made no session names its kept screen and log (the owner, 6 Oct 2026, S14-K1); no count of open PRs or builders refuses a launch (§2.3) |
 | Acceptance writer | **cloud**, on the ticket's branch; local for local tickets | Opus 5.5; **`high`** (Q20, the owner: "yes for most scenario if it comes to quality"); `medium` only for a docs-only ticket, named in the launch record | same launcher, `--role acceptance-writer` | one per ticket, before its builder |
 | Reviewers, refuters | **cloud by default once f4's verdict-file check is merged and one trial passes** (§2.2 "Launch, cloud review"); in-process inside `/review-pr` for small diffs, before that, and as the fallback | Opus 5.5, high, named per stage (WF:423) or per launch | `scripts.factory.review_cloud`; `/review-pr` | count in the cloud ramp; ≤ 8 in-process agents |
 | Words gate (`ux-critic` on `web/src/messages/**`) | in-process inside `/review-pr` | Opus 5.5, high | `/review-pr` | — |
-| Builder for a ticket that reads real drawings (D9/D10-type), `--no-post` runs, proxy loops, `drawing-analyst` for conventions | **cloud, in the `vextrus-drawings` environment, once the route-A probe passes** (§2.4); local until then | Opus 5.5, high, a refuter | `… launch cloud --drawings …` (or `… launch local …` before the probe passes) | in the cloud ramp; ≤ 3 local agents in all |
+| Builder for a ticket that reads real drawings (D9/D10-type), `--no-post` runs, proxy loops, `drawing-analyst` for conventions | **cloud, in the `vextrus-drawings` environment, once the route-A probe passes** (§2.4); local until then | Opus 5.5, high, a refuter | `… launch cloud --drawings …` (or `… launch local …` before the probe passes) | in the cloud cap; ≤ 6 local agents in all (the memory, swap and disk floors refuse first) |
 | The guard ticket (f2) and G1's builder (f5) in Phase 3 | **local** worktree | Opus 5.5, high, a refuter | `… launch local …` | inside the ≤ 3 |
 | Posting runs and scored runs (custody) | local, one lock | — | `scripts/real-drawings` under the lock | 1 |
 | G1 gate walk (script layer + agent layer) and its verdict; `drawing-analyst` work whose output is drawing content | local, on main | Opus 5.5 | `scripts/walk/run.py` (detached), then `/real-set-walk` | 1 walk |
@@ -314,7 +314,7 @@ sorts and routes; the guard, `merge_ready`, the ledger and the leak wall decide 
 
 | Session 13's local plan | GB |
 |---|---|
-| base 3.0 + orchestrator 0.8 + one `/review-pr` run (8 agents × 0.3 + changed tests 0.7) 3.1 + 3 local agents 2.7 + 1 real-drawing run 3.0 + 1 G1 walk 5.6 | **18.2 of 21.6** |
+| base 3.0 + orchestrator 0.8 + one `/review-pr` run (8 agents × 0.3 + changed tests 0.7) 3.1 + 6 local agents 5.4 + 1 real-drawing run 3.0 + 1 G1 walk 5.6 | **20.9 of 21.6** (S14-K1: the floors refuse before six agents and a review run overlap) |
 | room left | 3.4: **far less than one web-test run (9.5)**, so the governor refuses `web-tests` while a walk or a real-drawing run is up; a full pytest (3.3) runs only when no walk runs |
 | with VS Code open on this repo (+10) | 28.2: **over**. Owner action O4: close VS Code during sessions |
 

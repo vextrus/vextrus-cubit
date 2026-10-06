@@ -22,6 +22,10 @@ a PR. Session 05's six cloud tickets and session 06's first diagnostics came up 
 the cause was read from the CLI's own debug log: "GitHub app is not installed ... Bundling (reason:
 github_preflight_failed)"). So every launch runs with a debug log and the log is judged; and since a
 refused session keeps running, it is sent STOP at once and listed for deletion in claude.ai/code.
+
+The concurrent-session limit (16) is enforced by the cloud platform, not counted here (S14-K1): when a
+launch created no session, a line after the REFUSED line names the kept screen file and the debug log
+("see <screen> and <log>"); nothing in them is parsed.
 """
 
 from __future__ import annotations
@@ -190,6 +194,13 @@ Govern = Callable[[], Reading]
 Send = Callable[[list[str]], tuple[int, str]]
 
 
+def screen_path(argv: list[str]) -> Path | None:
+    """Where a launch's screen is kept: beside its `--debug-file`, as `<log>.screen`."""
+    if "--debug-file" not in argv:
+        return None
+    return Path(argv[argv.index("--debug-file") + 1] + ".screen")
+
+
 def default_claude(argv: list[str]) -> int:
     """Run one CLI command. A launch wants a terminal: `script` gives it one and keeps its screen out
     of ours (`shlex.join` quotes the prompt for `/bin/sh`). A `-p` message needs none."""
@@ -198,24 +209,26 @@ def default_claude(argv: list[str]) -> int:
     if "-p" in argv:
         code, out = default_send(argv)
         return 0 if code == 0 and _json_ok(out) else 1
+    screen = screen_path(argv)
     try:
-        child = subprocess.Popen(
-            ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            env={**os.environ, "SHELL": "/bin/sh"},
-            start_new_session=True,
-        )
+        with screen.open("wb") if screen else open(os.devnull, "wb") as kept:
+            child = subprocess.Popen(
+                ["script", "-q", "-c", shlex.join(argv), "/dev/null"],
+                stdin=subprocess.DEVNULL,
+                stdout=kept,
+                env={**os.environ, "SHELL": "/bin/sh"},
+                start_new_session=True,
+            )
+            try:
+                return child.wait(timeout=LAUNCH_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                _kill_tree(child)
+                return TIMED_OUT
+            except BaseException:
+                _kill_tree(child)
+                raise
     except OSError:
         return NOT_FOUND
-    try:
-        return child.wait(timeout=LAUNCH_TIMEOUT)
-    except subprocess.TimeoutExpired:
-        _kill_tree(child)
-        return TIMED_OUT
-    except BaseException:
-        _kill_tree(child)
-        raise
 
 
 def _proc_stats() -> Iterator[tuple[int, str, int, int]]:
@@ -1001,6 +1014,7 @@ def _launch_cloud(
         )
     verdict = Verdict(False, "the launch did not run", None, "no-session")
     try:
+        screen_file = Path(str(log) + ".screen")
         argv = ["claude", "--debug-file", str(log), "--model", req.model, "--effort", req.effort]
         code = claude([*argv, "--on-branch", req.branch, "--cloud", prompt])
         if code == NOT_FOUND:
@@ -1028,6 +1042,8 @@ def _launch_cloud(
         outcome = Outcome(0, line, session)
     else:
         outcome = _refused(verdict.code, verdict.reason, session)
+        if session is None:
+            print(f"see {screen_file} and {log}")
         if session:
             stop_sent = (
                 claude(["claude", "-p", STOP, "--cloud", session, "--output-format", "json"]) == 0
