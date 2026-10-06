@@ -213,14 +213,22 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     )
     if base.returncode != 0:
         return False, ["verify: leak scan not run: no merge base with origin/main"]
+    # A fixed identity: the object is never referenced, and a missing user.name must not let the
+    # staged tree go unscanned.
+    who = {"NAME": "verify", "EMAIL": "verify@example.invalid"}
+    identity = {
+        f"GIT_{role}_{key}": value for role in ("AUTHOR", "COMMITTER") for key, value in who.items()
+    }
     staged = subprocess.run(
         ["git", "commit-tree", tree, "-p", "HEAD", "-m", "verify: the staged tree"],
         capture_output=True,
         text=True,
         check=False,
+        env={**os.environ, **identity},
     )
-    head = staged.stdout.strip() if staged.returncode == 0 else "HEAD"
-    span = f"{base.stdout.strip()}..{head}"
+    if staged.returncode != 0:
+        return True, ["verify: refused: the staged tree cannot be made a commit to scan"]
+    span = f"{base.stdout.strip()}..{staged.stdout.strip()}"
     done = subprocess.run(
         [*argv, "range", span, "--no-stamp", "--json"],
         cwd=root,

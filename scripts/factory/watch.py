@@ -228,7 +228,8 @@ def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
     hits: list[tuple[str, int]] = []
     word = "error"
     for line in done.stdout.splitlines():
-        match = re.fullmatch(r"HIT ([\w.:/@+-]{1,160}) (\d{1,6})", line.strip())
+        # Any location the scanner prints (a path may hold brackets, commas, ...); never a space.
+        match = re.fullmatch(r"HIT (\S{1,160}) (\d{1,6})", line.strip())
         if match:
             hits.append((match.group(1), int(match.group(2))))
         cannot = re.match(r"leakscan: cannot-scan ([a-z-]{1,40})\b", line.strip())

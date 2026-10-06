@@ -102,6 +102,24 @@ def test_a_staged_but_uncommitted_hit_is_found_before_the_ready_commit(
     assert _record(repo) == []
 
 
+def test_a_staged_hit_is_found_with_no_git_identity_configured(
+    repo: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bare = tmp_path / "no-identity"
+    bare.write_text("[user]\n\tuseConfigOnly = true\n")
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(bare))
+    (repo / "notes.txt").write_text(f"{INVENTED}\n")
+    _git(repo, "add", "notes.txt")
+
+    code = verify.main([], run=_passes)
+
+    said = capsys.readouterr()
+    assert WORD not in (said.out + said.err).upper()
+    assert code == 1
+    assert "notes.txt:1" in said.err
+    assert _record(repo) == []
+
+
 def test_a_clean_range_writes_the_record_and_stamps_nothing(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

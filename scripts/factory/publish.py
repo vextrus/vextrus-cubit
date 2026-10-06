@@ -32,6 +32,7 @@ from pathlib import Path
 
 from scripts.factory.trailers import read as read_trailers
 
+TREE = Path(__file__).resolve().parents[2]  # the tree holding this module and its scanner
 GIT_TIMEOUT = 300
 SCAN_TIMEOUT = 600
 GH_TIMEOUT = 120
@@ -77,16 +78,23 @@ def leakscan_argv() -> list[str]:
     return shlex.split(chosen) if chosen else [sys.executable, "-m", "tools.leakscan"]
 
 
-def leakscan(root: Path, *args: str, stdin: str | None = None) -> Scan:
+def scanner_env() -> dict[str, str]:
+    """The environment for a scanner run: `tools.leakscan` resolves from this tree whatever the
+    current folder (the project is not installed, so `python -m` finds it only on the path)."""
+    paths = [str(TREE), *filter(None, os.environ.get("PYTHONPATH", "").split(os.pathsep))]
+    return {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}
+
+
+def leakscan(root: Path, *args: str) -> Scan:
     """One scanner run with `--json`: its hits (locations and counts) and its summary line."""
     try:
         done = subprocess.run(
             [*leakscan_argv(), *args, "--json"],
             cwd=root,
-            input=stdin,
+            env=scanner_env(),
             capture_output=True,
             text=True,
-            stdin=None if stdin is not None else subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
             timeout=SCAN_TIMEOUT,
             check=False,
         )
@@ -113,6 +121,7 @@ def stamp_valid(root: Path, name: str) -> bool:
         done = subprocess.run(
             [*leakscan_argv(), "verify-stamp", name],
             cwd=root,
+            env=scanner_env(),
             capture_output=True,
             text=True,
             stdin=subprocess.DEVNULL,
@@ -233,7 +242,10 @@ def publish(root: Path, branch: str) -> int:
     main = fetch_main(root)
     found = open_pr(branch)
     if found is not None:
-        print(f"publish: {branch} has open PR #{found['number']} ({found.get('url')}): nothing changed")
+        # The PR's number and URL only: the branch name is printed only after its range scan.
+        print(
+            f"publish: the branch has open PR #{found['number']} ({found.get('url')}): nothing changed"
+        )
         return 0
     tracking = f"refs/remotes/origin/{branch}"
     if git(root, "fetch", "-q", "origin", f"+refs/heads/{branch}:{tracking}").returncode:

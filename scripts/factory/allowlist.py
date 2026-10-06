@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import os
 import re
 import subprocess
 import sys
@@ -81,13 +80,15 @@ def resolve(root: Path, hit: Hit) -> Hit:
     raise Refused(f"hits line {hit.number}: no such branch here or on origin")
 
 
-def scanner_allow(cwd: Path, allowlist: Path, *locations: str) -> bool:
-    """The scanner's own `allow`, writing `allowlist` (its seam); True when a hit was found."""
-    env = {**os.environ, "VEXTRUS_LEAKSCAN_ALLOWLIST": str(allowlist)}
+def scanner_allow(allowlist: Path, *locations: str) -> bool:
+    """The scanner's own `allow` on absolute `<file>:<line>` locations, writing `allowlist` (its seam);
+    True when a hit was found, False only on the scanner's own "no hit" refusal (a scanner that did not
+    run is an error, never a "no hit")."""
+    env = {**publish.scanner_env(), "VEXTRUS_LEAKSCAN_ALLOWLIST": str(allowlist)}
     try:
         done = subprocess.run(
             [*publish.leakscan_argv(), "allow", *locations],
-            cwd=cwd,
+            cwd=publish.TREE,
             env=env,
             capture_output=True,
             text=True,
@@ -99,7 +100,7 @@ def scanner_allow(cwd: Path, allowlist: Path, *locations: str) -> bool:
         raise Refused(f"the leak scan's allow did not run ({type(error).__name__})") from None
     if done.returncode == 0:
         return True
-    if done.returncode == 1:
+    if done.returncode == 1 and "allow refused: no hit" in done.stderr:
         return False
     raise Refused(f"the leak scan's allow failed (exit {done.returncode})")
 
@@ -128,6 +129,9 @@ def batch(root: Path, hits_file: Path) -> int:
         place = Path(scratch)
         # Each hit's file as its branch holds it, under a folder per branch commit.
         copies = place / "copies"
+        base = place / "base.txt"
+        current = git_out(root, "show", f"{main}:{ALLOWLIST}")
+        base.write_text("" if current is None else f"{current}\n", encoding="utf-8")
         locations: list[str] = []
         for hit in hits:
             target = copies / hit.rev / hit.path
@@ -143,18 +147,19 @@ def batch(root: Path, hits_file: Path) -> int:
             if blob.returncode != 0:
                 raise Refused(f"hits line {hit.number}: the file cannot be read from its branch")
             target.write_bytes(blob.stdout)
-            location = f"{hit.rev}/{hit.path}:{hit.line}"
-            # Every line must hold a hit on its own: checked against a throwaway allowlist.
-            if not scanner_allow(copies, place / f"check-{hit.number}.txt", location):
-                raise Refused(f"hits line {hit.number}: the scanner finds no hit on that line")
+            location = f"{target}:{hit.line}"
+            # Every line must hold a hit main's allowlist does not already hold: checked on its own,
+            # against a throwaway copy of that allowlist.
+            check = place / f"check-{hit.number}.txt"
+            check.write_text(base.read_text(encoding="utf-8"), encoding="utf-8")
+            if not scanner_allow(check, location) or not hashes(check) - hashes(base):
+                raise Refused(f"hits line {hit.number}: the scanner finds no new hit on that line")
             locations.append(location)
 
-        base = place / "base.txt"
-        current = git_out(root, "show", f"{main}:{ALLOWLIST}")
-        base.write_text("" if current is None else f"{current}\n", encoding="utf-8")
         trial = place / "trial.txt"
         trial.write_text(base.read_text(encoding="utf-8"), encoding="utf-8")
-        scanner_allow(copies, trial, *locations)
+        if not scanner_allow(trial, *locations):
+            raise Refused("the scanner finds no hit on the batch's lines")
         added = sorted(hashes(trial) - hashes(base))
         if not added:
             raise Refused("every hit's string is already allowlisted: nothing to do")
