@@ -1178,14 +1178,17 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        reviews = lenses_in(run, lenses, rv, slot, main)
-        confirm_and_refute(run, rv, slot, main, reviews)
-        if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
-            # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
-            raise Refused(
-                f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code ran: "
-                "nothing recorded; the owner must look at it before any merge"
-            )
+        try:  # the PR's code runs from here on: the record check runs on every exit
+            reviews = lenses_in(run, lenses, rv, slot, main)
+            confirm_and_refute(run, rv, slot, main, reviews)
+        finally:
+            # Under the round lock no run records this head but this one: a record that appeared
+            # while the PR's tests and the lens's ran unsandboxed is forged.
+            if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
+                raise Refused(
+                    f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code "
+                    "ran: nothing recorded; the owner must look at it before any merge"
+                )
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
