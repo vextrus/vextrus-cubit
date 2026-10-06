@@ -71,16 +71,19 @@ def test_the_seed_has_five_open_questions_the_held_file_first(nusrat: Api, kr01:
     assert body["questions"][0]["kind"] == "file_misread"
 
 
-def test_coverage_on_the_seed_is_70_views_68_proposed_2_unaccounted(
+def test_coverage_on_the_seed_is_70_views_70_proposed_0_unaccounted(
     nusrat: Api, kr01: uuid.UUID
 ) -> None:
-    # m0-screens §7: "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted"; used 0.
+    # m0-screens §7: "Coverage 70 views: 0 assigned, 0 excluded, ..."; used 0. Amended for S15-E5
+    # (#549, #316; the owner's ruling of 5 Oct 2026, "notes to General notes"): S-01, the seed's
+    # general-notes sheet, has its drawing list and its hook and bend detail proposed to Step 2, so
+    # the 2 once unaccounted are proposed: 70 proposed, 0 unaccounted.
     response = nusrat.get(f"{step1(kr01)}/coverage")
 
     assert response.status_code == 200
     counts = ("views", "assigned", "excluded", "proposed", "unaccounted", "used")
     assert {k: response.json()[k] for k in counts} == {
-        "views": 70, "assigned": 0, "excluded": 0, "proposed": 68, "unaccounted": 2, "used": 0,
+        "views": 70, "assigned": 0, "excluded": 0, "proposed": 70, "unaccounted": 0, "used": 0,
     }  # fmt: skip
 
 

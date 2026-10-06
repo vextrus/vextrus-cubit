@@ -88,14 +88,17 @@ def test_the_job_asks_the_five_questions_in_queue_order(
     assert s13["params"] == {"number": "S-13"}
 
 
-def test_the_jobs_coverage_is_70_views_68_proposed_2_unaccounted(
+def test_the_jobs_coverage_is_70_views_70_proposed_0_unaccounted(
     nusrat: Api, kr01: uuid.UUID, by_the_job: None
 ) -> None:
+    """Amended for S15-E5 (#549, #316; the owner's ruling of 5 Oct 2026, "notes to General notes"):
+    the job proposes S-01's drawing list and its hook and bend detail, on the seed's general-notes
+    sheet, to Step 2, so none of the 70 is unaccounted."""
     shown = coverage(nusrat, kr01)
 
     counts = ("views", "assigned", "excluded", "proposed", "unaccounted", "used")
     assert {k: shown[k] for k in counts} == {
-        "views": 70, "assigned": 0, "excluded": 0, "proposed": 68, "unaccounted": 2, "used": 0,
+        "views": 70, "assigned": 0, "excluded": 0, "proposed": 70, "unaccounted": 0, "used": 0,
     }  # fmt: skip
 
 
