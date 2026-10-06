@@ -46,18 +46,6 @@ def test_a_reused_branch_name_with_a_newer_launch_is_not_dropped_as_merged(world
     assert has(line, "building"), line
 
 
-def test_a_merged_branch_whose_launch_is_older_than_the_merge_is_dropped(world: World) -> None:
-    name, session = world.launch_local("s99om", "s99-om")
-    head = world.push("s99-om", acceptance_commit)
-    world.pr(6002, "s99-om", head, state="MERGED")
-    world.prs[-1]["mergedAt"] = "2026-10-07T10:00:00Z"
-    world._write_seams()
-    world.ended(name, session)
-    world.push("s99-om", acceptance_commit)  # a stray later push: still the launch predates the merge
-
-    assert [line for line in world.table().splitlines() if "s99-om" in line] == []
-
-
 def idle_row(world: World, name: str, session: str, **over: object) -> None:
     """`claude agents --json --all`'s row of a writer whose turn finished but whose process lingers."""
     world.live(name, session)

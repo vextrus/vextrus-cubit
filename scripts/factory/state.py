@@ -5,11 +5,11 @@
 Run it from the main checkout: git runs in the current directory's repository. One row per open ticket
 branch (every branch of origin and every local branch of this checkout, except `main` and `review/*`).
 A branch with any launch record (any role) stays until its pull request is MERGED; a MERGED branch is
-dropped when its head is the merged head or inside it, or when no launch record is newer than the merge
-(a reused branch name keeps its row). A writer that has committed its `acceptance:` commit and ended
-reads "acceptance committed: launch the builder", never "resume"; a branch with
-neither a launch record nor a pull request is left out, counted in a note, unless its head reads READY
-or it was committed in the last few days:
+dropped only when its head is the merged head or an ancestor of it (new commits on top keep the row). A
+head reads READY by the shared reader, or as clean merges of main on a READY head (the watcher's rule).
+A writer that has committed its `acceptance:` commit and ended reads "acceptance committed: launch the
+builder", never "resume"; a branch with neither a launch record nor a pull request is left out, counted
+in a note, unless its head reads READY or it was committed in the last few days:
 
 - its head (a local builder's own head when it is ahead of origin's tip, else origin's tip);
 - its Factory-State, read from the head's commit message by `scripts/factory/trailers.py` (the reading
@@ -131,7 +131,7 @@ def read_prs() -> list[dict[str, Any]] | None:
         "pr",
         "list",
         *("--state", "all", "--limit", str(PR_LIMIT)),
-        *("--json", "number,title,headRefName,headRefOid,state,mergedAt"),
+        *("--json", "number,title,headRefName,headRefOid,state"),
     )
     if not isinstance(listed, list):
         return None
@@ -236,12 +236,17 @@ def reviewed_record(mine: list[Record], head: str, main_sha: str | None) -> Reco
     return None
 
 
-def outcome_of(branch: str, head: str) -> tuple[str | None, bool]:
-    """(the head's Factory-State by the shared reader, whether the head could be read)."""
+def outcome_of(branch: str, head: str, main_sha: str | None) -> tuple[str | None, bool]:
+    """(the head's Factory-State, whether the head could be read): the shared reader's reading of its
+    message, and READY for clean merges of main on a READY head (`watch.inherits_ready`, the rule the
+    watcher uses)."""
     info = watch.read_head(branch, head)
     if info is None:
         return None, False
-    return watch.parse_trailers(*info).outcome, True
+    outcome = watch.parse_trailers(*info).outcome
+    if outcome is None and watch.inherits_ready(head, main_sha):
+        outcome = "READY"
+    return outcome, True
 
 
 def builder_facts(
@@ -296,20 +301,11 @@ def acceptance_committed(branch: str, head: str) -> bool:
     return info is not None and info[0].startswith("acceptance:")
 
 
-def merged_for_good(pr: dict[str, Any], head: str, launch: dict[str, Any] | None) -> bool:
+def merged_for_good(pr: dict[str, Any], head: str) -> bool:
     """Whether a MERGED pull request ends this branch's open work: its head is the merged head or an
-    ancestor of it, or no launch record is newer than the merge (a reused branch name has both a newer
-    launch and a head that is not in the merged history)."""
+    ancestor of it. New commits on top keep the row."""
     merged_head = pr.get("headRefOid")
-    if isinstance(merged_head, str) and (head == merged_head or ahead(head, merged_head)):
-        return True
-    if launch is None:
-        return True
-    try:
-        merged_at = status.parse_utc(str(pr["mergedAt"]))
-    except status.FIELD_ERRORS:
-        return True
-    return bool(launch["_started"] <= merged_at)
+    return isinstance(merged_head, str) and (head == merged_head or ahead(head, merged_head))
 
 
 def row_for(
@@ -324,7 +320,7 @@ def row_for(
     """The branch's row, and its head's Factory-State. The PR's state is decided first; an open PR's
     verdict is the newest record that reaches this head through clean merges of main, and the
     Factory-State shown is that reviewed head's; only then the builder is looked at."""
-    outcome, readable = outcome_of(branch, head)
+    outcome, readable = outcome_of(branch, head, main_sha)
     words, session, agents_row = session_view(launch, agents)
 
     pr = pr_for(branch, prs) if prs is not None else None
@@ -348,7 +344,7 @@ def row_for(
     reviewed = reviewed_record(mine, head, main_sha) if is_open and not unreadable else None
     shown = outcome
     if reviewed is not None and reviewed.head != head:
-        shown = outcome_of(branch, reviewed.head)[0]
+        shown = outcome_of(branch, reviewed.head, main_sha)[0]
     state = "unreadable" if not readable else (shown or "-")
 
     if pr is not None and not is_open:
@@ -440,11 +436,7 @@ def collect() -> tuple[list[Row], list[str]] | None:
     idle = 0
     for branch, (head, _mine) in branch_heads(origin).items():
         pr = pr_for(branch, prs) if prs is not None else None
-        if (
-            pr is not None
-            and pr.get("state") == "MERGED"
-            and merged_for_good(pr, head, started.get(branch))
-        ):
+        if pr is not None and pr.get("state") == "MERGED" and merged_for_good(pr, head):
             continue
         row, outcome = row_for(branch, head, prs, book, started.get(branch), agents, base)
         age = commit_age_days(head)
