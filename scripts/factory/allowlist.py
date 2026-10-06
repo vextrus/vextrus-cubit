@@ -19,8 +19,9 @@ branch holds it, from a scratch copy; the committed allowlist beside this tree's
 written. No matched string is ever printed.
 
 A rerun finishes what a failed run began (`finish`): the batch's commit already on origin, or on the
-local branch, is reused when it adds exactly these hashes to the allowlist and nothing else; a head
-origin holds is not pushed again; a PR is opened only when none is open.
+local branch, is reused when it adds exactly these hashes to the allowlist and nothing else and its
+parent is the current origin/main (else it is built again on main, under a new name when origin holds
+the stale one); a head origin holds is not pushed again; a PR is opened only when none is open.
 """
 
 from __future__ import annotations
@@ -221,6 +222,19 @@ def same_batch(root: Path, main: str, head: str | None, added: list[str]) -> boo
     return not [x for x in body if x.startswith("-")] and sorted(x[1:] for x in body) == sorted(added)
 
 
+def on_main(root: Path, main: str, head: str) -> bool:
+    """True when `head`'s one parent is the current origin/main: only such a batch commit is reused."""
+    return git_out(root, "rev-parse", f"{head}^@") == main
+
+
+def origin_tip(root: Path, branch: str) -> str | None:
+    """`branch`'s commit on origin (fetched into its tracking ref), or None when origin has none."""
+    tracking = f"refs/remotes/origin/{branch}"
+    if git(root, "fetch", "-q", "origin", f"+refs/heads/{branch}:{tracking}").returncode != 0:
+        git(root, "update-ref", "-d", tracking)  # not on origin
+    return git_out(root, "rev-parse", "--verify", "-q", f"{tracking}^{{commit}}")
+
+
 def build(root: Path, place: Path, added: list[str], main: str, message: str) -> str:
     """This batch's commit on main, made in a scratch worktree (removed after): the hashes the scanner's
     `allow` computed, appended, so every existing line keeps its place (the scanner's own rewrite sorts
@@ -245,10 +259,12 @@ def build(root: Path, place: Path, added: list[str], main: str, message: str) ->
 
 
 def finish(root: Path, place: Path, added: list[str], hits: list[Hit], branch: str, main: str) -> int:
-    """Resumable: every step looks first at what an earlier run left. This batch's commit already on
-    origin is reused (no push), else the local branch's when it is this batch's, else a new one (the
-    local branch is moved to it); the range is scanned; a head origin lacks is pushed; and a PR is
-    opened only when none is open. A branch on origin with other changes is refused."""
+    """Resumable: every step looks first at what an earlier run left. A commit is reused only when it
+    is this batch's and its parent is the current origin/main: origin's first (no push), else the
+    local branch's; otherwise a stale local branch is dropped by name and the batch built again on main.
+    A branch on origin built on an older main is never reused: the batch is built again under
+    `<name>-<main's short sha>`. The range is scanned; a head origin lacks is pushed; a PR is opened
+    only when none is open. A branch on origin on the current main with other changes is refused."""
     count = len(added)
     names = ", ".join(sorted({hit.branch for hit in hits}))
     message = (
@@ -257,23 +273,28 @@ def finish(root: Path, place: Path, added: list[str], hits: list[Hit], branch: s
         f"Only `{ALLOWLIST}` changes, by {count} added sha256 lines, "
         "hashed by `tools.leakscan allow`.\n"
     )
-    tracking = f"refs/remotes/origin/{branch}"
-    if git(root, "fetch", "-q", "origin", f"+refs/heads/{branch}:{tracking}").returncode != 0:
-        git(root, "update-ref", "-d", tracking)  # not on origin
-    remote = git_out(root, "rev-parse", "--verify", "-q", f"{tracking}^{{commit}}")
-    local = git_out(root, "rev-parse", "--verify", "-q", f"refs/heads/{branch}^{{commit}}")
+    remote = origin_tip(root, branch)
+    if remote is not None and not on_main(root, main, remote):
+        # Built on an older main: never reused (its PR could conflict with main). The batch is built
+        # again on the current main, under the name of the batch and main's short sha.
+        branch = f"{branch}-{main[:12]}"
+        remote = origin_tip(root, branch)
+        if remote is not None and not on_main(root, main, remote):
+            raise Refused(f"{branch} is on origin on another base")
     if remote is not None and not same_batch(root, main, remote, added):
         raise Refused(f"{branch} is on origin with other changes")
+    local = git_out(root, "rev-parse", "--verify", "-q", f"refs/heads/{branch}^{{commit}}")
     if remote is not None:
         head = remote
-    elif same_batch(root, main, local, added):
-        head = local or ""
+    elif local is not None and same_batch(root, main, local, added) and on_main(root, main, local):
+        head = local
     else:
+        if local is not None and git(root, "branch", "-D", branch).returncode != 0:
+            raise Refused("git branch -D failed")  # a stale local branch: dropped by name, rebuilt
         head = build(root, place, added, main, message)
     if git(root, "update-ref", f"refs/heads/{branch}", head).returncode != 0:
         raise Refused("git update-ref failed")
-    base = git_out(root, "merge-base", main, head) or main
-    publish.range_scan(root, base, head, branch)
+    publish.range_scan(root, main, head, branch)
     if remote != head:
         # The same push as publish's, READY gate included: this commit carries no Factory trailer, so
         # the gate (the guard's) asks no verify record of it.

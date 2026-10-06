@@ -141,3 +141,84 @@ def test_a_pr_gh_failed_to_open_after_a_good_push_is_opened_by_the_rerun_without
     assert third.returncode == 0, show(third)
     assert pushes(world) == 1
     assert len(world.prs_created()) == 1, "a rerun with the PR open opened another"
+
+
+# --- PR #512 review round 2: a commit is reused only on the current origin/main
+def land_allowlist_line_on_main(world: World) -> str:
+    """Another allowlist line lands on main (appended, where the batch appends too)."""
+    world.git(world.work, "fetch", "-q", "origin")
+    world.git(world.work, "checkout", "-q", "main")
+    world.git(world.work, "merge", "-q", "--ff-only", "origin/main")
+    current = world.git(world.work, "show", f"origin/main:{ALLOWLIST}")
+    other = sha256_text("ANOTHER JUDGED STRING")
+    world.commit("main", {ALLOWLIST: f"{current}\n{other}\n"}, "leakscan: another allowlist line\n")
+    world.git(world.work, "push", "-q", "origin", "main")
+    world.git(world.main, "fetch", "-q", "origin")
+    return world.git(world.main, "rev-parse", "origin/main")
+
+
+def merges_cleanly(world: World, head: str) -> bool:
+    done = subprocess.run(
+        ["git", "merge-tree", "--write-tree", "origin/main", head],
+        cwd=world.main,
+        env=world.git.env(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.returncode == 0
+
+
+def opened_head(world: World) -> tuple[str, str]:
+    [created] = world.prs_created()
+    branch = created["argv"][created["argv"].index("--head") + 1]
+    world.git(world.main, "fetch", "-q", "origin")
+    return branch, world.origin_refs()[f"refs/heads/{branch}"]
+
+
+def test_a_rerun_after_main_moved_builds_the_batch_on_main_so_its_pr_merges_cleanly(
+    world: World,
+) -> None:
+    (world.tmp / "reject-once").write_text("")
+    assert batch(world).returncode != 0
+    main = land_allowlist_line_on_main(world)
+
+    again = batch(world)
+
+    assert again.returncode == 0, show(again)
+    _, head = opened_head(world)
+    assert world.git(world.main, "rev-parse", f"{head}^") == main, "the PR's head is not on main"
+    assert merges_cleanly(world, head), "the PR's head conflicts with main"
+
+
+def test_a_rerun_with_main_unchanged_reuses_the_batch_commit(world: World) -> None:
+    (world.tmp / "reject-once").write_text("")
+    assert batch(world).returncode != 0
+    [local] = [
+        line.split()[0]
+        for line in world.git(world.main, "for-each-ref", "refs/heads/allowlist-*").splitlines()
+    ]
+
+    again = batch(world)
+
+    assert again.returncode == 0, show(again)
+    _, head = opened_head(world)
+    assert head == local, "the rerun rebuilt a commit it could reuse"
+
+
+def test_a_branch_on_origin_built_on_an_older_main_is_rebuilt_under_a_new_name(
+    world: World,
+) -> None:
+    (world.tmp / "gh-fail-once").write_text("")
+    assert batch(world).returncode != 0
+    [(stale_ref, stale)] = allowlist_refs(world).items()
+    main = land_allowlist_line_on_main(world)
+
+    again = batch(world)
+
+    assert again.returncode == 0, show(again)
+    branch, head = opened_head(world)
+    assert branch == f"{stale_ref.removeprefix('refs/heads/')}-{main[:12]}"
+    assert world.git(world.main, "rev-parse", f"{head}^") == main
+    assert merges_cleanly(world, head)
+    assert world.origin_refs()[stale_ref] == stale, "the stale branch on origin was moved"
