@@ -27,6 +27,8 @@ Exit 0, or 1 when origin cannot be read.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import re
@@ -38,7 +40,8 @@ from typing import Any
 
 from scripts import ledger
 from scripts.factory import governor, status, watch
-from scripts.land import pending, red
+from scripts.land import has_ci, pending, red
+from scripts.merge_ready import merges_since
 
 READY_NO_PR = "READY, no PR"
 LIVE_NOTE = "building"
@@ -46,6 +49,8 @@ SHA40 = re.compile(r"[0-9a-f]{40}")
 RECORD_NAME = re.compile(r"(\d+)-([0-9a-f]{40})\.json")
 SKIPPED_BRANCHES = ("review/",)
 GH_TIMEOUT = 120
+PR_LIMIT = 5000
+STALE_DAYS = 3
 
 
 @dataclass
@@ -120,7 +125,7 @@ def read_prs() -> list[dict[str, Any]] | None:
     listed = run_gh(
         "pr",
         "list",
-        *("--state", "all", "--limit", "200"),
+        *("--state", "all", "--limit", str(PR_LIMIT)),
         *("--json", "number,title,headRefName,headRefOid,state"),
     )
     if not isinstance(listed, list):
@@ -134,13 +139,13 @@ def pr_for(branch: str, prs: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def ci_green(number: int, head: str) -> bool:
-    """Whether the PR's rollup is settled and fine on `head` (a rollup for another head, an empty or
-    pending one, or an unreadable one is not green)."""
+    """Whether the PR's rollup is settled and fine on `head` (a rollup for another head, one without the
+    `ci` check run, a pending one, or an unreadable one is not green)."""
     view = run_gh("pr", "view", str(number), "--json", "headRefOid,statusCheckRollup")
     if not isinstance(view, dict) or view.get("headRefOid") != head:
         return False
     entries = [e for e in view.get("statusCheckRollup") or [] if isinstance(e, dict)]
-    return bool(entries) and not any(pending(e) or red(e) for e in entries)
+    return has_ci(entries) and not any(pending(e) or red(e) for e in entries)
 
 
 def branch_heads(origin: dict[str, str]) -> dict[str, tuple[str, str | None]]:
@@ -167,9 +172,16 @@ def ahead(old: str, new: str) -> bool:
     return done is not None and done.returncode == 0
 
 
-def launches() -> dict[str, dict[str, Any]]:
-    """The newest builder launch record per branch."""
-    records, _ = watch.load_launches(status.factory_dir(), None)
+def launches() -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """The newest builder launch record per branch, and a note for each record that cannot be read."""
+    captured = io.StringIO()
+    with contextlib.redirect_stderr(captured):
+        records, _ = watch.load_launches(status.factory_dir(), None)
+    notes = [
+        line.removeprefix("watch: ")
+        for line in captured.getvalue().splitlines()
+        if line.startswith("watch: unreadable launch record")
+    ]
     newest: dict[str, dict[str, Any]] = {}
     for record in records.values():
         if not watch.is_builder(record):
@@ -177,7 +189,7 @@ def launches() -> dict[str, dict[str, Any]]:
         branch = str(record["branch"])
         if branch not in newest or record["_started"] >= newest[branch]["_started"]:
             newest[branch] = record
-    return newest
+    return newest, notes
 
 
 @dataclass
@@ -210,6 +222,25 @@ def session_view(
     return f"local {session or '?'} ({'live' if live else 'ended'})", session, live
 
 
+def reviewed_record(mine: list[Record], head: str, main_sha: str | None) -> Record | None:
+    """The newest record whose head reaches `head` through clean merges of main only (merge_ready's
+    rule, the one watch uses), or is `head`."""
+    for record in sorted(mine, key=lambda r: r.round, reverse=True):
+        if record.head == head:
+            return record
+        if main_sha is not None and merges_since(Path.cwd(), record.head, head, main_sha) is None:
+            return record
+    return None
+
+
+def outcome_of(branch: str, head: str) -> tuple[str | None, bool]:
+    """(the head's Factory-State by the shared reader, whether the head could be read)."""
+    info = watch.read_head(branch, head)
+    if info is None:
+        return None, False
+    return watch.parse_trailers(*info).outcome, True
+
+
 def row_for(
     branch: str,
     head: str,
@@ -217,11 +248,12 @@ def row_for(
     book: Ledger,
     launch: dict[str, Any] | None,
     agents: list[dict[str, Any]] | None,
-) -> Row:
-    info = watch.read_head(branch, head)
-    trailers = watch.parse_trailers(*info) if info is not None else None
-    outcome = trailers.outcome if trailers is not None else None
-    state = "unreadable" if info is None else (outcome or "-")
+    main_sha: str | None,
+) -> tuple[Row, str | None]:
+    """The branch's row, and its head's Factory-State. The PR's state is decided first; an open PR's
+    verdict is the newest record that reaches this head through clean merges of main, and the
+    Factory-State shown is that reviewed head's; only then the builder is looked at."""
+    outcome, readable = outcome_of(branch, head)
     words, session, live = session_view(launch, agents)
 
     pr = pr_for(branch, prs) if prs is not None else None
@@ -230,28 +262,34 @@ def row_for(
     pr_text = "unknown (gh unreadable)" if prs is None else "-"
     if pr is not None:
         pr_text = f"#{number} {str(pr.get('state')).lower()}"
-    ledger_text = "-"
     mine = book.records.get(number, []) if number is not None else []
     last = max(mine, key=lambda r: r.round, default=None)
-    if last is not None:
-        ledger_text = f"{last.verdict} r{last.round}" + (
-            "" if last.head == head else f" (on {last.head[:8]})"
-        )
+    ledger_text = "-"
     unreadable = number is not None and (number in book.unreadable or 0 in book.unreadable)
     if unreadable:
         ledger_text = "unreadable record"
+    elif last is not None:
+        ledger_text = f"{last.verdict} r{last.round}" + (
+            "" if last.head == head else f" (on {last.head[:8]})"
+        )
+    reviewed = reviewed_record(mine, head, main_sha) if is_open and not unreadable else None
+    shown = outcome
+    if reviewed is not None and reviewed.head != head:
+        shown = outcome_of(branch, reviewed.head)[0]
+    state = "unreadable" if not readable else (shown or "-")
 
-    here = next((r for r in sorted(mine, key=lambda r: r.round) if r.head == head), None)
-    if is_open and unreadable:
+    if pr is not None and not is_open:
+        action = "PR closed"
+    elif is_open and unreadable:
         action = "ledger record unreadable: re-record the review"
-    elif is_open and here is not None and here.verdict == "PASS":
+    elif reviewed is not None and reviewed.verdict == "PASS":
         green = ci_green(number, head) if number is not None else False
         action = "ready to land" if green else "PASS, CI not green: wait or fix CI"
-    elif is_open and here is not None and here.verdict == "FIX":
-        action = f"fix round {here.round}"
-    elif is_open and here is not None:
-        action = f"{here.verdict} on this head: the owner decides"
-    elif is_open and outcome == "READY" and info is not None:
+    elif reviewed is not None and reviewed.verdict == "FIX":
+        action = f"fix round {reviewed.round}"
+    elif reviewed is not None:
+        action = f"{reviewed.verdict} on this head: the owner decides"
+    elif is_open and outcome == "READY" and readable:
         action = "unreviewed"
     elif outcome == "READY" and prs is None:
         action = "READY, PR unknown: gh unreadable"
@@ -261,15 +299,13 @@ def row_for(
         action = "fix the Factory trailers"
     elif outcome == "BLOCKED":
         action = "blocked: read its Factory-Reason"
-    elif is_open and mine:
-        action = "unreviewed"
     elif launch is not None and str(launch["where"]) == "local" and agents is not None and not live:
         action = f"resume {session}" if session else "resume (no session id recorded)"
     elif live:
         action = LIVE_NOTE
     else:
         action = "building (no live session known)"
-    return Row(branch, head[:8], state, pr_text, ledger_text, words, action)
+    return Row(branch, head[:8], state, pr_text, ledger_text, words, action), outcome
 
 
 def real_drawing_lock() -> str:
@@ -298,6 +334,13 @@ def real_drawing_lock() -> str:
     return line + (f"; {queued} waiting" if queued else "")
 
 
+def commit_age_days(head: str) -> float | None:
+    out = watch.git_out("log", "-1", "--format=%ct", head)
+    if out is None or not out.strip().isdigit():
+        return None
+    return (status.now().timestamp() - int(out.strip())) / 86400
+
+
 def collect() -> tuple[list[Row], list[str]] | None:
     """The rows and the notes under them; None when origin cannot be read."""
     origin = watch.remote_heads()
@@ -307,26 +350,55 @@ def collect() -> tuple[list[Row], list[str]] | None:
     prs = read_prs()
     if prs is None:
         notes.append("gh could not be read: the PR column is unknown and nothing reads merged")
+    elif len(prs) >= PR_LIMIT:
+        notes.append(f"gh listed {PR_LIMIT} pull requests, the most it is asked for: older ones unseen")
     book = read_ledger(status.factory_dir() / "ledger")
     if book.unreadable:
         notes.append("a ledger record could not be read: its PR cannot land until it is re-recorded")
-    started = launches()
+    started, bad = launches()
+    notes += [f"{line}: its branch has no session shown" for line in bad]
     local = any(str(r["where"]) == "local" for r in started.values())
     agents = governor.read_agents() if local else None
     main_sha = origin.get("main")
+    main_ok = main_sha is not None and watch.fetch("main", main_sha)
+    base = main_sha if main_ok else None
     rows: list[Row] = []
+    idle = 0
     for branch, (head, _mine) in branch_heads(origin).items():
         pr = pr_for(branch, prs) if prs is not None else None
         if pr is not None and pr.get("state") == "MERGED":
             continue
-        in_main = main_sha is not None and branch not in started and watch.fetch("main", main_sha)
-        if in_main and main_sha is not None and ahead(head, main_sha):  # nothing left to land
+        # a launched builder still at main's tip has no work yet; a head strictly inside main is merged
+        if base is not None and head != base and ahead(head, base):
             continue
-        rows.append(row_for(branch, head, prs, book, started.get(branch), agents))
+        if base is not None and head == base and branch not in started:
+            continue
+        row, outcome = row_for(branch, head, prs, book, started.get(branch), agents, base)
+        age = commit_age_days(head)
+        if (
+            prs is not None
+            and pr is None
+            and branch not in started
+            and outcome != "READY"
+            and age is not None
+            and age > STALE_DAYS
+        ):
+            idle += 1  # not ticket work: no PR, no launch record, not READY, idle for days
+            continue
+        rows.append(row)
+    if idle:
+        notes.append(
+            f"{idle} branches with no PR or launch, not READY, idle over {STALE_DAYS} days: not shown"
+        )
     return rows, notes
 
 
 COLUMNS = ("branch", "head", "factory-state", "PR", "ledger", "session", "next action")
+
+
+def cell(text: str) -> str:
+    """One table cell: one printable line, `|` escaped, so a branch name cannot forge a cell."""
+    return watch.public(text, 200).replace("\\", "/").replace("|", "\\|")
 
 
 def render(rows: list[Row], notes: list[str]) -> str:
@@ -337,11 +409,11 @@ def render(rows: list[Row], notes: list[str]) -> str:
         lines.append("|" + "---|" * len(COLUMNS))
         for r in rows:
             cells = (r.branch, r.head, r.state, r.pr, r.ledger, r.session, r.next)
-            lines.append("| " + " | ".join(cells) + " |")
+            lines.append("| " + " | ".join(cell(c) for c in cells) + " |")
     else:
         lines.append("No open ticket branch.")
-    lines += ["", real_drawing_lock()]
-    lines += [f"note: {note}" for note in notes]
+    lines += ["", cell(real_drawing_lock())]
+    lines += [f"note: {cell(note)}" for note in notes]
     return "\n".join(lines) + "\n"
 
 
