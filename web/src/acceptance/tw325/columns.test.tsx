@@ -1,8 +1,8 @@
 /*
  * Ticket T-W325's acceptance tests (#325): the Projects list (docs/design/m0-screens.md §4.3) shows each
- * project's Drawing Set, Takeoff and Updated in 4.3's words, from the readings the API already sends
- * (the files, Step 1's progress, the newest act), through the in-memory API with readings.fixture.ts
- * laid over it. Each row asks for its own project's readings only; a reading that cannot be had is
+ * project's Drawing Set, Takeoff and Updated in 4.3's words, from the readings the API sends (the
+ * files, Step 1's progress, and the project list's `updated_at`, the time of the project's newest
+ * DomainEvent: S15-W6, #548), through the in-memory API with readings.fixture.ts laid over it. Each row asks for its own project's readings only; a reading that cannot be had is
  * the empty figure (§1.2), never an error. Every name, number and date is invented.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -230,51 +230,39 @@ describe('the Takeoff column (§4.3)', () => {
   })
 })
 
-describe('the Updated column: the newest of its created day, its files and its acts, in Dhaka time', () => {
-  function dated(readings: FakeReadings, api: FakeApi, code: string, created: string, added: string[]) {
-    api.project(code).createdAt = created
-    readings.setFiles(
-      code,
-      added.map((at, i) => aFile(`sheet-set-${i + 1}.dwg`, 'read', { added_at: at })),
-    )
-  }
-
+describe('the Updated column: the day of the project’s newest act, its newest DomainEvent, in Dhaka time (S15-W6)', () => {
   it.each([
-    ['QS', PEOPLE.qs],
-    ['MD', PEOPLE.md],
-  ])('shows the %s the day of the newest act when it is newer than every file, the day it is in Dhaka', async (_, as) => {
+    ['the QS', PEOPLE.qs, true],
+    ['the MD', PEOPLE.md, true],
+    ['the Vextrus Engineer', PEOPLE.engineer, false],
+    ['a Guest', PEOPLE.guest, false],
+  ])('shows %s the day of the project’s newest act, the day it is in Dhaka', async (_, as, seesActs) => {
     const { api, readings } = seeded()
-    dated(readings, api, 'BP-02', '2026-09-02T04:00:00Z', ['2026-09-17T08:00:00Z', '2026-09-15T05:00:00Z'])
-    readings.act('BP-02', '2026-09-10T05:00:00Z')
-    readings.act('BP-02', '2026-09-21T20:15:00Z')
+    api.project('KR-01').createdAt = '2026-09-03T04:00:00Z'
+    readings.setFiles('KR-01', files(2, 'read', 'tower', { added_at: '2026-09-05T04:00:00Z' }))
+    readings.act('KR-01', '2026-09-20T05:00:00Z')
+    readings.act('KR-01', '2026-09-27T19:30:00Z')
+    readings.act('KR-01', '2026-09-24T06:00:00Z')
+    readings.act('BP-02', '2026-09-28T09:00:00Z')
     await projects(api, as)
-    await shows('BP-02', 'Updated', '22 Sep 2026')
-    const asked = readings.calls('activity', 'BP-02').map((call) => new URL(call.slice(4), location.origin).searchParams.get('limit'))
-    expect(asked).toEqual(['1'])
-  })
-
-  it.each([
-    ['QS', PEOPLE.qs],
-    ['MD', PEOPLE.md],
-  ])('shows the %s the day of the newest file when every act is older, the day it is in Dhaka', async (_, as) => {
-    const { api, readings } = seeded()
-    dated(readings, api, 'BP-02', '2026-09-01T04:00:00Z', ['2026-09-08T04:00:00Z', '2026-09-19T19:10:00Z', '2026-09-14T04:00:00Z'])
-    readings.act('BP-02', '2026-09-12T03:00:00Z')
-    await projects(api, as)
-    await shows('BP-02', 'Updated', '20 Sep 2026')
-  })
-
-  it.each([
-    ['the Vextrus Engineer', PEOPLE.engineer],
-    ['a Guest', PEOPLE.guest],
-  ])('never asks the activity for %s, and shows the newest of the created day and the files', async (_, as) => {
-    const { api, readings } = seeded()
-    dated(readings, api, 'KR-01', '2026-09-03T04:00:00Z', ['2026-09-13T04:00:00Z', '2026-09-16T10:00:00Z'])
-    readings.act('KR-01', '2026-09-25T06:00:00Z')
-    await projects(api, as)
-    await shows('KR-01', 'Updated', '16 Sep 2026')
+    await shows('KR-01', 'Updated', '28 Sep 2026')
     await shows('KR-01', 'Drawing Set', '2 files read')
-    expect(readings.seen.filter((call) => call.startsWith('GET /api/activity'))).toEqual([])
+    // A role without the acts grant is never sent to the activity, so no refusal is asked for.
+    if (!seesActs) expect(readings.seen.filter((call) => call.startsWith('GET /api/activity'))).toEqual([])
+  })
+
+  it('shows the new day when the QS comes back to the list after an act on the project', async () => {
+    const { api, readings } = seeded()
+    api.project('BP-02').createdAt = '2026-09-02T04:00:00Z'
+    readings.act('BP-02', '2026-09-10T05:00:00Z')
+    const { router } = await projects(api)
+    await shows('BP-02', 'Updated', '10 Sep 2026')
+    await router.navigate({ to: '/p/$code/drawing-set', params: { code: 'BP-02' } })
+    expect(await screen.findByRole('heading', { name: 'Drawing Set' })).toBeVisible()
+    readings.act('BP-02', '2026-09-29T07:30:00Z')
+    await router.navigate({ to: '/projects' })
+    await screen.findByRole('heading', { name: 'Projects' })
+    await shows('BP-02', 'Updated', '29 Sep 2026')
   })
 })
 
@@ -301,7 +289,8 @@ describe('only this member’s projects, one reading each (§1.4)', () => {
   it('asks a QS given one project for that project’s readings only', async () => {
     const { api, readings } = seeded()
     api.project('BP-02').createdAt = '2026-09-06T04:00:00Z'
-    readings.setFiles('BP-02', files(2, 'read', 'block', { added_at: '2026-09-18T04:00:00Z' }))
+    readings.setFiles('BP-02', files(2, 'read', 'block'))
+    readings.act('BP-02', '2026-09-18T04:00:00Z')
     readings.setFiles('KR-01', files(4, 'read'))
     await projects(api, PEOPLE.scopedQs)
     await shows('BP-02', 'Drawing Set', '2 files read')

@@ -1,10 +1,15 @@
 /*
- * Ticket T-W325's acceptance fake: the three readings the Projects list (docs/design/m0-screens.md
+ * Ticket T-W325's acceptance fake (S15-W6, #548): the readings the Projects list (docs/design/m0-screens.md
  * §4.3) words each row from, laid over the seed's FakeApi once more, in memory:
  *
+ *   GET /api/projects                              ProjectOut[] with `updated_at` (vextrus/projects/http/projects.py)
  *   GET /api/projects/{id}/drawings/files          FilesOut          (vextrus/drawings/http/files.py)
  *   GET /api/projects/{id}/takeoff/step1/progress  Step1ProgressOut  (vextrus/takeoff/http/step1.py)
  *   GET /api/activity?project={id}&limit=n         ActOut[]          (vextrus/platform/http/activity.py)
+ *
+ * `updated_at` is the time of the project's newest DomainEvent, as the API sends it to every role
+ * (vextrus/projects/tests/acceptance/ts15w6 pins the API's side): the newest of its creation (an event
+ * of its own) and the acts on it (`act`), never an act on another project or on none.
  *
  * and `GET …/drawings/disciplines` (the Drawing Set page a new project lands on asks it). Every shape is
  * typed from `@/api/schema.gen`, so a drift from the real schema fails `tsc`. Any project the fake has
@@ -30,6 +35,8 @@ export type ProgressOut = Schemas['Step1ProgressOut']
 export type ProgressRow = Schemas['Step1DisciplineProgressOut']
 export type ActOut = Schemas['ActOut']
 export type Reading = 'files' | 'progress' | 'activity'
+/** A project as `GET /api/projects` lists it for S15-W6: with the time of its newest DomainEvent. */
+export type ProjectListed = Schemas['ProjectOut'] & { updated_at: string }
 
 let serial = 0
 const nextId = (block: string) => {
@@ -139,6 +146,7 @@ export class FakeReadings {
       this.seen.push(`${request.method} ${url.pathname}${url.search}`)
       if (request.method === 'POST' && url.pathname === '/api/projects') this.created.push(await request.clone().json())
       if (api.offline) return base(request)
+      if (request.method === 'GET' && url.pathname === '/api/projects') return this.projectsWithUpdated(await base(request))
       const answer = this.answer(request.method, url)
       if (!answer) return base(request)
       if (api.latencyMs > 0) await new Promise((resolve) => setTimeout(resolve, api.latencyMs))
@@ -167,11 +175,26 @@ export class FakeReadings {
     this.failing.set(`${this.id(code)} ${reading}`, status)
   }
 
-  /** An act on project `code`, at `at` (the activity lists it for that project only). */
+  /** An act on project `code`, at `at`: one DomainEvent (a file's, or a Step 1 act's once S15-A3 lands); the activity lists it for that project only. */
   act(code: string, at: string): void {
     const project = this.api.project(code)
     const actor = this.api.users.find((u) => u.email === PEOPLE.qs) ?? null
     this.api.addAct(project.tenant, 'drawings.files.discipline_changed', actor?.id ?? null, null, at, project.id)
+  }
+
+  /** The time of the project's newest DomainEvent: its creation's, or the newest act on it. */
+  updatedAt(projectId: string): string {
+    const project = this.api.projects.find((p) => p.id === projectId)!
+    const times = [project.createdAt, ...this.api.acts.filter((a) => a.tenant === project.tenant && a.projectId === projectId).map((a) => a.at)]
+    return times.reduce((newest, at) => (Date.parse(at) > Date.parse(newest) ? at : newest))
+  }
+
+  /** The base fake's project list, each project with its `updated_at`; a refusal as it came. */
+  private async projectsWithUpdated(listed: Response): Promise<Response> {
+    if (!listed.ok) return listed
+    const projects = (await listed.json()) as Schemas['ProjectOut'][]
+    const body: ProjectListed[] = projects.map((p) => ({ ...p, updated_at: this.updatedAt(p.id) }))
+    return json(200, body)
   }
 
   /** The recorded requests for one reading, of one project when `code` is given. */
