@@ -3,8 +3,11 @@
     python -m scripts.factory.state [--resume-md <path>]
 
 Run it from the main checkout: git runs in the current directory's repository. One row per open ticket
-branch (every branch of origin and every local branch of this checkout, except `main` and `review/*`;
-a branch whose pull request is merged, or whose head is already in main, is not open work):
+branch (every branch of origin and every local branch of this checkout, except `main` and `review/*`).
+A branch with any launch record (any role) stays until its pull request is MERGED, whatever its head
+is or when it was committed; a branch whose pull request is MERGED is not open work; a branch with
+neither a launch record nor a pull request is left out, counted in a note, unless its head reads READY
+or it was committed in the last few days:
 
 - its head (a local builder's own head when it is ahead of origin's tip, else origin's tip);
 - its Factory-State, read from the head's commit message by `scripts/factory/trailers.py` (the reading
@@ -173,7 +176,7 @@ def ahead(old: str, new: str) -> bool:
 
 
 def launches() -> tuple[dict[str, dict[str, Any]], list[str]]:
-    """The newest builder launch record per branch, and a note for each record that cannot be read."""
+    """The newest launch record per branch (any role), and a note for each record that cannot be read."""
     captured = io.StringIO()
     with contextlib.redirect_stderr(captured):
         records, _ = watch.load_launches(status.factory_dir(), None)
@@ -184,8 +187,6 @@ def launches() -> tuple[dict[str, dict[str, Any]], list[str]]:
     ]
     newest: dict[str, dict[str, Any]] = {}
     for record in records.values():
-        if not watch.is_builder(record):
-            continue
         branch = str(record["branch"])
         if branch not in newest or record["_started"] >= newest[branch]["_started"]:
             newest[branch] = record
@@ -341,12 +342,6 @@ def commit_age_days(head: str) -> float | None:
     return (status.now().timestamp() - int(out.strip())) / 86400
 
 
-def committed_after(head: str, moment: Any) -> bool:
-    """Whether `head`'s commit was made after `moment` (a datetime): the builder's own work."""
-    out = watch.git_out("log", "-1", "--format=%ct", head)
-    return out is not None and out.strip().isdigit() and int(out.strip()) > moment.timestamp()
-
-
 def collect() -> tuple[list[Row], list[str]] | None:
     """The rows and the notes under them; None when origin cannot be read."""
     origin = watch.remote_heads()
@@ -374,13 +369,6 @@ def collect() -> tuple[list[Row], list[str]] | None:
         pr = pr_for(branch, prs) if prs is not None else None
         if pr is not None and pr.get("state") == "MERGED":
             continue
-        # Inside main is merged only on evidence: no launch record at all, or a commit made after the
-        # launch (a PR known MERGED is dropped above). A launched builder with no commit of its own yet
-        # stays, whatever main has moved on to.
-        if base is not None and ahead(head, base):
-            launch = started.get(branch)
-            if launch is None or committed_after(head, launch["_started"]):
-                continue
         row, outcome = row_for(branch, head, prs, book, started.get(branch), agents, base)
         age = commit_age_days(head)
         if (

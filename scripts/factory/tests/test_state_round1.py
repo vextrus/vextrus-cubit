@@ -186,25 +186,6 @@ def test_a_merged_pr_beyond_the_first_two_hundred_still_drops_its_branch(world: 
     assert rows(world.table(), "s99-old") == []
 
 
-def test_a_launched_branch_with_commits_after_launch_inside_main_is_dropped(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    name, session = world.launch_local("s99m", "s99-merged")
-    before = world.git.env
-
-    def later() -> dict[str, str]:
-        return {**before(), "GIT_COMMITTER_DATE": "2026-10-06T11:00:00Z"}
-
-    monkeypatch.setattr(world.git, "env", later)
-    work = world.push("s99-merged", plain)
-    world.git(world.work, "fetch", "-q", "origin")
-    ahead_of = world.git.commit(world.work, plain, work)
-    world.git(world.work, "push", "-q", "origin", f"+{ahead_of}:refs/heads/main")
-    world.ended(name, session)
-
-    assert rows(world.table(), "s99-merged") == []
-
-
 def test_a_launched_branch_whose_pr_is_merged_is_dropped(world: World) -> None:
     name, session = world.launch_local("s99n", "s99-pr-merged")
     head = world.push("s99-pr-merged", plain)
