@@ -19,8 +19,9 @@ record (`stamp budget`) when `--budget-minutes` is given; then, from the worktre
 
 with `VEXTRUS_ROLE=builder` and without `CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS`,
 `CLAUDE_CODE_PLUGIN_DIRS` and `CLAUDE_PROJECT_DIR` (so the guard never takes the builder for the main
-checkout). `--model` is passed only when given (the agent's definition names its model otherwise; the
-record says `claude-opus-5-5`). It never passes `--plugin-dir` and never pushes. The settings path is the
+checkout). `--model` is passed only when given (the agent's definition names its model otherwise:
+`builder.md` says Opus, which matches the record's `claude-opus-5-5`; a test pins that agreement).
+It never passes `--plugin-dir` and never pushes. The settings path is the
 main checkout's (the git common dir's parent), absolute, so a carried branch's own tree cannot lose it.
 Last, it reads `claude agents --json --all` and writes the launch record
 `$VEXTRUS_FACTORY_DIR/launches/<T>-<utc>.json` (no prompt text) and the agents snapshot beside it.
