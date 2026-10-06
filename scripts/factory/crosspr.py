@@ -8,7 +8,9 @@ or a failing test refuses, naming the PR and the branch (exit 1); the last line 
 
 Running a PR's tests runs its code, so only a PR from one of this repository's own branches by an author
 listed in `trusted-authors.txt` has its tests run; every other PR gets `merge-tree` only and the output
-says so. Only Python tests run: when a union changes web tests the last line reads
+says so. Python tests (test_*.py) and node tests (`*.test.mjs` under .claude/hooks, tools/mod and
+scripts/factory) run; an open PR that conflicts with main alone is stale and is reported, not refused.
+Web tests do not run: when a union changes them the last line reads
 `Cross-PR: #51 web not run` in place of `ok` (exit 0, the web side unchecked). `--tree <sha>` checks that
 tree (verify's staged tree) as a commit on the branch's tip instead of the tip itself.
 
@@ -21,13 +23,16 @@ clone's `.private/work/crosspr/`. Run it from a clone that has `origin` and `ori
 import json
 import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$|(?:^|/)tests?/[^/]*\.py$")
+TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
+NODE_TEST = re.compile(r"^(?:\.claude/hooks|tools/mod|scripts/factory)/.*\.test\.mjs$")
+DESELECTED = re.compile(r"(\d+) deselected")
 WEB_TEST = re.compile(r"^web/.*\.(?:test|spec)\.tsx?$")
 IDENTITY = ("-c", "user.name=crosspr", "-c", "user.email=crosspr@example.invalid")
 TRUSTED_AUTHORS = Path(__file__).with_name("trusted-authors.txt")
@@ -174,49 +179,99 @@ def drop_stale_worktrees(root: Path, kept: Path) -> None:
 
 def check_pr(
     root: Path, kept: Path, branch: str, tip: str, pr: dict[str, object], head: str
-) -> tuple[str | None, list[str]]:
-    """(the reason it refuses or None, notes): a PR not trusted gets `merge-tree` only."""
+) -> tuple[str | None, list[str], list[str]]:
+    """(the reason it refuses or None, notes, what was not run): a PR not trusted gets `merge-tree`
+    only; a PR that conflicts with main alone is stale, not the builder's to answer for."""
     number = int(pr["number"])  # type: ignore[call-overload]
     notes: list[str] = []
-    merged = git("merge-tree", "--write-tree", "--name-only", tip, head)
+    unrun: list[str] = []
+    base = git("merge-tree", "--write-tree", "origin/main", head)
+    if base.returncode != 0:
+        notes.append(f"crosspr: #{number} conflicts with main (not yours); not checked against {branch}")
+        return None, notes, unrun
+    base_pr = git_out(
+        *IDENTITY, "commit-tree", base.stdout.split()[0], "-p", "origin/main", "-p", head, "-m", "x"
+    )
+    merged = git("merge-tree", "--write-tree", "--name-only", tip, base_pr)
     if merged.returncode != 0:
-        return f"crosspr: #{number} and {branch} conflict:\n{tail(merged.stdout + merged.stderr)}", notes
+        said = f"crosspr: #{number} and {branch} conflict:\n"
+        return said + tail(merged.stdout + merged.stderr), notes, unrun
     if reason := untrusted_reason(pr):
         notes.append(f"crosspr: #{number} tests not run: {reason}; merge-tree only")
-        return None, notes
+        return None, notes, unrun
     tree = Path(tempfile.mkdtemp(prefix="worktree-", dir=kept))
     added = git("worktree", "add", "--detach", "-q", str(tree), "origin/main", cwd=root)
     if added.returncode != 0:
         raise Refusal(f"git worktree add failed: {added.stderr.strip()}")
     try:
-        for side in (tip, head):
+        for side in (head, tip):
             joined = git(*IDENTITY, "merge", "--no-edit", "-q", side, cwd=tree)
             if joined.returncode != 0:
                 said = f"crosspr: #{number} and {branch} conflict on origin/main:\n"
-                return said + tail(joined.stdout + joined.stderr), notes
+                return said + tail(joined.stdout + joined.stderr), notes, unrun
         changed = {
             *git_out("diff", "--name-only", "origin/main", tip).splitlines(),
             *git_out("diff", "--name-only", "origin/main", head).splitlines(),
         }
         if any(WEB_TEST.search(p) for p in changed):
             notes.append(f"crosspr: #{number} web not run: web tests are not run by crosspr")
-        tests = sorted(p for p in changed if TEST_FILE.search(p) and (tree / p).is_file())
-        if not tests:
-            return None, notes
-        argv = [sys.executable, "-m", "pytest", "-rf", "-q", "-p", "no:cacheprovider", *tests]
-        try:
-            ran = call(argv, cwd=tree, limit=TESTS)
-        except Refusal as error:
-            return f"crosspr: #{number} and {branch}: {error} (tests {', '.join(tests)})", notes
-        output = ran.stdout + ran.stderr
-        (kept / f"pr-{number}.txt").write_text(output)
-        if ran.returncode != 0:
-            said = f"crosspr: #{number} and {branch} break each other: tests failed on their union "
-            said += f"({', '.join(tests)}); output in .private/work/crosspr/pr-{number}.txt\n"
-            return said + tail(output), notes
-        return None, notes
+            unrun.append("web not run")
+        problem = run_tests(tree, kept, branch, number, sorted(changed), notes, unrun)
+        return problem, notes, unrun
     finally:
         git("worktree", "remove", "--force", str(tree), cwd=root)
+
+
+def run_tests(
+    tree: Path,
+    kept: Path,
+    branch: str,
+    number: int,
+    changed: list[str],
+    notes: list[str],
+    unrun: list[str],
+) -> str | None:
+    """pytest on the union's changed Python test files and `node --test` on its changed node tests."""
+    pytests = [p for p in changed if TEST_FILE.search(p) and (tree / p).is_file()]
+    nodes = [p for p in changed if NODE_TEST.search(p) and (tree / p).is_file()]
+    if pytests:
+        argv = [sys.executable, "-m", "pytest", "-rf", "-q", "-p", "no:cacheprovider", *pytests]
+        ran = call_tests(argv, tree, number, branch, pytests)
+        if isinstance(ran, str):
+            return ran
+        output = ran.stdout + ran.stderr
+        (kept / f"pr-{number}.txt").write_text(output)
+        if ran.returncode == 5:
+            notes.append(f"crosspr: #{number} no Python test ran (none collected or all deselected)")
+        elif ran.returncode != 0:
+            said = f"crosspr: #{number} and {branch} break each other: tests failed on their union "
+            said += f"({', '.join(pytests)}); output in .private/work/crosspr/pr-{number}.txt\n"
+            return said + tail(output)
+        elif found := DESELECTED.search(output):
+            notes.append(f"crosspr: #{number} {found[1]} Python tests deselected, not run")
+    if nodes and shutil.which("node") is None:
+        notes.append(f"crosspr: #{number} node not run: node is absent")
+        unrun.append("node not run")
+    elif nodes:
+        ran = call_tests(["node", "--test", *nodes], tree, number, branch, nodes)
+        if isinstance(ran, str):
+            return ran
+        output = ran.stdout + ran.stderr
+        (kept / f"pr-{number}-node.txt").write_text(output)
+        if ran.returncode != 0:
+            said = f"crosspr: #{number} and {branch} break each other: node tests failed on their union "
+            said += f"({', '.join(nodes)}); output in .private/work/crosspr/pr-{number}-node.txt\n"
+            return said + tail(output)
+    return None
+
+
+def call_tests(
+    argv: list[str], tree: Path, number: int, branch: str, files: list[str]
+) -> subprocess.CompletedProcess[str] | str:
+    try:
+        return call(argv, cwd=tree, limit=TESTS)
+    except Refusal as error:
+        return f"crosspr: #{number} and {branch}: {error} (tests {', '.join(files)})"
 
 
 def run(branch: str, tree: str | None) -> int:
@@ -224,7 +279,7 @@ def run(branch: str, tree: str | None) -> int:
     tip = resolve(branch)
     resolve("origin/main")
     if tree:
-        tip = git_out("commit-tree", tree, "-p", tip, "-m", "crosspr: the staged tree")
+        tip = git_out(*IDENTITY, "commit-tree", tree, "-p", tip, "-m", "crosspr: the staged tree")
     mine = set(git_out("diff", "--name-only", f"origin/main...{tip}").splitlines())
     touching = []
     for pr in open_prs():
@@ -237,14 +292,14 @@ def run(branch: str, tree: str | None) -> int:
     kept = root / ".private" / "work" / "crosspr"
     kept.mkdir(parents=True, exist_ok=True)
     drop_stale_worktrees(root, kept)
-    refused, web = [], False
+    refused, unrun = [], []
     for pr in touching:
         number = int(pr["number"])  # type: ignore[call-overload]
         head = pr_head(number, str(pr["headRefOid"]), str(pr["headRefName"]))
-        problem, notes = check_pr(root, kept, branch, tip, pr, head)
+        problem, notes, missed = check_pr(root, kept, branch, tip, pr, head)
+        unrun += [kind for kind in missed if kind not in unrun]
         for note in notes:
             print(note, file=sys.stderr)
-        web = web or any("web not run" in note for note in notes)
         if problem:
             refused.append(problem)
             print(problem, file=sys.stderr)
@@ -254,7 +309,7 @@ def run(branch: str, tree: str | None) -> int:
         print(f"crosspr: refused: {len(refused)} of {len(touching)} open PRs", file=sys.stderr)
         return 1
     listed = " ".join(f"#{pr['number']}" for pr in touching) or "none"
-    print(f"Cross-PR: {listed} {'web not run' if web else 'ok'}")
+    print(f"Cross-PR: {listed} {', '.join(unrun) or 'ok'}")
     return 0
 
 
