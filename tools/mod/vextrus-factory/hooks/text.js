@@ -19,7 +19,8 @@ const REQUIRED = ["schema_version", "written_at", "watcher", "clock", "resources
 const GROUP = ["working", "ready", "blocked", "quiet", "done", "failed", "stopped"]
 const LOCK_KINDS = ["post", "scored", "no-post"]
 const G1_STATES = ["PASS", "FAIL", "RUNNING"]
-const ALARM_CODES = ["BUILDER-QUIET", "BUILDER-BLOCKED", "READY-NO-VERIFY", "READY-WAITING", "NEW-CLAUDE-BRANCH", "LEAK-HIT", "BUDGET-PASSED", "FLOOR-CROSSED", "REVIEW-READY", "JEV-MODEL-MOVED"]
+// Equal to status.schema.json's alarms[].code enum (a test pins it).
+export const ALARM_CODES = ["BUILDER-QUIET", "BUILDER-BLOCKED", "LOCAL-IDLE", "READY-NO-VERIFY", "READY-WAITING", "NEW-CLAUDE-BRANCH", "LEAK-HIT", "BUDGET-PASSED", "FLOOR-CROSSED", "REVIEW-READY", "JEV-MODEL-MOVED"]
 // A ticket name is the one free string the band prints: one line, at most 80 characters.
 export const TICKET = /^[^\u0000-\u001f\u007f-\u009f\u2028\u2029]{1,80}$/
 

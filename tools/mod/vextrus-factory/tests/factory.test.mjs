@@ -3,14 +3,14 @@
 
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { mkdirSync, mkdtempSync, rmSync, rmdirSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, rmdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 
 import { TABS, budgetText, factoryView, lastCost, sessionBudget, wipText } from "../hooks/factory.js"
-import { parseStatus } from "../hooks/text.js"
+import { ALARM_CODES, parseStatus } from "../hooks/text.js"
 
 const NOW = Date.parse("2026-10-06T01:00:00Z")
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z")
@@ -199,4 +199,32 @@ test("through the mod: the Reviews tab reads each listed review's ledger record,
   assert.match(text, /^ {2}#251 · round 2 · \? · reviewed d{12} · now d{12} · same head · s14-a1$/m)
   assert.deepEqual(w.forbidden(), [])
   assert.ok(new Set(w.factoryReads().filter((p) => p.includes("/ledger/"))).size <= 2, "only the listed reviews' records are read")
+})
+
+const LOCAL_REF = "9".repeat(40)
+
+test("#500 finding 1: a local builder's own ref is never printed as the PR's head, on any tab", () => {
+  const s = status(
+    [item({ ticket: "t-local", where: "local", state: "ready", pr: 31, head: LOCAL_REF, quiet_minutes: null }), item({ ticket: "t-cloud", where: "cloud", state: "ready", pr: 32, head: NEW })],
+    { reviews: [{ pr: 31, round: 1, head: SHA }, { pr: 32, round: 1, head: SHA }] },
+  )
+  const v = view(s, null, { [`31-${SHA}`]: "PASS", [`32-${SHA}`]: "PASS" })
+  assert.match(v.tabs["PR queue"][0], /^PR #31 · ready · t-local · head unknown · /)
+  assert.match(v.tabs["PR queue"][1], /^PR #32 · ready · t-cloud · head eeeeeeeeeeee · /)
+  assert.match(v.tabs.Builders[0], /^ready · t-local · local · branch t1 · head unknown · /)
+  assert.match(v.tabs.Reviews[0], /now \? · current head unknown · t-local$/)
+  for (const text of [wipText(v), ...everyRow(v)]) assert.ok(!text.includes("9".repeat(12)), `the local ref appears: ${text}`)
+})
+
+test("#500 finding 2: ALARM_CODES equals the schema's alarms[].code enum, and a LOCAL-IDLE alarm renders every tab", async () => {
+  const schema = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../../../../docs/specs/factory/contracts/status.schema.json"), "utf8"))
+  assert.deepEqual([...ALARM_CODES].sort(), [...schema.properties.alarms.items.properties.code.enum].sort())
+  const s = status([item({ ticket: "t1", pr: 5 })], { alarms: [{ code: "LOCAL-IDLE", subject: "t-local", since: iso(NOW - 600_000) }] })
+  const v = view(s)
+  assert.equal(v.down, null, "a LOCAL-IDLE alarm is on the contract")
+  for (const name of TABS) assert.ok(!v.tabs[name].includes("no reading"), name)
+  const { factoryFiles, world } = await import("./acceptance/ts14u2/_world.mjs")
+  const w = await world({ files: { ...factoryFiles(), "status.json": JSON.stringify(status([item({ ticket: "t-idle", state: "working" })], { written_at: iso(NOW - 30_000), alarms: [{ code: "LOCAL-IDLE", subject: "t-idle", since: iso(NOW) }] })) } }).boot()
+  const { text } = await w.command("wip")
+  assert.ok(!/WATCHER DOWN/.test(text) && /t-idle/.test(text), text)
 })

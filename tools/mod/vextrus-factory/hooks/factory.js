@@ -59,7 +59,9 @@ const prOf = (p) => (isCount(p) && p > 0 ? p : null)
 
 // Every tab states facts as status.json and the ledger give them and gives no advice: no derived
 // "next" action anywhere (#485 and #495 each found one that contradicted the ledger).
-const headOf = (h) => (isHead(h) ? head12(h) : "-")
+// A head is shown as the PR's head only for a cloud builder (its head is its branch tip on origin); a
+// local builder's is the main checkout's own ref, which lags the PR, so every tab says "unknown".
+const headOf = (b) => (b.where === "cloud" && isHead(b.head) ? head12(b.head) : "unknown")
 
 const items = (status) => (Array.isArray(status.builders.items) ? status.builders.items.filter(isObj) : [])
 
@@ -67,7 +69,7 @@ function builderRows(status, nowMs) {
   const rows = items(status).map((b) => {
     const state = stateOf(b.state)
     const age = b.where === "cloud" ? minutes(b.quiet_minutes) : since(b.last_push_at, nowMs)
-    return `${state} · ${ticketOf(b.ticket)} · ${whereOf(b.where)} · branch ${ticketOf(b.branch)} · head ${headOf(b.head)} · ${age}`
+    return `${state} · ${ticketOf(b.ticket)} · ${whereOf(b.where)} · branch ${ticketOf(b.branch)} · head ${headOf(b)} · ${age}`
   })
   return rows.length ? rows : ["no builders"]
 }
@@ -124,7 +126,7 @@ function queueRows(status, nowMs) {
     .filter((b) => prOf(b.pr) !== null)
     .map((b) => {
       const state = stateOf(b.state)
-      return `PR #${b.pr} · ${state} · ${ticketOf(b.ticket)} · head ${headOf(b.head)} · ${since(b.last_push_at, nowMs)}`
+      return `PR #${b.pr} · ${state} · ${ticketOf(b.ticket)} · head ${headOf(b)} · ${since(b.last_push_at, nowMs)}`
     })
   return rows.length ? rows : ["no builder has an open PR"]
 }
