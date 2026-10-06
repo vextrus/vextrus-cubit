@@ -12,7 +12,7 @@ from tools.lint.acceptance_lint import (
     RED_FOR,
     RULING,
     Ticket,
-    _failures,
+    _outcomes,
     _stated,
     contradictions,
     main,
@@ -126,14 +126,15 @@ def test_the_failures_of_a_junit_report_are_each_red_test_with_its_error_lines(t
         '<testcase classname="m" name="red"><failure message="boom">'
         '    target = "pkg.storeys"\n&gt;   assert not ok\nE   AssertionError: why</failure></testcase>'
         '<testcase classname="m" name="setup"><error message="fixture">E   other</error></testcase>'
+        '<testcase classname="m" name="later"><skipped type="pytest.xfail" message="soon"/></testcase>'
         "</testsuite></testsuites>"
     )
 
-    assert _failures(report) == [
-        ("m::red", "boom\nE   AssertionError: why"),
-        ("m::setup", "fixture\nE   other"),
-    ]
-    assert _failures(tmp_path / "none.xml") is None
+    assert _outcomes(report) == (
+        [("m::red", "boom\nE   AssertionError: why"), ("m::setup", "fixture\nE   other")],
+        ["m::later (soon)"],
+    )
+    assert _outcomes(tmp_path / "none.xml") is None
 
 
 def test_a_withdrawn_file_keeps_no_reason_and_a_path_never_added_is_named(tmp_path: Path) -> None:

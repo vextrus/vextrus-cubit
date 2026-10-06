@@ -78,6 +78,33 @@ def __getattr__(name: str) -> _Stub:
 """
 
 
+# Drops the test database of the tree it runs in, as the owner role, when it exists (no server: none).
+DROP = """
+import os
+
+os.environ["DJANGO_SETTINGS_MODULE"] = "vextrus.settings.test"
+import django
+
+django.setup()
+import psycopg
+from django.conf import settings
+from psycopg import sql
+
+owner = settings.DATABASES["owner"]
+name = owner["TEST"]["NAME"]
+try:
+    connection = psycopg.connect(
+        host=owner["HOST"], port=owner["PORT"], user=owner["USER"],
+        password=owner["PASSWORD"] or None, dbname="postgres", autocommit=True,
+    )
+except psycopg.OperationalError:
+    raise SystemExit(0)
+with connection:
+    if connection.execute("SELECT 1 FROM pg_database WHERE datname = %s", (name,)).fetchone():
+        connection.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
+"""
+
+
 class Refused(Exception):
     """A problem that stops the check of one branch (a missing ref, a tool that cannot run)."""
 
@@ -89,6 +116,7 @@ class Ticket:
     reasons: dict[str, list[str]] = field(default_factory=dict)
     pins: list[tuple[str, str]] = field(default_factory=list)
     unknown: list[str] = field(default_factory=list)
+    malformed: list[str] = field(default_factory=list)
 
 
 def _git(root: Path, *args: str) -> str:
@@ -100,20 +128,32 @@ def _git(root: Path, *args: str) -> str:
 
 def read_ticket(root: Path, base: str, branch: str) -> Ticket:
     """The branch's `acceptance:` commits in base..branch: the files they leave on the branch, the
-    reasons stated for those files, the `red-for:` paths they never added, and their pins."""
+    reasons stated for those files, the `red-for:` paths they never added, their pins and the
+    declaration lines not in their form. An amendment replaces: per file, the newest commit stating
+    reasons for it wins; per key, the newest pin."""
     ticket = Ticket(branch)
     ids = _git(root, "rev-list", "--no-merges", "--reverse", f"{base}..{branch}").split()
     added: list[str] = []
     reasons: dict[str, list[str]] = {}
+    pins: dict[str, str] = {}
     for commit in ids:
         message = _git(root, "log", "-1", "--format=%B", commit)
         if not message.startswith(PREFIX):
             continue
         changed = _git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", "-z", commit)
         added += [name for name in changed.split("\0") if name and name not in added]
+        stated: dict[str, list[str]] = {}
         for path, reason in RED_FOR.findall(message):
-            reasons.setdefault(path, []).append(reason)
-        ticket.pins.extend(PIN.findall(message))
+            stated.setdefault(path, []).append(reason)
+        reasons.update(stated)
+        pins.update(PIN.findall(message))
+        ticket.malformed += [
+            f"{commit[:12]}: {line}"
+            for line in message.splitlines()
+            if line.startswith(("pin:", "red-for:"))
+            and not (PIN.fullmatch(line) or RED_FOR.fullmatch(line))
+        ]
+    ticket.pins = list(pins.items())
     listed = _git(root, "ls-tree", "-r", "--name-only", "-z", branch, "--", *added) if added else ""
     present = set(listed.split("\0"))
     ticket.files = [name for name in added if name in present]
@@ -204,22 +244,24 @@ def _has_import_linter(tree: Path) -> bool:
     return False
 
 
-def _failures(report: Path) -> list[tuple[str, str]] | None:
-    """Each failing or erroring test in a junit report: its name, and its message and error lines
-    (pytest's `E` lines; never the source lines it quotes). None if the run wrote no report."""
+def _outcomes(report: Path) -> tuple[list[tuple[str, str]], list[str]] | None:
+    """A junit report's failing or erroring tests, each its name with its message and error lines
+    (pytest's `E` lines; never the source lines it quotes), and its skipped tests (xfail among them).
+    None if the run wrote no report."""
     if not report.is_file():
         return None
     try:
         suite = ElementTree.parse(report).getroot()
     except ElementTree.ParseError:
         return None
-    found = []
+    failures, skipped = [], []
     for case in suite.iter("testcase"):
+        name = f"{case.get('classname', '')}::{case.get('name', '')}"
         for outcome in list(case.findall("failure")) + list(case.findall("error")):
-            name = f"{case.get('classname', '')}::{case.get('name', '')}"
             errors = [line for line in (outcome.text or "").splitlines() if line.startswith("E ")]
-            found.append((name, "\n".join([outcome.get("message", ""), *errors])))
-    return found
+            failures.append((name, "\n".join([outcome.get("message", ""), *errors])))
+        skipped += [f"{name} ({mark.get('message', '')})" for mark in case.findall("skipped")]
+    return failures, skipped
 
 
 def not_built(output: str) -> list[tuple[str, str | None]] | None:
@@ -297,7 +339,9 @@ class Checker:
             folder.chmod(0o755)
         for dirpath, dirnames, filenames in os.walk(self.tree):
             for name in dirnames:
-                Path(dirpath, name).chmod(0o755)
+                folder = Path(dirpath, name)
+                if not folder.is_symlink():  # a link may point outside the tree: never through it
+                    folder.chmod(0o755)
             for name in filenames:
                 path = Path(dirpath, name)
                 if not path.is_symlink():
@@ -313,6 +357,11 @@ class Checker:
         problems = [
             f"{self.label(path)}: red-for names a file the acceptance commits do not add"
             for path in self.ticket.unknown
+        ]
+        form = "`pin: <key> = <value>` or `red-for: <path> <reason>`"
+        problems += [
+            f"{self.ticket.branch}: a declaration not in its form ({form}): {line}"
+            for line in self.ticket.malformed
         ]
         others = [name for name in self.ticket.files if not name.endswith(".py")]
         if others:
@@ -356,7 +405,18 @@ class Checker:
                 for _ in range(STUBS):
                     done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
                     output = done.stdout + done.stderr
-                    if done.returncode in (0, 5):
+                    if done.returncode == 0:
+                        # Fixtures resolve only at setup: plan it, the stubs still standing in.
+                        plan, _folder = self.pytest(path, "plan", "--setup-plan", "-q")
+                        if plan.returncode != 0:
+                            output = _tail(plan.stdout + plan.stderr)
+                            code = f"exit {plan.returncode}"
+                            problems.append(
+                                f"{self.label(path)}: a test cannot be set up ({code}):\n{output}"
+                            )
+                        break
+                    if done.returncode == 5:
+                        problems.append(f"{self.label(path)}: collects no test")
                         break
                     missing = not_built(output)
                     if not missing or not all(self.stub(module, name, made) for module, name in missing):
@@ -421,6 +481,17 @@ class Checker:
             env["HOME"] = str(folder)
         return _run(command, self.tree, env, as_nobody=how == "nobody"), folder
 
+    def drop_test_database(self) -> list[str]:
+        """Drop the test database this run's tree made, by its exact name: the name carries a hash of
+        the tree's path, unique to the run (`vextrus.settings.db`). Only for a Vextrus tree."""
+        if not (self.tree / "vextrus" / "settings" / "test.py").is_file():
+            return []
+        done = _run([sys.executable, "-c", DROP], self.tree, self.env())
+        if done.returncode == 0:
+            return []
+        output = _tail(done.stdout + done.stderr)
+        return [f"{self.ticket.branch}: the run's test database was not dropped:\n{output}"]
+
     def runs(self) -> list[tuple[str, str]]:
         """The users the tests run as: a non-root one, and root when it can be had."""
         if os.geteuid() == 0:
@@ -440,13 +511,22 @@ class Checker:
             reasons = self.ticket.reasons.get(path, [])
             for how, who in self.runs():
                 done, folder = self.pytest(path, how)
-                failures = _failures(folder / "report.xml")
-                if failures is None:
+                outcomes = _outcomes(folder / "report.xml")
+                if outcomes is None:
                     output = _tail(done.stdout + done.stderr)
                     code = f"exit {done.returncode}"
                     problems.append(
                         f"{self.label(path)}: pytest wrote no report {who} ({code}):\n{output}"
                     )
+                    continue
+                failures, skipped = outcomes
+                if skipped:
+                    names = ", ".join(skipped)
+                    problems.append(
+                        f"{self.label(path)}: skipped or xfail on {self.base} {who}: {names}"
+                    )
+                if not failures:
+                    problems.append(f"{self.label(path)}: no test is red on {self.base} {who}")
                     continue
                 if failures and not reasons:
                     names = ", ".join(name for name, _ in failures)
@@ -472,7 +552,11 @@ def lint(root: Path, base: str, branches: Sequence[str]) -> list[str]:
             ticket = read_ticket(root, base, branch)
             tickets.append(ticket)
             with tempfile.TemporaryDirectory(prefix="acceptance-lint-", dir=parent) as work:
-                problems += Checker(root, base, ticket, Path(work)).check()
+                checker = Checker(root, base, ticket, Path(work))
+                try:
+                    problems += checker.check()
+                finally:
+                    problems += checker.drop_test_database()
         except Refused as error:
             problems.append(f"{branch}: {error}")
     try:

@@ -126,9 +126,13 @@ which the orchestrator runs on each acceptance commit before launching its build
 
 The lint also refuses a test file that does not collect (an import of a module of the tree's own packages that
 does not exist yet is the one collection error allowed; the lint stubs that module and collects again, so an
-error behind the import is still found), `lint-imports` or `mypy` failing on the acceptance files, and a test red for
+error behind the import is still found, and plans each test's setup so a fixture pytest does not have is
+found), a test file that collects no test, has no test red on the base, or has a test skipped or xfail there
+(under either user), a `pin:` or `red-for:` line not in its form, `lint-imports` or `mypy` failing on the acceptance files, and a test red for
 another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
-does not). It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
+does not). An amendment (`scripts.factory.amend`) replaces: per file, the newest `acceptance:` commit stating
+`red-for:` reasons for it wins, and per key the newest `pin:`. The test database a run makes (its name hashes
+the run's own tree) is dropped by name after it. It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
 fail its stated-reason check: run it on new acceptance commits.
 
 ## 4. Fixtures every consumer tests against
