@@ -54,6 +54,19 @@ refuses an unlinked cut item).
   before READY.
 - Two failed rounds of fixes on the same failure: stop and finish BLOCKED with the reason.
 
+## READY checklist
+Before the READY commit:
+1. Run `uv run python -m scripts.factory.crosspr <your branch>` (it only reads; `verify` runs it too). It
+   merge-trees your branch with each open PR that touches your files and runs the union's changed tests.
+   A conflict or a failing test refuses: fix it or finish BLOCKED, naming the PR. Limits: it runs
+   Python tests only (a union that changes web tests prints `Cross-PR: ... web not run`, so run those
+   yourself), and only a PR from this repository's own branch by a login in
+   `scripts/factory/trusted-authors.txt` has its tests run (any other is merge-tree only).
+2. Re-read your whole diff once more against every finding class your ticket's reviews found (re-read it
+   for each class, not for the tests alone), and fix what you find.
+3. Put the line crosspr printed last (`Cross-PR: #51 #53 ok` or `Cross-PR: none ok`) in the READY commit
+   message's body.
+
 ## The laws
 - The repository is public: write every commit, comment and file as public. No secret or key value is ever
   printed, written or committed.
@@ -68,16 +81,6 @@ refuses an unlinked cut item).
   on a PR or issue.
 - **Local:** you work in a worktree under `.claude/worktrees/<ticket>`; commit, never push (the orchestrator
   pushes). Real drawings may be read there under `.private/`, and never enter a commit.
-
-## READY checklist
-Before the READY commit:
-1. Run `uv run python -m scripts.factory.crosspr <your branch>` (it only reads; `verify` runs it too). It
-   merge-trees your branch with each open PR that touches your files and runs the union's changed tests.
-   A conflict or a failing test refuses: fix it or finish BLOCKED, naming the PR.
-2. Re-read your whole diff once more against every finding class your ticket's reviews found (re-read it
-   for each class, not for the tests alone), and fix what you find.
-3. Put the line crosspr printed last (`Cross-PR: #51 #53 ok` or `Cross-PR: none ok`) in the READY commit
-   message's body.
 
 ## Finishing
 Your last commit's message body is the PR body; its last paragraph carries the trailers

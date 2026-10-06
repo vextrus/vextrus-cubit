@@ -7,8 +7,7 @@ exactly the tree `git write-tree` names, which the next commit will carry. It ma
 (staged against HEAD, plus the commits since the merge base with `origin/main`) to checks, runs them one
 after another in the foreground, keeps each one's output under `.private/work/verify/<tree>/`, and
 writes `<git-common-dir>/vextrus/verify-<tree>.json` (the guard's READY push gate reads it). Only when
-every check passed (the cross-PR check, `scripts.factory.crosspr`, among them) does its last line
-read `Factory-Verify: <tree> ok`, the builder's trailer.
+every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer.
 
 A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: <test title>` per line)
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
@@ -279,9 +278,11 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
         print(f"verify: {note}", file=sys.stderr)
     if not checks:
         checks = [Check("diff-check", ("git", "diff", "--cached", "--check", "HEAD"))]
-    if branch := _git("branch", "--show-current"):
-        # Not in plan(paths): it depends on the open PRs, not the changed paths.
-        checks.append(Check("crosspr", (sys.executable, "-m", "scripts.factory.crosspr", branch)))
+    # Not in plan(paths): it depends on the open PRs, not the changed paths. It checks the staged tree
+    # (what this commit carries) on the branch's tip; a detached HEAD is checked as `HEAD`.
+    branch = _git("branch", "--show-current") or "HEAD"
+    crosspr = (sys.executable, "-m", "scripts.factory.crosspr", branch, "--tree", tree)
+    checks.append(Check("crosspr", crosspr))
     outputs = Path(".private/work/verify") / tree
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
@@ -290,13 +291,16 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
     for check in checks:
         code, output = run(check)
         raw, flakes, root_only = code, [], []
+        # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
+        excusable = check.name != "crosspr"
         if (
             code != 0
+            and excusable
             and os.geteuid() == 0
             and (listed_root := root_only_in(code, output, root_entries)) is not None
         ):
             code, root_only = 0, listed_root
-        elif code != 0 and (listed := flakes_in(output, entries)) is not None:
+        elif code != 0 and excusable and (listed := flakes_in(output, entries)) is not None:
             again, rerun = run(check)
             output += f"\n--- rerun (flakes listed in {FLAKY}) ---\n{rerun}"
             if again == 0:
