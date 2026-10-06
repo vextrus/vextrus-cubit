@@ -42,7 +42,7 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   worktree each) for anything touching real drawings. Cloud builders push their own branch only; local
   builders commit and never push. Neither opens a PR: the orchestrator pushes, opens it and merges after
   the review loop (at most two rounds) and green required checks.
-- **Second review lens:** the adversary agent inside `/review-pr` (ADR 0042).
+- **Second review lens:** the adversary agent inside `scripts.factory.review run <PR>` (ADR 0042).
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
 - **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class): a

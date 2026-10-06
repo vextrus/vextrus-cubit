@@ -5,8 +5,8 @@
 // sent back once (stop_hook_active lets the second stop through). Every other agent, and any input this hook
 // cannot read, passes. The verdict line is the report's LAST non-empty line, as f4's agents write it (spec §3.3).
 // The agent's last tool call among SubagentHandback and StructuredOutput, read from the end of its transcript
-// (`agent_transcript_path`, its last 2 MB), decides first: /review-pr runs `pr-reviewer` and `refuter` with a schema
-// (`REVIEW` and `REFUTE` in .claude/workflows/review-pr.js), so they answer through StructuredOutput, and a valid
+// (`agent_transcript_path`, its last 2 MB), decides first: a review lens runs `pr-reviewer` and `refuter` with a schema
+// (`REVIEW` and `REFUTE` in scripts/factory/review.py), so they answer through StructuredOutput, and a valid
 // verdict there passes. A handback's `input.message` is the report (the closing text is then not read). Otherwise
 // `last_assistant_message` is the report; `tool_input.message` is the last fallback.
 import { closeSync, openSync, readFileSync, readSync, statSync } from "node:fs";

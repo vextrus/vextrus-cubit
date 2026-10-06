@@ -48,8 +48,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   (a lens with an accepted verdict is kept; `collect` takes each lens's newest).
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
-- `/review-pr <PR> <head> <round>` on each READY head (until S14-R3 retires it); the ledger holds its
-  verdict.
+- `uv run python -m scripts.factory.review run <PR> --round <n>` on each READY head; the ledger holds
+  its verdict (no slash command reviews: `/review-pr` is retired).
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS

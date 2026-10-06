@@ -182,7 +182,7 @@ the owner's limits, and main's reading score measured, not claimed; only then "w
   `resolving-merge-conflicts`, `writing-for-agents`, `wizard`, `ask-matt`,
   `improve-codebase-architecture`; his review skill is `spec-review`), plus `product-review`,
   `real-drawings` and `orchestrate-wave` (the orchestrator's runbook). Second review lens: the adversary
-  agent inside `/review-pr` (ADR 0042).
+  agent inside `scripts.factory.review run <PR>` (ADR 0042).
 - **Agents:** `acceptance-writer` (a ticket's failing acceptance tests, before its builder),
   `pr-reviewer` (every PR, and every fix round), `refuter` (one claim), `ux-critic` (a walk,
   or the words-only gate), `qs-critic` and `drawing-analyst` (local, real drawings).

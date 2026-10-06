@@ -121,6 +121,7 @@ def plan_with_notes(
         checks.append(Check("node-test", ("node", "--test", ".claude/hooks/**/*.test.mjs")))
     if any(p.startswith(".claude/workflows/") for p in paths):
         checks.append(Check("workflows-js", ("python3", "-m", "tools.lint.workflows_js")))
+        checks.append(Check("review-cutover", ("python3", "-m", "tools.lint.review_cutover")))
     if any(p.startswith((".github/workflows/", ".github/actions/")) for p in paths):
         checks.append(Check("workflows", ("python3", "-m", "tools.lint.workflows")))
     plugins = sorted(

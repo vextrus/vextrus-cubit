@@ -106,6 +106,8 @@ jobs:
           python-version-file: .python-version
       - name: Workflow check (only main's not-applicable workflow may post those two statuses)
         run: python3 -m tools.lint.workflows
+      - name: Review cutover check (the only workflow script is real-set-walk.js; no agent( prompt mentions the ledger)
+        run: python3 -m tools.lint.review_cutover
       - name: Every node test under .claude/, scripts/ and the factory mod (quoted globs; Node 24 runs a directory argument as a file)
         run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs' 'tools/mod/**/*.test.mjs'
       - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)

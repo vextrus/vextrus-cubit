@@ -440,7 +440,7 @@ def ledger_problems(facts: dict[str, Any], ledger_dir: Path, repo: Path) -> list
         return broken
     chosen = max(eligible, key=lambda record: int(record["comment_id"]), default=None)
     if chosen is None:
-        return stale or [f"no ledger record for head {head[:12]}: review it (/review-pr) and record it"]
+        return stale or [f"no ledger record for head {head[:12]}: run scripts.factory.review run on it"]
     found = []
     if chosen["verdict"] != "PASS":
         found.append(f"the ledger says {chosen['verdict']} for {chosen['head'][:12]}, not PASS")
