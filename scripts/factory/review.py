@@ -38,9 +38,13 @@ import fcntl
 import json
 import os
 import re
+import secrets
 import shlex
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 import traceback
 from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -69,13 +73,16 @@ FAILING = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAIL
 # A path on a trust boundary is never "small": the guard and the harness, the factory's gates and
 # records, CI, the leak scan, and code that walls tenants, authenticates or parses hostile input.
 TRUST_BOUNDARY = re.compile(
-    r"^(?:\.claude/|\.github/|tools/|CLAUDE\.md$|vextrus/settings/|vextrus/testing/)"
+    r"^(?:\.claude/|\.github/|tools/|CLAUDE\.md$|vextrus/settings/|vextrus/testing/|engine/read/"
+    r"|vextrus/platform/http/)"
     r"|(?:^|/)\.[^/]+(?:/|$)"  # a dotfile or dot-folder at any depth (.npmrc, .mcp.json, .env)
     r"|(?:^|/)(?:scripts|eslint|lint|hooks)/"
-    r"|(?:^|/)(?:[^/]*(?:guard|auth|tenant|permission|ledger|parser|reader|leak|secret|middleware)"
+    r"|(?:^|/)(?:[^/]*(?:guard|auth|tenan|permission|ledger|parser|reader|leak|secret|middleware"
+    r"|sandbox|upload|bwrap|access)"
     r"[^/]*)(?:/|$)"
     r"|(?:^|/)(?:pyproject\.toml|uv\.lock|package(?:-lock)?\.json|conftest\.py|manage\.py|setup\.cfg"
-    r"|pytest\.ini|tox\.ini|Makefile|Dockerfile|[^/]*\.config\.[cm]?[jt]s|tsconfig[^/]*\.json)$"
+    r"|pytest\.ini|tox\.ini|Makefile|Dockerfile|[^/]*\.config\.[cm]?[jt]s|tsconfig[^/]*\.json"
+    r"|routers\.py|urls\.py|api\.py)$"
     r"|/migrations/",
     re.IGNORECASE,
 )
@@ -366,6 +373,25 @@ def added_lines(patch: str) -> list[str]:
     return found
 
 
+# Files under docs/ that code or agents read as data or instructions: never "docs-only".
+DOCS_READ = re.compile(
+    r"^docs/(?:knowledge/jev-nodes\.md$|specs/factory/contracts/|agents/|handoff/)"
+    r"|(?:^|/)(?:CLAUDE|AGENTS)\.md$",
+    re.IGNORECASE,
+)
+
+
+def docs_only(path: str) -> bool:
+    """A Markdown file under docs/ that nothing runs or obeys: not on a trust boundary, not under a
+    dot-folder, not a CLAUDE.md or AGENTS.md, not a file a script reads (PR #478 review, round 1)."""
+    return (
+        path.startswith("docs/")
+        and path.endswith(".md")
+        and not TRUST_BOUNDARY.search(path)
+        and not DOCS_READ.search(path)
+    )
+
+
 def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
     """The review tier. A criss-cross history (`bases` > 1) never gets a no-model tier."""
     paths = [path for path, _, _ in rows]
@@ -381,7 +407,7 @@ def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
         and all(HASH_LINE.fullmatch(line) for line in allowlist_added)
     ):
         return "allowlist-only"
-    if no_model and all(path.startswith("docs/") and path.endswith(".md") for path in paths):
+    if no_model and all(docs_only(path) for path in paths):
         return "docs-only"
     lines = sum((a or 0) + (r or 0) for _, a, r in rows)
     binary = any(a is None or r is None for _, a, r in rows)
@@ -585,11 +611,71 @@ def lens_env(slot: int) -> dict[str, str]:
     return env
 
 
+TOKEN = "VEXTRUS_REVIEW_PROCESS"
+
+
+def kill_leftovers(token: str) -> int:
+    """Kill every process whose environment carries `TOKEN=<token>` (a lens's or a replay's
+    descendants: a test it left running would hold the pytest lock); how many were killed."""
+    mark = f"{TOKEN}={token}".encode()
+    killed = 0
+    for entry in Path("/proc").glob("[0-9]*"):
+        pid = int(entry.name)
+        if pid == os.getpid():
+            continue
+        try:
+            if mark in (entry / "environ").read_bytes().split(b"\0"):
+                os.kill(pid, signal.SIGKILL)
+                killed += 1
+        except OSError, ValueError:
+            continue
+    return killed
+
+
+def run_group(
+    argv: Sequence[str], *, cwd: Path, env: dict[str, str], timeout: int, input: str | None = None
+) -> subprocess.CompletedProcess[str]:
+    """`argv` in its own process group, every descendant marked with a fresh token; at `timeout` the
+    group is killed (TimeoutExpired raised), and after any end every marked leftover is killed. Its
+    input and output go through files, never pipes: a leftover holding a pipe open would keep a
+    read waiting for an end that never comes."""
+    token = secrets.token_hex(8)
+    with (
+        tempfile.TemporaryFile("w+", errors="surrogateescape") as stdin,
+        tempfile.TemporaryFile("w+", errors="surrogateescape") as stdout,
+        tempfile.TemporaryFile("w+", errors="surrogateescape") as stderr,
+    ):
+        stdin.write(input or "")
+        stdin.flush()
+        stdin.seek(0)
+        child = subprocess.Popen(
+            list(argv),
+            cwd=cwd,
+            env={**env, TOKEN: token},
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            start_new_session=True,
+        )
+        try:
+            child.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(child.pid, signal.SIGKILL)
+            child.wait()
+            raise
+        finally:
+            kill_leftovers(token)
+        stdout.seek(0)
+        stderr.seek(0)
+        return subprocess.CompletedProcess(list(argv), child.returncode, stdout.read(), stderr.read())
+
+
 def run_lens(lens: Lens, prompt: str, rv: Path, slot: int, keep: Path, main: Path) -> dict[str, Any]:
     """One lens process; its result object (the A0 probe's shape), kept under `keep`."""
     command = lens_command(lens, main)
     try:
-        done = _run(command, cwd=rv, env=lens_env(slot), input=prompt, timeout=LENS_TIMEOUT)
+        done = run_group(command, cwd=rv, env=lens_env(slot), input=prompt, timeout=LENS_TIMEOUT)
     except subprocess.TimeoutExpired as error:
         raise Refused(f"{lens.label} ran past {LENS_TIMEOUT // 60} minutes") from error
     keep.parent.mkdir(parents=True, exist_ok=True)
@@ -658,11 +744,23 @@ def pytest_lock(where: Path) -> IO[str]:
     path = Path(common.stdout.strip()).parent / ".private" / "work" / "factory" / "pytest.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = path.open("a")
-    fcntl.flock(handle, fcntl.LOCK_EX)
-    return handle
+    deadline = time.monotonic() + LOCK_WAIT
+    while True:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return handle
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                handle.close()
+                raise Refused(
+                    f"the pytest lock ({path}) stayed busy for {LOCK_WAIT // 60} minutes: nothing "
+                    "recorded; run again when it is free"
+                ) from None
+            time.sleep(0.5)
 
 
 REPLAYED_MARKS = frozenset({"needs_toolchain", "needs_bwrap"})  # never `live`: an outside service
+LOCK_WAIT = 30 * 60
 
 
 def replay_marks(test_file: Path) -> list[str]:
@@ -682,7 +780,7 @@ def replay_marks(test_file: Path) -> list[str]:
     if not marks:
         return []
     either = " or ".join(marks)
-    return ["-m", f"{either} or not ({either})"]
+    return ["-m", f"({either} or not ({either})) and not live"]
 
 
 def replay(rv: Path, slot: int, test_file: str) -> bool:
@@ -691,7 +789,7 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
     env["NO_COLOR"] = "1"
     held = pytest_lock(rv)
     try:
-        done = _run(
+        done = run_group(
             ["uv", "run", "pytest", "-rf", "--color=no", *replay_marks(rv / test_file), test_file],
             cwd=rv,
             env=env,

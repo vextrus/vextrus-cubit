@@ -784,7 +784,7 @@ def test_replay_takes_the_pytest_lock(tmp_path: Path, monkeypatch: pytest.Monkey
                 held.append(True)
         return subprocess.CompletedProcess(argv, 0, "1 passed", "")
 
-    monkeypatch.setattr(review, "_run", run)
+    monkeypatch.setattr(review, "run_group", run)
     assert review.replay(root, 1, "tests/test_a.py") is False
     assert held == [True]
 
@@ -914,7 +914,7 @@ def test_a_refusal_after_the_tier_has_its_exit_in_the_cost_line(
     [
         "needs_toolchain",
         "needs_toolchain or needs_bwrap",
-        "(needs_toolchain or live) and not needs_bwrap",
+        "(needs_toolchain or needs_bwrap) and not needs_bwrap",
     ],
 )
 def test_the_wrapper_takes_a_marker_expression_of_declared_markers(
@@ -925,7 +925,8 @@ def test_the_wrapper_takes_a_marker_expression_of_declared_markers(
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
     argv = ["-m", expression, "tests/test_a.py"]
-    assert lens_pytest().check(argv, tmp_path) == argv
+    expected = ["-m", f"({expression}) and not live", "tests/test_a.py"]
+    assert lens_pytest().check(argv, tmp_path) == expected
 
 
 @pytest.mark.parametrize(
@@ -979,7 +980,7 @@ def test_the_brief_names_exactly_the_options_the_wrapper_takes(tmp_path: Path) -
         assert module.check([f"--tb={style}", "test_a.py"], tmp_path)
     assert "-k" in named
     assert "-m" in named
-    for marker in sorted(module.declared_markers()):
+    for marker in sorted(module.declared_markers() - module.FORBIDDEN_MARKERS):
         assert marker in text
         assert module.check(["-m", marker, "test_a.py"], tmp_path)
     assert "`-m needs_toolchain`" in text
@@ -1001,11 +1002,11 @@ def test_replay_selects_a_marked_modules_tests_and_never_live(tmp_path: Path) ->
     assert review.replay_marks(tmp_path / "missing.py") == []
     assert review.replay_marks(tmp_path / "tool.py") == [
         "-m",
-        "needs_toolchain or not (needs_toolchain)",
+        "(needs_toolchain or not (needs_toolchain)) and not live",
     ]
     assert review.replay_marks(tmp_path / "both.py") == [
         "-m",
-        "needs_bwrap or needs_toolchain or not (needs_bwrap or needs_toolchain)",
+        "(needs_bwrap or needs_toolchain or not (needs_bwrap or needs_toolchain)) and not live",
     ]
 
 
@@ -1033,3 +1034,282 @@ def test_a_toolchain_marked_repro_is_replayed_not_deselected(
     monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
     monkeypatch.delenv("DJANGO_SETTINGS_MODULE", raising=False)
     assert review.replay(root, 1, "tests/test_repro.py") is True
+
+
+# ---------------------------------------------------------------- PR #478 review, round 1
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "docs/CLAUDE.md",
+        "docs/notes/AGENTS.md",
+        "docs/.claude/skills/walk/SKILL.md",
+        "docs/.claude/agents/pr-reviewer.md",
+        "docs/knowledge/jev-nodes.md",
+        "docs/specs/factory/contracts/trailers.md",
+        "docs/agents/domain.md",
+        "docs/handoff/session-15-prompt.md",
+        "docs/adr/0099-auth-wall.md",
+    ],
+)
+def test_agent_instructions_and_files_code_reads_are_never_docs_only(path: str) -> None:
+    """Finding 1: any docs/**.md passed with no model, agent instruction files and jev's pin table
+    among them."""
+    assert review.tier([(path, 3, 0)], []) != "docs-only"
+    assert review.tier([("docs/notes/howto.md", 3, 0), (path, 3, 0)], []) != "docs-only"
+
+
+def test_jevs_pin_table_is_never_docs_only() -> None:
+    from scripts.factory import jev
+
+    assert not review.docs_only(str(jev.PIN_FILE.relative_to(review.HARNESS)))
+
+
+def test_plain_docs_stay_docs_only() -> None:
+    assert review.tier([("docs/notes/howto.md", 3, 0), ("docs/adr/0050-x.md", 9, 1)], []) == "docs-only"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "engine/read/sandbox.py",
+        "engine/read/libredwg/__init__.py",
+        "vextrus/drawings/uploads.py",
+        "vextrus/takeoff/http/upload.py",
+        "vextrus/projects/services/access.py",
+        "vextrus/drawings/services/_access.py",
+        "vextrus/routers.py",
+        "vextrus/settings/tenancy.py",
+        "vextrus/platform/admin/tenancy.py",
+        "vextrus/platform/http/middleware.py",
+        "vextrus/platform/http/views.py",
+        "vextrus/platform/services/auth.py",
+        "scripts/real_drawings/sandbox.py",
+    ],
+)
+def test_the_repos_walls_are_never_small(path: str) -> None:
+    """Finding 2: a 25-line change to these took one lens."""
+    assert review.tier([(path, 25, 0)], []) == "normal"
+
+
+@pytest.mark.parametrize("expression", ["live", "not live", "needs_toolchain or live", "(live)"])
+def test_the_wrapper_never_selects_live(tmp_path: Path, expression: str) -> None:
+    """Finding 3: `-m live` reached a live outside service with the owner's key."""
+    (tmp_path / "test_a.py").write_text("def test_a():\n    pass\n")
+    module = lens_pytest()
+    with pytest.raises(module.Refused):
+        module.check(["-m", expression, "test_a.py"], tmp_path)
+
+
+def test_a_replay_never_runs_a_live_test(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Finding 3: the replay's `-m "needs_toolchain or not (needs_toolchain)"` overrode the addopts
+    deselection, so a live test in the repro module ran. Real pytest behind a `uv` that runs it."""
+    root = repo(tmp_path)
+    called = tmp_path / "live-called"
+    (root / "pytest.ini").write_text(
+        "[pytest]\naddopts = -m 'not needs_toolchain and not live'\n"
+        "markers =\n    needs_toolchain: x\n    live: y\n"
+    )
+    (root / "tests").mkdir()
+    (root / "tests" / "test_repro.py").write_text(
+        "import pathlib\nimport pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_attack():\n"
+        "    assert False\n\n\n@pytest.mark.live\n@pytest.mark.needs_toolchain\ndef test_live():\n"
+        f"    pathlib.Path({str(called)!r}).write_text('called')\n"
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    uv = f'#!/bin/sh\nshift 2\nexec {sys.executable} -m pytest -p no:cacheprovider "$@"\n'
+    (bin_dir / "uv").write_text(uv)
+    (bin_dir / "uv").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.delenv("DJANGO_SETTINGS_MODULE", raising=False)
+    assert review.replay(root, 1, "tests/test_repro.py") is True
+    assert not called.exists(), "the live test ran"
+
+
+def alive(pid: int) -> bool:
+    try:
+        state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+    except OSError:
+        return False
+    return state != "Z"
+
+
+def gone(pid: int, seconds: float = 15) -> bool:
+    import time
+
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if not alive(pid):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+HANGS = (
+    "import os, pathlib, time\n\n\ndef test_hang():\n"
+    "    pathlib.Path({!r}).write_text(str(os.getpid()))\n    time.sleep(600)\n"
+)
+
+
+def hanging_repo(tmp_path: Path) -> tuple[Path, Path]:
+    root = repo(tmp_path)
+    pid_file = tmp_path / "pytest.pid"
+    (root / "tests").mkdir()
+    (root / "tests" / "test_hang.py").write_text(HANGS.format(str(pid_file)))
+    return root, pid_file
+
+
+def read_pid(pid_file: Path, seconds: float = 30) -> int:
+    import time
+
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if pid_file.exists() and pid_file.read_text():
+            return int(pid_file.read_text())
+        time.sleep(0.1)
+    raise AssertionError("the hanging test never started")
+
+
+def lock_free(root: Path) -> bool:
+    import fcntl
+
+    with (root / ".private" / "work" / "factory" / "pytest.lock").open("a") as probe:
+        try:
+            fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return False
+        return True
+
+
+def test_a_hanging_test_is_stopped_at_the_wrappers_limit_and_frees_the_lock(tmp_path: Path) -> None:
+    """Finding 4: a hung attack test held the machine-wide pytest lock with no limit."""
+    root, pid_file = hanging_repo(tmp_path)
+    env = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+    env["VEXTRUS_LENS_PYTEST_TIMEOUT"] = "3"
+    done = subprocess.run(
+        [sys.executable, str(WRAPPER), "-q", "tests/test_hang.py"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert done.returncode == 124, done.stderr
+    assert gone(read_pid(pid_file))
+    assert lock_free(root)
+
+
+def test_a_variable_can_only_lower_the_wrappers_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = lens_pytest()
+    monkeypatch.setenv("VEXTRUS_LENS_PYTEST_TIMEOUT", str(module.TIMEOUT * 10))
+    assert module.bounded("VEXTRUS_LENS_PYTEST_TIMEOUT", module.TIMEOUT) == module.TIMEOUT
+    monkeypatch.setenv("VEXTRUS_LENS_PYTEST_TIMEOUT", "-5")
+    assert module.bounded("VEXTRUS_LENS_PYTEST_TIMEOUT", module.TIMEOUT) == module.TIMEOUT
+    monkeypatch.setenv("VEXTRUS_LENS_PYTEST_TIMEOUT", "7")
+    assert module.bounded("VEXTRUS_LENS_PYTEST_TIMEOUT", module.TIMEOUT) == 7
+
+
+def test_the_wrapper_waits_for_a_busy_lock_a_bounded_time(tmp_path: Path) -> None:
+    import fcntl
+
+    root = repo(tmp_path)
+    (root / "tests").mkdir()
+    (root / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    lock = root / ".private" / "work" / "factory" / "pytest.lock"
+    lock.parent.mkdir(parents=True)
+    env = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+    env["VEXTRUS_LENS_PYTEST_LOCK_WAIT"] = "1"
+    with lock.open("a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        done = subprocess.run(
+            [sys.executable, str(WRAPPER), "-q", "tests/test_a.py"],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    assert done.returncode == 75, done.stderr
+    assert "busy" in done.stderr
+
+
+def test_the_wrapper_and_its_pytest_die_with_the_wrappers_parent(tmp_path: Path) -> None:
+    """Finding 4: the lens process died and its test run lived on, holding the lock."""
+    root, pid_file = hanging_repo(tmp_path)
+    env = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+    parent = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import subprocess, sys, time\n"
+                f"subprocess.Popen([sys.executable, {str(WRAPPER)!r}, '-q', 'tests/test_hang.py'])\n"
+                "time.sleep(600)\n"
+            ),
+        ],
+        cwd=root,
+        env=env,
+    )
+    pytest_pid = read_pid(pid_file)
+    parent.kill()
+    parent.wait()
+    assert gone(pytest_pid), "the test run outlived the lens that started it"
+    assert gone_lock(root)
+
+
+def gone_lock(root: Path, seconds: float = 15) -> bool:
+    import time
+
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if lock_free(root):
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def test_a_lens_leaving_a_process_behind_has_it_killed(tmp_path: Path) -> None:
+    """Finding 4: only the claude process was stopped; what it started lived on."""
+    pid_file = tmp_path / "left.pid"
+    script = f"sleep 600 & echo $! > {pid_file}"
+    done = review.run_group(["sh", "-c", script], cwd=tmp_path, env=dict(os.environ), timeout=60)
+    assert done.returncode == 0
+    assert gone(int(pid_file.read_text()))
+
+
+def test_a_lens_past_its_limit_is_killed_with_everything_it_started(tmp_path: Path) -> None:
+    pid_file = tmp_path / "left.pid"
+    script = f"setsid sleep 600 & echo $! > {pid_file}; sleep 600"
+    with pytest.raises(subprocess.TimeoutExpired):
+        review.run_group(["sh", "-c", script], cwd=tmp_path, env=dict(os.environ), timeout=2)
+    assert gone(int(pid_file.read_text()))
+
+
+def test_a_hung_lens_is_refused_not_waited_for(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    pid_file = tmp_path / "child.pid"
+    (bin_dir / "claude").write_text(f"#!/bin/sh\nsleep 600 &\necho $! > {pid_file}\nwait\n")
+    (bin_dir / "claude").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.setattr(review, "LENS_TIMEOUT", 1)
+    with pytest.raises(review.Refused, match="ran past"):
+        review.run_lens(review.LENS_B, "prompt", tmp_path, 1, tmp_path / "out.json", tmp_path)
+    assert gone(int(pid_file.read_text())), "the hung lens's child outlived it"
+
+
+def test_the_replays_lock_wait_is_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import fcntl
+
+    root = repo(tmp_path)
+    lock = root / ".private" / "work" / "factory" / "pytest.lock"
+    lock.parent.mkdir(parents=True)
+    monkeypatch.setattr(review, "LOCK_WAIT", 1)
+    with lock.open("a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        with pytest.raises(review.Refused, match="busy"):
+            review.pytest_lock(root)
