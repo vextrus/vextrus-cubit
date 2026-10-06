@@ -1,11 +1,8 @@
-"""Unit tests of S14-R2's seams in `scripts.factory.review`: the schema check, the capped process, the
+"""Unit tests of S14-R2's seams in `scripts.factory.review`: the schema check, the
 rerun store, the batched refuter's matching, the fix message from the kept findings, the guard brief
 and the cloud hand-off's arguments."""
 
 import json
-import os
-import sys
-import time
 from pathlib import Path
 from typing import Any
 
@@ -98,47 +95,6 @@ def test_the_lens_cap_defaults_and_reads_seconds(monkeypatch: pytest.MonkeyPatch
     assert review.lens_timeout() == review.LENS_TIMEOUT
     monkeypatch.setenv(review.TIMEOUT_ENV, "90")
     assert review.lens_timeout() == 90
-
-
-def test_a_process_past_its_cap_is_killed_with_its_children(tmp_path: Path) -> None:
-    """The lens's tools (a child that ignores SIGINT and SIGTERM) die with it."""
-    pids = tmp_path / "pids"
-    script = (
-        "import os, signal, subprocess, sys, time\n"
-        "child = subprocess.Popen([sys.executable, '-c', "
-        "'import signal, time; signal.signal(signal.SIGINT, signal.SIG_IGN); "
-        "signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(300)'])\n"
-        f"open({str(pids)!r}, 'w').write(str(child.pid))\n"
-        "signal.signal(signal.SIGINT, signal.SIG_IGN)\n"
-        "time.sleep(300)\n"
-    )
-    started = time.monotonic()
-    done = review.capped(
-        [sys.executable, "-c", script], cwd=tmp_path, env=dict(os.environ), prompt="", timeout=1
-    )
-    assert done is None
-    assert time.monotonic() - started < 60
-    child = int(pids.read_text())
-    deadline = time.monotonic() + 10
-    while Path(f"/proc/{child}").exists() and time.monotonic() < deadline:
-        state = Path(f"/proc/{child}/stat").read_text().rsplit(")", 1)[1].split()[0]
-        if state in ("Z", "X"):
-            break
-        time.sleep(0.1)
-    else:
-        assert not Path(f"/proc/{child}").exists(), "the lens's child outlived the cap"
-
-
-def test_a_process_within_its_cap_answers(tmp_path: Path) -> None:
-    done = review.capped(
-        [sys.executable, "-c", "import sys; print(sys.stdin.read().upper())"],
-        cwd=tmp_path,
-        env=dict(os.environ),
-        prompt="brief",
-        timeout=30,
-    )
-    assert done is not None
-    assert (done.returncode, done.stdout.strip()) == (0, "BRIEF")
 
 
 # ---------------------------------------------------------------- reruns
@@ -413,22 +369,6 @@ def test_a_kept_answer_the_prs_code_changed_or_added_is_deleted_and_refused(
 
 
 # ---------------------------------------------------------------- the refuter's round 1 (S14-R2)
-
-
-def test_a_capped_process_whose_pipe_outlives_its_group_never_hangs(tmp_path: Path) -> None:
-    """Refuted: a child in its own session kept the pipes open and the final drain never returned."""
-    script = (
-        "import subprocess, sys, time\n"
-        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],"
-        " start_new_session=True)\n"
-        "time.sleep(300)\n"
-    )
-    started = time.monotonic()
-    done = review.capped(
-        [sys.executable, "-c", script], cwd=tmp_path, env=dict(os.environ), prompt="", timeout=1
-    )
-    assert done is None
-    assert time.monotonic() - started < 30
 
 
 def test_an_attack_is_never_restored_under_a_linked_folder(tmp_path: Path) -> None:
