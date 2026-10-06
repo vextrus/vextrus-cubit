@@ -44,7 +44,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
-from scripts.factory import stamp, status
+from scripts.factory import governor, stamp, status
 
 if TYPE_CHECKING:
     from scripts.factory.jev import Answers, Unavailable
@@ -287,12 +287,30 @@ def default_scan(root: Path) -> Scan | None:
     return scan
 
 
-def default_govern(root: Path, usage_checked: str | None = None) -> Govern | None:
-    """This tree's governor (f3's `scripts/factory/governor.py`), or None when the tree has none."""
+def default_govern(
+    root: Path,
+    usage_checked: str | None = None,
+    owns: tuple[str, ...] = (),
+    role: str | None = None,
+    branch: str | None = None,
+    *,
+    hold: tuple[str, int, int | None] | None = None,
+) -> Govern | None:
+    """This tree's governor (f3's `scripts/factory/governor.py`), or None when the tree has none.
+    `hold` (ticket, launcher pid, budget minutes) makes it `admit` the launch: check and write the
+    pending record under the WIP lock (S14-W1), which `launch_cloud` removes when it ends."""
     if not (root / "scripts" / "factory" / "governor.py").is_file():
         return None
     command = [sys.executable, "-m", "scripts.factory.governor", "check", "cloud-session"]
     command += ["--usage-checked", usage_checked] if usage_checked else []
+    for path in owns:
+        command += ["--owns", path]
+    command += ["--role", role] if role else []
+    command += ["--branch", branch] if branch else []
+    if hold is not None:
+        ticket, pid, budget = hold
+        command += ["--hold", str(pid), "--ticket", ticket]
+        command += ["--budget-minutes", str(budget)] if budget is not None else []
 
     def govern() -> Reading:
         try:
@@ -425,6 +443,13 @@ def _shaped(pattern: re.Pattern[str], what: str) -> Callable[[str], str]:
     return check
 
 
+def _repo_path(value: str) -> str:
+    """A repo-relative path an `--owns` names (the governor compares it with an open PR's files)."""
+    if not value or value.startswith("/") or ".." in value.split("/"):
+        raise argparse.ArgumentTypeError("not a repo-relative path")
+    return value
+
+
 def _minutes(value: str) -> int:
     if not value.isdigit():
         raise argparse.ArgumentTypeError("not a whole number of minutes")
@@ -462,6 +487,7 @@ class CloudRequest:
     log: Path | None = None
     repository: str = REPOSITORY
     record_dir: Path | None = None
+    owns: tuple[str, ...] = ()
 
 
 def _read_review(path: Path) -> Review | None:
@@ -500,6 +526,7 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
     p.add_argument("--log", type=Path)
     p.add_argument("--repository", default=REPOSITORY)
     p.add_argument("--record-dir", type=Path)
+    p.add_argument("--owns", action="append", default=[], type=_repo_path)
     a = p.parse_args(argv)
     review = None
     if a.review_file is not None:
@@ -524,6 +551,7 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
         log=a.log,
         repository=a.repository,
         record_dir=a.record_dir,
+        owns=tuple(a.owns),
     )
 
 
@@ -742,7 +770,7 @@ class _Run:
         return self.started.strftime("%Y%m%dT%H%M%SZ")
 
     def write(self, verdict: Verdict, *, stop_sent: bool = False) -> None:
-        record = {
+        record: dict[str, object] = {
             "ticket": self.req.ticket,
             "branch": self.req.branch,
             "where": "cloud",
@@ -763,6 +791,8 @@ class _Run:
             "review": self.req.review.as_record() if self.req.review else None,
             "jev": self.jev,
         }
+        if self.req.owns:
+            record["owns"] = list(self.req.owns)
         try:
             self.record_dir.mkdir(parents=True, exist_ok=True)
             path, agents = self._free_name()
@@ -772,6 +802,9 @@ class _Run:
         except OSError as error:
             print(f"ERROR the launch record was not written ({type(error).__name__}: {error.filename})")
             return
+        finally:
+            # the launch record (or the failure) now stands for the launch: its pending record goes
+            governor.release_hold(self.req.ticket, os.getpid())
         warnings, p = self.jev["warnings"], self.jev["p"]
         if isinstance(warnings, list) and isinstance(p, dict):  # never line 1: OK/REFUSED stays first
             for code in warnings:
@@ -822,7 +855,35 @@ def launch_cloud(
     out, they are this tree's own. `jev` None (left out) asks no one; `DEFAULT` (only `main`) asks
     the real Jev for advice. Every run past the usage checks writes one record."""
     scan = default_scan(root) if isinstance(scan, Default) else scan
-    govern = default_govern(root, req.usage_checked) if isinstance(govern, Default) else govern
+    govern = (
+        default_govern(
+            root,
+            req.usage_checked,
+            req.owns,
+            req.role,
+            req.branch,
+            hold=(req.ticket, os.getpid(), req.budget_minutes),
+        )
+        if isinstance(govern, Default)
+        else govern
+    )
+    try:
+        return _launch_cloud(req, root, claude, scan, govern, snapshot, now, sleep, jev)
+    finally:
+        governor.release_hold(req.ticket, os.getpid())  # whatever ended the launch, nothing pends
+
+
+def _launch_cloud(
+    req: CloudRequest,
+    root: Path,
+    claude: ClaudeRunner,
+    scan: Scan | None,
+    govern: Govern | None,
+    snapshot: Callable[[], str],
+    now: Callable[[], datetime],
+    sleep: Callable[[float], None],
+    jev: Ask | Default | None,
+) -> Outcome:
     if not BRANCH.match(req.branch) or ".." in req.branch or not TICKET.match(req.ticket):
         print("error: a malformed --branch or --ticket", file=sys.stderr)
         return Outcome(USAGE, "usage: a malformed --branch or --ticket")
@@ -1079,6 +1140,7 @@ class LocalRequest:
     model: str | None = None
     role: str | None = None
     budget_minutes: int | None = None
+    owns: tuple[str, ...] = ()
 
     def to_argv(self) -> list[str]:
         argv = ["--ticket", self.ticket, "--branch", self.branch, "--effort", self.effort]
@@ -1086,6 +1148,8 @@ class LocalRequest:
         argv += ["--model", self.model] if self.model else []
         argv += ["--role", self.role] if self.role else []
         argv += ["--budget-minutes", str(self.budget_minutes)] if self.budget_minutes is not None else []
+        for path in self.owns:
+            argv += ["--owns", path]
         return argv
 
 
@@ -1099,9 +1163,18 @@ def parse_local(argv: list[str]) -> LocalRequest:
     p.add_argument("--model", type=_shaped(TICKET, "model id"))
     p.add_argument("--role", choices=("builder", "acceptance-writer"))
     p.add_argument("--budget-minutes", type=_minutes)
+    p.add_argument("--owns", action="append", default=[], type=_repo_path)
     a = p.parse_args(argv)
     return LocalRequest(
-        a.ticket, a.branch, a.effort, a.name, a.prompt_file, a.model, a.role, a.budget_minutes
+        a.ticket,
+        a.branch,
+        a.effort,
+        a.name,
+        a.prompt_file,
+        a.model,
+        a.role,
+        a.budget_minutes,
+        tuple(a.owns),
     )
 
 
