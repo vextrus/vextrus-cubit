@@ -95,16 +95,29 @@ def merge_lines(repo: Path, sha: str) -> list[tuple[str, int, str]] | None:
         return None
     rows: list[tuple[str, int, str]] = []
     path, line, parents = "", 0, 0
+    in_header = False
     for text in shown.split("\n"):
-        if text.startswith("+++ "):
-            path = text[4:].removeprefix("b/") if text[4:] != "/dev/null" else ""
+        if text.startswith(("diff --cc ", "diff --combined ")):
+            # A file's header runs from here to its first hunk: only there is `+++ ` a header (in a
+            # hunk, a merged line reading "+ ..." shows as `+++ ...`).
+            in_header, path, parents = True, "", 0
             continue
+        if in_header:
+            if text.startswith("+++ "):
+                # git ends a name holding a space with a tab here.
+                name = text[4:].removesuffix("\t")
+                path = name.removeprefix("b/") if name != "/dev/null" else ""
+                continue
+            header = HUNK.match(text)
+            if header is None:
+                continue
+            in_header = False
         header = HUNK.match(text)
         if header is not None:
             parents = len(header.group(1)) - 1
             line = int(header.group(2))
             continue
-        if not path or parents < 2 or len(text) < parents or text.startswith("diff --"):
+        if not path or parents < 2 or len(text) < parents:
             continue
         marks, body = text[:parents], text[parents:]
         if set(marks) - {" ", "+", "-"}:
@@ -117,6 +130,39 @@ def merge_lines(repo: Path, sha: str) -> list[tuple[str, int, str]] | None:
     return rows
 
 
+def merge_names(repo: Path, sha: str) -> list[str] | None:
+    """The merge's name list: the files its combined diff shows (`git diff-tree --cc`), unquoted."""
+    listed = _git(repo, "diff-tree", "--cc", "--no-commit-id", "--name-only", "-z", sha)
+    return None if listed is None else [name for name in listed.split("\0") if name]
+
+
+def scan_rows(
+    repo: Path, scanner: Sequence[str], rows: Sequence[str], env: Mapping[str, str] | None
+) -> list[tuple[int, int]] | None:
+    """`(row index, count)` of each row the scanner's `text --stdin` finds a hit on. One row per odd
+    line with blank lines between, so no two rows read as one wrapped line."""
+    if not rows:
+        return []
+    found = _scanner(repo, scanner, ["text", "--stdin"], env, "\n\n".join(rows))
+    if found is None:
+        return None
+    hits = []
+    for where, n in found:
+        k = int(where.rsplit(":", 1)[1]) if where.startswith("stdin:") else 0
+        if k % 2 == 1 and (k - 1) // 2 < len(rows):
+            hits.append(((k - 1) // 2, n))
+    return hits
+
+
+def place(path: str, names: list[str], named: list[tuple[int, int]]) -> str:
+    """A merge's file as the scanner names one: `name:<i>` when its name holds a hit (never the path),
+    `unknown` when it is not in the merge's name list (never a path left unchecked), else the path."""
+    if path not in names:
+        return "unknown"
+    index = names.index(path)
+    return f"name:{index}" if index in {i for i, _ in named} else path
+
+
 def merge_hits(
     repo: Path, scanner: Sequence[str], sha: str, env: Mapping[str, str] | None
 ) -> list[tuple[str, int]] | None:
@@ -125,19 +171,18 @@ def merge_hits(
     are theirs (in the range, scanned on their own; main's, outside it)."""
     rows = merge_lines(repo, sha)
     message = _git(repo, "log", "-1", "--format=%B", sha)
-    if rows is None or message is None:
+    names = merge_names(repo, sha)
+    if rows is None or message is None or names is None:
         return None
     hits: list[tuple[str, int]] = []
     if rows:
-        # One row per odd line, blank lines between, so no two rows read as one wrapped line.
-        found = _scanner(repo, scanner, ["text", "--stdin"], env, "\n\n".join(r[2] for r in rows))
-        if found is None:
+        found = scan_rows(repo, scanner, [r[2] for r in rows], env)
+        named = scan_rows(repo, scanner, names, env)
+        if found is None or named is None:
             return None
-        for where, n in found:
-            k = int(where.rsplit(":", 1)[1]) if where.startswith("stdin:") else 0
-            if k % 2 == 1 and (k - 1) // 2 < len(rows):
-                path, line, _ = rows[(k - 1) // 2]
-                hits.append((f"{path}:{line}", n))
+        for i, n in found:
+            path, line, _ = rows[i]
+            hits.append((f"{place(path, names, named)}:{line}", n))
     said = _scanner(repo, scanner, ["text", "--stdin"], env, message.strip("\n"))
     if said is None:
         return None

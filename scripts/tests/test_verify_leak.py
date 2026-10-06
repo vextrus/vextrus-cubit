@@ -112,6 +112,30 @@ def test_a_clean_line_staged_above_a_committed_hit_names_the_commit_not_the_stag
     assert _record(repo) == []
 
 
+def test_a_merges_hit_in_a_corpus_named_file_is_never_printed_by_its_path(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PR #498 round 1: a merge's own file is named `name:<i>` when its name holds a corpus string."""
+    _git(repo, "checkout", "-q", "-b", "side", "main")
+    (repo / "side.md").write_text("a clean side line\n")
+    _git(repo, "add", "side.md")
+    _git(repo, "commit", "-q", "-m", "feat: side")
+    _git(repo, "checkout", "-q", "t1")
+    _git(repo, "merge", "-q", "--no-ff", "--no-commit", "side")
+    (repo / f"{INVENTED}.md").write_text(f"clean\nthe yard at {INVENTED}\n")
+    _git(repo, "add", f"{INVENTED}.md")
+    _git(repo, "commit", "-q", "-m", "merge side")
+    merge = _git(repo, "rev-parse", "HEAD")
+
+    code = verify.main([], run=_passes)
+
+    said = capsys.readouterr()
+    assert WORD not in (said.out + said.err).upper()
+    assert code == 1
+    assert f"{merge[:12]} name:0:2" in said.err
+    assert _record(repo) == []
+
+
 def test_a_hit_in_a_pushed_commit_names_it_with_the_fresh_branch_remedy(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
