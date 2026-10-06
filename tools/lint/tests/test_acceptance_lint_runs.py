@@ -77,20 +77,6 @@ def test_a_file_skipped_whole_by_importorskip_fails_the_lint(tmp_path: Path) -> 
     refused(root)
 
 
-def test_a_misspelt_fixture_behind_the_missing_import_fails_the_lint(tmp_path: Path) -> None:
-    """Red at collection on the base for the stated reason, so only a setup plan with the module
-    stubbed finds the fixture pytest does not have."""
-    root = make_repo(tmp_path)
-    test = changed(
-        TOP_IMPORT,
-        "def test_counts_three_storeys() -> None:",
-        "def test_counts_three_storeys(tmp_pth: int) -> None:",
-    )
-    ticket(root, BRANCH, FOLDER, test=test)
-
-    assert "cannot be set up" in refused(root)
-
-
 def test_an_amendment_replaces_a_pin_and_a_stated_reason(tmp_path: Path) -> None:
     """The ticket pinned 3, the owner ruled 4, the writer's amendment re-pins 4 and restates the
     reason: the newest commit wins."""
@@ -247,22 +233,6 @@ def test_a_folder_the_branch_has_where_the_base_has_a_link_is_written_inside_the
     assert (work / "tree" / file_of(FOLDER)).read_text() == TOP_IMPORT
 
 
-def test_a_stub_is_never_written_through_a_linked_package(tmp_path: Path) -> None:
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    root = make_repo(tmp_path)
-    (root / "fixturepkg/linked").symlink_to(outside)
-    git(root, "add", "fixturepkg/linked")
-    git(root, "commit", "-q", "-m", "a linked package")
-    work = tmp_path / "work"
-    work.mkdir()
-    checker = Checker(root, "main", Ticket(BRANCH), work)
-    checker.lay_out()
-
-    assert not checker.stub("fixturepkg.linked.storeys", None, {})
-    assert list(outside.iterdir()) == []
-
-
 DB_TEST = '''"""A database test, red on the base for the module not built."""
 
 import pytest
@@ -348,74 +318,6 @@ def test_a_run_with_a_database_test_leaves_no_test_database(tmp_path: Path) -> N
 # Review round 3.
 
 
-def linked_repo(tmp_path: Path, link: str, target: Path) -> Path:
-    """The fixture repository with `link` (a path under it) committed as a symlink to `target`."""
-    root = make_repo(tmp_path)
-    (root / link).parent.mkdir(parents=True, exist_ok=True)
-    (root / link).symlink_to(target)
-    git(root, "add", link)
-    git(root, "commit", "-q", "-m", "a link")
-    return root
-
-
-def laid_out(root: Path, tmp_path: Path) -> Checker:
-    work = tmp_path / "work"
-    work.mkdir()
-    checker = Checker(root, "main", Ticket(BRANCH), work)
-    checker.lay_out()
-    return checker
-
-
-def test_a_stub_never_writes_a_package_init_that_is_a_dangling_link(tmp_path: Path) -> None:
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    target = outside / "made.py"
-    root = linked_repo(tmp_path, "fixturepkg/side/__init__.py", target)
-    checker = laid_out(root, tmp_path)
-
-    assert not checker.stub("fixturepkg.side.storeys", None, {})
-    assert not target.exists()
-
-
-def test_a_stub_never_writes_through_a_link_to_an_outside_folder(tmp_path: Path) -> None:
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    root = linked_repo(tmp_path, "fixturepkg/deep", outside)
-    checker = laid_out(root, tmp_path)
-
-    assert not checker.stub("fixturepkg.deep.more.storeys", None, {})
-    assert list(outside.iterdir()) == []
-
-
-def test_a_lint_run_never_creates_a_dangling_link_target(tmp_path: Path) -> None:
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    target = outside / "made.py"
-    root = linked_repo(tmp_path, "fixturepkg/side/__init__.py", target)
-    test = TOP_IMPORT.replace("fixturepkg.low.storeys", "fixturepkg.side.storeys")
-    ticket(root, BRANCH, FOLDER, test=test, reasons=("No module named 'fixturepkg.side'",))
-
-    done = lint(root, "main", BRANCH)
-
-    assert "Traceback (most recent call last)" not in said(done), said(done)
-    assert "does not collect" in said(done), said(done)
-    assert not target.exists(), said(done)
-
-
-def test_a_stub_never_appends_to_a_package_init_linked_to_an_outside_file(tmp_path: Path) -> None:
-    """A name missing from a package whose own `__init__.py` links to a file in an existing outside
-    folder: the stub would be appended to that file."""
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    target = outside / "init.py"
-    target.write_text("")
-    root = linked_repo(tmp_path, "fixturepkg/side/__init__.py", target)
-    checker = laid_out(root, tmp_path)
-
-    assert not checker.stub("fixturepkg.side", "count_storeys", {})
-    assert target.read_text() == ""
-
-
 # PR #482, review round 1.
 
 NEW_PACKAGE = '''"""A fixture ticket: the walls of a package not built yet."""
@@ -444,40 +346,6 @@ def test_a_test_of_a_package_not_built_yet_passes(tmp_path: Path, named: str) ->
     done = lint(root, "main", BRANCH)
 
     assert done.returncode == 0, said(done)
-
-
-def test_undoing_a_stub_removes_the_folders_it_made(tmp_path: Path) -> None:
-    from tools.lint.acceptance_lint import _undo
-
-    root = make_repo(tmp_path)
-    checker = laid_out(root, tmp_path)
-    made: dict[Path, bytes | None] = {}
-
-    assert checker.stub("fixturepkg.low.assemble_nb.deeper.walls", None, made)
-    _undo(made)
-
-    assert not (checker.tree / "fixturepkg/low/assemble_nb").exists()
-    assert (checker.tree / "fixturepkg/low/units.py").is_file()
-
-
-def test_a_file_still_failing_after_the_stub_limit_does_not_collect(tmp_path: Path) -> None:
-    """21 modules not built (one stub each), then a data file the test reads at import."""
-    from tools.lint.acceptance_lint import STUBS
-
-    imports = "".join(
-        f"from fixturepkg.low.m{n} import x{n}  # type: ignore[import-not-found, unused-ignore]\n"
-        for n in range(STUBS + 1)
-    )
-    test = (
-        '"""Too many modules."""\n\nfrom pathlib import Path\n\n'
-        + imports
-        + '\nCASES = (Path(__file__).parent / "cases.json").read_text()\n\n\n'
-        "def test_counts() -> None:\n    assert x0 == CASES\n"
-    )
-    root = make_repo(tmp_path)
-    ticket(root, BRANCH, FOLDER, test=test, reasons=("No module named 'fixturepkg.low.m0'",))
-
-    assert "stub limit reached" in refused(root)
 
 
 # PR #482, review round 2.
@@ -510,31 +378,6 @@ def test_only_an_imported_module_widens_to_its_parent_package(
     done = lint(root, "main", BRANCH)
 
     assert (done.returncode == 0) is accepted, said(done)
-
-
-def many_modules(count: int) -> str:
-    imports = "".join(
-        f"from fixturepkg.low.m{n} import x{n}  # type: ignore[import-not-found, unused-ignore]\n"
-        for n in range(count)
-    )
-    test = "def test_counts() -> None:\n    assert x0 == 1\n"
-    return f'"""{count} modules not built."""\n\n{imports}\n\n{test}'
-
-
-@pytest.mark.parametrize(("count", "accepted"), [(20, True), (21, False)])
-def test_the_stub_limit_is_exactly_its_count(tmp_path: Path, count: int, accepted: bool) -> None:
-    from tools.lint.acceptance_lint import STUBS
-
-    assert count in (STUBS, STUBS + 1)
-    root = make_repo(tmp_path)
-    ticket(
-        root, BRANCH, FOLDER, test=many_modules(count), reasons=("No module named 'fixturepkg.low.m0'",)
-    )
-
-    done = lint(root, "main", BRANCH)
-
-    assert (done.returncode == 0) is accepted, said(done)
-    assert ("stub limit reached" in said(done)) is not accepted, said(done)
 
 
 # PR #482, review round 3.
@@ -627,46 +470,6 @@ def test_a_name_and_a_submodule_of_one_new_package_collect(tmp_path: Path, impor
     assert done.returncode == 0, said(done)
 
 
-MODULE_LEVEL = {
-    "range": "for _n in range(MAX + 1):\n    pass\n",
-    "subscript": "FIRST = CASES[0]\n",
-    "arithmetic": "LIMIT = MAX * 2\nBELOW = LIMIT > 3\n",
-    "length": "COUNT = len(CASES)\n",
-}
-
-
-@pytest.mark.parametrize("use", list(MODULE_LEVEL.values()), ids=list(MODULE_LEVEL))
-def test_module_level_use_of_a_stubbed_value_collects(tmp_path: Path, use: str) -> None:
-    test = (
-        '"""Module-level use."""\n\n'
-        "from fixturepkg.low.storeys import CASES, MAX"
-        "  # type: ignore[import-not-found, unused-ignore]\n\n"
-        f"{use}\n\ndef test_counts() -> None:\n    assert MAX == len(CASES)\n"
-    )
-    root = make_repo(tmp_path)
-    ticket(root, BRANCH, FOLDER, test=test, reasons=(MISSING,))
-
-    done = lint(root, "main", BRANCH)
-
-    assert done.returncode == 0, said(done)
-
-
-def test_a_decorator_from_a_stubbed_module_keeps_the_test(tmp_path: Path) -> None:
-    test = (
-        '"""A decorator from the module under test."""\n\n'
-        "from fixturepkg.low.storeys import registered"
-        "  # type: ignore[import-not-found, unused-ignore]\n\n\n"
-        "@registered  # type: ignore[untyped-decorator, unused-ignore]\n"
-        "def test_counts() -> None:\n    assert registered\n"
-    )
-    root = make_repo(tmp_path)
-    ticket(root, BRANCH, FOLDER, test=test, reasons=(MISSING,))
-
-    done = lint(root, "main", BRANCH)
-
-    assert done.returncode == 0, said(done)
-
-
 def test_another_branch_named_is_read_for_its_pins_only(tmp_path: Path) -> None:
     """An open ticket's older acceptance commit, with no `red-for:` line, is not judged with the new
     one; its pin still counts."""
@@ -687,38 +490,75 @@ def test_another_branch_named_is_read_for_its_pins_only(tmp_path: Path) -> None:
 # PR #499, review round 2.
 
 
-def parametrized(fixture: str, cases: str = "CASES") -> str:
+def collecting_with(cases: str) -> str:
+    """A file that collects on the base (the module under test imported inside the test)."""
     return (
-        '"""A parametrize over a stubbed value."""\n\n'
-        "from pathlib import Path\n\nimport pytest\n\n"
-        "from fixturepkg.low.storeys import CASES"
-        "  # type: ignore[import-not-found, unused-ignore]\n\n\n"
+        '"""A parametrize over literal cases."""\n\n'
+        "from pathlib import Path\n\nimport pytest\n\n\n"
         f'@pytest.mark.parametrize("case", {cases})\n'
-        f"def test_counts(case: int, {fixture}: Path) -> None:\n    assert case in CASES\n"
+        "def test_counts(case: int, tmp_path: Path) -> None:\n"
+        "    from fixturepkg.low.storeys import count_storeys"
+        "  # type: ignore[import-not-found, unused-ignore]\n\n"
+        "    assert count_storeys(case) == case\n"
     )
-
-
-def test_a_parametrize_over_a_stubbed_value_with_a_misspelt_fixture_is_refused(tmp_path: Path) -> None:
-    root = make_repo(tmp_path)
-    ticket(root, BRANCH, FOLDER, test=parametrized("tmp_pth"), reasons=(MISSING,))
-
-    output = refused(root)
-
-    assert "cannot be set up" in output
-    assert "tmp_pth" in output
-
-
-def test_a_parametrize_over_a_stubbed_value_with_its_fixtures_is_clean(tmp_path: Path) -> None:
-    root = make_repo(tmp_path)
-    ticket(root, BRANCH, FOLDER, test=parametrized("tmp_path"), reasons=(MISSING,))
-
-    done = lint(root, "main", BRANCH)
-
-    assert done.returncode == 0, said(done)
 
 
 def test_a_test_with_an_empty_parameter_set_is_named(tmp_path: Path) -> None:
     root = make_repo(tmp_path)
-    ticket(root, BRANCH, FOLDER, test=parametrized("tmp_path", cases="[]"), reasons=(MISSING,))
+    ticket(root, BRANCH, FOLDER, test=collecting_with("[]"), reasons=(MISSING,))
 
     assert "empty parameter set" in refused(root)
+
+
+# PR #499, review round 3: no stubs; a file waiting on a module not built yet is a note.
+
+WARNINGS_ARE_ERRORS = (
+    '[tool.pytest.ini_options]\npythonpath = ["."]\nfilterwarnings = ["error"]\n\n'
+    "[tool.mypy]\nstrict = true\n"
+)
+
+
+def warnings_repo(tmp_path: Path) -> Path:
+    root = make_repo(tmp_path)
+    (root / "pyproject.toml").write_text(WARNINGS_ARE_ERRORS)
+    git(root, "commit", "-q", "-am", "warnings are errors")
+    return root
+
+
+def over_cases(first_import: str = "") -> str:
+    return (
+        '"""A parametrize over the cases of a module not built yet."""\n\n'
+        f"{first_import}import pytest\n\n"
+        "from fixturepkg.low.storeys import CASES"
+        "  # type: ignore[import-not-found, unused-ignore]\n\n\n"
+        '@pytest.mark.parametrize("case", CASES)\n'
+        "def test_counts(case: int) -> None:\n    assert case in CASES\n"
+    )
+
+
+def test_a_file_waiting_on_a_module_not_built_yet_is_a_note(tmp_path: Path) -> None:
+    root = warnings_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=over_cases(), reasons=(MISSING,))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+    assert "collects after build: fixturepkg.low.storeys" in said(done)
+
+
+def test_a_file_importing_a_missing_third_party_module_is_refused(tmp_path: Path) -> None:
+    root = warnings_repo(tmp_path)
+    third = "import nosuchthirdparty  # type: ignore[import-not-found, unused-ignore]\n"
+    ticket(root, BRANCH, FOLDER, test=over_cases(third), reasons=(MISSING,))
+
+    output = refused(root)
+
+    assert "does not collect" in output
+    assert "nosuchthirdparty" in output
+
+
+def test_a_file_with_a_syntax_error_is_refused(tmp_path: Path) -> None:
+    root = warnings_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=over_cases() + "\ndef broken(:\n", reasons=(MISSING,))
+
+    assert "does not collect" in refused(root)

@@ -140,11 +140,11 @@ which the orchestrator runs on each acceptance commit before launching its build
 | `red-for: <path> <reason>` | `^red-for:[ \t]+(\S+)[ \t]+(\S.*?)[ \t]*$` | `<path>` is a test file the acceptance commits add, as in the commit. Every test of it red on the base fails with an error line (pytest's `E` lines or the failure's message, never the quoted source) containing `<reason>` (one line per reason; any one may match; a reason `No module named '<module>'`, the module one the test or a helper beside it imports (or loads by name with `importlib.import_module` or `__import__`) or a parent of one, also matches the same error naming a parent package of it, which Python names when the package is new too). A Python test file with a red test and no `red-for:` line fails the lint; a file a later `acceptance:` commit deletes keeps no reason; a web file's line is recorded, not checked. |
 | `pin: <key> = <value>` | `^pin:[ \t]+([^=\s]+)[ \t]*=[ \t]*(\S.*?)[ \t]*$` | The tests pin `<key>` to `<value>` (a dotted name the writer chooses, e.g. `review.allowlist_only_tier`). Across the branches linted together (the first judged in full, the others read for their pins only), two pins of one key to different values fail, naming both branches and the key; so does a pin against a `ruling: <key> = <value>` line in `docs/rulings.md` at the base (no register, no rulings). |
 
-The lint also refuses a test file that does not collect (an import of a module of the tree's own packages that
-does not exist yet is the one collection error allowed; the lint stubs that module and collects again, so an
-error behind the import is still found, at most 20 stubs a file, then "stub limit reached"; every stub and
-folder it made is removed before the base run), and plans each test's setup so a fixture pytest does not have is
-found), a test file that collects no test, has no test red on the base, or has a test skipped or xfail there
+The lint also refuses a test file that does not collect as it is. The one collection failure allowed is an import
+of a module of the tree's own packages that does not exist yet (or a name missing from one): such a file is
+printed as a note, "collects after build: <module>", and its setup is not planned, so a misspelt fixture in it
+is found only when the builder runs it (#513). A file that collects has its setup planned, so a fixture pytest
+does not have, or a test with an empty parameter set, is refused. It refuses too a test file that collects no test, has no test red on the base, or has a test skipped or xfail there
 (under either user), a `pin:` or `red-for:` line not in its form, `lint-imports` or `mypy` failing on the acceptance files, and a test red for
 another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
 does not). An amendment (`scripts.factory.amend`) replaces: per file, the newest `acceptance:` commit stating
@@ -154,8 +154,8 @@ superseded the same way (a `pin:` line by a newer pin of its key, a `red-for:` l
 marks (`needs_toolchain`, `needs_bwrap`) do not hide a marked file: it is judged, except where its mark cannot
 run (`needs_toolchain` without `/opt/vextrus`, `needs_bwrap` without `bwrap`): those tests are named "not judged
 here", never refused. A test marked `live` is refused, named, and never run: CI's acceptance check never runs a
-live test, so the built branch would fail it as deselected. Laying out the tree and stubbing never write or
-unlink through a symlink (every path a stub writes, each `__init__.py` among them, checked first). The test database a run makes (its name hashes
+live test, so the built branch would fail it as deselected. Laying out the tree never writes through a
+symlink. The test database a run makes (its name hashes
 the run's own tree) is dropped by name after it. It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
 fail its stated-reason check: run it on new acceptance commits.
 

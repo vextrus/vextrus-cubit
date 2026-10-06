@@ -6,9 +6,9 @@ so a broken acceptance test is caught at its writer, not as a builder's BLOCK.
 Run in the repository. For each branch, its `acceptance:` commits in base..branch and the Python files
 they leave on the branch, laid over a copy of the base's tree:
 
-- the test files collect. An import of a module of the tree's own packages that does not exist yet (the
-  module under test, or a name in a module, built later) is let through: the lint stands a stub in for
-  it and collects again, so an error behind that import is still found;
+- the test files collect, as they are. One failing only on an import of a module of the tree's own
+  packages that does not exist yet (the module under test, or a name in a module, built later) is a
+  note, "collects after build", and its setup plan is skipped; any other collection error refuses;
 - `lint-imports` (when the tree has an import-linter configuration) and `mypy` pass on them;
 - every test red on the base fails with an error line (pytest's `E` lines, or the failure's message)
   containing a reason stated for its file in the commit message, `red-for: <path> <reason>` (one line
@@ -48,7 +48,7 @@ RULING = re.compile(
 RULINGS = "docs/rulings.md"
 TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
 ERROR_LINE = re.compile(r"^E\s+(\w+(?:Error|Exception))\b(.*)$")
-# The modules not built yet: the only collection errors the lint lets through, once stubbed.
+# The modules not built yet: the only collection errors the lint lets through (as a note).
 NO_MODULE = re.compile(r"^: No module named '([\w.]+)'")
 NAMED = re.compile(r"No module named '([\w.]+)'")
 NO_NAME = re.compile(r"^: cannot import name '(\w+)' from '([\w.]+)'")
@@ -56,57 +56,6 @@ IMPORT_LINTER = (".importlinter", "setup.cfg", "pyproject.toml")
 NOBODY = 65534
 DESELECTED = re.compile(r"\b(\d+) deselected\b")
 TIMEOUT = 300
-STUBS = 20
-
-# A module not built yet, for collection only: every name in it is a class that answers anything.
-STUB = """
-
-class _Stub(type):
-    def __getattr__(cls, name: str) -> "_Stub":
-        if name.startswith("__"):
-            raise AttributeError(name)
-        return _Stub(name, (), {})
-
-    def __call__(cls, *args: object, **kwargs: object) -> object:
-        # A decorator taken from a stubbed module: the function (or class) back, unchanged.
-        if len(args) == 1 and not kwargs and callable(args[0]) and not isinstance(args[0], _Stub):
-            return args[0]
-        return _Stub(cls.__name__, (), {})
-
-    def _same(cls, *args: object) -> "_Stub":
-        return _Stub(cls.__name__, (), {})
-
-    __add__ = __radd__ = __sub__ = __rsub__ = __mul__ = __rmul__ = _same
-    __truediv__ = __rtruediv__ = __floordiv__ = __rfloordiv__ = __mod__ = __rmod__ = _same
-    __pow__ = __rpow__ = __neg__ = __pos__ = __abs__ = __invert__ = _same
-    __and__ = __rand__ = __or__ = __ror__ = __xor__ = __rxor__ = __lshift__ = __rshift__ = _same
-    __getitem__ = _same
-
-    def _false(cls, other: object) -> bool:
-        return False
-
-    __lt__ = __le__ = __gt__ = __ge__ = _false
-
-    def __iter__(cls) -> object:
-        # One value, so a parametrize over a stubbed value makes one case whose fixtures are planned.
-        return iter((_Stub(cls.__name__, (), {}),))
-
-    def __index__(cls) -> int:
-        return 0
-
-    def __len__(cls) -> int:
-        return 1
-
-    def __bool__(cls) -> bool:
-        return False
-
-
-def __getattr__(name: str) -> _Stub:
-    if name.startswith("__"):
-        raise AttributeError(name)
-    return _Stub(name, (), {})
-"""
-
 
 # Drops the test database of the tree it runs in, as the owner role, when it exists (no server: none).
 DROP = """
@@ -391,19 +340,6 @@ def _stated(text: str, reasons: Sequence[str], imported: Collection[str] = ()) -
     return False
 
 
-def _undo(made: dict[Path, bytes | None]) -> None:
-    """Undo what stub() did: each file restored or removed, then each folder it made, deepest first,
-    when empty."""
-    for changed, before in made.items():
-        if before is not None:
-            changed.write_bytes(before)
-        elif not changed.is_dir():
-            changed.unlink(missing_ok=True)
-    for folder in reversed([changed for changed, before in made.items() if before is None]):
-        if folder.is_dir() and not folder.is_symlink() and not any(folder.iterdir()):
-            folder.rmdir()
-
-
 def _work_parent() -> str | None:
     """A temp folder every user can reach (the non-root run reads the tree under it)."""
     for candidate in (tempfile.gettempdir(), "/var/tmp", "/tmp"):
@@ -537,120 +473,82 @@ class Checker:
         return problems
 
     def live(self, path: str) -> list[str]:
-        """The file's tests marked `live`, by a collection of them alone (the stubs standing in)."""
+        """The file's tests marked `live`, by a collection of them alone."""
         done, _folder = self.pytest(path, "live", "--collect-only", "-q", "-m", "live")
         return (
             [line for line in done.stdout.splitlines() if "::" in line] if done.returncode == 0 else []
         )
 
-    def stub(self, module: str, name: str | None, made: dict[Path, bytes | None]) -> bool:
-        """Stand a stub in for a module (or a name in one) of the tree's packages not built yet,
-        remembering what it changed in `made` (each folder it made among them, mapped to None, before
-        the files in it). False when it cannot (not the tree's own, or done)."""
-        parts = module.split(".")
-        package = self.tree.joinpath(*parts)
-        inits = [self.tree.joinpath(*parts[:depth], "__init__.py") for depth in range(1, len(parts))]
-        if any(
-            _through_link(self.tree, written)
-            for written in (package, package.with_suffix(".py"), *inits)
-        ):
-            return False  # every path it would write or unlink, checked before any write
-        if not (self.tree / parts[0]).is_dir():
-            return False
-        # A module not built yet is stubbed as a package (its `__init__.py`), so a submodule of it can
-        # be stubbed beside; a name missing from a module is appended to that module's file.
-        if name is None:
-            path = package / "__init__.py"
-        else:
-            path = package / "__init__.py" if package.is_dir() else package.with_suffix(".py")
-        if _through_link(self.tree, path):
-            return False
-        if name is None and (path.exists() or package.with_suffix(".py").exists()):
-            return False
-        # A file already stubbed answers every name; one the lint made empty (a parent's
-        # `__init__.py`) may take the stub; any other may take it once.
-        lint_made = path in made and made[path] is None and STUB not in path.read_text()
-        if name is not None and (not path.is_file() or (path in made and not lint_made)):
-            return False
-        for init in inits:
-            if not init.parent.is_dir():
-                init.parent.mkdir()  # its parent's `__init__.py`, one step up, made the folder above
-                made[init.parent] = None
-            if not init.exists():
-                made[init] = None
-                init.write_text("")
-        if name is None and not package.is_dir():
-            package.mkdir()
-            made[package] = None
-        made.setdefault(path, path.read_bytes() if path.exists() else None)
-        path.write_text((path.read_text() if path.exists() else "") + STUB)
+    def not_built_here(self, missing: Sequence[tuple[str, str | None]]) -> bool:
+        """Whether every missing module is one of the tree's own packages not built yet: its top package
+        is in the tree and it is not (a module missing), or it is and lacks the name (a name missing)."""
+        for module, name in missing:
+            parts = module.split(".")
+            if not (self.tree / parts[0]).is_dir():
+                return False  # a third-party module, or a misspelt top package
+            exists = (
+                self.tree.joinpath(*parts).is_dir()
+                or self.tree.joinpath(*parts).with_suffix(".py").is_file()
+            )
+            if (name is None) == exists:
+                return False
         return True
 
     def check_collection(self) -> list[str]:
+        """Each test file collected as it is. One failing only on modules of the tree's own packages not
+        built yet is a note, "collects after build", and its setup plan is skipped; any other collection
+        error refuses."""
         problems = []
         for path in self.tests:
-            made: dict[Path, bytes | None] = {}
-            stubs = 0
-            try:
-                # A collection after each stub, the last one's among them: STUBS stubs, STUBS + 1 runs.
-                for _ in range(STUBS + 1):
-                    done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
-                    output = done.stdout + done.stderr
-                    deselected = DESELECTED.search(output)
-                    live = self.live(path) if deselected and done.returncode in (0, 5) else []
-                    if live:
-                        why = "CI's acceptance check never runs a live test (it fails as deselected)"
-                        problems.append(f"{self.label(path)}: marked live: {why}: {', '.join(live)}")
-                    if deselected and int(deselected.group(1)) > len(live):
-                        marks = ", ".join(f"{mark} ({why})" for mark, why in self.unrunnable.items())
-                        print(
-                            f"{self.label(path)}: {int(deselected.group(1)) - len(live)} test(s) not "
-                            f"judged here, marked one of: {marks}"
-                        )
-                    if deselected and done.returncode == 5:
-                        self.unjudged.add(path)
-                        break
-                    if done.returncode == 0:
-                        # Fixtures resolve only at setup: plan it, the stubs still standing in.
-                        plan, _folder = self.pytest(path, "plan", "--setup-plan", "-q", "-rs")
-                        output = plan.stdout + plan.stderr
-                        if plan.returncode != 0:
-                            code = f"exit {plan.returncode}"
-                            unknown = sorted(set(re.findall(r"fixture '([^']+)' not found", output)))
-                            named = f", no fixture {', '.join(unknown)}" if unknown else ""
-                            problems.append(
-                                f"{self.label(path)}: a test cannot be set up ({code}{named}):\n"
-                                f"{_tail(output)}"
-                            )
-                        # A test skipped for an empty parameter set never has its fixtures planned.
-                        empty = [line for line in output.splitlines() if "empty parameter set" in line]
-                        if empty:
-                            problems.append(
-                                f"{self.label(path)}: a test has an empty parameter set, so its "
-                                f"fixtures are never planned:\n"
-                                + "\n".join(f"    {line[:200]}" for line in empty)
-                            )
-                        break
-                    if done.returncode == 5:
-                        problems.append(f"{self.label(path)}: collects no test")
-                        break
-                    missing = not_built(output)
-                    if missing and stubs + len(missing) > STUBS:
-                        problems.append(
-                            f"{self.label(path)}: does not collect (stub limit reached: {STUBS} modules "
-                            f"not built, and still failing):\n{_tail(output)}"
-                        )
-                        break
-                    if not missing or not all(self.stub(module, name, made) for module, name in missing):
-                        stubbed = f" (with {stubs} stub(s) for modules not built)" if stubs else ""
-                        problems.append(
-                            f"{self.label(path)}: does not collect{stubbed} (exit {done.returncode}):\n"
-                            f"{_tail(output)}"
-                        )
-                        break
-                    stubs += len(missing)
-            finally:
-                _undo(made)
+            done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
+            output = done.stdout + done.stderr
+            deselected = DESELECTED.search(output)
+            live = self.live(path) if deselected and done.returncode in (0, 5) else []
+            if live:
+                why = "CI's acceptance check never runs a live test (it fails as deselected)"
+                problems.append(f"{self.label(path)}: marked live: {why}: {', '.join(live)}")
+            if deselected and int(deselected.group(1)) > len(live):
+                marks = ", ".join(f"{mark} ({why})" for mark, why in self.unrunnable.items())
+                print(
+                    f"{self.label(path)}: {int(deselected.group(1)) - len(live)} test(s) not "
+                    f"judged here, marked one of: {marks}"
+                )
+            if deselected and done.returncode == 5:
+                self.unjudged.add(path)
+            elif done.returncode == 0:
+                problems += self.check_plan(path)
+            elif done.returncode == 5:
+                problems.append(f"{self.label(path)}: collects no test")
+            elif (missing := not_built(output)) and self.not_built_here(missing):
+                modules = ", ".join(
+                    module if name is None else f"{module}.{name}" for module, name in missing
+                )
+                print(f"{self.label(path)}: collects after build: {modules} (its setup is not planned)")
+            else:
+                problems.append(
+                    f"{self.label(path)}: does not collect (exit {done.returncode}):\n{_tail(output)}"
+                )
+        return problems
+
+    def check_plan(self, path: str) -> list[str]:
+        """A collected file's setup plan: a fixture pytest does not have, or a test skipped for an empty
+        parameter set (its fixtures never planned), is a problem."""
+        problems = []
+        plan, _folder = self.pytest(path, "plan", "--setup-plan", "-q", "-rs")
+        output = plan.stdout + plan.stderr
+        if plan.returncode != 0:
+            unknown = sorted(set(re.findall(r"fixture '([^']+)' not found", output)))
+            named = f", no fixture {', '.join(unknown)}" if unknown else ""
+            problems.append(
+                f"{self.label(path)}: a test cannot be set up (exit {plan.returncode}{named}):\n"
+                f"{_tail(output)}"
+            )
+        empty = [line for line in output.splitlines() if "empty parameter set" in line]
+        if empty:
+            problems.append(
+                f"{self.label(path)}: a test has an empty parameter set, so its fixtures are never "
+                "planned:\n" + "\n".join(f"    {line[:200]}" for line in empty)
+            )
         return problems
 
     def check_imports(self) -> list[str]:
