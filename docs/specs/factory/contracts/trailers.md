@@ -143,7 +143,11 @@ which the orchestrator runs on each acceptance commit before launching its build
 The lint also refuses a test file that does not collect as it is. The one collection failure allowed is an import
 of a module of the tree's own packages that does not exist yet (or a name missing from one): such a file is
 printed as a note, "collects after build: <module>", and its setup is not planned, so a misspelt fixture in it
-is found only when the builder runs it (#513). A file that collects has its setup planned, so a fixture pytest
+is found only when the builder runs it (#513). Its marks are read from its source instead (`ast`, no import):
+a test function or class marked `live`, `skip`, `skipif` or `xfail` (as `pytest.mark.x` under any alias of
+pytest, `mark.x` after `from pytest import mark`, or a module-level alias of one), or a module-level `pytestmark`
+holding one, is refused with the collected path's words ("marked live", "skipped or xfail"). A mark applied any
+other way (built at run time, imported from another module, a marker added in a conftest) is not seen there. A file that collects has its setup planned, so a fixture pytest
 does not have, or a test with an empty parameter set, is refused. It refuses too a test file that collects no test, has no test red on the base, or has a test skipped or xfail there
 (under either user), a `pin:` or `red-for:` line not in its form, `lint-imports` or `mypy` failing on the acceptance files, and a test red for
 another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint

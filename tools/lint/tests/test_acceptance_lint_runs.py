@@ -562,3 +562,45 @@ def test_a_file_with_a_syntax_error_is_refused(tmp_path: Path) -> None:
     ticket(root, BRANCH, FOLDER, test=over_cases() + "\ndef broken(:\n", reasons=(MISSING,))
 
     assert "does not collect" in refused(root)
+
+
+# PR #514, review round 1: a file that collects only after the build has its marks read from source.
+
+
+@pytest.mark.parametrize(
+    ("mark", "words"),
+    [("live", "marked live"), ("skip", "skipped or xfail"), ("xfail", "skipped or xfail")],
+)
+def test_a_marked_test_in_a_file_waiting_on_a_module_not_built_yet_is_refused(
+    tmp_path: Path, mark: str, words: str
+) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=marked(mark, TOP_IMPORT))
+
+    output = refused(root)
+
+    assert words in output
+    assert "test_counts_three_storeys" in output
+
+
+def test_a_module_level_skip_in_a_file_waiting_on_a_module_not_built_yet_is_refused(
+    tmp_path: Path,
+) -> None:
+    root = make_repo(tmp_path)
+    test = changed(TOP_IMPORT, '"""\n\n', '"""\n\nimport pytest\n\npytestmark = pytest.mark.skip\n\n')
+    ticket(root, BRANCH, FOLDER, test=test)
+
+    output = refused(root)
+
+    assert "skipped or xfail" in output
+    assert "pytestmark" in output
+
+
+def test_an_unmarked_file_waiting_on_a_module_not_built_yet_stays_a_note(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=TOP_IMPORT)
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+    assert "collects after build" in said(done)

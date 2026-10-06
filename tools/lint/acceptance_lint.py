@@ -319,6 +319,70 @@ def _loads_by_name(call: ast.Call) -> bool:
     )
 
 
+FORBIDDEN_MARKS = {"live", "skip", "skipif", "xfail"}
+
+
+def forbidden_marks(source: str) -> list[tuple[str, str]]:
+    """Each test (a `test*` function or a `Test*` class, or `pytestmark` for the module) marked live,
+    skip, skipif or xfail in `source`, read without importing it: `@pytest.mark.x` (pytest under any
+    alias), `@mark.x` after `from pytest import mark`, `@x` for a module-level `x = pytest.mark.x`, each
+    called or not, and a module-level `pytestmark` holding one or a list of them. Empty when the source
+    does not parse."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return []
+    pytests: set[str] = {"pytest"}
+    marks: set[str] = set()
+    aliases: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            pytests |= {alias.asname or alias.name for alias in node.names if alias.name == "pytest"}
+        elif isinstance(node, ast.ImportFrom) and node.module == "pytest":
+            marks |= {alias.asname or alias.name for alias in node.names if alias.name == "mark"}
+
+    def mark_of(expression: ast.expr) -> str | None:
+        if isinstance(expression, ast.Call):
+            expression = expression.func
+        if isinstance(expression, ast.Name):
+            return aliases.get(expression.id)
+        chain: list[str] = []
+        while isinstance(expression, ast.Attribute):
+            chain.insert(0, expression.attr)
+            expression = expression.value
+        if not isinstance(expression, ast.Name):
+            return None
+        if expression.id in pytests and len(chain) == 2 and chain[0] == "mark":
+            return chain[1]
+        if expression.id in marks and len(chain) == 1:
+            return chain[0]
+        return None
+
+    found: list[tuple[str, str]] = []
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+        ):
+            values = node.value.elts if isinstance(node.value, (ast.List, ast.Tuple)) else [node.value]
+            named = [mark for value in values if (mark := mark_of(value))]
+            if node.targets[0].id == "pytestmark":
+                found += [("pytestmark", mark) for mark in named if mark in FORBIDDEN_MARKS]
+            elif len(values) == 1 and named:
+                aliases[node.targets[0].id] = named[0]
+    for item in ast.walk(tree):
+        if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
+        if not item.name.startswith("Test" if isinstance(item, ast.ClassDef) else "test"):
+            continue
+        for decorator in item.decorator_list:
+            mark = mark_of(decorator)
+            if mark is not None and mark in FORBIDDEN_MARKS:
+                found.append((item.name, mark))
+    return found
+
+
 def _stated(text: str, reasons: Sequence[str], imported: Collection[str] = ()) -> bool:
     """Whether a line of `text` contains a reason. A reason naming a module not built (`No module
     named 'a.b.c'`) that the test imports (`imported`: that module, or a module under it) also matches
@@ -524,10 +588,25 @@ class Checker:
                     module if name is None else f"{module}.{name}" for module, name in missing
                 )
                 print(f"{self.label(path)}: collects after build: {modules} (its setup is not planned)")
+                problems += self.marks_unbuilt(path)
             else:
                 problems.append(
                     f"{self.label(path)}: does not collect (exit {done.returncode}):\n{_tail(output)}"
                 )
+        return problems
+
+    def marks_unbuilt(self, path: str) -> list[str]:
+        """A file that collects only after the build has its marks read from its source: a test marked
+        live, skip, skipif or xfail is refused with the words the collected path uses."""
+        marked = forbidden_marks((self.tree / path).read_text(errors="replace"))
+        problems = []
+        live = [name for name, mark in marked if mark == "live"]
+        if live:
+            why = "CI's acceptance check never runs a live test (it fails as deselected)"
+            problems.append(f"{self.label(path)}: marked live: {why}: {', '.join(live)}")
+        skipped = [f"{name} ({mark})" for name, mark in marked if mark != "live"]
+        if skipped:
+            problems.append(f"{self.label(path)}: skipped or xfail on {self.base}: {', '.join(skipped)}")
         return problems
 
     def check_plan(self, path: str) -> list[str]:
