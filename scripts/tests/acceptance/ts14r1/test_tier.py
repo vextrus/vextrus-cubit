@@ -8,8 +8,14 @@ lines added, gets code checks and no model):
 - normal: two lenses; a security-wall path (the guard) is never "small";
 - `web/src/messages/**` changed: the `ux-critic` words lens joins.
 
+Amended for S15-R3b (issue #521: "a third lens for docs, prompts and contract-versus-code"): a change
+under `.claude/` also gets the `docs` lens, so the guard's change gets at least lens A and lens B, and
+the docs lens (named by its label in the object `review run` prints) beside them.
+
 A lens is a `claude` call (the fake logs each); which of lens A or B a small PR gets is not pinned (the
 plan's table and research/review.md disagree)."""
+
+import json
 
 import pytest
 
@@ -88,7 +94,17 @@ def test_a_small_change_to_the_guard_is_not_small(tmp_path_factory: pytest.TempP
     world.pr(12, WALL)
     done = world.run("12", "--round", "1")
     assert done.returncode == 0, why(done)
-    assert len(reviewers(world)) == 2, reviewers(world)
+    assert len(reviewers(world)) >= 2, reviewers(world)
+
+
+def test_a_change_to_the_guard_also_gets_the_docs_lens(tmp_path_factory: pytest.TempPathFactory) -> None:
+    world = World(tmp_path_factory.mktemp("world"))
+    world.pr(12, WALL)
+    done = world.run("12", "--round", "1")
+    assert done.returncode == 0, why(done)
+    printed = json.loads([line for line in done.stdout.splitlines() if line.strip()][-1])
+    found = sorted(str(lens.get("label")) for lens in printed.get("lenses") or [])
+    assert {"lens-a", "lens-b", "docs"} <= set(found), f"no docs lens for the guard's change: {found}"
 
 
 def test_a_change_to_the_messages_adds_the_ux_critic_words_lens(
