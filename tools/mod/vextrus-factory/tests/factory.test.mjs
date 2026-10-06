@@ -86,26 +86,42 @@ test("each tab has its own rows; empty ones say so", () => {
 })
 
 const SHA = "b".repeat(40)
-const reviewRow = (round, verdicts, builder = {}) => view(status([item({ ticket: "t9", state: "ready", pr: 12, head: SHA, ...builder })], { reviews: [{ pr: 12, round, head: SHA }] }), null, verdicts).tabs.Reviews[0]
+const NEW = "e".repeat(40)
+const row = (round, verdict, builder = {}) =>
+  view(status([item({ ticket: "t9", state: "ready", pr: 12, head: SHA, ...builder })], { reviews: [{ pr: 12, round, head: SHA }] }), null, verdict === null ? {} : { [`12-${SHA}`]: verdict }).tabs.Reviews[0]
 
-test("a review row's next action follows the ledger's verdict and the round", () => {
-  const rows = {
-    "PASS 1": reviewRow(1, { [`12-${SHA}`]: "PASS" }),
-    "FIX 1": reviewRow(1, { [`12-${SHA}`]: "FIX" }),
-    "FIX 2": reviewRow(2, { [`12-${SHA}`]: "FIX" }),
-    "FIX 3": reviewRow(3, { [`12-${SHA}`]: "FIX" }),
-    "BLOCK 2": reviewRow(2, { [`12-${SHA}`]: "BLOCK" }),
-    "none": reviewRow(1, {}),
-    "bogus": reviewRow(1, { [`12-${SHA}`]: "MERGE" }),
+test("a Reviews row states facts only: PR, round, verdict, reviewed head, current head and whether it moved", () => {
+  const fixed = `#12 \u00b7 round 1 \u00b7 PASS \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"b".repeat(12)} \u00b7 same head \u00b7 t9`
+  assert.equal(row(1, "PASS"), fixed)
+})
+
+test("PASS then a clean merge of main (the head moved, status.json cannot tell why): a fact, not an action", () => {
+  assert.equal(row(1, "PASS", { head: NEW }), `#12 \u00b7 round 1 \u00b7 PASS \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved \u00b7 t9`)
+})
+
+test("FIX then a pushed fix: reviewed and current heads differ, the verdict stays FIX", () => {
+  assert.equal(row(2, "FIX", { head: NEW, state: "ready" }), `#12 \u00b7 round 2 \u00b7 FIX \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved \u00b7 t9`)
+})
+
+test("FIX with a blocked (failed, stopped, quiet) builder: the same facts, whatever the builder's state", () => {
+  for (const state of ["blocked", "failed", "stopped", "quiet", "working"]) {
+    assert.equal(row(1, "FIX", { head: NEW, state }), `#12 \u00b7 round 1 \u00b7 FIX \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved \u00b7 t9`, state)
   }
-  assert.equal(rows["PASS 1"], "#12 \u00b7 round 1 \u00b7 PASS \u00b7 bbbbbbb \u00b7 t9 \u00b7 next: land it")
-  assert.equal(rows["FIX 1"], "#12 \u00b7 round 1 \u00b7 FIX \u00b7 bbbbbbb \u00b7 t9 \u00b7 next: fix round 1")
-  assert.match(rows["FIX 2"], /FIX .* next: fix round 2$/)
-  assert.match(rows["FIX 3"], /FIX .* next: re-submit$/)
-  assert.match(rows["BLOCK 2"], /BLOCK .* next: owner decides$/)
-  assert.match(rows.none, /round 1 \u00b7 \? .* next: verdict not recorded$/)
-  assert.match(rows.bogus, /next: verdict not recorded$/)
-  for (const row of Object.values(rows)) assert.ok(!/wait for the verdict|merge or take over/.test(row), row)
+  assert.match(row(1, "FIX", { state: "blocked" }), /same head/)
+})
+
+test("a missing verdict is ?, a builder with no usable head is current head unknown, and no row carries an action", () => {
+  assert.match(row(1, null), /round 1 \u00b7 \? \u00b7 reviewed b{12} \u00b7 now b{12} \u00b7 same head/)
+  for (const head of [null, "xyz", 7]) assert.match(row(1, "FIX", { head }), /now \? \u00b7 current head unknown/, String(head))
+  const noBuilder = view(status([], { reviews: [{ pr: 12, round: 1, head: SHA }] }), null, { [`12-${SHA}`]: "BLOCK" }).tabs.Reviews[0]
+  assert.equal(noBuilder, `#12 \u00b7 round 1 \u00b7 BLOCK \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ? \u00b7 current head unknown`)
+  for (const text of [row(1, "PASS"), row(1, "FIX", { head: NEW }), noBuilder]) assert.ok(!/next:|land|fix round|re-submit|owner decides|review round/.test(text), text)
+})
+
+test("the next action lives in the Builders tab alone", () => {
+  const v = view(status([item({ ticket: "t9", state: "ready", pr: 12, head: NEW })], { reviews: [{ pr: 12, round: 1, head: SHA }] }), null, { [`12-${SHA}`]: "FIX" })
+  assert.match(v.tabs.Builders[0], /^ready \u00b7 t9 .* next: review its head$/)
+  assert.ok(!/next:/.test(v.tabs.Reviews[0]), v.tabs.Reviews[0])
 })
 
 test("through the mod: the Reviews tab reads each listed review's ledger record, and only that", async () => {
@@ -117,27 +133,8 @@ test("through the mod: the Reviews tab reads each listed review's ledger record,
   }
   const w = await world({ files }).boot()
   const { text } = await w.command("wip")
-  assert.match(text, /^ {2}#250 · round 1 · FIX · bbbbbbb .* next: fix round 1$/m)
-  assert.match(text, /^ {2}#251 · round 2 · \? · ddddddd .* next: verdict not recorded$/m)
+  assert.match(text, /^ {2}#250 · round 1 · FIX · reviewed b{12} · now \? · current head unknown$/m)
+  assert.match(text, /^ {2}#251 · round 2 · \? · reviewed d{12} · now d{12} · same head · s14-a1$/m)
   assert.deepEqual(w.forbidden(), [])
   assert.ok(new Set(w.factoryReads().filter((p) => p.includes("/ledger/"))).size <= 2, "only the listed reviews' records are read")
-})
-
-test("a fix pushed after the record: the next action follows the builder's new head, not the old verdict", () => {
-  const fix = { [`12-${SHA}`]: "FIX" }
-  const NEW = "e".repeat(40)
-  assert.match(reviewRow(1, fix, { head: NEW, state: "ready" }), /FIX · bbbbbbb · t9 · next: review round 2 at eeeeeeeeeeee$/)
-  assert.match(reviewRow(2, fix, { head: NEW, state: "ready" }), /next: review round 3 at eeeeeeeeeeee$/)
-  for (const state of ["working", "quiet", "blocked"]) assert.match(reviewRow(1, fix, { head: NEW, state }), /next: fix round 1 in progress$/, state)
-  assert.match(reviewRow(2, fix, { head: NEW, state: "working" }), /next: fix round 2 in progress$/)
-  // the heads match: the verdict's own action stands, whatever the builder's state
-  assert.match(reviewRow(1, fix, { head: SHA, state: "ready" }), /next: fix round 1$/)
-  assert.match(reviewRow(1, fix, { head: SHA, state: "working" }), /next: fix round 1$/)
-  // no known builder head (local builder, null, off-form): the verdict's action stands
-  for (const head of [null, "xyz", 7]) assert.match(reviewRow(1, fix, { head, state: "ready" }), /next: fix round 1$/, String(head))
-  // the Builders tab and the Reviews tab agree on the moved head
-  const s = status([item({ ticket: "t9", state: "ready", pr: 12, head: NEW })], { reviews: [{ pr: 12, round: 1, head: SHA }] })
-  const v = view(s, null, fix)
-  assert.match(v.tabs.Builders[0], /^ready · t9 .* next: review its head$/)
-  assert.match(v.tabs.Reviews[0], /next: review round 2 at /)
 })
