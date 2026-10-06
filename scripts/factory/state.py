@@ -261,12 +261,21 @@ def builder_facts(
 
 
 def builder_action(
-    launch: dict[str, Any], state: str, acceptance: bool, session: str | None, row: dict[str, Any] | None
+    launch: dict[str, Any],
+    state: str,
+    acceptance: bool,
+    session: str | None,
+    row: dict[str, Any] | None,
+    agents: list[dict[str, Any]] | None,
 ) -> str:
-    """The next action for a head that is not READY, BLOCKED or reviewed, from the watcher's state."""
-    if state == "done" and is_writer(launch) and acceptance:
+    """The next action for a head that is not READY, BLOCKED or reviewed. A local session the readable
+    agents list shows without a pid has ended, whatever its `state` says (a session killed mid-turn keeps
+    `working` or `blocked`); a row with a pid follows the watcher's state."""
+    local = str(launch["where"]) == "local"
+    ended = local and agents is not None and (row is None or row.get("pid") is None)
+    if (ended or state == "done") and is_writer(launch) and acceptance:
         return "acceptance committed: launch the builder"
-    if state in ("stopped", "failed", "done") and str(launch["where"]) == "local":
+    if local and (ended or state in ("stopped", "failed", "done")):
         return f"resume {session}" if session else "resume (no session id recorded)"
     if state == "blocked":
         return "blocked: its session is blocked (claude agents)"
@@ -367,7 +376,9 @@ def row_for(
         action = "building (no live session known)"
     else:
         facts = builder_facts(launch, branch, head, outcome, pr, agents_row, agents)
-        action = builder_action(launch, watch.builder_state(*facts), facts[2], session, agents_row)
+        action = builder_action(
+            launch, watch.builder_state(*facts), facts[2], session, agents_row, agents
+        )
     return Row(branch, head[:8], state, pr_text, ledger_text, words, action), outcome
 
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from scripts.factory.tests.test_state_round3 import branch_at, has, launch_writer
-from scripts.tests.acceptance.ts14s1._world import World, row
+from scripts.tests.acceptance.ts14s1._world import World, plain, row
 
 
 @pytest.fixture
@@ -101,3 +101,37 @@ def test_a_live_working_writer_with_no_commit_reads_building(world: World) -> No
 
     assert has(line, "building"), line
     assert not has(line, "acceptance committed"), line
+
+
+def killed_row(world: World, name: str, session: str, state: str) -> None:
+    """A session killed mid-turn: its row keeps `state` but has no pid."""
+    world.live(name, session)
+    del world.rows[-1]["pid"]
+    world.rows[-1].update(state=state)
+    world._write_seams()
+
+
+@pytest.mark.parametrize("state", ["working", "blocked"])
+def test_a_row_with_no_pid_and_a_busy_state_on_a_non_ready_head_reads_resume(
+    world: World, state: str
+) -> None:
+    name, session = world.launch_local("s99k", "s99-killed")
+    world.push("s99-killed", plain)
+    world.commit_local("s99-killed", plain)
+    killed_row(world, name, session, state)
+
+    line = row(world.table(), "s99-killed")
+
+    assert has(line, f"resume {session}"), line
+
+
+def test_a_writer_with_no_pid_and_an_acceptance_head_reads_launch_the_builder(world: World) -> None:
+    name, session = launch_writer(world, "s99w", "s99-writer")
+    branch_at(world, "s99-writer", world.tip("main"))
+    world.push("s99-writer", acceptance_commit)
+    killed_row(world, name, session, "working")
+
+    line = row(world.table(), "s99-writer")
+
+    assert has(line, "acceptance committed: launch the builder"), line
+    assert not has(line, "resume"), line
