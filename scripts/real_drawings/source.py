@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tools.lint.engine_paths import matching, read_patterns
-from tools.lint.import_closure import ClosureError, closure, is_test
+from tools.lint.import_closure import ClosureError, closure, is_test, opaque
 from tools.lint.lock_sources import problems as lock_problems
 
 MAIN = "main"
@@ -151,8 +151,10 @@ def read_key(repo: Path, commit: str, files: list[Blob]) -> tuple[str, str]:
     toolchain, the lock, the settings, the schema, and the path lists, which are no engine paths and are
     taken from the commit's tree). A test, an admin module (registered by Django's admin, never run on
     a drawing) or a view the job never imports changes the code hash but not this key, so such a PR
-    reuses main's run. When the closure cannot be known (an entry is missing, a file does not parse),
-    the key is the whole code hash.
+    reuses main's run. When the closure cannot be known (an entry is missing, a file does not parse) or a
+    file in it names
+    a loader it cannot see through (`tools.lint.import_closure.opaque`: `importlib`, `exec`, `runpy`...,
+    as a token anywhere), the key is the whole code hash.
     """
     blobs = {f.path: f for f in files}
     python = [f for f in files if f.path.endswith(".py")]
@@ -164,8 +166,11 @@ def read_key(repo: Path, commit: str, files: list[Blob]) -> tuple[str, str]:
     try:
         entries = [*READ_ENTRIES, *_installed(read, sorted(blobs))]
         found = closure(read, entries, sorted(blobs))
+        why = opaque(read, found)
     except ClosureError as error:
         return code_hash(files), f"{error}, so the key is the whole code hash"
+    if why:  # code the closure cannot see may load anything: any engine file may be what the job runs
+        return code_hash(files), f"{why}, so the key is the whole code hash"
     tree = tree_files(repo, commit)
     keyed = {path: blobs[path] for path in found}
     keyed |= {path: tree[path] for path in matching(sorted(tree), ALWAYS_IN)}

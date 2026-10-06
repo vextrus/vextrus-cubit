@@ -47,6 +47,7 @@ import ast
 import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import PurePosixPath
 
 LISTERS = frozenset({"submodules", "iter_modules", "walk_packages"})
@@ -66,19 +67,6 @@ parameter by its position (None: keyword-only) and name. Inside
 them nothing is refused. `engine.harness.resolve` (None) imports a stage's target, which the stage
 table writes out as `module:function` strings the closure follows as dotted strings; its callers
 pass a table's entry, which no form reads."""
-UNREADABLE = frozenset(
-    {
-        "spec_from_file_location",
-        "spec_from_loader",
-        "exec_module",
-        "load_module",
-        "load_source",
-        "run_module",
-        "run_path",
-    }
-)
-"""The calls that load code by a file or a spec, or run a module by `runpy`: what they load is no name
-the closure can follow, so a file calling one (by any alias) is refused and its caller keys wide."""
 SELF_NAMES = frozenset({"__name__", "__package__", "__spec__"})
 """The module's own name, from which a sibling's can be built."""
 
@@ -557,10 +545,6 @@ def _dynamic(name: str, tree: ast.Module) -> tuple[list[re.Pattern[str]], list[s
         if isinstance(node, ast.Call) and not inside:
             callee = _callee(node)
             dotted = _dotted(node, aliases)
-            if isinstance(node.func, ast.Name) and node.func.id in aliases:
-                callee = aliases[node.func.id].rsplit(".", 1)[-1]  # `import_module as load`
-            if callee in UNREADABLE:
-                raise refuse(node, f"loads code by {callee}, which the closure cannot follow")
             if callee == "getLogger" or callee.endswith(("Error", "Exception", "Warning")):
                 return  # a logger's or an error's name loads nothing
             if callee in IMPORTERS or callee in LISTERS:
@@ -637,3 +621,95 @@ def _named(name: str, tree: ast.Module) -> Iterator[str]:
             if DOTTED.match(node.value):
                 yield node.value.split(":", 1)[0]
             yield from _imports_in_text(node.value)
+
+
+OPAQUE_TOKENS = frozenset(
+    {
+        "importlib",
+        "import_module",
+        "__import__",
+        "runpy",
+        "pkgutil",
+        "spec_from_file_location",
+        "exec",
+        "eval",
+        "compile",
+    }
+)
+"""Names through which code loads other code the closure cannot follow by reading. `opaque` refuses a
+file that carries one as a token anywhere (called, bound, passed on, named by `getattr`, imported or
+written in a string), so no form of calling needs recognising."""
+CHILD_MODULE = re.compile(r"(?<![\w-])-m(?![\w-])")
+"""`-m` written in a string: the start of `python -m <module>`."""
+
+
+def opaque(read: Callable[[str], bytes | None], files: Iterable[str]) -> str:
+    """Why the closure of these Python files cannot be trusted ("" when it can): a file names one of
+    `OPAQUE_TOKENS` anywhere (as a name, an attribute, an imported name or a string), or builds the
+    module of a `-m` child process from a value it does not write out. Nothing is exempt, a call inside
+    an error's or a logger's arguments included. A file that does not parse is refused too."""
+    for name in sorted(files):
+        if not name.endswith(".py") or is_test(name):
+            continue
+        try:
+            tree = _source(read, name)
+        except ClosureError as error:
+            return str(error)
+        for node in ast.walk(tree):
+            token = _opaque_token(node)
+            if token:
+                return f"{name}:{getattr(node, 'lineno', '?')} names {token}"
+            if _child_module_computed(node):
+                return f"{name}:{getattr(node, 'lineno', '?')} builds a -m module from a computed value"
+    return ""
+
+
+def _opaque_token(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id if node.id in OPAQUE_TOKENS else ""
+    if isinstance(node, ast.Attribute):
+        return node.attr if node.attr in OPAQUE_TOKENS - {"exec", "eval", "compile"} else ""
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        parts = [node.module or ""] if isinstance(node, ast.ImportFrom) else []
+        parts += [a.name for a in node.names]
+        words = {w for part in parts for w in part.split(".")}
+        return next(iter(sorted(words & (OPAQUE_TOKENS - {"exec", "eval", "compile"}))), "")
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        words = set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", node.value))
+        return next(iter(sorted(words & (OPAQUE_TOKENS - {"exec", "eval", "compile"}))), "")
+    return ""
+
+
+def _child_module_computed(node: ast.AST) -> bool:
+    """`-m` followed by a value that is no string literal, in a list or an f-string/format/`%`/`+`."""
+    if isinstance(node, (ast.List, ast.Tuple)):
+        items = node.elts
+        return any(
+            isinstance(a, ast.Constant)
+            and a.value == "-m"
+            and not (isinstance(b, ast.Constant) and isinstance(b.value, str))
+            for a, b in pairwise(items)
+        )
+    if isinstance(node, ast.JoinedStr):
+        text = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+        return bool(CHILD_MODULE.search(text))
+    if isinstance(node, ast.BinOp):
+        left = node.left
+        return (
+            isinstance(left, ast.Constant)
+            and isinstance(left.value, str)
+            and bool(CHILD_MODULE.search(left.value))
+            and not isinstance(node.right, ast.Constant)
+        )
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "format"
+    ):
+        base = node.func.value
+        return (
+            isinstance(base, ast.Constant)
+            and isinstance(base.value, str)
+            and bool(CHILD_MODULE.search(base.value))
+        )
+    return False

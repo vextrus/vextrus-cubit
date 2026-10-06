@@ -22,7 +22,7 @@ from scripts.real_drawings.source import (
 )
 from scripts.real_drawings.tests.world import REPO, World, make_world, run_git
 from tools.lint.engine_paths import matching, read_patterns
-from tools.lint.import_closure import ClosureError, closure
+from tools.lint.import_closure import ClosureError, closure, opaque
 
 PATTERNS = (REPO / ".github" / "engine-paths.txt").read_text(encoding="utf-8")
 CHECKOUT_ALSO_TEXT = (REPO / ".github" / "checkout-also.txt").read_text(encoding="utf-8")
@@ -678,23 +678,41 @@ def test_a_cached_run_is_reused_across_a_change_outside_the_key(world: World) ->
     assert run_git(world.repo, "rev-parse", "page") != world.repo_commit("main")
 
 
-# Loaders the closure cannot see fail closed (S15-T1) -----
+# Code the closure cannot see through keys wide, whatever way it is written (S15-T1) ---
+
+OPAQUE = {
+    "a direct call": "import importlib\n\n\ndef go(n):\n    return importlib.import_module(n)\n",
+    "an aliased import": "from importlib import import_module as zq_load\n\nX = zq_load('a')\n",
+    "an assignment alias": "import importlib\n\nzq_load = importlib.import_module\n",
+    "passed uncalled": "from importlib import import_module\n\nX = list(map(import_module, ['a']))\n",
+    "getattr": "import importlib\n\nX = getattr(importlib, 'import_module')('a')\n",
+    "getattr by a string": "X = getattr(__import__('importlib'), 'import_module')('a')\n",
+    "pkgutil.resolve_name": "import pkgutil\n\nX = pkgutil.resolve_name('a.b')\n",
+    "a spec from a file": "from importlib.util import spec_from_file_location as s\n\nX = s('a', 'b')\n",
+    "runpy": "from runpy import run_path as zq_run\n\nzq_run('x.py')\n",
+    "exec of a file": "exec(open('x.py').read())\n",
+    "eval": "X = eval('1')\n",
+    "compile": "X = compile('1', 'x', 'eval')\n",
+    "an f-string -m": "import subprocess\n\nsubprocess.run(f'python -m {zq_name}', shell=True)\n",
+    "a list -m": "import subprocess\n\n\ndef go(m):\n    subprocess.run(['python', '-m', m])\n",
+    "a call inside an Error": (
+        "def go(spec):\n    raise ValueError(spec.loader.exec_module(__import__('x')))\n"
+    ),
+    "a call inside getLogger": "import logging\n\nlogging.getLogger(__import__('x'))\n",
+}
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        "from importlib import import_module as zq_load\n\n\ndef go(n):\n    return zq_load(n)\n",
-        "import importlib as il\n\n\ndef go(n):\n    return il.import_module(n)\n",
-        "from importlib.util import spec_from_file_location as spec\n\nX = spec('a', 'b')\n",
-        "import importlib.util\n\nX = importlib.util.spec_from_file_location('a', 'b')\n",
-        "def go(spec):\n    spec.loader.exec_module(spec)\n",
-        "from runpy import run_path as zq_run\n\nzq_run('x.py')\n",
-        "import runpy\n\nrunpy.run_module('x')\n",
-    ],
-)
-def test_a_loader_the_closure_cannot_follow_is_refused_however_it_is_written(body: str) -> None:
-    tree = {"zq/__init__.py": "", "zq/entry.py": body, "zq/other.py": "Y = 1\n"}
+@pytest.mark.parametrize("form", sorted(OPAQUE))
+def test_a_file_naming_a_loader_the_closure_cannot_see_keys_wide(form: str) -> None:
+    tree = {"zq/__init__.py": "", "zq/entry.py": OPAQUE[form]}
 
-    with pytest.raises(ClosureError, match=r"zq/entry\.py:\d+"):
-        closure_of(tree, ["zq/entry.py"])
+    assert opaque(lambda name: tree[name].encode() if name in tree else None, ["zq/entry.py"])
+
+
+def test_a_file_loading_nothing_by_name_is_not_opaque() -> None:
+    body = (
+        "import re\nimport subprocess\n\nX = re.compile('a')\nsubprocess.run(['python', '-m', 'zq.o'])\n"
+    )
+    tree = {"zq/__init__.py": "", "zq/entry.py": body}
+
+    assert opaque(lambda name: tree[name].encode() if name in tree else None, ["zq/entry.py"]) == ""
