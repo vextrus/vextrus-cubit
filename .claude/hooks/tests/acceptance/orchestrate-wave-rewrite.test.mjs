@@ -1,6 +1,6 @@
 // Acceptance (ticket f6, tier 2): orchestrate-wave rewritten as the orchestrator's runbook. docs/specs/factory.md
 // §3.4: "rewritten as the orchestrator's runbook around §2.2's commands: governor → writers → launch → watch →
-// `/review-pr` → land → G1 → measures; budgets; when to ask the owner; the G1 rule. About half its length.
+// `scripts.factory.review run` → land → G1 → measures; budgets; when to ask the owner; the G1 rule. About half its length.
 // `states.py` stays."
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -27,7 +27,7 @@ test("names each runbook step, in order", () => {
     ["the cloud launch", /scripts\.factory\.launch cloud/],
     ["the local launch", /launch local/],
     ["watching", /event log|events\.log|\bMonitor\b/i],
-    ["/review-pr", /\/review-pr\b/],
+    ["the review", /scripts\.factory\.review run\b/],
     ["landing", /scripts\.land\b|land\.py/],
     ["the G1 walk", /\bG1\b/],
     ["measures", /measure/i],

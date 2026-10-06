@@ -54,7 +54,7 @@ def test_claude_md_has_no_stale_or_private_line() -> None:
     assert not found, f"CLAUDE.md still carries: {found}"
 
 
-@pytest.mark.parametrize("words", ["adversary agent", "/review-pr", "default to medium"])
+@pytest.mark.parametrize("words", ["adversary agent", "scripts.factory.review run", "default to medium"])
 def test_claude_md_carries_the_new_line(words: str) -> None:
     assert words in bare(CLAUDE_MD.read_text()), f"CLAUDE.md lacks {words!r}"
 

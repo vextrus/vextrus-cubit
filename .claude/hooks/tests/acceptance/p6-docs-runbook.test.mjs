@@ -69,7 +69,7 @@ const RUNNABLE = [
   ["scripts.factory.rdlock run", /python3? -m scripts\.factory\.rdlock run\b/],
   ["scripts.walk.run <sha40>", /python3? -m scripts\.walk\.run <sha40>/],
   ["/real-set-walk", /^\/real-set-walk\b/],
-  ["/review-pr <PR> <head> <round>", /^\/review-pr <PR> <head> <round>/],
+  ["scripts.factory.review run <PR>", /python3? -m scripts\.factory\.review run <PR>/],
   ["scripts.land <PR>", /python3? -m scripts\.land <PR>/],
   ["scripts.merge_ready <PR>", /python3? -m scripts\.merge_ready <PR>/],
   ["scripts.factory.amend --subject", /python3? -m scripts\.factory\.amend\b.*--subject\b/],
