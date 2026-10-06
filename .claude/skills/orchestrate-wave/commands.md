@@ -13,6 +13,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - `uv run python -m scripts.factory.stamp elapsed --ticket <ticket>`: a ticket's `[elapsed n/m min]`.
 - `uv run python -m scripts.factory.stamp end`: a session ends with it; the next `start` needs no `--force`.
 
+- `uv run python -m scripts.factory.state`: the open-work table, read from git, `gh`, the ledger, `claude agents` and the lock; the orchestrator runs it instead of reading memory, and `uv run python -m scripts.factory.state --resume-md <path>` before a compaction or a restart.
+
 ## 1. Governor
 - `uv run python -m scripts.factory.governor check <unit>`: units `cloud-session`, `local-agent`, `review`,
   `pytest`, `web-tests`, `walk`, `rd-run`. A refusal waits or holds the ticket.
