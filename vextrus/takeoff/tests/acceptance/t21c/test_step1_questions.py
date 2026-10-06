@@ -310,8 +310,7 @@ def test_jevs_answer_with_its_top_two_close_raises_a_low_confidence_question_its
 
     [q] = open_questions(api, qs_project.project_id, "low_confidence")
 
-    assert q["subject_id"] == sheet["sheet_id"]
-    assert q["proposals"] == [sheet["id"]]
+    assert q["proposals"] == [sheet["id"]]  # S15-Q1: a group's Question has no one sheet for subject
     assert q["discipline"] == "architectural"
     assert len(keys(q)) >= 3
     assert keys(q)[-1] == KEEP_OPEN
