@@ -41,6 +41,7 @@ import re
 import shlex
 import subprocess
 import sys
+import traceback
 from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -48,8 +49,10 @@ from pathlib import Path, PurePosixPath
 from typing import IO, Any
 
 from scripts import ledger
+from scripts.factory import lens_pytest
 
 REPOSITORY = ledger.REPOSITORY
+CRASHED = 1  # an uncaught error (beside the ledger's 0 ok, 2 bad input, 3 refused)
 SHA = re.compile(r"[0-9a-f]{40}")
 HASH_LINE = re.compile(r"[0-9a-f]{64}")
 ALLOWLIST = "tools/leakscan/allowlist.txt"
@@ -79,17 +82,19 @@ TRUST_BOUNDARY = re.compile(
 
 # What a lens may do: read, write its attack test in its own worktree, read git, and run tests.
 # Every Bash entry is one exact command prefix, never all of Bash.
+# The review code's own checkout (the main checkout, run as `uv run python -m ...` there): the lens's
+# agents, its guard and its test command come from here, never from the PR under review.
+HARNESS = Path(__file__).resolve().parents[2]
+# The one test command: no git (`git diff --output=<path>` writes anywhere) and no bare pytest
+# (`--basetemp=<dir>` empties a folder); the wrapper takes the pytest lock (review round 1).
+LENS_TEST = f"uv run python {shlex.quote(str(HARNESS / 'scripts' / 'factory' / 'lens_pytest.py'))}"
 ALLOWED_TOOLS = (
     "Read",
     "Grep",
     "Glob",
     "Edit(./**)",
     "Write(./**)",
-    "Bash(git diff:*)",
-    "Bash(git log:*)",
-    "Bash(git show:*)",
-    "Bash(git status:*)",
-    "Bash(uv run pytest:*)",
+    f"Bash({LENS_TEST}:*)",
 )
 WRITERS = ("Edit", "Write", "NotebookEdit")
 # Tools that need no permission and would widen a lens: subagents, the web.
@@ -97,9 +102,6 @@ NO_TOOLS = ("Agent", "Task", "WebFetch", "WebSearch")
 PLAIN_PATH = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_./-]*")  # also a literal git-clean exclude pattern
 # Belt and braces: nothing a lens is given allows these, and a denial beats any allow.
 LENS_DENY = ("Bash(gh:*)", "Bash(git push:*)", "Bash(git commit:*)", "Bash(sudo:*)", "Bash(curl:*)")
-# The review code's own checkout (the main checkout, run as `uv run python -m ...` there): the lens's
-# agents and its guard come from here, never from the PR under review.
-HARNESS = Path(__file__).resolve().parents[2]
 
 FINDING_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -148,7 +150,11 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 def _run(argv: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(list(argv), capture_output=True, text=True, check=False, **kwargs)
+    """A command's output as text; bytes that are not UTF-8 become surrogates (written back as the
+    same bytes with `errors="surrogateescape"`), never a UnicodeDecodeError (review round 2)."""
+    return subprocess.run(
+        list(argv), capture_output=True, text=True, errors="surrogateescape", check=False, **kwargs
+    )
 
 
 @dataclass(frozen=True)
@@ -213,6 +219,7 @@ class Run:
     round_: int
     head: str | None = None
     merged: str | None = None
+    base: str | None = None  # main's sha at the fetch
     tier: str | None = None
     slot: int | None = None
     verdict: str | None = None
@@ -267,8 +274,10 @@ def claim_slot(review: Path) -> tuple[int, IO[str]]:
     raise Refused(f"all {MAX_SLOTS} review slots are busy: run again when one finishes")
 
 
-def merged_head(main: Path, pr: int, head: str) -> str:
-    """Fetch the PR and main; the head itself when main is its ancestor, else a merge commit."""
+def merged_head(main: Path, pr: int, head: str) -> tuple[str, str]:
+    """Fetch the PR and main: `(merged, base)`, where `base` is main's sha at the fetch (every later
+    diff, log and merge-base count uses it, never the moving `origin/main`) and `merged` the head
+    itself when `base` is its ancestor, else a merge commit."""
     git(
         main,
         "fetch",
@@ -279,10 +288,11 @@ def merged_head(main: Path, pr: int, head: str) -> str:
     )
     if _run(["git", "-C", str(main), "cat-file", "-e", f"{head}^{{commit}}"]).returncode != 0:
         raise Refused("the PR's head was not fetched (it moved?): run again")
-    ancestor = _run(["git", "-C", str(main), "merge-base", "--is-ancestor", "origin/main", head])
+    base = git(main, "rev-parse", "--verify", "origin/main^{commit}").strip()
+    ancestor = _run(["git", "-C", str(main), "merge-base", "--is-ancestor", base, head])
     if ancestor.returncode == 0:
-        return head
-    tree = _run(["git", "-C", str(main), "merge-tree", "--write-tree", "origin/main", head])
+        return head, base
+    tree = _run(["git", "-C", str(main), "merge-tree", "--write-tree", base, head])
     if tree.returncode != 0:
         raise Refused("the head does not merge with main: the builder merges main first")
     who = {
@@ -292,30 +302,55 @@ def merged_head(main: Path, pr: int, head: str) -> str:
         "GIT_COMMITTER_EMAIL": "review@vextrus.invalid",
     }
     message = f"review: PR {pr} head {head} merged with main"
-    return git(
+    merged = git(
         main,
         "commit-tree",
         tree.stdout.split()[0],
         "-p",
         head,
         "-p",
-        "origin/main",
+        base,
         "-m",
         message,
         env={**os.environ, **who},
     ).strip()
+    return merged, base
 
 
-def changes(main: Path, head: str) -> tuple[list[tuple[str, int | None, int | None]], list[str]]:
-    """The changed files `(path, added, removed)` (None: binary) and the allowlist's added lines."""
-    rows = []
-    for line in git(main, "diff", "--no-renames", "--numstat", f"origin/main...{head}").splitlines():
-        added, removed, path = line.split("\t", 2)
+Rows = list[tuple[str, int | None, int | None]]
+
+
+def changes(main: Path, merged: str, base: str = "origin/main") -> tuple[Rows, list[str]]:
+    """The changed files `(path, added, removed)` (None: binary) and the allowlist's added lines, of the
+    merged head against main: what merging would change, never a three-dot diff from one merge base
+    (with a criss-cross history that hides code an earlier merge brought in; review round 1). Read
+    with `-z` and `core.quotePath=false`: a non-ASCII path is never C-quoted past the path rules."""
+    rows: Rows = []
+    raw = git(
+        main,
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "--no-renames",
+        "-z",
+        "--numstat",
+        base,
+        merged,
+    )
+    for record in raw.split("\0"):
+        if not record:
+            continue
+        added, removed, path = record.split("\t", 2)
         rows.append(
             (path, int(added) if added != "-" else None, int(removed) if removed != "-" else None)
         )
-    patch = git(main, "diff", "--no-renames", "-U0", f"origin/main...{head}", "--", ALLOWLIST)
+    patch = git(main, "diff", "--no-renames", "-U0", base, merged, "--", ALLOWLIST)
     return rows, added_lines(patch)
+
+
+def merge_bases(main: Path, head: str, base: str = "origin/main") -> int:
+    """How many merge bases the head has with main (more than one: a criss-cross history)."""
+    return len(git(main, "merge-base", "--all", base, head).split())
 
 
 def added_lines(patch: str) -> list[str]:
@@ -331,19 +366,22 @@ def added_lines(patch: str) -> list[str]:
     return found
 
 
-def tier(rows: list[tuple[str, int | None, int | None]], allowlist_added: list[str]) -> str:
+def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
+    """The review tier. A criss-cross history (`bases` > 1) never gets a no-model tier."""
     paths = [path for path, _, _ in rows]
     if not rows:
         raise Refused("the PR changes nothing against main")
+    no_model = bases == 1
     if (
-        paths == [ALLOWLIST]
+        no_model
+        and paths == [ALLOWLIST]
         and rows[0][2] == 0
         and allowlist_added
         and rows[0][1] == len(allowlist_added)  # every added line was read, none skipped
         and all(HASH_LINE.fullmatch(line) for line in allowlist_added)
     ):
         return "allowlist-only"
-    if all(path.startswith("docs/") and path.endswith(".md") for path in paths):
+    if no_model and all(path.startswith("docs/") and path.endswith(".md") for path in paths):
         return "docs-only"
     lines = sum((a or 0) + (r or 0) for _, a, r in rows)
     binary = any(a is None or r is None for _, a, r in rows)
@@ -429,9 +467,9 @@ def resolve(pr: int) -> str:
 # ---------------------------------------------------------------------------------------------- lenses
 
 
-def brief(run: Run, lens: Lens, rv: Path, slot: Path) -> str:
-    """The lens's prompt (stdin). It names the PR, the heads, the worktree and the slot, and nothing
-    about where verdicts are kept."""
+def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] | None = None) -> str:
+    """The lens's prompt (stdin). It names the PR, the heads, the worktree, the slot, the files holding
+    the change's diff and log, and nothing about where verdicts are kept."""
     assert run.head is not None
     assert run.merged is not None
     assert run.slot is not None
@@ -440,19 +478,34 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path) -> str:
         if run.merged == run.head
         else f"{run.merged} (the head merged with main)"
     )
+    marked = ", ".join(sorted(lens_pytest.declared_markers()))
     return "\n".join(
         [
             f"PR {run.pr}, head {run.head}, review round {run.round_}.",
             f"Your working directory {rv} holds {merged};",
             f"a read-only copy of the same commit is at {slot} (read it, never run code there).",
-            f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{run.slot}.",
-            f"The PR's change: git diff origin/main...{run.head}. Authority: the ticket in the PR body.",
-            "Run only the PR's changed test files and your own attack tests, each with",
-            "`uv run pytest -rf <files>`. Never push, commit or post anything. Public words only.",
+            f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{run.slot}, shared with the other lenses.",
+            *(
+                [
+                    f"The change merging the PR makes (read it; there is no git command): {facts[0]}",
+                    f"and its commits: {facts[1]}. Authority: the ticket in the PR body.",
+                ]
+                if facts
+                else ["Authority: the ticket in the PR body."]
+            ),
+            "Run only the PR's changed test files and your own attack tests, with exactly",
+            f"`{LENS_TEST} [options] <test files>` (it waits its turn for the database). Its options,",
+            f"and no others: {lens_pytest.options_text()}.",
+            f"The repo's pytest addopts deselect tests marked {marked}: when a file you run",
+            "carries such a mark, add `-m <that mark>` (for example `-m needs_toolchain`), or nothing",
+            "runs (exit 5); never select `live` (it calls an outside service). Mark an attack test",
+            "the way the module it tests is marked.",
+            "Never push, commit or post anything. Public words only.",
             lens.task,
-            "For each finding scored 50 or more, write a failing test under this worktree that proves",
-            "it and give it as `repro` (test_file relative to this worktree, the command, expect_fail",
-            "true); repro null if you could not. Your answer is the JSON the schema asks for; its",
+            "For each finding scored 50 or more, write a failing test that proves it, only under",
+            f"review_attacks/{lens.label}/ in this worktree (other lenses write beside you); give it",
+            "as `repro` (test_file relative to this worktree, the command, expect_fail true); repro",
+            "null if you could not. Your answer is the JSON the schema asks for; its",
             f"`head` is {run.head}.",
         ]
     )
@@ -597,19 +650,57 @@ def replay_target(rv: Path, test_file: str) -> str | None:
     return str(pure)
 
 
+def pytest_lock(where: Path) -> IO[str]:
+    """The main checkout's pytest lock, held (the lenses' wrapper takes the same one)."""
+    common = _run(["git", "-C", str(where), "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if common.returncode != 0:
+        raise Refused("the worktree's git folder cannot be found")
+    path = Path(common.stdout.strip()).parent / ".private" / "work" / "factory" / "pytest.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = path.open("a")
+    fcntl.flock(handle, fcntl.LOCK_EX)
+    return handle
+
+
+REPLAYED_MARKS = frozenset({"needs_toolchain", "needs_bwrap"})  # never `live`: an outside service
+
+
+def replay_marks(test_file: Path) -> list[str]:
+    """`-m <expression>` selecting every test of the repro module when it carries a mark the repo's
+    addopts deselect (`needs_toolchain`, `needs_bwrap`), else nothing: `-m "m or not (m)"` keeps the
+    module's marked and unmarked tests alike (review round 3: a toolchain repro was deselected,
+    exit 5, and stood UNPROVEN)."""
+    try:
+        text = test_file.read_text(errors="replace")
+    except OSError:
+        return []
+    marks = sorted(
+        mark
+        for mark in REPLAYED_MARKS & lens_pytest.declared_markers()
+        if re.search(rf"\bmark\.{re.escape(mark)}\b", text)
+    )
+    if not marks:
+        return []
+    either = " or ".join(marks)
+    return ["-m", f"{either} or not ({either})"]
+
+
 def replay(rv: Path, slot: int, test_file: str) -> bool:
     """Run the test file in `rv` (never the lens's own command): True when it fails by name."""
     env = {key: value for key, value in lens_env(slot).items() if key not in COLOUR}
     env["NO_COLOR"] = "1"
+    held = pytest_lock(rv)
     try:
         done = _run(
-            ["uv", "run", "pytest", "-rf", "--color=no", test_file],
+            ["uv", "run", "pytest", "-rf", "--color=no", *replay_marks(rv / test_file), test_file],
             cwd=rv,
             env=env,
             timeout=REPLAY_TIMEOUT,
         )
     except subprocess.TimeoutExpired:
         return False
+    finally:
+        held.close()
     plain = ANSI.sub("", done.stdout)  # FORCE_COLOR in the caller's shell colours pytest's words
     named = re.compile(rf"^FAILED {re.escape(test_file)}(?:::|\s|$)", re.MULTILINE)
     return done.returncode != 0 and named.search(plain) is not None
@@ -675,9 +766,10 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
     with locked(review_dir / ".git.lock"):
-        run.merged = merged_head(main, run.pr, run.head)
-        rows, allowlist_added = changes(main, run.head)
-    run.tier = tier(rows, allowlist_added)
+        run.merged, run.base = merged_head(main, run.pr, run.head)
+        rows, allowlist_added = changes(main, run.merged, run.base)
+        bases = merge_bases(main, run.head, run.base)
+    run.tier = tier(rows, allowlist_added, bases=bases)
     if run.tier in ("allowlist-only", "docs-only"):
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
         return
@@ -717,16 +809,33 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
 
 
+def write_facts(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
+    """The diff merging the PR makes and its commits, against main's sha at the fetch (`run.base`),
+    for the lenses to read; the bytes as git wrote them."""
+    assert run.merged is not None
+    assert run.base is not None
+    assert run.head is not None
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    diff, log = stem.with_name(f"{stem.name}.diff"), stem.with_name(f"{stem.name}.log")
+    text = git(main, "diff", "--no-renames", run.base, run.merged)
+    diff.write_text(text, errors="surrogateescape")
+    commits = git(main, "log", "--stat", "--format=%H %an %ad%n%B", f"{run.base}..{run.head}")
+    log.write_text(commits, errors="surrogateescape")
+    return diff, log
+
+
 def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) -> list[dict[str, Any]]:
     """Every lens, in parallel; each result's cost is kept even when another lens fails."""
     assert run.head is not None
     assert run.slot is not None
     n, head = run.slot, run.head
     out = main / ".private" / "work" / "factory" / "review" / "out"
+    stem = f"{run.pr}-{head[:12]}-r{run.round_}"
+    facts = write_facts(main, run, out / stem)
 
     def one(lens: Lens) -> dict[str, Any]:
-        keep = out / f"{run.pr}-{head[:12]}-r{run.round_}-{lens.label}.json"
-        result = run_lens(lens, brief(run, lens, rv, slot), rv, n, keep, main)
+        keep = out / f"{stem}-{lens.label}.json"
+        result = run_lens(lens, brief(run, lens, rv, slot, facts), rv, n, keep, main)
         run.lenses.append(
             {
                 "label": lens.label,
@@ -814,21 +923,23 @@ def append_cost(main: Path, line: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     run = Run(pr=0, round_=0)
     code, why = ledger.OK, None
+    home: Path | None = None
     try:
         args = parse(sys.argv[1:] if argv is None else argv)
         run.pr, run.round_ = args.pr, args.round
         home = main_checkout()
-        try:
-            review(run, args, home)
-        finally:
-            if run.tier is not None:  # the run got past its checks: every such run leaves a cost line
-                line = summary(run, code, why)
-                line["at"] = ledger.utc_now()
-                append_cost(home, line)
+        review(run, args, home)
     except (BadInput, ledger.BadInput) as error:
         code, why = ledger.BAD, str(error)
     except (Refused, ledger.Refused) as error:
         code, why = ledger.REFUSED, str(error)
+    except Exception as error:  # a crash is never an exit 0, and its cost line says so
+        traceback.print_exc()
+        code, why = CRASHED, f"crashed: {type(error).__name__}: {error}"
+    if home is not None and run.tier is not None:  # past its checks: every such run leaves a cost line
+        line = summary(run, code, why)
+        line["at"] = ledger.utc_now()
+        append_cost(home, line)
     if why is not None:
         print(f"review: {'refused: ' if code == ledger.REFUSED else ''}{why}", file=sys.stderr)
     print(json.dumps(summary(run, code, why)))

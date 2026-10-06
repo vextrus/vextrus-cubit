@@ -2,6 +2,8 @@
 replay path, the lens's answer, the slot lock and the words a lens is given."""
 
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -192,7 +194,7 @@ def test_only_a_failure_naming_the_test_file_confirms(
 ) -> None:
     fake_uv(tmp_path / "bin", output, code)
     monkeypatch.setenv("PATH", f"{tmp_path / 'bin'}:/usr/bin:/bin")
-    assert review.replay(tmp_path, 1, "tests/test_a.py") is confirmed
+    assert review.replay(repo(tmp_path), 1, "tests/test_a.py") is confirmed
 
 
 # ---------------------------------------------------------------- the lens's answer
@@ -420,7 +422,7 @@ def test_a_coloured_failure_still_confirms_and_replay_runs_without_colour(
     script.chmod(0o755)
     monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
     monkeypatch.setenv("FORCE_COLOR", "3")
-    assert review.replay(tmp_path, 1, "tests/test_a.py") is True
+    assert review.replay(repo(tmp_path), 1, "tests/test_a.py") is True
     seen = (bin_dir / "uv.env").read_text().splitlines()
     assert "NO_COLOR=1" in seen
     assert not [line for line in seen if line.startswith("FORCE_COLOR=")]
@@ -506,8 +508,9 @@ def staged_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, forge: bool) -> 
         return [{"verdict": "PASS", "findings": []}]
 
     monkeypatch.setattr(review, "resolve", lambda pr: H)
-    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: H)
-    monkeypatch.setattr(review, "changes", lambda main, head: ([("a.py", 1, 0)], []))
+    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (H, "c" * 40))
+    monkeypatch.setattr(review, "changes", lambda main, merged, base: ([("a.py", 1, 0)], []))
+    monkeypatch.setattr(review, "merge_bases", lambda main, head, base: 1)
     monkeypatch.setattr(review, "claim_slot", lambda where: (1, (tmp_path / "held").open("a")))
     monkeypatch.setattr(review, "prepare", lambda *_, **__: None)
     monkeypatch.setattr(review, "lenses_in", lenses_in)
@@ -583,3 +586,450 @@ def test_an_ignored_file_beside_the_repro_is_gone_before_replay(
     review.confirm(run, rv)
     assert seen == [False]
     assert (attack / "test_r.py").is_file()
+
+
+# ---------------------------------------------------------------- review round 1 on PR #472
+
+
+def criss_cross(tmp_path: Path) -> tuple[Path, str]:
+    """main and the PR merged each other (a criss-cross); the PR's second merge quietly reverts a
+    code change main has, then adds a doc. Merging it changes `a.py` on main."""
+    root = tmp_path / "criss"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    for key, value in (("user.email", "t@example.com"), ("user.name", "t"), ("commit.gpgsign", "false")):
+        git(root, "config", key, value)
+    (root / "docs").mkdir()
+    (root / "a.py").write_text("x = 1\n")
+    (root / "docs" / "n.md").write_text("# n\n")
+    git(root, "add", "a.py", "docs/n.md")
+    git(root, "commit", "-q", "-m", "O")
+    git(root, "switch", "-q", "-c", "topic")
+    (root / "a.py").write_text("x = 2\n")
+    git(root, "commit", "-q", "-am", "T1")
+    git(root, "switch", "-q", "main")
+    (root / "docs" / "n.md").write_text("# n2\n")
+    git(root, "commit", "-q", "-am", "M1")
+    m1 = git(root, "rev-parse", "HEAD")
+    git(root, "merge", "-q", "--no-edit", "topic")
+    git(root, "switch", "-q", "topic")
+    git(root, "merge", "-q", "--no-commit", m1)
+    (root / "a.py").write_text("x = 1\n")
+    git(root, "add", "a.py")
+    git(root, "commit", "-q", "-m", "T2, an evil merge")
+    (root / "docs" / "t.md").write_text("# t3\n")
+    git(root, "add", "docs/t.md")
+    git(root, "commit", "-q", "-m", "T3")
+    git(root, "update-ref", "refs/remotes/origin/main", "main")
+    return root, git(root, "rev-parse", "HEAD")
+
+
+def test_a_criss_cross_merge_that_changes_code_is_never_docs_only(tmp_path: Path) -> None:
+    root, head = criss_cross(tmp_path)
+    tree = git(root, "merge-tree", "--write-tree", "origin/main", head).split()[0]
+    merged = git(root, "commit-tree", tree, "-p", head, "-p", "origin/main", "-m", "merged")
+    assert review.merge_bases(root, head) == 2
+    for rows, _ in (review.changes(root, merged), review.changes(root, head)):
+        assert "a.py" in [path for path, _, _ in rows], rows
+        assert review.tier(rows, [], bases=2) not in ("docs-only", "allowlist-only")
+        assert review.tier(rows, []) not in ("docs-only", "allowlist-only")
+
+
+def test_more_than_one_merge_base_never_gets_a_no_model_tier() -> None:
+    assert review.tier([("docs/a.md", 1, 0)], [], bases=2) != "docs-only"
+    assert review.tier([(review.ALLOWLIST, 1, 0)], [HASH], bases=2) != "allowlist-only"
+    assert review.tier([("docs/a.md", 1, 0)], [], bases=1) == "docs-only"
+
+
+@pytest.mark.parametrize(
+    ("path", "words"),
+    [(".github/workflows/cé.yml", False), ("web/src/messages/bn-é.json", True)],
+)
+def test_a_non_ascii_path_is_read_as_itself(tmp_path: Path, path: str, words: bool) -> None:
+    # The CI workflow must take two lenses; the messages file must bring the words lens.
+    """Round 1: numstat without -z C-quoted these, so no path rule matched them."""
+    root = repo(tmp_path)
+    target = root / path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("on: push\n")
+    git(root, "add", path)
+    git(root, "commit", "-q", "-m", "a non-ASCII path")
+    rows, added = review.changes(root, git(root, "rev-parse", "HEAD"))
+    assert [row[0] for row in rows] == [path]
+    assert (review.tier(rows, added) == "normal") is not words
+    assert any(name.startswith(review.MESSAGES) for name, _, _ in rows) is words
+
+
+WRAPPER = review.HARNESS / "scripts" / "factory" / "lens_pytest.py"
+
+
+def lens_pytest() -> Any:
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("lens_pytest", WRAPPER)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_lens_has_one_bash_command_the_harness_wrapper_and_no_git() -> None:
+    """Round 1: `git diff --output=<path>` and `uv run pytest --basetemp=<dir>` write or delete
+    anywhere, and the guard lets them through for a lens."""
+    bash = [tool for tool in review.ALLOWED_TOOLS if tool.startswith("Bash")]
+    assert bash == [f"Bash({review.LENS_TEST}:*)"]
+    assert f"uv run python {WRAPPER}" == review.LENS_TEST
+    assert not [tool for tool in review.ALLOWED_TOOLS if "git" in tool]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--basetemp=victim", "tests/test_a.py"],
+        ["--basetemp", "victim", "tests/test_a.py"],
+        ["--junitxml=out.xml", "tests/test_a.py"],
+        ["--junit-xml=out.xml", "tests/test_a.py"],
+        ["-o", "cache_dir=/elsewhere", "tests/test_a.py"],
+        ["-p", "evil", "tests/test_a.py"],
+        ["-c", "other.ini", "tests/test_a.py"],
+        ["--rootdir=/", "tests/test_a.py"],
+        ["--output=x", "tests/test_a.py"],
+        ["--result-log=x", "tests/test_a.py"],
+        ["--confcutdir=/", "tests/test_a.py"],
+        ["--override-ini=x=y", "tests/test_a.py"],
+        ["-k", "--basetemp=victim", "tests/test_a.py"],
+        ["-k"],
+        ["/etc/hosts"],
+        ["../outside.py"],
+        ["tests/missing.py"],
+        ["-rf"],
+        [],
+    ],
+)
+def test_the_wrapper_refuses_every_option_but_its_few(tmp_path: Path, argv: list[str]) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    module = lens_pytest()
+    with pytest.raises(module.Refused):
+        module.check(argv, tmp_path)
+
+
+def test_the_wrapper_takes_test_paths_and_its_flags(tmp_path: Path) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    argv = ["-rf", "-q", "--tb=short", "-k", "a and not b", "tests/test_a.py::test_a", "tests"]
+    assert lens_pytest().check(argv, tmp_path) == argv
+
+
+def wrapper_run(where: Path, *argv: str) -> subprocess.Popen[str]:
+    # The outer run's Django settings would make pytest-django import vextrus in a scratch repo.
+    env = {key: value for key, value in os.environ.items() if key != "DJANGO_SETTINGS_MODULE"}
+    return subprocess.Popen(
+        [sys.executable, str(WRAPPER), *argv],
+        cwd=where,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def test_basetemp_through_the_wrapper_deletes_nothing(tmp_path: Path) -> None:
+    root = repo(tmp_path)
+    (root / "victim").mkdir()
+    (root / "victim" / "keep.txt").write_text("kept\n")
+    (root / "tests").mkdir()
+    (root / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    done = wrapper_run(root, "--basetemp=victim", "tests/test_a.py")
+    _, err = done.communicate(timeout=120)
+    assert done.returncode == 2, err
+    assert (root / "victim" / "keep.txt").is_file()
+
+
+def test_the_wrapper_waits_for_the_pytest_lock(tmp_path: Path) -> None:
+    """Round 1: two lenses share rv<N> and its database; overlapping runs errored. Every lens test
+    run, and every replay, takes the main checkout's pytest lock."""
+    import fcntl
+
+    root = repo(tmp_path)
+    (root / "tests").mkdir()
+    (root / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    lock = root / ".private" / "work" / "factory" / "pytest.lock"
+    lock.parent.mkdir(parents=True)
+    with lock.open("a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)
+        waiting = wrapper_run(root, "-q", "tests/test_a.py")
+        with pytest.raises(subprocess.TimeoutExpired):
+            waiting.wait(timeout=2)
+    out, err = waiting.communicate(timeout=120)
+    assert waiting.returncode == 0, out + err
+
+
+def test_replay_takes_the_pytest_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import fcntl
+
+    root = repo(tmp_path)
+    real = review._run
+    held: list[bool] = []
+
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if argv[0] == "git":
+            return real(argv, **kwargs)
+        with (root / ".private" / "work" / "factory" / "pytest.lock").open("a") as probe:
+            try:
+                fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held.append(False)
+            except BlockingIOError:
+                held.append(True)
+        return subprocess.CompletedProcess(argv, 0, "1 passed", "")
+
+    monkeypatch.setattr(review, "_run", run)
+    assert review.replay(root, 1, "tests/test_a.py") is False
+    assert held == [True]
+
+
+def test_each_lens_writes_its_attack_tests_in_its_own_folder(tmp_path: Path) -> None:
+    run = review.Run(pr=12, round_=1, head=H, merged=H, slot=1)
+    folders = set()
+    for lens in (review.LENS_A, review.LENS_B, review.WORDS):
+        text = review.brief(run, lens, tmp_path / "rv1", tmp_path / "slot1")
+        assert f"review_attacks/{lens.label}/" in text
+        assert review.LENS_TEST in text
+        folders.add(lens.label)
+    assert len(folders) == 3
+
+
+# ---------------------------------------------------------------- review round 2 on PR #472
+
+
+LATIN1_PATH = os.fsdecode(b"fixtures/caf\xe9.dxf")
+
+
+def test_a_latin1_file_and_path_never_crash_the_tier_or_the_facts(tmp_path: Path) -> None:
+    """Round 2: strict UTF-8 decoding died on a cp1252 fixture or a Latin-1 path."""
+    root = repo(tmp_path)
+    base = git(root, "rev-parse", "HEAD")
+    (root / "fixtures").mkdir()
+    (root / LATIN1_PATH).write_bytes(b"0\nSECTION\n2\nCAF\xc9 \xb0C\n")
+    (root / "fixtures" / "plain.dxf").write_bytes(b"\xe9t\xe9\n")
+    git(root, "add", "--", LATIN1_PATH, "fixtures/plain.dxf")
+    git(root, "commit", "-q", "-m", "cp1252 fixtures")
+    head = git(root, "rev-parse", "HEAD")
+    rows, _ = review.changes(root, head, base)
+    assert sorted(row[0] for row in rows) == sorted([LATIN1_PATH, "fixtures/plain.dxf"])
+    run = review.Run(pr=12, round_=1, head=head, merged=head, base=base)
+    diff, _ = review.write_facts(root, run, tmp_path / "out" / "12")
+    assert b"\xc9 \xb0C" in diff.read_bytes()
+
+
+def test_the_facts_and_the_tier_use_mains_sha_from_the_fetch_not_the_moving_ref(tmp_path: Path) -> None:
+    """Round 2: after the lock, origin/main moved (another fetch) and the lens diff showed the PR
+    deleting main's newest file."""
+    root = repo(tmp_path)
+    base = git(root, "rev-parse", "HEAD")
+    git(root, "switch", "-q", "-c", "pr")
+    (root / "a.py").write_text("x = 1\n")
+    git(root, "add", "a.py")
+    git(root, "commit", "-q", "-m", "the PR")
+    head = git(root, "rev-parse", "HEAD")
+    git(root, "switch", "-q", "main")
+    (root / "newest_on_main.py").write_text("y = 2\n")
+    git(root, "add", "newest_on_main.py")
+    git(root, "commit", "-q", "-m", "main moves on")
+    git(root, "update-ref", "refs/remotes/origin/main", "main")
+    run = review.Run(pr=12, round_=1, head=head, merged=head, base=base)
+    diff, log = review.write_facts(root, run, tmp_path / "out" / "12")
+    assert "newest_on_main" not in diff.read_text()
+    assert "a.py" in diff.read_text()
+    assert "main moves on" not in log.read_text()
+    rows, _ = review.changes(root, head, base)
+    assert [row[0] for row in rows] == ["a.py"]
+    assert review.merge_bases(root, head, base) == 1
+
+
+def test_merged_head_records_mains_sha_at_the_fetch(tmp_path: Path) -> None:
+    origin = tmp_path / "origin.git"
+    root = repo(tmp_path)
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+    git(root, "remote", "add", "origin", str(origin))
+    git(root, "push", "-q", "origin", "main")
+    git(root, "switch", "-q", "-c", "pr")
+    (root / "a.py").write_text("x = 1\n")
+    git(root, "add", "a.py")
+    git(root, "commit", "-q", "-m", "the PR")
+    head = git(root, "rev-parse", "HEAD")
+    git(root, "push", "-q", "origin", "HEAD:refs/pull/12/head")
+    git(root, "switch", "-q", "main")
+    (root / "b.py").write_text("y = 2\n")
+    git(root, "add", "b.py")
+    git(root, "commit", "-q", "-m", "main moves on")
+    git(root, "push", "-q", "origin", "main")
+    main_sha = git(root, "rev-parse", "HEAD")
+    merged, base = review.merged_head(root, 12, head)
+    assert base == main_sha
+    assert git(root, "rev-list", "--parents", "-n", "1", merged).split()[1:] == [head, main_sha]
+
+
+def test_an_uncaught_error_exits_non_zero_and_its_cost_line_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Round 2: a UnicodeDecodeError left a traceback and a cost line saying exit 0."""
+
+    def crash(run: review.Run, args: object, main: Path) -> None:
+        run.tier = "small"
+        raise UnicodeDecodeError("utf-8", b"\xe9", 0, 1, "invalid continuation byte")
+
+    monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
+    monkeypatch.setattr(review, "review", crash)
+    assert review.main(["run", "12", "--round", "1"]) == review.CRASHED != 0
+    (line,) = [
+        json.loads(text)
+        for text in (tmp_path / ".private" / "work" / "factory" / "review-cost.jsonl")
+        .read_text()
+        .split("\n")
+        if text
+    ]
+    assert line["exit"] == review.CRASHED
+    assert "UnicodeDecodeError" in line["refused"]
+    assert json.loads(capsys.readouterr().out)["exit"] == review.CRASHED
+
+
+def test_a_refusal_after_the_tier_has_its_exit_in_the_cost_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(run: review.Run, args: object, main: Path) -> None:
+        run.tier = "normal"
+        raise review.Refused("a lens gave no answer")
+
+    monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
+    monkeypatch.setattr(review, "review", refuse)
+    assert review.main(["run", "12", "--round", "1"]) == 3
+    text = (tmp_path / ".private" / "work" / "factory" / "review-cost.jsonl").read_text()
+    assert json.loads(text)["exit"] == 3
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "needs_toolchain",
+        "needs_toolchain or needs_bwrap",
+        "(needs_toolchain or live) and not needs_bwrap",
+    ],
+)
+def test_the_wrapper_takes_a_marker_expression_of_declared_markers(
+    tmp_path: Path, expression: str
+) -> None:
+    """Round 2: the repo's addopts deselect toolchain tests unless -m names them; a lens could not run
+    an engine PR's toolchain test."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    argv = ["-m", expression, "tests/test_a.py"]
+    assert lens_pytest().check(argv, tmp_path) == argv
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["", "()", "slow", "needs_toolchain or undeclared", "--basetemp=x", "needs_toolchain;rm", "-p evil"],
+)
+def test_the_wrapper_refuses_any_other_marker_expression(tmp_path: Path, expression: str) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    module = lens_pytest()
+    with pytest.raises(module.Refused):
+        module.check(["-m", expression, "tests/test_a.py"], tmp_path)
+    with pytest.raises(module.Refused):
+        module.check(["tests/test_a.py", "-m"], tmp_path)
+
+
+def test_the_wrapper_runs_a_toolchain_marked_test_when_asked(tmp_path: Path) -> None:
+    root = repo(tmp_path)
+    (root / "tests").mkdir()
+    (root / "pytest.ini").write_text(
+        "[pytest]\naddopts = -m 'not needs_toolchain'\nmarkers =\n    needs_toolchain: x\n"
+    )
+    (root / "tests" / "test_t.py").write_text(
+        "import pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_t():\n    assert False\n"
+    )
+    plain = wrapper_run(root, "-q", "tests/test_t.py")
+    plain.communicate(timeout=120)
+    assert plain.returncode == 5  # deselected by addopts: nothing ran
+    asked = wrapper_run(root, "-q", "-m", "needs_toolchain", "tests/test_t.py")
+    out, err = asked.communicate(timeout=120)
+    assert asked.returncode == 1, out + err  # it ran (and fails, as written)
+
+
+# ---------------------------------------------------------------- review round 3 on PR #472
+
+
+def test_the_brief_names_exactly_the_options_the_wrapper_takes(tmp_path: Path) -> None:
+    """Round 3: the wrapper took `-m <declared marker>` but the brief said `-rf` and no other option,
+    so a lens's run of a toolchain-marked module deselected everything (exit 5)."""
+    module = lens_pytest()
+    text = review.brief(
+        review.Run(pr=12, round_=1, head=H, merged=H, slot=1), review.LENS_B, tmp_path, tmp_path
+    )
+    assert module.options_text() in text
+    (tmp_path / "test_a.py").write_text("def test_a():\n    pass\n")
+    named = re.findall(r"(?<![\w-])(-[A-Za-z]+|--tb=\w+)", module.options_text())
+    for flag in module.FLAGS:
+        assert flag in named
+        assert module.check([flag, "test_a.py"], tmp_path) == [flag, "test_a.py"]
+    for style in module.TB_STYLES:
+        assert module.check([f"--tb={style}", "test_a.py"], tmp_path)
+    assert "-k" in named
+    assert "-m" in named
+    for marker in sorted(module.declared_markers()):
+        assert marker in text
+        assert module.check(["-m", marker, "test_a.py"], tmp_path)
+    assert "`-m needs_toolchain`" in text
+    for option in set(named) - {*module.FLAGS, "-k", "-m"}:
+        assert option.startswith("--tb="), f"the brief names {option}, which the wrapper refuses"
+
+
+def test_replay_selects_a_marked_modules_tests_and_never_live(tmp_path: Path) -> None:
+    (tmp_path / "plain.py").write_text("def test_a():\n    assert False\n")
+    (tmp_path / "tool.py").write_text(
+        "import pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_a(): ...\n"
+    )
+    (tmp_path / "live.py").write_text("import pytest\n\npytestmark = pytest.mark.live\n")
+    (tmp_path / "both.py").write_text(
+        "pytestmark = [pytest.mark.needs_bwrap, pytest.mark.needs_toolchain]\n"
+    )
+    assert review.replay_marks(tmp_path / "plain.py") == []
+    assert review.replay_marks(tmp_path / "live.py") == []
+    assert review.replay_marks(tmp_path / "missing.py") == []
+    assert review.replay_marks(tmp_path / "tool.py") == [
+        "-m",
+        "needs_toolchain or not (needs_toolchain)",
+    ]
+    assert review.replay_marks(tmp_path / "both.py") == [
+        "-m",
+        "needs_bwrap or needs_toolchain or not (needs_bwrap or needs_toolchain)",
+    ]
+
+
+def test_a_toolchain_marked_repro_is_replayed_not_deselected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Round 3: the replay's `uv run pytest -rf <file>` deselected a needs_toolchain repro (exit 5),
+    which then stood UNPROVEN. Real pytest, behind a `uv` that runs it."""
+    root = repo(tmp_path)
+    (root / "pytest.ini").write_text(
+        "[pytest]\naddopts = -m 'not needs_toolchain and not needs_bwrap'\n"
+        "markers =\n    needs_toolchain: x\n    needs_bwrap: y\n"
+    )
+    (root / "tests").mkdir()
+    (root / "tests" / "test_repro.py").write_text(
+        "import pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_attack():\n    assert False\n\n\n"
+        "def test_plain():\n    pass\n"
+    )
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "uv").write_text(
+        f'#!/bin/sh\nshift 2\nexec {sys.executable} -m pytest -p no:cacheprovider "$@"\n'
+    )
+    (bin_dir / "uv").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    monkeypatch.delenv("DJANGO_SETTINGS_MODULE", raising=False)
+    assert review.replay(root, 1, "tests/test_repro.py") is True
