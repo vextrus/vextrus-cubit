@@ -390,3 +390,77 @@ def test_a_dry_run_never_rewrites_an_index(main: Path) -> None:
     assert done.returncode == 0, done.stdout + done.stderr
     assert index.stat().st_mtime_ns == before
     assert f"remove worktree {wt}" in done.stdout, done.stdout
+
+
+# --old-sessions: a build folder goes only with a holder the worktree sweep would remove (#519)
+
+
+def _holder_with_venv(main: Path, relative: str, branch: str | None = None) -> tuple[Path, Path]:
+    (main / ".git" / "info" / "exclude").write_text(".venv/\n.claude/\n")
+    tree = _worktree(main, main / relative, branch)
+    venv = tree / ".venv"
+    (venv / "lib").mkdir(parents=True)
+    (venv / "lib" / "pkg.py").write_text("x = 1\n")
+    _age(tree)
+    return tree, venv
+
+
+def _old_sessions(main: Path, probe_: sweep.Probe, apply: bool = True) -> sweep.Tally:
+    tally = sweep.Tally()
+    sweep.sweep_old_sessions(main, probe_, 1.0, apply, tally)
+    return tally
+
+
+def _live(main: Path, cwd: Path, cwds: Iterable[tuple[int, Path]] = ()) -> sweep.Probe:
+    listed = list(cwds)
+    return sweep.Probe(cwd=cwd, pid=1, cwds=lambda: listed, clock=CLOCK)
+
+
+def test_old_sessions_removes_the_venv_of_a_merged_idle_worktree(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 1
+    assert not venv.exists()
+    assert tree.is_dir()
+
+
+def test_old_sessions_keeps_the_venv_of_a_worktree_a_live_process_holds(main: Path) -> None:
+    _tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+
+    tally = _old_sessions(main, _live(main, main, [(42, _tree / "web")]))
+
+    assert tally.removed == 0
+    assert (venv / "lib" / "pkg.py").is_file()
+
+
+def test_old_sessions_keeps_the_venv_of_a_review_slot(main: Path) -> None:
+    _tree, venv = _holder_with_venv(main, ".claude/worktrees/rv1", "rv1")
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 0
+    assert (venv / "lib" / "pkg.py").is_file()
+
+
+def test_old_sessions_keeps_the_venv_under_the_sweeps_own_cwd(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+
+    tally = _old_sessions(main, _live(main, tree / "web"))
+
+    assert tally.removed == 0
+    assert (venv / "lib" / "pkg.py").is_file()
+
+
+def test_old_sessions_keeps_the_venv_of_an_unmerged_worktree(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+    (tree / "new.txt").write_text("work\n")
+    _git(tree, "add", "new.txt")
+    _git(tree, "commit", "-q", "-m", "ahead")
+    _age(tree)
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 0
+    assert (venv / "lib" / "pkg.py").is_file()

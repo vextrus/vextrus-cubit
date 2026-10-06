@@ -8,7 +8,10 @@
 `--old-sessions` is its own mode: it lists (and with `--apply` removes) each `.venv` and `node_modules`
 folder whose newest entry is older than `--days` (default 14), found only under
 `<main>/.claude/worktrees/` and `<main>/.private/work/`, links never followed. The folder holding one
-stays; nothing else is touched.
+stays; nothing else is touched. A build folder is a candidate only when the worktree holding it would
+itself be removed by the worktree sweep (`judge`: not current, not in use, not locked, merged, clean,
+idle `--worktree-hours`); a scratch folder with no worktree must be neither the cwd's nor in use;
+review slots (`rv<N>`, `slot<N>`) are never candidates.
 
 A dry run is the default: it prints `remove ...`, `keep ...: <reason>` and `prune ...` lines and removes
 nothing; `--apply` acts on them. A linked worktree under `<main>/.claude/worktrees/` or
@@ -28,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -450,7 +454,32 @@ def build_folders(home: Path) -> Iterator[Path]:
             continue
 
 
-def sweep_old_sessions(main: Path, clock: datetime, days: float, apply: bool, tally: Tally) -> None:
+REVIEW_SLOT = re.compile(r"(rv|slot)\d+")
+
+
+def holder_reason(
+    probe: Probe, main: Path, folder: Path, trees: list[Worktree], paths: list[Path]
+) -> str | None:
+    """Why the folder holding a build folder is not one the worktree sweep would remove, or None.
+    A listed worktree answers to `judge` (the worktree sweep's own rules); a scratch folder, which has
+    no branch, to the checks on use."""
+    if any(REVIEW_SLOT.fullmatch(part) for part in folder.relative_to(main).parts):
+        return "review slot"
+    held = [tree for tree in trees if inside(folder, tree.path)]
+    if held:
+        tree = max(held, key=lambda found: len(found.path.parts))
+        return judge(probe, main, tree, paths)[0]
+    return probe.current(folder.parent) or probe.in_use(folder.parent)
+
+
+def sweep_old_sessions(main: Path, probe: Probe, days: float, apply: bool, tally: Tally) -> None:
+    listed = probe.run(main, "worktree", "list", "--porcelain", "-z")
+    if listed.returncode != 0:
+        raise Refused(f"git worktree list failed: {first_line(listed.stderr)}")
+    every = parse_worktrees(listed.stdout)
+    paths = [tree.path for tree in every]
+    trees = every[1:]  # the first entry is the main checkout
+    clock = probe.clock
     for home in (main / ".claude" / "worktrees", main / ".private" / "work"):
         if home.is_symlink() or not home.is_dir():
             continue
@@ -464,6 +493,11 @@ def sweep_old_sessions(main: Path, clock: datetime, days: float, apply: bool, ta
                 tally.kept += 1
                 continue
             if idle < days:
+                tally.kept += 1
+                continue
+            reason = holder_reason(probe, main, folder, trees, paths)
+            if reason is not None:
+                tally.say(f"keep build folder {folder}: {reason}")
                 tally.kept += 1
                 continue
             if apply:
@@ -482,7 +516,7 @@ def run_old_sessions(args: argparse.Namespace, probe: Probe) -> int:
     tally = Tally()
     main = resolve_main(args.repo, probe.run)
     tally.say(f"sweep --old-sessions: {main}, older than {args.days:g} days")
-    sweep_old_sessions(main, probe.clock, args.days, args.apply, tally)
+    sweep_old_sessions(main, probe, args.days, args.apply, tally)
     verb = "removed" if args.apply else "dry run: would remove"
     tally.say(f"sweep: {verb} {tally.removed} build folders, kept {tally.kept}")
     if not args.apply and tally.removed:
