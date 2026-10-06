@@ -19,8 +19,7 @@ import pytest
 from django.db import connection
 
 from engine.messages import Message
-from vextrus.api import api, message_codes
-from vextrus.drawings import services
+from vextrus.drawings import messages, services
 from vextrus.drawings.messages import files as said
 from vextrus.platform.services import auth, jobs
 from vextrus.projects import services as projects
@@ -295,19 +294,12 @@ def test_another_developers_read_file_is_not_found(
 
 
 def test_cancel_too_late_is_a_catalogued_code_with_no_params_and_no_event() -> None:
-    held = {code.code: code for code in message_codes()}
+    held = {code.code: code for code in messages.codes()}
 
     assert "drawings.files.cancel_too_late" in held
     found = held["drawings.files.cancel_too_late"]
     assert (found.params, found.event) == ((), False)
 
 
-def test_the_schema_declares_the_cancel_operations_409_as_a_refusal() -> None:
-    paths = api.get_openapi_schema()["paths"]
-    [route] = [path for path in paths if path.endswith("/drawings/files/{file_id}/cancel")]
-
-    responses = {str(status): answer for status, answer in paths[route]["post"]["responses"].items()}
-
-    assert "409" in responses
-    reference = str(responses["409"]["content"]["application/json"]["schema"])
-    assert "Refusal" in reference
+# The schema's 409 for this operation: vextrus/tests/acceptance/ts15i2/test_cancel_contract.py (the
+# OpenAPI schema is vextrus.api's, a layer drawings' tests may not import).

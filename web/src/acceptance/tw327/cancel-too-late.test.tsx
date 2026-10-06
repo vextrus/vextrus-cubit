@@ -47,12 +47,14 @@ const errorBars = () => [...document.querySelectorAll('[role="alert"]')]
 
 /**
  * A reading DWG whose cancel the API refuses with `status`/`code`; with `endsRead`, the files list
- * serves it read once the cancel has been asked (its read ended a moment before).
+ * serves it read once the cancel has been asked (its read ended a moment before). The row shows its
+ * last sheet, not "Finishing": a row in its Finishing step offers no "Cancel reading" (S15-I2, #440;
+ * ../ts15i2/finishing.test.tsx), so the race is a cancel pressed on the last sheet's row.
  */
 async function readingFile(status: number, code: string, endsRead: boolean) {
   const api = new FakeApi()
   const set = new FakeDrawingSet(api, 'KR-01')
-  const reading = file({ name: NAME, state: 'reading', status: msg('drawings.files.finishing') })
+  const reading = file({ name: NAME, state: 'reading', status: msg('drawings.files.reading_sheet', { position: 11, total: 11 }) })
   set.files.push(reading)
   set.summary = msg('drawings.files.summary', { files: 1, sheets: 0, held_sheets: 0, held_files_read: 0, reading: 1, failed: 0, held: 0, refused: 0 })
   api.failOnce((m, p) => m === 'POST' && p.endsWith(`/files/${reading.id}/cancel`), status, refusalOf(code))
