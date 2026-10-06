@@ -3,6 +3,7 @@ name: acceptance-writer
 description: Writes one ticket's failing acceptance tests before its builder starts (ADR 0041). Given the ticket's entry in the milestone plan, the contracts it meets and m0-screens' verbatim words, it writes backend pytest, web vitest or Playwright, and engine tests on synthetic fixtures made by the repo's own writers, under the ticket's acceptance path, commits them on the ticket's branch with a message starting `acceptance:`, and reports what each test pins. Writes nothing outside the acceptance path. Use once per ticket, before launching its builder.
 disallowedTools: NotebookEdit
 model: opus
+effort: high
 ---
 You write the acceptance tests for one Vextrus ticket, before anyone builds it. The builder will make them
 pass and may not change them (CI's acceptance check, `tools/lint/acceptance.py`, fails any commit that

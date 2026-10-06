@@ -18,8 +18,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   `pytest`, `web-tests`, `walk`, `rd-run`. A refusal waits or holds the ticket.
 
 ## 3. Launch and messages
-- `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --effort medium --prompt-file <f> --budget-minutes <n>`
-- `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --effort medium --name <name> --prompt-file <f> --budget-minutes <n>`
+- `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --tier ordinary|hard --prompt-file <f> --budget-minutes <n>`
+- `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --tier ordinary|hard --name <name> --prompt-file <f> --budget-minutes <n>`
 - `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`: prints the text to send
   with SendMessage when the builder is alive, and runs the resume itself when it is `stopped` or `failed`
   with no `pid`. Never type `claude --bg --resume` by hand: the guard refuses it.
@@ -34,7 +34,13 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   time (`posting`, `scored` or `no-post`), queued visibly.
 
 ## 5. Review
-- `/review-pr <PR> <head> <round>` on each READY head; the ledger holds its verdict.
+- `uv run python -m scripts.factory.review run <PR> --round n [--exception <kind> --reason "<text>"]`
+  from the main checkout, with the Bash tool's `run_in_background`: one review round by code (the head
+  from the PR, a claimed slot, the tier, the lenses, the replays, the ledger record); it prints one JSON
+  object and appends a line to `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing
+  recorded (its `refused` field says why).
+- `/review-pr <PR> <head> <round>` on each READY head (until S14-R3 retires it); the ledger holds its
+  verdict.
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS

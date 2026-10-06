@@ -9,6 +9,8 @@ from tools.lint.tests.acceptance.tf4._frontmatter import REPO, as_list, split
 
 AGENTS = REPO / ".claude/agents"
 SKILLS = REPO / ".claude/skills"
+OPUS = {"opus", "claude-opus-5-5"}
+SONNET = {"sonnet", "claude-sonnet-5-5"}
 
 
 def paragraphs(body: str) -> list[str]:
@@ -20,10 +22,13 @@ def together(body: str, *words: str) -> bool:
     return any(all(word.lower() in part for word in words) for part in paragraphs(body))
 
 
-def test_the_builder_runs_on_opus_at_the_launchs_effort_with_verify_and_tdd() -> None:
+def test_the_builder_runs_on_a_builder_row_of_the_map_with_verify_and_tdd() -> None:
     meta, _ = split(AGENTS / "builder.md")
-    assert meta.get("model") == "opus"
-    assert "effort" not in meta
+    pair = (meta.get("model"), meta.get("effort"))
+    # Amended 5 Oct 2026: the owner's Q1 model and effort map (session 14) supersedes this pin.
+    assert (pair[0] in SONNET and pair[1] in {"medium", "high"}) or (
+        pair[0] in OPUS and pair[1] == "high"
+    ), meta
     assert {"verify", "tdd"} <= set(as_list(meta.get("skills")))
 
 
@@ -65,7 +70,8 @@ def test_the_builder_writes_its_own_budget_record_for_the_clock() -> None:
 def test_the_acceptance_writer_runs_on_opus_and_commits_its_counts() -> None:
     meta, body = split(AGENTS / "acceptance-writer.md")
     assert meta.get("model") == "opus"
-    assert "effort" not in meta
+    # Amended 5 Oct 2026: the owner's Q1 model and effort map (session 14) supersedes this pin.
+    assert meta.get("effort") == "high"
     for words in ("red-on-main:", "green-on-throwaway:", "tests/acceptance"):
         assert words in body
 
@@ -80,9 +86,11 @@ def test_the_pr_reviewer_ends_on_a_verdict_line_and_runs_only_the_prs_tests() ->
     assert "pytest.lock" in body
 
 
-def test_the_refuter_runs_on_opus_at_high_with_its_three_words() -> None:
+def test_the_refuter_runs_on_sonnet_at_high_with_its_three_words() -> None:
     meta, body = split(AGENTS / "refuter.md")
-    assert (meta.get("model"), meta.get("effort")) == ("opus", "high")
+    # Amended 5 Oct 2026: the owner's Q1 model and effort map (session 14) supersedes this pin.
+    assert meta.get("model") in SONNET, meta
+    assert meta.get("effort") == "high", meta
     for word in ("CONFIRMED", "REFUTED", "UNPROVEN"):
         assert word in body
 
