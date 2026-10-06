@@ -23,8 +23,9 @@ quality, ready for M1. Product work only: the factory is the tool.
 ## Finish line (each condition is checked by its command; the evidence goes where it says)
 1. The gap map exists, with evidence for every M0 clause: `.private/work/session-15/gap-map.md`.
 2. Every open M0 issue is mapped into a new ticket or closed with its reason:
-   `gh issue list --label M0 --state open --search '-label:factory' --limit 500 --json number` lists exactly the new set's
-   numbers (compare the two lists; never trust the default page of 30).
+   no M0 issue that was open before Phase 1 is still open. Check it with
+   `gh issue list --label M0 --state open --search '-label:factory' --limit 500 --json number`: every number listed is a new
+   ticket or an issue filed during the session (never trust the default page of 30).
 3. G1 passes twice in a row on main's current product code: `uv run python -m scripts.walk.ready origin/main` exits 0.
 4. Your own browser walk of both real sets finds no open BLOCKS:
    `.private/work/session-15/walk/` holds the defect list, and each finding is fixed or filed.
