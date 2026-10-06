@@ -52,6 +52,7 @@ NO_MODULE = re.compile(r"^: No module named '([\w.]+)'")
 NO_NAME = re.compile(r"^: cannot import name '(\w+)' from '([\w.]+)'")
 IMPORT_LINTER = (".importlinter", "setup.cfg", "pyproject.toml")
 NOBODY = 65534
+DESELECTED = re.compile(r"\b(\d+) deselected\b")
 TIMEOUT = 300
 STUBS = 20
 
@@ -130,13 +131,20 @@ def read_ticket(root: Path, base: str, branch: str) -> Ticket:
     """The branch's `acceptance:` commits in base..branch: the files they leave on the branch, the
     reasons stated for those files, the `red-for:` paths they never added, their pins and the
     declaration lines not in their form. An amendment replaces: per file, the newest commit stating
-    reasons for it wins; per key, the newest pin."""
+    reasons for it wins; per key, the newest pin. A mistake in an older commit is superseded the same
+    way, since commits cannot be edited: a malformed `pin:` line by a newer pin of its key (of any key
+    when none can be read), a malformed `red-for:` line or one naming a path never added by a newer
+    commit stating `red-for:` lines."""
     ticket = Ticket(branch)
     ids = _git(root, "rev-list", "--no-merges", "--reverse", f"{base}..{branch}").split()
     added: list[str] = []
     reasons: dict[str, list[str]] = {}
+    stated_in: dict[str, int] = {}  # each path: the commit (its index) whose reasons stand
     pins: dict[str, str] = {}
-    for commit in ids:
+    pinned_in: dict[str, int] = {}
+    last_red_for, last_pin = -1, -1
+    mistakes: list[tuple[int, str, str | None, str]] = []  # (index, kind, key, line)
+    for index, commit in enumerate(ids):
         message = _git(root, "log", "-1", "--format=%B", commit)
         if not message.startswith(PREFIX):
             continue
@@ -146,20 +154,33 @@ def read_ticket(root: Path, base: str, branch: str) -> Ticket:
         for path, reason in RED_FOR.findall(message):
             stated.setdefault(path, []).append(reason)
         reasons.update(stated)
-        pins.update(PIN.findall(message))
-        ticket.malformed += [
-            f"{commit[:12]}: {line}"
-            for line in message.splitlines()
-            if line.startswith(("pin:", "red-for:"))
-            and not (PIN.fullmatch(line) or RED_FOR.fullmatch(line))
-        ]
+        stated_in.update(dict.fromkeys(stated, index))
+        for key, value in PIN.findall(message):
+            pins[key], pinned_in[key] = value, index
+        last_red_for = index if stated else last_red_for
+        last_pin = index if PIN.search(message) else last_pin
+        for line in message.splitlines():
+            if line.startswith("pin:") and not PIN.fullmatch(line):
+                key = re.match(r"pin:\s*([^\s=:]+)", line)
+                mistakes.append((index, "pin", key.group(1) if key else None, f"{commit[:12]}: {line}"))
+            elif line.startswith("red-for:") and not RED_FOR.fullmatch(line):
+                mistakes.append((index, "red-for", None, f"{commit[:12]}: {line}"))
     ticket.pins = list(pins.items())
+    ticket.malformed = [
+        line
+        for index, kind, key, line in mistakes
+        if not (
+            (kind == "red-for" and last_red_for > index)
+            or (kind == "pin" and (pinned_in.get(key, -1) if key else last_pin) > index)
+        )
+    ]
     listed = _git(root, "ls-tree", "-r", "--name-only", "-z", branch, "--", *added) if added else ""
     present = set(listed.split("\0"))
     ticket.files = [name for name in added if name in present]
-    # A file a later commit withdrew keeps no reason; a path never added is a mistake.
+    # A file a later commit withdrew keeps no reason; a path never added is a mistake, unless a newer
+    # commit states `red-for:` lines again.
     ticket.reasons = {path: said for path, said in reasons.items() if path in present}
-    ticket.unknown = [path for path in reasons if path not in added]
+    ticket.unknown = [path for path in reasons if path not in added and stated_in[path] >= last_red_for]
     return ticket
 
 
@@ -296,6 +317,45 @@ def _work_parent() -> str | None:
     return None
 
 
+def _unrunnable() -> dict[str, str]:
+    """The opt-in marks (the base's addopts deselect them) whose tests cannot run here, each with why."""
+    found = {"live": "it calls paid services"}
+    if not Path("/opt/vextrus").is_dir():
+        found["needs_toolchain"] = "no toolchain under /opt/vextrus"
+    if shutil.which("bwrap") is None:
+        found["needs_bwrap"] = "no bwrap"
+    return found
+
+
+def _through_link(tree: Path, parts: Sequence[str]) -> bool:
+    """Whether any of `tree/parts[0]`, `tree/parts[0]/parts[1]`, ... (the module's file among them) is
+    a symlink: a write there could land outside the tree."""
+    path = tree
+    for part in parts:
+        path = path / part
+        if path.is_symlink() or path.with_suffix(".py").is_symlink():
+            return True
+    return False
+
+
+def _write_unlinked(tree: Path, name: str, data: bytes) -> None:
+    """Write a branch's file at `tree/name` without following a symlink: a link the base has where the
+    branch has a folder or a file is replaced by it (the link itself removed, never its target)."""
+    path = tree
+    *folders, leaf = Path(name).parts
+    for part in folders:
+        path = path / part
+        if path.is_symlink():
+            path.unlink()
+        path.mkdir(exist_ok=True)
+    path = path / leaf
+    if path.is_symlink():
+        path.unlink()
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+    with os.fdopen(descriptor, "wb") as file:
+        file.write(data)
+
+
 class Checker:
     """One branch's acceptance files, laid over a copy of the base's tree in a work folder."""
 
@@ -304,6 +364,11 @@ class Checker:
         self.tree = work / "tree"
         self.python = [name for name in ticket.files if name.endswith(".py")]
         self.tests = [name for name in self.python if TEST_FILE.search(name)]
+        # The lint's own `-m` replaces the base's (its addopts may deselect opt-in marks): every test
+        # is judged but those whose marks cannot run here, which are named, never refused.
+        self.unrunnable = _unrunnable()
+        self.select = " and ".join(f"not {mark}" for mark in sorted(self.unrunnable))
+        self.unjudged: set[str] = set()
 
     def label(self, path: str) -> str:
         return f"{self.ticket.branch} {path}"
@@ -331,9 +396,7 @@ class Checker:
             if blob.returncode != 0:
                 said = blob.stderr.decode(errors="replace").strip()
                 raise Refused(f"git show {self.ticket.branch}:{name}: {said}")
-            path = self.tree / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(blob.stdout)
+            _write_unlinked(self.tree, name, blob.stdout)
         # Readable by every user, so the non-root run can read the tree and write its own folders.
         for folder in (self.work, self.tree):
             folder.chmod(0o755)
@@ -379,7 +442,7 @@ class Checker:
         """Stand a stub in for a module (or a name in one) of the tree's packages not built yet,
         remembering what it changed in `made`. False when it cannot (not the tree's own, or done)."""
         parts = module.split(".")
-        if not (self.tree / parts[0]).is_dir():
+        if not (self.tree / parts[0]).is_dir() or _through_link(self.tree, parts):
             return False
         package = self.tree.joinpath(*parts)
         path = package / "__init__.py" if package.is_dir() else package.with_suffix(".py")
@@ -405,6 +468,16 @@ class Checker:
                 for _ in range(STUBS):
                     done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
                     output = done.stdout + done.stderr
+                    deselected = DESELECTED.search(output)
+                    if deselected and done.returncode in (0, 5):
+                        marks = ", ".join(f"{mark} ({why})" for mark, why in self.unrunnable.items())
+                        print(
+                            f"{self.label(path)}: {deselected.group(1)} test(s) not judged here, "
+                            f"marked one of: {marks}"
+                        )
+                    if deselected and done.returncode == 5:
+                        self.unjudged.add(path)
+                        break
                     if done.returncode == 0:
                         # Fixtures resolve only at setup: plan it, the stubs still standing in.
                         plan, _folder = self.pytest(path, "plan", "--setup-plan", "-q")
@@ -470,7 +543,8 @@ class Checker:
             os.chown(folder, NOBODY, NOBODY)
         command = [
             sys.executable, "-m", "pytest", "-p", "no:cacheprovider", "--basetemp", str(folder / "tmp"),
-            f"--junitxml={folder / 'report.xml'}", "-o", "junit_logging=no", *args, path,
+            f"--junitxml={folder / 'report.xml'}", "-o", "junit_logging=no",
+            "-m", self.select, *args, path,
         ]  # fmt: skip
         if how == "unshare":
             command = ["unshare", "-r", *command]
@@ -508,6 +582,8 @@ class Checker:
     def check_red(self) -> list[str]:
         problems = []
         for path in self.tests:
+            if path in self.unjudged:
+                continue
             reasons = self.ticket.reasons.get(path, [])
             for how, who in self.runs():
                 done, folder = self.pytest(path, how)

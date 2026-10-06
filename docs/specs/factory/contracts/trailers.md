@@ -131,7 +131,13 @@ found), a test file that collects no test, has no test red on the base, or has a
 (under either user), a `pin:` or `red-for:` line not in its form, `lint-imports` or `mypy` failing on the acceptance files, and a test red for
 another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
 does not). An amendment (`scripts.factory.amend`) replaces: per file, the newest `acceptance:` commit stating
-`red-for:` reasons for it wins, and per key the newest `pin:`. The test database a run makes (its name hashes
+`red-for:` reasons for it wins, and per key the newest `pin:`; an older malformed or mistyped declaration is
+superseded the same way (a `pin:` line by a newer pin of its key, a `red-for:` line by a newer commit stating
+`red-for:` lines). The lint's pytest runs carry their own `-m`, so a base's addopts deselecting the opt-in
+marks (`needs_toolchain`, `needs_bwrap`, `live`) do not hide a marked file: it is judged, except for the
+marks that cannot run where the lint runs (`live` always; `needs_toolchain` without `/opt/vextrus`;
+`needs_bwrap` without `bwrap`), whose tests are named "not judged here", never refused. Laying out the tree
+and stubbing never write through a symlink. The test database a run makes (its name hashes
 the run's own tree) is dropped by name after it. It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
 fail its stated-reason check: run it on new acceptance commits.
 

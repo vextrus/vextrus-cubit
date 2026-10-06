@@ -136,6 +136,131 @@ def test_laying_out_the_tree_never_opens_a_folder_a_link_points_to(tmp_path: Pat
     assert outside.stat().st_mode & 0o777 == 0o700
 
 
+# Review round 2.
+
+OPT_IN = (
+    '[tool.pytest.ini_options]\npythonpath = ["."]\n'
+    'addopts = ["--strict-markers", "-m", "not needs_toolchain and not live"]\n'
+    'markers = ["needs_toolchain: the toolchain", "live: paid calls"]\n\n'
+    "[tool.mypy]\nstrict = true\n"
+)
+
+
+def opt_in_repo(tmp_path: Path) -> Path:
+    """The fixture repository with the base's addopts deselecting the opt-in marks, as main's do."""
+    root = make_repo(tmp_path)
+    (root / "pyproject.toml").write_text(OPT_IN)
+    git(root, "commit", "-q", "-am", "opt-in marks")
+    return root
+
+
+def marked(mark: str, test: str = INNER_IMPORT) -> str:
+    return changed(test, "def test_counts", f"import pytest\n\n\n@pytest.mark.{mark}\ndef test_counts")
+
+
+@pytest.mark.skipif(not Path("/opt/vextrus").is_dir(), reason="judged only where the toolchain is")
+def test_a_well_formed_file_marked_needs_toolchain_passes(tmp_path: Path) -> None:
+    root = opt_in_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=marked("needs_toolchain"))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+    assert "not judged" not in said(done)
+
+
+@pytest.mark.skipif(not Path("/opt/vextrus").is_dir(), reason="judged only where the toolchain is")
+def test_a_file_marked_needs_toolchain_red_for_another_reason_fails(tmp_path: Path) -> None:
+    root = opt_in_repo(tmp_path)
+    wrong = changed(INNER_IMPORT, "assert tmp_path.is_dir()", "assert not tmp_path.is_dir()")
+    ticket(root, BRANCH, FOLDER, test=marked("needs_toolchain", wrong))
+
+    assert "for a reason not stated" in refused(root)
+
+
+def test_a_file_marked_live_is_named_not_judged_and_not_refused(tmp_path: Path) -> None:
+    root = opt_in_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=marked("live"))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+    assert "not judged here" in said(done)
+
+
+def amend(root: Path, message: str) -> None:
+    """A newer `acceptance:` commit on the ticket's branch touching its test file."""
+    git(root, "checkout", "-q", BRANCH)
+    path = root / file_of(FOLDER)
+    path.write_text(path.read_text() + "\n")
+    git(root, "add", str(path))
+    git(root, "commit", "-q", "-m", f"acceptance: amend\n\n{message}\nred-on-main: 1 failed\n")
+    git(root, "checkout", "-q", "main")
+
+
+def test_a_malformed_pin_is_superseded_by_a_newer_pin_of_its_key(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, pins=("storeys.count: 3",))
+    amend(root, "pin: storeys.count = 3\n")
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+def test_a_mistyped_red_for_path_is_superseded_by_a_newer_red_for(tmp_path: Path) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, reasons=())
+    amend(root, f"red-for: {FOLDER}/tset.py {MISSING}\n")
+    amend(root, f"red-for: {file_of(FOLDER)} {MISSING}\n")
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+def test_a_folder_the_branch_has_where_the_base_has_a_link_is_written_inside_the_tree(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = make_repo(tmp_path)
+    (root / "fixturepkg/low/tests/acceptance" / FOLDER).symlink_to(outside)
+    git(root, "add", "fixturepkg")
+    git(root, "commit", "-q", "-m", "a link where the ticket's folder will be")
+    git(root, "checkout", "-q", "-b", BRANCH)
+    git(root, "rm", "-q", f"fixturepkg/low/tests/acceptance/{FOLDER}")
+    (root / file_of(FOLDER)).parent.mkdir()
+    (root / file_of(FOLDER)).write_text(TOP_IMPORT)
+    git(root, "add", file_of(FOLDER))
+    git(root, "commit", "-q", "-m", "acceptance: a folder for the link")
+    git(root, "checkout", "-q", "main")
+    work = tmp_path / "work"
+    work.mkdir()
+    from tools.lint.acceptance_lint import read_ticket
+
+    Checker(root, "main", read_ticket(root, "main", BRANCH), work).lay_out()
+
+    assert list(outside.iterdir()) == []
+    assert (work / "tree" / file_of(FOLDER)).read_text() == TOP_IMPORT
+
+
+def test_a_stub_is_never_written_through_a_linked_package(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = make_repo(tmp_path)
+    (root / "fixturepkg/linked").symlink_to(outside)
+    git(root, "add", "fixturepkg/linked")
+    git(root, "commit", "-q", "-m", "a linked package")
+    work = tmp_path / "work"
+    work.mkdir()
+    checker = Checker(root, "main", Ticket(BRANCH), work)
+    checker.lay_out()
+
+    assert not checker.stub("fixturepkg.linked.storeys", None, {})
+    assert list(outside.iterdir()) == []
+
+
 DB_TEST = '''"""A database test, red on the base for the module not built."""
 
 import pytest
