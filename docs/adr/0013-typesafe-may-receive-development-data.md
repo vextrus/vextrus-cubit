@@ -14,7 +14,9 @@ period. The key itself is never printed, written or committed.
 
 **Cloud sessions** get their own TypeSafe key, separate from the owner's local key. The owner creates
 it and pastes it into the cloud environment's settings, never into the repo or a chat. It has a
-spending limit if TypeSafe offers one and is rotated when the execution phase ends. Tests use recorded
+spending limit if TypeSafe offers one and is rotated when the execution phase ends. Since 5 Oct 2026,
+cloud sessions may send text from the two Development Sets (the Edison set and the Sample Project) to Jev
+under the cloud key; Held-out Sets and clients' sets still go only under the local key. Tests use recorded
 Jev answers by default; live calls run only in tests marked live.
 
 ## History
@@ -26,3 +28,7 @@ Jev answers by default; live calls run only in tests marked live.
   scoring run, which holds its own copy of the key readable only by `vxkeys`; build sessions never see
   Held-out text. Each founding client's written permission names TypeSafe as a processor (US servers,
   no training on inputs). The owner's ruling: "Agree".
+- 5 Oct 2026 (owner's ruling, session 13's Q23, "Yes, now"): cloud sessions may send text from the two
+  Development Sets to Jev under the cloud key, before the cloud key has a spending limit (none is set
+  today). It follows the owner's Q7 ruling of 4 Oct, which lets cloud sessions read those two sets.
+  Held-out Sets and founding clients' sets stay as the 26 Sep decision says.

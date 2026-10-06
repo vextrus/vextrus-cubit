@@ -15,6 +15,8 @@ front of the owner (docs/postmortem.md). This is how a session looks at the prod
   session. A cloud session has no real drawings. Say so, and review only what committed data can
   show.
 
+**Cloud.** In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). Stop here and say so; review only what committed data can show.
+
 ## 2. Walk it (chrome-devtools MCP, headless Chromium, 1440x900)
 - `new_page` the sign-in, then `take_snapshot` and `fill_form`, and sign in. The browser is shared:
   select your own page by URL before every action.
