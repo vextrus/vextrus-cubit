@@ -277,12 +277,17 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     found = []
     section: str | None = None
     item = 0
+    nothing = False
     for line in body.splitlines():
         if heading := HEADING.match(line):
             gated = GATED.match(heading[1].strip())
             section, item = (" ".join(gated[1].lower().split()), 0) if gated else (None, 0)
+            nothing = False
             continue
-        if section is None or not line.strip() or NOTHING.match(line.strip()):
+        if section is None or not line.strip() or nothing:
+            continue
+        if NOTHING.match(line.strip()):
+            nothing = True  # "None.": whatever follows in the section is not a cut item
             continue
         item += 1
         numbers = {int(a or b) for a, b in ISSUE_LINK.findall(line)}

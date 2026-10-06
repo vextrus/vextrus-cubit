@@ -386,3 +386,14 @@ def test_a_gated_heading_is_matched_by_its_first_word(heading: str, gated: bool)
     from scripts.merge_ready import cut_problems
 
     assert bool(cut_problems(f"{heading}\n- the land script\n", lambda n: True)) is gated
+
+
+def test_lines_after_none_in_a_cut_section_are_not_cut_items() -> None:
+    from scripts.merge_ready import cut_problems
+
+    body = "## Cut\nNone.\n\nA later ticket must know:\n- a note\n\n## Cut\n- real item\n"
+    assert cut_problems(body, lambda n: True) == [
+        "'cut' item 1 links no issue: file one and link it (#<n>)"
+    ]
+    assert cut_problems("## Cut\nNone.\nafter it\n", lambda n: True) == []
+    assert cut_problems("## Cut\n- an item\nNone.\n", lambda n: True) != []
