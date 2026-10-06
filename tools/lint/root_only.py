@@ -13,7 +13,9 @@ not satisfy the lint in those files.
 The mode is worked out when it is a constant: an int literal, `stat.S_*` names, and `|`, `&`, `^`, `+`,
 `-`, `<<`, `>>`, `~` over them; `subprocess` calls to the `chmod` program (an argument list or a shell
 string) too, with an octal or a symbolic mode. A chmod in a test file whose mode cannot be worked out is
-flagged (fail closed): guard or list the test, or write the mode as a constant.
+flagged (fail closed): guard or list the test, or write the mode as a constant. So is any `subprocess.*`,
+`os.system` or `os.popen` command that is not a plain literal but mentions `chmod` (an f-string, a list
+joined with `+`, `shutil.which("chmod")`).
 
     python -m tools.lint.root_only [--root DIR]
 
@@ -81,7 +83,8 @@ UNARY: dict[type[ast.unaryop], Callable[[int], int]] = {
     ast.USub: operator.neg,
     ast.UAdd: operator.pos,
 }
-SUBPROCESS = {"run", "call", "check_call", "check_output", "Popen"}
+SUBPROCESS = {"run", "call", "check_call", "check_output", "Popen", "system", "popen"}
+CHMOD_WORD = re.compile(r"\bchmod\b")
 CLAUSE = re.compile(r"^([ugoa]*)([-+=])([rwxXst]*|[ugo])$")
 
 
@@ -140,36 +143,50 @@ def program_mode_removes(words: list[str]) -> bool | None:
     return symbolic_removes(mode)
 
 
-def subprocess_chmod(call: ast.Call) -> bool | None:
-    """None when the call does not run the `chmod` program; else whether it removes the owner's read
-    or write (a mode that cannot be worked out counts as removing)."""
-    func = call.func
-    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-    if name not in SUBPROCESS or not call.args:
-        return None
-    first = call.args[0]
-    words: list[str] | None = None
-    if isinstance(first, ast.List | ast.Tuple) and first.elts:
-        head = first.elts[0]
-        if not (isinstance(head, ast.Constant) and isinstance(head.value, str)):
-            return None
-        if Path(head.value).name != "chmod":
-            return None
-        words = [
-            e.value if isinstance(e, ast.Constant) and isinstance(e.value, str) else "?"
-            for e in first.elts
-        ]
-    elif isinstance(first, ast.Constant) and isinstance(first.value, str):
+def command_words(node: ast.expr) -> list[str] | None:
+    """The words of a command given as a plain string literal or a list or tuple whose first element is
+    a string literal (a non-literal element reads as `?`); None for any other shape."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
         try:
-            split = shlex.split(first.value)
+            return shlex.split(node.value)
         except ValueError:
             return None
-        if split and Path(split[0]).name == "chmod":
-            words = split
-    if words is None:
+    if isinstance(node, ast.List | ast.Tuple) and node.elts:
+        head = node.elts[0]
+        if isinstance(head, ast.Constant) and isinstance(head.value, str):
+            return [
+                e.value if isinstance(e, ast.Constant) and isinstance(e.value, str) else "?"
+                for e in node.elts
+            ]
+    return None
+
+
+def mentions_chmod(node: ast.expr) -> bool:
+    """Whether a string constant anywhere in the expression holds the word `chmod` (an f-string part, a
+    list element, `shutil.which("chmod")`, an operand of `+`)."""
+    return any(
+        isinstance(sub, ast.Constant) and isinstance(sub.value, str) and CHMOD_WORD.search(sub.value)
+        for sub in ast.walk(node)
+    )
+
+
+def subprocess_chmod(call: ast.Call) -> bool | None:
+    """None when the call is not a subprocess, `os.system` or `os.popen` call that runs `chmod`; else
+    whether it removes the owner's read or write. A command given as a plain literal is read; any other
+    command that mentions `chmod` anywhere (a shell string built with an f-string, a list joined with
+    `+`, `shutil.which("chmod")` as the program) counts as removing, because its mode is not seen."""
+    func = call.func
+    name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+    if name not in SUBPROCESS:
         return None
-    removes = program_mode_removes(words)
-    return True if removes is None else removes
+    given = [kw.value for kw in call.keywords if kw.arg == "args"]
+    first = given[0] if given else (call.args[0] if call.args else None)
+    if first is None:
+        return None
+    words = command_words(first)
+    if words and Path(words[0]).name == "chmod":
+        return program_mode_removes(words) is not False
+    return True if mentions_chmod(first) else None
 
 
 def removes_permissions(call: ast.Call) -> bool:

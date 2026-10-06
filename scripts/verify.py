@@ -14,10 +14,11 @@ is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_cod
 A check run as root (uid 0, a cloud container) whose every failing test is listed in
 `.github/flaky-root.txt` (the same line format) is not rerun: it is recorded `exit_code` 0 with
 `raw_exit_code` and `root_only` naming the listed lines, and its `verify:` line says `root-only`. That
-holds only when the run's own counts agree (see `root_only_in`): pytest's exit code 1, its summary's
-failed count equal to the listed FAILED lines, no errors, and no "acceptance tests that did not run"
-section; otherwise the command's exit code stands. An entry names a test exactly: `<path>::<title>`
-followed by `[`, a space or the end of the line (a vitest line: the title ends the line).
+holds only when the run's own counts agree (see `root_only_in`): exit code 1, the summary's failed count
+(pytest's, or vitest's `Tests` line) equal to the listed failure lines, no errors, and no "acceptance
+tests that did not run" section; otherwise the command's exit code stands. An entry names a test
+exactly: `<path>::<title>` followed by `[`, a space or the end of the line (a vitest line: the title
+ends the line).
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -41,6 +42,7 @@ FLAKY_ROOT = ".github/flaky-root.txt"
 PYTEST_FAILURE = re.compile(r"^(?:FAILED|ERROR) (\S.*)$")
 VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
 SUMMARY_LINE = re.compile(r"^=*\s*\d+ \w.*\bin \d+(?:\.\d+)?s\b")
+VITEST_SUMMARY = re.compile(r"^\s+Tests\s+\d")
 NOT_RUN_SECTION = "acceptance tests that did not run"
 
 
@@ -189,19 +191,29 @@ def flakes_in(output: str, entries: list[tuple[str, str, str]]) -> list[str] | N
 
 def root_only_in(code: int, output: str, entries: list[tuple[str, str, str]]) -> list[str] | None:
     """The `.github/flaky-root.txt` lines a run as root failed on, when those are the only reasons it
-    failed, else None. A listed FAILED line alone excuses nothing: `-rf` drops ERROR lines (a fixture or
-    teardown error shows only in the summary's count), and the acceptance plugin fails a run with no
-    FAILED line, so the run's own counts must agree: exit code 1,
-    the summary's failed count equal to the failure lines, no errors, and no section naming acceptance
-    tests that did not run. Anything else (no summary included) keeps the command's exit code."""
-    if code != 1 or NOT_RUN_SECTION in output:
+    failed, else None. A listed failure line alone excuses nothing: the run's own counts must agree.
+    pytest: exit code 1, the summary's failed count equal to the FAILED lines, no errors (`-rf` drops
+    ERROR lines, so a fixture or teardown error shows only in the summary's count), and no section
+    naming acceptance tests that did not run (the acceptance plugin fails a run with no FAILED line).
+    vitest: exit code 1, the `Tests` line's failed count equal to the FAIL lines, and no unhandled
+    errors. A run with neither summary, or anything else, keeps the command's exit code."""
+    if code != 1 or NOT_RUN_SECTION in output or re.search(r"^ERROR ", output, re.M):
         return None
-    summary = [line for line in output.splitlines() if SUMMARY_LINE.match(line)]
-    if not summary:
+    lines = output.splitlines()
+    pytest_summary = [line for line in lines if SUMMARY_LINE.match(line)]
+    vitest_summary = [line for line in lines if VITEST_SUMMARY.match(line)]
+    if bool(pytest_summary) == bool(vitest_summary):
         return None
-    counts = {word: int(n) for n, word in re.findall(r"(\d+) (failed|errors?)\b", summary[-1])}
-    if counts.get("error", 0) or counts.get("errors", 0) or re.search(r"^ERROR ", output, re.M):
-        return None
+    if pytest_summary:
+        counts = {
+            word: int(n) for n, word in re.findall(r"(\d+) (failed|errors?)\b", pytest_summary[-1])
+        }
+        if counts.get("error", 0) or counts.get("errors", 0):
+            return None
+    else:
+        if re.search(r"^\s*Errors\s+\d|Unhandled Errors", output, re.M):
+            return None
+        counts = {word: int(n) for n, word in re.findall(r"(\d+) (failed)\b", vitest_summary[-1])}
     if counts.get("failed", 0) != len(failure_lines(output)):
         return None
     return flakes_in(output, entries)

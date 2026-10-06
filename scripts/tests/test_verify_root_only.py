@@ -147,3 +147,37 @@ def test_verify_as_root_still_excuses_a_run_whose_counts_agree(
     )
     assert code == 0, out
     assert "root-only: 1" in out
+
+
+# vitest's own output (v5.0.2, ANSI stripped; the files are real runs of a scratch test file).
+
+FIXTURES = Path(__file__).parent / "fixtures"
+WEB_ENTRY = "web/src/zz_scratch/a.node.test.ts :: listed one"
+WEB_ENTRIES = [(WEB_ENTRY, "web/src/zz_scratch/a.node.test.ts", "listed one")]
+
+
+def test_a_listed_vitest_failure_with_agreeing_counts_is_root_only() -> None:
+    output = (FIXTURES / "vitest_one_failed.txt").read_text()
+    assert "Tests  1 failed" in output
+    assert root_only_in(1, output, WEB_ENTRIES) == [WEB_ENTRY]
+
+
+def test_a_listed_vitest_failure_beside_an_unlisted_one_is_not_root_only() -> None:
+    output = (FIXTURES / "vitest_two_failed.txt").read_text()
+    assert "Tests  2 failed" in output
+    assert root_only_in(1, output, WEB_ENTRIES) is None
+
+
+def test_a_vitest_run_with_a_failure_the_lines_do_not_show_is_not_root_only() -> None:
+    output = (FIXTURES / "vitest_one_failed.txt").read_text().replace("1 failed |", "2 failed |")
+    assert root_only_in(1, output, WEB_ENTRIES) is None
+
+
+def test_a_vitest_run_with_an_unhandled_error_is_not_root_only() -> None:
+    output = (FIXTURES / "vitest_one_failed.txt").read_text()
+    with_error = (
+        output.replace("   Start at", "     Errors  1 error\n   Start at")
+        + "\n⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯\n"
+    )
+    assert with_error != output
+    assert root_only_in(1, with_error, WEB_ENTRIES) is None

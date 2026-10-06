@@ -28,6 +28,14 @@ def flagged(call: str) -> bool:
         f"subprocess.run(['/bin/{CHMOD}', '-R', 'a-rwx', str(path)], check=True)",
         f"subprocess.check_call(('{CHMOD}', 'u-w', p))",
         f"subprocess.run(['{CHMOD}', mode, p])",
+        f"subprocess.run(f'{CHMOD} 000 {{p}}', shell=True)",
+        f"os.system(f'{CHMOD} 000 {{p}}')",
+        f"os.popen('{CHMOD} 000 ' + str(p))",
+        f"subprocess.run(['{CHMOD}', '000'] + [str(p)])",
+        f"subprocess.run([shutil.which('{CHMOD}'), '000', p])",
+        f"subprocess.run(args=['env', '{CHMOD}', '000', 'x'])",
+        f"subprocess.run('cd d && {CHMOD} 000 x', shell=True)",
+        f"subprocess.run(cmd_list + ['{CHMOD}'])",
         f"subprocess.run('{CHMOD} 555 somewhere', shell=True)",
     ],
 )
@@ -46,6 +54,10 @@ def test_a_mode_that_removes_or_cannot_be_read_is_flagged(call: str) -> None:
         f"subprocess.run(['{CHMOD}', 'g-w', str(path)])",
         f"subprocess.run(['{CHMOD}', '+x', str(path)])",
         "subprocess.run(['ls', '-l'])",
+        f"subprocess.run(['git', 'add', 'test_{CHMOD}.py'])",
+        "subprocess.run(f'ls {p}', shell=True)",
+        "os.system('true')",
+        f"os.system('{CHMOD} 644 x')",
     ],
 )
 def test_a_mode_that_keeps_the_owners_read_and_write_passes(call: str) -> None:
