@@ -107,6 +107,11 @@ def test_o1_claude_gets_the_model_settings_and_plugin_dir_then_the_callers_argum
     assert done.returncode == 0, show(done)
     [call] = start.calls("claude")
     argv = call["argv"]
+    # Ticket S14-M1 adds the script's own `--effort <level>` (ts14m1 pins `medium`): set aside here.
+    own = argv[: -len(CALLER_ARGS)]
+    if "--effort" in own:
+        at = own.index("--effort")
+        argv = argv[:at] + argv[at + 2 :]
     assert argv[:3] == ["--model", "claude-opus-5-5", "--settings"]
     assert same_path(argv[3], REPO / "scripts" / "factory" / "orchestrator.settings.json"), argv
     assert argv[4] == "--plugin-dir"

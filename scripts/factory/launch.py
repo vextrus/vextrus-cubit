@@ -2,7 +2,8 @@
 f1). Run from the main checkout:
 
     uv run python -m scripts.factory.launch cloud --branch B --prompt-file F --ticket T --effort E
-        [--model M] [--role builder|acceptance-writer|reviewer|refuter] [--untestable "<why>"]
+        [--tier ordinary|hard] [--model M] [--role builder|acceptance-writer|reviewer|refuter]
+        [--untestable "<why>"]
         [--preflight "<lines>"] [--usage-checked "<lines>"] [--prompt-scanned "<count line>"]
         [--budget-minutes N] [--review-file JSON] [--log PATH] [--repository HOST/OWNER/REPO]
         [--record-dir DIR]
@@ -54,6 +55,22 @@ MODEL = "claude-opus-5-5"
 ROLES = ("builder", "acceptance-writer", "reviewer", "refuter")
 NO_ACCEPTANCE_NEEDED = ("acceptance-writer", "reviewer", "refuter")
 EFFORTS = ("low", "medium", "high")
+# Session 14 map: an ordinary ticket is Sonnet 5.5 at medium, a hard one Opus 5.5 at high.
+TIERS = {"ordinary": ("claude-sonnet-5-5", "medium"), "hard": ("claude-opus-5-5", "high")}
+
+
+def _resolve_tier(
+    p: argparse.ArgumentParser, tier: str | None, model: str | None, effort: str | None
+) -> tuple[str | None, str]:
+    """The model and effort a launch uses: a given one wins, then the tier's, then (no tier) today's."""
+    if tier is not None:
+        t_model, t_effort = TIERS[tier]
+        return model or t_model, effort or t_effort
+    if effort is None:
+        p.error("--effort is required without --tier")
+    return model, effort
+
+
 STOP = "STOP: launched wrongly. Do nothing; push nothing."
 FACTORY = Path(".private/work/factory")
 USAGE = 64
@@ -514,8 +531,9 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
     p.add_argument("--branch", required=True, type=_shaped(BRANCH, "branch name"))
     p.add_argument("--prompt-file", required=True, type=Path)
     p.add_argument("--ticket", required=True, type=_shaped(TICKET, "ticket id"))
-    p.add_argument("--effort", required=True, choices=EFFORTS)
-    p.add_argument("--model", default=MODEL, type=_shaped(TICKET, "model id"))
+    p.add_argument("--effort", choices=EFFORTS)
+    p.add_argument("--tier", choices=tuple(TIERS))
+    p.add_argument("--model", type=_shaped(TICKET, "model id"))
     p.add_argument("--role", default="builder", choices=ROLES)
     p.add_argument("--untestable")
     p.add_argument("--preflight")
@@ -528,6 +546,7 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
     p.add_argument("--record-dir", type=Path)
     p.add_argument("--owns", action="append", default=[], type=_repo_path)
     a = p.parse_args(argv)
+    model, effort = _resolve_tier(p, a.tier, a.model, a.effort)
     review = None
     if a.review_file is not None:
         if a.role not in ("reviewer", "refuter"):
@@ -539,8 +558,8 @@ def parse_cloud(argv: list[str]) -> CloudRequest:
         branch=a.branch,
         prompt_file=a.prompt_file,
         ticket=a.ticket,
-        effort=a.effort,
-        model=a.model,
+        effort=effort,
+        model=model or MODEL,
         role=a.role,
         untestable=a.untestable,
         preflight=a.preflight,
@@ -1157,7 +1176,8 @@ def parse_local(argv: list[str]) -> LocalRequest:
     p = Parser(prog="scripts.factory.launch local")
     p.add_argument("--ticket", required=True, type=_shaped(TICKET, "ticket id"))
     p.add_argument("--branch", required=True, type=_shaped(BRANCH, "branch name"))
-    p.add_argument("--effort", required=True, choices=EFFORTS)
+    p.add_argument("--effort", choices=EFFORTS)
+    p.add_argument("--tier", choices=tuple(TIERS))
     p.add_argument("--name", required=True, type=_shaped(TICKET, "session name"))
     p.add_argument("--prompt-file", required=True, type=Path)
     p.add_argument("--model", type=_shaped(TICKET, "model id"))
@@ -1165,13 +1185,14 @@ def parse_local(argv: list[str]) -> LocalRequest:
     p.add_argument("--budget-minutes", type=_minutes)
     p.add_argument("--owns", action="append", default=[], type=_repo_path)
     a = p.parse_args(argv)
+    model, effort = _resolve_tier(p, a.tier, a.model, a.effort)
     return LocalRequest(
         a.ticket,
         a.branch,
-        a.effort,
+        effort,
         a.name,
         a.prompt_file,
-        a.model,
+        model,
         a.role,
         a.budget_minutes,
         tuple(a.owns),
