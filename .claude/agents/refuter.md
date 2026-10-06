@@ -22,6 +22,7 @@ How:
 - **Look for the ways it could be true and still wrong:** the right number for the wrong reason; a test
   that cannot fail; a fix that moves the symptom; a second copy of the same fact elsewhere; a
   quantity right in one unit and wrong in another.
+- **Cloud.** In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). A UI claim that needs the browser is UNPROVEN there.
 
 Flag only correctness and stated-requirement gaps, not style.
 

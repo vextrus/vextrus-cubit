@@ -386,6 +386,11 @@ def main(
         print(f"verify: {note}", file=sys.stderr)
     if not checks:
         checks = [Check("diff-check", ("git", "diff", "--cached", "--check", "HEAD"))]
+    # Not in plan(paths): it depends on the open PRs, not the changed paths. It checks the staged tree
+    # (what this commit carries) on the branch's tip; a detached HEAD is checked as `HEAD`.
+    branch = _git("branch", "--show-current") or "HEAD"
+    crosspr = (sys.executable, "-m", "scripts.factory.crosspr", branch, "--tree", tree)
+    checks.append(Check("crosspr", crosspr))
     outputs = Path(".private/work/verify") / tree
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
@@ -394,13 +399,16 @@ def main(
     for check in checks:
         code, output = run(check)
         raw, flakes, root_only = code, [], []
+        # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
+        excusable = check.name != "crosspr"
         if (
             code != 0
+            and excusable
             and os.geteuid() == 0
             and (listed_root := root_only_in(code, output, root_entries)) is not None
         ):
             code, root_only = 0, listed_root
-        elif code != 0 and (listed := flakes_in(output, entries)) is not None:
+        elif code != 0 and excusable and (listed := flakes_in(output, entries)) is not None:
             again, rerun = run(check)
             output += f"\n--- rerun (flakes listed in {FLAKY}) ---\n{rerun}"
             if again == 0:
