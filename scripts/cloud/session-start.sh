@@ -1,13 +1,16 @@
 #!/bin/bash
 # Per-session start in cloud VMs only (docs/research/sdlc-waves-and-cloud.md §6.4; the M0 plan, 01c);
-# local sessions exit at once. Puts the toolchain setup.sh left under /opt/vextrus on PATH, starts
-# PostgreSQL 18, fetches LibreDWG if the setup could not, installs the dependencies and ezdxf's wheel
-# by its pinned hash, says where the installed toolchain differs from toolchain/'s pins, and prints the
-# setup's status, so a failed install is never hidden. It never blocks a session. First run in a VM
-# on 28 Sep 2026; since then it uses setup.sh's own uv under /opt/vextrus/uv, never the image's.
+# local sessions exit at once. Says plainly that browser walks are local-only, puts the toolchain
+# setup.sh left under /opt/vextrus on PATH, starts PostgreSQL 18 and makes any missing role or database
+# (postgres.sh, passwords from DATABASE_URL and DATABASE_OWNER_URL), fetches LibreDWG if the setup could
+# not, installs the dependencies and ezdxf's wheel by its pinned hash, says where the installed toolchain
+# differs from toolchain/'s pins, and prints the setup's status, so a failed install is never hidden. It
+# never blocks a session and never runs a browser. VEXTRUS_CLOUD_DRY_RUN=1 skips every download and
+# install. First run in a VM on 28 Sep 2026; since then it uses setup.sh's own uv under /opt/vextrus/uv.
 [ "${CLAUDE_CODE_REMOTE:-}" = "true" ] || exit 0
 V=/opt/vextrus
 cd "$CLAUDE_PROJECT_DIR" || exit 0
+DRY=${VEXTRUS_CLOUD_DRY_RUN:-}
 pin() { tr -d '[:space:]' < "toolchain/$1" 2>/dev/null; }
 warn() { echo "WARN: $*"; }
 
@@ -18,8 +21,22 @@ warn() { echo "WARN: $*"; }
 export UV_PYTHON_INSTALL_DIR=$V/python UV_PYTHON_PREFERENCE=only-managed
 export PATH=$V/uv/bin:$PATH                      # setup.sh's uv, never the image's older one
 
-pg_ctlcluster 18 main start >/dev/null 2>&1 || service postgresql start >/dev/null 2>&1 ||
+# Browser walks need the chrome-devtools MCP, which a cloud session lacks: say so, run no browser.
+echo "NOTE: browser walks (chrome-devtools) are local-only: this cloud session has no browser to walk the product with."
+echo "NOTE: report a browser walk as not done; never walk with Playwright instead (it stays the web's test runner)."
+
+# shellcheck source=scripts/cloud/postgres.sh
+. scripts/cloud/postgres.sh
+if pg_up; then
+  pg_prepare "$PWD" || warn "the database roles are not ready"
+else
   warn "PostgreSQL 18 did not start"
+fi
+
+if [ -n "$DRY" ]; then                          # the dry run downloads and installs nothing
+  echo "dry run: no download or install"
+  exit 0
+fi
 
 LIBREDWG=$(pin libredwg.version)
 if [ ! -x "$V/libredwg/bin/dwgread" ]; then     # the GitHub proxy is live by now

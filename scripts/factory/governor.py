@@ -1,7 +1,8 @@
 """The governor: may this machine and this account take one more unit of work now?
 
     python -m scripts.factory.governor check <unit> [--json] [--usage-checked "<lines>"]
-        [--running N] [--agents N] [--rate R --hours-to-reset H]
+        [--running N] [--agents N] [--rate R --hours-to-reset H] [--owns PATH ...]
+        [--role R] [--branch B] [--hold PID --ticket T [--budget-minutes N]]
 
 Units and their memory cost (spec 2.3): `cloud-session` (none: the cloud VM is not this machine, so
 memory, swap and disk are not read), `local-agent` 0.9, `review` (`--agents` x 0.3 + 0.7; default 8
@@ -9,7 +10,7 @@ agents), `pytest` 3.3, `web-tests` 9.5, `walk` 5.6, `rd-run` 3.0.
 
 Floors, every local unit: `MemAvailable - cost >= 5.4`; swap used above 2 refuses, above 1 warns;
 disk free (`df -k --output=avail /`) under 30 refuses, under 40 warns (the spec names no disk cost per
-unit, so it is 0); at most 3 local agents (`claude agents --json --all` rows with a `pid` and a `kind`
+unit, so it is 0); at most 6 local agents (`claude agents --json --all` rows with a `pid` and a `kind`
 other than `interactive`) for `local-agent`. A live `g1.pid` (the G1 walk) refuses `web-tests`,
 `pytest` and `walk`; a live `rd.pid` (a real-drawing run) refuses `web-tests` and `rd-run`; a pidfile
 that names no pid counts as live.
@@ -19,9 +20,48 @@ models): N% used` are read (any other line, the per-model week lines among them,
 launch is refused only at a used-up limit, session or week >= 100; `review` is never held but prints
 `DEGRADE pr-reviewer-only` at session or week >= 100. The owner's ruling (5 Oct 2026): "don't make those
 threshold of week 85% or session 80%, make them 100% both and I'll take actions whatever needed for
-usage tokens expansion". Cloud sessions are capped at 8 whatever the usage; with `--rate` (measured %
-per builder-hour) and `--hours-to-reset`, `min(16, floor((100 - session) / (rate x hours)))`.
-`--running N` (sessions running now) is refused at or above the cap.
+usage tokens expansion". Cloud sessions are capped at 16 whatever the usage (the owner, 6 Oct 2026);
+with `--rate` (measured % per builder-hour) and `--hours-to-reset`,
+`min(16, floor((100 - session) / (rate x hours)))`.
+`--running N` (sessions running now, the caller's own count; the governor derives none from launch
+records) is refused at or above the cap; the platform enforces the limit itself and `launch cloud`
+reports its refusal.
+
+Work in flight (`cloud-session` and `local-agent`, S14-W1; no count of them refuses a launch since
+S14-K1, the owner, 6 Oct 2026): the open PRs plus the launched builders
+(`$VEXTRUS_FACTORY_DIR/launches/*.json`: a cloud record whose judge is ok, or a local one; never an
+acceptance-writer, reviewer or refuter record, nor one whose STOP was sent); a builder and its
+open PR count once (joined on the branch). The release rule, one table in
+tests/test_governor_work.py: a merged or closed PR on a record's branch releases the record only if
+it started before that PR ended (the latest such PR's `mergedAt` or `closedAt`; with neither, its
+`createdAt`; with no time at all, every record on the branch), so a fix-round launch is released when
+its PR merges and a relaunch after the PR closed counts. A record past `started_at` plus
+`budget_minutes` (120 when absent) plus a 60-minute grace ages out only when it is no longer running: a
+local record (it names its agent) when `claude agents` holds no row of that name, or only rows with no
+pid stopped or failed (a `done` session is alive and waiting; an unreadable list ages nothing out); a
+cloud one after the longer of 4 x its budget and 6 hours. The reading names why each unit counts
+(`counted`) and why each record aged out (`aged_out`). `--role reviewer|refuter` takes no new work and
+skips these checks; `--branch B` marks a launch on a branch that already holds a unit (an open PR or a
+counted builder) as no new work: it does not collide with its own unit. With `--owns PATH`
+(repeatable: the files the ticket owns; a path ending in `/` is a folder and covers every file under
+it): at most 3 open PRs or builders in any hot-file area the owned files touch
+(`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>": ["<repo path, folder ending in /, or
+fnmatch glob>", ...]}}`), and no owned file may be one an open PR changes (the refusal names that PR).
+The PRs are the stdout of `gh pr list --state all --json
+number,headRefName,state,files,createdAt,closedAt,mergedAt,isCrossRepository` (`VEXTRUS_PRS_FILE`
+stands in for it); a fork's PR (`isCrossRepository`) is left out. An
+unreadable record refuses new work, and so does an unreadable PR list or hot-file list when files are
+named; with none named, an unreadable PR list leaves the cap counting every live record, none
+released.
+
+Two launches at once (PR #477 review): `--hold PID --ticket T` (`admit`; both launchers use it) takes an
+exclusive `flock` on `$VEXTRUS_FACTORY_DIR/wip.lock`, runs the check and, on OK, writes the pending
+record `pending/<T>-<PID>.json` before letting the lock go, so the next launch reads it. A pending
+record counts toward the cap and the hot-file areas like a launch record while the launcher's pid
+lives; the launcher removes it (`release_hold`) once its launch record is written or the launch has
+failed, and a pending record whose pid is dead counts for nothing. A launch whose record would not
+count (acceptance-writer, reviewer, refuter) writes none. A builder's record
+names its `owns` when the launch gave them.
 
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
 status.schema.json reports them.
@@ -42,13 +82,17 @@ usage_checked, readings). Exit 0 ok, 3 refused, 2 usage error.
 from __future__ import annotations
 
 import argparse
+import fcntl
+import fnmatch
 import json
 import math
 import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -60,12 +104,27 @@ SWAP_REFUSE_GB = 2.0
 SWAP_WARN_GB = 1.0
 DISK_REFUSE_GB = 30.0
 DISK_WARN_GB = 40.0
-MAX_LOCAL_AGENTS = 3
+MAX_LOCAL_AGENTS = 6
 SESSION_HOLD = 100.0
 WEEK_HOLD = 100.0
 DEGRADE_AT = 100.0
-CAP_HIGH, CAP_MAX = 8, 16
+CAP_MAX = 16
+REVIEW_SLOTS = 8
 REVIEW_DEFAULT_AGENTS = 8
+AREA_CAP = 3
+WORK_UNITS = ("cloud-session", "local-agent")
+HOT_FILES = Path(__file__).with_name("hot-files.json")
+PR_LIST_LIMIT = "500"
+NOT_BUILDER_ROLES = ("acceptance-writer", "reviewer", "refuter")
+NO_NEW_WORK_ROLES = ("reviewer", "refuter")
+DEFAULT_BUDGET_MINUTES = 120
+GRACE_MINUTES = 60
+CLOUD_OVERRUN_FACTOR = 4
+CLOUD_MIN_HOURS = 6
+START_ERRORS = (KeyError, TypeError, ValueError)
+PENDING = "pending"
+WIP_LOCK = "wip.lock"
+TICKET_RE = re.compile(r"[A-Za-z0-9._-]{1,200}")
 
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
 UNITS = ("cloud-session", "local-agent", "review", "pytest", "web-tests", "walk", "rd-run")
@@ -211,6 +270,256 @@ def parse_agents(text: str) -> list[dict[str, Any]] | None:
     return loaded
 
 
+def prs_text() -> str:
+    seam = _seam("VEXTRUS_PRS_FILE")
+    if seam is not None:
+        return seam
+    return (
+        _run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "all",
+                "--limit",
+                PR_LIST_LIMIT,
+                "--json",
+                "number,headRefName,state,files,createdAt,closedAt,mergedAt,isCrossRepository",
+            ]
+        )
+        or ""
+    )
+
+
+def parse_prs(text: str) -> list[dict[str, Any]] | None:
+    """The `gh pr list` rows, or None unless every row has a number, a branch, a state and file paths."""
+    try:
+        loaded = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(loaded, list):
+        return None
+    for row in loaded:
+        if not (
+            isinstance(row, dict)
+            and isinstance(row.get("number"), int)
+            and isinstance(row.get("headRefName"), str)
+            and isinstance(row.get("state"), str)
+            and isinstance(row.get("files"), list)
+            and all(isinstance(f, dict) and isinstance(f.get("path"), str) for f in row["files"])
+        ):
+            return None
+    # A PR from a fork is no factory work: its branch name may equal a builder's and must neither
+    # release that builder nor count against the cap (the repository is public).
+    return [row for row in loaded if row.get("isCrossRepository") is not True]
+
+
+def read_prs() -> list[dict[str, Any]] | None:
+    return parse_prs(prs_text())
+
+
+def _read_record(path: Path) -> dict[str, Any] | None:
+    try:
+        record = json.loads(path.read_text())
+    except status.RECORD_ERRORS:
+        return None
+    if not isinstance(record, dict) or not isinstance(record.get("branch"), str):
+        return None
+    return record
+
+
+def read_builders() -> list[dict[str, Any]] | None:
+    """The launched builders: cloud records whose judge is ok and local ones, never an
+    acceptance-writer, a reviewer or a refuter; and the pending records of launches still running
+    (`admit`), each while its launcher's pid lives. None when a record is unreadable (it may be a
+    builder: fail closed)."""
+    builders: list[dict[str, Any]] = []
+    folder = status.factory_dir()
+    for path in sorted((folder / "launches").glob("*.json")):
+        if path.name.endswith(".agents.json"):
+            continue
+        record = _read_record(path)
+        if record is None:
+            return None
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
+            continue
+        if record.get("stop_sent") is True:
+            continue
+        judge = record.get("judge")
+        if record.get("where") == "local" or (isinstance(judge, dict) and judge.get("ok") is True):
+            builders.append(record)
+    for path in sorted((folder / PENDING).glob("*.json")):
+        record = _read_record(path)
+        if record is None:
+            return None
+        pid = record.get("pid")
+        if isinstance(pid, int) and not isinstance(pid, bool) and status.pid_alive(pid):
+            builders.append(record)
+    return builders
+
+
+def pending_path(ticket: str, pid: int) -> Path:
+    """The pending record of one launch: its ticket and its launcher's pid."""
+    return status.factory_dir() / PENDING / f"{ticket}-{pid}.json"
+
+
+def admit(
+    unit: str,
+    *,
+    hold: int,
+    ticket: str,
+    budget_minutes: int | None = None,
+    **given: Any,
+) -> Verdict:
+    """`check`, and on OK a pending record for the launch, both under one exclusive `flock` on
+    `<factory dir>/wip.lock`, so two launches at once cannot both read the same WIP and pass. The
+    pending record (`pending/<ticket>-<hold>.json`, the launcher's pid) counts toward the cap and the
+    hot-file areas at once, while that pid lives; the launcher removes it (`release_hold`) after it
+    writes its launch record, or on any failure. A launch that takes no new work, or whose record
+    would not count (acceptance-writer, reviewer, refuter), writes none. The lock is a descriptor's
+    `flock`, so the kernel lets it go when the process dies however it dies."""
+    if not TICKET_RE.fullmatch(ticket):
+        verdict = Verdict(unit)
+        verdict.reasons.append(f"a malformed ticket for the pending record: {ticket!r}")
+        return verdict
+    folder = status.factory_dir()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        fd = os.open(folder / WIP_LOCK, os.O_CREAT | os.O_WRONLY, 0o600)
+    except OSError as error:
+        verdict = Verdict(unit)
+        verdict.reasons.append(f"the WIP lock cannot be taken ({type(error).__name__})")
+        return verdict
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        verdict = check(unit, **given)
+        role = given.get("role") or "builder"
+        if verdict.ok and unit in WORK_UNITS and role not in NOT_BUILDER_ROLES:
+            record: dict[str, Any] = {
+                "ticket": ticket,
+                "branch": given.get("branch") or "",
+                "where": "local" if unit == "local-agent" else "cloud",
+                "role": role,
+                "budget_minutes": budget_minutes,
+                "started_at": status.utc(status.now()),
+                "pid": hold,
+                "pending": True,
+            }
+            if given.get("owns"):
+                record["owns"] = list(given["owns"])
+            path = pending_path(ticket, hold)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                part = path.with_suffix(".part")
+                part.write_text(json.dumps(record, indent=1) + "\n")
+                part.replace(path)  # whole or absent: a reader never sees half a record
+            except OSError as error:
+                verdict.reasons.append(f"the pending record was not written ({type(error).__name__})")
+                return verdict
+            verdict.readings["pending"] = str(path)
+        return verdict
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def release_hold(ticket: str, pid: int) -> None:
+    """Remove a launch's pending record (`admit`); none there is no error."""
+    if not TICKET_RE.fullmatch(ticket):
+        return
+    pending_path(ticket, pid).unlink(missing_ok=True)
+
+
+ENDED_ROW_STATES = ("stopped", "failed")
+
+
+def _row_ended(row: dict[str, Any]) -> bool:
+    """A `claude agents` row of a session that has gone: no pid and its state stopped or failed. A
+    `done` row is a session alive and waiting on its next message (the runbook), so it has not."""
+    return row.get("pid") is None and row.get("state") in ENDED_ROW_STATES
+
+
+def ageing(
+    record: dict[str, Any], agent_rows: Callable[[], list[dict[str, Any]] | None]
+) -> tuple[bool, str]:
+    """Whether a record has aged out of the builders in flight, and the sign either way.
+
+    Inside its budget plus a 60-minute grace a record always counts. After that a local builder (its
+    record names its agent) counts while `claude agents` holds a row of that name that has not ended
+    (`_row_ended`), and ages out when every row of that name has ended or none is there; an unreadable
+    snapshot ages nothing out. Any other builder (a cloud one) ages out after the longer of 4 x its
+    budget and 6 hours, since builders overrun and the cloud has no snapshot to ask. A record with no
+    readable start counts (fail closed)."""
+    try:
+        started = status.parse_utc(record["started_at"])
+    except START_ERRORS:
+        return False, "no readable started_at"
+    budget = record.get("budget_minutes")
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0:
+        budget = DEFAULT_BUDGET_MINUTES
+    elapsed = status.now() - started
+    minutes = int(elapsed.total_seconds() // 60)
+    if elapsed <= timedelta(minutes=budget + GRACE_MINUTES):
+        return False, f"{minutes} min in, inside its {budget} min budget and {GRACE_MINUTES} min grace"
+    name = record.get("name")
+    if record.get("where") == "local" and isinstance(name, str):
+        rows = agent_rows()
+        if rows is None:
+            return False, "the agents list is unreadable"
+        mine = [row for row in rows if row.get("name") == name]
+        alive = [row for row in mine if not _row_ended(row)]
+        if alive:
+            row = alive[0]
+            sign = "live" if row.get("pid") is not None else f"state {row.get('state')}"
+            return False, f"agent {name} is {sign}"
+        if mine:
+            return True, f"agent {name} has stopped or failed"
+        return True, f"no agent named {name}"
+    limit = max(CLOUD_OVERRUN_FACTOR * budget, CLOUD_MIN_HOURS * 60)
+    if elapsed > timedelta(minutes=limit):
+        return True, f"over {limit} minutes with no PR"
+    return False, f"{minutes} min in, inside {limit} min (the longer of 4 x budget and 6 h)"
+
+
+def aged_out(
+    record: dict[str, Any], agent_rows: Callable[[], list[dict[str, Any]] | None]
+) -> str | None:
+    """Why a record is no builder in flight, or None while it counts (`ageing`)."""
+    aged, why = ageing(record, agent_rows)
+    return why if aged else None
+
+
+def read_hot_areas() -> dict[str, list[str]] | None:
+    try:
+        areas = json.loads(HOT_FILES.read_text())["areas"]
+    except status.RECORD_ERRORS:
+        return None
+    if not isinstance(areas, dict) or not all(
+        isinstance(paths, list) and all(isinstance(entry, str) for entry in paths)
+        for paths in areas.values()
+    ):
+        return None
+    return areas
+
+
+def touches(path: str, entries: list[str]) -> bool:
+    """Whether a repo path is one of `entries`, matches one (fnmatch) or lies under one that ends in
+    `/`; a `path` ending in `/` is a folder, and touches an entry that lies under it."""
+    for entry in entries:
+        if path == entry or fnmatch.fnmatchcase(path, entry):
+            return True
+        if entry.endswith("/") and path.startswith(entry):
+            return True
+        if path.endswith("/") and entry.startswith(path):
+            return True
+    return False
+
+
+def in_area(path: str, entries: list[str]) -> bool:
+    return touches(path, entries)
+
+
 def read_memory() -> Memory | None:
     return parse_meminfo(meminfo_text())
 
@@ -280,7 +589,7 @@ def _number(value: float | None) -> float | int | None:
 def cloud_cap(usage: Usage, rate: float | None, hours: float | None) -> int:
     if rate is not None and hours is not None and rate > 0 and hours > 0:
         return max(0, min(CAP_MAX, math.floor((SESSION_HOLD - usage.session) / (rate * hours))))
-    return CAP_HIGH
+    return CAP_MAX
 
 
 def check(
@@ -291,6 +600,9 @@ def check(
     rate: float | None = None,
     hours_to_reset: float | None = None,
     usage_checked: str | None = None,
+    owns: tuple[str, ...] | list[str] = (),
+    role: str | None = None,
+    branch: str | None = None,
 ) -> Verdict:
     verdict = Verdict(unit)
     if unit != "cloud-session":
@@ -306,6 +618,8 @@ def check(
             verdict.readings["local_agents"] = count
             if count >= MAX_LOCAL_AGENTS:
                 verdict.reasons.append(f"{count} local agents running, the most is {MAX_LOCAL_AGENTS}")
+    if unit in WORK_UNITS:
+        _check_work(verdict, list(owns), role, branch)
     _check_exclusions(verdict)
     return verdict
 
@@ -384,6 +698,160 @@ def _check_usage(
             verdict.reasons.append(f"{running} cloud sessions running, the cap is {verdict.cap}")
 
 
+def _pr_end(row: dict[str, Any]) -> datetime | None:
+    """When a merged or closed PR ended: `mergedAt` (merged) or `closedAt`, either standing in for the
+    other; with neither, its `createdAt` (the rule before the end was read). None when it has none of
+    them: it then releases every record on its branch (the rule before any time was read)."""
+    keys = ("mergedAt", "closedAt") if row["state"] == "MERGED" else ("closedAt", "mergedAt")
+    for key in (*keys, "createdAt"):
+        try:
+            return status.parse_utc(row[key])
+        except START_ERRORS:
+            continue
+    return None
+
+
+def _released(prs: list[dict[str, Any]]) -> dict[str, tuple[datetime | None, int]]:
+    """For each branch with a merged or closed PR: the latest such PR's end (`_pr_end`) and its
+    number. A record on the branch that started before that end belongs to a PR that has ended and is
+    released; one that started after it (a relaunch after its PR closed) is not. A row with a time
+    wins over one with none; only a branch whose rows have no time at all gets a None end, which
+    releases every record on it."""
+    released: dict[str, tuple[datetime | None, int]] = {}
+    for row in prs:
+        if row["state"] not in ("MERGED", "CLOSED"):
+            continue
+        name = row["headRefName"]
+        end = _pr_end(row)
+        if name in released:
+            previous = released[name][0]
+            if end is None or (previous is not None and end <= previous):
+                continue
+        released[name] = (end, row["number"])
+    return released
+
+
+def _release(
+    record: dict[str, Any], released: dict[str, tuple[datetime | None, int]]
+) -> tuple[bool, str]:
+    """Whether a merged or closed PR on its branch releases a record, and why it does or does not."""
+    if record["branch"] not in released:
+        return False, "no merged or closed PR on its branch"
+    end, number = released[record["branch"]]
+    if end is None:
+        return True, f"PR {number} ended (no time read)"
+    try:
+        started = status.parse_utc(record["started_at"])
+    except START_ERRORS:
+        return False, f"no readable started_at to set against PR {number}"
+    if started < end:
+        return True, f"started {status.utc(started)}, before PR {number} ended {status.utc(end)}"
+    return False, f"started {status.utc(started)}, after PR {number} ended {status.utc(end)}"
+
+
+def _agent_rows() -> Callable[[], list[dict[str, Any]] | None]:
+    """The `claude agents` rows, read once and only if asked; None when the list is unreadable."""
+    cache: list[list[dict[str, Any]] | None] = []
+
+    def rows() -> list[dict[str, Any]] | None:
+        if not cache:
+            cache.append(read_agents())
+        return cache[0]
+
+    return rows
+
+
+def _check_work(
+    verdict: Verdict, owns: list[str], role: str | None = None, branch: str | None = None
+) -> None:
+    """The hot-file areas and the open PRs' files (S14-W1). A reviewer or refuter takes no
+    new work; a launch on a branch that already holds a unit (an open PR or a builder) is not new
+    work, so it does not collide with the PR or builder it would collide with: itself."""
+    if role in NO_NEW_WORK_ROLES:
+        return
+    prs = read_prs()
+    builders = read_builders()
+    if builders is None:
+        verdict.reasons.append("a launch record is unreadable")
+        return
+    if prs is None:
+        if owns:
+            verdict.reasons.append("the PR list (gh pr list --state all) is unreadable")
+            return
+        # A launch that names no files keeps the older acceptance tests' checks (P6, launch-local):
+        # the cap sees no open PR, and with no PR to release one, every live record counts.
+        verdict.readings["open_prs"] = "unreadable: WIP counts launch records only, none released"
+        prs = []
+    open_prs = [row for row in prs if row["state"] == "OPEN"]
+    open_branches = {row["headRefName"] for row in open_prs}
+    released = _released(prs)
+    agent_rows = _agent_rows()
+    aged: list[str] = []
+    counts: list[str] = []
+    # One entry per unit of work: an open PR, or a launched builder with no open PR yet.
+    units: list[dict[str, Any]] = [
+        {
+            "label": f"PR {row['number']}",
+            "branch": row["headRefName"],
+            "files": [f["path"] for f in row["files"]],
+        }
+        for row in open_prs
+    ]
+    counts += [f"PR {row['number']}: open" for row in open_prs]
+    counted = set(open_branches)
+    for record in builders:
+        name = record["branch"]
+        if name in open_branches:
+            continue  # its open PR is the unit
+        let_go, release_why = _release(record, released)
+        if let_go:
+            continue
+        old, age_why = ageing(record, agent_rows)
+        if old:
+            aged.append(f"builder {name}: {age_why}")
+            continue
+        owned = record.get("owns")
+        files = [p for p in owned if isinstance(p, str)] if isinstance(owned, list) else []
+        if name in counted:
+            # a second live record on the branch (a relaunch): one unit, holding both records' files
+            next(unit for unit in units if unit["branch"] == name)["files"].extend(files)
+            continue
+        counted.add(name)
+        counts.append(f"builder {name}: {release_why}; {age_why}")
+        units.append({"label": f"builder {name}", "branch": name, "files": files})
+    verdict.readings["wip"] = len(units)
+    verdict.readings["counted"] = counts
+    if aged:
+        verdict.readings["aged_out"] = aged
+    if not owns:
+        return
+    others = [unit for unit in units if unit["branch"] != branch]
+    holders = [
+        row["number"]
+        for row in open_prs
+        if row["headRefName"] != branch
+        and any(touches(path, owns) for path in (f["path"] for f in row["files"]))
+    ]
+    if holders:
+        verdict.reasons.append(
+            "an open PR changes files this launch owns: "
+            + ", ".join(f"PR {number}" for number in holders)
+        )
+    areas = read_hot_areas()
+    if areas is None:
+        verdict.reasons.append("the hot-file list (scripts/factory/hot-files.json) is unreadable")
+        return
+    for area, entries in areas.items():
+        if not any(touches(path, entries) for path in owns):
+            continue
+        busy = [unit["label"] for unit in others if any(touches(p, entries) for p in unit["files"])]
+        if len(busy) >= AREA_CAP:
+            verdict.reasons.append(
+                f"hot-file area {area}: {len(busy)} open PRs or builders already hold it,"
+                f" the most is {AREA_CAP} ({', '.join(busy)})"
+            )
+
+
 def _check_exclusions(verdict: Verdict) -> None:
     folder = status.factory_dir()
     for name, excluded, what in (
@@ -424,6 +892,12 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--agents", type=int)
     one.add_argument("--rate", type=float)
     one.add_argument("--hours-to-reset", type=float)
+    one.add_argument("--owns", action="append", default=[], metavar="PATH")
+    one.add_argument("--role")
+    one.add_argument("--branch")
+    one.add_argument("--hold", type=int, metavar="PID")
+    one.add_argument("--ticket")
+    one.add_argument("--budget-minutes", type=int)
     args = parser.parse_args(argv)
     for option in ("running", "agents", "rate", "hours_to_reset"):
         value = getattr(args, option)
@@ -431,14 +905,28 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"--{option.replace('_', '-')} cannot be negative")
     if (args.rate is None) != (args.hours_to_reset is None):
         parser.error("--rate and --hours-to-reset go together")
-    verdict = check(
-        args.unit,
-        running=args.running,
-        agents=args.agents,
-        rate=args.rate,
-        hours_to_reset=args.hours_to_reset,
-        usage_checked=args.usage_checked,
-    )
+    if (args.hold is None) != (args.ticket is None):
+        parser.error("--hold and --ticket go together")
+    given: dict[str, Any] = {
+        "running": args.running,
+        "agents": args.agents,
+        "rate": args.rate,
+        "hours_to_reset": args.hours_to_reset,
+        "usage_checked": args.usage_checked,
+        "owns": args.owns,
+        "role": args.role,
+        "branch": args.branch,
+    }
+    if args.hold is None:
+        verdict = check(args.unit, **given)
+    else:
+        verdict = admit(
+            args.unit,
+            hold=args.hold,
+            ticket=args.ticket,
+            budget_minutes=args.budget_minutes,
+            **given,
+        )
     if args.json:
         print(json.dumps(verdict.as_json()))
     else:

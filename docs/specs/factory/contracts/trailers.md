@@ -11,10 +11,20 @@ blocked on review" literally; spec 2.2 and 3.14).
 
 ## 1. The builder's finish trailers
 
-Three trailer keys, in the commit message's last paragraph, in git's trailer form (`Key: value`, one per line;
-`git interpret-trailers --parse` reads them; they may sit among the attribution trailers `Co-Authored-By` and
-`Claude-Session`, which the factory ignores). The attribution lines belong IN that last paragraph, not after a blank
-line: a factory trailer in any earlier paragraph counts for no consumer.
+Three trailer keys, in git's trailer form (`Key: value`, one per line), in the paragraph the factory reads: **the last
+paragraph holding a `Factory-*` line among the message's last two** (issue #448). So the Factory block may end the
+message, sit among the attribution trailers `Co-Authored-By` and `Claude-Session` (which the factory ignores), or sit
+just before a paragraph of them, a blank line between (the T-W317 shape). Every consumer reads it with one reader:
+`scripts/factory/trailers.py` (the watcher's) and `.claude/hooks/trailers.mjs` (the stop gate imports it; the guard,
+which is self-contained, carries the same block byte for byte), written to agree on every input and tested so
+(`scripts/factory/tests/test_trailers.py`, `.claude/hooks/trailers.extra.test.mjs`).
+
+Never silence: a `Factory-*` line (or a loose `Factory-State` line: `factory_state`, `Factory State`, a leading space,
+any case, ASCII case folding) in any other paragraph makes the head **malformed** with the reason "factory trailer not
+in the last paragraph", whatever it says. A READY-looking `Factory-State` line (a loose key, a value containing
+`ready`) in the last two paragraphs **gates** the head: the guard's push gate and the stop gate treat it as READY,
+and on a head that does not read as READY it is malformed too (`READY-NO-VERIFY` to the watcher). A READY line further
+back is alarmed but not gated, since prose quoting the trailer may sit in a body.
 
 | Key | Value (exact) | Meaning |
 |---|---|---|
@@ -39,7 +49,9 @@ Which keys go together:
 
 A head that breaks the table, repeats a key (each key appears at most once), or whose `Factory-Verify` tree differs
 from `git rev-parse <head>^{tree}` is **malformed**: every consumer treats a malformed head as carrying no trailer at
-all and, where it raises alarms, raises `READY-NO-VERIFY` (status.schema.json) when `Factory-State: READY` is on it.
+all and, where it raises alarms, raises `READY-NO-VERIFY` (status.schema.json) when a READY-looking `Factory-State`
+is on it, or when a factory line sits outside the read paragraph (above). The gates gate a head by the READY-looking
+line rule above.
 Key spelling: producers write the keys exactly as above; a parser may match the key case-insensitively (git does) but
 the values stay case-sensitive.
 
@@ -58,9 +70,13 @@ from them) on the head the watcher last saw READY (the lander's merge) stays REA
   `Factory-Verify` raises the READY event (the builder's state is `ready`); READY with no matching tree raises
   `READY-NO-VERIFY`; BLOCKED shows the builder as `blocked` with its reason in `events.log` (public words only); a
   READY head unmerged for 10 minutes raises `READY-WAITING`. It also fires for a READY head already present when it
-  starts.
+  starts. A local builder (never an acceptance-writer, nor one whose PR is closed) that has committed, whose head is
+  neither READY nor BLOCKED, and whose `claude agents` row has read idle for 10 minutes (`status: idle`, or its
+  session ended: no pid, state done, stopped or failed) raises `LOCAL-IDLE` (a builder that stopped without its
+  trailer). A re-read of seen heads (a new trailer reading) keeps a READY inherited onto clean merges of main.
 - **`.claude/hooks/stop-gate.mjs`** (builder sessions only): a stop with uncommitted tracked changes and no trailer,
-  or a READY trailer with no green verify record, is blocked once with the text "commit with explicit paths and run
+  or a READY or malformed (`READY-NO-VERIFY`) head with no green verify record (a malformed one: always), is blocked
+  once with the text "commit with explicit paths and run
   verify, or finish `Factory-State: BLOCKED` with a reason".
 - **`verify`** prints exactly one line, `Factory-Verify: <tree> ok`, when every check's `exit_code` is 0, and prints
   nothing of that form otherwise.
@@ -114,6 +130,40 @@ message body:
 An `acceptance:` commit without both lines fails the lint, unless its full sha is in
 `tools/lint/acceptance_legacy.txt` (the carried branches' older commits). An untestable ticket carries no acceptance
 commit and says why in the launch (`--untestable "<why>"`, launch-cli.md).
+
+From S14-AL the message also states why each file is red and what values the tests pin, each on its own line
+anywhere in the message, read by the acceptance lint (`python -m tools.lint.acceptance_lint <base> <branch>...`,
+which the orchestrator runs on each acceptance commit before launching its builder; not a CI check):
+
+| Line (exact form) | Regular expression | Meaning |
+|---|---|---|
+| `red-for: <path> <reason>` | `^red-for:[ \t]+(\S+)[ \t]+(\S.*?)[ \t]*$` | `<path>` is a test file the acceptance commits add, as in the commit. Every test of it red on the base fails with an error line (pytest's `E` lines or the failure's message, never the quoted source) containing `<reason>` (one line per reason; any one may match; a reason `No module named '<module>'`, the module one the test or a helper beside it imports (or loads by name with `importlib.import_module` or `__import__`) or a parent of one, also matches the same error naming a parent package of it, which Python names when the package is new too). A Python test file with a red test and no `red-for:` line fails the lint; a file a later `acceptance:` commit deletes keeps no reason; a web file's line is recorded, not checked. |
+| `pin: <key> = <value>` | `^pin:[ \t]+([^=\s]+)[ \t]*=[ \t]*(\S.*?)[ \t]*$` | The tests pin `<key>` to `<value>` (a dotted name the writer chooses, e.g. `review.allowlist_only_tier`). Across the branches linted together (the first judged in full, the others read for their pins only), two pins of one key to different values fail, naming both branches and the key; so does a pin against a `ruling: <key> = <value>` line in `docs/rulings.md` at the base (no register, no rulings). |
+
+The lint also refuses a test file that does not collect as it is. The one collection failure allowed is an import
+of a module of the tree's own packages that does not exist yet (or a name missing from one): such a file is
+printed as a note, "collects after build: <module>", and its setup is not planned, so a misspelt fixture in it
+is found only when the builder runs it (#513). One rule holds for such a file, read from its
+source (`ast`, no import): if any node anywhere in it references `live`, `skip`, `skipif` or `xfail` through
+`pytest.mark` (pytest under any alias, `mark` imported from pytest under any alias, or a name assigned
+`pytest.mark`), in a decorator, a class body, a plain or annotated `pytestmark`, `pytest.param(marks=...)` or any
+other expression, it is refused: "<file>: uses pytest.mark.<name>; a file that imports an unbuilt module may not
+use it (it cannot be judged before the build)". A mark reached any other way (`getattr`, a name built at run
+time, imported from another module, added by a conftest) is not seen. A file that collects has its setup planned, so a fixture pytest
+does not have, or a test with an empty parameter set, is refused. It refuses too a test file that collects no test, has no test red on the base, or has a test skipped or xfail there
+(under either user), a `pin:` or `red-for:` line not in its form, `lint-imports` or `mypy` failing on the acceptance files, and a test red for
+another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
+does not). An amendment (`scripts.factory.amend`) replaces: per file, the newest `acceptance:` commit stating
+`red-for:` reasons for it wins, and per key the newest `pin:`; an older malformed or mistyped declaration is
+superseded the same way (a `pin:` line by a newer pin of its key, a `red-for:` line by a newer commit stating
+`red-for:` lines). The lint's pytest runs carry their own `-m`, so a base's addopts deselecting the opt-in
+marks (`needs_toolchain`, `needs_bwrap`) do not hide a marked file: it is judged, except where its mark cannot
+run (`needs_toolchain` without `/opt/vextrus`, `needs_bwrap` without `bwrap`): those tests are named "not judged
+here", never refused. A test marked `live` is refused, named, and never run: CI's acceptance check never runs a
+live test, so the built branch would fail it as deselected. Laying out the tree never writes through a
+symlink. The test database a run makes (its name hashes
+the run's own tree) is dropped by name after it. It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
+fail its stated-reason check: run it on new acceptance commits.
 
 ## 4. Fixtures every consumer tests against
 
