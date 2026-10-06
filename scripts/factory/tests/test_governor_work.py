@@ -53,9 +53,9 @@ def prs(world: Path, monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, objec
     monkeypatch.setenv("VEXTRUS_PRS_FILE", str(seam))
 
 
-def record(world: Path, name: str, **fields: object) -> None:
-    body = {"ticket": name, "branch": name, "where": "local", "role": "builder", "judge": None}
-    (world / "factory" / "launches" / f"{name}-20261006T080000Z.json").write_text(
+def record(world: Path, ticket: str, **fields: object) -> None:
+    body = {"ticket": ticket, "branch": ticket, "where": "local", "role": "builder", "judge": None}
+    (world / "factory" / "launches" / f"{ticket}-20261006T080000Z.json").write_text(
         json.dumps(body | fields)
     )
 
@@ -177,27 +177,55 @@ def test_records_of_other_roles_are_not_builders_in_flight(
     assert governor.check("cloud-session").readings["wip"] == 0
 
 
-def test_an_old_record_with_no_pr_ages_out(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_old_cloud_record_with_no_pr_ages_out(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VEXTRUS_NOW", "2026-10-06T10:00:00Z")
     prs(world, monkeypatch, [])
-    record(world, "old", started_at="2026-10-01T08:00:00Z", budget_minutes=90)
+    record(
+        world,
+        "old",
+        where="cloud",
+        judge={"ok": True},
+        started_at="2026-10-01T08:00:00Z",
+        budget_minutes=90,
+    )
     record(world, "fresh", started_at="2026-10-06T08:00:00Z", budget_minutes=90)
     record(world, "unstamped")
     verdict = governor.check("cloud-session")
     assert verdict.readings["wip"] == 2
-    assert "builder old" not in (verdict.reason or "")
+    assert "builder old" in verdict.readings["aged_out"][0]
 
 
-def test_a_record_inside_its_budget_and_grace_still_counts(
+def test_a_cloud_builder_past_budget_and_grace_with_no_pr_still_counts(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # s13-w324 ran 40 minutes of budget for 4 h 18 min before its PR opened
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-06T10:00:00Z")
+    prs(world, monkeypatch, [])
+    cloud = {"where": "cloud", "judge": {"ok": True}, "budget_minutes": 40}
+    record(world, "c", started_at="2026-10-06T05:42:00Z", **cloud)  # 4 h 18 min in
+    record(world, "d", started_at="2026-10-06T02:00:00Z", **cloud)  # 8 h in: past the 6 h floor
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == 1
+    assert "builder d" in verdict.readings["aged_out"][0]
+
+
+def test_a_local_builder_ages_out_only_when_its_agent_is_gone(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("VEXTRUS_NOW", "2026-10-06T10:00:00Z")
     prs(world, monkeypatch, [])
-    record(
-        world, "a", started_at="2026-10-06T07:00:00Z", budget_minutes=90
-    )  # 07:00 + 90 + 60 = 09:30 < 10:00
-    record(world, "b", started_at="2026-10-06T08:00:00Z", budget_minutes=90)  # 11:00 > 10:00
-    assert governor.check("cloud-session").readings["wip"] == 1
+    late = {"started_at": "2026-10-06T05:42:00Z", "budget_minutes": 40}
+    record(world, "alive", name="agent-alive", **late)
+    record(world, "gone", name="agent-gone", **late)
+    record(world, "young", name="agent-young", started_at="2026-10-06T09:30:00Z", budget_minutes=40)
+    agents = world / "agents.json"
+    agents.write_text(json.dumps([{"name": "agent-alive", "pid": 7, "kind": "background"}]))
+    monkeypatch.setenv("VEXTRUS_AGENTS_FILE", str(agents))
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == 2  # alive, and young (inside its budget: never asked)
+    assert "no live agent named agent-gone" in verdict.readings["aged_out"][0]
+    agents.write_text("not json")  # unreadable: nothing ages out
+    assert governor.check("cloud-session").readings["wip"] == 3
 
 
 def fill_the_cap(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -302,3 +330,58 @@ def test_two_prs_on_unrelated_catalogues_do_not_refuse_a_third(
         [pr(1, "a", "web/src/ui/locales/en.po"), pr(2, "b", "web/src/members/locales/en.po")],
     )
     assert governor.check("cloud-session", owns=["web/src/takeoff/locales/en.po"]).ok
+
+
+def test_a_closed_pr_older_than_the_record_leaves_the_record_counted(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # session 13 relaunched builders on branches whose PR had closed at the review cap
+    closed = pr(7, "t160", "x.py", state="CLOSED") | {"createdAt": "2026-10-02T08:00:00Z"}
+    prs(world, monkeypatch, [closed])
+    record(world, "t160", started_at="2026-10-05T08:00:00Z", budget_minutes=90)  # relaunched after
+    record(world, "t161", started_at="2026-10-01T08:00:00Z", budget_minutes=90)  # before: released
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T09:00:00Z")
+    merged = pr(8, "t161", "y.py", state="MERGED") | {"createdAt": "2026-10-02T08:00:00Z"}
+    others = [pr(n, f"o{n}", f"o/{n}.py") for n in range(11, 15)]
+    prs(world, monkeypatch, [closed, merged, *others])
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == 5  # four open PRs and t160, not t161
+    assert "builder t160" in (verdict.reason or "")
+    assert "builder t161" not in (verdict.reason or "")
+
+
+def test_a_pr_row_without_created_at_still_releases_every_record(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prs(world, monkeypatch, [pr(7, "t160", "x.py", state="CLOSED")])
+    record(world, "t160", started_at="2026-10-05T08:00:00Z")
+    assert governor.check("cloud-session").readings["wip"] == 0
+
+
+def test_a_relaunched_builder_and_an_open_pr_hold_the_area_against_a_third(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (world / "hot.json").write_text(
+        json.dumps({"areas": {"step1": ["vextrus/takeoff/services/step1.py"]}})
+    )
+    step1 = "vextrus/takeoff/services/step1.py"
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T09:00:00Z")
+    prs(
+        world,
+        monkeypatch,
+        [
+            pr(1, "other", step1),
+            pr(2, "t160", step1, state="CLOSED") | {"createdAt": "2026-10-02T08:00:00Z"},
+        ],
+    )
+    record(world, "t160", owns=[step1], started_at="2026-10-05T08:00:00Z", budget_minutes=90)
+    refused = governor.check("cloud-session", owns=[step1], branch="third")
+    assert not refused.ok
+    assert "hot-file area step1" in (refused.reason or "")
+    assert "builder t160" in (refused.reason or "")
+
+
+def test_parse_prs_takes_rows_with_and_without_created_at() -> None:
+    row = '{"number": 1, "headRefName": "a", "state": "OPEN", "files": []%s}'
+    assert governor.parse_prs("[" + row % "" + "]") is not None
+    assert governor.parse_prs("[" + row % ', "createdAt": "2026-10-02T08:00:00Z"' + "]") is not None

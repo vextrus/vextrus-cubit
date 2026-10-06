@@ -24,21 +24,25 @@ usage tokens expansion". Cloud sessions are capped at 8 whatever the usage; with
 per builder-hour) and `--hours-to-reset`, `min(16, floor((100 - session) / (rate x hours)))`.
 `--running N` (sessions running now) is refused at or above the cap.
 
-Work in flight (`cloud-session` and `local-agent`, S14-W1): at most 5 builders in flight, counted as
-the open PRs plus the launched builders (`$VEXTRUS_FACTORY_DIR/launches/*.json`: a cloud record whose
-judge is ok, or a local one; never an acceptance-writer, reviewer or refuter record, one whose STOP was
-sent, one whose branch has a merged or closed PR and none open, or one older than its `started_at` plus
-`budget_minutes` (120 when absent) plus a 60-minute grace); a builder and its open PR count once (joined
-on the branch). `--role reviewer|refuter` takes no new work and skips these checks; `--branch B` marks
-a launch on a branch that already holds a unit (an open PR or a builder) as no new work: it meets
-neither the cap nor its own unit. With `--owns PATH` (repeatable: the files the ticket owns; a path
-ending in `/` is a folder and covers every file under it): at most 2 open PRs or builders in any
-hot-file area the owned files touch (`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>":
-["<repo path, folder ending in /, or fnmatch glob>", ...]}}`), and no owned file may be one an open PR
-changes (the refusal names that PR). Open PRs are the stdout of `gh pr list --state all --json
-number,headRefName,state,files` (`VEXTRUS_PRS_FILE` stands in for it). An unreadable record or hot-file
-list refuses, and so does an unreadable PR list when files are named; with none named, the reading says
-so and the cap counts the records alone. A builder's record names its `owns` when the launch gave them.
+Work in flight (`cloud-session` and `local-agent`, S14-W1): at most 5 builders in flight, counted as the
+open PRs plus the launched builders (`$VEXTRUS_FACTORY_DIR/launches/*.json`: a cloud record whose judge
+is ok, or a local one; never an acceptance-writer, reviewer or refuter record, one whose STOP was sent,
+one that started before the creation of its branch's latest merged or closed PR when the branch has none
+open (a relaunch on a branch after its PR closed counts; a PR row with no `createdAt` releases every
+record on its branch), or one past its `started_at` plus `budget_minutes` (120 when absent) plus a
+60-minute grace that is no longer running: a local record whose agent name is not live in `claude
+agents`, or a cloud one past the longer of 4 x its budget and 6 hours; the reading `aged_out` names
+each); a builder and its open PR count once (joined on the branch). `--role reviewer|refuter` takes no
+new work and skips these checks; `--branch B` marks a launch on a branch that already holds a unit (an
+open PR or a builder) as no new work: it meets neither the cap nor its own unit. With `--owns PATH`
+(repeatable: the files the ticket owns; a path ending in `/` is a folder and covers every file under
+it): at most 2 open PRs or builders in any hot-file area the owned files touch
+(`scripts/factory/hot-files.json`, committed: `{"areas": {"<area>": ["<repo path, folder ending in /, or
+fnmatch glob>", ...]}}`), and no owned file may be one an open PR changes (the refusal names that PR).
+Open PRs are the stdout of `gh pr list --state all --json number,headRefName,state,createdAt,files`
+(`VEXTRUS_PRS_FILE` stands in for it). An unreadable record or hot-file list refuses, and so does an
+unreadable PR list when files are named; with none named, the reading says so and the cap counts the
+records alone. A builder's record names its `owns` when the launch gave them.
 
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
 status.schema.json reports them.
@@ -66,8 +70,9 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -94,6 +99,8 @@ NOT_BUILDER_ROLES = ("acceptance-writer", "reviewer", "refuter")
 NO_NEW_WORK_ROLES = ("reviewer", "refuter")
 DEFAULT_BUDGET_MINUTES = 120
 GRACE_MINUTES = 60
+CLOUD_OVERRUN_FACTOR = 4
+CLOUD_MIN_HOURS = 6
 START_ERRORS = (KeyError, TypeError, ValueError)
 
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
@@ -255,7 +262,7 @@ def prs_text() -> str:
                 "--limit",
                 PR_LIST_LIMIT,
                 "--json",
-                "number,headRefName,state,files",
+                "number,headRefName,state,createdAt,files",
             ]
         )
         or ""
@@ -311,17 +318,34 @@ def read_builders() -> list[dict[str, Any]] | None:
     return builders
 
 
-def aged_out(record: dict[str, Any]) -> bool:
-    """A record is no builder in flight once its start, its budget and a grace have passed; a record
-    with no readable start counts (fail closed)."""
+def aged_out(record: dict[str, Any], live_agents: Callable[[], set[str] | None]) -> str | None:
+    """Why a record is no builder in flight (the sign is named), or None while it counts.
+
+    Inside its budget plus a 60-minute grace a record always counts. After that a local builder (its
+    record names its agent) ages out when the agents snapshot is readable and holds no live agent of
+    that name; any other builder (a cloud one) ages out after the longer of 4 x its budget and 6 hours,
+    since builders overrun and the cloud has no snapshot to ask. A record with no readable start counts
+    (fail closed)."""
     try:
         started = status.parse_utc(record["started_at"])
     except START_ERRORS:
-        return False
+        return None
     budget = record.get("budget_minutes")
     if not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0:
         budget = DEFAULT_BUDGET_MINUTES
-    return status.now() > started + timedelta(minutes=budget + GRACE_MINUTES)
+    elapsed = status.now() - started
+    if elapsed <= timedelta(minutes=budget + GRACE_MINUTES):
+        return None
+    name = record.get("name")
+    if record.get("where") == "local" and isinstance(name, str):
+        live = live_agents()
+        if live is not None and name not in live:
+            return f"no live agent named {name}"
+        return None
+    limit = max(CLOUD_OVERRUN_FACTOR * budget, CLOUD_MIN_HOURS * 60)
+    if elapsed > timedelta(minutes=limit):
+        return f"over {limit} minutes with no PR"
+    return None
 
 
 def read_hot_areas() -> dict[str, list[str]] | None:
@@ -532,6 +556,55 @@ def _check_usage(
             verdict.reasons.append(f"{running} cloud sessions running, the cap is {verdict.cap}")
 
 
+def _released(prs: list[dict[str, Any]], open_branches: set[str]) -> dict[str, datetime | None]:
+    """For each branch with no open PR and a merged or closed one: the creation time of its latest such
+    PR, a record that started before it belongs to that PR and is released. None releases every record
+    (a PR with no readable `createdAt`: the rule before `createdAt` was read)."""
+    released: dict[str, datetime | None] = {}
+    for row in prs:
+        name = row["headRefName"]
+        if row["state"] not in ("MERGED", "CLOSED") or name in open_branches:
+            continue
+        try:
+            created: datetime | None = status.parse_utc(row["createdAt"])
+        except START_ERRORS:
+            created = None
+        if name in released and released[name] is None:
+            continue
+        previous = released.get(name)
+        released[name] = None if created is None else max(created, previous or created)
+    return released
+
+
+def _is_released(record: dict[str, Any], released: dict[str, datetime | None]) -> bool:
+    if record["branch"] not in released:
+        return False
+    cutoff = released[record["branch"]]
+    if cutoff is None:
+        return True
+    try:
+        return status.parse_utc(record["started_at"]) < cutoff
+    except START_ERRORS:
+        return False
+
+
+def _live_agents() -> Callable[[], set[str] | None]:
+    """The names of the live agents, read once and only if asked; None when the list is unreadable."""
+    cache: list[set[str] | None] = []
+
+    def live() -> set[str] | None:
+        if not cache:
+            rows = read_agents()
+            cache.append(
+                None
+                if rows is None
+                else {str(row.get("name")) for row in rows if row.get("pid") is not None}
+            )
+        return cache[0]
+
+    return live
+
+
 def _check_work(
     verdict: Verdict, owns: list[str], role: str | None = None, branch: str | None = None
 ) -> None:
@@ -554,10 +627,9 @@ def _check_work(
         prs = []
     open_prs = [row for row in prs if row["state"] == "OPEN"]
     open_branches = {row["headRefName"] for row in open_prs}
-    # A branch whose PRs are all merged or closed has left the work in flight.
-    released = {
-        row["headRefName"] for row in prs if row["state"] in ("MERGED", "CLOSED")
-    } - open_branches
+    released = _released(prs, open_branches)
+    live_agents = _live_agents()
+    aged: list[str] = []
     # One entry per unit of work: an open PR, or a launched builder with no open PR yet.
     units: list[dict[str, Any]] = [
         {
@@ -570,7 +642,10 @@ def _check_work(
     counted = set(open_branches)
     for record in builders:
         name = record["branch"]
-        if name in released or name in counted or aged_out(record):
+        if name in counted or _is_released(record, released):
+            continue
+        if (why := aged_out(record, live_agents)) is not None:
+            aged.append(f"builder {name}: {why}")
             continue
         counted.add(name)
         owned = record.get("owns")
@@ -582,6 +657,8 @@ def _check_work(
             }
         )
     verdict.readings["wip"] = len(units)
+    if aged:
+        verdict.readings["aged_out"] = aged
     held = branch is not None and branch in counted
     if len(units) >= WIP_CAP and not held:
         names = ", ".join(unit["label"] for unit in units)
