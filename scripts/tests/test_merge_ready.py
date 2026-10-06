@@ -430,3 +430,19 @@ def test_prose_after_none_in_a_cut_section_is_not_a_cut_item() -> None:
     ]
     assert cut_problems("## Cut\nNone.\nafter it\n", lambda n: True) == []
     assert cut_problems("## Cut\n- an item\nNone.\n", lambda n: True) != []
+
+
+def test_a_head_without_the_trailer_passes_when_the_pr_changes_documents_alone(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger"
+    gate = reviewed(ledger) | {"head_ready": lambda head: False}
+    facts = gate["facts"]
+    gate["facts"] = lambda pr: facts(pr) | {"files": ["docs/handoff/session-15-prompt.md", "README.md"]}
+    assert main(["105"], get=lambda pr: READY, **gate) == 0
+
+
+def test_a_head_without_the_trailer_is_refused_when_one_file_is_code(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger"
+    gate = reviewed(ledger) | {"head_ready": lambda head: False}
+    facts = gate["facts"]
+    gate["facts"] = lambda pr: facts(pr) | {"files": ["docs/adr/0050.md", "web/src/a.ts"]}
+    assert main(["105"], get=lambda pr: READY, **gate) == 1

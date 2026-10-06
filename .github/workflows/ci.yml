@@ -270,6 +270,7 @@ jobs:
       - env:
           CHANGES: ${{ needs.changes.result }}
           READY: ${{ needs.changes.outputs.ready }}
+          PYTHON_PATHS: ${{ needs.changes.outputs.python }}
           MARKETS: ${{ needs.markets.result }}
           HARNESS: ${{ needs.harness.result }}
           SHARDS: ${{ needs.shards.result }}
@@ -277,8 +278,9 @@ jobs:
           PYTHON: ${{ needs.python.result }}
         run: |
           echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS python-checks=$CHECKS python=$PYTHON"
-          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass.
-          if [ "$READY" = false ]; then
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
+          # its changes need none (docs, the web alone): such a head passes whatever its trailer says.
+          if [ "$READY" = false ] && [ "$PYTHON_PATHS" = true ]; then
             echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
             exit 1
           fi

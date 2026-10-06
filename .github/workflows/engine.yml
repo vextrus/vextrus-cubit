@@ -262,12 +262,15 @@ jobs:
       - env:
           CHANGES: ${{ needs.changes.result }}
           READY: ${{ needs.changes.outputs.ready }}
+          ENGINE_PATHS: ${{ needs.changes.outputs.engine }}
+          CHECK_PATHS: ${{ needs.changes.outputs.check }}
           TOOLCHAIN: ${{ needs.toolchain.result }}
           CHECK_SANDBOX: ${{ needs.check-sandbox.result }}
         run: |
           echo "changes=$CHANGES toolchain=$TOOLCHAIN check-sandbox=$CHECK_SANDBOX"
-          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass.
-          if [ "$READY" = false ]; then
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
+          # its changes need none (docs, the web alone): such a head passes whatever its trailer says.
+          if [ "$READY" = false ] && { [ "$ENGINE_PATHS" = true ] || [ "$CHECK_PATHS" = true ]; }; then
             echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
             exit 1
           fi
