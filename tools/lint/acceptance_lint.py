@@ -318,8 +318,9 @@ def _work_parent() -> str | None:
 
 
 def _unrunnable() -> dict[str, str]:
-    """The opt-in marks (the base's addopts deselect them) whose tests cannot run here, each with why."""
-    found = {"live": "it calls paid services"}
+    """The opt-in marks (the base's addopts deselect them) whose tests cannot run here, each with why.
+    `live` is not one: CI's acceptance check never runs a live test, so one is refused (LIVE)."""
+    found = {}
     if not Path("/opt/vextrus").is_dir():
         found["needs_toolchain"] = "no toolchain under /opt/vextrus"
     if shutil.which("bwrap") is None:
@@ -327,13 +328,13 @@ def _unrunnable() -> dict[str, str]:
     return found
 
 
-def _through_link(tree: Path, parts: Sequence[str]) -> bool:
-    """Whether any of `tree/parts[0]`, `tree/parts[0]/parts[1]`, ... (the module's file among them) is
-    a symlink: a write there could land outside the tree."""
-    path = tree
-    for part in parts:
-        path = path / part
-        if path.is_symlink() or path.with_suffix(".py").is_symlink():
+def _through_link(tree: Path, path: Path) -> bool:
+    """Whether `path` (under `tree`), or any folder between them, is a symlink, dangling or not: a write
+    there could land outside the tree."""
+    current = tree
+    for part in path.relative_to(tree).parts:
+        current = current / part
+        if current.is_symlink():
             return True
     return False
 
@@ -367,7 +368,8 @@ class Checker:
         # The lint's own `-m` replaces the base's (its addopts may deselect opt-in marks): every test
         # is judged but those whose marks cannot run here, which are named, never refused.
         self.unrunnable = _unrunnable()
-        self.select = " and ".join(f"not {mark}" for mark in sorted(self.unrunnable))
+        # Never `live` (paid calls): such a test is refused, found by its own collection (`live()`).
+        self.select = " and ".join(f"not {mark}" for mark in ["live", *sorted(self.unrunnable)])
         self.unjudged: set[str] = set()
 
     def label(self, path: str) -> str:
@@ -438,20 +440,34 @@ class Checker:
         problems += self.check_red()
         return problems
 
+    def live(self, path: str) -> list[str]:
+        """The file's tests marked `live`, by a collection of them alone (the stubs standing in)."""
+        done, _folder = self.pytest(path, "live", "--collect-only", "-q", "-m", "live")
+        return (
+            [line for line in done.stdout.splitlines() if "::" in line] if done.returncode == 0 else []
+        )
+
     def stub(self, module: str, name: str | None, made: dict[Path, bytes | None]) -> bool:
         """Stand a stub in for a module (or a name in one) of the tree's packages not built yet,
         remembering what it changed in `made`. False when it cannot (not the tree's own, or done)."""
         parts = module.split(".")
-        if not (self.tree / parts[0]).is_dir() or _through_link(self.tree, parts):
-            return False
         package = self.tree.joinpath(*parts)
+        inits = [self.tree.joinpath(*parts[:depth], "__init__.py") for depth in range(1, len(parts))]
+        if any(
+            _through_link(self.tree, written)
+            for written in (package, package.with_suffix(".py"), *inits)
+        ):
+            return False  # every path it would write or unlink, checked before any write
+        if not (self.tree / parts[0]).is_dir():
+            return False
         path = package / "__init__.py" if package.is_dir() else package.with_suffix(".py")
+        if _through_link(self.tree, path):
+            return False
         if name is None and path.exists():
             return False
         if name is not None and (not path.is_file() or path in made):
             return False
-        for depth in range(1, len(parts)):
-            init = self.tree.joinpath(*parts[:depth], "__init__.py")
+        for init in inits:
             if not init.exists():
                 made[init] = None
                 init.parent.mkdir(parents=True, exist_ok=True)
@@ -469,11 +485,15 @@ class Checker:
                     done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
                     output = done.stdout + done.stderr
                     deselected = DESELECTED.search(output)
-                    if deselected and done.returncode in (0, 5):
+                    live = self.live(path) if deselected and done.returncode in (0, 5) else []
+                    if live:
+                        why = "CI's acceptance check never runs a live test (it fails as deselected)"
+                        problems.append(f"{self.label(path)}: marked live: {why}: {', '.join(live)}")
+                    if deselected and int(deselected.group(1)) > len(live):
                         marks = ", ".join(f"{mark} ({why})" for mark, why in self.unrunnable.items())
                         print(
-                            f"{self.label(path)}: {deselected.group(1)} test(s) not judged here, "
-                            f"marked one of: {marks}"
+                            f"{self.label(path)}: {int(deselected.group(1)) - len(live)} test(s) not "
+                            f"judged here, marked one of: {marks}"
                         )
                     if deselected and done.returncode == 5:
                         self.unjudged.add(path)

@@ -134,10 +134,11 @@ does not). An amendment (`scripts.factory.amend`) replaces: per file, the newest
 `red-for:` reasons for it wins, and per key the newest `pin:`; an older malformed or mistyped declaration is
 superseded the same way (a `pin:` line by a newer pin of its key, a `red-for:` line by a newer commit stating
 `red-for:` lines). The lint's pytest runs carry their own `-m`, so a base's addopts deselecting the opt-in
-marks (`needs_toolchain`, `needs_bwrap`, `live`) do not hide a marked file: it is judged, except for the
-marks that cannot run where the lint runs (`live` always; `needs_toolchain` without `/opt/vextrus`;
-`needs_bwrap` without `bwrap`), whose tests are named "not judged here", never refused. Laying out the tree
-and stubbing never write through a symlink. The test database a run makes (its name hashes
+marks (`needs_toolchain`, `needs_bwrap`) do not hide a marked file: it is judged, except where its mark cannot
+run (`needs_toolchain` without `/opt/vextrus`, `needs_bwrap` without `bwrap`): those tests are named "not judged
+here", never refused. A test marked `live` is refused, named, and never run: CI's acceptance check never runs a
+live test, so the built branch would fail it as deselected. Laying out the tree and stubbing never write or
+unlink through a symlink (every path a stub writes, each `__init__.py` among them, checked first). The test database a run makes (its name hashes
 the run's own tree) is dropped by name after it. It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
 fail its stated-reason check: run it on new acceptance commits.
 

@@ -178,14 +178,16 @@ def test_a_file_marked_needs_toolchain_red_for_another_reason_fails(tmp_path: Pa
     assert "for a reason not stated" in refused(root)
 
 
-def test_a_file_marked_live_is_named_not_judged_and_not_refused(tmp_path: Path) -> None:
+def test_a_file_marked_live_is_refused_naming_its_tests(tmp_path: Path) -> None:
+    """Review round 3: CI's acceptance check never runs a live test, so the built branch would fail
+    it as deselected; the lint refuses the test at the writer (and never runs it)."""
     root = opt_in_repo(tmp_path)
     ticket(root, BRANCH, FOLDER, test=marked("live"))
 
-    done = lint(root, "main", BRANCH)
+    output = refused(root)
 
-    assert done.returncode == 0, said(done)
-    assert "not judged here" in said(done)
+    assert "marked live" in output
+    assert "test_counts_three_storeys" in output
 
 
 def amend(root: Path, message: str) -> None:
@@ -341,3 +343,74 @@ def test_a_run_with_a_database_test_leaves_no_test_database(tmp_path: Path) -> N
     assert "Traceback" not in done.stdout, done.stdout
     assert "database was not dropped" not in done.stdout, done.stdout
     assert _test_databases() == before, done.stdout
+
+
+# Review round 3.
+
+
+def linked_repo(tmp_path: Path, link: str, target: Path) -> Path:
+    """The fixture repository with `link` (a path under it) committed as a symlink to `target`."""
+    root = make_repo(tmp_path)
+    (root / link).parent.mkdir(parents=True, exist_ok=True)
+    (root / link).symlink_to(target)
+    git(root, "add", link)
+    git(root, "commit", "-q", "-m", "a link")
+    return root
+
+
+def laid_out(root: Path, tmp_path: Path) -> Checker:
+    work = tmp_path / "work"
+    work.mkdir()
+    checker = Checker(root, "main", Ticket(BRANCH), work)
+    checker.lay_out()
+    return checker
+
+
+def test_a_stub_never_writes_a_package_init_that_is_a_dangling_link(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "made.py"
+    root = linked_repo(tmp_path, "fixturepkg/side/__init__.py", target)
+    checker = laid_out(root, tmp_path)
+
+    assert not checker.stub("fixturepkg.side.storeys", None, {})
+    assert not target.exists()
+
+
+def test_a_stub_never_writes_through_a_link_to_an_outside_folder(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    root = linked_repo(tmp_path, "fixturepkg/deep", outside)
+    checker = laid_out(root, tmp_path)
+
+    assert not checker.stub("fixturepkg.deep.more.storeys", None, {})
+    assert list(outside.iterdir()) == []
+
+
+def test_a_lint_run_never_creates_a_dangling_link_target(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "made.py"
+    root = linked_repo(tmp_path, "fixturepkg/side/__init__.py", target)
+    test = TOP_IMPORT.replace("fixturepkg.low.storeys", "fixturepkg.side.storeys")
+    ticket(root, BRANCH, FOLDER, test=test, reasons=("No module named 'fixturepkg.side'",))
+
+    done = lint(root, "main", BRANCH)
+
+    assert "Traceback (most recent call last)" not in said(done), said(done)
+    assert "does not collect" in said(done), said(done)
+    assert not target.exists(), said(done)
+
+
+def test_a_stub_never_appends_to_a_package_init_linked_to_an_outside_file(tmp_path: Path) -> None:
+    """A name missing from a package whose own `__init__.py` links to a file in an existing outside
+    folder: the stub would be appended to that file."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    target = outside / "init.py"
+    target.write_text("")
+    root = linked_repo(tmp_path, "fixturepkg/side/__init__.py", target)
+    checker = laid_out(root, tmp_path)
+
+    assert not checker.stub("fixturepkg.side", "count_storeys", {})
+    assert target.read_text() == ""
