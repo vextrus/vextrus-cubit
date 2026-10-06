@@ -1,5 +1,7 @@
-"""`python -m scripts.factory.review run <PR> --round n [--exception K --reason T]`: one review round
-of a PR head, by code (issues #452, #406, #420; the session-13 close's review research, section 3).
+"""`python -m scripts.factory.review run <PR> --round n [--exception K --reason T] [--where cloud]`: one
+review round of a PR head, by code (issues #452, #406, #420, #453, #342; the session-13 close's review
+research, section 3). `fix-message <PR> --from-verdict` prints the fix message of the PR's latest
+recorded round: one line per standing finding (`file:line (score): summary`), none refuted.
 
 1. **Resolve (code).** `gh pr view` gives the PR's state, its 40-hex head and its checks: nobody types a
    sha. The ledger's own `check_exception` and `check_round` run in this process; a closed PR, a short or
@@ -14,20 +16,32 @@ of a PR head, by code (issues #452, #406, #420; the session-13 close's review re
 4. **Slot (code).** Review slot N is claimed by an exclusive `flock` on `.slot<N>.lock`, held until the
    run ends (two concurrent runs never share one). The read-only `.private/work/factory/review/slot<N>`
    and the runnable `.claude/worktrees/rv<N>` both hold the merged head.
-5. **Lenses.** Each lens is `claude -p --agent <name> --output-format json --json-schema <REVIEW>
+5. **Lenses.** Each lens is `claude -p --agent <name> --model <map> --effort high --max-turns <T>
+   --max-budget-usd <B> --no-session-persistence --output-format json --json-schema <REVIEW>
    --allowedTools <exact entries> --permission-mode dontAsk`, prompt on stdin, cwd `rv<N>`,
-   `VEXTRUS_DB_NAME=vextrus_rv_slot<N>`; its `structured_output` is read and checked here. No prompt
+   `VEXTRUS_DB_NAME=vextrus_rv_slot<N>`. The map (the owner's Q1): lens A Opus 5.5, lens B, the words
+   lens and the refuter Sonnet 5.5. Past `VEXTRUS_REVIEW_LENS_TIMEOUT` seconds (default 45 minutes) a
+   lens's process group gets SIGINT, SIGTERM, then SIGKILL, and the run exits 3 naming it; so does a
+   reply outside the REVIEW schema or with no `structured_output`. A lens that finished is kept per
+   head, round and main: a rerun of the round starts only the others. No prompt
    names where verdicts are kept. A lens loads no user, project or local settings (`--setting-sources
    ""`): its settings, its guard and its agent come from the review code's own checkout, never from
    the PR head in `rv<N>` (the live probes: `--agents` beats the project's agent file, and the user's
    wide allow rules are gone).
 6. **Replay (code).** Each finding of 50 or more with a `repro` has its test file run here, in `rv<N>`
    (tracked files reset to the merged head first): a non-zero exit with `FAILED <test_file>` is
-   CONFIRMED. Any other finding of 50 or more is UNPROVEN, which stands (a batched refuter is S14-R2).
+   CONFIRMED. Every other finding of 50 or more goes to ONE batched `refuter` process, whose verdict
+   per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded; a
+   refuter that fails or answers outside its schema refutes nothing (UNPROVEN stands).
 7. **Record (code).** The `VERDICT`/`FINDING` lines go to a file and `scripts.ledger record` is called in
    this process: the verdict is decided there and nowhere else, its leak scan runs and it posts the one
    marker comment. One JSON cost line is appended to `.private/work/factory/review-cost.jsonl`, and one
-   JSON object (the PR, its head, the verdict) is printed on stdout.
+   JSON object (the PR, its head, the verdict) is printed on stdout. The round's findings are kept
+   beside the decision lines for `fix-message`.
+
+`--where cloud` stops after the tier: each lens is one cloud reviewer launched through
+`scripts.factory.review_cloud` (`launch cloud --role reviewer`, the lens's model), and nothing is
+recorded.
 
 Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing recorded).
 """
@@ -35,6 +49,7 @@ Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing record
 import argparse
 import contextlib
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -310,6 +325,7 @@ class Run:
     paths: list[str] = field(default_factory=list)  # the changed paths
     lenses: list[dict[str, Any]] = field(default_factory=list)
     launched: list[str] = field(default_factory=list)  # --where cloud: the review branches
+    kept: dict[str, str] = field(default_factory=dict)  # the kept lens answers: name -> sha256
     findings: list[Finding] = field(default_factory=list)
 
     def cost(self) -> float:
@@ -957,6 +973,7 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
                 )
         confirm(run, rv)
         refute(run, rv, slot, main)
+        check_kept(review_dir / "out", run)
         if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
             # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
             raise Refused(
@@ -1028,7 +1045,30 @@ def save_finished(out: Path, run: Run, lens: Lens, answer: dict[str, Any], rv: P
         "review": answer,
         "attacks": attacks,
     }
-    finished_path(out, run, lens).write_text(json.dumps(saved))
+    path = finished_path(out, run, lens)
+    data = json.dumps(saved).encode()
+    path.write_bytes(data)
+    run.kept[path.name] = hashlib.sha256(data).hexdigest()
+
+
+def kept_answers(out: Path, run: Run) -> dict[str, str]:
+    """The kept lens answers of this head and round on disk: name -> sha256."""
+    pattern = f"{run.pr}-{run.head}-r{run.round_}-*.done.json"
+    return {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in out.glob(pattern)}
+
+
+def check_kept(out: Path, run: Run) -> None:
+    """The PR's code runs unsandboxed in rv<N>: a kept answer it wrote or changed would be reused by a
+    rerun. Any change since this run read or wrote them deletes them all and refuses."""
+    now = kept_answers(out, run)
+    if now != run.kept:
+        for name in {*now, *run.kept}:
+            (out / name).unlink(missing_ok=True)
+        run.kept = {}
+        raise Refused(
+            f"a kept lens answer for PR {run.pr} at {run.head} changed while the PR's code ran: "
+            "all deleted, nothing recorded; the owner must look at it before any merge"
+        )
 
 
 def restore_attacks(rv: Path, attacks: dict[str, Any]) -> None:
@@ -1057,6 +1097,7 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
     out = main / ".private" / "work" / "factory" / "review" / "out"
     stem = f"{run.pr}-{head[:12]}-r{run.round_}"
     facts = write_facts(main, run, out / stem)
+    run.kept = kept_answers(out, run)
     finished = {
         lens.label: saved for lens in lenses if (saved := load_finished(out, run, lens)) is not None
     }
@@ -1089,6 +1130,7 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
     with ThreadPoolExecutor(max_workers=len(lenses)) as pool:
         futures = [pool.submit(one, lens) for lens in lenses]
         errors = [future.exception() for future in futures]
+    check_kept(out, run)
     for error in errors:
         if error is not None and not isinstance(error, Refused):
             raise error

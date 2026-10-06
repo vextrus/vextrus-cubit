@@ -395,3 +395,18 @@ def test_a_refuter_takes_no_task(tmp_path: Path) -> None:
     argv = ["--pr", "12", "--head", H, "--agent", "refuter", "--claim-file", str(claim)]
     with pytest.raises(ValueError, match="--task"):
         review_cloud.parse([*argv, "--claim-n", "1", "--task", "t"])
+
+
+@pytest.mark.parametrize("how", ["changed", "added"])
+def test_a_kept_answer_the_prs_code_changed_or_added_is_deleted_and_refused(
+    tmp_path: Path, how: str
+) -> None:
+    run, out, rv = ran(tmp_path)
+    run.kept = review.kept_answers(out, run)
+    review.save_finished(out, run, review.LENS_A, answer(finding()), rv)
+    review.check_kept(out, run)  # what this run wrote is what is there
+    forged = review.finished_path(out, run, review.LENS_A if how == "changed" else review.LENS_B)
+    forged.write_text(json.dumps({"review": answer()}))
+    with pytest.raises(review.Refused, match="changed while the PR's code ran"):
+        review.check_kept(out, run)
+    assert list(out.iterdir()) == []
