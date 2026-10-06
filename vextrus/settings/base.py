@@ -46,6 +46,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     # 02's tenant middleware: a pass-through until 02 fills it. It must come after authentication.
     "vextrus.platform.http.middleware.TenantMiddleware",
+    # The admin's times in the acting Developer's Market's zone; it reads the tenant set above.
+    "vextrus.platform.http.middleware.AdminTimeZoneMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
