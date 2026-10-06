@@ -36,8 +36,8 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
   per file (the file of the first Sheet held; those holding none, once per Discipline);
 - bulk-confirmable per Discipline: Sheets that agree and are not held, or, where a gap Question is
   open, `bulk_after_gaps` (absent: that row's count is null, the share unmeasured); verdict.py
-  judges the share on the key-named total over N and on each row over its own `sheets` ("Total +
-  own split");
+  judges the share on the set's total over N, every row counted (Q9), and on each row over its own
+  `sheets` ("Total + own split");
 - stale: listed pairs of equal titles (case and spacing folded) that no open or answered Question
   holds together (a withdrawn one asks nothing; a
   listed Sheet absent from the snapshot cannot be shown grouped: it counts); a listed true Question
@@ -53,7 +53,7 @@ The rules (the owner's Q5 refined limits, 5 Oct 2026):
 import copy
 import json
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -608,8 +608,3 @@ def attach(walk: Any, folder: Path, expect: Mapping[str, Any]) -> Any:
         except ValueError, KeyError, TypeError, RecursionError:
             record["measures"] = dict(UNMEASURED)
     return measured
-
-
-def judged_rows(rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
-    """The burden rows a Sheet count N judges (their Discipline is in the expectation)."""
-    return [row for row in rows if row.get("sheets_expected") is not None]

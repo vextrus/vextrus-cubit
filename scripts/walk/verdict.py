@@ -246,6 +246,15 @@ def _sheets_count(rows: Sequence[Mapping[str, Any]]) -> tuple[int, int, int, int
     return found, max(0, expected - found), min(max(0, found - expected), blanks), expected
 
 
+def _bulk_total(rows: Sequence[Mapping[str, Any]]) -> tuple[int, int] | None:
+    """(bulk, N) for half (a) of the bulk share: the bulk Sheets of every row, a Discipline the key
+    does not name and the row of none among them (the owner, 5 Oct 2026, Q9), over the key's N; None
+    when a row's bulk was not measured."""
+    if any(row["bulk_confirmable_sheets"] is None for row in rows):
+        return None
+    return sum(row["bulk_confirmable_sheets"] for row in rows), _sheets_count(rows)[3]
+
+
 def status_of(check: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> str:
     """A check's status from its own `measured`, `expected` and its set's burden rows: the one rule
     `evaluate` writes by and `ready.py` re-checks every verdict by."""
@@ -318,18 +327,16 @@ def _holds(name: str, m: Any, e: Any, rows: Sequence[Mapping[str, Any]]) -> bool
                 and m("stale_grouped") <= caps[1]
             )
         case "bulk_confirmable_share":
-            # The owner, 5 Oct 2026 ("Total + own split"): (a) the bulk Sheets of the Disciplines the
-            # key names, over the key's N for the set; (b) each Discipline's bulk Sheets over the
-            # Sheets the product itself files under it. Against the key's N per Discipline: reported.
-            share = e("bulk_confirmable_share_min")
-            if share is None or any(row["bulk_confirmable_sheets"] is None for row in rows):
+            # The owner, 5 Oct 2026 ("Total + own split"; Q9): (a) the set's bulk Sheets over the
+            # key's N; (b) each row's bulk Sheets, the row of none among them, over the Sheets the
+            # product itself files under it. Against the key's N per Discipline: reported.
+            share, totals = e(SHARE_KEY), _bulk_total(rows)
+            if share is None or totals is None:
                 return False
-            named = [row for row in rows if row.get("sheets_expected") is not None]
-            total = sum(row["bulk_confirmable_sheets"] for row in named)
-            n = sum(row["sheets_expected"] for row in named)
+            bulk, n = totals
             return (
-                (m("bulk_confirmable_sheets"), m("sheets_expected")) == (total, n)
-                and total >= share * n - SHARE_SLACK
+                (m("bulk_confirmable_sheets"), m("sheets_expected")) == totals
+                and bulk >= share * n - SHARE_SLACK
                 and all(
                     row["bulk_confirmable_sheets"] >= share * row["sheets"] - SHARE_SLACK for row in rows
                 )
@@ -496,7 +503,6 @@ def _set_checks(
     measures = _measures(record)
     if any(row[key] is None for row in rows for key in SNAPSHOT_ROW_KEYS):
         measures = None  # a row the snapshot did not count: not measured
-    judged = [row for row in rows if row["sheets_expected"] is not None]
 
     def measured(numbers: dict[str, Any]) -> dict[str, Any]:
         return dict(UNMEASURED) if measures is None else numbers
@@ -504,7 +510,7 @@ def _set_checks(
     found, missing, phantoms, _ = _sheets_count(rows)
     unknown = dict.fromkeys(MEASURES, 0)
     got = unknown if measures is None else measures
-    bulk = [row["bulk_confirmable_sheets"] for row in judged]
+    bulk = _bulk_total(rows)
     checks = [
         reads,
         act_check,
@@ -564,11 +570,8 @@ def _set_checks(
             name,
             # A Discipline with an open gap Question and no count after its answer: unmeasured.
             dict(UNMEASURED)
-            if measures is None or any(row["bulk_confirmable_sheets"] is None for row in rows)
-            else {
-                "bulk_confirmable_sheets": sum(b or 0 for b in bulk),
-                "sheets_expected": sum(row["sheets_expected"] for row in judged),
-            },
+            if measures is None or bulk is None
+            else {"bulk_confirmable_sheets": bulk[0], "sheets_expected": bulk[1]},
             limits(
                 (SHARE_KEY, "sheets_per_discipline"),
                 {SHARE_KEY: SHARE_KEY},

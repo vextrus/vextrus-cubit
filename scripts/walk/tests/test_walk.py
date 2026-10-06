@@ -139,6 +139,34 @@ def test_the_measured_walk_passes() -> None:
     assert ready.consistent(judged) is True
 
 
+@pytest.mark.parametrize(("refiled", "want"), [("agrees", "PASS"), ("disagrees", "FAIL")])
+def test_sheets_the_key_does_not_name_count_toward_the_bulk_total(refiled: str, want: str) -> None:
+    """The owner's Q9 (5 Oct 2026): the product files Q-3 under plumbing, which the key does not
+    name, and Q-4 under no Discipline. Both count toward half (a)'s total over N 4 (4 needed at 0.8),
+    and each is its own row under half (b)."""
+    walk = _walk()
+    snapshot_set = _snapshot_set()
+    snapshot_set["sheets"][2]["discipline"] = "plumbing"
+    snapshot_set["sheets"][3]["discipline"] = None
+    for sheet in snapshot_set["sheets"][2:]:
+        sheet["agrees"] = refiled == "agrees"
+    with tempfile.TemporaryDirectory() as folder:
+        snapshot = {**_snapshot(walk), "sets": {"set-a": snapshot_set}}
+        (Path(folder) / "snapshot.json").write_text(json.dumps(snapshot))
+        measured = measures.attach(walk, Path(folder), EXPECT)
+    judged = verdict.evaluate(measured, EXPECT, LAYER, ref="main", leak_hits=0, **TIMES)
+
+    bulk = next(c for c in judged["checks"] if c["check"] == "bulk_confirmable_share")
+    rows = {row["discipline"]: row for row in judged["burden"]}
+    assert bulk["status"] == want
+    assert bulk["measured"] == {
+        "bulk_confirmable_sheets": 4 if refiled == "agrees" else 2,
+        "sheets_expected": 4,
+    }
+    assert (rows["none"]["sheets"], rows["plumbing"]["sheets"]) == (1, 1)
+    assert ready.consistent(judged) is True
+
+
 def test_a_walk_never_measured_fails_its_snapshot_checks_closed() -> None:
     judged = verdict.evaluate(_walk(), EXPECT, LAYER, ref="main", leak_hits=0, **TIMES)
 
