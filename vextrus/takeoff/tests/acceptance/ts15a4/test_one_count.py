@@ -153,7 +153,8 @@ def test_the_header_count_is_the_discipline_rows_added_up(read: Read) -> None:
 
 
 def test_each_file_s_sheets_found_leaves_out_its_sheet_proposed_out_with_no_number(read: Read) -> None:
-    assert read.sheets_found() == {STR: 2, ARC: 3}
+    found = read.sheets_found()
+    assert found == {STR: 2, ARC: 3}, f"a file's Sheets found counts its cover with no number: {found}"
 
 
 def test_the_files_sheets_found_add_up_to_the_header_count(read: Read) -> None:
@@ -168,7 +169,10 @@ def test_the_drawing_set_summary_counts_the_same_sheets_read(read: Read) -> None
 
 
 def test_a_file_report_says_the_sheets_found_its_row_shows(read: Read) -> None:
-    assert {name: read.report_count(name) for name in DRAWN} == {STR: 2, ARC: 3}
+    said = {name: read.report_count(name) for name in DRAWN}
+    assert said == {STR: 2, ARC: 3}, (
+        f"a file report's sheets found counts its cover with no number: {said}"
+    )
 
 
 def test_a_cover_the_qs_confirms_in_counts_in_the_header_its_file_and_its_report(read: Read) -> None:
