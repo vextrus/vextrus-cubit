@@ -104,7 +104,9 @@ function cutHeredocs(command) {
     if (c === "<" && command[i + 1] === "<" && command[i + 2] !== "<" && command[i - 1] !== "<") {
       const m = /^<<(-?)[ \t]*(?:'([^'\n]*)'|"([^"\n]*)"|\\?([A-Za-z0-9_.-]+))/.exec(command.slice(i));
       if (m) {
-        pending.push({ strip: m[1] === "-", delim: m[2] ?? m[3] ?? m[4], quoted: m[4] === undefined || m[0].includes("\\"), start: out.lastIndexOf("\n") + 1 });
+        const next = command[i + m[0].length];
+        const plain = m[4] === undefined && /^[A-Za-z0-9_.-]+$/.test(m[2] ?? m[3]) && (next === undefined || /[\s;&|<>()]/.test(next));
+        pending.push({ strip: m[1] === "-", delim: m[2] ?? m[3] ?? m[4], quoted: m[4] === undefined || m[0].includes("\\"), plain, start: out.lastIndexOf("\n") + 1 });
         out += m[0];
         i += m[0].length;
         continue;
@@ -114,15 +116,19 @@ function cutHeredocs(command) {
       i++;
       for (const doc of pending) {
         const body = [];
+        let closed = false;
         while (i < command.length) {
           let end = command.indexOf("\n", i);
           if (end < 0) end = command.length;
           const line = command.slice(i, end);
           i = end + 1;
-          if ((doc.strip ? line.replace(/^\t+/, "") : line) === doc.delim) break;
+          if ((doc.strip ? line.replace(/^\t+/, "") : line) === doc.delim) {
+            closed = true;
+            break;
+          }
           body.push(line);
         }
-        docs.push({ opener: out.slice(doc.start), body: body.join("\n"), quoted: doc.quoted });
+        docs.push({ opener: out.slice(doc.start), body: body.join("\n"), quoted: doc.quoted, plain: doc.plain, closed });
       }
       out += "\n";
       pending = [];
@@ -1049,12 +1055,12 @@ const plainBelow = (path) => /^[A-Za-z0-9_@+-][A-Za-z0-9_.@+\/-]*$/.test(path) &
  */
 function nothingToDiscard(g, cmd, analysis, paths) {
   if (cmd === undefined || analysis === undefined || analysis.truncated || cmd.unit === undefined) return false;
-  if (g.gitDir !== null || g.workTree !== null || paths.length === 0 || !paths.every(plainBelow) || looped(analysis)) return false;
+  if (g.gitDir !== null || g.workTree !== null || paths.length === 0 || !paths.every(plainBelow) || looped(analysis) || !cwdTrusted(analysis)) return false;
   const base = gitFolder(g);
   if (base === null) return false;
   const at = analysis.cmds.indexOf(cmd);
   const earlier = analysis.cmds.filter((c, k) => k < at || (c.unit !== cmd.unit && c !== cmd));
-  const benign = (c) => (READ_ONLY_FILTERS.has(c.name) && !redirects(c.raw ?? "")) || (c.name === "" && c.assigns.length === 0);
+  const benign = (c) => (READ_ONLY_FILTERS.has(c.name) && !writesFile(c.raw ?? "")) || (c.name === "" && c.assigns.length === 0);
   if (!existsSync(base)) {
     const add = earlier.find((c) => {
       const w = gitOf(c);
@@ -1233,6 +1239,46 @@ function leadOf(cmd) {
 /** True when the call has a loop (`for`, `while`, `until`, `select`: each has a `do`). */
 const looped = (analysis) => analysis.cmds.some((cmd) => leadOf(cmd).includes("do"));
 
+/**
+ * True when a simple command may write a file through any redirect: every `>` outside quotes counts
+ * (`>`, `>>`, `>|`, `&>`, `>&file`, `<>`, `>(…)`) except `N>&M`, `N>&-` and a redirect to /dev/null.
+ */
+function writesFile(raw) {
+  const bare = raw.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
+  const end = String.raw`(?=[\s;&|)]|$)`;
+  const rest = bare
+    .replace(new RegExp(String.raw`(?:^|(?<=[\s;&|(]))(?:[0-9]*>>?|&>>?)\|?[ \t]*/dev/null${end}`, "g"), " ")
+    .replace(new RegExp(String.raw`[0-9]*>&(?:[0-9]+|-)${end}`, "g"), " ");
+  return rest.includes(">");
+}
+
+/**
+ * True when the folder the guard follows through each `cd` is the one bash runs in. Not so when a cd runs
+ * in a subshell (a pipe, `&`, parentheses), inside braces or a loop (a later pass starts where it left),
+ * or is a `popd`, or sits in a find -exec.
+ */
+function cwdTrusted(analysis) {
+  const moves = analysis.cmds.filter((cmd) => ["cd", "pushd", "popd"].includes(cmd.name));
+  for (const move of moves) {
+    if (move.name === "popd" || move.seg === undefined || ["|", "&", "?", "(", ")"].includes(move.sep)) return false;
+    const unit = analysis.cmds.filter((cmd) => cmd.unit === move.unit && cmd.seg !== undefined).sort((a, b) => a.seg - b.seg);
+    if (unit.some((cmd) => ["(", ")", "?"].includes(cmd.sep))) return false;
+    let braces = 0;
+    let loop = false;
+    for (const cmd of unit) {
+      const lead = leadOf(cmd);
+      braces += lead.filter((w) => w === "{").length;
+      loop ||= ["for", "select"].includes(cmd.name) || lead.some((w) => ["do", "while", "until"].includes(w));
+      if (cmd === move) {
+        if (braces > 0 || loop || unit[unit.indexOf(cmd) - 1]?.sep === "|") return false;
+        break;
+      }
+      braces -= lead.filter((w) => w === "}").length;
+    }
+  }
+  return true;
+}
+
 // The commands that may share a call with a quoted heredoc whose body is data only (issue #307): none runs
 // text, so the body is never a command. A heredoc any other command shares a call with keeps its body
 // judged (a script written then run, `cat <<'EOF' | bash`, a module written then imported).
@@ -1246,7 +1292,9 @@ const DATA_ONLY = new Set(["cat", "mkdir", "cd", "chmod", "ls", "echo", "printf"
  */
 function dataText(analysis, command) {
   const { text, docs } = cutHeredocs(command);
-  if (docs.length === 0 || analysis.truncated || docs.some((doc) => !doc.quoted)) return command;
+  // Only a heredoc bash and the guard end at the same line: one plainly quoted word (`'EOF'`, never
+  // `'E'OF`), closed by its own line. Otherwise the guard could take as body what bash runs.
+  if (docs.length === 0 || analysis.truncated || docs.some((doc) => !doc.quoted || !doc.plain || !doc.closed)) return command;
   const inert = (cmd) =>
     cmd.assigns.length === 0 &&
     leadOf(cmd).every((w) => RESERVED.has(w)) &&
@@ -1330,12 +1378,12 @@ function touchesLedger(cmd) {
 
 /** True when every command of a call that names the ledger folder only reads (see LEDGER_READERS). */
 function ledgerReadOnly(analysis, command) {
-  if (analysis.truncated || analysis.codes.length > 0) return false;
+  if (analysis.truncated || analysis.codes.length > 0 || !cwdTrusted(analysis)) return false;
   const flat = flatten(command);
   for (const cmd of analysis.cmds) {
     const raw = cmd.raw ?? "";
     const lead = leadOf(cmd);
-    if (readsCommands(cmd, flat) || redirects(raw)) return false;
+    if (readsCommands(cmd, flat) || writesFile(raw)) return false;
     if (cmd.name === "sed" && !sedReads(cmd.args)) return false;
     if (cmd.name === "find" && cmd.args.some((a) => FIND_ACTION.test(a))) return false;
     if (cmd.name === "sort" && !cmd.args.every((a) => !a.startsWith("-") || SORT_READ.test(a))) return false;
@@ -1362,10 +1410,10 @@ function recordForged(analysis, command) {
     if (run !== "exact") continue;
     if (cmd.args[2] === "build" && cmd.args.slice(3).some((a) => /^--s/.test(a))) return true;
     // A stamp or a corpus is written only by the main checkout's own scanner, from the orchestrator's
-    // session: a worktree's scanner is that branch's code. In a loop that also changes folder, a later
-    // pass may run from where the cd left it, so the folder read in order is not the one it runs in.
+    // session: a worktree's scanner is that branch's code; and only where the guard follows the folder
+    // as bash does (a cd in a loop, a subshell or the background would leave it elsewhere).
     if (scannerWrites(cmd) && !(orchestrators && cmd.cwd === MAIN_CHECKOUT)) return true;
-    if (scannerWrites(cmd) && looped(analysis) && analysis.cmds.some((c) => ["cd", "pushd", "popd"].includes(c.name) || c.chdirs.length > 0)) return true;
+    if (scannerWrites(cmd) && !cwdTrusted(analysis)) return true;
   }
   if (/leakscan\/(?:ok|corpus)(?:\/|\b|$)|work\/leakscan(?:\/|\b|$)/.test(flat) && !scannerOnly) return true;
   const home = LEAK_HOME.replace(/\/+$/, "");

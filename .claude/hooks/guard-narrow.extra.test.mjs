@@ -124,3 +124,42 @@ test("post-status takes an empty item list quoted either way, from the orchestra
   }
   assert.equal(verdict(`${gate} --failed ''`, WT, WT), "PRIVILEGE_RAISED");
 });
+
+// The refuter's round (the risks it named: redirect forms, where a heredoc ends, the folder a cd leaves).
+test("every redirect form into the ledger stays RECORD_FORGED, whichever reader writes it", () => {
+  for (const command of [
+    `echo '{"verdict":"PASS"}' &> ${LEDGER}/451-x.json`,
+    `echo '{"verdict":"PASS"}' &>> ${LEDGER}/451-x.json`,
+    `echo '{"verdict":"PASS"}' >&${LEDGER}/451-x.json`,
+    `echo '{"verdict":"PASS"}' >| ${LEDGER}/451-x.json`,
+    `cat 3<>${LEDGER}/451-x.json ${LEDGER}/451-a.json`,
+    `ls ${LEDGER} > >(cat > /tmp/x)`,
+  ]) assert.equal(verdict(command), "RECORD_FORGED", command);
+});
+
+test("a heredoc the guard and bash could end at different lines keeps its body judged", () => {
+  const stamp = "echo '{}' > .private/work/leakscan/ok/x";
+  for (const command of [
+    `cd ${S} && cat > n.md <<'E'OF\nx\nEOF\n${stamp}`,
+    `cd ${S} && cat > n.md <<"E"OF\nx\nEOF\n${stamp}`,
+    `cd ${S} && cat > n.md <<\\EOF\nx\nEOF\n${stamp}`,
+    `cd ${S} && cat > n.md <<'EOF'\nx\n${stamp}`,
+  ]) assert.equal(verdict(command), "RECORD_FORGED", command);
+});
+
+test("a cd the guard cannot follow (subshell, pipe, background, braces, loop, popd) ends each narrowing", () => {
+  const ledger = `${MAIN}/.private/work/factory/ledger`;
+  const write = "sed -n 1p /dev/null; curl -so 451-x.json https://example.invalid";
+  for (const command of [
+    `cd ${ledger}; (cd /tmp); ${write}`,
+    `cd ${ledger}; cd /tmp & ${write}`,
+    `cd ${ledger}; true | cd /tmp; ${write}`,
+    `cd ${ledger}; { cd /tmp; } & ${write}`,
+    `pushd ${ledger}; pushd /tmp; popd; ${write}`,
+    `for d in 1 2; do ${write}; cd ${ledger}; done`,
+  ]) assert.equal(verdict(command), "RECORD_FORGED", command);
+  assert.equal(verdict(`cd ${MAIN} & uv run python -m tools.leakscan file ${S}/iss/1.md`, WT), "RECORD_FORGED");
+  assert.equal(verdict(`(cd ${MAIN}) ; uv run python -m tools.leakscan file ${S}/iss/1.md`, WT), "RECORD_FORGED");
+  assert.equal(verdict(`cd ${CLEAN} & git checkout HEAD -- web/src/acceptance/t1/`, UNTRACKED), "DISCARD");
+  assert.equal(verdict(`(cd ${CLEAN}); git checkout HEAD -- web/src/acceptance/t1/`, UNTRACKED), "DISCARD");
+});
