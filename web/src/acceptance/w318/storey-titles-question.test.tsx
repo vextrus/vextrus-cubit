@@ -7,10 +7,12 @@
  * section 4 step 5): the title "{count, plural, one {The title of 1 sheet names storeys its plans do
  * not agree with} other {The titles of # sheets name storeys their plans do not agree with}}, for
  * example {sheet}, which names “{stated}” (…). Vextrus takes the storeys from the plans."; the options
- * "The plans are right: keep the storeys they name", "The titles are right: I’ll correct the plans’
- * storeys in the list", "Keep open, ask the consultant"; the answered lines "{tag} answered. Recorded:
- * the plans’ storeys stand." and "{tag} answered. Recorded: the titles are right; correct each plan’s
- * storeys in the list."; the Trace "Trace: the title blocks and plans of {sheets}".
+ * "The plans are right: keep the storeys they name", a `title_right` option, "Keep open, ask the
+ * consultant"; the answered line "{tag} answered. Recorded: the plans’ storeys stand."; the Trace
+ * "Trace: the title blocks and plans of {sheets}". S15-E3 amends the `title_right` words: #436's
+ * review (scored 70) found "I’ll correct the plans’ storeys in the list" and "correct each plan’s
+ * storeys in the list" promise a storey edit the product does not have; no words of this Question
+ * may promise one (the builder words `title_right` without it).
  *
  * The seam: `questionWords.tsx` (`QuestionTitle`, `OptionWords`, `prePick`, `Trace`, `AnsweredWords`),
  * as the card, the bar and the toast word a Question. Every number and storey word is invented.
@@ -35,6 +37,8 @@ beforeAll(() => activateLanguage(ENGLISH, englishMessages()))
 
 const CODE = 'engine.storey_titles.differs'
 const OPTIONS = ['plans_right', 'title_right', 'keep_open'] as const
+/** Words that send the QS to correct, edit or change a plan's storeys: an edit Step 1 does not have. */
+const PROMISED_EDIT = /\b(correct|edit|change|fix)\w*\b[^.]*\bstoreys?\b/i
 
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩‎‏]/g, '').replace(/\s+/g, ' ').trim()
 
@@ -124,11 +128,10 @@ describe('the title-against-plans Question’s words (W7)', () => {
     const e = entry(2)
     const words = optionsOf(e).map((o) => said(<OptionWords entry={e} option={o} />))
     expect(optionsOf(e).map((o) => o.key)).toEqual([...OPTIONS])
-    expect(words).toEqual([
-      'The plans are right: keep the storeys they name',
-      'The titles are right: I’ll correct the plans’ storeys in the list',
-      'Keep open, ask the consultant',
-    ])
+    expect(words[0]).toBe('The plans are right: keep the storeys they name')
+    expect(words[1]).not.toBe('')
+    expect(words[1]).not.toMatch(PROMISED_EDIT)
+    expect(words[2]).toBe('Keep open, ask the consultant')
   })
 
   it('picks neither "plans right" nor "title right" for the QS', () => {
@@ -148,7 +151,8 @@ describe('the title-against-plans Question’s words (W7)', () => {
     const e = entry(2)
     const line = (option: string) => said(<AnsweredWords entry={e} option={option} text="" />)
     expect(line('plans_right')).toBe('Q4 answered. Recorded: the plans’ storeys stand.')
-    expect(line('title_right')).toBe('Q4 answered. Recorded: the titles are right; correct each plan’s storeys in the list.')
+    expect(line('title_right')).toMatch(/^Q4 answered\. Recorded: /)
+    expect(line('title_right')).not.toMatch(PROMISED_EDIT)
     expect(line('keep_open')).toBe('Q4 kept open for the consultant.')
   })
 })
@@ -158,14 +162,14 @@ describe('the new words are in the catalogues (W8)', () => {
     expect(storeyTitlesCatalogue).toContain(`msgid "${CODE}"`)
   })
 
-  it('the options, the answered lines and "as titled" are in the takeoff catalogue', () => {
-    for (const words of [
-      'The plans are right: keep the storeys they name',
-      'The titles are right: I’ll correct the plans’ storeys in the list',
-      'as titled',
-    ])
+  it('the options, the answered line and "as titled" are in the takeoff catalogue', () => {
+    for (const words of ['The plans are right: keep the storeys they name', 'as titled'])
       expect(takeoffCatalogue).toContain(`msgid "${words}"`)
     expect(takeoffCatalogue).toContain('Recorded: the plans’ storeys stand.')
-    expect(takeoffCatalogue).toContain('Recorded: the titles are right; correct each plan’s storeys in the list.')
+  })
+
+  it('no word in the takeoff catalogue promises a storey edit the product does not have (S15-E3)', () => {
+    const promising = [...takeoffCatalogue.replace(/"\n"/g, '').matchAll(/^msgid "(.*)"$/gm)].map((m) => m[1]!).filter((id) => PROMISED_EDIT.test(id))
+    expect(promising).toEqual([])
   })
 })

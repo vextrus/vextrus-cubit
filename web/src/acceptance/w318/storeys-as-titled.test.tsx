@@ -7,8 +7,9 @@
  * (`storeys_source: 'sheet_title'`) is shown "as titled" too; a plan View with no keys is amber "not
  * stated", never filled from the Sheet's words by the screen (the engine decided).
  *
- * The seam: `StoreysText({ views, stated })` as `Step1Inspector`'s Storeys fact and a `SheetList` row
- * render it, and `StoreyStrip`. The generated `Step1ViewOut` gains an optional `storeys_source`; a View
+ * The seam: `StoreysText({ views, stated, titled })` as `Step1Inspector`'s Storeys fact and a
+ * `SheetList` row render it (`titled`: the Proposal's `storeys_titled`, the keys the server read the
+ * title's words to; S-15 E3 amends W1 to pass them: the web parses no storey words), and `StoreyStrip`. The generated `Step1ViewOut` gains an optional `storeys_source`; a View
  * here is cast to `ViewOut`, so this file type-checks before it does. Every title and storey word is
  * invented.
  */
@@ -51,11 +52,11 @@ function view(kind: string, over: Partial<ViewOut> & { storeys_source?: string |
 
 const NO_PLAN = () => [view('section', { title: 'SECTION M-M' }), view('detail', { title: 'TYPICAL RIB DETAIL' })]
 
-function shown(views: ViewOut[], stated: string) {
+function shown(views: ViewOut[], stated: string, titled?: readonly string[]) {
   const { container, unmount } = render(
     <I18nProvider i18n={i18n}>
       <div data-testid="storeys">
-        <StoreysText views={views} stated={stated} />
+        <StoreysText views={views} stated={stated} titled={titled} />
       </div>
     </I18nProvider>,
   )
@@ -75,8 +76,8 @@ const muted = (el: HTMLElement) => el.closest('.text-muted-foreground') !== null
 const amber = (root: HTMLElement) => [...root.querySelectorAll('.text-question')].map((el) => clean(el.textContent))
 
 describe('a Sheet with no plan View shows its title’s storeys, muted, as titled (W1–W3)', () => {
-  it('W1: words its title’s storeys "3rd, 5th", muted, then the muted words "as titled"; no amber, no dash', () => {
-    const { root, text, unmount } = shown(NO_PLAN(), '3RD & 5TH FLOOR')
+  it('W1: words its title’s storeys "3rd, 5th" (the keys the server read them to), muted, then the muted words "as titled"; no amber, no dash', () => {
+    const { root, text, unmount } = shown(NO_PLAN(), '3RD & 5TH FLOOR', ['floor_3', 'floor_5'])
     expect(text).toMatch(/^3rd, 5th\b.*\bas titled$/)
     expect(muted(holder(root, '3rd, 5th'))).toBe(true)
     expect(muted(holder(root, 'as titled'))).toBe(true)
