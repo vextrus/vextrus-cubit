@@ -75,13 +75,23 @@ Session 14 rebuilt the factory: 17 PRs merged (#467-#517). Each line is on main;
 | Cloud | the `vextrus` cloud environment (PG18 and its roles, passwords only from the environment); browser walks are local-only in cloud sessions (they report and never fall back to Playwright) | #515 |
 
 Not landed, and carried in:
-- R3: the replay gate, and deleting `.claude/workflows/review-pr.js`. Until it lands, `/review-pr` still exists: never use it.
+- R3 (branch s14-r3, held by the owner, 6 Oct): the replay gate measured review.py's recall on 12 session-13 heads at 28 %
+  (9 of 32 confirmed findings within 5 lines; 72 % at the same file), against a 90 % gate. The misses are mostly docs, prompt
+  and contract-versus-code findings. review.py is fast and finds real defects, but it misses a share of what the old review
+  caught. Until recall passes, judge each M0 PR's review accordingly: add the depth that the PR's risk needs.
+  `/review-pr` is retired: never use it. Its file goes when R3 lands. #521 holds the plan.
 - F10/12/13: the old-sessions sweep, hardlinked venvs and command-card extras.
 - F9: `recover.py`, narrowed, with #503.
 - G3: the guard narrowing was closed at the cap with two bypasses found; re-scope it or drop it.
 - Open factory issues: #488 (review sandbox), #503, #504, #507, #513, #518.
 
-Check whether R3 and F10 merged at the close (`gh pr list --state all --head s14-r3`); if not, finish them first, in parallel with Phase 0.
+**First, in parallel with Phase 0: raise review.py's recall (#521).** Every M0 PR passes through it.
+1. Add depth where the misses are (for example a third lens for docs, prompts and contract-versus-code, and both lenses at high).
+2. Commit the head-replay driver.
+3. Rerun the replay twice.
+4. Land R3 once recall passes 90 %. R3's own `acceptance:` commit 63950a4cc was written by its builder: redo it with an
+   acceptance-writer through `scripts.factory.amend`.
+Also check whether F10 (#519) merged at the close; if not, finish it.
 
 **How a ticket runs:**
 1. `acceptance-writer` (Opus 5.5 high) commits failing tests on the ticket branch.
