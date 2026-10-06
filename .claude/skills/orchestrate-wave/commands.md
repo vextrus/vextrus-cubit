@@ -53,7 +53,8 @@ and pushes nothing, pushes exactly that head (`git push origin <branch>`), build
 commit's message without its `Factory-` and attribution trailers, scans it and opens the PR with
 `--body-file`. On a branch with an open PR it names the PR and changes nothing. Judged-public hits go into
 one allowlist PR: `uv run python -m scripts.factory.allowlist batch --from <hits file>` (one
-`<branch>:<file>:<line>` per line; any bad line refuses the batch).
+`<branch>:<file>:<line> [<commit>]` per line, the commit publish names beside the hit; any bad line
+refuses the batch).
 
 Only when publish cannot run, the same steps by hand, each its own call (body: the last commit's body,
 written to `.private/work/<id>/pr-body.md` first):

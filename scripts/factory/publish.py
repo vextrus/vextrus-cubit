@@ -27,9 +27,11 @@ import re
 import shlex
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts.factory import leakwhere
 from scripts.factory.trailers import read as read_trailers
 
 TREE = Path(__file__).resolve().parents[2]  # the tree holding this module and its scanner
@@ -133,17 +135,27 @@ def stamp_valid(root: Path, name: str) -> bool:
     return done.returncode == 0 and "stamp valid" in done.stdout
 
 
-def refuse_hits(scan: Scan, what: str) -> None:
+def refuse_hits(scan: Scan, what: str, commits: Callable[[str], list[str]] | None = None) -> None:
+    """Refuse on any hit, naming each location and, for a range, the commit that put it there (the
+    allowlist batch reads the line in that commit: `<branch>:<file>:<line> <commit>`)."""
     if not scan.clean:
-        places = ", ".join(f"{where} ({n})" for where, n in scan.hits[:20]) or "no location given"
+        named = []
+        for where, n in scan.hits[:20]:
+            shas = commits(where) if commits is not None else []
+            named.append(f"{where}{''.join(f' {sha[:12]}' for sha in shas)} ({n})")
+        places = ", ".join(named) or "no location given"
         more = f" and {len(scan.hits) - 20} more" if len(scan.hits) > 20 else ""
         raise Refused(f"{what} has leak hits at {places}{more}: nothing is pushed")
+
+
+def is_ancestor(root: Path, ancestor: str, tip: str) -> bool:
+    return git(root, "merge-base", "--is-ancestor", ancestor, tip).returncode == 0
 
 
 def range_scan(root: Path, base: str, head: str, ref: str) -> None:
     """Scan `base..head` (every commit), require its stamp; refuse on a hit or a missing stamp."""
     scan = leakscan(root, "range", f"{base}..{head}", "--ref", ref)
-    refuse_hits(scan, "the range")
+    refuse_hits(scan, "the range", lambda where: leakwhere.commits_of(root, base, head, where))
     if not stamp_valid(root, head):
         raise Refused("the scanned head has no valid leak stamp: nothing is pushed")
     print(f"publish: range {base[:8]}..{head[:8]} clean ({scan.line})")

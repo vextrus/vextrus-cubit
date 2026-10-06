@@ -84,6 +84,29 @@ def test_a_last_commit_adding_a_corpus_string_gets_no_verify_record(
     assert WORD not in (said.out + said.err).upper()
     assert code == 1
     assert "plan.md:2" in said.err
+    assert f"local commit {_git(repo, 'rev-parse', 'HEAD')[:12]}, not pushed" in said.err
+    assert "amend or soft-reset" in said.err
+    assert _record(repo) == []
+
+
+def test_a_hit_in_a_pushed_commit_names_it_with_the_fresh_branch_remedy(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (repo / "plan.md").write_text(f"the yard at {INVENTED}\n")
+    _git(repo, "add", "plan.md")
+    _git(repo, "commit", "-q", "-m", "feat: the plan")
+    _git(repo, "update-ref", "refs/remotes/origin/t1", "HEAD")
+    (repo / "later.md").write_text("an invented stand-in\n")
+    _git(repo, "add", "later.md")
+
+    code = verify.main([], run=_passes)
+
+    said = capsys.readouterr()
+    assert WORD not in (said.out + said.err).upper()
+    assert code == 1
+    pushed = _git(repo, "rev-parse", "HEAD")[:12]
+    assert f"commit {pushed} (already pushed): start a fresh branch from main" in said.err
+    assert "amend" not in said.err
     assert _record(repo) == []
 
 
@@ -99,6 +122,7 @@ def test_a_staged_but_uncommitted_hit_is_found_before_the_ready_commit(
     assert WORD not in (said.out + said.err).upper()
     assert code == 1
     assert "notes.txt:1" in said.err
+    assert "the staged changes, not committed" in said.err
     assert _record(repo) == []
 
 

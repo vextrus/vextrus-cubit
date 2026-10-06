@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
+from scripts.factory import leakwhere
+
 PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
 FLAKY = ".github/flaky.txt"
@@ -200,6 +202,23 @@ def _leakscan_argv(root: Path) -> list[str] | None:
     return None
 
 
+def remedy(root: Path, sha: str, staged: str) -> str:
+    """What clears a hit in this commit: a pushed commit is never rewritten (the guard refuses force
+    pushes) and every commit of the range is scanned, so a new commit never clears one."""
+    if sha == staged:
+        return "the hit is in the staged changes, not committed: replace it before you commit"
+    if leakwhere.is_pushed(root, sha):
+        return (
+            f"the hit is in commit {sha[:12]} (already pushed): start a fresh branch from main with the "
+            "work squashed into new commits containing no hit, and push that branch; the orchestrator "
+            "closes the old PR"
+        )
+    return (
+        f"the hit is in local commit {sha[:12]}, not pushed: amend or soft-reset that commit (allowed "
+        "for unpushed commits) so no commit holds it"
+    )
+
+
 def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     """The range `<merge-base with origin/main>..<the staged tree>` leak-scanned, never stamped (#412):
     (refused, lines). The staged tree is scanned as a commit on HEAD (`git commit-tree`, an unreferenced
@@ -249,11 +268,13 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     if status == "cannot-scan":
         return True, [f"verify: refused: the leak scan cannot scan ({summary.get('reason')})"]
     if hits or done.returncode != 0:
-        lines = [f"verify: leak hit {where} {n}" for where, n in hits]
-        return True, [
-            *lines,
-            "verify: refused: replace each hit with an invented stand-in; no verify record written",
-        ]
+        head = staged.stdout.strip()
+        lines = []
+        for where, n in hits:
+            shas = leakwhere.commits_of(root, base.stdout.strip(), head, where)
+            lines.append(f"verify: leak hit {where} {n}")
+            lines += [f"verify: {remedy(root, sha, head)}" for sha in shas]
+        return True, [*lines, "verify: refused: no verify record written"]
     return False, [f"verify: leak scan clean (hits=0 scanned={summary.get('scanned')})"]
 
 

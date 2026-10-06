@@ -17,8 +17,9 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   tools.leakscan range origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and
   messages; the scan's output is reduced to `file:line` and a count, its text is never kept. No scanner
   (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm. A hit on a cloud
-  head also sends that builder's session one message (once per head, the launcher's `say` route) naming
-  each `file:line`, itself scanned first (`text --stdin --no-stamp`), and writes a SAY event;
+  head also sends that builder's session one message per set of hits, through `scripts.factory.launch
+  say` (which scans it and prefixes the elapsed time), naming each `file:line` and its commit with the
+  pushed-hit remedy, and writes a SAY event;
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -66,7 +67,7 @@ from typing import Any
 if not __package__:  # the script form, `python3 scripts/factory/watch.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.factory import governor, stamp, status
+from scripts.factory import governor, leakwhere, stamp, status
 from scripts.factory.trailers import Trailers
 from scripts.factory.trailers import read as read_trailers
 
@@ -236,62 +237,67 @@ def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
         if cannot:
             word = cannot.group(1)
     if done.returncode == 1 and hits:
+        # Each hit's commit (the range numbers a line within the commit that added it): the message
+        # names the commits, and the set of hits keys the message, so a later clean push says nothing.
+        found = [
+            [where, [sha[:12] for sha in leakwhere.commits_of(Path.cwd(), "origin/main", head, where)]]
+            for where, _ in hits[:SAY_PLACES]
+        ]
         return {
             "result": "hit",
             "where": hits[0][0],
             "n": sum(n for _, n in hits),
             "places": len(hits),
-            "wheres": [where for where, _ in hits[:SAY_PLACES]],
+            "found": found,
+            "set": sorted(where for where, _ in hits) + sorted(s for _, shas in found for s in shas),
         }
     return {"result": "cannot-scan", "where": f"cannot-scan:{word}", "n": 0}
 
 
-def scans_clean(text: str) -> bool:
-    """The leak scan of one outgoing message (`text --stdin`, never stamped): True only when clean."""
-    argv = leakscan_command()
-    if argv is None:
-        return False
-    try:
-        done = subprocess.run(
-            [*argv, "text", "--stdin", "--no-stamp"],
-            input=text,
-            capture_output=True,
-            text=True,
-            timeout=SCAN_TIMEOUT,
-            check=False,
-        )
-    except status.RUN_ERRORS:
-        return False
-    return done.returncode == 0
-
-
-# --- the leak say (#461 B): a cloud builder hears of a hit on its head once, by location only
-def leak_message(head: str, leak: dict[str, Any]) -> str:
-    places = ", ".join(leak.get("wheres") or [leak["where"]])
-    more = leak.get("places", 1) - len(leak.get("wheres") or [leak["where"]])
+# --- the leak say (#461 B): a cloud builder hears of each hit set once, by location and commit only
+def leak_message(leak: dict[str, Any]) -> str:
+    """The pushed-hit remedy (session 13's re-submit-squashed rule): a pushed commit is never
+    rewritten (the guard refuses force pushes) and the range scan reads every commit, so no new commit
+    clears it."""
+    found = leak.get("found") or [[leak["where"], []]]
+    places = ", ".join(where + (f" (commit {', '.join(shas)})" if shas else "") for where, shas in found)
+    more = leak.get("places", 1) - len(found)
     places += f" and {more} more" if more > 0 else ""
+    commits = sorted({sha for _, shas in found for sha in shas})
+    if len(commits) == 1:
+        where = f"The hit is in commit {commits[0]} (already pushed)"
+    elif commits:
+        where = f"The hits are in commits {', '.join(commits)} (already pushed)"
+    else:
+        where = "The hit is already pushed"
     return (
-        f"LEAK-HIT on your head {head[:8]}: the leak scan found {leak['n']} hit(s) at {places}. "
-        "Replace each with an invented stand-in in a new commit, and push again."
+        f"LEAK-HIT on your branch: the leak scan found {leak['n']} hit(s) at {places}. {where}: "
+        "start a fresh branch from main with the work squashed into new commits containing no hit, "
+        "and push that branch; the orchestrator closes the old PR."
     )
 
 
+def launch_command() -> list[str]:
+    """The launcher in this checkout: its own environment's Python (the watcher's own `python3` may be
+    older than the launcher needs), else this interpreter."""
+    venv = Path.cwd() / ".venv" / "bin" / "python"
+    return [str(venv) if venv.is_file() else sys.executable, "-m", "scripts.factory.launch"]
+
+
 def say_leak(step: Pass, ticket: str, record: dict[str, Any], head: str, leak: dict[str, Any]) -> None:
-    """One message to the builder's cloud session, the launcher's route (`launch say`, launch-cli.md
-    3): `claude -p "[elapsed n/m min] <text>" --cloud <session> --output-format json`, its `{ok}` read.
-    The message is leak-scanned first; it carries locations and counts, never the scanned text."""
+    """One message to the builder's cloud session through the launcher, the only route to a cloud
+    builder (CLAUDE.md's Law): `scripts.factory.launch say <session> --ticket <t> --file <f>`, which
+    leak-scans it, prefixes `[elapsed n/m min]` from the launch record and reads the CLI's `{ok}`. The
+    message carries locations, counts and commits, never the scanned text."""
     session = record.get("session_id")
     if not isinstance(session, str) or not SESSION.match(session):
         step.event("SAY", ticket, f"{head[:8]} leak not sent: no session id")
         return
-    text = leak_message(head, leak)
-    budget = record.get("budget_minutes")
-    if isinstance(budget, int):
-        text = f"[elapsed {status.minutes_between(record['_started'], step.at)}/{budget} min] {text}"
-    if not scans_clean(text):
-        step.event("SAY", ticket, f"{head[:8]} leak not sent: the message did not scan clean")
-        return
-    argv = ["claude", "-p", text, "--cloud", session, "--output-format", "json"]
+    folder = step.folder / "leak-say"
+    folder.mkdir(parents=True, exist_ok=True)
+    message = folder / f"{public(ticket, 80).replace(' ', '_')}-{head[:12]}.txt"
+    message.write_text(leak_message(leak) + "\n")
+    argv = [*launch_command(), "say", session, "--ticket", ticket, "--file", str(message)]
     try:
         done = subprocess.run(
             argv,
@@ -301,11 +307,10 @@ def say_leak(step: Pass, ticket: str, record: dict[str, Any], head: str, leak: d
             timeout=SAY_TIMEOUT,
             check=False,
         )
-        reply = json.loads(done.stdout) if done.returncode == 0 else None
-    except (*status.RUN_ERRORS, ValueError):
-        reply = None
-    sent = isinstance(reply, dict) and reply.get("ok") is True
-    step.event("SAY", ticket, f"{head[:8]} leak {'sent' if sent else 'not sent: the CLI failed'}")
+        sent = done.returncode == 0
+    except status.RUN_ERRORS:
+        sent = False
+    step.event("SAY", ticket, f"{head[:8]} leak {'sent' if sent else 'not sent: launch say failed'}")
 
 
 # --- readings with a cadence
@@ -762,8 +767,11 @@ def track(
         if leak.get("places", 1) > 1:
             detail += f" ({leak['places']} places)"
         step.alarm(f"{ticket}|{head}", "LEAK-HIT", ticket, detail)
-        if where == "cloud" and leak["result"] == "hit" and seen.get("leak_said") != head:
-            seen["leak_said"] = head  # once per head, sent or not: the alarm stays for the orchestrator
+        said = leak.get("set") or [leak["where"]]
+        if where == "cloud" and leak["result"] == "hit" and seen.get("leak_said") != said:
+            # Once per set of hits, sent or not (the alarm stays for the orchestrator): a later push
+            # whose range holds the same hits says nothing again.
+            seen["leak_said"] = said
             say_leak(step, ticket, record, head, leak)
 
     return {

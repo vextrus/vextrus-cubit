@@ -3,6 +3,7 @@ PYTHONPATH, an already-allowlisted string is no new hit, and the watcher reads a
 
 from __future__ import annotations
 
+import ast
 import subprocess
 import sys
 from pathlib import Path
@@ -72,5 +73,24 @@ def test_the_watcher_reads_a_hit_whose_path_holds_brackets(
     monkeypatch.setenv("VEXTRUS_LEAKSCAN_CMD", str(scanner))
     found = watch.leak_scan("a" * 40, None)
     assert found["result"] == "hit"
-    assert found["wheres"] == ["docs/plan(1),v2.md:2"]
-    assert "docs/plan(1),v2.md:2" in watch.leak_message("a" * 40, found)
+    assert [where for where, _ in found["found"]] == ["docs/plan(1),v2.md:2"]
+    assert "docs/plan(1),v2.md:2" in watch.leak_message(found)
+
+
+def test_the_watcher_and_every_factory_module_it_imports_parse_on_python_3_11() -> None:
+    """watch.py runs as `python3 scripts/factory/watch.py` on the machine's own Python (3.11 or later);
+    the formatter, aimed at 3.14, rewrites `except (A, B):` into 3.14-only syntax (PR #483 round 1)."""
+    folder = publish.TREE / "scripts" / "factory"
+    todo, seen = ["watch"], set()
+    while todo:
+        name = todo.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        tree = ast.parse((folder / f"{name}.py").read_text(), feature_version=(3, 11))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "scripts.factory":
+                todo += [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith("scripts.factory."):
+                todo.append((node.module or "").rsplit(".", 1)[1])
+    assert {"watch", "leakwhere", "status"} <= seen

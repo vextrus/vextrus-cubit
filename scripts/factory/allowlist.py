@@ -1,11 +1,13 @@
 """`python -m scripts.factory.allowlist batch --from <hits file>`: allowlist a batch of leak hits in one
 branch and one PR (#461, part A).
 
-Run it from the main checkout. The hits file holds one `<branch>:<file>:<line>` per line (blank lines and
-`#` lines skipped): a hit the scanner named on a builder's branch that the orchestrator judged public.
-Every line is checked before anything is written; any bad one (malformed, no branch, line zero, a path
-outside the tree, a branch neither here nor on origin, a file the branch does not hold, a line with no
-hit) refuses the whole batch, naming the line's number in the file, and nothing is pushed.
+Run it from the main checkout. The hits file holds one `<branch>:<file>:<line> [<commit>]` per line
+(blank lines and `#` lines skipped): a hit the scanner named on a builder's branch that the orchestrator
+judged public, and optionally the commit publish named with it. The line is read in the commit that
+added it (the range scan's numbering), never at the branch's tip. Every line is checked before anything
+is written; any bad one (malformed, no branch, line zero, a path outside the tree, a branch neither here
+nor on origin, no commit or several adding that line, a line with no new hit) refuses the whole batch,
+naming the line's number in the file, and nothing is pushed.
 
 Then: the scanner's own `allow` hashes the hits' strings into a scratch copy of origin/main's allowlist;
 a worktree off origin/main on a new branch `allowlist-<12 hex>` (named by those hashes) gets them
@@ -27,12 +29,12 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from scripts.factory import publish
+from scripts.factory import leakwhere, publish
 from scripts.factory.publish import Refused, git, git_out
 
 ALLOWLIST = "tools/leakscan/allowlist.txt"
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
-LOCATION = re.compile(r"^([^:\s]+):([^:]+):([0-9]+)$")
+LOCATION = re.compile(r"^([^:\s]+):([^:]+):([0-9]+)(?: ([0-9a-f]{7,40}))?$")
 
 
 @dataclass(frozen=True)
@@ -53,31 +55,53 @@ def parse(text: str) -> list[Hit]:
             continue
         match = LOCATION.fullmatch(entry)
         if match is None:
-            raise Refused(f"hits line {number} is not <branch>:<file>:<line>")
-        branch, path, line = match[1], match[2], int(match[3])
+            raise Refused(f"hits line {number} is not <branch>:<file>:<line> [<commit>]")
+        branch, path, line, rev = match[1], match[2], int(match[3]), match[4] or ""
         if line < 1:
             raise Refused(f"hits line {number}: line numbers start at 1")
         pure = PurePosixPath(path)
         if pure.is_absolute() or ".." in pure.parts or "\\" in path or path != pure.as_posix():
             raise Refused(f"hits line {number}: the file is not a path inside the tree")
-        hits.append(Hit(number, branch, path, line))
+        hits.append(Hit(number, branch, path, line, rev))
     if not hits:
         raise Refused("the hits file holds no location")
     return hits
 
 
-def resolve(root: Path, hit: Hit) -> Hit:
-    """The hit with the commit its branch names (here, else origin's); refused when it has none."""
+def resolve(root: Path, hit: Hit, main: str) -> Hit:
+    """The hit with the commit that put it there: the range scan numbers a line within the commit that
+    added it, so the line is read from `<that commit>:<path>`, never from the branch's tip (a later
+    commit may have moved it). The commit is the one given on the hits line, else the only commit of
+    `<merge-base>..<branch>` that added that line (`leakwhere.commits_of`); none, or several without
+    one given, refuses."""
     if not publish.valid_branch(root, hit.branch):
         raise Refused(f"hits line {hit.number}: not a branch name")
+    tip = None
     for ref in (f"refs/heads/{hit.branch}", f"refs/remotes/origin/{hit.branch}"):
-        rev = git_out(root, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")
-        if rev is not None:
-            kind = git_out(root, "cat-file", "-t", f"{rev}:{hit.path}")
-            if kind != "blob":
-                raise Refused(f"hits line {hit.number}: the branch holds no such file")
-            return Hit(hit.number, hit.branch, hit.path, hit.line, rev)
-    raise Refused(f"hits line {hit.number}: no such branch here or on origin")
+        tip = git_out(root, "rev-parse", "--verify", "-q", f"{ref}^{{commit}}")
+        if tip is not None:
+            break
+    if tip is None:
+        raise Refused(f"hits line {hit.number}: no such branch here or on origin")
+    base = git_out(root, "merge-base", main, tip)
+    if base is None:
+        raise Refused(f"hits line {hit.number}: the branch shares no history with origin/main")
+    if hit.rev:
+        rev = git_out(root, "rev-parse", "--verify", "-q", f"{hit.rev}^{{commit}}")
+        inside = rev is not None and not publish.is_ancestor(root, rev, base)
+        if not inside or not publish.is_ancestor(root, rev or "", tip):
+            raise Refused(f"hits line {hit.number}: that commit is not in the branch's range")
+        found = [rev or ""]
+    else:
+        found = leakwhere.commits_of(root, base, tip, f"{hit.path}:{hit.line}")
+    if not found:
+        raise Refused(f"hits line {hit.number}: no commit of the branch adds that line")
+    if len(found) > 1:
+        named = ", ".join(sha[:12] for sha in found)
+        raise Refused(f"hits line {hit.number}: several commits add that line ({named}): give one")
+    if git_out(root, "cat-file", "-t", f"{found[0]}:{hit.path}") != "blob":
+        raise Refused(f"hits line {hit.number}: the commit holds no such file")
+    return Hit(hit.number, hit.branch, hit.path, hit.line, found[0])
 
 
 def scanner_allow(allowlist: Path, *locations: str) -> bool:
@@ -123,7 +147,7 @@ def batch(root: Path, hits_file: Path) -> int:
     for branch in sorted({hit.branch for hit in hits}):
         if publish.valid_branch(root, branch):
             git(root, "fetch", "-q", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
-    hits = [resolve(root, hit) for hit in hits]
+    hits = [resolve(root, hit, main) for hit in hits]
 
     with tempfile.TemporaryDirectory(prefix="allowlist-", dir=root / ".private" / "work") as scratch:
         place = Path(scratch)
