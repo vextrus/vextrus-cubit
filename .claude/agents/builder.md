@@ -46,6 +46,9 @@ refuses an unlinked cut item).
   mean to finish on; it runs that order and the Python fast check for the changed paths, keeps the
   outputs, and prints `Factory-Verify: <tree> ok` only when every check passed.
 
+## Browser walks
+In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). Say it under "Not verified".
+
 ## Quality
 - Every serious finding (scored 50 or more, or a repeated class) leaves a committed check: a test, lint or
   scan that fails on the class.
