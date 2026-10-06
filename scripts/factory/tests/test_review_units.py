@@ -71,7 +71,7 @@ def test_a_small_change_on_a_trust_boundary_is_normal(path: str) -> None:
 
 def test_a_small_change_is_small_and_a_large_or_binary_one_normal() -> None:
     assert review.tier([("web/src/components/badge.tsx", 3, 1)], []) == "small"
-    assert review.tier([("vextrus/rates/tests/test_table.py", 149, 0)], []) == "small"
+    assert review.tier([("web/src/messages/rates/en.po", 149, 0)], []) == "small"
     assert review.tier([("vextrus/rates/table.py", 100, 50)], []) == "normal"
     assert review.tier([("web/public/logo.png", None, None)], []) == "normal"
 
@@ -1356,10 +1356,9 @@ def test_a_path_no_safe_list_names_is_normal(path: str) -> None:
     [
         ("docs/research/x.md", "docs-only"),
         ("docs/knowledge/lessons.md", "docs-only"),
-        ("web/src/messages/rates.ts", "small"),
+        ("web/src/messages/rates/en.po", "small"),
+        ("web/src/messages/rates/bn.json", "small"),
         ("web/src/components/badge.tsx", "small"),
-        ("vextrus/rates/tests/test_table.py", "small"),
-        ("web/src/takeoff/step.test.tsx", "small"),
     ],
 )
 def test_listed_safe_paths_take_their_tier(path: str, expected: str) -> None:
@@ -1371,8 +1370,14 @@ def test_the_safe_lists_live_in_one_committed_data_file() -> None:
 
     data = tomllib.loads(review.TIERS_FILE.read_text())
     assert review.TIERS_FILE == review.HARNESS / "scripts" / "factory" / "review_tiers.toml"
-    assert set(data["docs_only"]["paths"]) <= set(data["small"]["paths"])
     assert set(data["docs_only"]["never"]) <= set(data["small"]["never"])
+    # Shrunk on purpose (PR #489 review, round 1): small is the catalogues and the one component
+    # folder ts14r1 pins, nothing else.
+    assert data["small"]["paths"] == [
+        "web/src/messages/**/*.po",
+        "web/src/messages/**/*.json",
+        "web/src/components/**",
+    ]
     for name in ("docs_only", "small"):
         for pattern in [*data[name]["paths"], *data[name]["never"]]:
             review.glob_regex(pattern)
@@ -1596,5 +1601,56 @@ def test_the_tests_of_a_wall_are_never_small(path: str) -> None:
     assert review.tier([(path, 5, 0)], []) == "normal"
 
 
-def test_a_plain_modules_tests_stay_small() -> None:
-    assert review.tier([("vextrus/rates/tests/test_table.py", 5, 0)], []) == "small"
+def test_a_plain_modules_tests_are_normal_too() -> None:
+    """PR #489 review, round 1: no test is small, a plain module's included."""
+    assert review.tier([("vextrus/rates/tests/test_table.py", 5, 0)], []) == "normal"
+
+
+# ---------------------------------------------------------------- PR #489 review, round 1
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "vextrus/drawings/tests/test_drawings_walls.py",
+        "vextrus/takeoff/tests/test_step1_walls.py",
+        "vextrus/platform/tests/test_policy_coverage.py",
+        "vextrus/projects/tests/test_projects_scope.py",
+        "vextrus/platform/tests/test_storage.py",
+        "engine/recognise/tests/test_sheets_hostile.py",
+        "web/src/components/badge.test.tsx",
+        "web/src/components/__tests__/badge.tsx",
+        "web/src/components/tests/badge.tsx",
+        "web/src/messages/rates.ts",
+    ],
+)
+def test_every_test_and_anything_off_the_short_list_is_normal(path: str) -> None:
+    """Finding 1: any `**/tests/**/test_*.py` could be a wall's own test, and word lists missed them."""
+    assert review.tier([(path, 5, 0)], []) == "normal"
+
+
+def test_a_messages_only_change_is_small() -> None:
+    assert review.tier([("web/src/messages/drawings/files/en.po", 12, 3)], []) == "small"
+    rows: review.Rows = [
+        ("web/src/messages/drawings/files/en.po", 2, 0),
+        ("web/src/messages/boq/en.po", 2, 0),
+    ]
+    assert review.tier(rows, []) == "small"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "docs/research/CLAUDE.local.md",
+        "docs/notes/CLAUDE.local.md",
+        "docs/research/claude.md",
+        "docs/notes/sub/Claude.Local.md",
+        "docs/research/AGENTS.override.md",
+        "docs/notes/agents.md",
+        "docs/research/team.local.md",
+        "docs/notes/x/settings.LOCAL.md",
+    ],
+)
+def test_an_instruction_file_by_name_is_never_docs_only(path: str) -> None:
+    """Finding 2: Claude Code loads CLAUDE.md and CLAUDE.local.md in any folder as instructions."""
+    assert review.tier([(path, 3, 0)], []) != "docs-only"

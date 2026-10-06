@@ -1,28 +1,30 @@
-# The review tiers' path lists, read by scripts/factory/review.py and its tests (PR #478 review,
-# round 2: a denylist of walls kept missing walls, so the lists name what is SAFE instead).
+# The review tiers' path lists, read by scripts/factory/review.py and its tests. The lists name what
+# is SAFE, never the walls (PR #478 review, round 2), and they are kept SHORT: refining word lists to
+# rescue more paths kept letting walls through (PR #489 review, round 1).
 #
 # - allowlist-only (no model) is decided in code: only 64-hex lines added to the leak-scan allowlist.
-# - docs-only (no model, PASS by code): every changed path matches `docs_only.paths` and none matches
-#   `docs_only.never`.
+# - docs-only (no model, PASS by code): every changed path matches `docs_only.paths`, none matches
+#   `docs_only.never`, and each is a text file (`.md` or `.txt` with a line count; checked in code).
 # - small (one lens): under 150 changed lines, no binary file, every changed path matches
 #   `small.paths` and none matches `small.never`.
-# - normal (two lenses): everything else. A path nobody listed is normal.
+# - normal (two lenses): everything else. A path nobody listed is normal; every test change is normal.
 #
 # Patterns are globs on the repository path: `*` is any run of characters but `/`, `**/` any number
-# of folders (none included), a trailing `/**` everything below a folder.
+# of folders (none included), a trailing `/**` everything below a folder. `never` ignores case.
 
 [docs_only]
-# Plain reading for people: research notes, notes, the lessons list. Text only: review.py takes
-# docs-only for `.md` and `.txt` files with a line count (never a binary, never a script).
+# Plain reading for people: research notes, notes, the lessons list.
 paths = [
   "docs/research/**",
   "docs/notes/**",
   "docs/knowledge/lessons.md",
 ]
-# Instructions or authority an agent obeys or code reads: never without a model.
+# Instructions or authority an agent obeys or code reads: never without a model. Claude Code loads
+# CLAUDE.md and CLAUDE.local.md in any folder it reads as instructions.
 never = [
-  "**/CLAUDE.md",
-  "**/AGENTS.md",
+  "**/CLAUDE*.md",
+  "**/AGENTS*.md",
+  "**/*.local.md",
   "**/.*",
   "**/.*/**",
   "docs/plans/**",
@@ -34,50 +36,34 @@ never = [
 ]
 
 [small]
-# What one lens may review: plain docs, the words, presentational web components, and test files.
-# `web/src/components/**` is pinned small by the S14-R1 acceptance tests (a three-line badge).
+# One lens only for the translation catalogues (their words also get the ux-critic words lens).
+# `web/src/components/**` is the one other entry: the S14-R1 acceptance tests pin a three-line badge
+# component as small (test_tier.py, test_a_small_pr_gets_one_lens), and acceptance tests never change.
 paths = [
-  "docs/research/**",
-  "docs/notes/**",
-  "docs/knowledge/lessons.md",
-  "web/src/messages/**",
+  "web/src/messages/**/*.po",
+  "web/src/messages/**/*.json",
   "web/src/components/**",
-  "**/tests/**/test_*.py",
-  "web/src/**/*.test.ts",
-  "web/src/**/*.test.tsx",
 ]
+# No test, ever (a wall's own tests are a wall), and no instruction file or dotfile.
 never = [
-  "**/CLAUDE.md",
-  "**/AGENTS.md",
+  "**/CLAUDE*.md",
+  "**/AGENTS*.md",
+  "**/*.local.md",
   "**/.*",
   "**/.*/**",
-  "**/acceptance/**",
-  "**/conftest.py",
   "docs/plans/**",
   "docs/specs/**",
   "docs/adr/**",
   "docs/agents/**",
   "docs/handoff/**",
   "docs/knowledge/jev-nodes.md",
-  # The tests of a wall are a wall: the harness, the factory and the readers, and any path with a
-  # wall's word in a folder or file name.
-  "tools/**",
-  "scripts/**",
-  "engine/read/**",
-  "**/*tenan*",
-  "**/*tenan*/**",
-  "**/*sandbox*",
-  "**/*sandbox*/**",
-  "**/*guard*",
-  "**/*guard*/**",
-  "**/*leak*",
-  "**/*leak*/**",
-  "**/*ledger*",
-  "**/*ledger*/**",
-  "**/*auth*",
-  "**/*auth*/**",
-  "**/*access*",
-  "**/*access*/**",
-  "**/*upload*",
-  "**/*upload*/**",
+  "**/tests/**",
+  "**/test/**",
+  "**/__tests__/**",
+  "**/acceptance/**",
+  "**/test_*",
+  "**/*_test.*",
+  "**/*.test.*",
+  "**/*.spec.*",
+  "**/conftest.py",
 ]
