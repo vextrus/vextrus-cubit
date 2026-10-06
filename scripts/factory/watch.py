@@ -453,11 +453,7 @@ def reviews_view(folder: Path, prs: list[dict[str, Any]] | None) -> list[dict[st
         head = str(open_pr.get("headRefOid")) if open_pr is not None else newest["head"]
         if any(r["verdict"] == "PASS" and r["head"] == head for r in records):
             continue
-        entry = {"pr": pr, "round": newest["round"], "head": newest["head"]}
-        # The PR's own head on origin, when the PR list gave it: a local builder's ref can lag it.
-        if open_pr is not None and SHA40.match(head):
-            entry["pr_head"] = head
-        found.append(entry)
+        found.append({"pr": pr, "round": newest["round"], "head": newest["head"]})
     return found
 
 

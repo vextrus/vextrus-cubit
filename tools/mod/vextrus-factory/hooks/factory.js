@@ -78,7 +78,7 @@ export const VERDICTS = ["PASS", "FIX", "BLOCK"]
 export const verdictKey = (pr, head) => `${pr}-${head}`
 
 // The Reviews rows state facts only: PR, round, the ledger's verdict, the head that round reviewed, the
-// PR's head now (on origin), and whether they are the same. No tab gives advice. status.json does not say whether the move is the lander's clean merge of
+// builder's head now, and whether they are the same. No tab gives advice. status.json does not say whether the move is the lander's clean merge of
 // main (watch.py's clean_merges_of_main is not in the contract), so a move reads "head moved".
 const head12 = (h) => h.slice(0, 12)
 const isHead = (h) => typeof h === "string" && /^[0-9a-f]{40}$/.test(h)
@@ -87,18 +87,20 @@ function reviewRows(status, cost, verdicts) {
   const byPr = new Map()
   for (const b of items(status)) {
     if (prOf(b.pr) === null) continue
-    byPr.set(b.pr, ticketOf(b.ticket))
+    // A cloud builder's head is its branch on origin, the PR's head. A local builder's is the main
+    // checkout's own ref, which lags the PR once the lander's update-branch moves it: not comparable.
+    const comparable = b.where === "cloud" && isHead(b.head)
+    byPr.set(b.pr, { ticket: ticketOf(b.ticket), head: comparable ? b.head : null })
   }
   const held = isObj(verdicts) ? verdicts : {}
   const rows = (Array.isArray(status.reviews) ? status.reviews.filter(isObj) : []).map((r) => {
     const reviewed = isHead(r.head)
     const found = reviewed ? held[verdictKey(r.pr, r.head)] : undefined
     const verdict = VERDICTS.includes(found) ? found : "?"
-    // The PR's head on origin, from the entry itself (watch.py's headRefOid): a builder's head is a
-    // local ref that can lag it, so it is never compared.
-    const now = isHead(r.pr_head) ? r.pr_head : null
+    const builder = byPr.get(r.pr)
+    const now = builder === undefined ? null : builder.head
     const moved = !reviewed || now === null ? "current head unknown" : now === r.head ? "same head" : "head moved"
-    const who = byPr.has(r.pr) ? ` · ${byPr.get(r.pr)}` : ""
+    const who = builder === undefined ? "" : ` · ${builder.ticket}`
     const round = isCount(r.round) ? r.round : "?"
     return `#${isCount(r.pr) ? r.pr : "?"} · round ${round} · ${verdict} · reviewed ${reviewed ? head12(r.head) : "?"} · now ${now === null ? "?" : head12(now)} · ${moved}${who}`
   })

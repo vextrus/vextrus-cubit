@@ -82,8 +82,7 @@
         "properties": {
           "pr": {"type": "integer", "minimum": 1},
           "round": {"type": "integer", "minimum": 1, "maximum": 3},
-          "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The head the round reviewed; null if not yet known."},
-          "pr_head": {"$ref": "#/$defs/sha", "description": "The PR's current head on origin (headRefOid), present only when the PR list gave it. A consumer compares `head` with this, never with a builder's local ref; without it the current head is unknown."}
+          "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The head the round reviewed; null if not yet known."}
         }
       }
     },

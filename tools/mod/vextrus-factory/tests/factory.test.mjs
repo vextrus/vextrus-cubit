@@ -92,52 +92,46 @@ test("each tab has its own rows; empty ones say so", () => {
 
 const SHA = "b".repeat(40)
 const NEW = "e".repeat(40)
-// A review of PR 12 reviewed at SHA; `prHead` the PR's head on origin (the entry's pr_head), `builder` the
-// builder's own fields (its head is a local ref and is never compared).
-const row = (round, verdict, { prHead, builder = {} } = {}) =>
-  view(
-    status([item({ ticket: "t9", state: "ready", pr: 12, head: SHA, ...builder })], { reviews: [{ pr: 12, round, head: SHA, ...(prHead === undefined ? {} : { pr_head: prHead }) }] }),
-    null,
-    verdict === null ? {} : { [`12-${SHA}`]: verdict },
-  ).tabs.Reviews[0]
-const facts = (round, verdict, now, moved) => `#12 \u00b7 round ${round} \u00b7 ${verdict} \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${now} \u00b7 ${moved} \u00b7 t9`
+const row = (round, verdict, builder = {}) =>
+  view(status([item({ ticket: "t9", state: "ready", pr: 12, head: SHA, ...builder })], { reviews: [{ pr: 12, round, head: SHA }] }), null, verdict === null ? {} : { [`12-${SHA}`]: verdict }).tabs.Reviews[0]
 
-test("a Reviews row states facts only: PR, round, verdict, reviewed head, the PR's head now and whether it moved", () => {
-  assert.equal(row(1, "PASS", { prHead: SHA }), facts(1, "PASS", "b".repeat(12), "same head"))
+test("a Reviews row states facts only: PR, round, verdict, reviewed head, current head and whether it moved", () => {
+  const fixed = `#12 \u00b7 round 1 \u00b7 PASS \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"b".repeat(12)} \u00b7 same head \u00b7 t9`
+  assert.equal(row(1, "PASS"), fixed)
 })
 
-test("#495 round 2: a local builder whose ref is H while the PR's head is the merge M reads head moved, never same head", () => {
-  const M = "e".repeat(40)
-  assert.equal(row(1, "PASS", { prHead: M, builder: { where: "local", head: SHA } }), facts(1, "PASS", "e".repeat(12), "head moved"))
-  // without the fix the builder's head H would be compared and this read "same head"
-  assert.ok(!/same head/.test(row(1, "PASS", { prHead: M, builder: { where: "local", head: SHA } })))
-})
-
-test("#495 round 2: a reviews entry without the PR's head reads current head unknown, whatever the builder's head", () => {
-  for (const head of [SHA, NEW, null]) assert.equal(row(1, "PASS", { builder: { head } }), facts(1, "PASS", "?", "current head unknown"))
-  for (const bad of [null, "xyz", 7]) assert.equal(row(1, "PASS", { prHead: bad }), facts(1, "PASS", "?", "current head unknown"))
-})
-
-test("PASS then a clean merge of main (the PR head moved, status.json cannot tell why): a fact, not an action", () => {
-  assert.equal(row(1, "PASS", { prHead: NEW }), facts(1, "PASS", "e".repeat(12), "head moved"))
+test("PASS then a clean merge of main (the head moved, status.json cannot tell why): a fact, not an action", () => {
+  assert.equal(row(1, "PASS", { head: NEW }), `#12 \u00b7 round 1 \u00b7 PASS \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved \u00b7 t9`)
 })
 
 test("FIX then a pushed fix: reviewed and current heads differ, the verdict stays FIX", () => {
-  assert.equal(row(2, "FIX", { prHead: NEW, builder: { state: "ready" } }), facts(2, "FIX", "e".repeat(12), "head moved"))
+  assert.equal(row(2, "FIX", { head: NEW, state: "ready" }), `#12 \u00b7 round 2 \u00b7 FIX \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved \u00b7 t9`)
 })
 
-test("FIX with a blocked (failed, stopped, quiet, working) builder: the same facts, whatever the builder's state", () => {
+test("FIX with a blocked (failed, stopped, quiet) builder: the same facts, whatever the builder's state", () => {
   for (const state of ["blocked", "failed", "stopped", "quiet", "working"]) {
-    assert.equal(row(1, "FIX", { prHead: NEW, builder: { state } }), facts(1, "FIX", "e".repeat(12), "head moved"), state)
+    assert.equal(row(1, "FIX", { head: NEW, state }), `#12 \u00b7 round 1 \u00b7 FIX \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved \u00b7 t9`, state)
   }
-  assert.equal(row(1, "FIX", { prHead: SHA, builder: { state: "blocked" } }), facts(1, "FIX", "b".repeat(12), "same head"))
+  assert.match(row(1, "FIX", { state: "blocked" }), /same head/)
 })
 
-test("a missing verdict is ?, a PR with no builder still reads, and no row carries an action", () => {
-  assert.match(row(1, null, { prHead: SHA }), /round 1 \u00b7 \? \u00b7 reviewed b{12} \u00b7 now b{12} \u00b7 same head/)
-  const noBuilder = view(status([], { reviews: [{ pr: 12, round: 1, head: SHA, pr_head: NEW }] }), null, { [`12-${SHA}`]: "BLOCK" }).tabs.Reviews[0]
-  assert.equal(noBuilder, `#12 \u00b7 round 1 \u00b7 BLOCK \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${"e".repeat(12)} \u00b7 head moved`)
-  for (const text of [row(1, "PASS", { prHead: SHA }), row(1, "FIX", { prHead: NEW }), noBuilder]) assert.ok(!/next:|land|fix round|re-submit|owner decides|review round/.test(text), text)
+const at = (now, moved) => `#12 \u00b7 round 1 \u00b7 PASS \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ${now} \u00b7 ${moved} \u00b7 t9`
+
+test("#495 round 2: a local builder at H whose PR passed at H reads current head unknown, never same head or head moved", () => {
+  for (const head of [SHA, NEW, null]) assert.equal(row(1, "PASS", { where: "local", head }), at("?", "current head unknown"), String(head))
+})
+
+test("#495 round 2: a cloud builder's rows are unchanged: its head is the PR's, so same head and head moved read", () => {
+  assert.equal(row(1, "PASS", { where: "cloud", head: SHA }), at("b".repeat(12), "same head"))
+  assert.equal(row(1, "PASS", { where: "cloud", head: NEW }), at("e".repeat(12), "head moved"))
+})
+
+test("a missing verdict is ?, a builder with no usable head is current head unknown, and no row carries an action", () => {
+  assert.match(row(1, null), /round 1 \u00b7 \? \u00b7 reviewed b{12} \u00b7 now b{12} \u00b7 same head/)
+  for (const head of [null, "xyz", 7]) assert.match(row(1, "FIX", { head }), /now \? \u00b7 current head unknown/, String(head))
+  const noBuilder = view(status([], { reviews: [{ pr: 12, round: 1, head: SHA }] }), null, { [`12-${SHA}`]: "BLOCK" }).tabs.Reviews[0]
+  assert.equal(noBuilder, `#12 \u00b7 round 1 \u00b7 BLOCK \u00b7 reviewed ${"b".repeat(12)} \u00b7 now ? \u00b7 current head unknown`)
+  for (const text of [row(1, "PASS"), row(1, "FIX", { head: NEW }), noBuilder]) assert.ok(!/next:|land|fix round|re-submit|owner decides|review round/.test(text), text)
 })
 
 const ADVICE = /next:|\breview\b|\bmerge\b|\bland\b|re-submit|owner decides|fix round|take over|relaunch|restart|wait\b/i
@@ -202,7 +196,7 @@ test("through the mod: the Reviews tab reads each listed review's ledger record,
   const w = await world({ files }).boot()
   const { text } = await w.command("wip")
   assert.match(text, /^ {2}#250 · round 1 · FIX · reviewed b{12} · now \? · current head unknown$/m)
-  assert.match(text, /^ {2}#251 · round 2 · \? · reviewed d{12} · now \? · current head unknown · s14-a1$/m)
+  assert.match(text, /^ {2}#251 · round 2 · \? · reviewed d{12} · now d{12} · same head · s14-a1$/m)
   assert.deepEqual(w.forbidden(), [])
   assert.ok(new Set(w.factoryReads().filter((p) => p.includes("/ledger/"))).size <= 2, "only the listed reviews' records are read")
 })
