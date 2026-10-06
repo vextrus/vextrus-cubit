@@ -12,13 +12,15 @@ Invented sheets drawn by 21c's fixtures (`step1_whole`) and read by the real she
 Jev offline. Every title, number and mark is invented.
 """
 
+import io
+import json
 from collections.abc import Sequence
 from typing import Any
 
 import pytest
+from django.core.management import call_command
 
 from engine.messages import conflicts as conflict_codes
-from vextrus.api import api as ninja_api
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
     confirm,
@@ -116,7 +118,8 @@ def test_runs_of_one_title_after_different_floors_layout_plans_are_one_series_an
 ) -> None:
     shown = by_number(read(qs_project, monkeypatch, FLOORS))
 
-    assert conflict_questions(qs_project, conflict_codes.SAME_TITLE.code) == []
+    asked = conflict_questions(qs_project, conflict_codes.SAME_TITLE.code)
+    assert asked == [], f"same_title Questions: {len(asked)}"
     details = ["S-32", "S-33", "S-37", "S-38", "S-39", "S-43"]
     assert shown["S-32"]["series"] is not None
     assert {shown[n]["series"] for n in details} == {shown["S-32"]["series"]}
@@ -164,7 +167,8 @@ def test_a_layout_plan_and_two_details_sheets_of_its_subject_and_storey_ask_no_s
         Sheet("S-07", "FOOTING REINFORCEMENT DETAILS", (FOOTING_PLAN,)),
     ])  # fmt: skip
 
-    assert conflict_questions(qs_project, conflict_codes.SAME_STOREY.code) == []
+    asked = conflict_questions(qs_project, conflict_codes.SAME_STOREY.code)
+    assert asked == [], f"same_storey Questions: {len(asked)}"
 
 
 # 5. A Question's count is the Sheets it holds ----------------------------------------------------
@@ -219,11 +223,38 @@ def test_a_same_storey_question_counts_only_the_sheets_it_still_holds(
 
 
 def test_the_three_group_fields_are_optional_and_nullable_in_the_openapi_response() -> None:
-    """Not required, so a client built without them (the web's fixtures) still parses."""
-    schema = ninja_api.get_openapi_schema()
-    proposal = schema["components"]["schemas"]["Step1ProposalOut"]
+    """Not required, so a client built without them (the web's fixtures) still parses. Read from the
+    export the web's generated types come from (`manage.py export_openapi_schema --api vextrus.api.api`,
+    .claude/rules/backend.md), so this test imports no module above takeoff."""
+    out = io.StringIO()
+    call_command("export_openapi_schema", "--api", "vextrus.api.api", stdout=out)
+    proposal = json.loads(out.getvalue())["components"]["schemas"]["Step1ProposalOut"]
 
     for name in FIELDS:
         assert name in proposal["properties"], name
         assert name not in proposal.get("required", []), name
         assert {"type": "null"} in proposal["properties"][name].get("anyOf", []), name
+
+
+# 7. A stale title block on the next Sheet is a Question (S15-Q3) ---------------------------------
+
+STALE = "SUNKEN SLAB DETAILS"
+
+
+def test_two_consecutive_sheets_of_one_title_drawing_different_storeys_are_one_same_title_question(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The owner's ruling of 5 Oct 2026, 17:06Z: "two consecutive sheets of one printed title whose
+    views state different storeys or name different subjects raise the one-title conflict; they are
+    never a continuation and never folded into a series"."""
+    listed = read(qs_project, monkeypatch, [
+        Sheet("S-71", STALE, ("2ND FLOOR SUNKEN SLAB PLAN",)),
+        Sheet("S-72", STALE, ("6TH FLOOR SUNKEN SLAB PLAN",)),
+    ])  # fmt: skip
+
+    asked = conflict_questions(qs_project, conflict_codes.SAME_TITLE.code)
+
+    assert len(asked) == 1, f"same_title Questions: {len(asked)}"
+    assert held_numbers(asked[0], listed) == ["S-71", "S-72"]
+    assert asked[0]["params"]["sheets"] == 2
+    assert [(p["continuation"], p["series"]) for p in listed] == [(None, None), (None, None)]

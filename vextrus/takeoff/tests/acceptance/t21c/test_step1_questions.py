@@ -225,6 +225,7 @@ def test_two_plans_of_one_storey_subject_and_layer_raise_a_same_storey_conflict(
         "floor_5",
     )
     assert sorted(q["proposals"]) == sorted(the(listed, n)["id"] for n in ("S-01", "S-03"))
+    assert q["params"]["sheets"] == 2  # T-W334 (#232): the words count the Sheets it holds
 
 
 def test_a_read_drawing_list_and_a_pasted_one_that_disagree_raise_a_conflict(

@@ -4,7 +4,12 @@ shared edits; the session-06 rulings, "17"):
 - #102: a continuation whose view title contradicts its title block is not a continuation (a copied,
   never-edited title block): the pair is raised as `same_title`, never passed over silently;
 - #100: a continuation's sheets are in number order past part 9; a revision in the number ("S-01 R1",
-  "S-01 R2") is split off, so its digits never make a run.
+  "S-01 R2") is split off, so its digits never make a run;
+- S15-Q3 (the owner's ruling of 5 Oct 2026, 17:06Z, "Stale-title pairs are true Questions"): two
+  consecutive sheets of one printed title whose views state different storeys or name different
+  subjects raise the one-title conflict (`same_title`); they are never a continuation and never folded
+  into a series. Views that state the same storey and subject, or one that states nothing, join as
+  before.
 
 Hand-made candidates, read with 13's own readers under the default sheet conventions.
 """
@@ -23,6 +28,7 @@ from engine.recognise.types import (
     SheetConventions,
     SheetLocation,
     Sourced,
+    StoreysMeaning,
     ValueSource,
     ViewCandidate,
     ViewKind,
@@ -121,3 +127,81 @@ def test_a_revision_in_the_number_makes_no_continuation() -> None:
     found = conflicts.find(sheets, [(), ()], CONVENTIONS)
 
     assert continuations(found) == []
+
+
+# S15-Q3: a stale title block on the next sheet is a Question ------------------------------------
+
+STALE = "RAMP WALL DETAILS"
+
+
+def drawn(*storeys: str, subject: str | None = None, title: str | None = None) -> ViewCandidate:
+    """A view stating the storeys it draws (at their floor levels) and the subject it names."""
+    return ViewCandidate(
+        box=Box(40.0, 60.0, 660.0, 560.0),
+        kind=ViewKind.PLAN if subject else ViewKind.DETAIL,
+        title=title,
+        storeys=storeys,
+        storeys_meaning=StoreysMeaning.AT_FLOOR_LEVEL if storeys else None,
+        subject=subject,
+    )
+
+
+def test_two_consecutive_sheets_of_one_title_whose_views_state_different_storeys_are_a_question() -> (
+    None
+):
+    sheets = [sheet("S-71", STALE), sheet("S-72", STALE)]
+    views = [(drawn("floor_2"),), (drawn("floor_6"),)]
+
+    found = conflicts.find(sheets, views, CONVENTIONS)
+
+    assert continuations(found) == []
+    assert same_titles(found) == [["S-71", "S-72"]]
+
+
+def test_two_consecutive_sheets_of_one_title_whose_views_name_different_subjects_are_a_question() -> (
+    None
+):
+    sheets = [sheet("S-81", "TYPICAL DETAILS"), sheet("S-82", "TYPICAL DETAILS")]
+    views = [
+        (drawn(subject="beam", title="SUMP PIT BEAM"),),
+        (drawn(subject="stair", title="DOG LEGGED STAIR"),),
+    ]
+
+    found = conflicts.find(sheets, views, CONVENTIONS)
+
+    assert continuations(found) == []
+    assert same_titles(found) == [["S-81", "S-82"]]
+
+
+def test_two_consecutive_sheets_of_one_title_drawing_one_storey_are_still_one_continuation() -> None:
+    sheets = [sheet("S-71", STALE), sheet("S-72", STALE)]
+    views = [(drawn("floor_2"),), (drawn("floor_2"),)]
+
+    found = conflicts.find(sheets, views, CONVENTIONS)
+
+    assert continuations(found) == [["S-71", "S-72"]]
+    assert same_titles(found) == []
+
+
+def test_a_sheet_whose_views_state_no_storey_still_runs_on_with_its_neighbour() -> None:
+    """What was not read is not different."""
+    sheets = [sheet("S-71", STALE), sheet("S-72", STALE)]
+    views = [(drawn("floor_2"),), ()]
+
+    found = conflicts.find(sheets, views, CONVENTIONS)
+
+    assert continuations(found) == [["S-71", "S-72"]]
+    assert same_titles(found) == []
+
+
+def test_a_stale_pair_keeps_its_whole_title_one_question_never_a_continuation_or_series() -> None:
+    """S-71 and S-72 part on their storeys; S-76, further on, draws a third: one Question holds all
+    three, and no part of them is grouped."""
+    sheets = [sheet(n, STALE) for n in ("S-71", "S-72", "S-76")]
+    views = [(drawn("floor_2"),), (drawn("floor_4"),), (drawn("floor_6"),)]
+
+    found = conflicts.find(sheets, views, CONVENTIONS)
+
+    assert continuations(found) == []
+    assert same_titles(found) == [["S-71", "S-72", "S-76"]]
+    assert all(isinstance(f, Conflict) for f in found), "nothing but the Question"
