@@ -457,19 +457,31 @@ def build_folders(home: Path) -> Iterator[Path]:
 REVIEW_SLOT = re.compile(r"(rv|slot)\d+")
 
 
+def top_folder(main: Path, folder: Path) -> Path:
+    """The copy a build folder belongs to: the first folder under `.claude/worktrees/`, or under
+    `.private/work/<session>/`, on its path (the folder's parent when it sits higher)."""
+    for home, depth in ((main / ".claude" / "worktrees", 1), (main / ".private" / "work", 2)):
+        if inside(folder, home):
+            parts = folder.relative_to(home).parts
+            return home.joinpath(*parts[: max(0, min(depth, len(parts) - 1))])
+    return folder.parent
+
+
 def holder_reason(
     probe: Probe, main: Path, folder: Path, trees: list[Worktree], paths: list[Path]
 ) -> str | None:
-    """Why the folder holding a build folder is not one the worktree sweep would remove, or None.
-    A listed worktree answers to `judge` (the worktree sweep's own rules); a scratch folder, which has
-    no branch, to the checks on use."""
+    """Why the copy holding a build folder is not one the worktree sweep would remove, or None. The
+    use checks run on its top folder; a listed worktree also answers to `judge` (the worktree sweep's
+    own rules)."""
     if any(REVIEW_SLOT.fullmatch(part) for part in folder.relative_to(main).parts):
         return "review slot"
+    top = top_folder(main, folder)
+    reason = probe.current(top) or probe.in_use(top)
     held = [tree for tree in trees if inside(folder, tree.path)]
-    if held:
+    if reason is None and held:
         tree = max(held, key=lambda found: len(found.path.parts))
-        return judge(probe, main, tree, paths)[0]
-    return probe.current(folder.parent) or probe.in_use(folder.parent)
+        reason = judge(probe, main, tree, paths)[0]
+    return reason
 
 
 def sweep_old_sessions(main: Path, probe: Probe, days: float, apply: bool, tally: Tally) -> None:
