@@ -34,7 +34,13 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   time (`posting`, `scored` or `no-post`), queued visibly.
 
 ## 5. Review
-- `/review-pr <PR> <head> <round>` on each READY head; the ledger holds its verdict.
+- `uv run python -m scripts.factory.review run <PR> --round n [--exception <kind> --reason "<text>"]`
+  from the main checkout, with the Bash tool's `run_in_background`: one review round by code (the head
+  from the PR, a claimed slot, the tier, the lenses, the replays, the ledger record); it prints one JSON
+  object and appends a line to `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing
+  recorded (its `refused` field says why).
+- `/review-pr <PR> <head> <round>` on each READY head (until S14-R3 retires it); the ledger holds its
+  verdict.
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS
@@ -50,6 +56,14 @@ git push origin <branch>
 uv run python -m tools.leakscan file .private/work/<id>/pr-body.md
 gh pr create --title "<at most 72 characters>" --body-file .private/work/<id>/pr-body.md --base main --head <branch>
 ```
+
+CI runs its heavy jobs on a PR only while the head reads READY (`scripts/factory/ci_gate.py`), and `ci` and
+`engine` fail on any other head when the PR's changes need a heavy job: a fix round must end with a
+`Factory-State: READY` commit (verify first), and so must every head the lander merges main onto. A PR of
+documents alone (briefs, ADRs, `docs/`, root `.md` files) needs none and passes with no trailer. `ci`
+answers for the backend and the web (`web`'s own check is a skipped job without a READY head, which passes),
+`engine` for the engine.
+`merge_ready` refuses a head the gate reads not READY unless the PR changes documents alone.
 
 Write the body (its last commit's body) to `.private/work/<id>/pr-body.md` first. `gh pr create` runs as its own
 call: the guard refuses a body-file write that shares a call with anything else, and one whose file has no
