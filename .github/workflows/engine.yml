@@ -261,9 +261,15 @@ jobs:
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
+          READY: ${{ needs.changes.outputs.ready }}
           TOOLCHAIN: ${{ needs.toolchain.result }}
           CHECK_SANDBOX: ${{ needs.check-sandbox.result }}
         run: |
           echo "changes=$CHANGES toolchain=$TOOLCHAIN check-sandbox=$CHECK_SANDBOX"
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass.
+          if [ "$READY" = false ]; then
+            echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
+            exit 1
+          fi
           [ "$CHANGES" = success ] && { [ "$TOOLCHAIN" = success ] || [ "$TOOLCHAIN" = skipped ]; } \
             && { [ "$CHECK_SANDBOX" = success ] || [ "$CHECK_SANDBOX" = skipped ]; }

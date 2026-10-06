@@ -269,6 +269,7 @@ jobs:
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
+          READY: ${{ needs.changes.outputs.ready }}
           MARKETS: ${{ needs.markets.result }}
           HARNESS: ${{ needs.harness.result }}
           SHARDS: ${{ needs.shards.result }}
@@ -276,6 +277,11 @@ jobs:
           PYTHON: ${{ needs.python.result }}
         run: |
           echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS python-checks=$CHECKS python=$PYTHON"
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass.
+          if [ "$READY" = false ]; then
+            echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
+            exit 1
+          fi
           [ "$CHANGES" = success ] && [ "$MARKETS" = success ] && [ "$HARNESS" = success ] \
             && [ "$SHARDS" = success ] \
             && { [ "$CHECKS" = success ] || [ "$CHECKS" = skipped ]; } \
