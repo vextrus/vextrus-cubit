@@ -4,7 +4,7 @@ keeps the kind the answer gave while the others are confirmed; the words count t
 
 import pytest
 
-from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet, answer, proposals
+from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet, answer, exclude, proposals
 from vextrus.takeoff.tests.acceptance.ts15q1.kinds_set import (
     STRUCTURAL,
     STRUCTURAL_TOO,
@@ -75,3 +75,43 @@ def test_a_groups_sheet_still_asked_its_number_keeps_the_kind_while_the_others_a
     waiting = by_title["BEAM DRAWING Z"]
     assert waiting["decision"] is None
     assert waiting["kind"] == "beam_details"
+
+
+@pytest.mark.django_db
+def test_a_groups_sheet_left_out_stays_out_when_the_group_is_answered(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """The refuter's case (score 75): the answer confirms the group's sheets, never one the QS left
+    out; that one keeps the kind for its confirmation back in."""
+    jev_unsure(jev_offline)
+    read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2, 3]))
+    api = api_as(qs_project.member)
+    q = the_one_kind_question(api, qs_project.project_id)
+    ids = {p["number"]: p["id"] for p in proposals(api, qs_project.project_id)}
+    assert exclude(api, qs_project.project_id, [ids["S-03"]], "superseded").status_code == 200
+
+    assert answer(api, qs_project.project_id, q["id"], "beam_details").status_code == 200
+
+    after = {p["number"]: p for p in proposals(api, qs_project.project_id)}
+    assert [after[n]["decision"] for n in ("S-01", "S-02", "S-03")] == [
+        "confirmed",
+        "confirmed",
+        "excluded",
+    ]
+    assert [after[n]["decided_with"] for n in ("S-01", "S-02")] == [2, 2]
+
+
+@pytest.mark.django_db
+def test_every_held_sheet_left_out_confirms_nothing(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    jev_unsure(jev_offline)
+    read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2]))
+    api = api_as(qs_project.member)
+    q = the_one_kind_question(api, qs_project.project_id)
+    ids = [p["id"] for p in proposals(api, qs_project.project_id)]
+    assert exclude(api, qs_project.project_id, ids, "superseded").status_code == 200
+
+    assert answer(api, qs_project.project_id, q["id"], "beam_details").status_code == 200
+
+    assert [p["decision"] for p in proposals(api, qs_project.project_id)] == ["excluded", "excluded"]
