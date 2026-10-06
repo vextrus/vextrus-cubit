@@ -676,3 +676,25 @@ def test_a_cached_run_is_reused_across_a_change_outside_the_key(world: World) ->
     assert len(world.sandbox_runs) == 1
     assert any("is cached; not run again" in line for line in world.said)
     assert run_git(world.repo, "rev-parse", "page") != world.repo_commit("main")
+
+
+# Loaders the closure cannot see fail closed (S15-T1) -----
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "from importlib import import_module as zq_load\n\n\ndef go(n):\n    return zq_load(n)\n",
+        "import importlib as il\n\n\ndef go(n):\n    return il.import_module(n)\n",
+        "from importlib.util import spec_from_file_location as spec\n\nX = spec('a', 'b')\n",
+        "import importlib.util\n\nX = importlib.util.spec_from_file_location('a', 'b')\n",
+        "def go(spec):\n    spec.loader.exec_module(spec)\n",
+        "from runpy import run_path as zq_run\n\nzq_run('x.py')\n",
+        "import runpy\n\nrunpy.run_module('x')\n",
+    ],
+)
+def test_a_loader_the_closure_cannot_follow_is_refused_however_it_is_written(body: str) -> None:
+    tree = {"zq/__init__.py": "", "zq/entry.py": body, "zq/other.py": "Y = 1\n"}
+
+    with pytest.raises(ClosureError, match=r"zq/entry\.py:\d+"):
+        closure_of(tree, ["zq/entry.py"])

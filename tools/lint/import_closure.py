@@ -66,6 +66,19 @@ parameter by its position (None: keyword-only) and name. Inside
 them nothing is refused. `engine.harness.resolve` (None) imports a stage's target, which the stage
 table writes out as `module:function` strings the closure follows as dotted strings; its callers
 pass a table's entry, which no form reads."""
+UNREADABLE = frozenset(
+    {
+        "spec_from_file_location",
+        "spec_from_loader",
+        "exec_module",
+        "load_module",
+        "load_source",
+        "run_module",
+        "run_path",
+    }
+)
+"""The calls that load code by a file or a spec, or run a module by `runpy`: what they load is no name
+the closure can follow, so a file calling one (by any alias) is refused and its caller keys wide."""
 SELF_NAMES = frozenset({"__name__", "__package__", "__spec__"})
 """The module's own name, from which a sibling's can be built."""
 
@@ -544,6 +557,10 @@ def _dynamic(name: str, tree: ast.Module) -> tuple[list[re.Pattern[str]], list[s
         if isinstance(node, ast.Call) and not inside:
             callee = _callee(node)
             dotted = _dotted(node, aliases)
+            if isinstance(node.func, ast.Name) and node.func.id in aliases:
+                callee = aliases[node.func.id].rsplit(".", 1)[-1]  # `import_module as load`
+            if callee in UNREADABLE:
+                raise refuse(node, f"loads code by {callee}, which the closure cannot follow")
             if callee == "getLogger" or callee.endswith(("Error", "Exception", "Warning")):
                 return  # a logger's or an error's name loads nothing
             if callee in IMPORTERS or callee in LISTERS:
