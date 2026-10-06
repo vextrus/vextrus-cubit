@@ -74,6 +74,7 @@ HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
 # ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading.
 GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
 NOTHING = re.compile(r"^(?:[-*+][ \t]+)?(?:none|nothing)\.?$", re.IGNORECASE)
+LIST_ITEM = re.compile(r"^ {0,6}(?:[-*+]|\d+[.)])[ \t]+")
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"
 )
@@ -281,12 +282,19 @@ def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     found = []
     section: str | None = None
     item = 0
+    nothing = False
     for line in body.splitlines():
         if heading := HEADING.match(line):
             gated = GATED.match(heading[1].strip())
             section, item = (" ".join(gated[1].lower().split()), 0) if gated else (None, 0)
+            nothing = False
             continue
-        if section is None or not line.strip() or NOTHING.match(line.strip()):
+        if section is None or not line.strip():
+            continue
+        if NOTHING.match(line.strip()):
+            nothing = True  # "None.": prose after it is not a cut item, a list item still is
+            continue
+        if nothing and not LIST_ITEM.match(line):
             continue
         item += 1
         numbers = {int(a or b) for a, b in ISSUE_LINK.findall(line)}

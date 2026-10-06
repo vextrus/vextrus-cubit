@@ -401,3 +401,32 @@ def test_a_head_the_gate_cannot_read_is_refused(tmp_path: Path) -> None:
 
     gate = reviewed(tmp_path / "ledger") | {"head_ready": unreadable}
     assert main(["105"], get=lambda pr: READY, **gate) == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "## Cut\n- None.\n- dropped the web half\n",
+        "## Cut\nNone.\n\n- the web half was cut\n",
+        "## Not done\nNothing.\n- the export\n",
+        "## Cut\nNone.\n1. the web half\n",
+    ],
+)
+def test_a_list_item_after_none_is_still_a_cut_item(body: str) -> None:
+    from scripts.merge_ready import cut_problems
+
+    assert len(cut_problems(body, lambda n: True)) == 1
+    assert (
+        cut_problems(body.replace("\n- ", "\n- #7 ").replace("\n1. ", "\n1. #7 "), lambda n: True) == []
+    )
+
+
+def test_prose_after_none_in_a_cut_section_is_not_a_cut_item() -> None:
+    from scripts.merge_ready import cut_problems
+
+    body = "## Cut\nNone.\n\nLater tickets: the lander waits.\nmore prose\n\n## Cut\n- real item\n"
+    assert cut_problems(body, lambda n: True) == [
+        "'cut' item 1 links no issue: file one and link it (#<n>)"
+    ]
+    assert cut_problems("## Cut\nNone.\nafter it\n", lambda n: True) == []
+    assert cut_problems("## Cut\n- an item\nNone.\n", lambda n: True) != []
