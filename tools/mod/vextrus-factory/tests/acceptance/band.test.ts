@@ -341,17 +341,25 @@ function drewNothing(w: World, drawn: { text: string }, why: string): void {
   expect(w.statusTexts.filter(t => typeof t === 'string' && t !== ''), `${why}: no ui.status text`).toEqual([])
 }
 
-test('M1 registers exactly session.start and ui.render on AbovePrompt, and nothing that intercepts', async () => {
-  const seen: { event: string; matcher: unknown }[] = []
+// Amended 5 Oct 2026: S14-U2's /wip, /factory pane and spinner suffix (the owner's session-14 brief) need these hooks; still read-only (Q6).
+test('M1 registers exactly session.start, command.run on /wip and /factory, and ui.render on AbovePrompt, Pane and Spinner, and nothing that intercepts', async () => {
+  const seen: { event: string; matcher: any }[] = []
   const recording: any = (event: string, matcherOrHook: unknown, hook?: unknown) => {
     seen.push({ event, matcher: hook === undefined ? undefined : matcherOrHook })
   }
   register(recording, {})
-  const events = seen.map(s => s.event).sort()
-  expect(events).toEqual(['session.start', 'ui.render'])
+  const events = [...new Set(seen.map(s => s.event))].sort()
+  expect(events).toEqual(['command.run', 'session.start', 'ui.render'])
   for (const name of FORBIDDEN_EVENTS) expect(events).not.toContain(name)
   for (const name of events) expect(name).not.toMatch(/^(tool|prompt|agent)\./)
-  expect(seen.find(s => s.event === 'ui.render')?.matcher).toEqual({ component: 'AbovePrompt' })
+  // Each ui.render hook names its component; together exactly AbovePrompt, Pane and Spinner.
+  const renders = seen.filter(s => s.event === 'ui.render')
+  for (const s of renders) expect(typeof s.matcher?.component, 'a ui.render hook names its component').toBe('string')
+  expect([...new Set(renders.map(s => s.matcher.component))].sort()).toEqual(['AbovePrompt', 'Pane', 'Spinner'])
+  // Each command.run hook names its command (none catches every command); together exactly wip and factory.
+  const commands = seen.filter(s => s.event === 'command.run')
+  for (const s of commands) expect(typeof s.matcher?.command, 'a command.run hook names its command').toBe('string')
+  expect([...new Set(commands.map(s => s.matcher.command))].sort()).toEqual(['factory', 'wip'])
 })
 
 test('M2 as the orchestrator, the AbovePrompt band carries every segment of the sample in at most 2 rows of Box and Text', async ($, on) => {
