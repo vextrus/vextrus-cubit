@@ -27,4 +27,4 @@ Flag only correctness and stated-requirement gaps, not style.
 
 Return the decisive evidence (command and its result, file:line, query and rows) and, if refuted, what
 is actually true, in public words. Be brief. Your last line is the verdict alone: `CONFIRMED`, `REFUTED`
-or `UNPROVEN` (the review ledger reads it as the finding's refuter verdict).
+or `UNPROVEN` (code reads it as the finding's refuter verdict).
