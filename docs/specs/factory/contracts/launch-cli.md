@@ -43,7 +43,7 @@ message, after `[DEBUG] ` and the CLI's optional `<ISO>Z` time), never text the 
 
 ```
 launch cloud --branch <branch> --prompt-file <file> --ticket <ticket> --effort <low|medium|high>
-             [--model <id>] [--role <builder|acceptance-writer|reviewer|refuter>]
+             [--tier <ordinary|hard>] [--model <id>] [--role <builder|acceptance-writer|reviewer|refuter>]
              [--untestable "<why>"] [--preflight "<lines>"] [--usage-checked "<lines>"]
              [--prompt-scanned "<count line>"] [--drawings] [--budget-minutes <n>]
              [--review-file <json>] [--log <path>] [--repository <host/owner/repo>]
@@ -54,8 +54,9 @@ launch cloud --branch <branch> --prompt-file <file> --ticket <ticket> --effort <
 | `--branch` (required) | The ticket's branch, pushed to origin. |
 | `--prompt-file` (required) | The prompt text. Its first lines tell the session to check `git remote get-url origin` and its branch and to stop without pushing if either is wrong (the launcher prepends those lines itself, so a prompt file need not carry them). A builder's prompt begins "Follow `.claude/agents/builder.md`". |
 | `--ticket` (required) | The ticket id (`f1`, `t228`), the launch record's key. |
-| `--effort` (required) | Passed as `--effort`. Always set explicitly (CLAUDE.md). |
-| `--model` | Default `claude-opus-5-5`. |
+| `--effort` (required without `--tier`) | Passed as `--effort`. Always set explicitly (CLAUDE.md); a `--tier` supplies it when omitted. |
+| `--tier` | `ordinary` = `claude-sonnet-5-5` at `medium`; `hard` = `claude-opus-5-5` at `high` (the session 14 map). An explicit `--model` or `--effort` beats the tier. |
+| `--model` | Default `claude-opus-5-5` (without `--tier`). |
 | `--role` | Default `builder`. Recorded in the launch record; `acceptance-writer` (it makes the acceptance commit), `reviewer` and `refuter` (their branch is a review branch) need no acceptance commit. |
 | `--untestable "<why>"` | Waives the acceptance-commit refusal; the reason is recorded. |
 | `--preflight "<lines>"` | Before f3's governor exists: the `df`, free and `/usage` lines read by hand, recorded. Ignored once `governor.py` exists. |
@@ -118,7 +119,7 @@ conversation by SendMessage (not this command).
 
 ```
 launch local --branch <branch> --prompt-file <file> --ticket <ticket> --name <name> --effort <low|medium|high>
-             [--model <id>] [--role <builder|acceptance-writer>] [--budget-minutes <n>]
+             [--tier <ordinary|hard>] [--model <id>] [--role <builder|acceptance-writer>] [--budget-minutes <n>]
 ```
 
 `launch.py` parses it and `scripts/factory/local.py` (PR f3) runs it: the governor first (`check local-agent`: exit 3

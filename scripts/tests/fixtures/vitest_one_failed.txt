@@ -1,0 +1,32 @@
+
+ RUN  v5.0.2 /repo/web
+
+ ❯ |node| src/zz_scratch/a.node.test.ts (3 tests | 1 failed | 2 skipped) 1ms
+   × listed one 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |node| src/zz_scratch/a.node.test.ts > listed one
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ src/zz_scratch/a.node.test.ts:2:38
+      1| import { expect, test } from "vitest";
+      2| test("listed one", () => { expect(1).toBe(2); });
+       |                                      ^
+      3| test("unlisted other", () => { expect(1).toBe(3); });
+      4| test("fine", () => { expect(1).toBe(1); });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 skipped (3)
+   Start at  00:00:00
+   Duration  1s
+

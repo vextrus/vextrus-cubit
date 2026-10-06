@@ -25,9 +25,9 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
 
 It writes one `status.json` (status.schema.json, atomically, through `status.py`) and appends one line
 `<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, COMMIT (a local head
-that is not origin's tip), READY, BLOCKED (events)
+that is not origin's tip), READY, BLOCKED, CI-RED (an open PR's required `ci` check failed; events)
 and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
-BUILDER-BLOCKED, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
+BUILDER-BLOCKED, LOCAL-IDLE, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
 JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
 leaves `status.json` when its cause clears. Its memory is `watch-state.json`, so a READY head already
 on origin at the first run fires, and a restart does not fire it again. Before PR f4's `verify` exists
@@ -56,7 +56,6 @@ import signal
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import FrameType
@@ -66,9 +65,12 @@ if not __package__:  # the script form, `python3 scripts/factory/watch.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.factory import governor, stamp, status
+from scripts.factory.trailers import Trailers
+from scripts.factory.trailers import read as read_trailers
 
 QUIET_MINUTES = 30
 READY_WAIT_MINUTES = 10
+IDLE_MINUTES = 10
 USAGE_EVERY = timedelta(minutes=15)
 PRS_EVERY = timedelta(minutes=5)
 JEV_EVERY = timedelta(hours=24)
@@ -83,65 +85,18 @@ BUILDER_ROW_STATES = {"working", "blocked", "done", "failed", "stopped"}
 CLOSED_PR = {"MERGED", "CLOSED"}
 
 
-# --- trailers (trailers.md 1)
-@dataclass(frozen=True)
-class Trailers:
-    outcome: str | None  # READY, BLOCKED, READY-NO-VERIFY (a malformed READY) or None
-    reason: str | None = None
-    why: str | None = None
-
-
-KEYS = {"factory-state", "factory-verify", "factory-reason"}
-TRAILER = re.compile(r"^([A-Za-z0-9-]+):[ \t]*(.*?)\s*$")
+# --- trailers (trailers.md 1: scripts/factory/trailers.py, the reading the guard and stop gate share)
 MERGE_DEPTH = 20
 # The trailer reading's version: a state written by another version has every seen head re-read once.
-PARSER = 2
+PARSER = 3
 
 
 def parse_trailers(message: str, tree: str) -> Trailers:
-    """The tip commit's factory trailers, from its last paragraph only (trailers.md 1), the rule the
-    guard's push gate and the stop gate read too."""
-    paragraphs = [p for p in re.split(r"\n[ \t]*\n", message.strip()) if p.strip()]
-    if not paragraphs:
-        return Trailers(None)
-    found: dict[str, list[str]] = {}
-    for line in paragraphs[-1].splitlines():
-        match = TRAILER.match(line)
-        if match and match.group(1).lower().startswith("factory-"):
-            found.setdefault(match.group(1).lower(), []).append(match.group(2))
-    if not found:
-        return Trailers(None)
-    states = found.get("factory-state", [])
-    looks_ready = any(value.upper() == "READY" for value in states)
-
-    def malformed(why: str) -> Trailers:
-        return Trailers("READY-NO-VERIFY" if looks_ready else None, None, why)
-
-    if any(len(values) > 1 for values in found.values()):
-        return malformed("a factory trailer is repeated")
-    if set(found) - KEYS:
-        return malformed("an unknown factory trailer")
-    if not states:
-        return malformed("factory trailers without Factory-State")
-    state = states[0]
-    verify = found.get("factory-verify", [None])[0]
-    reason = found.get("factory-reason", [None])[0]
-    verify_ok = verify is None or re.fullmatch(r"[0-9a-f]{40} ok", verify) is not None
-    if state == "READY":
-        if reason is not None:
-            return malformed("READY carries a Factory-Reason")
-        if verify is None:
-            return malformed("no Factory-Verify")
-        if not verify_ok:
-            return malformed("Factory-Verify is malformed")
-        if verify.split()[0] != tree:
-            return malformed("the Factory-Verify tree is not the head's tree")
-        return Trailers("READY")
-    if state == "BLOCKED":
-        if reason is None or not re.fullmatch(r"[^\r\n]{1,200}", reason) or not verify_ok:
-            return malformed("BLOCKED without a one-line Factory-Reason")
-        return Trailers("BLOCKED", public(reason, 200))
-    return malformed("Factory-State is not READY or BLOCKED")
+    """The tip commit's factory trailers (trailers.md 1), its reason made one public line."""
+    read = read_trailers(message, tree)
+    if read.reason is None:
+        return read
+    return Trailers(read.outcome, public(read.reason, 200), read.why, read.gated)
 
 
 def public(text: str, limit: int) -> str:
@@ -289,7 +244,7 @@ def gh_prs() -> list[dict[str, Any]] | None:
             return None
     else:
         argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
-        argv += ["--json", "number,headRefName,headRefOid,state"]
+        argv += ["--json", "number,headRefName,headRefOid,state,statusCheckRollup"]
         try:
             done = subprocess.run(
                 argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
@@ -598,6 +553,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     watch_jev(step)
 
     raise_alarms(step)
+    write_events_tail(folder)
     save_state(folder, state)
     payload = status.build(
         written_at=at,
@@ -662,12 +618,14 @@ def track(
                 ready_head=head if trailers.outcome == "READY" else None,
                 leak=None,
                 acceptance=head is not None and message.startswith("acceptance:"),
+                idle_since=None,
             )
             if head is not None:
                 if mine is None:
                     step.event("PUSH", ticket, head[:8])
                 elif head != tip:  # equal to origin's tip: the launch tip or a head already pushed
                     step.event("COMMIT", ticket, head[:8])
+                    seen["committed"] = True
                 if trailers.outcome == "READY" and not inherited:
                     step.event("READY", ticket, head[:8])
                 elif trailers.outcome == "BLOCKED":
@@ -676,11 +634,12 @@ def track(
                     seen["leak"] = leak_scan(head, main_sha)
                     step.state["leakscan"] = seen["leak"]["result"]
     elif seen["head"] is not None and step.state.get("parser") != PARSER:
-        reread(step, ticket, seen)
+        reread(step, ticket, seen, main_sha)
     head = seen["head"]
     outcome = seen.get("outcome")
     pr = pr_for(branch, prs)
     closed = pr is not None and pr.get("state") in CLOSED_PR
+    watch_ci(step, ticket, pr)
     last_push = seen.get("last_push_at")
     quiet_since = status.parse_utc(last_push) if last_push else record["_started"]
     quiet = status.minutes_between(quiet_since, at)
@@ -716,6 +675,10 @@ def track(
         step.alarm(f"{ticket}|{last_push}", "BUILDER-QUIET", ticket, f"no push for {quiet} min")
     if where == "local" and row is not None and row.get("state") == "blocked" and not closed:
         step.alarm(ticket, "BUILDER-BLOCKED", ticket, "local builder blocked (claude agents)")
+    if where == "local" and is_builder(record) and not closed:
+        local_idle(step, ticket, seen, row)
+    else:
+        seen["idle_since"] = None
     budget = record.get("budget_minutes")
     if isinstance(budget, int) and state not in ("ready", "blocked", "done"):
         spent = status.minutes_between(record["_started"], at)
@@ -740,14 +703,52 @@ def track(
     }
 
 
-def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
+ENDED_ROW_STATES = {"done", "stopped", "failed"}
+
+
+def is_idle(row: dict[str, Any] | None) -> bool:
+    """A `claude agents` row of a session waiting on nobody: a live one whose `status` is `idle` (its
+    turn finished), or one whose session has exited (no pid, its state done, stopped or failed)."""
+    if row is None:
+        return False
+    if row.get("status") == "idle":
+        return True
+    return row.get("pid") is None and row.get("state") in ENDED_ROW_STATES
+
+
+def local_idle(step: Pass, ticket: str, seen: dict[str, Any], row: dict[str, Any] | None) -> None:
+    """LOCAL-IDLE, for a local builder (never a writer, whose work ends at its `acceptance:` commit, nor
+    one whose PR is closed): it has committed, its head is not READY or BLOCKED, and its `claude agents`
+    row has read idle (`is_idle`) for IDLE_MINUTES since the head was first seen so (a builder that
+    stopped, or whose session ended, without its trailer)."""
+    head = seen["head"]
+    if not is_idle(row) or head is None or not seen.get("committed"):
+        seen["idle_since"] = None
+        return
+    if seen.get("outcome") in ("READY", "BLOCKED"):
+        seen["idle_since"] = None
+        return
+    since = seen.get("idle_since") or status.utc(step.at)
+    seen["idle_since"] = since
+    idle_for = status.minutes_between(status.parse_utc(since), step.at)
+    if idle_for >= IDLE_MINUTES:
+        detail = f"{head[:8]} idle {idle_for} min after a commit, no READY or BLOCKED (claude agents)"
+        if row is not None and row.get("pid") is None:
+            detail = f"{head[:8]} session ended {idle_for} min ago after a commit, no READY or BLOCKED"
+        step.alarm(f"{ticket}|{head}", "LOCAL-IDLE", ticket, detail)
+
+
+def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) -> None:
     """Read a seen head's outcome again: the state was written by another version of the trailer
-    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both."""
+    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both. A READY
+    inherited onto clean merges of main (track's rule) stays READY."""
     head = seen["head"]
     info = read_head(seen["branch"], head)
     if info is None:
         return
     trailers = parse_trailers(*info)
+    if trailers.outcome is None and seen.get("outcome") == "READY" and inherits_ready(head, main_sha):
+        return
     if trailers.outcome == "READY":  # every READY records its head, unchanged or not
         seen["ready_head"] = head
     if trailers.outcome == seen.get("outcome"):
@@ -765,9 +766,62 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
         step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
 
 
+def inherits_ready(head: str, main_sha: str | None) -> bool:
+    """Whether `head` is clean merges of main on a commit that reads READY: track() records such a merge
+    as its own READY head, so the READY commit under it is found again by walking first parents."""
+    sha = head
+    for _ in range(MERGE_DEPTH):
+        parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
+        if len(parents) != 2:
+            return False
+        sha = parents[0]
+        message = git_out("log", "-1", "--format=%B", sha)
+        tree = git_out("rev-parse", f"{sha}^{{tree}}")
+        if message is None or tree is None:
+            return False
+        if parse_trailers(message, tree.strip()).outcome == "READY":
+            return clean_merges_of_main(head, sha, main_sha)
+    return False
+
+
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
     mine = [row for row in prs or [] if row.get("headRefName") == branch]
     return max(mine, key=lambda row: (row.get("state") == "OPEN", row["number"]), default=None)
+
+
+CI_RED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
+
+
+def required_ci_red(pr: dict[str, Any]) -> bool:
+    """True when the PR's required `ci` check (the aggregate job of the `ci` workflow, or a status
+    context named `ci`) has failed on its current head. Pending, skipped and missing are not red."""
+    for entry in pr.get("statusCheckRollup") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("__typename") == "StatusContext":
+            if entry.get("context") == "ci" and entry.get("state") in ("FAILURE", "ERROR"):
+                return True
+        elif (
+            entry.get("name") == "ci"
+            and entry.get("workflowName") in (None, "ci")
+            and entry.get("conclusion") in CI_RED_CONCLUSIONS
+        ):
+            return True
+    return False
+
+
+def watch_ci(step: Pass, ticket: str, pr: dict[str, Any] | None) -> None:
+    """One CI-RED event per (ticket, head) when an open tracked PR's required `ci` check fails; a
+    restart or a re-read does not repeat it, and a new head that fails is a new event."""
+    if pr is None or pr.get("state") != "OPEN" or not required_ci_red(pr):
+        return
+    head = pr.get("headRefOid")
+    if not isinstance(head, str) or not head:
+        return
+    red: dict[str, str] = step.state.setdefault("ci_red", {})
+    if red.get(ticket) != head:
+        red[ticket] = head
+        step.event("CI-RED", ticket, f"#{pr['number']} {head[:8]} required check ci failed")
 
 
 def agents_row(rows: list[dict[str, Any]] | None, name: Any) -> dict[str, Any] | None:
@@ -862,6 +916,40 @@ def raise_alarms(step: Pass) -> None:
             for kind, subject, detail in step.events:
                 who = "-" if not subject else public(subject, 80).replace(" ", "_")
                 log.write(f"{status.utc(step.at)} {kind} {who} {public(detail, 200)}\n")
+
+
+# The mod cannot read a file over 4 MiB (the host's fs.read rejects it) and events.log only grows, so
+# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES lines of the kinds it shows or toasts,
+# from the last EVENTS_TAIL_BYTES of the log, in `events.tail`.
+EVENTS_TAIL_KINDS = frozenset(
+    {"READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-RED", "OWNER-COMMAND", "OWNER-RULING"}
+)
+EVENTS_TAIL_LINES = 200
+EVENTS_TAIL_BYTES = 512 * 1024
+
+
+def write_events_tail(folder: Path) -> None:
+    try:
+        with (folder / "events.log").open("rb") as log:
+            size = log.seek(0, os.SEEK_END)
+            log.seek(max(0, size - EVENTS_TAIL_BYTES))
+            raw = log.read()
+        if size > EVENTS_TAIL_BYTES:
+            raw = raw.partition(b"\n")[2]  # the first line is cut
+        lines = [
+            line
+            for line in raw.decode("utf-8", "replace").splitlines()
+            if len(parts := line.split(" ", 2)) > 1 and parts[1] in EVENTS_TAIL_KINDS
+        ]
+        text = "".join(f"{line}\n" for line in lines[-EVENTS_TAIL_LINES:])
+        path = folder / "events.tail"
+        if path.exists() and path.read_text() == text:
+            return
+        temp = path.with_name("events.tail.tmp")
+        temp.write_text(text)
+        os.replace(temp, path)
+    except OSError:
+        pass  # no log yet, or an unwritable folder: the mod reads events.log itself while it is small
 
 
 def load_state(folder: Path) -> dict[str, Any]:

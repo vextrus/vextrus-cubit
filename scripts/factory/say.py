@@ -12,7 +12,8 @@ rows (one attached interactively has a background row with no pid and an interac
 - not running (no row has a `pid`, whatever its `state`: a dead session's row may still read `done`,
   `blocked` or `working`): it is resumed in its own folder, `claude --resume <id> --bg --settings <main
   checkout>/scripts/factory/builder.settings.json "<prefixed text>"`, with the local launcher's child
-  environment (VEXTRUS_ROLE=builder, the orchestrator's variables dropped);
+  environment (VEXTRUS_ROLE=builder, the orchestrator's variables dropped), and the `--model` and
+  `--effort` of the launch record that names the session (else a warning: they may differ);
 - refused: `stopped`/`failed` with a `pid`, no row, or a row to resume whose `cwd` is not an existing
   folder under `<main checkout>/.claude/worktrees/`.
 
@@ -25,6 +26,7 @@ Exit 0, 2 refused or usage error, 1 the resume failed, 6 the resume copied the c
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -50,6 +52,21 @@ def rows_for(session: str) -> list[dict[str, Any]]:
     return [row for row in governor.read_agents() or [] if row.get("sessionId") == session]
 
 
+def launch_choice(session: str) -> tuple[str, str] | None:
+    """The model and effort the session's launch record names (newest record wins), or None."""
+    found: tuple[str, str] | None = None
+    for path in sorted((status.factory_dir() / "launches").glob("*.json")):
+        try:
+            record = json.loads(path.read_text())
+        except OSError, ValueError:
+            continue
+        if isinstance(record, dict) and record.get("session_id") == session:
+            model, effort = record.get("model"), record.get("effort")
+            if isinstance(model, str) and isinstance(effort, str):
+                found = (model, effort)
+    return found
+
+
 def resume(session: str, row: dict[str, Any], text: str) -> int:
     main_checkout = status.main_checkout()
     if main_checkout is None:
@@ -68,7 +85,16 @@ def resume(session: str, row: dict[str, Any], text: str) -> int:
         print(f"REFUSED: session {session}'s folder {folder} is gone: not resumable", file=sys.stderr)
         return 2
     cwd = folder
-    argv = ["claude", "--resume", session, "--bg", "--settings", str(settings), text]
+    argv = ["claude", "--resume", session, "--bg", "--settings", str(settings)]
+    choice = launch_choice(session)
+    if choice is None:
+        print(
+            f"WARNING: no launch record names session {session}: resuming on the settings' model",
+            file=sys.stderr,
+        )
+    else:  # a resumed session keeps the model and effort it was launched with
+        argv += ["--model", choice[0], "--effort", choice[1]]
+    argv.append(text)
     done = subprocess.run(
         argv,
         cwd=cwd,

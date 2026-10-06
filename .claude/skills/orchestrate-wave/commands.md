@@ -21,8 +21,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - `uv run python -m tools.lint.acceptance_lint origin/main <branch> [<branch> ...]`: run on each acceptance
   commit before launching its builder, with every open ticket's branch named so contradicting pins show; exit 1
   goes back to the acceptance-writer, never to a builder.
-- `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --effort medium --prompt-file <f> --budget-minutes <n>`
-- `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --effort medium --name <name> --prompt-file <f> --budget-minutes <n>`
+- `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --tier ordinary|hard --prompt-file <f> --budget-minutes <n>`
+- `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --tier ordinary|hard --name <name> --prompt-file <f> --budget-minutes <n>`
 - `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`: prints the text to send
   with SendMessage when the builder is alive, and runs the resume itself when it is `stopped` or `failed`
   with no `pid`. Never type `claude --bg --resume` by hand: the guard refuses it.
