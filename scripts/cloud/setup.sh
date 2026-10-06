@@ -11,17 +11,23 @@
 # The layout is the local one (scripts/owner/toolchain.sh), /opt/vextrus/...: python, libredwg, dotnet,
 # plus node, ms-playwright (Chromium) and wheels (ezdxf's compiled wheel). The pins below must equal
 # toolchain/ (engine/read/tests/test_toolchain.py checks); a pasted script carries its own, so a pin
-# change is a re-paste, which also rebuilds the cache. ezdxf's lock, Playwright's version and the
-# database roles (scripts/owner/db-roles.sql) are read from the clone.
+# change is a re-paste, which also rebuilds the cache. ezdxf's lock, Playwright's version, the database
+# roles (scripts/owner/db-roles.sql) and scripts/cloud/postgres.sh are read from the clone.
+#
+# Idempotent. It prints `id -u` and the elapsed seconds. VEXTRUS_CLOUD_DRY_RUN=1 is its dry run: it
+# downloads and installs nothing, writes nothing under /opt, and does only the PostgreSQL part, with the
+# PostgreSQL tools on PATH as the user running it; docs/runbooks/cloud-env.md says how to check the budget.
 #
 # Network: Custom, "Also include default list of common package managers" ticked, plus:
 #   releases.astral.sh  ftp.gnu.org  apt.postgresql.org  builds.dotnet.microsoft.com  dot.net
 #   ci.dot.net  cdn.playwright.dev  playwright.download.prss.microsoft.com
-# Environment variables (no secrets; the database passwords are throwaways that exist only in the VM):
+# Environment variables (placeholders here: pick the two throwaway passwords yourself, they exist only in the VM):
 #   UV_PYTHON_INSTALL_DIR=/opt/vextrus/python
 #   UV_PYTHON_PREFERENCE=only-managed
-#   DATABASE_URL=postgresql://vextrus_app:vextrus_app@127.0.0.1:5432/vextrus
-#   DATABASE_OWNER_URL=postgresql://vextrus:vextrus@127.0.0.1:5432/vextrus
+#   DATABASE_URL=postgresql://vextrus_app:<throwaway>@127.0.0.1:5432/vextrus
+#   DATABASE_OWNER_URL=postgresql://vextrus:<throwaway>@127.0.0.1:5432/vextrus
+#                                         the roles take the passwords these two name (scripts/cloud/
+#                                         postgres.sh); the repository holds none (docs/runbooks/cloud-env.md)
 #   TYPESAFE_API_KEY=proxy-injected       (the real key is an API credential, §6.2; ADR 0013)
 #   VEXTRUS_RELEASE_TOKEN=...             optional, and not needed: in the VM (28 Sep 2026) the setup
 #                                         got 403 from GitHub's API even with it set, while a session
@@ -40,22 +46,27 @@ LIBREDWG_SHA256=62ebb73b984f865960f20ed26619ea5f8789d5e3fd088fa40a2598384da81275
 REPO=vextrus/vextrus-cubit
 V=/opt/vextrus
 STATUS=/opt/vextrus-setup.status
+DRY=${VEXTRUS_CLOUD_DRY_RUN:-}
 export UV_PYTHON_INSTALL_DIR=$V/python PLAYWRIGHT_BROWSERS_PATH=$V/ms-playwright
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DEBIAN_FRONTEND=noninteractive
 
-mkdir -p "$V/wheels" && : > "$STATUS" && : > "$STATUS.parts"
 T0=$(date +%s)
+if [ -n "$DRY" ]; then                      # nothing under /opt: the status lives in a scratch folder
+  V=$(mktemp -d) && STATUS=$V/setup.status
+fi
+mkdir -p "$V/wheels" && : > "$STATUS" && : > "$STATUS.parts"
+echo "id -u: $(id -u)" >> "$STATUS"
 # Parallel installs share apt's lock: each apt call waits for it rather than failing.
-echo 'DPkg::Lock::Timeout "240";' > /etc/apt/apt.conf.d/90vextrus-lock-wait
+[ -z "$DRY" ] && echo 'DPkg::Lock::Timeout "240";' > /etc/apt/apt.conf.d/90vextrus-lock-wait
 # That lock covers dpkg only, not apt's downloads and temporary files: in the second VM run a concurrent
 # apt (Playwright's --with-deps) removed the .debs PostgreSQL's install was unpacking. So every apt use
 # also holds this one lock, taken with flock.
 APT_LOCK=/run/vextrus-apt.lock
 # The image lists Launchpad PPAs (deadsnakes, ondrej/php) that the network policy answers with 403, which
 # makes every `apt-get update` fail; nothing here needs them, so they are set aside before any install.
-mkdir -p /etc/apt/sources.list.d.vextrus-disabled
+[ -z "$DRY" ] && mkdir -p /etc/apt/sources.list.d.vextrus-disabled
 for f in /etc/apt/sources.list.d/*; do
-  if [ -f "$f" ] && grep -qE 'ppa\.launchpad(content)?\.net' "$f"; then
+  if [ -z "$DRY" ] && [ -f "$f" ] && grep -qE 'ppa\.launchpad(content)?\.net' "$f"; then
     mv "$f" /etc/apt/sources.list.d.vextrus-disabled/ && echo "apt: set aside $(basename "$f") (403)" >> "$STATUS"
   fi
 done
@@ -146,29 +157,32 @@ install_postgres() {                        # 18 from apt.postgresql.org; 16's c
   service postgresql stop || true
   pg_lsclusters -h | awk '$1 == "16" {print $2}' | while read -r c; do pg_dropcluster 16 "$c"; done
   flock "$APT_LOCK" sh -c 'apt-get update -qq && apt-get install -y -qq postgresql-18 bubblewrap' || return 1
-  pg_ctlcluster 18 main start 2>/dev/null   # the package may have started it already
-  for _ in $(seq 20); do pg_isready -q -h 127.0.0.1 -p 5432 && break; sleep 1; done
-  pg_isready -q -h 127.0.0.1 -p 5432 || return 1
-  prepare_postgres; local r=$?
+  configure_postgres; local r=$?
   pg_ctlcluster 18 main stop                # the cache keeps files, not processes
   return "$r"
 }
 
-prepare_postgres() {                        # the roles exactly as db-roles.sql makes them (review A2)
+install_postgres_dry() { configure_postgres; }
+
+configure_postgres() {                      # start 18, then the roles and the database, only when missing
   [ -n "$CHECKOUT" ] || { echo "no clone found for scripts/owner/db-roles.sql"; return 1; }
-  su postgres -c "psql -q -d postgres" < "$CHECKOUT/scripts/owner/db-roles.sql" || return 1
-  # Throwaway passwords, known to the environment's variables and valid only inside this VM.
-  su postgres -c "psql -v ON_ERROR_STOP=1 -q -d postgres" <<'SQL'
-ALTER ROLE vextrus PASSWORD 'vextrus';
-ALTER ROLE vextrus_app PASSWORD 'vextrus_app';
-SQL
+  pg_up || { echo "PostgreSQL 18 did not start"; return 1; }
+  pg_prepare "$CHECKOUT"
 }
 
 echo "clone: ${CHECKOUT:-NOT FOUND}" >> "$STATUS"
-for piece in python node dotnet libredwg ezdxf postgres; do timed "$piece" & done
+# shellcheck source=scripts/cloud/postgres.sh
+[ -n "$CHECKOUT" ] && . "$CHECKOUT/scripts/cloud/postgres.sh"
+if [ -n "$DRY" ]; then                      # the PostgreSQL part only, as this user: nothing downloaded or installed
+  echo "dry run: nothing is downloaded or installed" >> "$STATUS"
+  timed postgres_dry &
+else
+  for piece in python node dotnet libredwg ezdxf postgres; do timed "$piece" & done
+fi
 wait
-chown -R root:root "$V" && chmod -R a+rX,go-w "$V"
+if [ -z "$DRY" ]; then chown -R root:root "$V" && chmod -R a+rX,go-w "$V"; fi
 cat "$STATUS.parts" >> "$STATUS"
 echo "total: $(( $(date +%s) - T0 ))s (budget 300s)" >> "$STATUS"
+echo "elapsed: $(( $(date +%s) - T0 )) seconds" >> "$STATUS"
 cat "$STATUS"
 exit 0   # never block the session; session-start.sh prints the status, so a failure is seen

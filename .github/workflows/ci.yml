@@ -30,6 +30,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       python: ${{ steps.paths.outputs.python }}
+      web: ${{ steps.web.outputs.web }}
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,6 +51,28 @@ jobs:
           # Only the web, the documents and the harness's prose leave the backend untouched.
           backend=$(grep -vE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)' <<< "$changed" || true)
           if [ -n "$backend" ]; then echo python=true; else echo python=false; fi >> "$GITHUB_OUTPUT"
+      - id: web
+        name: Does this change touch what web.yml runs on?
+        # The same paths as web.yml's `changes` job (a test keeps the two equal): web.yml's `web` check
+        # is a skipped job on a head that is not READY, and a skipped job passes, so `ci` is the check
+        # that fails such a head. Fails closed, as the step above.
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo web=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
+          touched=$(grep -E '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$|engine/render/)' <<< "$changed" || true)
+          if [ -n "$touched" ]; then echo web=true; else echo web=false; fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's heavy jobs run only then; main's always do)
+        # Fails closed: a commit the gate cannot read fails the step, and so the roll-up. The runner sets
+        # GITHUB_EVENT_NAME; standard library only (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
 
   markets:
     # The market-literal scan reads vextrus/, engine/ and web/src/, so it runs on every change.
@@ -82,10 +106,12 @@ jobs:
           python-version-file: .python-version
       - name: Workflow check (only main's not-applicable workflow may post those two statuses)
         run: python3 -m tools.lint.workflows
-      - name: Every node test under .claude/ and scripts/ (quoted globs; Node 24 runs a directory argument as a file)
-        run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs'
+      - name: Every node test under .claude/, scripts/ and the factory mod (quoted globs; Node 24 runs a directory argument as a file)
+        run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs' 'tools/mod/**/*.test.mjs'
       - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)
         run: python3 -m tools.lint.ci_shards
+      - name: Root-only check (a test that removes permissions with chmod carries the root skipif guard)
+        run: python3 -m tools.lint.root_only
       - name: Acceptance check (only `acceptance:` commits change acceptance tests; ADR 0041)
         if: github.event_name == 'pull_request'
         env:
@@ -112,7 +138,7 @@ jobs:
   python-checks:
     # The once-only items: lints, types, scans, Django's checks and the migrations.
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.python == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
@@ -183,7 +209,7 @@ jobs:
     # The tests, one leg per shard of .github/ci-shards.json (tools.lint.ci_shards proves they
     # partition the suite); `ci` needs this job, so every leg is required.
     needs: [changes, shards]
-    if: needs.changes.outputs.python == 'true'
+    if: needs.changes.outputs.python == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     strategy:
@@ -258,6 +284,9 @@ jobs:
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
+          READY: ${{ needs.changes.outputs.ready }}
+          PYTHON_PATHS: ${{ needs.changes.outputs.python }}
+          WEB_PATHS: ${{ needs.changes.outputs.web }}
           MARKETS: ${{ needs.markets.result }}
           HARNESS: ${{ needs.harness.result }}
           SHARDS: ${{ needs.shards.result }}
@@ -265,6 +294,13 @@ jobs:
           PYTHON: ${{ needs.python.result }}
         run: |
           echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS python-checks=$CHECKS python=$PYTHON"
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
+          # its changes need none (the documents alone): such a head passes whatever its trailer says. The
+          # web counts here too: web.yml's own `web` check is a skipped job on such a head, and passes.
+          if [ "$READY" = false ] && { [ "$PYTHON_PATHS" = true ] || [ "$WEB_PATHS" = true ]; }; then
+            echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
+            exit 1
+          fi
           [ "$CHANGES" = success ] && [ "$MARKETS" = success ] && [ "$HARNESS" = success ] \
             && [ "$SHARDS" = success ] \
             && { [ "$CHECKS" = success ] || [ "$CHECKS" = skipped ]; } \

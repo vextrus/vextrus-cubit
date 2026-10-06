@@ -515,3 +515,43 @@ def test_say_reads_the_record_of_the_session_it_messages(
     monkeypatch.setenv("VEXTRUS_NOW", "2026-10-05T01:45:00Z")
     code, sent = say_from_main(main, monkeypatch, "--ticket", "z1")
     assert (code, sent) == (0, ["[elapsed 45/60 min] Round 1.\n"])
+
+
+# --- S14-K1 fix round 3: the platform enforces the session limit; a refused launch prints its error
+def cli_on_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str) -> None:
+    """A `claude` on PATH: `--version` answers, any other call runs `body`."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    cli = bin_dir / "claude"
+    cli.write_text(
+        f'#!/bin/sh\nif [ "$1" = "--version" ]; then echo "9.9.9 (fake)"; exit 0; fi\n{body}\n'
+    )
+    cli.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+
+def through_default_claude(tmp_path: Path, root: Path) -> launch.Outcome:
+    return launch_cloud(
+        request(tmp_path),
+        root=root,
+        scan=lambda _: ScanResult(True, "hits=0"),
+        govern=None,
+        snapshot=lambda: "{}",
+        now=lambda: datetime(2026, 10, 5, 1, 2, 3, tzinfo=UTC),
+    )
+
+
+def test_a_launch_that_created_no_session_names_the_screen_and_the_log(
+    tmp_path: Path, main: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli_on_path(tmp_path, monkeypatch, 'echo "[ERROR] concurrent session limit reached"; exit 1')
+    outcome = through_default_claude(tmp_path, main)
+    lines = capsys.readouterr().out.splitlines()
+    log_file = tmp_path / "records" / "z1-20261005T010203Z.debug.log"
+    assert outcome.exit_code == 2
+    assert lines[0].startswith("REFUSED "), lines
+    assert lines[1] == f"see {log_file}.screen and {log_file}", (
+        lines
+    )  # and nothing parsed: no error line
+    assert not any("concurrent" in line for line in lines), lines
+    assert "concurrent session limit reached" in Path(f"{log_file}.screen").read_text()
