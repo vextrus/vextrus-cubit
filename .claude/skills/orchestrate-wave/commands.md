@@ -20,6 +20,10 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   `pytest`, `web-tests`, `walk`, `rd-run`. A refusal waits or holds the ticket.
 
 ## 3. Launch and messages
+- `uv run python -m tools.lint.acceptance_lint origin/main <branch> [<branch> ...]`: run on each acceptance
+  commit before launching its builder. The first branch is the one judged in full; name every other open
+  ticket's branch after it, read for its `pin:` lines only, so contradicting pins show. Exit 1 goes back to the
+  acceptance-writer, never to a builder.
 - `uv run python -m scripts.factory.launch cloud --branch <branch> --ticket <ticket> --tier ordinary|hard --prompt-file <f> --budget-minutes <n>`
 - `uv run python -m scripts.factory.launch local --ticket <ticket> --branch <branch> --tier ordinary|hard --name <name> --prompt-file <f> --budget-minutes <n>`
 - `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`: prints the text to send

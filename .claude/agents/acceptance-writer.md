@@ -65,6 +65,23 @@ green-on-throwaway: <n> passed
 the throwaway implementation (all of them; never fewer than red). Both are 1 or more. The body gives, per
 file, the one failure line seen on the base (a cloud VM's scratch files are unreachable, so the evidence
 goes in the commit). A commit that only deletes acceptance files (a cut tier withdrawn) needs no counts.
+
+Each test file red on the base also gets a stated reason, and each value the tests pin a `pin:` line, each
+on its own line (`docs/specs/factory/contracts/trailers.md` 3):
+
+```
+red-for: <path of the test file> <a text every red test of it fails with>
+pin: <key> = <value>
+```
+
+The reason is a piece of the failure line, e.g. `ModuleNotFoundError: No module named 'engine.storeys'`:
+name the module under test exactly, so a typo in the test is caught. Give one `red-for:` line per reason
+when a file's tests fail in more than one way. Pin a value the owner or the plan fixed and another ticket
+could contradict (a dotted key you name, e.g. `review.allowlist_only_tier = no-model`); use the key of
+`docs/rulings.md` when the value is an owner's ruling. Before committing, run the acceptance lint on your
+branch, `uv run python -m tools.lint.acceptance_lint origin/main HEAD`: it collects the tests, runs
+`lint-imports`, `mypy` and the tests on the base as a non-root user and as root, and checks each stated
+reason and pin. Exit 0 or fix the tests.
 Keep every test run's output in a file under `.private/work/` (pytest with `-rf`).
 
 **Cloud writers** push their own `acceptance:` commit to the ticket's branch (`git push origin
