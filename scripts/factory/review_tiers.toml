@@ -12,10 +12,10 @@
 # of folders (none included), a trailing `/**` everything below a folder.
 
 [docs_only]
-# Plain reading for people: research notes, session briefs, notes, the lessons list.
+# Plain reading for people: research notes, notes, the lessons list. Text only: review.py takes
+# docs-only for `.md` and `.txt` files with a line count (never a binary, never a script).
 paths = [
   "docs/research/**",
-  "docs/handoff/**",
   "docs/notes/**",
   "docs/knowledge/lessons.md",
 ]
@@ -29,6 +29,7 @@ never = [
   "docs/specs/**",
   "docs/adr/**",
   "docs/agents/**",
+  "docs/handoff/**",  # the session brief the orchestrator obeys (CLAUDE.md "Start here")
   "docs/knowledge/jev-nodes.md",
 ]
 
@@ -37,7 +38,6 @@ never = [
 # `web/src/components/**` is pinned small by the S14-R1 acceptance tests (a three-line badge).
 paths = [
   "docs/research/**",
-  "docs/handoff/**",
   "docs/notes/**",
   "docs/knowledge/lessons.md",
   "web/src/messages/**",
@@ -57,5 +57,27 @@ never = [
   "docs/specs/**",
   "docs/adr/**",
   "docs/agents/**",
+  "docs/handoff/**",
   "docs/knowledge/jev-nodes.md",
+  # The tests of a wall are a wall: the harness, the factory and the readers, and any path with a
+  # wall's word in a folder or file name.
+  "tools/**",
+  "scripts/**",
+  "engine/read/**",
+  "**/*tenan*",
+  "**/*tenan*/**",
+  "**/*sandbox*",
+  "**/*sandbox*/**",
+  "**/*guard*",
+  "**/*guard*/**",
+  "**/*leak*",
+  "**/*leak*/**",
+  "**/*ledger*",
+  "**/*ledger*/**",
+  "**/*auth*",
+  "**/*auth*/**",
+  "**/*access*",
+  "**/*access*/**",
+  "**/*upload*",
+  "**/*upload*/**",
 ]
