@@ -5,12 +5,12 @@
 
     python -m scripts.factory.sweep --old-sessions [--days N] [--apply] [--repo PATH]
 
-`--old-sessions` is its own mode: it lists (and with `--apply` removes) each `.venv` and `node_modules`
-folder whose newest entry is older than `--days` (default 14), found only in the registered git
-worktrees under `<main>/.claude/worktrees/` (`git worktree list --porcelain`), links never followed.
-Each worktree is judged once, on its root (locked, the cwd's, in use by a live process), before
-anything is removed; nothing under `.private/work/` is ever touched. The folder holding a build folder
-stays; nothing else is removed.
+`--old-sessions` is its own mode: for each registered git worktree under `<main>/.claude/worktrees/`
+(`git worktree list --porcelain`) it lists (and with `--apply` removes) exactly two paths, `<root>/.venv`
+and `<root>/web/node_modules`, when the folder's newest entry is older than `--days` (default 14).
+Nothing is walked to find them, so no nested worktree, no `.private/work/` and no other build
+folder is ever entered; links are never followed. Each worktree is judged once, on its root (locked,
+the cwd's, in use by a live process), before anything is removed. The folder holding one stays.
 
 A dry run is the default: it prints `remove ...`, `keep ...: <reason>` and `prune ...` lines and removes
 nothing; `--apply` acts on them. A linked worktree under `<main>/.claude/worktrees/` or
@@ -431,25 +431,19 @@ def sweep_storage(tmp: Path, clock: datetime, hours: float, apply: bool, tally: 
 
 # Old sessions -----------------------------------------------------------------------------------------
 
-BUILD_FOLDERS = frozenset({".venv", "node_modules"})
+BUILD_PATHS = (Path(".venv"), Path("web") / "node_modules")
 
 
-def build_folders(home: Path) -> Iterator[Path]:
-    """Every real `.venv` and `node_modules` folder under `home`, not descending into one, into a link
-    or into `.git`."""
-    stack = [home]
-    while stack:
-        try:
-            with os.scandir(stack.pop()) as entries:
-                for entry in entries:
-                    if not entry.is_dir(follow_symlinks=False) or entry.name == ".git":
-                        continue
-                    if entry.name in BUILD_FOLDERS:
-                        yield Path(entry.path)
-                    else:
-                        stack.append(Path(entry.path))
-        except OSError:
-            continue
+def build_folders(root: Path) -> list[Path]:
+    """The two exact build folders of a worktree that exist as real folders: no walk, no descent, and
+    none reached through a link (the folder or the `web` folder holding it)."""
+    found = []
+    for relative in BUILD_PATHS:
+        folder = root / relative
+        linked = any(part.is_symlink() for part in (root / relative.parent, folder))
+        if not linked and folder.is_dir():
+            found.append(folder)
+    return found
 
 
 def sweep_old_sessions(main: Path, probe: Probe, days: float, apply: bool, tally: Tally) -> None:
@@ -465,7 +459,7 @@ def sweep_old_sessions(main: Path, probe: Probe, days: float, apply: bool, tally
         root = tree.path
         if root == home or not inside(root, home) or root.is_symlink():
             continue
-        folders = sorted(build_folders(root))
+        folders = build_folders(root)
         reason = "locked" if tree.locked else probe.current(root) or probe.in_use(root)
         if reason is not None:
             tally.say(f"keep worktree {root}: {reason}")

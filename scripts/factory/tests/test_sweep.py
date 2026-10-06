@@ -466,3 +466,22 @@ def test_old_sessions_never_touches_a_scratch_copy_under_private_work(main: Path
 
     assert tally.removed == 0
     assert all((folder / "lib" / "pkg.py").is_file() for folder in folders)
+
+
+def test_old_sessions_removes_only_the_two_exact_paths_and_never_walks(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+    kept = [
+        tree / ".private" / "work" / "copy" / ".venv",
+        tree / "docs" / "node_modules",
+        tree / "web" / "deep" / "node_modules",
+    ]
+    for folder in kept:
+        (folder / "lib").mkdir(parents=True)
+        (folder / "lib" / "pkg.py").write_text("x = 1\n")
+    _age(tree)
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 1
+    assert not venv.exists()
+    assert all((folder / "lib" / "pkg.py").is_file() for folder in kept)
