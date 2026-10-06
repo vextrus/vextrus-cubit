@@ -124,7 +124,7 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert watch.gh_prs() == [{"number": 7, "headRefName": "b", "headRefOid": "x", "state": "OPEN"}]
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
-    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state"
+    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state,statusCheckRollup"
 
 
 def test_the_default_scanner_is_the_main_checkouts_tools_leakscan(
@@ -401,3 +401,67 @@ def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_la
     assert (item["head"], item["state"]) == (merged, "ready")
     assert [e[0] for e in step.events] == ["PUSH"]
     assert not [a for a in step.alarms.values() if a[0] == "BUDGET-PASSED"]
+
+
+def _pass(tmp_path: Path) -> watch.Pass:
+    return watch.Pass(tmp_path, AT, {})
+
+
+def _pr(entries: list[dict[str, Any]], *, state: str = "OPEN", head: str = TREE) -> dict[str, Any]:
+    return {
+        "number": 7,
+        "headRefName": "b",
+        "headRefOid": head,
+        "state": state,
+        "statusCheckRollup": entries,
+    }
+
+
+def _ci(conclusion: str, **more: Any) -> dict[str, Any]:
+    return {
+        "__typename": "CheckRun",
+        "name": "ci",
+        "workflowName": "ci",
+        "conclusion": conclusion,
+        **more,
+    }
+
+
+def test_a_failed_required_ci_check_writes_one_ci_red_event_per_head(tmp_path: Path) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")]))
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")]))  # the next read of the same head
+    assert step.events == [("CI-RED", "s14-u1", f"#7 {TREE[:8]} required check ci failed")]
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")], head=OTHER))  # a new head, failing again
+    assert [e[0] for e in step.events] == ["CI-RED", "CI-RED"]
+
+
+@pytest.mark.parametrize(
+    "pr",
+    [
+        _pr([_ci("SUCCESS")]),
+        _pr([_ci("")]),  # still running
+        _pr([_ci("SKIPPED")]),
+        _pr([{**_ci("FAILURE"), "name": "web"}]),  # another job is red, not the required check
+        _pr([{**_ci("FAILURE"), "workflowName": "engine"}]),
+        _pr([_ci("FAILURE")], state="CLOSED"),
+        _pr([_ci("FAILURE")], state="MERGED"),
+        _pr([]),
+        {"number": 7, "state": "OPEN", "headRefOid": TREE},  # a row read before the field existed
+    ],
+)
+def test_ci_red_is_only_the_required_check_failing_on_an_open_pr(
+    tmp_path: Path, pr: dict[str, Any]
+) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(step, "s14-u1", pr)
+    assert step.events == []
+
+
+def test_a_failed_ci_status_context_is_red_too(tmp_path: Path) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(
+        step, "t", _pr([{"__typename": "StatusContext", "context": "ci", "state": "FAILURE"}])
+    )
+    assert [e[0] for e in step.events] == ["CI-RED"]
+    watch.watch_ci(_pass(tmp_path), "t", None)  # no PR: nothing, no error

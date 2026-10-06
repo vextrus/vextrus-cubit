@@ -25,7 +25,7 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
 
 It writes one `status.json` (status.schema.json, atomically, through `status.py`) and appends one line
 `<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, COMMIT (a local head
-that is not origin's tip), READY, BLOCKED (events)
+that is not origin's tip), READY, BLOCKED, CI-RED (an open PR's required `ci` check failed; events)
 and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
 BUILDER-BLOCKED, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
 JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
@@ -289,7 +289,7 @@ def gh_prs() -> list[dict[str, Any]] | None:
             return None
     else:
         argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
-        argv += ["--json", "number,headRefName,headRefOid,state"]
+        argv += ["--json", "number,headRefName,headRefOid,state,statusCheckRollup"]
         try:
             done = subprocess.run(
                 argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
@@ -681,6 +681,7 @@ def track(
     outcome = seen.get("outcome")
     pr = pr_for(branch, prs)
     closed = pr is not None and pr.get("state") in CLOSED_PR
+    watch_ci(step, ticket, pr)
     last_push = seen.get("last_push_at")
     quiet_since = status.parse_utc(last_push) if last_push else record["_started"]
     quiet = status.minutes_between(quiet_since, at)
@@ -768,6 +769,41 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any]) -> None:
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
     mine = [row for row in prs or [] if row.get("headRefName") == branch]
     return max(mine, key=lambda row: (row.get("state") == "OPEN", row["number"]), default=None)
+
+
+CI_RED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
+
+
+def required_ci_red(pr: dict[str, Any]) -> bool:
+    """True when the PR's required `ci` check (the aggregate job of the `ci` workflow, or a status
+    context named `ci`) has failed on its current head. Pending, skipped and missing are not red."""
+    for entry in pr.get("statusCheckRollup") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("__typename") == "StatusContext":
+            if entry.get("context") == "ci" and entry.get("state") in ("FAILURE", "ERROR"):
+                return True
+        elif (
+            entry.get("name") == "ci"
+            and entry.get("workflowName") in (None, "ci")
+            and entry.get("conclusion") in CI_RED_CONCLUSIONS
+        ):
+            return True
+    return False
+
+
+def watch_ci(step: Pass, ticket: str, pr: dict[str, Any] | None) -> None:
+    """One CI-RED event per (ticket, head) when an open tracked PR's required `ci` check fails; a
+    restart or a re-read does not repeat it, and a new head that fails is a new event."""
+    if pr is None or pr.get("state") != "OPEN" or not required_ci_red(pr):
+        return
+    head = pr.get("headRefOid")
+    if not isinstance(head, str) or not head:
+        return
+    red: dict[str, str] = step.state.setdefault("ci_red", {})
+    if red.get(ticket) != head:
+        red[ticket] = head
+        step.event("CI-RED", ticket, f"#{pr['number']} {head[:8]} required check ci failed")
 
 
 def agents_row(rows: list[dict[str, Any]] | None, name: Any) -> dict[str, Any] | None:
