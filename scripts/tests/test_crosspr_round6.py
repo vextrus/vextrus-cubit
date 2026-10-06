@@ -114,3 +114,38 @@ def test_a_pr_with_a_red_node_test_and_a_builder_break_in_the_same_file_is_not_c
     done = run(world)
     assert done.returncode == 0, done.stdout + done.stderr
     assert done.stdout.strip() == "Cross-PR: #51 not checked"
+
+
+CONSTANTS = "LIMIT = 3\n"
+DESELECT_ALL = "import pytest\n\npytestmark = pytest.mark.skipif(False, reason='x')\n\nVALUE = 1\n"
+OWN_NAME_TEST = "import calc\n\n\ndef test_own_name():\n    assert calc.name() == 'calc'\n"
+
+
+@pytest.mark.parametrize("constants", [CONSTANTS, DESELECT_ALL])
+def test_a_pr_whose_test_file_holds_no_test_does_not_stop_the_union(
+    tmp_path: Path, constants: str
+) -> None:
+    """Exit 5 on main + the PR alone is a clean baseline: the builder's own new test breaks on the
+    union, so it refuses; with a clean builder it is ok."""
+    world = World(tmp_path)
+    world.open_pr(51, "s14-x1", {"calc.py": TINY, "tests/test_x1_consts.py": constants})
+    describe(world, 51, **TRUSTED)
+    world.own({"calc.py": NO_NAME, "tests/test_own.py": OWN_NAME_TEST})
+    done = run(world)
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "#51 and s14-b9 break each other" in done.stderr
+
+
+def test_a_pr_whose_test_file_holds_no_test_is_ok_with_a_clean_builder(tmp_path: Path) -> None:
+    world = World(tmp_path)
+    world.open_pr(51, "s14-x1", {"calc.py": TINY, "tests/test_x1_consts.py": CONSTANTS})
+    describe(world, 51, **TRUSTED)
+    world.own(
+        {
+            "calc.py": CALC.replace('return "calc"', 'return "calc"  # own'),
+            "tests/test_own.py": OWN_NAME_TEST,
+        }
+    )
+    done = run(world)
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == "Cross-PR: #51 ok"

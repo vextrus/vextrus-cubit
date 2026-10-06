@@ -252,8 +252,9 @@ def check_pr(
 
 class Tests:
     """One run of the changed Python and node tests in a worktree. `green`: every test ran and passed
-    (no failure, error, collection error or time-out, on either side). `failed`: a run that is not
-    clean (exit 5, no test collected, is not a failure here)."""
+    (no failure, error, collection error or time-out, on either side); pytest's exit 5 (no test
+    collected or all deselected) with no failure or error counts as clean. `failed`: any run not
+    clean."""
 
     def __init__(self, tree: Path, kept: Path, name: str) -> None:
         self.tree, self.kept, self.name = tree, kept, name
@@ -269,7 +270,7 @@ class Tests:
 
     @property
     def failed(self) -> bool:
-        return any(code not in (0, 5) for code in self.exits)
+        return any(code != 0 for code in self.exits)
 
     def run(self, changed: list[str]) -> Tests:
         pytests = [p for p in changed if TEST_FILE.search(p) and (self.tree / p).is_file()]
@@ -292,7 +293,8 @@ class Tests:
             return
         output = ran.stdout + ran.stderr
         (self.kept / f"{name}.txt").write_text(output)
-        self.exits.append(ran.returncode)
+        # pytest's exit 5 (nothing collected, or all deselected) is no failure and no error: clean.
+        self.exits.append(0 if kind == "Python" and ran.returncode == 5 else ran.returncode)
         if ran.returncode == 5:
             self.notes.append("no Python test ran (none collected or all deselected)")
         elif ran.returncode == 0:
