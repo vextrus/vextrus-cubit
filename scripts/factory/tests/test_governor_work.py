@@ -110,12 +110,17 @@ def test_an_unreadable_record_refuses(world: Path, monkeypatch: pytest.MonkeyPat
     assert not governor.check("cloud-session").ok
 
 
-def test_with_no_files_named_an_unreadable_pr_list_only_loses_the_pr_count(
+def test_an_unreadable_pr_list_refuses_named_files_and_releases_no_record(
     world: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     prs(world, monkeypatch, "gh: HTTP 502")
+    for n in range(1, 5):
+        record(world, f"t{n}")
     assert governor.check("cloud-session").ok
     assert not governor.check("cloud-session", owns=["a.py"]).ok
+    assert governor.check("cloud-session", role="reviewer", owns=["a.py"]).ok
+    record(world, "t5")  # its PR may have merged; unread, it still counts
+    assert not governor.check("cloud-session").ok
 
 
 def test_a_pr_row_without_files_is_an_unreadable_list() -> None:
@@ -223,7 +228,7 @@ def test_a_local_builder_ages_out_only_when_its_agent_is_gone(
     monkeypatch.setenv("VEXTRUS_AGENTS_FILE", str(agents))
     verdict = governor.check("cloud-session")
     assert verdict.readings["wip"] == 2  # alive, and young (inside its budget: never asked)
-    assert "no live agent named agent-gone" in verdict.readings["aged_out"][0]
+    assert "no agent named agent-gone" in verdict.readings["aged_out"][0]
     agents.write_text("not json")  # unreadable: nothing ages out
     assert governor.check("cloud-session").readings["wip"] == 3
 
@@ -385,3 +390,222 @@ def test_parse_prs_takes_rows_with_and_without_created_at() -> None:
     row = '{"number": 1, "headRefName": "a", "state": "OPEN", "files": []%s}'
     assert governor.parse_prs("[" + row % "" + "]") is not None
     assert governor.parse_prs("[" + row % ', "createdAt": "2026-10-02T08:00:00Z"' + "]") is not None
+
+
+# --- the release rule, settled (re-submission after PR #469): one table, every case a row
+NOW = "2026-10-06T10:00:00Z"
+START = "2026-10-06T09:00:00Z"  # the record's start, inside its 90 min budget at NOW
+BEFORE, AFTER = "2026-10-06T08:00:00Z", "2026-10-06T09:30:00Z"
+
+
+def ended(number: int, state: str, **times: str) -> dict[str, object]:
+    return pr(number, "t", "x.py", state=state) | times
+
+
+RELEASE_CASES = {
+    "no PR on the branch: counts": ([], 1),
+    # round 3's 75/75: a fix-round launch on an open PR, which then merged
+    "merged after the record started: released": (
+        [ended(1, "MERGED", createdAt=BEFORE, closedAt=AFTER, mergedAt=AFTER)],
+        0,
+    ),
+    "closed after the record started: released": (
+        [ended(1, "CLOSED", createdAt=BEFORE, closedAt=AFTER)],
+        0,
+    ),
+    # round 2's 70/65: a builder relaunched after its PR closed at the review cap
+    "closed before the record started: counts": (
+        [ended(1, "CLOSED", createdAt=BEFORE, closedAt=BEFORE)],
+        1,
+    ),
+    "merged before the record started: counts": (
+        [ended(1, "MERGED", createdAt=BEFORE, closedAt=BEFORE, mergedAt=BEFORE)],
+        1,
+    ),
+    "the latest end decides: released": (
+        [
+            ended(1, "CLOSED", createdAt=BEFORE, closedAt=BEFORE),
+            ended(2, "MERGED", createdAt=START, closedAt=AFTER, mergedAt=AFTER),
+        ],
+        0,
+    ),
+    "no end read, created before the start: counts (createdAt)": (
+        [ended(1, "MERGED", createdAt=BEFORE)],
+        1,
+    ),
+    "no end read, created after the start: released (createdAt)": (
+        [ended(1, "MERGED", createdAt=AFTER)],
+        0,
+    ),
+    "no time read at all: released": ([ended(1, "CLOSED")], 0),
+    # the refuter's A: a row with no time does not outrank a later PR that has one
+    "an untimed row and a PR closed before the start: counts": (
+        [ended(1, "CLOSED"), ended(2, "CLOSED", createdAt=BEFORE, closedAt=BEFORE)],
+        1,
+    ),
+    "a PR closed before the start and an untimed row: counts": (
+        [ended(2, "CLOSED", createdAt=BEFORE, closedAt=BEFORE), ended(1, "CLOSED")],
+        1,
+    ),
+    # the refuter's B: a fork's PR whose branch has the builder's name releases nothing
+    "a fork's PR closed after the start: counts": (
+        [ended(1, "CLOSED", createdAt=AFTER, closedAt=AFTER) | {"isCrossRepository": True}],
+        1,
+    ),
+    "an open PR on the branch: counted once, as the PR": (
+        [ended(1, "CLOSED", createdAt=BEFORE, closedAt=AFTER), pr(2, "t", "x.py")],
+        1,
+    ),
+}
+
+
+@pytest.mark.parametrize(("rows", "wip"), RELEASE_CASES.values(), ids=list(RELEASE_CASES))
+def test_a_merged_or_closed_pr_releases_only_the_records_that_started_before_it_ended(
+    world: Path, monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, object]], wip: int
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    prs(world, monkeypatch, rows)
+    record(world, "t", started_at=START, budget_minutes=90)
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == wip, verdict.readings
+
+
+def test_round_three_s14_w1_fix_launch_is_released_when_its_pr_closes_and_its_relaunch_counts(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # PR 469 opened 23:06:59; the fix-round launch started 23:21:16; the PR closed at the cap after it
+    monkeypatch.setenv("VEXTRUS_NOW", "2026-10-06T00:30:00Z")
+    closed = pr(469, "s14-w1", "scripts/factory/governor.py", state="CLOSED") | {
+        "createdAt": "2026-10-05T23:06:59Z",
+        "closedAt": "2026-10-06T00:15:00Z",
+    }
+    prs(world, monkeypatch, [closed])
+    (world / "factory" / "launches" / "s14-w1-fix.json").write_text(
+        json.dumps(
+            {"ticket": "S14-W1", "branch": "s14-w1", "where": "cloud", "role": "builder"}
+            | {"judge": {"ok": True}, "started_at": "2026-10-05T23:21:16Z", "budget_minutes": 30}
+        )
+    )
+    assert governor.check("cloud-session").readings["wip"] == 0
+    (world / "factory" / "launches" / "s14-w1-again.json").write_text(
+        json.dumps(
+            {"ticket": "S14-W1", "branch": "s14-w1", "where": "cloud", "role": "builder"}
+            | {"judge": {"ok": True}, "started_at": "2026-10-06T00:24:00Z", "budget_minutes": 60}
+        )
+    )
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == 1
+    assert "after PR 469 ended" in verdict.readings["counted"][0]
+
+
+LATE = {"started_at": "2026-10-06T05:42:00Z", "budget_minutes": 40}  # past budget and grace at NOW
+AGENT_CASES = {
+    "a live row: counts": ([{"name": "n", "pid": 7, "state": "working", "status": "busy"}], 1),
+    "a live idle row: counts": ([{"name": "n", "pid": 7, "state": "done", "status": "idle"}], 1),
+    # round 3's 50: a done session is alive and waiting on its next message (the runbook)
+    "a done row with no pid: counts": ([{"name": "n", "pid": None, "state": "done"}], 1),
+    "a row of an unknown state with no pid: counts": ([{"name": "n", "state": "working"}], 1),
+    "a stopped row with no pid: ages out": ([{"name": "n", "pid": None, "state": "stopped"}], 0),
+    "a failed row with no pid: ages out": ([{"name": "n", "state": "failed"}], 0),
+    "a stopped row and a live one of the name: counts": (
+        [{"name": "n", "state": "stopped"}, {"name": "n", "pid": 9, "state": "working"}],
+        1,
+    ),
+    "no row of the name: ages out": ([{"name": "other", "pid": 7, "state": "working"}], 0),
+    "an unreadable list: counts": ("not json", 1),
+}
+
+
+@pytest.mark.parametrize(("rows", "wip"), AGENT_CASES.values(), ids=list(AGENT_CASES))
+def test_a_local_builder_past_its_budget_counts_until_its_agent_has_ended(
+    world: Path, monkeypatch: pytest.MonkeyPatch, rows: list[dict[str, object]] | str, wip: int
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    prs(world, monkeypatch, [])
+    record(world, "t", name="n", **LATE)
+    agents = world / "agents.json"
+    agents.write_text(rows if isinstance(rows, str) else json.dumps(rows))
+    monkeypatch.setenv("VEXTRUS_AGENTS_FILE", str(agents))
+    verdict = governor.check("cloud-session")
+    assert verdict.readings["wip"] == wip, verdict.readings
+
+
+def test_a_local_builder_inside_its_budget_counts_with_no_agent_row(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    prs(world, monkeypatch, [])
+    record(world, "t", name="n", started_at=START, budget_minutes=90)
+    assert governor.check("cloud-session").readings["wip"] == 1
+
+
+def test_an_acceptance_writer_launch_is_new_work_the_cap_refuses(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fill_the_cap(world, monkeypatch)
+    refused = governor.check("local-agent", role="acceptance-writer", branch="new")
+    assert not refused.ok
+    assert "WIP" in (refused.reason or "")
+
+
+def test_a_launch_on_a_branch_whose_records_were_released_is_new_work(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    others = [pr(n, f"o{n}", f"o/{n}.py") for n in range(1, 6)]
+    merged = ended(9, "MERGED", createdAt=BEFORE, closedAt=AFTER, mergedAt=AFTER)
+    prs(world, monkeypatch, [*others, merged])
+    record(world, "t", started_at=START, budget_minutes=90)
+    assert not governor.check("cloud-session", branch="t").ok
+
+
+def test_the_reading_says_why_each_counted_unit_counts(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    prs(world, monkeypatch, [pr(1, "open", "x.py")])
+    record(world, "t", started_at=START, budget_minutes=90)
+    counted = governor.check("cloud-session").readings["counted"]
+    assert counted[0] == "PR 1: open"
+    assert counted[1].startswith("builder t: no merged or closed PR on its branch; 60 min in")
+
+
+def test_the_pr_query_reads_when_each_pr_ended(monkeypatch: pytest.MonkeyPatch) -> None:
+    said: list[list[str]] = []
+    monkeypatch.delenv("VEXTRUS_PRS_FILE", raising=False)
+
+    def run(argv: list[str]) -> str:
+        said.append(argv)
+        return "[]"
+
+    monkeypatch.setattr(governor, "_run", run)
+    governor.prs_text()
+    fields = said[0][said[0].index("--json") + 1].split(",")
+    assert {"createdAt", "closedAt", "mergedAt", "files", "state", "headRefName"} <= set(fields)
+    assert "isCrossRepository" in fields
+
+
+def test_a_forks_open_pr_is_no_work_in_flight(world: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [pr(n, f"t{n}", f"x/{n}.py") | {"isCrossRepository": True} for n in range(1, 6)]
+    prs(world, monkeypatch, rows)
+    verdict = governor.check("cloud-session", owns=["x/1.py"])
+    assert verdict.ok, verdict.reason
+    assert verdict.readings["wip"] == 0
+
+
+def test_a_relaunchs_owned_files_join_its_branch_unit_in_the_areas(
+    world: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # the refuter's E: the second live record on a branch owns a hot file the first did not
+    monkeypatch.setenv("VEXTRUS_NOW", NOW)
+    prs(world, monkeypatch, [pr(1, "a", "web/src/ui/locales/en.po")])
+    body = {"ticket": "t", "branch": "t", "where": "local", "role": "builder", "judge": None}
+    launches = world / "factory" / "launches"
+    first = body | {"started_at": START, "budget_minutes": 90, "owns": ["x.py"]}
+    again = body | {"started_at": AFTER, "budget_minutes": 90, "owns": ["web/src/app/locales/en.po"]}
+    (launches / "t-1.json").write_text(json.dumps(first))
+    (launches / "t-2.json").write_text(json.dumps(again))
+    verdict = governor.check("cloud-session", owns=["web/src/takeoff/locales/en.po"], branch="new")
+    assert verdict.readings["wip"] == 2
+    assert not verdict.ok
+    assert "hot-file area web-en" in (verdict.reason or "")
