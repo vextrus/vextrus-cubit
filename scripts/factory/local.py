@@ -99,6 +99,7 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--model")
     parser.add_argument("--role", default="builder", choices=["builder", "acceptance-writer"])
     parser.add_argument("--budget-minutes", type=int)
+    parser.add_argument("--owns", action="append", default=[], metavar="PATH")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", args.ticket):
@@ -153,7 +154,29 @@ def live_row(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
 
 
 def launch(args: argparse.Namespace) -> list[str]:
-    verdict = governor.check("local-agent")
+    """The governor's `admit` (a dry run only `check`s): its pending record holds this launch's
+    place in the WIP cap until the launch record is written, and goes whatever ends the launch."""
+    given: dict[str, Any] = {
+        "owns": getattr(args, "owns", ()),
+        "branch": getattr(args, "branch", None),
+        "role": getattr(args, "role", None),
+    }
+    if getattr(args, "dry_run", False):
+        return _launch(args, governor.check("local-agent", **given))
+    verdict = governor.admit(
+        "local-agent",
+        hold=os.getpid(),
+        ticket=args.ticket,
+        budget_minutes=getattr(args, "budget_minutes", None),
+        **given,
+    )
+    try:
+        return _launch(args, verdict)
+    finally:
+        governor.release_hold(args.ticket, os.getpid())
+
+
+def _launch(args: argparse.Namespace, verdict: governor.Verdict) -> list[str]:
     if not verdict.ok:
         raise Stop(3, f"REFUSED governor: {verdict.reason}")
     main_checkout = status.main_checkout()
@@ -390,6 +413,8 @@ def write_record(
         "worktree": str(worktree),
         "carried_merge_sha": carried_merge,
     }
+    if owns := getattr(args, "owns", None):
+        record["owns"] = list(owns)
     path = folder / f"{stem}.json"
     with path.open("x") as handle:  # append-only: a record is never overwritten
         handle.write(json.dumps(record, indent=1) + "\n")
