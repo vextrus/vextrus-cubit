@@ -131,7 +131,7 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert watch.gh_prs() == [{"number": 7, "headRefName": "b", "headRefOid": "x", "state": "OPEN"}]
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
-    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state"
+    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state,statusCheckRollup"
 
 
 def test_the_default_scanner_is_the_main_checkouts_tools_leakscan(
@@ -414,6 +414,70 @@ def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_la
     assert not [a for a in step.alarms.values() if a[0] == "BUDGET-PASSED"]
 
 
+def _pass(tmp_path: Path) -> watch.Pass:
+    return watch.Pass(tmp_path, AT, {})
+
+
+def _pr(entries: list[dict[str, Any]], *, state: str = "OPEN", head: str = TREE) -> dict[str, Any]:
+    return {
+        "number": 7,
+        "headRefName": "b",
+        "headRefOid": head,
+        "state": state,
+        "statusCheckRollup": entries,
+    }
+
+
+def _ci(conclusion: str, **more: Any) -> dict[str, Any]:
+    return {
+        "__typename": "CheckRun",
+        "name": "ci",
+        "workflowName": "ci",
+        "conclusion": conclusion,
+        **more,
+    }
+
+
+def test_a_failed_required_ci_check_writes_one_ci_red_event_per_head(tmp_path: Path) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")]))
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")]))  # the next read of the same head
+    assert step.events == [("CI-RED", "s14-u1", f"#7 {TREE[:8]} required check ci failed")]
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")], head=OTHER))  # a new head, failing again
+    assert [e[0] for e in step.events] == ["CI-RED", "CI-RED"]
+
+
+@pytest.mark.parametrize(
+    "pr",
+    [
+        _pr([_ci("SUCCESS")]),
+        _pr([_ci("")]),  # still running
+        _pr([_ci("SKIPPED")]),
+        _pr([{**_ci("FAILURE"), "name": "web"}]),  # another job is red, not the required check
+        _pr([{**_ci("FAILURE"), "workflowName": "engine"}]),
+        _pr([_ci("FAILURE")], state="CLOSED"),
+        _pr([_ci("FAILURE")], state="MERGED"),
+        _pr([]),
+        {"number": 7, "state": "OPEN", "headRefOid": TREE},  # a row read before the field existed
+    ],
+)
+def test_ci_red_is_only_the_required_check_failing_on_an_open_pr(
+    tmp_path: Path, pr: dict[str, Any]
+) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(step, "s14-u1", pr)
+    assert step.events == []
+
+
+def test_a_failed_ci_status_context_is_red_too(tmp_path: Path) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(
+        step, "t", _pr([{"__typename": "StatusContext", "context": "ci", "state": "FAILURE"}])
+    )
+    assert [e[0] for e in step.events] == ["CI-RED"]
+    watch.watch_ci(_pass(tmp_path), "t", None)  # no PR: nothing, no error
+
+
 def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tmp_path: Path) -> None:
     seen: dict[str, Any] = {"head": TREE, "committed": True, "outcome": None, "idle_since": None}
     idle = {"name": "t-local", "status": "idle", "pid": 1}
@@ -439,3 +503,31 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     seen.update(outcome="READY-NO-VERIFY", idle_since=None, committed=False)
     assert at(80, idle) == []  # no commit of its own yet
     assert at(95, idle) == []
+
+
+def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
+    tmp_path: Path,
+) -> None:
+    routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
+    wanted = [
+        "2026-10-06T01:00:00Z READY t abc1234",
+        "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
+        "2026-10-06T01:02:00Z CI-RED t #7 abc1234 required check ci failed",
+    ]
+    (tmp_path / "events.log").write_text(routine + "\n".join(wanted) + "\n")
+    assert (tmp_path / "events.log").stat().st_size > 4 * 1024 * 1024
+    watch.write_events_tail(tmp_path)
+    assert (tmp_path / "events.tail").read_text() == "".join(f"{line}\n" for line in wanted)
+    assert not (tmp_path / "events.tail.tmp").exists()
+    (tmp_path / "events.log").write_text(
+        "".join(f"2026-10-06T02:00:{i % 60:02d}Z READY t{i} x\n" for i in range(300))
+    )
+    watch.write_events_tail(tmp_path)
+    kept = (tmp_path / "events.tail").read_text().splitlines()
+    assert len(kept) == watch.EVENTS_TAIL_LINES
+    assert kept[-1].endswith(" READY t299 x")
+
+
+def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
+    watch.write_events_tail(tmp_path)
+    assert not (tmp_path / "events.tail").exists()

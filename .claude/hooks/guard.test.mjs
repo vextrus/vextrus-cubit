@@ -10,10 +10,13 @@ const guard = fileURLToPath(new URL("./guard.mjs", import.meta.url));
 
 /** The rule that refuses `command`, or null when the guard lets it through. */
 function verdict(tool, input, project = "/home/runner/work/vextrus-cubit/vextrus-cubit") {
+  // A cloud session leaks CLAUDE_CODE_REMOTE into the test: clear it (the cases about the cloud use `seen`).
+  const env = { ...process.env, CLAUDE_PROJECT_DIR: project };
+  delete env.CLAUDE_CODE_REMOTE;
   const run = spawnSync(process.execPath, [guard], {
     input: JSON.stringify({ tool_name: tool, tool_input: input }),
     encoding: "utf8",
-    env: { ...process.env, CLAUDE_PROJECT_DIR: project },
+    env,
   });
   assert.equal(run.status, 0, run.stderr);
   if (run.stdout.trim() === "") return null;
