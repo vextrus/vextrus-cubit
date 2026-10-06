@@ -6,9 +6,10 @@
  * at Shapla Homes Ltd are open to you"); the ReadOnlyChip for the MD and a Guest; "Members and access"
  * (not for a Guest) and "New project" (for the QS and the Vextrus Engineer, when not given chosen
  * projects: 08 refuses the rest). The table: Code · Name · Address · Drawing Set · Takeoff · Updated; each
- * row reads its own project's files, Step 1 progress and newest act (readings.ts) and words them in 4.3's
- * words ("6 files read, 1 held", "Step 1: 5 Questions open", the newest day); a reading not in, refused
- * or failed is 1.2's empty figure and nothing else. ↑ ↓ Home End move, Enter opens Step 1.
+ * row reads its own project's files and Step 1 progress (readings.ts) and words them in 4.3's words
+ * ("6 files read, 1 held", "Step 1: 5 Questions open"); Updated is the Market's day of the project's
+ * `updated_at`, its newest DomainEvent, the same for every role; a reading not in, refused or failed is
+ * 1.2's empty figure and nothing else. ↑ ↓ Home End move, Enter opens Step 1.
  *
  * Empty: "No projects yet. Create one for each development whose drawings you will take off." [New
  * project] (the MD: "No projects yet. Your QS creates them."). A Guest, or anyone given chosen projects
@@ -27,7 +28,7 @@ import { EMPTY, useFormat } from '@/format'
 import { disciplineName } from '@/takeoff/SheetList'
 import { Button, Empty, List, ReadOnlyChip, Skeleton, buttonVariants, cn } from '@/ui'
 import { NewProjectDialog } from './NewProjectDialog'
-import { driveWords, filesQuery, isMoving, latestActKey, latestActQuery, listProgressQuery, takeoffWords, updatedAt, type DriveWords, type TakeoffPart, type TakeoffWords } from './readings'
+import { driveWords, filesQuery, isMoving, listProgressQuery, takeoffWords, type DriveWords, type TakeoffPart, type TakeoffWords } from './readings'
 
 /** The header's count line. */
 function CountLine({ session }: { session: Session }) {
@@ -153,34 +154,26 @@ function TakeoffCell({ projectId }: { projectId: string }) {
   return <Cell text={progress.data ? words(takeoffWords(progress.data)) : null} />
 }
 
-/** The newest of its created day, its newest file and (for a viewer who may see acts) its newest act. */
-function UpdatedCell({ project, mayActs }: { project: ProjectSummary; mayActs: boolean }) {
+/** The day of the project's newest DomainEvent (`updated_at`, for every role), in the Market's time. */
+function UpdatedCell({ project }: { project: ProjectSummary }) {
   const f = useFormat()
-  const files = useQuery(filesQuery(project.id))
-  const act = useQuery(latestActQuery(project.id, mayActs))
-  // A reading that cannot be had (refused or failed) leaves the date unknown: the empty figure, never an older day.
-  const settled = files.isSuccess && (!mayActs || act.isSuccess)
-  const at = settled ? updatedAt(project.createdAt, files.data?.files ?? [], mayActs ? act.data?.occurred_at : null) : null
-  return <Cell text={at ? f.date(at) : null} className="text-end" />
+  return <Cell text={f.date(project.updatedAt)} className="text-end" />
 }
 
-/** When a project's files stop moving, its Step 1 and its newest act are read once more. */
-function useReadAgainWhenStill(projectId: string, mayActs: boolean) {
+/** When a project's files stop moving, its Step 1 is read once more. */
+function useReadAgainWhenStill(projectId: string) {
   const queryClient = useQueryClient()
   const files = useQuery(filesQuery(projectId))
   const moving = files.data?.files.some(isMoving) ?? false
   const was = useRef(moving)
   useEffect(() => {
-    if (was.current && !moving) {
-      void queryClient.refetchQueries({ queryKey: listProgressQuery(projectId).queryKey, exact: true })
-      if (mayActs) void queryClient.refetchQueries({ queryKey: latestActKey(projectId), exact: true })
-    }
+    if (was.current && !moving) void queryClient.refetchQueries({ queryKey: listProgressQuery(projectId).queryKey, exact: true })
     was.current = moving
-  }, [moving, projectId, mayActs, queryClient])
+  }, [moving, projectId, queryClient])
 }
 
-function Row({ project, mayActs }: { project: ProjectSummary; mayActs: boolean }) {
-  useReadAgainWhenStill(project.id, mayActs)
+function Row({ project }: { project: ProjectSummary }) {
+  useReadAgainWhenStill(project.id)
   return (
     <AppLink to={PATHS.project(project.code)} className={cn(COLUMNS, 'h-full min-w-0 text-foreground')} tabIndex={-1}>
       <bdi dir="ltr" className="num truncate">
@@ -194,7 +187,7 @@ function Row({ project, mayActs }: { project: ProjectSummary; mayActs: boolean }
       </span>
       <DriveCell projectId={project.id} />
       <TakeoffCell projectId={project.id} />
-      <UpdatedCell project={project} mayActs={mayActs} />
+      <UpdatedCell project={project} />
     </AppLink>
   )
 }
@@ -204,7 +197,6 @@ export function ProjectsTable({ session, onNew }: { session: Session; onNew: () 
   const { t } = useLingui()
   const go = useGo()
   const projects = session.projects
-  const mayActs = can(session, 'acts')
   const [focused, setFocused] = useState<string | null>(projects[0]?.code ?? null)
   if (projects.length === 0) return <ProjectsEmpty session={session} onNew={onNew} />
   return (
@@ -218,7 +210,7 @@ export function ProjectsTable({ session, onNew }: { session: Session; onNew: () 
         onFocusedKeyChange={setFocused}
         rowClassName="border-border last:border-b-0"
         keys={[{ key: 'Enter', label: t`Open the project`, group: 'screen', run: () => (focused ? go(PATHS.project(focused)) : undefined) }]}
-        renderItem={(p) => <Row project={p} mayActs={mayActs} />}
+        renderItem={(p) => <Row project={p} />}
       />
     </div>
   )

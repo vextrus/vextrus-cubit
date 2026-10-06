@@ -84,6 +84,20 @@ def latest(
     return {(kind, subject): at for kind, subject, at in found if subject is not None}
 
 
+def newest_for_projects(project_ids: Collection[uuid.UUID]) -> dict[uuid.UUID, datetime]:
+    """When each Project's newest event of any kind happened, in the acting tenant (row-level
+    security): `{project_id: occurred_at}`. A Project with no event is left out; events naming no
+    Project count for none."""
+    if not project_ids:
+        return {}
+    found = (
+        DomainEvent.objects.filter(project_id__in=list(project_ids))
+        .values_list("project_id")
+        .annotate(at=Max("occurred_at"))
+    )
+    return {project: at for project, at in found if project is not None}
+
+
 def _ids_and_counts(payload: Mapping[str, Value]) -> dict[str, int | str]:
     kept: dict[str, int | str] = {}
     for name, value in payload.items():

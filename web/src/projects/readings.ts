@@ -1,42 +1,25 @@
 /*
- * The Projects list's readings (docs/design/m0-screens.md §4.3): each row's Drawing Set, Takeoff and
- * Updated, from the operations the API already has, asked per project by the row that shows them.
+ * The Projects list's readings (docs/design/m0-screens.md §4.3): each row's Drawing Set and Takeoff, from
+ * the operations the API already has, asked per project by the row that shows them. Updated is not read
+ * here: it is each Project's `updated_at` in GET /api/projects, which the session already holds.
  *
  *   GET /api/projects/{id}/drawings/files          filesQuery (the Drawing Set page's; polls while a file moves)
  *   GET /api/projects/{id}/takeoff/step1/progress  progressQuery (Step 1's), read again on each visit
- *   GET /api/activity?project={id}&limit=1         the newest act; only for a viewer with the acts grant
  *
  * The pure functions say what a cell holds (a kind and its numbers); ProjectsPage words them.
  *
  *   driveWords(files.files)        { kind: 'read', read: 6, held: 1, trouble: 0, refused: 0, stopped: 0 }
  *   takeoffWords(progress)         { kind: 'questions', open: 5 }
- *   updatedAt(created, files, act) the newest of the three instants, or null
  */
 import { queryOptions } from '@tanstack/react-query'
-import { api, unwrap } from '@/api/client'
-import type { components } from '@/api/schema.gen'
-import { filesQuery, isMoving, retry, type FileOut } from '@/drawing-set/data'
+import { filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
 import { progressQuery, type ProgressOut } from '@/takeoff/data'
 
 export { filesQuery, isMoving, progressQuery }
 
-type ActOut = components['schemas']['ActOut']
-
 /** Step 1's progress, read again whenever the list is opened (coming back from Step 1 shows its counts). */
 export function listProgressQuery(projectId: string) {
   return queryOptions({ ...progressQuery(projectId), staleTime: 0, refetchOnMount: 'always' })
-}
-
-export const latestActKey = (projectId: string) => ['project-readings', projectId, 'latest-act'] as const
-
-/** The project's newest act (its `occurred_at`), or null when it has none. */
-export function latestActQuery(projectId: string, enabled: boolean) {
-  return queryOptions({
-    queryKey: latestActKey(projectId),
-    queryFn: async (): Promise<ActOut | null> => (await unwrap(api.GET('/api/activity', { params: { query: { project: projectId, limit: 1 } } })))[0] ?? null,
-    enabled,
-    retry,
-  })
 }
 
 // The Drawing Set cell. ---------------------------------------------------------------------------------
@@ -116,20 +99,4 @@ export function takeoffWords(progress: Pick<ProgressOut, 'disciplines' | 'not_re
     return { discipline, kind: 'unaccounted' }
   })
   return { kind: 'parts', parts }
-}
-
-// The Updated cell. -------------------------------------------------------------------------------------
-
-/** The newest of the project's created instant, its files' `added_at` and its newest act; null if none parses. */
-export function updatedAt(createdAt: string | null | undefined, files: readonly Pick<FileOut, 'added_at'>[], latestAct: string | null | undefined): string | null {
-  let newest: string | null = null
-  let newestMs = -Infinity
-  for (const at of [createdAt, ...files.map((f) => f.added_at), latestAct]) {
-    const ms = at ? Date.parse(at) : NaN
-    if (!Number.isNaN(ms) && ms > newestMs) {
-      newest = at!
-      newestMs = ms
-    }
-  }
-  return newest
 }

@@ -3,7 +3,7 @@
  * themselves are pinned in the browser by src/acceptance/tw325. Every number and date is invented.
  */
 import { describe, expect, it } from 'vitest'
-import { driveWords, takeoffWords, updatedAt } from './readings'
+import { driveWords, takeoffWords } from './readings'
 
 const file = (state: string, params: Record<string, string | number> = {}, code = 'drawings.files.read') => ({ state, status: { code, params } })
 const row = (discipline: string | null, found: number, confirmed = 0, open_questions = 0, status = 'in_review') => ({
@@ -83,19 +83,5 @@ describe('takeoffWords', () => {
     const disciplines = [row('structural', 5, 5, 0, 'confirmed'), row('architectural', 2, 2, 0, 'confirmed')]
     expect(takeoffWords({ disciplines, not_received: [] })).toEqual({ kind: 'confirmed' })
     expect(takeoffWords({ disciplines, not_received: ['electrical'] }).kind).toBe('parts')
-  })
-})
-
-describe('updatedAt', () => {
-  it('is the newest of the created instant, the files and the newest act', () => {
-    const files = [{ added_at: '2026-07-03T02:00:00Z' }, { added_at: '2026-07-09T02:00:00Z' }]
-    expect(updatedAt('2026-07-01T00:00:00Z', files, '2026-07-05T00:00:00Z')).toBe('2026-07-09T02:00:00Z')
-    expect(updatedAt('2026-07-01T00:00:00Z', files, '2026-07-12T21:00:00Z')).toBe('2026-07-12T21:00:00Z')
-    expect(updatedAt('2026-07-20T00:00:00Z', files, null)).toBe('2026-07-20T00:00:00Z')
-  })
-
-  it('skips what does not parse, and is null with nothing', () => {
-    expect(updatedAt('not a date', [], undefined)).toBeNull()
-    expect(updatedAt(undefined, [{ added_at: '2026-07-03T02:00:00Z' }], 'x')).toBe('2026-07-03T02:00:00Z')
   })
 })

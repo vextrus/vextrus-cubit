@@ -33,6 +33,8 @@ class ProjectOut(Schema):
     """Its Market's currency, an ISO 4217 code."""
     unit_system: str
     created_at: datetime
+    updated_at: datetime
+    """When the Project's newest DomainEvent happened: its creation's, or a later act's."""
 
     @classmethod
     def from_view(cls, view: ProjectView) -> ProjectOut:
@@ -45,6 +47,7 @@ class ProjectOut(Schema):
             currency=view.currency,
             unit_system=view.unit_system,
             created_at=view.created_at,
+            updated_at=view.updated_at,
         )
 
 

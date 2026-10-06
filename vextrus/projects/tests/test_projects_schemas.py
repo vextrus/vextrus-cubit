@@ -36,6 +36,7 @@ def test_a_project_goes_out_with_its_currency_and_display_units() -> None:
         currency="XTS",
         unit_system="u",
         created_at=datetime(2026, 9, 28, tzinfo=UTC),
+        updated_at=datetime(2026, 9, 30, tzinfo=UTC),
     )
 
     out = schemas.ProjectOut.from_view(view).model_dump(mode="json")
@@ -49,6 +50,7 @@ def test_a_project_goes_out_with_its_currency_and_display_units() -> None:
         "currency": "XTS",
         "unit_system": "u",
         "created_at": "2026-09-28T00:00:00Z",
+        "updated_at": "2026-09-30T00:00:00Z",
     }
 
 

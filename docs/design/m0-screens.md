@@ -583,9 +583,8 @@ Drawing Set · Takeoff · Updated.
 | Takeoff | "Not started" / "Step 1: 5 Questions open" / per Discipline Part once one is confirmed (5): "Step 1: Structural confirmed · Electrical 3 to confirm" / "Step 1 confirmed" (every Discipline received) |
 | Updated | date |
 
-Each row reads its own project's files, Step 1 progress and newest act; a reading that cannot be had
-(not in yet, refused, failed) shows the empty figure (1.2) in its cell and nothing else, never an error;
-Updated too is the empty figure when any of its readings cannot be had, never an older day.
+Each row reads its own project's files and Step 1 progress; a reading that cannot be had (not in yet,
+refused, failed) shows the empty figure (1.2) in its cell and nothing else, never an error.
 Drawing Set: while any file moves, "Reading 2 files" (", sheet 7 of 12", for a PDF ", page 7 of 12",
 only when exactly one moves and counts them); else "5 files read" ("No files read" at none), then, each only above none and in
 this order, ", 1 held", ", 2 could not be read", ", 1 refused", ", 1 stopped". Takeoff counts only the
@@ -593,9 +592,9 @@ Disciplines with sheets found: none, "Not started"; none confirmed, "Step 1: 5 Q
 "Step 1: 9 sheets to confirm", else "Step 1: not yet confirmed"; once one is confirmed, each Discipline
 as Step 1's inspector words it ("Electrical: 2 Questions open", "Electrical: a view unaccounted"), and
 "Step 1 confirmed" only when every one is and none is still to come. When a project's files stop
-moving its Takeoff and Updated are read again. Updated is the newest of the day the project was
-created, its newest file's added day and (for the QS and the MD, who may see acts) its newest act, as
-the Market writes a date in its time zone. Drawing Set and Takeoff stay one line, their full text in
+moving its Takeoff is read again. Updated is the day of the time of the project's newest DomainEvent
+(its creation's, a file's, any later act), sent with each project of `GET /api/projects` as `updated_at`
+to every role that may open it, as the Market writes a date in its time zone. Drawing Set and Takeoff stay one line, their full text in
 the cell's title.
 
 **New project dialog.** Title "New project". Fields: Name (required), Code (required, unique in the
