@@ -28,7 +28,7 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
 
 It writes one `status.json` (status.schema.json, atomically, through `status.py`) and appends one line
 `<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, COMMIT (a local head
-that is not origin's tip), READY, BLOCKED (events)
+that is not origin's tip), READY, BLOCKED, CI-RED (an open PR's required `ci` check failed; events)
 and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
 BUILDER-BLOCKED, LOCAL-IDLE, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
 JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
@@ -327,7 +327,7 @@ def gh_prs() -> list[dict[str, Any]] | None:
             return None
     else:
         argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
-        argv += ["--json", "number,headRefName,headRefOid,state"]
+        argv += ["--json", "number,headRefName,headRefOid,state,statusCheckRollup"]
         try:
             done = subprocess.run(
                 argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
@@ -636,6 +636,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     watch_jev(step)
 
     raise_alarms(step)
+    write_events_tail(folder)
     save_state(folder, state)
     payload = status.build(
         written_at=at,
@@ -721,6 +722,7 @@ def track(
     outcome = seen.get("outcome")
     pr = pr_for(branch, prs)
     closed = pr is not None and pr.get("state") in CLOSED_PR
+    watch_ci(step, ticket, pr)
     last_push = seen.get("last_push_at")
     quiet_since = status.parse_utc(last_push) if last_push else record["_started"]
     quiet = status.minutes_between(quiet_since, at)
@@ -876,6 +878,41 @@ def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | No
     return max(mine, key=lambda row: (row.get("state") == "OPEN", row["number"]), default=None)
 
 
+CI_RED_CONCLUSIONS = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}
+
+
+def required_ci_red(pr: dict[str, Any]) -> bool:
+    """True when the PR's required `ci` check (the aggregate job of the `ci` workflow, or a status
+    context named `ci`) has failed on its current head. Pending, skipped and missing are not red."""
+    for entry in pr.get("statusCheckRollup") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("__typename") == "StatusContext":
+            if entry.get("context") == "ci" and entry.get("state") in ("FAILURE", "ERROR"):
+                return True
+        elif (
+            entry.get("name") == "ci"
+            and entry.get("workflowName") in (None, "ci")
+            and entry.get("conclusion") in CI_RED_CONCLUSIONS
+        ):
+            return True
+    return False
+
+
+def watch_ci(step: Pass, ticket: str, pr: dict[str, Any] | None) -> None:
+    """One CI-RED event per (ticket, head) when an open tracked PR's required `ci` check fails; a
+    restart or a re-read does not repeat it, and a new head that fails is a new event."""
+    if pr is None or pr.get("state") != "OPEN" or not required_ci_red(pr):
+        return
+    head = pr.get("headRefOid")
+    if not isinstance(head, str) or not head:
+        return
+    red: dict[str, str] = step.state.setdefault("ci_red", {})
+    if red.get(ticket) != head:
+        red[ticket] = head
+        step.event("CI-RED", ticket, f"#{pr['number']} {head[:8]} required check ci failed")
+
+
 def agents_row(rows: list[dict[str, Any]] | None, name: Any) -> dict[str, Any] | None:
     if rows is None or not isinstance(name, str):
         return None
@@ -968,6 +1005,40 @@ def raise_alarms(step: Pass) -> None:
             for kind, subject, detail in step.events:
                 who = "-" if not subject else public(subject, 80).replace(" ", "_")
                 log.write(f"{status.utc(step.at)} {kind} {who} {public(detail, 200)}\n")
+
+
+# The mod cannot read a file over 4 MiB (the host's fs.read rejects it) and events.log only grows, so
+# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES lines of the kinds it shows or toasts,
+# from the last EVENTS_TAIL_BYTES of the log, in `events.tail`.
+EVENTS_TAIL_KINDS = frozenset(
+    {"READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-RED", "OWNER-COMMAND", "OWNER-RULING"}
+)
+EVENTS_TAIL_LINES = 200
+EVENTS_TAIL_BYTES = 512 * 1024
+
+
+def write_events_tail(folder: Path) -> None:
+    try:
+        with (folder / "events.log").open("rb") as log:
+            size = log.seek(0, os.SEEK_END)
+            log.seek(max(0, size - EVENTS_TAIL_BYTES))
+            raw = log.read()
+        if size > EVENTS_TAIL_BYTES:
+            raw = raw.partition(b"\n")[2]  # the first line is cut
+        lines = [
+            line
+            for line in raw.decode("utf-8", "replace").splitlines()
+            if len(parts := line.split(" ", 2)) > 1 and parts[1] in EVENTS_TAIL_KINDS
+        ]
+        text = "".join(f"{line}\n" for line in lines[-EVENTS_TAIL_LINES:])
+        path = folder / "events.tail"
+        if path.exists() and path.read_text() == text:
+            return
+        temp = path.with_name("events.tail.tmp")
+        temp.write_text(text)
+        os.replace(temp, path)
+    except OSError:
+        pass  # no log yet, or an unwritable folder: the mod reads events.log itself while it is small
 
 
 def load_state(folder: Path) -> dict[str, Any]:

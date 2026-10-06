@@ -13,6 +13,14 @@ names its locations, writes no record and exits 1, so a local builder learns of 
 
 A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: <test title>` per line)
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
+A check run as root (uid 0, a cloud container) whose every failing test is listed in
+`.github/flaky-root.txt` (the same line format) is not rerun: it is recorded `exit_code` 0 with
+`raw_exit_code` and `root_only` naming the listed lines, and its `verify:` line says `root-only`. That
+holds only when the run's own counts agree (see `root_only_in`): exit code 1, the summary's failed count
+(pytest's, or vitest's `Tests` line) equal to the listed failure lines, no errors, and no "acceptance
+tests that did not run" section; otherwise the command's exit code stands. An entry names a test
+exactly: `<path>::<title>` followed by `[`, a space or the end of the line (a vitest line: the title
+ends the line).
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -34,8 +42,12 @@ from scripts.factory import leakwhere
 PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
 FLAKY = ".github/flaky.txt"
+FLAKY_ROOT = ".github/flaky-root.txt"
 PYTEST_FAILURE = re.compile(r"^(?:FAILED|ERROR) (\S.*)$")
 VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
+SUMMARY_LINE = re.compile(r"^=*\s*\d+ \w.*\bin \d+(?:\.\d+)?s\b")
+VITEST_SUMMARY = re.compile(r"^\s+Tests\s+\d")
+NOT_RUN_SECTION = "acceptance tests that did not run"
 
 
 @dataclass(frozen=True)
@@ -133,9 +145,9 @@ def plan(paths: Iterable[str], *, have: Have = _have, root: Path | None = None) 
     return plan_with_notes(paths, have=have, root=root)[0]
 
 
-def flaky_entries(root: Path) -> list[tuple[str, str, str]]:
-    """`.github/flaky.txt`'s entries: (the line, its path, its test title)."""
-    path = root / FLAKY
+def flaky_entries(root: Path, name: str = FLAKY) -> list[tuple[str, str, str]]:
+    """`.github/flaky.txt`'s (or `name`'s) entries: (the line, its path, its test title)."""
+    path = root / name
     if not path.is_file():
         return []
     entries = []
@@ -157,6 +169,16 @@ def failure_lines(output: str) -> list[str]:
     return found
 
 
+def names_failure(where: str, title: str, failure: str) -> bool:
+    """Whether a failure line names exactly this test: a pytest node id `<path>::<title>` followed by
+    `[`, a space or the end of the line, or a vitest line (`<path> > ... > <title>`) the title ends."""
+    if re.search(rf"(?:^|\s){re.escape(where)}::{re.escape(title)}(?:\[| |$)", failure):
+        return True
+    return (where in failure or where.removeprefix("web/") in failure) and (
+        re.search(rf"(?:^|>\s){re.escape(title)}$", failure.rstrip()) is not None
+    )
+
+
 def flakes_in(output: str, entries: list[tuple[str, str, str]]) -> list[str] | None:
     """The listed flakes every failure line matches, or None when some failure is not listed."""
     failures = failure_lines(output)
@@ -164,15 +186,41 @@ def flakes_in(output: str, entries: list[tuple[str, str, str]]) -> list[str] | N
         return None
     matched: list[str] = []
     for failure in failures:
-        hits = [
-            entry
-            for entry, where, title in entries
-            if title in failure and (where in failure or where.removeprefix("web/") in failure)
-        ]
+        hits = [entry for entry, where, title in entries if names_failure(where, title, failure)]
         if not hits:
             return None
         matched += [entry for entry in hits if entry not in matched]
     return matched
+
+
+def root_only_in(code: int, output: str, entries: list[tuple[str, str, str]]) -> list[str] | None:
+    """The `.github/flaky-root.txt` lines a run as root failed on, when those are the only reasons it
+    failed, else None. A listed failure line alone excuses nothing: the run's own counts must agree.
+    pytest: exit code 1, the summary's failed count equal to the FAILED lines, no errors (`-rf` drops
+    ERROR lines, so a fixture or teardown error shows only in the summary's count), and no section
+    naming acceptance tests that did not run (the acceptance plugin fails a run with no FAILED line).
+    vitest: exit code 1, the `Tests` line's failed count equal to the FAIL lines, and no unhandled
+    errors. A run with neither summary, or anything else, keeps the command's exit code."""
+    if code != 1 or NOT_RUN_SECTION in output or re.search(r"^ERROR ", output, re.M):
+        return None
+    lines = output.splitlines()
+    pytest_summary = [line for line in lines if SUMMARY_LINE.match(line)]
+    vitest_summary = [line for line in lines if VITEST_SUMMARY.match(line)]
+    if bool(pytest_summary) == bool(vitest_summary):
+        return None
+    if pytest_summary:
+        counts = {
+            word: int(n) for n, word in re.findall(r"(\d+) (failed|errors?)\b", pytest_summary[-1])
+        }
+        if counts.get("error", 0) or counts.get("errors", 0):
+            return None
+    else:
+        if re.search(r"^\s*Errors\s+\d|Unhandled Errors", output, re.M):
+            return None
+        counts = {word: int(n) for n, word in re.findall(r"(\d+) (failed)\b", vitest_summary[-1])}
+    if counts.get("failed", 0) != len(failure_lines(output)):
+        return None
+    return flakes_in(output, entries)
 
 
 def _git(*args: str) -> str:
@@ -336,11 +384,18 @@ def main(
     outputs = Path(".private/work/verify") / tree
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
+    root_entries = flaky_entries(root, FLAKY_ROOT)
     results = []
     for check in checks:
         code, output = run(check)
-        raw, flakes = code, []
-        if code != 0 and (listed := flakes_in(output, entries)) is not None:
+        raw, flakes, root_only = code, [], []
+        if (
+            code != 0
+            and os.geteuid() == 0
+            and (listed_root := root_only_in(code, output, root_entries)) is not None
+        ):
+            code, root_only = 0, listed_root
+        elif code != 0 and (listed := flakes_in(output, entries)) is not None:
             again, rerun = run(check)
             output += f"\n--- rerun (flakes listed in {FLAKY}) ---\n{rerun}"
             if again == 0:
@@ -356,10 +411,15 @@ def main(
                 "exit_code": clamp(code),
                 "raw_exit_code": clamp(raw),
                 "flakes": flakes,
+                "root_only": root_only,
                 "output_file": name.as_posix(),
             }
         )
-        print(f"verify: {check.name} {code}" + (f" (flakes: {len(flakes)})" if flakes else ""))
+        print(
+            f"verify: {check.name} {code}"
+            + (f" (flakes: {len(flakes)})" if flakes else "")
+            + (f" (root-only: {len(root_only)})" if root_only else "")
+        )
     ok = all(result["exit_code"] == 0 for result in results)
     record = {"schema_version": 1, "tree": tree, "written_at": utc_now(), "ok": ok, "checks": results}
     folder = common / "vextrus"
