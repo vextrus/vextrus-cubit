@@ -26,6 +26,7 @@ pytest`, `-m mypy`, the `lint-imports` beside it) with the checked tree as the w
 library only.
 """
 
+import ast
 import os
 import re
 import shutil
@@ -34,7 +35,7 @@ import subprocess
 import sys
 import tempfile
 import xml.etree.ElementTree as ElementTree
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -305,18 +306,39 @@ def not_built(output: str) -> list[tuple[str, str | None]] | None:
     return missing or None
 
 
-def _stated(text: str, reasons: Sequence[str]) -> bool:
+def imports_of(source: str) -> set[str]:
+    """The absolute modules a test file imports: `import a.b` gives `a.b`; `from a.b import c` gives
+    `a.b` and `a.b.c` (c may be a module). Empty when the file does not parse."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            found.add(node.module)
+            found.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return found
+
+
+def _stated(text: str, reasons: Sequence[str], imported: Collection[str] = ()) -> bool:
     """Whether a line of `text` contains a reason. A reason naming a module not built (`No module
-    named 'a.b.c'`) also matches the same error naming a parent package of it (`'a.b'`): when the
-    package is new too, Python names the first part it cannot find."""
+    named 'a.b.c'`) that the test imports (`imported`: that module, or a module under it) also matches
+    the same error naming a parent package of it (`'a.b'`): when the package is new too, Python names
+    the first part it cannot find. A module the test never imports gets no such widening."""
     for reason in reasons:
         named = NAMED.search(reason)
-        parents = named.group(1).split(".") if named else []
-        accepted = [reason] + [
-            reason.replace(named.group(0), f"No module named '{'.'.join(parents[:depth])}'")
-            for depth in range(1, len(parents))
-            if named
-        ]
+        module = named.group(1) if named else ""
+        parents = module.split(".")
+        if named and any(name == module or name.startswith(f"{module}.") for name in imported):
+            accepted = [reason] + [
+                reason.replace(named.group(0), f"No module named '{'.'.join(parents[:depth])}'")
+                for depth in range(1, len(parents))
+            ]
+        else:
+            accepted = [reason]
         if any(form in line for line in text.splitlines() for form in accepted):
             return True
     return False
@@ -510,8 +532,10 @@ class Checker:
         problems = []
         for path in self.tests:
             made: dict[Path, bytes | None] = {}
+            stubs = 0
             try:
-                for _ in range(STUBS):
+                # A collection after each stub, the last one's among them: STUBS stubs, STUBS + 1 runs.
+                for _ in range(STUBS + 1):
                     done, _folder = self.pytest(path, "collect", "--collect-only", "-q")
                     output = done.stdout + done.stderr
                     deselected = DESELECTED.search(output)
@@ -542,18 +566,20 @@ class Checker:
                         problems.append(f"{self.label(path)}: collects no test")
                         break
                     missing = not_built(output)
+                    if missing and stubs + len(missing) > STUBS:
+                        problems.append(
+                            f"{self.label(path)}: does not collect (stub limit reached: {STUBS} modules "
+                            f"not built, and still failing):\n{_tail(output)}"
+                        )
+                        break
                     if not missing or not all(self.stub(module, name, made) for module, name in missing):
-                        stubbed = f" (with {len(made)} stub(s) for modules not built)" if made else ""
+                        stubbed = f" (with {stubs} stub(s) for modules not built)" if stubs else ""
                         problems.append(
                             f"{self.label(path)}: does not collect{stubbed} (exit {done.returncode}):\n"
                             f"{_tail(output)}"
                         )
                         break
-                else:
-                    problems.append(
-                        f"{self.label(path)}: does not collect (stub limit reached: {STUBS} modules "
-                        "not built, and still failing)"
-                    )
+                    stubs += len(missing)
             finally:
                 _undo(made)
         return problems
@@ -636,6 +662,7 @@ class Checker:
             if path in self.unjudged:
                 continue
             reasons = self.ticket.reasons.get(path, [])
+            imported = imports_of((self.tree / path).read_text(errors="replace"))
             for how, who in self.runs():
                 done, folder = self.pytest(path, how)
                 outcomes = _outcomes(folder / "report.xml")
@@ -665,7 +692,7 @@ class Checker:
                     f"{self.label(path)}: {name} is red on {self.base} {who} for a reason not stated "
                     f"(stated: {stated}):\n{_tail(text, 6)}"
                     for name, text in failures
-                    if not _stated(text, reasons)
+                    if not _stated(text, reasons, imported)
                 ]
         return problems
 

@@ -31,7 +31,7 @@ def refused(root: Path, *branches: str) -> str:
     done = lint(root, "main", *(branches or (BRANCH,)))
     output = said(done)
     assert done.returncode == 1, output
-    assert "Traceback" not in output, output
+    assert "Traceback (most recent call last)" not in output, output  # pytest's quoted ones may show
     return output
 
 
@@ -478,3 +478,60 @@ def test_a_file_still_failing_after_the_stub_limit_does_not_collect(tmp_path: Pa
     ticket(root, BRANCH, FOLDER, test=test, reasons=("No module named 'fixturepkg.low.m0'",))
 
     assert "stub limit reached" in refused(root)
+
+
+# PR #482, review round 2.
+
+NEW_TOP = '''"""A fixture ticket: walls deep in a package not built yet."""
+
+from fixturepkg.newtop.a.b.walls import count_walls  # type: ignore[import-not-found, unused-ignore]
+
+
+def test_counts_walls() -> None:
+    assert count_walls(4) == 4
+'''
+
+
+@pytest.mark.parametrize(
+    ("named", "accepted"),
+    [
+        ("fixturepkg.newtop.a.b.walls", True),
+        ("fixturepkg.newtop.a.c", False),
+        ("fixturepkg.newtop.a.b.wals", False),
+    ],
+    ids=["the module under test", "a sibling never imported", "a misspelling"],
+)
+def test_only_an_imported_module_widens_to_its_parent_package(
+    tmp_path: Path, named: str, accepted: bool
+) -> None:
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=NEW_TOP, reasons=(f"No module named '{named}'",))
+
+    done = lint(root, "main", BRANCH)
+
+    assert (done.returncode == 0) is accepted, said(done)
+
+
+def many_modules(count: int) -> str:
+    imports = "".join(
+        f"from fixturepkg.low.m{n} import x{n}  # type: ignore[import-not-found, unused-ignore]\n"
+        for n in range(count)
+    )
+    test = "def test_counts() -> None:\n    assert x0 == 1\n"
+    return f'"""{count} modules not built."""\n\n{imports}\n\n{test}'
+
+
+@pytest.mark.parametrize(("count", "accepted"), [(20, True), (21, False)])
+def test_the_stub_limit_is_exactly_its_count(tmp_path: Path, count: int, accepted: bool) -> None:
+    from tools.lint.acceptance_lint import STUBS
+
+    assert count in (STUBS, STUBS + 1)
+    root = make_repo(tmp_path)
+    ticket(
+        root, BRANCH, FOLDER, test=many_modules(count), reasons=("No module named 'fixturepkg.low.m0'",)
+    )
+
+    done = lint(root, "main", BRANCH)
+
+    assert (done.returncode == 0) is accepted, said(done)
+    assert ("stub limit reached" in said(done)) is not accepted, said(done)

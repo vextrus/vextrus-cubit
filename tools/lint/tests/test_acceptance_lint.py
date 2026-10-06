@@ -2,6 +2,7 @@
 pins it compares, the collection errors it lets through and the stated reasons it matches. Its whole
 runs on fixture repositories are the acceptance tests under `tests/acceptance/ts14al`."""
 
+import itertools
 import subprocess
 from pathlib import Path
 
@@ -15,12 +16,14 @@ from tools.lint.acceptance_lint import (
     _outcomes,
     _stated,
     contradictions,
+    imports_of,
     main,
     not_built,
     read_ticket,
     rulings_at,
 )
 
+REPO = Path(__file__).resolve().parents[3]
 MISSING = "ModuleNotFoundError: No module named 'pkg.storeys'"
 
 
@@ -171,7 +174,40 @@ def test_an_unknown_branch_is_a_verdict_not_a_traceback(
 def test_a_reason_naming_a_module_matches_the_error_naming_a_parent_package() -> None:
     reason = "ModuleNotFoundError: No module named 'pkg.new.walls'"
 
-    assert _stated("E   ModuleNotFoundError: No module named 'pkg.new'\n", [reason])
-    assert _stated(f"E   {reason}\n", [reason])
-    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.other'\n", [reason])
-    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.new.wall'\n", [reason])
+    imported = {"pkg.new.walls", "pkg.new.walls.count"}
+
+    assert _stated("E   ModuleNotFoundError: No module named 'pkg.new'\n", [reason], imported)
+    assert _stated(f"E   {reason}\n", [reason], imported)
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.other'\n", [reason], imported)
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.new.wall'\n", [reason], imported)
+
+
+def test_a_reason_naming_a_module_the_test_never_imports_is_never_widened() -> None:
+    """PR #482 round 2: a sibling (`pkg.new.c`) or a misspelling (`pkg.new.wals`) of the imported
+    module must not match the base's error naming their common parent."""
+    imported = {"pkg.new.a.walls"}
+    error = "E   ModuleNotFoundError: No module named 'pkg.new'\n"
+
+    assert not _stated(error, ["No module named 'pkg.new.c'"], imported)
+    assert not _stated(error, ["No module named 'pkg.new.a.wals'"], imported)
+    assert _stated(error, ["No module named 'pkg.new.a'"], imported)
+
+
+def test_the_imports_of_a_test_file_are_its_absolute_modules() -> None:
+    source = "import a.b\nfrom c.d import e, f\nfrom . import g\n"
+
+    assert imports_of(source) == {"a.b", "c.d", "c.d.e", "c.d.f"}
+    assert imports_of("def (:\n") == set()
+
+
+def test_every_table_row_of_the_trailers_contract_is_one_line() -> None:
+    """PR #482 round 2: a row split over two source lines breaks the table."""
+    lines = (REPO / "docs/specs/factory/contracts/trailers.md").read_text().splitlines()
+
+    broken = [
+        number + 2
+        for number, (line, after) in enumerate(itertools.pairwise(lines))
+        if line.startswith("|") and after.strip() and not after.startswith("|")
+    ]
+
+    assert broken == []
