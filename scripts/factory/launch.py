@@ -294,7 +294,9 @@ def _json_ok(out: str) -> bool:
 
 
 def default_scan(root: Path) -> Scan | None:
-    """This tree's leak scan (f2's `tools/leakscan`), or None when the tree has none."""
+    """This tree's leak scan (f2's `tools/leakscan`), or None when the tree has none. A gate: no
+    environment variable chooses the scanner (`VEXTRUS_LEAKSCAN_CMD` is the watcher's read-only seam
+    alone; the watcher runs `say` from its own tree, which holds the scanner)."""
     if not (root / "tools" / "leakscan" / "__main__.py").is_file():
         return None
 
