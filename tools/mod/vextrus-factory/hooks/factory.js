@@ -78,16 +78,34 @@ function builderRows(status, nowMs) {
   return rows.length ? rows : ["no builders"]
 }
 
-function reviewRows(status, cost) {
+// The ledger's verdicts a review row reads: { "<pr>-<head>": "PASS" | "FIX" | "BLOCK" } (register.js
+// reads each listed review's record, `ledger/<pr>-<head>.json`). status.json carries no verdict.
+export const VERDICTS = ["PASS", "FIX", "BLOCK"]
+export const verdictKey = (pr, head) => `${pr}-${head}`
+
+// What the orchestrator does next, from the newest recorded round's verdict (watch.py lists a PR
+// only from a record that has one, and not once a PASS covers its head): PASS lands; FIX sends the
+// builder a fix round (rounds 1 and 2), and a FIX at the cap is re-submitted; BLOCK is the owner's.
+function reviewNext(verdict, round) {
+  if (verdict === "PASS") return "land it"
+  if (verdict === "FIX") return round >= 1 && round <= 2 ? `fix round ${round}` : "re-submit"
+  if (verdict === "BLOCK") return "owner decides"
+  return "verdict not recorded"
+}
+
+function reviewRows(status, cost, verdicts) {
   const byPr = new Map()
   for (const b of items(status)) if (prOf(b.pr) !== null) byPr.set(b.pr, ticketOf(b.ticket))
+  const held = isObj(verdicts) ? verdicts : {}
   const rows = (Array.isArray(status.reviews) ? status.reviews.filter(isObj) : []).map((r) => {
-    const sha = typeof r.head === "string" && /^[0-9a-f]{40}$/.test(r.head) ? ` · ${r.head.slice(0, 7)}` : ""
+    const sha = typeof r.head === "string" && /^[0-9a-f]{40}$/.test(r.head)
+    const found = sha ? held[verdictKey(r.pr, r.head)] : undefined
+    const verdict = VERDICTS.includes(found) ? found : null
     const who = byPr.has(r.pr) ? ` · ${byPr.get(r.pr)}` : ""
-    const next = r.round >= 2 ? "last round: merge or take over" : "wait for the verdict"
-    return `#${isCount(r.pr) ? r.pr : "?"} · round ${isCount(r.round) ? r.round : "?"}${sha}${who} · next: ${next}`
+    const round = isCount(r.round) ? r.round : 0
+    return `#${isCount(r.pr) ? r.pr : "?"} · round ${round || "?"} · ${verdict ?? "?"}${sha ? ` · ${r.head.slice(0, 7)}` : ""}${who} · next: ${reviewNext(verdict, round)}`
   })
-  if (rows.length === 0) rows.push("no review running")
+  if (rows.length === 0) rows.push("no review recorded")
   rows.push(typeof cost === "number" ? `last review cost $${cost.toFixed(2)}` : "last review cost unknown")
   return rows
 }
@@ -115,8 +133,8 @@ function queueRows(status, nowMs) {
 
 // The four tabs as { down, tabs: { Builders: [row], ... }, age } at `nowMs`. `status` is a parsed,
 // valid status or null (text.js's parseStatus); `schema` its second result; `cost` the last review's
-// dollars or null. A stale or missing status is DOWN, as the band: every tab then says so.
-export function factoryView(status, nowMs, schema, cost) {
+// dollars or null; `verdicts` the ledger's verdicts of the listed reviews (verdictKey). A stale or missing status is DOWN, as the band: every tab then says so.
+export function factoryView(status, nowMs, schema, cost, verdicts = {}) {
   const age = status === null ? Infinity : nowMs - Date.parse(status.written_at)
   if (!(age <= STALE_MS) || age < -FUTURE_MS) {
     const down = schema ? `${DOWN} status schema` : DOWN
@@ -127,7 +145,7 @@ export function factoryView(status, nowMs, schema, cost) {
     age: Math.floor(Math.max(0, age) / 60_000),
     tabs: {
       Builders: builderRows(status, nowMs),
-      Reviews: reviewRows(status, cost),
+      Reviews: reviewRows(status, cost, verdicts),
       Lock: lockRows(status, nowMs),
       "PR queue": queueRows(status, nowMs),
     },
