@@ -22,9 +22,10 @@ How:
 - **Look for the ways it could be true and still wrong:** the right number for the wrong reason; a test
   that cannot fail; a fix that moves the symptom; a second copy of the same fact elsewhere; a
   quantity right in one unit and wrong in another.
+- **Cloud.** In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). A UI claim that needs the browser is UNPROVEN there.
 
 Flag only correctness and stated-requirement gaps, not style.
 
 Return the decisive evidence (command and its result, file:line, query and rows) and, if refuted, what
 is actually true, in public words. Be brief. Your last line is the verdict alone: `CONFIRMED`, `REFUTED`
-or `UNPROVEN` (the review ledger reads it as the finding's refuter verdict).
+or `UNPROVEN` (code reads it as the finding's refuter verdict).
