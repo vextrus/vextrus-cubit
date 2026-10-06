@@ -54,7 +54,9 @@ gh pr create --title "<at most 72 characters>" --body-file .private/work/<id>/pr
 CI runs its heavy jobs on a PR only while the head reads READY (`scripts/factory/ci_gate.py`), and `ci` and
 `engine` fail on any other head when the PR's changes need a heavy job: a fix round must end with a
 `Factory-State: READY` commit (verify first), and so must every head the lander merges main onto. A PR of
-documents alone (briefs, ADRs, `docs/`, root `.md` files) needs none and passes with no trailer.
+documents alone (briefs, ADRs, `docs/`, root `.md` files) needs none and passes with no trailer. `ci`
+answers for the backend and the web (`web`'s own check is a skipped job without a READY head, which passes),
+`engine` for the engine.
 `merge_ready` refuses a head the gate reads not READY unless the PR changes documents alone.
 
 Write the body (its last commit's body) to `.private/work/<id>/pr-body.md` first. `gh pr create` runs as its own

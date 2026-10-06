@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       python: ${{ steps.paths.outputs.python }}
+      web: ${{ steps.web.outputs.web }}
       ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -50,6 +51,20 @@ jobs:
           # Only the web, the documents and the harness's prose leave the backend untouched.
           backend=$(grep -vE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)' <<< "$changed" || true)
           if [ -n "$backend" ]; then echo python=true; else echo python=false; fi >> "$GITHUB_OUTPUT"
+      - id: web
+        name: Does this change touch what web.yml runs on?
+        # The same paths as web.yml's `changes` job (a test keeps the two equal): web.yml's `web` check
+        # is a skipped job on a head that is not READY, and a skipped job passes, so `ci` is the check
+        # that fails such a head. Fails closed, as the step above.
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo web=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
+          touched=$(grep -E '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$|engine/render/)' <<< "$changed" || true)
+          if [ -n "$touched" ]; then echo web=true; else echo web=false; fi >> "$GITHUB_OUTPUT"
       - id: gate
         name: Is this head READY? (a pull request's heavy jobs run only then; main's always do)
         # Fails closed: a commit the gate cannot read fails the step, and so the roll-up. The runner sets
@@ -271,6 +286,7 @@ jobs:
           CHANGES: ${{ needs.changes.result }}
           READY: ${{ needs.changes.outputs.ready }}
           PYTHON_PATHS: ${{ needs.changes.outputs.python }}
+          WEB_PATHS: ${{ needs.changes.outputs.web }}
           MARKETS: ${{ needs.markets.result }}
           HARNESS: ${{ needs.harness.result }}
           SHARDS: ${{ needs.shards.result }}
@@ -279,8 +295,9 @@ jobs:
         run: |
           echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS python-checks=$CHECKS python=$PYTHON"
           # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
-          # its changes need none (docs, the web alone): such a head passes whatever its trailer says.
-          if [ "$READY" = false ] && [ "$PYTHON_PATHS" = true ]; then
+          # its changes need none (the documents alone): such a head passes whatever its trailer says. The
+          # web counts here too: web.yml's own `web` check is a skipped job on such a head, and passes.
+          if [ "$READY" = false ] && { [ "$PYTHON_PATHS" = true ] || [ "$WEB_PATHS" = true ]; }; then
             echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
             exit 1
           fi
