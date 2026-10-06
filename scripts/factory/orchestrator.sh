@@ -38,7 +38,7 @@ if ! (cd "$root" && uv run --no-sync python -m scripts.factory.watch ensure); th
   echo "orchestrator.sh: warning: the watcher could not be ensured; the band will say WATCHER DOWN." >&2
 fi
 
-args=(--model claude-opus-5-5 --settings "$root/scripts/factory/orchestrator.settings.json")
+args=(--model claude-opus-5-5 --effort medium --settings "$root/scripts/factory/orchestrator.settings.json")
 if [[ ! -e "$factory/mod-disabled" ]]; then
   args+=(--plugin-dir "$root/tools/mod/vextrus-factory")
 fi
