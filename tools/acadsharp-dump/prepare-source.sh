@@ -18,8 +18,10 @@
 #   commit       what was fetched is not the commit the lock pins
 #   manifest     the commit's files are not the ones the lock pins (below)
 #   patch-hash   a patch file is not the one the lock pins by sha256
-#   patch-path   a patch touches a path that is absolute, holds `..`, lies outside src/ACadSharp/,
-#                renames or copies a file, or makes a link or a submodule
+#   patch-path   a patch names a path that is absolute, holds `..` or lies outside src/ACadSharp/,
+#                names two different files in one diff (a move, with or without rename lines),
+#                renames or copies a file, makes a link or a submodule, or names a file outside a
+#                git diff (PATCH_NAMES below: one parser for every name a patch carries)
 #   patch-apply  a patch does not apply cleanly (git apply --check)
 # and --dest is left absent or empty.
 #
@@ -169,6 +171,67 @@ for i in "${!patch_names[@]}"; do
   [ "$digest" = "${patch_hashes[$i]}" ] || refuse patch-hash "${patch_names[$i]} is not the patch the lock pins"
 done
 
+# The names a patch carries, one a line on stdout: `name<TAB><path>` for each file's path, or a
+# single `refuse<TAB><why>`. The rule: each file is a git diff (`diff --git a/P b/P`, the same P
+# twice); its `---` names a/P or /dev/null and its `+++` b/P or /dev/null; no rename or copy; every
+# mode line and index line is exactly one file's mode (100644 or 100755), never a link's, a
+# submodule's or a second number git would read first; and no `---` or `+++` line
+# stands outside a git diff (a traditional patch's names are refused, not interpreted). Text before
+# the first diff (a provenance header) is read as git reads it: ignored, unless it names a file.
+# Each P is then checked to lie under src/ACadSharp/ (inside_library).
+PATCH_NAMES='
+function fail(why) { print "refuse\t" why; failed = 1; exit }
+function count(range) { return index(range, ",") ? substr(range, index(range, ",") + 1) + 0 : 1 }
+{
+  line = $0
+  if (old > 0 || new > 0) {
+    c = substr(line, 1, 1)
+    if (c == "\\") next
+    if (c == "-") old--
+    else if (c == "+") new--
+    else if (c == " " || line == "") { old--; new-- }
+    else fail("has a hunk shorter than its header")
+    if (old < 0 || new < 0) fail("has a hunk longer than its header")
+    next
+  }
+  if (substr(line, 1, 11) == "diff --git ") {
+    rest = substr(line, 12); n = length(rest)
+    if (n < 7 || n % 2 == 0) fail("names two different files in one diff")
+    path = substr(rest, 3, (n - 5) / 2)
+    if (rest != "a/" path " b/" path) fail("names two different files in one diff")
+    files++; minus = ""; plus = ""
+    print "name\t" path
+    next
+  }
+  if (substr(line, 1, 4) == "--- " || substr(line, 1, 4) == "+++ ") {
+    if (!files) fail("names a file outside a git diff")
+    named = substr(line, 5)
+    if (index(named, "\t")) named = substr(named, 1, index(named, "\t") - 1)
+    side = substr(line, 1, 1) == "-" ? "a/" : "b/"
+    if (named != "/dev/null" && named != side path) fail("names two different files in one diff")
+    if (side == "a/") minus = named; else plus = named
+    next
+  }
+  if (substr(line, 1, 3) == "@@ ") {
+    if (!files || minus == "" || plus == "") fail("has a hunk before its file is named")
+    if (line !~ /^@@ -[0-9]+(,[0-9]+)? \+[0-9]+(,[0-9]+)? @@/) fail("has a hunk header git cannot read")
+    split(line, part, " ")
+    old = count(part[2]); new = count(part[3])
+    next
+  }
+  if (!files) next
+  if (line ~ /^(rename|copy) /) fail("renames or copies a file")
+  if (line ~ /^(old mode|new mode|new file mode|deleted file mode|index) /) {
+    if (line !~ /^(old mode|new mode|new file mode|deleted file mode) 100(644|755)$/ &&
+        line !~ /^index [0-9a-f]+\.\.[0-9a-f]+( 100(644|755))?$/) fail("makes a link or a submodule")
+  }
+}
+END {
+  if (failed) exit
+  if (old > 0 || new > 0) fail("ends inside a hunk")
+}
+'
+
 inside_library() {
   case "$1" in "" | /* | *\\*) return 1 ;; esac
   case "/$1/" in */../* | */./* | *//*) return 1 ;; esac
@@ -201,23 +264,19 @@ done
 
 # -- 3. the patches' paths, as git itself reads them, then a check that each applies ------------
 for i in "${!patch_names[@]}"; do
-  # The summary first: a rename or copy is refused whatever its two names (the pinned patch only
-  # edits files in place), so every record numstat gives below is one file edited where it is.
-  summary=$(gitin ACadSharp apply --summary "$work/patch-$i" 2> /dev/null) ||
-    refuse patch-apply "${patch_names[$i]} cannot be read as a patch"
-  case $'\n'"$summary" in
-    *$'\n rename '* | *$'\n copy '*) refuse patch-path "${patch_names[$i]} renames or copies a file" ;;
-    *" mode 120000 "* | *" mode 160000 "*) refuse patch-path "${patch_names[$i]} makes a link or a submodule" ;;
-  esac
-  gitin ACadSharp apply --numstat -z "$work/patch-$i" > "$work/tmp/numstat" 2> /dev/null ||
-    refuse patch-apply "${patch_names[$i]} cannot be read as a patch"
-  paths=0
-  while IFS= read -r -d '' record; do
-    path=${record#*$'\t'}; path=${path#*$'\t'}
-    inside_library "$path" || refuse patch-path "${patch_names[$i]} touches a path outside $LIBRARY"
-    paths=$((paths + 1))
-  done < "$work/tmp/numstat"
-  [ "$paths" -gt 0 ] || refuse patch-path "${patch_names[$i]} touches no file"
+  # One parser reads every name the patch carries, as git apply reads them (hunks by their line
+  # counts, so a removed line that starts "-- " is content, never a name), and one rule judges them.
+  names=0
+  while IFS=$'\t' read -r kind value; do
+    case "$kind" in
+      name) inside_library "$value" ||
+              refuse patch-path "${patch_names[$i]} touches a path outside $LIBRARY"
+            names=$((names + 1)) ;;
+      refuse) refuse patch-path "${patch_names[$i]} $value" ;;
+      *) refuse patch-path "${patch_names[$i]} could not be read for its names" ;;
+    esac
+  done < <(awk "$PATCH_NAMES" "$work/patch-$i" || printf 'refuse\tcould not be read for its names\n')
+  [ "$names" -gt 0 ] || refuse patch-path "${patch_names[$i]} touches no file"
   gitin ACadSharp apply --check "$work/patch-$i" 2> /dev/null ||
     refuse patch-apply "${patch_names[$i]} does not apply to ACadSharp at ${commit[ACadSharp]}"
   # Applied to the work tree only, never to the index, so a later patch is checked against the
