@@ -41,8 +41,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Cloud and local sessions:** cloud for tickets provable by committed tests; local (`claude --bg`, one
   worktree each) for anything touching real drawings. Cloud builders push their own branch only; local
   builders commit and never push. Neither opens a PR: the orchestrator pushes, opens it and merges after
-  the review loop (at most two rounds) and green required checks.
-- **Second review lens:** the adversary agent inside `/review-pr` (ADR 0042).
+  the review loop (`scripts.factory.review run <PR> --round <n>`, at most two rounds) and green required checks.
+- **Second review lens:** the adversary agent, a lens of `scripts.factory.review run <PR> --round <n>` (ADR 0043; `/review-pr` until S14-R3).
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
 - **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class): a

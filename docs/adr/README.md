@@ -2,7 +2,7 @@
 
 Each ADR states the decision as it now stands; its `## History` lists every amendment with its date,
 evidence and the owner's ruling, quoted. A superseded ADR keeps its file as a stub so old links
-resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 28 Sep 2026, at the end of session 02 (every ADR re-read against its rulings); 4 Oct 2026, ADR 0042.
+resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 28 Sep 2026, at the end of session 02 (every ADR re-read against its rulings); 4 Oct 2026, ADR 0042; 6 Oct 2026, ADR 0043.
 
 | # | Title | Status | The decision in one line |
 |---|---|---|---|
@@ -47,4 +47,5 @@ resolve. Format: `.claude/skills/domain-modeling/ADR-FORMAT.md`. Updated 28 Sep 
 | [0039](0039-drafting-profiles-pooled-with-permission.md) | Drafting Profiles: a consultant office's conventions as data, pooled across Developers with permission | current | Learnt and confirmed per office from M1; reused; published to the Library with client permission and review; Held-out Sets scored first without a profile. |
 | [0040](0040-discipline-parts-in-one-live-model.md) | One Live Model per Building, made of Discipline Parts joined by Element Relations | current | A Part per discipline (own drawings, Revisions, Profile, Steps, template), shared storeys and grid, typed Element Relations, one query, scene and BOQ; MEP read, not lump sums. |
 | [0041](0041-sessions-are-autonomous.md) | Sessions are autonomous: agents build, review, gate and merge; the owner walks the milestone | amended by 0042 | The orchestrator merges after the capped review loop and green checks; independent gates post statuses; acceptance tests first; every serious finding leaves a committed check; time budgets; effort medium by default; cloud and local. |
-| [0042](0042-the-software-factory.md) | The software factory: the harness is committed code, builders and reviewers run in the cloud, custody stays local, Jev advises, and gates are checks | current | Factory code is product code; account A runs everything; launches, review cap, merge gate, G1 walk and leak wall are committed checks; the two Development Sets may reach cloud sessions; Jev advises, never gates. |
+| [0042](0042-the-software-factory.md) | The software factory: the harness is committed code, builders and reviewers run in the cloud, custody stays local, Jev advises, and gates are checks | current; review part superseded by 0043 | Factory code is product code; account A runs everything; launches, review cap, merge gate, G1 walk and leak wall are committed checks; the two Development Sets may reach cloud sessions; Jev advises, never gates. |
+| [0043](0043-reviews-run-by-code.md) | Reviews run by code: `scripts.factory.review run <PR> --round <n>` | current | Supersedes ADR 0042's review part: one command picks the tier from an allowlist (no model on allowlist-only PRs), runs the lenses, replays and records the ledger line. |
