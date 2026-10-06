@@ -7,6 +7,9 @@ From the ticket: "Synthetic model-space frame inserted at a non-standard scale, 
 view's box overlays its drawing in the buffer within 1 mm; the buffer's paper equals the frame's
 paper." and from its brief: views and buffers use one paper scale (both agree on every case).
 
+Carried into S15-E2 (#535), which supersedes #160: its one paper must lay these sheets as well as
+those of `engine/render/tests/acceptance/ts15e2`.
+
 Built at test time by the repo's writer (drawing.py), so the toolchain is needed:
 
     uv run pytest -m needs_toolchain engine/render/tests/acceptance/t160
