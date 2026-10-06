@@ -12,6 +12,11 @@ The authority:
   the body is "the READY commit's message (minus trailers) plus a footer", scanned with `tools.leakscan
   file`, then `gh pr create --body-file`; a refusal names "file:line of the hit, never the hit's text";
   "re-running on a branch with an open PR updates nothing and says so".
+- PR #498's round 2 review (confirmed at 50): publish pushes a local builder's READY head from Python,
+  out of the guard's sight; the guard's main-checkout push gate (READY_UNVERIFIED) also needs a green
+  verify record for the head's tree at `<git-common-dir>/vextrus/verify-<tree>.json`
+  (verify-record.schema.json), so publish refuses a READY head with no green record for its tree, as
+  the guard does, naming the missing record.
 
 Pinned at the boundary: the exit code, what origin holds after, the scanner's own stamps (read with
 `tools.leakscan verify-stamp`: publish never writes one itself), and the `gh` calls a fake `gh` saw.
@@ -33,6 +38,7 @@ from scripts.tests.acceptance.ts14p7._world import (
     flag,
     hit_file,
     show,
+    write_verify_record,
 )
 
 BRANCH = "s99-x1"
@@ -152,3 +158,38 @@ def test_a_rerun_on_a_branch_with_an_open_pr_updates_nothing_and_says_so(world: 
     assert "501" in again.stdout + again.stderr, (
         f"the rerun does not name the open PR (#501):\n{show(again)}"
     )
+
+
+def test_a_ready_head_whose_tree_has_no_verify_record_is_refused_naming_it_and_nothing_is_pushed(
+    world: World,
+) -> None:
+    head = commit_ready(world, BRANCH, {"docs/plan.md": "a clean line\n"}, verified=False)
+    world.to_main(BRANCH)
+    tree = world.tree(head)
+    before = world.origin_refs()
+
+    done = world.publish(BRANCH)
+
+    assert done.returncode != 0, show(done)
+    assert tree in done.stdout + done.stderr, (
+        f"the refusal does not name the missing verify record (tree {tree}):\n{show(done)}"
+    )
+    assert world.origin_refs() == before, "a READY head with no verify record was pushed"
+    assert f"refs/heads/{BRANCH}" not in world.origin_refs()
+    assert world.gh_writes() == [], world.gh_writes()
+
+
+def test_a_ready_head_whose_verify_record_is_not_green_is_refused_and_nothing_is_pushed(
+    world: World,
+) -> None:
+    head = commit_ready(world, BRANCH, {"docs/plan.md": "a clean line\n"}, verified=False)
+    world.to_main(BRANCH)
+    write_verify_record(world, world.tree(head), exit_code=1)
+    before = world.origin_refs()
+
+    done = world.publish(BRANCH)
+
+    assert done.returncode != 0, show(done)
+    assert world.origin_refs() == before, "a READY head whose verify record failed was pushed"
+    assert f"refs/heads/{BRANCH}" not in world.origin_refs()
+    assert world.gh_writes() == [], world.gh_writes()

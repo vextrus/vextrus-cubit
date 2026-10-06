@@ -18,6 +18,9 @@ Everything is made in the test's temporary folder; nothing real is read and noth
   (and `--jq`/`--template`) exits 1 with "stub: unsupported".
 - **A fake `claude`** first on PATH: it logs its argv and answers `-p` with `{"ok": true}` (the reply
   `launch say` reads, launch-cli.md 3); anything else exits 1.
+- **Verify records**: a READY head made by `commit_ready` has the green record `scripts.verify` writes
+  for its tree, at `<git-common-dir>/vextrus/verify-<tree>.json` of the main checkout (the guard's READY
+  push gate reads it there; verify-record.schema.json).
 
 Tools run as subprocesses with PYTHONPATH at this repository, so `python -m scripts.factory.<tool>` and
 `python -m tools.leakscan` resolve to this tree. `VEXTRUS_LEAKSCAN_CMD` (the watcher's existing seam)
@@ -524,14 +527,51 @@ def ready_message(tree: str, subject: str = "S99-X1: the widget's publish path")
     )
 
 
-def commit_ready(world: World, branch: str, files: dict[str, str]) -> str:
+def verify_record_path(world: World, tree: str) -> Path:
+    """Where `scripts.verify` writes the record of `tree` and the guard's READY push gate reads it:
+    `<git-common-dir>/vextrus/verify-<tree>.json` of the main checkout (verify-record.schema.json)."""
+    common = Path(world.git(world.main, "rev-parse", "--git-common-dir"))
+    return (world.main / common).resolve() / "vextrus" / f"verify-{tree}.json"
+
+
+def write_verify_record(world: World, tree: str, exit_code: int = 0) -> Path:
+    """A verify record for `tree` in exactly the shape `scripts.verify` writes: green when `exit_code`
+    is 0, else one failing check and `ok` false, as verify writes a failed run."""
+    record = {
+        "schema_version": 1,
+        "tree": tree,
+        "written_at": NOW,
+        "ok": exit_code == 0,
+        "checks": [
+            {
+                "name": "pytest",
+                "command": "uv run pytest scripts -q",
+                "exit_code": exit_code,
+                "raw_exit_code": exit_code,
+                "flakes": [],
+                "root_only": [],
+                "output_file": f".private/work/verify/{tree}/pytest.txt",
+            }
+        ],
+    }
+    path = verify_record_path(world, tree)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record, indent=2) + "\n")
+    return path
+
+
+def commit_ready(world: World, branch: str, files: dict[str, str], verified: bool = True) -> str:
     """A READY tip on `branch` whose Factory-Verify names its own tree: one commit to learn the tree,
-    amended with the message that names it (the tree does not change)."""
+    amended with the message that names it (the tree does not change). With `verified`, the green
+    record `scripts.verify` writes for that tree is in the main checkout's git folder, as the guard's
+    READY push gate (READY_UNVERIFIED) needs for a READY head, and so publish too (PR #498 round 2)."""
     world.commit(branch, files, "wip: the widget\n")
     tree = world.git(world.work, "rev-parse", "HEAD^{tree}")
     text = world.tmp / "ready.txt"
     text.write_text(ready_message(tree))
     world.git(world.work, "commit", "-q", "--amend", "-F", str(text))
+    if verified:
+        write_verify_record(world, tree)
     return world.git(world.work, "rev-parse", "HEAD")
 
 
