@@ -239,7 +239,22 @@ export class FakeStep1 {
             open_questions: this.questions.filter((q) => q.discipline === d && q.status === 'open').length,
           }
         }),
+      count: this.count(),
       not_received: this.notReceived,
+    }
+  }
+
+  /**
+   * The header's Count as the server sends it (S15-A4: the web derives none): every sheet but one the
+   * read proposed out with no number that the QS has not confirmed in (`_counted_sheet`), and of those
+   * the confirmed and the excluded.
+   */
+  private count() {
+    const counted = this.proposals.filter((p) => !(p.proposed_exclusion && !p.number) || p.decision === 'confirmed')
+    return {
+      found: counted.length,
+      confirmed: counted.filter((p) => p.decision === 'confirmed').length,
+      excluded: counted.filter((p) => p.decision === 'excluded').length,
     }
   }
 
