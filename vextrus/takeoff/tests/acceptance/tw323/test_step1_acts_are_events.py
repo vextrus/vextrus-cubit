@@ -23,16 +23,16 @@ Every name and number here is invented (the fixture's sheets are `vextrus/testin
 
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any, cast
 
 import pytest
 
 from engine.messages import MessageCode
 from engine.messages import conflicts as conflict_codes
-from vextrus.api import api, message_codes
 from vextrus.drawings import services as drawings
-from vextrus.platform.models import DomainEvent
 from vextrus.platform.services import events
+from vextrus.takeoff import messages as takeoff_messages
 from vextrus.takeoff.http.step1 import router
 from vextrus.takeoff.messages import proposals as proposal_codes
 from vextrus.takeoff.messages import step1 as step1_codes
@@ -80,10 +80,44 @@ def ok(response: Any) -> Any:
     return response.json()
 
 
-def step1_events(member: Member) -> list[DomainEvent]:
-    """The Developer's Step 1 act events, oldest first, read in the member's tenant."""
-    with member.acting():
-        return list(DomainEvent.objects.filter(kind__in=ACT_CODES).order_by("occurred_at", "id"))
+ADDED = {"actor", "by", "subject", "role"}
+"""The params the activity API adds to an event's payload (`vextrus/platform/services/activity.py`)."""
+
+
+@dataclass(frozen=True)
+class Event:
+    """A DomainEvent as the activity API shows it: its payload is its params less those added."""
+
+    kind: str
+    payload: dict[str, Any]
+    subject_type: str | None
+    subject_id: uuid.UUID | None
+    actor_user_id: uuid.UUID | None
+    project_id: uuid.UUID | None
+    building_id: uuid.UUID | None
+
+
+def _id(value: str | None) -> uuid.UUID | None:
+    return uuid.UUID(value) if value else None
+
+
+def step1_events(member: Member) -> list[Event]:
+    """The Developer's Step 1 act events, oldest first, as the member reads them in the Acts view
+    (`GET /api/activity`, newest first, read back to front)."""
+    acts = ok(api_as(member).get("/api/activity", limit=200))
+    return [
+        Event(
+            kind=a["code"],
+            payload={k: v for k, v in a["params"].items() if k not in ADDED},
+            subject_type=a["subject_type"],
+            subject_id=_id(a["subject_id"]),
+            actor_user_id=_id(a["actor"]["id"]) if a["actor"] else None,
+            project_id=_id(a["project_id"]),
+            building_id=_id(a["building_id"]),
+        )
+        for a in reversed(acts)
+        if a["code"] in ACT_CODES
+    ]
 
 
 def confirmations(member: Member, project_id: uuid.UUID) -> int:
@@ -543,7 +577,9 @@ def test_each_step_1_act_writes_exactly_its_one_event(step1_project: Step1Projec
 
 
 def declared() -> dict[str, MessageCode]:
-    return {code.code: code for code in message_codes()}
+    """`takeoff`'s message codes, as the API assembles them into its catalogue and the schema's
+    `MessageCode` and `EventCode` (`event=True`) enums."""
+    return {code.code: code for code in takeoff_messages.codes()}
 
 
 def test_each_step_1_act_code_is_declared_as_an_event_with_its_params() -> None:
@@ -553,12 +589,6 @@ def test_each_step_1_act_code_is_declared_as_an_event_with_its_params() -> None:
     for code in ACT_CODES:
         assert codes[code].event is True, code
         assert set(codes[code].params) == PARAMS[code], code
-
-
-def test_the_schema_lists_each_step_1_act_code_as_an_event_code() -> None:
-    enum = api.get_openapi_schema()["components"]["schemas"]["EventCode"]["enum"]
-
-    assert [c for c in ACT_CODES if c not in enum] == []
 
 
 def test_an_event_payload_holding_words_is_refused(sign_in: Callable[..., Member]) -> None:
