@@ -39,8 +39,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   code (the head from the PR, a claimed slot, the tier, the lenses, the replays, one batched refuter,
   the ledger record); it prints one JSON object and appends a line to
   `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing recorded (its `refused` field says
-  why: a lens past its cap or outside its schema is named); run the round again and only the unfinished
-  lenses start. `--where cloud` launches one cloud reviewer per lens and records nothing; when every
+  why: a lens past its cap or outside its schema is named); run the round again: every lens starts
+  again, fresh (no answer is reused). `--where cloud` launches one cloud reviewer per lens and records nothing; when every
   reviewer has pushed its verdict, `uv run python -m scripts.factory.review collect <PR> --round n`
   records ONE decision from all of them (refused, nothing recorded, while any lens is missing); a
   lens with no launch (its launch failed or was cut off) is launched by running the round again with

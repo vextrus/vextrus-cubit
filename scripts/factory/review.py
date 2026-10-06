@@ -23,8 +23,9 @@ recorded round: one line per standing finding (`file:line (score): summary`), no
    `VEXTRUS_DB_NAME=vextrus_rv_slot<N>`. The map (the owner's Q1): lens A Opus 5.5, lens B, the words
    lens and the refuter Sonnet 5.5. Past `VEXTRUS_REVIEW_LENS_TIMEOUT` seconds (default 45 minutes) a
    lens's process group and its marked leftovers are killed, and the run exits 3 naming it; so does a
-   reply outside the REVIEW schema or with no `structured_output`. A lens that finished is kept per
-   head, round and main: a rerun of the round starts only the others. No prompt
+   reply outside the REVIEW schema or with no `structured_output`. Every run starts every lens its
+   tier requires, fresh: a lens's answer is read only from the output of the lens process this run
+   started, never from a file an earlier run (or another PR's run) left. No prompt
    names where verdicts are kept. A lens loads no user, project or local settings (`--setting-sources
    ""`): its settings, its guard and its agent come from the review code's own checkout, never from
    the PR head in `rv<N>` (the live probes: `--agents` beats the project's agent file, and the user's
@@ -49,16 +50,16 @@ review branch; `collect <PR> --round n` reads every lens's verdict file through 
 and records ONE decision from all of them (the worst verdict, every finding), or refuses while any lens
 has not answered. `ledger fetch-verdict` refuses such a head: one lens alone never makes its record.
 
+The PR's code runs as the orchestrator's user without a sandbox, so it can write any file the user
+can (#488); review.py does not claim to stop that.
+
 Exit codes (the ledger's): 0 ok, 2 bad input or usage, 3 refused (nothing recorded).
 """
 
 import argparse
-import base64
-import binascii
 import contextlib
 import fcntl
 import functools
-import hashlib
 import json
 import os
 import re
@@ -336,7 +337,6 @@ class Run:
     paths: list[str] = field(default_factory=list)  # the changed paths
     lenses: list[dict[str, Any]] = field(default_factory=list)
     launched: list[str] = field(default_factory=list)  # --where cloud: the review branches
-    kept: dict[str, str] = field(default_factory=dict)  # the kept lens answers: name -> sha256
     findings: list[Finding] = field(default_factory=list)
 
     def cost(self) -> float:
@@ -1178,12 +1178,14 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        try:  # the PR's code runs from here on: whatever ends the run, the checks below run
-            reviews = lenses_in(run, lenses, rv, slot, main)
-            retire_kept(review_dir / "out", run)
-            confirm_and_refute(run, rv, slot, main, reviews)
-        finally:
-            after_pr_code(review_dir / "out", ledger_dir, run)
+        reviews = lenses_in(run, lenses, rv, slot, main)
+        confirm_and_refute(run, rv, slot, main, reviews)
+        if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
+            # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
+            raise Refused(
+                f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code ran: "
+                "nothing recorded; the owner must look at it before any merge"
+            )
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
@@ -1211,28 +1213,6 @@ def confirm_and_refute(
     refute(run, rv, slot, main)
 
 
-def retire_kept(out: Path, run: Run) -> None:
-    """Before the first replay, every kept lens answer of this head and round is moved to a `.used`
-    name `load_finished` never reads: once the PR's code has run past the lens stage, no rerun
-    reuses an answer it could have rewritten (only a run stopped in the lens stage reuses any)."""
-    pattern = f"{run.pr}-{run.head}-r{run.round_}-*.done.json"
-    for path in out.glob(pattern):
-        path.replace(path.with_name(f"{path.name}.used"))
-    run.kept = kept_answers(out, run)
-
-
-def after_pr_code(out: Path, ledger_dir: Path, run: Run) -> None:
-    """On every exit once the PR's code has run (a refusal, a crash, a stop or the way to the
-    record): a kept answer written or changed is deleted and refused, and so is a forged record."""
-    check_kept(out, run)
-    if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
-        # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
-        raise Refused(
-            f"a ledger record for PR {run.pr} at {run.head} appeared while the PR's code ran: "
-            "nothing recorded; the owner must look at it before any merge"
-        )
-
-
 def tier_lenses(tier: str, paths: list[str]) -> list[Lens]:
     """The lenses a model tier requires: lens B (small) or lens A and lens B, and the words lens when
     a change is under web/src/messages/."""
@@ -1257,143 +1237,20 @@ def write_facts(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
     return diff, log
 
 
-# ---------------------------------------------------------------------------------------------- reruns
-
-ATTACK_BYTES = 512 * 1024  # an attack test kept for a rerun is at most this long
-ATTACKS_BYTES = 8 * ATTACK_BYTES  # and one lens's attack folder at most this much
-
-
-def finished_path(out: Path, run: Run, lens: Lens) -> Path:
-    assert run.head is not None
-    return out / f"{run.pr}-{run.head}-r{run.round_}-{lens.label}.done.json"
-
-
-def load_finished(out: Path, run: Run, lens: Lens) -> dict[str, Any] | None:
-    """A lens's answer from an earlier run of this round, for this head on the same main, by the same
-    agent and model, still in the review schema; else None (the lens runs again)."""
-    try:
-        saved = json.loads(finished_path(out, run, lens).read_text())
-    except OSError, ValueError:
-        return None
-    if not (
-        isinstance(saved, dict)
-        and [saved.get(key) for key in ("head", "base", "agent", "model")]
-        == [run.head, run.base, lens.agent, lens.model]
-        and conforms(saved.get("review"), REVIEW_SCHEMA)
-        and saved["review"]["head"] == run.head
-        and isinstance(saved.get("attacks"), dict)
-    ):
-        return None
-    return saved
-
-
-def save_finished(out: Path, run: Run, lens: Lens, answer: dict[str, Any], rv: Path) -> None:
-    """Keep a finished lens's answer and its attack tests (a rerun's clean worktree has lost them)."""
-    attacks: dict[str, str] = {}
-    for item in answer["findings"]:
-        repro = item.get("repro")
-        target = replay_target(rv, repro["test_file"]) if isinstance(repro, dict) else None
-        if target is not None and (rv / target).stat().st_size <= ATTACK_BYTES:
-            attacks[target] = base64.b64encode((rv / target).read_bytes()).decode()
-    folder = rv / ATTACKS / lens.label
-    inside = rv.resolve()
-    if folder.is_dir() and not folder.is_symlink() and folder.resolve().is_relative_to(inside):
-        for path in sorted(folder.rglob("*")):
-            name = path.relative_to(rv).as_posix()
-            if (
-                plain_relative(name) is None
-                or path.is_symlink()
-                or not path.is_file()
-                or path.stat().st_size > ATTACK_BYTES
-                or sum(len(text) for text in attacks.values()) > ATTACKS_BYTES
-            ):
-                continue
-            attacks[name] = base64.b64encode(path.read_bytes()).decode()
-    saved = {
-        "head": run.head,
-        "base": run.base,
-        "agent": lens.agent,
-        "model": lens.model,
-        "review": answer,
-        "attacks": attacks,
-    }
-    path = finished_path(out, run, lens)
-    data = json.dumps(saved).encode()
-    path.write_bytes(data)
-    run.kept[path.name] = hashlib.sha256(data).hexdigest()
-
-
-def kept_answers(out: Path, run: Run) -> dict[str, str]:
-    """The kept lens answers of this head and round on disk: name -> sha256."""
-    pattern = f"{run.pr}-{run.head}-r{run.round_}-*.done.json"
-    return {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in out.glob(pattern)}
-
-
-def check_kept(out: Path, run: Run) -> None:
-    """The PR's code runs unsandboxed in rv<N>: a kept answer it wrote or changed would be reused by a
-    rerun. Any change since this run read or wrote them deletes them all and refuses."""
-    now = kept_answers(out, run)
-    if now != run.kept:
-        for name in {*now, *run.kept}:
-            (out / name).unlink(missing_ok=True)
-        run.kept = {}
-        raise Refused(
-            f"a kept lens answer for PR {run.pr} at {run.head} changed while the PR's code ran: "
-            "all deleted, nothing recorded; the owner must look at it before any merge"
-        )
-
-
-def restore_attacks(rv: Path, attacks: dict[str, Any]) -> None:
-    """Write a reused lens's attack files back into `rv`, byte for byte (each kept as base64), each
-    only at a plain path inside it."""
-    inside = rv.resolve()
-    for name, text in attacks.items():
-        pure = plain_relative(name) if isinstance(name, str) else None
-        if pure is None or not isinstance(text, str):
-            continue
-        try:
-            data = base64.b64decode(text, validate=True)
-        except binascii.Error, ValueError:
-            continue
-        target, folder = rv / pure, rv
-        linked = False
-        for part in pure.parent.parts:  # no folder on the way may be a link (the PR can commit one)
-            folder = folder / part
-            linked = linked or folder.is_symlink() or (folder.exists() and not folder.is_dir())
-        if linked or target.is_symlink():
-            continue
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if not target.parent.resolve().is_relative_to(inside):
-            continue
-        target.write_bytes(data)
-
-
 # ---------------------------------------------------------------------------------------------- lenses
 
 
 def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) -> list[dict[str, Any]]:
-    """Every lens, in parallel; a lens already finished for this head and round is not started again
-    (its saved answer is used). Each result's cost is kept even when another lens fails."""
+    """Every lens, in parallel, started fresh by this run: its answer is read only from the output of
+    the process this run started. Each result's cost is kept even when another lens fails."""
     assert run.head is not None
     assert run.slot is not None
     n, head = run.slot, run.head
     out = main / ".private" / "work" / "factory" / "review" / "out"
     stem = f"{run.pr}-{head[:12]}-r{run.round_}"
     facts = write_facts(main, run, out / stem)
-    run.kept = kept_answers(out, run)
-    finished = {
-        lens.label: saved for lens in lenses if (saved := load_finished(out, run, lens)) is not None
-    }
-    for saved in finished.values():
-        restore_attacks(rv, saved["attacks"])
 
     def one(lens: Lens) -> dict[str, Any]:
-        if lens.label in finished:
-            run.lenses.append(
-                {"label": lens.label, "agent": lens.agent, "model": lens.model, "reused": True}
-            )
-            answer: dict[str, Any] = finished[lens.label]["review"]
-            return answer
         keep = out / f"{stem}-{lens.label}.json"
         result = run_lens(lens, brief(run, lens, rv, slot, facts), rv, n, keep, main)
         run.lenses.append(
@@ -1406,20 +1263,17 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
                 "usage": result.get("usage"),
             }
         )
-        answer = read_review(lens, result, head)
-        save_finished(out, run, lens, answer, rv)
-        return answer
+        return read_review(lens, result, head)
 
     with ThreadPoolExecutor(max_workers=len(lenses)) as pool:
         futures = [pool.submit(one, lens) for lens in lenses]
         errors = [future.exception() for future in futures]
-    check_kept(out, run)
     for error in errors:
         if error is not None and not isinstance(error, Refused):
             raise error
     refused = [str(error) for error in errors if error is not None]
     if refused:
-        raise Refused("; ".join(refused) + " (lenses that finished are kept for a rerun)")
+        raise Refused("; ".join(refused) + " (a rerun starts every lens again)")
     return [future.result() for future in futures]
 
 

@@ -100,73 +100,6 @@ def test_the_lens_cap_defaults_and_reads_seconds(monkeypatch: pytest.MonkeyPatch
 # ---------------------------------------------------------------- reruns
 
 
-def ran(tmp_path: Path) -> tuple[review.Run, Path, Path]:
-    run = review.Run(pr=12, round_=1, head=H, merged=H, base=BASE, slot=1)
-    out, rv = tmp_path / "out", tmp_path / "rv1"
-    out.mkdir()
-    (rv / "review_attacks" / "lens-a").mkdir(parents=True)
-    return run, out, rv
-
-
-def test_a_finished_lens_is_kept_with_its_attack_test_and_restored(tmp_path: Path) -> None:
-    run, out, rv = ran(tmp_path)
-    name = "review_attacks/lens-a/test_x_fails.py"
-    (rv / name).write_text("def test_attack(): assert False\n")
-    repro = {"test_file": name, "command": "c", "expect_fail": True}
-    review.save_finished(out, run, review.LENS_A, answer(finding(repro=repro)), rv)
-    (rv / name).unlink()
-    saved = review.load_finished(out, run, review.LENS_A)
-    assert saved is not None
-    review.restore_attacks(rv, saved["attacks"])
-    assert (rv / name).read_text().startswith("def test_attack")
-
-
-@pytest.mark.parametrize(
-    "change",
-    [{"head": "b" * 40}, {"base": "d" * 40}],
-    ids=["another-head", "main-moved"],
-)
-def test_a_finished_lens_of_another_head_or_main_is_not_reused(
-    tmp_path: Path, change: dict[str, str]
-) -> None:
-    run, out, rv = ran(tmp_path)
-    review.save_finished(out, run, review.LENS_A, answer(), rv)
-    for key, value in change.items():
-        setattr(run, key, value)
-    assert review.load_finished(out, run, review.LENS_A) is None
-
-
-def test_a_finished_lens_of_another_model_or_a_damaged_file_is_not_reused(tmp_path: Path) -> None:
-    run, out, rv = ran(tmp_path)
-    review.save_finished(out, run, review.LENS_A, answer(), rv)
-    other = review.Lens("lens-a", "pr-reviewer", "claude-sonnet-5-5", "t")
-    assert review.load_finished(out, run, other) is None
-    path = review.finished_path(out, run, review.LENS_A)
-    saved = json.loads(path.read_text())
-    saved["review"]["verdict"] = "LGTM"
-    path.write_text(json.dumps(saved))
-    assert review.load_finished(out, run, review.LENS_A) is None
-
-
-@pytest.mark.parametrize("name", ["../escape.py", "/tmp/abs.py", "a b.py", "-x.py"])
-def test_an_attack_is_restored_only_at_a_plain_path_inside_the_worktree(
-    tmp_path: Path, name: str
-) -> None:
-    rv = tmp_path / "rv1"
-    rv.mkdir()
-    review.restore_attacks(rv, {name: "x"})
-    assert sorted(p.name for p in tmp_path.rglob("*") if p.is_file()) == []
-
-
-def test_an_attack_is_never_restored_through_a_link_out_of_the_worktree(tmp_path: Path) -> None:
-    rv, outside = tmp_path / "rv1", tmp_path / "outside"
-    rv.mkdir()
-    outside.mkdir()
-    (rv / "tests").symlink_to(outside)
-    review.restore_attacks(rv, {"tests/test_x.py": "x"})
-    assert list(outside.iterdir()) == []
-
-
 # ---------------------------------------------------------------- the batched refuter
 
 
@@ -355,32 +288,7 @@ def test_a_refuter_takes_no_task(tmp_path: Path) -> None:
         review_cloud.parse([*argv, "--claim-n", "1", "--task", "t"])
 
 
-@pytest.mark.parametrize("how", ["changed", "added"])
-def test_a_kept_answer_the_prs_code_changed_or_added_is_deleted_and_refused(
-    tmp_path: Path, how: str
-) -> None:
-    run, out, rv = ran(tmp_path)
-    run.kept = review.kept_answers(out, run)
-    review.save_finished(out, run, review.LENS_A, answer(finding()), rv)
-    review.check_kept(out, run)  # what this run wrote is what is there
-    forged = review.finished_path(out, run, review.LENS_A if how == "changed" else review.LENS_B)
-    forged.write_text(json.dumps({"review": answer()}))
-    with pytest.raises(review.Refused, match="changed while the PR's code ran"):
-        review.check_kept(out, run)
-    assert list(out.iterdir()) == []
-
-
 # ---------------------------------------------------------------- the refuter's round 1 (S14-R2)
-
-
-def test_an_attack_is_never_restored_under_a_linked_folder(tmp_path: Path) -> None:
-    """Refuted: `mkdir(parents=True)` made folders through a committed link before the check."""
-    rv, outside = tmp_path / "rv1", tmp_path / "outside"
-    rv.mkdir()
-    outside.mkdir()
-    (rv / "review_attacks").symlink_to(outside)
-    review.restore_attacks(rv, {"review_attacks/lens-a/deep/test_x.py": "x"})
-    assert list(outside.iterdir()) == []
 
 
 def test_where_cloud_on_a_no_model_tier_records_nothing(

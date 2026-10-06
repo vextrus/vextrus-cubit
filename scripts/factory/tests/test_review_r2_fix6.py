@@ -15,12 +15,9 @@ from scripts.factory import review, review_cloud
 from scripts.factory.tests.test_review_r2_fix1 import PR, Cloud
 from scripts.tests.acceptance.ts14r2._world import (
     HANG,
-    PASSING,
     SMALL,
     World,
-    git,
     item,
-    review_reply,
     wait_for_fifo,
     why,
 )
@@ -57,39 +54,6 @@ def sonnet_calls(world: World) -> int:
 
 
 # ---------------------------------------------------------------- 1. a rewritten answer is never reused
-
-
-def test_a_kept_answer_rewritten_during_a_replay_is_never_reused_after_an_early_exit(
-    world: World, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Refuted: during a replay the PR's code rewrote lens B's kept answer (FIX 70) to a PASS and left
-    an index.lock, so refuter_tree refused before check_kept ran, and the rerun reused the PASS."""
-    head = world.pr(12, SMALL)
-    world.lenses(review_reply("FIX", [FINDING]), write={REPRO: PASSING})
-    base = git(world.main, "rev-parse", "origin/main")
-    out = world.main / ".private" / "work" / "factory" / "review" / "out"
-    forged = out / f"12-{head}-r1-lens-b.done.json"
-
-    def attack(rv: Path, slot: int, test_file: str) -> bool:
-        clean = {"verdict": "PASS", "head": head, "findings": [], "report": "fine"}
-        forged.write_text(json.dumps({"head": head, "base": base, "agent": "pr-reviewer",
-                                      "model": review.LENS_B.model, "review": clean,
-                                      "attacks": {}}))  # fmt: skip
-        gitdir = git(rv, "rev-parse", "--path-format=absolute", "--git-dir")
-        Path(gitdir, "index.lock").write_text("")
-        return False
-
-    real_replay = review.replay
-    monkeypatch.setattr(review, "replay", attack)
-    assert review.main(["run", "12", "--round", "1"]) == 3
-    assert world.record(12, head) is None
-    assert not forged.exists(), "the rewritten answer was left for a rerun"
-    monkeypatch.setattr(review, "replay", real_replay)  # the next run's replay is the real one
-    assert review.main(["run", "12", "--round", "1"]) == 0
-    assert sonnet_calls(world) == 2, "lens B's rewritten answer was reused"
-    record = world.record(12, head)
-    assert record is not None
-    assert record["verdict"] != "PASS"
 
 
 # ---------------------------------------------------------------- 2. one run of a round at a time

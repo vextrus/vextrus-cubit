@@ -216,31 +216,6 @@ def test_a_finding_whose_repro_was_missing_says_so_to_the_refuter(tmp_path: Path
     assert "not run" in brief
 
 
-def test_a_reused_lens_brings_back_its_whole_attack_folder(tmp_path: Path) -> None:
-    rv = repo(tmp_path / "rv1")
-    out = tmp_path / "out"
-    out.mkdir()
-    attacks = rv / "review_attacks" / "lens-b"
-    attacks.mkdir(parents=True)
-    (attacks / "test_badge_passes.py").write_text("from helper import COUNT\n")
-    (attacks / "helper.py").write_text("COUNT = 3\n")
-    (attacks / "data.json").write_text("{}\n")
-    run = review.Run(pr=PR, round_=1, head="a" * 40, merged="a" * 40, base="c" * 40, slot=1)
-    found = {"score": 70, "file": "a.py", "line": 1, "summary": "s", "repro": PROOF}
-    answer = {"verdict": "FIX", "head": "a" * 40, "report": "r", "findings": [found]}
-    review.save_finished(out, run, review.LENS_B, answer, rv)
-    for path in attacks.iterdir():
-        path.unlink()
-    saved = review.load_finished(out, run, review.LENS_B)
-    assert saved is not None
-    review.restore_attacks(rv, saved["attacks"])
-    assert sorted(p.name for p in attacks.iterdir()) == [
-        "data.json",
-        "helper.py",
-        "test_badge_passes.py",
-    ]
-
-
 def test_the_cloud_hand_off_names_every_lens_for_collect(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

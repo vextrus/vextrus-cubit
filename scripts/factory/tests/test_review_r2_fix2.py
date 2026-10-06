@@ -238,27 +238,3 @@ def test_a_worktree_with_no_config_replays_with_none(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------- 4. attack files byte for byte
-
-
-SAMPLE = b"0\r\nSECTION\r\n2\rHEADER\n\x00\x89PNG\r\n\x1a\n\xff\xfe"
-
-
-def test_a_reused_lens_restores_its_attack_files_byte_for_byte(tmp_path: Path) -> None:
-    """Refuted: read_text turned CRLF and a lone CR into LF, so a CRLF DXF or a PNG changed."""
-    rv = repo(tmp_path / "rv1")
-    out = tmp_path / "out"
-    out.mkdir()
-    folder = rv / "review_attacks" / "lens-b"
-    folder.mkdir(parents=True)
-    (folder / "plan.dxf").write_bytes(SAMPLE)
-    (folder / "test_plan.py").write_bytes(b"def test_plan():\r\n    pass\r\n")
-    run = review.Run(pr=PR, round_=1, head=H, merged=H, base="c" * 40, slot=1)
-    answer = {"verdict": "PASS", "head": H, "findings": [], "report": "r"}
-    review.save_finished(out, run, review.LENS_B, answer, rv)
-    for path in folder.iterdir():
-        path.unlink()
-    saved = review.load_finished(out, run, review.LENS_B)
-    assert saved is not None
-    review.restore_attacks(rv, saved["attacks"])
-    assert (folder / "plan.dxf").read_bytes() == SAMPLE
-    assert (folder / "test_plan.py").read_bytes() == b"def test_plan():\r\n    pass\r\n"
