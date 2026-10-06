@@ -89,6 +89,29 @@ def test_a_last_commit_adding_a_corpus_string_gets_no_verify_record(
     assert _record(repo) == []
 
 
+def test_a_clean_line_staged_above_a_committed_hit_names_the_commit_not_the_staged_changes(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PR #483 round 2's attack: the staged change puts a clean line at the hit's line number, so a
+    reading by line number (round 1's `git blame`) named the staged changes."""
+    (repo / "plan.md").write_text(f"clean\nthe yard at {INVENTED}\n")
+    _git(repo, "add", "plan.md")
+    _git(repo, "commit", "-q", "-m", "feat: the plan")
+    committed = _git(repo, "rev-parse", "HEAD")
+    (repo / "plan.md").write_text(f"clean\nan inserted clean line\nthe yard at {INVENTED}\n")
+    _git(repo, "add", "plan.md")
+
+    code = verify.main([], run=_passes)
+
+    said = capsys.readouterr()
+    assert WORD not in (said.out + said.err).upper()
+    assert code == 1
+    assert f"{committed[:12]} plan.md:2" in said.err
+    assert f"local commit {committed[:12]}, not pushed" in said.err
+    assert "the staged changes" not in said.err
+    assert _record(repo) == []
+
+
 def test_a_hit_in_a_pushed_commit_names_it_with_the_fresh_branch_remedy(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
