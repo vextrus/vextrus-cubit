@@ -507,9 +507,9 @@ def staged_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, forge: bool) -> 
         return [{"verdict": "PASS", "findings": []}]
 
     monkeypatch.setattr(review, "resolve", lambda pr: H)
-    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: H)
-    monkeypatch.setattr(review, "changes", lambda main, head: ([("a.py", 1, 0)], []))
-    monkeypatch.setattr(review, "merge_bases", lambda main, head: 1)
+    monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (H, "c" * 40))
+    monkeypatch.setattr(review, "changes", lambda main, merged, base: ([("a.py", 1, 0)], []))
+    monkeypatch.setattr(review, "merge_bases", lambda main, head, base: 1)
     monkeypatch.setattr(review, "claim_slot", lambda where: (1, (tmp_path / "held").open("a")))
     monkeypatch.setattr(review, "prepare", lambda *_, **__: None)
     monkeypatch.setattr(review, "lenses_in", lenses_in)
@@ -797,3 +797,162 @@ def test_each_lens_writes_its_attack_tests_in_its_own_folder(tmp_path: Path) -> 
         assert review.LENS_TEST in text
         folders.add(lens.label)
     assert len(folders) == 3
+
+
+# ---------------------------------------------------------------- review round 2 on PR #472
+
+
+LATIN1_PATH = os.fsdecode(b"fixtures/caf\xe9.dxf")
+
+
+def test_a_latin1_file_and_path_never_crash_the_tier_or_the_facts(tmp_path: Path) -> None:
+    """Round 2: strict UTF-8 decoding died on a cp1252 fixture or a Latin-1 path."""
+    root = repo(tmp_path)
+    base = git(root, "rev-parse", "HEAD")
+    (root / "fixtures").mkdir()
+    (root / LATIN1_PATH).write_bytes(b"0\nSECTION\n2\nCAF\xc9 \xb0C\n")
+    (root / "fixtures" / "plain.dxf").write_bytes(b"\xe9t\xe9\n")
+    git(root, "add", "--", LATIN1_PATH, "fixtures/plain.dxf")
+    git(root, "commit", "-q", "-m", "cp1252 fixtures")
+    head = git(root, "rev-parse", "HEAD")
+    rows, _ = review.changes(root, head, base)
+    assert sorted(row[0] for row in rows) == sorted([LATIN1_PATH, "fixtures/plain.dxf"])
+    run = review.Run(pr=12, round_=1, head=head, merged=head, base=base)
+    diff, _ = review.write_facts(root, run, tmp_path / "out" / "12")
+    assert b"\xc9 \xb0C" in diff.read_bytes()
+
+
+def test_the_facts_and_the_tier_use_mains_sha_from_the_fetch_not_the_moving_ref(tmp_path: Path) -> None:
+    """Round 2: after the lock, origin/main moved (another fetch) and the lens diff showed the PR
+    deleting main's newest file."""
+    root = repo(tmp_path)
+    base = git(root, "rev-parse", "HEAD")
+    git(root, "switch", "-q", "-c", "pr")
+    (root / "a.py").write_text("x = 1\n")
+    git(root, "add", "a.py")
+    git(root, "commit", "-q", "-m", "the PR")
+    head = git(root, "rev-parse", "HEAD")
+    git(root, "switch", "-q", "main")
+    (root / "newest_on_main.py").write_text("y = 2\n")
+    git(root, "add", "newest_on_main.py")
+    git(root, "commit", "-q", "-m", "main moves on")
+    git(root, "update-ref", "refs/remotes/origin/main", "main")
+    run = review.Run(pr=12, round_=1, head=head, merged=head, base=base)
+    diff, log = review.write_facts(root, run, tmp_path / "out" / "12")
+    assert "newest_on_main" not in diff.read_text()
+    assert "a.py" in diff.read_text()
+    assert "main moves on" not in log.read_text()
+    rows, _ = review.changes(root, head, base)
+    assert [row[0] for row in rows] == ["a.py"]
+    assert review.merge_bases(root, head, base) == 1
+
+
+def test_merged_head_records_mains_sha_at_the_fetch(tmp_path: Path) -> None:
+    origin = tmp_path / "origin.git"
+    root = repo(tmp_path)
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(origin)], check=True)
+    git(root, "remote", "add", "origin", str(origin))
+    git(root, "push", "-q", "origin", "main")
+    git(root, "switch", "-q", "-c", "pr")
+    (root / "a.py").write_text("x = 1\n")
+    git(root, "add", "a.py")
+    git(root, "commit", "-q", "-m", "the PR")
+    head = git(root, "rev-parse", "HEAD")
+    git(root, "push", "-q", "origin", "HEAD:refs/pull/12/head")
+    git(root, "switch", "-q", "main")
+    (root / "b.py").write_text("y = 2\n")
+    git(root, "add", "b.py")
+    git(root, "commit", "-q", "-m", "main moves on")
+    git(root, "push", "-q", "origin", "main")
+    main_sha = git(root, "rev-parse", "HEAD")
+    merged, base = review.merged_head(root, 12, head)
+    assert base == main_sha
+    assert git(root, "rev-list", "--parents", "-n", "1", merged).split()[1:] == [head, main_sha]
+
+
+def test_an_uncaught_error_exits_non_zero_and_its_cost_line_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Round 2: a UnicodeDecodeError left a traceback and a cost line saying exit 0."""
+
+    def crash(run: review.Run, args: object, main: Path) -> None:
+        run.tier = "small"
+        raise UnicodeDecodeError("utf-8", b"\xe9", 0, 1, "invalid continuation byte")
+
+    monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
+    monkeypatch.setattr(review, "review", crash)
+    assert review.main(["run", "12", "--round", "1"]) == review.CRASHED != 0
+    (line,) = [
+        json.loads(text)
+        for text in (tmp_path / ".private" / "work" / "factory" / "review-cost.jsonl")
+        .read_text()
+        .split("\n")
+        if text
+    ]
+    assert line["exit"] == review.CRASHED
+    assert "UnicodeDecodeError" in line["refused"]
+    assert json.loads(capsys.readouterr().out)["exit"] == review.CRASHED
+
+
+def test_a_refusal_after_the_tier_has_its_exit_in_the_cost_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(run: review.Run, args: object, main: Path) -> None:
+        run.tier = "normal"
+        raise review.Refused("a lens gave no answer")
+
+    monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
+    monkeypatch.setattr(review, "review", refuse)
+    assert review.main(["run", "12", "--round", "1"]) == 3
+    text = (tmp_path / ".private" / "work" / "factory" / "review-cost.jsonl").read_text()
+    assert json.loads(text)["exit"] == 3
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "needs_toolchain",
+        "needs_toolchain or needs_bwrap",
+        "(needs_toolchain or live) and not needs_bwrap",
+    ],
+)
+def test_the_wrapper_takes_a_marker_expression_of_declared_markers(
+    tmp_path: Path, expression: str
+) -> None:
+    """Round 2: the repo's addopts deselect toolchain tests unless -m names them; a lens could not run
+    an engine PR's toolchain test."""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    argv = ["-m", expression, "tests/test_a.py"]
+    assert lens_pytest().check(argv, tmp_path) == argv
+
+
+@pytest.mark.parametrize(
+    "expression",
+    ["", "()", "slow", "needs_toolchain or undeclared", "--basetemp=x", "needs_toolchain;rm", "-p evil"],
+)
+def test_the_wrapper_refuses_any_other_marker_expression(tmp_path: Path, expression: str) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_a.py").write_text("def test_a():\n    pass\n")
+    module = lens_pytest()
+    with pytest.raises(module.Refused):
+        module.check(["-m", expression, "tests/test_a.py"], tmp_path)
+    with pytest.raises(module.Refused):
+        module.check(["tests/test_a.py", "-m"], tmp_path)
+
+
+def test_the_wrapper_runs_a_toolchain_marked_test_when_asked(tmp_path: Path) -> None:
+    root = repo(tmp_path)
+    (root / "tests").mkdir()
+    (root / "pytest.ini").write_text(
+        "[pytest]\naddopts = -m 'not needs_toolchain'\nmarkers =\n    needs_toolchain: x\n"
+    )
+    (root / "tests" / "test_t.py").write_text(
+        "import pytest\n\n\n@pytest.mark.needs_toolchain\ndef test_t():\n    assert False\n"
+    )
+    plain = wrapper_run(root, "-q", "tests/test_t.py")
+    plain.communicate(timeout=120)
+    assert plain.returncode == 5  # deselected by addopts: nothing ran
+    asked = wrapper_run(root, "-q", "-m", "needs_toolchain", "tests/test_t.py")
+    out, err = asked.communicate(timeout=120)
+    assert asked.returncode == 1, out + err  # it ran (and fails, as written)

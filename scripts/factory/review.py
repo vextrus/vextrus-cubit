@@ -41,6 +41,7 @@ import re
 import shlex
 import subprocess
 import sys
+import traceback
 from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ from typing import IO, Any
 from scripts import ledger
 
 REPOSITORY = ledger.REPOSITORY
+CRASHED = 1  # an uncaught error (beside the ledger's 0 ok, 2 bad input, 3 refused)
 SHA = re.compile(r"[0-9a-f]{40}")
 HASH_LINE = re.compile(r"[0-9a-f]{64}")
 ALLOWLIST = "tools/leakscan/allowlist.txt"
@@ -147,7 +149,11 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 def _run(argv: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(list(argv), capture_output=True, text=True, check=False, **kwargs)
+    """A command's output as text; bytes that are not UTF-8 become surrogates (written back as the
+    same bytes with `errors="surrogateescape"`), never a UnicodeDecodeError (review round 2)."""
+    return subprocess.run(
+        list(argv), capture_output=True, text=True, errors="surrogateescape", check=False, **kwargs
+    )
 
 
 @dataclass(frozen=True)
@@ -212,6 +218,7 @@ class Run:
     round_: int
     head: str | None = None
     merged: str | None = None
+    base: str | None = None  # main's sha at the fetch
     tier: str | None = None
     slot: int | None = None
     verdict: str | None = None
@@ -266,8 +273,10 @@ def claim_slot(review: Path) -> tuple[int, IO[str]]:
     raise Refused(f"all {MAX_SLOTS} review slots are busy: run again when one finishes")
 
 
-def merged_head(main: Path, pr: int, head: str) -> str:
-    """Fetch the PR and main; the head itself when main is its ancestor, else a merge commit."""
+def merged_head(main: Path, pr: int, head: str) -> tuple[str, str]:
+    """Fetch the PR and main: `(merged, base)`, where `base` is main's sha at the fetch (every later
+    diff, log and merge-base count uses it, never the moving `origin/main`) and `merged` the head
+    itself when `base` is its ancestor, else a merge commit."""
     git(
         main,
         "fetch",
@@ -278,10 +287,11 @@ def merged_head(main: Path, pr: int, head: str) -> str:
     )
     if _run(["git", "-C", str(main), "cat-file", "-e", f"{head}^{{commit}}"]).returncode != 0:
         raise Refused("the PR's head was not fetched (it moved?): run again")
-    ancestor = _run(["git", "-C", str(main), "merge-base", "--is-ancestor", "origin/main", head])
+    base = git(main, "rev-parse", "--verify", "origin/main^{commit}").strip()
+    ancestor = _run(["git", "-C", str(main), "merge-base", "--is-ancestor", base, head])
     if ancestor.returncode == 0:
-        return head
-    tree = _run(["git", "-C", str(main), "merge-tree", "--write-tree", "origin/main", head])
+        return head, base
+    tree = _run(["git", "-C", str(main), "merge-tree", "--write-tree", base, head])
     if tree.returncode != 0:
         raise Refused("the head does not merge with main: the builder merges main first")
     who = {
@@ -291,24 +301,25 @@ def merged_head(main: Path, pr: int, head: str) -> str:
         "GIT_COMMITTER_EMAIL": "review@vextrus.invalid",
     }
     message = f"review: PR {pr} head {head} merged with main"
-    return git(
+    merged = git(
         main,
         "commit-tree",
         tree.stdout.split()[0],
         "-p",
         head,
         "-p",
-        "origin/main",
+        base,
         "-m",
         message,
         env={**os.environ, **who},
     ).strip()
+    return merged, base
 
 
 Rows = list[tuple[str, int | None, int | None]]
 
 
-def changes(main: Path, merged: str) -> tuple[Rows, list[str]]:
+def changes(main: Path, merged: str, base: str = "origin/main") -> tuple[Rows, list[str]]:
     """The changed files `(path, added, removed)` (None: binary) and the allowlist's added lines, of the
     merged head against main: what merging would change, never a three-dot diff from one merge base
     (with a criss-cross history that hides code an earlier merge brought in; review round 1). Read
@@ -322,7 +333,7 @@ def changes(main: Path, merged: str) -> tuple[Rows, list[str]]:
         "--no-renames",
         "-z",
         "--numstat",
-        "origin/main",
+        base,
         merged,
     )
     for record in raw.split("\0"):
@@ -332,13 +343,13 @@ def changes(main: Path, merged: str) -> tuple[Rows, list[str]]:
         rows.append(
             (path, int(added) if added != "-" else None, int(removed) if removed != "-" else None)
         )
-    patch = git(main, "diff", "--no-renames", "-U0", "origin/main", merged, "--", ALLOWLIST)
+    patch = git(main, "diff", "--no-renames", "-U0", base, merged, "--", ALLOWLIST)
     return rows, added_lines(patch)
 
 
-def merge_bases(main: Path, head: str) -> int:
+def merge_bases(main: Path, head: str, base: str = "origin/main") -> int:
     """How many merge bases the head has with main (more than one: a criss-cross history)."""
-    return len(git(main, "merge-base", "--all", "origin/main", head).split())
+    return len(git(main, "merge-base", "--all", base, head).split())
 
 
 def added_lines(patch: str) -> list[str]:
@@ -725,9 +736,9 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
     with locked(review_dir / ".git.lock"):
-        run.merged = merged_head(main, run.pr, run.head)
-        rows, allowlist_added = changes(main, run.merged)
-        bases = merge_bases(main, run.head)
+        run.merged, run.base = merged_head(main, run.pr, run.head)
+        rows, allowlist_added = changes(main, run.merged, run.base)
+        bases = merge_bases(main, run.head, run.base)
     run.tier = tier(rows, allowlist_added, bases=bases)
     if run.tier in ("allowlist-only", "docs-only"):
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
@@ -768,18 +779,29 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
 
 
+def write_facts(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
+    """The diff merging the PR makes and its commits, against main's sha at the fetch (`run.base`),
+    for the lenses to read; the bytes as git wrote them."""
+    assert run.merged is not None
+    assert run.base is not None
+    assert run.head is not None
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    diff, log = stem.with_name(f"{stem.name}.diff"), stem.with_name(f"{stem.name}.log")
+    text = git(main, "diff", "--no-renames", run.base, run.merged)
+    diff.write_text(text, errors="surrogateescape")
+    commits = git(main, "log", "--stat", "--format=%H %an %ad%n%B", f"{run.base}..{run.head}")
+    log.write_text(commits, errors="surrogateescape")
+    return diff, log
+
+
 def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) -> list[dict[str, Any]]:
     """Every lens, in parallel; each result's cost is kept even when another lens fails."""
     assert run.head is not None
     assert run.slot is not None
     n, head = run.slot, run.head
-    assert run.merged is not None
     out = main / ".private" / "work" / "factory" / "review" / "out"
-    out.mkdir(parents=True, exist_ok=True)
     stem = f"{run.pr}-{head[:12]}-r{run.round_}"
-    facts = (out / f"{stem}.diff", out / f"{stem}.log")
-    facts[0].write_text(git(main, "diff", "--no-renames", "origin/main", run.merged))
-    facts[1].write_text(git(main, "log", "--stat", "--format=%H %an %ad%n%B", f"origin/main..{head}"))
+    facts = write_facts(main, run, out / stem)
 
     def one(lens: Lens) -> dict[str, Any]:
         keep = out / f"{stem}-{lens.label}.json"
@@ -871,21 +893,23 @@ def append_cost(main: Path, line: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     run = Run(pr=0, round_=0)
     code, why = ledger.OK, None
+    home: Path | None = None
     try:
         args = parse(sys.argv[1:] if argv is None else argv)
         run.pr, run.round_ = args.pr, args.round
         home = main_checkout()
-        try:
-            review(run, args, home)
-        finally:
-            if run.tier is not None:  # the run got past its checks: every such run leaves a cost line
-                line = summary(run, code, why)
-                line["at"] = ledger.utc_now()
-                append_cost(home, line)
+        review(run, args, home)
     except (BadInput, ledger.BadInput) as error:
         code, why = ledger.BAD, str(error)
     except (Refused, ledger.Refused) as error:
         code, why = ledger.REFUSED, str(error)
+    except Exception as error:  # a crash is never an exit 0, and its cost line says so
+        traceback.print_exc()
+        code, why = CRASHED, f"crashed: {type(error).__name__}: {error}"
+    if home is not None and run.tier is not None:  # past its checks: every such run leaves a cost line
+        line = summary(run, code, why)
+        line["at"] = ledger.utc_now()
+        append_cost(home, line)
     if why is not None:
         print(f"review: {'refused: ' if code == ledger.REFUSED else ''}{why}", file=sys.stderr)
     print(json.dumps(summary(run, code, why)))

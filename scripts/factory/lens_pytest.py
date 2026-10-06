@@ -7,7 +7,8 @@ worktree: `--basetemp=<dir>` empties that folder first, `--junitxml`/`--result-l
 path from the review code's own checkout, never from the PR head, and:
 
 - takes only test paths inside the cwd (`tests/x.py`, `tests/x.py::test_y`, a folder) and the flags
-  `-q -v -vv -x -s -rf -ra -rA -rfE`, `--tb=short|long|line|no|native` and `-k <expression>`;
+  `-q -v -vv -x -s -rf -ra -rA -rfE`, `--tb=short|long|line|no|native`, `-k <expression>` and
+  `-m <expression>` of the markers `pyproject.toml` declares (`needs_toolchain`, ...) and and/or/not;
 - runs `python -m pytest -p no:cacheprovider <them>` under the main checkout's
   `.private/work/factory/pytest.lock`, so the lenses of one run, sharing a worktree and a database, never
   run tests at the same time; `PYTEST_ADDOPTS` and `PYTEST_PLUGINS` are dropped.
@@ -21,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path, PurePosixPath
 
 FLAGS = {"-q", "-v", "-vv", "-x", "-s", "-rf", "-ra", "-rA", "-rfE"}
@@ -28,6 +30,7 @@ TB = re.compile(r"--tb=(?:short|long|line|no|native)")
 EXPRESSION = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_ .:()\[\]-]*")
 NODE = re.compile(r"([A-Za-z0-9_][A-Za-z0-9_./-]*)((?:::[A-Za-z0-9_\[\]-]+)*)")
 DROPPED = ("PYTEST_ADDOPTS", "PYTEST_PLUGINS")
+HARNESS = Path(__file__).resolve().parents[2]
 
 
 class Refused(Exception):
@@ -48,6 +51,13 @@ def check(argv: list[str], cwd: Path) -> list[str]:
                 raise Refused("-k needs a plain expression (words, and/or/not, brackets)")
             out += ["-k", argv[index + 1]]
             index += 1
+        elif part == "-m":
+            if index + 1 >= len(argv) or not marker_expression(argv[index + 1]):
+                raise Refused(
+                    "-m takes only the markers declared in pyproject.toml with and/or/not and brackets"
+                )
+            out += ["-m", argv[index + 1]]
+            index += 1
         elif part.startswith("-"):
             raise Refused(f"{part.split('=', 1)[0]} is not an option a lens may pass")
         else:
@@ -64,6 +74,24 @@ def check(argv: list[str], cwd: Path) -> list[str]:
     if not paths:
         raise Refused("name the test files to run (the PR's changed tests and your own)")
     return out
+
+
+def declared_markers() -> set[str]:
+    """The marker names `pyproject.toml` declares, read from the review code's own checkout (the
+    repo's addopts deselect `needs_toolchain`, `needs_bwrap` and `live` unless `-m` names them)."""
+    try:
+        config = tomllib.loads((HARNESS / "pyproject.toml").read_text())
+        entries = config["tool"]["pytest"]["ini_options"]["markers"]
+    except OSError, ValueError, KeyError, TypeError:
+        return set()
+    return {str(entry).split(":", 1)[0].strip() for entry in entries if isinstance(entry, str)}
+
+
+def marker_expression(text: str) -> bool:
+    """True when every word of `text` is a declared marker or and/or/not, between brackets."""
+    words = re.findall(r"[()]|[^\s()]+", text)
+    allowed = declared_markers() | {"and", "or", "not", "(", ")"}
+    return bool(words) and any(w not in "()" for w in words) and all(w in allowed for w in words)
 
 
 def lock_path(cwd: Path) -> Path:
