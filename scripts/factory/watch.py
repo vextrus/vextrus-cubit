@@ -573,6 +573,40 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     status.write_atomic(folder / "status.json", payload)
 
 
+def builder_state(
+    record: dict[str, Any],
+    outcome: str | None,
+    acceptance: bool,
+    closed: bool,
+    row: dict[str, Any] | None,
+    rows: list[dict[str, Any]] | None,
+    quiet: int,
+) -> str:
+    """A launch record's state: the one reading the watcher and `scripts.factory.state` share.
+
+    `done` (its PR is closed, or a writer whose head is its `acceptance:` commit, whatever its process
+    does), `ready`, `blocked`, then for a local builder its `claude agents` row's state (`stopped` when
+    the list has no row for it, `working` when the list is unreadable), for a cloud one `quiet` or
+    `working`."""
+    where = str(record["where"])
+    if closed:
+        return "done"
+    if not is_builder(record) and acceptance:
+        return (
+            "done"  # a writer's work ends at its `acceptance:` commit; it has no Factory-State trailer
+        )
+    if outcome == "READY":
+        return "ready"
+    if outcome == "BLOCKED":
+        return "blocked"
+    if where == "local":
+        row_state = (
+            row.get("state") if row is not None else ("stopped" if rows is not None else "working")
+        )
+        return row_state if row_state in BUILDER_ROW_STATES else "working"
+    return "quiet" if quiet >= QUIET_MINUTES else "working"
+
+
 def track(
     step: Pass,
     ticket: str,
@@ -645,23 +679,7 @@ def track(
     quiet = status.minutes_between(quiet_since, at)
 
     row = agents_row(rows, record.get("name"))
-    if closed:
-        state = "done"
-    elif not is_builder(record) and seen.get("acceptance"):
-        state = (
-            "done"  # a writer's work ends at its `acceptance:` commit; it has no Factory-State trailer
-        )
-    elif outcome == "READY":
-        state = "ready"
-    elif outcome == "BLOCKED":
-        state = "blocked"
-    elif where == "local":
-        row_state = (
-            row.get("state") if row is not None else ("stopped" if rows is not None else "working")
-        )
-        state = row_state if row_state in BUILDER_ROW_STATES else "working"
-    else:
-        state = "quiet" if quiet >= QUIET_MINUTES else "working"
+    state = builder_state(record, outcome, bool(seen.get("acceptance")), closed, row, rows, quiet)
 
     if head is not None and outcome == "READY-NO-VERIFY":
         step.alarm(f"{ticket}|{head}", "READY-NO-VERIFY", ticket, f"{head[:8]} {seen.get('why')}")

@@ -208,21 +208,21 @@ class Row:
 
 def session_view(
     record: dict[str, Any] | None, agents: list[dict[str, Any]] | None
-) -> tuple[str, str | None, bool]:
-    """(the table's words, the session id, whether it is live) for a branch's launch record."""
+) -> tuple[str, str | None, dict[str, Any] | None]:
+    """(the table's words, the session id, its `claude agents` row) for a branch's launch record."""
     if record is None:
-        return "-", None, False
+        return "-", None, None
     where = str(record["where"])
     session = record.get("session_id") if isinstance(record.get("session_id"), str) else None
     if where != "local":
-        return f"{where} {session or ''}".strip(), session, False
+        return f"{where} {session or ''}".strip(), session, None
     row = watch.agents_row(agents, record.get("name"))
     if row is None and agents is not None and session:
         row = next((r for r in agents if r.get("sessionId") == session), None)
     if agents is None:
-        return f"local {session or '?'} (agents unreadable)", session, False
+        return f"local {session or '?'} (agents unreadable)", session, None
     live = row is not None and row.get("pid") is not None
-    return f"local {session or '?'} ({'live' if live else 'ended'})", session, live
+    return f"local {session or '?'} ({'live' if live else 'ended'})", session, row
 
 
 def reviewed_record(mine: list[Record], head: str, main_sha: str | None) -> Record | None:
@@ -242,6 +242,39 @@ def outcome_of(branch: str, head: str) -> tuple[str | None, bool]:
     if info is None:
         return None, False
     return watch.parse_trailers(*info).outcome, True
+
+
+def builder_facts(
+    launch: dict[str, Any],
+    branch: str,
+    head: str,
+    outcome: str | None,
+    pr: dict[str, Any] | None,
+    row: dict[str, Any] | None,
+    agents: list[dict[str, Any]] | None,
+) -> tuple[Any, ...]:
+    """The arguments of `watch.builder_state` for this branch: the watcher's own rule, not a copy."""
+    closed = pr is not None and pr.get("state") in watch.CLOSED_PR
+    minutes = commit_age_days(head)
+    quiet = int(minutes * 1440) if minutes is not None else 0
+    return launch, outcome, acceptance_committed(branch, head), closed, row, agents, quiet
+
+
+def builder_action(
+    launch: dict[str, Any], state: str, acceptance: bool, session: str | None, row: dict[str, Any] | None
+) -> str:
+    """The next action for a head that is not READY, BLOCKED or reviewed, from the watcher's state."""
+    if state == "done" and is_writer(launch) and acceptance:
+        return "acceptance committed: launch the builder"
+    if state in ("stopped", "failed", "done") and str(launch["where"]) == "local":
+        return f"resume {session}" if session else "resume (no session id recorded)"
+    if state == "blocked":
+        return "blocked: its session is blocked (claude agents)"
+    if state == "quiet":
+        return "building (no push for 30 minutes or more)"
+    if row is not None and row.get("pid") is not None and watch.is_idle(row):
+        return f"{LIVE_NOTE} (session idle)"
+    return LIVE_NOTE
 
 
 def is_writer(launch: dict[str, Any] | None) -> bool:
@@ -283,7 +316,7 @@ def row_for(
     verdict is the newest record that reaches this head through clean merges of main, and the
     Factory-State shown is that reviewed head's; only then the builder is looked at."""
     outcome, readable = outcome_of(branch, head)
-    words, session, live = session_view(launch, agents)
+    words, session, agents_row = session_view(launch, agents)
 
     pr = pr_for(branch, prs) if prs is not None else None
     if pr is not None and pr.get("state") == "MERGED":
@@ -330,14 +363,11 @@ def row_for(
         action = "fix the Factory trailers"
     elif outcome == "BLOCKED":
         action = "blocked: read its Factory-Reason"
-    elif is_writer(launch) and not live and acceptance_committed(branch, head):
-        action = "acceptance committed: launch the builder"
-    elif launch is not None and str(launch["where"]) == "local" and agents is not None and not live:
-        action = f"resume {session}" if session else "resume (no session id recorded)"
-    elif live:
-        action = LIVE_NOTE
-    else:
+    elif launch is None:
         action = "building (no live session known)"
+    else:
+        facts = builder_facts(launch, branch, head, outcome, pr, agents_row, agents)
+        action = builder_action(launch, watch.builder_state(*facts), facts[2], session, agents_row)
     return Row(branch, head[:8], state, pr_text, ledger_text, words, action), outcome
 
 

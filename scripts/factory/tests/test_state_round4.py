@@ -56,3 +56,48 @@ def test_a_merged_branch_whose_launch_is_older_than_the_merge_is_dropped(world: 
     world.push("s99-om", acceptance_commit)  # a stray later push: still the launch predates the merge
 
     assert [line for line in world.table().splitlines() if "s99-om" in line] == []
+
+
+def idle_row(world: World, name: str, session: str, **over: object) -> None:
+    """`claude agents --json --all`'s row of a writer whose turn finished but whose process lingers."""
+    world.live(name, session)
+    world.rows[-1].update(status="idle", **over)
+    world._write_seams()
+
+
+def test_a_writer_with_an_acceptance_head_and_a_live_idle_row_reads_launch_the_builder(
+    world: World,
+) -> None:
+    name, session = launch_writer(world, "s99w", "s99-writer")
+    branch_at(world, "s99-writer", world.tip("main"))
+    world.push("s99-writer", acceptance_commit)
+    idle_row(world, name, session)
+
+    line = row(world.table(), "s99-writer")
+
+    assert has(line, "acceptance committed: launch the builder"), line
+    assert not has(line, "resume"), line
+
+
+def test_a_writer_with_an_acceptance_head_and_a_row_with_no_pid_reads_launch_the_builder(
+    world: World,
+) -> None:
+    name, session = launch_writer(world, "s99w", "s99-writer")
+    branch_at(world, "s99-writer", world.tip("main"))
+    world.push("s99-writer", acceptance_commit)
+    world.live(name, session)
+    del world.rows[-1]["pid"]
+    world._write_seams()
+
+    assert has(row(world.table(), "s99-writer"), "acceptance committed: launch the builder")
+
+
+def test_a_live_working_writer_with_no_commit_reads_building(world: World) -> None:
+    name, session = launch_writer(world, "s99w", "s99-writer")
+    branch_at(world, "s99-writer", world.tip("main"))
+    world.live(name, session)
+
+    line = row(world.table(), "s99-writer")
+
+    assert has(line, "building"), line
+    assert not has(line, "acceptance committed"), line
