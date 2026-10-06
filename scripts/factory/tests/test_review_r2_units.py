@@ -148,7 +148,7 @@ def test_a_finished_lens_of_another_model_or_a_damaged_file_is_not_reused(tmp_pa
     assert review.load_finished(out, run, review.LENS_A) is None
 
 
-@pytest.mark.parametrize("name", ["../escape.py", "/tmp/abs.py", "a b.py", "notes.txt"])
+@pytest.mark.parametrize("name", ["../escape.py", "/tmp/abs.py", "a b.py", "-x.py"])
 def test_an_attack_is_restored_only_at_a_plain_path_inside_the_worktree(
     tmp_path: Path, name: str
 ) -> None:

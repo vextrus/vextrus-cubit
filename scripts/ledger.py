@@ -383,6 +383,46 @@ def fetch_verdict(
     ):
         raise Refused("the launch record's review object is not for this PR or is malformed")
     agent = "refuter" if role == "refuter" else "pr-reviewer"
+    handed = ledger_dir.parent / "review" / "cloud"
+    if agent == "pr-reviewer" and any(handed.glob(f"{pr}-{head}-r*.handoff.json")):
+        raise Refused(
+            "this head's lenses were handed off together: record them all at once with "
+            f"`python -m scripts.factory.review collect {pr} --round {round_}`"
+        )
+    verdict_file, text, name = read_cloud_verdict(pr, head, nonce, branch, agent)
+    if head_of(pr) != head:
+        raise Refused("the PR's head moved during the review: review the new head")
+    if agent == "refuter":
+        print(
+            f"ledger: refuter {name.rsplit('-', 1)[1].removesuffix('.json')}: {verdict_file['verdict']}"
+        )
+    else:
+        scores = [item["score"] for item in verdict_file["findings"]]
+        decision = Decision(
+            verdict([verdict_file["verdict"]], [(score, "-") for score in scores]),
+            counts(1, [(score, "-") for score in scores]),
+            hashlib.sha256(text.encode()).hexdigest(),
+        )
+        commit_record(
+            pr=pr,
+            head=head,
+            round_=round_,
+            decision=decision,
+            exception=None,
+            source="fetch-verdict",
+            scan=scan,
+            post=post,
+            ledger_dir=ledger_dir,
+        )
+    _git("push", "-q", "origin", "--delete", branch)
+
+
+def read_cloud_verdict(
+    pr: int, head: str, nonce: str, branch: str, agent: str
+) -> tuple[dict[str, Any], str, str]:
+    """The verdict file a cloud reviewer pushed on `branch`, checked (one commit on the head adding
+    exactly that one file, its schema, its nonce, its PR and head): `(verdict, its text, its path)`.
+    Nothing is recorded or deleted here."""
     _git("fetch", "-q", "origin", f"refs/heads/{branch}")
     tip = _git("rev-parse", "FETCH_HEAD").strip()
     parents = _git("rev-list", "--parents", "-n", "1", tip).split()[1:]
@@ -410,32 +450,7 @@ def fetch_verdict(
         raise Refused("the verdict file's nonce is not the launch's")
     if verdict_file["pr"] != pr or verdict_file["head_sha"] != head:
         raise Refused("the verdict file is for another PR or head")
-    if head_of(pr) != head:
-        raise Refused("the PR's head moved during the review: review the new head")
-    if agent == "refuter":
-        print(
-            f"ledger: refuter {changed[0][1].rsplit('-', 1)[1].removesuffix('.json')}: "
-            f"{verdict_file['verdict']}"
-        )
-    else:
-        scores = [item["score"] for item in verdict_file["findings"]]
-        decision = Decision(
-            verdict([verdict_file["verdict"]], [(score, "-") for score in scores]),
-            counts(1, [(score, "-") for score in scores]),
-            hashlib.sha256(_git("show", f"{tip}:{changed[0][1]}").encode()).hexdigest(),
-        )
-        commit_record(
-            pr=pr,
-            head=head,
-            round_=round_,
-            decision=decision,
-            exception=None,
-            source="fetch-verdict",
-            scan=scan,
-            post=post,
-            ledger_dir=ledger_dir,
-        )
-    _git("push", "-q", "origin", "--delete", branch)
+    return verdict_file, _git("show", f"{tip}:{changed[0][1]}"), changed[0][1]
 
 
 # The real seams.

@@ -40,7 +40,9 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   the ledger record); it prints one JSON object and appends a line to
   `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing recorded (its `refused` field says
   why: a lens past its cap or outside its schema is named); run the round again and only the unfinished
-  lenses start. `--where cloud` launches one cloud reviewer per lens and records nothing.
+  lenses start. `--where cloud` launches one cloud reviewer per lens and records nothing; when every
+  reviewer has pushed its verdict, `uv run python -m scripts.factory.review collect <PR> --round n`
+  records ONE decision from all of them (refused, nothing recorded, while any lens is missing).
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
 - `/review-pr <PR> <head> <round>` on each READY head (until S14-R3 retires it); the ledger holds its
