@@ -163,3 +163,25 @@ test("a cd the guard cannot follow (subshell, pipe, background, braces, loop, po
   assert.equal(verdict(`cd ${CLEAN} & git checkout HEAD -- web/src/acceptance/t1/`, UNTRACKED), "DISCARD");
   assert.equal(verdict(`(cd ${CLEAN}); git checkout HEAD -- web/src/acceptance/t1/`, UNTRACKED), "DISCARD");
 });
+
+// PR #476 review r2 (the adversary's two findings, scores 80 and 75).
+test("a heredoc opener inside a comment glued to a separator hides nothing: bash runs the next line", () => {
+  const hidden = (line) => `echo a;#<<'true'\n${line}\ntrue`;
+  for (const line of [
+    "echo '{}' > .private/work/leakscan/ok/x",
+    `cp /tmp/forged.json ${LEDGER}/451-a.json`,
+    `VEXTRUS_LEAKSCAN_HOME=${S} uv run python -m tools.leakscan file ${S}/iss/1.md`,
+  ]) {
+    assert.equal(verdict(hidden(line)), "RECORD_FORGED", line);
+    assert.equal(verdict(hidden(line), WT, WT), "RECORD_FORGED", `builder: ${line}`);
+    for (const glue of ["&#", "|#", "(#"]) assert.equal(verdict(hidden(line).replace(";#", glue)), "RECORD_FORGED", `${glue}: ${line}`);
+  }
+});
+
+test("an escaped quote never hides a redirect from the ledger-read or the checkout narrowing", () => {
+  for (const command of [
+    `cat /tmp/forged.json \\' > ${LEDGER}/451-a.json \\'`,
+    `cat /tmp/forged.json \\" > ${LEDGER}/451-a.json \\"`,
+  ]) assert.equal(verdict(command), "RECORD_FORGED", command);
+  assert.equal(verdict(`cd ${CLEAN} && cat /tmp/x \\' > ${FILE} \\' && git checkout HEAD -- web/src/acceptance/t1/`), "DISCARD");
+});

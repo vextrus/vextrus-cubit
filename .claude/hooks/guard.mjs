@@ -94,7 +94,7 @@ function cutHeredocs(command) {
       i++;
       continue;
     }
-    if (c === "#" && (i === 0 || /\s/.test(command[i - 1]))) {
+    if (c === "#" && (i === 0 || /[\s;&|()]/.test(command[i - 1]))) {
       const end = command.indexOf("\n", i);
       const stop = end < 0 ? command.length : end;
       out += command.slice(i, stop);
@@ -1239,12 +1239,34 @@ function leadOf(cmd) {
 /** True when the call has a loop (`for`, `while`, `until`, `select`: each has a `do`). */
 const looped = (analysis) => analysis.cmds.some((cmd) => leadOf(cmd).includes("do"));
 
+/** The text with every quoted span and backslash-escaped character blanked, read as bash quotes it. */
+function unquoted(raw) {
+  let out = "";
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === "\\") {
+      out += "_";
+      i++;
+    } else if (c === "'") {
+      const end = raw.indexOf("'", i + 1);
+      out += "''";
+      i = end < 0 ? raw.length : end;
+    } else if (c === '"') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== '"') j += raw[j] === "\\" ? 2 : 1;
+      out += "''";
+      i = j;
+    } else out += c;
+  }
+  return out;
+}
+
 /**
  * True when a simple command may write a file through any redirect: every `>` outside quotes counts
  * (`>`, `>>`, `>|`, `&>`, `>&file`, `<>`, `>(…)`) except `N>&M`, `N>&-` and a redirect to /dev/null.
  */
 function writesFile(raw) {
-  const bare = raw.replace(/'[^']*'|"(?:[^"\\]|\\.)*"/g, "''");
+  const bare = unquoted(raw);
   const end = String.raw`(?=[\s;&|)]|$)`;
   const rest = bare
     .replace(new RegExp(String.raw`(?:^|(?<=[\s;&|(]))(?:[0-9]*>>?|&>>?)\|?[ \t]*/dev/null${end}`, "g"), " ")
@@ -1295,6 +1317,9 @@ function dataText(analysis, command) {
   // Only a heredoc bash and the guard end at the same line: one plainly quoted word (`'EOF'`, never
   // `'E'OF`), closed by its own line. Otherwise the guard could take as body what bash runs.
   if (docs.length === 0 || analysis.truncated || docs.some((doc) => !doc.quoted || !doc.plain || !doc.closed)) return command;
+  // A `#` glued to a separator starts a comment in bash; where the guard's readers could split on it
+  // differently, nothing is cut.
+  if (/[;&|()]#/.test(command)) return command;
   const inert = (cmd) =>
     cmd.assigns.length === 0 &&
     leadOf(cmd).every((w) => RESERVED.has(w)) &&
