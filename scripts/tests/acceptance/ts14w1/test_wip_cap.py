@@ -10,7 +10,6 @@ launch is `governor check <unit> --owns <path>`. See `_world.py` for the seams.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -20,7 +19,6 @@ from scripts.tests.acceptance.ts14w1._world import (
     assert_ok,
     launch_record,
     pr,
-    refusal,
 )
 
 OWNS = "vextrus/projects/services/brand_new.py"
@@ -43,18 +41,8 @@ def world(tmp_path: Path) -> World:
     return World(tmp_path)
 
 
-@pytest.mark.parametrize("unit", ["cloud-session", "local-agent"])
-def test_a_sixth_launch_is_refused_naming_the_wip_cap(world: World, unit: str) -> None:
-    four_in_flight(world)
-    world.open_prs(
-        [
-            pr(461, "s14-d", "vextrus/takeoff/services/d.py"),
-            pr(463, "s13-older", "vextrus/takeoff/services/e.py"),  # an open PR with no launch here
-        ]
-    )
-    line = refusal(world.check(unit, OWNS), unit)
-    assert re.search(r"\bwip\b", line, re.IGNORECASE), f"the reason should name the WIP cap\n{line}"
-    assert re.search(r"(?<!\d)5(?!\d)", line), f"the reason should name the cap, 5\n{line}"
+# "A sixth launch is refused naming the WIP cap" was withdrawn by S14-K1 (the owner, 6 Oct 2026: "there
+# should be none like that"): scripts/tests/acceptance/ts14k1/test_no_wip_cap.py pins no WIP cap.
 
 
 def test_a_fifth_launch_is_allowed(world: World) -> None:

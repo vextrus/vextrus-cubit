@@ -131,6 +131,40 @@ An `acceptance:` commit without both lines fails the lint, unless its full sha i
 `tools/lint/acceptance_legacy.txt` (the carried branches' older commits). An untestable ticket carries no acceptance
 commit and says why in the launch (`--untestable "<why>"`, launch-cli.md).
 
+From S14-AL the message also states why each file is red and what values the tests pin, each on its own line
+anywhere in the message, read by the acceptance lint (`python -m tools.lint.acceptance_lint <base> <branch>...`,
+which the orchestrator runs on each acceptance commit before launching its builder; not a CI check):
+
+| Line (exact form) | Regular expression | Meaning |
+|---|---|---|
+| `red-for: <path> <reason>` | `^red-for:[ \t]+(\S+)[ \t]+(\S.*?)[ \t]*$` | `<path>` is a test file the acceptance commits add, as in the commit. Every test of it red on the base fails with an error line (pytest's `E` lines or the failure's message, never the quoted source) containing `<reason>` (one line per reason; any one may match; a reason `No module named '<module>'`, the module one the test or a helper beside it imports (or loads by name with `importlib.import_module` or `__import__`) or a parent of one, also matches the same error naming a parent package of it, which Python names when the package is new too). A Python test file with a red test and no `red-for:` line fails the lint; a file a later `acceptance:` commit deletes keeps no reason; a web file's line is recorded, not checked. |
+| `pin: <key> = <value>` | `^pin:[ \t]+([^=\s]+)[ \t]*=[ \t]*(\S.*?)[ \t]*$` | The tests pin `<key>` to `<value>` (a dotted name the writer chooses, e.g. `review.allowlist_only_tier`). Across the branches linted together (the first judged in full, the others read for their pins only), two pins of one key to different values fail, naming both branches and the key; so does a pin against a `ruling: <key> = <value>` line in `docs/rulings.md` at the base (no register, no rulings). |
+
+The lint also refuses a test file that does not collect as it is. The one collection failure allowed is an import
+of a module of the tree's own packages that does not exist yet (or a name missing from one): such a file is
+printed as a note, "collects after build: <module>", and its setup is not planned, so a misspelt fixture in it
+is found only when the builder runs it (#513). One rule holds for such a file, read from its
+source (`ast`, no import): if any node anywhere in it references `live`, `skip`, `skipif` or `xfail` through
+`pytest.mark` (pytest under any alias, `mark` imported from pytest under any alias, or a name assigned
+`pytest.mark`), in a decorator, a class body, a plain or annotated `pytestmark`, `pytest.param(marks=...)` or any
+other expression, it is refused: "<file>: uses pytest.mark.<name>; a file that imports an unbuilt module may not
+use it (it cannot be judged before the build)". A mark reached any other way (`getattr`, a name built at run
+time, imported from another module, added by a conftest) is not seen. A file that collects has its setup planned, so a fixture pytest
+does not have, or a test with an empty parameter set, is refused. It refuses too a test file that collects no test, has no test red on the base, or has a test skipped or xfail there
+(under either user), a `pin:` or `red-for:` line not in its form, `lint-imports` or `mypy` failing on the acceptance files, and a test red for
+another reason as a non-root user (`nobody` when the lint runs as root) or as root (`unshare -r` when the lint
+does not). An amendment (`scripts.factory.amend`) replaces: per file, the newest `acceptance:` commit stating
+`red-for:` reasons for it wins, and per key the newest `pin:`; an older malformed or mistyped declaration is
+superseded the same way (a `pin:` line by a newer pin of its key, a `red-for:` line by a newer commit stating
+`red-for:` lines). The lint's pytest runs carry their own `-m`, so a base's addopts deselecting the opt-in
+marks (`needs_toolchain`, `needs_bwrap`) do not hide a marked file: it is judged, except where its mark cannot
+run (`needs_toolchain` without `/opt/vextrus`, `needs_bwrap` without `bwrap`): those tests are named "not judged
+here", never refused. A test marked `live` is refused, named, and never run: CI's acceptance check never runs a
+live test, so the built branch would fail it as deselected. Laying out the tree never writes through a
+symlink. The test database a run makes (its name hashes
+the run's own tree) is dropped by name after it. It exits 0 clean and 1 with each problem printed. Commits before S14-AL carry no `red-for:` line and
+fail its stated-reason check: run it on new acceptance commits.
+
 ## 4. Fixtures every consumer tests against
 
 Only PR f3 commits trailer fixture files: one commit message per case, under `scripts/factory/tests/fixtures/trailers/`.
