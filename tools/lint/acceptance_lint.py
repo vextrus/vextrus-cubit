@@ -67,11 +67,37 @@ class _Stub(type):
             raise AttributeError(name)
         return _Stub(name, (), {})
 
-    def __call__(cls, *args: object, **kwargs: object) -> "_Stub":
+    def __call__(cls, *args: object, **kwargs: object) -> object:
+        # A decorator taken from a stubbed module: the function (or class) back, unchanged.
+        if len(args) == 1 and not kwargs and callable(args[0]) and not isinstance(args[0], _Stub):
+            return args[0]
         return _Stub(cls.__name__, (), {})
+
+    def _same(cls, *args: object) -> "_Stub":
+        return _Stub(cls.__name__, (), {})
+
+    __add__ = __radd__ = __sub__ = __rsub__ = __mul__ = __rmul__ = _same
+    __truediv__ = __rtruediv__ = __floordiv__ = __rfloordiv__ = __mod__ = __rmod__ = _same
+    __pow__ = __rpow__ = __neg__ = __pos__ = __abs__ = __invert__ = _same
+    __and__ = __rand__ = __or__ = __ror__ = __xor__ = __rxor__ = __lshift__ = __rshift__ = _same
+    __getitem__ = _same
+
+    def _false(cls, other: object) -> bool:
+        return False
+
+    __lt__ = __le__ = __gt__ = __ge__ = _false
 
     def __iter__(cls) -> object:
         return iter(())
+
+    def __index__(cls) -> int:
+        return 0
+
+    def __len__(cls) -> int:
+        return 0
+
+    def __bool__(cls) -> bool:
+        return False
 
 
 def __getattr__(name: str) -> _Stub:
@@ -530,12 +556,20 @@ class Checker:
             return False  # every path it would write or unlink, checked before any write
         if not (self.tree / parts[0]).is_dir():
             return False
-        path = package / "__init__.py" if package.is_dir() else package.with_suffix(".py")
+        # A module not built yet is stubbed as a package (its `__init__.py`), so a submodule of it can
+        # be stubbed beside; a name missing from a module is appended to that module's file.
+        if name is None:
+            path = package / "__init__.py"
+        else:
+            path = package / "__init__.py" if package.is_dir() else package.with_suffix(".py")
         if _through_link(self.tree, path):
             return False
-        if name is None and path.exists():
+        if name is None and (path.exists() or package.with_suffix(".py").exists()):
             return False
-        if name is not None and (not path.is_file() or path in made):
+        # A file already stubbed answers every name; one the lint made empty (a parent's
+        # `__init__.py`) may take the stub; any other may take it once.
+        lint_made = path in made and made[path] is None and STUB not in path.read_text()
+        if name is not None and (not path.is_file() or (path in made and not lint_made)):
             return False
         for init in inits:
             if not init.parent.is_dir():
@@ -544,7 +578,10 @@ class Checker:
             if not init.exists():
                 made[init] = None
                 init.write_text("")
-        made[path] = path.read_bytes() if path.exists() else None
+        if name is None and not package.is_dir():
+            package.mkdir()
+            made[package] = None
+        made.setdefault(path, path.read_bytes() if path.exists() else None)
         path.write_text((path.read_text() if path.exists() else "") + STUB)
         return True
 
@@ -728,6 +765,8 @@ class Checker:
 
 
 def lint(root: Path, base: str, branches: Sequence[str]) -> list[str]:
+    """The first branch judged in full; every other one read for its `pin:` lines only (an open
+    ticket's older acceptance commit is not this ticket's to fix)."""
     problems: list[str] = []
     tickets = []
     parent = _work_parent() if os.geteuid() == 0 else None
@@ -735,6 +774,8 @@ def lint(root: Path, base: str, branches: Sequence[str]) -> list[str]:
         try:
             ticket = read_ticket(root, base, branch)
             tickets.append(ticket)
+            if branch != branches[0]:
+                continue
             with tempfile.TemporaryDirectory(prefix="acceptance-lint-", dir=parent) as work:
                 checker = Checker(root, base, ticket, Path(work))
                 try:

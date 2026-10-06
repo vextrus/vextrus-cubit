@@ -602,3 +602,83 @@ def test_a_module_loaded_by_name_in_a_helper_beside_the_test_widens_to_its_paren
     done = lint(root, "main", BRANCH)
 
     assert done.returncode == 0, said(done)
+
+
+# PR #499, review round 1.
+
+FROM_PACKAGE = "from fixturepkg.newpkg import thing  # type: ignore[import-not-found, unused-ignore]\n"
+FROM_SUBMODULE = (
+    "from fixturepkg.newpkg.sub import other  # type: ignore[import-not-found, unused-ignore]\n"
+)
+
+
+@pytest.mark.parametrize(
+    "imports",
+    [FROM_PACKAGE + FROM_SUBMODULE, FROM_SUBMODULE + FROM_PACKAGE],
+    ids=["package first", "submodule first"],
+)
+def test_a_name_and_a_submodule_of_one_new_package_collect(tmp_path: Path, imports: str) -> None:
+    test = f'"""Both."""\n\n{imports}\n\ndef test_both() -> None:\n    assert thing(other) == 1\n'
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=test, reasons=("No module named 'fixturepkg.newpkg'",))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+MODULE_LEVEL = {
+    "range": "for _n in range(MAX + 1):\n    pass\n",
+    "subscript": "FIRST = CASES[0]\n",
+    "arithmetic": "LIMIT = MAX * 2\nBELOW = LIMIT > 3\n",
+    "length": "COUNT = len(CASES)\n",
+}
+
+
+@pytest.mark.parametrize("use", list(MODULE_LEVEL.values()), ids=list(MODULE_LEVEL))
+def test_module_level_use_of_a_stubbed_value_collects(tmp_path: Path, use: str) -> None:
+    test = (
+        '"""Module-level use."""\n\n'
+        "from fixturepkg.low.storeys import CASES, MAX"
+        "  # type: ignore[import-not-found, unused-ignore]\n\n"
+        f"{use}\n\ndef test_counts() -> None:\n    assert MAX == len(CASES)\n"
+    )
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=test, reasons=(MISSING,))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+def test_a_decorator_from_a_stubbed_module_keeps_the_test(tmp_path: Path) -> None:
+    test = (
+        '"""A decorator from the module under test."""\n\n'
+        "from fixturepkg.low.storeys import registered"
+        "  # type: ignore[import-not-found, unused-ignore]\n\n\n"
+        "@registered  # type: ignore[untyped-decorator, unused-ignore]\n"
+        "def test_counts() -> None:\n    assert registered\n"
+    )
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=test, reasons=(MISSING,))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+
+
+def test_another_branch_named_is_read_for_its_pins_only(tmp_path: Path) -> None:
+    """An open ticket's older acceptance commit, with no `red-for:` line, is not judged with the new
+    one; its pin still counts."""
+    root = make_repo(tmp_path)
+    ticket(root, "s91-old", "ts91old", reasons=(), pins=("storeys.count = 3",))
+    ticket(root, BRANCH, FOLDER, pins=("storeys.count = 3",))
+
+    done = lint(root, "main", BRANCH, "s91-old")
+
+    assert done.returncode == 0, said(done)
+    (tmp_path / "second").mkdir()
+    contradicting = make_repo(tmp_path / "second")
+    ticket(contradicting, "s91-old", "ts91old", reasons=(), pins=("storeys.count = 4",))
+    ticket(contradicting, BRANCH, FOLDER, pins=("storeys.count = 3",))
+    assert "s91-old" in refused(contradicting, BRANCH, "s91-old")
