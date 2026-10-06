@@ -121,5 +121,5 @@ Change a PR body as the hand steps do, scanned first:
 ## Housekeeping
 - `uv run python -m scripts.factory.sweep`: lists stale worktrees and storage; `--apply` removes them.
 - `uv run python -m scripts.factory.sweep --old-sessions [--days N] [--apply]`: lists the `.venv` and
-  `node_modules` folders older than N days under `.claude/worktrees/` and `.private/work/`; `--apply` removes
-  those by name and keeps their folders.
+  `node_modules` folders older than N days in the registered worktrees under `.claude/worktrees/` only (`.private/work/` is
+  never touched); `--apply` removes those by name and keeps their folders.
