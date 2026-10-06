@@ -6,12 +6,11 @@
     python -m scripts.factory.sweep --old-sessions [--days N] [--apply] [--repo PATH]
 
 `--old-sessions` is its own mode: it lists (and with `--apply` removes) each `.venv` and `node_modules`
-folder whose newest entry is older than `--days` (default 14), found only under
-`<main>/.claude/worktrees/` and `<main>/.private/work/`, links never followed. The folder holding one
-stays; nothing else is touched. A build folder is a candidate only when the worktree holding it would
-itself be removed by the worktree sweep (`judge`: not current, not in use, not locked, merged, clean,
-idle `--worktree-hours`); a scratch folder with no worktree must be neither the cwd's nor in use;
-review slots (`rv<N>`, `slot<N>`) are never candidates.
+folder whose newest entry is older than `--days` (default 14), found only in the registered git
+worktrees under `<main>/.claude/worktrees/` (`git worktree list --porcelain`), links never followed.
+Each worktree is judged once, on its root (locked, the cwd's, in use by a live process), before
+anything is removed; nothing under `.private/work/` is ever touched. The folder holding a build folder
+stays; nothing else is removed.
 
 A dry run is the default: it prints `remove ...`, `keep ...: <reason>` and `prune ...` lines and removes
 nothing; `--apply` acts on them. A linked worktree under `<main>/.claude/worktrees/` or
@@ -31,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import re
 import shutil
 import stat
 import subprocess
@@ -454,62 +452,34 @@ def build_folders(home: Path) -> Iterator[Path]:
             continue
 
 
-REVIEW_SLOT = re.compile(r"(rv|slot)\d+")
-
-
-def top_folder(main: Path, folder: Path) -> Path:
-    """The copy a build folder belongs to: the first folder under `.claude/worktrees/`, or under
-    `.private/work/<session>/`, on its path (the folder's parent when it sits higher)."""
-    for home, depth in ((main / ".claude" / "worktrees", 1), (main / ".private" / "work", 2)):
-        if inside(folder, home):
-            parts = folder.relative_to(home).parts
-            return home.joinpath(*parts[: max(0, min(depth, len(parts) - 1))])
-    return folder.parent
-
-
-def holder_reason(
-    probe: Probe, main: Path, folder: Path, trees: list[Worktree], paths: list[Path]
-) -> str | None:
-    """Why the copy holding a build folder is not one the worktree sweep would remove, or None. The
-    use checks run on its top folder; a listed worktree also answers to `judge` (the worktree sweep's
-    own rules)."""
-    if any(REVIEW_SLOT.fullmatch(part) for part in folder.relative_to(main).parts):
-        return "review slot"
-    top = top_folder(main, folder)
-    reason = probe.current(top) or probe.in_use(top)
-    held = [tree for tree in trees if inside(folder, tree.path)]
-    if reason is None and held:
-        tree = max(held, key=lambda found: len(found.path.parts))
-        reason = judge(probe, main, tree, paths)[0]
-    return reason
-
-
 def sweep_old_sessions(main: Path, probe: Probe, days: float, apply: bool, tally: Tally) -> None:
+    """Each registered worktree under `.claude/worktrees/` is judged once, on its root (locked, current,
+    in use), and the age of each of its build folders is read, before any folder is removed."""
     listed = probe.run(main, "worktree", "list", "--porcelain", "-z")
     if listed.returncode != 0:
         raise Refused(f"git worktree list failed: {first_line(listed.stderr)}")
-    every = parse_worktrees(listed.stdout)
-    paths = [tree.path for tree in every]
-    trees = every[1:]  # the first entry is the main checkout
-    clock = probe.clock
-    for home in (main / ".claude" / "worktrees", main / ".private" / "work"):
-        if home.is_symlink() or not home.is_dir():
+    home = main / ".claude" / "worktrees"
+    if home.is_symlink() or not home.is_dir():
+        return
+    for tree in parse_worktrees(listed.stdout)[1:]:  # the first entry is the main checkout
+        root = tree.path
+        if root == home or not inside(root, home) or root.is_symlink():
             continue
-        for folder in sorted(build_folders(home)):
-            if any(inside(folder, main / never) for never in NEVER):
-                continue
+        folders = sorted(build_folders(root))
+        reason = "locked" if tree.locked else probe.current(root) or probe.in_use(root)
+        if reason is not None:
+            tally.say(f"keep worktree {root}: {reason}")
+            tally.kept += len(folders)
+            continue
+        ages: list[tuple[Path, float]] = []
+        for folder in folders:
             try:
-                idle = hours_since(newest_in_tree(folder), clock) / 24
+                ages.append((folder, hours_since(newest_in_tree(folder), probe.clock) / 24))
             except OSError as error:
                 tally.say(f"keep build folder {folder}: unreadable: {error.strerror}")
                 tally.kept += 1
-                continue
+        for folder, idle in ages:
             if idle < days:
-                tally.kept += 1
-                continue
-            reason = holder_reason(probe, main, folder, trees, paths)
-            if reason is not None:
-                tally.say(f"keep build folder {folder}: {reason}")
                 tally.kept += 1
                 continue
             if apply:

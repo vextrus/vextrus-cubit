@@ -435,32 +435,10 @@ def test_old_sessions_keeps_the_venv_of_a_worktree_a_live_process_holds(main: Pa
     assert (venv / "lib" / "pkg.py").is_file()
 
 
-def test_old_sessions_keeps_the_venv_of_a_review_slot(main: Path) -> None:
-    _tree, venv = _holder_with_venv(main, ".claude/worktrees/rv1", "rv1")
-
-    tally = _old_sessions(main, _live(main, main))
-
-    assert tally.removed == 0
-    assert (venv / "lib" / "pkg.py").is_file()
-
-
 def test_old_sessions_keeps_the_venv_under_the_sweeps_own_cwd(main: Path) -> None:
     tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
 
     tally = _old_sessions(main, _live(main, tree / "web"))
-
-    assert tally.removed == 0
-    assert (venv / "lib" / "pkg.py").is_file()
-
-
-def test_old_sessions_keeps_the_venv_of_an_unmerged_worktree(main: Path) -> None:
-    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
-    (tree / "new.txt").write_text("work\n")
-    _git(tree, "add", "new.txt")
-    _git(tree, "commit", "-q", "-m", "ahead")
-    _age(tree)
-
-    tally = _old_sessions(main, _live(main, main))
 
     assert tally.removed == 0
     assert (venv / "lib" / "pkg.py").is_file()
@@ -481,29 +459,10 @@ def _scratch(main: Path) -> tuple[Path, list[Path]]:
     return root, folders
 
 
-def test_old_sessions_keeps_both_build_folders_of_a_scratch_copy_a_process_holds(main: Path) -> None:
-    root, folders = _scratch(main)
-
-    tally = _old_sessions(main, _live(main, main, [(42, root)]))
-
-    assert tally.removed == 0
-    assert all((folder / "lib" / "pkg.py").is_file() for folder in folders)
-
-
-def test_old_sessions_keeps_both_build_folders_when_the_cwd_is_the_scratch_root(main: Path) -> None:
-    root, folders = _scratch(main)
-
-    tally = _old_sessions(main, _live(main, root))
-
-    assert tally.removed == 0
-    assert all((folder / "lib" / "pkg.py").is_file() for folder in folders)
-
-
-def test_old_sessions_removes_both_build_folders_of_an_idle_scratch_copy(main: Path) -> None:
-    root, folders = _scratch(main)
+def test_old_sessions_never_touches_a_scratch_copy_under_private_work(main: Path) -> None:
+    _, folders = _scratch(main)
 
     tally = _old_sessions(main, _live(main, main))
 
-    assert tally.removed == 2
-    assert not any(folder.exists() for folder in folders)
-    assert (root / "web").is_dir()
+    assert tally.removed == 0
+    assert all((folder / "lib" / "pkg.py").is_file() for folder in folders)
