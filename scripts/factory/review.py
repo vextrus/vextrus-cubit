@@ -1197,14 +1197,17 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        # The journal's mark first: a record another run writes between the two is in both.
-        mark = journal_mark(ledger_dir)
-        before = ledger_snapshot(ledger_dir)
+        # Both ends under the ledger's own lock, which every record (its link and its journal line)
+        # is written under: no record of another run lands between the steps of either end.
+        with ledger.ledger_lock(ledger_dir):
+            mark = journal_mark(ledger_dir)
+            before = ledger_snapshot(ledger_dir)
         try:  # the PR's code runs from here on: the ledger check runs on every exit
             reviews = lenses_in(run, lenses, rv, slot, main)
             confirm_and_refute(run, rv, slot, main, reviews)
         finally:
-            check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
+            with ledger.ledger_lock(ledger_dir):
+                check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
         if resolve(run.pr) != run.head:
             raise Refused("the PR's head moved during the review: review the new head")
         record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
