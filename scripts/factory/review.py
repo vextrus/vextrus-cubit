@@ -517,8 +517,12 @@ def listed(name: str, path: str) -> bool:
     return any(p.fullmatch(path) for p in paths) and not any(n.fullmatch(path) for n in never)
 
 
+TEXT_DOCS = (".md", ".txt")
+
+
 def docs_only(path: str) -> bool:
-    return listed("docs_only", path)
+    """On the safe docs list and a text file (`.md` or `.txt`): never a binary or a script."""
+    return listed("docs_only", path) and path.lower().endswith(TEXT_DOCS)
 
 
 def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
@@ -536,7 +540,8 @@ def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
         and all(HASH_LINE.fullmatch(line) for line in allowlist_added)
     ):
         return "allowlist-only"
-    if no_model and all(docs_only(path) for path in paths):
+    text = all(a is not None and r is not None for _, a, r in rows)  # numstat `-`: a binary
+    if no_model and text and all(docs_only(path) for path in paths):
         return "docs-only"
     lines = sum((a or 0) + (r or 0) for _, a, r in rows)
     binary = any(a is None or r is None for _, a, r in rows)

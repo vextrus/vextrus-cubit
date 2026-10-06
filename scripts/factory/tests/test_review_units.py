@@ -1052,6 +1052,7 @@ def test_a_toolchain_marked_repro_is_replayed_not_deselected(
         "docs/knowledge/jev-nodes.md",
         "docs/specs/factory/contracts/trailers.md",
         "docs/agents/domain.md",
+        "docs/handoff/session-15-prompt.md",
         "docs/plans/M1.md",
         "docs/adr/0099-auth-wall.md",
     ],
@@ -1354,7 +1355,6 @@ def test_a_path_no_safe_list_names_is_normal(path: str) -> None:
     ("path", "expected"),
     [
         ("docs/research/x.md", "docs-only"),
-        ("docs/handoff/session-15-prompt.md", "docs-only"),
         ("docs/knowledge/lessons.md", "docs-only"),
         ("web/src/messages/rates.ts", "small"),
         ("web/src/components/badge.tsx", "small"),
@@ -1544,3 +1544,57 @@ def test_the_ledger_record_is_never_cut_by_a_stop_signal() -> None:
         assert seen == [signals.SIGHUP]  # delivered once the record is written
     finally:
         signals.signal(signals.SIGHUP, old)
+
+
+# ---------------------------------------------------------------- PR #478 review, round 3
+
+
+def test_the_session_brief_is_never_docs_only_nor_small() -> None:
+    """Round 3 finding 1: docs/handoff/** was on the safe docs list, yet the session brief is what
+    the orchestrator obeys (CLAUDE.md "Start here")."""
+    for path in ("docs/handoff/session-15-prompt.md", "docs/handoff/notes.md"):
+        assert review.tier([(path, 3, 0)], []) == "normal"
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        ("docs/research/sheet-render.png", None, None),
+        ("docs/research/convert.sh", 12, 0),
+        ("docs/research/data.json", 3, 0),
+        ("docs/research/notes.md", None, None),
+    ],
+)
+def test_docs_only_is_text_never_a_binary_or_a_script(row: tuple[str, int | None, int | None]) -> None:
+    """Round 3 finding 2: any file under a safe docs folder passed with no model."""
+    assert review.tier([row], []) != "docs-only"
+    assert review.tier([row, ("docs/research/plain.md", 2, 0)], []) != "docs-only"
+
+
+def test_text_docs_stay_docs_only() -> None:
+    assert review.tier([("docs/research/a.md", 3, 0), ("docs/notes/b.txt", 1, 0)], []) == "docs-only"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "vextrus/platform/tests/test_tenancy_walls.py",
+        "engine/read/tests/test_sandbox.py",
+        "tools/leakscan/tests/test_scan.py",
+        ".claude/hooks/tests/test_guard.py",
+        "scripts/factory/tests/test_review_units.py",
+        "scripts/tests/test_ledger.py",
+        "vextrus/accounts/tests/test_auth_flow.py",
+        "vextrus/projects/tests/test_access.py",
+        "vextrus/drawings/tests/test_uploads.py",
+        "vextrus/tenancy/tests/test_models.py",
+        "vextrus/x/guards/tests/test_y.py",
+    ],
+)
+def test_the_tests_of_a_wall_are_never_small(path: str) -> None:
+    """Round 3 finding 3: `**/tests/**/test_*.py` made the walls' own tests small."""
+    assert review.tier([(path, 5, 0)], []) == "normal"
+
+
+def test_a_plain_modules_tests_stay_small() -> None:
+    assert review.tier([("vextrus/rates/tests/test_table.py", 5, 0)], []) == "small"
