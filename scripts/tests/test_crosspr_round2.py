@@ -41,8 +41,8 @@ def test_a_pr_that_conflicts_with_main_alone_is_not_the_builders_conflict(tmp_pa
     world.own({"calc.py": CALC.replace('return "calc"', 'return "own"'), "README": "own\n"})
     done = run(world)
     assert done.returncode == 0, done.stderr
-    assert "#53 conflicts with main (not yours)" in done.stderr
-    assert done.stdout.strip() == "Cross-PR: #53 ok"
+    assert "#53 conflicts with main: not yours" in done.stderr
+    assert done.stdout.strip() == "Cross-PR: #53 stale"
 
 
 def test_a_conflict_that_appears_only_with_the_builders_tree_refuses_naming_both(
@@ -67,7 +67,7 @@ def test_both_sides_changing_node_tests_are_run_and_a_break_refuses(tmp_path: Pa
     world.own({"tools/mod/p/lib.mjs": LIB_F3, "tools/mod/p/b.test.mjs": F3_TEST})
     done = run(world)
     assert done.returncode == 1, done.stdout + done.stderr
-    for part in ("#51", "a.test.mjs", "node tests failed"):
+    for part in ("#51", "a.test.mjs", "tests failed on their union"):
         assert part in done.stderr
 
 
