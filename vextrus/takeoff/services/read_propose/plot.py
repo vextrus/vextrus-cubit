@@ -93,7 +93,12 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
     matched = _keep(
         listed, candidates, found, full, pdfs, set(paths), file_id if view.format == "dwg" else None
     )
-    _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in paths], listed, candidates, pdfs)
+    _keep_reasons(
+        found,
+        [pdf for pdf in tried if pdf.sha256 in paths],
+        {id(c): s.id for c, s in zip(candidates, listed, strict=True)},
+        drawings.sheets(view.set_id),
+    )
     return {"pages": len(found), "matched": matched}
 
 
@@ -268,37 +273,42 @@ def _covering(sheet: drawings.SheetView, pdfs: Sequence[drawings.FileView]) -> l
 def _keep_reasons(
     found: Sequence[PlotMatch],
     tried: Sequence[drawings.FileView],
-    listed: Sequence[drawings.SheetView],
-    candidates: Sequence[SheetCandidate],
-    pdfs: Sequence[drawings.FileView],
+    sheet_ids: Mapping[int, uuid.UUID],
+    kept: Sequence[drawings.SheetView],
 ) -> None:
-    """Each tried PDF's pages that were not matched, as its report's lines: a page that matched no
-    sheet gives 18's reason, a page that names a sheet another page of the PDF names more surely
-    (`_surest`) says which page is used, so matched pages and lines add up to the PDF's pages."""
-    by_candidate = {id(c): s for c, s in zip(candidates, listed, strict=True)}
-    by_sha = {pdf.sha256: pdf for pdf in pdfs}
-    surest = _surest(found, by_candidate, by_sha)
+    """Each tried PDF's pages that are not a sheet's kept Plot, one line each, read from the sheets'
+    Plots as `_keep` left them: a page that names a sheet whose Plot is another page of this PDF says
+    which page is used; any other page gives 18's reason (none when it named a sheet whose Plot is a
+    page of another PDF). `sheet_ids`: each candidate's sheet."""
+    by_id = {s.id: s for s in kept}
+    plotted = {
+        (s.plot.file_id, s.plot.page)
+        for s in kept
+        if s.plot.file_id is not None and s.plot.page is not None
+    }
     for pdf in tried:
         lines: list[Message] = []
-        for k, m in enumerate(found):
+        for m in found:
             page = m.page
             if getattr(page, "source_sha256", None) != pdf.sha256:
                 continue
-            if m.sheet is None:
-                code = plot_codes.REASONS.get(m.reason or "")
-                if code is not None:
-                    lines.append(code(page=getattr(page, "number", 0)))
+            number = getattr(page, "number", 0)
+            if (pdf.id, number) in plotted:
                 continue
-            sheet = by_candidate.get(id(m.sheet))
-            used = surest.get((sheet.id, pdf.id)) if sheet is not None else None
-            if sheet is not None and used is not None and used != k:
-                lines.append(
-                    reports.PAGES_SAME_SHEET(
-                        first_page=getattr(page, "number", 0),
-                        used_page=getattr(found[used].page, "number", 0),
-                        sheet=sheet.number or "",
+            sheet = (
+                by_id.get(sheet_ids.get(id(m.sheet), uuid.UUID(int=0))) if m.sheet is not None else None
+            )
+            if sheet is not None:
+                if sheet.plot.file_id == pdf.id and sheet.plot.page is not None:
+                    lines.append(
+                        reports.PAGES_SAME_SHEET(
+                            first_page=number, used_page=sheet.plot.page, sheet=sheet.number or ""
+                        )
                     )
-                )
+                continue
+            code = plot_codes.REASONS.get(m.reason or "")
+            if code is not None:
+                lines.append(code(page=number))
         drawings.record_page_reasons(pdf.id, lines)
 
 
