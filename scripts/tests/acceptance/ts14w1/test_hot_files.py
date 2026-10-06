@@ -112,6 +112,10 @@ def committed_areas() -> dict[str, list[str]]:
 
 
 def tracked_files() -> list[str]:
+    """`git ls-files`; in a copy without git (the acceptance lint's `git archive` of a tree) every
+    file there is a tracked one."""
+    if not (REPO / ".git").exists():
+        return sorted(path.relative_to(REPO).as_posix() for path in REPO.rglob("*") if path.is_file())
     return subprocess.run(
         ["git", "ls-files"], cwd=REPO, capture_output=True, text=True, check=True
     ).stdout.splitlines()
