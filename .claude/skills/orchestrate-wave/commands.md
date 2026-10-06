@@ -71,3 +71,4 @@ leak stamp. Change a PR body the same way, scanned first:
 
 ## Housekeeping
 - `uv run python -m scripts.factory.sweep`: lists stale worktrees and storage; `--apply` removes them.
+- After a reboot or restart, run `uv run python -m scripts.factory.recover` and send each line it prints.
