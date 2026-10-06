@@ -95,6 +95,22 @@ def test_the_lock_view_maps_rdlocks_kinds_to_the_schemas(tmp_path: Path) -> None
     assert watch.lock_view(tmp_path / "none", AT) == {"holder": None, "waiters": []}
 
 
+def test_reviews_carry_the_prs_head_on_origin_only_when_the_pr_list_gave_it(tmp_path: Path) -> None:
+    ledger = tmp_path / "ledger"
+    ledger.mkdir()
+    for pr, head, verdict in ((1, "d" * 40, "PASS"), (2, "e" * 40, "FIX")):
+        record = {"pr": pr, "head": head, "round": 1, "verdict": verdict, "recorded_at": "r1"}
+        (ledger / f"{pr}-{head}.json").write_text(json.dumps(record))
+    moved = "a" * 40  # the lander's `gh pr update-branch` moved PR 1 to a merge of main: no PASS at it
+    prs = [{"number": 1, "state": "OPEN", "headRefOid": moved}]
+    assert watch.reviews_view(tmp_path, prs) == [
+        {"pr": 1, "round": 1, "head": "d" * 40, "pr_head": moved},
+        {"pr": 2, "round": 1, "head": "e" * 40},
+    ]
+    no_head = watch.reviews_view(tmp_path, [{"number": 1, "state": "OPEN"}])
+    assert no_head[0] == {"pr": 1, "round": 1, "head": "d" * 40}
+
+
 def test_reviews_skip_closed_prs_and_a_pass_on_the_current_head(tmp_path: Path) -> None:
     ledger = tmp_path / "ledger"
     ledger.mkdir()
