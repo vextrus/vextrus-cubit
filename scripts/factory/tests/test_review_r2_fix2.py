@@ -64,7 +64,18 @@ def test_a_failed_launch_still_names_every_required_lens(
     assert states(records) == {"lens-a": "launched", "lens-b": "failed"}
 
 
-def test_a_rerun_launches_only_the_failed_lens_and_keeps_the_launched_one(
+def answered(monkeypatch: pytest.MonkeyPatch, branches: set[str]) -> None:
+    """The ledger's reader in place: a launch's verdict is accepted when its branch is in `branches`."""
+
+    def read_handed(main: Path, run: review.Run, lens: Any) -> tuple[str, dict[str, Any], str]:
+        if lens["branch"] not in branches:
+            raise review.Refused("no verdict file on the review branch")
+        return lens["label"], {"verdict": "PASS", "findings": []}, lens["branch"]
+
+    monkeypatch.setattr(review, "read_handed", read_handed)
+
+
+def test_a_rerun_launches_only_the_lens_with_no_accepted_verdict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     launcher = Launcher(monkeypatch)
@@ -73,27 +84,32 @@ def test_a_rerun_launches_only_the_failed_lens_and_keeps_the_launched_one(
     with pytest.raises(review.Refused):
         review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
     first = {entry["label"]: entry for entry in manifest(records)["lenses"]}
+    answered(monkeypatch, {first["lens-a"]["launches"][0]["branch"]})
     launcher.failing = set()
     run, _ = handed(tmp_path)
     review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
     assert launcher.launched == [review.LENS_A.model, review.LENS_B.model]
-    assert states(records) == {"lens-a": "launched", "lens-b": "launched"}
+    assert states(records) == {"lens-a": "answered", "lens-b": "launched"}
     now = {entry["label"]: entry for entry in manifest(records)["lenses"]}
-    assert now["lens-a"] == first["lens-a"], "lens A's launch was dropped or redone"
+    assert now["lens-a"]["launches"] == first["lens-a"]["launches"], "lens A was dropped or redone"
+    assert (now["lens-a"]["count"], now["lens-b"]["count"]) == (1, 2)
 
 
-def test_a_rerun_whose_launches_fail_never_overwrites_a_good_hand_off(
+def test_a_rerun_whose_launches_fail_never_drops_a_launch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     launcher = Launcher(monkeypatch)
     run, records = handed(tmp_path)
     review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
-    good = manifest(records)
+    good = {entry["label"]: entry["launches"] for entry in manifest(records)["lenses"]}
     launcher.failing = {review.LENS_A.model, review.LENS_B.model}
     run, _ = handed(tmp_path)
-    review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
-    assert manifest(records) == good
-    assert len(launcher.launched) == 2
+    with pytest.raises(review.Refused):
+        review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
+    now = {entry["label"]: entry for entry in manifest(records)["lenses"]}
+    assert {label: entry["launches"] for label, entry in now.items()} == good
+    assert [now[label]["count"] for label in ("lens-a", "lens-b")] == [2, 2]
+    assert states(records) == {"lens-a": "failed", "lens-b": "failed"}
 
 
 @pytest.fixture

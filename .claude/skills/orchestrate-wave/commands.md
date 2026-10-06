@@ -43,7 +43,8 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   lenses start. `--where cloud` launches one cloud reviewer per lens and records nothing; when every
   reviewer has pushed its verdict, `uv run python -m scripts.factory.review collect <PR> --round n`
   records ONE decision from all of them (refused, nothing recorded, while any lens is missing); a
-  failed launch is retried by running the round again with `--where cloud` (launched lenses are kept).
+  lens whose launch failed or whose session died is launched again by running the round again with
+  `--where cloud` (a lens with an accepted verdict is kept; `collect` takes each lens's newest).
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
 - `/review-pr <PR> <head> <round>` on each READY head (until S14-R3 retires it); the ledger holds its

@@ -1557,15 +1557,14 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
     is recorded here: each reviewer answers later on its branch. The cloud verdict file knows only the
     `pr-reviewer` and `refuter` agents, so the words lens runs there as `pr-reviewer` given its task.
 
-    The hand-off file always names every lens the tier requires, each with its launch state; a rerun
-    of the round keeps each lens already launched and launches again only those that failed."""
+    The hand-off file always names every lens the tier requires, each with every launch it had (its
+    branch and review file), how many launches were tried, and the last one's state. A rerun of the
+    round launches again every required lens that has no accepted verdict yet (its session died, ran
+    out of turns, or pushed a verdict the ledger rejects, or its launch failed); a lens with an
+    accepted verdict is kept as it is, and no launch is ever dropped."""
     assert run.head is not None
     path = handoff_path(records, run.pr, run.head, run.round_)
-    previous = {
-        entry["label"]: entry
-        for entry in read_manifest(path, run).get("lenses", [])
-        if entry.get("state") == "launched" and entry.get("branch") and entry.get("review_file")
-    }
+    previous = {str(entry.get("label")): entry for entry in read_manifest(path, run).get("lenses", [])}
 
     def push(argv: list[str]) -> int:
         return _run(argv, cwd=main, timeout=GIT_TIMEOUT).returncode
@@ -1579,14 +1578,18 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
             started["review_file"] = argv[argv.index("--review-file") + 1]
         return done.returncode
 
-    entries: list[dict[str, str]] = []
+    entries: list[dict[str, Any]] = []
     failed = []
     for lens in lenses:
-        entry: dict[str, Any] = {"label": lens.label, "agent": lens.agent, "model": lens.model}
-        if lens.label in previous:
-            entries.append(previous[lens.label])
-            run.launched.append(previous[lens.label]["branch"])
-            run.lenses.append({**entry, "where": "cloud", "reused": True})
+        about: dict[str, Any] = {"label": lens.label, "agent": lens.agent, "model": lens.model}
+        old = previous.get(lens.label, {})
+        launches = launches_of(old)
+        count = old.get("count") if KINDS["integer"](old.get("count")) else len(launches)
+        if newest_verdict(main, run, lens.label, launches) is not None:
+            entries.append({"label": lens.label, "state": "answered", "count": count,
+                            "launches": launches})  # fmt: skip
+            run.launched.append(launches[-1]["branch"])
+            run.lenses.append({**about, "where": "cloud", "reused": True})
             continue
         task = lens.task
         if lens.writes and any(path.startswith(GUARD_PATHS) for path in run.paths):
@@ -1596,13 +1599,15 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
         started.clear()
         with contextlib.redirect_stdout(sys.stderr):
             code = review_cloud.run(argv, push=push, launch=launch, records_dir=records)
-        run.lenses.append({**entry, "where": "cloud"})
+        run.lenses.append({**about, "where": "cloud", "launch": count + 1})
         if code == 0 and started:
             run.launched.append(started["branch"])
-            entries.append({"label": lens.label, "state": "launched", **started})
+            launches = [*launches, dict(started)]
+            state = "launched"
         else:
-            entries.append({"label": lens.label, "state": "failed"})
             failed.append(lens.label)
+            state = "failed"
+        entries.append({"label": lens.label, "state": state, "count": count + 1, "launches": launches})
     manifest = {
         "pr": run.pr,
         "head": run.head,
@@ -1616,8 +1621,39 @@ def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
     if failed:
         raise Refused(
             f"the cloud launch of {', '.join(failed)} failed; nothing recorded: run the round again "
-            "with --where cloud (only the failed lenses launch again)"
+            "with --where cloud (every lens with no accepted verdict launches again)"
         )
+
+
+def launches_of(entry: dict[str, Any]) -> list[dict[str, str]]:
+    """A hand-off entry's launches, oldest first (an entry of the older shape holds one inline)."""
+    raw = entry.get("launches")
+    if raw is None and entry.get("branch") and entry.get("review_file"):
+        raw = [{"branch": entry["branch"], "review_file": entry["review_file"]}]
+    if not isinstance(raw, list):
+        return []
+    return [
+        {"branch": str(item["branch"]), "review_file": str(item["review_file"])}
+        for item in raw
+        if isinstance(item, dict) and item.get("branch") and item.get("review_file")
+    ]
+
+
+def newest_verdict(
+    main: Path, run: Run, label: str, launches: list[dict[str, str]], why: list[str] | None = None
+) -> tuple[str, dict[str, Any], str] | None:
+    """The newest of a lens's launches whose verdict file the ledger's reader accepts, or None; each
+    rejection's reason goes to `why`."""
+    for launched in reversed(launches):
+        try:
+            return read_handed(main, run, {"label": label, **launched})
+        except (ledger.Refused, ledger.BadInput, Refused) as error:
+            reason = str(error)
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            reason = f"its review file cannot be read ({type(error).__name__})"
+        if why is not None:
+            why.append(f"{launched['branch']}: {reason}")
+    return None
 
 
 def read_manifest(path: Path, run: Run) -> dict[str, Any]:
@@ -1682,18 +1718,21 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     answers: list[tuple[str, dict[str, Any], str]] = []
     missing: list[str] = []
     for name in required:
-        lens = entries.get(name)
-        if lens is None or lens.get("state") != "launched":
+        launches = launches_of(entries.get(name, {}))
+        if not launches:
             missing.append(f"{name}: never launched (run the round again with --where cloud)")
             continue
-        try:
-            answers.append(read_handed(main, run, lens))
-        except (ledger.Refused, ledger.BadInput, Refused) as error:
-            missing.append(f"{name}: {error}")
-        except (OSError, ValueError, KeyError, TypeError) as error:
-            missing.append(f"{name}: its hand-off cannot be read ({type(error).__name__})")
+        why: list[str] = []
+        newest = newest_verdict(main, run, name, launches, why)
+        if newest is None:
+            missing.append(f"{name}: no accepted verdict ({'; '.join(why)})")
+        else:
+            answers.append(newest)
     if missing:
-        raise Refused(f"not every lens has answered, nothing recorded ({'; '.join(missing)})")
+        raise Refused(
+            f"not every lens has answered, nothing recorded ({' | '.join(missing)}); a lens whose "
+            "session died is launched again by running the round again with --where cloud"
+        )
     for number, (label, found, _) in enumerate(answers, start=1):
         run.lenses.append({"label": label, "where": "cloud", "verdict": found["verdict"]})
         for index, item in enumerate(found["findings"], start=1):
@@ -1712,7 +1751,8 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     if resolve(run.pr) != run.head:
         raise Refused("the PR's head moved during the review: review the new head")
     record(run, args, ledger_dir, [found["verdict"] for _, found, _ in answers], factory / "verdicts")
-    for _, _, branch in answers:  # each review branch has served: removed, as fetch-verdict does
+    served = sorted({one["branch"] for name in required for one in launches_of(entries[name])})
+    for branch in served:  # every launch's review branch has served: removed, as fetch-verdict does
         _run(["git", "-C", str(main), "push", "-q", "origin", "--delete", branch], timeout=GIT_TIMEOUT)
 
 

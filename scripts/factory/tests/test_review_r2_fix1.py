@@ -257,4 +257,7 @@ def test_the_cloud_hand_off_names_every_lens_for_collect(
     review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
     manifest = json.loads(review.handoff_path(records, PR, "a" * 40, 1).read_text())
     assert [lens["label"] for lens in manifest["lenses"]] == ["lens-a", "lens-b"]
-    assert all(lens["branch"] and lens["review_file"] for lens in manifest["lenses"])
+    assert all(
+        lens["launches"][-1]["branch"] and lens["launches"][-1]["review_file"]
+        for lens in manifest["lenses"]
+    )
