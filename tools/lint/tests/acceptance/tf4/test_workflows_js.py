@@ -1,7 +1,11 @@
-"""Ticket f4, T6: the workflow-script lint
-(docs/specs/factory.md 3.8). A workflow script under `.claude/workflows/` must be deterministic (no
-`Date.now()`, `Math.random()`, no-argument `new Date()`), import nothing at run time, parse under
-`node --check`, and not take the name of a built-in command or alias.
+"""Ticket f4, T6: the workflow-script lint (docs/specs/factory.md 3.8). A workflow script under
+`.claude/workflows/` must be deterministic (no `Date.now()`, `Math.random()`, no-argument `new Date()`),
+import nothing at run time, parse under `node --check`, and not take the name of a built-in command or
+alias.
+
+This file also pinned the `/review-pr` workflow's static shape. S14-R3 deletes `review-pr.js` (ADR 0043:
+"`/review-pr` stays only until S14-R3 retires it"), so that test went with the file it read, and the
+repository check reads `real-set-walk.js`, the workflow left.
 
 Seam: `tools.lint.workflows_js.problems(root) -> list[str]` and `main`. The text is read comments
 included, so the lint errs towards failing (like `tools/lint/workflows.py`).
@@ -13,6 +17,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[5]
 REAL_SET_WALK = REPO / ".claude/workflows/real-set-walk.js"
+REVIEW_PR = REPO / ".claude/workflows/review-pr.js"
 VALID = """export const meta = {
   name: 'ok',
   description: 'A valid workflow script',
@@ -96,3 +101,7 @@ def test_the_repositorys_workflows_pass_and_main_agrees(monkeypatch: pytest.Monk
     assert problems(REPO) == []
     monkeypatch.chdir(REPO)
     assert main([]) == 0
+
+
+def test_the_review_pr_workflow_whose_shape_this_file_pinned_is_gone() -> None:
+    assert not REVIEW_PR.exists(), "review-pr.js is still in .claude/workflows (S14-R3 deletes it)"

@@ -54,9 +54,18 @@ def test_claude_md_has_no_stale_or_private_line() -> None:
     assert not found, f"CLAUDE.md still carries: {found}"
 
 
+# ADR 0043 made the review `scripts.factory.review run <PR> --round <n>` and kept `/review-pr` "only
+# until S14-R3 retires it"; the CLAUDE.md line names the command, and once R3 retires `/review-pr`,
+# not it.
 @pytest.mark.parametrize("words", ["adversary agent", "scripts.factory.review run", "default to medium"])
 def test_claude_md_carries_the_new_line(words: str) -> None:
     assert words in bare(CLAUDE_MD.read_text()), f"CLAUDE.md lacks {words!r}"
+
+
+def test_claude_md_no_longer_names_review_pr() -> None:
+    assert "/review-pr" not in bare(CLAUDE_MD.read_text()), (
+        "CLAUDE.md still names /review-pr (retired by S14-R3)"
+    )
 
 
 def test_real_drawings_names_the_scorer_and_the_accept_rule() -> None:

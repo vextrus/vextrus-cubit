@@ -1,7 +1,9 @@
 // Acceptance (ticket f6, tier 2): orchestrate-wave rewritten as the orchestrator's runbook. docs/specs/factory.md
 // §3.4: "rewritten as the orchestrator's runbook around §2.2's commands: governor → writers → launch → watch →
-// `scripts.factory.review run` → land → G1 → measures; budgets; when to ask the owner; the G1 rule. About half its length.
+// `/review-pr` → land → G1 → measures; budgets; when to ask the owner; the G1 rule. About half its length.
 // `states.py` stays."
+// ADR 0043 made the review step `scripts.factory.review run <PR> --round <n>` ("`/review-pr` stays only until
+// S14-R3 retires it"); S14-R3 retires it, so the runbook names the command and no longer names `/review-pr`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -44,6 +46,10 @@ test("names each runbook step, in order", () => {
     if (name === "acceptance writers") afterWriters = at;
     from = Math.max(from, at);
   }
+});
+
+test("names no /review-pr: S14-R3 retires it (ADR 0043)", () => {
+  assert.doesNotMatch(text(), /\/review-pr\b/);
 });
 
 test("watching is through the event log with Monitor, not polling", () => {

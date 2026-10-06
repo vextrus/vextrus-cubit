@@ -69,7 +69,8 @@ const RUNNABLE = [
   ["scripts.factory.rdlock run", /python3? -m scripts\.factory\.rdlock run\b/],
   ["scripts.walk.run <sha40>", /python3? -m scripts\.walk\.run <sha40>/],
   ["/real-set-walk", /^\/real-set-walk\b/],
-  ["scripts.factory.review run <PR>", /python3? -m scripts\.factory\.review run <PR>/],
+  // ADR 0043: the review is `scripts.factory.review run <PR> --round <n>`; S14-R3 retires `/review-pr`.
+  ["scripts.factory.review run <PR> --round <n>", /python3? -m scripts\.factory\.review run <PR> --round <n>/],
   ["scripts.land <PR>", /python3? -m scripts\.land <PR>/],
   ["scripts.merge_ready <PR>", /python3? -m scripts\.merge_ready <PR>/],
   ["scripts.factory.amend --subject", /python3? -m scripts\.factory\.amend\b.*--subject\b/],
@@ -84,6 +85,13 @@ for (const [name, pattern] of RUNNABLE) {
     assert.ok(lines.some((line) => pattern.test(line)), `no code span or fenced line runs ${name}`);
   });
 }
+
+test("commands.md prescribes no /review-pr line: S14-R3 retires it (ADR 0043)", () => {
+  assert.ok(existsSync(COMMANDS), "no commands.md");
+  const lines = commandsOf(read(COMMANDS)).map((c) => c.text);
+  const left = lines.filter((line) => /^\/review-pr\s/.test(line));
+  assert.deepEqual(left, [], "commands.md still gives /review-pr as a command to run");
+});
 
 test("neither commands.md nor SKILL.md says scripts.land order (scripts.land orders itself)", () => {
   assert.ok(existsSync(COMMANDS), "no commands.md");
