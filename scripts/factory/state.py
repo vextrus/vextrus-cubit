@@ -4,8 +4,10 @@
 
 Run it from the main checkout: git runs in the current directory's repository. One row per open ticket
 branch (every branch of origin and every local branch of this checkout, except `main` and `review/*`).
-A branch with any launch record (any role) stays until its pull request is MERGED, whatever its head
-is or when it was committed; a branch whose pull request is MERGED is not open work; a branch with
+A branch with any launch record (any role) stays until its pull request is MERGED; a MERGED branch is
+dropped when its head is the merged head or inside it, or when no launch record is newer than the merge
+(a reused branch name keeps its row). A writer that has committed its `acceptance:` commit and ended
+reads "acceptance committed: launch the builder", never "resume"; a branch with
 neither a launch record nor a pull request is left out, counted in a note, unless its head reads READY
 or it was committed in the last few days:
 
@@ -129,7 +131,7 @@ def read_prs() -> list[dict[str, Any]] | None:
         "pr",
         "list",
         *("--state", "all", "--limit", str(PR_LIMIT)),
-        *("--json", "number,title,headRefName,headRefOid,state"),
+        *("--json", "number,title,headRefName,headRefOid,state,mergedAt"),
     )
     if not isinstance(listed, list):
         return None
@@ -242,6 +244,32 @@ def outcome_of(branch: str, head: str) -> tuple[str | None, bool]:
     return watch.parse_trailers(*info).outcome, True
 
 
+def is_writer(launch: dict[str, Any] | None) -> bool:
+    return launch is not None and str(launch.get("role") or "builder") == "acceptance-writer"
+
+
+def acceptance_committed(branch: str, head: str) -> bool:
+    """Whether the head is the writer's `acceptance:` commit (the writer's work ends there)."""
+    info = watch.read_head(branch, head)
+    return info is not None and info[0].startswith("acceptance:")
+
+
+def merged_for_good(pr: dict[str, Any], head: str, launch: dict[str, Any] | None) -> bool:
+    """Whether a MERGED pull request ends this branch's open work: its head is the merged head or an
+    ancestor of it, or no launch record is newer than the merge (a reused branch name has both a newer
+    launch and a head that is not in the merged history)."""
+    merged_head = pr.get("headRefOid")
+    if isinstance(merged_head, str) and (head == merged_head or ahead(head, merged_head)):
+        return True
+    if launch is None:
+        return True
+    try:
+        merged_at = status.parse_utc(str(pr["mergedAt"]))
+    except status.FIELD_ERRORS:
+        return True
+    return bool(launch["_started"] <= merged_at)
+
+
 def row_for(
     branch: str,
     head: str,
@@ -258,6 +286,8 @@ def row_for(
     words, session, live = session_view(launch, agents)
 
     pr = pr_for(branch, prs) if prs is not None else None
+    if pr is not None and pr.get("state") == "MERGED":
+        pr = None  # collect() kept the branch: its name is reused, the merged PR is not its PR
     number = pr["number"] if pr is not None else None
     is_open = pr is not None and pr.get("state") == "OPEN"
     pr_text = "unknown (gh unreadable)" if prs is None else "-"
@@ -300,6 +330,8 @@ def row_for(
         action = "fix the Factory trailers"
     elif outcome == "BLOCKED":
         action = "blocked: read its Factory-Reason"
+    elif is_writer(launch) and not live and acceptance_committed(branch, head):
+        action = "acceptance committed: launch the builder"
     elif launch is not None and str(launch["where"]) == "local" and agents is not None and not live:
         action = f"resume {session}" if session else "resume (no session id recorded)"
     elif live:
@@ -367,7 +399,11 @@ def collect() -> tuple[list[Row], list[str]] | None:
     idle = 0
     for branch, (head, _mine) in branch_heads(origin).items():
         pr = pr_for(branch, prs) if prs is not None else None
-        if pr is not None and pr.get("state") == "MERGED":
+        if (
+            pr is not None
+            and pr.get("state") == "MERGED"
+            and merged_for_good(pr, head, started.get(branch))
+        ):
             continue
         row, outcome = row_for(branch, head, prs, book, started.get(branch), agents, base)
         age = commit_age_days(head)
