@@ -2,7 +2,7 @@
 
     python -m scripts.factory.governor check <unit> [--json] [--usage-checked "<lines>"]
         [--running N] [--agents N] [--rate R --hours-to-reset H] [--owns PATH ...]
-        [--role R] [--branch B]
+        [--role R] [--branch B] [--hold PID --ticket T [--budget-minutes N]]
 
 Units and their memory cost (spec 2.3): `cloud-session` (none: the cloud VM is not this machine, so
 memory, swap and disk are not read), `local-agent` 0.9, `review` (`--agents` x 0.3 + 0.7; default 8
@@ -48,7 +48,15 @@ number,headRefName,state,files,createdAt,closedAt,mergedAt,isCrossRepository` (`
 stands in for it); a fork's PR (`isCrossRepository`) is left out. An
 unreadable record refuses new work, and so does an unreadable PR list or hot-file list when files are
 named; with none named, an unreadable PR list leaves the cap counting every live record, none
-released. A builder's record
+released.
+
+Two launches at once (PR #477 review): `--hold PID --ticket T` (`admit`; both launchers use it) takes an
+exclusive `flock` on `$VEXTRUS_FACTORY_DIR/wip.lock`, runs the check and, on OK, writes the pending
+record `pending/<T>-<PID>.json` before letting the lock go, so the next launch reads it. A pending
+record counts toward the cap and the hot-file areas like a launch record while the launcher's pid
+lives; the launcher removes it (`release_hold`) once its launch record is written or the launch has
+failed, and a pending record whose pid is dead counts for nothing. A launch whose record would not
+count (acceptance-writer, reviewer, refuter) writes none. A builder's record
 names its `owns` when the launch gave them.
 
 Units of size: every GB here is a GiB (1024^3 bytes), as `/proc/meminfo` and `df -k` count KiB and as
@@ -70,6 +78,7 @@ usage_checked, readings). Exit 0 ok, 3 refused, 2 usage error.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import fnmatch
 import json
 import math
@@ -109,6 +118,9 @@ GRACE_MINUTES = 60
 CLOUD_OVERRUN_FACTOR = 4
 CLOUD_MIN_HOURS = 6
 START_ERRORS = (KeyError, TypeError, ValueError)
+PENDING = "pending"
+WIP_LOCK = "wip.lock"
+TICKET_RE = re.compile(r"[A-Za-z0-9._-]{1,200}")
 
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
 UNITS = ("cloud-session", "local-agent", "review", "pytest", "web-tests", "walk", "rd-run")
@@ -303,19 +315,28 @@ def read_prs() -> list[dict[str, Any]] | None:
     return parse_prs(prs_text())
 
 
+def _read_record(path: Path) -> dict[str, Any] | None:
+    try:
+        record = json.loads(path.read_text())
+    except status.RECORD_ERRORS:
+        return None
+    if not isinstance(record, dict) or not isinstance(record.get("branch"), str):
+        return None
+    return record
+
+
 def read_builders() -> list[dict[str, Any]] | None:
     """The launched builders: cloud records whose judge is ok and local ones, never an
-    acceptance-writer, a reviewer or a refuter. None when a record is unreadable (it may be a
+    acceptance-writer, a reviewer or a refuter; and the pending records of launches still running
+    (`admit`), each while its launcher's pid lives. None when a record is unreadable (it may be a
     builder: fail closed)."""
     builders: list[dict[str, Any]] = []
-    for path in sorted((status.factory_dir() / "launches").glob("*.json")):
+    folder = status.factory_dir()
+    for path in sorted((folder / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
             continue
-        try:
-            record = json.loads(path.read_text())
-        except status.RECORD_ERRORS:
-            return None
-        if not isinstance(record, dict) or not isinstance(record.get("branch"), str):
+        record = _read_record(path)
+        if record is None:
             return None
         if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
             continue
@@ -324,7 +345,86 @@ def read_builders() -> list[dict[str, Any]] | None:
         judge = record.get("judge")
         if record.get("where") == "local" or (isinstance(judge, dict) and judge.get("ok") is True):
             builders.append(record)
+    for path in sorted((folder / PENDING).glob("*.json")):
+        record = _read_record(path)
+        if record is None:
+            return None
+        pid = record.get("pid")
+        if isinstance(pid, int) and not isinstance(pid, bool) and status.pid_alive(pid):
+            builders.append(record)
     return builders
+
+
+def pending_path(ticket: str, pid: int) -> Path:
+    """The pending record of one launch: its ticket and its launcher's pid."""
+    return status.factory_dir() / PENDING / f"{ticket}-{pid}.json"
+
+
+def admit(
+    unit: str,
+    *,
+    hold: int,
+    ticket: str,
+    budget_minutes: int | None = None,
+    **given: Any,
+) -> Verdict:
+    """`check`, and on OK a pending record for the launch, both under one exclusive `flock` on
+    `<factory dir>/wip.lock`, so two launches at once cannot both read the same WIP and pass. The
+    pending record (`pending/<ticket>-<hold>.json`, the launcher's pid) counts toward the cap and the
+    hot-file areas at once, while that pid lives; the launcher removes it (`release_hold`) after it
+    writes its launch record, or on any failure. A launch that takes no new work, or whose record
+    would not count (acceptance-writer, reviewer, refuter), writes none. The lock is a descriptor's
+    `flock`, so the kernel lets it go when the process dies however it dies."""
+    if not TICKET_RE.fullmatch(ticket):
+        verdict = Verdict(unit)
+        verdict.reasons.append(f"a malformed ticket for the pending record: {ticket!r}")
+        return verdict
+    folder = status.factory_dir()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        fd = os.open(folder / WIP_LOCK, os.O_CREAT | os.O_WRONLY, 0o600)
+    except OSError as error:
+        verdict = Verdict(unit)
+        verdict.reasons.append(f"the WIP lock cannot be taken ({type(error).__name__})")
+        return verdict
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        verdict = check(unit, **given)
+        role = given.get("role") or "builder"
+        if verdict.ok and unit in WORK_UNITS and role not in NOT_BUILDER_ROLES:
+            record: dict[str, Any] = {
+                "ticket": ticket,
+                "branch": given.get("branch") or "",
+                "where": "local" if unit == "local-agent" else "cloud",
+                "role": role,
+                "budget_minutes": budget_minutes,
+                "started_at": status.utc(status.now()),
+                "pid": hold,
+                "pending": True,
+            }
+            if given.get("owns"):
+                record["owns"] = list(given["owns"])
+            path = pending_path(ticket, hold)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                part = path.with_suffix(".part")
+                part.write_text(json.dumps(record, indent=1) + "\n")
+                part.replace(path)  # whole or absent: a reader never sees half a record
+            except OSError as error:
+                verdict.reasons.append(f"the pending record was not written ({type(error).__name__})")
+                return verdict
+            verdict.readings["pending"] = str(path)
+        return verdict
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+
+
+def release_hold(ticket: str, pid: int) -> None:
+    """Remove a launch's pending record (`admit`); none there is no error."""
+    if not TICKET_RE.fullmatch(ticket):
+        return
+    pending_path(ticket, pid).unlink(missing_ok=True)
 
 
 ENDED_ROW_STATES = ("stopped", "failed")
@@ -795,6 +895,9 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--owns", action="append", default=[], metavar="PATH")
     one.add_argument("--role")
     one.add_argument("--branch")
+    one.add_argument("--hold", type=int, metavar="PID")
+    one.add_argument("--ticket")
+    one.add_argument("--budget-minutes", type=int)
     args = parser.parse_args(argv)
     for option in ("running", "agents", "rate", "hours_to_reset"):
         value = getattr(args, option)
@@ -802,17 +905,28 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"--{option.replace('_', '-')} cannot be negative")
     if (args.rate is None) != (args.hours_to_reset is None):
         parser.error("--rate and --hours-to-reset go together")
-    verdict = check(
-        args.unit,
-        running=args.running,
-        agents=args.agents,
-        rate=args.rate,
-        hours_to_reset=args.hours_to_reset,
-        usage_checked=args.usage_checked,
-        owns=args.owns,
-        role=args.role,
-        branch=args.branch,
-    )
+    if (args.hold is None) != (args.ticket is None):
+        parser.error("--hold and --ticket go together")
+    given: dict[str, Any] = {
+        "running": args.running,
+        "agents": args.agents,
+        "rate": args.rate,
+        "hours_to_reset": args.hours_to_reset,
+        "usage_checked": args.usage_checked,
+        "owns": args.owns,
+        "role": args.role,
+        "branch": args.branch,
+    }
+    if args.hold is None:
+        verdict = check(args.unit, **given)
+    else:
+        verdict = admit(
+            args.unit,
+            hold=args.hold,
+            ticket=args.ticket,
+            budget_minutes=args.budget_minutes,
+            **given,
+        )
     if args.json:
         print(json.dumps(verdict.as_json()))
     else:

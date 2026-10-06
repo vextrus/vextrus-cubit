@@ -44,7 +44,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
-from scripts.factory import stamp, status
+from scripts.factory import governor, stamp, status
 
 if TYPE_CHECKING:
     from scripts.factory.jev import Answers, Unavailable
@@ -293,8 +293,12 @@ def default_govern(
     owns: tuple[str, ...] = (),
     role: str | None = None,
     branch: str | None = None,
+    *,
+    hold: tuple[str, int, int | None] | None = None,
 ) -> Govern | None:
-    """This tree's governor (f3's `scripts/factory/governor.py`), or None when the tree has none."""
+    """This tree's governor (f3's `scripts/factory/governor.py`), or None when the tree has none.
+    `hold` (ticket, launcher pid, budget minutes) makes it `admit` the launch: check and write the
+    pending record under the WIP lock (S14-W1), which `launch_cloud` removes when it ends."""
     if not (root / "scripts" / "factory" / "governor.py").is_file():
         return None
     command = [sys.executable, "-m", "scripts.factory.governor", "check", "cloud-session"]
@@ -303,6 +307,10 @@ def default_govern(
         command += ["--owns", path]
     command += ["--role", role] if role else []
     command += ["--branch", branch] if branch else []
+    if hold is not None:
+        ticket, pid, budget = hold
+        command += ["--hold", str(pid), "--ticket", ticket]
+        command += ["--budget-minutes", str(budget)] if budget is not None else []
 
     def govern() -> Reading:
         try:
@@ -794,6 +802,9 @@ class _Run:
         except OSError as error:
             print(f"ERROR the launch record was not written ({type(error).__name__}: {error.filename})")
             return
+        finally:
+            # the launch record (or the failure) now stands for the launch: its pending record goes
+            governor.release_hold(self.req.ticket, os.getpid())
         warnings, p = self.jev["warnings"], self.jev["p"]
         if isinstance(warnings, list) and isinstance(p, dict):  # never line 1: OK/REFUSED stays first
             for code in warnings:
@@ -845,10 +856,34 @@ def launch_cloud(
     the real Jev for advice. Every run past the usage checks writes one record."""
     scan = default_scan(root) if isinstance(scan, Default) else scan
     govern = (
-        default_govern(root, req.usage_checked, req.owns, req.role, req.branch)
+        default_govern(
+            root,
+            req.usage_checked,
+            req.owns,
+            req.role,
+            req.branch,
+            hold=(req.ticket, os.getpid(), req.budget_minutes),
+        )
         if isinstance(govern, Default)
         else govern
     )
+    try:
+        return _launch_cloud(req, root, claude, scan, govern, snapshot, now, sleep, jev)
+    finally:
+        governor.release_hold(req.ticket, os.getpid())  # whatever ended the launch, nothing pends
+
+
+def _launch_cloud(
+    req: CloudRequest,
+    root: Path,
+    claude: ClaudeRunner,
+    scan: Scan | None,
+    govern: Govern | None,
+    snapshot: Callable[[], str],
+    now: Callable[[], datetime],
+    sleep: Callable[[float], None],
+    jev: Ask | Default | None,
+) -> Outcome:
     if not BRANCH.match(req.branch) or ".." in req.branch or not TICKET.match(req.ticket):
         print("error: a malformed --branch or --ticket", file=sys.stderr)
         return Outcome(USAGE, "usage: a malformed --branch or --ticket")

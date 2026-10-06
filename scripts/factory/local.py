@@ -153,9 +153,29 @@ def live_row(rows: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
 
 
 def launch(args: argparse.Namespace) -> list[str]:
-    verdict = governor.check(
-        "local-agent", owns=getattr(args, "owns", ()), branch=getattr(args, "branch", None)
+    """The governor's `admit` (a dry run only `check`s): its pending record holds this launch's
+    place in the WIP cap until the launch record is written, and goes whatever ends the launch."""
+    given: dict[str, Any] = {
+        "owns": getattr(args, "owns", ()),
+        "branch": getattr(args, "branch", None),
+        "role": getattr(args, "role", None),
+    }
+    if getattr(args, "dry_run", False):
+        return _launch(args, governor.check("local-agent", **given))
+    verdict = governor.admit(
+        "local-agent",
+        hold=os.getpid(),
+        ticket=args.ticket,
+        budget_minutes=getattr(args, "budget_minutes", None),
+        **given,
     )
+    try:
+        return _launch(args, verdict)
+    finally:
+        governor.release_hold(args.ticket, os.getpid())
+
+
+def _launch(args: argparse.Namespace, verdict: governor.Verdict) -> list[str]:
     if not verdict.ok:
         raise Stop(3, f"REFUSED governor: {verdict.reason}")
     main_checkout = status.main_checkout()
