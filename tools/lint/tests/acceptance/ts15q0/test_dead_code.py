@@ -5,9 +5,9 @@ scripts and tools).
 The seam is `python -m vulture` with no argument, its paths, whitelist and confidence read from
 `pyproject.toml` (see `_tree.py`). The tree as it is passes; a function planted in a copy and called
 by nothing fails, named (so the gate reports unused functions, vulture's 60 % confidence class, not
-only its 90-100 % ones). `_get_key` is not pinned removed: it overrides Ninja's own hook
-(`APIKeyBase.__call__` calls `self._get_key`), so it is live. `labels_of` stays: issue #423 called it
-dead, but sheet_list calls it (the ticket closes #423 as wrong).
+only its 90-100 % ones). `_get_key` stays, though the ticket names it: it overrides Ninja's own
+hook (`APIKeyBase.__call__` calls `self._get_key`), so it is live. `labels_of` stays: issue #423
+called it dead, but sheet_list calls it (the ticket closes #423 as wrong).
 """
 
 import importlib
@@ -73,6 +73,12 @@ def test_labels_of_stays_because_sheet_list_calls_it() -> None:
     loaded = importlib.import_module("vextrus.drawings.services.library_disciplines")
 
     assert callable(getattr(loaded, "labels_of", None))
+
+
+def test_get_key_stays_because_ninja_calls_it() -> None:
+    loaded = importlib.import_module("vextrus.platform.http.acts")
+
+    assert "_get_key" in vars(loaded.Session)
 
 
 def test_ci_runs_vulture() -> None:
