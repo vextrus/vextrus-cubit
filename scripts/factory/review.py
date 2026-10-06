@@ -39,6 +39,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import traceback
@@ -49,7 +50,7 @@ from pathlib import Path, PurePosixPath
 from typing import IO, Any
 
 from scripts import ledger
-from scripts.factory import lens_pytest
+from scripts.factory import lens_pytest, review_cloud
 
 REPOSITORY = ledger.REPOSITORY
 CRASHED = 1  # an uncaught error (beside the ledger's 0 ok, 2 bad input, 3 refused)
@@ -59,7 +60,9 @@ ALLOWLIST = "tools/leakscan/allowlist.txt"
 MESSAGES = "web/src/messages/"
 SMALL_LINES = 150
 MAX_SLOTS = 4
-LENS_TIMEOUT = 45 * 60
+LENS_TIMEOUT = 45 * 60  # seconds; VEXTRUS_REVIEW_LENS_TIMEOUT overrides it
+TIMEOUT_ENV = "VEXTRUS_REVIEW_LENS_TIMEOUT"
+GRACE = ((signal.SIGINT, 10.0), (signal.SIGTERM, 5.0))  # a lens past its cap: then SIGKILL
 REPLAY_TIMEOUT = 20 * 60
 GIT_TIMEOUT = 10 * 60
 COLOUR = ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "PYTEST_ADDOPTS")
@@ -136,6 +139,55 @@ REVIEW_SCHEMA: dict[str, Any] = {
     },
     "required": ["verdict", "head", "findings", "report"],
 }
+JUDGED_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "file": {"type": "string", "description": "the finding's file, as given"},
+        "line": {"type": "integer", "minimum": 0, "description": "the finding's line, as given"},
+        "score": {"type": "integer", "minimum": 0, "maximum": 100},
+        "summary": {"type": "string"},
+        "verdict": {"enum": ["CONFIRMED", "REFUTED", "UNPROVEN"]},
+        "evidence": {"type": "string", "description": "what you ran or read, in public words"},
+    },
+    "required": ["file", "line", "score", "summary", "verdict", "evidence"],
+}
+REFUTER_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {"findings": {"type": "array", "items": JUDGED_SCHEMA}},
+    "required": ["findings"],
+}
+KINDS: dict[str, Callable[[Any], bool]] = {
+    "object": lambda value: isinstance(value, dict),
+    "array": lambda value: isinstance(value, list),
+    "string": lambda value: isinstance(value, str),
+    "integer": lambda value: isinstance(value, int) and not isinstance(value, bool),
+    "boolean": lambda value: isinstance(value, bool),
+    "null": lambda value: value is None,
+}
+
+
+def conforms(value: Any, schema: dict[str, Any]) -> bool:
+    """True when `value` meets `schema`, in the subset of JSON Schema the review's schemas use
+    (`type`, `enum`, `minimum`, `maximum`, `properties`, `required`, `items`)."""
+    kinds = schema.get("type")
+    kinds = [kinds] if isinstance(kinds, str) else kinds
+    if kinds is not None and not any(KINDS[kind](value) for kind in kinds):
+        return False
+    if "enum" in schema and value not in schema["enum"]:
+        return False
+    if KINDS["integer"](value) and not (
+        schema.get("minimum", value) <= value <= schema.get("maximum", value)
+    ):
+        return False
+    if isinstance(value, dict):
+        if any(key not in value for key in schema.get("required", ())):
+            return False
+        properties = schema.get("properties", {})
+        if any(key in value and not conforms(value[key], sub) for key, sub in properties.items()):
+            return False
+    if isinstance(value, list) and "items" in schema:
+        return all(conforms(item, schema["items"]) for item in value)
+    return True
 
 
 class Refused(Exception):
@@ -164,27 +216,59 @@ class Lens:
     model: str
     task: str
     writes: bool = True  # False: a read-only lens (its agent file disallows Edit and Write)
+    max_turns: int = 150
+    max_budget_usd: float = 10.0
 
 
+# The owner's model map (Q1, 5 Oct 2026): lens A (depth) Opus 5.5 at high effort; lens B (the
+# adversary), the words lens and the refuter Sonnet 5.5 at high effort. The turn and dollar caps are
+# first guesses, not yet measured against review-cost.jsonl.
+OPUS = "claude-opus-5-5"
+SONNET = "claude-sonnet-5-5"
+EFFORT = "high"
 LENS_A = Lens(
     "lens-a",
     "pr-reviewer",
-    "opus",
+    OPUS,
     "Review it in your six passes. Focus on the trust boundary the PR changes.",
+    max_turns=200,
+    max_budget_usd=25.0,
 )
 LENS_B = Lens(
     "lens-b",
     "pr-reviewer",
-    "sonnet",
+    SONNET,
     "You are the adversary lens: find the failing scenario a user meets with this change and prove it "
     "with a test you write in this worktree. Ignore style; report only what breaks.",
 )
 WORDS = Lens(
     "words",
     "ux-critic",
-    "sonnet",
+    SONNET,
     f"The words-only design gate on the changed {MESSAGES}** words, against CONTEXT.md.",
     writes=False,
+    max_turns=60,
+    max_budget_usd=4.0,
+)
+REFUTER = Lens(
+    "refuter",
+    "refuter",
+    SONNET,
+    "Try to prove each claim below false.",
+    writes=False,
+    max_turns=150,
+    max_budget_usd=10.0,
+)
+# An adversary on a PR that changes the guard attacks it through its input, never by running the
+# commands it is meant to stop (session 14: an adversary that executed candidates stalled).
+GUARD_PATHS = ".claude/hooks/"
+GUARD_ATTACK = (
+    "This PR changes the guard (.claude/hooks/). Attack it only by feeding PreToolUse event JSON "
+    '(`{"tool_name": "Bash", "tool_input": {"command": ...}, "cwd": ...}`) on stdin to '
+    ".claude/hooks/guard.mjs from inside an attack test and asserting its decision, or by adding rows "
+    "in the shape of the guard's own test rows (.claude/hooks/guard.test.mjs, "
+    ".claude/hooks/tests/acceptance/). Never execute a candidate command yourself: the guard's "
+    "decision on it is the finding."
 )
 
 
@@ -223,7 +307,9 @@ class Run:
     tier: str | None = None
     slot: int | None = None
     verdict: str | None = None
+    paths: list[str] = field(default_factory=list)  # the changed paths
     lenses: list[dict[str, Any]] = field(default_factory=list)
+    launched: list[str] = field(default_factory=list)  # --where cloud: the review branches
     findings: list[Finding] = field(default_factory=list)
 
     def cost(self) -> float:
@@ -502,6 +588,11 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] |
             "the way the module it tests is marked.",
             "Never push, commit or post anything. Public words only.",
             lens.task,
+            *(
+                [GUARD_ATTACK]
+                if lens.writes and any(path.startswith(GUARD_PATHS) for path in run.paths)
+                else []
+            ),
             "For each finding scored 50 or more, write a failing test that proves it, only under",
             f"review_attacks/{lens.label}/ in this worktree (other lenses write beside you); give it",
             "as `repro` (test_file relative to this worktree, the command, expect_fail true); repro",
@@ -549,7 +640,8 @@ def lens_settings(main: Path) -> dict[str, Any]:
     }
 
 
-def lens_command(lens: Lens, main: Path) -> list[str]:
+def lens_command(lens: Lens, main: Path, schema: dict[str, Any] = REVIEW_SCHEMA) -> list[str]:
+    """The lens's `claude -p` argv: the map's model and effort, capped in turns and dollars."""
     return [
         "claude",
         "-p",
@@ -564,11 +656,15 @@ def lens_command(lens: Lens, main: Path) -> list[str]:
         "--model",
         lens.model,
         "--effort",
-        "high",
+        EFFORT,
+        "--max-turns",
+        str(lens.max_turns),
+        "--max-budget-usd",
+        f"{lens.max_budget_usd:.2f}",
         "--output-format",
         "json",
         "--json-schema",
-        json.dumps(REVIEW_SCHEMA, separators=(",", ":")),
+        json.dumps(schema, separators=(",", ":")),
         "--allowedTools",
         ",".join(tool for tool in ALLOWED_TOOLS if lens.writes or not tool.startswith(WRITERS)),
         "--disallowedTools",
@@ -585,13 +681,65 @@ def lens_env(slot: int) -> dict[str, str]:
     return env
 
 
-def run_lens(lens: Lens, prompt: str, rv: Path, slot: int, keep: Path, main: Path) -> dict[str, Any]:
-    """One lens process; its result object (the A0 probe's shape), kept under `keep`."""
-    command = lens_command(lens, main)
+def lens_timeout() -> int:
+    """The wall-clock cap of one lens process, in seconds (`VEXTRUS_REVIEW_LENS_TIMEOUT`)."""
+    raw = os.environ.get(TIMEOUT_ENV, "")
+    if not raw:
+        return LENS_TIMEOUT
+    if not re.fullmatch(r"[1-9][0-9]{0,5}", raw):
+        raise BadInput(f"{TIMEOUT_ENV} is a whole number of seconds, 1 or more")
+    return int(raw)
+
+
+def capped(
+    argv: list[str], *, cwd: Path, env: dict[str, str], prompt: str, timeout: float
+) -> subprocess.CompletedProcess[str] | None:
+    """`argv` in its own process group, given `timeout` seconds; past it the group gets SIGINT, then
+    SIGTERM, then SIGKILL, and None is returned (a lens's tools die with it)."""
+    process = subprocess.Popen(
+        argv,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        errors="surrogateescape",
+        start_new_session=True,
+    )
     try:
-        done = _run(command, cwd=rv, env=lens_env(slot), input=prompt, timeout=LENS_TIMEOUT)
-    except subprocess.TimeoutExpired as error:
-        raise Refused(f"{lens.label} ran past {LENS_TIMEOUT // 60} minutes") from error
+        out, err = process.communicate(prompt, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        for sent, grace in GRACE:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(process.pid, sent)
+            try:
+                process.communicate(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(process.pid, signal.SIGKILL)  # whatever of the group is left
+        process.communicate()
+        return None
+    return subprocess.CompletedProcess(argv, process.returncode, out, err)
+
+
+def run_lens(
+    lens: Lens,
+    prompt: str,
+    rv: Path,
+    slot: int,
+    keep: Path,
+    main: Path,
+    schema: dict[str, Any] = REVIEW_SCHEMA,
+) -> dict[str, Any]:
+    """One lens process, capped; its result object (the A0 probe's shape), kept under `keep`."""
+    command = lens_command(lens, main, schema)
+    cap = lens_timeout()
+    done = capped(command, cwd=rv, env=lens_env(slot), prompt=prompt, timeout=cap)
+    if done is None:
+        raise Refused(f"{lens.label} ran past its cap of {cap} seconds and was killed")
     keep.parent.mkdir(parents=True, exist_ok=True)
     keep.write_text(done.stdout)
     try:
@@ -603,37 +751,21 @@ def run_lens(lens: Lens, prompt: str, rv: Path, slot: int, keep: Path, main: Pat
     return result
 
 
-def _int(value: Any) -> bool:
-    return isinstance(value, int) and not isinstance(value, bool)
-
-
 def read_review(lens: Lens, result: dict[str, Any], head: str) -> dict[str, Any]:
     """The lens's `structured_output`, checked against the REVIEW schema and the PR's head."""
     out = result.get("structured_output")
-    if not isinstance(out, dict) or out.get("verdict") not in ("PASS", "FIX", "BLOCK"):
+    if "structured_output" not in result:
+        raise Refused(f"{lens.label} gave no structured answer: run the round again")
+    if not conforms(out, REVIEW_SCHEMA):
         raise Refused(f"{lens.label} gave no answer in the review schema: run the round again")
-    if out.get("head") != head:
+    assert isinstance(out, dict)
+    if out["head"] != head:
         raise Refused(f"{lens.label} reviewed another head than {head}: nothing recorded")
-    findings = out.get("findings")
-    if not isinstance(findings, list):
-        raise Refused(f"{lens.label}'s findings are not a list")
-    for item in findings:
-        repro = item.get("repro") if isinstance(item, dict) else None
-        if not (
-            isinstance(item, dict)
-            and _int(item.get("score"))
-            and 0 <= item["score"] <= 100
-            and isinstance(item.get("file"), str)
-            and _int(item.get("line"))
-            and isinstance(item.get("summary"), str)
-            and (repro is None or (isinstance(repro, dict) and isinstance(repro.get("test_file"), str)))
-        ):
-            raise Refused(f"{lens.label} gave a finding outside the review schema")
     return out
 
 
-def replay_target(rv: Path, test_file: str) -> str | None:
-    """The repro's test file as a safe relative path inside `rv`, or None."""
+def plain_test_path(test_file: str) -> PurePosixPath | None:
+    """A repro's test file name as a plain relative `.py` path, or None."""
     pure = PurePosixPath(test_file)
     if (
         not test_file
@@ -643,6 +775,14 @@ def replay_target(rv: Path, test_file: str) -> str | None:
         or pure.suffix != ".py"
         or not PLAIN_PATH.fullmatch(test_file)
     ):
+        return None
+    return pure
+
+
+def replay_target(rv: Path, test_file: str) -> str | None:
+    """The repro's test file as a safe relative path inside `rv`, or None."""
+    pure = plain_test_path(test_file)
+    if pure is None:
         return None
     path = (rv / pure).resolve()
     if not path.is_relative_to(rv.resolve()) or not path.is_file():
@@ -721,10 +861,16 @@ def parse(argv: list[str]) -> argparse.Namespace:
     run.add_argument("--round", type=int, required=True)
     run.add_argument("--exception")
     run.add_argument("--reason")
+    run.add_argument("--where", choices=("local", "cloud"), default="local")
+    fix = commands.add_parser("fix-message", add_help=False)
+    fix.add_argument("pr")
+    fix.add_argument("--from-verdict", action="store_true")
     args = top.parse_args(argv)
     if not re.fullmatch(r"[1-9][0-9]{0,6}", args.pr):
         raise BadInput("the PR is its number (the head is read from the PR, never typed)")
     args.pr = int(args.pr)
+    if args.command == "fix-message" and not args.from_verdict:
+        raise BadInput("fix-message is built from the recorded review: pass --from-verdict")
     return args
 
 
@@ -734,16 +880,23 @@ def ledger_call(argv: list[str], ledger_dir: Path) -> int:
         return ledger.main(argv, ledger_dir=ledger_dir)
 
 
+def findings_file(decisions: Path, pr: int, head: str) -> Path:
+    """The recorded round's findings (file, line, score, summary, status): what `fix-message` reads."""
+    return decisions / f"{pr}-{head}.findings.json"
+
+
 def record(
     run: Run, args: argparse.Namespace, ledger_dir: Path, verdicts: list[str], decisions: Path
 ) -> None:
-    """Write the decision lines and have the ledger decide and record them."""
+    """Write the decision lines and the findings, and have the ledger decide and record them."""
     assert run.head is not None
     lines = [f"VERDICT: {verdict} at {run.head}" for verdict in verdicts]
     lines += [f"FINDING {item.id} {item.score} {item.word}" for item in run.findings]
     decisions.mkdir(parents=True, exist_ok=True)
     source = decisions / f"{run.pr}-{run.head[:12]}-r{run.round_}.txt"
     source.write_text("".join(f"{line}\n" for line in lines))
+    kept = [item.view() for item in run.findings]
+    findings_file(decisions, run.pr, run.head).write_text(json.dumps(kept, indent=1) + "\n")
     exception = [] if args.exception is None else ["--exception", args.exception]
     reason = [] if args.reason is None else ["--reason", args.reason]
     argv = ["record", str(run.pr), "--round", str(run.round_), "--head", run.head, "--from", str(source)]
@@ -762,6 +915,7 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
     ledger_dir = factory / "ledger"
     ledger.check_exception(run.round_, args.exception, args.reason)
     ledger.check_round(ledger_dir, run.pr, run.round_, args.exception)
+    lens_timeout()  # a malformed cap is bad input before anything starts
     run.head = resolve(run.pr)
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
@@ -769,13 +923,17 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
         run.merged, run.base = merged_head(main, run.pr, run.head)
         rows, allowlist_added = changes(main, run.merged, run.base)
         bases = merge_bases(main, run.head, run.base)
+    run.paths = [path for path, _, _ in rows]
     run.tier = tier(rows, allowlist_added, bases=bases)
     if run.tier in ("allowlist-only", "docs-only"):
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
         return
     lenses = [LENS_B] if run.tier == "small" else [LENS_A, LENS_B]
-    if any(path.startswith(MESSAGES) for path, _, _ in rows):
+    if any(path.startswith(MESSAGES) for path in run.paths):
         lenses.append(WORDS)
+    if getattr(args, "where", "local") == "cloud":
+        hand_off(run, lenses, main, review_dir / "cloud")
+        return
     run.slot, claim = claim_slot(review_dir)
     with claim:
         slot = review_dir / f"slot{run.slot}"
@@ -798,6 +956,7 @@ def review(run: Run, args: argparse.Namespace, main: Path) -> None:
                     )
                 )
         confirm(run, rv)
+        refute(run, rv, slot, main)
         if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
             # The PR's tests and the lens's ran here unsandboxed: a record nobody recorded is forged.
             raise Refused(
@@ -824,16 +983,93 @@ def write_facts(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
     return diff, log
 
 
+# ---------------------------------------------------------------------------------------------- reruns
+
+ATTACK_BYTES = 512 * 1024  # an attack test kept for a rerun is at most this long
+
+
+def finished_path(out: Path, run: Run, lens: Lens) -> Path:
+    assert run.head is not None
+    return out / f"{run.pr}-{run.head}-r{run.round_}-{lens.label}.done.json"
+
+
+def load_finished(out: Path, run: Run, lens: Lens) -> dict[str, Any] | None:
+    """A lens's answer from an earlier run of this round, for this head on the same main, by the same
+    agent and model, still in the review schema; else None (the lens runs again)."""
+    try:
+        saved = json.loads(finished_path(out, run, lens).read_text())
+    except OSError, ValueError:
+        return None
+    if not (
+        isinstance(saved, dict)
+        and [saved.get(key) for key in ("head", "base", "agent", "model")]
+        == [run.head, run.base, lens.agent, lens.model]
+        and conforms(saved.get("review"), REVIEW_SCHEMA)
+        and saved["review"]["head"] == run.head
+        and isinstance(saved.get("attacks"), dict)
+    ):
+        return None
+    return saved
+
+
+def save_finished(out: Path, run: Run, lens: Lens, answer: dict[str, Any], rv: Path) -> None:
+    """Keep a finished lens's answer and its attack tests (a rerun's clean worktree has lost them)."""
+    attacks: dict[str, str] = {}
+    for item in answer["findings"]:
+        repro = item.get("repro")
+        target = replay_target(rv, repro["test_file"]) if isinstance(repro, dict) else None
+        if target is not None and (rv / target).stat().st_size <= ATTACK_BYTES:
+            attacks[target] = (rv / target).read_text(errors="surrogateescape")
+    saved = {
+        "head": run.head,
+        "base": run.base,
+        "agent": lens.agent,
+        "model": lens.model,
+        "review": answer,
+        "attacks": attacks,
+    }
+    finished_path(out, run, lens).write_text(json.dumps(saved))
+
+
+def restore_attacks(rv: Path, attacks: dict[str, Any]) -> None:
+    """Write a reused lens's attack tests back into `rv`, each only at a plain path inside it."""
+    inside = rv.resolve()
+    for name, text in attacks.items():
+        pure = plain_test_path(name) if isinstance(name, str) else None
+        if pure is None or not isinstance(text, str):
+            continue
+        target = rv / pure
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_symlink() or not target.parent.resolve().is_relative_to(inside):
+            continue
+        target.write_text(text, errors="surrogateescape")
+
+
+# ---------------------------------------------------------------------------------------------- lenses
+
+
 def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) -> list[dict[str, Any]]:
-    """Every lens, in parallel; each result's cost is kept even when another lens fails."""
+    """Every lens, in parallel; a lens already finished for this head and round is not started again
+    (its saved answer is used). Each result's cost is kept even when another lens fails."""
     assert run.head is not None
     assert run.slot is not None
     n, head = run.slot, run.head
     out = main / ".private" / "work" / "factory" / "review" / "out"
     stem = f"{run.pr}-{head[:12]}-r{run.round_}"
     facts = write_facts(main, run, out / stem)
+    finished = {
+        lens.label: saved for lens in lenses if (saved := load_finished(out, run, lens)) is not None
+    }
+    for saved in finished.values():
+        restore_attacks(rv, saved["attacks"])
 
     def one(lens: Lens) -> dict[str, Any]:
+        if lens.label in finished:
+            run.lenses.append(
+                {"label": lens.label, "agent": lens.agent, "model": lens.model, "reused": True}
+            )
+            answer: dict[str, Any] = finished[lens.label]["review"]
+            return answer
         keep = out / f"{stem}-{lens.label}.json"
         result = run_lens(lens, brief(run, lens, rv, slot, facts), rv, n, keep, main)
         run.lenses.append(
@@ -846,19 +1082,25 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
                 "usage": result.get("usage"),
             }
         )
-        return read_review(lens, result, head)
+        answer = read_review(lens, result, head)
+        save_finished(out, run, lens, answer, rv)
+        return answer
 
     with ThreadPoolExecutor(max_workers=len(lenses)) as pool:
         futures = [pool.submit(one, lens) for lens in lenses]
         errors = [future.exception() for future in futures]
     for error in errors:
-        if error is not None:
+        if error is not None and not isinstance(error, Refused):
             raise error
+    refused = [str(error) for error in errors if error is not None]
+    if refused:
+        raise Refused("; ".join(refused) + " (lenses that finished are kept for a rerun)")
     return [future.result() for future in futures]
 
 
 def confirm(run: Run, rv: Path) -> None:
-    """Replay each finding of 50 or more by its test; what no test confirms stands as UNPROVEN."""
+    """Replay each finding of 50 or more by its test; what no test confirms is UNPROVEN until the
+    refuter judges it."""
     assert run.merged is not None
     assert run.slot is not None
     serious = [item for item in run.findings if item.score >= 50]
@@ -882,16 +1124,174 @@ def confirm(run: Run, rv: Path) -> None:
             item.word, item.method = "UNPROVEN", None
 
 
-def fix_message(run: Run) -> str:
-    standing = sorted(
-        (item for item in run.findings if item.word != "REFUTED" and item.score >= 50),
-        key=lambda item: (-item.score, item.id),
+def refuter_brief(run: Run, rv: Path, slot: Path, claims: list[Finding]) -> str:
+    """The batched refuter's prompt: the PR, the worktree, and each claim it is to judge (no other)."""
+    assert run.head is not None
+    listed = [
+        json.dumps({"file": c.file, "line": c.line, "score": c.score, "summary": c.summary})
+        for c in claims
+    ]
+    return "\n".join(
+        [
+            f"PR {run.pr}, head {run.head}, review round {run.round_}.",
+            f"Your working directory {rv} holds the PR merged with main;",
+            f"a read-only copy of the same commit is at {slot}.",
+            f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{run.slot}.",
+            "Run tests only with exactly",
+            f"`{LENS_TEST} [options] <test files>` (it waits its turn for the database). Its options,",
+            f"and no others: {lens_pytest.options_text()}.",
+            "Never push, commit or post anything. Public words only.",
+            f"{REFUTER.task} Each is a finding a reviewer scored 50 or more that no test of",
+            "its own has proved. For each, run the narrowest proof you can and read the code.",
+            "",
+            *listed,
+            "",
+            "Your answer is the JSON the schema asks for: one item per claim, with its file, line,",
+            "score and summary exactly as given above, your verdict (CONFIRMED: you reproduced it;",
+            "REFUTED: you proved it false; UNPROVEN: neither) and your evidence.",
+        ]
     )
+
+
+def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
+    """One batched refuter judges every finding of 50 or more that replay did not confirm; its verdict
+    per finding (matched by file and line) is the one recorded. A refuter that fails, runs past its
+    cap or answers outside its schema refutes nothing: each of those findings stays UNPROVEN."""
+    assert run.head is not None
+    assert run.slot is not None
+    claims = [item for item in run.findings if item.score >= 50 and item.word != "CONFIRMED"]
+    if not claims:
+        return
+    out = main / ".private" / "work" / "factory" / "review" / "out"
+    keep = out / f"{run.pr}-{run.head[:12]}-r{run.round_}-refuter.json"
+    prompt = refuter_brief(run, rv, slot, claims)
+    entry: dict[str, Any] = {"label": REFUTER.label, "agent": REFUTER.agent, "model": REFUTER.model}
+    run.lenses.append(entry)
+    try:
+        result = run_lens(REFUTER, prompt, rv, run.slot, keep, main, REFUTER_SCHEMA)
+    except Refused as error:
+        entry["refused"] = str(error)
+        print(f"review: {error}: it refutes nothing", file=sys.stderr)
+        return
+    entry.update(
+        {
+            "total_cost_usd": result.get("total_cost_usd"),
+            "duration_ms": result.get("duration_ms"),
+            "usage": result.get("usage"),
+        }
+    )
+    answer = result.get("structured_output")
+    if not isinstance(answer, dict) or not conforms(answer, REFUTER_SCHEMA):
+        entry["refused"] = "the refuter answered outside its schema"
+        print("review: the refuter answered outside its schema: it refutes nothing", file=sys.stderr)
+        return
+    judged: dict[str, set[str]] = {}
+    for verdict in answer["findings"]:
+        matches = [c for c in claims if (c.file, c.line) == (verdict["file"], verdict["line"])]
+        if len(matches) > 1:
+            matches = [c for c in matches if c.summary == verdict["summary"]]
+        if len(matches) == 1:
+            judged.setdefault(matches[0].id, set()).add(verdict["verdict"])
+    for claim in claims:
+        words = judged.get(claim.id, set())
+        if len(words) == 1:  # two verdicts that disagree leave the finding UNPROVEN
+            claim.word, claim.method = words.pop(), "refuter"
+
+
+# ---------------------------------------------------------------------------------------------- cloud
+
+
+def hand_off(run: Run, lenses: list[Lens], main: Path, records: Path) -> None:
+    """`--where cloud`: one cloud reviewer per lens, on the map's model, each launched by
+    `scripts.factory.review_cloud` (a fresh review branch holding the head, its review file, and
+    `uv run python -m scripts.factory.launch cloud --role reviewer` from the main checkout). Nothing
+    is recorded here: each reviewer answers later on its branch."""
+    assert run.head is not None
+
+    def push(argv: list[str]) -> int:
+        return _run(argv, cwd=main, timeout=GIT_TIMEOUT).returncode
+
+    def launch(argv: list[str], _prompt: str) -> int:
+        done = subprocess.run(argv, cwd=main, check=False, stdout=sys.stderr)
+        if done.returncode == 0:
+            run.launched.append(argv[argv.index("--branch") + 1])
+        return done.returncode
+
+    failed = []
+    for lens in lenses:
+        task = lens.task
+        if lens.writes and any(path.startswith(GUARD_PATHS) for path in run.paths):
+            task = f"{task} {GUARD_ATTACK}"
+        argv = ["--pr", str(run.pr), "--head", run.head, "--agent", "pr-reviewer"]
+        argv += ["--model", lens.model, "--task", task]
+        with contextlib.redirect_stdout(sys.stderr):
+            code = review_cloud.run(argv, push=push, launch=launch, records_dir=records)
+        run.lenses.append(
+            {"label": lens.label, "agent": lens.agent, "model": lens.model, "where": "cloud"}
+        )
+        if code != 0:
+            failed.append(lens.label)
+    if failed:
+        raise Refused(f"the cloud launch of {', '.join(failed)} failed; nothing recorded")
+
+
+# ------------------------------------------------------------------------------------------ fix message
+
+
+def fix_text(pr: int, head: str | None, standing: list[dict[str, Any]]) -> str:
+    """One line per standing finding (`file:line`, score, summary), the highest score first."""
     if not standing:
         return ""
-    lines = [f"Fix round for PR {run.pr} at {run.head}:"]
-    lines += [f"- {item.file}:{item.line} ({item.score}): {item.summary}" for item in standing]
+    ordered = sorted(standing, key=lambda item: (-int(item["score"]), str(item["id"])))
+    lines = [f"Fix round for PR {pr} at {head}:"]
+    lines += [f"- {i['file']}:{i['line']} ({i['score']}): {i['summary']}" for i in ordered]
     return "\n".join(lines)
+
+
+def standing(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The findings of 50 or more the review kept: CONFIRMED or UNPROVEN, never REFUTED."""
+    return [v for v in views if v["score"] >= 50 and v["status"] in ("CONFIRMED", "UNPROVEN")]
+
+
+def fix_message(run: Run) -> str:
+    return fix_text(run.pr, run.head, standing([item.view() for item in run.findings]))
+
+
+def from_verdict(pr: int, main: Path) -> str:
+    """The fix message of the PR's latest recorded round, from its kept findings; refused when the PR
+    has no recorded review."""
+    factory = main / ".private" / "work" / "factory"
+    latest: tuple[int, str, str] | None = None
+    for path in (factory / "ledger").glob(f"{pr}-*.json"):
+        found = re.fullmatch(rf"{pr}-([0-9a-f]{{40}})\.json", path.name)
+        if found is None:
+            continue
+        try:
+            loaded = json.loads(path.read_text())
+        except OSError, ValueError:
+            continue
+        if not isinstance(loaded, dict) or loaded.get("pr") not in (None, pr):
+            continue
+        key = (int(loaded.get("round") or 0), str(loaded.get("recorded_at") or ""), found[1])
+        latest = key if latest is None or key > latest else latest
+    if latest is None:
+        raise Refused(f"PR {pr} has no recorded review: run `review run {pr}` first")
+    head = latest[2]
+    try:
+        views = json.loads(findings_file(factory / "verdicts", pr, head).read_text())
+    except (OSError, ValueError) as error:
+        raise Refused(f"PR {pr} at {head} was recorded without its findings kept") from error
+    if not isinstance(views, list) or not all(
+        isinstance(view, dict)
+        and KINDS["integer"](view.get("score"))
+        and {"id", "file", "line", "summary", "status"} <= set(view)
+        for view in views
+    ):
+        raise Refused(f"the findings kept for PR {pr} at {head} cannot be read")
+    return fix_text(pr, head, standing(views))
+
+
+# ---------------------------------------------------------------------------------------------- main
 
 
 def summary(run: Run, code: int, why: str | None) -> dict[str, Any]:
@@ -908,6 +1308,7 @@ def summary(run: Run, code: int, why: str | None) -> dict[str, Any]:
         "findings": [item.view() for item in sorted(run.findings, key=lambda i: (-i.score, i.id))],
         "fix_message": fix_message(run),
         "lenses": run.lenses,
+        "launched": run.launched,
         "total_cost_usd": run.cost(),
     }
 
@@ -920,12 +1321,29 @@ def append_cost(main: Path, line: dict[str, Any]) -> None:
         out.write(json.dumps(line, separators=(",", ":")) + "\n")
 
 
+def fix_main(args: argparse.Namespace) -> int:
+    """`fix-message <PR> --from-verdict`: the message on stdout, exit 0; else the ledger's codes."""
+    try:
+        text = from_verdict(args.pr, main_checkout())
+    except BadInput as error:
+        print(f"review: {error}", file=sys.stderr)
+        return ledger.BAD
+    except Refused as error:
+        print(f"review: refused: {error}", file=sys.stderr)
+        return ledger.REFUSED
+    if text:
+        print(text)
+    return ledger.OK
+
+
 def main(argv: list[str] | None = None) -> int:
     run = Run(pr=0, round_=0)
     code, why = ledger.OK, None
     home: Path | None = None
     try:
         args = parse(sys.argv[1:] if argv is None else argv)
+        if args.command == "fix-message":
+            return fix_main(args)
         run.pr, run.round_ = args.pr, args.round
         home = main_checkout()
         review(run, args, home)
