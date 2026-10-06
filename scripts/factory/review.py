@@ -1609,12 +1609,23 @@ def hand_off(
         return _run(argv, cwd=main, timeout=GIT_TIMEOUT).returncode
 
     started: dict[str, str] = {}
+    current: dict[str, Any] = {}  # "entry": the hand-off entry of the lens being launched
 
     def launch(argv: list[str], _prompt: str) -> int:
+        # Written before the launcher runs: a stop while it runs (the session may already exist)
+        # leaves an `unconfirmed` launch, which a rerun treats as launched and collect reads.
+        branch = argv[argv.index("--branch") + 1]
+        review_file = argv[argv.index("--review-file") + 1]
+        pending = {"branch": branch, "review_file": review_file, "unconfirmed": True}
+        entry = current["entry"]
+        entry["launches"] = [*entry["launches"], pending]
+        save()
         done = subprocess.run(argv, cwd=main, check=False, stdout=sys.stderr)
         if done.returncode == 0:
-            started["branch"] = argv[argv.index("--branch") + 1]
-            started["review_file"] = argv[argv.index("--review-file") + 1]
+            del pending["unconfirmed"]
+            started.update(branch=branch, review_file=review_file)
+        else:  # the launcher refused it: no session
+            entry["launches"] = [one for one in entry["launches"] if one is not pending]
         return done.returncode
 
     save()
@@ -1630,8 +1641,10 @@ def hand_off(
             run.lenses.append({**about, "where": "cloud", "reused": True})
             continue
         if launches and lens.label not in relaunch:  # launched before: never twice unless named
+            note = f"{lens.label}: launched, no verdict; relaunch with --relaunch {lens.label}"
+            print(f"review: {note}", file=sys.stderr)
             run.launched.append(launches[-1]["branch"])
-            run.lenses.append({**about, "where": "cloud", "reused": True})
+            run.lenses.append({**about, "where": "cloud", "reused": True, "note": note})
             continue
         task = lens.task
         if lens.writes and any(path.startswith(GUARD_PATHS) for path in run.paths):
@@ -1639,6 +1652,7 @@ def hand_off(
         argv = ["--pr", str(run.pr), "--head", run.head, "--agent", "pr-reviewer"]
         argv += ["--model", lens.model, "--task", task]
         started.clear()
+        current["entry"] = entry
         entry.update(state="launching", count=entry["count"] + 1)
         save()
         code: int | None = None
@@ -1647,12 +1661,15 @@ def hand_off(
                 code = review_cloud.run(argv, push=push, launch=launch, records_dir=records)
         finally:  # a launch that returned, raised or was stopped: kept before anything else
             if started:
-                entry["launches"] = [*launches, dict(started)]
                 run.launched.append(started["branch"])
-            entry["state"] = "launched" if code == 0 and started else "failed"
+            unconfirmed = any(one.get("unconfirmed") for one in entry["launches"][len(launches) :])
+            if code == 0 and started:
+                entry["state"] = "launched"
+            else:
+                entry["state"] = "unconfirmed" if unconfirmed else "failed"
             save()
         run.lenses.append({**about, "where": "cloud", "launch": entry["count"]})
-        if entry["state"] == "failed":
+        if entry["state"] != "launched":
             failed.append(lens.label)
     if failed:
         raise Refused(
@@ -1677,22 +1694,37 @@ def write_handoff(path: Path, manifest: dict[str, Any]) -> None:
         os.replace(temporary, path)
 
 
-def launches_of(entry: dict[str, Any]) -> list[dict[str, str]]:
-    """A hand-off entry's launches, oldest first (an entry of the older shape holds one inline)."""
+def relaunch_advice(run: Run, dead: list[str]) -> str:
+    """What to run when lenses have not answered: a lens with no launch is launched by a plain rerun;
+    one launched whose session died only when named with `--relaunch <lens>`."""
+    named = "".join(f" --relaunch {name}" for name in dead)
+    command = f"review run {run.pr} --round {run.round_} --where cloud{named}"
+    if dead:
+        return f"if {', '.join(dead)} died, launch again with `{command}`"
+    return f"launch the missing lenses with `{command}`"
+
+
+def launches_of(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    """A hand-off entry's launches, oldest first (an entry of the older shape holds one inline); an
+    `unconfirmed` one was written before its launcher ran and never heard back from it."""
     raw = entry.get("launches")
     if raw is None and entry.get("branch") and entry.get("review_file"):
         raw = [{"branch": entry["branch"], "review_file": entry["review_file"]}]
     if not isinstance(raw, list):
         return []
     return [
-        {"branch": str(item["branch"]), "review_file": str(item["review_file"])}
+        {
+            "branch": str(item["branch"]),
+            "review_file": str(item["review_file"]),
+            **({"unconfirmed": True} if item.get("unconfirmed") else {}),
+        }
         for item in raw
         if isinstance(item, dict) and item.get("branch") and item.get("review_file")
     ]
 
 
 def newest_verdict(
-    main: Path, run: Run, label: str, launches: list[dict[str, str]], why: list[str] | None = None
+    main: Path, run: Run, label: str, launches: list[dict[str, Any]], why: list[str] | None = None
 ) -> tuple[str, dict[str, Any], str] | None:
     """The newest of a lens's launches whose verdict file the ledger's reader accepts, or None; each
     rejection's reason goes to `why`."""
@@ -1769,6 +1801,7 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     entries = {str(entry.get("label")): entry for entry in manifest["lenses"]}
     answers: list[tuple[str, dict[str, Any], str]] = []
     missing: list[str] = []
+    dead: list[str] = []  # launched, no accepted verdict: relaunched only when named
     for name in required:
         launches = launches_of(entries.get(name, {}))
         if not launches:
@@ -1777,13 +1810,14 @@ def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
         why: list[str] = []
         newest = newest_verdict(main, run, name, launches, why)
         if newest is None:
+            dead.append(name)
             missing.append(f"{name}: no accepted verdict ({'; '.join(why)})")
         else:
             answers.append(newest)
     if missing:
         raise Refused(
-            f"not every lens has answered, nothing recorded ({' | '.join(missing)}); a lens whose "
-            "session died is launched again by running the round again with --where cloud"
+            f"not every lens has answered, nothing recorded ({' | '.join(missing)}); "
+            + relaunch_advice(run, dead)
         )
     for number, (label, found, _) in enumerate(answers, start=1):
         run.lenses.append({"label": label, "where": "cloud", "verdict": found["verdict"]})
