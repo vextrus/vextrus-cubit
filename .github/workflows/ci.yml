@@ -107,7 +107,7 @@ jobs:
       - name: Workflow check (only main's not-applicable workflow may post those two statuses)
         run: python3 -m tools.lint.workflows
       - name: Every node test under .claude/, scripts/ and the factory mod (quoted globs; Node 24 runs a directory argument as a file)
-        run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs' 'tools/mod/vextrus-factory/tests/*.test.mjs' 'tools/mod/vextrus-factory/tests/acceptance/ts14u1/*.test.mjs'
+        run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs' 'tools/mod/**/*.test.mjs'
       - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)
         run: python3 -m tools.lint.ci_shards
       - name: Root-only check (a test that removes permissions with chmod carries the root skipif guard)
