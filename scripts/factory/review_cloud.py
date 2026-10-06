@@ -1,6 +1,6 @@
 """`python -m scripts.factory.review_cloud --pr <n> --head <sha> --agent pr-reviewer|refuter
-[--claim-file <f> --claim-n <n>]`: launch a cloud reviewer or refuter on a fresh review branch
-(docs/specs/factory.md 2.2 "Launch, cloud review";
+[--claim-file <f> --claim-n <n>] [--model <id>] [--task <text>]`: launch a cloud reviewer or refuter
+on a fresh review branch (docs/specs/factory.md 2.2 "Launch, cloud review";
 `docs/specs/factory/contracts/review-verdict.schema.json`, `launch-cli.md` 2).
 
 It makes a 128-bit nonce, pushes the PR's head to `refs/heads/review/<pr>-<nonce8>`, writes the
@@ -43,6 +43,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--agent", choices=sorted(ROLES), required=True)
     parser.add_argument("--claim-file", type=Path)
     parser.add_argument("--claim-n", type=int)
+    parser.add_argument("--model")  # the lens's model (scripts.factory.review's map); else launch's
+    parser.add_argument("--task")  # the lens's task, one paragraph, for a reviewer
     args = parser.parse_args(argv)
     if args.pr < 1 or not SHA.fullmatch(args.head):
         raise ValueError("--pr is 1 or more and --head a full 40-hex sha")
@@ -51,6 +53,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
         raise ValueError("a refuter takes --claim-file and --claim-n; a reviewer neither")
     if refuter and args.claim_n < 1:
         raise ValueError("--claim-n counts from 1")
+    if refuter and args.task is not None:
+        raise ValueError("--task is a reviewer's; a refuter's task is its claim")
     return args
 
 
@@ -73,6 +77,7 @@ def prompt_for(args: argparse.Namespace, nonce: str, branch: str, claim: str | N
         lines += [
             f"Follow `.claude/agents/pr-reviewer.md` in its cloud mode: review PR {pr} at head {head}.",
             "Run the full Python and web suites on this VM. Findings in public words only.",
+            *([] if args.task is None else [args.task]),
         ]
         agent, verdicts = "pr-reviewer", "PASS, FIX or BLOCK"
     else:
@@ -131,6 +136,7 @@ def run(argv: list[str], *, push: Push, launch: Launch, records_dir: Path) -> in
         "--effort", "high",
         "--role", ROLES[args.agent],
         "--review-file", str(review_file),
+        *([] if args.model is None else ["--model", args.model]),
     ]  # fmt: skip
     if launch(command, prompt) != 0:
         print(f"review_cloud: refused: the launch of {branch} failed", file=sys.stderr)

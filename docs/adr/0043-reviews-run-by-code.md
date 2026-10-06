@@ -7,7 +7,7 @@ The spec is `docs/specs/factory.md` §3.8.
 ## Decision
 1. **One command reviews a PR:** `uv run python -m scripts.factory.review run <PR> --round <n>` (from the main checkout, in
    the background). It reads the head from the PR, claims a slot, picks the tier, runs the lenses, replays the
-   findings and writes the ledger record. The orchestrator no longer runs a review by hand.
+   findings and writes the ledger record. The orchestrator no longer runs a review by hand. Its siblings are `collect` (one decision from the cloud reviewers' verdicts) and `fix-message` (the builder's fix message from the latest recorded round).
 2. **Tiers are allowlists** (`scripts/factory/review_tiers.toml`). A path nobody listed is `normal`. A PR whose
    only change is hash lines added to the leak-scan allowlist is allowlist-only, and a PR whose every changed
    path is a plain-text file on the `docs_only` list (`docs/knowledge/lessons.md`, `docs/notes/**`,

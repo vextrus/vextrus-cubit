@@ -34,13 +34,22 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   time (`posting`, `scored` or `no-post`), queued visibly.
 
 ## 5. Review
-- `uv run python -m scripts.factory.review run <PR> --round <n> [--exception <kind> --reason "<text>"]`
-  from the main checkout, with the Bash tool's `run_in_background`: one review round by code (the head
-  from the PR, a claimed slot, the tier, the lenses, the replays, the ledger record); it prints one JSON
-  object and appends a line to `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing
-  recorded (its `refused` field says why).
-  An allowlist-only PR and a docs-only PR (`review_tiers.toml` `docs_only`) get no model and pass by code checks (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3
-  retires it; the ledger holds the verdict.
+- `uv run python -m scripts.factory.review run <PR> --round <n> [--exception <kind> --reason "<text>"]
+  [--where cloud]` from the main checkout, with the Bash tool's `run_in_background`: one review round by
+  code (the head from the PR, a claimed slot, the tier, the lenses, the replays, one batched refuter,
+  the ledger record); it prints one JSON object and appends a line to
+  `.private/work/factory/review-cost.jsonl`. Exit 3: refused, nothing recorded (its `refused` field says
+  why: a lens past its cap or outside its schema is named); run the round again: every lens starts
+  again, fresh (no answer is reused). `--where cloud` launches one cloud reviewer per lens and records nothing; when every
+  reviewer has pushed its verdict, `uv run python -m scripts.factory.review collect <PR> --round <n>`
+  records ONE decision from all of them (refused, nothing recorded, while any lens is missing); a
+  lens with no launch (its launch failed or was cut off) is launched by running the round again with
+  `--where cloud`; a lens whose session died is launched again only when named, `--relaunch <lens>`
+  (a lens with an accepted verdict is kept; `collect` takes each lens's newest).
+- `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
+  latest recorded round (one line per standing finding), for the builder's fix round.
+  An allowlist-only PR and a docs-only PR (`review_tiers.toml` `docs_only`) get no model and pass by code
+  checks (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3 retires it; the ledger holds the verdict.
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS
