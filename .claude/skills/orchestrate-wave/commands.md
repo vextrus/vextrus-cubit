@@ -29,7 +29,7 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`: prints the text to send
   with SendMessage when the builder is alive, and runs the resume itself when it is `stopped` or `failed`
   with no `pid`. Never type `claude --bg --resume` by hand: the guard refuses it.
-- A cloud builder is messaged through `uv run python -m scripts.factory.launch say --ticket <ticket> --file <f>`.
+- A cloud builder is messaged through `uv run python -m scripts.factory.launch say <session-id> --ticket <ticket> --file <f>`.
 
 ## 4. Watch
 - `uv run python -m scripts.factory.watch ensure`: starts the watcher when its pidfile is stale; then Monitor
