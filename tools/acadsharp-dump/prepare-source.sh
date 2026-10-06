@@ -19,7 +19,7 @@
 #   manifest     the commit's files are not the ones the lock pins (below)
 #   patch-hash   a patch file is not the one the lock pins by sha256
 #   patch-path   a patch touches a path that is absolute, holds `..`, lies outside src/ACadSharp/,
-#                or makes a link or a submodule
+#                renames or copies a file, or makes a link or a submodule
 #   patch-apply  a patch does not apply cleanly (git apply --check)
 # and --dest is left absent or empty.
 #
@@ -201,25 +201,23 @@ done
 
 # -- 3. the patches' paths, as git itself reads them, then a check that each applies ------------
 for i in "${!patch_names[@]}"; do
+  # The summary first: a rename or copy is refused whatever its two names (the pinned patch only
+  # edits files in place), so every record numstat gives below is one file edited where it is.
+  summary=$(gitin ACadSharp apply --summary "$work/patch-$i" 2> /dev/null) ||
+    refuse patch-apply "${patch_names[$i]} cannot be read as a patch"
+  case $'\n'"$summary" in
+    *$'\n rename '* | *$'\n copy '*) refuse patch-path "${patch_names[$i]} renames or copies a file" ;;
+    *" mode 120000 "* | *" mode 160000 "*) refuse patch-path "${patch_names[$i]} makes a link or a submodule" ;;
+  esac
   gitin ACadSharp apply --numstat -z "$work/patch-$i" > "$work/tmp/numstat" 2> /dev/null ||
     refuse patch-apply "${patch_names[$i]} cannot be read as a patch"
   paths=0
   while IFS= read -r -d '' record; do
     path=${record#*$'\t'}; path=${path#*$'\t'}
-    if [ -z "$path" ]; then  # a rename or copy: the two names follow
-      IFS= read -r -d '' from || refuse patch-path "${patch_names[$i]} names a rename it does not finish"
-      IFS= read -r -d '' path || refuse patch-path "${patch_names[$i]} names a rename it does not finish"
-      inside_library "$from" || refuse patch-path "${patch_names[$i]} touches a path outside $LIBRARY"
-    fi
     inside_library "$path" || refuse patch-path "${patch_names[$i]} touches a path outside $LIBRARY"
     paths=$((paths + 1))
   done < "$work/tmp/numstat"
   [ "$paths" -gt 0 ] || refuse patch-path "${patch_names[$i]} touches no file"
-  summary=$(gitin ACadSharp apply --summary "$work/patch-$i" 2> /dev/null) ||
-    refuse patch-apply "${patch_names[$i]} cannot be read as a patch"
-  case "$summary" in
-    *" mode 120000 "* | *" mode 160000 "*) refuse patch-path "${patch_names[$i]} makes a link or a submodule" ;;
-  esac
   gitin ACadSharp apply --check "$work/patch-$i" 2> /dev/null ||
     refuse patch-apply "${patch_names[$i]} does not apply to ACadSharp at ${commit[ACadSharp]}"
   # Applied to the work tree only, never to the index, so a later patch is checked against the

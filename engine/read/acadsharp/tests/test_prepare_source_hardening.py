@@ -9,16 +9,22 @@ arguments shapes what it writes.
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from engine.read.acadsharp.tests.acceptance.w317.test_prepare_source import (
     ACADSHARP_FILES,
     CSUTILITIES_FILES,
+    HEADER,
     PATCHED_CS,
     PATCHED_PATH,
     SCRIPT,
     Origins,
     dest,  # noqa: F401 (a fixture)
     files_under,
+    nothing_left,
     origins,  # noqa: F401 (a fixture)
+    origins_untouched,
+    refused,
 )
 
 
@@ -103,3 +109,40 @@ def test_a_refused_fetch_prints_one_line(
     lines = done.stderr.splitlines()
     assert len(lines) == 1, lines
     assert lines[0].startswith("prepare-source: refused: fetch: ACadSharp: ")
+
+
+def moving_patch(verb: str, source: str, target: str) -> str:
+    """A patch that renames or copies `source` to `target` whole: git apply's numstat names only
+    the new name, so only the summary shows where it came from."""
+    return (
+        f"{HEADER}diff --git a/{source} b/{target}\n"
+        "similarity index 100%\n"
+        f"{verb} from {source}\n"
+        f"{verb} to {target}\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("verb", "source", "target"),
+    [
+        ("rename", "LICENSE", "src/ACadSharp/LICENSE"),  # the licence leaves the tree
+        ("rename", "src/ACadSharp.Tests/GaugeTests.cs", "src/ACadSharp/GaugeTests.cs"),  # compiled in
+        ("copy", "src/ACadSharp.Tests/GaugeTests.cs", "src/ACadSharp/GaugeTests.cs"),
+        ("rename", "src/ACadSharp/Things/Plinth.cs", "src/ACadSharp/IO/Plinth.cs"),  # inside, still
+    ],
+    ids=["licence-in", "tests-in", "copy-in", "inside"],
+)
+def test_a_patch_that_renames_or_copies_a_file_is_refused(
+    origins: Origins,  # noqa: F811
+    dest: Path,  # noqa: F811
+    verb: str,
+    source: str,
+    target: str,
+) -> None:
+    # The pinned patch only edits files in place; a rename or copy is refused whatever its two
+    # names, so the check never has to read which name a record holds.
+    done = origins.run(origins.lock(moving_patch(verb, source, target)), dest)
+
+    refused(done, "patch-path")
+    nothing_left(dest, origins)
+    origins_untouched(origins)
