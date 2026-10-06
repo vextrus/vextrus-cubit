@@ -1197,7 +1197,9 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         with locked(review_dir / ".git.lock"):
             prepare(main, slot, run.merged, clean=True)
             prepare(main, rv, run.merged, clean=True)
-        before, mark = ledger_snapshot(ledger_dir), journal_mark(ledger_dir)
+        # The journal's mark first: a record another run writes between the two is in both.
+        mark = journal_mark(ledger_dir)
+        before = ledger_snapshot(ledger_dir)
         try:  # the PR's code runs from here on: the ledger check runs on every exit
             reviews = lenses_in(run, lenses, rv, slot, main)
             confirm_and_refute(run, rv, slot, main, reviews)
@@ -1229,15 +1231,25 @@ def journaled_since(ledger_dir: Path, mark: int) -> set[str]:
         return set()
 
 
+LEDGER_TEMPORARY = re.compile(r"\.record-.*\.tmp")  # write_once's name before its link
+
+
 def ledger_snapshot(ledger_dir: Path) -> dict[str, str]:
-    """Every file under the ledger folder but the quarantine: its name and sha256."""
+    """Every file under the ledger folder but the quarantine and the ledger's own temporary files:
+    its name and sha256 (a file gone between the listing and the read is left out)."""
     if not ledger_dir.is_dir():
         return {}
-    return {
-        path.relative_to(ledger_dir).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-        for path in sorted(ledger_dir.rglob("*"))
-        if path.is_file() and path.relative_to(ledger_dir).parts[0] != QUARANTINE
-    }
+    found: dict[str, str] = {}
+    for path in sorted(ledger_dir.rglob("*")):
+        name = path.relative_to(ledger_dir)
+        if name.parts[0] == QUARANTINE or LEDGER_TEMPORARY.fullmatch(path.name):
+            continue
+        try:
+            if path.is_file():
+                found[name.as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+        except FileNotFoundError:
+            continue
+    return found
 
 
 def check_ledger(
