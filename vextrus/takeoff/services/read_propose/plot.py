@@ -49,6 +49,7 @@ from engine.read.pdf.types import Page
 from engine.recognise.types import Box, PlotMatch, SheetCandidate, SheetLocation, Sourced, ValueSource
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services as drawings
+from vextrus.drawings.messages import reports
 from vextrus.platform.services import auth, jobs, storage
 
 KEPT_BUFFERS = 4
@@ -92,7 +93,7 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
     matched = _keep(
         listed, candidates, found, full, pdfs, set(paths), file_id if view.format == "dwg" else None
     )
-    _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in paths])
+    _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in paths], listed, candidates, pdfs)
     return {"pages": len(found), "matched": matched}
 
 
@@ -264,17 +265,40 @@ def _covering(sheet: drawings.SheetView, pdfs: Sequence[drawings.FileView]) -> l
     return sorted(mine, key=lambda p: (p.discipline is None, _added(p)))
 
 
-def _keep_reasons(found: Sequence[PlotMatch], tried: Sequence[drawings.FileView]) -> None:
-    """Each tried PDF's pages that matched no sheet, as its report's lines (18's reason, the page)."""
+def _keep_reasons(
+    found: Sequence[PlotMatch],
+    tried: Sequence[drawings.FileView],
+    listed: Sequence[drawings.SheetView],
+    candidates: Sequence[SheetCandidate],
+    pdfs: Sequence[drawings.FileView],
+) -> None:
+    """Each tried PDF's pages that were not matched, as its report's lines: a page that matched no
+    sheet gives 18's reason, a page that names a sheet another page of the PDF names more surely
+    (`_surest`) says which page is used, so matched pages and lines add up to the PDF's pages."""
+    by_candidate = {id(c): s for c, s in zip(candidates, listed, strict=True)}
+    by_sha = {pdf.sha256: pdf for pdf in pdfs}
+    surest = _surest(found, by_candidate, by_sha)
     for pdf in tried:
         lines: list[Message] = []
-        for m in found:
+        for k, m in enumerate(found):
             page = m.page
-            if getattr(page, "source_sha256", None) != pdf.sha256 or m.sheet is not None:
+            if getattr(page, "source_sha256", None) != pdf.sha256:
                 continue
-            code = plot_codes.REASONS.get(m.reason or "")
-            if code is not None:
-                lines.append(code(page=getattr(page, "number", 0)))
+            if m.sheet is None:
+                code = plot_codes.REASONS.get(m.reason or "")
+                if code is not None:
+                    lines.append(code(page=getattr(page, "number", 0)))
+                continue
+            sheet = by_candidate.get(id(m.sheet))
+            used = surest.get((sheet.id, pdf.id)) if sheet is not None else None
+            if sheet is not None and used is not None and used != k:
+                lines.append(
+                    reports.PAGES_SAME_SHEET(
+                        first_page=getattr(page, "number", 0),
+                        used_page=getattr(found[used].page, "number", 0),
+                        sheet=sheet.number or "",
+                    )
+                )
         drawings.record_page_reasons(pdf.id, lines)
 
 
