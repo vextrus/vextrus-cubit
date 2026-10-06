@@ -86,7 +86,7 @@ test("each tab has its own rows; empty ones say so", () => {
 })
 
 const SHA = "b".repeat(40)
-const reviewRow = (round, verdicts) => view(status([item({ ticket: "t9", state: "ready", pr: 12 })], { reviews: [{ pr: 12, round, head: SHA }] }), null, verdicts).tabs.Reviews[0]
+const reviewRow = (round, verdicts, builder = {}) => view(status([item({ ticket: "t9", state: "ready", pr: 12, head: SHA, ...builder })], { reviews: [{ pr: 12, round, head: SHA }] }), null, verdicts).tabs.Reviews[0]
 
 test("a review row's next action follows the ledger's verdict and the round", () => {
   const rows = {
@@ -121,4 +121,23 @@ test("through the mod: the Reviews tab reads each listed review's ledger record,
   assert.match(text, /^ {2}#251 · round 2 · \? · ddddddd .* next: verdict not recorded$/m)
   assert.deepEqual(w.forbidden(), [])
   assert.ok(new Set(w.factoryReads().filter((p) => p.includes("/ledger/"))).size <= 2, "only the listed reviews' records are read")
+})
+
+test("a fix pushed after the record: the next action follows the builder's new head, not the old verdict", () => {
+  const fix = { [`12-${SHA}`]: "FIX" }
+  const NEW = "e".repeat(40)
+  assert.match(reviewRow(1, fix, { head: NEW, state: "ready" }), /FIX · bbbbbbb · t9 · next: review round 2 at eeeeeeeeeeee$/)
+  assert.match(reviewRow(2, fix, { head: NEW, state: "ready" }), /next: review round 3 at eeeeeeeeeeee$/)
+  for (const state of ["working", "quiet", "blocked"]) assert.match(reviewRow(1, fix, { head: NEW, state }), /next: fix round 1 in progress$/, state)
+  assert.match(reviewRow(2, fix, { head: NEW, state: "working" }), /next: fix round 2 in progress$/)
+  // the heads match: the verdict's own action stands, whatever the builder's state
+  assert.match(reviewRow(1, fix, { head: SHA, state: "ready" }), /next: fix round 1$/)
+  assert.match(reviewRow(1, fix, { head: SHA, state: "working" }), /next: fix round 1$/)
+  // no known builder head (local builder, null, off-form): the verdict's action stands
+  for (const head of [null, "xyz", 7]) assert.match(reviewRow(1, fix, { head, state: "ready" }), /next: fix round 1$/, String(head))
+  // the Builders tab and the Reviews tab agree on the moved head
+  const s = status([item({ ticket: "t9", state: "ready", pr: 12, head: NEW })], { reviews: [{ pr: 12, round: 1, head: SHA }] })
+  const v = view(s, null, fix)
+  assert.match(v.tabs.Builders[0], /^ready · t9 .* next: review its head$/)
+  assert.match(v.tabs.Reviews[0], /next: review round 2 at /)
 })

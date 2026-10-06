@@ -86,6 +86,7 @@ export const verdictKey = (pr, head) => `${pr}-${head}`
 // What the orchestrator does next, from the newest recorded round's verdict (watch.py lists a PR
 // only from a record that has one, and not once a PASS covers its head): PASS lands; FIX sends the
 // builder a fix round (rounds 1 and 2), and a FIX at the cap is re-submitted; BLOCK is the owner's.
+// It holds while the builder's head is the head the record reviewed (reviewMoved otherwise).
 function reviewNext(verdict, round) {
   if (verdict === "PASS") return "land it"
   if (verdict === "FIX") return round >= 1 && round <= 2 ? `fix round ${round}` : "re-submit"
@@ -93,17 +94,30 @@ function reviewNext(verdict, round) {
   return "verdict not recorded"
 }
 
+// The same, once the builder's PR head is no longer the head the record reviewed: its fix is pushed.
+// READY on the new head: the next review round; not READY yet: the fix round is under way.
+function reviewMoved(round, builder) {
+  return builder.state === "ready" ? `review round ${round + 1} at ${builder.head.slice(0, 12)}` : `fix round ${round} in progress`
+}
+
 function reviewRows(status, cost, verdicts) {
   const byPr = new Map()
-  for (const b of items(status)) if (prOf(b.pr) !== null) byPr.set(b.pr, ticketOf(b.ticket))
+  for (const b of items(status)) {
+    if (prOf(b.pr) === null) continue
+    const head = typeof b.head === "string" && /^[0-9a-f]{40}$/.test(b.head) ? b.head : null
+    byPr.set(b.pr, { ticket: ticketOf(b.ticket), head, state: stateOf(b.state) })
+  }
   const held = isObj(verdicts) ? verdicts : {}
   const rows = (Array.isArray(status.reviews) ? status.reviews.filter(isObj) : []).map((r) => {
     const sha = typeof r.head === "string" && /^[0-9a-f]{40}$/.test(r.head)
     const found = sha ? held[verdictKey(r.pr, r.head)] : undefined
     const verdict = VERDICTS.includes(found) ? found : null
-    const who = byPr.has(r.pr) ? ` · ${byPr.get(r.pr)}` : ""
+    const builder = byPr.get(r.pr)
+    const who = builder === undefined ? "" : ` · ${builder.ticket}`
     const round = isCount(r.round) ? r.round : 0
-    return `#${isCount(r.pr) ? r.pr : "?"} · round ${round || "?"} · ${verdict ?? "?"}${sha ? ` · ${r.head.slice(0, 7)}` : ""}${who} · next: ${reviewNext(verdict, round)}`
+    const moved = sha && round >= 1 && builder !== undefined && builder.head !== null && builder.head !== r.head
+    const next = moved ? reviewMoved(round, builder) : reviewNext(verdict, round)
+    return `#${isCount(r.pr) ? r.pr : "?"} · round ${round || "?"} · ${verdict ?? "?"}${sha ? ` · ${r.head.slice(0, 7)}` : ""}${who} · next: ${next}`
   })
   if (rows.length === 0) rows.push("no review recorded")
   rows.push(typeof cost === "number" ? `last review cost $${cost.toFixed(2)}` : "last review cost unknown")
