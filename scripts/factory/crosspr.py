@@ -244,8 +244,7 @@ def check_pr(
         ]
         if mine.timed_out:
             return f"crosspr: #{number} and {branch}: {mine.timed_out}", notes, unrun, status
-        new = mine.failed_ids - theirs.failed_ids
-        if new or (mine.failed and not mine.failed_ids and not theirs.failed):
+        if mine.broke_beyond(theirs):
             said = f"crosspr: #{number} and {branch} break each other: tests failed on their union "
             said += f"({', '.join(changed)}); output in .private/work/crosspr/pr-{number}.txt\n"
             return said + tail(mine.output), notes, unrun, status
@@ -263,6 +262,8 @@ class Tests:
         self.tree, self.kept, self.name = tree, kept, name
         self.failed = False
         self.failed_ids: set[str] = set()
+        self.pytest_exit: int | None = None
+        self.counts = {"failed": 0, "error": 0}
         self.output = ""
         self.timed_out = ""
         self.node_unrun = False
@@ -272,7 +273,7 @@ class Tests:
         pytests = [p for p in changed if TEST_FILE.search(p) and (self.tree / p).is_file()]
         nodes = [p for p in changed if NODE_TEST.search(p) and (self.tree / p).is_file()]
         if pytests:
-            argv = [sys.executable, "-m", "pytest", "-rf", "-q", "-p", "no:cacheprovider", *pytests]
+            argv = [sys.executable, "-m", "pytest", "-rfE", "-q", "-p", "no:cacheprovider", *pytests]
             self.collect(argv, self.name, "Python", pytests, ok=(0, 5))
         if nodes and shutil.which("node") is None:
             self.notes.append("node not run: node is absent")
@@ -291,6 +292,11 @@ class Tests:
             return
         output = ran.stdout + ran.stderr
         (self.kept / f"{name}.txt").write_text(output)
+        if kind == "Python":
+            self.pytest_exit = ran.returncode
+            for word in self.counts:
+                found = re.search(rf"(\d+) {word}s?\b", output.splitlines()[-1] if output else "")
+                self.counts[word] = int(found[1]) if found else 0
         if ran.returncode == 5:
             self.notes.append("no Python test ran (none collected or all deselected)")
         elif ran.returncode in ok:
@@ -303,7 +309,21 @@ class Tests:
             ids = set(PYTEST_ID.findall(output)) if kind == "Python" else set()
             self.failed_ids |= ids
             if kind == "node":
-                self.failed_ids |= {f"node:{f}" for f in files if f in output}
+                named = {f"node:{f}" for f in files if f in output}
+                self.failed_ids |= named or {"node:no-file-named"}
+
+    def broke_beyond(self, base: Tests) -> bool:
+        """Did this run break something the baseline run (main + the PR alone) did not? New failing ids,
+        an exit other than 0, 1 or 5 the baseline did not share, more failed or error counts, or a
+        failure naming nothing when the baseline had none."""
+        odd = self.pytest_exit not in (None, 0, 1, 5) and self.pytest_exit != base.pytest_exit
+        worse = any(self.counts[word] > base.counts[word] for word in self.counts)
+        return (
+            bool(self.failed_ids - base.failed_ids)
+            or odd
+            or worse
+            or (self.failed and not self.failed_ids and not base.failed)
+        )
 
 
 def summary(statuses: dict[int, str], unrun: list[str]) -> str:
