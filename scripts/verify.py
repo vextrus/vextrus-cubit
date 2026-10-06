@@ -7,7 +7,9 @@ exactly the tree `git write-tree` names, which the next commit will carry. It ma
 (staged against HEAD, plus the commits since the merge base with `origin/main`) to checks, runs them one
 after another in the foreground, keeps each one's output under `.private/work/verify/<tree>/`, and
 writes `<git-common-dir>/vextrus/verify-<tree>.json` (the guard's READY push gate reads it). Only when
-every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer.
+every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer. First
+it leak-scans `<merge-base>..<the staged tree>` (never stamped; #412) where a corpus is present: a hit
+names its locations, writes no record and exits 1, so a local builder learns of it before READY.
 
 A check that fails only on tests listed in `.github/flaky.txt` (`<repo path> :: <test title>` per line)
 is run once more; if that passes it is recorded `exit_code` 0 with `raw_exit_code` and `flakes`.
@@ -34,6 +36,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+
+from scripts.factory import leakwhere
 
 PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
@@ -237,6 +241,100 @@ def changed_paths() -> list[str]:
     return sorted({*staged, *since} - {""})
 
 
+def _leakscan_env(root: Path) -> dict[str, str] | None:
+    """The environment for the real scanner (`python -m tools.leakscan`): this checkout's, else the
+    tree holding verify; None when neither has one. Verify's record gates READY, so no environment
+    variable chooses the scanner (`VEXTRUS_LEAKSCAN_CMD` is the watcher's read-only seam alone)."""
+    own = Path(__file__).resolve().parents[1]
+    trees = [tree for tree in (root, own) if (tree / "tools" / "leakscan" / "__main__.py").is_file()]
+    if not trees:
+        return None
+    paths = [str(trees[0]), *filter(None, os.environ.get("PYTHONPATH", "").split(os.pathsep))]
+    return {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}
+
+
+def remedy(root: Path, sha: str, staged: str) -> str:
+    """What clears a hit in this commit: a pushed commit is never rewritten (the guard refuses force
+    pushes) and every commit of the range is scanned, so a new commit never clears one."""
+    if sha == staged:
+        return "the hit is in the staged changes, not committed: replace it before you commit"
+    if leakwhere.is_pushed(root, sha):
+        return (
+            f"the hit is in commit {sha[:12]} (already pushed): start a fresh branch from main with the "
+            "work squashed into new commits containing no hit, and push that branch; the orchestrator "
+            "closes the old PR"
+        )
+    return (
+        f"the hit is in local commit {sha[:12]}, not pushed: amend or soft-reset that commit (allowed "
+        "for unpushed commits) so no commit holds it"
+    )
+
+
+def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
+    """The range `<merge-base with origin/main>..<the staged tree>` leak-scanned, never stamped (#412):
+    (refused, lines). The staged tree is scanned as a commit on HEAD (`git commit-tree`, an unreferenced
+    object), so the READY commit's own additions are in the range. A hit refuses, naming locations and
+    counts only; with no scanner, no origin/main or no corpus (a cloud session) it is a note."""
+    env = _leakscan_env(root)
+    argv = [sys.executable, "-m", "tools.leakscan"]
+    if env is None:
+        return False, ["verify: leak scan not run: no tools/leakscan here"]
+    base = subprocess.run(
+        ["git", "merge-base", "origin/main", "HEAD"], capture_output=True, text=True, check=False
+    )
+    if base.returncode != 0:
+        return False, ["verify: leak scan not run: no merge base with origin/main"]
+    # A fixed identity: the object is never referenced, and a missing user.name must not let the
+    # staged tree go unscanned.
+    who = {"NAME": "verify", "EMAIL": "verify@example.invalid"}
+    identity = {
+        f"GIT_{role}_{key}": value for role in ("AUTHOR", "COMMITTER") for key, value in who.items()
+    }
+    staged = subprocess.run(
+        ["git", "commit-tree", tree, "-p", "HEAD", "-m", "verify: the staged tree"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, **identity},
+    )
+    if staged.returncode != 0:
+        return True, ["verify: refused: the staged tree cannot be made a commit to scan"]
+    span = f"{base.stdout.strip()}..{staged.stdout.strip()}"
+    done = subprocess.run(
+        [*argv, "range", span, "--no-stamp", "--json"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+    try:
+        report = json.loads(done.stdout.strip().splitlines()[-1])
+        summary = report["summary"]
+        hits = [(str(hit["where"]), int(hit["n"])) for hit in report["hits"]]
+    except IndexError, ValueError, KeyError, TypeError:
+        return True, [f"verify: refused: the leak scan's report is unreadable (exit {done.returncode})"]
+    status = summary.get("status")
+    if status == "skipped" or (status == "cannot-scan" and summary.get("reason") == "no-corpus"):
+        return False, ["verify: leak scan not run: no corpus here"]
+    if status == "cannot-scan":
+        return True, [f"verify: refused: the leak scan cannot scan ({summary.get('reason')})"]
+    if hits or done.returncode != 0:
+        # Each hit with the commit whose own added text the scanner matched (each commit alone), and
+        # that commit's remedy once.
+        head = staged.stdout.strip()
+        attributed = leakwhere.commit_hits(root, argv, base.stdout.strip(), head, env)
+        if not attributed:
+            lines = [f"verify: leak hit {where} {n}" for where, n in hits]
+        else:
+            lines = [f"verify: leak hit {sha[:12]} {where} {n}" for sha, where, n in attributed]
+            for sha in dict.fromkeys(sha for sha, _, _ in attributed):
+                lines.append(f"verify: {remedy(root, sha, head)}")
+        return True, [*lines, "verify: refused: no verify record written"]
+    return False, [f"verify: leak scan clean (hits=0 scanned={summary.get('scanned')})"]
+
+
 def run_command(check: Check) -> tuple[int, str]:
     done = subprocess.run(
         check.argv,
@@ -257,7 +355,12 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    run: Run = run_command,
+    leak: Callable[[Path, str], tuple[bool, list[str]]] = leak_scan,
+) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args:
         print("usage: python -m scripts.verify (on the staged tree)", file=sys.stderr)
@@ -272,12 +375,22 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
     root = Path(_git("rev-parse", "--show-toplevel"))
     tree = _git("write-tree")
     common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir"))
+    refused, said = leak(root, tree)
+    for line in said:
+        print(line, file=sys.stderr if refused else sys.stdout)
+    if refused:
+        return 1
     (root / WEB_SCHEMA).parent.mkdir(parents=True, exist_ok=True)
     checks, notes = plan_with_notes(changed_paths(), root=root)
     for note in notes:
         print(f"verify: {note}", file=sys.stderr)
     if not checks:
         checks = [Check("diff-check", ("git", "diff", "--cached", "--check", "HEAD"))]
+    # Not in plan(paths): it depends on the open PRs, not the changed paths. It checks the staged tree
+    # (what this commit carries) on the branch's tip; a detached HEAD is checked as `HEAD`.
+    branch = _git("branch", "--show-current") or "HEAD"
+    crosspr = (sys.executable, "-m", "scripts.factory.crosspr", branch, "--tree", tree)
+    checks.append(Check("crosspr", crosspr))
     outputs = Path(".private/work/verify") / tree
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
@@ -286,13 +399,16 @@ def main(argv: list[str] | None = None, *, run: Run = run_command) -> int:
     for check in checks:
         code, output = run(check)
         raw, flakes, root_only = code, [], []
+        # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
+        excusable = check.name != "crosspr"
         if (
             code != 0
+            and excusable
             and os.geteuid() == 0
             and (listed_root := root_only_in(code, output, root_entries)) is not None
         ):
             code, root_only = 0, listed_root
-        elif code != 0 and (listed := flakes_in(output, entries)) is not None:
+        elif code != 0 and excusable and (listed := flakes_in(output, entries)) is not None:
             again, rerun = run(check)
             output += f"\n--- rerun (flakes listed in {FLAKY}) ---\n{rerun}"
             if again == 0:

@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       web: ${{ steps.diff.outputs.web }}
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,10 +45,18 @@ jobs:
           # engine's renderer: the web's pixel checks compare the viewer with its rasters (122).
           touched=$(grep -E '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$|engine/render/)' <<< "$changed" || true)
           if [ -n "$touched" ]; then echo "web=true"; else echo "web=false"; fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's heavy jobs run only then; main's always do)
+        # Fails closed: a commit the gate cannot read fails the step, and so the roll-up. The runner sets
+        # GITHUB_EVENT_NAME; standard library only (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
 
   web:
     needs: changes
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:

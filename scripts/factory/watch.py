@@ -16,7 +16,10 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   clean merge of main on the head last seen READY stays READY), and on a cloud branch `python -m
   tools.leakscan range origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and
   messages; the scan's output is reduced to `file:line` and a count, its text is never kept. No scanner
-  (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm;
+  (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm. A hit on a cloud
+  head also sends that builder's session one message per set of hits, through `scripts.factory.launch
+  say` (which scans it and prefixes the elapsed time), naming each `file:line` and its commit with the
+  pushed-hit remedy, and writes a SAY event;
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -64,7 +67,7 @@ from typing import Any
 if not __package__:  # the script form, `python3 scripts/factory/watch.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.factory import governor, stamp, status
+from scripts.factory import governor, leakwhere, stamp, status
 from scripts.factory.trailers import Trailers
 from scripts.factory.trailers import read as read_trailers
 
@@ -78,7 +81,10 @@ ENSURE_WAIT_STEPS = 600
 ENSURE_WAIT_SECONDS = 0.05
 GIT_TIMEOUT = 120
 SCAN_TIMEOUT = 600
+SAY_TIMEOUT = 120
+SAY_PLACES = 10
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
+SESSION = re.compile(r"^session_[A-Za-z0-9]+$")
 REVIEW_BRANCH = re.compile(r"^review/(\d+)-[0-9a-f]{8}$")
 LOCK_KINDS = {"posting": "post", "post": "post", "scored": "scored", "no-post": "no-post"}
 BUILDER_ROW_STATES = {"working", "blocked", "done", "failed", "stopped"}
@@ -223,15 +229,100 @@ def leak_scan(head: str, main_sha: str | None) -> dict[str, Any]:
     hits: list[tuple[str, int]] = []
     word = "error"
     for line in done.stdout.splitlines():
-        match = re.fullmatch(r"HIT ([\w.:/@+-]{1,160}) (\d{1,6})", line.strip())
+        # Any location the scanner prints (a path may hold brackets, commas, ...); never a space.
+        match = re.fullmatch(r"HIT (\S{1,160}) (\d{1,6})", line.strip())
         if match:
             hits.append((match.group(1), int(match.group(2))))
         cannot = re.match(r"leakscan: cannot-scan ([a-z-]{1,40})\b", line.strip())
         if cannot:
             word = cannot.group(1)
     if done.returncode == 1 and hits:
-        return {"result": "hit", "where": hits[0][0], "n": sum(n for _, n in hits), "places": len(hits)}
+        # Each hit with the commit whose own added text the scanner matched (each commit scanned
+        # alone): the message names them, and the set of `<sha> <where>` keys it, so a later push that
+        # keeps the same hits (a fix in a new commit cannot clear a pushed one) says nothing again.
+        attributed = leakwhere.commit_hits(Path.cwd(), argv, "origin/main", head)
+        entries = (
+            [[sha[:12], where] for sha, where, _ in attributed]
+            + [["", where] for where, _ in hits if where == "ref"]
+            if attributed
+            else [["", where] for where, _ in hits]
+        )
+        return {
+            "result": "hit",
+            "where": hits[0][0],
+            "n": sum(n for _, n in hits),
+            "places": len(entries),
+            "found": entries[:SAY_PLACES],
+            "set": sorted(f"{sha} {where}" for sha, where in entries),
+        }
     return {"result": "cannot-scan", "where": f"cannot-scan:{word}", "n": 0}
+
+
+# --- the leak say (#461 B): a cloud builder hears of each hit set once, by location and commit only
+def leak_message(leak: dict[str, Any]) -> str:
+    """The pushed-hit remedy (session 13's re-submit-squashed rule): a pushed commit is never
+    rewritten (the guard refuses force pushes) and the range scan reads every commit, so no new commit
+    clears it."""
+    found = leak.get("found") or [["", leak["where"]]]
+    places = ", ".join(where + (f" (commit {sha})" if sha else "") for sha, where in found)
+    more = leak.get("places", 1) - len(found)
+    places += f" and {more} more" if more > 0 else ""
+    commits = sorted({sha for sha, _ in found if sha})
+    if len(commits) == 1:
+        where = f"The hit is in commit {commits[0]} (already pushed)"
+    elif commits:
+        where = f"The hits are in commits {', '.join(commits)} (already pushed)"
+    else:
+        where = "The hit is already pushed"
+    return (
+        f"LEAK-HIT on your branch: the leak scan found {leak['n']} hit(s) at {places}. {where}: "
+        "start a fresh branch from main with the work squashed into new commits containing no hit, "
+        "and push that branch; the orchestrator closes the old PR."
+    )
+
+
+WATCH_TREE = (
+    Path(__file__).resolve().parents[2]
+)  # the tree holding the watcher, the launcher, the scanner
+
+
+def launch_command() -> list[str]:
+    """The launcher in the watcher's own tree (in use, the main checkout), run with that tree's Python
+    (the watcher's own `python3` may be older than the launcher needs), else this interpreter."""
+    venv = WATCH_TREE / ".venv" / "bin" / "python"
+    return [str(venv) if venv.is_file() else sys.executable, "-m", "scripts.factory.launch"]
+
+
+def say_leak(step: Pass, ticket: str, record: dict[str, Any], head: str, leak: dict[str, Any]) -> None:
+    """One message to the builder's cloud session through the launcher, the only route to a cloud
+    builder (CLAUDE.md's Law): `scripts.factory.launch say <session> --ticket <t> --file <f>`, which
+    leak-scans it, prefixes `[elapsed n/m min]` from the launch record and reads the CLI's `{ok}`. The
+    message carries locations, counts and commits, never the scanned text."""
+    session = record.get("session_id")
+    if not isinstance(session, str) or not SESSION.match(session):
+        step.event("SAY", ticket, f"{head[:8]} leak not sent: no session id")
+        return
+    folder = step.folder / "leak-say"
+    folder.mkdir(parents=True, exist_ok=True)
+    message = folder / f"{public(ticket, 80).replace(' ', '_')}-{head[:12]}.txt"
+    message.write_text(leak_message(leak) + "\n")
+    argv = [*launch_command(), "say", session, "--ticket", ticket, "--file", str(message.resolve())]
+    try:
+        # From the watcher's own tree: `say` scans with that tree's real scanner (a gate takes no
+        # environment seam), wherever the watcher's checkout is.
+        done = subprocess.run(
+            argv,
+            cwd=WATCH_TREE,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=SAY_TIMEOUT,
+            check=False,
+        )
+        sent = done.returncode == 0
+    except status.RUN_ERRORS:
+        sent = False
+    step.event("SAY", ticket, f"{head[:8]} leak {'sent' if sent else 'not sent: launch say failed'}")
 
 
 # --- readings with a cadence
@@ -708,6 +799,12 @@ def track(
         if leak.get("places", 1) > 1:
             detail += f" ({leak['places']} places)"
         step.alarm(f"{ticket}|{head}", "LEAK-HIT", ticket, detail)
+        said = leak.get("set") or [leak["where"]]
+        if where == "cloud" and leak["result"] == "hit" and seen.get("leak_said") != said:
+            # Once per set of hits, sent or not (the alarm stays for the orchestrator): a later push
+            # whose range holds the same hits says nothing again.
+            seen["leak_said"] = said
+            say_leak(step, ticket, record, head, leak)
 
     return {
         "ticket": public(ticket, 80),

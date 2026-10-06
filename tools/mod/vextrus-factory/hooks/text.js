@@ -19,9 +19,10 @@ const REQUIRED = ["schema_version", "written_at", "watcher", "clock", "resources
 const GROUP = ["working", "ready", "blocked", "quiet", "done", "failed", "stopped"]
 const LOCK_KINDS = ["post", "scored", "no-post"]
 const G1_STATES = ["PASS", "FAIL", "RUNNING"]
-const ALARM_CODES = ["BUILDER-QUIET", "BUILDER-BLOCKED", "READY-NO-VERIFY", "READY-WAITING", "NEW-CLAUDE-BRANCH", "LEAK-HIT", "BUDGET-PASSED", "FLOOR-CROSSED", "REVIEW-READY", "JEV-MODEL-MOVED"]
+// Equal to status.schema.json's alarms[].code enum (a test pins it).
+export const ALARM_CODES = ["BUILDER-QUIET", "BUILDER-BLOCKED", "LOCAL-IDLE", "READY-NO-VERIFY", "READY-WAITING", "NEW-CLAUDE-BRANCH", "LEAK-HIT", "BUDGET-PASSED", "FLOOR-CROSSED", "REVIEW-READY", "JEV-MODEL-MOVED"]
 // A ticket name is the one free string the band prints: one line, at most 80 characters.
-const TICKET = /^[^\u0000-\u001f\u007f-\u009f\u2028\u2029]{1,80}$/
+export const TICKET = /^[^\u0000-\u001f\u007f-\u009f\u2028\u2029]{1,80}$/
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
 const isCount = (v) => Number.isInteger(v) && v >= 0
@@ -79,7 +80,7 @@ export function clockText(nowMs) {
   return `${two(d.getUTCHours())}:${two(d.getUTCMinutes())}Z`
 }
 
-const hm = (m) => `${Math.floor(m / 60)}h${two(m % 60)}`
+export const hm = (m) => `${Math.floor(m / 60)}h${two(m % 60)}`
 const gb = (v) => (v === null ? "?" : `${Math.round(v)}G`)
 const gb1 = (v) => (v === null ? "?" : `${v.toFixed(1)}G`)
 
@@ -136,7 +137,7 @@ export function segments(status, nowMs, ctx = null, schema = false, extra = {}) 
 
 // Belt and braces: whatever passed the checks, no segment carries a line break, a control character
 // or a bidi embedding, override or isolate (U+202A-202E, U+2066-2069), which could reorder the band.
-const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ")
+export const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ")
 
 export function bandText(status, nowMs, ctx = null, schema = false, extra = {}) {
   return segments(status, nowMs, ctx, schema, extra).map(oneLine).join(SEP)
