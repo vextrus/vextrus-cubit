@@ -1,6 +1,7 @@
 """The failures log keeps every failed or errored test's id and first error line
 (`vextrus.testing.failures`)."""
 
+import os
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -71,6 +72,9 @@ def test_a_second_run_appends(pytester: pytest.Pytester, monkeypatch: pytest.Mon
     assert len(run(pytester, monkeypatch)) == 6
 
 
+@pytest.mark.skipif(
+    os.geteuid() == 0, reason="root writes into a read-only folder (cloud sessions run as root)"
+)
 def test_a_log_that_cannot_be_written_is_said_once_and_every_test_still_runs(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:
