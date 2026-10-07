@@ -10,8 +10,12 @@ Running a PR's tests runs its code, so only a PR from one of this repository's o
 listed in `trusted-authors.txt` has its tests run; every other PR gets `merge-tree` only and the output
 says so. Python tests (test_*.py) and node tests (`*.test.mjs` under .claude/hooks, tools/mod and
 scripts/factory) run. The rule, with no subtraction: each PR's tests run first on main + the PR alone
-(the baseline). Only a fully clean baseline (every test passed; no failure, error, collection error or
-time-out, Python or node) lets the union run, where a failure or time-out refuses, naming both. Any
+(the baseline). The baseline's result is kept in the clone's git common dir under
+`vextrus/crosspr/`, keyed by (origin/main sha, PR head sha, node present, worker count, sorted
+test files); a second check with the same key runs no baseline, and any change is a miss. Only a
+fully clean baseline (every test passed; no failure, error, collection error or time-out, Python or
+node) lets the union
+run, where a failure or time-out refuses, naming both. Any
 other baseline skips the union: the PR is "#N not checked (its own tests are not green on main)",
 never `ok` and never a refusal, and the line says `not checked`. A PR that conflicts with main alone is
 `stale`, one whose tests were not run is `merge-only`; the line then names each PR's status. Web tests
@@ -20,6 +24,8 @@ do not run: when a union changes them the last line reads `Cross-PR: #51 web not
 tree (verify's staged tree) as a commit on the branch's tip instead of the tip itself.
 
 It only reads: no push, no mutating `gh` call, no change to the clone's branches, index or working tree.
+Pytest runs carry `-n <workers>`: `VEXTRUS_VERIFY_WORKERS` (0 or 1 = serial), else 4 in a cloud
+session and 6 elsewhere, never `auto`; `tools/lint/tests` runs in its own serial pytest.
 Every subprocess has a time limit (the process group is killed on expiry). Its output is kept under the
 clone's `.private/work/crosspr/`. Run it from a clone that has `origin` and `origin/main`. Exit codes:
 0 every check passed, 1 a conflict or test failure, 2 it could not run.
@@ -47,18 +53,23 @@ QUICK = 120
 TESTS = 900
 LINT_TESTS = "tools/lint/tests/"
 DEFAULT_WORKERS = 6
+CLOUD_WORKERS = 4
 
 
 def worker_count() -> int:
-    """pytest workers: `VEXTRUS_VERIFY_WORKERS` (0 or 1 = serial), else 6; never `auto`."""
+    """pytest workers: `VEXTRUS_VERIFY_WORKERS` (0 or 1 = serial), else 4 in a cloud session
+    (CLAUDE_CODE_REMOTE=true, verify's rule) and 6 elsewhere; never `auto`."""
     raw = os.environ.get("VEXTRUS_VERIFY_WORKERS", "").strip()
-    return int(raw) if raw.isdigit() else DEFAULT_WORKERS
+    if raw.isdigit():
+        return int(raw)
+    return CLOUD_WORKERS if os.environ.get("CLAUDE_CODE_REMOTE") == "true" else DEFAULT_WORKERS
 
 
-def baseline_cache_file(root: Path, key: list[str]) -> Path:
-    """The kept baseline for (origin/main sha, PR head sha, sorted test files): inside this clone."""
-    common = Path(git_out("rev-parse", "--git-common-dir"))
-    folder = (common if common.is_absolute() else root / common) / "vextrus" / "crosspr"
+def baseline_cache_file(key: list[str]) -> Path:
+    """The kept baseline for the key (origin/main sha, PR head sha, node present, worker count, sorted
+    test files): inside this clone's git common dir, whatever folder crosspr is run from."""
+    common = Path(git_out("rev-parse", "--path-format=absolute", "--git-common-dir"))
+    folder = common / "vextrus" / "crosspr"
     return folder / (hashlib.sha256("\n".join(key).encode()).hexdigest() + ".json")
 
 
@@ -245,16 +256,24 @@ def check_pr(
         if joined.returncode != 0:
             raise Refusal(f"#{number} merged into main alone failed: {joined.stderr.strip()}")
         baseline_tests = Tests(tree, kept, f"pr-{number}-main")
-        key = [git_out("rev-parse", "origin/main"), head, *baseline_tests.selection(changed)]
-        cache = baseline_cache_file(root, key)
+        key = [
+            git_out("rev-parse", "origin/main"),
+            head,
+            f"node={shutil.which('node') is not None}",
+            f"workers={worker_count()}",
+            *baseline_tests.selection(changed),
+        ]
+        cache = baseline_cache_file(key)
         try:
             green = bool(json.loads(cache.read_text())["green"])
-        except OSError, ValueError, KeyError, TypeError:
-            baseline = baseline_tests.run(changed)
-            green = baseline.green
-            if not baseline.timed_out:
-                cache.parent.mkdir(parents=True, exist_ok=True)
-                cache.write_text(json.dumps({"green": green}))
+        except OSError, ValueError, KeyError, TypeError, Refusal:
+            green = baseline_tests.run(changed).green
+            if not baseline_tests.timed_out:
+                try:
+                    cache.parent.mkdir(parents=True, exist_ok=True)
+                    cache.write_text(json.dumps({"green": green}))
+                except OSError:
+                    pass  # an unwritable cache is no cache
         if not green:
             notes.append(f"crosspr: #{number} not checked (its own tests are not green on main)")
             return None, notes, unrun, "not checked"
