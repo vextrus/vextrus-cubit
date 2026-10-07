@@ -5,7 +5,7 @@
  * yet received. Rows are 28 px; continuation sheets are one row. The list is a key region (Space opens
  * the focused sheet; the screen owns the keys); a click focuses a row, a double-click opens it.
  */
-import { forwardRef, type ReactNode } from 'react'
+import { createContext, forwardRef, useContext, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
 import { DrawingText, StatusMark, cn, isolateLtr } from '@/ui'
@@ -24,7 +24,16 @@ export interface SheetListProps {
   onFocusRow: (key: string) => void
   onOpenRow: (key: string) => void
   onPasteList: ((discipline: string) => void) | null
+  /** The rows selected with Shift ↑ ↓ or Shift-click (their keys), drawn selected; X excludes them together. */
+  selection?: ReadonlySet<string>
+  /** Shift-click: extend the selection to this row. */
+  onExtendTo?: (key: string) => void
+  /** A click without Shift: the selection ends. */
+  onClearSelection?: () => void
 }
+
+const NO_ROWS: ReadonlySet<string> = new Set()
+const SelectionContext = createContext<{ rows: ReadonlySet<string>; extendTo?: (key: string) => void; clear?: () => void }>({ rows: NO_ROWS })
 
 /**
  * 6.2's columns: mark, Number, Title, Discipline, Revision and date, Storeys, Views, State; the Storeys
@@ -39,130 +48,132 @@ const COLS = cn(
   '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_104px_150px]',
 )
 
-export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList }, ref) {
+export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList, selection = NO_ROWS, onExtendTo, onClearSelection }, ref) {
   const { t } = useLingui()
   const questions = model.queue.length
   const slots = stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))
   return (
-    <div ref={ref} className="@container text-sm">
-      <div role="row" className={cn(COLS, 'sticky top-0 z-10 h-7 border-b border-border bg-chrome px-3 text-xs text-muted-foreground')}>
-        <span role="columnheader" aria-label={t`State mark`} />
-        <span role="columnheader">
-          <Trans>Number</Trans>
-        </span>
-        <span role="columnheader">
-          <Trans>Title, as drawn</Trans>
-        </span>
-        <span role="columnheader">
-          <Trans>Discipline</Trans>
-        </span>
-        <span role="columnheader">
-          <Trans>Revision and date</Trans>
-        </span>
-        <StoreysHeader />
-        <span role="columnheader" className="text-end">
-          <Trans>Views</Trans>
-        </span>
-        <span role="columnheader" className={FILE_COLUMN}>
-          <Trans>File</Trans>
-        </span>
-        <span role="columnheader">
-          <Trans>State</Trans>
-        </span>
-      </div>
-
-      {model.needsYou.length > 0 ? (
-        <Section
-          tone="question"
-          heading={<Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />}
-          rows={model.needsYou}
-          focused={focused}
-          onFocusRow={onFocusRow}
-          onOpenRow={onOpenRow}
-          names={model.fileNames}
-          slots={slots}
-        />
-      ) : null}
-
-      {model.withdrawn.length > 0 ? (
-        <Section
-          heading={
-            <Plural
-              value={model.withdrawn.length}
-              one="# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in"
-              other="# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in"
-            />
-          }
-          rows={model.withdrawn}
-          focused={focused}
-          onFocusRow={onFocusRow}
-          onOpenRow={onOpenRow}
-          names={model.fileNames}
-          slots={slots}
-        />
-      ) : null}
-
-      {model.proposedOut.length > 0 ? (
-        <Section
-          heading={<Trans>Proposed to leave out: excluded sheets stay in the count with their reason</Trans>}
-          rows={model.proposedOut}
-          focused={focused}
-          onFocusRow={onFocusRow}
-          onOpenRow={onOpenRow}
-          names={model.fileNames}
-          slots={slots}
-        />
-      ) : null}
-
-      {model.disciplines.map((d) => (
-        <Section
-          key={d.discipline}
-          heading={<DisciplineHeading section={d} />}
-          side={
-            <span className="flex items-center gap-3">
-              {d.confirmed ? (
-                <span className="text-confirmed">
-                  <Trans>✓ confirmed</Trans>
-                </span>
-              ) : (
-                <Settled section={d} />
-              )}
-              {onPasteList && d.list?.source !== 'sheet' ? (
-                <button type="button" tabIndex={-1} onClick={() => onPasteList(d.discipline)} className="text-primary underline-offset-2 hover:underline">
-                  {d.list && d.list.source !== 'sheet' ? <Trans>The pasted drawing list</Trans> : <Trans>Paste the drawing list</Trans>}
-                </button>
-              ) : null}
-            </span>
-          }
-          rows={d.rows}
-          focused={focused}
-          onFocusRow={onFocusRow}
-          onOpenRow={onOpenRow}
-          names={model.fileNames}
-          slots={slots}
-        />
-      ))}
-
-      {model.notReceived.length > 0 ? (
-        <div role="rowgroup" className="border-t border-border px-3 py-2 text-muted-foreground">
-          <div role="row">
-            <span role="rowheader" className="font-medium">
-              <Trans>Disciplines not yet received</Trans>
-            </span>
-          </div>
-          <div role="row">
-            <span role="gridcell">
-              <NotReceived keys={model.notReceived} />
-            </span>
-          </div>
-          <div role="row">
-            <span role="gridcell" className="text-xs">
-              <Trans>Each stays on its allowance until its drawings arrive. A file of a new Discipline opens only its own Step 1; the others stay as they are.</Trans>
-            </span>
-          </div>
+    <SelectionContext.Provider value={{ rows: selection, extendTo: onExtendTo, clear: onClearSelection }}>
+      <div ref={ref} className="@container text-sm">
+        <div role="row" className={cn(COLS, 'sticky top-0 z-10 h-7 border-b border-border bg-chrome px-3 text-xs text-muted-foreground')}>
+          <span role="columnheader" aria-label={t`State mark`} />
+          <span role="columnheader">
+            <Trans>Number</Trans>
+          </span>
+          <span role="columnheader">
+            <Trans>Title, as drawn</Trans>
+          </span>
+          <span role="columnheader">
+            <Trans>Discipline</Trans>
+          </span>
+          <span role="columnheader">
+            <Trans>Revision and date</Trans>
+          </span>
+          <StoreysHeader />
+          <span role="columnheader" className="text-end">
+            <Trans>Views</Trans>
+          </span>
+          <span role="columnheader" className={FILE_COLUMN}>
+            <Trans>File</Trans>
+          </span>
+          <span role="columnheader">
+            <Trans>State</Trans>
+          </span>
         </div>
-      ) : null}
-    </div>
+
+        {model.needsYou.length > 0 ? (
+          <Section
+            tone="question"
+            heading={<Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />}
+            rows={model.needsYou}
+            focused={focused}
+            onFocusRow={onFocusRow}
+            onOpenRow={onOpenRow}
+            names={model.fileNames}
+            slots={slots}
+          />
+        ) : null}
+
+        {model.withdrawn.length > 0 ? (
+          <Section
+            heading={
+              <Plural
+                value={model.withdrawn.length}
+                one="# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in"
+                other="# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in"
+              />
+            }
+            rows={model.withdrawn}
+            focused={focused}
+            onFocusRow={onFocusRow}
+            onOpenRow={onOpenRow}
+            names={model.fileNames}
+            slots={slots}
+          />
+        ) : null}
+
+        {model.proposedOut.length > 0 ? (
+          <Section
+            heading={<Trans>Proposed to leave out: excluded sheets stay in the count with their reason</Trans>}
+            rows={model.proposedOut}
+            focused={focused}
+            onFocusRow={onFocusRow}
+            onOpenRow={onOpenRow}
+            names={model.fileNames}
+            slots={slots}
+          />
+        ) : null}
+
+        {model.disciplines.map((d) => (
+          <Section
+            key={d.discipline}
+            heading={<DisciplineHeading section={d} />}
+            side={
+              <span className="flex items-center gap-3">
+                {d.confirmed ? (
+                  <span className="text-confirmed">
+                    <Trans>✓ confirmed</Trans>
+                  </span>
+                ) : (
+                  <Settled section={d} />
+                )}
+                {onPasteList && d.list?.source !== 'sheet' ? (
+                  <button type="button" tabIndex={-1} onClick={() => onPasteList(d.discipline)} className="text-primary underline-offset-2 hover:underline">
+                    {d.list && d.list.source !== 'sheet' ? <Trans>The pasted drawing list</Trans> : <Trans>Paste the drawing list</Trans>}
+                  </button>
+                ) : null}
+              </span>
+            }
+            rows={d.rows}
+            focused={focused}
+            onFocusRow={onFocusRow}
+            onOpenRow={onOpenRow}
+            names={model.fileNames}
+            slots={slots}
+          />
+        ))}
+
+        {model.notReceived.length > 0 ? (
+          <div role="rowgroup" className="border-t border-border px-3 py-2 text-muted-foreground">
+            <div role="row">
+              <span role="rowheader" className="font-medium">
+                <Trans>Disciplines not yet received</Trans>
+              </span>
+            </div>
+            <div role="row">
+              <span role="gridcell">
+                <NotReceived keys={model.notReceived} />
+              </span>
+            </div>
+            <div role="row">
+              <span role="gridcell" className="text-xs">
+                <Trans>Each stays on its allowance until its drawings arrive. A file of a new Discipline opens only its own Step 1; the others stay as they are.</Trans>
+              </span>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </SelectionContext.Provider>
   )
 })
 
@@ -476,6 +487,8 @@ function SheetRow({
   slots: readonly string[]
 }) {
   const f = useFormat()
+  const selection = useContext(SelectionContext)
+  const selected = selection.rows.has(row.key)
   const first = row.sheets[0]
   const excluded = row.sheets.length > 0 && row.sheets.every((s) => s.decision === 'excluded')
   const count = f.integer(row.sheets.length)
@@ -528,6 +541,15 @@ function SheetRow({
       role="row"
       tabIndex={tabbable ? 0 : -1}
       data-row={row.key}
+      aria-selected={selected || undefined}
+      onMouseDown={(event) => {
+        if (event.button !== 0) return
+        // Shift-click extends the selection from the focused row; the click itself moves no focus or text selection.
+        if (event.shiftKey && selection.extendTo) {
+          event.preventDefault()
+          selection.extendTo(row.key)
+        } else selection.clear?.()
+      }}
       onFocus={(event) => {
         // A click on a cell (a tooltip's focusable text) focuses the row, so Space opens this sheet.
         if (event.target === event.currentTarget) onFocus(row.key)
@@ -537,7 +559,7 @@ function SheetRow({
       className={cn(
         COLS,
         'h-7 cursor-default border-b border-border-subtle px-3 outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-ring',
-        focused && 'bg-selected',
+        (focused || selected) && 'bg-selected',
         excluded && 'text-muted-foreground',
       )}
     >
