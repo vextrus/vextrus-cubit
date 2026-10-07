@@ -33,7 +33,6 @@ from vextrus.takeoff.schemas.step1 import (
     Step1UndoIn,
 )
 from vextrus.takeoff.services import step1
-from vextrus.takeoff.services.read_propose import proposals
 from vextrus.takeoff.tasks import read_file
 
 router = Router()
@@ -79,20 +78,16 @@ def get_progress(request: HttpRequest, project_id: uuid.UUID) -> Step1ProgressOu
 @router.post(f"{_PREFIX}/confirm", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CONFIRM, project="project_id")
 def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn) -> Step1ActOut:
-    with transaction.atomic():
-        view = step1.confirm(project_id, payload.proposals, kind=payload.kind, actor_name=actor(request))
-        proposals.set_conflicts(project_id)  # a decided sheet is in no conflict (#161)
+    view = step1.confirm(project_id, payload.proposals, kind=payload.kind, actor_name=actor(request))
     return Step1ActOut.from_view(view)
 
 
 @router.post(f"{_PREFIX}/exclude", response={200: Step1ActOut, 400: Refusal})
 @declare(acts.EXCLUDE, project="project_id")
 def exclude(request: HttpRequest, project_id: uuid.UUID, payload: Step1ExcludeIn) -> Step1ActOut:
-    with transaction.atomic():
-        view = step1.exclude(
-            project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
-        )
-        proposals.set_conflicts(project_id)
+    view = step1.exclude(
+        project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
+    )
     return Step1ActOut.from_view(view)
 
 
@@ -107,11 +102,8 @@ def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) 
 @router.post(f"{_PREFIX}/undo", response={200: Step1ActOut, 409: Refusal})
 @declare(acts.UNDO, project="project_id")
 def undo(request: HttpRequest, project_id: uuid.UUID, payload: Step1UndoIn) -> Step1ActOut:
-    """Undo one's own last act on Step 1: the sheets it undecided are compared again."""
-    with transaction.atomic():
-        view = step1.undo(project_id)
-        proposals.set_conflicts(project_id)
-    return Step1ActOut.from_view(view)
+    """Undo one's own last act on Step 1: the sheets it undecided are compared again (in the act)."""
+    return Step1ActOut.from_view(step1.undo(project_id))
 
 
 @router.post(f"{_PREFIX}/drawing-list/read", response={200: Step1ParsedListOut, 400: Refusal})
@@ -156,8 +148,4 @@ def answer_question(
         )
         if done.read_again is not None:
             read_file.read_again(done.read_again)
-        if done.corrected:  # a typed number another sheet has, say: its conflict is asked
-            proposals.set_questions(project_id)
-        else:  # the sheets an answer decided are in no conflict (#161)
-            proposals.set_conflicts(project_id)
     return Step1QuestionOut.from_view(done.question)
