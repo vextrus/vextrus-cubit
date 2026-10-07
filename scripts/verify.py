@@ -41,6 +41,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from scripts.factory import leakwhere
+from tools.lint.acceptance import is_acceptance
 
 PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
@@ -144,7 +145,9 @@ def plan_with_notes(
             Check("mypy", ("uv", "run", "mypy")),
             Check("lint-imports", ("uv", "run", "lint-imports")),
         ]
-    if any(p.startswith("web/") for p in paths):
+    web = any(p.startswith("web/") for p in paths)
+    fixtures = web or any(is_acceptance(p) for p in paths)
+    if web:
         # The cloud web order: `npm test` fails at import without the generated API types and the
         # route tree, so the schema is exported and the types generated before typecheck (which runs
         # `tsr generate`).
@@ -159,6 +162,13 @@ def plan_with_notes(
             Check("messages-check", ("npm", "--prefix", "web", "run", "messages:check")),
             Check("web-test", ("npm", "--prefix", "web", "test")),
         ]
+    if fixtures:
+        # Reply fixtures against the exported schema (S17-F5); an acceptance-only change exports it too.
+        if not web:
+            export = ("uv", "run", "manage.py", "export_openapi_schema", "--api", "vextrus.api.api")
+            checks.append(Check("openapi-export", (*export, "--output", schema)))
+        contract = ("uv", "run", "python", "-m", "tools.lint.contract_fixtures", "--schema", schema)
+        checks.append(Check("contract-fixtures", contract))
     if any(p.startswith(".claude/hooks/") for p in paths):
         # A glob, never a folder: `node --test <dir>` fails on Node 24.
         checks.append(Check("node-test", ("node", "--test", ".claude/hooks/**/*.test.mjs")))
