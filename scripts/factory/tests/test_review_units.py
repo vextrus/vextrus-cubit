@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -1543,7 +1544,9 @@ def test_the_ledger_record_is_never_cut_by_a_stop_signal() -> None:
     old = signals.signal(signals.SIGHUP, lambda signum, _frame: seen.append(signum))
     try:
         with review.signals_held():
-            os.kill(os.getpid(), signals.SIGHUP)
+            # To this thread: a signal sent to the process may land on another thread (xdist's), which
+            # does not hold it.
+            signals.pthread_kill(threading.get_ident(), signals.SIGHUP)
             assert seen == []  # held while the ledger writes
             assert signals.SIGHUP in signals.sigpending()
         assert seen == [signals.SIGHUP]  # delivered once the record is written

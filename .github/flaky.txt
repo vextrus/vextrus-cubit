@@ -1,6 +1,5 @@
 # Known flaky tests (#245), one per line: <repo path> :: <test title>.
-# Remove an entry when main's web job is green on 5 pushes in a row; a job is rerun at most once,
-# and only when every failed test is listed here. Checked by python3 -m tools.lint.ci_shards.
-web/src/acceptance/t16/viewer.test.tsx :: pans on a drag with the left button, by the distance dragged
-web/src/acceptance/tviewerplot/plot.test.tsx :: cycles As read → Plot → Compare → As read on P
-web/src/takeoff/acts.test.tsx :: says the 16 were confirmed and why the rest was not, offers Undo, and undoes only what was done
+# Empty on purpose (S15-T2, #532): the three tests once listed could not be made to fail on main, so
+# none is rerun. If a test flakes again it shows as a red PR; list it here only with its issue's number.
+# A job is rerun at most once, and only when every failed test is listed here. Checked by
+# python3 -m tools.lint.ci_shards.

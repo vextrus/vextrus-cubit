@@ -5,7 +5,7 @@
  * the same canvas once lost its WebGL context and drew nothing).
  */
 import { StrictMode } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
@@ -58,6 +58,41 @@ describe('<SheetViewer> under StrictMode', () => {
   it('draws the sheet after a remount on the same canvas', async () => {
     mount(await tiny())
     await expect.poll(darkest, { timeout: 10_000 }).toBeLessThan(50)
+  })
+})
+
+/** The canvas's ink as one number, composited on white: it changes when the picture does. */
+function ink(): number {
+  const canvas = document.querySelector<HTMLCanvasElement>('[data-ltr-canvas] canvas')!
+  const scratch = document.createElement('canvas')
+  scratch.width = canvas.width
+  scratch.height = canvas.height
+  const ctx = scratch.getContext('2d', { willReadFrequently: true })!
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, scratch.width, scratch.height)
+  ctx.drawImage(canvas, 0, 0)
+  const d = ctx.getImageData(0, 0, scratch.width, scratch.height).data
+  let sum = 0
+  for (let i = 0; i < d.length; i += 4) sum += 255 - d[i]!
+  return sum
+}
+
+describe('<SheetViewer> keys draw at once', () => {
+  it('shows the new view as soon as a key is pressed, without waiting for a frame (#142)', async () => {
+    mount(await tiny())
+    await expect.poll(darkest, { timeout: 10_000 }).toBeLessThan(50)
+    await expect.poll(ink).toBeGreaterThan(0)
+    await new Promise((resolve) => setTimeout(resolve, 200)) // the first frames settle
+    const before = ink()
+    vi.stubGlobal('requestAnimationFrame', () => 0) // a loaded machine that delays every frame
+    try {
+      const area = document.querySelector<HTMLElement>('[data-ltr-canvas] [tabindex="0"]')!
+      area.focus()
+      await userEvent.keyboard('+')
+      expect(ink()).not.toBe(before)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })
 

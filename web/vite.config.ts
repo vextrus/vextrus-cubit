@@ -165,6 +165,9 @@ export default defineConfig(({ mode }) => {
             name: 'node',
             environment: 'node',
             include: ['scripts/**/*.test.ts', 'eslint/**/*.test.ts', 'src/**/*.node.test.ts'],
+            // A node test may import this config or spawn a tool cold, which takes over the default 5 s
+            // beside 100 browser files on a loaded runner (t169's first test did, S15-T2).
+            testTimeout: 30_000,
           },
         },
         {
