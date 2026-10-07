@@ -86,11 +86,29 @@ def test_a_viewport_whose_scale_underflows_leaves_the_view_unplaced() -> None:
 
 def test_a_profile_pattern_that_is_no_pattern_is_a_question_not_an_error() -> None:
     held: Any = SimpleNamespace(view_id="V", sheet_id="S", artefact=artefact(), view=None, storey=None)
-    profile: Any = SimpleNamespace(grid={"label_patterns": ["(", "a{99999999999}", "[A-Z]"]})
+    patterns = ["(", "a{99999999999}", "[[:alpha:]]", "[A-Z]"]
+    profile: Any = SimpleNamespace(grid={"label_patterns": patterns})
 
     found = recognise([held], ConfirmedFacts(), ProjectSetup(), profile)
 
     codes = [(q.code, dict(q.params)) for q in found.questions]
     assert (BAD_PATTERN, {"pattern": "("}) in codes
     assert (BAD_PATTERN, {"pattern": "a{99999999999}"}) in codes
+    assert (BAD_PATTERN, {"pattern": "[[:alpha:]]"}) in codes
     assert (NOT_FOUND, {"view": "V"}) in codes
+
+
+def test_many_bubbles_on_one_line_of_many_pieces_join_it_once() -> None:
+    n, step = 100_000, 3100.0
+    segments = np.array([(0.0, step * i, 0.0, step * i + 3000.0) for i in range(n)])
+    top = step * (n - 1) + 3000.0
+    circles = [Circle(0.0, top + R, R, "B", f"{k:X}", (), ()) for k in range(300)]
+    labels = [Label("A", c.x, c.y, 400.0, "3C", ()) for c in circles[:1]]
+    entities: list[tuple[str, tuple[str, ...], str]] = [("1A", (), "L")]
+    grid = Drawn(segments, np.zeros(n, dtype=np.int64), entities, circles, labels)
+    started = time.monotonic()
+
+    [line] = read_grid(grid).lines
+
+    assert time.monotonic() - started < 5.0
+    assert math.isclose(line.length, top, rel_tol=1e-9)

@@ -129,6 +129,8 @@ def bubbles(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> list[Bubb
 
 
 type Ends = tuple[tuple[float, float], tuple[float, float], int]
+type Point = tuple[float, float]
+type Floats = NDArray[np.float64]
 
 
 class _EndIndex:
@@ -160,7 +162,63 @@ class _EndIndex:
         return np.unique(self.ids[ends[close]])
 
 
-def _line_of(drawn: Drawn, bubble: Bubble, near: NDArray[np.int64]) -> Ends | None:
+class _Runs:
+    """Each line's runs of collinear pieces, found once (vectorised) and kept for its other bubbles:
+    a line is keyed by its direction and its distance from the origin, each to `ON_LINE` radii."""
+
+    def __init__(self) -> None:
+        self.held: dict[tuple[float, float, float], tuple[Point, Point, Floats, Floats]] = {}
+
+    def joined(
+        self, drawn: Drawn, origin: Floats, direction: Floats, lo: float, hi: float, r: float
+    ) -> tuple[float, float]:
+        """[lo, hi] (along `direction` from `origin`) grown by the run of pieces it lies in."""
+        ux, uy = float(direction[0]), float(direction[1])
+        if ux < 0 or (ux == 0 and uy < 0):
+            ux, uy = -ux, -uy
+        distance = float(origin[0]) * uy - float(origin[1]) * ux
+        quantum = ON_LINE * r
+        key = (round(math.atan2(uy, ux), 4), round(distance / quantum), round(r, 6))
+        held = self.held.get(key)
+        if held is None:
+            held = (*self._runs(drawn, origin, direction, r),)
+            self.held[key] = held
+        (ox, oy), (dx, dy), starts, ends = held
+        shift = (float(origin[0]) - ox) * dx + (float(origin[1]) - oy) * dy
+        scale = float(direction[0]) * dx + float(direction[1]) * dy  # 1 or -1
+        a, b = shift + lo * scale, shift + hi * scale
+        a, b = min(a, b), max(a, b)
+        gap = JOIN_GAP * r
+        overlapping = (starts - gap <= b) & (a <= ends + gap)
+        if overlapping.any():
+            a, b = min(a, float(starts[overlapping].min())), max(b, float(ends[overlapping].max()))
+        a, b = (a - shift) * scale, (b - shift) * scale
+        return min(a, b), max(a, b)
+
+    @staticmethod
+    def _runs(
+        drawn: Drawn, origin: Floats, direction: Floats, r: float
+    ) -> tuple[Point, Point, Floats, Floats]:
+        every = drawn.segments
+        rel0, rel1 = every[:, 0:2] - origin, every[:, 2:4] - origin
+        across0 = np.abs(rel0[:, 0] * direction[1] - rel0[:, 1] * direction[0])
+        across1 = np.abs(rel1[:, 0] * direction[1] - rel1[:, 1] * direction[0])
+        on = (across0 <= ON_LINE * r) & (across1 <= ON_LINE * r)
+        a, b = rel0[on] @ direction, rel1[on] @ direction
+        starts, ends = np.minimum(a, b), np.maximum(a, b)
+        order = np.argsort(starts, kind="stable")
+        starts, ends = starts[order], np.maximum.accumulate(ends[order])
+        gap = JOIN_GAP * r
+        breaks = np.ones(len(starts), dtype=bool)
+        breaks[1:] = starts[1:] > ends[:-1] + gap
+        first = np.flatnonzero(breaks)
+        last = np.append(first[1:] - 1, len(starts) - 1)
+        point = (float(origin[0]), float(origin[1]))
+        unit = (float(direction[0]), float(direction[1]))
+        return point, unit, starts[first], ends[last]
+
+
+def _line_of(drawn: Drawn, bubble: Bubble, near: NDArray[np.int64], runs: _Runs) -> Ends | None:
     """The line the bubble heads (among the segments `near` it), joined from its collinear pieces:
     (start, end, entity index)."""
     if not len(near):
@@ -191,37 +249,11 @@ def _line_of(drawn: Drawn, bubble: Bubble, near: NDArray[np.int64]) -> Ends | No
     lo, hi = 0.0, float(length[best])
     entity = int(drawn.segment_entity[near[best]])
     # Join collinear pieces anywhere on the line: both ends on it, within JOIN_GAP radii of what is
-    # held. One pass over the pieces sorted by start: linear after the sort, whatever their order.
-    every = drawn.segments
-    rel0, rel1 = every[:, 0:2] - origin, every[:, 2:4] - origin
-    across0 = np.abs(rel0[:, 0] * direction[1] - rel0[:, 1] * direction[0])
-    across1 = np.abs(rel1[:, 0] * direction[1] - rel1[:, 1] * direction[0])
-    on = (across0 <= ON_LINE * r) & (across1 <= ON_LINE * r)
-    a = rel0[on] @ direction
-    b = rel1[on] @ direction
-    lo, hi = _joined(np.minimum(a, b), np.maximum(a, b), lo, hi, JOIN_GAP * r)
+    # held. The line's runs are found once per line (`_Runs`) and kept for its other bubbles.
+    lo, hi = runs.joined(drawn, origin, direction, lo, hi, r)
     start = (float(origin[0] + lo * direction[0]), float(origin[1] + lo * direction[1]))
     end = (float(origin[0] + hi * direction[0]), float(origin[1] + hi * direction[1]))
     return start, end, entity
-
-
-def _joined(
-    starts: NDArray[np.float64], ends: NDArray[np.float64], lo: float, hi: float, gap: float
-) -> tuple[float, float]:
-    """The run of spans (start, end) holding [lo, hi], each within `gap` of the run: the spans are
-    merged into runs in one pass in order of start, and the run overlapping [lo, hi] is taken."""
-    order = np.argsort(starts, kind="stable")
-    run_lo = run_hi = None
-    for start, end in zip(starts[order].tolist(), ends[order].tolist(), strict=True):
-        if run_hi is not None and start <= run_hi + gap:
-            run_hi = max(run_hi, end)
-            continue
-        if run_lo is not None and run_hi is not None and run_lo - gap <= hi and lo <= run_hi + gap:
-            lo, hi = min(lo, run_lo), max(hi, run_hi)
-        run_lo, run_hi = start, end
-    if run_lo is not None and run_hi is not None and run_lo - gap <= hi and lo <= run_hi + gap:
-        lo, hi = min(lo, run_lo), max(hi, run_hi)
-    return lo, hi
 
 
 def _tail_of(
@@ -300,11 +332,12 @@ def read_grid(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> ViewGri
     headed: list[tuple[Bubble, tuple[float, float], tuple[float, float], int]] = []
     lone: list[tuple[Bubble, NDArray[np.int64]]] = []
     index = _EndIndex(drawn.segments)
+    runs = _Runs()
     for bubble in bubbles(drawn, patterns):
         near = index.near(bubble.circle.x, bubble.circle.y, (END_GAP + 1.0) * bubble.circle.radius)
         if near is None:
             continue
-        ends = _line_of(drawn, bubble, near)
+        ends = _line_of(drawn, bubble, near, runs)
         if ends is not None and _finite(ends):
             headed.append((bubble, *ends))
         else:

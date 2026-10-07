@@ -26,6 +26,7 @@ its blocks. No layer, block or label is named in this code (ADR 0039).
 """
 
 import re
+import warnings
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any
@@ -77,8 +78,10 @@ def _patterns(texts: Sequence[str]) -> tuple[tuple[re.Pattern[str], ...], tuple[
     refused: list[str] = []
     for text in texts:
         try:
-            held.append(re.compile(text))
-        except re.error, OverflowError, RecursionError:
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")  # a pattern Python warns of is refused, never raised
+                held.append(re.compile(text))
+        except re.error, OverflowError, RecursionError, Warning:
             refused.append(text)
     return tuple(held), tuple(refused)
 
