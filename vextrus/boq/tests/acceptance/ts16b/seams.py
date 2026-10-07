@@ -17,6 +17,7 @@ the columns' Rebar by ratio, 200.00 kg rated 95.00. All invented.
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
+from importlib import import_module
 from typing import Any
 
 import pytest
@@ -99,9 +100,7 @@ class Seams:
 
 
 def _not_entered(code: str) -> Any:
-    from vextrus.rates import services as rates
-
-    kind = rates.RateNotEntered
+    kind = import_module("vextrus.rates.services").RateNotEntered
     try:
         return kind(item_code=code)
     except TypeError:
@@ -131,7 +130,7 @@ def seams(monkeypatch: pytest.MonkeyPatch) -> Seams:
     def confirmed(building_id: uuid.UUID) -> frozenset[str]:
         return state.confirmed
 
-    from vextrus.boq.services import steps
+    steps = import_module("vextrus.boq.services.steps")
 
     monkeypatch.setattr(measurement, "measure", measure, raising=False)
     monkeypatch.setattr(rates, "working_rate", working_rate, raising=False)
