@@ -92,6 +92,7 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
     by_id = {str(v.view_id): v for v in views}
     proposed = asked = 0
     with transaction.atomic():
+        proposed += _propose_storeys(project_id, building_id, views)
         for family in _families():
             manifest = _part(family, "manifest", "MANIFEST")
             key, step = str(manifest.key), str(manifest.step)
@@ -107,9 +108,49 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
                 asked += 1
                 continue
             _withdraw_failed(project_id, building_id, key)
+            _supersede_unread(project_id, building_id, step, recognised.candidates)
+            confirmed = _with_best(types, confirmed, key, recognised.candidates)
             proposed += written
             asked += raised
     return FrameReadResult(proposed, asked)
+
+
+def _with_best(types: ModuleType, confirmed: Any, family: str, candidates: Sequence[Any]) -> Any:
+    """C5: each later family is given the earlier families' best candidates as confirmed facts (the
+    column family places its columns on the grid read before it)."""
+    facts = tuple(
+        types.ElementFacts(
+            family=family,
+            element_id=str(c.candidate_key),
+            mark=_text(getattr(c, "mark", "")),
+            storey=_text(getattr(c, "storey", "")),
+            values={str(k): _plain(v) for k, v in (c.values or {}).items()},
+        )
+        for c in candidates
+    )
+    return types.ConfirmedFacts(facts=(*confirmed.facts, *facts))
+
+
+def _plain(value: Any) -> Any:
+    """A candidate's value as a fact: its `.value`, a number as a Decimal."""
+    held = getattr(value, "value", value)
+    if isinstance(held, (int, float)) and not isinstance(held, bool):
+        return Decimal(str(held))
+    return held
+
+
+def _supersede_unread(
+    project_id: uuid.UUID, building_id: uuid.UUID, step: str, candidates: Sequence[Any]
+) -> None:
+    """An open Proposal of the step that this read no longer proposes is superseded (a later read
+    replaces the earlier one's); one the QS decided is left as it is."""
+    keys = {f"{building_id}:{c.candidate_key}" for c in candidates}
+    Proposal.objects.filter(
+        project_id=project_id,
+        step=step,
+        status=ProposalStatus.OPEN,
+        candidate_key__startswith=f"{building_id}:",
+    ).exclude(candidate_key__in=keys).update(status=ProposalStatus.SUPERSEDED)
 
 
 def _families() -> tuple[ModuleType, ...]:
@@ -202,6 +243,51 @@ def _views(project_id: uuid.UUID, building_id: uuid.UUID) -> list[Any]:
 # the grid is drawn on the plans of the steps that need it (C9: columns need the grid), and Step 1
 # gives no view to the grid step itself.
 _READS_PLANS_OF: dict[str, tuple[str, ...]] = {"grid": ("grid", "columns")}
+
+
+_STOREY_RANK = {
+    "pile": 0, "pile_cap": 1, "foundation": 2, "lower_ground": 150, "plinth": 160, "ground": 200,
+    "mezzanine": 210, "podium": 220, "typical": 500, "top": 900, "roof": 1000,
+}  # fmt: skip
+"""The canonical storeys' order (engine.recognise.storeys' ranks; `floor_<n>` at 300 + n, `basement_<n>`
+at 100 - n; `top` as read, bound to a floor by the QS in Step 3)."""
+
+
+def _storey_rank(name: str) -> int:
+    if name in _STOREY_RANK:
+        return _STOREY_RANK[name]
+    stem, _, number = name.rpartition("_")
+    if number.isdigit() and stem == "floor":
+        return 300 + int(number)
+    if number.isdigit() and stem == "basement":
+        return 100 - int(number)
+    return 800
+
+
+def _propose_storeys(project_id: uuid.UUID, building_id: uuid.UUID, views: Sequence[Any]) -> int:
+    """Step 3's Proposals: one storey per storey the confirmed plan views name, low to high
+    (idempotent: an open one is left as it is; levels are the QS's to type)."""
+    plans = [v for v in views if str(v.view.kind) == "plan"]
+    names = {str(n) for v in plans for n in (v.view.storeys or ()) if n != "not_stated"}
+    tenant_id = _tenant()
+    for order, name in enumerate(sorted(names, key=lambda n: (_storey_rank(n), n)), start=1):
+        key = f"{building_id}:storey:{name}"
+        row = Proposal.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, step="storeys", candidate_key=key
+        ).first()
+        if row is None:
+            Proposal.objects.create(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                step="storeys",
+                candidate_key=key,
+                subject=ProposalSubject.ELEMENT,
+                subject_id=uuid.uuid5(_SUBJECTS, f"{project_id}:storeys:{key}"),
+                family_key="storey",
+                values={"name": name, "order": order},
+                source="reader",
+            )
+    return len(names)
 
 
 def _read_by(step: str, views: Sequence[Any]) -> list[Any]:
@@ -306,7 +392,9 @@ def _view_of(candidate: Any, views: Mapping[str, Any]) -> Any:
 
 
 def _raise(project_id: uuid.UUID, building_id: uuid.UUID, step: str, questions: Sequence[Any]) -> int:
-    """Each Question a family raised, asked once per Building and words."""
+    """Each Question a family raised, asked once per Building and words; an open one of the step that
+    this read no longer raises is withdrawn (a later read replaces the earlier one's Questions)."""
+    asked: set[str] = set()
     for question in questions:
         message = _message(question)
         kind = str(getattr(question, "kind", "") or QuestionKind.MISSING)
@@ -318,6 +406,14 @@ def _raise(project_id: uuid.UUID, building_id: uuid.UUID, step: str, questions: 
             kind=kind if kind in QuestionKind.values else QuestionKind.MISSING,
             key=_key("raised", building_id, step, message, getattr(question, "candidate_key", "")),
         )
+        asked.add(_key("raised", building_id, step, message, getattr(question, "candidate_key", "")))
+    Question.objects.filter(
+        project_id=project_id,
+        building_id=building_id,
+        step=step,
+        status=QuestionStatus.OPEN,
+        message_code__startswith="engine.",
+    ).exclude(question_key__in=asked).update(status=QuestionStatus.WITHDRAWN)
     return len(questions)
 
 
