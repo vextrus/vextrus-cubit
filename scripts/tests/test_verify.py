@@ -1,10 +1,11 @@
 """verify's path map and flake reading, beside the acceptance tests."""
 
+import sys
 from pathlib import Path
 
 import pytest
 
-from scripts.verify import flakes_in, plan, pytest_workers
+from scripts.verify import Check, flakes_in, plan, pytest_workers, run_command
 
 ENTRIES = [("scripts/tests/test_x.py :: test_a", "scripts/tests/test_x.py", "test_a")]
 
@@ -89,3 +90,15 @@ def test_two_checks_sharing_a_name_each_keep_their_own_result(
     validates = [c for c in record["checks"] if c["name"] == "plugin-validate"]
     assert sorted(c["exit_code"] for c in validates) == [0, 1]
     assert len({c["output_file"] for c in record["checks"]}) == len(record["checks"])
+
+
+@pytest.mark.parametrize("force", ["FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "MYPY_FORCE_COLOR"])
+def test_a_check_never_inherits_a_forced_colour(monkeypatch: pytest.MonkeyPatch, force: str) -> None:
+    """Issue #585: the owner's shell forces colour; checks write to files, and tests that read a
+    child's output (node --test's counts, the acceptance lint's pytest) fail on its escapes."""
+    monkeypatch.setenv(force, "1")
+    probe = f"import os; print(os.environ.get({force!r}, 'unset'))"
+
+    code, output = run_command(Check("probe", (sys.executable, "-c", probe)))
+
+    assert (code, output.strip()) == (0, "unset")
