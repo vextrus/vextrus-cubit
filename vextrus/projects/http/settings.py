@@ -8,6 +8,7 @@ and checked by the service).
 """
 
 import uuid
+from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router, Schema
@@ -23,8 +24,11 @@ ENTER_GFA = Act("projects.gross_floor_area", Grant.CHANGE)
 
 
 class GrossFloorAreaIn(Schema):
-    value: str | int | float | None = None
-    unit: str | None = None
+    """Read loosely, so a wrong type is the service's 400, not Ninja's 422: `value` a decimal string
+    (or a number), `unit` "sft" or "m2"."""
+
+    value: Any = None
+    unit: Any = None
 
 
 class GrossFloorAreaOut(Schema):
@@ -45,8 +49,8 @@ def put_gross_floor_area(
 ) -> GrossFloorAreaOut:
     entered = gfa.set_gross_floor_area(
         building_id,
-        "" if payload.value is None else str(payload.value),
-        payload.unit or "",
+        payload.value if isinstance(payload.value, str | int) else "",
+        payload.unit if isinstance(payload.unit, str) else "",
         project_id=project_id,
     )
     return GrossFloorAreaOut(
