@@ -10,26 +10,31 @@ On one synthetic file (`drawing.py`) read by M0's reader (`engine.read.read`), t
     uv run --no-sync pytest -m needs_toolchain engine/families/grid_line/tests/acceptance/ts16r1
 """
 
+import importlib
 from collections import Counter
 from collections.abc import Sequence
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
-from engine.families.grid_line.frame import register
-from engine.families.grid_line.manifest import MANIFEST
-from engine.families.grid_line.recognise import recognise
-from engine.families.types import (
-    ConfirmedFacts,
-    ElementCandidate,
-    ProjectSetup,
-    QuestionRaised,
-    ViewArtefact,
-)
 from engine.read import ReadArtefact, read
 from engine.recognise.types import Box, ViewCandidate, ViewKind
 
 from . import drawing
+
+# Not built yet (K0 and R1): imported by name, typed Any, so the base type-checks and fails here.
+frame: Any = importlib.import_module("engine.families.grid_line.frame")
+manifest: Any = importlib.import_module("engine.families.grid_line.manifest")
+recognising: Any = importlib.import_module("engine.families.grid_line.recognise")
+types: Any = importlib.import_module("engine.families.types")
+register = frame.register
+MANIFEST = manifest.MANIFEST
+recognise = recognising.recognise
+ConfirmedFacts = types.ConfirmedFacts
+ProjectSetup = types.ProjectSetup
+QuestionRaised = types.QuestionRaised
+ViewArtefact = types.ViewArtefact
 
 pytestmark = pytest.mark.needs_toolchain
 
@@ -43,7 +48,7 @@ def artefact(tmp_path_factory: pytest.TempPathFactory) -> ReadArtefact:
     return read(drawing.build(folder, build))
 
 
-def _view(artefact: ReadArtefact, view_id: str, at: tuple[float, float]) -> ViewArtefact:
+def _view(artefact: ReadArtefact, view_id: str, at: tuple[float, float]) -> Any:
     box = Box(*drawing.box_of(at))
     return ViewArtefact(
         view_id=view_id,
@@ -53,10 +58,10 @@ def _view(artefact: ReadArtefact, view_id: str, at: tuple[float, float]) -> View
     )
 
 
-type Read = tuple[tuple[ElementCandidate, ...], tuple[QuestionRaised, ...]]
+type Read = tuple[tuple[Any, ...], tuple[Any, ...]]
 
 
-def _read(views: Sequence[ViewArtefact]) -> Read:
+def _read(views: Sequence[Any]) -> Read:
     found = recognise(views, ConfirmedFacts(), ProjectSetup(), None)
     return tuple(found.candidates), tuple(found.questions)
 
@@ -70,7 +75,7 @@ def _number(value: object) -> Decimal:
     return Decimal(str(_plain(value)))
 
 
-def _by_mark(candidates: Sequence[ElementCandidate]) -> dict[str, ElementCandidate]:
+def _by_mark(candidates: Sequence[Any]) -> dict[str, Any]:
     return {c.mark: c for c in candidates}
 
 

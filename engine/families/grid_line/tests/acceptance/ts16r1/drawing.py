@@ -26,7 +26,7 @@ from pathlib import Path
 
 from ezdxf.document import Drawing
 from ezdxf.enums import TextEntityAlignment
-from ezdxf.layouts import Modelspace
+from ezdxf.layouts.layout import Modelspace
 
 from engine.fixtures import dwg
 from engine.fixtures.dwg import new_drawing
