@@ -281,11 +281,23 @@ function Step1({
     return row && first ? { row: row.key, sheet: first.id } : null
   })
   const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
-  const [focused, setFocused] = useState<string | null>(start?.row ?? null)
+  const [focused, setFocusedState] = useState<string | null>(start?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
   /** Shift ↑ ↓ and Shift-click: the rows from where the selection began to where it ends (list mode, §6.15). */
-  const [range, setRange] = useState<{ anchor: string; end: string } | null>(null)
+  const [range, setRangeState] = useState<{ anchor: string; end: string } | null>(null)
+  /**
+   * The one way focus and the selection change: a picker open over them closes, so no route (keys, a click, an
+   * inspector card, the bar, Q) leaves an exclusion picker acting on rows the list has since left.
+   */
+  const setFocused = (key: string | null) => {
+    if (key !== focused) setPicker(null)
+    setFocusedState(key)
+  }
+  const setRange = (next: { anchor: string; end: string } | null) => {
+    setPicker(null)
+    setRangeState(next)
+  }
   /** O: the view outlines drawn on the sheet; kept through paging. */
   const [outlinesOn, setOutlinesOn] = useState(true)
   /** Z: each press (or the button) flies to the selected view again. */

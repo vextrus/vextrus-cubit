@@ -5,6 +5,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
+import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
+import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
 import { page, userEvent as pointer } from 'vitest/browser'
 import userEvent from '@testing-library/user-event'
 import { DETAIL_VIEW, PLAN_VIEW, canvasOf, clean, excludedBy, focusRow, focusedSheet, openList, openSheet, rowOf, seed, statusBar } from '@/acceptance/ts15w2/keys.fixture'
@@ -190,5 +192,39 @@ describe('the exclusion picker is modal (round 4)', () => {
     await waitFor(() => expect(body()).not.toContain('Why?'))
     await userEvent.keyboard('{ArrowDown}')
     await waitFor(() => expect(focusedSheet()).toBe('S-04'))
+  })
+})
+
+describe('the picker closes on every focus change (round 5)', () => {
+  const body = () => clean(document.body.textContent)
+
+  it('closes when a Question card’s option is picked in the inspector, and 1 then excludes nothing', async () => {
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api, 'KR-01')
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(body()).toContain('Confirmed 0 /'))
+    await focusRow('S-01')
+    await userEvent.keyboard('{Shift>}{ArrowDown}{ArrowDown}{/Shift}')
+    await userEvent.keyboard('x')
+    await waitFor(() => expect(body()).toContain('Exclude 3 sheets. Why?'))
+    await userEvent.click(await screen.findByRole('tab', { name: /Questions/ }))
+    const option = (await screen.findAllByRole('radio'))[0]!
+    await userEvent.click(option)
+    await waitFor(() => expect(body()).not.toContain('Why?'))
+    await userEvent.keyboard('1')
+    expect(step1.seen.filter((c) => c.call === 'POST /exclude')).toHaveLength(0)
+  })
+
+  it('closes the picker when the focused row changes by any route, and not when the same row is focused again', async () => {
+    const s = seed()
+    await openList(s)
+    await focusRow('S-02')
+    await userEvent.keyboard('x')
+    await waitFor(() => expect(body()).toContain('Why?'))
+    rowOf('S-02').focus()
+    expect(body()).toContain('Why?')
+    rowOf('S-04').focus()
+    await waitFor(() => expect(body()).not.toContain('Why?'))
+    expect(excludedBy(s.step1).numbers).toEqual([])
   })
 })
