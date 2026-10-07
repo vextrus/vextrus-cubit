@@ -93,7 +93,16 @@ SCREENS: frozenset[str] = frozenset(
 )
 
 SEVERITIES: tuple[str, ...] = ("BLOCKS", "OTHER")
-CHECK_IDS: tuple[str, ...] = ("reads_complete", "act_p95_during_read", "questions_per_discipline")
+CHECK_IDS: tuple[str, ...] = (
+    "reads_complete",
+    "act_p95_during_read",
+    "questions_per_discipline",
+    "sheets_match",
+    "true_questions_raised",
+    "false_continuations",
+    "bulk_confirmable_share",
+    "storeys_match",
+)
 STATUSES: tuple[str, ...] = ("PASS", "FAIL", "UNSET")
 RESULTS: tuple[str, ...] = ("PASS", "FAIL")
 
@@ -104,9 +113,44 @@ ALLOWED_KEYS: frozenset[str] = frozenset(
 `issues.py`'s caller, never taken from input."""
 
 MEASURED_KEYS: frozenset[str] = frozenset(
-    {"files", "completed", "p95_ms", "samples", "questions_max_per_discipline", "disciplines"}
+    {
+        # reads_complete
+        "files",
+        "completed",
+        # act_p95_during_read
+        "p95_ms",
+        "max_ms",
+        "samples",
+        "confirm",
+        "undo",
+        "exclude",
+        "answer",
+        "failed_acts",
+        "no_confirm_target",
+        # questions_per_discipline
+        "questions_max_per_discipline",
+        "disciplines",
+        # sheets_match
+        "sheets_found",
+        "missing",
+        "phantoms",
+        # true_questions_raised
+        "true_listed",
+        "true_raised",
+        # false_continuations
+        "false_questions",
+        "stale_grouped",
+        # bulk_confirmable_share
+        "bulk_confirmable_sheets",
+        "sheets_expected",
+        # storeys_match
+        "storeys_listed",
+        "storeys_wrong",
+        # any check its set's snapshot could not measure
+        "unmeasured",
+    }
 )
-"""The contract's `measured` keys (reads_complete, act_p95_during_read, questions_per_discipline)."""
+"""The contract's `measured` keys of the eight checks (walk-verdict.schema.json), numbers only."""
 
 DISCIPLINES: frozenset[str] = frozenset(
     {
@@ -144,12 +188,13 @@ QUESTION_KINDS: frozenset[str] = frozenset(
 BURDEN_NUMBERS: tuple[str, ...] = (
     "questions_total",
     "sheets",
+    "sheets_expected",
     "bulk_confirmable_sheets",
     "one_source_sheets",
+    "blank_sheets",
+    "machine_doubt_questions",
     "continuation_questions",
     "false_continuation_questions",
-    "false_continuation_questions_qs_view",
-    "continuation_questions_unsure",
 )
 
 ID = re.compile(r"[a-z0-9][a-z0-9-]{0,39}")
