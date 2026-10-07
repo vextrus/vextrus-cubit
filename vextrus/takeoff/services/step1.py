@@ -399,9 +399,12 @@ def _agreeing(
     )
     # A numbering gap holds its neighbours only while its Discipline has no drawing list (#229): a
     # list typed after the gap was asked is the second source, not the numbering.
-    gap_linked = set(
-        links.filter(question__message_code__in=gap_codes).values_list("proposal_id", flat=True)
-    )
+    gap_held: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for question_id, proposal_id in links.filter(question__message_code__in=gap_codes).values_list(
+        "question_id", "proposal_id"
+    ):
+        gap_held.setdefault(question_id, []).append(proposal_id)
+    gap_linked = {p for ps in _beside_now(project_id, gap_held).values() for p in ps}
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
     beside = _beside_gaps(open_questions, numbers)
@@ -612,11 +615,52 @@ _QUEUE: dict[str, int] = {
 
 
 def _held(project_id: uuid.UUID) -> dict[uuid.UUID, list[uuid.UUID]]:
-    """Each Question's Proposals, in the order linked."""
+    """Each Question's Proposals, in the order linked (a gap Question's, those beside its gaps now:
+    `_beside_now`)."""
     held: dict[uuid.UUID, list[uuid.UUID]] = {}
     for link in QuestionLink.objects.filter(project_id=project_id).order_by("id"):
         held.setdefault(link.question_id, []).append(link.proposal_id)
-    return held
+    return _beside_now(project_id, held)
+
+
+def _beside_now(
+    project_id: uuid.UUID, held: Mapping[uuid.UUID, Sequence[uuid.UUID]]
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """`held` (Proposals by Question) with each numbering gap Question's cut to the Proposals whose
+    sheets are beside a gap it asks now (S15-Q2): the Discipline's one gap Question keeps its id while
+    a later file adds or fills a gap (`ask_gaps`), and a Question's links are append-only (19a), so a
+    sheet beside a gap since filled is linked still and held no more. A Proposal whose sheet is not in
+    the sheet list stays (`_asked` reads it)."""
+    out = {q: list(ps) for q, ps in held.items()}
+    gapped = list(
+        Question.objects.filter(
+            project_id=project_id,
+            id__in=list(held),
+            message_code__in=[list_codes.GAP.code, list_codes.GAPS.code],
+        )
+    )
+    if not gapped:
+        return out
+    conventions = _conventions()
+    numbers = Numbers(conventions, recognisers(conventions))
+    sheet_of = {s.id: s for s in _sheets(project_id)}
+    subject = dict(
+        Proposal.objects.filter(project_id=project_id, step=SHEETS).values_list("id", "subject_id")
+    )
+    for question in gapped:
+        places = {
+            _place(numbers, end, question.discipline) for gap in gap_ends(question) for end in gap[:2]
+        }
+        kept = []
+        for proposal_id in out[question.id]:
+            sheet_id = subject.get(proposal_id)
+            sheet = sheet_of.get(sheet_id) if sheet_id is not None else None
+            if sheet is None or (
+                sheet.number and _place(numbers, sheet.number, question.discipline) in places
+            ):
+                kept.append(proposal_id)
+        out[question.id] = kept
+    return out
 
 
 def _asked(
@@ -1262,11 +1306,12 @@ def _holding(
     for sheet, _p in chosen:
         if sheet.discipline is not None:
             of_discipline.setdefault(sheet.discipline, []).append(sheet.id)
-    linked: dict[uuid.UUID, set[uuid.UUID]] = {}
+    links: dict[uuid.UUID, list[uuid.UUID]] = {}
     for link in QuestionLink.objects.filter(
         project_id=project_id, question__in=open_questions, proposal_id__in=list(proposal_of)
     ):
-        linked.setdefault(link.question_id, set()).add(proposal_of[link.proposal_id])
+        links.setdefault(link.question_id, []).append(link.proposal_id)
+    linked = {q: {proposal_of[p] for p in ps} for q, ps in _beside_now(project_id, links).items() if ps}
     holding: dict[uuid.UUID, Question] = {}
     lists_disagree = Q(
         kind=QuestionKind.CONFLICT,
@@ -2172,6 +2217,82 @@ def raise_question(
         QuestionLink.objects.get_or_create(
             tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
         )
+    return row.id
+
+
+def ask_gaps(
+    project_id: uuid.UUID,
+    discipline: str,
+    message: Message,
+    *,
+    options: Sequence[Any] = (),
+    check_code: str = "",
+    blocks: Sequence[uuid.UUID] = (),
+) -> uuid.UUID:
+    """The Discipline's one numbering gap Question (S15-Q2, the owner's session-11 ruling: "all of one
+    Discipline's gaps are asked as one Question"), its identity the Discipline and never its gaps'
+    sheet numbers: a file that adds a gap or fills one changes what it asks (`message`) and the sheets
+    it holds (`blocks`; a sheet beside a gap since filled is held no more, `_beside_now`), never
+    which Question it is. The Discipline's last one not
+    answered is the one asked (reopened if a past round retired it); after an answer, a new one (the
+    Discipline once more: a gap found later is asked, never settled by an answer given before it).
+
+    A kept-open answer stays while every gap it asks was asked when it was kept open; a gap it never
+    asked makes it the QS's to answer again (review 1 of #229). Two read jobs take turns on the
+    Discipline (a transaction lock), as `ask_group`'s do."""
+    projects.get(project_id)
+    base = hashlib.sha256(
+        json.dumps([QuestionKind.CHECK, "gaps", discipline], sort_keys=True).encode()
+    ).hexdigest()[:_GROUP_KEY]
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                [f"takeoff.question_group:{project_id}:{base}"],
+            )
+        tenant = _tenant()
+        asked = list(
+            Question.objects.select_for_update()
+            .filter(tenant_id=tenant, project_id=project_id, question_key__startswith=base)
+            .order_by("created_at", "id")
+        )
+        last = asked[-1] if asked else None
+        reusable = last is not None and (
+            last.status == QuestionStatus.OPEN
+            or (last.status == QuestionStatus.WITHDRAWN and last.withdrawn_by_id is None)
+        )
+        if last is not None and reusable:
+            row = last
+            params = dict(message["params"])
+            if row.params != params:
+                was = set(gap_ends(row))
+                row.params = params
+                fields = ["params"]
+                if row.answer is not None and not set(gap_ends(row)) <= was:
+                    row.answer = None  # a gap the QS never kept open is theirs to answer
+                    fields.append("answer")
+                row.save(update_fields=fields)
+        else:
+            row = Question.objects.create(
+                tenant_id=tenant,
+                project_id=project_id,
+                question_key=f"{base}{len(asked):0{64 - _GROUP_KEY}x}",
+                step=SHEETS,
+                kind=QuestionKind.CHECK,
+                subject_id=None,
+                discipline=discipline,
+                message_code=message["code"],
+                params=dict(message["params"]),
+                options=list(options),
+                check_code=check_code,
+            )
+        # Links are append-only (19a): one beside a gap since filled stays, held no more
+        # (`_beside_now`).
+        for proposal_id in dict.fromkeys(blocks):
+            proposal = Proposal.objects.get(project_id=project_id, id=proposal_id)
+            QuestionLink.objects.get_or_create(
+                tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
+            )
     return row.id
 
 

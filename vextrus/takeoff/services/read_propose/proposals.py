@@ -790,7 +790,8 @@ def _gaps(
     sheets beside its gaps while it is open: those whose series and running number are a gap's
     `after` or `before` (a suffix aside: "S-04A" is beside a gap after "S-04"), not yet decided (an
     undo brings one back into the hold through `step1._agreeing`, which reads the Question's gaps). A
-    gap answered before stays settled (`step1.answered_gaps`), however the others change. Each gap a
+    gap answered before stays settled (`step1.answered_gaps`), however the others change. The
+    Question is the Discipline's (`step1.ask_gaps`, S15-Q2), whatever its gaps. Each gap a
     finding of the Check's run, its subjects those sheets', its Question the one that asks or
     answered it."""
     settled = step1.answered_gaps(project_id)
@@ -812,11 +813,10 @@ def _gaps(
             continue
         undecided = {s.id for s in numbered if not s.decision}
         held = dict.fromkeys(s for i in mine for s in beside[i] if s in undecided and s in proposal_of)
-        question_id = step1.raise_question(
+        question_id = step1.ask_gaps(
             project_id,
-            "check",
+            discipline,
             _asked(discipline, [every[i] for i in mine]),
-            discipline=discipline,
             options=options(CHECK_OPTIONS),
             check_code=register_check.CODE,
             blocks=[proposal_of[s] for s in held],

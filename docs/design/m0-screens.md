@@ -1007,7 +1007,10 @@ reading of this sheet’s title and view titles". A pick still changes nothing u
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
 no drawing list**, its Plot page matched, its number and title read alike; a gap in the numbering holds
 only the sheets either side of it until its Question is answered, and all of one Discipline's gaps are
-asked as one Question (the owner's ruling of 4 Oct 2026, #229). A sheet with only one source (no list
+asked as one Question (the owner's ruling of 4 Oct 2026, #229). That Question is the Discipline's,
+never a sheet's: a later file of the Discipline that adds a gap or fills one changes what it asks and
+which sheets it holds, never which Question it is; one answer settles every gap it asks, and once
+answered it holds no sheet (S15-Q2). A sheet with only one source (no list
 and no Plot, or a Plot page that shows another title) is a Proposal "with one source": it is not in the
 bulk act, and the QS confirms it on its own (6.5). The
 heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
@@ -1833,4 +1836,5 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
 ## The owner's rulings (4 Oct 2026, session 11)
 - **5, what "agrees" means with no drawing list: "Plot match + gap local"** (#229). A sheet whose
   Plot page matched (number and title read alike) has its second source; a numbering gap holds only
-  the sheets beside it; all of one Discipline's gaps are asked as one Question.
+  the sheets beside it; all of one Discipline's gaps are asked as one Question (the Discipline's, its
+  identity never a sheet's name; one answer for all its gaps).
