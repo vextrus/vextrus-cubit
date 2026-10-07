@@ -26,11 +26,11 @@ from django.template.backends.django import Template
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, path, reverse
 from django.utils.functional import SimpleLazyObject
+from django.utils.translation import get_language, gettext_lazy
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy
 from django.views.decorators.http import require_POST
 
-from vextrus.platform.models import Developer, Membership
+from vextrus.platform.models import Developer, Market, Membership
 from vextrus.platform.services import invitations, tenancy
 
 INDEX = """{% extends "admin/index.html" %}{% block sidebar %}{% endblock %}"""
@@ -85,6 +85,26 @@ class TenantModelAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
         return False
 
 
+REGION_NAMES = {"asia-south1": "Mumbai"}
+"""A stored home region's place, by its cell id (a cell's word, not a Market's); an id not here
+is shown as stored."""
+
+
+def market_name(market: Market) -> str:
+    """The Market's name in the language shown, else in English, else its code."""
+    labels = market.labels if isinstance(market.labels, dict) else {}
+    return str(labels.get(get_language() or "") or labels.get("en") or market.code)
+
+
+def region_name(home_region: str) -> str:
+    return REGION_NAMES.get(home_region, home_region)
+
+
+class MarketChoiceField(forms.ModelChoiceField):  # type: ignore[type-arg]
+    def label_from_instance(self, obj: Market) -> str:
+        return market_name(obj)
+
+
 class DeveloperForm(forms.ModelForm):  # type: ignore[type-arg]
     home_region = forms.CharField(
         required=False,
@@ -96,6 +116,7 @@ class DeveloperForm(forms.ModelForm):  # type: ignore[type-arg]
     class Meta:
         model = Developer
         fields = ("name", "market", "home_region")
+        field_classes: ClassVar = {"market": MarketChoiceField}
 
 
 @admin.register(Developer)
@@ -112,7 +133,15 @@ class DeveloperAdmin(TenantModelAdmin):
         return ["name", "market", "home_region"] if obj is None else ["name"]
 
     def get_readonly_fields(self, request: HttpRequest, obj: Model | None = None) -> list[str]:
-        return [] if obj is None else ["name", "market", "home_region", "created_at"]
+        return [] if obj is None else ["name", "market_in_words", "home_region_in_words", "created_at"]
+
+    @admin.display(description=gettext_lazy("Market"))
+    def market_in_words(self, obj: Developer) -> str:
+        return market_name(obj.market)
+
+    @admin.display(description=gettext_lazy("Home region"))
+    def home_region_in_words(self, obj: Developer) -> str:
+        return region_name(obj.home_region)
 
     def get_fieldsets(self, request: HttpRequest, obj: Model | None = None) -> Any:
         if obj is not None:
