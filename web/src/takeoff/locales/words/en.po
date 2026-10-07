@@ -450,6 +450,10 @@ msgid "Roof plan"
 msgstr "Roof plan"
 
 #: src/takeoff/words.tsx
+msgid "Sheet titles and plans name different storeys"
+msgstr "Sheet titles and plans name different storeys"
+
+#: src/takeoff/words.tsx
 msgid "Septic tank details"
 msgstr "Septic tank details"
 

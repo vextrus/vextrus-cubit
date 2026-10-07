@@ -5,6 +5,7 @@ subject and layer, and what it is proposed for.
     views.find(artefact, sheet, conventions, budget=budget, sheet_conventions=None) -> FoundViews
                                                           (the `views` stage; `.paper`)
     views.working_view(views) -> int | None                            (16's and 22's fit)
+    views.titled_storeys(stated, sheet_conventions=None) -> tuple[str, ...]  (Step 1's `storeys_titled`)
     views.kind_steps(kind, discipline, conventions=None) -> tuple[str, ...]  (Step 1, #158)
     views.subjects(text, conventions=None) -> frozenset[str]             (19b's continuations)
     views.describe(text, conventions=None) -> Described                   (19b's continuations)
@@ -93,6 +94,7 @@ __all__ = [
     "find",
     "kind_steps",
     "subjects",
+    "titled_storeys",
     "working_view",
 ]
 
@@ -135,7 +137,9 @@ def find(
     """The sheet's views, in reading order (the package's docstring), on the file's `budget` (one of
     its own when none is given), their storeys read with `sheet_conventions`' storey words."""
     if sheet_conventions is not None and not isinstance(sheet_conventions, SheetConventions):
-        raise TypeError(f"sheet conventions are SheetConventions, not {type(sheet_conventions).__name__}")
+        raise TypeError(
+            f"sheet conventions are SheetConventions, not {type(sheet_conventions).__name__}"
+        )
     if not isinstance(sheet, SheetCandidate):
         raise TypeError(f"a sheet is a SheetCandidate, not {type(sheet).__name__}")
     if budget is None:
@@ -162,6 +166,14 @@ def find(
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(budget)
     return result
+
+
+def titled_storeys(
+    stated: str | None, sheet_conventions: SheetConventions | None = None
+) -> tuple[str, ...]:
+    """The storey keys a sheet title's stated storey words read to (`storeys.titled`): the one
+    reading Step 1 shows for a sheet with no plan, so the screen parses none."""
+    return storeys.titled(stated, sheet_conventions)
 
 
 def _report(budget: ViewBudget) -> dict[str, int]:

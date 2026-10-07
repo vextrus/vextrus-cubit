@@ -58,11 +58,11 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   keys (in the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title
   names a room or a part, its floors only a bracketed line under it, #413) sits out: each bath's plan
   over "2nd to 6th floor" is a different room's. A plan whose storeys run floor to floor (17's
-  `floor_to_floor`: a column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
-  to 6th floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with
-  neither number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word
-  m0-screens §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words
-  are its evidence line until then.
+  `floor_to_floor`: a column layout "foundation to 3rd floor") shares none at its top end, where the
+  next range starts ("3rd to 6th floor"): consecutive ranges meet at a floor by the drafting
+  convention. A plan on a sheet with neither number nor title sits out (its Question is 21c's
+  `missing`). 21c's Question title must word m0-screens §5's verbatim from `storey` and `subject` once
+  display words exist; this Conflict's words are its evidence line until then.
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each

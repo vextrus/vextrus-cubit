@@ -34,6 +34,7 @@ again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one pe
 raised again is the one asked (`step1.raise_question`).
 """
 
+import json
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
@@ -85,8 +86,8 @@ LISTS_OPTIONS = ("use_read", "use_given", KEEP_OPEN)
 BOUNDARY_OPTIONS = ("includes_storey", "excludes_storey", KEEP_OPEN)
 CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
 STOREY_TITLE_OPTIONS = ("plans_right", "title_right", KEEP_OPEN)
-"""The storey-titles Question's options: each is recorded only (the QS corrects a plan's storeys in
-the list, story 28)."""
+"""The storey-titles Question's options: each is recorded only; no sheet or plan changes (no Step 1
+act edits a plan's storeys yet, story 28; S15-E3: no word promises one)."""
 
 
 def options(keys: Sequence[str]) -> list[dict[str, object]]:
@@ -648,6 +649,19 @@ def _register(
     return len(fired)
 
 
+PLANS = "plans"
+"""The recorded storey-titles finding's evidence beyond its words: the storey keys of each of its
+sheet's plans ("floor_2 floor_6; roof"), so an answer decides that disagreement only, never a later
+one of the same counts (S15-E3's refuter: plans redrawn from the 6th to the 7th floor are asked again).
+It is never worded: Step 1's Question takes the finding's own params."""
+
+
+def _with_plans(finding: Message, views: Sequence[ViewCandidate]) -> Message:
+    """The finding as recorded: its params and `PLANS`, its sheet's plans' storey keys in order."""
+    plans = sorted(" ".join(v.storeys) for v in views if v.kind == ViewKind.PLAN)
+    return Message(code=finding["code"], params={**finding["params"], PLANS: "; ".join(plans)})
+
+
 def _storey_titles(
     project_id: uuid.UUID,
     listed: Sequence[drawings.SheetView],
@@ -659,8 +673,10 @@ def _storey_titles(
 ) -> int:
     """19b's storey-titles Check over the set: each sheet whose title names storeys its plans do not
     agree with, asked as one `check` Question per Discipline (`storey_codes.DIFFERS`, the first such
-    sheet named as the example) holding its undecided disagreeing sheets; a sheet of no Discipline, or
-    a decided one, is held by none. The Check's run is recorded with each finding. How many Questions
+    sheet named as the example) holding its undecided disagreeing sheets; a sheet of no Discipline, a
+    decided one, or one whose same disagreement the QS has answered (`step1.answered_findings`: never
+    asked again, #436's review round 1), is held by none. The Check's run is recorded with each
+    finding, an answered one under the Question that answered it. How many Questions
     were asked."""
     reading = SetReading(
         sheets=tuple(sheets),
@@ -670,19 +686,23 @@ def _storey_titles(
     )
     results = storey_titles.check(reading, recognisers=recognisers)
     at = {id(c): i for i, c in enumerate(sheets)}
-    fired: list[tuple[Message, drawings.SheetView | None]] = []
+    answered = step1.answered_findings(project_id, storey_titles.CODE)
+    fired: list[tuple[Message, drawings.SheetView | None, uuid.UUID | None]] = []
     asked: dict[str, list[tuple[Message, drawings.SheetView]]] = {}
     for result in results:
         if result.outcome != CheckOutcome.FIRED or result.finding is None:
             continue
         index = at.get(id(result.subject)) if result.subject is not None else None
         sheet = listed[index] if index is not None else None
-        fired.append((result.finding, sheet))
-        if sheet is not None and sheet.discipline and not sheet.decision:
-            asked.setdefault(sheet.discipline, []).append((result.finding, sheet))
+        recorded = _with_plans(result.finding, views[index] if index is not None else ())
+        said = json.dumps(dict(recorded["params"]), sort_keys=True, default=str)
+        decided = answered.get((str(sheet.id), said)) if sheet is not None else None
+        fired.append((recorded, sheet, decided))
+        if decided is None and sheet is not None and sheet.discipline and not sheet.decision:
+            asked.setdefault(sheet.discipline, []).append((recorded, sheet))
     raised: dict[str, uuid.UUID] = {}
     for discipline, found in asked.items():
-        example = dict(found[0][0]["params"])
+        example = {k: v for k, v in found[0][0]["params"].items() if k != PLANS}
         message = storey_codes.DIFFERS(discipline=discipline, count=len(found), **example)
         blocks = [proposal_of[s.id] for _, s in found if s.id in proposal_of]
         raised[discipline] = step1.raise_question(
@@ -694,15 +714,19 @@ def _storey_titles(
             check_code=storey_titles.CODE,
             blocks=blocks,
             keyed_by_holds=True,  # the same words over other sheets: another Question
+            keyed_by=[json.dumps(dict(f["params"]), sort_keys=True, default=str) for f, _ in found],
         )
     step1.retire_questions(project_id, (storey_codes.DIFFERS.code,), raised.values())
     findings = [
         (
             finding,
             [sheet.id] if sheet is not None else [],
-            raised.get(sheet.discipline or "") if sheet is not None and not sheet.decision else None,
+            decided
+            or (
+                raised.get(sheet.discipline or "") if sheet is not None and not sheet.decision else None
+            ),
         )
-        for finding, sheet in fired
+        for finding, sheet, decided in fired
     ]
     step1.record_check_run(
         project_id,

@@ -126,7 +126,8 @@ def proposals_of(qs: QsProject) -> list[dict[str, str]]:
 def test_an_answered_question_never_takes_a_sheet_found_later(qs_project: QsProject) -> None:
     """Answered "the plans are right" over two sheets; then one is corrected and another found
     disagreeing with the same count and example: the answered Question keeps what it held, and the
-    new sheet is asked by a new open Question."""
+    new sheet alone is asked by a new open Question (the first sheet's disagreement was answered and
+    is not asked again: #436's review round 1)."""
     member, project_id = qs_project.member, qs_project.project_id
     first, second = record(
         member, project_id, "QV-STR-R2.dwg", [disagreeing("Q-11"), disagreeing("Q-12")]
@@ -146,4 +147,49 @@ def test_an_answered_question_never_takes_a_sheet_found_later(qs_project: QsProj
     assert ours[asked["id"]]["status"] == "answered"
     assert set(ours[asked["id"]]["proposals"]) == {ids[str(first)], ids[str(second)]}
     [now] = [q for q in ours.values() if q["status"] == "open"]
-    assert set(now["proposals"]) == {ids[str(first)], ids[str(third)]}
+    assert set(now["proposals"]) == {ids[str(third)]}
+
+
+def test_an_answered_sheet_whose_disagreement_changes_is_asked_again(qs_project: QsProject) -> None:
+    """S15-E3: the answer is the disagreement's the QS saw. Read again with other plan storeys (still
+    disagreeing with its title), the sheet is asked by a new open Question; the answered one stands."""
+    member, project_id = qs_project.member, qs_project.project_id
+    [sheet] = record(member, project_id, "QV-STR-R2.dwg", [disagreeing("Q-41")])
+    ask(member, project_id)
+    questions = f"/api/projects/{project_id}/takeoff/step1/questions"
+    [asked] = [q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE]
+    answered = api_as(member).post(f"{questions}/{asked['id']}/answer", {"option": "title_right"})
+    assert answered.status_code == 200, answered.content
+
+    ask(member, project_id)  # the same disagreement: nothing asked
+    unchanged = [q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE]
+    assert [q["status"] for q in unchanged] == ["answered"]
+
+    redraw(member, sheet, 0, [Plan(("floor_3", "floor_6"), title="3RD & 6TH FLOOR WAFFLE SLAB PLAN")])
+    ask(member, project_id)
+
+    ours = {q["id"]: q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE}
+    assert ours[asked["id"]]["status"] == "answered"
+    assert [q["status"] for q in ours.values() if q["id"] != asked["id"]] == ["open"]
+
+
+def test_an_answered_sheet_redrawn_to_other_storeys_of_the_same_counts_is_asked_again(
+    qs_project: QsProject,
+) -> None:
+    """S15-E3's refuter (scored 70): the plan of a sheet titled "2ND & 8TH FLOOR" read as the 2nd and
+    6th, answered, then redrawn as the 2nd and 7th: the counts are the same (one storey each way), the
+    disagreement is not the one answered, so it is asked again."""
+    member, project_id = qs_project.member, qs_project.project_id
+    [sheet] = record(member, project_id, "QV-STR-R2.dwg", [disagreeing("Q-51")])
+    ask(member, project_id)
+    questions = f"/api/projects/{project_id}/takeoff/step1/questions"
+    [asked] = [q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE]
+    answered = api_as(member).post(f"{questions}/{asked['id']}/answer", {"option": "plans_right"})
+    assert answered.status_code == 200, answered.content
+
+    redraw(member, sheet, 0, [Plan(("floor_2", "floor_7"), title="2ND & 7TH FLOOR WAFFLE SLAB PLAN")])
+    ask(member, project_id)
+
+    ours = {q["id"]: q for q in api_as(member).get(questions).json()["questions"] if q["code"] == CODE}
+    assert ours[asked["id"]]["status"] == "answered"
+    assert [q["status"] for q in ours.values() if q["id"] != asked["id"]] == ["open"]

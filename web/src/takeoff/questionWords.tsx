@@ -10,6 +10,7 @@ import { useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { SheetName } from './acts'
+import { STOREY_TITLES, StoreyTitlesAnswered, StoreyTitlesAnswering } from './storeyTitles'
 import type { ProposalOut } from './data'
 import { gapOf, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
@@ -21,9 +22,6 @@ type Option = { key?: string; picked?: boolean }
 export function optionsOf(entry: QuestionEntry): Option[] {
   return entry.question.options.map((o) => (typeof o === 'object' && o !== null ? (o as Option) : {}))
 }
-
-/** The title-against-plans Question (T-W318): one per Discipline, its answers recorded only. */
-const STOREY_TITLES = 'engine.storey_titles.differs'
 
 const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
 
@@ -426,18 +424,8 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       )
     return named ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
   }
-  if (q.code === STOREY_TITLES && picked) {
-    // Recorded only: no sheet and no storey changes (nothing edits a plan's storeys yet, story 28).
-    if (picked === 'plans_right') return <Trans>Answering records that the plans’ storeys are right; the sheets stay as they are, to confirm in the list.</Trans>
-    if (picked === 'title_right') return <Trans>Answering records that the titles are right. Vextrus still takes the storeys from the plans.</Trans>
-    if (picked === 'keep_open') return <Trans>Answering keeps this Question open; its sheets wait for the consultant.</Trans>
-  }
-  if (q.code === STOREY_TITLES && !picked)
-    return hint ? (
-      <Trans>Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}.</Trans>
-    ) : (
-      <Trans>Answering records whether the titles or the plans are right; no sheet changes.</Trans>
-    )
+  if (q.code === STOREY_TITLES && (!picked || picked === 'plans_right' || picked === 'title_right' || picked === 'keep_open'))
+    return <StoreyTitlesAnswering picked={picked} keys={keys} hint={hint} />
   if (q.kind === 'check' && picked) {
     // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
     const gap = gapOf(q)
@@ -667,8 +655,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the range on {sheet} includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range.</Trans>
   }
   if (q.code === 'takeoff.proposals.lists_disagree' && (option === 'use_read' || option === 'use_given')) return <ListUsed entry={entry} option={option} />
-  if (q.code === STOREY_TITLES && option === 'plans_right') return <Trans>{tag} answered. Recorded: the plans’ storeys stand.</Trans>
-  if (q.code === STOREY_TITLES && option === 'title_right') return <Trans>{tag} answered. Recorded: the titles are right; correct each plan’s storeys in the list.</Trans>
+  if (q.code === STOREY_TITLES && (option === 'plans_right' || option === 'title_right')) return <StoreyTitlesAnswered tag={tag} option={option} />
   if (q.kind === 'check') return <CheckAnswered entry={entry} option={option} />
   // A code or option this screen does not know yet: still not the bare tag (round 3's design gate).
   return <Trans>{tag} answered. Your answer is recorded.</Trans>

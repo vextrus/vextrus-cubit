@@ -61,7 +61,6 @@ from django.utils import timezone
 from engine.check import register
 from engine.messages import Message
 from engine.messages import register_check as list_codes
-from engine.recognise import storeys
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
@@ -156,8 +155,9 @@ class ProposalView:
     title_source: str | None = None
     storeys_as_stated: str = ""
     storeys_titled: tuple[str, ...] | None = None
-    """The storey keys its title's storey words read to (13's `storeys.read`, with where a range runs
-    to), derived on the read and stored nowhere; None when it states none or they read to no key."""
+    """The storey keys its title's storey words read to (17's `views.titled_storeys`, with where a
+    range runs to), derived on the read and stored nowhere; None when it states none or they read to
+    no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
     plot_file: str | None = None
@@ -183,7 +183,8 @@ class SheetViewView:
     storeys_as_stated: str
     storeys_meaning: str | None
     storeys_source: str | None
-    """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318)."""
+    """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318),
+    "title_line" for a bracketed line under its title (S15-E3)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -387,14 +388,11 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
 def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
     """Each distinct storey wording a sheet's title states, read once to its storey keys
     (`ProposalView.storeys_titled`)."""
-    conventions = default_conventions()
+    conventions = sheet_conventions()
     found: dict[str, tuple[str, ...] | None] = {}
     for text in stated:
-        if not text:
-            continue
-        read = storeys.read(text, conventions, plan_title=True)
-        keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))
-        found[text] = keys if keys and keys != ("not_stated",) else None
+        if text:
+            found[text] = view_finder.titled_storeys(text, conventions) or None
     return found
 
 
@@ -2034,6 +2032,22 @@ def record_check_run(
     return run.id
 
 
+def answered_findings(project_id: uuid.UUID, check_key: str) -> dict[tuple[str, str], uuid.UUID]:
+    """The findings of a Check the QS has answered (each run's finding whose Question is answered),
+    by (subject id, params as JSON): the Question that answered each. The same finding found again
+    on the same subject is decided, and asked no more (#436's review round 1)."""
+    projects.get(project_id)
+    found: dict[tuple[str, str], uuid.UUID] = {}
+    rows = CheckFinding.objects.filter(
+        project_id=project_id, run__check_key=check_key, question__status=QuestionStatus.ANSWERED
+    ).values_list("subject_ids", "params", "question_id")
+    for subjects, params, question_id in rows:
+        said = json.dumps(params, sort_keys=True, default=str)
+        for subject in subjects or ():
+            found.setdefault((str(subject), said), question_id)
+    return found
+
+
 def _project_of(sheet: drawings.SheetView) -> uuid.UUID:
     return drawings.file(sheet.file_id).project_id
 
@@ -2116,17 +2130,22 @@ def raise_question(
     check_code: str = "",
     blocks: Sequence[uuid.UUID] = (),
     keyed_by_holds: bool = False,
+    keyed_by: Sequence[str] = (),
 ) -> uuid.UUID:
     """A Step 1 Question, as a code and its parameters, once per (kind, subject, evidence): the
     same Question raised again is the one already asked. `blocks`: the Proposals it holds.
     `keyed_by_holds`: the Proposals it holds are part of its evidence too (a Question over a group of
     sheets, T-W318's per Discipline: the same words over other sheets are another Question, since a
-    Question's holds are only ever added to)."""
+    Question's holds are only ever added to). `keyed_by`: more evidence that is no word of it (the
+    storey-titles findings with their plans' storeys, S15-E3: an answered Question is never the one a
+    changed disagreement is asked by)."""
     projects.get(project_id)
     chosen = QuestionKind(kind)
     evidence: list[Any] = [chosen, str(subject_id or ""), message["code"], message["params"]]
     if keyed_by_holds:
         evidence.append(sorted(str(b) for b in blocks))
+    if keyed_by:
+        evidence.append(sorted(keyed_by))
     identity = json.dumps(evidence, sort_keys=True, default=str)
     key = hashlib.sha256(identity.encode()).hexdigest()
     row, _made = Question.objects.get_or_create(

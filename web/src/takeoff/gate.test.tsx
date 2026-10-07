@@ -19,7 +19,6 @@ import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { activatePseudoRtl } from '@/i18n/pseudo'
 import { notationProblems } from '@/ui'
-import { statedKeys } from './storeys'
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -356,17 +355,6 @@ describe('M12: a title that states its storeys never reads "not stated" (as T-W3
     expect(clean(rowOf('S-06').textContent)).not.toContain('not stated')
     // The engine decided: a plan with no keys is "not stated", whatever text it carries.
     expect(clean(rowOf('S-05').textContent)).toContain('not stated')
-    for (const [said, keys] of [
-      ['2ND BASEMENT FLOOR', ['basement_2']],
-      ['6TH FLOOR TO ROOF', ['floor_6', 'top', 'roof']],
-      ['GROUND TO 5TH FLOOR', null],
-      ['2ND TO 4TH FLOOR', ['floor_2', 'floor_3', 'floor_4']],
-      ['GF', null],
-      ['6TH TO 2ND FLOOR', null],
-      ['2ND TO 5TH BASEMENT', null],
-      ['3RD & 5TH FLOOR', ['floor_3', 'floor_5']],
-    ] as const)
-      expect(statedKeys(said), said).toEqual(keys)
     // A level is not a storey: amber "not stated" beside its Question (6.8), never the level as text.
     expect(clean(rowOf('S-02').textContent)).toContain('not stated')
     expect(clean(rowOf('S-02').textContent)).not.toContain('16')

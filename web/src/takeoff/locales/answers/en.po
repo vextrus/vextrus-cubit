@@ -205,6 +205,10 @@ msgid "{discipline} cannot be confirmed until this Question is answered."
 msgstr "{discipline} cannot be confirmed until this Question is answered."
 
 #: src/takeoff/questionWords.tsx
+msgid "Trace: the title blocks and plans of {sheets}"
+msgstr "Trace: the title blocks and plans of {sheets}"
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title block of {sheet}"
 msgstr "Trace: the title block of {sheet}"
 

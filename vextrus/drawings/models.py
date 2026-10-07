@@ -687,7 +687,9 @@ class View(models.Model):
         blank=True,
         default="",
         db_default="",
-        help_text="Where its storeys were read: empty for its own title, else 'sheet_title'.",
+        help_text=(
+            "Where its storeys were read: empty for its own title, else 'sheet_title' or 'title_line'."
+        ),
     )
     subject = models.CharField(max_length=64, blank=True, default="")
     layer = models.CharField(max_length=8, blank=True, default="")

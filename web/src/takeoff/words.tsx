@@ -6,6 +6,7 @@
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import type { Reason } from './model'
+import { STOREY_TITLE_OPTIONS } from './storeyTitles'
 
 /** Each Discipline's one name (m0-screens §1.1), until the Library's own names reach the web. */
 export const DISCIPLINE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
@@ -129,8 +130,7 @@ export const OPTION_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   not_sent_yet: msg`Not sent yet: keep it in the count as missing and ask the consultant`,
   not_in_set: msg`Not part of this set: record it; it stays on the drawing list`,
   file_not_added: msg`It is in a file I haven’t added yet`,
-  plans_right: msg`The plans are right: keep the storeys they name`,
-  title_right: msg`The titles are right: I’ll correct the plans’ storeys in the list`,
+  ...STOREY_TITLE_OPTIONS,
   keep_open: msg`Keep open, ask the consultant`,
 }
 

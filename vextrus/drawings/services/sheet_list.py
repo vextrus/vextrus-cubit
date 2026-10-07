@@ -146,7 +146,8 @@ class ViewView:
     storeys: tuple[str, ...]
     storeys_meaning: str | None
     storeys_source: str | None
-    """Where its storeys were read: None for its own title, else "sheet_title" (T-W318)."""
+    """Where its storeys were read: None for its own title, else "sheet_title" (T-W318) or
+    "title_line" (S15-E3)."""
     subject: str | None
     layer: str | None
     steps: tuple[str, ...]

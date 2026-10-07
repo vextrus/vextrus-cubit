@@ -10,7 +10,8 @@ They mean the floors' levels (`at_floor_level`) unless its subject is one drawn 
 (`FLOOR_TO_FLOOR`). A view of another kind, or with no title, has none.
 
 **A bracketed line under its title** (#413): a plan whose own title states no storey takes the storeys
-of the first line under that title which is bracketed whole ("(2ND TO 6TH FLOOR)") and names one,
+of the first line under that title which is bracketed whole and holds storey words only ("(2ND TO 6TH
+FLOOR)"; not "(SEE 3RD FLOOR PLAN)", a reference, nor "(1ST FLOOR) AND (TYP.)"),
 stated as the line states it and recorded as read from that line (`StoreysSource.TITLE_LINE`). Such a
 plan names only a room or a part ("TOILET LAYOUT PLAN") and gives its floors in the line: it is a part
 plan, and `conflicts`' `same_storey` leaves it out (each bath is a different room). A line naming no
@@ -71,9 +72,14 @@ def _keys(found: storey_reader.Storeys) -> tuple[str, ...]:
     return tuple(dict.fromkeys((*found.keys, *([found.runs_to] if found.runs_to else []))))
 
 
-def _bracketed(line: str) -> bool:
-    text = line.strip()
-    return len(text) > 2 and _BRACKETS.get(text[0]) == text[-1]
+def _inside(line: str) -> str | None:
+    """The words inside a line bracketed whole, its brackets once ("(2ND TO 6TH FLOOR)"); none for
+    any other line, or one holding another bracket ("(1ST FLOOR) AND (TYP.)")."""
+    text = " ".join(line.split())
+    if len(text) <= 2 or _BRACKETS.get(text[0]) != text[-1]:
+        return None
+    inner = text[1:-1].strip()
+    return None if any(c in inner for c in "()[]") else inner
 
 
 def read(
@@ -93,13 +99,24 @@ def read(
     keys = _keys(found)
     if keys in STATES_NONE:
         for line in lines:
-            if not _bracketed(line):
+            inner = _inside(line)
+            if inner is None:
                 continue
-            under = storey_reader.read(line, held, plan_title=True)
+            under = storey_reader.read(inner, held, plan_title=True)
             given = _keys(under)
-            if given not in STATES_NONE and under.as_stated:
+            if given not in STATES_NONE and under.as_stated == inner:
                 return ViewStoreys(given, under.as_stated, _meaning(subject), StoreysSource.TITLE_LINE)
     return ViewStoreys(keys, found.as_stated, _meaning(subject) if keys else None)
+
+
+def titled(stated: str | None, conventions: SheetConventions | None = None) -> tuple[str, ...]:
+    """The storey keys a sheet title's stated storey words read to (13's `storeys_as_stated`), with
+    where a range runs to; none when it states none or they read to no key. Step 1 words a sheet
+    with no plan by them (`storeys_titled`); its only plan takes them (`inherit`)."""
+    if not stated:
+        return ()
+    keys = _keys(storey_reader.read(stated, words(conventions), plan_title=True))
+    return () if keys in STATES_NONE else keys
 
 
 def inherit(
@@ -114,8 +131,8 @@ def inherit(
     stated = sheet.storeys_as_stated.value if sheet.storeys_as_stated is not None else ""
     if len(plans) != 1 or not stated or made[plans[0]].storeys not in STATES_NONE:
         return list(made)
-    keys = _keys(storey_reader.read(stated, words(conventions), plan_title=True))
-    if keys in STATES_NONE:
+    keys = titled(stated, conventions)
+    if not keys:
         return list(made)
     plan = made[plans[0]]
     subject = plan.subject or (on_sheet[0] if len(on_sheet) == 1 else None)

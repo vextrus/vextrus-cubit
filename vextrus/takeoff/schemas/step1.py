@@ -32,7 +32,8 @@ class Step1ViewOut(Schema):
     storeys_meaning: str | None
     storeys_source: str | None = None
     """Where its storeys were read: null for its own title, "sheet_title" for its sheet's title (the
-    sheet's only plan, whose own title states none)."""
+    sheet's only plan, whose own title states none), "title_line" for a bracketed line under its title
+    (a part plan's floors)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None

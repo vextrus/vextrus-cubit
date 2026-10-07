@@ -258,7 +258,7 @@ def test_the_storey_finding_formats_each_side(
 
     assert result.finding is not None
     middle = "names \u201c3RD, 5TH & 7TH FLOOR\u201d, but its plans do not agree"
-    end = " Vextrus takes the storeys from its plans; if the title is right, correct the plans' storeys."
+    end = " Vextrus takes the storeys from its plans."  # no storey edit promised (S15-E3)
     start = "The title of " if number else "The sheet titled "
     assert said(result.finding) == start + expected.format(middle) + end
 
