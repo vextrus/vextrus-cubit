@@ -1,4 +1,4 @@
-# Session 16: the first M1 slice, shown to the founders by 12:30Z
+# Session 16: the first M1 slice, shown to the founders after this session's 3 hours
 
 ## Starting the session (the owner)
 1. In a WSL terminal: `cd ~/vextrus-cubit && git pull`, then `df -h /` and `free -g` (keep 40 GB free).
@@ -15,7 +15,7 @@
 ---
 
 You are the orchestrator of session 16. **In 3 hours, build the thinnest honest slice of M1 on what M0 has, on the
-Edison structural set, and hand the owner a showing script for the founders' meeting at about 12:30Z.** The slice:
+Edison structural set, and hand the owner a showing script for the founders' meeting that follows this session.** Budget: 3 hours (the owner, 7 Oct 10:00Z: "for next session have at least 3h budget as I'm allowing before the meeting"). The slice:
 storeys and levels, the grid, columns (one Element per column per storey), the columns in 3D, and a Priced BOQ for them
 (concrete, formwork, rebar by ratio) on starter Market Prices, with every figure opening its Trace and every other step
 a marked allowance. Nothing is faked: what the readers miss shows as misses and as Questions. **The hand count is not an Answer
@@ -112,24 +112,24 @@ train (T2 `takeoff/http/frame.py` and `takeoff/http/model.py`, B and RT their ow
 **Timeline (T = start):** T+0 acceptance writers for all 13 in parallel (Opus 5.5 high, 15 min); D starts. T+15 launch every
 ticket on its own branch from main (K0's PR in review; each ticket merges K0's branch until K0 lands, then main). T+60-110 reviews against main, passing tickets merged into
 `s16-m1`; the orchestrator serves the train head with D's project. **T+110 freeze**, train PR, integrated review, design
-gate, posting run. T+160-175 land if it passes; the orchestrator runs the showing script. ~12:30Z the owner presents.
+gate, posting run. T+160-175 land if it passes; the orchestrator runs the showing script. T+180 the owner presents.
 
 ## M0 carried in from session 15 (land when the lock and reviews allow; never at the slice's cost)
 Session 15 measured M0 (gap map: `.private/work/session-15/gap-map.md`), wrote 29 tickets (#523-#551), closed 37 old M0
-issues as superseded and moved 13 to M1, and merged #552, #555, #559, #560, #561, #563, #567, #568, #569, #571, #574,
-#589 and #590 (check `gh pr list --state merged` for #573, landing at close). G1's baseline on main (dddce3f8, script
-layer) failed on both sets: Questions per Discipline (low_confidence), false continuations, bulk share, storeys, act p95;
-Edison's reads were incomplete until #567 (merged: the Plumbing DWG now agrees). Read `.private/work/session-15/STATE.md`
-for each ticket's exact state. The order to land them (the lock is the limit):
-1. #573 (S15-A5) if it did not land: posted at its head; the lander's update needs a cached re-post (seconds).
-2. #565 (S15-E4 views package): posting accepted at e3939af1, but that head is BLOCKED (its verify timed out at 70 min).
-   Verify tree 08025f2 locally, commit an empty READY, run one review round on the new head (an empty commit after a PASS
-   is not covered), update, re-post (cached), land. E2, E3, E6 are stacked on it.
-3. #564 (S15-A1, PASS r2): its no-post run was under the lock at close; then post, land. Then #566 (S15-Q1) merges main
-   (one hunk with A1), re-verifies (CI's harness check now passes: #568), review round 1, post, land.
-4. Then Q2 (4ae40aac4, one docstring hunk with A1), E3 (07f97b01a, hunks with #564/#566), A2, A3, E2 (1ba7264d0: judge
-   its 3 render_f1 drops against "not below main" first), E6, S1 (9b51f170b: needs an acceptance revision for Q1's grouped
-   Question), #557 (W6 PASS r3: post and gate), #591 (W9 FIX r1 sent), #572 (T2 FIX r2), S15-FC (#585: no push since 07:41).
+issues as superseded and moved 13 to M1, and merged #552, #555, #559, #560, #561, #563, #564, #567, #568, #569, #571,
+#573, #574, #589, #590 and #592. G1's baseline on main (dddce3f8, script layer) failed on both sets: Questions per
+Discipline (low_confidence), false continuations, bulk share, storeys, act p95; since then A1 (#564, one read per act),
+I1 (#567, the Edison Plumbing DWG agrees) and A5 (#573, the Plot report's total) landed. The scored run on main 554d587e
+is unchanged (Edison sheets 45/217, storeys 185/217; Sample 8/67, 56/67): no reading fix has landed yet. Read
+`.private/work/session-15/STATE.md` for each ticket's exact state. The order to land them (the lock is the limit; land
+engine PRs one at a time with nothing else merging, and run the lander's update BEFORE each posting run):
+1. #593 (S15-E4 views package, re-submit of #565): PASS at round 1, verified locally on its tree. Update, post (a fresh
+   run: A1 changed the product code), land. E2, E3, E6 are stacked on s15-e4 and merge main after it.
+2. S15-Q1 (s15-q1 57cd0604f, local, A1 merged in, verifying at close): READY → push → #566's review round on the new
+   head (it carries A1's merge; a round 3 needs an exception if two rounds are spent) → update, post, land.
+3. Then Q2 (4ae40aac4, one docstring hunk with A1 — now on main), E3 (07f97b01a), A2, A3, E2 (1ba7264d0: judge its 3
+   render_f1 drops against "not below main" first), E6, S1 (9b51f170b: needs an acceptance revision for Q1's grouped
+   Question), #557 (W6 PASS r3: post and gate), #591 (W9 FIX r1 sent), #572 (T2 FIX r2), S15-FC (#585, no push since 07:41).
 - Not started: S15-W3 (after W9), Q3, E5 (after E4 + Q3), E7 (after Q1 + A5), Q0 (after Q3), A4 (after A3), I2, A6, E8.
 - Factory: S15-R3b BLOCKED — review.py's replay recall 60 % / 50 % (was 28 %), below the 90 % gate; the cutover stays held
   (the owner's ruling). Judge each review accordingly.
