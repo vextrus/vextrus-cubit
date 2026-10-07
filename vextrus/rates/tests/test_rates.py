@@ -110,6 +110,8 @@ def test_a_plain_amount_is_taken(typed: str) -> None:
         "1,000",
         "١٢",
         "12\n3",
+        "\u00a05",
+        "5\n",
         None,
         5,
         1.5,

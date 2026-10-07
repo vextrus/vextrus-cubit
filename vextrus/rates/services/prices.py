@@ -147,7 +147,7 @@ def prices(project_id: uuid.UUID) -> Prices:
 def parse_amount(text: object, currency: Currency) -> Decimal:
     """A price as typed: a plain non-negative decimal with no more places than the currency's minor
     units; anything else is refused (400) and nothing changes."""
-    typed = text.strip() if isinstance(text, str) else ""
+    typed = text.strip(" \t") if isinstance(text, str) else ""
     found = _PLAIN.fullmatch(typed)
     if found is None or len(found["places"] or "") > currency.minor_units:
         raise auth.Refused(said.AMOUNT_INVALID(), status=400)
