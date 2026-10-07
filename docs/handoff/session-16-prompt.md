@@ -81,8 +81,8 @@ The tools assume one base, main. Three facts and the steps that follow from them
   `git log --format=%s origin/main..origin/s16-<id> | grep "^acceptance: .*S16-<ID>"` must print a line.
 - **A merge of anything but main is not READY** (scripts/factory/ci_gate.py), so the train head never reads READY by
   itself. At the freeze the orchestrator runs `scripts.verify` on the train head locally and commits an empty READY on that
-  exact tree (session 15's local-verify recipe), then opens `s16-m1` → main: one integrated review round (exception
-  `integration`), the design gate on the head the lander leaves up to date, ONE posting run, merge_ready, land. Content not
+  exact tree (session 15's local-verify recipe), then opens `s16-m1` → main: one integrated review round (an ordinary round 1 on
+  the train PR; the ledger takes no `integration` exception), the design gate on the head the lander leaves up to date, ONE posting run, merge_ready, land. Content not
   READY at the freeze is cut, not waited for. Contracts are frozen at K0 (`docs/plans/M1.md` C4, C7, C11, C12, C13, C17);
   a contract change is an acceptance amendment through the orchestrator.
 
@@ -94,8 +94,7 @@ The tools assume one base, main. Three facts and the steps that follow from them
 | S16-R2 | Column reader (outline, mark, size label, grid ref, band) + `measure.py` (F1, FW2, R2 per C11) | `engine/families/column/**` | K0 | local | hard, Opus 5.5 high | 90 | fixtures; on Edison columns per band read against D's hand count, phantoms and misses listed; size = label; C11's worked example exact |
 | S16-T1 | Frame read job: families on the confirmed Step 1 views, Proposals and ProposalTraces | `vextrus/takeoff/services/frame_read.py`, `vextrus/takeoff/tasks/frame_read.py` | K0 | cloud | hard, Opus 5.5 high | 90 | idempotent re-run; values in drawing units with verbatim text; a failed family writes a Question, never silence |
 | S16-T2 | Steps 3/4/6 API and acts: storey list and view placement, typed levels, confirm, exclude, size answer, n / N; a DomainEvent per act; calls `live_model.services.apply` | `vextrus/takeoff/services/frame_steps.py`, `vextrus/takeoff/http/frame.py`, `vextrus/takeoff/messages/frame.py` | K0 | cloud | hard, Opus 5.5 high | 90 | API tests; every act one DomainEvent; act p95 under 1 s at 500 Proposals; nothing reaches live_model unconfirmed |
-| S16-L1 | live_model spine subset: DisciplinePart, ModelVersion, ElementState, ElementTrace, ViewPlacement(+Storey) with RLS; `apply`, `snapshot`, `figures_hash` | `vextrus/live_model/{models.py, migrations/0002_*, services/**}` | K0 | cloud | hard (security wall), Opus 5.5 high | 90 | tenancy walls tested; append-only versions; `apply` the sole writer |
-| S16-L2 | Library rows for storey, grid_line, column (IFC class, Attribute Definitions with IFC mapping, Uniclass); primitives + `GET /api/p/{code}/model/primitives` | `vextrus/live_model/{library.py, http/model.py, services/primitives.py}` | L1 (stacked on L1's branch) | cloud | ordinary, Sonnet 5.5 high | 75 | every definition has meaning, face, datum, unit, IFC; volume = b × d × h per column |
+| S16-L | live_model spine subset (DisciplinePart, ModelVersion, ElementState, ElementTrace, ViewPlacement(+Storey) with RLS; `apply`, `snapshot`, `figures_hash`) and Library rows for storey, grid_line, column (IFC class, Attribute Definitions with IFC mapping, Uniclass) with primitives + `GET /api/p/{code}/model/primitives` | `vextrus/live_model/**` except K0's schema file | K0 | cloud | hard (security wall), Opus 5.5 high | 90 | tenancy walls tested; append-only versions; `apply` the sole writer; every definition has meaning, face, datum, unit, IFC; volume = b × d × h per column |
 | S16-M | measurement subset: RuleSet(+Version), MeasurementRule (F1, FW2, R2 with clauses), BoqItem + BillingUnit for 3 column items, RebarRatio; `measure(building, seq, version)` | `vextrus/measurement/**` | K0 | cloud | ordinary, Sonnet 5.5 high | 80 | C11 worked example; SI decimals, no float; one rounding place |
 | S16-RT | rates subset: Resource, MarketPriceSet (PWD SoR 2022 2nd Rev Dhaka, page refs), MarketPrice (empty = "rate not entered"), RateAnalysis(+Line) for the column and allowance items; `working_rate`; price edit with a DomainEvent | `vextrus/rates/**` | K0 | cloud | ordinary, Sonnet 5.5 high | 80 | every starter price cites its page; an empty price never prices ৳0 |
 | S16-B | boq on read + Building GFA: strip, items, Measurement Lines, Trace, CostBasis per step with allowance rows, measured share | `vextrus/boq/**`, `vextrus/projects/{models.py, migrations/0004_*, http/settings.py, services/gfa.py}` | K0 | cloud | hard, Opus 5.5 high | 90 | C13 example exact; total = measured + awaiting + allowance, each Element once; a confirmed step drops its allowance whole |
@@ -105,13 +104,12 @@ The tools assume one base, main. Three facts and the steps that follow from them
 
 `web/src/routeTree.gen.ts` is regenerated at each train merge, never hand-merged; `web/src/api/schema.gen.ts` is CI's.
 **Ownership exceptions to the globs above:** K0's schema files (`boq/schemas/boq.py`, `rates/schemas/prices.py`,
-`takeoff/schemas/frame.py`, `live_model/schemas/model.py`) are frozen contracts: B, RT, T2, L1 and L2 never edit them (a
+`takeoff/schemas/frame.py`, `live_model/schemas/model.py`) are frozen contracts: B, RT, T2 and L never edit them (a
 change is an acceptance amendment). K0's stub http modules pass to the ticket that owns that route once K0 is on the
-train (T2 `takeoff/http/frame.py`, L2 `live_model/http/model.py`, B and RT their own). L1 owns `live_model/services/**`
-except `services/primitives.py`, which is L2's. With those, no two tickets edit one file at once.
+train (T2 `takeoff/http/frame.py`, L `live_model/http/model.py`, B and RT their own). With those, no two tickets edit one file at once.
 
-**Timeline (T = start):** T+0 acceptance writers for all 14 in parallel (Opus 5.5 high, 15 min); D starts. T+15 launch every
-ticket on its own branch from main (K0's PR in review; each ticket merges K0's branch until K0 lands, then main). T+40 L2 on its own branch, stacked on L1's. T+60-110 reviews against main, passing tickets merged into
+**Timeline (T = start):** T+0 acceptance writers for all 13 in parallel (Opus 5.5 high, 15 min); D starts. T+15 launch every
+ticket on its own branch from main (K0's PR in review; each ticket merges K0's branch until K0 lands, then main). T+60-110 reviews against main, passing tickets merged into
 `s16-m1`; the orchestrator serves the train head with D's project. **T+110 freeze**, train PR, integrated review, design
 gate, posting run. T+160-175 land if it passes; the orchestrator runs the showing script. ~12:30Z the owner presents.
 
