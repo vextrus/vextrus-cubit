@@ -8,6 +8,7 @@ import pytest
 from django.db import transaction
 
 from engine.fixtures.pdf._writer import Page, Pdf, document, text, truetype_font
+from engine.messages import Message
 from vextrus.drawings import services
 from vextrus.drawings.messages import reports as said
 from vextrus.takeoff.services.read_propose import plot
@@ -43,7 +44,7 @@ def _read_pdf(project: QsProject, name: str, content: bytes) -> uuid.UUID:
     return pdf.id
 
 
-def _lines(project: QsProject, pdf: uuid.UUID) -> list:
+def _lines(project: QsProject, pdf: uuid.UUID) -> list[Message]:
     """The report's lines but the first (the count) and the sheets' lines: the pages' own."""
     with project.member.acting():
         return [
