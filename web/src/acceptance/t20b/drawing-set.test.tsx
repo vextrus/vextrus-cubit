@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { expectKeyMapSound, notationProblems } from '@/ui'
+import { neverShownIn } from '@/test/never-shown'
 import { FakeDrawingSet, file, msg, refusalOf, type FileOut } from './drawings.fixture'
 
 beforeEach(async () => {
@@ -63,7 +64,9 @@ const dwg = (name: string) => new File([new Uint8Array([0x41, 0x43, 0x31, 0x30, 
 /** m0-screens §1.1's words, §1.3's CAD codes and §1.7's message keys never in the DOM. */
 function gateGreps() {
   const text = bodyText()
-  for (const word of ['handle', 'entity', 'DXF', 'LibreDWG', 'ACadSharp', 'ezdxf', 'JSON', 'sandbox', 'worker', 'queue', 'hash', 'sha256', 'tenant', 'API', 'null', 'undefined', 'NaN', 'UUID', 'Building', 'Bangladesh', 'BDT']) {
+  // Amended by S15-W7: §1.1's words come from the one list (web/src/test/never-shown.json).
+  expect(neverShownIn(text), 'm0-screens §1.1').toEqual([])
+  for (const word of ['Building', 'Bangladesh', 'BDT']) {
     expect(text, word).not.toMatch(new RegExp(`\\b${word}\\b`))
   }
   expect(text, 'a message key').not.toMatch(/\b(drawings|takeoff|platform)\.[a-z_]+\.[a-z_]+\b/)
