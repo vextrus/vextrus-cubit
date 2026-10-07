@@ -1,0 +1,691 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-06 14:30+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/takeoff/words.tsx
+msgid "Grid layout"
+msgstr "Grid layout"
+
+#: src/takeoff/words.tsx
+msgid "architectural"
+msgstr "architectural"
+
+#: src/takeoff/words.tsx
+msgid "Power wiring layout"
+msgstr "Power wiring layout"
+
+#: src/takeoff/words.tsx
+msgid "Other"
+msgstr "Other"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Notes"
+msgstr "Notes"
+
+#: src/takeoff/words.tsx
+msgid "The structural drawing list"
+msgstr "The structural drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Leave it without a number"
+msgstr "Leave it without a number"
+
+#: src/takeoff/words.tsx
+msgid "Column layout"
+msgstr "Column layout"
+
+#: src/takeoff/words.tsx
+msgid "Machine room details"
+msgstr "Machine room details"
+
+#: src/takeoff/words.tsx
+msgid "Equipment schedule"
+msgstr "Equipment schedule"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "3D or perspective"
+msgstr "3D or perspective"
+
+#: src/takeoff/words.tsx
+msgid "Ventilation layout"
+msgstr "Ventilation layout"
+
+#: src/takeoff/words.tsx
+msgid "Two plans draw one thing"
+msgstr "Two plans draw one thing"
+
+#: src/takeoff/words.tsx
+msgid "The general drawing list"
+msgstr "The general drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Ceiling layout"
+msgstr "Ceiling layout"
+
+#: src/takeoff/words.tsx
+msgid "Use the drawing list on the sheet"
+msgstr "Use the drawing list on the sheet"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Plan"
+msgstr "Plan"
+
+#: src/takeoff/words.tsx
+msgid "Roof details"
+msgstr "Roof details"
+
+#: src/takeoff/words.tsx
+msgid "Presentation plan"
+msgstr "Presentation plan"
+
+#: src/takeoff/words.tsx
+msgid "Fire"
+msgstr "Fire"
+
+#: src/takeoff/words.tsx
+msgid "By others (not in this Estimate)"
+msgstr "By others (not in this Estimate)"
+
+#: src/takeoff/words.tsx
+msgid "Lighting layout"
+msgstr "Lighting layout"
+
+#: src/takeoff/words.tsx
+msgid "Floor finish layout"
+msgstr "Floor finish layout"
+
+#: src/takeoff/words.tsx
+msgid "Cover or index"
+msgstr "Cover or index"
+
+#: src/takeoff/words.tsx
+msgid "Use the drawing list you gave"
+msgstr "Use the drawing list you gave"
+
+#: src/takeoff/words.tsx
+msgid "Boundary wall and gate details"
+msgstr "Boundary wall and gate details"
+
+#: src/takeoff/words.tsx
+msgid "Perspective"
+msgstr "Perspective"
+
+#: src/takeoff/words.tsx
+msgid "No Discipline"
+msgstr "No Discipline"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Schedule"
+msgstr "Schedule"
+
+#: src/takeoff/words.tsx
+msgid "mechanical (HVAC)"
+msgstr "mechanical (HVAC)"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Section"
+msgstr "Section"
+
+#: src/takeoff/words.tsx
+msgid "Two drawing lists differ"
+msgstr "Two drawing lists differ"
+
+#: src/takeoff/words.tsx
+msgid "Discipline unclear"
+msgstr "Discipline unclear"
+
+#: src/takeoff/words.tsx
+msgid "other"
+msgstr "other"
+
+#: src/takeoff/words.tsx
+msgid "Gas"
+msgstr "Gas"
+
+#: src/takeoff/words.tsx
+msgid "Keep open, ask the consultant"
+msgstr "Keep open, ask the consultant"
+
+#: src/takeoff/words.tsx
+msgid "lift"
+msgstr "lift"
+
+#: src/takeoff/words.tsx
+msgid "The drawing list"
+msgstr "The drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Beam layout"
+msgstr "Beam layout"
+
+#: src/takeoff/words.tsx
+msgid "Working plan"
+msgstr "Working plan"
+
+#: src/takeoff/words.tsx
+msgid "plumbing and sanitary"
+msgstr "plumbing and sanitary"
+
+#: src/takeoff/words.tsx
+msgid "Section"
+msgstr "Section"
+
+#: src/takeoff/words.tsx
+msgid "Yes: this sheet’s range includes it"
+msgstr "Yes: this sheet’s range includes it"
+
+#: src/takeoff/words.tsx
+msgid "Tank details"
+msgstr "Tank details"
+
+#: src/takeoff/words.tsx
+msgid "Mechanical (HVAC)"
+msgstr "Mechanical (HVAC)"
+
+#: src/takeoff/words.tsx
+msgid "Architectural"
+msgstr "Architectural"
+
+#: src/takeoff/words.tsx
+msgid "Solar layout"
+msgstr "Solar layout"
+
+#: src/takeoff/words.tsx
+msgid "Plumbing and sanitary"
+msgstr "Plumbing and sanitary"
+
+#: src/takeoff/words.tsx
+msgid "Distribution board details"
+msgstr "Distribution board details"
+
+#: src/takeoff/words.tsx
+msgid "Sanitary fixture details"
+msgstr "Sanitary fixture details"
+
+#: src/takeoff/words.tsx
+msgid "Door and window layout"
+msgstr "Door and window layout"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Legend"
+msgstr "Legend"
+
+#: src/takeoff/words.tsx
+msgid "Gas line layout"
+msgstr "Gas line layout"
+
+#: src/takeoff/words.tsx
+msgid "ELV layout"
+msgstr "ELV layout"
+
+#: src/takeoff/words.tsx
+msgid "Presentation, 3D or for information"
+msgstr "Presentation, 3D or for information"
+
+#: src/takeoff/words.tsx
+msgid "cover or index"
+msgstr "cover or index"
+
+#: src/takeoff/words.tsx
+msgid "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again"
+msgstr "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again"
+
+#: src/takeoff/words.tsx
+msgid "HVAC layout"
+msgstr "HVAC layout"
+
+#: src/takeoff/words.tsx
+msgid "structural"
+msgstr "structural"
+
+#: src/takeoff/words.tsx
+msgctxt "role"
+msgid "MD"
+msgstr "MD"
+
+#: src/takeoff/words.tsx
+msgid "at floor level"
+msgstr "at floor level"
+
+#: src/takeoff/words.tsx
+msgid "Site drainage layout"
+msgstr "Site drainage layout"
+
+#: src/takeoff/words.tsx
+msgid "blank"
+msgstr "blank"
+
+#: src/takeoff/words.tsx
+msgid "Single line diagram"
+msgstr "Single line diagram"
+
+#: src/takeoff/words.tsx
+msgid "Elevation"
+msgstr "Elevation"
+
+#: src/takeoff/words.tsx
+msgid "Finish schedule"
+msgstr "Finish schedule"
+
+#: src/takeoff/words.tsx
+msgid "Stair details"
+msgstr "Stair details"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Detail"
+msgstr "Detail"
+
+#: src/takeoff/words.tsx
+msgid "Two sheets, one number"
+msgstr "Two sheets, one number"
+
+#: src/takeoff/words.tsx
+msgctxt "role"
+msgid "QS"
+msgstr "QS"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Elevation"
+msgstr "Elevation"
+
+#: src/takeoff/words.tsx
+msgid "It is in a file I haven’t added yet"
+msgstr "It is in a file I haven’t added yet"
+
+#: src/takeoff/words.tsx
+msgid "Substation and generator layout"
+msgstr "Substation and generator layout"
+
+#: src/takeoff/words.tsx
+msgid "general"
+msgstr "general"
+
+#: src/takeoff/words.tsx
+msgid "On the drawing list, in no file"
+msgstr "On the drawing list, in no file"
+
+#: src/takeoff/words.tsx
+msgid "Site plan"
+msgstr "Site plan"
+
+#: src/takeoff/words.tsx
+msgid "superseded"
+msgstr "superseded"
+
+#: src/takeoff/words.tsx
+msgid "Point wiring layout"
+msgstr "Point wiring layout"
+
+#: src/takeoff/words.tsx
+msgid "In a file, not on the drawing list"
+msgstr "In a file, not on the drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Not sent yet: keep it in the count as missing and ask the consultant"
+msgstr "Not sent yet: keep it in the count as missing and ask the consultant"
+
+#: src/takeoff/words.tsx
+msgid "Lightning protection"
+msgstr "Lightning protection"
+
+#: src/takeoff/words.tsx
+msgid "Rainwater details"
+msgstr "Rainwater details"
+
+#: src/takeoff/words.tsx
+msgid "Another kind of sheet"
+msgstr "Another kind of sheet"
+
+#: src/takeoff/words.tsx
+msgid "Lintel layout"
+msgstr "Lintel layout"
+
+#: src/takeoff/words.tsx
+msgid "Door and window schedule"
+msgstr "Door and window schedule"
+
+#: src/takeoff/words.tsx
+msgid "Blank: base plan only"
+msgstr "Blank: base plan only"
+
+#: src/takeoff/words.tsx
+msgid "The mechanical (HVAC) drawing list"
+msgstr "The mechanical (HVAC) drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Set this file aside and mark it for Vextrus to look at"
+msgstr "Set this file aside and mark it for Vextrus to look at"
+
+#: src/takeoff/words.tsx
+msgid "Fire hydrant layout"
+msgstr "Fire hydrant layout"
+
+#: src/takeoff/words.tsx
+msgid "AC pipe layout"
+msgstr "AC pipe layout"
+
+#: src/takeoff/words.tsx
+msgid "Lift"
+msgstr "Lift"
+
+#: src/takeoff/words.tsx
+msgid "Foundation details"
+msgstr "Foundation details"
+
+#: src/takeoff/words.tsx
+msgid "No: it belongs to the next sheet’s range"
+msgstr "No: it belongs to the next sheet’s range"
+
+#: src/takeoff/words.tsx
+msgid "Pile details"
+msgstr "Pile details"
+
+#: src/takeoff/words.tsx
+msgid "Earthing details"
+msgstr "Earthing details"
+
+#: src/takeoff/words.tsx
+msgid "Retaining wall details"
+msgstr "Retaining wall details"
+
+#: src/takeoff/words.tsx
+msgid "This file may be misread"
+msgstr "This file may be misread"
+
+#: src/takeoff/words.tsx
+msgid "Legend"
+msgstr "Legend"
+
+#: src/takeoff/words.tsx
+msgid "Sprinkler layout"
+msgstr "Sprinkler layout"
+
+#: src/takeoff/words.tsx
+msgid "The gas drawing list"
+msgstr "The gas drawing list"
+
+#: src/takeoff/words.tsx
+msgid "No number"
+msgstr "No number"
+
+#: src/takeoff/words.tsx
+msgid "Another Discipline"
+msgstr "Another Discipline"
+
+#: src/takeoff/words.tsx
+msgid "Kitchen details"
+msgstr "Kitchen details"
+
+#: src/takeoff/words.tsx
+msgid "Fire (a building of 7 storeys or more)"
+msgstr "Fire (a building of 7 storeys or more)"
+
+#: src/takeoff/words.tsx
+msgid "The lift drawing list"
+msgstr "The lift drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Lift layout"
+msgstr "Lift layout"
+
+#: src/takeoff/words.tsx
+msgid "Lift section"
+msgstr "Lift section"
+
+#: src/takeoff/words.tsx
+msgid "Roof plan"
+msgstr "Roof plan"
+
+#: src/takeoff/words.tsx
+msgid "Septic tank details"
+msgstr "Septic tank details"
+
+#: src/takeoff/words.tsx
+msgid "floor to floor"
+msgstr "floor to floor"
+
+#: src/takeoff/words.tsx
+msgid "Fire alarm layout"
+msgstr "Fire alarm layout"
+
+#: src/takeoff/words.tsx
+msgid "Structural"
+msgstr "Structural"
+
+#: src/takeoff/words.tsx
+msgid "Pile layout"
+msgstr "Pile layout"
+
+#: src/takeoff/words.tsx
+msgid "The fire drawing list"
+msgstr "The fire drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Fire pump details"
+msgstr "Fire pump details"
+
+#: src/takeoff/words.tsx
+msgid "gas"
+msgstr "gas"
+
+#: src/takeoff/words.tsx
+msgid "Pile cap details"
+msgstr "Pile cap details"
+
+#: src/takeoff/words.tsx
+msgid "duplicate"
+msgstr "duplicate"
+
+#: src/takeoff/words.tsx
+msgid "Slab layout"
+msgstr "Slab layout"
+
+#: src/takeoff/words.tsx
+msgid "They are different sheets: keep both"
+msgstr "They are different sheets: keep both"
+
+#: src/takeoff/words.tsx
+msgid "Shear wall details"
+msgstr "Shear wall details"
+
+#: src/takeoff/words.tsx
+msgid "by others"
+msgstr "by others"
+
+#: src/takeoff/words.tsx
+msgid "Pump details"
+msgstr "Pump details"
+
+#: src/takeoff/words.tsx
+msgid "Duplicate or another Discipline’s copy"
+msgstr "Duplicate or another Discipline’s copy"
+
+#: src/takeoff/words.tsx
+msgid "The architectural drawing list"
+msgstr "The architectural drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Door and window details"
+msgstr "Door and window details"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Key plan"
+msgstr "Key plan"
+
+#: src/takeoff/words.tsx
+msgctxt "role"
+msgid "Guest"
+msgstr "Guest"
+
+#: src/takeoff/words.tsx
+msgid "Extinguisher and signage layout"
+msgstr "Extinguisher and signage layout"
+
+#: src/takeoff/words.tsx
+msgid "Sheet kind unclear"
+msgstr "Sheet kind unclear"
+
+#: src/takeoff/words.tsx
+msgid "Keep the latest copy; leave the others out as superseded"
+msgstr "Keep the latest copy; leave the others out as superseded"
+
+#: src/takeoff/words.tsx
+msgid "One title on two sheets"
+msgstr "One title on two sheets"
+
+#: src/takeoff/words.tsx
+msgid "Lift pit details"
+msgstr "Lift pit details"
+
+#: src/takeoff/words.tsx
+msgid "Plumbing layout"
+msgstr "Plumbing layout"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "View"
+msgstr "View"
+
+#: src/takeoff/words.tsx
+msgid "Details"
+msgstr "Details"
+
+#: src/takeoff/words.tsx
+msgid "Foundation layout"
+msgstr "Foundation layout"
+
+#: src/takeoff/words.tsx
+msgid "Type a number"
+msgstr "Type a number"
+
+#: src/takeoff/words.tsx
+msgid "Roof structure details"
+msgstr "Roof structure details"
+
+#: src/takeoff/words.tsx
+msgid "Superseded"
+msgstr "Superseded"
+
+#: src/takeoff/words.tsx
+msgid "Electrical"
+msgstr "Electrical"
+
+#: src/takeoff/words.tsx
+msgid "The plumbing and sanitary drawing list"
+msgstr "The plumbing and sanitary drawing list"
+
+#: src/takeoff/words.tsx
+msgid "fire"
+msgstr "fire"
+
+#: src/takeoff/words.tsx
+msgid "General notes"
+msgstr "General notes"
+
+#: src/takeoff/words.tsx
+msgid "General"
+msgstr "General"
+
+#: src/takeoff/words.tsx
+msgid "An answer Vextrus has no words for yet"
+msgstr "An answer Vextrus has no words for yet"
+
+#: src/takeoff/words.tsx
+msgid "electrical"
+msgstr "electrical"
+
+#: src/takeoff/words.tsx
+msgid "Pile cap layout"
+msgstr "Pile cap layout"
+
+#: src/takeoff/words.tsx
+msgid "Not part of this set: record it; it stays on the drawing list"
+msgstr "Not part of this set: record it; it stays on the drawing list"
+
+#: src/takeoff/words.tsx
+msgctxt "view kind"
+msgid "Title block"
+msgstr "Title block"
+
+#: src/takeoff/words.tsx
+msgid "The electrical drawing list"
+msgstr "The electrical drawing list"
+
+#: src/takeoff/words.tsx
+msgid "Water tank details"
+msgstr "Water tank details"
+
+#: src/takeoff/words.tsx
+msgid "Toilet details"
+msgstr "Toilet details"
+
+#: src/takeoff/words.tsx
+msgid "a reason Vextrus has no words for yet"
+msgstr "a reason Vextrus has no words for yet"
+
+#: src/takeoff/words.tsx
+msgid "Read it anyway: its sheets join the list, marked held"
+msgstr "Read it anyway: its sheets join the list, marked held"
+
+#: src/takeoff/words.tsx
+msgid "A gap in the numbering"
+msgstr "A gap in the numbering"
+
+#: src/takeoff/words.tsx
+msgid "Beam details"
+msgstr "Beam details"
+
+#: src/takeoff/words.tsx
+msgid "Floor plan"
+msgstr "Floor plan"
+
+#: src/takeoff/words.tsx
+msgid "A Question about the sheets"
+msgstr "A Question about the sheets"
+
+#: src/takeoff/words.tsx
+msgctxt "role"
+msgid "Vextrus Engineer"
+msgstr "Vextrus Engineer"
+
+#: src/takeoff/words.tsx
+msgid "Riser diagram"
+msgstr "Riser diagram"
+
+#: src/takeoff/words.tsx
+msgid "for information"
+msgstr "for information"
+
+#: src/takeoff/words.tsx
+msgid "Cover or index (its drawing list kept)"
+msgstr "Cover or index (its drawing list kept)"
+
+#: src/takeoff/words.tsx
+msgid "Pit and chamber details"
+msgstr "Pit and chamber details"
+
+#: src/takeoff/words.tsx
+msgid "Where a range of storeys ends"
+msgstr "Where a range of storeys ends"
+
+#: src/takeoff/words.tsx
+msgid "Column schedule"
+msgstr "Column schedule"
+
+#: src/takeoff/words.tsx
+msgid "Slab outline layout"
+msgstr "Slab outline layout"
