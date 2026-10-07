@@ -1663,10 +1663,21 @@ def undo(project_id: uuid.UUID) -> ActView:
                 project_id=project_id, view_id=proposal.subject_id, confirmation=act
             ):
                 _follow_sheet(row)
+        kept = [
+            row
+            for sheet_id in listed | off_list
+            for row in Coverage.objects.select_for_update().filter(
+                project_id=project_id,
+                sheet_revision_id=sheet_id,
+                view_id__in=_excluded_on_their_own(project_id, sheet_id),
+            )
+        ]
         for sheet_id in listed:
             _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
         for sheet_id in off_list:
             _put_back_sheet(project_id, sheet_id, None)
+        for row in kept:
+            row.save()  # a view left out on its own keeps its own row, whatever its sheet is put back to
         # The views the act put in Steps (an `assign`) stand as their sheets do without its steps;
         # a view left out since stays out.
         given = CoverageStep.objects.filter(project_id=project_id, confirmation=act).values_list(
@@ -1741,7 +1752,7 @@ def _put_back_sheet(
         return
     if prior["decision"] == "excluded":
         drawings.exclude(sheet_id, prior["reason"], prior["text"] or "", confirmation_id=earlier.id)
-        _exclude_views_of(sheet_id, earlier, prior["reason"], prior["text"] or "")
+        _decide_views(sheet_id, earlier, prior["reason"], prior["text"] or "")
         if proposal is not None:
             proposal.rejected_reason = prior["reason"]
             _stamp(proposal, ProposalStatus.REJECTED, earlier)
