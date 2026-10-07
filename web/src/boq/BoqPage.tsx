@@ -69,12 +69,19 @@ function Strip({ boq, unit }: { boq: BoqOut; unit: string }) {
   )
 }
 
+/** The stored Gross Floor Area (square metres, `unit: 'm2'`) in the unit the QS types it in. */
+export function areaIn(gfa: { value: string; unit?: string }, unit: string): string {
+  if (unit !== 'sft' || (gfa.unit ?? 'm2') !== 'm2') return gfa.value
+  const sft = Number(gfa.value) / 0.09290304
+  return String(Math.round(sft * 100) / 100)
+}
+
 function GrossFloorArea({ projectId, boq, changes }: { projectId: string; boq: BoqOut; changes: boolean }) {
   const { t } = useLingui()
   const f = useFormat()
   const client = useQueryClient()
   const unit = areaUnitOf(f.unitSystem)
-  const entered = boq.strip.gfa?.value ?? ''
+  const entered = boq.strip.gfa ? areaIn(boq.strip.gfa, unit) : ''
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState<ReactNode>(null)
   const [problem, setProblem] = useState<Problem>(null)

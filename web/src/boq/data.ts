@@ -45,7 +45,7 @@ export interface Strip {
   total: Money
   unpriced_lines: number
   per_area: Money | null
-  gfa: { value: string; basis: string } | null
+  gfa: { value: string; basis: string; unit?: string } | null
 }
 
 export interface BoqOut {
