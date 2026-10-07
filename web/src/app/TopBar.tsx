@@ -182,6 +182,12 @@ export function TopBar({ session, project }: { session: Session; project: Projec
           <NavLink to={PATHS.drawingSet(project.code)} active={path.endsWith('/drawing-set')}>
             <Trans>Drawing Set</Trans>
           </NavLink>
+          <NavLink to={PATHS.boq(project.code)} active={path.endsWith('/boq')}>
+            <Trans>Priced BOQ</Trans>
+          </NavLink>
+          <NavLink to={PATHS.prices(project.code)} active={path.endsWith('/prices')}>
+            <Trans>Market Prices</Trans>
+          </NavLink>
         </nav>
       ) : null}
       {/* The AccessChip takes the room there is, so its end date is never cut (design gate 20a r1). */}

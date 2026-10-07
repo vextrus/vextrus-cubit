@@ -47,7 +47,7 @@ export function storeySlot(key: string): string {
   return NAMED[key]?.slot ?? key
 }
 
-function useStoreyWord() {
+export function useStoreyWord() {
   const { i18n, t } = useLingui()
   return (key: string): string => {
     const floor = /^floor_(\d+)$/.exec(key)

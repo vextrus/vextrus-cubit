@@ -1,0 +1,91 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-07 12:34+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/rates/PricesPage.tsx
+msgid "Change to"
+msgstr "Change to"
+
+#: src/rates/PricesPage.tsx
+#: src/rates/RateAnalysis.tsx
+msgid "Price"
+msgstr "Price"
+
+#: src/rates/PricesPage.tsx
+msgid "Unit"
+msgstr "Unit"
+
+#: src/rates/PricesPage.tsx
+msgid "Type the price as a number above zero, like 95.00."
+msgstr "Type the price as a number above zero, like 95.00."
+
+#: src/rates/RateAnalysis.tsx
+msgid "Resources of the rate"
+msgstr "Resources of the rate"
+
+#: src/rates/PricesPage.tsx
+msgid "New price"
+msgstr "New price"
+
+#: src/rates/RateAnalysis.tsx
+msgid "Rate per {perUnit}: <0>{rateText}</0>"
+msgstr "Rate per {perUnit}: <0>{rateText}</0>"
+
+#: src/rates/RateAnalysis.tsx
+msgid "Amount"
+msgstr "Amount"
+
+#: src/rates/RateAnalysis.tsx
+msgid "Close the Rate Analysis"
+msgstr "Close the Rate Analysis"
+
+#: src/rates/RateAnalysis.tsx
+msgid "Rate per {perUnit}: <0>rate not entered</0>. A Resource below has no price yet."
+msgstr "Rate per {perUnit}: <0>rate not entered</0>. A Resource below has no price yet."
+
+#: src/rates/RateAnalysis.tsx
+msgid "Opening the Rate Analysis…"
+msgstr "Opening the Rate Analysis…"
+
+#: src/rates/PricesPage.tsx
+#: src/rates/RateAnalysis.tsx
+msgid "Resource"
+msgstr "Resource"
+
+#: src/rates/PricesPage.tsx
+msgid "New price for {name}"
+msgstr "New price for {name}"
+
+#: src/rates/PricesPage.tsx
+msgid "Opening Market Prices…"
+msgstr "Opening Market Prices…"
+
+#: src/rates/PricesPage.tsx
+msgid "Market Prices"
+msgstr "Market Prices"
+
+#: src/rates/RateAnalysis.tsx
+msgid "Quantity"
+msgstr "Quantity"
+
+#: src/rates/RateAnalysis.tsx
+msgid "Rate Analysis"
+msgstr "Rate Analysis"
+
+#: src/rates/PricesPage.tsx
+msgid "Price of {name} saved."
+msgstr "Price of {name} saved."
+
+#: src/rates/PricesPage.tsx
+msgid "Source"
+msgstr "Source"
+
+#: src/rates/PricesPage.tsx
+#: src/rates/RateAnalysis.tsx
+msgid "rate not entered"
+msgstr "rate not entered"
