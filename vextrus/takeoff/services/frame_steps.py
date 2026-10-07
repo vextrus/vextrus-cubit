@@ -272,6 +272,8 @@ def _centre_m(geometry: Any, values: Mapping[str, Any]) -> dict[str, str]:
     was read in; none when the outline is not a list of points."""
     _raw, unit = _fact(values, "section_b")
     scale = TO_METRES.get(unit or str(values.get("unit") or DRAWING_UNIT))
+    if values.get("x") is not None and values.get("y") is not None:
+        geometry = [(values["x"], values["y"])]  # its place in the registered grid frame
     try:
         points = [(Decimal(str(x)), Decimal(str(y))) for x, y in geometry]
     except TypeError, ValueError, InvalidOperation:

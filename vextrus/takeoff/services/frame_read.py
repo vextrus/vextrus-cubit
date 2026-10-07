@@ -89,8 +89,10 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
         return FrameReadResult(0, 0)
     types = importlib.import_module("engine.families.types")
     confirmed, setup, profile = types.ConfirmedFacts(), types.ProjectSetup(), _profile(types)
+    views = _with_top_bound(views)
     by_id = {str(v.view_id): v for v in views}
     proposed = asked = 0
+    frame: Any = None
     with transaction.atomic():
         proposed += _propose_storeys(project_id, building_id, views)
         for family in _families():
@@ -99,8 +101,14 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
             try:
                 with transaction.atomic():
                     recognise = _part(family, "recognise", "recognise")
-                    recognised = recognise(_read_by(step, views), confirmed, setup, profile)
-                    written = _propose(project_id, building_id, key, step, recognised.candidates, by_id)
+                    read = _read_by(step, views)
+                    recognised = recognise(read, confirmed, setup, profile)
+                    if key == "grid_line":
+                        frame = _frame(recognise, read, confirmed, setup, profile)
+                    placed = _placed(frame, recognised.candidates) if key != "grid_line" else {}
+                    written = _propose(
+                        project_id, building_id, key, step, recognised.candidates, by_id, placed
+                    )
                     raised = _raise(project_id, building_id, step, recognised.questions)
             except Exception:
                 log.exception("the %s family failed on building %s", key, building_id)
@@ -290,6 +298,63 @@ def _propose_storeys(project_id: uuid.UUID, building_id: uuid.UUID, views: Seque
     return len(names)
 
 
+def _with_top_bound(views: Sequence[Any]) -> list[Any]:
+    """A plan view naming "top" ("1st to top") is read on every floor up to the highest floor any
+    plan names (the top floor); the QS sees and corrects the storeys in Step 3."""
+    floors = [
+        int(n.rpartition("_")[2])
+        for v in views
+        for n in (getattr(v.view, "storeys", ()) or ())
+        if n.startswith("floor_") and n.rpartition("_")[2].isdigit()
+    ]
+    if not floors:
+        return list(views)
+    top = max(floors)
+    bound = []
+    for v in views:
+        named = tuple(getattr(v.view, "storeys", ()) or ())
+        if "top" not in named:
+            bound.append(v)
+            continue
+        own = [int(n[6:]) for n in named if n.startswith("floor_") and n[6:].isdigit()]
+        start = min(own) if own else 1
+        listed = tuple(n for n in named if n != "top" and not n.startswith("floor_"))
+        floors_up = tuple(f"floor_{k}" for k in range(start, top + 1))
+        bound.append(
+            dataclasses.replace(v, view=dataclasses.replace(v.view, storeys=listed + floors_up))
+        )
+    return bound
+
+
+def _frame(recognise: Any, views: Sequence[Any], confirmed: Any, setup: Any, profile: Any) -> Any:
+    """The grid registered across the plans (R1's frame), read view by view."""
+    register = importlib.import_module("engine.families.grid_line.frame").register
+    return register(
+        {str(v.view_id): recognise([v], confirmed, setup, profile).candidates for v in views}
+    )
+
+
+def _placed(frame: Any, candidates: Sequence[Any]) -> dict[str, tuple[str, str]]:
+    """Each candidate's place in the registered grid frame (drawing units): its grid point plus its
+    offset from it; none without a frame or a grid reference."""
+    placed: dict[str, tuple[str, str]] = {}
+    if frame is None:
+        return placed
+    for c in candidates:
+        at = getattr(c, "at", None)
+        if not isinstance(at, (list, tuple)) or len(at) < 3:
+            continue
+        try:
+            x, y = frame.point(str(at[0]))
+            placed[str(c.candidate_key)] = (
+                str(x + Decimal(str(at[1]))),
+                str(y + Decimal(str(at[2]))),
+            )
+        except ValueError, KeyError, InvalidOperation, TypeError:
+            continue
+    return placed
+
+
 def _read_by(step: str, views: Sequence[Any]) -> list[Any]:
     """The views a family of `step` reads: plan views whose standing steps meet the steps it reads."""
     reads = set(_READS_PLANS_OF.get(step, (step,)))
@@ -314,6 +379,7 @@ def _propose(
     step: str,
     candidates: Sequence[Any],
     views: Mapping[str, Any],
+    placed: Mapping[str, tuple[str, str]] | None = None,
 ) -> int:
     """Each candidate as one Proposal with its Traces, named by its step and its key within the
     Building (idempotent): an open Proposal takes the read again; one the QS decided is left as it
@@ -328,6 +394,8 @@ def _propose(
             "at": _json(getattr(candidate, "at", None)),
             **{str(fact): _json(value) for fact, value in (candidate.values or {}).items()},
         }
+        if str(candidate.candidate_key) in (placed or {}):
+            values["x"], values["y"] = (placed or {})[str(candidate.candidate_key)]
         read = {
             "values": values,
             "source": _text(getattr(candidate, "source", "reader"))[:32] or "reader",
