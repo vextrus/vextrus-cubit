@@ -10,20 +10,26 @@
  * the sheet is not taken off the drawing list, which still counts it.
  *
  * Pinned here: the design's words (docs/design/m0-screens.md §6.7's table and §5's templates) no
- * longer promise those acts, and the screen's catalogue (web/src/takeoff/locales/en.po) carries the
- * design's words, so the two agree. The exact new words are the builder's (the report recommends some).
+ * longer promise those acts, and the screen's catalogues (every `.po` under web/src/takeoff/: one file
+ * until S15-W0 split it by screen area) carry the design's words, so the two agree. The exact new words
+ * are the builder's (the report recommends some).
  */
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = new URL('../../../../', import.meta.url)
 const doc = readFileSync(new URL('docs/design/m0-screens.md', ROOT), 'utf8')
-const catalogue = readFileSync(new URL('web/src/takeoff/locales/en.po', ROOT), 'utf8')
+const TAKEOFF = new URL('web/src/takeoff/', ROOT)
+const catalogue = (readdirSync(TAKEOFF, { recursive: true }) as string[])
+  .filter((p) => p.endsWith('.po'))
+  .sort()
+  .map((p) => readFileSync(new URL(p.replace(/\\/g, '/'), TAKEOFF), 'utf8'))
+  .join('\n')
 
 /** One kind of apostrophe and quote, and single spaces, so the doc's ASCII and the screen's typography compare. */
 const norm = (s: string) => s.replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim()
 
-/** The catalogue's English, each msgid joined across its continuation lines. */
+/** The catalogues' English, each msgid joined across its continuation lines. */
 const msgids: string[] = (() => {
   const out: string[] = []
   let current: string | null = null
