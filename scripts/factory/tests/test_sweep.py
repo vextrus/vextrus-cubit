@@ -390,3 +390,98 @@ def test_a_dry_run_never_rewrites_an_index(main: Path) -> None:
     assert done.returncode == 0, done.stdout + done.stderr
     assert index.stat().st_mtime_ns == before
     assert f"remove worktree {wt}" in done.stdout, done.stdout
+
+
+# --old-sessions: a build folder goes only with a holder the worktree sweep would remove (#519)
+
+
+def _holder_with_venv(main: Path, relative: str, branch: str | None = None) -> tuple[Path, Path]:
+    (main / ".git" / "info" / "exclude").write_text(".venv/\n.claude/\n")
+    tree = _worktree(main, main / relative, branch)
+    venv = tree / ".venv"
+    (venv / "lib").mkdir(parents=True)
+    (venv / "lib" / "pkg.py").write_text("x = 1\n")
+    _age(tree)
+    return tree, venv
+
+
+def _old_sessions(main: Path, probe_: sweep.Probe, apply: bool = True) -> sweep.Tally:
+    tally = sweep.Tally()
+    sweep.sweep_old_sessions(main, probe_, 1.0, apply, tally)
+    return tally
+
+
+def _live(main: Path, cwd: Path, cwds: Iterable[tuple[int, Path]] = ()) -> sweep.Probe:
+    listed = list(cwds)
+    return sweep.Probe(cwd=cwd, pid=1, cwds=lambda: listed, clock=CLOCK)
+
+
+def test_old_sessions_removes_the_venv_of_a_merged_idle_worktree(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 1
+    assert not venv.exists()
+    assert tree.is_dir()
+
+
+def test_old_sessions_keeps_the_venv_of_a_worktree_a_live_process_holds(main: Path) -> None:
+    _tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+
+    tally = _old_sessions(main, _live(main, main, [(42, _tree / "web")]))
+
+    assert tally.removed == 0
+    assert (venv / "lib" / "pkg.py").is_file()
+
+
+def test_old_sessions_keeps_the_venv_under_the_sweeps_own_cwd(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+
+    tally = _old_sessions(main, _live(main, tree / "web"))
+
+    assert tally.removed == 0
+    assert (venv / "lib" / "pkg.py").is_file()
+
+
+def _scratch(main: Path) -> tuple[Path, list[Path]]:
+    """An old scratch copy (no worktree) with a `.venv` and a `web/node_modules`."""
+    root = main / ".private" / "work" / "S14" / "scratch-519"
+    folders = [root / ".venv", root / "web" / "node_modules"]
+    for folder in folders:
+        (folder / "lib").mkdir(parents=True)
+        (folder / "lib" / "pkg.py").write_text("x = 1\n")
+    for top in (main / ".private" / "work" / "S14",):
+        for where, dirs, files in os.walk(top, topdown=False):
+            for name in files + dirs:
+                os.utime(Path(where) / name, (IDLE, IDLE), follow_symlinks=False)
+        os.utime(top, (IDLE, IDLE))
+    return root, folders
+
+
+def test_old_sessions_never_touches_a_scratch_copy_under_private_work(main: Path) -> None:
+    _, folders = _scratch(main)
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 0
+    assert all((folder / "lib" / "pkg.py").is_file() for folder in folders)
+
+
+def test_old_sessions_removes_only_the_two_exact_paths_and_never_walks(main: Path) -> None:
+    tree, venv = _holder_with_venv(main, ".claude/worktrees/t1", "t1")
+    kept = [
+        tree / ".private" / "work" / "copy" / ".venv",
+        tree / "docs" / "node_modules",
+        tree / "web" / "deep" / "node_modules",
+    ]
+    for folder in kept:
+        (folder / "lib").mkdir(parents=True)
+        (folder / "lib" / "pkg.py").write_text("x = 1\n")
+    _age(tree)
+
+    tally = _old_sessions(main, _live(main, main))
+
+    assert tally.removed == 1
+    assert not venv.exists()
+    assert all((folder / "lib" / "pkg.py").is_file() for folder in kept)
