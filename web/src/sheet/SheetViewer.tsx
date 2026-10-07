@@ -260,21 +260,31 @@ function SheetCanvas({
     return { width: canvas.width, height: canvas.height, top: LEGEND_PX * dpr, bottom: BAR_PX * dpr }
   }, [])
 
+  const paint = useCallback(() => {
+    const r = renderer.current
+    const v = view.current
+    if (!r || !v || !areaRef.current) return
+    const now = look.current
+    if (plotRef.current) drawPlot(plotRef.current, v, now.layer === 'read' ? null : now.plot, now.dark, now.layer === 'compare')
+    try {
+      r.draw(sheet, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: now.palette })
+    } catch {
+      failed.current()
+    }
+  }, [sheet])
+
+  /** Drawn on the next frame, so a drag's many moves make one draw. */
   const draw = useCallback(() => {
     cancelAnimationFrame(frame.current)
-    frame.current = requestAnimationFrame(() => {
-      const r = renderer.current
-      const v = view.current
-      if (!r || !v || !areaRef.current) return
-      const now = look.current
-      if (plotRef.current) drawPlot(plotRef.current, v, now.layer === 'read' ? null : now.plot, now.dark, now.layer === 'compare')
-      try {
-        r.draw(sheet, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: now.palette })
-      } catch {
-        failed.current()
-      }
-    })
-  }, [sheet])
+    frame.current = requestAnimationFrame(paint)
+  }, [paint])
+
+  /** Drawn at once: a key or button has moved the view, and the picture must not lag the key (a frame
+   * that a loaded machine delays showed the old view after the key, #142). */
+  const drawNow = useCallback(() => {
+    cancelAnimationFrame(frame.current)
+    paint()
+  }, [paint])
 
   // A new look is drawn at once.
   useEffect(() => {
@@ -285,13 +295,14 @@ function SheetCanvas({
   const [shown, setShown] = useState<ViewTransform | null>(null)
   const hasOutlines = !!outlines && outlines.length > 0
   const setView = useCallback(
-    (next: ViewTransform, byUser = true) => {
+    (next: ViewTransform, byUser = true, now = false) => {
       view.current = next
       if (byUser) moved.current = true
       if (hasOutlines) setShown(next)
-      draw()
+      if (now) drawNow()
+      else draw()
     },
-    [draw, hasOutlines],
+    [draw, drawNow, hasOutlines],
   )
 
   const fits = useCallback(() => {
@@ -362,17 +373,17 @@ function SheetCanvas({
     (factor: number) => {
       const v = view.current
       const canvas = canvasRef.current
-      if (v && canvas) setView(zoomAbout(v, factor, canvas.width / 2, canvas.height / 2))
+      if (v && canvas) setView(zoomAbout(v, factor, canvas.width / 2, canvas.height / 2), true, true)
     },
     [setView],
   )
   const fitWhole = useCallback(() => {
     const f = fits()
-    if (f) setView(f.whole)
+    if (f) setView(f.whole, true, true)
   }, [fits, setView])
   const fitWorking = useCallback(() => {
     const f = fits()
-    if (f) setView(f.working)
+    if (f) setView(f.working, true, true)
   }, [fits, setView])
 
   // Fly to the view selected, padded to about 3× (screens.md sheet ruling 1); none again: the working view.

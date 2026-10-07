@@ -429,7 +429,11 @@ def test_a_line_without_the_debug_level_is_not_the_clis_own() -> None:
 
 LATE_FORK = """\
 import os, signal, sys, time
+forked = []
 def on_term(signum, frame):
+    if forked:  # the launcher signals each round: one late child, however many rounds
+        return
+    forked.append(1)
     child = os.fork()
     if child == 0:
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -476,6 +480,9 @@ def test_a_child_forked_in_the_clis_sigterm_handler_is_killed_too(
         assert default_claude(["claude", "--cloud", "x"]) == launch.TIMED_OUT
         pids = [int(word) for word in pids_file.read_text().split()]
         assert len(pids) == 2, pids  # the CLI, and the sleeper it forked on SIGTERM
+        deadline = time.monotonic() + 30  # gone on return; a generous bound for a loaded machine
+        while launch._alive(set(pids)) and time.monotonic() < deadline:
+            time.sleep(0.05)
         assert launch._alive(set(pids)) == set()
     finally:
         pids = pids or [int(w) for w in pids_file.read_text().split()] if pids_file.exists() else pids
