@@ -11,10 +11,10 @@
   none run; the file the reviewer named). The bar (the owner's ruling, 7 Oct 2026; ADR 0041 amended): a
   finding "could block" when it scores 75 or more, or 50 or more on a strict path (`[strict] paths` of
   `scripts/factory/review_tiers.toml`; no file, a climbing or absolute path, or an unreadable list is
-  judged strict). The worst VERDICT wins (BLOCK over FIX over PASS); a finding that could block and
-  stands (CONFIRMED or UNPROVEN) raises PASS to FIX; one that could block with no refuter verdict is
-  refused. Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never
-  text.
+  judged strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The worst
+  VERDICT wins (BLOCK over FIX over PASS); a finding that could block and stands (CONFIRMED or
+  UNPROVEN) raises PASS to FIX; one that could block with no refuter verdict is refused. Prints one
+  JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
 - `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
   line `{"to_file": [<id>, ...]}`, the standing findings of 50 to 74 off the strict paths, to be filed
   as issues rather than fixed.
@@ -126,13 +126,33 @@ def strict_paths() -> tuple[re.Pattern[str], ...] | None:
         return None
     if not isinstance(paths, list) or not paths or not all(isinstance(p, str) and p for p in paths):
         return None
-    return tuple(glob_regex(path, ignore_case=True) for path in paths)
+    # `X/**` also matches the folder `X` itself: a reviewer naming the folder is on it.
+    folders = [path.removesuffix("/**") for path in paths if path.endswith("/**")]
+    return tuple(glob_regex(path, ignore_case=True) for path in [*paths, *folders])
 
 
 def named_file(file: Any) -> str | None:
     """The file as a FINDING line can carry it (one field, no blank): None when it cannot, which the
     bar then judges strict."""
     return file if isinstance(file, str) and re.fullmatch(r"\S+", file) else None
+
+
+def on_tree(file: Any, tree: frozenset[str]) -> str | None:
+    """The file as the bar reads it: kept only when it is exactly a file of the head's tree (a
+    folder or a path shortened from its package root is not), else None, which is judged strict."""
+    named = named_file(file)
+    return named if named is not None and named in tree else None
+
+
+def tree_files(commit: str) -> frozenset[str]:
+    """Every file of `commit`'s tree in the cwd's checkout; empty when it cannot be read (every
+    finding is then judged strict)."""
+    done = subprocess.run(
+        ["git", "ls-tree", "-r", "-z", "--name-only", commit], capture_output=True, check=False
+    )
+    if done.returncode != 0:
+        return frozenset()
+    return frozenset(name.decode(errors="replace") for name in done.stdout.split(b"\0") if name)
 
 
 def on_strict_path(file: str | None) -> bool:
@@ -508,8 +528,9 @@ def fetch_verdict(
             f"ledger: refuter {name.rsplit('-', 1)[1].removesuffix('.json')}: {verdict_file['verdict']}"
         )
     else:
+        tree = tree_files(head)
         findings: dict[str, Judged] = {
-            f"f{number}": (item["score"], "-", named_file(item["file"]))
+            f"f{number}": (item["score"], "-", on_tree(item["file"], tree))
             for number, item in enumerate(verdict_file["findings"], start=1)
         }
         decision = judge([verdict_file["verdict"]], findings, hashlib.sha256(text.encode()).hexdigest())

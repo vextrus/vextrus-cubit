@@ -145,7 +145,13 @@ FINDING_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "score": {"type": "integer", "minimum": 0, "maximum": 100},
-        "file": {"type": "string"},
+        "file": {
+            "type": "string",
+            "description": (
+                "the repo-relative path of one file in the head (decides the bar: strict paths "
+                "block at 50)"
+            ),
+        },
         "line": {"type": "integer", "minimum": 0},
         "summary": {"type": "string", "description": "the failing scenario, in public words"},
         "repro": {
@@ -329,11 +335,13 @@ class Finding:
     method: str | None = None
     proof: dict[str, Any] | None = None  # the lens's repro: test_file, command, expect_fail
     replayed: dict[str, Any] | None = None  # the replay's outcome, exit and output tail
+    on_tree: bool = False  # the file is exactly a file of the reviewed head's tree (`mark_on_tree`)
 
     @property
     def named_file(self) -> str | None:
-        """The file as the ledger's FINDING line carries it (None: judged on a strict path)."""
-        return ledger.named_file(self.file)
+        """The file as the ledger's FINDING line carries it; None (judged on a strict path) unless
+        it is a file of the head's tree (PR #610 review, round 1: a folder or a shortened path)."""
+        return ledger.named_file(self.file) if self.on_tree else None
 
     @property
     def could_block(self) -> bool:
@@ -349,6 +357,7 @@ class Finding:
             "summary": self.summary,
             "status": self.word,
             "method": self.method,
+            "on_tree": self.on_tree,
         }
 
 
@@ -1315,8 +1324,22 @@ def confirm_and_refute(
                     proof=repro if isinstance(repro, dict) else None,
                 )
             )
+    mark_on_tree(run.findings, main, run.merged)
     confirm(run, rv)
     refute(run, rv, slot, main)
+
+
+def mark_on_tree(findings: list[Finding], main: Path, commit: str | None) -> None:
+    """Mark each finding whose file is exactly a file of `commit`'s tree; the rest (and every one,
+    when the tree cannot be read) are judged on a strict path."""
+    tree: frozenset[str] = frozenset()
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        if commit is not None:
+            argv = [*GIT, "-C", str(main), "ls-tree", "-r", "-z", "--name-only", commit]
+            listed = _run(argv, timeout=GIT_TIMEOUT)
+            tree = frozenset(listed.stdout.split("\0")) - {""} if listed.returncode == 0 else tree
+    for item in findings:
+        item.on_tree = item.file in tree
 
 
 def tier_lenses(tier: str, paths: list[str]) -> list[Lens]:
@@ -1895,6 +1918,7 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
             )
     if resolve(run.pr) != run.head:
         raise Refused("the PR's head moved during the review: review the new head")
+    mark_on_tree(run.findings, main, run.head)
     record(run, args, ledger_dir, [found["verdict"] for _, found, _ in answers], factory / "verdicts")
     served = sorted({one["branch"] for name in required for one in launches_of(entries[name])})
     for branch in served:  # every launch's review branch has served: removed, as fetch-verdict does
@@ -1924,24 +1948,24 @@ def fix_text(pr: int, head: str | None, views: list[dict[str, Any]]) -> str:
     return "\n".join(parts)
 
 
+def view_file(view: dict[str, Any]) -> str | None:
+    """A kept finding's file as the ledger judged it: None (strict) unless it was on the tree."""
+    return ledger.named_file(view["file"]) if view.get("on_tree") is True else None
+
+
 def standing(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The findings that block: CONFIRMED or UNPROVEN, never REFUTED, and over the bar (75, or 50 on
     a strict path: `ledger.could_block`)."""
     return [
         v
         for v in views
-        if v["status"] in ledger.STANDS
-        and ledger.could_block(int(v["score"]), ledger.named_file(v["file"]))
+        if v["status"] in ledger.STANDS and ledger.could_block(int(v["score"]), view_file(v))
     ]
 
 
 def to_file(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The findings to file as issues rather than fix (`ledger.to_file`)."""
-    return [
-        v
-        for v in views
-        if ledger.to_file(int(v["score"]), str(v["status"]), ledger.named_file(v["file"]))
-    ]
+    return [v for v in views if ledger.to_file(int(v["score"]), str(v["status"]), view_file(v))]
 
 
 def fix_message(run: Run) -> str:

@@ -346,7 +346,7 @@ ON = "vextrus/rates/table.py"
 
 
 def kept(id_: str, score: int, file: str, word: str = "UNPROVEN") -> review.Finding:
-    return review.Finding(id_, score, file, 1, f"summary {id_}", None, word)
+    return review.Finding(id_, score, file, 1, f"summary {id_}", None, word, on_tree=True)
 
 
 def test_no_claim_when_nothing_that_could_block_is_left() -> None:
@@ -389,3 +389,37 @@ def test_only_findings_to_file_print_no_fix_round() -> None:
     text = review.fix_text(12, H, [kept("f", 60, OFF).view()])
     assert "Fix round" not in text
     assert text.startswith("File as issues")
+
+
+# ---------------------------------------------------------------- the file on the head's tree (#610 r1)
+
+
+def test_a_file_not_exactly_on_the_heads_tree_is_judged_strict(tmp_path: Path) -> None:
+    """A 60 on `rates/table.py` (shortened from its package root) or on `vextrus/rates` (a folder)
+    blocks; the same 60 on a file of the tree off the strict paths does not."""
+    import subprocess
+
+    for name in ("vextrus/rates/table.py", "web/src/components/badge.tsx"):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text("x = 1\n")
+    for argv in (["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@t.invalid",
+                 "commit", "-q", "-m", "tree"]):  # fmt: skip
+        subprocess.run(["git", "-C", str(tmp_path), *argv], check=True, capture_output=True)
+    head = subprocess.run(["git", "-C", str(tmp_path), "rev-parse", "HEAD"], check=True,
+                          capture_output=True, text=True).stdout.strip()  # fmt: skip
+    found = [
+        review.Finding("a", 60, "rates/table.py", 1, "s", None, "UNPROVEN"),
+        review.Finding("b", 60, "vextrus/rates", 1, "s", None, "UNPROVEN"),
+        review.Finding("c", 60, "web/src/components/badge.tsx", 1, "s", None, "UNPROVEN"),
+    ]
+    review.mark_on_tree(found, tmp_path, head)
+    assert [item.named_file for item in found] == [None, None, "web/src/components/badge.tsx"]
+    assert [item.could_block for item in found] == [True, True, False]
+    review.mark_on_tree(found, tmp_path, "f" * 40)  # an unreadable tree: every file strict
+    assert all(item.could_block for item in found)
+
+
+def test_the_lens_is_told_the_file_decides_the_bar() -> None:
+    told = review.FINDING_SCHEMA["properties"]["file"]["description"]
+    assert "repo-relative path of one file in the head" in told
+    assert "strict paths block at 50" in told

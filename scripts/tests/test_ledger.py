@@ -250,9 +250,10 @@ def test_a_pass_with_an_unrefuted_74_off_the_strict_paths_is_recorded(tmp_path: 
     [
         ("vextrus/platform/database.py ", 3),  # padded: the refuter's case (S17-F6)
         ("vextrus/platform/database.py", 3),
-        ("web/src/components/badge.tsx", 0),
+        ("app.py", 0),  # a file of the head's tree, off the strict paths
+        ("web/src/components/badge.tsx", 3),  # not in the head's tree: judged strict
     ],
-    ids=["padded-strict", "strict", "off-strict"],
+    ids=["padded-strict", "strict", "off-strict", "not-on-the-tree"],
 )
 def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, file: str, code: int
@@ -275,3 +276,25 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
     assert written.exists() is (code == 0)
     if code == 0:
         assert json.loads(written.read_text())["verdict"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "file",
+    [
+        "vextrus/platform/schemas/money.py",  # PR #610 review, round 1: money in the API
+        "vextrus/drawings/services/_access.py",  # the project-scope wall
+        "vextrus/platform/services/invitations.py",
+        "vextrus/platform/services/storage.py",
+        "vextrus/projects/services/access.py",
+        "vextrus/rates",  # a folder: `X/**` matches `X`
+        "engine/read",
+        "engine/recognise/storeys.py",
+        "scripts/ledger.py",  # the bar's own files
+        "scripts/factory/review_tiers.toml",
+    ],
+)
+def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
+    given = source(tmp_path, f"VERDICT: PASS at {H}", f"FINDING f1 60 CONFIRMED {file}")
+    decision = ledger.decide(given.read_bytes(), H)
+    assert decision.verdict == "FIX"
+    assert decision.to_file == ()
