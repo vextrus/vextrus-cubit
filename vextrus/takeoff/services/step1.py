@@ -1387,7 +1387,7 @@ def _exclude(
             drawings.exclude(sheet.id, reason, words, confirmation_id=act.id)
             proposal.rejected_reason = reason
             _stamp(proposal, ProposalStatus.REJECTED, act)
-            _decide_views(sheet.id, act, reason, words.strip())
+            _exclude_views_of(sheet.id, act, reason, words.strip())
         _exclude_views(project_id, act, views, reason, words)
         record_progress(project_id)
     return _act_view(act)
@@ -1741,7 +1741,7 @@ def _put_back_sheet(
         return
     if prior["decision"] == "excluded":
         drawings.exclude(sheet_id, prior["reason"], prior["text"] or "", confirmation_id=earlier.id)
-        _decide_views(sheet_id, earlier, prior["reason"], prior["text"] or "")
+        _exclude_views_of(sheet_id, earlier, prior["reason"], prior["text"] or "")
         if proposal is not None:
             proposal.rejected_reason = prior["reason"]
             _stamp(proposal, ProposalStatus.REJECTED, earlier)
@@ -1786,14 +1786,14 @@ def _act_view(act: Confirmation) -> ActView:
 
 def _decide_views(sheet_id: uuid.UUID, act: Confirmation, reason: str | None, text: str) -> None:
     """The sheet's views' Coverage follows it: confirmed as proposed (an unaccounted view stays so),
-    or excluded with the sheet's reason; a view the QS left out on its own keeps its own decision."""
+    or excluded with the sheet's reason."""
     own = _excluded_on_their_own(act.project_id, sheet_id)
     sheet = drawings.sheet(sheet_id) if reason is None else None
     for row in Coverage.objects.select_for_update().filter(
         project_id=act.project_id, sheet_revision_id=sheet_id
     ):
-        if row.view_id in own:
-            continue  # the QS left this view out on its own: its sheet's act never rewrites that row
+        if reason is None and row.view_id in own:
+            continue  # the QS left this view out on its own: confirming its sheet keeps it so
         if sheet is not None and row.proposed_status == CoverageStatus.UNACCOUNTED:
             if not _account(row, sheet, act):
                 _put_back(row)
@@ -1819,6 +1819,20 @@ def _excluded_on_their_own(project_id: uuid.UUID, sheet_id: uuid.UUID) -> set[uu
             values__sheet_id=str(sheet_id),
         ).values_list("subject_id", flat=True)
     )
+
+
+def _exclude_views_of(sheet_id: uuid.UUID, act: Confirmation, reason: str, text: str) -> None:
+    """`_decide_views` for a sheet left out: a view the QS left out on its own keeps its own decision
+    (its row is its own, never rewritten by its sheet's act, so its undo restores exactly what it wrote)."""
+    own = _excluded_on_their_own(act.project_id, sheet_id)
+    kept = list(
+        Coverage.objects.select_for_update().filter(
+            project_id=act.project_id, sheet_revision_id=sheet_id, view_id__in=own
+        )
+    )
+    _decide_views(sheet_id, act, reason, text)
+    for row in kept:
+        row.save()  # as it stood before the sheet's act
 
 
 def _follow_sheet(row: Coverage) -> None:
