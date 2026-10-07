@@ -25,6 +25,7 @@ clone's `.private/work/crosspr/`. Run it from a clone that has `origin` and `ori
 0 every check passed, 1 a conflict or test failure, 2 it could not run.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -44,6 +45,21 @@ TRUSTED_AUTHORS = Path(__file__).with_name("trusted-authors.txt")
 OUTPUT_TAIL = 60
 QUICK = 120
 TESTS = 900
+LINT_TESTS = "tools/lint/tests/"
+DEFAULT_WORKERS = 6
+
+
+def worker_count() -> int:
+    """pytest workers: `VEXTRUS_VERIFY_WORKERS` (0 or 1 = serial), else 6; never `auto`."""
+    raw = os.environ.get("VEXTRUS_VERIFY_WORKERS", "").strip()
+    return int(raw) if raw.isdigit() else DEFAULT_WORKERS
+
+
+def baseline_cache_file(root: Path, key: list[str]) -> Path:
+    """The kept baseline for (origin/main sha, PR head sha, sorted test files): inside this clone."""
+    common = Path(git_out("rev-parse", "--git-common-dir"))
+    folder = (common if common.is_absolute() else root / common) / "vextrus" / "crosspr"
+    return folder / (hashlib.sha256("\n".join(key).encode()).hexdigest() + ".json")
 
 
 class Refusal(Exception):
@@ -228,8 +244,18 @@ def check_pr(
         joined = git(*IDENTITY, "merge", "--no-edit", "-q", head, cwd=tree)
         if joined.returncode != 0:
             raise Refusal(f"#{number} merged into main alone failed: {joined.stderr.strip()}")
-        baseline = Tests(tree, kept, f"pr-{number}-main").run(changed)
-        if not baseline.green:
+        baseline_tests = Tests(tree, kept, f"pr-{number}-main")
+        key = [git_out("rev-parse", "origin/main"), head, *baseline_tests.selection(changed)]
+        cache = baseline_cache_file(root, key)
+        try:
+            green = bool(json.loads(cache.read_text())["green"])
+        except OSError, ValueError, KeyError, TypeError:
+            baseline = baseline_tests.run(changed)
+            green = baseline.green
+            if not baseline.timed_out:
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                cache.write_text(json.dumps({"green": green}))
+        if not green:
             notes.append(f"crosspr: #{number} not checked (its own tests are not green on main)")
             return None, notes, unrun, "not checked"
         joined = git(*IDENTITY, "merge", "--no-edit", "-q", tip, cwd=tree)
@@ -272,12 +298,27 @@ class Tests:
     def failed(self) -> bool:
         return any(code != 0 for code in self.exits)
 
-    def run(self, changed: list[str]) -> Tests:
+    def split(self, changed: list[str]) -> tuple[list[str], list[str]]:
         pytests = [p for p in changed if TEST_FILE.search(p) and (self.tree / p).is_file()]
         nodes = [p for p in changed if NODE_TEST.search(p) and (self.tree / p).is_file()]
-        if pytests:
-            argv = [sys.executable, "-m", "pytest", "-rfE", "-q", "-p", "no:cacheprovider", *pytests]
-            self.collect(argv, self.name, "Python", pytests)
+        return pytests, nodes
+
+    def selection(self, changed: list[str]) -> list[str]:
+        """The sorted test files a run would execute (the baseline's cache key)."""
+        pytests, nodes = self.split(changed)
+        return sorted([*pytests, *nodes])
+
+    def run(self, changed: list[str]) -> Tests:
+        pytests, nodes = self.split(changed)
+        lint = [p for p in pytests if p.startswith(LINT_TESTS)]
+        rest = [p for p in pytests if not p.startswith(LINT_TESTS)]
+        count = worker_count()
+        parallel = ["-n", str(count)] if count > 1 else []
+        base = [sys.executable, "-m", "pytest", "-rfE", "-q", "-p", "no:cacheprovider"]
+        if rest:
+            self.collect([*base, *parallel, *rest], self.name, "Python", rest)
+        if lint:  # tools/lint/tests runs serially (issue #585)
+            self.collect([*base, *lint], f"{self.name}-lint", "Python", lint)
         if nodes and shutil.which("node") is None:
             self.notes.append("node not run: node is absent")
             self.node_unrun = True
