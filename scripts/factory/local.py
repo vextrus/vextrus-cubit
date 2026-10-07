@@ -9,7 +9,8 @@ name a sha (a stale local `origin/B` does not count); no live agents row may alr
 a worktree `<main checkout>/.claude/worktrees/T` on a local branch B tracking `origin/B` at origin's tip
 (a local B at another sha is an error, never reset); a carried branch (its tip has no
 `.claude/agents/builder.md`) gets `origin/main` merged in as a recorded merge commit, and a conflict
-aborts the merge; `uv run manage.py ensure_database` in the worktree; `npm --prefix web ci --no-audit
+aborts the merge; `uv sync --link-mode=hardlink` (a hardlinked venv);
+`uv run manage.py ensure_database` in the worktree; `npm --prefix web ci --no-audit
 --no-fund` when the worktree has `web/package-lock.json` and no `web/node_modules`; the ticket's budget
 record (`stamp budget`) when `--budget-minutes` is given; then, from the worktree,
 
@@ -268,6 +269,8 @@ def _launch(args: argparse.Namespace, verdict: governor.Verdict) -> list[str]:
 
 def prepare(worktree: Path) -> None:
     """The worktree's own database, then the web's dependencies when it has a lockfile and none yet."""
+    sync = ["uv", "sync", "--link-mode=hardlink"]
+    must(run(sync, worktree, None, COMMAND_TIMEOUT), "uv sync --link-mode=hardlink")
     ensure = ["uv", "run", "manage.py", "ensure_database"]
     must(run(ensure, worktree, None, COMMAND_TIMEOUT), "uv run manage.py ensure_database")
     web = worktree / "web"

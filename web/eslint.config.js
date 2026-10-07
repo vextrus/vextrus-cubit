@@ -29,7 +29,7 @@ const NOT_UI_CODE = [
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'src/routeTree.gen.ts', 'src/api/schema.gen.ts', '**/locales/*.js', 'src/messages/**/*.js', '.vitest/**'],
+    ignores: ['dist/**', 'node_modules/**', 'src/routeTree.gen.ts', 'src/api/schema.gen.ts', '**/locales/**/*.js', 'src/messages/**/*.js', '.vitest/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
