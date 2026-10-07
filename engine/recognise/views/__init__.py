@@ -2,7 +2,8 @@
 subject and layer, and what it is proposed for.
 
     views.ViewBudget(artefact)                                            (one file's bounds)
-    views.find(artefact, sheet, conventions, budget=budget) -> FoundViews  (the `views` stage; `.paper`)
+    views.find(artefact, sheet, conventions, budget=budget, sheet_conventions=None) -> FoundViews
+                                                          (the `views` stage; `.paper`)
     views.working_view(views) -> int | None                            (16's and 22's fit)
     views.kind_steps(kind, discipline, conventions=None) -> tuple[str, ...]  (Step 1, #158)
     views.subjects(text, conventions=None) -> frozenset[str]             (19b's continuations)
@@ -11,7 +12,8 @@ subject and layer, and what it is proposed for.
 
 `conventions` are view conventions (`engine/recognise/conventions/view-default.json` by default: the
 title words of each kind, the subject and layer words and the scale patterns, all data). The storey
-words are the default sheet conventions' (13's `storeys.read`; 21b passes the Market's later).
+words are `sheet_conventions`' (the sheets' conventions, a Market's as data; the default sheet
+conventions when none are given), read by 13's `storeys.read`; `storeys` is their one owner here.
 
 Its parts, each one ticket's to change: `paper` (a sheet laid on paper, and the file's budget),
 `segment` (the drawing cut into views, the title block among them), `titles` (what a title says),
@@ -36,7 +38,14 @@ from collections.abc import Sequence
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import ReadArtefact
 from engine.recognise import scales
-from engine.recognise.types import Box, SheetCandidate, ViewCandidate, ViewConventions, ViewKind
+from engine.recognise.types import (
+    Box,
+    SheetCandidate,
+    SheetConventions,
+    ViewCandidate,
+    ViewConventions,
+    ViewKind,
+)
 from engine.recognise.views import storeys
 from engine.recognise.views.paper import MAX_SHEET_VIEWPORTS, ViewBudget, _Paper, _paper
 from engine.recognise.views.routing import (
@@ -121,9 +130,12 @@ def find(
     conventions: ViewConventions | None = None,
     *,
     budget: ViewBudget | None = None,
+    sheet_conventions: SheetConventions | None = None,
 ) -> FoundViews:
     """The sheet's views, in reading order (the package's docstring), on the file's `budget` (one of
-    its own when none is given)."""
+    its own when none is given), their storeys read with `sheet_conventions`' storey words."""
+    if sheet_conventions is not None and not isinstance(sheet_conventions, SheetConventions):
+        raise TypeError(f"sheet conventions are SheetConventions, not {type(sheet_conventions).__name__}")
     if not isinstance(sheet, SheetCandidate):
         raise TypeError(f"a sheet is a SheetCandidate, not {type(sheet).__name__}")
     if budget is None:
@@ -144,8 +156,9 @@ def find(
         found.append(_View(None, None, ViewKind.TITLE_BLOCK, block))
     discipline = sheet.discipline.value if sheet.discipline is not None else None
     on_sheet = _subjects_in_order(sheet.title.value, reading) if sheet.title is not None else ()
-    made = [_candidate(v, paper, reading, discipline, on_sheet) for v in found]
-    result = FoundViews(storeys.inherit(made, sheet, on_sheet))
+    held_words = storeys.words(sheet_conventions)
+    made = [_candidate(v, paper, reading, discipline, on_sheet, held_words) for v in found]
+    result = FoundViews(storeys.inherit(made, sheet, on_sheet, held_words))
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(budget)
     return result
@@ -161,6 +174,7 @@ def _candidate(
     reading: _Reading,
     discipline: str | None,
     on_sheet: Sequence[str] = (),
+    storey_words: SheetConventions | None = None,
 ) -> ViewCandidate:
     title = " ".join(view.title.shown.split()) if view.title is not None else None
     scale = view.scale
@@ -168,7 +182,8 @@ def _candidate(
         scale = scales.read(title, reading.patterns)
     subject = _subject(title, reading) if title is not None else None
     layer = _layer(title, reading) if title is not None else None
-    stated = storeys.read(title, view.kind, subject)
+    lines = [" ".join(u.shown.split()) for u in view.lines]
+    stated = storeys.read(title, view.kind, subject, lines, storey_words)
     structure = title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
         view.kind, subject, discipline, on_sheet, notes=reading.notes, structure=structure
@@ -195,6 +210,7 @@ def _candidate(
         storeys_as_stated=stated.as_stated,
         storeys=stated.keys,
         storeys_meaning=stated.meaning,
+        storeys_source=stated.source,
         subject=subject,
         layer=layer,
         steps=steps,

@@ -107,6 +107,8 @@ class _View:
     box: Bounds
     scale: scales.Scale | None = None
     extra: list[_Piece] = field(default_factory=list)
+    lines: list[_Text] = field(default_factory=list)
+    """The lines under its title, top down (its second line, its scale line, its storeys)."""
 
 
 def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[_Piece]:

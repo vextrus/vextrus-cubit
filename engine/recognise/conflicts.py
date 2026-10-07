@@ -55,8 +55,10 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has no title (the
   words then name no plan: a title read on one sheet is never said of the other); the layer (`none` for
   none) and how many views; and, for 21c, the Discipline's, the subject's and the first shared storey's
-  keys (in the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a
-  column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
+  keys (in the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title
+  names a room or a part, its floors only a bracketed line under it, #413) sits out: each bath's plan
+  over "2nd to 6th floor" is a different room's. A plan whose storeys run floor to floor (17's
+  `floor_to_floor`: a column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
   to 6th floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with
   neither number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word
   m0-screens §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words
@@ -86,6 +88,7 @@ from engine.recognise.types import (
     SheetConventions,
     Sourced,
     StoreysMeaning,
+    StoreysSource,
     ViewCandidate,
     ViewKind,
     pattern_search,
@@ -592,6 +595,8 @@ def _same_storey(
         for view in views[i]:
             if view.kind != ViewKind.PLAN or view.subject is None:
                 continue
+            if view.storeys_source == StoreysSource.TITLE_LINE:
+                continue  # a part plan (a bath's): its floors from its title's line (17's storeys)
             layer = NO_LAYER if view.layer is None else str(view.layer)
             bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer)
             flat.append((view, places.of(i), i))

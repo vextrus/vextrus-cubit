@@ -153,6 +153,9 @@ class StoreysSource(StrEnum):
 
     SHEET_TITLE = "sheet_title"
     """Its sheet's title: the sheet's only plan, whose own title states no storey (T-W318)."""
+    TITLE_LINE = "title_line"
+    """A bracketed line under its title ("(2ND TO 6TH FLOOR)"), its own title stating no storey: a
+    part plan's floors (a bath's, a kitchen's; #413, S15-E3)."""
 
 
 class Layer(StrEnum):

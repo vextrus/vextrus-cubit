@@ -277,7 +277,8 @@ def _views(
             if k not in by_piece and band and _meets(piece.box, _grown(t.box, t.height)):
                 by_piece[k] = ti
                 box = _union(box, piece.box)
-        views.append(_View(titled, t, kind, box))
+        lines = sorted((texts[j] for j in second.get(ti, ())), key=lambda u: -u.box[3])
+        views.append(_View(titled, t, kind, box, lines=lines))
     for view in views:  # a drawing's body over its detached row (its grid marks, its dimensions)
         assert view.piece is not None
         near = _grown(view.piece.box, JOIN_MM * unit)
