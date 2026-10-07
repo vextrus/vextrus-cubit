@@ -207,6 +207,10 @@ msgctxt "Takeoff Step"
 msgid "Site"
 msgstr "Site"
 
+#: src/app/TopBar.tsx
+msgid "Priced BOQ"
+msgstr "Priced BOQ"
+
 #: src/app/JumpTo.tsx
 #: src/app/TopBar.tsx
 msgid "Members and access"
@@ -236,6 +240,10 @@ msgstr "There is nothing at this address. It may have been a link to another Dev
 #: src/app/shell.tsx
 msgid "Jump to a project, or a place in this one"
 msgstr "Jump to a project, or a place in this one"
+
+#: src/app/TopBar.tsx
+msgid "Market Prices"
+msgstr "Market Prices"
 
 #: src/app/TopBar.tsx
 msgid "Jump to…"
