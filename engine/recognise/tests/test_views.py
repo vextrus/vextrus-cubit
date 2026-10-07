@@ -129,12 +129,13 @@ def test_a_standard_sheet_at_a_standard_scale_no_round_one_holds_is_read_as_that
     assert read
 
 
-@pytest.mark.parametrize("share", [0.31, 0.6, 0.97])
+@pytest.mark.parametrize("share", [0.4, 0.6, 0.97])
 def test_a_frame_whose_insert_gives_no_standard_sheet_takes_the_boxs_paper(share: float) -> None:
     """#160: a frame block drawn at a fraction of its plotted size (a real set's gave 130 x 92 mm, its
     sheets plotted on A3) is no paper's; its paper is the box's (a standard sheet at a standard scale,
-    else the standard side at the roundest scale), as for a frame drawn as a rectangle. A frame within
-    `FRAME_MATCH` of its sheet (a border inside the paper's edge) keeps its insert's scale."""
+    else the standard side at the roundest scale), as for a frame drawn as a rectangle. A frame inside
+    a standard sheet by at most `BORDER_MM` a side (a border inside the paper's edge) keeps its
+    insert's scale; 0.4 of an A1 (336 x 238 mm) is inside none."""
     d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
     artefact, frame = d.artefact(), sheet.anchors[0]
     assert isinstance(frame, DwgAnchor)

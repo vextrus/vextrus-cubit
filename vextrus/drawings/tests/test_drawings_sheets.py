@@ -2,6 +2,7 @@
 keeps, the sheet list, the QS's decisions, and a file's Discipline changed after its sheets."""
 
 import uuid
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -276,11 +277,29 @@ def test_a_plot_page_must_be_of_a_pdf_of_the_same_set(qs_project: QsProject) -> 
         with pytest.raises(auth.Refused):
             services.record_plot(printed.id, services.PlotNone.NO_PAGE, pdf_file_id=elsewhere.id)
     assert (matched.plot.file_id, matched.plot.page, matched.plot.none) == (pdf.id, 3, None)
-    assert matched.plot.transform == {"scale": "2.5", "rotation": 90, "offset": ["10.0", "20.0"]}
+    assert matched.plot.transform == {"scale": "2.5", "rotation": 90, "offset": ["10.0", "20.0"],
+                                      "crop": ["0.0", "0.0", "1190.0", "842.0"]}  # fmt: skip
     assert other_set.value.message["code"] == "drawings.reads.not_its_reading"
     # "No PDF" is about the set's PDFs, which change: read as they stand (a Structural one waits).
     assert none.plot.none == said.PLOT_NOT_YET()
     assert no_page.plot.none == said.PLOT_NO_PAGE(plot_file="KR-STR-R0.pdf")
+
+
+def test_a_plot_keeps_the_pages_cropbox_as_shown_for_the_viewer(qs_project: QsProject) -> None:
+    """#240: pdf.js draws a page's CropBox, so the Plot's transform carries it (18's `shown`: cut to
+    the page) for the viewer to lay the picture by."""
+    found = kept_dwg(qs_project, frames=1)
+    pdf = add(qs_project.member, qs_project.project_id, "KR-STR-R0.pdf", drawing("pdf")).file
+    with qs_project.member.acting():
+        [printed] = services.record_sheets(found.id, [sheet_candidate(0, found.group, number="S-01")])
+        services.mark_read(found.id)
+        candidate = sheet_candidate(0, found.group, number="S-01")
+        inset = replace(page(pdf.sha256, 1), crop=(100.0, 50.0, 1100.0, 9000.0))
+        matched = services.record_plot(
+            printed.id, PlotMatch(inset, candidate, PlotTransform(1.0, 0, (0.0, 0.0)), 0.1)
+        )
+    assert matched.plot.transform is not None
+    assert matched.plot.transform["crop"] == ["100.0", "50.0", "1100.0", "842.0"]
 
 
 def test_a_sheet_with_no_plot_recorded_says_whether_a_pdf_is_there_to_match(

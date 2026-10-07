@@ -38,6 +38,7 @@ from engine.read.artefact import (
     TEXT_TYPES,
     Block,
     Insert,
+    PlotSettings,
     Point,
     Text,
     TextStyle,
@@ -66,6 +67,14 @@ PLOT_PAPER_UNIT = "plotsettings.plot_paper_unit"
 PLOT_SCALE = ("plotsettings.paper_units", "plotsettings.drawing_units")
 """A layout's custom plot scale (DXF groups 142 and 143): so many paper units plot so many drawing
 units. A layout drawn in millimetres with inch paper units states 1 in = 25.4 units."""
+PLOT_SHEET = (
+    "plotsettings.paper_width", "plotsettings.paper_height", "plotsettings.left_margin",
+    "plotsettings.bottom_margin", "plotsettings.right_margin", "plotsettings.top_margin",
+    "plotsettings.plot_origin", "plotsettings.plot_rotation_mode",
+)  # fmt: skip
+"""A layout's plot sheet as `dwgread` names it (DXF groups 44 and 45, 40 to 43, 46 and 47, and 73 of
+PLOTSETTINGS): the paper's size and its margins, in mm whatever its paper units, the plot offset and
+the turn (S15-E2)."""
 _PAPER_MM = {0: 25.4, 1: 1.0}
 MIN_PAPER_MM, MAX_PAPER_MM = 1e-4, 1e4
 """The millimetres of paper a drawing unit may plot at, as read; a scale past them is not taken."""
@@ -76,7 +85,16 @@ _OBJECT_KEEP = {
         {"object", "handle", "name", "base_pt", "entities", "block_entity", "layout"}
     ),
     "LAYOUT": frozenset(
-        {"object", "handle", "layout_name", "tab_order", "block_header", PLOT_PAPER_UNIT, *PLOT_SCALE}
+        {
+            "object",
+            "handle",
+            "layout_name",
+            "tab_order",
+            "block_header",
+            PLOT_PAPER_UNIT,
+            *PLOT_SCALE,
+            *PLOT_SHEET,
+        }
     ),
 }
 _OBJECT_ONLY = frozenset({"object", "handle"})
@@ -104,6 +122,23 @@ def _paper_mm(layout: Mapping[str, Any]) -> float | None:
         if MIN_PAPER_MM <= scaled <= MAX_PAPER_MM:
             return scaled
     return mm
+
+
+def _plot(layout: Mapping[str, Any]) -> PlotSettings | None:
+    """A layout's plot settings as the file states them (`PLOT_SHEET`), or none when one of them is no
+    finite number, the offset no pair, or the turn not 0 to 3 (a hostile file's)."""
+    width, height, left, bottom, right, top, origin, turn = (layout.get(k) for k in PLOT_SHEET)
+    if not (isinstance(origin, list) and len(origin) == 2):
+        return None
+    numbers = [
+        float(v)
+        for v in (width, height, left, bottom, right, top, *origin)
+        if isinstance(v, int | float) and not isinstance(v, bool) and math.isfinite(v)
+    ]
+    if len(numbers) != 8 or type(turn) is not int or turn not in (0, 1, 2, 3):
+        return None
+    w, h, ml, mb, mr, mt, ox, oy = numbers
+    return PlotSettings(w, h, (ml, mb, mr, mt), (ox, oy), turn)
 
 
 def load(stream: BinaryIO) -> dict[str, Any]:
@@ -194,6 +229,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
         handle(item.get("block_header")): str(item.get("layout_name", "")) for item in layout_objects
     }
     paper_of = {handle(item.get("block_header")): _paper_mm(item) for item in layout_objects}
+    plot_of = {handle(item.get("block_header")): _plot(item) for item in layout_objects}
 
     owner_of: dict[str, str] = {}
     listed_missing = 0
@@ -245,6 +281,7 @@ def decode(data: Mapping[str, Any]) -> Decoded:
             layout=layout_of.get(h),
             entities=tuple(children.get(h, ())),
             paper_mm_per_unit=paper_of.get(h) if h in layout_of else None,
+            plot=plot_of.get(h) if h in layout_of else None,
         )
         for h, header in headers.items()
     )

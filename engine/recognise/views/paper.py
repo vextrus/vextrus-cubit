@@ -7,24 +7,32 @@ viewport's model-to-paper transform is the renderer's, `buffers.viewport_transfo
 viewport; a model-space sheet's is what model space draws inside its frame's box. The sheet's frame (its
 first anchor, 13's: the frame insert with everything it draws, or its rectangle) and its title block's
 texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left corner** (the rulings,
-"24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20): a
-layout's paper units are taken as mm, its paper the frame's box (else the drawing's extent); a
-model-space sheet's box is `(model - lower-left corner of its frame) / scale`, the scale being, in order
-(`_paper_scale`): its frame insert's when the frame block is drawn at a standard sheet's size (within
-0.5 %, in mm or in the drawing's units; a sheet twice another, A1 and A3, boxes both at standard scales,
-and only the insert says which); else a standard sheet's at a standard scale when the box is exactly one
-(`EXACT_MATCH`, both sides, in the drawing's units, the render buffers' `_standard_sheet`: a frame block
-drawn at a fraction of its paper can give a paper inside a smaller sheet); else its frame insert's when
-the frame lies inside a standard sheet (`BINDING_MM` within its edge, a border's binding margin,
-`FRAME_MATCH` past it); else a standard sheet's when the box is one within 0.5 %; else, for a frame
-drawn as a rectangle or a frame block drawn at a fraction of its plotted size, the box's long side taken
-as A1's (`FALLBACK_LONG_MM`: never a smaller paper than the buffers laid before). The frame stands as in
-model space's axes (a turned A3 is 297 wide and 420 tall), and its paper is the frame's box at the scale
-taken.
-Where the sheet's Plot page was matched (the harness passes its paper, `find(..., plot)`), its paper is
-that page's at the scale that fits the frame's box to it, the box centred (`_plot_paper`), before any
-of these. This is the one rule for a model-space sheet's paper: the render buffers lay theirs by
-`_paper_scale` too, so a view's box and the drawing under it cannot drift apart (#160).
+"24s <-> 17"), and `FoundViews.paper` is the paper's extent its boxes are on (the ruling of 14:20).
+
+**A sheet's paper** (`paper_of`, S15-E2, #314) is one for its views and its render buffer
+(`buffers.build` lays its drawing by it too), so the viewer's outlines lie over the drawing. A layout,
+drawn in its plot-paper units (#87), is on, in order: the sheet its plot settings state (the read
+artefact's `Block.plot`: its paper's size, turned a quarter when the plot is, its corner the margins and
+the plot offset before the layout's origin), where each side is within `PLOT_SHEET_MM` and the layout is
+drawn on it (its frame within `ON_SHEET_MM` of the sheet's edge, or a frameless layout's extents centred
+on it: a default page setup left on a layout drawn for another sheet is not its sheet); else the
+smallest standard sheet around its frame (`_sheet_around`: the border within `BORDER_MM` of the sheet's
+edge on each side, ISO's sheets first, the frame centred); else its frame's box; else (no frame) its
+extents, a standard sheet when they are one. A model-space sheet is drawn at a scale (model units a
+paper mm) taken, in order (`_paper_scale`): its frame insert's when the frame block is drawn at a
+standard sheet's size (within 0.5 %, in mm or in the drawing's units; a sheet twice another, A1 and A3,
+boxes both at standard scales, and only the insert says which); else a standard sheet's at a standard
+scale when the box is exactly one (`EXACT_MATCH`, both sides, in the drawing's units: a frame block drawn
+at a fraction of its paper can give a paper inside a smaller sheet); else its frame insert's when the
+frame lies inside a standard sheet (within `BORDER_MM` a side of its edge, at most `FRAME_MATCH` past
+it); else a standard sheet's when the box is one within 0.5 %; else, for a frame drawn as a rectangle or
+a frame block drawn at a fraction of its plotted size, the box's long side taken as A1's
+(`FALLBACK_LONG_MM`, assumed). The frame stands as in model space's axes (a turned A3 is 297 wide and
+420 tall); a scale read from the drawing lays it on the standard sheet around it, centred, as a
+layout's frame (a bordered A1 is on A1, never on its border's paper, #437's review), else on its box's
+own paper. Where the sheet's Plot page was matched (the harness passes its paper, `find(..., plot)`),
+its paper is that page's at the scale that fits the frame's box to it, the box centred (`_plot_paper`),
+before any of these.
 
 **The file's budget** (`ViewBudget`, one for the file's sheets, the package's docstring): each space is
 walked once (model space once per file), and every walk spends the file's `MAX_VISITS` entities,
@@ -56,7 +64,7 @@ from engine.geometry.placement import (
 )
 from engine.geometry.placement import chain as chain_of
 from engine.read.anchor import DwgAnchor
-from engine.read.artefact import Entity, Insert, ReadArtefact, Text
+from engine.read.artefact import Entity, Insert, PlotSettings, ReadArtefact, Text
 from engine.recognise import sheets as sheet_finder
 from engine.recognise.sheets import _finite_insert, _Placed, _plain, _Segmenter
 from engine.recognise.types import Box, SheetCandidate
@@ -65,8 +73,15 @@ from engine.render.buffers import (
     MAX_PAPER_MM,
     SCALES,
     SHEETS_MM,
+    STANDARD_MATCH,
     UNIT_MM,
+    Paper,
+    PaperSource,
+    _Bounds,
+    _kept,
+    _layout_box,
     _standard_sheet,
+    _transform_box,
     is_main_viewport,
     viewport_transform,
 )
@@ -84,17 +99,26 @@ FRAME_MATCH = 0.05
 outside the sheet's edge)."""
 EXACT_MATCH = 0.001
 """A box this close to a standard sheet at a standard scale, on both sides, is that sheet before any
-frame insert's binding window (`BINDING_MM`) is tried (after a frame block drawn at a sheet's size): a
+frame insert's binding window (`BORDER_MM`) is tried (after a frame block drawn at a sheet's size): a
 frame block drawn at a third of an A1 and inserted at 300 boxes an exact A1 at 1:100, though its insert
 gives a paper inside A4's window. Looser (the render buffers' 0.5 %), a border's box can match another
 sheet by chance: a 409 x 288 mm A3 border at 1:73 boxes an A0 at 1:25 within 0.44 %, and its insert's
 scale is the truer reading."""
-BINDING_MM = 31.0
-"""How much smaller than a standard sheet, on either side, a frame's paper may be and still be that
-sheet's (a border drawn inside the paper's edge: ISO 5457's 20 mm binding and 10 mm opposite, as 30 mm a
-side, and a millimetre for the drawing's rounding). A frame insert whose scale gives a paper inside no
+BORDER_MM = 25.0
+"""How far inside a standard sheet's edge, on each side, a frame's border may be drawn and still be that
+sheet's (S15-E2: ISO 5457's 20 mm at the binding edge and 10 mm elsewhere, or 10 mm all round, both
+well within it). A bordered frame lies on the smallest standard sheet that holds it so, centred on it,
+never on its border's own paper (#437's review). A frame insert whose scale gives a paper inside no
 standard sheet by this margin was drawn at a fraction of its plotted size (#160: the real sets' blocks
 of 130 x 92 mm), and the paper is the box's, as for a frame drawn as a rectangle."""
+ISO_SHEETS = 6
+"""The first sheets of `SHEETS_MM`, ISO A0 to A5 (the Market's), tried before ANSI's and ARCH's."""
+ON_SHEET_MM = 5.0
+"""How far past a plot sheet's edge a layout's frame may reach and still be drawn on that sheet (a
+line's width, a rounding)."""
+PLOT_SHEET_MM = (50.0, 5000.0)
+"""The sides, in mm, a layout's plot settings may state for its sheet: past them (a paper of no size, a
+kilometre a side: a hostile file's) they state no sheet, and the layout's frame gives it."""
 
 
 type Bounds = tuple[float, float, float, float]
@@ -335,15 +359,25 @@ def _paper(
                 return False  # the frame insert's own attributes
         return True
 
+    try:
+        laid = paper_of(artefact, sheet, plot)
+    except ValueError:
+        return None  # a sheet whose layout or model space its drawing lacks
+    sizes = (laid.width_mm, laid.height_mm, laid.mm_per_unit, *laid.origin)
+    if not all(math.isfinite(v) for v in sizes) or min(laid.width_mm, laid.height_mm) <= 0:
+        return None  # a paper past what a float holds: nothing is read on it
+    on_paper = scaling(laid.mm_per_unit, laid.mm_per_unit) @ translation(
+        -laid.origin[0], -laid.origin[1]
+    )
+    region: Bounds = (0.0, 0.0, laid.width_mm, laid.height_mm)
     parts: list[tuple[_Drawn, Transform, Bounds | None, Bounds | None]] = []
-    region: Bounds | None = None
     layout = sheet.location.layout is not None
     if sheet.location.layout is not None:
         handle = budget.layouts.get(sheet.location.layout)
         if handle is None:
             return None
         drawn = budget.walk(handle)
-        parts.append((drawn, Transform(), None, None))
+        parts.append((drawn, on_paper, None, None))
         first = True
         for n, viewport in enumerate(drawn.viewports):
             if n >= MAX_SHEET_VIEWPORTS:
@@ -361,26 +395,14 @@ def _paper(
                 shown = _box_through(rect, through.inverse())
             except PlacementError:
                 continue
-            parts.append((model, through, shown, rect))
-        if frame_path is not None or frame_rectangle is not None:
-            region = _frame_box(drawn, keep_segments(drawn))
+            parts.append((model, on_paper @ through, shown, _box_through(rect, on_paper)))
     else:
         box = sheet.location.box
         model = budget.model()
         if box is None or model is None:
             return None
-        scale, read = _paper_scale(artefact, frame, box)
-        fitted = _plot_paper(box, plot, scale if read else None) if plot is not None else None
-        if fitted is not None:
-            scale, (ox, oy), (paper_w, paper_h) = fitted
-        else:
-            ox, oy = box.x0, box.y0
-            paper_w, paper_h = (box.x1 - box.x0) / scale, (box.y1 - box.y0) / scale
-        to_paper = scaling(1 / scale, 1 / scale) @ translation(-ox, -oy)
-        region = (0.0, 0.0, paper_w, paper_h)
-        x0, y0 = (box.x0 - ox) / scale, (box.y0 - oy) / scale
-        shown_box = (x0, y0, x0 + (box.x1 - box.x0) / scale, y0 + (box.y1 - box.y0) / scale)
-        parts.append((model, to_paper, (box.x0, box.y0, box.x1, box.y1), shown_box))
+        cut = (box.x0, box.y0, box.x1, box.y1)
+        parts.append((model, on_paper, cut, _box_through(cut, on_paper)))
 
     segments: list[NDArray[np.float64]] = []
     lengths: list[NDArray[np.float64]] = []  # each segment's on paper before the paper's edge cut it
@@ -453,21 +475,6 @@ def _paper(
             (texts if keep_text(drawn, i) else block).append(placed_text)
     all_segments = np.concatenate(segments) if segments else np.empty((0, 4))
     frame_drawn = np.concatenate(frame_segments) if frame_segments else np.empty((0, 4))
-    if region is None:
-        region = _extent(all_segments, texts)
-    if region is None or not all(math.isfinite(v) for v in (*region, region[2] - region[0],
-                                                           region[3] - region[1])):  # fmt: skip
-        return None  # a paper past what a float holds: nothing is read on it
-    x0, y0 = region[0], region[1]
-    if (
-        x0 or y0
-    ):  # every box on paper from the sheet's lower-left corner (a layout's frame may lie off 0)
-        all_segments = all_segments - np.array([x0, y0, x0, y0])
-        frame_drawn = frame_drawn - np.array([x0, y0, x0, y0])
-        for t in (*texts, *block):
-            b = t.box
-            t.box = (b[0] - x0, b[1] - y0, b[2] - x0, b[3] - y0)
-        region = (0.0, 0.0, region[2] - x0, region[3] - y0)
     return _Paper(
         region,
         all_segments,
@@ -499,33 +506,6 @@ def _box_through(box: Bounds, transform: Transform) -> Bounds:
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _frame_box(drawn: _Drawn, keep: NDArray[np.bool_]) -> Bounds | None:
-    """The frame's box in its layout: the segments left out as the frame's."""
-    frame = drawn.segments[~keep]
-    if not len(frame):
-        return None
-    return (
-        float(min(frame[:, 0].min(), frame[:, 2].min())),
-        float(min(frame[:, 1].min(), frame[:, 3].min())),
-        float(max(frame[:, 0].max(), frame[:, 2].max())),
-        float(max(frame[:, 1].max(), frame[:, 3].max())),
-    )
-
-
-def _extent(segments: NDArray[np.float64], texts: list[_Text]) -> Bounds | None:
-    xs: list[float] = []
-    ys: list[float] = []
-    if len(segments):
-        xs += [float(segments[:, [0, 2]].min()), float(segments[:, [0, 2]].max())]
-        ys += [float(segments[:, [1, 3]].min()), float(segments[:, [1, 3]].max())]
-    for t in texts:
-        xs += [t.box[0], t.box[2]]
-        ys += [t.box[1], t.box[3]]
-    if not xs or max(xs) <= min(xs) or max(ys) <= min(ys):
-        return None
-    return (min(xs), min(ys), max(xs), max(ys))
-
-
 def _plot_paper(
     box: Box, plot: tuple[float, float], read: float | None = None
 ) -> tuple[float, tuple[float, float], tuple[float, float]] | None:
@@ -536,7 +516,7 @@ def _plot_paper(
     orientation differs from the box's plotted the sheet turned (the Plot's registration turns it
     back), so its sides are taken in the box's orientation. A page larger than any sheet
     (`MAX_PAPER_MM`) gives none, and the sheet keeps the paper its drawing gives. `read` is the scale
-    the drawing gave (`_paper_scale`, read): where it lays the box on the page within `BINDING_MM`
+    the drawing gave (`_paper_scale`, read): where it lays the box on the page within `BORDER_MM`
     of its edge (a frame's border drawn inside the sheet's edge: 409 mm or 390 mm on a 420 mm page),
     it is kept, since fitting the border to the page's edge would enlarge the drawing by its margin."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
@@ -554,8 +534,8 @@ def _plot_paper(
         read is not None
         and math.isfinite(read)
         and scale <= read
-        and width / read >= paper_w - BINDING_MM
-        and height / read >= paper_h - BINDING_MM
+        and width / read >= paper_w - 2 * BORDER_MM
+        and height / read >= paper_h - 2 * BORDER_MM
     ):
         scale = read  # the drawing's scale lays the box on the page, inside its edge
     origin = (box.x0 - (paper_w * scale - width) / 2, box.y0 - (paper_h * scale - height) / 2)
@@ -569,7 +549,7 @@ def _paper_scale(artefact: ReadArtefact, frame: DwgAnchor | None, box: Box) -> t
     gave it rather than the fallback, A1's long side (`FALLBACK_LONG_MM`). In order: the frame insert's
     scale where the frame block is drawn at a standard sheet's size (within the buffers' 0.5 %); the box
     exactly a standard sheet at a standard scale (`EXACT_MATCH`); the frame insert's scale where its
-    paper lies inside a standard sheet's binding window (`BINDING_MM`); the box a standard sheet at a
+    paper lies inside a standard sheet's binding window (`BORDER_MM`); the box a standard sheet at a
     standard scale within 0.5 %. The render buffers' paper is laid by this too
     (`buffers._model_paper`)."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
@@ -624,12 +604,174 @@ def _insert_readings(artefact: ReadArtefact, frame: DwgAnchor | None, unit: floa
 
 def _inside_a_sheet(long_mm: float, short_mm: float) -> bool:
     """Whether a frame's paper (its long and short sides, mm) lies inside a standard sheet, within
-    `BINDING_MM` of its edge on each side (and at most `FRAME_MATCH` past it)."""
+    `BORDER_MM` of its edge on each side (and at most `FRAME_MATCH` past it)."""
     return any(
-        sheet_long - BINDING_MM <= long_mm <= sheet_long * (1 + FRAME_MATCH)
-        and sheet_short - BINDING_MM <= short_mm <= sheet_short * (1 + FRAME_MATCH)
+        sheet_long - 2 * BORDER_MM <= long_mm <= sheet_long * (1 + FRAME_MATCH)
+        and sheet_short - 2 * BORDER_MM <= short_mm <= sheet_short * (1 + FRAME_MATCH)
         for sheet_long, sheet_short in SHEETS_MM
     )
+
+
+def _sheet_around(long_mm: float, short_mm: float) -> tuple[float, float] | None:
+    """The smallest standard sheet (long and short sides, mm) that holds a frame of these sides with
+    its border within `BORDER_MM` of the sheet's edge on each side, the frame centred (a frame at the
+    sheet's size within `STANDARD_MATCH` is on it); ISO's sheets before the others (`ISO_SHEETS`: a
+    400 x 277 border is an A3's, not an ANSI B's with 1 mm to spare); none when no sheet holds it."""
+    for series in (SHEETS_MM[:ISO_SHEETS], SHEETS_MM[ISO_SHEETS:]):
+        found: tuple[float, float] | None = None
+        for sheet_long, sheet_short in series:
+            fits = all(
+                -STANDARD_MATCH * side <= side - drawn <= 2 * BORDER_MM
+                for side, drawn in ((sheet_long, long_mm), (sheet_short, short_mm))
+            )
+            if fits and (found is None or sheet_long * sheet_short < found[0] * found[1]):
+                found = (sheet_long, sheet_short)
+        if found is not None:
+            return found
+    return None
+
+
+def _on_sheet_around(box: Bounds, mm_per_unit: float, source: int) -> Paper | None:
+    """A frame's box (in its space's units) on the standard sheet around it (`_sheet_around`), centred
+    on it, in the sheet's orientation; none when no sheet holds it."""
+    x0, y0, x1, y1 = box
+    width, height = (x1 - x0) * mm_per_unit, (y1 - y0) * mm_per_unit
+    if not (math.isfinite(width) and math.isfinite(height) and width > 0 and height > 0):
+        return None
+    around = _sheet_around(max(width, height), min(width, height))
+    if around is None:
+        return None
+    paper_w, paper_h = around if width >= height else (around[1], around[0])
+    # A frame at its sheet's size, past it by a rounding, keeps its own: its corner is the sheet's.
+    paper_w, paper_h = max(paper_w, width), max(paper_h, height)
+    origin = (
+        x0 - (paper_w - width) / 2 / mm_per_unit,
+        y0 - (paper_h - height) / 2 / mm_per_unit,
+    )
+    return Paper(_kept(paper_w), _kept(paper_h), mm_per_unit, source, origin)
+
+
+# A sheet's paper ---------------------------------------------------------------------------------------
+
+
+def paper_of(
+    artefact: ReadArtefact, sheet: SheetCandidate, plot: tuple[float, float] | None = None
+) -> Paper:
+    """The sheet's paper: the one its views' boxes (`FoundViews.paper`) and its render buffer
+    (`buffers.build`) are both laid on, in mm from its lower-left corner (`Paper.origin`, in its space's
+    units), so a view's outline lies over its drawing (S15-E2, #314). The module's docstring has the
+    rules. `plot` is the paper of the Plot page matched to a model-space sheet, in mm (a layout's paper
+    is its own). Raises ValueError for a sheet whose layout or model space its drawing lacks."""
+    location = sheet.location
+    frame = next((a for a in sheet.anchors if isinstance(a, DwgAnchor)), None)
+    if location.layout is not None:
+        handle = next((h for h, b in artefact.blocks.items() if b.layout == location.layout), None)
+        if handle is None:
+            raise ValueError(f"the sheet's layout {location.layout!r} is not in the drawing")
+        return _layout_paper(artefact, frame, handle)
+    box = location.box
+    assert box is not None  # a sheet is in a layout or in a model-space box (SheetLocation)
+    scale, read = _paper_scale(artefact, frame, box)
+    fitted = _plot_paper(box, plot, scale if read else None) if plot is not None else None
+    if fitted is not None:
+        plotted, origin, (width_mm, height_mm) = fitted
+        return Paper(_kept(width_mm), _kept(height_mm), 1 / plotted, PaperSource.STANDARD, origin)
+    mm_per_unit = 1 / scale
+    source = PaperSource.STANDARD if read else PaperSource.ASSUMED
+    framed = (box.x0, box.y0, box.x1, box.y1)
+    around = _on_sheet_around(framed, mm_per_unit, source) if read else None
+    if around is not None:
+        return around
+    width, height = box.x1 - box.x0, box.y1 - box.y0
+    return Paper(
+        _kept(width * mm_per_unit), _kept(height * mm_per_unit), mm_per_unit, source, (box.x0, box.y0)
+    )
+
+
+def _layout_paper(artefact: ReadArtefact, frame: DwgAnchor | None, handle: str) -> Paper:
+    """A layout's paper (the module's docstring): its plot settings' sheet, where they state one its
+    frame lies on; else the standard sheet around its frame, else its frame's box; else (no frame) its
+    extents' standard sheet, else its extents."""
+    record = artefact.blocks[handle]
+    stated = record.paper_mm_per_unit
+    # Paper space is drawn in the layout's plot-paper units (INSUNITS governs model space; #87): the
+    # stated units first; a standard sheet in the other units still wins, since a layout's page setup
+    # can state inches over a drawing made in millimetres.
+    units = (1.0, 25.4) if stated is None else (stated, *(u for u in (1.0, 25.4) if u != stated))
+    framed = _layout_frame(artefact, frame, handle)
+    extents, padded = _layout_box(artefact, handle) if framed is None else (framed, False)
+    plotted = _plot_sheet(record.plot, units[0], extents, framed is not None)
+    if plotted is not None:
+        return plotted
+    if framed is not None:
+        for unit in units:
+            around = _on_sheet_around(framed, unit, PaperSource.STANDARD)
+            if around is not None:
+                return around
+    x0, y0, x1, y1 = extents
+    width, height = x1 - x0, y1 - y0
+    matched = _standard_sheet(max(width, height), min(width, height), units, (1,))
+    if matched is not None and not padded:
+        mm_per_unit, source = matched, PaperSource.STANDARD
+    else:
+        mm_per_unit, source = units[0], PaperSource.ASSUMED
+    return Paper(_kept(width * mm_per_unit), _kept(height * mm_per_unit), mm_per_unit, source, (x0, y0))
+
+
+def _layout_frame(artefact: ReadArtefact, frame: DwgAnchor | None, handle: str) -> Bounds | None:
+    """The box, in the layout's paper units, of the sheet's frame drawn in it (13's first anchor: an
+    insert, or a rectangle), its texts left out; none for a sheet with no frame there."""
+    if frame is None:
+        return None
+    entity = artefact.entities.get(frame.handle)
+    if entity is None or isinstance(entity, Text):
+        return None
+    outer = artefact.entities.get(frame.inserts[0]) if frame.inserts else entity
+    if outer is None or outer.owner != handle:
+        return None  # a frame drawn in another space is not this layout's
+    box = _Bounds(artefact, text=False, viewports=False).entity(entity)
+    if box is None:
+        return None
+    if frame.inserts:
+        try:
+            box = _transform_box(chain_transform(chain_of(artefact, frame.inserts)), box)
+        except PlacementError, ValueError:
+            return None
+    if box is None or not (box[2] - box[0] > 0 and box[3] - box[1] > 0):
+        return None
+    return box
+
+
+def _plot_sheet(
+    plot: PlotSettings | None, mm_per_unit: float, drawn: Bounds, framed: bool
+) -> Paper | None:
+    """The sheet a layout's plot settings state, its corner where they put it (a layout's origin is the
+    printable area's lower-left corner, moved by the plot offset; a quarter turn swaps the paper's
+    sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it: its frame within
+    `ON_SHEET_MM` of its edge, or a frameless layout's extents centred on it (a default page setup left
+    on a layout drawn for another sheet states a sheet the drawing is not on); else none."""
+    if plot is None:
+        return None
+    low, high = PLOT_SHEET_MM
+    width, height = plot.width_mm, plot.height_mm
+    if not (low <= width <= high and low <= height <= high):
+        return None
+    left, bottom, right, top = plot.margins_mm
+    turn = plot.rotation
+    if turn in (1, 3):
+        width, height = height, width
+    on_left, on_bottom = {0: (left, bottom), 1: (bottom, right), 2: (right, top), 3: (top, left)}[turn]
+    corner = (-(on_left + plot.origin_mm[0]), -(on_bottom + plot.origin_mm[1]))  # mm
+    x0, y0, x1, y1 = (v * mm_per_unit - corner[i % 2] for i, v in enumerate(drawn))
+    if framed:
+        on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
+    else:
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        on = 0 <= cx <= width and 0 <= cy <= height
+    if not on:
+        return None
+    origin = (corner[0] / mm_per_unit, corner[1] / mm_per_unit)
+    return Paper(_kept(width), _kept(height), mm_per_unit, PaperSource.LAYOUT, origin)
 
 
 def _move(segments: NDArray[np.float64], transform: Transform) -> NDArray[np.float64]:

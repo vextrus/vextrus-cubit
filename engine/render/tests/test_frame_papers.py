@@ -167,15 +167,16 @@ def _drawn(sheet_buffers: buffers.SheetBuffers, layer: str) -> tuple[float, floa
 def test_an_iso_bordered_a3_frame_is_read_at_its_inserts_scale(
     read_sheets: dict[str, Read], number: str
 ) -> None:
-    """The border lies inside A3 by ISO's binding margin: its insert's scale is the paper's (main read
-    it so; a 5 % match read it A4 at 1:131, or A2), in views and in the buffer."""
+    """The border lies inside A3 by ISO's binding margin: its insert's scale is the drawing's (main read
+    it so; a 5 % match read it A4 at 1:131, or A2), and its paper is the A3 around it (S15-E2: never the
+    border's own), in views and in the buffer."""
     found = _sheet(read_sheets, number)
     frame = next(f for f in FRAMES if f.number == number)
     paper = found.buffers.paper
     assert paper.mm_per_unit == pytest.approx(1 / frame.insert, rel=1e-6), paper
     assert paper.source == buffers.PaperSource.STANDARD
-    assert (paper.width_mm, paper.height_mm) == pytest.approx(ISO_A3_BORDER, abs=WITHIN_MM)
-    assert found.views.paper == pytest.approx(ISO_A3_BORDER, abs=WITHIN_MM)
+    assert (paper.width_mm, paper.height_mm) == pytest.approx(A3, abs=WITHIN_MM)
+    assert found.views.paper == pytest.approx(A3, abs=WITHIN_MM)
 
 
 @pytest.mark.needs_toolchain

@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from engine.read.artefact import Entity, Format, Insert, ReadArtefact, Text, TextStyle
+from engine.read.artefact import Entity, Format, Insert, PlotSettings, ReadArtefact, Text, TextStyle
 from engine.read.errors import ReadError
 from engine.read.libredwg import dwgread
 
@@ -764,3 +764,39 @@ def test_an_inch_layouts_custom_plot_scale_is_read_with_its_units(
     blocks = {b.layout: b for b in dwgread.decode(data).blocks}
 
     assert blocks["Layout1"].paper_mm_per_unit == pytest.approx(mm)
+
+
+def test_a_layouts_plot_settings_are_kept_as_the_file_states_them() -> None:
+    """S15-E2: a layout's plot sheet (its paper's size, margins, plot offset and turn, all in mm) is
+    kept on its block; a block definition has none."""
+    data = drawing()
+    layout = next(o for o in data["OBJECTS"] if o.get("layout_name") == "Layout1")
+    width, height, left, bottom, right, top, origin, turn = dwgread.PLOT_SHEET
+    layout.update({width: 594.0, height: 841.0, left: 5.0, bottom: 6.0, right: 7.0, top: 8.0,
+                   origin: [1.5, -2.5], turn: 1})  # fmt: skip
+
+    loaded = dwgread.load(io.BytesIO(json.dumps(data).encode()))
+    blocks = {b.layout: b for b in dwgread.decode(loaded).blocks}
+
+    assert blocks["Layout1"].plot == PlotSettings(594.0, 841.0, (5.0, 6.0, 7.0, 8.0), (1.5, -2.5), 1)
+    assert blocks[None].plot is None
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [(0, None), (0, "841"), (1, float("nan")), (2, float("inf")), (5, True), (6, [0.0]),
+     (6, "0,0"), (6, [0.0, float("nan")]), (7, 4), (7, 1.0), (7, None)],
+)  # fmt: skip
+def test_a_layouts_plot_settings_with_a_value_no_sheet_has_are_not_kept(key: int, value: object) -> None:
+    """A hostile file's plot settings: a size, margin or offset that is no finite number, or a turn
+    not 0 to 3, leave the layout with none (its frame then gives its sheet)."""
+    data = drawing()
+    layout = next(o for o in data["OBJECTS"] if o.get("layout_name") == "Layout1")
+    width, height, left, bottom, right, top, origin, turn = dwgread.PLOT_SHEET
+    layout.update({width: 841.0, height: 594.0, left: 0.0, bottom: 0.0, right: 0.0, top: 0.0,
+                   origin: [0.0, 0.0], turn: 0})  # fmt: skip
+    layout[dwgread.PLOT_SHEET[key]] = value
+
+    blocks = {b.layout: b for b in dwgread.decode(data).blocks}
+
+    assert blocks["Layout1"].plot is None

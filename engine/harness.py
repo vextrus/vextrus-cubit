@@ -977,10 +977,14 @@ def _plot_papers(
         sheet, page = getattr(m, "sheet", None), getattr(m, "page", None)
         if sheet is None or id(sheet) not in where or sheet.location.layout is not None:
             continue
-        size = (getattr(page, "width", None), getattr(page, "height", None))
+        shown = getattr(importlib.import_module(match.__module__), "shown", None)
+        try:  # the page as a viewer shows it, its CropBox (18's `shown`, #240), else its size
+            size = shown(page)[2:] if callable(shown) else (page.width, page.height)  # type: ignore[union-attr]
+        except Exception:
+            continue
         if not all(isinstance(v, int | float) and math.isfinite(v) and v > 0 for v in size):
             continue
-        paper = (float(size[0]) / PT_PER_MM, float(size[1]) / PT_PER_MM)  # type: ignore[arg-type]
+        paper = (float(size[0]) / PT_PER_MM, float(size[1]) / PT_PER_MM)
         i, j = where[id(sheet)]
         reading = files[i]
         now = reading.papers[j] if j < len(reading.papers) else None

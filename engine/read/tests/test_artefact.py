@@ -13,6 +13,7 @@ from engine.read.artefact import (
     Entity,
     Format,
     Insert,
+    PlotSettings,
     ReadArtefact,
     Text,
     TextStyle,
@@ -127,7 +128,7 @@ def test_the_summary_carries_what_the_contract_fixes() -> None:
 def test_the_json_names_its_schema_and_version() -> None:
     data = artefact().to_json()
 
-    assert (data["schema"], data["version"]) == (SCHEMA, VERSION) == ("engine.read.artefact", 3)
+    assert (data["schema"], data["version"]) == (SCHEMA, VERSION) == ("engine.read.artefact", 4)
 
 
 def test_an_artefact_survives_json_text_unchanged() -> None:
@@ -158,7 +159,8 @@ def test_an_mtext_keeps_no_height_as_none_and_its_direction_vector() -> None:
     [
         ("version", 1, "version"),  # 04's, which carried no style table (#82)
         ("version", 2, "version"),  # #82's, which carried no layout's paper units (#87)
-        ("version", 4, "version"),
+        ("version", 3, "version"),  # #87's, which carried no layout's plot settings (S15-E2)
+        ("version", 5, "version"),
         ("schema", "engine.read.other", "schema"),
         ("extra", 1, "unknown fields"),
     ],
@@ -178,6 +180,23 @@ def test_a_layouts_paper_units_survive_json_and_only_mm_or_inches_are_read() -> 
     for wrong in (0.0, -1.0, 1e9, "25.4", True, float("nan")):
         data["blocks"][0]["paper_mm_per_unit"] = wrong
         with pytest.raises(ValueError, match="paper units"):
+            ReadArtefact.from_json(data)
+
+
+def test_a_layouts_plot_settings_survive_json_and_a_hostile_one_is_refused() -> None:
+    """S15-E2: a layout's plot settings, as its reader kept them, are read back as they were; a
+    number no float holds, a missing margin or a turn past 3 is refused."""
+    data = artefact().to_json()
+    plot = {"width_mm": 841.0, "height_mm": 594.0, "margins_mm": [0.0, 1.5, 0.0, 2.0],
+            "origin_mm": [3.0, -4.0], "rotation": 1}  # fmt: skip
+    data["blocks"][0]["plot"] = plot
+    block = ReadArtefact.from_json(data).blocks[data["blocks"][0]["handle"]]
+    assert block.plot == PlotSettings(841.0, 594.0, (0.0, 1.5, 0.0, 2.0), (3.0, -4.0), 1)
+    assert json.loads(json.dumps(ReadArtefact.from_json(data).to_json())) == data
+    for key, wrong in (("width_mm", float("nan")), ("height_mm", "594"), ("margins_mm", [0.0] * 3),
+                       ("origin_mm", [0.0, math.inf]), ("rotation", 4), ("rotation", True)):  # fmt: skip
+        data["blocks"][0]["plot"] = {**plot, key: wrong}
+        with pytest.raises(ValueError, match="read artefact"):
             ReadArtefact.from_json(data)
 
 
