@@ -59,7 +59,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from engine.check import register
-from engine.messages import Message
+from engine.messages import Message, MessageCode, Param
 from engine.messages import register_check as list_codes
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
@@ -2127,9 +2127,10 @@ def raise_question(
 def ask_group(
     project_id: uuid.UUID,
     kind: QuestionKind | str,
-    identity: Sequence[str],
-    words: Callable[[int], Message],
+    code: MessageCode,
+    words: Callable[[int], Mapping[str, Param]],
     *,
+    identity: Sequence[str],
     proposal_id: uuid.UUID,
     discipline: str | None = None,
     options: Sequence[Any] = (),
@@ -2140,7 +2141,8 @@ def ask_group(
     holding the Proposal is the one asked (a read again asks nothing new); else the group's open one,
     which it joins; else a new one (the group's identity once more, after its last was answered or
     withdrawn: a sheet that came later is asked, never decided by an answer given before it). An open
-    group's words are `words(n)`, `n` the Proposals it holds, so they count them as they join. Its
+    group's words are `code` with the params `words(n)` gives, `n` the Proposals it holds, so they
+    count them as they join. Its
     subject is none: it is about all its sheets.
 
     Two read jobs asking one group take turns (a transaction lock on the group's identity), and the
@@ -2158,7 +2160,9 @@ def ask_group(
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
                 [f"takeoff.question_group:{project_id}:{base}"],
             )
-        return _join_group(project_id, chosen, base, words, proposal_id, discipline, options)
+        return _join_group(
+            project_id, chosen, base, lambda n: code(**words(n)), proposal_id, discipline, options
+        )
 
 
 def _join_group(
