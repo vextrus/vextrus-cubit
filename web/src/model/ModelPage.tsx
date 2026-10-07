@@ -14,6 +14,8 @@ import { getRouteApi } from '@tanstack/react-router'
 import { Box } from 'lucide-react'
 import { LoadProblem, usePageTitle } from '@/auth'
 import { Empty, Skeleton, cn } from '@/ui'
+import { useStoreyWord } from '@/takeoff/storeys'
+
 import { primitivesQuery, storeysQuery } from './data'
 import { ModelCanvas } from './ModelCanvas'
 import { ModelInspector } from './ModelInspector'
@@ -25,6 +27,7 @@ const chip = cn('inline-flex h-control items-center rounded-md border border-bor
 
 function StoreyControls({ names, isolated, onIsolate }: { names: string[]; isolated: string | null; onIsolate: (storey: string | null) => void }) {
   const { t } = useLingui()
+  const storeyWord = useStoreyWord()
   return (
     <div role="group" aria-label={t`Storeys`} className="flex items-center gap-1.5">
       <button
@@ -43,7 +46,7 @@ function StoreyControls({ names, isolated, onIsolate }: { names: string[]; isola
           onClick={() => onIsolate(isolated === name ? null : name)}
           className={cn(chip, 'num', isolated === name ? 'bg-selected font-semibold' : 'hover:bg-hover')}
         >
-          {name}
+          {storeyWord(name)}
         </button>
       ))}
     </div>

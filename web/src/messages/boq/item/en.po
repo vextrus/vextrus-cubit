@@ -8,7 +8,7 @@ msgstr ""
 
 #. vextrus/boq/messages (session 16, S16-B): the BOQ Item descriptions of docs/plans/M1.md C13, worded by S16-W3's design gate.
 msgid "boq.item.rcc"
-msgstr "RCC {mix} ({strength_mpa} MPa) in {class}"
+msgstr "RCC {mix} in {class}"
 
 msgid "boq.item.formwork"
 msgstr "Formwork to {class}"
