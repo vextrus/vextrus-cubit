@@ -653,3 +653,8 @@ def test_an_explicit_running_16_still_refuses_and_15_does_not(world: Path) -> No
     assert not refused.ok
     assert "16 cloud sessions running, the cap is 16" in (refused.reason or "")
     assert governor.check("cloud-session", running=15).ok
+
+
+def test_the_pytest_cost_rises_with_workers_and_a_serial_run_keeps_its_measure() -> None:
+    assert governor.unit_cost_gb("pytest", None) == governor.unit_cost_gb("pytest", None, workers=1)
+    assert governor.unit_cost_gb("pytest", None, workers=8) - 3.3 == pytest.approx(3.0)
