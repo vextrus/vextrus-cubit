@@ -90,6 +90,9 @@ class ElementRow:
     grade: str
     rebar_basis: str
     held_by_question_id: uuid.UUID | None
+    trace: tuple[Mapping[str, Any], ...] = ()
+    """Each fact's `{fact, kind, anchor}` valid at the snapshot's seq (anchor carries sheet_id,
+    view_id), in fact order."""
 
 
 @dataclass(frozen=True)
@@ -287,7 +290,9 @@ def snapshot(building_id: uuid.UUID, seq: int | None = None) -> Snapshot:
     at = latest_seq(building_id) if seq is None else seq
     storeys: list[StoreyRow] = []
     elements: list[ElementRow] = []
-    for state, family, identity_key in _valid_states(building_id, at):
+    valid = _valid_states(building_id, at)
+    traces = _valid_traces([state.element_id for state, family, _key in valid if family != STOREY], at)
+    for state, family, identity_key in valid:
         if family == STOREY:
             storeys.append(
                 StoreyRow(
@@ -312,6 +317,7 @@ def snapshot(building_id: uuid.UUID, seq: int | None = None) -> Snapshot:
                 grade=state.grade,
                 rebar_basis=state.rebar_basis,
                 held_by_question_id=state.held_by_question_id,
+                trace=traces.get(state.element_id, ()),
             )
         )
     storeys.sort(key=lambda s: (s.order is None, s.order or 0, s.name))
@@ -350,6 +356,24 @@ def _valid_states(building_id: uuid.UUID, seq: int) -> list[tuple[ElementState, 
     ]
     found.sort(key=lambda row: (row[1], row[2]))
     return found
+
+
+def _valid_traces(
+    element_ids: Sequence[uuid.UUID], seq: int
+) -> dict[uuid.UUID, tuple[Mapping[str, Any], ...]]:
+    if not element_ids:
+        return {}
+    found: dict[uuid.UUID, list[Mapping[str, Any]]] = {}
+    rows = (
+        ElementTrace.objects.filter(element_id__in=list(element_ids), valid_from_seq__lte=seq)
+        .filter(Q(valid_to_seq__isnull=True) | Q(valid_to_seq__gt=seq))
+        .order_by("fact", "id")
+    )
+    for row in rows:
+        found.setdefault(row.element_id, []).append(
+            {"fact": row.fact, "kind": row.kind, "anchor": dict(row.anchor or {})}
+        )
+    return {element_id: tuple(items) for element_id, items in found.items()}
 
 
 # Helpers ----------------------------------------------------------------------------------------

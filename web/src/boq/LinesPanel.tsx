@@ -80,11 +80,11 @@ export function LinesPanel({
               </tr>
             </thead>
             <tbody>
-              {rows.map((line) => {
+              {rows.map((line, i) => {
                 const mark = line.mark
-                const first = line.trace[0]
+                const first = line.trace.find((t) => t.sheet_id)
                 return (
-                  <tr key={line.id} className="border-b border-border last:border-b-0">
+                  <tr key={`${line.element_id}-${i}`} className="border-b border-border last:border-b-0">
                     <td className="h-row truncate px-1">
                       <DrawingText kind="mark" text={line.mark} />
                     </td>

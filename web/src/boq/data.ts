@@ -61,13 +61,12 @@ export interface BoqOut {
 }
 
 export interface TraceRef {
-  sheet_id: string
-  view_id: string
+  sheet_id: string | null
+  view_id: string | null
   anchor: unknown
 }
 
 export interface MeasurementLine {
-  id: string
   item_code: string
   element_id: string
   mark: string

@@ -109,6 +109,7 @@ class MeasurementLineOut(Schema):
 
     item_code: str
     element_id: uuid.UUID | None
+    mark: str
     storey: str | None
     step: str
     family: str

@@ -155,6 +155,7 @@ def lines_out(lines: tuple[priced.TracedLine, ...]) -> BoqLinesOut:
             MeasurementLineOut(
                 item_code=line.item_code,
                 element_id=line.element_id,
+                mark=line.mark,
                 storey=line.storey,
                 step=line.step,
                 family=line.family,

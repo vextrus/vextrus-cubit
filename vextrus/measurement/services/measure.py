@@ -62,6 +62,8 @@ class MeasurementLine:
     billing_unit: str
     quantity: Decimal
     trace: tuple[Mapping[str, Any], ...]
+    mark: str = ""
+    """The Element's mark as drawn (e.g. "C-2")."""
 
 
 @dataclass(frozen=True)
@@ -189,6 +191,7 @@ def _column_lines(
             billing_unit=unit.billing_unit,
             quantity=_round_si(exact / unit.si_per_unit),
             trace=trace,
+            mark=str(_get(element, "mark") or ""),
         )
 
 

@@ -173,6 +173,8 @@ class TracedLine:
     held: bool
     trace: tuple[dict[str, Any], ...]
     """Each `{sheet_id, view_id, anchor}`; an anchor given as text is `{"ref": text}`."""
+    mark: str = ""
+    """The Element's mark as drawn (e.g. "C-2")."""
 
 
 @dataclass
@@ -470,6 +472,7 @@ def _traced(line: Any) -> TracedLine:
         lap=bool(got("lap", False)),
         held=bool(got("held", line.state != MEASURED)),
         trace=tuple(_trace_entry(t) for t in line.trace),
+        mark=str(got("mark") or ""),
     )
 
 
