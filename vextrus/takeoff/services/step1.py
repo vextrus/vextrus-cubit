@@ -49,17 +49,17 @@ import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from engine.check import register
-from engine.messages import Message
+from engine.messages import Message, MessageCode, Param
 from engine.messages import register_check as list_codes
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
@@ -2190,6 +2190,103 @@ def answered_gaps(project_id: uuid.UUID) -> dict[tuple[str, str, str, int], uuid
     return settled
 
 
+def ask_group(
+    project_id: uuid.UUID,
+    kind: QuestionKind | str,
+    code: MessageCode,
+    words: Callable[[int], Mapping[str, Param]],
+    *,
+    identity: Sequence[str],
+    proposal_id: uuid.UUID,
+    discipline: str | None = None,
+    options: Sequence[Any] = (),
+) -> uuid.UUID:
+    """A Question that groups the Proposals it asks about (S15-Q1: "a Question groups the Sheets it
+    asks about"), one per `identity` (what the group shares: never a sheet's name, so a sheet named
+    before or after the others joins the same Question), holding `proposal_id`. The Question already
+    holding the Proposal is the one asked (a read again asks nothing new); else the group's open one,
+    which it joins; else a new one (the group's identity once more, after its last was answered or
+    withdrawn: a sheet that came later is asked, never decided by an answer given before it). An open
+    group's words are `code` with the params `words(n)` gives, `n` the Proposals it holds, so they
+    count them as they join. Its
+    subject is none: it is about all its sheets.
+
+    Two read jobs asking one group take turns (a transaction lock on the group's identity), and the
+    group's Questions are locked while it is chosen, so an answer given meanwhile waits or comes
+    first: a sheet never joins a Question answered without it, and the count is never stale (the
+    refuter's case)."""
+    projects.get(project_id)
+    chosen = QuestionKind(kind)
+    base = hashlib.sha256(json.dumps([chosen, "group", *identity], sort_keys=True).encode()).hexdigest()[
+        :_GROUP_KEY
+    ]
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                [f"takeoff.question_group:{project_id}:{base}"],
+            )
+        return _join_group(
+            project_id, chosen, base, lambda n: code(**words(n)), proposal_id, discipline, options
+        )
+
+
+def _join_group(
+    project_id: uuid.UUID,
+    chosen: QuestionKind,
+    base: str,
+    words: Callable[[int], Message],
+    proposal_id: uuid.UUID,
+    discipline: str | None,
+    options: Sequence[Any],
+) -> uuid.UUID:
+    """`ask_group`'s choice, under its lock."""
+    tenant = _tenant()
+    asked = list(
+        Question.objects.select_for_update()
+        .filter(tenant_id=tenant, project_id=project_id, question_key__startswith=base)
+        .order_by("created_at", "id")
+    )
+    proposal = Proposal.objects.get(project_id=project_id, id=proposal_id)
+    holding = set(
+        QuestionLink.objects.filter(question__in=asked, proposal=proposal).values_list(
+            "question_id", flat=True
+        )
+    )
+    row = next((q for q in asked if q.id in holding), None) or next(
+        (q for q in asked if q.status == QuestionStatus.OPEN), None
+    )
+    if row is None:
+        message = words(1)
+        row, _made = Question.objects.get_or_create(
+            tenant_id=tenant,
+            project_id=project_id,
+            question_key=f"{base}{len(asked):0{64 - _GROUP_KEY}x}",
+            defaults={
+                "step": SHEETS,
+                "kind": chosen,
+                "subject_id": None,
+                "discipline": discipline or "",
+                "message_code": message["code"],
+                "params": dict(message["params"]),
+                "options": list(options),
+            },
+        )
+    QuestionLink.objects.get_or_create(
+        tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
+    )
+    if row.status == QuestionStatus.OPEN:
+        message = words(QuestionLink.objects.filter(question=row).count())
+        if row.params != message["params"]:
+            row.params = dict(message["params"])
+            row.save(update_fields=["params"])
+    return row.id
+
+
+_GROUP_KEY = 56
+"""A group Question's key: its identity's digest, this many hex digits, then its generation."""
+
+
 def asked_of(
     project_id: uuid.UUID, message: Message, proposals: Iterable[uuid.UUID]
 ) -> uuid.UUID | None:
@@ -2457,18 +2554,31 @@ def _apply(
         assert row.subject_id is not None
         drawings.set_sheet_discipline(row.subject_id, option)
     elif kind == QuestionKind.LOW_CONFIDENCE and held:
-        try:
-            _confirm(project_id, list(held), kind=option, actor_name=actor_name, answering=True)
-        except auth.Refused as refused:  # its number or Discipline is still asked: keep the kind
-            if refused.message["code"] != said.QUESTION_FIRST.code:
-                raise
-            left_out = {s.id for s in _sheets(project_id) if s.decision == "excluded"}
-            for proposal in Proposal.objects.filter(project_id=project_id, id__in=held):
-                # A sheet left out keeps its kind in the answer alone (a decided sheet's kind is
-                # not rewritten); the QS confirms it back in once its number is answered.
-                if proposal.subject_id not in left_out:
-                    drawings.record_kind(proposal.subject_id, option)
+        _answer_kind(project_id, held, option, actor_name)
     return None
+
+
+def _answer_kind(project_id: uuid.UUID, held: Sequence[uuid.UUID], option: str, actor_name: str) -> None:
+    """A kind Question's answer: every sheet it holds not yet decided confirmed with the kind in one
+    act (S15-Q1: "one answer confirms them all"; each sheet's `decided_with` counts them). A sheet
+    already decided is not decided again: one the QS left out stays out (the refuter's case) and one
+    confirmed keeps its kind. A sheet whose number or Discipline is still asked (`question_first`)
+    is not confirmed: it keeps the kind, which its confirmation takes once that is answered
+    (`_kinds_answered`), and the others are confirmed without it."""
+    decided = {s.id for s in _sheets(project_id) if s.decision}
+    by_id = {
+        p.id: p
+        for p in Proposal.objects.filter(project_id=project_id, id__in=held)
+        if p.subject_id not in decided
+    }
+    waiting = [
+        by_id[i] for i in held if i in by_id and _held_first(project_id, by_id[i].subject_id, by_id[i])
+    ]
+    free = [i for i in held if i in by_id and by_id[i] not in waiting]
+    if free:
+        _confirm(project_id, free, kind=option, actor_name=actor_name, answering=True)
+    for proposal in waiting:
+        drawings.record_kind(proposal.subject_id, option)
 
 
 def _newest(proposal: ProposalView) -> tuple[Any, ...]:
