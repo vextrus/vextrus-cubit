@@ -9,6 +9,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -455,8 +456,21 @@ def test_a_child_forked_in_the_clis_sigterm_handler_is_killed_too(
     pids_file = tmp_path / "pids.txt"
     monkeypatch.setenv("FAKE_PIDS", str(pids_file))
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
-    monkeypatch.setattr(launch, "LAUNCH_TIMEOUT", 1)
-    monkeypatch.setattr(launch, "KILL_GRACE", 1)
+    # The timeout fires once the CLI says it is up (its SIGTERM handler is set and its pid written), not
+    # after a fixed time that a loaded machine can spend before the CLI has even started.
+    monkeypatch.setattr(launch, "LAUNCH_TIMEOUT", 60)
+    monkeypatch.setattr(launch, "KILL_GRACE", 5)
+
+    class TimesOutWhenUp(subprocess.Popen[bytes]):
+        def wait(self, timeout: float | None = None) -> int:
+            deadline = time.monotonic() + (timeout or 0)
+            while not (pids_file.exists() and pids_file.read_text().strip()):
+                if time.monotonic() > deadline:
+                    break
+                time.sleep(0.02)
+            raise subprocess.TimeoutExpired(self.args, timeout or 0)
+
+    monkeypatch.setattr(subprocess, "Popen", TimesOutWhenUp)
     pids: list[int] = []
     try:
         assert default_claude(["claude", "--cloud", "x"]) == launch.TIMED_OUT
