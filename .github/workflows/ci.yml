@@ -263,9 +263,18 @@ jobs:
       - name: Migrate, as the owner
         run: uv run manage.py migrate
       - name: Tests of shard ${{ matrix.shard }}, as vextrus_app (every acceptance test runs; ADR 0041)
+        if: matrix.shard != 'rest-engine-lint'
         env:
           SHARD: ${{ matrix.shard }}
-        run: uv run pytest -p tools.lint.acceptance_pytest --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD")
+        run: uv run pytest -p tools.lint.acceptance_pytest -n 4 --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD")
+      - name: Tests of shard ${{ matrix.shard }} but tools/lint/tests, four workers
+        if: matrix.shard == 'rest-engine-lint'
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: uv run pytest -p tools.lint.acceptance_pytest -n 4 --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD") --ignore=tools/lint/tests
+      - name: tools/lint/tests, serial (no -n until issue 585 is fixed)
+        if: matrix.shard == 'rest-engine-lint'
+        run: uv run pytest -p tools.lint.acceptance_pytest tools/lint/tests
       - name: Policy coverage (row-level security on every tenant table)
         if: matrix.shard == 'seed-platform-drawings'
         run: uv run pytest -p tools.lint.acceptance_pytest vextrus/platform/tests/test_policy_coverage.py
