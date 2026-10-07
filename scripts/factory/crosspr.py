@@ -10,11 +10,11 @@ Running a PR's tests runs its code, so only a PR from one of this repository's o
 listed in `trusted-authors.txt` has its tests run; every other PR gets `merge-tree` only and the output
 says so. Python tests (test_*.py) and node tests (`*.test.mjs` under .claude/hooks, tools/mod and
 scripts/factory) run. The rule, with no subtraction: each PR's tests run first on main + the PR alone
-(the baseline). The baseline's result is kept in the clone's git common dir under
-`vextrus/crosspr/`, keyed by (origin/main sha, PR head sha, node present, worker count, sorted
-test files); a second check with the same key runs no baseline, and any change is a miss. Only a
-fully clean baseline (every test passed; no failure, error, collection error or time-out, Python or
-node) lets the union
+(the baseline). A green baseline is kept in the clone's git common dir under `vextrus/crosspr/`,
+keyed by (origin/main sha, PR head sha, node present, worker count, sorted test files); a second
+check with the same key runs no baseline, any change is a miss, and a red baseline is never kept
+(it runs again). Only a fully clean baseline (every test passed; no failure, error, collection
+error or time-out, Python or node) lets the union
 run, where a failure or time-out refuses, naming both. Any
 other baseline skips the union: the PR is "#N not checked (its own tests are not green on main)",
 never `ok` and never a refusal, and the line says `not checked`. A PR that conflicts with main alone is
@@ -266,13 +266,15 @@ def check_pr(
         ]
         cache = baseline_cache_file(key)
         try:
-            green = bool(json.loads(cache.read_text())["green"])
-        except OSError, ValueError, KeyError, TypeError, Refusal:
+            green = json.loads(cache.read_text()).get("green") is True
+        except OSError, ValueError, AttributeError, Refusal:
+            green = False
+        if not green:  # a red baseline is never kept: it runs again
             green = baseline_tests.run(changed).green
-            if baseline_tests.keepable:
+            if green:
                 try:
                     cache.parent.mkdir(parents=True, exist_ok=True)
-                    cache.write_text(json.dumps({"green": green}))
+                    cache.write_text(json.dumps({"green": True}))
                 except OSError:
                     pass  # an unwritable cache is no cache
         if not green:
@@ -313,12 +315,6 @@ class Tests:
     @property
     def green(self) -> bool:
         return not self.timed_out and all(code == 0 for code in self.exits)
-
-    @property
-    def keepable(self) -> bool:
-        """Worth keeping: every run exited 0 or 1 (pass, or tests failed). A time-out, a signal or
-        pytest's exit 2-4 (interrupted, internal or usage error) is a machine fault: run again."""
-        return not self.timed_out and all(code in (0, 1) for code in self.exits)
 
     @property
     def failed(self) -> bool:

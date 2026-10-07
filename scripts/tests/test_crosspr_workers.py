@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from scripts.factory import crosspr
-from scripts.factory.crosspr import Tests as CrossTests
 from scripts.factory.crosspr import baseline_cache_file, worker_count
 from scripts.tests.acceptance.ts17f3._world import Check, one_pr_world
 
@@ -39,19 +38,6 @@ def test_worker_count(monkeypatch: pytest.MonkeyPatch, value: str | None, expect
     else:
         monkeypatch.setenv("VEXTRUS_VERIFY_WORKERS", value)
     assert worker_count() == expected
-
-
-@pytest.mark.parametrize(
-    ("exits", "timed_out", "kept"),
-    [([0], "", True), ([1], "", True), ([0, 1], "", True), ([2], "", False), ([-9], "", False),
-     ([3], "", False), ([4], "", False), ([1], "late", False)],
-)  # fmt: skip
-def test_only_pass_or_failed_tests_are_kept(
-    tmp_path: Path, exits: list[int], timed_out: str, kept: bool
-) -> None:
-    tests = CrossTests(tmp_path, tmp_path, "x")
-    tests.exits, tests.timed_out = exits, timed_out
-    assert tests.keepable is kept
 
 
 def test_origin_main_is_read_once_per_pr(
