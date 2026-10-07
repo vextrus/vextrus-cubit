@@ -48,3 +48,43 @@ def test_workers_are_checked_from_the_environment(monkeypatch: pytest.MonkeyPatc
         pytest_workers()
     monkeypatch.setenv("VEXTRUS_VERIFY_WORKERS", "")
     assert pytest_workers() == 6
+
+
+def test_two_checks_sharing_a_name_each_keep_their_own_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two changed plugins plan `plugin-validate` twice; the first's failure must not be replaced by
+    the second's pass (the record is the READY push gate)."""
+    import json
+    import subprocess
+
+    from scripts import verify as module
+
+    def sh(*args: str) -> None:
+        subprocess.run(["git", "-C", str(tmp_path), *args], capture_output=True, check=True)
+
+    sh("init", "-q", "-b", "main")
+    sh("config", "user.email", "t@example.invalid")
+    sh("config", "user.name", "t")
+    sh("config", "commit.gpgsign", "false")
+    (tmp_path / "README.md").write_text("x\n")
+    sh("add", "README.md")
+    sh("commit", "-q", "-m", "init")
+    sh("update-ref", "refs/remotes/origin/main", "HEAD")
+    for plugin in ("a", "b"):
+        (tmp_path / "tools" / "mod" / plugin / "x").mkdir(parents=True)
+        (tmp_path / "tools" / "mod" / plugin / "x" / "f.json").write_text("{}\n")
+        sh("add", f"tools/mod/{plugin}")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(module, "_have", lambda tool: True)
+
+    def run(check: module.Check) -> tuple[int, str]:
+        failing = check.name == "plugin-validate" and check.argv[-1].endswith("/a")
+        return (1 if failing else 0), "out\n"
+
+    assert module.main([], run=run, leak=lambda root, tree: (False, [])) == 1
+    record = json.loads(next((tmp_path / ".git" / "vextrus").glob("verify-*.json")).read_text())
+    assert record["ok"] is False
+    validates = [c for c in record["checks"] if c["name"] == "plugin-validate"]
+    assert sorted(c["exit_code"] for c in validates) == [0, 1]
+    assert len({c["output_file"] for c in record["checks"]}) == len(record["checks"])

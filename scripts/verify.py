@@ -436,7 +436,9 @@ def main(
     root_entries = flaky_entries(root, FLAKY_ROOT)
     printing = threading.Lock()
 
-    def settle(check: Check) -> dict[str, object]:
+    names = [check.name for check in checks]
+
+    def settle(index: int, check: Check) -> dict[str, object]:
         code, output = run(check)
         raw, flakes, root_only = code, [], []
         # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
@@ -455,7 +457,8 @@ def main(
                 code, flakes = 0, listed
             else:
                 code = raw = again
-        name = outputs / f"{check.name}.txt"
+        stem = check.name if names.count(check.name) == 1 else f"{check.name}-{index}"
+        name = outputs / f"{stem}.txt"
         (root / name).write_text(output)
         with printing:
             print(
@@ -476,17 +479,20 @@ def main(
 
     # The web checks keep their order (each needs the one before) in one chain; every other check is
     # its own chain, so pytest and the cheap checks run concurrently.
+    indexed = list(enumerate(checks))
     web_names = set(WEB_CHAIN)
-    chains = [[c for c in checks if c.name in web_names]] if web_names & {c.name for c in checks} else []
-    chains += [[c] for c in checks if c.name not in web_names]
+    chains = [[ic for ic in indexed if ic[1].name in web_names]]
+    chains += [[ic] for ic in indexed if ic[1].name not in web_names]
+    chains = [chain for chain in chains if chain]
 
-    def run_chain(chain: list[Check]) -> list[dict[str, object]]:
-        return [settle(check) for check in chain]
+    def run_chain(chain: list[tuple[int, Check]]) -> list[tuple[int, dict[str, object]]]:
+        return [(index, settle(index, check)) for index, check in chain]
 
     with ThreadPoolExecutor(max_workers=len(chains)) as pool:
         done = list(pool.map(run_chain, chains))
-    by_name = {str(result["name"]): result for chain in done for result in chain}
-    results = [by_name[check.name] for check in checks]
+    # By plan index, never by name: two checks may share one (a plugin check per changed plugin).
+    pairs = sorted((pair for chain in done for pair in chain), key=lambda pair: pair[0])
+    results = [result for _, result in pairs]
     ok = all(result["exit_code"] == 0 for result in results)
     record = {"schema_version": 1, "tree": tree, "written_at": utc_now(), "ok": ok, "checks": results}
     folder = common / "vextrus"
