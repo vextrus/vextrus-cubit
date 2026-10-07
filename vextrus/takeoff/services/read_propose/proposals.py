@@ -150,6 +150,7 @@ def propose(
     if listed:
         _read_lists(listed, load, conventions)
     asked = set_questions(project_id, trigger_file=file_id)
+    step1.record_progress(project_id)  # last: it counts the Questions the set's round asked
     return {"sheets": proposed, "questions": asked}
 
 
@@ -164,6 +165,7 @@ def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
         return
     step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
     set_questions(view.project_id, trigger_file=file_id)
+    step1.record_progress(view.project_id)
 
 
 NAMED_STOREYS = frozenset(
@@ -355,7 +357,8 @@ def _read_lists(
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
     """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before)."""
+    (see the module); how many Questions they hold (asked now or before). No progress row is
+    written: the caller writes them once, after (the read job; a Step 1 act's `_after_act`)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -379,7 +382,8 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
 def set_conflicts(project_id: uuid.UUID) -> int:
     """The set's conflicts asked again after an act decided or undid sheets (confirm, exclude, an
     answer, undo): those of sheets now decided retired, those of sheets undecided again asked again;
-    how many are open. No Check is run (its runs are the reads')."""
+    how many are open. No Check is run (its runs are the reads'), and no progress row written (the
+    act's `step1._after_act` writes them after)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         listed: list[drawings.SheetView] = []

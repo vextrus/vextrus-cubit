@@ -1130,7 +1130,10 @@ def confirm(
     change to Jev's pick is logged under the QS. Only sheets two sources agree on join a bulk act
     (m0-screens 6.4): one naming any sheet with one source is refused whole (409); such a sheet is
     confirmed on its own."""
-    return _confirm(project_id, ids, kind=kind, actor_name=actor_name, answering=False)
+    with transaction.atomic():
+        done = _confirm(project_id, ids, kind=kind, actor_name=actor_name, answering=False)
+        _after_act(project_id)
+    return done
 
 
 def _confirm(
@@ -1180,7 +1183,6 @@ def _confirm(
                         project_id=project_id,
                     )
             _decide_views(sheet.id, act, None, "", confirmed=decided)
-        record_progress(project_id)
     return _act_view(act)
 
 
@@ -1265,7 +1267,7 @@ def _held_first(project_id: uuid.UUID, sheet_id: uuid.UUID, proposal: Proposal |
     """Whether a `missing` or `missing_discipline` Question still holds the sheet (as `confirm`
     refuses it)."""
     try:
-        _no_question_first(project_id, [(drawings.sheet(sheet_id), proposal)])
+        _no_question_first(project_id, [(drawings.sheet(sheet_id, anchors=False), proposal)])
     except auth.Refused:
         return True
     return False
@@ -1376,7 +1378,10 @@ def exclude(
 ) -> ActView:
     """Leave the named sheets out, for one of the seven reasons ("other" with the QS's words; with any
     other reason the words are not kept); their views are excluded with them."""
-    return _exclude(project_id, ids, reason, text, actor_name=actor_name, answering=False)
+    with transaction.atomic():
+        done = _exclude(project_id, ids, reason, text, actor_name=actor_name, answering=False)
+        _after_act(project_id)
+    return done
 
 
 def _exclude(
@@ -1406,12 +1411,11 @@ def _exclude(
         _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
             proposal = proposal or _propose(project_id, sheet)
-            drawings.exclude(sheet.id, reason, words, confirmation_id=act.id)
+            drawings.exclude(sheet.id, reason, words, confirmation_id=act.id, anchors=False)
             proposal.rejected_reason = reason
             _stamp(proposal, ProposalStatus.REJECTED, act)
             _decide_views(sheet.id, act, reason, words.strip())
         _exclude_views(project_id, act, views, reason, words)
-        record_progress(project_id)
     return _act_view(act)
 
 
@@ -1579,7 +1583,7 @@ def _standing_steps(row: Coverage, sheet: drawings.SheetView | None = None) -> l
         deciding = sheet.confirmation_id
     else:
         try:
-            deciding = drawings.sheet(row.sheet_revision_id).confirmation_id
+            deciding = drawings.sheet(row.sheet_revision_id, anchors=False).confirmation_id
         except auth.NotFound:
             deciding = None
     return [s.step for s in _steps_standing([row], {row.sheet_revision_id: deciding}).get(row.id, [])]
@@ -1697,8 +1701,23 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
-        record_progress(project_id)
+        _after_act(project_id)
     return _act_view(act)
+
+
+def _after_act(project_id: uuid.UUID, *, corrected: bool = False) -> None:
+    """The one pass each act (confirm, exclude, undo, an answer) ends in, in its transaction: the
+    set's conflicts asked again (a decided sheet is in no conflict, one undecided again is compared
+    again: #161), or every Question of the set after an answer `corrected` a sheet's number or
+    Discipline (a typed number another sheet has is a conflict); then the progress rows written once,
+    last, so they count every Question the pass raised or retired."""
+    from vextrus.takeoff.services.read_propose import proposals  # it imports this module
+
+    if corrected:
+        proposals.set_questions(project_id)
+    else:
+        proposals.set_conflicts(project_id)
+    record_progress(project_id)
 
 
 def _decision_of(sheet: drawings.SheetView) -> dict[str, Any] | None:
@@ -1760,13 +1779,15 @@ def _put_back_sheet(
         _put_back_sheet(project_id, sheet_id, None)
         return
     if prior["decision"] == "excluded":
-        drawings.exclude(sheet_id, prior["reason"], prior["text"] or "", confirmation_id=earlier.id)
+        drawings.exclude(
+            sheet_id, prior["reason"], prior["text"] or "", confirmation_id=earlier.id, anchors=False
+        )
         _decide_views(sheet_id, earlier, prior["reason"], prior["text"] or "")
         if proposal is not None:
             proposal.rejected_reason = prior["reason"]
             _stamp(proposal, ProposalStatus.REJECTED, earlier)
     else:
-        drawings.confirm_sheet(sheet_id, confirmation_id=earlier.id, kind=prior["kind"])
+        drawings.confirm_sheet(sheet_id, confirmation_id=earlier.id, kind=prior["kind"], anchors=False)
         _decide_views(sheet_id, earlier, None, "")
         if proposal is not None:
             proposal.rejected_reason = ""
@@ -1864,7 +1885,7 @@ def _follow_sheet(row: Coverage) -> None:
     """A view's own exclusion undone: it stands as its sheet does (confirmed: as proposed, under the
     sheet's act; left out: with the sheet's reason; undecided: proposed)."""
     try:
-        sheet = drawings.sheet(row.sheet_revision_id)
+        sheet = drawings.sheet(row.sheet_revision_id, anchors=False)
     except auth.NotFound:
         sheet = None
     if sheet is None or not sheet.decision or sheet.confirmation_id is None:
@@ -2203,7 +2224,8 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     that a past round retired is open again, and each still open that was not raised is retired,
     `withdrawn` and still listed. An answered Question, or one withdrawn by leaving its sheet out, is
     never touched. One the QS kept open hands that answer to the Question that supersedes it (its
-    code, holding every sheet it held, not answered yet). How many were retired."""
+    code, holding every sheet it held, not answered yet). How many were retired. No progress row is
+    written: the round's caller writes them once, last (an act's `_after_act`, the read job)."""
     projects.get(project_id)
     asked = set(raised)
     ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
@@ -2224,9 +2246,7 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
                 heir.answer = old.answer
                 heir.save(update_fields=["answer"])
                 heirs.remove(heir)
-    retired = leaving.update(status=QuestionStatus.WITHDRAWN)
-    record_progress(project_id)
-    return retired
+    return leaving.update(status=QuestionStatus.WITHDRAWN)
 
 
 def _links(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
@@ -2302,8 +2322,8 @@ class Answered:
     read_again: uuid.UUID | None
     """A held file the QS chose to read anyway: its read job is to run again (the caller queues it)."""
     corrected: bool = False
-    """A sheet's number or Discipline was corrected: the set's Questions are asked again (the caller
-    runs `read_propose.proposals.set_questions`: a typed number another sheet has is a conflict)."""
+    """A sheet's number or Discipline was corrected: the set's Questions were asked again
+    (`_after_act`: a typed number another sheet has is a conflict)."""
 
 
 def answer(
@@ -2336,7 +2356,7 @@ def answer(
         if option == KEEP_OPEN:
             row.answer = given
             row.save(update_fields=["answer"])
-            record_progress(project_id)
+            _after_act(project_id)
             return Answered(_question_view(project_id, row.id), None)
         held = list(
             QuestionLink.objects.filter(project_id=project_id, question=row)
@@ -2352,7 +2372,7 @@ def answer(
         row.answered_by_id = _user()
         row.answered_at = timezone.now()
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
-        record_progress(project_id)
+        _after_act(project_id, corrected=corrected)
     return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 

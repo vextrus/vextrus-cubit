@@ -851,9 +851,11 @@ def _placed(
     )  # fmt: skip
 
 
-def sheet(sheet_revision_id: uuid.UUID) -> SheetView:
-    """One printed sheet of the sheet list (in the acting Membership's scope); else not found."""
-    return _sheet_view(_all().get(id=_listed(sheet_revision_id).id))
+def sheet(sheet_revision_id: uuid.UUID, *, anchors: bool = True) -> SheetView:
+    """One printed sheet of the sheet list (in the acting Membership's scope); else not found.
+    `anchors=False`: read without its anchors (as `sheets`'s)."""
+    listed = _listed(sheet_revision_id, anchors=anchors)
+    return _sheet_view(_unanchored(_all(), anchors).get(id=listed.id), anchors=anchors)
 
 
 def sheet_discipline(sheet_revision_id: uuid.UUID) -> str | None:
@@ -1183,9 +1185,11 @@ def exclude(
     text: str = "",
     *,
     confirmation_id: uuid.UUID,
+    anchors: bool = True,
 ) -> SheetView | ViewView:
     """The QS leaves a printed sheet or a view out, for one of the seven reasons; "other" with the
-    QS's own words, kept as typed. `subject_id` is the printed sheet's or the view's id."""
+    QS's own words, kept as typed. `subject_id` is the printed sheet's or the view's id.
+    `anchors=False`: a printed sheet is read without its anchors (as `sheets`'s)."""
     try:
         chosen = ExclusionReason(str(reason))
     except ValueError:
@@ -1199,10 +1203,10 @@ def exclude(
         raise auth.Refused(said.TEXT_ONLY_FOR_OTHER(), status=400)
     with transaction.atomic():
         if SheetRevision.objects.filter(id=subject_id).exists():
-            sheet_revision = _listed(subject_id, lock=True)
+            sheet_revision = _listed(subject_id, lock=True, anchors=anchors)
             _decide(sheet_revision, Decision.EXCLUDED, confirmation_id, chosen, words)
             sheet_revision.save(update_fields=_DECIDED)
-            return _sheet_view(_all().get(id=sheet_revision.id))
+            return _sheet_view(_unanchored(_all(), anchors).get(id=sheet_revision.id), anchors=anchors)
         view = _listed_view(subject_id)
         _decide(view, Decision.EXCLUDED, confirmation_id, chosen, words)
         view.save(update_fields=_DECIDED)
@@ -1223,14 +1227,19 @@ def undo(confirmation_id: uuid.UUID) -> int:
         "confirmed_kind": "",
     }
     with transaction.atomic():
-        for sheet_revision in SheetRevision.objects.select_related("source_file__drawing_set").filter(
-            confirmation_id=confirmation_id
+        # Only the rows' ids and Projects are read: never their anchors (heavy JSON undo never uses).
+        for sheet_revision in (
+            SheetRevision.objects.select_related("source_file__drawing_set")
+            .defer("anchors")
+            .filter(confirmation_id=confirmation_id)
         ):
             if _may_open(sheet_revision.source_file.drawing_set.project_id):
                 SheetRevision.objects.filter(id=sheet_revision.id).update(**cleared)
                 reversed_ += 1
-        for view in View.objects.select_related("sheet_revision__source_file__drawing_set").filter(
-            confirmation_id=confirmation_id
+        for view in (
+            View.objects.select_related("sheet_revision__source_file__drawing_set")
+            .defer("anchors", "sheet_revision__anchors")
+            .filter(confirmation_id=confirmation_id)
         ):
             if _may_open(view.sheet_revision.source_file.drawing_set.project_id):
                 View.objects.filter(id=view.id).update(**cleared)
