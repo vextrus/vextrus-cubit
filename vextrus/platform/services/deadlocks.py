@@ -14,11 +14,12 @@ The transaction tried again is the outermost one, whose rollback released every 
 
 At most `RETRIES` retries, each after a short jittered pause, each logged as a warning.
 
-**A lock wait is bounded** (S15-A2): the act runs in a savepoint whose transaction waits on any lock
-(a row, Step 1's write lock) at most `LOCK_TIMEOUT_MS` (`SET LOCAL lock_timeout`); a wait that runs
-out rolls the act back and refuses it, `platform.acts.busy` (503), so a QS is told to try again
-rather than left waiting on a stuck writer. The request's transaction stays usable, and is rolled
-back as every refused request is.
+**A lock wait is bounded** (S15-A2): every act that opts in (Step 1's, the Discipline change) runs
+in a savepoint whose transaction waits on any lock (a row, Step 1's write lock) at most
+`LOCK_TIMEOUT_MS` (`SET LOCAL lock_timeout`, kept to the request's end once the act's savepoint is
+released); a wait that runs out rolls the act back and refuses it, `platform.acts.busy` (503), so a
+QS is told to try again rather than left waiting on a stuck writer. The request's transaction stays
+usable, and is rolled back as every refused request is. A read job's steps never pass through here.
 """
 
 import contextvars

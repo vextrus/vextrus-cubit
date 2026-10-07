@@ -207,8 +207,8 @@ def _steps(
         done_before=DWG_STEPS.index(drawings.SHEETS),
         after=len(DWG_STEPS) - DWG_STEPS.index(drawings.FINISHING),
     )
-    # Jev asked between the steps, never inside one's transaction (S15-A2); a `finishing` already
-    # kept has its answers cached, so nothing is sent again.
+    # Jev asked between the steps, never inside one's transaction (S15-A2). A `finishing` already
+    # kept has its answers cached, so only a question Jev did not answer (never cached) is sent again.
     sent = ask_jev()
     steps.run(
         drawings.FINISHING,
