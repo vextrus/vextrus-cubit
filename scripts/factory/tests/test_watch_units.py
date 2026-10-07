@@ -6,13 +6,13 @@ import json
 import os
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from scripts.factory import watch
+from scripts.factory import trailers, watch
 
 TREE = "a" * 40
 OTHER = "b" * 40
@@ -49,9 +49,16 @@ def test_trailers_follow_trailers_md(last_paragraph: str, outcome: str | None) -
     assert watch.parse_trailers(message, TREE).outcome == outcome
 
 
-def test_only_the_last_paragraph_counts() -> None:
-    message = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\nA closing line.\n"
-    assert watch.parse_trailers(message, TREE).outcome is None
+def test_the_factory_block_is_read_from_the_last_two_paragraphs_only() -> None:
+    """trailers.md 1: the read paragraph is the last of the last two holding a `Factory-*` line; one
+    further back raises READY-NO-VERIFY, never silence."""
+    block = f"Factory-State: READY\nFactory-Verify: {TREE} ok"
+    second_last = f"feat: x\n\n{block}\n\nA closing line.\n"
+    assert watch.parse_trailers(second_last, TREE).outcome == "READY"
+    third_last = f"feat: x\n\n{block}\n\nA closing line.\n\n{ATTRIBUTION}\n"
+    parsed = watch.parse_trailers(third_last, TREE)
+    assert parsed.outcome == "READY-NO-VERIFY"
+    assert parsed.why == "factory trailer not in the last paragraph"
     assert watch.parse_trailers("", TREE).outcome is None
 
 
@@ -124,7 +131,7 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert watch.gh_prs() == [{"number": 7, "headRefName": "b", "headRefOid": "x", "state": "OPEN"}]
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
-    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state"
+    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state,statusCheckRollup"
 
 
 def test_the_default_scanner_is_the_main_checkouts_tools_leakscan(
@@ -219,14 +226,18 @@ def test_every_models_check_that_ran_is_stamped(
 ATTRIBUTION = "Co-Authored-By: x <x@example.invalid>\nClaude-Session: https://example.invalid/s"
 
 
-def test_only_the_last_paragraph_counts_even_before_attribution() -> None:
-    """One rule for every consumer: the guard's push gate and the stop gate read the last paragraph."""
+def test_a_factory_block_before_the_attribution_paragraph_is_read() -> None:
+    """One rule for every consumer (the guard's push gate and the stop gate share it): the T-W317 shape,
+    a Factory block, a blank line, then the attribution block, reads as written."""
     before = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(before, TREE).outcome is None
+    assert watch.parse_trailers(before, TREE).outcome == "READY"
     blocked = f"feat: x\n\nFactory-State: BLOCKED\nFactory-Reason: r\n\n{ATTRIBUTION}\n"
-    assert watch.parse_trailers(blocked, TREE).outcome is None
+    assert watch.parse_trailers(blocked, TREE) == trailers.Trailers("BLOCKED", "r")
     within = f"feat: x\n\nFactory-State: READY\nFactory-Verify: {TREE} ok\n{ATTRIBUTION}\n"
     assert watch.parse_trailers(within, TREE).outcome == "READY"
+    block = "Factory-State: BLOCKED\nFactory-Reason: r"
+    both = f"feat: x\n\n{block}\n\n{block}\n"
+    assert watch.parse_trailers(both, TREE).why == "factory trailer not in the last paragraph"
 
 
 def git_in(repo: Path, *args: str) -> str:
@@ -401,3 +412,122 @@ def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_la
     assert (item["head"], item["state"]) == (merged, "ready")
     assert [e[0] for e in step.events] == ["PUSH"]
     assert not [a for a in step.alarms.values() if a[0] == "BUDGET-PASSED"]
+
+
+def _pass(tmp_path: Path) -> watch.Pass:
+    return watch.Pass(tmp_path, AT, {})
+
+
+def _pr(entries: list[dict[str, Any]], *, state: str = "OPEN", head: str = TREE) -> dict[str, Any]:
+    return {
+        "number": 7,
+        "headRefName": "b",
+        "headRefOid": head,
+        "state": state,
+        "statusCheckRollup": entries,
+    }
+
+
+def _ci(conclusion: str, **more: Any) -> dict[str, Any]:
+    return {
+        "__typename": "CheckRun",
+        "name": "ci",
+        "workflowName": "ci",
+        "conclusion": conclusion,
+        **more,
+    }
+
+
+def test_a_failed_required_ci_check_writes_one_ci_red_event_per_head(tmp_path: Path) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")]))
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")]))  # the next read of the same head
+    assert step.events == [("CI-RED", "s14-u1", f"#7 {TREE[:8]} required check ci failed")]
+    watch.watch_ci(step, "s14-u1", _pr([_ci("FAILURE")], head=OTHER))  # a new head, failing again
+    assert [e[0] for e in step.events] == ["CI-RED", "CI-RED"]
+
+
+@pytest.mark.parametrize(
+    "pr",
+    [
+        _pr([_ci("SUCCESS")]),
+        _pr([_ci("")]),  # still running
+        _pr([_ci("SKIPPED")]),
+        _pr([{**_ci("FAILURE"), "name": "web"}]),  # another job is red, not the required check
+        _pr([{**_ci("FAILURE"), "workflowName": "engine"}]),
+        _pr([_ci("FAILURE")], state="CLOSED"),
+        _pr([_ci("FAILURE")], state="MERGED"),
+        _pr([]),
+        {"number": 7, "state": "OPEN", "headRefOid": TREE},  # a row read before the field existed
+    ],
+)
+def test_ci_red_is_only_the_required_check_failing_on_an_open_pr(
+    tmp_path: Path, pr: dict[str, Any]
+) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(step, "s14-u1", pr)
+    assert step.events == []
+
+
+def test_a_failed_ci_status_context_is_red_too(tmp_path: Path) -> None:
+    step = _pass(tmp_path)
+    watch.watch_ci(
+        step, "t", _pr([{"__typename": "StatusContext", "context": "ci", "state": "FAILURE"}])
+    )
+    assert [e[0] for e in step.events] == ["CI-RED"]
+    watch.watch_ci(_pass(tmp_path), "t", None)  # no PR: nothing, no error
+
+
+def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tmp_path: Path) -> None:
+    seen: dict[str, Any] = {"head": TREE, "committed": True, "outcome": None, "idle_since": None}
+    idle = {"name": "t-local", "status": "idle", "pid": 1}
+    busy = {**idle, "status": "busy"}
+
+    def at(minutes: int, row: dict[str, Any] | None) -> list[str]:
+        step = watch.Pass(tmp_path, AT + timedelta(minutes=minutes), {})
+        watch.local_idle(step, "t", seen, row)
+        return [code for code, _subject, _detail in step.alarms.values()]
+
+    assert at(0, idle) == []
+    assert at(9, idle) == []
+    assert at(10, idle) == ["LOCAL-IDLE"]
+    assert at(11, busy) == []  # a running turn clears the clock
+    assert at(12, idle) == []
+    assert at(21, idle) == []
+    assert at(22, idle) == ["LOCAL-IDLE"]
+    assert at(40, None) == []  # no row: not this alarm's reading
+    for outcome in ("READY", "BLOCKED"):
+        seen.update(outcome=outcome, idle_since=None)
+        assert at(50, idle) == []
+        assert at(70, idle) == []
+    seen.update(outcome="READY-NO-VERIFY", idle_since=None, committed=False)
+    assert at(80, idle) == []  # no commit of its own yet
+    assert at(95, idle) == []
+
+
+def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
+    tmp_path: Path,
+) -> None:
+    routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
+    wanted = [
+        "2026-10-06T01:00:00Z READY t abc1234",
+        "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
+        "2026-10-06T01:02:00Z CI-RED t #7 abc1234 required check ci failed",
+    ]
+    (tmp_path / "events.log").write_text(routine + "\n".join(wanted) + "\n")
+    assert (tmp_path / "events.log").stat().st_size > 4 * 1024 * 1024
+    watch.write_events_tail(tmp_path)
+    assert (tmp_path / "events.tail").read_text() == "".join(f"{line}\n" for line in wanted)
+    assert not (tmp_path / "events.tail.tmp").exists()
+    (tmp_path / "events.log").write_text(
+        "".join(f"2026-10-06T02:00:{i % 60:02d}Z READY t{i} x\n" for i in range(300))
+    )
+    watch.write_events_tail(tmp_path)
+    kept = (tmp_path / "events.tail").read_text().splitlines()
+    assert len(kept) == watch.EVENTS_TAIL_LINES
+    assert kept[-1].endswith(" READY t299 x")
+
+
+def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
+    watch.write_events_tail(tmp_path)
+    assert not (tmp_path / "events.tail").exists()
