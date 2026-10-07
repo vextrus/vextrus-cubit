@@ -141,6 +141,43 @@ def test_a_frameless_layout_is_on_its_plot_sheet_when_its_drawing_is_centred_on_
     assert sides(artefact, sheet) == (760.0, 480.0)
 
 
+def test_a_frameless_drawing_past_its_plot_sheet_keeps_its_extents() -> None:
+    """A 400 x 280 mm drawing from the layout's origin under a default A4 page setup does not lie on
+    A4, though its centre does: the paper is its extents, so nothing past A4's edge is cut (PR 613's
+    review)."""
+    artefact, sheet = layout(None, plotted(297.0, 210.0), lines=(((0, 0), (400, 280)),))
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == (400.0, 280.0)
+    assert paper.source != PaperSource.LAYOUT
+
+
+@pytest.mark.parametrize(
+    ("frame", "plot", "sheet_sides"),
+    [((0, 0, 297, 210), plotted(420.0, 297.0), (297, 210)),
+     ((10, 10, 410, 287), plotted(), (420, 297)),
+     ((10, 10, 287, 200), plotted(420.0, 297.0), (297, 210)),
+     ((0, 0, 297, 210), plotted(297.0, 210.0), (297, 210))],
+)  # fmt: skip
+def test_a_frame_is_on_its_plot_sheet_only_when_it_fills_it(
+    frame: tuple[float, float, float, float],
+    plot: PlotSettings,
+    sheet_sides: tuple[float, float],
+) -> None:
+    """A stale page setup's larger sheet is not the frame's: an A4 frame under an A3 setup is on A4,
+    an A3 border under an A1 setup on A3, each centred on the sheet around it (PR 613's review). A frame
+    filling its setup's sheet is on it."""
+    artefact, sheet = layout(frame, plot)
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == sheet_sides
+    fills = plot.width_mm == sheet_sides[0]
+    assert (paper.source == PaperSource.LAYOUT) is fills
+    x0, y0, x1, y1 = frame
+    if not fills:
+        assert paper.origin == pytest.approx(
+            (x0 - (sheet_sides[0] - (x1 - x0)) / 2, y0 - (sheet_sides[1] - (y1 - y0)) / 2)
+        )
+
+
 def test_a_layout_in_inches_is_laid_in_its_paper_units() -> None:
     """A layout drawn in inches (its plot settings' paper units): its paper is in mm, its origin in
     inches, and its sheet is the one its settings state."""

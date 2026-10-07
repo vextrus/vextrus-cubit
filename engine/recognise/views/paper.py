@@ -14,8 +14,9 @@ texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left
 drawn in its plot-paper units (#87), is on, in order: the sheet its plot settings state (the read
 artefact's `Block.plot`: its paper's size, turned a quarter when the plot is, its corner the margins and
 the plot offset before the layout's origin), where each side is within `PLOT_SHEET_MM` and the layout is
-drawn on it (its frame within `ON_SHEET_MM` of the sheet's edge, or a frameless layout's extents centred
-on it: a default page setup left on a layout drawn for another sheet is not its sheet); else the
+drawn on it (its frame, or a frameless layout's extents, at most `ON_SHEET_MM` past the sheet's edge,
+and a frame filling it, each side at most `2 * BORDER_MM` short of the sheet's: a default page setup left
+on a layout drawn for another sheet, smaller or far larger, is not its sheet); else the
 smallest standard sheet around its frame (`_sheet_around`: the border within `BORDER_MM` of the sheet's
 edge on each side, ISO's sheets first, the frame centred); else its frame's box; else (no frame) its
 extents, a standard sheet when they are one. A model-space sheet is drawn at a scale (model units a
@@ -761,9 +762,12 @@ def _plot_sheet(
 ) -> Paper | None:
     """The sheet a layout's plot settings state, its corner where they put it (a layout's origin is the
     printable area's lower-left corner, moved by the plot offset; a quarter turn swaps the paper's
-    sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it: its frame within
-    `ON_SHEET_MM` of its edge, or a frameless layout's extents centred on it (a default page setup left
-    on a layout drawn for another sheet states a sheet the drawing is not on); else none."""
+    sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it: its frame, or a
+    frameless layout's extents, reaching at most `ON_SHEET_MM` past the sheet's edge, and a frame filling
+    it, each side at most `2 * BORDER_MM` short of the sheet's (as `_sheet_around` holds a border). A
+    default page setup left on a layout drawn for another sheet states one the drawing is not on, or one
+    far larger than its frame's (PR 613's review); else none. A frameless drawing is not asked to fill
+    its sheet: with no frame, nothing says the drawing was made for another."""
     if plot is None:
         return None
     low, high = PLOT_SHEET_MM
@@ -777,12 +781,9 @@ def _plot_sheet(
     on_left, on_bottom = {0: (left, bottom), 1: (bottom, right), 2: (right, top), 3: (top, left)}[turn]
     corner = (-(on_left + plot.origin_mm[0]), -(on_bottom + plot.origin_mm[1]))  # mm
     x0, y0, x1, y1 = (v * mm_per_unit - corner[i % 2] for i, v in enumerate(drawn))
-    if framed:
-        on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
-    else:
-        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-        on = 0 <= cx <= width and 0 <= cy <= height
-    if not on:
+    on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
+    fills = max(width - (x1 - x0), height - (y1 - y0)) <= 2 * BORDER_MM  # as `_sheet_around`'s
+    if not on or (framed and not fills):
         return None
     origin = (corner[0] / mm_per_unit, corner[1] / mm_per_unit)
     return Paper(_kept(width), _kept(height), mm_per_unit, PaperSource.LAYOUT, origin)
