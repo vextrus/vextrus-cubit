@@ -548,7 +548,7 @@ def as_compared(
     """The listed sheets as 19b compares them (`candidate` under its file's group, then `_compared`),
     with their views: what `_conflicts` compares, for the groups Step 1 shows (T-W334's
     `vextrus.takeoff.services.groups`)."""
-    sheets = [_compared(s, candidate(s, groups.get(s.file_id, "site"))) for s in listed]
+    sheets = [_compared(s, candidate(s, groups.get(s.file_id, "site"), anchors=False)) for s in listed]
     return sheets, [[view_candidate(v) for v in vs] for vs in viewed]
 
 

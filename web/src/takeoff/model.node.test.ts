@@ -125,6 +125,34 @@ describe('continuations (Q3)', () => {
       ['S-10', null, 1],
     ])
   })
+
+  it('follows the server’s runs where it names them (T-W334): a stale pair stays two rows, a member-mark range one', () => {
+    const rows = (ps: ProposalOut[]) => step1Model(data(ps)).disciplines[0]!.rows.map((r) => [r.number, r.numberTo, r.sheets.length])
+    const same = { title: 'COLUMN SCHEDULE', continuation: null, series: null }
+    // One title on consecutive numbers the server did not join (their views state different storeys).
+    expect(rows([sheet('S-09', same), sheet('S-10', same)])).toEqual([
+      ['S-09', null, 1],
+      ['S-10', null, 1],
+    ])
+    const run = { continuation: 'r1', continuation_title: 'BEAM B1 TO B9 DETAILS' }
+    expect(rows([sheet('S-20', { ...run, title: 'BEAM B1 TO B4 DETAILS' }), sheet('S-21', { ...run, title: 'BEAM B5 TO B9 DETAILS' })])).toEqual([['S-20', 'S-21', 2]])
+    // Two runs the server names apart are two rows, though their titles match.
+    expect(rows([sheet('S-30', { title: 'X', continuation: 'a' }), sheet('S-31', { title: 'X', continuation: 'b' })]).length).toBe(2)
+    // Still split where a decision differs.
+    expect(rows([sheet('S-20', run), sheet('S-21', { ...run, decision: 'confirmed' })]).length).toBe(2)
+  })
+
+  it('counts a series over every sheet of it, decided or held, and tells no sheet in none', () => {
+    const s = { title: 'PARAPET DETAILS', series: 'z1' }
+    const model = step1Model(data([sheet('S-40', s), sheet('S-44', s), sheet('S-47', { ...s, decision: 'confirmed' }), sheet('S-50')]))
+    const shares = model.disciplines[0]!.rows.map((r) => [r.number, r.shares ?? null])
+    expect(shares).toEqual([
+      ['S-40', 3],
+      ['S-44', 3],
+      ['S-47', 3],
+      ['S-50', null],
+    ])
+  })
 })
 
 describe('numbering with no drawing list (Q4)', () => {

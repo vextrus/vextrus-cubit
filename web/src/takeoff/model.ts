@@ -47,6 +47,8 @@ export interface Row {
   /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
+  /** How many sheets share its title as one series (the server's `series`: one title on several runs, no Question); absent when in none. */
+  shares?: number
 }
 
 export interface QuestionEntry {
@@ -204,15 +206,30 @@ export function answeredQueue(questions: readonly QuestionOut[], proposals: read
 const decided = (p: ProposalOut) => p.decision !== null
 const sameState = (a: ProposalOut, b: ProposalOut) => a.decision === b.decision && a.excluded_reason === b.excluded_reason
 
-/** Consecutive numbers of one series with the same title: one continuation (m0-screens §5, Q3). */
+/**
+ * Two sheets, next in the list, of one continuation. The server names each run (`continuation`,
+ * T-W334): one title on consecutive numbers, or titles equal but for a member-mark range, and never
+ * two consecutive sheets whose views state different storeys or name different subjects (a stale
+ * pair, asked as a Question). A server before T-W334 sends no `continuation`: then consecutive numbers
+ * of one series with the same title are one (m0-screens §5, Q3). Never two sheets decided apart.
+ */
 function continues(a: ProposalOut, b: ProposalOut): boolean {
-  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title || a.discipline !== b.discipline || !sameState(a, b)) return false
+  if (a.discipline !== b.discipline || !sameState(a, b)) return false
+  if (a.continuation !== undefined || b.continuation !== undefined) return !!a.continuation && a.continuation === b.continuation
+  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title) return false
   const x = numberParts(a.number)
   const y = numberParts(b.number)
   return !!x && !!y && x.prefix === y.prefix && x.suffix === y.suffix && y.running === x.running + 1
 }
 
-function sheetRows(sheets: readonly ProposalOut[]): Row[] {
+/** Each series' size (the server's `series`, every sheet of it counted, decided or not), by its id. */
+function seriesSizes(proposals: readonly ProposalOut[]): Map<string, number> {
+  const sizes = new Map<string, number>()
+  for (const p of proposals) if (p.series) sizes.set(p.series, (sizes.get(p.series) ?? 0) + 1)
+  return sizes
+}
+
+function sheetRows(sheets: readonly ProposalOut[], sizes: ReadonlyMap<string, number>): Row[] {
   const rows: Row[] = []
   for (const p of sheets) {
     const last = rows.at(-1)
@@ -220,7 +237,8 @@ function sheetRows(sheets: readonly ProposalOut[]): Row[] {
       rows[rows.length - 1] = { ...last, sheets: [...last.sheets, p], numberTo: p.number }
       continue
     }
-    rows.push({ key: `p:${p.id}`, kind: 'sheet', sheets: [p], number: p.number, numberTo: null, question: null })
+    const shares = p.series ? (sizes.get(p.series) ?? 0) : 0
+    rows.push({ key: `p:${p.id}`, kind: 'sheet', sheets: [p], number: p.number, numberTo: null, question: null, ...(shares > 1 ? { shares } : {}) })
   }
   return rows
 }
@@ -331,7 +349,8 @@ export function step1Model(data: Step1Data): Step1Model {
   })
 
   const free = proposals.filter((p) => !heldBy.has(p.id))
-  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null))
+  const sizes = seriesSizes(proposals)
+  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null), sizes)
   const outIds = new Set(proposedOut.flatMap((r) => r.sheets.map((p) => p.id)))
 
   const coverageDone = data.coverage.unaccounted === 0
@@ -348,7 +367,7 @@ export function step1Model(data: Step1Data): Step1Model {
       const settled = mine.filter(decided).length
       return {
         discipline,
-        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
+        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes),
         found: progress?.found ?? mine.length,
         settled,
         total: progress ? progress.total ?? null : mine.length,

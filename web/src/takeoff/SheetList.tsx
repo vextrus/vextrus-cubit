@@ -520,7 +520,8 @@ function SheetRow({
         </TooltipContent>
       </Tooltip>
     ) : null
-  else if (row.kind === 'copies')
+  else if (row.kind === 'copies' && q?.code === SAME_NUMBER)
+    // Copies are sheets of one number; one title on many numbers is never "copies" (#232).
     title = (
       <Trans>
         <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
@@ -528,13 +529,21 @@ function SheetRow({
       </Trans>
     )
   else if (row.sheets.length > 1)
+    // A continuation the server names is titled with its member-mark ranges joined (T-W334).
     title = (
       <Trans>
-        <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+        <DrawingText kind="title" text={(row.kind === 'sheet' ? first?.continuation_title : null) || (first?.title ?? '')} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )
   else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+  // One title on several runs that draw different things: told, never asked (the owner, 5 Oct 2026, #334).
+  const sharing = f.integer(row.shares ?? 0)
+  const shares = row.shares ? (
+    <span className="ms-2 shrink-0 whitespace-nowrap text-ink-secondary">
+      <Trans>{sharing} sheets share this title</Trans>
+    </span>
+  ) : null
 
   return (
     <div
@@ -591,6 +600,7 @@ function SheetRow({
       {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
       <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
         {title}
+        {shares}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <DisciplineCell sheet={first} /> : null}
@@ -631,6 +641,9 @@ function SheetRow({
  */
 /** How many of a cut file name's last stem characters always show. */
 const TAIL_KEPT = 6
+
+/** A Question over sheets of one number (19b's `same_number`): its sheets are copies. */
+const SAME_NUMBER = 'engine.conflicts.same_number'
 
 function FileName({ name }: { name: string }) {
   const dot = name.lastIndexOf('.')

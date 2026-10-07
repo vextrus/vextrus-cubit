@@ -538,6 +538,10 @@ msgid "{Name} agrees: number and title from the title block, in numbering withou
 msgstr "{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches"
 
 #: src/takeoff/SheetList.tsx
+msgid "{sharing} sheets share this title"
+msgstr "{sharing} sheets share this title"
+
+#: src/takeoff/SheetList.tsx
 msgid "Title, as drawn"
 msgstr "Title, as drawn"
 
