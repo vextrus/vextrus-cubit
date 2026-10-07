@@ -19,7 +19,8 @@
 #   manifest     the commit's files are not the ones the lock pins (below)
 #   patch-hash   a patch file is not the one the lock pins by sha256
 #   patch-path   applied, a patch changed a path outside src/ACadSharp/ (a move or copy of any
-#                form among them), made a link or a submodule, left the work tree other than the
+#                form among them) or one whose name holds a control character or a backslash
+#                (a newline would split compile.list), made a link or a submodule, left the work tree other than the
 #                index, or changed no file; or git refused a path it names (`..`). Judged by what
 #                git did (section 3), never by reading the patch
 #   patch-apply  a patch does not apply cleanly
@@ -171,8 +172,12 @@ for i in "${!patch_names[@]}"; do
   [ "$digest" = "${patch_hashes[$i]}" ] || refuse patch-hash "${patch_names[$i]} is not the patch the lock pins"
 done
 
+# The one name rule, for every path git reports (NUL-separated, so a name is never split): a
+# relative path under src/ACadSharp/, no `.` or `..` part and no empty one, and no control character
+# (a newline, a carriage return, a tab or any other; LC_ALL=C's [:cntrl:]) and no backslash, so
+# that each name is one line of compile.list and the same name to every reader of it.
 inside_library() {
-  case "$1" in "" | /* | *\\*) return 1 ;; esac
+  case "$1" in "" | /* | *\\* | *[[:cntrl:]]*) return 1 ;; esac
   case "/$1/" in */../* | */./* | *//*) return 1 ;; esac
   case "$1" in "$LIBRARY"?*) return 0 ;; esac
   return 1
@@ -248,8 +253,19 @@ done
 # What its project compiles (every .cs under src/ACadSharp/), named in an order no file system
 # chooses: MSBuild's `**` lists files in the order the folder gives them, and the compiler's output
 # follows the order of its sources, so a glob could build other bytes in another folder.
-( cd "$work/out/ACadSharp" && find "$LIBRARY" -type f -name '*.cs' -print0 | sort -z | tr '\0' '\n' ) \
-  > "$work/out/compile.list"
+# Written from the index's names (git's, NUL-separated; after section 3 the work tree holds exactly
+# the index), each a file's (100644 or 100755) and each passing the name rule, never from a reading
+# of the folder or of lines.
+gitin ACadSharp ls-files -z --stage > "$work/tmp/index" 2> /dev/null ||
+  refuse manifest "ACadSharp at ${commit[ACadSharp]}: its files could not be listed"
+: > "$work/tmp/sources"
+while IFS= read -r -d '' entry; do
+  path=${entry#*$'\t'}
+  case "$path" in "$LIBRARY"*.cs) ;; *) continue ;; esac
+  inside_library "$path" || refuse patch-path "ACadSharp names ${path@Q}, which is not one plain name under $LIBRARY"
+  case "${entry%% *}" in 100644 | 100755) printf '%s\0' "$path" >> "$work/tmp/sources" ;; esac
+done < "$work/tmp/index"
+sort -z < "$work/tmp/sources" | tr '\0' '\n' > "$work/out/compile.list"
 
 # -- 5. every check passed: the two trees and the list become --dest in one rename --------------
 # The work area is beside --dest, on its file system, so the rename is whole or not at all: --dest

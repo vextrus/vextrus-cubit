@@ -304,3 +304,55 @@ def test_the_good_patch_needs_no_awk(
     assert done.returncode == 0, done.stderr
     assert files_under(dest / "ACadSharp") == {**ACADSHARP_FILES, PATCHED_PATH: PATCHED_CS}
     assert not record.exists()
+
+
+# A name git writes as one plain file under src/ACadSharp/ but that reads as two (or as something
+# else) wherever names are read a line at a time, as compile.list is: git's quoted form, the escape
+# spelling the character. The newline case is the review's: its second line names a file outside
+# src/ACadSharp/ that ACadSharp.csproj would compile as `$(Upstream)/ACadSharp/<line>`.
+SPLIT_NAME = "src/ACadSharp/IO/Gauge.cs{}../ACadSharp/src/ACadSharp.Tests/GaugeTests.cs"
+CONTROLS = {"newline": "\\n", "return": "\\r", "tab": "\\t", "start-of-heading": "\\001",
+            "delete": "\\177", "backslash": "\\\\"}  # fmt: skip
+
+
+def adding_a_file_named(quoted: str) -> str:
+    """A git diff adding a one-line file whose name is `quoted`, git's C-quoted form of it."""
+    return (
+        f'{HEADER}diff --git "a/{quoted}" "b/{quoted}"\n'
+        "new file mode 100644\n"
+        "--- /dev/null\n"
+        f'+++ "b/{quoted}"\n'
+        "@@ -0,0 +1 @@\n"
+        "+namespace Vx.Sample.Split { }\n"
+    )
+
+
+@pytest.mark.parametrize("control", sorted(CONTROLS))
+def test_a_library_name_holding_a_control_character_or_a_backslash_is_refused(
+    origins: Origins,  # noqa: F811
+    dest: Path,  # noqa: F811
+    control: str,
+) -> None:
+    patch = adding_a_file_named(SPLIT_NAME.format(CONTROLS[control]))
+
+    done = origins.run(origins.lock(patch), dest)
+
+    refused(done, "patch-path")
+    nothing_left(dest, origins)
+    origins_untouched(origins)
+
+
+def test_compile_list_names_each_library_source_once_and_nothing_else(
+    origins: Origins,  # noqa: F811
+    dest: Path,  # noqa: F811
+) -> None:
+    done = origins.run(origins.lock(), dest)
+
+    assert done.returncode == 0, done.stderr
+    listed = (dest / "compile.list").read_bytes().split(b"\n")
+    assert listed[-1] == b""
+    sources = sorted(
+        (path.encode() for path in ACADSHARP_FILES if path.startswith("src/ACadSharp/")),
+    )
+    assert [name for name in listed[:-1] if name.endswith(b".cs")] == listed[:-1]
+    assert listed[:-1] == sorted(name for name in sources if name.endswith(b".cs"))
