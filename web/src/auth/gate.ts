@@ -13,6 +13,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
 import { emitSessionEvent } from '@/api/events'
 import { PATHS } from '@/app/AppLink'
+import { isUnreachable } from '@/app/query-policy'
 import { NoDeveloper, gateOf, meQuery, sessionQuery, type Me } from '@/app/session'
 import { safeNext } from './next'
 
@@ -45,7 +46,7 @@ async function readAgain(queryClient: QueryClient): Promise<void> {
   const read = queryClient.fetchQuery({ ...sessionQuery, staleTime: 0, retry: false }).then(
     () => undefined,
     (error: unknown) => {
-      if (error instanceof TypeError || (error instanceof ApiRefused && error.status === 401)) return
+      if (isUnreachable(error) || (error instanceof ApiRefused && error.status === 401)) return
       throw error
     },
   )

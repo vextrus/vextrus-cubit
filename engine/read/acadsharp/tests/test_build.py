@@ -24,20 +24,25 @@ from engine.read.acadsharp.tests.build import (
     SOURCE,
     RuntimePackNotPinned,
     build_dumper,
+    program,
 )
 
 Fixture = Callable[..., Path]
 
 
-def test_every_package_is_restored_by_the_hash_its_lock_pins() -> None:
-    project = (SOURCE / "acadsharp-dump.csproj").read_text()
-    lock = json.loads((SOURCE / "packages.lock.json").read_text())
+@pytest.mark.parametrize("folder", [".", "acadsharp"])
+def test_every_package_is_restored_by_the_hash_its_lock_pins(folder: str) -> None:
+    # The dumper and the in-tree ACadSharp it compiles (ticket W317): every package each restores is
+    # pinned by its content hash; the one project reference is ACadSharp's own source, not a package.
+    project = re.sub(r"<!--.*?-->", "", next((SOURCE / folder).glob("*.csproj")).read_text(), flags=re.S)
+    lock = json.loads((SOURCE / folder / "packages.lock.json").read_text())
 
     assert "<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>" in project
     assert "<RestoreLockedMode>true</RestoreLockedMode>" in project
-    assert '<PackageReference Include="ACadSharp" Version="[3.8.0]" />' in project
-    packages = {name: entry for group in lock["dependencies"].values() for name, entry in group.items()}
-    assert packages["ACadSharp"]["resolved"] == "3.8.0"
+    assert "<PackageReference" not in project
+    entries = {name: entry for group in lock["dependencies"].values() for name, entry in group.items()}
+    packages = {name: entry for name, entry in entries.items() if entry["type"] != "Project"}
+    assert set(entries) - set(packages) <= {"acadsharp"}
     assert all(entry["contentHash"] for entry in packages.values())
 
 
@@ -66,6 +71,12 @@ def test_toolchain_sh_installs_the_dumper_only_at_its_pin() -> None:
     assert restored < checked_pack < built
     checked = body.index('if [ "$built" != "$pinned" ]')
     assert checked < body.index('install -m 0755 "$out/acadsharp-dump"')
+    # ACadSharp's source is prepared at its pins before anything is restored (ticket W317), and the
+    # dumper goes in its pin's own folder.
+    prepared = body.index('--lock "$PINS/acadsharp-source.lock"')
+    assert body.index("prepare-source.sh") <= prepared < restored
+    assert 'dest="$PREFIX/acadsharp-dump/${pinned:0:12}"' in body
+    assert "acadsharp/ACadSharp.csproj" in body
 
 
 def test_the_runtime_pack_pin_names_the_pack_by_a_sha512() -> None:
@@ -84,11 +95,12 @@ def test_the_sdk_is_the_pinned_one_and_never_rolls_forward() -> None:
 
 @pytest.mark.needs_toolchain
 def test_the_build_from_the_tree_is_the_pinned_build_byte_for_byte(dumper_prefix: Path) -> None:
-    built = hashlib.sha256((dumper_prefix / "acadsharp-dump").read_bytes()).hexdigest()
+    built = hashlib.sha256(program(dumper_prefix).read_bytes()).hexdigest()
 
     assert built == acadsharp.pinned_sha256(), (
         "the dumper built from tools/acadsharp-dump/ is not the pin: after changing its source, its "
-        "lock or toolchain/dotnet.version, write the new sha256 into toolchain/acadsharp-dump.sha256; "
+        "locks, toolchain/acadsharp-source.lock or toolchain/dotnet.version, write the new sha256 into "
+        "toolchain/acadsharp-dump.sha256; "
         "if the source did not change, the build is not reproducible on this machine"
     )
 
@@ -122,7 +134,7 @@ def test_the_build_inside_a_git_work_tree_is_still_the_pin(tmp_path: Path) -> No
 
     prefix = build_dumper(repository / "build")
 
-    built = hashlib.sha256((prefix / "acadsharp-dump").read_bytes()).hexdigest()
+    built = hashlib.sha256(program(prefix).read_bytes()).hexdigest()
     assert built == acadsharp.pinned_sha256()
 
 
@@ -157,9 +169,25 @@ def test_every_package_the_build_fetched_is_mit(dumper_prefix: Path) -> None:
         for path in nuspecs
     }
 
-    assert "acadsharp" in licences
+    assert "acadsharp" not in licences  # compiled from its source now (ticket W317), not fetched
     assert "microsoft.netcore.app.runtime.linux-x64" in licences  # the runtime inside the file
     assert licences == {name: ["MIT"] for name in licences}
+
+
+@pytest.mark.needs_toolchain
+def test_the_source_compiled_in_is_mit_and_its_licences_ship_with_the_dumper(
+    dumper_prefix: Path,
+) -> None:
+    # ACadSharp and its CSUtilities submodule, as prepare-source.sh left them: both MIT, and both
+    # texts are in ACADSHARP-LICENSE.txt, which toolchain.sh installs beside the dumper.
+    upstream = dumper_prefix.parent / "source" / "upstream"
+    shipped = (SOURCE / "ACADSHARP-LICENSE.txt").read_text()
+
+    for name in ("ACadSharp", "CSUtilities"):
+        text = (upstream / name / "LICENSE").read_text()
+        assert text.startswith("MIT License"), name
+        assert "Albert Domenech" in text
+        assert text.strip() in shipped, name
 
 
 @pytest.mark.needs_toolchain
@@ -187,18 +215,19 @@ def test_the_real_dumper_reads_a_fixture_in_the_sandbox(
 
 
 @pytest.mark.needs_toolchain
-def test_the_real_dumper_names_an_entity_it_could_not_read_and_reads_the_rest(
+def test_the_real_dumper_reads_an_insert_whose_stored_z_scale_is_zero(
     dumper_prefix: Path, dwg_fixture: Fixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # The real file's pattern (the owner's diagnosis on #79): an INSERT whose stored Z scale is 0.
+    # Stock ACadSharp 3.8.0 left it unread; the dumper's build carries #1205's repair (ticket W317),
+    # which reads the 0 as 1, so nothing is unread. The `unread` line stays for any other entity.
     monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(dumper_prefix))
     monkeypatch.delenv("VEXTRUS_SANDBOX", raising=False)
 
     read = acadsharp.dump(dwg_fixture("zero_z_scale"))
 
-    assert list(read.unread.values()) == ["INSERT"]
-    assert read.types == {"LINE": 1, "CIRCLE": 1}  # the rest of the file, read
-    assert not read.handles & set(read.unread)
+    assert read.unread == {}
+    assert read.types == {"LINE": 1, "CIRCLE": 1, "INSERT": 1}
 
 
 @pytest.mark.needs_toolchain
