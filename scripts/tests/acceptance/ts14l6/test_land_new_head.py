@@ -53,9 +53,12 @@ def landing(
     *,
     new_rollups: list[list[dict[str, Any]]],
     polls: int = 8,
+    old_rollups: list[list[dict[str, Any]]] | None = None,
+    update_first: bool = True,
 ) -> Landing:
-    """`land update 12`, then land PR 12, reviewed (a ledger PASS for its head) and one merge behind
-    main, so the update makes a new head; the old head's own CI was all green, `ci` included."""
+    """`land update 12` (unless not `update_first`), then land PR 12, reviewed (a ledger PASS for its
+    head) and one merge behind main, so the update makes a new head; the old head's own CI was all
+    green, `ci` included (unless `old_rollups` scripts it)."""
     world = World(tmp_path)
     old = world.pr(PR, ["scripts/feature.py"])
     world.main_moves_on()
@@ -69,7 +72,7 @@ def landing(
                 "head": old,
                 "files": ["scripts/feature.py"],
                 "update": {"head": new, "update_ref": [str(world.origin), f"refs/pull/{PR}/head"]},
-                "rollups": {old: [with_ci()], new: new_rollups},
+                "rollups": {old: old_rollups or [with_ci()], new: new_rollups},
                 "logs": {CI_JOB: NO_TEST_LOG},
             }
         },
@@ -82,11 +85,13 @@ def landing(
             options["polls"] = polls
             super().__init__(*args, **options)
 
-    capfd.readouterr()
-    with monkeypatch.context() as patch:
-        patch.setattr(land, "Gh", Fast)
-        updated = land.main(["update", str(PR)])
-    update_out = capfd.readouterr().out
+    updated, update_out = 0, ""
+    if update_first:
+        capfd.readouterr()
+        with monkeypatch.context() as patch:
+            patch.setattr(land, "Gh", Fast)
+            updated = land.main(["update", str(PR)])
+        update_out = capfd.readouterr().out
     readied: list[int] = []
 
     def ready(pr: int) -> int:
@@ -151,3 +156,17 @@ def test_a_new_head_whose_ci_check_never_comes_is_refused_not_merged_on_the_old_
     lines = [line for line in done.out.splitlines() if line.startswith("land:")]
     assert len(lines) == 1, done.out
     assert lines[0].startswith(f"land: refused: PR {PR}"), done.out
+
+
+def test_landing_alone_merges_the_head_as_it_stands_once_its_own_ci_check_succeeded(
+    env: Fixtures,
+) -> None:
+    """S17-F7: with no `land update`, landing never moves the head; it waits for the reviewed head's
+    own `ci` check (none yet, then green) and merges that head."""
+    done = landing(
+        *env, new_rollups=[with_ci()], old_rollups=[without_ci(), with_ci()], update_first=False
+    )
+    assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
+    assert done.code == 0, done.out + done.err
+    assert [merge["sha"] for merge in done.fake.merged()] == [done.old]
+    assert done.fake.merged()[0]["served"] >= 2, "merged before its own ci check succeeded"
