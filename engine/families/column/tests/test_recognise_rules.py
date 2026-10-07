@@ -25,6 +25,8 @@ from engine.families.types import (
 from engine.fixtures import dwg
 from engine.read import read
 from engine.read.artefact import ReadArtefact
+from engine.recognise.types import Box as RBox
+from engine.recognise.types import ViewCandidate, ViewKind
 
 pytestmark = pytest.mark.needs_toolchain
 
@@ -161,15 +163,13 @@ def test_a_view_of_several_storeys_gives_one_candidate_per_storey_with_its_band(
     assert len({c.candidate_key for c in c4s}) == 3
 
 
-def test_a_view_window_keeps_what_lies_inside_it(artefact: ReadArtefact) -> None:
-    class Box:
-        x0, y0, x1, y1 = -1000.0, -1000.0, 1000.0, 1000.0
+def test_a_view_box_no_model_space_sheet_places_is_asked(artefact: ReadArtefact) -> None:
+    view = ViewCandidate(box=RBox(-10.0, -10.0, 10.0, 10.0), kind=ViewKind.PLAN)
 
-    class View:
-        box = Box()
-        storeys = ()
+    found = _run(artefact, view=view)
 
-    assert _marks(_run(artefact, view=View())) == ["C4"]
+    assert found.candidates == ()
+    assert [q.code for q in found.questions] == ["engine.column.view_not_placed"]
 
 
 def test_a_rerun_gives_the_same_candidate_keys(artefact: ReadArtefact) -> None:
