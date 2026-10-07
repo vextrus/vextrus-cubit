@@ -647,9 +647,16 @@ KEPT_MIGRATION = "vextrus.projects.migrations.0003_a_building_keeps_its_project"
 UPDATABLE = {
     "projects_project": ["address", "code", "code_key", "name", "unit_system"],
     "projects_site": ["name"],
-    "projects_building": ["code", "name", "ordinal"],
+    "projects_building": [
+        "code",
+        "gfa_entered_at",
+        "gfa_entered_by",
+        "gross_floor_area_m2",
+        "name",
+        "ordinal",
+    ],
 }
-"""0001's column grants: what a person may change."""
+"""0001's column grants and 0004's Gross Floor Area (S16-B): what a person may change."""
 
 
 def acl(cursor: Any, table: str) -> tuple[list[str], dict[str, list[str]]]:
