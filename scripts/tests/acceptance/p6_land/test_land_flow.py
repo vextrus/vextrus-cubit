@@ -1,10 +1,15 @@
 """T-LAND 4: `land()` through the real `Gh` class and a fake gh 2.45 on PATH, end to end: each refusal is
 exit 3 with one plain `land: ...` line (no traceback), the merge is pinned to the head CI was green on,
-an `update-branch` conflict is the builder's to fix, and the lander never moves a branch itself. Main
-is brought in through GitHub's REST route (`gh api --method PUT .../pulls/<n>/update-branch -f
+a conflict with main is the builder's to fix, and the lander never moves a branch itself.
+
+S17-F7 (the owner's ruling, 7 Oct 2026: main's ruleset no longer requires a branch to be up to date):
+the lander lands a PR's head as it stands, CI green on that head; a PR GitHub reports CONFLICTING /
+DIRTY is refused naming `land update`; only `land update <PR>` moves the head, bringing main in
+through GitHub's REST route (`gh api --method PUT .../pulls/<n>/update-branch -f
 expected_head_sha=<head>`): gh 2.45 has no `gh pr update-branch` (amendment 1).
 
-Seams (fixed by the ticket): `scripts.land.Gh(repo, *, sleep, polls)`, `land(..., repo=)`.
+Seams (fixed by the ticket): `scripts.land.Gh(repo, *, sleep, polls)`, `land(..., repo=)`,
+`scripts.land.main(["update", "<PR>"])`.
 """
 
 import os
@@ -40,6 +45,7 @@ class Landing:
     out: str
     err: str
     started: list[list[str]]
+    updated: int | None = None
 
     def lines(self) -> list[str]:
         return [line for line in self.out.splitlines() if line.startswith("land:")]
@@ -61,14 +67,17 @@ def landing(
     passed: bool = True,
     views: list[str] | None = None,
     ready: int = 0,
+    update_first: bool = False,
     **state: Any,
 ) -> Landing:
-    """Land PR 12 from a fresh clone; `views` names fixture payloads for the head CI runs on (the
-    merged head when `behind` and the update succeeds, else the reviewed head)."""
+    """Land PR 12 from a fresh clone; `views` names fixture payloads for the head CI runs on: the
+    reviewed head as it stands, or, with `update_first` (`land update 12` run before landing, its exit
+    code kept in `updated`), the merged head the update makes. When `behind`, GitHub would accept a
+    request to bring main in, moving the head to the merge, unless `update` scripts another answer."""
     repo = PrRepo(tmp_path, behind=behind)
     if passed:
         record(tmp_path / "ledger", repo.reviewed)
-    tested = repo.merged if behind and repo.merged else repo.reviewed
+    tested = repo.merged if update_first and repo.merged else repo.reviewed
     payloads = [rollup(name, tested) for name in views or ["green"]]
     if behind and "update" not in state:
         state["update"] = {"head": repo.merged, "update_ref": [str(repo.origin), "refs/pull/12/head"]}
@@ -81,6 +90,18 @@ def landing(
         **state,
     )
     monkeypatch.chdir(repo.work)
+    updated: int | None = None
+    if update_first:
+        land = lander()
+
+        class Fast(land.Gh):  # type: ignore[misc, name-defined]
+            def __init__(self, *args: Any, **options: Any) -> None:
+                options["sleep"] = lambda _: None
+                super().__init__(*args, **options)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(land, "Gh", Fast)
+            updated = land.main(["update", str(PR)])
     started: list[list[str]] = []
     real = subprocess.Popen
 
@@ -104,7 +125,7 @@ def landing(
             repo=repo.work,
         )
     out, err = capfd.readouterr()
-    return Landing(code, fake, repo, out, err, started)
+    return Landing(code, fake, repo, out, err, started, updated)
 
 
 def git_subcommand(argv: list[str]) -> str | None:
@@ -151,18 +172,32 @@ def test_c_merge_ready_refusing_lands_nothing(env: Fixtures) -> None:
     assert not done.fake.called("pr", "merge")
 
 
-def test_d_an_update_branch_conflict_is_the_builder_s_to_fix(env: Fixtures) -> None:
-    done = landing(*env, behind=True, update="conflict")
+def test_d_a_conflict_with_main_is_the_builder_s_to_fix_and_names_land_update(
+    env: Fixtures,
+) -> None:
+    """S17-F7: GitHub reports the PR CONFLICTING / DIRTY; an update cannot resolve a conflict, so the
+    lander never asks for one."""
+    done = landing(
+        *env,
+        behind=True,
+        update="conflict",
+        mergeable="CONFLICTING",
+        merge_state_status="DIRTY",
+    )
     line = done.refused_plainly()
+    assert "land update" in line, "the refusal does not name `land update`: " + line
     assert "conflicts with main" in line
     assert "builder" in line
-    assert [update_request(argv, done.repo.reviewed) for argv in done.fake.updates()] == [True]
+    assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
     assert "served" not in done.fake.state, "CI was waited on for a branch that cannot take main"
     assert not done.fake.called("pr", "merge")
 
 
-def test_e_a_head_moved_by_update_branch_lands_on_the_new_head(env: Fixtures) -> None:
-    done = landing(*env, behind=True)
+def test_e_a_head_moved_by_land_update_lands_on_the_new_head(env: Fixtures) -> None:
+    """S17-F7: `land update 12` is the one path that moves the head (one request, carrying the
+    reviewed head); landing then merges the new head CI was green on, adding no request of its own."""
+    done = landing(*env, behind=True, update_first=True)
+    assert done.updated == 0, done.out + done.err
     assert done.code == 0, done.out + done.err
     assert done.repo.merged is not None
     assert [update_request(argv, done.repo.reviewed) for argv in done.fake.updates()] == [True]
@@ -185,15 +220,16 @@ def test_e_a_head_moved_by_update_branch_lands_on_the_new_head(env: Fixtures) ->
 
 def test_j_a_reviewed_green_pr_one_commit_behind_main_lands(env: Fixtures) -> None:
     """Amendment 1: `gh pr update-branch` is an unknown command on gh 2.45, so a lander that calls it
-    refuses every PR behind main with a false "conflicts with main"."""
+    refuses every PR behind main with a false "conflicts with main". S17-F7: it lands as it stands,
+    main not brought in."""
     done = landing(*env, behind=True)
     assert "conflicts with main" not in done.out
-    assert done.code == 0, done.out + done.err
     assert not done.fake.called("pr", "update-branch"), "gh 2.45 has no `gh pr update-branch`"
-    assert done.repo.merged is not None
-    assert done.fake.state["head"] == done.repo.merged, "main was brought into the PR"
+    assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
+    assert done.code == 0, done.out + done.err
+    assert done.fake.state["head"] == done.repo.reviewed, "the PR's head moved"
     assert done.fake.called("pr", "merge") == [
-        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.merged]
+        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.reviewed]
     ]
     assert done.lines() == [f"land: PR {PR} merged"]
 
