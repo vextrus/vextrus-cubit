@@ -4,10 +4,10 @@
  * sheet keys are listed and kept in focus.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { page, userEvent as pointer } from 'vitest/browser'
 import userEvent from '@testing-library/user-event'
-import { DETAIL_VIEW, PLAN_VIEW, canvasOf, clean, excludedBy, focusRow, openList, openSheet, rowOf, seed, statusBar } from '@/acceptance/ts15w2/keys.fixture'
+import { DETAIL_VIEW, PLAN_VIEW, canvasOf, clean, excludedBy, focusRow, focusedSheet, openList, openSheet, rowOf, seed, statusBar } from '@/acceptance/ts15w2/keys.fixture'
 
 beforeEach(async () => {
   await page.viewport(1440, 900)
@@ -131,5 +131,64 @@ describe('a selection of several rows is named by its count (round 2)', () => {
     await focusRow('S-02')
     await userEvent.keyboard('x')
     await waitFor(() => expect(body()).toContain('Exclude S-02. Why?'))
+  })
+})
+
+describe('the exclusion picker is modal (round 4)', () => {
+  const body = () => clean(document.body.textContent)
+  const selectedNow = () => [...document.querySelectorAll('[role="row"][aria-selected="true"]')].length
+
+  async function openPickerOnThree(s: ReturnType<typeof seed>) {
+    await openList(s)
+    await focusRow('S-01')
+    await userEvent.keyboard('{Shift>}{ArrowDown}{ArrowDown}{/Shift}')
+    await userEvent.keyboard('x')
+    await waitFor(() => expect(body()).toContain('Exclude 3 sheets. Why?'))
+  }
+
+  it('↓ while it is open moves nothing, and the reason excludes the three sheets it named', async () => {
+    const s = seed()
+    await openPickerOnThree(s)
+    await userEvent.keyboard('{ArrowDown}')
+    expect(focusedSheet()).toBe('S-03')
+    expect(selectedNow()).toBe(3)
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(excludedBy(s.step1).numbers).toEqual(['S-01', 'S-02', 'S-03']))
+  })
+
+  it('Shift ↑ while it is open does not shrink the selection, and the reason excludes the three it named', async () => {
+    const s = seed()
+    await openPickerOnThree(s)
+    await userEvent.keyboard('{Shift>}{ArrowUp}{/Shift}')
+    expect(selectedNow()).toBe(3)
+    expect(body()).toContain('Exclude 3 sheets. Why?')
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(excludedBy(s.step1).numbers).toEqual(['S-01', 'S-02', 'S-03']))
+  })
+
+  it('other keys (Home, End, Q, O, ?) do nothing while it is open', async () => {
+    const s = seed()
+    await openPickerOnThree(s)
+    await userEvent.keyboard('{Home}{End}q?')
+    expect(focusedSheet()).toBe('S-03')
+    expect(screen.queryByRole('dialog', { name: 'Keys' })).toBeNull()
+    expect(body()).toContain('Exclude 3 sheets. Why?')
+  })
+
+  it('a click on the list closes it without excluding anything', async () => {
+    const s = seed()
+    await openPickerOnThree(s)
+    await userEvent.click(within(rowOf('S-05')).getByText('S-05'))
+    await waitFor(() => expect(body()).not.toContain('Why?'))
+    expect(excludedBy(s.step1).numbers).toEqual([])
+  })
+
+  it('Esc closes it and the keys work again', async () => {
+    const s = seed()
+    await openPickerOnThree(s)
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(body()).not.toContain('Why?'))
+    await userEvent.keyboard('{ArrowDown}')
+    await waitFor(() => expect(focusedSheet()).toBe('S-04'))
   })
 })

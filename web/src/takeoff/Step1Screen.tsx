@@ -715,7 +715,7 @@ function Step1({
       </SlotFill>
 
       {mode === 'list' ? (
-        <ListRegion label={spaceLabel} onSpace={fromList} onEnd={focusEnd} onExtend={extendBy}>
+        <ListRegion label={spaceLabel} onSpace={fromList} onEnd={focusEnd} onExtend={extendBy} onPointer={() => setPicker(null)}>
           <FilesBand projectId={project.id} onOpen={(file) => setPanel({ file })} />
           <StillReading files={reading} />
           <SheetList
@@ -821,9 +821,11 @@ function ListRegion({
   onSpace,
   onEnd,
   onExtend,
+  onPointer,
   children,
 }: {
   label: string
+  onPointer: () => void
   onSpace: () => void
   onEnd: (last: boolean) => void
   onExtend: (by: number) => void
@@ -831,7 +833,7 @@ function ListRegion({
 }) {
   const { t } = useLingui()
   return (
-    <KeyRegion name="list" role="grid" aria-label={t`Sheets`} className="min-h-0 flex-1 overflow-auto pb-24">
+    <KeyRegion name="list" role="grid" aria-label={t`Sheets`} className="min-h-0 flex-1 overflow-auto pb-24" onPointerDownCapture={onPointer}>
       <SpaceKey label={label} run={onSpace} />
       <ListKeys onEnd={onEnd} onExtend={onExtend} />
       {children}

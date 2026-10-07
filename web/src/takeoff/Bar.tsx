@@ -395,7 +395,7 @@ export function ExclusionPicker({ row, several = false, onPick, onCancel }: { ro
     },
   ]
   return (
-    <KeyScope level="mode" name="exclusion-picker">
+    <KeyScope level="mode" name="exclusion-picker" modal>
       <PickerKeys bindings={bindings} />
       <div
         role="group"
