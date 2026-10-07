@@ -359,12 +359,13 @@ def test_neither_reader_lists_a_polylines_vertices(dwg_fixture: Fixture) -> None
 
 @pytest.mark.needs_toolchain
 @pytest.mark.usefixtures("real_dumper")
-def test_an_insert_with_a_zero_z_scale_holds_the_file_with_one_unread_item(
+def test_an_insert_with_a_zero_z_scale_agrees_with_no_finding(
     dwg_fixture: Fixture,  # noqa: F811
 ) -> None:
-    # The owner's ruling (28 Sep 2026, "Hold it"), on the real file's pattern: LibreDWG reads the
-    # INSERT (scale 1, 1, 0); ACadSharp 3.8.0 cannot (DomCR/ACadSharp#1205), reads the rest, and
-    # names it.
+    # The real file's pattern: LibreDWG reads the INSERT (scale 1, 1, 0); stock ACadSharp 3.8.0 could
+    # not, and the file was held ("Hold it", 28 Sep 2026). The dumper is now built with
+    # DomCR/ACadSharp#1205's repair (the owner's ruling of 5 Oct 2026, ticket W317), which reads the 0
+    # as 1 as AutoCAD's AUDIT does, so the two readers agree, with no special rule in compare().
     path = dwg_fixture("zero_z_scale")
     first = read_dwg(path)
     inserts = [e for e in first.entities.values() if e.type == "INSERT"]
@@ -372,13 +373,8 @@ def test_an_insert_with_a_zero_z_scale_holds_the_file_with_one_unread_item(
 
     result = run(path, first)
 
-    assert result.outcome == CheckOutcome.FIRED
-    assert result.finding == {
-        "code": "engine.decoders_agree.disagree",
-        "params": {
-            "items": 1, "only_first": 1, "only_second": 0, "kinds": 1, "layers": 1, "unread": 1,
-        },
-    }  # fmt: skip
+    assert result.outcome == CheckOutcome.PASSED, result.finding
+    assert result.finding is None
 
 
 @pytest.mark.needs_toolchain

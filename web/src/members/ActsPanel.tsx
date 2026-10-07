@@ -9,7 +9,7 @@ import { useEffect, useRef } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useInfiniteQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
-import { ApiRefused, api, unwrap } from '@/api/client'
+import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 import { sessionQuery } from '@/app/session'
 import { useCloseOnEsc } from '@/app/shell'
@@ -43,9 +43,6 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
     queryFn: ({ pageParam }) =>
       unwrap(api.GET('/api/activity', { params: { query: { actor: person.userId, limit: ACTS_PAGE, ...(pageParam ? { before: pageParam } : {}) } } })),
     getNextPageParam: (last) => (last.length === ACTS_PAGE ? (last.at(-1)?.id ?? null) : null),
-    // As the frame does: an unreachable server is tried again until it answers (the words say so).
-    retry: (failures, error) => !(error instanceof ApiRefused) && (error instanceof TypeError || failures < 2),
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
   })
 
   const name = person.name
