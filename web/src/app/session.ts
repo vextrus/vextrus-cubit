@@ -206,12 +206,6 @@ async function fetchMe(): Promise<Me> {
   return meFrom(await unwrap(api.GET('/api/me')))
 }
 
-/** A refusal or a missing Developer is an answer, not a failure to retry; an unreachable server keeps being tried. */
-function retry(failures: number, error: unknown): boolean {
-  if (error instanceof ApiRefused || error instanceof NoDeveloper) return false
-  return error instanceof TypeError || failures < 2
-}
-
 export const sessionQuery = queryOptions({
   queryKey: ['session'],
   queryFn: async (): Promise<Session> => {
@@ -225,8 +219,6 @@ export const sessionQuery = queryOptions({
   // Read again whenever the tab comes back into view (another tab may have signed out, or switched
   // the Developer the session works in), as well as on every move inside the frame (auth/gate.ts).
   refetchOnWindowFocus: 'always',
-  retry,
-  retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
 })
 
 /** `/api/me`, or null when signed out: for the pages outside the frame. */
@@ -241,7 +233,6 @@ export const meQuery = queryOptions({
     }
   },
   staleTime: 0,
-  retry,
 })
 
 /** The project a code names, if this member may open it; undefined for any other (never "forbidden"). */

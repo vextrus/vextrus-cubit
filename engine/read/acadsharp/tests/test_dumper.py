@@ -74,8 +74,10 @@ def test_a_dumper_that_is_not_the_pinned_build_is_refused_and_never_run(
     tmp_path: Path, drawing: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     ran = tmp_path / "ran"
-    program, _ = script(tmp_path / "swapped", f"touch {ran}\n" + GOOD)
-    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(program.parent))
+    # In the folder the pin names, where toolchain.sh installs it (ticket W317), but another build.
+    pinned = acadsharp.pinned_sha256()[:12]
+    program, _ = script(tmp_path / "swapped" / pinned, f"touch {ran}\n" + GOOD)
+    monkeypatch.setenv("VEXTRUS_ACADSHARP_DUMP", str(program.parent.parent))
     monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
 
     with pytest.raises(DumperNotPinned) as raised:

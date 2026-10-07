@@ -10,17 +10,31 @@
   (with it on, the SDK stamps the enclosing repository's HEAD into the version: measured, another
   hash) and PathMap maps the build folder to /_/ (a source generator's file-local types are named
   after a hash of the source's path: measured, two folders gave two hashes; Program.cs uses no
-  generator, and PathMap keeps any path out). The packages: ACadSharp and the build's ILLink task are pinned by hash in packages.lock.json
-  (restored in locked mode); the .NET runtime pack is not in the lock (NuGet's lock lists no runtime
+  generator, and PathMap keeps any path out).
+
+  ACadSharp is compiled from its source, not taken from NuGet (ticket W317; the owner's ruling of 5 Oct
+  2026, "Build ACadSharp with #1205 ourselves"): acadsharp/ACadSharp.csproj, referenced below, compiles
+  ACadSharp 3.8.0's source plus one patch, DomCR/ACadSharp#1205's DWG scale repair (an INSERT whose
+  stored scale is 0 is read as 1, as AutoCAD's AUDIT repairs it, instead of left unread). The source is
+  fetched at build time by prepare-source.sh at the commits toolchain/acadsharp-source.lock pins, each
+  file checked against the lock's manifest, and the patch (patches/) checked against its pinned sha256
+  before it is applied; single-file publish bundles the assembly, so the product is still one file and
+  one pin. When a release has #1205: delete the patch, toolchain/acadsharp-source.lock and acadsharp/,
+  restore `<PackageReference Include="ACadSharp" Version="[x.y.z]" />` at that version, regenerate
+  packages.lock.json and bump toolchain/acadsharp-dump.sha256.
+
+  The packages: the build's ILLink task is pinned by hash in packages.lock.json (each project's lock
+  restored in locked mode; ACadSharp's own net10.0 build needs no package); the .NET runtime pack is not in the lock (NuGet's lock lists no runtime
   pack; the SDK chooses 10.0.12, the version it bundles), so its .nupkg is pinned by its sha512 in
   toolchain/acadsharp-dump.runtime.sha512, checked after the restore and before the build. The
   ASP.NET pack is not fetched (DisableTransitiveFrameworkReferenceDownloads). scripts/owner/toolchain.sh
   builds it and installs it only when its hash is the pin; the reader (engine/read/acadsharp/) runs
   it only when its hash is the pin.
 
-  What is inside it, and the licences (checked 28 Sep 2026): ACadSharp 3.8.0, MIT (its NuGet
-  package's `<license type="expression">MIT</license>`, "Copyright (c) 2026 Albert Domenech"; its
-  net10.0 build depends on no other package; ACADSHARP-LICENSE.txt); and the .NET 10 runtime
+  What is inside it, and the licences (checked 28 Sep 2026; the source's on 5 Oct 2026): ACadSharp
+  3.8.0 compiled from its source with #1205's DWG hunks, MIT ("Copyright (c) 2026 Albert Domenech"),
+  and the CSMath and CSUtilities code it compiles in from its CSUtilities submodule, MIT ("Copyright
+  (c) 2020 Albert Domenech"; both texts in ACADSHARP-LICENSE.txt); and the .NET 10 runtime
   (Microsoft.NETCore.App.Runtime.linux-x64 10.0.12 and its single-file host), MIT, which itself
   carries third-party code under MIT, BSD, zlib (zlib-ng), Apache-2.0 and the Unicode licence, listed
   in its THIRD-PARTY-NOTICES.TXT: permissive, none copyleft. Each asks that its notice go with every
@@ -75,8 +89,11 @@
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <!-- Program.cs alone: the build folder also holds acadsharp/ and the prepared upstream/. -->
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ACadSharp" Version="[3.8.0]" />
+    <Compile Include="Program.cs" />
+    <ProjectReference Include="acadsharp/ACadSharp.csproj" />
   </ItemGroup>
 </Project>
