@@ -538,10 +538,9 @@ function SheetRow({
     )
   else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
   // One title on several runs that draw different things: told, never asked (the owner, 5 Oct 2026, #334).
-  const sharing = f.integer(row.shares ?? 0)
   const shares = row.shares ? (
     <span className="ms-2 shrink-0 whitespace-nowrap text-ink-secondary">
-      <Trans>{sharing} sheets share this title</Trans>
+      <Plural value={row.shares} one="# sheet shares this title" other="# sheets share this title" />
     </span>
   ) : null
 

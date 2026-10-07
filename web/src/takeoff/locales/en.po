@@ -358,6 +358,11 @@ msgctxt "storey"
 msgid "top (top from Step 3)"
 msgstr "top (top from Step 3)"
 
+#. placeholder {0}: row.shares
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"
+msgstr "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"
+
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
 msgstr "Enter confirms it and opens the next open sheet."
@@ -536,10 +541,6 @@ msgstr "Open {name}"
 #: src/takeoff/Bar.tsx
 msgid "{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches"
 msgstr "{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches"
-
-#: src/takeoff/SheetList.tsx
-msgid "{sharing} sheets share this title"
-msgstr "{sharing} sheets share this title"
 
 #: src/takeoff/SheetList.tsx
 msgid "Title, as drawn"
