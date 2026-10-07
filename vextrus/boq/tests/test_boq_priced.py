@@ -162,14 +162,29 @@ def test_every_allowance_step_is_a_takeoff_step_after_the_grid() -> None:
         steps.section_of(default.step)
 
 
-def test_confirmed_reads_takeoff_s_service_and_keeps_only_step_keys(
-    monkeypatch: pytest.MonkeyPatch,
+def test_confirmed_reads_takeoff_s_step_rows_and_keeps_only_confirmed_step_keys(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from vextrus.takeoff import services as takeoff
 
-    building = uuid.uuid4()
-    assert steps.confirmed(building) == frozenset()
-    monkeypatch.setattr(
-        takeoff, "confirmed_steps", lambda b: ["columns", "sheets", "grid"], raising=False
-    )
-    assert steps.confirmed(building) == frozenset({"columns", "grid"})
+    @dataclass(frozen=True)
+    class Row:
+        step: str
+        status: str
+
+    asked: list[uuid.UUID] = []
+
+    class FrameSteps:
+        @staticmethod
+        def steps(project_id: uuid.UUID) -> list[Row]:
+            asked.append(project_id)
+            return [Row("columns", "confirmed"), Row("grid", "in_review"), Row("sheets", "confirmed")]
+
+    with qs_project.member.acting():
+        [building] = projects.buildings(qs_project.project_id)
+        monkeypatch.delattr(takeoff, "frame_steps", raising=False)
+        if "frame_steps" not in takeoff.__all__:
+            assert steps.confirmed(building.id) == frozenset()
+        monkeypatch.setattr(takeoff, "frame_steps", FrameSteps, raising=False)
+        assert steps.confirmed(building.id) == frozenset({"columns"})
+    assert asked == [qs_project.project_id]

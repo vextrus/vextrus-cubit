@@ -176,7 +176,7 @@ def read(project_id: uuid.UUID) -> PricedBoq:
     area_m2: Decimal | None = None
     for building in projects.buildings(project_id):
         gfa = projects.gfa.gross_floor_area(building.id, project_id=project_id)
-        reading = _read_building(building.id, gfa, rates, currency)
+        reading = _read_building(project_id, building.id, gfa, rates, currency)
         billed += reading.billed
         allowance_lines += reading.allowances
         unpriced += reading.unpriced
@@ -221,19 +221,20 @@ def item_lines(project_id: uuid.UUID, item_code: str) -> tuple[TracedLine, ...]:
     found: list[TracedLine] = []
     for building in projects.buildings(project_id):
         gfa = projects.gfa.gross_floor_area(building.id, project_id=project_id)
-        for line in _billed_lines(building.id, gfa is not None):
+        for line in _billed_lines(project_id, building.id, gfa is not None):
             if line.item_code == item_code:
                 found.append(_traced(line))
     return tuple(found)
 
 
 def _read_building(
+    project_id: uuid.UUID,
     building_id: uuid.UUID,
     gfa: Any,
     rates: _Rates,
     currency: Currency,
 ) -> _Reading:
-    lines = _measured(building_id)
+    lines = _measured(project_id, building_id)
     reading = _Reading()
     if gfa is None:
         reading.billed = list(lines)
@@ -251,32 +252,22 @@ def _read_building(
     return reading
 
 
-def _billed_lines(building_id: uuid.UUID, has_gfa: bool) -> list[Any]:
-    lines = _measured(building_id)
+def _billed_lines(project_id: uuid.UUID, building_id: uuid.UUID, has_gfa: bool) -> list[Any]:
+    lines = _measured(project_id, building_id)
     if not has_gfa:
         return list(lines)
     closed = steps.confirmed(building_id)
     return [line for line in lines if line.step in closed]
 
 
-def _measured(building_id: uuid.UUID) -> tuple[Any, ...]:
+def _measured(project_id: uuid.UUID, building_id: uuid.UUID) -> tuple[Any, ...]:
+    """The Building's Measurement Lines at the Live Model's current version (seq None) under the
+    Project's pinned Rule Set version (`measurement.services.pinned`, C11, where measurement
+    answers it; until then None)."""
     measurement = import_module("vextrus.measurement.services")
-    seq, version = _model_and_rule_set(building_id)
-    return tuple(measurement.measure(building_id, seq, version).lines)
-
-
-def _model_and_rule_set(building_id: uuid.UUID) -> tuple[int | None, uuid.UUID | None]:
-    """The Live Model's current version and the pinned Rule Set version, where their modules answer
-    them (`live_model.services.latest_seq`, `measurement.services.pinned_version`); else None, and
-    `measure` reads its own current ones."""
-    live_model = import_module("vextrus.live_model.services")
-    measurement = import_module("vextrus.measurement.services")
-    latest = getattr(live_model, "latest_seq", None)
-    pinned = getattr(measurement, "pinned_version", None)
-    return (
-        None if latest is None else latest(building_id),
-        None if pinned is None else pinned(building_id),
-    )
+    pinned = getattr(measurement, "pinned", None)
+    version = None if pinned is None else getattr(pinned(project_id), "id", None)
+    return tuple(measurement.measure(building_id, None, version).lines)
 
 
 class _Rates:

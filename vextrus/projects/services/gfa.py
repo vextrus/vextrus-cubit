@@ -98,6 +98,12 @@ def gross_floor_area(
     return _view(building)
 
 
+def project_of(building_id: uuid.UUID) -> uuid.UUID:
+    """The Project a Building belongs to, for a reader that holds only the Building (`boq` asking
+    `takeoff` for its steps); `ProjectNotFound` outside the Membership's Projects."""
+    return _building(building_id, None).project_id
+
+
 def _building(building_id: uuid.UUID, project_id: uuid.UUID | None, *, lock: bool = False) -> Building:
     found = Building.objects.filter(id=building_id, project_id__in=_open().values("id"))
     if project_id is not None:
