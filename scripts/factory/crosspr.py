@@ -224,6 +224,7 @@ def check_pr(
     number = int(pr["number"])  # type: ignore[call-overload]
     notes: list[str] = []
     unrun: list[str] = []
+    main_sha = git_out("rev-parse", "origin/main")  # read once: the worktree and the key use this sha
     base = git("merge-tree", "--write-tree", "origin/main", head)
     if base.returncode != 0:
         notes.append(f"crosspr: #{number} conflicts with main: not yours")
@@ -239,7 +240,7 @@ def check_pr(
         notes.append(f"crosspr: #{number} tests not run: {reason}; merge-tree only")
         return None, notes, unrun, "merge-only"
     tree = Path(tempfile.mkdtemp(prefix="worktree-", dir=kept))
-    added = git("worktree", "add", "--detach", "-q", str(tree), "origin/main", cwd=root)
+    added = git("worktree", "add", "--detach", "-q", str(tree), main_sha, cwd=root)
     if added.returncode != 0:
         raise Refusal(f"git worktree add failed: {added.stderr.strip()}")
     try:
@@ -257,7 +258,7 @@ def check_pr(
             raise Refusal(f"#{number} merged into main alone failed: {joined.stderr.strip()}")
         baseline_tests = Tests(tree, kept, f"pr-{number}-main")
         key = [
-            git_out("rev-parse", "origin/main"),
+            main_sha,
             head,
             f"node={shutil.which('node') is not None}",
             f"workers={worker_count()}",
@@ -268,7 +269,7 @@ def check_pr(
             green = bool(json.loads(cache.read_text())["green"])
         except OSError, ValueError, KeyError, TypeError, Refusal:
             green = baseline_tests.run(changed).green
-            if not baseline_tests.timed_out:
+            if baseline_tests.keepable:
                 try:
                     cache.parent.mkdir(parents=True, exist_ok=True)
                     cache.write_text(json.dumps({"green": green}))
@@ -312,6 +313,12 @@ class Tests:
     @property
     def green(self) -> bool:
         return not self.timed_out and all(code == 0 for code in self.exits)
+
+    @property
+    def keepable(self) -> bool:
+        """Worth keeping: every run exited 0 or 1 (pass, or tests failed). A time-out, a signal or
+        pytest's exit 2-4 (interrupted, internal or usage error) is a machine fault: run again."""
+        return not self.timed_out and all(code in (0, 1) for code in self.exits)
 
     @property
     def failed(self) -> bool:
