@@ -6,8 +6,9 @@ the caller's `Space`) and keeps what lies in `box` (the whole space when `box` i
 given, is the Drafting Profile's grid layers: only lines and circles on them are kept. No layer is
 named here (ADR 0039).
 
-A crafted file is bounded by the walk's own limits (placement's `MAX_VISITS`); an entity that cannot be
-placed, or whose numbers are not finite, is skipped.
+A crafted file is bounded by the walk's own limits (placement's `MAX_VISITS`) and by `MAX_TEXTS`,
+`MAX_CIRCLES` and `MAX_SEGMENTS`, past which nothing more is kept; an entity that cannot be placed, or
+whose numbers are not finite, is skipped.
 """
 
 import math
@@ -29,6 +30,11 @@ CIRCLE_TYPES = frozenset({"CIRCLE"})
 """The types a bubble is drawn as."""
 MAX_LABEL = 8
 """The longest text kept: a grid label is short."""
+MAX_TEXTS = 200_000
+MAX_CIRCLES = 100_000
+MAX_SEGMENTS = 2_000_000
+"""The most short texts, circles and line segments one space gives (the real sets' model spaces hold
+tens of thousands): a crafted file's surplus is left unread, never held."""
 
 type Box = tuple[float, float, float, float]
 
@@ -125,9 +131,10 @@ def read_space(artefact: ReadArtefact, layers: Collection[str] = ()) -> Drawn:
     circles: list[Circle] = []
     labels: list[Label] = []
     wanted = set(layers)
+    count = 0
     for entity, chain in walk.entities(model):
         if isinstance(entity, Text):
-            if entity.type == "ATTDEF" or len(entity.text) > 64:
+            if entity.type == "ATTDEF" or len(entity.text) > 64 or len(labels) >= MAX_TEXTS:
                 continue
             placed = segmenter._place(entity, chain)
             if placed is None or len(placed.shown) > MAX_LABEL:
@@ -139,15 +146,19 @@ def read_space(artefact: ReadArtefact, layers: Collection[str] = ()) -> Drawn:
         if isinstance(entity, Insert) or (wanted and entity.layer not in wanted):
             continue
         if entity.type in CIRCLE_TYPES:
+            if len(circles) >= MAX_CIRCLES:
+                continue
             found = _circle(entity, chain, artefact)
             if found is not None:
                 circles.append(found)
             continue
-        if entity.type not in LINE_TYPES:
+        if entity.type not in LINE_TYPES or count >= MAX_SEGMENTS:
             continue
         segments = _segments(entity, chain)
         if segments is None or not len(segments):
             continue
+        segments = segments[: MAX_SEGMENTS - count]
+        count += len(segments)
         entities.append((entity.handle, tuple(link.insert.handle for link in chain), entity.layer))
         pieces.append(segments)
         owners.append(len(entities) - 1)

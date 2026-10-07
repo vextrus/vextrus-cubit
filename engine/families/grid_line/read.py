@@ -11,6 +11,12 @@ lies on (within `ON_LINE` radii of the line through it) and that ends at the bub
 `END_GAP` radii beyond the centre, or reaching into the bubble at most `INTO` radii past it. Collinear
 pieces of the same line (a dashed line drawn in pieces) within `JOIN_GAP` radii of each other join it.
 
+**A line drawn as tails only** (a plan that leaves the grid line out across its drawing and keeps a
+bubble at each end with a short tail, at least `MIN_TAIL` radii, leaving it): two bubbles of one label
+whose tails point at each other (within `FACING`), each centre on the other's tail line and at least
+`MIN_LENGTH` radii apart, make the line from one centre to the other. A lone bubble with a tail
+(a section or detail callout) is no grid line.
+
 **The grid's direction** is the median of the lines' angles taken modulo a right angle, snapped to zero
 when the drawing is square to its axes; each line is then "x" (drawn along the grid's first direction)
 or "y" (along its second), and its `offset` is its place across that direction, in drawing units.
@@ -36,6 +42,16 @@ ON_LINE = 0.25
 END_GAP = 4.0
 INTO = 1.5
 JOIN_GAP = 6.0
+MIN_TAIL = 2.0
+FACING = 0.999
+"""How nearly two tails must point at each other (the cosine of the angle between them, reversed)."""
+MAX_NEAR = 512
+"""The most label-shaped texts in a circle's column (its width, any height) it is weighed against: a
+column crowded past this is a crafted pile, not a drawing, and its circle is skipped, so no circle
+costs more than this."""
+MAX_BUBBLES = 2_000
+"""The most bubbles one view is read with (a plan's grid has tens): the rest are not followed, so a
+crafted view costs at most this many passes over its segments."""
 TEXT_NEAR = 0.6
 """A label's centre lies within this many radii of its bubble's centre."""
 TEXT_MIN, TEXT_MAX = 0.15, 1.7
@@ -92,6 +108,8 @@ def bubbles(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> list[Bubb
         r = circle.radius
         lo = np.searchsorted(sorted_x, circle.x - TEXT_NEAR * r, side="left")
         hi = np.searchsorted(sorted_x, circle.x + TEXT_NEAR * r, side="right")
+        if hi - lo > MAX_NEAR:
+            continue
         near = order[lo:hi]
         near = near[np.hypot(xs[near] - circle.x, ys[near] - circle.y) <= TEXT_NEAR * r]
         near = near[(hs[near] >= TEXT_MIN * r) & (hs[near] <= TEXT_MAX * r)]
@@ -99,6 +117,8 @@ def bubbles(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> list[Bubb
         if len(shown) == 1:
             nearest = min(near, key=lambda i: math.hypot(xs[i] - circle.x, ys[i] - circle.y))
             found.append(Bubble(labels[int(nearest)], circle))
+            if len(found) >= MAX_BUBBLES:
+                break
     return found
 
 
@@ -153,6 +173,60 @@ def _line_of(drawn: Drawn, bubble: Bubble) -> Ends | None:
     return start, end, int(drawn.segment_entity[best])
 
 
+def _tail_of(drawn: Drawn, bubble: Bubble) -> tuple[tuple[float, float], int] | None:
+    """The longest short tail leaving the bubble (a segment of at least `MIN_TAIL` radii on the line
+    through its centre, its near end within `END_GAP` radii, the centre beyond it): the unit direction
+    away from the bubble, and its entity index."""
+    s = drawn.segments
+    if not len(s):
+        return None
+    c = bubble.circle
+    r = c.radius
+    p0, p1 = s[:, 0:2], s[:, 2:4]
+    d = p1 - p0
+    length = np.hypot(d[:, 0], d[:, 1])
+    safe = np.where(length > 0, length, 1.0)
+    u = d / safe[:, None]
+    rel = np.array([c.x, c.y]) - p0
+    t = rel[:, 0] * u[:, 0] + rel[:, 1] * u[:, 1]
+    off = np.abs(rel[:, 0] * u[:, 1] - rel[:, 1] * u[:, 0])
+    beyond = np.maximum(-t, t - length)
+    ok = (length >= MIN_TAIL * r) & (off <= ON_LINE * r) & (beyond >= 0) & (beyond <= END_GAP * r)
+    if not ok.any():
+        return None
+    best = int(np.argmax(np.where(ok, length, -1.0)))
+    away = u[best] if t[best] < 0 else -u[best]
+    return (float(away[0]), float(away[1])), int(drawn.segment_entity[best])
+
+
+def _tailed(
+    drawn: Drawn, lone: Sequence[Bubble]
+) -> list[tuple[Bubble, tuple[float, float], tuple[float, float], int]]:
+    """Lines drawn only as tails: two bubbles of one label, each tail pointing at the other's centre,
+    at least `MIN_LENGTH` radii apart. The line runs from one centre to the other."""
+    tails = {id(b): t for b in lone if (t := _tail_of(drawn, b)) is not None}
+    by_label: dict[str, list[Bubble]] = {}
+    for bubble in lone:
+        if id(bubble) in tails:
+            by_label.setdefault(bubble.label.shown, []).append(bubble)
+    found = []
+    for same in by_label.values():
+        for i, first in enumerate(same):
+            (ux, uy), entity = tails[id(first)]
+            for second in same[i + 1 :]:
+                (vx, vy), _ = tails[id(second)]
+                r = first.circle.radius
+                dx, dy = second.circle.x - first.circle.x, second.circle.y - first.circle.y
+                along = dx * ux + dy * uy
+                across = abs(dx * uy - dy * ux)
+                facing = ux * vx + uy * vy <= -FACING
+                if along >= MIN_LENGTH * r and across <= ON_LINE * r and facing:
+                    start = (first.circle.x, first.circle.y)
+                    end = (second.circle.x, second.circle.y)
+                    found.append((first, start, end, entity))
+    return found
+
+
 def _angle(start: tuple[float, float], end: tuple[float, float]) -> float:
     return math.atan2(end[1] - start[1], end[0] - start[0])
 
@@ -165,10 +239,14 @@ def _square(angle: float) -> float:
 
 def read_grid(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> ViewGrid:
     headed: list[tuple[Bubble, tuple[float, float], tuple[float, float], int]] = []
+    lone: list[Bubble] = []
     for bubble in bubbles(drawn, patterns):
         ends = _line_of(drawn, bubble)
         if ends is not None:
             headed.append((bubble, *ends))
+        else:
+            lone.append(bubble)
+    headed.extend(_tailed(drawn, lone))
     if not headed:
         return ViewGrid((), (), 0.0)
     angle = median(_square(_angle(start, end)) for _, start, end, _ in headed)

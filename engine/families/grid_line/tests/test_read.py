@@ -96,3 +96,23 @@ def test_a_profile_s_label_patterns_replace_the_default_shape() -> None:
 
     assert read_grid(grid).lines == ()
     assert [line.mark for line in read_grid(grid, (re.compile(r"G-\d+"),)).lines] == ["G-1"]
+
+
+def test_a_line_drawn_as_two_facing_tails_runs_between_its_bubbles() -> None:
+    tails = [(0.0, 0.0, 0.0, 1800.0), (0.0, 10200.0, 0.0, 12000.0)]
+    grid = read_grid(drawn(tails, [("A", 0.0, -R), ("A", 0.0, 12000.0 + R)]))
+
+    [line] = grid.lines
+    assert (line.mark, line.axis, line.offset) == ("A", "y", 0.0)
+    assert math.isclose(line.length, 12000.0 + 2 * R)
+
+
+def test_a_lone_bubble_with_a_tail_or_tails_not_facing_is_no_grid_line() -> None:
+    lone = drawn([(0.0, 0.0, 0.0, 1800.0)], [("A", 0.0, -R)])
+    apart = drawn(
+        [(0.0, 0.0, 0.0, 1800.0), (5000.0, 0.0, 5000.0, 1800.0)],
+        [("A", 0.0, -R), ("A", 5000.0, -R)],
+    )
+
+    assert read_grid(lone).lines == ()
+    assert read_grid(apart).lines == ()
