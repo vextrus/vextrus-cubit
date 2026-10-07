@@ -14,6 +14,7 @@ import pytest
 
 from engine.recognise import views as view_finder
 from engine.recognise.types import ViewConventions, ViewKind
+from engine.recognise.views import routing
 from vextrus.drawings.messages import files as drawing_words
 from vextrus.platform.services import tenancy
 from vextrus.takeoff import library as takeoff_library
@@ -143,12 +144,12 @@ def test_a_general_arrangement_files_sheets_read_architectural_not_general_notes
 
 @pytest.mark.parametrize("kind", [k for k in ViewKind if k is not ViewKind.TITLE_BLOCK])
 def test_every_view_of_a_notes_discipline_but_its_title_block_is_step_2s(kind: ViewKind) -> None:
-    assert view_finder._proposal(kind, None, "notes_key", notes=frozenset({"notes_key"})) == (
+    assert routing._proposal(kind, None, "notes_key", notes=frozenset({"notes_key"})) == (
         (view_finder.GENERAL_NOTES,),
         None,
         None,
     )
-    assert view_finder._proposal(kind, None, "other", notes=frozenset({"notes_key"})) != (
+    assert routing._proposal(kind, None, "other", notes=frozenset({"notes_key"})) != (
         (view_finder.GENERAL_NOTES,),
         None,
         None,
