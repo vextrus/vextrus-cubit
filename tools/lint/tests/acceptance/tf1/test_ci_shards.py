@@ -397,9 +397,7 @@ def test_a11_every_node_test_under_claude_and_scripts_is_reached_by_the_harness_
     assert not any(".test.mjs" in line for line in found(tree(tmp_path / "both", ci=both, mjs=mjs)))
 
 
-def test_a12_the_flaky_list_names_real_tests_and_holds_exactly_the_three_245_flakes(
-    tmp_path: Path,
-) -> None:
+def test_a12_the_flaky_list_names_real_tests_and_holds_no_entry(tmp_path: Path) -> None:
     from tools.lint.ci_shards import flaky_problems
 
     assert flaky_problems(ROOT) == []
@@ -408,9 +406,7 @@ def test_a12_the_flaky_list_names_real_tests_and_holds_exactly_the_three_245_fla
         for line in (ROOT / FLAKY).read_text().splitlines()
         if line.strip() and not line.startswith("#")
     ]
-    pairs = {tuple(part.strip() for part in line.split(" :: ", 1)) for line in entries}
-    assert len(entries) == 3
-    assert pairs == FLAKES
+    assert entries == []
 
     _write(tmp_path, "web/a.test.tsx", "it('does a thing', () => {})\n")
     _write(tmp_path, FLAKY, "# remove when green\n\nweb/a.test.tsx :: does a thing\n")
