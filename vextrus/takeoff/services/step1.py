@@ -43,10 +43,10 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 `answer_question` and `record_progress` write the rows Step 1 reads.
 
 **Each act is one DomainEvent** (T-W323; `said`'s "acts, in the event log"), written in the act's
-transaction before its progress rows (`_after_act`, `record_progress`): `confirm` (`confirmed`), `exclude` (`left_out`),
-`assign` (`views_assigned`), `set_list` (`list_changed`), `undo` (`undone`) and `answer` (`answered`,
-or `kept_open`; the confirm or exclusion an answer makes is no event of its own). A refused act
-writes none; the seed's and the read job's writes write none.
+transaction before its progress rows (`_after_act`, `record_progress`): `confirm` (`confirmed`),
+`exclude` (`left_out`), `assign` (`views_assigned`), `set_list` (`list_changed`), `undo` (`undone`) and
+`answer` (`answered`, or `kept_open`; the confirm or exclusion an answer makes is no event of its
+own). A refused act writes none; the seed's and the read job's writes write none.
 """
 
 import contextlib
