@@ -367,10 +367,10 @@ export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined;
 }
 
 /** The picker the bar becomes on X: seven reasons, keys 1–7; 8, 9 and 0 do nothing while it is open. */
-export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (reason: Reason, text?: string) => void; onCancel: () => void }) {
+export function ExclusionPicker({ row, several = false, onPick, onCancel }: { row: Row; several?: boolean; onPick: (reason: Reason, text?: string) => void; onCancel: () => void }) {
   const { t, i18n } = useLingui()
   const [other, setOther] = useState<string | null>(null)
-  const name = <SheetName sheets={row.sheets} />
+  const name = <SheetName sheets={row.sheets} count={several} />
   const pick = (reason: Reason) => {
     if (reason === 'other') setOther('')
     else onPick(reason)

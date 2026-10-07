@@ -42,8 +42,8 @@ export interface SheetViewerProps {
   /** The outline selected: the canvas flies to it; back to none, it fits the working view again. */
   selected?: string | null
   onSelect?: (id: string) => void
-  /** The outline under the pointer (null: none); the caller shows that view's stated scale. */
-  onHover?: (id: string | null) => void
+  /** The pointer's place on the paper, in mm (null: it left the canvas); the caller finds the view under it. */
+  onCursor?: (paper: { x: number; y: number } | null) => void
   /** Hides the outlines and their tags (Step 1's O); on by default. */
   showOutlines?: boolean
   /** Each change flies to the selected view again, as the first selecting did (Step 1's Z). */
@@ -106,7 +106,7 @@ export function SheetViewer({
   outlines,
   selected = null,
   onSelect,
-  onHover,
+  onCursor,
   showOutlines = true,
   zoomToken = 0,
   legend,
@@ -155,7 +155,7 @@ export function SheetViewer({
             outlines={outlines}
             selected={selected}
             onSelect={onSelect}
-            onHover={onHover}
+            onCursor={onCursor}
             showOutlines={showOutlines}
             zoomToken={zoomToken}
             legend={legend}
@@ -201,7 +201,7 @@ function SheetCanvas({
   outlines,
   selected,
   onSelect,
-  onHover,
+  onCursor,
   showOutlines,
   zoomToken,
   legend,
@@ -218,7 +218,7 @@ function SheetCanvas({
   onFail: () => void
   outlines?: readonly SheetOutline[]
   selected: string | null
-  onHover?: (id: string | null) => void
+  onCursor?: (paper: { x: number; y: number } | null) => void
   showOutlines: boolean
   zoomToken: number
   onSelect?: (id: string) => void
@@ -449,8 +449,12 @@ function SheetCanvas({
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const d = drag.current
     const v = view.current
-    if (!d || d.id !== event.pointerId || !v) return
     const dpr = window.devicePixelRatio || 1
+    if (v && onCursor && areaRef.current) {
+      const box = areaRef.current.getBoundingClientRect()
+      onCursor({ x: ((event.clientX - box.left) * dpr - v.x) / v.scale, y: (v.y - (event.clientY - box.top) * dpr) / v.scale })
+    }
+    if (!d || d.id !== event.pointerId || !v) return
     const dx = event.clientX - d.x
     const dy = event.clientY - d.y
     drag.current = { ...d, x: event.clientX, y: event.clientY }
@@ -494,6 +498,7 @@ function SheetCanvas({
           className="group absolute inset-0 cursor-grab outline-none touch-none overflow-hidden select-none active:cursor-grabbing"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
+          onPointerLeave={() => onCursor?.(null)}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onMouseDown={(event) => {
@@ -508,7 +513,7 @@ function SheetCanvas({
             className={cn('absolute inset-0 z-[1] h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
           />
           <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
-          {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} onHover={onHover} dark={dark} /> : null}
+          {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
               {legend ? <div className="rounded-md bg-paper/90 px-2 py-1 text-ink-secondary">{legend}</div> : null}
@@ -576,14 +581,12 @@ function Outlines({
   view,
   selected,
   onSelect,
-  onHover,
   dark,
 }: {
   outlines: readonly SheetOutline[]
   view: ViewTransform
   selected: string | null
   onSelect?: (id: string) => void
-  onHover?: (id: string | null) => void
   dark: boolean
 }) {
   const dpr = window.devicePixelRatio || 1
@@ -604,8 +607,6 @@ function Outlines({
             data-outline={o.id}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onSelect?.(o.id)}
-            onPointerEnter={() => onHover?.(o.id)}
-            onPointerLeave={() => onHover?.(null)}
             className={cn('absolute z-[1] rounded-[1px] border', OUTLINE_TONE[o.tone], selected === o.id ? 'border-2' : 'border-[1px]')}
             style={{ insetInlineStart: start, insetBlockStart: top, inlineSize: width, blockSize: height }}
           >

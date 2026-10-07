@@ -44,6 +44,9 @@ import { CoverageLine, CoveragePanel, Overview, QuestionCard, QuestionsTab, Shee
 import { Copy, optionsOf, prePick } from './questionWords'
 import type { QuestionEntry } from './model'
 
+/** The picker's row when it stands for the sheets of several selected rows. */
+const SELECTION_KEY = 'selection'
+
 const projectRoute = getRouteApi('/_app/p/$code')
 
 export function Step1Page() {
@@ -595,7 +598,7 @@ function Step1({
     if (readOnly) return refuse(readOnly)
     // Several rows selected (list mode): one exclusion for all their sheets, with one reason (§6.9).
     const chosen = focused !== null && chosenKeys.has(focused) ? selectedRows.filter((r) => r.sheets.length > 0) : []
-    if (chosen.length > 1) setPicker({ ...chosen[0]!, key: 'selection', numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
+    if (chosen.length > 1) setPicker({ ...chosen[0]!, key: SELECTION_KEY, numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
     else if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)
   }
 
@@ -606,14 +609,14 @@ function Step1({
     { key: 'X', label: t`Exclude the focused sheet, with a reason`, group: 'screen', run: excludeKey },
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
-    { key: ']', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
+    { key: ']', label: t`Next sheet`, group: 'sheet', when: () => mode === 'sheet', run: () => page(1) },
+    { key: 'PageDown', label: t`Next sheet`, group: 'sheet', when: () => mode === 'sheet', run: () => page(1) },
     { key: '→', label: t`Next view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(1) },
     { key: '←', label: t`Previous view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(-1) },
     { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setSheetPicker(true) },
-    { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
-    { key: 'O', label: t`Show or hide the view outlines`, group: 'screen', when: () => mode === 'sheet', run: () => setOutlinesOn((on) => !on) },
-    { key: 'PageDown', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
-    { key: 'PageUp', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
+    { key: '[', label: t`Previous sheet`, group: 'sheet', when: () => mode === 'sheet', run: () => page(-1) },
+    { key: 'PageUp', label: t`Previous sheet`, group: 'sheet', when: () => mode === 'sheet', run: () => page(-1) },
+    { key: 'O', label: t`Show or hide the view outlines`, group: 'sheet', when: () => mode === 'sheet', run: () => setOutlinesOn((on) => !on) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     // 1–9: an answer on the focused Question (§6.15); the exclusion picker's own 1–9 win while it is open.
     { key: '1', label: t`Pick answer 1 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(1)) },
@@ -761,12 +764,13 @@ function Step1({
         {picker ? (
           <ExclusionPicker
             row={picker}
+            several={picker.key === SELECTION_KEY}
             onCancel={() => setPicker(null)}
             onPick={(reason, text) => {
               const row = picker
               setPicker(null)
               setRange(null)
-              void acts.excludeSheets(row.sheets, reason, text).then((done) => {
+              void acts.excludeSheets(row.sheets, reason, text, row.key === SELECTION_KEY).then((done) => {
                 if (done && mode === 'sheet' && openSheet) openNextProposal(openSheet)
               })
             }}
@@ -925,10 +929,10 @@ function SheetMode({
   onZoom: () => void
 }) {
   const { t } = useLingui()
-  // The view under the cursor, of the sheet it was on: gone with the outlines and with the sheet (no pointerleave comes then).
-  const [hover, setHover] = useState<{ sheet: string; view: string } | null>(null)
-  if (hover && (!outlinesOn || hover.sheet !== sheet.id)) setHover(null)
-  const under = hover ? (sheet.views ?? []).find((v) => v.id === hover.view) : undefined
+  // The pointer's place on this sheet's paper (gone with the sheet: no pointerleave comes when it changes).
+  const [cursor, setCursor] = useState<{ sheet: string; x: number; y: number } | null>(null)
+  if (cursor && cursor.sheet !== sheet.id) setCursor(null)
+  const stated = statedView(sheet.views ?? [], cursor, selectedView)
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const look = useSheetLook(projectId, sheet, lookSetting, onLookSetting)
   const region = useRef<HTMLDivElement>(null)
@@ -957,6 +961,10 @@ function SheetMode({
     else if (!el.contains(document.activeElement)) el.focus({ preventScroll: true })
   }
   useLayoutEffect(focusCanvas, [render.data, sheet.id])
+  // O hides the outlines while focus is in one: focus goes to the canvas, so F, Z, + and − still work.
+  useLayoutEffect(() => {
+    if (!outlinesOn && (!document.activeElement || document.activeElement === document.body)) focusCanvas()
+  }, [outlinesOn])
 
   // #115: Try again's button goes while the sheet loads again; focus waits on the region (so Space
   // still works) and, if the sheet fails again, comes back to the new Try again, never the page.
@@ -989,9 +997,9 @@ function SheetMode({
       <SlotFill slot="toolbar.end" order={1}>
         <ViewerTools selected={selectedView !== null} outlinesOn={outlinesOn} onOutlines={onOutlines} onZoom={onZoom} />
       </SlotFill>
-      {under ? (
+      {stated && (stated.not_to_scale || stated.stated_scale) ? (
         <SlotFill slot="status.start" order={0}>
-          <StatedScale view={under} />
+          <StatedScale view={stated} />
         </SlotFill>
       ) : null}
       <KeyRegion name="sheet" className="relative min-h-0 flex-1">
@@ -1008,7 +1016,7 @@ function SheetMode({
               outlines={outlines}
               selected={selectedView}
               onSelect={onSelectView}
-              onHover={(view) => setHover(view ? { sheet: sheet.id, view } : null)}
+              onCursor={(at) => setCursor(at ? { sheet: sheet.id, ...at } : null)}
               showOutlines={outlinesOn}
               zoomToken={zoomToken}
               legend={(sheet.views ?? []).length > 0 ? <Legend tones={(sheet.views ?? []).map((v) => viewTone(v, sheet, held))} /> : null}
@@ -1041,10 +1049,10 @@ function ViewerTools({ selected, outlinesOn, onOutlines, onZoom }: { selected: b
   const { t } = useLingui()
   return (
     <>
-      <IconButton label={t`Zoom to view`} tip={t`Zoom to the selected view`} combo="Z" disabled={!selected} onClick={onZoom} className="hidden min-[1440px]:inline-flex">
+      <IconButton label={t`Zoom to view`} tip={t`Zoom to the selected view`} combo="Z" aria-keyshortcuts="Z" disabled={!selected} onClick={onZoom} className="hidden min-[1440px]:inline-flex">
         <Crosshair strokeWidth={1.5} />
       </IconButton>
-      <IconButton label={t`Outlines`} tip={t`View outlines`} combo="O" pressed={outlinesOn} onClick={() => onOutlines(!outlinesOn)} className="hidden min-[1440px]:inline-flex">
+      <IconButton label={t`Outlines`} tip={t`View outlines`} combo="O" aria-keyshortcuts="O" pressed={outlinesOn} onClick={() => onOutlines(!outlinesOn)} className="hidden min-[1440px]:inline-flex">
         <Layers strokeWidth={1.5} />
       </IconButton>
       <DropdownMenu>
@@ -1067,6 +1075,21 @@ function ViewerTools({ selected, outlinesOn, onOutlines, onZoom }: { selected: b
       </DropdownMenu>
     </>
   )
+}
+
+/**
+ * The view whose scale the status bar states (§4.1, §4.6's scale-bar rule), by the views' boxes in paper
+ * mm, never by an outline element: the one under the pointer (the smallest where views nest), else the
+ * selected one, else the working view (the first in reading order).
+ */
+function statedView(views: readonly ViewOut[], cursor: { x: number; y: number } | null, selected: string | null): ViewOut | undefined {
+  const under = cursor
+    ? views
+        .map((v) => ({ v, box: v.box.map(Number) as [number, number, number, number] }))
+        .filter(({ box }) => cursor.x >= box[0] && cursor.x <= box[2] && cursor.y >= box[1] && cursor.y <= box[3])
+        .sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0]?.v
+    : undefined
+  return under ?? views.find((v) => v.id === selected) ?? [...views].sort((a, b) => a.ordinal - b.ordinal)[0]
 }
 
 /** The status bar's stated scale for the view under the cursor (§4.1): "1:100, as stated", or "Not to scale". */
