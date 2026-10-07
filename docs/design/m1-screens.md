@@ -66,9 +66,10 @@ The examples use M0's seed project, KR-01, a G+9 building of Ground, 1st to 9th 
   Material-and-Labour Contract, Cost Basis (measured, allowance), Rebar, Rebar Ratio, Rebar Basis
   ("by ratio", "from the drawing", "from the drawing + rules"), Billing Unit, Display Units, Gross
   Floor Area, Material Schedule, Construction Stage, Drafting Profile, Attribute.
-- **A Proposal's state has four words on screen,** one per state of the API's enum the QS can meet:
-  "Proposal" (`open` or `blocked`), "Awaiting answer" (`held`), "Confirmed" (`confirmed`) and
-  "Excluded" (`excluded`); `superseded` is never shown. The screen maps the generated enum, never a
+- **A Proposal's state has one word on screen per state of the API's enum the QS can meet:**
+  "Proposal" (`open`), "Question Q4" (`blocked`: an open Question holds it while its step is open),
+  "Awaiting answer, Q4" (`held`: its step closed with the Question open), "Confirmed" (`confirmed`)
+  and "Excluded" (`excluded`); `superseded` is never shown. The screen maps the generated enum, never a
   string it typed (M1.md C9, A12).
 - **Never shown,** adding to m0-screens 1.1's list: a storey or band key (`floor_1`, `floor_1..top`),
   an Attribute key (`vx.column.section_b`, `x_m`), a Trace's raw anchor (a handle, a hash, a reader's
@@ -103,7 +104,7 @@ Each screen in 4 fills these in; the words here are the pattern.
 | **Empty** | m0-screens' Empty: a glyph, one sentence saying why, one action ("No columns yet. They are read from the plans confirmed in Step 1." · "Read the columns") |
 | **Loading or reading** | m0-screens' Skeleton with one line of what is happening ("Reading the columns from 6 plans…"); a read shows its end on the page that started it and on any page opened during it ("Read: 42 Proposals, 2 Questions") |
 | **Refused** | m0-screens' ErrorBar with the refusal's words from its code (`takeoff.steps.locked`: "Step 6 opens once Steps 3 and 4 are confirmed." with "Go to Step 3"). A refusal is never a toast that vanishes |
-| **Held** | What waits on a Question, marked "Awaiting answer" with the Question's number, in its rows, its figures and its 3D tint; the action is always "Answer Q4" |
+| **Held** | What waits on a Question, in its rows, its figures and its 3D tint, with the action "Answer Q4": while its step is open it reads "Question Q4" (`blocked`); once the step is closed with the Question open it reads "Awaiting answer, Q4" (`held`) |
 
 ### 1.5 Roles
 As m0-screens 1.4. The MD and a Guest see every M1 screen read-only: no Confirmation bar acts, no
@@ -191,7 +192,7 @@ screen's own); the words that must appear; the keys; and the open design questio
   - locked (refused): "Step 6 opens once Steps 3 and 4 are confirmed." · "Go to Step 3";
   - reading: the Skeleton, "Reading the columns from 6 plans…", and the result on any page when it
     ends;
-  - held: a group with a Question reads "Awaiting answer, Q4" and is never in the bulk act;
+  - blocked: a group with an open Question reads "Question Q4" and is never in the bulk act;
   - nothing left: "Every column is confirmed or excluded." · "Close Step 6" (or "Close with 2
     Questions open");
   - closed with Questions open: the rail and the list read "Closed, 2 awaiting answer".
@@ -199,7 +200,7 @@ screen's own); the words that must appear; the keys; and the open design questio
   its count is the step's count, always. A row is held only by its own Questions; a step-level
   Question holds only closing the step.
 - **Words:** the bar's what and why ("Confirm 5 columns of 1st to 8th that agree" · "Each size agrees
-  on the plan, the schedule and the label."); "Proposal", "Awaiting answer", "Confirmed", "Excluded";
+  on the plan, the schedule and the label."); "Proposal", "Question Q4", "Awaiting answer, Q4", "Confirmed", "Excluded";
   "Answering confirms 4 columns = 300 cft" first on a card (screens.md ruling 1).
 - **Keys:** 2's Takeoff rows.
 - **Open questions:** the preview of a group's Measurement Lines beside it (M1-23) or under it; how a
@@ -230,7 +231,7 @@ screen's own); the words that must appear; the keys; and the open design questio
   meaning ("at floor level" or "floor to floor") and its storeys; the canvas (the section or the level
   mark a level was read from); the inspector.
 - **States:** 4.1's; a level with none read: "No level read. Type it in feet and inches or metres." ·
-  the field; the top-floor Question held until answered: "Which is the top floor? The plans name 9th as
+  the field; the top-floor Question open until answered: "Which is the top floor? The plans name 9th as
   the highest." with 9th pre-picked only when two sources agree.
 - **Words:** "typed" beside every typed level, and in its Trace "typed by Nusrat Jahan, 7 Oct 2026";
   "derived from the 2nd's slab level" for a height; "1st to top: 1st to 9th" once the top is bound.
@@ -261,7 +262,7 @@ screen's own); the words that must appear; the keys; and the open design questio
   caps by mark.
 - **Regions:** 4.1's; groups by pile type mark, then by cap mark.
 - **States:** 4.1's; the ground-level Question ("No existing ground level is stated. Boring is
-  measured from it.") held until answered.
+  measured from it.") open until answered.
 - **Words:** "Pile type P1, 20″ dia, cut-off −5′-0″, toe −70′-0″, 47 piles"; "head breaking"; the step's
   "Cost Basis: allowance until confirmed".
 - **Keys:** 4.1's.
