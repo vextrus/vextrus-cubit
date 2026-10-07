@@ -59,6 +59,11 @@ msgstr "The rest was not done: {refused}"
 msgid "the drawing list you set"
 msgstr "the drawing list you set"
 
+#. placeholder {0}: sheets.length
+#: src/takeoff/acts.tsx
+msgid "{0, plural, one {# sheet} other {# sheets}}"
+msgstr "{0, plural, one {# sheet} other {# sheets}}"
+
 #: src/takeoff/acts.tsx
 msgid "An untitled sheet on layout “{layout}” of {file}"
 msgstr "An untitled sheet on layout “{layout}” of {file}"
@@ -90,6 +95,10 @@ msgstr "confirmed {name}"
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
+
+#: src/takeoff/acts.tsx
+msgid "{Name} excluded: {short}. They stay in the count."
+msgstr "{Name} excluded: {short}. They stay in the count."
 
 #: src/takeoff/acts.tsx
 msgid "an untitled sheet laid out in the drawing of {file}"

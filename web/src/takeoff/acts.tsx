@@ -67,7 +67,9 @@ interface Entry {
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
 /** A sheet's name in words; `start`: it opens a sentence (an untitled sheet's words are capitalised). */
-export function SheetName({ sheets, start = false }: { sheets: readonly ProposalOut[]; start?: boolean }) {
+export function SheetName({ sheets, start = false, count = false }: { sheets: readonly ProposalOut[]; start?: boolean; count?: boolean }) {
+  // Sheets picked from several rows (Shift ↑ ↓): named by how many, never by a range from the first to the last.
+  if (count && sheets.length > 1) return <Plural value={sheets.length} one="# sheet" other="# sheets" />
   const first = sheets[0]
   const last = sheets.at(-1)
   if (!first || !last) return null
@@ -150,7 +152,7 @@ export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
-  excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string): Promise<boolean>
+  excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
@@ -541,16 +543,22 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
   )
 
   const excludeSheets = useCallback(
-    (sheets: readonly ProposalOut[], reason: Reason, text = '') => {
-      const name = <SheetName sheets={sheets} />
-      const Name = <SheetName sheets={sheets} start />
+    (sheets: readonly ProposalOut[], reason: Reason, text = '', several = false) => {
+      const name = <SheetName sheets={sheets} count={several} />
+      const Name = <SheetName sheets={sheets} start count={several} />
       const short = reason === 'other' && text.trim() ? text.trim() : i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON)
       return run(
         [() => exclude(projectId, sheets.map((p) => p.id), reason, text)],
         <Trans>excluded {name}</Trans>,
-        <Trans>
-          {Name} excluded: {short}. It stays in the count.
-        </Trans>,
+        several && sheets.length > 1 ? (
+          <Trans>
+            {Name} excluded: {short}. They stay in the count.
+          </Trans>
+        ) : (
+          <Trans>
+            {Name} excluded: {short}. It stays in the count.
+          </Trans>
+        ),
       )
     },
     [i18n, projectId, run],
