@@ -127,4 +127,5 @@ def test_a_member_whose_scope_is_another_project_gets_not_found(
     response = call(api_as(outsider), method, qs_project.project_id, path)
 
     assert response.status_code == 404, (response.status_code, response.content[:300])
-    assert response.json() == {"code": "platform.auth.not_found", "params": {}}, response.content[:300]
+    assert response["Content-Type"].startswith("application/json"), response.content[:300]
+    assert response.json() == {"code": "platform.auth.not_found", "params": {}}

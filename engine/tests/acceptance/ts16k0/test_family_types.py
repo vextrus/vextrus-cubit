@@ -59,7 +59,8 @@ def test_each_c4_type_is_a_frozen_dataclass(name: str) -> None:
     held = getattr(types(), name)
 
     assert dataclasses.is_dataclass(held), f"{name} is not a dataclass"
-    assert held.__dataclass_params__.frozen, f"{name} is not frozen"
+    params: typing.Any = getattr(held, "__dataclass_params__", None)
+    assert getattr(params, "frozen", False), f"{name} is not frozen"
 
 
 def test_the_manifest_has_c4_s_fields_in_order_and_milestone_defaults_to_m1() -> None:
