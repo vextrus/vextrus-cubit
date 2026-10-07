@@ -331,7 +331,7 @@
             "null"
           ],
           "minimum": 0,
-          "description": "N, the expectation's Sheet count for the Discipline; null when the expectation does not list it (its Sheets are phantoms) or the set was not measured."
+          "description": "N, the expectation's Sheet count for the Discipline; null when the expectation does not list it (its Sheets still count toward the set's total; only blanks beyond the total are phantoms) or the set was not measured."
         },
         "bulk_confirmable_sheets": {
           "type": [
