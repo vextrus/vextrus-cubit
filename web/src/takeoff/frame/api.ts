@@ -124,9 +124,12 @@ export function proposalsQuery(projectId: string, step: StepKey) {
             params: { path: { project_id: projectId, step }, query: { group: step === 'columns' ? 'band' : 'mark' } },
           }),
         )
-      ).groups,
+      ).groups.map((g) => ({ ...g, proposals: g.proposals.map((p) => ({ ...p, state: stateWord(p.state) })) })),
   })
 }
+
+/** The API words an open Proposal "proposed"; the screens call it "proposal" (C17's word). */
+export const stateWord = (state: string): string => (state === 'proposed' ? 'proposal' : state)
 
 export function storeysQuery(projectId: string) {
   return queryOptions({
