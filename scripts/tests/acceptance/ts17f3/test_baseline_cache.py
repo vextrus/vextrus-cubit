@@ -1,7 +1,8 @@
 """S17-F3: crosspr keeps each overlapping PR's baseline (its tests on main + the PR alone) and does not
 run it again while it would be the same run: the key is "(origin/main sha, PR head sha, sorted test-file
 list)" (verify-ci-speed.md 2, item 1 (b): "A hit skips the baseline worktree run; only the union runs").
-A changed head, a moved main or another test-file list is a miss and runs the baseline again."""
+A changed head, a moved main or another test-file list is a miss and runs the baseline again. Only a
+green baseline is kept: a red one runs again on every check."""
 
 from __future__ import annotations
 
@@ -28,6 +29,7 @@ from scripts.tests.acceptance.ts17f3._world import (
 )
 
 AGAIN = "the baseline ran again"
+KEPT = "a red baseline was kept"
 
 
 def main_test_world(tmp: Path) -> World:
@@ -56,9 +58,11 @@ def test_a_second_check_with_unchanged_shas_runs_no_baseline_again(
     assert second.sides() == ["union", "union"], show(second)
 
 
-def test_a_kept_red_baseline_still_says_not_checked_without_running(
+def test_a_red_baseline_is_never_kept_and_runs_again(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    """Only a green baseline is kept (the orchestrator's ruling on PR #609): a red one may be a machine
+    fault (a signal, a killed xdist worker), so the next check with the same shas runs it again."""
     check = Check(one_pr_world(tmp_path), monkeypatch, capsys, red={"baseline"})
     first = check()
     assert first.out.strip() == "Cross-PR: #51 not checked", show(first)
@@ -66,7 +70,7 @@ def test_a_kept_red_baseline_still_says_not_checked_without_running(
 
     second = check()
     assert second.code == 0, show(second)
-    assert second.runs == [], f"{AGAIN}: {show(second)}"
+    assert second.sides() == ["baseline"], f"{KEPT}: {show(second)}"
     assert second.out.strip() == "Cross-PR: #51 not checked", show(second)
     assert "#51 not checked (its own tests are not green on main)" in second.err, show(second)
 
