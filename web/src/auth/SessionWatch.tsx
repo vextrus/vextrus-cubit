@@ -17,6 +17,7 @@ import { Trans } from '@lingui/react/macro'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { emitSessionEvent, onSessionEvent } from '@/api/events'
 import { PATHS } from '@/app/AppLink'
+import { UnreachableBar } from '@/app/Unreachable'
 import { NoDeveloper, meQuery, sessionQuery } from '@/app/session'
 import { Skeleton, useToast } from '@/ui'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
@@ -199,6 +200,7 @@ export function FramePending() {
   return (
     <div className="flex h-dvh flex-col bg-background">
       <div className="h-topbar shrink-0 border-b border-border bg-chrome" />
+      <UnreachableBar className="shrink-0" />
       <div className="mx-auto w-[1120px] max-w-full py-6">
         <Skeleton rows={5} status={<Trans>Opening Vextrus…</Trans>} />
       </div>

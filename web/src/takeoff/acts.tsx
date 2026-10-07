@@ -184,7 +184,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     [queryClient, projectId],
   )
   /**
-   * Whether Step 1 reloaded (every query but the files' names; #167's refuter): a reload that failed leaves
+   * Whether Step 1 reloaded (every query but the files' names; #167's refuter): a reload that failed (or is still being tried again after failing) leaves
    * old data on screen, and an act's toast must not stand beside it as if fresh.
    */
   const failing = useCallback(
@@ -193,7 +193,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
         queryClient
           .getQueryCache()
           .findAll({ queryKey: step1Key(projectId) })
-          .filter((query) => query.queryKey[2] !== 'file-names' && query.state.status === 'error')
+          .filter((query) => query.queryKey[2] !== 'file-names' && (query.state.status === 'error' || query.state.fetchFailureCount > 0))
           .map((query) => query.queryHash),
       ),
     [queryClient, projectId],

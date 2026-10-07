@@ -8,7 +8,7 @@
  *   await undo(project.id)                        // the acting user's own last act
  */
 import { queryOptions, useQueries, useQuery } from '@tanstack/react-query'
-import { ApiRefused, api, unwrap } from '@/api/client'
+import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 
 export type ProposalOut = components['schemas']['Step1ProposalOut']
@@ -21,12 +21,6 @@ export type ActOut = components['schemas']['Step1ActOut']
 export type ParsedListOut = components['schemas']['Step1ParsedListOut']
 export type DrawingListOut = components['schemas']['Step1DrawingListOut']
 
-/** A refusal is an answer, never tried again; an unreachable server keeps being tried. */
-export function retry(failures: number, error: unknown): boolean {
-  if (error instanceof ApiRefused) return false
-  return error instanceof TypeError || failures < 2
-}
-
 const path = (project_id: string) => ({ params: { path: { project_id } } })
 
 export const step1Key = (projectId: string) => ['step1', projectId] as const
@@ -35,7 +29,6 @@ export function proposalsQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'proposals'],
     queryFn: async () => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/proposals', path(projectId)))).proposals,
-    retry,
   })
 }
 
@@ -43,7 +36,6 @@ export function questionsQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'questions'],
     queryFn: async () => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/questions', path(projectId)))).questions,
-    retry,
   })
 }
 
@@ -51,7 +43,6 @@ export function coverageQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'coverage'],
     queryFn: () => unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/coverage', path(projectId))),
-    retry,
   })
 }
 
@@ -59,7 +50,6 @@ export function progressQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'progress'],
     queryFn: () => unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/progress', path(projectId))),
-    retry,
   })
 }
 
@@ -68,7 +58,6 @@ export function drawingListQuery(projectId: string, discipline: string) {
     queryKey: [...step1Key(projectId), 'drawing-list', discipline],
     queryFn: () =>
       unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/drawing-list', { params: { path: { project_id: projectId }, query: { discipline } } })),
-    retry,
   })
 }
 
@@ -96,7 +85,6 @@ export function renderQuery(projectId: string, sheetId: string) {
         }),
       ) as Promise<ArrayBuffer>,
     staleTime: Infinity,
-    retry,
   })
 }
 
