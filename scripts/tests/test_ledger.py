@@ -159,3 +159,119 @@ def test_check_refuses_an_exception_with_no_reason(tmp_path: Path) -> None:
     argv = ["check", "12", "--round", "3", "--exception", "crash"]
     assert main(argv, ledger_dir=tmp_path / "ledger") == 3
     assert main([*argv, "--reason", "the export crashes"], ledger_dir=tmp_path / "ledger") == 0
+
+
+# ---------------------------------------------------------------- the bar's edges (S17-F6)
+
+
+@pytest.mark.parametrize(
+    ("file", "strict"),
+    [
+        ("vextrus/rates/table.py", True),
+        ("VEXTRUS/Rates/table.py", True),  # case ignored: fail closed
+        ("vextrus\\rates\\table.py", True),  # a Windows spelling
+        ("vextrus/rates/table.py:12", True),
+        ("./vextrus/boq/services/pricing.py", True),
+        ("/home/user/vextrus-cubit/web/src/components/badge.tsx", True),  # absolute: strict
+        ("vextrus/rates/../../web/src/components/badge.tsx", True),  # any `..`: strict
+        ("../outside.py", True),
+        (None, True),
+        ("", True),
+        ("C:\\repo\\engine\\read\\x.py", True),  # the refuter's spellings (S17-F6)
+        ("C:/repo/engine/read/x.py", True),
+        ("vextrus/platform/database.py:12-20", True),
+        ("vextrus/platform/database.py:L12", True),
+        ("vextrus/platform/database.py#L12", True),
+        (".claude/settings.json:1-2", True),
+        ("b/engine/read/x.py", True),
+        ("vextrus/platform/database.py ", True),
+        (" vextrus/platform/database.py", True),
+        ("web/src/components/badge tsx", True),  # a blank: not a plain path
+        ("web/src/components/badge.tsx", False),
+        ("web/src/components/badge.tsx#L3-L9", False),
+        ("./web/src/components/badge.tsx:4-6", False),
+        ("web/src/components/badge.tsx:7:2", False),
+        ("scripts/factory/say.py", False),
+    ],
+)
+def test_on_strict_path(file: str | None, strict: bool) -> None:
+    assert ledger.on_strict_path(file) is strict
+
+
+def test_an_unreadable_strict_list_judges_every_path_strict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ledger.strict_paths.cache_clear()
+    monkeypatch.setattr(ledger, "TIERS_FILE", tmp_path / "missing.toml")
+    try:
+        assert ledger.on_strict_path("web/src/components/badge.tsx") is True
+        (tmp_path / "missing.toml").write_text("[strict]\npaths = []\n")
+        ledger.strict_paths.cache_clear()
+        assert ledger.on_strict_path("web/src/components/badge.tsx") is True
+    finally:
+        ledger.strict_paths.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("file", "named"), [("a.py", "a.py"), ("a b.py", None), ("", None), (None, None), (3, None)]
+)
+def test_a_file_a_finding_line_cannot_carry_is_none(file: Any, named: str | None) -> None:
+    assert ledger.named_file(file) == named
+
+
+def test_a_pass_with_an_unrefuted_finding_that_could_block_is_refused_at_record(
+    tmp_path: Path,
+) -> None:
+    """`commit_record` itself (as `fetch-verdict` reaches it, with no `decide` refusal before it)."""
+    decision = ledger.judge(["PASS"], {"f1": (60, "-", "vextrus/rates/table.py")}, "0" * 64)
+    assert decision.verdict == "PASS"
+    with pytest.raises(ledger.Refused):
+        ledger.commit_record(
+            pr=12, head=H, round_=1, decision=decision, exception=None, source="fetch-verdict",
+            scan=lambda text: 0, post=lambda pr, body: 5, ledger_dir=tmp_path / "ledger",
+        )  # fmt: skip
+    assert not (tmp_path / "ledger" / f"12-{H}.json").exists()
+
+
+def test_a_pass_with_an_unrefuted_74_off_the_strict_paths_is_recorded(tmp_path: Path) -> None:
+    decision = ledger.judge(["PASS"], {"f1": (74, "-", "web/src/components/badge.tsx")}, "0" * 64)
+    ledger.commit_record(
+        pr=12, head=H, round_=1, decision=decision, exception=None, source="fetch-verdict",
+        scan=lambda text: 0, post=lambda pr, body: 5, ledger_dir=tmp_path / "ledger",
+    )  # fmt: skip
+    written = json.loads((tmp_path / "ledger" / f"12-{H}.json").read_text())
+    assert written["verdict"] == "PASS"
+    assert written["counts"]["unrefuted_ge_50"] == 1
+    assert decision.to_file == ("f1",)
+
+
+@pytest.mark.parametrize(
+    ("file", "code"),
+    [
+        ("vextrus/platform/database.py ", 3),  # padded: the refuter's case (S17-F6)
+        ("vextrus/platform/database.py", 3),
+        ("web/src/components/badge.tsx", 0),
+    ],
+    ids=["padded-strict", "strict", "off-strict"],
+)
+def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, file: str, code: int
+) -> None:
+    """A cloud reviewer's PASS with an unrefuted 60 is refused on a strict path, however its file is
+    padded, and recorded PASS off the strict paths."""
+    from scripts.tests.acceptance.tf4.test_ledger_fetch_verdict import (
+        VERDICT_PATH,
+        Origin,
+        fetch,
+        verdict_file,
+    )
+
+    origin = Origin(tmp_path)
+    found = [{"score": 60, "file": file, "line": 1, "summary": "a row is read twice"}]
+    origin.review_branch({VERDICT_PATH: verdict_file(origin.head, findings=found)})
+    done, store = fetch(origin, tmp_path, monkeypatch)
+    assert done == code
+    written = store / f"12-{origin.head}.json"
+    assert written.exists() is (code == 0)
+    if code == 0:
+        assert json.loads(written.read_text())["verdict"] == "PASS"

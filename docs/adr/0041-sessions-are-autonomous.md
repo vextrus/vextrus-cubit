@@ -8,6 +8,17 @@ the two Development Sets (the owner's Q7 ruling); item 5 — `merge_ready` enfor
 third review is also allowed when every finding left at round 2 was introduced by fix round 1, as its refuter
 confirms (`fix-regression` in `scripts/ledger.py`); never more than three reviews.
 
+**Amended 7 Oct 2026 (session 17)** (the owner, on the review's speed: "Raise review's blocking bar to 75, keeping
+50-74 blocking only on strict paths (security walls, migrations, money, readers), filing the rest as issues, and
+refuting a sample rather than every finding" — yes): items 5 and 7 — a standing finding blocks a merge at 75 or
+more, or at 50 or more when its file is on a strict path (`[strict] paths` in
+`scripts/factory/review_tiers.toml`: tenancy and row-level security, auth, the guard; migrations; the BOQ and
+rates; the engine's readers). A finding with no file is judged strict. A standing finding of 50-74 off the strict
+paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
+sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
+highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Item
+7's serious finding is the same: 75 or more, 50 or more on a strict path, or any class seen twice.
+
 The owner decides product and scope and walks each milestone's finish line on real drawings; everything
 between is done by agents, without waiting for the owner:
 
@@ -47,7 +58,8 @@ between is done by agents, without waiting for the owner:
    that changes a file under an acceptance path unless its message starts `acceptance:` and it changes
    nothing else; the reviewer reads any such commit against the writer's report.
 7. **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class) in
-   the PR that fixes it: a finding scoring 50 or more, or any class seen twice. `docs/knowledge/lessons.md`
+   the PR that fixes it: a finding scoring 75 or more, or 50 or more on a strict path (amended 7 Oct 2026),
+   or any class seen twice. `docs/knowledge/lessons.md`
    becomes an index pointing each lesson at its check; a lesson without a check is a debt, listed in the
    milestone issue until it has one.
 8. **Effort defaults to medium** for Opus 5.5 (the committed settings), **high** only for hard tickets:

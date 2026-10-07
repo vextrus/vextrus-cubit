@@ -74,10 +74,13 @@ drawing text, no key):
 Plain words, brief. Only a command you ran is evidence.
 
 The last line of your final message is exactly `VERDICT: PASS|FIX|BLOCK at <40-hex sha>` (one word, the
-full sha of the head you reviewed): PASS when nothing scored 50 or more stands, FIX when something does and
-a fix round can mend it, BLOCK when the PR's approach cannot. Each finding scored 50 or more also goes on
-its own line as `FINDING <id> <score> -` (the refuter's verdict replaces `-`). Code computes
-the recorded verdict from these lines; nobody transcribes it.
+full sha of the head you reviewed): PASS when no finding that blocks stands, FIX when one does and a fix
+round can mend it, BLOCK when the PR's approach cannot. A finding blocks at 75 or more, or at 50 or more
+when its file is on a strict path (`[strict]` in `scripts/factory/review_tiers.toml`: security walls,
+migrations, money, readers); one of 50-74 off them is filed as an issue (ADR 0041, amended 7 Oct 2026).
+Each finding scored 50 or more also goes on its own line as `FINDING <id> <score> - <file>` (the
+refuter's verdict replaces `-`; the file is the repository path you named, and with none it is judged
+strict). Code computes the recorded verdict from these lines; nobody transcribes it.
 
 **In the cloud** (a review launched by `scripts/factory/review_cloud.py`, tier 2): run the full Python and
 web suites on your own VM; commit exactly one file, the verdict file the prompt names

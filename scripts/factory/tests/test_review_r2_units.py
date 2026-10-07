@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from scripts import ledger
 from scripts.factory import review, review_cloud
 
 H = "a" * 40
@@ -103,6 +104,12 @@ def test_the_lens_cap_defaults_and_reads_seconds(monkeypatch: pytest.MonkeyPatch
 # ---------------------------------------------------------------- the batched refuter
 
 
+def every_path_strict(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The 50 bar on every path (an unreadable strict list): these tests pin the refuter's matching,
+    not the sample (S17-F6's tests and `test_the_sample_*` below pin that)."""
+    monkeypatch.setattr(ledger, "strict_paths", lambda: None)
+
+
 def claims_run() -> review.Run:
     run = review.Run(pr=12, round_=1, head=H, merged=H, slot=1)
     run.findings = [
@@ -123,6 +130,7 @@ def judged(file: str, line: int, summary: str, verdict: str) -> dict[str, Any]:
 def refuted_with(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reply: Any
 ) -> tuple[review.Run, list[str]]:
+    every_path_strict(monkeypatch)
     run = claims_run()
     prompts: list[str] = []
 
@@ -180,6 +188,7 @@ def test_the_refuter_cannot_touch_a_replayed_or_unknown_finding(
 
 
 def test_a_refuter_that_fails_refutes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    every_path_strict(monkeypatch)
     run = claims_run()
 
     def past_cap(*_: Any, **__: Any) -> dict[str, Any]:
@@ -312,6 +321,7 @@ def test_the_refuter_prompt_masks_the_records_name_and_still_matches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Refuted: a finding on scripts/ledger.py put the word in the refuter's prompt."""
+    every_path_strict(monkeypatch)
     run = review.Run(pr=12, round_=1, head=H, merged=H, slot=1)
     run.findings = [review.Finding("l1-f1", 70, "scripts/ledger.py", 3, "the Ledger drops a row", None,
                                    "UNPROVEN")]  # fmt: skip
@@ -327,3 +337,55 @@ def test_the_refuter_prompt_masks_the_records_name_and_still_matches(
     review.refute(run, tmp_path, tmp_path, tmp_path)
     assert "ledger" not in prompts[0].lower()
     assert run.findings[0].word == "REFUTED"
+
+
+# ---------------------------------------------------------------- the refuter's sample (S17-F6)
+
+OFF = "web/src/components/badge.tsx"
+ON = "vextrus/rates/table.py"
+
+
+def kept(id_: str, score: int, file: str, word: str = "UNPROVEN") -> review.Finding:
+    return review.Finding(id_, score, file, 1, f"summary {id_}", None, word)
+
+
+def test_no_claim_when_nothing_that_could_block_is_left() -> None:
+    found = [kept("a", 74, OFF), kept("b", 60, OFF), kept("c", 90, ON, "CONFIRMED")]
+    assert review.refuter_claims(found) == []
+
+
+def test_the_sample_is_every_blocker_then_three_others_highest_first() -> None:
+    found = [
+        kept("o55", 55, OFF), kept("o60", 60, OFF), kept("s50", 50, ON), kept("o74", 74, OFF),
+        kept("o65", 65, OFF), kept("b80", 80, OFF), kept("o70", 70, OFF), kept("n49", 49, ON),
+        kept("nofile", 50, "a file with blanks"),
+    ]  # fmt: skip
+    assert [item.id for item in review.refuter_claims(found)] == [
+        "s50", "b80", "nofile", "o74", "o70", "o65",
+    ]  # fmt: skip
+
+
+def test_the_fix_message_files_the_findings_that_do_not_block_under_their_own_heading() -> None:
+    views = [
+        kept("b", 80, OFF).view(),
+        kept("s", 55, ON).view(),
+        kept("f", 60, OFF).view(),
+        kept("u", 70, OFF, "-").view(),
+        kept("r", 70, OFF, "REFUTED").view(),
+        kept("low", 40, ON).view(),
+    ]
+    text = review.fix_text(12, H, views)
+    fix, filed = text.split("File as issues")
+    for shown in ("(80): summary b", "(55): summary s"):
+        assert shown in fix
+    for shown in ("(70): summary u", "(60): summary f"):
+        assert shown in filed
+        assert shown not in fix
+    for hidden in ("summary r", "summary low"):
+        assert hidden not in text
+
+
+def test_only_findings_to_file_print_no_fix_round() -> None:
+    text = review.fix_text(12, H, [kept("f", 60, OFF).view()])
+    assert "Fix round" not in text
+    assert text.startswith("File as issues")

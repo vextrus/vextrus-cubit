@@ -50,8 +50,9 @@ refuses an unlinked cut item).
 In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). Say it under "Not verified".
 
 ## Quality
-- Every serious finding (scored 50 or more, or a repeated class) leaves a committed check: a test, lint or
-  scan that fails on the class.
+- Every serious finding (scored 75 or more, or 50 or more on a strict path of
+  `scripts/factory/review_tiers.toml`, or a repeated class) leaves a committed check: a test, lint or scan
+  that fails on the class.
 - On the trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger), ask a `refuter` agent
   to break your claim before READY.
 - If you add or change words under `web/src/messages/**`, ask `ux-critic` for the words-only design gate

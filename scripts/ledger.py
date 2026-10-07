@@ -1,4 +1,4 @@
-"""`python -m scripts.ledger <check|decide|record|fetch-verdict>`: the review ledger
+"""`python -m scripts.ledger <check|decide|to-file|record|fetch-verdict>`: the review ledger
 (docs/specs/factory.md 2.2 "Review record"; `docs/specs/factory/contracts/ledger-record.schema.json`).
 
 - `check <PR> --round n [--exception <kind> --reason "<text>"]` (kinds: security75, crash,
@@ -7,10 +7,17 @@
   cannot be relabelled lower).
 - `decide --from <file> --head <sha>`: the verdict, computed here and nowhere else, from the reviewers'
   and refuters' final lines, one per line: `VERDICT: PASS|FIX|BLOCK at <40-hex>` (one per reviewer lens)
-  and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|->` (the refuter's verdict; `-`: none
-  run). The worst VERDICT wins (BLOCK over FIX over PASS); a finding of 50 or more that stands
-  (CONFIRMED or UNPROVEN) raises PASS to FIX; one of 50 or more with no refuter verdict is refused.
-  Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
+  and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> [<file>]` (the refuter's verdict; `-`:
+  none run; the file the reviewer named). The bar (the owner's ruling, 7 Oct 2026; ADR 0041 amended): a
+  finding "could block" when it scores 75 or more, or 50 or more on a strict path (`[strict] paths` of
+  `scripts/factory/review_tiers.toml`; no file, a climbing or absolute path, or an unreadable list is
+  judged strict). The worst VERDICT wins (BLOCK over FIX over PASS); a finding that could block and
+  stands (CONFIRMED or UNPROVEN) raises PASS to FIX; one that could block with no refuter verdict is
+  refused. Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never
+  text.
+- `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
+  line `{"to_file": [<id>, ...]}`, the standing findings of 50 to 74 off the strict paths, to be filed
+  as issues rather than fixed.
 - `record <PR> --round n --head <sha> --from <file> [--exception … --reason …]`: decides, leak-scans
   what it will post and write, posts one marker comment
   (`<!-- vextrus-review round=N head=<sha> verdict=V findings=k -->`), then writes
@@ -28,6 +35,7 @@ Exit codes: 0 ok, 2 bad input or usage, 3 refused. Standard library only.
 import argparse
 import contextlib
 import fcntl
+import functools
 import hashlib
 import json
 import os
@@ -36,6 +44,7 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import tomllib
 from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -46,16 +55,25 @@ REPOSITORY = "vextrus/vextrus-cubit"
 SHA = re.compile(r"[0-9a-f]{40}")
 NONCE = re.compile(r"[0-9a-f]{32}")
 VERDICT = re.compile(r"VERDICT: (PASS|FIX|BLOCK) at (\S+)")
-FINDING = re.compile(r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)")
+FINDING = re.compile(r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)(?: (\S+))?")
 EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression")
 RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
 STANDS = {"CONFIRMED", "UNPROVEN"}
 MAX_ROUND = 3
 OK, BAD, REFUSED = 0, 2, 3
+# The review bar (the owner's ruling, 7 Oct 2026, session 17).
+BLOCK_AT = 75
+BLOCK_AT_ON_STRICT_PATH = 50
+TIERS_FILE = Path(__file__).with_name("factory") / "review_tiers.toml"
+# A location a reviewer may append to a file (`:12`, `:12:3`, `:12-20`, `#L12`, `#L12-L20`).
+LOCATION = re.compile(r"(?::[0-9]+(?:[-:][0-9]+)?|#L[0-9]+(?:-L?[0-9]+)?)$")
+PLAIN_PATH = re.compile(r"[A-Za-z0-9_@+.-][A-Za-z0-9_@+./-]*")  # relative, no blank, no mark
 
 Scan = Callable[[str], int]
 Post = Callable[[int, str], int]
 HeadOf = Callable[[int], str]
+# One finding as the bar reads it: its score, its refuter word and its file (None: none named).
+Judged = tuple[int, str, str | None]
 
 
 class Refused(Exception):
@@ -71,11 +89,78 @@ class Decision:
     verdict: str
     counts: dict[str, int]
     sha256: str
+    # Not printed nor recorded: what the bar left over (findings that could block with no refuter
+    # verdict, which `commit_record` refuses under a PASS; the ids to file as issues, in input order).
+    unrefuted_blocking: int = 0
+    to_file: tuple[str, ...] = ()
 
     def line(self) -> str:
         return json.dumps(
             {"verdict": self.verdict, "counts": self.counts, "decision_input_sha256": self.sha256}
         )
+
+
+def glob_regex(pattern: str, *, ignore_case: bool = False) -> re.Pattern[str]:
+    """A tier list's glob as a whole-path regex: `*` no `/`, `**/` any folders (or none), `**` all."""
+    out, index = "", 0
+    while index < len(pattern):
+        if pattern.startswith("**/", index):
+            out, index = out + "(?:.*/)?", index + 3
+        elif pattern.startswith("**", index):
+            out, index = out + ".*", index + 2
+        elif pattern[index] == "*":
+            out, index = out + "[^/]*", index + 1
+        elif pattern[index] == "?":
+            out, index = out + "[^/]", index + 1
+        else:
+            out, index = out + re.escape(pattern[index]), index + 1
+    return re.compile(out, re.DOTALL | (re.IGNORECASE if ignore_case else 0))
+
+
+@functools.cache
+def strict_paths() -> tuple[re.Pattern[str], ...] | None:
+    """`[strict] paths` of `review_tiers.toml` (case ignored); None when it cannot be read."""
+    try:
+        paths = tomllib.loads(TIERS_FILE.read_text())["strict"]["paths"]
+    except OSError, ValueError, KeyError, TypeError:
+        return None
+    if not isinstance(paths, list) or not paths or not all(isinstance(p, str) and p for p in paths):
+        return None
+    return tuple(glob_regex(path, ignore_case=True) for path in paths)
+
+
+def named_file(file: Any) -> str | None:
+    """The file as a FINDING line can carry it (one field, no blank): None when it cannot, which the
+    bar then judges strict."""
+    return file if isinstance(file, str) and re.fullmatch(r"\S+", file) else None
+
+
+def on_strict_path(file: str | None) -> bool:
+    """True when `file` is on a strict path. Fail closed: no file, anything but a plain relative path
+    once a location suffix (`:12`, `:12-20`, `#L12`) is dropped (absolute, a drive, a backslash, a
+    blank, another mark), a `..` segment, or a strict list that cannot be read, is judged strict. A
+    strict glob matching any trailing part of the path counts (`b/vextrus/rates/x.py`)."""
+    patterns = strict_paths()
+    if not file or patterns is None:
+        return True
+    path = LOCATION.sub("", file)
+    if not PLAIN_PATH.fullmatch(path):
+        return True
+    parts = [part for part in path.split("/") if part not in ("", ".")]
+    if not parts or ".." in parts:
+        return True
+    tails = ["/".join(parts[index:]) for index in range(len(parts))]
+    return any(pattern.fullmatch(tail) for pattern in patterns for tail in tails)
+
+
+def could_block(score: int, file: str | None) -> bool:
+    """The bar: 75 or more anywhere, or 50 or more on a strict path."""
+    return score >= BLOCK_AT or (score >= BLOCK_AT_ON_STRICT_PATH and on_strict_path(file))
+
+
+def to_file(score: int, word: str, file: str | None) -> bool:
+    """A finding that stands (or no refuter judged) at 50-74 off the strict paths: filed, not fixed."""
+    return word != "REFUTED" and score >= BLOCK_AT_ON_STRICT_PATH and not could_block(score, file)
 
 
 def decide(data: bytes, head: str) -> Decision:
@@ -85,7 +170,7 @@ def decide(data: bytes, head: str) -> Decision:
     except UnicodeDecodeError as error:
         raise BadInput("the decision input is not UTF-8") from error
     verdicts: list[str] = []
-    findings: dict[str, tuple[int, str]] = {}
+    findings: dict[str, Judged] = {}
     for number, raw in enumerate(text.split("\n"), start=1):
         line = raw.removesuffix("\r")
         if not line.strip():
@@ -100,42 +185,55 @@ def decide(data: bytes, head: str) -> Decision:
                 raise BadInput(f"line {number}: finding {name} scores outside 0-100")
             if name in findings:
                 raise BadInput(f"line {number}: finding {name} is listed twice")
-            findings[name] = (score, found[3])
+            findings[name] = (score, found[3], found[4])
         else:
             raise BadInput(f"line {number}: not a VERDICT or FINDING line")
     if not verdicts:
         raise BadInput("no VERDICT line: at least one reviewer's final line is needed")
-    unrefuted = sorted(name for name, (score, word) in findings.items() if score >= 50 and word == "-")
+    unrefuted = sorted(
+        name
+        for name, (score, word, file) in findings.items()
+        if word == "-" and could_block(score, file)
+    )
     if unrefuted:
         raise BadInput(
-            f"findings of 50 or more with no refuter verdict: {', '.join(unrefuted)}: run a refuter on "
-            "each first"
+            f"findings that could block (75 or more, or 50 or more on a strict path) with no refuter "
+            f"verdict: {', '.join(unrefuted)}: run a refuter on each first"
         )
+    return judge(verdicts, findings, hashlib.sha256(data).hexdigest())
+
+
+def judge(verdicts: Sequence[str], findings: dict[str, Judged], sha256: str) -> Decision:
+    """The decision from the reviewers' verdicts and the findings by id, as the bar reads them."""
+    judged = list(findings.values())
     return Decision(
-        verdict(verdicts, findings.values()),
-        counts(len(verdicts), findings.values()),
-        hashlib.sha256(data).hexdigest(),
+        verdict(verdicts, judged),
+        counts(len(verdicts), judged),
+        sha256,
+        sum(word == "-" and could_block(score, file) for score, word, file in judged),
+        tuple(name for name, finding in findings.items() if to_file(*finding)),
     )
 
 
-def verdict(verdicts: Sequence[str], findings: Any) -> str:
+def verdict(verdicts: Sequence[str], findings: Sequence[Judged]) -> str:
     worst = max(verdicts, key=RANK.__getitem__)
-    if worst == "PASS" and any(score >= 50 and word in STANDS for score, word in findings):
+    if worst == "PASS" and any(
+        word in STANDS and could_block(score, file) for score, word, file in findings
+    ):
         return "FIX"
     return worst
 
 
-def counts(reviewers: int, findings: Any) -> dict[str, int]:
-    pairs: list[tuple[int, str]] = list(findings)
-    words = [word for _, word in pairs]
+def counts(reviewers: int, findings: Sequence[Judged]) -> dict[str, int]:
+    words = [word for _, word, _ in findings]
     return {
         "reviewers": reviewers,
         "findings": sum(word != "REFUTED" for word in words),
-        "findings_ge_50": sum(score >= 50 for score, _ in pairs),
+        "findings_ge_50": sum(score >= 50 for score, _, _ in findings),
         "confirmed": words.count("CONFIRMED"),
         "refuted": words.count("REFUTED"),
         "unproven": words.count("UNPROVEN"),
-        "unrefuted_ge_50": sum(score >= 50 and word == "-" for score, word in pairs),
+        "unrefuted_ge_50": sum(score >= 50 and word == "-" for score, word, _ in findings),
     }
 
 
@@ -249,8 +347,11 @@ def commit_record(
     path = ledger_dir / f"{pr}-{head}.json"
     if path.exists():
         raise Refused(f"{path.name} is already recorded: a record is never overwritten")
-    if decision.verdict == "PASS" and decision.counts["unrefuted_ge_50"]:
-        raise Refused("a PASS with a finding of 50 or more that no refuter has seen")
+    if decision.verdict == "PASS" and decision.unrefuted_blocking:
+        raise Refused(
+            "a PASS with a finding that could block (75 or more, or 50 or more on a strict path) that "
+            "no refuter has seen"
+        )
     try:
         ledger_dir.mkdir(parents=True, exist_ok=True)
     except OSError as error:
@@ -407,12 +508,11 @@ def fetch_verdict(
             f"ledger: refuter {name.rsplit('-', 1)[1].removesuffix('.json')}: {verdict_file['verdict']}"
         )
     else:
-        scores = [item["score"] for item in verdict_file["findings"]]
-        decision = Decision(
-            verdict([verdict_file["verdict"]], [(score, "-") for score in scores]),
-            counts(1, [(score, "-") for score in scores]),
-            hashlib.sha256(text.encode()).hexdigest(),
-        )
+        findings: dict[str, Judged] = {
+            f"f{number}": (item["score"], "-", named_file(item["file"]))
+            for number, item in enumerate(verdict_file["findings"], start=1)
+        }
+        decision = judge([verdict_file["verdict"]], findings, hashlib.sha256(text.encode()).hexdigest())
         commit_record(
             pr=pr,
             head=head,
@@ -554,6 +654,9 @@ def parser() -> argparse.ArgumentParser:
     choose = commands.add_parser("decide", add_help=False)
     choose.add_argument("--from", dest="source", type=Path, required=True)
     choose.add_argument("--head", required=True)
+    listing = commands.add_parser("to-file", add_help=False)
+    listing.add_argument("--from", dest="source", type=Path, required=True)
+    listing.add_argument("--head", required=True)
     record = commands.add_parser("record", add_help=False)
     record.add_argument("pr", type=int)
     record.add_argument("--round", type=int, required=True)
@@ -571,7 +674,7 @@ def parser() -> argparse.ArgumentParser:
 def run(args: argparse.Namespace, *, scan: Scan, post: Post, ledger_dir: Path, head_of: HeadOf) -> None:
     if getattr(args, "pr", 1) < 1:
         raise BadInput("the PR number is 1 or more")
-    if args.command in ("decide", "record") and not SHA.fullmatch(args.head):
+    if args.command in ("decide", "to-file", "record") and not SHA.fullmatch(args.head):
         raise BadInput("--head is a full 40-hex sha")
     if args.command == "check":
         check_exception(args.round, args.exception, args.reason)
@@ -579,6 +682,8 @@ def run(args: argparse.Namespace, *, scan: Scan, post: Post, ledger_dir: Path, h
         print(f"ledger: PR {args.pr} round {args.round} may start")
     elif args.command == "decide":
         print(decide(read(args.source), args.head).line())
+    elif args.command == "to-file":
+        print(json.dumps({"to_file": list(decide(read(args.source), args.head).to_file)}))
     elif args.command == "record":
         exception = check_exception(args.round, args.exception, args.reason)
         decision = decide(read(args.source), args.head)

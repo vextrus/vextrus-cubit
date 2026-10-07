@@ -67,3 +67,33 @@ never = [
   "**/*.spec.*",
   "**/conftest.py",
 ]
+
+[strict]
+# The review bar (the owner's ruling, 7 Oct 2026, session 17; ADR 0041 amended): a standing finding
+# blocks at 75, or at 50 when its file matches one of these paths. Read by scripts/ledger.py (and,
+# through it, by review.py and merge_ready). Unlike the lists above, this one names the walls: a
+# finding with no file, or a file that is not a plain relative path (absolute, a drive, a backslash,
+# a blank, a `..`), is judged strict; a glob matching any trailing part of the path counts. Case
+# ignored.
+paths = [
+  # Security walls: tenancy and row-level security, sign-in and auth, the guard.
+  "**/*tenancy*",
+  "**/*tenancy*/**",
+  "**/*row_level*",
+  "**/auth.py",
+  "**/auth/**",
+  "vextrus/platform/database.py",
+  "vextrus/platform/http/**",
+  "web/src/app/session.ts",
+  ".claude/hooks/**",
+  ".claude/settings.json",
+  # Migrations.
+  "**/migrations/**",
+  # Money: the BOQ, rates.
+  "vextrus/boq/**",
+  "vextrus/rates/**",
+  "vextrus/platform/money.py",
+  # Readers: the engine's drawing readers (and its families, when they come).
+  "engine/read/**",
+  "engine/families/**",
+]
