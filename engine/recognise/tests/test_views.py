@@ -20,6 +20,12 @@ from engine.recognise.types import (
     ViewCandidate,
     ViewKind,
 )
+from engine.recognise.views import paper as on_paper
+from engine.recognise.views import routing as routing_part
+from engine.recognise.views import segment as segment_part
+from engine.recognise.views import titles as titles_part
+from engine.recognise.views.segment import block as block_part
+from engine.recognise.views.segment import pieces as pieces_part
 
 CONVENTIONS = views.default_conventions()
 
@@ -94,8 +100,12 @@ def test_a_model_space_views_box_is_on_paper_in_mm_from_the_frames_corner() -> N
 
 def test_a_frame_drawn_as_a_rectangle_takes_the_paper_that_makes_its_scale_round() -> None:
     """No insert to read the scale from: an A1 rectangle 100 times its size is at 1:100."""
-    assert views._paper_scale(Sheets().artefact(), None, Box(0, 0, 84_100, 59_400)) == pytest.approx(100)
-    assert views._paper_scale(Sheets().artefact(), None, Box(0, 0, 42_000, 29_700)) == pytest.approx(100)
+    assert on_paper._paper_scale(Sheets().artefact(), None, Box(0, 0, 84_100, 59_400)) == pytest.approx(
+        100
+    )
+    assert on_paper._paper_scale(Sheets().artefact(), None, Box(0, 0, 42_000, 29_700)) == pytest.approx(
+        100
+    )
 
 
 def test_a_layout_sheets_views_seen_through_a_viewport_are_placed_on_its_paper() -> None:
@@ -170,8 +180,8 @@ def test_a_title_block_ruled_in_pieces_is_bounded_by_its_nearest_rules() -> None
 
 def test_a_sheet_with_no_title_block_text_has_no_title_block_view() -> None:
     ruled = np.array([[0, 0, W, 0], [0, H, W, H], [0.8 * W, 0, 0.8 * W, H]], dtype=np.float64)
-    paper = views._Paper((0.0, 0.0, W, H), ruled, [], frame=ruled)
-    assert views._title_block(paper) is None
+    paper = on_paper._Paper((0.0, 0.0, W, H), ruled, [], frame=ruled)
+    assert block_part._title_block(paper) is None
 
 
 def test_a_view_with_no_title_is_a_plan_when_it_is_large_and_nothing_when_small() -> None:
@@ -214,7 +224,7 @@ def test_a_scale_on_the_titles_line_is_the_views_stated_scale() -> None:
     ],
 )
 def test_a_titles_kind(title: str, kind: ViewKind | None) -> None:
-    assert views._kind(title, views._reading(CONVENTIONS)) == kind
+    assert titles_part._kind(title, titles_part._reading(CONVENTIONS)) == kind
 
 
 @pytest.mark.parametrize(
@@ -229,9 +239,9 @@ def test_a_titles_kind(title: str, kind: ViewKind | None) -> None:
     ],
 )
 def test_a_titles_subject_and_layer(title: str, subject: str | None, layer: Layer | None) -> None:
-    reading = views._reading(CONVENTIONS)
-    assert views._subject(title, reading) == subject
-    assert views._layer(title, reading) == layer
+    reading = titles_part._reading(CONVENTIONS)
+    assert titles_part._subject(title, reading) == subject
+    assert titles_part._layer(title, reading) == layer
 
 
 def test_a_column_plans_storeys_run_floor_to_floor_and_a_beam_plans_are_at_floor_level() -> None:
@@ -307,7 +317,7 @@ def test_a_views_proposal_by_its_discipline(
     part: str | None,
     reason: ExclusionReason | None,
 ) -> None:
-    found_steps, found_part, exclusion = views._proposal(kind, subject, discipline)
+    found_steps, found_part, exclusion = routing_part._proposal(kind, subject, discipline)
     assert found_steps == steps
     assert found_part == part
     assert (exclusion.reason if exclusion else None) == reason
@@ -339,13 +349,13 @@ def test_a_structural_view_naming_no_subject_takes_its_sheet_titles(
     on_sheet: tuple[str, ...],
     steps: tuple[str, ...],
 ) -> None:
-    found_steps, part, exclusion = views._proposal(kind, subject, discipline, on_sheet)
+    found_steps, part, exclusion = routing_part._proposal(kind, subject, discipline, on_sheet)
     assert (found_steps, part, exclusion) == (steps, None, None)
 
 
 def test_the_sheet_titles_subject_never_brings_back_a_view_proposed_out() -> None:
     for kind in (ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.PERSPECTIVE):
-        found_steps, _, exclusion = views._proposal(kind, None, "structural", ("beam",))
+        found_steps, _, exclusion = routing_part._proposal(kind, None, "structural", ("beam",))
         assert found_steps == ()
         assert exclusion == Exclusion(ExclusionReason.FOR_INFORMATION)
 
@@ -400,10 +410,10 @@ def test_the_subject_words_of_tanks_lintels_and_sunshades(title: str, named: set
 
 
 def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> None:
-    on_sheet = views._subjects_in_order(
-        "LINTEL, SUNSHADE & TYPICAL DETAILS", views._reading(CONVENTIONS)
+    on_sheet = titles_part._subjects_in_order(
+        "LINTEL, SUNSHADE & TYPICAL DETAILS", titles_part._reading(CONVENTIONS)
     )
-    steps, _, _ = views._proposal(ViewKind.DETAIL, None, "structural", on_sheet)
+    steps, _, _ = routing_part._proposal(ViewKind.DETAIL, None, "structural", on_sheet)
     assert steps == ("beams", "slabs")
 
 
@@ -446,9 +456,9 @@ def test_every_structural_kind_but_the_general_ones_names_a_step() -> None:
 
 
 def test_steps_five_to_ten_are_proposed_for_structural_views_only() -> None:
-    structural = {s for steps in views.STRUCTURAL_STEPS.values() for s in steps}
-    for subject in views.STRUCTURAL_STEPS:
-        steps, _, _ = views._proposal(ViewKind.PLAN, subject, "architectural")
+    structural = {s for steps in routing_part.STRUCTURAL_STEPS.values() for s in steps}
+    for subject in routing_part.STRUCTURAL_STEPS:
+        steps, _, _ = routing_part._proposal(ViewKind.PLAN, subject, "architectural")
         assert not set(steps) & structural, subject
 
 
@@ -457,21 +467,21 @@ def test_steps_five_to_ten_are_proposed_for_structural_views_only() -> None:
 
 def test_the_grid_is_bounded_however_large_the_paper() -> None:
     """A frame rectangle a billion units wide is still a grid of at most `MAX_GRID` cells a side."""
-    paper = views._Paper((0.0, 0.0, 1e9, 1e9), np.array([[0.0, 0.0, 1e9, 1e9]]), [])
-    pieces = views._pieces(paper, [], ())
+    paper = on_paper._Paper((0.0, 0.0, 1e9, 1e9), np.array([[0.0, 0.0, 1e9, 1e9]]), [])
+    pieces = pieces_part._pieces(paper, [], ())
     assert len(pieces) == 1
 
 
 def test_the_points_laid_on_the_grid_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(views, "MAX_SAMPLES", 1000)
+    monkeypatch.setattr(pieces_part, "MAX_SAMPLES", 1000)
     segments = np.array([[0.0, float(y), 400.0, float(y)] for y in range(0, 500, 5)])
-    paper = views._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
-    assert views._pieces(paper, [], ())
+    paper = on_paper._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
+    assert pieces_part._pieces(paper, [], ())
 
 
 def test_a_segment_not_finite_or_outside_is_clipped_away() -> None:
     segments = np.array([[-10.0, 5.0, 20.0, 5.0], [50.0, 50.0, 60.0, 60.0]])
-    clipped = views._clip(segments, (0.0, 0.0, 10.0, 10.0))
+    clipped = on_paper._clip(segments, (0.0, 0.0, 10.0, 10.0))
     assert clipped.tolist() == [[0.0, 5.0, 10.0, 5.0]]
 
 
@@ -479,7 +489,7 @@ def test_pieces_join_across_diagonal_neighbours_and_part_across_a_gap() -> None:
     grid_ = np.zeros((5, 7), dtype=bool)
     grid_[0, 0] = grid_[1, 1] = True  # diagonal: one piece
     grid_[4, 6] = True  # apart
-    labels, count = views._label(grid_)
+    labels, count = pieces_part._label(grid_)
     assert count == 2
     assert labels[0, 0] == labels[1, 1] != labels[4, 6]
 
@@ -534,18 +544,18 @@ def test_every_walk_of_a_file_spends_one_budget(monkeypatch: pytest.MonkeyPatch)
     for layout in layouts:
         for i in range(40):
             d.line((float(i), 0.0), (float(i), 10.0), owner=layout)
-    walker = views._Walker(d.artefact())
+    walker = views.ViewBudget(d.artefact())
     read = sum(len(walker.walk(layout).segments) for layout in layouts)
     assert 0 < read <= 50
     assert walker.visits == 0
 
 
 def test_the_pieces_a_sheet_is_read_by_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(views, "MAX_PIECES", 3)
+    monkeypatch.setattr(segment_part, "MAX_PIECES", 3)
     segments = np.array([[float(x), 10.0, float(x) + 5, 10.0] for x in range(0, 800, 40)])
-    paper = views._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
-    reading = views._reading(CONVENTIONS)
-    assert len(views._views(paper, reading, ViewKind.PLAN)) <= 3
+    paper = on_paper._Paper((0.0, 0.0, 841.0, 594.0), segments, [])
+    reading = titles_part._reading(CONVENTIONS)
+    assert len(segment_part._views(paper, reading, ViewKind.PLAN)) <= 3
 
 
 def test_a_notes_line_naming_a_kind_is_no_view_title() -> None:
@@ -589,21 +599,21 @@ def test_a_text_of_any_height_is_read_within_the_grid() -> None:
 def test_many_tall_texts_lay_at_most_the_sample_bound(monkeypatch: pytest.MonkeyPatch) -> None:
     """20,000 texts 40 mm tall took 2.9 GB and raised MemoryError: their points now share the bound."""
     laid: list[int] = []
-    real = views._label
+    real = pieces_part._label
 
     def counting(grid_: np.ndarray) -> tuple[np.ndarray, int]:
         laid.append(int(grid_.sum()))
         return real(grid_)
 
-    monkeypatch.setattr(views, "_label", counting)
+    monkeypatch.setattr(pieces_part, "_label", counting)
     boxes = [
         (float(x), float(y), x + 30.0, y + 40.0) for x in range(0, 800, 10) for y in range(0, 550, 2)
     ]
-    rows = views._text_rows(boxes, (0.0, 0.0, 841.0, 594.0), 2.0, 300)
-    assert len(rows) <= views.MAX_SAMPLES
-    words = [views._Text(None, (), b, 40.0, "X") for b in boxes[:2000]]  # type: ignore[arg-type]
-    paper = views._Paper((0.0, 0.0, 841.0, 594.0), np.empty((0, 4)), words)
-    assert views._pieces(paper, words, range(len(words)))
+    rows = pieces_part._text_rows(boxes, (0.0, 0.0, 841.0, 594.0), 2.0, 300)
+    assert len(rows) <= pieces_part.MAX_SAMPLES
+    words = [on_paper._Text(None, (), b, 40.0, "X") for b in boxes[:2000]]  # type: ignore[arg-type]
+    paper = on_paper._Paper((0.0, 0.0, 841.0, 594.0), np.empty((0, 4)), words)
+    assert pieces_part._pieces(paper, words, range(len(words)))
     assert laid
 
 
@@ -656,9 +666,10 @@ def test_many_viewports_over_a_large_model_spend_one_file_budget(
     from engine.recognise.types import SheetLocation
 
     artefact = d.artefact()
-    views._held.clear()
-    views.find(artefact, SheetCandidate(location=SheetLocation(layout="S-09")), CONVENTIONS)
-    walker = views._walker(artefact)
+    walker = views.ViewBudget(artefact)
+    views.find(
+        artefact, SheetCandidate(location=SheetLocation(layout="S-09")), CONVENTIONS, budget=walker
+    )
     assert walker.limits["viewports_capped"] == 200 - views.MAX_SHEET_VIEWPORTS
     assert walker.limits["scan_budget"] > 0
     assert 0 <= walker.scans < 50_000
@@ -712,7 +723,6 @@ def test_a_budget_cut_shows_in_the_views_report(monkeypatch: pytest.MonkeyPatch)
     result, and the harness writes them into the file's export as `view_report`."""
     monkeypatch.setattr(views, "MAX_SCANS", 10)
     d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
-    views._held.clear()
     found = views.find(d.artefact(), sheet, CONVENTIONS)
     assert list(found) == []
     assert found.limits == {"viewports_capped": 0, "scan_budget": 1, "read_budget": 0}
@@ -720,7 +730,6 @@ def test_a_budget_cut_shows_in_the_views_report(monkeypatch: pytest.MonkeyPatch)
 
 def test_a_sheet_read_in_full_reports_every_limit_at_zero() -> None:
     d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
-    views._held.clear()
     found = views.find(d.artefact(), sheet, CONVENTIONS)
     assert found.limits == dict.fromkeys(views.LIMITS, 0)
 
@@ -813,10 +822,10 @@ def test_a_titles_second_line_titles_no_drawing_under_it() -> None:
 
 
 def test_the_lines_a_title_block_is_bounded_by_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(views, "MAX_RULES", 50)
+    monkeypatch.setattr(block_part, "MAX_RULES", 50)
     lines = np.array([[0, y, 100, y] for y in range(1_000)], dtype=np.float64)
-    assert len(views._rules(lines, 0, 0.1)) == 50
-    assert len(views._rules(lines, 1, 0.1)) == 0  # none along y
+    assert len(block_part._rules(lines, 0, 0.1)) == 50
+    assert len(block_part._rules(lines, 1, 0.1)) == 0  # none along y
 
 
 def test_a_titled_drawing_takes_no_neighbour_that_is_not_its_body() -> None:
@@ -941,7 +950,8 @@ def test_a_stepped_title_block_keeps_the_detail_beside_it() -> None:
 def test_a_title_block_covering_most_of_the_paper_is_not_read() -> None:
     """Two values 13 read at opposite corners, no ruled line between: the box would be the paper."""
     d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))])
-    paper = views._paper(d.artefact(), sheet)
+    artefact = d.artefact()
+    paper = on_paper._paper(artefact, sheet, views.ViewBudget(artefact))
     assert paper is not None
     first, second = (t for t in paper.block if t.placed.entity.handle in paper.values)
     apart = [
@@ -950,8 +960,8 @@ def test_a_title_block_covering_most_of_the_paper_is_not_read() -> None:
     ]
     border = np.array([[0, 0, W, 0], [0, H, W, H], [0, 0, 0, H], [W, 0, W, H]], dtype=np.float64)
     spread = replace(paper, block=apart, frame=border, segments=np.empty((0, 4)), lengths=None)
-    assert views._title_block(spread) is None
-    assert views._title_block(paper) is not None
+    assert block_part._title_block(spread) is None
+    assert block_part._title_block(paper) is not None
 
 
 def one_sheet_of(d: Sheets, block: str) -> SheetCandidate:
@@ -1139,7 +1149,7 @@ def test_a_piece_that_cannot_be_cut_is_its_tallest_titles() -> None:
 
 def test_the_lines_a_sheets_cuts_weigh_are_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
     """Past `MAX_CUT_WEIGHS` nothing more is cut: the shared piece is one drawing again."""
-    monkeypatch.setattr(views, "MAX_CUT_WEIGHS", 5)
+    monkeypatch.setattr(pieces_part, "MAX_CUT_WEIGHS", 5)
     d, sheet = labelled_sections(
         [("LONG SECTION OF BEAM B1", (40, 300, 300, 380)), ("SECTION 1-1", (330, 300, 370, 380))],
         LABELS_ACROSS,

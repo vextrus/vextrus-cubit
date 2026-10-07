@@ -1,0 +1,7381 @@
+{
+ "duplicate_layer": [],
+ "entity_kinds": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    25.0,
+    55.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 12.5,
+      "y0": 0.0,
+      "y1": 10.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    25.0,
+    55.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 12.5,
+      "y0": 0.0,
+      "y1": 10.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    25.0,
+    55.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 12.5,
+      "y0": 0.0,
+      "y1": 10.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    25.0,
+    55.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 12.5,
+      "y0": 0.0,
+      "y1": 10.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "mirrored_insert": [],
+ "mtext_angle": [],
+ "sheet_layout": [],
+ "sheet_set_layouts": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-101",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-102",
+   "paper": [
+    297.0,
+    420.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 297.0,
+      "y0": 0.0,
+      "y1": 130.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-103",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-101",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-102",
+   "paper": [
+    297.0,
+    420.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 297.0,
+      "y0": 0.0,
+      "y1": 130.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-103",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-101",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-102",
+   "paper": [
+    297.0,
+    420.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 297.0,
+      "y0": 0.0,
+      "y1": 130.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-103",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-101",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-102",
+   "paper": [
+    297.0,
+    420.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 0.0,
+      "x1": 297.0,
+      "y0": 0.0,
+      "y1": 130.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-103",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "sheet_set_model": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 0,
+   "views": []
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 1,
+   "views": []
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 2,
+   "views": []
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    594.3948,
+    841.0
+   ],
+   "sheet": 4,
+   "views": []
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    383.032797
+   ],
+   "sheet": 5,
+   "views": []
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    16.54,
+    11.69
+   ],
+   "sheet": 6,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 0,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 1,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 2,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    594.3948,
+    841.0
+   ],
+   "sheet": 4,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    383.032797
+   ],
+   "sheet": 5,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    16.54,
+    11.69
+   ],
+   "sheet": 6,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 0,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 1,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 2,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    594.3948,
+    841.0
+   ],
+   "sheet": 4,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    383.032797
+   ],
+   "sheet": 5,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    16.54,
+    11.69
+   ],
+   "sheet": 6,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 0,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 1,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    296.844015
+   ],
+   "sheet": 2,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.3948
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    594.3948,
+    841.0
+   ],
+   "sheet": 4,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    420.0,
+    383.032797
+   ],
+   "sheet": 5,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    16.54,
+    11.69
+   ],
+   "sheet": 6,
+   "views": []
+  }
+ ],
+ "t162-empty_layout1": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "foundations"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "columns"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "t162-notes_boxed": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "foundations"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "columns"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  }
+ ],
+ "t162-notes_loose": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "foundations"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "columns"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "t162-template_layout1": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "foundations"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "columns"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": null,
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 3,
+   "views": []
+  }
+ ],
+ "t162-template_layout1_bare": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "foundations"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "columns"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-301",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-302",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-303",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 2,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 640.0,
+      "y0": 60.0,
+      "y1": 540.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "t17-S-layouts": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-201",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "5C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "beams"
+     ],
+     "storeys": [
+      "ground"
+     ],
+     "storeys_as_stated": "GROUND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "GROUND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "6C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION A-A",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "7B",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "BEAM SCHEDULE",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "8A",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "detail",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM DETAIL",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-202",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "AA",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "beams"
+     ],
+     "storeys": [
+      "typical"
+     ],
+     "storeys_as_stated": "TYPICAL FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "TYPICAL FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "BF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "slabs"
+     ],
+     "storeys": [
+      "floor_1"
+     ],
+     "storeys_as_stated": "1ST FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "slab",
+     "title": "1ST FLOOR SLAB LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "CF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM SECTION",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-201",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "5C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": {
+      "reason": "duplicate",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "ground"
+     ],
+     "storeys_as_stated": "GROUND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "GROUND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "6C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION A-A",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "7B",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "BEAM SCHEDULE",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "8A",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "detail",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM DETAIL",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-202",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "AA",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": {
+      "reason": "duplicate",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "typical"
+     ],
+     "storeys_as_stated": "TYPICAL FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "TYPICAL FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "BF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [
+      "floor_1"
+     ],
+     "storeys_as_stated": "1ST FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "slab",
+     "title": "1ST FLOOR SLAB LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "CF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM SECTION",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-201",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "5C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "ground"
+     ],
+     "storeys_as_stated": "GROUND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "GROUND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "6C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION A-A",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "7B",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "BEAM SCHEDULE",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "8A",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "detail",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM DETAIL",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-202",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "AA",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "typical"
+     ],
+     "storeys_as_stated": "TYPICAL FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "TYPICAL FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "BF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "floor_1"
+     ],
+     "storeys_as_stated": "1ST FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "slab",
+     "title": "1ST FLOOR SLAB LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "CF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM SECTION",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-201",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "5C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [
+      "ground"
+     ],
+     "storeys_as_stated": "GROUND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "GROUND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "6C",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION A-A",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "7B",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "schedule",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "BEAM SCHEDULE",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "8A",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-201",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "detail",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM DETAIL",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-202",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "AA",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [
+      "typical"
+     ],
+     "storeys_as_stated": "TYPICAL FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "TYPICAL FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "BF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [
+      "floor_1"
+     ],
+     "storeys_as_stated": "1ST FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "slab",
+     "title": "1ST FLOOR SLAB LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "CF",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "S-202",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 42.0,
+      "y1": 260.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": "beam",
+     "title": "TYPICAL BEAM SECTION",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "t17-S-model": [
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-203",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "57",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "beams"
+     ],
+     "storeys": [
+      "floor_2"
+     ],
+     "storeys_as_stated": "2ND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "2ND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "67",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "beams"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION B-B",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "structural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-204",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 350.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-203",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "57",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": {
+      "reason": "duplicate",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "floor_2"
+     ],
+     "storeys_as_stated": "2ND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "2ND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "67",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION B-B",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "architectural",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-204",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 350.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "walls",
+      "rooms"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-203",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "57",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": "1:100",
+     "steps": [],
+     "storeys": [
+      "floor_2"
+     ],
+     "storeys_as_stated": "2ND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "2ND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "67",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION B-B",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "plumbing",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-204",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 350.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": "plumbing",
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-203",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 0,
+   "views": [
+    {
+     "anchors": [
+      {
+       "handle": "57",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": "1:100",
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [
+      "floor_2"
+     ],
+     "storeys_as_stated": "2ND FLOOR",
+     "storeys_meaning": "at_floor_level",
+     "subject": "beam",
+     "title": "2ND FLOOR BEAM LAYOUT PLAN",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [
+      {
+       "handle": "67",
+       "inserts": [],
+       "reader": "libredwg",
+       "reader_version": "0.14",
+       "sheet": "model/3D",
+       "source_sha256": "<this file>",
+       "type": "DwgAnchor"
+      }
+     ],
+     "box": {
+      "type": "Box",
+      "x0": 400.0,
+      "x1": 660.0,
+      "y0": 332.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "section",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": "SECTION B-B",
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  },
+  {
+   "discipline": "general",
+   "limits": {
+    "read_budget": 0,
+    "scan_budget": 0,
+    "viewports_capped": 0
+   },
+   "number": "S-204",
+   "paper": [
+    841.0,
+    594.0
+   ],
+   "sheet": 1,
+   "views": [
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 40.0,
+      "x1": 340.0,
+      "y0": 350.0,
+      "y1": 560.0
+     },
+     "exclusion": null,
+     "kind": "plan",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [
+      "general_notes"
+     ],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    },
+    {
+     "anchors": [],
+     "box": {
+      "type": "Box",
+      "x0": 700.0,
+      "x1": 841.0,
+      "y0": 0.0,
+      "y1": 594.0
+     },
+     "exclusion": {
+      "reason": "for_information",
+      "text": null,
+      "type": "Exclusion"
+     },
+     "kind": "title_block",
+     "layer": null,
+     "not_to_scale": false,
+     "part": null,
+     "stated_scale": null,
+     "steps": [],
+     "storeys": [],
+     "storeys_as_stated": null,
+     "storeys_meaning": null,
+     "subject": null,
+     "title": null,
+     "type": "ViewCandidate"
+    }
+   ]
+  }
+ ],
+ "text_kinds": [],
+ "title_block": []
+}
