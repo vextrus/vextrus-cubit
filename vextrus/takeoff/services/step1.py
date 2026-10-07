@@ -1663,21 +1663,10 @@ def undo(project_id: uuid.UUID) -> ActView:
                 project_id=project_id, view_id=proposal.subject_id, confirmation=act
             ):
                 _follow_sheet(row)
-        kept = [
-            row
-            for sheet_id in listed | off_list
-            for row in Coverage.objects.select_for_update().filter(
-                project_id=project_id,
-                sheet_revision_id=sheet_id,
-                view_id__in=_excluded_on_their_own(project_id, sheet_id),
-            )
-        ]
         for sheet_id in listed:
             _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
         for sheet_id in off_list:
             _put_back_sheet(project_id, sheet_id, None)
-        for row in kept:
-            row.save()  # a view left out on its own keeps its own row, whatever its sheet is put back to
         # The views the act put in Steps (an `assign`) stand as their sheets do without its steps;
         # a view left out since stays out.
         given = CoverageStep.objects.filter(project_id=project_id, confirmation=act).values_list(
@@ -1834,7 +1823,7 @@ def _excluded_on_their_own(project_id: uuid.UUID, sheet_id: uuid.UUID) -> set[uu
 
 def _exclude_views_of(sheet_id: uuid.UUID, act: Confirmation, reason: str, text: str) -> None:
     """`_decide_views` for a sheet left out: a view the QS left out on its own keeps its own decision
-    (its row is its own, never rewritten by its sheet's act, so its undo restores exactly what it wrote)."""
+    (its row is its own, never rewritten by its sheet's act, so that act's undo leaves it as it was)."""
     own = _excluded_on_their_own(act.project_id, sheet_id)
     kept = list(
         Coverage.objects.select_for_update().filter(

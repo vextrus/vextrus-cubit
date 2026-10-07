@@ -3,7 +3,7 @@ or by its sheet's. Fixtures are 21c's (an invented Structural sheet S-04 with tw
 
 import pytest
 
-from vextrus.takeoff.tests.acceptance.t21c.step1_whole import coverage, exclude, step1
+from vextrus.takeoff.tests.acceptance.t21c.step1_whole import confirm, coverage, exclude, step1
 from vextrus.takeoff.tests.acceptance.ts15w9.test_exclude_a_view import (  # noqa: F401
     SECTION,
     jev_sure,
@@ -59,3 +59,20 @@ def test_excluding_the_sheet_keeps_a_view_left_out_on_its_own_and_so_does_its_un
     assert sheet(api, qs_project.project_id)["decision"] is None
     by_reason = coverage(api, qs_project.project_id)["by_reason"]
     assert (by_reason.get("duplicate"), by_reason.get("superseded")) == (1, None)
+
+
+def test_undoing_a_sheet_back_in_keeps_a_view_left_out_on_its_own(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    view_id = section_id(qs_project, monkeypatch)
+    api = api_as(qs_project.member)
+    assert exclude(api, qs_project.project_id, [view_id], "duplicate").status_code == 200
+    sheet_id = sheet(api, qs_project.project_id)["id"]
+    assert exclude(api, qs_project.project_id, [sheet_id], "superseded").status_code == 200
+    assert confirm(api, qs_project.project_id, [sheet_id]).status_code == 200
+
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+
+    assert sheet(api, qs_project.project_id)["decision"] == "excluded"
+    shown = view(api, qs_project.project_id)
+    assert (shown["decision"], shown["excluded_reason"]) == ("excluded", "duplicate")
