@@ -15,7 +15,7 @@ import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
 import { QuestionTitle } from './questionWords'
-import { listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
+import { distinctTitles, listSheet, rowState, titlesDiffer, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface SheetListProps {
@@ -527,14 +527,42 @@ function SheetRow({
         <span className="shrink-0 whitespace-nowrap">, {count} copies</span>
       </Trans>
     )
+  else if (row.kind === 'number-shared')
+    title = (
+      <>
+        <Titles sheets={row.sheets} />
+        <KindBadge
+          short={<Plural value={row.sheets.length} one="# sheet" other="# sheets" />}
+          full={<Plural value={row.sheets.length} one="# sheet shares the number" other="# sheets share the number, titles differ" />}
+        />
+      </>
+    )
+  else if (row.kind === 'title-shared')
+    title = (
+      <>
+        <Titles sheets={row.sheets} />
+        <KindBadge
+          short={<Plural value={row.sheets.length} one="# sheet" other="# sheets" />}
+          full={<Plural value={row.sheets.length} one="# sheet that may draw the same thing" other="# sheets that may draw the same thing" />}
+        />
+      </>
+    )
+  else if (row.kind === 'sheets' || (row.sheets.length > 1 && !row.title && titlesDiffer(row.sheets)))
+    // A Question's sheets of other numbers and titles, or a continuation split by a decision (its group's title no longer fits).
+    title = (
+      <>
+        <Titles sheets={row.sheets} />
+        <KindBadge short={<Plural value={row.sheets.length} one="# sheet" other="# sheets" />} />
+      </>
+    )
   else if (row.sheets.length > 1)
     title = (
       <Trans>
-        <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+        <DrawingText kind="title" text={row.title ?? first?.title ?? ''} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )
-  else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+  else title = <DrawingText kind="title" text={row.title ?? first?.title ?? ''} className="min-w-0" />
 
   return (
     <div
@@ -588,9 +616,15 @@ function SheetRow({
           </span>
         )}
       </span>
-      {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
+      {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left).
+          The held mark leads, so it is never clipped; the kind and series words give up their width before the titles do (#322, round 1). */}
       <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
+        {row.sheets.some((s) => s.held) ? <HeldMark /> : null}
         {title}
+        {row.series !== undefined ? (
+          // Counted for the series, said as the series': a row of one sheet in a series of 5 is never "5 sheets" (round 2).
+          <KindBadge short={<Plural value={row.series} one="series of #" other="series of #" />} full={<Plural value={row.series} one="# sheet shares this title" other="# sheets share this title" />} />
+        ) : null}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <DisciplineCell sheet={first} /> : null}
@@ -619,6 +653,66 @@ function SheetRow({
         <State row={row} />
       </span>
     </div>
+  )
+}
+
+/** Each distinct title of a row's sheets, joined by "; ", cut by the cell; the whole list in its tooltip. */
+function Titles({ sheets }: { sheets: readonly ProposalOut[] }) {
+  const titles = distinctTitles(sheets).map((p) => p.title)
+  const items = titles.flatMap((t, i) => [...(i > 0 ? ['; '] : []), <DrawingText key={i} kind="title" text={t} truncate={false} />])
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} data-titles="" className="min-w-0 truncate">
+          {items}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm">{items}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * What a row's sheets are, after their titles: a short count that is true of this row ("2 sheets",
+ * "series of 5"), never cut, so the titles alone give up width (#322, round 2). Its whole words ("2 sheets
+ * share the number, titles differ") are what a screen reader reads and what its tooltip shows.
+ */
+function KindBadge({ short, full }: { short: ReactNode; full?: ReactNode }) {
+  return (
+    <>
+      {' '}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={-1} data-kind-badge="" className="ms-1.5 shrink-0 text-xs text-muted-foreground">
+            {full ? (
+              <>
+                <span aria-hidden="true">{short}</span>
+                <span className="sr-only">{full}</span>
+              </>
+            ) : (
+              short
+            )}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">{full ?? short}</TooltipContent>
+      </Tooltip>
+    </>
+  )
+}
+
+/** A read-anyway file's sheet (#322, FL4): the Drawing Set's held chip promises "its sheets are marked". */
+function HeldMark() {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={-1} data-held="" className="me-1.5 inline-flex h-4 shrink-0 items-center self-center rounded-sm border border-question bg-question-surface px-1 text-xs leading-none text-question">
+          <Trans>held</Trans>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>
+        <Trans>From a file read anyway; its figures are flagged later</Trans>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

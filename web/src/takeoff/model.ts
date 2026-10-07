@@ -34,7 +34,12 @@ export function compareNumbers(a: string | null, b: string | null): number {
   return a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' })
 }
 
-export type RowKind = 'sheet' | 'copies' | 'file' | 'entry'
+/**
+ * What a row stands for. Of two or more sheets a Question holds: `copies`, one number and one title;
+ * `number-shared`, one number and titles that differ; `title-shared`, one title on numbers that differ;
+ * `sheets`, any other (#322: "copies" only where they are copies).
+ */
+export type RowKind = 'sheet' | 'copies' | 'number-shared' | 'title-shared' | 'sheets' | 'file' | 'entry'
 
 export interface Row {
   /** Stable for focus: `p:<proposal>` for a sheet or continuation, `q:<question>` for a Question's row. */
@@ -47,6 +52,10 @@ export interface Row {
   /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
+  /** The title a continuation row reads, when the server names its group (`continuation_title`); else its first sheet's. */
+  title?: string
+  /** How many sheets share its first sheet's title in the server's series (`series`), shown on the row; absent outside one. */
+  series?: number
 }
 
 export interface QuestionEntry {
@@ -199,28 +208,101 @@ export function answeredQueue(questions: readonly QuestionOut[], proposals: read
   return entries.map((e, i) => ({ ...e, tag: `Q${after + i + 1}`, kept: false, withdrawn: false, answered: true }))
 }
 
+/** A title as compared: trimmed, its spaces collapsed, case ignored. */
+const titleKey = (title: string) => title.trim().replace(/\s+/g, ' ').toLowerCase()
+
+/**
+ * The sheets' titles read, each once (compared as `titleKey` does), in the sheets' order. A title not
+ * read (empty) is none of them: it says nothing about the sheet (#447, round 1).
+ */
+export function distinctTitles(holds: readonly ProposalOut[]): ProposalOut[] {
+  const seen = new Set<string>([''])
+  return holds.filter((p) => !seen.has(titleKey(p.title)) && !!seen.add(titleKey(p.title)))
+}
+
+/** Two or more titles read differ (compared as `titleKey` does); a title not read never differs. */
+export function titlesDiffer(holds: readonly ProposalOut[]): boolean {
+  return distinctTitles(holds).length > 1
+}
+
+/**
+ * A sheet number as compared (the engine's one number, #322 review): a last word that is a revision
+ * mark ("S-07 R1", "S-07 rev B") split off, then only its letters and digits, case folded, and each
+ * run of digits without its padding ("S-07", "s07" and "S-007" are one number). None for no number.
+ */
+export function numberKey(number: string | null): string | null {
+  if (number === null) return null
+  const bare = number.normalize('NFKC').trim().replace(/\s+(?:r|rev\.?\s*)[a-z0-9]{1,3}$/i, '')
+  const key = bare.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '').replace(/\d+/g, (d) => String(Number(d)))
+  return key || null
+}
+
+/**
+ * What a row of two or more held sheets is (RowKind); one sheet is a `sheet`. A `same_number`
+ * Question's sheets are one number by its code (the engine judged them, prefixes and marks aside), so
+ * only their titles are compared; else numbers compare as `numberKey` does.
+ */
+export function rowKindOf(holds: readonly ProposalOut[], question: QuestionOut | null = null): RowKind {
+  if (holds.length < 2) return 'sheet'
+  // By the Question's code first: one title on sheets the engine numbered apart is never copies (#447, round 1).
+  if (question?.code === 'engine.conflicts.same_title') return 'title-shared'
+  const oneNumber = question?.code === 'engine.conflicts.same_number' || new Set(holds.map((p) => numberKey(p.number))).size === 1
+  const oneTitle = !titlesDiffer(holds)
+  if (oneNumber && oneTitle) return 'copies'
+  if (oneNumber) return 'number-shared'
+  if (oneTitle) return 'title-shared'
+  return 'sheets'
+}
+
+/** T-W334's group fields on a Proposal; an older server sends none of them. */
+type Grouped = ProposalOut & { continuation?: string | null; continuation_title?: string | null; series?: string | null }
+const continuationOf = (p: ProposalOut) => (p as Grouped).continuation ?? null
+const seriesOf = (p: ProposalOut) => (p as Grouped).series ?? null
+
 const decided = (p: ProposalOut) => p.decision !== null
 const sameState = (a: ProposalOut, b: ProposalOut) => a.decision === b.decision && a.excluded_reason === b.excluded_reason
 
-/** Consecutive numbers of one series with the same title: one continuation (m0-screens §5, Q3). */
-function continues(a: ProposalOut, b: ProposalOut): boolean {
-  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title || a.discipline !== b.discipline || !sameState(a, b)) return false
+/**
+ * One continuation (m0-screens §5, Q3), of one Discipline and one state: the same title on numbers that
+ * run on; or one continuation by the server's id (its titles and numbers its own: "A-101A", "A-101B"),
+ * unless another sheet of the Discipline lies between the two in number order (held by a Question, or
+ * left out), so a row's range never claims a sheet it does not hold (#322, rounds 1 and 2).
+ */
+function continues(a: ProposalOut, b: ProposalOut, all: readonly ProposalOut[]): boolean {
+  if (a.discipline !== b.discipline || !sameState(a, b)) return false
+  const group = continuationOf(a)
+  if (group !== null && group === continuationOf(b)) {
+    return !all.some((p) => p !== a && p !== b && p.discipline === a.discipline && compareNumbers(a.number, p.number) <= 0 && compareNumbers(p.number, b.number) <= 0)
+  }
+  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title) return false
   const x = numberParts(a.number)
   const y = numberParts(b.number)
   return !!x && !!y && x.prefix === y.prefix && x.suffix === y.suffix && y.running === x.running + 1
 }
 
-function sheetRows(sheets: readonly ProposalOut[]): Row[] {
+function sheetRows(sheets: readonly ProposalOut[], all: readonly ProposalOut[]): Row[] {
   const rows: Row[] = []
   for (const p of sheets) {
     const last = rows.at(-1)
-    if (last && continues(last.sheets.at(-1)!, p)) {
+    if (last && continues(last.sheets.at(-1)!, p, all)) {
       rows[rows.length - 1] = { ...last, sheets: [...last.sheets, p], numberTo: p.number }
       continue
     }
     rows.push({ key: `p:${p.id}`, kind: 'sheet', sheets: [p], number: p.number, numberTo: null, question: null })
   }
-  return rows
+  return rows.map((row) => grouped(row, all))
+}
+
+/** A row's group title, where it holds every sheet of the server's continuation, and its series' count. */
+function grouped(row: Row, all: readonly ProposalOut[]): Row {
+  const first = row.sheets[0]!
+  const out: Row = { ...row }
+  const group = continuationOf(first)
+  const title = (first as Grouped).continuation_title
+  if (group !== null && title && row.sheets.length > 1 && all.filter((p) => continuationOf(p) === group).length === row.sheets.length) out.title = title
+  const series = seriesOf(first)
+  if (series !== null) out.series = all.filter((p) => seriesOf(p) === series).length
+  return out
 }
 
 /** With no drawing list: the Discipline's numbering, from its first number to its last, and what is missing. */
@@ -269,7 +351,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const needsYou: Row[] = queue.map((entry) => {
     const q = entry.question
     const holds = entry.holds
-    if (holds.length > 1) return { key: `q:${q.id}`, kind: 'copies', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
+    if (holds.length > 1) return { key: `q:${q.id}`, kind: rowKindOf(holds, q), sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     if (holds.length === 1) return { key: `q:${q.id}`, kind: 'sheet', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     // Only a held file's row is a file's (ticket 164): a numbering gap's row names its two numbers, a
     // drawing-list entry's its number; neither holds a file.
@@ -282,7 +364,7 @@ export function step1Model(data: Step1Data): Step1Model {
 
   const withdrawn: Row[] = withdrawnEntries.map((entry) => ({
     key: `q:${entry.question.id}`,
-    kind: entry.holds.length > 1 ? 'copies' : 'sheet',
+    kind: rowKindOf(entry.holds, entry.question),
     sheets: entry.holds,
     number: entry.holds[0]!.number,
     numberTo: null,
@@ -290,7 +372,7 @@ export function step1Model(data: Step1Data): Step1Model {
   }))
 
   const free = proposals.filter((p) => !heldBy.has(p.id))
-  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null))
+  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null), proposals)
   const outIds = new Set(proposedOut.flatMap((r) => r.sheets.map((p) => p.id)))
 
   const coverageDone = data.coverage.unaccounted === 0
@@ -307,7 +389,7 @@ export function step1Model(data: Step1Data): Step1Model {
       const settled = mine.filter(decided).length
       return {
         discipline,
-        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
+        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), proposals),
         found: progress?.found ?? mine.length,
         settled,
         total: progress ? progress.total ?? null : mine.length,

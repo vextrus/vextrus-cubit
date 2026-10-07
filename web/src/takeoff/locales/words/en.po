@@ -297,6 +297,10 @@ msgid "QS"
 msgstr "QS"
 
 #: src/takeoff/words.tsx
+msgid "One title on several sheets"
+msgstr "One title on several sheets"
+
+#: src/takeoff/words.tsx
 msgctxt "view kind"
 msgid "Elevation"
 msgstr "Elevation"
@@ -542,10 +546,6 @@ msgstr "Sheet kind unclear"
 #: src/takeoff/words.tsx
 msgid "Keep the latest copy; leave the others out as superseded"
 msgstr "Keep the latest copy; leave the others out as superseded"
-
-#: src/takeoff/words.tsx
-msgid "One title on two sheets"
-msgstr "One title on two sheets"
 
 #: src/takeoff/words.tsx
 msgid "Lift pit details"

@@ -646,6 +646,10 @@ msgstr "Needs you"
 msgid "None: its PDF was a scan and was refused"
 msgstr "None: its PDF was a scan and was refused"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Held: the file was read anyway; its figures are flagged later"
+msgstr "Held: the file was read anyway; its figures are flagged later"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Opening Step 1…"
 msgstr "Opening Step 1…"

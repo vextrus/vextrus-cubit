@@ -46,6 +46,10 @@ msgctxt "storey"
 msgid "Lower ground"
 msgstr "Lower ground"
 
+#: src/takeoff/SheetList.tsx
+msgid "From a file read anyway; its figures are flagged later"
+msgstr "From a file read anyway; its figures are flagged later"
+
 #: src/takeoff/Bar.tsx
 msgid "Step 1 is confirmed. You are reading it as a Guest."
 msgstr "Step 1 is confirmed. You are reading it as a Guest."
@@ -115,6 +119,11 @@ msgstr "The reason, in a few words"
 #: src/takeoff/Bar.tsx
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
+
+#. placeholder {0}: row.sheets.length
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# sheet shares the number} other {# sheets share the number, titles differ}}"
+msgstr "{0, plural, one {# sheet shares the number} other {# sheets share the number, titles differ}}"
 
 #: src/takeoff/SheetList.tsx
 msgid "Disciplines not yet received"
@@ -207,6 +216,11 @@ msgstr "Exclude"
 #: src/takeoff/Bar.tsx
 msgid "Left-out sheets stay in the count with their reason."
 msgstr "Left-out sheets stay in the count with their reason."
+
+#. placeholder {0}: row.series
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {series of #} other {series of #}}"
+msgstr "{0, plural, one {series of #} other {series of #}}"
 
 #: src/takeoff/Bar.tsx
 msgid "You are reading this as the MD."
@@ -337,6 +351,11 @@ msgstr "Plot: {file} page {page}, registered to {residual} mm"
 msgid "The drawing list, pasted or typed"
 msgstr "The drawing list, pasted or typed"
 
+#. placeholder {0}: row.sheets.length
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# sheet} other {# sheets}}"
+msgstr "{0, plural, one {# sheet} other {# sheets}}"
+
 #: src/takeoff/SheetList.tsx
 msgid "{start} and {tail}"
 msgstr "{start} and {tail}"
@@ -349,6 +368,11 @@ msgstr "Basement"
 msgctxt "storey"
 msgid "top (top from Step 3)"
 msgstr "top (top from Step 3)"
+
+#. placeholder {0}: row.series
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"
+msgstr "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"
 
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
@@ -365,6 +389,10 @@ msgstr "Proposed to leave out: excluded sheets stay in the count with their reas
 #: src/takeoff/Bar.tsx
 msgid "Each has a number and title from its title block and is on its drawing list."
 msgstr "Each has a number and title from its title block and is on its drawing list."
+
+#: src/takeoff/SheetList.tsx
+msgid "held"
+msgstr "held"
 
 #: src/takeoff/Bar.tsx
 msgid "{name} has neither a number nor a title in its title block"
@@ -450,6 +478,11 @@ msgstr "{n} / {total} settled"
 #: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}"
 msgstr "{Name} is confirmed by {by}"
+
+#. placeholder {0}: row.sheets.length
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# sheet that may draw the same thing} other {# sheets that may draw the same thing}}"
+msgstr "{0, plural, one {# sheet that may draw the same thing} other {# sheets that may draw the same thing}}"
 
 #: src/takeoff/Bar.tsx
 msgid "Question {tag}, withdrawn: {title}"

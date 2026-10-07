@@ -20,7 +20,7 @@ import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
-import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
+import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, titlesDiffer, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
@@ -592,6 +592,11 @@ export function SheetFacts({
             <span className="block text-xs text-ink-secondary">
               {sheet.layout ? <Trans>layout “<DrawingText kind="mark" text={sheet.layout} truncate={false} />”</Trans> : <Trans>laid out in the drawing</Trans>}
             </span>
+            {sheet.held ? (
+              <span className="block text-xs text-question">
+                <Trans>Held: the file was read anyway; its figures are flagged later</Trans>
+              </span>
+            ) : null}
           </Fact>
           <Fact label={<Trans>Storeys</Trans>}>
             <StoreysFact sheet={sheet} slots={slots} />
@@ -729,6 +734,8 @@ export function QuestionCard({
   const can = !readOnly && answerer !== null
   const choice = can ? answerer.choice(entry) : null
   const current = choice?.key ?? pick?.key ?? null
+  // Titled apart, the list names each sheet's title, so the QS sees what each one is (#322).
+  const titled = titlesDiffer(entry.holds)
   return (
     <section aria-label={t`Question ${tag}`} data-question={entry.question.id} className="m-2 overflow-hidden rounded-md border border-question">
       <header className="flex items-center justify-between gap-2 bg-question-surface px-3 py-1.5 text-sm text-question">
@@ -754,6 +761,12 @@ export function QuestionCard({
             {entry.holds.map((s) => (
               <li key={s.id}>
                 <SheetName sheets={[s]} /> <Copy sheet={s} />
+                {titled ? (
+                  <>
+                    {' · '}
+                    <DrawingText kind="title" text={s.title} truncate={false} />
+                  </>
+                ) : null}
                 {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
               </li>
             ))}

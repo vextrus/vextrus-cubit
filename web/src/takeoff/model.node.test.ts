@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, nextOpenRow, numberingOf, questionQueue, rowState, step1Model } from './model'
+import { compareNumbers, nextOpenRow, numberKey, numberingOf, questionQueue, rowKindOf, rowState, step1Model, titlesDiffer } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -293,5 +293,95 @@ describe('the sheets of no Discipline (#167; its refuter)', () => {
     expect(model.noDiscipline).toBe(2)
     expect(model.found).toBe(3)
     expect(step1Model(data([sheet('S-01'), cover])).noDiscipline).toBe(1)
+  })
+})
+
+describe('what a row of several sheets is (#322)', () => {
+  it('names copies, a shared number, a shared title and other sheets apart', () => {
+    expect(rowKindOf([sheet('S-05', { title: 'Beam  layout' }), sheet('S-05', { title: ' BEAM LAYOUT' })])).toBe('copies')
+    expect(rowKindOf([sheet('S-05', { title: 'BEAM LAYOUT B1' }), sheet('S-05', { title: 'BEAM LAYOUT B2' })])).toBe('number-shared')
+    expect(rowKindOf([sheet('S-05', { title: 'STAIR' }), sheet('S-09', { title: 'stair' })])).toBe('title-shared')
+    expect(rowKindOf([sheet('S-05', { title: 'A' }), sheet('S-09', { title: 'B' })])).toBe('sheets')
+    expect(rowKindOf([sheet('S-05')])).toBe('sheet')
+  })
+
+  it('compares titles trimmed, spaces collapsed and case ignored', () => {
+    expect(titlesDiffer([sheet('S-01', { title: ' Pile cap ' }), sheet('S-01', { title: 'PILE  CAP' })])).toBe(false)
+    expect(titlesDiffer([sheet('S-01', { title: 'PILE CAP 1' }), sheet('S-01', { title: 'PILE CAP 2' })])).toBe(true)
+  })
+})
+
+describe('the server’s groups (T-W334’s fields, #334)', () => {
+  const grouped = (number: string, title: string, over: Record<string, unknown>) => sheet(number, { title, ...over } as Partial<ProposalOut>)
+
+  it('joins one continuation by its id and titles the row by its group, only while it holds the whole group', () => {
+    const parts = [grouped('S-21', 'RAFT R1', { continuation: 'g', continuation_title: 'RAFT R1-R3' }), grouped('S-22', 'RAFT R2', { continuation: 'g', continuation_title: 'RAFT R1-R3' }), grouped('S-23', 'RAFT R3', { continuation: 'g', continuation_title: 'RAFT R1-R3' })]
+    const rows = step1Model(data(parts)).disciplines[0]!.rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.title).toBe('RAFT R1-R3')
+    parts[2]!.decision = 'confirmed'
+    const split = step1Model(data(parts)).disciplines[0]!.rows
+    expect(split.map((r) => r.sheets.length)).toEqual([2, 1])
+    expect(split[0]!.title).toBeUndefined()
+  })
+
+  it('counts a series over every Proposal of it, and none outside one', () => {
+    const rows = step1Model(data([grouped('S-31', 'TIE BEAM', { series: 'x' }), grouped('S-35', 'TIE BEAM', { series: 'x' }), grouped('S-38', 'GRADE BEAM', { series: null })])).disciplines[0]!.rows
+    expect(rows.map((r) => r.series)).toEqual([2, 2, undefined])
+  })
+})
+
+describe('one number as the engine judges it (#322 review, round 1)', () => {
+  const sameNumber = question('conflict', { code: 'engine.conflicts.same_number' })
+
+  it('reads a same_number Question’s sheets as one number by its code, so only their titles decide', () => {
+    expect(rowKindOf([sheet('E-08 R1', { title: 'RISER DIAGRAM' }), sheet('E-08 R2', { title: 'riser  diagram' })], sameNumber)).toBe('copies')
+    expect(rowKindOf([sheet('E-08', { title: 'RISER DIAGRAM' }), sheet('EL-08', { title: 'RISER DIAGRAM' })], sameNumber)).toBe('copies')
+    expect(rowKindOf([sheet('E-08 R1', { title: 'RISER DIAGRAM 1' }), sheet('E-08 R2', { title: 'RISER DIAGRAM 2' })], sameNumber)).toBe('number-shared')
+  })
+
+  it('compares numbers with the revision split off, punctuation and padding ignored', () => {
+    expect(['E-08', 'E08', 'e-008', 'E-08 R3', 'E-08 rev B'].map(numberKey)).toEqual(['e8', 'e8', 'e8', 'e8', 'e8'])
+    expect(numberKey('E-18')).not.toBe(numberKey('E-08'))
+    expect(rowKindOf([sheet('E-08', { title: 'PANEL' }), sheet('E08', { title: 'PANEL' })])).toBe('copies')
+  })
+})
+
+describe('a continuation by the server’s id still runs on (#322 review, round 1)', () => {
+  it('does not join two members around one a Question holds', () => {
+    const group = { continuation: 'k', continuation_title: 'SUMP S1-S3' } as Partial<ProposalOut>
+    const [first, held1, held2, last] = [sheet('P-11', { title: 'SUMP S1', ...group }), sheet('P-12', { title: 'SUMP S2', ...group }), sheet('P-12', { title: 'SUMP S2', ...group }), sheet('P-13', { title: 'SUMP S3', ...group })]
+    const asked = question('conflict', { code: 'engine.conflicts.same_number', proposals: [held1!.id, held2!.id] } as Partial<QuestionOut>)
+    const rows = step1Model(data([first!, held1!, held2!, last!], [asked])).disciplines[0]!.rows
+    expect(rows.map((r) => [r.number, r.numberTo, r.sheets.length])).toEqual([
+      ['P-11', null, 1],
+      ['P-13', null, 1],
+    ])
+  })
+})
+
+describe('the server’s continuation id is trusted for its members (#322 review, round 2)', () => {
+  it('keeps a lettered run of one continuation one row', () => {
+    const group = { continuation: 'm', continuation_title: 'STAIR CORE SECTIONS' } as Partial<ProposalOut>
+    const run = ['W-204A', 'W-204B', 'W-204C'].map((n) => sheet(n, { title: 'STAIR CORE SECTIONS', ...group }))
+    const rows = step1Model(data(run)).disciplines[0]!.rows
+    expect(rows.map((r) => [r.number, r.numberTo, r.sheets.length])).toEqual([['W-204A', 'W-204C', 3]])
+    expect(rows[0]!.title).toBe('STAIR CORE SECTIONS')
+  })
+})
+
+describe('a title not read, and a same_title Question, by its code (#447, round 1)', () => {
+  it('never counts an empty title as a different title', () => {
+    expect(titlesDiffer([sheet('M-03', { title: 'GLIMMERWICK ALCOVE PLAN' }), sheet('M-03', { title: '  ' })])).toBe(false)
+    expect(titlesDiffer([sheet('M-03', { title: '' }), sheet('M-03', { title: '' })])).toBe(false)
+    expect(titlesDiffer([sheet('M-03', { title: 'GLIMMERWICK ALCOVE PLAN' }), sheet('M-03', { title: '' }), sheet('M-03', { title: 'GLIMMERWICK ALCOVE CUT' })])).toBe(true)
+    const sameNumber = question('conflict', { code: 'engine.conflicts.same_number' })
+    expect(rowKindOf([sheet('M-03', { title: 'GLIMMERWICK ALCOVE PLAN' }), sheet('M-03', { title: '' })], sameNumber)).toBe('copies')
+  })
+
+  it('never calls a same_title Question’s row copies, whatever its numbers normalise to', () => {
+    const sameTitle = question('conflict', { code: 'engine.conflicts.same_title' })
+    expect(rowKindOf([sheet('M-07', { title: 'VALVE CHAMBER' }), sheet('M-007', { title: 'VALVE CHAMBER' })], sameTitle)).toBe('title-shared')
+    expect(rowKindOf([sheet(null, { title: 'VALVE CHAMBER' }), sheet(null, { title: 'valve chamber' })], sameTitle)).toBe('title-shared')
   })
 })

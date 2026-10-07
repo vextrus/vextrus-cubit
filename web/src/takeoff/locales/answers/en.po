@@ -101,6 +101,10 @@ msgid "{0, plural, =2 {Neither has a title. Only one can be read, unless they ar
 msgstr "{0, plural, =2 {Neither has a title. Only one can be read, unless they are different sheets.} other {None of the # has a title. Only one can be read, unless they are different sheets.}}"
 
 #: src/takeoff/questionWords.tsx
+msgid "They carry the same number, but their titles differ: {named}. They may be different sheets."
+msgstr "They carry the same number, but their titles differ: {named}. They may be different sheets."
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet is not part of this set."
 msgstr "{tag} answered. Recorded: the sheet is not part of this set."
 
@@ -205,12 +209,20 @@ msgid "{discipline} cannot be confirmed until this Question is answered."
 msgstr "{discipline} cannot be confirmed until this Question is answered."
 
 #: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Confirms {kept}; {dropped} is left out."
+msgstr "{tag} answered. Confirms {kept}; {dropped} is left out."
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title block of {sheet}"
 msgstr "Trace: the title block of {sheet}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The sheet stays in the count as missing."
 msgstr "{tag} answered. The sheet stays in the count as missing."
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering keeps both sheets open. Neither is read until the consultant replies."
+msgstr "Answering keeps both sheets open. Neither is read until the consultant replies."
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the range on {sheet} includes its top storey."
@@ -237,6 +249,10 @@ msgid "Answering keeps the file held."
 msgstr "Answering keeps the file held."
 
 #: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Confirms {kept}; the other {others, plural, one {# sheet is} other {# sheets are}} left out."
+msgstr "{tag} answered. Confirms {kept}; the other {others, plural, one {# sheet is} other {# sheets are}} left out."
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list on <0/>"
 msgstr "the drawing list on <0/>"
 
@@ -259,6 +275,10 @@ msgstr "{missing, plural, one {Answering records that the missing sheet is still
 #: src/takeoff/questionWords.tsx
 msgid "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
 msgstr "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms both sheets."
+msgstr "Answering confirms both sheets."
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps this gap open."
@@ -335,6 +355,10 @@ msgstr "the typed drawing list"
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
 msgstr "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
+
+#: src/takeoff/questionWords.tsx
+msgid "Keep {kept}; leave the other {others, plural, one {# sheet} other {# sheets}} out"
+msgstr "Keep {kept}; leave the other {others, plural, one {# sheet} other {# sheets}} out"
 
 #: src/takeoff/questionWords.tsx
 msgid "the drawing list"
@@ -421,12 +445,28 @@ msgid "{tag} answered. Recorded: {sheet} is not part of this set; it stays on th
 msgstr "{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/questionWords.tsx
+msgid "“{title}” is the only title read. Only one can be read."
+msgstr "“{title}” is the only title read. Only one can be read."
+
+#: src/takeoff/questionWords.tsx
+msgid "“{title}”"
+msgstr "“{title}”"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet’s range includes its top storey."
 msgstr "{tag} answered. Recorded: the sheet’s range includes its top storey."
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps this Question open."
 msgstr "Answering keeps this Question open."
+
+#: src/takeoff/questionWords.tsx
+msgid "no title read"
+msgstr "no title read"
+
+#: src/takeoff/questionWords.tsx
+msgid "{n, plural, =2 {Two sheets may draw one thing} other {# sheets may draw one thing}}"
+msgstr "{n, plural, =2 {Two sheets may draw one thing} other {# sheets may draw one thing}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {copies}; {source}"
@@ -453,8 +493,16 @@ msgid "the later revision mark and {list} agree"
 msgstr "the later revision mark and {list} agree"
 
 #: src/takeoff/questionWords.tsx
+msgid "Keep {kept}; leave {dropped} out"
+msgstr "Keep {kept}; leave {dropped} out"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
+
+#: src/takeoff/questionWords.tsx
+msgid "One title on two sheets"
+msgstr "One title on two sheets"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
@@ -487,6 +535,10 @@ msgstr "{tag} answered. The file is set aside, waiting for the re-saved file."
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 msgstr "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms {kept}; the other {others, plural, one {# sheet is} other {# sheets are}} left out."
+msgstr "Answering confirms {kept}; the other {others, plural, one {# sheet is} other {# sheets are}} left out."
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering gives the sheet the number you type; confirm it in the list."
@@ -535,6 +587,10 @@ msgstr "{sheet} stays left out until this Question is answered. A pick changes n
 #: src/takeoff/questionWords.tsx
 msgid "the copy dated {date}"
 msgstr "the copy dated {date}"
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms {kept}; {dropped} is left out."
+msgstr "Answering confirms {kept}; {dropped} is left out."
 
 #: src/takeoff/questionWords.tsx
 msgid "Withdrawn when {sheet} was left out. {Sheet} can be confirmed back in once this is answered."
