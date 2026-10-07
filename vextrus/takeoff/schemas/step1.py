@@ -224,6 +224,8 @@ class Step1UndoIn(Schema):
 class Step1AnswerIn(Schema):
     option: str
     text: str = ""
+    held: list[uuid.UUID] | None = None
+    """The Proposals the QS saw the Question hold: a kind Question holding others now is refused."""
 
 
 class Step1DrawingListIn(Schema):

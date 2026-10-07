@@ -110,3 +110,19 @@ def test_the_kind_words_round_trip_and_a_kind_of_none_is_refused() -> None:
         kinds_of(tie_layout=["tie"])
     with pytest.raises(ValueError, match="empty"):
         kinds_of(beam_layout=[" "])
+
+
+@pytest.mark.parametrize(
+    ("title", "discipline", "drawn"),
+    [
+        # Review 1, f3: an incidental generic word ("general", "roof", "panel") names no kind.
+        ("GENERAL ARRANGEMENT - FIRST FLOOR", "structural", "beam_layout"),
+        ("GENERAL ARRANGEMENT - FIRST FLOOR", "structural", "slab_layout"),
+        ("ROOF FRAMING PLAN", "structural", "beam_layout"),
+        ("SCHEMATIC DIAGRAM OF LT PANEL", "electrical", "single_line_diagram"),
+    ],
+)
+def test_a_generic_word_in_a_title_never_drops_the_kind_it_is_drawn_as(
+    title: str, discipline: str, drawn: str
+) -> None:
+    assert drawn in sheets.narrowed(title, DEFAULT.kinds(discipline), DEFAULT)

@@ -257,9 +257,24 @@ def _propose_sheet(
             identity=kind_group(sheet.discipline, ranked),
             proposal_id=proposal_id,
             discipline=sheet.discipline,
-            options=[{"key": key, "picked": at == 0} for at, key in enumerate([*ranked, KEEP_OPEN])],
+            options=[
+                {"key": key, "picked": at == 0}
+                for at, key in enumerate(
+                    [*kind_options(ranked, sheet.discipline, conventions), KEEP_OPEN]
+                )
+            ],
         )
     return proposal_id
+
+
+def kind_options(
+    ranked: Sequence[str], discipline: str | None, conventions: SheetConventions
+) -> list[str]:
+    """A kind Question's kinds: Jev's, most likely first, then every other kind of the Discipline
+    (review 1, f3 and f4): code narrows only what Jev ranks, never what the QS may pick, so a kind
+    the title's words left out, or one only another sheet of the group was offered, is still there."""
+    every = conventions.kinds(discipline) if discipline else ()
+    return [*ranked, *(k for k in every if k not in ranked)]
 
 
 def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:

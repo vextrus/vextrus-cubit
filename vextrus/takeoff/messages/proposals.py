@@ -17,6 +17,8 @@ quoted) or `none` (neither: "this sheet").
   `lower_ground`, `mezzanine`, `podium`, `roof`, else `other`), `storey` its key (never worded).
 - `option_not_offered`: an answer naming an option the Question does not offer (400).
 - `answered_already`: an answer to a Question already answered or withdrawn (409).
+- `group_changed`: an answer to a kind Question that now holds other sheets than the QS saw (409):
+  `sheets` it holds now.
 - `number_needed`: "Type a number" answered with no number (400).
 """
 
@@ -31,4 +33,5 @@ BOUNDARY_STOREY = MessageCode(
 )
 OPTION_NOT_OFFERED = MessageCode("takeoff.proposals.option_not_offered")
 ANSWERED_ALREADY = MessageCode("takeoff.proposals.answered_already")
+GROUP_CHANGED = MessageCode("takeoff.proposals.group_changed", params=("sheets",))
 NUMBER_NEEDED = MessageCode("takeoff.proposals.number_needed")

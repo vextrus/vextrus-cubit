@@ -155,12 +155,15 @@ export async function setList(projectId: string, discipline: string, text: strin
   return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/drawing-list', { ...path(projectId), body: { discipline, text } }))
 }
 
-/** Answers a Question with one of its options (21c); `text` only for "Type a number". `keep_open` keeps it open. */
-export async function answer(projectId: string, questionId: string, option: string, text = ''): Promise<QuestionOut> {
+/**
+ * Answers a Question with one of its options (21c); `text` only for "Type a number". `keep_open` keeps it open.
+ * `held`: the sheets the QS saw it hold (S15-Q1: a kind Question that grew since is refused, 409).
+ */
+export async function answer(projectId: string, questionId: string, option: string, text = '', held?: readonly string[]): Promise<QuestionOut> {
   return unwrap(
     api.POST('/api/projects/{project_id}/takeoff/step1/questions/{question_id}/answer', {
       params: { path: { project_id: projectId, question_id: questionId } },
-      body: { option, text },
+      body: held ? { option, text, held: [...held] } : { option, text },
     }),
   )
 }

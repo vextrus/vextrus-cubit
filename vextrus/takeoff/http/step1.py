@@ -144,7 +144,12 @@ def answer_question(
     anyway has its read job queued again, in the answer's transaction."""
     with transaction.atomic():
         done = step1.answer(
-            project_id, question_id, payload.option, payload.text, actor_name=actor(request)
+            project_id,
+            question_id,
+            payload.option,
+            payload.text,
+            actor_name=actor(request),
+            seen=payload.held,
         )
         if done.read_again is not None:
             read_file.read_again(done.read_again)
