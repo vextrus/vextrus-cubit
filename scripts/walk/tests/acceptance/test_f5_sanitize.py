@@ -67,7 +67,16 @@ def test_the_closed_sets_are_the_contracts() -> None:
     assert set(ITEMS) == set(WALKED_ITEMS)
     assert "M0-FL12" not in ITEMS
     assert tuple(SEVERITIES) == ("BLOCKS", "OTHER")
-    assert tuple(CHECK_IDS) == ("reads_complete", "act_p95_during_read", "questions_per_discipline")
+    assert tuple(CHECK_IDS) == (  # T-WALK-4: the eight checks, in order
+        "reads_complete",
+        "act_p95_during_read",
+        "questions_per_discipline",
+        "sheets_match",
+        "true_questions_raised",
+        "false_continuations",
+        "bulk_confirmable_share",
+        "storeys_match",
+    )
     assert (
         frozenset({"id", "item", "defect_class", "screen", "delta", "severity", "misleading"})
         == ALLOWED_KEYS

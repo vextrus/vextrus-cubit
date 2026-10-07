@@ -18,6 +18,7 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { neverShownIn } from '../src/test/never-shown'
 import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 
 const PASSWORD = process.env.VEXTRUS_DEMO_PASSWORD ?? ''
@@ -69,7 +70,8 @@ function watchApi(page: Page): string[] {
 /** m0-screens §1.1's words never shown, §1.9's Market and currency, §1.10's Building, and no message code. */
 async function greps(page: Page) {
   const text = clean(await page.locator('body').innerText())
-  for (const word of ['handle', 'entity', 'SDF', 'DXF', 'JSON', 'sandbox', 'worker', 'queue', 'hash', 'tenant', 'RLS', 'API', 'null', 'undefined', 'NaN', 'UUID', 'locale', 'Building', 'Bangladesh', 'BDT', '৳']) {
+  expect(neverShownIn(text), 'm0-screens §1.1').toEqual([])
+  for (const word of ['Building', 'Bangladesh', 'BDT', '৳']) {
     expect(text, `"${word}" is never shown`).not.toMatch(new RegExp(`\\b${word}\\b`))
   }
   expect(text, 'no message code').not.toMatch(/\b[a-z_]+\.[a-z_]+\.[a-z_]+\b/)
