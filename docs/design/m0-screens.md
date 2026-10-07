@@ -1651,7 +1651,9 @@ expired state, 4.4's refused state).
 
 **Projects.** KR-01 Kadam Residence (everything below); BP-02 Bokul Place (one structural DWG left
 stalled at "sheet 7 of 12", for the retrier); SG-03 Shimul Garden (empty). Meghna: MG-01 Meghna
-Heights (one small DWG read). **Every row state of 4.5 is on the seed.** KR-01's files show Read,
+Heights (one small DWG read; and, read by the job, MG-GENERAL-NOTES.dwg, whose GN-01 is a General
+sheet, and MG-SURVEY-R0.dwg, whose name names no Discipline, so its SV-01 asks "Which Discipline?":
+#223). **Every row state of 4.5 is on the seed.** KR-01's files show Read,
 readers agree; Read, with flags; Held; PDF matched; and Refused scan, and BP-02's stalled DWG (14's)
 shows Reading a DWG. The rest go on BP-02 and MG-01:
 - **14** seeds the states a file's own columns hold, with no job: Waiting; Read; Cancelled; Failed;

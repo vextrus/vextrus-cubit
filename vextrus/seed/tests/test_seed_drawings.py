@@ -159,7 +159,9 @@ def _cancelled(shown: dict[str, services.FileView]) -> Any:
 
 
 @pytest.mark.django_db(databases=["default", "owner"])
-def test_mg_01_holds_one_read_dwg_and_meghna_sees_nothing_of_shapla(demo: Demo) -> None:
+def test_mg_01_holds_three_read_dwgs_and_meghna_sees_nothing_of_shapla(demo: Demo) -> None:
+    """MG-STR-R0.dwg's rows, the two states a read job carries (#125), and the two DWGs the read job
+    read (#223): a file of general notes and one whose name names no Discipline."""
     shown = files_of(demo, "developer:meghna", "MG-01")
     with tenancy.acting_in(demo["developer:meghna"]), connection.cursor() as cursor:
         cursor.execute("select count(*) from drawings_drawingfile")
@@ -171,10 +173,12 @@ def test_mg_01_holds_one_read_dwg_and_meghna_sees_nothing_of_shapla(demo: Demo) 
             position=5, total=16, minutes=shown["MG-ARC-R0.pdf"].status["params"]["minutes"]
         ),
         "MG-ARC-R0.dwg": said.RETRYING(attempt=2, tries=3),
+        "MG-GENERAL-NOTES.dwg": said.READ(),
+        "MG-SURVEY-R0.dwg": said.READ(),
     }
     # 120 minutes at the seed's stamp; 119 if a minute passed before this read.
     assert shown["MG-ARC-R0.pdf"].status["params"]["minutes"] in (119, 120)
-    assert files == 3
+    assert files == 5
 
 
 @pytest.mark.django_db(databases=["default", "owner"])

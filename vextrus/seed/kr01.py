@@ -18,9 +18,10 @@ too: `replayed()` reads them in this process with the engine's own walk and rule
 places their pages by text and sizes (`ink=False`).
 
 What each file carries is `vextrus.seed.drawings`' sheets (`STRUCTURAL`, `ARCHITECTURAL`,
-`ELECTRICAL`, `OLD_STRUCTURAL`): their numbers, titles, revision marks, dates, views (kind words in
-their titles, boxes as fractions of the paper) and where they lie (side by side in the drawing, or a
-layout tab). Everything in millimetres (INSUNITS 4) on an A1, 1:1 on paper.
+`ELECTRICAL`, `OLD_STRUCTURAL`, and MG-01's `GENERAL_NOTES` and `SURVEY`): their numbers, titles,
+revision marks, dates, views (kind words in their titles, boxes as fractions of the paper) and where
+they lie (side by side in the drawing, or a layout tab). Everything in millimetres
+(INSUNITS 4) on an A1, 1:1 on paper.
 """
 
 import gzip

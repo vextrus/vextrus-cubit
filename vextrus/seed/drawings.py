@@ -24,7 +24,9 @@ BP-ELE-R0.dwg cancelled by Nusrat Jahan, BP-PLB-R0.dwg failed, BP-FIRE-R0.dwg re
 only, BP-LIFT-R12.dwg saved by an old AutoCAD. **MG-01** (Meghna) holds one small DWG, read, and the
 states a read job carries (#125): MG-ARC-R0.pdf reading page 5 of 16 with its time left (no job: the
 retrier cannot take it), MG-ARC-R0.dwg interrupted and waiting for its second try (21a's own read
-job, its next try a week off).
+job, its next try a week off). Its two recorded DWGs (#223) are read by the job as KR-01's are:
+MG-GENERAL-NOTES.dwg, a General sheet (GN-01), and MG-SURVEY-R0.dwg, whose name names no Discipline,
+so the job asks which (SV-01).
 
 The Market's Disciplines come first: `sync_library` runs here, as the owner (idempotent), so the
 owner's `migrate` then `seed_demo` works; if it cannot, the seed refuses and names the command.
