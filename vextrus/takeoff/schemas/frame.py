@@ -7,7 +7,7 @@ import uuid
 from decimal import Decimal
 from typing import Any, Literal
 
-from ninja import Schema
+from ninja import Field, Schema
 
 
 class FrameStepOut(Schema):
@@ -39,7 +39,7 @@ class FrameProposalOut(Schema):
     mark: str
     storey: str | None
     values: dict[str, Any]
-    """Fact -> `{value, unit, text}`: the value in drawing units as a decimal string, the text verbatim."""
+    """Fact -> `{value, unit, text}`: the value in drawing units, a decimal string; the text verbatim."""
     state: str
     questions: list[dict[str, Any]]
     """Each open Question on the Proposal: `{id, code, params}`."""
@@ -128,14 +128,14 @@ class PrimitiveOut(Schema):
     `radius`, `z0`, `z1`) or a sloped prism (`polygon`, `z0_at`, `z1_at`)."""
 
     kind: Literal["prism", "cylinder", "sloped_prism"]
-    polygon: list[list[Decimal]] = []
-    holes: list[list[list[Decimal]]] = []
+    polygon: list[list[Decimal]] = Field(default_factory=list)
+    holes: list[list[list[Decimal]]] = Field(default_factory=list)
     z0: Decimal | None = None
     z1: Decimal | None = None
     centre: list[Decimal] | None = None
     radius: Decimal | None = None
-    z0_at: list[Decimal] = []
-    z1_at: list[Decimal] = []
+    z0_at: list[Decimal] = Field(default_factory=list)
+    z1_at: list[Decimal] = Field(default_factory=list)
 
 
 class ElementPrimitivesOut(Schema):

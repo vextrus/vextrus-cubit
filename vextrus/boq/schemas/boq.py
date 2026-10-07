@@ -135,16 +135,3 @@ class BoqLinesOut(Schema):
     """`GET boq/items/{item_code}/lines`."""
 
     lines: list[MeasurementLineOut]
-
-
-class GrossFloorAreaIn(Schema):
-    """`PUT buildings/{building_id}/gross-floor-area` (C15): the value as text, `unit` "sft" or "m2";
-    the service converts exactly and answers a bad one 400."""
-
-    value: str
-    unit: str
-
-
-class GrossFloorAreaOut(Schema):
-    building_id: uuid.UUID
-    gross_floor_area_m2: Decimal

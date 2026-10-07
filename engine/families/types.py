@@ -190,7 +190,7 @@ class RuleSetData:
 
 @dataclass(frozen=True)
 class ViewArtefact:
-    """One Step-1-confirmed view: its ReadArtefact, the recognised view and the storey it is placed on."""
+    """One Step-1-confirmed view: its ReadArtefact, the recognised view, the storey it is placed on."""
 
     view_id: str
     sheet_id: str
