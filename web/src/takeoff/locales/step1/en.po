@@ -39,6 +39,10 @@ msgstr "Answers"
 msgid "{kind}, not to scale"
 msgstr "{kind}, not to scale"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "{scale}, as stated"
+msgstr "{scale}, as stated"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Esc goes back."
 msgstr "Esc goes back."
@@ -58,6 +62,10 @@ msgstr "Confirmed by {name}, {date}"
 #: src/takeoff/Step1Screen.tsx
 msgid "List"
 msgstr "List"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "More"
+msgstr "More"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{part}, M3 onwards"
@@ -86,6 +94,10 @@ msgstr "Excluded: {reason}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file} page {page}, registered to {residual} mm"
 msgstr "{file} page {page}, registered to {residual} mm"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Extend the selection to the previous row"
+msgstr "Extend the selection to the previous row"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Do what the bar says"
@@ -366,6 +378,14 @@ msgid "{name}, {date}, {time}"
 msgstr "{name}, {date}, {time}"
 
 #: src/takeoff/Step1Screen.tsx
+msgid "Show or hide the view outlines"
+msgstr "Show or hide the view outlines"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "First row"
+msgstr "First row"
+
+#: src/takeoff/Step1Screen.tsx
 msgid "{kind}, {scale}"
 msgstr "{kind}, {scale}"
 
@@ -477,6 +497,10 @@ msgstr "Kept open"
 msgid "layout “<0/>”"
 msgstr "layout “<0/>”"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "View outlines"
+msgstr "View outlines"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
 msgstr "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
@@ -504,6 +528,10 @@ msgstr "Pick answer 3 on the focused Question"
 #: src/takeoff/Step1Screen.tsx
 msgid "none"
 msgstr "none"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Zoom to view"
+msgstr "Zoom to view"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "excluded: {reason}"
@@ -545,6 +573,10 @@ msgstr "No open Questions."
 msgid "1 with no Discipline"
 msgstr "1 with no Discipline"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Not to scale"
+msgstr "Not to scale"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Storeys"
 msgstr "Storeys"
@@ -556,6 +588,10 @@ msgstr "→ walks them"
 #: src/takeoff/Step1Inspector.tsx
 msgid "proposed"
 msgstr "proposed"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Last row"
+msgstr "Last row"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{mark}, from the file name"
@@ -597,6 +633,10 @@ msgstr "{questions, plural, one {Answer # Question} other {Answer # Questions: t
 #: src/takeoff/Step1Inspector.tsx
 msgid "none: the title block has none and the file name none"
 msgstr "none: the title block has none and the file name none"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Extend the selection to the next row"
+msgstr "Extend the selection to the next row"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Needs you"
@@ -677,6 +717,14 @@ msgstr "A Proposal counts toward nothing until the QS confirms it."
 #: src/takeoff/Step1Inspector.tsx
 msgid "Discipline"
 msgstr "Discipline"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Zoom to the selected view"
+msgstr "Zoom to the selected view"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Outlines"
+msgstr "Outlines"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: {listed} on the drawing list found in the drawings; {found} found."

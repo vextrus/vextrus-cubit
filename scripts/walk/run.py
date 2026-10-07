@@ -464,6 +464,7 @@ def walk_spec(
             "WALK_OUT": str(walk.out_dir / "playwright"),
             "WALK_JSON": str(walk.out_dir / "walk.json"),
             "WALK_CONFLICTS": str(walk.out_dir / "conflicts.json"),
+            "WALK_SNAPSHOT": str(walk.out_dir / "snapshot.json"),
             "WALK_SETS": str(manifest),
             "WALK_SHA": walk.sha,
             "WALK_STARTED_AT": started_at,
@@ -496,17 +497,14 @@ def walk_spec(
 
 def judge_checks(root: Path, walk: Plan, events: Events) -> bool:
     """Logs each scripted check against the expectations (no agent layer: never a verdict)."""
-    from scripts.walk.continuations import attach
-    from scripts.walk.verdict import evaluate
+    from scripts.walk.measures import attach
+    from scripts.walk.verdict import evaluate, read_expectations
 
     expect_dir = root / ".private" / "work" / "walk-expect"
     record = json.loads((walk.out_dir / "walk.json").read_text(encoding="utf-8"))
-    record = attach(record, walk.out_dir, expect_dir)
-    expect = {}
-    for name in record.get("sets", {}):
-        path = expect_dir / f"{name}.json"
-        if SLUG.fullmatch(name) and path.exists():
-            expect[name] = json.loads(path.read_text(encoding="utf-8"))
+    expect = read_expectations(record, expect_dir)
+    # The burden, from the snapshot taken before any act, by each set's expectation.
+    record = attach(record, walk.out_dir, expect)
     judged = evaluate(record, expect, None, ref="main", started_at=utc(), finished_at=utc(), leak_hits=0)
     for check in judged["checks"]:
         events(f"check {check['check']} {check['status']}")
@@ -522,16 +520,17 @@ def verdict_written(out_dir: Path, since: float) -> bool:
         return False
 
 
-SET_ASIDE = ("walk", "conflicts", "findings", "triage", "drafts")
-"""A walk's record (walk.json and its conflict Questions' keys, conflicts.json) and its agent layer's
-files (issues.py writes triage.json and drafts.json)."""
+SET_ASIDE = ("walk", "conflicts", "snapshot", "findings", "triage", "drafts")
+"""A walk's record (walk.json, its conflict Questions' keys in conflicts.json and its burden taken
+before any act in snapshot.json) and its agent layer's files (issues.py writes triage.json and
+drafts.json)."""
 
 
 def set_aside(out_dir: Path) -> None:
-    """An earlier walk's walk.json, conflicts.json, findings.json, triage.json and drafts.json move
-    aside, each to `<name>.<its mtime>.json` (`-2`, `-3` after a move of the same second; never over
-    one), so a new walk exists only once it wrote its own walk.json and is judged only on its own
-    findings."""
+    """An earlier walk's walk.json, conflicts.json, snapshot.json, findings.json, triage.json and
+    drafts.json move aside, each to `<name>.<its mtime>.json` (`-2`, `-3` after a move of the same
+    second; never over one), so a new walk exists only once it wrote its own walk.json and is judged
+    only on its own snapshot and findings."""
     for name in SET_ASIDE:
         current = out_dir / f"{name}.json"
         if not current.exists():
@@ -611,7 +610,14 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
                 holding.append(True)
                 hold(walk, stack, hold_minutes, stopping, since)
             return 0 if passed else 1
-    except (KeyboardInterrupt, WalkError, OSError, ValueError, subprocess.SubprocessError) as error:
+    except (
+        KeyboardInterrupt,
+        WalkError,
+        OSError,
+        ValueError,
+        RecursionError,
+        subprocess.SubprocessError,
+    ) as error:
         events("error")
         print(
             f"walk: {walk.sha8} error ({type(error).__name__}: {_said(error)})",
