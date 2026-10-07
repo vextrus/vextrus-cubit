@@ -1,11 +1,28 @@
-"""The Priced BOQ in the API (S16-B; M1.md C13): money `{amount, currency}`, quantities and shares as
-decimal strings, never floats."""
+"""The Priced BOQ in the API (S16-B; M1.md C13), built on S16-K0's frozen schemas
+(`vextrus/boq/schemas/boq.py`), never changing them: each class here is a K0 class with the fields the
+orchestrator added after the freeze (`building_id`; an allowance line's `description`) and the
+allowance's priced consumptions. A BOQ Item's `description` may be null (an Item whose kind has no
+code yet). Money is `{amount, currency}`; quantities and shares are decimal strings."""
 
 import uuid
 from typing import Any
 
-from ninja import Schema
-
+from vextrus.boq.schemas.boq import (
+    AllowanceOut,
+    AwaitingOut,
+    BoqGroupOut,
+    BoqItemOut,
+    BoqLinesOut,
+    BoqOut,
+    BoqSectionOut,
+    ConsumptionOut,
+    DescriptionOut,
+    GfaOut,
+    LineTraceOut,
+    MeasurementLineOut,
+    StoreyQuantityOut,
+    StripOut,
+)
 from vextrus.boq.services import priced
 from vextrus.platform.money import Money
 from vextrus.platform.schemas import MoneySchema
@@ -15,134 +32,70 @@ def _money(value: Money | None) -> MoneySchema | None:
     return None if value is None else MoneySchema.from_money(value)
 
 
-class BoqDescriptionOut(Schema):
-    """C13's `{code, params}`: `boq.item.rcc`, `boq.item.formwork`, `boq.item.rebar`,
-    `boq.item.allowance`."""
-
-    code: str
-    params: dict[str, str]
+def _description(value: dict[str, Any] | None) -> DescriptionOut | None:
+    return None if value is None else DescriptionOut(code=value["code"], params=value["params"])
 
 
-def _description(value: dict[str, Any] | None) -> BoqDescriptionOut | None:
-    return None if value is None else BoqDescriptionOut(code=value["code"], params=value["params"])
-
-
-class BoqGfaOut(Schema):
-    value: str
-    unit: str
-    basis: str
-
-
-class BoqStripOut(Schema):
-    measured: MoneySchema
-    awaiting_answer: MoneySchema
-    allowance: MoneySchema
-    total: MoneySchema
-    unpriced_lines: int
-    per_area: MoneySchema | None
-    gfa: BoqGfaOut | None
-
-
-class BoqAwaitingOut(Schema):
-    quantity: str
-    amount: MoneySchema | None
-
-
-class BoqStoreyQuantityOut(Schema):
-    storey: str
-    quantity: str
-
-
-class BoqTraceCountOut(Schema):
-    lines: int
-
-
-class BoqItemOut(Schema):
-    number: str
-    item_code: str
-    description: BoqDescriptionOut | None
-    section: str
-    group: str
-    billing_unit: str
-    quantity: str
-    rate: MoneySchema | None
-    amount: MoneySchema | None
-    cost_basis: str
-    rebar_basis: str | None
-    rebar_from_drawing_share: str | None
-    awaiting_answer: BoqAwaitingOut | None
-    by_storey: list[BoqStoreyQuantityOut]
-    trace: BoqTraceCountOut
+class PricedItemOut(BoqItemOut):
+    description: DescriptionOut | None  # type: ignore[assignment]
 
     @classmethod
-    def from_view(cls, item: priced.BilledItem) -> BoqItemOut:
+    def from_view(cls, item: priced.BilledItem) -> PricedItemOut:
         held = item.awaiting_answer
-        share = item.rebar_from_drawing_share
         return cls(
             number=item.number,
             item_code=item.item_code,
-            description=_description(item.description),
             section=item.section,
             group=item.group,
+            description=_description(item.description),
             billing_unit=item.billing_unit,
-            quantity=str(item.quantity),
+            quantity=item.quantity,
             rate=_money(item.rate),
             amount=_money(item.amount),
             cost_basis=item.cost_basis,
             rebar_basis=item.rebar_basis,
-            rebar_from_drawing_share=None if share is None else str(share),
+            rebar_from_drawing_share=item.rebar_from_drawing_share,
             awaiting_answer=None
             if held is None
-            else BoqAwaitingOut(quantity=str(held.quantity), amount=_money(held.amount)),
-            by_storey=[
-                BoqStoreyQuantityOut(storey=s.storey, quantity=str(s.quantity)) for s in item.by_storey
-            ],
-            trace=BoqTraceCountOut(lines=item.lines),
+            else AwaitingOut(quantity=held.quantity, amount=_money(held.amount)),
+            by_storey=[StoreyQuantityOut(storey=s.storey, quantity=s.quantity) for s in item.by_storey],
+            trace={"lines": item.lines},
         )
 
 
-class BoqGroupOut(Schema):
-    group: str
-    items: list[BoqItemOut]
+class PricedGroupOut(BoqGroupOut):
+    items: list[PricedItemOut]  # type: ignore[assignment]
 
 
-class BoqSectionOut(Schema):
-    section: str
-    groups: list[BoqGroupOut]
+class PricedSectionOut(BoqSectionOut):
+    groups: list[PricedGroupOut]  # type: ignore[assignment]
 
 
-class BoqConsumptionOut(Schema):
-    item_code: str
-    per_area: str
+class PricedConsumptionOut(ConsumptionOut):
     billing_unit: str
     quantity: str
     rate: MoneySchema | None
     amount: MoneySchema | None
 
 
-class BoqAllowanceOut(Schema):
-    step: str
-    part: str
-    description: BoqDescriptionOut | None
-    cost_basis: str
-    consumptions: list[BoqConsumptionOut]
-    amount: MoneySchema
-    measured_so_far: MoneySchema
-    source: str
+class PricedAllowanceOut(AllowanceOut):
+    description: DescriptionOut
+    consumptions: list[PricedConsumptionOut]  # type: ignore[assignment]
     confidence: str
     unpriced: int
 
     @classmethod
-    def from_view(cls, line: priced.AllowanceLine) -> BoqAllowanceOut:
+    def from_view(cls, line: priced.AllowanceLine) -> PricedAllowanceOut:
+        assert line.description is not None
         return cls(
             step=line.step,
             part=line.part,
-            description=_description(line.description),
+            description=DescriptionOut(**line.description),
             cost_basis=line.cost_basis,
             consumptions=[
-                BoqConsumptionOut(
+                PricedConsumptionOut(
                     item_code=c.item_code,
-                    per_area=str(c.per_area),
+                    per_area=c.per_area,
                     billing_unit=c.billing_unit,
                     quantity=str(c.quantity),
                     rate=_money(c.rate),
@@ -158,13 +111,11 @@ class BoqAllowanceOut(Schema):
         )
 
 
-class PricedBoqOut(Schema):
+class PricedBoqOut(BoqOut):
     building_id: uuid.UUID | None
     """The Project's Building, the one `PUT .../buildings/{building_id}/gross-floor-area` names."""
-    strip: BoqStripOut
-    measured_share: str
-    sections: list[BoqSectionOut]
-    allowances: list[BoqAllowanceOut]
+    sections: list[PricedSectionOut]  # type: ignore[assignment]
+    allowances: list[PricedAllowanceOut]  # type: ignore[assignment]
 
     @classmethod
     def from_view(cls, boq: priced.PricedBoq) -> PricedBoqOut:
@@ -172,65 +123,59 @@ class PricedBoqOut(Schema):
         gfa = strip.gfa
         return cls(
             building_id=boq.building_id,
-            strip=BoqStripOut(
+            strip=StripOut(
                 measured=MoneySchema.from_money(strip.measured),
                 awaiting_answer=MoneySchema.from_money(strip.awaiting_answer),
                 allowance=MoneySchema.from_money(strip.allowance),
                 total=MoneySchema.from_money(strip.total),
                 unpriced_lines=strip.unpriced_lines,
                 per_area=_money(strip.per_area),
-                gfa=None
-                if gfa is None
-                else BoqGfaOut(value=str(gfa.value), unit=gfa.unit, basis=gfa.basis),
+                gfa=None if gfa is None else GfaOut(value=gfa.value, basis=gfa.basis),
             ),
-            measured_share=str(boq.measured_share),
+            measured_share=boq.measured_share,
             sections=[
-                BoqSectionOut(
+                PricedSectionOut(
                     section=s.section,
                     groups=[
-                        BoqGroupOut(group=g.group, items=[BoqItemOut.from_view(i) for i in g.items])
+                        PricedGroupOut(
+                            group=g.group, items=[PricedItemOut.from_view(i) for i in g.items]
+                        )
                         for g in s.groups
                     ],
                 )
                 for s in boq.sections
             ],
-            allowances=[BoqAllowanceOut.from_view(line) for line in boq.allowances],
+            allowances=[PricedAllowanceOut.from_view(line) for line in boq.allowances],
         )
 
 
-class BoqTraceOut(Schema):
-    sheet_id: str
-    view_id: str
-    anchor: str
-
-
-class BoqLineOut(Schema):
-    element_id: uuid.UUID
-    item_code: str
-    step: str
-    family: str
-    storey: str
-    billing_unit: str
-    quantity: str
-    state: str
-    rebar_basis: str | None
-    trace: list[BoqTraceOut]
-
-    @classmethod
-    def from_view(cls, line: priced.TracedLine) -> BoqLineOut:
-        return cls(
-            element_id=line.element_id,
-            item_code=line.item_code,
-            step=line.step,
-            family=line.family,
-            storey=line.storey,
-            billing_unit=line.billing_unit,
-            quantity=str(line.quantity),
-            state=line.state,
-            rebar_basis=line.rebar_basis,
-            trace=[BoqTraceOut(**t) for t in line.trace],
-        )
-
-
-class BoqLinesOut(Schema):
-    lines: list[BoqLineOut]
+def lines_out(lines: tuple[priced.TracedLine, ...]) -> BoqLinesOut:
+    return BoqLinesOut(
+        lines=[
+            MeasurementLineOut(
+                item_code=line.item_code,
+                element_id=line.element_id,
+                storey=line.storey,
+                step=line.step,
+                family=line.family,
+                state=line.state,
+                rule_codes=list(line.rule_codes),
+                nos=line.nos,
+                l_m=line.l_m,
+                b_m=line.b_m,
+                h_m=line.h_m,
+                area_m2=line.area_m2,
+                qty_si=line.qty_si,
+                unit_si=line.unit_si,
+                billing_unit=line.billing_unit,
+                quantity=line.quantity,
+                rebar_basis=line.rebar_basis,
+                diameter_mm=line.diameter_mm,
+                assumed_split=line.assumed_split,
+                lap=line.lap,
+                held=line.held,
+                trace=[LineTraceOut(**t) for t in line.trace],
+            )
+            for line in lines
+        ]
+    )
