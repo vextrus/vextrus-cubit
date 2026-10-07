@@ -23,8 +23,8 @@ ROOT = Path(__file__).resolve().parents[5]
 CI = ".github/workflows/ci.yml"
 SHARDS = ".github/ci-shards.json"
 FLAKY = ".github/flaky.txt"
-# The ticket's 4.1: four shards, in this order.
-NAMES = ["takeoff-acceptance", "takeoff-rest", "seed-platform-drawings", "rest"]
+# The ticket's 4.1 named four shards; S17-F1 split `rest` into three (its own acceptance tests,
+# tools/lint/tests/acceptance/ts17f1, pin the split), so the names are read from the shard file.
 # The ticket's 4.4: the three #245 flakes, one per class.
 FLAKES = {
     (
@@ -270,11 +270,11 @@ def test_a4_a_new_folder_falls_into_the_last_shard_and_never_drops_out(tmp_path:
 
 
 def test_a5_matrix_prints_the_real_shard_names_in_order_and_an_unknown_subcommand_exits_2() -> None:
-    assert [shard["name"] for shard in real_shards()] == NAMES
+    names = [shard["name"] for shard in real_shards()]
     printed = cli("matrix")
     assert printed.returncode == 0, printed.stderr
     assert len(printed.stdout.strip().splitlines()) == 1, "one line"
-    assert json.loads(printed.stdout) == {"include": [{"shard": name} for name in NAMES]}
+    assert json.loads(printed.stdout) == {"include": [{"shard": name} for name in names]}
 
     assert cli("bogus").returncode == 2
 
@@ -285,16 +285,19 @@ def test_a6_args_prints_a_shards_pytest_arguments_and_refuses_an_unsafe_path(tmp
         assert printed.returncode == 0, printed.stderr
         assert len(printed.stdout.strip().splitlines()) == 1, "one line"
         ignore = _strings(shard.get("ignore", []))
-        assert printed.stdout.split() == [
-            *_strings(shard["paths"]),
-            *(f"--ignore={path}" for path in ignore),
-        ]
+        expected = [*_strings(shard["paths"]), *(f"--ignore={path}" for path in ignore)]
+        # S17-F1: the printed arguments may also carry pytest options (the shard's workers).
+        assert [word for word in printed.stdout.split() if word in expected] == expected
 
-    rest = cli("args", "rest").stdout.split()
-    assert all(word.startswith("--ignore=") for word in rest), "rest carries no path"
-    ignored = [word.removeprefix("--ignore=") for word in rest]
+    # The catch-all (f1's `rest`; S17-F1 split it): one shard names no path and ignores every other
+    # shard's paths, so a new folder never drops out.
+    catch_all = [shard for shard in real_shards() if not _strings(shard["paths"])]
+    assert len(catch_all) == 1, "exactly one shard names no path"
+    rest = cli("args", str(catch_all[0]["name"])).stdout.split()
+    assert not [word for word in rest if not word.startswith("-") and "/" in word], "it carries no path"
+    ignored = [word.removeprefix("--ignore=") for word in rest if word.startswith("--ignore=")]
     for shard in real_shards():
-        for path in _strings(shard["paths"]) if shard["name"] != "rest" else []:
+        for path in _strings(shard["paths"]):
             assert any(path == i or path.startswith(f"{i}/") for i in ignored), path
 
     unknown = cli("args", "no-such-shard")
