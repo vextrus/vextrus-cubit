@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
-from scripts.verify import flakes_in, plan
+import pytest
+
+from scripts.verify import flakes_in, plan, pytest_workers
 
 ENTRIES = [("scripts/tests/test_x.py :: test_a", "scripts/tests/test_x.py", "test_a")]
 
@@ -37,3 +39,12 @@ def test_the_api_types_schema_is_the_exports_absolute_output(tmp_path: Path) -> 
     assert schema == str(tmp_path.resolve() / ".private/work/verify/openapi.json")
     assert export[export.index("--output") + 1] == schema
     assert export[0] != "sh"
+
+
+def test_workers_are_checked_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
+    monkeypatch.setenv("VEXTRUS_VERIFY_WORKERS", "auto")
+    with pytest.raises(SystemExit):
+        pytest_workers()
+    monkeypatch.setenv("VEXTRUS_VERIFY_WORKERS", "")
+    assert pytest_workers() == 6
