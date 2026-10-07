@@ -23,6 +23,7 @@ from vextrus.measurement.models import (
     BoqItemBillingUnit,
     MeasurementRule,
     RebarRatio,
+    RuleSetVersion,
 )
 
 UNIT_SYSTEM = BILLED_SYSTEM
@@ -109,6 +110,9 @@ def measure(
     `awaiting_answer`; `include_held=False` leaves it out. An Element without the facts a rule
     needs (a section, its storey's height) gets no line: its Question holds it.
     """
+    if rule_set_version_id is None:
+        # No Project pins a Rule Set Version yet (C11's `pinned` is a later ticket): the newest one.
+        rule_set_version_id = _newest_version()
     rules = _rules(rule_set_version_id)
     units = _billing_units(rule_set_version_id)
     ratios = _ratios(rule_set_version_id)
@@ -217,6 +221,10 @@ def _get(obj: Any, name: str) -> Any:
     if isinstance(obj, Mapping):
         return obj.get(name)
     return getattr(obj, name, None)
+
+
+def _newest_version() -> uuid.UUID | None:
+    return RuleSetVersion.objects.order_by("-number").values_list("id", flat=True).first()
 
 
 def _rules(version_id: uuid.UUID) -> dict[str, _Rule]:

@@ -175,7 +175,9 @@ def test_a_group_key_chooses_the_groups_proposals(qs_project: QsProject, applied
     response = post(member, project_id, {"act": "confirm", "step": "columns", "group_key": "mark:C1"})
 
     assert response.status_code == 200
-    assert len(applied.calls[0][2]) == 2
+    # The group's two Proposals name one Element (the same mark on one grid point and storey, read on
+    # two views): one change, as `apply` refuses an identity named twice.
+    assert len(applied.calls[0][2]) == 1
 
 
 @pytest.mark.parametrize(

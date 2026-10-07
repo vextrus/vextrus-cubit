@@ -13,6 +13,7 @@ A storey is a Proposal of step `storeys` and family `storey`; its typed level is
 `view_placement`, about the view; neither is ever counted as an Element.
 """
 
+import dataclasses
 import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
@@ -546,6 +547,8 @@ def _change(
     traces: Mapping[uuid.UUID, list[tuple[str, Any]]],
     *,
     withdrawn: bool = False,
+    heights: Mapping[str, str | None] | None = None,
+    placed: Mapping[str, Any] | None = None,
 ) -> Any:
     """The StateChange of one Proposal for `apply`: the family's attributes in SI metres (C8), its
     identity key (C7: `<family>|<grid ref>|<storey>`) and its Trace. A withdrawn Element (unconfirmed,
@@ -568,7 +571,7 @@ def _change(
         if level is not None:
             attrs["vx.storey.slab_level"] = level
         attrs["vx.storey.index"] = str(_order(proposal))
-        height = _level({"level_m": values.get("height_m")})
+        height = _level({"level_m": values.get("height_m")}) or (heights or {}).get(str(proposal.id))
         if height is not None:
             attrs["vx.storey.height"] = height
         place = _identity_name(str(values.get("name") or mark))
@@ -576,7 +579,7 @@ def _change(
     else:
         place = mark or str(proposal.candidate_key)
     make = getattr(_live(), "StateChange", _StateChange)
-    return make(
+    change = make(
         family=family,
         identity_key=f"{family}|{place}|{storey_name}",
         mark=mark,
@@ -584,6 +587,24 @@ def _change(
         attrs={} if withdrawn else attrs,
         trace=[] if withdrawn else _trace_of(traces.get(proposal.id, [])),
     )
+    storey_id = (placed or {}).get(storey_name) if family != FAMILY_OF[STOREYS] else None
+    if storey_id is not None and hasattr(change, "storey_id"):
+        change = dataclasses.replace(change, storey_id=storey_id)
+    return change
+
+
+def _once(changes: Sequence[Any]) -> list[Any]:
+    """One change per identity: an Element read on several views (a grid line on each column plan)
+    is one Element, its Traces together."""
+    kept: dict[str, Any] = {}
+    for change in changes:
+        key = str(change.identity_key)
+        if key in kept and hasattr(kept[key], "trace"):
+            held = kept[key]
+            kept[key] = dataclasses.replace(held, trace=[*held.trace, *change.trace])
+        else:
+            kept.setdefault(key, change)
+    return list(kept.values())
 
 
 def act(
@@ -655,9 +676,12 @@ def act(
             ).values_list("proposal_id", "fact", "anchor"):
                 traces[proposal_id].append((fact, anchor))
         names = _storey_names(project_id) if to_model or withdrawn else {}
-        changes = [_change(p, names, traces) for p in to_model] + [
-            _change(p, names, traces, withdrawn=True) for p in withdrawn
-        ]
+        heights = {str(r.id): r.height_m for r in storeys(project_id).storeys} if to_model else {}
+        placed = {str(s.name): s.id for s in _live().snapshot(building_id).storeys} if to_model else {}
+        changes = _once(
+            [_change(p, names, traces, heights=heights, placed=placed) for p in to_model]
+            + [_change(p, names, traces, withdrawn=True) for p in withdrawn]
+        )
         version = _live().apply(building_id, confirmation_id, changes, cause="confirmation")
         seq = getattr(version, "seq", None)
         Confirmation.objects.create(
