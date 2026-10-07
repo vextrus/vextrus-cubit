@@ -18,7 +18,10 @@ You are the orchestrator of session 16. **In 3 hours, build the thinnest honest 
 Edison structural set, and hand the owner a showing script for the founders' meeting at about 12:30Z.** The slice:
 storeys and levels, the grid, columns (one Element per column per storey), the columns in 3D, and a Priced BOQ for them
 (concrete, formwork, rebar by ratio) on starter Market Prices, with every figure opening its Trace and every other step
-a marked allowance. Nothing is faked: what the readers miss shows as n / N and as Questions.
+a marked allowance. Nothing is faked: what the readers miss shows as misses and as Questions. **The hand count is not an Answer
+Key:** Answer Keys stay with the key user, counted by an independent route and confirmed by the owner (ADR 0026, ADR 0030,
+docs/plans/M1.md's two-counter rule). S16-D's single count is a working measure for this showing only, said aloud as
+"counted by hand once, not scored"; no reading ticket is accepted on it, and blind scoring stays cut.
 
 ## The owner's rulings (verbatim)
 - 7 Oct 07:31Z: "the next session handoff prompt will be much targetted powerful session we'll target to achieve at least
@@ -37,7 +40,7 @@ a marked allowance. Nothing is faked: what the readers miss shows as n / N and a
 1. The train `s16-m1` holds the slice, every ticket reviewed (`scripts.factory.review run <PR> --round <n>`, at most two
    rounds) and merged into it; one PR `s16-m1` → main is open with its integrated review recorded.
 2. The orchestrator ran the showing script below on the train head (or main if it landed) on the demo project, by keyboard,
-   and wrote what each step showed, n / N included: `.private/work/session-16/showing.md`.
+   and wrote what each step showed, the read-against-hand-count lines included: `.private/work/session-16/showing.md`.
 3. The owner has the showing script with the cut list and G1's open failures, and the exact serve command.
 4. The train PR lands on main if its posting run passes in time; if not, its state is written down.
 5. `docs/handoff/session-17-prompt.md` is merged (M0's carry-over plus M1's next slice).
@@ -48,7 +51,7 @@ a marked allowance. Nothing is faked: what the readers miss shows as n / N and a
 | 1 | Projects → Edison → Priced BOQ (`/p/<code>/boq`) | type the gross floor area, Enter | Whole-building ৳ figure, measured share 0 %, every step a hatched allowance line "Vextrus default, Low" |
 | 2 | Takeoff → Step 1 | — | Sheet list confirmed before the meeting (said aloud) |
 | 3 | Step 3 Storeys and levels (`/takeoff/3`) | review; fix one view's storeys if wrong; accept or type heights; Enter | Storeys low to high; "levels typed, not read" |
-| 4 | Step 4 Grid (`/takeoff/4`) | Space opens a view; Enter confirms | Grid lines n / N (N counted by hand), each line's Trace on the sheet |
+| 4 | Step 4 Grid (`/takeoff/4`) | Space opens a view; Enter confirms | Grid lines read against a single hand count (said: "not scored"), each line's Trace on the sheet |
 | 5 | Step 6 Columns (`/takeoff/6`) | groups by band and mark; Enter confirms the agreeing; E types a size, X excludes | One Element per column per storey; "shear walls and core on allowance" |
 | 6 | Model (`/p/<code>/model`) | orbit, isolate a storey, click a column | Columns in 3D at their grid points and storey heights; inspector with IFC class, Uniclass reference, Trace |
 | 7 | Priced BOQ | expand Columns; click a quantity, then a line | Concrete, formwork, rebar marked "by ratio"; measured share above 0 %; a Measurement Line opens the sheet at the column |
@@ -63,12 +66,13 @@ viewer tools; Answer Keys and blind scoring; the MD's view; Revisions.
 
 **Cut order when behind** (cut from the top; each cut said aloud): price edit (prices read-only with their page); storey
 slabs as planes in 3D; the Rate Analysis popover; Step 3's view placement edit; the size Question (E); Step 4 as its own
-screen (grid confirmed inside Step 6); 3D entirely. **Never cut:** the allowance lines and measured share, n / N with N by
-hand, every figure's Trace, the "by ratio" mark, the cut list read aloud.
+screen (grid confirmed inside Step 6); 3D entirely. **Never cut:** the allowance lines and measured share, the read-against-hand-count line, every figure's Trace, the "by ratio" mark, the cut list read aloud.
 
 ## The train
-Every ticket branches from S16-K0's branch (`launch cloud --on-branch s16-k0` / local equivalent) and its PR targets
-`s16-m1`, not main. Review each into `s16-m1` (at most two rounds; then simplify or cut). At **T+110 min freeze**: one PR
+Every ticket gets its own branch made from S16-K0's head once K0's acceptance commit is on GitHub
+(`git branch s16-<id> origin/s16-k0`, then the leak scan and the branch upload by the command card's recipe), launched
+with `launch cloud|local --branch s16-<id>`; its PR targets `s16-m1`, not main. Never launch a ticket on `s16-k0`
+itself: it would build on K0's branch. Review each into `s16-m1` (at most two rounds; then simplify or cut). At **T+110 min freeze**: one PR
 `s16-m1` → main; one integrated review round (exception `integration` if needed), the design gate on that head, ONE
 posting run, merge_ready, land. Content not READY at the freeze is cut, not waited for. If review.py or merge_ready refuses
 a non-main base, say so in STATE.md and review the branch heads with the lenses by hand. Contracts are frozen at K0
@@ -77,9 +81,9 @@ a non-main base, say so in STATE.md and review the branch heads with the lenses 
 | id | title | owns | blocked by | where | tier / model | budget | finish check |
 |---|---|---|---|---|---|---|---|
 | S16-K0 | Contracts: family types, API schemas, stub routes | `engine/families/{__init__,types,registry}.py`; `vextrus/{takeoff/schemas/frame.py, live_model/schemas/model.py, boq/schemas/boq.py, rates/schemas/prices.py}`; stub http modules returning 501 | acceptance only | cloud | hard, Opus 5.5 high | 35 | types import; OpenAPI lists every slice endpoint; web schema generation passes; the registry discovers 0 families |
-| S16-D | Demo project and hand counts | `.private/work/session-16/demo/` only; a local stack with Edison uploaded and Step 1 structural confirmed through the product | — | local | drawing-analyst, Opus 5.5 high | 60 | Step 1 structural confirmed; N per column-plan view for grid lines and per band for columns counted from the PDFs by hand; each column-plan view's storeys noted right or wrong |
-| S16-R1 | Grid reader | `engine/families/grid_line/**` | K0 | local | hard, Opus 5.5 high | 90 | fixtures; on Edison column plans grid n = D's N; frame registered across plans; no literal layer or label in code (ADR 0039) |
-| S16-R2 | Column reader (outline, mark, size label, grid ref, band) + `measure.py` (F1, FW2, R2 per C11) | `engine/families/column/**` | K0 | local | hard, Opus 5.5 high | 90 | fixtures; on Edison columns per band n vs D's N with phantoms and misses listed; size = label; C11's worked example exact |
+| S16-D | Demo project and one hand count (a working measure, not an Answer Key) | `.private/work/session-16/demo/` only; a local stack with Edison uploaded and Step 1 structural confirmed through the product | — | local | drawing-analyst, Opus 5.5 high | 60 | Step 1 structural confirmed; a hand count per column-plan view for grid lines and per band for columns, from the PDFs, kept in `.private/` only; each column-plan view's storeys noted right or wrong |
+| S16-R1 | Grid reader | `engine/families/grid_line/**` | K0 | local | hard, Opus 5.5 high | 90 | fixtures; on Edison column plans grid read against D's hand count (both shown, gaps listed); frame registered across plans; no literal layer or label in code (ADR 0039) |
+| S16-R2 | Column reader (outline, mark, size label, grid ref, band) + `measure.py` (F1, FW2, R2 per C11) | `engine/families/column/**` | K0 | local | hard, Opus 5.5 high | 90 | fixtures; on Edison columns per band read against D's hand count, phantoms and misses listed; size = label; C11's worked example exact |
 | S16-T1 | Frame read job: families on the confirmed Step 1 views, Proposals and ProposalTraces | `vextrus/takeoff/services/frame_read.py`, `vextrus/takeoff/tasks/frame_read.py` | K0 | cloud | hard, Opus 5.5 high | 90 | idempotent re-run; values in drawing units with verbatim text; a failed family writes a Question, never silence |
 | S16-T2 | Steps 3/4/6 API and acts: storey list and view placement, typed levels, confirm, exclude, size answer, n / N; a DomainEvent per act; calls `live_model.services.apply` | `vextrus/takeoff/services/frame_steps.py`, `vextrus/takeoff/http/frame.py`, `vextrus/takeoff/messages/frame.py` | K0 | cloud | hard, Opus 5.5 high | 90 | API tests; every act one DomainEvent; act p95 under 1 s at 500 Proposals; nothing reaches live_model unconfirmed |
 | S16-L1 | live_model spine subset: DisciplinePart, ModelVersion, ElementState, ElementTrace, ViewPlacement(+Storey) with RLS; `apply`, `snapshot`, `figures_hash` | `vextrus/live_model/{models.py, migrations/0002_*, services/**}` | K0 | cloud | hard (security wall), Opus 5.5 high | 90 | tenancy walls tested; append-only versions; `apply` the sole writer |
@@ -92,7 +96,11 @@ a non-main base, say so in STATE.md and review the branch heads with the lenses 
 | S16-W3 | Priced BOQ and Market Prices screens: strip, sections, rows, lines, Trace, Rate Analysis with PWD refs, GFA entry, price edit; nav entries | `web/src/boq/**`, `web/src/rates/**`, `web/src/routes/_app/p/$code/{boq,prices}.tsx`, `web/src/app/routes.tsx` (sole owner) | K0 | cloud | ordinary, Sonnet 5.5 high | 90 | quantity × rate = amount on every row; "rate not entered" shown; money in ৳ with lakh grouping; §8 keys |
 
 `web/src/routeTree.gen.ts` is regenerated at each train merge, never hand-merged; `web/src/api/schema.gen.ts` is CI's.
-No two tickets own one file.
+**Ownership exceptions to the globs above:** K0's schema files (`boq/schemas/boq.py`, `rates/schemas/prices.py`,
+`takeoff/schemas/frame.py`, `live_model/schemas/model.py`) are frozen contracts: B, RT, T2, L1 and L2 never edit them (a
+change is an acceptance amendment). K0's stub http modules pass to the ticket that owns that route once K0 is on the
+train (T2 `takeoff/http/frame.py`, L2 `live_model/http/model.py`, B and RT their own). L1 owns `live_model/services/**`
+except `services/primitives.py`, which is L2's. With those, no two tickets edit one file at once.
 
 **Timeline (T = start):** T+0 acceptance writers for all 14 in parallel (Opus 5.5 high, 15 min); D starts. T+15 launch every
 ticket on K0's branch as it stands (R1, R2 merge K0's head when READY). T+40 L2 on L1's branch. T+60-110 reviews into
