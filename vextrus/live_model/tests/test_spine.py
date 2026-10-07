@@ -260,3 +260,28 @@ def test_a_state_s_storey_band_and_stage_never_name_another_tenant_s_element(
             )
         )
         assert "violates foreign key constraint" in refused(write)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "twice",
+    [
+        [column("0.254"), column("0.305")],
+        [
+            column(),
+            services.StateChange(family="column", identity_key="column|B/2|floor_1", retire=True),
+        ],
+    ],
+    ids=["two changes", "a change and a retire"],
+)
+def test_apply_refuses_one_element_named_twice_and_writes_nothing(
+    twice: list[services.StateChange], qs_project: QsProject
+) -> None:
+    """Review round 1 on S16-L: the second change closed the state the first opened at the same
+    seq, and the valid-range check failed as a raw IntegrityError."""
+    building = building_of(qs_project)
+    with qs_project.member.acting():
+        with pytest.raises(services.RepeatedElement, match=r"column\|B/2\|floor_1"):
+            services.apply(building, uuid.uuid4(), twice, cause="confirmation")
+        assert not ModelVersion.objects.filter(building_id=building).exists()
+        assert not ElementState.objects.exists()

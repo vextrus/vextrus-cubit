@@ -111,6 +111,11 @@ class UnknownFamily(ValueError):
     """A change names an Element Family neither the tenant's nor its Library's."""
 
 
+class RepeatedElement(ValueError):
+    """Two changes in one `apply` name one Element (its family and identity key): one version holds
+    one state per Element, so the caller must fold them first."""
+
+
 # Writing ----------------------------------------------------------------------------------------
 
 
@@ -129,6 +134,7 @@ def apply(
     versions are written one at a time (a transaction lock on the Building)."""
     if cause not in MODEL_VERSION_CAUSES:
         raise ValueError(f"cause {cause!r} is not one of {MODEL_VERSION_CAUSES}")
+    _refuse_repeats(changes)
     tenant_id = _tenant()
     with transaction.atomic():
         with connection.cursor() as cursor:
@@ -243,6 +249,15 @@ def _apply_one(
             )
             for t in traces
         )
+
+
+def _refuse_repeats(changes: Sequence[StateChange]) -> None:
+    seen: set[tuple[str, str]] = set()
+    for change in changes:
+        identity = (change.family, change.identity_key)
+        if identity in seen:
+            raise RepeatedElement(f"{change.family} {change.identity_key} is named twice in one apply")
+        seen.add(identity)
 
 
 def _close(state: ElementState | None, traces: Sequence[ElementTrace], seq: int) -> None:
