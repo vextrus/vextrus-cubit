@@ -99,13 +99,22 @@ def element(project_id: uuid.UUID, element_id: uuid.UUID) -> ElementView:
             for units in [_units(set(attrs))]
             for key, value in sorted(attrs.items())
         ),
-        trace=tuple(
-            _trace_view(t)
-            for t in ElementTrace.objects.filter(element_id=found.pk, valid_to_seq=None).order_by(
-                "fact", "id"
+        trace=_placed_first(
+            tuple(
+                _trace_view(t)
+                for t in ElementTrace.objects.filter(element_id=found.pk, valid_to_seq=None).order_by(
+                    "fact", "id"
+                )
             )
         ),
     )
+
+
+def _placed_first(traces: tuple[TraceView, ...]) -> tuple[TraceView, ...]:
+    """The Traces that name their sheet; all of them when none does (an anchor read before the
+    sheet was recorded stays as history, but the inspector opens the sheet)."""
+    placed = tuple(t for t in traces if t.sheet_id)
+    return placed or traces
 
 
 def _trace_view(t: ElementTrace) -> TraceView:
