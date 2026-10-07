@@ -10,35 +10,11 @@
    },
    "number": null,
    "paper": [
-    25.0,
-    55.0
+    420.0,
+    297.0
    ],
    "sheet": 0,
-   "views": [
-    {
-     "anchors": [],
-     "box": {
-      "type": "Box",
-      "x0": 0.0,
-      "x1": 12.5,
-      "y0": 0.0,
-      "y1": 10.0
-     },
-     "exclusion": null,
-     "kind": "plan",
-     "layer": null,
-     "not_to_scale": false,
-     "part": null,
-     "stated_scale": null,
-     "steps": [],
-     "storeys": [],
-     "storeys_as_stated": null,
-     "storeys_meaning": null,
-     "subject": null,
-     "title": null,
-     "type": "ViewCandidate"
-    }
-   ]
+   "views": []
   },
   {
    "discipline": "architectural",
@@ -49,38 +25,11 @@
    },
    "number": null,
    "paper": [
-    25.0,
-    55.0
+    420.0,
+    297.0
    ],
    "sheet": 0,
-   "views": [
-    {
-     "anchors": [],
-     "box": {
-      "type": "Box",
-      "x0": 0.0,
-      "x1": 12.5,
-      "y0": 0.0,
-      "y1": 10.0
-     },
-     "exclusion": null,
-     "kind": "plan",
-     "layer": null,
-     "not_to_scale": false,
-     "part": null,
-     "stated_scale": null,
-     "steps": [
-      "walls",
-      "rooms"
-     ],
-     "storeys": [],
-     "storeys_as_stated": null,
-     "storeys_meaning": null,
-     "subject": null,
-     "title": null,
-     "type": "ViewCandidate"
-    }
-   ]
+   "views": []
   },
   {
    "discipline": "plumbing",
@@ -91,35 +40,11 @@
    },
    "number": null,
    "paper": [
-    25.0,
-    55.0
+    420.0,
+    297.0
    ],
    "sheet": 0,
-   "views": [
-    {
-     "anchors": [],
-     "box": {
-      "type": "Box",
-      "x0": 0.0,
-      "x1": 12.5,
-      "y0": 0.0,
-      "y1": 10.0
-     },
-     "exclusion": null,
-     "kind": "plan",
-     "layer": null,
-     "not_to_scale": false,
-     "part": "plumbing",
-     "stated_scale": null,
-     "steps": [],
-     "storeys": [],
-     "storeys_as_stated": null,
-     "storeys_meaning": null,
-     "subject": null,
-     "title": null,
-     "type": "ViewCandidate"
-    }
-   ]
+   "views": []
   },
   {
    "discipline": "general",
@@ -130,37 +55,11 @@
    },
    "number": null,
    "paper": [
-    25.0,
-    55.0
+    420.0,
+    297.0
    ],
    "sheet": 0,
-   "views": [
-    {
-     "anchors": [],
-     "box": {
-      "type": "Box",
-      "x0": 0.0,
-      "x1": 12.5,
-      "y0": 0.0,
-      "y1": 10.0
-     },
-     "exclusion": null,
-     "kind": "plan",
-     "layer": null,
-     "not_to_scale": false,
-     "part": null,
-     "stated_scale": null,
-     "steps": [
-      "general_notes"
-     ],
-     "storeys": [],
-     "storeys_as_stated": null,
-     "storeys_meaning": null,
-     "subject": null,
-     "title": null,
-     "type": "ViewCandidate"
-    }
-   ]
+   "views": []
   }
  ],
  "mirrored_insert": [],
@@ -694,8 +593,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    420.115997,
+    297.0
    ],
    "sheet": 0,
    "views": []
@@ -709,8 +608,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 1,
    "views": []
@@ -724,8 +623,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    841.0,
+    594.394775
    ],
    "sheet": 2,
    "views": []
@@ -739,8 +638,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 3,
    "views": []
@@ -754,8 +653,8 @@
    },
    "number": null,
    "paper": [
-    594.3948,
-    841.0
+    297.0,
+    420.115997
    ],
    "sheet": 4,
    "views": []
@@ -769,8 +668,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    383.032797
+    841.0,
+    766.9776
    ],
    "sheet": 5,
    "views": []
@@ -784,8 +683,8 @@
    },
    "number": null,
    "paper": [
-    16.54,
-    11.69
+    420.0,
+    297.0
    ],
    "sheet": 6,
    "views": []
@@ -799,8 +698,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    420.115997,
+    297.0
    ],
    "sheet": 0,
    "views": []
@@ -814,8 +713,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 1,
    "views": []
@@ -829,8 +728,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    841.0,
+    594.394775
    ],
    "sheet": 2,
    "views": []
@@ -844,8 +743,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 3,
    "views": []
@@ -859,8 +758,8 @@
    },
    "number": null,
    "paper": [
-    594.3948,
-    841.0
+    297.0,
+    420.115997
    ],
    "sheet": 4,
    "views": []
@@ -874,8 +773,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    383.032797
+    841.0,
+    766.9776
    ],
    "sheet": 5,
    "views": []
@@ -889,8 +788,8 @@
    },
    "number": null,
    "paper": [
-    16.54,
-    11.69
+    420.0,
+    297.0
    ],
    "sheet": 6,
    "views": []
@@ -904,8 +803,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    420.115997,
+    297.0
    ],
    "sheet": 0,
    "views": []
@@ -919,8 +818,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 1,
    "views": []
@@ -934,8 +833,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    841.0,
+    594.394775
    ],
    "sheet": 2,
    "views": []
@@ -949,8 +848,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 3,
    "views": []
@@ -964,8 +863,8 @@
    },
    "number": null,
    "paper": [
-    594.3948,
-    841.0
+    297.0,
+    420.115997
    ],
    "sheet": 4,
    "views": []
@@ -979,8 +878,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    383.032797
+    841.0,
+    766.9776
    ],
    "sheet": 5,
    "views": []
@@ -994,8 +893,8 @@
    },
    "number": null,
    "paper": [
-    16.54,
-    11.69
+    420.0,
+    297.0
    ],
    "sheet": 6,
    "views": []
@@ -1009,8 +908,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    420.115997,
+    297.0
    ],
    "sheet": 0,
    "views": []
@@ -1024,8 +923,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 1,
    "views": []
@@ -1039,8 +938,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    296.844015
+    841.0,
+    594.394775
    ],
    "sheet": 2,
    "views": []
@@ -1054,8 +953,8 @@
    },
    "number": null,
    "paper": [
-    841.0,
-    594.3948
+    420.115997,
+    297.0
    ],
    "sheet": 3,
    "views": []
@@ -1069,8 +968,8 @@
    },
    "number": null,
    "paper": [
-    594.3948,
-    841.0
+    297.0,
+    420.115997
    ],
    "sheet": 4,
    "views": []
@@ -1084,8 +983,8 @@
    },
    "number": null,
    "paper": [
-    420.0,
-    383.032797
+    841.0,
+    766.9776
    ],
    "sheet": 5,
    "views": []
@@ -1099,8 +998,8 @@
    },
    "number": null,
    "paper": [
-    16.54,
-    11.69
+    420.0,
+    297.0
    ],
    "sheet": 6,
    "views": []
