@@ -144,3 +144,9 @@ export function priceAsTyped(text: string): string | null {
   const digits = plain.replace(/,/g, '')
   return /[1-9]/.test(digits) ? digits : null
 }
+
+/** The places a decimal string carries, trailing zeros dropped ("0.218" is 3, "1.00" is 0): a quantity is shown as sent, never rounded. */
+export function placesAsSent(quantity: string): number {
+  const fraction = quantity.split('.')[1] ?? ''
+  return fraction.replace(/0+$/, '').length
+}

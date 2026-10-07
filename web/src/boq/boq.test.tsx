@@ -260,3 +260,48 @@ describe('Market Prices, what a price may be and who hears of it', () => {
     expect(clean(document.body.textContent)).not.toContain('saved')
   })
 })
+
+describe('the Rate Analysis, quantities as sent', () => {
+  it('shows a quantity per unit to the places it is sent, so quantity x price equals the amount', async () => {
+    const api = new FakeApi()
+    new FakeBoq(api)
+    const served = api.handle
+    api.handle = async (request: Request) => {
+      if (request.method === 'GET' && decodeURIComponent(new URL(request.url, location.origin).pathname).endsWith('/rates/RCC-COL-1:1.5:3')) {
+        const money = (amount: string) => ({ amount, currency: 'BDT' })
+        return Response.json({
+          item_code: 'RCC-COL-1:1.5:3',
+          per_unit: 'cft',
+          rate: money('113.36'),
+          lines: [
+            {
+              resource_code: 'cement_opc',
+              name: 'Cement',
+              qty: '0.218000',
+              unit: 'bag',
+              price: money('520.00'),
+              amount: money('113.36'),
+              source_ref: 'PWD SoR 2022 (Dhaka), p. 47',
+            },
+            {
+              resource_code: 'mason',
+              name: 'Mason',
+              qty: '0.0042',
+              unit: 'day',
+              price: money('900.00'),
+              amount: money('3.78'),
+              source_ref: 'PWD SoR 2022 (Dhaka), p. 150',
+            },
+          ],
+        })
+      }
+      return served(request)
+    }
+    await mountApp('/p/KR-01/boq', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('2.1.1'))
+    await userEvent.click(within(rowItem('RCC-COL-1:1.5:3')).getByRole('button', { name: /Rate Analysis/ }))
+    await waitFor(() => expect(bodyText()).toContain('0.218 bag'))
+    expect(bodyText()).toContain('0.0042 day')
+    expect(bodyText()).toContain('৳113.36')
+  })
+})

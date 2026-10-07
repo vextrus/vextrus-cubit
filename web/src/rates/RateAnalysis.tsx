@@ -12,7 +12,7 @@ import { useCloseOnEsc } from '@/app/shell'
 import { LoadProblem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { Button, Skeleton } from '@/ui'
-import { rateQuery } from './data'
+import { placesAsSent, rateQuery } from './data'
 
 export function RateAnalysis({ projectId, itemCode, title, onClose }: { projectId: string; itemCode: string; title: React.ReactNode; onClose: () => void }) {
   const { t } = useLingui()
@@ -80,7 +80,7 @@ export function RateAnalysis({ projectId, itemCode, title, onClose }: { projectI
                       <div className="text-xs text-muted-foreground">{line.source_ref}</div>
                     </td>
                     <td className="num px-1 py-1.5 text-end">
-                      {f.quantity(line.qty)} {line.unit}
+                      {f.quantity(line.qty, placesAsSent(line.qty))} {line.unit}
                     </td>
                     <td className="num px-1 py-1.5 text-end">
                       {line.price ? f.money(line.price) : <span className="text-ink-secondary">{t`rate not entered`}</span>}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { priceAsTyped } from './data'
+import { placesAsSent, priceAsTyped } from './data'
 
 describe('priceAsTyped', () => {
   it('reads a decimal as typed, grouped as lakh or thousands, or not at all', () => {
@@ -17,5 +17,14 @@ describe('priceAsTyped', () => {
   })
   it('refuses anything else, a sign and an exponent included', () => {
     for (const text of ['', 'ninety', '-5', '1e3', '1.', '.5', '৳95']) expect(priceAsTyped(text), text).toBeNull()
+  })
+})
+
+describe('placesAsSent', () => {
+  it('counts the places a quantity carries, trailing zeros dropped, so it is never rounded', () => {
+    expect(placesAsSent('0.218')).toBe(3)
+    expect(placesAsSent('0.000250')).toBe(5)
+    expect(placesAsSent('1.00')).toBe(0)
+    expect(placesAsSent('21')).toBe(0)
   })
 })
