@@ -229,3 +229,34 @@ def test_the_library_sync_is_idempotent_and_every_definition_has_its_c8_words() 
         mapping = (definition.storage_unit, definition.ifc.get("ifc"), definition.ifc.get("property"))
         assert all(words), definition.key
         assert all(mapping), definition.key
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("named", ["storey_id", "band_from_id", "band_to_id", "casting_stage_id"])
+def test_a_state_s_storey_band_and_stage_never_name_another_tenant_s_element(
+    named: str, qs_project: QsProject, sign_in: Callable[..., Member]
+) -> None:
+    """The refuter's finding on S16-L: these were plain ids a second tenant could point at A's
+    storey; a composite key now holds each inside the state's tenant."""
+    building = building_of(qs_project)
+    with qs_project.member.acting():
+        services.apply(
+            building, uuid.uuid4(), [storey("Ground", 0, "0.000", "3.050")], cause="confirmation"
+        )
+        theirs = services.snapshot(building).storeys[0].id
+    other = sign_in(role="qs")
+    with other.acting():
+        # B's own column (a Building id is a plain id: B's rows are written under B).
+        services.apply(building, uuid.uuid4(), [column()], cause="confirmation")
+        state = ElementState.objects.get()
+        write = immediate(
+            lambda: ElementState.objects.create(
+                tenant_id=other.developer_id,
+                element_id=state.element_id,
+                valid_from_seq=5,
+                facts_hash="x",
+                figures_hash="x",
+                **{named: theirs},
+            )
+        )
+        assert "violates foreign key constraint" in refused(write)

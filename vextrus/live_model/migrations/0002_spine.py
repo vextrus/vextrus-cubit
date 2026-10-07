@@ -64,6 +64,16 @@ SAME_TENANT = (
         "element_id",
         "live_model_element",
     ),
+    # A state's storey, Storey Band and casting stage are storey Elements of its own tenant.
+    *(
+        (
+            "live_model_elementstate",
+            f"live_model_state_{column.removesuffix('_id')}_own_tenant",
+            column,
+            "live_model_element",
+        )
+        for column in ("storey_id", "band_from_id", "band_to_id", "casting_stage_id")
+    ),
     (
         "live_model_elementtrace",
         "live_model_trace_element_own_tenant",
