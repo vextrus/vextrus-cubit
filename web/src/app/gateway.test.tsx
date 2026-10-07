@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClientProvider, onlineManager } from '@tanstack/react-query'
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router'
-import { setTransport } from '@/api/client'
+import { api as apiClient, setTransport, unwrap } from '@/api/client'
+import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
 import { KeyMap } from '@/ui/keys/registry'
 import { UiProviders } from '@/ui/UiProviders'
 import { page } from 'vitest/browser'
@@ -144,5 +145,72 @@ describe('the ErrorBar’s name', () => {
     await settle(mountApp(SCREENS[0]!.path, { as: PEOPLE.qs, api: down.api }))
     expect(await until(() => barUnderTopBar() !== undefined, WITHIN)).toBe(true)
     expect(screen.getByRole('alert', { name: 'Connection' })).toBe(barUnderTopBar())
+  })
+})
+
+/** A server whose address(es) answer nothing (a stopped API behind a proxy) while `state.down`. */
+function behindProxy(api: FakeApi, addresses: (path: string) => boolean) {
+  const state = { down: true, asked: 0 }
+  const base = api.handle
+  api.handle = async (request: Request) => {
+    const path = new URL(request.url, location.origin).pathname
+    if (state.down && addresses(path)) {
+      state.asked++
+      return new Response(null, { status: 502 })
+    }
+    return base(request)
+  }
+  return state
+}
+
+class FakeStep1Api extends FakeApi {
+  constructor() {
+    super()
+    new FakeStep1(this)
+  }
+}
+
+describe('reads nothing tries again, and acts', () => {
+  it('the session read again on a move: a body-less 502 shows the bar, the frame stays, and the bar goes when the API returns', async () => {
+    const api = new FakeApi()
+    const proxy = behindProxy(api, (path) => path === '/api/me')
+    proxy.down = false
+    const { router } = await settle(mountApp('/members', { as: PEOPLE.qs, api }))
+    expect(await until(() => region('top-bar') !== null, WITHIN)).toBe(true)
+    proxy.down = true
+    void router.navigate({ to: '/projects' })
+    expect(await until(() => barUnderTopBar() !== undefined, WITHIN), 'the ErrorBar after the one-shot read failed').toBe(true)
+    expect(region('top-bar'), 'the frame stays').not.toBeNull()
+    expect(clean(document.body.textContent)).not.toContain('This page could not be opened')
+    proxy.down = false
+    expect(await until(() => barUnderTopBar() === undefined, WITHIN), 'the bar goes once the API answers').toBe(true)
+  })
+
+  it('Step 1’s file names (a read that is never tried again): the bar goes when the server answers', async () => {
+    const api = new FakeStep1Api()
+    const proxy = behindProxy(api, (path) => path.endsWith('/drawings/files'))
+    await settle(mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api }))
+    expect(await until(() => barUnderTopBar() !== undefined, WITHIN), 'the ErrorBar').toBe(true)
+    proxy.down = false
+    expect(await until(() => barUnderTopBar() === undefined, WITHIN), 'the bar goes once the server answers').toBe(true)
+    expect(proxy.asked).toBeGreaterThan(0)
+  })
+
+  it('an act that cannot reach the server shows the bar, which goes when the server answers', async () => {
+    const api = new FakeApi()
+    const base = api.handle
+    let down = false
+    api.handle = async (request: Request) => {
+      if (down && request.method === 'POST') throw new TypeError('Failed to fetch')
+      return base(request)
+    }
+    await settle(mountApp('/members', { as: PEOPLE.qs, api }))
+    expect(await until(() => region('top-bar') !== null, WITHIN)).toBe(true)
+    expect(barUnderTopBar()).toBeUndefined()
+    down = true
+    await expect(unwrap(apiClient.POST('/api/members/{membership_id}/revoke', { params: { path: { membership_id: 'x' } } }))).rejects.toBeInstanceOf(TypeError)
+    expect(await until(() => barUnderTopBar() !== undefined, WITHIN), 'the ErrorBar after the act failed').toBe(true)
+    down = false
+    expect(await until(() => barUnderTopBar() === undefined, WITHIN), 'the bar goes once the server answers').toBe(true)
   })
 })
