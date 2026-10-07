@@ -50,6 +50,8 @@ TEST_FILE = re.compile(r"(?:^|/)(?:test_[^/]*|[^/]*_test)\.py$")
 ERROR_LINE = re.compile(r"^E\s+(\w+(?:Error|Exception))\b(.*)$")
 # The modules not built yet: the only collection errors the lint lets through (as a note).
 NO_MODULE = re.compile(r"^: No module named '([\w.]+)'")
+# The variables that force colour into a piped run's output, which this lint reads (#585).
+FORCED_COLOUR = frozenset({"FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "MYPY_FORCE_COLOR"})
 NAMED = re.compile(r"No module named '([\w.]+)'")
 NO_NAME = re.compile(r"^: cannot import name '(\w+)' from '([\w.]+)'")
 IMPORT_LINTER = (".importlinter", "setup.cfg", "pyproject.toml")
@@ -198,7 +200,9 @@ def _environment(tree: Path) -> dict[str, str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith("PYTEST_") and key not in {"PYTHONPATH", "VIRTUAL_ENV"}
+        if not key.startswith("PYTEST_")
+        and key not in {"PYTHONPATH", "VIRTUAL_ENV"}
+        and key not in FORCED_COLOUR
     }
     env["PYTHONPATH"] = str(tree)
     env["PYTHONDONTWRITEBYTECODE"] = "1"

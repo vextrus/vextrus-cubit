@@ -374,13 +374,19 @@ def leak_scan(root: Path, tree: str) -> tuple[bool, list[str]]:
     return False, [f"verify: leak scan clean (hits=0 scanned={summary.get('scanned')})"]
 
 
+#: Variables that force colour into piped output. A check's output goes to a file, and tests that read
+#: a child's output (node --test's counts, the acceptance lint's pytest) fail on the escapes (#585).
+FORCED_COLOUR = frozenset({"FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "MYPY_FORCE_COLOR"})
+
+
 def run_command(check: Check) -> tuple[int, str]:
+    inherited = {key: value for key, value in os.environ.items() if key not in FORCED_COLOUR}
     done = subprocess.run(
         check.argv,
         capture_output=True,
         text=True,
         check=False,
-        env={**os.environ, **check.env},
+        env={**inherited, **check.env},
     )
     return done.returncode, done.stdout + done.stderr
 
