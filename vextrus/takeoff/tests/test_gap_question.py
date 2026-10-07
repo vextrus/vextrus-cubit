@@ -1,0 +1,536 @@
+"""Ticket #229's own tests, beyond its acceptance tests: the merged gap Question's life (its hold lifts
+once answered; a later read that fills a gap keeps it, the Discipline's, naming the gaps left:
+S15-Q2; a sheet already decided is not held) and the Plot's title kept by `drawings.record_plot` (a
+page matched again, or none, says so afresh)."""
+
+from typing import Any
+
+import pytest
+
+from engine.messages import register_check as list_codes
+from engine.read.anchor import PdfAnchor
+from engine.read.pdf.types import Page, TextItem, TextSource
+from engine.recognise.types import PlotMatch
+from vextrus.drawings import services as drawings
+from vextrus.takeoff.models import Question, QuestionLink
+from vextrus.takeoff.services import step1
+from vextrus.takeoff.services.read_propose import plot, proposals
+from vextrus.takeoff.tests.acceptance.t229.plotted_set import PlottedSet
+from vextrus.testing.auth import api_as
+from vextrus.testing.drawings import QsProject, add, drawing, read_dwg
+
+pytestmark = pytest.mark.django_db
+
+A1 = (2384.0, 1684.0)
+
+
+def _page(sha256: str, page: int, *texts: str) -> Page:
+    items = tuple(
+        TextItem(
+            text,
+            TextSource.TEXT,
+            PdfAnchor(
+                sha256, "vextrus-pdf", "1", page, i, (2000.0, 100.0 + 60 * i, 2300.0, 140.0 + 60 * i)
+            ),
+            20.0,
+            0.0,
+            False,
+            "Arial",
+        )
+        for i, text in enumerate(texts)
+    )
+    return Page(sha256, page, A1[0], A1[1], 0, (0.0, 0.0, *A1), False, items)
+
+
+class _Set:
+    def __init__(self, qs_project: QsProject, numbers: list[str]) -> None:
+        self.member = qs_project.member
+        self.project_id = qs_project.project_id
+        self.pdf = add(self.member, self.project_id, "KR-STR-R0.pdf", drawing("pdf")).file
+        self.read("KR-STR-R0.dwg", numbers)
+
+    def read(self, name: str, numbers: list[str]) -> None:
+        dwg = add(self.member, self.project_id, name, drawing()).file
+        read_dwg(self.member, dwg.id, numbers, titles=[f"COLUMN LAYOUT {n}" for n in numbers])
+        with self.member.acting():
+            drawing_set = drawings.set_of(self.project_id)
+            assert drawing_set is not None
+            self.sheets = {s.number: s for s in drawings.sheets(drawing_set.id)}
+            for s in self.sheets.values():
+                step1.propose_sheet(s.id)
+                step1.record_coverage(s.id)
+
+    def plot_all(self) -> None:
+        with self.member.acting():
+            for page, (number, sheet) in enumerate(sorted(self.sheets.items()), start=1):
+                shown = _page(self.pdf.sha256, page, number or "", sheet.title)
+                drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+
+    def ask(self) -> None:
+        with self.member.acting():
+            proposals.set_questions(self.project_id)
+
+    def agrees(self) -> dict[str | None, bool]:
+        body = api_as(self.member).get(f"/api/projects/{self.project_id}/takeoff/step1/proposals").json()
+        return {p["number"]: p["agrees"] for p in body["proposals"]}
+
+    def gap_questions(self, status: str = "open") -> list[dict[str, Any]]:
+        body = api_as(self.member).get(f"/api/projects/{self.project_id}/takeoff/step1/questions").json()
+        return [
+            q for q in body["questions"] if q["code"] == list_codes.GAPS.code and q["status"] == status
+        ]
+
+
+def test_the_gap_question_names_each_gap_and_holds_only_the_sheets_beside_them(
+    qs_project: QsProject,
+) -> None:
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04", "S-05", "S-06", "S-09"])
+    the_set.ask()
+
+    [question] = the_set.gap_questions()
+
+    assert question["params"] == {
+        "discipline": "structural",
+        "gaps": [
+            {"after": "S-02", "before": "S-04", "missing": 1},
+            {"after": "S-06", "before": "S-09", "missing": 2},
+        ],
+        "count": 2,
+        "missing": 3,
+    }
+    held = {the_set.sheets[n].id for n in ("S-02", "S-04", "S-06", "S-09")}
+    linked = QuestionLink.objects.filter(question_id=question["id"]).values_list(
+        "proposal__subject_id", flat=True
+    )
+    assert set(linked) == held
+
+
+def test_once_the_gap_question_is_answered_the_sheets_beside_it_agree(qs_project: QsProject) -> None:
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04", "S-05"])
+    the_set.plot_all()
+    the_set.ask()
+    [question] = the_set.gap_questions()
+    assert the_set.agrees() == {"S-01": True, "S-02": False, "S-04": False, "S-05": True}
+
+    response = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/questions/{question['id']}/answer",
+        {"option": "not_in_set"},
+    )
+
+    assert response.status_code == 200, response.json()
+    assert the_set.agrees() == dict.fromkeys(["S-01", "S-02", "S-04", "S-05"], True)
+    the_set.ask()  # read again: the answered Question is the one asked, and stays answered
+    assert the_set.gap_questions() == []
+    assert the_set.agrees() == dict.fromkeys(["S-01", "S-02", "S-04", "S-05"], True)
+
+
+def test_a_read_that_fills_a_gap_keeps_the_question_naming_the_gaps_left(
+    qs_project: QsProject,
+) -> None:
+    """S15-Q2: the gap Question is the Discipline's, so a read that fills a gap changes what it asks,
+    never which Question it is."""
+    the_set = _Set(qs_project, ["S-01", "S-03", "S-05"])
+    the_set.ask()
+    [first] = the_set.gap_questions()
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["id"] == first["id"]
+    assert now["params"]["gaps"] == [{"after": "S-03", "before": "S-05", "missing": 1}]
+    assert the_set.gap_questions("withdrawn") == []
+
+
+def test_a_filled_numbering_leaves_no_gap_question_open(qs_project: QsProject) -> None:
+    the_set = _Set(qs_project, ["S-01", "S-03"])
+    the_set.ask()
+    assert len(the_set.gap_questions()) == 1
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+    the_set.ask()
+
+    assert the_set.gap_questions() == []
+
+
+def test_a_per_gap_question_of_an_older_reading_is_retired_for_the_merged_one(
+    qs_project: QsProject,
+) -> None:
+    """A database asked before #229 holds one Question per gap: the next read retires it, so the
+    Discipline is not asked about one gap twice."""
+    the_set = _Set(qs_project, ["S-01", "S-03"])
+    with the_set.member.acting():
+        old = step1.raise_question(
+            the_set.project_id,
+            "check",
+            list_codes.GAP(after="S-01", before="S-03", missing=1, discipline="structural"),
+            discipline="structural",
+            options=proposals.options(proposals.CHECK_OPTIONS),
+            check_code="register",
+        )
+    the_set.ask()
+
+    with the_set.member.acting():
+        assert Question.objects.get(id=old).status == "withdrawn"
+    assert len(the_set.gap_questions()) == 1
+
+
+def test_a_sheet_beside_a_gap_already_confirmed_is_not_held(qs_project: QsProject) -> None:
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04"])
+    with the_set.member.acting():
+        proposal_of = step1.proposal_ids(the_set.project_id)
+        step1.confirm(the_set.project_id, [proposal_of[the_set.sheets["S-02"].id]], actor_name="QS")
+    the_set.ask()
+
+    [question] = the_set.gap_questions()
+
+    linked = QuestionLink.objects.filter(question_id=question["id"]).values_list(
+        "proposal__subject_id", flat=True
+    )
+    assert set(linked) == {the_set.sheets["S-04"].id}
+
+
+def test_a_plot_kept_again_reads_its_title_afresh(qs_project: QsProject) -> None:
+    """The title read alike belongs to the page kept: a page with another title, or none, clears it."""
+    the_set = _Set(qs_project, ["S-01"])
+    sheet = the_set.sheets["S-01"]
+    with the_set.member.acting():
+        found = plot.candidate(sheet)
+        kept = drawings.record_plot(
+            sheet.id, PlotMatch(_page(the_set.pdf.sha256, 1, "S-01", sheet.title), sheet=found)
+        )
+        assert kept.plot.title_alike is True
+        other = _page(the_set.pdf.sha256, 1, "S-01", "ROOF PLAN")
+        assert drawings.record_plot(sheet.id, PlotMatch(other, sheet=found)).plot.title_alike is False
+        drawings.record_plot(
+            sheet.id, PlotMatch(_page(the_set.pdf.sha256, 1, "S-01", sheet.title), sheet=found)
+        )
+        none = drawings.record_plot(sheet.id, "no_page", pdf_file_id=the_set.pdf.id)
+        assert (none.plot.page, none.plot.title_alike) == (None, False)
+
+
+# The refuter's round (session 11): each class it proved, held by a test -------------------------
+
+
+def _bulk(the_set: _Set, *numbers: str) -> int:
+    with the_set.member.acting():
+        proposal_of = step1.proposal_ids(the_set.project_id)
+    response = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/confirm",
+        {"proposals": [str(proposal_of[the_set.sheets[n].id]) for n in numbers]},
+    )
+    status: int = response.status_code
+    return status
+
+
+def test_an_undo_brings_a_sheet_beside_an_open_gap_back_into_its_hold(qs_project: QsProject) -> None:
+    """S-02, confirmed on its own before the gap was asked, is undone while the gap Question is open:
+    it is beside the gap, so it does not agree and no bulk act may take it (the refuter: 200)."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04", "S-05"])
+    the_set.plot_all()
+    with the_set.member.acting():
+        proposal_of = step1.proposal_ids(the_set.project_id)
+        step1.confirm(the_set.project_id, [proposal_of[the_set.sheets["S-02"].id]], actor_name="QS")
+    the_set.ask()
+    assert len(the_set.gap_questions()) == 1
+
+    assert (
+        api_as(the_set.member).post(f"/api/projects/{the_set.project_id}/takeoff/step1/undo").status_code
+        == 200
+    )
+
+    assert the_set.agrees() == {"S-01": True, "S-02": False, "S-04": False, "S-05": True}
+    assert _bulk(the_set, "S-01", "S-02") == 409
+
+
+def _answer(the_set: _Set, question: dict[str, Any], option: str = "not_in_set") -> None:
+    path = f"/api/projects/{the_set.project_id}/takeoff/step1/questions/{question['id']}/answer"
+    response = api_as(the_set.member).post(path, {"option": option})
+    assert response.status_code == 200, response.json()
+
+
+def test_a_gap_answered_stays_settled_when_another_gap_appears(qs_project: QsProject) -> None:
+    """The next Question asks only the new gap and holds only its neighbours: the answered gap's
+    sheets keep agreeing (the refuter: S-02 and S-04 held again)."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04", "S-05"])
+    the_set.plot_all()
+    the_set.ask()
+    [question] = the_set.gap_questions()
+    _answer(the_set, question)
+
+    the_set.read("KR-STR-R1.dwg", ["S-08"])
+    the_set.plot_all()
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["params"]["gaps"] == [{"after": "S-05", "before": "S-08", "missing": 2}]
+    shown = the_set.agrees()
+    assert (shown["S-02"], shown["S-04"], shown["S-05"], shown["S-08"]) == (True, True, False, False)
+
+
+def test_gaps_answered_stay_settled_when_one_of_them_is_filled(qs_project: QsProject) -> None:
+    """Two gaps answered, then a file fills one: the other is not asked again."""
+    the_set = _Set(qs_project, ["S-01", "S-03", "S-05"])
+    the_set.ask()
+    [question] = the_set.gap_questions()
+    _answer(the_set, question)
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+    the_set.ask()
+
+    assert the_set.gap_questions() == []
+    [answered] = the_set.gap_questions("answered")
+    assert answered["id"] == question["id"]
+
+
+def test_a_sheet_with_a_suffix_beside_a_gap_is_held(qs_project: QsProject) -> None:
+    """S-04A is S-04's running number: with S-05 missing it is beside the gap the Check names after
+    S-04 (the refuter: it agreed and was not held)."""
+    the_set = _Set(qs_project, ["S-03", "S-04", "S-04A", "S-06", "S-07"])
+    the_set.plot_all()
+    the_set.ask()
+
+    [question] = the_set.gap_questions()
+
+    shown = the_set.agrees()
+    assert {n: shown[n] for n in ("S-03", "S-04", "S-04A", "S-06", "S-07")} == {
+        "S-03": True,
+        "S-04": False,
+        "S-04A": False,
+        "S-06": False,
+        "S-07": True,
+    }
+    linked = QuestionLink.objects.filter(question_id=question["id"]).values_list(
+        "proposal__subject_id", flat=True
+    )
+    assert set(linked) == {the_set.sheets[n].id for n in ("S-04", "S-04A", "S-06")}
+
+
+def test_a_title_read_again_differently_clears_the_plots_title(qs_project: QsProject) -> None:
+    """The page read the old title, not the new one: until it is matched again it reads none (the
+    refuter: the flag stayed true over a changed title)."""
+    member, project_id = qs_project.member, qs_project.project_id
+    pdf = add(member, project_id, "KR-STR-R0.pdf", drawing("pdf")).file
+    dwg = add(member, project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, dwg.id, ["S-01"], titles=["COLUMN LAYOUT PLAN"])
+    with member.acting():
+        drawing_set = drawings.set_of(project_id)
+        assert drawing_set is not None
+        [sheet] = drawings.sheets(drawing_set.id)
+        shown = _page(pdf.sha256, 1, "S-01", "COLUMN LAYOUT PLAN")
+        kept = drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+        assert kept.plot.title_alike is True
+
+    read_dwg(member, dwg.id, ["S-01"], titles=["ROOF SLAB DETAILS"])
+
+    with member.acting():
+        [again] = drawings.sheets(drawing_set.id)
+        assert (again.id, again.title, again.plot.page) == (sheet.id, "ROOF SLAB DETAILS", 1)
+        assert again.plot.title_alike is False
+
+
+def test_the_proposal_says_whether_its_plot_page_reads_its_title(qs_project: QsProject) -> None:
+    """The bar says why a sheet with a Plot page has one source (the words gate: "Nothing else
+    confirms it" over a visible Plot page): the proposal carries the title read alike."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-03"])
+    with the_set.member.acting():
+        for page, number in enumerate(("S-01", "S-02"), start=1):
+            sheet = the_set.sheets[number]
+            title = sheet.title if number == "S-01" else "ROOF PLAN"
+            shown = _page(the_set.pdf.sha256, page, number, title)
+            drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+
+    path = f"/api/projects/{the_set.project_id}/takeoff/step1/proposals"
+    body = api_as(the_set.member).get(path).json()
+
+    plots = {p["number"]: (p["plot_page"], p["plot_title_alike"]) for p in body["proposals"]}
+    assert plots == {"S-01": (1, True), "S-02": (2, False), "S-03": (None, False)}
+
+
+def test_a_drawing_list_typed_after_the_gap_was_asked_lifts_its_hold(qs_project: QsProject) -> None:
+    """A gap matters only with no drawing list (m0-screens §5): the list typed after the gap Question
+    was asked is the second source, so the sheets beside the gap agree and join the bulk act (the
+    suite's test_step1_whole found it: the gap still held S-01)."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-04"])
+    the_set.ask()
+    assert len(the_set.gap_questions()) == 1
+    assert the_set.agrees()["S-02"] is False
+
+    listed = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/drawing-list",
+        {"discipline": "structural", "text": "S-01 to S-04"},
+    )
+
+    assert listed.status_code == 200, listed.content
+    assert the_set.agrees() == {"S-01": True, "S-02": True, "S-04": True}
+    assert _bulk(the_set, "S-01", "S-02", "S-04") == 200
+
+
+def _keep_open(the_set: _Set, question_id: str) -> None:
+    r = api_as(the_set.member).post(
+        f"/api/projects/{the_set.project_id}/takeoff/step1/questions/{question_id}/answer",
+        {"option": "keep_open"},
+    )
+    assert r.status_code == 200, r.json()
+
+
+def _kept_open(the_set: _Set, question_id: str) -> bool:
+    with the_set.member.acting():
+        answer = Question.objects.get(id=question_id).answer
+    return isinstance(answer, dict) and answer.get("option") == "keep_open"
+
+
+def test_a_gap_question_kept_open_stays_kept_open_when_a_read_fills_one_of_its_gaps(
+    qs_project: QsProject,
+) -> None:
+    """The QS keeps the gaps open (the sheets are not sent yet); one arrives: the gaps left are still
+    kept open (review 1 of #229)."""
+    the_set = _Set(qs_project, ["S-01", "S-03", "S-05"])
+    the_set.ask()
+    [first] = the_set.gap_questions()
+    _keep_open(the_set, first["id"])
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["id"] == first["id"]
+    assert _kept_open(the_set, now["id"])
+
+
+def test_a_per_gap_question_kept_open_hands_its_answer_to_the_merged_one(qs_project: QsProject) -> None:
+    """A Question asked one per gap before #229 is the merged Question's predecessor."""
+    the_set = _Set(qs_project, ["S-01", "S-03"])
+    with the_set.member.acting():
+        old = step1.raise_question(
+            the_set.project_id,
+            "check",
+            list_codes.GAP(after="S-01", before="S-03", missing=1, discipline="structural"),
+            discipline="structural",
+            options=proposals.options(proposals.CHECK_OPTIONS),
+            check_code="register",
+        )
+    _keep_open(the_set, str(old))
+
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert _kept_open(the_set, now["id"])
+
+
+def test_a_gap_question_kept_open_does_not_answer_a_new_gap(qs_project: QsProject) -> None:
+    """A read that opens a gap the QS never saw asks it: the keep-open answer does not cover it."""
+    the_set = _Set(qs_project, ["S-01", "S-03"])
+    the_set.ask()
+    [first] = the_set.gap_questions()
+    _keep_open(the_set, first["id"])
+
+    the_set.read("KR-STR-R1.dwg", ["S-06"])
+    the_set.ask()
+
+    [now] = the_set.gap_questions()
+    assert now["id"] == first["id"]
+    with the_set.member.acting():
+        assert Question.objects.get(id=now["id"]).answer is None
+
+
+def test_a_plot_page_titled_otherwise_with_the_titles_words_in_its_notes_does_not_agree(
+    qs_project: QsProject,
+) -> None:
+    """Each sheet is "COLUMN LAYOUT S-0n"; its page carries its number, another title and a note
+    holding COLUMN (review 1 of #229): no second source."""
+    the_set = _Set(qs_project, ["S-01", "S-02", "S-03"])
+    with the_set.member.acting():
+        for page, (number, sheet) in enumerate(sorted(the_set.sheets.items()), start=1):
+            shown = _page(
+                the_set.pdf.sha256, page, number or "", f"FOUNDATION LAYOUT {number}", "COLUMN NOTES"
+            )
+            drawings.record_plot(sheet.id, PlotMatch(shown, sheet=plot.candidate(sheet)))
+    the_set.ask()
+
+    assert the_set.agrees() == dict.fromkeys(["S-01", "S-02", "S-03"], False)
+
+
+# S15-Q2: the Discipline's one gap Question, through the acceptance's own set -----------------------
+
+
+def _held_numbers(the_set: PlottedSet, question: dict[str, Any]) -> set[str]:
+    number_of = {str(p): n for n, p in the_set.proposal.items()}
+    return {number_of[p] for p in question["proposals"]}
+
+
+def test_a_kept_open_answer_stays_when_a_later_file_fills_a_gap(qs_project: QsProject) -> None:
+    the_set = PlottedSet(qs_project)
+    the_set.read("KR-STR-R0.dwg", ["S-01", "S-03", "S-05"])
+    asked = the_set.the_gap_question()
+    assert the_set.answer(asked["id"], "keep_open").status_code == 200
+
+    the_set.read("KR-STR-R1.dwg", ["S-02"])
+
+    after = the_set.the_gap_question()
+    assert after["id"] == asked["id"]
+    assert (after["answer"] or {}).get("option") == "keep_open"
+    assert _held_numbers(the_set, after) == {"S-03", "S-05"}
+
+
+def test_a_kept_open_answer_is_the_qs_s_again_when_a_later_file_adds_a_gap(
+    qs_project: QsProject,
+) -> None:
+    the_set = PlottedSet(qs_project)
+    the_set.read("KR-STR-R0.dwg", ["S-01", "S-03"])
+    asked = the_set.the_gap_question()
+    assert the_set.answer(asked["id"], "keep_open").status_code == 200
+
+    the_set.read("KR-STR-R1.dwg", ["S-05"])
+
+    after = the_set.the_gap_question()
+    assert after["id"] == asked["id"]
+    assert after["answer"] is None, "a gap the QS never kept open was answered for them"
+    assert _held_numbers(the_set, after) == {"S-01", "S-03", "S-05"}
+
+
+def test_a_gap_found_after_the_answer_is_asked_by_a_new_question(qs_project: QsProject) -> None:
+    the_set = PlottedSet(qs_project)
+    the_set.read("KR-STR-R0.dwg", ["S-01", "S-03"])
+    first = the_set.the_gap_question()
+    assert the_set.answer(first["id"], "not_in_set").status_code == 200
+
+    the_set.read("KR-STR-R1.dwg", ["S-05"])
+
+    after = the_set.the_gap_question()
+    assert after["id"] != first["id"]
+    assert after["discipline"] == first["discipline"]
+    assert [g["after"] for g in after["params"]["gaps"]] == ["S-03"], "the answered gap asked again"
+    assert _held_numbers(the_set, after) == {"S-03", "S-05"}
+    [answered] = [q for q in the_set.questions() if q["id"] == first["id"]]
+    assert answered["status"] == "answered"
+
+
+def test_a_read_again_asks_the_same_question_and_holds_the_same_sheets(
+    qs_project: QsProject,
+) -> None:
+    the_set = PlottedSet(qs_project)
+    the_set.read("KR-STR-R0.dwg", ["S-01", "S-03", "S-05"])
+    asked = the_set.the_gap_question()
+
+    the_set.ask()
+
+    after = the_set.the_gap_question()
+    assert (after["id"], after["params"]) == (asked["id"], asked["params"])
+    assert _held_numbers(the_set, after) == {"S-01", "S-03", "S-05"}
+
+
+def test_a_kept_open_answer_stays_when_a_later_file_fills_part_of_a_gap(qs_project: QsProject) -> None:
+    """S-02 to S-05 missing, kept open; S-03 arrives: the two gaps left ask only numbers the QS kept
+    open (the refuter's case: a gap split in two is no new gap)."""
+    the_set = PlottedSet(qs_project)
+    the_set.read("KR-STR-R0.dwg", ["S-01", "S-06"])
+    asked = the_set.the_gap_question()
+    assert the_set.answer(asked["id"], "keep_open").status_code == 200
+
+    the_set.read("KR-STR-R1.dwg", ["S-03"])
+
+    after = the_set.the_gap_question()
+    assert after["id"] == asked["id"]
+    assert [g["after"] for g in after["params"]["gaps"]] == ["S-01", "S-03"]
+    assert (after["answer"] or {}).get("option") == "keep_open"

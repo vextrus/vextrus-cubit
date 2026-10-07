@@ -1000,13 +1000,22 @@ where the title block is drawn as strokes, the page's body text); the file's Dis
 number's prefix; the revision mark and date in the title block; **the revision mark in the file name**
 (the plan's QS review, Q10: a source of its own, shown as "R0, from the file name"; "Final" and words
 like it are not marks). Jev's answer is one source, and never counts together with the facts it was
-given (the title it read).
+given (the title it read). **The one exception: the kind Question** (#228, under the owner's "Propose
+Jev's top kind"). When Jev's kind for a sheet is asked (its top two close, or the title naming
+another kind), Jev's first kind is pre-picked on one source, named as such: "Picked for you: Vextrus’s
+reading of this sheet’s title and view titles". A pick still changes nothing until Enter or
+"Answer", and a Jev kind never makes a sheet agree.
 
 **What "agrees" means** (the plan's QS review, Q4). A sheet agrees when its number and title come from
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
-no drawing list**, its Discipline's numbering runs without a gap (every number from the first to the
-last present once) and its Plot page matched. A sheet with only one source (no list and no Plot) is a
-Proposal "with one source": it is not in the bulk act, and the QS confirms it on its own (6.5). The
+no drawing list**, its Plot page matched, its number and title read alike; a gap in the numbering holds
+only the sheets either side of it until its Question is answered, and all of one Discipline's gaps are
+asked as one Question (the owner's ruling of 4 Oct 2026, #229). That Question is the Discipline's,
+never a sheet's: a later file of the Discipline that adds a gap or fills one changes what it asks and
+which sheets it holds, never which Question it is; one answer settles every gap it asks, and once
+answered it holds no sheet (S15-Q2). A sheet with only one source (no list
+and no Plot, or a Plot page that shows another title) is a Proposal "with one source": it is not in the
+bulk act, and the QS confirms it on its own (6.5). The
 heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
 (never "—"; 6.3).
 
@@ -1025,7 +1034,7 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Two sheets, one number (`conflict`) | "Two sheets are numbered S-07" (each with revision mark, date and file) | 1 "Keep rev B (20 Aug 2026); leave rev A out as superseded" · 2 "They are different sheets: keep both" · 3 "Keep open, ask the consultant" (the read job's own options, `keep_latest`, `keep_all`, `keep_open`; #204) |
 | Two plans draw one thing (`conflict`; the plan's QS review, Q3) | "S-14 and S-15 both draw the 5th floor slab, bottom layer" (raised only when the Discipline, the subject, what the plan draws, and the layer, top or bottom, all match) | 1 "Keep S-15 (R1, 14 Sep 2026); exclude S-14 as superseded" · 2 "Keep S-14; exclude S-15" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" |
 | No number (`missing`) | "This sheet has no number in its title block" | 1 "A-08, as the drawing list names it" (only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" · 4 "Keep open, ask the consultant" |
-| Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, none pre-picked unless a second source agrees · "Keep open, ask the consultant" |
+| Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, Jev's first pre-picked ("Picked for you: Vextrus’s reading of this sheet’s title and view titles"; one source, the exception in 5) · "Keep open, ask the consultant" |
 | Drawing list against sheets (Check) | "S-13 is on the drawing list but in no file" | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: record it; it stays on the drawing list" (a sheet in a file but not on the list: "Not part of this set: record it, then exclude it in the list"; the answer records it and takes nothing off the list) · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" |
 | Plot pages against sheets (Check) | "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has" | as above |
 | Read and pasted drawing lists disagree (`conflict`) | "The drawing list on S-01 and the one you pasted differ" (N shows "—" until answered) | 1 "Use the list on S-01" · 2 "Use the pasted list" · 3 "Keep open, ask the consultant" |
@@ -1255,9 +1264,9 @@ any agreeing sheet or proposed exclusion, the bar reads:
   one of them);
 - why: "Each has a number and title from its title block and is on its drawing list; storeys from its
   view titles. Left-out sheets stay in the count with their reason." With no drawing list (5): "Each
-  has a number and title from its title block, in numbering without a gap, and its Plot page matches;
+  has a number and title from its title block, and its Plot page shows the same number and title;
   storeys from its view titles." With both kinds: "Each has a number and title from its title block,
-  on its drawing list or in numbering without a gap; …";
+  and its drawing list names it or its Plot page shows the same number and title; …";
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1278,6 +1287,8 @@ never in the bulk act; the QS confirms each in sheet mode (6.5).
 | A row with nothing to act on | e.g. "On the drawing list, in no file. It stays in the count." · "Nothing to confirm here." | none |
 | Nothing left, files reading | "Reading NT-ARCH-R1.dwg: sheet 14 of 28" · "Its sheets join the list as they are read." | none |
 | Nothing left but sheets with one source | "3 Electrical sheets have one source each" · "No drawing list and no Plot to check them against. Open each to confirm it." | "Open E-01 Space" |
+| … beside a gap its Question asks about (#229) | "2 Architectural sheets have one source each" · "They are beside a gap in the numbering that Q3 asks about. Answer Q3 to give them a second source, or open each to confirm it." | "Open A-04 Space" |
+| … whose Plot pages show another title (#229) | "2 Architectural sheets have one source each" · "Their Plot pages show a different number or title. Open each to compare and confirm it." | "Open A-04 Space" |
 | Nothing left, Questions kept open | "2 Questions kept open for the consultant: Q5, Q7" · "Architectural is confirmed once they are answered." (the Discipline they hold) | ghost "Next open Question Q" |
 | Nothing left, Coverage not complete | "Coverage has a view that is neither assigned nor excluded" · "Open Coverage on the status bar to find it." | none |
 | A Discipline confirmed, others not | "Structural is confirmed: every sheet is confirmed or excluded, and none of its views is unaccounted" · "Electrical: 3 to confirm." | "Next open item ↵" |
@@ -1310,7 +1321,7 @@ and sheet mode alike (6.18). The toast sits just above it.
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
-  them against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
+  it against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
   exclusion: "Leave out S-39: for information" · "It stays in the count with its reason. X picks
   another reason." · "Leave out S-39 ↵". For a sheet a Question holds: that Question's bar. After the
   act, the next
@@ -1370,7 +1381,8 @@ updated as the pick changes; with nothing picked, what it settles and "Pick an a
 Question holding no sheet: "Answering confirms no sheets. Pick an answer: 1, 2, 3."); the title; the
 body; for a duplicate, a table of the copies; the Trace line; the options as radio rows with their
 number keys; "Answer Q3 ↵" and "Ask later" (moves to the next open Question). **Pre-pick only when
-two or more independent sources agree** (screens.md Takeoff ruling 2, and 5's list of sources); the
+two or more independent sources agree** (screens.md Takeoff ruling 2, and 5's list of sources; the
+kind Question's Jev pick is 5's one exception); the
 pre-picked option carries "Picked for you:" and the agreeing sources. A pick changes nothing until
 Enter or "Answer". Answering records who and when and confirms or excludes what the Question held.
 "Keep open, ask the consultant" keeps the Question (state "Q5 kept open", card "Kept open"); its
@@ -1530,7 +1542,7 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
 | **A held file (ruling 3)** | Its row heads "Needs you" with Question Q1; nothing from it is listed or counted; Coverage says so. Its Discipline may be confirmed once Q1 is answered (5's options); the file's chip and row stay marked: "Held, read anyway" (its sheets listed, each marked "held") / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" |
 | **A Discipline not yet received** | 6.3's last section; the overview names it; nothing blocks the other Disciplines |
 | **A new Discipline's file arrives** (after others are confirmed) | Its sheets join under their own heading as Proposals; the confirmed Disciplines keep "✓ confirmed"; the rail shows Proposals ready again; the Projects page reads "Step 1: Structural confirmed · Electrical 38 to confirm" |
-| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; sheets agree on numbering and the Plot, else have one source (5) |
+| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; a sheet agrees on its Plot page (number and title read alike), else has one source; a gap holds only the sheets either side of it until its Question is answered (5) |
 | **No Plot, and why** | "As read" only; Plot and Compare disabled with the reason as tooltip; `P` shows the note "No Plot for this sheet:" and the reason, top-left: "NT-ARCH-R1.dwg came with no PDF" · "the sheet has no number, so no PDF page could be matched to it" · "the PDF has no page for S-19 R0; its page 19 matched R1" · "PDF page 21 could not be matched: neither its title block nor the text on the page names a sheet" (a title block drawn as strokes is matched by the page's body text instead, 5). The inspector's Plot line repeats it ("None: …") |
 | **Bangla-font flag** | The file's chip "Bangla font" (amber); on an affected sheet, a canvas note "Bangla in a legacy font reads as "…"" and in the inspector "Bangla text here is set in SutonnyMJ, a legacy ANSI font. Vextrus reads it as "…", not as Bangla. The title and number are not affected." The file's report uses 4.5's wording |
 | **Kept open** | 6.7 |
@@ -1833,6 +1845,12 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
 - **4.4, the Vextrus access line: "Split by role"** (on 20a's design gate). The MD, who can end any
   Vextrus access, reads "… You can end it at any time."; a QS, who can end only the access they gave,
   reads "… You can end the access you gave; your MD can end any."
+
+## The owner's rulings (4 Oct 2026, session 11)
+- **5, what "agrees" means with no drawing list: "Plot match + gap local"** (#229). A sheet whose
+  Plot page matched (number and title read alike) has its second source; a numbering gap holds only
+  the sheets beside it; all of one Discipline's gaps are asked as one Question (the Discipline's, its
+  identity never a sheet's name; one answer for all its gaps).
 
 ## The owner's rulings (5 Oct 2026, session 13)
 - **#334, "A series, no Question":** one title on several runs that draw different storeys, marks or

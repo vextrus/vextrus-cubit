@@ -259,7 +259,7 @@ describe('a Check’s first lines say only what 21c does (the words gate, round 
   it('never says a gap’s missing sheets are in the count (no drawing list counts them)', async () => {
     const card = await openCheck('engine.register_check.gap', { after: 'S-03', before: 'S-05', missing: 1 })
     await userEvent.keyboard('1')
-    await waitFor(() => expect(cardText(card)).toContain('Answering records that the missing sheet is still to come. Paste the drawing list to count it.'))
+    await waitFor(() => expect(cardText(card)).toContain('Answering records that the missing sheet is still to come; ask the consultant for it.'))
     expect(cardText(card)).not.toContain('Answering keeps the missing sheet in the count')
   })
 })

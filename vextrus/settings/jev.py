@@ -46,3 +46,9 @@ VEXTRUS_JEV_SHEET_TYPE_PROPOSE_AT = Decimal("0.90")
 """The confidence at which a sheet's kind is proposed rather than asked as a `low_confidence`
 Question. Set by ticket 23's spot check on 32 real sheets: the ruling, its numbers and the model it
 holds for are in docs/knowledge/jev-nodes.md (its `sheet_type` row); change them together."""
+VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY = Decimal("0.15")
+"""Below `VEXTRUS_JEV_SHEET_TYPE_PROPOSE_AT`, how near Jev's second kind may come to its first and
+the first still be proposed (#228, the owner's ruling "Propose Jev's top kind"): a lead of less than
+this is close, and the sheet's kind is asked as a `low_confidence` Question, Jev's first choice
+picked. 0.15 is the session-11 orchestrator's starting value, to be tuned in the scored loop on the
+real sets."""

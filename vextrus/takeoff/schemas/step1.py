@@ -86,6 +86,9 @@ class Step1ProposalOut(_FromView):
     plot_page: int | None
     plot_residual: str | None
     """How closely its Plot page registered, in mm, as a decimal string."""
+    plot_title_alike: bool = False
+    """Its Plot page reads its title as well as its number (#229): only then is the page its second
+    source; false with no Plot page."""
     plot_none: dict[str, Any] | None
     """Why it has no Plot, as a message `{code, params}`; null when a page matched or none was added."""
     views: list[Step1ViewOut]

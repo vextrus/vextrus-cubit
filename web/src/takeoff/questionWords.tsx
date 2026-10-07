@@ -5,13 +5,16 @@
  * Drawing Set's files; a copy's mark and date from the sheets it holds), the words use what the screen has.
  */
 import type { ReactNode } from 'react'
+import type { I18n } from '@lingui/core'
+import { msg } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
+import { isolateLtr } from '@/ui/notation'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { gapOf, type QuestionEntry, type Step1Model } from './model'
+import { GAPS_CODE, gapsOf, isGaps, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
 import { useHasEnglish } from './useHasEnglish'
 import { DISCIPLINE_NAMES, OPTION_NAMES, OTHER_OPTION, OTHER_QUESTION, QUESTION_KINDS, QUESTION_KIND_BY_CODE, SHEET_KIND_NAMES } from './words'
@@ -23,10 +26,36 @@ export function optionsOf(entry: QuestionEntry): Option[] {
 }
 
 const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+/** The kind Question #228 raises: Jev's first kind is its one source's pick (m0-screens §5). */
+const isJevKind = (entry: QuestionEntry) => entry.question.code === 'takeoff.proposals.which_kind'
 
-function params(entry: QuestionEntry): Record<string, string | number> {
-  return Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
+function params(entry: QuestionEntry, i18n: I18n): Record<string, string | number> {
+  const scalars = Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
+  if (entry.question.code !== GAPS_CODE) return scalars
+  // A Discipline's gaps (#229): how many, how many numbers missing in all, and every gap in words.
+  const gaps = gapsOf(entry.question)
+  return { ...scalars, count: gaps.length, missing: missingIn(gaps), gaps: gapsInWords(gaps, i18n) }
 }
+
+/**
+ * "from S-04 to S-06, from S-08 to S-11 and from S-14 to S-16": the words are the catalogue's, each
+ * number isolated left to right on its own. Not a `_sheet` param: that isolates the whole value as one
+ * piece of drawing text, which would hold a right-to-left language's "from", "to" and "and" too.
+ */
+function gapsInWords(gaps: readonly { after: string; before: string }[], i18n: I18n): string {
+  const each = gaps.map((g) => {
+    const after = isolateLtr(g.after)
+    const before = isolateLtr(g.before)
+    return i18n._(msg`from ${after} to ${before}`)
+  })
+  if (each.length <= 1) return each[0] ?? ''
+  const head = each.slice(0, -1).join(', ')
+  const tail = each.at(-1)!
+  return i18n._(msg`${head} and ${tail}`)
+}
+
+/** The numbers missing across a Question's gaps. */
+const missingIn = (gaps: readonly { missing: number }[]) => gaps.reduce((sum, g) => sum + g.missing, 0)
 
 /** The kind in the card's header: "Two sheets, one number". */
 export function useKindLine(entry: QuestionEntry): string {
@@ -49,6 +78,7 @@ function FileName({ entry, names }: { entry: QuestionEntry; names: Readonly<Reco
 
 /** The title: "KR-STR-old.dwg may be misread", "Two sheets are numbered S-07". */
 export function QuestionTitle({ entry, names }: { entry: QuestionEntry; names: Readonly<Record<string, string>> }) {
+  const { i18n } = useLingui()
   const has = useHasEnglish()
   const kind = useKindLine(entry)
   const q = entry.question
@@ -56,7 +86,7 @@ export function QuestionTitle({ entry, names }: { entry: QuestionEntry; names: R
     const file = <FileName entry={entry} names={names} />
     return q.subject_id && names[q.subject_id] ? <Trans>{file} may be misread</Trans> : <Trans>This file may be misread</Trans>
   }
-  if (has(q.code)) return <MachineText message={{ code: q.code, params: params(entry) }} />
+  if (has(q.code)) return <MachineText message={{ code: q.code, params: params(entry, i18n) }} />
   return <>{kind}</>
 }
 
@@ -104,10 +134,11 @@ export function cardContext(model: Step1Model): CardContext {
 
 /** The body under the title (§6.7): what was read and why it is asked, with its figures in their kinds. */
 export function QuestionBody({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
+  const { i18n } = useLingui()
   const has = useHasEnglish()
   const q = entry.question
   const first = entry.holds[0]
-  if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry) }} /> : null
+  if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry, i18n) }} /> : null
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
     if (titles.length === 1 && !titles[0]!.trim())
@@ -171,12 +202,22 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
   }
   if (q.kind === 'check') {
-    const gap = gapOf(q)
-    if (gap) {
-      // No drawing list: the gap was read from the numbers in the title blocks either side of it.
-      const sides = [gap.after, gap.before].flatMap((n) => context.sheets.filter((p) => p.number === n && (!q.discipline || p.discipline === q.discipline)).slice(0, 1))
-      const [one, two] = sides.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)
+    const gaps = gapsOf(q)
+    if (gaps.length > 0) {
+      // No drawing list: each gap was read from the numbers in the title blocks either side of it (the
+      // sheets a Discipline's gap Question holds, #229, else those of its Discipline with the number).
+      const numbers = [...new Set(gaps.flatMap((g) => [g.after, g.before]))]
+      const sideOf = (n: string) => {
+        const held = entry.holds.filter((p) => p.number === n)
+        return (held.length > 0 ? held : context.sheets.filter((p) => p.number === n && (!q.discipline || p.discipline === q.discipline))).slice(0, 1)
+      }
+      const links = numbers.flatMap(sideOf).map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)
+      const [one, two] = links
       if (!one) return null
+      if (links.length > 2) {
+        const sides = <Joined items={links} />
+        return <Trans>Trace: the title blocks of {sides}</Trans>
+      }
       // Its own words, plural on the sides found (the words gate of 164, round 1, M1).
       if (!two) {
         const sheet = one
@@ -240,7 +281,8 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 /**
  * The option the API picked for the QS, shown only where two or more independent sources agree and
  * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
- * `pickSources` must name two; for any other Question no option is pre-picked yet.
+ * `pickSources` must name two. The one exception is the kind Question (#228, m0-screens §5): Jev's
+ * first kind, its one source named. For any other Question no option is pre-picked yet.
  */
 /** The latest of the copies, as 21c keeps it for "keep the latest": by issue date, then revision mark. */
 export function latestOf(copies: readonly ProposalOut[]): ProposalOut | undefined {
@@ -274,7 +316,9 @@ export function usePick(entry: QuestionEntry, context: CardContext): { key: stri
 export function prePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
-  // Only two copies of one number have sources the card can name yet; any other pick is not shown.
+  // Kept open or answered, the QS has decided: Jev's kind is no longer offered (review 2, finding 1).
+  if (isJevKind(entry)) return entry.kept || entry.question.status !== 'open' || entry.question.answer != null ? null : { key: picked.key }
+  // Else only two copies of one number have sources the card can name yet; any other pick is not shown.
   if (!isCopies(entry) || pickSources(entry, context, picked.key).count < 2) return null
   return { key: picked.key }
 }
@@ -313,6 +357,7 @@ export function pickSources(entry: QuestionEntry, context: CardContext, pick: st
 export function usePickSources(entry: QuestionEntry, context: CardContext): ReactNode | null {
   const pick = usePick(entry, context)?.key
   if (!pick) return null
+  if (isJevKind(entry)) return <MachineText message={{ code: 'platform.jev.sheet_type_source', params: {} }} />
   const found = pickSources(entry, context, pick)
   if (found.count < 2 || !found.list) return null
   const list = found.list === 'found' ? <Trans>the drawing list found in the drawings</Trans> : <Trans>the drawing list on <SheetName sheets={[found.list]} /></Trans>
@@ -366,12 +411,13 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   if (key === 'use_given' && q.params.source === 'typed') return <Trans>Use the range you typed</Trans>
   if (q.kind === 'missing_discipline' && key !== 'keep_open') return <>{disciplineName(key, i18n)}</>
   // 21c raises every Check with the drawing list's options; a numbering gap words two of them for itself.
-  const gap = gapOf(entry.question)
-  if (gap && key === 'not_sent_yet') {
-    const missing = typeof entry.question.params.missing === 'number' ? entry.question.params.missing : 1
-    return <Plural value={missing} one="Not sent yet: keep the missing sheet in the count and ask the consultant" other="Not sent yet: keep the missing sheets in the count and ask the consultant" />
+  const gaps = gapsOf(entry.question)
+  if (gaps.length > 0 && key === 'not_sent_yet') {
+    const missing = missingIn(gaps)
+    return <Plural value={missing} one="Not sent yet: the missing sheet is still to come; ask the consultant" other="Not sent yet: the # missing sheets are still to come; ask the consultant" />
   }
-  if (gap && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
+  if (gaps.length > 1 && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips at each gap</Trans>
+  if (gaps.length === 1 && key === 'not_in_set') return <Trans>Not part of this set: the numbering skips here</Trans>
   // A sheet in a file but not on the drawing list: the list does not hold it, so the option says what is left to do.
   if (entry.question.code === 'engine.register_check.not_listed' && key === 'not_in_set') return <Trans>Not part of this set: record it, then exclude it in the list</Trans>
   const words = OPTION_NAMES[key] ?? (q.kind === 'low_confidence' ? SHEET_KIND_NAMES[key] : undefined)
@@ -421,13 +467,16 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
   }
   if (q.kind === 'check' && picked) {
     // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
-    const gap = gapOf(q)
+    const gaps = gapsOf(q)
+    const gap = gaps.length > 0
     const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
-    const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : n > 0 ? <SheetName sheets={entry.holds} /> : null
-    const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+    // A gap Question holds the sheets beside its gaps (#229), never a sheet the words name.
+    const entryName = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : n > 0 && !gap ? <SheetName sheets={entry.holds} /> : null
+    const missing = gap ? missingIn(gaps) : typeof q.params.missing === 'number' ? q.params.missing : 1
     // A sheet in a file but not on the drawing list: it exists, and stays in the list whatever is picked.
     const unlisted = q.code === 'engine.register_check.not_listed'
     if (picked === 'not_in_set') {
+      if (gaps.length > 1) return <Trans>Answering records that the numbering skips at each gap: nothing is missing.</Trans>
       if (gap) return <Trans>Answering records that the numbering skips here: nothing is missing.</Trans>
       if (unlisted && entryName) return <Trans>Answering records that {entryName} is not part of this set; exclude it in the list.</Trans>
       // 21c records it and takes nothing off the drawing list (#206): said as what is recorded.
@@ -446,12 +495,21 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     }
     if (picked === 'not_sent_yet' || picked === 'file_not_added') {
       // A gap is raised only without a drawing list: the missing numbers were never in the count.
+      // The option's own words, said as done (the words gate of #229: no count, nothing to paste).
       const kept = gap ? (
-        <Plural
-          value={missing}
-          one="Answering records that the missing sheet is still to come. Paste the drawing list to count it."
-          other="Answering records that the # missing sheets are still to come. Paste the drawing list to count them."
-        />
+        picked === 'file_not_added' ? (
+          <Plural
+            value={missing}
+            one="Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set."
+            other="Answering records that the # missing sheets are in a file not yet added; add that file to the Drawing Set."
+          />
+        ) : (
+          <Plural
+            value={missing}
+            one="Answering records that the missing sheet is still to come; ask the consultant for it."
+            other="Answering records that the # missing sheets are still to come; ask the consultant for them."
+          />
+        )
       ) : unlisted && entryName ? (
         <Trans>Answering records your pick; {entryName} stays in the list, to confirm or exclude.</Trans>
       ) : entryName ? (
@@ -468,7 +526,7 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       )
     }
     if (picked === 'keep_open') {
-      const open = gap ? <Trans>Answering keeps this gap open.</Trans> : entryName ? <Trans>Answering keeps {entryName} open.</Trans> : <Trans>Answering keeps this Question open.</Trans>
+      const open = gaps.length > 1 ? <Trans>Answering keeps these gaps open.</Trans> : gap ? <Trans>Answering keeps this gap open.</Trans> : entryName ? <Trans>Answering keeps {entryName} open.</Trans> : <Trans>Answering keeps this Question open.</Trans>
       return discipline ? (
         <>
           {open} <Trans>{discipline} cannot be confirmed until this Question is answered.</Trans>
@@ -525,6 +583,22 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const sheet = <SheetName sheets={entry.holds} />
     const kind = i18n._(SHEET_KIND_NAMES[picked]!)
     return <Trans>Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked.</Trans>
+  }
+  // A Discipline's gap Question holds the sheets beside its gaps (#229), yet answering settles none of them.
+  if (isGaps(q)) {
+    const said =
+      gapsOf(q).length === 1 ? (
+        <Trans>Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gap stop waiting for it.</Trans>
+      ) : (
+        <Trans>Answering confirms no sheets: it records why the numbering skips, and the sheets either side of each gap stop waiting for it.</Trans>
+      )
+    return hint && !picked ? (
+      <>
+        {said} <Trans>Pick an answer: {keys}.</Trans>
+      </>
+    ) : (
+      said
+    )
   }
   if (n === 0) return hint && !picked ? <Trans>Answering confirms no sheets. Pick an answer: {keys}.</Trans> : <Trans>Answering confirms no sheets.</Trans>
   if (hint && !picked)
@@ -684,14 +758,16 @@ function ListUsed({ entry, option }: { entry: QuestionEntry; option: 'use_read' 
 function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
   const tag = entry.tag
   const q = entry.question
-  const gap = gapOf(q)
+  const gaps = gapsOf(q)
+  const gap = gaps.length === 1 ? gaps[0]! : null
   const listed = typeof q.params.number === 'string' && q.params.number ? q.params.number : null
   const sheet = listed ? <DrawingText kind="sheet-number" text={listed} truncate={false} /> : entry.holds.length > 0 ? <SheetName sheets={entry.holds} /> : null
   // At a sentence's start, after "Q3 answered." (#167's words gate: an untitled sheet's words are capitalised).
   const Sheet = listed ? sheet : entry.holds.length > 0 ? <SheetName sheets={entry.holds} start /> : null
-  const missing = typeof q.params.missing === 'number' ? q.params.missing : 1
+  const missing = gaps.length > 0 ? missingIn(gaps) : typeof q.params.missing === 'number' ? q.params.missing : 1
   const unlisted = q.code === 'engine.register_check.not_listed'
   if (option === 'not_in_set') {
+    if (gaps.length > 1) return <Trans>{tag} answered. Recorded: the numbering skips at each gap; nothing is missing.</Trans>
     if (gap) {
       const after = <DrawingText kind="sheet-number" text={gap.after} truncate={false} />
       const before = <DrawingText kind="sheet-number" text={gap.before} truncate={false} />
@@ -702,15 +778,22 @@ function CheckAnswered({ entry, option }: { entry: QuestionEntry; option: string
     return <Trans>{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list.</Trans>
   }
   if (option !== 'not_sent_yet' && option !== 'file_not_added') return <Trans>{tag} answered. Your answer is recorded.</Trans>
-  if (gap)
+  if (gaps.length > 0 && option === 'file_not_added')
     return (
       <Trans>
         {tag} answered. Recorded:{' '}
         <Plural
           value={missing}
-          one="the missing sheet is still to come. Paste the drawing list to count it."
-          other="the # missing sheets are still to come. Paste the drawing list to count them."
+          one="the missing sheet is in a file not yet added; add it to the Drawing Set."
+          other="the # missing sheets are in a file not yet added; add that file to the Drawing Set."
         />
+      </Trans>
+    )
+  if (gaps.length > 0)
+    return (
+      <Trans>
+        {tag} answered. Recorded:{' '}
+        <Plural value={missing} one="the missing sheet is still to come; ask the consultant for it." other="the # missing sheets are still to come; ask the consultant for them." />
       </Trans>
     )
   if (unlisted && Sheet) return <Trans>{tag} answered. {Sheet} stays in the list, to confirm or exclude.</Trans>

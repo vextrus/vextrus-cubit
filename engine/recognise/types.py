@@ -689,6 +689,12 @@ class SheetConventions:
     """A range of member marks in a title ("GB2-GB5", "W3 TO W6"; T-W334): its named groups `a` and
     `low` are the first mark's letters and digits, `b` and `high` the second's. Titles equal but for
     such ranges are one title to 19b's conflicts (`conflicts.range_key`); none: no range is read."""
+    sheet_kind_words: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    """The words that name each kind's subject, by the kind's key ("beam" for `beam_layout` and
+    `beam_details`; "foundation" for the pile kinds too, as a pile layout is often titled so): a title
+    naming any kind's words is offered only those kinds and the kinds with no words (S15-Q1: "Sheet
+    kinds carry words and code narrows them"; `engine.recognise.sheets.narrowed`). A kind with no words
+    (`details`, `other`, a plan of no subject) is offered whatever the title names."""
 
     def __post_init__(self) -> None:
         _unique([d.key for d in self.disciplines], "the Discipline")
@@ -714,6 +720,12 @@ class SheetConventions:
         for kind in self.common_sheet_kinds:
             _key(kind, "a sheet kind")
         _unique(self.common_sheet_kinds, "the common sheet kind")
+        known = {k for kinds in self.sheet_kinds.values() for k in kinds} | set(self.common_sheet_kinds)
+        for kind, words in self.sheet_kind_words.items():
+            if kind not in known:
+                raise ValueError(f"words are given for {kind!r}, which is no sheet kind")
+            for word in words:
+                _text(word, f"a word of the {kind} sheet kind")
 
     def discipline_keys(self) -> tuple[str, ...]:
         return tuple(d.key for d in self.disciplines)
@@ -731,6 +743,7 @@ class SheetConventions:
             "sheet_kinds": {k: list(v) for k, v in self.sheet_kinds.items()},
             "common_sheet_kinds": list(self.common_sheet_kinds),
             "member_range_pattern": self.member_range_pattern,
+            "sheet_kind_words": {k: list(v) for k, v in self.sheet_kind_words.items()},
         }
         return self._to_json() | {name: value for name, value in added.items() if value}
 
@@ -796,6 +809,10 @@ class SheetConventions:
             },
             common_sheet_kinds=_words(data, "common_sheet_kinds", "the common sheet kinds"),
             member_range_pattern=_optional_str(data, "member_range_pattern"),
+            sheet_kind_words={
+                k: _word_list(v, f"the words of the {k} sheet kind")
+                for k, v in _mapping(data, "sheet_kind_words").items()
+            },
         )
 
 
@@ -897,6 +914,7 @@ _SHEET_KEYS = {
     "sheet_kinds",
     "common_sheet_kinds",
     "member_range_pattern",
+    "sheet_kind_words",
 }
 _VIEW_KEYS = {
     "kind_words", "subject_words", "layer_words", "scale_patterns", "notes_disciplines", "heading_words",

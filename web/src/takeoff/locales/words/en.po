@@ -119,6 +119,10 @@ msgid "Perspective"
 msgstr "Perspective"
 
 #: src/takeoff/words.tsx
+msgid "Gaps in the numbering"
+msgstr "Gaps in the numbering"
+
+#: src/takeoff/words.tsx
 msgid "No Discipline"
 msgstr "No Discipline"
 
@@ -304,6 +308,10 @@ msgstr "Elevation"
 #: src/takeoff/words.tsx
 msgid "It is in a file I haven’t added yet"
 msgstr "It is in a file I haven’t added yet"
+
+#: src/takeoff/words.tsx
+msgid "Slab details"
+msgstr "Slab details"
 
 #: src/takeoff/words.tsx
 msgid "Substation and generator layout"

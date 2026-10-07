@@ -298,24 +298,24 @@ def test_jevs_sure_answer_is_the_proposed_kind_and_asks_nothing(
     assert open_questions(api, qs_project.project_id, "low_confidence") == []
 
 
-def test_jevs_unsure_answer_raises_a_low_confidence_question_with_the_kinds_none_picked(
+def test_jevs_answer_with_its_top_two_close_raises_a_low_confidence_question_its_first_choice_picked(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
 ) -> None:
-    """§7's Q4, "the kind of A-05 (no pre-pick)": the kinds its Discipline has, most likely first,
-    none pre-picked unless a second source agrees (Jev is one source)."""
-    jev_says(jev_offline, "0.34")
+    """§7's Q4, "the kind of A-05", the kinds its Discipline has, most likely first. Amended by #228
+    (the owner's ruling, session 11, "Propose Jev's top kind"): a kind Question is raised only when
+    Jev's top two are close (or the title contradicts it), with Jev's first choice pre-picked."""
+    jev_says(jev_offline, "0.34", second="0.30")
     read(qs_project, monkeypatch, [A_05], "KR-ARC-R0.dwg")
     api = api_as(qs_project.member)
     [sheet] = proposals(api, qs_project.project_id)
 
     [q] = open_questions(api, qs_project.project_id, "low_confidence")
 
-    assert q["subject_id"] == sheet["sheet_id"]
-    assert q["proposals"] == [sheet["id"]]
+    assert q["proposals"] == [sheet["id"]]  # S15-Q1: a group's Question has no one sheet for subject
     assert q["discipline"] == "architectural"
     assert len(keys(q)) >= 3
     assert keys(q)[-1] == KEEP_OPEN
-    assert picked(q) == []
+    assert picked(q) == [keys(q)[0]]
 
 
 def test_with_typesafe_down_every_sheet_is_still_proposed_its_kind_left_to_the_qs(

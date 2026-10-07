@@ -899,9 +899,13 @@ def test_the_sheet_type_request_offers_the_disciplines_kinds_with_code_facts() -
 
     assert request is not None
     assert request.node == "sheet_type"
-    assert request.options == DEFAULT.kinds("structural")
+    # S15-Q1: narrowed by the title's words, in the Discipline's order, the kinds of no words kept.
+    assert request.options == sheets.narrowed(
+        "PILE CAP LAYOUT PLAN", DEFAULT.kinds("structural"), DEFAULT
+    )
     assert "pile_cap_layout" in request.options
-    assert request.options[-3:] == ("cover_index", "general_notes", "other")
+    assert set(request.options) < set(DEFAULT.kinds("structural"))
+    assert request.options[-2:] == ("details", "other")
     assert dict(request.facts) == {
         "title": "PILE CAP LAYOUT PLAN",
         "discipline": "structural",

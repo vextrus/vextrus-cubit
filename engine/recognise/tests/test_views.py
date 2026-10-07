@@ -373,6 +373,7 @@ def test_a_section_on_a_sheet_whose_title_names_no_subject_is_proposed_for_nothi
         ("pile_cap_details", ("foundations",)),
         ("foundation_details", ("foundations",)),
         ("slab_layout", ("slabs",)),
+        ("slab_details", ("slabs",)),
         ("stair_details", ("stairs",)),
         ("tank_details", ("tanks",)),
         ("grid_layout", ("grid",)),
