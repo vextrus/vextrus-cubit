@@ -10,17 +10,14 @@ runs, a head is refused when the installed `dwgread` is off its pin, when its `u
 source other than the package registry, or when its `[tool.uv]` table differs from main's.
 """
 
-import ast
 import hashlib
 import os
 import subprocess
 import tomllib
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from tools.lint.engine_paths import matching, read_patterns
-from tools.lint.import_closure import ClosureError, closure, is_test, opaque
 from tools.lint.lock_sources import problems as lock_problems
 
 MAIN = "main"
@@ -29,36 +26,6 @@ CHECKOUT_ALSO = tuple(read_patterns(CHECKOUT_ALSO_FILE.read_text(encoding="utf-8
 """Beside the engine paths, what the checkout carries: the settings the job starts Django with
 (`vextrus.settings.job`, which installs only the modules on the engine paths). One file, which
 real-drawings-na.yml reads too, so a PR changing only these is never "not applicable"."""
-READ_ENTRIES = ("vextrus/takeoff/tasks/read_file.py", "vextrus/takeoff/services/export.py")
-"""What the sandbox runs of the product (21c): the read job and its export entry point."""
-JOB_SETTINGS = "vextrus/settings/job.py"
-INSTALLED_PARTS = (
-    "models.py",
-    "models/**",
-    "apps.py",
-    "migrations/**",
-    "management/**",
-    "tasks.py",  # Procrastinate imports each app's `tasks` (vextrus/settings/jobs.py's autodiscovery)
-    "tasks/**",
-)
-"""What each app the job installs loads without an import naming it."""
-ADMIN_PARTS = ("admin.py", "admin/**")
-"""Each installed app's `admin`, which Django's admin autodiscovery imports at setup when the job's
-settings install `django.contrib.admin` (review round 1 of #446: the five admin modules the job
-imports were outside the key). Where the settings do not, they stay out, as the Q16 ruling had them."""
-ALWAYS_IN = (
-    "pyproject.toml",
-    "uv.lock",
-    ".python-version",
-    "toolchain/**",
-    "tools/acadsharp-dump/**",
-    ".github/engine-paths.txt",
-    ".github/checkout-also.txt",
-    "vextrus/settings/**",
-    "engine/export.schema.json",
-)
-"""In the run cache's key whatever imports what (`read_key`): what installs, pins and starts the job,
-and the schema its export is checked against."""
 # Windows' mark on a downloaded file, copied beside it into WSL: not a drawing, so not among a run's
 # files (tools/scorer/drafts.py leaves it out of a key's by the same rule).
 MARK = ":Zone.Identifier"
@@ -109,19 +76,13 @@ def show(repo: Path, commit: str, path: str) -> bytes | None:
     return done.stdout if done.returncode == 0 else None
 
 
-def tree_files(repo: Path, commit: str) -> dict[str, Blob]:
-    """Every entry of a commit's tree, by path."""
+def engine_files(repo: Path, commit: str, patterns_text: str) -> list[Blob]:
     listed = git(repo, "ls-tree", "-r", "-z", "--full-tree", commit).split(b"\0")
     blobs = {}
     for entry in filter(None, listed):
         meta, path = entry.decode().split("\t", 1)
         mode, _kind, oid = meta.split()
         blobs[path] = Blob(mode, oid, path)
-    return blobs
-
-
-def engine_files(repo: Path, commit: str, patterns_text: str) -> list[Blob]:
-    blobs = tree_files(repo, commit)
     chosen = matching(sorted(blobs), [*read_patterns(patterns_text), *CHECKOUT_ALSO])
     # ls-tree and cat-file, unlike a checkout, accept a tree entry named `..` or `.` (git mktree
     # builds one), so a head's tree could name a file outside the scratch checkout (review of #58).
@@ -142,97 +103,17 @@ def code_hash(files: list[Blob]) -> str:
     return hashlib.sha256(listing.encode()).hexdigest()
 
 
-def read_key(repo: Path, commit: str, files: list[Blob]) -> tuple[str, str]:
-    """The run cache's key for a commit's engine files (the owner's Q16 ruling, ticket T-Q16), and why
-    it is the whole code hash ("" when it is the closure's): `code_hash` over only what the read job can
-    load. That is the import closure (`tools.lint.import_closure`) of the job's entries (`READ_ENTRIES`)
-    and of its installed apps' `models`, `apps.py`, `migrations/`, `management/` and `tasks` (the apps
-    `vextrus/settings/job.py`'s `JOB_MODULES` names), with the always-in set (`ALWAYS_IN`: the
-    toolchain, the lock, the settings, the schema, and the path lists, which are no engine paths and are
-    taken from the commit's tree). A test, an admin module (registered by Django's admin, never run on
-    a drawing) or a view the job never imports changes the code hash but not this key, so such a PR
-    reuses main's run. When the closure cannot be known (an entry is missing, a file does not parse) or a
-    file in it names
-    a loader it cannot see through (`tools.lint.import_closure.opaque`: `importlib`, `exec`, `runpy`...,
-    as a token anywhere), the key is the whole code hash.
-    """
-    blobs = {f.path: f for f in files}
-    python = [f for f in files if f.path.endswith(".py")]
-    sources = dict(zip((f.path for f in python), contents(repo, python), strict=True))
-
-    def read(path: str) -> bytes | None:
-        return sources.get(path)
-
-    try:
-        entries = [*READ_ENTRIES, *_installed(read, sorted(blobs))]
-        found = closure(read, entries, sorted(blobs))
-        why = opaque(read, found)
-    except ClosureError as error:
-        return code_hash(files), f"{error}, so the key is the whole code hash"
-    if why:  # code the closure cannot see may load anything: any engine file may be what the job runs
-        return code_hash(files), f"{why}, so the key is the whole code hash"
-    tree = tree_files(repo, commit)
-    keyed = {path: blobs[path] for path in found}
-    keyed |= {path: tree[path] for path in matching(sorted(tree), ALWAYS_IN)}
-    return code_hash([keyed[path] for path in sorted(keyed)]), ""
-
-
-def _installed(read: Callable[[str], bytes | None], tree: list[str]) -> list[str]:
-    """The installed apps' files the job loads by Django or Procrastinate, not by an import: each
-    `JOB_MODULES` app's `INSTALLED_PARTS`, as entries of the closure (their own imports, and the
-    modules their packages list, are followed from them)."""
-    data = read(JOB_SETTINGS)
-    if data is None:
-        raise ClosureError(f"the entry {JOB_SETTINGS} is not in the tree")
-    try:
-        module = ast.parse(data, filename=JOB_SETTINGS)
-    except (SyntaxError, ValueError) as error:
-        raise ClosureError(f"{JOB_SETTINGS} does not parse: {type(error).__name__}") from None
-    named = [
-        node.value
-        for node in module.body
-        if isinstance(node, ast.Assign)
-        and any(isinstance(t, ast.Name) and t.id == "JOB_MODULES" for t in node.targets)
-    ]
-    try:
-        apps = ast.literal_eval(named[-1]) if named else None
-    except ValueError:
-        apps = None
-    if not isinstance(apps, (tuple, list)) or not all(
-        isinstance(a, str) and a.isidentifier() for a in apps
-    ):
-        raise ClosureError(f"{JOB_SETTINGS} names no JOB_MODULES as a list of plain names")
-    parts = (*INSTALLED_PARTS, *(ADMIN_PARTS if _admin_installed(read, tree) else ()))
-    patterns = [f"vextrus/{app}/{part}" for app in apps for part in parts]
-    return [path for path in matching(tree, patterns) if path.endswith(".py") and not is_test(path)]
-
-
-def _admin_installed(read: Callable[[str], bytes | None], tree: list[str]) -> bool:
-    """Whether the job's settings may install Django's admin, whose autodiscovery imports every
-    installed app's `admin` at setup: a settings file names `django.contrib.admin` (fail wide: named
-    is taken as installed)."""
-    settings = [path for path in tree if path.startswith("vextrus/settings/") and path.endswith(".py")]
-    return any(b"django.contrib.admin" in (read(path) or b"") for path in settings)
-
-
-def contents(repo: Path, files: list[Blob]) -> list[bytes]:
-    """Each file's bytes from git's objects, in the files' order (one `cat-file --batch`)."""
-    batch = git(repo, "cat-file", "--batch", stdin="".join(f"{f.oid}\n" for f in files).encode())
-    found = []
-    at = 0
-    for _ in files:
-        header_end = batch.index(b"\n", at)
-        size = int(batch[at:header_end].split()[2])
-        found.append(batch[header_end + 1 : header_end + 1 + size])
-        at = header_end + 1 + size + 1
-    return found
-
-
 def write_checkout(repo: Path, files: list[Blob], into: Path) -> None:
     """The engine paths' files from git's objects (never a working tree), into a new folder."""
     into.mkdir(parents=True)
     root = into.resolve()
-    for f, body in zip(files, contents(repo, files), strict=True):
+    batch = git(repo, "cat-file", "--batch", stdin="".join(f"{f.oid}\n" for f in files).encode())
+    at = 0
+    for f in files:
+        header_end = batch.index(b"\n", at)
+        size = int(batch[at:header_end].split()[2])
+        body = batch[header_end + 1 : header_end + 1 + size]
+        at = header_end + 1 + size + 1
         target = into / f.path
         if not target.resolve().is_relative_to(root):  # a second wall behind engine_files' refusal
             raise Refused(f"an engine path would be written outside the checkout: {f.path!r}")

@@ -69,7 +69,6 @@ from scripts.real_drawings.source import (
     code_hash,
     engine_files,
     git,
-    read_key,
     refusals,
     resolve,
     set_digest,
@@ -263,15 +262,15 @@ def run(
         listings = {name: set_files(folder) for name, folder in sorted(m.sets.items())}
         digests = {name: set_digest(m.sets[name], files) for name, files in listings.items()}
         m.say(f"real-drawings {run_id}: {head.target} at {head.commit[:12]}, main at {base.commit[:12]}")
-        head_hash, head_key, head_exports, head_cached = measure(
+        head_hash, head_exports, head_cached = measure(
             m, head, main, work / "head", run_id, digests, fresh, job=job
         )
-        main_hash, main_key, main_exports = head_hash, head_key, head_exports
+        main_hash, main_exports = head_hash, head_exports
         if head.commit != base.commit:  # main is read the same way as the head
             # main's export names a run id that names main's commit (the scorer takes a cached export
             # whose run id and commit agree, #199), not the PR's head the run is for
             mains_run_id = f"{stamp}-{base.commit[:12]}-{secrets.token_hex(2)}"
-            main_hash, main_key, main_exports, _ = measure(
+            main_hash, main_exports, _ = measure(
                 m, base, main, work / "main", mains_run_id, digests, fresh, job=job
             )
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
@@ -283,10 +282,8 @@ def run(
             "pr": head.pr,
             "commit": head.commit,
             "code_hash": head_hash,
-            "read_key": head_key,
             "main_commit": base.commit,
             "main_code_hash": main_hash,
-            "main_read_key": main_key,
             "mode": "job" if job else "harness",
             "sets": {
                 name: {
@@ -319,10 +316,9 @@ def run(
         if not posting:
             m.say("Nothing posted (a scored run of a branch or main).")
             return scored
-        # A PR that changes what the engine reads (its read key, the job's import closure, is not
-        # main's) posts no success unscored: its reading would be accepted with nobody having measured
-        # it against the keys.
-        if scored != 0 and m.score is not None and head_key != main_key:
+        # A PR that changes what the engine reads (its code hash is not main's) posts no success
+        # unscored: its reading would be accepted with nobody having measured it against the keys.
+        if scored != 0 and m.score is not None and head_hash != main_hash:
             m.say("Not scored, and this PR changes the engine's reading: nothing posted; run it again.")
             return 3
         summary = verdict(m, run_id, counts, head_failed, accept="" if accept_if_clean else accept)
@@ -374,17 +370,13 @@ def measure(
     fresh: bool = False,
     *,
     job: bool = True,
-) -> tuple[str, str, dict[str, Path], bool]:
-    """One commit's code hash, read key and exports, and whether they came from the cache: they do
-    when its read key (`source.read_key`: the job's import closure, or the code hash when that cannot be
-    known) has read these sets before in the same sandbox (and mode) and no stage failed; `fresh` reads
+) -> tuple[str, dict[str, Path], bool]:
+    """One commit's code hash and exports, and whether they came from the cache: they do when its code
+    hash has read these sets before in the same sandbox (and mode) and no stage failed; `fresh` reads
     them again whatever the cache holds; `job` reads them with the product's job (see the module)."""
     main_pyproject, schema_text = main.pyproject, main.schema
     files = engine_files(m.repo, head.commit, main.patterns.decode())
     hashed = code_hash(files)
-    key, whole = read_key(m.repo, head.commit, files)
-    if whole:
-        m.say(f"{head.target}: the job's import closure is not known: {whole}")
     checkout = work / "src"
     write_checkout(m.repo, files, checkout)
     python = (
@@ -408,7 +400,7 @@ def measure(
         raise Refused(f"{head.target}: " + "; ".join(found))
     shaped_by = f"{m.sandbox_version}-job" if job else m.sandbox_version
     cached = {
-        name: m.cache / "exports" / key / shaped_by / f"{name}-{digest}.json"
+        name: m.cache / "exports" / hashed / shaped_by / f"{name}-{digest}.json"
         for name, digest in digests.items()
     }
     schema = json.loads(schema_text)
@@ -426,9 +418,9 @@ def measure(
     elif all(path.exists() for path in cached.values()):
         why = next(filter(None, (_unusable(path, schema) for path in cached.values())), "")
         if not why:
-            m.say(f"{head.target}: read key {key[:12]} is cached; not run again")
-            return hashed, key, cached, True
-        m.say(f"{head.target}: the cached run of read key {key[:12]} {why}; read again")
+            m.say(f"{head.target}: code hash {hashed[:12]} is cached; not run again")
+            return hashed, cached, True
+        m.say(f"{head.target}: the cached run of code hash {hashed[:12]} {why}; read again")
     requirements = work / "requirements.txt"
     m.fetch(checkout, m.cache / "wheels", python, requirements)
     scratch = work / "out"
@@ -456,7 +448,7 @@ def measure(
         cached[name].parent.mkdir(parents=True, exist_ok=True)
         cached[name].unlink(missing_ok=True)
         drop.write_new(cached[name], path.read_bytes())
-    return hashed, key, exports, False
+    return hashed, exports, False
 
 
 def export_run(export: Path) -> dict[str, Any]:

@@ -15,7 +15,5 @@ paths:
 - The blind scorer is `tools/scorer/` (`vx-score`); it answers in counts only. Every change to
   `scripts/real_drawings/` or `tools/scorer/` on main needs the owner's custody re-run: batch them.
 - One real-drawing run per engine head, on one lock; every engine merge stales the next engine PR's head.
-  A run is cached by the read job's import closure (`read_key` in `scripts/real_drawings/source.py`), so a
-  PR changing only tests, admin or views the job never imports reuses main's run.
 - Before pushing an engine branch, scan its new literals and messages for drawing text.
 - Test fixtures are synthetic and typed as the real data holds them; they prove mechanics, never reading.
