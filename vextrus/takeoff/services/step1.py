@@ -1395,15 +1395,14 @@ def _exclude(
 def _views_chosen(
     project_id: uuid.UUID, ids: Sequence[object]
 ) -> tuple[list[Proposal], Sequence[object]]:
-    """The named view Proposals of this Project (an unaccounted view's), and the other ids."""
+    """The named view Proposals of this Project, and the other ids. A view is named by its
+    Proposal's id or by its own id (the `id` of a view in a sheet's `views`)."""
     if not isinstance(ids, (list, tuple)):
         return [], ids  # refused by `_chosen`
-    by_id = {
-        p.id: p
-        for p in Proposal.objects.filter(
-            project_id=project_id, step=SHEETS, subject=ProposalSubject.VIEW
-        )
-    }
+    by_id: dict[uuid.UUID, Proposal] = {}
+    for p in Proposal.objects.filter(project_id=project_id, step=SHEETS, subject=ProposalSubject.VIEW):
+        by_id[p.id] = p
+        by_id[p.subject_id] = p
     views: dict[uuid.UUID, Proposal] = {}
     rest: list[object] = []
     for given in ids:
@@ -1413,7 +1412,7 @@ def _views_chosen(
             rest.append(given)
             continue
         if named in by_id:
-            views[named] = by_id[named]
+            views[by_id[named].id] = by_id[named]
         else:
             rest.append(given)
     return list(views.values()), rest

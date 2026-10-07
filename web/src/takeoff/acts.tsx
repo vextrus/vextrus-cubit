@@ -153,6 +153,8 @@ export interface Step1Acts {
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
+  /** One view of an open sheet, left out on its own (§6.9); its sheet stays as it was. */
+  excludeView(view: { id: string; title: string }, reason: Reason, text?: string): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
@@ -564,6 +566,21 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     [i18n, projectId, run],
   )
 
+  const excludeView = useCallback(
+    (view: { id: string; title: string }, reason: Reason, text = '') => {
+      const title = <DrawingText kind="title" text={view.title} truncate={false} />
+      const short = reason === 'other' && text.trim() ? text.trim() : i18n._(REASON_SHORT[reason] ?? UNKNOWN_REASON)
+      return run(
+        [() => exclude(projectId, [view.id], reason, text)],
+        <Trans>excluded the view “{title}”</Trans>,
+        <Trans>
+          “{title}” excluded: {short}. Coverage keeps the reason.
+        </Trans>,
+      )
+    },
+    [i18n, projectId, run],
+  )
+
   const setDrawingList = useCallback(
     async (discipline: string, text: string) => {
       // Not while another act is in flight: its undo would take this one's place (the refuter, round 1).
@@ -638,5 +655,5 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     [begin, marked, projectId, say, settle, showDone],
   )
 
-  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }
+  return { bulk, confirmSheets, excludeSheets, excludeView, setDrawingList, answerQuestion, undoLast, busy }
 }
