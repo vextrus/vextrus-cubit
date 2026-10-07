@@ -10,6 +10,7 @@
     "schema_version": {"const": 1},
     "tree": {"type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The tree id of the staged index (`git write-tree`) the checks ran on. Equal to the file name's <tree> and to the tree of the commit made from that index."},
     "written_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "description": "UTC to the second."},
+    "started_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "description": "UTC to the second, taken before the first check starts; a run's minutes are started_at to written_at. Optional: a record without it (written before S17-F4) is not measured."},
     "ok": {"type": "boolean", "description": "True only when every check's exit_code is 0."},
     "checks": {
       "type": "array",
