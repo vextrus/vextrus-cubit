@@ -6,7 +6,7 @@
 
 Units and their memory cost (spec 2.3): `cloud-session` (none: the cloud VM is not this machine, so
 memory, swap and disk are not read), `local-agent` 0.9, `review` (`--agents` x 0.3 + 0.7; default 8
-agents), `pytest` 3.3, `web-tests` 9.5, `walk` 5.6, `rd-run` 3.0.
+agents), `pytest` 3.3 (`--workers N`: about +3 GB at 8), `web-tests` 9.5, `walk` 5.6, `rd-run` 3.0.
 
 Floors, every local unit: `MemAvailable - cost >= 5.4`; swap used above 2 refuses, above 1 warns;
 disk free (`df -k --output=avail /`) under 30 refuses, under 40 warns (the spec names no disk cost per
@@ -126,6 +126,7 @@ PENDING = "pending"
 WIP_LOCK = "wip.lock"
 TICKET_RE = re.compile(r"[A-Za-z0-9._-]{1,200}")
 
+XDIST_EXTRA_GB = 3.0
 COSTS_GB = {"local-agent": 0.9, "pytest": 3.3, "web-tests": 9.5, "walk": 5.6, "rd-run": 3.0}
 UNITS = ("cloud-session", "local-agent", "review", "pytest", "web-tests", "walk", "rd-run")
 USAGE_UNITS = ("cloud-session", "local-agent", "review")
@@ -603,10 +604,11 @@ def check(
     owns: tuple[str, ...] | list[str] = (),
     role: str | None = None,
     branch: str | None = None,
+    workers: int | None = None,
 ) -> Verdict:
     verdict = Verdict(unit)
     if unit != "cloud-session":
-        _check_machine(verdict, agents)
+        _check_machine(verdict, agents, workers)
     if unit in USAGE_UNITS:
         _check_usage(verdict, running, rate, hours_to_reset, usage_checked)
     if unit == "local-agent":
@@ -624,14 +626,17 @@ def check(
     return verdict
 
 
-def unit_cost_gb(unit: str, agents: int | None) -> float:
+def unit_cost_gb(unit: str, agents: int | None, *, workers: int | None = None) -> float:
     if unit == "review":
         return (agents if agents is not None else REVIEW_DEFAULT_AGENTS) * 0.3 + 0.7
+    if unit == "pytest" and workers is not None and workers > 1:
+        # Measured: 3.3 GB serial, about 3 GB more at -n 8 (docs/specs/factory.md 2.3).
+        return COSTS_GB["pytest"] + XDIST_EXTRA_GB * (workers - 1) / 7
     return COSTS_GB.get(unit, 0.0)
 
 
-def _check_machine(verdict: Verdict, agents: int | None) -> None:
-    cost = unit_cost_gb(verdict.unit, agents)
+def _check_machine(verdict: Verdict, agents: int | None, workers: int | None = None) -> None:
+    cost = unit_cost_gb(verdict.unit, agents, workers=workers)
     memory = read_memory()
     if memory is None:
         verdict.reasons.append("memory and swap unreadable (/proc/meminfo)")
@@ -890,6 +895,7 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--usage-checked")
     one.add_argument("--running", type=int, default=0)
     one.add_argument("--agents", type=int)
+    one.add_argument("--workers", type=int, help="pytest: xdist workers (the cost grows with them)")
     one.add_argument("--rate", type=float)
     one.add_argument("--hours-to-reset", type=float)
     one.add_argument("--owns", action="append", default=[], metavar="PATH")
@@ -899,7 +905,7 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--ticket")
     one.add_argument("--budget-minutes", type=int)
     args = parser.parse_args(argv)
-    for option in ("running", "agents", "rate", "hours_to_reset"):
+    for option in ("running", "agents", "workers", "rate", "hours_to_reset"):
         value = getattr(args, option)
         if value is not None and value < 0:
             parser.error(f"--{option.replace('_', '-')} cannot be negative")
@@ -910,6 +916,7 @@ def main(argv: list[str] | None = None) -> int:
     given: dict[str, Any] = {
         "running": args.running,
         "agents": args.agents,
+        "workers": args.workers,
         "rate": args.rate,
         "hours_to_reset": args.hours_to_reset,
         "usage_checked": args.usage_checked,
