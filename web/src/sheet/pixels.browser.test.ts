@@ -36,11 +36,12 @@ describe('the text-and-fills pixel check at its floor', () => {
   })
 
   it('fails a drawer that drops any one glyph, or any one fill triangle, whichever it is', async () => {
+    // Each drop is checked against the part it changes only; the other part's drawing would repeat the same pass.
     const sheet = decodeSheet(await (await fetch(tinySheetUrl)).arrayBuffer())
     const passed: string[] = []
     for (const part of ['glyphs', 'triangles'] as const) {
       for (let i = 0; i < sheet[part].count; i++) {
-        const failed = await checkTextAndFills(droppingOne(part, i)).then(() => false, () => true)
+        const failed = await checkTextAndFills(droppingOne(part, i), [part === 'glyphs' ? 'text' : 'fills']).then(() => false, () => true)
         if (!failed) passed.push(`${part} ${i}`)
       }
     }

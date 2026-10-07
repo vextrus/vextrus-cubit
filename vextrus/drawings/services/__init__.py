@@ -53,6 +53,9 @@ For the page (20b), through `drawings/http/` (list, one file, cancel, restart, D
 For 19a and 21c (Step 1):
 
     services.files(set_id); services.sheets(set_id, "structural"); services.views(sr.id)
+    services.sheets(set_id, anchors=False)               # a list's sheets, anchors left unread
+    services.views_of_set(set_id, anchors=False)         # every printed sheet's views, by sheet id
+    services.sheet_facts(set_id)                         # the listed sheets' decisions, one read
     services.confirm_sheet(sr.id, confirmation_id=c, kind="beam_layout")
     services.confirm_view(view.id, confirmation_id=c)
     services.exclude(view.id, "other", "The QS's words", confirmation_id=c)
@@ -118,7 +121,10 @@ from vextrus.drawings.services.reads import (
 )
 from vextrus.drawings.services.reports import BanglaSheet, FontRow, Report, report
 from vextrus.drawings.services.sheet_list import (
+    UNLOADED,
+    AnchorsNotLoaded,
     PlotView,
+    SheetFacts,
     SheetView,
     ViewView,
     confirm_sheet,
@@ -134,9 +140,11 @@ from vextrus.drawings.services.sheet_list import (
     render,
     sheet,
     sheet_discipline,
+    sheet_facts,
     sheets,
     undo,
     views,
+    views_of_set,
 )
 from vextrus.drawings.services.stored_anchor import StoredAnchor
 
@@ -147,7 +155,9 @@ __all__ = [
     "READING",
     "SECOND_READER",
     "SHEETS",
+    "UNLOADED",
     "Added",
+    "AnchorsNotLoaded",
     "ArtefactRef",
     "BanglaSheet",
     "DisciplineView",
@@ -161,6 +171,7 @@ __all__ = [
     "Report",
     "Resolved",
     "SetView",
+    "SheetFacts",
     "SheetView",
     "StoredAnchor",
     "ViewView",
@@ -207,6 +218,7 @@ __all__ = [
     "set_sheet_number",
     "sheet",
     "sheet_discipline",
+    "sheet_facts",
     "sheet_step",
     "sheets",
     "step_store",
@@ -214,4 +226,5 @@ __all__ = [
     "summary",
     "undo",
     "views",
+    "views_of_set",
 ]
