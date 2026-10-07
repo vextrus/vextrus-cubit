@@ -282,9 +282,9 @@ def test_a_confirm_of_a_sheet_the_match_lets_go_never_waits_on_the_proposals(
 ) -> None:
     """#227's review, finding 1: a later file's match that lets go an earlier sheet's page locks
     that sheet's row (`drawings.record_plot`), as a confirm of it does. Kept after the proposals'
-    Jev calls, the lock is held only for the moment before `finishing` commits: a confirm of that
-    sheet while the job asks Jev does not wait (fix round 3: nor does it take Step 1's write lock,
-    taken after Jev's answers)."""
+    Jev answers, the lock is held only for the moment before `finishing` commits: a confirm of that
+    sheet while the job keeps Jev's answers does not wait (fix round 3: nor does it take Step 1's
+    write lock, taken after Jev's answers; S15-A2: Jev itself is asked before `finishing`)."""
     later = read_first_and_plot(qs_project, monkeypatch)
     project_id = qs_project.project_id
     with qs_project.member.acting():
@@ -301,8 +301,8 @@ def test_a_confirm_of_a_sheet_the_match_lets_go_never_waits_on_the_proposals(
         return keep(*args)
 
     monkeypatch.setattr(plot_matching, "_keep", keep_and_let_go)
-    in_proposals = ParkedAt(jev.ask_judgement)
-    monkeypatch.setattr(jev, "ask_judgement", in_proposals)
+    in_proposals = ParkedAt(jev.answer)
+    monkeypatch.setattr(jev, "answer", in_proposals)
 
     overlap = act_while_the_later_file_reads(
         qs_project,
@@ -701,13 +701,24 @@ def test_no_act_deadlocks_with_a_job_parked_as_keep_starts(
 
 
 def _in_jev(monkeypatch: pytest.MonkeyPatch, parked: Parked) -> Any:
-    in_jev = ParkedAt(jev.ask_judgement)
-    monkeypatch.setattr(jev, "ask_judgement", in_jev)
+    in_jev = ParkedAt(jev.answer)
+    monkeypatch.setattr(jev, "answer", in_jev)
     return in_jev
 
 
-LONG_READING = {"plot_pages": lambda monkeypatch, parked: parked, "jev": _in_jev}
-"""Where a DWG's `finishing` reads for long, writing nothing: the Plot's pages, Jev's answers."""
+def _sending_to_jev(monkeypatch: pytest.MonkeyPatch, parked: Parked) -> Any:
+    sending = ParkedAt(jev.send)
+    monkeypatch.setattr(jev, "send", sending)
+    return sending
+
+
+LONG_READING = {
+    "plot_pages": lambda monkeypatch, parked: parked,
+    "jev": _in_jev,
+    "jev_sent": _sending_to_jev,
+}
+"""Where a DWG's read job is long, writing nothing: `finishing` reading the Plot's pages or keeping
+Jev's answers, and TypeSafe asked between the steps (S15-A2)."""
 
 
 @pytest.mark.parametrize("act", list(EVERY_ACT))
@@ -716,8 +727,8 @@ def test_no_act_waits_while_the_job_reads_the_plot_or_asks_jev(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked, reading: str, act: str
 ) -> None:
     """Step 1's write lock is not held during a read job's long reading: every act (each takes the
-    lock first) is answered while the job is parked inside the Plot's page reading or inside
-    propose's Jev calls, without waiting on it."""
+    lock first) is answered while the job is parked inside the Plot's page reading, inside
+    propose's keeping of Jev's answers, or while it asks TypeSafe, without waiting on it."""
     later = read_first_and_plot(qs_project, monkeypatch)
     project_id = qs_project.project_id
     api = api_as(qs_project.member)

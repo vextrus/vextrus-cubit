@@ -13,6 +13,12 @@ The transaction tried again is the outermost one, whose rollback released every 
 - **Inside another transaction**, not a request's: the error is raised (its locks are still held).
 
 At most `RETRIES` retries, each after a short jittered pause, each logged as a warning.
+
+**A lock wait is bounded** (S15-A2): the act runs in a savepoint whose transaction waits on any lock
+(a row, Step 1's write lock) at most `LOCK_TIMEOUT_MS` (`SET LOCAL lock_timeout`); a wait that runs
+out rolls the act back and refuses it, `platform.acts.busy` (503), so a QS is told to try again
+rather than left waiting on a stuck writer. The request's transaction stays usable, and is rolled
+back as every refused request is.
 """
 
 import contextvars
@@ -23,7 +29,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from django.db import OperationalError, connection
+from django.db import OperationalError, connection, transaction
+
+from vextrus.platform.messages import acts as said
+from vextrus.platform.services import auth
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +42,11 @@ ABORTED = frozenset({"40P01", "40001"})
 """deadlock_detected and serialization_failure: PostgreSQL rolled the transaction back whole."""
 PAUSE = 0.05
 """Seconds, before the jitter and the try's multiple."""
+LOCK_TIMEOUT_MS = 3000
+"""How long an act's transaction waits on one lock before it is refused (`platform.acts.busy`):
+longer than a read job's short write phase, well inside a QS's patience (S15-A2)."""
+LOCK_NOT_AVAILABLE = "55P03"
+"""lock_not_available: a lock wait ran past `lock_timeout`."""
 
 
 def aborted(error: BaseException) -> bool:
@@ -90,21 +104,37 @@ def requests(run: Callable[[], Any], *, done: Callable[[Any], bool], base: float
 
 
 def retried[T](act: Callable[[], T], *, what: str, base: float | None = None) -> T:
-    """`act()`, tried again when PostgreSQL aborts its transaction (see the module)."""
+    """`act()`, its lock waits bounded, tried again when PostgreSQL aborts its transaction (see the
+    module)."""
     request = _REQUEST.get()
     if connection.in_atomic_block:
         try:
-            return act()
+            return _bounded(act)
         except OperationalError as error:
             if request is not None and aborted(error):
                 request.aborted_act, request.code = what, _code(error)
             raise
     for attempt in range(RETRIES + 1):
         try:
-            return act()
+            return _bounded(act)
         except OperationalError as error:
             if attempt == RETRIES or not aborted(error):
                 raise
             log_retry(what, _code(error), attempt)
             pause(attempt, base)
     raise AssertionError("unreachable")
+
+
+def _bounded[T](act: Callable[[], T]) -> T:
+    """`act()` in a savepoint that waits on a lock at most `LOCK_TIMEOUT_MS`; a wait that ran out is
+    refused, `platform.acts.busy` (503), the act rolled back."""
+    try:
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("select set_config('lock_timeout', %s, true)", [f"{LOCK_TIMEOUT_MS}ms"])
+            return act()
+    except OperationalError as error:
+        if _code(error) != LOCK_NOT_AVAILABLE:
+            raise
+        logger.warning("an act waited on a lock past %d ms: refused, to try again", LOCK_TIMEOUT_MS)
+    raise auth.Refused(said.BUSY(), status=503)
