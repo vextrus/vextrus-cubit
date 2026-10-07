@@ -58,7 +58,9 @@ run and four engine landings each hold the real-drawing lock for 35-60 minutes).
 ## Finish line
 1. The train lands on main through its gates (integrated review PASS, design gate on the head the lander leaves,
    one posting run accepted, merge_ready).
-2. Items 1-2 above fixed with tests, each through review and the lock.
+2. Item 0 above (a-e) fixed with tests, the storey reader (0b) ticketed and built first: the slice's measured half
+   (Steps 3, 4 and 6 confirm; columns in 3D; the measured BOQ by ratio) runs on Edison by keyboard. Then items 1-2.
+   Each through review and the lock. This is M1's next slice; anything cut from it is said in the PR's `## Cut`.
 3. M0's carry-over (session 16's brief, "M0 carried in from session 15", unchanged: #593 first, then Q1, Q2, E3,
    A2, A3, E2, E6, S1, #557, #591, #572, S15-FC) landed in the brief's order, lock permitting.
 4. G1 PASS twice on main, then "walk now" to the owner.
