@@ -367,7 +367,7 @@ export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined;
 }
 
 /** The picker the bar becomes on X: seven reasons, keys 1–7; 8, 9 and 0 do nothing while it is open. */
-export function ExclusionPicker({ row, several = false, onPick, onCancel }: { row: Row; several?: boolean; onPick: (reason: Reason, text?: string) => void; onCancel: () => void }) {
+export function ExclusionPicker({ row, heading, several = false, onPick, onCancel }: { row: Row; heading?: ReactNode; several?: boolean; onPick: (reason: Reason, text?: string) => void; onCancel: () => void }) {
   const { t, i18n } = useLingui()
   const [other, setOther] = useState<string | null>(null)
   const name = <SheetName sheets={row.sheets} count={several} />
@@ -404,7 +404,7 @@ export function ExclusionPicker({ row, several = false, onPick, onCancel }: { ro
       >
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="font-medium">
-            <Trans>Exclude {name}. Why?</Trans>
+            {heading ?? <Trans>Exclude {name}. Why?</Trans>}
           </span>
           <span className="text-xs text-muted-foreground">
             <Trans>Coverage keeps the reason. Esc cancels</Trans>

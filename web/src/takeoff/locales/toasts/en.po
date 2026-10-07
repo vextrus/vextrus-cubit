@@ -89,6 +89,10 @@ msgid "excluded {name}"
 msgstr "excluded {name}"
 
 #: src/takeoff/acts.tsx
+msgid "excluded the view “{title}”"
+msgstr "excluded the view “{title}”"
+
+#: src/takeoff/acts.tsx
 msgid "confirmed {name}"
 msgstr "confirmed {name}"
 
@@ -99,6 +103,10 @@ msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 #: src/takeoff/acts.tsx
 msgid "{Name} excluded: {short}. They stay in the count."
 msgstr "{Name} excluded: {short}. They stay in the count."
+
+#: src/takeoff/acts.tsx
+msgid "“{title}” excluded: {short}. Coverage keeps the reason."
+msgstr "“{title}” excluded: {short}. Coverage keeps the reason."
 
 #: src/takeoff/acts.tsx
 msgid "an untitled sheet laid out in the drawing of {file}"

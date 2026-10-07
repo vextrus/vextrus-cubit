@@ -283,7 +283,8 @@ function Step1({
   const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
   const [focused, setFocusedState] = useState<string | null>(start?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
-  const [picker, setPicker] = useState<Row | null>(null)
+  /** The exclusion picker's target: the rows' sheets, or `view` when a view of the open sheet is selected (§6.9). */
+  const [picker, setPicker] = useState<(Row & { view?: { id: string; title: string } }) | null>(null)
   /** Shift ↑ ↓ and Shift-click: the rows from where the selection began to where it ends (list mode, §6.15). */
   const [range, setRangeState] = useState<{ anchor: string; end: string } | null>(null)
   /**
@@ -309,7 +310,12 @@ function Step1({
   const [sheetPicker, setSheetPicker] = useState(false)
   // CAD-dark and As read | Plot | Compare are the screen's settings: kept through paging and List ⇄ Sheet.
   const [look, setLook] = useState<LookSetting>(PAPER_AS_READ)
-  const [viewPick, setViewPick] = useState<{ sheet: string; view: string } | null>(null)
+  const [viewPick, setViewPickState] = useState<{ sheet: string; view: string } | null>(null)
+  /** A view picked or cleared closes an exclusion picker open over the one before, as focus changes do. */
+  const setViewPick = (next: { sheet: string; view: string } | null) => {
+    setPicker(null)
+    setViewPickState(next)
+  }
   const listRef = useRef<HTMLDivElement>(null)
   const focusNext = useRef<string | null>(null)
   /** The QS's pick on each Question, by its id, until answered (a pick changes nothing until Enter, §6.7). */
@@ -610,7 +616,11 @@ function Step1({
     if (readOnly) return refuse(readOnly)
     // Several rows selected (list mode): one exclusion for all their sheets, with one reason (§6.9).
     const chosen = focused !== null && chosenKeys.has(focused) ? selectedRows.filter((r) => r.sheets.length > 0) : []
-    if (chosen.length > 1) setPicker({ ...chosen[0]!, key: SELECTION_KEY, numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
+    const view = viewsInOrder.find((v) => v.id === selectedView)
+    // A view already left out is never left out again: Ctrl Z takes the exclusion back (§6.6).
+    if (mode === 'sheet' && view && (view.decision === 'excluded' || open?.decision === 'excluded' || (view.proposed_exclusion && open?.decision === 'confirmed'))) return
+    if (mode === 'sheet' && view && focusedRow) setPicker({ ...focusedRow, view: { id: view.id, title: view.title } })
+    else if (chosen.length > 1) setPicker({ ...chosen[0]!, key: SELECTION_KEY, numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
     else if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)
   }
 
@@ -776,12 +786,17 @@ function Step1({
         {picker ? (
           <ExclusionPicker
             row={picker}
+            heading={picker.view ? <ViewHeading title={picker.view.title} /> : undefined}
             several={picker.key === SELECTION_KEY}
             onCancel={() => setPicker(null)}
             onPick={(reason, text) => {
               const row = picker
               setPicker(null)
               setRange(null)
+              if (row.view) {
+                void acts.excludeView(row.view, reason, text)
+                return
+              }
               void acts.excludeSheets(row.sheets, reason, text, row.key === SELECTION_KEY).then((done) => {
                 if (done && mode === 'sheet' && openSheet) openNextProposal(openSheet)
               })
@@ -825,6 +840,12 @@ function ModeSwitch({ mode, title, onList, onSheet }: { mode: 'list' | 'sheet'; 
       </button>
     </div>
   )
+}
+
+/** The exclusion picker's first line for one view (§6.9). */
+function ViewHeading({ title }: { title: string }) {
+  const name = <DrawingText kind="title" text={title} truncate={false} />
+  return <Trans>Exclude the view “{name}”. Why?</Trans>
 }
 
 /** The list's key region: Space opens the focused sheet (m0-screens §6.1, 2.3 item 10). */
@@ -1020,7 +1041,7 @@ function SheetMode({
         <SpaceKey label={label} run={onSpace} />
         <ZoomKey enabled={selectedView !== null} run={onZoom} />
         {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
-        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0 outline-none">
+        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0">
           {render.data ? (
             <SheetViewer
               key={sheet.id}

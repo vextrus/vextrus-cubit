@@ -1370,6 +1370,7 @@ def _exclude(
     words = text if reason == OTHER else ""
     with transaction.atomic():
         views, ids = _views_chosen(project_id, ids)
+        _refuse_excluded_views(project_id, views)
         chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
             project_id,
@@ -1386,7 +1387,7 @@ def _exclude(
             drawings.exclude(sheet.id, reason, words, confirmation_id=act.id)
             proposal.rejected_reason = reason
             _stamp(proposal, ProposalStatus.REJECTED, act)
-            _decide_views(sheet.id, act, reason, words.strip())
+            _exclude_views_of(sheet.id, act, reason, words.strip())
         _exclude_views(project_id, act, views, reason, words)
         record_progress(project_id)
     return _act_view(act)
@@ -1395,15 +1396,14 @@ def _exclude(
 def _views_chosen(
     project_id: uuid.UUID, ids: Sequence[object]
 ) -> tuple[list[Proposal], Sequence[object]]:
-    """The named view Proposals of this Project (an unaccounted view's), and the other ids."""
+    """The named view Proposals of this Project, and the other ids. A view is named by its
+    Proposal's id or by its own id (the `id` of a view in a sheet's `views`)."""
     if not isinstance(ids, (list, tuple)):
         return [], ids  # refused by `_chosen`
-    by_id = {
-        p.id: p
-        for p in Proposal.objects.filter(
-            project_id=project_id, step=SHEETS, subject=ProposalSubject.VIEW
-        )
-    }
+    by_id: dict[uuid.UUID, Proposal] = {}
+    for p in Proposal.objects.filter(project_id=project_id, step=SHEETS, subject=ProposalSubject.VIEW):
+        by_id[p.id] = p
+        by_id[p.subject_id] = p
     views: dict[uuid.UUID, Proposal] = {}
     rest: list[object] = []
     for given in ids:
@@ -1413,10 +1413,24 @@ def _views_chosen(
             rest.append(given)
             continue
         if named in by_id:
-            views[named] = by_id[named]
+            views[by_id[named].id] = by_id[named]
         else:
             rest.append(given)
     return list(views.values()), rest
+
+
+def _refuse_excluded_views(project_id: uuid.UUID, views: Sequence[Proposal]) -> None:
+    """A view already left out (on its own or with its sheet) is not left out again (409, as `assign`
+    refuses it): a second act on it would take the first one's place, and its undo the first's reason."""
+    if (
+        views
+        and Coverage.objects.filter(
+            project_id=project_id,
+            view_id__in=[p.subject_id for p in views],
+            status=CoverageStatus.EXCLUDED,
+        ).exists()
+    ):
+        raise auth.Refused(said.VIEW_EXCLUDED(), status=409)
 
 
 def _exclude_views(
@@ -1805,6 +1819,20 @@ def _excluded_on_their_own(project_id: uuid.UUID, sheet_id: uuid.UUID) -> set[uu
             values__sheet_id=str(sheet_id),
         ).values_list("subject_id", flat=True)
     )
+
+
+def _exclude_views_of(sheet_id: uuid.UUID, act: Confirmation, reason: str, text: str) -> None:
+    """`_decide_views` for a sheet left out: a view the QS left out on its own keeps its own decision
+    (its row is its own, never rewritten by its sheet's act, so that act's undo leaves it as it was)."""
+    own = _excluded_on_their_own(act.project_id, sheet_id)
+    kept = list(
+        Coverage.objects.select_for_update().filter(
+            project_id=act.project_id, sheet_revision_id=sheet_id, view_id__in=own
+        )
+    )
+    _decide_views(sheet_id, act, reason, text)
+    for row in kept:
+        row.save()  # as it stood before the sheet's act
 
 
 def _follow_sheet(row: Coverage) -> None:

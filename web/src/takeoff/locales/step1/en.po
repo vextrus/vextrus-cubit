@@ -678,6 +678,10 @@ msgstr "Plot"
 msgid "{file} is still reading; its views join as its sheets arrive."
 msgstr "{file} is still reading; its views join as its sheets arrive."
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Exclude the view “{name}”. Why?"
+msgstr "Exclude the view “{name}”. Why?"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}, M3 onwards"
 msgstr "{name}, M3 onwards"
