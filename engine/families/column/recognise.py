@@ -32,8 +32,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
+from engine.families.column import place
 from engine.families.column import size as sizes
-from engine.families.column.messages import SIZE_NOT_READ
+from engine.families.column.messages import MARK_NOT_READ, SIZE_NOT_READ, VIEW_NOT_PLACED
 from engine.families.types import (
     ConfirmedFacts,
     ElementCandidate,
@@ -289,10 +290,10 @@ def _model(artefact: ReadArtefact) -> tuple[str, str] | None:
 
 
 def _window(view: ViewArtefact) -> Box | None:
-    box = getattr(view.view, "box", None)
-    if box is None:
+    """The view's box in model space (`place.model_box`; the whole model space for no view)."""
+    if view.view is None or getattr(view.view, "box", None) is None:
         return None
-    return (box.x0, box.y0, box.x1, box.y1)
+    return place.model_box(view.artefact, view.view)
 
 
 def _inside(point: Point, window: Box | None) -> bool:
@@ -318,6 +319,8 @@ def _read_view(
         return [], []
     handle, sheet = model
     window = _window(view)
+    if getattr(view.view, "box", None) is not None and window is None:
+        return [], [QuestionRaised(**VIEW_NOT_PLACED(view_id=view.view_id))]
     outlines: list[_Outline] = []
     labels: list[_Label] = []
     bay = grid.smallest_bay
@@ -335,13 +338,16 @@ def _read_view(
     storeys = _storeys(view)
     band = storeys[0] if storeys[0] == storeys[-1] else f"{storeys[0]}..{storeys[-1]}"
     candidates: list[ElementCandidate] = []
+    named = []
     questions: list[QuestionRaised] = []
-    named = [
-        (outline, next((x for x in mine if x.mark), None), next((x for x in mine if x.size), None))
-        for outline in outlines
-        for mine in (held.get(outline.key, []),)
-        if mine
-    ]
+    for outline in outlines:
+        mine = held.get(outline.key, [])
+        mark = next((x for x in mine if x.mark), None)
+        sized = next((x for x in mine if x.size), None)
+        if mark is not None:
+            named.append((outline, mark, sized))
+        elif sized is not None:  # a sized outline with no column mark: a wall or a pier, asked
+            questions.append(_mark_not_read(view, sheet, outline, sized))
     shift = _view_shift(grid, [outline for outline, _, _ in named])
     for outline, mark, sized in named:
         for storey in storeys:
@@ -576,7 +582,7 @@ def _candidate(
     view: ViewArtefact,
     sheet: str,
     outline: _Outline,
-    mark: _Label | None,
+    mark: _Label,
     sized: _Label | None,
     grid: _Grid,
     shift: Point,
@@ -589,9 +595,8 @@ def _candidate(
     anchors: dict[str, tuple[DwgAnchor, ...]] = {"outline": (outline_anchor,), "at": (outline_anchor,)}
     values: dict[str, FactValue] = {}
     confidence = Decimal("0.5")
-    if mark is not None:
-        anchors["mark"] = (_anchor(artefact, sheet, mark.inserts, mark.handle),)
-        confidence += Decimal("0.25")
+    anchors["mark"] = (_anchor(artefact, sheet, mark.inserts, mark.handle),)
+    confidence += Decimal("0.25")
     if sized is not None and sized.size is not None:
         label_unit = sizes.resolve(sized.size, unit, outline.sides)
         b, d = sizes.to_drawing(sized.size, label_unit, unit)
@@ -613,7 +618,7 @@ def _candidate(
         candidate_key=key,
         storey=storey,
         band=band,
-        mark=(mark.mark or "") if mark is not None else "",
+        mark=mark.mark or "",
         at=at,
         values=values,
         anchors=anchors,
@@ -637,4 +642,16 @@ def _size_not_read(candidate: ElementCandidate) -> QuestionRaised:
         params=message["params"],
         candidate_key=candidate.candidate_key,
         anchors=tuple(candidate.anchors.get("outline", ())),
+    )
+
+
+def _mark_not_read(view: ViewArtefact, sheet: str, outline: _Outline, sized: _Label) -> QuestionRaised:
+    artefact = view.artefact
+    return QuestionRaised(
+        code=MARK_NOT_READ.code,
+        params=MARK_NOT_READ(text=sized.text)["params"],
+        anchors=(
+            _anchor(artefact, sheet, outline.inserts, outline.handle),
+            _anchor(artefact, sheet, sized.inserts, sized.handle),
+        ),
     )

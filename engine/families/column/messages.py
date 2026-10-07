@@ -9,3 +9,10 @@ from engine.messages import MessageCode
 
 SIZE_NOT_READ = MessageCode("engine.column.size_not_read", params=("mark", "grid_ref"))
 """A column outline with no size label beside it: its size is asked, never guessed."""
+
+MARK_NOT_READ = MessageCode("engine.column.mark_not_read", params=("text",))
+"""An outline with a size label and no column mark beside it (a wall's or a pier's label): not
+proposed as a column, asked."""
+
+VIEW_NOT_PLACED = MessageCode("engine.column.view_not_placed", params=("view_id",))
+"""A view whose paper box no model-space sheet places: its columns are not read, asked."""
