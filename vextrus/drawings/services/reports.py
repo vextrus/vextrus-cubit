@@ -329,21 +329,46 @@ def _plot(row: DrawingFile) -> list[Message]:
     return lines
 
 
+def _page_lines(kept: Any, matched: set[int | None], plotted: dict[str, int | None]) -> list[Message]:
+    """A PDF's lines for its pages, worked out from what each page names (kept when the PDF was read)
+    and the sheets' Plots now: a page that is a sheet's Plot has none; one that names a sheet whose
+    Plot is another page of this PDF says which is used (the kept line's `used_page` is 0); any
+    other has its own reason."""
+    lines: list[Message] = []
+    for m in kept:
+        params = m["params"]
+        if m["code"] == said.PAGES_SAME_SHEET.code:
+            page = params["first_page"]
+            used = plotted.get(params["sheet"])
+            if page not in matched and used is not None:
+                lines.append(
+                    said.PAGES_SAME_SHEET(first_page=page, used_page=used, sheet=params["sheet"])
+                )
+        elif params.get("page") not in matched:
+            lines.append(Message(code=m["code"], params=params))
+    return lines
+
+
 def _pages(row: DrawingFile) -> list[Message]:
     if row.read_status != ReadStatus.READ:
         return []
     pages = row.sheets_total or 0
-    matched = (
-        SheetRevision.objects.filter(plot_file=row, plot_page__isnull=False)
-        .values_list("plot_page", flat=True)
-        .distinct()
-        .count()
+    plotted = dict(
+        SheetRevision.objects.filter(plot_file=row, plot_page__isnull=False).values_list(
+            "sheet__number", "plot_page"
+        )
     )
+    matched_pages = set(
+        SheetRevision.objects.filter(plot_file=row, plot_page__isnull=False).values_list(
+            "plot_page", flat=True
+        )
+    )
+    matched = len(matched_pages)
     if matched == 0 and not drawing_files.dwg_read_for(row):
         added = drawing_files.dwg_added_for(row)
         return [said.DWG_NOT_READ() if added else said.NO_DWG_FOR_PAGES()]
     lines = [said.PAGES_MATCHED(matched=matched, pages=max(pages, matched))]
-    lines += [Message(code=m["code"], params=m["params"]) for m in row.unmatched_pages or ()]
+    lines += _page_lines(row.unmatched_pages or (), matched_pages, plotted)
     for number, mark in SheetRevision.objects.filter(
         plot_file=row, plot_none_reason=PlotNone.NO_PAGE
     ).values_list("sheet__number", "revision_mark"):

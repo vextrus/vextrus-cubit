@@ -11,12 +11,17 @@ import { MachineText } from '@/format/machine'
 import { Button, ErrorBar, buttonVariants } from '@/ui'
 import { OutsidePage } from './OutsidePage'
 
-function CouldNotOpen({ error, outside }: { error: unknown; outside: boolean }) {
-  const { t } = useLingui()
+function useWords(error: unknown) {
   let words
   if (error instanceof ApiRefused && error.refusal) words = <MachineText message={error.refusal} />
   else if (error instanceof TypeError) words = <Trans>Vextrus can’t be reached. Check your connection and try again.</Trans>
   else words = <Trans>This page could not be opened. Reload it to try again.</Trans>
+  return words
+}
+
+function CouldNotOpen({ error, outside }: { error: unknown; outside: boolean }) {
+  const { t } = useLingui()
+  const words = useWords(error)
   return (
     <OutsidePage title={t`Page could not be opened`} wide>
       <div className="flex flex-col gap-4">
@@ -48,4 +53,28 @@ export function RouteError({ error }: { error: unknown }) {
 /** The error page of a page outside the frame. */
 export function OutsideRouteError({ error }: { error: unknown }) {
   return <CouldNotOpen error={error} outside />
+}
+
+/**
+ * The router's default error component: a screen that throws is shown inside the frame, the top bar
+ * and the ErrorBar staying round it (§4.1: the chrome never moves). The frame's own failure (the
+ * session) has `RouteError` above.
+ */
+export function ScreenError({ error }: { error: unknown }) {
+  const words = useWords(error)
+  return (
+    <main data-region="page" className="focus-inset min-h-0 flex-1 overflow-auto">
+      <div className="mx-auto flex w-[1120px] max-w-full flex-col gap-4 py-6">
+        <ErrorBar>{words}</ErrorBar>
+        <div className="flex gap-2">
+          <Button variant="primary" onClick={() => window.location.reload()}>
+            <Trans>Reload</Trans>
+          </Button>
+          <AppLink to={PATHS.projects} className={buttonVariants({ variant: 'secondary' })}>
+            <Trans>Your projects</Trans>
+          </AppLink>
+        </div>
+      </div>
+    </main>
+  )
 }

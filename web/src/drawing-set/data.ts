@@ -9,7 +9,7 @@
  *   const answer = await upload(project.id, file)       // an `UploadOut`, or an `ApiRefused` thrown
  */
 import { queryOptions } from '@tanstack/react-query'
-import { ApiRefused, api, unwrap } from '@/api/client'
+import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 import { EMPTY } from '@/format/numbers'
 import type { MachineMessage } from '@/format/machine'
@@ -140,12 +140,6 @@ export function saidOnce(said: readonly MachineMessage[], lists: readonly (reado
   )
 }
 
-/** A refusal is an answer, never tried again; an unreachable server keeps being tried. */
-export function retry(failures: number, error: unknown): boolean {
-  if (error instanceof ApiRefused) return false
-  return error instanceof TypeError || failures < 2
-}
-
 /** How often the list is read again while a file is moving (§4.5: "watch them read"). */
 export const POLL_MS = 2000
 
@@ -154,7 +148,6 @@ export function filesQuery(projectId: string) {
     queryKey: ['drawing-set', projectId, 'files'],
     queryFn: () => unwrap(api.GET('/api/projects/{project_id}/drawings/files', { params: { path: { project_id: projectId } } })),
     staleTime: 0,
-    retry,
     refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? POLL_MS : false),
   })
 }
@@ -164,7 +157,6 @@ export function disciplinesQuery(projectId: string) {
     queryKey: ['drawing-set', projectId, 'disciplines'],
     queryFn: () => unwrap(api.GET('/api/projects/{project_id}/drawings/disciplines', { params: { path: { project_id: projectId } } })),
     staleTime: 5 * 60_000,
-    retry,
   })
 }
 
@@ -174,7 +166,6 @@ export function reportQuery(projectId: string, fileId: string, moving: boolean) 
     queryFn: () =>
       unwrap(api.GET('/api/projects/{project_id}/drawings/files/{file_id}/report', { params: { path: { project_id: projectId, file_id: fileId } } })),
     staleTime: 0,
-    retry,
     refetchInterval: moving ? POLL_MS : false,
   })
 }

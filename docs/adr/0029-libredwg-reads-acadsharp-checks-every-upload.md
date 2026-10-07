@@ -26,3 +26,11 @@ deployment's LibreDWG licence duty is in ADR 0018.
 - 26 Sep 2026: decided; answers plan review C5 (docs/reviews/plan-review-ledger.md). Evidence:
   docs/research/dwg-reader-evidence.md, docs/research/dwg-reader-options.md. The owner's ruling
   (26 Sep 2026): "Agree".
+- 5 Oct 2026: the second reader's build changes, its role does not (ticket W317, #317). The owner's
+  ruling (5 Oct 2026, session 13): "Build ACadSharp with #1205 ourselves". The dumper is built from
+  ACadSharp 3.8.0's source plus the DWG half of DomCR/ACadSharp#1205 (a stored 0 INSERT scale read as
+  1, as AutoCAD's AUDIT repairs it), pinned by commit, file manifest and patch hash in
+  `toolchain/acadsharp-source.lock`, and by the dumper's own sha256; so the file held for a 0 scale
+  agrees with no special rule. This reverses the "Hold it" ruling of 28 Sep 2026 for that one case;
+  an entity the second reader cannot read still holds the file. Move to the upstream release when it
+  ships.
