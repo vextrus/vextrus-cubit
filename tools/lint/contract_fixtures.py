@@ -121,12 +121,16 @@ class Schema:
         return found
 
     def operation(self, method: str, path: str) -> dict[str, Any] | None:
-        """The operation answering this real address: the template with the most literal segments."""
-        address = path.split("?", 1)[0].split("#", 1)[0].strip("/").split("/")
+        """The operation answering this real address: the template with the most literal segments.
+        Routes are exact: a leading `/` is required; only the query and fragment are dropped."""
+        address = path.split("?", 1)[0].split("#", 1)[0].split("/")
+        if not path.startswith("/"):
+            return None
         best: tuple[int, dict[str, Any]] | None = None
         for template, item in self.document.get("paths", {}).items():
-            parts = template.strip("/").split("/")
-            if len(parts) != len(address) or method.lower() not in item:
+            parts = template.split("/")
+            found = item.get(method.lower()) if isinstance(item, dict) else None
+            if len(parts) != len(address) or not isinstance(found, dict):
                 continue
             literals = 0
             for part, actual in zip(parts, address, strict=True):
@@ -139,7 +143,7 @@ class Schema:
                     break
             else:
                 if best is None or literals > best[0]:
-                    best = (literals, item[method.lower()])
+                    best = (literals, found)
         return None if best is None else best[1]
 
 

@@ -37,3 +37,36 @@ def test_no_files_and_no_tracked_fixtures_passes(
     monkeypatch.setattr(lint, "tracked_fixtures", list)
     assert lint.main(["--schema", str(schema)]) == 0
     json.loads(schema.read_text())
+
+
+@pytest.mark.parametrize("suffix", ["/", "//"])
+def test_an_address_with_extra_slashes_fails(tmp_path: Path, suffix: str) -> None:
+    schema = write_schema(tmp_path)
+    bad = write(tmp_path, "slash.json", listing(proposal(), path=LIST + suffix))
+    assert len(lint.problems(schema, [bad])) == 1
+
+
+def test_an_address_without_a_leading_slash_fails(tmp_path: Path) -> None:
+    schema = write_schema(tmp_path)
+    bad = write(tmp_path, "bare.json", listing(proposal(), path=LIST[1:]))
+    assert len(lint.problems(schema, [bad])) == 1
+
+
+def test_a_path_level_key_is_not_a_method(tmp_path: Path) -> None:
+    schema = write_schema(tmp_path)
+    document = json.loads(schema.read_text())
+    document["paths"][LIST.replace(LIST.split("/")[3], "{project_id}")]["parameters"] = []
+    schema.write_text(json.dumps(document))
+    reply = {**listing(proposal()), "method": "parameters"}
+    assert len(lint.problems(schema, [write(tmp_path, "key.json", reply)])) == 1
+
+
+def test_a_query_still_matches(tmp_path: Path) -> None:
+    schema = write_schema(tmp_path)
+    ok = write(tmp_path, "query.json", listing(proposal(), path=LIST + "?group=mark#x"))
+    assert lint.problems(schema, [ok]) == []
+
+
+def test_the_web_job_runs_the_lint_so_a_web_only_change_is_checked() -> None:
+    web = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "web.yml"
+    assert "-m tools.lint.contract_fixtures" in web.read_text()
