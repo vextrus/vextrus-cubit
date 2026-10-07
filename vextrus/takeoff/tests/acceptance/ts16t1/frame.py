@@ -30,7 +30,7 @@ import pytest
 from engine.read.anchor import DwgAnchor
 from engine.recognise.types import Box, ViewCandidate, ViewKind
 from vextrus.drawings import services as drawings
-from vextrus.projects.models import Building
+from vextrus.projects import services as projects
 from vextrus.takeoff.services import step1
 from vextrus.testing.drawings import QsProject, add, drawing, frame, read_dwg
 from vextrus.testing.tenancy import Member
@@ -89,7 +89,7 @@ def make_frame(member: Member, project_id: uuid.UUID, *, confirm: bool = True) -
         if confirm:
             step1.confirm(project_id, [proposals[0]], actor_name="A mock QS")
             step1.confirm(project_id, [proposals[1]], actor_name="A mock QS")
-        building = Building.objects.get(project_id=project_id)
+        (building,) = projects.buildings(project_id)
     first, second, third = (s.id for s in printed)
     return Frame(
         member,
