@@ -1,6 +1,6 @@
 /*
  * The English catalogues, gathered by glob so no ticket edits a shared list (docs/plans/M0.md, "The
- * shape of M0's code"): each feature folder's chrome, `src/<feature>/locales/en.po`, and the machine's
+ * shape of M0's code"): each feature folder's chrome, `src/<feature>/locales/en.po` (takeoff's also one per area), and the machine's
  * codes, `src/messages/<module>/<submodule>/en.po`. Lingui's Vite plugin compiles each `.po` at build
  * time and fails the build on a message without English (vite.config.ts).
  */
@@ -12,7 +12,11 @@ interface CompiledCatalogue {
 
 // The `dev` folder (the development-only specimen) brings its own catalogue with `addCatalogue`,
 // so no development words reach a production bundle.
-const chrome = import.meta.glob<CompiledCatalogue>(['../*/locales/en.po', '!../dev/locales/en.po'], { eager: true })
+// `takeoff` splits its catalogue by screen area, `takeoff/locales/<area>/en.po` (lingui.config.ts).
+const chrome = import.meta.glob<CompiledCatalogue>(
+  ['../*/locales/en.po', '../takeoff/locales/*/en.po', '!../dev/locales/en.po'],
+  { eager: true },
+)
 const machine = import.meta.glob<CompiledCatalogue>('../messages/*/*/en.po', { eager: true })
 const added: Record<string, CompiledCatalogue> = {}
 
