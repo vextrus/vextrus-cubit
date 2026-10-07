@@ -537,7 +537,7 @@ def _model_paper(
     """A model-space sheet's paper, by views' one rule for it (`views._plot_paper` where its Plot page
     was matched, else `views._paper_scale`; the module's docstring), so a view's box lies over what the
     buffer draws."""
-    from engine.recognise import views  # views imports this module (the viewport rules)
+    from engine.recognise.views import paper as views  # it imports this module (the viewport rules)
 
     frame = next((a for a in sheet.anchors if isinstance(a, DwgAnchor)), None)
     scale, read = views._paper_scale(artefact, frame, box)

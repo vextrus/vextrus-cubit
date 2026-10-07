@@ -1,23 +1,20 @@
-"""The demo seed's `drawings` rows (ticket 14): KR-01's files, reports, sheets, views and renders at
-docs/design/m0-screens.md §7's state, BP-02's files in the Drawing Set's row states a file with no read
-job can be in, and MG-01's read DWG beside the states a read job carries. All invented: nothing
-comes from a real Drawing Set.
+"""The demo seed's `drawings` rows (ticket 14): KR-01's files, read by the product's read job,
+BP-02's files in the Drawing Set's row states a file with no read job can be in, and MG-01's read DWG
+beside the states a read job carries. All invented: nothing comes from a real Drawing Set.
 
-Everything goes through `drawings.services`, as a read job would put it, and through real engine code:
-each file's ReadArtefact is 11's synthetic `Drawing` (`ReadArtefact.build`, stamped with the file's
-sha256), each sheet's render `engine.render.buffers.build` of it, the fonts' and the Bangla-ANSI
-Check's reports the engine's own, a PDF's report `engine.read.pdf.rules` over invented page facts.
-Titles are decoded by 11's `decode` from the drawing's own text (which holds `%%C`, `%%D`, `%%P`,
-MTEXT's `\\P` and a stacked ½, as §7 has it); every view's box lies on its sheet's paper.
-
-**KR-01 after reading** (§7): KR-STR-R0.dwg read, its 13 printed sheets (S-07 rev A and rev B in one
-file); KR-STR-R0.pdf, 11 of its 12 pages matched (page 12 shows S-13, in no DWG; neither S-07 has a
-page); KR-ARC-R0.dwg read with the Bangla flag, 8 sheets (6 laid out in the drawing, A-06 and A-07 on
-layout tabs, one stale tab showing nothing), the schedule unnumbered, A-07 proposed to leave out;
-KR-ARC-R0.pdf, 8 of 8 matched, lettering as lines; KR-ELE-R0.dwg read, 3 sheets, no PDF;
-KR-STR-old.dwg held, no sheets; site-photos.pdf refused. 24 sheets (Structural 13, Architectural 8,
-Electrical 3), 70 views: 23 title blocks, the key plan and the 3D view proposed to leave out, 43
-proposed to a Takeoff Step or a Discipline Part, 2 unaccounted (S-10's loose boxes).
+**KR-01** (§7; #182): its four DWGs are the synthetic ones `vextrus.seed.kr01` draws, recorded in
+`vextrus/seed/recorded/`. Each is added through `drawings.services` and read by the read job
+(`read_propose.files.read`, run here as its worker runs it) with `kr01.replayed()`, the engine's two
+readers' answers replayed from the recording (no toolchain, no process). So KR-01's sheets, views,
+renders, reports, Proposals, Questions, Checks and Coverage are the job's own, not this module's.
+KR-STR-old.dwg is added and read first; its second reader is the planted disagreement (§7), so the job
+holds it and raises its Question first (Q1). The job finds 24 sheets (Structural 13, Architectural 8,
+Electrical 3) and 70 views: 26 proposed out "for information" (24 title blocks, the key plan, the 3D
+view), 42 to a Takeoff Step or a Discipline Part, 2 unaccounted (S-01's drawing list and its hook and
+bend detail: no Step reads them). No PDF is read by the job here: KR-STR-R0.pdf (11 of its 12 pages;
+page 12 shows S-13, in no DWG; neither S-07 has a page) and KR-ARC-R0.pdf (8 of 8, lettering as lines)
+are matched to the job's sheets through the services, the Electrical sheets have no PDF, and
+site-photos.pdf is refused.
 
 **BP-02** holds a row for each state its own columns hold, no read job: BP-STR-R0.dwg stalled at
 "Reading sheet 7 of 12", BP-STR-R0.pdf read before its DWG, BP-ARC-R0.dwg waiting, BP-ARC-old.dwg held
@@ -84,8 +81,10 @@ from vextrus.drawings import services
 from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reports as report_words
 from vextrus.drawings.services.reads import ReadStepStore
-from vextrus.platform.services import jobs, library, tenancy
+from vextrus.platform.services import jev, jobs, library, tenancy
 from vextrus.seed.demo import Demo
+from vextrus.takeoff.services.read_propose import files
+from vextrus.takeoff.services.read_propose.files import Readers
 from vextrus.takeoff.tasks.read_file import read_file
 
 PAPER = (841.0, 594.0)
@@ -164,9 +163,10 @@ STRUCTURAL = (
         "S-01",
         "GENERAL NOTES",
         (
-            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.4, 0.45, 0.95), ("general_notes",)),
-            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.55, 0.68, 0.95), ("general_notes",), part="structural"),
-            V(ViewKind.SCHEDULE, "DRAWING LIST", (0.72, 0.2, 0.97, 0.95), ("general_notes",)),
+            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.62, 0.45, 0.95), ("general_notes",)),
+            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.62, 0.68, 0.95), ("general_notes",), part="structural"),
+            V(ViewKind.DETAIL, "STANDARD HOOK AND BEND DETAIL", (0.03, 0.2, 0.28, 0.55), scale="N.T.S."),
+            V(ViewKind.SCHEDULE, "DRAWING SCHEDULE", (0.72, 0.2, 0.97, 0.6)),
         ),
         kind="general_notes",
         codes=True,
@@ -255,7 +255,7 @@ STRUCTURAL = (
         "S-08",
         "S-08",
         "COLUMN LAYOUT, PILE CAP TO 2ND FLOOR",
-        (plan("COLUMN LAYOUT", ("columns",), storeys="PILE CAP TO 2ND FLOOR"),),
+        (plan("COLUMN LAYOUT, PILE CAP TO 2ND FLOOR", ("columns",)),),
         storeys="PILE CAP TO 2ND FLOOR",
         kind="column_layout",
     ),
@@ -336,7 +336,7 @@ ARCHITECTURAL = (
             V(ViewKind.SECTION, "WALL SECTION", (0.7, 0.5, 0.97, 0.95), ("walls",), scale="1:20"),
         ),
         storeys="GROUND FLOOR",
-        kind="floor_plan",
+        kind="working_plan",
         bangla=5,
     ),
     S(
@@ -348,7 +348,7 @@ ARCHITECTURAL = (
             V(ViewKind.DETAIL, "TOILET DETAIL", (0.7, 0.5, 0.97, 0.95), ("rooms",), scale="1:20"),
         ),
         storeys="TYPICAL FLOOR",
-        kind="floor_plan",
+        kind="working_plan",
         bangla=4,
     ),
     S(
@@ -377,7 +377,7 @@ ARCHITECTURAL = (
         "DOOR AND WINDOW SCHEDULE",
         (V(ViewKind.SCHEDULE, "DOOR AND WINDOW SCHEDULE", (0.03, 0.2, 0.66, 0.95), ("walls",)),),
         mark_source=ValueSource.FILE_NAME,
-        kind="schedule",
+        kind="door_window_schedule",
     ),
     S(
         "A-06",
@@ -415,8 +415,6 @@ ARCHITECTURAL = (
             ),
         ),
         layout="A-07",
-        title_block=False,
-        exclusion=ExclusionReason.FOR_INFORMATION,
         kind="perspective",
     ),
 )
@@ -454,7 +452,7 @@ ELECTRICAL = (
             ),
         ),
         storeys="TYPICAL FLOOR",
-        kind="lighting_power_layout",
+        kind="lighting_layout",
     ),
     S(
         "E-03",
@@ -477,9 +475,20 @@ ELECTRICAL = (
             ),
         ),
         storeys="TYPICAL FLOOR",
-        kind="lighting_power_layout",
+        kind="lighting_layout",
     ),
 )
+
+OLD_STRUCTURAL = (
+    S(
+        "S-01 old",
+        "S-01",
+        "GENERAL NOTES",
+        (V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.4, 0.45, 0.95)),),
+    ),
+    S("S-02 old", "S-02", "PILE LAYOUT", (plan("PILE LAYOUT", ("foundations",)),)),
+)
+"""KR-STR-old.dwg's sheets: an older structural file, held before they are read."""
 
 EMPTY_TAB = "Layout1"
 """A stale layout tab showing nothing: never a sheet (m0-screens 4.5; the plan's review Q7)."""
@@ -520,20 +529,26 @@ def library_ready() -> None:
 
 
 def kadam(demo: Demo) -> None:
+    """KR-01's DWGs through the product's read job, replaying the recording (`vextrus.seed.kr01`):
+    each added, then read step by step as its worker would, its Proposals and Questions the job's.
+    The PDFs, which no job reads here, are matched to the job's sheets through the services."""
+    from vextrus.seed import kr01  # it draws `drawings`' sheets: imported here, not at the top
+
     code = "KR-01"
     project_id = demo[f"project:{code}"]
-    structural = dwg(
-        demo,
-        code,
-        project_id,
-        "KR-STR-R0.dwg",
-        STRUCTURAL,
-        fonts_used=("arial.ttf", "romans.shx", "swissc.ttf"),
-    )
-    architectural = dwg(
-        demo, code, project_id, "KR-ARC-R0.dwg", ARCHITECTURAL, fonts_used=("arial.ttf",), empty_tab=True
-    )
-    electrical = dwg(demo, code, project_id, "KR-ELE-R0.dwg", ELECTRICAL, fonts_used=("arial.ttf",))
+    use = kr01.replayed()
+    with jev.using(kr01.jev_stand_in()):
+        # The older structural file first, as it came: its Question is the first raised (Q1, §7).
+        held = added(demo, code, project_id, kr01.HELD, kr01.content(kr01.HELD))
+        _read(demo, held.id, use)
+        structural, architectural, electrical = (
+            by_the_job(demo, code, project_id, name, sheets, use)
+            for name, sheets in (
+                ("KR-STR-R0.dwg", STRUCTURAL),
+                ("KR-ARC-R0.dwg", ARCHITECTURAL),
+                ("KR-ELE-R0.dwg", ELECTRICAL),
+            )
+        )
     for sheet in electrical.values():
         services.record_plot(sheet.id, services.PlotNone.NO_PDF)
     structural_pdf, facts = pdf(
@@ -547,14 +562,6 @@ def kadam(demo: Demo) -> None:
         demo, code, project_id, "KR-ARC-R0.pdf", pages=8, maker="other", lines=True
     )
     plot(architectural_pdf, facts, architectural)
-    held = added(demo, code, project_id, "KR-STR-old.dwg", invented("dwg", "KR-STR-old"))
-    disagree = agree_codes.DISAGREE(
-        items=212, only_first=187, only_second=25, kinds=2, layers=3, unread=0
-    )
-    services.record_reports(
-        held.id, cross_check=CheckResult(DECODERS_AGREE, CheckOutcome.FIRED, finding=disagree)
-    )
-    services.quarantine(held.id, disagree)
     scan = added(demo, code, project_id, "site-photos.pdf", invented("pdf", "site-photos"))
     services.record_reports(scan.id, upload_report=pdf_rules.report(scan_facts(3), scan.sha256))
 
@@ -729,6 +736,46 @@ def pdf_bytes(marker: str, pages: int) -> bytes:
     return out.getvalue()
 
 
+def by_the_job(
+    demo: Demo,
+    code: str,
+    project_id: uuid.UUID,
+    name: str,
+    sheets: Sequence[S],
+    use: Readers,
+) -> dict[str, services.SheetView]:
+    """A recorded DWG added and read by the read job; its sheets by `S.label` (each found sheet
+    matched to the drawn one by its number and revision mark, else its title)."""
+    from vextrus.seed import kr01
+
+    found = added(demo, code, project_id, name, kr01.content(name))
+    _read(demo, found.id, use)
+    read = [s for s in services.sheets(found.set_id) if s.file_id == found.id]
+    by_label = {}
+    for sheet in sheets:
+        [match] = [
+            r
+            for r in read
+            if (r.number, r.title) == (sheet.number, sheet.title)
+            and (sheet.mark_source is ValueSource.FILE_NAME or r.revision_mark == sheet.mark)
+        ]
+        by_label[sheet.label] = match
+        demo[f"sheet:{code}:{sheet.label}"] = match.id
+        demo[f"views:{code}:{sheet.label}"] = [v.id for v in services.views(match.id)]
+    return by_label
+
+
+def _read(demo: Demo, file_id: uuid.UUID, use: Readers) -> None:
+    """The file's read job, run here as its worker runs it (`read_propose.files.read`), as Nusrat."""
+    run = jobs.Run(
+        job_id=None,
+        tenant_id=demo["developer:shapla"],
+        user_id=demo["user:nusrat"],
+        abort_reason=lambda: None,
+    )
+    files.read(run, file_id, use)
+
+
 def added(
     demo: Demo, code: str, project_id: uuid.UUID, name: str, content: bytes, actor: str = NUSRAT
 ) -> services.FileView:
@@ -884,7 +931,7 @@ def candidate(sheet: S, built: _Built, found: services.FileView) -> SheetCandida
 
 def views_of(sheet: S) -> list[ViewCandidate]:
     """Its views, each box on paper in mm from the sheet's lower-left corner (the contract of
-    engine/recognise/views.py), wherever the sheet lies in the drawing."""
+    engine/recognise/views/paper.py), wherever the sheet lies in the drawing."""
     x0, y0 = 0.0, 0.0
     width, height = PAPER
     shown = []
@@ -906,7 +953,7 @@ def _view(view: V, box: Box) -> ViewCandidate:
     meaning = None
     as_stated = view.storeys
     if view.kind is ViewKind.PLAN and view.title:
-        # As 17 reads a plan's title (engine/recognise/views.py): the storeys it states, stated
+        # As 17 reads a plan's title (engine/recognise/views/storeys.py): the storeys it states, stated
         # beside the title where the title does not hold them (S-08's "PILE CAP TO 2ND FLOOR").
         read = storeys.read(view.storeys or decode(view.title), default_conventions(), plan_title=True)
         keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))

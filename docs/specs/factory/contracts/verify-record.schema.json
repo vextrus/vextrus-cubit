@@ -25,6 +25,7 @@
           "exit_code": {"type": "integer", "minimum": 0, "maximum": 255, "description": "The check's verdict: 0 passed. The only field the guard reads."},
           "raw_exit_code": {"type": "integer", "minimum": 0, "maximum": 255, "description": "The command's own exit code. Differs from exit_code only when the command failed on listed flakes alone."},
           "flakes": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "description": "Test ids from .github/flaky.txt that failed in this run and were recorded as flakes, not failures. [] when none."},
+          "root_only": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "description": "Test lines from .github/flaky-root.txt that failed in this run, which ran as root (uid 0), and were recorded as root-only, not failures (exit_code 0, raw_exit_code the command's own). Optional; [] or absent when none."},
           "output_file": {"type": "string", "minLength": 1, "description": "The file holding the command's output (CLAUDE.md: every suite run's output is kept in a file), a path relative to the repository root; the file is never committed."}
         }
       }

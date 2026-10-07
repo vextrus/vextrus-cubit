@@ -19,7 +19,9 @@ what the contract does not allow, is `failed`, and the stages that need it are s
   sheet_conventions)` (each sheet then stamped with the file's group), `register.find(artefact,
   sheets)` (given the finder's file budget, `budget=`, when its list carries one: 13's; its
   `report()` is the file's `sheet_report`), and per sheet `views.find(artefact, sheet,
-  view_conventions)`, `buffers.build(artefact, sheet)` and `raster.rasterise(buffers, PX_PER_MM)`;
+  view_conventions)` (given one `ViewBudget(artefact)` for the file's sheets, `budget=`, when the
+  stage's module has one: 17's), `buffers.build(artefact, sheet)` and `raster.rasterise(buffers,
+  PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
 Then across the set: `registration.match(pages, sheets, geometry, plots, disciplines)` (`geometry[i]` is
@@ -427,6 +429,11 @@ def _read_dwg(job: Mapping[str, Any], stages: Stages) -> dict[str, Any]:
     missing = needs_sheets or (None if view_conventions is not None else "view conventions")
     plotted = {int(j): (float(w), float(h)) for j, (w, h) in job.get("plot_papers", {}).items()}
     if find_views := stages.open("views", missing):
+        view_budget = getattr(
+            importlib.import_module(stages.targets["views"].partition(":")[0]), "ViewBudget", None
+        )
+        if callable(view_budget):  # one for the file: its sheets spend its bounds together
+            find_views = partial(_on_one_budget, find_views, view_budget, [])
         for j, sheet in enumerate(sheets or []):
             plot = (plotted[j],) if j in plotted else ()
             ok, result = stages.call("views", find_views, artefact, sheet, view_conventions, *plot)
@@ -450,6 +457,23 @@ def _read_dwg(job: Mapping[str, Any], stages: Stages) -> dict[str, Any]:
                 stages.call("rasterise", rasterise, sheet_buffers, PX_PER_MM)
     found["buffers"] = buffers if job["keep_buffers"] else []
     return found
+
+
+def _on_one_budget(
+    find: Callable[..., Any],
+    make: Callable[[object], object],
+    held: list[object],
+    artefact: object,
+    sheet: object,
+    conventions: object,
+    *plot: object,
+) -> Any:
+    """The views stage's `find` on the file's one budget (`held`), made at the first call that reaches
+    it: inside the stage's own call, so a budget that cannot be made fails the views stage alone, as a
+    raise in `find` does, and the next sheet's call tries again."""
+    if not held:
+        held.append(make(artefact))
+    return find(artefact, sheet, conventions, *plot, budget=held[0])
 
 
 def _paper_of(result: object) -> tuple[float, float] | None:
