@@ -57,14 +57,11 @@ def test_entering_the_area_stores_it_and_writes_one_event(qs_project: QsProject)
     with qs_project.member.acting():
         [building] = projects.buildings(qs_project.project_id)
         assert gfa.gross_floor_area(building.id) is None
-        entered = gfa.set_gross_floor_area(
-            building.id, "12000", "sft", project_id=qs_project.project_id
-        )
+        entered = gfa.set_gross_floor_area(building.id, "12000", "sft", project_id=qs_project.project_id)
         read = gfa.gross_floor_area(building.id, project_id=qs_project.project_id)
-        happened = events.latest(
-            [said.ENTERED], subject_type="building", subject_ids=[building.id]
-        )
-    assert read is not None and read.m2 == entered.m2 == Decimal("1114.8365")
+        happened = events.latest([said.ENTERED], subject_type="building", subject_ids=[building.id])
+    assert read is not None
+    assert read.m2 == entered.m2 == Decimal("1114.8365")
     assert read.entered_by == qs_project.member.user.pk
     assert list(happened) == [(said.ENTERED.code, building.id)]
 
@@ -105,5 +102,6 @@ def test_a_malformed_body_is_a_refusal_never_a_422(qs_project: QsProject, body: 
         data=json.dumps(body),
         content_type="application/json",
     )
-    assert 400 <= response.status_code < 500 and response.status_code != 422
+    assert 400 <= response.status_code < 500
+    assert response.status_code != 422
     assert set(response.json()) == {"code", "params"}

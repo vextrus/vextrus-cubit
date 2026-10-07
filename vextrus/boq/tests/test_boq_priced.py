@@ -135,7 +135,8 @@ def test_with_no_gfa_every_step_bills_its_lines(qs_project: QsProject, seams: Se
     [group] = section.groups
     [item] = group.items
     assert (item.number, item.quantity) == ("1.1.1", Decimal("10.00"))
-    assert item.awaiting_answer is not None and item.awaiting_answer.quantity == Decimal("2.00")
+    assert item.awaiting_answer is not None
+    assert item.awaiting_answer.quantity == Decimal("2.00")
     assert boq.strip.total.amount == Decimal("6000.00")
     assert boq.measured_share == Decimal("0.8333")
     assert boq.allowances == ()
@@ -147,7 +148,8 @@ def test_a_rate_per_another_unit_is_no_rate_for_the_item(qs_project: QsProject, 
     seams.lines = (column(1, "RCC-COL-1:1.5:3", "cft", "10.00"),)
     boq = read(qs_project)
     [item] = boq.sections[0].groups[0].items
-    assert item.rate is None and item.amount is None
+    assert item.rate is None
+    assert item.amount is None
     assert boq.strip.unpriced_lines == 1
 
 

@@ -7,7 +7,7 @@ msgstr ""
 "Language: en\n"
 
 msgid "projects.gfa.entered"
-msgstr "{actor} set the gross floor area"
+msgstr "{actor} set the Gross Floor Area"
 
 msgid "projects.gfa.not_an_area"
-msgstr "Enter the gross floor area as a number above zero, in {units}."
+msgstr "The Gross Floor Area was not saved. Enter a number above zero, with its unit: {units}."
