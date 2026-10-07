@@ -641,11 +641,13 @@ def _view(view: ViewView) -> ViewCandidate:
         ExclusionReason,
         Layer,
         StoreysMeaning,
+        StoreysSource,
         ViewCandidate,
         ViewKind,
     )
 
     reason = view.proposed_exclusion
+    sources = {str(s) for s in StoreysSource}
     return ViewCandidate(
         box=Box(*(float(v) for v in view.box)),
         kind=ViewKind(view.kind),
@@ -655,6 +657,10 @@ def _view(view: ViewView) -> ViewCandidate:
         storeys_as_stated=view.storeys_as_stated or None,
         storeys=tuple(view.storeys),
         storeys_meaning=None if view.storeys_meaning is None else StoreysMeaning(view.storeys_meaning),
+        # Where they were read, kept: a part plan's (`title_line`) sits out of same_storey (S15-E3).
+        storeys_source=StoreysSource(view.storeys_source)
+        if view.storeys and view.storeys_source in sources
+        else None,
         subject=view.subject,
         layer=None if view.layer is None else Layer(view.layer),
         steps=tuple(view.steps),

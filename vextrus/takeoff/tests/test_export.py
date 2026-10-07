@@ -423,3 +423,23 @@ def test_a_paper_the_harness_would_not_give_is_kept_as_none(paper: Any) -> None:
 
 def test_a_paper_is_kept_as_two_floats_in_mm() -> None:
     assert read_propose_sheets.paper_of((841, 594.0)) == (841.0, 594.0)
+
+
+@pytest.mark.parametrize("source", ["title_line", "sheet_title"])
+def test_a_views_storeys_source_reaches_the_set_stages(source: str) -> None:
+    """S15-E3: the job's export rebuilds each view as the engine read it, where its storeys were read
+    too, so a part plan (`title_line`) sits out of same_storey in the export as in the harness."""
+    from engine.recognise.types import StoreysSource
+    from vextrus.drawings.services.sheet_list import ViewView
+
+    values: dict[str, Any] = {f.name: None for f in dataclasses.fields(ViewView)}
+    values.update(
+        id=uuid.uuid4(), sheet_revision_id=uuid.uuid4(), reader_version="", ordinal=1, kind="plan",
+        title="KITCHEN LAYOUT PLAN", box=("0", "0", "10", "10"), drawing_unit="mm",
+        not_to_scale=False, stated_scale="", storeys_as_stated="2ND FLOOR", storeys=("floor_2",),
+        storeys_meaning="at_floor_level", storeys_source=source, steps=(),
+        proposed_exclusion_text="", excluded_text="", anchors=(),
+    )  # fmt: skip
+    rebuilt = export._view(ViewView(**values))
+    assert rebuilt.storeys_source is StoreysSource(source)
+    assert export._view(ViewView(**{**values, "storeys_source": None})).storeys_source is None
