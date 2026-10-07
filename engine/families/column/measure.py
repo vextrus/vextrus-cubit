@@ -59,8 +59,6 @@ def measure(facts: ElementFacts, owned: OwnedSolid, rules: RuleSetData) -> tuple
             unit_si="m3",
             rule_codes=("F1",),
             rebar_basis=None,
-            element_id=facts.element_id,
-            storey=facts.storey,
             nos=1,
             l_m=b,
             b_m=d,
@@ -71,8 +69,6 @@ def measure(facts: ElementFacts, owned: OwnedSolid, rules: RuleSetData) -> tuple
             unit_si="m2",
             rule_codes=("FW2",),
             rebar_basis=None,
-            element_id=facts.element_id,
-            storey=facts.storey,
             nos=1,
             l_m=2 * (b + d),
             h_m=h,
@@ -86,8 +82,6 @@ def measure(facts: ElementFacts, owned: OwnedSolid, rules: RuleSetData) -> tuple
                 unit_si="kg",
                 rule_codes=("R2",),
                 rebar_basis="by_ratio",
-                element_id=facts.element_id,
-                storey=facts.storey,
                 nos=1,
             )
         )

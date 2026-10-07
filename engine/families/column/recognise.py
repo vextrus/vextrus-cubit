@@ -19,8 +19,8 @@ the one nearer the outline it labels. A column with no size label has neither va
 Its `at` is its centre's nearest grid intersection, named "<line drawn along y>/<line drawn along x>"
 ("B/2", the grid's confirmed `grid_line` facts: `axis` the direction the line is drawn, `offset` its
 place across it in drawing units, in the view's model coordinates), and its offset from it.
-A view of several storeys gives one candidate per storey, each with the view's Storey Band (first and
-last storey).
+A view of several storeys gives one candidate per storey, each with the view's Storey Band
+("<first storey>..<last storey>"; a view of one storey: that storey).
 """
 
 import bisect
@@ -333,7 +333,7 @@ def _read_view(
     held = _assign(outlines, labels, reading.reach)
     unit = _drawing_unit(artefact, outlines, held)
     storeys = _storeys(view)
-    band = (storeys[0], storeys[-1])
+    band = storeys[0] if storeys[0] == storeys[-1] else f"{storeys[0]}..{storeys[-1]}"
     candidates: list[ElementCandidate] = []
     questions: list[QuestionRaised] = []
     named = [
@@ -582,7 +582,7 @@ def _candidate(
     shift: Point,
     unit: str,
     storey: str,
-    band: tuple[str, str],
+    band: str,
 ) -> ElementCandidate:
     artefact = view.artefact
     outline_anchor = _anchor(artefact, sheet, outline.inserts, outline.handle)
@@ -635,7 +635,6 @@ def _size_not_read(candidate: ElementCandidate) -> QuestionRaised:
     return QuestionRaised(
         code=message["code"],
         params=message["params"],
-        family=FAMILY,
-        storey=candidate.storey,
         candidate_key=candidate.candidate_key,
+        anchors=tuple(candidate.anchors.get("outline", ())),
     )

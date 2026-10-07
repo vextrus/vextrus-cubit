@@ -7,7 +7,7 @@ temporary folder; every layer name is invented and names nothing.
 import subprocess
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 from ezdxf.document import Drawing
@@ -98,10 +98,13 @@ def _grid() -> ConfirmedFacts:
 
 
 def _run(
-    artefact: ReadArtefact, profile: object = None, storey: str | None = "floor_1", view: Any = None
+    artefact: ReadArtefact,
+    profile: ProfileParts | None = None,
+    storey: str | None = "floor_1",
+    view: Any = None,
 ) -> Recognised:
     views = [ViewArtefact(view_id="V1", sheet_id="S1", artefact=artefact, view=view, storey=storey)]
-    return recognise(views, _grid(), ProjectSetup(), cast(ProfileParts | None, profile))
+    return recognise(views, _grid(), ProjectSetup(), profile)
 
 
 def _marks(found: Recognised) -> list[str]:
@@ -132,13 +135,13 @@ def test_a_bare_label_far_from_its_outline_in_mm_is_read_in_inches(artefact: Rea
 
 
 def test_the_profiles_layers_limit_the_outlines(artefact: ReadArtefact) -> None:
-    profile = {"families": {"column": {"layers": [LINES]}}}
+    profile = ProfileParts(parts={"families": {"column": {"layers": [LINES]}}})
 
     assert _marks(_run(artefact, profile)) == ["C4", "C6", "C7"]
 
 
 def test_the_profiles_label_patterns_name_the_mark(artefact: ReadArtefact) -> None:
-    profile = {"families": {"column": {"label_patterns": [r"(?P<mark>C\d+)"]}}}
+    profile = ProfileParts(parts={"families": {"column": {"label_patterns": [r"(?P<mark>C\d+)"]}}})
 
     assert _marks(_run(artefact, profile)) == ["C4", "C5", "C6", "C7"]
 
@@ -153,8 +156,8 @@ def test_a_view_of_several_storeys_gives_one_candidate_per_storey_with_its_band(
     found = _run(artefact, storey=None, view=View())
 
     c4s = [c for c in found.candidates if c.mark == "C4"]
-    assert sorted(c.storey for c in c4s) == ["floor_1", "floor_2", "floor_3"]
-    assert {c.band for c in c4s} == {("floor_1", "floor_3")}
+    assert sorted(str(c.storey) for c in c4s) == ["floor_1", "floor_2", "floor_3"]
+    assert {c.band for c in c4s} == {"floor_1..floor_3"}
     assert len({c.candidate_key for c in c4s}) == 3
 
 

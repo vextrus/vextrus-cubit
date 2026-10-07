@@ -8,4 +8,4 @@ from engine.families.types import ElementFacts, OwnedSolid, Primitive
 
 def geometry(facts: ElementFacts, owned: OwnedSolid) -> tuple[Primitive, ...]:
     """The column's prism: its owned polygon, metres, from the junction's z0 to z1."""
-    return (Primitive(kind="prism", polygon=tuple(owned.polygon), z0=owned.z0, z1=owned.z1),)
+    return (Primitive(kind="prism", polygon=owned.polygon, holes=owned.holes, z0=owned.z0, z1=owned.z1),)
