@@ -10,9 +10,10 @@ re-export line is the only shared edit.
     services.buildings(project_id)     # for drawings (14): one in M0
     services.ended_access_codes()      # the codes of ended access's Projects (#75)
     services.invitation_projects(token)  # the Projects an invitation link gives (#75)
+    services.gfa.set_gross_floor_area(building_id, value, unit)  # C15, stored in m2 (S16-B)
 """
 
-from vextrus.projects.services import access, projects
+from vextrus.projects.services import access, gfa, projects
 from vextrus.projects.services.access import (
     EndedCodes,
     ProjectName,
@@ -44,6 +45,7 @@ __all__ = [
     "create",
     "ended_access_codes",
     "get",
+    "gfa",
     "invitation_projects",
     "list",
     "projects",

@@ -121,7 +121,14 @@ UPDATABLE = {
     "platform_storedfile": set(),
     "platform_user": {"last_login", "name", "password", "phone"},
     "procrastinate_events": set(),
-    "projects_building": {"code", "name", "ordinal"},
+    "projects_building": {
+        "code",
+        "gfa_entered_at",
+        "gfa_entered_by",
+        "gross_floor_area_m2",
+        "name",
+        "ordinal",
+    },  # S16-B: the Gross Floor Area, who entered it and when
     "projects_project": {"address", "code", "code_key", "name", "unit_system"},
     "projects_site": {"name"},
 }
