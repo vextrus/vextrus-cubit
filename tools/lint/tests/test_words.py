@@ -114,6 +114,10 @@ PASSING = [
     "Up to {limit, plural, one {# item} other {# items}}.",
     "Added on {date, date} at {time, time}.",  # a date is no count
     "{actor} of Vextrus opened it.",  # a name, not a count
+    "{0, plural, one {# floor} other {# floors}} kept.",  # a positional that only selects
+    "{0, selectordinal, one {#st} other {#th}} slab.",
+    "{owner} belongs to it and confirms the plan.",  # verbs after a singular argument
+    "{kind} and carries a note.",
 ]
 
 
@@ -205,3 +209,12 @@ def test_the_repository_s_catalogues_pass_with_every_allowlist_entry_used() -> N
     assert findings == []
     assert stale == []
     assert main(["--root", str(REPO)]) == 0
+
+
+def test_a_scratch_tree_with_no_list_is_judged_by_the_repos_one(tmp_path: Path) -> None:
+    write_catalogue(tmp_path, ("drawings.sheets.sample", "Both cells are full, see romans.shx."))
+
+    assert [(rule, text) for _, rule, text in found(tmp_path)] == [
+        (ENGINE_TERM, "cells"),
+        (ENGINE_TERM, "romans.shx"),
+    ]

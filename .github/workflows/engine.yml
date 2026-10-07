@@ -34,6 +34,7 @@ jobs:
     outputs:
       engine: ${{ steps.paths.outputs.engine }}
       check: ${{ steps.check.outputs.check }}
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,10 +71,18 @@ jobs:
             --pattern 'scripts/real?drawings' --pattern 'scripts/real_drawings/**' \
             --pattern engine/read/sandbox.py --pattern .github/workflows/engine.yml)
           if [ -n "$touched" ]; then echo check=true; else echo check=false; fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's heavy jobs run only then; main's always do)
+        # Fails closed: a commit the gate cannot read fails the step, and so the roll-up. The runner sets
+        # GITHUB_EVENT_NAME; standard library only (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
 
   toolchain:
     needs: changes
-    if: needs.changes.outputs.engine == 'true'
+    if: needs.changes.outputs.engine == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -172,7 +181,7 @@ jobs:
     # The check's sandbox tests (scripts/real_drawings/tests/test_sandbox.py): its bwrap, the offline
     # install by hash, the private /tmp, a bwrap started inside. They need no database and no .NET.
     needs: changes
-    if: needs.changes.outputs.check == 'true'
+    if: needs.changes.outputs.check == 'true' && needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -252,9 +261,18 @@ jobs:
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
+          READY: ${{ needs.changes.outputs.ready }}
+          ENGINE_PATHS: ${{ needs.changes.outputs.engine }}
+          CHECK_PATHS: ${{ needs.changes.outputs.check }}
           TOOLCHAIN: ${{ needs.toolchain.result }}
           CHECK_SANDBOX: ${{ needs.check-sandbox.result }}
         run: |
           echo "changes=$CHANGES toolchain=$TOOLCHAIN check-sandbox=$CHECK_SANDBOX"
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
+          # its changes need none (docs, the web alone): such a head passes whatever its trailer says.
+          if [ "$READY" = false ] && { [ "$ENGINE_PATHS" = true ] || [ "$CHECK_PATHS" = true ]; }; then
+            echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
+            exit 1
+          fi
           [ "$CHANGES" = success ] && { [ "$TOOLCHAIN" = success ] || [ "$TOOLCHAIN" = skipped ]; } \
             && { [ "$CHECK_SANDBOX" = success ] || [ "$CHECK_SANDBOX" = skipped ]; }

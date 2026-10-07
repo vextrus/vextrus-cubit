@@ -1,10 +1,12 @@
 """The words lint: the English a QS or an MD reads says nothing the design gate keeps failing on.
 
-Reads every `web/src/messages/**/en.po` and fails on a msgstr that holds:
-- an **engine term** (m0-screens 1.1: never shown to a QS or an MD): process, stage, exit code,
-  reader, dumper, sandbox, decoder, parser, candidate, regex, artefact, job, worker, queue, cache,
-  token, API, timeout, viewport, model space, paper space, and 1.1's own list (entity, handle, DXF,
-  LibreDWG, ACadSharp, ezdxf, parse, hash, buffer, render, JSON, UUID…); as whole words, any case,
+Reads every catalogue's English, the machine's and the chrome's (`web/src/messages/**/en.po` and each
+feature's `web/src/<feature>/locales/en.po`, but not the development harness's), and fails on a msgstr
+that holds:
+- an **engine term**: 1.1's list (m0-screens 1.1, never shown to a QS or an MD), read from
+  `web/src/test/never-shown.json`, the one list, which the screen tests' DOM check reads too; a font
+  file name with its extension (`romans.shx`); and process, stage, exit code, reader, dumper, decoder,
+  parser, candidate, regex, cache, token, timeout, viewport, paper space; as whole words, any case,
   plurals too; and a `{program}` or `{exit_code}` argument (a converter's name, a raw exit code);
 - **"add it again"** (or "add them again"): m0-screens 4.5 refuses the same file added again ("… is
   already in this Drawing Set … Nothing was added"), so the words may say it only where the file was
@@ -12,7 +14,8 @@ Reads every `web/src/messages/**/en.po` and fails on a msgstr that holds:
 - **"ask your MD"** unless the msgid is allowlisted as an act an MD can do (an MD cannot change a
   Takeoff: m0-screens 1.4);
 - **"reinforcement"**: the word is Rebar (CONTEXT.md);
-- a **positional placeholder** (`{0}`): every argument is named, so a translator knows what it is;
+- a **positional placeholder** (`{0}`, or `{0, number}`): every argument shown is named, so a translator
+  knows what it is (a `{0, plural, …}` or `{0, select, …}` only selects: its words say what it is);
 - a **count without a plural**: a plain or `number` argument named as a count (`{count}`, `{n}`,
   `{…_count}`), or a plain or `number` argument followed by a plural noun (`{sheets} sheets`,
   `{drawn} drawn pages`), which
@@ -26,6 +29,7 @@ with no reason, or one that no longer lets anything off, fails the lint.
 """
 
 import argparse
+import json
 import re
 import sys
 import tomllib
@@ -33,7 +37,13 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+REPO = Path(__file__).resolve().parents[2]
 CATALOGUES = "web/src/messages"
+FEATURES = "web/src/*/locales/**/en.po"
+"""Each feature's catalogue (`web/lingui.config.ts`: `src/{name}/locales/{locale}`)."""
+NOT_SHIPPED = ("dev",)
+"""Feature folders whose words no QS reads: `web/src/dev/` is the development harness, in development
+builds only (`web/src/routes/dev/specimen.tsx`, `scripts/check-dist.mjs`)."""
 ALLOWLIST = "tools/lint/words_allowlist.toml"
 
 ENGINE_TERM = "engine term"
@@ -45,14 +55,14 @@ COUNT = "count without a plural"
 RULES = (ENGINE_TERM, ADD_AGAIN, ASK_MD, REINFORCEMENT, POSITIONAL, COUNT)
 
 _ENGINE_TERMS = re.compile(
-    r"\b(?:process(?:es)?|stages?|exit codes?|readers?|dumpers?|sandbox(?:es)?|decoders?|parsers?"
-    r"|candidates?|regex(?:es)?|artefacts?|jobs?|workers?|queues?|caches?|tokens?|APIs?|timeouts?"
-    r"|viewports?|model spaces?|paper spaces?"
-    # m0-screens 1.1's own list of words never shown to a QS or an MD.
-    r"|entit(?:y|ies)|handles?|DXF|LibreDWG|ACadSharp|ezdxf|pdf\.js|WebGL|SDF|parse[sd]?|parsing"
-    r"|hash(?:es)?|sha256|buffers?|renders?|JSON|UUIDs?)\b",
+    r"\b(?:process(?:es)?|stages?|exit codes?|readers?|dumpers?|decoders?|parsers?|parsed|parsing"
+    r"|candidates?|regex(?:es)?|caches?|tokens?|timeouts?|viewports?|paper spaces?)\b",
     re.IGNORECASE,
 )
+"""Engine terms beyond m0-screens 1.1's list, which is `NEVER_SHOWN`'s."""
+NEVER_SHOWN = "web/src/test/never-shown.json"
+"""m0-screens 1.1's "Never shown to a QS or an MD": the one list, read by the screen tests too."""
+_FONT_FILE = re.compile(r"\b[\w-]+\.shx\b", re.IGNORECASE)
 _ENGINE_ARGUMENTS = {"program", "exit_code", "returncode"}
 """Arguments that put a converter's name or a raw exit code in front of a QS."""
 _ADD_AGAIN = re.compile(r"\badd (?:it|them) again\b", re.IGNORECASE)
@@ -64,7 +74,7 @@ _NOT_PLURAL = {
     "is", "was", "has", "does", "its", "this", "as", "us", "thus", "yes", "plus", "across", "less",
     "unless", "always", "whereas", "perhaps", "his", "series", "gas", "shows", "reads", "says",
     "needs", "looks", "holds", "keeps", "uses", "names", "matches", "stays", "starts", "stops",
-    "vextrus",
+    "vextrus", "creates", "belongs", "carries", "agrees", "ends", "confirms",
 }  # fmt: skip
 """Words ending in s that are not a plural noun (the verbs a singular argument takes among them)."""
 
@@ -215,6 +225,19 @@ def _read_icu(text: str, start: int, words: list[str], arguments: list[Argument]
     return i
 
 
+def never_shown(root: Path) -> re.Pattern[str]:
+    """The pattern for 1.1's list: each word whole, in any case, with its plural. The list is `root`'s;
+    a scratch tree with none is judged by this repository's."""
+    source = root / NEVER_SHOWN
+    if not source.exists():
+        source = REPO / NEVER_SHOWN
+    forms = []
+    for word in json.loads(source.read_text(encoding="utf-8")):
+        escaped = re.escape(word)
+        forms.append(f"{re.escape(word[:-1])}(?:y|ies)" if word.endswith("y") else f"{escaped}(?:e?s)?")
+    return re.compile(rf"\b(?:{'|'.join(forms)})(?!\w)", re.IGNORECASE)
+
+
 def parse(msgstr: str) -> tuple[str, list[Argument]]:
     """The msgstr's own words (joined, each piece on its own line) and its arguments."""
     words: list[str] = []
@@ -227,7 +250,7 @@ def parse(msgstr: str) -> tuple[str, list[Argument]]:
     return "\n".join(words), arguments
 
 
-def findings_in(message: Message) -> Iterator[Finding]:
+def findings_in(message: Message, shown: re.Pattern[str]) -> Iterator[Finding]:
     words, arguments = parse(message.msgstr)
 
     def hit(rule: str, text: str) -> Finding:
@@ -235,6 +258,8 @@ def findings_in(message: Message) -> Iterator[Finding]:
 
     for rule, pattern in (
         (ENGINE_TERM, _ENGINE_TERMS),
+        (ENGINE_TERM, shown),
+        (ENGINE_TERM, _FONT_FILE),
         (ADD_AGAIN, _ADD_AGAIN),
         (ASK_MD, _ASK_MD),
         (REINFORCEMENT, _REINFORCEMENT),
@@ -242,7 +267,8 @@ def findings_in(message: Message) -> Iterator[Finding]:
         for match in pattern.finditer(words):
             yield hit(rule, match.group())
     for argument in arguments:
-        if argument.name.isdigit():
+        if argument.name.isdigit() and argument.kind not in ("plural", "select", "selectordinal"):
+            # Shown, the argument needs a name; one that only selects is named by its own words.
             yield hit(POSITIONAL, f"{{{argument.name}}}")
         if argument.name in _ENGINE_ARGUMENTS:
             yield hit(ENGINE_TERM, f"{{{argument.name}}}")
@@ -257,16 +283,19 @@ def findings_in(message: Message) -> Iterator[Finding]:
 
 
 def catalogues(root: Path) -> list[Path]:
-    return sorted((root / CATALOGUES).glob("**/en.po"))
+    machine = (root / CATALOGUES).glob("**/en.po")
+    features = (path for path in root.glob(FEATURES) if path.parent.parent.name not in NOT_SHIPPED)
+    return sorted({*machine, *features})
 
 
 def scan(root: Path, allowlist: Sequence[Allow]) -> tuple[list[Finding], list[Allow]]:
     """The findings the allowlist does not let off, and the entries that let nothing off."""
     findings: list[Finding] = []
     used: set[Allow] = set()
+    shown = never_shown(root)
     for path in catalogues(root):
         for message in messages(path, path.relative_to(root).as_posix()):
-            for finding in findings_in(message):
+            for finding in findings_in(message, shown):
                 allowing = [entry for entry in allowlist if entry.allows(finding)]
                 used.update(allowing)
                 if not allowing:

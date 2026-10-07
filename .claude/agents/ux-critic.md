@@ -20,6 +20,8 @@ project and the task. Use the chrome-devtools MCP:
   by URL before every action, and never touch pages you did not open;
 - `list_console_messages` and `list_network_requests` for errors and slow calls.
 
+**Cloud.** In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). The words-only gate needs no browser and still runs.
+
 Before you walk, read the owner's rulings you check against: `docs/design/system.md` (the design
 system), `docs/design/screens.md` (the owner's rulings on each key screen) and, for M0,
 `docs/design/m0-screens.md` (the behaviour spec). A departure from them is a defect even when it looks
