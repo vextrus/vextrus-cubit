@@ -50,13 +50,19 @@ def test_a_bullet_runs_on_over_its_indented_lines_and_ends_at_a_blank_line() -> 
 
 
 def ci(
-    sha: str, workflow: str, created: str, minutes: int, status_: str = "completed"
+    sha: str,
+    workflow: str,
+    created: str,
+    minutes: int,
+    status_: str = "completed",
+    conclusion: str = "success",
 ) -> dict[str, object]:
     done = status.utc(status.parse_utc(created) + timedelta(minutes=minutes))
     return {
         "headSha": sha,
         "workflowName": workflow,
         "status": status_,
+        "conclusion": conclusion,
         "createdAt": created,
         "startedAt": created,
         "updatedAt": done,
@@ -105,3 +111,24 @@ def test_a_lesson_is_found_anywhere_on_a_line(line: str) -> None:
     found = stamp.LESSON_LINE.search(line)
     assert found is not None
     assert found.group(1) == "run ruff first"
+
+
+def test_superseded_cancelled_heads_do_not_drag_the_ci_wall_down() -> None:
+    runs = [
+        ci("c" * 40, "ci", "2026-10-08T07:00:00Z", 1, conclusion="cancelled"),
+        ci("d" * 40, "ci", "2026-10-08T08:00:00Z", 1, conclusion="cancelled"),
+        ci("e" * 40, "ci", "2026-10-08T09:00:00Z", 20),
+    ]
+    got = measures.compute(**WINDOW, prs=[], ledger=[], lock_spans=[], verify_spans=[], ci_runs=runs)
+    assert got["ci_wall_p50_min"] == pytest.approx(20)
+
+
+def test_one_cancelled_required_run_leaves_the_whole_head_out_and_a_skipped_one_does_not() -> None:
+    runs = [
+        ci("f" * 40, "ci", "2026-10-08T07:00:00Z", 20),
+        ci("f" * 40, "engine", "2026-10-08T07:00:30Z", 2, conclusion="cancelled"),
+        ci("1" * 40, "ci", "2026-10-08T08:00:00Z", 12),
+        ci("1" * 40, "engine", "2026-10-08T08:00:30Z", 0, conclusion="skipped"),
+    ]
+    got = measures.compute(**WINDOW, prs=[], ledger=[], lock_spans=[], verify_spans=[], ci_runs=runs)
+    assert got["ci_wall_p50_min"] == pytest.approx(12)

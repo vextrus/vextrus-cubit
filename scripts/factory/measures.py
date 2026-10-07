@@ -15,7 +15,9 @@ The seven measures, for a session's window [started, ended]:
 - `verify_p50_min`, `verify_p90_min`: verify run minutes (runs that ended in the window).
 - `ci_wall_p50_min`: median over pushed heads of the wall minutes from the earliest created to the
   latest finished run of the `ci` and `engine` workflows (the ones carrying required checks) for that
-  head; the other workflows only skip or post a status.
+  head; the other workflows only skip or post a status. A head with a cancelled or unfinished run is
+  left out (`cancel-in-progress` ends a superseded head's runs after minutes); only `success` and
+  `failure` runs count.
 
 A percentile is the inclusive linear interpolation. A measure with no data (or whose source gh could not
 give) is None, shown as "not measured". Lower is better for every measure but `prs_merged`.
@@ -92,8 +94,9 @@ def _span_minutes(spans: Iterable[Span], window: tuple[datetime, datetime], by: 
 
 def _head_walls(ci_runs: Sequence[Mapping[str, Any]], window: tuple[datetime, datetime]) -> list[float]:
     """Per pushed head: earliest created to latest finished among the runs of the workflows that carry
-    required checks. A head counts when its earliest run was created in the window; a head with an
-    unfinished required run is left out."""
+    required checks. Only a run that ended `success` or `failure` has a wall. A head with a cancelled
+    run (`cancel-in-progress`: a newer push superseded it) or an unfinished one is left out whole; its
+    minutes are not a CI wall. A head counts when its earliest run was created in the window."""
     heads: dict[str, list[tuple[datetime, datetime | None]]] = {}
     for run in ci_runs:
         if run.get("workflowName") not in REQUIRED_WORKFLOWS or not run.get("headSha"):
@@ -101,8 +104,11 @@ def _head_walls(ci_runs: Sequence[Mapping[str, Any]], window: tuple[datetime, da
         created = _time(run.get("createdAt"))
         if created is None:
             continue
-        done = _time(run.get("updatedAt")) if run.get("status") == "completed" else None
-        heads.setdefault(run["headSha"], []).append((created, done))
+        conclusion = run.get("conclusion") if run.get("status") == "completed" else None
+        if conclusion in ("success", "failure"):
+            heads.setdefault(run["headSha"], []).append((created, _time(run.get("updatedAt"))))
+        elif conclusion is None or conclusion == "cancelled":
+            heads.setdefault(run["headSha"], []).append((created, None))
     walls = []
     for runs in heads.values():
         first = min(created for created, _ in runs)
