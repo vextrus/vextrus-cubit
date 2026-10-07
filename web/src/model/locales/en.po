@@ -1,0 +1,156 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-07 12:37+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/model/ModelInspector.tsx
+msgid "Nothing was read for this element: it was typed."
+msgstr "Nothing was read for this element: it was typed."
+
+#: src/model/ModelCanvas.tsx
+msgid "Clear the selection"
+msgstr "Clear the selection"
+
+#: src/model/ModelPage.tsx
+msgid "The Live Model has no elements yet. Confirm a Takeoff Step and its elements appear here."
+msgstr "The Live Model has no elements yet. Confirm a Takeoff Step and its elements appear here."
+
+#: src/model/ModelInspector.tsx
+msgid "Grid line"
+msgstr "Grid line"
+
+#: src/model/ModelCanvas.tsx
+msgid "The Live Model in 3D"
+msgstr "The Live Model in 3D"
+
+#: src/model/ModelPage.tsx
+msgid "The 3D view’s tools"
+msgstr "The 3D view’s tools"
+
+#: src/model/ModelCanvas.tsx
+msgid "This browser cannot draw the model. Picking an element and its inspector still work."
+msgstr "This browser cannot draw the model. Picking an element and its inspector still work."
+
+#: src/model/ModelInspector.tsx
+msgid "Classification"
+msgstr "Classification"
+
+#: src/model/ModelInspector.tsx
+msgid "Inspector"
+msgstr "Inspector"
+
+#: src/model/ModelInspector.tsx
+msgid "Section depth"
+msgstr "Section depth"
+
+#: src/model/ModelCanvas.tsx
+msgid "Fit the model"
+msgstr "Fit the model"
+
+#: src/model/ModelPage.tsx
+msgid "Held by a Question"
+msgstr "Held by a Question"
+
+#: src/model/ModelCanvas.tsx
+msgid "Zoom in"
+msgstr "Zoom in"
+
+#: src/model/ModelCanvas.tsx
+msgid "Orbit left"
+msgstr "Orbit left"
+
+#: src/model/ModelInspector.tsx
+msgid "read from the drawing’s lines"
+msgstr "read from the drawing’s lines"
+
+#: src/model/ModelInspector.tsx
+msgid "IFC class"
+msgstr "IFC class"
+
+#: src/model/ModelCanvas.tsx
+msgid "Zoom out"
+msgstr "Zoom out"
+
+#: src/model/ModelInspector.tsx
+msgid "Storey"
+msgstr "Storey"
+
+#: src/model/ModelPage.tsx
+msgid "Live Model"
+msgstr "Live Model"
+
+#: src/model/ModelInspector.tsx
+msgid "Trace"
+msgstr "Trace"
+
+#: src/model/ModelCanvas.tsx
+msgid "Orbit right"
+msgstr "Orbit right"
+
+#: src/model/ModelPage.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
+#: src/model/ModelCanvas.tsx
+msgid "Pick the previous element"
+msgstr "Pick the previous element"
+
+#: src/model/ModelInspector.tsx
+msgid "Attributes"
+msgstr "Attributes"
+
+#: src/model/ModelPage.tsx
+msgid "What the colours mean"
+msgstr "What the colours mean"
+
+#: src/model/ModelInspector.tsx
+msgid "Section width"
+msgstr "Section width"
+
+#: src/model/ModelPage.tsx
+msgid "Opening the Live Model…"
+msgstr "Opening the Live Model…"
+
+#: src/model/ModelCanvas.tsx
+msgid "Tilt down"
+msgstr "Tilt down"
+
+#: src/model/ModelPage.tsx
+msgid "Proposal"
+msgstr "Proposal"
+
+#: src/model/ModelCanvas.tsx
+msgid "Pick the next element"
+msgstr "Pick the next element"
+
+#: src/model/ModelInspector.tsx
+msgid "Opening the element…"
+msgstr "Opening the element…"
+
+#: src/model/ModelInspector.tsx
+msgid "Click an element to see what it is and where it was read."
+msgstr "Click an element to see what it is and where it was read."
+
+#: src/model/ModelPage.tsx
+msgid "Storeys"
+msgstr "Storeys"
+
+#: src/model/ModelCanvas.tsx
+msgid "Tilt up"
+msgstr "Tilt up"
+
+#: src/model/ModelInspector.tsx
+msgid "read from a label"
+msgstr "read from a label"
+
+#: src/model/ModelInspector.tsx
+msgid "Column"
+msgstr "Column"
+
+#: src/model/ModelPage.tsx
+msgid "All storeys"
+msgstr "All storeys"
