@@ -702,6 +702,33 @@ def test_a_files_sheets_spend_one_view_budget(
     assert found["view_report"] == {"budgets_made": 1, "sheets_on_it": 2}
 
 
+VIEWS_WHOSE_BUDGET_RAISES = """
+class ViewBudget:
+    def __init__(self, artefact):
+        raise RuntimeError("no budget for this file")
+
+def find(artefact, sheet, conventions, budget=None):
+    return []
+"""
+
+
+def test_a_view_budget_that_raises_fails_only_the_views_stage(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    """PR 565's review: the budget is made inside the views stage's own call, so a raise there fails
+    that stage (as a raise in `find` does), never the file's process: its sheets are kept and the
+    stages that need no views run."""
+    found = by_path(
+        run(tmp_path, fakes(views=VIEWS_WHOSE_BUDGET_RAISES), {"a.dwg": ""}, conventions=conventions)
+    )["a.dwg"]
+
+    assert found["stages"]["views"]["state"] == "failed"
+    assert "no budget for this file" in found["stages"]["views"]["error"]
+    assert [s["number"]["value"] for s in found["sheets"]] == ["S-101", "S-102"]
+    assert found["stages"]["render_buffers"]["state"] == "ok"
+    assert found["stages"]["rasterise"]["state"] == "ok"
+
+
 def test_a_stage_whose_own_import_fails_is_failed_not_unbuilt(
     tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
 ) -> None:
