@@ -668,6 +668,19 @@ def meghna(demo: Demo) -> None:
     reading_pdf(demo, code, project_id, "MG-ARC-R0.pdf", pages=16, at=5, actor=TANVIR)
     retrying = added(demo, code, project_id, "MG-ARC-R0.dwg", invented("dwg", "MG-ARC-R0"), TANVIR)
     interrupted(retrying)
+    read_by_the_job(demo, code, project_id)
+
+
+def read_by_the_job(demo: Demo, code: str, project_id: uuid.UUID) -> None:
+    """MG-01's two recorded DWGs (#223), read by the product's read job as Tanvir's worker would:
+    MG-GENERAL-NOTES.dwg, whose name gives it the Market's General Discipline (GN-01, a General
+    sheet), and MG-SURVEY-R0.dwg, whose name names no Discipline, so the job asks which (SV-01)."""
+    from vextrus.seed import kr01  # it draws this module's sheets: imported here, not at the top
+
+    use = kr01.replayed()
+    with jev.using(kr01.jev_stand_in()):
+        for name, sheets in (("MG-GENERAL-NOTES.dwg", GENERAL_NOTES), ("MG-SURVEY-R0.dwg", SURVEY)):
+            by_the_job(demo, code, project_id, name, sheets, use, MEGHNA_TENANT)
 
 
 # A read job's states (#125) ----------------------------------------------------------------------------

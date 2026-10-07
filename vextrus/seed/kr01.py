@@ -55,10 +55,12 @@ from vextrus.seed.drawings import (
     ELECTRICAL,
     EMPTY_TAB,
     GAP,
+    GENERAL_NOTES,
     NOTES_WITH_CODES,
     OLD_STRUCTURAL,
     PAPER,
     STRUCTURAL,
+    SURVEY,
     TITLE_BLOCK,
     S,
     V,
@@ -74,8 +76,11 @@ FILES: dict[str, tuple[Sequence[S], tuple[str, ...]]] = {
     "KR-ARC-R0.dwg": (ARCHITECTURAL, ("Arial",)),
     "KR-ELE-R0.dwg": (ELECTRICAL, ("Arial",)),
     "KR-STR-old.dwg": (OLD_STRUCTURAL, ("Arial",)),
+    "MG-GENERAL-NOTES.dwg": (GENERAL_NOTES, ("Arial",)),
+    "MG-SURVEY-R0.dwg": (SURVEY, ("Arial",)),
 }
-"""Each file's sheets and the text styles it letters with (title, notes, dimensions)."""
+"""Each file's sheets and the text styles it letters with (title, notes, dimensions); the last two are
+MG-01's (#223): a file of general notes, and one whose name names no Discipline."""
 STYLES = {
     "Arial": "arial.ttf",
     "ROMANS": "romans.shx",
