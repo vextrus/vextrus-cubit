@@ -45,7 +45,7 @@ describe('Step 6', () => {
     const { frame } = await openColumns()
     await userEvent.click(label('Ground · C2'))
     await userEvent.keyboard('{Enter}')
-    await waitFor(() => expect(bodyText()).toContain('waits for its Question'))
+    await waitFor(() => expect(bodyText()).toContain('has an open Question'))
     expect(frame.acts()).toEqual([])
   })
 
@@ -86,7 +86,7 @@ describe('Step 6', () => {
     await userEvent.type(fields[0]!, '0')
     await userEvent.clear(fields[1]!)
     await userEvent.type(fields[1]!, '24{Enter}')
-    await waitFor(() => expect(clean(inspector().textContent)).toContain('Type a size above zero'))
+    await waitFor(() => expect(clean(inspector().textContent)).toContain('must be above zero'))
     expect(frame.acts()).toEqual([])
   })
 
@@ -188,9 +188,28 @@ describe('Step 4', () => {
     const api = new FakeApi()
     const frame = new FakeFrame(api, { empty: true })
     await mountApp('/p/KR-01/takeoff/4', { as: PEOPLE.qs, api })
-    await waitFor(() => expect(bodyText()).toContain('No grid lines read yet'), { timeout: 5000 })
+    await waitFor(() => expect(bodyText()).toContain('No grid lines yet'), { timeout: 5000 })
     await userEvent.click(within(canvas()).getByRole('button', { name: 'Read the grid' }))
     await waitFor(() => expect(frame.calls().some((c) => c.call === 'POST steps/grid/read')).toBe(true))
     expect(frame.acts()).toEqual([])
   })
+})
+
+describe('at 1280 wide (m0-screens §8, item 6)', () => {
+  for (const [step, wait] of [
+    [3, 'Basement'],
+    [4, 'A–B'],
+    [6, 'Ground · C1'],
+  ] as const) {
+    it(`Step ${step}'s rows fit the canvas with nothing cut off sideways`, async () => {
+      await page.viewport(1280, 800)
+      const api = new FakeApi()
+      new FakeFrame(api)
+      await mountApp(`/p/KR-01/takeoff/${step}`, { as: PEOPLE.qs, api })
+      await waitFor(() => expect(bodyText()).toContain(wait), { timeout: 5000 })
+      const c = canvas()
+      expect(c.scrollWidth, 'the canvas has no sideways scroll').toBeLessThanOrEqual(c.clientWidth)
+      for (const row of c.querySelectorAll<HTMLElement>('[data-row-key]')) expect(row.scrollWidth, `row ${row.dataset.rowKey}`).toBeLessThanOrEqual(row.clientWidth + 1)
+    })
+  }
 })

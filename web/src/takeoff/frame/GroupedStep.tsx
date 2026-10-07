@@ -65,9 +65,11 @@ function Groups({ projectId, step, groups }: { projectId: string; step: 'grid' |
   const acts = useFrameActs(projectId, step)
   const [focusedKey, setFocusedKey] = useState<string | null>(null)
   const [mode, setMode] = useState<Mode>({ kind: 'list' })
-  const [editing, setEditing] = useState(false)
+  // The size editor belongs to the group it was opened on: focus on another row closes it.
+  const [editingKey, setEditingKey] = useState<string | null>(null)
 
   const focused = groups.find((g) => g.key === focusedKey) ?? null
+  const editing = focused !== null && editingKey === focused.key
   const target = focused ?? nextOpenGroup(groups, null)
   const sheetOf = (viewId: string) => storeys.data?.view_placements.find((v) => v.view_id === viewId)?.sheet_number ?? null
   const total = counts(groups)
@@ -88,7 +90,7 @@ function Groups({ projectId, step, groups }: { projectId: string; step: 'grid' |
     if (editing || !target) return
     const ids = toConfirm(target).map((p) => p.id)
     if (ids.length === 0) {
-      if (groupState(target) === 'question') toast.show({ message: <Trans>This group waits for its Question. Answer it first.</Trans> })
+      if (groupState(target) === 'question') toast.show({ message: <Trans>This row has an open Question. Answer it in the Questions tab first.</Trans> })
       else {
         const next = nextOpenGroup(groups, target.key)
         if (next) {
@@ -115,20 +117,38 @@ function Groups({ projectId, step, groups }: { projectId: string; step: 'grid' |
 
   const edit = () => {
     if (readOnly) return refuse(readOnly)
-    if (focused) setEditing(true)
+    if (focused) setEditingKey(focused.key)
   }
 
   const agreeingCount = target ? toConfirm(target).length : 0
   const excludedCount = total.excluded
+  const labelKind = step === 'grid' ? 'grid' : 'mark'
+  const targetLabel = target?.label ?? ''
   const bar: BarSpec = {
-    say: target ? <Trans>Confirm <DrawingText kind={step === 'grid' ? 'grid' : 'mark'} text={target.label} truncate={false} />, {agreeingCount}</Trans> : null,
-    disabled: !target || toConfirm(target).length === 0 || acts.busy,
+    say:
+      target && agreeingCount > 0 ? (
+        step === 'grid' ? (
+          <Trans>
+            Confirm <DrawingText kind="grid" text={targetLabel} truncate={false} />, <Plural value={agreeingCount} one="# grid line" other="# grid lines" />
+          </Trans>
+        ) : (
+          <Trans>
+            Confirm <DrawingText kind="mark" text={targetLabel} truncate={false} />, <Plural value={agreeingCount} one="# column" other="# columns" />
+          </Trans>
+        )
+      ) : null,
+    note: target ? (
+      <Trans>
+        <DrawingText kind={labelKind} text={targetLabel} truncate={false} /> has an open Question. Answer it in the Questions tab first.
+      </Trans>
+    ) : undefined,
+    disabled: acts.busy,
     onEnter: () => void enter(),
     hints: [
-      { combo: 'X', words: <Trans>leaves out</Trans> },
+      { combo: 'X', words: <Trans>leaves out the row</Trans> },
       ...(step === 'columns' ? [{ combo: 'E', words: <Trans>types a size</Trans> }] : []),
-      { combo: 'Space', words: <Trans>opens the sheet</Trans> },
-      { combo: 'Ctrl Z', words: <Trans>takes back</Trans> },
+      { combo: 'Space', words: <Trans>opens its sheet</Trans> },
+      { combo: 'Ctrl Z', words: <Trans>takes back the last act</Trans> },
     ],
   }
 
@@ -136,24 +156,29 @@ function Groups({ projectId, step, groups }: { projectId: string; step: 'grid' |
     <>
       <SlotFill slot="toolbar.start" order={1}>
         <span className="text-sm whitespace-nowrap text-ink-secondary">
-          <Trans>
-            Confirmed <Count n={total.n} N={total.N} format={f.integer} />
-          </Trans>
-          {excludedCount > 0 ? <Trans>, {excludedCount} left out</Trans> : null}
+          {excludedCount > 0 ? (
+            <Trans>
+              Confirmed <Count n={total.n} N={total.N} format={f.integer} />, {excludedCount} excluded
+            </Trans>
+          ) : (
+            <Trans>
+              Confirmed <Count n={total.n} N={total.N} format={f.integer} />
+            </Trans>
+          )}
         </span>
       </SlotFill>
-      <SlotFill slot="inspector.selection">
+      <SlotFill slot="inspector.selection" className="flex-col items-stretch gap-0">
         {editing && focused ? (
           <SizeEditor
             group={focused}
             onCancel={() => {
-              setEditing(false)
+              setEditingKey(null)
               focusRow(focused.key)
             }}
             onSubmit={async (values) => {
               const ok = await acts.run('edit', focused.proposals.filter((p) => p.state !== 'excluded').map((p) => p.id), { values })
               if (ok) {
-                setEditing(false)
+                setEditingKey(null)
                 focusRow(focused.key)
               }
             }}
@@ -162,7 +187,7 @@ function Groups({ projectId, step, groups }: { projectId: string; step: 'grid' |
         ) : null}
         {focused ? <GroupInspector group={focused} sheetOf={sheetOf} onOpen={openTrace} step={step} /> : <NothingFocused />}
       </SlotFill>
-      <SlotFill slot="inspector.questions">
+      <SlotFill slot="inspector.questions" className="flex-col items-stretch gap-0">
         <QuestionsList proposals={groups.flatMap((g) => g.proposals)} />
       </SlotFill>
       <ScreenKeys
@@ -172,7 +197,7 @@ function Groups({ projectId, step, groups }: { projectId: string; step: 'grid' |
         undo={() => (readOnly ? refuse(readOnly) : void acts.undoLast())}
         escape={() => {
           if (editing) {
-            setEditing(false)
+            setEditingKey(null)
             if (focused) focusRow(focused.key)
           } else if (mode.kind === 'sheet') setMode({ kind: 'list' })
           else {

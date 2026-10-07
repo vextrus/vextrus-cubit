@@ -22,8 +22,6 @@ export function GroupInspector({ group, sheetOf, onOpen, step }: { group: FrameG
           const b = valueText(p.values, 'section_b')
           const d = valueText(p.values, 'section_d')
           const unit = valueText(p.values, 'unit')
-          const axis = valueText(p.values, 'axis')
-          const offset = valueText(p.values, 'offset')
           return (
             <li key={p.id} className="flex flex-col gap-0.5 border-b border-border pb-2 text-sm">
               <span className="flex items-center gap-2">
@@ -42,11 +40,6 @@ export function GroupInspector({ group, sheetOf, onOpen, step }: { group: FrameG
                   {b} × {d} {unit ?? ''}
                 </span>
               ) : null}
-              {axis !== null && offset !== null ? (
-                <span className="num text-xs text-ink-secondary" dir="ltr">
-                  {axis} {offset}
-                </span>
-              ) : null}
               {p.questions.map((q, i) => (
                 <span key={i} className="text-xs text-question">
                   <QuestionLine question={q} />
@@ -54,7 +47,7 @@ export function GroupInspector({ group, sheetOf, onOpen, step }: { group: FrameG
               ))}
               {p.trace.length === 0 ? (
                 <span className="text-xs text-ink-secondary">
-                  <Trans>No Trace on a sheet for this one.</Trans>
+                  <Trans>No Trace: the sheet this was read from is not recorded.</Trans>
                 </span>
               ) : (
                 p.trace.map((tr, i) => <TraceButton key={`${tr.view_id}-${tr.fact}-${i}`} trace={tr} sheet={sheetOf(tr.view_id)} onOpen={onOpen} />)

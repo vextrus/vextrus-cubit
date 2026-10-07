@@ -7,7 +7,7 @@
  * Typing a level and Enter puts it and moves to the next storey's field.
  */
 import { useEffect, useRef, useState } from 'react'
-import { Trans, useLingui } from '@lingui/react/macro'
+import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import { sessionQuery } from '@/app/session'
@@ -25,7 +25,7 @@ const projectRoute = getRouteApi('/_app/p/$code')
 
 export function StoreysPage() {
   const { t } = useLingui()
-  usePageTitle(t`Step 3, Levels`)
+  usePageTitle(t`Step 3, Storeys and levels`)
   const project = projectRoute.useLoaderData()
   const storeys = useQuery(storeysQuery(project.id))
   const proposals = useQuery(proposalsQuery(project.id, 'storeys'))
@@ -79,7 +79,7 @@ function Storeys({ projectId, storeys, placements, groups }: { projectId: string
     if (!target) return
     const ids = toConfirm(target).map((p) => p.id)
     if (ids.length === 0) {
-      if (groupState(target) === 'question') toast.show({ message: <Trans>These storeys wait for a Question. Answer it first.</Trans> })
+      if (groupState(target) === 'question') toast.show({ message: <Trans>These storeys have an open Question. Answer it in the Questions tab first.</Trans> })
       return
     }
     await acts.run('confirm', ids)
@@ -93,13 +93,14 @@ function Storeys({ projectId, storeys, placements, groups }: { projectId: string
   const agreeingCount = target ? toConfirm(target).length : 0
   const excludedCount = total.excluded
   const bar: BarSpec = {
-    say: target ? <Trans>Confirm the storeys as shown, {agreeingCount}</Trans> : null,
-    disabled: !target || toConfirm(target).length === 0 || acts.busy,
+    say: target && agreeingCount > 0 ? <Plural value={agreeingCount} one="Confirm the # storey" other="Confirm the # storeys" /> : null,
+    note: target ? <Trans>The storeys have an open Question. Answer it in the Questions tab first.</Trans> : undefined,
+    disabled: acts.busy,
     onEnter: () => void enter(),
     hints: [
-      { combo: 'X', words: <Trans>leaves out</Trans> },
-      { combo: 'Space', words: <Trans>opens the sheet</Trans> },
-      { combo: 'Ctrl Z', words: <Trans>takes back</Trans> },
+      { combo: 'X', words: <Trans>leaves out the storey</Trans> },
+      { combo: 'Space', words: <Trans>opens its sheet</Trans> },
+      { combo: 'Ctrl Z', words: <Trans>takes back the last act</Trans> },
     ],
   }
 
@@ -107,16 +108,21 @@ function Storeys({ projectId, storeys, placements, groups }: { projectId: string
     <>
       <SlotFill slot="toolbar.start" order={1}>
         <span className="text-sm whitespace-nowrap text-ink-secondary">
-          <Trans>
-            Confirmed <Count n={total.n} N={total.N} format={f.integer} />
-          </Trans>
-          {excludedCount > 0 ? <Trans>, {excludedCount} left out</Trans> : null}
+          {excludedCount > 0 ? (
+            <Trans>
+              Confirmed <Count n={total.n} N={total.N} format={f.integer} />, {excludedCount} excluded
+            </Trans>
+          ) : (
+            <Trans>
+              Confirmed <Count n={total.n} N={total.N} format={f.integer} />
+            </Trans>
+          )}
         </span>
       </SlotFill>
-      <SlotFill slot="inspector.selection">
+      <SlotFill slot="inspector.selection" className="flex-col items-stretch gap-0">
         {focused ? <StoreyInspector storey={focused} proposal={focusedProposal} sheetOf={sheetOf} onOpen={openTrace} /> : <p className="p-3 text-sm text-ink-secondary"><Trans>Pick a storey to see its level and where its name was read.</Trans></p>}
       </SlotFill>
-      <SlotFill slot="inspector.questions">
+      <SlotFill slot="inspector.questions" className="flex-col items-stretch gap-0">
         <QuestionsList proposals={groups.flatMap((g) => g.proposals)} />
       </SlotFill>
       <ScreenKeys
@@ -142,7 +148,7 @@ function Storeys({ projectId, storeys, placements, groups }: { projectId: string
         <div className="relative flex h-full min-h-0 flex-col">
           <div className="min-h-0 flex-1 overflow-auto pb-24">
             <p className="border-b border-border px-3 py-1.5 text-xs text-ink-secondary">
-              <Trans>Names and order are read from the drawings; levels typed, not read. Level in metres.</Trans>
+              <Trans>Names and order are read from the drawings; levels typed, not read. Type each level in metres, for example 3.05 for 10′-0″.</Trans>
             </p>
             <FrameList
               label={t`Storeys`}
@@ -151,7 +157,7 @@ function Storeys({ projectId, storeys, placements, groups }: { projectId: string
               getKey={(s) => s.id}
               focusedKey={focusedKey}
               onFocusKey={setFocusedKey}
-              spaceLabel={t`Open the focused storey’s sheet, or go back to the list`}
+              spaceLabel={t`Open the sheet this storey’s name was read from, or go back to the list`}
               onSpace={() => openTrace(focusedProposal?.trace[0])}
               className="flex-none overflow-visible pb-0"
               renderRow={(s) => <StoreyRow storey={s} proposal={proposalOf(groups, s)} projectId={projectId} readOnly={readOnly} onRefuse={() => readOnly && refuse(readOnly)} />}
@@ -222,19 +228,19 @@ function StoreyRow({ storey, proposal, projectId, readOnly, onRefuse }: { storey
     <>
       <StateMark state={proposal ? (proposal.questions.length > 0 && proposal.state === 'proposal' ? 'question' : proposal.state === 'confirmed' ? 'confirmed' : proposal.state === 'excluded' ? 'excluded' : 'proposal') : 'proposal'} />
       <span className="min-w-0 flex-1 truncate font-semibold">{storey.name}</span>
-      <span className="num w-28 text-end text-xs whitespace-nowrap text-ink-secondary">{height ? <Trans>{height} m high</Trans> : <Trans>height not set</Trans>}</span>
-      <span className={cn('w-16 text-xs whitespace-nowrap', storey.level_basis === 'typed' ? 'text-confirmed' : 'text-ink-secondary')}>{storey.level_basis === 'typed' ? <Trans>typed</Trans> : <Trans>default</Trans>}</span>
+      <span className="num w-40 text-end text-xs whitespace-nowrap text-ink-secondary">{height ? <Trans>{height} m floor to floor</Trans> : <Trans>height not set</Trans>}</span>
+      <span className={cn('w-16 text-xs whitespace-nowrap', storey.level_basis === 'typed' ? 'text-confirmed' : 'text-ink-secondary')}>{storey.level_basis === 'typed' ? <Trans>typed</Trans> : <Trans>not typed</Trans>}</span>
       <KeyRegion name="level-field" className="contents">
-        <EnterKey label={t`Put the level and go to the next storey`} run={() => void putAndNext()} />
+        <EnterKey label={t`Save the level and go to the next storey`} run={() => void putAndNext()} />
       <input
         ref={field}
         data-level-field=""
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        aria-label={t`Level of ${name}`}
+        aria-label={t`Level of ${name}, in metres`}
         aria-invalid={refused || undefined}
-        placeholder={t`type the level`}
+        placeholder={t`metres`}
         readOnly={!!readOnly}
         value={text}
         onChange={(event) => {
@@ -242,7 +248,7 @@ function StoreyRow({ storey, proposal, projectId, readOnly, onRefuse }: { storey
           setRefused(false)
         }}
         onBlur={() => void commit()}
-        className={cn('h-control w-24 rounded-md border bg-paper px-2 text-end text-sm', refused ? 'border-destructive' : 'border-input')}
+        className={cn('h-control w-28 rounded-md border bg-paper px-2 text-end text-sm', refused ? 'border-destructive' : 'border-input')}
       />
       </KeyRegion>
     </>
@@ -262,7 +268,7 @@ function StoreyInspector({ storey, proposal, sheetOf, onOpen }: { storey: Storey
         proposal.trace.map((tr, i) => <TraceButton key={`${tr.view_id}-${tr.fact}-${i}`} trace={tr} sheet={sheetOf(tr.view_id)} onOpen={onOpen} />)
       ) : (
         <p className="text-xs text-ink-secondary">
-          <Trans>No Trace on a sheet for this one.</Trans>
+          <Trans>No Trace: the sheet this was read from is not recorded.</Trans>
         </p>
       )}
     </section>
@@ -274,7 +280,7 @@ function Placements({ projectId, storeys, placements, readOnly, onRefuse }: { pr
   const qc = useQueryClient()
   const toast = useToast()
   const f = useFormat()
-  const { i18n } = useLingui()
+  const { t, i18n } = useLingui()
   const [openView, setOpenView] = useState<string | null>(null)
   const latest = useLatest(placements)
   if (placements.length === 0) return null
@@ -297,10 +303,13 @@ function Placements({ projectId, storeys, placements, readOnly, onRefuse }: { pr
   }
 
   return (
-    <section aria-label={i18n._('Views and their storeys')} className="flex flex-col border-t border-border">
-      <h3 className="px-3 pt-2 pb-1 text-xs font-semibold text-ink-secondary">
+    <section aria-label={t`Views and their storeys`} className="flex flex-col border-t border-border">
+      <h3 className="px-3 pt-2 text-xs font-semibold text-ink-secondary">
         <Trans>Views and their storeys</Trans>
       </h3>
+      <p className="px-3 pb-1 text-xs text-ink-secondary">
+        <Trans>Open a view and tick the storeys it shows.</Trans>
+      </p>
       <ul className="flex flex-col">
         {placements.map((v) => {
           const names = storeys.filter((s) => v.storeys.includes(s.id)).map((s) => s.name)
@@ -309,7 +318,7 @@ function Placements({ projectId, storeys, placements, readOnly, onRefuse }: { pr
             <li key={v.view_id} className="border-b border-border">
               <button type="button" aria-expanded={open} onClick={() => setOpenView(open ? null : v.view_id)} className="focus-inset flex min-h-row w-full items-center gap-3 px-3 py-1 text-start text-sm hover:bg-hover">
                 <span className="font-semibold">{v.sheet_number}</span>
-                <span className={cn('min-w-0 flex-1 truncate', names.length === 0 && 'text-question')}>{names.length > 0 ? names.join(', ') : <Trans>no storeys yet</Trans>}</span>
+                <span className={cn('min-w-0 flex-1 truncate', names.length === 0 && 'text-question')}>{names.length > 0 ? names.join(', ') : <Trans>no storeys ticked yet</Trans>}</span>
               </button>
               {open ? (
                 <fieldset className="flex flex-wrap gap-x-4 gap-y-0.5 px-3 pb-2">

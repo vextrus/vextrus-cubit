@@ -42,7 +42,7 @@ export function SizeEditor({
     if (sb !== null && sd !== null) void onSubmit({ section_b: sb, section_d: sd, unit })
   }
   const label = group.label
-  const problem = <Trans>Type a size above zero, like 12.</Trans>
+  const problem = <Trans>Width and depth must be above zero, like 12.</Trans>
   return (
     <KeyRegion name="size-editor" aria-label={t`Type the size`} role="group" data-size-editor="" className="flex flex-col gap-2 border-b border-border p-3">
       {/* Enter in a field is this form's: the screen's Enter (confirm) never sees it. */}
@@ -53,7 +53,7 @@ export function SizeEditor({
       <TextField ref={firstField} label={t`Width`} value={b} onChange={(e) => setB(e.target.value)} error={refused.b ? problem : undefined} inputMode="decimal" autoComplete="off" />
       <TextField label={t`Depth`} value={d} onChange={(e) => setD(e.target.value)} error={refused.d ? problem : undefined} inputMode="decimal" autoComplete="off" />
       <label className="flex flex-col gap-1 text-xs font-semibold text-ink-secondary">
-        <Trans>Written in</Trans>
+        <Trans>Unit on the drawing</Trans>
         <select
           value={unit}
           onChange={(e) => setUnit(e.target.value === 'mm' ? 'mm' : 'in')}

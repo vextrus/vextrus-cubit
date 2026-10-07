@@ -19,7 +19,7 @@ import { Button, ConfirmedGlyph, ExcludedGlyph, KeyCombo, KeyRegion, ProposalGly
 import { renderQuery } from '../data'
 import { useHasEnglish } from '../useHasEnglish'
 import { act, frameKey, type ActBody, type FrameProposal, type QuestionRef, type StepKey, type TraceOut } from './api'
-import { groupState, type GroupState } from './model'
+import type { GroupState } from './model'
 
 // The list ------------------------------------------------------------------------------------------
 
@@ -168,11 +168,10 @@ function Said({ kind, step, n }: { kind: ActKind; step: StepKey; n: number }) {
     if (step === 'grid') return <Plural value={n} one="Left out # grid line" other="Left out # grid lines" />
     return <Plural value={n} one="Left out # storey" other="Left out # storeys" />
   }
-  if (kind === 'edit') {
-    if (step === 'columns') return <Plural value={n} one="Sized # column" other="Sized # columns" />
-    return <Plural value={n} one="Changed #" other="Changed #" />
-  }
-  return <Plural value={n} one="Took back # proposal" other="Took back # proposals" />
+  if (kind === 'edit') return <Plural value={n} one="Sized # column" other="Sized # columns" />
+  if (step === 'columns') return <Plural value={n} one="Took back # column; it is a Proposal again" other="Took back # columns; they are Proposals again" />
+  if (step === 'grid') return <Plural value={n} one="Took back # grid line; it is a Proposal again" other="Took back # grid lines; they are Proposals again" />
+  return <Plural value={n} one="Took back # storey; it is a Proposal again" other="Took back # storeys; they are Proposals again" />
 }
 
 export interface Acts {
@@ -255,8 +254,10 @@ export function useFrameActs(projectId: string, step: StepKey): Acts {
 // The confirmation bar --------------------------------------------------------------------------------
 
 export interface BarSpec {
-  /** What Enter does, as the bar says it ("Confirm Ground · C1, 2 columns"); null when nothing is left. */
+  /** What Enter does, as the bar says it ("Confirm Ground · C1, 2 columns"); null when it does nothing now. */
   say: ReactNode | null
+  /** Said in the button's place when Enter does nothing: what holds the step, or that nothing is left. */
+  note?: ReactNode
   disabled?: boolean
   onEnter: () => void
   /** The other keys the screen has, as chips and words. */
@@ -268,13 +269,11 @@ export function Bar({ spec }: { spec: BarSpec }) {
     <div className="absolute inset-x-0 bottom-0 z-10 flex items-center gap-3 border-t border-border bg-chrome px-3 py-1.5 text-sm">
       {spec.say ? (
         <Button variant="commit" disabled={spec.disabled} onClick={spec.onEnter}>
-          {spec.say}
+          <span>{spec.say}</span>
           <KeyCombo combo="Enter" />
         </Button>
       ) : (
-        <span className="text-ink-secondary">
-          <Trans>Nothing left to confirm here.</Trans>
-        </span>
+        <span className="text-ink-secondary">{spec.note ?? <Trans>Nothing left to confirm here.</Trans>}</span>
       )}
       <span className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-0.5 text-xs text-ink-secondary">
         {spec.hints.map((h) => (
@@ -294,7 +293,7 @@ export function Bar({ spec }: { spec: BarSpec }) {
 export function QuestionLine({ question }: { question: QuestionRef }) {
   const hasEnglish = useHasEnglish()
   if (!hasEnglish(question.code) && question.code === 'engine.column.size_not_read') {
-    return <Trans>The size of this column was not read from its label. Type it with E.</Trans>
+    return <Trans>The size of this column was not read from its label. Press E to type it.</Trans>
   }
   return <MachineText message={{ code: question.code, params: question.params as Record<string, string | number> }} />
 }
@@ -412,7 +411,6 @@ export function useLatest<T>(value: T) {
   return ref
 }
 
-export { groupState }
 
 // The screen's keys -------------------------------------------------------------------------------------
 
@@ -449,7 +447,7 @@ export function ScreenKeys({
     { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat || inField() ? undefined : enter()) },
     { key: 'X', label: t`Leave out the focused row`, group: 'screen', run: exclude },
     ...(edit ? [{ key: 'E', label: t`Type the size of the focused row`, group: 'screen' as const, run: edit }] : []),
-    { key: 'Ctrl Z', label: t`Take back your last confirmation or leave-out on this step`, group: 'screen', run: (event) => (event.repeat ? undefined : undo()) },
+    { key: 'Ctrl Z', label: t`Take back your last confirmation or exclusion on this step`, group: 'screen', run: (event) => (event.repeat ? undefined : undo()) },
     { key: 'Esc', label: t`Back to the list; in the list, clear the focus`, group: 'screen', when: escapeActive, run: escape },
     {
       key: 'Space',
