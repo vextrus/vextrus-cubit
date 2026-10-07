@@ -13,16 +13,16 @@ The seven measures, for a session's window [started, ended]:
 - `rounds_per_pr`: mean ledger records (review rounds) per merged PR that was reviewed.
 - `rdlock_min`: minutes of real-drawing lock holds that began in the window.
 - `verify_p50_min`, `verify_p90_min`: verify run minutes (runs that ended in the window).
-- `ci_wall_p50_min`: median wall minutes (`startedAt` to `updatedAt`) of finished CI runs created in
-  the window.
+- `ci_wall_p50_min`: median over pushed heads of the wall minutes from the earliest created to the
+  latest finished run of the `ci` and `engine` workflows (the ones carrying required checks) for that
+  head; the other workflows only skip or post a status.
 
 A percentile is the inclusive linear interpolation. A measure with no data (or whose source gh could not
 give) is None, shown as "not measured". Lower is better for every measure but `prs_merged`.
 
-Approximations (the logs keep less than the measures need): a verify record has only `written_at`, so a
-run's start is the oldest output file of its `.private/work/verify/<tree>/` folder (a run with no folder
-is not counted); the real-drawing lock keeps no history, so a hold is an `rdlock run` log of
-`.private/work/rd/`: it began at the time in its file name and ended at the log's last write.
+Approximation: the real-drawing lock keeps no history, so a hold is an `rdlock run` log of
+`.private/work/rd/`: it began at the time in its file name and ended at the log's last write. A verify
+run is `started_at` to `written_at` of its shared record; a record without `started_at` is not counted.
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ KEYS = (
 HIGHER_IS_BETTER = ("prs_merged",)
 GH_TIMEOUT = 60
 GH_ERRORS = (*status.RUN_ERRORS, ValueError)
+REQUIRED_WORKFLOWS = ("ci", "engine")  # the workflows that carry required checks
 NOT_MEASURED = "not measured"
 Span = tuple[str, str]
 
@@ -89,6 +90,28 @@ def _span_minutes(spans: Iterable[Span], window: tuple[datetime, datetime], by: 
     return found
 
 
+def _head_walls(ci_runs: Sequence[Mapping[str, Any]], window: tuple[datetime, datetime]) -> list[float]:
+    """Per pushed head: earliest created to latest finished among the runs of the workflows that carry
+    required checks. A head counts when its earliest run was created in the window; a head with an
+    unfinished required run is left out."""
+    heads: dict[str, list[tuple[datetime, datetime | None]]] = {}
+    for run in ci_runs:
+        if run.get("workflowName") not in REQUIRED_WORKFLOWS or not run.get("headSha"):
+            continue
+        created = _time(run.get("createdAt"))
+        if created is None:
+            continue
+        done = _time(run.get("updatedAt")) if run.get("status") == "completed" else None
+        heads.setdefault(run["headSha"], []).append((created, done))
+    walls = []
+    for runs in heads.values():
+        first = min(created for created, _ in runs)
+        finished = [done for _, done in runs]
+        if window[0] <= first <= window[1] and None not in finished:
+            walls.append(_minutes(first, max(d for d in finished if d is not None)))
+    return walls
+
+
 def compute(
     *,
     started_utc: str,
@@ -123,16 +146,7 @@ def compute(
     out["verify_p50_min"] = percentile(verify, 0.5)
     out["verify_p90_min"] = percentile(verify, 0.9)
     if ci_runs is not None:
-        walls = []
-        for run in ci_runs:
-            begun = _time(run.get("startedAt") or run.get("createdAt"))
-            done = _time(run.get("updatedAt"))
-            created = _time(run.get("createdAt"))
-            if run.get("status") != "completed" or begun is None or done is None or created is None:
-                continue
-            if started <= created <= ended:
-                walls.append(_minutes(begun, done))
-        out["ci_wall_p50_min"] = percentile(walls, 0.5)
+        out["ci_wall_p50_min"] = percentile(_head_walls(ci_runs, window), 0.5)
     return out
 
 
@@ -269,16 +283,14 @@ def read_lock_spans(factory: Path) -> list[Span]:
     return spans
 
 
-def read_verify_spans(repo: Path, common: Path) -> list[Span]:
-    """Each verify record as (its output folder's oldest file write, `written_at`)."""
+def read_verify_spans(common: Path) -> list[Span]:
+    """Each shared verify record as (`started_at`, `written_at`); a record without `started_at` (written
+    before it existed) is not measured, never guessed."""
     spans = []
     for path in sorted((common / "vextrus").glob("verify-*.json")):
         try:
             record = json.loads(path.read_text())
-            tree, written = record["tree"], record["written_at"]
-            folder = repo / ".private" / "work" / "verify" / tree
-            begun = min(f.stat().st_mtime for f in folder.iterdir() if f.is_file())
-            spans.append((status.utc(datetime.fromtimestamp(begun).astimezone()), written))
+            spans.append((record["started_at"], record["written_at"]))
         except status.RECORD_ERRORS:
             continue
     return spans
@@ -308,6 +320,6 @@ def collect(repo: Path, factory: Path, started_utc: str, ended_utc: str) -> dict
         prs=read_prs(),
         ledger=read_ledger(factory),
         lock_spans=read_lock_spans(factory),
-        verify_spans=read_verify_spans(repo, common) if common else [],
+        verify_spans=read_verify_spans(common) if common else [],
         ci_runs=read_ci_runs(),
     )

@@ -388,6 +388,7 @@ def main(
         checks = [Check("diff-check", ("git", "diff", "--cached", "--check", "HEAD"))]
     # Not in plan(paths): it depends on the open PRs, not the changed paths. It checks the staged tree
     # (what this commit carries) on the branch's tip; a detached HEAD is checked as `HEAD`.
+    started_at = utc_now()  # before the first check starts (the measures read started_at..written_at)
     branch = _git("branch", "--show-current") or "HEAD"
     crosspr = (sys.executable, "-m", "scripts.factory.crosspr", branch, "--tree", tree)
     checks.append(Check("crosspr", crosspr))
@@ -435,6 +436,7 @@ def main(
         )
     ok = all(result["exit_code"] == 0 for result in results)
     record = {"schema_version": 1, "tree": tree, "written_at": utc_now(), "ok": ok, "checks": results}
+    record["started_at"] = started_at
     folder = common / "vextrus"
     folder.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(dir=folder, prefix=".verify-", suffix=".tmp")

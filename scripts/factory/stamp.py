@@ -154,7 +154,7 @@ def stamp_line(text: str) -> None:
         raise Refused(f"{state} cannot be written: {error}") from error
 
 
-LESSON_LINE = re.compile(r"^\S+ LESSON:\s*(.+?)\s*$")
+LESSON_LINE = re.compile(r"\bLESSON(?:\s*\([^)]*\))?\s*:\s*(.+?)\s*$")
 CHECK = re.compile(r"\bCheck:\s*\S")
 
 
@@ -186,7 +186,7 @@ def check_lessons(state: Path, root: Path | None) -> None:
         lines = state.read_text().splitlines() if state.exists() else []
     except OSError as error:
         raise Refused(f"{state} is unreadable: {error}") from error
-    lessons = [m.group(1) for line in lines if (m := LESSON_LINE.match(line))]
+    lessons = [m.group(1) for line in lines if (m := LESSON_LINE.search(line))]
     if not lessons:
         return
     try:
