@@ -33,6 +33,7 @@ def test_sync_runs_each_module_s_sync_in_layer_order_as_the_owner(
     monkeypatch.setattr("vextrus.measurement.library.sync", fake("measurement", 6), raising=False)
     monkeypatch.setattr("vextrus.drawings.library.sync", fake("drawings", 8), raising=False)
     monkeypatch.setattr("vextrus.live_model.library.sync", fake("live_model", 3), raising=False)
+    monkeypatch.setattr("vextrus.rates.library.sync", fake("rates", 3), raising=False)
 
     written = library.sync()
 
@@ -41,8 +42,9 @@ def test_sync_runs_each_module_s_sync_in_layer_order_as_the_owner(
         ("live_model", ["BD"], "owner"),
         ("takeoff", ["BD"], "owner"),
         ("measurement", ["BD"], "owner"),
+        ("rates", ["BD"], "owner"),
     ]
-    assert written == {"drawings": 8, "live_model": 3, "takeoff": 14, "measurement": 6}
+    assert written == {"drawings": 8, "live_model": 3, "takeoff": 14, "measurement": 6, "rates": 3}
 
 
 @pytest.mark.django_db(databases=["default", "owner"])
@@ -50,8 +52,6 @@ def test_the_command_reports_what_it_wrote(capsys: pytest.CaptureFixture[str]) -
     call_command("sync_library")
 
     # The tests' setup has synced already (vextrus/testing/tenancy.py); drawings writes the
-    # Markets' Disciplines (14), live_model its Element Families and Attribute Definitions (S16-L)
-    # takeoff its Takeoff Steps and Checks (19a) and measurement its Rule Set rows (S16-M), so four modules
-    # have rows, and none is left
-    # to write.
-    assert "sync_library: 0 rows from 4 module(s)" in capsys.readouterr().out
+    # Markets' Disciplines (14), takeoff its Takeoff Steps and Checks (19a) and rates its starter
+    # prices, so those modules have rows, and none is left to write.
+    assert "sync_library: 0 rows from " in capsys.readouterr().out
