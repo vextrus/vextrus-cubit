@@ -6,6 +6,8 @@ from engine.recognise import views
 from engine.recognise.tests.drawing import Sheets
 from engine.recognise.tests.test_views import CONVENTIONS, drawn, grid, near, one_sheet
 from engine.recognise.types import ViewCandidate, ViewConventions, ViewKind
+from engine.recognise.views import segment as segment_part
+from engine.recognise.views.segment import texts as texts_part
 
 LINES = (
     "1. KEEP ALL SLEEVES CLEAR",
@@ -122,11 +124,11 @@ def test_a_line_led_by_note_inside_a_column_of_notes_heads_nothing() -> None:
 def test_a_notes_heading_takes_at_most_max_note_lines() -> None:
     """A column of more lines than `MAX_NOTE_LINES`: the heading takes that many, and stops."""
     d = Sheets()
-    n = views.MAX_NOTE_LINES + 50
+    n = texts_part.MAX_NOTE_LINES + 50
     lines = tuple(f"{i + 1}. LINE" for i in range(n))
     column(d, "NOTES :", (400, 560), lines, 1.0)
     (notes,) = notes_of(d)
-    assert notes.box.y0 >= 560 - 1.6 - 1.2 * (views.MAX_NOTE_LINES - 1) - 0.5
+    assert notes.box.y0 >= 560 - 1.6 - 1.2 * (texts_part.MAX_NOTE_LINES - 1) - 0.5
 
 
 def test_heading_words_are_data_and_absent_from_the_json_when_none() -> None:
@@ -332,7 +334,7 @@ def test_many_small_note_texts_leave_the_drawings_titles() -> None:
     """Review 1 and re-check 1, loop 2 (50): 200 "NOTES" headings, 3 mm high (above `MIN_HEADING`),
     written before two titled drawings took every title slot; headings have their own."""
     d = Sheets()
-    for i in range(views.MAX_TITLES):  # staggered, so no two stand in one column
+    for i in range(segment_part.MAX_TITLES):  # staggered, so no two stand in one column
         d.text(
             "NOTES",
             (360 + (i % 20) * 15 + (i // 20) * 0.7, 580 - (i // 20) * 25 - (i % 20) * 0.9, 0.0),

@@ -93,7 +93,7 @@ def assert_on_paper(
     box: tuple[str, str, str, str], sheet: services.SheetView, buffers: SheetBuffers
 ) -> None:
     """A view's box lies on its sheet's paper, in mm from its lower-left corner (the contract of
-    engine/recognise/views.py), whether the sheet is laid out in the drawing or on a layout tab."""
+    engine/recognise/views/paper.py), whether the sheet is laid out in the drawing or on a layout tab."""
     x0, y0, x1, y1 = (float(v) for v in box)
     fx0, fy0 = 0.0, 0.0
     fx1, fy1 = buffers.paper.width_mm, buffers.paper.height_mm
@@ -266,8 +266,8 @@ def _kr01_views(demo: Demo) -> list[tuple[services.SheetView, services.ViewView]
 
 @pytest.mark.django_db(databases=["default", "owner"])
 def test_every_seeded_view_box_lies_on_its_sheets_paper(demo: Demo) -> None:
-    """A view's box is paper mm from its sheet's lower-left corner (engine/recognise/views.py), never
-    drawing coordinates: every KR-01 sheet is an A1, 841 by 594 mm."""
+    """A view's box is paper mm from its sheet's lower-left corner (engine/recognise/views/paper.py),
+    never drawing coordinates: every KR-01 sheet is an A1, 841 by 594 mm."""
     off = [
         (sheet.number, view.title, view.box)
         for sheet, view in _kr01_views(demo)

@@ -153,9 +153,10 @@ def read(
     seen: dict[str, int] = {}
     said_for_file: set[str] = set()
     render_left = [RENDER_SECONDS]
-    # The view finder's bounds are the file's, held by the artefact loaded in this run: sheets whose
-    # steps were kept by an earlier run are walked again (nothing recorded) before the next sheet is
-    # read, so a stop never hands the rest of the file a fresh budget.
+    # The view finder's bounds are the file's, one budget for the artefact loaded in this run: sheets
+    # whose steps were kept by an earlier run are walked again (nothing recorded) before the next
+    # sheet is read, so a stop never hands the rest of the file a fresh budget.
+    budget = once(lambda: view_finder.ViewBudget(load()))
     unwalked: list[SheetCandidate] = []
     read_here: list[uuid.UUID] = []
 
@@ -163,12 +164,19 @@ def read(
         read_here.append(sheet_id)
         artefact, view_conventions = load(), held()[1]
         for earlier in unwalked:
-            spent = view_finder.find(artefact, earlier, view_conventions).limits
+            spent = view_finder.find(artefact, earlier, view_conventions, budget=budget()).limits
             seen.clear()
             seen.update(spent or {})
         unwalked.clear()
         return _read_sheet(
-            sheet_id, candidate, artefact, view_conventions, seen, said_for_file, render_left[0]
+            sheet_id,
+            candidate,
+            artefact,
+            view_conventions,
+            budget(),
+            seen,
+            said_for_file,
+            render_left[0],
         )
 
     for position, kept in enumerate(recorded, start=1):
@@ -248,11 +256,13 @@ def _read_sheet(
     candidate: SheetCandidate,
     artefact: ReadArtefact,
     view_conventions: ViewConventions,
+    budget: view_finder.ViewBudget,
     seen: dict[str, int],
     said_for_file: set[str],
     render_left: float = RENDER_SECONDS,
 ) -> jobs.StepResult:
-    """`seen`: the view finder's limits as the last sheet read with this artefact left them;
+    """`budget`: the view finder's for the file, one for all its sheets; `seen`: the view finder's
+    limits as the last sheet read with this artefact left them;
     `said_for_file`: the view limits an earlier sheet's step already said (once for the file: the
     words are the file's; `view_report` says which sheets a limit cut)."""
     # The views are proposed by the sheet's Discipline as it stands now, not as the `sheets` step
@@ -262,7 +272,7 @@ def _read_sheet(
     candidate = replace(
         candidate, discipline=Sourced(discipline, ValueSource.FILE) if discipline else None
     )
-    views = view_finder.find(artefact, candidate, view_conventions)
+    views = view_finder.find(artefact, candidate, view_conventions, budget=budget)
     kept = drawings.record_views(sheet_id, list(views))
     # The view finder's bounds are the file's, spent across its sheets: this sheet's cut is what
     # they left unread while reading it.

@@ -931,7 +931,7 @@ def candidate(sheet: S, built: _Built, found: services.FileView) -> SheetCandida
 
 def views_of(sheet: S) -> list[ViewCandidate]:
     """Its views, each box on paper in mm from the sheet's lower-left corner (the contract of
-    engine/recognise/views.py), wherever the sheet lies in the drawing."""
+    engine/recognise/views/paper.py), wherever the sheet lies in the drawing."""
     x0, y0 = 0.0, 0.0
     width, height = PAPER
     shown = []
@@ -953,7 +953,7 @@ def _view(view: V, box: Box) -> ViewCandidate:
     meaning = None
     as_stated = view.storeys
     if view.kind is ViewKind.PLAN and view.title:
-        # As 17 reads a plan's title (engine/recognise/views.py): the storeys it states, stated
+        # As 17 reads a plan's title (engine/recognise/views/storeys.py): the storeys it states, stated
         # beside the title where the title does not hold them (S-08's "PILE CAP TO 2ND FLOOR").
         read = storeys.read(view.storeys or decode(view.title), default_conventions(), plan_title=True)
         keys = tuple(dict.fromkeys((*read.keys, *([read.runs_to] if read.runs_to else []))))
