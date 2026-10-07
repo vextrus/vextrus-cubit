@@ -68,15 +68,23 @@ viewer tools; Answer Keys and blind scoring; the MD's view; Revisions.
 slabs as planes in 3D; the Rate Analysis popover; Step 3's view placement edit; the size Question (E); Step 4 as its own
 screen (grid confirmed inside Step 6); 3D entirely. **Never cut:** the allowance lines and measured share, the read-against-hand-count line, every figure's Trace, the "by ratio" mark, the cut list read aloud.
 
-## The train
-Every ticket gets its own branch made from S16-K0's head once K0's acceptance commit is on GitHub
-(`git branch s16-<id> origin/s16-k0`, then the leak scan and the branch upload by the command card's recipe), launched
-with `launch cloud|local --branch s16-<id>`; its PR targets `s16-m1`, not main. Never launch a ticket on `s16-k0`
-itself: it would build on K0's branch. Review each into `s16-m1` (at most two rounds; then simplify or cut). At **T+110 min freeze**: one PR
-`s16-m1` → main; one integrated review round (exception `integration` if needed), the design gate on that head, ONE
-posting run, merge_ready, land. Content not READY at the freeze is cut, not waited for. If review.py or merge_ready refuses
-a non-main base, say so in STATE.md and review the branch heads with the lenses by hand. Contracts are frozen at K0
-(`docs/plans/M1.md` C4, C7, C11, C12, C13, C17); a contract change is an acceptance amendment through the orchestrator.
+## The train (how the factory's tools see it: read before launching)
+The tools assume one base, main. Three facts and the steps that follow from them:
+- **review.py diffs a PR's head merged with main against main**, never against the PR's base. A ticket PR into the
+  train would be reviewed together with K0 and every ticket already merged. So: **land S16-K0 on main first** (contracts,
+  types and 501 stubs only: small; its posting run starts at once and is the first thing under the lock), then branch
+  every ticket from main and review each ticket PR against main as usual. Merge each passing ticket into the train branch
+  `s16-m1` (made from main after K0 lands) for the integrated stack the showing runs on; ticket PRs stay open against
+  main until the train lands.
+- **The launcher's acceptance-first check only asks for some `acceptance:` commit ahead of main.** Before launching any
+  ticket, check that the ticket's OWN acceptance commit is on its branch:
+  `git log --format=%s origin/main..origin/s16-<id> | grep "^acceptance: .*S16-<ID>"` must print a line.
+- **A merge of anything but main is not READY** (scripts/factory/ci_gate.py), so the train head never reads READY by
+  itself. At the freeze the orchestrator runs `scripts.verify` on the train head locally and commits an empty READY on that
+  exact tree (session 15's local-verify recipe), then opens `s16-m1` → main: one integrated review round (exception
+  `integration`), the design gate on the head the lander leaves up to date, ONE posting run, merge_ready, land. Content not
+  READY at the freeze is cut, not waited for. Contracts are frozen at K0 (`docs/plans/M1.md` C4, C7, C11, C12, C13, C17);
+  a contract change is an acceptance amendment through the orchestrator.
 
 | id | title | owns | blocked by | where | tier / model | budget | finish check |
 |---|---|---|---|---|---|---|---|
@@ -103,7 +111,7 @@ train (T2 `takeoff/http/frame.py`, L2 `live_model/http/model.py`, B and RT their
 except `services/primitives.py`, which is L2's. With those, no two tickets edit one file at once.
 
 **Timeline (T = start):** T+0 acceptance writers for all 14 in parallel (Opus 5.5 high, 15 min); D starts. T+15 launch every
-ticket on K0's branch as it stands (R1, R2 merge K0's head when READY). T+40 L2 on L1's branch. T+60-110 reviews into
+ticket on its own branch from main (K0's PR in review; each ticket merges K0's branch until K0 lands, then main). T+40 L2 on its own branch, stacked on L1's. T+60-110 reviews against main, passing tickets merged into
 `s16-m1`; the orchestrator serves the train head with D's project. **T+110 freeze**, train PR, integrated review, design
 gate, posting run. T+160-175 land if it passes; the orchestrator runs the showing script. ~12:30Z the owner presents.
 
