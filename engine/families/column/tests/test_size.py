@@ -96,3 +96,12 @@ def test_plain_writes_no_exponent_or_trailing_zero() -> None:
     assert str(size.plain(Decimal("254.000"))) == "254"
     assert str(size.plain(Decimal("0.2540"))) == "0.254"
     assert str(size.plain(Decimal("1200"))) == "1200"
+
+
+def test_a_long_hostile_text_is_parsed_in_linear_time() -> None:
+    import time
+
+    started = time.perf_counter()
+    assert size.parse("1" * 5000 + "x" + " " * 5000 + "y") is None
+    assert size.parse("1'" * 3000) is None
+    assert time.perf_counter() - started < 1.0

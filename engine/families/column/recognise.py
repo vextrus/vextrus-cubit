@@ -70,6 +70,11 @@ class _Outline:
     corners: tuple[Point, Point, Point, Point]
 
     @property
+    def key(self) -> tuple[str, ...]:
+        """The outline's place in the file: one block inserted many times draws it many times."""
+        return (*self.inserts, self.handle)
+
+    @property
     def box(self) -> Box:
         xs, ys = [p[0] for p in self.corners], [p[1] for p in self.corners]
         return (min(xs), min(ys), max(xs), max(ys))
@@ -291,7 +296,7 @@ def _read_view(
     candidates: list[ElementCandidate] = []
     questions: list[QuestionRaised] = []
     for outline in outlines:
-        mine = held.get(outline.handle, [])
+        mine = held.get(outline.key, [])
         mark = next((label for label in mine if label.mark), None)
         sized = next((label for label in mine if label.size), None)
         if mark is None and sized is None:
@@ -411,6 +416,8 @@ def _label(
     corners = [(x, y), (x + width * ux, y + width * uy), (x - height * uy, y + height * ux)]
     corners.append((corners[1][0] - height * uy, corners[1][1] + height * ux))
     xs, ys = [p[0] for p in corners], [p[1] for p in corners]
+    if not all(math.isfinite(c) for c in (*xs, *ys)):
+        return None
     inserts = tuple(link.insert.handle for link in chain)
     return _Label(entity.handle, inserts, text, (min(xs), min(ys), max(xs), max(ys)), size, mark)
 
@@ -421,20 +428,46 @@ def _gap(a: Box, b: Box) -> float:
     return math.hypot(dx, dy)
 
 
+def _cells(box: Box, cell: float, margin: float) -> tuple[range, range]:
+    return (
+        range(math.floor((box[0] - margin) / cell), math.floor((box[2] + margin) / cell) + 1),
+        range(math.floor((box[1] - margin) / cell), math.floor((box[3] + margin) / cell) + 1),
+    )
+
+
 def _assign(
     outlines: Sequence[_Outline], labels: Sequence[_Label], reach: Decimal
-) -> dict[str, list[_Label]]:
-    """Each label to its nearest outline within reach, each outline's labels nearest first."""
-    held: dict[str, list[tuple[float, _Label]]] = {}
+) -> dict[tuple[str, ...], list[_Label]]:
+    """Each label to its nearest outline within reach, each outline's labels nearest first.
+
+    Outlines are bucketed in square cells as wide as the longest reach, so a label weighs only the
+    outlines in the cells around it, and a plan of many rectangles and texts stays near linear."""
+    held: dict[tuple[str, ...], list[tuple[float, _Label]]] = {}
+    if not outlines:
+        return {}
     factor = float(reach)
+    longest = max(factor * max(outline.sides) for outline in outlines)
+    cell = max(longest, max(max(outline.sides) for outline in outlines), 1e-9)
+    buckets: dict[tuple[int, int], list[_Outline]] = {}
+    for outline in outlines:
+        columns, rows = _cells(outline.box, cell, 0.0)
+        for i in columns:
+            for j in rows:
+                buckets.setdefault((i, j), []).append(outline)
     for label in labels:
+        columns, rows = _cells(label.box, cell, longest)
+        span = (columns.stop - columns.start) * (rows.stop - rows.start)
+        if span > len(buckets):
+            near = [o for (i, j), found in buckets.items() if i in columns and j in rows for o in found]
+        else:
+            near = [o for i in columns for j in rows for o in buckets.get((i, j), ())]
         best: tuple[float, _Outline] | None = None
-        for outline in outlines:
+        for outline in near:
             gap = _gap(outline.box, label.box)
             if gap <= factor * max(outline.sides) and (best is None or gap < best[0]):
                 best = (gap, outline)
         if best is not None:
-            held.setdefault(best[1].handle, []).append((best[0], label))
+            held.setdefault(best[1].key, []).append((best[0], label))
     return {key: [label for _, label in sorted(found, key=_first)] for key, found in held.items()}
 
 
@@ -446,13 +479,15 @@ def _first(pair: tuple[float, _Label]) -> float:
 
 
 def _drawing_unit(
-    artefact: ReadArtefact, outlines: Sequence[_Outline], held: Mapping[str, list[_Label]]
+    artefact: ReadArtefact,
+    outlines: Sequence[_Outline],
+    held: Mapping[tuple[str, ...], list[_Label]],
 ) -> str:
     """The plan's unit, from its size labels against the outlines they label (`size.drawing_unit`)."""
     labelled = [
         (label.size, outline.sides)
         for outline in outlines
-        for label in held.get(outline.handle, [])
+        for label in held.get(outline.key, [])
         if label.size is not None
     ]
     return sizes.drawing_unit(artefact.summary.insunits, labelled)
@@ -499,9 +534,9 @@ def _candidate(
     cx, cy = outline.centre
     placed = grid.place(cx, cy)
     at = _at(placed)
-    key = hashlib.sha256(
-        "|".join((FAMILY, view.view_id, storey, *outline.inserts, outline.handle)).encode()
-    ).hexdigest()[:16]
+    key = hashlib.sha256("|".join((FAMILY, view.view_id, storey, *outline.key)).encode()).hexdigest()[
+        :16
+    ]
     return ElementCandidate(
         family=FAMILY,
         candidate_key=key,

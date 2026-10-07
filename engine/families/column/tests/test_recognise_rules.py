@@ -59,6 +59,14 @@ def _plan() -> Drawing:
     _rect(doc, (6000, 5000), 400, 400, LINES)  # B/2, no label at all: a drawn rectangle
     _rect(doc, (3000, 2500), 7000, 6000, LINES)  # bigger than a bay: a frame, not a column
     _text(doc, (6700, 5800), "F9")  # beside the frame's corner, far from every column
+    block = doc.blocks.new("QZ-B")
+    block.add_lwpolyline(
+        [(-150, -150), (150, -150), (150, 150), (-150, 150)], close=True, dxfattribs={"layer": LINES}
+    )
+    for at, mark in (((0, 5000), "C6"), ((12000, 5000), "C7")):  # A/2 and past B/2
+        doc.modelspace().add_blockref("QZ-B", at, dxfattribs={"layer": LINES})
+        _text(doc, (at[0] + 250, at[1] + 100), mark)
+        _text(doc, (at[0] + 250, at[1] - 100), "300x300")
     return doc
 
 
@@ -106,7 +114,7 @@ def _by_mark(found: Recognised, mark: str) -> ElementCandidate:
 
 
 def test_only_labelled_outlines_smaller_than_a_bay_are_columns(artefact: ReadArtefact) -> None:
-    assert _marks(_run(artefact)) == ["C4", "C5"]
+    assert _marks(_run(artefact)) == ["C4", "C5", "C6", "C7"]
 
 
 def test_one_text_may_hold_the_mark_and_the_size(artefact: ReadArtefact) -> None:
@@ -126,13 +134,13 @@ def test_a_bare_label_far_from_its_outline_in_mm_is_read_in_inches(artefact: Rea
 def test_the_profiles_layers_limit_the_outlines(artefact: ReadArtefact) -> None:
     profile = {"families": {"column": {"layers": [LINES]}}}
 
-    assert _marks(_run(artefact, profile)) == ["C4"]
+    assert _marks(_run(artefact, profile)) == ["C4", "C6", "C7"]
 
 
 def test_the_profiles_label_patterns_name_the_mark(artefact: ReadArtefact) -> None:
     profile = {"families": {"column": {"label_patterns": [r"(?P<mark>C\d+)"]}}}
 
-    assert _marks(_run(artefact, profile)) == ["C4", "C5"]
+    assert _marks(_run(artefact, profile)) == ["C4", "C5", "C6", "C7"]
 
 
 def test_a_view_of_several_storeys_gives_one_candidate_per_storey_with_its_band(
@@ -173,3 +181,15 @@ def test_without_a_grid_a_column_has_no_grid_ref(artefact: ReadArtefact) -> None
     found = recognise(views, ConfirmedFacts(facts=()), ProjectSetup(), None)
 
     assert {c.at[0] for c in found.candidates} == {""}
+
+
+def test_a_column_block_inserted_twice_is_two_columns_with_their_own_labels(
+    artefact: ReadArtefact,
+) -> None:
+    found = _run(artefact)
+    c6, c7 = _by_mark(found, "C6"), _by_mark(found, "C7")
+
+    assert (c6.at[0], c7.at[0]) == ("A/2", "B/2")
+    assert c7.at[1] == Decimal(6000)
+    assert c6.anchors["outline"][0].inserts != c7.anchors["outline"][0].inserts
+    assert c6.values["section_b"].value == Decimal(300)
