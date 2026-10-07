@@ -93,10 +93,12 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
     proposed = asked = 0
     with transaction.atomic():
         for family in _families():
-            key, step = str(family.MANIFEST.key), str(family.MANIFEST.step)
+            manifest = _part(family, "manifest", "MANIFEST")
+            key, step = str(manifest.key), str(manifest.step)
             try:
                 with transaction.atomic():
-                    recognised = family.recognise(views, confirmed, setup, profile)
+                    recognise = _part(family, "recognise", "recognise")
+                    recognised = recognise(views, confirmed, setup, profile)
                     written = _propose(project_id, building_id, key, step, recognised.candidates, by_id)
                     raised = _raise(project_id, building_id, step, recognised.questions)
             except Exception:
@@ -114,12 +116,18 @@ def _families() -> tuple[ModuleType, ...]:
     return tuple(importlib.import_module("engine.families.registry").families())
 
 
+def _part(family: ModuleType, module: str, name: str) -> Any:
+    """A family's `name` from its package's `module` (`<family>.manifest`'s MANIFEST, `<family>.
+    recognise`'s recognise), or held by the family module itself (as a test's fake holds it)."""
+    found = getattr(family, name, None)
+    if found is None or isinstance(found, ModuleType):
+        found = getattr(importlib.import_module(f"{family.__name__}.{module}"), name)
+    return found
+
+
 def _profile(types: ModuleType) -> Any:
     """The Drafting Profile's parts the families read (none kept yet in the slice: the default)."""
-    try:
-        return types.ProfileParts()
-    except TypeError:
-        return None
+    return types.ProfileParts()
 
 
 def _tenant() -> uuid.UUID:
@@ -181,8 +189,8 @@ def _views(project_id: uuid.UUID, building_id: uuid.UUID) -> list[Any]:
             steps = tuple(s.step for s in standing.get(row.id, []))
             found.append(
                 types.ViewArtefact(
-                    view_id=view.id,
-                    sheet_id=sheet.id,
+                    view_id=str(view.id),
+                    sheet_id=str(sheet.id),
                     artefact=artefacts[sheet.file_id],
                     view=_candidate_of(view, steps),
                 )

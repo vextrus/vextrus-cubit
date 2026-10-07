@@ -3,6 +3,8 @@ decided, a family's failure Question follows the family's later runs, a family's
 asked once, and a value is never a float."""
 
 import dataclasses
+import importlib
+import sys
 import types
 from decimal import Decimal
 from typing import Any
@@ -211,3 +213,54 @@ def test_a_proposal_is_keyed_within_its_building(
     _run(f)
 
     assert all(p.candidate_key.startswith(f"{f.building_id}:column:") for p in _columns(f))
+
+
+def _package(monkeypatch: pytest.MonkeyPatch, key: str, step: str) -> types.ModuleType:
+    """A family as a package holds it: MANIFEST in `<family>.manifest`, `recognise` in
+    `<family>.recognise` (the package's own attribute the submodule), in K0's types."""
+    from engine.families import types as family
+
+    name = f"vextrus_test_families.{key}"
+    package = types.ModuleType(name)
+    manifest = types.ModuleType(f"{name}.manifest")
+    manifest.MANIFEST = types.SimpleNamespace(key=key, step=step)  # type: ignore[attr-defined]
+    module = types.ModuleType(f"{name}.recognise")
+
+    def recognise(views: Any, confirmed: Any, setup: Any, profile: Any) -> Any:
+        assert isinstance(profile, family.ProfileParts)
+        return family.Recognised(
+            candidates=tuple(
+                family.ElementCandidate(
+                    family=key,
+                    candidate_key=f"{key}:{v.view_id}:C1",
+                    mark="C1",
+                    values={"section_b": family.FactValue(Decimal("254"), "mm", '10"X20"')},
+                )
+                for v in views
+                if isinstance(v.view_id, str)
+            ),
+            questions=(family.QuestionRaised("engine.column.size_not_read", {"mark": "C2"}),),
+        )
+
+    module.recognise = recognise  # type: ignore[attr-defined]
+    package.recognise = module  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, name, package)
+    monkeypatch.setitem(sys.modules, f"{name}.manifest", manifest)
+    monkeypatch.setitem(sys.modules, f"{name}.recognise", module)
+    return package
+
+
+def test_a_family_package_is_read_through_its_manifest_and_recognise_modules(
+    structural_frame: Frame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = structural_frame
+    package = _package(monkeypatch, "column", "columns")
+    registry = importlib.import_module("engine.families.registry")
+    monkeypatch.setattr(registry, "families", lambda: (package,))
+
+    result = _run(f)
+
+    written = _columns(f)
+    assert len(written) == len(f.confirmed_views)
+    assert {p.values["section_b"]["value"] for p in written} == {"254"}
+    assert result.questions == 1
