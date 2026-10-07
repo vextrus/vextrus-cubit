@@ -42,3 +42,11 @@ function plain(key: string): string {
 export const sectionName = (key: string, i18n: I18n) => (SECTIONS[key] ? i18n._(SECTIONS[key]) : plain(key))
 export const groupName = (key: string, i18n: I18n) => (GROUPS[key] ? i18n._(GROUPS[key]) : plain(key))
 export const stepName = (key: string, i18n: I18n) => (STEPS[key] ? i18n._(STEPS[key]) : plain(key))
+
+const PARTS: Record<string, MessageDescriptor> = {
+  piles_caps: msg`piles and pile caps`,
+  rest: msg`the rest`,
+}
+
+/** The part of a step an allowance is for ("piles and pile caps"); none for a step taken whole. */
+export const partName = (part: string, i18n: I18n): string | null => (PARTS[part] ? i18n._(PARTS[part]) : null)

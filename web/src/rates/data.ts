@@ -132,8 +132,15 @@ export function putPrice(projectId: string, resourceCode: string, amount: string
   )
 }
 
-/** A price as typed: digits with an optional decimal part, lakh commas allowed ("1,25,000.50"); else null. */
+/**
+ * A positive number as typed, for a price or an area: digits with an optional decimal part, grouped
+ * as the Market groups ("1,25,000.50") or not at all; else null. A comma anywhere but a group (the
+ * decimal comma of "95,50") is refused, never read as grouping, and so is zero.
+ */
 export function priceAsTyped(text: string): string | null {
-  const plain = text.trim().replace(/[,\s]/g, '')
-  return /^\d+(\.\d+)?$/.test(plain) ? plain : null
+  const plain = text.trim()
+  const grouped = /^\d{1,3}(?:,\d{2})*,\d{3}(?:\.\d+)?$|^\d{1,3}(?:,\d{3})+(?:\.\d+)?$/.test(plain)
+  if (!grouped && !/^\d+(?:\.\d+)?$/.test(plain)) return null
+  const digits = plain.replace(/,/g, '')
+  return /[1-9]/.test(digits) ? digits : null
 }

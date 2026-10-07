@@ -4,3 +4,4 @@
  */
 export { PricesLoading, PricesPage } from './PricesPage'
 export { RateAnalysis } from './RateAnalysis'
+export { priceAsTyped } from './data'

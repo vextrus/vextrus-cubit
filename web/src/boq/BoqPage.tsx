@@ -16,18 +16,18 @@ import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-quer
 import { getRouteApi } from '@tanstack/react-router'
 import { PageLayout } from '@/app/Frame'
 import { sessionQuery } from '@/app/session'
-import { LoadProblem, ProblemBar, can, problemOf, readOnlyRole, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
+import { LoadProblem, ProblemBar, can, problemOf, readOnlyRole, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
-import { RateAnalysis } from '@/rates'
+import { RateAnalysis, priceAsTyped } from '@/rates'
 import { ReadOnlyChip, Skeleton, TextField, cn, useKeys } from '@/ui'
 import { areaUnitOf, boqKey, boqQuery, putGrossFloorArea, type AllowanceLine, type BoqItem, type BoqOut } from './data'
 import { LinesPanel } from './LinesPanel'
-import { groupName, sectionName, stepName } from './words'
+import { groupName, partName, sectionName, stepName } from './words'
 
 const projectRoute = getRouteApi('/_app/p/$code')
 
-/** Rebar's item total is in whole kilograms (docs/design/screens.md, Priced BOQ ruling 6); the rest to two places. */
+/** Rebar's item total is in whole kilograms; its Measurement Lines keep two places (docs/design/screens.md, Priced BOQ ruling 6). */
 const decimalsOf = (unit: string) => (unit === 'kg' ? 0 : 2)
 
 export function BoqLoading() {
@@ -55,13 +55,13 @@ function Strip({ boq, unit }: { boq: BoqOut; unit: string }) {
   return (
     <dl aria-label={t`Totals`} className="grid grid-cols-6 gap-4 rounded-md border border-border bg-paper px-4 py-3">
       {figure(<Trans>Measured</Trans>, f.money(strip.measured))}
-      {figure(<Trans>Awaiting an answer</Trans>, f.money(strip.awaiting_answer))}
+      {figure(<Trans>Waiting on a Question</Trans>, f.money(strip.awaiting_answer))}
       {figure(<Trans>Allowance</Trans>, strip.gfa ? f.money(strip.allowance) : EMPTY)}
       {figure(<Trans>Total</Trans>, f.money(strip.total), true)}
       {figure(strip.gfa ? <Trans>Per {unit}</Trans> : <Trans>Per area</Trans>, strip.per_area ? f.money(strip.per_area) : EMPTY)}
       <div className="flex min-w-0 flex-col gap-0.5">
         <dt className="text-xs text-ink-secondary">
-          <Trans>Measured share</Trans>
+          <Trans>Measured share of the total</Trans>
         </dt>
         <dd className="num text-md">{percent}</dd>
       </div>
@@ -69,11 +69,11 @@ function Strip({ boq, unit }: { boq: BoqOut; unit: string }) {
   )
 }
 
-function GrossFloorArea({ projectId, boq, unitSystem, changes }: { projectId: string; boq: BoqOut; unitSystem: string; changes: boolean }) {
+function GrossFloorArea({ projectId, boq, changes }: { projectId: string; boq: BoqOut; changes: boolean }) {
   const { t } = useLingui()
   const f = useFormat()
   const client = useQueryClient()
-  const unit = areaUnitOf(unitSystem)
+  const unit = areaUnitOf(f.unitSystem)
   const entered = boq.strip.gfa?.value ?? ''
   const [text, setText] = useState<string | null>(null)
   const [error, setError] = useState<ReactNode>(null)
@@ -98,21 +98,25 @@ function GrossFloorArea({ projectId, boq, unitSystem, changes }: { projectId: st
   }
 
   async function submit() {
-    const typed = (text ?? entered).trim().replace(/[,\s]/g, '')
-    if (typed === '') return
-    if (!/^\d+(\.\d+)?$/.test(typed) || Number(typed) <= 0) {
+    const given = (text ?? entered).trim()
+    if (given === '') return
+    const typed = priceAsTyped(given)
+    if (typed === null) {
       setError(t`Type the area as a number, like 38400.`)
       return
     }
     setError(null)
     setProblem(null)
     setSaving(true)
+    const current = sameSession(client)
     try {
       await putGrossFloorArea(projectId, boq.building_id, typed, unit)
+      if (!current()) return
       // The typed text stays until the BOQ is read again, so the field never flashes the old area.
       await client.invalidateQueries({ queryKey: boqKey(projectId) })
       setText(null)
     } catch (e) {
+      if (!current()) return
       setProblem(problemOf(e))
     } finally {
       setSaving(false)
@@ -186,6 +190,14 @@ function ItemRow({
   const unit = item.billing_unit
   const rate = item.rate ? f.money(item.rate) : null
   const awaiting = item.awaiting_answer ? f.quantity(item.awaiting_answer.quantity, decimals) : ''
+  const basis =
+    item.rebar_basis === 'by_ratio'
+      ? t`by ratio`
+      : item.rebar_basis === 'from_drawing'
+        ? t`from the drawing`
+        : item.rebar_basis === 'from_drawing_rules'
+          ? t`from the drawing + rules`
+          : null
   const selected = open?.item.item_code === item.item_code
   return (
     <tr
@@ -205,12 +217,12 @@ function ItemRow({
       <td className="num h-row w-[64px] px-2 align-middle">{item.number}</td>
       <td className="h-row px-2 py-1 align-middle">
         <MachineText message={item.description} />
-        {item.rebar_basis === 'by_ratio' ? (
-          <span className="ms-2 rounded-xs border border-border-strong px-1 text-xs text-ink-secondary">{t`by ratio`}</span>
-        ) : null}
+        {basis ? <span className="ms-2 rounded-xs border border-border-strong px-1 text-xs text-ink-secondary">{basis}</span> : null}
         {item.awaiting_answer ? (
           <span className="ms-2 text-xs text-ink-secondary">
-            <Trans>+ {awaiting} awaiting an answer</Trans>
+            <Trans>
+              + {awaiting} {unit} waiting on a Question
+            </Trans>
           </span>
         ) : null}
       </td>
@@ -246,6 +258,7 @@ function AllowanceTable({ lines }: { lines: readonly AllowanceLine[] }) {
           <tbody>
             {lines.map((line) => {
               const step = stepName(line.step, i18n)
+              const part = partName(line.part, i18n)
               const measured = f.money(line.measured_so_far)
               return (
                 <tr
@@ -254,6 +267,7 @@ function AllowanceTable({ lines }: { lines: readonly AllowanceLine[] }) {
                 >
                   <td className="h-row px-2 align-middle">
                     <span className="font-medium">{step}</span>
+                    {part ? <span className="text-ink-secondary">, {part}</span> : null}
                   </td>
                   <td className="h-row w-[220px] px-2 align-middle text-ink-secondary">
                     <Trans>Vextrus default, Low</Trans>
@@ -274,6 +288,7 @@ function AllowanceTable({ lines }: { lines: readonly AllowanceLine[] }) {
 
 export function BoqPage() {
   const { t, i18n } = useLingui()
+  const f = useFormat()
   const { data: session } = useSuspenseQuery(sessionQuery)
   const project = projectRoute.useLoaderData()
   const boq = useQuery(boqQuery(project.id))
@@ -368,15 +383,7 @@ export function BoqPage() {
   ) : null
   const panel = open ? (
     open.kind === 'lines' ? (
-      <LinesPanel
-        key={open.item.item_code}
-        projectId={project.id}
-        code={project.code}
-        itemCode={open.item.item_code}
-        title={title}
-        decimals={decimalsOf(open.item.billing_unit)}
-        onClose={closePanel}
-      />
+      <LinesPanel key={open.item.item_code} projectId={project.id} code={project.code} itemCode={open.item.item_code} title={title} onClose={closePanel} />
     ) : (
       <RateAnalysis key={open.item.item_code} projectId={project.id} itemCode={open.item.item_code} title={title} onClose={closePanel} />
     )
@@ -390,7 +397,7 @@ export function BoqPage() {
             <Trans>Priced BOQ</Trans>
           </h1>
           {readOnly ? <ReadOnlyChip role={readOnly} /> : null}
-          {data ? <GrossFloorArea projectId={project.id} boq={data} unitSystem={project.unitSystem} changes={can(session, 'change')} /> : null}
+          {data ? <GrossFloorArea projectId={project.id} boq={data} changes={can(session, 'change')} /> : null}
         </div>
         {boq.error ? (
           <LoadProblem error={boq.error} onRetry={() => void boq.refetch()} />
@@ -398,7 +405,12 @@ export function BoqPage() {
           <Skeleton rows={8} status={<Trans>Opening the Priced BOQ…</Trans>} />
         ) : (
           <>
-            <Strip boq={data} unit={areaUnitOf(project.unitSystem) === 'sft' ? t`sft` : t`m²`} />
+            <Strip boq={data} unit={areaUnitOf(f.unitSystem) === 'sft' ? t`sft` : t`m²`} />
+            {data.strip.gfa ? null : (
+              <p className="text-sm text-ink-secondary">
+                <Trans>Enter the Gross Floor Area above to see the allowances and the total per area.</Trans>
+              </p>
+            )}
             {data.strip.unpriced_lines > 0 ? (
               <p className="text-sm text-ink-secondary">
                 <Plural

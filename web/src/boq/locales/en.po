@@ -32,6 +32,10 @@ msgid "Opening the Measurement Lines…"
 msgstr "Opening the Measurement Lines…"
 
 #: src/boq/BoqPage.tsx
+msgid "from the drawing"
+msgstr "from the drawing"
+
+#: src/boq/BoqPage.tsx
 msgid "Totals"
 msgstr "Totals"
 
@@ -52,12 +56,12 @@ msgid "Masonry"
 msgstr "Masonry"
 
 #: src/boq/BoqPage.tsx
-msgid "Unit"
-msgstr "Unit"
+msgid "Waiting on a Question"
+msgstr "Waiting on a Question"
 
 #: src/boq/BoqPage.tsx
-msgid "Awaiting an answer"
-msgstr "Awaiting an answer"
+msgid "Unit"
+msgstr "Unit"
 
 #: src/boq/words.ts
 msgid "Grid"
@@ -184,12 +188,16 @@ msgid "Description"
 msgstr "Description"
 
 #: src/boq/BoqPage.tsx
+msgid "Enter the Gross Floor Area above to see the allowances and the total per area."
+msgstr "Enter the Gross Floor Area above to see the allowances and the total per area."
+
+#: src/boq/BoqPage.tsx
 msgid "Type the area as a number, like 38400."
 msgstr "Type the area as a number, like 38400."
 
 #: src/boq/BoqPage.tsx
-msgid "Measured share"
-msgstr "Measured share"
+msgid "from the drawing + rules"
+msgstr "from the drawing + rules"
 
 #: src/boq/words.ts
 msgid "Roof"
@@ -211,6 +219,14 @@ msgstr "Gross Floor Area"
 msgid "Priced BOQ"
 msgstr "Priced BOQ"
 
+#: src/boq/BoqPage.tsx
+msgid "+ {awaiting} {unit} waiting on a Question"
+msgstr "+ {awaiting} {unit} waiting on a Question"
+
+#: src/boq/BoqPage.tsx
+msgid "Measured share of the total"
+msgstr "Measured share of the total"
+
 #: src/boq/words.ts
 msgid "Sub-structure"
 msgstr "Sub-structure"
@@ -222,6 +238,10 @@ msgstr "Per area"
 #: src/boq/LinesPanel.tsx
 msgid "No Element is measured into this BOQ Item yet."
 msgstr "No Element is measured into this BOQ Item yet."
+
+#: src/boq/words.ts
+msgid "the rest"
+msgstr "the rest"
 
 #: src/boq/LinesPanel.tsx
 msgid "Measurement Lines"
@@ -244,9 +264,9 @@ msgstr "Walls"
 msgid "Measured"
 msgstr "Measured"
 
-#: src/boq/BoqPage.tsx
-msgid "+ {awaiting} awaiting an answer"
-msgstr "+ {awaiting} awaiting an answer"
+#: src/boq/words.ts
+msgid "piles and pile caps"
+msgstr "piles and pile caps"
 
 #: src/boq/BoqPage.tsx
 msgid "rate not entered"

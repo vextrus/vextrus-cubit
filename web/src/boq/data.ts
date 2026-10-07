@@ -8,6 +8,7 @@ import { queryOptions } from '@tanstack/react-query'
 import { createApi, unwrap } from '@/api/client'
 import type { Money } from '@/format'
 import type { MachineMessage } from '@/format/machine'
+import type { UnitSystem } from '@/format/units'
 
 export interface BoqItem {
   number: string
@@ -20,7 +21,7 @@ export interface BoqItem {
   rate: Money | null
   amount: Money | null
   cost_basis: string
-  rebar_basis: 'by_ratio' | 'from_drawing' | null
+  rebar_basis: 'by_ratio' | 'from_drawing' | 'from_drawing_rules' | null
   rebar_from_drawing_share: string | null
   awaiting_answer: { quantity: string; amount: Money | null } | null
   by_storey: { storey: string; quantity: string }[]
@@ -167,7 +168,7 @@ export function putGrossFloorArea(projectId: string, buildingId: string, value: 
   )
 }
 
-/** The Billing Unit an area is entered in: square feet in the imperial system, square metres otherwise. */
-export function areaUnitOf(unitSystem: string): AreaUnit {
-  return unitSystem === 'metric' ? 'm2' : 'sft'
+/** The Billing Unit an area is entered in: square feet where the project's unit system writes feet and inches, else square metres. */
+export function areaUnitOf(system: UnitSystem): AreaUnit {
+  return system.length === 'feet-inches' ? 'sft' : 'm2'
 }

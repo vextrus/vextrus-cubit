@@ -11,7 +11,7 @@ import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-quer
 import { getRouteApi } from '@tanstack/react-router'
 import { PageLayout } from '@/app/Frame'
 import { sessionQuery } from '@/app/session'
-import { LoadProblem, ProblemBar, can, problemOf, readOnlyRole, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
+import { LoadProblem, ProblemBar, can, problemOf, readOnlyRole, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { FieldError, ReadOnlyChip, Skeleton, useToast } from '@/ui'
 import { priceAsTyped, pricesKey, pricesQuery, putPrice, type PriceRow } from './data'
@@ -45,8 +45,11 @@ function PriceField({ projectId, row, onProblem }: { projectId: string; row: Pri
     setBad(false)
     setSaving(true)
     onProblem(null)
+    const current = sameSession(client)
     try {
       await putPrice(projectId, row.resource_code, amount)
+      // The answer of a session that has ended says nothing to whoever is signed in now (auth/actions.ts).
+      if (!current()) return
       setText('')
       // Every figure priced from it moves: the BOQ and each Rate Analysis are read again, never patched here.
       await Promise.all([
@@ -54,8 +57,10 @@ function PriceField({ projectId, row, onProblem }: { projectId: string; row: Pri
         client.invalidateQueries({ queryKey: ['boq', projectId] }),
         client.invalidateQueries({ queryKey: ['rates', projectId] }),
       ])
+      if (!current()) return
       toast.show({ message: t`Price of ${name} saved.` })
     } catch (error) {
+      if (!current()) return
       onProblem(problemOf(error))
     } finally {
       setSaving(false)
@@ -83,7 +88,7 @@ function PriceField({ projectId, row, onProblem }: { projectId: string; row: Pri
         }}
         className="num h-control w-[120px] rounded-md border border-input bg-paper px-2 text-end text-sm placeholder:text-muted-foreground aria-invalid:border-destructive"
       />
-      <FieldError>{bad ? t`Type the price as a number, like 95.00.` : null}</FieldError>
+      <FieldError>{bad ? t`Type the price as a number above zero, like 95.00.` : null}</FieldError>
     </form>
   )
 }

@@ -11,6 +11,7 @@ import { AppLink } from '@/app/AppLink'
 import { useCloseOnEsc } from '@/app/shell'
 import { LoadProblem } from '@/auth'
 import { useFormat } from '@/format'
+import { useStoreyWord } from '@/takeoff/storeys'
 import { step1SheetPath } from '@/takeoff/paths'
 import { Button, DrawingText, Skeleton, buttonVariants, cn } from '@/ui'
 import { linesQuery } from './data'
@@ -20,18 +21,17 @@ export function LinesPanel({
   code,
   itemCode,
   title,
-  decimals,
   onClose,
 }: {
   projectId: string
   code: string
   itemCode: string
   title: React.ReactNode
-  decimals: number
   onClose: () => void
 }) {
   const { t } = useLingui()
   const f = useFormat()
+  const storeyWord = useStoreyWord()
   const heading = useRef<HTMLHeadingElement>(null)
   useCloseOnEsc(true, onClose)
   useEffect(() => heading.current?.focus(), [itemCode])
@@ -89,10 +89,10 @@ export function LinesPanel({
                       <DrawingText kind="mark" text={line.mark} />
                     </td>
                     <td className="h-row truncate px-1">
-                      <bdi>{line.storey}</bdi>
+                      <bdi>{storeyWord(line.storey)}</bdi>
                     </td>
                     <td className="num h-row px-1 text-end">
-                      {f.quantity(line.quantity, decimals)} {line.billing_unit}
+                      {f.quantity(line.quantity, 2)} {line.billing_unit}
                     </td>
                     <td className="h-row px-1 text-end">
                       {first ? (

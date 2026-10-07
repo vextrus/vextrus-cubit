@@ -20,6 +20,10 @@ msgstr "Price"
 msgid "Unit"
 msgstr "Unit"
 
+#: src/rates/PricesPage.tsx
+msgid "Type the price as a number above zero, like 95.00."
+msgstr "Type the price as a number above zero, like 95.00."
+
 #: src/rates/RateAnalysis.tsx
 msgid "Resources of the rate"
 msgstr "Resources of the rate"
@@ -52,10 +56,6 @@ msgstr "Opening the Rate Analysis…"
 #: src/rates/RateAnalysis.tsx
 msgid "Resource"
 msgstr "Resource"
-
-#: src/rates/PricesPage.tsx
-msgid "Type the price as a number, like 95.00."
-msgstr "Type the price as a number, like 95.00."
 
 #: src/rates/PricesPage.tsx
 msgid "New price for {name}"
