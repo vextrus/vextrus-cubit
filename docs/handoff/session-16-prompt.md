@@ -116,18 +116,23 @@ gate, posting run. T+160-175 land if it passes; the orchestrator runs the showin
 
 ## M0 carried in from session 15 (land when the lock and reviews allow; never at the slice's cost)
 Session 15 measured M0 (gap map: `.private/work/session-15/gap-map.md`), wrote 29 tickets (#523-#551), closed 37 old M0
-issues as superseded and moved 13 to M1, and merged #552, #555, #559, #560, #561, #563, #568, #569, #571, #574 (and those
-landed after this brief: check `gh pr list --state merged`). G1's baseline on main (dddce3f8, script layer) failed on both
-sets: Questions per Discipline (low_confidence), false continuations, bulk share, storeys, act p95; Edison reads (the
-Plumbing DWG) until #567 lands. Read `.private/work/session-15/STATE.md` for each ticket's exact state. In flight at close:
-- READY or in review: #565 (S15-E4 views package; element diff 0, posting accepted-if-clean), #567 (S15-I1 ACadSharp:
-  the Plumbing DWG agrees; posting with its judged reason), #573 (S15-A5 Plot report), #572 (S15-T2 test health), #564
-  (S15-A1, re-verify after a cross-PR fixture amendment), #566 (S15-Q1; lands after #564 and merges main).
-- Building, stacked: S15-E2, E3, E6 on s15-e4; S15-Q2 on s15-q1 (local); S15-A3 on s15-a1 (cloud); W9 (X excludes the
-  selected view, §6.9), W1 re-submit (one frame-owned connectivity probe), W6 (Projects list), A2 (after #564/#566), S1.
+issues as superseded and moved 13 to M1, and merged #552, #555, #559, #560, #561, #563, #567, #568, #569, #571, #574,
+#589 and #590 (check `gh pr list --state merged` for #573, landing at close). G1's baseline on main (dddce3f8, script
+layer) failed on both sets: Questions per Discipline (low_confidence), false continuations, bulk share, storeys, act p95;
+Edison's reads were incomplete until #567 (merged: the Plumbing DWG now agrees). Read `.private/work/session-15/STATE.md`
+for each ticket's exact state. The order to land them (the lock is the limit):
+1. #573 (S15-A5) if it did not land: posted at its head; the lander's update needs a cached re-post (seconds).
+2. #565 (S15-E4 views package): posting accepted at e3939af1, but that head is BLOCKED (its verify timed out at 70 min).
+   Verify tree 08025f2 locally, commit an empty READY, run one review round on the new head (an empty commit after a PASS
+   is not covered), update, re-post (cached), land. E2, E3, E6 are stacked on it.
+3. #564 (S15-A1, PASS r2): its no-post run was under the lock at close; then post, land. Then #566 (S15-Q1) merges main
+   (one hunk with A1), re-verifies (CI's harness check now passes: #568), review round 1, post, land.
+4. Then Q2 (4ae40aac4, one docstring hunk with A1), E3 (07f97b01a, hunks with #564/#566), A2, A3, E2 (1ba7264d0: judge
+   its 3 render_f1 drops against "not below main" first), E6, S1 (9b51f170b: needs an acceptance revision for Q1's grouped
+   Question), #557 (W6 PASS r3: post and gate), #591 (W9 FIX r1 sent), #572 (T2 FIX r2), S15-FC (#585: no push since 07:41).
 - Not started: S15-W3 (after W9), Q3, E5 (after E4 + Q3), E7 (after Q1 + A5), Q0 (after Q3), A4 (after A3), I2, A6, E8.
 - Factory: S15-R3b BLOCKED — review.py's replay recall 60 % / 50 % (was 28 %), below the 90 % gate; the cutover stays held
-  (the owner's ruling). Judge each review accordingly. S15-FC fixes the colour-variable test leak (#585).
+  (the owner's ruling). Judge each review accordingly.
 These are M0's road to G1 PASS twice; session 17 finishes them unless session 16 has spare lock time.
 
 ## Lessons from session 15 (binding)
@@ -145,6 +150,13 @@ These are M0's road to G1 PASS twice; session 17 finishes them unless session 16
   an acceptance-writer amendment that passes both ways.
 - **Idle background sessions hold local slots:** `claude stop <id>`, not kill.
 - **The watcher can go silent:** sweep branch heads by hand every 30 minutes (`scripts.factory.state`).
+- **For an engine PR, run the lander's update before the posting run:** the lander merges main first, and a posting
+  status is per commit, so a run posted on the old head must be re-posted (cached re-posts take seconds; first runs under
+  the key user's cache take 25-50 min).
+- **Do not ask a builder for an empty READY commit on top of a PASSed head:** a non-merge commit after the review voids
+  the review's coverage; verify the tree locally and commit READY yourself, then review that head once.
+- **A local verify can run 70 min** (full serial pytest on engine changes): set builders' verify budgets to 75 min, or
+  verify heavy trees yourself in one worktree while the lock runs.
 
 ## Laws that do not change
 CLAUDE.md's Law section in full: account A; launches only through `scripts.factory.launch`; time from `date -u`; Monitor
