@@ -126,6 +126,13 @@ NARROWER = {
     "live_model_record": {"SELECT", "INSERT"},  # append-only: a correction is a new Record
     # Append-only but for closing its validity: UPDATE of valid_to_seq alone (live_model 0001).
     "live_model_elementrelation": {"SELECT", "INSERT"},
+    # M1's spine (live_model 0002): a Model Version, and a View Placement's storey, are never
+    # changed; a state, a trace and a placement only have their valid_to_seq set (live_model 0002).
+    "live_model_modelversion": {"SELECT", "INSERT"},
+    "live_model_viewplacementstorey": {"SELECT", "INSERT"},
+    "live_model_elementstate": {"SELECT", "INSERT"},
+    "live_model_elementtrace": {"SELECT", "INSERT"},
+    "live_model_viewplacement": {"SELECT", "INSERT"},
     # UPDATE only on the columns the app may change (below): never the staff flag.
     "platform_user": {"SELECT", "INSERT", "DELETE"},
     # A Developer's Market is fixed (platform 0007; #75): UPDATE of its name alone (below), and no

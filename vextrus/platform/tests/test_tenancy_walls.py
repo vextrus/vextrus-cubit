@@ -103,6 +103,12 @@ UPDATABLE = {
         "excluded_text",
     },
     "live_model_elementrelation": {"valid_to_seq"},
+    # M1's spine (live_model 0002): closing a validity is the only change.
+    "live_model_modelversion": set(),
+    "live_model_elementstate": {"valid_to_seq"},
+    "live_model_elementtrace": {"valid_to_seq"},
+    "live_model_viewplacement": {"valid_to_seq"},
+    "live_model_viewplacementstorey": set(),
     "takeoff_confirmation": {"undone_at"},  # an act is undone by stamping it (19a)
     "takeoff_takeoffstep": set(),
     "takeoff_check": set(),
