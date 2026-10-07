@@ -51,18 +51,23 @@ Ask the owner these at the start, one at a time, recommendation first (`factory-
    landing re-runs full CI and a real-drawing re-post (15-40 min a landing); main's CI still runs after merge.
 2. Block review only at 75, keep 50-74 blocking only on security walls, migrations, money and readers, file the rest
    as issues; refute a sample, not every finding? Recommend: yes (70 of 101 FIX rounds rested on 50-74 findings).
-3. Freeze new factory features until G1 passes twice (the speed tickets below excepted)? Recommend: yes.
+3. Freeze new factory features until G1 passes twice (F1-F6 below excepted)? Recommend: yes.
 4. Real-drawing posting runs only on train heads, batched? Recommend: yes.
 Then build, each through the normal review with its timing measured before and after (`verify-ci-speed.md` §4):
 - **F1 CI parallel:** `-n 4` in the python shards with `rest` split into three, engine toolchain `-n 3`; keep
   `tools/lint/tests` serial until #585 is fixed. Target: CI wall under 10 min.
-- **F2 verify parallel:** `scripts/verify.py` runs pytest with `-n auto` (per-worker databases exist); concurrent cheap
-  checks. Target: p90 under 10 min.
+- **F2 verify parallel:** `scripts/verify.py` runs pytest with a bounded worker count (default 6, overridable by an
+  environment variable; 4 in cloud; never `-n auto`, which starts 24 workers here at ~9 GB), `tools/lint/tests` serial
+  until #585 is fixed, cheap checks concurrent; the governor's pytest cost scales with the worker count (~3 GB at 8).
+  Target: p90 under 10 min.
 - **F3 crosspr:** cache each PR's baseline by its head and run it with `-n`. Target: under 5 min.
 - **F4 the loop:** `scripts/factory/measures.py`, run by `stamp end`, writes the session's measures table (PRs
   merged, time to merge, rounds, lock minutes, verify p50/p90, CI wall) from the existing logs into STATE.md and a
   committed targets file; the next brief opens with any measure that regressed. `stamp end` refuses while a
   `LESSON` line in STATE.md has no `docs/knowledge/lessons.md` bullet with its `Check:`.
+- **F6 the review bar** (only if the owner says yes to question 2): `scripts/ledger.py` (a standing finding blocks at
+  75, or at 50 on the strict paths), `review_tiers.toml`, `merge_ready`, refuting a sample; with the amendment to ADR
+  0041 and CLAUDE.md's bar in the same PR. Question 3's freeze excepts F1-F6.
 - **F5 the contract lint** (owed since session 12): web fixtures and acceptance JSON validated against the exported
   OpenAPI schema; a state word or field the API does not send fails.
 
@@ -90,7 +95,7 @@ contract freeze. Ask the owner O1-O7 (`m1-plan-delta.md` §5) one at a time. Wri
 outline (three M1 screens shipped without one).
 
 ## Finish line (checked by its command; evidence where it says)
-1. F1-F5 merged; measured: CI wall p50 under 10 min, verify p90 under 10 min (`scripts/factory/measures.py`).
+1. F1-F5 (and F6 if ruled) merged; measured: CI wall p50 under 10 min, verify p90 under 10 min (`scripts/factory/measures.py`).
 2. M0's finish line met: G1 PASS twice on main's current product code (`scripts.walk.ready origin/main` exit 0).
 3. M1.md amended and merged; the owner's O1-O7 recorded.
 4. `docs/handoff/session-18-prompt.md` merged, opening with session 17's measures table.
