@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _f5_contract import WALKED_ITEMS  # type: ignore[import-not-found, unused-ignore]
+from _f5_contract import (  # type: ignore[import-not-found, unused-ignore]
+    WALKED_ITEMS,
+    g1_expect,
+    g1_snapshot,
+    g1_walk,
+)
 
 SHA = "0123456789abcdef0123456789abcdef01234567"
 FIRST_STARTED = "2026-10-05T01:00:00Z"
@@ -32,55 +37,15 @@ FIXED_MTIME = 1_791_000_000  # 2026-10-03, a fixed second for both moves in T2
 
 
 def _walk(started_at: str) -> dict[str, Any]:
-    """A walk.json within every limit of `_expect()` (f5's passing walk), with its `started_at`."""
-    return {
-        "schema": 1,
-        "sha": SHA,
-        "started_at": started_at,
-        "urls": {"web": "http://127.0.0.1:5511", "api": "http://127.0.0.1:8811"},
-        "sets": {
-            "set-a": {
-                "files": [
-                    {"id": 1, "state": "done", "read_seconds": 30},
-                    {"id": 2, "state": "done", "read_seconds": 45},
-                ],
-                "acts": [
-                    {"kind": kind, "ms": 100 + 10 * n, "read_running": True}
-                    for n, kind in enumerate(["confirm", "answer", "exclude", "undo"] * 5)
-                ],
-                "questions": {
-                    "structural": {"low_confidence": 2, "continuation": 1},
-                    "architectural": {"low_confidence": 1},
-                },
-                "burden": {
-                    "structural": {
-                        "sheets": 10,
-                        "one_source": 8,
-                        "bulk_confirmable": 9,
-                        "continuation_questions": 1,
-                        "false_continuation_questions": 0,
-                    },
-                    "architectural": {
-                        "sheets": 5,
-                        "one_source": 5,
-                        "bulk_confirmable": 5,
-                        "continuation_questions": 0,
-                        "false_continuation_questions": 0,
-                    },
-                },
-            }
-        },
-    }
+    """A walk.json within every limit of `_expect()` (T-WALK-4: measured from its snapshot), with its
+    `started_at`."""
+    record: dict[str, Any] = g1_walk(SHA, started_at)
+    return record
 
 
 def _expect() -> dict[str, Any]:
-    return {
-        "files": 2,
-        "p95_ms_max": 1000,
-        "questions_max_per_discipline": 3,
-        "bulk_confirmable_share_min": 0.8,
-        "false_continuation_max": 0,
-    }
+    expect: dict[str, Any] = g1_expect()
+    return expect
 
 
 def _finding(n: int) -> dict[str, Any]:
@@ -122,6 +87,8 @@ def _lay_out(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
     }
     for name, text in texts.items():
         (folder / f"{name}.json").write_text(text)
+    # T-WALK-4: the first walk's snapshot, taken before any act (a re-walk writes its own).
+    (folder / "snapshot.json").write_text(json.dumps(g1_snapshot(SHA, FIRST_STARTED)))
     return walks, expect_dir, texts
 
 

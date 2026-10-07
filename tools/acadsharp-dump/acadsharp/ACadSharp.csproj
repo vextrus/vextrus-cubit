@@ -1,0 +1,74 @@
+<!--
+  ACadSharp 3.8.0, compiled from its source for the dumper (ticket W317; ADR 0029), with one patch:
+  DomCR/ACadSharp#1205's DWG scale repair (an INSERT whose stored scale is 0 is read as 1, as
+  AutoCAD's AUDIT repairs it; tools/acadsharp-dump/patches/ says what and why). MIT, Albert Domenech
+  (ACADSHARP-LICENSE.txt holds both licences).
+
+  The source is not in git: tools/acadsharp-dump/prepare-source.sh fetches the two commits
+  toolchain/acadsharp-source.lock pins (ACadSharp 3.8.0's, and its CSUtilities submodule's, whose CSMath
+  and CSUtilities shared projects ACadSharp compiles in), checks each file against the lock's manifest,
+  applies the pinned patch and writes the result to ../upstream/, beside this folder in the build folder
+  (scripts/owner/toolchain.sh and engine/read/acadsharp/tests/build.py both run it). Without it this
+  project stops with an error: the NuGet package is never used in its place.
+
+  What upstream's own project does and this one does not: it builds six frameworks (here net10.0, the
+  dumper's), signs the assembly with a key, packs a NuGet package on a Release build and writes an XML
+  documentation file. What it keeps: the assembly's name and version (3.8.0.0, which the dump's header
+  prints), the default C# settings it compiles with (nullable and implicit usings off, the latest
+  language version) and every .cs file under src/ACadSharp/ plus the two shared projects' lists.
+  ACadSharp's files are compiled in the byte order of compile.list (written by prepare-source.sh), not
+  by a glob, whose order is the file system's: the build is reproducible, its sha256 the dumper's pin.
+
+  When a release has #1205: delete this folder, the patch and toolchain/acadsharp-source.lock, restore
+  the PackageReference in acadsharp-dump.csproj at that version, and bump toolchain/acadsharp-dump.sha256.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>ACadSharp</AssemblyName>
+    <RootNamespace>ACadSharp</RootNamespace>
+    <Version>3.8.0</Version>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SignAssembly>false</SignAssembly>
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <EnableDefaultItems>false</EnableDefaultItems>
+
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <DebugType>none</DebugType>
+    <!-- No git: inside a work tree the SDK's Source Link would stamp its HEAD into the version. -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <!-- No build path: the build folder's source/ (the dumper, this project and upstream/) is /_/. -->
+    <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/..'))=/_/</PathMap>
+    <!-- No compiler server left running after the build (it runs as root in toolchain.sh). -->
+    <UseSharedCompilation>false</UseSharedCompilation>
+
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <RestoreLockedMode>true</RestoreLockedMode>
+    <DisableTransitiveFrameworkReferenceDownloads>true</DisableTransitiveFrameworkReferenceDownloads>
+
+    <Upstream>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../upstream'))</Upstream>
+  </PropertyGroup>
+
+  <!-- CSMath and CSUtilities: their own explicit lists, in their own order. -->
+  <Import Project="$(Upstream)/CSUtilities/CSMath/CSMath.projitems"
+          Condition="Exists('$(Upstream)/CSUtilities/CSMath/CSMath.projitems')" Label="Shared" />
+  <Import Project="$(Upstream)/CSUtilities/CSUtilities/CSUtilities.projitems"
+          Condition="Exists('$(Upstream)/CSUtilities/CSUtilities/CSUtilities.projitems')" Label="Shared" />
+
+  <Target Name="VextrusUpstreamSources" BeforeTargets="CollectPackageReferences;BeforeBuild">
+    <Error Condition="!Exists('$(Upstream)/compile.list') Or !Exists('$(Upstream)/CSUtilities/CSMath/CSMath.projitems') Or !Exists('$(Upstream)/CSUtilities/CSUtilities/CSUtilities.projitems')"
+           Text="No prepared ACadSharp source in $(Upstream): run tools/acadsharp-dump/prepare-source.sh --lock toolchain/acadsharp-source.lock --dest $(Upstream) first (the NuGet package is never used in its place)." />
+    <ReadLinesFromFile File="$(Upstream)/compile.list">
+      <Output TaskParameter="Lines" ItemName="VextrusAcadSharpSource" />
+    </ReadLinesFromFile>
+    <ItemGroup>
+      <Compile Include="@(VextrusAcadSharpSource->'$(Upstream)/ACadSharp/%(Identity)')" />
+    </ItemGroup>
+  </Target>
+</Project>

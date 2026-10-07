@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
+import { FAULT_RETRIES } from '@/app/query-policy'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { step1SheetPath } from '@/takeoff/paths'
 import { FakeStep1, msg } from '@/acceptance/t22/step1.fixture'
@@ -174,6 +175,25 @@ describe('design gate walk 1 and review 1 (fix round 1)', () => {
     expect(pressed('As read')).toBe('true')
     expect(asked).toBe(1)
   })
+
+  it('asks a PDF that answers 503 once per try of the Plot, never a try of its own as well (only the outermost query retries)', async () => {
+    let asked = 0
+    await open((_, api) => {
+      const base = api.handle
+      api.handle = async (request: Request) => {
+        if (new URL(request.url, location.origin).pathname.endsWith('/pdf')) {
+          asked++
+          return new Response('unavailable', { status: 503 })
+        }
+        return base(request)
+      }
+    })
+    await userEvent.keyboard('p')
+    await waitFor(() => expect(asked).toBeGreaterThan(0), { timeout: 15_000 })
+    // The policy tries a fault FAULT_RETRIES more times (1 s, 2 s, 4 s): four asks, not sixteen.
+    await new Promise((r) => setTimeout(r, 9_000))
+    expect(asked).toBe(FAULT_RETRIES + 1)
+  }, 30_000)
 
   it('words D and P in the keys overlay as sentences, and CAD-dark carries its key', async () => {
     await open()

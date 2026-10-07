@@ -5,7 +5,9 @@
  */
 import { QueryClient } from '@tanstack/react-query'
 import { createRouter, type RouterHistory } from '@tanstack/react-router'
+import { ScreenError } from '@/auth'
 import { routeTree } from '@/routeTree.gen'
+import { mutationPolicy, queryPolicy } from './query-policy'
 
 export interface RouterContext {
   queryClient: QueryClient
@@ -15,12 +17,11 @@ export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // "This page keeps trying" (§4.1): a query that cannot reach the server retries, and the
-        // frame's ErrorBar shows until one succeeds.
-        retry: (failures, error) => error instanceof TypeError || failures < 2,
-        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
+        // "This page keeps trying" (§4.1); the rule is app/query-policy.ts, the one place.
+        ...queryPolicy,
         refetchOnWindowFocus: false,
       },
+      mutations: { ...mutationPolicy },
     },
   })
 }
@@ -30,6 +31,8 @@ export function createAppRouter({ queryClient, history }: { queryClient: QueryCl
     routeTree,
     history,
     context: { queryClient },
+    // A screen that throws is shown inside the frame; routes with a component of their own keep it.
+    defaultErrorComponent: ScreenError,
     defaultPreload: 'intent',
     // The Query cache holds the data; the router re-runs loaders only to check access.
     defaultPreloadStaleTime: 0,

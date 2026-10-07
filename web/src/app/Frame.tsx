@@ -5,18 +5,19 @@
  * top bar, the ErrorBar when Vextrus can't be reached, the phone and narrow notices (§1.5) and the
  * shell's keys; below the top bar, a page screen (PageLayout) or a canvas screen (CanvasFrame).
  */
-import { useLayoutEffect, useSyncExternalStore, type ReactNode } from 'react'
+import { useLayoutEffect, type ReactNode } from 'react'
 import { Trans } from '@lingui/react/macro'
 import { i18n } from '@lingui/core'
-import { onlineManager, useQueryClient, useSuspenseQuery, type QueryClient } from '@tanstack/react-query'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { useParams, useRouterState } from '@tanstack/react-router'
 import { SearchX } from 'lucide-react'
 import { FormatProvider, type MarketFormat } from '@/format'
 import { activateLanguage, currentLanguage, useLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
-import { DesktopOnly, Empty, ErrorBar, buttonVariants, cn } from '@/ui'
+import { DesktopOnly, Empty, buttonVariants, cn } from '@/ui'
 import { AppLink, PATHS, useGo } from './AppLink'
 import { languageIsOverridden } from './dev-language'
+import { UnreachableBar } from './Unreachable'
 import { projectFor, sessionQuery } from './session'
 import { ShellProvider } from './shell'
 import { SlotsProvider } from './slots'
@@ -38,43 +39,6 @@ function useMarketLanguage(market: MarketFormat) {
   }, [language, market])
 }
 
-function isNetworkFailure(error: unknown): boolean {
-  return error instanceof TypeError
-}
-
-function unreachable(client: QueryClient): boolean {
-  if (!onlineManager.isOnline()) return true
-  return client
-    .getQueryCache()
-    .getAll()
-    .some((q) => q.state.status === 'error' && isNetworkFailure(q.state.error))
-}
-
-/** True while the browser is offline or the last try of any query failed to reach the server. */
-export function useUnreachable(): boolean {
-  const client = useQueryClient()
-  return useSyncExternalStore(
-    (listener) => {
-      const offOnline = onlineManager.subscribe(listener)
-      const offCache = client.getQueryCache().subscribe(listener)
-      return () => {
-        offOnline()
-        offCache()
-      }
-    },
-    () => unreachable(client),
-  )
-}
-
-function Unreachable() {
-  if (!useUnreachable()) return null
-  return (
-    <ErrorBar className="shrink-0">
-      <Trans>Vextrus can’t be reached. Check your connection; this page keeps trying.</Trans>
-    </ErrorBar>
-  )
-}
-
 export function AppFrame({ children }: { children: ReactNode }) {
   const { data: session } = useSuspenseQuery(sessionQuery)
   const { code } = useParams({ strict: false }) as { code?: string }
@@ -88,7 +52,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           <DesktopOnly onSignOut={() => go(PATHS.signIn)}>
             <div data-frame="" className="flex h-dvh flex-col bg-background max-[1279px]:h-[calc(100dvh-var(--notice-bar))]">
               <TopBar session={session} project={project} />
-              <Unreachable />
+              <UnreachableBar className="shrink-0" />
               <div className="flex min-h-0 flex-1 flex-col">{children}</div>
             </div>
           </DesktopOnly>
