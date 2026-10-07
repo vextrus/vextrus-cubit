@@ -8,6 +8,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PASSWORD } from '@/app/seed/api.fixture'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
+import { neverShownIn } from '@/test/never-shown'
 import { UiProviders } from '@/ui/UiProviders'
 import { expectKeyMapSound, notationProblems } from '@/ui'
 import { MembersLoading } from './MembersPage'
@@ -98,37 +99,13 @@ function stubClipboard(writeText: (text: string) => Promise<void>) {
   }
 }
 
-/** The words of 1.1's list the design gate greps the DOM for, and a message code's shape. */
-const NEVER_SHOWN = [
-  /\bhandle\b/i,
-  /\bentity\b/i,
-  /\bSDF\b/,
-  /\bDXF\b/,
-  /\bJSON\b/i,
-  /\bsandbox\b/i,
-  /\bworker\b/i,
-  /\bjobs?\b/i,
-  /\bqueue\b/i,
-  /\bhash\b/i,
-  /\btenant\b/i,
-  /\bRLS\b/,
-  /\bAPI\b/,
-  /\bnull\b/,
-  /\bundefined\b/,
-  /\bNaN\b/,
-  /\bUUID\b/i,
-  /\blocale\b/i,
-  /Building/,
-  /Bangladesh/,
-  /\bBDT\b/,
-  /৳/,
-  /%%/,
-  /\b[a-z_]+\.[a-z_]+\.[a-z_]+\b/,
-]
+/** What else the gate greps: §1.9's Market and currency, §1.10's Building, and a message code's shape. */
+const ALSO_NOT_SHOWN = [/Building/, /Bangladesh/, /\bBDT\b/, /৳/, /%%/, /\b[a-z_]+\.[a-z_]+\.[a-z_]+\b/]
 
 function expectNothingNeverShown() {
   const body = clean(document.body.textContent)
-  for (const word of NEVER_SHOWN) expect(body, String(word)).not.toMatch(word)
+  expect(neverShownIn(body), 'm0-screens §1.1').toEqual([])
+  for (const word of ALSO_NOT_SHOWN) expect(body, String(word)).not.toMatch(word)
   expect(notationProblems(document.body)).toEqual([])
 }
 
