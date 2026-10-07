@@ -37,7 +37,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 CATALOGUES = "web/src/messages"
-FEATURES = "web/src/*/locales/en.po"
+FEATURES = "web/src/*/locales/**/en.po"
 """Each feature's catalogue (`web/lingui.config.ts`: `src/{name}/locales/{locale}`)."""
 NOT_SHIPPED = ("dev",)
 """Feature folders whose words no QS reads: `web/src/dev/` is the development harness, in development
