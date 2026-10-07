@@ -30,7 +30,7 @@ export const DILATION = 1
 /** Wrong pixels allowed per part. */
 export const MAX_WRONG = 10
 
-type Part = 'text' | 'fills'
+export type Part = 'text' | 'fills'
 
 /** Grey pixels, rows from the top: 255 is white paper, 0 black ink. */
 export interface Grey {
@@ -50,7 +50,16 @@ function greyOf(data: ImageData): Grey {
   return { width: data.width, height: data.height, pixels: out }
 }
 
-async function engineRaster(url: string): Promise<Grey> {
+const rasters = new Map<string, Promise<Grey>>()
+
+/** The engine raster at `url`, decoded once: the exhaustive test calls the check over a hundred times. */
+function engineRaster(url: string): Promise<Grey> {
+  let raster = rasters.get(url)
+  if (!raster) rasters.set(url, (raster = decodeRaster(url)))
+  return raster
+}
+
+async function decodeRaster(url: string): Promise<Grey> {
   const image = new Image()
   image.src = url
   await image.decode()
@@ -77,6 +86,8 @@ function unmatched(a: Grey, b: Grey): number {
   for (let y = 0; y < a.height; y++) {
     for (let x = 0; x < a.width; x++) {
       const p = a.pixels[y * a.width + x]!
+      // Most pixels are blank paper in both images: the same place matches at once.
+      if (y < b.height && x < b.width && Math.abs(p - b.pixels[y * b.width + x]!) <= TOLERANCE) continue
       let matched = false
       for (let dy = -DILATION; dy <= DILATION && !matched; dy++) {
         const yy = y + dy
@@ -101,6 +112,17 @@ export function wrongPixels(ours: Grey, engine: Grey): number {
   return unmatched(ours, engine) + unmatched(engine, ours)
 }
 
+let tiny: Promise<DecodedSheet> | undefined
+
+/** tiny-sheet decoded once (drawers never change it: they are handed copies). */
+function tinySheet(): Promise<DecodedSheet> {
+  return (tiny ??= (async () => {
+    const response = await fetch(tinySheetUrl)
+    if (!response.ok) throw new Error(`tiny-sheet.bin: HTTP ${response.status} (is engine/render/fixtures/ in server.fs.allow?)`)
+    return decodeSheet(await response.arrayBuffer())
+  })())
+}
+
 const empty = (records: DecodedSheet['lines']) => ({ ...records, count: 0 })
 
 /** tiny-sheet with its lines removed, keeping only one part's records. */
@@ -116,13 +138,13 @@ function partOf(sheet: DecodedSheet, part: Part): DecodedSheet {
 /**
  * Draws tiny-sheet's text alone and its fills alone through `draw` and compares each per pixel with
  * the engine raster of the same buffers. Resolves on a match; rejects naming the part that differs.
+ * `parts` limits the check to those parts (a test that changes only one need not draw the other).
  */
-export async function checkTextAndFills(draw: typeof drawSheet): Promise<void> {
-  const response = await fetch(tinySheetUrl)
-  if (!response.ok) throw new Error(`tiny-sheet.bin: HTTP ${response.status} (is engine/render/fixtures/ in server.fs.allow?)`)
-  const sheet = decodeSheet(await response.arrayBuffer())
+export async function checkTextAndFills(draw: typeof drawSheet, parts: readonly Part[] = ['text', 'fills']): Promise<void> {
+  const sheet = await tinySheet()
   const failures: string[] = []
-  for (const [part, url] of [['text', textUrl], ['fills', fillsUrl]] as const) {
+  for (const part of parts) {
+    const url = part === 'text' ? textUrl : fillsUrl
     const engine = await engineRaster(url)
     const ours = drawn(draw, partOf(sheet, part))
     if (ours.width !== engine.width || ours.height !== engine.height) {

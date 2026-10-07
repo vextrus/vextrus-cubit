@@ -24,6 +24,8 @@ export interface Scope {
   level: ScopeLevel
   name: string
   id: string
+  /** A mode scope that takes every key: while it is mounted, only its own bindings act and no other scope is asked. */
+  modal?: boolean
 }
 
 /** Where the ? overlay lists a key: "On this screen", "On the sheet", "Everywhere". */
