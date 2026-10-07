@@ -447,7 +447,14 @@ export function ScreenKeys({
     { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat || inField() ? undefined : enter()) },
     { key: 'X', label: t`Leave out the focused row`, group: 'screen', run: exclude },
     ...(edit ? [{ key: 'E', label: t`Type the size of the focused row`, group: 'screen' as const, run: edit }] : []),
-    { key: 'Ctrl Z', label: t`Take back your last confirmation or exclusion on this step`, group: 'screen', run: (event) => (event.repeat ? undefined : undo()) },
+    {
+      key: 'Ctrl Z',
+      label: t`Take back your last confirmation or exclusion on this step`,
+      group: 'screen',
+      // In a field Ctrl Z is the field's own undo: the key falls through to the browser.
+      when: () => !inField(),
+      run: (event) => (event.repeat ? undefined : undo()),
+    },
     { key: 'Esc', label: t`Back to the list; in the list, clear the focus`, group: 'screen', when: escapeActive, run: escape },
     {
       key: 'Space',

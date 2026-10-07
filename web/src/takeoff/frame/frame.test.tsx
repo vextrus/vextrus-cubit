@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { expectKeyMapSound } from '@/ui'
-import { FakeFrame, SHEET_COLS, bodyText, clean } from '@/acceptance/ts16w1/frame.fixture'
+import { FakeFrame, SHEET_COLS, bodyText, clean, gridGroups } from '@/acceptance/ts16w1/frame.fixture'
 
 beforeEach(async () => {
   await page.viewport(1440, 900)
@@ -212,4 +212,84 @@ describe('at 1280 wide (m0-screens §8, item 6)', () => {
       for (const row of c.querySelectorAll<HTMLElement>('[data-row-key]')) expect(row.scrollWidth, `row ${row.dataset.rowKey}`).toBeLessThanOrEqual(row.clientWidth + 1)
     })
   }
+})
+
+describe('an empty step', () => {
+  const emptyGrid = async (as: string = PEOPLE.qs) => {
+    const api = new FakeApi()
+    const frame = new FakeFrame(api, { empty: true })
+    await mountApp('/p/KR-01/takeoff/4', { as, api })
+    await waitFor(() => expect(bodyText()).toContain('No grid lines yet'), { timeout: 5000 })
+    return { api, frame }
+  }
+
+  it('asks for the proposals again after the read starts, and shows them when the job has written them', async () => {
+    const { frame } = await emptyGrid()
+    await userEvent.click(within(canvas()).getByRole('button', { name: 'Read the grid' }))
+    await waitFor(() => expect(bodyText()).toContain('Reading the drawings'))
+    // The read job finishes behind the 202: the next ask finds the grid lines.
+    frame.groups.grid = gridGroups()
+    await waitFor(() => expect(bodyText()).toContain('A–B'), { timeout: 8000 })
+    expect(frame.calls().filter((c) => c.call.startsWith('GET steps/grid/proposals')).length).toBeGreaterThan(1)
+  })
+
+  it('says the refusal in its words, and offers the read again', async () => {
+    const api = new FakeApi()
+    const frame = new FakeFrame(api, { empty: true })
+    const base = api.handle
+    api.handle = async (request: Request) =>
+      request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/steps/grid/read')
+        ? new Response(JSON.stringify({ code: 'takeoff.steps.locked', params: {} }), { status: 409, headers: { 'Content-Type': 'application/json' } })
+        : base(request)
+    await mountApp('/p/KR-01/takeoff/4', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('No grid lines yet'), { timeout: 5000 })
+    await userEvent.click(within(canvas()).getByRole('button', { name: 'Read the grid' }))
+    await waitFor(() => expect(bodyText()).toContain('has something to tell you'), { timeout: 5000 })
+    expect(bodyText()).not.toContain('Try again in a minute')
+    expect(within(canvas()).getByRole('button', { name: 'Read the grid' })).toBeDefined()
+    void frame
+  })
+
+  it('offers the MD no read: a sentence and nothing to press', async () => {
+    const { frame } = await emptyGrid(PEOPLE.md)
+    expect(within(canvas()).queryAllByRole('button')).toEqual([])
+    expect(bodyText()).toContain('The QS starts the reading')
+    expect(frame.calls().some((c) => c.call.startsWith('POST'))).toBe(false)
+  })
+})
+
+describe('Ctrl Z in a field is the field’s own', () => {
+  it('Step 6: in the size editor it takes back no confirmation', async () => {
+    const { frame } = await openColumns()
+    await userEvent.click(label('Ground · C1'))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(frame.acts().length).toBe(1))
+    await userEvent.click(label('Ground · C2'))
+    await userEvent.keyboard('e')
+    const field = await waitFor(() => {
+      const el = document.activeElement
+      expect(el instanceof HTMLInputElement).toBe(true)
+      return el as HTMLInputElement
+    })
+    await userEvent.type(field, '12')
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await new Promise((r) => setTimeout(r, 300))
+    expect(frame.acts().map((a) => a.act)).toEqual(['confirm'])
+  })
+
+  it('Step 3: in a level field it takes back no leave-out', async () => {
+    const api = new FakeApi()
+    const frame = new FakeFrame(api)
+    await mountApp('/p/KR-01/takeoff/3', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Basement'), { timeout: 5000 })
+    await userEvent.click(within(canvas()).getAllByText('1st')[0]!)
+    await userEvent.keyboard('x')
+    await waitFor(() => expect(frame.acts().length).toBe(1))
+    const field = within(canvas()).getByRole('textbox', { name: /2nd/ })
+    await userEvent.click(field)
+    await userEvent.type(field, '3')
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await new Promise((r) => setTimeout(r, 300))
+    expect(frame.acts().map((a) => a.act)).toEqual(['exclude'])
+  })
 })

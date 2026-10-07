@@ -305,6 +305,14 @@ msgstr "The size of this column was not read from its label. Press E to type it.
 msgid "Trace {fact} on the sheet"
 msgstr "Trace {fact} on the sheet"
 
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No grid lines yet. The QS starts the reading once the plans are confirmed in Step 1."
+msgstr "No grid lines yet. The QS starts the reading once the plans are confirmed in Step 1."
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No columns yet. The QS starts the reading once the plans are confirmed in Step 1."
+msgstr "No columns yet. The QS starts the reading once the plans are confirmed in Step 1."
+
 #: src/takeoff/frame/SizeEditor.tsx
 msgid "Type the size of {label}"
 msgstr "Type the size of {label}"
@@ -374,10 +382,6 @@ msgstr "Step 4, Grid"
 msgid "Last row"
 msgstr "Last row"
 
-#: src/takeoff/frame/NothingRead.tsx
-msgid "Reading did not start, so nothing has changed. Try again in a minute."
-msgstr "Reading did not start, so nothing has changed. Try again in a minute."
-
 #: src/takeoff/frame/StoreysStep.tsx
 msgid "Views and their storeys"
 msgstr "Views and their storeys"
@@ -398,6 +402,10 @@ msgstr "position"
 #: src/takeoff/frame/NothingRead.tsx
 msgid "No columns yet. They are read from the plans you confirmed in Step 1."
 msgstr "No columns yet. They are read from the plans you confirmed in Step 1."
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No storeys yet. The QS starts the reading once the plans are confirmed in Step 1."
+msgstr "No storeys yet. The QS starts the reading once the plans are confirmed in Step 1."
 
 #: src/takeoff/frame/GroupedStep.tsx
 msgid "Confirm <0/>, {agreeingCount, plural, one {# grid line} other {# grid lines}}"
