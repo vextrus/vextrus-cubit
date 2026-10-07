@@ -12,7 +12,6 @@ from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
 from vextrus.live_model import services as live_model_services
-from vextrus.platform.models import DomainEvent
 from vextrus.platform.services import tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff.models import Proposal, ProposalSubject, Question, QuestionKind, QuestionStatus
@@ -88,8 +87,11 @@ def columns(member: Member, project_id: uuid.UUID, count: int) -> list[uuid.UUID
 
 
 def events(member: Member, project_id: uuid.UUID) -> int:
-    with member.acting():
-        return DomainEvent.objects.filter(project_id=project_id).count()
+    with member.acting(), connection.cursor() as cursor:
+        cursor.execute("select count(*) from platform_domainevent where project_id = %s", [project_id])
+        row = cursor.fetchone()
+    assert row is not None
+    return int(row[0])
 
 
 def step_row(member: Member, project_id: uuid.UUID, step: str) -> dict[str, Any]:
