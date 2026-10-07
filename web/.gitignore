@@ -12,6 +12,6 @@ src/routeTree.gen.ts
 src/api/schema.gen.ts
 
 # `lingui compile` output; the app compiles catalogues through the Vite plugin
-src/**/locales/*.js
+src/**/locales/**/*.js
 src/messages/**/*.js
 .vitest/

@@ -17,6 +17,8 @@ import { describe, expect, it } from 'vitest'
 const WEB = fileURLToPath(new URL('../../../', import.meta.url)).replace(/\/$/, '')
 const REPORTER = join(WEB, 'scripts', 'failure-reporter.mjs')
 const RUN = 60_000
+/** Importing the Playwright config loads @playwright/test: past vitest's 5 s default in cloud containers. */
+const IMPORT = 30_000
 
 /** A scratch project holding `files`, with the web's node_modules linked in. */
 function project(files: Record<string, string>): string {
@@ -146,19 +148,23 @@ describe("the repo's configs", () => {
     expect(text.slice(block)).toContain('GITHUB_ACTIONS')
   })
 
-  it("web/e2e/playwright.config.ts keeps ['list'] and names the failure reporter, an existing file", async () => {
-    const url = new URL('../../../e2e/playwright.config.ts', import.meta.url)
-    const config = ((await import(/* @vite-ignore */ url.href)) as { default: PlaywrightConfig }).default
-    const reporter = config.reporter
-    expect(Array.isArray(reporter)).toBe(true)
-    const entries = reporter as unknown[]
-    expect(entries).toContainEqual(['list'])
-    const named = entries
-      .map((entry) => (Array.isArray(entry) ? (entry as unknown[])[0] : entry))
-      .filter((name): name is string => typeof name === 'string')
-      .map((name) => resolve(WEB, 'e2e', name))
-      .filter((path) => basename(path) === 'failure-reporter.mjs')
-    expect(named).toHaveLength(1)
-    expect(existsSync(named[0] ?? '')).toBe(true)
-  })
+  it(
+    "web/e2e/playwright.config.ts keeps ['list'] and names the failure reporter, an existing file",
+    async () => {
+      const url = new URL('../../../e2e/playwright.config.ts', import.meta.url)
+      const config = ((await import(/* @vite-ignore */ url.href)) as { default: PlaywrightConfig }).default
+      const reporter = config.reporter
+      expect(Array.isArray(reporter)).toBe(true)
+      const entries = reporter as unknown[]
+      expect(entries).toContainEqual(['list'])
+      const named = entries
+        .map((entry) => (Array.isArray(entry) ? (entry as unknown[])[0] : entry))
+        .filter((name): name is string => typeof name === 'string')
+        .map((name) => resolve(WEB, 'e2e', name))
+        .filter((path) => basename(path) === 'failure-reporter.mjs')
+      expect(named).toHaveLength(1)
+      expect(existsSync(named[0] ?? '')).toBe(true)
+    },
+    IMPORT,
+  )
 })
