@@ -28,3 +28,9 @@ sends the Market; it must match the Market row ticket 02 seeds."""
 path = "web/src/format/units.ts"
 reason = """The unit systems' own definitions (ADR 0038 item 6): each one's key, its name in the catalogue and \
 how it writes drawing notation, the same for every Market. Which ones a Market offers is the Market's data."""
+
+[[allow]]
+path = "vextrus/measurement/library.py"
+reason = """The Rule Set's Library rows (session 16, S16-M): a BOQ Item's Billing Units are one row per unit \
+system, so the rows name the two systems' keys, the same for every Market (ADR 0038 item 6); which ones a \
+Market offers is the Market's data."""
