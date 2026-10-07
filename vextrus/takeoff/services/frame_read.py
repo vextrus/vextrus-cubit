@@ -1,0 +1,410 @@
+"""The frame read (S16-T1; docs/plans/M1.md C4, the session-16 contract's "takeoff T1"): the
+registered families run on a Building's Step-1-confirmed views, and what they recognise is written as
+Proposals with their ProposalTraces, for the QS to confirm at Steps 3, 4 and 6.
+
+    found = frame_read.run(building_id)      # FrameReadResult(proposals=12, questions=1)
+    # the job: vextrus.takeoff.tasks.frame_read.read_frame(building_id)
+
+**The views read** are the confirmed views of the Building's printed sheets: a view whose Coverage
+was confirmed by an act not undone (Step 1's `confirm`, `assign`), assigned or used, never one left
+out or still proposed. Each is given to every family as a `ViewArtefact`: its file's kept
+ReadArtefact and its view as Step 1 left it (its standing Takeoff Steps among them), so a family
+reads only the views it wants. A sheet of no Building is the Building's when the Project has only it.
+
+**Each candidate is one Proposal**, named by its family's step and its `candidate_key` within the
+Building (`<building id>:<candidate_key>`; the families key a candidate by the view it was read on),
+so a second run writes no duplicate: an open Proposal takes what the read found again (an anchor
+not read before is added: Traces are append-only); one the QS decided is left as it stands, its
+Traces too. Its `values` keep
+the drawing units and the verbatim text (`{"value": "254", "unit": "mm", "text": ...}`, a decimal as
+a string, never a float), with the candidate's `mark`, `storey`, `band` and `at`. Each fact's anchor
+is a ProposalTrace, its sheet and view named (`sheet_id`, `view_id`) when the candidate names its view.
+
+**A family that raises writes a Question, never silence**: `takeoff.frame.family_failed {family}`,
+asked once per Building and family, while the other families still write (its own writes are rolled
+back whole). A later run that reads it again withdraws the Question; one failing again reopens it.
+A Question a family raises (`QuestionRaised`) is written as a Question of its step.
+
+The registry is looked up when the job runs (`registry.families()`, never imported by name), so the
+families are the ones registered then.
+"""
+
+import dataclasses
+import enum
+import hashlib
+import importlib
+import json
+import logging
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
+from types import ModuleType
+from typing import Any
+
+from django.db import transaction
+
+from engine.messages import Message, MessageCode
+from vextrus.drawings import services as drawings
+from vextrus.platform.services import auth, tenancy
+from vextrus.projects import services as projects
+from vextrus.takeoff.models import (
+    Coverage,
+    CoverageStatus,
+    Proposal,
+    ProposalStatus,
+    ProposalSubject,
+    ProposalTrace,
+    Question,
+    QuestionKind,
+    QuestionStatus,
+)
+from vextrus.takeoff.services import step1
+from vextrus.takeoff.services.read_propose.proposals import view_candidate
+
+log = logging.getLogger(__name__)
+
+FAMILY_FAILED = MessageCode("takeoff.frame.family_failed", params=("family",))
+"""A family raised on the Building's views: what it reads is not proposed until a run reads it."""
+
+_SUBJECTS = uuid.UUID("6f1d3a52-2b8e-4c41-9d1a-5e0c7b4f8a10")
+"""The namespace of a candidate's subject id (no Element exists until the QS confirms it)."""
+
+_READ = (CoverageStatus.ASSIGNED, CoverageStatus.USED)
+
+
+@dataclass(frozen=True)
+class FrameReadResult:
+    proposals: int
+    """The Proposals this run wrote or found again."""
+    questions: int
+    """The Questions this run asked (or found asked): a family's failures and its own Questions."""
+
+
+def run(building_id: uuid.UUID) -> FrameReadResult:
+    """Run the registered families on the Building's confirmed views (see the module)."""
+    project_id = _project_of(building_id)
+    views = _views(project_id, building_id)
+    if not views:
+        return FrameReadResult(0, 0)
+    types = importlib.import_module("engine.families.types")
+    confirmed, setup, profile = types.ConfirmedFacts(), types.ProjectSetup(), _profile(types)
+    by_id = {str(v.view_id): v for v in views}
+    proposed = asked = 0
+    with transaction.atomic():
+        for family in _families():
+            manifest = _part(family, "manifest", "MANIFEST")
+            key, step = str(manifest.key), str(manifest.step)
+            try:
+                with transaction.atomic():
+                    recognise = _part(family, "recognise", "recognise")
+                    recognised = recognise(views, confirmed, setup, profile)
+                    written = _propose(project_id, building_id, key, step, recognised.candidates, by_id)
+                    raised = _raise(project_id, building_id, step, recognised.questions)
+            except Exception:
+                log.exception("the %s family failed on building %s", key, building_id)
+                _ask_failed(project_id, building_id, key, step)
+                asked += 1
+                continue
+            _withdraw_failed(project_id, building_id, key)
+            proposed += written
+            asked += raised
+    return FrameReadResult(proposed, asked)
+
+
+def _families() -> tuple[ModuleType, ...]:
+    return tuple(importlib.import_module("engine.families.registry").families())
+
+
+def _part(family: ModuleType, module: str, name: str) -> Any:
+    """A family's `name` from its package's `module` (`<family>.manifest`'s MANIFEST, `<family>.
+    recognise`'s recognise), or held by the family module itself (as a test's fake holds it)."""
+    found = getattr(family, name, None)
+    if found is None or isinstance(found, ModuleType):
+        found = getattr(importlib.import_module(f"{family.__name__}.{module}"), name)
+    return found
+
+
+def _profile(types: ModuleType) -> Any:
+    """The Drafting Profile's parts the families read (none kept yet in the slice: the default)."""
+    return types.ProfileParts()
+
+
+def _tenant() -> uuid.UUID:
+    found = tenancy.current_tenant_id()
+    if found is None:
+        raise auth.NotFound
+    return found
+
+
+def _project_of(building_id: uuid.UUID) -> uuid.UUID:
+    """The Building's Project, among those the acting Membership may open; else NotFound."""
+    _tenant()
+    for project in projects.list():
+        if any(b.id == building_id for b in projects.buildings(project.id)):
+            return project.id
+    raise auth.NotFound
+
+
+# The views read ---------------------------------------------------------------------------------------
+
+
+def _views(project_id: uuid.UUID, building_id: uuid.UUID) -> list[Any]:
+    """The Building's confirmed views, each a ViewArtefact, in sheet and reading order."""
+    drawing_set = drawings.set_of(project_id)
+    if drawing_set is None:
+        return []
+    alone = len(projects.buildings(project_id)) == 1
+    sheets = [
+        s
+        for s in drawings.sheets(drawing_set.id, anchors=False)
+        if s.building_id == building_id or (s.building_id is None and alone)
+    ]
+    rows = list(
+        Coverage.objects.select_related("confirmation").filter(
+            project_id=project_id,
+            drawing_set_state_id=None,
+            sheet_revision_id__in=[s.id for s in sheets],
+            status__in=_READ,
+            confirmation__isnull=False,
+            confirmation__undone_at__isnull=True,
+        )
+    )
+    if not rows:
+        return []
+    deciding = {s.id: s.confirmation_id for s in sheets}
+    standing = step1._steps_standing(rows, deciding)
+    confirmed = {r.view_id: r for r in rows}
+    viewed = drawings.views_of_set(drawing_set.id, anchors=False)
+    types = importlib.import_module("engine.families.types")
+    artefacts: dict[uuid.UUID, Any] = {}
+    found = []
+    for sheet in sheets:
+        for view in viewed.get(sheet.id, []):
+            row = confirmed.get(view.id)
+            if row is None:
+                continue
+            if sheet.file_id not in artefacts:
+                artefacts[sheet.file_id] = drawings.artefact(sheet.file_id)
+            steps = tuple(s.step for s in standing.get(row.id, []))
+            found.append(
+                types.ViewArtefact(
+                    view_id=str(view.id),
+                    sheet_id=str(sheet.id),
+                    artefact=artefacts[sheet.file_id],
+                    view=_candidate_of(view, steps),
+                )
+            )
+    return found
+
+
+def _candidate_of(view: drawings.ViewView, steps: tuple[str, ...]) -> Any:
+    """The view as Step 1 left it: its kind as confirmed and its standing Takeoff Steps."""
+    read = view_candidate(view)
+    kind = view.confirmed_kind or view.kind
+    return dataclasses.replace(read, kind=type(read.kind)(kind), steps=steps)
+
+
+# What the families found -------------------------------------------------------------------------------
+
+
+def _propose(
+    project_id: uuid.UUID,
+    building_id: uuid.UUID,
+    family: str,
+    step: str,
+    candidates: Sequence[Any],
+    views: Mapping[str, Any],
+) -> int:
+    """Each candidate as one Proposal with its Traces, named by its step and its key within the
+    Building (idempotent): an open Proposal takes the read again; one the QS decided is left as it
+    is, its evidence with it."""
+    tenant_id = _tenant()
+    for candidate in candidates:
+        key = f"{building_id}:{candidate.candidate_key}"
+        values = {
+            "mark": _text(getattr(candidate, "mark", "")),
+            "storey": _text(getattr(candidate, "storey", "")),
+            "band": _text(getattr(candidate, "band", "")),
+            "at": _json(getattr(candidate, "at", None)),
+            **{str(fact): _json(value) for fact, value in (candidate.values or {}).items()},
+        }
+        read = {
+            "values": values,
+            "source": _text(getattr(candidate, "source", "reader"))[:32] or "reader",
+            "confidence": _confidence(getattr(candidate, "confidence", None)),
+            "candidate_geometry": _json(getattr(candidate, "geometry", None)),
+        }
+        row = (
+            Proposal.objects.select_for_update()
+            .filter(tenant_id=tenant_id, project_id=project_id, step=step, candidate_key=key)
+            .first()
+        )
+        if row is None:
+            row = Proposal.objects.create(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                step=step,
+                candidate_key=key,
+                subject=ProposalSubject.ELEMENT,
+                subject_id=uuid.uuid5(_SUBJECTS, f"{project_id}:{step}:{key}"),
+                family_key=family,
+                **read,
+            )
+        elif row.status == ProposalStatus.OPEN:
+            for name, value in read.items():
+                setattr(row, name, value)
+            row.save(update_fields=list(read))
+        else:
+            continue
+        _trace(row, candidate, _view_of(candidate, views))
+    return len(candidates)
+
+
+def _trace(proposal: Proposal, candidate: Any, view: Any) -> None:
+    """Each fact's anchor as a Trace, its sheet and view named when known. Traces are append-only (the
+    app may neither change nor delete one): an anchor read before stays as the Proposal's history."""
+    where = {
+        "sheet_id": str(view.sheet_id) if view is not None else None,
+        "view_id": str(view.view_id) if view is not None else None,
+    }
+    for fact, given in (getattr(candidate, "anchors", None) or {}).items():
+        anchors = given if isinstance(given, (list, tuple)) else (given,)
+        for anchor in anchors:
+            ProposalTrace.objects.get_or_create(
+                tenant_id=proposal.tenant_id,
+                project_id=proposal.project_id,
+                proposal=proposal,
+                fact=str(fact)[:64],
+                anchor={**_anchor(anchor), **where},
+            )
+
+
+def _view_of(candidate: Any, views: Mapping[str, Any]) -> Any:
+    """The view a candidate was read on: the one it names, else the only one given, else None."""
+    named = getattr(candidate, "view_id", None)
+    if named is not None:
+        return views.get(str(named))
+    if len(views) == 1:
+        return next(iter(views.values()))
+    key = str(candidate.candidate_key)
+    found = [v for vid, v in views.items() if vid in key]
+    return found[0] if len(found) == 1 else None
+
+
+def _raise(project_id: uuid.UUID, building_id: uuid.UUID, step: str, questions: Sequence[Any]) -> int:
+    """Each Question a family raised, asked once per Building and words."""
+    for question in questions:
+        message = _message(question)
+        kind = str(getattr(question, "kind", "") or QuestionKind.MISSING)
+        _ask(
+            project_id,
+            building_id,
+            step,
+            message,
+            kind=kind if kind in QuestionKind.values else QuestionKind.MISSING,
+            key=_key("raised", building_id, step, message, getattr(question, "candidate_key", "")),
+        )
+    return len(questions)
+
+
+def _message(question: Any) -> Message:
+    found = getattr(question, "message", None)
+    if isinstance(found, Mapping):
+        return {"code": str(found["code"]), "params": _json(dict(found.get("params", {})))}
+    params = getattr(question, "params", None) or {}
+    return {"code": str(question.code), "params": _json(dict(params))}
+
+
+def _ask_failed(project_id: uuid.UUID, building_id: uuid.UUID, family: str, step: str) -> None:
+    """The family's failure as its one Question: asked again if a past run withdrew it."""
+    key = _key(FAMILY_FAILED.code, building_id, family)
+    row = _ask(project_id, building_id, step, FAMILY_FAILED(family=family), QuestionKind.MISSING, key)
+    if row.status == QuestionStatus.WITHDRAWN and row.withdrawn_by_id is None:
+        row.status = QuestionStatus.OPEN
+        row.save(update_fields=["status"])
+
+
+def _withdraw_failed(project_id: uuid.UUID, building_id: uuid.UUID, family: str) -> None:
+    """The family read again: its failure, while still open, is withdrawn (never one answered)."""
+    Question.objects.filter(
+        project_id=project_id,
+        question_key=_key(FAMILY_FAILED.code, building_id, family),
+        status=QuestionStatus.OPEN,
+    ).update(status=QuestionStatus.WITHDRAWN)
+
+
+def _ask(
+    project_id: uuid.UUID,
+    building_id: uuid.UUID,
+    step: str,
+    message: Message,
+    kind: str,
+    key: str,
+) -> Question:
+    row, _made = Question.objects.get_or_create(
+        tenant_id=_tenant(),
+        project_id=project_id,
+        question_key=key,
+        defaults={
+            "step": step,
+            "building_id": building_id,
+            "kind": kind,
+            "message_code": message["code"],
+            "params": dict(message["params"]),
+        },
+    )
+    return row
+
+
+def _key(*parts: object) -> str:
+    identity = json.dumps([_json(p) for p in parts], sort_keys=True, default=str)
+    return hashlib.sha256(identity.encode()).hexdigest()
+
+
+# As JSON: drawing units and verbatim text kept --------------------------------------------------------
+
+
+def _json(value: Any) -> Any:
+    """A family's value as JSON: a decimal as its plain string (never a float), a fact's value
+    object (`value`, `unit`, `text`) or any dataclass as an object, an enum as its value."""
+    if value is None or isinstance(value, (bool, str, int)):
+        return value
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    if isinstance(value, float):
+        return format(Decimal(repr(value)), "f")
+    if isinstance(value, enum.Enum):
+        return _json(value.value)
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if hasattr(value, "to_json"):  # an anchor: its own JSON (its kind among it)
+        return _json(value.to_json())
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: _json(getattr(value, f.name)) for f in dataclasses.fields(value)}
+    if isinstance(value, Mapping):
+        return {str(k): _json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return [_json(v) for v in value]
+    if hasattr(value, "value"):
+        held = ("value", "unit", "text")
+        return {name: _json(getattr(value, name)) for name in held if hasattr(value, name)}
+    return str(value)
+
+
+def _anchor(anchor: Any) -> dict[str, Any]:
+    found = _json(anchor)
+    return found if isinstance(found, dict) else {"anchor": found}
+
+
+def _text(value: Any) -> str:
+    return "" if value is None else str(_json(value))
+
+
+def _confidence(value: Any) -> Decimal | None:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value)).quantize(Decimal("0.0001"))
+    except InvalidOperation:
+        return None
