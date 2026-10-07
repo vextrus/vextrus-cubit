@@ -414,10 +414,8 @@ describe('the design gate, with the rows full (§1.1, §1.8)', () => {
     await shows('BP-02', 'Drawing Set', 'Reading 1 file, sheet 5 of 16')
     await shows('SG-03', 'Takeoff', 'Step 1 confirmed')
     await shows('SG-03', 'Updated', '23 Sep 2026')
+    // m0-screens 1.1's never-shown words are judged on every screen by the one list (S15-W7), not here.
     const text = clean(document.body.textContent)
-    for (const word of ['handle', 'entity', 'SDF', 'DXF', 'worker', 'queue', 'hash', 'tenant', 'API', 'null', 'undefined', 'NaN', 'UUID', 'Building']) {
-      expect(text, word).not.toMatch(new RegExp(`\\b${word}\\b`))
-    }
     expect(text).not.toMatch(/\b[a-z_]+\.[a-z_]+\.[a-z_]+\b/)
     expect(text).not.toMatch(/\b(waiting|reading|stopping|retrying|unreadable|cancelled|in_review|not_started)\b/)
     expect(notationProblems(document.body)).toEqual([])
