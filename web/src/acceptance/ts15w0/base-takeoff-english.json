@@ -1,0 +1,3222 @@
+[
+ {
+  "context": "role",
+  "id": "Guest",
+  "english": "Guest"
+ },
+ {
+  "context": "role",
+  "id": "MD",
+  "english": "MD"
+ },
+ {
+  "context": "role",
+  "id": "QS",
+  "english": "QS"
+ },
+ {
+  "context": "role",
+  "id": "Vextrus Engineer",
+  "english": "Vextrus Engineer"
+ },
+ {
+  "context": "storey",
+  "id": "Foundations",
+  "english": "Foundations"
+ },
+ {
+  "context": "storey",
+  "id": "Ground",
+  "english": "Ground"
+ },
+ {
+  "context": "storey",
+  "id": "Lift machine room roof",
+  "english": "Lift machine room roof"
+ },
+ {
+  "context": "storey",
+  "id": "Lift machine room",
+  "english": "Lift machine room"
+ },
+ {
+  "context": "storey",
+  "id": "Lower ground",
+  "english": "Lower ground"
+ },
+ {
+  "context": "storey",
+  "id": "Mezzanine",
+  "english": "Mezzanine"
+ },
+ {
+  "context": "storey",
+  "id": "Pile cap",
+  "english": "Pile cap"
+ },
+ {
+  "context": "storey",
+  "id": "Pile",
+  "english": "Pile"
+ },
+ {
+  "context": "storey",
+  "id": "Plinth",
+  "english": "Plinth"
+ },
+ {
+  "context": "storey",
+  "id": "Podium",
+  "english": "Podium"
+ },
+ {
+  "context": "storey",
+  "id": "Roof",
+  "english": "Roof"
+ },
+ {
+  "context": "storey",
+  "id": "Stair-room roof",
+  "english": "Stair-room roof"
+ },
+ {
+  "context": "storey",
+  "id": "top (top from Step 3)",
+  "english": "top (top from Step 3)"
+ },
+ {
+  "context": "view kind",
+  "id": "3D or perspective",
+  "english": "3D or perspective"
+ },
+ {
+  "context": "view kind",
+  "id": "Detail",
+  "english": "Detail"
+ },
+ {
+  "context": "view kind",
+  "id": "Elevation",
+  "english": "Elevation"
+ },
+ {
+  "context": "view kind",
+  "id": "Key plan",
+  "english": "Key plan"
+ },
+ {
+  "context": "view kind",
+  "id": "Legend",
+  "english": "Legend"
+ },
+ {
+  "context": "view kind",
+  "id": "Notes",
+  "english": "Notes"
+ },
+ {
+  "context": "view kind",
+  "id": "Plan",
+  "english": "Plan"
+ },
+ {
+  "context": "view kind",
+  "id": "Schedule",
+  "english": "Schedule"
+ },
+ {
+  "context": "view kind",
+  "id": "Section",
+  "english": "Section"
+ },
+ {
+  "context": "view kind",
+  "id": "Title block",
+  "english": "Title block"
+ },
+ {
+  "context": "view kind",
+  "id": "View",
+  "english": "View"
+ },
+ {
+  "context": null,
+  "id": "1 with no Discipline",
+  "english": "1 with no Discipline"
+ },
+ {
+  "context": null,
+  "id": "<0/><1>, {count} copies</1>",
+  "english": "<0/><1>, {count} copies</1>"
+ },
+ {
+  "context": null,
+  "id": "<0/><1>, {count} sheets</1>",
+  "english": "<0/><1>, {count} sheets</1>"
+ },
+ {
+  "context": null,
+  "id": "<0/><1>Held: the two readers disagree</1>",
+  "english": "<0/><1>Held: the two readers disagree</1>"
+ },
+ {
+  "context": null,
+  "id": "A Proposal counts toward nothing until the QS confirms it.",
+  "english": "A Proposal counts toward nothing until the QS confirms it."
+ },
+ {
+  "context": null,
+  "id": "A Proposal counts toward nothing until you confirm it.",
+  "english": "A Proposal counts toward nothing until you confirm it."
+ },
+ {
+  "context": null,
+  "id": "A Question about the sheets",
+  "english": "A Question about the sheets"
+ },
+ {
+  "context": null,
+  "id": "A file is held: the two readers disagree",
+  "english": "A file is held: the two readers disagree"
+ },
+ {
+  "context": null,
+  "id": "A gap in the numbering",
+  "english": "A gap in the numbering"
+ },
+ {
+  "context": null,
+  "id": "A pick changes nothing until you answer. {name} cannot be confirmed until this Question is answered.",
+  "english": "A pick changes nothing until you answer. {name} cannot be confirmed until this Question is answered."
+ },
+ {
+  "context": null,
+  "id": "A pick changes nothing until you answer.",
+  "english": "A pick changes nothing until you answer."
+ },
+ {
+  "context": null,
+  "id": "A range such as 01–29, or the list as the consultant sent it",
+  "english": "A range such as 01–29, or the list as the consultant sent it"
+ },
+ {
+  "context": null,
+  "id": "A sheet in {file} has neither a number nor a title in its title block.",
+  "english": "A sheet in {file} has neither a number nor a title in its title block."
+ },
+ {
+  "context": null,
+  "id": "A sheet titled “{title}” in {file} has an empty number in its title block.",
+  "english": "A sheet titled “{title}” in {file} has an empty number in its title block."
+ },
+ {
+  "context": null,
+  "id": "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views.",
+  "english": "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
+ },
+ {
+  "context": null,
+  "id": "AC pipe layout",
+  "english": "AC pipe layout"
+ },
+ {
+  "context": null,
+  "id": "An answer Vextrus has no words for yet",
+  "english": "An answer Vextrus has no words for yet"
+ },
+ {
+  "context": null,
+  "id": "An untitled sheet laid out in the drawing of {file}",
+  "english": "An untitled sheet laid out in the drawing of {file}"
+ },
+ {
+  "context": null,
+  "id": "An untitled sheet on layout “{layout}” of {file}",
+  "english": "An untitled sheet on layout “{layout}” of {file}"
+ },
+ {
+  "context": null,
+  "id": "Another Discipline",
+  "english": "Another Discipline"
+ },
+ {
+  "context": null,
+  "id": "Another kind of sheet",
+  "english": "Another kind of sheet"
+ },
+ {
+  "context": null,
+  "id": "Answer once",
+  "english": "Answer once"
+ },
+ {
+  "context": null,
+  "id": "Answer {tag}",
+  "english": "Answer {tag}"
+ },
+ {
+  "context": null,
+  "id": "Answered",
+  "english": "Answered"
+ },
+ {
+  "context": null,
+  "id": "Answering confirms both copies.",
+  "english": "Answering confirms both copies."
+ },
+ {
+  "context": null,
+  "id": "Answering confirms no sheets. Pick an answer: {keys}.",
+  "english": "Answering confirms no sheets. Pick an answer: {keys}."
+ },
+ {
+  "context": null,
+  "id": "Answering confirms no sheets.",
+  "english": "Answering confirms no sheets."
+ },
+ {
+  "context": null,
+  "id": "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded.",
+  "english": "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
+ },
+ {
+  "context": null,
+  "id": "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded.",
+  "english": "Answering confirms {number} ({kept}) and excludes {number} ({dropped}) as superseded."
+ },
+ {
+  "context": null,
+  "id": "Answering decides whether this file’s sheets join the list. Pick an answer: {keys}.",
+  "english": "Answering decides whether this file’s sheets join the list. Pick an answer: {keys}."
+ },
+ {
+  "context": null,
+  "id": "Answering decides whether this file’s sheets join the list.",
+  "english": "Answering decides whether this file’s sheets join the list."
+ },
+ {
+  "context": null,
+  "id": "Answering decides whether {file}’s sheets join the list. Pick an answer: {keys}.",
+  "english": "Answering decides whether {file}’s sheets join the list. Pick an answer: {keys}."
+ },
+ {
+  "context": null,
+  "id": "Answering decides whether {file}’s sheets join the list.",
+  "english": "Answering decides whether {file}’s sheets join the list."
+ },
+ {
+  "context": null,
+  "id": "Answering decides which drawing list {name}’s sheets are counted against. Pick an answer: {keys}.",
+  "english": "Answering decides which drawing list {name}’s sheets are counted against. Pick an answer: {keys}."
+ },
+ {
+  "context": null,
+  "id": "Answering decides which drawing list {name}’s sheets are counted against.",
+  "english": "Answering decides which drawing list {name}’s sheets are counted against."
+ },
+ {
+  "context": null,
+  "id": "Answering gives the sheet the number you type; confirm it in the list.",
+  "english": "Answering gives the sheet the number you type; confirm it in the list."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps both copies open. Neither is read until the consultant replies.",
+  "english": "Answering keeps both copies open. Neither is read until the consultant replies."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps the file held. {discipline} cannot be confirmed until it is answered.",
+  "english": "Answering keeps the file held. {discipline} cannot be confirmed until it is answered."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps the file held.",
+  "english": "Answering keeps the file held."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps the sheet in the count as missing.",
+  "english": "Answering keeps the sheet in the count as missing."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps this Question open.",
+  "english": "Answering keeps this Question open."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps this gap open.",
+  "english": "Answering keeps this gap open."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps {entryName} in the count as missing.",
+  "english": "Answering keeps {entryName} in the count as missing."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps {entryName} open.",
+  "english": "Answering keeps {entryName} open."
+ },
+ {
+  "context": null,
+  "id": "Answering keeps {name} open.",
+  "english": "Answering keeps {name} open."
+ },
+ {
+  "context": null,
+  "id": "Answering leaves the sheet without a number; confirm it in the list.",
+  "english": "Answering leaves the sheet without a number; confirm it in the list."
+ },
+ {
+  "context": null,
+  "id": "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later.",
+  "english": "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
+ },
+ {
+  "context": null,
+  "id": "Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later.",
+  "english": "Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
+ },
+ {
+  "context": null,
+  "id": "Answering records that the numbering skips here: nothing is missing.",
+  "english": "Answering records that the numbering skips here: nothing is missing."
+ },
+ {
+  "context": null,
+  "id": "Answering records that the sheet is not part of this set; it stays on the drawing list.",
+  "english": "Answering records that the sheet is not part of this set; it stays on the drawing list."
+ },
+ {
+  "context": null,
+  "id": "Answering records that {entryName} is not part of this set; exclude it in the list.",
+  "english": "Answering records that {entryName} is not part of this set; exclude it in the list."
+ },
+ {
+  "context": null,
+  "id": "Answering records that {entryName} is not part of this set; it stays on the drawing list.",
+  "english": "Answering records that {entryName} is not part of this set; it stays on the drawing list."
+ },
+ {
+  "context": null,
+  "id": "Answering records your pick; the copies stay as they are, to confirm or exclude in the list.",
+  "english": "Answering records your pick; the copies stay as they are, to confirm or exclude in the list."
+ },
+ {
+  "context": null,
+  "id": "Answering records your pick; {entryName} stays in the list, to confirm or exclude.",
+  "english": "Answering records your pick; {entryName} stays in the list, to confirm or exclude."
+ },
+ {
+  "context": null,
+  "id": "Answering sets the file aside: none of its sheets is read or counted. {discipline} can still be confirmed.",
+  "english": "Answering sets the file aside: none of its sheets is read or counted. {discipline} can still be confirmed."
+ },
+ {
+  "context": null,
+  "id": "Answering sets the file aside: none of its sheets is read or counted.",
+  "english": "Answering sets the file aside: none of its sheets is read or counted."
+ },
+ {
+  "context": null,
+  "id": "Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked.",
+  "english": "Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked."
+ },
+ {
+  "context": null,
+  "id": "Answers",
+  "english": "Answers"
+ },
+ {
+  "context": null,
+  "id": "Architectural",
+  "english": "Architectural"
+ },
+ {
+  "context": null,
+  "id": "As its title block should read. Enter answers.",
+  "english": "As its title block should read. Enter answers."
+ },
+ {
+  "context": null,
+  "id": "Ask later",
+  "english": "Ask later"
+ },
+ {
+  "context": null,
+  "id": "Back to the list; in the list, clear the focus",
+  "english": "Back to the list; in the list, clear the focus"
+ },
+ {
+  "context": null,
+  "id": "Bangla font",
+  "english": "Bangla font"
+ },
+ {
+  "context": null,
+  "id": "Basement {n}",
+  "english": "Basement {n}"
+ },
+ {
+  "context": null,
+  "id": "Basement",
+  "english": "Basement"
+ },
+ {
+  "context": null,
+  "id": "Beam details",
+  "english": "Beam details"
+ },
+ {
+  "context": null,
+  "id": "Beam layout",
+  "english": "Beam layout"
+ },
+ {
+  "context": null,
+  "id": "Blank: base plan only",
+  "english": "Blank: base plan only"
+ },
+ {
+  "context": null,
+  "id": "Both are titled “{title}”. Only one can be read.",
+  "english": "Both are titled “{title}”. Only one can be read."
+ },
+ {
+  "context": null,
+  "id": "Boundary wall and gate details",
+  "english": "Boundary wall and gate details"
+ },
+ {
+  "context": null,
+  "id": "By others (not in this Estimate)",
+  "english": "By others (not in this Estimate)"
+ },
+ {
+  "context": null,
+  "id": "By {name}, {date}.",
+  "english": "By {name}, {date}."
+ },
+ {
+  "context": null,
+  "id": "Cancel the exclusion",
+  "english": "Cancel the exclusion"
+ },
+ {
+  "context": null,
+  "id": "Ceiling layout",
+  "english": "Ceiling layout"
+ },
+ {
+  "context": null,
+  "id": "Close",
+  "english": "Close"
+ },
+ {
+  "context": null,
+  "id": "Column layout",
+  "english": "Column layout"
+ },
+ {
+  "context": null,
+  "id": "Column schedule",
+  "english": "Column schedule"
+ },
+ {
+  "context": null,
+  "id": "Compare: what was read in orange over the Plot",
+  "english": "Compare: what was read in orange over the Plot"
+ },
+ {
+  "context": null,
+  "id": "Compare: what was read in red over the Plot",
+  "english": "Compare: what was read in red over the Plot"
+ },
+ {
+  "context": null,
+  "id": "Confirm back in",
+  "english": "Confirm back in"
+ },
+ {
+  "context": null,
+  "id": "Confirm {name}",
+  "english": "Confirm {name}"
+ },
+ {
+  "context": null,
+  "id": "Confirm {n}",
+  "english": "Confirm {n}"
+ },
+ {
+  "context": null,
+  "id": "Confirm {n}, leave out {m}",
+  "english": "Confirm {n}, leave out {m}"
+ },
+ {
+  "context": null,
+  "id": "Confirmed by {name} (Vextrus), {date}",
+  "english": "Confirmed by {name} (Vextrus), {date}"
+ },
+ {
+  "context": null,
+  "id": "Confirmed by {name}, {date}",
+  "english": "Confirmed by {name}, {date}"
+ },
+ {
+  "context": null,
+  "id": "Confirmed {name}.",
+  "english": "Confirmed {name}."
+ },
+ {
+  "context": null,
+  "id": "Confirmed",
+  "english": "Confirmed"
+ },
+ {
+  "context": null,
+  "id": "Cover or index (its drawing list kept)",
+  "english": "Cover or index (its drawing list kept)"
+ },
+ {
+  "context": null,
+  "id": "Cover or index",
+  "english": "Cover or index"
+ },
+ {
+  "context": null,
+  "id": "Coverage has a view that is neither assigned nor excluded",
+  "english": "Coverage has a view that is neither assigned nor excluded"
+ },
+ {
+  "context": null,
+  "id": "Coverage keeps the reason. Esc cancels",
+  "english": "Coverage keeps the reason. Esc cancels"
+ },
+ {
+  "context": null,
+  "id": "Coverage, every view on every sheet read",
+  "english": "Coverage, every view on every sheet read"
+ },
+ {
+  "context": null,
+  "id": "Details",
+  "english": "Details"
+ },
+ {
+  "context": null,
+  "id": "Discipline unclear",
+  "english": "Discipline unclear"
+ },
+ {
+  "context": null,
+  "id": "Discipline",
+  "english": "Discipline"
+ },
+ {
+  "context": null,
+  "id": "Disciplines not yet received",
+  "english": "Disciplines not yet received"
+ },
+ {
+  "context": null,
+  "id": "Disciplines not yet received:",
+  "english": "Disciplines not yet received:"
+ },
+ {
+  "context": null,
+  "id": "Distribution board details",
+  "english": "Distribution board details"
+ },
+ {
+  "context": null,
+  "id": "Do what the bar says",
+  "english": "Do what the bar says"
+ },
+ {
+  "context": null,
+  "id": "Door and window details",
+  "english": "Door and window details"
+ },
+ {
+  "context": null,
+  "id": "Door and window layout",
+  "english": "Door and window layout"
+ },
+ {
+  "context": null,
+  "id": "Door and window schedule",
+  "english": "Door and window schedule"
+ },
+ {
+  "context": null,
+  "id": "Duplicate or another Discipline’s copy",
+  "english": "Duplicate or another Discipline’s copy"
+ },
+ {
+  "context": null,
+  "id": "ELV layout",
+  "english": "ELV layout"
+ },
+ {
+  "context": null,
+  "id": "Each has a number and title from its title block and is on its drawing list.",
+  "english": "Each has a number and title from its title block and is on its drawing list."
+ },
+ {
+  "context": null,
+  "id": "Each has a number and title from its title block, in numbering without a gap, and its Plot page matches.",
+  "english": "Each has a number and title from its title block, in numbering without a gap, and its Plot page matches."
+ },
+ {
+  "context": null,
+  "id": "Each has a number and title from its title block, on its drawing list or in numbering without a gap.",
+  "english": "Each has a number and title from its title block, on its drawing list or in numbering without a gap."
+ },
+ {
+  "context": null,
+  "id": "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level.",
+  "english": "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level."
+ },
+ {
+  "context": null,
+  "id": "Each stays on its allowance until its drawings arrive. A file of a new Discipline opens only its own Step 1; the others stay as they are.",
+  "english": "Each stays on its allowance until its drawings arrive. A file of a new Discipline opens only its own Step 1; the others stay as they are."
+ },
+ {
+  "context": null,
+  "id": "Earthing details",
+  "english": "Earthing details"
+ },
+ {
+  "context": null,
+  "id": "Electrical",
+  "english": "Electrical"
+ },
+ {
+  "context": null,
+  "id": "Elevation",
+  "english": "Elevation"
+ },
+ {
+  "context": null,
+  "id": "Enter confirms it and opens the next open sheet.",
+  "english": "Enter confirms it and opens the next open sheet."
+ },
+ {
+  "context": null,
+  "id": "Enter takes them in this order",
+  "english": "Enter takes them in this order"
+ },
+ {
+  "context": null,
+  "id": "Equipment schedule",
+  "english": "Equipment schedule"
+ },
+ {
+  "context": null,
+  "id": "Esc goes back.",
+  "english": "Esc goes back."
+ },
+ {
+  "context": null,
+  "id": "Exclude the focused sheet, with a reason",
+  "english": "Exclude the focused sheet, with a reason"
+ },
+ {
+  "context": null,
+  "id": "Exclude with the reason typed",
+  "english": "Exclude with the reason typed"
+ },
+ {
+  "context": null,
+  "id": "Exclude {name}. Why?",
+  "english": "Exclude {name}. Why?"
+ },
+ {
+  "context": null,
+  "id": "Exclude",
+  "english": "Exclude"
+ },
+ {
+  "context": null,
+  "id": "Excluded by {name} (Vextrus), {date}: {reason}",
+  "english": "Excluded by {name} (Vextrus), {date}: {reason}"
+ },
+ {
+  "context": null,
+  "id": "Excluded by {name}, {date}: {reason}",
+  "english": "Excluded by {name}, {date}: {reason}"
+ },
+ {
+  "context": null,
+  "id": "Excluded, by reason",
+  "english": "Excluded, by reason"
+ },
+ {
+  "context": null,
+  "id": "Excluded, {reason}",
+  "english": "Excluded, {reason}"
+ },
+ {
+  "context": null,
+  "id": "Excluded: {reason}",
+  "english": "Excluded: {reason}"
+ },
+ {
+  "context": null,
+  "id": "Exclusion reasons",
+  "english": "Exclusion reasons"
+ },
+ {
+  "context": null,
+  "id": "Expected sheets",
+  "english": "Expected sheets"
+ },
+ {
+  "context": null,
+  "id": "Extinguisher and signage layout",
+  "english": "Extinguisher and signage layout"
+ },
+ {
+  "context": null,
+  "id": "File",
+  "english": "File"
+ },
+ {
+  "context": null,
+  "id": "Finish schedule",
+  "english": "Finish schedule"
+ },
+ {
+  "context": null,
+  "id": "Fire (a building of 7 storeys or more)",
+  "english": "Fire (a building of 7 storeys or more)"
+ },
+ {
+  "context": null,
+  "id": "Fire alarm layout",
+  "english": "Fire alarm layout"
+ },
+ {
+  "context": null,
+  "id": "Fire hydrant layout",
+  "english": "Fire hydrant layout"
+ },
+ {
+  "context": null,
+  "id": "Fire pump details",
+  "english": "Fire pump details"
+ },
+ {
+  "context": null,
+  "id": "Fire",
+  "english": "Fire"
+ },
+ {
+  "context": null,
+  "id": "Floor finish layout",
+  "english": "Floor finish layout"
+ },
+ {
+  "context": null,
+  "id": "Floor plan",
+  "english": "Floor plan"
+ },
+ {
+  "context": null,
+  "id": "Foundation details",
+  "english": "Foundation details"
+ },
+ {
+  "context": null,
+  "id": "Foundation layout",
+  "english": "Foundation layout"
+ },
+ {
+  "context": null,
+  "id": "Gas line layout",
+  "english": "Gas line layout"
+ },
+ {
+  "context": null,
+  "id": "Gas",
+  "english": "Gas"
+ },
+ {
+  "context": null,
+  "id": "General notes",
+  "english": "General notes"
+ },
+ {
+  "context": null,
+  "id": "General",
+  "english": "General"
+ },
+ {
+  "context": null,
+  "id": "Go to the Drawing Set",
+  "english": "Go to the Drawing Set"
+ },
+ {
+  "context": null,
+  "id": "Grid layout",
+  "english": "Grid layout"
+ },
+ {
+  "context": null,
+  "id": "HVAC layout",
+  "english": "HVAC layout"
+ },
+ {
+  "context": null,
+  "id": "In a file, not on the drawing list",
+  "english": "In a file, not on the drawing list"
+ },
+ {
+  "context": null,
+  "id": "It has neither a number nor a title, so nothing says which kind of sheet it is. Its kind decides which Takeoff steps read it.",
+  "english": "It has neither a number nor a title, so nothing says which kind of sheet it is. Its kind decides which Takeoff steps read it."
+ },
+ {
+  "context": null,
+  "id": "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it.",
+  "english": "It has no title, so nothing says which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
+ },
+ {
+  "context": null,
+  "id": "It is in a file I haven’t added yet",
+  "english": "It is in a file I haven’t added yet"
+ },
+ {
+  "context": null,
+  "id": "It stays in the count with its reason. X picks another reason.",
+  "english": "It stays in the count with its reason. X picks another reason."
+ },
+ {
+  "context": null,
+  "id": "It stays in the count.",
+  "english": "It stays in the count."
+ },
+ {
+  "context": null,
+  "id": "Its Discipline’s numbering has a gap or a number twice.",
+  "english": "Its Discipline’s numbering has a gap or a number twice."
+ },
+ {
+  "context": null,
+  "id": "Its pages are matched to sheets when it is read.",
+  "english": "Its pages are matched to sheets when it is read."
+ },
+ {
+  "context": null,
+  "id": "Its sheets join the list when it is read.",
+  "english": "Its sheets join the list when it is read."
+ },
+ {
+  "context": null,
+  "id": "Its title, “{title}”, does not say which kind of sheet {number} is. Its kind decides which Takeoff steps read it.",
+  "english": "Its title, “{title}”, does not say which kind of sheet {number} is. Its kind decides which Takeoff steps read it."
+ },
+ {
+  "context": null,
+  "id": "Keep open, ask the consultant",
+  "english": "Keep open, ask the consultant"
+ },
+ {
+  "context": null,
+  "id": "Keep the latest copy; leave the others out as superseded",
+  "english": "Keep the latest copy; leave the others out as superseded"
+ },
+ {
+  "context": null,
+  "id": "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded",
+  "english": "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
+ },
+ {
+  "context": null,
+  "id": "Keep {kept} ({date}); leave {dropped} out as superseded",
+  "english": "Keep {kept} ({date}); leave {dropped} out as superseded"
+ },
+ {
+  "context": null,
+  "id": "Keep {kept}; leave the other {others, plural, one {# copy} other {# copies}} out as superseded",
+  "english": "Keep {kept}; leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
+ },
+ {
+  "context": null,
+  "id": "Keep {kept}; leave {dropped} out as superseded",
+  "english": "Keep {kept}; leave {dropped} out as superseded"
+ },
+ {
+  "context": null,
+  "id": "Kept open",
+  "english": "Kept open"
+ },
+ {
+  "context": null,
+  "id": "Kitchen details",
+  "english": "Kitchen details"
+ },
+ {
+  "context": null,
+  "id": "Leave it without a number",
+  "english": "Leave it without a number"
+ },
+ {
+  "context": null,
+  "id": "Leave out {m}",
+  "english": "Leave out {m}"
+ },
+ {
+  "context": null,
+  "id": "Leave out {m}: {reasons}",
+  "english": "Leave out {m}: {reasons}"
+ },
+ {
+  "context": null,
+  "id": "Leave out {name}",
+  "english": "Leave out {name}"
+ },
+ {
+  "context": null,
+  "id": "Leave out {name}: {reason}",
+  "english": "Leave out {name}: {reason}"
+ },
+ {
+  "context": null,
+  "id": "Left-out sheets stay in the count with their reason.",
+  "english": "Left-out sheets stay in the count with their reason."
+ },
+ {
+  "context": null,
+  "id": "Legend",
+  "english": "Legend"
+ },
+ {
+  "context": null,
+  "id": "Lift layout",
+  "english": "Lift layout"
+ },
+ {
+  "context": null,
+  "id": "Lift pit details",
+  "english": "Lift pit details"
+ },
+ {
+  "context": null,
+  "id": "Lift section",
+  "english": "Lift section"
+ },
+ {
+  "context": null,
+  "id": "Lift",
+  "english": "Lift"
+ },
+ {
+  "context": null,
+  "id": "Lighting layout",
+  "english": "Lighting layout"
+ },
+ {
+  "context": null,
+  "id": "Lightning protection",
+  "english": "Lightning protection"
+ },
+ {
+  "context": null,
+  "id": "Lintel layout",
+  "english": "Lintel layout"
+ },
+ {
+  "context": null,
+  "id": "List or sheet",
+  "english": "List or sheet"
+ },
+ {
+  "context": null,
+  "id": "List",
+  "english": "List"
+ },
+ {
+  "context": null,
+  "id": "Loading the Plot…",
+  "english": "Loading the Plot…"
+ },
+ {
+  "context": null,
+  "id": "Machine room details",
+  "english": "Machine room details"
+ },
+ {
+  "context": null,
+  "id": "Mechanical (HVAC)",
+  "english": "Mechanical (HVAC)"
+ },
+ {
+  "context": null,
+  "id": "Needs you",
+  "english": "Needs you"
+ },
+ {
+  "context": null,
+  "id": "Next open Question",
+  "english": "Next open Question"
+ },
+ {
+  "context": null,
+  "id": "Next open item",
+  "english": "Next open item"
+ },
+ {
+  "context": null,
+  "id": "Next row; in a sheet, the next sheet",
+  "english": "Next row; in a sheet, the next sheet"
+ },
+ {
+  "context": null,
+  "id": "Next sheet",
+  "english": "Next sheet"
+ },
+ {
+  "context": null,
+  "id": "Next view on the sheet",
+  "english": "Next view on the sheet"
+ },
+ {
+  "context": null,
+  "id": "No Discipline",
+  "english": "No Discipline"
+ },
+ {
+  "context": null,
+  "id": "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus.",
+  "english": "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
+ },
+ {
+  "context": null,
+  "id": "No Plot for this sheet: page {page} of <0/> matches it, but its drawing could not be lined up with the sheet.",
+  "english": "No Plot for this sheet: page {page} of <0/> matches it, but its drawing could not be lined up with the sheet."
+ },
+ {
+  "context": null,
+  "id": "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet.",
+  "english": "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet."
+ },
+ {
+  "context": null,
+  "id": "No drawing list and no Plot to check them against. Open each to confirm it.",
+  "english": "No drawing list and no Plot to check them against. Open each to confirm it."
+ },
+ {
+  "context": null,
+  "id": "No drawing list and no Plot to check them against.",
+  "english": "No drawing list and no Plot to check them against."
+ },
+ {
+  "context": null,
+  "id": "No number",
+  "english": "No number"
+ },
+ {
+  "context": null,
+  "id": "No open Questions.",
+  "english": "No open Questions."
+ },
+ {
+  "context": null,
+  "id": "No sheets yet. Add the Drawing Set’s files first.",
+  "english": "No sheets yet. Add the Drawing Set’s files first."
+ },
+ {
+  "context": null,
+  "id": "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read.",
+  "english": "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read."
+ },
+ {
+  "context": null,
+  "id": "No sheets yet: they arrive as the files are read.",
+  "english": "No sheets yet: they arrive as the files are read."
+ },
+ {
+  "context": null,
+  "id": "No sheets yet: they arrive as {name} is read.",
+  "english": "No sheets yet: they arrive as {name} is read."
+ },
+ {
+  "context": null,
+  "id": "No: it belongs to the next sheet’s range",
+  "english": "No: it belongs to the next sheet’s range"
+ },
+ {
+  "context": null,
+  "id": "None: its PDF could not be read",
+  "english": "None: its PDF could not be read"
+ },
+ {
+  "context": null,
+  "id": "None: its PDF is still being read",
+  "english": "None: its PDF is still being read"
+ },
+ {
+  "context": null,
+  "id": "None: its PDF was a scan and was refused",
+  "english": "None: its PDF was a scan and was refused"
+ },
+ {
+  "context": null,
+  "id": "None: no PDF has been added for {discipline}",
+  "english": "None: no PDF has been added for {discipline}"
+ },
+ {
+  "context": null,
+  "id": "None: no PDF page is matched to it",
+  "english": "None: no PDF page is matched to it"
+ },
+ {
+  "context": null,
+  "id": "None: no PDF was added to the Drawing Set",
+  "english": "None: no PDF was added to the Drawing Set"
+ },
+ {
+  "context": null,
+  "id": "None: no page of {file} matched it",
+  "english": "None: no page of {file} matched it"
+ },
+ {
+  "context": null,
+  "id": "None: the sheet has no number, so no PDF page could be matched to it",
+  "english": "None: the sheet has no number, so no PDF page could be matched to it"
+ },
+ {
+  "context": null,
+  "id": "Not part of this set: record it, then exclude it in the list",
+  "english": "Not part of this set: record it, then exclude it in the list"
+ },
+ {
+  "context": null,
+  "id": "Not part of this set: record it; it stays on the drawing list",
+  "english": "Not part of this set: record it; it stays on the drawing list"
+ },
+ {
+  "context": null,
+  "id": "Not part of this set: the numbering skips here",
+  "english": "Not part of this set: the numbering skips here"
+ },
+ {
+  "context": null,
+  "id": "Not sent yet: keep it in the count as missing and ask the consultant",
+  "english": "Not sent yet: keep it in the count as missing and ask the consultant"
+ },
+ {
+  "context": null,
+  "id": "Nothing else confirms it.",
+  "english": "Nothing else confirms it."
+ },
+ {
+  "context": null,
+  "id": "Nothing else confirms them. Open each to confirm it.",
+  "english": "Nothing else confirms them. Open each to confirm it."
+ },
+ {
+  "context": null,
+  "id": "Nothing is waiting.",
+  "english": "Nothing is waiting."
+ },
+ {
+  "context": null,
+  "id": "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it.",
+  "english": "Nothing undone: your last change was not made. Press Ctrl Z again to undo the one before it."
+ },
+ {
+  "context": null,
+  "id": "Nothing: the picker has seven reasons",
+  "english": "Nothing: the picker has seven reasons"
+ },
+ {
+  "context": null,
+  "id": "Number",
+  "english": "Number"
+ },
+ {
+  "context": null,
+  "id": "Numbered <0/>",
+  "english": "Numbered <0/>"
+ },
+ {
+  "context": null,
+  "id": "On the drawing list, in no file",
+  "english": "On the drawing list, in no file"
+ },
+ {
+  "context": null,
+  "id": "One title on two sheets",
+  "english": "One title on two sheets"
+ },
+ {
+  "context": null,
+  "id": "One title on {count} sheets",
+  "english": "One title on {count} sheets"
+ },
+ {
+  "context": null,
+  "id": "Open <0/>",
+  "english": "Open <0/>"
+ },
+ {
+  "context": null,
+  "id": "Open Coverage on the status bar to find it.",
+  "english": "Open Coverage on the status bar to find it."
+ },
+ {
+  "context": null,
+  "id": "Open it to confirm it.",
+  "english": "Open it to confirm it."
+ },
+ {
+  "context": null,
+  "id": "Open the focused sheet, or go back to the list",
+  "english": "Open the focused sheet, or go back to the list"
+ },
+ {
+  "context": null,
+  "id": "Open the sheet the bar names, or go back to the list",
+  "english": "Open the sheet the bar names, or go back to the list"
+ },
+ {
+  "context": null,
+  "id": "Open {name}",
+  "english": "Open {name}"
+ },
+ {
+  "context": null,
+  "id": "Opening <0/>…",
+  "english": "Opening <0/>…"
+ },
+ {
+  "context": null,
+  "id": "Opening Step 1…",
+  "english": "Opening Step 1…"
+ },
+ {
+  "context": null,
+  "id": "Other",
+  "english": "Other"
+ },
+ {
+  "context": null,
+  "id": "Page {page} of the Plot shows {number}, and no DWG has a sheet with that number.",
+  "english": "Page {page} of the Plot shows {number}, and no DWG has a sheet with that number."
+ },
+ {
+  "context": null,
+  "id": "Paste the drawing list",
+  "english": "Paste the drawing list"
+ },
+ {
+  "context": null,
+  "id": "Perspective",
+  "english": "Perspective"
+ },
+ {
+  "context": null,
+  "id": "Pick an answer to {tag} first: {keys}",
+  "english": "Pick an answer to {tag} first: {keys}"
+ },
+ {
+  "context": null,
+  "id": "Pick an answer",
+  "english": "Pick an answer"
+ },
+ {
+  "context": null,
+  "id": "Pick an answer: {keys}.",
+  "english": "Pick an answer: {keys}."
+ },
+ {
+  "context": null,
+  "id": "Pick answer 1 on the focused Question",
+  "english": "Pick answer 1 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 2 on the focused Question",
+  "english": "Pick answer 2 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 3 on the focused Question",
+  "english": "Pick answer 3 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 4 on the focused Question",
+  "english": "Pick answer 4 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 5 on the focused Question",
+  "english": "Pick answer 5 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 6 on the focused Question",
+  "english": "Pick answer 6 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 7 on the focused Question",
+  "english": "Pick answer 7 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 8 on the focused Question",
+  "english": "Pick answer 8 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Pick answer 9 on the focused Question",
+  "english": "Pick answer 9 on the focused Question"
+ },
+ {
+  "context": null,
+  "id": "Picked for you: {sources}",
+  "english": "Picked for you: {sources}"
+ },
+ {
+  "context": null,
+  "id": "Pile cap details",
+  "english": "Pile cap details"
+ },
+ {
+  "context": null,
+  "id": "Pile cap layout",
+  "english": "Pile cap layout"
+ },
+ {
+  "context": null,
+  "id": "Pile details",
+  "english": "Pile details"
+ },
+ {
+  "context": null,
+  "id": "Pile layout",
+  "english": "Pile layout"
+ },
+ {
+  "context": null,
+  "id": "Pit and chamber details",
+  "english": "Pit and chamber details"
+ },
+ {
+  "context": null,
+  "id": "Plot",
+  "english": "Plot"
+ },
+ {
+  "context": null,
+  "id": "Plot: {file} page {page}",
+  "english": "Plot: {file} page {page}"
+ },
+ {
+  "context": null,
+  "id": "Plot: {file} page {page}, registered to {residual} mm",
+  "english": "Plot: {file} page {page}, registered to {residual} mm"
+ },
+ {
+  "context": null,
+  "id": "Plumbing and sanitary",
+  "english": "Plumbing and sanitary"
+ },
+ {
+  "context": null,
+  "id": "Plumbing layout",
+  "english": "Plumbing layout"
+ },
+ {
+  "context": null,
+  "id": "Point wiring layout",
+  "english": "Point wiring layout"
+ },
+ {
+  "context": null,
+  "id": "Power wiring layout",
+  "english": "Power wiring layout"
+ },
+ {
+  "context": null,
+  "id": "Presentation plan",
+  "english": "Presentation plan"
+ },
+ {
+  "context": null,
+  "id": "Presentation, 3D or for information",
+  "english": "Presentation, 3D or for information"
+ },
+ {
+  "context": null,
+  "id": "Previous row; in a sheet, the previous sheet",
+  "english": "Previous row; in a sheet, the previous sheet"
+ },
+ {
+  "context": null,
+  "id": "Previous sheet",
+  "english": "Previous sheet"
+ },
+ {
+  "context": null,
+  "id": "Previous view on the sheet",
+  "english": "Previous view on the sheet"
+ },
+ {
+  "context": null,
+  "id": "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}",
+  "english": "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
+ },
+ {
+  "context": null,
+  "id": "Proposal, one source",
+  "english": "Proposal, one source"
+ },
+ {
+  "context": null,
+  "id": "Proposal: where each was read",
+  "english": "Proposal: where each was read"
+ },
+ {
+  "context": null,
+  "id": "Proposed by Vextrus from the file; no one has acted on it yet.",
+  "english": "Proposed by Vextrus from the file; no one has acted on it yet."
+ },
+ {
+  "context": null,
+  "id": "Proposed to leave out",
+  "english": "Proposed to leave out"
+ },
+ {
+  "context": null,
+  "id": "Proposed to leave out: excluded sheets stay in the count with their reason",
+  "english": "Proposed to leave out: excluded sheets stay in the count with their reason"
+ },
+ {
+  "context": null,
+  "id": "Pump details",
+  "english": "Pump details"
+ },
+ {
+  "context": null,
+  "id": "Question {tag} withdrawn",
+  "english": "Question {tag} withdrawn"
+ },
+ {
+  "context": null,
+  "id": "Question {tag}",
+  "english": "Question {tag}"
+ },
+ {
+  "context": null,
+  "id": "Question {tag}, withdrawn: {title}",
+  "english": "Question {tag}, withdrawn: {title}"
+ },
+ {
+  "context": null,
+  "id": "Question {tag}: {title}",
+  "english": "Question {tag}: {title}"
+ },
+ {
+  "context": null,
+  "id": "Questions withdrawn",
+  "english": "Questions withdrawn"
+ },
+ {
+  "context": null,
+  "id": "Rainwater details",
+  "english": "Rainwater details"
+ },
+ {
+  "context": null,
+  "id": "Read as a range: {count, plural, one {# sheet} other {# sheets}}, <0/> to <1/>, no titles.",
+  "english": "Read as a range: {count, plural, one {# sheet} other {# sheets}}, <0/> to <1/>, no titles."
+ },
+ {
+  "context": null,
+  "id": "Read it anyway: its sheets join the list, marked held",
+  "english": "Read it anyway: its sheets join the list, marked held"
+ },
+ {
+  "context": null,
+  "id": "Reading {name} was interrupted and is starting again.",
+  "english": "Reading {name} was interrupted and is starting again."
+ },
+ {
+  "context": null,
+  "id": "Retaining wall details",
+  "english": "Retaining wall details"
+ },
+ {
+  "context": null,
+  "id": "Review one by one",
+  "english": "Review one by one"
+ },
+ {
+  "context": null,
+  "id": "Revision and date",
+  "english": "Revision and date"
+ },
+ {
+  "context": null,
+  "id": "Revision",
+  "english": "Revision"
+ },
+ {
+  "context": null,
+  "id": "Riser diagram",
+  "english": "Riser diagram"
+ },
+ {
+  "context": null,
+  "id": "Roof details",
+  "english": "Roof details"
+ },
+ {
+  "context": null,
+  "id": "Roof plan",
+  "english": "Roof plan"
+ },
+ {
+  "context": null,
+  "id": "Roof structure details",
+  "english": "Roof structure details"
+ },
+ {
+  "context": null,
+  "id": "Sanitary fixture details",
+  "english": "Sanitary fixture details"
+ },
+ {
+  "context": null,
+  "id": "Section",
+  "english": "Section"
+ },
+ {
+  "context": null,
+  "id": "Septic tank details",
+  "english": "Septic tank details"
+ },
+ {
+  "context": null,
+  "id": "Set this file aside and mark it for Vextrus to look at",
+  "english": "Set this file aside and mark it for Vextrus to look at"
+ },
+ {
+  "context": null,
+  "id": "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again",
+  "english": "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again"
+ },
+ {
+  "context": null,
+  "id": "Shear wall details",
+  "english": "Shear wall details"
+ },
+ {
+  "context": null,
+  "id": "Sheet kind unclear",
+  "english": "Sheet kind unclear"
+ },
+ {
+  "context": null,
+  "id": "Sheet",
+  "english": "Sheet"
+ },
+ {
+  "context": null,
+  "id": "Sheets",
+  "english": "Sheets"
+ },
+ {
+  "context": null,
+  "id": "Sheets, in list order",
+  "english": "Sheets, in list order"
+ },
+ {
+  "context": null,
+  "id": "Single line diagram",
+  "english": "Single line diagram"
+ },
+ {
+  "context": null,
+  "id": "Site drainage layout",
+  "english": "Site drainage layout"
+ },
+ {
+  "context": null,
+  "id": "Site plan",
+  "english": "Site plan"
+ },
+ {
+  "context": null,
+  "id": "Slab layout",
+  "english": "Slab layout"
+ },
+ {
+  "context": null,
+  "id": "Slab outline layout",
+  "english": "Slab outline layout"
+ },
+ {
+  "context": null,
+  "id": "Solar layout",
+  "english": "Solar layout"
+ },
+ {
+  "context": null,
+  "id": "Sources",
+  "english": "Sources"
+ },
+ {
+  "context": null,
+  "id": "Sprinkler layout",
+  "english": "Sprinkler layout"
+ },
+ {
+  "context": null,
+  "id": "Stair details",
+  "english": "Stair details"
+ },
+ {
+  "context": null,
+  "id": "State mark",
+  "english": "State mark"
+ },
+ {
+  "context": null,
+  "id": "State",
+  "english": "State"
+ },
+ {
+  "context": null,
+  "id": "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.",
+  "english": "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+ },
+ {
+  "context": null,
+  "id": "Step 1 is confirmed. You are reading it as a Guest.",
+  "english": "Step 1 is confirmed. You are reading it as a Guest."
+ },
+ {
+  "context": null,
+  "id": "Step 1 is confirmed. You are reading it as the MD.",
+  "english": "Step 1 is confirmed. You are reading it as the MD."
+ },
+ {
+  "context": null,
+  "id": "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage has none unaccounted",
+  "english": "Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage has none unaccounted"
+ },
+ {
+  "context": null,
+  "id": "Step 1, Sheets",
+  "english": "Step 1, Sheets"
+ },
+ {
+  "context": null,
+  "id": "Step 2, General notes and specification, comes in M1.",
+  "english": "Step 2, General notes and specification, comes in M1."
+ },
+ {
+  "context": null,
+  "id": "Still reading {name}.",
+  "english": "Still reading {name}."
+ },
+ {
+  "context": null,
+  "id": "Still reading {name}: page {at} of {of}.",
+  "english": "Still reading {name}: page {at} of {of}."
+ },
+ {
+  "context": null,
+  "id": "Still reading {name}: sheet {at} of {of}.",
+  "english": "Still reading {name}: sheet {at} of {of}."
+ },
+ {
+  "context": null,
+  "id": "Storeys per view",
+  "english": "Storeys per view"
+ },
+ {
+  "context": null,
+  "id": "Storeys",
+  "english": "Storeys"
+ },
+ {
+  "context": null,
+  "id": "Structural",
+  "english": "Structural"
+ },
+ {
+  "context": null,
+  "id": "Substation and generator layout",
+  "english": "Substation and generator layout"
+ },
+ {
+  "context": null,
+  "id": "Superseded",
+  "english": "Superseded"
+ },
+ {
+  "context": null,
+  "id": "Tank details",
+  "english": "Tank details"
+ },
+ {
+  "context": null,
+  "id": "The Drawing Set’s files",
+  "english": "The Drawing Set’s files"
+ },
+ {
+  "context": null,
+  "id": "The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again.",
+  "english": "The Plot could not be drawn, so the sheet is shown as read. Choose Plot or Compare to try again."
+ },
+ {
+  "context": null,
+  "id": "The QS confirms the sheet list; every act shows who did it.",
+  "english": "The QS confirms the sheet list; every act shows who did it."
+ },
+ {
+  "context": null,
+  "id": "The architectural drawing list",
+  "english": "The architectural drawing list"
+ },
+ {
+  "context": null,
+  "id": "The drawing list does not name it.",
+  "english": "The drawing list does not name it."
+ },
+ {
+  "context": null,
+  "id": "The drawing list",
+  "english": "The drawing list"
+ },
+ {
+  "context": null,
+  "id": "The drawing list, pasted or typed",
+  "english": "The drawing list, pasted or typed"
+ },
+ {
+  "context": null,
+  "id": "The electrical drawing list",
+  "english": "The electrical drawing list"
+ },
+ {
+  "context": null,
+  "id": "The fire drawing list",
+  "english": "The fire drawing list"
+ },
+ {
+  "context": null,
+  "id": "The gas drawing list",
+  "english": "The gas drawing list"
+ },
+ {
+  "context": null,
+  "id": "The general drawing list",
+  "english": "The general drawing list"
+ },
+ {
+  "context": null,
+  "id": "The lift drawing list",
+  "english": "The lift drawing list"
+ },
+ {
+  "context": null,
+  "id": "The mechanical (HVAC) drawing list",
+  "english": "The mechanical (HVAC) drawing list"
+ },
+ {
+  "context": null,
+  "id": "The pasted drawing list",
+  "english": "The pasted drawing list"
+ },
+ {
+  "context": null,
+  "id": "The plumbing and sanitary drawing list",
+  "english": "The plumbing and sanitary drawing list"
+ },
+ {
+  "context": null,
+  "id": "The reason, in a few words",
+  "english": "The reason, in a few words"
+ },
+ {
+  "context": null,
+  "id": "The rest was not done: {refused}",
+  "english": "The rest was not done: {refused}"
+ },
+ {
+  "context": null,
+  "id": "The sheet picker",
+  "english": "The sheet picker"
+ },
+ {
+  "context": null,
+  "id": "The sheet’s number",
+  "english": "The sheet’s number"
+ },
+ {
+  "context": null,
+  "id": "The structural drawing list",
+  "english": "The structural drawing list"
+ },
+ {
+  "context": null,
+  "id": "Their sheets wait for the answers. Q takes you to the next one.",
+  "english": "Their sheets wait for the answers. Q takes you to the next one."
+ },
+ {
+  "context": null,
+  "id": "Their titles differ. Only one can be read, unless they are different sheets.",
+  "english": "Their titles differ. Only one can be read, unless they are different sheets."
+ },
+ {
+  "context": null,
+  "id": "They are different sheets: keep both",
+  "english": "They are different sheets: keep both"
+ },
+ {
+  "context": null,
+  "id": "This file may be misread",
+  "english": "This file may be misread"
+ },
+ {
+  "context": null,
+  "id": "Title",
+  "english": "Title"
+ },
+ {
+  "context": null,
+  "id": "Title, as drawn",
+  "english": "Title, as drawn"
+ },
+ {
+  "context": null,
+  "id": "Toilet details",
+  "english": "Toilet details"
+ },
+ {
+  "context": null,
+  "id": "Trace: page {page} of the Plot",
+  "english": "Trace: page {page} of the Plot"
+ },
+ {
+  "context": null,
+  "id": "Trace: the file’s two readings",
+  "english": "Trace: the file’s two readings"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title block of {sheets}",
+  "english": "Trace: the title block of {sheets}"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title block of {sheet} (the number field is empty)",
+  "english": "Trace: the title block of {sheet} (the number field is empty)"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title block of {sheet}",
+  "english": "Trace: the title block of {sheet}"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title block of {untitled} (its number and title fields are empty)",
+  "english": "Trace: the title block of {untitled} (its number and title fields are empty)"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title blocks of {copies}",
+  "english": "Trace: the title blocks of {copies}"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title blocks of {copies}; {source}",
+  "english": "Trace: the title blocks of {copies}; {source}"
+ },
+ {
+  "context": null,
+  "id": "Trace: the title blocks of {first} and {second}",
+  "english": "Trace: the title blocks of {first} and {second}"
+ },
+ {
+  "context": null,
+  "id": "Trace: {file}, as each of the two readers read it",
+  "english": "Trace: {file}, as each of the two readers read it"
+ },
+ {
+  "context": null,
+  "id": "Trace: {source}",
+  "english": "Trace: {source}"
+ },
+ {
+  "context": null,
+  "id": "Two drawing lists differ",
+  "english": "Two drawing lists differ"
+ },
+ {
+  "context": null,
+  "id": "Two plans draw one thing",
+  "english": "Two plans draw one thing"
+ },
+ {
+  "context": null,
+  "id": "Two sheets, one number",
+  "english": "Two sheets, one number"
+ },
+ {
+  "context": null,
+  "id": "Type a number",
+  "english": "Type a number"
+ },
+ {
+  "context": null,
+  "id": "Type the sheet’s number first, as its title block should read.",
+  "english": "Type the sheet’s number first, as its title block should read."
+ },
+ {
+  "context": null,
+  "id": "Undo your last confirmation, exclusion or drawing list on Step 1",
+  "english": "Undo your last confirmation, exclusion or drawing list on Step 1"
+ },
+ {
+  "context": null,
+  "id": "Undone: <0/>",
+  "english": "Undone: <0/>"
+ },
+ {
+  "context": null,
+  "id": "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.",
+  "english": "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+ },
+ {
+  "context": null,
+  "id": "Undone: {words}",
+  "english": "Undone: {words}"
+ },
+ {
+  "context": null,
+  "id": "Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.",
+  "english": "Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+ },
+ {
+  "context": null,
+  "id": "Use as the drawing list",
+  "english": "Use as the drawing list"
+ },
+ {
+  "context": null,
+  "id": "Use the drawing list on the sheet titled “{title}”",
+  "english": "Use the drawing list on the sheet titled “{title}”"
+ },
+ {
+  "context": null,
+  "id": "Use the drawing list on the sheet",
+  "english": "Use the drawing list on the sheet"
+ },
+ {
+  "context": null,
+  "id": "Use the drawing list on {number}",
+  "english": "Use the drawing list on {number}"
+ },
+ {
+  "context": null,
+  "id": "Use the drawing list you gave",
+  "english": "Use the drawing list you gave"
+ },
+ {
+  "context": null,
+  "id": "Use the drawing list you pasted",
+  "english": "Use the drawing list you pasted"
+ },
+ {
+  "context": null,
+  "id": "Use the range you typed",
+  "english": "Use the range you typed"
+ },
+ {
+  "context": null,
+  "id": "Ventilation layout",
+  "english": "Ventilation layout"
+ },
+ {
+  "context": null,
+  "id": "Vextrus",
+  "english": "Vextrus"
+ },
+ {
+  "context": null,
+  "id": "Views by the step that will read them, proposed or assigned",
+  "english": "Views by the step that will read them, proposed or assigned"
+ },
+ {
+  "context": null,
+  "id": "Views",
+  "english": "Views"
+ },
+ {
+  "context": null,
+  "id": "Waiting for the QS. A Guest reads Questions and cannot answer them.",
+  "english": "Waiting for the QS. A Guest reads Questions and cannot answer them."
+ },
+ {
+  "context": null,
+  "id": "Waiting for the QS. The MD reads Questions and cannot answer them.",
+  "english": "Waiting for the QS. The MD reads Questions and cannot answer them."
+ },
+ {
+  "context": null,
+  "id": "Water tank details",
+  "english": "Water tank details"
+ },
+ {
+  "context": null,
+  "id": "What the QS has left, in order",
+  "english": "What the QS has left, in order"
+ },
+ {
+  "context": null,
+  "id": "Where a range of storeys ends",
+  "english": "Where a range of storeys ends"
+ },
+ {
+  "context": null,
+  "id": "Who did what",
+  "english": "Who did what"
+ },
+ {
+  "context": null,
+  "id": "Withdrawn when {sheet} was left out. {Sheet} can be confirmed back in once this is answered.",
+  "english": "Withdrawn when {sheet} was left out. {Sheet} can be confirmed back in once this is answered."
+ },
+ {
+  "context": null,
+  "id": "Withdrawn",
+  "english": "Withdrawn"
+ },
+ {
+  "context": null,
+  "id": "Working plan",
+  "english": "Working plan"
+ },
+ {
+  "context": null,
+  "id": "X excludes it, with a reason.",
+  "english": "X excludes it, with a reason."
+ },
+ {
+  "context": null,
+  "id": "Yes: this sheet’s range includes it",
+  "english": "Yes: this sheet’s range includes it"
+ },
+ {
+  "context": null,
+  "id": "You are reading this as a Guest.",
+  "english": "You are reading this as a Guest."
+ },
+ {
+  "context": null,
+  "id": "You are reading this as the MD.",
+  "english": "You are reading this as the MD."
+ },
+ {
+  "context": null,
+  "id": "a reason Vextrus has no words for yet",
+  "english": "a reason Vextrus has no words for yet"
+ },
+ {
+  "context": null,
+  "id": "an untitled sheet laid out in the drawing of {file}",
+  "english": "an untitled sheet laid out in the drawing of {file}"
+ },
+ {
+  "context": null,
+  "id": "an untitled sheet on layout “{layout}” of {file}",
+  "english": "an untitled sheet on layout “{layout}” of {file}"
+ },
+ {
+  "context": null,
+  "id": "architectural",
+  "english": "architectural"
+ },
+ {
+  "context": null,
+  "id": "at floor level",
+  "english": "at floor level"
+ },
+ {
+  "context": null,
+  "id": "blank",
+  "english": "blank"
+ },
+ {
+  "context": null,
+  "id": "by others",
+  "english": "by others"
+ },
+ {
+  "context": null,
+  "id": "confirmed {name}",
+  "english": "confirmed {name}"
+ },
+ {
+  "context": null,
+  "id": "cover or index",
+  "english": "cover or index"
+ },
+ {
+  "context": null,
+  "id": "duplicate",
+  "english": "duplicate"
+ },
+ {
+  "context": null,
+  "id": "electrical",
+  "english": "electrical"
+ },
+ {
+  "context": null,
+  "id": "excluded {name}",
+  "english": "excluded {name}"
+ },
+ {
+  "context": null,
+  "id": "excluded: {reason}",
+  "english": "excluded: {reason}"
+ },
+ {
+  "context": null,
+  "id": "fire",
+  "english": "fire"
+ },
+ {
+  "context": null,
+  "id": "floor to floor",
+  "english": "floor to floor"
+ },
+ {
+  "context": null,
+  "id": "for information",
+  "english": "for information"
+ },
+ {
+  "context": null,
+  "id": "found, {listed} on the drawing list found in the drawings",
+  "english": "found, {listed} on the drawing list found in the drawings"
+ },
+ {
+  "context": null,
+  "id": "found, {listed} on the drawing list on {sheet}",
+  "english": "found, {listed} on the drawing list on {sheet}"
+ },
+ {
+  "context": null,
+  "id": "found, {listed} on the drawing list pasted by {who}",
+  "english": "found, {listed} on the drawing list pasted by {who}"
+ },
+ {
+  "context": null,
+  "id": "found, {listed} on the drawing list typed by {who} ({range})",
+  "english": "found, {listed} on the drawing list typed by {who} ({range})"
+ },
+ {
+  "context": null,
+  "id": "found; no drawing list; numbering runs {range} without a gap",
+  "english": "found; no drawing list; numbering runs {range} without a gap"
+ },
+ {
+  "context": null,
+  "id": "found; no drawing list; numbering runs {range}; {listed} missing",
+  "english": "found; no drawing list; numbering runs {range}; {listed} missing"
+ },
+ {
+  "context": null,
+  "id": "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice",
+  "english": "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
+ },
+ {
+  "context": null,
+  "id": "found; no drawing list; numbering runs {range}; {twice} twice",
+  "english": "found; no drawing list; numbering runs {range}; {twice} twice"
+ },
+ {
+  "context": null,
+  "id": "found; no drawing list; the numbers do not run in one series",
+  "english": "found; no drawing list; the numbers do not run in one series"
+ },
+ {
+  "context": null,
+  "id": "gas",
+  "english": "gas"
+ },
+ {
+  "context": null,
+  "id": "general",
+  "english": "general"
+ },
+ {
+  "context": null,
+  "id": "held by Question {tag}",
+  "english": "held by Question {tag}"
+ },
+ {
+  "context": null,
+  "id": "laid out in the drawing",
+  "english": "laid out in the drawing"
+ },
+ {
+  "context": null,
+  "id": "layout “<0/>”",
+  "english": "layout “<0/>”"
+ },
+ {
+  "context": null,
+  "id": "lift",
+  "english": "lift"
+ },
+ {
+  "context": null,
+  "id": "mechanical (HVAC)",
+  "english": "mechanical (HVAC)"
+ },
+ {
+  "context": null,
+  "id": "mixed",
+  "english": "mixed"
+ },
+ {
+  "context": null,
+  "id": "no revision mark",
+  "english": "no revision mark"
+ },
+ {
+  "context": null,
+  "id": "no step: unaccounted",
+  "english": "no step: unaccounted"
+ },
+ {
+  "context": null,
+  "id": "none",
+  "english": "none"
+ },
+ {
+  "context": null,
+  "id": "none: the title block has none and the file name none",
+  "english": "none: the title block has none and the file name none"
+ },
+ {
+  "context": null,
+  "id": "not found",
+  "english": "not found"
+ },
+ {
+  "context": null,
+  "id": "not stated",
+  "english": "not stated"
+ },
+ {
+  "context": null,
+  "id": "not to scale",
+  "english": "not to scale"
+ },
+ {
+  "context": null,
+  "id": "one source",
+  "english": "one source"
+ },
+ {
+  "context": null,
+  "id": "other",
+  "english": "other"
+ },
+ {
+  "context": null,
+  "id": "plumbing and sanitary",
+  "english": "plumbing and sanitary"
+ },
+ {
+  "context": null,
+  "id": "proposed",
+  "english": "proposed"
+ },
+ {
+  "context": null,
+  "id": "read by Vextrus from the title",
+  "english": "read by Vextrus from the title"
+ },
+ {
+  "context": null,
+  "id": "rev {mark}",
+  "english": "rev {mark}"
+ },
+ {
+  "context": null,
+  "id": "structural",
+  "english": "structural"
+ },
+ {
+  "context": null,
+  "id": "superseded",
+  "english": "superseded"
+ },
+ {
+  "context": null,
+  "id": "text in the title block",
+  "english": "text in the title block"
+ },
+ {
+  "context": null,
+  "id": "the copy dated {date}",
+  "english": "the copy dated {date}"
+ },
+ {
+  "context": null,
+  "id": "the drawing list found in the drawings",
+  "english": "the drawing list found in the drawings"
+ },
+ {
+  "context": null,
+  "id": "the drawing list on <0/>",
+  "english": "the drawing list on <0/>"
+ },
+ {
+  "context": null,
+  "id": "the drawing list on {sheet}",
+  "english": "the drawing list on {sheet}"
+ },
+ {
+  "context": null,
+  "id": "the drawing list pasted by {who}",
+  "english": "the drawing list pasted by {who}"
+ },
+ {
+  "context": null,
+  "id": "the drawing list typed by {who}",
+  "english": "the drawing list typed by {who}"
+ },
+ {
+  "context": null,
+  "id": "the drawing list you set",
+  "english": "the drawing list you set"
+ },
+ {
+  "context": null,
+  "id": "the drawing list",
+  "english": "the drawing list"
+ },
+ {
+  "context": null,
+  "id": "the file name",
+  "english": "the file name"
+ },
+ {
+  "context": null,
+  "id": "the first copy",
+  "english": "the first copy"
+ },
+ {
+  "context": null,
+  "id": "the later date and {list} agree",
+  "english": "the later date and {list} agree"
+ },
+ {
+  "context": null,
+  "id": "the later revision mark and {list} agree",
+  "english": "the later revision mark and {list} agree"
+ },
+ {
+  "context": null,
+  "id": "the later revision mark, the later date and {list} agree",
+  "english": "the later revision mark, the later date and {list} agree"
+ },
+ {
+  "context": null,
+  "id": "the pasted drawing list",
+  "english": "the pasted drawing list"
+ },
+ {
+  "context": null,
+  "id": "the second copy",
+  "english": "the second copy"
+ },
+ {
+  "context": null,
+  "id": "the typed drawing list",
+  "english": "the typed drawing list"
+ },
+ {
+  "context": null,
+  "id": "title-block attribute",
+  "english": "title-block attribute"
+ },
+ {
+  "context": null,
+  "id": "two readers agree",
+  "english": "two readers agree"
+ },
+ {
+  "context": null,
+  "id": "two, agreeing",
+  "english": "two, agreeing"
+ },
+ {
+  "context": null,
+  "id": "typical (range from Step 3)",
+  "english": "typical (range from Step 3)"
+ },
+ {
+  "context": null,
+  "id": "your last change to Step 1",
+  "english": "your last change to Step 1"
+ },
+ {
+  "context": null,
+  "id": "{0, plural, =2 {Neither has a title. Only one can be read, unless they are different sheets.} other {None of the # has a title. Only one can be read, unless they are different sheets.}}",
+  "english": "{0, plural, =2 {Neither has a title. Only one can be read, unless they are different sheets.} other {None of the # has a title. Only one can be read, unless they are different sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{0, plural, one {# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in} other {# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in}}",
+  "english": "{0, plural, one {# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in} other {# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in}}"
+ },
+ {
+  "context": null,
+  "id": "{0, plural, one {Coverage # view:} other {Coverage # views:}}",
+  "english": "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
+ },
+ {
+  "context": null,
+  "id": "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn when their sheets were left out}}",
+  "english": "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn when their sheets were left out}}"
+ },
+ {
+  "context": null,
+  "id": "{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches",
+  "english": "{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches"
+ },
+ {
+  "context": null,
+  "id": "{Name} agrees: number and title from the title block, on the drawing list",
+  "english": "{Name} agrees: number and title from the title block, on the drawing list"
+ },
+ {
+  "context": null,
+  "id": "{Name} confirmed back in, under {backIn}’s name.",
+  "english": "{Name} confirmed back in, under {backIn}’s name."
+ },
+ {
+  "context": null,
+  "id": "{Name} excluded: {short}. It stays in the count.",
+  "english": "{Name} excluded: {short}. It stays in the count."
+ },
+ {
+  "context": null,
+  "id": "{Name} is confirmed by {by}",
+  "english": "{Name} is confirmed by {by}"
+ },
+ {
+  "context": null,
+  "id": "{Name} is confirmed by {by}, Vextrus Engineer",
+  "english": "{Name} is confirmed by {by}, Vextrus Engineer"
+ },
+ {
+  "context": null,
+  "id": "{Name} is excluded: {reason}",
+  "english": "{Name} is excluded: {reason}"
+ },
+ {
+  "context": null,
+  "id": "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>",
+  "english": "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
+ },
+ {
+  "context": null,
+  "id": "{below} to Roof (floors between from Step 3)",
+  "english": "{below} to Roof (floors between from Step 3)"
+ },
+ {
+  "context": null,
+  "id": "{by}, {date}, {time}",
+  "english": "{by}, {date}, {time}"
+ },
+ {
+  "context": null,
+  "id": "{count, plural, one {# Question is open} other {# Questions are open}}",
+  "english": "{count, plural, one {# Question is open} other {# Questions are open}}"
+ },
+ {
+  "context": null,
+  "id": "{count, plural, one {# sheet line found; other lines are ignored.} other {# sheet lines found; other lines are ignored.}}",
+  "english": "{count, plural, one {# sheet line found; other lines are ignored.} other {# sheet lines found; other lines are ignored.}}"
+ },
+ {
+  "context": null,
+  "id": "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}",
+  "english": "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
+ },
+ {
+  "context": null,
+  "id": "{count} with no Discipline",
+  "english": "{count} with no Discipline"
+ },
+ {
+  "context": null,
+  "id": "{date}, {time}. X excludes it, with a reason.",
+  "english": "{date}, {time}. X excludes it, with a reason."
+ },
+ {
+  "context": null,
+  "id": "{discipline} can still be confirmed.",
+  "english": "{discipline} can still be confirmed."
+ },
+ {
+  "context": null,
+  "id": "{discipline} cannot be confirmed until this Question is answered.",
+  "english": "{discipline} cannot be confirmed until this Question is answered."
+ },
+ {
+  "context": null,
+  "id": "{example}, or the list as the consultant sent it",
+  "english": "{example}, or the list as the consultant sent it"
+ },
+ {
+  "context": null,
+  "id": "{file} carries no drawing list. Paste the consultant’s list (the transmittal or an email), or type the range it gives, and Vextrus checks it against the sheets found, both ways. Its source is marked as pasted or typed.",
+  "english": "{file} carries no drawing list. Paste the consultant’s list (the transmittal or an email), or type the range it gives, and Vextrus checks it against the sheets found, both ways. Its source is marked as pasted or typed."
+ },
+ {
+  "context": null,
+  "id": "{file} is held: its views are not counted unless you read it anyway.",
+  "english": "{file} is held: its views are not counted unless you read it anyway."
+ },
+ {
+  "context": null,
+  "id": "{file} is still reading; its views join as its sheets arrive.",
+  "english": "{file} is still reading; its views join as its sheets arrive."
+ },
+ {
+  "context": null,
+  "id": "{file} may be misread",
+  "english": "{file} may be misread"
+ },
+ {
+  "context": null,
+  "id": "{file} page {page}",
+  "english": "{file} page {page}"
+ },
+ {
+  "context": null,
+  "id": "{file} page {page}, registered to {residual} mm",
+  "english": "{file} page {page}, registered to {residual} mm"
+ },
+ {
+  "context": null,
+  "id": "{file}, laid out in the drawing",
+  "english": "{file}, laid out in the drawing"
+ },
+ {
+  "context": null,
+  "id": "{file}, layout “<0/>”",
+  "english": "{file}, layout “<0/>”"
+ },
+ {
+  "context": null,
+  "id": "{first} (QS) confirms the sheet list; every act shows who did it.",
+  "english": "{first} (QS) confirms the sheet list; every act shows who did it."
+ },
+ {
+  "context": null,
+  "id": "{head} and {tail}",
+  "english": "{head} and {tail}"
+ },
+ {
+  "context": null,
+  "id": "{kind}, not to scale",
+  "english": "{kind}, not to scale"
+ },
+ {
+  "context": null,
+  "id": "{kind}, {scale}",
+  "english": "{kind}, {scale}"
+ },
+ {
+  "context": null,
+  "id": "{listed} to top (top from Step 3)",
+  "english": "{listed} to top (top from Step 3)"
+ },
+ {
+  "context": null,
+  "id": "{m, plural, one {Left out # sheet, with its reason.} other {Left out # sheets, each with its reason.}}",
+  "english": "{m, plural, one {Left out # sheet, with its reason.} other {Left out # sheets, each with its reason.}}"
+ },
+ {
+  "context": null,
+  "id": "{m, plural, one {left out # sheet} other {left out # sheets}}",
+  "english": "{m, plural, one {left out # sheet} other {left out # sheets}}"
+ },
+ {
+  "context": null,
+  "id": "{markText}, from the file name {file}",
+  "english": "{markText}, from the file name {file}"
+ },
+ {
+  "context": null,
+  "id": "{markText}, {date}",
+  "english": "{markText}, {date}"
+ },
+ {
+  "context": null,
+  "id": "{mark}, from the file name",
+  "english": "{mark}, from the file name"
+ },
+ {
+  "context": null,
+  "id": "{mark}, from the file name; dated {date}",
+  "english": "{mark}, from the file name; dated {date}"
+ },
+ {
+  "context": null,
+  "id": "{mark}, {date}",
+  "english": "{mark}, {date}"
+ },
+ {
+  "context": null,
+  "id": "{missing, plural, one {Answering records that the missing sheet is still to come. Paste the drawing list to count it.} other {Answering records that the # missing sheets are still to come. Paste the drawing list to count them.}}",
+  "english": "{missing, plural, one {Answering records that the missing sheet is still to come. Paste the drawing list to count it.} other {Answering records that the # missing sheets are still to come. Paste the drawing list to count them.}}"
+ },
+ {
+  "context": null,
+  "id": "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}",
+  "english": "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}",
+  "english": "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, =0 {They draw different things: keep them all} one {They draw different things: keep it} =2 {They draw different things: keep both} other {They draw different things: keep all #}}",
+  "english": "{n, plural, =0 {They draw different things: keep them all} one {They draw different things: keep it} =2 {They draw different things: keep both} other {They draw different things: keep all #}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers agree}}",
+  "english": "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers agree}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Answering confirms # sheet.} other {Answering confirms # sheets.}}",
+  "english": "{n, plural, one {Answering confirms # sheet.} other {Answering confirms # sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Answering settles # sheet.} other {Answering settles # sheets.}}",
+  "english": "{n, plural, one {Answering settles # sheet.} other {Answering settles # sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}",
+  "english": "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}",
+  "english": "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirm # sheet that agrees} other {Confirm all # that agree}}",
+  "english": "{n, plural, one {Confirm # sheet that agrees} other {Confirm all # that agree}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}",
+  "english": "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}",
+  "english": "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirmed # sheet.} other {Confirmed # sheets.}}",
+  "english": "{n, plural, one {Confirmed # sheet.} other {Confirmed # sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason.",
+  "english": "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # sheets.}}",
+  "english": "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}",
+  "english": "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {Views (#)} other {Views (#)}}",
+  "english": "{n, plural, one {Views (#)} other {Views (#)}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}",
+  "english": "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}",
+  "english": "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}"
+ },
+ {
+  "context": null,
+  "id": "{n, plural, one {left out # sheet} other {left out # sheets}}",
+  "english": "{n, plural, one {left out # sheet} other {left out # sheets}}"
+ },
+ {
+  "context": null,
+  "id": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}",
+  "english": "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}"
+ },
+ {
+  "context": null,
+  "id": "{names} (QS) confirm the sheet list; every act shows who did it.",
+  "english": "{names} (QS) confirm the sheet list; every act shows who did it."
+ },
+ {
+  "context": null,
+  "id": "{name} confirmed",
+  "english": "{name} confirmed"
+ },
+ {
+  "context": null,
+  "id": "{name} from the file",
+  "english": "{name} from the file"
+ },
+ {
+  "context": null,
+  "id": "{name} has neither a number nor a title in its title block",
+  "english": "{name} has neither a number nor a title in its title block"
+ },
+ {
+  "context": null,
+  "id": "{name} has one source: number and title from its title block",
+  "english": "{name} has one source: number and title from its title block"
+ },
+ {
+  "context": null,
+  "id": "{name} held",
+  "english": "{name} held"
+ },
+ {
+  "context": null,
+  "id": "{name} is waiting to be read.",
+  "english": "{name} is waiting to be read."
+ },
+ {
+  "context": null,
+  "id": "{name} waiting for its DWG",
+  "english": "{name} waiting for its DWG"
+ },
+ {
+  "context": null,
+  "id": "{name} {leftText} to confirm",
+  "english": "{name} {leftText} to confirm"
+ },
+ {
+  "context": null,
+  "id": "{name} {settled} / {total} settled",
+  "english": "{name} {settled} / {total} settled"
+ },
+ {
+  "context": null,
+  "id": "{name}, M3 onwards",
+  "english": "{name}, M3 onwards"
+ },
+ {
+  "context": null,
+  "id": "{name}, from the file {file}",
+  "english": "{name}, from the file {file}"
+ },
+ {
+  "context": null,
+  "id": "{name}, {date}, {time}",
+  "english": "{name}, {date}, {time}"
+ },
+ {
+  "context": null,
+  "id": "{name}, {role}",
+  "english": "{name}, {role}"
+ },
+ {
+  "context": null,
+  "id": "{name}, {role}, {date}, {time}",
+  "english": "{name}, {role}, {date}, {time}"
+ },
+ {
+  "context": null,
+  "id": "{name}: 1 Question open",
+  "english": "{name}: 1 Question open"
+ },
+ {
+  "context": null,
+  "id": "{name}: a view unaccounted",
+  "english": "{name}: a view unaccounted"
+ },
+ {
+  "context": null,
+  "id": "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found.",
+  "english": "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: no drawing list; numbering runs {range} without a gap; {found} found.",
+  "english": "{name}: no drawing list; numbering runs {range} without a gap; {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: no drawing list; {found} found.",
+  "english": "{name}: no drawing list; {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: no page matched a sheet",
+  "english": "{name}: no page matched a sheet"
+ },
+ {
+  "context": null,
+  "id": "{name}: {listed} on the drawing list found in the drawings; {found} found.",
+  "english": "{name}: {listed} on the drawing list found in the drawings; {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: {listed} on the drawing list on {sheet}; {found} found.",
+  "english": "{name}: {listed} on the drawing list on {sheet}; {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: {listed} on the drawing list pasted by {who}, {when}; {found} found.",
+  "english": "{name}: {listed} on the drawing list pasted by {who}, {when}; {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: {listed} on the drawing list typed by {who} ({range}); {found} found.",
+  "english": "{name}: {listed} on the drawing list typed by {who} ({range}); {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: {listed} on the pasted drawing list; {found} found.",
+  "english": "{name}: {listed} on the pasted drawing list; {found} found."
+ },
+ {
+  "context": null,
+  "id": "{name}: {openText} Questions open",
+  "english": "{name}: {openText} Questions open"
+ },
+ {
+  "context": null,
+  "id": "{number} is named on {list}, and no file added has a sheet with that number.",
+  "english": "{number} is named on {list}, and no file added has a sheet with that number."
+ },
+ {
+  "context": null,
+  "id": "{number} rev {mark}",
+  "english": "{number} rev {mark}"
+ },
+ {
+  "context": null,
+  "id": "{n} / {total} settled",
+  "english": "{n} / {total} settled"
+ },
+ {
+  "context": null,
+  "id": "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}",
+  "english": "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+ },
+ {
+  "context": null,
+  "id": "{pages, plural, one {Plot for {matched} of # page} other {Plot for {matched} of # pages}}",
+  "english": "{pages, plural, one {Plot for {matched} of # page} other {Plot for {matched} of # pages}}"
+ },
+ {
+  "context": null,
+  "id": "{part}, M3 onwards",
+  "english": "{part}, M3 onwards"
+ },
+ {
+  "context": null,
+  "id": "{projectName}’s sheets",
+  "english": "{projectName}’s sheets"
+ },
+ {
+  "context": null,
+  "id": "{questions, plural, one {Answer # Question: the held file’s} other {Answer # Questions: the held file first, then those holding the most sheets}}",
+  "english": "{questions, plural, one {Answer # Question: the held file’s} other {Answer # Questions: the held file first, then those holding the most sheets}}"
+ },
+ {
+  "context": null,
+  "id": "{questions, plural, one {Answer # Question} other {Answer # Questions: those holding the most sheets first}}",
+  "english": "{questions, plural, one {Answer # Question} other {Answer # Questions: those holding the most sheets first}}"
+ },
+ {
+  "context": null,
+  "id": "{questions, plural, one {Needs you: # Question open} other {Needs you: # Questions open, in the order Enter takes them}}",
+  "english": "{questions, plural, one {Needs you: # Question open} other {Needs you: # Questions open, in the order Enter takes them}}"
+ },
+ {
+  "context": null,
+  "id": "{reading, plural, one {This does not include the sheets of the file still to be read.} other {This does not include the sheets of the # files still to be read.}}",
+  "english": "{reading, plural, one {This does not include the sheets of the file still to be read.} other {This does not include the sheets of the # files still to be read.}}"
+ },
+ {
+  "context": null,
+  "id": "{rest}, and {more} more",
+  "english": "{rest}, and {more} more"
+ },
+ {
+  "context": null,
+  "id": "{sheet} stays left out until this Question is answered. A pick changes nothing until you answer.",
+  "english": "{sheet} stays left out until this Question is answered. A pick changes nothing until you answer."
+ },
+ {
+  "context": null,
+  "id": "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}",
+  "english": "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
+ },
+ {
+  "context": null,
+  "id": "{start} and {tail}",
+  "english": "{start} and {tail}"
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded.",
+  "english": "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded.",
+  "english": "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Confirms {sheet}.",
+  "english": "{tag} answered. Confirms {sheet}."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Its sheets are unchanged: confirm or exclude them in the list.",
+  "english": "{tag} answered. Its sheets are unchanged: confirm or exclude them in the list."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Reading the file again: its sheets join the list, marked held, once it is read.",
+  "english": "{tag} answered. Reading the file again: its sheets join the list, marked held, once it is read."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed.",
+  "english": "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: keep the latest copy; no sheet was confirmed.",
+  "english": "{tag} answered. Recorded: keep the latest copy; no sheet was confirmed."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: keep them all; no sheet was confirmed.",
+  "english": "{tag} answered. Recorded: keep them all; no sheet was confirmed."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: the numbering skips between {after} and {before}; nothing is missing.",
+  "english": "{tag} answered. Recorded: the numbering skips between {after} and {before}; nothing is missing."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: the range on {sheet} includes its top storey.",
+  "english": "{tag} answered. Recorded: the range on {sheet} includes its top storey."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: the sheet is not part of this set.",
+  "english": "{tag} answered. Recorded: the sheet is not part of this set."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: the sheet’s range includes its top storey.",
+  "english": "{tag} answered. Recorded: the sheet’s range includes its top storey."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range.",
+  "english": "{tag} answered. Recorded: the sheet’s top storey belongs to the next sheet’s range."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range.",
+  "english": "{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}",
+  "english": "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}"
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list.",
+  "english": "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list.",
+  "english": "{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The Discipline of {sheet} is {discipline}.",
+  "english": "{tag} answered. The Discipline of {sheet} is {discipline}."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The file is set aside and marked for Vextrus to look at.",
+  "english": "{tag} answered. The file is set aside and marked for Vextrus to look at."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The file is set aside, waiting for the re-saved file.",
+  "english": "{tag} answered. The file is set aside, waiting for the re-saved file."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The kind of {sheet} is {kind}.",
+  "english": "{tag} answered. The kind of {sheet} is {kind}."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The sheet is numbered {number}.",
+  "english": "{tag} answered. The sheet is numbered {number}."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The sheet stays in the count as missing until its file is added.",
+  "english": "{tag} answered. The sheet stays in the count as missing until its file is added."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The sheet stays in the count as missing.",
+  "english": "{tag} answered. The sheet stays in the count as missing."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The sheet stays without a number.",
+  "english": "{tag} answered. The sheet stays without a number."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. The sheet’s Discipline is {discipline}.",
+  "english": "{tag} answered. The sheet’s Discipline is {discipline}."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. Your answer is recorded.",
+  "english": "{tag} answered. Your answer is recorded."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {Sheet} stays in the count as missing until its file is added.",
+  "english": "{tag} answered. {Sheet} stays in the count as missing until its file is added."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {Sheet} stays in the count as missing.",
+  "english": "{tag} answered. {Sheet} stays in the count as missing."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {Sheet} stays in the list, to confirm or exclude.",
+  "english": "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}",
+  "english": "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}"
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings.",
+  "english": "{tag} answered. {name}’s sheets are counted against the drawing list found in the drawings."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”.",
+  "english": "{tag} answered. {name}’s sheets are counted against the drawing list on the sheet titled “{title}”."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {name}’s sheets are counted against the drawing list on {number}.",
+  "english": "{tag} answered. {name}’s sheets are counted against the drawing list on {number}."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {name}’s sheets are counted against the drawing list you pasted.",
+  "english": "{tag} answered. {name}’s sheets are counted against the drawing list you pasted."
+ },
+ {
+  "context": null,
+  "id": "{tag} answered. {name}’s sheets are counted against the range you typed.",
+  "english": "{tag} answered. {name}’s sheets are counted against the range you typed."
+ },
+ {
+  "context": null,
+  "id": "{tag} kept open for the consultant.",
+  "english": "{tag} kept open for the consultant."
+ },
+ {
+  "context": null,
+  "id": "→ walks them",
+  "english": "→ walks them"
+ },
+ {
+  "context": null,
+  "id": "→ walks them; X excludes",
+  "english": "→ walks them; X excludes"
+ },
+ {
+  "context": null,
+  "id": "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it.",
+  "english": "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it."
+ },
+ {
+  "context": null,
+  "id": "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it.",
+  "english": "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
+ },
+ {
+  "context": null,
+  "id": "▮ floor to floor  ▁ at floor level",
+  "english": "▮ floor to floor  ▁ at floor level"
+ },
+ {
+  "context": null,
+  "id": "✓ confirmed",
+  "english": "✓ confirmed"
+ }
+]
