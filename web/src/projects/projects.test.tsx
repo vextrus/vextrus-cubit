@@ -12,6 +12,7 @@ import { overrideLanguage } from '@/app/dev-language'
 import { FakeApi } from '@/app/seed/api.fixture'
 import { PEOPLE, mountApp } from '@/app/testing'
 import { unmarkedNotation } from '@/format/unmarked'
+import { neverShownIn } from '@/test/never-shown'
 import { activateLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
@@ -52,7 +53,8 @@ async function projects(as: string, api?: FakeApi) {
 /** m0-screens §1.1's words never shown to a QS or an MD, §1.9's Market and currency, §1.10's Building. */
 function gateGreps() {
   const text = clean(document.body.textContent)
-  for (const word of ['handle', 'entity', 'SDF', 'DXF', 'LibreDWG', 'ACadSharp', 'ezdxf', 'JSON', 'sandbox', 'worker', 'queue', 'hash', 'tenant', 'RLS', 'API', 'null', 'undefined', 'NaN', 'UUID', 'locale', 'Building', 'Bangladesh', 'BDT', '৳', 'imperial', 'metric']) {
+  expect(neverShownIn(text), 'm0-screens §1.1').toEqual([])
+  for (const word of ['Building', 'Bangladesh', 'BDT', '৳', 'imperial', 'metric']) {
     expect(text, word).not.toMatch(new RegExp(`\\b${word}\\b`))
   }
   expect(text).not.toMatch(/\b[a-z_]+\.[a-z_]+\.[a-z_]+\b/)
