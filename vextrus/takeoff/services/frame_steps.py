@@ -267,6 +267,22 @@ def _metres(values: Mapping[str, Any], name: str) -> str | None:
     return _plain(number * scale)
 
 
+def _centre_m(geometry: Any, values: Mapping[str, Any]) -> dict[str, str]:
+    """The column's place in metres (`x_m`, `y_m`): its read outline's centre, in the unit its size
+    was read in; none when the outline is not a list of points."""
+    _raw, unit = _fact(values, "section_b")
+    scale = TO_METRES.get(unit or str(values.get("unit") or DRAWING_UNIT))
+    try:
+        points = [(Decimal(str(x)), Decimal(str(y))) for x, y in geometry]
+    except TypeError, ValueError, InvalidOperation:
+        return {}
+    if not points or scale is None:
+        return {}
+    x = sum((p[0] for p in points), Decimal(0)) / len(points) * scale
+    y = sum((p[1] for p in points), Decimal(0)) / len(points) * scale
+    return {"x_m": _plain(x.quantize(Decimal("0.001"))), "y_m": _plain(y.quantize(Decimal("0.001")))}
+
+
 def _grid_ref(values: Mapping[str, Any]) -> str:
     at = values.get("at")
     if isinstance(at, Mapping):
@@ -565,6 +581,7 @@ def _change(
             metres = _metres(values, fact)
             if metres is not None:
                 attrs[f"vx.column.{fact}"] = metres
+        attrs.update(_centre_m(proposal.candidate_geometry, values))
         place = grid_ref or mark
     elif family == FAMILY_OF[STOREYS]:
         level = _level(values)
