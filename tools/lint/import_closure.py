@@ -691,7 +691,7 @@ def _child_module_computed(node: ast.AST) -> bool:
             for a, b in pairwise(items)
         )
     if isinstance(node, ast.JoinedStr):
-        text = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+        text = "".join(str(v.value) for v in node.values if isinstance(v, ast.Constant))
         return bool(CHILD_MODULE.search(text))
     if isinstance(node, ast.BinOp):
         left = node.left
