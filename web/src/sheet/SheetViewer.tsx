@@ -42,6 +42,12 @@ export interface SheetViewerProps {
   /** The outline selected: the canvas flies to it; back to none, it fits the working view again. */
   selected?: string | null
   onSelect?: (id: string) => void
+  /** The outline under the pointer (null: none); the caller shows that view's stated scale. */
+  onHover?: (id: string | null) => void
+  /** Hides the outlines and their tags (Step 1's O); on by default. */
+  showOutlines?: boolean
+  /** Each change flies to the selected view again, as the first selecting did (Step 1's Z). */
+  zoomToken?: number
   /** The legend above the drawing, in the strip the fit keeps clear (4.6). */
   legend?: ReactNode
   /** The label in the toolbar (default); off where the caller puts its own there (Step 1's sheet button). */
@@ -100,6 +106,9 @@ export function SheetViewer({
   outlines,
   selected = null,
   onSelect,
+  onHover,
+  showOutlines = true,
+  zoomToken = 0,
   legend,
   labelInToolbar = true,
   dark = false,
@@ -146,6 +155,9 @@ export function SheetViewer({
             outlines={outlines}
             selected={selected}
             onSelect={onSelect}
+            onHover={onHover}
+            showOutlines={showOutlines}
+            zoomToken={zoomToken}
             legend={legend}
             dark={dark}
             layer={plot || layer === 'compare' ? layer : 'read'}
@@ -189,6 +201,9 @@ function SheetCanvas({
   outlines,
   selected,
   onSelect,
+  onHover,
+  showOutlines,
+  zoomToken,
   legend,
   dark,
   layer,
@@ -203,6 +218,9 @@ function SheetCanvas({
   onFail: () => void
   outlines?: readonly SheetOutline[]
   selected: string | null
+  onHover?: (id: string | null) => void
+  showOutlines: boolean
+  zoomToken: number
   onSelect?: (id: string) => void
   legend?: ReactNode
   dark: boolean
@@ -359,20 +377,34 @@ function SheetCanvas({
 
   // Fly to the view selected, padded to about 3× (screens.md sheet ruling 1); none again: the working view.
   // The flight moves the view as a pan would (an outside change the canvas follows, not React state).
+  const flyTo = useCallback(
+    (id: string) => {
+      const s = stage()
+      const outline = outlines?.find((o) => o.id === id)
+      if (!s || !outline) return
+      const { x0, y0, x1, y1 } = outline.box
+      const w = x1 - x0
+      const h = y1 - y0
+      setView(fitBox({ x0: x0 - w, y0: y0 - h, x1: x1 + w, y1: y1 + h }, s, 0))
+    },
+    [stage, outlines, setView],
+  )
   const flown = useRef<string | null>(null)
   useEffect(() => {
     const s = stage()
     const was = flown.current
     flown.current = selected
     if (!s || selected === was) return
-    const outline = selected ? outlines?.find((o) => o.id === selected) : undefined
-    if (outline) {
-      const { x0, y0, x1, y1 } = outline.box
-      const w = x1 - x0
-      const h = y1 - y0
-      setView(fitBox({ x0: x0 - w, y0: y0 - h, x1: x1 + w, y1: y1 + h }, s, 0)) // eslint-disable-line react-hooks/set-state-in-effect -- the canvas follows the view chosen outside it
-    } else if (was) fitWorking()
-  }, [selected, outlines, stage, setView, fitWorking])
+    if (selected && outlines?.some((o) => o.id === selected)) flyTo(selected) // eslint-disable-line react-hooks/set-state-in-effect -- the canvas follows the view chosen outside it
+    else if (was) fitWorking()
+  }, [selected, outlines, stage, flyTo, fitWorking])
+  // Z (Step 1): the same landing again, from wherever the canvas was moved to.
+  const zoomed = useRef(zoomToken)
+  useEffect(() => {
+    if (zoomed.current === zoomToken) return
+    zoomed.current = zoomToken
+    if (selected) flyTo(selected) // eslint-disable-line react-hooks/set-state-in-effect -- as above
+  }, [zoomToken, selected, flyTo])
 
   const fitLabel = t`Fit the whole sheet`
   const workingLabel = t`Back to the working view`
@@ -476,7 +508,7 @@ function SheetCanvas({
             className={cn('absolute inset-0 z-[1] h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
           />
           <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
-          {hasOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
+          {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} onHover={onHover} dark={dark} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
               {legend ? <div className="rounded-md bg-paper/90 px-2 py-1 text-ink-secondary">{legend}</div> : null}
@@ -544,12 +576,14 @@ function Outlines({
   view,
   selected,
   onSelect,
+  onHover,
   dark,
 }: {
   outlines: readonly SheetOutline[]
   view: ViewTransform
   selected: string | null
   onSelect?: (id: string) => void
+  onHover?: (id: string | null) => void
   dark: boolean
 }) {
   const dpr = window.devicePixelRatio || 1
@@ -570,6 +604,8 @@ function Outlines({
             data-outline={o.id}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onSelect?.(o.id)}
+            onPointerEnter={() => onHover?.(o.id)}
+            onPointerLeave={() => onHover?.(null)}
             className={cn('absolute z-[1] rounded-[1px] border', OUTLINE_TONE[o.tone], selected === o.id ? 'border-2' : 'border-[1px]')}
             style={{ insetInlineStart: start, insetBlockStart: top, inlineSize: width, blockSize: height }}
           >

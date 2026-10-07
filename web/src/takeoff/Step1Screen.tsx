@@ -17,15 +17,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useIsFetching, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { getRouteApi, useSearch } from '@tanstack/react-router'
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizontal } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { SheetViewer, type SheetOutline } from '@/sheet'
 import { useFormat } from '@/format'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/primitives/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
-import { DrawingText, Empty, IconButton, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
+import { DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
 import { SheetName, useStep1Acts } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
@@ -280,6 +281,12 @@ function Step1({
   const [focused, setFocused] = useState<string | null>(start?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
   const [picker, setPicker] = useState<Row | null>(null)
+  /** Shift ↑ ↓ and Shift-click: the rows from where the selection began to where it ends (list mode, §6.15). */
+  const [range, setRange] = useState<{ anchor: string; end: string } | null>(null)
+  /** O: the view outlines drawn on the sheet; kept through paging. */
+  const [outlinesOn, setOutlinesOn] = useState(true)
+  /** Z: each press (or the button) flies to the selected view again. */
+  const [zoomToken, setZoomToken] = useState(0)
   const [listFor, setListFor] = useState<string | null>(null)
   const [panel, setPanel] = useState<'coverage' | { file: FileOut } | null>(null)
   const disciplines = useQuery(disciplinesQuery(project.id))
@@ -312,6 +319,13 @@ function Step1({
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
   const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
   const viewsInOrder = open ? [...(open.views ?? [])].sort((a, b) => a.ordinal - b.ordinal) : []
+  const selectedRows = useMemo(() => {
+    if (!range || mode !== 'list') return []
+    const keys = model.rows.map((r) => r.key)
+    const [a, b] = [keys.indexOf(range.anchor), keys.indexOf(range.end)]
+    return a < 0 || b < 0 ? [] : model.rows.slice(Math.min(a, b), Math.max(a, b) + 1)
+  }, [range, mode, model.rows])
+  const chosenKeys = useMemo(() => new Set(selectedRows.map((r) => r.key)), [selectedRows])
   /** → ←: the next or previous view in reading order; past either end, none. */
   const stepView = (by: 1 | -1) => {
     if (mode !== 'sheet' || !open || viewsInOrder.length === 0) return
@@ -356,6 +370,7 @@ function Step1({
     const first = row.sheets[0]
     if (!first) return
     setPicker(null)
+    setRange(null)
     setOpenSheet(first.id)
     setFocused(row.key)
     setMode('sheet')
@@ -366,6 +381,7 @@ function Step1({
     const row = rowOfSheet(sheet.id)
     if (!row) return
     setPicker(null)
+    setRange(null)
     setOpenSheet(sheet.id)
     setFocused(row.key)
     setMode('sheet')
@@ -507,9 +523,32 @@ function Step1({
 
   const moveFocus = (by: number) => {
     if (mode === 'sheet') return page(by)
+    setRange(null)
     const at = model.rows.findIndex((r) => r.key === focused)
     const next = model.rows[at === -1 ? (by > 0 ? 0 : model.rows.length - 1) : Math.min(model.rows.length - 1, Math.max(0, at + by))]
     if (next) focusRow(next.key)
+  }
+
+  /** Home and End: the list's first and last row. */
+  const focusEnd = (last: boolean) => {
+    const row = last ? model.rows.at(-1) : model.rows[0]
+    setRange(null)
+    if (row) focusRow(row.key)
+  }
+
+  /** Shift ↑ ↓: the selection grows (or shrinks) by the row above or below the focused one. */
+  const extendBy = (by: number) => {
+    const at = model.rows.findIndex((r) => r.key === focused)
+    const next = model.rows[at === -1 ? (by > 0 ? 0 : model.rows.length - 1) : Math.min(model.rows.length - 1, Math.max(0, at + by))]
+    if (!next) return
+    setRange({ anchor: range?.anchor ?? focused ?? next.key, end: next.key })
+    focusRow(next.key)
+  }
+
+  /** Shift-click: the selection runs from the focused row to the one clicked. */
+  const extendTo = (key: string) => {
+    setRange({ anchor: range?.anchor ?? focused ?? key, end: key })
+    focusRow(key)
   }
 
   /** §6.4: Enter on a Question with nothing picked says what to do (a toast is drawn outside the format's provider). */
@@ -548,7 +587,10 @@ function Step1({
   const undoKey = () => (readOnly ? refuse(readOnly) : void acts.undoLast())
   const excludeKey = () => {
     if (readOnly) return refuse(readOnly)
-    if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)
+    // Several rows selected (list mode): one exclusion for all their sheets, with one reason (§6.9).
+    const chosen = selectedRows.filter((r) => r.sheets.length > 0)
+    if (chosen.length > 1) setPicker({ ...chosen[0]!, key: 'selection', numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
+    else if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)
   }
 
   const spaceLabel = t`Open the focused sheet, or go back to the list`
@@ -563,6 +605,9 @@ function Step1({
     { key: '←', label: t`Previous view on the sheet`, group: 'screen', when: () => mode === 'sheet', run: () => stepView(-1) },
     { key: 'S', label: t`The sheet picker`, group: 'screen', when: () => mode === 'sheet', run: () => setSheetPicker(true) },
     { key: '[', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
+    { key: 'O', label: t`Show or hide the view outlines`, group: 'screen', when: () => mode === 'sheet', run: () => setOutlinesOn((on) => !on) },
+    { key: 'PageDown', label: t`Next sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(1) },
+    { key: 'PageUp', label: t`Previous sheet`, group: 'screen', when: () => mode === 'sheet', run: () => page(-1) },
     { key: 'Q', label: t`Next open Question`, group: 'screen', run: nextQuestion },
     // 1–9: an answer on the focused Question (§6.15); the exclusion picker's own 1–9 win while it is open.
     { key: '1', label: t`Pick answer 1 on the focused Question`, group: 'screen', when: () => !!focusedRow?.question, run: (event) => (event.repeat ? undefined : pickByKey(1)) },
@@ -593,9 +638,10 @@ function Step1({
       key: 'Esc',
       label: t`Back to the list; in the list, clear the focus`,
       group: 'screen',
-      when: () => mode === 'sheet' || panel !== null || focused !== null,
+      when: () => mode === 'sheet' || panel !== null || focused !== null || chosenKeys.size > 0,
       run: () => {
         if (panel) setPanel(null)
+        else if (chosenKeys.size > 0) setRange(null)
         else if (selectedView) setViewPick(null)
         else if (mode === 'sheet') toList()
         else {
@@ -660,7 +706,7 @@ function Step1({
       </SlotFill>
 
       {mode === 'list' ? (
-        <ListRegion label={spaceLabel} onSpace={fromList}>
+        <ListRegion label={spaceLabel} onSpace={fromList} onEnd={focusEnd} onExtend={extendBy}>
           <FilesBand projectId={project.id} onOpen={(file) => setPanel({ file })} />
           <StillReading files={reading} />
           <SheetList
@@ -673,6 +719,9 @@ function Step1({
               if (row) openRow(row)
             }}
             onPasteList={readOnly ? null : setListFor}
+            selection={chosenKeys}
+            onExtendTo={extendTo}
+            onClearSelection={() => setRange(null)}
           />
         </ListRegion>
       ) : open ? (
@@ -689,6 +738,10 @@ function Step1({
           onPicker={setSheetPicker}
           lookSetting={look}
           onLookSetting={setLook}
+          outlinesOn={outlinesOn}
+          onOutlines={setOutlinesOn}
+          zoomToken={zoomToken}
+          onZoom={() => setZoomToken((n) => n + 1)}
           onPick={(sheet) => {
             setSheetPicker(false)
             setOpenSheet(sheet.id)
@@ -706,6 +759,7 @@ function Step1({
             onPick={(reason, text) => {
               const row = picker
               setPicker(null)
+              setRange(null)
               void acts.excludeSheets(row.sheets, reason, text).then((done) => {
                 if (done && mode === 'sheet' && openSheet) openNextProposal(openSheet)
               })
@@ -752,11 +806,24 @@ function ModeSwitch({ mode, title, onList, onSheet }: { mode: 'list' | 'sheet'; 
 }
 
 /** The list's key region: Space opens the focused sheet (m0-screens §6.1, 2.3 item 10). */
-function ListRegion({ label, onSpace, children }: { label: string; onSpace: () => void; children: ReactNode }) {
+function ListRegion({
+  label,
+  onSpace,
+  onEnd,
+  onExtend,
+  children,
+}: {
+  label: string
+  onSpace: () => void
+  onEnd: (last: boolean) => void
+  onExtend: (by: number) => void
+  children: ReactNode
+}) {
   const { t } = useLingui()
   return (
     <KeyRegion name="list" role="grid" aria-label={t`Sheets`} className="min-h-0 flex-1 overflow-auto pb-24">
       <SpaceKey label={label} run={onSpace} />
+      <ListKeys onEnd={onEnd} onExtend={onExtend} />
       {children}
     </KeyRegion>
   )
@@ -764,6 +831,18 @@ function ListRegion({ label, onSpace, children }: { label: string; onSpace: () =
 
 function SpaceKey({ label, run }: { label: string; run: () => void }) {
   useKeys([{ key: 'Space', label, group: 'screen', run }])
+  return null
+}
+
+/** §2.2's list keys: Home and End, and Shift ↑ ↓ to select several sheets (to exclude them together). */
+function ListKeys({ onEnd, onExtend }: { onEnd: (last: boolean) => void; onExtend: (by: number) => void }) {
+  const { t } = useLingui()
+  useKeys([
+    { key: 'Home', label: t`First row`, group: 'screen', run: () => onEnd(false) },
+    { key: 'End', label: t`Last row`, group: 'screen', run: () => onEnd(true) },
+    { key: 'Shift ↓', label: t`Extend the selection to the next row`, group: 'screen', run: () => onExtend(1) },
+    { key: 'Shift ↑', label: t`Extend the selection to the previous row`, group: 'screen', run: () => onExtend(-1) },
+  ])
   return null
 }
 
@@ -816,6 +895,10 @@ function SheetMode({
   onPick,
   lookSetting,
   onLookSetting,
+  outlinesOn,
+  onOutlines,
+  zoomToken,
+  onZoom,
 }: {
   projectId: string
   sheet: ProposalOut
@@ -830,8 +913,14 @@ function SheetMode({
   onPick: (sheet: ProposalOut) => void
   lookSetting: LookSetting
   onLookSetting: (next: LookSetting) => void
+  outlinesOn: boolean
+  onOutlines: (on: boolean) => void
+  zoomToken: number
+  onZoom: () => void
 }) {
   const { t } = useLingui()
+  const [hovered, setHovered] = useState<string | null>(null)
+  const under = outlinesOn ? (sheet.views ?? []).find((v) => v.id === hovered) : undefined
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const look = useSheetLook(projectId, sheet, lookSetting, onLookSetting)
   const region = useRef<HTMLDivElement>(null)
@@ -889,8 +978,17 @@ function SheetMode({
         </IconButton>
       </SlotFill>
       {look.switches}
+      <SlotFill slot="toolbar.end" order={1}>
+        <ViewerTools selected={selectedView !== null} outlinesOn={outlinesOn} onOutlines={onOutlines} onZoom={onZoom} />
+      </SlotFill>
+      {under ? (
+        <SlotFill slot="status.start" order={0}>
+          <StatedScale view={under} />
+        </SlotFill>
+      ) : null}
       <KeyRegion name="sheet" className="relative min-h-0 flex-1">
         <SpaceKey label={label} run={onSpace} />
+        <ZoomKey enabled={selectedView !== null} run={onZoom} />
         {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
         <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0 outline-none">
           {render.data ? (
@@ -902,6 +1000,9 @@ function SheetMode({
               outlines={outlines}
               selected={selectedView}
               onSelect={onSelectView}
+              onHover={setHovered}
+              showOutlines={outlinesOn}
+              zoomToken={zoomToken}
               legend={(sheet.views ?? []).length > 0 ? <Legend tones={(sheet.views ?? []).map((v) => viewTone(v, sheet, held))} /> : null}
               labelInToolbar={false}
               {...look.viewer}
@@ -915,6 +1016,58 @@ function SheetMode({
       </KeyRegion>
     </>
   )
+}
+
+/** Z (§2.2, region: canvas): zoom to the selected view; with none selected the key is not active. */
+function ZoomKey({ enabled, run }: { enabled: boolean; run: () => void }) {
+  const { t } = useLingui()
+  useKeys([{ key: 'Z', label: t`Zoom to the selected view`, group: 'sheet', when: () => enabled, run }])
+  return null
+}
+
+/**
+ * §4.6's Zoom to view and Outlines: buttons in the toolbar from 1440, rows of "More" (with their Kbd)
+ * below it, so the toolbar keeps one line at 1280.
+ */
+function ViewerTools({ selected, outlinesOn, onOutlines, onZoom }: { selected: boolean; outlinesOn: boolean; onOutlines: (on: boolean) => void; onZoom: () => void }) {
+  const { t } = useLingui()
+  return (
+    <>
+      <IconButton label={t`Zoom to view`} tip={t`Zoom to the selected view`} combo="Z" disabled={!selected} onClick={onZoom} className="hidden min-[1440px]:inline-flex">
+        <Crosshair strokeWidth={1.5} />
+      </IconButton>
+      <IconButton label={t`Outlines`} tip={t`View outlines`} combo="O" pressed={outlinesOn} onClick={() => onOutlines(!outlinesOn)} className="hidden min-[1440px]:inline-flex">
+        <Layers strokeWidth={1.5} />
+      </IconButton>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <IconButton label={t`More`} className="min-[1440px]:hidden">
+            <MoreHorizontal strokeWidth={1.5} />
+          </IconButton>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem disabled={!selected} onSelect={onZoom}>
+            <Crosshair strokeWidth={1.5} />
+            <Trans>Zoom to view</Trans>
+            <KeyCombo combo="Z" className="ms-auto" />
+          </DropdownMenuItem>
+          <DropdownMenuCheckboxItem checked={outlinesOn} onCheckedChange={onOutlines}>
+            <Trans>Outlines</Trans>
+            <KeyCombo combo="O" className="ms-auto" />
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
+  )
+}
+
+/** The status bar's stated scale for the view under the cursor (§4.1): "1:100, as stated", or "Not to scale". */
+function StatedScale({ view }: { view: ViewOut }) {
+  const { t } = useLingui()
+  if (view.not_to_scale) return <span>{t`Not to scale`}</span>
+  if (!view.stated_scale) return null
+  const scale = isolateLtr(view.stated_scale)
+  return <span>{t`${scale}, as stated`}</span>
 }
 
 /** The sheet label as a button (§6.5: "S-20 8th & 9th floor beam layout ▾", at most 250 px) opening "Sheets, in list order". */
