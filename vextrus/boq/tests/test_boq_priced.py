@@ -212,3 +212,42 @@ def test_one_item_code_in_two_steps_bills_in_each_step_s_group(
         ("columns", "REBAR-500W"): Decimal("3.00"),
         ("beams", "REBAR-500W"): Decimal("5.00"),
     }
+
+
+def test_each_item_and_allowance_carries_its_description_and_the_boq_its_building(
+    qs_project: QsProject, seams: Seams
+) -> None:
+    seams.lines = (
+        column(1, "RCC-COL-1:1.5:3", "cft", "1.00"),
+        column(1, "FW-COL", "sft", "1.00"),
+        column(1, "REBAR-500W", "kg", "1.00"),
+    )
+    seams.confirmed = frozenset({"columns"})
+    enter_gfa(qs_project, "1000")
+    boq = read(qs_project)
+    said = {i.item_code: i.description for s in boq.sections for g in s.groups for i in g.items}
+    assert said == {
+        "RCC-COL-1:1.5:3": {
+            "code": "boq.item.rcc",
+            "params": {"strength_mpa": "", "mix": "1:1.5:3", "class": "columns"},
+        },
+        "FW-COL": {"code": "boq.item.formwork", "params": {"class": "columns"}},
+        "REBAR-500W": {"code": "boq.item.rebar", "params": {"grade": "500W", "class": "columns"}},
+    }
+    beams = next(a for a in boq.allowances if a.step == "beams")
+    assert beams.description == {"code": "boq.item.allowance", "params": {"step": "beams"}}
+    parts = {(a.step, a.part) for a in boq.allowances if a.step == "foundations"}
+    assert parts == {("foundations", "piles_caps"), ("foundations", "rest")}
+    with qs_project.member.acting():
+        [building] = projects.buildings(qs_project.project_id)
+    assert boq.building_id == building.id
+
+
+def test_the_api_carries_the_building_and_the_descriptions(qs_project: QsProject, seams: Seams) -> None:
+    seams.lines = (column(1, "RCC-COL-1:1.5:3", "cft", "1.00"),)
+    body = qs_project.member.client.get(f"/api/projects/{qs_project.project_id}/boq").json()
+    with qs_project.member.acting():
+        [building] = projects.buildings(qs_project.project_id)
+    assert body["building_id"] == str(building.id)
+    [item] = body["sections"][0]["groups"][0]["items"]
+    assert item["description"]["code"] == "boq.item.rcc"

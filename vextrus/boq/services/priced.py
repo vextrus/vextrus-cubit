@@ -29,7 +29,7 @@ from importlib import import_module
 from typing import Any
 
 from vextrus.boq.services import allowances as defaults
-from vextrus.boq.services import steps
+from vextrus.boq.services import descriptions, steps
 from vextrus.platform.money import Currency, Money
 from vextrus.platform.services import markets
 from vextrus.projects import services as projects
@@ -76,6 +76,7 @@ class BilledItem:
     awaiting_answer: Awaiting | None
     by_storey: tuple[StoreyQuantity, ...]
     lines: int
+    description: descriptions.Description | None = None
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,7 @@ class AllowanceLine:
     source: str
     confidence: str
     unpriced: int
+    description: descriptions.Description | None = None
 
 
 @dataclass(frozen=True)
@@ -135,6 +137,8 @@ class Strip:
 
 @dataclass(frozen=True)
 class PricedBoq:
+    building_id: uuid.UUID | None
+    """The Project's Building (one in M1): the one its Gross Floor Area is entered on."""
     strip: Strip
     measured_share: Decimal
     sections: tuple[Section, ...]
@@ -175,7 +179,9 @@ def read(project_id: uuid.UUID) -> PricedBoq:
     allowance_lines: list[AllowanceLine] = []
     unpriced = 0
     area_m2: Decimal | None = None
-    for building in projects.buildings(project_id):
+    buildings = projects.buildings(project_id)
+    first_building = buildings[0].id if buildings else None
+    for building in buildings:
         gfa = projects.gfa.gross_floor_area(building.id, project_id=project_id)
         reading = _read_building(project_id, building.id, gfa, rates, currency)
         billed += reading.billed
@@ -208,6 +214,7 @@ def read(project_id: uuid.UUID) -> PricedBoq:
         gfa=None if area_m2 is None else Gfa(area_m2, "m2", "entered"),
     )
     return PricedBoq(
+        building_id=first_building,
         strip=strip,
         measured_share=share.quantize(SHARE, rounding=ROUND_HALF_UP),
         sections=_sections(items),
@@ -331,6 +338,7 @@ def _item(item_code: str, lines: list[Any], rates: _Rates, currency: Currency) -
         else Awaiting(held_quantity, _price(held_quantity, rate, currency)),
         by_storey=tuple(StoreyQuantity(storey, qty) for storey, qty in storeys.items()),
         lines=len(lines),
+        description=descriptions.of_item(item_code, str(first.step), lines),
     )
 
 
@@ -378,6 +386,7 @@ def _allowance(
         source=defaults.SOURCE,
         confidence=defaults.CONFIDENCE,
         unpriced=unpriced,
+        description=descriptions.of_allowance(default.step),
     )
     return line, unpriced
 

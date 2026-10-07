@@ -2,6 +2,7 @@
 decimal strings, never floats."""
 
 import uuid
+from typing import Any
 
 from ninja import Schema
 
@@ -12,6 +13,18 @@ from vextrus.platform.schemas import MoneySchema
 
 def _money(value: Money | None) -> MoneySchema | None:
     return None if value is None else MoneySchema.from_money(value)
+
+
+class BoqDescriptionOut(Schema):
+    """C13's `{code, params}`: `boq.item.rcc`, `boq.item.formwork`, `boq.item.rebar`,
+    `boq.item.allowance`."""
+
+    code: str
+    params: dict[str, str]
+
+
+def _description(value: dict[str, Any] | None) -> BoqDescriptionOut | None:
+    return None if value is None else BoqDescriptionOut(code=value["code"], params=value["params"])
 
 
 class BoqGfaOut(Schema):
@@ -47,6 +60,7 @@ class BoqTraceCountOut(Schema):
 class BoqItemOut(Schema):
     number: str
     item_code: str
+    description: BoqDescriptionOut | None
     section: str
     group: str
     billing_unit: str
@@ -67,6 +81,7 @@ class BoqItemOut(Schema):
         return cls(
             number=item.number,
             item_code=item.item_code,
+            description=_description(item.description),
             section=item.section,
             group=item.group,
             billing_unit=item.billing_unit,
@@ -108,6 +123,7 @@ class BoqConsumptionOut(Schema):
 class BoqAllowanceOut(Schema):
     step: str
     part: str
+    description: BoqDescriptionOut | None
     cost_basis: str
     consumptions: list[BoqConsumptionOut]
     amount: MoneySchema
@@ -121,6 +137,7 @@ class BoqAllowanceOut(Schema):
         return cls(
             step=line.step,
             part=line.part,
+            description=_description(line.description),
             cost_basis=line.cost_basis,
             consumptions=[
                 BoqConsumptionOut(
@@ -142,6 +159,8 @@ class BoqAllowanceOut(Schema):
 
 
 class PricedBoqOut(Schema):
+    building_id: uuid.UUID | None
+    """The Project's Building, the one `PUT .../buildings/{building_id}/gross-floor-area` names."""
     strip: BoqStripOut
     measured_share: str
     sections: list[BoqSectionOut]
@@ -152,6 +171,7 @@ class PricedBoqOut(Schema):
         strip = boq.strip
         gfa = strip.gfa
         return cls(
+            building_id=boq.building_id,
             strip=BoqStripOut(
                 measured=MoneySchema.from_money(strip.measured),
                 awaiting_answer=MoneySchema.from_money(strip.awaiting_answer),
