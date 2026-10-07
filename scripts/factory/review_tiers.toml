@@ -70,29 +70,58 @@ never = [
 
 [strict]
 # The review bar (the owner's ruling, 7 Oct 2026, session 17; ADR 0041 amended): a standing finding
-# blocks at 75, or at 50 when its file matches one of these paths. Read by scripts/ledger.py (and,
-# through it, by review.py and merge_ready). The ruling keeps 50-74 blocking on security walls,
-# migrations, money and readers; the walls are spread across the backend (each module's services,
-# http and acts), so these are WHOLE TREES, never an enumeration of wall files (ADR 0043 item 2; PR
-# #610 review, rounds 1 and 2). Everything else (web/, scripts/ but scripts/owner/, tools/, docs,
-# engine's other parts) takes the 75 bar. It fails safe: a finding with no file, or a file that is
-# not a plain relative path (absolute, a drive, a backslash, a blank, a `..`) or not a file of the
-# head's tree (a folder, a path shortened from its package root), is judged strict. A glob matching
-# any trailing part of the path counts, and `X/**` also matches `X`. Case ignored.
+# blocks at 75, or at 50 when its file is strict. Read by scripts/ledger.py (and, through it, by
+# review.py and merge_ready). STRICT IS THE DEFAULT: a file is strict when it matches `[strict]
+# paths` OR matches no `[lax] paths` glob (ADR 0043 item 2: a list names only what is safe; PR #610
+# showed an enumeration of walls missing one in each of three rounds). `[strict]` names the walls
+# inside the lax folders, and keeps the backend and the readers strict whatever `[lax]` says. A
+# finding with no file, or a file that is not a plain relative path (absolute, a drive, a backslash,
+# a blank, a `..`) or not a file of the head's tree (a folder, a path shortened from its package
+# root), is strict. Strict globs match any trailing part of the path, and `X/**` also matches `X`;
+# lax globs match the whole path only. Case ignored. Either list unreadable: every file is strict.
 paths = [
-  # The whole backend: its walls (tenancy, row-level security, auth, each module's scope), its
-  # money (the BOQ, rates) and its migrations.
+  # The backend, every migrations folder, the engine's readers.
   "vextrus/**",
-  # Every migrations folder, wherever it lives.
   "**/migrations/**",
-  # The readers: the engine's drawing readers, recognisers and families.
   "engine/read/**",
   "engine/recognise/**",
   "engine/families/**",
-  # The guard and the hooks (and the settings that wire them), the owner's wrappers (post-status,
-  # the scorer's rule) and the CI workflows.
+  # The guard, the hooks, the owner's wrappers, CI.
   ".claude/hooks/**",
   ".claude/settings*.json",
   "scripts/owner/**",
   ".github/workflows/**",
+  # Walls inside the lax web/: its end-to-end tests and anything named for auth or the session.
+  "web/e2e/**",
+  "web/**/*auth*",
+  "web/**/*auth*/**",
+  "web/**/*session*",
+  # Walls inside the lax scripts/factory/ (and their tests): the guard, hooks, launch, publish, the
+  # leak-scan allowlist and leak code, real-drawing custody and its lock, the agents' settings and
+  # trusted authors, the stamps, and the review code that decides this bar.
+  "scripts/factory/**/*guard*",
+  "scripts/factory/**/*hook*",
+  "scripts/factory/**/*launch*",
+  "scripts/factory/**/*publish*",
+  "scripts/factory/**/*allowlist*",
+  "scripts/factory/**/*leak*",
+  "scripts/factory/**/*custody*",
+  "scripts/factory/**/*rdlock*",
+  "scripts/factory/**/*settings*",
+  "scripts/factory/**/trusted-authors*",
+  "scripts/factory/**/*stamp*",
+  "scripts/factory/**/*review*",
+  "scripts/factory/**/*lens*",
+]
+
+[lax]
+# The only places where a standing finding of 50-74 does not block (it takes the 75 bar and is filed
+# as an issue). A path nobody listed is strict.
+paths = [
+  "web/**",
+  "docs/**",
+  "*.md",
+  "scripts/factory/**",
+  "scripts/tests/**",
+  "tools/lint/**",
 ]

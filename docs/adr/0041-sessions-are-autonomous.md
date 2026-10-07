@@ -11,15 +11,17 @@ confirms (`fix-regression` in `scripts/ledger.py`); never more than three review
 **Amended 7 Oct 2026 (session 17)** (the owner, on the review's speed: "Raise review's blocking bar to 75, keeping
 50-74 blocking only on strict paths (security walls, migrations, money, readers), filing the rest as issues, and
 refuting a sample rather than every finding" — yes): items 5 and 7 — a standing finding blocks a merge at 75 or
-more, or at 50 or more when its file is on a strict path (`[strict] paths` in
-`scripts/factory/review_tiers.toml`). The ruling keeps 50-74 blocking on security walls, migrations, money and
-readers; the walls are spread across the backend (each module's services, http and acts), so the strict paths are
-whole trees, never a list of wall files (PR #610 review, rounds 1 and 2): the whole backend (`vextrus/`, with its
-money and its migrations), every migrations folder, the engine's readers, recognisers and families, the guard and
-its hooks, the owner's wrappers (`scripts/owner/`) and the CI workflows. Everything else (`web/`, the other
-`scripts/`, `tools/`, the docs, the engine's other parts) takes the 75 bar. A finding with no file, or a file that
-is not exactly a file of the head's tree, is judged strict. A standing finding of 50-74 off the strict paths does
-not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
+more, or at 50 or more when its file is strict. The ruling keeps 50-74 blocking on security walls, migrations,
+money and readers. **Strict is the default; the lax side is a named list** (ADR 0043 item 2: a list names only what
+is safe). Why: the walls are spread across the code (each module's services, http and acts, the leak scan, real-
+drawing custody, the factory's launch and publish), and a list of them missed one in each of PR #610's three review
+rounds. So in `scripts/factory/review_tiers.toml` a file is strict when it matches `[strict] paths` (the backend,
+every migrations folder, the engine's readers, the guard and hooks, the owner's wrappers, CI, and the walls inside
+the lax folders) or matches no `[lax] paths` glob. Lax, and so on the 75 bar: `web/` (not its end-to-end tests or
+anything named for auth or the session), `docs/`, the root's Markdown, `scripts/factory/` (not its guard, hook,
+launch, publish, allowlist, leak, custody, settings, stamp or review code), `scripts/tests/` and `tools/lint/`. A
+path nobody listed, a finding with no file, or a file that is not exactly a file of the head's tree, is strict. A
+standing finding of 50-74 off the strict paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
 sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
 highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Item
 7's serious finding is the same: 75 or more, 50 or more on a strict path, or any class seen twice.

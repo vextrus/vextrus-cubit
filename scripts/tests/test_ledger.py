@@ -250,10 +250,11 @@ def test_a_pass_with_an_unrefuted_74_off_the_strict_paths_is_recorded(tmp_path: 
     [
         ("vextrus/platform/database.py ", 3),  # padded: the refuter's case (S17-F6)
         ("vextrus/platform/database.py", 3),
-        ("app.py", 0),  # a file of the head's tree, off the strict paths
+        ("README.md", 0),  # a file of the head's tree on a lax path (root *.md)
+        ("app.py", 3),  # on the tree, but no lax glob names it: strict by default
         ("web/src/components/badge.tsx", 3),  # not in the head's tree: judged strict
     ],
-    ids=["padded-strict", "strict", "off-strict", "not-on-the-tree"],
+    ids=["padded-strict", "strict", "lax", "strict-by-default", "not-on-the-tree"],
 )
 def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, file: str, code: int
@@ -296,6 +297,18 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "scripts/owner/post-status",
         ".github/workflows/ci.yml",
         ".claude/hooks/guard.mjs",
+        "tools/leakscan/scan.py",  # #610 round 3: strict by default, lax by a named list
+        "scripts/real_drawings/x.py",
+        "scripts/real-drawings",
+        "newtop/x.py",  # an unlisted new top-level folder
+        "engine/plot/x.py",
+        "scripts/ledger.py",
+        "scripts/factory/launch.py",
+        "scripts/factory/review_tiers.toml",
+        "scripts/factory/tests/test_leak_round1.py",
+        "web/e2e/real/walk.spec.ts",
+        "web/src/auth/SignIn.tsx",
+        "docs/../vextrus/x.py",
     ],
 )
 def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
@@ -306,10 +319,23 @@ def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "file", ["web/src/x.tsx", "scripts/factory/watch.py", "tools/leakscan/scan.py", "engine/plot/x.py"]
+    "file",
+    ["web/src/x.tsx", "docs/x.md", "README.md", "scripts/factory/watch.py", "tools/lint/x.py"],
 )
 def test_a_60_off_the_strict_trees_is_filed_not_blocking(tmp_path: Path, file: str) -> None:
     given = source(tmp_path, f"VERDICT: PASS at {H}", f"FINDING f1 60 CONFIRMED {file}")
     decision = ledger.decide(given.read_bytes(), H)
     assert decision.verdict == "PASS"
     assert decision.to_file == ("f1",)
+
+
+def test_an_unreadable_lax_list_judges_every_path_strict(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ledger, "lax_paths", lambda: None)
+    assert ledger.on_strict_path("web/src/x.tsx") is True
+
+
+def test_a_lax_glob_matches_the_whole_path_only() -> None:
+    """A strict glob counts on any trailing part; a lax one never does (`x/docs/a.md` is strict)."""
+    assert ledger.on_strict_path("docs/a.md") is False
+    assert ledger.on_strict_path("x/docs/a.md") is True
+    assert ledger.on_strict_path("x/README.md") is True

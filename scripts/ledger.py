@@ -117,18 +117,33 @@ def glob_regex(pattern: str, *, ignore_case: bool = False) -> re.Pattern[str]:
     return re.compile(out, re.DOTALL | (re.IGNORECASE if ignore_case else 0))
 
 
-@functools.cache
-def strict_paths() -> tuple[re.Pattern[str], ...] | None:
-    """`[strict] paths` of `review_tiers.toml` (case ignored); None when it cannot be read."""
+def tier_globs(table: str) -> list[str] | None:
+    """`[<table>] paths` of `review_tiers.toml`; None when it cannot be read or is empty."""
     try:
-        paths = tomllib.loads(TIERS_FILE.read_text())["strict"]["paths"]
+        paths = tomllib.loads(TIERS_FILE.read_text())[table]["paths"]
     except OSError, ValueError, KeyError, TypeError:
         return None
     if not isinstance(paths, list) or not paths or not all(isinstance(p, str) and p for p in paths):
         return None
-    # `X/**` also matches the folder `X` itself: a reviewer naming the folder is on it.
+    return paths
+
+
+@functools.cache
+def strict_paths() -> tuple[re.Pattern[str], ...] | None:
+    """`[strict] paths` (case ignored), where `X/**` also matches the folder `X` itself (a reviewer
+    naming the folder is on it); None when it cannot be read."""
+    if (paths := tier_globs("strict")) is None:
+        return None
     folders = [path.removesuffix("/**") for path in paths if path.endswith("/**")]
     return tuple(glob_regex(path, ignore_case=True) for path in [*paths, *folders])
+
+
+@functools.cache
+def lax_paths() -> tuple[re.Pattern[str], ...] | None:
+    """`[lax] paths` (case ignored): the only places a 50-74 does not block; None when unreadable."""
+    if (paths := tier_globs("lax")) is None:
+        return None
+    return tuple(glob_regex(path, ignore_case=True) for path in paths)
 
 
 def named_file(file: Any) -> str | None:
@@ -156,12 +171,13 @@ def tree_files(commit: str) -> frozenset[str]:
 
 
 def on_strict_path(file: str | None) -> bool:
-    """True when `file` is on a strict path. Fail closed: no file, anything but a plain relative path
-    once a location suffix (`:12`, `:12-20`, `#L12`) is dropped (absolute, a drive, a backslash, a
-    blank, another mark), a `..` segment, or a strict list that cannot be read, is judged strict. A
-    strict glob matching any trailing part of the path counts (`b/vextrus/rates/x.py`)."""
-    patterns = strict_paths()
-    if not file or patterns is None:
+    """True when `file` is on a strict path. Strict is the default (ADR 0043 item 2): a file is lax
+    only when it matches a `[lax]` glob (the whole path) and no `[strict]` glob (any trailing part of
+    the path, `b/vextrus/rates/x.py`). Fail closed: no file, anything but a plain relative path once a
+    location suffix (`:12`, `:12-20`, `#L12`) is dropped (absolute, a drive, a backslash, a blank,
+    another mark), a `..` segment, or a list that cannot be read, is judged strict."""
+    patterns, lax = strict_paths(), lax_paths()
+    if not file or patterns is None or lax is None:
         return True
     path = LOCATION.sub("", file)
     if not PLAIN_PATH.fullmatch(path):
@@ -170,7 +186,9 @@ def on_strict_path(file: str | None) -> bool:
     if not parts or ".." in parts:
         return True
     tails = ["/".join(parts[index:]) for index in range(len(parts))]
-    return any(pattern.fullmatch(tail) for pattern in patterns for tail in tails)
+    if any(pattern.fullmatch(tail) for pattern in patterns for tail in tails):
+        return True
+    return not any(pattern.fullmatch(tails[0]) for pattern in lax)
 
 
 def could_block(score: int, file: str | None) -> bool:
