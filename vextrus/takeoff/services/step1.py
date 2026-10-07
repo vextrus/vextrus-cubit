@@ -2237,8 +2237,9 @@ def ask_gaps(
     answered is the one asked (reopened if a past round retired it); after an answer, a new one (the
     Discipline once more: a gap found later is asked, never settled by an answer given before it).
 
-    A kept-open answer stays while every gap it asks was asked when it was kept open; a gap it never
-    asked makes it the QS's to answer again (review 1 of #229). Two read jobs take turns on the
+    A kept-open answer stays while every gap it asks lies within a gap asked when it was kept open (a
+    file that fills a gap, or part of one, asks no number the QS has not seen); a number missing that
+    it never asked makes it the QS's to answer again (review 1 of #229). Two read jobs take turns on the
     Discipline (a transaction lock), as `ask_group`'s do."""
     projects.get(project_id)
     base = hashlib.sha256(
@@ -2268,8 +2269,8 @@ def ask_gaps(
                 was = set(gap_ends(row))
                 row.params = params
                 fields = ["params"]
-                if row.answer is not None and not set(gap_ends(row)) <= was:
-                    row.answer = None  # a gap the QS never kept open is theirs to answer
+                if row.answer is not None and not _within(gap_ends(row), was, discipline):
+                    row.answer = None  # a number the QS never kept open is theirs to answer
                     fields.append("answer")
                 row.save(update_fields=fields)
         else:
@@ -2294,6 +2295,37 @@ def ask_gaps(
                 tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
             )
     return row.id
+
+
+def _within(
+    gaps: Iterable[tuple[str, str, int]], before: Iterable[tuple[str, str, int]], discipline: str
+) -> bool:
+    """Whether each gap `(after, before, missing)` lies within one of `before`: the same series, its
+    two ends on or between that gap's (S15-Q2: a gap split by a sheet that came asks nothing new). A
+    number the conventions do not place matches only the same gap."""
+    conventions = _conventions()
+    numbers = Numbers(conventions, recognisers(conventions))
+
+    def ends(gap: tuple[str, str, int]) -> tuple[Any, Any]:
+        return numbers.parts_in(gap[0], discipline), numbers.parts_in(gap[1], discipline)
+
+    was = list(before)
+    for gap in gaps:
+        if gap in was:
+            continue
+        low, high = ends(gap)
+        if low is None or high is None:
+            return False
+        if not any(
+            (lo := ends(old)[0]) is not None
+            and (hi := ends(old)[1]) is not None
+            and lo[0] == low[0] == high[0] == hi[0]
+            and lo[1] <= low[1]
+            and high[1] <= hi[1]
+            for old in was
+        ):
+            return False
+    return True
 
 
 def answered_gaps(project_id: uuid.UUID) -> dict[tuple[str, str, str, int], uuid.UUID]:
