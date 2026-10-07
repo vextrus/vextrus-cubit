@@ -86,7 +86,8 @@ export function useSheetLook(projectId: string, sheet: ProposalOut, setting: Loo
       // 18 matched the page but could not line the drawing up with it (engine/plot/registration.py):
       // no Plot to show, and trying again cannot change that.
       if (!answer.file_id || !answer.page || !transform) return { unaligned: true }
-      const bytes = await queryClient.fetchQuery(pdfQuery(projectId, answer.file_id))
+      // Only the outermost query retries (app/query-policy.ts): this inner read tries once per try of the Plot.
+      const bytes = await queryClient.fetchQuery({ ...pdfQuery(projectId, answer.file_id), retry: false })
       return { picture: await drawPlotPage(bytes, answer.page, { signal }), transform }
     },
   })
