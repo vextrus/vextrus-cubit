@@ -127,8 +127,9 @@ class Migration(migrations.Migration):
                 (
                     "rule_set",
                     models.ForeignKey(
+                        db_index=False,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="versions",
+                        related_name="+",
                         to="measurement.ruleset",
                     ),
                 ),
@@ -156,8 +157,9 @@ class Migration(migrations.Migration):
                 (
                     "version",
                     models.ForeignKey(
+                        db_index=False,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="rebar_ratios",
+                        related_name="+",
                         to="measurement.rulesetversion",
                     ),
                 ),
@@ -197,8 +199,9 @@ class Migration(migrations.Migration):
                 (
                     "version",
                     models.ForeignKey(
+                        db_index=False,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="rules",
+                        related_name="+",
                         to="measurement.rulesetversion",
                     ),
                 ),
@@ -238,8 +241,9 @@ class Migration(migrations.Migration):
                 (
                     "version",
                     models.ForeignKey(
+                        db_index=False,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="items",
+                        related_name="+",
                         to="measurement.rulesetversion",
                     ),
                 ),
@@ -272,8 +276,9 @@ class Migration(migrations.Migration):
                 (
                     "item",
                     models.ForeignKey(
+                        db_index=False,
                         on_delete=django.db.models.deletion.PROTECT,
-                        related_name="billing_units",
+                        related_name="+",
                         to="measurement.boqitem",
                     ),
                 ),
@@ -281,7 +286,7 @@ class Migration(migrations.Migration):
             options={
                 "constraints": [
                     models.UniqueConstraint(
-                        fields=("item", "unit_system"),
+                        fields=("tenant_id", "item", "unit_system"),
                         name="measurement_billingunit_system",
                     ),
                     models.CheckConstraint(
@@ -294,7 +299,8 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="rulesetversion",
             constraint=models.UniqueConstraint(
-                fields=("rule_set", "number"), name="measurement_rsv_number"
+                fields=("tenant_id", "rule_set", "number"),
+                name="measurement_rsv_number",
             ),
         ),
         migrations.AddConstraint(
@@ -313,7 +319,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="rebarratio",
             constraint=models.UniqueConstraint(
-                fields=("version", "family_key", "band"),
+                fields=("tenant_id", "version", "family_key", "band"),
                 name="measurement_rebarratio_band",
                 nulls_distinct=False,
             ),
@@ -335,7 +341,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="measurementrule",
             constraint=models.UniqueConstraint(
-                fields=("version", "code"), name="measurement_rule_code"
+                fields=("tenant_id", "version", "code"), name="measurement_rule_code"
             ),
         ),
         migrations.AddConstraint(
@@ -360,7 +366,8 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="boqitem",
             constraint=models.UniqueConstraint(
-                fields=("version", "item_code"), name="measurement_boqitem_code"
+                fields=("tenant_id", "version", "item_code"),
+                name="measurement_boqitem_code",
             ),
         ),
         migrations.AddConstraint(

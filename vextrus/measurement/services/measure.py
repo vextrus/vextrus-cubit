@@ -17,7 +17,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from vextrus.live_model import services as live_model
-from vextrus.measurement.library import CFT_M3, BILLED_SYSTEM
+from vextrus.measurement.library import BILLED_SYSTEM, CFT_M3
 from vextrus.measurement.models import (
     BoqItem,
     BoqItemBillingUnit,

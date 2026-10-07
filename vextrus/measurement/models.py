@@ -43,14 +43,16 @@ class RuleSetVersion(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
-    rule_set = models.ForeignKey(RuleSet, on_delete=models.PROTECT, related_name="versions")
+    rule_set = models.ForeignKey(RuleSet, on_delete=models.PROTECT, related_name="+", db_index=False)
     number = models.PositiveIntegerField()
     status = models.CharField(max_length=16)
     content_hash = models.CharField(max_length=80)
 
     class Meta:
         constraints: ClassVar = [
-            models.UniqueConstraint(fields=["rule_set", "number"], name="measurement_rsv_number"),
+            models.UniqueConstraint(
+                fields=["tenant_id", "rule_set", "number"], name="measurement_rsv_number"
+            ),
             models.UniqueConstraint(fields=["tenant_id", "id"], name="measurement_rsv_tenant_id"),
             models.CheckConstraint(
                 condition=models.Q(status__in=RULE_SET_STATUSES), name="measurement_rsv_status"
@@ -66,7 +68,9 @@ class MeasurementRule(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
-    version = models.ForeignKey(RuleSetVersion, on_delete=models.PROTECT, related_name="rules")
+    version = models.ForeignKey(
+        RuleSetVersion, on_delete=models.PROTECT, related_name="+", db_index=False
+    )
     code = models.CharField(max_length=16)
     kind = models.CharField(max_length=24)
     family_key = models.CharField(max_length=64, blank=True, default="")
@@ -79,7 +83,9 @@ class MeasurementRule(models.Model):
 
     class Meta:
         constraints: ClassVar = [
-            models.UniqueConstraint(fields=["version", "code"], name="measurement_rule_code"),
+            models.UniqueConstraint(
+                fields=["tenant_id", "version", "code"], name="measurement_rule_code"
+            ),
             models.CheckConstraint(
                 condition=models.Q(kind__in=RULE_KINDS), name="measurement_rule_kind"
             ),
@@ -94,7 +100,9 @@ class BoqItem(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
-    version = models.ForeignKey(RuleSetVersion, on_delete=models.PROTECT, related_name="items")
+    version = models.ForeignKey(
+        RuleSetVersion, on_delete=models.PROTECT, related_name="+", db_index=False
+    )
     item_code = models.CharField(max_length=64)
     labels = models.JSONField(help_text="Its description per language: {language: text}.")
     trade = models.CharField(max_length=40)
@@ -108,7 +116,9 @@ class BoqItem(models.Model):
 
     class Meta:
         constraints: ClassVar = [
-            models.UniqueConstraint(fields=["version", "item_code"], name="measurement_boqitem_code"),
+            models.UniqueConstraint(
+                fields=["tenant_id", "version", "item_code"], name="measurement_boqitem_code"
+            ),
             models.UniqueConstraint(fields=["tenant_id", "id"], name="measurement_boqitem_tenant_id"),
             models.CheckConstraint(
                 condition=models.Q(basis_kind__in=BASIS_KINDS), name="measurement_boqitem_basis"
@@ -130,7 +140,7 @@ class BoqItemBillingUnit(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
-    item = models.ForeignKey(BoqItem, on_delete=models.PROTECT, related_name="billing_units")
+    item = models.ForeignKey(BoqItem, on_delete=models.PROTECT, related_name="+", db_index=False)
     unit_system = models.CharField(max_length=16)
     billing_unit = models.CharField(max_length=16)
     unit_si = models.CharField(max_length=16, help_text="The SI unit a Measurement Line holds.")
@@ -141,7 +151,7 @@ class BoqItemBillingUnit(models.Model):
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(
-                fields=["item", "unit_system"], name="measurement_billingunit_system"
+                fields=["tenant_id", "item", "unit_system"], name="measurement_billingunit_system"
             ),
             models.CheckConstraint(
                 condition=models.Q(si_per_unit__gt=0), name="measurement_billingunit_factor"
@@ -157,7 +167,9 @@ class RebarRatio(models.Model):
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
-    version = models.ForeignKey(RuleSetVersion, on_delete=models.PROTECT, related_name="rebar_ratios")
+    version = models.ForeignKey(
+        RuleSetVersion, on_delete=models.PROTECT, related_name="+", db_index=False
+    )
     family_key = models.CharField(max_length=64)
     band = models.UUIDField(null=True, blank=True)
     value = models.DecimalField(max_digits=10, decimal_places=4)
@@ -168,7 +180,7 @@ class RebarRatio(models.Model):
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(
-                fields=["version", "family_key", "band"],
+                fields=["tenant_id", "version", "family_key", "band"],
                 name="measurement_rebarratio_band",
                 nulls_distinct=False,
             ),
