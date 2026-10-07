@@ -27,6 +27,9 @@ export interface TraceOut {
   sheet_id: string
   view_id: string
   anchor: Record<string, string>
+  /** The printed sheet's number and title, when the Trace's sheet is still in the list. */
+  sheet_number?: string | null
+  sheet_title?: string | null
 }
 
 export interface ElementOut {

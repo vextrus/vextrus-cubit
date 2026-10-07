@@ -14,7 +14,7 @@
  */
 import { useState } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { FolderPlus } from 'lucide-react'
 import { AppLink, PATHS, useGo } from '@/app/AppLink'
 import { PageLayout } from '@/app/Frame'
@@ -22,6 +22,7 @@ import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { can, mayCreateProject, readOnlyRole, usePageTitle } from '@/auth'
 import { EMPTY } from '@/format'
 import { Button, Empty, List, ReadOnlyChip, Skeleton, buttonVariants, cn } from '@/ui'
+import { progressQuery } from '@/takeoff/data'
 import { NewProjectDialog } from './NewProjectDialog'
 
 /** The header's count line. */
@@ -59,7 +60,19 @@ function HeaderRow() {
   )
 }
 
+/** The Drawing Set's and Step 1's state, read from Step 1's progress (the list's API carries neither). */
+function useStep1State(projectId: string): { sheets: number; step1: 'confirmed' | 'in_review' | null } | null {
+  const progress = useQuery({ ...progressQuery(projectId), retry: false })
+  if (!progress.data) return null
+  const read = progress.data.disciplines.filter((d) => d.found > 0)
+  const sheets = read.reduce((n, d) => n + d.found, 0)
+  if (sheets === 0) return null
+  const step1 = read.every((d) => d.status === 'confirmed') ? 'confirmed' : read.some((d) => d.status !== 'not_started') ? 'in_review' : null
+  return { sheets, step1 }
+}
+
 function Row({ project }: { project: ProjectSummary }) {
+  const state = useStep1State(project.id)
   return (
     <AppLink to={PATHS.project(project.code)} className={cn(COLUMNS, 'h-full min-w-0 text-foreground')} tabIndex={-1}>
       <bdi dir="ltr" className="num truncate">
@@ -71,8 +84,10 @@ function Row({ project }: { project: ProjectSummary }) {
       <span className="truncate text-ink-secondary" title={project.address}>
         {project.address || EMPTY}
       </span>
-      <span className="text-ink-secondary">{EMPTY}</span>
-      <span className="text-ink-secondary">{EMPTY}</span>
+      <span className="text-ink-secondary">{state ? <Plural value={state.sheets} one="# sheet read" other="# sheets read" /> : EMPTY}</span>
+      <span className="text-ink-secondary">
+        {state?.step1 === 'confirmed' ? <Trans>Step 1 confirmed</Trans> : state?.step1 === 'in_review' ? <Trans>Step 1 in review</Trans> : EMPTY}
+      </span>
       <span className="text-end text-ink-secondary">{EMPTY}</span>
     </AppLink>
   )

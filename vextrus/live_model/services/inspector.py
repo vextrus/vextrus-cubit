@@ -13,6 +13,7 @@ from typing import Any
 
 from django.db.models import F
 
+from vextrus.drawings import services as drawings
 from vextrus.live_model.models import (
     AttributeDefinition,
     ClassificationReference,
@@ -52,6 +53,8 @@ class TraceView:
     sheet_id: str | None
     view_id: str | None
     anchor: dict[str, Any]
+    sheet_number: str | None = None
+    sheet_title: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,18 +100,34 @@ def element(project_id: uuid.UUID, element_id: uuid.UUID) -> ElementView:
             for key, value in sorted(attrs.items())
         ),
         trace=tuple(
-            TraceView(
-                fact=t.fact,
-                kind=t.kind,
-                sheet_id=_text(t.anchor.get("sheet_id")),
-                view_id=_text(t.anchor.get("view_id")),
-                anchor=dict(t.anchor),
-            )
+            _trace_view(t)
             for t in ElementTrace.objects.filter(element_id=found.pk, valid_to_seq=None).order_by(
                 "fact", "id"
             )
         ),
     )
+
+
+def _trace_view(t: ElementTrace) -> TraceView:
+    number, title = _sheet(t.anchor.get("sheet_id"))
+    return TraceView(
+        fact=t.fact,
+        kind=t.kind,
+        sheet_id=_text(t.anchor.get("sheet_id")),
+        view_id=_text(t.anchor.get("view_id")),
+        anchor=dict(t.anchor),
+        sheet_number=number,
+        sheet_title=title,
+    )
+
+
+def _sheet(sheet_id: Any) -> tuple[str | None, str | None]:
+    """The printed sheet's number and title a Trace names, else none (gone, or not a sheet's id)."""
+    try:
+        found = drawings.sheet(uuid.UUID(str(sheet_id)), anchors=False)
+    except ValueError, TypeError, auth.NotFound:
+        return None, None
+    return found.number or None, found.title or None
 
 
 def _storey_name(storey_id: uuid.UUID | None) -> str | None:

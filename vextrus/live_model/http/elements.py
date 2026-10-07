@@ -34,6 +34,8 @@ class ElementTraceOut(Schema):
     sheet_id: str | None
     view_id: str | None
     anchor: dict[str, object]
+    sheet_number: str | None = None
+    sheet_title: str | None = None
 
 
 class ElementOut(Schema):
@@ -69,7 +71,13 @@ def get_element(request: HttpRequest, project_id: uuid.UUID, element_id: uuid.UU
         attrs=[ElementAttrOut(key=a.key, value=a.value, unit=a.unit) for a in view.attrs],
         trace=[
             ElementTraceOut(
-                fact=t.fact, kind=t.kind, sheet_id=t.sheet_id, view_id=t.view_id, anchor=t.anchor
+                fact=t.fact,
+                kind=t.kind,
+                sheet_id=t.sheet_id,
+                view_id=t.view_id,
+                anchor=t.anchor,
+                sheet_number=t.sheet_number,
+                sheet_title=t.sheet_title,
             )
             for t in view.trace
         ],

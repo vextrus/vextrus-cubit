@@ -6,8 +6,12 @@
 import type { ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useQuery } from '@tanstack/react-query'
+import { useParams } from '@tanstack/react-router'
+import { AppLink } from '@/app/AppLink'
 import { LoadProblem } from '@/auth'
 import { lengthFromMm, useFormat } from '@/format'
+import { step1SheetPath } from '@/takeoff/paths'
+import { useStoreyWord } from '@/takeoff/storeys'
 import { Skeleton } from '@/ui'
 import { elementQuery, type ElementOut, type TraceOut } from './data'
 
@@ -20,12 +24,36 @@ function Block({ title, children }: { title: ReactNode; children: ReactNode }) {
   )
 }
 
+/** A stored key's last word: `vx.column.section_b` is `section_b`. */
+const bareKey = (key: string): string => key.split('.').pop() ?? key
+
+/** Keys kept for the machine (the plan position), never shown in the inspector. */
+const HIDDEN_KEYS = new Set(['x_m', 'y_m', 'z_m'])
+export const shownAttr = (key: string): boolean => !HIDDEN_KEYS.has(bareKey(key))
+
+/** The grid reference as a QS says it: a stored list such as `['3/C', '5.858', '-0']` is its first item. */
+export function gridWords(ref: string): string {
+  const listed = /^\s*\[\s*['"]([^'"]*)['"]/.exec(ref)
+  return listed ? (listed[1] ?? ref) : ref
+}
+
+function Grid({ stored }: { stored: string }) {
+  const grid = gridWords(stored)
+  return <Trans>Grid {grid}</Trans>
+}
+
 function useFactName() {
   const { t } = useLingui()
   return (fact: string): string => {
-    if (fact === 'section_b') return t`Section width`
-    if (fact === 'section_d') return t`Section depth`
-    return fact
+    const key = bareKey(fact)
+    if (key === 'section_b') return t`Section b`
+    if (key === 'section_d') return t`Section d`
+    if (key === 'height_m' || key === 'height') return t`Height`
+    if (key === 'mark') return t`Mark`
+    if (key === 'storey') return t`Storey`
+    if (key === 'grid_ref' || key === 'at') return t`Grid`
+    const words = key.replace(/_/g, ' ')
+    return words.charAt(0).toUpperCase() + words.slice(1)
   }
 }
 
@@ -60,13 +88,21 @@ function Attribute({ a }: { a: ElementOut['attrs'][number] }) {
 function TraceRow({ row }: { row: TraceOut }) {
   const factName = useFactName()
   const kindName = useKindName()
-  const place = Object.values(row.anchor).join(', ')
+  const { code } = useParams({ strict: false }) as { code?: string }
+  const number = row.sheet_number ?? null
+  const where = number ? <Trans>Sheet {number}</Trans> : <Trans>A sheet of the Drawing Set</Trans>
   return (
     <li className="flex flex-col">
       <span>{factName(row.fact)}</span>
       <span className="text-xs text-ink-secondary">
-        {kindName(row.kind)}
-        {place ? <span className="num"> · {place}</span> : null}
+        {code && row.sheet_id && number ? (
+          <AppLink to={step1SheetPath(code, row.sheet_id)} className="underline">
+            {where}
+          </AppLink>
+        ) : (
+          where
+        )}{' '}
+        · {row.sheet_title || kindName(row.kind)}
       </span>
     </li>
   )
@@ -74,13 +110,20 @@ function TraceRow({ row }: { row: TraceOut }) {
 
 function Picked({ element }: { element: ElementOut }) {
   const familyName = useFamilyName()
+  const storeyWord = useStoreyWord()
+  const attrs = element.attrs.filter((a) => shownAttr(a.key))
   return (
     <>
       <div className="flex flex-col gap-0.5 border-b border-border px-3 py-3">
         <h2 className="text-md font-semibold">{element.mark}</h2>
         <p className="text-sm text-ink-secondary">
-          {familyName(element.family)} · {element.storey}
-          {element.grid_ref ? <span> · {element.grid_ref}</span> : null}
+          {familyName(element.family)} · {storeyWord(element.storey)}
+          {element.grid_ref ? (
+            <span>
+              {' · '}
+              <Grid stored={element.grid_ref} />
+            </span>
+          ) : null}
         </p>
       </div>
       <Block title={<Trans>IFC class</Trans>}>
@@ -97,10 +140,10 @@ function Picked({ element }: { element: ElementOut }) {
           </ul>
         </Block>
       ) : null}
-      {element.attrs.length > 0 ? (
+      {attrs.length > 0 ? (
         <Block title={<Trans>Attributes</Trans>}>
           <dl className="flex flex-col gap-1">
-            {element.attrs.map((a) => (
+            {attrs.map((a) => (
               <Attribute key={a.key} a={a} />
             ))}
           </dl>

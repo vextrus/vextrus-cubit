@@ -289,6 +289,8 @@ def _grid_ref(values: Mapping[str, Any]) -> str:
     at = values.get("at")
     if isinstance(at, Mapping):
         return str(at.get("ref") or at.get("grid_ref") or "")
+    if isinstance(at, list | tuple):
+        return str(at[0]) if at else str(values.get("grid_ref") or "")
     return str(at or values.get("grid_ref") or "")
 
 

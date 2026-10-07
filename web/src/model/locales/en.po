@@ -27,10 +27,6 @@ msgstr "Classification"
 msgid "Inspector"
 msgstr "Inspector"
 
-#: src/model/ModelInspector.tsx
-msgid "Section depth"
-msgstr "Section depth"
-
 #: src/model/ModelPage.tsx
 msgid "Held by a Question"
 msgstr "Held by a Question"
@@ -44,8 +40,16 @@ msgid "Orbit left"
 msgstr "Orbit left"
 
 #: src/model/ModelInspector.tsx
+msgid "Mark"
+msgstr "Mark"
+
+#: src/model/ModelInspector.tsx
 msgid "Nothing was read for this Element: it was typed."
 msgstr "Nothing was read for this Element: it was typed."
+
+#: src/model/ModelInspector.tsx
+msgid "Grid"
+msgstr "Grid"
 
 #: src/model/ModelInspector.tsx
 msgid "read from the drawing’s lines"
@@ -80,6 +84,10 @@ msgid "Orbit right"
 msgstr "Orbit right"
 
 #: src/model/ModelInspector.tsx
+msgid "Grid {grid}"
+msgstr "Grid {grid}"
+
+#: src/model/ModelInspector.tsx
 msgid "Opening the Element…"
 msgstr "Opening the Element…"
 
@@ -100,12 +108,16 @@ msgid "What the colours mean"
 msgstr "What the colours mean"
 
 #: src/model/ModelInspector.tsx
-msgid "Section width"
-msgstr "Section width"
+msgid "Height"
+msgstr "Height"
 
 #: src/model/ModelPage.tsx
 msgid "Opening the Live Model…"
 msgstr "Opening the Live Model…"
+
+#: src/model/ModelInspector.tsx
+msgid "Section d"
+msgstr "Section d"
 
 #: src/model/ModelCanvas.tsx
 msgid "Tilt down"
@@ -119,6 +131,10 @@ msgstr "Proposal"
 msgid "The Live Model has no Elements yet. Confirm a Takeoff Step and its Elements appear here."
 msgstr "The Live Model has no Elements yet. Confirm a Takeoff Step and its Elements appear here."
 
+#: src/model/ModelInspector.tsx
+msgid "Sheet {number}"
+msgstr "Sheet {number}"
+
 #: src/model/ModelCanvas.tsx
 msgid "This browser cannot draw the Live Model. Picking an Element and its inspector still work."
 msgstr "This browser cannot draw the Live Model. Picking an Element and its inspector still work."
@@ -126,6 +142,10 @@ msgstr "This browser cannot draw the Live Model. Picking an Element and its insp
 #: src/model/ModelPage.tsx
 msgid "Storeys"
 msgstr "Storeys"
+
+#: src/model/ModelInspector.tsx
+msgid "A sheet of the Drawing Set"
+msgstr "A sheet of the Drawing Set"
 
 #: src/model/ModelCanvas.tsx
 msgid "Tilt up"
@@ -146,6 +166,10 @@ msgstr "Fit the Live Model"
 #: src/model/ModelInspector.tsx
 msgid "Column"
 msgstr "Column"
+
+#: src/model/ModelInspector.tsx
+msgid "Section b"
+msgstr "Section b"
 
 #: src/model/ModelPage.tsx
 msgid "All storeys"

@@ -23,6 +23,11 @@ msgstr "Drawing Set"
 msgid "Keep editing"
 msgstr "Keep editing"
 
+#. placeholder {0}: state.sheets
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {# sheet read} other {# sheets read}}"
+msgstr "{0, plural, one {# sheet read} other {# sheets read}}"
+
 #: src/projects/ProjectsPage.tsx
 msgid "No projects yet. Your QS creates them."
 msgstr "No projects yet. Your QS creates them."
@@ -75,6 +80,10 @@ msgstr "Opening the projects…"
 msgid "No projects yet. Create one for each development whose drawings you will take off."
 msgstr "No projects yet. Create one for each development whose drawings you will take off."
 
+#: src/projects/ProjectsPage.tsx
+msgid "Step 1 in review"
+msgstr "Step 1 in review"
+
 #: src/projects/NewProjectDialog.tsx
 msgid "Display Units"
 msgstr "Display Units"
@@ -102,6 +111,10 @@ msgstr "{n, plural, one {# project at {developer}} other {# projects at {develop
 #: src/projects/ProjectsPage.tsx
 msgid "Members and access"
 msgstr "Members and access"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Step 1 confirmed"
+msgstr "Step 1 confirmed"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Short, like KR-01"
