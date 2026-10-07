@@ -14,6 +14,8 @@ import pytest
 from scripts.factory import review
 from scripts.tests.acceptance.ts14r2._world import SMALL, World, git, item, review_reply, why
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 FIX = item(30, 2, "the badge could carry a tooltip", None)
 OTHER = {"web/src/components/other.tsx": "export const Other = () => null\n"}

@@ -15,6 +15,8 @@ from scripts import ledger
 from scripts.factory import review, review_cloud
 from scripts.factory.tests.test_review_r2_fix1 import PR, Cloud
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 NONCES = [f"{n}" * 32 for n in "89abcdef"]
 ADVICE = (
     r"`uv run python -m scripts\.factory\.review run (\S+) --round (\S+) --where cloud"

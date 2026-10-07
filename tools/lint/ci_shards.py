@@ -251,7 +251,37 @@ def workflow_problems(root: Path) -> list[str]:
             found.append(
                 f"{CI}: {lint!r} runs in {len(running)} jobs ({', '.join(running)}), not exactly one"
             )
-    return found + node_problems(root, text)
+    return found + serial_problems(root, text) + node_problems(root, text)
+
+
+# --- serial tests (signals and process groups fail under xdist) -----------------------------------
+
+SENDS_SIGNAL = re.compile(
+    r"signal\.raise_signal|\bos\.killpg?\(|\bsend_signal\(|\bgetpgid\(|start_new_session|\bkillpg\("
+)
+
+
+MARKED = re.compile(r"^\s*@?(?:pytestmark\s*=\s*)?\[?\s*pytest\.mark\.serial\b", re.MULTILINE)
+
+
+def serial_problems(root: Path, text: str) -> list[str]:
+    """Each test file (acceptance folders aside: they cannot be edited) that sends a signal carries
+    `pytest.mark.serial`, and each file so marked is named in `ci.yml` (its serial, no-`-n` run)."""
+    try:
+        files = test_files(root, testpaths(root))
+    except OSError, KeyError, TypeError, ValueError:
+        return []  # shard_problems already reports an unreadable testpaths
+    found: list[str] = []
+    for path in files:
+        if "/acceptance/" in path:
+            continue
+        body = (root / path).read_text(errors="replace")
+        marked = MARKED.search(body) is not None
+        if SENDS_SIGNAL.search(body) and not marked:
+            found.append(f"{path}: sends a signal, not marked pytest.mark.serial (xdist breaks it)")
+        if marked and path not in text:
+            found.append(f"{path}: marked serial but {CI} never runs it (it would be deselected)")
+    return found
 
 
 # --- node tests ------------------------------------------------------------------------------------

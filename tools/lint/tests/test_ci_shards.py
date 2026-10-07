@@ -45,3 +45,20 @@ def test_a_malformed_shard_file_fails_closed(tmp_path: Path) -> None:
     shards.write_text(json.dumps({"shards": twice}))
     assert any("two shards" in line for line in problems(tmp_path))
     assert any("ci.yml" in line for line in problems(tmp_path)), "a missing ci.yml is a problem"
+
+
+def test_a_test_that_sends_a_signal_must_be_marked_serial_and_run_by_ci(tmp_path: Path) -> None:
+    from tools.lint.ci_shards import serial_problems
+
+    (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["pkg"]\n')
+    tests = tmp_path / "pkg" / "tests"
+    (tests / "acceptance").mkdir(parents=True)
+    kill = "os." + "kill" + "pg(1, 15)\n"  # built in pieces: this file is itself scanned
+    (tests / "test_bare.py").write_text(kill)
+    (tests / "test_marked.py").write_text("pytestmark = pytest.mark.serial\n" + kill)
+    (tests / "test_idle.py").write_text("pytestmark = pytest.mark.serial\n")
+    (tests / "acceptance" / "test_pinned.py").write_text(kill)
+    found = serial_problems(tmp_path, "pytest pkg/tests/test_marked.py")
+    assert len(found) == 2, found
+    assert "pkg/tests/test_bare.py" in found[0]
+    assert "pkg/tests/test_idle.py" in found[1]

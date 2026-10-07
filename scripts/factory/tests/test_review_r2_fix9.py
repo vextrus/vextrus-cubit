@@ -20,6 +20,8 @@ from scripts.factory.tests.test_review_r2_fix1 import PR, Cloud
 from scripts.factory.tests.test_review_r2_fix5 import Launcher
 from scripts.tests.acceptance.ts14r2._world import PASSING, SMALL, World, git, item, review_reply
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 REPRO = "review_attacks/lens-b/test_count_passes.py"
 COMMAND = re.compile(r"`(uv run python -m scripts\.factory\.review [^`]+)`")

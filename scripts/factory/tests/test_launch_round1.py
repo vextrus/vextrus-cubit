@@ -26,6 +26,8 @@ from scripts.factory.launch import (
     launch_cloud,
 )
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 REPO = "github.com/vextrus/vextrus-cubit"
 BRANCH = "s12-z"
 SESSION = "session_01Zed"

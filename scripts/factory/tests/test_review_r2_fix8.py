@@ -20,6 +20,8 @@ from scripts.tests.acceptance.ts14r2._world import (
     why,
 )
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 ALARM = "appeared while the PR's code ran"
 REPRO = "review_attacks/lens-b/test_count_passes.py"
