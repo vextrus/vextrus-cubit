@@ -110,6 +110,12 @@ UPDATABLE = {
     "live_model_viewplacement": {"valid_to_seq"},
     "live_model_viewplacementstorey": set(),
     "takeoff_confirmation": {"undone_at"},  # an act is undone by stamping it (19a)
+    "measurement_ruleset": set(),
+    "measurement_rulesetversion": set(),
+    "measurement_measurementrule": set(),
+    "measurement_boqitem": set(),
+    "measurement_boqitembillingunit": set(),
+    "measurement_rebarratio": set(),
     "takeoff_takeoffstep": set(),
     "takeoff_check": set(),
     "takeoff_drawingregister": set(),

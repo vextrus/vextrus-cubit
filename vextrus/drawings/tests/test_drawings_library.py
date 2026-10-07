@@ -37,13 +37,13 @@ def test_sync_library_writes_the_markets_nine_and_again_changes_nothing(
     again = platform_library.sync()
     call_command("sync_library")
 
-    assert first == {"drawings": 9, "live_model": 0, "takeoff": 0}
+    assert first == {"drawings": 9, "live_model": 0, "takeoff": 0, "measurement": 0}
     assert {key: value[:3] for key, value in found.items()} == {
         key: (name, kind, prefixes) for key, (name, kind, prefixes) in NINE.items()
     }
     assert sorted(found, key=lambda key: found[key][3]) == list(NINE)
-    assert again == {"drawings": 0, "live_model": 0, "takeoff": 0}
-    assert "sync_library: 0 rows from 3 module(s)" in capsys.readouterr().out
+    assert again == {"drawings": 0, "live_model": 0, "takeoff": 0, "measurement": 0}
+    assert "sync_library: 0 rows from 4 module(s)" in capsys.readouterr().out
     assert (
         list(rows.order_by("key").values_list("id", "labels", "kind", "prefixes", "sort_order"))
         == before
@@ -55,7 +55,7 @@ def test_sync_puts_back_a_row_changed_by_hand(market: MarketProfile) -> None:
     rows = Discipline.objects.using(OWNER_ALIAS).filter(tenant_id=market.library_id)
     rows.filter(key="plumbing").update(labels={"en": "Plumbing"}, prefixes=["P"])
 
-    assert platform_library.sync() == {"drawings": 1, "live_model": 0, "takeoff": 0}
+    assert platform_library.sync() == {"drawings": 1, "live_model": 0, "takeoff": 0, "measurement": 0}
     plumbing = rows.get(key="plumbing")
     assert (plumbing.labels, plumbing.prefixes) == (
         {"en": "Plumbing and sanitary"},
@@ -96,7 +96,7 @@ def test_sync_writes_each_rows_file_name_forms_and_puts_back_a_changed_one(
     rows = Discipline.objects.using(OWNER_ALIAS).filter(tenant_id=market.library_id)
     rows.filter(key="general").update(name_forms=["notes"])
 
-    assert platform_library.sync() == {"drawings": 1, "live_model": 0, "takeoff": 0}
+    assert platform_library.sync() == {"drawings": 1, "live_model": 0, "takeoff": 0, "measurement": 0}
     assert {row.key: row.name_forms for row in rows} == {
         row.key: list(row.name_forms) for row in library.DISCIPLINES["BD"]
     }

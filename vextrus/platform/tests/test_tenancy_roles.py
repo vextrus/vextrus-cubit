@@ -158,6 +158,12 @@ NARROWER = {
     "drawings_view": {"SELECT", "INSERT", "DELETE"},  # UPDATE only a decision (14)
     "drawings_statesheet": {"SELECT", "INSERT", "DELETE"},  # never updated (14)
     "drawings_usedid": {"SELECT", "INSERT"},  # an id once used is never used again (14)
+    "measurement_ruleset": {"SELECT"},  # Library rows: only sync_library writes them (S16-M)
+    "measurement_rulesetversion": {"SELECT"},
+    "measurement_measurementrule": {"SELECT"},
+    "measurement_boqitem": {"SELECT"},
+    "measurement_boqitembillingunit": {"SELECT"},
+    "measurement_rebarratio": {"SELECT"},
     "takeoff_takeoffstep": {"SELECT"},  # Library rows: only sync_library writes them (19a)
     "takeoff_check": {"SELECT"},  # Library rows: only sync_library writes them (19a)
     # Nothing of Step 1's is deleted: an act is undone by stamping, never by deleting (19a).
