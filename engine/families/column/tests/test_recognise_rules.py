@@ -193,3 +193,36 @@ def test_a_column_block_inserted_twice_is_two_columns_with_their_own_labels(
     assert c7.at[1] == Decimal(6000)
     assert c6.anchors["outline"][0].inserts != c7.anchors["outline"][0].inserts
     assert c6.values["section_b"].value == Decimal(300)
+
+
+@pytest.fixture(scope="module")
+def shifted(tmp_path_factory: pytest.TempPathFactory) -> ReadArtefact:
+    """Three columns on A/1, B/1 and B/2, the plan drawn 40000 right and 3000 up in model space."""
+    doc = dwg.new_drawing()
+    doc.header["$INSUNITS"] = 4
+    for name in (LINES, TEXTS):
+        doc.layers.add(name)
+    ox, oy = 40000.0, 3000.0
+    for (x, y), mark in (((0, 0), "C1"), ((6000, 0), "C2"), ((6100, 4950), "C3")):
+        _rect(doc, (ox + x, oy + y), 300, 300, LINES)
+        _text(doc, (ox + x + 250, oy + y + 100), mark)
+        _text(doc, (ox + x + 250, oy + y - 100), "300x300")
+    folder = tmp_path_factory.mktemp("column-shifted")
+    writer = dwg.build_writer(folder)
+    dxf, drawn = folder / "plan.dxf", folder / "plan.dwg"
+    doc.saveas(dxf)
+    subprocess.run(
+        [str(dwg.dotnet()), str(writer), str(dxf), str(drawn), "AC1032"], check=True, timeout=120
+    )
+    return read(Path(drawn))
+
+
+def test_a_plan_drawn_away_from_the_grids_frame_still_takes_its_grid_refs(
+    shifted: ReadArtefact,
+) -> None:
+    found = _run(shifted)
+
+    refs = {c.mark: (c.at[0], c.at[1], c.at[2]) for c in found.candidates}
+    assert refs["C1"] == ("A/1", Decimal(0), Decimal(0))
+    assert refs["C2"] == ("B/1", Decimal(0), Decimal(0))
+    assert refs["C3"] == ("B/2", Decimal(100), Decimal(-50))

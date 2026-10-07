@@ -23,9 +23,11 @@ A view of several storeys gives one candidate per storey, each with the view's S
 last storey).
 """
 
+import bisect
 import hashlib
 import math
 import re
+import statistics
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -57,6 +59,8 @@ RIGHT_ANGLE = 0.02
 """The cosine below which two edges meet square."""
 LABEL_TYPES = frozenset({"TEXT", "MTEXT", "ATTRIB"})
 OUTLINE_TYPES = frozenset({"LWPOLYLINE", "POLYLINE"})
+MAX_VOTERS = 150
+"""The columns that vote on where a view's grid lies (enough for any plan; a bound on hostile ones)."""
 _MARK = re.compile(r"[A-Za-z]{1,3}-?\d{1,3}[A-Za-z]?")
 
 type Point = tuple[float, float]
@@ -136,6 +140,38 @@ class _Grid:
 
 def _offset(line: _GridLine) -> float:
     return line.offset
+
+
+def _residual(lines: Sequence[float], at: float) -> float:
+    """`at` less the nearest of the sorted `lines`."""
+    i = bisect.bisect_left(lines, at)
+    return min((at - lines[k] for k in (i - 1, i) if 0 <= k < len(lines)), key=abs)
+
+
+def _shift(offsets: Sequence[float], coords: Sequence[float], tolerance: float) -> float:
+    """Where a view draws the grid along one axis: the translation that puts most column centres within
+    `tolerance` of a confirmed line (columns stand on grid lines), refined by their median residual.
+
+    The confirmed grid is the Building's registered frame (session 16's contract); a plan may be drawn
+    anywhere in model space. No shift unless another puts strictly more columns on lines."""
+    lines = sorted(set(offsets))
+    voters = list(coords[:MAX_VOTERS])
+    if not lines or not voters:
+        return 0.0
+
+    def on(t: float) -> list[float]:
+        found = (_residual(lines, c - t) for c in voters)
+        return [r for r in found if abs(r) <= tolerance]
+
+    best, hits = 0.0, len(on(0.0))
+    for t in sorted({c - o for c in voters for o in lines}, key=abs):
+        n = len(on(t))
+        if n > hits:
+            best, hits = t, n
+    if best == 0.0:
+        return 0.0
+    near = on(best)
+    return best + statistics.median(near) if near else best
 
 
 @dataclass(frozen=True)
@@ -295,18 +331,31 @@ def _read_view(
     band = (storeys[0], storeys[-1])
     candidates: list[ElementCandidate] = []
     questions: list[QuestionRaised] = []
-    for outline in outlines:
-        mine = held.get(outline.key, [])
-        mark = next((label for label in mine if label.mark), None)
-        sized = next((label for label in mine if label.size), None)
-        if mark is None and sized is None:
-            continue
+    named = [
+        (outline, next((x for x in mine if x.mark), None), next((x for x in mine if x.size), None))
+        for outline in outlines
+        for mine in (held.get(outline.key, []),)
+        if mine
+    ]
+    shift = _view_shift(grid, [outline for outline, _, _ in named])
+    for outline, mark, sized in named:
         for storey in storeys:
-            candidate = _candidate(view, sheet, outline, mark, sized, grid, unit, storey, band)
+            candidate = _candidate(view, sheet, outline, mark, sized, grid, shift, unit, storey, band)
             candidates.append(candidate)
             if sized is None:
                 questions.append(_size_not_read(candidate))
     return candidates, questions
+
+
+def _view_shift(grid: _Grid, columns: Sequence[_Outline]) -> Point:
+    if not columns:
+        return (0.0, 0.0)
+    tolerance = statistics.median(max(outline.sides) for outline in columns)
+    centres = [outline.centre for outline in columns]
+    return (
+        _shift([line.offset for line in grid.along_y], [x for x, _ in centres], tolerance),
+        _shift([line.offset for line in grid.along_x], [y for _, y in centres], tolerance),
+    )
 
 
 # Outlines and labels
@@ -509,6 +558,7 @@ def _candidate(
     mark: _Label | None,
     sized: _Label | None,
     grid: _Grid,
+    shift: Point,
     unit: str,
     storey: str,
     band: tuple[str, str],
@@ -532,7 +582,7 @@ def _candidate(
         if all(abs(float(s) / side - 1) <= 0.05 for s, side in zip(sorted((b, d)), drawn, strict=True)):
             confidence += Decimal("0.25")
     cx, cy = outline.centre
-    placed = grid.place(cx, cy)
+    placed = grid.place(cx - shift[0], cy - shift[1])
     at = _at(placed)
     key = hashlib.sha256("|".join((FAMILY, view.view_id, storey, *outline.key)).encode()).hexdigest()[
         :16
