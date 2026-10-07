@@ -23,8 +23,13 @@ the main repository's `.git`). `elapsed` prints `now <YYYY-MM-DD HH:MMZ> · sess
 <name> h:mm/h:mm]`, or `ticket <t> n/m min`, or `no budget set`; the clock hook (f6) prints the same
 form. `end` closes the session: it stamps `session ended h:mm/h:mm` first (a failure keeps
 `session.json`), then writes `<state folder>/session-<started_utc as YYYYMMDDTHHMMSSZ>.json` = the
-session plus `"ended_utc"`, then removes `session.json`. `end` takes no arguments; text that starts
-with a subcommand's name is stamped with `stamp stamp "end of wave"`.
+session plus `"ended_utc"`, then removes `session.json`. Inside a git repository `end` first refuses
+(exit 2, naming the line) while a `LESSON:` line of the state file has no bullet in the repository's
+`docs/knowledge/lessons.md` that carries its words and a `Check:` (a bullet runs on over its indented
+lines; "No check yet" is no check), and after the final stamp appends the measures table
+(`scripts/factory/measures.py`) with its flags to the state file, keeping the measures in
+`$VEXTRUS_FACTORY_DIR/measures-<started>.json` for the next session's comparison. `end` takes no
+arguments; text that starts with a subcommand's name is stamped with `stamp stamp "end of wave"`.
 
 Budgets and phase lengths are minutes: `90`, `330m`, `11h` or `5h30m`. The clock is `VEXTRUS_NOW` when
 set. Exit 0 done, 2 refused or usage error.
@@ -35,12 +40,13 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from scripts.factory import status
+from scripts.factory import measures, status
 
 DURATION = re.compile(r"^(?:(\d+)h)?(?:(\d+)m)?$|^(\d+)$")
 SUBCOMMANDS = ("start", "phase", "elapsed", "budget", "stamp", "end")
@@ -148,15 +154,93 @@ def stamp_line(text: str) -> None:
         raise Refused(f"{state} cannot be written: {error}") from error
 
 
+LESSON_LINE = re.compile(r"^\S+ LESSON:\s*(.+?)\s*$")
+CHECK = re.compile(r"\bCheck:\s*\S")
+
+
+def repo_root() -> Path | None:
+    done = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=False
+    )
+    return Path(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip() else None
+
+
+def lesson_bullets(text: str) -> list[str]:
+    """Each bullet of lessons.md with its indented continuation lines, whitespace folded."""
+    bullets: list[list[str]] = []
+    open_bullet = False
+    for line in text.splitlines():
+        if line.startswith("- "):
+            bullets.append([line[2:]])
+            open_bullet = True
+        elif open_bullet and line.startswith((" ", "\t")) and line.strip():
+            bullets[-1].append(line.strip())
+        else:
+            open_bullet = False
+    return [" ".join(" ".join(parts).split()) for parts in bullets if parts]
+
+
+def check_lessons(state: Path, root: Path | None) -> None:
+    """Refuse while a LESSON line has no lessons.md bullet carrying its words and a `Check:`."""
+    try:
+        lines = state.read_text().splitlines() if state.exists() else []
+    except OSError as error:
+        raise Refused(f"{state} is unreadable: {error}") from error
+    lessons = [m.group(1) for line in lines if (m := LESSON_LINE.match(line))]
+    if not lessons:
+        return
+    try:
+        source = (root / "docs" / "knowledge" / "lessons.md").read_text() if root else ""
+    except OSError:
+        source = ""
+    bullets = lesson_bullets(source)
+    unmirrored = [
+        lesson
+        for lesson in lessons
+        if not any(" ".join(lesson.split()).lower() in b.lower() and CHECK.search(b) for b in bullets)
+    ]
+    if unmirrored:
+        listed = "\n".join(f"  LESSON: {lesson}" for lesson in unmirrored)
+        raise Refused(
+            "a LESSON line has no docs/knowledge/lessons.md bullet carrying its words and a "
+            f"`Check:` (add it, then end again):\n{listed}"
+        )
+
+
+def write_measures(session: dict[str, Any], ended: str, root: Path) -> None:
+    """Append the measures table and its flags to the state file; keep them for the next session."""
+    factory = status.factory_dir()
+    current = measures.collect(root, factory, session["started_utc"], ended)
+    previous = measures.previous_measures(factory, session["started_utc"])
+    try:
+        targets = measures.load_targets(root / "docs" / "knowledge" / "factory-targets.toml")
+    except status.READ_ERRORS:
+        targets = {}
+    block = measures.render(current, previous, targets, measures.compare(current, previous, targets))
+    state = Path(session["state_file"])
+    try:
+        with state.open("a") as handle:
+            handle.write(block)
+        stored = factory / f"measures-{session['started_utc'].replace(':', '').replace('-', '')}.json"
+        status.write_atomic(stored, {"started_utc": session["started_utc"], "measures": current})
+    except OSError as error:
+        raise Refused(f"the measures cannot be written: {error}") from error
+
+
 def end() -> Path:
     """Stamp the final line, archive the session beside the state file, remove session.json."""
     session = load_session()
     if session is None:
         raise Refused("no session.json: nothing to end")
+    root = repo_root()
+    if root is not None:
+        check_lessons(Path(session["state_file"]), root)
     at = status.now()
     started = status.parse_utc(session["started_utc"])
     spent = f"{hmm(status.minutes_between(started, at))}/{hmm(int(session['budget_minutes']))}"
     stamp_line(f"session ended {spent}")
+    if root is not None:
+        write_measures(session, status.utc(at), root)
     archive = Path(session["state_file"]).parent / f"session-{started.strftime('%Y%m%dT%H%M%SZ')}.json"
     try:
         status.write_atomic(archive, {**session, "ended_utc": status.utc(at)})
