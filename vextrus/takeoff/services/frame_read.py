@@ -39,7 +39,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 from django.db import transaction
@@ -90,7 +90,6 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
     types = importlib.import_module("engine.families.types")
     confirmed, setup, profile = types.ConfirmedFacts(), types.ProjectSetup(), _profile(types)
     views = _with_top_bound(views)
-    by_id = {str(v.view_id): v for v in views}
     proposed = asked = 0
     frame: Any = None
     with transaction.atomic():
@@ -102,12 +101,12 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
                 with transaction.atomic():
                     recognise = _part(family, "recognise", "recognise")
                     read = _read_by(step, views)
-                    recognised = recognise(read, confirmed, setup, profile)
+                    recognised, owner = _per_view(recognise, read, confirmed, setup, profile)
                     if key == "grid_line":
                         frame = _frame(recognise, read, confirmed, setup, profile)
                     placed = _placed(frame, recognised.candidates) if key != "grid_line" else {}
                     written = _propose(
-                        project_id, building_id, key, step, recognised.candidates, by_id, placed
+                        project_id, building_id, key, step, recognised.candidates, owner, placed
                     )
                     raised = _raise(project_id, building_id, step, recognised.questions)
             except Exception:
@@ -326,6 +325,22 @@ def _with_top_bound(views: Sequence[Any]) -> list[Any]:
     return bound
 
 
+def _per_view(
+    recognise: Any, views: Sequence[Any], confirmed: Any, setup: Any, profile: Any
+) -> tuple[Any, dict[str, Any]]:
+    """The family read view by view, so each candidate keeps the view (and sheet) it was read on."""
+    candidates: list[Any] = []
+    questions: list[Any] = []
+    owner: dict[str, Any] = {}
+    for view in views:
+        found = recognise([view], confirmed, setup, profile)
+        candidates.extend(found.candidates)
+        questions.extend(q for q in found.questions if repr(q) not in {repr(x) for x in questions})
+        for c in found.candidates:
+            owner.setdefault(str(c.candidate_key), view)
+    return SimpleNamespace(candidates=tuple(candidates), questions=tuple(questions)), owner
+
+
 def _frame(recognise: Any, views: Sequence[Any], confirmed: Any, setup: Any, profile: Any) -> Any:
     """The grid registered across the plans (R1's frame), read view by view."""
     register = importlib.import_module("engine.families.grid_line.frame").register
@@ -424,7 +439,7 @@ def _propose(
             row.save(update_fields=list(read))
         else:
             continue
-        _trace(row, candidate, _view_of(candidate, views))
+        _trace(row, candidate, views.get(str(candidate.candidate_key)) or _view_of(candidate, views))
     return len(candidates)
 
 
