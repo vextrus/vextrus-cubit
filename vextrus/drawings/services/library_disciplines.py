@@ -72,6 +72,19 @@ def name(labels: Mapping[str, str]) -> str:
     return labels.get(language) or labels.get("en") or ""
 
 
+def names(rows: Iterable[Discipline]) -> dict[uuid.UUID, str]:
+    """Each Discipline's `name`, by id, the Market's language looked up once (a list's Disciplines)."""
+    found = list(rows)
+    if not found:
+        return {}
+    acting = tenancy.current()
+    language = "en"
+    if acting.tenant_id is not None:
+        language = markets.of_developer(acting.tenant_id).default_language
+    labels = {row.id: dict(row.labels) for row in found}
+    return {i: held.get(language) or held.get("en") or "" for i, held in labels.items()}
+
+
 def by_key(key: str) -> Discipline | None:
     """The Market's Discipline with this key, or None (another Market's is not the Market's)."""
     if not isinstance(key, str):
