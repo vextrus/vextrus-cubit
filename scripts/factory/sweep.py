@@ -3,6 +3,15 @@
     python -m scripts.factory.sweep [--apply] [--only storage|worktrees] [--repo PATH] [--tmp DIR]
                                     [--worktree-hours N] [--storage-hours N]
 
+    python -m scripts.factory.sweep --old-sessions [--days N] [--apply] [--repo PATH]
+
+`--old-sessions` is its own mode: for each registered git worktree under `<main>/.claude/worktrees/`
+(`git worktree list --porcelain`) it lists (and with `--apply` removes) exactly two paths, `<root>/.venv`
+and `<root>/web/node_modules`, when the folder's newest entry is older than `--days` (default 14).
+Nothing is walked to find them, so no nested worktree, no `.private/work/` and no other build
+folder is ever entered; links are never followed. Each worktree is judged once, on its root (locked,
+the cwd's, in use by a live process), before anything is removed. The folder holding one stays.
+
 A dry run is the default: it prints `remove ...`, `keep ...: <reason>` and `prune ...` lines and removes
 nothing; `--apply` acts on them. A linked worktree under `<main>/.claude/worktrees/` or
 `<main>/.private/work/` is removed only when it is unlocked, not the sweep's own, no live process works
@@ -420,6 +429,77 @@ def sweep_storage(tmp: Path, clock: datetime, hours: float, apply: bool, tally: 
         tally.stored += 1
 
 
+# Old sessions -----------------------------------------------------------------------------------------
+
+BUILD_PATHS = (Path(".venv"), Path("web") / "node_modules")
+
+
+def build_folders(root: Path) -> list[Path]:
+    """The two exact build folders of a worktree that exist as real folders: no walk, no descent, and
+    none reached through a link (the folder or the `web` folder holding it)."""
+    found = []
+    for relative in BUILD_PATHS:
+        folder = root / relative
+        linked = any(part.is_symlink() for part in (root / relative.parent, folder))
+        if not linked and folder.is_dir():
+            found.append(folder)
+    return found
+
+
+def sweep_old_sessions(main: Path, probe: Probe, days: float, apply: bool, tally: Tally) -> None:
+    """Each registered worktree under `.claude/worktrees/` is judged once, on its root (locked, current,
+    in use), and the age of each of its build folders is read, before any folder is removed."""
+    listed = probe.run(main, "worktree", "list", "--porcelain", "-z")
+    if listed.returncode != 0:
+        raise Refused(f"git worktree list failed: {first_line(listed.stderr)}")
+    home = main / ".claude" / "worktrees"
+    if home.is_symlink() or not home.is_dir():
+        return
+    for tree in parse_worktrees(listed.stdout)[1:]:  # the first entry is the main checkout
+        root = tree.path
+        if root == home or not inside(root, home) or root.is_symlink():
+            continue
+        folders = build_folders(root)
+        reason = "locked" if tree.locked else probe.current(root) or probe.in_use(root)
+        if reason is not None:
+            tally.say(f"keep worktree {root}: {reason}")
+            tally.kept += len(folders)
+            continue
+        ages: list[tuple[Path, float]] = []
+        for folder in folders:
+            try:
+                ages.append((folder, hours_since(newest_in_tree(folder), probe.clock) / 24))
+            except OSError as error:
+                tally.say(f"keep build folder {folder}: unreadable: {error.strerror}")
+                tally.kept += 1
+        for folder, idle in ages:
+            if idle < days:
+                tally.kept += 1
+                continue
+            if apply:
+                try:
+                    remove_tree(folder)
+                except OSError as error:
+                    tally.say(f"keep build folder {folder}: removal failed: {error.strerror}")
+                    tally.kept += 1
+                    tally.failed = True
+                    continue
+            tally.say(f"remove build folder {folder} (idle {int(idle)}d)")
+            tally.removed += 1
+
+
+def run_old_sessions(args: argparse.Namespace, probe: Probe) -> int:
+    tally = Tally()
+    main = resolve_main(args.repo, probe.run)
+    tally.say(f"sweep --old-sessions: {main}, older than {args.days:g} days")
+    sweep_old_sessions(main, probe, args.days, args.apply, tally)
+    verb = "removed" if args.apply else "dry run: would remove"
+    tally.say(f"sweep: {verb} {tally.removed} build folders, kept {tally.kept}")
+    if not args.apply and tally.removed:
+        tally.say("pass --apply to remove them")
+    return 1 if tally.failed else 0
+
+
 # The command ------------------------------------------------------------------------------------------
 
 
@@ -445,6 +525,8 @@ def parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--repo", type=Path, help="default: the main checkout of the cwd")
     parser.add_argument("--tmp", type=Path, help="default: tempfile.gettempdir()")
     parser.add_argument("--worktree-hours", type=hours, default=24.0)
+    parser.add_argument("--old-sessions", action="store_true", help="the build folders mode")
+    parser.add_argument("--days", type=hours, default=14.0, help="with --old-sessions")
     parser.add_argument("--storage-hours", type=hours, default=6.0)
     return parser.parse_args(argv)
 
@@ -511,6 +593,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parse(argv)
     try:
         probe = Probe(hours=args.worktree_hours)
+        if args.old_sessions:
+            return run_old_sessions(args, probe)
         return run_sweep(args, probe)
     except Refused as refused:
         print(f"REFUSED: {refused}", file=sys.stderr)
