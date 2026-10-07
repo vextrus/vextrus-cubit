@@ -16,7 +16,9 @@ For each view: what model space draws inside the view's box, taken from paper to
 A view where no grid line is read raises `engine.grid_line.not_found {view}`; a view where only one
 direction is read raises `engine.grid_line.one_direction {view, axis}`; a label drawn on two different
 lines raises `engine.grid_line.label_twice {view, label}`; a view whose box cannot be taken to model
-space (`place.model_box`) raises `engine.grid_line.view_unplaced {view}`. Never silence.
+space (`place.model_box`) raises `engine.grid_line.view_unplaced {view}`; a profile label pattern
+that is no regular expression is left out and raises `engine.grid_line.profile_pattern_refused
+{pattern}`. Never silence.
 
 The Drafting Profile's `grid` part (C6: `{"layers": [...], "bubble_blocks": [...]}`, optionally
 `label_patterns`), when confirmed, narrows the search: lines and circles on its layers, bubbles inside
@@ -49,6 +51,7 @@ NOT_FOUND = "engine.grid_line.not_found"
 ONE_DIRECTION = "engine.grid_line.one_direction"
 LABEL_TWICE = "engine.grid_line.label_twice"
 UNPLACED = "engine.grid_line.view_unplaced"
+BAD_PATTERN = "engine.grid_line.profile_pattern_refused"
 SOURCE = "drawing"
 
 UNITS = {0: "unitless", 1: "in", 2: "ft", 4: "mm", 5: "cm", 6: "m"}
@@ -66,6 +69,18 @@ def _strings(value: object) -> tuple[str, ...]:
     if isinstance(value, str | bytes) or not isinstance(value, Sequence):
         return ()
     return tuple(v for v in value if isinstance(v, str) and v)
+
+
+def _patterns(texts: Sequence[str]) -> tuple[tuple[re.Pattern[str], ...], tuple[str, ...]]:
+    """The profile's label patterns compiled, and those that are no pattern (refused, not raised)."""
+    held: list[re.Pattern[str]] = []
+    refused: list[str] = []
+    for text in texts:
+        try:
+            held.append(re.compile(text))
+        except re.error, OverflowError, RecursionError:
+            refused.append(text)
+    return tuple(held), tuple(refused)
 
 
 class _Spaces:
@@ -151,10 +166,10 @@ def recognise(
     part = _grid_part(profile)
     layers = _strings(part.get("layers"))
     blocks = frozenset(_strings(part.get("bubble_blocks")))
-    patterns = tuple(re.compile(p) for p in _strings(part.get("label_patterns")))
+    patterns, refused = _patterns(_strings(part.get("label_patterns")))
     spaces = _Spaces(layers)
     candidates: list[ElementCandidate] = []
-    questions: list[QuestionRaised] = []
+    questions = [QuestionRaised(code=BAD_PATTERN, params={"pattern": text}) for text in refused]
     for view in views:
         artefact = view.artefact
         try:

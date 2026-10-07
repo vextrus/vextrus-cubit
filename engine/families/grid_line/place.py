@@ -138,8 +138,11 @@ def _from_layout(artefact: ReadArtefact, layout: str, box: Bounds) -> Bounds | N
         first = False
         if main:
             continue
-        to_paper = viewport_transform(values)
-        rect = _shapes_rect(values)
+        try:
+            to_paper = viewport_transform(values)
+            rect = _shapes_rect(values)
+        except ArithmeticError, ValueError:  # a crafted viewport's scale underflows to 0
+            continue
         if to_paper is None or rect is None:
             continue
         x0, y0 = max(box[0], rect[0]), max(box[1], rect[1])
@@ -148,7 +151,7 @@ def _from_layout(artefact: ReadArtefact, layout: str, box: Bounds) -> Bounds | N
             continue
         try:
             shown.append(_through(overlap, to_paper.inverse()))
-        except PlacementError:
+        except PlacementError, ArithmeticError:
             continue
     return _union(shown)
 
@@ -165,10 +168,13 @@ def model_box(artefact: ReadArtefact, view: object) -> Bounds | None:
     key = _sheet_key(candidate)
     if key is None:
         return bounds
-    if key.startswith(MODEL_SHEET):
-        placed = _from_model_sheet(artefact, key, bounds)
-    else:
-        placed = _from_layout(artefact, key, bounds)
-    if placed is None:
+    try:
+        if key.startswith(MODEL_SHEET):
+            placed = _from_model_sheet(artefact, key, bounds)
+        else:
+            placed = _from_layout(artefact, key, bounds)
+    except ArithmeticError, ValueError:
+        placed = None
+    if placed is None or not all(math.isfinite(v) for v in placed):
         raise Unplaced("the view's sheet cannot be placed in model space")
     return placed

@@ -32,7 +32,7 @@ MAX_LABEL = 8
 """The longest text kept: a grid label is short."""
 MAX_TEXTS = 200_000
 MAX_CIRCLES = 100_000
-MAX_SEGMENTS = 2_000_000
+MAX_SEGMENTS = 500_000
 """The most short texts, circles and line segments one space gives (the real sets' model spaces hold
 tens of thousands): a crafted file's surplus is left unread, never held."""
 

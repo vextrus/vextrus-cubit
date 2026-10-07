@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from statistics import median
 
 import numpy as np
+from numpy.typing import NDArray
 
 from engine.families.grid_line.drawn import Circle, Drawn, Label
 
@@ -49,9 +50,14 @@ MAX_NEAR = 512
 """The most label-shaped texts in a circle's column (its width, any height) it is weighed against: a
 column crowded past this is a crafted pile, not a drawing, and its circle is skipped, so no circle
 costs more than this."""
-MAX_BUBBLES = 2_000
+MAX_BUBBLES = 500
 """The most bubbles one view is read with (a plan's grid has tens): the rest are not followed, so a
-crafted view costs at most this many passes over its segments."""
+crafted view costs at most this many linear passes over its segments (the collinear join)."""
+MAX_NEAR_ENDS = 4096
+"""The most segment ends a bubble weighs (of its column or row, the fewer): past this, a crafted pile."""
+MAX_COORDINATE = 1e15
+"""Past this a drawing unit is no place on a plan: a line reaching it is not read (it would make an
+offset no Decimal subtraction can hold)."""
 TEXT_NEAR = 0.6
 """A label's centre lies within this many radii of its bubble's centre."""
 TEXT_MIN, TEXT_MAX = 0.15, 1.7
@@ -125,11 +131,41 @@ def bubbles(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> list[Bubb
 type Ends = tuple[tuple[float, float], tuple[float, float], int]
 
 
-def _line_of(drawn: Drawn, bubble: Bubble) -> Ends | None:
-    """The line the bubble heads, joined from its collinear pieces: (start, end, entity index)."""
-    s = drawn.segments
-    if not len(s):
+class _EndIndex:
+    """The segments' ends sorted by x and by y, so a bubble weighs only the segments ending near it,
+    taken from whichever of its column and its row holds fewer ends (a grid line drawn in many pieces
+    crowds its column, never its row)."""
+
+    def __init__(self, segments: NDArray[np.float64]) -> None:
+        n = len(segments)
+        self.xs = np.concatenate([segments[:, 0], segments[:, 2]]) if n else np.empty(0)
+        self.ys = np.concatenate([segments[:, 1], segments[:, 3]]) if n else np.empty(0)
+        self.ids = np.concatenate([np.arange(n), np.arange(n)]) if n else np.empty(0, np.int64)
+        self.by_x = np.argsort(self.xs, kind="stable")
+        self.by_y = np.argsort(self.ys, kind="stable")
+        self.sorted_x, self.sorted_y = self.xs[self.by_x], self.ys[self.by_y]
+
+    def near(self, x: float, y: float, reach: float) -> NDArray[np.int64] | None:
+        """The segments with an end within `reach` of (x, y); none when its column and its row both
+        hold more than `MAX_NEAR_ENDS` ends (a crafted pile)."""
+        x_lo = int(np.searchsorted(self.sorted_x, x - reach, side="left"))
+        x_hi = int(np.searchsorted(self.sorted_x, x + reach, side="right"))
+        y_lo = int(np.searchsorted(self.sorted_y, y - reach, side="left"))
+        y_hi = int(np.searchsorted(self.sorted_y, y + reach, side="right"))
+        column = x_hi - x_lo <= y_hi - y_lo
+        ends = self.by_x[x_lo:x_hi] if column else self.by_y[y_lo:y_hi]
+        if len(ends) > MAX_NEAR_ENDS:
+            return None
+        close = np.hypot(self.xs[ends] - x, self.ys[ends] - y) <= reach
+        return np.unique(self.ids[ends[close]])
+
+
+def _line_of(drawn: Drawn, bubble: Bubble, near: NDArray[np.int64]) -> Ends | None:
+    """The line the bubble heads (among the segments `near` it), joined from its collinear pieces:
+    (start, end, entity index)."""
+    if not len(near):
         return None
+    s = drawn.segments[near]
     c = bubble.circle
     r = c.radius
     p0, p1 = s[:, 0:2], s[:, 2:4]
@@ -153,33 +189,50 @@ def _line_of(drawn: Drawn, bubble: Bubble) -> Ends | None:
     direction = u[best]
     origin = p0[best]
     lo, hi = 0.0, float(length[best])
-    # Join collinear pieces: both ends on the line, within JOIN_GAP radii of what is held.
-    rel0, rel1 = p0 - origin, p1 - origin
+    entity = int(drawn.segment_entity[near[best]])
+    # Join collinear pieces anywhere on the line: both ends on it, within JOIN_GAP radii of what is
+    # held. One pass over the pieces sorted by start: linear after the sort, whatever their order.
+    every = drawn.segments
+    rel0, rel1 = every[:, 0:2] - origin, every[:, 2:4] - origin
     across0 = np.abs(rel0[:, 0] * direction[1] - rel0[:, 1] * direction[0])
     across1 = np.abs(rel1[:, 0] * direction[1] - rel1[:, 1] * direction[0])
     on = (across0 <= ON_LINE * r) & (across1 <= ON_LINE * r)
     a = rel0[on] @ direction
     b = rel1[on] @ direction
-    spans = sorted(zip(np.minimum(a, b).tolist(), np.maximum(a, b).tolist(), strict=True))
-    grew = True
-    while grew:
-        grew = False
-        for start, end in spans:
-            if end >= lo - JOIN_GAP * r and start <= hi + JOIN_GAP * r and (start < lo or end > hi):
-                lo, hi = min(lo, start), max(hi, end)
-                grew = True
+    lo, hi = _joined(np.minimum(a, b), np.maximum(a, b), lo, hi, JOIN_GAP * r)
     start = (float(origin[0] + lo * direction[0]), float(origin[1] + lo * direction[1]))
     end = (float(origin[0] + hi * direction[0]), float(origin[1] + hi * direction[1]))
-    return start, end, int(drawn.segment_entity[best])
+    return start, end, entity
 
 
-def _tail_of(drawn: Drawn, bubble: Bubble) -> tuple[tuple[float, float], int] | None:
+def _joined(
+    starts: NDArray[np.float64], ends: NDArray[np.float64], lo: float, hi: float, gap: float
+) -> tuple[float, float]:
+    """The run of spans (start, end) holding [lo, hi], each within `gap` of the run: the spans are
+    merged into runs in one pass in order of start, and the run overlapping [lo, hi] is taken."""
+    order = np.argsort(starts, kind="stable")
+    run_lo = run_hi = None
+    for start, end in zip(starts[order].tolist(), ends[order].tolist(), strict=True):
+        if run_hi is not None and start <= run_hi + gap:
+            run_hi = max(run_hi, end)
+            continue
+        if run_lo is not None and run_hi is not None and run_lo - gap <= hi and lo <= run_hi + gap:
+            lo, hi = min(lo, run_lo), max(hi, run_hi)
+        run_lo, run_hi = start, end
+    if run_lo is not None and run_hi is not None and run_lo - gap <= hi and lo <= run_hi + gap:
+        lo, hi = min(lo, run_lo), max(hi, run_hi)
+    return lo, hi
+
+
+def _tail_of(
+    drawn: Drawn, bubble: Bubble, near: NDArray[np.int64]
+) -> tuple[tuple[float, float], int] | None:
     """The longest short tail leaving the bubble (a segment of at least `MIN_TAIL` radii on the line
     through its centre, its near end within `END_GAP` radii, the centre beyond it): the unit direction
     away from the bubble, and its entity index."""
-    s = drawn.segments
-    if not len(s):
+    if not len(near):
         return None
+    s = drawn.segments[near]
     c = bubble.circle
     r = c.radius
     p0, p1 = s[:, 0:2], s[:, 2:4]
@@ -196,17 +249,17 @@ def _tail_of(drawn: Drawn, bubble: Bubble) -> tuple[tuple[float, float], int] | 
         return None
     best = int(np.argmax(np.where(ok, length, -1.0)))
     away = u[best] if t[best] < 0 else -u[best]
-    return (float(away[0]), float(away[1])), int(drawn.segment_entity[best])
+    return (float(away[0]), float(away[1])), int(drawn.segment_entity[near[best]])
 
 
 def _tailed(
-    drawn: Drawn, lone: Sequence[Bubble]
+    drawn: Drawn, lone: Sequence[tuple[Bubble, NDArray[np.int64]]]
 ) -> list[tuple[Bubble, tuple[float, float], tuple[float, float], int]]:
     """Lines drawn only as tails: two bubbles of one label, each tail pointing at the other's centre,
     at least `MIN_LENGTH` radii apart. The line runs from one centre to the other."""
-    tails = {id(b): t for b in lone if (t := _tail_of(drawn, b)) is not None}
+    tails = {id(b): t for b, near in lone if (t := _tail_of(drawn, b, near)) is not None}
     by_label: dict[str, list[Bubble]] = {}
-    for bubble in lone:
+    for bubble, _ in lone:
         if id(bubble) in tails:
             by_label.setdefault(bubble.label.shown, []).append(bubble)
     found = []
@@ -227,6 +280,12 @@ def _tailed(
     return found
 
 
+def _finite(ends: Ends) -> bool:
+    """Ends a Decimal can hold and a frame can subtract: finite, and within `MAX_COORDINATE`."""
+    (x0, y0), (x1, y1), _ = ends
+    return all(math.isfinite(v) and abs(v) <= MAX_COORDINATE for v in (x0, y0, x1, y1))
+
+
 def _angle(start: tuple[float, float], end: tuple[float, float]) -> float:
     return math.atan2(end[1] - start[1], end[0] - start[0])
 
@@ -239,14 +298,18 @@ def _square(angle: float) -> float:
 
 def read_grid(drawn: Drawn, patterns: Sequence[re.Pattern[str]] = ()) -> ViewGrid:
     headed: list[tuple[Bubble, tuple[float, float], tuple[float, float], int]] = []
-    lone: list[Bubble] = []
+    lone: list[tuple[Bubble, NDArray[np.int64]]] = []
+    index = _EndIndex(drawn.segments)
     for bubble in bubbles(drawn, patterns):
-        ends = _line_of(drawn, bubble)
-        if ends is not None:
+        near = index.near(bubble.circle.x, bubble.circle.y, (END_GAP + 1.0) * bubble.circle.radius)
+        if near is None:
+            continue
+        ends = _line_of(drawn, bubble, near)
+        if ends is not None and _finite(ends):
             headed.append((bubble, *ends))
         else:
-            lone.append(bubble)
-    headed.extend(_tailed(drawn, lone))
+            lone.append((bubble, near))
+    headed.extend(found for found in _tailed(drawn, lone) if _finite((found[1], found[2], 0)))
     if not headed:
         return ViewGrid((), (), 0.0)
     angle = median(_square(_angle(start, end)) for _, start, end, _ in headed)

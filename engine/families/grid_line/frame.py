@@ -101,9 +101,11 @@ def _lines(items: Sequence[Any]) -> dict[str, tuple[str, Decimal]]:
         if axis not in ("x", "y") or offset is None:
             continue
         try:
-            found.setdefault(mark, (str(axis), Decimal(str(offset))))
+            number = Decimal(str(offset))
         except ArithmeticError:
             continue
+        if number.is_finite():
+            found.setdefault(mark, (str(axis), number))
     return found
 
 
