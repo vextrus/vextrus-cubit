@@ -1,0 +1,454 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-07 12:35+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Took back # column; it is a Proposal again} other {Took back # columns; they are Proposals again}}"
+msgstr "{n, plural, one {Took back # column; it is a Proposal again} other {Took back # columns; they are Proposals again}}"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "This row has an open Question. Answer it in the Questions tab first."
+msgstr "This row has an open Question. Answer it in the Questions tab first."
+
+#: src/takeoff/frame/parts.tsx
+msgid "Type the size of the focused row"
+msgstr "Type the size of the focused row"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "These storeys have an open Question. Answer it in the Questions tab first."
+msgstr "These storeys have an open Question. Answer it in the Questions tab first."
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "name"
+msgstr "name"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Left out # grid line} other {Left out # grid lines}}"
+msgstr "{n, plural, one {Left out # grid line} other {Left out # grid lines}}"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Sized # column} other {Sized # columns}}"
+msgstr "{n, plural, one {Sized # column} other {Sized # columns}}"
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "inches"
+msgstr "inches"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "{agreeingCount, plural, one {Confirm the # storey} other {Confirm the # storeys}}"
+msgstr "{agreeingCount, plural, one {Confirm the # storey} other {Confirm the # storeys}}"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Open the sheet this storey’s name was read from, or go back to the list"
+msgstr "Open the sheet this storey’s name was read from, or go back to the list"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Next row"
+msgstr "Next row"
+
+#: src/takeoff/frame/GroupedStep.tsx
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Confirmed <0/>, {excludedCount} excluded"
+msgstr "Confirmed <0/>, {excludedCount} excluded"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Step 3, Storeys and levels"
+msgstr "Step 3, Storeys and levels"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Do what the bar says"
+msgstr "Do what the bar says"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Sheet"
+msgstr "Sheet"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "types a size"
+msgstr "types a size"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Columns only: shear walls and core on allowance."
+msgstr "Columns only: shear walls and core on allowance."
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "{height} m floor to floor"
+msgstr "{height} m floor to floor"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "metres"
+msgstr "metres"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "height not set"
+msgstr "height not set"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Trace on the sheet"
+msgstr "Trace on the sheet"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Grid lines"
+msgstr "Grid lines"
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Width"
+msgstr "Width"
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Width and depth must be above zero, like 12."
+msgstr "Width and depth must be above zero, like 12."
+
+#: src/takeoff/frame/parts.tsx
+msgid "Leave out the focused row"
+msgstr "Leave out the focused row"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "typed"
+msgstr "typed"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Pick a row to see what it holds and where it was read."
+msgstr "Pick a row to see what it holds and where it was read."
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "outline"
+msgstr "outline"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Open a view and tick the storeys it shows."
+msgstr "Open a view and tick the storeys it shows."
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Took back # storey; it is a Proposal again} other {Took back # storeys; they are Proposals again}}"
+msgstr "{n, plural, one {Took back # storey; it is a Proposal again} other {Took back # storeys; they are Proposals again}}"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Take back your last confirmation or exclusion on this step"
+msgstr "Take back your last confirmation or exclusion on this step"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Trace {fact} on {sheet}"
+msgstr "Trace {fact} on {sheet}"
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Cancel"
+msgstr "Cancel"
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "width"
+msgstr "width"
+
+#: src/takeoff/frame/GroupedStep.tsx
+#: src/takeoff/frame/parts.tsx
+msgid "Open the focused row’s sheet, or go back to the list"
+msgstr "Open the focused row’s sheet, or go back to the list"
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Unit on the drawing"
+msgstr "Unit on the drawing"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Opening {label}…"
+msgstr "Opening {label}…"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Confirmed # storey} other {Confirmed # storeys}}"
+msgstr "{n, plural, one {Confirmed # storey} other {Confirmed # storeys}}"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "sizes differ"
+msgstr "sizes differ"
+
+#: src/takeoff/frame/GroupInspector.tsx
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "No Trace: the sheet this was read from is not recorded."
+msgstr "No Trace: the sheet this was read from is not recorded."
+
+#: src/takeoff/frame/parts.tsx
+msgid "Nothing left to confirm here."
+msgstr "Nothing left to confirm here."
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No storeys yet. They are read from the plans you confirmed in Step 1."
+msgstr "No storeys yet. They are read from the plans you confirmed in Step 1."
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "leaves out the storey"
+msgstr "leaves out the storey"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Step 6, Columns"
+msgstr "Step 6, Columns"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "Read the columns"
+msgstr "Read the columns"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Left out # column} other {Left out # columns}}"
+msgstr "{n, plural, one {Left out # column} other {Left out # columns}}"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "{n, plural, one {# line} other {# lines}}"
+msgstr "{n, plural, one {# line} other {# lines}}"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Level {level} m"
+msgstr "Level {level} m"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Question open"
+msgstr "Question open"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Columns"
+msgstr "Columns"
+
+#: src/takeoff/frame/GroupedStep.tsx
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "takes back the last act"
+msgstr "takes back the last act"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Level of {name}, in metres"
+msgstr "Level of {name}, in metres"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Excluded"
+msgstr "Excluded"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Names and order are read from the drawings; levels typed, not read. Type each level in metres, for example 3.05 for 10′-0″."
+msgstr "Names and order are read from the drawings; levels typed, not read. Type each level in metres, for example 3.05 for 10′-0″."
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "{n, plural, one {# column} other {# columns}}"
+msgstr "{n, plural, one {# column} other {# columns}}"
+
+#: src/takeoff/frame/parts.tsx
+msgid "First row"
+msgstr "First row"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "not typed"
+msgstr "not typed"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Trace on {sheet}"
+msgstr "Trace on {sheet}"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Confirmed # grid line} other {Confirmed # grid lines}}"
+msgstr "{n, plural, one {Confirmed # grid line} other {Confirmed # grid lines}}"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "size not read"
+msgstr "size not read"
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "depth"
+msgstr "depth"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Pick a storey to see its level and where its name was read."
+msgstr "Pick a storey to see its level and where its name was read."
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Depth"
+msgstr "Depth"
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "order"
+msgstr "order"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Left out # storey} other {Left out # storeys}}"
+msgstr "{n, plural, one {Left out # storey} other {Left out # storeys}}"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "no storeys ticked yet"
+msgstr "no storeys ticked yet"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Opening Step 6…"
+msgstr "Opening Step 6…"
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "label"
+msgstr "label"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Back to the list"
+msgstr "Back to the list"
+
+#: src/takeoff/frame/parts.tsx
+msgid "The size of this column was not read from its label. Press E to type it."
+msgstr "The size of this column was not read from its label. Press E to type it."
+
+#: src/takeoff/frame/parts.tsx
+msgid "Trace {fact} on the sheet"
+msgstr "Trace {fact} on the sheet"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No grid lines yet. The QS starts the reading once the plans are confirmed in Step 1."
+msgstr "No grid lines yet. The QS starts the reading once the plans are confirmed in Step 1."
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No columns yet. The QS starts the reading once the plans are confirmed in Step 1."
+msgstr "No columns yet. The QS starts the reading once the plans are confirmed in Step 1."
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Type the size of {label}"
+msgstr "Type the size of {label}"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "Reading the drawings. What is found will appear here."
+msgstr "Reading the drawings. What is found will appear here."
+
+#: src/takeoff/frame/parts.tsx
+msgid "Proposal"
+msgstr "Proposal"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Back to the list; in the list, clear the focus"
+msgstr "Back to the list; in the list, clear the focus"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "The storeys have an open Question. Answer it in the Questions tab first."
+msgstr "The storeys have an open Question. Answer it in the Questions tab first."
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Save the size"
+msgstr "Save the size"
+
+#: src/takeoff/frame/GroupedStep.tsx
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Confirmed <0/>"
+msgstr "Confirmed <0/>"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Opening Step 4…"
+msgstr "Opening Step 4…"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "<0/> has an open Question. Answer it in the Questions tab first."
+msgstr "<0/> has an open Question. Answer it in the Questions tab first."
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "millimetres"
+msgstr "millimetres"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "leaves out the row"
+msgstr "leaves out the row"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Confirm <0/>, {agreeingCount, plural, one {# column} other {# columns}}"
+msgstr "Confirm <0/>, {agreeingCount, plural, one {# column} other {# columns}}"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No grid lines yet. They are read from the plans you confirmed in Step 1."
+msgstr "No grid lines yet. They are read from the plans you confirmed in Step 1."
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "No level typed yet"
+msgstr "No level typed yet"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Storeys"
+msgstr "Storeys"
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Step 4, Grid"
+msgstr "Step 4, Grid"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Last row"
+msgstr "Last row"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Views and their storeys"
+msgstr "Views and their storeys"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Confirmed # column} other {Confirmed # columns}}"
+msgstr "{n, plural, one {Confirmed # column} other {Confirmed # columns}}"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Save the level and go to the next storey"
+msgstr "Save the level and go to the next storey"
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "position"
+msgstr "position"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No columns yet. They are read from the plans you confirmed in Step 1."
+msgstr "No columns yet. They are read from the plans you confirmed in Step 1."
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "No storeys yet. The QS starts the reading once the plans are confirmed in Step 1."
+msgstr "No storeys yet. The QS starts the reading once the plans are confirmed in Step 1."
+
+#: src/takeoff/frame/GroupedStep.tsx
+msgid "Confirm <0/>, {agreeingCount, plural, one {# grid line} other {# grid lines}}"
+msgstr "Confirm <0/>, {agreeingCount, plural, one {# grid line} other {# grid lines}}"
+
+#: src/takeoff/frame/parts.tsx
+msgid "No open Questions here."
+msgstr "No open Questions here."
+
+#: src/takeoff/frame/GroupedStep.tsx
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "opens its sheet"
+msgstr "opens its sheet"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Storeys this view shows"
+msgstr "Storeys this view shows"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "Read the storeys"
+msgstr "Read the storeys"
+
+#: src/takeoff/frame/StoreysStep.tsx
+msgid "Opening Step 3…"
+msgstr "Opening Step 3…"
+
+#: src/takeoff/frame/parts.tsx
+msgctxt "Trace fact"
+msgid "direction"
+msgstr "direction"
+
+#: src/takeoff/frame/NothingRead.tsx
+msgid "Read the grid"
+msgstr "Read the grid"
+
+#: src/takeoff/frame/parts.tsx
+msgid "Previous row"
+msgstr "Previous row"
+
+#: src/takeoff/frame/parts.tsx
+msgid "{n, plural, one {Took back # grid line; it is a Proposal again} other {Took back # grid lines; they are Proposals again}}"
+msgstr "{n, plural, one {Took back # grid line; it is a Proposal again} other {Took back # grid lines; they are Proposals again}}"
+
+#: src/takeoff/frame/SizeEditor.tsx
+msgid "Type the size"
+msgstr "Type the size"

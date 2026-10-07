@@ -1,0 +1,13 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "projects.gfa.entered"
+msgstr "{actor} set the Gross Floor Area"
+
+msgid "projects.gfa.not_an_area"
+msgstr "The Gross Floor Area was not saved. Enter a number above zero, with its unit: {units}."

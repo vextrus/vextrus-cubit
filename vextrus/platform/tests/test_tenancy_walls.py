@@ -103,7 +103,19 @@ UPDATABLE = {
         "excluded_text",
     },
     "live_model_elementrelation": {"valid_to_seq"},
+    # M1's spine (live_model 0002): closing a validity is the only change.
+    "live_model_modelversion": set(),
+    "live_model_elementstate": {"valid_to_seq"},
+    "live_model_elementtrace": {"valid_to_seq"},
+    "live_model_viewplacement": {"valid_to_seq"},
+    "live_model_viewplacementstorey": set(),
     "takeoff_confirmation": {"undone_at"},  # an act is undone by stamping it (19a)
+    "measurement_ruleset": set(),
+    "measurement_rulesetversion": set(),
+    "measurement_measurementrule": set(),
+    "measurement_boqitem": set(),
+    "measurement_boqitembillingunit": set(),
+    "measurement_rebarratio": set(),
     "takeoff_takeoffstep": set(),
     "takeoff_check": set(),
     "takeoff_drawingregister": set(),
@@ -121,7 +133,14 @@ UPDATABLE = {
     "platform_storedfile": set(),
     "platform_user": {"last_login", "name", "password", "phone"},
     "procrastinate_events": set(),
-    "projects_building": {"code", "name", "ordinal"},
+    "projects_building": {
+        "code",
+        "gfa_entered_at",
+        "gfa_entered_by",
+        "gross_floor_area_m2",
+        "name",
+        "ordinal",
+    },  # S16-B: the Gross Floor Area, who entered it and when
     "projects_project": {"address", "code", "code_key", "name", "unit_system"},
     "projects_site": {"name"},
 }
