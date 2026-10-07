@@ -16,6 +16,7 @@ from typing import Any
 
 from django.db import connection
 
+from engine.messages import Message, Param
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import Box, ViewCandidate, ViewKind
 from vextrus.drawings import services as drawings
@@ -102,6 +103,15 @@ def kinds_of(discipline: str = "structural") -> tuple[str, str]:
     return first, second
 
 
+def which_kind(number: str) -> Message:
+    """The kind Question's words for the one sheet numbered `number`, as the read job words it. S15-Q1
+    (#566) gives the code a `sheets` param (how many sheets one kind Question asks; 1 here): it is
+    given only where the code declares it, so these words build on main and on S15-Q1 alike."""
+    given: dict[str, Param] = {"sheet": number, "named": "number", "sheets": 1}
+    code = proposal_words.WHICH_KIND
+    return code(**{key: value for key, value in given.items() if key in code.params})
+
+
 def low_confidence(
     project: CostProject, number: str = ACTED_ON, discipline: str = "structural"
 ) -> uuid.UUID:
@@ -112,7 +122,7 @@ def low_confidence(
         return step1.raise_question(
             project.project_id,
             "low_confidence",
-            proposal_words.WHICH_KIND(sheet=number, named="number"),
+            which_kind(number),
             subject_id=project.sheet_of[number],
             discipline=discipline,
             options=[{"key": k, "picked": False} for k in (*kinds, "keep_open")],
