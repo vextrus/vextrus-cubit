@@ -1,0 +1,242 @@
+"""The acceptance lint's own seams (S14-AL): the declarations it reads from an `acceptance:` commit, the
+pins it compares, the collection errors it lets through and the stated reasons it matches. Its whole
+runs on fixture repositories are the acceptance tests under `tests/acceptance/ts14al`."""
+
+import itertools
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from tools.lint.acceptance_lint import (
+    PIN,
+    RED_FOR,
+    RULING,
+    Ticket,
+    _outcomes,
+    _stated,
+    contradictions,
+    imports_of,
+    main,
+    marks_used,
+    not_built,
+    read_ticket,
+    rulings_at,
+)
+
+REPO = Path(__file__).resolve().parents[3]
+MISSING = "ModuleNotFoundError: No module named 'pkg.storeys'"
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+def repo(tmp_path: Path, files: dict[str, str]) -> Path:
+    root = tmp_path / "repo"
+    root.mkdir()
+    git(root, "init", "-q", "-b", "main")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "config", "user.name", "test")
+    git(root, "config", "commit.gpgsign", "false")
+    for name, text in files.items():
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text(text)
+        git(root, "add", name)
+    git(root, "commit", "-q", "--allow-empty", "-m", "base")
+    return root
+
+
+def test_the_declarations_are_read_from_their_own_lines() -> None:
+    message = (
+        "acceptance: x pins y\n\nThe body says red-for: is a line.\n"
+        f"red-for: a/tests/acceptance/t1/test_x.py {MISSING}\n"
+        "pin: review.tier = no-model  \n"
+        "red-on-main: 1 failed\n"
+    )
+
+    assert RED_FOR.findall(message) == [("a/tests/acceptance/t1/test_x.py", MISSING)]
+    assert PIN.findall(message) == [("review.tier", "no-model")]
+
+
+def test_a_ruling_is_read_bare_listed_or_in_backticks() -> None:
+    register = (
+        "# Rulings\n\nruling: a = 1\n- `ruling: b = two words`\n* ruling: c=3\nSays ruling: d = 4\n"
+    )
+
+    assert dict(RULING.findall(register)) == {"a": "1", "b": "two words", "c": "3"}
+
+
+def test_pins_agreeing_across_tickets_and_with_the_rulings_pass() -> None:
+    tickets = [Ticket("s1", pins=[("k", "3")]), Ticket("s2", pins=[("k", "3"), ("j", "1")])]
+
+    assert contradictions(tickets, {"k": "3"}) == []
+
+
+def test_pins_of_one_key_to_different_values_name_every_branch_and_the_key() -> None:
+    tickets = [Ticket("s1", pins=[("k", "3")]), Ticket("s2", pins=[("k", "4")]), Ticket("s3")]
+
+    [problem] = contradictions(tickets, {})
+
+    assert "s1" in problem
+    assert "s2" in problem
+    assert "k" in problem
+    assert "s3" not in problem
+
+
+def test_a_pin_against_a_ruling_names_the_ticket_and_the_key() -> None:
+    [problem] = contradictions([Ticket("s1", pins=[("k", "4")])], {"k": "3"})
+
+    assert problem.startswith("s1: pin k = 4")
+    assert "k = 3" in problem
+
+
+def test_no_register_at_the_base_means_no_rulings(tmp_path: Path) -> None:
+    root = repo(tmp_path, {"README.md": "x\n"})
+
+    assert rulings_at(root, "main") == {}
+
+
+def test_the_register_is_read_as_it_is_at_the_base(tmp_path: Path) -> None:
+    root = repo(tmp_path, {"docs/rulings.md": "ruling: k = 3\n"})
+    (root / "docs/rulings.md").write_text("ruling: k = 4\n")
+
+    assert rulings_at(root, "main") == {"k": "3"}
+
+
+def test_only_a_module_not_built_yet_may_stop_collection() -> None:
+    assert not_built(f"E   {MISSING}\n") == [("pkg.storeys", None)]
+    assert not_built(
+        "E   ImportError: cannot import name 'count' from 'pkg.units' (/t/pkg/units.py)\n"
+    ) == [("pkg.units", "count")]
+    assert not_built(f"E   {MISSING}\nE   FileNotFoundError: cases.json\n") is None
+    assert not_built("ERROR: usage: pytest [options]\n") is None
+
+
+def test_a_reason_is_stated_when_one_line_of_the_failure_contains_it() -> None:
+    assert _stated(f"Traceback\nE   {MISSING}\n", [MISSING])
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.storey'\n", [MISSING])
+    assert not _stated(f"E   {MISSING}\n", [])
+
+
+def test_the_failures_of_a_junit_report_are_each_red_test_with_its_error_lines(tmp_path: Path) -> None:
+    """The source lines pytest quotes are left out: a reason written in the test's own code (a string
+    naming the module) cannot be matched by them."""
+    report = tmp_path / "report.xml"
+    report.write_text(
+        '<testsuites><testsuite><testcase classname="m" name="ok"/>'
+        '<testcase classname="m" name="red"><failure message="boom">'
+        '    target = "pkg.storeys"\n&gt;   assert not ok\nE   AssertionError: why</failure></testcase>'
+        '<testcase classname="m" name="setup"><error message="fixture">E   other</error></testcase>'
+        '<testcase classname="m" name="later"><skipped type="pytest.xfail" message="soon"/></testcase>'
+        "</testsuite></testsuites>"
+    )
+
+    assert _outcomes(report) == (
+        [("m::red", "boom\nE   AssertionError: why"), ("m::setup", "fixture\nE   other")],
+        ["m::later (soon)"],
+    )
+    assert _outcomes(tmp_path / "none.xml") is None
+
+
+def test_a_withdrawn_file_keeps_no_reason_and_a_path_never_added_is_named(tmp_path: Path) -> None:
+    root = repo(tmp_path, {"README.md": "x\n"})
+    git(root, "checkout", "-q", "-b", "t")
+    a, b = "p/tests/acceptance/t1/test_a.py", "p/tests/acceptance/t1/test_b.py"
+    for name in (a, b):
+        (root / name).parent.mkdir(parents=True, exist_ok=True)
+        (root / name).write_text("")
+        git(root, "add", name)
+    message = f"acceptance: t\n\nred-for: {a} x\nred-for: {b} y\nred-for: p/test_c.py z\n"
+    git(root, "commit", "-q", "-m", message)
+    git(root, "rm", "-q", b)
+    git(root, "commit", "-q", "-m", "acceptance: withdraw b")
+
+    ticket = read_ticket(root, "main", "t")
+
+    assert ticket.files == [a]
+    assert ticket.reasons == {a: ["x"]}
+    assert ticket.unknown == ["p/test_c.py"]
+
+
+def test_an_unknown_branch_is_a_verdict_not_a_traceback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(repo(tmp_path, {"README.md": "x\n"}))
+
+    assert main(["main", "no-such-branch"]) == 1
+    printed = capsys.readouterr()
+    assert "no-such-branch" in printed.out
+    assert "Traceback" not in printed.out + printed.err
+
+
+def test_a_reason_naming_a_module_matches_the_error_naming_a_parent_package() -> None:
+    reason = "ModuleNotFoundError: No module named 'pkg.new.walls'"
+
+    imported = {"pkg.new.walls", "pkg.new.walls.count"}
+
+    assert _stated("E   ModuleNotFoundError: No module named 'pkg.new'\n", [reason], imported)
+    assert _stated(f"E   {reason}\n", [reason], imported)
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.other'\n", [reason], imported)
+    assert not _stated("E   ModuleNotFoundError: No module named 'pkg.new.wall'\n", [reason], imported)
+
+
+def test_a_reason_naming_a_module_the_test_never_imports_is_never_widened() -> None:
+    """PR #482 round 2: a sibling (`pkg.new.c`) or a misspelling (`pkg.new.wals`) of the imported
+    module must not match the base's error naming their common parent."""
+    imported = {"pkg.new.a.walls"}
+    error = "E   ModuleNotFoundError: No module named 'pkg.new'\n"
+
+    assert not _stated(error, ["No module named 'pkg.new.c'"], imported)
+    assert not _stated(error, ["No module named 'pkg.new.a.wals'"], imported)
+    assert _stated(error, ["No module named 'pkg.new.a'"], imported)
+
+
+def test_the_imports_of_a_test_file_are_its_absolute_modules() -> None:
+    source = "import a.b\nfrom c.d import e, f\nfrom . import g\n"
+
+    assert imports_of(source) == {"a.b", "c.d", "c.d.e", "c.d.f"}
+    assert imports_of("def (:\n") == set()
+
+
+def test_every_table_row_of_the_trailers_contract_is_one_line() -> None:
+    """PR #482 round 2: a row split over two source lines breaks the table."""
+    lines = (REPO / "docs/specs/factory/contracts/trailers.md").read_text().splitlines()
+
+    broken = [
+        number + 2
+        for number, (line, after) in enumerate(itertools.pairwise(lines))
+        if line.startswith("|") and after.strip() and not after.startswith("|")
+    ]
+
+    assert broken == []
+
+
+def test_a_module_loaded_by_name_counts_as_imported() -> None:
+    """PR #482 round 3: `importlib.import_module` and `__import__` with a literal name."""
+    source = (
+        "import importlib\nfrom importlib import import_module\n\n"
+        'importlib.import_module("a.b")\nimport_module("c.d")\n__import__("e")\n'
+        'import_module(".rel", "pkg")\nimport_module(name)\n'
+    )
+
+    assert imports_of(source) == {"importlib", "importlib.import_module", "a.b", "c.d", "e"}
+
+
+def test_every_use_of_a_refused_mark_is_read_anywhere_in_the_file() -> None:
+    """PR #514 round 2: one rule, any reference through pytest.mark (or an alias) anywhere."""
+    source = (
+        "import pytest as pt\nfrom pytest import mark as m\n\n"
+        "marks = pt.mark\nlater = pt.mark.slow\n\n\n"
+        "class TestC:\n    pytestmark = pt.mark.live\n\n\n"
+        "pytestmark: list[object] = [m.skipif(True, reason='x')]\n"
+        "CASES = [pt.param(1, marks=marks.xfail)]\n\n\n"
+        "def helper() -> object:\n    return pt.mark.skip\n"
+    )
+
+    assert marks_used(source) == ["live", "skip", "skipif", "xfail"]
+    assert marks_used("import pytest\n\n\n@pytest.mark.slow\ndef test_a() -> None: ...\n") == []
+    assert marks_used("from other import mark\n\n\n@mark.skip\ndef test_a() -> None: ...\n") == []
+    assert marks_used("def (:\n") == []

@@ -18,7 +18,7 @@
  * session's own refusals, signed out and no Developer, are announced to the frame (events.ts).
  */
 import createClient, { type Middleware } from 'openapi-fetch'
-import { emitSessionEvent } from './events'
+import { emitActUnreachable, emitSessionEvent } from './events'
 import { refusalCode, sessionEventOf } from './refusal'
 import type { paths } from './schema.gen'
 
@@ -81,10 +81,30 @@ const sessionWatch: Middleware = {
   },
 }
 
+/** Whether a gateway answered with nothing: a 502, 503 or 504 with no body (the same rule as `ApiRefused.empty`). */
+async function gatewayAnsweredNothing(response: Response): Promise<boolean> {
+  if (response.status !== 502 && response.status !== 503 && response.status !== 504) return false
+  return (await response.clone().text()) === ''
+}
+
+/** One request through the transport; an act that cannot reach the server is announced (events.ts). */
+async function send(request: Request): Promise<Response> {
+  const act = !SAFE_METHODS.has(request.method)
+  let response: Response
+  try {
+    response = await transport(request)
+  } catch (error) {
+    if (act && error instanceof TypeError) emitActUnreachable()
+    throw error
+  }
+  if (act && (await gatewayAnsweredNothing(response))) emitActUnreachable()
+  return response
+}
+
 /** A client for the app's own API: same origin, the session cookie, CSRF on every unsafe method. */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- the generated `paths` type is supplied by the caller
 export function createApi<Paths extends {}>() {
-  const client = createClient<Paths>({ baseUrl: '/', credentials: 'same-origin', fetch: (request) => transport(request) })
+  const client = createClient<Paths>({ baseUrl: '/', credentials: 'same-origin', fetch: send })
   client.use(csrf, sessionWatch)
   return client
 }

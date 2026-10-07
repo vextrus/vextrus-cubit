@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.walk.cli import QuietParser
-from scripts.walk.continuations import attach
+from scripts.walk.measures import MEASURES, attach
 from scripts.walk.sanitize import (
     ALLOWED_KEYS,
     CHECK_IDS,
@@ -61,27 +61,34 @@ ITEM_STATUSES = ("PASS", "FAIL", "NOT_WALKED")
 DONE = "done"
 """A file's state in walk.json once its read completed (the product's `read`)."""
 
-EXPECT_KEYS = (
+COUNT_KEYS = (
     "files",
-    "p95_ms_max",
     "questions_max_per_discipline",
-    "bulk_confirmable_share_min",
     "false_continuation_max",
+    "act_samples_min",
+    "phantom_sheets_max",
+    "stale_title_grouped_max",
+    "storeys_wrong_max",
 )
-QUESTION_LIMITS = (
-    "questions_max_per_discipline",
-    "bulk_confirmable_share_min",
-    "false_continuation_max",
-)
-BURDEN_KEYS = (
-    "sheets",
-    "one_source",
-    "bulk_confirmable",
-    "continuation_questions",
-    "false_continuation_questions",
-)
-INFORMATIONAL = ("false_continuation_questions_qs_view", "continuation_questions_unsure")
-"""Counts a burden row carries beside the judged one when they were measured; never judged."""
+"""Expectation limits that are counts: non-negative integers."""
+MS_KEYS = ("p95_ms_max", "act_max_ms")
+SHARE_KEY = "bulk_confirmable_share_min"
+STRUCTURE_KEYS = ("sheets_per_discipline", "true_questions", "stale_title_pairs", "storeys")
+"""Expectation structures naming Sheets by file and number (private; only their counts are judged)."""
+EXPECT_KEYS = (*COUNT_KEYS, *MS_KEYS, SHARE_KEY, *STRUCTURE_KEYS)
+LIST_LIMIT = 500
+"""Entries in one expectation structure, and Sheets or storeys in one entry: a bound, so a hostile
+expectation cannot grow the judgement."""
+TEXT_LIMIT = 200
+CODE = re.compile(r"[a-z][a-z0-9_.]{0,99}")
+"""A Question's message code (`engine.conflicts.same_title`)."""
+ACT_KINDS = ("confirm", "undo", "exclude", "answer")
+UNMEASURED = {"unmeasured": 1}
+"""The `measured` of a check its set's snapshot could not measure: it fails closed."""
+SNAPSHOT_ROW_KEYS = ("machine_doubt_questions", "false_continuation_questions")
+"""A burden row's counts only the snapshot gives: null in a row means its set was not measured."""
+SHARE_SLACK = 1e-9
+"""A share times N in floating point (0.7 * 10 is 7.000000000000001) is compared with this slack."""
 
 
 class Malformed(ValueError):
@@ -107,17 +114,86 @@ def _count(value: object, what: str) -> int:
     return value
 
 
-def _expectation(raw: object) -> dict[str, float]:
-    """One set's expectation file, or an error: numbers only, under known keys."""
+def _optional_count(value: object, what: str) -> int | None:
+    return None if value is None else _count(value, what)
+
+
+def _entries(raw: object, keys: frozenset[str], what: str) -> list[Mapping[str, Any]]:
+    """A bounded list of objects with exactly `keys`."""
+    if not isinstance(raw, list) or len(raw) > LIST_LIMIT:
+        raise Malformed(f"{what} is not a list")
+    for entry in raw:
+        if not isinstance(entry, Mapping) or set(entry) != keys:
+            raise Malformed(f"an entry of {what} is not its keys")
+    return raw
+
+
+def _text(value: object, what: str) -> str:
+    if not isinstance(value, str) or not value or len(value) > TEXT_LIMIT:
+        raise Malformed(f"{what} is not short text")
+    return value
+
+
+def _expected_discipline(value: object) -> str:
+    if not isinstance(value, str) or not DISCIPLINE.fullmatch(value) or value == "none":
+        raise Malformed("a Discipline is not a Discipline key")
+    return value
+
+
+def _listed_sheets(raw: object, what: str, *, exactly: int | None = None) -> None:
+    sheets = _entries(raw, frozenset({"file", "number"}), what)
+    if not sheets or (exactly is not None and len(sheets) != exactly):
+        raise Malformed(f"{what} holds the wrong number of Sheets")
+    for sheet in sheets:
+        _text(sheet["file"], "a file")
+        _text(sheet["number"], "a Sheet number")
+
+
+def _structure(key: str, raw: object) -> None:
+    """One expectation structure, checked by shape only (its text is never judged or written)."""
+    match key:
+        case "sheets_per_discipline":
+            if not isinstance(raw, Mapping) or len(raw) > LIST_LIMIT:
+                raise Malformed("sheets_per_discipline is not counts by Discipline")
+            for discipline, n in raw.items():
+                _expected_discipline(discipline)
+                _count(n, "a Sheet count")
+        case "true_questions":
+            for entry in _entries(raw, frozenset({"discipline", "code", "sheets"}), key):
+                _expected_discipline(entry["discipline"])
+                if not isinstance(entry["code"], str) or not CODE.fullmatch(entry["code"]):
+                    raise Malformed("a true Question's code is not a code")
+                _listed_sheets(entry["sheets"], "a true Question")
+        case "stale_title_pairs":
+            for entry in _entries(raw, frozenset({"discipline", "sheets"}), key):
+                _expected_discipline(entry["discipline"])
+                _listed_sheets(entry["sheets"], "a stale-title pair", exactly=2)
+        case "storeys":
+            for entry in _entries(raw, frozenset({"file", "number", "storeys"}), key):
+                _listed_sheets([{"file": entry["file"], "number": entry["number"]}], key)
+                storeys = entry["storeys"]
+                if not isinstance(storeys, list) or not storeys or len(storeys) > LIST_LIMIT:
+                    raise Malformed("a Sheet's storeys are not a list")
+                for storey in storeys:
+                    _text(storey, "a storey")
+
+
+def _expectation(raw: object) -> dict[str, Any]:
+    """One set's expectation file, or an error: known keys only; counts, times, a share and the four
+    structures, each by its shape."""
     if not isinstance(raw, Mapping):
         raise Malformed("an expectation is not an object")
     unknown = set(raw) - set(EXPECT_KEYS)
     if unknown:
         raise Malformed("an expectation has a key the schema does not name")
-    for value in raw.values():
-        if not is_number(value) or value < 0:
+    for key, value in raw.items():
+        if key in COUNT_KEYS:
+            _count(value, key)
+        elif key in STRUCTURE_KEYS:
+            _structure(key, value)
+        elif not is_number(value) or value < 0:
             raise Malformed("an expectation is not a non-negative number")
-    share = raw.get("bulk_confirmable_share_min")
+    share = raw.get(SHARE_KEY)
     if share is not None and share > 1:
         raise Malformed("bulk_confirmable_share_min is above 1")
     return dict(raw)
@@ -130,39 +206,53 @@ def _check(
     return {"check": check, "set": set_, "status": "", "measured": measured, "expected": expected}
 
 
-def _limits(expect: Mapping[str, Any] | None, keys: tuple[str, ...]) -> dict[str, Any] | None:
-    """The expectation's keys for one check, or None (UNSET) if any is missing."""
-    if expect is None or any(key not in expect for key in keys):
-        return None
-    return {key: expect[key] for key in keys}
+def _given(expect: Mapping[str, Any] | None, keys: tuple[str, ...]) -> bool:
+    """Every key a check needs is in the expectation (else the check is UNSET)."""
+    return expect is not None and all(key in expect for key in keys)
 
 
-def _row_holds(row: Mapping[str, Any], expected: Mapping[str, Any]) -> bool:
-    """A burden row whose own numbers agree (a total is its kinds' sum; parts within the whole) and
-    that is within each burden limit the expectation names."""
+def _row_holds(row: Mapping[str, Any]) -> bool:
+    """A burden row whose own numbers agree: a total is its kinds' sum, and each part is within its
+    whole."""
     kinds = row["questions_by_kind"]
-    numbers = [
-        row[key] for key in ("questions_total", "sheets", "bulk_confirmable_sheets", "one_source_sheets")
-    ]
+    total, sheets = row["questions_total"], row["sheets"]
+    numbers = [total, sheets, row["one_source_sheets"], row["continuation_questions"]]
     if not all(is_number(n) for n in [*numbers, *kinds.values()]):
         return False
-    sheets, bulk, false = (
-        row["sheets"],
-        row["bulk_confirmable_sheets"],
-        row["false_continuation_questions"],
-    )
-    if (
-        row["questions_total"] != sum(kinds.values())
-        or bulk > sheets
-        or row["one_source_sheets"] > sheets
-    ):
+    if total != sum(kinds.values()) or row["one_source_sheets"] > sheets:
         return False
-    share_min = expected.get("bulk_confirmable_share_min")
-    if share_min is not None and sheets > 0 and bulk / sheets < share_min:
+    if row["continuation_questions"] > total:
         return False
-    false_max = expected.get("false_continuation_max")
-    # Not measured is not within the limit (fail closed).
-    return false_max is None or (false is not None and is_number(false) and false <= false_max)
+    parts = {
+        "bulk_confirmable_sheets": sheets,
+        "machine_doubt_questions": total,
+        "false_continuation_questions": total,
+    }
+    for key, whole in parts.items():
+        value = row.get(key)
+        if value is not None and (not is_number(value) or value > whole):
+            return False
+    return True
+
+
+def _sheets_count(rows: Sequence[Mapping[str, Any]]) -> tuple[int, int, int, int]:
+    """(found, missing, phantoms, N) over a set's rows, judged on the set's total (the owner, 5 Oct
+    2026: "Judge the total; report the split"): every Sheet of every Discipline and of none against
+    the sum of N; a phantom is a blank beyond the total (a numbered Sheet beyond it is no phantom, and
+    the count is still wrong). The rows report the split; it is never judged."""
+    found = sum(row["sheets"] for row in rows)
+    expected = sum(row["sheets_expected"] or 0 for row in rows)
+    blanks = sum(row.get("blank_sheets") or 0 for row in rows)
+    return found, max(0, expected - found), min(max(0, found - expected), blanks), expected
+
+
+def _bulk_total(rows: Sequence[Mapping[str, Any]]) -> tuple[int, int] | None:
+    """(bulk, N) for half (a) of the bulk share: the bulk Sheets of every row, a Discipline the key
+    does not name and the row of none among them (the owner, 5 Oct 2026, Q9), over the key's N; None
+    when a row's bulk was not measured."""
+    if any(row["bulk_confirmable_sheets"] is None for row in rows):
+        return None
+    return sum(row["bulk_confirmable_sheets"] for row in rows), _sheets_count(rows)[3]
 
 
 def status_of(check: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> str:
@@ -172,43 +262,89 @@ def status_of(check: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> st
     if expected is None:
         return "UNSET"
     values = [*measured.values(), *expected.values()]
-    if not all(is_number(v) for v in values):
-        return "FAIL"
-    match check["check"]:
+    if not all(is_number(v) for v in values) or measured.get("unmeasured", 0) != 0:
+        return "FAIL"  # not measured is not within the limit (fail closed)
+    m, e = measured.get, expected.get
+    try:
+        ok = _holds(check["check"], m, e, rows)
+    except KeyError, TypeError:
+        ok = False
+    return "PASS" if ok else "FAIL"
+
+
+def _holds(name: str, m: Any, e: Any, rows: Sequence[Mapping[str, Any]]) -> bool:
+    """Whether a measured check is within its limits and agrees with its set's burden rows."""
+    match name:
         case "reads_complete":
-            files, completed, want = (
-                measured.get("files"),
-                measured.get("completed"),
-                expected.get("files"),
-            )
-            ok = None not in (files, completed, want) and files > 0 and completed == files == want
+            files, completed, want = m("files"), m("completed"), e("files")
+            return None not in (files, completed, want) and files > 0 and completed == files == want
         case "act_p95_during_read":
-            p95_ms, samples, limit = (
-                measured.get("p95_ms"),
-                measured.get("samples"),
-                expected.get("p95_ms_max"),
+            kinds = [m(kind) for kind in ACT_KINDS]
+            numbers = [m("p95_ms"), m("max_ms"), m("samples"), m("failed_acts"), *kinds]
+            limits = [e("p95_ms_max"), e("max_ms_max"), e("samples_each_min")]
+            if None in numbers or None in limits:
+                return False
+            return (
+                m("samples") == sum(kinds) > 0
+                and all(kind >= e("samples_each_min") for kind in kinds)
+                and m("p95_ms") <= m("max_ms") <= e("max_ms_max")
+                and m("p95_ms") <= e("p95_ms_max")
+                and m("failed_acts") == 0
             )
-            ok = None not in (p95_ms, samples, limit) and samples > 0 and p95_ms <= limit
         case "questions_per_discipline":
-            most, count = measured.get("questions_max_per_discipline"), measured.get("disciplines")
-            limit = expected.get("questions_max_per_discipline")
-            ok = (
-                None not in (most, count, limit)
-                and count > 0
+            most, count, limit = (
+                m("questions_max_per_discipline"),
+                m("disciplines"),
+                e("questions_max_per_discipline"),
+            )
+            doubt = [row["machine_doubt_questions"] for row in rows]
+            return (
+                None not in (most, count, limit, *doubt)
+                and count == len(rows) > 0
+                and most == max(doubt)
                 and most <= limit
-                # The set's burden rows, when it has them, are the Disciplines the check measured.
-                and (
-                    not rows
-                    or (
-                        count == len(rows)
-                        and most == max(row["questions_total"] for row in rows)
-                        and all(_row_holds(row, expected) for row in rows)
-                    )
+                and all(_row_holds(row) for row in rows)
+            )
+        case "sheets_match":
+            found, missing, phantoms, n = _sheets_count(rows)
+            return (
+                (m("sheets_found"), m("missing"), m("phantoms"), e("sheets"))
+                == (found, missing, phantoms, n)
+                and found - phantoms == n  # the total, less its blanks, is N
+                and e("phantoms_max") is not None
+                and phantoms <= e("phantoms_max")
+            )
+        case "true_questions_raised":
+            listed, raised, want = m("true_listed"), m("true_raised"), e("true_questions")
+            return None not in (listed, raised, want) and raised == listed == want
+        case "false_continuations":
+            false = [row["false_continuation_questions"] for row in rows]
+            caps = (e("false_continuation_max"), e("stale_title_grouped_max"))
+            return (
+                None not in (m("false_questions"), m("stale_grouped"), *caps, *false)
+                and m("false_questions") == sum(false)
+                and m("false_questions") <= caps[0]
+                and m("stale_grouped") <= caps[1]
+            )
+        case "bulk_confirmable_share":
+            # The owner, 5 Oct 2026 ("Total + own split"; Q9): (a) the set's bulk Sheets over the
+            # key's N; (b) each row's bulk Sheets, the row of none among them, over the Sheets the
+            # product itself files under it. Against the key's N per Discipline: reported.
+            share, totals = e(SHARE_KEY), _bulk_total(rows)
+            if share is None or totals is None:
+                return False
+            bulk, n = totals
+            return (
+                (m("bulk_confirmable_sheets"), m("sheets_expected")) == totals
+                and bulk >= share * n - SHARE_SLACK
+                and all(
+                    row["bulk_confirmable_sheets"] >= share * row["sheets"] - SHARE_SLACK for row in rows
                 )
             )
-        case _:
-            ok = False
-    return "PASS" if ok else "FAIL"
+        case "storeys_match":
+            listed, wrong, limit = m("storeys_listed"), m("storeys_wrong"), e("storeys_wrong_max")
+            return None not in (listed, wrong, limit) and wrong <= listed and wrong <= limit
+    return False
 
 
 def result_of(verdict: Mapping[str, Any]) -> str:
@@ -223,6 +359,91 @@ def result_of(verdict: Mapping[str, Any]) -> str:
         and layer["misleading"] == 0
     )
     return "PASS" if passed else "FAIL"
+
+
+def _acts(acts: list[Any], confirm_targets: object = None) -> dict[str, Any]:
+    """Act timing: samples are acts of a read that ran before and after them and that answered (a
+    status of 1 to 399, or none recorded); an act answered 0 (never) or 400 and up is a failed act.
+    A walk that found no Sheet offering a confirm (`confirm_targets` 0) and timed none is not
+    measured (`no_confirm_target`): it fails for want of a target, never as slow acts."""
+    during: list[float] = []
+    kinds = dict.fromkeys(ACT_KINDS, 0)
+    failed = 0
+    for act in acts:
+        if not isinstance(act, Mapping) or not is_number(act.get("ms")) or act["ms"] < 0:
+            raise Malformed("an act has no time")
+        status = _optional_count(act.get("status"), "an act's status")
+        if status is not None and (status == 0 or status >= 400):
+            failed += 1
+            continue
+        if act.get("read_running") is True:
+            kind = act.get("kind")
+            if kind not in kinds:
+                raise Malformed("an act's kind is not an act")
+            kinds[kind] += 1
+            during.append(act["ms"])
+    measured: dict[str, Any] = {"samples": len(during), **kinds, "failed_acts": failed}
+    if during:
+        measured |= {"p95_ms": p95(during), "max_ms": max(during)}
+    targets = _optional_count(confirm_targets, "confirm_targets")
+    if targets == 0 and kinds["confirm"] == 0:
+        measured |= {"unmeasured": 1, "no_confirm_target": 1}
+    return measured
+
+
+def _measures(record: Mapping[str, Any]) -> dict[str, int] | None:
+    """The set's snapshot measures (measures.attach), or None when the set was not measured."""
+    found = record.get("measures")
+    flag = found.get("unmeasured") if isinstance(found, Mapping) else None
+    if isinstance(flag, bool) or flag != 0 or not isinstance(found, Mapping):
+        return None  # only an integer 0 says measured
+    return {key: _count(found.get(key), key) for key in MEASURES}
+
+
+def _rows(name: str, questions: Mapping[str, Any], burden: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """The set's burden rows, one per Discipline, from the (measured) walk record."""
+    rows = []
+    for discipline in sorted(set(questions) | set(burden)):
+        if not isinstance(discipline, str) or not DISCIPLINE.fullmatch(discipline):
+            raise Malformed("a Discipline key is not a Discipline code")
+        kinds = questions.get(discipline, {})
+        if not isinstance(kinds, Mapping):
+            raise Malformed("a Discipline's Questions are not counts by kind")
+        by_kind = {}
+        for kind, count in kinds.items():
+            if not isinstance(kind, str) or not KIND.fullmatch(kind):
+                raise Malformed("a Question kind is not a kind code")
+            by_kind[kind] = _count(count, "a Question count")
+        counts = burden.get(discipline, {})
+        if not isinstance(counts, Mapping):
+            raise Malformed("a burden row is not an object")
+        # Blanks are listed only where a Discipline has one (only blanks beyond the total are phantoms).
+        blanks = _optional_count(counts.get("blank_sheets"), "blank_sheets")
+        rows.append(
+            {
+                **({"blank_sheets": blanks} if blanks else {}),
+                "set": name,
+                "discipline": discipline,
+                "questions_by_kind": by_kind,
+                "questions_total": sum(by_kind.values()),
+                "sheets": _count(counts.get("sheets", 0), "sheets"),
+                "sheets_expected": _optional_count(counts.get("sheets_expected"), "sheets_expected"),
+                "bulk_confirmable_sheets": _optional_count(
+                    counts.get("bulk_confirmable", 0), "bulk_confirmable"
+                ),
+                "one_source_sheets": _count(counts.get("one_source", 0), "one_source"),
+                "machine_doubt_questions": _optional_count(
+                    counts.get("machine_doubt_questions"), "machine_doubt_questions"
+                ),
+                "continuation_questions": _count(
+                    counts.get("continuation_questions", 0), "continuation_questions"
+                ),
+                "false_continuation_questions": _optional_count(
+                    counts.get("false_continuation_questions"), "false_continuation_questions"
+                ),
+            }
+        )
+    return rows
 
 
 def _set_checks(
@@ -247,76 +468,122 @@ def _set_checks(
             raise Malformed("a file has no state")
         states.append(file["state"])
     completed = sum(1 for state in states if state == DONE)
-    expected = _limits(expect, ("files",))
-    reads = _check("reads_complete", name, {"files": len(states), "completed": completed}, expected)
 
-    # (2) Act p95 while a later file is still reading: only acts with read_running true count.
-    during = []
-    for act in acts:
-        if not isinstance(act, Mapping) or not is_number(act.get("ms")) or act["ms"] < 0:
-            raise Malformed("an act has no time")
-        if act.get("read_running") is True:
-            during.append(act["ms"])
-    measured: dict[str, Any] = {"samples": len(during)}
-    if during:
-        measured = {"p95_ms": p95(during), "samples": len(during)}
-    expected = _limits(expect, ("p95_ms_max",))
-    act_check = _check("act_p95_during_read", name, measured, expected)
+    def limits(keys: tuple[str, ...], gives: dict[str, Any]) -> dict[str, Any] | None:
+        """`gives` (a limit's name, its expectation key or a function of the expectation) when the
+        expectation holds every key in `keys`; else None (UNSET)."""
+        if expect is None or not _given(expect, keys):
+            return None
+        return {to: key(expect) if callable(key) else expect[key] for to, key in gives.items()}
 
-    # (3) Questions per Discipline by kind, with the burden counts beside them.
-    disciplines = sorted(set(questions) | set(burden))
-    rows = []
-    totals = []
-    expected = _limits(expect, QUESTION_LIMITS)
-    for discipline in disciplines:
-        if not isinstance(discipline, str) or not DISCIPLINE.fullmatch(discipline):
-            raise Malformed("a Discipline key is not a Discipline code")
-        kinds = questions.get(discipline, {})
-        if not isinstance(kinds, Mapping):
-            raise Malformed("a Discipline's Questions are not counts by kind")
-        by_kind = {}
-        for kind, count in kinds.items():
-            if not isinstance(kind, str) or not KIND.fullmatch(kind):
-                raise Malformed("a Question kind is not a kind code")
-            by_kind[kind] = _count(count, "a Question count")
-        total = sum(by_kind.values())
-        totals.append(total)
-        counts = burden.get(discipline, {})
-        if not isinstance(counts, Mapping):
-            raise Malformed("a burden row is not an object")
-        sheets = _count(counts.get("sheets", 0), "sheets")
-        bulk = _count(counts.get("bulk_confirmable", 0), "bulk_confirmable")
-        one_source = _count(counts.get("one_source", 0), "one_source")
-        continuations = _count(counts.get("continuation_questions", 0), "continuation_questions")
-        false_raw = counts.get("false_continuation_questions")
-        false = None if false_raw is None else _count(false_raw, "false_continuation_questions")
-        informational = {
-            key: None if counts[key] is None else _count(counts[key], key)
-            for key in INFORMATIONAL
-            if key in counts
-        }
-        rows.append(
-            {
-                "set": name,
-                "discipline": discipline,
-                "questions_by_kind": by_kind,
-                "questions_total": total,
-                "sheets": sheets,
-                "bulk_confirmable_sheets": bulk,
-                "one_source_sheets": one_source,
-                "continuation_questions": continuations,
-                "false_continuation_questions": false,
-                **informational,
-            }
-        )
-    most = max(totals, default=0)
-    question_check = _check(
-        "questions_per_discipline",
+    reads = _check(
+        "reads_complete",
         name,
-        {"questions_max_per_discipline": most, "disciplines": len(disciplines)},
-        expected,
+        {"files": len(states), "completed": completed},
+        limits(("files",), {"files": "files"}),
     )
-    checks = [reads, act_check, question_check]
+
+    # (2) Acts while a later file is still reading: p95, the worst one, samples of each kind.
+    act_check = _check(
+        "act_p95_during_read",
+        name,
+        _acts(acts, record.get("confirm_targets")),
+        limits(
+            ("p95_ms_max", "act_max_ms", "act_samples_min"),
+            {
+                "p95_ms_max": "p95_ms_max",
+                "max_ms_max": "act_max_ms",
+                "samples_each_min": "act_samples_min",
+            },
+        ),
+    )
+
+    # (3)-(8) From the snapshot taken before any act (measures.attach), by Discipline.
+    rows = _rows(name, questions, burden)
+    measures = _measures(record)
+    if any(row[key] is None for row in rows for key in SNAPSHOT_ROW_KEYS):
+        measures = None  # a row the snapshot did not count: not measured
+
+    def measured(numbers: dict[str, Any]) -> dict[str, Any]:
+        return dict(UNMEASURED) if measures is None else numbers
+
+    found, missing, phantoms, _ = _sheets_count(rows)
+    unknown = dict.fromkeys(MEASURES, 0)
+    got = unknown if measures is None else measures
+    bulk = _bulk_total(rows)
+    checks = [
+        reads,
+        act_check,
+        _check(
+            "questions_per_discipline",
+            name,
+            measured(
+                {
+                    "questions_max_per_discipline": max(
+                        (row["machine_doubt_questions"] or 0 for row in rows), default=0
+                    ),
+                    "disciplines": len(rows),
+                }
+            ),
+            limits(
+                ("questions_max_per_discipline",),
+                {"questions_max_per_discipline": "questions_max_per_discipline"},
+            ),
+        ),
+        _check(
+            "sheets_match",
+            name,
+            measured({"sheets_found": found, "missing": missing, "phantoms": phantoms}),
+            limits(
+                ("sheets_per_discipline", "phantom_sheets_max"),
+                {
+                    "sheets": lambda x: sum(x["sheets_per_discipline"].values()),
+                    "phantoms_max": "phantom_sheets_max",
+                },
+            ),
+        ),
+        _check(
+            "true_questions_raised",
+            name,
+            measured({"true_listed": got["true_listed"], "true_raised": got["true_raised"]}),
+            limits(("true_questions",), {"true_questions": lambda x: len(x["true_questions"])}),
+        ),
+        _check(
+            "false_continuations",
+            name,
+            measured(
+                {
+                    "false_questions": sum(row["false_continuation_questions"] or 0 for row in rows),
+                    "stale_grouped": got["stale_grouped"],
+                }
+            ),
+            limits(
+                ("false_continuation_max", "stale_title_grouped_max", "stale_title_pairs"),
+                {
+                    "false_continuation_max": "false_continuation_max",
+                    "stale_title_grouped_max": "stale_title_grouped_max",
+                },
+            ),
+        ),
+        _check(
+            "bulk_confirmable_share",
+            name,
+            # A Discipline with an open gap Question and no count after its answer: unmeasured.
+            dict(UNMEASURED)
+            if measures is None or bulk is None
+            else {"bulk_confirmable_sheets": bulk[0], "sheets_expected": bulk[1]},
+            limits(
+                (SHARE_KEY, "sheets_per_discipline"),
+                {SHARE_KEY: SHARE_KEY},
+            ),
+        ),
+        _check(
+            "storeys_match",
+            name,
+            measured({"storeys_listed": got["storeys_listed"], "storeys_wrong": got["storeys_wrong"]}),
+            limits(("storeys_wrong_max", "storeys"), {"storeys_wrong_max": "storeys_wrong_max"}),
+        ),
+    ]
     for check in checks:
         check["status"] = status_of(check, rows)
     return checks, rows
@@ -575,28 +842,34 @@ def main(argv: list[str] | None = None) -> int:
         return _judge(args, folder)
 
 
+def read_expectations(walk: Mapping[str, Any], expect_dir: Path) -> dict[str, Any]:
+    """Each walked set's expectation file, by slug (a set with none is judged UNSET)."""
+    expect: dict[str, Any] = {}
+    sets = walk.get("sets")
+    for name in sets if isinstance(sets, Mapping) else ():
+        if isinstance(name, str) and SLUG.fullmatch(name):
+            path = expect_dir / f"{name}.json"
+            if path.exists():
+                expect[name] = _read_json(path)
+    return expect
+
+
 def _judge(args: argparse.Namespace, folder: Path) -> int:
     """Judges the walk in `folder` and writes its verdict; the caller holds the walk's lock."""
     try:
         walk = _read_json(folder / "walk.json")
         if not isinstance(walk, Mapping) or walk.get("sha") != args.sha:
             raise Malformed("walk.json is not this sha's")
-        # The false continuation counts, from conflicts.json and the ground truth (what cannot be
-        # measured stays as the walk wrote it), inside the lock like the rest of the judgement.
-        walk = attach(walk, folder, args.expect_dir)
         if (walk.get("smoke") is True) != args.smoke:
             raise Malformed("a smoke walk is judged only with --smoke, and only a smoke walk is")
         findings_path = folder / "findings.json"
         findings = _read_json(findings_path) if findings_path.exists() else None
         if findings is not None and not isinstance(findings, Mapping):
             raise Malformed("findings.json is not an object")
-        expect: dict[str, Any] = {}
-        sets = walk.get("sets")
-        for name in sets if isinstance(sets, Mapping) else ():
-            if isinstance(name, str) and SLUG.fullmatch(name):
-                path = args.expect_dir / f"{name}.json"
-                if path.exists():
-                    expect[name] = _read_json(path)
+        expect = read_expectations(walk, args.expect_dir)
+        # The burden, from snapshot.json by each set's expectation (a set it cannot measure fails
+        # its snapshot checks closed), inside the lock like the rest of the judgement.
+        walk = attach(walk, folder, expect)
         stamp = walk.get("started_at")
         recorded = stamp if isinstance(stamp, str) and UTC.fullmatch(stamp) else None
         if not args.smoke:

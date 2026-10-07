@@ -1,6 +1,6 @@
-"""#161 on the demo seed: a conflict is its words and the sheets it holds, so the seed's hand-raised
-S-07 Question (its own subject and options, §7's pick) is the one the conflicts find again; an act on
-Step 1 neither retires it nor asks a second (the second refuter's finding, severity 60)."""
+"""#161 on the demo seed: a conflict is its words and the sheets it holds, so the S-07 Question the
+read job raised on the seed (#182: its own subject and options) is the one the conflicts find again;
+an act on Step 1 neither retires it nor asks a second (the second refuter's finding, severity 60)."""
 
 import uuid
 from typing import Any
@@ -30,7 +30,7 @@ def test_an_act_keeps_the_seeds_s07_question_open_and_asks_no_second(
     nusrat: Api, kr01: uuid.UUID
 ) -> None:
     [(seeded, status, keys)] = same_number(nusrat, kr01)
-    assert (status, keys) == ("open", ["keep_b", "keep_a", "keep_both", "keep_open"])
+    assert (status, keys) == ("open", ["keep_latest", "keep_all", "keep_open"])
     [s01] = by_number(proposals(nusrat, kr01), "S-01")
 
     response = nusrat.post(f"{step1(kr01)}/confirm", {"proposals": [s01["id"]]})

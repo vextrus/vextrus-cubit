@@ -267,8 +267,11 @@ def run(
         )
         main_hash, main_exports = head_hash, head_exports
         if head.commit != base.commit:  # main is read the same way as the head
+            # main's export names a run id that names main's commit (the scorer takes a cached export
+            # whose run id and commit agree, #199), not the PR's head the run is for
+            mains_run_id = f"{stamp}-{base.commit[:12]}-{secrets.token_hex(2)}"
             main_hash, main_exports, _ = measure(
-                m, base, main, work / "main", run_id, digests, fresh, job=job
+                m, base, main, work / "main", mains_run_id, digests, fresh, job=job
             )
         counts, items = report(m, main_exports, head_exports, head.commit == base.commit)
         head_failed = failed_text(head_exports)

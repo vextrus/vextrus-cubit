@@ -32,6 +32,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -278,7 +279,14 @@ def commit_record(
             "recorded_at": utc_now(),
         },
     )
+    with journal_path(ledger_dir).open("a") as journal:  # under the ledger lock, as every record
+        journal.write(f"{path.name}\n")
     print(f"ledger: recorded PR {pr} round {round_}: {decision.verdict} ({path.name})")
+
+
+def journal_path(ledger_dir: Path) -> Path:
+    """Each record's name, appended as the ledger writes it (beside the ledger, never in it)."""
+    return ledger_dir.with_name(ledger_dir.name + ".journal")
 
 
 # The cloud review channel (tier 2).
@@ -383,6 +391,61 @@ def fetch_verdict(
     ):
         raise Refused("the launch record's review object is not for this PR or is malformed")
     agent = "refuter" if role == "refuter" else "pr-reviewer"
+    handed = ledger_dir.parent / "review" / "cloud"
+    if agent == "pr-reviewer" and any(handed.glob(f"{pr}-{head}-r*.handoff.json")):
+        command = ["uv", "run", "python", "-m", "scripts.factory.review", "collect", str(pr)]
+        command += ["--round", str(round_), *handoff_flags(handed, pr, head, round_)]
+        raise Refused(
+            "this head's lenses were handed off together: record them all at once with "
+            f"`{shlex.join(command)}`"
+        )
+    verdict_file, text, name = read_cloud_verdict(pr, head, nonce, branch, agent)
+    if head_of(pr) != head:
+        raise Refused("the PR's head moved during the review: review the new head")
+    if agent == "refuter":
+        print(
+            f"ledger: refuter {name.rsplit('-', 1)[1].removesuffix('.json')}: {verdict_file['verdict']}"
+        )
+    else:
+        scores = [item["score"] for item in verdict_file["findings"]]
+        decision = Decision(
+            verdict([verdict_file["verdict"]], [(score, "-") for score in scores]),
+            counts(1, [(score, "-") for score in scores]),
+            hashlib.sha256(text.encode()).hexdigest(),
+        )
+        commit_record(
+            pr=pr,
+            head=head,
+            round_=round_,
+            decision=decision,
+            exception=None,
+            source="fetch-verdict",
+            scan=scan,
+            post=post,
+            ledger_dir=ledger_dir,
+        )
+    _git("push", "-q", "origin", "--delete", branch)
+
+
+def handoff_flags(handed: Path, pr: int, head: str, round_: int) -> list[str]:
+    """The round's own `--exception` and `--reason`, as the hand-off keeps them (none if unread)."""
+    try:
+        manifest = json.loads((handed / f"{pr}-{head}-r{round_}.handoff.json").read_text())
+    except OSError, ValueError:
+        return []
+    flags: list[str] = []
+    for key in ("exception", "reason"):
+        if isinstance(manifest, dict) and isinstance(manifest.get(key), str):
+            flags += [f"--{key}", manifest[key]]
+    return flags
+
+
+def read_cloud_verdict(
+    pr: int, head: str, nonce: str, branch: str, agent: str
+) -> tuple[dict[str, Any], str, str]:
+    """The verdict file a cloud reviewer pushed on `branch`, checked (one commit on the head adding
+    exactly that one file, its schema, its nonce, its PR and head): `(verdict, its text, its path)`.
+    Nothing is recorded or deleted here."""
     _git("fetch", "-q", "origin", f"refs/heads/{branch}")
     tip = _git("rev-parse", "FETCH_HEAD").strip()
     parents = _git("rev-list", "--parents", "-n", "1", tip).split()[1:]
@@ -410,32 +473,7 @@ def fetch_verdict(
         raise Refused("the verdict file's nonce is not the launch's")
     if verdict_file["pr"] != pr or verdict_file["head_sha"] != head:
         raise Refused("the verdict file is for another PR or head")
-    if head_of(pr) != head:
-        raise Refused("the PR's head moved during the review: review the new head")
-    if agent == "refuter":
-        print(
-            f"ledger: refuter {changed[0][1].rsplit('-', 1)[1].removesuffix('.json')}: "
-            f"{verdict_file['verdict']}"
-        )
-    else:
-        scores = [item["score"] for item in verdict_file["findings"]]
-        decision = Decision(
-            verdict([verdict_file["verdict"]], [(score, "-") for score in scores]),
-            counts(1, [(score, "-") for score in scores]),
-            hashlib.sha256(_git("show", f"{tip}:{changed[0][1]}").encode()).hexdigest(),
-        )
-        commit_record(
-            pr=pr,
-            head=head,
-            round_=round_,
-            decision=decision,
-            exception=None,
-            source="fetch-verdict",
-            scan=scan,
-            post=post,
-            ledger_dir=ledger_dir,
-        )
-    _git("push", "-q", "origin", "--delete", branch)
+    return verdict_file, _git("show", f"{tip}:{changed[0][1]}"), changed[0][1]
 
 
 # The real seams.

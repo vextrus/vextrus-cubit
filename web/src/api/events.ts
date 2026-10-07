@@ -20,3 +20,20 @@ export function onSessionEvent(listener: Listener): () => void {
 export function emitSessionEvent(event: SessionEvent): void {
   for (const listener of [...listeners]) listener(event)
 }
+
+/**
+ * An act (an unsafe request) that could not reach the server, announced by the client (client.ts): the
+ * frame's connectivity (app/connectivity.ts) takes it up, since an act is never tried again by itself.
+ */
+const actListeners = new Set<() => void>()
+
+export function onActUnreachable(listener: () => void): () => void {
+  actListeners.add(listener)
+  return () => {
+    actListeners.delete(listener)
+  }
+}
+
+export function emitActUnreachable(): void {
+  for (const listener of [...actListeners]) listener()
+}

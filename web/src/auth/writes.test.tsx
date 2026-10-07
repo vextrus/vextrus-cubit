@@ -10,6 +10,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { setTransport } from '@/api/client'
+import { FAULT_RETRIES } from '@/app/query-policy'
 import { FakeApi, PASSWORD } from '@/app/seed/api.fixture'
 import { PEOPLE, mountApp } from '@/app/testing'
 
@@ -23,6 +24,8 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+/** The query policy's waits (1 s, 2 s, 4 s) before a fault is shown, in real time here, and room to spare. */
+const BACKOFF_WAIT = 15_000
 const STALE = 'This page is out of date. Reload it and try again.'
 const FAULT = 'Vextrus could not do that just now. Try again in a minute.'
 const clean = (s: string | null | undefined) => (s ?? '').replace(/[⁦-⁩]/g, '')
@@ -179,22 +182,23 @@ describe('the token on every write', () => {
 describe('a page’s data that could not be read, by a server fault', () => {
   it('says so on the Members page, and [Try again] reads it again', async () => {
     const api = new FakeApi()
-    api.failOnce((method, p) => method === 'GET' && p === '/api/members', 500, { detail: 'Internal Server Error' })
+    // The first try and every try the query policy makes again (app/query-policy.ts) fail.
+    for (let i = 0; i <= FAULT_RETRIES; i++) api.failOnce((method, p) => method === 'GET' && p === '/api/members', 500, { detail: 'Internal Server Error' })
     await mountApp('/members', { as: PEOPLE.md, api })
-    await waitFor(() => expect(clean(document.body.textContent)).toContain('Vextrus could not open this just now. Try again shortly.'))
+    await waitFor(() => expect(clean(document.body.textContent)).toContain('Vextrus could not open this just now. Try again shortly.'), { timeout: BACKOFF_WAIT })
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByText('rumana@shapla-homes.example')).toBeVisible()
-  })
+  }, 30_000)
 
   it('says so in a person’s acts, never that the page keeps trying', async () => {
     const api = new FakeApi()
     await mountApp('/members', { as: PEOPLE.md, api })
     await screen.findByText('rumana@shapla-homes.example')
-    api.failOnce((method, p) => method === 'GET' && p === '/api/activity', 500, { detail: 'Internal Server Error' })
+    for (let i = 0; i <= FAULT_RETRIES; i++) api.failOnce((method, p) => method === 'GET' && p === '/api/activity', 500, { detail: 'Internal Server Error' })
     await userEvent.click(within(screen.getByRole('table', { name: 'Vextrus access' })).getByRole('button', { name: named(/acts?, last/) }))
-    await waitFor(() => expect(clean(document.body.textContent)).toContain('Vextrus could not open this just now. Try again shortly.'))
+    await waitFor(() => expect(clean(document.body.textContent)).toContain('Vextrus could not open this just now. Try again shortly.'), { timeout: BACKOFF_WAIT })
     expect(clean(document.body.textContent)).not.toContain('this page keeps trying')
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(clean(document.body.textContent)).toMatch(/Arif Rahman \(Vextrus\) accepted the invitation/))
-  })
+  }, 30_000)
 })
