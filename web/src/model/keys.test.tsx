@@ -79,9 +79,9 @@ describe('the canvas keys', () => {
       'Tilt down',
       'Zoom in',
       'Zoom out',
-      'Fit the model',
-      'Pick the next element',
-      'Pick the previous element',
+      'Fit the Live Model',
+      'Pick the next Element',
+      'Pick the previous Element',
       'Clear the selection',
     ])
       expect(text).toContain(word)
@@ -116,7 +116,7 @@ describe('the canvas keys', () => {
     c.focus()
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByText(/IfcColumn/)).toBeNull())
-    await screen.findByText(/Click an element/)
+    await screen.findByText(/Click an Element/)
   })
 
   it('F6 lands on the canvas', async () => {
@@ -167,7 +167,7 @@ describe('the view for everyone, and its empty and refused states', () => {
   it('says the model is empty when no element is drawn', async () => {
     const { api } = seedModel(['none'])
     await mountApp('/p/KR-01/model', { as: PEOPLE.qs, api })
-    await screen.findByText(/has no elements yet/)
+    await screen.findByText(/has no Elements yet/)
     expect(document.querySelector('canvas')).toBeNull()
   })
 

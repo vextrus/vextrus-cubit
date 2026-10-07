@@ -195,7 +195,7 @@ export function ModelCanvas({
         />
         {drawn ? null : (
           <p role="status" className="absolute inset-x-0 bottom-3 text-center text-sm text-ink-secondary">
-            {t`This browser cannot draw the model. Picking an element and its inspector still work.`}
+            {t`This browser cannot draw the Live Model. Picking an Element and its inspector still work.`}
           </p>
         )}
         <CanvasKeys handle={handle} onClear={() => onPick(null)} onStep={step} />
@@ -245,11 +245,11 @@ function CanvasKeys({ handle, onClear, onStep }: { handle: React.RefObject<Handl
       group: 'screen',
       run: () => change((s) => zoom(s, 1.25)),
     },
-    { key: ']', label: t`Pick the next element`, group: 'screen', run: () => onStep(1) },
-    { key: '[', label: t`Pick the previous element`, group: 'screen', run: () => onStep(-1) },
+    { key: ']', label: t`Pick the next Element`, group: 'screen', run: () => onStep(1) },
+    { key: '[', label: t`Pick the previous Element`, group: 'screen', run: () => onStep(-1) },
     {
       key: '0',
-      label: t`Fit the model`,
+      label: t`Fit the Live Model`,
       group: 'screen',
       run: () => handle.current?.fit(),
     },

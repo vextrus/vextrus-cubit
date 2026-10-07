@@ -115,7 +115,7 @@ function Picked({ element }: { element: ElementOut }) {
           </ul>
         ) : (
           <p className="text-ink-secondary">
-            <Trans>Nothing was read for this element: it was typed.</Trans>
+            <Trans>Nothing was read for this Element: it was typed.</Trans>
           </p>
         )}
       </Block>
@@ -137,14 +137,14 @@ export function ModelInspector({ projectId, elementId }: { projectId: string; el
     >
       {elementId === null ? (
         <p className="px-3 py-4 text-sm text-ink-secondary">
-          <Trans>Click an element to see what it is and where it was read.</Trans>
+          <Trans>Click an Element to see what it is and where it was read.</Trans>
         </p>
       ) : element.data ? (
         <Picked element={element.data} />
       ) : element.error ? (
         <LoadProblem error={element.error} onRetry={() => void element.refetch()} className="m-3" />
       ) : (
-        <Skeleton rows={4} className="m-3" status={<Trans>Opening the element…</Trans>} />
+        <Skeleton rows={4} className="m-3" status={<Trans>Opening the Element…</Trans>} />
       )}
     </aside>
   )

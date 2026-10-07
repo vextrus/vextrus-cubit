@@ -86,7 +86,7 @@ function Loaded({ projectId, scene, storeyNames }: { projectId: string; scene: S
         <div
           data-region="toolbar"
           role="toolbar"
-          aria-label={t`The 3D view’s tools`}
+          aria-label={t`The Live Model’s tools`}
           className="focus-inset flex h-toolbar shrink-0 items-center gap-4 overflow-hidden border-b border-border bg-chrome px-2"
         >
           <StoreyControls names={storeyNames} isolated={isolated} onIsolate={setIsolated} />
@@ -125,7 +125,7 @@ export function ModelPage() {
   if (scene.storeys.length === 0)
     return (
       <Empty glyph={<Box />} className="m-6">
-        <Trans>The Live Model has no elements yet. Confirm a Takeoff Step and its elements appear here.</Trans>
+        <Trans>The Live Model has no Elements yet. Confirm a Takeoff Step and its Elements appear here.</Trans>
       </Empty>
     )
   return <Loaded key={project.id} projectId={project.id} scene={scene} storeyNames={storeyNames} />

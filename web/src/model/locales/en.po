@@ -7,17 +7,9 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
-#: src/model/ModelInspector.tsx
-msgid "Nothing was read for this element: it was typed."
-msgstr "Nothing was read for this element: it was typed."
-
 #: src/model/ModelCanvas.tsx
 msgid "Clear the selection"
 msgstr "Clear the selection"
-
-#: src/model/ModelPage.tsx
-msgid "The Live Model has no elements yet. Confirm a Takeoff Step and its elements appear here."
-msgstr "The Live Model has no elements yet. Confirm a Takeoff Step and its elements appear here."
 
 #: src/model/ModelInspector.tsx
 msgid "Grid line"
@@ -26,14 +18,6 @@ msgstr "Grid line"
 #: src/model/ModelCanvas.tsx
 msgid "The Live Model in 3D"
 msgstr "The Live Model in 3D"
-
-#: src/model/ModelPage.tsx
-msgid "The 3D view’s tools"
-msgstr "The 3D view’s tools"
-
-#: src/model/ModelCanvas.tsx
-msgid "This browser cannot draw the model. Picking an element and its inspector still work."
-msgstr "This browser cannot draw the model. Picking an element and its inspector still work."
 
 #: src/model/ModelInspector.tsx
 msgid "Classification"
@@ -47,10 +31,6 @@ msgstr "Inspector"
 msgid "Section depth"
 msgstr "Section depth"
 
-#: src/model/ModelCanvas.tsx
-msgid "Fit the model"
-msgstr "Fit the model"
-
 #: src/model/ModelPage.tsx
 msgid "Held by a Question"
 msgstr "Held by a Question"
@@ -62,6 +42,10 @@ msgstr "Zoom in"
 #: src/model/ModelCanvas.tsx
 msgid "Orbit left"
 msgstr "Orbit left"
+
+#: src/model/ModelInspector.tsx
+msgid "Nothing was read for this Element: it was typed."
+msgstr "Nothing was read for this Element: it was typed."
 
 #: src/model/ModelInspector.tsx
 msgid "read from the drawing’s lines"
@@ -83,6 +67,10 @@ msgstr "Storey"
 msgid "Live Model"
 msgstr "Live Model"
 
+#: src/model/ModelCanvas.tsx
+msgid "Pick the previous Element"
+msgstr "Pick the previous Element"
+
 #: src/model/ModelInspector.tsx
 msgid "Trace"
 msgstr "Trace"
@@ -91,13 +79,17 @@ msgstr "Trace"
 msgid "Orbit right"
 msgstr "Orbit right"
 
+#: src/model/ModelInspector.tsx
+msgid "Opening the Element…"
+msgstr "Opening the Element…"
+
+#: src/model/ModelPage.tsx
+msgid "The Live Model’s tools"
+msgstr "The Live Model’s tools"
+
 #: src/model/ModelPage.tsx
 msgid "Confirmed"
 msgstr "Confirmed"
-
-#: src/model/ModelCanvas.tsx
-msgid "Pick the previous element"
-msgstr "Pick the previous element"
 
 #: src/model/ModelInspector.tsx
 msgid "Attributes"
@@ -123,17 +115,13 @@ msgstr "Tilt down"
 msgid "Proposal"
 msgstr "Proposal"
 
+#: src/model/ModelPage.tsx
+msgid "The Live Model has no Elements yet. Confirm a Takeoff Step and its Elements appear here."
+msgstr "The Live Model has no Elements yet. Confirm a Takeoff Step and its Elements appear here."
+
 #: src/model/ModelCanvas.tsx
-msgid "Pick the next element"
-msgstr "Pick the next element"
-
-#: src/model/ModelInspector.tsx
-msgid "Opening the element…"
-msgstr "Opening the element…"
-
-#: src/model/ModelInspector.tsx
-msgid "Click an element to see what it is and where it was read."
-msgstr "Click an element to see what it is and where it was read."
+msgid "This browser cannot draw the Live Model. Picking an Element and its inspector still work."
+msgstr "This browser cannot draw the Live Model. Picking an Element and its inspector still work."
 
 #: src/model/ModelPage.tsx
 msgid "Storeys"
@@ -147,6 +135,14 @@ msgstr "Tilt up"
 msgid "read from a label"
 msgstr "read from a label"
 
+#: src/model/ModelCanvas.tsx
+msgid "Pick the next Element"
+msgstr "Pick the next Element"
+
+#: src/model/ModelCanvas.tsx
+msgid "Fit the Live Model"
+msgstr "Fit the Live Model"
+
 #: src/model/ModelInspector.tsx
 msgid "Column"
 msgstr "Column"
@@ -154,3 +150,7 @@ msgstr "Column"
 #: src/model/ModelPage.tsx
 msgid "All storeys"
 msgstr "All storeys"
+
+#: src/model/ModelInspector.tsx
+msgid "Click an Element to see what it is and where it was read."
+msgstr "Click an Element to see what it is and where it was read."
