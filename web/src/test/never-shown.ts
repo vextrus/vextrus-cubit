@@ -1,4 +1,4 @@
-import words from './never-shown.json'
+import words from './never-shown.json' with { type: 'json' }
 
 /**
  * m0-screens §1.1's "Never shown to a QS or an MD" (the design gate greps the DOM for them), the one list
