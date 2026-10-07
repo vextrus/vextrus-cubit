@@ -4,8 +4,9 @@
 
 It refuses (exit 2) while tracked files differ between the worktree and the index: what it checks is
 exactly the tree `git write-tree` names, which the next commit will carry. It maps the changed paths
-(staged against HEAD, plus the commits since the merge base with `origin/main`) to checks, runs them one
-after another in the foreground, keeps each one's output under `.private/work/verify/<tree>/`, and
+(staged against HEAD, plus the commits since the merge base with `origin/main`) to checks, runs them (the
+web checks in order, the rest concurrently, pytest on a bounded `-n` count: `VEXTRUS_VERIFY_WORKERS`),
+keeps each one's output under `.private/work/verify/<tree>/`, and
 writes `<git-common-dir>/vextrus/verify-<tree>.json` (the guard's READY push gate reads it). Only when
 every check passed does its last line read `Factory-Verify: <tree> ok`, the builder's trailer. First
 it leak-scans `<merge-base>..<the staged tree>` (never stamped; #412) where a corpus is present: a hit
@@ -32,7 +33,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -83,6 +86,43 @@ def pytest_target(path: str) -> str | None:
     return None
 
 
+LINT_TESTS = "tools/lint/tests"
+WEB_CHAIN = ("openapi-export", "api-types", "typecheck", "lint", "messages-check", "web-test")
+LOCAL_WORKERS = 6
+CLOUD_WORKERS = 4
+
+
+def pytest_workers() -> int:
+    """The xdist worker count, read from the environment on every call: `VEXTRUS_VERIFY_WORKERS`
+    (0 or 1 = serial), else 4 in a cloud session (`CLAUDE_CODE_REMOTE=true`), else 6. Never `auto`: it
+    starts a worker per core (24 here, ~9 GB)."""
+    given = os.environ.get("VEXTRUS_VERIFY_WORKERS", "").strip()
+    if not given:
+        return CLOUD_WORKERS if os.environ.get("CLAUDE_CODE_REMOTE") == "true" else LOCAL_WORKERS
+    if not given.isdigit():
+        raise SystemExit(f"verify: VEXTRUS_VERIFY_WORKERS must be a whole number, not {given!r}")
+    return int(given)
+
+
+def pytest_checks(targets: list[str], workers: int) -> list[Check]:
+    """The pytest runs for these folders (none: the whole suite). `tools/lint/tests` runs in its own
+    serial invocation while #585 is open (a full xdist run fails 27 acceptance-lint tests)."""
+    base = ("uv", "run", "pytest", "-rf")
+    plugin = ("-p", "tools.lint.acceptance_pytest")
+    if workers <= 1:
+        return [Check("pytest", (*base, *plugin, *targets))]
+    lint = LINT_TESTS in targets or not targets or "tools/lint" in targets
+    rest = [t for t in targets if t != "tools/lint"]
+    checks: list[Check] = []
+    if rest or not targets:
+        # Named even with folders given, so the parallel run states what it leaves to the serial one.
+        ignore = ("--ignore", LINT_TESTS) if lint else ()
+        checks.append(Check("pytest", (*base, "-n", str(workers), *ignore, *plugin, *rest)))
+    if lint:
+        checks.append(Check("pytest-lint", (*base, *plugin, LINT_TESTS)))
+    return checks
+
+
 def plan_with_notes(
     paths: Iterable[str], *, have: Have = _have, root: Path | None = None
 ) -> tuple[list[Check], list[str]]:
@@ -98,9 +138,8 @@ def plan_with_notes(
         targets = sorted({target for p in python if (target := pytest_target(p)) is not None})
         if "." in targets:
             targets = []
-        pytest = ("uv", "run", "pytest", "-rf", "-p", "tools.lint.acceptance_pytest", *targets)
         checks += [
-            Check("pytest", pytest),
+            *pytest_checks(targets, pytest_workers()),
             Check("ruff", ("uv", "run", "ruff", "check", ".")),
             Check("ruff-format", ("uv", "run", "ruff", "format", "--check", ".")),
             Check("mypy", ("uv", "run", "mypy")),
@@ -405,8 +444,11 @@ def main(
     (root / outputs).mkdir(parents=True, exist_ok=True)
     entries = flaky_entries(root)
     root_entries = flaky_entries(root, FLAKY_ROOT)
-    results = []
-    for check in checks:
+    printing = threading.Lock()
+
+    names = [check.name for check in checks]
+
+    def settle(index: int, check: Check) -> dict[str, object]:
         code, output = run(check)
         raw, flakes, root_only = code, [], []
         # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
@@ -425,24 +467,42 @@ def main(
                 code, flakes = 0, listed
             else:
                 code = raw = again
-        name = outputs / f"{check.name}.txt"
+        stem = check.name if names.count(check.name) == 1 else f"{check.name}-{index}"
+        name = outputs / f"{stem}.txt"
         (root / name).write_text(output)
-        results.append(
-            {
-                "name": check.name,
-                "command": check.command,
-                "exit_code": clamp(code),
-                "raw_exit_code": clamp(raw),
-                "flakes": flakes,
-                "root_only": root_only,
-                "output_file": name.as_posix(),
-            }
-        )
-        print(
-            f"verify: {check.name} {code}"
-            + (f" (flakes: {len(flakes)})" if flakes else "")
-            + (f" (root-only: {len(root_only)})" if root_only else "")
-        )
+        with printing:
+            print(
+                f"verify: {check.name} {code}"
+                + (f" (flakes: {len(flakes)})" if flakes else "")
+                + (f" (root-only: {len(root_only)})" if root_only else ""),
+                flush=True,
+            )
+        return {
+            "name": check.name,
+            "command": check.command,
+            "exit_code": clamp(code),
+            "raw_exit_code": clamp(raw),
+            "flakes": flakes,
+            "root_only": root_only,
+            "output_file": name.as_posix(),
+        }
+
+    # The web checks keep their order (each needs the one before) in one chain; every other check is
+    # its own chain, so pytest and the cheap checks run concurrently.
+    indexed = list(enumerate(checks))
+    web_names = set(WEB_CHAIN)
+    chains = [[ic for ic in indexed if ic[1].name in web_names]]
+    chains += [[ic] for ic in indexed if ic[1].name not in web_names]
+    chains = [chain for chain in chains if chain]
+
+    def run_chain(chain: list[tuple[int, Check]]) -> list[tuple[int, dict[str, object]]]:
+        return [(index, settle(index, check)) for index, check in chain]
+
+    with ThreadPoolExecutor(max_workers=len(chains)) as pool:
+        done = list(pool.map(run_chain, chains))
+    # By plan index, never by name: two checks may share one (a plugin check per changed plugin).
+    pairs = sorted((pair for chain in done for pair in chain), key=lambda pair: pair[0])
+    results = [result for _, result in pairs]
     ok = all(result["exit_code"] == 0 for result in results)
     record = {"schema_version": 1, "tree": tree, "written_at": utc_now(), "ok": ok, "checks": results}
     folder = common / "vextrus"
