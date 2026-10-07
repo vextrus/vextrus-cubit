@@ -35,15 +35,6 @@ TOLERANCE = Decimal("1")
 
 
 @dataclass(frozen=True)
-class FactValue:
-    """A read value: `value` (a Decimal in drawing units, or a word), its `unit`, its verbatim `text`."""
-
-    value: Any
-    unit: str | None = None
-    text: str | None = None
-
-
-@dataclass(frozen=True)
 class FrameLine:
     mark: str
     axis: str  # "x" | "y": the direction it is drawn in

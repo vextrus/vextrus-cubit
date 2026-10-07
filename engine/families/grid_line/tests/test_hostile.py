@@ -15,7 +15,7 @@ from engine.families.grid_line.frame import register
 from engine.families.grid_line.place import Unplaced, model_box
 from engine.families.grid_line.read import read_grid
 from engine.families.grid_line.recognise import BAD_PATTERN, NOT_FOUND, recognise
-from engine.families.types import ConfirmedFacts, ProjectSetup
+from engine.families.types import ConfirmedFacts, ProfileParts, ProjectSetup
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import Block, Entity
 from engine.recognise.types import Box, ViewCandidate, ViewKind
@@ -87,7 +87,7 @@ def test_a_viewport_whose_scale_underflows_leaves_the_view_unplaced() -> None:
 def test_a_profile_pattern_that_is_no_pattern_is_a_question_not_an_error() -> None:
     held: Any = SimpleNamespace(view_id="V", sheet_id="S", artefact=artefact(), view=None, storey=None)
     patterns = ["(", "a{99999999999}", "[[:alpha:]]", "[A-Z]"]
-    profile: Any = SimpleNamespace(grid={"label_patterns": patterns})
+    profile = ProfileParts(parts={"grid": {"label_patterns": patterns}})
 
     found = recognise([held], ConfirmedFacts(), ProjectSetup(), profile)
 

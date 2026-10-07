@@ -2,11 +2,12 @@
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
-from engine.families.grid_line.frame import FactValue, register
+from engine.families.grid_line.frame import register
+from engine.families.types import FactValue
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,7 @@ def lines(offsets: dict[str, tuple[str, str]], dx: str = "0", dy: str = "0") -> 
     for mark, (axis, offset) in offsets.items():
         shift = Decimal(dy) if axis == "x" else Decimal(dx)
         value = FactValue(Decimal(offset) + shift, "mm")
-        found.append(Item(mark, {"axis": FactValue(axis), "offset": value}))
+        found.append(Item(mark, {"axis": FactValue(cast(Any, axis)), "offset": value}))
     return found
 
 

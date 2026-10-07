@@ -32,12 +32,12 @@ from decimal import Decimal
 from typing import Any
 
 from engine.families.grid_line.drawn import Drawn, read_space
-from engine.families.grid_line.frame import FactValue
 from engine.families.grid_line.place import Unplaced, model_box
 from engine.families.grid_line.read import GridLine, ViewGrid, read_grid
 from engine.families.types import (
     ConfirmedFacts,
     ElementCandidate,
+    FactValue,
     ProfileParts,
     ProjectSetup,
     QuestionRaised,
@@ -60,9 +60,10 @@ UNITS = {0: "unitless", 1: "in", 2: "ft", 4: "mm", 5: "cm", 6: "m"}
 
 
 def _grid_part(profile: ProfileParts | None) -> Mapping[str, Any]:
-    part = getattr(profile, "grid", None) if profile is not None else None
-    if part is None and isinstance(profile, Mapping):
-        part = profile.get("grid")
+    """The profile's `grid` part (C6), whatever it is given as; empty when it holds none."""
+    parts = getattr(profile, "parts", None)
+    holder = parts if isinstance(parts, Mapping) else profile
+    part = holder.get("grid") if isinstance(holder, Mapping) else getattr(holder, "grid", None)
     return part if isinstance(part, Mapping) else {}
 
 
@@ -115,7 +116,9 @@ def _anchor(artefact: ReadArtefact, sheet: str, handle: str, inserts: tuple[str,
         return None
 
 
-def _value(value: object, unit: str | None, text: str | None) -> Any:
+def _value(value: Any, unit: str, text: str) -> FactValue:
+    """K0's value object. The axis is a word ("x" | "y"), not a number: carried in `value` as the
+    session's contract names it, which K0's `Decimal` annotation does not cover (said in the PR)."""
     return FactValue(value=value, unit=unit, text=text)
 
 
@@ -135,8 +138,8 @@ def _candidate(view: ViewArtefact, drawn: Drawn, line: GridLine, unit: str) -> E
         mark=line.mark,
         at=None,
         values={
-            "axis": _value(line.axis, None, label.shown),
-            "offset": _value(_decimal(line.offset), unit, None),
+            "axis": _value(line.axis, "", label.shown),
+            "offset": _value(_decimal(line.offset), unit, ""),
         },
         anchors={k: v for k, v in anchors.items() if v is not None},
         source=SOURCE,
