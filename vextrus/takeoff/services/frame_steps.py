@@ -33,6 +33,7 @@ from vextrus.takeoff.messages import frame as said
 from vextrus.takeoff.models import (
     Confirmation,
     ConfirmationKind,
+    Coverage,
     Proposal,
     ProposalStatus,
     ProposalSubject,
@@ -106,7 +107,7 @@ class ProposalRow:
     storey: str | None
     values: dict[str, Any]
     state: str
-    questions: list[uuid.UUID]
+    questions: list[dict[str, Any]]
     trace: list[TraceRow]
 
 
@@ -394,7 +395,7 @@ def proposals(project_id: uuid.UUID, step: str, group: str = "mark") -> list[Gro
             storey=None if storey is None else str(storey),
             values=values,
             state=_state(proposal, held[proposal.id]),
-            questions=held[proposal.id],
+            questions=[{"id": str(q)} for q in held[proposal.id]],
             trace=traces[proposal.id],
         )
         groups.setdefault(key, Group(key, label, [])).proposals.append(row)
@@ -776,11 +777,14 @@ def type_levels(
 def place_view(
     project_id: uuid.UUID, view_id: uuid.UUID, storey_ids: Sequence[uuid.UUID], *, actor_name: str
 ) -> StoreyList:
-    """Put a view on storeys (the QS's word over the read's): one DomainEvent for the act."""
+    """Put a view on storeys (the QS's word over the read's): one DomainEvent for the act. The view
+    must be one of the Project's (its Coverage row, Step 1's): any other is the one 404."""
     _buildings(project_id)
     tenant, user = _tenant(), _user()
     wanted = set(storey_ids)
     with transaction.atomic():
+        if not Coverage.objects.filter(project_id=project_id, view_id=view_id).exists():
+            raise auth.NotFound
         known = set(
             _of_project(project_id)
             .filter(step=STOREYS, family_key=FAMILY_OF[STOREYS], id__in=wanted)

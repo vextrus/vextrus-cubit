@@ -8,40 +8,40 @@ msgstr ""
 
 #. vextrus/takeoff/messages/frame.py (ticket S16-T2): Steps 3, 4 and 6's acts and refusals.
 msgid "takeoff.frame.act_unknown"
-msgstr "That is not something you can do here. Confirm, exclude, edit or unconfirm."
+msgstr "This page asked for something Vextrus does not do here, so nothing was changed. Reload the page and try again."
 
 msgid "takeoff.frame.confirmed"
-msgstr "{actor} confirmed {count, plural, one {# proposal} other {# proposals}}"
+msgstr "{actor} confirmed {count, plural, =0 {no Proposals} one {# Proposal} other {# Proposals}}"
 
 msgid "takeoff.frame.edited"
-msgstr "{actor} typed values for {count, plural, one {# proposal} other {# proposals}}"
+msgstr "{actor} typed the size of {count, plural, =0 {no Proposals} one {# Proposal} other {# Proposals}}"
 
 msgid "takeoff.frame.excluded"
-msgstr "{actor} excluded {count, plural, one {# proposal} other {# proposals}}"
+msgstr "{actor} excluded {count, plural, =0 {no Proposals} one {# Proposal} other {# Proposals}}"
 
 msgid "takeoff.frame.levels_typed"
-msgstr "{actor} typed the levels of {count, plural, one {# storey} other {# storeys}}"
+msgstr "{actor} typed the levels of {count, plural, =0 {no storeys} one {# storey} other {# storeys}}"
 
 msgid "takeoff.frame.no_building"
-msgstr "This project has no building yet, so nothing was confirmed. Add a building first."
+msgstr "Nothing was changed: this Project is not fully set up yet, so there is nowhere to keep your work. Reload the page, and tell Vextrus if this keeps happening."
 
 msgid "takeoff.frame.not_a_number"
-msgstr "Type a number, like 3.048."
+msgstr "That is not a number, so nothing was changed. Type it in digits, like 3.048 or 250."
 
 msgid "takeoff.frame.nothing_chosen"
-msgstr "Choose at least one proposal first."
+msgstr "No Proposal was chosen, so nothing was changed. Select one or more Proposals, then try again."
 
 msgid "takeoff.frame.size_needed"
-msgstr "Type both sides of the column and their unit, like 250 × 500 mm."
+msgstr "Nothing was changed: a column's size needs both sides, each more than zero, and a unit. Type them like 10 × 20 in or 250 × 500 mm."
 
 msgid "takeoff.frame.step_unknown"
-msgstr "That step is not one of the storeys, grid or columns steps. Reload the page."
+msgstr "Only Takeoff Steps 3, 4 and 6 (storeys, grid and columns) take this, so nothing was changed. Reload the page and try again."
 
 msgid "takeoff.frame.storey_unknown"
-msgstr "One of the storeys chosen is not a storey of this project. Reload the page and choose again."
+msgstr "Nothing was changed: a storey you chose is no longer one of this Project's storeys, or has been excluded. Reload the page and choose again."
 
 msgid "takeoff.frame.unconfirmed"
-msgstr "{actor} unconfirmed {count, plural, one {# proposal} other {# proposals}}"
+msgstr "{actor} unconfirmed {count, plural, =0 {no Proposals} one {# Proposal} other {# Proposals}}"
 
 msgid "takeoff.frame.view_placed"
-msgstr "{actor} put a view on {count, plural, one {# storey} other {# storeys}}"
+msgstr "{actor} placed a view on {count, plural, =0 {no storeys} one {# storey} other {# storeys}}"
