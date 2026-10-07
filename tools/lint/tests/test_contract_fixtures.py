@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 
 from tools.lint import contract_fixtures as lint
-from tools.lint.tests.acceptance.ts17f5.support import LIST, listing, proposal, write, write_schema
+from tools.lint.tests.acceptance.ts17f5.support import (
+    LIST,
+    line_naming,
+    listing,
+    proposal,
+    write,
+    write_schema,
+)
 
 
 def test_a_status_the_operation_does_not_reply_with_fails(tmp_path: Path) -> None:
@@ -70,3 +77,42 @@ def test_a_query_still_matches(tmp_path: Path) -> None:
 def test_the_web_job_runs_the_lint_so_a_web_only_change_is_checked() -> None:
     web = Path(__file__).resolve().parents[3] / ".github" / "workflows" / "web.yml"
     assert "-m tools.lint.contract_fixtures" in web.read_text()
+
+
+def test_two_faults_inside_a_nullable_object_are_both_named(tmp_path: Path) -> None:
+    schema = write_schema(tmp_path)
+    storey = {"name": "Ground", "kind": "mezzanine", "colour": "red"}
+    bad = write(tmp_path, "two.json", listing(proposal(storey=storey)))
+    found = "\n".join(lint.problems(schema, [bad]))
+    assert "is not null" not in found
+    assert line_naming(found, "two.json", "$.body.proposals[0].storey.kind", "mezzanine")
+    assert line_naming(found, "two.json", "$.body.proposals[0].storey", "colour")
+
+
+def test_an_enum_fault_and_a_missing_field_in_a_nullable_object_are_both_named(tmp_path: Path) -> None:
+    schema = write_schema(tmp_path)
+    bad = write(tmp_path, "mix.json", listing(proposal(storey={"kind": "mezzanine"})))
+    found = "\n".join(lint.problems(schema, [bad]))
+    assert "is not null" not in found
+    assert line_naming(found, "mix.json", "$.body.proposals[0].storey", "name")
+    assert line_naming(found, "mix.json", "$.body.proposals[0].storey.kind", "mezzanine")
+
+
+def test_a_word_is_checked_only_where_the_schema_declares_an_enum(tmp_path: Path) -> None:
+    document = json.loads(write_schema(tmp_path).read_text())
+    schemas = document["components"]["schemas"]
+    schemas["Refusal"]["properties"]["code"] = {"type": "string", "title": "Code"}
+    plain = tmp_path / "plain.json"
+    plain.write_text(json.dumps(document))
+    refusal = {
+        "method": "GET",
+        "path": LIST,
+        "status": 404,
+        "body": {"code": "takeoff.made_up.code", "params": {}},
+    }
+    reply = write(tmp_path, "plain-code.json", refusal)
+    assert lint.problems(plain, [reply]) == []
+    schemas["Refusal"]["properties"]["code"] = {"$ref": "#/components/schemas/MessageCode"}
+    typed = tmp_path / "typed.json"
+    typed.write_text(json.dumps(document))
+    assert len(lint.problems(typed, [reply])) == 1

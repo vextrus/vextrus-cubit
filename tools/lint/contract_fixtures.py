@@ -8,6 +8,12 @@ against that operation's `application/json` reply for `status`. Objects are clos
 otherwise (Django Ninja exports no `additionalProperties`); an Optional field is `anyOf: [X, null]`
 and is still required. A problem line names the file, the JSON path from the file's root and the word.
 
+What it can reject is what the exported schema declares: a word is checked only where the schema has an
+`enum` (or `const`). Today's export declares none on the state fields or on `Refusal.code` (plain
+strings; `MessageCode` is a component no field references), so only fields and shapes are checked there
+until the API types them (M1 plan A12, the one ProposalState enum). Where the schema does say, as for
+a `Refusal.code` that `$ref`s `MessageCode`, the word is checked.
+
     python -m tools.lint.contract_fixtures --schema <openapi.json> [FILE ...]
 
 With no FILE, the git-tracked `*.contract.json` files. Exit 1 when any problem, else 0.
@@ -76,10 +82,13 @@ class Schema:
         return found
 
     def check_options(self, options: list[Any], value: Any, where: str) -> list[str]:
+        if value is not None:
+            # A value that is not null is judged by the options that are not `null`, so a nullable
+            # object names its own field and word, never "is not null".
+            options = [o for o in options if self.resolve(o) != {"type": "null"}] or options
         attempts = [self.check(option, value, where) for option in options]
         if any(not attempt for attempt in attempts):
             return []
-        # Name the inner problem of the closest option, not "matches no option".
         return min(attempts, key=len)
 
     def check_type(self, schema: dict[str, Any], value: Any, where: str) -> list[str]:
