@@ -49,7 +49,7 @@ class ProposalOut(Schema):
     storey: str | None
     values: dict[str, Any]
     state: str
-    questions: list[uuid.UUID]
+    questions: list[dict[str, Any]]
     trace: list[TraceOut]
 
 
@@ -113,7 +113,7 @@ class ConfirmationOut(Schema):
 
 class ReadOut(Schema):
     step: str
-    building_id: uuid.UUID
+    enqueued: bool
 
 
 def _storeys(view: frame_steps.StoreyList) -> StoreysOut:
@@ -131,8 +131,8 @@ def list_steps(request: HttpRequest, project_id: uuid.UUID) -> list[StepOut]:
 @declare(acts.CONFIRM, project="project_id")
 def read_step(request: HttpRequest, project_id: uuid.UUID, step: str) -> Status[ReadOut]:
     """Queue the frame read of the Project's Building."""
-    building_id = frame_steps.read(project_id, step)
-    return Status(202, ReadOut(step=step, building_id=building_id))
+    frame_steps.read(project_id, step)
+    return Status(202, ReadOut(step=step, enqueued=True))
 
 
 @router.get(f"{_PREFIX}/steps/{{step}}/proposals", response={200: ProposalsOut, 400: Refusal})

@@ -13,7 +13,14 @@ import pytest
 
 from vextrus.live_model import services as live_model_services
 from vextrus.platform.services import tenancy
-from vextrus.takeoff.models import Confirmation, Proposal, ProposalStatus, ProposalSubject
+from vextrus.takeoff.models import (
+    Confirmation,
+    Coverage,
+    CoverageStatus,
+    Proposal,
+    ProposalStatus,
+    ProposalSubject,
+)
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject
 from vextrus.testing.tenancy import Member
@@ -226,7 +233,7 @@ def test_a_view_put_on_storeys_is_listed_and_an_unknown_storey_refused(qs_projec
         "storey",
         [{"name": "Ground floor", "order": 0, "level_m": "0"}, {"name": "First floor", "order": 1}],
     )
-    view = uuid.uuid4()
+    view = covered_view(member, project_id)
     qs = api_as(member)
 
     placed = qs.send("put", url(project_id, f"view-placements/{view}"), {"storey_ids": [str(first)]})
@@ -275,7 +282,40 @@ def test_read_queues_the_frame_read_job_by_its_path(
     response = api_as(qs_project.member).post(url(qs_project.project_id, "steps/columns/read"), {})
 
     assert response.status_code == 202
-    assert [str(q["building_id"]) for q in queued] == [response.json()["building_id"]]
+    assert response.json() == {"step": "columns", "enqueued": True}
+    assert len(queued) == 1
+
+
+def covered_view(member: Member, project_id: uuid.UUID) -> uuid.UUID:
+    """A view of the Project, as Step 1 accounts for it (its Coverage row)."""
+    view = uuid.uuid4()
+    with member.acting():
+        tenant = tenancy.current_tenant_id()
+        assert tenant is not None
+        Coverage.objects.create(
+            tenant_id=tenant,
+            project_id=project_id,
+            view_id=view,
+            sheet_revision_id=uuid.uuid4(),
+            proposed_status=CoverageStatus.ASSIGNED,
+            status=CoverageStatus.ASSIGNED,
+        )
+    return view
+
+
+def test_a_view_not_of_the_project_is_the_one_404_and_nothing_is_written(
+    qs_project: QsProject,
+) -> None:
+    member, project_id = qs_project.member, qs_project.project_id
+    [ground] = seed(member, project_id, "storeys", "storey", [{"name": "Ground floor", "order": 0}])
+
+    response = api_as(member).send(
+        "put", url(project_id, f"view-placements/{uuid.uuid4()}"), {"storey_ids": [str(ground)]}
+    )
+
+    assert (response.status_code, response.json()["code"]) == (404, "platform.auth.not_found")
+    with member.acting():
+        assert Proposal.objects.filter(project_id=project_id).count() == 1
 
 
 def test_primitives_from_the_snapshot_give_a_column_b_by_d_by_its_storey_height(
