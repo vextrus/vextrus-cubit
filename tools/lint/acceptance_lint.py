@@ -194,12 +194,17 @@ def contradictions(tickets: Sequence[Ticket], rulings: dict[str, str]) -> list[s
     return problems
 
 
+COLOUR_FORCING = ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE")
+
+
 def _environment(tree: Path) -> dict[str, str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith("PYTEST_") and key not in {"PYTHONPATH", "VIRTUAL_ENV"}
+        if not key.startswith("PYTEST_")
+        and key not in {"PYTHONPATH", "VIRTUAL_ENV", *COLOUR_FORCING}
     }
+    env["NO_COLOR"] = "1"  # coloured output breaks ERROR_LINE (`^E\s+`) and every count regex
     env["PYTHONPATH"] = str(tree)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env

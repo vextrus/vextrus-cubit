@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tools.lint.acceptance_lint import Checker, Ticket
+from tools.lint.acceptance_lint import Checker, Ticket, _environment
 from tools.lint.tests.acceptance.ts14al._fixture import (
     INNER_IMPORT,
     MISSING,
@@ -622,3 +622,21 @@ def test_any_use_of_a_refused_mark_in_a_file_waiting_on_a_module_not_built_yet_i
     ticket(root, BRANCH, FOLDER, test=test)
 
     assert f"uses pytest.mark.{mark}; {UNBUILT_USE}" in refused(root)
+
+
+def test_the_environment_drops_forced_colour_and_asks_for_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for key in ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE"):
+        monkeypatch.setenv(key, "3")
+
+    env = _environment(tmp_path)
+
+    assert not {"FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE"} & env.keys()
+    assert env["NO_COLOR"] == "1"
+
+
+def test_a_note_is_read_whole_under_forced_colour(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("FORCE_COLOR", "3")
+    root = make_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test='"""No test here."""\n')
+
+    assert "collects no test" in refused(root)
