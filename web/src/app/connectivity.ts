@@ -61,11 +61,14 @@ export class Connectivity {
       onlineManager.subscribe(() => this.publish()),
     ]
     this.publish()
+    this.schedule()
   }
 
   private stop(): void {
     for (const stop of this.stops) stop()
     this.stops = []
+    // What is down stays down (the store outlives its subscribers: the frame can remount); the next
+    // start asks again.
     clearTimeout(this.timer)
     this.timer = undefined
   }
@@ -105,8 +108,9 @@ export class Connectivity {
     } catch {
       answered = false
     }
+    // The wait grows while anything stays down, even when /api/me answers (a read can stay unreachable);
+    // it starts over only once nothing is down (publish).
     if (answered) {
-      this.attempt = 0
       this.down.delete(ACT)
       // Reads that stopped are read again; the ones the policy keeps trying leave as they answer.
       for (const key of [...this.down]) {
