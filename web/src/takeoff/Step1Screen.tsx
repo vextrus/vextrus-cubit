@@ -617,6 +617,8 @@ function Step1({
     // Several rows selected (list mode): one exclusion for all their sheets, with one reason (§6.9).
     const chosen = focused !== null && chosenKeys.has(focused) ? selectedRows.filter((r) => r.sheets.length > 0) : []
     const view = viewsInOrder.find((v) => v.id === selectedView)
+    // A view already left out is never left out again: Ctrl Z takes the exclusion back (§6.6).
+    if (mode === 'sheet' && view && (view.decision === 'excluded' || open?.decision === 'excluded' || (view.proposed_exclusion && open?.decision === 'confirmed'))) return
     if (mode === 'sheet' && view && focusedRow) setPicker({ ...focusedRow, view: { id: view.id, title: view.title } })
     else if (chosen.length > 1) setPicker({ ...chosen[0]!, key: SELECTION_KEY, numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
     else if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)

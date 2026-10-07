@@ -1370,6 +1370,7 @@ def _exclude(
     words = text if reason == OTHER else ""
     with transaction.atomic():
         views, ids = _views_chosen(project_id, ids)
+        _refuse_excluded_views(project_id, views)
         chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
             project_id,
@@ -1416,6 +1417,20 @@ def _views_chosen(
         else:
             rest.append(given)
     return list(views.values()), rest
+
+
+def _refuse_excluded_views(project_id: uuid.UUID, views: Sequence[Proposal]) -> None:
+    """A view already left out (on its own or with its sheet) is not left out again (409, as `assign`
+    refuses it): a second act on it would take the first one's place, and its undo the first's reason."""
+    if (
+        views
+        and Coverage.objects.filter(
+            project_id=project_id,
+            view_id__in=[p.subject_id for p in views],
+            status=CoverageStatus.EXCLUDED,
+        ).exists()
+    ):
+        raise auth.Refused(said.VIEW_EXCLUDED(), status=409)
 
 
 def _exclude_views(
@@ -1771,14 +1786,14 @@ def _act_view(act: Confirmation) -> ActView:
 
 def _decide_views(sheet_id: uuid.UUID, act: Confirmation, reason: str | None, text: str) -> None:
     """The sheet's views' Coverage follows it: confirmed as proposed (an unaccounted view stays so),
-    or excluded with the sheet's reason."""
+    or excluded with the sheet's reason; a view the QS left out on its own keeps its own decision."""
     own = _excluded_on_their_own(act.project_id, sheet_id)
     sheet = drawings.sheet(sheet_id) if reason is None else None
     for row in Coverage.objects.select_for_update().filter(
         project_id=act.project_id, sheet_revision_id=sheet_id
     ):
-        if reason is None and row.view_id in own:
-            continue  # the QS left this view out on its own: confirming its sheet keeps it so
+        if row.view_id in own:
+            continue  # the QS left this view out on its own: its sheet's act never rewrites that row
         if sheet is not None and row.proposed_status == CoverageStatus.UNACCOUNTED:
             if not _account(row, sheet, act):
                 _put_back(row)
