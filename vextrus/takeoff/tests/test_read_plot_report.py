@@ -24,10 +24,15 @@ def _reader_unsandboxed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
 
 
-def _pdf(pages: list[tuple[str, float]]) -> bytes:
+def _pdf(pages: list[tuple[str, float] | list[tuple[str, float]]]) -> bytes:
+    """Each page: one (number, text size), or several lettered one under another."""
     pdf = Pdf()
     fonts = {"F1": truetype_font(pdf)}
-    made = [Page(content=text(60, 60, number, size=size), fonts=fonts) for number, size in pages]
+    made = []
+    for names in pages:
+        items = [names] if isinstance(names, tuple) else names
+        content = b"".join(text(60, 60 + 40 * i, n, size=size) for i, (n, size) in enumerate(items))
+        made.append(Page(content=content, fonts=fonts))
     return document(pdf, made, info={"Producer": "DWG To PDF.hdi 27.0.0 (AutoCAD 2027)"})
 
 
@@ -89,3 +94,26 @@ def test_two_plots_of_one_sheet_say_nothing_false_of_the_later_pdf(qs_project: Q
     with member.acting():
         s01 = services.sheets(services.file(late).set_id)[0]
     assert (s01.plot.file_id, s01.plot.page) == (early, 1)
+
+
+def test_a_later_dwg_that_takes_a_pages_sheet_leaves_the_report_true(qs_project: QsProject) -> None:
+    """Page 1 names S-03 (middling) and S-13 (larger); page 2 names S-03 small. With only S-03 listed
+    page 1 is its Plot and page 2 says so; a DWG with S-13, read after, takes page 1 for S-13."""
+    member = qs_project.member
+    first = add(member, qs_project.project_id, "KR-STR-R0.dwg", drawing()).file
+    read_dwg(member, first.id, ["S-03"])
+    pdf = _read_pdf(qs_project, "KR-STR-PLOT.pdf", _pdf([[("S-03", 8), ("S-13", 12)], ("S-03", 4)]))
+    assert _lines(qs_project, pdf) == [said.PAGES_SAME_SHEET(first_page=2, used_page=1, sheet="S-03")]
+
+    second = add(member, qs_project.project_id, "KR-STR-R1.dwg", drawing()).file
+    read_dwg(member, second.id, ["S-13"])
+    with member.acting(), transaction.atomic():
+        plot.match(second.id)
+
+    with member.acting():
+        sheets = {s.number: s.plot.page for s in services.sheets(services.file(pdf).set_id)}
+        counted = services.report(pdf).pages[0]
+    assert sheets["S-13"] == 1
+    assert counted == said.PAGES_MATCHED(matched=len([p for p in sheets.values() if p]), pages=2)
+    # The line is read from the Plots as they are now: never one saying page 1 is used for S-03.
+    assert said.PAGES_SAME_SHEET(first_page=2, used_page=1, sheet="S-03") not in _lines(qs_project, pdf)
