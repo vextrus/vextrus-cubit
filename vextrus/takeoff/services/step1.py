@@ -2579,7 +2579,7 @@ def _answer_kind(project_id: uuid.UUID, held: Sequence[uuid.UUID], option: str, 
     confirmed keeps its kind. A sheet whose number or Discipline is still asked (`question_first`)
     is not confirmed: it keeps the kind, which its confirmation takes once that is answered
     (`_kinds_answered`), and the others are confirmed without it."""
-    decided = {s.id for s in _sheets(project_id) if s.decision}
+    decided = {s.id for s in _facts(project_id) if s.decision}
     by_id = {
         p.id: p
         for p in Proposal.objects.filter(project_id=project_id, id__in=held)
