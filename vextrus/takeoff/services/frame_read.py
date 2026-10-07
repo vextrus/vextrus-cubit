@@ -98,7 +98,7 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
             try:
                 with transaction.atomic():
                     recognise = _part(family, "recognise", "recognise")
-                    recognised = recognise(views, confirmed, setup, profile)
+                    recognised = recognise(_read_by(step, views), confirmed, setup, profile)
                     written = _propose(project_id, building_id, key, step, recognised.candidates, by_id)
                     raised = _raise(project_id, building_id, step, recognised.questions)
             except Exception:
@@ -175,7 +175,7 @@ def _views(project_id: uuid.UUID, building_id: uuid.UUID) -> list[Any]:
     deciding = {s.id: s.confirmation_id for s in sheets}
     standing = step1._steps_standing(rows, deciding)
     confirmed = {r.view_id: r for r in rows}
-    viewed = drawings.views_of_set(drawing_set.id, anchors=False)
+    viewed = drawings.views_of_set(drawing_set.id, anchors=True)
     types = importlib.import_module("engine.families.types")
     artefacts: dict[uuid.UUID, Any] = {}
     found = []
@@ -198,11 +198,24 @@ def _views(project_id: uuid.UUID, building_id: uuid.UUID) -> list[Any]:
     return found
 
 
+# The steps whose plans a family's step reads: a family reads the plan views Step 1 gave its own step;
+# the grid is drawn on the plans of the steps that need it (C9: columns need the grid), and Step 1
+# gives no view to the grid step itself.
+_READS_PLANS_OF: dict[str, tuple[str, ...]] = {"grid": ("grid", "columns")}
+
+
+def _read_by(step: str, views: Sequence[Any]) -> list[Any]:
+    """The views a family of `step` reads: plan views whose standing steps meet the steps it reads."""
+    reads = set(_READS_PLANS_OF.get(step, (step,)))
+    return [v for v in views if str(v.view.kind) == "plan" and reads & set(v.view.steps)]
+
+
 def _candidate_of(view: drawings.ViewView, steps: tuple[str, ...]) -> Any:
     """The view as Step 1 left it: its kind as confirmed and its standing Takeoff Steps."""
     read = view_candidate(view)
     kind = view.confirmed_kind or view.kind
-    return dataclasses.replace(read, kind=type(read.kind)(kind), steps=steps)
+    anchors = tuple(stored.anchor() for stored in view.anchors)
+    return dataclasses.replace(read, kind=type(read.kind)(kind), steps=steps, anchors=anchors)
 
 
 # What the families found -------------------------------------------------------------------------------
