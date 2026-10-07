@@ -19,12 +19,15 @@ export class ApiRefused extends Error {
   readonly refusal: MachineMessage | null
   /** The field at fault, when the operation names one (a create's). */
   readonly field: string | null
+  /** The response had no body at all: what a proxy or gateway with nothing behind it answers (query-policy.ts). */
+  readonly empty: boolean
 
-  constructor(status: number, refusal: MachineMessage | null, field: string | null = null) {
+  constructor(status: number, refusal: MachineMessage | null, field: string | null = null, empty = false) {
     super(refusal?.code ?? `HTTP ${status}`)
     this.status = status
     this.refusal = refusal
     this.field = field
+    this.empty = empty
   }
 
   /** The refusal's code, or null. */
@@ -60,7 +63,7 @@ export function readRefusal(status: number, body: unknown): ApiRefused {
     const { field, message } = body as Record<string, unknown>
     if (isMessage(message)) return new ApiRefused(status, sentence(message), typeof field === 'string' ? field : null)
   }
-  return new ApiRefused(status, null)
+  return new ApiRefused(status, null, null, body === '' || body === undefined || body === null)
 }
 
 /** The data of a successful call; a refusal is thrown as an `ApiRefused`. */

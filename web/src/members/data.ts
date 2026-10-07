@@ -5,7 +5,7 @@
  * exactly the row's `actions`, never re-deriving a right.
  */
 import { queryOptions } from '@tanstack/react-query'
-import { ApiRefused, api, unwrap } from '@/api/client'
+import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 type MemberAction = components['schemas']['MemberAction']
 type MembersOut = components['schemas']['MembersOut']
@@ -112,17 +112,10 @@ export function membersFrom(out: MembersOut, session: Session): Members {
   }
 }
 
-/** A refusal is an answer, never tried again; an unreachable server keeps being tried. */
-export function retry(failures: number, error: unknown): boolean {
-  if (error instanceof ApiRefused) return false
-  return error instanceof TypeError || failures < 2
-}
-
 export const membersQuery = queryOptions({
   queryKey: ['members'],
   queryFn: () => unwrap(api.GET('/api/members')),
   staleTime: 0,
-  retry,
 })
 
 export const ACTS_PAGE = 50
@@ -134,7 +127,6 @@ export function actsQuery(userId: string, before: string | null) {
     queryFn: async (): Promise<ActOut[]> =>
       unwrap(api.GET('/api/activity', { params: { query: { actor: userId, limit: ACTS_PAGE, ...(before ? { before } : {}) } } })),
     staleTime: 0,
-    retry,
   })
 }
 

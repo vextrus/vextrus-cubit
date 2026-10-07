@@ -17,7 +17,7 @@ import { useFormat } from '@/format'
 import { MachineText, machineText, type MachineMessage } from '@/format/machine'
 import { LookSwitches, drawPlotPage, readPlotTransform, warmPdfJs, type SheetLayer, type SheetPlot } from '@/sheet'
 import { DrawingText, isolateLtr } from '@/ui'
-import { retry, type ProposalOut } from './data'
+import type { ProposalOut } from './data'
 
 /** A PDF's bytes, fetched once and shared by every sheet plotted from it. */
 function pdfQuery(projectId: string, fileId: string) {
@@ -31,7 +31,6 @@ function pdfQuery(projectId: string, fileId: string) {
         }),
       ) as Promise<ArrayBuffer>,
     staleTime: Infinity,
-    retry,
   })
 }
 
@@ -79,8 +78,6 @@ export function useSheetLook(projectId: string, sheet: ProposalOut, setting: Loo
     // A drawn page is large: dropped as soon as no sheet shows it (the PDF's bytes stay cached).
     gcTime: 0,
     staleTime: Infinity,
-    // A refusal is an answer, never tried again; any other failure once more at most, never without end.
-    retry: (failures, error) => !(error instanceof ApiRefused) && failures < 1,
     queryFn: async ({ signal }): Promise<SheetPlot | Unaligned> => {
       const answer = await unwrap(
         api.GET('/api/projects/{project_id}/drawings/sheets/{sheet_id}/plot', { params: { path: { project_id: projectId, sheet_id: sheet.sheet_id } } }),
@@ -89,7 +86,8 @@ export function useSheetLook(projectId: string, sheet: ProposalOut, setting: Loo
       // 18 matched the page but could not line the drawing up with it (engine/plot/registration.py):
       // no Plot to show, and trying again cannot change that.
       if (!answer.file_id || !answer.page || !transform) return { unaligned: true }
-      const bytes = await queryClient.fetchQuery(pdfQuery(projectId, answer.file_id))
+      // Only the outermost query retries (app/query-policy.ts): this inner read tries once per try of the Plot.
+      const bytes = await queryClient.fetchQuery({ ...pdfQuery(projectId, answer.file_id), retry: false })
       return { picture: await drawPlotPage(bytes, answer.page, { signal }), transform }
     },
   })

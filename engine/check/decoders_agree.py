@@ -51,20 +51,24 @@ fixture writer drops them), and any AC1021 file (the writer cannot write that ve
 holding one of them may disagree on its type; the owner's real-drawing check shows it, and a rule is
 added only with a fixture that proves it.
 
-**An entity the second reader could not read** (the owner's ruling of 28 Sep 2026, "Hold it"). One real
-file of the Development Sets holds an INSERT whose stored Z scale is 0 (the owner's diagnosis on #79;
-the case of docs/research/dwg-reader-evidence.md, conclusion 4). LibreDWG reads it; ACadSharp 3.8.0's
-`Insert.ZScale` refuses 0 and throws. The dumper reads with `Failsafe` on, so ACadSharp leaves that
-INSERT out, reads the rest and reports it; the dumper names it as `unread`
-(tools/acadsharp-dump/Program.cs), and the file **disagrees and is held**, with one unread item (an
-INSERT only the first reader found; `unread` 1 in the finding). Every other file of the sets agreed at
-330c490a. An unread entity is always disagreement, even one the first reader's list leaves out (a
-polyline's vertex). The evidence is the `zero_z_scale` fixture (an AC1015 DWG with its INSERT's stored Z
-scale overwritten with 0, since neither writer stores one) and its tests. It is not mapped to agreement:
-the second reader provably did not read the whole file. The fix is ACadSharp's: the open
-DomCR/ACadSharp#1205 reads a 0 scale as 1 (as AutoCAD's AUDIT repairs such a scale and keeps the
-insert). When a release includes it, the pin is bumped (toolchain/acadsharp-dump.sha256), and this file
-should then agree with no special rule here.
+**An entity the second reader could not read** (the owner's ruling of 28 Sep 2026, "Hold it"). The
+dumper reads with `Failsafe` on, so an entity ACadSharp cannot read is left out, the rest is read, and
+the dumper names it as `unread` (tools/acadsharp-dump/Program.cs); the file then **disagrees and is
+held** (`unread` in the finding counts them). An unread entity is always disagreement, even one the
+first reader's list leaves out (a polyline's vertex): the second reader provably did not read the whole
+file, so it is never mapped to agreement.
+
+The case that asked for it, and how it now agrees (the owner's ruling of 5 Oct 2026, ticket W317,
+"Build ACadSharp with #1205 ourselves"). One real file of the Development Sets holds an INSERT whose
+stored Z scale is 0 (the owner's diagnosis on #79; docs/research/dwg-reader-evidence.md, conclusion 4).
+LibreDWG reads it; stock ACadSharp 3.8.0's `Insert.ZScale` refuses 0 and throws, so the file was held.
+The dumper is now built from ACadSharp 3.8.0's source plus DomCR/ACadSharp#1205's DWG scale repair
+(open upstream; pinned in toolchain/acadsharp-source.lock), which reads a stored 0 scale as 1, as
+AutoCAD's AUDIT repairs such a scale and keeps the insert: the INSERT is read, and the file agrees with
+no special rule here (the `zero_z_scale` fixture and its tests). Nothing in `compare` changed. To go
+back to the stock reader, revert ticket W317's build (the patch, the source lock and the in-tree
+project) and its pin: the file is held again, by this same rule. When an ACadSharp release includes
+#1205, the dumper returns to the NuGet package at that version and the pin is bumped.
 
 Handles are compared as integers: the artefact's (hexadecimal strings, from the reader's own output)
 are converted here, the dump's were converted as it was read (engine/read/acadsharp/dump.py). Every
