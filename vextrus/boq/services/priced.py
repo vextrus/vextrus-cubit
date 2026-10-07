@@ -17,7 +17,8 @@ an `amount`, `RateNotEntered`) and `boq.services.steps.confirmed`.
 The strip's `total` = measured + awaiting answer + allowance. A line `awaiting_answer` (a held Element
 at its best candidate) is never in `quantity`. An unpriced Item, or an allowance consumption with no
 rate, adds zero and is counted in `unpriced_lines`. Money is rounded once per BOQ Item (and once per
-allowance consumption), to the currency's minor units.
+allowance consumption), to the currency's minor units. The measured share is measured ÷ total (zero
+while the total is), to four places.
 """
 
 import uuid
@@ -293,10 +294,11 @@ class _Rates:
 
 
 def _bill(lines: Sequence[Any], rates: _Rates, currency: Currency) -> tuple[BilledItem, ...]:
-    by_code: dict[str, list[Any]] = {}
+    # One BOQ Item per step and code: Rebar of the columns and of the beams bill in their own groups.
+    by_code: dict[tuple[str, str], list[Any]] = {}
     for line in lines:
-        by_code.setdefault(line.item_code, []).append(line)
-    items = [_item(code, of_code, rates, currency) for code, of_code in by_code.items()]
+        by_code.setdefault((str(line.step), str(line.item_code)), []).append(line)
+    items = [_item(code, of_code, rates, currency) for (_, code), of_code in by_code.items()]
     return tuple(items)
 
 
@@ -361,6 +363,7 @@ def _allowance(
         (
             _price(Decimal(line.quantity), rates.of(line.item_code, str(line.billing_unit)), currency)
             for line in so_far
+            # Foundations' lines are not split by part until M1-07 names the piles' Items: all on `rest`.
             if default.part in ("whole", "rest")
         ),
         zero,

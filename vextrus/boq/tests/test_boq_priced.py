@@ -188,3 +188,27 @@ def test_confirmed_reads_takeoff_s_step_rows_and_keeps_only_confirmed_step_keys(
         monkeypatch.setattr(takeoff, "frame_steps", FrameSteps, raising=False)
         assert steps.confirmed(building.id) == frozenset({"columns"})
     assert asked == [qs_project.project_id]
+
+
+def test_one_item_code_in_two_steps_bills_in_each_step_s_group(
+    qs_project: QsProject, seams: Seams
+) -> None:
+    beam = Line(
+        uuid.UUID(int=7),
+        "REBAR-500W",
+        "beams",
+        "beam",
+        "floor_1",
+        "kg",
+        Decimal("5.00"),
+        "measured",
+        "by_ratio",
+        (),
+    )
+    seams.lines = (column(1, "REBAR-500W", "kg", "3.00"), beam)
+    [section] = read(qs_project).sections
+    billed = {(g.group, i.item_code): i.quantity for g in section.groups for i in g.items}
+    assert billed == {
+        ("columns", "REBAR-500W"): Decimal("3.00"),
+        ("beams", "REBAR-500W"): Decimal("5.00"),
+    }
