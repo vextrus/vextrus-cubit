@@ -105,3 +105,30 @@ def test_a_long_hostile_text_is_parsed_in_linear_time() -> None:
     assert size.parse("1" * 5000 + "x" + " " * 5000 + "y") is None
     assert size.parse("1'" * 3000) is None
     assert time.perf_counter() - started < 1.0
+
+
+def test_a_label_ending_a_sentence_keeps_its_size_and_unit() -> None:
+    feet = size.parse("1'-0\" x 1'-6\".")
+    metric = size.parse("300x600mm.")
+    bare = size.parse("250 x 500.")
+
+    assert feet is not None
+    assert (feet.b, feet.d, feet.unit) == (Decimal(12), Decimal(18), "in")
+    assert metric is not None
+    assert metric.unit == "mm"
+    assert bare is not None
+    assert (bare.b, bare.d) == (Decimal(250), Decimal(500))
+
+
+def test_a_text_far_longer_than_a_label_is_not_parsed() -> None:
+    import time
+
+    started = time.perf_counter()
+    assert size.parse("1" + " " * 20000 + "x") is None
+    assert size.parse("1'" + " " * 20000 + "x") is None
+    assert time.perf_counter() - started < 0.5
+
+
+def test_a_length_no_column_has_is_no_size() -> None:
+    assert size.parse("9" * 40 + "x1") is None
+    assert size.parse("100000x300") is None

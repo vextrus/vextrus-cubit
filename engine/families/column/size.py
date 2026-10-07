@@ -39,7 +39,12 @@ def _length(n: str) -> str:
     return rf"(?:{_FEET_INCHES.format(n=n)}|{_PLAIN.format(n=n)})"
 
 
-_SIZE = re.compile(rf"(?<![\d.]){_length('b')}\s*[xX\u00d7*]\s*{_length('d')}(?![\d.])", re.IGNORECASE)
+_SIZE = re.compile(rf"(?<![\d.]){_length('b')}\s*[xX\u00d7*]\s*{_length('d')}(?!\d|\.\d)", re.IGNORECASE)
+MAX_TEXT = 200
+"""The longest text read for a size: a label is a few words; a longer text is a note, never parsed
+(the grammar's runs of spaces are not linear in a hostile text far longer than any label)."""
+MAX_LENGTH = Decimal(100000)
+"""The longest length a label may state in any unit: a column 100 m wide is not a column."""
 _UNIT_WORDS = {"mm": "mm", "cm": "cm", "m": "m", '"': "in", "''": "in"}
 
 
@@ -64,13 +69,13 @@ def _one(match: re.Match[str], n: str) -> tuple[Decimal, str | None]:
 
 def find(text: str) -> tuple[int, int] | None:
     """Where in `text` its size is written (start, end), or None."""
-    match = _SIZE.search(text)
+    match = _SIZE.search(text) if len(text) <= MAX_TEXT else None
     return None if match is None else match.span()
 
 
 def parse(text: str) -> Size | None:
     """The size a label states, or None when it states none (a mark, a note, a single number)."""
-    match = _SIZE.search(text)
+    match = _SIZE.search(text) if len(text) <= MAX_TEXT else None
     if match is None:
         return None
     b, b_unit = _one(match, "b")
@@ -78,7 +83,7 @@ def parse(text: str) -> Size | None:
     if b_unit is not None and d_unit is not None and b_unit != d_unit:
         b, d = b * MM_PER[b_unit], d * MM_PER[d_unit]
         b_unit = d_unit = "mm"
-    if b <= 0 or d <= 0:
+    if not (0 < b < MAX_LENGTH and 0 < d < MAX_LENGTH):
         return None
     return Size(b=b, d=d, unit=b_unit or d_unit, text=text)
 

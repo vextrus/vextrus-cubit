@@ -59,6 +59,11 @@ RIGHT_ANGLE = 0.02
 """The cosine below which two edges meet square."""
 LABEL_TYPES = frozenset({"TEXT", "MTEXT", "ATTRIB"})
 OUTLINE_TYPES = frozenset({"LWPOLYLINE", "POLYLINE"})
+MAX_COORDINATE = 1e12
+"""The farthest from the origin a column or its label is read, in drawing units (no plan reaches it);
+past it a hostile file's numbers would overflow the cells and the Decimals."""
+MAX_SPREAD = 64
+"""The cells an outline's reach may cover before it is weighed by every label instead (a huge one)."""
 MAX_VOTERS = 150
 """The columns that vote on where a view's grid lies (enough for any plan; a bound on hostile ones)."""
 _MARK = re.compile(r"[A-Za-z]{1,3}-?\d{1,3}[A-Za-z]?")
@@ -412,7 +417,7 @@ def _outline(entity: AnyEntity, chain: Chain, reading: _Reading) -> _Outline | N
     z = _number(entity.values.get("elevation")) or 0.0
     transform = world(entity, chain)
     placed = [transform.apply((x, y, z))[:2] for x, y in corners]
-    if not all(math.isfinite(c) for p in placed for c in p):
+    if not all(math.isfinite(c) and abs(c) < MAX_COORDINATE for p in placed for c in p):
         return None
     inserts = tuple(link.insert.handle for link in chain)
     return _Outline(entity.handle, inserts, (placed[0], placed[1], placed[2], placed[3]))
@@ -465,16 +470,24 @@ def _label(
     corners = [(x, y), (x + width * ux, y + width * uy), (x - height * uy, y + height * ux)]
     corners.append((corners[1][0] - height * uy, corners[1][1] + height * ux))
     xs, ys = [p[0] for p in corners], [p[1] for p in corners]
-    if not all(math.isfinite(c) for c in (*xs, *ys)):
+    if not all(math.isfinite(c) and abs(c) < MAX_COORDINATE for c in (*xs, *ys)):
         return None
     inserts = tuple(link.insert.handle for link in chain)
     return _Label(entity.handle, inserts, text, (min(xs), min(ys), max(xs), max(ys)), size, mark)
 
 
-def _gap(a: Box, b: Box) -> float:
-    dx = max(a[0] - b[2], b[0] - a[2], 0.0)
-    dy = max(a[1] - b[3], b[1] - a[3], 0.0)
-    return math.hypot(dx, dy)
+def _gap(outline: Box, label: Box) -> float:
+    """How far a label lies from an outline's edges: outside it, from the nearest edge; inside it, how
+    deep it lies (a mark written inside a column lies near its edge; a text inside a frame drawn round
+    a whole plan lies far from the frame's)."""
+    dx = max(outline[0] - label[2], label[0] - outline[2], 0.0)
+    dy = max(outline[1] - label[3], label[1] - outline[3], 0.0)
+    if dx or dy:
+        return math.hypot(dx, dy)
+    return max(
+        0.0,
+        min(label[0] - outline[0], outline[2] - label[2], label[1] - outline[1], outline[3] - label[3]),
+    )
 
 
 def _cells(box: Box, cell: float, margin: float) -> tuple[range, range]:
@@ -489,31 +502,39 @@ def _assign(
 ) -> dict[tuple[str, ...], list[_Label]]:
     """Each label to its nearest outline within reach, each outline's labels nearest first.
 
-    Outlines are bucketed in square cells as wide as the longest reach, so a label weighs only the
-    outlines in the cells around it, and a plan of many rectangles and texts stays near linear."""
+    Coincident outlines (one rectangle drawn twice) are one. Each outline is bucketed in the square
+    cells its reach covers, the cells as wide as the median reach, so a label weighs only the outlines
+    of the cells it lies in; an outline whose reach covers more than `MAX_SPREAD` cells is weighed by
+    every label. A plan of many rectangles and texts stays near linear."""
     held: dict[tuple[str, ...], list[tuple[float, _Label]]] = {}
-    if not outlines:
-        return {}
     factor = float(reach)
-    longest = max(factor * max(outline.sides) for outline in outlines)
-    cell = max(longest, max(max(outline.sides) for outline in outlines), 1e-9)
+    unique = list({tuple(round(c, 6) for c in o.box): o for o in reversed(outlines)}.values())
+    if not unique:
+        return {}
+    cell = max(statistics.median(factor * max(o.sides) for o in unique), 1e-6)
     buckets: dict[tuple[int, int], list[_Outline]] = {}
-    for outline in outlines:
-        columns, rows = _cells(outline.box, cell, 0.0)
+    wide: list[_Outline] = []
+    for outline in unique:
+        columns, rows = _cells(outline.box, cell, factor * max(outline.sides))
+        if (columns.stop - columns.start) * (rows.stop - rows.start) > MAX_SPREAD:
+            wide.append(outline)
+            continue
         for i in columns:
             for j in rows:
                 buckets.setdefault((i, j), []).append(outline)
     for label in labels:
-        columns, rows = _cells(label.box, cell, longest)
+        columns, rows = _cells(label.box, cell, 0.0)
         span = (columns.stop - columns.start) * (rows.stop - rows.start)
         if span > len(buckets):
-            near = [o for (i, j), found in buckets.items() if i in columns and j in rows for o in found]
+            found = [o for (i, j), os in buckets.items() if i in columns and j in rows for o in os]
         else:
-            near = [o for i in columns for j in rows for o in buckets.get((i, j), ())]
+            found = [o for i in columns for j in rows for o in buckets.get((i, j), ())]
         best: tuple[float, _Outline] | None = None
-        for outline in near:
+        for outline in {id(o): o for o in (*found, *wide)}.values():
             gap = _gap(outline.box, label.box)
-            if gap <= factor * max(outline.sides) and (best is None or gap < best[0]):
+            if gap <= factor * max(outline.sides) and (
+                best is None or (gap, outline.key) < (best[0], best[1].key)
+            ):
                 best = (gap, outline)
         if best is not None:
             held.setdefault(best[1].key, []).append((best[0], label))
