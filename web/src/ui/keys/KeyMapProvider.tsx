@@ -91,6 +91,8 @@ export function KeyMapProvider({ map: given, children }: { map?: KeyMap; childre
         const latestFirst = [...order].reverse().map((id) => mounted.get(id)).filter((s): s is Scope => !!s)
         const dialog = latestFirst.find((s) => s.level === 'dialog')
         if (dialog) return [dialog]
+        const modal = latestFirst.find((s) => s.level === 'mode' && s.modal)
+        if (modal) return [modal]
         const regions: Scope[] = []
         for (let el = target?.closest('[data-key-region]'); el; el = el.parentElement?.closest('[data-key-region]')) {
           const scope = mounted.get(el.getAttribute('data-key-region') ?? '')
@@ -143,17 +145,17 @@ export function useActiveKeys(): (target: Element | null) => ReturnType<KeyMap['
   return (target) => runtime.map.active(runtime.activeScopesFor(target))
 }
 
-function useScope(level: ScopeLevel, name: string): Scope {
+function useScope(level: ScopeLevel, name: string, modal = false): Scope {
   const runtime = useRuntime()
   const id = useId()
-  const scope = useMemo<Scope>(() => ({ level, name, id: `${level}:${name}:${id}` }), [level, name, id])
+  const scope = useMemo<Scope>(() => ({ level, name, id: `${level}:${name}:${id}`, ...(modal ? { modal } : {}) }), [level, name, id, modal])
   useLayoutEffect(() => runtime.mount(scope), [runtime, scope])
   return scope
 }
 
 /** A screen, mode or dialog scope: active while mounted. */
-export function KeyScope({ level, name, children }: { level: 'screen' | 'mode' | 'dialog'; name: string; children: ReactNode }) {
-  const scope = useScope(level, name)
+export function KeyScope({ level, name, modal = false, children }: { level: 'screen' | 'mode' | 'dialog'; name: string; modal?: boolean; children: ReactNode }) {
+  const scope = useScope(level, name, modal)
   return <ScopeContext.Provider value={scope}>{children}</ScopeContext.Provider>
 }
 

@@ -48,6 +48,7 @@ export function Button({ variant, size, saving, disabled, className, children, t
 
 export function IconButton({
   label,
+  tip,
   combo,
   pressed,
   className,
@@ -57,6 +58,8 @@ export function IconButton({
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label' | 'title'> & {
   /** The accessible name and tooltip, from the catalogue. */
   label: string
+  /** The tooltip's words where they differ from the name ("Zoom to the selected view" for "Zoom to view"). */
+  tip?: string
   /** The key that does the same, shown in the tooltip (`D`, `Shift F`). */
   combo?: string
   /** A toggle's state (CAD-dark, Outlines). */
@@ -81,7 +84,7 @@ export function IconButton({
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        {label}
+        {tip ?? label}
         {combo ? <KeyCombo combo={combo} className="[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:text-ink-inverse" /> : null}
       </TooltipContent>
     </Tooltip>
