@@ -56,6 +56,7 @@ def test_two_checks_sharing_a_name_each_keep_their_own_result(
     """Two changed plugins plan `plugin-validate` twice; the first's failure must not be replaced by
     the second's pass (the record is the READY push gate)."""
     import json
+    import shutil
     import subprocess
 
     from scripts import verify as module
@@ -76,7 +77,7 @@ def test_two_checks_sharing_a_name_each_keep_their_own_result(
         (tmp_path / "tools" / "mod" / plugin / "x" / "f.json").write_text("{}\n")
         sh("add", f"tools/mod/{plugin}")
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(module, "_have", lambda tool: True)
+    monkeypatch.setattr(shutil, "which", lambda tool: "/bin/true")
 
     def run(check: module.Check) -> tuple[int, str]:
         failing = check.name == "plugin-validate" and check.argv[-1].endswith("/a")
