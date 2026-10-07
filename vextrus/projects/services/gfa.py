@@ -53,7 +53,8 @@ def to_m2(value: Decimal | int | str, unit: str) -> Decimal:
         area = Decimal(str(value).strip())
     except InvalidOperation:
         raise refused from None
-    if not area.is_finite():
+    if not area.is_finite() or area.adjusted() > LARGEST.adjusted():
+        # Too large to round to four places in Decimal's context: refused before `quantize` raises.
         raise refused
     m2 = (area * M2_PER_SFT if unit == "sft" else area).quantize(PLACES, rounding=ROUND_HALF_UP)
     if not Decimal(0) < m2 <= LARGEST:

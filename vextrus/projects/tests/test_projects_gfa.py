@@ -3,6 +3,7 @@
 import json
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from decimal import Decimal
 
 import pytest
@@ -12,8 +13,22 @@ from vextrus.platform.services.auth import Refused
 from vextrus.projects import services as projects
 from vextrus.projects.messages import gfa as said
 from vextrus.projects.services import gfa
-from vextrus.testing.drawings import QsProject
 from vextrus.testing.tenancy import Member
+
+
+@dataclass(frozen=True)
+class QsProject:
+    member: Member
+    project_id: uuid.UUID
+
+
+@pytest.fixture
+def qs_project(sign_in: Callable[..., Member]) -> QsProject:
+    """A QS and a Project of theirs, as `testing.drawings` makes one (this layer may not import it)."""
+    member = sign_in(role="qs")
+    with member.acting():
+        project = projects.create(code=f"T-{uuid.uuid4().hex[:6]}", name="A test project")
+    return QsProject(member, project.id)
 
 
 @pytest.mark.parametrize(
@@ -43,9 +58,13 @@ def test_an_area_is_converted_exactly_and_rounded_once(value: str, unit: str, m2
         ("1e3x", "sft"),
         ("", "m2"),
         ("10000000000", "m2"),  # past dec(14,4)
+        ("1e30", "m2"),  # past what Decimal can round to four places (was a 500)
+        ("1E+400", "sft"),
+        ("1" * 400, "sft"),
+        (10**40, "m2"),
     ],
 )
-def test_anything_but_a_positive_area_is_refused_as_not_an_area(value: str, unit: str) -> None:
+def test_anything_but_a_positive_area_is_refused_as_not_an_area(value: str | int, unit: str) -> None:
     with pytest.raises(Refused) as refused:
         gfa.to_m2(value, unit)
     assert refused.value.status == 400
