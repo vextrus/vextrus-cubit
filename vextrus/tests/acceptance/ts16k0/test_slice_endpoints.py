@@ -2,11 +2,11 @@
 wins over M1.md's `/api/p/{code}/...`: "M0's convention holds: every endpoint is under
 `/api/projects/{project_id}/...` (project UUID), like `vextrus/takeoff/http/step1.py`").
 
-The finish check: "OpenAPI lists every slice endpoint"; "stub http modules returning 501". Each stub
+The finish check: "OpenAPI lists every slice endpoint"; "stub http modules returning 501". Each route
 declares its act through 07's guard, which answers first, as step1 does: signed out 401; a Project
 outside the Membership's scope (a member of the Developer kept to another Project) 404
-(`platform.auth.not_found`), before the stub answers. The slice's own tickets replace the
-501 with the contract's reply.
+(`platform.auth.not_found`), before the route answers. The slice's own tickets replace the stub's
+501 with the contract's reply, so a member of the Project is asked only to pass the guard.
 """
 
 import uuid
@@ -73,8 +73,8 @@ BODIES: dict[str, dict[str, Any]] = {
     "/prices/{resource_code}": {"amount": "8.50"},
     "/buildings/{building_id}/gross-floor-area": {"value": "12000", "unit": "sft"},
 }
-"""A body in the contract's shape for each operation that takes one (the stub's 501 comes after the
-body is read, so the body must be one the contract allows)."""
+"""A body in the contract's shape for each operation that takes one (Ninja reads the body before the
+guard answers, so the body must be one the contract allows)."""
 
 
 def url(project_id: uuid.UUID, path: str) -> str:
@@ -100,12 +100,19 @@ def test_the_openapi_document_lists_the_endpoint(method: str, path: str) -> None
 
 
 @pytest.mark.parametrize(("method", "path"), ENDPOINTS, ids=IDS)
-def test_the_stub_answers_501_to_a_member_of_the_project(
+def test_a_member_of_the_project_is_not_refused_by_the_guard(
     qs_project: QsProject, method: str, path: str
 ) -> None:
+    """The Project's QS passes the guard: never 401 or 403. The route answers in its own words: K0's
+    stub 501, a slice ticket's real reply, a 400 or 422 for the test's body, or a 404 of its own
+    (`{code, params}`) for an id the test invented; never Django's page for a route that is not there."""
     response = call(api_as(qs_project.member), method, qs_project.project_id, path)
 
-    assert response.status_code == 501, (response.status_code, response.content[:300])
+    assert response.status_code not in (401, 403), (response.status_code, response.content[:300])
+    assert response.status_code != 404 or response["Content-Type"].startswith("application/json"), (
+        response.status_code,
+        response.content[:300],
+    )
 
 
 @pytest.mark.parametrize(("method", "path"), ENDPOINTS, ids=IDS)
