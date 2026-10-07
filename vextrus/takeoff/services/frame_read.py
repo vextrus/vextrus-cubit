@@ -11,9 +11,11 @@ out or still proposed. Each is given to every family as a `ViewArtefact`: its fi
 ReadArtefact and its view as Step 1 left it (its standing Takeoff Steps among them), so a family
 reads only the views it wants. A sheet of no Building is the Building's when the Project has only it.
 
-**Each candidate is one Proposal**, named by its family's step and its `candidate_key` (the
-families key a candidate by the view it was read on), so a second run writes no duplicate: an open
-Proposal takes what the read found again, one the QS decided keeps their decision. Its `values` keep
+**Each candidate is one Proposal**, named by its family's step and its `candidate_key` within the
+Building (`<building id>:<candidate_key>`; the families key a candidate by the view it was read on),
+so a second run writes no duplicate: an open Proposal takes what the read found again (an anchor
+not read before is added: Traces are append-only); one the QS decided is left as it stands, its
+Traces too. Its `values` keep
 the drawing units and the verbatim text (`{"value": "254", "unit": "mm", "text": ...}`, a decimal as
 a string, never a float), with the candidate's `mark`, `storey`, `band` and `at`. Each fact's anchor
 is a ProposalTrace, its sheet and view named (`sheet_id`, `view_id`) when the candidate names its view.
@@ -95,7 +97,7 @@ def run(building_id: uuid.UUID) -> FrameReadResult:
             try:
                 with transaction.atomic():
                     recognised = family.recognise(views, confirmed, setup, profile)
-                    written = _propose(project_id, key, step, recognised.candidates, by_id)
+                    written = _propose(project_id, building_id, key, step, recognised.candidates, by_id)
                     raised = _raise(project_id, building_id, step, recognised.questions)
             except Exception:
                 log.exception("the %s family failed on building %s", key, building_id)
@@ -200,15 +202,18 @@ def _candidate_of(view: drawings.ViewView, steps: tuple[str, ...]) -> Any:
 
 def _propose(
     project_id: uuid.UUID,
+    building_id: uuid.UUID,
     family: str,
     step: str,
     candidates: Sequence[Any],
     views: Mapping[str, Any],
 ) -> int:
-    """Each candidate as one Proposal with its Traces (idempotent per step and candidate key)."""
+    """Each candidate as one Proposal with its Traces, named by its step and its key within the
+    Building (idempotent): an open Proposal takes the read again; one the QS decided is left as it
+    is, its evidence with it."""
     tenant_id = _tenant()
     for candidate in candidates:
-        key = str(candidate.candidate_key)
+        key = f"{building_id}:{candidate.candidate_key}"
         values = {
             "mark": _text(getattr(candidate, "mark", "")),
             "storey": _text(getattr(candidate, "storey", "")),
@@ -242,12 +247,15 @@ def _propose(
             for name, value in read.items():
                 setattr(row, name, value)
             row.save(update_fields=list(read))
+        else:
+            continue
         _trace(row, candidate, _view_of(candidate, views))
     return len(candidates)
 
 
 def _trace(proposal: Proposal, candidate: Any, view: Any) -> None:
-    """Each fact's anchor as a Trace, its sheet and view named when known."""
+    """Each fact's anchor as a Trace, its sheet and view named when known. Traces are append-only (the
+    app may neither change nor delete one): an anchor read before stays as the Proposal's history."""
     where = {
         "sheet_id": str(view.sheet_id) if view is not None else None,
         "view_id": str(view.view_id) if view is not None else None,

@@ -2,6 +2,7 @@
 decided, a family's failure Question follows the family's later runs, a family's own Questions are
 asked once, and a value is never a float."""
 
+import dataclasses
 import types
 from decimal import Decimal
 from typing import Any
@@ -148,3 +149,65 @@ def test_a_value_is_json_with_its_decimals_as_strings_never_floats() -> None:
     assert frame_read._json(Decimal("6E+3")) == "6000"
     assert frame_read._json(0.1) == "0.1"
     assert frame_read._json({"a": (Decimal("1"),)}) == {"a": ["1"]}
+
+
+def _anchored_elsewhere(fake: Any) -> None:
+    """The fake family's candidates read again with other anchors (another reader version's)."""
+    recognise = fake.module.recognise
+
+    def moved(*args: Any) -> Any:
+        found = recognise(*args)
+        candidates = tuple(
+            types.SimpleNamespace(
+                **{
+                    **vars(c),
+                    "anchors": {
+                        fact: dataclasses.replace(a, handle="FFF") for fact, a in c.anchors.items()
+                    },
+                }
+            )
+            for c in found.candidates
+        )
+        return types.SimpleNamespace(**{**vars(found), "candidates": candidates})
+
+    fake.module.recognise = moved
+
+
+def _traces_of(f: Frame, proposal: Proposal) -> list[ProposalTrace]:
+    with f.member.acting():
+        return list(ProposalTrace.objects.filter(proposal_id=proposal.id))
+
+
+def test_a_rerun_with_other_anchors_leaves_a_decided_proposal_s_traces_and_adds_to_an_open_one_s(
+    structural_frame: Frame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = structural_frame
+    use_families(monkeypatch, fake_family("column", "columns"))
+    _run(f)
+    decided, still_open = _columns(f)[:2]
+    with f.member.acting():
+        Proposal.objects.filter(id=decided.id).update(status=ProposalStatus.CONFIRMED)
+    before = {(t.fact, t.anchor["handle"]) for t in _traces_of(f, decided)}
+    open_before = {(t.fact, t.anchor["handle"]) for t in _traces_of(f, still_open)}
+    moved = fake_family("column", "columns")
+    _anchored_elsewhere(moved)
+    use_families(monkeypatch, moved)
+
+    _run(f)
+
+    assert {(t.fact, t.anchor["handle"]) for t in _traces_of(f, decided)} == before
+    assert {(t.fact, t.anchor["handle"]) for t in _traces_of(f, still_open)} == open_before | {
+        ("section_b", "FFF"),
+        ("section_d", "FFF"),
+    }
+
+
+def test_a_proposal_is_keyed_within_its_building(
+    structural_frame: Frame, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    f = structural_frame
+    use_families(monkeypatch, fake_family("column", "columns"))
+
+    _run(f)
+
+    assert all(p.candidate_key.startswith(f"{f.building_id}:column:") for p in _columns(f))
