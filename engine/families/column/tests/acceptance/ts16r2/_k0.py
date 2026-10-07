@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 
-from engine.families.types import (
+from engine.families.types import (  # type: ignore[import-not-found, unused-ignore]
     ConfirmedFacts,
     ElementCandidate,
     ElementFacts,

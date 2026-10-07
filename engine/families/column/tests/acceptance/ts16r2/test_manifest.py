@@ -1,6 +1,6 @@
 """S16-R2: the column family's manifest (docs/plans/M1.md C4; session 16's contract, column)."""
 
-from engine.families.column.manifest import MANIFEST
+from engine.families.column.manifest import MANIFEST  # type: ignore[import-not-found, unused-ignore]
 
 
 def test_the_column_family_is_keyed_column_and_read_in_the_columns_step() -> None:

@@ -6,8 +6,8 @@ h = 2.921 m; 0.254 x 0.508 x 2.921 = 0.376902472, rounded to six places: "0.3769
 
 from decimal import Decimal
 
-from engine.families.column.measure import measure
-from engine.families.types import LineDraft
+from engine.families.column.measure import measure  # type: ignore[import-not-found, unused-ignore]
+from engine.families.types import LineDraft  # type: ignore[import-not-found, unused-ignore]
 
 from . import _k0
 
@@ -16,7 +16,10 @@ RATIO = "150"
 
 
 def _lines() -> tuple[LineDraft, ...]:
-    return measure(_k0.column(B, D), _k0.owned(B, D, "0", SOFFIT), _k0.rules(RATIO))
+    lines: tuple[LineDraft, ...] = measure(
+        _k0.column(B, D), _k0.owned(B, D, "0", SOFFIT), _k0.rules(RATIO)
+    )
+    return lines
 
 
 def _line(unit: str) -> LineDraft:

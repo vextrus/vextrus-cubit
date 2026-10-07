@@ -16,8 +16,11 @@ from pathlib import Path
 import pytest
 from ezdxf.document import Drawing
 
-from engine.families.column.recognise import recognise
-from engine.families.types import ElementCandidate, Recognised
+from engine.families.column.recognise import recognise  # type: ignore[import-not-found, unused-ignore]
+from engine.families.types import (  # type: ignore[import-not-found, unused-ignore]
+    ElementCandidate,
+    Recognised,
+)
 from engine.fixtures import dwg
 
 from . import _k0
