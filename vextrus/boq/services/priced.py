@@ -147,18 +147,32 @@ class PricedBoq:
 
 @dataclass(frozen=True)
 class TracedLine:
-    """A Measurement Line as billed, with where it was read."""
+    """A Measurement Line as billed (C11's fields, those `measure` leaves out at their empty value),
+    with where it was read."""
 
-    element_id: uuid.UUID
+    element_id: uuid.UUID | None
     item_code: str
+    storey: str | None
     step: str
     family: str
-    storey: str
+    state: str
+    rule_codes: tuple[str, ...]
+    nos: int
+    l_m: Decimal | None
+    b_m: Decimal | None
+    h_m: Decimal | None
+    area_m2: Decimal | None
+    qty_si: Decimal
+    unit_si: str
     billing_unit: str
     quantity: Decimal
-    state: str
     rebar_basis: str | None
-    trace: tuple[dict[str, str], ...]
+    diameter_mm: int | None
+    assumed_split: bool
+    lap: bool
+    held: bool
+    trace: tuple[dict[str, Any], ...]
+    """Each `{sheet_id, view_id, anchor}`; an anchor given as text is `{"ref": text}`."""
 
 
 @dataclass
@@ -429,18 +443,40 @@ def _numbered(item: BilledItem, number: str) -> BilledItem:
 
 
 def _traced(line: Any) -> TracedLine:
+    def got(name: str, default: Any = None) -> Any:
+        return getattr(line, name, default)
+
+    diameter = got("diameter_mm")
     return TracedLine(
-        element_id=line.element_id,
+        element_id=got("element_id"),
         item_code=str(line.item_code),
+        storey=None if got("storey") is None else str(got("storey")),
         step=str(line.step),
         family=str(line.family),
-        storey=str(line.storey),
+        state=str(line.state),
+        rule_codes=tuple(str(code) for code in got("rule_codes", ())),
+        nos=int(got("nos", 1)),
+        l_m=got("l_m"),
+        b_m=got("b_m"),
+        h_m=got("h_m"),
+        area_m2=got("area_m2"),
+        qty_si=Decimal(got("qty_si", line.quantity)),
+        unit_si=str(got("unit_si", line.billing_unit)),
         billing_unit=str(line.billing_unit),
         quantity=Decimal(line.quantity),
-        state=str(line.state),
-        rebar_basis=line.rebar_basis,
-        trace=tuple(
-            {"sheet_id": str(t["sheet_id"]), "view_id": str(t["view_id"]), "anchor": str(t["anchor"])}
-            for t in line.trace
-        ),
+        rebar_basis=got("rebar_basis"),
+        diameter_mm=None if diameter is None else int(diameter),
+        assumed_split=bool(got("assumed_split", False)),
+        lap=bool(got("lap", False)),
+        held=bool(got("held", line.state != MEASURED)),
+        trace=tuple(_trace_entry(t) for t in line.trace),
     )
+
+
+def _trace_entry(entry: Any) -> dict[str, Any]:
+    anchor = entry.get("anchor")
+    return {
+        "sheet_id": entry.get("sheet_id"),
+        "view_id": entry.get("view_id"),
+        "anchor": anchor if anchor is None or isinstance(anchor, dict) else {"ref": str(anchor)},
+    }

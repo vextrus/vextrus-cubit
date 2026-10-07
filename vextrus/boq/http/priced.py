@@ -13,7 +13,8 @@ import uuid
 from django.http import HttpRequest
 from ninja import Router
 
-from vextrus.boq.schemas.priced import BoqLineOut, BoqLinesOut, PricedBoqOut
+from vextrus.boq.schemas.boq import BoqLinesOut
+from vextrus.boq.schemas.priced import PricedBoqOut, lines_out
 from vextrus.boq.services import priced
 from vextrus.platform.http.acts import declare
 from vextrus.platform.services.auth import Act, Grant
@@ -33,6 +34,4 @@ def get_boq(request: HttpRequest, project_id: uuid.UUID) -> PricedBoqOut:
 @router.get("/projects/{project_id}/boq/items/{item_code}/lines", response=BoqLinesOut)
 @declare(LOOK, project="project_id")
 def get_item_lines(request: HttpRequest, project_id: uuid.UUID, item_code: str) -> BoqLinesOut:
-    return BoqLinesOut(
-        lines=[BoqLineOut.from_view(line) for line in priced.item_lines(project_id, item_code)]
-    )
+    return lines_out(priced.item_lines(project_id, item_code))
