@@ -3,10 +3,10 @@
 Reads every catalogue's English, the machine's and the chrome's (`web/src/messages/**/en.po` and each
 feature's `web/src/<feature>/locales/en.po`, but not the development harness's), and fails on a msgstr
 that holds:
-- an **engine term** (m0-screens 1.1: never shown to a QS or an MD): process, stage, exit code,
-  reader, dumper, sandbox, decoder, parser, candidate, regex, artefact, job, worker, queue, cache,
-  token, API, timeout, viewport, model space, paper space, and 1.1's own list (entity, handle, DXF,
-  LibreDWG, ACadSharp, ezdxf, parse, hash, buffer, render, JSON, UUID…); as whole words, any case,
+- an **engine term**: 1.1's list (m0-screens 1.1, never shown to a QS or an MD), read from
+  `web/src/test/never-shown.json`, the one list, which the screen tests' DOM check reads too; a font
+  file name with its extension (`romans.shx`); and process, stage, exit code, reader, dumper, decoder,
+  parser, candidate, regex, cache, token, timeout, viewport, paper space; as whole words, any case,
   plurals too; and a `{program}` or `{exit_code}` argument (a converter's name, a raw exit code);
 - **"add it again"** (or "add them again"): m0-screens 4.5 refuses the same file added again ("… is
   already in this Drawing Set … Nothing was added"), so the words may say it only where the file was
@@ -29,6 +29,7 @@ with no reason, or one that no longer lets anything off, fails the lint.
 """
 
 import argparse
+import json
 import re
 import sys
 import tomllib
@@ -36,6 +37,7 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+REPO = Path(__file__).resolve().parents[2]
 CATALOGUES = "web/src/messages"
 FEATURES = "web/src/*/locales/**/en.po"
 """Each feature's catalogue (`web/lingui.config.ts`: `src/{name}/locales/{locale}`)."""
@@ -53,14 +55,14 @@ COUNT = "count without a plural"
 RULES = (ENGINE_TERM, ADD_AGAIN, ASK_MD, REINFORCEMENT, POSITIONAL, COUNT)
 
 _ENGINE_TERMS = re.compile(
-    r"\b(?:process(?:es)?|stages?|exit codes?|readers?|dumpers?|sandbox(?:es)?|decoders?|parsers?"
-    r"|candidates?|regex(?:es)?|artefacts?|jobs?|workers?|queues?|caches?|tokens?|APIs?|timeouts?"
-    r"|viewports?|model spaces?|paper spaces?"
-    # m0-screens 1.1's own list of words never shown to a QS or an MD.
-    r"|entit(?:y|ies)|handles?|DXF|LibreDWG|ACadSharp|ezdxf|pdf\.js|WebGL|SDF|parse[sd]?|parsing"
-    r"|hash(?:es)?|sha256|buffers?|renders?|JSON|UUIDs?)\b",
+    r"\b(?:process(?:es)?|stages?|exit codes?|readers?|dumpers?|decoders?|parsers?|parsed|parsing"
+    r"|candidates?|regex(?:es)?|caches?|tokens?|timeouts?|viewports?|paper spaces?)\b",
     re.IGNORECASE,
 )
+"""Engine terms beyond m0-screens 1.1's list, which is `NEVER_SHOWN`'s."""
+NEVER_SHOWN = "web/src/test/never-shown.json"
+"""m0-screens 1.1's "Never shown to a QS or an MD": the one list, read by the screen tests too."""
+_FONT_FILE = re.compile(r"\b[\w-]+\.shx\b", re.IGNORECASE)
 _ENGINE_ARGUMENTS = {"program", "exit_code", "returncode"}
 """Arguments that put a converter's name or a raw exit code in front of a QS."""
 _ADD_AGAIN = re.compile(r"\badd (?:it|them) again\b", re.IGNORECASE)
@@ -223,6 +225,19 @@ def _read_icu(text: str, start: int, words: list[str], arguments: list[Argument]
     return i
 
 
+def never_shown(root: Path) -> re.Pattern[str]:
+    """The pattern for 1.1's list: each word whole, in any case, with its plural. The list is `root`'s;
+    a scratch tree with none is judged by this repository's."""
+    source = root / NEVER_SHOWN
+    if not source.exists():
+        source = REPO / NEVER_SHOWN
+    forms = []
+    for word in json.loads(source.read_text(encoding="utf-8")):
+        escaped = re.escape(word)
+        forms.append(f"{re.escape(word[:-1])}(?:y|ies)" if word.endswith("y") else f"{escaped}(?:e?s)?")
+    return re.compile(rf"\b(?:{'|'.join(forms)})(?!\w)", re.IGNORECASE)
+
+
 def parse(msgstr: str) -> tuple[str, list[Argument]]:
     """The msgstr's own words (joined, each piece on its own line) and its arguments."""
     words: list[str] = []
@@ -235,7 +250,7 @@ def parse(msgstr: str) -> tuple[str, list[Argument]]:
     return "\n".join(words), arguments
 
 
-def findings_in(message: Message) -> Iterator[Finding]:
+def findings_in(message: Message, shown: re.Pattern[str]) -> Iterator[Finding]:
     words, arguments = parse(message.msgstr)
 
     def hit(rule: str, text: str) -> Finding:
@@ -243,6 +258,8 @@ def findings_in(message: Message) -> Iterator[Finding]:
 
     for rule, pattern in (
         (ENGINE_TERM, _ENGINE_TERMS),
+        (ENGINE_TERM, shown),
+        (ENGINE_TERM, _FONT_FILE),
         (ADD_AGAIN, _ADD_AGAIN),
         (ASK_MD, _ASK_MD),
         (REINFORCEMENT, _REINFORCEMENT),
@@ -275,9 +292,10 @@ def scan(root: Path, allowlist: Sequence[Allow]) -> tuple[list[Finding], list[Al
     """The findings the allowlist does not let off, and the entries that let nothing off."""
     findings: list[Finding] = []
     used: set[Allow] = set()
+    shown = never_shown(root)
     for path in catalogues(root):
         for message in messages(path, path.relative_to(root).as_posix()):
-            for finding in findings_in(message):
+            for finding in findings_in(message, shown):
                 allowing = [entry for entry in allowlist if entry.allows(finding)]
                 used.update(allowing)
                 if not allowing:
