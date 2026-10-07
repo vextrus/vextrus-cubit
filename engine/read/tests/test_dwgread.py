@@ -785,7 +785,8 @@ def test_a_layouts_plot_settings_are_kept_as_the_file_states_them() -> None:
 @pytest.mark.parametrize(
     ("key", "value"),
     [(0, None), (0, "841"), (1, float("nan")), (2, float("inf")), (5, True), (6, [0.0]),
-     (6, "0,0"), (6, [0.0, float("nan")]), (7, 4), (7, 1.0), (7, None)],
+     (6, "0,0"), (6, [0.0, float("nan")]), (7, 4), (7, 1.0), (7, None), (0, 10**400),
+     (3, -(10**400)), (6, [10**400, 0.0])],
 )  # fmt: skip
 def test_a_layouts_plot_settings_with_a_value_no_sheet_has_are_not_kept(key: int, value: object) -> None:
     """A hostile file's plot settings: a size, margin or offset that is no finite number, or a turn

@@ -180,3 +180,26 @@ def test_a_layout_the_drawing_lacks_has_no_paper() -> None:
     with pytest.raises(ValueError, match="not in the drawing"):
         paper_of(artefact, SheetCandidate(SheetLocation(layout="nowhere")))
     assert views.find(artefact, SheetCandidate(SheetLocation(layout="nowhere"))).paper is None
+
+
+@pytest.mark.parametrize(
+    ("frame", "lines", "units", "plot"),
+    [((0, 0, 1e300, 1e300), (), None, plotted()), ((0, 0, 1e5, 1e5), (), 1e4, plotted()),
+     ((0, 0, 1e-300, 1e-300), (), None, None), (None, (((-1e308, 0), (1e308, 0)),), None, plotted())],
+)  # fmt: skip
+def test_a_paper_no_sheet_has_is_refused_by_views_and_buffers_alike(
+    frame: tuple[float, float, float, float] | None,
+    lines: tuple[tuple[tuple[float, float], tuple[float, float]], ...],
+    units: float | None,
+    plot: PlotSettings | None,
+) -> None:
+    """S15-E2's refuter: a hostile layout's frame or extents of no size, past a float, or past
+    `MAX_PAPER_MM` a side give no paper: `paper_of` refuses it, the views read none and the buffer
+    is refused, never a sheet 1e300 mm wide."""
+    artefact, sheet = layout(frame, plot, lines=lines, paper_mm_per_unit=units)
+    refused = r"no area|larger than any sheet"
+    with pytest.raises(ValueError, match=refused):
+        paper_of(artefact, sheet)
+    assert views.find(artefact, sheet).paper is None
+    with pytest.raises(ValueError, match=refused):
+        buffers.build(artefact, sheet)

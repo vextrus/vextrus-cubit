@@ -114,14 +114,23 @@ def _paper_mm(layout: Mapping[str, Any]) -> float | None:
         and isinstance(drawn, int | float)
         and not isinstance(paper, bool)
         and not isinstance(drawn, bool)
-        and math.isfinite(paper)
-        and math.isfinite(drawn)
+        and _finite(paper)
+        and _finite(drawn)
         and (paper > 0 and drawn > 0)
     ):
         scaled = mm * paper / drawn
         if MIN_PAPER_MM <= scaled <= MAX_PAPER_MM:
             return scaled
     return mm
+
+
+def _finite(value: float) -> bool:
+    """Whether a number is one a float holds, finite: an integer past any float (a hostile file's
+    10**400) is not (the refuter of S15-E2: `math.isfinite` raised on it)."""
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:
+        return False
 
 
 def _plot(layout: Mapping[str, Any]) -> PlotSettings | None:
@@ -133,7 +142,7 @@ def _plot(layout: Mapping[str, Any]) -> PlotSettings | None:
     numbers = [
         float(v)
         for v in (width, height, left, bottom, right, top, *origin)
-        if isinstance(v, int | float) and not isinstance(v, bool) and math.isfinite(v)
+        if isinstance(v, int | float) and not isinstance(v, bool) and _finite(v)
     ]
     if len(numbers) != 8 or type(turn) is not int or turn not in (0, 1, 2, 3):
         return None

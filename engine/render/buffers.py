@@ -1503,13 +1503,7 @@ def build(
 ) -> SheetBuffers:
     """The sheet's buffers (the module's docstring). `plot` is the paper of the Plot page matched to a
     model-space sheet, in mm (`views.paper.paper_of`; a layout's paper is its own)."""
-    block, paper, window = _space(artefact, sheet, plot)
-    values = (paper.width_mm, paper.height_mm, paper.mm_per_unit, *paper.origin)
-    if min(paper.width_mm, paper.height_mm) <= 0:
-        raise ValueError("the sheet's paper has no area")
-    if not all(math.isfinite(v) for v in values) or max(paper.width_mm, paper.height_mm) > MAX_PAPER_MM:
-        size = f"{paper.width_mm:g} x {paper.height_mm:g} mm"
-        raise ValueError(f"the sheet's paper, {size}, is larger than any sheet's")
+    block, paper, window = _space(artefact, sheet, plot)  # a paper no sheet has is refused there
     gathered = _Sheet(artefact, paper, limits)
     _Drawer(gathered, gathered.to_paper, window, None).run(block)
     if sheet.location.layout is not None:

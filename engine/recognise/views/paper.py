@@ -362,10 +362,7 @@ def _paper(
     try:
         laid = paper_of(artefact, sheet, plot)
     except ValueError:
-        return None  # a sheet whose layout or model space its drawing lacks
-    sizes = (laid.width_mm, laid.height_mm, laid.mm_per_unit, *laid.origin)
-    if not all(math.isfinite(v) for v in sizes) or min(laid.width_mm, laid.height_mm) <= 0:
-        return None  # a paper past what a float holds: nothing is read on it
+        return None  # a sheet whose layout its drawing lacks, or a paper no sheet has: none is read
     on_paper = scaling(laid.mm_per_unit, laid.mm_per_unit) @ translation(
         -laid.origin[0], -laid.origin[1]
     )
@@ -661,7 +658,24 @@ def paper_of(
     (`buffers.build`) are both laid on, in mm from its lower-left corner (`Paper.origin`, in its space's
     units), so a view's outline lies over its drawing (S15-E2, #314). The module's docstring has the
     rules. `plot` is the paper of the Plot page matched to a model-space sheet, in mm (a layout's paper
-    is its own). Raises ValueError for a sheet whose layout or model space its drawing lacks."""
+    is its own). Raises ValueError for a sheet whose layout its drawing lacks, or whose paper is no
+    sheet's: of no size, not finite, or past `MAX_PAPER_MM` a side (the render buffers' bound)."""
+    paper = _laid(artefact, sheet, plot)
+    values = (paper.width_mm, paper.height_mm, paper.mm_per_unit, *paper.origin)
+    if min(paper.width_mm, paper.height_mm) <= 0:
+        raise ValueError("the sheet's paper has no area")
+    if (
+        not all(map(math.isfinite, values))
+        or max(paper.width_mm, paper.height_mm) > MAX_PAPER_MM
+        or not paper.mm_per_unit > 0
+    ):
+        size = f"{paper.width_mm:g} x {paper.height_mm:g} mm"
+        raise ValueError(f"the sheet's paper, {size}, is larger than any sheet's")
+    return paper
+
+
+def _laid(artefact: ReadArtefact, sheet: SheetCandidate, plot: tuple[float, float] | None) -> Paper:
+    """The sheet's paper by `paper_of`'s rules, before its bounds are checked."""
     location = sheet.location
     frame = next((a for a in sheet.anchors if isinstance(a, DwgAnchor)), None)
     if location.layout is not None:

@@ -194,7 +194,8 @@ def test_a_layouts_plot_settings_survive_json_and_a_hostile_one_is_refused() -> 
     assert block.plot == PlotSettings(841.0, 594.0, (0.0, 1.5, 0.0, 2.0), (3.0, -4.0), 1)
     assert json.loads(json.dumps(ReadArtefact.from_json(data).to_json())) == data
     for key, wrong in (("width_mm", float("nan")), ("height_mm", "594"), ("margins_mm", [0.0] * 3),
-                       ("origin_mm", [0.0, math.inf]), ("rotation", 4), ("rotation", True)):  # fmt: skip
+                       ("origin_mm", [0.0, math.inf]), ("rotation", 4), ("rotation", True),
+                       ("width_mm", 10**400)):  # fmt: skip
         data["blocks"][0]["plot"] = {**plot, key: wrong}
         with pytest.raises(ValueError, match="read artefact"):
             ReadArtefact.from_json(data)

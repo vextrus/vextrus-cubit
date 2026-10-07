@@ -358,7 +358,10 @@ def _optional_point(value: object, what: str) -> Point | None:
 def _number(value: object, what: str) -> float:
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"read artefact: {what} must be a number, got {value!r}")
-    return float(value)
+    try:
+        return float(value)
+    except OverflowError:  # an integer past any float
+        raise ValueError(f"read artefact: {what} must be a number a float holds") from None
 
 
 def _optional_number(value: object, what: str) -> float | None:
