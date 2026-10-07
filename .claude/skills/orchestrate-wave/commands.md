@@ -60,9 +60,9 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS
-  first, then by number), brings each up to date, waits for CI, prints the gates still owed and merges.
+  first, then by number), lands each as it stands (a conflicting PR is refused, naming `land update`), waits for CI, prints the gates still owed and merges.
 - `scripts.land update <PR>` (words, not a line to type): main into the PR's branch, merging nothing; the
-  lander's own step.
+  only path that moves a head (the lander never updates).
 - `uv run python -m scripts.land <PR>`: one PR, the same way.
 - `uv run python -m scripts.merge_ready <PR>`: the last check before any merge, by hand or by the lander.
 
