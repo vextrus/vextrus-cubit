@@ -189,3 +189,162 @@ reason = "Nothing was kept: the add and its read job are one transaction, rolled
 msgid = "takeoff.read_file.not_started_waiting"
 rule = "add it again"
 reason = "The file is in the set, waiting with no read job; adding the same contents again is what queues its reading (read_file.add attaches the job and answers takeoff.read_file.reading_started), so 4.5's refusal does not apply."
+
+# The chrome's catalogues (web/src/<feature>/locales/en.po), read since T-W329: each entry is
+# m0-screens' own words or a count the code guards from reading "1 sheets" (the line cited).
+
+[[allow]]
+msgid = "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
+rule = "ask your MD"
+reason = "m0-screens 4.1 (line 530), verbatim: \"… Ask your MD, or Vextrus, for an invitation.\": inviting a member is an act an MD can do."
+
+[[allow]]
+msgid = "{name} was not added: it could not be received. If its name is very long, shorten it and add it again. If this keeps happening, tell Vextrus."
+rule = "add it again"
+reason = "Said of a file that was not kept (m0-screens 4.5 lets \"add it again\" stand only there): nothing of it is in the Drawing Set."
+
+[[allow]]
+msgid = "{name} was not added. Vextrus could not add it just now. Add it again in a minute."
+rule = "add it again"
+reason = "Said of a file that was not kept (m0-screens 4.5 lets \"add it again\" stand only there): nothing of it is in the Drawing Set."
+
+[[allow]]
+msgid = "Readers"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's Readers section (line 735): the report panel's heading for the two readers' verdict."
+
+[[allow]]
+msgid = "Vextrus could not tell whether {name} was added. If it is not in the list in a minute, add it again."
+rule = "add it again"
+reason = "Said of a file that was not kept (m0-screens 4.5 lets \"add it again\" stand only there): nothing of it is in the Drawing Set."
+
+[[allow]]
+msgid = "{name} was not added. <0/> Add it again."
+rule = "add it again"
+reason = "Said of a file that was not kept (m0-screens 4.5 lets \"add it again\" stand only there): nothing of it is in the Drawing Set."
+
+[[allow]]
+msgid = "{name} was not added. Vextrus can’t be reached. Check your connection and add it again."
+rule = "add it again"
+reason = "Said of a file that was not kept (m0-screens 4.5 lets \"add it again\" stand only there): nothing of it is in the Drawing Set."
+
+[[allow]]
+msgid = "{name} was not added: Vextrus cannot use its name. Rename it and add it again."
+rule = "add it again"
+reason = "Said of a file that was not kept (m0-screens 4.5 lets \"add it again\" stand only there): nothing of it is in the Drawing Set."
+
+[[allow]]
+msgid = "{projectName}’s Drawing Set: {count} Open it to see why."
+rule = "count without a plural"
+reason = "{count} is the whole phrase \"… added; … was not added\" (DrawingSetPage.tsx:610, severalAdded), its counts worded with their own plurals: no number stands here."
+
+[[allow]]
+msgid = "{projectName}’s Drawing Set: {count}"
+rule = "count without a plural"
+reason = "{count} is the whole phrase \"… added; … was not added\" (DrawingSetPage.tsx:610, severalAdded), its counts worded with their own plurals: no number stands here."
+
+[[allow]]
+msgid = "<0/><1>, {count} sheets</1>"
+rule = "count without a plural"
+reason = "Shown only when the row holds more than one sheet (SheetList.tsx:517, row.sheets.length > 1): it never reads \"1 sheets\"."
+
+[[allow]]
+msgid = "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
+rule = "count without a plural"
+reason = "{discipline}/{kind} is a name before \"sheets\", not a count; the count is the plural's # and is worded one/other."
+
+[[allow]]
+msgid = "One title on {count} sheets"
+rule = "count without a plural"
+reason = "Shown only when n > 2 (questionWords.tsx:40; two sheets read \"One title on two sheets\"): it never reads \"1 sheets\"."
+
+[[allow]]
+msgid = "<0/><1>, {count} copies</1>"
+rule = "count without a plural"
+reason = "A copies row holds two or more sheets (model.ts:272, holds.length > 1): it never reads \"1 copies\"."
+
+[[allow]]
+msgid = "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}"
+rule = "count without a plural"
+reason = "{discipline}/{kind} is a name before \"sheets\", not a count; the count is the plural's # and is worded one/other."
+
+[[allow]]
+msgid = "Trace: {file}, as each of the two readers read it"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 4.5's own word for the two readers (6.17, line 1571: \"two readers agree\" / \"the two readers disagree\"); the held file's Trace shows each reader's reading."
+
+[[allow]]
+msgid = "<0/><1>Held: the two readers disagree</1>"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 6.17 (line 1571): \"two readers agree\" / \"the two readers disagree\" is 4.5's own wording, and 6.2 (lines 1167, 1187) words Step 1's file rows so."
+
+[[allow]]
+msgid = "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
+rule = "count without a plural"
+reason = "\"excludes\" is the verb after the Confirmed sheet's number, not a plural noun: one sheet is confirmed and the rest excluded."
+
+[[allow]]
+msgid = "Set this file aside: I’ll re-save it from AutoCAD (open it, run AUDIT, save) and add it again"
+rule = "add it again"
+reason = "m0-screens 5's held-file Question (lines 1021 and 1588), option 2 verbatim: \"Set this file aside: I'll re-save it from AutoCAD … and add it again\"."
+
+[[allow]]
+msgid = "{name}: {openText} Questions open"
+rule = "count without a plural"
+reason = "Shown only when more than one is open (Step1Inspector.tsx:51 says \"1 Question open\" for one)."
+
+[[allow]]
+msgid = "Confirm {n}"
+rule = "count without a plural"
+reason = "No noun follows the count: \"Confirm 1\" reads right; the bar's verb takes a number, not a plural."
+
+[[allow]]
+msgid = "A file is held: the two readers disagree"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 6.17 (line 1571): \"two readers agree\" / \"the two readers disagree\" is 4.5's own wording, and 6.2 (lines 1167, 1187) words Step 1's file rows so."
+
+[[allow]]
+msgid = "Confirm {n}, leave out {m}"
+rule = "count without a plural"
+reason = "No noun follows the count: \"Confirm 1\" reads right; the bar's verb takes a number, not a plural."
+
+[[allow]]
+msgid = "Basement {n}"
+rule = "count without a plural"
+reason = "{n} is a floor number, not a count (storeys.tsx:61: the second basement and below)."
+
+[[allow]]
+msgid = "{count} with no Discipline"
+rule = "count without a plural"
+reason = "No noun follows the count, and one reads \"1 with no Discipline\" (Step1Inspector.tsx:61 guards it)."
+
+[[allow]]
+msgid = "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found."
+rule = "count without a plural"
+reason = "{range} is a span of sheet numbers and \"gaps\" follows \"with\": no count stands before a plural noun."
+
+[[allow]]
+msgid = "two readers agree"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 6.17 (line 1571): \"two readers agree\" / \"the two readers disagree\" is 4.5's own wording, and 6.2 (lines 1167, 1187) words Step 1's file rows so."
+
+[[allow]]
+msgid = "{n} / {total} settled"
+rule = "count without a plural"
+reason = "A fraction of settled sheets, no noun after the count: \"1 / 1 settled\" reads right (m0-screens 5's progress row)."
+
+[[allow]]
+msgid = "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers agree}}"
+rule = "engine term"
+term = "readers"
+reason = "m0-screens 6.17 (line 1571): \"two readers agree\" / \"the two readers disagree\" is 4.5's own wording, and 6.2 (lines 1167, 1187) words Step 1's file rows so."
+
+[[allow]]
+msgid = "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
+rule = "count without a plural"
+reason = "\"excludes\" is the verb after the Confirmed sheet's number, not a plural noun: one sheet is confirmed and the rest excluded."

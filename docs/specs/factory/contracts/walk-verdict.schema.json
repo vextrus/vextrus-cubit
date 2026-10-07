@@ -1,0 +1,474 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vextrus.invalid/factory/walk-verdict.schema.json",
+  "title": "A G1 walk's verdict: .private/work/walks/<sha40>/verdict.json",
+  "description": "Contract (PR f0) for the file the G1 real-set walk writes last (`scripts/walk/` and the `real-set-walk.js` workflow, PR f5) and `scripts/walk/ready.py` (PR f5), `scripts/factory/watch.py` (PR f3, the band's 'G1 main') and the walk-now hook (PR f6, through ready.py) read (docs/specs/factory.md 3.8 'real-set-walk.js', 5 'G1'). WRITE: after the script layer's `walk.json` exists, the agent layer has finished, every issue draft passed the leak scan and the triage is done, `scripts/walk/` writes `.private/work/walks/<sha40>/verdict.json` atomically; it is the last file written, so its existence means the walk is over. The folder name is the walked head's full sha. The file is private (under .private/) but holds no free text anyway: only enums, numbers and ids, so `scripts/walk/sanitize.py` can publish from it by allowlist (finish-line item code, defect class, screen, numeric delta). READ: `ready.py <ref>` passes only when the two most recent verdicts of main (by `finished_at`) both have `result` PASS with no FAIL between them and the newer one is on `<ref>`'s current head, or on an earlier head whose diff to it touches no product path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`); ready.py takes the head from `sha` and the diff from git. THE PASS RULE (stated once, here and in docs/specs/factory.md 5 'G1'): `result` is PASS if and only if (1) every element of `checks` has status PASS (UNSET, a check with no expectation, fails); (2) every element of `agent_layer.items` has status PASS (NOT_WALKED fails, as does FAIL) and all twelve walked items, M0-FL1 to M0-FL11 and M0-FL13, are listed once each; (3) `agent_layer.blocks` is 0; and (4) `agent_layer.misleading` is 0. Otherwise `result` is FAIL; there is no third result. The schema enforces the PASS direction (the top-level if/then); `scripts/walk/` computes `result` by this rule and `scripts/walk/tests/` tests both directions. THE ITEM CODES: M0-FLn is item n of docs/specs/M0.md 'Finish line', 'The owner's walk' (n = 1 to 13; the mapping table is in docs/specs/factory.md 5). The prefix keeps them apart from the finish codes FL1 and FL2 of docs/research/qs-defaults.md and docs/specs/M2.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sha",
+    "ref",
+    "started_at",
+    "finished_at",
+    "result",
+    "checks",
+    "burden",
+    "agent_layer",
+    "leak_scan"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "sha": {
+      "$ref": "#/$defs/sha",
+      "description": "The walked head, the folder's name."
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "What was walked: `main` for a gate walk. ready.py counts only verdicts with ref `main` toward 'the two most recent on main'."
+    },
+    "started_at": {
+      "$ref": "#/$defs/utc"
+    },
+    "finished_at": {
+      "$ref": "#/$defs/utc"
+    },
+    "result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The script layer's eight measured checks (`web/e2e/real/walk.spec.ts`, judged by `scripts/walk/verdict.py`), once per Development Set walked, in the order of `check`'s enum. Selectors use roles and test ids, never a title.",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    },
+    "burden": {
+      "type": "array",
+      "description": "G5, the QS's burden: one element per (set, Discipline), from the snapshot the walk took from the API in a Project no act touched, once its last read ended (`scripts/walk/measures.py`). Counts only. Checks 3 to 8 are re-derived from these rows by `ready.py`.",
+      "items": {
+        "$ref": "#/$defs/burdenRow"
+      }
+    },
+    "agent_layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "findings",
+        "blocks",
+        "misleading",
+        "issues_drafted",
+        "dedup_comments"
+      ],
+      "description": "`/real-set-walk`: `ux-critic` (by eye) and `qs-critic` (burden) walk the finish-line items M0-FL1 to M0-FL11 and M0-FL13 (docs/specs/factory.md 5's table; M0-FL12, the owner's real-drawing check on main, is dropped from G1 because each merged engine head's posting run covers it). Invariant (tested): len(findings) = issues_drafted + dedup_comments, and blocks and misleading are the counts of findings with severity BLOCKS and with misleading true.",
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "The verdict per finish-line item walked. A PASS verdict lists all twelve walked items once each (the top-level if/then).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "item",
+              "status"
+            ],
+            "properties": {
+              "item": {
+                "type": "string",
+                "pattern": "^M0-FL(1[0-1]|13|[1-9])$",
+                "description": "M0-FL1 to M0-FL11 and M0-FL13: item n of docs/specs/M0.md 'Finish line' (docs/specs/factory.md 5's table)."
+              },
+              "status": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_WALKED"
+                ],
+                "description": "The item's status, one of three: PASS: walked, and the item holds as docs/specs/M0.md words it (findings of severity OTHER may stand under it); FAIL: walked, and the item does not hold as worded (a finding under it says why); NOT_WALKED: not walked (no time, a crash, a screen that would not open). Only PASS lets the walk's `result` be PASS: FAIL and NOT_WALKED both fail it."
+              }
+            }
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "blocks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "misleading": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "issues_drafted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dedup_comments": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "leak_scan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hits"
+      ],
+      "description": "The leak scan (`python -m tools.leakscan dir .private/work/walks/<sha40>/` plus every issue draft) ran before this file was written. A walk with hits is not written as a verdict; the field exists so a consumer can refuse a file whose scan was not clean.",
+      "properties": {
+        "hits": {
+          "const": 0
+        }
+      }
+    }
+  },
+  "if": {
+    "properties": {
+      "result": {
+        "const": "PASS"
+      }
+    },
+    "required": [
+      "result"
+    ]
+  },
+  "then": {
+    "properties": {
+      "checks": {
+        "items": {
+          "properties": {
+            "status": {
+              "const": "PASS"
+            }
+          }
+        }
+      },
+      "agent_layer": {
+        "properties": {
+          "items": {
+            "minItems": 12,
+            "uniqueItems": true,
+            "items": {
+              "properties": {
+                "status": {
+                  "const": "PASS"
+                }
+              }
+            }
+          },
+          "blocks": {
+            "const": 0
+          },
+          "misleading": {
+            "const": 0
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "utc": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$"
+    },
+    "number": {
+      "type": "number",
+      "minimum": 0
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check",
+        "set",
+        "status",
+        "measured",
+        "expected"
+      ],
+      "properties": {
+        "check": {
+          "enum": [
+            "reads_complete",
+            "act_p95_during_read",
+            "questions_per_discipline",
+            "sheets_match",
+            "true_questions_raised",
+            "false_continuations",
+            "bulk_confirmable_share",
+            "storeys_match"
+          ],
+          "description": "The owner's Q5 refined limits (5 Oct 2026). reads_complete: (1) every file's read completes. act_p95_during_read: (2) acts (confirm, answer, exclude, undo) while a later file is still reading (where D1 lived): the p95, the worst act, a sample minimum of each kind and no failed act. questions_per_discipline: (3) machine-doubt Questions per Discipline (D2): open Questions not on the expectation's true list, numbering gaps once per file. sheets_match: (4) the set's total of Sheets against the sum of N, less its phantoms (blanks beyond the total, within the limit); the split per Discipline is reported in the burden rows, never judged. true_questions_raised: (5) every listed true Question raised. false_continuations: (6) conflict Questions on no true list, and listed stale-title pairs grouped by no Question. bulk_confirmable_share: (7) the Sheets the QS can confirm in bulk: (a) the set's bulk Sheets, of every Discipline (one the key does not name too) and of none, are at least the share of the key's N for the set, and (b) each Discipline's bulk Sheets (Sheets with no Discipline one row) are at least the share of the Sheets the product itself files under it; the numbers against the key's N per Discipline are reported, never judged (the owner, 5 Oct 2026: \"Total + own split\"; Q9). storeys_match: (8) listed Sheets whose storeys differ. Checks 3 to 8 read the snapshot taken before any act; a set it cannot measure has them FAIL with measured.unmeasured 1."
+        },
+        "set": {
+          "$ref": "#/$defs/slug",
+          "description": "The Development Set's slug, the name of its expectation file `.private/work/walk-expect/<set>.json`."
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "UNSET"
+          ],
+          "description": "PASS: measured within `expected`. FAIL: measured outside it, or not measured. UNSET: no expectation exists for this check (`expected` is null). FAIL and UNSET both fail the walk's `result`."
+        },
+        "measured": {
+          "type": "object",
+          "description": "The numbers the walk measured; keys by check. reads_complete: {files, completed}. act_p95_during_read: {p95_ms, max_ms, samples, confirm, undo, exclude, answer, failed_acts} (samples are acts while a read ran that answered 1 to 399; p95_ms and max_ms absent with no sample; with `unmeasured` and `no_confirm_target` 1 when the walk found no Sheet offering a confirm). questions_per_discipline: {questions_max_per_discipline, disciplines}. sheets_match: {sheets_found, missing, phantoms}. true_questions_raised: {true_listed, true_raised}. false_continuations: {false_questions, stale_grouped}. bulk_confirmable_share: {bulk_confirmable_sheets, sheets_expected}. storeys_match: {storeys_listed, storeys_wrong}. Any of them: {unmeasured: 1} alone when the set's snapshot could not measure it, which fails the check.",
+          "additionalProperties": {
+            "$ref": "#/$defs/number"
+          }
+        },
+        "expected": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "description": "The limits, from Q5 and the Answer Key's counts (reads_complete: {files}; act_p95_during_read: {p95_ms_max, max_ms_max, samples_each_min}; questions_per_discipline: {questions_max_per_discipline}; sheets_match: {sheets (the sum of N), phantoms_max}; true_questions_raised: {true_questions (how many are listed; one restating a stale-title pair is raised only by a same_title conflict holding exactly its two Sheets)}; false_continuations: {false_continuation_max, stale_title_grouped_max}; bulk_confirmable_share: {bulk_confirmable_share_min}; storeys_match: {storeys_wrong_max}). Never taken from a walk's own recording.",
+              "additionalProperties": {
+                "$ref": "#/$defs/number"
+              }
+            }
+          ],
+          "description": "null exactly when status is UNSET."
+        }
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "UNSET"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "expected": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "expected": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "burdenRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "set",
+        "discipline",
+        "questions_by_kind",
+        "questions_total",
+        "sheets",
+        "sheets_expected",
+        "bulk_confirmable_sheets",
+        "one_source_sheets",
+        "machine_doubt_questions",
+        "continuation_questions",
+        "false_continuation_questions"
+      ],
+      "properties": {
+        "set": {
+          "$ref": "#/$defs/slug"
+        },
+        "discipline": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40,
+          "description": "A Market Discipline's name (a Library row, CONTEXT.md), never drawing text."
+        },
+        "questions_by_kind": {
+          "type": "object",
+          "description": "Open Questions by the product's Question kind code (for example `low_confidence`), each a count.",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "questions_total": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The sum of questions_by_kind: every open Question, true defects too."
+        },
+        "sheets": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The Sheets found, every one (a Sheet proposed out and an empty layout too)."
+        },
+        "sheets_expected": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "N, the expectation's Sheet count for the Discipline; null when the expectation does not list it (its Sheets still count toward the set's total; only blanks beyond the total are phantoms) or the set was not measured."
+        },
+        "bulk_confirmable_sheets": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Sheets the QS can confirm in bulk (they agree and are not held; where a numbering gap is open, counted after the walk answered it). Q5: 80 % or more of the Sheets the product files under the Discipline (`sheets`), and the set's total, every row counted, 80 % or more of the sum of N (Q9); this row's count against `sheets_expected` is reported, never judged. null when a gap was open and no count was read after it."
+        },
+        "blank_sheets": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Present only when the Discipline has one: blanks among `sheets` (no number, proposed out `blank`): only blanks beyond the set's total are phantoms. sheets_match judges the set's total (the owner, 5 Oct 2026: \"Judge the total; report the split\"); `sheets` and `sheets_expected` report the split per Discipline, never judged."
+        },
+        "machine_doubt_questions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Open Questions not on the true list, numbering gaps once per file. Q5's limit: 3 or fewer per Discipline. null when the set was not measured."
+        },
+        "one_source_sheets": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "continuation_questions": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Informational: open same_title and same_storey Questions, true or false."
+        },
+        "false_continuation_questions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Open conflict Questions (same_title, same_storey, same_number) on no true list; null when the set was not measured. Q5's limit: 0."
+        }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "item",
+        "defect_class",
+        "screen",
+        "delta",
+        "severity",
+        "misleading",
+        "issue",
+        "dedup_comment_on"
+      ],
+      "description": "One finding. No free-text field exists: the evidence stays in .private/work/walks/<sha40>/ under `id`. Exactly one of `issue` and `dedup_comment_on` is non-null (the finding became an issue draft, or a comment on an open `walk` issue).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,39}$",
+          "description": "The finding id naming its evidence folder."
+        },
+        "item": {
+          "type": "string",
+          "pattern": "^M0-FL(1[0-1]|13|[1-9])$",
+          "description": "The finish-line item it was found under (M0-FL1 to M0-FL11 and M0-FL13)."
+        },
+        "defect_class": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,39}$",
+          "description": "A class code from `scripts/walk/sanitize.py`'s allowlist (for example `act_waits_on_read`)."
+        },
+        "screen": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,59}$",
+          "description": "A screen code from the same allowlist (the route's name, never a title)."
+        },
+        "delta": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "The numeric delta against the expectation, or null when the finding has none."
+        },
+        "severity": {
+          "enum": [
+            "BLOCKS",
+            "OTHER"
+          ],
+          "description": "BLOCKS fails the walk. Every other finding of any severity still becomes an issue or a dedup comment."
+        },
+        "misleading": {
+          "type": "boolean",
+          "description": "True when the product shows something that misleads the QS; fails the walk."
+        },
+        "issue": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "The issue number drafted for it, or null if it became a dedup comment."
+        },
+        "dedup_comment_on": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "description": "The open `walk` issue it commented on (exact (defect_class, screen) match, or `jev same-issue` at 0.8 or more), or null if it became an issue."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "issue": {
+              "type": "integer"
+            },
+            "dedup_comment_on": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "issue": {
+              "type": "null"
+            },
+            "dedup_comment_on": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

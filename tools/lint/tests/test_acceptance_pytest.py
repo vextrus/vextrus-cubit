@@ -31,11 +31,16 @@ def run(root: Path, files: dict[str, str], *args: str) -> subprocess.CompletedPr
     return subprocess.run(
         [sys.executable, "-m", "pytest", *plugins, *args, FOLDER],
         cwd=root,
-        env={**os.environ, "PYTHONPATH": str(REPO)},
+        env={**outer_environ(), "PYTHONPATH": str(REPO)},
         capture_output=True,
         text=True,
         check=False,
     )
+
+
+def outer_environ() -> dict[str, str]:
+    """This run's environment without xdist's variables: the outer run may itself be a worker."""
+    return {key: value for key, value in os.environ.items() if not key.startswith("PYTEST_XDIST_")}
 
 
 def not_run(stdout: str) -> str:
@@ -151,3 +156,35 @@ def test_a_hook_pointing_the_item_s_path_at_a_file_naming_the_marker_is_caught(t
     done = run(tmp_path, {"conftest.py": conftest, f"{FOLDER}/test_a.py": plain})
     assert done.returncode == 1, done.stdout
     assert "test_a.py::test_plain: deselected" in not_run(done.stdout), done.stdout
+
+
+# Under pytest-xdist (T-XDIST, issue #248) -------------------------------------------------------------
+
+CRASHES = "import os\n\n\ndef test_crashes():\n    os._exit(3)\n"
+FINE = "def test_fine():\n    assert True\n"
+
+
+def test_a_worker_that_dies_without_its_report_fails_the_run_closed(tmp_path: Path) -> None:
+    files = {f"{FOLDER}/test_crashes.py": CRASHES, f"{FOLDER}/test_fine.py": FINE}
+
+    done = run(tmp_path, files, "-n", "2", "--max-worker-restart", "0")
+
+    assert done.returncode == 1, done.stdout
+    assert "no report from the worker" in not_run(done.stdout), done.stdout
+
+
+SKIPPED = "import pytest\n\n\n@pytest.mark.skip(reason='x')\ndef test_skipped():\n    assert True\n"
+
+
+def test_under_three_workers_a_deselection_and_a_skip_are_each_named_once(tmp_path: Path) -> None:
+    files = {
+        f"{FOLDER}/test_{letter}.py": f"def test_{letter}():\n    assert True\n" for letter in "abc"
+    }
+    files[f"{FOLDER}/test_s.py"] = SKIPPED
+
+    done = run(tmp_path, files, "-n", "3", "-k", "not test_b")
+
+    assert done.returncode == 1, done.stdout
+    section = not_run(done.stdout)
+    assert section.count("test_b.py::test_b: deselected") == 1, done.stdout
+    assert section.count("test_s.py::test_skipped: skipped") == 1, done.stdout

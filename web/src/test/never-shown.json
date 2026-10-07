@@ -1,0 +1,6 @@
+[
+  "handle", "entity", "SDF", "DXF", "LibreDWG", "ACadSharp", "ezdxf", "pdf.js", "WebGL", "buffer",
+  "artefact", "render", "parse", "JSON", "sandbox", "worker", "job", "queue", "hash", "sha256",
+  "tenant", "RLS", "API", "null", "undefined", "NaN", "UUID", "locale", "cell", "home region", "Rod",
+  "model space"
+]

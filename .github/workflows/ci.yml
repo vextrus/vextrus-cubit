@@ -5,6 +5,10 @@
 # Required checks are never filtered by path at the workflow level (a skipped workflow leaves a
 # required check waiting): the `changes` job decides, and jobs skip by `if:`. The `ci` job at the end
 # is the one to require. Actions are pinned by commit, with their version in a comment.
+#
+# The tests run as a matrix, one leg per shard of .github/ci-shards.json (f1); the lints, types and
+# scans run once, in python-checks. `python3 -m tools.lint.ci_shards` (in harness) proves the shards
+# partition the suite and that this file still reads them.
 name: ci
 
 on:
@@ -26,6 +30,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       python: ${{ steps.paths.outputs.python }}
+      web: ${{ steps.web.outputs.web }}
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -45,6 +51,28 @@ jobs:
           # Only the web, the documents and the harness's prose leave the backend untouched.
           backend=$(grep -vE '^(web/|docs/|\.claude/(agents|skills)/|[^/]+\.md$)' <<< "$changed" || true)
           if [ -n "$backend" ]; then echo python=true; else echo python=false; fi >> "$GITHUB_OUTPUT"
+      - id: web
+        name: Does this change touch what web.yml runs on?
+        # The same paths as web.yml's `changes` job (a test keeps the two equal): web.yml's `web` check
+        # is a skipped job on a head that is not READY, and a skipped job passes, so `ci` is the check
+        # that fails such a head. Fails closed, as the step above.
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo web=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed=$(git diff --name-only "$BASE"...HEAD)
+          touched=$(grep -E '^(web/|\.github/workflows/web\.yml$|vextrus/|engine/messages/|engine/collect\.py$|engine/render/)' <<< "$changed" || true)
+          if [ -n "$touched" ]; then echo web=true; else echo web=false; fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's heavy jobs run only then; main's always do)
+        # Fails closed: a commit the gate cannot read fails the step, and so the roll-up. The runner sets
+        # GITHUB_EVENT_NAME; standard library only (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
 
   markets:
     # The market-literal scan reads vextrus/, engine/ and web/src/, so it runs on every change.
@@ -61,7 +89,8 @@ jobs:
         run: python -m tools.lint.market_literals
 
   harness:
-    # The workflow check and the guard's test (01c; s02 review R3), on every change: both are quick.
+    # The workflow check, every node test and the shard check (01c; s02 review R3; f1), on every
+    # change: all are quick.
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -72,21 +101,46 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
       - name: Workflow check (only main's not-applicable workflow may post those two statuses)
         run: python3 -m tools.lint.workflows
-      - name: The guard's test
-        run: node --test .claude/hooks/guard.test.mjs
+      - name: Every node test under .claude/, scripts/ and the factory mod (quoted globs; Node 24 runs a directory argument as a file)
+        run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs' 'tools/mod/**/*.test.mjs'
+      - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)
+        run: python3 -m tools.lint.ci_shards
+      - name: Root-only check (a test that removes permissions with chmod carries the root skipif guard)
+        run: python3 -m tools.lint.root_only
       - name: Acceptance check (only `acceptance:` commits change acceptance tests; ADR 0041)
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: python3 -m tools.lint.acceptance "$BASE" HEAD
 
-  python:
-    needs: changes
-    if: needs.changes.outputs.python == 'true'
+  shards:
+    # The python job's matrix, read from .github/ci-shards.json (standard library only, no uv).
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.shards.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - id: shards
+        name: The shards
+        run: echo "matrix=$(python -m tools.lint.ci_shards matrix)" >> "$GITHUB_OUTPUT"
+
+  python-checks:
+    # The once-only items: lints, types, scans, Django's checks and the migrations.
+    needs: changes
+    if: needs.changes.outputs.python == 'true' && needs.changes.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:18.6
@@ -150,24 +204,104 @@ jobs:
         run: uv run manage.py makemigrations --check --dry-run
       - name: Migrate, as the owner
         run: uv run manage.py migrate
-      - name: Tests, as vextrus_app (every acceptance test runs; ADR 0041)
-        run: uv run pytest -p tools.lint.acceptance_pytest
+
+  python:
+    # The tests, one leg per shard of .github/ci-shards.json (tools.lint.ci_shards proves they
+    # partition the suite); `ci` needs this job, so every leg is required.
+    needs: [changes, shards]
+    if: needs.changes.outputs.python == 'true' && needs.changes.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.shards.outputs.matrix) }}
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          # Throwaway values for this job's container only; never a real secret.
+          POSTGRES_PASSWORD: ci-throwaway-superuser
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://vextrus_app:ci-throwaway-app@127.0.0.1:5432/vextrus
+      DATABASE_OWNER_URL: postgresql://vextrus:ci-throwaway-owner@127.0.0.1:5432/vextrus
+      UV_PYTHON_DOWNLOADS: never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install the locked dependencies, building nothing
+        env:
+          UV_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: uv sync --locked --no-build
+      - name: Create the two roles (scripts/owner/db-roles.sql), with throwaway passwords
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: "5432"
+          PGUSER: postgres
+          PGPASSWORD: ci-throwaway-superuser
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -f scripts/owner/db-roles.sql
+          psql -v ON_ERROR_STOP=1 -d postgres \
+            -c "ALTER ROLE vextrus PASSWORD 'ci-throwaway-owner'" \
+            -c "ALTER ROLE vextrus_app PASSWORD 'ci-throwaway-app'"
+      - name: Migrate, as the owner
+        run: uv run manage.py migrate
+      - name: Tests of shard ${{ matrix.shard }}, as vextrus_app (every acceptance test runs; ADR 0041)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: uv run pytest -p tools.lint.acceptance_pytest --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD")
       - name: Policy coverage (row-level security on every tenant table)
-        run: uv run pytest vextrus/platform/tests/test_policy_coverage.py
+        if: matrix.shard == 'seed-platform-drawings'
+        run: uv run pytest -p tools.lint.acceptance_pytest vextrus/platform/tests/test_policy_coverage.py
+      - name: The shard's slowest test files
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: python3 -m tools.lint.slow_files "junit-$SHARD.xml"
 
   ci:
     # The one check to require: green when every job passed or was skipped as not concerned.
     if: always()
-    needs: [changes, markets, harness, python]
+    needs: [changes, markets, harness, shards, python-checks, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - env:
           CHANGES: ${{ needs.changes.result }}
+          READY: ${{ needs.changes.outputs.ready }}
+          PYTHON_PATHS: ${{ needs.changes.outputs.python }}
+          WEB_PATHS: ${{ needs.changes.outputs.web }}
           MARKETS: ${{ needs.markets.result }}
           HARNESS: ${{ needs.harness.result }}
+          SHARDS: ${{ needs.shards.result }}
+          CHECKS: ${{ needs.python-checks.result }}
           PYTHON: ${{ needs.python.result }}
         run: |
-          echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS python=$PYTHON"
+          echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS python-checks=$CHECKS python=$PYTHON"
+          # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
+          # its changes need none (the documents alone): such a head passes whatever its trailer says. The
+          # web counts here too: web.yml's own `web` check is a skipped job on such a head, and passes.
+          if [ "$READY" = false ] && { [ "$PYTHON_PATHS" = true ] || [ "$WEB_PATHS" = true ]; }; then
+            echo "heavy jobs skipped: head is not Factory-State: READY; push a READY head"
+            exit 1
+          fi
           [ "$CHANGES" = success ] && [ "$MARKETS" = success ] && [ "$HARNESS" = success ] \
+            && [ "$SHARDS" = success ] \
+            && { [ "$CHECKS" = success ] || [ "$CHECKS" = skipped ]; } \
             && { [ "$PYTHON" = success ] || [ "$PYTHON" = skipped ]; }

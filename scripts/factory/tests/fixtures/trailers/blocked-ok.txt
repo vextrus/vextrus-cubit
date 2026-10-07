@@ -1,0 +1,4 @@
+fix(launch): stop wait loop
+
+Factory-State: BLOCKED
+Factory-Reason: the acceptance tests for the refusal cannot pass: the spec names no exit code

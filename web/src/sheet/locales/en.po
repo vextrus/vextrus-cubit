@@ -7,9 +7,17 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
+#: src/sheet/LookSwitches.tsx
+msgid "Paper or CAD-dark"
+msgstr "Paper or CAD-dark"
+
 #: src/sheet/SheetViewer.tsx
 msgid "<0/> could not be drawn. The other sheets are not affected."
 msgstr "<0/> could not be drawn. The other sheets are not affected."
+
+#: src/sheet/LookSwitches.tsx
+msgid "CAD-dark"
+msgstr "CAD-dark"
 
 #: src/sheet/SheetViewer.tsx
 msgid "Sheet {label}"
@@ -27,9 +35,21 @@ msgstr "Zoom out"
 msgid "Try again"
 msgstr "Try again"
 
+#: src/sheet/LookSwitches.tsx
+msgid "As read"
+msgstr "As read"
+
+#: src/sheet/LookSwitches.tsx
+msgid "What the sheet shows"
+msgstr "What the sheet shows"
+
 #: src/sheet/SheetViewer.tsx
 msgid "Fit the whole sheet"
 msgstr "Fit the whole sheet"
+
+#: src/sheet/LookSwitches.tsx
+msgid "As read, then Plot, then Compare"
+msgstr "As read, then Plot, then Compare"
 
 #: src/sheet/SheetViewer.tsx
 msgid "Fit"
@@ -38,3 +58,11 @@ msgstr "Fit"
 #: src/sheet/SheetViewer.tsx
 msgid "Back to the working view"
 msgstr "Back to the working view"
+
+#: src/sheet/LookSwitches.tsx
+msgid "Plot"
+msgstr "Plot"
+
+#: src/sheet/LookSwitches.tsx
+msgid "Compare"
+msgstr "Compare"

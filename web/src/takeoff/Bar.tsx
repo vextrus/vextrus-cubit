@@ -37,6 +37,8 @@ export interface BarContext {
   openRow: (row: Row) => void
   /** The QS answering (null for the MD and a Guest): the pick on a Question, and Enter's answer. */
   answerer?: Answerer | null
+  /** How many of the Drawing Set's files are still to be read (6.13: the bulk act's why says their sheets are not in it). */
+  reading?: number
 }
 
 function Who({ sheet }: { sheet: ProposalOut }) {
@@ -65,7 +67,17 @@ function BulkWhat({ model }: { model: Step1Model }) {
   )
 }
 
-function BulkWhy({ model }: { model: Step1Model }) {
+function BulkWhy({ model, reading }: { model: Step1Model; reading: number }) {
+  const why = <BulkReasons model={model} />
+  if (reading === 0) return why
+  return (
+    <>
+      {why} <Plural value={reading} one="This does not include the sheets of the file still to be read." other="This does not include the sheets of the # files still to be read." />
+    </>
+  )
+}
+
+function BulkReasons({ model }: { model: Step1Model }) {
   const bulk = new Set(model.bulk.confirm.map((p) => p.discipline))
   const sections = model.disciplines.filter((d) => bulk.has(d.discipline))
   const listed = sections.some((d) => d.list)
@@ -180,7 +192,7 @@ export function useBar(c: BarContext): BarSpec | null {
   const firstBulk = model.rows.find((r) => r.sheets.some((p) => model.bulk.confirm.includes(p) || model.bulk.leaveOut.includes(p))) ?? null
   const bulkSpec: BarSpec = {
     what: <BulkWhat model={model} />,
-    why: <BulkWhy model={model} />,
+    why: <BulkWhy model={model} reading={c.reading ?? 0} />,
     ghost: firstBulk ? { label: <Trans>Review one by one</Trans>, run: () => c.openRow(firstBulk) } : undefined,
     button: {
       label: m === 0 ? <Trans>Confirm {n}</Trans> : n === 0 ? <Trans>Leave out {m}</Trans> : <Trans>Confirm {n}, leave out {m}</Trans>,
@@ -284,7 +296,14 @@ export function useBar(c: BarContext): BarSpec | null {
             <OneSourceWhy sheet={sheet} model={model} /> <Trans>Enter confirms it and opens the next open sheet.</Trans>
           </>
         ),
-        ghost: n > 0 ? { label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Trans>Confirm all {n} that agree</Trans>, run: c.bulk } : undefined,
+        // One that agrees is worded as the bulk act's what says it (BulkWhat), never "Confirm all 1 that agree".
+        ghost:
+          n > 0
+            ? {
+                label: m > 0 ? <Trans>Confirm {n}, leave out {m}</Trans> : <Plural value={n} one="Confirm # sheet that agrees" other="Confirm all # that agree" />,
+                run: c.bulk,
+              }
+            : undefined,
         button: { label: <Trans>Confirm {name}</Trans>, run: () => c.confirmRow(row, true) },
       }
     }
@@ -374,10 +393,10 @@ export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined;
 }
 
 /** The picker the bar becomes on X: seven reasons, keys 1–7; 8, 9 and 0 do nothing while it is open. */
-export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (reason: Reason, text?: string) => void; onCancel: () => void }) {
+export function ExclusionPicker({ row, several = false, onPick, onCancel }: { row: Row; several?: boolean; onPick: (reason: Reason, text?: string) => void; onCancel: () => void }) {
   const { t, i18n } = useLingui()
   const [other, setOther] = useState<string | null>(null)
-  const name = <SheetName sheets={row.sheets} />
+  const name = <SheetName sheets={row.sheets} count={several} />
   const pick = (reason: Reason) => {
     if (reason === 'other') setOther('')
     else onPick(reason)
@@ -402,7 +421,7 @@ export function ExclusionPicker({ row, onPick, onCancel }: { row: Row; onPick: (
     },
   ]
   return (
-    <KeyScope level="mode" name="exclusion-picker">
+    <KeyScope level="mode" name="exclusion-picker" modal>
       <PickerKeys bindings={bindings} />
       <div
         role="group"

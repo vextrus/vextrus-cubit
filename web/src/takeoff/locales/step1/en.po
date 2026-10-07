@@ -1,0 +1,731 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-06 14:30+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "As its title block should read. Enter answers."
+msgstr "As its title block should read. Enter answers."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Proposed by Vextrus from the file; no one has acted on it yet."
+msgstr "Proposed by Vextrus from the file; no one has acted on it yet."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: no PDF page is matched to it"
+msgstr "None: no PDF page is matched to it"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
+msgstr "{single, plural, one {Confirm # sheet with one source, on its own} other {Confirm # sheets with one source, one by one}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Disciplines not yet received:"
+msgstr "Disciplines not yet received:"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{projectName}’s sheets"
+msgstr "{projectName}’s sheets"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Answers"
+msgstr "Answers"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{kind}, not to scale"
+msgstr "{kind}, not to scale"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{scale}, as stated"
+msgstr "{scale}, as stated"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Esc goes back."
+msgstr "Esc goes back."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded, by reason"
+msgstr "Excluded, by reason"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet. Add the Drawing Set’s files first."
+msgstr "No sheets yet. Add the Drawing Set’s files first."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Confirmed by {name}, {date}"
+msgstr "Confirmed by {name}, {date}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "List"
+msgstr "List"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "More"
+msgstr "More"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{part}, M3 onwards"
+msgstr "{part}, M3 onwards"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {listed} on the drawing list typed by {who} ({range}); {found} found."
+msgstr "{name}: {listed} on the drawing list typed by {who} ({range}); {found} found."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "no step: unaccounted"
+msgstr "no step: unaccounted"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Still reading {name}."
+msgstr "Still reading {name}."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Go to the Drawing Set"
+msgstr "Go to the Drawing Set"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded: {reason}"
+msgstr "Excluded: {reason}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} page {page}, registered to {residual} mm"
+msgstr "{file} page {page}, registered to {residual} mm"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Extend the selection to the previous row"
+msgstr "Extend the selection to the previous row"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Do what the bar says"
+msgstr "Do what the bar says"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheet"
+msgstr "Sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: the sheet has no number, so no PDF page could be matched to it"
+msgstr "None: the sheet has no number, so no PDF page could be matched to it"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Type the sheet’s number first, as its title block should read."
+msgstr "Type the sheet’s number first, as its title block should read."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Open the sheet the bar names, or go back to the list"
+msgstr "Open the sheet the bar names, or go back to the list"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Revision"
+msgstr "Revision"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "List or sheet"
+msgstr "List or sheet"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Questions withdrawn"
+msgstr "Questions withdrawn"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Step 1, Sheets"
+msgstr "Step 1, Sheets"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Enter takes them in this order"
+msgstr "Enter takes them in this order"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "A Proposal counts toward nothing until you confirm it."
+msgstr "A Proposal counts toward nothing until you confirm it."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 9 on the focused Question"
+msgstr "Pick answer 9 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "two, agreeing"
+msgstr "two, agreeing"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Next view on the sheet"
+msgstr "Next view on the sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{by}, {date}, {time}"
+msgstr "{by}, {date}, {time}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Previous view on the sheet"
+msgstr "Previous view on the sheet"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Previous sheet"
+msgstr "Previous sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Numbered <0/>"
+msgstr "Numbered <0/>"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {listed} on the drawing list pasted by {who}, {when}; {found} found."
+msgstr "{name}: {listed} on the drawing list pasted by {who}, {when}; {found} found."
+
+#. placeholder {0}: withdrawn.length
+#: src/takeoff/Step1Inspector.tsx
+msgid "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn when their sheets were left out}}"
+msgstr "{0, plural, one {Withdrawn when its sheet was left out} other {Withdrawn when their sheets were left out}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Coverage, every view on every sheet read"
+msgstr "Coverage, every view on every sheet read"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{questions, plural, one {Answer # Question: the held file’s} other {Answer # Questions: the held file first, then those holding the most sheets}}"
+msgstr "{questions, plural, one {Answer # Question: the held file’s} other {Answer # Questions: the held file first, then those holding the most sheets}}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
+msgstr "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 6 on the focused Question"
+msgstr "Pick answer 6 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "→ walks them; X excludes"
+msgstr "→ walks them; X excludes"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Confirm back in"
+msgstr "Confirm back in"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Views by the step that will read them, proposed or assigned"
+msgstr "Views by the step that will read them, proposed or assigned"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Exclude"
+msgstr "Exclude"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Undo your last confirmation, exclusion or drawing list on Step 1"
+msgstr "Undo your last confirmation, exclusion or drawing list on Step 1"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet: they arrive as {name} is read."
+msgstr "No sheets yet: they arrive as {name} is read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}, {role}"
+msgstr "{name}, {role}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "read by Vextrus from the title"
+msgstr "read by Vextrus from the title"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Still reading {name}: page {at} of {of}."
+msgstr "Still reading {name}: page {at} of {of}."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 5 on the focused Question"
+msgstr "Pick answer 5 on the focused Question"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Proposed to leave out"
+msgstr "Proposed to leave out"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {openText} Questions open"
+msgstr "{name}: {openText} Questions open"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "laid out in the drawing"
+msgstr "laid out in the drawing"
+
+#: src/takeoff/Step1Inspector.tsx
+#: src/takeoff/Step1Screen.tsx
+msgid "Nothing is waiting."
+msgstr "Nothing is waiting."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Answer {tag}"
+msgstr "Answer {tag}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name} {settled} / {total} settled"
+msgstr "{name} {settled} / {total} settled"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Ask later"
+msgstr "Ask later"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{mark}, {date}"
+msgstr "{mark}, {date}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{mark}, from the file name; dated {date}"
+msgstr "{mark}, from the file name; dated {date}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Still reading {name}: sheet {at} of {of}."
+msgstr "Still reading {name}: sheet {at} of {of}."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{n, plural, one {Views (#)} other {Views (#)}}"
+msgstr "{n, plural, one {Views (#)} other {Views (#)}}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Exclude the focused sheet, with a reason"
+msgstr "Exclude the focused sheet, with a reason"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Answered"
+msgstr "Answered"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "mixed"
+msgstr "mixed"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 2 on the focused Question"
+msgstr "Pick answer 2 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Proposal: where each was read"
+msgstr "Proposal: where each was read"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: no PDF has been added for {discipline}"
+msgstr "None: no PDF has been added for {discipline}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 7 on the focused Question"
+msgstr "Pick answer 7 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Answer once"
+msgstr "Answer once"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheets, in list order"
+msgstr "Sheets, in list order"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Number"
+msgstr "Number"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "The sheet picker"
+msgstr "The sheet picker"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
+msgstr "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} page {page}"
+msgstr "{file} page {page}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
+msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until you confirm it."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "held by Question {tag}"
+msgstr "held by Question {tag}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "File"
+msgstr "File"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{count} with no Discipline"
+msgstr "{count} with no Discipline"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found."
+msgstr "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: a view unaccounted"
+msgstr "{name}: a view unaccounted"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name} {leftText} to confirm"
+msgstr "{name} {leftText} to confirm"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Previous row; in a sheet, the previous sheet"
+msgstr "Previous row; in a sheet, the previous sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "What the QS has left, in order"
+msgstr "What the QS has left, in order"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}, {date}, {time}"
+msgstr "{name}, {date}, {time}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Show or hide the view outlines"
+msgstr "Show or hide the view outlines"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "First row"
+msgstr "First row"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{kind}, {scale}"
+msgstr "{kind}, {scale}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 8 on the focused Question"
+msgstr "Pick answer 8 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "The sheet’s number"
+msgstr "The sheet’s number"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "the drawing list"
+msgstr "the drawing list"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Expected sheets"
+msgstr "Expected sheets"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
+msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: no drawing list; {found} found."
+msgstr "{name}: no drawing list; {found} found."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
+msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{name} is waiting to be read."
+msgstr "{name} is waiting to be read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: no PDF was added to the Drawing Set"
+msgstr "None: no PDF was added to the Drawing Set"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Confirmed by {name} (Vextrus), {date}"
+msgstr "Confirmed by {name} (Vextrus), {date}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "one source"
+msgstr "one source"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Next sheet"
+msgstr "Next sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Title"
+msgstr "Title"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "not to scale"
+msgstr "not to scale"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "the file name"
+msgstr "the file name"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick an answer to {tag} first: {keys}"
+msgstr "Pick an answer to {tag} first: {keys}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: no page of {file} matched it"
+msgstr "None: no page of {file} matched it"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Next row; in a sheet, the next sheet"
+msgstr "Next row; in a sheet, the next sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Who did what"
+msgstr "Who did what"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "{number} rev {mark}"
+msgstr "{number} rev {mark}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} is held: its views are not counted unless you read it anyway."
+msgstr "{file} is held: its views are not counted unless you read it anyway."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "text in the title block"
+msgstr "text in the title block"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: its PDF is still being read"
+msgstr "None: its PDF is still being read"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name} confirmed"
+msgstr "{name} confirmed"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Next open Question"
+msgstr "Next open Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Kept open"
+msgstr "Kept open"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "layout “<0/>”"
+msgstr "layout “<0/>”"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "View outlines"
+msgstr "View outlines"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
+msgstr "{assigned} assigned, {excluded} excluded, {proposed} proposed, <0>{unaccounted} unaccounted</0>"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "not found"
+msgstr "not found"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Picked for you: {sources}"
+msgstr "Picked for you: {sources}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Reading {name} was interrupted and is starting again."
+msgstr "Reading {name} was interrupted and is starting again."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Back to the list; in the list, clear the focus"
+msgstr "Back to the list; in the list, clear the focus"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 3 on the focused Question"
+msgstr "Pick answer 3 on the focused Question"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "none"
+msgstr "none"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Zoom to view"
+msgstr "Zoom to view"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "excluded: {reason}"
+msgstr "excluded: {reason}"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Sheets"
+msgstr "Sheets"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet: they arrive as the files are read."
+msgstr "No sheets yet: they arrive as the files are read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {listed} on the pasted drawing list; {found} found."
+msgstr "{name}: {listed} on the pasted drawing list; {found} found."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name} from the file"
+msgstr "{name} from the file"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Its sheets join the list when it is read."
+msgstr "Its sheets join the list when it is read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Sources"
+msgstr "Sources"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Question {tag}"
+msgstr "Question {tag}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "No open Questions."
+msgstr "No open Questions."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "1 with no Discipline"
+msgstr "1 with no Discipline"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Not to scale"
+msgstr "Not to scale"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Storeys"
+msgstr "Storeys"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "→ walks them"
+msgstr "→ walks them"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "proposed"
+msgstr "proposed"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Last row"
+msgstr "Last row"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{mark}, from the file name"
+msgstr "{mark}, from the file name"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Opening <0/>…"
+msgstr "Opening <0/>…"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Open the focused sheet, or go back to the list"
+msgstr "Open the focused sheet, or go back to the list"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Its pages are matched to sheets when it is read."
+msgstr "Its pages are matched to sheets when it is read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: no drawing list; numbering runs {range} without a gap; {found} found."
+msgstr "{name}: no drawing list; numbering runs {range} without a gap; {found} found."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: 1 Question open"
+msgstr "{name}: 1 Question open"
+
+#. placeholder {0}: coverage.views
+#: src/takeoff/Step1Inspector.tsx
+msgid "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
+msgstr "{0, plural, one {Coverage # view:} other {Coverage # views:}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {listed} on the drawing list on {sheet}; {found} found."
+msgstr "{name}: {listed} on the drawing list on {sheet}; {found} found."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{questions, plural, one {Answer # Question} other {Answer # Questions: those holding the most sheets first}}"
+msgstr "{questions, plural, one {Answer # Question} other {Answer # Questions: those holding the most sheets first}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "none: the title block has none and the file name none"
+msgstr "none: the title block has none and the file name none"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Extend the selection to the next row"
+msgstr "Extend the selection to the next row"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Needs you"
+msgstr "Needs you"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: its PDF was a scan and was refused"
+msgstr "None: its PDF was a scan and was refused"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Opening Step 1…"
+msgstr "Opening Step 1…"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+msgstr "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Leave out {m}: {reasons}"
+msgstr "Leave out {m}: {reasons}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "title-block attribute"
+msgstr "title-block attribute"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read."
+msgstr "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as they are read."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Withdrawn"
+msgstr "Withdrawn"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Plot"
+msgstr "Plot"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{file} is still reading; its views join as its sheets arrive."
+msgstr "{file} is still reading; its views join as its sheets arrive."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}, M3 onwards"
+msgstr "{name}, M3 onwards"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded by {name} (Vextrus), {date}: {reason}"
+msgstr "Excluded by {name} (Vextrus), {date}: {reason}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}, {role}, {date}, {time}"
+msgstr "{name}, {role}, {date}, {time}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it."
+msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it."
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 1 on the focused Question"
+msgstr "Pick answer 1 on the focused Question"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Pick answer 4 on the focused Question"
+msgstr "Pick answer 4 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "None: its PDF could not be read"
+msgstr "None: its PDF could not be read"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded by {name}, {date}: {reason}"
+msgstr "Excluded by {name}, {date}: {reason}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "A Proposal counts toward nothing until the QS confirms it."
+msgstr "A Proposal counts toward nothing until the QS confirms it."
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Discipline"
+msgstr "Discipline"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Zoom to the selected view"
+msgstr "Zoom to the selected view"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Outlines"
+msgstr "Outlines"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{name}: {listed} on the drawing list found in the drawings; {found} found."
+msgstr "{name}: {listed} on the drawing list found in the drawings; {found} found."

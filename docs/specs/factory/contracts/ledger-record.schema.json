@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vextrus.invalid/factory/ledger-record.schema.json",
+  "title": "A review ledger record: .private/work/factory/ledger/<PR>-<head>.json",
+  "description": "Contract (PR f0) for the record `scripts/ledger.py record` writes (PR f4) and `scripts/merge_ready.py` (PR f4), `scripts/land.py` (PR f4, tier 2) and `scripts/factory/watch.py` (PR f3, open review rounds) read (docs/specs/factory.md 2.2 'Review record' and 'Gate to merge'). THE RECORD OF TRUTH IS LOCAL: the file lives in the main checkout's .private/, which no cloud VM can reach; the guard refuses `ledger record` outside the main checkout's project folder and any Write or Edit under the ledger folder. The PR comment is for display only. WRITE: `ledger.py record <PR> --round n --head <sha> --from <file of the reviewers' final lines> [--exception security75|crash|false-statement|fix-regression --reason ...]` computes the verdict itself with `decide` (an agent never transcribes it), leak-scans its text, posts one PR comment carrying the marker below, then writes this file with the posted comment's id, atomically, and refuses to overwrite an existing file for the same PR and head (records are append-only). `ledger.py fetch-verdict <PR> --launch <record>` (tier 2) writes the same record for a cloud review after its local checks (review-verdict.schema.json), with source `fetch-verdict`. THE MARKER (the comment's first line, exact): `<!-- vextrus-review round=<round> head=<head> verdict=<verdict> findings=<counts.findings> -->`. READ: `merge_ready` refuses unless (a) a file `<PR>-<head>.json` for the PR's current head says verdict PASS, or every commit since a PASS record's head is a merge of main whose `git diff-tree --cc` resolution is empty; the newest marker comment's id on the PR equals that file's `comment_id`; (b) it refuses a record with round 3 and no `exception`. `scripts/ledger.py check <PR> --round n [--exception security75|crash|false-statement|fix-regression --reason \"<text>\"]` refuses round 3 with no exception before any reviewer starts. A Jev triage sidecar (.private/work/factory/ledger-jev/) is a different file and is never read by `decide` or `merge_ready`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pr", "head", "round", "verdict", "counts", "decision_input_sha256", "comment_id", "exception", "source", "recorded_at"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "pr": {"type": "integer", "minimum": 1},
+    "head": {"type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The PR head the review covered; equal to the file name's <head>."},
+    "round": {"type": "integer", "minimum": 1, "maximum": 3, "description": "1 or 2: the review rounds; 3 only with an exception (2 fix rounds at most)."},
+    "verdict": {"enum": ["PASS", "FIX", "BLOCK"], "description": "Computed by `ledger.py decide` from the reviewers' and refuters' final lines, never transcribed by an agent: the worst reviewer VERDICT line wins (BLOCK over FIX over PASS), and a PASS is raised to FIX while a finding of 50 or more stands (CONFIRMED or UNPROVEN). `record` refuses a PASS whose `counts.unrefuted_ge_50` is above 0. (The exact rule is f4's to implement and test; this contract fixes the three values and that the input is the final lines.)"},
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reviewers", "findings", "findings_ge_50", "confirmed", "refuted", "unproven", "unrefuted_ge_50"],
+      "description": "Counts only. `findings` is the number of findings that stand (reported and not REFUTED) and is the marker's findings=k.",
+      "properties": {
+        "reviewers": {"type": "integer", "minimum": 1, "description": "Reviewers whose final line was read (pr-reviewer, the adversary lens, ux-critic words gate when run)."},
+        "findings": {"type": "integer", "minimum": 0},
+        "findings_ge_50": {"type": "integer", "minimum": 0, "description": "Findings scored 50 or more, before refutation."},
+        "confirmed": {"type": "integer", "minimum": 0, "description": "Refuter lines CONFIRMED."},
+        "refuted": {"type": "integer", "minimum": 0, "description": "Refuter lines REFUTED; refuted findings do not count in `findings`."},
+        "unproven": {"type": "integer", "minimum": 0, "description": "Refuter lines UNPROVEN; the finding stands."},
+        "unrefuted_ge_50": {"type": "integer", "minimum": 0, "description": "Findings of 50 or more with no refuter line."}
+      }
+    },
+    "decision_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "sha256 of the bytes of the `--from` file the verdict was decided from (the reviewers' and refuters' final lines), so a record can be re-checked against the saved input."},
+    "comment_id": {"type": "integer", "minimum": 1, "description": "The PR comment's id (GitHub's numeric id of the issue comment) carrying the marker. Written after the comment is posted."},
+    "exception": {
+      "oneOf": [{"type": "null"}, {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "reason"],
+        "properties": {
+          "kind": {"enum": ["security75", "crash", "false-statement", "fix-regression"], "description": "security75: a security hole scored 75 or more. crash: a crash. false-statement: a false statement a QS meets. fix-regression: every finding left at round 2 was introduced by fix round 1, as its refuter confirms (the owner, 5 Oct 2026). (ADR 0041 item 5; spec 5, definition of done 4.)"},
+          "reason": {"type": "string", "minLength": 1, "maxLength": 300, "description": "One line in public words."}
+        }
+      }],
+      "description": "Null unless a round 3 was allowed."
+    },
+    "source": {"enum": ["review-pr", "fetch-verdict"], "description": "review-pr: reviewers ran in the orchestrator's session (or by hand before it merged). fetch-verdict: a cloud verdict file passed the local checks."},
+    "recorded_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"}
+  },
+  "if": {"properties": {"round": {"const": 3}}},
+  "then": {"properties": {"exception": {"type": "object"}}}
+}

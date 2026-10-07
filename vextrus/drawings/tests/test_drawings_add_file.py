@@ -60,6 +60,8 @@ DOCX = (
         ("a-dwg-named.pdf", drawing("dwg"), "dwg"),
         ("AC1014 from R14.dwg", b"AC1014" + b"\x00" * 64, "dwg"),
     ],
+    # drawing() makes unique bytes, so fixed ids keep collection the same in every xdist worker.
+    ids=["dwg-as-dwg", "pdf-as-pdf", "pdf-named-dwg", "dwg-named-pdf", "r14-dwg"],
 )
 def test_a_files_kind_is_its_first_bytes(
     qs_project: QsProject, name: str, content: bytes, kind: str
