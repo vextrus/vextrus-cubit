@@ -361,6 +361,12 @@ function Step1({
     el.scrollIntoView({ block: 'nearest' })
   })
 
+  /** A focus move that is not Shift's: a selection the focus has left is over (X then acts on the focused row). */
+  const focusPlain = (key: string) => {
+    setFocused(key)
+    if (range && !chosenKeys.has(key)) setRange(null)
+  }
+
   const focusRow = (key: string | null) => {
     setFocused(key)
     focusNext.current = key
@@ -474,7 +480,7 @@ function Step1({
           setPick(entry, { key, text: picks[entry.question.id]?.text ?? '' })
           // A pick on a card in the Questions tab makes its Question the one Enter answers.
           const rowKey = `q:${entry.question.id}`
-          if (mode === 'list' && focused !== rowKey && model.rows.some((r) => r.key === rowKey)) setFocused(rowKey)
+          if (mode === 'list' && focused !== rowKey && model.rows.some((r) => r.key === rowKey)) focusPlain(rowKey)
         },
         type: (entry, text) => setPick(entry, { key: 'type_number', text }),
         answer: (entry) => void answerEntry(entry),
@@ -588,7 +594,7 @@ function Step1({
   const excludeKey = () => {
     if (readOnly) return refuse(readOnly)
     // Several rows selected (list mode): one exclusion for all their sheets, with one reason (§6.9).
-    const chosen = selectedRows.filter((r) => r.sheets.length > 0)
+    const chosen = focused !== null && chosenKeys.has(focused) ? selectedRows.filter((r) => r.sheets.length > 0) : []
     if (chosen.length > 1) setPicker({ ...chosen[0]!, key: 'selection', numberTo: null, sheets: chosen.flatMap((r) => [...r.sheets]) })
     else if (focusedRow && focusedRow.sheets.length > 0) setPicker(focusedRow)
   }
@@ -713,7 +719,7 @@ function Step1({
             ref={listRef}
             model={model}
             focused={focused}
-            onFocusRow={setFocused}
+            onFocusRow={focusPlain}
             onOpenRow={(key) => {
               const row = rowByKey(key)
               if (row) openRow(row)
@@ -919,8 +925,10 @@ function SheetMode({
   onZoom: () => void
 }) {
   const { t } = useLingui()
-  const [hovered, setHovered] = useState<string | null>(null)
-  const under = outlinesOn ? (sheet.views ?? []).find((v) => v.id === hovered) : undefined
+  // The view under the cursor, of the sheet it was on: gone with the outlines and with the sheet (no pointerleave comes then).
+  const [hover, setHover] = useState<{ sheet: string; view: string } | null>(null)
+  if (hover && (!outlinesOn || hover.sheet !== sheet.id)) setHover(null)
+  const under = hover ? (sheet.views ?? []).find((v) => v.id === hover.view) : undefined
   const render = useQuery(renderQuery(projectId, sheet.sheet_id))
   const look = useSheetLook(projectId, sheet, lookSetting, onLookSetting)
   const region = useRef<HTMLDivElement>(null)
@@ -1000,7 +1008,7 @@ function SheetMode({
               outlines={outlines}
               selected={selectedView}
               onSelect={onSelectView}
-              onHover={setHovered}
+              onHover={(view) => setHover(view ? { sheet: sheet.id, view } : null)}
               showOutlines={outlinesOn}
               zoomToken={zoomToken}
               legend={(sheet.views ?? []).length > 0 ? <Legend tones={(sheet.views ?? []).map((v) => viewTone(v, sheet, held))} /> : null}
