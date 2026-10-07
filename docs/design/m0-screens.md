@@ -1677,7 +1677,7 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 | KR-STR-old.dwg | an older structural file | Held: the readers disagree (the planted-disagreement stub) |
 | site-photos.pdf | pictures only | Refused: a scan |
 
-**KR-01 after reading** (from #182, the read job's own reading of the seed's synthetic DWGs, replayed from `vextrus/seed/recorded/`; the PDFs' Plot is still written through the services):
+**KR-01 after reading** (from #182, the read job's own reading of the seed's synthetic DWGs, replayed from `vextrus/seed/recorded/`; the PDFs' Plot is the read job's too, #236):
 | What | Count and wording |
 |---|---|
 | Sheets found | 24: Structural 13, Architectural 8, Electrical 3 (KR-STR-old.dwg held, not counted). Toolbar "Confirmed 0 / 24" |

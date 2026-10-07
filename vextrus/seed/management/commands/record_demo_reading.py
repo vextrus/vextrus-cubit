@@ -16,9 +16,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("work", type=Path, help="A folder for the writer's and dumper's builds.")
+        parser.add_argument("--only", nargs="*", default=[], help="Record only these files again.")
 
     def handle(self, *args: Any, **options: Any) -> None:
         work: Path = options["work"]
         work.mkdir(parents=True, exist_ok=True)
-        for line in kr01.record(work):
+        for line in kr01.record(work, options["only"]):
             self.stdout.write(line)

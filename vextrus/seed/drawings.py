@@ -92,6 +92,7 @@ PAPER = (841.0, 594.0)
 """Every sheet an A1, landscape, in millimetres (INSUNITS 4)."""
 GAP = 1000.0
 """Sheets laid out in the drawing, side by side this far apart."""
+MEGHNA_TENANT = "developer:meghna"
 NUSRAT = "Nusrat Jahan"
 TANVIR = "Tanvir Ahmed"
 
@@ -491,6 +492,32 @@ OLD_STRUCTURAL = (
 )
 """KR-STR-old.dwg's sheets: an older structural file, held before they are read."""
 
+GENERAL_NOTES = (
+    S(
+        "GN-01",
+        "GN-01",
+        "GENERAL NOTES",
+        (
+            V(ViewKind.NOTES, "GENERAL NOTES", (0.03, 0.2, 0.45, 0.95), ("general_notes",)),
+            V(ViewKind.LEGEND, "LEGEND", (0.5, 0.2, 0.68, 0.95), ("general_notes",), part="structural"),
+        ),
+        kind="general_notes",
+    ),
+)
+"""MG-GENERAL-NOTES.dwg's one sheet (#223): a file of general notes in its own numbered series, whose
+name gives it the Market's General Discipline."""
+
+SURVEY = (
+    S(
+        "SV-01",
+        "SV-01",
+        "SITE SURVEY",
+        (V(ViewKind.PLAN, "SITE SURVEY", PLAN_BOX, ("site",), scale="1:200"),),
+        kind="site_plan",
+    ),
+)
+"""MG-SURVEY-R0.dwg's one sheet (#223): its file's name names no Discipline, so the job asks which."""
+
 EMPTY_TAB = "Layout1"
 """A stale layout tab showing nothing: never a sheet (m0-screens 4.5; the plan's review Q7)."""
 
@@ -736,13 +763,15 @@ def by_the_job(
     name: str,
     sheets: Sequence[S],
     use: Readers,
+    tenant: str = "developer:shapla",
 ) -> dict[str, services.SheetView]:
     """A recorded DWG added and read by the read job; its sheets by `S.label` (each found sheet
     matched to the drawn one by its number and revision mark, else its title)."""
     from vextrus.seed import kr01
 
-    found = added(demo, code, project_id, name, kr01.content(name))
-    _read(demo, found.id, use)
+    actor = TANVIR if tenant == MEGHNA_TENANT else NUSRAT
+    found = added(demo, code, project_id, name, kr01.content(name), actor)
+    _read(demo, found.id, use, tenant)
     read = [s for s in services.sheets(found.set_id) if s.file_id == found.id]
     by_label = {}
     for sheet in sheets:
@@ -758,12 +787,13 @@ def by_the_job(
     return by_label
 
 
-def _read(demo: Demo, file_id: uuid.UUID, use: Readers) -> None:
-    """The file's read job, run here as its worker runs it (`read_propose.files.read`), as Nusrat."""
+def _read(demo: Demo, file_id: uuid.UUID, use: Readers, tenant: str = "developer:shapla") -> None:
+    """The file's read job, run here as its worker runs it (`read_propose.files.read`), as its
+    Developer's QS (Nusrat at Shapla, Tanvir at Meghna)."""
     run = jobs.Run(
         job_id=None,
-        tenant_id=demo["developer:shapla"],
-        user_id=demo["user:nusrat"],
+        tenant_id=demo[tenant],
+        user_id=demo["user:tanvir" if tenant == MEGHNA_TENANT else "user:nusrat"],
         abort_reason=lambda: None,
     )
     files.read(run, file_id, use)

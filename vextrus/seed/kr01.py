@@ -458,10 +458,11 @@ def content(name: str) -> bytes:
     return (RECORDED / name).read_bytes()
 
 
-def record(folder: Path) -> list[str]:
+def record(folder: Path, only: Sequence[str] = ()) -> list[str]:
     """Draw each file, write it as DWG with the repo's writer and read it with the engine's two
     readers; keep both in `RECORDED`. Needs the toolchain (.NET, LibreDWG, bwrap); `folder` holds the
-    builds. Answers each file's line: its name, sha256 and what the second reader said."""
+    builds; `only` names the files to record again (all, when empty).
+    Answers each file's line: its name, sha256 and what the second reader said."""
     from engine.check import decoders_agree
     from engine.fixtures import dwg
     from engine.read import read
@@ -472,7 +473,7 @@ def record(folder: Path) -> list[str]:
     os.environ["VEXTRUS_ACADSHARP_DUMP"] = str(build_dumper(folder / "dumper"))
     RECORDED.mkdir(exist_ok=True)
     said = []
-    for name in FILES:
+    for name in only or FILES:
         dxf = folder / f"{name}.dxf"
         draw(name).saveas(dxf)
         path = RECORDED / name
