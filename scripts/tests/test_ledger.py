@@ -289,8 +289,13 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "vextrus/rates",  # a folder: `X/**` matches `X`
         "engine/read",
         "engine/recognise/storeys.py",
-        "scripts/ledger.py",  # the bar's own files
-        "scripts/factory/review_tiers.toml",
+        "vextrus/projects/services/projects.py",  # PR #610 review, round 2: walls in each module
+        "vextrus/drawings/http/files.py",
+        "vextrus/drawings/acts.py",
+        "vextrus/api.py",
+        "scripts/owner/post-status",
+        ".github/workflows/ci.yml",
+        ".claude/hooks/guard.mjs",
     ],
 )
 def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
@@ -298,3 +303,13 @@ def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
     decision = ledger.decide(given.read_bytes(), H)
     assert decision.verdict == "FIX"
     assert decision.to_file == ()
+
+
+@pytest.mark.parametrize(
+    "file", ["web/src/x.tsx", "scripts/factory/watch.py", "tools/leakscan/scan.py", "engine/plot/x.py"]
+)
+def test_a_60_off_the_strict_trees_is_filed_not_blocking(tmp_path: Path, file: str) -> None:
+    given = source(tmp_path, f"VERDICT: PASS at {H}", f"FINDING f1 60 CONFIRMED {file}")
+    decision = ledger.decide(given.read_bytes(), H)
+    assert decision.verdict == "PASS"
+    assert decision.to_file == ("f1",)

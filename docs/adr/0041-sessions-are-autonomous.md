@@ -12,9 +12,14 @@ confirms (`fix-regression` in `scripts/ledger.py`); never more than three review
 50-74 blocking only on strict paths (security walls, migrations, money, readers), filing the rest as issues, and
 refuting a sample rather than every finding" — yes): items 5 and 7 — a standing finding blocks a merge at 75 or
 more, or at 50 or more when its file is on a strict path (`[strict] paths` in
-`scripts/factory/review_tiers.toml`: tenancy and row-level security, auth, the guard; migrations; the BOQ and
-rates; the engine's readers). A finding with no file is judged strict. A standing finding of 50-74 off the strict
-paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
+`scripts/factory/review_tiers.toml`). The ruling keeps 50-74 blocking on security walls, migrations, money and
+readers; the walls are spread across the backend (each module's services, http and acts), so the strict paths are
+whole trees, never a list of wall files (PR #610 review, rounds 1 and 2): the whole backend (`vextrus/`, with its
+money and its migrations), every migrations folder, the engine's readers, recognisers and families, the guard and
+its hooks, the owner's wrappers (`scripts/owner/`) and the CI workflows. Everything else (`web/`, the other
+`scripts/`, `tools/`, the docs, the engine's other parts) takes the 75 bar. A finding with no file, or a file that
+is not exactly a file of the head's tree, is judged strict. A standing finding of 50-74 off the strict paths does
+not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
 sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
 highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Item
 7's serious finding is the same: 75 or more, 50 or more on a strict path, or any class seen twice.

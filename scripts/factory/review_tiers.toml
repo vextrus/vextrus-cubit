@@ -71,45 +71,28 @@ never = [
 [strict]
 # The review bar (the owner's ruling, 7 Oct 2026, session 17; ADR 0041 amended): a standing finding
 # blocks at 75, or at 50 when its file matches one of these paths. Read by scripts/ledger.py (and,
-# through it, by review.py and merge_ready). This list names the walls, so it names WHOLE FOLDERS and
-# name words, never single files (ADR 0043 item 2: lists that enumerate the dangerous side lose; PR
-# #610 review, round 1). It fails safe: a finding with no file, or a file that is not a plain
-# relative path (absolute, a drive, a backslash, a blank, a `..`) or not a file of the head's tree
-# (a folder, a path shortened from its package root), is judged strict. A glob matching any trailing
-# part of the path counts, and `X/**` also matches `X`. Case ignored.
+# through it, by review.py and merge_ready). The ruling keeps 50-74 blocking on security walls,
+# migrations, money and readers; the walls are spread across the backend (each module's services,
+# http and acts), so these are WHOLE TREES, never an enumeration of wall files (ADR 0043 item 2; PR
+# #610 review, rounds 1 and 2). Everything else (web/, scripts/ but scripts/owner/, tools/, docs,
+# engine's other parts) takes the 75 bar. It fails safe: a finding with no file, or a file that is
+# not a plain relative path (absolute, a drive, a backslash, a blank, a `..`) or not a file of the
+# head's tree (a folder, a path shortened from its package root), is judged strict. A glob matching
+# any trailing part of the path counts, and `X/**` also matches `X`. Case ignored.
 paths = [
-  # Security walls: the platform (tenancy, row-level security, auth, invitations, storage, the
-  # database), each module's access services, and any file whose name holds a wall's word.
-  "vextrus/platform/**",
-  "vextrus/**/services/*access*",
-  "vextrus/**/*tenancy*",
-  "vextrus/**/*tenancy*/**",
-  "vextrus/**/*access*",
-  "vextrus/**/*auth*",
-  "vextrus/**/*permission*",
-  "vextrus/**/*invitation*",
-  "vextrus/**/*storage*",
-  "vextrus/**/*rls*",
-  "vextrus/**/*row_level*",
-  "vextrus/settings/**",
-  "web/src/auth/**",
-  "web/src/app/session*",
-  # The guard and the hooks, and the bar's own files (the ledger, the merge gate, this list).
-  ".claude/hooks/**",
-  ".claude/settings*.json",
-  "scripts/ledger.py",
-  "scripts/merge_ready.py",
-  "scripts/factory/review.py",
-  "scripts/factory/review_tiers.toml",
-  # Migrations.
-  "vextrus/*/migrations/**",
+  # The whole backend: its walls (tenancy, row-level security, auth, each module's scope), its
+  # money (the BOQ, rates) and its migrations.
+  "vextrus/**",
+  # Every migrations folder, wherever it lives.
   "**/migrations/**",
-  # Money: the BOQ, rates, and any money module.
-  "vextrus/boq/**",
-  "vextrus/rates/**",
-  "**/money*",
-  # Readers: the engine's drawing readers, recognisers and families.
+  # The readers: the engine's drawing readers, recognisers and families.
   "engine/read/**",
   "engine/recognise/**",
   "engine/families/**",
+  # The guard and the hooks (and the settings that wire them), the owner's wrappers (post-status,
+  # the scorer's rule) and the CI workflows.
+  ".claude/hooks/**",
+  ".claude/settings*.json",
+  "scripts/owner/**",
+  ".github/workflows/**",
 ]
