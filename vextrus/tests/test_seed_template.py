@@ -4,6 +4,7 @@ files under the new tenant's keys, and, after a flush, ids no seed made before (
 refuses one twice)."""
 
 import re
+import subprocess
 from importlib import import_module
 from pathlib import Path
 
@@ -99,3 +100,54 @@ def test_a_demo_value_is_mapped_wherever_an_id_is_held() -> None:
         "nested": {new: (new, 7)},
         "n": 3,
     }
+
+
+def test_a_seed_whose_inputs_differ_from_the_clean_ones_runs_the_real_layers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Seed once, patch what the layers read, seed again: the template is never copied."""
+    from vextrus.seed import projects
+    from vextrus.testing import seed_template
+
+    assert seed_template._usable()
+    with monkeypatch.context() as patch:
+        patch.setitem(
+            projects.PROJECTS,
+            "developer:meghna",
+            (*projects.PROJECTS["developer:meghna"], ("MG-02", "x", "y")),
+        )
+        assert not seed_template._usable()
+    with monkeypatch.context() as patch:
+        patch.setenv("PATH", str(tmp_path))  # t182's way of taking the toolchain away
+        assert not seed_template._usable()
+    with monkeypatch.context() as patch:
+        patch.setattr(subprocess.Popen, "__init__", lambda *a, **k: None)
+        assert not seed_template._usable()
+    with monkeypatch.context() as patch:
+        patch.setattr(projects, "services", None)  # a helper replaced
+        assert not seed_template._usable()
+    assert seed_template._usable()
+
+
+@pytest.mark.real_seed
+def test_a_test_can_force_the_real_layers() -> None:
+    from vextrus.testing import seed_template
+
+    assert not seed_template._usable()
+
+
+@pytest.mark.django_db(transaction=True, databases=BOTH)
+def test_a_project_added_to_the_seed_is_seeded_not_copied_from_the_template(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from vextrus.seed import projects
+
+    seeded_offline()  # the template is made, the first seed copied from it
+    call_command("flush", interactive=False, verbosity=0)
+    monkeypatch.setitem(
+        projects.PROJECTS,
+        "developer:meghna",
+        (*projects.PROJECTS["developer:meghna"], ("MG-02", "Meghna Annex", "Plot 1, Dhaka")),
+    )
+
+    assert "project:MG-02" in seeded_offline()

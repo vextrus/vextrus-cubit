@@ -27,8 +27,13 @@ one runs the real thing), and it sits below `vextrus.seed.platform.run`, which i
 
 import contextvars
 import copy
+import hashlib
+import os
+import pkgutil
 import re
 import shutil
+import subprocess
+import sys
 import threading
 import uuid
 from collections.abc import Iterator
@@ -479,10 +484,70 @@ def _restore(demo: Demo) -> None:
 # --- the hook --------------------------------------------------------------------------------------
 
 
+_clean: str | None = None
+"""The fingerprint of the seed's inputs as the session began, before any test patched anything."""
+_wants_real: list[bool] = [False]
+"""Set for the running test by `real_seed`: a test that forces the real layers."""
+
+
+def _token(value: Any) -> str:
+    if isinstance(
+        value, dict | list | tuple | set | frozenset | str | bytes | int | float | bool | None
+    ):
+        return repr(value)
+    return f"{type(value).__name__}@{id(value)}"
+
+
+def _fingerprint() -> str:
+    """What the layers above `platform` read, as one hash: every attribute of the seed's modules (a
+    patched constant or helper changes it), the environment (the toolchain's folders, `PATH`), the
+    `VEXTRUS_` settings and the process starter. A seed whose inputs differ from the clean ones runs
+    the real layers (the template holds only what the clean inputs made)."""
+    from vextrus.seed import platform as seed_platform
+
+    own = {seed_platform.PASSWORD_VARIABLE, settings.VEXTRUS_JEV_KEY_VARIABLE}  # every seed sets these
+    parts: list[str] = []
+    for name in sorted(sys.modules):
+        if name == "vextrus.seed" or (name.startswith("vextrus.seed.") and ".tests" not in name):
+            items = sorted(vars(sys.modules[name]).items())
+            parts.extend(f"{name}.{key}={_token(value)}" for key, value in items)
+    environment = sorted(os.environ.items())
+    parts.extend(
+        f"env {key}={value}"
+        for key, value in environment
+        if key not in own and (key == "PATH" or key.startswith(("VEXTRUS_", "DATABASE")))
+    )
+    parts.extend(
+        f"setting {key}={_token(getattr(settings, key))}"
+        for key in sorted(dir(settings))
+        if key.startswith("VEXTRUS_")
+    )
+    parts.append(f"popen={id(subprocess.Popen.__init__)}")
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
+def _import_the_seed() -> None:
+    """Every module of the seed, imported now: one imported lazily later would change the fingerprint."""
+    seed = import_module("vextrus.seed")
+    for module in pkgutil.walk_packages(seed.__path__, "vextrus.seed."):
+        if ".tests" not in module.name:
+            import_module(module.name)
+
+
 def _usable() -> bool:
+    if _wants_real[0] or _clean is None or _fingerprint() != _clean:
+        return False
     if tuple(seed_demo_module.SEEDS) != (PLATFORM, *ABOVE):
         return False
     return all(import_module(f"vextrus.seed.{name}").run is _genuine[name] for name in ABOVE)
+
+
+@pytest.fixture(autouse=True)
+def real_seed(request: pytest.FixtureRequest) -> Iterator[None]:
+    """`@pytest.mark.real_seed`: the test's seeds run the real layers, whatever it patches or not."""
+    _wants_real[0] = request.node.get_closest_marker("real_seed") is not None
+    yield
+    _wants_real[0] = False
 
 
 def _wrap(original: Any) -> Any:
@@ -507,13 +572,15 @@ def _wrap(original: Any) -> Any:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def seed_template(django_db_blocker: DjangoDbBlocker) -> Iterator[None]:
+def seed_template(django_db_blocker: DjangoDbBlocker, storage_root: None) -> Iterator[None]:
     """Wrap `vextrus.seed.demo.run_layer` for the session, and drop the template at its end."""
-    global _template
+    global _template, _clean
     for name in (PLATFORM, *ABOVE):
         _genuine[name] = import_module(f"vextrus.seed.{name}").run
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(seed_demo_module, "run_layer", _wrap(seed_demo_module.run_layer))
+        _import_the_seed()
+        _clean = _fingerprint()
         yield
     if _template is not None:
         _template = None
