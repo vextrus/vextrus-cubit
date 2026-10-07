@@ -1189,7 +1189,7 @@ def exclude(
 ) -> SheetView | ViewView:
     """The QS leaves a printed sheet or a view out, for one of the seven reasons; "other" with the
     QS's own words, kept as typed. `subject_id` is the printed sheet's or the view's id.
-    `anchors=False`: a printed sheet is read without its anchors (as `sheets`'s)."""
+    `anchors=False`: the sheet or the view (and its sheet) read without their anchors (as `sheets`'s)."""
     try:
         chosen = ExclusionReason(str(reason))
     except ValueError:
@@ -1207,10 +1207,13 @@ def exclude(
             _decide(sheet_revision, Decision.EXCLUDED, confirmation_id, chosen, words)
             sheet_revision.save(update_fields=_DECIDED)
             return _sheet_view(_unanchored(_all(), anchors).get(id=sheet_revision.id), anchors=anchors)
-        view = _listed_view(subject_id)
+        view = _listed_view(subject_id, anchors=anchors)
         _decide(view, Decision.EXCLUDED, confirmation_id, chosen, words)
         view.save(update_fields=_DECIDED)
-    return _view_view(View.objects.select_related("part").get(id=view.id))
+    found = View.objects.select_related("part")
+    if not anchors:
+        found = found.defer("anchors")
+    return _view_view(found.get(id=view.id), anchors=anchors)
 
 
 def undo(confirmation_id: uuid.UUID) -> int:
@@ -1255,9 +1258,9 @@ def _may_open(project_id: uuid.UUID) -> bool:
     return True
 
 
-def _listed_view(view_id: uuid.UUID) -> View:
-    view = _access.view(view_id, lock=True)
-    _listed(view.sheet_revision_id)
+def _listed_view(view_id: uuid.UUID, *, anchors: bool = True) -> View:
+    view = _access.view(view_id, lock=True, anchors=anchors)
+    _listed(view.sheet_revision_id, anchors=anchors)
     return view
 
 

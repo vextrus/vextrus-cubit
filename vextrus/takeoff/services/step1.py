@@ -341,6 +341,13 @@ def _sheets(project_id: uuid.UUID) -> list[drawings.SheetView]:
     return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
 
 
+def _sheet(sheet_id: uuid.UUID) -> drawings.SheetView:
+    """One printed sheet of the sheet list, without its anchors: Step 1 never reads them (its Traces
+    are given, never read back), so no act, list or proposal reads that heavy JSON (S15-A1). Every
+    read of one sheet in this module goes through here (`test_step1_reads_no_anchors`)."""
+    return drawings.sheet(sheet_id, anchors=False)
+
+
 def _facts(project_id: uuid.UUID) -> list[drawings.SheetFacts]:
     """`_sheets` as facts (`drawings.sheet_facts`, one statement): for counts and membership tests."""
     projects.get(project_id)
@@ -1014,7 +1021,7 @@ def _ask_if_lists_differ(project_id: uuid.UUID, discipline: str) -> None:
     ).exclude(question_key=key or "").update(status=QuestionStatus.WITHDRAWN)
     if key is None or not lists.differ or lists.read is None or lists.given is None:
         return
-    on = drawings.sheet(lists.read.source_sheet_id) if lists.read.source_sheet_id else None
+    on = _sheet(lists.read.source_sheet_id) if lists.read.source_sheet_id else None
     Question.objects.get_or_create(
         tenant_id=_tenant(),
         project_id=project_id,
@@ -1267,7 +1274,7 @@ def _held_first(project_id: uuid.UUID, sheet_id: uuid.UUID, proposal: Proposal |
     """Whether a `missing` or `missing_discipline` Question still holds the sheet (as `confirm`
     refuses it)."""
     try:
-        _no_question_first(project_id, [(drawings.sheet(sheet_id, anchors=False), proposal)])
+        _no_question_first(project_id, [(_sheet(sheet_id), proposal)])
     except auth.Refused:
         return True
     return False
@@ -1464,7 +1471,7 @@ def _exclude_views(
         row = rows.get(proposal.subject_id)
         if row is None or row.sheet_revision_id not in listed:
             raise auth.NotFound
-        drawings.exclude(proposal.subject_id, reason, words, confirmation_id=act.id)
+        drawings.exclude(proposal.subject_id, reason, words, confirmation_id=act.id, anchors=False)
         row.status, row.reason, row.reason_text = CoverageStatus.EXCLUDED, reason, words.strip()
         row.confirmation = act
         row.confirmed_by_id = act.user_id
@@ -1583,7 +1590,7 @@ def _standing_steps(row: Coverage, sheet: drawings.SheetView | None = None) -> l
         deciding = sheet.confirmation_id
     else:
         try:
-            deciding = drawings.sheet(row.sheet_revision_id, anchors=False).confirmation_id
+            deciding = _sheet(row.sheet_revision_id).confirmation_id
         except auth.NotFound:
             deciding = None
     return [s.step for s in _steps_standing([row], {row.sheet_revision_id: deciding}).get(row.id, [])]
@@ -1787,8 +1794,10 @@ def _put_back_sheet(
             proposal.rejected_reason = prior["reason"]
             _stamp(proposal, ProposalStatus.REJECTED, earlier)
     else:
-        drawings.confirm_sheet(sheet_id, confirmation_id=earlier.id, kind=prior["kind"], anchors=False)
-        _decide_views(sheet_id, earlier, None, "")
+        confirmed = drawings.confirm_sheet(
+            sheet_id, confirmation_id=earlier.id, kind=prior["kind"], anchors=False
+        )
+        _decide_views(sheet_id, earlier, None, "", confirmed=confirmed)
         if proposal is not None:
             proposal.rejected_reason = ""
             _stamp(proposal, ProposalStatus.CONFIRMED, earlier)
@@ -1839,7 +1848,7 @@ def _decide_views(
     own = _excluded_on_their_own(act.project_id, sheet_id)
     sheet = None
     if reason is None:
-        sheet = confirmed if confirmed is not None else drawings.sheet(sheet_id)
+        sheet = confirmed if confirmed is not None else _sheet(sheet_id)
     rows = list(
         Coverage.objects.select_for_update().filter(
             project_id=act.project_id, sheet_revision_id=sheet_id
@@ -1885,7 +1894,7 @@ def _follow_sheet(row: Coverage) -> None:
     """A view's own exclusion undone: it stands as its sheet does (confirmed: as proposed, under the
     sheet's act; left out: with the sheet's reason; undecided: proposed)."""
     try:
-        sheet = drawings.sheet(row.sheet_revision_id, anchors=False)
+        sheet = _sheet(row.sheet_revision_id)
     except auth.NotFound:
         sheet = None
     if sheet is None or not sheet.decision or sheet.confirmation_id is None:
@@ -1939,7 +1948,7 @@ def propose_sheet(
     """A printed sheet as a Step 1 Proposal: its kind as read and, when Jev answered its kind, that
     answer (its choice and the options offered, in order), with its Traces; the Proposal's id.
     Idempotent per sheet."""
-    sheet = drawings.sheet(sheet_id)
+    sheet = _sheet(sheet_id)
     row = _proposal_row(_project_of(sheet), sheet, answer)
     _trace(row, traces)
     return row.id
@@ -1949,7 +1958,7 @@ def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Trac
     """A view of a printed sheet as a Step 1 Proposal (what 17 proposes to do with it: its steps,
     its Part, or leaving it out), with its Traces; the Proposal's id. Idempotent per view."""
     projects.get(project_id)
-    sheet = drawings.sheet(view.sheet_revision_id)
+    sheet = _sheet(view.sheet_revision_id)
     if _project_of(sheet) != project_id:
         raise auth.NotFound
     values = {
@@ -2129,7 +2138,7 @@ def _proposal_row(
 def record_coverage(sheet_id: uuid.UUID) -> int:
     """Each view of a printed sheet as a Coverage row, from its proposal: to its Takeoff Steps or its
     Discipline Part, left out with a reason, or unaccounted. Idempotent; the rows written."""
-    sheet = drawings.sheet(sheet_id)
+    sheet = _sheet(sheet_id)
     project_id = _project_of(sheet)
     tenant_id = _tenant()
     written = 0
@@ -2268,7 +2277,7 @@ def record_read_list(
     each number with its title and, where the list gives one, its revision mark, in the list's
     order); its id. Kept beside a list the QS gives: when
     the two disagree, N is unknown until 21c's Question is answered."""
-    sheet = drawings.sheet(sheet_id)
+    sheet = _sheet(sheet_id)
     project_id = _project_of(sheet)
     key = _discipline(discipline)
     with transaction.atomic():
@@ -2467,7 +2476,7 @@ def _apply(
         except auth.Refused as refused:  # its number or Discipline is still asked: keep the kind
             if refused.message["code"] != said.QUESTION_FIRST.code:
                 raise
-            left_out = {s.id for s in _facts(project_id) if s.decision == "excluded"}
+            left_out = {s.id for s in _sheets(project_id) if s.decision == "excluded"}
             for proposal in Proposal.objects.filter(project_id=project_id, id__in=held):
                 # A sheet left out keeps its kind in the answer alone (a decided sheet's kind is
                 # not rewritten); the QS confirms it back in once its number is answered.
