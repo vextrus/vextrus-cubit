@@ -395,8 +395,9 @@ def one_sheets_scans() -> int:
     """What reading the first sheet's views spends of the view finder's file-wide scan bound."""
     artefact = three_sheets("0" * 64, "KR-STR-R0.dwg")
     [first, *_] = finder.find(artefact, "structural", finder.default_conventions())
-    view_finder.find(artefact, first)
-    return view_finder.MAX_SCANS - view_finder._walker(artefact).scans
+    budget = view_finder.ViewBudget(artefact)
+    view_finder.find(artefact, first, budget=budget)
+    return view_finder.MAX_SCANS - budget.scans
 
 
 def sheet_readings(member: Member, file_id: uuid.UUID) -> list[tuple[int, list[str]]]:

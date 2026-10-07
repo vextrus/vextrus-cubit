@@ -497,30 +497,11 @@ def test_a9_a_finished_local_builder_is_counted_done(world: World) -> None:
 
 
 # Addendum 1.1, as amended (PR #372 round 1, the orchestrator's decision): ONE rule everywhere, the
-# guard's READY push gate and stop-gate.mjs included. Factory-* trailers count only in the LAST
-# paragraph, which may also hold the Co-Authored-By and Claude-Session lines; trailers in the
-# paragraph before an attribution-only last paragraph are not read.
-def test_b1_a_ready_before_an_attribution_paragraph_is_not_ready(world: World) -> None:
-    world.launch_cloud("tc2", "tc2-branch")
-    world.push("tc2-branch", lambda tree: f"{ready(tree)}\n{ATTRIBUTION}")
-    world.once()
-
-    for kind in ("READY", "BLOCKED", "READY-NO-VERIFY"):
-        assert world.events(kind, "tc2") == [], world.lines()
-    assert world.item("tc2")["state"] == "working"
-
-
-def test_b1_a_blocked_before_an_attribution_paragraph_is_not_blocked(world: World) -> None:
-    world.launch_cloud("tc6", "tc6-branch")
-    reason = "the spec names no exit code"
-    world.push("tc6-branch", lambda tree: f"{blocked(reason)(tree)}\n{ATTRIBUTION}")
-    world.once()
-
-    for kind in ("READY", "BLOCKED", "READY-NO-VERIFY"):
-        assert world.events(kind, "tc6") == [], world.lines()
-    assert world.item("tc6")["state"] == "working"
-
-
+# guard's READY push gate and stop-gate.mjs included. A Factory-* block sharing the last paragraph
+# with the Co-Authored-By and Claude-Session lines is read. Superseded in part by issue #448 (ticket
+# S14-F1): a Factory-* block in the paragraph before an attribution-only last paragraph is now read,
+# and one in any other paragraph raises READY-NO-VERIFY; those pins live in
+# scripts/tests/acceptance/ts14f1/.
 def test_b1_a_ready_sharing_the_last_paragraph_with_attribution_is_ready(world: World) -> None:
     world.launch_cloud("tc7", "tc7-branch")
     head = world.push(
@@ -536,22 +517,6 @@ def test_b1_a_ready_sharing_the_last_paragraph_with_attribution_is_ready(world: 
     assert len(events) == 1, world.lines()
     assert detail(events[0]).startswith(head[:8]), events
     assert world.item("tc7")["state"] == "ready"
-
-
-def test_b1_trailers_in_free_text_earlier_in_the_body_are_never_read(world: World) -> None:
-    world.launch_cloud("tc3", "tc3-branch")
-    world.push(
-        "tc3-branch",
-        lambda tree: (
-            f"factory: x\n\nFactory-State: READY\nFactory-Verify: {tree} ok\n\n"
-            f"A closing note in prose.\n\n{ATTRIBUTION}"
-        ),
-    )
-    world.once()
-
-    for kind in ("READY", "BLOCKED", "READY-NO-VERIFY"):
-        assert world.events(kind, "tc3") == [], world.lines()
-    assert world.item("tc3")["state"] == "working"
 
 
 # Addendum 1.2, as amended (PR #372 round 1): the lander merges origin/main on top of a READY head. A

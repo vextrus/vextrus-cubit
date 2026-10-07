@@ -9,6 +9,8 @@ from engine.recognise import views
 from engine.recognise.tests.drawing import Sheets
 from engine.recognise.tests.test_views import drawn, grid, near, one_sheet
 from engine.recognise.types import ViewKind
+from engine.recognise.views import paper as on_paper
+from engine.recognise.views.segment import pieces as pieces_part
 
 TABLE = (30.0, 60.0, 560.0, 560.0)  # 530 by 500 mm: its rules over 0.6 of the A1 frame's sides
 
@@ -67,21 +69,22 @@ def test_rules_running_past_the_tables_sides_rule_no_table() -> None:
     """Rules across running 60 mm past the rules down at both ends: dividers, not a table's."""
     d = Sheets()
     ruled(d, TABLE, 4, 4, run=60)
-    assert views._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
+    assert pieces_part._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
 
 
 def test_too_few_rules_rule_no_table() -> None:
     d = Sheets()
     ruled(d, TABLE, 1, 4)  # two rules across
-    assert views._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
+    assert pieces_part._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
     d = Sheets()
     ruled(d, TABLE, 2, 2)
-    assert views._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == [TABLE]
+    assert pieces_part._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == [TABLE]
 
 
 def _segments(d: Sheets) -> NDArray[np.float64]:
     """The sheet's segments on paper."""
-    paper = views._paper(d.artefact(), one_sheet(d))
+    artefact = d.artefact()
+    paper = on_paper._paper(artefact, one_sheet(d), views.ViewBudget(artefact))
     assert paper is not None
     return paper.segments
 
@@ -107,7 +110,7 @@ def test_grid_lines_running_past_each_other_to_their_marks_are_no_table() -> Non
         x = x0 + (x1 - x0) * i / 4
         d.line((x, y0 - 8), (x, y1 + 8))
     grid(d, (100, 100, 300, 300))  # walls
-    assert views._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
+    assert pieces_part._tables(_segments(d), (0.0, 0.0, 841.0, 594.0)) == []
     assert all(v.kind is not ViewKind.SCHEDULE for v in drawn(d, one_sheet(d)))
 
 

@@ -33,16 +33,16 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   owner's walk of the running product on real drawings is.
 - **Plain words.** Say what you did, what you found and what you need, briefly.
 - **Keep the context for the owner.** Fan read-heavy work out to background agents, one question each.
-- **Effort and models:** Opus 5.5 at `medium` for the orchestrator, builders and every gating or reading
-  agent; `high` for hard tickets (reading drawings, hostile-input boundaries, security walls), for every
-  `acceptance-writer` (the owner's Q20, 4 Oct 2026: "yes for most scenario if it comes to quality";
-  `medium` only for a docs-only ticket) and for `pr-reviewer` and `refuter`. Sonnet 5.5 for light work (look-ups, `Explore`, naming a failure from a
-  log); both models default to medium; set effort explicitly.
+- **Effort and models** (the owner's Q1, 5 Oct 2026): both models default to medium, so set model and effort in every launch and agent file. Orchestrator: Opus 5.5 `medium` all session; never `xhigh` or Ultracode; no dynamic workflow but `real-set-walk`.
+  Opus 5.5 `high`: every `acceptance-writer` (the owner's Q20, 4 Oct 2026: "yes for most scenario if it comes to quality"), the `pr-reviewer` depth lens,
+  `qs-critic`, `drawing-analyst`, the `ux-critic` walk, hard builders (drawings, hostile input, security walls; `launch --tier hard`). Sonnet 5.5: ordinary builders with
+  committed tests (`--tier ordinary`, `medium`; `high` if long or spanning modules); at `high` the adversary lens, `refuter`, words-only `ux-critic`; `Explore`, look-ups (`low`).
+  Mechanical steps are scripts. Haiku 4.5 and Fable 5.1 are not used. A role moves to a cheaper model only with a pilot result in `docs/knowledge/lessons.md`.
 - **Cloud and local sessions:** cloud for tickets provable by committed tests; local (`claude --bg`, one
   worktree each) for anything touching real drawings. Cloud builders push their own branch only; local
   builders commit and never push. Neither opens a PR: the orchestrator pushes, opens it and merges after
-  the review loop (at most two rounds) and green required checks.
-- **Second review lens:** the adversary agent inside `/review-pr` (ADR 0042).
+  the review loop (`scripts.factory.review run <PR> --round <n>`, at most two rounds) and green required checks.
+- **Second review lens:** the adversary agent, a lens of `scripts.factory.review run <PR> --round <n>` (ADR 0043; `/review-pr` until S14-R3).
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
 - **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class): a

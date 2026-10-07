@@ -1,0 +1,3 @@
+# GitHub logins whose open PRs have their tests run by `scripts.factory.crosspr` (one per line).
+# Running a PR's tests runs its code: add a login only for an account the factory controls.
+vextrus
