@@ -15,8 +15,20 @@ from vextrus.live_model import services
 from vextrus.platform import ids
 from vextrus.platform.tests.policy_coverage import coverage_problems
 
-T = {"live_model_element", "live_model_record", "live_model_elementrelation"}
+T = {
+    "live_model_element",
+    "live_model_record",
+    "live_model_elementrelation",
+    # M1's spine (S16-L).
+    "live_model_disciplinepart",
+    "live_model_modelversion",
+    "live_model_elementstate",
+    "live_model_elementtrace",
+    "live_model_viewplacement",
+    "live_model_viewplacementstorey",
+}
 L = {
+    "live_model_familyclassification",
     "live_model_elementfamily",
     "live_model_attributedefinition",
     "live_model_familyattribute",
@@ -81,8 +93,10 @@ def test_the_tables_are_the_owner_s_ruling_and_no_more() -> None:
     assert tables == T | L
 
 
-def test_live_model_s_services_expose_nothing_yet() -> None:
-    assert [name for name in vars(services) if not name.startswith("_")] == []
+def test_live_model_s_services_expose_the_spine_and_the_inspector() -> None:
+    public = {name for name in vars(services) if not name.startswith("_")}
+
+    assert {"apply", "snapshot", "figures_hash", "StateChange", "element"} <= public
 
 
 @pytest.mark.django_db
