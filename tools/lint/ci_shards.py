@@ -12,6 +12,7 @@ only.
     python -m tools.lint.ci_shards args <name>      # the shard's pytest arguments, one line
 """
 
+import ast
 import json
 import re
 import shlex
@@ -257,30 +258,63 @@ def workflow_problems(root: Path) -> list[str]:
 # --- serial tests (signals and process groups fail under xdist) -----------------------------------
 
 SENDS_SIGNAL = re.compile(
-    r"signal\.raise_signal|\bos\.killpg?\(|\bsend_signal\(|\bgetpgid\(|start_new_session|\bkillpg\("
+    r"\bos\.kill(?:pg)?\(|\bsignal\.(?:signal|raise_signal|pthread_kill|pthread_sigmask|sigpending)\("
+    r"|\bsend_signal\(|\bgetpgid\(|\bstart_new_session\b|\bkillpg\("
 )
 
 
-MARKED = re.compile(r"^\s*@?(?:pytestmark\s*=\s*)?\[?\s*pytest\.mark\.serial\b", re.MULTILINE)
+def is_marked_serial(body: str) -> bool:
+    """Whether the source names `pytest.mark.serial` anywhere (a `pytestmark` list, a decorator)."""
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return False
+    return any(
+        isinstance(node, ast.Attribute)
+        and node.attr == "serial"
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "mark"
+        for node in ast.walk(tree)
+    )
+
+
+def serial_runs(text: str) -> set[str]:
+    """The arguments of every non-comment pytest command in `ci.yml` whose `-m` selects serial tests."""
+    named: set[str] = set()
+    for line in map(_code, text.splitlines()):
+        if not PYTEST.search(line):
+            continue
+        try:
+            words = shlex.split(line.split("pytest", 1)[1])
+        except ValueError:
+            continue
+        marks = [words[at + 1] for at, word in enumerate(words[:-1]) if word == "-m"]
+        if any(re.match(r"\s*serial\b", mark) for mark in marks):
+            named.update(word for word in words if not word.startswith("-"))
+    return named
 
 
 def serial_problems(root: Path, text: str) -> list[str]:
     """Each test file (acceptance folders aside: they cannot be edited) that sends a signal carries
-    `pytest.mark.serial`, and each file so marked is named in `ci.yml` (its serial, no-`-n` run)."""
+    `pytest.mark.serial`, and each file so marked is an argument of a `ci.yml` pytest run whose `-m`
+    selects serial (a path in a comment or a parallel step does not count). The mark is read per file."""
     try:
         files = test_files(root, testpaths(root))
     except OSError, KeyError, TypeError, ValueError:
         return []  # shard_problems already reports an unreadable testpaths
+    run = serial_runs(text)
     found: list[str] = []
     for path in files:
         if "/acceptance/" in path:
             continue
         body = (root / path).read_text(errors="replace")
-        marked = MARKED.search(body) is not None
+        marked = is_marked_serial(body)
         if SENDS_SIGNAL.search(body) and not marked:
             found.append(f"{path}: sends a signal, not marked pytest.mark.serial (xdist breaks it)")
-        if marked and path not in text:
-            found.append(f"{path}: marked serial but {CI} never runs it (it would be deselected)")
+        if marked and path not in run:
+            found.append(
+                f"{path}: marked serial but {CI} has no serial run naming it (it would be deselected)"
+            )
     return found
 
 

@@ -5,6 +5,8 @@ under `tests/acceptance/tf1/`."""
 import json
 from pathlib import Path
 
+import pytest
+
 from tools.lint.ci_shards import Malformed, Shard, full_match, load, node_patterns, problems
 
 
@@ -47,18 +49,59 @@ def test_a_malformed_shard_file_fails_closed(tmp_path: Path) -> None:
     assert any("ci.yml" in line for line in problems(tmp_path)), "a missing ci.yml is a problem"
 
 
-def test_a_test_that_sends_a_signal_must_be_marked_serial_and_run_by_ci(tmp_path: Path) -> None:
-    from tools.lint.ci_shards import serial_problems
+SIGNAL_FORMS = [  # built in pieces: this file is itself scanned
+    "os." + "kill" + "pg(1, 15)",
+    "os." + "kill(os.getpid(), 1)",
+    "signal." + "signal(signal.SIGTERM, handler)",
+    "signal." + "raise_signal(15)",
+    "signal." + "pthread_sigmask(0, [])",
+    "signal." + "sigpending()",
+    "proc.send_" + "signal(15)",
+    "os.getpg" + "id(0)",
+    "subprocess.Popen(c, start_" + "new_session=True)",
+]
 
+
+def make_serial_world(tmp_path: Path, form: str) -> Path:
     (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["pkg"]\n')
     tests = tmp_path / "pkg" / "tests"
     (tests / "acceptance").mkdir(parents=True)
-    kill = "os." + "kill" + "pg(1, 15)\n"  # built in pieces: this file is itself scanned
-    (tests / "test_bare.py").write_text(kill)
-    (tests / "test_marked.py").write_text("pytestmark = pytest.mark.serial\n" + kill)
-    (tests / "test_idle.py").write_text("pytestmark = pytest.mark.serial\n")
-    (tests / "acceptance" / "test_pinned.py").write_text(kill)
-    found = serial_problems(tmp_path, "pytest pkg/tests/test_marked.py")
-    assert len(found) == 2, found
+    (tests / "test_bare.py").write_text(form + "\n")
+    (tests / "acceptance" / "test_pinned.py").write_text(form + "\n")
+    return tests
+
+
+@pytest.mark.parametrize("form", SIGNAL_FORMS)
+def test_an_unmarked_test_in_any_signal_form_is_a_problem(tmp_path: Path, form: str) -> None:
+    from tools.lint.ci_shards import serial_problems
+
+    make_serial_world(tmp_path, form)
+    found = serial_problems(tmp_path, "")
+    assert len(found) == 1, found
     assert "pkg/tests/test_bare.py" in found[0]
-    assert "pkg/tests/test_idle.py" in found[1]
+
+
+MARKS = [
+    "pytestmark = pytest.mark.serial",
+    "pytestmark = [pytest.mark.slow, pytest.mark.serial]",
+    "@pytest.mark.serial\ndef test_x(): ...",
+]
+SERIAL_RUN = 'uv run pytest -m "serial and not live" pkg/tests/test_marked.py'
+
+
+@pytest.mark.parametrize("mark", MARKS)
+def test_a_marked_file_must_be_an_argument_of_a_serial_run_of_ci(tmp_path: Path, mark: str) -> None:
+    from tools.lint.ci_shards import serial_problems
+
+    tests = make_serial_world(tmp_path, "pass")
+    (tests / "test_marked.py").write_text(mark + "\n" + SIGNAL_FORMS[1] + "\n")
+    assert serial_problems(tmp_path, SERIAL_RUN) == []
+    for unrun in (
+        "",
+        "# " + SERIAL_RUN,  # named only in a comment
+        'uv run pytest -n 4 -m "not serial" pkg/tests/test_marked.py',  # a parallel run deselects it
+        "# pkg/tests/test_marked.py serial",
+    ):
+        found = serial_problems(tmp_path, unrun)
+        assert len(found) == 1, (unrun, found)
+        assert "test_marked.py" in found[0]
