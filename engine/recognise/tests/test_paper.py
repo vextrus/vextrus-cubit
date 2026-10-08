@@ -199,6 +199,16 @@ def test_a_frame_smaller_than_any_sheet_leaves_its_plot_sheet_standing() -> None
     assert paper.source == PaperSource.LAYOUT
 
 
+def test_a_frame_drawn_in_inches_under_a_larger_millimetre_setup_is_on_its_own_sheet() -> None:
+    """An A4 frame drawn in inches (11.69 x 8.27) under a stale millimetre A1 page setup: read in mm in
+    the units where it is a sheet's size, it does not fill A1, so it is on A4 (PR 613's review, round
+    2)."""
+    artefact, sheet = layout((0, 0, 297 / 25.4, 210 / 25.4), plotted(), lines=())
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == (297.0, 210.0)
+    assert paper.source != PaperSource.LAYOUT
+
+
 def test_a_layout_in_inches_is_laid_in_its_paper_units() -> None:
     """A layout drawn in inches (its plot settings' paper units): its paper is in mm, its origin in
     inches, and its sheet is the one its settings state."""

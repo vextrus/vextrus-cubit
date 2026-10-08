@@ -716,7 +716,7 @@ def _layout_paper(artefact: ReadArtefact, frame: DwgAnchor | None, handle: str) 
     units = (1.0, 25.4) if stated is None else (stated, *(u for u in (1.0, 25.4) if u != stated))
     framed = _layout_frame(artefact, frame, handle)
     extents, padded = _layout_box(artefact, handle) if framed is None else (framed, False)
-    plotted = _plot_sheet(record.plot, units[0], extents, framed is not None)
+    plotted = _plot_sheet(record.plot, units, extents, framed is not None)
     if plotted is not None:
         return plotted
     if framed is not None:
@@ -759,17 +759,19 @@ def _layout_frame(artefact: ReadArtefact, frame: DwgAnchor | None, handle: str) 
 
 
 def _plot_sheet(
-    plot: PlotSettings | None, mm_per_unit: float, drawn: Bounds, framed: bool
+    plot: PlotSettings | None, units: Sequence[float], drawn: Bounds, framed: bool
 ) -> Paper | None:
     """The sheet a layout's plot settings state, its corner where they put it (a layout's origin is the
     printable area's lower-left corner, moved by the plot offset; a quarter turn swaps the paper's
     sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it; else none. A frame
-    is on it when it reaches at most `ON_SHEET_MM` past the sheet's edge and, when it is a sheet's size
-    in the stated units (each side `PLOT_SHEET_MM`'s least or more), fills it, each side at most
-    `2 * BORDER_MM` short of the sheet's (as `_sheet_around` holds a border): a default page setup left
-    on a layout drawn for another sheet states one the frame is not on, or one far larger (PR 613's
-    review). A frame smaller than any sheet in the stated units says nothing of another sheet's size,
-    and the stated sheet stands (ts15e4's stale layout, a frame of 16.54 x 11.69 under an A3 setup).
+    is on it when it reaches at most `ON_SHEET_MM` past the sheet's edge (in the stated units, `units`'
+    first) and fills it, each side at most `2 * BORDER_MM` short of the sheet's (as `_sheet_around` holds
+    a border): a default page setup left on a layout drawn for another sheet states one the frame is not
+    on, or one far larger (PR 613's review). The frame's size is read in mm in the first of the
+    layout's units where it is a sheet's (each side `PLOT_SHEET_MM`'s least or more): an A3 border drawn
+    in inches under a millimetre A3 setup (ts15e4's stale layout) fills its A3, and an A4 drawn in
+    inches does not fill an A1 (PR 613's review, round 2). A frame of no sheet's size in any of them
+    says nothing of another sheet, and the stated sheet stands.
     A frameless layout's extents are on it when their centre is and they are no larger than the sheet
     (within `ON_SHEET_MM`): extents take in a title's reach, which may pass the sheet's edge (ts15e2's
     E-503), and a drawing larger than the sheet would be cut by it (PR 613's review). With no frame,
@@ -786,12 +788,16 @@ def _plot_sheet(
         width, height = height, width
     on_left, on_bottom = {0: (left, bottom), 1: (bottom, right), 2: (right, top), 3: (top, left)}[turn]
     corner = (-(on_left + plot.origin_mm[0]), -(on_bottom + plot.origin_mm[1]))  # mm
+    mm_per_unit = units[0]
     x0, y0, x1, y1 = (v * mm_per_unit - corner[i % 2] for i, v in enumerate(drawn))
     short_w, short_h = width - (x1 - x0), height - (y1 - y0)
     if framed:
         on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
-        sheet_sized = min(x1 - x0, y1 - y0) >= PLOT_SHEET_MM[0]
-        on = on and (not sheet_sized or max(short_w, short_h) <= 2 * BORDER_MM)
+        frame_w, frame_h = drawn[2] - drawn[0], drawn[3] - drawn[1]
+        sized = next(
+            ((frame_w * u, frame_h * u) for u in units if min(frame_w, frame_h) * u >= low), None
+        )
+        on = on and (sized is None or max(width - sized[0], height - sized[1]) <= 2 * BORDER_MM)
     else:
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         on = 0 <= cx <= width and 0 <= cy <= height and min(short_w, short_h) >= -ON_SHEET_MM
