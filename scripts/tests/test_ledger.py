@@ -309,6 +309,17 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "web/e2e/real/walk.spec.ts",
         "web/src/auth/SignIn.tsx",
         "docs/../vextrus/x.py",
+        "scripts/factory/crosspr.py",  # #615 round 1: gates inside the old lax code folders
+        "scripts/factory/ci_gate.py",
+        "scripts/factory/trailers.py",
+        "scripts/factory/watch.py",
+        "tools/lint/hook_paths.py",
+        "tools/lint/acceptance.py",
+        "scripts/tests/x.py",
+        "scripts/tests/test_ledger.py",
+        "scripts/tests/acceptance/ts17f6/test_bar.py",
+        "CLAUDE.md",
+        "web/src/permissions/Grant.tsx",
     ],
 )
 def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
@@ -319,8 +330,7 @@ def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "file",
-    ["web/src/x.tsx", "docs/x.md", "README.md", "scripts/factory/watch.py", "tools/lint/x.py"],
+    "file", ["web/src/x.tsx", "docs/x.md", "README.md", "web/src/components/badge.tsx"]
 )
 def test_a_60_off_the_strict_trees_is_filed_not_blocking(tmp_path: Path, file: str) -> None:
     given = source(tmp_path, f"VERDICT: PASS at {H}", f"FINDING f1 60 CONFIRMED {file}")

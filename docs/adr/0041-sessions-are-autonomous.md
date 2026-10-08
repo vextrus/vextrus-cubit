@@ -14,13 +14,14 @@ refuting a sample rather than every finding" — yes): items 5 and 7 — a stand
 more, or at 50 or more when its file is strict. The ruling keeps 50-74 blocking on security walls, migrations,
 money and readers. **Strict is the default; the lax side is a named list** (ADR 0043 item 2: a list names only what
 is safe). Why: the walls are spread across the code (each module's services, http and acts, the leak scan, real-
-drawing custody, the factory's launch and publish), and a list of them missed one in each of PR #610's three review
-rounds. So in `scripts/factory/review_tiers.toml` a file is strict when it matches `[strict] paths` (the backend,
-every migrations folder, the engine's readers, the guard and hooks, the owner's wrappers, CI, and the walls inside
-the lax folders) or matches no `[lax] paths` glob. Lax, and so on the 75 bar: `web/` (not its end-to-end tests or
-anything named for auth or the session), `docs/`, the root's Markdown, `scripts/factory/` (not its guard, hook,
-launch, publish, allowlist, leak, custody, settings, stamp or review code), `scripts/tests/` and `tools/lint/`. A
-path nobody listed, a finding with no file, or a file that is not exactly a file of the head's tree, is strict. A
+drawing custody, the factory's launch, publish, trust and READY checks, the lints that pin the guard and the
+acceptance tests), and a list of them missed one in each of PR #610's three review rounds, while PR #615 found
+gates inside every lax code folder. The factory and the backend hold walls; the 75 bar applies to the web's screens
+and the docs. So in `scripts/factory/review_tiers.toml` a file is strict when it matches `[strict] paths` or matches
+no `[lax] paths` glob. Lax, and so on the 75 bar: `web/` (not its end-to-end tests or anything named for auth, the
+session or permissions), `docs/`, the root's Markdown (not CLAUDE.md or AGENTS.md, which agents obey), and
+`scripts/factory/say.py` (a message printer, pinned lax by the acceptance tests). A path nobody listed, a finding
+with no file, or a file that is not exactly a file of the head's tree, is strict. A
 standing finding of 50-74 off the strict paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
 sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
 highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Item
