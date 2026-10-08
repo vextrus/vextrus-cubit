@@ -360,3 +360,35 @@ def test_pull_main_raises_after_three_failed_fetches(tmp_path: Path) -> None:
         Gh(repo, sleep=sleeps.append).pull_main()
     assert sleeps == [2, 2]
     assert run_git(repo, "rev-parse", "HEAD") == before
+
+
+class Views(Gh):
+    """`gh pr view --json mergeable,mergeStateStatus` against scripted answers."""
+
+    def __init__(self, tmp_path: Path, answers: list[dict[str, str]]) -> None:
+        super().__init__(tmp_path, sleep=lambda _: None)
+        self.answers = answers
+        self.reads = 0
+
+    def _run(self, *argv: str) -> str:
+        assert argv[-1] == "mergeable,mergeStateStatus"
+        self.reads += 1
+        return json.dumps(self.answers.pop(0))
+
+
+def test_conflicting_reads_the_conflict_from_gh_pr_view(tmp_path: Path) -> None:
+    clean = {"mergeable": "MERGEABLE", "mergeStateStatus": "BEHIND"}
+    assert Views(tmp_path, [clean]).conflicting(12) is False
+    dirty = {"mergeable": "CONFLICTING", "mergeStateStatus": "DIRTY"}
+    assert Views(tmp_path, [dirty]).conflicting(12) is True
+
+
+def test_an_unknown_mergeable_is_polled_then_read_or_taken_as_clean(tmp_path: Path) -> None:
+    unknown = {"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN"}
+    dirty = {"mergeable": "CONFLICTING", "mergeStateStatus": "DIRTY"}
+    polled = Views(tmp_path, [unknown, dirty])
+    assert polled.conflicting(12) is True
+    assert polled.reads == 2
+    never = Views(tmp_path, [unknown, unknown, unknown])
+    assert never.conflicting(12) is False
+    assert never.reads == 3

@@ -3,8 +3,13 @@ new head to exist and succeed before `merge_ready` and the merge; a rollup with 
 but no `ci` check yet is pending, never green; a new head whose `ci` check never comes is refused within
 the poll bound, never merged on the old head's green.
 
-Seams (existing): `scripts.land.land(pr, gh, *, ledger_dir, flaky, ready, repo)` and
-`scripts.land.Gh(repo, *, sleep, polls)`. GitHub is the fake gh 2.45 of `_fake.py` on PATH.
+S17-F7 (the owner's ruling, 7 Oct 2026): the lander no longer updates a branch; `land update <PR>` is
+the one path that moves the head. So each world here runs `land update 12` (which waits for the new
+head's `ci` check to exist), then lands; the new head's checks are served in order across both.
+
+Seams (existing): `scripts.land.land(pr, gh, *, ledger_dir, flaky, ready, repo)`,
+`scripts.land.Gh(repo, *, sleep, polls)` and `scripts.land.main(["update", "<PR>"])`. GitHub is the
+fake gh 2.45 of `_fake.py` on PATH.
 """
 
 from dataclasses import dataclass
@@ -37,6 +42,8 @@ class Landing:
     old: str
     new: str
     readied: list[int]
+    updated: int
+    update_out: str
 
 
 def landing(
@@ -46,9 +53,12 @@ def landing(
     *,
     new_rollups: list[list[dict[str, Any]]],
     polls: int = 8,
+    old_rollups: list[list[dict[str, Any]]] | None = None,
+    update_first: bool = True,
 ) -> Landing:
-    """Land PR 12, reviewed (a ledger PASS for its head) and one merge behind main, so the lander's
-    update makes a new head; the old head's own CI was all green, `ci` included."""
+    """`land update 12` (unless not `update_first`), then land PR 12, reviewed (a ledger PASS for its
+    head) and one merge behind main, so the update makes a new head; the old head's own CI was all
+    green, `ci` included (unless `old_rollups` scripts it)."""
     world = World(tmp_path)
     old = world.pr(PR, ["scripts/feature.py"])
     world.main_moves_on()
@@ -62,12 +72,26 @@ def landing(
                 "head": old,
                 "files": ["scripts/feature.py"],
                 "update": {"head": new, "update_ref": [str(world.origin), f"refs/pull/{PR}/head"]},
-                "rollups": {old: [with_ci()], new: new_rollups},
+                "rollups": {old: old_rollups or [with_ci()], new: new_rollups},
                 "logs": {CI_JOB: NO_TEST_LOG},
             }
         },
     )
     monkeypatch.chdir(world.work)
+
+    class Fast(land.Gh):
+        def __init__(self, *args: Any, **options: Any) -> None:
+            options["sleep"] = lambda _: None
+            options["polls"] = polls
+            super().__init__(*args, **options)
+
+    updated, update_out = 0, ""
+    if update_first:
+        capfd.readouterr()
+        with monkeypatch.context() as patch:
+            patch.setattr(land, "Gh", Fast)
+            updated = land.main(["update", str(PR)])
+        update_out = capfd.readouterr().out
     readied: list[int] = []
 
     def ready(pr: int) -> int:
@@ -84,7 +108,7 @@ def landing(
         repo=world.work,
     )
     out, err = capfd.readouterr()
-    return Landing(code, out, err, fake, old, new, readied)
+    return Landing(code, out, err, fake, old, new, readied, updated, update_out)
 
 
 Fixtures = tuple[Path, pytest.MonkeyPatch, pytest.CaptureFixture[str]]
@@ -100,6 +124,8 @@ def test_a_new_head_with_its_other_checks_green_but_no_ci_check_yet_is_not_merge
 ) -> None:
     """The 5 Oct refusals of #391 and #393: the new head's rollup had no `ci` yet; then `ci` fails."""
     done = landing(*env, new_rollups=[without_ci(), with_ci(conclusion="FAILURE")])
+    assert done.updated == 0, done.update_out
+    assert done.fake.pr(PR)["head"] == done.new, "`land update` did not move the head"
     assert done.code == 3, done.out + done.err
     assert "Traceback" not in done.err
     assert done.fake.merged() == []
@@ -109,7 +135,9 @@ def test_a_new_head_with_its_other_checks_green_but_no_ci_check_yet_is_not_merge
 def test_landing_merges_the_new_head_only_after_its_ci_check_succeeded(env: Fixtures) -> None:
     rollups = [[], without_ci(), with_ci(status="IN_PROGRESS", conclusion=""), with_ci()]
     done = landing(*env, new_rollups=rollups)
+    assert done.updated == 0, done.update_out
     assert done.code == 0, done.out + done.err
+    assert len(done.fake.updates()) == 1, "landing asked GitHub to bring main in again"
     assert [merge["sha"] for merge in done.fake.merged()] == [done.new]
     assert done.fake.merged()[0]["served"] >= 4, "merged before the new head's ci check succeeded"
     assert done.readied, "merge_ready did not run"
@@ -120,6 +148,7 @@ def test_a_new_head_whose_ci_check_never_comes_is_refused_not_merged_on_the_old_
     env: Fixtures,
 ) -> None:
     done = landing(*env, new_rollups=[without_ci()], polls=5)
+    assert done.updated == 3, "`land update` reported a head with no `ci` check: " + done.update_out
     assert done.code == 3, done.out + done.err
     assert "Traceback" not in done.err
     assert done.fake.merged() == []
@@ -127,3 +156,17 @@ def test_a_new_head_whose_ci_check_never_comes_is_refused_not_merged_on_the_old_
     lines = [line for line in done.out.splitlines() if line.startswith("land:")]
     assert len(lines) == 1, done.out
     assert lines[0].startswith(f"land: refused: PR {PR}"), done.out
+
+
+def test_landing_alone_merges_the_head_as_it_stands_once_its_own_ci_check_succeeded(
+    env: Fixtures,
+) -> None:
+    """S17-F7: with no `land update`, landing never moves the head; it waits for the reviewed head's
+    own `ci` check (none yet, then green) and merges that head."""
+    done = landing(
+        *env, new_rollups=[with_ci()], old_rollups=[without_ci(), with_ci()], update_first=False
+    )
+    assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
+    assert done.code == 0, done.out + done.err
+    assert [merge["sha"] for merge in done.fake.merged()] == [done.old]
+    assert done.fake.merged()[0]["served"] >= 2, "merged before its own ci check succeeded"

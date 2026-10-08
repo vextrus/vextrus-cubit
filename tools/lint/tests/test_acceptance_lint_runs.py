@@ -546,6 +546,23 @@ def test_a_file_waiting_on_a_module_not_built_yet_is_a_note(tmp_path: Path) -> N
     assert "collects after build: fixturepkg.low.storeys" in said(done)
 
 
+@pytest.mark.parametrize("force", ["FORCE_COLOR", "PY_COLORS"])
+def test_a_colour_forced_in_the_callers_shell_does_not_break_reading_pytest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, force: str
+) -> None:
+    """Issue #585: with FORCE_COLOR (or PY_COLORS) set in the owner's shell, the inner pytest wrote
+    its `E   ModuleNotFoundError` line in colour, so a file waiting on an unbuilt module read as
+    "does not collect"."""
+    monkeypatch.setenv(force, "1")
+    root = warnings_repo(tmp_path)
+    ticket(root, BRANCH, FOLDER, test=over_cases(), reasons=(MISSING,))
+
+    done = lint(root, "main", BRANCH)
+
+    assert done.returncode == 0, said(done)
+    assert "collects after build: fixturepkg.low.storeys" in said(done)
+
+
 def test_a_file_importing_a_missing_third_party_module_is_refused(tmp_path: Path) -> None:
     root = warnings_repo(tmp_path)
     third = "import nosuchthirdparty  # type: ignore[import-not-found, unused-ignore]\n"

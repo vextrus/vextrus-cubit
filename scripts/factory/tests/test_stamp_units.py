@@ -64,6 +64,7 @@ def test_a_folder_or_a_file_parent_is_refused(tmp_path: Path) -> None:
 def test_end_archives_under_the_start_and_a_failed_line_keeps_the_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.chdir(tmp_path)  # outside a repository `end` measures nothing
     monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path / "factory"))
     monkeypatch.setenv("VEXTRUS_NOW", "2026-10-04T08:00:05Z")
     state = tmp_path / "s" / "STATE.md"
