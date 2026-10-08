@@ -30,7 +30,7 @@ import hashlib
 import json
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
@@ -159,6 +159,27 @@ class ViewView:
     anchors: tuple[StoredAnchor, ...]
 
 
+class AnchorsNotLoaded(RuntimeError):
+    """A list read with `anchors=False` was asked for its anchors."""
+
+
+class _Unloaded(tuple[StoredAnchor, ...]):
+    """The anchors of a sheet or view read without them: reading them raises `AnchorsNotLoaded`
+    (an empty tuple would pass for a sheet with no anchors)."""
+
+    def _refuse(self, *_: object) -> Any:
+        raise AnchorsNotLoaded("the anchors were not read (anchors=False)")
+
+    __iter__ = __len__ = __getitem__ = __contains__ = __bool__ = _refuse
+
+    def __repr__(self) -> str:
+        return "UNLOADED"
+
+
+UNLOADED: tuple[StoredAnchor, ...] = _Unloaded()
+"""A list's anchors when read with `anchors=False`."""
+
+
 # Recording a reading --------------------------------------------------------------------------------
 
 
@@ -220,7 +241,8 @@ def record_sheets(
         row.sheets_refused = len(candidates) - len(recorded)
         row.empty_layouts = max(0, int(empty_layouts))
         row.save(update_fields=["sheets_total", "sheets_refused", "empty_layouts"])
-    return [_sheet_view(sr) for sr in _all().filter(id__in=[sr.id for sr in recorded])
+    context = _PlotContext(row.drawing_set_id)
+    return [_sheet_view(sr, context) for sr in _all().filter(id__in=[sr.id for sr in recorded])
             .order_by("ordinal")]  # fmt: skip
 
 
@@ -738,27 +760,76 @@ def _decimal_of(value: float, places: int) -> Decimal:
 # The sheet list and its views ----------------------------------------------------------------------
 
 
-def sheets(set_id: uuid.UUID, discipline: str | None = None) -> list[SheetView]:
+def sheets(
+    set_id: uuid.UUID,
+    discipline: str | None = None,
+    *,
+    anchors: bool = True,
+    among: Collection[uuid.UUID] | None = None,
+) -> list[SheetView]:
     """The set's printed sheets Step 1 lists: of its read files (and held files read anyway), of one
-    Discipline by key when given, by Discipline, then number (naturally), then place."""
+    Discipline by key when given, by Discipline, then number (naturally), then place. In a fixed
+    number of statements whatever the set's size: why a sheet has no Plot is worked out from one read
+    of the set's PDFs (`_PlotContext`). `anchors=False` leaves the anchors unread (Step 1's lists and
+    acts never read them): each sheet's `anchors` is then `UNLOADED`, which refuses to be read.
+    `among`: only the listed sheets with these ids (an act's named sheets)."""
     drawing_set = _access.drawing_set(set_id)
     found = _printed().filter(sheet__drawing_set=drawing_set)
     if discipline is not None:
         found = found.filter(sheet__discipline__key=discipline)
+    if among is not None:
+        found = found.filter(id__in=list(among))
+    if not anchors:
+        found = found.defer("anchors")
+    market = library_disciplines.market()
+    order = {d.key: d.sort_order for d in market}
+    context = _PlotContext(drawing_set.id, market)
+    viewed = (_sheet_view(sr, context, anchors=anchors) for sr in found)
+    return sorted(viewed, key=lambda v: _placed(order, v.discipline, v.number, v.file_id, v.ordinal))
+
+
+@dataclass(frozen=True)
+class SheetFacts:
+    """What Step 1 counts and checks of a printed sheet, without its view (`sheet_facts`)."""
+
+    id: uuid.UUID
+    discipline: str | None
+    number: str | None
+    decision: str | None
+    proposed_exclusion: str | None
+    confirmation_id: uuid.UUID | None
+    plot_file_id: uuid.UUID | None
+    plot_page: int | None
+
+
+def sheet_facts(set_id: uuid.UUID) -> list[SheetFacts]:
+    """The set's printed sheets `sheets` lists, in its order, as facts read in one statement (no Plot
+    reason, no anchors, no texts): Step 1's counts and an act's membership tests."""
+    drawing_set = _access.drawing_set(set_id)
+    rows = (
+        _printed()
+        .filter(sheet__drawing_set=drawing_set)
+        .values_list(
+            "id",
+            "sheet__discipline__key",
+            "sheet__number",
+            "decision",
+            "proposed_exclusion",
+            "confirmation_id",
+            "plot_file_id",
+            "plot_page",
+            "source_file_id",
+            "ordinal",
+        )
+    )
     order = {d.key: d.sort_order for d in library_disciplines.market()}
-
-    def placed(view: SheetView) -> tuple[Any, ...]:
-        return (
-            view.discipline is None,
-            order.get(view.discipline or "", 0),
-            view.number is None,
-            [(0, int(p), "") if p.isdigit() else (1, 0, p.casefold())
-             for p in _NATURAL.split(view.number or "") if p],
-            str(view.file_id),
-            view.ordinal,
-        )  # fmt: skip
-
-    return sorted((_sheet_view(sr) for sr in found), key=placed)
+    placed = []
+    for sr_id, key, number, decision, out, act, plot_file, page, file_id, ordinal in rows:
+        fact = SheetFacts(
+            sr_id, key, number or None, decision or None, out or None, act, plot_file, page
+        )
+        placed.append((_placed(order, fact.discipline, fact.number, file_id, ordinal), fact))
+    return [fact for _key, fact in sorted(placed, key=lambda pair: pair[0])]
 
 
 def recorded_sheets(file_id: uuid.UUID) -> list[tuple[SheetView, list[ViewView]]]:
@@ -770,9 +841,30 @@ def recorded_sheets(file_id: uuid.UUID) -> list[tuple[SheetView, list[ViewView]]
     return [(_sheet_view(sr), _views_of(sr)) for sr in found]
 
 
-def sheet(sheet_revision_id: uuid.UUID) -> SheetView:
-    """One printed sheet of the sheet list (in the acting Membership's scope); else not found."""
-    return _sheet_view(_all().get(id=_listed(sheet_revision_id).id))
+def _placed(
+    order: Mapping[str, int],
+    discipline: str | None,
+    number: str | None,
+    file_id: uuid.UUID,
+    ordinal: int,
+) -> tuple[Any, ...]:
+    """A printed sheet's place in the sheet list (see `sheets`)."""
+    return (
+        discipline is None,
+        order.get(discipline or "", 0),
+        number is None,
+        [(0, int(p), "") if p.isdigit() else (1, 0, p.casefold())
+         for p in _NATURAL.split(number or "") if p],
+        str(file_id),
+        ordinal,
+    )  # fmt: skip
+
+
+def sheet(sheet_revision_id: uuid.UUID, *, anchors: bool = True) -> SheetView:
+    """One printed sheet of the sheet list (in the acting Membership's scope); else not found.
+    `anchors=False`: read without its anchors (as `sheets`'s)."""
+    listed = _listed(sheet_revision_id, anchors=anchors)
+    return _sheet_view(_unanchored(_all(), anchors).get(id=listed.id), anchors=anchors)
 
 
 def sheet_discipline(sheet_revision_id: uuid.UUID) -> str | None:
@@ -799,16 +891,38 @@ def _printed() -> QuerySet[SheetRevision]:
     ).filter(listed)
 
 
-def _listed(sheet_revision_id: uuid.UUID, *, lock: bool = False) -> SheetRevision:
-    """A printed sheet in the sheet list, in scope; else not found."""
-    sheet_revision = _access.sheet_revision(sheet_revision_id, lock=lock)
+def _listed(sheet_revision_id: uuid.UUID, *, lock: bool = False, anchors: bool = True) -> SheetRevision:
+    """A printed sheet in the sheet list, in scope; else not found. `anchors=False`: read without its
+    anchors (the same scope test as `_access.sheet_revision`'s)."""
+    if anchors:
+        sheet_revision = _access.sheet_revision(sheet_revision_id, lock=lock)
+    else:
+        _access.tenant_id()
+        rows = (
+            SheetRevision.objects.select_related("source_file__drawing_set", "sheet")
+            .defer("anchors")
+            .filter(id=sheet_revision_id)
+        )
+        if lock:
+            rows = rows.select_for_update(of=("self",))
+        found = rows.first()
+        if found is None:
+            raise auth.NotFound
+        _access.in_scope(found.source_file.drawing_set.project_id)
+        sheet_revision = found
     if not _printed().filter(id=sheet_revision.id).exists():
         raise auth.NotFound
     return sheet_revision
 
 
-def _sheet_view(sr: SheetRevision) -> SheetView:
+def _sheet_view(
+    sr: SheetRevision, context: _PlotContext | None = None, *, anchors: bool = True
+) -> SheetView:
+    """A printed sheet's view; `context`: its set's PDFs and Disciplines, read once for a list (a
+    one-off one for a single sheet)."""
     source = sr.source_file
+    if context is None:
+        context = _PlotContext(sr.drawing_set_id)
     return SheetView(
         id=sr.id,
         sheet_id=sr.sheet_id,
@@ -834,9 +948,13 @@ def _sheet_view(sr: SheetRevision) -> SheetView:
         confirmation_id=sr.confirmation_id,
         decided_at=sr.decided_at,
         sources=dict(sr.sources),
-        anchors=tuple(_stored(sr.id, sr.source_sha256, sr.reader_version, sr.anchors)),
+        anchors=(
+            tuple(_stored(sr.id, sr.source_sha256, sr.reader_version, sr.anchors))
+            if anchors
+            else UNLOADED
+        ),
         has_render=bool(sr.render_key),
-        plot=_plot(sr),
+        plot=_plot(sr, context),
         held=source.read_status == ReadStatus.QUARANTINED,
     )
 
@@ -847,7 +965,7 @@ def _stored(
     return [StoredAnchor(sheet_revision_id, sha256, reader_version, dict(d)) for d in details]
 
 
-def _plot(sr: SheetRevision) -> PlotView:
+def _plot(sr: SheetRevision, context: _PlotContext) -> PlotView:
     none: Message | None = None
     reason = sr.plot_none_reason
     if sr.plot_page is None:
@@ -856,7 +974,7 @@ def _plot(sr: SheetRevision) -> PlotView:
         elif reason == PlotNone.NO_NUMBER:
             none = said.PLOT_NO_NUMBER()
         else:  # none recorded, or one about the set's PDFs, which change: as they stand now
-            none = _no_plot_yet(sr)
+            none = _no_plot_yet(sr, context)
     return PlotView(
         file_id=sr.plot_file_id,
         page=sr.plot_page,
@@ -867,17 +985,43 @@ def _plot(sr: SheetRevision) -> PlotView:
     )
 
 
-def _no_plot_yet(sr: SheetRevision) -> Message:
+class _PlotContext:
+    """What `_no_plot_yet` reads of a Drawing Set, read once (when first needed) for every sheet of a
+    list: the set's PDFs, its Market's Disciplines' names in the Market's language."""
+
+    def __init__(self, set_id: uuid.UUID, market: Sequence[Discipline] | None = None) -> None:
+        self._set_id = set_id
+        self._market = market
+        self._pdfs: list[tuple[uuid.UUID | None, datetime, str, str]] | None = None
+        self._names: dict[uuid.UUID, str] | None = None
+
+    def pdfs(self) -> list[tuple[uuid.UUID | None, datetime, str, str]]:
+        """The set's PDFs: Discipline, added, name and read status, of none last, oldest first."""
+        if self._pdfs is None:
+            found = DrawingFile.objects.filter(drawing_set_id=self._set_id, format=FileFormat.PDF)
+            self._pdfs = sorted(
+                found.values_list("discipline_id", "added_at", "original_name", "read_status"),
+                key=lambda pdf: (pdf[0] is None, pdf[1]),
+            )
+        return self._pdfs
+
+    def name(self, discipline_id: uuid.UUID) -> str:
+        """The Discipline's name in the Market's language ("" for one not of the Market)."""
+        if self._names is None:
+            market = library_disciplines.market() if self._market is None else self._market
+            self._names = library_disciplines.names(market)
+        return self._names.get(discipline_id, "")
+
+
+def _no_plot_yet(sr: SheetRevision, context: _PlotContext) -> Message:
     """Why a sheet has no Plot, from its Drawing Set's PDFs of its Discipline (or of none) as they
     stand (see PLOT_NOT_YET): a PDF of its own Discipline is named before one of none."""
     discipline_id = sr.sheet.discipline_id
-    pdfs = DrawingFile.objects.filter(drawing_set_id=sr.drawing_set_id, format=FileFormat.PDF)
-    if discipline_id is not None:
-        pdfs = pdfs.filter(Q(discipline_id=discipline_id) | Q(discipline__isnull=True))
-    found = sorted(
-        pdfs.values_list("discipline_id", "added_at", "original_name", "read_status"),
-        key=lambda pdf: (pdf[0] is None, pdf[1]),
-    )
+    found = [
+        pdf
+        for pdf in context.pdfs()
+        if discipline_id is None or pdf[0] is None or pdf[0] == discipline_id
+    ]
     statuses = {status for *_, status in found}
     if statuses & {ReadStatus.QUEUED, ReadStatus.READING}:
         return said.PLOT_NOT_YET()
@@ -900,7 +1044,7 @@ def _no_plot_yet(sr: SheetRevision) -> Message:
         return said.PLOT_PDF_UNREAD()
     if own:
         return said.PLOT_PDF_REFUSED()
-    named = library_disciplines.name(library_disciplines.labels_of(sr.sheet.discipline_id))
+    named = context.name(discipline_id) if discipline_id is not None else ""
     return said.PLOT_NO_PDF(discipline=named) if named else said.PLOT_NO_PDF_ANY()
 
 
@@ -910,6 +1054,32 @@ def views(sheet_revision_id: uuid.UUID) -> list[ViewView]:
     return _views_of(_listed(sheet_revision_id))
 
 
+def views_of_set(set_id: uuid.UUID, *, anchors: bool = True) -> dict[uuid.UUID, list[ViewView]]:
+    """Every printed sheet's views of a Drawing Set at once (in a fixed number of statements, the
+    scope checked once for the set), by printed sheet id, each as `views` gives it: at the sheet's
+    kept reader version, in reading order; a sheet with no views is not a key. `anchors=False` as
+    `sheets`'s. The sheets are read first and their views by id, a version at a time (a join of the
+    views to their sheets' versions let the planner scan for seconds on 220 sheets)."""
+    drawing_set = _access.drawing_set(set_id)
+    of_version: dict[str, list[uuid.UUID]] = {}
+    for sheet_revision_id, version in (
+        _printed().filter(sheet__drawing_set=drawing_set).values_list("id", "reader_version")
+    ):
+        of_version.setdefault(version, []).append(sheet_revision_id)
+    if not of_version:
+        return {}
+    kept = Q()
+    for version, ids in of_version.items():
+        kept |= Q(sheet_revision_id__in=ids, reader_version=version)
+    found = View.objects.select_related("part").filter(kept)
+    if not anchors:
+        found = found.defer("anchors")
+    grouped: dict[uuid.UUID, list[ViewView]] = {}
+    for view in found.order_by("sheet_revision_id", "ordinal"):
+        grouped.setdefault(view.sheet_revision_id, []).append(_view_view(view, anchors=anchors))
+    return grouped
+
+
 def _views_of(sheet_revision: SheetRevision) -> list[ViewView]:
     found = View.objects.select_related("part").filter(
         sheet_revision=sheet_revision, reader_version=sheet_revision.reader_version
@@ -917,7 +1087,7 @@ def _views_of(sheet_revision: SheetRevision) -> list[ViewView]:
     return [_view_view(v) for v in found.order_by("ordinal")]
 
 
-def _view_view(view: View) -> ViewView:
+def _view_view(view: View, *, anchors: bool = True) -> ViewView:
     x0, y0, x1, y1 = (str(v) for v in view.box)
     return ViewView(
         id=view.id,
@@ -944,8 +1114,10 @@ def _view_view(view: View) -> ViewView:
         excluded_reason=view.excluded_reason or None,
         excluded_text=view.excluded_text,
         confirmation_id=view.confirmation_id,
-        anchors=tuple(
-            _stored(view.sheet_revision_id, view.source_sha256, view.reader_version, view.anchors)
+        anchors=(
+            tuple(_stored(view.sheet_revision_id, view.source_sha256, view.reader_version, view.anchors))
+            if anchors
+            else UNLOADED
         ),
     )
 
@@ -979,19 +1151,28 @@ def record_kind(sheet_revision_id: uuid.UUID, kind: str | None) -> SheetView:
 
 
 def confirm_sheet(
-    sheet_revision_id: uuid.UUID, *, confirmation_id: uuid.UUID, kind: str | None = None
+    sheet_revision_id: uuid.UUID,
+    *,
+    confirmation_id: uuid.UUID,
+    kind: str | None = None,
+    anchors: bool = True,
 ) -> SheetView:
     """The QS confirms a printed sheet (and its kind, a key, when given): stamped with the
-    Confirmation's id, which `undo` reverses. Confirming a sheet left out brings it back in."""
+    Confirmation's id, which `undo` reverses. Confirming a sheet left out brings it back in.
+    `anchors=False`: the sheet is read without its anchors (as `sheets`'s)."""
     if kind is not None and not _is_kind(kind):
         raise auth.Refused(said.KIND_UNKNOWN(), status=400)
     with transaction.atomic():
-        sheet_revision = _listed(sheet_revision_id, lock=True)
+        sheet_revision = _listed(sheet_revision_id, lock=True, anchors=anchors)
         _decide(sheet_revision, Decision.CONFIRMED, confirmation_id)
         if kind is not None:
             sheet_revision.confirmed_kind = kind
         sheet_revision.save(update_fields=[*_DECIDED, "confirmed_kind"])
-    return _sheet_view(_all().get(id=sheet_revision.id))
+    return _sheet_view(_unanchored(_all(), anchors).get(id=sheet_revision.id), anchors=anchors)
+
+
+def _unanchored(rows: QuerySet[SheetRevision], anchors: bool) -> QuerySet[SheetRevision]:
+    return rows if anchors else rows.defer("anchors")
 
 
 def confirm_view(view_id: uuid.UUID, *, confirmation_id: uuid.UUID, kind: str | None = None) -> ViewView:
@@ -1013,9 +1194,11 @@ def exclude(
     text: str = "",
     *,
     confirmation_id: uuid.UUID,
+    anchors: bool = True,
 ) -> SheetView | ViewView:
     """The QS leaves a printed sheet or a view out, for one of the seven reasons; "other" with the
-    QS's own words, kept as typed. `subject_id` is the printed sheet's or the view's id."""
+    QS's own words, kept as typed. `subject_id` is the printed sheet's or the view's id.
+    `anchors=False`: the sheet or the view (and its sheet) read without their anchors (as `sheets`'s)."""
     try:
         chosen = ExclusionReason(str(reason))
     except ValueError:
@@ -1029,14 +1212,17 @@ def exclude(
         raise auth.Refused(said.TEXT_ONLY_FOR_OTHER(), status=400)
     with transaction.atomic():
         if SheetRevision.objects.filter(id=subject_id).exists():
-            sheet_revision = _listed(subject_id, lock=True)
+            sheet_revision = _listed(subject_id, lock=True, anchors=anchors)
             _decide(sheet_revision, Decision.EXCLUDED, confirmation_id, chosen, words)
             sheet_revision.save(update_fields=_DECIDED)
-            return _sheet_view(_all().get(id=sheet_revision.id))
-        view = _listed_view(subject_id)
+            return _sheet_view(_unanchored(_all(), anchors).get(id=sheet_revision.id), anchors=anchors)
+        view = _listed_view(subject_id, anchors=anchors)
         _decide(view, Decision.EXCLUDED, confirmation_id, chosen, words)
         view.save(update_fields=_DECIDED)
-    return _view_view(View.objects.select_related("part").get(id=view.id))
+    found = View.objects.select_related("part")
+    if not anchors:
+        found = found.defer("anchors")
+    return _view_view(found.get(id=view.id), anchors=anchors)
 
 
 def undo(confirmation_id: uuid.UUID) -> int:
@@ -1053,14 +1239,19 @@ def undo(confirmation_id: uuid.UUID) -> int:
         "confirmed_kind": "",
     }
     with transaction.atomic():
-        for sheet_revision in SheetRevision.objects.select_related("source_file__drawing_set").filter(
-            confirmation_id=confirmation_id
+        # Only the rows' ids and Projects are read: never their anchors (heavy JSON undo never uses).
+        for sheet_revision in (
+            SheetRevision.objects.select_related("source_file__drawing_set")
+            .defer("anchors")
+            .filter(confirmation_id=confirmation_id)
         ):
             if _may_open(sheet_revision.source_file.drawing_set.project_id):
                 SheetRevision.objects.filter(id=sheet_revision.id).update(**cleared)
                 reversed_ += 1
-        for view in View.objects.select_related("sheet_revision__source_file__drawing_set").filter(
-            confirmation_id=confirmation_id
+        for view in (
+            View.objects.select_related("sheet_revision__source_file__drawing_set")
+            .defer("anchors", "sheet_revision__anchors")
+            .filter(confirmation_id=confirmation_id)
         ):
             if _may_open(view.sheet_revision.source_file.drawing_set.project_id):
                 View.objects.filter(id=view.id).update(**cleared)
@@ -1076,9 +1267,9 @@ def _may_open(project_id: uuid.UUID) -> bool:
     return True
 
 
-def _listed_view(view_id: uuid.UUID) -> View:
-    view = _access.view(view_id, lock=True)
-    _listed(view.sheet_revision_id)
+def _listed_view(view_id: uuid.UUID, *, anchors: bool = True) -> View:
+    view = _access.view(view_id, lock=True, anchors=anchors)
+    _listed(view.sheet_revision_id, anchors=anchors)
     return view
 
 

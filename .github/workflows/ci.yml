@@ -198,6 +198,10 @@ jobs:
         run: uv run python -m tools.lint.migration_ids
       - name: One leaf migration per module
         run: uv run python -m tools.lint.migration_leaves
+      - name: Reply fixtures against the exported OpenAPI schema
+        run: |
+          uv run manage.py export_openapi_schema --api vextrus.api.api --output "$RUNNER_TEMP/openapi.json"
+          uv run python -m tools.lint.contract_fixtures --schema "$RUNNER_TEMP/openapi.json"
       - name: Django's checks
         run: uv run manage.py check --fail-level WARNING
       - name: No missing migration

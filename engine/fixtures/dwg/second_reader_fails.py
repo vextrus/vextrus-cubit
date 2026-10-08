@@ -8,7 +8,9 @@ with handle: …", and the file's own class table, as ACadSharp's writer wrote i
 (MULTILEADER's too) as an object, not an entity. So the dumper takes it for an object it could not
 read, which is any other Error notification: it exits 1, and the stage fails (`DumperStopped`). It is
 the cross-check's evidence that such an error is a failure, never agreement; an entity the second
-reader could not read is `zero_z_scale`'s case.
+reader could not read is the case `zero_z_scale` was made for (stock ACadSharp 3.8.0 cannot read its
+INSERT; the dumper's build, with DomCR/ACadSharp#1205's scale repair, can: ticket W317). #1205 changes
+only how an INSERT's scale is read, so this file still stops the dumper.
 """
 
 from ezdxf.document import Drawing

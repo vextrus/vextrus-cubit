@@ -1,9 +1,38 @@
-ACadSharp 3.8.0 (https://github.com/DomCR/ACadSharp), built into acadsharp-dump.
-Its NuGet package declares the licence expression MIT, with this copyright:
+ACadSharp 3.8.0 (https://github.com/DomCR/ACadSharp), compiled from its source into acadsharp-dump
+(with one patch, DomCR/ACadSharp#1205's DWG scale repair; tools/acadsharp-dump/patches/). Its project
+declares the licence expression MIT and "Copyright (c) 2026 Albert Domenech"; its repository's
+LICENSE at commit 3a1c66b9932f9e2dbfbbf3f03660c97d52e49b02 reads:
 
 MIT License
 
-Copyright (c) 2026 Albert Domenech
+Copyright (c) 2021 Albert Domenech
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+CSMath and CSUtilities (https://github.com/DomCR/CSUtilities), compiled into ACadSharp from its
+src/CSUtilities submodule; that repository's LICENSE at commit
+b1f53ee2c68143173100d031adcdb275f524aea9 reads:
+
+MIT License
+
+Copyright (c) 2020 Albert Domenech
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

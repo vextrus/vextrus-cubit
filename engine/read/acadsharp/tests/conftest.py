@@ -10,15 +10,16 @@ from pathlib import Path
 import pytest
 
 from engine.fixtures import dwg
-from engine.read.acadsharp.tests.build import build_dumper
+from engine.read.acadsharp.tests.build import build_dumper, program
 
 
 @pytest.fixture(scope="session")
 def dumper_prefix(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The folder holding the dumper built from the tree, for `VEXTRUS_ACADSHARP_DUMP`."""
+    """The install folder holding the dumper built from the tree (in its pin's `<sha256[:12]>/`), for
+    `VEXTRUS_ACADSHARP_DUMP`."""
     folder = tmp_path_factory.getbasetemp() / "acadsharp-dump"
     prefix = folder / "prefix"
-    if not (prefix / "acadsharp-dump").is_file():
+    if not program(prefix).is_file():
         prefix = build_dumper(folder)
     return prefix
 

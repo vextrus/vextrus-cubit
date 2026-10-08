@@ -30,7 +30,8 @@ tried here covers (the PDF's own, or the PDF of none), and still with no page is
 `PlotNone.NO_PAGE` naming such a PDF (its own Discipline's first, then the first added: the sheet
 list's order): the match ran, and found none. Another read PDF whose copy or reading fails now is
 left out, never named; this file's own fails the file.
-Each PDF's pages that matched no sheet are kept as its report's lines (18's reason, with the page).
+What each PDF's pages name is kept for its report (`_keep_names`: 18's reason, or the sheet named);
+which pages are matched, and the page a sheet is used on, the report reads from the sheets' Plots.
 """
 
 import math
@@ -52,6 +53,7 @@ from engine.read.pdf.types import Page
 from engine.recognise.types import Box, PlotMatch, SheetCandidate, SheetLocation, Sourced, ValueSource
 from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services as drawings
+from vextrus.drawings.messages import reports
 from vextrus.platform.services import auth, jobs, storage
 from vextrus.takeoff.services import step1
 
@@ -104,11 +106,12 @@ def find(file_id: uuid.UUID) -> Callable[[], jobs.StepResult]:
             found, full = _for_dwg(file_id, listed, pages, candidates, geometry, paths, disciplines)
     read_again = set(paths)
     dwg_id = file_id if view.format == "dwg" else None
+    names = {id(c): sh for c, sh in zip(candidates, listed, strict=True)}
 
     def keep() -> jobs.StepResult:
         step1.lock_writes(view.project_id)  # before the sheets it locks, as every act (#227)
         matched = _keep(listed, candidates, found, full, pdfs, read_again, dwg_id)
-        _keep_reasons(found, [pdf for pdf in tried if pdf.sha256 in read_again])
+        _keep_names(found, [pdf for pdf in tried if pdf.sha256 in read_again], names)
         return {"pages": len(found), "matched": matched}
 
     return keep
@@ -282,17 +285,31 @@ def _covering(sheet: drawings.SheetView, pdfs: Sequence[drawings.FileView]) -> l
     return sorted(mine, key=lambda p: (p.discipline is None, _added(p)))
 
 
-def _keep_reasons(found: Sequence[PlotMatch], tried: Sequence[drawings.FileView]) -> None:
-    """Each tried PDF's pages that matched no sheet, as its report's lines (18's reason, the page)."""
+def _keep_names(
+    found: Sequence[PlotMatch],
+    tried: Sequence[drawings.FileView],
+    by_candidate: Mapping[int, drawings.SheetView],
+) -> None:
+    """Keep, for each tried PDF, what each of its pages names: 18's reason for a page that names no
+    sheet, or `PAGES_SAME_SHEET` (its `used_page` 0) for a page that names a sheet. Which pages are
+    matched, and which page a sheet is plotted on, is not kept here: the report reads that from the
+    sheets' Plots when it is asked for (`drawings.services.reports`), in any order files were read."""
     for pdf in tried:
         lines: list[Message] = []
         for m in found:
             page = m.page
-            if getattr(page, "source_sha256", None) != pdf.sha256 or m.sheet is not None:
+            if getattr(page, "source_sha256", None) != pdf.sha256:
+                continue
+            number = getattr(page, "number", 0)
+            sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
+            if sheet is not None:
+                lines.append(
+                    reports.PAGES_SAME_SHEET(first_page=number, used_page=0, sheet=sheet.number or "")
+                )
                 continue
             code = plot_codes.REASONS.get(m.reason or "")
             if code is not None:
-                lines.append(code(page=getattr(page, "number", 0)))
+                lines.append(code(page=number))
         drawings.record_page_reasons(pdf.id, lines)
 
 

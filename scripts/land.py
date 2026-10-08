@@ -3,13 +3,17 @@
 
 For each PR, engine PRs with a ledger PASS first, then the rest by number (a PR with no PASS is left
 out): it refuses (exit 3) unless the local review ledger covers the PR's head (a PASS for it, or for an
-older head followed only by clean merges of main, as `merge_ready` decides), then marks the PR ready,
-brings main in (`PUT .../pulls/<n>/update-branch`, skipped when main is already in), waits for CI
+older head followed only by clean merges of main, as `merge_ready` decides), and
+GitHub does not report it CONFLICTING / DIRTY (`gh pr view --json mergeable,mergeStateStatus`; refused
+before it is marked ready, naming `land update`, with no update and no merge), then marks the PR ready,
+lands it as it stands (no update-branch request: the main ruleset no longer requires a branch to be up to
+date, the owner, 7 Oct 2026), waits for CI
 (read from `gh pr view --json headRefOid,statusCheckRollup`: gh 2.45 has no `gh pr checks --json`),
 reruns the failed jobs **once** and only when every failed test is listed in `.github/flaky.txt`, runs
 `merge_ready`, merges the head CI was green on (`--match-head-commit`) and pulls main. It never raises
-privilege, never runs a shell and never moves a branch or a worktree of its own. Exit codes: 0 landed,
-2 usage, 3 refused.
+privilege, never runs a shell and never moves a branch or a worktree of its own. Only `land update <PR>`
+brings main into a PR's branch (`PUT .../pulls/<n>/update-branch`, skipped when main is already in).
+Exit codes: 0 landed, 2 usage, 3 refused.
 """
 
 import contextlib
@@ -49,7 +53,6 @@ class Refused(Exception):
 class GitHub(Protocol):
     def head_sha(self, pr: int) -> str: ...
     def mark_ready(self, pr: int) -> None: ...
-    def update_branch(self, pr: int) -> None: ...
     def wait_ci(self, pr: int) -> list[str]: ...
     def rerun_failed(self, pr: int) -> None: ...
     def merge(self, pr: int) -> None: ...
@@ -124,12 +127,13 @@ def _land(
     head = gh.head_sha(pr)
     if not reviewed(ledger_dir, pr, head, repo=repo):
         raise Refused(f"no ledger PASS covers its head {head[:12]}: review it first")
+    conflicting = getattr(gh, "conflicting", None)
+    if conflicting is not None and conflicting(pr):
+        raise Refused(
+            "GitHub reports its branch conflicts with main: its builder must fix it "
+            "(`land update` cannot resolve a conflict, and the lander does not update)"
+        )
     gh.mark_ready(pr)
-    gh.update_branch(pr)
-    if (moved := gh.head_sha(pr)) != head:
-        if not reviewed(ledger_dir, pr, moved, repo=repo):
-            raise Refused(f"its new head {moved[:12]} is not covered by a ledger PASS: review it")
-        head = moved
     failed = gh.wait_ci(pr)
     if failed:
         if not set(failed) <= flaky:
@@ -283,6 +287,32 @@ class Gh:
 
     def files(self, pr: int) -> list[str]:
         return self._run("gh", "pr", "diff", str(pr), "--repo", REPOSITORY, "--name-only").split()
+
+    def conflicting(self, pr: int) -> bool:
+        """GitHub reports the PR CONFLICTING / DIRTY. `mergeable` UNKNOWN (not computed yet) is polled a
+        few times, then taken as not conflicting: GitHub's merge refuses a real conflict anyway."""
+        for attempt in range(3):
+            if attempt:
+                self.sleep(2)
+            payload = json.loads(
+                self._run(
+                    "gh",
+                    "pr",
+                    "view",
+                    str(pr),
+                    "--repo",
+                    REPOSITORY,
+                    "--json",
+                    "mergeable,mergeStateStatus",
+                )
+            )
+            if not isinstance(payload, dict):
+                return False
+            if payload.get("mergeable") == "CONFLICTING" or payload.get("mergeStateStatus") == "DIRTY":
+                return True
+            if payload.get("mergeable") != "UNKNOWN":
+                return False
+        return False
 
     def mark_ready(self, pr: int) -> None:
         subprocess.run(

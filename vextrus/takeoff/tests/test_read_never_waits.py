@@ -881,8 +881,8 @@ def test_a_plot_pdfs_discipline_change_while_the_job_writes_its_page_reasons_nev
     api = api_as(qs_project.member)
     with qs_project.member.acting():
         [plot_pdf] = [f for f in drawings.files(drawings.file(later).set_id) if f.name == PLOT]
-    reasons = ParkedAt(plot_matching._keep_reasons)
-    monkeypatch.setattr(plot_matching, "_keep_reasons", reasons)
+    reasons = ParkedAt(plot_matching._keep_names)
+    monkeypatch.setattr(plot_matching, "_keep_names", reasons)
     path = f"/api/projects/{project_id}/drawings/files/{plot_pdf.id}/discipline"
 
     overlap = act_while_the_later_file_reads(

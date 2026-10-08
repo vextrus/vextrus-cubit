@@ -1,0 +1,16 @@
+# The source the ACadSharp dumper is built from (ticket W317; ADR 0029), read by
+# tools/acadsharp-dump/prepare-source.sh, which scripts/owner/toolchain.sh and the tests' build both run.
+#
+#   source <name> <commit> <manifest>   an upstream repository, fetched by this commit alone; the
+#                                       manifest is the sha256 of `git ls-files -z | LC_ALL=C sort -z |
+#                                       xargs -0 sha256sum` in a checkout of it (a submodule's entry
+#                                       left out), so every byte built is pinned
+#   patch <sha256> <file>               a file in tools/acadsharp-dump/patches/, applied to ACadSharp
+#
+# ACadSharp 3.8.0 (the NuGet package's own repository commit) and the CSUtilities commit its
+# src/CSUtilities submodule pins; both MIT, Albert Domenech. The patch is DomCR/ACadSharp#1205's DWG
+# scale repair (its header says what and why). When a release has #1205: delete this file, the patch
+# and tools/acadsharp-dump/acadsharp/, restore the PackageReference, bump acadsharp-dump.sha256.
+source ACadSharp 3a1c66b9932f9e2dbfbbf3f03660c97d52e49b02 9f654b8fb870e5b1e14a02fdbfa0d040666ba4ebde0104f83813a5876b7bf525
+source CSUtilities b1f53ee2c68143173100d031adcdb275f524aea9 a0afa57f11437a84b1f7e7f53830924f5ba2fb5c5abccd216171ddd3c0506451
+patch b9cf99243c5218916a3dd8d4d2868e94e5fc94512e9ed52c4df9541052727106 acadsharp-1205-dwg-insert-scale.patch

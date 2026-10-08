@@ -7,6 +7,9 @@ argv log. The script answers only what is scripted, as gh 2.45.0 does (`--repo R
 - `pr view <n> --json headRefOid [-q .headRefOid]`: the PR's current head (`state["head"]`);
 - `pr view <n> --json headRefOid,statusCheckRollup [-q .field]`: the next payload of `state["views"]`
   (the last one repeats); a payload's `_then_head` becomes the PR's head once it has been served;
+- `mergeable` and `mergeStateStatus` among the `pr view` fields (with either of the above, or alone):
+  `state["mergeable"]` (default `MERGEABLE`) and `state["merge_state_status"]` (default `CLEAN`), the
+  PR's mergeability as GitHub's GraphQL names it (S17-F7: `CONFLICTING` / `DIRTY` is a conflict);
 - `pr ready`: ok;
 - `pr update-branch`: exit 1, `unknown command "update-branch" for "gh pr"` (gh 2.45 has no such
   command; the orchestrator's amendment 1, confirmed on the real gh);
@@ -101,22 +104,27 @@ if args[:2] == ["pr", "view"]:
     if state.get("fail_view"):
         fail("HTTP 502: Bad Gateway (https://api.github.com/graphql)")
     fields = set((option(args, "--json") or "").split(","))
-    if fields == {{"headRefOid"}}:
-        show({{"headRefOid": state["head"]}})
-        sys.exit(0)
-    if fields == {{"headRefOid", "statusCheckRollup"}} or fields == {{"statusCheckRollup"}}:
+    known = {{"headRefOid", "statusCheckRollup", "mergeable", "mergeStateStatus"}}
+    if not fields <= known:
+        fail("unscripted pr view fields: " + ",".join(sorted(fields)))
+    payload = {{
+        "headRefOid": state["head"],
+        "mergeable": state.get("mergeable", "MERGEABLE"),
+        "mergeStateStatus": state.get("merge_state_status", "CLEAN"),
+    }}
+    if "statusCheckRollup" in fields:
         views = state["views"]
-        payload = dict(views[0])
+        view = dict(views[0])
         if len(views) > 1:
             views.pop(0)
-        then = payload.pop("_then_head", None)
+        then = view.pop("_then_head", None)
         if then is not None:
             state["head"] = then
         state["served"] = state.get("served", 0) + 1
         save()
-        show({{key: payload[key] for key in fields}})
-        sys.exit(0)
-    fail("unscripted pr view fields: " + ",".join(sorted(fields)))
+        payload.update(view)
+    show({{key: payload[key] for key in fields}})
+    sys.exit(0)
 if args[:2] == ["pr", "ready"]:
     sys.exit(0)
 if args[:2] == ["pr", "update-branch"]:

@@ -18,8 +18,10 @@ returns a `Fake` that reads the scripted state and the argv log. `prs` maps a PR
 
 What it answers (`--repo R` / `-R R` ignored), as gh 2.45 does:
 
-- `pr view <n> --json <fields> [-q .<field>]`: `headRefOid`, `files` (`[{"path": ...}]`) and
-  `statusCheckRollup` (the PR's current head's next payload; its `headRefOid` is the current head);
+- `pr view <n> --json <fields> [-q .<field>]`: `headRefOid`, `files` (`[{"path": ...}]`),
+  `statusCheckRollup` (the PR's current head's next payload; its `headRefOid` is the current head), and
+  `mergeable` / `mergeStateStatus` (the PR's `mergeable`, default `MERGEABLE`, and
+  `merge_state_status`, default `CLEAN`: S17-F7);
 - `pr diff <n> --name-only`: the files, one per line;
 - `api repos/vextrus/vextrus-cubit/pulls/<n>/files` (GET, `--paginate` too): `[{"filename": ...}]`;
 - `api repos/vextrus/vextrus-cubit/commits/<sha>/check-runs` (GET): that head's next payload's CheckRuns
@@ -139,6 +141,10 @@ if args[:2] == ["pr", "view"] and len(args) > 2:
             payload[field] = next_rollup(pr, pr["head"])
         elif field == "number":
             payload[field] = int(args[2])
+        elif field == "mergeable":
+            payload[field] = pr.get("mergeable", "MERGEABLE")
+        elif field == "mergeStateStatus":
+            payload[field] = pr.get("merge_state_status", "CLEAN")
         else:
             fail("unscripted pr view field: " + field)
     show(payload)

@@ -57,8 +57,11 @@ def sheet_revision(sheet_revision_id: uuid.UUID, *, lock: bool = False) -> Sheet
     return _checked(rows, lambda found: found.source_file.drawing_set.project_id)
 
 
-def view(view_id: uuid.UUID, *, lock: bool = False) -> View:
+def view(view_id: uuid.UUID, *, lock: bool = False, anchors: bool = True) -> View:
+    """A view in scope; else not found. `anchors=False`: neither its anchors nor its sheet's read."""
     rows = View.objects.select_related("sheet_revision__source_file__drawing_set").filter(id=view_id)
+    if not anchors:
+        rows = rows.defer("anchors", "sheet_revision__anchors")
     if lock:
         rows = rows.select_for_update(of=("self",))
     return _checked(rows, lambda found: found.sheet_revision.source_file.drawing_set.project_id)

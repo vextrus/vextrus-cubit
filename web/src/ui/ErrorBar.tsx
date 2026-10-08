@@ -6,10 +6,11 @@ import type { ReactNode } from 'react'
 import { cn } from './cn'
 import { CircleAlert } from 'lucide-react'
 
-export function ErrorBar({ children, action, className }: { children: ReactNode; action?: ReactNode; className?: string }) {
+export function ErrorBar({ children, action, className, label }: { children: ReactNode; action?: ReactNode; className?: string; label?: string }) {
   return (
     <div
       role="alert"
+      aria-label={label}
       className={cn(
         'flex min-h-control-lg items-center gap-2.5 border-s-[3px] border-destructive bg-over-target-surface py-1.5 ps-3 pe-1.5 text-sm text-foreground',
         className,
