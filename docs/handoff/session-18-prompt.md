@@ -25,9 +25,10 @@ Missed or wrong:
 ## What is broken (read first)
 - **M0's G1 was never measured in session 17, and nothing has ever passed G1.** The last script-layer walk
   (dddce3f8, session 15) failed 13 of 16 checks. Main's current product code is unmeasured.
-- **About 5 hours were lost while the orchestrator waited on an owner question** (8 Oct, from ~00:20Z): the
-  governor refused local launches on a stale 2.6 GB swap, the orchestrator asked the owner to reset it, and then
-  waited instead of working on cloud tickets, reviews and the trains. No half-way gap was flagged. Lesson (a).
+- **About 5 hours were lost while the orchestrator waited on an owner question** (8 Oct, ~00:45Z to ~05:48Z): one
+  disk-cleanup and swap-reset question (delete about 25 GB of old review and scratch copies, and reset the swap
+  that made the governor refuse local launches). The orchestrator waited on the answer instead of working on cloud
+  tickets, reviews and the trains. No half-way gap was flagged. Lesson (a).
 - **Q1 (#566) did not land,** so Train A never started: E6 and Q3 wait on it; E3 and Q2 wait on a train with #613.
   Q1 measured: Questions of kind per Discipline at 3 or fewer, but all Questions per Discipline still above 3 (the
   rest are check and conflict Questions, owned by Q2 and Q3).
@@ -122,7 +123,7 @@ of it on product). At the half-way mark, say the measured gap to G1 twice, befor
 ## Lessons from session 17 (binding)
 - **(a) Never block on an owner question for anything the session can work around.** Ask, then keep working on
   what does not need the answer (cloud tickets, reviews, trains). Flag the half-way gap before asking. Session 17
-  waited ~5 h on a swap reset.
+  waited ~5 h on a disk-cleanup and swap-reset question.
 - **(b) A forced colour in the caller's shell broke parsers of child output** (#585, fixed by #614): a check that
   reads a child's output strips `FORCE_COLOR`, `PY_COLORS` and `CLICOLOR_FORCE`.
 - **(c) Local verify skips `needs_toolchain` tests,** so engine PRs went READY and failed CI's toolchain job (E2,

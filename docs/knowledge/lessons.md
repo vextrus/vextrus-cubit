@@ -428,7 +428,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 
 ## Session 17 (7-8 Oct 2026): the factory's speed
 - **Never block a session on an owner question the session can work around:** ask, then keep working; flag the
-  half-way gap before asking (session 17 lost ~5 h waiting on a disk-cleanup question). No check: none possible (a
+  half-way gap before asking (session 17 lost ~5 h waiting on a disk-cleanup and swap-reset question). No check: none possible (a
   process rule); carried as a binding lesson in `docs/handoff/session-18-prompt.md`; if made twice it goes into
   CLAUDE.md's mistakes list.
 - **A forced colour in the caller's shell broke every check that parses a child's output** (#585): the owner's
