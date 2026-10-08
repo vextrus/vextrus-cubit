@@ -12,9 +12,10 @@ The owner decides product and scope and walks each milestone's finish line on re
 between is done by agents, without waiting for the owner:
 
 1. **The orchestrator pushes, opens PRs and merges** once a PR's review loop is done and the ruleset's
-   required checks are green. The ruleset still enforces CI, up-to-date branches and the two statuses;
-   what moves is who presses merge. The orchestrator merges `main` into a PR itself before posting its
-   statuses (the ruleset requires up-to-date branches). **Before every merge it runs
+   required checks are green. The ruleset still enforces CI and the two statuses; what moves is who
+   presses merge. Since 7 Oct 2026 (the owner's ruling, History) the ruleset no longer requires a branch
+   to be up to date: the lander lands a PR as it stands, `land update` is the only update, and a
+   conflicting PR is refused, naming it. **Before every merge it runs
    `python -m scripts.merge_ready <PR>`**, which passes only when `real-drawings` and `design-gate` on
    the head were posted by the owner's App (or main's not-applicable workflow) and every check passed:
    the ruleset does not pin who posts a status, so the author is checked here, and the guard refuses
