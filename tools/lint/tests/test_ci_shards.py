@@ -64,6 +64,10 @@ SIGNAL_FORMS = [  # built in pieces: this file is itself scanned
 
 def make_serial_world(tmp_path: Path, form: str) -> Path:
     (tmp_path / "pyproject.toml").write_text('[tool.pytest.ini_options]\ntestpaths = ["pkg"]\n')
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "ci-shards.json").write_text(
+        json.dumps({"shards": [{"name": "alpha", "paths": [], "ignore": []}]})
+    )
     tests = tmp_path / "pkg" / "tests"
     (tests / "acceptance").mkdir(parents=True)
     (tests / "test_bare.py").write_text(form + "\n")
@@ -86,7 +90,17 @@ MARKS = [
     "pytestmark = [pytest.mark.slow, pytest.mark.serial]",
     "@pytest.mark.serial\ndef test_x(): ...",
 ]
-SERIAL_RUN = 'uv run pytest -m "serial and not live" pkg/tests/test_marked.py'
+
+
+def python_job(condition: str, run: str) -> str:
+    """A ci.yml with a python job holding one step."""
+    return (
+        "jobs:\n  python:\n    steps:\n      - name: serial\n"
+        f"        if: {condition}\n        run: {run}\n  other:\n    steps: []\n"
+    )
+
+
+SERIAL_LINE = 'uv run pytest -m "serial and not live" pkg/tests/test_marked.py'
 
 
 @pytest.mark.parametrize("mark", MARKS)
@@ -95,13 +109,25 @@ def test_a_marked_file_must_be_an_argument_of_a_serial_run_of_ci(tmp_path: Path,
 
     tests = make_serial_world(tmp_path, "pass")
     (tests / "test_marked.py").write_text(mark + "\n" + SIGNAL_FORMS[1] + "\n")
-    assert serial_problems(tmp_path, SERIAL_RUN) == []
+    assert serial_problems(tmp_path, python_job("matrix.shard == 'alpha'", SERIAL_LINE)) == []
     for unrun in (
-        "",
-        "# " + SERIAL_RUN,  # named only in a comment
-        'uv run pytest -n 4 -m "not serial" pkg/tests/test_marked.py',  # a parallel run deselects it
-        "# pkg/tests/test_marked.py serial",
+        "jobs:\n",
+        "# " + SERIAL_LINE,  # named only in a comment
+        python_job(
+            "matrix.shard == 'alpha'", 'uv run pytest -n 4 -m "not serial" pkg/tests/test_marked.py'
+        ),
+        # f1: a line that carries workers is never a serial run, whatever its -m says
+        python_job("matrix.shard == 'alpha'", SERIAL_LINE + " -n 4"),
+        python_job("matrix.shard == 'alpha'", SERIAL_LINE + " -n4"),
+        python_job("matrix.shard == 'alpha'", SERIAL_LINE + " --numprocesses=4"),
+        python_job("matrix.shard == 'alpha'", SERIAL_LINE + " -d"),
+        # f2: the step's if: must hold on a shard the matrix has, and the step must be in the python job
+        python_job("matrix.shard == 'renamed'", SERIAL_LINE),
+        python_job("false", SERIAL_LINE),
+        python_job("matrix.shard == 'alpha'", SERIAL_LINE).replace("python:", "lint:"),
     ):
         found = serial_problems(tmp_path, unrun)
         assert len(found) == 1, (unrun, found)
         assert "test_marked.py" in found[0]
+    held = python_job("matrix.shard != 'x' && !(matrix.shard == 'y')", SERIAL_LINE)
+    assert serial_problems(tmp_path, held) == []

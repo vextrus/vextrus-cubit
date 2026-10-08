@@ -278,19 +278,65 @@ def is_marked_serial(body: str) -> bool:
     )
 
 
-def serial_runs(text: str) -> set[str]:
-    """The arguments of every non-comment pytest command in `ci.yml` whose `-m` selects serial tests."""
+def _runs_on(condition: str | None, shard: str) -> bool:
+    """A step's `if:` for this shard (`matrix.shard ==/!= '<name>'`, && || ! and parentheses); one
+    this cannot read counts as not running, so the file it names is reported."""
+    if condition is None:
+        return True
+    text = condition.strip().removeprefix("${{").removesuffix("}}").strip()
+    text = re.sub(
+        r"matrix\.shard\s*(==|!=)\s*'([^']*)'",
+        lambda m: f" {(shard == m.group(2)) == (m.group(1) == '==')} ",
+        text,
+    )
+    text = re.sub(r"\b(?:always|success)\(\)", " True ", text)
+    text = text.replace("&&", " and ").replace("||", " or ")
+    text = re.sub(r"!(?!=)", " not ", text)
+    tokens = re.findall(r"[()]|[^\s()]+", text)
+    if not set(tokens) <= {"True", "False", "and", "or", "not", "(", ")"}:
+        return False
+    try:
+        return bool(eval(" ".join(tokens), {"__builtins__": {}}))
+    except SyntaxError:
+        return False
+
+
+def _carries_workers(words: list[str]) -> bool:
+    """Whether a pytest line asks for xdist: -n, --numprocesses, -d or --dist, in any spelling."""
+    return any(
+        word in ("-d", "--dist")
+        or word.startswith(("--numprocesses", "--dist="))
+        or (word.startswith("-n") and not word.startswith("--"))
+        for word in words
+    )
+
+
+def serial_runs(text: str, shards: list[str]) -> set[str]:
+    """The arguments of every non-comment pytest line, in a step of the python job whose `if:` holds on
+    a shard that exists, whose `-m` selects serial tests and which carries no worker flag."""
     named: set[str] = set()
-    for line in map(_code, text.splitlines()):
-        if not PYTEST.search(line):
+    steps: list[tuple[str | None, list[str]]] = []
+    for line in jobs(text).get(MATRIX_JOB, []):
+        if line.lstrip().startswith("- "):
+            steps.append((None, []))
+        if not steps:
             continue
-        try:
-            words = shlex.split(line.split("pytest", 1)[1])
-        except ValueError:
+        body = line.lstrip().removeprefix("- ").strip()
+        if body.startswith("if:"):
+            steps[-1] = (body.removeprefix("if:").strip(), steps[-1][1])
+        elif PYTEST.search(line):
+            steps[-1][1].append(line)
+    for condition, lines in steps:
+        if not any(_runs_on(condition, shard) for shard in shards):
             continue
-        marks = [words[at + 1] for at, word in enumerate(words[:-1]) if word == "-m"]
-        if any(re.match(r"\s*serial\b", mark) for mark in marks):
-            named.update(word for word in words if not word.startswith("-"))
+        for line in lines:
+            try:
+                words = shlex.split(line.split("pytest", 1)[1])
+            except ValueError:
+                continue
+            marks = [words[at + 1] for at, word in enumerate(words[:-1]) if word == "-m"]
+            if any(re.match(r"\s*serial\b", mark) for mark in marks) and not _carries_workers(words):
+                named.update(word for word in words if not word.startswith("-"))
     return named
 
 
@@ -302,7 +348,10 @@ def serial_problems(root: Path, text: str) -> list[str]:
         files = test_files(root, testpaths(root))
     except OSError, KeyError, TypeError, ValueError:
         return []  # shard_problems already reports an unreadable testpaths
-    run = serial_runs(text)
+    try:
+        run = serial_runs(text, [shard.name for shard in load(root)])
+    except Malformed:
+        return []  # shard_problems already reports an unreadable shard file
     found: list[str] = []
     for path in files:
         if "/acceptance/" in path:
