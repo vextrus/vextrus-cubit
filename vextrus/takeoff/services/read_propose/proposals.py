@@ -172,6 +172,7 @@ def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     if not listed:
         return
     step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+    step1.release_moved(view.project_id, listed)
     set_questions(view.project_id, trigger_file=file_id)
     step1.record_progress(view.project_id)
 

@@ -10,8 +10,10 @@ from engine.recognise import sheets as sheet_finder
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
     answer,
+    confirm,
     exclude,
     proposals,
+    questions,
     readers,
     run_job,
     step1,
@@ -45,7 +47,7 @@ def test_the_words_count_the_sheets_the_group_holds_and_name_one_sheet_alone(
     grouped = the_one_kind_question(api, qs_project.project_id)
     assert alone["params"] == {"sheet": "S-01", "named": "number", "sheets": 1}
     assert alone["subject_id"] is None
-    assert grouped["params"] == {"sheet": "", "named": "group", "sheets": 3}
+    assert grouped["params"] == {"sheet": "", "named": "group", "sheets": 3, "waiting": 0}
 
 
 @pytest.mark.django_db
@@ -209,3 +211,71 @@ def test_a_kind_questions_options_hold_every_kind_of_its_discipline_jevs_first(
     assert set(keys[:-1]) == set(every)
     assert keys[-1] == "keep_open"
     assert [o["key"] for o in q["options"] if o["picked"]] == ["beam_layout"]
+
+
+# Review round 2 (PR #566) ----------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_a_kind_answer_never_confirms_a_sheet_another_open_question_holds(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """l2-f1: two copies of S-01 (a same_number conflict) share the kind group with S-02. The answer
+    confirms S-02 alone; the copies stay held by their conflict, as bulk confirm's question_first
+    would hold them, and the card counts them as left open."""
+    jev_unsure(jev_offline)
+    copies = [
+        Sheet("S-01", "BEAM DRAWING A", ("BEAM B1",)),
+        Sheet("S-01", "BEAM DRAWING B", ("BEAM B2",)),
+        Sheet("S-02", "BEAM DRAWING C", ("BEAM B3",)),
+    ]
+    read(qs_project, monkeypatch, STRUCTURAL, copies)
+    api = api_as(qs_project.member)
+    q = the_one_kind_question(api, qs_project.project_id)
+    assert len(q["proposals"]) == 3
+    assert q["params"]["waiting"] == 2
+
+    response = answer(api, qs_project.project_id, q["id"], "beam_details")
+
+    assert response.status_code == 200, response.content
+    by_title = {p["title"]: p for p in proposals(api, qs_project.project_id)}
+    assert by_title["BEAM DRAWING C"]["decision"] == "confirmed"
+    assert by_title["BEAM DRAWING C"]["decided_with"] == 1
+    assert [by_title[t]["decision"] for t in ("BEAM DRAWING A", "BEAM DRAWING B")] == [None, None]
+    conflicts = [
+        x
+        for x in questions(api, qs_project.project_id)
+        if x["kind"] == "conflict" and x["status"] == "open"
+    ]
+    assert len(conflicts) == 1
+
+
+@pytest.mark.django_db
+def test_a_sheet_moved_to_another_discipline_is_let_go_and_never_takes_the_groups_answer(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """l1-f1: S-03's file moves to architectural; the structural group no longer holds it, and S-03
+    confirmed on its own later never takes the group's structural kind."""
+    jev_unsure(jev_offline)
+    read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2]))
+    later = uploaded(qs_project.member, qs_project.project_id, STRUCTURAL_TOO)
+    run_job(qs_project.member, later, monkeypatch, readers({STRUCTURAL_TOO: beams([3])}))
+    api = api_as(qs_project.member)
+    moved = api.send(
+        "put",
+        f"/api/projects/{qs_project.project_id}/drawings/files/{later}/discipline",
+        {"discipline": "architectural"},
+    )
+    assert moved.status_code == 200, moved.content
+    ids = {p["number"]: p["id"] for p in proposals(api, qs_project.project_id)}
+    q = the_one_kind_question(api, qs_project.project_id)
+    assert sorted(q["proposals"]) == sorted([ids["S-01"], ids["S-02"]])
+    assert q["params"]["sheets"] == 2
+    assert answer(api, qs_project.project_id, q["id"], "beam_details").status_code == 200
+
+    alone = confirm(api, qs_project.project_id, [ids["S-03"]])
+
+    assert alone.status_code == 200, alone.content
+    s03 = next(p for p in proposals(api, qs_project.project_id) if p["number"] == "S-03")
+    assert s03["decision"] == "confirmed"
+    assert s03["confirmed_kind"] != "beam_details"
