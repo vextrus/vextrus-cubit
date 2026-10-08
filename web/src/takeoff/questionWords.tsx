@@ -23,6 +23,8 @@ export function optionsOf(entry: QuestionEntry): Option[] {
 }
 
 const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+/** The kind Question #228 raises: Jev's first kind is its one source's pick (m0-screens §5). */
+const isJevKind = (entry: QuestionEntry) => entry.question.code === 'takeoff.proposals.which_kind'
 
 function params(entry: QuestionEntry): Record<string, string | number> {
   return Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
@@ -240,7 +242,8 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 /**
  * The option the API picked for the QS, shown only where two or more independent sources agree and
  * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
- * `pickSources` must name two; for any other Question no option is pre-picked yet.
+ * `pickSources` must name two. The one exception is the kind Question (#228, m0-screens §5): Jev's
+ * first kind, its one source named. For any other Question no option is pre-picked yet.
  */
 /** The latest of the copies, as 21c keeps it for "keep the latest": by issue date, then revision mark. */
 export function latestOf(copies: readonly ProposalOut[]): ProposalOut | undefined {
@@ -274,7 +277,9 @@ export function usePick(entry: QuestionEntry, context: CardContext): { key: stri
 export function prePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
-  // Only two copies of one number have sources the card can name yet; any other pick is not shown.
+  // Kept open or answered, the QS has decided: Jev's kind is no longer offered (review 2, finding 1).
+  if (isJevKind(entry)) return entry.kept || entry.question.status !== 'open' || entry.question.answer != null ? null : { key: picked.key }
+  // Else only two copies of one number have sources the card can name yet; any other pick is not shown.
   if (!isCopies(entry) || pickSources(entry, context, picked.key).count < 2) return null
   return { key: picked.key }
 }
@@ -313,6 +318,7 @@ export function pickSources(entry: QuestionEntry, context: CardContext, pick: st
 export function usePickSources(entry: QuestionEntry, context: CardContext): ReactNode | null {
   const pick = usePick(entry, context)?.key
   if (!pick) return null
+  if (isJevKind(entry)) return <MachineText message={{ code: 'platform.jev.sheet_type_source', params: {} }} />
   const found = pickSources(entry, context, pick)
   if (found.count < 2 || !found.list) return null
   const list = found.list === 'found' ? <Trans>the drawing list found in the drawings</Trans> : <Trans>the drawing list on <SheetName sheets={[found.list]} /></Trans>

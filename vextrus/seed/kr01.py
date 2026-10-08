@@ -559,14 +559,16 @@ def replayed() -> files.Readers:
 # Jev, as the demo has it ----------------------------------------------------------------------------
 
 SURE = Decimal("0.95")
-UNSURE = Decimal("0.55")
+UNSURE = (Decimal("0.40"), Decimal("0.35"))
+"""A sheet drawn as no kind: Jev's first two options, close (a lead under
+`VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`), so its kind is asked, not proposed (#228)."""
 
 
 def jev_stand_in() -> jev.Client:
     """A client whose TypeSafe is a function here (no call leaves the machine; its answers go into the
     tenant's cache, as a job's would): a sheet's kind is the one its drawing was drawn as, sure, when
     that kind is among the options; a sheet drawn as no kind (A-05, "SECTION A-A & ELEVATION") gets the
-    options as offered, unsure, so the job asks the QS."""
+    options as offered, its first two close (`UNSURE`), so the job asks the QS (#228)."""
     kinds: dict[str, str] = {}
     for sheets, _fonts in FILES.values():
         for sheet in sheets:
@@ -578,10 +580,15 @@ def jev_stand_in() -> jev.Client:
         [(node, asked)] = body["questions"].items()
         options = list(asked["criteria"])
         drawn = kinds.get(str(body["state"].get("title", "")))
-        choice, confidence = (drawn, SURE) if drawn in options else (options[0], UNSURE)
-        rest = ((1 - confidence) / (len(options) - 1)).quantize(Decimal("0.0001"))
-        probabilities = {o: float(rest) for o in options if o != choice} | {choice: float(confidence)}
-        said = {"type": "choice", "choice": choice, "confidence": float(confidence)}
+        if drawn in options:
+            choice, confidence, given = drawn, SURE, {drawn: SURE}
+        else:
+            choice, confidence = options[0], UNSURE[0]
+            given = dict(zip(options, UNSURE, strict=False))
+        others = max(len(options) - len(given), 1)
+        rest = ((1 - sum(given.values(), Decimal(0))) / others).quantize(Decimal("0.0001"))
+        probabilities = {o: float(given.get(o, rest)) for o in options}
+        said: dict[str, object] = {"type": "choice", "choice": choice, "confidence": float(confidence)}
         said["probabilities"] = probabilities
         return httpx.Response(200, json={"model": body["model"], "answers": {node: said}})
 
