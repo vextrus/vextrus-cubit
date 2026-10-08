@@ -178,6 +178,25 @@ def test_a_frame_is_on_its_plot_sheet_only_when_it_fills_it(
         )
 
 
+def test_a_frameless_drawing_reaching_past_its_plot_sheets_edge_but_no_larger_is_on_it() -> None:
+    """A frameless layout's extents take in its title's reach, which may pass the sheet's left and
+    bottom edges (ts15e2's E-503): a drawing smaller than its page setup's sheet, centred on it, is on
+    it."""
+    artefact, sheet = layout(None, plotted(), lines=(((-36, -10), (422, 402)),))
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == A1
+    assert paper.source == PaperSource.LAYOUT
+
+
+def test_a_frame_drawn_in_the_other_units_fills_its_plot_sheet_in_them() -> None:
+    """A page setup stating millimetres over a frame drawn in inches (an A3 border, 16.54 x 11.69): the
+    frame fills the stated A3 in inches, so the layout is on it, laid in inches."""
+    artefact, sheet = layout((0, 0, 420 / 25.4, 297 / 25.4), plotted(420.0, 297.0))
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm, paper.mm_per_unit) == (420.0, 297.0, 25.4)
+    assert paper.source == PaperSource.LAYOUT
+
+
 def test_a_layout_in_inches_is_laid_in_its_paper_units() -> None:
     """A layout drawn in inches (its plot settings' paper units): its paper is in mm, its origin in
     inches, and its sheet is the one its settings state."""

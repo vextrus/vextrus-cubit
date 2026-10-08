@@ -14,9 +14,10 @@ texts are no view's. **Every box is on paper, in mm, from the sheet's lower-left
 drawn in its plot-paper units (#87), is on, in order: the sheet its plot settings state (the read
 artefact's `Block.plot`: its paper's size, turned a quarter when the plot is, its corner the margins and
 the plot offset before the layout's origin), where each side is within `PLOT_SHEET_MM` and the layout is
-drawn on it (its frame, or a frameless layout's extents, at most `ON_SHEET_MM` past the sheet's edge,
-and a frame filling it, each side at most `2 * BORDER_MM` short of the sheet's: a default page setup left
-on a layout drawn for another sheet, smaller or far larger, is not its sheet); else the
+drawn on it (its frame at most `ON_SHEET_MM` past the sheet's edge and filling it, each side at most
+`2 * BORDER_MM` short of the sheet's, in either of the layout's units; or a frameless layout's extents
+centred on it and no larger: a default page setup left on a layout drawn for another sheet, smaller or
+far larger, is not its sheet); else the
 smallest standard sheet around its frame (`_sheet_around`: the border within `BORDER_MM` of the sheet's
 edge on each side, ISO's sheets first, the frame centred); else its frame's box; else (no frame) its
 extents, a standard sheet when they are one. A model-space sheet is drawn at a scale (model units a
@@ -715,9 +716,12 @@ def _layout_paper(artefact: ReadArtefact, frame: DwgAnchor | None, handle: str) 
     units = (1.0, 25.4) if stated is None else (stated, *(u for u in (1.0, 25.4) if u != stated))
     framed = _layout_frame(artefact, frame, handle)
     extents, padded = _layout_box(artefact, handle) if framed is None else (framed, False)
-    plotted = _plot_sheet(record.plot, units[0], extents, framed is not None)
-    if plotted is not None:
-        return plotted
+    # A frame is tried in each of the units, as around a standard sheet below: a stale page setup's
+    # units may not be its frame's. A frameless drawing has only its stated units.
+    for unit in units if framed is not None else units[:1]:
+        plotted = _plot_sheet(record.plot, unit, extents, framed is not None)
+        if plotted is not None:
+            return plotted
     if framed is not None:
         for unit in units:
             around = _on_sheet_around(framed, unit, PaperSource.STANDARD)
@@ -762,12 +766,14 @@ def _plot_sheet(
 ) -> Paper | None:
     """The sheet a layout's plot settings state, its corner where they put it (a layout's origin is the
     printable area's lower-left corner, moved by the plot offset; a quarter turn swaps the paper's
-    sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it: its frame, or a
-    frameless layout's extents, reaching at most `ON_SHEET_MM` past the sheet's edge, and a frame filling
-    it, each side at most `2 * BORDER_MM` short of the sheet's (as `_sheet_around` holds a border). A
-    default page setup left on a layout drawn for another sheet states one the drawing is not on, or one
-    far larger than its frame's (PR 613's review); else none. A frameless drawing is not asked to fill
-    its sheet: with no frame, nothing says the drawing was made for another."""
+    sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it; else none. A frame
+    is on it when it reaches at most `ON_SHEET_MM` past the sheet's edge and fills it, each side at most
+    `2 * BORDER_MM` short of the sheet's (as `_sheet_around` holds a border): a default page setup left
+    on a layout drawn for another sheet states one the frame is not on, or one far larger (PR 613's
+    review). A frameless layout's extents are on it when their centre is and they are no larger than
+    the sheet (within `ON_SHEET_MM`): extents take in a title's reach, which may pass the sheet's edge
+    (ts15e2's E-503), and a drawing larger than the sheet would be cut by it (PR 613's review). With no
+    frame, nothing says a smaller drawing was made for another sheet, so it is not asked to fill it."""
     if plot is None:
         return None
     low, high = PLOT_SHEET_MM
@@ -781,9 +787,14 @@ def _plot_sheet(
     on_left, on_bottom = {0: (left, bottom), 1: (bottom, right), 2: (right, top), 3: (top, left)}[turn]
     corner = (-(on_left + plot.origin_mm[0]), -(on_bottom + plot.origin_mm[1]))  # mm
     x0, y0, x1, y1 = (v * mm_per_unit - corner[i % 2] for i, v in enumerate(drawn))
-    on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
-    fills = max(width - (x1 - x0), height - (y1 - y0)) <= 2 * BORDER_MM  # as `_sheet_around`'s
-    if not on or (framed and not fills):
+    short_w, short_h = width - (x1 - x0), height - (y1 - y0)
+    if framed:
+        on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
+        on = on and max(short_w, short_h) <= 2 * BORDER_MM  # it fills the sheet, as `_sheet_around`'s
+    else:
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        on = 0 <= cx <= width and 0 <= cy <= height and min(short_w, short_h) >= -ON_SHEET_MM
+    if not on:
         return None
     origin = (corner[0] / mm_per_unit, corner[1] / mm_per_unit)
     return Paper(_kept(width), _kept(height), mm_per_unit, PaperSource.LAYOUT, origin)
