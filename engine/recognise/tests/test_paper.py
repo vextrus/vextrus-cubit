@@ -188,12 +188,14 @@ def test_a_frameless_drawing_reaching_past_its_plot_sheets_edge_but_no_larger_is
     assert paper.source == PaperSource.LAYOUT
 
 
-def test_a_frame_drawn_in_the_other_units_fills_its_plot_sheet_in_them() -> None:
-    """A page setup stating millimetres over a frame drawn in inches (an A3 border, 16.54 x 11.69): the
-    frame fills the stated A3 in inches, so the layout is on it, laid in inches."""
-    artefact, sheet = layout((0, 0, 420 / 25.4, 297 / 25.4), plotted(420.0, 297.0))
+def test_a_frame_smaller_than_any_sheet_leaves_its_plot_sheet_standing() -> None:
+    """A frame of 16.54 x 11.69 in the stated millimetres (an A3 border drawn in inches, ts15e4's stale
+    layout) is no sheet's size there and says nothing of another sheet: the stated A3 stands."""
+    artefact, sheet = layout(
+        (0, 0, 16.54, 11.69), plotted(420.0, 297.0, margins=(7.5, 20.0, 7.5, 20.0)), lines=()
+    )
     paper = paper_of(artefact, sheet)
-    assert (paper.width_mm, paper.height_mm, paper.mm_per_unit) == (420.0, 297.0, 25.4)
+    assert (paper.width_mm, paper.height_mm, paper.mm_per_unit) == (420.0, 297.0, 1.0)
     assert paper.source == PaperSource.LAYOUT
 
 
