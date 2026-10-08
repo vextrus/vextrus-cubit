@@ -107,3 +107,7 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
 - 4 Oct 2026 (ADR 0042; the owner: "Approve as written (Recommended)"): item 9 — account A runs the orchestrator and
   every builder, cloud launches only through the committed launcher, and cloud sessions may read the two Development
   Sets (owner ruling Q7); item 5 — merge_ready enforces the review from a local ledger.
+- 7 Oct 2026 (session 17; the owner unticked it at 19:28Z: "unticked myself of 'Require branches to be up to date
+  before merging'"): **item 1's up-to-date requirement is gone** (ADR 0025, Amended). The ruleset still enforces a
+  PR, CI and the two statuses; the orchestrator no longer merges `main` into a PR before posting its statuses. The
+  lander lands a PR as it stands; `land update` is the only update, and a conflicting PR is refused, naming it.

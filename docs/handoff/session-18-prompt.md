@@ -15,7 +15,8 @@ Missed or wrong:
 - **verify p90 19.6 min against 10: missed.** F2 (verify parallel) landed mid-session; contention between worktrees
   (lesson d) and the skipped toolchain tests (lesson c) still cost re-runs.
 - **CI wall p50 18.8 min against 10: missed.** F1 (#607, CI parallel) measured 6.4 min on its own CI run.
-  <!-- UPDATE AT CLOSE: F1 #607 --> F1 (#607) was open at close.
+  F1 (#607) was open at close, in its last fix round (round 3, false-statement exception: holes in the
+  serial-marker lint).
 - **rdlock_min reads 0, which is false:** #593's posting runs held the lock. A measures defect: fix the lock-span
   reader in `scripts/factory/measures.py` before trusting the number (a fix under 60 min, inside the freeze).
 - `crosspr_max_min` (target 5) is not in the table: F3 did not land, so it is unmeasured.
@@ -32,8 +33,14 @@ Missed or wrong:
   rest are check and conflict Questions, owned by Q2 and Q3).
 - **Four cloud builders went silent** after a `launch say` fix message (F1, F3, A3, W9). Lesson (f).
 - **Phase 0 is not finished:** of F1-F7, F2 (#605), F4 (#608), F5 (#606) and F7 (#611) landed; #614 fixed #585.
-  <!-- UPDATE AT CLOSE: F1 #607, F6 #615 --> F1 (#607) and F6 (#615) were open at close; F3 never reached a PR
-  after its amendment. #612 holds F5's cut.
+  F1 (#607) was open at close in its last fix round. F6b (#615) stopped after round 2: reviewers kept finding gates
+  inside its lax folders (`docs/` holds JSON schemas that strict gates load; `web/` holds session and CSRF
+  transport), so **the owner's 75 bar is not in code yet.** F3 never reached a PR after its amendment. #612 holds
+  F5's cut.
+- **Q1 (#566) used all three review rounds and did not land.** Round 3 found seven holes with one root: a grouped
+  kind Question stores its membership and words, and a sheet's file moving between Disciplines (and back) leaves
+  them stale.
+- **E2 (#613) did not land:** in its last fix round (fix-regression: frames drawn in inches) at close.
 
 ## Starting the session (the owner)
 1. In a WSL terminal: `cd ~/vextrus-cubit && git pull`, then `df -h /` and `free -g` (keep 40 GB free). If swap
@@ -62,27 +69,32 @@ and G1 PASS twice on main's current product code. No M1 building.**
 The up-to-date ruling is recorded in ADR 0025's Amended section; the lander lands a PR as it stands (#611).
 
 ## Phase 0 leftovers (first ~1.5 hours; in parallel with Phase 1's first steps)
-<!-- UPDATE AT CLOSE: drop the lines for whichever of F1, F6 landed -->
-- **F1 CI parallel (#607):** review, land, then read CI wall p50 over the next landings. Target under 10 min.
+- **F1 CI parallel (#607):** in its last fix round at close (round 3, false-statement exception). Finish its
+  round, land, then read CI wall p50 over the next landings. Target under 10 min.
 - **F3 crosspr cache (branch `s17-f3b`):** the cache keeps only green baselines; the kept-red test was withdrawn by
   the amendment 8ff741ee8. Its cloud builder went silent: relaunch it (local if a slot is free, else cloud on a
   fresh branch), PR citing #609. Target under 5 min.
-- **F6b review bar (#615):** strict by default, a `[lax]` allowlist (web/** but e2e and auth, docs/**, root
-  `*.md`); round 2 after its r1 fix. Its acceptance (`scripts/tests/acceptance/ts17f6`) becomes lesson (e)'s check.
+- **F6b review bar: a fresh PR from `s17-f6b`** (#615 stopped after round 2). Carry the owner's Q2 bar (75; 50 on
+  strict paths) with lax narrowed to: web view components (`*.tsx` under `web/src`, except `web/src/api/**`,
+  `web/src/routes/**` and anything auth or session) and `docs/**/*.md` (never `.json`). Everything else is strict.
+  Its acceptance (`scripts/tests/acceptance/ts17f6`) becomes lesson (e)'s check.
 - **The measures' lock-span reader** (rdlock_min 0): a fix under 60 min.
-- File the two issues for lessons (c) and (d) if session 17's close did not.
+- Lessons (c) and (d) have issues: #616 (local verify runs `needs_toolchain` tests for engine paths) and #617
+  (a port and a test database per worktree). Both are fixes under 60 min, inside the freeze.
 
 ## Phase 1: M0 to 100 % (`.private/work/session-16/close/m0-gap.md` §5; the order is the lock's)
 Session 17 landed E4b (#593). It stopped at step 3 below.
-<!-- UPDATE AT CLOSE: Q1 #566, E2 #613 -->
-1. **Q1 (#566):** open at close, round 2 after CI (a flaky SIGTERM launch test was re-run). Land it alone: one
-   posting run, land.
+1. **Q1: rebuild the grouped kind Question on the re-read rule,** as a fresh PR from `s15-q1` (#566 used all three
+   rounds). Membership and words are recomputed on read, never stored (M1 plan's re-read rule for Questions), so a
+   sheet's file moving between Disciplines, and back, cannot leave them stale. Pin round 3's seven holes as
+   acceptance first. Then land it alone: one posting run, land.
 2. **Train A** (build the train branch as soon as Q1 lands; every ticket reviewed alone against main, merged into
    the train, one verify of the train's head, one review round on the train PR, one posting run, land):
    - **Q2 + Q3:** the stack on `s15-q3` (Q3 built on `s15-q2`; BLOCKED at 94bac901 only on #585, since fixed, the
      ts14f2 guard test and Q2's crosspr with #613). Re-verify after Q1 lands.
-   - **E2 (#613):** its fix round broke two toolchain acceptance tests in CI; open at close. Run the
-     `needs_toolchain` tests locally before READY (lesson c).
+   - **E2 (#613):** in its last fix round at close (fix-regression: frames drawn in inches); an earlier fix broke two
+     toolchain acceptance tests in CI (lesson c). Its posting run needs an accepted reason for its 3 render_f1
+     drops (model-space sheets not isolated).
    - **E3 (`s13-w318`):** BLOCKED at a706025c only on crosspr against #613; the train settles it.
    - **E6 (`s13-w332`):** BLOCKED at 3a77220a only on Q1's grouped kind Question. The ruling: Q1 lands first; then
      an `acceptance-writer` re-pins w332's test by acceptance amendment (`scripts.factory.amend`) to find the

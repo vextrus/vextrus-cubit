@@ -427,19 +427,23 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `scripts/factory/tests/test_review_units.py` (`test_a_failed_ci_check_or_ci_workflow_job_is_red`).
 
 ## Session 17 (7-8 Oct 2026): the factory's speed
+- **Never block a session on an owner question the session can work around:** ask, then keep working; flag the
+  half-way gap before asking (session 17 lost ~5 h waiting on a disk-cleanup question). No check: none possible (a
+  process rule); carried as a binding lesson in `docs/handoff/session-18-prompt.md`; if made twice it goes into
+  CLAUDE.md's mistakes list.
 - **A forced colour in the caller's shell broke every check that parses a child's output** (#585): the owner's
   `FORCE_COLOR`, `PY_COLORS` and `CLICOLOR_FORCE` leaked into nested pytest and node runs, so the acceptance lint
-  read "not built" and a guard test miscounted; it failed on main and blocked two builders' verifies for hours. A
-  check that reads a child's output strips the forced-colour variables first (fixed by #614). Check:
+  read "not built" and a guard test miscounted; it failed on main and blocked two builders' verifies for hours.
+  A check that parses a child's output must strip forced-colour env (fixed by #614). Check:
   `tools/lint/tests/test_acceptance_lint_runs.py`
   (`test_a_colour_forced_in_the_callers_shell_does_not_break_reading_pytest`) and `scripts/tests/test_verify.py`
   (`test_a_check_never_inherits_a_forced_colour`).
 - **Local verify skips the `needs_toolchain` tests, so an engine PR went READY and failed CI's toolchain job**
   (E2, #613: two toolchain acceptance tests broke in its fix round). The toolchain is on this machine; a verify of
-  `engine/**` changes must run them. No check yet: issue to file (verify runs `needs_toolchain` tests for engine
-  paths locally).
+  `engine/**` changes must run them. No check yet: #616 (verify runs `needs_toolchain` tests for engine paths
+  locally).
 - **Concurrent verifies in different worktrees collide** on the vitest browser port and on the test database's
-  name, so a green tree reads red under contention (Q3's re-verify). No check yet: issue to file (a port and a
+  name, so a green tree reads red under contention (Q3's re-verify). No check yet: #617 (a port and a
   database name per worktree).
 - **Enumerating the dangerous side of a list never converges** (F6's strict review paths: three rounds, a missed
   wall each round). List the safe side instead: strict by default, a short `[lax]` allowlist. No check yet: #615
