@@ -167,9 +167,11 @@ def test_a_groups_sheet_left_out_stays_out_when_the_group_is_answered(
 
 
 @pytest.mark.django_db
-def test_every_held_sheet_left_out_confirms_nothing(
+def test_a_kind_question_whose_every_sheet_is_left_out_is_not_asked_until_one_comes_back(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
 ) -> None:
+    """An open kind Question holds no decided sheet (`_held`): with both left out it is not listed
+    and its answer is refused (409), confirming nothing; the undo brings it back, holding both."""
     jev_unsure(jev_offline)
     read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2]))
     api = api_as(qs_project.member)
@@ -177,9 +179,12 @@ def test_every_held_sheet_left_out_confirms_nothing(
     ids = [p["id"] for p in proposals(api, qs_project.project_id)]
     assert exclude(api, qs_project.project_id, ids, "superseded").status_code == 200
 
-    assert answer(api, qs_project.project_id, q["id"], "beam_details").status_code == 200
-
+    assert q["id"] not in {x["id"] for x in questions(api, qs_project.project_id)}
+    assert answer(api, qs_project.project_id, q["id"], "beam_details").status_code == 409
     assert [p["decision"] for p in proposals(api, qs_project.project_id)] == ["excluded", "excluded"]
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
+    back = the_one_kind_question(api, qs_project.project_id)
+    assert (back["id"], sorted(back["proposals"])) == (q["id"], sorted(ids))
 
 
 # Review round 1 (PR #566) ----------------------------------------------------------------------------
@@ -421,3 +426,89 @@ def test_a_sheet_away_when_its_group_was_answered_is_asked_again_when_its_file_c
         "beam_layout",
         1,
     )
+
+
+# Review 1 of #628: every reader of a kind Question's membership takes `step1._held` -----------------
+
+
+@pytest.mark.django_db
+def test_a_sheet_its_kind_question_let_go_agrees_and_joins_a_bulk_confirmation(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """The kind Question let S-01 and S-02 go (their file moved to architectural), so it no longer
+    holds them from agreeing: with a typed list, both agree and confirm in bulk."""
+    jev_unsure(jev_offline)
+    only = uploaded(qs_project.member, qs_project.project_id, STRUCTURAL)
+    run_job(qs_project.member, only, monkeypatch, readers({STRUCTURAL: beams([1, 2])}))
+    api = api_as(qs_project.member)
+    _move(api, qs_project.project_id, only, "architectural")
+    listed = api.post(
+        f"{step1(qs_project.project_id)}/drawing-list",
+        {"discipline": "architectural", "text": "S-01 to S-02"},
+    )
+    assert listed.status_code == 200, listed.content
+
+    shown = proposals(api, qs_project.project_id)
+    bulk = confirm(api, qs_project.project_id, [p["id"] for p in shown])
+
+    assert [p["agrees"] for p in shown] == [True, True]
+    assert bulk.status_code == 200, bulk.content
+
+
+@pytest.mark.django_db
+def test_a_cards_words_count_the_sheets_its_answer_confirms_when_one_was_left_out(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """S-03 left out (superseded) is decided: the open card neither lists nor counts it, so "these 2
+    sheets ... confirms them all" is what its answer, sent with the sheets listed, does."""
+    jev_unsure(jev_offline)
+    read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2, 3]))
+    api = api_as(qs_project.member)
+    ids = {p["number"]: p["id"] for p in proposals(api, qs_project.project_id)}
+    assert exclude(api, qs_project.project_id, [ids["S-03"]], "superseded").status_code == 200
+
+    card = the_one_kind_question(api, qs_project.project_id)
+
+    assert sorted(card["proposals"]) == sorted([ids["S-01"], ids["S-02"]])
+    assert (card["params"]["sheets"], card["params"]["waiting"]) == (2, 0)
+    done = answer_seen(api, qs_project.project_id, card["id"], "beam_details", card["proposals"])
+    assert done.status_code == 200, done.content
+    after = {p["number"]: p for p in proposals(api, qs_project.project_id)}
+    assert [after[n]["decided_with"] for n in ("S-01", "S-02")] == [2, 2]
+    assert after["S-03"]["decision"] == "excluded"
+
+
+MEMBERSHIP_READERS = {
+    "_held": "the one reading",
+    "_let_go": "the links a kind Question let go, which `_held` drops",
+    "_asked": "whether a Question has any link at all (one that let every link go is not asked)",
+    "ask_kind_again": "the links let go, to ask a sheet that came back",
+}
+"""The only functions of `step1` that read `QuestionLink` rows; any other reads membership through
+`_held` (writes, `get_or_create`, aside)."""
+
+
+def test_every_reader_of_a_questions_links_goes_through_held() -> None:
+    """Review 1 of #628's class: a reader that counts raw links (`_agreeing`, `_worded`) disagreed
+    with the card. A new raw reader of `QuestionLink` fails here."""
+    import ast
+    from pathlib import Path
+
+    from vextrus.takeoff.services import step1 as service
+
+    source = Path(service.__file__).read_text()
+    readers_found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for call in ast.walk(node):
+            if (
+                isinstance(call, ast.Attribute)
+                and isinstance(call.value, ast.Attribute)
+                and call.value.attr == "objects"
+                and isinstance(call.value.value, ast.Name)
+                and call.value.value.id == "QuestionLink"
+                and call.attr not in ("get_or_create", "create")
+            ):
+                readers_found.add(node.name)
+    assert readers_found == set(MEMBERSHIP_READERS), readers_found ^ set(MEMBERSHIP_READERS)
