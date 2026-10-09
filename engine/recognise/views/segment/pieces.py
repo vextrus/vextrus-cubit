@@ -118,6 +118,8 @@ def _pieces(paper: _Paper, texts: Sequence[_Text], held: Iterable[int]) -> list[
         return []
     k = max(width, height) / REFERENCE_MM
     cell = max(CELL_MM * k, max(width, height) / MAX_GRID)
+    if not cell > 0:
+        return []  # a paper too small for a float to grid (1e-323 mm): nothing is drawn on it
     nx, ny = int(width / cell) + 1, int(height / cell) + 1
     lines = _dividers_out(_clip(paper.segments, paper.region), width, height)
     words = _text_rows([texts[i].box for i in held], paper.region, cell, ny)

@@ -44,6 +44,7 @@ from django.utils import timezone
 
 from engine.messages import Message
 from engine.plot import registration
+from engine.plot.registration import shown
 from engine.read.anchor import Anchor, DwgAnchor
 from engine.read.pdf.types import Page
 from engine.recognise.types import ExclusionReason as EngineExclusion
@@ -688,6 +689,15 @@ def hold_plots(set_id: uuid.UUID) -> None:
     _access.lock("plots", drawing_set.id)
 
 
+def _shown(page: object) -> dict[str, list[str]]:
+    """The page as a viewer shows it, its CropBox in 18's page frame (`registration.shown`, #240): the
+    viewer draws pdf.js's picture of it there; none for a page that is no engine page."""
+    if not isinstance(page, Page):
+        return {}
+    left, bottom, width, height = shown(page)
+    return {"crop": [_decimal(v) for v in (left, bottom, left + width, bottom + height)]}
+
+
 def record_plot(
     sheet_revision_id: uuid.UUID,
     match: PlotMatch | PlotNone | str,
@@ -728,6 +738,7 @@ def record_plot(
                     "scale": _decimal(t.scale),
                     "rotation": t.rotation,
                     "offset": [_decimal(v) for v in t.offset],
+                    **_shown(page),
                 }
             if match.residual is not None:
                 values["plot_residual"] = _decimal_of(match.residual, 6)

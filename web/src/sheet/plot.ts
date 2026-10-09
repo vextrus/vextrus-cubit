@@ -3,7 +3,10 @@
  * (loaded only when a Plot is first shown), registered to the sheet by 18's transform, sheet
  * millimetres to page points (engine/recognise/types.py `PlotTransform`: T(p) = k R p + o, R a turn in
  * 90° steps), in the page's space as the engine reads it (engine/read/pdf/walk.py: points from the
- * page's lower-left corner, y up, the page as displayed, its /Rotate applied).
+ * page's lower-left corner, y up, the page as displayed, its /Rotate applied). pdf.js draws the page's
+ * CropBox, not its MediaBox (#240): the picture's top-left corner is the CropBox's, which the transform
+ * carries (`crop`, 18's `shown`); a transform kept before it carries none and the CropBox is taken as
+ * the whole page.
  *
  *   const picture = await drawPlotPage(bytes, 18)
  *   ctx.setTransform(...plotMatrix(view, transform, picture))
@@ -17,6 +20,8 @@ export interface PlotTransform {
   /** 0, 90, 180 or 270, anticlockwise. */
   rotation: number
   offset: readonly [number, number]
+  /** The page as shown, its CropBox, [x0, y0, x1, y1] in page points; absent: the whole page. */
+  crop?: readonly [number, number, number, number]
 }
 
 /** A PDF page drawn to pixels: its picture, how many pixels to a point, and its height in points. */
@@ -38,22 +43,30 @@ export function readPlotTransform(raw: unknown): PlotTransform | null {
   const offset = Array.isArray(t.offset) ? t.offset.map(Number) : []
   if (!(scale > 0) || !Number.isFinite(scale) || ![0, 90, 180, 270].includes(rotation)) return null
   if (offset.length !== 2 || !offset.every(Number.isFinite)) return null
-  return { scale, rotation, offset: [offset[0]!, offset[1]!] }
+  const read: PlotTransform = { scale, rotation, offset: [offset[0]!, offset[1]!] }
+  const crop = Array.isArray((t as { crop?: unknown }).crop) ? ((t as { crop: unknown[] }).crop).map(Number) : []
+  // A CropBox of four finite numbers with a size places the picture; any other is left out.
+  if (crop.length === 4 && crop.every(Number.isFinite) && crop[2]! > crop[0]! && crop[3]! > crop[1]!) {
+    return { ...read, crop: [crop[0]!, crop[1]!, crop[2]!, crop[3]!] }
+  }
+  return read
 }
 
 const TURN: Record<number, readonly [number, number]> = { 0: [1, 0], 90: [0, 1], 180: [-1, 0], 270: [0, -1] }
 
 /**
  * The 2D canvas matrix [a, b, c, d, e, f] that puts the page's picture under the sheet at `view`
- * (device pixels): picture pixel (u, v) is page point (u / d, H − v / d), which is sheet point
- * R⁻¹ (q − o) / k, which is canvas pixel (x + X s, y − Y s).
+ * (device pixels): picture pixel (u, v) is page point (x₀ + u / d, y₁ − v / d), (x₀, y₁) the CropBox's
+ * top-left corner (the whole page's, (0, H), without one), which is sheet point R⁻¹ (q − o) / k, which
+ * is canvas pixel (x + X s, y − Y s).
  */
 export function plotMatrix(view: ViewTransform, t: PlotTransform, picture: { pxPerPt: number; heightPt: number }): [number, number, number, number, number, number] {
   const [c, s] = TURN[t.rotation] ?? [1, 0]
   const k = t.scale
   const m = view.scale / (k * picture.pxPerPt)
-  const wx = -t.offset[0] / k
-  const wy = (picture.heightPt - t.offset[1]) / k
+  const [left, top] = t.crop ? [t.crop[0], t.crop[3]] : [0, picture.heightPt]
+  const wx = (left - t.offset[0]) / k
+  const wy = (top - t.offset[1]) / k
   return [m * c, m * s, -m * s, m * c, view.x + view.scale * (c * wx + s * wy), view.y - view.scale * (-s * wx + c * wy)]
 }
 

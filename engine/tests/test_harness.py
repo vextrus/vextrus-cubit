@@ -564,6 +564,122 @@ def test_a_set_read_by_every_stage_is_written_to_the_export(
     assert [p.name for p in written.parent.iterdir()] == ["export.json"]
 
 
+PLOTTED = {
+    "sheets": """
+        from engine.recognise.types import Box, SheetCandidate, SheetLocation, Sourced
+
+        def find(artefact, discipline, conventions):
+            return [
+                SheetCandidate(location=SheetLocation(box=Box(0, 0, 1200, 850)),
+                               number=Sourced("S-101", "title_block_text")),
+                SheetCandidate(location=SheetLocation(layout="Layout1"),
+                               number=Sourced("S-102", "title_block_text")),
+            ]
+    """,
+    "views": """
+        from engine.recognise.types import Box, ViewCandidate, ViewKind
+
+        def find(artefact, sheet, conventions, plot=None):
+            said = "no plot" if plot is None else f"plot {plot[0]:.1f} x {plot[1]:.1f}"
+            return [ViewCandidate(box=Box(0, 0, 100, 80), kind=ViewKind.PLAN, title=said)] * 3
+    """,
+    "buffers": """
+        def build(artefact, sheet, plot=None):
+            return {"number": sheet.number.value, "plot": plot}
+    """,
+    "pdf": """
+        def report(path):
+            return {"counts": {"pages": 2, "shx_comments": 0}}
+
+        def page_text(path):
+            import hashlib, pathlib, types
+            sha256 = hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+            a3 = (420 * 72 / 25.4, 297 * 72 / 25.4)
+            return [types.SimpleNamespace(source_sha256=sha256, number=n, width=a3[1], height=a3[0])
+                    for n in (1, 2)]
+    """,
+    "plot": """
+        from engine.recognise.types import PlotMatch, PlotTransform
+
+        def match(pages, sheets, geometry, plots, disciplines):
+            return [PlotMatch(page=page, sheet=sheet, transform=PlotTransform(1.0, 0, (0.0, 0.0)))
+                    for page, sheet in zip(pages, sheets)]
+    """,
+    "f1": """
+        def score(buffers, page, transform, plot):
+            return 0.9 if buffers["plot"] is not None else 0.1
+    """,
+}
+
+
+def test_a_model_space_sheet_matched_to_a_plot_page_is_read_again_on_its_paper(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    """#160, the ruling of session 09: the Plot is matched on the first read; a file with a model-space
+    sheet matched to a page is read again, its views and buffers given the page's paper (in mm, as the
+    page shows it: a portrait A3 here); a layout sheet's paper is its own, never the page's."""
+    document = run(
+        tmp_path, fakes(**PLOTTED), {"S-101.dwg": "", "plot.pdf": ""}, conventions=conventions
+    )
+    dwg = by_path(document)["S-101.dwg"]
+    assert dwg["process"]["status"] == "ok"
+    model, layout = dwg["sheets"]
+    assert model["views"][0]["title"] == "plot 297.0 x 420.0"
+    assert layout["views"][0]["title"] == "no plot"
+    assert (model["render_f1"], layout["render_f1"]) == (0.9, 0.1)
+    assert dwg["stages"]["views"]["calls"] == 2  # the second read's, not both reads'
+
+
+def test_a_file_read_again_on_other_sheets_keeps_its_first_read(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path
+) -> None:
+    """#160: a second read that finds other sheets than the first (a file changed under the run, or a
+    reader that is not deterministic) is not taken: the first read and its papers stand."""
+    sheets = PLOTTED["sheets"].replace(
+        "def find(artefact, discipline, conventions):",
+        "def find(artefact, discipline, conventions):\n"
+        "            seen = artefact.path.with_suffix('.seen')  # the first read leaves it\n"
+        "            if seen.exists():\n"
+        "                return []\n"
+        "            seen.write_text('')",
+    )
+    stages = fakes(**{**PLOTTED, "sheets": sheets})
+    document = run(tmp_path, stages, {"S-101.dwg": "", "plot.pdf": ""}, conventions=conventions)
+    model = by_path(document)["S-101.dwg"]["sheets"][0]
+    assert model["views"][0]["title"] == "no plot"
+
+
+@pytest.mark.parametrize("stage", ["views", "buffers"])
+def test_a_file_whose_second_read_does_worse_keeps_its_first_read(
+    tmp_path: Path, fakes: Callable[..., tuple[Stage, ...]], conventions: Path, stage: str
+) -> None:
+    """#160's refuter: a page whose paper a stage cannot take (one past the raster's cap, or one with
+    next to no size, which the views refuse) failed that stage on the second read, and the worse read
+    was kept; now a second read with any stage worse than the first's is not taken."""
+    refusing = PLOTTED[stage].replace(
+        "plot=None):\n",
+        "plot=None):\n            if plot is not None:\n"
+        "                raise ValueError('no paper this stage can take')\n",
+    )
+    document = run(
+        tmp_path,
+        fakes(**{**PLOTTED, stage: refusing}),
+        {"S-101.dwg": "", "plot.pdf": ""},
+        conventions=conventions,
+    )
+    dwg = by_path(document)["S-101.dwg"]
+    assert set(states(dwg).values()) == {"ok"}, dwg["stages"]
+    assert dwg["sheets"][0]["views"][0]["title"] == "no plot"
+
+
+def test_a_paper_already_the_plot_pages_is_not_read_again() -> None:
+    """#160: a sheet on its page's paper within a plot's rounding (1 %), turned or not, is not read
+    again for it."""
+    assert harness._same_paper((420.0, 297.0), (297.0, 420.0))
+    assert harness._same_paper((423.0, 297.0), (420.0, 297.0))
+    assert not harness._same_paper((1189.0, 841.0), (420.0, 297.0))
+
+
 def test_stages_not_built_are_reported_so_and_nothing_is_faked(
     tmp_path: Path, conventions: Path
 ) -> None:

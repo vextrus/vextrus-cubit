@@ -119,11 +119,13 @@ def find(
     artefact: ReadArtefact,
     sheet: SheetCandidate,
     conventions: ViewConventions | None = None,
+    plot: tuple[float, float] | None = None,
     *,
     budget: ViewBudget | None = None,
 ) -> FoundViews:
     """The sheet's views, in reading order (the package's docstring), on the file's `budget` (one of
-    its own when none is given)."""
+    its own when none is given). `plot` is the paper of the Plot page matched to a model-space sheet,
+    in mm (`paper._plot_paper`; a layout's paper is its own)."""
     if not isinstance(sheet, SheetCandidate):
         raise TypeError(f"a sheet is a SheetCandidate, not {type(sheet).__name__}")
     if budget is None:
@@ -132,7 +134,7 @@ def find(
         raise ValueError("a view budget is its own file's: this sheet is another file's")
     held = conventions if conventions is not None else default_conventions()
     reading = _reading(held)
-    paper = _paper(artefact, sheet, budget)
+    paper = _paper(artefact, sheet, budget, plot)
     if paper is None:
         empty = FoundViews()
         empty.limits = _report(budget)
