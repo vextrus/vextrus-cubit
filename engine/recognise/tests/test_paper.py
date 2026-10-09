@@ -75,7 +75,7 @@ def test_a_layout_is_on_the_sheet_its_plot_settings_state_its_corner_by_the_marg
 def test_a_quarter_turned_plot_swaps_its_papers_sides(
     rotation: int, corner: tuple[float, float]
 ) -> None:
-    """A paper held portrait and plotted turned (as the real sets' layouts state theirs) is landscape
+    """A paper held portrait and plotted turned (as layouts often state theirs) is landscape
     on the layout, and its margins turn with it."""
     portrait = plotted(A1[1], A1[0], margins=(5.0, 6.0, 7.0, 8.0), rotation=rotation)
     artefact, sheet = layout((0, 0, 811, 574), portrait)
@@ -188,17 +188,6 @@ def test_a_frameless_drawing_reaching_past_its_plot_sheets_edge_but_no_larger_is
     assert paper.source == PaperSource.LAYOUT
 
 
-def test_a_frame_smaller_than_any_sheet_leaves_its_plot_sheet_standing() -> None:
-    """A frame of 16.54 x 11.69 in the stated millimetres (an A3 border drawn in inches, ts15e4's stale
-    layout) is no sheet's size there and says nothing of another sheet: the stated A3 stands."""
-    artefact, sheet = layout(
-        (0, 0, 16.54, 11.69), plotted(420.0, 297.0, margins=(7.5, 20.0, 7.5, 20.0)), lines=()
-    )
-    paper = paper_of(artefact, sheet)
-    assert (paper.width_mm, paper.height_mm, paper.mm_per_unit) == (420.0, 297.0, 1.0)
-    assert paper.source == PaperSource.LAYOUT
-
-
 def test_a_frame_drawn_in_inches_under_a_larger_millimetre_setup_is_on_its_own_sheet() -> None:
     """An A4 frame drawn in inches (11.69 x 8.27) under a stale millimetre A1 page setup: read in mm in
     the units where it is a sheet's size, it does not fill A1, so it is on A4 (PR 613's review, round
@@ -227,6 +216,29 @@ def test_a_frame_drawn_in_inches_larger_than_a_stale_millimetre_setup_is_on_its_
     assert (paper.width_mm, paper.height_mm) == drawn
     assert paper.mm_per_unit == 25.4
     assert paper.source != PaperSource.LAYOUT
+
+
+@pytest.mark.parametrize("margins", [(0.0, 0.0, 0.0, 0.0), (7.5, 20.0, 7.5, 20.0)])
+def test_a_frame_drawn_in_inches_filling_its_stated_millimetre_sheet_is_laid_in_inches(
+    margins: tuple[float, float, float, float],
+) -> None:
+    """An A3 frame drawn in inches under a millimetre A3 page setup is A3's size only read in inches,
+    so its paper is A3 at 25.4 mm a unit, never A3 at 1 mm a unit with the frame a 16.5 mm box in its
+    corner (PR 627's review, round 1). The unit the fill rule reads the frame in is the unit the sheet
+    is laid at; the stated units being stale, so are the margins, and the frame is centred on the sheet
+    it fills."""
+    frame = (0.0, 0.0, 420.0 / 25.4, 297.0 / 25.4)
+    artefact, sheet = layout(
+        frame, plotted(420.0, 297.0, margins=margins), paper_mm_per_unit=1.0, lines=()
+    )
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == (420.0, 297.0)
+    assert paper.mm_per_unit == 25.4
+    assert paper.source == PaperSource.LAYOUT
+    x0, y0, x1, y1 = ((v - o) * paper.mm_per_unit for v, o in zip(frame, paper.origin * 2, strict=True))
+    assert min(x0, y0) >= -5.0
+    assert x1 <= 425.0
+    assert y1 <= 302.0
 
 
 def test_a_frame_a_rounding_past_its_stated_sheet_keeps_it() -> None:

@@ -568,7 +568,7 @@ PLOTTED = {
 
         def find(artefact, discipline, conventions):
             return [
-                SheetCandidate(location=SheetLocation(box=Box(0, 0, 1300, 920)),
+                SheetCandidate(location=SheetLocation(box=Box(0, 0, 1200, 850)),
                                number=Sourced("S-101", "title_block_text")),
                 SheetCandidate(location=SheetLocation(layout="Layout1"),
                                number=Sourced("S-102", "title_block_text")),

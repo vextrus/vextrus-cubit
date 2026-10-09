@@ -104,15 +104,14 @@ EXACT_MATCH = 0.001
 frame insert's binding window (`BORDER_MM`) is tried (after a frame block drawn at a sheet's size): a
 frame block drawn at a third of an A1 and inserted at 300 boxes an exact A1 at 1:100, though its insert
 gives a paper inside A4's window. Looser (the render buffers' 0.5 %), a border's box can match another
-sheet by chance: a 409 x 288 mm A3 border at 1:73 boxes an A0 at 1:25 within 0.44 %, and its insert's
-scale is the truer reading."""
+sheet at another scale by chance, and its insert's scale is the truer reading."""
 BORDER_MM = 25.0
 """How far inside a standard sheet's edge, on each side, a frame's border may be drawn and still be that
 sheet's (S15-E2: ISO 5457's 20 mm at the binding edge and 10 mm elsewhere, or 10 mm all round, both
 well within it). A bordered frame lies on the smallest standard sheet that holds it so, centred on it,
 never on its border's own paper (#437's review). A frame insert whose scale gives a paper inside no
-standard sheet by this margin was drawn at a fraction of its plotted size (#160: the real sets' blocks
-of 130 x 92 mm), and the paper is the box's, as for a frame drawn as a rectangle."""
+standard sheet by this margin was drawn at a fraction of its plotted size (#160), and the paper is the
+box's, as for a frame drawn as a rectangle."""
 ISO_SHEETS = 6
 """The first sheets of `SHEETS_MM`, ISO A0 to A5 (the Market's), tried before ANSI's and ARCH's."""
 ON_SHEET_MM = 5.0
@@ -516,7 +515,7 @@ def _plot_paper(
     back), so its sides are taken in the box's orientation. A page larger than any sheet
     (`MAX_PAPER_MM`) gives none, and the sheet keeps the paper its drawing gives. `read` is the scale
     the drawing gave (`_paper_scale`, read): where it lays the box on the page within `BORDER_MM`
-    of its edge (a frame's border drawn inside the sheet's edge: 409 mm or 390 mm on a 420 mm page),
+    of its edge (a frame's border drawn inside the sheet's edge: 390 mm or 400 mm on a 420 mm page),
     it is kept, since fitting the border to the page's edge would enlarge the drawing by its margin."""
     width, height = box.x1 - box.x0, box.y1 - box.y0
     sides = (width, height, *plot)
@@ -789,22 +788,24 @@ def _plot_sheet(
         width, height = height, width
     on_left, on_bottom = {0: (left, bottom), 1: (bottom, right), 2: (right, top), 3: (top, left)}[turn]
     corner = (-(on_left + plot.origin_mm[0]), -(on_bottom + plot.origin_mm[1]))  # mm
-    mm_per_unit = units[0]
+    frame_w, frame_h = drawn[2] - drawn[0], drawn[3] - drawn[1]
+    # A frame is laid in the first of the layout's units where it is a sheet's size; the unit the fill
+    # rule reads it in is the unit the sheet is laid at (PR 627's review).
+    sized_in = next((u for u in units if min(frame_w, frame_h) * u >= low), None) if framed else None
+    mm_per_unit = units[0] if sized_in is None else sized_in
     x0, y0, x1, y1 = (v * mm_per_unit - corner[i % 2] for i, v in enumerate(drawn))
     short_w, short_h = width - (x1 - x0), height - (y1 - y0)
     if framed:
         on = min(x0, y0) >= -ON_SHEET_MM and x1 <= width + ON_SHEET_MM and y1 <= height + ON_SHEET_MM
-        frame_w, frame_h = drawn[2] - drawn[0], drawn[3] - drawn[1]
-        sized = next(
-            ((frame_w * u, frame_h * u) for u in units if min(frame_w, frame_h) * u >= low), None
+        fills = sized_in is None or all(
+            -ON_SHEET_MM <= short <= 2 * BORDER_MM for short in (short_w, short_h)
         )
-        on = on and (
-            sized is None
-            or all(
-                -ON_SHEET_MM <= side - drawn_mm <= 2 * BORDER_MM
-                for side, drawn_mm in ((width, sized[0]), (height, sized[1]))
-            )
-        )
+        if fills and not on and sized_in is not None and sized_in != units[0]:
+            # Stated units the frame is no sheet in are stale, and so is where its margins put it:
+            # the frame is centred on the sheet it fills.
+            corner = (x0 + corner[0] - short_w / 2, y0 + corner[1] - short_h / 2)
+            on = True
+        on = on and fills
     else:
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         on = 0 <= cx <= width and 0 <= cy <= height and min(short_w, short_h) >= -ON_SHEET_MM
