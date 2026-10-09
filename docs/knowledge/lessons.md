@@ -470,6 +470,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **A crosspr-only BLOCKED head cannot be reviewed alone**: CI's heavy jobs skip a non-READY head and the review
   refuses a red CI (E3, #629). Opening such a PR by hand is wasted; members that conflict only with each other go
   straight into the train (lesson h of session 17, confirmed). No check: a rule in the session brief.
-- **A power cut (11:14Z-15:01Z) killed every builder**; resumes copied each conversation into a new session, and one
-  copy died without committing (Q1), so the orchestrator verified its committed tree itself. No check: say in each
-  builder's prompt that work is committed often, so a reboot loses only uncommitted minutes.
+- **A power cut (11:14Z-15:01Z) killed every builder**; resumes copied each conversation into a new session, and
+  Q1's copy took a new name, so the orchestrator thought it gone and ran a second verify in its worktree; crosspr's
+  scratch worktree then vanished mid-run. No check: find a builder by its `cwd` in `claude agents --json`, never by
+  name, before working in its worktree.
