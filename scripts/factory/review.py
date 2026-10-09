@@ -1,7 +1,8 @@
 """`python -m scripts.factory.review run <PR> --round n [--exception K --reason T] [--where cloud]`: one
 review round of a PR head, by code (issues #452, #406, #420, #453, #342; the session-13 close's review
 research, section 3). `fix-message <PR> --from-verdict` prints the fix message of the PR's latest
-recorded round: one line per standing finding (`file:line (score): summary`), none refuted.
+recorded round: one line per standing finding that blocks (`file:line (score): summary`), none
+refuted, then under their own heading the findings to file as issues (50-74 off the strict paths).
 
 1. **Resolve (code).** `gh pr view` gives the PR's state, its 40-hex head and its checks: nobody types a
    sha. The ledger's own `check_exception` and `check_round` run in this process; a closed PR, a short or
@@ -32,12 +33,16 @@ recorded round: one line per standing finding (`file:line (score): summary`), no
    wide allow rules are gone).
 6. **Replay (code).** Each finding of 50 or more with a `repro` has its test file run here, in `rv<N>`
    (tracked files reset to the merged head first): a non-zero exit with `FAILED <test_file>` is
-   CONFIRMED (the lenses' `review_attacks/` folders stay, less their pytest config files). Every other
-   finding of 50 or more, with its repro and what its replay showed (exit, output tail), goes to ONE
-   batched `refuter` process, whose verdict
-   per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded; a
-   refuter that fails or answers outside its schema refutes nothing (UNPROVEN stands).
-7. **Record (code).** The `VERDICT`/`FINDING` lines go to a file and `scripts.ledger record` is called in
+   CONFIRMED (the lenses' `review_attacks/` folders stay, less their pytest config files). The
+   refuter judges a sample (the owner's ruling, 7 Oct 2026): every other finding that could block (75
+   or more, or 50 or more on a strict path, `ledger.could_block`), plus at most 3 of the others of
+   50-74, highest score first, each with its repro and what its replay showed (exit, output tail), go
+   to ONE batched `refuter` process, started only when one that could block is among them. Its
+   verdict per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded;
+   a refuter that fails or answers outside its schema refutes nothing (UNPROVEN stands). A finding of
+   50-74 off the strict paths left out stands unjudged (`-`): it is filed as an issue, never blocks.
+7. **Record (code).** The `VERDICT`/`FINDING` lines (each finding's file its fifth field) go to a
+   file and `scripts.ledger record` is called in
    this process: the verdict is decided there and nowhere else, its leak scan runs and it posts the one
    marker comment. One JSON cost line is appended to `.private/work/factory/review-cost.jsonl`, and one
    JSON object (the PR, its head, the verdict) is printed on stdout. The round's findings are kept
@@ -140,7 +145,13 @@ FINDING_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {
         "score": {"type": "integer", "minimum": 0, "maximum": 100},
-        "file": {"type": "string"},
+        "file": {
+            "type": "string",
+            "description": (
+                "the repo-relative path of one file in the head (decides the bar: strict paths "
+                "block at 50)"
+            ),
+        },
         "line": {"type": "integer", "minimum": 0},
         "summary": {"type": "string", "description": "the failing scenario, in public words"},
         "repro": {
@@ -324,6 +335,18 @@ class Finding:
     method: str | None = None
     proof: dict[str, Any] | None = None  # the lens's repro: test_file, command, expect_fail
     replayed: dict[str, Any] | None = None  # the replay's outcome, exit and output tail
+    on_tree: bool = False  # the file is exactly a file of the reviewed head's tree (`mark_on_tree`)
+
+    @property
+    def named_file(self) -> str | None:
+        """The file as the ledger's FINDING line carries it; None (judged on a strict path) unless
+        it is a file of the head's tree (PR #610 review, round 1: a folder or a shortened path)."""
+        return ledger.named_file(self.file) if self.on_tree else None
+
+    @property
+    def could_block(self) -> bool:
+        """The review bar: 75 or more, or 50 or more on a strict path (`ledger.could_block`)."""
+        return ledger.could_block(self.score, self.named_file)
 
     def view(self) -> dict[str, Any]:
         return {
@@ -334,6 +357,7 @@ class Finding:
             "summary": self.summary,
             "status": self.word,
             "method": self.method,
+            "on_tree": self.on_tree,
         }
 
 
@@ -496,22 +520,8 @@ def added_lines(patch: str) -> list[str]:
     return found
 
 
-# Files under docs/ that code or agents read as data or instructions: never "docs-only".
-def glob_regex(pattern: str, *, ignore_case: bool = False) -> re.Pattern[str]:
-    """A tier list's glob as a whole-path regex: `*` no `/`, `**/` any folders (or none), `**` all."""
-    out, index = "", 0
-    while index < len(pattern):
-        if pattern.startswith("**/", index):
-            out, index = out + "(?:.*/)?", index + 3
-        elif pattern.startswith("**", index):
-            out, index = out + ".*", index + 2
-        elif pattern[index] == "*":
-            out, index = out + "[^/]*", index + 1
-        elif pattern[index] == "?":
-            out, index = out + "[^/]", index + 1
-        else:
-            out, index = out + re.escape(pattern[index]), index + 1
-    return re.compile(out, re.DOTALL | (re.IGNORECASE if ignore_case else 0))
+# A tier list's glob as a whole-path regex: the ledger's, which reads the `[strict]` list by it too.
+glob_regex = ledger.glob_regex
 
 
 @functools.cache
@@ -1121,7 +1131,11 @@ def record(
     """Write the decision lines and the findings, and have the ledger decide and record them."""
     assert run.head is not None
     lines = [f"VERDICT: {verdict} at {run.head}" for verdict in verdicts]
-    lines += [f"FINDING {item.id} {item.score} {item.word}" for item in run.findings]
+    # Each finding's file is the line's fifth field: the ledger judges the bar by it (none: strict).
+    lines += [
+        f"FINDING {item.id} {item.score} {item.word}" + (f" {name}" if (name := item.named_file) else "")
+        for item in run.findings
+    ]
     decisions.mkdir(parents=True, exist_ok=True)
     source = decisions / f"{run.pr}-{run.head[:12]}-r{run.round_}.txt"
     source.write_text("".join(f"{line}\n" for line in lines))
@@ -1310,8 +1324,22 @@ def confirm_and_refute(
                     proof=repro if isinstance(repro, dict) else None,
                 )
             )
+    mark_on_tree(run.findings, main, run.merged)
     confirm(run, rv)
     refute(run, rv, slot, main)
+
+
+def mark_on_tree(findings: list[Finding], main: Path, commit: str | None) -> None:
+    """Mark each finding whose file is exactly a file of `commit`'s tree; the rest (and every one,
+    when the tree cannot be read) are judged on a strict path."""
+    tree: frozenset[str] = frozenset()
+    with contextlib.suppress(subprocess.TimeoutExpired):
+        if commit is not None:
+            argv = [*GIT, "-C", str(main), "ls-tree", "-r", "-z", "--name-only", commit]
+            listed = _run(argv, timeout=GIT_TIMEOUT)
+            tree = frozenset(listed.stdout.split("\0")) - {""} if listed.returncode == 0 else tree
+    for item in findings:
+        item.on_tree = item.file in tree
 
 
 def tier_lenses(tier: str, paths: list[str]) -> list[Lens]:
@@ -1519,13 +1547,33 @@ def refuter_tree(run: Run, rv: Path) -> None:
     drop_attack_config(rv)  # no folder of its own: every conftest.py goes too
 
 
+RIDE_ALONG = 3  # the most findings that cannot block the refuter is also told (the sample)
+
+
+def refuter_claims(findings: list[Finding]) -> list[Finding]:
+    """The sample the refuter judges (the owner's ruling, 7 Oct 2026): every finding of 50 or more
+    that replay did not confirm and that could block, plus at most RIDE_ALONG of the others of 50-74,
+    the highest-scored first; none at all when no finding that could block is left."""
+    open_ = [item for item in findings if item.score >= 50 and item.word != "CONFIRMED"]
+    blocking = [item for item in open_ if item.could_block]
+    if not blocking:
+        return []
+    others = sorted((item for item in open_ if not item.could_block), key=lambda item: -item.score)
+    return blocking + others[:RIDE_ALONG]
+
+
 def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
-    """One batched refuter judges every finding of 50 or more that replay did not confirm; its verdict
-    per finding (matched by file and line) is the one recorded. A refuter that fails, runs past its
-    cap or answers outside its schema refutes nothing: each of those findings stays UNPROVEN."""
+    """One batched refuter judges the sample (`refuter_claims`); its verdict per finding (matched by
+    file and line) is the one recorded. A finding of 50-74 off the strict paths left out of the sample
+    stands unjudged (`-`): it cannot block and is filed, not fixed. A refuter that fails, runs past its
+    cap or answers outside its schema refutes nothing: each finding it was told stays UNPROVEN."""
     assert run.head is not None
     assert run.slot is not None
-    claims = [item for item in run.findings if item.score >= 50 and item.word != "CONFIRMED"]
+    claims = refuter_claims(run.findings)
+    told = {claim.id for claim in claims}
+    for item in run.findings:
+        if item.score >= 50 and item.word != "CONFIRMED" and item.id not in told:
+            item.word, item.method = "-", None
     if not claims:
         return
     refuter_tree(run, rv)
@@ -1870,6 +1918,7 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
             )
     if resolve(run.pr) != run.head:
         raise Refused("the PR's head moved during the review: review the new head")
+    mark_on_tree(run.findings, main, run.head)
     record(run, args, ledger_dir, [found["verdict"] for _, found, _ in answers], factory / "verdicts")
     served = sorted({one["branch"] for name in required for one in launches_of(entries[name])})
     for branch in served:  # every launch's review branch has served: removed, as fetch-verdict does
@@ -1879,23 +1928,48 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
 # ------------------------------------------------------------------------------------------ fix message
 
 
-def fix_text(pr: int, head: str | None, standing: list[dict[str, Any]]) -> str:
-    """One line per standing finding (`file:line`, score, summary), the highest score first."""
-    if not standing:
-        return ""
-    ordered = sorted(standing, key=lambda item: (-int(item["score"]), str(item["id"])))
-    lines = [f"Fix round for PR {pr} at {head}:"]
-    lines += [f"- {i['file']}:{i['line']} ({i['score']}): {i['summary']}" for i in ordered]
-    return "\n".join(lines)
+def fix_text(pr: int, head: str | None, views: list[dict[str, Any]]) -> str:
+    """One line per standing finding that blocks (`file:line`, score, summary), the highest score
+    first; then, under their own heading, the ones to file as issues (50-74 off the strict paths)."""
+
+    def lines(found: list[dict[str, Any]]) -> list[str]:
+        ordered = sorted(found, key=lambda item: (-int(item["score"]), str(item["id"])))
+        return [f"- {i['file']}:{i['line']} ({i['score']}): {i['summary']}" for i in ordered]
+
+    blocking, filed = standing(views), to_file(views)
+    parts: list[str] = []
+    if blocking:
+        parts += [f"Fix round for PR {pr} at {head}:", *lines(blocking)]
+    if filed:
+        parts += [
+            f"File as issues for PR {pr} at {head} (50-74 off the strict paths; they do not block):",
+            *lines(filed),
+        ]
+    return "\n".join(parts)
+
+
+def view_file(view: dict[str, Any]) -> str | None:
+    """A kept finding's file as the ledger judged it: None (strict) unless it was on the tree."""
+    return ledger.named_file(view["file"]) if view.get("on_tree") is True else None
 
 
 def standing(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The findings of 50 or more the review kept: CONFIRMED or UNPROVEN, never REFUTED."""
-    return [v for v in views if v["score"] >= 50 and v["status"] in ("CONFIRMED", "UNPROVEN")]
+    """The findings that block: CONFIRMED or UNPROVEN, never REFUTED, and over the bar (75, or 50 on
+    a strict path: `ledger.could_block`)."""
+    return [
+        v
+        for v in views
+        if v["status"] in ledger.STANDS and ledger.could_block(int(v["score"]), view_file(v))
+    ]
+
+
+def to_file(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The findings to file as issues rather than fix (`ledger.to_file`)."""
+    return [v for v in views if ledger.to_file(int(v["score"]), str(v["status"]), view_file(v))]
 
 
 def fix_message(run: Run) -> str:
-    return fix_text(run.pr, run.head, standing([item.view() for item in run.findings]))
+    return fix_text(run.pr, run.head, [item.view() for item in run.findings])
 
 
 def from_verdict(pr: int, main: Path) -> str:
@@ -1930,7 +2004,7 @@ def from_verdict(pr: int, main: Path) -> str:
         for view in views
     ):
         raise Refused(f"the findings kept for PR {pr} at {head} cannot be read")
-    return fix_text(pr, head, standing(views))
+    return fix_text(pr, head, views)
 
 
 # ---------------------------------------------------------------------------------------------- main

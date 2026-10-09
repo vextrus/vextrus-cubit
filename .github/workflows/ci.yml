@@ -267,9 +267,29 @@ jobs:
       - name: Migrate, as the owner
         run: uv run manage.py migrate
       - name: Tests of shard ${{ matrix.shard }}, as vextrus_app (every acceptance test runs; ADR 0041)
+        if: matrix.shard != 'rest-engine-lint'
         env:
           SHARD: ${{ matrix.shard }}
-        run: uv run pytest -p tools.lint.acceptance_pytest --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD")
+        run: uv run pytest -p tools.lint.acceptance_pytest -n 4 -m "not serial and not needs_toolchain and not needs_bwrap and not live" --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD")
+      - name: Tests of shard ${{ matrix.shard }} but tools/lint/tests, four workers
+        if: matrix.shard == 'rest-engine-lint'
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: uv run pytest -p tools.lint.acceptance_pytest -n 4 -m "not serial and not needs_toolchain and not needs_bwrap and not live" --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD") --ignore=tools/lint/tests
+      - name: tools/lint/tests, serial (no -n until issue 585 is fixed)
+        if: matrix.shard == 'rest-engine-lint'
+        run: uv run pytest -p tools.lint.acceptance_pytest tools/lint/tests
+      # The tests marked serial (signals, process groups) fail under xdist: each runs here, in its
+      # shard, in a pytest of its own files without -n. tools.lint.ci_shards proves every serial file is named.
+      - name: Serial tests of the scripts shard
+        if: matrix.shard == 'rest-scripts'
+        run: uv run pytest -p tools.lint.acceptance_pytest -m "serial and not needs_toolchain and not needs_bwrap and not live" scripts/walk/tests/test_walk.py scripts/tests/test_crosspr_round3.py scripts/factory/tests/test_launch_round1.py scripts/factory/tests/test_review_r2_fix10.py scripts/factory/tests/test_review_r2_fix11.py scripts/factory/tests/test_review_r2_fix12.py scripts/factory/tests/test_review_r2_fix5.py scripts/factory/tests/test_review_r2_fix6.py scripts/factory/tests/test_review_r2_fix7.py scripts/factory/tests/test_review_r2_fix8.py scripts/factory/tests/test_review_r2_fix9.py scripts/factory/tests/test_review_units.py scripts/factory/tests/test_watch_process_units.py
+      - name: Serial tests of the engine shard
+        if: matrix.shard == 'rest-engine-lint'
+        run: uv run pytest -p tools.lint.acceptance_pytest -m "serial and not needs_toolchain and not needs_bwrap and not live" engine/tests/test_harness.py
+      - name: Serial tests of the platform shard
+        if: matrix.shard == 'seed-platform-drawings'
+        run: uv run pytest -p tools.lint.acceptance_pytest -m "serial and not needs_toolchain and not needs_bwrap and not live" vextrus/platform/tests/test_jobs_worker.py
       - name: Policy coverage (row-level security on every tenant table)
         if: matrix.shard == 'seed-platform-drawings'
         run: uv run pytest -p tools.lint.acceptance_pytest vextrus/platform/tests/test_policy_coverage.py

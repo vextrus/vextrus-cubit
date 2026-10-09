@@ -22,6 +22,8 @@ from scripts.tests.acceptance.ts14r2._world import (
     why,
 )
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 REPRO = "review_attacks/lens-b/test_count_passes.py"
 FINDING = item(70, 2, "the badge count leaves out a deleted Element", REPRO)

@@ -35,11 +35,11 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { timedAct, type ActRecord } from './act-timer'
 
 const QS = 'nusrat@shapla-homes.example' // the seed's QS (docs/design/m0-screens.md §7)
 const MOVING = new Set(['waiting', 'reading', 'stopping', 'retrying'])
 const FILE_TIMEOUT_MS = 45 * 60 * 1000
-const ACT_TIMEOUT_MS = 3 * 60 * 1000
 const ROUNDS_PER_FILE = 10
 const SAMPLES_EACH = 5
 const ACT_KINDS = ['confirm', 'undo', 'exclude', 'answer']
@@ -56,7 +56,6 @@ function required(name: string): string {
 }
 
 type FileRecord = { id: number; state: string; read_seconds: number | null }
-type ActRecord = { kind: string; ms: number; read_running: boolean; status: number }
 type Burden = { sheets: number; one_source: number; bulk_confirmable: number; continuation_questions: number; false_continuation_questions: number | null }
 type SetRecord = {
   project: string
@@ -231,56 +230,6 @@ async function readEnd(api: Api, projectId: string, fileId: string, since: numbe
     if (Date.now() > deadline) return { state: 'timeout', seconds: null }
     await new Promise((resolve) => setTimeout(resolve, POLL_MS))
   }
-}
-
-const ACT_PATHS: Record<string, RegExp> = {
-  confirm: /\/takeoff\/step1\/confirm$/,
-  undo: /\/takeoff\/step1\/undo$/,
-  exclude: /\/takeoff\/step1\/exclude$/,
-  answer: /\/takeoff\/step1\/questions\/[0-9a-f-]{36}\/answer$/,
-}
-
-/**
- * One act by its keys, timed from the last key to the act's answer. Null when the screen made no such
- * request (nothing to act on): it is not recorded. A request that never answers is recorded at the
- * act timeout with status 0, which fails the walk.
- */
-async function timedAct(page: Page, api: Api, projectId: string, kind: string, keys: string[]): Promise<ActRecord | null> {
-  const before = await api.reading(projectId)
-  // Any act's request: the record names the act the request was, not the one the keys aimed at.
-  const isAct = (r: { method(): string; url(): string }) =>
-    r.method() === 'POST' && actOf(new URL(r.url()).pathname) !== null
-  const sent = page.waitForRequest(isAct, { timeout: 4000 }).catch(() => null)
-  let started = Date.now()
-  for (const [i, key] of keys.entries()) {
-    if (i > 0) await page.waitForTimeout(400) // the screen settles between keys (a sheet opening)
-    started = Date.now()
-    await page.keyboard.press(key)
-  }
-  let request = await sent
-  if (!request && kind === 'answer') {
-    // An option picked by its number may wait for Enter (the card's own key).
-    const again = page.waitForRequest(isAct, { timeout: 4000 }).catch(() => null)
-    started = Date.now()
-    await page.keyboard.press('Enter')
-    request = await again
-  }
-  if (!request) return null
-  // Never answered within the act timeout: recorded at the timeout (status 0), which fails the walk.
-  let status = 0
-  let ms = ACT_TIMEOUT_MS
-  const response = await page.waitForResponse((r) => r.request() === request, { timeout: ACT_TIMEOUT_MS }).catch(() => null)
-  if (response) {
-    ms = Date.now() - started
-    status = response.status()
-  }
-  const after = await api.reading(projectId)
-  return { kind: actOf(new URL(request.url()).pathname)!, ms, read_running: before && after, status }
-}
-
-/** The act a Step 1 request is, by its path; null for any other request. */
-function actOf(path: string): string | null {
-  return Object.entries(ACT_PATHS).find(([, pattern]) => pattern.test(path))?.[0] ?? null
 }
 
 /** Focuses the row of a Sheet that offers a single confirm (its Proposal agrees and is undecided,

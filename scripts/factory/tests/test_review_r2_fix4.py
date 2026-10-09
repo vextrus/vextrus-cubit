@@ -45,6 +45,7 @@ def test_the_refuter_judges_the_merged_head_not_the_lenses_edits(
 
     monkeypatch.setattr(review, "run_lens", run_lens)
     run = review.Run(pr=PR, round_=1, head=head, merged=head, slot=1)
+    monkeypatch.setattr(ledger, "strict_paths", lambda: None)  # the 50 bar on every path (S17-F6)
     run.findings = [review.Finding("l1-f1", 60, "a.py", 1, "the rate is wrong", None, "UNPROVEN")]
     review.refute(run, rv, tmp_path / "slot1", tmp_path)
     (tree,) = seen

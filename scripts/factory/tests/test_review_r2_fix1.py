@@ -177,6 +177,7 @@ def test_the_refuter_is_told_the_repro_and_what_its_replay_showed(
 
     monkeypatch.setattr(review, "run_group", run_group)
     run = review.Run(pr=PR, round_=1, head=head, merged=head, slot=1)
+    monkeypatch.setattr(ledger, "strict_paths", lambda: None)  # the 50 bar on every path (S17-F6)
     run.findings = [review.Finding("l1-f1", 70, "a.py", 1, "the badge count is wrong", REPRO,
                                    proof=PROOF)]  # fmt: skip
     review.confirm(run, rv)

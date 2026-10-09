@@ -13,6 +13,8 @@ import pytest
 from scripts.factory import review
 from scripts.tests.acceptance.ts14r2._world import SMALL, World, git, why
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 HOOK = "scripts/git-hooks/post-checkout"
 
