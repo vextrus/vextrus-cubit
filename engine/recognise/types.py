@@ -390,6 +390,24 @@ class Continuation:
 
 
 @dataclass(frozen=True)
+class Series:
+    """One title over two runs of numbers or more that draw different storeys, marks or members ("N
+    sheets share this title"; T-W334, the owner's ruling of 5 Oct 2026): no Question. Never exported:
+    its runs of two sheets or more are each a `Continuation`."""
+
+    title: str
+    sheets: tuple[SheetCandidate, ...]
+    """Every sheet of the title, in number order."""
+
+    def __post_init__(self) -> None:
+        _is(self.title, str, "a series' title")
+        _text(self.title, "a series' title")
+        _tuple_of(self.sheets, SheetCandidate, "a series' sheets")
+        if len(self.sheets) < 2:
+            raise ValueError("a series holds two sheets or more")
+
+
+@dataclass(frozen=True)
 class JudgementRequest:
     """A closed question for Jev: the node asking, the facts it gives, the question and the options."""
 
@@ -610,6 +628,10 @@ class StoreyWords:
         _key(self.storey, "a storey")
 
 
+MEMBER_RANGE_GROUPS = frozenset({"a", "low", "b", "high"})
+"""The named groups a member range pattern holds: each mark's letters and digits."""
+
+
 @dataclass(frozen=True)
 class SheetConventions:
     """The sheet part of a Drafting Profile's conventions (ADR 0039; docs/data-model.md §3.2).
@@ -663,6 +685,10 @@ class SheetConventions:
     of 29 Sep 2026, "Per-Discipline kinds")."""
     common_sheet_kinds: tuple[str, ...] = ()
     """The kinds every Discipline has (a cover or index, general notes, other)."""
+    member_range_pattern: str | None = None
+    """A range of member marks in a title ("GB2-GB5", "W3 TO W6"; T-W334): its named groups `a` and
+    `low` are the first mark's letters and digits, `b` and `high` the second's. Titles equal but for
+    such ranges are one title to 19b's conflicts (`conflicts.range_key`); none: no range is read."""
     sheet_kind_words: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """The words that name each kind's subject, by the kind's key ("beam" for `beam_layout` and
     `beam_details`; "foundation" for the pile kinds too, as a pile layout is often titled so): a title
@@ -674,8 +700,15 @@ class SheetConventions:
         _unique([d.key for d in self.disciplines], "the Discipline")
         _unique([f.field for f in self.title_block_fields], "the title-block field")
         _unique([s.storey for s in self.storey_words], "the storey")
-        for pattern in (*self.number_patterns, *filter(None, [self.revision_mark_pattern])):
+        optional = (self.revision_mark_pattern, self.member_range_pattern)
+        for pattern in (*self.number_patterns, *filter(None, optional)):
             _pattern(pattern)
+        if self.member_range_pattern is not None:
+            named = set(re.compile(self.member_range_pattern).groupindex)
+            if not named >= MEMBER_RANGE_GROUPS:
+                raise ValueError(
+                    f"the member range pattern names the groups {sorted(MEMBER_RANGE_GROUPS)}"
+                )
         for name in _WORD_FIELDS:
             for word in getattr(self, name):
                 _text(word, f"a word of {name}")
@@ -709,6 +742,7 @@ class SheetConventions:
             **{name: list(getattr(self, name)) for name in _WORD_FIELDS if name != "frame_hints"},
             "sheet_kinds": {k: list(v) for k, v in self.sheet_kinds.items()},
             "common_sheet_kinds": list(self.common_sheet_kinds),
+            "member_range_pattern": self.member_range_pattern,
             "sheet_kind_words": {k: list(v) for k, v in self.sheet_kind_words.items()},
         }
         return self._to_json() | {name: value for name, value in added.items() if value}
@@ -774,6 +808,7 @@ class SheetConventions:
                 for k, v in _mapping(data, "sheet_kinds").items()
             },
             common_sheet_kinds=_words(data, "common_sheet_kinds", "the common sheet kinds"),
+            member_range_pattern=_optional_str(data, "member_range_pattern"),
             sheet_kind_words={
                 k: _word_list(v, f"the words of the {k} sheet kind")
                 for k, v in _mapping(data, "sheet_kind_words").items()
@@ -878,6 +913,7 @@ _SHEET_KEYS = {
     *_WORD_FIELDS,
     "sheet_kinds",
     "common_sheet_kinds",
+    "member_range_pattern",
     "sheet_kind_words",
 }
 _VIEW_KEYS = {
@@ -1108,6 +1144,13 @@ def pattern_search(pattern: str, text: str) -> re.Match[str] | None:
     if len(text) > MAX_PATTERN_TEXT:
         return None
     return _compiled(pattern).search(text)
+
+
+def pattern_finditer(pattern: str, text: str) -> list[re.Match[str]]:
+    """Every match of a conventions pattern, as `pattern_search` bounds it: none on longer text."""
+    if len(text) > MAX_PATTERN_TEXT:
+        return []
+    return list(_compiled(pattern).finditer(text))
 
 
 def _object(value: Any, what: str, keys: set[str]) -> dict[str, Any]:

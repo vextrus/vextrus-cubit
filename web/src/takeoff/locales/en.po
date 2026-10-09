@@ -55,10 +55,6 @@ msgctxt "storey"
 msgid "Pile cap"
 msgstr "Pile cap"
 
-#: src/takeoff/Bar.tsx
-msgid "No drawing list and no Plot to check them against."
-msgstr "No drawing list and no Plot to check them against."
-
 #: src/takeoff/SheetList.tsx
 msgid "Views"
 msgstr "Views"
@@ -205,6 +201,10 @@ msgid "Exclude"
 msgstr "Exclude"
 
 #: src/takeoff/Bar.tsx
+msgid "Their Plot pages show a different number or title. Open each to compare and confirm it."
+msgstr "Their Plot pages show a different number or title. Open each to compare and confirm it."
+
+#: src/takeoff/Bar.tsx
 msgid "Left-out sheets stay in the count with their reason."
 msgstr "Left-out sheets stay in the count with their reason."
 
@@ -215,10 +215,6 @@ msgstr "You are reading this as the MD."
 #: src/takeoff/Bar.tsx
 msgid "Nothing else confirms it."
 msgstr "Nothing else confirms it."
-
-#: src/takeoff/Bar.tsx
-msgid "Each has a number and title from its title block, in numbering without a gap, and its Plot page matches."
-msgstr "Each has a number and title from its title block, in numbering without a gap, and its Plot page matches."
 
 #: src/takeoff/SheetLook.tsx
 msgid "Compare: what was read in red over the Plot"
@@ -255,6 +251,10 @@ msgstr "{name} held"
 #: src/takeoff/Bar.tsx
 msgid "Ask later"
 msgstr "Ask later"
+
+#: src/takeoff/Bar.tsx
+msgid "Its Plot page shows a different number or title; compare them before you confirm it."
+msgstr "Its Plot page shows a different number or title; compare them before you confirm it."
 
 #: src/takeoff/SheetList.tsx
 msgid "A file is held: the two readers disagree"
@@ -310,6 +310,10 @@ msgid "{0, plural, one {# Question withdrawn when its sheet was left out: it nee
 msgstr "{0, plural, one {# Question withdrawn when its sheet was left out: it needs an answer before the sheet can be confirmed back in} other {# Questions withdrawn when their sheets were left out: each needs an answer before its sheets can be confirmed back in}}"
 
 #: src/takeoff/Bar.tsx
+msgid "No drawing list and no Plot to check it against."
+msgstr "No drawing list and no Plot to check it against."
+
+#: src/takeoff/Bar.tsx
 msgid "X excludes it, with a reason."
 msgstr "X excludes it, with a reason."
 
@@ -324,6 +328,10 @@ msgstr "File"
 #: src/takeoff/Bar.tsx
 msgid "Next open item"
 msgstr "Next open item"
+
+#: src/takeoff/Bar.tsx
+msgid "It is beside a gap in its Discipline’s numbering; answering the gap Question can give it a second source."
+msgstr "It is beside a gap in its Discipline’s numbering; answering the gap Question can give it a second source."
 
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {twice} twice"
@@ -349,6 +357,11 @@ msgstr "Basement"
 msgctxt "storey"
 msgid "top (top from Step 3)"
 msgstr "top (top from Step 3)"
+
+#. placeholder {0}: row.shares
+#: src/takeoff/SheetList.tsx
+msgid "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"
+msgstr "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"
 
 #: src/takeoff/Bar.tsx
 msgid "Enter confirms it and opens the next open sheet."
@@ -398,6 +411,10 @@ msgstr "The QS confirms the sheet list; every act shows who did it."
 msgid "{count, plural, one {# Question is open} other {# Questions are open}}"
 msgstr "{count, plural, one {# Question is open} other {# Questions are open}}"
 
+#: src/takeoff/Bar.tsx
+msgid "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
+msgstr "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
+
 #: src/takeoff/storeys.tsx
 msgid "typical (range from Step 3)"
 msgstr "typical (range from Step 3)"
@@ -439,10 +456,6 @@ msgstr "{Name} is excluded: {reason}"
 msgid "{first} (QS) confirms the sheet list; every act shows who did it."
 msgstr "{first} (QS) confirms the sheet list; every act shows who did it."
 
-#: src/takeoff/Bar.tsx
-msgid "Each has a number and title from its title block, on its drawing list or in numbering without a gap."
-msgstr "Each has a number and title from its title block, on its drawing list or in numbering without a gap."
-
 #: src/takeoff/SheetList.tsx
 msgid "{n} / {total} settled"
 msgstr "{n} / {total} settled"
@@ -450,6 +463,10 @@ msgstr "{n} / {total} settled"
 #: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}"
 msgstr "{Name} is confirmed by {by}"
+
+#: src/takeoff/Bar.tsx
+msgid "They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it."
+msgstr "They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it."
 
 #: src/takeoff/Bar.tsx
 msgid "Question {tag}, withdrawn: {title}"
@@ -463,6 +480,10 @@ msgstr "Read as a range: {count, plural, one {# sheet} other {# sheets}}, <0/> t
 msgctxt "storey"
 msgid "Pile"
 msgstr "Pile"
+
+#: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, and its Plot page shows the same number and title; storeys from its view titles."
+msgstr "Each has a number and title from its title block, and its Plot page shows the same number and title; storeys from its view titles."
 
 #: src/takeoff/SheetList.tsx
 msgid "none"
@@ -484,6 +505,10 @@ msgstr "{name}, from the file {file}"
 msgctxt "storey"
 msgid "Lift machine room"
 msgstr "Lift machine room"
+
+#: src/takeoff/Bar.tsx
+msgid "It is beside a gap in its Discipline’s numbering that {tag} asks about; answering {tag} can give it a second source."
+msgstr "It is beside a gap in its Discipline’s numbering that {tag} asks about; answering {tag} can give it a second source."
 
 #: src/takeoff/SheetList.tsx
 msgid "State"
@@ -548,10 +573,6 @@ msgstr "Foundations"
 msgid "{name} waiting for its DWG"
 msgstr "{name} waiting for its DWG"
 
-#: src/takeoff/Bar.tsx
-msgid "Its Discipline’s numbering has a gap or a number twice."
-msgstr "Its Discipline’s numbering has a gap or a number twice."
-
 #: src/takeoff/storeys.tsx
 msgid "{below} to Roof (floors between from Step 3)"
 msgstr "{below} to Roof (floors between from Step 3)"
@@ -559,6 +580,10 @@ msgstr "{below} to Roof (floors between from Step 3)"
 #: src/takeoff/Bar.tsx
 msgid "Step 2, General notes and specification, comes in M1."
 msgstr "Step 2, General notes and specification, comes in M1."
+
+#: src/takeoff/Bar.tsx
+msgid "Another sheet of its Discipline has the same number."
+msgstr "Another sheet of its Discipline has the same number."
 
 #: src/takeoff/Bar.tsx
 msgid "Leave out {m}: {reasons}"
@@ -628,6 +653,10 @@ msgstr "Lift machine room roof"
 #: src/takeoff/SheetList.tsx
 msgid "State mark"
 msgstr "State mark"
+
+#: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, and its drawing list names it or its Plot page shows the same number and title; storeys from its view titles."
+msgstr "Each has a number and title from its title block, and its drawing list names it or its Plot page shows the same number and title; storeys from its view titles."
 
 #: src/takeoff/SheetList.tsx
 msgid "Discipline"

@@ -86,10 +86,28 @@ class Step1ProposalOut(_FromView):
     plot_page: int | None
     plot_residual: str | None
     """How closely its Plot page registered, in mm, as a decimal string."""
+    plot_title_alike: bool = False
+    """Its Plot page reads its title as well as its number (#229): only then is the page its second
+    source; false with no Plot page."""
     plot_none: dict[str, Any] | None
     """Why it has no Plot, as a message `{code, params}`; null when a page matched or none was added."""
     views: list[Step1ViewOut]
     """Its views in reading order, title block included (the Views column counts them)."""
+    continuation: str | None = Field(
+        None,
+        description="The continuation run it is in (one title on consecutive numbers, or titles equal "
+        "but for a member-mark range): one value on every sheet of the run. Null for a sheet alone.",
+    )
+    continuation_title: str | None = Field(
+        None,
+        description="The run's title as its row shows it, its member-mark ranges joined "
+        '("GRADE BEAM GB2-GB14 DETAILS"). Null when `continuation` is.',
+    )
+    series: str | None = Field(
+        None,
+        description="The series it is in (one title on several runs that draw different storeys, "
+        "marks or members: no Question): one value on every sheet of the series. Null otherwise.",
+    )
 
 
 class Step1ProposalsOut(Schema):

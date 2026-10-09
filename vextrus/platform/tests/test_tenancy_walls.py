@@ -74,6 +74,7 @@ UPDATABLE = {
         "plot_none_reason",
         "plot_page",
         "plot_residual",
+        "plot_title_alike",
         "plot_transform",
         "proposed_exclusion",
         "proposed_exclusion_text",

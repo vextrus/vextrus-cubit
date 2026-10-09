@@ -9,7 +9,7 @@ import { useFormat } from '@/format'
 import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { REASONS, whyOneSource, type Reason, type Row, type Step1Model } from './model'
+import { REASONS, isGaps, whyOneSource, type Reason, type Row, type Step1Model } from './model'
 import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
 import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
@@ -87,7 +87,7 @@ function BulkReasons({ model }: { model: Step1Model }) {
   if (listed && unlisted)
     return (
       <>
-        <Trans>Each has a number and title from its title block, on its drawing list or in numbering without a gap.</Trans> {tail}
+        <Trans>Each has a number and title from its title block, and its drawing list names it or its Plot page shows the same number and title; storeys from its view titles.</Trans> {tail}
       </>
     )
   if (listed)
@@ -99,7 +99,7 @@ function BulkReasons({ model }: { model: Step1Model }) {
   if (unlisted)
     return (
       <>
-        <Trans>Each has a number and title from its title block, in numbering without a gap, and its Plot page matches.</Trans> {tail}
+        <Trans>Each has a number and title from its title block, and its Plot page shows the same number and title; storeys from its view titles.</Trans> {tail}
       </>
     )
   return tail
@@ -112,9 +112,40 @@ function OneSourceWhy({ sheet, model }: { sheet: ProposalOut; model: Step1Model 
     model.disciplines.find((d) => d.discipline === sheet.discipline),
   )
   if (why === 'not-listed') return <Trans>The drawing list does not name it.</Trans>
-  if (why === 'gap') return <Trans>Its Discipline’s numbering has a gap or a number twice.</Trans>
-  if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check them against.</Trans>
+  if (why === 'gap') {
+    const tag = model.queue.find((e) => isGaps(e.question) && e.holds.some((p) => p.id === sheet.id))?.tag
+    return tag ? (
+      <Trans>
+        It is beside a gap in its Discipline’s numbering that {tag} asks about; answering {tag} can give it a second source.
+      </Trans>
+    ) : (
+      <Trans>It is beside a gap in its Discipline’s numbering; answering the gap Question can give it a second source.</Trans>
+    )
+  }
+  if (why === 'twice') return <Trans>Another sheet of its Discipline has the same number.</Trans>
+  if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check it against.</Trans>
+  if (why === 'plot-differs') return <Trans>Its Plot page shows a different number or title; compare them before you confirm it.</Trans>
   return <Trans>Nothing else confirms it.</Trans>
+}
+
+/** Why the sheets left with one source have it, by the first of them (6.4's "Nothing left but sheets
+ * with one source"): beside a gap, its Question gives them their second source (#229). */
+export function OneSourceSummary({ first, model }: { first: ProposalOut; model: Step1Model }) {
+  const section = model.disciplines.find((d) => d.discipline === first.discipline)
+  const whys = new Set(model.oneSource.filter((p) => p.discipline === first.discipline).map((p) => whyOneSource(p, section)))
+  // The sheets it counts (its Discipline's) for one reason, else none named (the words gate of #229).
+  const why = whys.size === 1 ? whyOneSource(first, section) : 'other'
+  if (why === 'gap') {
+    const tag = model.queue.find((e) => isGaps(e.question) && e.holds.some((p) => p.id === first.id))?.tag
+    return tag ? (
+      <Trans>They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it.</Trans>
+    ) : (
+      <Trans>They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it.</Trans>
+    )
+  }
+  if (why === 'plot-differs') return <Trans>Their Plot pages show a different number or title. Open each to compare and confirm it.</Trans>
+  if (why === 'no-list-no-plot') return <Trans>No drawing list and no Plot to check them against. Open each to confirm it.</Trans>
+  return <Trans>Nothing else confirms them. Open each to confirm it.</Trans>
 }
 
 /** What the bar says and what Enter does, for the focused row (or none) in this mode. */
@@ -307,12 +338,7 @@ export function useBar(c: BarContext): BarSpec | null {
     const firstRow = model.rows.find((r) => r.sheets.some((s) => s.id === first.id)) ?? null
     return {
       what: <Plural value={count} one={`# ${discipline} sheet has one source`} other={`# ${discipline} sheets have one source each`} />,
-      why:
-        whyOneSource(first, model.disciplines.find((d) => d.discipline === first.discipline)) === 'no-list-no-plot' ? (
-          <Trans>No drawing list and no Plot to check them against. Open each to confirm it.</Trans>
-        ) : (
-          <Trans>Nothing else confirms them. Open each to confirm it.</Trans>
-        ),
+      why: <OneSourceSummary first={first} model={model} />,
       ghost: firstRow ? { label: <Trans>Open <SheetName sheets={[first]} /></Trans>, run: () => c.openRow(firstRow), combo: 'Space' } : undefined,
     }
   }

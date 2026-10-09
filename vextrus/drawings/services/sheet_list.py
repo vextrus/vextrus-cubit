@@ -23,7 +23,9 @@ steps remain; a held file read anyway is in it, its sheets marked (`held`).
 
 Titles, numbers and every word stored must be decoded already (11's `engine.text.decode`): a value
 still holding `%%`, `\\P`, `\\f`, `\\S`, `^J` or `{\\` is refused. A render must be a sheet buffer
-`SheetBuffers.from_bytes` reads; a Plot page must be of a PDF of the same Drawing Set.
+`SheetBuffers.from_bytes` reads; a Plot page must be of a PDF of the same Drawing Set. A matched page
+is kept with whether its text reads the sheet's title as well as its number (`PlotView.title_alike`,
+`engine.plot.registration.reads_title`): only then is it the sheet's second source (#229).
 """
 
 import hashlib
@@ -41,7 +43,9 @@ from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from engine.messages import Message
+from engine.plot import registration
 from engine.read.anchor import Anchor, DwgAnchor
+from engine.read.pdf.types import Page
 from engine.recognise.types import ExclusionReason as EngineExclusion
 from engine.recognise.types import (
     PlotMatch,
@@ -91,6 +95,8 @@ class PlotView:
     residual: str | None
     render_f1: str | None
     none: Message | None
+    title_alike: bool = False
+    """Its page reads the sheet's title as well as its number (#229): the sheet's second source."""
     """Why there is no Plot (m0-screens 4.6), or None when a page matched."""
 
 
@@ -485,6 +491,9 @@ def _keep_sheet(
             changed["anchors"] = anchors
         if changed and existing.decision:
             raise auth.Refused(refusal.DECIDED(file=row.original_name), status=409)
+        if "title" in changed and existing.plot_title_alike:
+            # Its Plot page read the old title: until the page is matched again it reads none (#229).
+            changed["plot_title_alike"] = False
         old_sheet_id = existing.sheet_id
         for name, value in changed.items():
             setattr(existing, name, value)
@@ -698,6 +707,7 @@ def record_plot(
             "plot_transform": None,
             "plot_residual": None,
             "plot_none_reason": "",
+            "plot_title_alike": False,
             "render_f1": None if render_f1 is None else _decimal_of(render_f1, 6),
         }
         if isinstance(match, PlotMatch) and match.sheet is not None:
@@ -708,6 +718,10 @@ def record_plot(
             if not isinstance(number, int) or number < 1:
                 raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
             values["plot_page"] = number
+            # A second source only when the page reads the sheet's title too (#229).
+            values["plot_title_alike"] = isinstance(page, Page) and registration.reads_title(
+                page, sheet_revision.title
+            )
             if match.transform is not None:
                 t = match.transform
                 values["plot_transform"] = {
@@ -973,6 +987,7 @@ def _plot(sr: SheetRevision, context: _PlotContext) -> PlotView:
         residual=None if sr.plot_residual is None else str(sr.plot_residual),
         render_f1=None if sr.render_f1 is None else str(sr.render_f1),
         none=none,
+        title_alike=sr.plot_title_alike,
     )
 
 
