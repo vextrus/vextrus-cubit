@@ -531,6 +531,20 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       <Trans>Answering decides which drawing list {name}’s sheets are counted against.</Trans>
     )
   }
+  if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 1) {
+    // A group's card: counted, never named by a range from its first sheet to its last, which can take
+    // in sheets it does not hold; what the answer does is here, never in the title (review 2 of #628).
+    const waiting = Math.min(n, typeof q.params.waiting === 'number' ? q.params.waiting : 0)
+    const ready = n - waiting
+    if (waiting === 0) return <Trans>Answering sets the kind of all {n} sheets and confirms them. It cannot be undone.</Trans>
+    if (ready === 0) return <Trans>Answering confirms no sheet now: each of the {n} sheets waits on another Question first.</Trans>
+    return (
+      <>
+        <Trans>Answering confirms {ready} of {n} sheets and cannot be undone.</Trans>{' '}
+        <Plural value={waiting} one="# stays open: another Question about it comes first." other="# stay open: other Questions about them come first." />
+      </>
+    )
+  }
   if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const kind = i18n._(SHEET_KIND_NAMES[picked]!)
@@ -634,6 +648,11 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n === 0) {
     const kind = <SheetKindName option={option} />
     return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet was confirmed.</Trans>
+  }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 1) {
+    // A group: counted, never named by a first-to-last range (review 2 of #628).
+    const kind = <SheetKindName option={option} />
+    return <Trans>{tag} answered. {n} sheets are {kind}.</Trans>
   }
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />

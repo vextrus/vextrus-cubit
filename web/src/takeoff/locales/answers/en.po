@@ -40,6 +40,10 @@ msgid "{tag} kept open for the consultant."
 msgstr "{tag} kept open for the consultant."
 
 #: src/takeoff/questionWords.tsx
+msgid "Answering sets the kind of all {n} sheets and confirms them. It cannot be undone."
+msgstr "Answering sets the kind of all {n} sheets and confirms them. It cannot be undone."
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering decides whether {file}’s sheets join the list."
 msgstr "Answering decides whether {file}’s sheets join the list."
 
@@ -58,6 +62,10 @@ msgstr "the drawing list found in the drawings"
 #: src/takeoff/questionWords.tsx
 msgid "Trace: page {page} of the Plot"
 msgstr "Trace: page {page} of the Plot"
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. {n} sheets are {kind}."
+msgstr "{tag} answered. {n} sheets are {kind}."
 
 #: src/takeoff/questionWords.tsx
 msgid "the pasted drawing list"
@@ -90,6 +98,10 @@ msgstr "{tag} answered. Recorded: the numbering skips between {after} and {befor
 #: src/takeoff/questionWords.tsx
 msgid "Answering decides whether this file’s sheets join the list."
 msgstr "Answering decides whether this file’s sheets join the list."
+
+#: src/takeoff/questionWords.tsx
+msgid "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
+msgstr "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "One title on {count} sheets"
@@ -285,6 +297,10 @@ msgid "{tag} answered. {name}’s sheets are counted against the range you typed
 msgstr "{tag} answered. {name}’s sheets are counted against the range you typed."
 
 #: src/takeoff/questionWords.tsx
+msgid "Answering confirms {ready} of {n} sheets and cannot be undone."
+msgstr "Answering confirms {ready} of {n} sheets and cannot be undone."
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title block of {sheet} (the number field is empty)"
 msgstr "Trace: the title block of {sheet} (the number field is empty)"
 
@@ -355,6 +371,10 @@ msgstr "{tag} answered. {Sheet} stays in the count as missing."
 #: src/takeoff/questionWords.tsx
 msgid "Answering leaves the sheet without a number; confirm it in the list."
 msgstr "Answering leaves the sheet without a number; confirm it in the list."
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering confirms no sheet now: each of the {n} sheets waits on another Question first."
+msgstr "Answering confirms no sheet now: each of the {n} sheets waits on another Question first."
 
 #: src/takeoff/questionWords.tsx
 msgid "This file may be misread"
