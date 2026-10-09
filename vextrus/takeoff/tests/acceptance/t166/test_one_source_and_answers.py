@@ -24,6 +24,7 @@ from typing import Any
 
 import pytest
 
+from engine.check import register as register_check
 from vextrus.takeoff.models import Proposal
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     Sheet,
@@ -58,10 +59,11 @@ AGREEING = [
 
 ONE_SOURCE = [
     Sheet("E-01", "ELECTRICAL LEGEND AND NOTES", ("ELECTRICAL LEGEND AND NOTES",)),
-    Sheet("E-02", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
-    Sheet("E-03", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
+    Sheet("E-03", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
+    Sheet("E-05", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
 ]
-"""Electrical with no drawing list and no Plot (m0-screens §7's KR-ELE-R0.dwg): one source each."""
+"""Electrical with no drawing list and no Plot (m0-screens §7's KR-ELE-R0.dwg): one source each, its
+numbers lone (E-02 and E-04 not sent yet), as no run of numbers is a second source (S19-B1)."""
 
 SAME_TITLE = [
     Sheet("S-01", "BEAM LAYOUT PLAN", ("BEAM LAYOUT PLAN",)),
@@ -86,10 +88,22 @@ def jev_sure(jev_offline: Offline) -> None:
     jev_says(jev_offline, "0.97")
 
 
+def settle_gaps(qs: QsProject) -> None:
+    """S19-B1: an unbroken run of numbers is the second source with no list and no PDF (the owner's
+    ruling, session 18), so the one-source Electrical sheets are lone numbers: the numbering's gap
+    Question is answered ("Not sent yet"), and no Question holds them."""
+    api = api_as(qs.member)
+    for q in open_questions(api, qs.project_id):
+        if q["discipline"] == "electrical" and q["check_code"] == register_check.CODE:
+            assert answer(api, qs.project_id, q["id"], "not_sent_yet").status_code == 200
+
+
 def read(qs: QsProject, monkeypatch: pytest.MonkeyPatch, drawn: dict[str, list[Sheet]]) -> None:
     for name, sheets in drawn.items():
         file_id = uploaded(qs.member, qs.project_id, name)
         run_job(qs.member, file_id, monkeypatch, readers({name: sheets}))
+    if ELECTRICAL in drawn:
+        settle_gaps(qs)
 
 
 def strings(value: object) -> Iterator[str]:
@@ -130,6 +144,32 @@ def refused_one_source(response: Any) -> dict[str, Any]:
 # The world these tests stand on ------------------------------------------------------------------
 
 
+RUN = [
+    Sheet("E-01", "ELECTRICAL LEGEND AND NOTES", ("ELECTRICAL LEGEND AND NOTES",)),
+    Sheet("E-02", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
+    Sheet("E-03", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
+]
+"""This file's Electrical sheets before S19-B1: E-01 to E-03, no list, no Plot, an unbroken run."""
+
+
+def test_an_unbroken_electrical_run_with_no_list_and_no_plot_agrees_and_joins_the_bulk_act(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S19-B1, the owner's ruling, session 18: "when a Discipline has no drawing list and no PDF,
+    an unbroken run of sheet numbers counts as the second source; a sheet in that run with no open
+    Question can be confirmed in bulk". E-01 to E-03 agree and are confirmed in one act."""
+    for_run = uploaded(qs_project.member, qs_project.project_id, ELECTRICAL)
+    run_job(qs_project.member, for_run, monkeypatch, readers({ELECTRICAL: RUN}))
+    api = api_as(qs_project.member)
+    listed = proposals(api, qs_project.project_id)
+    assert [p["agrees"] for p in listed] == [True, True, True]
+
+    response = confirm(api, qs_project.project_id, [p["id"] for p in listed])
+
+    assert response.status_code == 200, response.content
+    assert [p["decision"] for p in proposals(api, qs_project.project_id)] == ["confirmed"] * 3
+
+
 def test_the_electrical_sheets_have_one_source_and_the_structural_ones_agree(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -139,7 +179,7 @@ def test_the_electrical_sheets_have_one_source_and_the_structural_ones_agree(
     listed = proposals(api_as(qs_project.member), qs_project.project_id)
 
     assert {p["number"]: p["agrees"] for p in listed} == {
-        "S-01": True, "S-02": True, "S-03": True, "E-01": False, "E-02": False, "E-03": False,
+        "S-01": True, "S-02": True, "S-03": True, "E-01": False, "E-03": False, "E-05": False,
     }  # fmt: skip
 
 
@@ -169,7 +209,7 @@ def test_a_bulk_act_with_one_one_source_sheet_among_agreeing_ones_confirms_nothi
     api = api_as(qs_project.member)
     listed = proposals(api, qs_project.project_id)
     agreeing = [the(listed, n) for n in ("S-01", "S-02", "S-03")]
-    lone = the(listed, "E-02")
+    lone = the(listed, "E-03")
 
     body = refused_one_source(confirm(api, qs_project.project_id, [p["id"] for p in [*agreeing, lone]]))
 
@@ -188,11 +228,11 @@ def test_one_source_sheets_named_by_their_printed_sheet_ids_are_refused_alike(
     listed = proposals(api, qs_project.project_id)
 
     body = refused_one_source(
-        confirm(api, qs_project.project_id, [the(listed, n)["sheet_id"] for n in ("E-01", "E-03")])
+        confirm(api, qs_project.project_id, [the(listed, n)["sheet_id"] for n in ("E-01", "E-05")])
     )
 
     assert named(body, the(listed, "E-01")), body
-    assert named(body, the(listed, "E-03")), body
+    assert named(body, the(listed, "E-05")), body
     assert [p["decision"] for p in proposals(api, qs_project.project_id)] == [None] * 3
 
 
@@ -208,7 +248,7 @@ def test_a_one_source_sheet_confirmed_on_its_own_is_confirmed(
 
     assert response.status_code == 200, response.content
     after = {p["number"]: p["decision"] for p in proposals(api, qs_project.project_id)}
-    assert after == {"E-01": "confirmed", "E-02": None, "E-03": None}
+    assert after == {"E-01": "confirmed", "E-03": None, "E-05": None}
 
 
 def test_each_one_source_sheet_confirmed_one_by_one_ends_all_confirmed(
@@ -218,7 +258,7 @@ def test_each_one_source_sheet_confirmed_one_by_one_ends_all_confirmed(
     read(qs_project, monkeypatch, {ELECTRICAL: ONE_SOURCE})
     api = api_as(qs_project.member)
 
-    for number in ("E-01", "E-02", "E-03"):
+    for number in ("E-01", "E-03", "E-05"):
         lone = the(proposals(api, qs_project.project_id), number)
         response = confirm(api, qs_project.project_id, [lone["id"]])
         assert response.status_code == 200, (number, response.content)
@@ -241,7 +281,7 @@ def test_the_bulk_act_of_agreeing_sheets_still_confirms_them_in_one_act(
     after = {p["number"]: p["decision"] for p in proposals(api, qs_project.project_id)}
     assert after == {
         "S-01": "confirmed", "S-02": "confirmed", "S-03": "confirmed",
-        "E-01": None, "E-02": None, "E-03": None,
+        "E-01": None, "E-03": None, "E-05": None,
     }  # fmt: skip
 
 

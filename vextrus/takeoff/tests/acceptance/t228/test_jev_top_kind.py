@@ -38,14 +38,17 @@ from typing import Any
 import httpx
 import pytest
 
+from engine.check import register as register_check
 from engine.messages import sheets as sheet_codes
 from vextrus.settings import jev as jev_settings
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     KEEP_OPEN,
     Sheet,
+    answer,
     confirm,
     english,
     keys,
+    open_questions,
     picked,
     proposals,
     questions,
@@ -102,10 +105,22 @@ def jev_ranks(offline: Offline, ranks: Ranks) -> dict[str, list[str]]:
     return offered
 
 
+def settle_gaps(qs: QsProject) -> None:
+    """S19-B1: an unbroken run of numbers is the second source with no list and no PDF (the owner's
+    ruling, session 18), so the one-source Electrical sheets are lone numbers: the numbering's gap
+    Question is answered ("Not sent yet"), and no Question holds them."""
+    api = api_as(qs.member)
+    for q in open_questions(api, qs.project_id):
+        if q["discipline"] == "electrical" and q["check_code"] == register_check.CODE:
+            assert answer(api, qs.project_id, q["id"], "not_sent_yet").status_code == 200
+
+
 def read(qs: QsProject, monkeypatch: pytest.MonkeyPatch, drawn: dict[str, list[Sheet]]) -> None:
     for name, sheets in drawn.items():
         file_id = uploaded(qs.member, qs.project_id, name)
         run_job(qs.member, file_id, monkeypatch, readers({name: sheets}))
+    if ELECTRICAL in drawn:
+        settle_gaps(qs)
 
 
 def kind_questions_on(api: Any, project_id: Any, sheet: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -218,9 +233,10 @@ def test_a_title_naming_another_kind_than_jevs_clear_top_raises_a_kind_question(
 
 ONE_SOURCE = [
     Sheet("E-02", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
-    Sheet("E-03", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
+    Sheet("E-04", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
 ]
-"""Electrical with no drawing list and no Plot: one source each (m0-screens §7's KR-ELE-R0.dwg)."""
+"""Electrical with no drawing list and no Plot: one source each (m0-screens §7's KR-ELE-R0.dwg), its
+numbers lone (E-03 not sent yet), as no run of numbers is a second source (S19-B1)."""
 ONE_SOURCE_RANKS: Ranks = {
     "TYPICAL FLOOR LIGHTING LAYOUT": ("lighting_layout", "0.60", "point_wiring_layout", "0.10"),
     "TYPICAL FLOOR POWER LAYOUT": ("power_wiring_layout", "0.60", "point_wiring_layout", "0.10"),
@@ -240,6 +256,32 @@ AGREEING_RANKS: Ranks = {
 }
 
 
+def test_a_run_sheet_whose_kind_is_jevs_top_joins_the_bulk_act(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """S19-B1, the owner's ruling, session 18: with no drawing list and no PDF, "an unbroken run of
+    sheet numbers counts as the second source": this file's Electrical sheets before S19-B1, E-02
+    and E-03, agree, keep Jev's kinds and are confirmed in one act."""
+    jev_ranks(jev_offline, ONE_SOURCE_RANKS)
+    run = [
+        Sheet("E-02", "TYPICAL FLOOR LIGHTING LAYOUT", ("TYPICAL FLOOR LIGHTING LAYOUT",)),
+        Sheet("E-03", "TYPICAL FLOOR POWER LAYOUT", ("TYPICAL FLOOR POWER LAYOUT",)),
+    ]
+    for_run = uploaded(qs_project.member, qs_project.project_id, ELECTRICAL)
+    run_job(qs_project.member, for_run, monkeypatch, readers({ELECTRICAL: run}))
+    api = api_as(qs_project.member)
+    listed = proposals(api, qs_project.project_id)
+    assert {p["number"]: (p["kind"], p["agrees"]) for p in listed} == {
+        "E-02": ("lighting_layout", True),
+        "E-03": ("power_wiring_layout", True),
+    }
+
+    response = confirm(api, qs_project.project_id, [p["id"] for p in listed])
+
+    assert response.status_code == 200, response.content
+    assert [p["decision"] for p in proposals(api, qs_project.project_id)] == ["confirmed"] * 2
+
+
 def test_a_one_source_sheet_whose_kind_is_jevs_top_still_stays_out_of_the_bulk_act(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
 ) -> None:
@@ -252,7 +294,7 @@ def test_a_one_source_sheet_whose_kind_is_jevs_top_still_stays_out_of_the_bulk_a
 
     assert {p["number"]: p["kind"] for p in listed} == {
         "E-02": "lighting_layout",
-        "E-03": "power_wiring_layout",
+        "E-04": "power_wiring_layout",
     }
     assert [p["agrees"] for p in listed] == [False, False]
     response = confirm(api, qs_project.project_id, [p["id"] for p in listed])
