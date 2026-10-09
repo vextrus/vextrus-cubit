@@ -23,6 +23,8 @@ export function optionsOf(entry: QuestionEntry): Option[] {
 }
 
 const isCopies = (entry: QuestionEntry) => entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+/** The kind Question #228 raises: Jev's first kind is its one source's pick (m0-screens §5). */
+const isJevKind = (entry: QuestionEntry) => entry.question.code === 'takeoff.proposals.which_kind'
 
 function params(entry: QuestionEntry): Record<string, string | number> {
   return Object.fromEntries(Object.entries(entry.question.params).filter(([, v]) => typeof v === 'string' || typeof v === 'number')) as Record<string, string | number>
@@ -240,7 +242,8 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
 /**
  * The option the API picked for the QS, shown only where two or more independent sources agree and
  * the card can name them (screens.md Takeoff ruling 2, m0-screens 6.7): for two copies of one number,
- * `pickSources` must name two; for any other Question no option is pre-picked yet.
+ * `pickSources` must name two. The one exception is the kind Question (#228, m0-screens §5): Jev's
+ * first kind, its one source named. For any other Question no option is pre-picked yet.
  */
 /** The latest of the copies, as 21c keeps it for "keep the latest": by issue date, then revision mark. */
 export function latestOf(copies: readonly ProposalOut[]): ProposalOut | undefined {
@@ -274,7 +277,9 @@ export function usePick(entry: QuestionEntry, context: CardContext): { key: stri
 export function prePick(entry: QuestionEntry, context: CardContext): { key: string } | null {
   const picked = optionsOf(entry).find((o) => o.picked && o.key)
   if (!picked?.key) return null
-  // Only two copies of one number have sources the card can name yet; any other pick is not shown.
+  // Kept open or answered, the QS has decided: Jev's kind is no longer offered (review 2, finding 1).
+  if (isJevKind(entry)) return entry.kept || entry.question.status !== 'open' || entry.question.answer != null ? null : { key: picked.key }
+  // Else only two copies of one number have sources the card can name yet; any other pick is not shown.
   if (!isCopies(entry) || pickSources(entry, context, picked.key).count < 2) return null
   return { key: picked.key }
 }
@@ -313,6 +318,11 @@ export function pickSources(entry: QuestionEntry, context: CardContext, pick: st
 export function usePickSources(entry: QuestionEntry, context: CardContext): ReactNode | null {
   const pick = usePick(entry, context)?.key
   if (!pick) return null
+  if (isJevKind(entry)) {
+    // A group's card holds many sheets: its source is each one's reading, never "this sheet's" (S15-Q1 review 2).
+    const code = entry.question.params.named === 'group' ? 'platform.jev.sheet_type_source_group' : 'platform.jev.sheet_type_source'
+    return <MachineText message={{ code, params: {} }} />
+  }
   const found = pickSources(entry, context, pick)
   if (found.count < 2 || !found.list) return null
   const list = found.list === 'found' ? <Trans>the drawing list found in the drawings</Trans> : <Trans>the drawing list on <SheetName sheets={[found.list]} /></Trans>
@@ -508,6 +518,10 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     if (picked === 'keep_all' && n === 2) return <Trans>Answering confirms both copies.</Trans>
     if (picked === 'keep_open') return <Trans>Answering keeps both copies open. Neither is read until the consultant replies.</Trans>
   }
+  if (picked === 'keep_open' && n > 0 && isJevKind(entry)) {
+    // A kind Question's group is counted, never named by a first-to-last range (words gate, #628 round 3).
+    return <Plural value={n} one="Answering keeps the sheet open." other="Answering keeps all # sheets open." />
+  }
   if (picked === 'keep_open' && n > 0) {
     const name = <SheetName sheets={entry.holds} />
     return <Trans>Answering keeps {name} open.</Trans>
@@ -519,6 +533,28 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       <Trans>Answering decides which drawing list {name}’s sheets are counted against. Pick an answer: {keys}.</Trans>
     ) : (
       <Trans>Answering decides which drawing list {name}’s sheets are counted against.</Trans>
+    )
+  }
+  if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 1) {
+    // A group's card: counted, never named by a range from its first sheet to its last, which can take
+    // in sheets it does not hold; what the answer does is here, never in the title (review 2 of #628).
+    const waiting = Math.min(n, typeof q.params.waiting === 'number' ? q.params.waiting : 0)
+    const ready = n - waiting
+    if (waiting === 0)
+      return <Plural value={n} one="Answering sets the kind of the sheet and confirms it. It cannot be undone." other="Answering sets the kind of all # sheets and confirms them. It cannot be undone." />
+    if (ready === 0)
+      return (
+        <Plural
+          value={n}
+          one="Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone."
+          other="Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone."
+        />
+      )
+    return (
+      <>
+        <Plural value={n} one={`Answering confirms ${ready} of # sheet and cannot be undone.`} other={`Answering confirms ${ready} of # sheets and cannot be undone.`} />{' '}
+        <Plural value={waiting} one="# stays open: another Question about it comes first." other="# stay open: other Questions about them come first." />
+      </>
     )
   }
   if (q.kind === 'low_confidence' && picked && picked !== 'keep_open' && SHEET_KIND_NAMES[picked] && n > 0) {
@@ -565,6 +601,28 @@ export function AnswerNote({ entry, readOnly }: { entry: QuestionEntry; readOnly
  * The toast after an answer (§6.5: "Q3 answered. Confirms S-19 R1 and excludes R0 as superseded."),
  * naming only what 21c's answer does to the sheets; "Keep open" says the Question stays.
  */
+/**
+ * A group's toast: counted, never named by a first-to-last range (review 2 of #628), and saying how many
+ * the answer confirmed (the card's `waiting`: those another Question holds first; words gate, round 3).
+ */
+function GroupAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const n = entry.holds.length
+  const kind = i18n._(SHEET_KIND_NAMES[option]!)
+  const params = entry.question.params
+  const waiting = Math.min(n, typeof params.waiting === 'number' ? params.waiting : 0)
+  const ready = n - waiting
+  if (waiting === 0) return <Plural value={n} one={`${tag} answered. The sheet is ${kind}.`} other={`${tag} answered. All # sheets are ${kind}.`} />
+  if (ready === 0) return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet is confirmed yet: each waits on another Question first.</Trans>
+  return (
+    <>
+      <Plural value={n} one={`${tag} answered. ${ready} of # sheet is ${kind};`} other={`${tag} answered. ${ready} of # sheets are ${kind};`} />{' '}
+      <Plural value={waiting} one="# waits on another Question first." other="# wait on another Question first." />
+    </>
+  )
+}
+
 function SheetKindName({ option }: { option: string }) {
   const { i18n } = useLingui()
   return <>{i18n._(SHEET_KIND_NAMES[option]!)}</>
@@ -625,6 +683,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     const kind = <SheetKindName option={option} />
     return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet was confirmed.</Trans>
   }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 1) return <GroupAnswered entry={entry} option={option} />
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const kind = <SheetKindName option={option} />

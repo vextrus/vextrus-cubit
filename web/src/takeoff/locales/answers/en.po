@@ -92,6 +92,10 @@ msgid "Answering decides whether this file’s sheets join the list."
 msgstr "Answering decides whether this file’s sheets join the list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
+msgstr "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
+
+#: src/takeoff/questionWords.tsx
 msgid "One title on {count} sheets"
 msgstr "One title on {count} sheets"
 
@@ -115,6 +119,10 @@ msgstr "{discipline} can still be confirmed."
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the file’s two readings"
 msgstr "Trace: the file’s two readings"
+
+#: src/takeoff/questionWords.tsx
+msgid "{n, plural, one {Answering keeps the sheet open.} other {Answering keeps all # sheets open.}}"
+msgstr "{n, plural, one {Answering keeps the sheet open.} other {Answering keeps all # sheets open.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering sets the file aside: none of its sheets is read or counted. {discipline} can still be confirmed."
@@ -325,6 +333,10 @@ msgid "Answering keeps both copies open. Neither is read until the consultant re
 msgstr "Answering keeps both copies open. Neither is read until the consultant replies."
 
 #: src/takeoff/questionWords.tsx
+msgid "{waiting, plural, one {# waits on another Question first.} other {# wait on another Question first.}}"
+msgstr "{waiting, plural, one {# waits on another Question first.} other {# wait on another Question first.}}"
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 msgstr "Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 
@@ -381,6 +393,10 @@ msgid "{number} is named on {list}, and no file added has a sheet with that numb
 msgstr "{number} is named on {list}, and no file added has a sheet with that number."
 
 #: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded the kind as {kind}; no sheet is confirmed yet: each waits on another Question first."
+msgstr "{tag} answered. Recorded the kind as {kind}; no sheet is confirmed yet: each waits on another Question first."
+
+#: src/takeoff/questionWords.tsx
 msgid "{file} may be misread"
 msgstr "{file} may be misread"
 
@@ -425,6 +441,10 @@ msgid "{tag} answered. Recorded: the sheet’s range includes its top storey."
 msgstr "{tag} answered. Recorded: the sheet’s range includes its top storey."
 
 #: src/takeoff/questionWords.tsx
+msgid "{n, plural, one {{tag} answered. {ready} of # sheet is {kind};} other {{tag} answered. {ready} of # sheets are {kind};}}"
+msgstr "{n, plural, one {{tag} answered. {ready} of # sheet is {kind};} other {{tag} answered. {ready} of # sheets are {kind};}}"
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering keeps this Question open."
 msgstr "Answering keeps this Question open."
 
@@ -441,6 +461,10 @@ msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is sti
 msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}"
 
 #: src/takeoff/questionWords.tsx
+msgid "{n, plural, one {Answering confirms {ready} of # sheet and cannot be undone.} other {Answering confirms {ready} of # sheets and cannot be undone.}}"
+msgstr "{n, plural, one {Answering confirms {ready} of # sheet and cannot be undone.} other {Answering confirms {ready} of # sheets and cannot be undone.}}"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Your answer is recorded."
 msgstr "{tag} answered. Your answer is recorded."
 
@@ -455,6 +479,10 @@ msgstr "the later revision mark and {list} agree"
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
+
+#: src/takeoff/questionWords.tsx
+msgid "{n, plural, one {{tag} answered. The sheet is {kind}.} other {{tag} answered. All # sheets are {kind}.}}"
+msgstr "{n, plural, one {{tag} answered. The sheet is {kind}.} other {{tag} answered. All # sheets are {kind}.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
@@ -525,12 +553,20 @@ msgid "Answering reads this file anyway: its sheets join the list as Proposals, 
 msgstr "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 
 #: src/takeoff/questionWords.tsx
+msgid "{n, plural, one {Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone.} other {Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone.}}"
+msgstr "{n, plural, one {Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone.} other {Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone.}}"
+
+#: src/takeoff/questionWords.tsx
 msgid "no revision mark"
 msgstr "no revision mark"
 
 #: src/takeoff/questionWords.tsx
 msgid "{sheet} stays left out until this Question is answered. A pick changes nothing until you answer."
 msgstr "{sheet} stays left out until this Question is answered. A pick changes nothing until you answer."
+
+#: src/takeoff/questionWords.tsx
+msgid "{n, plural, one {Answering sets the kind of the sheet and confirms it. It cannot be undone.} other {Answering sets the kind of all # sheets and confirms them. It cannot be undone.}}"
+msgstr "{n, plural, one {Answering sets the kind of the sheet and confirms it. It cannot be undone.} other {Answering sets the kind of all # sheets and confirms them. It cannot be undone.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "the copy dated {date}"

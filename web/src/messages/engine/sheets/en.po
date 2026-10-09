@@ -195,6 +195,9 @@ msgstr "Site drainage layout"
 msgid "engine.sheets.kind_site_plan"
 msgstr "Site plan"
 
+msgid "engine.sheets.kind_slab_details"
+msgstr "Slab details"
+
 msgid "engine.sheets.kind_slab_layout"
 msgstr "Slab layout and rebar"
 

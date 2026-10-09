@@ -563,21 +563,22 @@ def test_answering_the_kind_of_a_left_out_unnumbered_sheet_does_not_confirm_it(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
 ) -> None:
     """Round 3, the second route: the kind's answer confirmed a left-out sheet whose number was never
-    given."""
+    given. Since review 1 of #628 an open kind Question holds no decided sheet (`step1._held`): the
+    one holding only the left-out sheet is not asked, and its answer is refused, confirming nothing."""
     jev_says(jev_offline, "0.34")
     read(qs_project, monkeypatch, UNNUMBERED)
     api = api_as(qs_project.member)
     unnumbered = the(proposals(api, qs_project.project_id), None)
-    assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
     [kind_q] = [
         q
         for q in open_questions(api, qs_project.project_id, "low_confidence")
         if q["proposals"] == [unnumbered["id"]]
     ]
+    assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
 
     response = answer(api, qs_project.project_id, kind_q["id"], keys(kind_q)[0])
 
-    assert response.status_code == 200, response.content
+    assert response.status_code == 409, response.content
     assert the(proposals(api, qs_project.project_id), None)["decision"] == "excluded"
 
 
@@ -635,12 +636,15 @@ def test_keep_open_on_a_question_its_exclusion_withdrew_leaves_its_sheet_held_an
 def test_a_kind_answered_while_the_sheet_is_left_out_is_applied_when_it_comes_back_in(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
 ) -> None:
-    """Round 4, F2 (50): the kind's answer was kept on the Question alone and lost on confirm."""
+    """Round 4, F2 (50): the kind's answer was kept on the Question alone and lost on confirm. Since
+    review 1 of #628 the kind is not asked while the sheet is out (`step1._held`); the undo brings
+    its Question back, and the kind answered then is applied when the numbered sheet is confirmed."""
     jev_says(jev_offline, "0.34")
     read(qs_project, monkeypatch, UNNUMBERED)
     api = api_as(qs_project.member)
     unnumbered = the(proposals(api, qs_project.project_id), None)
     assert exclude(api, qs_project.project_id, [unnumbered["id"]], "blank").status_code == 200
+    assert api.post(f"{step1(qs_project.project_id)}/undo", {}).status_code == 200
     [kind_q] = [
         q
         for q in open_questions(api, qs_project.project_id, "low_confidence")

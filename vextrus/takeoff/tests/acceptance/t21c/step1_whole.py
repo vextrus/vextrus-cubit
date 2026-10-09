@@ -359,9 +359,10 @@ def english(code: str) -> str | None:
 # Jev: a stand-in TypeSafe, so nothing leaves the machine ------------------------------------------
 
 
-def jev_says(offline: Offline, top: str) -> None:
+def jev_says(offline: Offline, top: str, second: str | None = None) -> None:
     """Every `ask` for the rest of the test is answered by a stand-in: its first option, with
-    probability `top` ("0.97": sure; "0.34": barely above the rest)."""
+    probability `top` ("0.97": sure); with `second`, its second option with that probability (#228:
+    "0.34" then "0.30", the top two close), the rest sharing what is left."""
     first = Decimal(top)
 
     def answer_it(request: httpx.Request) -> httpx.Response:
@@ -369,8 +370,16 @@ def jev_says(offline: Offline, top: str) -> None:
         answers = {}
         for node, asked in body["questions"].items():
             options = list(asked["criteria"])
-            rest = (Decimal(1) - first) / max(len(options) - 1, 1)
-            probabilities = {o: float(rest) for o in options[1:]} | {options[0]: float(first)}
+            if second is None:
+                rest = (Decimal(1) - first) / max(len(options) - 1, 1)
+                probabilities = {o: float(rest) for o in options[1:]} | {options[0]: float(first)}
+            else:
+                rest = (Decimal(1) - first - Decimal(second)) / max(len(options) - 2, 1)
+                probabilities = (
+                    {o: float(rest) for o in options[2:]}
+                    | {options[1]: float(Decimal(second))}
+                    | {options[0]: float(first)}
+                )
             answers[node] = {
                 "type": "choice",
                 "choice": options[0],

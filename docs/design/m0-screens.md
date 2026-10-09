@@ -997,7 +997,11 @@ where the title block is drawn as strokes, the page's body text); the file's Dis
 number's prefix; the revision mark and date in the title block; **the revision mark in the file name**
 (the plan's QS review, Q10: a source of its own, shown as "R0, from the file name"; "Final" and words
 like it are not marks). Jev's answer is one source, and never counts together with the facts it was
-given (the title it read).
+given (the title it read). **The one exception: the kind Question** (#228, under the owner's "Propose
+Jev's top kind"). When Jev's kind for a sheet is asked (its top two close, or the title naming
+another kind), Jev's first kind is pre-picked on one source, named as such: "Picked for you: Vextrus’s
+reading of this sheet’s title and view titles". A pick still changes nothing until Enter or
+"Answer", and a Jev kind never makes a sheet agree.
 
 **What "agrees" means** (the plan's QS review, Q4). A sheet agrees when its number and title come from
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
@@ -1022,7 +1026,7 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Two sheets, one number (`conflict`) | "Two sheets are numbered S-07" (each with revision mark, date and file) | 1 "Keep rev B (20 Aug 2026); leave rev A out as superseded" · 2 "They are different sheets: keep both" · 3 "Keep open, ask the consultant" (the read job's own options, `keep_latest`, `keep_all`, `keep_open`; #204) |
 | Two plans draw one thing (`conflict`; the plan's QS review, Q3) | "S-14 and S-15 both draw the 5th floor slab, bottom layer" (raised only when the Discipline, the subject, what the plan draws, and the layer, top or bottom, all match) | 1 "Keep S-15 (R1, 14 Sep 2026); exclude S-14 as superseded" · 2 "Keep S-14; exclude S-15" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" |
 | No number (`missing`) | "This sheet has no number in its title block" | 1 "A-08, as the drawing list names it" (only when a list names it) · 2 "Leave it without a number" · 3 "Type a number" · 4 "Keep open, ask the consultant" |
-| Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, none pre-picked unless a second source agrees · "Keep open, ask the consultant" |
+| Sheet kind unclear (`low_confidence`) | "What kind of sheet is A-05?" | the kinds of sheet its Discipline has (conventions data; the owner's ruling, 29 Sep 2026: "Per-Discipline kinds"), most likely first, Jev's first pre-picked ("Picked for you: Vextrus’s reading of this sheet’s title and view titles"; one source, the exception in 5) · "Keep open, ask the consultant" |
 | Drawing list against sheets (Check) | "S-13 is on the drawing list but in no file" | 1 "Not sent yet: keep it in the count as missing and ask the consultant" · 2 "Not part of this set: record it; it stays on the drawing list" (a sheet in a file but not on the list: "Not part of this set: record it, then exclude it in the list"; the answer records it and takes nothing off the list) · 3 "It is in a file I haven't added yet" · 4 "Keep open, ask the consultant" |
 | Plot pages against sheets (Check) | "Page 12 of KR-STR-R0.pdf shows S-13, which no DWG has" | as above |
 | Read and pasted drawing lists disagree (`conflict`) | "The drawing list on S-01 and the one you pasted differ" (N shows "—" until answered) | 1 "Use the list on S-01" · 2 "Use the pasted list" · 3 "Keep open, ask the consultant" |
@@ -1357,7 +1361,8 @@ updated as the pick changes; with nothing picked, what it settles and "Pick an a
 Question holding no sheet: "Answering confirms no sheets. Pick an answer: 1, 2, 3."); the title; the
 body; for a duplicate, a table of the copies; the Trace line; the options as radio rows with their
 number keys; "Answer Q3 ↵" and "Ask later" (moves to the next open Question). **Pre-pick only when
-two or more independent sources agree** (screens.md Takeoff ruling 2, and 5's list of sources); the
+two or more independent sources agree** (screens.md Takeoff ruling 2, and 5's list of sources; the
+kind Question's Jev pick is 5's one exception); the
 pre-picked option carries "Picked for you:" and the agreeing sources. A pick changes nothing until
 Enter or "Answer". Answering records who and when and confirms or excludes what the Question held.
 "Keep open, ask the consultant" keeps the Question (state "Q5 kept open", card "Kept open"); its
