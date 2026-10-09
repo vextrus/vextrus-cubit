@@ -354,25 +354,27 @@ def test_the_kind_question_names_the_sheet_by_number_and_its_title_is_the_views(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The Question card's words for a numbered sheet with no title ("It has no title, so nothing says
-    which kind of sheet … is") come from an empty title: sheet 2 now has one."""
+    which kind of sheet … is") come from an empty title: sheet 2 now has one. A kind Question asks a
+    group of sheets (S18-Q1) and names no one subject; the one that holds sheet 2 is found by what it
+    holds, as Step 1 lists it."""
     Judged(monkeypatch)
     file_id = added(qs_project)
 
     run_job(qs_project.member, file_id, monkeypatch)
 
-    sheet = by_number(qs_project.member, file_id)["S-202"]
+    proposal = proposals(qs_project)["S-202"]
     path = f"/api/projects/{qs_project.project_id}/takeoff/step1/questions"
     body = api_as(qs_project.member).get(path)
     kinds = [
         q
         for q in body.json()["questions"]
-        if q["subject_id"] == str(sheet.id) and q["code"].endswith(".which_kind")
+        if q["status"] == "open"
+        and q["code"].endswith(".which_kind")
+        and proposal["id"] in q["proposals"]
     ]
     assert len(kinds) == 1
     assert kinds[0]["params"]["named"] == "number"
     assert kinds[0]["params"]["sheet"] == "S-202"
-    proposal = proposals(qs_project)["S-202"]
-    assert proposal["id"] in kinds[0]["proposals"]
     assert proposal["title"] == SHEET_2_VIEW
 
 
