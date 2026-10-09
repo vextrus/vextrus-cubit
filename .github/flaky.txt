@@ -4,7 +4,3 @@
 web/src/acceptance/t16/viewer.test.tsx :: pans on a drag with the left button, by the distance dragged
 web/src/acceptance/tviewerplot/plot.test.tsx :: cycles As read → Plot → Compare → As read on P
 web/src/takeoff/acts.test.tsx :: says the 16 were confirmed and why the rest was not, offers Undo, and undoes only what was done
-tools/lint/tests/test_acceptance_lint_runs.py :: test_a_run_with_a_database_test_leaves_no_test_database
-scripts/factory/tests/test_review_units.py :: test_the_ledger_record_is_never_cut_by_a_stop_signal
-web/src/acceptance/t16/viewer.test.tsx :: fits the whole sheet again from the icon-only "Fit" button
-vextrus/takeoff/tests/acceptance/ts15a2/test_no_act_waits_on_a_read.py :: test_an_act_returns_within_500_ms_while_finishing_matches_the_plot
