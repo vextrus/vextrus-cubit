@@ -29,6 +29,7 @@ FAST_BEAT: dict[str, object] = {"VEXTRUS_WORKER_HEARTBEAT_SECONDS": 1}  # a work
 pytestmark = [
     pytest.mark.django_db(transaction=True, databases=BOTH),
     pytest.mark.usefixtures("empty_test_queues"),
+    pytest.mark.serial,  # signals and process groups: not under xdist (see ci.yml)
 ]
 
 

@@ -20,7 +20,7 @@
         "additionalProperties": false,
         "required": ["score", "file", "line", "summary"],
         "properties": {
-          "score": {"type": "integer", "minimum": 0, "maximum": 100, "description": "The reviewer's score; 50 or more needs a refuter before it reaches the builder."},
+          "score": {"type": "integer", "minimum": 0, "maximum": 100, "description": "The reviewer's score; one that could block (75 or more, or 50 or more on a strict path: ADR 0041, amended 7 Oct 2026) needs a refuter before it reaches the builder."},
           "file": {"type": "string", "minLength": 1, "maxLength": 300, "description": "A repository path (never a drawing's name)."},
           "line": {"type": "integer", "minimum": 0, "description": "The line in the new file; 0 when the finding is about the file as a whole."},
           "summary": {"type": "string", "minLength": 1, "maxLength": 600, "description": "One or two sentences: the failing scenario. Public words."}

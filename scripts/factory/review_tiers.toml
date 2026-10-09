@@ -67,3 +67,55 @@ never = [
   "**/*.spec.*",
   "**/conftest.py",
 ]
+
+[strict]
+# The review bar (the owner's ruling, 7 Oct 2026, session 17; ADR 0041 amended): a standing finding
+# blocks at 75, or at 50 when its file is strict. Read by scripts/ledger.py (and, through it, by
+# review.py and merge_ready) afresh for each decision.
+#
+# STRICT IS THE DEFAULT (lesson (e): PR #610 and PR #615 listed the walls for five rounds and missed
+# one in each). A file is lax only when it matches a `[lax] paths` glob and no `[strict] paths` glob;
+# everything else is strict: every other web file, the root's files, scripts/, tools/, vextrus/,
+# engine/, .claude/, .github/ and a folder nobody listed. A finding with no file, or a file that is not
+# a plain relative path (absolute, a drive, a backslash, a blank, an empty, `.`, `..` or hidden
+# segment) or not a file of the head's tree, is strict. Strict globs match any trailing part of the
+# path, case ignored, and `X/**` also matches `X`; lax globs match the whole path only, as written
+# (case kept). A tiers file that is missing, unreadable, empty, or lists nothing lax or nothing strict
+# judges every path strict.
+#
+# `paths` is the carve-out list: the walls inside the lax globs below, by name. The pinned table is
+# scripts/tests/acceptance/ts17f6/_paths.py.
+paths = [
+  # Inside web/src/**/*.tsx: the API's transport and the routes.
+  "web/src/api/**",
+  "web/src/routes/**",
+  # Anything that names auth or the session, anywhere below web/src/, inside a word too
+  # (`OAuthButton.tsx`, `useAuth.tsx`, `AuthorBadge.tsx`, `sessions/`): a substring, not a word.
+  "web/src/**/*auth*",
+  "web/src/**/*auth*/**",
+  "web/src/**/*session*",
+  "web/src/**/*session*/**",
+  # Permissions, kept from S17-F6's round-1 review (beyond lesson (e)'s list: it only adds strictness).
+  "web/src/**/*permission*",
+  "web/src/**/*permission*/**",
+  # A wall's own tests are a wall.
+  "web/src/**/*.test.tsx",
+  "web/src/acceptance/**",
+  # Inside docs/**/*.md: the Markdown a script, lint, hook or Claude Code reads at run time.
+  "docs/rulings.md",  # tools/lint/acceptance_lint.py
+  "docs/knowledge/**",  # lessons.md (stamp.py, docs_paths.py), jev-nodes.md (scripts/factory/jev.py)
+  "docs/sdlc.md",  # tools/lint/docs_paths.py
+  "docs/architecture.md",  # tools/lint/docs_paths.py
+  "docs/agents/**",  # tools/lint/docs_paths.py
+  "docs/design/**",  # web/scripts/lint-design-docs.mjs (web.yml), tools/lint/words.py
+  "**/CLAUDE*.md",  # Claude Code loads it as instructions, in any folder
+  "**/AGENTS*.md",
+]
+
+[lax]
+# The only places where a standing finding of 50-74 does not block (it takes the 75 bar and is filed
+# as an issue): the web's view components and the docs' Markdown, less `[strict] paths` above.
+paths = [
+  "web/src/**/*.tsx",
+  "docs/**/*.md",
+]

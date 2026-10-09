@@ -20,6 +20,8 @@ from scripts.factory.tests.test_review_r2_fix1 import PR, Cloud
 from scripts.factory.tests.test_review_r2_fix5 import Launcher
 from scripts.tests.acceptance.ts14r2._world import PASSING, SMALL, World, git, item, review_reply
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 REPRO = "review_attacks/lens-b/test_count_passes.py"
 COMMAND = re.compile(r"`(uv run python -m scripts\.factory\.review [^`]+)`")
@@ -127,6 +129,7 @@ def test_a_capped_refuter_keeps_its_spend(
 ) -> None:
     monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)
     run = review.Run(pr=PR, round_=1, head="a" * 40, merged="a" * 40, slot=1)
+    monkeypatch.setattr(ledger, "strict_paths", lambda: None)  # the 50 bar on every path (S17-F6)
     run.findings = [review.Finding("l1-f1", 60, "a.py", 1, "s", None, "UNPROVEN")]
     review.refute(run, tmp_path, tmp_path, tmp_path)
     (spent,) = run.lenses

@@ -175,7 +175,7 @@ jobs:
             -c "ALTER ROLE vextrus_app PASSWORD 'ci-throwaway-app'"
       - name: The toolchain's and the sandbox's tests
         # The acceptance plugin fails the run when an opt-in acceptance test is skipped (issue #107).
-        run: uv run --no-sync pytest -p tools.lint.acceptance_pytest -m "needs_toolchain or needs_bwrap"
+        run: uv run --no-sync pytest -n 3 -p tools.lint.acceptance_pytest -m "needs_toolchain or needs_bwrap"
 
   check-sandbox:
     # The check's sandbox tests (scripts/real_drawings/tests/test_sandbox.py): its bwrap, the offline

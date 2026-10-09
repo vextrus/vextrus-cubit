@@ -13,6 +13,8 @@ from scripts import ledger
 from scripts.factory import review
 from scripts.tests.acceptance.ts14r2._world import SMALL, World
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 OTHER = f"13-{'1' * 40}.json"
 

@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 REPO = Path(__file__).resolve().parents[3]
 SCRIPT = REPO / "scripts" / "factory" / "watch.py"
 NOW = "2026-10-04T21:08:00Z"

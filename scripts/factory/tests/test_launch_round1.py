@@ -9,6 +9,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +26,8 @@ from scripts.factory.launch import (
     judge,
     launch_cloud,
 )
+
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
 
 REPO = "github.com/vextrus/vextrus-cubit"
 BRANCH = "s12-z"
@@ -428,7 +431,11 @@ def test_a_line_without_the_debug_level_is_not_the_clis_own() -> None:
 
 LATE_FORK = """\
 import os, signal, sys, time
+forked = []
 def on_term(signum, frame):
+    if forked:  # the launcher signals each round: one late child, however many rounds
+        return
+    forked.append(1)
     child = os.fork()
     if child == 0:
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -455,13 +462,29 @@ def test_a_child_forked_in_the_clis_sigterm_handler_is_killed_too(
     pids_file = tmp_path / "pids.txt"
     monkeypatch.setenv("FAKE_PIDS", str(pids_file))
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
-    monkeypatch.setattr(launch, "LAUNCH_TIMEOUT", 1)
-    monkeypatch.setattr(launch, "KILL_GRACE", 1)
+    # The timeout fires once the CLI says it is up (its SIGTERM handler is set and its pid written), not
+    # after a fixed time that a loaded machine can spend before the CLI has even started.
+    monkeypatch.setattr(launch, "LAUNCH_TIMEOUT", 60)
+    monkeypatch.setattr(launch, "KILL_GRACE", 5)
+
+    class TimesOutWhenUp(subprocess.Popen[bytes]):
+        def wait(self, timeout: float | None = None) -> int:
+            deadline = time.monotonic() + (timeout or 0)
+            while not (pids_file.exists() and pids_file.read_text().strip()):
+                if time.monotonic() > deadline:
+                    break
+                time.sleep(0.02)
+            raise subprocess.TimeoutExpired(self.args, timeout or 0)
+
+    monkeypatch.setattr(subprocess, "Popen", TimesOutWhenUp)
     pids: list[int] = []
     try:
         assert default_claude(["claude", "--cloud", "x"]) == launch.TIMED_OUT
         pids = [int(word) for word in pids_file.read_text().split()]
         assert len(pids) == 2, pids  # the CLI, and the sleeper it forked on SIGTERM
+        deadline = time.monotonic() + 30  # gone on return; a generous bound for a loaded machine
+        while launch._alive(set(pids)) and time.monotonic() < deadline:
+            time.sleep(0.05)
         assert launch._alive(set(pids)) == set()
     finally:
         pids = pids or [int(w) for w in pids_file.read_text().split()] if pids_file.exists() else pids

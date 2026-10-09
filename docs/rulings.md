@@ -36,3 +36,9 @@ The orchestrator runs plain Opus 5.5 at `medium` for the whole session, never `x
 (`docs/handoff/session-14-prompt.md`, "Starting the session" 2).
 
 ruling: orchestrator.effort = medium
+
+Session 18, the owner (9 Oct 2026), on G1's bulk-confirmable share: "Number run counts (Recommended)": when a
+Discipline has no drawing list and no PDF, an unbroken run of sheet numbers counts as the second source; a sheet in
+that run with no open Question can be confirmed in bulk.
+
+ruling: step1.second_source.no_list_no_pdf = unbroken-number-run

@@ -4,6 +4,8 @@
     {"name": "takeoff-acceptance", "paths": ["vextrus/takeoff/tests/acceptance"], "ignore": []},
     {"name": "takeoff-rest", "paths": ["vextrus/takeoff"], "ignore": ["vextrus/takeoff/tests/acceptance"]},
     {"name": "seed-platform-drawings", "paths": ["vextrus/seed", "vextrus/platform", "vextrus/drawings"], "ignore": []},
-    {"name": "rest", "paths": [], "ignore": ["vextrus/takeoff", "vextrus/seed", "vextrus/platform", "vextrus/drawings"]}
+    {"name": "rest-engine-lint", "paths": ["engine", "tools/lint"], "ignore": []},
+    {"name": "rest-scripts", "paths": ["scripts"], "ignore": []},
+    {"name": "rest", "paths": [], "ignore": ["vextrus/takeoff", "vextrus/seed", "vextrus/platform", "vextrus/drawings", "engine", "tools/lint", "scripts"]}
   ]
 }

@@ -439,11 +439,17 @@ def review_reply(
     return {"verdict": verdict, "head": head, "findings": findings or [], "report": "fixture lens reply"}
 
 
+# S17-F6 (the owner's ruling, 7 Oct 2026): a standing finding blocks at 75, or at 50 on a strict
+# path (`review_tiers.toml` `[strict] paths`). These tests were written for a 50 bar, so their
+# findings sit on a strict path (money: the rates), where the 50 bar still holds.
+FINDING_FILE = "vextrus/rates/table.py"
+
+
 def finding(score: int, repro: str | None) -> dict[str, Any]:
-    """A finding on the small PR's file; `repro` names its failing-test file (None: no repro)."""
+    """A finding on a strict path; `repro` names its failing-test file (None: no repro)."""
     return {
         "score": score,
-        "file": "web/src/components/badge.tsx",
+        "file": FINDING_FILE,
         "line": 2,
         "summary": "the badge shows a count the takeoff does not hold",
         "repro": None
