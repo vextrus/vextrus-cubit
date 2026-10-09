@@ -652,20 +652,39 @@ def _held_now(project_id: uuid.UUID, question: Question) -> list[uuid.UUID]:
 
 
 def _let_go(project_id: uuid.UUID) -> set[tuple[uuid.UUID, uuid.UUID]]:
-    """The (Question, Proposal) links a kind Question no longer stands on: its sheet is now of another
-    Discipline than the Question's (the QS changed its file's; review 2, l1-f1). Links are kept
-    (append-only); such a sheet is not held by the Question and never takes its answer."""
+    """The (Question, Proposal) links a kind Question no longer stands on, read now (S18-Q1's re-read
+    rule): its sheet is now of another Discipline than the Question's (the QS changed its file's;
+    review 2, l1-f1), or the Question was answered without it (the sheet was of another Discipline
+    then: the answer's `sheets` name those it stood on). Links are kept (append-only); such a sheet
+    is not held by the Question and never takes its answer."""
     facts = _facts_by_id(project_id)
     gone: set[tuple[uuid.UUID, uuid.UUID]] = set()
-    for question_id, asked_in, proposal_id, sheet_id in (
+    for question_id, asked_in, status, given, proposal_id, sheet_id in (
         QuestionLink.objects.filter(project_id=project_id, question__kind=QuestionKind.LOW_CONFIDENCE)
         .exclude(question__discipline="")
-        .values_list("question_id", "question__discipline", "proposal_id", "proposal__subject_id")
+        .values_list(
+            "question_id",
+            "question__discipline",
+            "question__status",
+            "question__answer",
+            "proposal_id",
+            "proposal__subject_id",
+        )
     ):
         sheet = facts.get(sheet_id)
-        if sheet is not None and sheet.discipline != asked_in:
+        moved = sheet is not None and sheet.discipline != asked_in
+        if moved or not _answered_over(status, given, proposal_id):
             gone.add((question_id, proposal_id))
     return gone
+
+
+def _answered_over(status: str, given: object, proposal_id: uuid.UUID) -> bool:
+    """Whether a kind Question's answer stood on the Proposal: true while it is not answered, and
+    for an answer that names no `sheets` (given before S18-Q1)."""
+    if status != QuestionStatus.ANSWERED or not isinstance(given, dict):
+        return True
+    sheets = given.get("sheets")
+    return not isinstance(sheets, list) or str(proposal_id) in sheets
 
 
 def _asked(
@@ -1368,7 +1387,8 @@ def _held_first(project_id: uuid.UUID, sheet_id: uuid.UUID, proposal: Proposal |
 
 def _kinds_answered(project_id: uuid.UUID, proposal_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
     """The kind each Proposal's answered `low_confidence` Question chose (its option, a kind; the
-    newest answer when there are several), by Proposal."""
+    newest answer when there are several), by Proposal: only an answer that stood on it, and while
+    it is of that Question's Discipline (`_let_go`)."""
     kinds: dict[uuid.UUID, str] = {}
     if not proposal_ids:
         return kinds
@@ -1378,16 +1398,10 @@ def _kinds_answered(project_id: uuid.UUID, proposal_ids: Sequence[uuid.UUID]) ->
         question__kind=QuestionKind.LOW_CONFIDENCE,
         question__status=QuestionStatus.ANSWERED,
     ).select_related("question")
-    facts = _facts_by_id(project_id)
-    discipline_of = {
-        p.id: s.discipline
-        for p in Proposal.objects.filter(project_id=project_id, id__in=list(proposal_ids))
-        if (s := facts.get(p.subject_id)) is not None
-    }
+    gone = _let_go(project_id)
     for link in sorted(links, key=lambda link: (link.question.answered_at, link.question_id)):
-        asked_in = link.question.discipline
-        if asked_in and discipline_of.get(link.proposal_id, asked_in) != asked_in:
-            continue  # another Discipline's kind (review 2, l1-f1): never this sheet's
+        if (link.question_id, link.proposal_id) in gone:
+            continue  # another Discipline's kind, or an answer given without it: never this sheet's
         option = link.question.answer.get("option") if isinstance(link.question.answer, dict) else None
         if isinstance(option, str) and option != KEEP_OPEN:
             kinds[link.proposal_id] = option
@@ -2359,11 +2373,14 @@ def _join_group(
         .order_by("created_at", "id")
     )
     proposal = Proposal.objects.get(project_id=project_id, id=proposal_id)
-    holding = set(
-        QuestionLink.objects.filter(question__in=asked, proposal=proposal).values_list(
-            "question_id", flat=True
-        )
-    )
+    gone = _let_go(project_id)
+    holding = {
+        question_id
+        for question_id in QuestionLink.objects.filter(
+            question__in=asked, proposal=proposal
+        ).values_list("question_id", flat=True)
+        if (question_id, proposal.id) not in gone
+    }
     row = next((q for q in asked if q.id in holding), None) or next(
         (q for q in asked if q.status == QuestionStatus.OPEN), None
     )
@@ -2387,6 +2404,54 @@ def _join_group(
         tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
     )
     return row.id
+
+
+def ask_kind_again(project_id: uuid.UUID, sheets: Sequence[drawings.SheetView]) -> int:
+    """After the QS changed these sheets' Discipline (their file's): each undecided one back in the
+    Discipline of a kind Question that asked it, and held by none now (its Question was answered
+    while it was away: `_let_go`), is asked again in that Question's group (`ask_kind`'s choice: its
+    open one, else a new one), never decided by an answer given without it (S18-Q1). How many."""
+    by_sheet = {s.id: s for s in sheets if not s.decision and s.discipline}
+    if not by_sheet:
+        return 0
+    gone = _let_go(project_id)
+    standing: set[uuid.UUID] = set()
+    asked_before: dict[uuid.UUID, Question] = {}
+    for link in (
+        QuestionLink.objects.filter(
+            project_id=project_id,
+            question__kind=QuestionKind.LOW_CONFIDENCE,
+            question__message_code=answer_codes.WHICH_KIND.code,
+            proposal__subject_id__in=list(by_sheet),
+        )
+        .select_related("question", "proposal")
+        .order_by("question__created_at", "question_id")
+    ):
+        if (link.question_id, link.proposal_id) not in gone:
+            standing.add(link.proposal_id)
+        elif link.question.discipline == by_sheet[link.proposal.subject_id].discipline:
+            asked_before[link.proposal_id] = link.question  # the newest such Question, last
+    again = 0
+    for proposal_id, question in asked_before.items():
+        if proposal_id in standing:
+            continue
+        base = question.question_key[:_GROUP_KEY]
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    [f"takeoff.question_group:{project_id}:{base}"],
+                )
+            _join_group(
+                project_id,
+                QuestionKind.LOW_CONFIDENCE,
+                base,
+                proposal_id,
+                question.discipline,
+                question.options,
+            )
+        again += 1
+    return again
 
 
 _GROUP_KEY = 56
@@ -2562,6 +2627,8 @@ def answer(
             return Answered(_question_view(project_id, row.id), None)
         if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
             raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
+        if _grouped(row):
+            given["sheets"] = [str(p) for p in held]  # what it stood on, for good (`_let_go`)
         read_again = _apply(project_id, row, option, words, held, actor_name)
         corrected = (
             row.kind == QuestionKind.MISSING and option == "type_number"

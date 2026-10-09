@@ -383,3 +383,41 @@ def test_a_kind_question_that_let_every_sheet_go_is_not_listed_and_its_answer_is
     assert refused.status_code == 409, refused.content
     assert refused.json()["code"] == "takeoff.proposals.answered_already"
     assert [p["decision"] for p in proposals(api, qs_project.project_id)] == [None, None]
+
+
+@pytest.mark.django_db
+def test_a_sheet_away_when_its_group_was_answered_is_asked_again_when_its_file_comes_back(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """The refuter's case (S18-Q1): S-03's file is away while the group of S-01 and S-02 is answered;
+    back, S-03 is not held by that answer (its card still lists and counts the 2 it confirmed) and
+    never takes its kind, but is asked its kind again, alone, in the group's next Question."""
+    jev_unsure(jev_offline)
+    read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2]))
+    later = uploaded(qs_project.member, qs_project.project_id, STRUCTURAL_TOO)
+    run_job(qs_project.member, later, monkeypatch, readers({STRUCTURAL_TOO: beams([3])}))
+    api = api_as(qs_project.member)
+    ids = {p["number"]: p["id"] for p in proposals(api, qs_project.project_id)}
+    _move(api, qs_project.project_id, later, "architectural")
+    seen = the_one_kind_question(api, qs_project.project_id)
+    done = answer(api, qs_project.project_id, seen["id"], "beam_details")
+    assert done.status_code == 200, done.content
+
+    _move(api, qs_project.project_id, later, "structural")
+
+    listed = {q["id"]: q for q in questions(api, qs_project.project_id)}
+    answered = listed[seen["id"]]
+    assert sorted(answered["proposals"]) == sorted([ids["S-01"], ids["S-02"]])
+    assert answered["params"]["sheets"] == 2
+    again = the_one_kind_question(api, qs_project.project_id)
+    assert again["id"] != seen["id"]
+    assert (again["proposals"], again["params"]["sheets"]) == ([ids["S-03"]], 1)
+    s03 = next(p for p in proposals(api, qs_project.project_id) if p["id"] == ids["S-03"])
+    assert (s03["decision"], s03["kind"]) != (None, "beam_details")
+    assert answer(api, qs_project.project_id, again["id"], "beam_layout").status_code == 200
+    s03 = next(p for p in proposals(api, qs_project.project_id) if p["id"] == ids["S-03"])
+    assert (s03["decision"], s03["confirmed_kind"], s03["decided_with"]) == (
+        "confirmed",
+        "beam_layout",
+        1,
+    )

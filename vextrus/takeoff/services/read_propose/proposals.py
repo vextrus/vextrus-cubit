@@ -163,14 +163,16 @@ def propose(
 
 def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     """After the QS changed a read file's Discipline (`drawings.on_discipline_changed`, in the change's
-    transaction): its sheets' `missing_discipline` Questions are answered by it, and the set's
-    Questions asked again under the sheets' new Discipline. A file not yet read has no sheet listed:
-    its `proposals` step reads the choice itself (#159)."""
+    transaction): its sheets' `missing_discipline` Questions are answered by it, a sheet back in the
+    Discipline of a kind Question answered while it was away is asked its kind again
+    (`step1.ask_kind_again`), and the set's Questions asked again under the sheets' new Discipline.
+    A file not yet read has no sheet listed: its `proposals` step reads the choice itself (#159)."""
     view = drawings.file(file_id)
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
     if not listed:
         return
     step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+    step1.ask_kind_again(view.project_id, listed)
     set_questions(view.project_id, trigger_file=file_id)
     step1.record_progress(view.project_id)
 
