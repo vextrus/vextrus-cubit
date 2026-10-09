@@ -38,6 +38,7 @@ import hashlib
 import json
 import math
 import time
+import unicodedata
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -49,6 +50,7 @@ from engine.read import ReadArtefact
 from engine.read.anchor import anchor_from_json
 from engine.recognise import register as register_reader
 from engine.recognise import sheets as finder
+from engine.recognise import storeys
 from engine.recognise import views as view_finder
 from engine.recognise.types import (
     Box,
@@ -59,7 +61,9 @@ from engine.recognise.types import (
     SheetLocation,
     Sourced,
     ValueSource,
+    ViewCandidate,
     ViewConventions,
+    ViewKind,
 )
 from engine.render import buffers as render
 from vextrus.drawings import services as drawings
@@ -86,6 +90,8 @@ GIVEN_DISCIPLINE = frozenset({"file_name", "qs"})
 RAW_CODES = ("%%", "\\P", "\\f", "\\S", "^J", "{\\")
 """The codes `drawings` refuses in a sheet's words (`sheet_list._RAW_CODES`; a test holds them
 equal): a sheet holding one is left out alone, never the file's whole list."""
+VIEW_TITLE_LENGTH = 200
+"""The longest view title that may title a sheet (`named_by_view`); a longer one is no title."""
 _SOURCED = ("number", "title", "discipline", "revision_mark", "issue_date", "storeys_as_stated")
 
 
@@ -177,6 +183,7 @@ def read(
             seen,
             said_for_file,
             render_left[0],
+            held()[0],
         )
 
     for position, kept in enumerate(recorded, start=1):
@@ -260,11 +267,13 @@ def _read_sheet(
     seen: dict[str, int],
     said_for_file: set[str],
     render_left: float = RENDER_SECONDS,
+    sheet_conventions: SheetConventions | None = None,
 ) -> jobs.StepResult:
     """`budget`: the view finder's for the file, one for all its sheets; `seen`: the view finder's
     limits as the last sheet read with this artefact left them;
     `said_for_file`: the view limits an earlier sheet's step already said (once for the file: the
-    words are the file's; `view_report` says which sheets a limit cut)."""
+    words are the file's; `view_report` says which sheets a limit cut); `sheet_conventions`: what a
+    title from the sheet's one view states its storeys by (`named_by_view`; 13's defaults if none)."""
     # The views are proposed by the sheet's Discipline as it stands now, not as the `sheets` step
     # found it: the file's own default (General among them, #159) and a QS's choice made since are
     # written on the sheet after the candidate was kept.
@@ -274,6 +283,15 @@ def _read_sheet(
     )
     views = view_finder.find(artefact, candidate, view_conventions, budget=budget)
     kept = drawings.record_views(sheet_id, list(views))
+    # A numbered sheet whose title block gives no title is titled by its one drawing view (#332);
+    # the candidate rendered and kept in the `sheets` step stays the one the finder read.
+    named = named_by_view(candidate, list(views), sheet_conventions or finder.default_conventions())
+    titled_by_view = named.title is not None and named.title != candidate.title
+    if titled_by_view:
+        assert named.title is not None
+        drawings.record_sheet_title(
+            sheet_id, title=named.title, storeys_as_stated=named.storeys_as_stated
+        )
     # The view finder's bounds are the file's, spent across its sheets: this sheet's cut is what
     # they left unread while reading it.
     now = dict(views.limits or {})
@@ -298,8 +316,60 @@ def _read_sheet(
         "render": has_render,
         "render_seconds": render_seconds,
         "paper": paper_of(views.paper),
+        "titled_by_view": titled_by_view,
     }
     return result
+
+
+def named_by_view(
+    candidate: SheetCandidate, views: Sequence[ViewCandidate], conventions: SheetConventions
+) -> SheetCandidate:
+    """The candidate titled by its one drawing view (#332; the owner's ruling of 5 Oct 2026): a
+    numbered sheet whose title block gives no title, drawing exactly one view besides its title
+    block, takes that view's title, source `view_title`, and the storeys it states (read as 13 reads
+    a title-block title). Anything else (a title already, no number, several views, even of one
+    title, a view title that names nothing, holds a raw code or a control, or runs past
+    `VIEW_TITLE_LENGTH`) gives the candidate back unchanged."""
+    if candidate.title is not None or candidate.number is None:
+        return candidate
+    drawn = [v for v in views if v.kind != ViewKind.TITLE_BLOCK]
+    if len(drawn) != 1:
+        return candidate
+    text = _view_title(drawn[0].title)
+    if text is None:
+        return candidate
+    stated = candidate.storeys_as_stated
+    if stated is None:
+        plan = storeys.names_a_plan(text, conventions)
+        found = storeys.read(text, conventions, plan_title=plan)
+        if found.as_stated:
+            stated = Sourced(found.as_stated, ValueSource.VIEW_TITLE)
+    return replace(candidate, title=Sourced(text, ValueSource.VIEW_TITLE), storeys_as_stated=stated)
+
+
+def _view_title(title: str | None) -> str | None:
+    """A view's title as a sheet's title, its inner spaces collapsed; None where it names nothing
+    (no word of three letters or more: a mark or a figure) or may not be kept."""
+    if not isinstance(title, str):
+        return None
+    if any(code in title for code in RAW_CODES):
+        return None
+    if any(unicodedata.category(c) == "Cc" and c not in "\t\n\r" for c in title):
+        return None
+    text = " ".join(title.split())
+    if not text or len(text) > VIEW_TITLE_LENGTH or not _has_word(text):
+        return None
+    return text
+
+
+def _has_word(text: str) -> bool:
+    """Three letters or more in a run, in any script (a vowel sign or other mark joins its word)."""
+    run = 0
+    for c in text:
+        run = run + 1 if c.isalpha() or unicodedata.category(c).startswith("M") else 0
+        if run >= 3:
+            return True
+    return False
 
 
 def paper_of(paper: object) -> tuple[float, float] | None:

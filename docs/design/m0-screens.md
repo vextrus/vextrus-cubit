@@ -1060,7 +1060,8 @@ A sheet with neither number nor title is named by its layout and its file, never
 NT-ARC-R1.dwg" when it has no layout; the place sits inside the name, never after a comma), so two on two
 layouts of one file read apart ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
 block."; the bar: "… has neither a number nor a title in its title block"); a numbered sheet with no title by
-its number ("It has no title, so nothing says which kind of sheet A-05 is."). At a sentence's start it reads
+its number ("It has no title, so nothing says which kind of sheet A-05 is."). (A numbered sheet whose one drawing view is titled
+takes that title, marked "the title of its view", and so does not reach this sentence.) At a sentence's start it reads
 "An untitled sheet on layout …" or "An untitled sheet laid out in the drawing of …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
 "S-07’s kind").
 
@@ -1362,7 +1363,8 @@ drawing list pasted by Rafiq Hasan, 26 Sep 2026 09:58; 28 found (see the list)."
 2. Header: number and title; the state and when ("Confirmed RH 26 Sep 2026, 10:42"). In list mode
    only, a 294 px thumbnail of the sheet with its view outlines.
 3. **Proposal**, "where each was read": Number ("S-20 title-block attribute" / "text in the title
-   block" / "not found"); Title (the same); Discipline ("Structural from the file; the prefix
+   block" / "not found"); Title (the same / "the title of its view" where the title block gives none and the
+   sheet draws one other view; never counted as a source that agrees); Discipline ("Structural from the file; the prefix
    agrees"); Revision ("R1, 14 Sep 2026" / "R0, from the file name" / "none: the title block has none
    and the file name none"); File ("NT-STR-R1.dwg" / "laid out in the drawing" or
    "layout "A-24""); Storeys (text, meaning, strip); Plot ("NT-STR-R1.pdf page 20, registered to
