@@ -42,11 +42,13 @@ export async function timedAct(
   // Listeners armed before any key: requests and answers are kept as they arrive, in whatever order.
   const requests: Request[] = []
   const answers = new Map<Request, { status: number; at: number }>()
+  const sentAt = new Map<Request, number>()
   const waiters: Array<() => void> = []
   const wake = () => waiters.splice(0).forEach((w) => w())
   const onRequest = (r: Request) => {
     if (isAct(r)) {
       requests.push(r)
+      sentAt.set(r, Date.now())
       wake()
     }
   }
@@ -97,7 +99,8 @@ export async function timedAct(
     const after = await api.reading(projectId)
     return {
       kind: actOf(new URL(request.url()).pathname)!,
-      ms: answered && answer ? answer.at - started : timeoutMs,
+      // From the request's own send when it left on an earlier key than the last: never negative.
+      ms: answered && answer ? Math.max(0, answer.at - Math.min(started, sentAt.get(request) ?? started)) : timeoutMs,
       read_running: before && after,
       status: answered && answer ? answer.status : 0,
     }
