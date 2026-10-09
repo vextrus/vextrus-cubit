@@ -36,8 +36,9 @@ Missed or wrong:
   plus 1 convention Question. Kind Questions are at most 3 per Discipline.
 - **Bulk-confirmable share cannot pass without the owner's ruling being built** (below): Edison's E/P/G sheets
   and Sample's structural sheets have no second source today.
-- **crosspr's scratch worktree vanished mid-run once (Q1)**: unexplained; if it recurs, file it with the run's
-  output.
+- **crosspr's scratch worktree vanished mid-run once (Q1)**, most likely because two verifies ran in the one `S18-Q1`
+  worktree at once (the orchestrator's and the resumed builder's, which had been renamed
+  `pr628-grouped-kind-records` and was not dead). Re-verify once, alone.
 
 ## The owner's rulings of session 18 (verbatim; they stand)
 - Budget: 12 hours.
@@ -111,8 +112,9 @@ Budget: ask the owner (recommend **12 hours**: Q1 ~1 h, Train A ~2.5 h, Train B 
 - **(c) `allowlist batch` opens a non-READY head:** verify it and commit READY before landing (#622's path).
 - **(d) Keep the machine under load 10:** three heavy local builders at once drove load to 20 and made verifies
   fail on timing tests outside their diffs (E2 failed three times). Launch the fourth only when load drops.
-- **(e) A power cut kills every builder; a resume copies the conversation into a new session,** and one copy died
-  silently. After a reboot, check each branch's last commit and verify committed trees yourself if a builder is gone.
+- **(e) A power cut kills every builder; a resume copies the conversation into a new session, which may take a new
+  name** (Q1's became `pr628-grouped-kind-records`). After a reboot, list sessions by `cwd`, not by name, before
+  deciding a builder is gone; never run a second verify in a worktree whose builder is alive.
 - **(f) Fix a below-bar finding that breaks G1's own instrument** (a negative `ms` would have failed the walk's
   schema): the bar decides blocking, not whether G1 can be trusted.
 Session 17's lessons (`docs/handoff/session-18-prompt.md`) still bind.
