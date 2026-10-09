@@ -244,8 +244,10 @@ def _propose_sheet(
     )
     if isinstance(answer, jev.Answer) and not sure and ask:
         ranked = answer.ranked()
-        step1.ask_kind(
+        step1.ask_group(
             project_id,
+            "low_confidence",
+            said.WHICH_KIND,
             identity=kind_group(sheet.discipline, ranked),
             proposal_id=proposal_id,
             discipline=sheet.discipline,

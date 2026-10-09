@@ -59,7 +59,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from engine.check import register
-from engine.messages import Message
+from engine.messages import Message, MessageCode
 from engine.messages import register_check as list_codes
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
@@ -616,7 +616,7 @@ def kind_words(sheets: Sequence[drawings.SheetView | None]) -> dict[str, Any]:
 
 
 def _grouped(q: Question) -> bool:
-    """Whether the Question is a kind Question (`ask_kind`'s): its words are read from what it holds."""
+    """Whether the Question is a kind Question (`ask_group`'s): its words are read from what it holds."""
     return q.kind == QuestionKind.LOW_CONFIDENCE and q.message_code == answer_codes.WHICH_KIND.code
 
 
@@ -2322,29 +2322,34 @@ def raise_question(
     return row.id
 
 
-def ask_kind(
+def ask_group(
     project_id: uuid.UUID,
+    kind: QuestionKind | str,
+    code: MessageCode,
     *,
     identity: Sequence[str],
     proposal_id: uuid.UUID,
     discipline: str | None = None,
     options: Sequence[Any] = (),
 ) -> uuid.UUID:
-    """A kind Question (`low_confidence`, `takeoff.proposals.which_kind`) that groups the Proposals it
-    asks about (S15-Q1: "a Question groups the Sheets it asks about"), one per `identity` (what the
-    group shares: never a sheet's name, so a sheet named before or after the others joins the same
-    Question), holding `proposal_id`. The Question already holding the Proposal is the one asked (a
-    read again asks nothing new); else the group's open one, which it joins; else a new one (the
-    group's identity once more, after its last was answered or withdrawn: a sheet that came later is
-    asked, never decided by an answer given before it). Its subject is none: it is about all its
-    sheets. What it holds and its words are read, never stored (S18-Q1's re-read rule: `_held`,
-    `_worded`): the params kept are its first sheet's, for the record.
+    """A kind Question (`kind` `low_confidence`, `code` `takeoff.proposals.which_kind`: the only
+    group Question, refused otherwise) that groups the Proposals it asks about (S15-Q1: "a Question
+    groups the Sheets it asks about"), one per `identity` (what the group shares: never a sheet's
+    name, so a sheet named before or after the others joins the same Question), holding
+    `proposal_id`. The Question already holding the Proposal is the one asked (a read again asks
+    nothing new); else the group's open one, which it joins; else a new one (the group's identity
+    once more, after its last was answered or withdrawn: a sheet that came later is asked, never
+    decided by an answer given before it). Its subject is none: it is about all its sheets. What it
+    holds and its words are read, never stored (S18-Q1's re-read rule: `_held`, `_worded`): the
+    params kept are its first sheet's, for the record.
 
     Two read jobs asking one group take turns (a transaction lock on the group's identity), and the
     group's Questions are locked while it is chosen, so an answer given meanwhile waits or comes
     first: a sheet never joins a Question answered without it (the refuter's case)."""
     projects.get(project_id)
-    chosen = QuestionKind.LOW_CONFIDENCE
+    chosen = QuestionKind(kind)
+    if chosen != QuestionKind.LOW_CONFIDENCE or code.code != answer_codes.WHICH_KIND.code:
+        raise ValueError(f"a group Question is a kind Question, not {chosen} {code.code}")
     base = hashlib.sha256(json.dumps([chosen, "group", *identity], sort_keys=True).encode()).hexdigest()[
         :_GROUP_KEY
     ]
@@ -2365,7 +2370,7 @@ def _join_group(
     discipline: str | None,
     options: Sequence[Any],
 ) -> uuid.UUID:
-    """`ask_kind`'s choice, under its lock."""
+    """`ask_group`'s choice, under its lock."""
     tenant = _tenant()
     asked = list(
         Question.objects.select_for_update()
@@ -2409,7 +2414,7 @@ def _join_group(
 def ask_kind_again(project_id: uuid.UUID, sheets: Sequence[drawings.SheetView]) -> int:
     """After the QS changed these sheets' Discipline (their file's): each undecided one back in the
     Discipline of a kind Question that asked it, and held by none now (its Question was answered
-    while it was away: `_let_go`), is asked again in that Question's group (`ask_kind`'s choice: its
+    while it was away: `_let_go`), is asked again in that Question's group (`ask_group`'s choice: its
     open one, else a new one), never decided by an answer given without it (S18-Q1). How many."""
     by_sheet = {s.id: s for s in sheets if not s.decision and s.discipline}
     if not by_sheet:
