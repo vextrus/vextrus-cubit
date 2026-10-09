@@ -12,9 +12,10 @@ The owner decides product and scope and walks each milestone's finish line on re
 between is done by agents, without waiting for the owner:
 
 1. **The orchestrator pushes, opens PRs and merges** once a PR's review loop is done and the ruleset's
-   required checks are green. The ruleset still enforces CI, up-to-date branches and the two statuses;
-   what moves is who presses merge. The orchestrator merges `main` into a PR itself before posting its
-   statuses (the ruleset requires up-to-date branches). **Before every merge it runs
+   required checks are green. The ruleset still enforces CI and the two statuses; what moves is who
+   presses merge. Since 7 Oct 2026 (the owner's ruling, History) the ruleset no longer requires a branch
+   to be up to date: the lander lands a PR as it stands, `land update` is the only update, and a
+   conflicting PR is refused, naming it. **Before every merge it runs
    `python -m scripts.merge_ready <PR>`**, which passes only when `real-drawings` and `design-gate` on
    the head were posted by the owner's App (or main's not-applicable workflow) and every check passed:
    the ruleset does not pin who posts a status, so the author is checked here, and the guard refuses
@@ -107,3 +108,7 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
 - 4 Oct 2026 (ADR 0042; the owner: "Approve as written (Recommended)"): item 9 — account A runs the orchestrator and
   every builder, cloud launches only through the committed launcher, and cloud sessions may read the two Development
   Sets (owner ruling Q7); item 5 — merge_ready enforces the review from a local ledger.
+- 7 Oct 2026 (session 17; the owner unticked it at 19:28Z: "unticked myself of 'Require branches to be up to date
+  before merging'"): **item 1's up-to-date requirement is gone** (ADR 0025, Amended). The ruleset still enforces a
+  PR, CI and the two statuses; the orchestrator no longer merges `main` into a PR before posting its statuses. The
+  lander lands a PR as it stands; `land update` is the only update, and a conflicting PR is refused, naming it.
