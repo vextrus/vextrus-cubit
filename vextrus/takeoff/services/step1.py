@@ -3011,13 +3011,18 @@ def _kind_split(
 ) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
     """What a kind Question's answer would do with the Proposals it holds (`_held_now`), in order:
     those it would confirm; and those it leaves open because another open Question holds them (by a
-    link or by its subject; the two drawing lists' Question, which holds a Discipline, aside). A
-    decided sheet is in neither."""
+    link or by its subject). The two drawing lists' Question, which holds a Discipline, and the
+    Discipline's numbering gap Question (S15-Q2), which holds the sheets beside its gaps from their
+    agreeing (`_agreeing`), are aside: neither asks what a sheet is, and the gap Question's links
+    stay after its gaps change (append-only), so a kind answer never waits on them. A decided sheet
+    is in neither."""
     facts = {s.id: s for s in _facts(project_id)}
     proposals_held = {p.id: p for p in Proposal.objects.filter(project_id=project_id, id__in=held)}
-    others = Question.objects.filter(
-        project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
-    ).exclude(id=question.id)
+    others = (
+        Question.objects.filter(project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN)
+        .exclude(id=question.id)
+        .exclude(message_code__in=[list_codes.GAP.code, list_codes.GAPS.code])
+    )
     linked = set(
         QuestionLink.objects.filter(
             project_id=project_id, question__in=others, proposal_id__in=list(proposals_held)
