@@ -43,7 +43,6 @@ from typing import Any
 from django.conf import settings
 
 from engine.check import register as register_check
-from engine.messages import Param
 from engine.messages import conflicts as conflict_codes
 from engine.messages import register_check as list_codes
 from engine.read import ReadArtefact
@@ -172,7 +171,6 @@ def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     if not listed:
         return
     step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
-    step1.release_moved(view.project_id, listed)
     set_questions(view.project_id, trigger_file=file_id)
     step1.record_progress(view.project_id)
 
@@ -244,17 +242,8 @@ def _propose_sheet(
     )
     if isinstance(answer, jev.Answer) and not sure and ask:
         ranked = answer.ranked()
-
-        def words(sheets: int) -> dict[str, Param]:
-            if sheets == 1:
-                return {**named(sheet), "sheets": 1}
-            return {"sheet": "", "named": "group", "sheets": sheets}
-
-        step1.ask_group(
+        step1.ask_kind(
             project_id,
-            "low_confidence",
-            said.WHICH_KIND,
-            words,
             identity=kind_group(sheet.discipline, ranked),
             proposal_id=proposal_id,
             discipline=sheet.discipline,

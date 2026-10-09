@@ -49,7 +49,7 @@ import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
@@ -59,7 +59,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from engine.check import register
-from engine.messages import Message, MessageCode, Param
+from engine.messages import Message
 from engine.messages import register_check as list_codes
 from engine.recognise import views as view_finder
 from engine.recognise.conflicts import Numbers, recognisers
@@ -369,9 +369,15 @@ def _proposals_of(project_id: uuid.UUID, among: Q | None = None) -> list[Proposa
 
 def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     """One per printed sheet in the sheet list, by Discipline in the Market's order (a sheet of no
-    Discipline last), then number in natural order (S-2 before S-10), unnumbered last."""
+    Discipline last), then number in natural order (S-2 before S-10), unnumbered last. An undecided
+    sheet's `kind` is the one its kind Question was answered with while it still stands in that
+    Question's Discipline (`_kinds_answered`, read as its confirmation reads it; never stored on the
+    sheet: S18-Q1), else the kind as read, else Jev's pick."""
     sheets = _sheets(project_id)
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    answered = _kinds_answered(
+        project_id, [p.id for s in sheets if not s.decision and (p := by_sheet.get(s.id)) is not None]
+    )
     drawing_set = drawings.set_of(project_id)
     names = {f.id: f.name for f in drawings.files(drawing_set.id)} if drawing_set else {}
     viewed = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
@@ -387,7 +393,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     order = markets.of_developer(_tenant()).date_order
     return [
         replace(
-            _proposal_view(s, by_sheet.get(s.id), viewed.get(s.id, []), names, who, order),
+            _proposal_view(s, by_sheet.get(s.id), viewed.get(s.id, []), names, who, order, answered),
             agrees=s.id in agreeing,
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
@@ -466,6 +472,7 @@ def _proposal_view(
     names: Mapping[uuid.UUID, str],
     who: Mapping[uuid.UUID, tuple[str, datetime, str]],
     date_order: str,
+    answered: Mapping[uuid.UUID, str],
 ) -> ProposalView:
     found = who.get(sheet.confirmation_id) if sheet.confirmation_id else None
     by, at, act = found if found else (None, None, None)
@@ -481,7 +488,9 @@ def _proposal_view(
         discipline=sheet.discipline,
         file_id=sheet.file_id,
         file_name=names.get(sheet.file_id, ""),
-        kind=sheet.kind or (pick or {}).get("choice"),
+        kind=(answered.get(proposal.id) if proposal else None)
+        or sheet.kind
+        or (pick or {}).get("choice"),
         jev_pick=pick,
         held=sheet.held,
         proposed_exclusion=sheet.proposed_exclusion,
@@ -567,7 +576,7 @@ def _question_view_of(q: Question, held: list[uuid.UUID], raised: int | None) ->
         kind=q.kind,
         status=q.status,
         code=q.message_code,
-        params=_worded(q.project_id, q),
+        params=_worded(q.project_id, q, held),
         options=list(q.options),
         discipline=q.discipline or None,
         subject_id=q.subject_id,
@@ -582,13 +591,33 @@ def _question_view_of(q: Question, held: list[uuid.UUID], raised: int | None) ->
     )
 
 
-def _worded(project_id: uuid.UUID, q: Question) -> dict[str, Any]:
-    """A Question's words' values as listed: an open kind Question of a group counts, as it is now,
-    the sheets its answer would leave open (`waiting`: review 2, l3-f2)."""
-    params = dict(q.params)
-    if q.kind == QuestionKind.LOW_CONFIDENCE and params.get("named") == "group":
-        params["waiting"] = kind_waiting(project_id, q) if q.status == QuestionStatus.OPEN else 0
-    return params
+def _worded(project_id: uuid.UUID, q: Question, held: Sequence[uuid.UUID]) -> dict[str, Any]:
+    """A Question's words' values as listed. A kind Question's (S15-Q1's groups) are read from the
+    sheets it holds now (`held`, the links standing: S18-Q1's re-read rule, never stored): one names
+    its sheet, more count them, and an open one counts the sheets its answer would leave open
+    (`waiting`: review 2, l3-f2). So its words never say a number its card does not list."""
+    if not _grouped(q):
+        return dict(q.params)
+    if len(held) == 1:
+        sheet_id = Proposal.objects.filter(project_id=project_id, id=held[0]).values_list(
+            "subject_id", flat=True
+        )
+        return kind_words([_sheet(s) for s in sheet_id])
+    waiting = len(_kind_split(project_id, q, held)[1]) if q.status == QuestionStatus.OPEN else 0
+    return {**kind_words([None] * len(held)), "waiting": waiting}
+
+
+def kind_words(sheets: Sequence[drawings.SheetView | None]) -> dict[str, Any]:
+    """A kind Question's words for the sheets it holds (`takeoff.proposals.which_kind`): one sheet by
+    its number or title; more as a group, counted."""
+    if len(sheets) == 1:
+        return {**_named(sheets[0]), "sheets": 1}
+    return {"sheet": "", "named": "group", "sheets": len(sheets)}
+
+
+def _grouped(q: Question) -> bool:
+    """Whether the Question is a kind Question (`ask_kind`'s): its words are read from what it holds."""
+    return q.kind == QuestionKind.LOW_CONFIDENCE and q.message_code == answer_codes.WHICH_KIND.code
 
 
 _QUEUE: dict[str, int] = {
@@ -608,6 +637,18 @@ def _held(project_id: uuid.UUID) -> dict[uuid.UUID, list[uuid.UUID]]:
         if (link.question_id, link.proposal_id) not in gone:
             held.setdefault(link.question_id, []).append(link.proposal_id)
     return held
+
+
+def _held_now(project_id: uuid.UUID, question: Question) -> list[uuid.UUID]:
+    """One Question's Proposals as `_held` reads them: in the order linked, but those it let go."""
+    gone = _let_go(project_id)
+    return [
+        proposal_id
+        for proposal_id in QuestionLink.objects.filter(project_id=project_id, question=question)
+        .order_by("id")
+        .values_list("proposal_id", flat=True)
+        if (question.id, proposal_id) not in gone
+    ]
 
 
 def _let_go(project_id: uuid.UUID) -> set[tuple[uuid.UUID, uuid.UUID]]:
@@ -635,13 +676,24 @@ def _asked(
     listed: set[uuid.UUID] | None = None,
 ) -> list[Question]:
     """The Questions still asked: one holding only sheets no longer in the sheet list (their file
-    cancelled, or set aside) is not, so it neither shows nor holds its Discipline open."""
+    cancelled, or set aside) is not, so it neither shows nor holds its Discipline open; nor is a kind
+    Question that let go of every sheet it held (each now of another Discipline: `_let_go`). That
+    one is read again, never withdrawn, so it asks again once a sheet's file comes back (S18-Q1)."""
+    found = list(found)
     on_list = listed if listed is not None else {s.id for s in _facts(project_id)}
     sheet_of = dict(
         Proposal.objects.filter(project_id=project_id, step=SHEETS).values_list("id", "subject_id")
     )
+    linked = set(
+        QuestionLink.objects.filter(
+            project_id=project_id, question_id__in=[q.id for q in found]
+        ).values_list("question_id", flat=True)
+    )
     return [
-        q for q in found if not held.get(q.id) or any(sheet_of.get(p) in on_list for p in held[q.id])
+        q
+        for q in found
+        if (not held.get(q.id) and q.id not in linked)
+        or any(sheet_of.get(p) in on_list for p in held.get(q.id, ()))
     ]
 
 
@@ -2256,33 +2308,29 @@ def raise_question(
     return row.id
 
 
-def ask_group(
+def ask_kind(
     project_id: uuid.UUID,
-    kind: QuestionKind | str,
-    code: MessageCode,
-    words: Callable[[int], Mapping[str, Param]],
     *,
     identity: Sequence[str],
     proposal_id: uuid.UUID,
     discipline: str | None = None,
     options: Sequence[Any] = (),
 ) -> uuid.UUID:
-    """A Question that groups the Proposals it asks about (S15-Q1: "a Question groups the Sheets it
-    asks about"), one per `identity` (what the group shares: never a sheet's name, so a sheet named
-    before or after the others joins the same Question), holding `proposal_id`. The Question already
-    holding the Proposal is the one asked (a read again asks nothing new); else the group's open one,
-    which it joins; else a new one (the group's identity once more, after its last was answered or
-    withdrawn: a sheet that came later is asked, never decided by an answer given before it). An open
-    group's words are `code` with the params `words(n)` gives, `n` the Proposals it holds, so they
-    count them as they join. Its
-    subject is none: it is about all its sheets.
+    """A kind Question (`low_confidence`, `takeoff.proposals.which_kind`) that groups the Proposals it
+    asks about (S15-Q1: "a Question groups the Sheets it asks about"), one per `identity` (what the
+    group shares: never a sheet's name, so a sheet named before or after the others joins the same
+    Question), holding `proposal_id`. The Question already holding the Proposal is the one asked (a
+    read again asks nothing new); else the group's open one, which it joins; else a new one (the
+    group's identity once more, after its last was answered or withdrawn: a sheet that came later is
+    asked, never decided by an answer given before it). Its subject is none: it is about all its
+    sheets. What it holds and its words are read, never stored (S18-Q1's re-read rule: `_held`,
+    `_worded`): the params kept are its first sheet's, for the record.
 
     Two read jobs asking one group take turns (a transaction lock on the group's identity), and the
     group's Questions are locked while it is chosen, so an answer given meanwhile waits or comes
-    first: a sheet never joins a Question answered without it, and the count is never stale (the
-    refuter's case)."""
+    first: a sheet never joins a Question answered without it (the refuter's case)."""
     projects.get(project_id)
-    chosen = QuestionKind(kind)
+    chosen = QuestionKind.LOW_CONFIDENCE
     base = hashlib.sha256(json.dumps([chosen, "group", *identity], sort_keys=True).encode()).hexdigest()[
         :_GROUP_KEY
     ]
@@ -2292,21 +2340,18 @@ def ask_group(
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
                 [f"takeoff.question_group:{project_id}:{base}"],
             )
-        return _join_group(
-            project_id, chosen, base, lambda n: code(**words(n)), proposal_id, discipline, options
-        )
+        return _join_group(project_id, chosen, base, proposal_id, discipline, options)
 
 
 def _join_group(
     project_id: uuid.UUID,
     chosen: QuestionKind,
     base: str,
-    words: Callable[[int], Message],
     proposal_id: uuid.UUID,
     discipline: str | None,
     options: Sequence[Any],
 ) -> uuid.UUID:
-    """`ask_group`'s choice, under its lock."""
+    """`ask_kind`'s choice, under its lock."""
     tenant = _tenant()
     asked = list(
         Question.objects.select_for_update()
@@ -2323,7 +2368,7 @@ def _join_group(
         (q for q in asked if q.status == QuestionStatus.OPEN), None
     )
     if row is None:
-        message = words(1)
+        message = answer_codes.WHICH_KIND(**kind_words([_sheet(proposal.subject_id)]))
         row, _made = Question.objects.get_or_create(
             tenant_id=tenant,
             project_id=project_id,
@@ -2341,11 +2386,6 @@ def _join_group(
     QuestionLink.objects.get_or_create(
         tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
     )
-    if row.status == QuestionStatus.OPEN:
-        message = words(QuestionLink.objects.filter(question=row).count())
-        if row.params != message["params"]:
-            row.params = dict(message["params"])
-            row.save(update_fields=["params"])
     return row.id
 
 
@@ -2489,7 +2529,9 @@ def answer(
     open, ask the consultant" keeps it open. An option the Question does not offer is refused (400),
     and one already answered or withdrawn (409); nothing changes. `seen`: the Proposals the QS saw it
     hold; a kind Question (which grows while open: S15-Q1's groups) holding others now is refused
-    (409, `group_changed`), so an answer never confirms, for good, a sheet the QS did not see."""
+    (409, `group_changed`, counting the sheets it holds now), so an answer never confirms, for good,
+    a sheet the QS did not see. A kind Question that let go of every sheet (`_asked`) is no longer
+    asked (409)."""
     auth.require(acts.CONFIRM, project_id)
     projects.get(project_id)
     read_again = None
@@ -2503,6 +2545,9 @@ def answer(
             raise auth.NotFound
         if row.status != QuestionStatus.OPEN and not _withdrawn_by_standing_exclusion(row):
             raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
+        held = _held_now(project_id, row)
+        if _grouped(row) and not held:
+            raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
         offered = [o.get("key") for o in row.options if isinstance(o, dict)]
         if not isinstance(option, str) or option not in offered:
             raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
@@ -2515,13 +2560,7 @@ def answer(
             row.save(update_fields=["answer"])
             _after_act(project_id)
             return Answered(_question_view(project_id, row.id), None)
-        held = list(
-            QuestionLink.objects.filter(project_id=project_id, question=row)
-            .order_by("id")
-            .values_list("proposal_id", flat=True)
-        )
-        standing = {p for p in held if (row.id, p) not in _let_go(project_id)}
-        if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != standing:
+        if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
             raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
         read_again = _apply(project_id, row, option, words, held, actor_name)
         corrected = (
@@ -2572,15 +2611,7 @@ def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionVie
     projects.get(project_id)
     of_step = Question.objects.filter(project_id=project_id, step=SHEETS)
     q = of_step.filter(id=question_id).first()
-    held = (
-        list(
-            QuestionLink.objects.filter(project_id=project_id, question_id=question_id)
-            .order_by("id")
-            .values_list("proposal_id", flat=True)
-        )
-        if q is not None
-        else []
-    )
+    held = _held_now(project_id, q) if q is not None else []
     if q is None or not _asked(project_id, [q], {q.id: held}):
         return next(q for q in questions(project_id) if q.id == question_id)  # as it always was
     before = Q(created_at__lt=q.created_at) | Q(created_at=q.created_at, id__lt=q.id)
@@ -2634,28 +2665,26 @@ def _answer_kind(
     *,
     question: Question,
 ) -> None:
-    """A kind Question's answer: every sheet it holds that is ready (`_kind_split`) confirmed with the
-    kind in one act (S15-Q1; each sheet's `decided_with` counts them). A sheet another open Question
-    holds (its number, its Discipline, a conflict: review 2, l2-f1) is not confirmed: it keeps the
-    kind, which its confirmation takes once that Question is answered (`_kinds_answered`), as bulk
-    confirm's `question_first` would hold it. A sheet already decided is not decided again (one left
-    out stays out). A sheet now of another Discipline is let go (`_release`): the kind asked is not
-    its Discipline's, so the answer never reaches it (review 2, l1-f1)."""
-    ready, waiting, moved = _kind_split(project_id, question, held)
-    _release(project_id, question, moved)
+    """A kind Question's answer, over the sheets it holds now (`_held_now`: a sheet now of another
+    Discipline is let go, so the answer never reaches it; review 2, l1-f1): every one that is ready
+    (`_kind_split`) confirmed with the kind in one act (S15-Q1; each sheet's `decided_with` counts
+    them). A sheet another open Question holds (its number, its Discipline, a conflict: review 2,
+    l2-f1) is not confirmed, as bulk confirm's `question_first` would hold it, and nothing is written
+    on it: its confirmation reads the kind from this answer once that Question is answered, while it
+    is still of this Question's Discipline (`_kinds_answered`; review 3, l1-f1). A sheet already
+    decided is not decided again (one left out stays out)."""
+    ready, _waiting = _kind_split(project_id, question, held)
     if ready:
         _confirm(project_id, ready, kind=option, actor_name=actor_name, answering=True)
-    for proposal in waiting:
-        drawings.record_kind(proposal.subject_id, option)
 
 
 def _kind_split(
     project_id: uuid.UUID, question: Question, held: Sequence[uuid.UUID]
-) -> tuple[list[uuid.UUID], list[Proposal], list[uuid.UUID]]:
-    """What a kind Question's answer would do with the Proposals it holds, in order: those it would
-    confirm; those it leaves open because another open Question holds them (by a link or by its
-    subject; the two drawing lists' Question, which holds a Discipline, aside); and those now of
-    another Discipline than the Question's. A decided sheet is in none."""
+) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
+    """What a kind Question's answer would do with the Proposals it holds (`_held_now`), in order:
+    those it would confirm; and those it leaves open because another open Question holds them (by a
+    link or by its subject; the two drawing lists' Question, which holds a Discipline, aside). A
+    decided sheet is in neither."""
     facts = {s.id: s for s in _facts(project_id)}
     proposals_held = {p.id: p for p in Proposal.objects.filter(project_id=project_id, id__in=held)}
     others = Question.objects.filter(
@@ -2669,81 +2698,17 @@ def _kind_split(
     subjects = {p.subject_id for p in proposals_held.values()}
     asked = set(others.filter(subject_id__in=list(subjects)).values_list("subject_id", flat=True))
     ready: list[uuid.UUID] = []
-    waiting: list[Proposal] = []
-    moved: list[uuid.UUID] = []
+    waiting: list[uuid.UUID] = []
     for i in held:
         proposal = proposals_held.get(i)
         sheet = facts.get(proposal.subject_id) if proposal is not None else None
         if proposal is None or sheet is None or sheet.decision:
             continue
-        if question.discipline and sheet.discipline != question.discipline:
-            moved.append(i)
-        elif i in linked or proposal.subject_id in asked:
-            waiting.append(proposal)
+        if i in linked or proposal.subject_id in asked:
+            waiting.append(i)
         else:
             ready.append(i)
-    return ready, waiting, moved
-
-
-def _release(project_id: uuid.UUID, question: Question, proposal_ids: Sequence[uuid.UUID]) -> None:
-    """A kind Question let go of these Proposals (their sheets moved to another Discipline; `_let_go`
-    reads it so): an open one is worded again for what it still holds, and withdrawn when it holds
-    nothing."""
-    if not proposal_ids or question.status != QuestionStatus.OPEN:
-        return
-    let_go = set(proposal_ids)
-    gone = _let_go(project_id)
-    left = [
-        subject_id
-        for proposal_id, subject_id in QuestionLink.objects.filter(
-            project_id=project_id, question=question
-        )
-        .order_by("id")
-        .values_list("proposal_id", "proposal__subject_id")
-        if proposal_id not in let_go and (question.id, proposal_id) not in gone
-    ]
-    if not left:
-        question.status = QuestionStatus.WITHDRAWN
-        question.save(update_fields=["status"])
-        return
-    words: dict[str, Any] = (
-        {**_named(_sheet(left[0])), "sheets": 1}
-        if len(left) == 1
-        else {"sheet": "", "named": "group", "sheets": len(left)}
-    )
-    question.params = {**question.params, **words}
-    question.save(update_fields=["params"])
-
-
-def release_moved(project_id: uuid.UUID, sheets: Sequence[drawings.SheetView]) -> None:
-    """After the QS changed these sheets' Discipline (their file's): each undecided one is let go of
-    the kind Questions of another Discipline that hold it (`_release`; review 2, l1-f1)."""
-    by_sheet = {s.id: s for s in sheets if not s.decision}
-    if not by_sheet:
-        return
-    links = QuestionLink.objects.filter(
-        project_id=project_id,
-        question__kind=QuestionKind.LOW_CONFIDENCE,
-        proposal__subject_id__in=list(by_sheet),
-    ).select_related("question", "proposal")
-    moved: dict[uuid.UUID, tuple[Question, list[uuid.UUID]]] = {}
-    for link in links:
-        sheet = by_sheet[link.proposal.subject_id]
-        if link.question.discipline and sheet.discipline != link.question.discipline:
-            moved.setdefault(link.question_id, (link.question, []))[1].append(link.proposal_id)
-    for question, proposal_ids in moved.values():
-        _release(project_id, question, proposal_ids)
-
-
-def kind_waiting(project_id: uuid.UUID, question: Question) -> int:
-    """How many of a kind Question's sheets its answer would leave open (`_kind_split`)."""
-    held = list(
-        QuestionLink.objects.filter(project_id=project_id, question=question).values_list(
-            "proposal_id", flat=True
-        )
-    )
-    _ready, waiting, _moved = _kind_split(project_id, question, held)
-    return len(waiting)
+    return ready, waiting
 
 
 def _newest(proposal: ProposalView) -> tuple[Any, ...]:
