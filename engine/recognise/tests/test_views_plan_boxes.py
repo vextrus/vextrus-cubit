@@ -10,6 +10,8 @@ from engine.recognise import sheets, views
 from engine.recognise.tests.drawing import DEFAULT, Sheets, frame_block, value_at
 from engine.recognise.tests.test_views import CONVENTIONS, drawn, grid, near, one_sheet
 from engine.recognise.types import ViewKind
+from engine.recognise.views import paper as on_paper
+from engine.recognise.views.segment import pieces as pieces_part
 
 
 def test_a_line_running_off_the_sheet_is_no_part_of_a_plan() -> None:
@@ -128,8 +130,8 @@ def test_a_plan_grows_along_at_most_its_longest_grid_lines_per_round(
 ) -> None:
     """A hostile sheet may rule any number of long lines across a plan: a round weighs only the
     longest `MAX_REACH_LINES`, and there are at most `MAX_REACH_ROUNDS` rounds."""
-    monkeypatch.setattr(views, "MAX_REACH_LINES", 2)
-    monkeypatch.setattr(views, "MAX_REACH_ROUNDS", 1)
+    monkeypatch.setattr(pieces_part, "MAX_REACH_LINES", 2)
+    monkeypatch.setattr(pieces_part, "MAX_REACH_ROUNDS", 1)
     d = Sheets()
     grid(d, (100, 250, 500, 500))
     d.text("FIRST FLOOR PLAN", (100, 238, 0.0), height=6.0)
@@ -204,12 +206,12 @@ def test_a_diagonal_line_off_the_sheet_is_judged_as_drawn_beside_rules_in_the_ti
 def test_a_papers_lengths_are_one_per_segment() -> None:
     segments = np.array([[1.0, 1.0, 2.0, 2.0], [3.0, 3.0, 4.0, 4.0]])
     with pytest.raises(ValueError, match="one per segment"):
-        views._Paper((0.0, 0.0, 10.0, 10.0), segments, [], lengths=np.array([1.0]))
-    paper = views._Paper((0.0, 0.0, 10.0, 10.0), segments, [], lengths=np.array([1.0, 2.0]))
+        on_paper._Paper((0.0, 0.0, 10.0, 10.0), segments, [], lengths=np.array([1.0]))
+    paper = on_paper._Paper((0.0, 0.0, 10.0, 10.0), segments, [], lengths=np.array([1.0, 2.0]))
     with pytest.raises(ValueError, match="one per segment"):
         replace(paper, segments=segments[:1])
     with pytest.raises(ValueError, match="one per segment"):
-        views._off_paper(segments, (0.0, 0.0, 10.0, 10.0), np.array([1.0]))
+        pieces_part._off_paper(segments, (0.0, 0.0, 10.0, 10.0), np.array([1.0]))
 
 
 def test_a_layouts_line_cut_by_its_viewport_is_measured_on_paper_from_the_viewport() -> None:

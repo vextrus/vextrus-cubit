@@ -124,7 +124,9 @@ def test_a_reviewed_green_pr_lands_in_order_with_no_privilege(
     passed(store)
     gh = FakeGh()
     assert run_land(gh, store) == 0
-    assert gh.calls == ["mark_ready", "update_branch", "wait_ci", "ready", "merge", "pull_main"]
+    # S17-F7 (the owner's ruling, 7 Oct 2026): the head lands as it stands; only `land update` updates.
+    assert "update_branch" not in gh.calls, "the lander brought main in before landing"
+    assert gh.calls == ["mark_ready", "wait_ci", "ready", "merge", "pull_main"]
     assert not any(argv and argv[0].split()[0].endswith("sudo") for argv in commands)
 
 

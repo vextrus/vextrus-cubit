@@ -33,7 +33,9 @@ should remove as much as it adds."
 6. **Build each ticket** (the review loop below): acceptance tests first, then `/implement`, `/tdd`,
    the fast check (the module's tests, mypy, `lint-imports`), then a PR that closes the issue. The PR body **leads with what
    was not verified**, then what was verified and how.
-7. **Gate each PR** (ADR 0025's ruleset: a PR, CI green, up to date with `main`):
+7. **Gate each PR** (ADR 0025's ruleset: a PR and CI green; since 7 Oct 2026 a branch need not be up to date
+   with `main`: the lander lands a PR as it stands, `land update` is the only update, and a conflicting PR is
+   refused, naming it):
    - **engine PRs** (by path: `engine/**` and the reading modules, the list in the milestone's plan)
      carry the `real-drawings` status, which the orchestrator starts with one command and accepts
      under the accept rule (ADR 0041): the pipeline runs as the owner's user inside bwrap (no network,
