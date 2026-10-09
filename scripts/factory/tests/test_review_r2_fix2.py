@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from scripts import ledger
 from scripts.factory import review, review_cloud
 from scripts.factory.tests.test_review_r2_fix1 import A_NONCE, PR, Cloud, git, repo
 
@@ -180,6 +181,7 @@ def test_two_claims_on_one_line_each_keep_the_refuters_verdict(
         reply = [judged(first, "REFUTED", with_id=with_id), judged(second, "CONFIRMED", with_id=with_id)]
         return {"structured_output": {"findings": reply}}
 
+    monkeypatch.setattr(ledger, "strict_paths", lambda: None)  # the 50 bar on every path (S17-F6)
     monkeypatch.setattr(review, "run_lens", run_lens)
     monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)  # matching only, no tree
     review.refute(run, tmp_path, tmp_path, tmp_path)

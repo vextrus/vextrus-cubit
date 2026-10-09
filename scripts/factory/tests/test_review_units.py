@@ -14,6 +14,8 @@ import pytest
 
 from scripts.factory import review
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 H = "a" * 40
 HASH = "3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7"
 

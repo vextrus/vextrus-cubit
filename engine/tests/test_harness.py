@@ -54,6 +54,8 @@ from engine.recognise.types import (
     ViewKind,
 )
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 MiB = 1 << 20
 
 # The fake stages ------------------------------------------------------------------------------------

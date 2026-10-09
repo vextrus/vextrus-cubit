@@ -14,6 +14,8 @@ from scripts import ledger
 from scripts.factory import review
 from scripts.tests.acceptance.ts14r2._world import PASSING, SMALL, World, item, review_reply
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
 OTHER = f"13-{'1' * 40}.json"
 REPRO = "review_attacks/lens-b/test_count_passes.py"
