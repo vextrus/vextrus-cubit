@@ -443,8 +443,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `engine/**` changes must run them. No check yet: #616 (verify runs `needs_toolchain` tests for engine paths
   locally).
 - **Concurrent verifies in different worktrees collide** on the vitest browser port and on the test database's
-  name, so a green tree reads red under contention (Q3's re-verify). No check yet: #617 (a port and a
-  database name per worktree).
+  name, so a green tree reads red under contention (Q3's re-verify). Check: `scripts/tests/acceptance/ts18t617`
+  (verify's plan gives each worktree's run its own vitest port block and its own database name).
 - **Enumerating the dangerous side of a list never converges** (F6's strict review paths: three rounds, a missed
   wall each round). List the safe side instead: strict by default, a short `[lax]` allowlist. No check yet: #615
   (its acceptance, `scripts/tests/acceptance/ts17f6`, becomes the check when it lands).

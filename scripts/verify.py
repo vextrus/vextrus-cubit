@@ -25,11 +25,13 @@ ends the line).
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
+import hashlib
 import json
 import os
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -123,6 +125,38 @@ def pytest_checks(targets: list[str], workers: int) -> list[Check]:
     return checks
 
 
+BROWSER_PORTS = 3  # one per browser project of web/vite.config.ts
+
+
+def _digest(root: Path) -> str:
+    return hashlib.sha256(str(root.resolve()).encode()).hexdigest()
+
+
+def worktree_db_name(root: Path) -> str:
+    """A database base name: the checkout folder's name and a hash of its whole resolved path."""
+    slug = re.sub(r"[^a-z0-9]+", "_", root.resolve().name.lower()).strip("_")[:20]
+    return f"vextrus_{slug}_{_digest(root)[:10]}"
+
+
+def _port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        try:
+            probe.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
+
+
+def vitest_port(root: Path) -> int:
+    """The first of a block of three free ports, begun at a slot the root's hash picks."""
+    start = (int(_digest(root)[:8], 16) % 10000) * BROWSER_PORTS
+    for step in range(200):
+        first = 20000 + (start + step * BROWSER_PORTS) % 30000
+        if all(_port_free(first + k) for k in range(BROWSER_PORTS)):
+            return first
+    return 20000 + start
+
+
 def plan_with_notes(
     paths: Iterable[str], *, have: Have = _have, root: Path | None = None
 ) -> tuple[list[Check], list[str]]:
@@ -130,7 +164,8 @@ def plan_with_notes(
     the checkout's root (default: the current folder): the schema path is absolute because `api:types`
     runs from `web/`."""
     paths = sorted(set(paths))
-    schema = str((Path.cwd() if root is None else root).resolve() / WEB_SCHEMA)
+    root = Path.cwd() if root is None else root
+    schema = str(root.resolve() / WEB_SCHEMA)
     checks: list[Check] = []
     notes: list[str] = []
     python = [p for p in paths if PYTHON.search(p)]
@@ -139,7 +174,10 @@ def plan_with_notes(
         if "." in targets:
             targets = []
         checks += [
-            *pytest_checks(targets, pytest_workers()),
+            *(
+                Check(c.name, c.argv, {**c.env, "VEXTRUS_DB_NAME": worktree_db_name(root)})
+                for c in pytest_checks(targets, pytest_workers())
+            ),
             Check("ruff", ("uv", "run", "ruff", "check", ".")),
             Check("ruff-format", ("uv", "run", "ruff", "format", "--check", ".")),
             Check("mypy", ("uv", "run", "mypy")),
@@ -160,7 +198,11 @@ def plan_with_notes(
             Check("typecheck", ("npm", "--prefix", "web", "run", "typecheck")),
             Check("lint", ("npm", "--prefix", "web", "run", "lint")),
             Check("messages-check", ("npm", "--prefix", "web", "run", "messages:check")),
-            Check("web-test", ("npm", "--prefix", "web", "test")),
+            Check(
+                "web-test",
+                ("npm", "--prefix", "web", "test"),
+                {"VEXTRUS_VITEST_PORT": str(vitest_port(root))},
+            ),
         ]
     if fixtures:
         # Reply fixtures against the exported schema (S17-F5); an acceptance-only change exports it too.
