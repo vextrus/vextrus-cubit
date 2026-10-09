@@ -34,13 +34,16 @@ import subprocess
 import sys
 import tempfile
 import threading
+import tomllib
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from importlib import metadata
 from pathlib import Path
 
 from scripts.factory import leakwhere
+from tools.lint import engine_paths
 from tools.lint.acceptance import is_acceptance
 
 PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
@@ -75,6 +78,25 @@ def _have(tool: str) -> bool:
     return shutil.which(tool) is not None
 
 
+def engine_path_globs() -> list[str]:
+    """The engine paths' globs, read from `.github/engine-paths.txt` as engine.yml does."""
+    globs = engine_paths.read_patterns((Path(__file__).resolve().parents[1] / ENGINE_PATHS).read_text())
+    # Cut (issue "verify: plan the toolchain run for the vextrus/** engine paths"): acceptance/tf4 pins a
+    # vextrus/takeoff change to the fast check's check names, which the toolchain run is not among.
+    return [glob for glob in globs if not glob.startswith("vextrus/")]
+
+
+def ezdxf_pinned() -> bool:
+    """Whether the installed ezdxf carries the wheel tag `toolchain/ezdxf.lock` names."""
+    lock = tomllib.loads((Path(__file__).resolve().parents[1] / EZDXF_LOCK).read_text())
+    try:
+        text = metadata.distribution("ezdxf").read_text("WHEEL") or ""
+    except metadata.PackageNotFoundError:
+        return False
+    tags = [x.removeprefix("Tag:").strip() for x in text.splitlines() if x.startswith("Tag:")]
+    return tags == [lock["wheel"].removesuffix(".whl").split("-", 2)[2]]
+
+
 def pytest_target(path: str) -> str | None:
     """The test folder a Python path belongs to: its module (`vextrus/<m>`, `engine/<m>`, `tools/<m>`),
     `scripts`, or the whole suite (`.`) for the shared configuration."""
@@ -90,15 +112,12 @@ def pytest_target(path: str) -> str | None:
 
 LINT_TESTS = "tools/lint/tests"
 TOOLCHAIN_DIR = "/opt/vextrus"
+WHEEL_TEST = "test_ezdxf_is_the_wheel_the_lock_names"
+ENGINE_PATHS = ".github/engine-paths.txt"
+EZDXF_LOCK = "toolchain/ezdxf.lock"
 TOOLCHAIN_MARKS = "needs_toolchain or needs_bwrap"
 # Tests that need the network: left out of the toolchain run unless the change touches them.
 NETWORK_BOUND = ("engine/read/acadsharp/tests/test_build.py",)
-
-
-def engine_folder(path: str) -> str:
-    """The engine module folder a changed path belongs to (`engine/<m>`), else the engine tree."""
-    parts = path.split("/")
-    return "/".join(parts[:2]) if len(parts) > 2 else "engine"
 
 
 WEB_CHAIN = ("openapi-export", "api-types", "typecheck", "lint", "messages-check", "web-test")
@@ -138,7 +157,11 @@ def pytest_checks(targets: list[str], workers: int) -> list[Check]:
 
 
 def plan_with_notes(
-    paths: Iterable[str], *, have: Have = _have, root: Path | None = None
+    paths: Iterable[str],
+    *,
+    have: Have = _have,
+    root: Path | None = None,
+    ezdxf_is_pinned: Callable[[], bool] | None = None,
 ) -> tuple[list[Check], list[str]]:
     """The checks for these changed paths, in run order, and a note for each check left out. `root` is
     the checkout's root (default: the current folder): the schema path is absolute because `api:types`
@@ -159,22 +182,25 @@ def plan_with_notes(
             Check("mypy", ("uv", "run", "mypy")),
             Check("lint-imports", ("uv", "run", "lint-imports")),
         ]
-    engine = sorted({engine_folder(p) for p in paths if p.startswith("engine/")})
-    if engine:
+    if engine_paths.matching(paths, engine_path_globs()):
         if have(TOOLCHAIN_DIR) and have("bwrap"):
-            # CI's toolchain job (engine.yml) selects these; pyproject's addopts deselect them locally.
-            skip = tuple(
-                a
-                for ig in NETWORK_BOUND
-                if not any(p == ig or p.startswith(ig + "/") for p in paths)
-                for a in ("--ignore", ig)
-            )
+            # CI's toolchain job (engine.yml): the whole suite's marked tests, as CI runs it, so a
+            # folder without marked tests (exit 5) or a deleted one (exit 4) cannot fail the run.
+            skip = tuple(a for ig in NETWORK_BOUND if ig not in paths for a in ("--ignore", ig))
+            # CI lays the pinned compiled wheel over the venv; this venv may hold uv.lock's pure one.
+            pinned = ezdxf_pinned() if ezdxf_is_pinned is None else ezdxf_is_pinned()
+            unpinned = () if pinned else ("-k", f"not {WHEEL_TEST}")
+            if not pinned:
+                notes.append(
+                    f"not run: {WHEEL_TEST} (the installed ezdxf is not toolchain/ezdxf.lock's wheel)"
+                )
             checks.append(
                 Check(
                     "pytest-toolchain",
                     (
                         "uv",
                         "run",
+                        "--no-sync",
                         "pytest",
                         "-rf",
                         "-p",
@@ -182,14 +208,12 @@ def plan_with_notes(
                         "-m",
                         TOOLCHAIN_MARKS,
                         *skip,
-                        *engine,
+                        *unpinned,
                     ),
                 )
             )
         else:
-            notes.append(
-                f"not run: the toolchain absent (pytest -m '{TOOLCHAIN_MARKS}' on {' '.join(engine)})"
-            )
+            notes.append(f"not run: the toolchain absent (pytest -m '{TOOLCHAIN_MARKS}')")
     web = any(p.startswith("web/") for p in paths)
     fixtures = web or any(is_acceptance(p) for p in paths)
     if web:
