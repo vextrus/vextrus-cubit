@@ -19,10 +19,10 @@ what the contract does not allow, is `failed`, and the stages that need it are s
   sheet_conventions)` (each sheet then stamped with the file's group), `register.find(artefact,
   sheets)` (given the finder's file budget, `budget=`, when its list carries one: 13's; its
   `report()` is the file's `sheet_report`), and per sheet `views.find(artefact, sheet,
-  view_conventions, sheet_conventions=sheet_conventions)` (the storey words the sheets were read with;
-  given one `ViewBudget(artefact)` for the file's sheets, `budget=`, when the
-  stage's module has one: 17's), `buffers.build(artefact, sheet)` and `raster.rasterise(buffers,
-  PX_PER_MM)`;
+  view_conventions, sheet_conventions=sheet_conventions)` (the storey words the sheets were read with,
+  given only to a `find` that takes them: `_takes`; given one `ViewBudget(artefact)` for the file's
+  sheets, `budget=`, when the stage's module has one: 17's), `buffers.build(artefact, sheet)` and
+  `raster.rasterise(buffers, PX_PER_MM)`;
 - PDF: `pdf.report(path)` and `pdf.page_text(path)` (a list of pages).
 
 Then across the set: `registration.match(pages, sheets, geometry, plots, disciplines)` (`geometry[i]` is
@@ -101,6 +101,7 @@ import contextlib
 import ctypes
 import hashlib
 import importlib
+import inspect
 import json
 import math
 import os
@@ -434,9 +435,12 @@ def _read_dwg(job: Mapping[str, Any], stages: Stages) -> dict[str, Any]:
         view_budget = getattr(
             importlib.import_module(stages.targets["views"].partition(":")[0]), "ViewBudget", None
         )
+        words = (
+            {"sheet_conventions": sheet_conventions} if _takes(find_views, "sheet_conventions") else {}
+        )
         if callable(view_budget):  # one for the file: its sheets spend its bounds together
             find_views = partial(_on_one_budget, find_views, view_budget, [])
-        find_views = partial(find_views, sheet_conventions=sheet_conventions)  # the storey words
+        find_views = partial(find_views, **words)  # the storey words, to a finder that reads them
         for j, sheet in enumerate(sheets or []):
             plot = (plotted[j],) if j in plotted else ()
             ok, result = stages.call("views", find_views, artefact, sheet, view_conventions, *plot)
@@ -470,14 +474,27 @@ def _on_one_budget(
     sheet: object,
     conventions: object,
     *plot: object,
-    sheet_conventions: object,
+    **words: object,
 ) -> Any:
     """The views stage's `find` on the file's one budget (`held`), made at the first call that reaches
     it: inside the stage's own call, so a budget that cannot be made fails the views stage alone, as a
     raise in `find` does, and the next sheet's call tries again."""
     if not held:
         held.append(make(artefact))
-    return find(artefact, sheet, conventions, *plot, budget=held[0], sheet_conventions=sheet_conventions)
+    return find(artefact, sheet, conventions, *plot, budget=held[0], **words)
+
+
+def _takes(find: Callable[..., Any], name: str) -> bool:
+    """Whether `find` takes the keyword `name` (or every keyword): a stage written before a keyword
+    was added to its contract (S15-E3's `sheet_conventions`) is called as its contract then stood."""
+    try:
+        params = inspect.signature(find).parameters.values()
+    except TypeError, ValueError:
+        return False
+    keyword = (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    return any(
+        p.kind == inspect.Parameter.VAR_KEYWORD or (p.name == name and p.kind in keyword) for p in params
+    )
 
 
 def _paper_of(result: object) -> tuple[float, float] | None:
