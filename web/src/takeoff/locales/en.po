@@ -41,6 +41,10 @@ msgstr "Leave out {name}"
 msgid "{count, plural, one {# sheet line found; other lines are ignored.} other {# sheet lines found; other lines are ignored.}}"
 msgstr "{count, plural, one {# sheet line found; other lines are ignored.} other {# sheet lines found; other lines are ignored.}}"
 
+#: src/takeoff/storeyTitles.tsx
+msgid "Answering records whether the titles or the plans are right; no sheet changes."
+msgstr "Answering records whether the titles or the plans are right; no sheet changes."
+
 #: src/takeoff/storeys.tsx
 msgctxt "storey"
 msgid "Lower ground"
@@ -82,6 +86,10 @@ msgstr "<0/><1>, {count} sheets</1>"
 #: src/takeoff/Bar.tsx
 msgid "By {name}, {date}."
 msgstr "By {name}, {date}."
+
+#: src/takeoff/storeyTitles.tsx
+msgid "Answering keeps this Question open; its sheets wait for the consultant."
+msgstr "Answering keeps this Question open; its sheets wait for the consultant."
 
 #: src/takeoff/SheetLook.tsx
 msgid "No Plot for this sheet: page {page} of {file} matches it, but its drawing could not be lined up with the sheet."
@@ -208,6 +216,10 @@ msgstr "Their Plot pages show a different number or title. Open each to compare 
 msgid "Left-out sheets stay in the count with their reason."
 msgstr "Left-out sheets stay in the count with their reason."
 
+#: src/takeoff/storeyTitles.tsx
+msgid "The plans are right: keep the storeys they name"
+msgstr "The plans are right: keep the storeys they name"
+
 #: src/takeoff/Bar.tsx
 msgid "You are reading this as the MD."
 msgstr "You are reading this as the MD."
@@ -227,6 +239,10 @@ msgstr "Paste the drawing list"
 #: src/takeoff/SheetList.tsx
 msgid "Proposal, one source"
 msgstr "Proposal, one source"
+
+#: src/takeoff/storeyTitles.tsx
+msgid "Answering records that the plans’ storeys are right. Vextrus keeps taking the storeys from the plans."
+msgstr "Answering records that the plans’ storeys are right. Vextrus keeps taking the storeys from the plans."
 
 #: src/takeoff/Bar.tsx
 msgid "Answer {tag}"
@@ -297,6 +313,10 @@ msgid "Number"
 msgstr "Number"
 
 #: src/takeoff/storeys.tsx
+msgid "as titled"
+msgstr "as titled"
+
+#: src/takeoff/storeys.tsx
 msgid "Basement {n}"
 msgstr "Basement {n}"
 
@@ -344,6 +364,10 @@ msgstr "Plot: {file} page {page}, registered to {residual} mm"
 #: src/takeoff/DrawingListDialog.tsx
 msgid "The drawing list, pasted or typed"
 msgstr "The drawing list, pasted or typed"
+
+#: src/takeoff/storeyTitles.tsx
+msgid "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
+msgstr "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
 
 #: src/takeoff/SheetList.tsx
 msgid "{start} and {tail}"
@@ -411,6 +435,10 @@ msgstr "The QS confirms the sheet list; every act shows who did it."
 msgid "{count, plural, one {# Question is open} other {# Questions are open}}"
 msgstr "{count, plural, one {# Question is open} other {# Questions are open}}"
 
+#: src/takeoff/storeyTitles.tsx
+msgid "Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}."
+msgstr "Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}."
+
 #: src/takeoff/Bar.tsx
 msgid "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
 msgstr "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
@@ -427,6 +455,10 @@ msgstr "Next open Question"
 msgctxt "storey"
 msgid "Plinth"
 msgstr "Plinth"
+
+#: src/takeoff/storeyTitles.tsx
+msgid "The titles are right: the plans name the wrong storeys"
+msgstr "The titles are right: the plans name the wrong storeys"
 
 #: src/takeoff/SheetList.tsx
 msgid "The pasted drawing list"
@@ -518,6 +550,10 @@ msgstr "State"
 msgid "A range such as 01–29, or the list as the consultant sent it"
 msgstr "A range such as 01–29, or the list as the consultant sent it"
 
+#: src/takeoff/storeyTitles.tsx
+msgid "{tag} answered. Recorded: the plans’ storeys stand."
+msgstr "{tag} answered. Recorded: the plans’ storeys stand."
+
 #: src/takeoff/Bar.tsx
 msgid "Cancel the exclusion"
 msgstr "Cancel the exclusion"
@@ -563,6 +599,10 @@ msgstr "Exclusion reasons"
 msgctxt "storey"
 msgid "Podium"
 msgstr "Podium"
+
+#: src/takeoff/storeyTitles.tsx
+msgid "Answering records that the titles are right. Vextrus still takes the storeys from the plans."
+msgstr "Answering records that the titles are right. Vextrus still takes the storeys from the plans."
 
 #: src/takeoff/storeys.tsx
 msgctxt "storey"

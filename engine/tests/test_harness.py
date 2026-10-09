@@ -216,11 +216,12 @@ FAKES = {
     """,
     "views.py": """
         from engine.recognise.types import (
-            Box, Exclusion, ViewCandidate, ViewConventions, ViewKind,
+            Box, Exclusion, SheetConventions, ViewCandidate, ViewConventions, ViewKind,
         )
 
-        def find(artefact, sheet, conventions):
+        def find(artefact, sheet, conventions, sheet_conventions=None):
             assert isinstance(conventions, ViewConventions)
+            assert isinstance(sheet_conventions, SheetConventions)  # the storey words (S15-E3)
             return [
                 ViewCandidate(
                     box=Box(0, 0, 100, 80), kind=ViewKind.PLAN, title="Ground floor column layout",
@@ -798,7 +799,7 @@ class ViewBudget:
 class Found(list):
     limits = None
 
-def find(artefact, sheet, conventions, budget=None):
+def find(artefact, sheet, conventions, budget=None, sheet_conventions=None):
     assert budget.artefact is artefact
     budget.sheets += 1
     found = Found()
@@ -825,7 +826,7 @@ class ViewBudget:
     def __init__(self, artefact):
         raise RuntimeError("no budget for this file")
 
-def find(artefact, sheet, conventions, budget=None):
+def find(artefact, sheet, conventions, budget=None, sheet_conventions=None):
     return []
 """
 

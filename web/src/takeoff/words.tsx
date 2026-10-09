@@ -6,6 +6,7 @@
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import type { Reason } from './model'
+import { STOREY_TITLE_OPTIONS } from './storeyTitles'
 
 /** Each Discipline's one name (m0-screens §1.1), until the Library's own names reach the web. */
 export const DISCIPLINE_NAMES: Readonly<Record<string, MessageDescriptor>> = {
@@ -92,6 +93,7 @@ export const QUESTION_KIND_BY_CODE: Readonly<Record<string, MessageDescriptor>> 
   'engine.register_check.gaps': msg`Gaps in the numbering`,
   'engine.register_check.not_found': msg`On the drawing list, in no file`,
   'engine.register_check.not_listed': msg`In a file, not on the drawing list`,
+  'engine.storey_titles.differs': msg`Sheet titles and plans name different storeys`,
   'takeoff.step1.no_number': msg`No number`,
   'takeoff.step1.which_kind': msg`Sheet kind unclear`,
   'takeoff.proposals.which_kind': msg`Sheet kind unclear`,
@@ -129,6 +131,7 @@ export const OPTION_NAMES: Readonly<Record<string, MessageDescriptor>> = {
   not_sent_yet: msg`Not sent yet: keep it in the count as missing and ask the consultant`,
   not_in_set: msg`Not part of this set: record it; it stays on the drawing list`,
   file_not_added: msg`It is in a file I haven’t added yet`,
+  ...STOREY_TITLE_OPTIONS,
   keep_open: msg`Keep open, ask the consultant`,
 }
 

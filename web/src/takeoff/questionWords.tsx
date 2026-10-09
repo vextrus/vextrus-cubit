@@ -13,6 +13,7 @@ import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { isolateLtr } from '@/ui/notation'
 import { SheetName } from './acts'
+import { STOREY_TITLES, StoreyTitlesAnswered, StoreyTitlesAnswering } from './storeyTitles'
 import type { ProposalOut } from './data'
 import { GAPS_CODE, gapsOf, isGaps, type QuestionEntry, type Step1Model } from './model'
 import { disciplineName } from './SheetList'
@@ -200,6 +201,10 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     }
     const sheet = <SheetLink sheet={first} onOpen={onOpen}><DrawingText kind="title" text={first.title} truncate={false} /></SheetLink>
     return <Trans>Trace: the title block of {sheet} (the number field is empty)</Trans>
+  }
+  if (q.code === STOREY_TITLES && entry.holds.length > 0) {
+    const sheets = <Joined items={entry.holds.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen} />)} />
+    return <Trans>Trace: the title blocks and plans of {sheets}</Trans>
   }
   if (q.kind === 'check') {
     const gaps = gapsOf(q)
@@ -469,6 +474,8 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
       )
     return named ? <Trans>Answering decides whether {file}’s sheets join the list.</Trans> : <Trans>Answering decides whether this file’s sheets join the list.</Trans>
   }
+  if (q.code === STOREY_TITLES && (!picked || picked === 'plans_right' || picked === 'title_right' || picked === 'keep_open'))
+    return <StoreyTitlesAnswering picked={picked} keys={keys} hint={hint} />
   if (q.kind === 'check' && picked) {
     // §6.7's drawing-list row: what each pick does to the entry (or the gap) and to its Discipline.
     const gaps = gapsOf(q)
@@ -726,6 +733,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     return option === 'includes_storey' ? <Trans>{tag} answered. Recorded: the range on {sheet} includes its top storey.</Trans> : <Trans>{tag} answered. Recorded: the top storey on {sheet} belongs to the next sheet’s range.</Trans>
   }
   if (q.code === 'takeoff.proposals.lists_disagree' && (option === 'use_read' || option === 'use_given')) return <ListUsed entry={entry} option={option} />
+  if (q.code === STOREY_TITLES && (option === 'plans_right' || option === 'title_right')) return <StoreyTitlesAnswered tag={tag} option={option} />
   if (q.kind === 'check') return <CheckAnswered entry={entry} option={option} />
   // A code or option this screen does not know yet: still not the bare tag (round 3's design gate).
   return <Trans>{tag} answered. Your answer is recorded.</Trans>

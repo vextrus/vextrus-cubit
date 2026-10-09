@@ -51,7 +51,7 @@ SHEETS = """
 VIEWS = """
     from engine.recognise.types import Box, ViewCandidate
 
-    def find(artefact, sheet, conventions):
+    def find(artefact, sheet, conventions, sheet_conventions=None):
         if sheet.number.value in ("S-07", "S-12"):
             return [
                 ViewCandidate(

@@ -84,7 +84,9 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   FLOOR SLAB"), none when either plan has no title (the words then name no plan: a title read on one
   sheet is never said of the other); the layer (`none` for none), how many views and how many sheets they
   lie on (`sheets`); and, for 21c, the Discipline's, the subject's and the first shared storey's keys (in
-  the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
+  the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title names a room or
+  a part, its floors only a bracketed line under it, #413) sits out: each bath's plan over "2nd to 6th
+  floor" is a different room's. A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
   layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
   floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with neither
   number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens
@@ -119,6 +121,7 @@ from engine.recognise.types import (
     SheetConventions,
     Sourced,
     StoreysMeaning,
+    StoreysSource,
     ViewCandidate,
     ViewKind,
     pattern_finditer,
@@ -936,6 +939,8 @@ def _same_storey(
         for view in views[i]:
             if view.kind != ViewKind.PLAN or view.subject is None:
                 continue
+            if view.storeys_source == StoreysSource.TITLE_LINE:
+                continue  # a part plan (a bath's): its floors from its title's line (17's storeys)
             kind = kind or sheet_class(sheet)
             layer = NO_LAYER if view.layer is None else str(view.layer)
             bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind)

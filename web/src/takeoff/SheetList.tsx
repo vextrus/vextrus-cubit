@@ -469,6 +469,16 @@ function Numbers({ numbers }: { numbers: readonly string[] }) {
   )
 }
 
+/**
+ * The storey keys the server read a row's titles to (`storeys_titled`): every sheet's that states
+ * storeys, together, or null when one of them read to none (its words are then shown as stated).
+ */
+function titledOf(sheets: readonly ProposalOut[]): string[] | null {
+  const stating = sheets.filter((p) => p.storeys_as_stated)
+  if (stating.length === 0 || stating.some((p) => !p.storeys_titled?.length)) return null
+  return [...new Set(stating.flatMap((p) => p.storeys_titled ?? []))]
+}
+
 function SheetRow({
   row,
   focused,
@@ -612,7 +622,11 @@ function SheetRow({
           <>
             <StoreyStrip slots={slots} views={row.sheets.flatMap((p) => p.views ?? [])} muted={excluded} />
             <span className="min-w-0 truncate">
-              <StoreysText views={row.sheets.flatMap((p) => p.views ?? [])} stated={[...new Set(row.sheets.map((p) => p.storeys_as_stated).filter(Boolean))].join(', ')} />
+              <StoreysText
+                views={row.sheets.flatMap((p) => p.views ?? [])}
+                stated={[...new Set(row.sheets.map((p) => p.storeys_as_stated).filter(Boolean))].join(', ')}
+                titled={titledOf(row.sheets)}
+              />
             </span>
           </>
         ) : null}

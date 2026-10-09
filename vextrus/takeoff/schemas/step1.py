@@ -30,6 +30,10 @@ class Step1ViewOut(Schema):
     storeys: list[str]
     storeys_as_stated: str
     storeys_meaning: str | None
+    storeys_source: str | None = None
+    """Where its storeys were read: null for its own title, "sheet_title" for its sheet's title (the
+    sheet's only plan, whose own title states none), "title_line" for a bracketed line under its title
+    (a part plan's floors)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -80,6 +84,9 @@ class Step1ProposalOut(_FromView):
     title_source: str | None
     storeys_as_stated: str
     """The storeys its title states, as drawn ("3RD, 5TH & 7TH FLOOR"); "" for none."""
+    storeys_titled: list[str] | None = None
+    """The storey keys those words read to (["floor_3", "floor_5"]; a range's symbolic end last:
+    ["floor_1", "top"]); null when it states none or they read to no storey."""
     layout: str | None
     """The layout it is laid out on, by name; null when laid out in the drawing."""
     plot_file: str | None

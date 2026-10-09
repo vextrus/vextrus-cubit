@@ -29,8 +29,11 @@ answered one is never touched); the conflicts are asked again after every act on
 (`set_conflicts`); two plans of one subject whose floor-to-floor ranges meet at a storey asked where
 the first ends (a `convention` Question: 19b raises no conflict for them); the drawing list read on
 a sheet (13's register) kept per Discipline, and 19b's register Check run (`CheckRun`, trigger
-`read`), each finding a `check` Question. A Question raised again is the one asked
-(`step1.raise_question`).
+`read`), each finding a `check` Question; 19b's storey-titles Check (a sheet's title storeys against
+its plans', `CheckRun` too), its findings asked as one `check` Question per Discipline holding that
+Discipline's undecided disagreeing sheets (none undecided: nothing asked), retired when none is found
+again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet). A Question
+raised again is the one asked (`step1.raise_question`).
 """
 
 import re
@@ -65,6 +68,7 @@ from engine.recognise.types import (
     SheetLocation,
     Sourced,
     StoreysMeaning,
+    StoreysSource,
     ValueSource,
     ViewCandidate,
     ViewKind,
@@ -74,6 +78,7 @@ from vextrus.platform.services import jev
 from vextrus.takeoff.messages import proposals as said
 from vextrus.takeoff.messages import step1 as step1_codes
 from vextrus.takeoff.services import step1
+from vextrus.takeoff.services.read_propose import storey_questions
 
 KEEP_OPEN = "keep_open"
 """Every Question's last option (m0-screens §5: "Keep open, ask the consultant")."""
@@ -84,6 +89,9 @@ MISSING_OPTIONS = ("no_number", "type_number", KEEP_OPEN)
 LISTS_OPTIONS = ("use_read", "use_given", KEEP_OPEN)
 BOUNDARY_OPTIONS = ("includes_storey", "excludes_storey", KEEP_OPEN)
 CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
+STOREY_TITLE_OPTIONS = ("plans_right", "title_right", KEEP_OPEN)
+"""The storey-titles Question's options: each is recorded only; no sheet or plan changes (no Step 1
+act edits a plan's storeys yet, story 28; S15-E3: no word promises one)."""
 
 
 def options(keys: Sequence[str]) -> list[dict[str, object]]:
@@ -456,12 +464,15 @@ def candidate(
 def view_candidate(view: drawings.ViewView) -> ViewCandidate:
     x0, y0, x1, y1 = (float(v) for v in view.box)
     meaning = StoreysMeaning(view.storeys_meaning) if view.storeys and view.storeys_meaning else None
+    sources = {str(s) for s in StoreysSource}
+    source = view.storeys_source if meaning and view.storeys_source in sources else None
     return ViewCandidate(
         box=Box(x0, y0, x1, y1),
         kind=ViewKind(view.kind),
         title=view.title or None,
         storeys=tuple(view.storeys) if meaning else (),
         storeys_meaning=meaning,
+        storeys_source=StoreysSource(source) if source else None,
         subject=view.subject,
         layer=Layer(view.layer) if view.layer in {str(v) for v in Layer} else None,
     )
@@ -501,9 +512,10 @@ def _read_lists(
 
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
-    """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before). No progress row is
-    written: the caller writes them once, after (the read job; a Step 1 act's `_after_act`)."""
+    """The set's conflicts, boundary storeys, register Check and storey-titles Check, over every sheet
+    in the sheet list (see the module); how many Questions they hold (asked now or before). No
+    progress row is written: the caller writes them once, after (the read job; a Step 1 act's
+    `_after_act`)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -521,6 +533,16 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     asked = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
     asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    asked += storey_questions.ask(
+        project_id,
+        listed,
+        sheets,
+        views,
+        proposal_of,
+        recognisers,
+        conventions,
+        options=options(STOREY_TITLE_OPTIONS),
+    )
     return asked
 
 

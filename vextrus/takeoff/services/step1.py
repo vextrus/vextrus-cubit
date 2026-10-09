@@ -155,6 +155,10 @@ class ProposalView:
     """Where its number was read: "title_block_attribute", "title_block_text", …; None for none."""
     title_source: str | None = None
     storeys_as_stated: str = ""
+    storeys_titled: tuple[str, ...] | None = None
+    """The storey keys its title's storey words read to (17's `views.titled_storeys`, with where a
+    range runs to), derived on the read and stored nowhere; None when it states none or they read to
+    no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
     plot_file: str | None = None
@@ -187,6 +191,9 @@ class SheetViewView:
     storeys: list[str]
     storeys_as_stated: str
     storeys_meaning: str | None
+    storeys_source: str | None
+    """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318),
+    "title_line" for a bracketed line under its title (S15-E3)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -405,16 +412,29 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
+    titled = _titled({s.storeys_as_stated for s in sheets})
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
             agrees=s.id in agreeing,
+            storeys_titled=titled.get(s.storeys_as_stated),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
             **asdict(grouped.get(s.id, groups.ALONE)),
         )
         for s, views in zip(sheets, viewed, strict=True)
     ]
+
+
+def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
+    """Each distinct storey wording a sheet's title states, read once to its storey keys
+    (`ProposalView.storeys_titled`)."""
+    conventions = sheet_conventions()
+    found: dict[str, tuple[str, ...] | None] = {}
+    for text in stated:
+        if text:
+            found[text] = view_finder.titled_storeys(text, conventions) or None
+    return found
 
 
 _TITLE_BLOCK = frozenset({ValueSource.TITLE_BLOCK_ATTRIBUTE, ValueSource.TITLE_BLOCK_TEXT})
@@ -580,6 +600,7 @@ def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
         storeys=list(view.storeys),
         storeys_as_stated=view.storeys_as_stated,
         storeys_meaning=view.storeys_meaning,
+        storeys_source=view.storeys_source,
         steps=list(view.steps),
         part=view.part,
         proposed_exclusion=view.proposed_exclusion,
@@ -2325,6 +2346,22 @@ def record_check_run(
     return run.id
 
 
+def answered_findings(project_id: uuid.UUID, check_key: str) -> dict[tuple[str, str], uuid.UUID]:
+    """The findings of a Check the QS has answered (each run's finding whose Question is answered),
+    by (subject id, params as JSON): the Question that answered each. The same finding found again
+    on the same subject is decided, and asked no more (#436's review round 1)."""
+    projects.get(project_id)
+    found: dict[tuple[str, str], uuid.UUID] = {}
+    rows = CheckFinding.objects.filter(
+        project_id=project_id, run__check_key=check_key, question__status=QuestionStatus.ANSWERED
+    ).values_list("subject_ids", "params", "question_id")
+    for subjects, params, question_id in rows:
+        said = json.dumps(params, sort_keys=True, default=str)
+        for subject in subjects or ():
+            found.setdefault((str(subject), said), question_id)
+    return found
+
+
 def _project_of(sheet: drawings.SheetView) -> uuid.UUID:
     return drawings.file(sheet.file_id).project_id
 
@@ -2406,14 +2443,24 @@ def raise_question(
     options: Sequence[Any] = (),
     check_code: str = "",
     blocks: Sequence[uuid.UUID] = (),
+    keyed_by_holds: bool = False,
+    keyed_by: Sequence[str] = (),
 ) -> uuid.UUID:
     """A Step 1 Question, as a code and its parameters, once per (kind, subject, evidence): the
-    same Question raised again is the one already asked. `blocks`: the Proposals it holds."""
+    same Question raised again is the one already asked. `blocks`: the Proposals it holds.
+    `keyed_by_holds`: the Proposals it holds are part of its evidence too (a Question over a group of
+    sheets, T-W318's per Discipline: the same words over other sheets are another Question, since a
+    Question's holds are only ever added to). `keyed_by`: more evidence that is no word of it (the
+    storey-titles findings with their plans' storeys, S15-E3: an answered Question is never the one a
+    changed disagreement is asked by)."""
     projects.get(project_id)
     chosen = QuestionKind(kind)
-    identity = json.dumps(
-        [chosen, str(subject_id or ""), message["code"], message["params"]], sort_keys=True, default=str
-    )
+    evidence: list[Any] = [chosen, str(subject_id or ""), message["code"], message["params"]]
+    if keyed_by_holds:
+        evidence.append(sorted(str(b) for b in blocks))
+    if keyed_by:
+        evidence.append(sorted(keyed_by))
+    identity = json.dumps(evidence, sort_keys=True, default=str)
     key = hashlib.sha256(identity.encode()).hexdigest()
     row, _made = Question.objects.get_or_create(
         tenant_id=_tenant(),

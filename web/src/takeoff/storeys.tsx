@@ -5,13 +5,14 @@
  * to high, before Step 3 the storeys the titles name (6.18 #9). A full slot is floor to floor; a bar at
  * its foot is members at that floor level.
  *
- *   <StoreysText views={sheet.views} />       // "3rd, 5th, 7th", amber "not stated", "—"
+ *   <StoreysText views={sheet.views} stated={sheet.storeys_as_stated} titled={sheet.storeys_titled} />
+ *     // "3rd, 5th, 7th"; amber "not stated"; muted "3rd as titled"; "—"
  *   <StoreyStrip slots={slots} views={sheet.views} />
  */
 import type { MessageDescriptor } from '@lingui/core'
 import { msg, selectOrdinal } from '@lingui/core/macro'
 import { Trans, useLingui } from '@lingui/react/macro'
-import { cn } from '@/ui'
+import { DrawingText, cn } from '@/ui'
 import type { ViewOut } from './data'
 
 const NAMED: Readonly<Record<string, { rank: number; words: MessageDescriptor; slot: string }>> = {
@@ -107,67 +108,32 @@ export function useStoreysWords() {
 const plans = (views: readonly ViewOut[] | undefined) => (views ?? []).filter((v) => v.kind === 'plan')
 
 /**
- * The storey keys a title's stated text names, when it names storeys only ("3RD, 5TH & 7TH FLOOR" →
- * floor_3, floor_5, floor_7; "2ND TO 4TH FLOOR" → floor_2…floor_4; "GROUND FLOOR" → ground); null for
- * anything else (a level, an abbreviation), which stays "not stated" beside its Question (6.8).
+ * The Storeys column's text (6.2, 6.8, Ruling 2 as T-W318 amended it): the plan views' storeys in
+ * words; amber "not stated" for a plan view with no storey keys (the engine decided: a view's own title
+ * states none and it took none from its sheet's title) or "typical (range from Step 3)". When every plan
+ * view's storeys were taken from its sheet's title (`storeys_source: 'sheet_title'`), they are muted and
+ * marked "as titled". A sheet with no plan view shows the storeys its title states (`titled`, the keys
+ * the server read them to; with none, the words verbatim), muted, "as titled", and asks nothing; with
+ * none stated, "—". The screen reads no storey from words: the engine is their one owner (S15-E3).
  */
-export function statedKeys(text: string): string[] | null {
-  const words = text.toLowerCase().match(/[a-z0-9]+/g) ?? []
-  const keys: string[] = []
-  /** The places in `keys` whose key ends a run ("… TO 5TH"). */
-  const joinedByRange = new Set<number>()
-  let range = false
-  for (const w of words) {
-    if (w === 'to') {
-      if (range || keys.length === 0) return null
-      range = true
-      continue
-    }
-    if (w === 'floor' || w === 'floors' || w === 'and' || w === 'level' || w === 'levels') continue
-    const ordinal = /^(\d+)(st|nd|rd|th)$/.exec(w)
-    const last = keys.at(-1)
-    // "2ND BASEMENT": the ordinal read before it names the basement's number.
-    if (w === 'basement' && last && /^floor_\d+$/.test(last)) {
-      // "2ND TO 5TH BASEMENT": a run that ends in a basement is not read here.
-      if (joinedByRange.has(keys.length - 1)) return null
-      keys[keys.length - 1] = `basement_${last.slice('floor_'.length)}`
-      continue
-    }
-    const named = w === 'ground' || w === 'mezzanine' || w === 'roof' || w === 'basement'
-    if (!ordinal && !named) return null
-    const key = ordinal ? `floor_${Number(ordinal[1])}` : w
-    if (range) {
-      range = false
-      const a = last ? /^floor_(\d+)$/.exec(last) : null
-      const b = /^floor_(\d+)$/.exec(key)
-      if (a && b && Number(b[1]) <= Number(a[1])) return null
-      if (a && b) for (let n = Number(a[1]) + 1; n < Number(b[1]); n++) keys.push(`floor_${n}`)
-      // "6TH FLOOR TO ROOF": the floors between come from Step 3, as 13's open run ("top") says.
-      else if (a && key === 'roof') keys.push('top')
-      // Any other named end ("GROUND TO 5TH"): the floors between are not known here.
-      else return null
-      joinedByRange.add(keys.length)
-    }
-    keys.push(key)
-  }
-  return range || keys.length === 0 ? null : keys
-}
-
-/**
- * The Storeys column's text (6.2): the storeys as stated and normalised, amber "not stated" or "typical
- * (range from Step 3)", "—" with no plan view. A plan view with no storey keys takes them from its
- * stated text (its own, else `stated`, the sheet's title's) where that names storeys only.
- */
-export function StoreysText({ views, stated = '' }: { views: readonly ViewOut[] | undefined; stated?: string }) {
+export function StoreysText({ views, stated = '', titled }: { views: readonly ViewOut[] | undefined; stated?: string; titled?: readonly string[] | null }) {
   const words = useStoreysWords()
   const found = plans(views)
-  if (found.length === 0) return <span className="text-muted-foreground">—</span>
+  if (found.length === 0) {
+    const text = stated.trim()
+    if (!text) return <span className="text-muted-foreground">—</span>
+    const keys = titled ?? []
+    const listed = keys.includes('typical') ? '' : words(keys)
+    return (
+      <span className="text-muted-foreground">
+        {listed || <DrawingText kind="title" text={text} truncate={false} />} <AsTitled />
+      </span>
+    )
+  }
   const keyed = (v: ViewOut) => v.storeys.some((k) => k !== 'not_stated')
-  const textOf = (v: ViewOut) => (keyed(v) ? '' : v.storeys_as_stated || stated)
-  // A view with no keys takes them from its stated text, where that names storeys only.
-  const keysOf = (v: ViewOut) => (keyed(v) ? v.storeys : (statedKeys(textOf(v)) ?? []))
+  const keysOf = (v: ViewOut) => (keyed(v) ? v.storeys : [])
   const keys = found.flatMap(keysOf)
-  if (keys.includes('typical') || found.some((v) => !keyed(v) && /\btypical\b/i.test(textOf(v))))
+  if (keys.includes('typical'))
     return (
       <span className="text-question">
         <Trans>typical (range from Step 3)</Trans>
@@ -184,15 +150,31 @@ export function StoreysText({ views, stated = '' }: { views: readonly ViewOut[] 
         <Trans>not stated</Trans>
       </span>
     )
-  return missing ? (
-    <>
-      {listed},{' '}
-      <span className="text-question">
-        <Trans>not stated</Trans>
-      </span>
-    </>
+  if (missing)
+    return (
+      <>
+        {listed},{' '}
+        <span className="text-question">
+          <Trans>not stated</Trans>
+        </span>
+      </>
+    )
+  const fromTitle = found.every((v) => v.storeys_source === 'sheet_title')
+  return fromTitle ? (
+    <span className="text-muted-foreground">
+      {listed} <AsTitled />
+    </span>
   ) : (
     <>{listed}</>
+  )
+}
+
+/** "as titled": storeys read from the sheet's title, not from a plan view's own (the owner's ruling on #318). */
+function AsTitled() {
+  return (
+    <span className="text-muted-foreground">
+      <Trans>as titled</Trans>
+    </span>
   )
 }
 
