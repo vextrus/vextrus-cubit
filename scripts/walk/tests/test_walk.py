@@ -20,6 +20,8 @@ import pytest
 
 from scripts.walk import issues, measures, ready, run, sanitize, schema, verdict
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 ROOT = Path(__file__).resolve().parents[3]
 SHA = "0123456789abcdef0123456789abcdef01234567"
 PLANTED = "SYNTHETIC-PLANTED-QQ"

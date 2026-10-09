@@ -88,6 +88,7 @@ markers = [
   "needs_toolchain: needs LibreDWG, .NET and the rest of the toolchain under /opt/vextrus (run by engine.yml)",
   "needs_bwrap: needs bubblewrap able to unshare the network (run by engine.yml)",
   "live: calls a live outside service (TypeSafe's Jev); never run in CI or the cloud by default",
+  "serial: sends signals or counts child processes; CI runs it in its own pytest without -n (ci.yml)",
 ]
 filterwarnings = ["error"]
 tmp_path_retention_policy = "failed"  # #243: only a failed test's tmp_path is kept

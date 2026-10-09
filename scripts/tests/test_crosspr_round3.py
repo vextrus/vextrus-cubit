@@ -17,6 +17,8 @@ from scripts.tests.test_crosspr_round1 import describe, run
 from scripts.tests.test_crosspr_round2 import TRUSTED, advance_main
 from scripts.verify import main as verify_main
 
+pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
+
 FAILING_TEST = "def test_already_red():\n    assert False\n"
 RATE_TEST = "import calc\n\n\ndef test_rate_is_two():\n    assert calc.rate() == 2\n"
 WITH_DOUBLE = CALC + "\n\ndef double(n):\n    return 2 * n\n"

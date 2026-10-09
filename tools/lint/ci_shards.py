@@ -12,6 +12,7 @@ only.
     python -m tools.lint.ci_shards args <name>      # the shard's pytest arguments, one line
 """
 
+import ast
 import json
 import re
 import shlex
@@ -251,7 +252,119 @@ def workflow_problems(root: Path) -> list[str]:
             found.append(
                 f"{CI}: {lint!r} runs in {len(running)} jobs ({', '.join(running)}), not exactly one"
             )
-    return found + node_problems(root, text)
+    return found + serial_problems(root, text) + node_problems(root, text)
+
+
+# --- serial tests (signals and process groups fail under xdist) -----------------------------------
+
+SENDS_SIGNAL = re.compile(
+    r"\bos\.kill(?:pg)?\(|\bsignal\.(?:signal|raise_signal|pthread_kill|pthread_sigmask|sigpending)\("
+    r"|\bsend_signal\(|\bgetpgid\(|\bstart_new_session\b|\bkillpg\("
+)
+
+
+def is_marked_serial(body: str) -> bool:
+    """Whether the source names `pytest.mark.serial` anywhere (a `pytestmark` list, a decorator)."""
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return False
+    return any(
+        isinstance(node, ast.Attribute)
+        and node.attr == "serial"
+        and isinstance(node.value, ast.Attribute)
+        and node.value.attr == "mark"
+        for node in ast.walk(tree)
+    )
+
+
+def _runs_on(condition: str | None, shard: str) -> bool:
+    """A step's `if:` for this shard (`matrix.shard ==/!= '<name>'`, && || ! and parentheses); one
+    this cannot read counts as not running, so the file it names is reported."""
+    if condition is None:
+        return True
+    text = condition.strip().removeprefix("${{").removesuffix("}}").strip()
+    text = re.sub(
+        r"matrix\.shard\s*(==|!=)\s*'([^']*)'",
+        lambda m: f" {(shard == m.group(2)) == (m.group(1) == '==')} ",
+        text,
+    )
+    text = re.sub(r"\b(?:always|success)\(\)", " True ", text)
+    text = text.replace("&&", " and ").replace("||", " or ")
+    text = re.sub(r"!(?!=)", " not ", text)
+    tokens = re.findall(r"[()]|[^\s()]+", text)
+    if not set(tokens) <= {"True", "False", "and", "or", "not", "(", ")"}:
+        return False
+    try:
+        return bool(eval(" ".join(tokens), {"__builtins__": {}}))
+    except SyntaxError:
+        return False
+
+
+def _carries_workers(words: list[str]) -> bool:
+    """Whether a pytest line asks for xdist: -n, --numprocesses, -d or --dist, in any spelling."""
+    return any(
+        word in ("-d", "--dist")
+        or word.startswith(("--numprocesses", "--dist="))
+        or (word.startswith("-n") and not word.startswith("--"))
+        for word in words
+    )
+
+
+def serial_runs(text: str, shards: list[str]) -> set[str]:
+    """The arguments of every non-comment pytest line, in a step of the python job whose `if:` holds on
+    a shard that exists, whose `-m` selects serial tests and which carries no worker flag."""
+    named: set[str] = set()
+    steps: list[tuple[str | None, list[str]]] = []
+    for line in jobs(text).get(MATRIX_JOB, []):
+        if line.lstrip().startswith("- "):
+            steps.append((None, []))
+        if not steps:
+            continue
+        body = line.lstrip().removeprefix("- ").strip()
+        if body.startswith("if:"):
+            steps[-1] = (body.removeprefix("if:").strip(), steps[-1][1])
+        elif PYTEST.search(line):
+            steps[-1][1].append(line)
+    for condition, lines in steps:
+        if not any(_runs_on(condition, shard) for shard in shards):
+            continue
+        for line in lines:
+            try:
+                words = shlex.split(line.split("pytest", 1)[1])
+            except ValueError:
+                continue
+            marks = [words[at + 1] for at, word in enumerate(words[:-1]) if word == "-m"]
+            if any(re.match(r"\s*serial\b", mark) for mark in marks) and not _carries_workers(words):
+                named.update(word for word in words if not word.startswith("-"))
+    return named
+
+
+def serial_problems(root: Path, text: str) -> list[str]:
+    """Each test file (acceptance folders aside: they cannot be edited) that sends a signal carries
+    `pytest.mark.serial`, and each file so marked is an argument of a `ci.yml` pytest run whose `-m`
+    selects serial (a path in a comment or a parallel step does not count). The mark is read per file."""
+    try:
+        files = test_files(root, testpaths(root))
+    except OSError, KeyError, TypeError, ValueError:
+        return []  # shard_problems already reports an unreadable testpaths
+    try:
+        run = serial_runs(text, [shard.name for shard in load(root)])
+    except Malformed:
+        return []  # shard_problems already reports an unreadable shard file
+    found: list[str] = []
+    for path in files:
+        if "/acceptance/" in path:
+            continue
+        body = (root / path).read_text(errors="replace")
+        marked = is_marked_serial(body)
+        if SENDS_SIGNAL.search(body) and not marked:
+            found.append(f"{path}: sends a signal, not marked pytest.mark.serial (xdist breaks it)")
+        if marked and path not in run:
+            found.append(
+                f"{path}: marked serial but {CI} has no serial run naming it (it would be deselected)"
+            )
+    return found
 
 
 # --- node tests ------------------------------------------------------------------------------------
