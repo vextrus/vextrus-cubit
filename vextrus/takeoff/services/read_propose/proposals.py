@@ -60,6 +60,7 @@ from engine.read import ReadArtefact
 from engine.recognise import conflicts as finder
 from engine.recognise import register as register_reader
 from engine.recognise import sheets as sheet_finder
+from engine.recognise import storeys as storey_reader
 from engine.recognise.types import (
     Box,
     CheckOutcome,
@@ -773,41 +774,70 @@ def _boundaries(
     viewed: Sequence[Sequence[drawings.ViewView]],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
 ) -> int:
-    """Two floor-to-floor plans of one Discipline and subject where the first's range ends at the
-    storey the second's starts: does the first include that storey? (m0-screens 6.7's boundary
-    storey; 19b raises no conflict: consecutive ranges meet at a floor by the drafting convention.)"""
-    ranges = [
+    """Two floor-to-floor plans of one Discipline and subject whose ranges meet at a storey: the
+    first's range ends where the second's starts (m0-screens 6.7's boundary storey). A meeting needs
+    both views to state one two-ended "X to Y" range (`Storeys.ranged`: a list or a "below ground"
+    phrase never meets). By the Dhaka convention the first plan's columns stop at that slab, so the
+    meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
+    (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
+    claims that storey is it asked. Returns how many it asked."""
+    conventions = step1.sheet_conventions()
+
+    def ranged(view: drawings.ViewView) -> bool:
+        stated = view.storeys_as_stated or view.title
+        return bool(stated) and storey_reader.read(stated, conventions, plan_title=True).ranged
+
+    plans = [
         (i, v)
         for i, vs in enumerate(viewed)
         for v in vs
-        if v.kind == ViewKind.PLAN
-        and v.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR
-        and len(v.storeys) > 1
-        and v.subject
+        if v.kind == ViewKind.PLAN and v.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and v.subject
     ]
+    ranges = [(i, v) for i, v in plans if len(v.storeys) > 1 and ranged(v)]
     asked = 0
     for i, first in ranges:
         for j, then in ranges:
             if i == j or listed[i].discipline != listed[j].discipline or first.subject != then.subject:
                 continue
-            if first.storeys[-1] != then.storeys[0] or not (first.storeys_as_stated or first.title):
-                continue  # no range as the drawing states it: nothing to ask it by
+            if first.storeys[-1] != then.storeys[0]:
+                continue
+            meeting = first.storeys[-1]
             sheet = listed[i]
-            step1.raise_question(
+            claimed = any(
+                v.id not in (first.id, then.id)
+                and listed[k].discipline == sheet.discipline
+                and v.subject == first.subject
+                and meeting in v.storeys
+                for k, v in plans
+            )
+            blocks = [proposal_of[sheet.id]] if sheet.id in proposal_of else []
+            question_id = step1.raise_question(
                 project_id,
                 "convention",
                 said.BOUNDARY_STOREY(
                     **named(sheet),
                     range=first.storeys_as_stated or first.title,
                     **named(listed[j], "next_"),
-                    **storey_named(first.storeys[-1]),
+                    **storey_named(meeting),
                 ),
                 subject_id=first.id,
                 discipline=sheet.discipline,
                 options=options(BOUNDARY_OPTIONS),
-                blocks=[proposal_of[sheet.id]] if sheet.id in proposal_of else [],
+                blocks=blocks,
             )
-            asked += 1
+            if claimed:
+                asked += 1
+                continue
+            traces = [
+                (
+                    proposal_of[listed[k].id],
+                    "view_title",
+                    {"sheet_revision_id": str(v.sheet_revision_id), "view_id": str(v.id)},
+                )
+                for k, v in ((i, first), (j, then))
+                if listed[k].id in proposal_of
+            ]
+            step1.settle_by_convention(project_id, question_id, "excludes_storey", traces)
     return asked
 
 

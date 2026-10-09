@@ -2878,6 +2878,40 @@ def answer_question(project_id: uuid.UUID, question_id: uuid.UUID, answer: Any) 
         record_progress(project_id)
 
 
+def settle_by_convention(
+    project_id: uuid.UUID,
+    question_id: uuid.UUID,
+    option: str,
+    traces: Sequence[tuple[uuid.UUID, str, Mapping[str, Any]]],
+) -> bool:
+    """Settle an open Question by a convention (S19-B2: the owner's ruling, 9 Oct 2026): its answer
+    is `option` by "convention", and each `(proposal, fact, anchor)` is recorded as its Trace. One
+    already answered, or kept open by the QS, is left as it is; whether this call settled it."""
+    projects.get(project_id)
+    with writing(project_id):
+        row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
+        if row is None:
+            raise auth.NotFound
+        if row.status != QuestionStatus.OPEN or row.answer:
+            return False
+        for proposal_id, fact, anchor in traces:
+            proposal = Proposal.objects.get(project_id=project_id, id=proposal_id)
+            ProposalTrace.objects.get_or_create(
+                tenant_id=row.tenant_id,
+                project_id=project_id,
+                proposal=proposal,
+                question=row,
+                fact=fact[:64],
+                anchor=dict(anchor),
+            )
+        row.status = QuestionStatus.ANSWERED
+        row.answer = {"option": option, "by": "convention"}
+        row.answered_at = timezone.now()
+        row.save(update_fields=["status", "answer", "answered_at"])
+        record_progress(project_id)
+    return True
+
+
 @dataclass(frozen=True)
 class Answered:
     question: QuestionView

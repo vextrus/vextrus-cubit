@@ -13,7 +13,9 @@ quoted) or `none` (neither: "this sheet").
   (`step1.questions` counts it as it is now; never stored).
 - `lists_disagree`: a Question, the drawing list read on the sheet and the one the QS gave (`source`:
   `pasted` or `typed`) differ.
-- `boundary_storey`: a Question, whether the range `range` on the sheet (its storeys as the drawing
+- `boundary_storey`: a Question, asked only where a third plan of the same subject also claims the
+  storey (two ranges meeting alone are settled by the Dhaka convention: S19-B2, the owner's ruling of
+  9 Oct 2026), whether the range `range` on the sheet (its storeys as the drawing
   states them) includes its top storey, where a range of the same kind on `next_sheet` (with
   `next_named`) starts; the storey by `level` (`floor` and `basement` with their `number`, `ground`,
   `lower_ground`, `mezzanine`, `podium`, `roof`, else `other`), `storey` its key (never worded).
