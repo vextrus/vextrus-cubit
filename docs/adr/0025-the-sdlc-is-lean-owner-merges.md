@@ -8,8 +8,8 @@ cloud sessions; `local` tickets (needing real drawings) run locally and pass the
 (docs/sdlc.md).
 
 **The orchestrator merges, after independent review, and the ruleset enforces the gates** (ADR 0041):
-GitHub Pro, with a ruleset on `main` (no direct pushes, a PR required, CI green, branches up to date, 0
-required approvals, `real-drawings` on every PR and `design-gate` on web PRs); a reviewer and a gate
+GitHub Pro, with a ruleset on `main` (no direct pushes, a PR required, CI green, 0 required
+approvals (branches up to date until 7 Oct 2026: see Amended), `real-drawings` on every PR and `design-gate` on web PRs); a reviewer and a gate
 that did not build the ticket decide; no self-hosted runner on the owner's machine. **The owner decides
 product and scope and walks each milestone** on real drawings. Each PR states what it did not verify,
 what it verified and how, real-drawing counts where relevant and screenshots for UI.
@@ -51,3 +51,12 @@ green while the product failed (docs/postmortem.md; docs/research/sdlc-claude-co
   PRs and merges once the review loop is done and the ruleset's required checks are green; the guard no
   longer refuses merges; cloud (account B) and local sessions are both used; effort is medium by
   default. The owner's ruling: "I want complete autonomous sessions and I insist that."
+
+## Amended
+- 7 Oct 2026 (session 17, the owner's ruling on Q1): **the ruleset no longer requires branches to be up to
+  date before merging.** Asked whether to turn off the ruleset's "require branches to be up to date" (recommended: off,
+  because each landing re-ran full CI and a real-drawing re-post, 15-40 min a landing), the owner said yes and
+  unticked it himself at 19:28Z: "unticked myself of 'Require branches to be up to date before merging'". The
+  ruleset still requires a PR, CI green and the two statuses; main's CI still runs after every merge. The
+  lander (`scripts/land.py`, #611) lands a PR as it stands; `land update <PR>` is the only command that brings
+  main into a branch, and a PR GitHub reports conflicting is refused, naming `land update`.

@@ -10,3 +10,5 @@ from engine.messages import MessageCode
 
 SHEET_TYPE_SOURCE = MessageCode("platform.jev.sheet_type_source")
 """The sheet-type node's answer, named as one source of a pre-picked kind of sheet."""
+SHEET_TYPE_SOURCE_GROUP = MessageCode("platform.jev.sheet_type_source_group")
+"""The same source on a kind Question of a group (S15-Q1): one reading per sheet it holds."""

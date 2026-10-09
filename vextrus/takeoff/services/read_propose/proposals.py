@@ -43,7 +43,7 @@ from typing import Any, cast
 from django.conf import settings
 
 from engine.check import register as register_check
-from engine.messages import Message, Param
+from engine.messages import Message
 from engine.messages import conflicts as conflict_codes
 from engine.messages import register_check as list_codes
 from engine.read import ReadArtefact
@@ -164,14 +164,16 @@ def propose(
 
 def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     """After the QS changed a read file's Discipline (`drawings.on_discipline_changed`, in the change's
-    transaction): its sheets' `missing_discipline` Questions are answered by it, and the set's
-    Questions asked again under the sheets' new Discipline. A file not yet read has no sheet listed:
-    its `proposals` step reads the choice itself (#159)."""
+    transaction): its sheets' `missing_discipline` Questions are answered by it, a sheet back in the
+    Discipline of a kind Question answered while it was away is asked its kind again
+    (`step1.ask_kind_again`), and the set's Questions asked again under the sheets' new Discipline.
+    A file not yet read has no sheet listed: its `proposals` step reads the choice itself (#159)."""
     view = drawings.file(file_id)
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
     if not listed:
         return
     step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+    step1.ask_kind_again(view.project_id, listed)
     set_questions(view.project_id, trigger_file=file_id)
     step1.record_progress(view.project_id)
 
@@ -243,23 +245,31 @@ def _propose_sheet(
     )
     if isinstance(answer, jev.Answer) and not sure and ask:
         ranked = answer.ranked()
-
-        def words(sheets: int) -> dict[str, Param]:
-            if sheets == 1:
-                return {**named(sheet), "sheets": 1}
-            return {"sheet": "", "named": "group", "sheets": sheets}
-
         step1.ask_group(
             project_id,
             "low_confidence",
             said.WHICH_KIND,
-            words,
             identity=kind_group(sheet.discipline, ranked),
             proposal_id=proposal_id,
             discipline=sheet.discipline,
-            options=[{"key": key, "picked": at == 0} for at, key in enumerate([*ranked, KEEP_OPEN])],
+            options=[
+                {"key": key, "picked": at == 0}
+                for at, key in enumerate(
+                    [*kind_options(ranked, sheet.discipline, conventions), KEEP_OPEN]
+                )
+            ],
         )
     return proposal_id
+
+
+def kind_options(
+    ranked: Sequence[str], discipline: str | None, conventions: SheetConventions
+) -> list[str]:
+    """A kind Question's kinds: Jev's, most likely first, then every other kind of the Discipline
+    (review 1, f3 and f4): code narrows only what Jev ranks, never what the QS may pick, so a kind
+    the title's words left out, or one only another sheet of the group was offered, is still there."""
+    every = conventions.kinds(discipline) if discipline else ()
+    return [*ranked, *(k for k in every if k not in ranked)]
 
 
 def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:

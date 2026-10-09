@@ -357,7 +357,11 @@ export function pickSources(entry: QuestionEntry, context: CardContext, pick: st
 export function usePickSources(entry: QuestionEntry, context: CardContext): ReactNode | null {
   const pick = usePick(entry, context)?.key
   if (!pick) return null
-  if (isJevKind(entry)) return <MachineText message={{ code: 'platform.jev.sheet_type_source', params: {} }} />
+  if (isJevKind(entry)) {
+    // A group's card holds many sheets: its source is each one's reading, never "this sheet's" (S15-Q1 review 2).
+    const code = entry.question.params.named === 'group' ? 'platform.jev.sheet_type_source_group' : 'platform.jev.sheet_type_source'
+    return <MachineText message={{ code, params: {} }} />
+  }
   const found = pickSources(entry, context, pick)
   if (found.count < 2 || !found.list) return null
   const list = found.list === 'found' ? <Trans>the drawing list found in the drawings</Trans> : <Trans>the drawing list on <SheetName sheets={[found.list]} /></Trans>

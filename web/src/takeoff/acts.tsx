@@ -611,7 +611,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
       let made = 0
       let done: Done | null = null
       try {
-        await answer(projectId, entry.question.id, option, text)
+        await answer(projectId, entry.question.id, option, text, entry.question.proposals)
         made = 1
         done = { message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> }
         return true
