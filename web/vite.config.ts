@@ -101,8 +101,25 @@ function apiUrl(): string {
   return origin
 }
 
+/**
+ * The first port of the three the browser test projects use: `VEXTRUS_VITEST_PORT` (verify gives each
+ * worktree's run its own block), else Vitest's own default (63315 and on).
+ */
+function vitestPort(): number | undefined {
+  const value = fromEnv('VEXTRUS_VITEST_PORT')
+  if (value === undefined) return undefined
+  const port = /^[0-9]{1,5}$/.test(value) ? Number(value) : NaN
+  if (!(port >= 1 && port <= 65533)) {
+    throw new Error(`VEXTRUS_VITEST_PORT must be a port from 1 to 65533, not ${JSON.stringify(value)}`)
+  }
+  return port
+}
+
 export default defineConfig(({ mode }) => {
   const production = mode === 'production'
+  const first = vitestPort()
+  // Each browser project listens on its own port: P, P+1, P+2 (Vitest's default when unset).
+  const api = (offset: number) => (first === undefined ? {} : { api: { port: first + offset, strictPort: true } })
   const plugins: PluginOption[] = [
     // Must come before react(). The `/dev/*` routes (the specimen) exist only in development
     // builds: a production build's route tree never includes the `dev` folder. Tests mount
@@ -171,6 +188,7 @@ export default defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: 'browser',
+            ...api(0),
             include: ['src/**/*.test.tsx', 'src/**/*.browser.test.ts'],
             exclude: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],
@@ -185,10 +203,11 @@ export default defineConfig(({ mode }) => {
         },
         // A date is the Market's, whatever the browser's zone (m0-screens §1.2): the time-zone tests run
         // in a browser set to UTC, as CI runs, and in one west of UTC, never only in the machine's own.
-        ...['UTC', 'America/Los_Angeles'].map((timezoneId) => ({
+        ...['UTC', 'America/Los_Angeles'].map((timezoneId, index) => ({
           extends: true as const,
           test: {
             name: `browser ${timezoneId}`,
+            ...api(index + 1),
             include: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],
             browser: {
