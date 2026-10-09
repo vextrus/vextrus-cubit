@@ -5,24 +5,30 @@
  * Header: "Projects", and "3 projects at Shapla Homes Ltd" (a member given chosen projects: "2 projects
  * at Shapla Homes Ltd are open to you"); the ReadOnlyChip for the MD and a Guest; "Members and access"
  * (not for a Guest) and "New project" (for the QS and the Vextrus Engineer, when not given chosen
- * projects: 08 refuses the rest). The table: Code · Name · Address · Drawing Set · Takeoff · Updated; the
- * last three show 1.2's empty figure until 20b and 19a send them. ↑ ↓ Home End move, Enter opens.
+ * projects: 08 refuses the rest). The table: Code · Name · Address · Drawing Set · Takeoff · Updated; each
+ * row reads its own project's files and Step 1 progress (readings.ts) and words them in 4.3's words
+ * ("6 files read, 1 held", "Step 1: 5 Questions open"); Updated is the Market's day of the project's
+ * `updated_at`, its newest DomainEvent, the same for every role; a reading not in, refused or failed is
+ * 1.2's empty figure and nothing else. ↑ ↓ Home End move, Enter opens Step 1.
  *
  * Empty: "No projects yet. Create one for each development whose drawings you will take off." [New
  * project] (the MD: "No projects yet. Your QS creates them."). A Guest, or anyone given chosen projects
  * that are gone, is shown 4.1's "No access to anything".
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { plural } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { FolderPlus } from 'lucide-react'
 import { AppLink, PATHS, useGo } from '@/app/AppLink'
 import { PageLayout } from '@/app/Frame'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { can, mayCreateProject, readOnlyRole, usePageTitle } from '@/auth'
-import { EMPTY } from '@/format'
+import { EMPTY, useFormat } from '@/format'
+import { disciplineName } from '@/takeoff/SheetList'
 import { Button, Empty, List, ReadOnlyChip, Skeleton, buttonVariants, cn } from '@/ui'
 import { NewProjectDialog } from './NewProjectDialog'
+import { driveWords, filesQuery, isMoving, listProgressQuery, takeoffWords, type DriveWords, type TakeoffPart, type TakeoffWords } from './readings'
 
 /** The header's count line. */
 function CountLine({ session }: { session: Session }) {
@@ -32,7 +38,7 @@ function CountLine({ session }: { session: Session }) {
   return <Plural value={n} one={`# project at ${developer} is open to you`} other={`# projects at ${developer} are open to you`} />
 }
 
-const COLUMNS = 'grid w-full grid-cols-[88px_220px_minmax(0,1fr)_200px_180px_96px] items-center gap-x-2'
+const COLUMNS = 'grid w-full grid-cols-[88px_200px_minmax(0,1fr)_minmax(0,220px)_minmax(0,320px)_96px] items-center gap-x-2'
 
 function HeaderRow() {
   return (
@@ -59,7 +65,115 @@ function HeaderRow() {
   )
 }
 
+/** A reading's words in one muted line, its full text in its title; the empty figure until it is in. */
+function Cell({ text, className }: { text: string | null; className?: string }) {
+  return (
+    <span className={cn('truncate text-ink-secondary', className)} title={text ?? undefined}>
+      {text ?? EMPTY}
+    </span>
+  )
+}
+
+/** "6 files read, 1 held" (§4.3's Drawing Set column). */
+function useDriveText(): (words: DriveWords) => string {
+  const { t } = useLingui()
+  const f = useFormat()
+  return (words) => {
+    if (words.kind === 'none') return t`No drawings yet`
+    if (words.kind === 'reading') {
+      if (words.at) {
+        const position = f.integer(words.at.position)
+        const total = f.integer(words.at.total)
+        return words.at.unit === 'page'
+          ? t({ message: plural(words.files, { one: `Reading # file, page ${position} of ${total}`, other: `Reading # files, page ${position} of ${total}` }) })
+          : t({ message: plural(words.files, { one: `Reading # file, sheet ${position} of ${total}`, other: `Reading # files, sheet ${position} of ${total}` }) })
+      }
+      return t({ message: plural(words.files, { one: 'Reading # file', other: 'Reading # files' }) })
+    }
+    const parts = [words.read === 0 ? t`No files read` : t({ message: plural(words.read, { one: '# file read', other: '# files read' }) })]
+    const held = f.integer(words.held)
+    const trouble = f.integer(words.trouble)
+    const refused = f.integer(words.refused)
+    const stopped = f.integer(words.stopped)
+    if (words.held > 0) parts.push(t`${held} held`)
+    if (words.trouble > 0) parts.push(t`${trouble} could not be read`)
+    if (words.refused > 0) parts.push(t`${refused} refused`)
+    if (words.stopped > 0) parts.push(t`${stopped} stopped`)
+    return parts.join(t({ message: ', ', comment: 'Joins the counts of the Drawing Set column: "6 files read, 1 held".' }))
+  }
+}
+
+/** "Step 1: 5 Questions open", or the per-Discipline parts as the Step 1 inspector's PartsLine words them. */
+function useTakeoffText(): (words: TakeoffWords) => string {
+  const { i18n, t } = useLingui()
+  const f = useFormat()
+  const part = (p: TakeoffPart) => {
+    const name = disciplineName(p.discipline, i18n)
+    if (p.kind === 'confirmed') return t`${name} confirmed`
+    if (p.kind === 'left') {
+      const leftText = f.integer(p.sheets)
+      return t`${name} ${leftText} to confirm`
+    }
+    if (p.kind === 'questions') {
+      const openText = f.integer(p.open)
+      return p.open === 1 ? t`${name}: 1 Question open` : t`${name}: ${openText} Questions open`
+    }
+    return t`${name}: a view unaccounted`
+  }
+  return (words) => {
+    switch (words.kind) {
+      case 'not_started':
+        return t`Not started`
+      case 'questions': {
+        return t({ message: plural(words.open, { one: 'Step 1: # Question open', other: 'Step 1: # Questions open' }) })
+      }
+      case 'to_confirm': {
+        return t({ message: plural(words.sheets, { one: 'Step 1: # sheet to confirm', other: 'Step 1: # sheets to confirm' }) })
+      }
+      case 'not_confirmed':
+        return t`Step 1: not yet confirmed`
+      case 'confirmed':
+        return t`Step 1 confirmed`
+      case 'parts': {
+        const parts = words.parts.map(part).join(' · ')
+        return t`Step 1: ${parts}`
+      }
+    }
+  }
+}
+
+function DriveCell({ projectId }: { projectId: string }) {
+  const words = useDriveText()
+  const files = useQuery(filesQuery(projectId))
+  return <Cell text={files.data ? words(driveWords(files.data.files)) : null} />
+}
+
+function TakeoffCell({ projectId }: { projectId: string }) {
+  const words = useTakeoffText()
+  const progress = useQuery(listProgressQuery(projectId))
+  return <Cell text={progress.data ? words(takeoffWords(progress.data)) : null} />
+}
+
+/** The day of the project's newest DomainEvent (`updated_at`, for every role), in the Market's time. */
+function UpdatedCell({ project }: { project: ProjectSummary }) {
+  const f = useFormat()
+  return <Cell text={f.date(project.updatedAt)} className="text-end" />
+}
+
+/** When a project's files stop moving, its Step 1 is read once more. */
+function useReadAgainWhenStill(projectId: string) {
+  const queryClient = useQueryClient()
+  const files = useQuery(filesQuery(projectId))
+  const moving = files.data?.files.some(isMoving) ?? false
+  const was = useRef(moving)
+  useEffect(() => {
+    if (was.current && !moving) void queryClient.refetchQueries({ queryKey: listProgressQuery(projectId).queryKey, exact: true })
+    was.current = moving
+  }, [moving, projectId, queryClient])
+}
+
 function Row({ project }: { project: ProjectSummary }) {
+  useReadAgainWhenStill(project.id)
   return (
     <AppLink to={PATHS.project(project.code)} className={cn(COLUMNS, 'h-full min-w-0 text-foreground')} tabIndex={-1}>
       <bdi dir="ltr" className="num truncate">
@@ -71,9 +185,9 @@ function Row({ project }: { project: ProjectSummary }) {
       <span className="truncate text-ink-secondary" title={project.address}>
         {project.address || EMPTY}
       </span>
-      <span className="text-ink-secondary">{EMPTY}</span>
-      <span className="text-ink-secondary">{EMPTY}</span>
-      <span className="text-end text-ink-secondary">{EMPTY}</span>
+      <DriveCell projectId={project.id} />
+      <TakeoffCell projectId={project.id} />
+      <UpdatedCell project={project} />
     </AppLink>
   )
 }
