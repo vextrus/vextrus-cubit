@@ -451,3 +451,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **The lander updated every branch after the owner turned "require up to date" off,** re-running full CI and a
   real-drawing post per landing for nothing. It now lands a PR as it stands; only `land update` brings main in, and
   a conflicting PR is refused naming it (#611). Check: `scripts/tests/acceptance/ts17f7`.
+- **Local verify skipped `needs_toolchain` tests, so an engine PR reached READY and failed CI's toolchain job** (#613).
+  `scripts/verify.py` now plans CI's selection (`-m "needs_toolchain or needs_bwrap"`) on the changed engine folders
+  when `/opt/vextrus` and `bwrap` are present, and notes the toolchain when absent (#616). Check:
+  `scripts/tests/acceptance/ts18t616`.

@@ -70,6 +70,8 @@ Have = Callable[[str], bool]
 
 
 def _have(tool: str) -> bool:
+    if tool.startswith("/"):
+        return Path(tool).is_dir()
     return shutil.which(tool) is not None
 
 
@@ -87,6 +89,18 @@ def pytest_target(path: str) -> str | None:
 
 
 LINT_TESTS = "tools/lint/tests"
+TOOLCHAIN_DIR = "/opt/vextrus"
+TOOLCHAIN_MARKS = "needs_toolchain or needs_bwrap"
+# Tests that need the network: left out of the toolchain run unless the change touches them.
+NETWORK_BOUND = ("engine/read/acadsharp/tests/test_build.py",)
+
+
+def engine_folder(path: str) -> str:
+    """The engine module folder a changed path belongs to (`engine/<m>`), else the engine tree."""
+    parts = path.split("/")
+    return "/".join(parts[:2]) if len(parts) > 2 else "engine"
+
+
 WEB_CHAIN = ("openapi-export", "api-types", "typecheck", "lint", "messages-check", "web-test")
 LOCAL_WORKERS = 6
 CLOUD_WORKERS = 4
@@ -145,6 +159,37 @@ def plan_with_notes(
             Check("mypy", ("uv", "run", "mypy")),
             Check("lint-imports", ("uv", "run", "lint-imports")),
         ]
+    engine = sorted({engine_folder(p) for p in paths if p.startswith("engine/")})
+    if engine:
+        if have(TOOLCHAIN_DIR) and have("bwrap"):
+            # CI's toolchain job (engine.yml) selects these; pyproject's addopts deselect them locally.
+            skip = tuple(
+                a
+                for ig in NETWORK_BOUND
+                if not any(p == ig or p.startswith(ig + "/") for p in paths)
+                for a in ("--ignore", ig)
+            )
+            checks.append(
+                Check(
+                    "pytest-toolchain",
+                    (
+                        "uv",
+                        "run",
+                        "pytest",
+                        "-rf",
+                        "-p",
+                        "tools.lint.acceptance_pytest",
+                        "-m",
+                        TOOLCHAIN_MARKS,
+                        *skip,
+                        *engine,
+                    ),
+                )
+            )
+        else:
+            notes.append(
+                f"not run: the toolchain absent (pytest -m '{TOOLCHAIN_MARKS}' on {' '.join(engine)})"
+            )
     web = any(p.startswith("web/") for p in paths)
     fixtures = web or any(is_acceptance(p) for p in paths)
     if web:

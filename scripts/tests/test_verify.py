@@ -102,3 +102,17 @@ def test_a_check_never_inherits_a_forced_colour(monkeypatch: pytest.MonkeyPatch,
     code, output = run_command(Check("probe", (sys.executable, "-c", probe)))
 
     assert (code, output.strip()) == (0, "unset")
+
+
+def test_the_toolchain_run_leaves_out_the_network_bound_build_test_unless_changed(
+    tmp_path: Path,
+) -> None:
+    from scripts.verify import plan_with_notes
+
+    def run(path: str) -> tuple[str, ...]:
+        checks, _ = plan_with_notes([path], have=lambda tool: True, root=tmp_path)
+        return next(c for c in checks if c.name == "pytest-toolchain").argv
+
+    ignored = "engine/read/acadsharp/tests/test_build.py"
+    assert ignored in run("engine/read/dwg.py")
+    assert ignored not in run(ignored)
