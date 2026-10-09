@@ -15,9 +15,9 @@ drawn in its plot-paper units (#87), is on, in order: the sheet its plot setting
 artefact's `Block.plot`: its paper's size, turned a quarter when the plot is, its corner the margins and
 the plot offset before the layout's origin), where each side is within `PLOT_SHEET_MM` and the layout is
 drawn on it (its frame at most `ON_SHEET_MM` past the sheet's edge and, when the frame is a sheet's
-size, filling it, each side at most `2 * BORDER_MM` short of the sheet's; or a frameless layout's extents
-centred on it and no larger: a default page setup left on a layout drawn for another sheet, smaller or
-far larger, is not its sheet); else the
+size, that sheet's size, each side at most `2 * BORDER_MM` short of the sheet's and at most
+`ON_SHEET_MM` past it; or a frameless layout's extents centred on it and no larger: a default page
+setup left on a layout drawn for another sheet, smaller or far larger, is not its sheet); else the
 smallest standard sheet around its frame (`_sheet_around`: the border within `BORDER_MM` of the sheet's
 edge on each side, ISO's sheets first, the frame centred); else its frame's box; else (no frame) its
 extents, a standard sheet when they are one. A model-space sheet is drawn at a scale (model units a
@@ -765,13 +765,14 @@ def _plot_sheet(
     printable area's lower-left corner, moved by the plot offset; a quarter turn swaps the paper's
     sides), when each side lies within `PLOT_SHEET_MM` and the layout is drawn on it; else none. A frame
     is on it when it reaches at most `ON_SHEET_MM` past the sheet's edge (in the stated units, `units`'
-    first) and fills it, each side at most `2 * BORDER_MM` short of the sheet's (as `_sheet_around` holds
-    a border): a default page setup left on a layout drawn for another sheet states one the frame is not
-    on, or one far larger (PR 613's review). The frame's size is read in mm in the first of the
-    layout's units where it is a sheet's (each side `PLOT_SHEET_MM`'s least or more): an A3 border drawn
-    in inches under a millimetre A3 setup (ts15e4's stale layout) fills its A3, and an A4 drawn in
-    inches does not fill an A1 (PR 613's review, round 2). A frame of no sheet's size in any of them
-    says nothing of another sheet, and the stated sheet stands.
+    first) and is that sheet's size, each side at most `2 * BORDER_MM` short of the sheet's (as
+    `_sheet_around` holds a border) and at most `ON_SHEET_MM` past it: a default page setup left on a
+    layout drawn for another sheet states one the frame is not on, or one far larger or smaller (PR
+    613's review). The frame's size is read in mm in the first of the layout's units where it is a
+    sheet's (each side `PLOT_SHEET_MM`'s least or more): an A3 border drawn in inches under a millimetre
+    A3 setup (ts15e4's stale layout) is its A3's size, while an A4 drawn in inches falls short of an A1,
+    and an A3 or A1 drawn in inches is far past an A4 (PR 613's review, rounds 2 and 3). A frame of no
+    sheet's size in any of them says nothing of another sheet, and the stated sheet stands.
     A frameless layout's extents are on it when their centre is and they are no larger than the sheet
     (within `ON_SHEET_MM`): extents take in a title's reach, which may pass the sheet's edge (ts15e2's
     E-503), and a drawing larger than the sheet would be cut by it (PR 613's review). With no frame,
@@ -797,7 +798,13 @@ def _plot_sheet(
         sized = next(
             ((frame_w * u, frame_h * u) for u in units if min(frame_w, frame_h) * u >= low), None
         )
-        on = on and (sized is None or max(width - sized[0], height - sized[1]) <= 2 * BORDER_MM)
+        on = on and (
+            sized is None
+            or all(
+                -ON_SHEET_MM <= side - drawn_mm <= 2 * BORDER_MM
+                for side, drawn_mm in ((width, sized[0]), (height, sized[1]))
+            )
+        )
     else:
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         on = 0 <= cx <= width and 0 <= cy <= height and min(short_w, short_h) >= -ON_SHEET_MM

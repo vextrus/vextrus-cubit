@@ -209,6 +209,38 @@ def test_a_frame_drawn_in_inches_under_a_larger_millimetre_setup_is_on_its_own_s
     assert paper.source != PaperSource.LAYOUT
 
 
+@pytest.mark.parametrize(
+    ("drawn", "stale"),
+    [((420.0, 297.0), (297.0, 210.0)), ((841.0, 594.0), (420.0, 297.0)),
+     ((841.0, 594.0), (297.0, 210.0))],
+)  # fmt: skip
+def test_a_frame_drawn_in_inches_larger_than_a_stale_millimetre_setup_is_on_its_own_sheet(
+    drawn: tuple[float, float], stale: tuple[float, float]
+) -> None:
+    """An A3 (or A1) frame drawn in inches under a stale millimetre A4 (or A3) page setup: read in mm
+    it lies on the stated sheet, but read in the units where it is a sheet's size it is far larger than
+    it, so it is not laid in a corner of that sheet at 1 mm a unit; it is on its own sheet, at 25.4 mm
+    an inch (PR 613's review, round 3)."""
+    frame = (0.0, 0.0, drawn[0] / 25.4, drawn[1] / 25.4)
+    artefact, sheet = layout(frame, plotted(*stale), lines=(), paper_mm_per_unit=1.0)
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == drawn
+    assert paper.mm_per_unit == 25.4
+    assert paper.source != PaperSource.LAYOUT
+
+
+def test_a_frame_a_rounding_past_its_stated_sheet_keeps_it() -> None:
+    """A frame a rounding (under `ON_SHEET_MM`) larger than the millimetre sheet its page setup states
+    is drawn on that sheet: the fill rule's upper side is no tighter than the on-sheet rule."""
+    artefact, sheet = layout(
+        (0, 0, 420.1, 297.1), plotted(420.0, 297.0), lines=(), paper_mm_per_unit=1.0
+    )
+    paper = paper_of(artefact, sheet)
+    assert (paper.width_mm, paper.height_mm) == (420.0, 297.0)
+    assert paper.mm_per_unit == 1.0
+    assert paper.source == PaperSource.LAYOUT
+
+
 def test_a_layout_in_inches_is_laid_in_its_paper_units() -> None:
     """A layout drawn in inches (its plot settings' paper units): its paper is in mm, its origin in
     inches, and its sheet is the one its settings state."""
