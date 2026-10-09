@@ -102,3 +102,9 @@ def test_a_check_never_inherits_a_forced_colour(monkeypatch: pytest.MonkeyPatch,
     code, output = run_command(Check("probe", (sys.executable, "-c", probe)))
 
     assert (code, output.strip()) == (0, "unset")
+
+
+@pytest.mark.parametrize("path", ["tools/lint/words.py", "tools/lint/words_allowlist.toml"])
+def test_what_the_words_lint_reads_plans_it(path: str, tmp_path: Path) -> None:
+    names = [check.name for check in plan([path], root=tmp_path)]
+    assert "words-lint" in names
