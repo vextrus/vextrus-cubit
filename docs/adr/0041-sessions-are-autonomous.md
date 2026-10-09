@@ -8,6 +8,28 @@ the two Development Sets (the owner's Q7 ruling); item 5 — `merge_ready` enfor
 third review is also allowed when every finding left at round 2 was introduced by fix round 1, as its refuter
 confirms (`fix-regression` in `scripts/ledger.py`); never more than three reviews.
 
+**Amended 7 Oct 2026 (session 17)** (the owner, on the review's speed: "Raise review's blocking bar to 75, keeping
+50-74 blocking only on strict paths (security walls, migrations, money, readers), filing the rest as issues, and
+refuting a sample rather than every finding" — yes): items 5 and 7 — a standing finding blocks a merge at 75 or
+more, or at 50 or more when its file is strict. The ruling keeps 50-74 blocking on security walls, migrations,
+money and readers. **Strict is the default; the lax side is a named list** (ADR 0043 item 2: a list names only what
+is safe). Why: the walls are spread across the code (each module's services, http and acts, the leak scan, real-
+drawing custody, the factory's launch, publish, trust and READY checks, the lints that pin the guard and the
+acceptance tests), and a list of them missed one in each of PR #610's three review rounds, while PR #615 found
+gates inside every lax code folder. The factory and the backend hold walls; the 75 bar applies to the web's screens
+and the docs. So in `scripts/factory/review_tiers.toml` a file is strict when it matches `[strict] paths` or matches
+no `[lax] paths` glob. Lax, and so on the 75 bar (S18-F6, lesson (e)): the web's view components, a `.tsx` under
+`web/src/` (not under `web/src/api/` or `web/src/routes/`, not a path naming auth, the session or permissions, not a
+test), and the docs' Markdown, a `.md` under `docs/` (not the Markdown a script, lint, hook or Claude Code reads:
+`docs/rulings.md`, `docs/knowledge/`, `docs/sdlc.md`, `docs/architecture.md`, `docs/agents/`, `docs/design/`, any
+CLAUDE.md or AGENTS.md). The tiers file is read afresh for each decision; missing, unreadable, empty or listing
+nothing lax, it judges every path strict. A path nobody listed, a finding
+with no file, or a file that is not exactly a file of the head's tree, is strict. A
+standing finding of 50-74 off the strict paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
+sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
+highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Item
+7's serious finding is the same: 75 or more, 50 or more on a strict path, or any class seen twice.
+
 The owner decides product and scope and walks each milestone's finish line on real drawings; everything
 between is done by agents, without waiting for the owner:
 
@@ -48,7 +70,8 @@ between is done by agents, without waiting for the owner:
    that changes a file under an acceptance path unless its message starts `acceptance:` and it changes
    nothing else; the reviewer reads any such commit against the writer's report.
 7. **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class) in
-   the PR that fixes it: a finding scoring 50 or more, or any class seen twice. `docs/knowledge/lessons.md`
+   the PR that fixes it: a finding scoring 75 or more, or 50 or more on a strict path (amended 7 Oct 2026),
+   or any class seen twice. `docs/knowledge/lessons.md`
    becomes an index pointing each lesson at its check; a lesson without a check is a debt, listed in the
    milestone issue until it has one.
 8. **Effort defaults to medium** for Opus 5.5 (the committed settings), **high** only for hard tickets:

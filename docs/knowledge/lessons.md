@@ -446,8 +446,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   name, so a green tree reads red under contention (Q3's re-verify). Check: `scripts/tests/acceptance/ts18t617`
   (verify's plan gives each worktree's run its own vitest port block and its own database name).
 - **Enumerating the dangerous side of a list never converges** (F6's strict review paths: three rounds, a missed
-  wall each round). List the safe side instead: strict by default, a short `[lax]` allowlist. No check yet: #615
-  (its acceptance, `scripts/tests/acceptance/ts17f6`, becomes the check when it lands).
+  wall each round). List the safe side instead: strict by default, a short `[lax]` allowlist with its
+  carve-outs by name (`scripts/factory/review_tiers.toml`). Check: `scripts/tests/acceptance/ts17f6` (S18-F6).
 - **The lander updated every branch after the owner turned "require up to date" off,** re-running full CI and a
   real-drawing post per landing for nothing. It now lands a PR as it stands; only `land update` brings main in, and
   a conflicting PR is refused naming it (#611). Check: `scripts/tests/acceptance/ts17f7`.
