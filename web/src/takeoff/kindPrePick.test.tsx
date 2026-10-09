@@ -55,4 +55,25 @@ describe("the kind Question's pre-pick (#228; m0-screens §5)", () => {
     await new Promise((r) => setTimeout(r, 300))
     expect(fake.posted).toHaveLength(1)
   })
+
+  it('on a group, names each sheet’s reading as its source, counts the sheets left open and sends what the QS saw (S15-Q1 review 2)', async () => {
+    const fake = new FakeAnswers()
+    const question = fake.byKind().low_confidence!
+    const other = fake.step1.proposals.find((p) => p.number === 'A-06')!
+    question.discipline = 'architectural'
+    question.params = { sheet: '', named: 'group', sheets: 2, waiting: 1 }
+    question.proposals = [...question.proposals, other.id]
+    question.options = ['elevation', 'section', 'details', 'keep_open'].map((key, i) => ({ key, picked: i === 0 }))
+    fake.questions = [question]
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.keyboard('q')
+    const card = await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    expect(clean(card.textContent)).toMatch(/Picked for you: Vextrus’s reading of each sheet’s title and view titles/)
+    expect(clean(card.textContent)).not.toMatch(/this sheet’s title/)
+    expect(clean(card.textContent)).toMatch(/What kind of sheet are these 2 sheets\? Your answer confirms the sheets that are ready, and it cannot be undone\. 1 sheet stays open: another Question about it comes first\./)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    expect(fake.posted[0]!.body).toMatchObject({ option: 'elevation', held: question.proposals })
+  })
 })
