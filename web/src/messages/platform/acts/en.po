@@ -1,0 +1,11 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/platform/messages/acts.py (S15-A2): an act refused because another change held what it changes (503).
+msgid "platform.acts.busy"
+msgstr "Someone else, or a file still reading, was changing this at the same time, so it was left as it was. Try again in a moment."

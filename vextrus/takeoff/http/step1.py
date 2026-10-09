@@ -9,11 +9,11 @@ another Developer, or none at all is the one 404 (`platform.auth.not_found`), an
 
 import uuid
 
-from django.db import transaction
 from django.http import HttpRequest
 from ninja import Router
 
 from vextrus.platform.http.acts import Refusal, declare
+from vextrus.platform.services import deadlocks
 from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
@@ -78,15 +78,23 @@ def get_progress(request: HttpRequest, project_id: uuid.UUID) -> Step1ProgressOu
 @router.post(f"{_PREFIX}/confirm", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CONFIRM, project="project_id")
 def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn) -> Step1ActOut:
-    view = step1.confirm(project_id, payload.proposals, kind=payload.kind, actor_name=actor(request))
+    view = deadlocks.retried(
+        lambda: step1.confirm(
+            project_id, payload.proposals, kind=payload.kind, actor_name=actor(request)
+        ),
+        what="step1.confirm",
+    )
     return Step1ActOut.from_view(view)
 
 
 @router.post(f"{_PREFIX}/exclude", response={200: Step1ActOut, 400: Refusal})
 @declare(acts.EXCLUDE, project="project_id")
 def exclude(request: HttpRequest, project_id: uuid.UUID, payload: Step1ExcludeIn) -> Step1ActOut:
-    view = step1.exclude(
-        project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
+    view = deadlocks.retried(
+        lambda: step1.exclude(
+            project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
+        ),
+        what="step1.exclude",
     )
     return Step1ActOut.from_view(view)
 
@@ -95,7 +103,10 @@ def exclude(request: HttpRequest, project_id: uuid.UUID, payload: Step1ExcludeIn
 @declare(acts.ASSIGN, project="project_id")
 def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) -> Step1ActOut:
     """Put views in Takeoff Steps (#158): in M0 the API's only (m0-screens 6.9)."""
-    view = step1.assign(project_id, payload.proposals, payload.steps, actor_name=actor(request))
+    view = deadlocks.retried(
+        lambda: step1.assign(project_id, payload.proposals, payload.steps, actor_name=actor(request)),
+        what="step1.assign",
+    )
     return Step1ActOut.from_view(view)
 
 
@@ -103,7 +114,7 @@ def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) 
 @declare(acts.UNDO, project="project_id")
 def undo(request: HttpRequest, project_id: uuid.UUID, payload: Step1UndoIn) -> Step1ActOut:
     """Undo one's own last act on Step 1: the sheets it undecided are compared again (in the act)."""
-    return Step1ActOut.from_view(step1.undo(project_id))
+    return Step1ActOut.from_view(deadlocks.retried(lambda: step1.undo(project_id), what="step1.undo"))
 
 
 @router.post(f"{_PREFIX}/drawing-list/read", response={200: Step1ParsedListOut, 400: Refusal})
@@ -120,7 +131,10 @@ def read_drawing_list(
 def set_drawing_list(
     request: HttpRequest, project_id: uuid.UUID, payload: Step1DrawingListIn
 ) -> Step1DrawingListOut:
-    view = step1.set_list(project_id, payload.discipline, payload.text, actor_name=actor(request))
+    view = deadlocks.retried(
+        lambda: step1.set_list(project_id, payload.discipline, payload.text, actor_name=actor(request)),
+        what="step1.set_list",
+    )
     return Step1DrawingListOut.from_view(view)
 
 
@@ -142,15 +156,19 @@ def answer_question(
 ) -> Step1QuestionOut:
     """Answer a Question with one of its options (`keep_open` keeps it open). A held file read
     anyway has its read job queued again, in the answer's transaction."""
-    with transaction.atomic():
-        done = step1.answer(
-            project_id,
-            question_id,
-            payload.option,
-            payload.text,
-            actor_name=actor(request),
-            seen=payload.held,
-        )
-        if done.read_again is not None:
-            read_file.read_again(done.read_again)
-    return Step1QuestionOut.from_view(done.question)
+
+    def act() -> step1.Answered:
+        with step1.writing(project_id):
+            done = step1.answer(
+                project_id,
+                question_id,
+                payload.option,
+                payload.text,
+                actor_name=actor(request),
+                seen=payload.held,
+            )
+            if done.read_again is not None:
+                read_file.read_again(done.read_again)
+        return done
+
+    return Step1QuestionOut.from_view(deadlocks.retried(act, what="step1.answer").question)

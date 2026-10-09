@@ -44,12 +44,13 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 """
 
 import contextlib
+import contextvars
 import hashlib
 import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
@@ -1212,7 +1213,7 @@ def set_list(project_id: uuid.UUID, discipline: str, text: str, *, actor_name: s
     projects.get(project_id)
     key = _discipline(discipline)
     parsed = _parse(text)
-    with transaction.atomic():
+    with writing(project_id):
         act = _act(project_id, ConfirmationAct.DRAWING_LIST, 0, actor_name, discipline=key)
         row = DrawingRegister.objects.create(
             tenant_id=act.tenant_id,
@@ -1390,7 +1391,7 @@ def _confirm(
     """`confirm`; `answering` when a Question's answer confirms what it held: its sheets never agree
     (an open Question holds them), so the answer is its own act, of kind `question_answer`."""
     auth.require(acts.CONFIRM, project_id)
-    with transaction.atomic():
+    with writing(project_id):
         chosen = _chosen(project_id, ids)
         _no_question_first(project_id, chosen)
         if not answering:
@@ -1649,7 +1650,7 @@ def _exclude(
     """`exclude`; `answering` when a Question's answer leaves the sheets out (`_confirm`'s)."""
     auth.require(acts.EXCLUDE, project_id)
     words = text if reason == OTHER else ""
-    with transaction.atomic():
+    with writing(project_id):
         views, ids = _views_chosen(project_id, ids)
         chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
@@ -1748,7 +1749,7 @@ def assign(
         raise auth.Refused(said.STEP_UNKNOWN(), status=400)
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NO_VIEW_CHOSEN(), status=400)
-    with transaction.atomic():
+    with writing(project_id):
         views, rest = _views_chosen(project_id, ids)
         if rest:
             raise auth.NotFound
@@ -1885,7 +1886,7 @@ def undo(project_id: uuid.UUID) -> ActView:
     follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
     projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
-    with transaction.atomic():
+    with writing(project_id):
         act = (
             Confirmation.objects.select_for_update()
             .filter(project_id=project_id, step=SHEETS, user_id=_user(), undone_at__isnull=True)
@@ -2832,7 +2833,7 @@ def record_read_list(
     sheet = _sheet(sheet_id)
     project_id = _project_of(sheet)
     key = _discipline(discipline)
-    with transaction.atomic():
+    with writing(project_id):
         row = DrawingRegister.objects.create(
             tenant_id=_tenant(),
             project_id=project_id,
@@ -2865,7 +2866,7 @@ def record_read_list(
 def answer_question(project_id: uuid.UUID, question_id: uuid.UUID, answer: Any) -> None:
     """Record a Question's answer, by the acting user, now (21c answers held files through it)."""
     projects.get(project_id)
-    with transaction.atomic():
+    with writing(project_id):
         row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
         if row is None:
             raise auth.NotFound
@@ -2907,7 +2908,7 @@ def answer(
     auth.require(acts.CONFIRM, project_id)
     projects.get(project_id)
     read_again = None
-    with transaction.atomic():
+    with writing(project_id):
         row = (
             Question.objects.select_for_update()
             .filter(project_id=project_id, step=SHEETS, id=question_id)
@@ -2956,7 +2957,7 @@ def answer_disciplines(
     has (its file's, chosen by the QS: #159), as if the QS had picked it; how many were answered."""
     given = {s.id: s.discipline for s in sheets if s.discipline}
     answered = 0
-    with transaction.atomic():
+    with writing(project_id):
         for row in Question.objects.select_for_update().filter(
             project_id=project_id,
             step=SHEETS,
@@ -3111,23 +3112,90 @@ def _natural(text: str) -> list[tuple[int, int, str]]:
     ]
 
 
+_PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.ContextVar(
+    "step1_progress_at_end", default=None
+)
+
+
+@contextlib.contextmanager
+def writing(project_id: uuid.UUID) -> Iterator[None]:
+    """An act's transaction on Step 1 (#227): Step 1's write lock on the Project taken first
+    (`lock_writes`), and its progress rows written last (`progress_at_end`)."""
+    with transaction.atomic(), progress_at_end():
+        lock_writes(project_id)
+        yield
+
+
+def lock_writes(project_id: uuid.UUID) -> None:
+    """Step 1's write lock on the Project, held to the transaction's end (#227, review round 3).
+    Every act takes it as its transaction's first statement, before any row lock (`writing`); a
+    read job takes it just before its short write phase (the proposals' rows, the set's Questions,
+    the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers), which holds
+    no row an act locks. So an act and a job share their rows one at a time: an act waits at most
+    for a job's write phase (seconds), never for its reading, and the two never wait on each other
+    in a cycle, whatever rows they share (a sheet the match lets go, a Question both retire, a PDF's
+    row). The Discipline change takes it first too (`drawings.before_discipline_change`). Taken
+    again in the same transaction, it is already held; an act aborted anyway is run again
+    (`platform.services.deadlocks`)."""
+    assert connection.in_atomic_block, "Step 1's write lock is a transaction's"
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-write:{project_id}"]
+        )
+
+
+@contextlib.contextmanager
+def progress_at_end() -> Iterator[None]:
+    """Step 1's progress rows written once, as the block ends, however often it records them; a
+    block inside another is written as the outer one ends. `record_progress` takes a per-Project
+    lock, so the progress lock is the last lock any transaction takes, after all its own row locks:
+    every act and every read job's step runs inside one, the whole of its transaction (#227).
+    A read job's step holds the rows only for the moment before it commits, never while it
+    proposes. That alone does not keep an act and a job out of a cycle on the rows before it (a
+    Question both retire, a sheet the match lets go): Step 1's write lock does (`lock_writes`).
+    Nothing is written if the block raises (its transaction rolls back)."""
+    if _PROGRESS_AT_END.get() is not None:
+        yield
+        return
+    held: set[uuid.UUID] = set()
+    token = _PROGRESS_AT_END.set(held)
+    try:
+        yield
+    finally:
+        _PROGRESS_AT_END.reset(token)
+    for project_id in sorted(held, key=str):
+        record_progress(project_id)
+
+
 def record_progress(project_id: uuid.UUID) -> None:
     """Keep Step 1's progress rows as `progress` counts them, one per Discipline (and one for the
-    sheets of none)."""
-    tenant_id = _tenant()
-    for row in progress(project_id).disciplines:
-        status = row.status
-        StepProgress.objects.update_or_create(
-            tenant_id=tenant_id,
-            project_id=project_id,
-            building_id=None,
-            step=SHEETS,
-            discipline=row.discipline or "",
-            defaults={
-                "status": status,
-                "placed": row.confirmed,
-                "total": row.total,
-                "open_questions": row.open_questions,
-                "updated_at": timezone.now(),
-            },
-        )
+    sheets of none); inside `progress_at_end` (every act's and every read job's), as its block
+    ends."""
+    held = _PROGRESS_AT_END.get()
+    if held is not None:
+        held.add(project_id)
+        return
+    # Counted and written under one lock per Project, held to the transaction's end: an act and a
+    # read job writing the rows at once never write a count that misses the other's (#227's review).
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
+            )
+        tenant_id = _tenant()
+        for row in progress(project_id).disciplines:
+            status = row.status
+            StepProgress.objects.update_or_create(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                building_id=None,
+                step=SHEETS,
+                discipline=row.discipline or "",
+                defaults={
+                    "status": status,
+                    "placed": row.confirmed,
+                    "total": row.total,
+                    "open_questions": row.open_questions,
+                    "updated_at": timezone.now(),
+                },
+            )

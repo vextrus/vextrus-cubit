@@ -87,6 +87,10 @@ ALREADY_ENDED = MessageCode("drawings.files.already_ended")
 NOT_FAILED = MessageCode("drawings.files.not_failed")
 """Mark for Vextrus on a file that did not fail to be read (waiting, being read, read, held, refused
 or cancelled) (409): only a file that could not be read is marked."""
+DISCIPLINE_FILE_READING = MessageCode("drawings.files.reading")
+"""A Discipline change while the file's read job is at a step that holds the file (its row locked:
+mostly its last step, marking it read and proposing its sheets) (409): the change never waits on a
+reading (#227)."""
 DISCIPLINE_UNKNOWN = MessageCode("drawings.files.discipline_unknown")
 """A Discipline this Market does not have (400)."""
 DISCIPLINE_SHEET_DECIDED = MessageCode("drawings.files.discipline_sheet_decided", params=("sheet",))

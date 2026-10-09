@@ -887,6 +887,15 @@ def sheet_facts(set_id: uuid.UUID) -> list[SheetFacts]:
     return [fact for _key, fact in sorted(placed, key=lambda pair: pair[0])]
 
 
+def recorded_sheets(file_id: uuid.UUID) -> list[tuple[SheetView, list[ViewView]]]:
+    """A file's printed sheets as its reading recorded them, each with its views in reading order,
+    whatever the file's state: its read job asks Jev about them before its `finishing` step lists
+    them (S15-A2). The same views `sheets` and `views` give once the file is listed."""
+    row = _access.drawing_file(file_id)
+    found = _all().filter(source_file=row).order_by("ordinal", "id")
+    return [(_sheet_view(sr), _views_of(sr)) for sr in found]
+
+
 def _placed(
     order: Mapping[str, int],
     discipline: str | None,

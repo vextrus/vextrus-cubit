@@ -1,19 +1,26 @@
 """The read job's Step 1 proposals and Questions (ticket 21c; docs/plans/M0.md, 21c): the last steps
 of a file's read job (21a's `files.read`), each kept once by `drawings`' StepStore.
 
-    propose(file_id, load, unread=2)     # `proposals`: a read file's sheets and views proposed
+    asked = to_ask(file_id, conventions)  # in a transaction, before `finishing`: Jev's questions
+    sent = send(asked)                     # between transactions: TypeSafe asked (S15-A2)
+    propose(file_id, load, conventions, sent=sent, unread=2)  # `finishing`: sheets, views proposed
     ask_held(file_id)                    # `held`: a held file's `file_misread` Question
 
 **A read file's sheets** (those in the sheet list): each a Proposal of its own, with its Traces
 (where its number and title were read, else its place) and Jev's answer about its kind, asked with
-13's question (`engine.recognise.sheets.judgement`) through 15's `jev.ask_judgement`: Jev's first
-choice is the proposed kind (#228, the owner's ruling "Propose Jev's top kind"), unless it is unsure
-(`unsure`: under `jev.SHEET_TYPE.proposes`, its top two close, or the sheet's title naming another
-kind), when a `low_confidence` Question offers the kinds most likely first, Jev's first picked; with
-TypeSafe unavailable the kind is left to the QS, and nothing is asked. Each view a Proposal with
-its Traces, and its Coverage row (`step1.record_coverage`: to its Takeoff Steps and its Discipline
-Part, proposed out with a reason, or unaccounted). A sheet with no number is asked (`missing`), one
-with no Discipline asked which it is (`missing_discipline`, #102).
+13's question (`engine.recognise.sheets.judgement`) through 15's Jev: Jev's first choice is the
+proposed kind (#228, the owner's ruling "Propose Jev's top kind"), unless it is unsure (`unsure`:
+under `jev.SHEET_TYPE.proposes`, its top two close, or the sheet's title naming another kind), when a
+`low_confidence` Question offers the kinds most likely first, Jev's first picked; with TypeSafe
+unavailable the kind is left to the QS, and nothing is asked. Jev is asked outside every transaction
+(S15-A2: a read job's transaction holds no network call, so no act waits on it): `to_ask` reads the
+file's recorded sheets in a short transaction of its own, before `finishing` lists them, for the
+questions the cache does not answer; `send` asks TypeSafe between transactions; `propose` keeps the
+answers in `finishing` (`jev.answer`, never a call). A question changed in between (a sheet's
+Discipline) is answered by neither: its kind is left to the QS.
+Each view a Proposal with its Traces, and its Coverage row (`step1.record_coverage`: to its
+Takeoff Steps and its Discipline Part, proposed out with a reason, or unaccounted). A sheet with no
+number is asked (`missing`), one with no Discipline asked which it is (`missing_discipline`, #102).
 A sheet the read proposed out with no number (a cover, a stale layout: `step1.proposed_out`) is
 proposed and asked nothing (#162): it is no sheet of the set's, and the QS sees it proposed out.
 The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's `unread_sheets`).
@@ -58,6 +65,7 @@ from engine.recognise.types import (
     CheckOutcome,
     Conflict,
     DrawingList,
+    JudgementRequest,
     Layer,
     ListEntry,
     ListSource,
@@ -122,23 +130,62 @@ def ask_held(file_id: uuid.UUID) -> dict[str, Any]:
 # A read file's sheets and views ------------------------------------------------------------------
 
 
+def to_ask(file_id: uuid.UUID, conventions: SheetConventions) -> list[jev.Request]:
+    """Jev's questions about the file's recorded sheets that the cache does not answer: read in a
+    transaction, before `finishing` (see the module)."""
+    asked: dict[str, jev.Request] = {}
+    for sheet, views in drawings.recorded_sheets(file_id):
+        request = _judgement(sheet, views, conventions)
+        prepared = jev.to_send(request) if request is not None else None
+        if prepared is not None:
+            asked.setdefault(prepared.cache_key, prepared)
+    return list(asked.values())
+
+
+def send(asked: Sequence[jev.Request]) -> jev.Sent:
+    """TypeSafe's answers to `to_ask`'s questions, asked outside every transaction (a read job asks
+    between its steps): no row is held while Jev answers."""
+    return {request.cache_key: jev.send(request) for request in asked}
+
+
 def propose(
     file_id: uuid.UUID,
     load: Callable[[], ReadArtefact],
     conventions: SheetConventions,
     *,
+    sent: jev.Sent,
     unread: int = 0,
 ) -> dict[str, Any]:
-    """The `proposals` step (see the module); what it proposed and asked, as counts."""
+    """The `proposals` step (see the module); what it proposed and asked, as counts. Jev's answers
+    are the cache's or `sent`'s: it calls nothing. Step 1's progress rows are written once, at its
+    end (`step1.progress_at_end`, #227)."""
+    with step1.progress_at_end():
+        return _propose(file_id, load, conventions, sent=sent, unread=unread)
+
+
+def _propose(
+    file_id: uuid.UUID,
+    load: Callable[[], ReadArtefact],
+    conventions: SheetConventions,
+    *,
+    sent: jev.Sent,
+    unread: int,
+) -> dict[str, Any]:
     view = drawings.file(file_id)
     project_id = view.project_id
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
+    # The reading first, writing nothing: Jev's answer about each sheet's kind (asked before the
+    # step, kept now), and the drawing lists read on the sheets. Then Step 1's write lock, before
+    # the first row written (#227).
+    viewed = [(sheet, drawings.views(sheet.id)) for sheet in listed]
+    judged = [(sheet, views, _judged(sheet, views, conventions, sent)) for sheet, views in viewed]
+    lists = _lists_read(listed, load, conventions) if listed else []
+    step1.lock_writes(project_id)
     step1.record_unread(project_id, file_id, sheet_found=len(listed), unread=unread)
     proposed = 0
-    for sheet in listed:
-        views = drawings.views(sheet.id)
+    for sheet, views, answer in judged:
         out = step1.proposed_out(sheet)
-        proposal_id = _propose_sheet(project_id, sheet, views, conventions, ask=not out)
+        proposal_id = _propose_sheet(project_id, sheet, answer, conventions, ask=not out)
         for seen in views:
             step1.propose_view(project_id, seen, traces=_view_traces(seen))
         step1.record_coverage(sheet.id)
@@ -163,8 +210,8 @@ def propose(
                 blocks=[proposal_id],
             )
         proposed += 1
-    if listed:
-        _read_lists(listed, load, conventions)
+    for sheet_id, discipline, rows in lists:
+        step1.record_read_list(sheet_id, discipline, rows)
     asked = set_questions(project_id, trigger_file=file_id)
     step1.record_progress(project_id)  # last: it counts the Questions the set's round asked
     return {"sheets": proposed, "questions": asked}
@@ -180,10 +227,11 @@ def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
     if not listed:
         return
-    step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
-    step1.ask_kind_again(view.project_id, listed)
-    set_questions(view.project_id, trigger_file=file_id)
-    step1.record_progress(view.project_id)
+    with step1.progress_at_end():  # the progress lock last, after the Questions' rows (#227)
+        step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+        step1.ask_kind_again(view.project_id, listed)
+        set_questions(view.project_id, trigger_file=file_id)
+        step1.record_progress(view.project_id)
 
 
 NAMED_STOREYS = frozenset(
@@ -233,18 +281,35 @@ def named(sheet: drawings.SheetView, prefix: str = "") -> dict[str, str]:
     return {f"{prefix}sheet": "", f"{prefix}named": "none"}
 
 
+def _judgement(
+    sheet: drawings.SheetView, views: Sequence[drawings.ViewView], conventions: SheetConventions
+) -> JudgementRequest | None:
+    """13's question about the sheet's kind, or None when it has none to ask."""
+    return sheet_finder.judgement(
+        candidate(sheet), [v.title for v in views if v.title], conventions=conventions
+    )
+
+
+def _judged(
+    sheet: drawings.SheetView,
+    views: Sequence[drawings.ViewView],
+    conventions: SheetConventions,
+    sent: jev.Sent,
+) -> jev.Answer | jev.Unavailable | None:
+    """Jev's answer about the sheet's kind (13's question), kept before anything else is written:
+    the cache's or `sent`'s, never a call."""
+    request = _judgement(sheet, views, conventions)
+    return jev.answer(request, sent) if request is not None else None
+
+
 def _propose_sheet(
     project_id: uuid.UUID,
     sheet: drawings.SheetView,
-    views: Sequence[drawings.ViewView],
+    answer: jev.Answer | jev.Unavailable | None,
     conventions: SheetConventions,
     *,
     ask: bool = True,
 ) -> uuid.UUID:
-    request = sheet_finder.judgement(
-        candidate(sheet), [v.title for v in views if v.title], conventions=conventions
-    )
-    answer = jev.ask_judgement(request) if request is not None else None
     sure = isinstance(answer, jev.Answer) and not unsure(answer, sheet.title)
     proposal_id = step1.propose_sheet(
         sheet.id,
@@ -481,16 +546,17 @@ def view_candidate(view: drawings.ViewView) -> ViewCandidate:
 # The drawing lists read on the file's sheets -------------------------------------------------------
 
 
-def _read_lists(
+def _lists_read(
     listed: Sequence[drawings.SheetView],
     load: Callable[[], ReadArtefact],
     conventions: SheetConventions,
-) -> None:
-    """13's register on the file's sheets: each list kept for its Discipline, on its sheet."""
+) -> list[tuple[uuid.UUID, str, list[tuple[str, str]]]]:
+    """13's register on the file's sheets: each list for its Discipline, on its sheet (kept by the
+    caller: `step1.record_read_list`)."""
     candidates = [candidate(s, "file") for s in listed]
     entries = register_reader.find(load(), candidates, conventions=conventions)
     if not entries:
-        return
+        return []
     numbers = finder.Numbers(conventions, finder.recognisers(conventions))
     by_sheet: dict[int, dict[str, list[tuple[str, str]]]] = {}
     position = {id(c): i for i, c in enumerate(candidates)}
@@ -503,9 +569,11 @@ def _read_lists(
             continue
         rows = by_sheet.setdefault(position[id(entry.sheet)], {}).setdefault(discipline, [])
         rows.append((entry.number, entry.title or ""))
-    for index, lists in by_sheet.items():
-        for discipline, rows in lists.items():
-            step1.record_read_list(listed[index].id, discipline, rows)
+    return [
+        (listed[index].id, discipline, rows)
+        for index, lists in by_sheet.items()
+        for discipline, rows in lists.items()
+    ]
 
 
 # The set's Questions ------------------------------------------------------------------------------
