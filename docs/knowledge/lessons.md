@@ -441,7 +441,9 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **Local verify skips the `needs_toolchain` tests, so an engine PR went READY and failed CI's toolchain job**
   (E2, #613: two toolchain acceptance tests broke in its fix round). The toolchain is on this machine; a verify of
   `engine/**` changes must run them. No check yet: #616 (verify runs `needs_toolchain` tests for engine paths
-  locally).
+  locally; session 18's attempt #621 was cut after three rounds: a plain `uv run` re-syncs the venv to the pure
+  ezdxf wheel, so the run needs its own toolchain venv; design on #616). Until then every engine builder's prompt
+  says to run them by hand.
 - **Concurrent verifies in different worktrees collide** on the vitest browser port and on the test database's
   name, so a green tree reads red under contention (Q3's re-verify). Check: `scripts/tests/acceptance/ts18t617`
   (verify's plan gives each worktree's run its own vitest port block and its own database name).
@@ -451,3 +453,22 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **The lander updated every branch after the owner turned "require up to date" off,** re-running full CI and a
   real-drawing post per landing for nothing. It now lands a PR as it stands; only `land update` brings main in, and
   a conflicting PR is refused naming it (#611). Check: `scripts/tests/acceptance/ts17f7`.
+
+## Session 18 (9 Oct 2026): Phase 0 closed, a power cut, G1 still 13 of 16
+
+- **G1's act timer armed its answer wait after the request left,** so an answer in the same event batch was lost and
+  recorded as a 180 s timeout with status 0 (three undo acts on main d0c53b48; the server had answered 200 at once).
+  Check: `web/src/acceptance/ts18walk1` (#625; 300 presses under load, no answered act lost).
+- **Real-drawing runs started by hand bypass the rdlock,** so `rdlock_min` read 0 for a session that ran them
+  (session 17). `measures` is right for what `rdlock run` writes. No check yet: #620 (`scripts/real-drawings` refuses
+  to run outside the lock; a custody change). Until then every run goes through `scripts.factory.rdlock run`.
+- **`allowlist batch` opens a head with no `Factory-State: READY`,** so CI's `ci` job fails on it and the lander
+  refuses; the orchestrator had to verify and commit READY by hand (#622). No check yet (factory freeze).
+- **verify's `contract-fixtures` can run before `openapi-export` writes the schema** (seen by two builders). No check
+  yet: #626.
+- **A crosspr-only BLOCKED head cannot be reviewed alone**: CI's heavy jobs skip a non-READY head and the review
+  refuses a red CI (E3, #629). Opening such a PR by hand is wasted; members that conflict only with each other go
+  straight into the train (lesson h of session 17, confirmed). No check: a rule in the session brief.
+- **A power cut (11:14Z-15:01Z) killed every builder**; resumes copied each conversation into a new session, and one
+  copy died without committing (Q1), so the orchestrator verified its committed tree itself. No check: say in each
+  builder's prompt that work is committed often, so a reboot loses only uncommitted minutes.
