@@ -463,7 +463,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   (session 17). `measures` is right for what `rdlock run` writes. No check yet: #620 (`scripts/real-drawings` refuses
   to run outside the lock; a custody change). Until then every run goes through `scripts.factory.rdlock run`.
 - **`allowlist batch` opens a head with no `Factory-State: READY`,** so CI's `ci` job fails on it and the lander
-  refuses; the orchestrator had to verify and commit READY by hand (#622). No check yet (factory freeze).
+  refuses; the orchestrator had to verify and commit READY by hand (#622). No check yet: the factory freeze
+  holds it until G1 passes twice.
 - **verify's `contract-fixtures` can run before `openapi-export` writes the schema** (seen by two builders). No check
   yet: #626.
 - **A crosspr-only BLOCKED head cannot be reviewed alone**: CI's heavy jobs skip a non-READY head and the review
