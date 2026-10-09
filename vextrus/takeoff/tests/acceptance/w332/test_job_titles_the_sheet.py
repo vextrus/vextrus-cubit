@@ -12,8 +12,10 @@ test stands in for it. Every word drawn here is invented.
 """
 
 import hashlib
+import json
 import uuid
-from dataclasses import replace
+from collections.abc import Mapping
+from dataclasses import fields, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -296,19 +298,29 @@ def test_two_differently_titled_views_leave_the_sheet_untitled(
     assert steps[drawings.sheet_step(order.index("S-202") + 1)].result["titled_by_view"] is False
 
 
+def matched(plot: object, page: int) -> dict[str, Any]:
+    """A Plot page matched to a sheet: its page, and, where the Plot match records whether the page's
+    number and title read alike (`title_alike`, Q2's #229), that they do."""
+    found: dict[str, Any] = {"page": page}
+    if "title_alike" in {f.name for f in fields(cast(Any, plot))}:
+        found["title_alike"] = True
+    return found
+
+
 def test_a_title_from_a_view_is_one_source_and_never_agrees(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """m0-screens §5, "What 'agrees' means": a sheet agrees once a second source confirms its
     title-block number and title; a title read from a View is not a title-block title. With no list,
-    S-201 to S-203 run without a gap and each one's Plot page matched (driven as
-    `test_step1_agrees.py` drives it): sheets 1 and 3 agree, sheet 2 does not."""
+    S-201 to S-203 run without a gap and each one's Plot page matched, number and title alike (driven
+    as `test_step1_agrees.py` drives it): sheets 1 and 3 agree, sheet 2 does not."""
     file_id = added(qs_project)
     run_job(qs_project.member, file_id, monkeypatch)
     real = step1._sheets
 
     def with_plots(project_id: uuid.UUID) -> list[drawings.SheetView]:
-        return [replace(s, plot=replace(s.plot, page=i + 1)) for i, s in enumerate(real(project_id))]
+        listed = real(project_id)
+        return [replace(s, plot=replace(s.plot, **matched(s.plot, i + 1))) for i, s in enumerate(listed)]
 
     monkeypatch.setattr(step1, "_sheets", with_plots)
 
@@ -316,25 +328,34 @@ def test_a_title_from_a_view_is_one_source_and_never_agrees(
     assert agrees == {"S-201": True, "S-202": False, "S-203": True}
 
 
+def _unsure(options: tuple[str, ...]) -> dict[str, Any]:
+    """An even share over the options: below the propose line, so the QS is asked the kind."""
+    share = (Decimal(1) / len(options)).quantize(Decimal("0.000001"))
+    return {
+        "model": jev.SHEET_TYPE.model,
+        "choice": options[0],
+        "confidence": share,
+        "probabilities": tuple((o, share) for o in options),
+    }
+
+
 class Judged:
-    """Jev standing in: each sheet_type request kept; it answers unsure (below the propose line), so
-    the QS is asked the kind."""
+    """Jev standing in: the facts of each sheet_type question kept; it answers unsure. It stands in
+    where a read job asks in one call (`jev.ask_judgement`) and where it sends the prepared request
+    outside any transaction (`jev.send`, the facts read from the request's body: its `state`)."""
 
     def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self.requests: list[JudgementRequest] = []
+        self.facts: list[Mapping[str, Any]] = []
         monkeypatch.setattr(jev, "ask_judgement", self.ask)
+        monkeypatch.setattr(jev, "send", self.send, raising=False)
 
     def ask(self, request: JudgementRequest) -> jev.Answer:
-        self.requests.append(request)
-        share = Decimal(1) / len(request.options)
-        return jev.Answer(
-            node=request.node,
-            model=jev.SHEET_TYPE.model,
-            choice=request.options[0],
-            confidence=share.quantize(Decimal("0.000001")),
-            probabilities=tuple((o, share.quantize(Decimal("0.000001"))) for o in request.options),
-            id=uuid.uuid4(),
-        )
+        self.facts.append(request.facts)
+        return jev.Answer(node=request.node, id=uuid.uuid4(), **_unsure(tuple(request.options)))
+
+    def send(self, request: jev.Request) -> jev.Judgement:
+        self.facts.append(json.loads(request.body)["state"])
+        return jev.Judgement(node=request.node.key, **_unsure(request.options))
 
 
 def test_jevs_kind_judgement_is_given_the_title_from_the_view(
@@ -345,9 +366,9 @@ def test_jevs_kind_judgement_is_given_the_title_from_the_view(
 
     run_job(qs_project.member, file_id, monkeypatch)
 
-    asked = [r for r in judged.requests if SHEET_2_VIEW in r.facts["view_titles"]]
+    asked = [facts for facts in judged.facts if SHEET_2_VIEW in facts["view_titles"]]
     assert asked, "sheet 2's kind was not asked"
-    assert {r.facts["title"] for r in asked} == {SHEET_2_VIEW}
+    assert {facts["title"] for facts in asked} == {SHEET_2_VIEW}
 
 
 def test_the_kind_question_names_the_sheet_by_number_and_its_title_is_the_views(
