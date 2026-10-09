@@ -9,9 +9,10 @@
   and refuters' final lines, one per line: `VERDICT: PASS|FIX|BLOCK at <40-hex>` (one per reviewer lens)
   and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> [<file>]` (the refuter's verdict; `-`:
   none run; the file the reviewer named). The bar (the owner's ruling, 7 Oct 2026; ADR 0041 amended): a
-  finding "could block" when it scores 75 or more, or 50 or more on a strict path (`[strict] paths` of
-  `scripts/factory/review_tiers.toml`; no file, a climbing or absolute path, or an unreadable list is
-  judged strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The worst
+  finding "could block" when it scores 75 or more, or 50 or more on a strict path (strict by default:
+  lax only on a `[lax]` glob of `scripts/factory/review_tiers.toml` off its `[strict]` carve-outs,
+  the file read afresh for each decision; no file, a climbing or absolute path, or an unreadable list
+  is judged strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The worst
   VERDICT wins (BLOCK over FIX over PASS); a finding that could block and stands (CONFIRMED or
   UNPROVEN) raises PASS to FIX; one that could block with no refuter verdict is refused. Prints one
   JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
@@ -118,17 +119,34 @@ def glob_regex(pattern: str, *, ignore_case: bool = False) -> re.Pattern[str]:
 
 
 def tier_globs(table: str) -> list[str] | None:
-    """`[<table>] paths` of `review_tiers.toml`; None when it cannot be read or is empty."""
+    """`[<table>] paths` of the tiers file as it is now (`TIERS_FILE`, read for each call: never
+    remembered from an earlier decision); None when it cannot be read, is not TOML, or the list is
+    missing, empty or holds anything but non-blank strings (the bar then judges every path strict)."""
     try:
-        paths = tomllib.loads(TIERS_FILE.read_text())[table]["paths"]
-    except OSError, ValueError, KeyError, TypeError:
+        data = TIERS_FILE.read_bytes()
+    except OSError:
         return None
-    if not isinstance(paths, list) or not paths or not all(isinstance(p, str) and p for p in paths):
-        return None
-    return paths
+    paths = parsed_tiers(str(TIERS_FILE), data).get(table)
+    return list(paths) if paths else None
 
 
-@functools.cache
+@functools.lru_cache(maxsize=8)
+def parsed_tiers(path: str, data: bytes) -> dict[str, tuple[str, ...]]:
+    """Each table's `paths` of one tiers file, cached by its path and its contents (a file that
+    changes, or a seam pointed elsewhere, is parsed afresh); a table whose list is unusable is left
+    out. `path` keys the cache only."""
+    try:
+        tables = tomllib.loads(data.decode())
+    except ValueError:  # not UTF-8, or not TOML
+        return {}
+    found: dict[str, tuple[str, ...]] = {}
+    for name, table in tables.items():
+        paths = table.get("paths") if isinstance(table, dict) else None
+        if isinstance(paths, list) and paths and all(isinstance(p, str) and p.strip() for p in paths):
+            found[name] = tuple(paths)
+    return found
+
+
 def strict_paths() -> tuple[re.Pattern[str], ...] | None:
     """`[strict] paths` (case ignored), where `X/**` also matches the folder `X` itself (a reviewer
     naming the folder is on it); None when it cannot be read."""
@@ -138,12 +156,12 @@ def strict_paths() -> tuple[re.Pattern[str], ...] | None:
     return tuple(glob_regex(path, ignore_case=True) for path in [*paths, *folders])
 
 
-@functools.cache
 def lax_paths() -> tuple[re.Pattern[str], ...] | None:
-    """`[lax] paths` (case ignored): the only places a 50-74 does not block; None when unreadable."""
+    """`[lax] paths` (case kept: a lax glob is matched as written): the only places a 50-74 does not
+    block; None when unreadable."""
     if (paths := tier_globs("lax")) is None:
         return None
-    return tuple(glob_regex(path, ignore_case=True) for path in paths)
+    return tuple(glob_regex(path) for path in paths)
 
 
 def named_file(file: Any) -> str | None:
@@ -173,17 +191,19 @@ def tree_files(commit: str) -> frozenset[str]:
 def on_strict_path(file: str | None) -> bool:
     """True when `file` is on a strict path. Strict is the default (ADR 0043 item 2): a file is lax
     only when it matches a `[lax]` glob (the whole path) and no `[strict]` glob (any trailing part of
-    the path, `b/vextrus/rates/x.py`). Fail closed: no file, anything but a plain relative path once a
-    location suffix (`:12`, `:12-20`, `#L12`) is dropped (absolute, a drive, a backslash, a blank,
-    another mark), a `..` segment, or a list that cannot be read, is judged strict."""
+    the path, `b/vextrus/rates/x.py`, case ignored). Fail closed: no file, anything but a plain
+    relative path once a location suffix (`:12`, `:12-20`, `#L12`) is dropped (absolute, a drive, a
+    backslash, a blank, another mark), an empty, `.`, `..` or hidden segment (`./x`, `a//b`, `a/`,
+    `a/.b`), or a list that cannot be read, is judged strict. A lax glob is matched as written, case
+    and all (`web/src/ui/Button.TSX` and `WEB/src/...` are strict: S18-F6's refuter)."""
     patterns, lax = strict_paths(), lax_paths()
     if not file or patterns is None or lax is None:
         return True
     path = LOCATION.sub("", file)
     if not PLAIN_PATH.fullmatch(path):
         return True
-    parts = [part for part in path.split("/") if part not in ("", ".")]
-    if not parts or ".." in parts:
+    parts = path.split("/")
+    if any(not part or part.startswith(".") for part in parts):
         return True
     tails = ["/".join(parts[index:]) for index in range(len(parts))]
     if any(pattern.fullmatch(tail) for pattern in patterns for tail in tails):

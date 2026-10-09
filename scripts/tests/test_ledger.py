@@ -172,6 +172,7 @@ def test_check_refuses_an_exception_with_no_reason(tmp_path: Path) -> None:
         ("vextrus\\rates\\table.py", True),  # a Windows spelling
         ("vextrus/rates/table.py:12", True),
         ("./vextrus/boq/services/pricing.py", True),
+        ("web/src/components/badge.tsx:4-6", False),
         ("/home/user/vextrus-cubit/web/src/components/badge.tsx", True),  # absolute: strict
         ("vextrus/rates/../../web/src/components/badge.tsx", True),  # any `..`: strict
         ("../outside.py", True),
@@ -189,27 +190,106 @@ def test_check_refuses_an_exception_with_no_reason(tmp_path: Path) -> None:
         ("web/src/components/badge tsx", True),  # a blank: not a plain path
         ("web/src/components/badge.tsx", False),
         ("web/src/components/badge.tsx#L3-L9", False),
-        ("./web/src/components/badge.tsx:4-6", False),
+        ("./web/src/components/badge.tsx:4-6", True),  # a `.` segment: strict (S18-F6)
         ("web/src/components/badge.tsx:7:2", False),
-        ("scripts/factory/say.py", False),
+        ("scripts/factory/say.py", True),  # strict by default (S18-F6)
+        ("README.md", True),
+        ("web/src/members/data.ts", True),
+        ("docs/research/x.md", False),
     ],
 )
 def test_on_strict_path(file: str | None, strict: bool) -> None:
     assert ledger.on_strict_path(file) is strict
 
 
+@pytest.mark.parametrize(
+    "file",
+    [
+        "./web/src/ui/Button.tsx",
+        "web//src/ui/Button.tsx",
+        "web/src/ui//Button.tsx",
+        "web/src/./ui/Button.tsx",
+        "./docs/foo.md",
+        "docs//foo.md",
+        "web/src/ui/Button.tsx/",
+        "docs/foo.md/",
+        "WEB/SRC/ui/Button.tsx",
+        "DOCS/foo.md",
+        "web/src/ui/Button.TSX",
+        "docs/foo.MD",
+        "web/src/.tsx",
+        "docs/.md",
+        "docs/.hidden/foo.md",
+    ],
+)
+def test_a_noisy_form_of_a_lax_file_is_strict(file: str) -> None:
+    """S18-F6's refuter: forms that resolve to a lax file but are not it as written fail closed."""
+    assert ledger.on_strict_path(file) is True
+
+
 def test_an_unreadable_strict_list_judges_every_path_strict(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    ledger.strict_paths.cache_clear()
-    monkeypatch.setattr(ledger, "TIERS_FILE", tmp_path / "missing.toml")
-    try:
-        assert ledger.on_strict_path("web/src/components/badge.tsx") is True
-        (tmp_path / "missing.toml").write_text("[strict]\npaths = []\n")
-        ledger.strict_paths.cache_clear()
-        assert ledger.on_strict_path("web/src/components/badge.tsx") is True
-    finally:
-        ledger.strict_paths.cache_clear()
+    tiers = tmp_path / "tiers.toml"
+    monkeypatch.setattr(ledger, "TIERS_FILE", tiers)
+    assert ledger.on_strict_path("web/src/components/badge.tsx") is True
+    tiers.write_text('[strict]\npaths = []\n\n[lax]\npaths = ["web/**"]\n')
+    assert ledger.on_strict_path("web/src/components/badge.tsx") is True
+
+
+def test_the_tiers_file_is_read_for_each_decision_and_cached_only_by_its_contents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S18-F6 (PR #615, l1-f2): a list read once stayed in force for the process. The file is read
+    for each decision; a parse is reused only for the same path and the same bytes."""
+    tiers = tmp_path / "tiers.toml"
+    monkeypatch.setattr(ledger, "TIERS_FILE", tiers)
+    badge = "web/src/components/badge.tsx"
+    assert ledger.on_strict_path(badge) is True  # missing
+    tiers.write_text('[strict]\npaths = ["vextrus/**"]\n\n[lax]\npaths = ["web/**"]\n')
+    assert ledger.on_strict_path(badge) is False
+    tiers.write_text('[strict]\npaths = ["web/src/components/**"]\n\n[lax]\npaths = ["web/**"]\n')
+    assert ledger.on_strict_path(badge) is True  # same path, new contents: parsed afresh
+    tiers.unlink()
+    assert ledger.on_strict_path(badge) is True
+    monkeypatch.setattr(
+        ledger, "TIERS_FILE", Path(ledger.__file__).with_name("factory") / "review_tiers.toml"
+    )
+    assert ledger.on_strict_path(badge) is False
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        b"",
+        b"\xff\xfe not utf-8",
+        b"[lax\npaths = [",
+        b'lax = "web/**"\nstrict = "vextrus/**"\n',
+        b'[lax]\npaths = "web/**"\n[strict]\npaths = ["vextrus/**"]\n',
+        b'[lax]\npaths = ["web/**", " "]\n[strict]\npaths = ["vextrus/**"]\n',
+        b'[lax]\npaths = ["web/**", 3]\n[strict]\npaths = ["vextrus/**"]\n',
+        b'[lax]\npaths = ["web/**"]\n',
+        b'[strict]\npaths = ["vextrus/**"]\n',
+    ],
+    ids=[
+        "empty",
+        "not-utf8",
+        "not-toml",
+        "not-tables",
+        "not-a-list",
+        "blank",
+        "not-str",
+        "no-strict",
+        "no-lax",
+    ],
+)
+def test_a_tiers_file_the_bar_cannot_use_judges_every_path_strict(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: bytes
+) -> None:
+    tiers = tmp_path / "tiers.toml"
+    tiers.write_bytes(text)
+    monkeypatch.setattr(ledger, "TIERS_FILE", tiers)
+    assert ledger.on_strict_path("web/src/components/badge.tsx") is True
 
 
 @pytest.mark.parametrize(
@@ -246,21 +326,23 @@ def test_a_pass_with_an_unrefuted_74_off_the_strict_paths_is_recorded(tmp_path: 
 
 
 @pytest.mark.parametrize(
-    ("file", "code"),
+    ("file", "code", "lax"),
     [
-        ("vextrus/platform/database.py ", 3),  # padded: the refuter's case (S17-F6)
-        ("vextrus/platform/database.py", 3),
-        ("README.md", 0),  # a file of the head's tree on a lax path (root *.md)
-        ("app.py", 3),  # on the tree, but no lax glob names it: strict by default
-        ("web/src/components/badge.tsx", 3),  # not in the head's tree: judged strict
+        ("vextrus/platform/database.py ", 3, None),  # padded: the refuter's case (S17-F6)
+        ("vextrus/platform/database.py", 3, None),
+        ("README.md", 0, "*.md"),  # a file of the head's tree on a lax path
+        ("README.md", 3, None),  # a root file: strict by default (S18-F6)
+        ("app.py", 3, None),  # on the tree, but no lax glob names it: strict by default
+        ("web/src/components/badge.tsx", 3, None),  # not in the head's tree: judged strict
     ],
-    ids=["padded-strict", "strict", "lax", "strict-by-default", "not-on-the-tree"],
+    ids=["padded-strict", "strict", "lax", "root-md", "strict-by-default", "not-on-the-tree"],
 )
 def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, file: str, code: int
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, file: str, code: int, lax: str | None
 ) -> None:
     """A cloud reviewer's PASS with an unrefuted 60 is refused on a strict path, however its file is
-    padded, and recorded PASS off the strict paths."""
+    padded, and recorded PASS off the strict paths (the head's tree holds only `README.md` and
+    `app.py`, so the lax case points the tiers file at one that lists `*.md` lax)."""
     from scripts.tests.acceptance.tf4.test_ledger_fetch_verdict import (
         VERDICT_PATH,
         Origin,
@@ -268,6 +350,10 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         verdict_file,
     )
 
+    if lax is not None:
+        tiers = tmp_path / "tiers.toml"
+        tiers.write_text(f'[strict]\npaths = ["vextrus/**"]\n\n[lax]\npaths = ["{lax}"]\n')
+        monkeypatch.setattr(ledger, "TIERS_FILE", tiers)
     origin = Origin(tmp_path)
     found = [{"score": 60, "file": file, "line": 1, "summary": "a row is read twice"}]
     origin.review_branch({VERDICT_PATH: verdict_file(origin.head, findings=found)})
@@ -329,9 +415,7 @@ def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
     assert decision.to_file == ()
 
 
-@pytest.mark.parametrize(
-    "file", ["web/src/x.tsx", "docs/x.md", "README.md", "web/src/components/badge.tsx"]
-)
+@pytest.mark.parametrize("file", ["web/src/x.tsx", "docs/x.md", "web/src/components/badge.tsx"])
 def test_a_60_off_the_strict_trees_is_filed_not_blocking(tmp_path: Path, file: str) -> None:
     given = source(tmp_path, f"VERDICT: PASS at {H}", f"FINDING f1 60 CONFIRMED {file}")
     decision = ledger.decide(given.read_bytes(), H)
@@ -349,3 +433,4 @@ def test_a_lax_glob_matches_the_whole_path_only() -> None:
     assert ledger.on_strict_path("docs/a.md") is False
     assert ledger.on_strict_path("x/docs/a.md") is True
     assert ledger.on_strict_path("x/README.md") is True
+    assert ledger.on_strict_path("x/web/src/ui/Button.tsx") is True

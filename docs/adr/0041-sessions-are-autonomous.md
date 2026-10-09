@@ -18,9 +18,12 @@ drawing custody, the factory's launch, publish, trust and READY checks, the lint
 acceptance tests), and a list of them missed one in each of PR #610's three review rounds, while PR #615 found
 gates inside every lax code folder. The factory and the backend hold walls; the 75 bar applies to the web's screens
 and the docs. So in `scripts/factory/review_tiers.toml` a file is strict when it matches `[strict] paths` or matches
-no `[lax] paths` glob. Lax, and so on the 75 bar: `web/` (not its end-to-end tests or anything named for auth, the
-session or permissions), `docs/`, the root's Markdown (not CLAUDE.md or AGENTS.md, which agents obey), and
-`scripts/factory/say.py` (a message printer, pinned lax by the acceptance tests). A path nobody listed, a finding
+no `[lax] paths` glob. Lax, and so on the 75 bar (S18-F6, lesson (e)): the web's view components, a `.tsx` under
+`web/src/` (not under `web/src/api/` or `web/src/routes/`, not a path naming auth, the session or permissions, not a
+test), and the docs' Markdown, a `.md` under `docs/` (not the Markdown a script, lint, hook or Claude Code reads:
+`docs/rulings.md`, `docs/knowledge/`, `docs/sdlc.md`, `docs/architecture.md`, `docs/agents/`, `docs/design/`, any
+CLAUDE.md or AGENTS.md). The tiers file is read afresh for each decision; missing, unreadable, empty or listing
+nothing lax, it judges every path strict. A path nobody listed, a finding
 with no file, or a file that is not exactly a file of the head's tree, is strict. A
 standing finding of 50-74 off the strict paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
 sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
