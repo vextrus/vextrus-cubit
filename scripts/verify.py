@@ -184,6 +184,9 @@ def plan_with_notes(
             Check("lint-imports", ("uv", "run", "lint-imports")),
         ]
     web = any(p.startswith("web/") for p in paths)
+    if web or "tools/lint/words.py" in paths:
+        # CI's web job runs it (.github/workflows/web.yml "Words lint").
+        checks.append(Check("words-lint", ("uv", "run", "python", "-m", "tools.lint.words")))
     fixtures = web or any(is_acceptance(p) for p in paths)
     if web:
         # The cloud web order: `npm test` fails at import without the generated API types and the
