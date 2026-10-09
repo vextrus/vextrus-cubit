@@ -518,6 +518,10 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     if (picked === 'keep_all' && n === 2) return <Trans>Answering confirms both copies.</Trans>
     if (picked === 'keep_open') return <Trans>Answering keeps both copies open. Neither is read until the consultant replies.</Trans>
   }
+  if (picked === 'keep_open' && n > 0 && isJevKind(entry)) {
+    // A kind Question's group is counted, never named by a first-to-last range (words gate, #628 round 3).
+    return <Plural value={n} one="Answering keeps the sheet open." other="Answering keeps all # sheets open." />
+  }
   if (picked === 'keep_open' && n > 0) {
     const name = <SheetName sheets={entry.holds} />
     return <Trans>Answering keeps {name} open.</Trans>
@@ -536,11 +540,19 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     // in sheets it does not hold; what the answer does is here, never in the title (review 2 of #628).
     const waiting = Math.min(n, typeof q.params.waiting === 'number' ? q.params.waiting : 0)
     const ready = n - waiting
-    if (waiting === 0) return <Trans>Answering sets the kind of all {n} sheets and confirms them. It cannot be undone.</Trans>
-    if (ready === 0) return <Trans>Answering confirms no sheet now: each of the {n} sheets waits on another Question first.</Trans>
+    if (waiting === 0)
+      return <Plural value={n} one="Answering sets the kind of the sheet and confirms it. It cannot be undone." other="Answering sets the kind of all # sheets and confirms them. It cannot be undone." />
+    if (ready === 0)
+      return (
+        <Plural
+          value={n}
+          one="Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone."
+          other="Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone."
+        />
+      )
     return (
       <>
-        <Trans>Answering confirms {ready} of {n} sheets and cannot be undone.</Trans>{' '}
+        <Plural value={n} one={`Answering confirms ${ready} of # sheet and cannot be undone.`} other={`Answering confirms ${ready} of # sheets and cannot be undone.`} />{' '}
         <Plural value={waiting} one="# stays open: another Question about it comes first." other="# stay open: other Questions about them come first." />
       </>
     )
@@ -589,6 +601,28 @@ export function AnswerNote({ entry, readOnly }: { entry: QuestionEntry; readOnly
  * The toast after an answer (§6.5: "Q3 answered. Confirms S-19 R1 and excludes R0 as superseded."),
  * naming only what 21c's answer does to the sheets; "Keep open" says the Question stays.
  */
+/**
+ * A group's toast: counted, never named by a first-to-last range (review 2 of #628), and saying how many
+ * the answer confirmed (the card's `waiting`: those another Question holds first; words gate, round 3).
+ */
+function GroupAnswered({ entry, option }: { entry: QuestionEntry; option: string }) {
+  const { i18n } = useLingui()
+  const tag = entry.tag
+  const n = entry.holds.length
+  const kind = i18n._(SHEET_KIND_NAMES[option]!)
+  const params = entry.question.params
+  const waiting = Math.min(n, typeof params.waiting === 'number' ? params.waiting : 0)
+  const ready = n - waiting
+  if (waiting === 0) return <Plural value={n} one={`${tag} answered. The sheet is ${kind}.`} other={`${tag} answered. All # sheets are ${kind}.`} />
+  if (ready === 0) return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet is confirmed yet: each waits on another Question first.</Trans>
+  return (
+    <>
+      <Plural value={n} one={`${tag} answered. ${ready} of # sheet is ${kind};`} other={`${tag} answered. ${ready} of # sheets are ${kind};`} />{' '}
+      <Plural value={waiting} one="# waits on another Question first." other="# wait on another Question first." />
+    </>
+  )
+}
+
 function SheetKindName({ option }: { option: string }) {
   const { i18n } = useLingui()
   return <>{i18n._(SHEET_KIND_NAMES[option]!)}</>
@@ -649,11 +683,7 @@ export function AnsweredWords({ entry, option, text }: { entry: QuestionEntry; o
     const kind = <SheetKindName option={option} />
     return <Trans>{tag} answered. Recorded the kind as {kind}; no sheet was confirmed.</Trans>
   }
-  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 1) {
-    // A group: counted, never named by a first-to-last range (review 2 of #628).
-    const kind = <SheetKindName option={option} />
-    return <Trans>{tag} answered. {n} sheets are {kind}.</Trans>
-  }
+  if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 1) return <GroupAnswered entry={entry} option={option} />
   if (q.kind === 'low_confidence' && SHEET_KIND_NAMES[option] && n > 0) {
     const sheet = <SheetName sheets={entry.holds} />
     const kind = <SheetKindName option={option} />

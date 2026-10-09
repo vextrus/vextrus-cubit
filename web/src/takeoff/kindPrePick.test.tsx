@@ -106,13 +106,37 @@ describe("the kind Question's pre-pick (#228; m0-screens §5)", () => {
 
   it('on a group whose every sheet waits, says the answer confirms no sheet now', async () => {
     const { card } = await group(2)
-    expect(clean(card.textContent)).toMatch(/Answering confirms no sheet now: each of the 2 sheets waits on another Question first\./)
+    expect(clean(card.textContent)).toMatch(/Answering confirms no sheet now: each of the 2 sheets waits on another Question first\. It cannot be undone\./)
+  })
+
+  // Words gate, round 3 of #628: "Keep open" on a group counts it, never a first-to-last range.
+  it('on a group, the Keep open band counts its sheets', async () => {
+    const { card } = await group(0)
+    await userEvent.keyboard('4')
+    const text = clean(card.textContent)
+    expect(text).toMatch(/Answering keeps all 2 sheets open\./)
+    expect(text).not.toMatch(/Answering keeps A-0/)
   })
 
   it('answered, the toast counts the group’s sheets and names their kind', async () => {
     const { fake } = await group(0)
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(fake.posted).toHaveLength(1))
-    await waitFor(() => expect(bodyText()).toMatch(/Q1 answered\. 2 sheets are /))
+    await waitFor(() => expect(bodyText()).toMatch(/Q1 answered\. All 2 sheets are Elevation\./))
+  })
+
+  // Words gate, round 3 of #628: the toast never says a waiting sheet took the kind.
+  it('answered with a sheet waiting, the toast says how many took the kind and how many wait', async () => {
+    const { fake } = await group(1)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect(bodyText()).toMatch(/Q1 answered\. 1 of 2 sheets are Elevation; 1 waits on another Question first\./))
+  })
+
+  it('answered with every sheet waiting, the toast says no sheet is confirmed yet', async () => {
+    const { fake } = await group(2)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect(bodyText()).toMatch(/Q1 answered\. Recorded the kind as Elevation; no sheet is confirmed yet: each waits on another Question first\./))
   })
 })
