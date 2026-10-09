@@ -116,3 +116,25 @@ def test_a_cleanly_merged_file_hand_reverted_to_one_side_stays_flagged(tmp_path:
     git(tmp_path, "merge", "-q", "--no-commit", "--no-ff", "main")
     merge = finish(tmp_path, text(first="    assert 'ticket'\n"))
     assert flagged(tmp_path, base, merge)
+
+
+def test_a_merge_whose_tree_is_merge_trees_own_conflicted_output_is_flagged(
+    conflicted: tuple[Path, str],
+) -> None:
+    """merge-tree labels its markers with the parents' shas; committing that tree as the merge must
+    not pass because it equals git's own merge."""
+    root, base = conflicted
+    git(root, "merge", "--abort")
+    ticket, main = git(root, "rev-parse", "ticket"), git(root, "rev-parse", "main")
+    done = subprocess.run(
+        ["git", "-C", str(root), "merge-tree", "--write-tree", ticket, main],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 1
+    tree = done.stdout.split("\n", 1)[0]
+    merge = git(root, "commit-tree", tree, "-p", ticket, "-p", main, "-m", "merge main")
+    assert "<<<<<<<" in git(root, "show", f"{merge}:{TEST}")
+    git(root, "reset", "-q", "--hard", merge)
+    assert flagged(root, base, merge[:12])

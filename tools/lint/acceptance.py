@@ -121,10 +121,13 @@ def merges(root: Path, base: str, head: str) -> list[tuple[str, list[str]]]:
         names = _files(
             _git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "-z", tree, commit)
         )
+        # A conflicted path needs exactly one side whether or not it differs from merge-tree's tree
+        # (which holds markers labelled with the two shas).
+        every = [*names, *sorted(conflicted.difference(names))]
         found.append(
             (
                 commit,
-                [n for n in names if n not in conflicted or not _is_one_side(root, commit, parents, n)],
+                [n for n in every if n not in conflicted or not _is_one_side(root, commit, parents, n)],
             )
         )
     return found
