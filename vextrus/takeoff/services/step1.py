@@ -708,15 +708,14 @@ _QUEUE: dict[str, int] = {
 
 
 def _held(
-    project_id: uuid.UUID, among: Iterable[uuid.UUID] | None = None, *, decided: bool = False
+    project_id: uuid.UUID, among: Iterable[uuid.UUID] | None = None
 ) -> dict[uuid.UUID, list[uuid.UUID]]:
     """What each Question holds (of `among`, by id; else every one), its Proposals in the order
     linked: the one reading of a Question's membership, which every reader takes (the listed card,
     its words, its answer and `group_changed`, bulk confirm's hold check, `agrees`; S18-Q1's re-read
     rule, review 1 of #628). A kind Question holds no link it let go (`_let_go`), and an open one no
-    sheet already decided (its answer would not decide it again), unless `decided` (what an answer
-    stands on: a sheet left out keeps its kind for its confirmation back in). A numbering gap
-    Question holds only the sheets beside its gaps now (`_beside_now`, S15-Q2)."""
+    sheet already decided (its answer would not decide it again). A numbering gap Question holds only
+    the sheets beside its gaps now (`_beside_now`, S15-Q2)."""
     gone = _let_go(project_id)
     done = {s.id for s in _facts(project_id) if s.decision}
     links = QuestionLink.objects.filter(project_id=project_id)
@@ -734,7 +733,7 @@ def _held(
         if (question_id, proposal_id) in gone:
             continue
         asking_kind = kind == QuestionKind.LOW_CONFIDENCE and code == answer_codes.WHICH_KIND.code
-        if asking_kind and status == QuestionStatus.OPEN and not decided and sheet_id in done:
+        if asking_kind and status == QuestionStatus.OPEN and sheet_id in done:
             continue
         held.setdefault(question_id, []).append(proposal_id)
     return _beside_now(project_id, held)
@@ -1971,6 +1970,7 @@ def _after_act(project_id: uuid.UUID, *, corrected: bool = False) -> None:
         proposals.set_questions(project_id)
     else:
         proposals.set_conflicts(project_id)
+    ask_kind_again(project_id, [s for s in _facts(project_id) if not s.decision])
     record_progress(project_id)
 
 
@@ -2691,11 +2691,14 @@ def _join_group(
     return row.id
 
 
-def ask_kind_again(project_id: uuid.UUID, sheets: Sequence[drawings.SheetView]) -> int:
-    """After the QS changed these sheets' Discipline (their file's): each undecided one back in the
-    Discipline of a kind Question that asked it, and held by none now (its Question was answered
-    while it was away: `_let_go`), is asked again in that Question's group (`ask_group`'s choice: its
-    open one, else a new one), never decided by an answer given without it (S18-Q1). How many."""
+def ask_kind_again(
+    project_id: uuid.UUID, sheets: Sequence[drawings.SheetView | drawings.SheetFacts]
+) -> int:
+    """After the QS changed these sheets' Discipline (their file's), or after an act (`_after_act`):
+    each undecided one of the Discipline of a kind Question that asked it, and held by none now (its
+    Question was answered while it was away or left out: `_let_go`), is asked again in that
+    Question's group (`ask_group`'s choice: its open one, else a new one), never decided by an answer
+    given without it (S18-Q1; review 2 of #628). How many."""
     by_sheet = {s.id: s for s in sheets if not s.decision and s.discipline}
     if not by_sheet:
         return 0
@@ -2935,8 +2938,8 @@ def answer(
             return Answered(_question_view(project_id, row.id), None)
         if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
             raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
-        if _grouped(row):  # what it stood on, for good (`_let_go`); a sheet left out among them
-            given["sheets"] = [str(p) for p in _held(project_id, [row.id], decided=True).get(row.id, [])]
+        if _grouped(row):  # what its card listed, for good (`_let_go`): never a sheet left out then
+            given["sheets"] = [str(p) for p in held]
         read_again = _apply(project_id, row, option, words, held, actor_name)
         corrected = (
             row.kind == QuestionKind.MISSING and option == "type_number"

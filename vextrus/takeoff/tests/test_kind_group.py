@@ -512,3 +512,26 @@ def test_every_reader_of_a_questions_links_goes_through_held() -> None:
             ):
                 readers_found.add(node.name)
     assert readers_found == set(MEMBERSHIP_READERS), readers_found ^ set(MEMBERSHIP_READERS)
+
+
+@pytest.mark.django_db
+def test_a_sheet_left_out_when_its_group_was_answered_never_takes_its_kind_confirmed_back_in(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """Review 2 of #628 (50): S-03 left out, the card lists S-01 and S-02 and its answer records
+    only those; S-03 confirmed back in, as the web sends it (no kind), never takes the answer's kind."""
+    jev_unsure(jev_offline)
+    read(qs_project, monkeypatch, STRUCTURAL, beams([1, 2, 3]))
+    api = api_as(qs_project.member)
+    ids = {p["number"]: p["id"] for p in proposals(api, qs_project.project_id)}
+    assert exclude(api, qs_project.project_id, [ids["S-03"]], "superseded").status_code == 200
+    card = the_one_kind_question(api, qs_project.project_id)
+    done = answer_seen(api, qs_project.project_id, card["id"], "beam_details", card["proposals"])
+    assert done.status_code == 200, done.content
+
+    back_in = confirm(api, qs_project.project_id, [ids["S-03"]])
+
+    assert back_in.status_code == 200, back_in.content
+    s03 = next(p for p in proposals(api, qs_project.project_id) if p["id"] == ids["S-03"])
+    assert s03["decision"] == "confirmed"
+    assert s03["confirmed_kind"] != "beam_details", "the left-out sheet took the group's answer"
