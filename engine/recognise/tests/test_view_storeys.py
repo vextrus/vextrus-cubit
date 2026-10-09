@@ -14,13 +14,21 @@ from engine.recognise.types import StoreysSource, ViewKind
 from engine.recognise.views import storeys
 
 
-def test_a_line_not_bracketed_whole_gives_no_storeys() -> None:
-    """Only a line bracketed whole is a storeys line: "2ND TO 6TH FLOOR" bare, or a bracket left
-    open, is another line (a second title, a note)."""
-    for line in ["2ND TO 6TH FLOOR", "(2ND TO 6TH FLOOR", "2ND TO 6TH FLOOR)"]:
+def test_a_line_with_a_bracket_left_open_gives_no_storeys() -> None:
+    """A line bracketed whole, or bare (S19-B5 reversed this test's bare case), is a storeys line; a
+    bracket left open is another line (a second title, a note)."""
+    for line in ["(2ND TO 6TH FLOOR", "2ND TO 6TH FLOOR)", "2ND TO 6TH FLOOR (TYP.)"]:
         found = storeys.read("TOILET LAYOUT PLAN", ViewKind.PLAN, "toilet", [line])
         assert found.keys == ("not_stated",), line
         assert found.source is None
+
+
+def test_a_bare_line_read_whole_gives_the_storeys_from_the_line() -> None:
+    """S19-B5's R1: a bare line of storey words only is read as a bracketed one is."""
+    found = storeys.read("TOILET LAYOUT PLAN", ViewKind.PLAN, "toilet", ["2ND TO 6TH FLOOR"])
+    assert found.keys == ("floor_2", "floor_3", "floor_4", "floor_5", "floor_6")
+    assert found.as_stated == "2ND TO 6TH FLOOR"
+    assert found.source is StoreysSource.TITLE_LINE
 
 
 def test_a_square_bracketed_line_is_read_and_its_source_kept() -> None:

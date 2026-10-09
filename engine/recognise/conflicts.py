@@ -41,8 +41,10 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
   Nor do two consecutive numbers whose views state different storeys, or name different subjects
   (`_Drawn`: each states some, none shared; a stale title block on the next sheet, the owner's ruling of
-  5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. Views that state the
-  same storey and subject, or nothing, join as before.
+  5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. A storey is stated
+  at its level (`level`): one storey's plan at ceiling level (17's `at_ceiling_level`, a pipe layout
+  hung under its slab) and its plan at floor level share no storey (S19-B5). Views that state the same
+  storey and subject, or nothing, join as before.
 - **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
   ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9 DETAILS") are one title: a title is grouped by
   `range_key`, the normal form of the words around its ranges (the conventions' `member_range_pattern`;
@@ -88,7 +90,8 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   a part, its floors only a bracketed line under it, #413) sits out: each bath's plan over "2nd to 6th
   floor" is a different room's. A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
   layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
-  floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with neither
+  floor"): consecutive ranges meet at a floor by the drafting convention. A plan at ceiling level is
+  compared only with plans at ceiling level (`level`). A plan on a sheet with neither
   number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens
   §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words are its
   evidence line until then.
@@ -327,9 +330,21 @@ def compare(
     return found
 
 
+CEILING = "ceiling"
+FLOOR = "floor"
+
+
+def level(view: ViewCandidate) -> str:
+    """The level a plan's storeys are drawn at: `ceiling` for 17's `at_ceiling_level` (what hangs
+    under a storey's slab), else `floor` (at floor level, or floor to floor: both draw the storey's
+    own floor). One storey at the two levels is two drawings."""
+    return CEILING if view.storeys_meaning == StoreysMeaning.AT_CEILING_LEVEL else FLOOR
+
+
 class _Drawn:
     """What one number's sheets (its copies) state they draw in their views, read when first asked:
-    the storeys (not symbolic) and the subjects (each view's, and those its title names)."""
+    the storeys (not symbolic), each at its `level`, and the subjects (each view's, and those its
+    title names)."""
 
     def __init__(
         self, unit: Sequence[int], views: Sequence[Sequence[ViewCandidate]], reader: _Reader
@@ -342,7 +357,7 @@ class _Drawn:
 
         if self._read is None:
             seen = [v for i in self.unit for v in self.views[i]]
-            storeys = {s for v in seen for s in v.storeys if not self.reader.symbolic(s)}
+            storeys = {f"{s}@{level(v)}" for v in seen for s in v.storeys if not self.reader.symbolic(s)}
             named = {v.subject for v in seen if v.subject is not None}
             named |= {key for v in seen if v.title for key in subjects(v.title)}
             self._read = frozenset(storeys), frozenset(named)
@@ -931,7 +946,7 @@ def _same_storey(
     layout sheet's plan is never compared with a details sheet's plan views (the owner's ruling of
     5 Oct 2026: a details sheet's enlarged plan shares its layout's subject and storey)."""
     flat: list[tuple[ViewCandidate, int, int]] = []  # each plan view: its sheet's place, its sheet
-    sharing: dict[tuple[tuple[str, str, str, str, str], str], list[int]] = {}
+    sharing: dict[tuple[tuple[str, str, str, str, str, str], str], list[int]] = {}
     for i, sheet in enumerate(sheets):
         if sheet.discipline is None or sheet_name(sheet) is None:
             continue
@@ -943,19 +958,19 @@ def _same_storey(
                 continue  # a part plan (a bath's): its floors from its title's line (17's storeys)
             kind = kind or sheet_class(sheet)
             layer = NO_LAYER if view.layer is None else str(view.layer)
-            bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind)
+            bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind, level(view))
             flat.append((view, places.of(i), i))
             storeys = [storey for storey in view.storeys if not reader.symbolic(storey)]
             if view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and len(storeys) > 1:
                 storeys = storeys[:-1]  # its top end is where the next range of columns starts
             for storey in storeys:
                 sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
-    sets: dict[tuple[tuple[str, str, str, str, str], tuple[int, ...]], list[str]] = {}
+    sets: dict[tuple[tuple[str, str, str, str, str, str], tuple[int, ...]], list[str]] = {}
     for (bucket, storey), sharers in sharing.items():
         if len({flat[v][1] for v in sharers}) > 1:
             sets.setdefault((bucket, tuple(sharers)), []).append(storey)
     found = []
-    for ((_, discipline, subject, layer, _), members), storeys in sets.items():
+    for ((_, discipline, subject, layer, _, _), members), storeys in sets.items():
         # The set's storeys were met first in its first view, in that view's order: the first of
         # them is the first it lists (no scan of the view's list per storey: that is quadratic).
         first = flat[members[0]]
