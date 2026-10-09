@@ -105,9 +105,9 @@ stays, capped, and the orchestrator does what the owner did.
    meets, scoring 0–100; in parallel, `ux-critic` as the words-only gate for a PR whose words reach a QS,
    or the walk for a UI PR.
 4. **At most two fix rounds,** enforced by `merge_ready`, one message each, every fix re-checked by the same agents on the new
-   head. Findings that block are fixed: 75 or more, or 50 or more on a strict path (`[strict]` in
-   `scripts/factory/review_tiers.toml`; ADR 0041, amended 7 Oct 2026); a standing 50-74 off them is filed as an
-   issue. Each serious finding (one that blocks, or a repeated class) leaves a committed check. A finding after the second round is filed as an issue, unless it is a security hole
+   head. Findings that block are fixed: 75 or more, or 50 or more on a strict path (every file is strict
+   unless it matches a `[lax]` glob and no `[strict]` carve-out in `scripts/factory/review_tiers.toml`; ADR 0041,
+   amended 7 Oct 2026); a standing 50-74 off them is filed as an issue. Each serious finding (one that blocks, or a repeated class) leaves a committed check. A finding after the second round is filed as an issue, unless it is a security hole
    scoring 75 or more, a crash or false statement a QS meets, or a regression the first fix round introduced
    (`fix-regression`, the owner, 5 Oct 2026).
 5. **The orchestrator gates and merges:** pushes and opens the PR; merges `main` into it; posts
@@ -127,7 +127,8 @@ stays, capped, and the orchestrator does what the owner did.
    throwaway, with both counts in the commit (`tools/lint/acceptance.py`). An untestable ticket says why.
 2. The head carries `Factory-State: READY` and `Factory-Verify: <its own tree> ok`.
 3. `ci`, `web` and `engine` green, with at most one recorded rerun of a listed flake (`.github/flaky.txt`).
-4. Review in at most two fix rounds; every finding that blocks (75 or more, or 50 or more on a strict path) passed a
+4. Review in at most two fix rounds; every finding that blocks (75 or more, or 50 or more on a strict path: strict
+   unless it matches a `[lax]` glob and no `[strict]` carve-out) passed a
    refuter, was fixed and left a committed check whose red output path is in the body. Round 3 only with a recorded exception (a
    security hole of 75 or more, a crash, a false statement a QS meets, or `fix-regression`: every finding left
    at round 2 was introduced by fix round 1, as its refuter confirms; the owner, 5 Oct 2026).
