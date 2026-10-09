@@ -1,4 +1,4 @@
-"""S17-F6, the review bar: the ledger records it and `scripts.merge_ready` agrees.
+"""S17-F6 and S18-F6, the review bar: the ledger records it and `scripts.merge_ready` agrees.
 
 The owner's ruling (7 Oct 2026, session 17): yes to "Raise review's blocking bar to 75, keeping 50-74
 blocking only on strict paths (security walls, migrations, money, readers), filing the rest as issues".
@@ -9,7 +9,9 @@ test_bar.py, with the finding's file as the FINDING line's fifth field) and asks
 `scripts.merge_ready.review_problems` (tf4's seam), whether the PR may merge: a PR whose only standing
 finding scores 50-74 off the strict paths may (it is filed, not fixed); one at 75, or at 50 on a strict
 path, may not. A PASS whose 50-74 finding off the strict paths no refuter judged is recorded (the refuter
-runs on a sample)."""
+runs on a sample).
+
+S18-F6: strict is the default; only the lax list of `_paths.py` is "off the strict paths"."""
 
 import json
 from pathlib import Path
@@ -87,10 +89,13 @@ def gate(tmp_path: Path, ledger_dir: Path, marker: str) -> list[str]:
 
 
 @pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN", "-"])
+@pytest.mark.parametrize(
+    "path", ["web/src/components/badge.tsx", "docs/adr/0043-reviews-run-by-code.md"]
+)
 def test_a_pr_whose_only_standing_finding_is_74_off_a_strict_path_may_merge(
-    tmp_path: Path, word: str
+    tmp_path: Path, word: str, path: str
 ) -> None:
-    record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 74 {word} web/src/components/badge.tsx")
+    record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 74 {word} {path}")
     assert record["verdict"] == "PASS"
     assert gate(tmp_path, ledger_dir, marker) == []
 
@@ -106,7 +111,18 @@ def test_a_pr_with_a_standing_75_may_not_merge(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "path",
-    ["vextrus/platform/migrations/0003_row_level_security.py", "vextrus/boq/services/pricing.py"],
+    [
+        "vextrus/platform/migrations/0003_row_level_security.py",
+        "vextrus/boq/services/pricing.py",
+        "web/src/api/client.ts",
+        "web/src/routes/_app/route.tsx",
+        "web/src/auth/SessionWatch.tsx",
+        "web/scripts/check-dist.mjs",
+        "web/package.json",
+        "docs/rulings.md",
+        "docs/specs/factory/contracts/walk-verdict.schema.json",
+        "scripts/factory/say.py",
+    ],
 )
 def test_a_pr_with_a_standing_50_on_a_strict_path_may_not_merge(tmp_path: Path, path: str) -> None:
     record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 50 UNPROVEN {path}")

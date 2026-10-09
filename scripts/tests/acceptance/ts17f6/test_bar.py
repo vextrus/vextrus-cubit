@@ -1,45 +1,39 @@
-"""S17-F6, the review bar: `python -m scripts.ledger decide` blocks at 75, and at 50 on a strict path.
+"""S17-F6 and S18-F6, the review bar: `python -m scripts.ledger decide` blocks at 75, and at 50 on a
+strict path.
 
 The owner's ruling (7 Oct 2026, session 17): yes to "Raise review's blocking bar to 75, keeping 50-74
 blocking only on strict paths (security walls, migrations, money, readers), filing the rest as issues,
 and refuting a sample rather than every finding."
 
-So a finding that stands (CONFIRMED or UNPROVEN) raises a PASS to FIX when it scores 75 or more, or 50 or
-more when its file is on a strict path (`scripts/factory/review_tiers.toml`, `[strict] paths`). One of
-50-74 off the strict paths does not block (it is listed for filing: test_to_file.py), and needs no
-refuter verdict. A finding of 50 or more that could block still needs one.
+S18-F6 (lesson (e): listing the walls never converged): strict is the default, and only a short list is
+lax, the web's view components and the docs' Markdown, less the walls inside them (`_paths.py` holds the
+table). So a finding that stands (CONFIRMED or UNPROVEN) raises a PASS to FIX when it scores 75 or more,
+or 50 or more when its file is strict. One of 50-74 on a lax path does not block (it is listed for
+filing: test_to_file.py), and needs no refuter verdict. A finding of 50 or more that could block still
+needs one.
 
-Seam (named by this ticket): the decision input's FINDING line carries the finding's file as an optional
+Seam (named by S17-F6): the decision input's FINDING line carries the finding's file as an optional
 fifth field, `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> <file>`, the repository path the
-reviewer named. A FINDING line with no file is judged as on a strict path (fail closed: nobody showed it
-is off one); so is a path that resolves into a strict folder. `decide`'s output is unchanged (one JSON
-line: verdict, counts, decision_input_sha256; pinned by tf4)."""
+reviewer named. A FINDING line with no file is judged strict (fail closed: nobody showed it is lax); so
+is a path that is not a plain relative path or climbs out of its folder. `decide`'s output is unchanged
+(one JSON line: verdict, counts, decision_input_sha256; pinned by tf4)."""
 
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from scripts.tests.acceptance.ts17f6._paths import (
+    CRAFTED,
+    DOCS_CARVED,
+    ELSEWHERE,
+    LAX,
+    STRICT,
+    WEB_CARVED,
+)
+
 H = "1f0e2d3c4b5a69788796a5b4c3d2e1f00112233a"
 PASS = f"VERDICT: PASS at {H}"
-
-OFF_STRICT = (
-    "web/src/components/badge.tsx",
-    "web/src/routes/takeoff/page.tsx",
-    "scripts/factory/say.py",
-)
-# One path or more per kind the ruling names: security walls (tenancy and RLS, auth, the guard),
-# migrations, money (the BOQ, rates) and readers (the engine's drawing readers).
-STRICT = (
-    "vextrus/platform/services/tenancy.py",
-    "vextrus/platform/http/auth.py",
-    ".claude/hooks/guard.mjs",
-    "vextrus/platform/migrations/0003_row_level_security.py",
-    "vextrus/takeoff/migrations/0042_a_new_table.py",
-    "vextrus/boq/services/pricing.py",
-    "vextrus/rates/table.py",
-    "engine/read/libredwg/reader.py",
-)
 
 
 @pytest.fixture(autouse=True)
@@ -80,28 +74,49 @@ def verdict_of(code: int, output: str) -> str:
     return str(loaded["verdict"])
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
-@pytest.mark.parametrize("path", OFF_STRICT)
-def test_a_standing_74_off_a_strict_path_passes(
+@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN", "-"])
+@pytest.mark.parametrize("path", LAX)
+def test_a_standing_74_on_a_lax_path_passes(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str, word: str
 ) -> None:
     assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 74 {word} {path}")) == "PASS"
 
 
 @pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
-def test_a_standing_75_off_a_strict_path_raises_pass_to_fix(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], word: str
+@pytest.mark.parametrize("path", ["web/src/ui/Button.tsx", "docs/milestones.md"])
+def test_a_standing_75_on_a_lax_path_raises_pass_to_fix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str, word: str
 ) -> None:
-    row = f"FINDING f1 75 {word} web/src/components/badge.tsx"
-    assert verdict_of(*decide(tmp_path, capsys, PASS, row)) == "FIX"
+    assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 75 {word} {path}")) == "FIX"
+
+
+@pytest.mark.parametrize("path", WEB_CARVED)
+def test_a_standing_50_on_a_wall_inside_the_web_raises_pass_to_fix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str
+) -> None:
+    assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 50 CONFIRMED {path}")) == "FIX"
+
+
+@pytest.mark.parametrize("path", DOCS_CARVED)
+def test_a_standing_50_on_a_doc_a_gate_reads_raises_pass_to_fix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str
+) -> None:
+    assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 50 CONFIRMED {path}")) == "FIX"
 
 
 @pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
-@pytest.mark.parametrize("path", STRICT)
-def test_a_standing_50_on_a_strict_path_raises_pass_to_fix(
+@pytest.mark.parametrize("path", ELSEWHERE)
+def test_a_standing_50_on_a_path_off_the_lax_list_raises_pass_to_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str, word: str
 ) -> None:
     assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 50 {word} {path}")) == "FIX"
+
+
+@pytest.mark.parametrize("path", CRAFTED)
+def test_a_crafted_form_of_a_lax_looking_path_is_judged_strict(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str
+) -> None:
+    assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 60 CONFIRMED {path}")) == "FIX"
 
 
 @pytest.mark.parametrize("path", STRICT)
@@ -118,17 +133,10 @@ def test_a_refuted_finding_on_a_strict_path_does_not_block(
     assert verdict_of(*decide(tmp_path, capsys, PASS, row)) == "PASS"
 
 
-def test_a_finding_with_no_file_is_judged_as_on_a_strict_path(
+def test_a_finding_with_no_file_is_judged_strict(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert verdict_of(*decide(tmp_path, capsys, PASS, "FINDING f1 50 CONFIRMED")) == "FIX"
-
-
-def test_a_path_that_climbs_into_a_strict_folder_is_judged_strict(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    row = "FINDING f1 60 CONFIRMED web/../vextrus/rates/table.py"
-    assert verdict_of(*decide(tmp_path, capsys, PASS, row)) == "FIX"
 
 
 def test_the_worst_of_several_findings_decides(
@@ -136,20 +144,21 @@ def test_the_worst_of_several_findings_decides(
 ) -> None:
     rows = (
         PASS,
-        "FINDING f1 74 CONFIRMED web/src/components/badge.tsx",
-        "FINDING f2 49 CONFIRMED vextrus/rates/table.py",
-        "FINDING f3 55 UNPROVEN vextrus/boq/services/pricing.py",
+        "FINDING f1 74 CONFIRMED web/src/ui/Button.tsx",
+        "FINDING f2 74 CONFIRMED docs/milestones.md",
+        "FINDING f3 49 CONFIRMED vextrus/rates/table.py",
+        "FINDING f4 55 UNPROVEN web/src/api/client.ts",
     )
     assert verdict_of(*decide(tmp_path, capsys, *rows)) == "FIX"
 
 
-def test_an_unrefuted_50_to_74_off_a_strict_path_is_not_refused(
+def test_an_unrefuted_50_to_74_on_a_lax_path_is_not_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     rows = (
         PASS,
-        "FINDING f1 74 - web/src/components/badge.tsx",
-        "FINDING f2 50 - scripts/factory/say.py",
+        "FINDING f1 74 - web/src/ui/Button.tsx",
+        "FINDING f2 50 - docs/adr/0043-reviews-run-by-code.md",
     )
     assert verdict_of(*decide(tmp_path, capsys, *rows)) == "PASS"
 
@@ -157,11 +166,13 @@ def test_an_unrefuted_50_to_74_off_a_strict_path_is_not_refused(
 @pytest.mark.parametrize(
     "row",
     [
-        "FINDING f1 75 - web/src/components/badge.tsx",
+        "FINDING f1 75 - web/src/ui/Button.tsx",
         "FINDING f1 50 - vextrus/rates/table.py",
+        "FINDING f1 50 - web/src/routes/_app/route.tsx",
+        "FINDING f1 50 - docs/rulings.md",
         "FINDING f1 60 -",
     ],
-    ids=["75-off-strict", "50-on-strict", "60-no-file"],
+    ids=["75-lax", "50-strict", "50-web-route", "50-rulings", "60-no-file"],
 )
 def test_a_finding_that_could_block_with_no_refuter_verdict_is_refused(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], row: str
