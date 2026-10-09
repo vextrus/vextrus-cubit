@@ -374,8 +374,9 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   After such a change, score main before trusting any number. No check yet: factory: reading measures
   (export G5, S1 diagnostics, S2 proxy) in one custody re-run (spec §3.13, C6).
 - **A merge that combines both sides of an acceptance file is refused** (#186 was replaced by #208):
-  take the file whole from one side, then re-apply the branch's change in an `acceptance:` commit.
-  Check: `tools/lint/tests/test_acceptance.py`.
+  git merges it itself when the sides changed different lines; on a conflict take the file whole
+  from one side (not conflict markers, not a mix), then re-apply the branch's change in an
+  `acceptance:` commit. Check: `tools/lint/tests/test_acceptance.py`.
 - **Real-drawing text reached the public repository** in a scored loop's test literals, for about 25
   minutes. Scan new literals against the cached exports before pushing an engine branch. No check yet:
   factory: the leak wall (spec §5, T2; #211).

@@ -4,8 +4,12 @@
 - every commit that changes a file under an acceptance path must say so: its message starts with
   `acceptance:`, and it changes nothing else, so the change stands alone in the history for the
   reviewer to read against the writer's report;
-- no merge commit changes an acceptance path in its own resolution (`git diff-tree --cc`: what differs
-  from every parent). A clean merge from main, bringing other tickets' acceptance tests, changes none;
+- no merge commit changes an acceptance path in its own resolution: an acceptance file whose content in
+  the merge differs from git's own merge of the two parents (`git merge-tree --write-tree`). A clean
+  merge from main, bringing other tickets' acceptance tests, changes none. A file git could not merge
+  (a conflict) passes only when the merge holds exactly one parent's version of it ("resolved to one
+  side"; change it afterwards in an `acceptance:` commit); conflict markers of any label, or a mix of
+  the two sides, stay flagged. A merge of 3 or more parents uses `git diff-tree --cc`;
 - every `acceptance:` commit carries its counts (`docs/specs/factory/contracts/trailers.md` 3), each on
   its own line anywhere in the message: `red-on-main: <n> failed` (the new tests failing on main) and
   `green-on-throwaway: <n> passed` (passing on a throwaway implementation), both 1 or more and green
@@ -100,10 +104,69 @@ def only_deletes(root: Path, commit: str) -> bool:
 
 
 def merges(root: Path, base: str, head: str) -> list[tuple[str, list[str]]]:
-    """Each merge commit in base..head: its id and the files its own resolution changes."""
+    """Each merge commit in base..head: its id and the files its own resolution changes. For two
+    parents that is what differs from git's own merge of them (exit code ignored), except a conflicted
+    path the merge resolved to exactly one parent's version; for 3 or more, or if git cannot merge
+    them, what differs from every parent."""
     ids = _git(root, "rev-list", "--merges", "--reverse", f"{base}..{head}").split()
-    resolved = "diff-tree", "--no-commit-id", "--cc", "--name-only", "-r", "-z"
-    return [(commit, _files(_git(root, *resolved, commit))) for commit in ids]
+    found = []
+    for commit in ids:
+        parents = _git(root, "rev-list", "--parents", "-n", "1", commit).split()[1:]
+        own = _own_merge(root, parents) if len(parents) == 2 else None
+        if own is None:
+            cc = _git(root, "diff-tree", "--no-commit-id", "--cc", "--name-only", "-r", "-z", commit)
+            found.append((commit, _files(cc)))
+            continue
+        tree, conflicted = own
+        names = _files(
+            _git(root, "diff-tree", "--no-commit-id", "--name-only", "-r", "-z", tree, commit)
+        )
+        # A conflicted path needs exactly one side whether or not it differs from merge-tree's tree
+        # (which holds markers labelled with the two shas).
+        every = [*names, *sorted(conflicted.difference(names))]
+        found.append(
+            (
+                commit,
+                [n for n in every if n not in conflicted or not _is_one_side(root, commit, parents, n)],
+            )
+        )
+    return found
+
+
+def _own_merge(root: Path, parents: list[str]) -> tuple[str, set[str]] | None:
+    """The tree git itself makes of merging two parents and the paths it could not merge, or None if
+    it makes no tree."""
+    done = subprocess.run(
+        ["git", "-C", str(root), "merge-tree", "--write-tree", "--name-only", "-z", *parents],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    fields = done.stdout.split("\0")
+    if not SHA.fullmatch(fields[0]):
+        return None
+    # After the tree: the conflicted paths, then an empty field, then informational messages.
+    conflicted = set()
+    for field in fields[1:]:
+        if not field:
+            break
+        conflicted.add(field)
+    return fields[0], conflicted
+
+
+def _blob(root: Path, rev: str, path: str) -> str | None:
+    done = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "-q", f"{rev}:{path}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def _is_one_side(root: Path, commit: str, parents: list[str], path: str) -> bool:
+    """Whether the merge holds exactly one parent's version of the path (or absence)."""
+    return _blob(root, commit, path) in {_blob(root, parent, path) for parent in parents}
 
 
 def problems(root: Path, base: str, head: str = "HEAD") -> list[str]:
@@ -140,7 +203,9 @@ def problems(root: Path, base: str, head: str = "HEAD") -> list[str]:
         if touched := [name for name in files if is_acceptance(name)]:
             found.append(
                 f"{commit[:12]} is a merge whose own resolution changes {touched[0]} (an acceptance "
-                "test): resolve it to one side, then change it only in an acceptance commit"
+                "test) from git's own merge of the parents: let git merge it; for a conflict take "
+                "exactly one side's file (not conflict markers, not a mix), then change it only in "
+                "an acceptance commit"
             )
     return found
 
