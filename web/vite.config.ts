@@ -188,13 +188,13 @@ export default defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: 'browser',
+            ...api(0),
             include: ['src/**/*.test.tsx', 'src/**/*.browser.test.ts'],
             exclude: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],
             browser: {
               enabled: true,
               headless: true,
-              ...api(0),
               provider: playwright(),
               instances: [{ browser: 'chromium' }],
               viewport: { width: 1440, height: 900 },
@@ -207,12 +207,12 @@ export default defineConfig(({ mode }) => {
           extends: true as const,
           test: {
             name: `browser ${timezoneId}`,
+            ...api(index + 1),
             include: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],
             browser: {
               enabled: true,
               headless: true,
-              ...api(index + 1),
               provider: playwright({ contextOptions: { timezoneId } }),
               instances: [{ browser: 'chromium' as const }],
               viewport: { width: 1440, height: 900 },
