@@ -104,46 +104,58 @@ def test_a_check_never_inherits_a_forced_colour(monkeypatch: pytest.MonkeyPatch,
     assert (code, output.strip()) == (0, "unset")
 
 
-def _toolchain_argv(path: str, tmp_path: Path, pinned: bool = True) -> tuple[str, ...] | None:
-    from scripts.verify import plan_with_notes
+def _toolchain(
+    path: str, tmp_path: Path, *, pinned: bool = True
+) -> tuple[tuple[str, ...] | None, list[str]]:
+    from scripts.verify import EZDXF_PINNED, plan_with_notes
 
-    checks, _ = plan_with_notes(
-        [path], have=lambda tool: True, root=tmp_path, ezdxf_is_pinned=lambda: pinned
+    checks, notes = plan_with_notes(
+        [path], have=lambda tool: pinned or tool != EZDXF_PINNED, root=tmp_path
     )
-    return next((c.argv for c in checks if c.name == "pytest-toolchain"), None)
+    return next((c.argv for c in checks if c.name == "pytest-toolchain"), None), notes
 
 
 def test_the_toolchain_run_leaves_out_the_network_bound_build_test_unless_changed(
     tmp_path: Path,
 ) -> None:
     ignored = "engine/read/acadsharp/tests/test_build.py"
-    assert ignored in (_toolchain_argv("engine/read/dwg.py", tmp_path) or ())
-    assert ignored not in (_toolchain_argv(ignored, tmp_path) or ())
+    assert ignored in (_toolchain("engine/read/dwg.py", tmp_path)[0] or ())
+    assert ignored not in (_toolchain(ignored, tmp_path)[0] or ())
 
 
 @pytest.mark.parametrize(
-    "path",
-    ["tools/acadsharp-dump/Program.cs", "toolchain/ezdxf.lock", "uv.lock", "pyproject.toml"],
+    "path", ["tools/acadsharp-dump/Program.cs", "toolchain/ezdxf.lock", "uv.lock", "pyproject.toml"]
 )
 def test_every_engine_path_of_the_list_plans_the_toolchain_run(path: str, tmp_path: Path) -> None:
-    assert _toolchain_argv(path, tmp_path) is not None
+    argv = _toolchain(path, tmp_path)[0]
+    assert argv is not None
 
 
-def test_a_deleted_or_unmarked_module_cannot_fail_the_run_by_its_folder(tmp_path: Path) -> None:
-    # No folder argument: pytest exits 4 on a deleted folder and 5 on a folder with no marked test.
-    argv = _toolchain_argv("engine/geometry/gone.py", tmp_path) or ()
-    ignored = {argv[i + 1] for i, a in enumerate(argv[:-1]) if a == "--ignore"}
-    assert not [
-        a for a in argv[argv.index("pytest") + 1 :] if a.startswith("engine/") and a not in ignored
-    ]
+def test_a_module_change_is_bounded_to_its_folder_with_four_workers(tmp_path: Path) -> None:
+    argv = _toolchain("engine/render/x.py", tmp_path)[0] or ()
+    assert argv[argv.index("-n") + 1] == "4"
+    assert "engine/render" in argv
+    assert "engine/check" not in argv
 
 
-def test_the_run_does_not_sync_and_skips_the_wheel_test_when_the_wheel_is_not_pinned(
+def test_a_deleted_or_unmarked_module_still_selects_a_test_so_pytest_never_exits_5(
     tmp_path: Path,
 ) -> None:
-    pinned = _toolchain_argv("engine/read/dwg.py", tmp_path, pinned=True) or ()
-    unpinned = _toolchain_argv("engine/read/dwg.py", tmp_path, pinned=False) or ()
-    assert "--no-sync" in pinned
-    assert "-k" not in pinned
-    assert "--no-sync" in unpinned
-    assert unpinned[unpinned.index("-k") + 1] == "not test_ezdxf_is_the_wheel_the_lock_names"
+    from scripts.verify import ANCHOR
+
+    for path in ("engine/gone/x.py", "engine/geometry/x.py"):
+        argv = _toolchain(path, tmp_path)[0] or ()
+        assert ANCHOR in argv
+        assert "engine/gone" not in argv
+
+
+def test_the_run_does_not_sync(tmp_path: Path) -> None:
+    assert "--no-sync" in (_toolchain("engine/read/dwg.py", tmp_path)[0] or ())
+
+
+def test_without_the_locked_compiled_wheel_no_run_is_planned_and_a_note_names_the_wheel(
+    tmp_path: Path,
+) -> None:
+    argv, notes = _toolchain("engine/read/dwg.py", tmp_path, pinned=False)
+    assert argv is None
+    assert any("ezdxf" in n and "toolchain" in n and "uv pip install" in n for n in notes), notes
