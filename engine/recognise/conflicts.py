@@ -87,7 +87,7 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   sheet is never said of the other); the layer (`none` for none), how many views and how many sheets they
   lie on (`sheets`); and, for 21c, the Discipline's, the subject's and the first shared storey's keys (in
   the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title names a room or
-  a part, its floors only a bracketed line under it, #413) sits out: each bath's plan over "2nd to 6th
+  a part, its floors only a line under it, #413, S19-B5) sits out: each bath's plan over "2nd to 6th
   floor" is a different room's. A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
   layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
   floor"): consecutive ranges meet at a floor by the drafting convention. A plan at ceiling level is
