@@ -157,6 +157,10 @@ def vitest_port(root: Path) -> int:
     return 20000 + start
 
 
+WORDS_INPUTS = frozenset({"tools/lint/words.py", "tools/lint/words_allowlist.toml"})
+"""What the words lint reads besides `web/`'s catalogues."""
+
+
 def plan_with_notes(
     paths: Iterable[str], *, have: Have = _have, root: Path | None = None
 ) -> tuple[list[Check], list[str]]:
@@ -184,6 +188,9 @@ def plan_with_notes(
             Check("lint-imports", ("uv", "run", "lint-imports")),
         ]
     web = any(p.startswith("web/") for p in paths)
+    if web or WORDS_INPUTS.intersection(paths):
+        # CI's web job runs it (.github/workflows/web.yml "Words lint").
+        checks.append(Check("words-lint", ("uv", "run", "python", "-m", "tools.lint.words")))
     fixtures = web or any(is_acceptance(p) for p in paths)
     if web:
         # The cloud web order: `npm test` fails at import without the generated API types and the
