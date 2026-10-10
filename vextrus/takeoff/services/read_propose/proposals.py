@@ -46,7 +46,7 @@ raised again is the one asked (`step1.raise_question`).
 import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from itertools import permutations
 from typing import Any, cast
 
@@ -674,18 +674,56 @@ def _conflicts(
         if not isinstance(conflict, Conflict):
             continue
         held = _held_sheets(conflict, at)
-        names = {listed[i].id: finder.sheet_name(as_compared[i]) for i in held}
-        trimmed = _undecided(conflict, [listed[i] for i in held], names)
+        named = {listed[i].id: _named(conflict, at, as_compared[i], i) for i in held}
+        trimmed = _undecided(conflict, [listed[i] for i in held], named)
         if trimmed is not None:
             raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
     step1.retire_questions(project_id, CONFLICT_CODES, raised)
     return len(raised)
 
 
+@dataclass(frozen=True)
+class _Named:
+    """How a same storey's words name one sheet it holds: its name as 19b compared it (number or
+    title, and which), and the title of its first titled plan view in the Conflict (empty if none)."""
+
+    name: tuple[str, str] | None
+    plan: str
+
+
+def _named(conflict: Conflict, at: Mapping[int, int], sheet: SheetCandidate, index: int) -> _Named:
+    """`_Named` for the sheet at `index` of the sheet list, of the Conflict's own plan views (as
+    19b's `_title_on` reads a place's: the first whose title has a word)."""
+    plan = next(
+        (
+            title
+            for view in conflict.candidates
+            if at.get(id(view)) == index
+            and isinstance(title := getattr(view, "title", None), str)
+            and finder.normal(title)
+        ),
+        "",
+    )
+    return _Named(finder.sheet_name(sheet), plan)
+
+
+def _storey_words(held: Sequence[_Named]) -> dict[str, str]:
+    """A same storey's plan words for the sheets it holds, by 19b's rule (`_same_storey`): the first
+    two held sheets' plans alike (`same`), different (`differ`), or, either untitled, neither
+    (`none`); one sheet held: its own plan's title (`same`), else none."""
+    plan = held[0].plan if held else ""
+    other = held[1].plan if len(held) > 1 else plan
+    if not (plan and other):
+        return {"plan": "", "other": "", "titled": "none"}
+    if finder.normal(plan) == finder.normal(other):
+        return {"plan": plan, "other": "", "titled": "same"}
+    return {"plan": plan, "other": other, "titled": "differ"}
+
+
 def _undecided(
     conflict: Conflict,
     held: Sequence[drawings.SheetView],
-    names: Mapping[uuid.UUID, tuple[str, str] | None] | None = None,
+    named: Mapping[uuid.UUID, _Named] | None = None,
 ) -> tuple[dict[str, Any], list[drawings.SheetView]] | None:
     """A Conflict's evidence and the sheets its Question holds: only those not yet decided, a
     confirmed or left-out sheet never grouped with another (#161). Copies of one number are a
@@ -693,9 +731,10 @@ def _undecided(
     copy confirmed by hand: a Revision's question) and two or more are undecided, its words counting
     those; a same title or storey stands while any of its sheets is undecided, its words the set's
     but its `sheets` the undecided sheets it holds (T-W334: the words count what the Question holds).
-    A same storey's words name the sheets it holds (`names`: each sheet's name as 19b compared it):
-    once a sheet is decided, its first two undecided ones, or the one it holds alone (review 1 of
-    #638: never a sheet the Question no longer holds). None: nothing to ask."""
+    A same storey's words name and quote the sheets it holds (`named`: each sheet's name and plan
+    title as 19b compared it): once a sheet is decided, its first two undecided ones, or the one it
+    holds alone, their plans' titles read again from those sheets (reviews 1 and 2 of #638: never a
+    sheet, or a plan's title, the Question no longer holds). None: nothing to ask."""
     undecided = [s for s in held if not s.decision]
     evidence = dict(conflict.evidence)
     if conflict.kind == finder.SAME_NUMBER:
@@ -707,11 +746,12 @@ def _undecided(
         return None
     else:
         evidence["sheets"] = len(undecided)
-        if conflict.kind == finder.SAME_STOREY and len(undecided) < len(held):
-            for place, sheet in zip(("first", "second"), undecided, strict=False):
-                name = (names or {}).get(sheet.id)
-                if name is not None:
-                    evidence[place], evidence[f"{place}_named"] = name
+        if conflict.kind == finder.SAME_STOREY and len(undecided) < len(held) and named:
+            kept = [named[s.id] for s in undecided if s.id in named]
+            for place, words in zip(("first", "second"), kept, strict=False):
+                if words.name is not None:
+                    evidence[place], evidence[f"{place}_named"] = words.name
+            evidence |= _storey_words(kept[:2])
     return evidence, undecided
 
 

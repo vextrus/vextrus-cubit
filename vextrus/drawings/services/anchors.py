@@ -37,10 +37,11 @@ class Resolved:
 
 
 def resolve(anchor: Anchor, *, sheet_revision_id: uuid.UUID) -> Resolved:
-    """The file, printed sheet and entity (or PDF page) an anchor names; else not found."""
+    """The file, printed sheet and entity (or PDF page) an anchor names; else not found (a kept
+    artefact this code cannot read, of an older VERSION, too: review 2 of #638)."""
     try:
         return _resolve(anchor, sheet_revision_id)
-    except auth.Refused:
+    except auth.Refused, reads.ArtefactUnreadable:
         raise auth.NotFound from None
     except KeyError, ValueError, TypeError:
         raise auth.NotFound from None

@@ -161,3 +161,16 @@ def test_a_pdf_anchor_opens_its_page_where_the_sheet_is_plotted(
         7,
         (1.0, 2.0, 3.0, 4.0),
     )
+
+
+def test_an_anchor_on_a_file_whose_kept_artefact_is_of_an_older_version_is_not_found(
+    anchored: tuple[QsProject, services.SheetView, DwgAnchor], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 2 of #638: an artefact kept before its VERSION changed cannot be read; the anchor on it
+    is "not found", as `resolve` promises for every other failure."""
+    from engine.read import artefact as artefact_shape
+
+    project, printed, anchor = anchored
+    monkeypatch.setattr(artefact_shape, "VERSION", artefact_shape.VERSION + 1)  # the kept one is older
+    with project.member.acting(), pytest.raises(auth.NotFound):
+        services.resolve(anchor, sheet_revision_id=printed.id)

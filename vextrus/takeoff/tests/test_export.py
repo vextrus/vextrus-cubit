@@ -223,6 +223,31 @@ def test_a_file_that_failed_after_its_first_reader_keeps_its_entity_counts(
 
 
 @pytest.mark.django_db
+def test_a_failed_file_whose_kept_artefact_is_of_an_older_version_exports_as_none_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 2 of #638: an artefact kept before its VERSION changed reads as none kept: the export
+    goes on, the file's read stage failed, never a crash."""
+    from engine.read import artefact as artefact_shape
+
+    file_id = added(qs_project)
+
+    def broken(path: Any, artefact: Any) -> CheckResult:
+        raise ReadError(agree_codes.NOT_INSTALLED())
+
+    with pytest.raises(files.FileNotRead):
+        _read(qs_project, file_id, broken, monkeypatch)
+    with qs_project.member.acting():
+        sha256 = drawings.file(file_id).sha256
+    monkeypatch.setattr(artefact_shape, "VERSION", artefact_shape.VERSION + 1)  # the kept one is older
+
+    [file] = exported(qs_project, {"a.dwg": sha256})["files"]
+
+    assert file["stages"]["read"]["state"] == "failed"
+    assert not file["entity_counts"]
+
+
+@pytest.mark.django_db
 def test_a_files_sheets_are_exported_in_the_order_the_finder_found_them(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:

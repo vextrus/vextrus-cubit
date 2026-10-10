@@ -167,3 +167,70 @@ def test_a_same_storey_questions_words_name_only_the_sheets_it_still_holds(
         named = [question["params"]["first"], question["params"]["second"]][: len(held)]
         assert question["params"]["sheets"] == len(held)
         assert named == held, (number, named, held)
+
+
+# Review 2 of #638: the plans a narrowed same storey quotes are the held sheets' own ------------------
+
+PLANS = {
+    "S-41": "3RD FLOOR SLAB PLAN",
+    "S-44": "3RD FLOOR SLAB REINFORCEMENT PLAN",
+    "S-47": "3RD FLOOR SLAB SETTING OUT PLAN",
+}
+
+
+def _three_plans(qs: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline) -> Any:
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet, jev_says
+    from vextrus.takeoff.tests.acceptance.w334.test_proposals_groups import by_number, read
+
+    jev_says(jev_offline, "0.97")
+    listed = read(qs, monkeypatch, [Sheet(n, f"SHEET {n}", (plan,)) for n, plan in PLANS.items()])
+    return by_number(listed)
+
+
+def _storey_question(qs: QsProject) -> dict[str, Any]:
+    from vextrus.takeoff.tests.acceptance.w334.test_proposals_groups import conflict_questions
+
+    [question] = conflict_questions(qs, conflict_codes.SAME_STOREY.code)
+    return question
+
+
+@pytest.mark.parametrize(("left_out", "held"), [("S-41", ["S-44", "S-47"]), ("S-44", ["S-41", "S-47"])])
+def test_a_narrowed_same_storey_quotes_only_the_held_sheets_plans(
+    qs_project: QsProject,
+    monkeypatch: pytest.MonkeyPatch,
+    jev_offline: Offline,
+    left_out: str,
+    held: list[str],
+) -> None:
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import exclude
+
+    numbers = _three_plans(qs_project, monkeypatch, jev_offline)
+    asked = _storey_question(qs_project)["params"]
+    assert asked["sheets"] == 3, asked
+
+    response = exclude(
+        api_as(qs_project.member), qs_project.project_id, [numbers[left_out]["id"]], "duplicate"
+    )
+    assert response.status_code == 200, response.content
+
+    params = _storey_question(qs_project)["params"]
+    assert (params["first"], params["second"]) == tuple(held)
+    assert params["titled"] == "differ", params
+    assert (params["plan"], params["other"]) == (PLANS[held[0]], PLANS[held[1]])
+    assert PLANS[left_out] not in (params["plan"], params["other"])
+
+
+def test_one_held_sheet_quotes_its_own_plan_alone(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import exclude
+
+    numbers = _three_plans(qs_project, monkeypatch, jev_offline)
+    api = api_as(qs_project.member)
+    for number in ("S-41", "S-44"):
+        response = exclude(api, qs_project.project_id, [numbers[number]["id"]], "duplicate")
+        assert response.status_code == 200, response.content
+
+    params = _storey_question(qs_project)["params"]
+    assert (params["sheets"], params["first"]) == (1, "S-47")
+    assert (params["titled"], params["plan"], params["other"]) == ("same", PLANS["S-47"], "")

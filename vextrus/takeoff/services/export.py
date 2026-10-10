@@ -457,7 +457,7 @@ def _reading(
     if read or failed:
         try:
             artefact = drawings.artefact(view.id)  # a file that failed after its first reader kept one
-        except auth.NotFound:
+        except auth.NotFound, drawings.ArtefactUnreadable:  # none kept, or one of an older VERSION
             artefact = None
     if read or artefact is not None or state == drawings.FileState.REFUSED:
         reports["read"] = StageReport(StageState.OK, calls=1)
