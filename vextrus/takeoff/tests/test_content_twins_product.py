@@ -19,7 +19,7 @@ from engine.read import ReadArtefact
 from engine.recognise import conflicts, sheets
 from engine.recognise.tests.drawing import frame_block, value_at
 from engine.recognise.types import Conflict, Continuation
-from vextrus.drawings.models import SheetRevision
+from vextrus.drawings import services as drawings
 from vextrus.drawings.services import sheet_list
 from vextrus.takeoff.services.read_propose import files
 from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
@@ -151,11 +151,10 @@ def test_a_copied_title_block_over_the_next_rows_drawing_is_a_same_title_questio
     assert q["code"] == conflict_codes.SAME_TITLE.code
     assert sorted(q["proposals"]) == sorted(the(listed, n)["id"] for n in ("S-03", "S-04"))
     with qs_project.member.acting():
-        kept = SheetRevision.objects.filter(source_file_id=file_id).order_by("ordinal")
-        stored = {sr.title: sr.layers for sr in kept}
-    assert sorted(map(tuple, stored["FITTING LAYOUT"])) == sorted(
-        {**FITTINGS, "ZQ-LAMP": 38, "0": 5}.items()
-    )  # "0": its frame and 4 texts
+        found = drawings.file(file_id)
+        stored = {v.title: v.layers for v in drawings.sheets(found.set_id) if v.file_id == file_id}
+    # Read back through `drawings` as kept; "0" holds its frame insert and 4 texts.
+    assert sorted(stored["FITTING LAYOUT"]) == sorted({**FITTINGS, "ZQ-LAMP": 38, "0": 5}.items())
 
 
 def test_one_drawing_over_two_sheets_stays_a_continuation_with_no_question(
