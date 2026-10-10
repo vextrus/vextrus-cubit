@@ -12,8 +12,9 @@ import pytest
 from engine.geometry.placement import chain, chain_transform
 from engine.read.anchor import DwgAnchor
 from engine.recognise import conflicts
+from engine.recognise import sheets as finder
 from engine.recognise.conflicts import TWIN, Recognisers, compare
-from engine.recognise.sheets import find
+from engine.recognise.sheets import find, segment
 from engine.recognise.tests.candidates import sheet
 from engine.recognise.tests.drawing import DEFAULT, Sheets, frame_block, value_at
 from engine.recognise.tests.stand_ins import stand_ins
@@ -58,6 +59,28 @@ def test_a_model_sheet_counts_its_top_level_entities_by_layer_where_their_anchor
         ("ZQ-SYMBOL", 1),
         ("ZQ-TEXT", 2),
     )
+
+
+def test_past_the_layer_budget_a_sheet_keeps_no_histogram_and_it_is_counted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """EL-01 draws 4 entities (frame, number, 2 lines) within a budget of 5; EL-02's 4 more would
+    pass it, so it keeps `()` and `layer_budget` is counted."""
+    monkeypatch.setattr(finder, "MAX_LAYER_READS", 5)
+    d = Sheets()
+    block = frame_block(d)
+    framed(d, block, (0.0, 0.0), "EL-01")
+    framed(d, block, (2000.0, 0.0), "EL-02")
+    for x in (100.0, 2100.0):
+        d.line((x, 100.0), (x + 10, 100.0), layer="ZQ-LAMP")
+        d.line((x, 200.0), (x + 10, 200.0), layer="ZQ-LAMP")
+
+    found = segment(d.artefact(), None, DEFAULT)
+
+    by_number = {s.number.value: s for s in found.sheets if s.number is not None}
+    assert by_number["EL-01"].layers == (("ZQ-FRAME", 1), ("ZQ-LAMP", 2), ("ZQ-TEXT", 1))
+    assert by_number["EL-02"].layers == ()
+    assert found.counts["layer_budget"] == 1
 
 
 def test_a_layouts_sheet_has_no_histogram() -> None:

@@ -197,6 +197,9 @@ MAX_READS = 4_000_000
 """The most texts and frames the index queries of one file may give, the finder's and the register's
 together, the rest refused and counted (`read_budget`): the real sets read at most 1.2 a text
 (measured), about 20,000 a file."""
+MAX_LAYER_READS = 4_000_000
+"""The most entities model space's sheets may count by layer together (`SheetCandidate.layers`,
+one file): past it the sheets left keep none, counted (`layer_budget`)."""
 MAX_PAIRS = 4_000_000
 """The most label and value pairs one file's title blocks weigh; a sheet whose pairs are past it is
 read without its labelled values, counted (`pair_budget`): the real sets weigh at most 12.8 a text
@@ -1202,7 +1205,7 @@ class _Segmenter:
                     sheets.append(reader.model_sheet(f, titled=id(f) in titled))
                     if id(f) not in titled:
                         self.counts["cover_proposed_out"] += 1
-            sheets = _with_layers(self.artefact, space.handle, sheets)
+            sheets = _with_layers(self.artefact, space.handle, sheets, self.counts)
         for sheet in layout_sheets:
             if len(sheets) >= MAX_SHEETS:
                 self.counts["sheets_capped"] += 1
@@ -1832,13 +1835,13 @@ def texts_on(
 
 
 def _with_layers(
-    artefact: ReadArtefact, model: str, sheets: list[SheetCandidate]
+    artefact: ReadArtefact, model: str, sheets: list[SheetCandidate], counts: Counter[str]
 ) -> list[SheetCandidate]:
     """Model space's sheets, each with what it draws by layer (`SheetCandidate.layers`): its
     top-level entities counted on their layers where their anchor point (an insert's or a text's
     insertion point, else `_anchor_point`, in world coordinates) lies inside the sheet's box. One
-    walk of the space's entities, then one count per sheet; a sheet with no box, or drawing nothing,
-    keeps `()`."""
+    walk of the space's entities into an index, then one query per sheet within `MAX_LAYER_READS`;
+    a sheet with no box, drawing nothing or past the budget keeps `()`."""
     boxed = [i for i, sheet in enumerate(sheets) if sheet.location.box is not None]
     if not boxed:
         return sheets
@@ -1866,14 +1869,17 @@ def _with_layers(
     if not codes:
         return sheets
     layer_names = list(names)
-    code, at_x, at_y = np.frombuffer(codes, np.int64), np.frombuffer(xs), np.frombuffer(ys)
+    code = np.frombuffer(codes, np.int64)
+    index = _Index(points=(xs, ys))
+    budget = _Budget(MAX_LAYER_READS, counts, "layer_budget")
     found = list(sheets)
     for i in boxed:
         box = found[i].location.box
         assert box is not None
-        inside = (at_x >= box.x0) & (at_x <= box.x1) & (at_y >= box.y0) & (at_y <= box.y1)
-        counts = np.bincount(code[inside], minlength=len(layer_names))
-        layers = tuple(sorted((layer_names[k], int(n)) for k, n in enumerate(counts.tolist()) if n > 0))
-        if layers:
-            found[i] = replace(found[i], layers=layers)
+        inside = budget.within(index, (box.x0, box.y0, box.x1, box.y1))
+        if not inside:
+            continue  # nothing drawn, or past the budget
+        tally = np.bincount(code[np.asarray(inside, dtype=np.int64)], minlength=len(layer_names))
+        layers = tuple(sorted((layer_names[k], int(n)) for k, n in enumerate(tally.tolist()) if n > 0))
+        found[i] = replace(found[i], layers=layers)
     return found
