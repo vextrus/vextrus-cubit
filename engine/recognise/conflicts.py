@@ -1101,7 +1101,8 @@ def _same_storey(
             storey=storeys[0],
         )["params"]
         candidates = tuple(flat[v][0] for v in members)
-        found.append((members[0], Conflict(SAME_STOREY, candidates, evidence)))
+        places_of = tuple(flat[v][1] for v in members)
+        found.append((members[0], Conflict(SAME_STOREY, candidates, evidence, places_of)))
     return found
 
 

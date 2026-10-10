@@ -691,11 +691,22 @@ class _Named:
 
     name: tuple[str, str] | None
     plan: str
+    place: int | None = None
+    """Where 19b found the sheet lies (`Conflict.places`): copies of one number and the sheets of one
+    run are one place; none when the Conflict says no place."""
 
 
 def _named(conflict: Conflict, at: Mapping[int, int], sheet: SheetCandidate, index: int) -> _Named:
     """`_Named` for the sheet at `index` of the sheet list, of the Conflict's own plan views (as
     19b's `_title_on` reads a place's: the first whose title has a word)."""
+    place = next(
+        (
+            conflict.places[k]
+            for k, view in enumerate(conflict.candidates)
+            if k < len(conflict.places) and at.get(id(view)) == index
+        ),
+        None,
+    )
     plan = next(
         (
             title
@@ -706,7 +717,7 @@ def _named(conflict: Conflict, at: Mapping[int, int], sheet: SheetCandidate, ind
         ),
         "",
     )
-    return _Named(finder.sheet_name(sheet), plan)
+    return _Named(finder.sheet_name(sheet), plan, place)
 
 
 def _storey_words(held: Sequence[_Named]) -> dict[str, str]:
@@ -750,10 +761,26 @@ def _undecided(
         evidence["sheets"] = len(undecided)
         if conflict.kind == finder.SAME_STOREY and len(undecided) < len(held) and named:
             kept = [named[s.id] for s in undecided if s.id in named]
-            for place, words in zip(("first", "second"), kept, strict=False):
-                if words.name is not None:
-                    evidence[place], evidence[f"{place}_named"] = words.name
-            evidence |= _storey_words(kept[:2])
+            out = [named[s.id] for s in held if s.decision and s.id in named]
+            if not kept:
+                return None
+            first = kept[0]
+            # The second sheet named lies at another place than the first, as 19b names its two
+            # (review 3 of #638): never a copy of the first's number, or a sheet of its run.
+            apart = [w for w in kept[1:] if w.place is None or w.place != first.place]
+            if len(kept) > 1 and not apart:
+                return None  # every sheet it holds lies at one place: one storey drawn once
+            beside = apart[:1] if len(kept) > 1 else []
+            # One sheet held: it draws the storey like a sheet confirmed or left out, at another place.
+            like = [w for w in out if w.place is None or w.place != first.place][:1]
+            if first.name is not None:
+                evidence["first"], evidence["first_named"] = first.name
+            second = next(iter(beside or like), None)
+            if second is not None and second.name is not None:
+                evidence["second"], evidence["second_named"] = second.name
+            elif not beside:
+                evidence["second"], evidence["second_named"] = "", "none"
+            evidence |= _storey_words([first, *beside])
     return evidence, undecided
 
 
