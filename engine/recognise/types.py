@@ -382,6 +382,10 @@ class Conflict:
     """What conflicts, as a key (two sheets with one number, one storey drawn twice)."""
     candidates: tuple[SheetCandidate | ViewCandidate, ...]
     evidence: Mapping[str, Param] = field(default_factory=dict)
+    places: tuple[int, ...] = ()
+    """`same_storey`'s: where each candidate's sheet lies, one per candidate (copies of one number
+    and the sheets of one run are one place); empty for the other kinds. A Question that holds only
+    some of the sheets reads it to name two that lie apart (review 3 of #638)."""
 
     def __post_init__(self) -> None:
         _key(self.kind, "a conflict's kind")
@@ -389,6 +393,8 @@ class Conflict:
         _params(self.evidence, "a conflict's evidence")
         if len(self.candidates) < 2:
             raise ValueError("a conflict names two candidates or more")
+        if self.places and len(self.places) != len(self.candidates):
+            raise ValueError("a conflict's places are one per candidate")
 
 
 @dataclass(frozen=True)

@@ -234,3 +234,37 @@ def test_one_held_sheet_quotes_its_own_plan_alone(
     params = _storey_question(qs_project)["params"]
     assert (params["sheets"], params["first"]) == (1, "S-47")
     assert (params["titled"], params["plan"], params["other"]) == ("same", PLANS["S-47"], "")
+    assert (params["second"], params["second_named"]) == ("S-41", "number")  # like S-41, left out
+
+
+# Review 3 of #638: the two sheets a narrowed same storey names lie at two places ---------------------
+
+
+def test_copies_of_one_number_left_alone_ask_no_same_storey(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """S-41 R0, S-41 R1 and S-44 draw one 3rd floor slab; the two copies of S-41 lie at one place.
+    S-44 left out: never "S-41 and S-41 both draw": one storey drawn at one place is no same storey
+    (19b's `_same_storey`), so the Question is retired; the copies' own Question stays."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet, exclude, jev_says
+    from vextrus.takeoff.tests.acceptance.w334.test_proposals_groups import (
+        THIRD_FLOOR_SLAB,
+        conflict_questions,
+        read,
+    )
+
+    jev_says(jev_offline, "0.97")
+    listed = read(qs_project, monkeypatch, [
+        Sheet("S-41", "3RD FLOOR SLAB LAYOUT PLAN", (THIRD_FLOOR_SLAB,), rev="R0", date="02.08.2026"),
+        Sheet("S-41", "3RD FLOOR SLAB LAYOUT PLAN", (THIRD_FLOOR_SLAB,), rev="R1", date="14.09.2026"),
+        Sheet("S-44", "3RD FLOOR SLAB REINFORCEMENT PLAN", (THIRD_FLOOR_SLAB,)),
+    ])  # fmt: skip
+    [asked] = conflict_questions(qs_project, conflict_codes.SAME_STOREY.code)
+    assert {asked["params"]["first"], asked["params"]["second"]} == {"S-41", "S-44"}, asked
+    [s44] = [p for p in listed if p["number"] == "S-44"]
+
+    response = exclude(api_as(qs_project.member), qs_project.project_id, [s44["id"]], "duplicate")
+
+    assert response.status_code == 200, response.content
+    assert conflict_questions(qs_project, conflict_codes.SAME_STOREY.code) == []
+    assert conflict_questions(qs_project, conflict_codes.SAME_NUMBER.code)
