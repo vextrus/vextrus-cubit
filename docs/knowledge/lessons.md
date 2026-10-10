@@ -475,3 +475,45 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   Q1's copy took a new name, so the orchestrator thought it gone and ran a second verify in its worktree; crosspr's
   scratch worktree then vanished mid-run. No check: find a builder by its `cwd` in `claude agents --json`, never by
   name, before working in its worktree.
+
+## Session 19 (9-10 Oct 2026): Q1 landed, a second power cut, G1 11 of 16 still failing
+
+- **The words lint ran in CI, not in verify:** verify does not run tools.lint.words that CI's web job runs -> a
+  verified head goes red in CI. Fix: add the check to scripts/verify.py (small factory PR). Check:
+  `scripts/tests/acceptance/ts19f1/test_verify_words_lint.py` (#633; verify plans `words-lint` for web/ and the
+  lint's own files).
+- **Drawing text leaked into acceptance commits, caught before any push:** acceptance writers fed drawing-analyst
+  reports copied real titles into fixtures and commit messages twice (B2, B4); leakscan caught both at push; redo on
+  fresh branches s19-b2b, s19-b4b (old s19-b2/s19-b4 local, never pushed). Check to add: acceptance_lint (or
+  amend/the writer's finish) runs leakscan range on the writer's commits. B4 changes tools/scorer -> owner custody
+  re-run before landing. Check: `.claude/hooks/guard.mjs` (no push without a clean range scan) caught both; the
+  writer-side scan is not yet code (#637).
+- **Verify fails on load-sensitive tests:** ts15a2's 500 ms answer bound failed verify runs beside other heavy runs
+  (S19-B5, Train A, S15-E2 in session 18), and verify's own concurrent checks fail these tests even alone on a quiet
+  machine; one was a real test bug (a process-directed SIGHUP taken by another xdist thread, fixed in Train A at
+  167aaca2). Nothing refuses a verify beside a real-drawing run or another verify today. No check yet: #636 (verify
+  runs its timing-sensitive checks one after another); until then run verify alone with `VEXTRUS_VERIFY_WORKERS=2`.
+- **The acceptance lint called git's clean merge a hand resolution** (`diff-tree --cc` names a file both sides
+  changed), so no train could pass CI or take an amendment.
+  Check: `tools/lint/tests/acceptance/ts19f1/test_merge_resolution.py` (#633).
+- **A second power cut (about 16:50Z-18:08Z)** stopped every builder again; resumes copied conversations, so builders
+  were found by `cwd`, not name (session 18's lesson held). No check: power is outside the code; the rule is in
+  the session brief.
+
+## Session 20 (10 Oct 2026): Train A through four review rounds, Train B integrated, G1 at 5 of 16 on its head
+
+- **This machine's wall clock jumps (WSL2 time sync, +1.5 to +2.6 s about every 30 s), and this Python's
+  `Event.wait(timeout)` waits on it,** so a test's verdict wait woke early and A2's held-row tests failed on a quiet
+  machine. No check yet: ts15a2's waits loop on the monotonic clock in Train A (6d8b1c4c, lands with #641); a lint on
+  a bare `.wait(<n>)` verdict in tests is #636.
+- **A timing bound green on this machine can be red on CI** (its runners are about 5.5x slower): w334's linear-time
+  path and ts15a2's 500 ms answer both failed only in CI. No check: CI's shards are the measure; read their timings
+  before landing.
+- **A read job's finishing step holds Step 1's write lock through `set_questions` over the whole set** (5-15 s on
+  the real sets), so an act landing inside it is refused 503 after 3 s; G1 saw one undo per set. No check yet: the
+  find/keep split and its test are session 21's ticket (`.private/work/session-20/diag-undo-503.md`).
+- **A fourth power cut in two days (about 10:40Z-11:24Z)** stopped both builders; resumed copies took new names and
+  the watcher's LOCAL-IDLE fired falsely on them while they worked. No check: power is outside the code; find
+  builders by `cwd` (session 18's lesson held).
+- **Several sessions' budget records share `.git/vextrus/`,** so a builder's clock line showed another ticket's
+  record. No check yet: name each record by the worktree, not only the ticket.
