@@ -2,6 +2,7 @@
 
     match(pages, sheets, geometry, plots) -> list[PlotMatch]     # the harness's `plot` stage
     reads_title(page, title) -> bool                             # #229: the page reads the title
+    title_read(page, title) -> TitleRead                         # the same, saying if its walk was cut
 
 `pages` are 12's (`engine.read.pdf.page_text`), every PDF's of the set; `sheets` are 13's; `geometry[i]`
 is `sheets[i]`'s render buffers (11's `buffers.build`), or none where they were not built: the sheet's
@@ -239,30 +240,69 @@ def reads_title(page: Page, title: str | None) -> bool:
     last starting with the rest. The title's words scattered over the page's notes are not its title
     (review 1 of #229: "FIRST FLOOR PLAN" beside a note on the GROUND level reads no "GROUND FLOOR
     PLAN"). A word is one holding a letter or digit. A sheet with no title (or one of punctuation
-    alone), and a page with no text (one matched by its ink), read no title alike."""
+    alone), and a page with no text (one matched by its ink), read no title alike. A chain walked
+    past its budget (`title_read`) reads no title."""
+    return title_read(page, title).alike
+
+
+@dataclass(frozen=True)
+class TitleRead:
+    """`reads_title`'s answer, and whether its walk of chains stopped at its budget unfinished (`cut`:
+    then `alike` is False, the page no second source)."""
+
+    alike: bool
+    cut: bool = False
+
+
+CHAIN_STEPS_PER_ITEM = 32
+"""How many pairs of items a title's chain walk may test for nearness, per item of the page (review
+1 of #638: a page of short items repeating the title's words made the walk the items squared times
+the title's words, seconds inside Step 1's write lock). Linear in the page's items; a real title
+block's chain takes a handful of steps."""
+CHAIN_STEPS_FLOOR = 4096
+"""The budget's least, for a page of few items."""
+
+
+def title_read(page: Page, title: str | None) -> TitleRead:
+    """`reads_title`, saying whether its walk was cut at its budget (`TitleRead`)."""
     wanted = _words(title)
     if not wanted:
-        return False
+        return TitleRead(False)
     lines = [(item, words) for item in page.items if (words := _words(item.text))]
     n = len(wanted)
     if any(_holds(words, wanted) for _, words in lines):
-        return True
+        return TitleRead(True)
+    # The items that can follow a chain that has read the title to word k: those that finish it, and
+    # those that continue it whole, short of its end. Only they are tested for nearness.
+    finishing = {k: [item for item, words in lines if words[: n - k] == wanted[k:]] for k in range(1, n)}
+    continuing = {
+        k: [
+            (item, k + len(words))
+            for item, words in lines
+            if k + len(words) < n and wanted[k : k + len(words)] == words
+        ]
+        for k in range(1, n)
+    }
     # Where a chain of items has read the title to, each short of the whole: (its last item, words read).
     reached = [(item, k) for item, words in lines for k in range(1, n) if words[-k:] == wanted[:k]]
+    budget = max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))
     seen: set[tuple[int, int]] = set()
     while reached:
         last, k = reached.pop()
         if (id(last), k) in seen:
             continue
         seen.add((id(last), k))
-        for item, words in lines:
-            if item is last or not _near(last, item):
-                continue
-            if words[: n - k] == wanted[k:]:
-                return True
-            if k + len(words) < n and wanted[k : k + len(words)] == words:
-                reached.append((item, k + len(words)))
-    return False
+        for item in finishing[k]:
+            budget -= 1
+            if item is not last and _near(last, item):
+                return TitleRead(True)
+        for item, to in continuing[k]:
+            budget -= 1
+            if item is not last and (id(item), to) not in seen and _near(last, item):
+                reached.append((item, to))
+        if budget <= 0:
+            return TitleRead(False, cut=bool(reached))
+    return TitleRead(False)
 
 
 def _near(a: TextItem, b: TextItem) -> bool:

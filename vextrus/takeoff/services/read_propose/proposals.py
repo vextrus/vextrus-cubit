@@ -673,7 +673,9 @@ def _conflicts(
     for conflict in found:
         if not isinstance(conflict, Conflict):
             continue
-        trimmed = _undecided(conflict, [listed[i] for i in _held_sheets(conflict, at)])
+        held = _held_sheets(conflict, at)
+        names = {listed[i].id: finder.sheet_name(as_compared[i]) for i in held}
+        trimmed = _undecided(conflict, [listed[i] for i in held], names)
         if trimmed is not None:
             raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
     step1.retire_questions(project_id, CONFLICT_CODES, raised)
@@ -681,7 +683,9 @@ def _conflicts(
 
 
 def _undecided(
-    conflict: Conflict, held: Sequence[drawings.SheetView]
+    conflict: Conflict,
+    held: Sequence[drawings.SheetView],
+    names: Mapping[uuid.UUID, tuple[str, str] | None] | None = None,
 ) -> tuple[dict[str, Any], list[drawings.SheetView]] | None:
     """A Conflict's evidence and the sheets its Question holds: only those not yet decided, a
     confirmed or left-out sheet never grouped with another (#161). Copies of one number are a
@@ -689,7 +693,9 @@ def _undecided(
     copy confirmed by hand: a Revision's question) and two or more are undecided, its words counting
     those; a same title or storey stands while any of its sheets is undecided, its words the set's
     but its `sheets` the undecided sheets it holds (T-W334: the words count what the Question holds).
-    None: nothing to ask."""
+    A same storey's words name the sheets it holds (`names`: each sheet's name as 19b compared it):
+    once a sheet is decided, its first two undecided ones, or the one it holds alone (review 1 of
+    #638: never a sheet the Question no longer holds). None: nothing to ask."""
     undecided = [s for s in held if not s.decision]
     evidence = dict(conflict.evidence)
     if conflict.kind == finder.SAME_NUMBER:
@@ -701,6 +707,11 @@ def _undecided(
         return None
     else:
         evidence["sheets"] = len(undecided)
+        if conflict.kind == finder.SAME_STOREY and len(undecided) < len(held):
+            for place, sheet in zip(("first", "second"), undecided, strict=False):
+                name = (names or {}).get(sheet.id)
+                if name is not None:
+                    evidence[place], evidence[f"{place}_named"] = name
     return evidence, undecided
 
 

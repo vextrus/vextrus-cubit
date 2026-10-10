@@ -159,8 +159,9 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
     assert render(ALL["engine.conflicts.same_title"], two).startswith("Two sheets are titled")
     # T-W334: a Question counts the sheets it still holds, one once the others are decided
     assert render(ALL["engine.conflicts.same_title"], {**two, "sheets": 1}).startswith("One sheet is")
+    # Review 1 of #638: with one sheet held it is named alone, never beside a sheet already decided
     assert render(ALL["engine.conflicts.same_storey"], {**untitled, "sheets": 1}) == (
-        "S-14 and S-15 both draw a plan of one storey, bottom layer"
+        "S-14 draws a plan of one storey, bottom layer, like a sheet already decided"
     )
     assert branches(ALL["engine.conflicts.same_storey"], "layer") >= {str(layer) for layer in Layer}
     assert branches(ALL["engine.conflicts.same_storey"], "titled") >= {"same", "differ"}

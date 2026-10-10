@@ -242,13 +242,24 @@ def _artefact_row(
     return rows.order_by("-created_at", "-schema_version", "-id").first()
 
 
+class ArtefactUnreadable(storage.StorageError):
+    """A kept artefact this code cannot read: of another VERSION (kept before the shape changed:
+    `engine.read.artefact`, an older one "is read again from its drawing") or not an artefact at all.
+    A storage error, so every reader of a kept artefact treats it as a copy missing or damaged: the
+    file report shows none kept, and a read job reads the file again."""
+
+
 def _load(row: DrawingFile, found: Artefact) -> ReadArtefact:
     name = (
         f"artefact@{_access.key_name(found.reader)}@{_access.key_name(found.reader_version)}"
         f"@v{found.schema_version}.json"
     )
     key = storage.key(row.drawing_set.project_id, "drawings", row.sha256, name)
-    return ReadArtefact.from_json(json.loads(storage.get(key)))
+    data = storage.get(key)
+    try:
+        return ReadArtefact.from_json(json.loads(data))
+    except ValueError as refused:  # `from_json`'s refusal, or JSON that does not parse
+        raise ArtefactUnreadable(str(refused)) from refused
 
 
 @dataclass(frozen=True)

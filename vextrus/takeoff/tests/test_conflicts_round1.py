@@ -130,3 +130,40 @@ def test_a_question_kept_open_hands_its_answer_to_the_one_that_supersedes_it(
     [now] = open_conflicts(api, qs_project.project_id)
     assert now["params"]["copies"] == 3
     assert now["answer"]["option"] == "keep_open"
+
+
+# Review 1 of #638: a same storey Question's words name only the sheets it holds ---------------------
+
+
+def test_a_same_storey_questions_words_name_only_the_sheets_it_still_holds(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
+) -> None:
+    """S-41, S-44 and S-47 draw one 3rd floor slab. The QS leaves S-41 out: the Question holds S-44
+    and S-47 and names them, not S-41. Then S-44 out: it holds S-47 alone and names it alone."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet, exclude, jev_says
+    from vextrus.takeoff.tests.acceptance.w334.test_proposals_groups import (
+        THIRD_FLOOR_SLAB,
+        by_number,
+        conflict_questions,
+        read,
+    )
+
+    jev_says(jev_offline, "0.97")
+    listed = read(qs_project, monkeypatch, [
+        Sheet("S-41", "3RD FLOOR SLAB LAYOUT PLAN", (THIRD_FLOOR_SLAB,)),
+        Sheet("S-44", "3RD FLOOR SLAB REINFORCEMENT PLAN", (THIRD_FLOOR_SLAB,)),
+        Sheet("S-47", "3RD FLOOR SLAB SETTING OUT PLAN", (THIRD_FLOOR_SLAB,)),
+    ])  # fmt: skip
+    numbers = by_number(listed)
+    api = api_as(qs_project.member)
+    [asked] = conflict_questions(qs_project, conflict_codes.SAME_STOREY.code)
+    assert (asked["params"]["first"], asked["params"]["second"]) == ("S-41", "S-44")
+
+    for number in ("S-41", "S-44"):
+        response = exclude(api, qs_project.project_id, [numbers[number]["id"]], "duplicate")
+        assert response.status_code == 200, response.content
+        [question] = conflict_questions(qs_project, conflict_codes.SAME_STOREY.code)
+        held = sorted(p["number"] for p in listed if p["id"] in question["proposals"])
+        named = [question["params"]["first"], question["params"]["second"]][: len(held)]
+        assert question["params"]["sheets"] == len(held)
+        assert named == held, (number, named, held)

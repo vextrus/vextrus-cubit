@@ -5,6 +5,7 @@ import pytest
 
 from engine.plot import registration
 from engine.plot.tests.test_plot import item, page_of
+from engine.read.pdf.types import Page
 
 
 @pytest.mark.parametrize(
@@ -108,3 +109,89 @@ def test_a_title_of_punctuation_alone_reads_none_alike(title: str) -> None:
     page = page_of(item("S-02"), item(title), item("COLUMN LAYOUT PLAN"))
 
     assert registration.reads_title(page, title) is False
+
+
+# Review 1 of #638: the chain walk is bounded, linear in the page's items -------------------------
+
+TITLE_11 = "FIRST FLOOR BEAM LAYOUT PLAN AND SECTION DETAILS OF GRID LINES"
+
+
+def _packed(n: int, word: str) -> Page:
+    """`n` short items of one word, all within one block (each near every other)."""
+    boxes = [(10.0 + i % 7, 10.0 + i % 5, 40.0 + i % 7, 20.0 + i % 5) for i in range(n)]
+    return page_of(*[item(word, 10.0, box) for box in boxes])
+
+
+def test_a_page_of_items_repeating_the_titles_first_word_is_read_fast() -> None:
+    import time
+
+    page = _packed(1500, "FIRST")
+    began = time.monotonic()
+    read = registration.reads_title(page, TITLE_11)
+    assert time.monotonic() - began < 0.2
+    assert read is False
+
+
+def test_a_title_of_one_word_repeated_over_a_page_of_it_stops_at_its_budget() -> None:
+    import time
+
+    page = _packed(1500, "A")
+    began = time.monotonic()
+    read = registration.title_read(page, " ".join(["A"] * 10 + ["B"]))
+    assert time.monotonic() - began < 0.2
+    assert read == registration.TitleRead(False, cut=True)
+    assert registration.reads_title(page, " ".join(["A"] * 10 + ["B"])) is False
+
+
+def test_a_title_over_three_lines_is_read_among_many_far_items() -> None:
+    far = [item("FIRST", 10.0, (5000.0 + i, 5000.0, 5030.0 + i, 5010.0)) for i in range(1500)]
+    lines = [
+        item("FIRST FLOOR BEAM", 10.0, (100.0, 100.0, 200.0, 110.0)),
+        item("LAYOUT PLAN AND SECTION", 10.0, (100.0, 112.0, 240.0, 122.0)),
+        item("DETAILS OF GRID LINES", 10.0, (100.0, 124.0, 230.0, 134.0)),
+    ]
+    read = registration.title_read(page_of(*far, *lines), TITLE_11)
+    assert read == registration.TitleRead(True)
+
+
+def _walked_unbounded(page: Page, title: str) -> bool:
+    """#229's walk as it was before its budget: the reference the bounded walk must agree with."""
+    words_of = registration._words
+    wanted = words_of(title)
+    if not wanted:
+        return False
+    lines = [(it, w) for it in page.items if (w := words_of(it.text))]
+    n = len(wanted)
+    if any(registration._holds(w, wanted) for _, w in lines):
+        return True
+    reached = [(it, k) for it, w in lines for k in range(1, n) if w[-k:] == wanted[:k]]
+    seen: set[tuple[int, int]] = set()
+    while reached:
+        last, k = reached.pop()
+        if (id(last), k) in seen:
+            continue
+        seen.add((id(last), k))
+        for it, w in lines:
+            if it is last or not registration._near(last, it):
+                continue
+            if w[: n - k] == wanted[k:]:
+                return True
+            if k + len(w) < n and wanted[k : k + len(w)] == w:
+                reached.append((it, k + len(w)))
+    return False
+
+
+def test_the_bounded_walk_reads_as_the_unbounded_one_did_on_small_pages() -> None:
+    import random
+
+    rng = random.Random(638)
+    vocabulary = ["GROUND", "FLOOR", "PLAN", "BEAM", "LAYOUT", "S-02", "-", "NOTE"]
+    for _ in range(400):
+        title = " ".join(rng.choice(vocabulary[:5]) for _ in range(rng.randint(1, 4)))
+        items = []
+        for _ in range(rng.randint(0, 9)):
+            text = " ".join(rng.choice(vocabulary) for _ in range(rng.randint(1, 3)))
+            x, y = rng.choice([0.0, 40.0, 400.0]) + rng.random() * 20, rng.choice([0.0, 15.0, 300.0])
+            items.append(item(text, 10.0, (x, y, x + 60.0, y + 10.0)))
+        page = page_of(*items)
+        assert registration.reads_title(page, title) is _walked_unbounded(page, title), (title, items)
