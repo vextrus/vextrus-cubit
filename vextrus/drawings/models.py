@@ -564,6 +564,12 @@ class SheetRevision(models.Model):
     views_refused = models.PositiveIntegerField(
         default=0, help_text="Its views the reading found and did not keep: a text past its column."
     )
+    layers = models.JSONField(
+        default=list,
+        db_default=[],
+        blank=True,
+        help_text="What it draws by layer, [name, count] pairs (S19-B7's content twins); [] unread.",
+    )
     render_file_id = models.UUIDField(null=True, blank=True)
     render_key = models.CharField(max_length=1200, blank=True, help_text="Its render's storage key.")
     plot_file = models.ForeignKey(

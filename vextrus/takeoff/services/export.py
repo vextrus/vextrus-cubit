@@ -630,7 +630,7 @@ def _sheet(sheet: SheetView, group: str) -> SheetCandidate:
         ),
         anchors=tuple(a.anchor() for a in sheet.anchors),
         group=group,
-        layers=(),  # a stored sheet keeps no layer histogram (the engine's content-twin rule's)
+        layers=sheet.layers,  # compared, never exported (engine/export.py names its fields)
         **sourced,
     )
 
