@@ -962,9 +962,9 @@ canvas foot and inspector is section 6 (layout A). Wireframes: `step1-shell-1440
   with its reason, Takeoff ruling 4; per-Discipline N from the drawing list or the Plot sits in the
   list, section 6.3), the sheet label and the viewer's switches.
 - The Confirmation bar floats at the canvas foot, 44 px, at most 820 px wide in list and sheet mode,
-  centred: what ("11 sheets agree: Structural"), why ("Each has a number and title from
+  centred: what ("14 sheets agree: Structural 11, Electrical 3"), why ("Each has a number and title from
   its title block, on its drawing list or in numbering without a gap"),
-  "Review one by one" (ghost), and the screen's one copper button "Confirm 11 ↵" (6.4's wording; the
+  "Review one by one" (ghost), and the screen's one copper button "Confirm 14 ↵" (6.4's wording; the
   seed's state, 7; #182: the read job proposes no sheet of the seed out).
 - Status bar Coverage (story 43): "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2
   unaccounted" (the seed after reading, 7); "unaccounted" in amber while above 0; clicking opens
@@ -1638,7 +1638,7 @@ owner's reversal at the M0 walk; ticket 22's design gate checks every row.
 | # | What | The one answer | Was | Why |
 |---|---|---|---|---|
 | 1 | The held file's Question (screens.md Step 1 ruling 3) | 1 "Read it anyway: its sheets join the list, marked held" · 2 "Set this file aside: I'll re-save it from AutoCAD (open it, run AUDIT, save) and add it again" · 3 "Set this file aside and mark it for Vextrus to look at" · 4 "Keep open, ask the consultant". Before the answer the file is "Held"; after it "Held, read anyway" (its sheets listed, each marked "held", their figures flagged later) or "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" (5, 6.7, 6.13, 4.5) | 5's re-save, mark for Vextrus, leave out; the prototype's re-save, send, leave out; "Set aside" also named the held state | The ruling's own two answers, with the ways to get a clean file kept |
-| 2 | The combined bulk act (ruling 1) | What: "Confirm 56 sheets that agree, and leave out 5: for information, cover or index, duplicate"; button "Confirm 56, leave out 5 ↵"; toast "Confirmed 56 sheets; left out 5, each with its reason." (6.4). On the seed: "Confirm 11 ↵" (4.7; #182) | Not prototyped | First judged at 22's gate |
+| 2 | The combined bulk act (ruling 1) | What: "Confirm 56 sheets that agree, and leave out 5: for information, cover or index, duplicate"; button "Confirm 56, leave out 5 ↵"; toast "Confirmed 56 sheets; left out 5, each with its reason." (6.4). On the seed: "Confirm 14 ↵" (4.7; #182) | Not prototyped | First judged at 22's gate |
 | 3 | What a view is proposed for | Excluded: title blocks, key plans, 3D and perspective views ("for information"), an architect's plan that draws structure ("duplicate: the structural set governs"). Assigned: legends, to their Discipline's Part (Step 2 for Structural and Architectural); steps 5–10 for Structural views only; fixture plans and toilet details also to the Plumbing and sanitary Part (5) | Legends excluded (5, the seed); the prototype assigned title blocks to Step 1 | The plan's QS review, Q2 and Q7 |
 | 4 | The toolbar's Count | "Confirmed n / N" (n confirmed, N found), then ", k excluded" once any is: "Confirmed 1 / 68, 1 excluded"; when every Discipline is confirmed, "✓ Confirmed 62 / 68, 6 excluded" (4.7, 6.11) | 4.7: "confirmed or excluded / found" | Takeoff ruling 4: an excluded item stays in N, and the count shows the gap with its reason; the prototype |
 | 5 | The bar's width | At most 820 px (the canvas less 32 px) in list and sheet mode; the exclusion picker 820 × 72 px, seven buttons in one row (6.4, 6.9) | 4.7: 720 px; the prototype: 820 in list mode, 800 in sheet mode | Seven reasons must fit one row |
