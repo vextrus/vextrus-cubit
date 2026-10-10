@@ -22,8 +22,10 @@ def _folded(word: str) -> str:
     return " ".join(word.replace("_", " ").casefold().split())
 
 
-def test_the_engine_still_has_fourteen_subject_words() -> None:
-    assert len(engine_subjects()) == 14
+def test_the_engine_has_fifteen_subject_words() -> None:
+    """S19-B4 adds `septic_tank` (septic tank, soak pit, soak well) apart from `tank`."""
+    assert len(engine_subjects()) == 15
+    assert "septic_tank" in engine_subjects()
 
 
 def test_every_engine_subject_word_written_with_spaces_is_right_against_the_export(

@@ -253,12 +253,15 @@ def test_runs_with_no_views_and_no_earlier_plan_keep_the_same_title_question() -
     assert no_series(found)
 
 
-# 5. A contradicted Sheet keeps the Question (#102) ----------------------------------------------
+# 5. A contradicted Sheet far from its title's other Sheets (#102; S19-B4's E2) ------------------
 
 
-def test_a_sheet_whose_view_contradicts_its_title_keeps_the_question_though_the_storeys_differ() -> None:
+def test_a_sheet_whose_view_contradicts_its_title_far_from_its_title_is_told_apart_by_its_plan() -> None:
     """The runs follow the ground and 1st floor's column plans, but S-16's drawing is stair details
-    under a copied "COLUMN REBAR SCHEDULE" title block."""
+    under a copied "COLUMN REBAR SCHEDULE" title block. S19-B4's E2 (engine/recognise/tests/acceptance/
+    ts19b4): a contradicted sheet blocks a series only where it would run on with its title's sheets;
+    S-16 runs on with none, so it is told apart like any run (#102's Question stays for a copied title
+    block on the next sheet, ts19b4's test_copied_titles)."""
     sheets = [
         sheet("S-11", "GROUND FLOOR COLUMN LAYOUT PLAN"),
         sheet("S-12", "COLUMN REBAR SCHEDULE"),
@@ -274,8 +277,8 @@ def test_a_sheet_whose_view_contradicts_its_title_keeps_the_question_though_the_
 
     found = compare(sheets, views)
 
-    assert same_titles(found) == [["S-12", "S-16"]]
-    assert no_series(found)
+    assert series(found) == [["S-12", "S-16"]]
+    assert same_titles(found) == []
 
 
 # 6-9. Member-mark ranges ------------------------------------------------------------------------
