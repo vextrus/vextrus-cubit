@@ -106,6 +106,7 @@ from vextrus.drawings.services.library_disciplines import (
 )
 from vextrus.drawings.services.reads import (
     ArtefactRef,
+    ArtefactUnreadable,
     Kept,
     answer_held,
     artefact,
@@ -162,6 +163,7 @@ __all__ = [
     "Added",
     "AnchorsNotLoaded",
     "ArtefactRef",
+    "ArtefactUnreadable",
     "BanglaSheet",
     "DisciplineView",
     "FileState",
