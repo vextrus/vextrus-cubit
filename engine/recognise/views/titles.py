@@ -48,9 +48,14 @@ class _Words:
         """Each (start, end, key) found, left to right, none overlapping (the longest wins)."""
         taken = [False] * len(tokens)
         found = []
+        at: dict[str, list[int]] = {}  # where each word stands: a phrase is tried only where it starts
+        for i, token in enumerate(tokens):
+            at.setdefault(token, []).append(i)
         for words, key in self.phrases:
             n = len(words)
-            for i in range(len(tokens) - n + 1):
+            for i in at.get(words[0], ()):
+                if i + n > len(tokens):
+                    break
                 if tuple(tokens[i : i + n]) == words and not any(taken[i : i + n]):
                     found.append((i, i + n, key))
                     for j in range(i, i + n):

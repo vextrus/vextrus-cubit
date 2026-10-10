@@ -870,8 +870,10 @@ def contradicted(
 
     if sheet.title is None:
         return False
-    named = subjects(sheet.title.value)
     titled = [v.title for v in views if v.title]
+    if not titled:
+        return False  # both rules need a titled view: the title is not read for nothing
+    named = subjects(sheet.title.value)
     drawn = [found for t in titled if (found := subjects(t))]
     if named and drawn and not any(found & named for found in drawn):
         return True
