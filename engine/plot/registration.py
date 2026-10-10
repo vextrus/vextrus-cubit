@@ -19,8 +19,11 @@ does (a title block's number is its largest text). A page of a PDF whose file ha
 names that Discipline's sheets first: a number of another Discipline's sheet on it (a cross-reference,
 or a number two Disciplines share) is set aside when one of its own is there. A page whose surest
 number is two sheets' numbers equally, or whose number several sheets carry and whose size cannot
-tell them apart, names several (`names_several_sheets`); one naming none says so (`names_no_sheet`);
-a scan (`scan`) is not searched.
+tell them apart, names several; of those, the one sheet whose number is a whole item on the page and
+whose title the page reads (`title_read`) is its sheet (S21-C3: a structural page's grid and detail
+marks, other sheets' numbers, are larger than its title block's number), and a page reading no such
+sheet's title, or two, names several (`names_several_sheets`); one naming none says so
+(`names_no_sheet`); a scan (`scan`) is not searched.
 
 **By its ink** (157: a Plot whose lettering is all strokes). A page with no text at all, and one that
 names several sheets alike, is matched by its drawing where its PDF is given (`by_ink`): each
@@ -95,6 +98,10 @@ more than the next sheet's: a frame and title block alone, which every sheet of 
 agree with each about as well, and so name none. Measured (157): on the synthetic set the right sheet
 wins by 0.65; on the real Development Sets the right sheets won by 0.27 to 0.50 and one wrong sheet (a
 page listing several sheets' numbers, whose own sheet another page named by text) by 0.15."""
+MAX_TITLE_READS = 32
+"""The most sheets a page naming several alike is told apart among by their titles (`_title_named`):
+each title is read on the page (a walk of its items), so a page whose whole items are hundreds of
+sheets' numbers (a drawing list) is left naming several rather than read hundreds of times."""
 _WORDS = re.compile(r"[\s:;,()\[\]]+")
 _MIN_TITLE_PART = 4
 """The fewest characters a page item needs to be taken as part of a sheet's title (one of its lines)."""
@@ -368,10 +375,17 @@ def _sheet_named(
     if any(ours(i) for n in best for i in by_number[n]):
         best = {n: v for n, v in best.items() if any(ours(i) for i in by_number[n])}
     ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
+    # The sheets whose number is a whole item on the page (its own Discipline's first, as above): when
+    # the page names several alike, the one whose title it reads is its sheet.
+    whole_named = [
+        i for n, (w, _) in ranked if w for i in ([j for j in by_number[n] if ours(j)] or by_number[n])
+    ]
     if len(ranked) > 1 and _as_sure(ranked[0][1], ranked[1][1]):
         tied = [n for n, v in ranked if _as_sure(ranked[0][1], v)]
         several = [i for n in tied for i in by_number[n]]
-        return [i for i in several if ours(i)] or several
+        several = [i for i in several if ours(i)] or several
+        titled = _title_named(page, sheets, whole_named)
+        return titled if titled is not None else several
     candidates = by_number[ranked[0][0]]
     candidates = [i for i in candidates if ours(i)] or candidates
     if len(candidates) == 1:
@@ -379,7 +393,36 @@ def _sheet_named(
     fitting = [i for i in candidates if _fits_size(page, _buffers(geometry, i))]
     if len(fitting) == 1:
         return fitting[0]
-    return fitting or candidates
+    titled = _title_named(page, sheets, whole_named)
+    return titled if titled is not None else fitting or candidates
+
+
+def _title_named(page: Page, sheets: Sequence[SheetCandidate], candidates: Sequence[int]) -> int | None:
+    """The one candidate whose title the page reads (`title_read`), for a page naming several sheets
+    alike (S21-C3: a structural page whose grid and detail marks are other sheets' numbers, larger
+    than its title block's); none when it reads no candidate's title, or two (two titles, or one two
+    candidates share: a title read twice tells nothing apart), when a read was cut at its budget (a
+    title it may read), or when there are more than `MAX_TITLE_READS` candidates. A title is read
+    only when each of its words is a word of the page (a chain of items reads none other), so a
+    page's reads stay few."""
+    if not candidates or len(candidates) > MAX_TITLE_READS:
+        return None
+    words_on_page = {word for item in page.items for word in _words(item.text)}
+    read: list[int] = []
+    for i in dict.fromkeys(candidates):
+        sourced = sheets[i].title
+        title = sourced.value if sourced is not None else None
+        wanted = _words(title)
+        if not wanted or not words_on_page.issuperset(wanted):
+            continue
+        answer = title_read(page, title)
+        if answer.cut:
+            return None
+        if answer.alike:
+            read.append(i)
+            if len(read) > 1:
+                return None
+    return read[0] if read else None
 
 
 def _buffers(geometry: Sequence[SheetBuffers | None], i: int) -> SheetBuffers | None:
