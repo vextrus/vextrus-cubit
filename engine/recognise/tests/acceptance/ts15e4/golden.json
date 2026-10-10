@@ -675,21 +675,6 @@
    "views": []
   },
   {
-   "discipline": "structural",
-   "limits": {
-    "read_budget": 0,
-    "scan_budget": 0,
-    "viewports_capped": 0
-   },
-   "number": null,
-   "paper": [
-    420.0,
-    297.0
-   ],
-   "sheet": 6,
-   "views": []
-  },
-  {
    "discipline": "architectural",
    "limits": {
     "read_budget": 0,
@@ -777,21 +762,6 @@
     766.9776
    ],
    "sheet": 5,
-   "views": []
-  },
-  {
-   "discipline": "architectural",
-   "limits": {
-    "read_budget": 0,
-    "scan_budget": 0,
-    "viewports_capped": 0
-   },
-   "number": null,
-   "paper": [
-    420.0,
-    297.0
-   ],
-   "sheet": 6,
    "views": []
   },
   {
@@ -885,21 +855,6 @@
    "views": []
   },
   {
-   "discipline": "plumbing",
-   "limits": {
-    "read_budget": 0,
-    "scan_budget": 0,
-    "viewports_capped": 0
-   },
-   "number": null,
-   "paper": [
-    420.0,
-    297.0
-   ],
-   "sheet": 6,
-   "views": []
-  },
-  {
    "discipline": "general",
    "limits": {
     "read_budget": 0,
@@ -987,21 +942,6 @@
     766.9776
    ],
    "sheet": 5,
-   "views": []
-  },
-  {
-   "discipline": "general",
-   "limits": {
-    "read_budget": 0,
-    "scan_budget": 0,
-    "viewports_capped": 0
-   },
-   "number": null,
-   "paper": [
-    420.0,
-    297.0
-   ],
-   "sheet": 6,
    "views": []
   }
  ],
