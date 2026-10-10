@@ -50,3 +50,22 @@ titles as Trace and asks no Question; it asks only when a third plan of the same
 This narrows m0-screens 6.7's boundary-storey card (S19-B2 amends the documents when it lands).
 
 ruling: takeoff.boundary_storey.shared_end = excludes_storey
+
+Session 20, the owner (10 Oct 2026, 09:16Z), on Edison E-16/E-17 (a copied title block over a different drawing that
+only the drawn content tells apart): "Keep it in M0": build a content comparison now; G1's expectation is unchanged.
+Built as S19-B7 (content twins: each sheet of the pair has a near twin in its file by weighted layer overlap of 0.9 or
+more, the twins' title stems differ, and each sheet is closer to its twin than to its partner).
+
+ruling: g1.edison.e16_e17 = true-question, content-twins
+
+Session 20, the owner (10 Oct 2026, 09:19Z), on cover and contents sheets in G1's sheets_match: "Covers count
+(Recommended)": a cover or contents sheet is a Sheet the QS sees and confirms or leaves out; Edison's expected count is
+218 (the walk expectation, kept under .private/).
+
+ruling: g1.sheets_match.covers = count
+
+Session 20, the owner (10 Oct 2026, 18:37Z), on Train A after its third review round: "Allow one round 4
+(Recommended)". The ledger caps rounds at three, so the extra round was run as round 1 of a fresh PR on the same head
+(#641 for #638); the cap itself is unchanged.
+
+ruling: review.round4.train_a = allowed-once
