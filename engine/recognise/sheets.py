@@ -1202,6 +1202,7 @@ class _Segmenter:
                     sheets.append(reader.model_sheet(f, titled=id(f) in titled))
                     if id(f) not in titled:
                         self.counts["cover_proposed_out"] += 1
+            sheets = _with_layers(self.artefact, space.handle, sheets)
         for sheet in layout_sheets:
             if len(sheets) >= MAX_SHEETS:
                 self.counts["sheets_capped"] += 1
@@ -1828,3 +1829,51 @@ def texts_on(
             texts, index = model_texts
             within = segmenter.budget.reads.within(index, (box.x0, box.y0, box.x1, box.y1))
             yield i, [texts[j] for j in within or []]  # past the budget: nothing read here
+
+
+def _with_layers(
+    artefact: ReadArtefact, model: str, sheets: list[SheetCandidate]
+) -> list[SheetCandidate]:
+    """Model space's sheets, each with what it draws by layer (`SheetCandidate.layers`): its
+    top-level entities counted on their layers where their anchor point (an insert's or a text's
+    insertion point, else `_anchor_point`, in world coordinates) lies inside the sheet's box. One
+    walk of the space's entities, then one count per sheet; a sheet with no box, or drawing nothing,
+    keeps `()`."""
+    boxed = [i for i, sheet in enumerate(sheets) if sheet.location.box is not None]
+    if not boxed:
+        return sheets
+    names: dict[str, int] = {}
+    codes, xs, ys = array("q"), array("d"), array("d")
+    for handle in artefact.blocks[model].entities:
+        entity = artefact.entities.get(handle)
+        if entity is None:
+            continue
+        point = (
+            entity.point
+            if isinstance(entity, Insert)
+            else entity.position
+            if isinstance(entity, Text)
+            else _anchor_point(entity)
+        )
+        if point is None:
+            continue
+        x, y, _ = own_ocs(entity).apply(point)
+        if not (math.isfinite(x) and math.isfinite(y)):
+            continue
+        codes.append(names.setdefault(entity.layer, len(names)))
+        xs.append(x)
+        ys.append(y)
+    if not codes:
+        return sheets
+    layer_names = list(names)
+    code, at_x, at_y = np.frombuffer(codes, np.int64), np.frombuffer(xs), np.frombuffer(ys)
+    found = list(sheets)
+    for i in boxed:
+        box = found[i].location.box
+        assert box is not None
+        inside = (at_x >= box.x0) & (at_x <= box.x1) & (at_y >= box.y0) & (at_y <= box.y1)
+        counts = np.bincount(code[inside], minlength=len(layer_names))
+        layers = tuple(sorted((layer_names[k], int(n)) for k, n in enumerate(counts.tolist()) if n > 0))
+        if layers:
+            found[i] = replace(found[i], layers=layers)
+    return found

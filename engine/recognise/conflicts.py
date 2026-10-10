@@ -43,6 +43,18 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   (`_Drawn`: each states some, none shared; a stale title block on the next sheet, the owner's ruling of
   5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. Views that state the
   same storey and subject, or nothing, join as before.
+- **Content twins** (S19-B7; a copied title block over the next row's drawing, the owner's "Keep it in
+  M0"): two consecutive numbers of one title also part, the same way, when what they draw says they are
+  two drawings. What a sheet draws is its layer histogram (`SheetCandidate.layers`, model space's only);
+  two histograms' weighted overlap is the sum of the lesser counts over the sum of the greater. A near
+  twin of a sheet is another titled sheet of its group and its own file (never another file's) at
+  `TWIN` (0.9) or more, neither of the pair's places. They part when each has a near twin, no near twin
+  of one shares a title stem with a near twin of the other (a stem: the title's words without the
+  storeys it states, its member-mark ranges and the conventions' floor, level, range and list words,
+  so one drawing type over several floors or mark ranges is one stem), and each is closer to its
+  nearest twin than to the other. True continuations share little and twin nothing; details per floor
+  twin each other under one stem; a pair nearer each other than its twins is one drawing: all stay.
+  A sheet without a histogram (a layout's), or past `MAX_TWIN_READS`, has no twin: the rule sits out.
 - **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
   ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9 DETAILS") are one title: a title is grouped by
   `range_key`, the normal form of the words around its ranges (the conventions' `member_range_pattern`;
@@ -97,7 +109,9 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs; a title's
 runs are told apart by one sweep of their marks, `_overlap`), each number is read once, a title's
 ranges are read only up to `MAX_PATTERN_TEXT` characters, and a title's kind is read only where a rule
-needs it (a sheet with a plan view, a run that draws nothing of its own).
+needs it (a sheet with a plan view, a run that draws nothing of its own). The one pairwise reading is
+content twins': only for a consecutive pair's sheets, against their own file's, at most
+`MAX_TWIN_READS` overlaps.
 
 **The trust boundary** (each refused with a `ValueError` or `TypeError`, so the stage fails, never
 passes): `views` not one list per sheet; one sheet or view object given twice; a sheet with no group;
@@ -172,6 +186,10 @@ class Recognisers:
     `storeys.read(text, conventions, plan_title=True)`: its explicit list and its end)."""
     symbolic: Callable[[str], bool]
     """Whether a storey key is one Step 3 resolves (13's "typical", "top" and "not stated")."""
+    stated: Callable[[str], Sequence[str]] = lambda _: ()
+    """The storey words a title states, each phrase verbatim (13's `storeys.read(text, conventions,
+    plan_title=True).as_stated`, split at its ", "): what a title's stem leaves out (`_Twins`). A
+    stand-in without it states none."""
 
 
 SYMBOLIC = frozenset({"typical", "top", "not_stated"})
@@ -199,17 +217,24 @@ def recognisers(conventions: SheetConventions | None) -> Recognisers:
         def unbound(_: str) -> NoReturn:
             raise ValueError("a number or a storey is read under the sheets' conventions; none given")
 
-        return Recognisers(sequence=unbound, storeys=unbound, symbolic=SYMBOLIC.__contains__)
+        return Recognisers(
+            sequence=unbound, storeys=unbound, symbolic=SYMBOLIC.__contains__, stated=unbound
+        )
     bound = conventions
 
     def title_storeys(text: str) -> tuple[str, ...]:
         read = storeys.read(text, bound, plan_title=True)
         return (*read.keys, *([read.runs_to] if read.runs_to else []))
 
+    def stated(text: str) -> tuple[str, ...]:
+        found = storeys.read(text, bound, plan_title=True).as_stated
+        return tuple(part for part in (found or "").split(", ") if part)
+
     return Recognisers(
         sequence=lambda number: sheets.sequence(number, bound),
         storeys=title_storeys,
         symbolic=SYMBOLIC.__contains__,
+        stated=stated,
     )
 
 
@@ -248,6 +273,7 @@ def compare(
     cleaned = [text for _, _, text in keyed]  # the text each title's ranges lie in
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
     plans = _Plans(sheets, numbers, reader)
+    twins = _Twins(sheets, recognisers, conventions)
 
     by_number: list[tuple[int, Conflict]] = []
     for copies in _grouped(
@@ -286,10 +312,11 @@ def compare(
             spans: list[list[_Span]] = spans,
             drawn: list[_Drawn] = drawn,
             stale: list[bool] = stale,
+            units: list[list[int]] = units,
         ) -> bool:
             if not _ascending(spans[before], spans[after]):
                 return False
-            if drawn[before].differs(drawn[after]):
+            if drawn[before].differs(drawn[after]) or twins.apart(units[before], units[after]):
                 stale.append(True)
                 return False
             return True
@@ -988,3 +1015,132 @@ def _same_storey(
         candidates = tuple(flat[v][0] for v in members)
         found.append((members[0], Conflict(SAME_STOREY, candidates, evidence)))
     return found
+
+
+TWIN = 0.9
+"""A near twin's least weighted layer overlap (`_shared`; the session-19 analysis of stale-title
+pairs measured E-16/E-17-like twins at 0.96 and above, and true continuations at 0.07 to 0.57)."""
+
+MAX_TWIN_READS = 250_000
+"""The most layer overlaps one comparison reads looking for near twins: past it a sheet has none, and
+the content-twin rule sits out (its pair stays as the other rules leave it)."""
+
+
+def _shared(a: dict[str, int], b: dict[str, int]) -> float:
+    """Two layer histograms' weighted overlap: the sum over layers of the lesser count over the sum of
+    the greater (1 the same content, 0 nothing shared)."""
+    high = sum(max(count, b.get(layer, 0)) for layer, count in a.items())
+    high += sum(count for layer, count in b.items() if layer not in a)
+    low = sum(min(count, b.get(layer, 0)) for layer, count in a.items())
+    return low / high if high > 0 else 0.0
+
+
+def _source(sheet: SheetCandidate) -> str | None:
+    """The file a sheet was read from (its first anchor's), or none."""
+    if not sheet.anchors:
+        return None
+    source: str | None = getattr(sheet.anchors[0], "source_sha256", None)
+    return source
+
+
+class _Twins:
+    """The content-twin rule (the module's rules): each sheet's near twins in its own file, read once
+    and only for sheets a pair asks about, and each twin's title stem."""
+
+    def __init__(
+        self,
+        sheets: Sequence[SheetCandidate],
+        recognisers: Recognisers,
+        conventions: SheetConventions | None,
+    ) -> None:
+        self.sheets = sheets
+        self.recognisers = recognisers
+        self.pattern = None if conventions is None else conventions.member_range_pattern
+        words = (
+            ()
+            if conventions is None
+            else (
+                *conventions.floor_words,
+                *conventions.level_words,
+                *conventions.range_words,
+                *conventions.list_words,
+                *conventions.ordinal_suffixes,
+            )
+        )
+        self.skip = frozenset(w for phrase in words for w in phrase.casefold().split())
+        self.layers = [dict(s.layers) for s in sheets]
+        self.totals = [sum(layers.values()) for layers in self.layers]
+        self.files: dict[tuple[str | None, str], list[int]] = {}
+        for i, sheet in enumerate(sheets):
+            source = _source(sheet)
+            if source is not None and self.layers[i]:
+                self.files.setdefault((sheet.group, source), []).append(i)
+        self.near: dict[int, list[tuple[float, int]]] = {}
+        self.stems: dict[int, tuple[str, ...] | None] = {}
+        self.reads = MAX_TWIN_READS
+
+    def apart(self, first: Sequence[int], second: Sequence[int]) -> bool:
+        """Whether two consecutive places of one title draw different things: each (its first copy)
+        has a near twin outside the two, no twin of one shares a title stem with a twin of the other,
+        and each is closer to its nearest twin than to the other."""
+        a, b = first[0], second[0]
+        if not self.layers[a] or not self.layers[b]:
+            return False
+        out = {*first, *second}
+        near_a = [(w, j) for w, j in self._near(a) if j not in out]
+        near_b = [(w, j) for w, j in self._near(b) if j not in out]
+        if not near_a or not near_b:
+            return False
+        stems_a = {self._stem(j) for _, j in near_a}
+        stems_b = {self._stem(j) for _, j in near_b}
+        if None in stems_a or None in stems_b or stems_a & stems_b:
+            return False
+        pair = _shared(self.layers[a], self.layers[b])
+        return pair < max(w for w, _ in near_a) and pair < max(w for w, _ in near_b)
+
+    def _near(self, i: int) -> list[tuple[float, int]]:
+        """The titled sheets of `i`'s group and file whose overlap with it is `TWIN` or more."""
+        held = self.near.get(i)
+        if held is not None:
+            return held
+        sheet = self.sheets[i]
+        source = _source(sheet)
+        found: list[tuple[float, int]] = []
+        mine, total = self.layers[i], self.totals[i]
+        for j in [] if source is None else self.files.get((sheet.group, source), []):
+            if j == i or self.sheets[j].title is None:
+                continue
+            if min(total, self.totals[j]) < TWIN * max(total, self.totals[j]):
+                continue  # the totals alone keep the overlap below `TWIN`
+            if self.reads <= 0:
+                found = []  # past the bound: no twins, so the rule sits out
+                break
+            self.reads -= 1
+            w = _shared(mine, self.layers[j])
+            if w >= TWIN:
+                found.append((w, j))
+        self.near[i] = found
+        return found
+
+    def _stem(self, j: int) -> tuple[str, ...] | None:
+        """A title's stem: its words (letters only, case folded) without the storeys it states, its
+        member-mark ranges, or the conventions' floor, level, range and list words and ordinal
+        suffixes; so one drawing type over several floors or mark ranges is one stem. None when
+        nothing is left."""
+        if j in self.stems:
+            return self.stems[j]
+        title = self.sheets[j].title
+        assert title is not None
+        text = clean(title.value)
+        stated = self.recognisers.stated(text)
+        if isinstance(stated, str) or not all(isinstance(part, str) for part in stated):
+            raise TypeError(f"a title's stated storeys are a list of text, not {stated!r}")
+        for part in stated:
+            if part:
+                text = text.replace(part, " ")
+        for found in reversed(member_ranges(text, self.pattern)):
+            text = text[: found.at] + " " + text[found.end :]
+        words = tuple(w for w in re.findall(r"[^\W\d_]+", text.casefold()) if w not in self.skip)
+        stem = words or None
+        self.stems[j] = stem
+        return stem

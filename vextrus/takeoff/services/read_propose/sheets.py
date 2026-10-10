@@ -451,4 +451,5 @@ def candidate_from_json(data: Mapping[str, Any]) -> SheetCandidate:
         else Exclusion(ExclusionReason(exclusion["reason"]), exclusion["text"]),
         anchors=tuple(anchor_from_json(anchor) for anchor in data["anchors"]),
         group=data["group"],
+        layers=(),  # not carried: the engine's content-twin rule reads it in the harness only
     )
