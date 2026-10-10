@@ -2799,6 +2799,23 @@ def asked_of(
     return next((row.id for row in rows if set(held.get(row.id, ())) == wanted), None)
 
 
+def open_questions(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> set[uuid.UUID]:
+    """Those of these Step 1 Questions still open (neither answered nor withdrawn)."""
+    _in_scope(project_id)
+    wanted = list(set(ids))
+    if not wanted:
+        return set()
+    return set(
+        Question.objects.filter(
+            tenant_id=_tenant(),
+            project_id=project_id,
+            step=SHEETS,
+            id__in=wanted,
+            status=QuestionStatus.OPEN,
+        ).values_list("id", flat=True)
+    )
+
+
 def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterable[uuid.UUID]) -> int:
     """After a round that asked the set's Questions of these codes again (#161): each one `raised`
     that a past round retired is open again, and each still open that was not raised is retired,

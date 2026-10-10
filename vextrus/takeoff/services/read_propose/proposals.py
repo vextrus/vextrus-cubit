@@ -39,7 +39,9 @@ a sheet (13's register) kept per Discipline, and 19b's register Check run (`Chec
 `read`), each finding a `check` Question; 19b's storey-titles Check (a sheet's title storeys against
 its plans', `CheckRun` too), its findings asked as one `check` Question per Discipline holding that
 Discipline's undecided disagreeing sheets (none undecided: nothing asked), retired when none is found
-again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet). A Question
+again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet), but for a
+stale copy (a title block stating its same-title partner's plans' storeys: S21-C2), asked by its
+open `same_title` conflict alone. A Question
 raised again is the one asked (`step1.raise_question`).
 """
 
@@ -348,9 +350,10 @@ def kind_options(
 
 def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:
     """What the sheets one kind Question asks share (S15-Q1, grouped by Discipline and Jev's top two
-    kinds): its Discipline's key and Jev's first and second kinds, in that order (so the kind picked
-    first is one for all of them). Never a sheet's name or number."""
-    return ["which_kind", discipline or "", *ranked[:2]]
+    kinds): its Discipline's key and Jev's first and second kinds as an unordered pair, sorted (S21-C2:
+    two kinds Jev all but ties on come in either order, run to run and sheet to sheet, and one pair
+    is one Question; a pair sharing one kind only is another). Never a sheet's name or number."""
+    return ["which_kind", discipline or "", *sorted(ranked[:2])]
 
 
 def unsure(answer: jev.Judgement, title: str) -> bool:
@@ -600,7 +603,8 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     views = [[view_candidate(v) for v in vs] for vs in viewed]
     proposal_of = step1.proposal_ids(project_id)
     recognisers = finder.recognisers(conventions)
-    asked = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    conflicts = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    asked = len(conflicts)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
     asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
     asked += storey_questions.ask(
@@ -612,6 +616,11 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
         recognisers,
         conventions,
         options=options(STOREY_TITLE_OPTIONS),
+        same_titles=[
+            storey_questions.SameTitle(c.question_id, c.sheets)
+            for c in conflicts
+            if c.kind == finder.SAME_TITLE
+        ],
     )
     return asked
 
@@ -631,7 +640,7 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         groups = {f.id: f.group for f in step1.files_of(project_id)}
         of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
     conventions = step1.sheet_conventions()
-    return _conflicts(
+    asked = _conflicts(
         project_id,
         listed,
         [candidate(s, groups.get(s.file_id, "site"), anchors=False) for s in listed],
@@ -640,6 +649,7 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         finder.recognisers(conventions),
         conventions,
     )
+    return len(asked)
 
 
 def as_compared(
@@ -662,16 +672,15 @@ def _conflicts(
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
     recognisers: finder.Recognisers,
     conventions: SheetConventions,
-) -> int:
+) -> list[_Asked]:
     """19b's Conflicts over every listed sheet (a decided one keeps a run's or a storey's context),
     each trimmed to the sheets not yet decided (`_undecided`) and asked as a `conflict` Question;
-    every one asked before and not found now retired (`step1.retire_questions`). How many were
-    asked."""
+    every one asked before and not found now retired (`step1.retire_questions`). Those asked."""
     as_compared = [_compared(s, c) for s, c in zip(listed, sheets, strict=True)]
     found = finder.compare(as_compared, views, conventions=conventions, recognisers=recognisers)
     at = {id(c): i for i, c in enumerate(as_compared)}
     at |= {id(v): i for i, vs in enumerate(views) for v in vs}
-    raised: list[uuid.UUID] = []
+    raised: list[_Asked] = []
     for conflict in found:
         if not isinstance(conflict, Conflict):
             continue
@@ -679,9 +688,21 @@ def _conflicts(
         named = {listed[i].id: _named(conflict, at, as_compared[i], i) for i in held}
         trimmed = _undecided(conflict, [listed[i] for i in held], named)
         if trimmed is not None:
-            raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
-    step1.retire_questions(project_id, CONFLICT_CODES, raised)
-    return len(raised)
+            question_id = _conflict(project_id, conflict.kind, *trimmed, proposal_of)
+            raised.append(_Asked(conflict.kind, question_id, tuple(listed[i].id for i in held)))
+    step1.retire_questions(project_id, CONFLICT_CODES, [a.question_id for a in raised])
+    return raised
+
+
+@dataclass(frozen=True)
+class _Asked:
+    """A Conflict asked as a `conflict` Question (open, or one answered in its words before): its
+    kind, the Question's id, and every sheet 19b found in it, decided ones too, in the sheet list's
+    order (the Question holds the undecided ones' Proposals)."""
+
+    kind: str
+    question_id: uuid.UUID
+    sheets: tuple[uuid.UUID, ...]
 
 
 @dataclass(frozen=True)
