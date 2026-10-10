@@ -488,12 +488,11 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   amend/the writer's finish) runs leakscan range on the writer's commits. B4 changes tools/scorer -> owner custody
   re-run before landing. Check: `.claude/hooks/guard.mjs` (no push without a clean range scan) caught both; the
   writer-side scan is not yet code (#637).
-- **Verify fails on load-sensitive tests:** ts15a2's 500 ms answer bound fails every verify run beside another heavy
-  run (B5, train-a, E2 s18) -> verifies serialized; check: governor refuses a verify while an rd run or another
-  verify holds. Measured later the same night: verify's own concurrent checks fail these tests even alone on a quiet
-  machine (#636); one was a real test bug (a process-directed SIGHUP taken by another xdist thread, fixed in Train
-  A). Check: `scripts/verify.py`, not yet: it gains a serial step for these tests under #636. Until then run verify
-  alone with `VEXTRUS_VERIFY_WORKERS=2`.
+- **Verify fails on load-sensitive tests:** ts15a2's 500 ms answer bound failed verify runs beside other heavy runs
+  (S19-B5, Train A, S15-E2 in session 18), and verify's own concurrent checks fail these tests even alone on a quiet
+  machine; one was a real test bug (a process-directed SIGHUP taken by another xdist thread, fixed in Train A at
+  167aaca2). Nothing refuses a verify beside a real-drawing run or another verify today. No check yet: #636 (verify
+  runs its timing-sensitive checks one after another); until then run verify alone with `VEXTRUS_VERIFY_WORKERS=2`.
 - **The acceptance lint called git's clean merge a hand resolution** (`diff-tree --cc` names a file both sides
   changed), so no train could pass CI or take an amendment.
   Check: `tools/lint/tests/acceptance/ts19f1/test_merge_resolution.py` (#633).
