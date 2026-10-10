@@ -198,6 +198,18 @@ def test_a_section_size_names_no_member_mark(title: str, plan_marks: list[tuple[
     assert conflicts.plan_marks(title, PATTERN) == plan_marks
 
 
+def test_a_long_run_of_spaces_after_a_number_is_read_in_linear_time() -> None:
+    """A drawing's text is hostile: 300,000 spaces between a number and a word read at once (the size
+    pattern, with spaces under two quantifiers in a row, took minutes on this)."""
+    import time
+
+    text = "B 1" + " " * 300_000 + "y"
+    started = time.process_time()
+    assert conflicts.unsized(text) == text
+    assert conflicts._marks(text, PATTERN) == []
+    assert time.process_time() - started < 5.0
+
+
 def test_a_mark_beside_a_size_is_still_read() -> None:
     assert conflicts._marks('LINK BEAM GB7 11"X17"', PATTERN) == [("gb", 7, 7)]
     assert conflicts.plan_marks("CAP P.C-3 (5'X5')", PATTERN) == [("pc", 3, 3)]

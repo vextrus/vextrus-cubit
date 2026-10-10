@@ -768,9 +768,11 @@ _MARK = re.compile(r"(?<![^\W_])([^\W\d_]{1,3})(\d{1,4})(?![^\W_])")
 ("GRADE BEAM GB7", "C12"), the marks the member range pattern joins."""
 
 
-_SIZE_TIMES = re.compile(r"(?<=\d)(\s*(?:''|[\"'\u2032\u2033]|mm|cm)?\s*)[xX\u00d7](?=\s*\d)")
+_SIZE_TIMES = re.compile(r"(?<=\d)(\s*(?:(?:''|[\"'\u2032\u2033]|mm|cm)\s*)?)[xX\u00d7](?=\s*\d)")
 """The times sign of a section size ('11"X17"', '9" x 13"', "230x300", "500 mm X 500"): a digit, its
-unit or none, spaces, an x, then a digit. Its x and the next number are no member mark (S19-B4's E1)."""
+unit or none, spaces, an x, then a digit. Its x and the next number are no member mark (S19-B4's E1).
+Spaces are read once, never by two quantifiers in a row: a view's title is read raw, and a long run of
+spaces must not cost a square of its length."""
 
 
 def unsized(text: str) -> str:
