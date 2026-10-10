@@ -777,8 +777,10 @@ def _undecided(
             confirmed = [named[s.id] for s in held if s.decision == CONFIRMED and s.id in named]
             confirmed = [w for w in confirmed if elsewhere(w)]
             if len(kept) > 1 and not apart and not confirmed:
-                # Every sheet it holds lies at one place, and no sheet confirmed at another draws the
-                # storey: one storey drawn once (a sheet left out draws nothing).
+                # Two or more held, all at one place, and no sheet confirmed at another draws the
+                # storey: one storey drawn once (review 3 of #638). One sheet held alone is the
+                # Question narrowed to its last sheet, and still asks, like a sheet left out too
+                # (review 2 of #638, `test_one_held_sheet_quotes_its_own_plan_alone`).
                 return None
             # Every sheet it holds lies at one place (one alone, the copies of a number, a run's
             # sheets): the first is named alone, drawing the storey like a sheet confirmed or left

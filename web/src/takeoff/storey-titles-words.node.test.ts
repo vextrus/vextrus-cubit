@@ -24,9 +24,9 @@ function specRow(): string {
   const spec = readFileSync(join(ROOT, 'docs', 'design', 'm0-screens.md'), 'utf8')
   const line = spec.split('\n').find((l) => l.startsWith('| Sheet titles and plans name different storeys'))
   if (!line) throw new Error('m0-screens §5 has no row for the title-against-plans Question')
-  const quoted = /\| "([^"]+)" Trace:/.exec(line)
-  if (!quoted) throw new Error('the row quotes no title')
-  return quoted[1]
+  const quoted = /\| "([^"]+)" Trace:/.exec(line)?.[1]
+  if (quoted === undefined) throw new Error('the row quotes no title')
+  return quoted
 }
 
 describe('engine.storey_titles.differs', () => {
