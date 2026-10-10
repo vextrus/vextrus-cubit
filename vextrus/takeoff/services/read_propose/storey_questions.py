@@ -2,9 +2,11 @@
 whose title names storeys its plans do not agree with is held by one `check` Question per Discipline,
 retired when none is found again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not
 one per sheet); the Check's run recorded with its findings. Called by `proposals.set_questions`,
-which reads the set once for every Check it runs.
+which reads the set once for every Check it runs, and runs the Check before Step 1's write lock
+(S21-C1: `found`, writing nothing), keeping its results under it (`ask`).
 
-    storey_questions.ask(project_id, listed, sheets, views, proposal_of, recognisers, conventions,
+    results = storey_questions.found(sheets, views, recognisers, conventions)
+    storey_questions.ask(project_id, listed, sheets, views, proposal_of, results,
                          options=...) -> int    (how many Questions were asked)
 """
 
@@ -18,6 +20,7 @@ from engine.messages import storey_titles as storey_codes
 from engine.recognise import conflicts as finder
 from engine.recognise.types import (
     CheckOutcome,
+    CheckResult,
     SetReading,
     SheetCandidate,
     SheetConventions,
@@ -40,31 +43,41 @@ def _with_plans(finding: Message, views: Sequence[ViewCandidate]) -> Message:
     return Message(code=finding["code"], params={**finding["params"], PLANS: "; ".join(plans)})
 
 
-def ask(
-    project_id: uuid.UUID,
-    listed: Sequence[drawings.SheetView],
+def found(
     sheets: Sequence[SheetCandidate],
     views: Sequence[Sequence[ViewCandidate]],
-    proposal_of: Mapping[uuid.UUID, uuid.UUID],
     recognisers: finder.Recognisers,
     conventions: SheetConventions,
-    *,
-    options: Sequence[dict[str, object]],
-) -> int:
-    """19b's storey-titles Check over the set: each sheet whose title names storeys its plans do not
-    agree with, asked as one `check` Question per Discipline (`storey_codes.DIFFERS`, the first such
-    sheet named as the example) holding its undecided disagreeing sheets; a sheet of no Discipline, a
-    decided one, or one whose same disagreement the QS has answered (`step1.answered_findings`: never
-    asked again, #436's review round 1), is held by none. The Check's run is recorded with each
-    finding, an answered one under the Question that answered it. How many Questions
-    were asked."""
+) -> list[CheckResult]:
+    """19b's storey-titles Check run over the set's sheets and views: what `ask` keeps. It reads no
+    decision and writes nothing."""
     reading = SetReading(
         sheets=tuple(sheets),
         views=tuple(tuple(vs) for vs in views),
         read=frozenset({"views"}),
         conventions=conventions,
     )
-    results = storey_titles.check(reading, recognisers=recognisers)
+    return storey_titles.check(reading, recognisers=recognisers)
+
+
+def ask(
+    project_id: uuid.UUID,
+    listed: Sequence[drawings.SheetView],
+    sheets: Sequence[SheetCandidate],
+    views: Sequence[Sequence[ViewCandidate]],
+    proposal_of: Mapping[uuid.UUID, uuid.UUID],
+    results: Sequence[CheckResult],
+    *,
+    options: Sequence[dict[str, object]],
+) -> int:
+    """19b's storey-titles Check over the set (`results`: `found`'s run over `sheets` and `views`,
+    whose findings refer to those very candidates): each sheet whose title names storeys its plans do not
+    agree with, asked as one `check` Question per Discipline (`storey_codes.DIFFERS`, the first such
+    sheet named as the example) holding its undecided disagreeing sheets; a sheet of no Discipline, a
+    decided one, or one whose same disagreement the QS has answered (`step1.answered_findings`: never
+    asked again, #436's review round 1), is held by none. The Check's run is recorded with each
+    finding, an answered one under the Question that answered it. How many Questions
+    were asked."""
     at = {id(c): i for i, c in enumerate(sheets)}
     answered = step1.answered_findings(project_id, storey_titles.CODE)
     fired: list[tuple[Message, drawings.SheetView | None, uuid.UUID | None]] = []
