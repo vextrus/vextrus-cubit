@@ -43,6 +43,7 @@
   "weak_storey_words": ["ground", "grd", "top", "typical", "typ"],
   "structure_words": ["tank", "tanks", "water tank", "overhead tank", "over head tank", "overhead water tank", "over head water tank", "overhead water reservoir", "over head water reservoir", "ohwt", "ohwr", "oht", "ugwt", "ugwr", "underground water tank", "underground water reservoir", "underground reservoir", "reservoir", "septic tank", "soak well", "soak pit", "sump", "sump pit", "lift pit", "pump house", "canopy", "canopy roof"],
   "below_ground_words": ["below ground floor", "below ground level", "below ground", "below gf", "underground floor", "under ground floor"],
+  "ceiling_level_words": ["ceiling level", "ceiling lvl"],
   "ordinal_words": ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth"],
   "ordinal_suffixes": ["st", "nd", "rd", "th"],
   "range_words": ["to", "thru", "through", "upto", "up to", "till", "until"],

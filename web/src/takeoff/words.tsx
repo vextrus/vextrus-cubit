@@ -236,6 +236,7 @@ export const OTHER_VIEW_KIND = msg({ message: 'View', context: 'view kind' })
 export const STOREY_MEANINGS: Readonly<Record<string, MessageDescriptor>> = {
   at_floor_level: msg`at floor level`,
   floor_to_floor: msg`floor to floor`,
+  at_ceiling_level: msg`at ceiling level`,
 }
 
 /** An actor's role in "who did what" (§6.6: "Nusrat Jahan, QS"). */

@@ -148,6 +148,9 @@ class StoreysMeaning(StrEnum):
     """The members at those floor levels (a beam layout of the 1st floor slab)."""
     FLOOR_TO_FLOOR = "floor_to_floor"
     """The storeys, floor to floor (a column layout from the 1st to the 10th floor)."""
+    AT_CEILING_LEVEL = "at_ceiling_level"
+    """What hangs under those storeys' ceilings (a pipe layout at the 2nd floor's ceiling level): its
+    title names a `ceiling_level_words` phrase. Never the same drawing as a plan at floor level."""
 
 
 class StoreysSource(StrEnum):
@@ -156,8 +159,9 @@ class StoreysSource(StrEnum):
     SHEET_TITLE = "sheet_title"
     """Its sheet's title: the sheet's only plan, whose own title states no storey (T-W318)."""
     TITLE_LINE = "title_line"
-    """A bracketed line under its title ("(2ND TO 6TH FLOOR)"), its own title stating no storey: a
-    part plan's floors (a bath's, a kitchen's; #413, S15-E3)."""
+    """A line under its title, its own title stating no storey: bracketed ("(2ND TO 6TH FLOOR)"), a
+    part plan's floors (a bath's, a kitchen's; #413, S15-E3), or bare and read whole as storey words
+    ("7TH TO 11TH FLOOR" under the scale note; S19-B5)."""
 
 
 class Layer(StrEnum):
@@ -688,6 +692,8 @@ class SheetConventions:
     weak_storey_words: tuple[str, ...] = ()
     structure_words: tuple[str, ...] = ()
     below_ground_words: tuple[str, ...] = ()
+    ceiling_level_words: tuple[str, ...] = ()
+    """Phrases that put a plan's storeys at ceiling level ("ceiling level"; `AT_CEILING_LEVEL`)."""
     ordinal_words: tuple[str, ...] = ()
     """Ordinals written as words, in order: the n-th names floor n."""
     ordinal_suffixes: tuple[str, ...] = ()
@@ -915,6 +921,7 @@ _WORD_FIELDS = (
     "weak_storey_words",
     "structure_words",
     "below_ground_words",
+    "ceiling_level_words",
     "ordinal_words",
     "ordinal_suffixes",
     "range_words",
