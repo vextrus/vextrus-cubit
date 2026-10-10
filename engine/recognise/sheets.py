@@ -25,7 +25,11 @@
   (a stale layout's title block is a template's; the QS review, Q7), the first such layout of a file
   only, the rest counted (review round 1: 5,000 stale tabs were 5,000 rows), unless it draws
   `MIN_PAPER_CONTENT` things beyond its title block (notes beside an empty key plan: each proposed,
-  never dropped; #162 round 2). What a layout draws counts a text's lines, so a paragraph of notes
+  never dropped; #162 round 2), **except in a file whose model space holds a titled frame**: there a
+  stale layout (titled, every viewport besides the main one read and showing nothing, no model-space
+  frame plotted, its tab not named as a sheet number) is a leftover tab, never a Sheet, dropped and
+  counted (`layout_stale_beside_model_sheets`, which the QS is told; S19-B3, Edison's 3 of 3 phantoms).
+  What a layout draws counts a text's lines, so a paragraph of notes
   is its lines, not one thing. One with no viewport of its own that draws only a title block is a
   template's tab, and dropped. One drawn in paper space
   whose title block gives no value at all (no number, title, date or mark: a template's tab with its
@@ -1294,6 +1298,19 @@ class _Segmenter:
             return sheet, frames_shown if titled and len(frames_shown) == 1 else []
         if titled and views == 0:
             self.counts["layout_title_block_only"] += 1  # a template tab: nothing to propose
+            return None, []
+        if (
+            titled
+            and views > 0
+            and not unknown
+            and not frames_shown
+            and not self._named_as_number(name)
+            and model is not None
+            and model.frames
+        ):
+            # A stale tab beside model-space Sheets is a leftover, never a Sheet (Edison, 3 of 3:
+            # one template tab copied into three files whose Sheets are model-space frames; S19-B3)
+            self.counts["layout_stale_beside_model_sheets"] += 1
             return None, []
         if titled:
             # stale; one that draws notes in paper space may be a sheet with an empty key plan

@@ -10,7 +10,8 @@ them. A cover (a plain rectangle holding three lines of text, no title block) st
 stale layout's viewport looks at an empty region, over a copy of the frame holding a template's
 number and title (AutoCAD's own main viewport drawn first, as a saved layout has). What the finder must
 read, with this set's own conventions: 6 sheets (5 numbered,
-the cover without a number) and the stale layout proposed out as blank.
+the cover without a number), the stale layout dropped and counted (a stale tab beside model-space
+Sheets is a leftover, never a Sheet: S19-B3, Edison's 3 of 3 phantoms).
 """
 
 import math
