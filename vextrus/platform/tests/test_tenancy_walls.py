@@ -68,6 +68,7 @@ UPDATABLE = {
         "excluded_text",
         "issue_date",
         "kind",
+        "layers",
         "location",
         "ordinal",
         "plot_file_id",

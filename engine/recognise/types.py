@@ -273,6 +273,10 @@ class SheetCandidate:
     exclusion: Exclusion | None = None
     anchors: tuple[Anchor, ...] = ()
     group: Group | None = None
+    layers: tuple[tuple[str, int], ...] = ()
+    """What the sheet draws, by layer: each layer once, with how many of model space's top-level
+    entities on it have their anchor point inside the sheet's box; `()` for a layout's sheet (not
+    read) or one that draws nothing. Read by the content-twin rule (conflicts); never exported."""
 
     def __post_init__(self) -> None:
         _is(self.location, SheetLocation, "a sheet's location")
@@ -293,6 +297,13 @@ class SheetCandidate:
             _is(self.exclusion, Exclusion, "a sheet's exclusion")
         _anchors(self.anchors)
         _text(self.group, "a sheet's group")
+        _tuple_of(self.layers, tuple, "a sheet's layers")
+        for name, count in self.layers:
+            _is(name, str, "a layer's name")
+            if isinstance(count, bool) or not isinstance(count, int) or count < 1:
+                raise ValueError(f"a layer's count is a positive integer, not {count!r}")
+        if len({name for name, _ in self.layers}) != len(self.layers):
+            raise ValueError("a sheet's layers name each layer once")
 
 
 @dataclass(frozen=True)

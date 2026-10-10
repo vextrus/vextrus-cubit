@@ -524,6 +524,7 @@ def candidate(
         storeys_as_stated=sourced(sheet.storeys_as_stated, "storeys_as_stated"),
         anchors=tuple(found),
         group=group,
+        layers=sheet.layers,
     )
 
 

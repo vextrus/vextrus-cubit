@@ -201,6 +201,10 @@ MAX_READS = 4_000_000
 """The most texts and frames the index queries of one file may give, the finder's and the register's
 together, the rest refused and counted (`read_budget`): the real sets read at most 1.2 a text
 (measured), about 20,000 a file."""
+MAX_LAYER_READS = 4_000_000
+"""The most entities model space's sheets may count by layer together (`SheetCandidate.layers`,
+one file): past it the sheets left keep none, counted (`layer_budget`, only when reached: not one
+of `LIMITS`, so every other file's report stays as it was)."""
 MAX_PAIRS = 4_000_000
 """The most label and value pairs one file's title blocks weigh; a sheet whose pairs are past it is
 read without its labelled values, counted (`pair_budget`): the real sets weigh at most 12.8 a text
@@ -1206,6 +1210,7 @@ class _Segmenter:
                     sheets.append(reader.model_sheet(f, titled=id(f) in titled))
                     if id(f) not in titled:
                         self.counts["cover_proposed_out"] += 1
+            sheets = _with_layers(self.artefact, space.handle, sheets, self.counts)
         for sheet in layout_sheets:
             if len(sheets) >= MAX_SHEETS:
                 self.counts["sheets_capped"] += 1
@@ -1845,3 +1850,54 @@ def texts_on(
             texts, index = model_texts
             within = segmenter.budget.reads.within(index, (box.x0, box.y0, box.x1, box.y1))
             yield i, [texts[j] for j in within or []]  # past the budget: nothing read here
+
+
+def _with_layers(
+    artefact: ReadArtefact, model: str, sheets: list[SheetCandidate], counts: Counter[str]
+) -> list[SheetCandidate]:
+    """Model space's sheets, each with what it draws by layer (`SheetCandidate.layers`): its
+    top-level entities counted on their layers where their anchor point (an insert's or a text's
+    insertion point, else `_anchor_point`, in world coordinates) lies inside the sheet's box. One
+    walk of the space's entities into an index, then one query per sheet within `MAX_LAYER_READS`;
+    a sheet with no box, drawing nothing or past the budget keeps `()`."""
+    boxed = [i for i, sheet in enumerate(sheets) if sheet.location.box is not None]
+    if not boxed:
+        return sheets
+    names: dict[str, int] = {}
+    codes, xs, ys = array("q"), array("d"), array("d")
+    for handle in artefact.blocks[model].entities:
+        entity = artefact.entities.get(handle)
+        if entity is None:
+            continue
+        point = (
+            entity.point
+            if isinstance(entity, Insert)
+            else entity.position
+            if isinstance(entity, Text)
+            else _anchor_point(entity)
+        )
+        if point is None:
+            continue
+        x, y, _ = own_ocs(entity).apply(point)
+        if not (math.isfinite(x) and math.isfinite(y)):
+            continue
+        codes.append(names.setdefault(entity.layer, len(names)))
+        xs.append(x)
+        ys.append(y)
+    if not codes:
+        return sheets
+    layer_names = list(names)
+    code = np.frombuffer(codes, np.int64)
+    index = _Index(points=(xs, ys))
+    budget = _Budget(MAX_LAYER_READS, counts, "layer_budget")
+    found = list(sheets)
+    for i in boxed:
+        box = found[i].location.box
+        assert box is not None
+        inside = budget.within(index, (box.x0, box.y0, box.x1, box.y1))
+        if not inside:
+            continue  # nothing drawn, or past the budget
+        tally = np.bincount(code[np.asarray(inside, dtype=np.int64)], minlength=len(layer_names))
+        layers = tuple(sorted((layer_names[k], int(n)) for k, n in enumerate(tally.tolist()) if n > 0))
+        found[i] = replace(found[i], layers=layers)
+    return found
