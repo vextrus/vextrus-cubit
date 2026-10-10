@@ -19,11 +19,12 @@ does (a title block's number is its largest text). A page of a PDF whose file ha
 names that Discipline's sheets first: a number of another Discipline's sheet on it (a cross-reference,
 or a number two Disciplines share) is set aside when one of its own is there. A page whose surest
 number is two sheets' numbers equally, or whose number several sheets carry and whose size cannot
-tell them apart, names several; of those, the one sheet whose number is a whole item on the page and
-whose title the page reads (`title_read`) is its sheet (S21-C3: a structural page's grid and detail
-marks, other sheets' numbers, are larger than its title block's number), and a page reading no such
-sheet's title, or two, names several (`names_several_sheets`); one naming none says so
-(`names_no_sheet`); a scan (`scan`) is not searched.
+tell them apart, names several. Then the title tells them apart (`title_read`, S21-C3: a structural
+page's grid and detail marks, other sheets' numbers, are larger than its title block's number): of
+the sheets whose number is a whole item on the page (where numbers tie; where one whole number is
+several sheets', of those of them its size leaves), the one whose title the page reads is its sheet;
+a page reading no such sheet's title, or two, names several (`names_several_sheets`); one naming none
+says so (`names_no_sheet`); a scan (`scan`) is not searched.
 
 **By its ink** (157: a Plot whose lettering is all strokes). A page with no text at all, and one that
 names several sheets alike, is matched by its drawing where its PDF is given (`by_ink`): each
@@ -270,13 +271,20 @@ CHAIN_STEPS_FLOOR = 4096
 """The budget's least, for a page of few items."""
 
 
-def title_read(page: Page, title: str | None) -> TitleRead:
-    """`reads_title`, saying whether its walk was cut at its budget (`TitleRead`)."""
+def title_read(page: Page, title: str | None, budget: list[int] | None = None) -> TitleRead:
+    """`reads_title`, saying whether its walk was cut at its budget (`TitleRead`). `budget`, where
+    given, is one budget several reads of a page share (`_title_named`): each read is charged its
+    tables (the page's items times the title's words) and its walk's steps, and a read it cannot pay
+    for is cut."""
     wanted = _words(title)
     if not wanted:
         return TitleRead(False)
     lines = [(item, words) for item in page.items if (words := _words(item.text))]
     n = len(wanted)
+    if budget is not None:
+        budget[0] -= n * len(lines)
+        if budget[0] < 0:
+            return TitleRead(False, cut=True)
     if any(_holds(words, wanted) for _, words in lines):
         return TitleRead(True)
     # The items that can follow a chain that has read the title to word k: those that finish it, and
@@ -292,7 +300,7 @@ def title_read(page: Page, title: str | None) -> TitleRead:
     }
     # Where a chain of items has read the title to, each short of the whole: (its last item, words read).
     reached = [(item, k) for item, words in lines for k in range(1, n) if words[-k:] == wanted[:k]]
-    budget = max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))
+    left = budget if budget is not None else [max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))]
     seen: set[tuple[int, int]] = set()
     while reached:
         last, k = reached.pop()
@@ -300,14 +308,14 @@ def title_read(page: Page, title: str | None) -> TitleRead:
             continue
         seen.add((id(last), k))
         for item in finishing[k]:
-            budget -= 1
+            left[0] -= 1
             if item is not last and _near(last, item):
                 return TitleRead(True)
         for item, to in continuing[k]:
-            budget -= 1
+            left[0] -= 1
             if item is not last and (id(item), to) not in seen and _near(last, item):
                 reached.append((item, to))
-        if budget <= 0:
+        if left[0] <= 0:
             return TitleRead(False, cut=bool(reached))
     return TitleRead(False)
 
@@ -375,16 +383,20 @@ def _sheet_named(
     if any(ours(i) for n in best for i in by_number[n]):
         best = {n: v for n, v in best.items() if any(ours(i) for i in by_number[n])}
     ranked = sorted(best.items(), key=lambda kv: kv[1], reverse=True)
-    # The sheets whose number is a whole item on the page (its own Discipline's first, as above): when
-    # the page names several alike, the one whose title it reads is its sheet.
-    whole_named = [
-        i for n, (w, _) in ranked if w for i in ([j for j in by_number[n] if ours(j)] or by_number[n])
-    ]
     if len(ranked) > 1 and _as_sure(ranked[0][1], ranked[1][1]):
         tied = [n for n, v in ranked if _as_sure(ranked[0][1], v)]
         several = [i for n in tied for i in by_number[n]]
         several = [i for i in several if ours(i)] or several
-        titled = _title_named(page, sheets, whole_named)
+        # Numbers tied above the title block's (a structural page's grid and detail marks, other
+        # sheets' numbers): among the sheets whose number is a whole item on the page (its own
+        # Discipline's first, as above), the one whose title the page reads is its sheet.
+        whole_sheets = [
+            i
+            for n, (w, _) in ranked
+            if w
+            for i in ([j for j in by_number[n] if ours(j)] or by_number[n])
+        ]
+        titled = _title_named(page, sheets, whole_sheets)
         return titled if titled is not None else several
     candidates = by_number[ranked[0][0]]
     candidates = [i for i in candidates if ours(i)] or candidates
@@ -393,7 +405,9 @@ def _sheet_named(
     fitting = [i for i in candidates if _fits_size(page, _buffers(geometry, i))]
     if len(fitting) == 1:
         return fitting[0]
-    titled = _title_named(page, sheets, whole_named)
+    # The page's surest number is these sheets' alone: its title tells only them apart (never a
+    # smaller cross-reference's sheet), and a sheet whose paper the page's size ruled out is none.
+    titled = _title_named(page, sheets, fitting or candidates) if ranked[0][1][0] else None
     return titled if titled is not None else fitting or candidates
 
 
@@ -403,11 +417,14 @@ def _title_named(page: Page, sheets: Sequence[SheetCandidate], candidates: Seque
     than its title block's); none when it reads no candidate's title, or two (two titles, or one two
     candidates share: a title read twice tells nothing apart), when a read was cut at its budget (a
     title it may read), or when there are more than `MAX_TITLE_READS` candidates. A title is read
-    only when each of its words is a word of the page (a chain of items reads none other), so a
-    page's reads stay few."""
+    only when each of its words is a word of the page (a chain of items reads none other), and the
+    page's reads share one read's budget (`title_read`'s, charged their tables and their walks): a
+    page whose reads it cannot pay for keeps naming several."""
     if not candidates or len(candidates) > MAX_TITLE_READS:
         return None
-    words_on_page = {word for item in page.items for word in _words(item.text)}
+    lines = [words for item in page.items if (words := _words(item.text))]
+    words_on_page = {word for words in lines for word in words}
+    budget = [max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))]
     read: list[int] = []
     for i in dict.fromkeys(candidates):
         sourced = sheets[i].title
@@ -415,7 +432,7 @@ def _title_named(page: Page, sheets: Sequence[SheetCandidate], candidates: Seque
         wanted = _words(title)
         if not wanted or not words_on_page.issuperset(wanted):
             continue
-        answer = title_read(page, title)
+        answer = title_read(page, title, budget)
         if answer.cut:
             return None
         if answer.alike:
