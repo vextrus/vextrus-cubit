@@ -50,7 +50,7 @@ import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
@@ -352,10 +352,20 @@ def _user() -> uuid.UUID:
 
 def _sheets(project_id: uuid.UUID) -> list[drawings.SheetView]:
     """The Project's printed sheets in the sheet list (the scope checked first); none before a file.
-    Their anchors are not read (`drawings.UNLOADED`): Step 1's lists and acts never use them."""
-    projects.get(project_id)
-    drawing_set = drawings.set_of(project_id)
-    return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
+    Their anchors are not read (`drawings.UNLOADED`): Step 1's lists and acts never use them.
+    Inside an act, read once between its writes (`_remembered`)."""
+
+    def read() -> list[drawings.SheetView]:
+        _in_scope(project_id)
+        drawing_set = _set_of(project_id)
+        return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
+
+    return list(_remembered(("sheets", project_id), read))
+
+
+def sheets_of(project_id: uuid.UUID) -> list[drawings.SheetView]:
+    """`_sheets`, for the conflicts' pass after an act (`proposals.set_conflicts`)."""
+    return _sheets(project_id)
 
 
 def _sheet(sheet_id: uuid.UUID) -> drawings.SheetView:
@@ -370,10 +380,15 @@ def _facts_by_id(project_id: uuid.UUID) -> dict[uuid.UUID, drawings.SheetFacts]:
 
 
 def _facts(project_id: uuid.UUID) -> list[drawings.SheetFacts]:
-    """`_sheets` as facts (`drawings.sheet_facts`, one statement): for counts and membership tests."""
-    projects.get(project_id)
-    drawing_set = drawings.set_of(project_id)
-    return drawings.sheet_facts(drawing_set.id) if drawing_set else []
+    """`_sheets` as facts (`drawings.sheet_facts`, one statement): for counts and membership tests.
+    Inside an act, read once between its writes (`_remembered`)."""
+
+    def read() -> list[drawings.SheetFacts]:
+        _in_scope(project_id)
+        drawing_set = _set_of(project_id)
+        return drawings.sheet_facts(drawing_set.id) if drawing_set else []
+
+    return list(_remembered(("facts", project_id), read))
 
 
 def _proposals_of(project_id: uuid.UUID, among: Q | None = None) -> list[Proposal]:
@@ -397,8 +412,8 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     answered = _kinds_answered(
         project_id, [p.id for s in sheets if not s.decision and (p := by_sheet.get(s.id)) is not None]
     )
-    drawing_set = drawings.set_of(project_id)
-    files = drawings.files(drawing_set.id) if drawing_set else []
+    drawing_set = _set_of(project_id)
+    files = files_of(project_id)
     names = {f.id: f.name for f in files}
     of_set = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
     viewed = [of_set.get(s.id, []) for s in sheets]  # read once: each row's and the groups'
@@ -615,7 +630,7 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
     """The Project's Step 1 Questions: the open ones in queue order (m0-screens §5: a held file first,
     as it holds a whole file; then those holding the most sheets; then conflicts, missing items and
     low-confidence ones; then as they were raised), then those answered or withdrawn."""
-    projects.get(project_id)
+    _in_scope(project_id)
     held = _held(project_id)
     found = _asked(project_id, Question.objects.filter(project_id=project_id, step=SHEETS), held)
     # Counted over every Step 1 Question, asked still or not, so no tag moves when one stops being asked.
@@ -715,7 +730,16 @@ def _held(
     its words, its answer and `group_changed`, bulk confirm's hold check, `agrees`; S18-Q1's re-read
     rule, review 1 of #628). A kind Question holds no link it let go (`_let_go`), and an open one no
     sheet already decided (its answer would not decide it again). A numbering gap Question holds only
-    the sheets beside its gaps now (`_beside_now`, S15-Q2)."""
+    the sheets beside its gaps now (`_beside_now`, S15-Q2). Inside an act, read once between its
+    writes (`_remembered`)."""
+    asked = None if among is None else frozenset(among)
+    found = _remembered(("held", project_id, asked), lambda: _held_read(project_id, asked))
+    return {q: list(ps) for q, ps in found.items()}
+
+
+def _held_read(
+    project_id: uuid.UUID, among: frozenset[uuid.UUID] | None
+) -> dict[uuid.UUID, list[uuid.UUID]]:
     gone = _let_go(project_id)
     done = {s.id for s in _facts(project_id) if s.decision}
     links = QuestionLink.objects.filter(project_id=project_id)
@@ -905,12 +929,12 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
 
 def _unread(project_id: uuid.UUID) -> int:
     """The sheets the read left out for unreadable writing, of the files in the sheet list."""
-    drawing_set = drawings.set_of(project_id)
+    drawing_set = _set_of(project_id)
     if drawing_set is None:
         return 0
     read = {
         str(f.id)
-        for f in drawings.files(drawing_set.id)
+        for f in files_of(project_id)
         if f.state == drawings.FileState.READ or f.state == drawings.FileState.HELD
     }
     return sum(
@@ -957,8 +981,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         for row in Coverage.objects.filter(project_id=project_id, status=CoverageStatus.UNACCOUNTED)
         if row.sheet_revision_id in discipline_of
     )
-    drawing_set = drawings.set_of(project_id)
-    files = drawings.files(drawing_set.id) if drawing_set else []
+    files = files_of(project_id)
     reading = Counter(
         f.discipline
         for f in files
@@ -1048,8 +1071,7 @@ def _not_received(project_id: uuid.UUID) -> list[str]:
     if tenant_id is None:
         return []
     expected = EXPECTED.get(markets.of_developer(tenant_id).code, ())
-    drawing_set = drawings.set_of(project_id)
-    received = {f.discipline for f in drawings.files(drawing_set.id)} if drawing_set else set()
+    received = {f.discipline for f in files_of(project_id)}
     # A Discipline expected only from some storey count (Fire from 7) is listed while the count is not
     # known: M0 reads no storey count for the Building.
     return [e.discipline for e in expected if e.discipline not in received]
@@ -1175,7 +1197,7 @@ def _parse(text: object) -> register.Parsed:
 def read_list(project_id: uuid.UUID, discipline: str, text: str) -> ParsedList:
     """A pasted list or a typed range, read back for the QS to see before setting it; nothing kept."""
     auth.require(acts.DRAWING_LIST, project_id)
-    projects.get(project_id)
+    _in_scope(project_id)
     key = _discipline(discipline)
     return _parsed_view(key, _parse(text))
 
@@ -1209,7 +1231,7 @@ def set_list(project_id: uuid.UUID, discipline: str, text: str, *, actor_name: s
     """The QS's pasted list or typed range, set as the Discipline's drawing list, its source marked
     and under the QS's name (an act `undo` takes back)."""
     auth.require(acts.DRAWING_LIST, project_id)
-    projects.get(project_id)
+    _in_scope(project_id)
     key = _discipline(discipline)
     parsed = _parse(text)
     with writing(project_id):
@@ -1280,7 +1302,7 @@ def _ask_if_lists_differ(project_id: uuid.UUID, discipline: str) -> None:
 def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
     """The Discipline's drawing list as it stands: the QS's (pasted or typed), else one read on a
     sheet; with none, no numbers."""
-    projects.get(project_id)
+    _in_scope(project_id)
     key = _discipline(discipline)
     lists = _lists(project_id, key)
     standing = lists.standing
@@ -1739,7 +1761,7 @@ def assign(
     as it is. A key that is no Step 2 to 14 is refused (400); a view left out, on its own or with its
     sheet, is refused (409); an id not of this Project's views is not found; nothing is done."""
     auth.require(acts.ASSIGN, project_id)
-    projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
+    _in_scope(project_id)  # a Project not in scope (of another Developer, or none) is not found
     if (
         not isinstance(steps, (list, tuple))
         or not steps
@@ -1884,7 +1906,7 @@ def undo(project_id: uuid.UUID) -> ActView:
     included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
-    projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
+    _in_scope(project_id)  # a Project not in scope (of another Developer, or none) is not found
     with writing(project_id):
         act = (
             Confirmation.objects.select_for_update()
@@ -2204,7 +2226,7 @@ def propose_sheet(
 def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Traces = ()) -> uuid.UUID:
     """A view of a printed sheet as a Step 1 Proposal (what 17 proposes to do with it: its steps,
     its Part, or leaving it out), with its Traces; the Proposal's id. Idempotent per view."""
-    projects.get(project_id)
+    _in_scope(project_id)
     sheet = _sheet(view.sheet_revision_id)
     if _project_of(sheet) != project_id:
         raise auth.NotFound
@@ -2251,7 +2273,7 @@ def sheet_conventions() -> SheetConventions:
 def record_unread(project_id: uuid.UUID, file_id: uuid.UUID, *, sheet_found: int, unread: int) -> None:
     """How many sheets a file's read found and how many it left out for unreadable writing (#135),
     which Coverage counts while the file is in the sheet list."""
-    projects.get(project_id)
+    _in_scope(project_id)
     RecogniseRun.objects.update_or_create(
         tenant_id=_tenant(),
         project_id=project_id,
@@ -2324,7 +2346,7 @@ def record_check_run(
 ) -> uuid.UUID:
     """One run of a Check on reading: how many subjects passed of N, and each finding (its message,
     its subjects' ids and the Question it raised)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     run = CheckRun.objects.create(
         tenant_id=_tenant(),
         project_id=project_id,
@@ -2351,7 +2373,7 @@ def answered_findings(project_id: uuid.UUID, check_key: str) -> dict[tuple[str, 
     """The findings of a Check the QS has answered (each run's finding whose Question is answered),
     by (subject id, params as JSON): the Question that answered each. The same finding found again
     on the same subject is decided, and asked no more (#436's review round 1)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     found: dict[tuple[str, str], uuid.UUID] = {}
     rows = CheckFinding.objects.filter(
         project_id=project_id, run__check_key=check_key, question__status=QuestionStatus.ANSWERED
@@ -2454,7 +2476,7 @@ def raise_question(
     Question's holds are only ever added to). `keyed_by`: more evidence that is no word of it (the
     storey-titles findings with their plans' storeys, S15-E3: an answered Question is never the one a
     changed disagreement is asked by)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     chosen = QuestionKind(kind)
     evidence: list[Any] = [chosen, str(subject_id or ""), message["code"], message["params"]]
     if keyed_by_holds:
@@ -2507,7 +2529,7 @@ def ask_gaps(
     file that fills a gap, or part of one, asks no number the QS has not seen); a number missing that
     it never asked makes it the QS's to answer again (review 1 of #229). Two read jobs take turns on the
     Discipline (a transaction lock), as `ask_group`'s do."""
-    projects.get(project_id)
+    _in_scope(project_id)
     base = hashlib.sha256(
         json.dumps([QuestionKind.CHECK, "gaps", discipline], sort_keys=True).encode()
     ).hexdigest()[:_GROUP_KEY]
@@ -2633,7 +2655,7 @@ def ask_group(
     Two read jobs asking one group take turns (a transaction lock on the group's identity), and the
     group's Questions are locked while it is chosen, so an answer given meanwhile waits or comes
     first: a sheet never joins a Question answered without it (the refuter's case)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     chosen = QuestionKind(kind)
     if chosen != QuestionKind.LOW_CONFIDENCE or code.code != answer_codes.WHICH_KIND.code:
         raise ValueError(f"a group Question is a kind Question, not {chosen} {code.code}")
@@ -2771,7 +2793,7 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     `gaps` Question that asks only gaps they kept open (`_heir_of_gaps`). How many were retired. No
     progress row is written: the round's caller writes them once, last (an act's `_after_act`, the read
     job)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     asked = set(raised)
     ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
     ours.filter(id__in=asked, status=QuestionStatus.WITHDRAWN, withdrawn_by__isnull=True).update(
@@ -2868,7 +2890,7 @@ def record_read_list(
 
 def answer_question(project_id: uuid.UUID, question_id: uuid.UUID, answer: Any) -> None:
     """Record a Question's answer, by the acting user, now (21c answers held files through it)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     with writing(project_id):
         row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
         if row is None:
@@ -2909,7 +2931,7 @@ def answer(
     a sheet the QS did not see. A kind Question that let go of every sheet (`_asked`) is no longer
     asked (409)."""
     auth.require(acts.CONFIRM, project_id)
-    projects.get(project_id)
+    _in_scope(project_id)
     read_again = None
     with writing(project_id):
         row = (
@@ -2950,7 +2972,7 @@ def answer(
         row.answered_at = timezone.now()
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         _after_act(project_id, corrected=corrected)
-    return Answered(_question_view(project_id, row.id), read_again, corrected)
+        return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
 def answer_disciplines(
@@ -2986,7 +3008,7 @@ def answer_disciplines(
 
 def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:
     """The one Question as `questions` lists it, read on its own (not every Question of the Project)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     of_step = Question.objects.filter(project_id=project_id, step=SHEETS)
     q = of_step.filter(id=question_id).first()
     held = _held_now(project_id, q) if q is not None else []
@@ -3012,12 +3034,11 @@ def _apply(
         return row.subject_id if option == "read_anyway" else None
     if kind == QuestionKind.CONFLICT and row.message_code != answer_codes.LISTS_DISAGREE.code:
         if option == "keep_latest":
-            listed = {p.id: p for p in proposals(project_id)}
-            copies = [listed[i] for i in held if i in listed]
+            copies = _copies(project_id, held)
             if copies:
-                latest = max(copies, key=_newest)
-                _confirm(project_id, [latest.id], kind=None, actor_name=actor_name, answering=True)
-                others = [p.id for p in copies if p.id != latest.id]
+                latest = max(copies, key=lambda copy: copy[1])
+                _confirm(project_id, [latest[0]], kind=None, actor_name=actor_name, answering=True)
+                others = [i for i, _place in copies if i != latest[0]]
                 if others:
                     _exclude(project_id, others, "superseded", actor_name=actor_name, answering=True)
         elif option == "keep_all" and held:
@@ -3092,9 +3113,20 @@ def _kind_split(
     return ready, waiting
 
 
-def _newest(proposal: ProposalView) -> tuple[Any, ...]:
-    """A copy's place among copies of one number: its issue date, then its revision mark."""
-    return (_date_of(proposal.issue_date), _natural(proposal.revision_mark))
+def _copies(project_id: uuid.UUID, held: Sequence[uuid.UUID]) -> list[tuple[uuid.UUID, tuple[Any, ...]]]:
+    """The held Proposals `proposals` lists (each its sheet's one Proposal, the sheet in the sheet
+    list), in held order, each with its place among copies of one number (its issue date as
+    `proposals` words it, then its revision mark): read for these sheets alone, not the whole list
+    (S15-A2's 500 ms)."""
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    listed = {s.id: s for s in _sheets(project_id)}
+    sheet_of = {p.id: listed[sheet_id] for sheet_id, p in by_sheet.items() if sheet_id in listed}
+    order = markets.of_developer(_tenant()).date_order
+    return [
+        (i, (_date_of(iso_date(sheet.issue_date, order)), _natural(sheet.revision_mark)))
+        for i in held
+        if (sheet := sheet_of.get(i)) is not None
+    ]
 
 
 def _date_of(text: str | None) -> tuple[int, int, int]:
@@ -3123,10 +3155,83 @@ _PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.Co
 @contextlib.contextmanager
 def writing(project_id: uuid.UUID) -> Iterator[None]:
     """An act's transaction on Step 1 (#227): Step 1's write lock on the Project taken first
-    (`lock_writes`), and its progress rows written last (`progress_at_end`)."""
-    with transaction.atomic(), progress_at_end():
+    (`lock_writes`), and its progress rows written last (`progress_at_end`); the sheet list's facts
+    and the Questions' holdings read once between its writes (`reads_between_writes`)."""
+    with transaction.atomic(), reads_between_writes(), progress_at_end():
         lock_writes(project_id)
         yield
+
+
+_READS: contextvars.ContextVar[dict[Hashable, Any] | None] = contextvars.ContextVar(
+    "step1_reads", default=None
+)
+
+
+def _in_scope(project_id: uuid.UUID) -> None:
+    """Refuse a Project not in the acting Membership's scope as not found (`projects.get`); inside an
+    act, checked once (`_remembered`: a refusal is never remembered, so it refuses again)."""
+    _remembered(("scope", project_id), lambda: projects.get(project_id))
+
+
+def _set_of(project_id: uuid.UUID) -> drawings.SetView | None:
+    """The Project's Drawing Set (`drawings.set_of`); inside an act, read once between its writes."""
+    return _remembered(("set", project_id), lambda: drawings.set_of(project_id))
+
+
+def files_of(project_id: uuid.UUID) -> list[drawings.FileView]:
+    """The files of the Project's Drawing Set (`drawings.files`), none before its first. Read every
+    time, never remembered: a file's state is its read job's, which a worker moves on its own
+    connection, outside Step 1's write lock."""
+    drawing_set = _set_of(project_id)
+    return drawings.files(drawing_set.id) if drawing_set else []
+
+
+def _remembered[T](key: Hashable, read: Callable[[], T]) -> T:
+    """`read()`, or inside `reads_between_writes` what it gave since the act's last write. The
+    caller copies what it hands out, so no reader changes another's."""
+    memo = _READS.get()
+    if memo is None:
+        return read()
+    if key not in memo:
+        memo[key] = read()
+    return cast(T, memo[key])
+
+
+def _reading(sql: str) -> bool:
+    """Whether a statement only reads: a SELECT that sets no setting (`set_config` moves the tenant
+    row-level security reads by), or a savepoint made or released (a nested act's: neither changes
+    a row). Anything else (a write, a rollback to a savepoint) is a write."""
+    words = sql.lstrip().lower()
+    if words.startswith(("savepoint", "release savepoint")):  # a rollback to one is a write
+        return True
+    return words.startswith("select") and "set_config" not in words
+
+
+@contextlib.contextmanager
+def reads_between_writes() -> Iterator[None]:
+    """An act's repeated reads of the same rows answered once until its next write (S15-A2's 500 ms
+    bound, #638): every statement the act's connection runs that is not a plain read
+    (`_reading`) forgets them all, before it runs, so a read after a write is read again. Another
+    transaction's writes are not waited for: Step 1's write lock keeps a read job's writes out
+    while an act holds it (`lock_writes`). A block inside another shares the outer one's."""
+    if _READS.get() is not None:
+        yield
+        return
+    memo: dict[Hashable, Any] = {}
+
+    def forget_on_write(
+        execute: Callable[..., Any], sql: str, params: Any, many: bool, context: Any
+    ) -> Any:
+        if not _reading(sql):
+            memo.clear()
+        return execute(sql, params, many, context)
+
+    token = _READS.set(memo)
+    try:
+        with connection.execute_wrapper(forget_on_write):
+            yield
+    finally:
+        _READS.reset(token)
 
 
 def lock_writes(project_id: uuid.UUID) -> None:

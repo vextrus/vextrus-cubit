@@ -625,8 +625,8 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         groups: dict[uuid.UUID, str] = {}
         of_sheet: dict[uuid.UUID, list[drawings.ViewView]] = {}
     else:
-        listed = drawings.sheets(drawing_set.id, anchors=False)
-        groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
+        listed = step1.sheets_of(project_id)
+        groups = {f.id: f.group for f in step1.files_of(project_id)}
         of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
     conventions = step1.sheet_conventions()
     return _conflicts(
