@@ -60,7 +60,8 @@ def test_the_lists_found_ahead_are_those_the_read_job_records(qs_project: QsProj
             step1.record_read_list(sheet_id, discipline, rows)
         after = proposals.find_questions(qs_project.project_id)
 
-    assert ahead is not None and after is not None
+    assert ahead is not None
+    assert after is not None
     numbers = [(e.number, e.title) for e in ahead.inputs.register]
     assert numbers == [("S-01", "PILE"), ("S-02", None), ("S-03", "X"), ("S-04", "ROOF")]
     assert ahead.inputs == after.inputs
