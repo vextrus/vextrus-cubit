@@ -14,7 +14,10 @@ view's, 19b compares them. The result:
   (`top`: "1st to top floor" is `floor_1` running to `top`; "6th floor to roof" is `floor_6` and
   `roof`, the floors between running to `top`);
 - `below_ground`: "below ground floor" was read (foundation to ground); where a basement is
-  confirmed, 21c raises it as a Question.
+  confirmed, 21c raises it as a Question;
+- `ranged`: the text states one two-ended "X to Y" range and nothing else ("footing to 3rd"): never a
+  list ("grd and mezz"), a below-ground phrase or a text with several phrases (S19-B2's R1: only
+  two ranges that both state one meet at a storey).
 
 **The keys** (the canonical levels, docs/data-model.md §3.2 as the QS review's Q1 widened them;
 letter-first, `engine/recognise/types.py`'s key form): `pile`, `pile_cap`, `foundation`,
@@ -94,6 +97,7 @@ class Storeys:
     keys: tuple[str, ...] = ()
     runs_to: str | None = None
     below_ground: bool = False
+    ranged: bool = False
 
 
 def read(text: str, conventions: SheetConventions, *, plan_title: bool) -> Storeys:
@@ -125,7 +129,8 @@ def read(text: str, conventions: SheetConventions, *, plan_title: bool) -> Store
     ordered = tuple(sorted(keys, key=lambda k: keys[k]))
     if not ordered and as_stated is None and plan_title:
         ordered = ("not_stated",)
-    return Storeys(as_stated=as_stated, keys=ordered, runs_to=runs_to, below_ground=below)
+    ranged = len(phrases) == 1 and not below and phrases[0].is_one_range()
+    return Storeys(as_stated=as_stated, keys=ordered, runs_to=runs_to, below_ground=below, ranged=ranged)
 
 
 def names_a_plan(text: str, conventions: SheetConventions) -> bool:
@@ -375,6 +380,10 @@ class _Phrase:
         index = next(i for i, u in enumerate(units) if u.start == item.start)
         near = [units[i] for i in (index - 1, index + 1) if 0 <= i < len(units)]
         return any(u.kind in (_Kind.FLOOR, _Kind.PLAN) for u in near)
+
+    def is_one_range(self) -> bool:
+        """Whether the phrase is exactly two items joined by a range word."""
+        return len(self.items) == 2 and self.items[1].joined_by is _Kind.RANGE
 
     def keys(self) -> tuple[dict[str, int], str | None] | None:
         """The storeys the phrase names, ranked, and the symbolic end a range runs to; none when a

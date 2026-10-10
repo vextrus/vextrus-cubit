@@ -42,3 +42,11 @@ Discipline has no drawing list and no PDF, an unbroken run of sheet numbers coun
 that run with no open Question can be confirmed in bulk.
 
 ruling: step1.second_source.no_list_no_pdf = unbroken-number-run
+
+Session 19, the owner (9 Oct 2026), on the boundary storey: "Settle by convention (Recommended)": when two column
+or shear-wall plans state storey ranges that share an end, Vextrus settles it by the Dhaka convention that the
+first plan's columns stop at that slab (`excludes_storey`), records both titles as Trace and asks no Question; it
+asks only when a third plan of the same subject also claims that storey. A meeting counts only when both views
+state a two-ended "X to Y" range; a list or a "below ground" phrase never meets.
+
+ruling: step1.boundary_storey.two_plans = settle-by-convention

@@ -333,26 +333,33 @@ def test_with_typesafe_down_every_sheet_is_still_proposed_its_kind_left_to_the_q
         assert drawings.file(file_id).state == drawings.FileState.READ
 
 
-def test_two_column_ranges_meeting_at_one_storey_ask_where_the_first_ends(
+BOUNDARY_STOREY = "takeoff.proposals.boundary_storey"
+
+
+def test_two_column_ranges_meeting_at_one_storey_are_settled_where_the_first_ends(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """m0-screens 6.7's boundary storey: "Does 'Basement to 1st floor' include the 1st storey?" ...
-    "S-08 'Column layout plan, 1st to 9th floor' also starts at the 1st" (19b raises no conflict for
-    them: consecutive ranges meet at a floor)."""
+    """m0-screens 6.7's boundary storey, as the owner's ruling of 9 Oct 2026 (S19-B2, "Settle by
+    convention") amends it: two column plans whose ranges share an end are settled by the Dhaka
+    convention, the first's columns stopping at that slab (`excludes_storey`), and no Question is
+    asked; a third plan claiming the storey still asks it (`acceptance/ts19b2`). 19b raises no
+    conflict for them: consecutive ranges meet at a floor."""
     read(qs_project, monkeypatch, [
         Sheet("S-07", "COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",
               ("COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",)),
         Sheet("S-08", "COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR", ("COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR",)),
     ])  # fmt: skip
     api = api_as(qs_project.member)
-    listed = proposals(api, qs_project.project_id)
+    first = the(proposals(api, qs_project.project_id), "S-07")["id"]
 
     asked = open_questions(api, qs_project.project_id)
 
     assert [q for q in asked if q["code"] == conflict_codes.SAME_STOREY.code] == []
-    [q] = [q for q in asked if the(listed, "S-07")["id"] in q["proposals"]]
-    assert keys(q)[-1] == KEEP_OPEN
-    assert picked(q) == []
+    held = [q["code"] for q in asked if first in q["proposals"]]
+    assert held == [], f"an open Question holds S-07: {held}"
+    [q] = [x for x in questions(api, qs_project.project_id) if x["code"] == BOUNDARY_STOREY]
+    assert (q["status"], q["answer"]["option"]) == ("answered", "excludes_storey")
+    assert (q["params"]["storey"], q["params"]["next_sheet"]) == ("floor_1", "S-08")
 
 
 # The Checks: the drawing list against the sheets -----------------------------------------------

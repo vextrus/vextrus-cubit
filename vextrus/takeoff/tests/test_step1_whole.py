@@ -387,11 +387,14 @@ def test_once_the_lists_question_is_answered_the_sheets_agree_against_the_chosen
 def test_the_boundary_storey_question_names_the_storey_where_the_ranges_meet(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The words gate's M2: "... include the 1st storey? The range on S-08 also starts at the 1st.\""""
+    """The words gate's M2: "... include the 1st storey? The range on S-08 also starts at the 1st."
+    Two plans meeting alone are settled by the Dhaka convention (the owner's ruling, 9 Oct 2026); it is
+    asked where a third plan of the subject also claims the storey."""
     read(qs_project, monkeypatch, [
         Sheet("S-07", "COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",
               ("COLUMN LAYOUT PLAN BASEMENT TO 1ST FLOOR",)),
         Sheet("S-08", "COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR", ("COLUMN LAYOUT PLAN 1ST TO 9TH FLOOR",)),
+        Sheet("S-09", "COLUMN LAYOUT PLAN AT 1ST FLOOR", ("COLUMN LAYOUT PLAN AT 1ST FLOOR",)),
     ])  # fmt: skip
     [q] = open_questions(api_as(qs_project.member), qs_project.project_id, "convention")
 
