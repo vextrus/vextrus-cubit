@@ -315,6 +315,7 @@ def test_two_plans_of_one_storey_subject_and_layer_on_two_sheets_are_one_conflic
         "layer": "bottom",
         "views": 2,
         "sheets": 2,
+        "alone": "no",
         "discipline": "structural",
         "subject": "slab",
         "storey": "floor_5",

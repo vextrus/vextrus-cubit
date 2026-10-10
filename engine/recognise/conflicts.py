@@ -981,6 +981,7 @@ def _same_storey(
             layer=layer,
             views=len(members),
             sheets=len({flat[v][2] for v in members}),
+            alone="no",  # its two sheets lie at two places; 21c says when those it holds do not
             discipline=discipline,
             subject=subject,
             storey=storeys[0],

@@ -154,6 +154,7 @@ def test_the_harness_runs_19bs_two_stages_and_writes_a_valid_export(
                 "layer": "bottom",
                 "views": 3,
                 "sheets": 3,
+                "alone": "no",
                 "discipline": "structural",
                 "subject": "slab",
                 "storey": "floor_5",
