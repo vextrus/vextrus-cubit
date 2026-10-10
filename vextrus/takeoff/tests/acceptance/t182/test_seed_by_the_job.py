@@ -99,24 +99,27 @@ def test_the_jobs_coverage_is_70_views_68_proposed_2_unaccounted(
     }  # fmt: skip
 
 
-def test_the_bulk_act_holds_11_that_agree_and_the_architectural_and_electrical_sheets_have_one_source(
+def test_the_bulk_act_holds_14_that_agree_and_no_architectural_sheet_agrees(
     nusrat: Api, kr01: uuid.UUID, by_the_job: None
 ) -> None:
-    """§7: "11 agree: Structural 11 (S-01 to S-12 but the two S-07s); 'Confirm 11' (session 11
-    ruling: the job proposes no exclusion for A-07)"; one source: A-01 to A-04, A-06, A-07 and E-01
-    to E-03 (A-05 is held by its kind Question as well). KR-ARC-R0.pdf draws its lettering as lines,
-    so its Plot pages are matched by their ink and read no title; with no drawing list a Plot page is
-    the second source only when its number and title read alike (Q2, #229), so no Architectural
-    sheet agrees (the orchestrator's ruling, session 19: the seed keeps lettering as lines)."""
+    """14 agree: Structural 11 (S-01 to S-12 but the two S-07s) and Electrical 3 (E-01 to E-03);
+    'Confirm 14' (session 11 ruling: the job proposes no exclusion for A-07). KR-ELE-R0.dwg has no
+    drawing list and no PDF, and E-01 to E-03 are an unbroken run of sheet numbers, the second source
+    (the owner's ruling, docs/rulings.md, session 18). KR-ARC-R0.pdf draws its lettering as lines, so
+    its Plot pages are matched by their ink and read no title; with no drawing list a Plot page is the
+    second source only when its number and title read alike (Q2, #229), so no Architectural sheet
+    agrees (the orchestrator's ruling, session 19: the seed keeps lettering as lines). A PDF in the
+    Discipline keeps today's rule, so the A-01 to A-07 run does not agree."""
     listed = proposals(nusrat, kr01)
 
     agreeing = [p for p in listed if p["agrees"]]
 
-    assert by_discipline(agreeing) == {"structural": 11}
+    assert by_discipline(agreeing) == {"structural": 11, "electrical": 3}
+    assert sorted(p["number"] for p in agreeing if p["discipline"] == "electrical") == [
+        "E-01", "E-02", "E-03",
+    ]  # fmt: skip
     assert [p["number"] for p in agreeing if p["proposed_exclusion"]] == []
     assert [p["proposed_exclusion"] for p in listed if p["number"] == "A-07"] == [None]
-    one_source = [p for p in listed if p["discipline"] == "electrical" and not p["agrees"]]
-    assert sorted(p["number"] for p in one_source) == ["E-01", "E-02", "E-03"]
     by_ink = [p for p in listed if p["discipline"] == "architectural" and p["number"]]
     assert sorted(p["number"] for p in by_ink if not p["agrees"]) == [
         "A-01", "A-02", "A-03", "A-04", "A-05", "A-06", "A-07",

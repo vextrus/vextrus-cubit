@@ -123,7 +123,9 @@ def test_a_bulk_act_naming_a_held_files_sheet_read_anyway_is_refused_as_held_not
     assert read_anyway["agrees"] is False
 
     lone = the(shown, "S-02")
-    assert lone["agrees"] is False  # S-01 and S-02 with no list or Plot: one source each
+    # S-01 and S-02 are an unbroken run with no list or Plot: the second source (docs/rulings.md,
+    # session 18). The held file's S-03 joins the run but is held, so it never agrees.
+    assert lone["agrees"] is True
 
     refused = confirm(api, qs_project.project_id, [lone["id"], read_anyway["id"]])
 
@@ -132,12 +134,10 @@ def test_a_bulk_act_naming_a_held_files_sheet_read_anyway_is_refused_as_held_not
         "code": "takeoff.step1.held_file",
         "params": {"count": 1, "sheets": [read_anyway["id"]], "sheet": "S-03", "named": "number"},
     }
-    # The words gate's may 3: the held sheet taken out, the rest is refused for its one source.
-    again = confirm(api, qs_project.project_id, [lone["id"], the(shown, "S-01")["id"]])
-    assert again.status_code == 409, again.content
-    assert again.json()["code"] == "takeoff.step1.one_source"
-    assert again.json()["params"]["sheets"] == [lone["id"], the(shown, "S-01")["id"]]
     assert all(p["decision"] != "confirmed" for p in proposals(api, qs_project.project_id))
+    # The words gate's may 3, now by the ruling: the held sheet taken out, the run is confirmed.
+    again = confirm(api, qs_project.project_id, [lone["id"], the(shown, "S-01")["id"]])
+    assert again.status_code == 200, again.content
 
 
 def test_a_bulk_act_refused_for_its_question_is_refused_for_its_one_source_sheet_once_answered(

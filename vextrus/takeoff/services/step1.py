@@ -491,10 +491,17 @@ def _agreeing(
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
-        elif standing is None:
+        elif standing is None and any(s.plot.file_id or s.plot.page is not None for s in everyone):
             # A matched Plot page whose number and title read alike, gap or no gap (#229): a gap
             # holds only the sheets beside it, through its open Question's links.
             second = {s.id for s in mine if s.plot.page is not None and s.plot.title_alike}
+        elif standing is None:
+            # No list and no PDF in this Discipline: an unbroken run of running numbers is the
+            # second source (the owner's ruling, session 18, docs/rulings.md). A gap ends a run;
+            # a number held twice breaks none; a lone number has no run. The sheets beside an open
+            # gap stay held below.
+            places = {_place(numbers, s.number, discipline) for s in everyone if s.number} - {None}
+            second = {s.id for s in mine if _in_run(_place(numbers, s.number, discipline), places)}
         else:
             second = set()
         for sheet in mine:
@@ -548,6 +555,14 @@ def _beside_gaps(questions: QuerySet[Question], numbers: Numbers) -> dict[str, s
                 if place is not None:
                     held.setdefault(question.discipline, set()).add(place)
     return held
+
+
+def _in_run(place: Hashable | None, places: set[Hashable | None]) -> bool:
+    """Whether a place (series, running number) has a neighbour either side in its series."""
+    if place is None:
+        return False
+    series, at = cast("tuple[Hashable, int]", place)
+    return (series, at - 1) in places or (series, at + 1) in places
 
 
 def _place(numbers: Numbers, number: str | None, discipline: str) -> Hashable | None:

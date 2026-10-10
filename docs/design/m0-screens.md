@@ -1021,13 +1021,17 @@ reading of this sheet’s title and view titles". A pick still changes nothing u
 
 **What "agrees" means** (the plan's QS review, Q4). A sheet agrees when its number and title come from
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
-no drawing list**, its Plot page matched, its number and title read alike; a gap in the numbering holds
+no drawing list**, its Plot page matched, its number and title read alike; **with no drawing list
+and no PDF in its Discipline**, an unbroken run of sheet numbers is the second source (the owner's
+ruling, session 18, `docs/rulings.md`: a run is a stretch of two or more consecutive running numbers
+in one series; a gap ends it; a number held twice never agrees and does not break it; a sheet with no
+neighbour either side keeps one source); a gap in the numbering holds
 only the sheets either side of it until its Question is answered, and all of one Discipline's gaps are
 asked as one Question (the owner's ruling of 4 Oct 2026, #229). That Question is the Discipline's,
 never a sheet's: a later file of the Discipline that adds a gap or fills one changes what it asks and
 which sheets it holds, never which Question it is; one answer settles every gap it asks, and once
 answered it holds no sheet (S15-Q2). A sheet with only one source (no list
-and no Plot, or a Plot page that shows another title) is a Proposal "with one source": it is not in the
+and no Plot and in no run of numbers, or a Plot page that shows another title) is a Proposal "with one source": it is not in the
 bulk act, and the QS confirms it on its own (6.5). The
 heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
 (never "—"; 6.3).
@@ -1563,7 +1567,7 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
 | **A held file (ruling 3)** | Its row heads "Needs you" with Question Q1; nothing from it is listed or counted; Coverage says so. Its Discipline may be confirmed once Q1 is answered (5's options); the file's chip and row stay marked: "Held, read anyway" (its sheets listed, each marked "held") / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" |
 | **A Discipline not yet received** | 6.3's last section; the overview names it; nothing blocks the other Disciplines |
 | **A new Discipline's file arrives** (after others are confirmed) | Its sheets join under their own heading as Proposals; the confirmed Disciplines keep "✓ confirmed"; the rail shows Proposals ready again; the Projects page reads "Step 1: Structural confirmed · Electrical 38 to confirm" |
-| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; a sheet agrees on its Plot page (number and title read alike), else has one source; a gap holds only the sheets either side of it until its Question is answered (5) |
+| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; a sheet agrees on its Plot page (number and title read alike); with no PDF either, on an unbroken run of numbers (`docs/rulings.md`, session 18); else has one source; a gap holds only the sheets either side of it until its Question is answered (5) |
 | **No Plot, and why** | "As read" only; Plot and Compare disabled with the reason as tooltip; `P` shows the note "No Plot for this sheet:" and the reason, top-left: "NT-ARCH-R1.dwg came with no PDF" · "the sheet has no number, so no PDF page could be matched to it" · "the PDF has no page for S-19 R0; its page 19 matched R1" · "PDF page 21 could not be matched: neither its title block nor the text on the page names a sheet" (a title block drawn as strokes is matched by the page's body text instead, 5). The inspector's Plot line repeats it ("None: …") |
 | **Bangla-font flag** | The file's chip "Bangla font" (amber); on an affected sheet, a canvas note "Bangla in a legacy font reads as "…"" and in the inspector "Bangla text here is set in SutonnyMJ, a legacy ANSI font. Vextrus reads it as "…", not as Bangla. The title and number are not affected." The file's report uses 4.5's wording |
 | **Kept open** | 6.7 |
@@ -1719,7 +1723,7 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 | KR-STR-R0.pdf | 12 pages plotted from it: 11 match; page 12 shows S-13 (in no DWG); 2 pages turned 90°; AutoCAD lettering kept as text; layers kept; one logo | Plot: 11 of 12 matched |
 | KR-ARC-R0.dwg | 8 sheets: A-01 site plan with a key plan, A-02 ground floor plan, A-03 typical floor plan, A-04 roof plan, A-05 "SECTION A-A & ELEVATION" (kind unclear), a door and window schedule with no number (its title block's number left blank), and on layout tabs A-06 and A-07 (a 3D view alone on its sheet: the view proposed out by default, "for information"; the sheet is not: #182); no drawing list; and one stale layout tab showing nothing, which is not a sheet (4.5). Room names on A-02 and A-03 typed in SutonnyMJ | Read; two readers agree; 1 flag: Bangla text (9 texts on 2 sheets) |
 | KR-ARC-R0.pdf | 8 pages, all matched; made by a PDF tool other than AutoCAD; lettering drawn as lines; no layers | Plot: 8 of 8 matched; lettering as lines |
-| KR-ELE-R0.dwg | 3 electrical sheets: E-01 electrical legend and notes (the legend assigned to the Electrical Part), E-02 and E-03 "TYPICAL FLOOR LIGHTING AND POWER LAYOUT" (one continuation of 2 sheets, no Question); no drawing list and no PDF | Read; two readers agree; Discipline Electrical; its sheets are Proposals with one source each (5), confirmed one by one; their views proposed to the Electrical Part, "M3 onwards" |
+| KR-ELE-R0.dwg | 3 electrical sheets: E-01 electrical legend and notes (the legend assigned to the Electrical Part), E-02 and E-03 "TYPICAL FLOOR LIGHTING AND POWER LAYOUT" (one continuation of 2 sheets, no Question); no drawing list and no PDF | Read; two readers agree; Discipline Electrical; its sheets agree on their unbroken number run (the session 18 ruling, `docs/rulings.md`), confirmed in the bulk act; their views proposed to the Electrical Part, "M3 onwards" |
 | KR-STR-old.dwg | an older structural file | Held: the readers disagree (the planted-disagreement stub) |
 | site-photos.pdf | pictures only | Refused: a scan |
 
@@ -1728,11 +1732,11 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 |---|---|
 | Sheets found | 24: Structural 13, Architectural 8, Electrical 3 (KR-STR-old.dwg held, not counted). Toolbar "Confirmed 0 / 24" |
 | Headings (6.3) | "Structural 13 found, 13 on the drawing list on S-01 \| 0 / 13 settled" · "Architectural 8 found; no drawing list; numbering runs A-01–A-07 without a gap \| 0 / 8 settled" · "Electrical 3 found; no drawing list; numbering runs E-01–E-03 without a gap \| 0 / 3 settled" · "Disciplines not yet received: Plumbing and sanitary · Fire (a building of 7 storeys or more) · Lift" |
-| The bulk act | 11 agree: Structural 11 (S-01 to S-12 but the two S-07s); "Confirm 11 ↵". No Architectural sheet agrees: KR-ARC-R0.pdf draws its lettering as lines, so its Plot pages are matched by their ink and read no title, and with no drawing list a Plot page is the second source only when its number and title read alike (#229; the seed keeps lettering as lines, session 19) (A-07's sheet is not proposed out: the read job proposes only its 3D view out, "for information"; #182) |
-| One source | 9: A-01 to A-04, A-06, A-07 and E-01 to E-03, "Proposal, one source" (A-05 is held by its kind Question) |
+| The bulk act | 14 agree: Structural 11 (S-01 to S-12 but the two S-07s) and Electrical 3 (E-01 to E-03, an unbroken run with no drawing list and no PDF: the session 18 ruling, `docs/rulings.md`); "Confirm 14 ↵". No Architectural sheet agrees: KR-ARC-R0.pdf draws its lettering as lines, so its Plot pages are matched by their ink and read no title, and with no drawing list a Plot page is the second source only when its number and title read alike (#229; the seed keeps lettering as lines, session 19) (A-07's sheet is not proposed out: the read job proposes only its 3D view out, "for information"; #182) |
+| One source | 6: A-01 to A-04, A-06, A-07, "Proposal, one source" (A-05 is held by its kind Question) |
 | Questions, 5 open, in queue order | Each tagged as the screen tags it, by the order the read job raised it (KR-STR-old.dwg was added and read first; #182): Q1 KR-STR-old.dwg may be misread (no pre-pick) · Q2 two sheets numbered S-07 (no pre-pick: the read job pre-picks none) · Q5 the unnumbered architectural schedule (no list names it: "Leave it without a number", "Type a number", "Keep open"; no pre-pick) · Q4 the kind of A-05 (no pre-pick) · Q3 the drawing list and the Plot both name S-13, which no DWG has (no pre-pick) |
 | Views, 70 | Proposed excluded 26 (24 title blocks, the key plan and the 3D view, "for information") · proposed to a step or Part 42 (the legends of S-01 and E-01 among them) · unaccounted 2 (S-01's drawing list and its standard hook and bend detail: neither names a member a Step reads; #182). Status bar: "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted" |
-| After the QS's walk | The bulk act; Q1 "Set this file aside…"; Q2 keep the latest (rev A excluded, superseded); Q5 typed "A-08"; Q4 answered; Q3 "Not sent yet" (S-13 in the count as missing); S-01's two unaccounted views excluded, "for information". Then A-01 to A-04, A-06 and A-07 confirmed one by one; then "Step 1: Structural confirmed · Architectural confirmed · Electrical 3 to confirm"; then E-01 to E-03 confirmed one by one: "✓ Confirmed 23 / 24, 1 excluded" (#182: this walk's Coverage counts are not yet measured on the job's seed) |
+| After the QS's walk | The bulk act (Electrical E-01 to E-03 confirmed in it); Q1 "Set this file aside…"; Q2 keep the latest (rev A excluded, superseded); Q5 typed "A-08"; Q4 answered; Q3 "Not sent yet" (S-13 in the count as missing); S-01's two unaccounted views excluded, "for information". Then A-01 to A-04, A-06 and A-07 confirmed one by one: "✓ Confirmed 23 / 24, 1 excluded" (11 and 3 in the bulk act, the kept S-07, the six Architectural sheets, A-05 and A-08; #182: this walk's Coverage counts are not yet measured on the job's seed) |
 
 **What 22's design gate can reach in wave 5, and what waits** (the plan's UX review, U2). 22 is built
 while 21b and 21c are not merged, on 14's and 19a's rows and on 21a's per-file job:

@@ -1,8 +1,8 @@
 """A Proposal's `agrees` (ticket 22; m0-screens §5, "What 'agrees' means"): the field Step 1's bulk act
 ("Confirm 16, leave out 1 ↵", 6.4) is worked out from. A sheet read from its title block agrees once
-a second source confirms it: its Discipline's drawing list names it (or, with no list, the numbering
-runs without a gap and its Plot page matched). A sheet in an open Question, or with one source, never
-agrees."""
+a second source confirms it: its Discipline's drawing list names it (or, with no list, its Plot page
+matched, or, with no PDF either, an unbroken run of numbers: docs/rulings.md). A sheet in an open
+Question, or with one source, never agrees."""
 
 import uuid
 from dataclasses import replace
@@ -30,8 +30,11 @@ def agrees(project: Step1Project) -> dict[str | None, bool]:
     return {p["number"]: p["agrees"] for p in body["proposals"]}
 
 
-def test_with_no_list_and_no_plot_every_sheet_has_one_source(step1_project: Step1Project) -> None:
-    assert agrees(step1_project) == {"S-01": False, "S-02": False, "S-03": False}
+def test_with_no_list_and_no_plot_an_unbroken_run_is_the_second_source(
+    step1_project: Step1Project,
+) -> None:
+    """The owner's ruling, session 18 (docs/rulings.md): S-01 to S-03, no list and no Plot."""
+    assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": True}
 
 
 def test_a_drawing_list_naming_a_sheet_is_its_second_source(step1_project: Step1Project) -> None:
