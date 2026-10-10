@@ -195,3 +195,109 @@ def test_the_bounded_walk_reads_as_the_unbounded_one_did_on_small_pages() -> Non
             items.append(item(text, 10.0, (x, y, x + 60.0, y + 10.0)))
         page = page_of(*items)
         assert registration.reads_title(page, title) is _walked_unbounded(page, title), (title, items)
+
+
+# Review 1 of #641: the tables the walk reads are built inside the same budget ---------------------
+
+LONG_TITLE_WORDS = 2000
+"""A title of 2000 one-letter words is about 4 KB, within the DWG reader's 4096-character text cap."""
+FAST = 0.5
+"""Seconds. Each case below takes about 10 ms on a builder's machine (4.5 to 7.5 s before the fix);
+CI runs about 5.5 times slower, so the margin is wide."""
+
+
+def _timed(page: Page, title: str) -> tuple[registration.TitleRead, float]:
+    import time
+
+    began = time.monotonic()
+    read = registration.title_read(page, title)
+    return read, time.monotonic() - began
+
+
+def _spread(n: int, texts: list[str]) -> Page:
+    """`n` items cycling through `texts`, all within one block (each near every other)."""
+    boxes = [(10.0 + i % 7, 10.0 + i % 5, 40.0 + i % 7, 20.0 + i % 5) for i in range(n)]
+    return page_of(*[item(texts[i % len(texts)], 10.0, box) for i, box in enumerate(boxes)])
+
+
+@pytest.mark.parametrize(
+    ("page", "title"),
+    [
+        # the review's shape: a 2000-word title of one word over a page of 1500 items of it
+        (_packed(1500, "A"), " ".join(["A"] * LONG_TITLE_WORDS)),
+        (_packed(1500, "A"), " ".join(["A"] * (LONG_TITLE_WORDS - 1) + ["B"])),
+        # every item a run of the title's own words, at every place in it
+        (
+            _spread(1500, [f"W{i} W{i + 1}" for i in range(0, LONG_TITLE_WORDS - 1, 3)]),
+            " ".join(f"W{i}" for i in range(LONG_TITLE_WORDS)) + " END",
+        ),
+        # one long item holding the title's start again and again
+        (
+            page_of(item(" ".join(["A"] * 4000), 10.0), *[item("A", 10.0) for _ in range(1499)]),
+            " ".join(["A"] * (LONG_TITLE_WORDS - 1) + ["B"]),
+        ),
+    ],
+    ids=["one-word", "one-word-then-another", "runs-of-the-title", "one-long-item"],
+)
+def test_a_long_title_over_a_large_page_is_answered_fast_and_never_alike_unread(
+    page: Page, title: str
+) -> None:
+    """Review 1 of #641 (scored 55): the walk's tables (the page's items by the title's words, and
+    the words squared) were built before its budget applied: a 2000-word title over a 1500-item page
+    took seconds inside Step 1's write lock. Built within the budget, the answer comes fast, and a
+    page whose walk was cut reads no title."""
+    read, took = _timed(page, title)
+    assert took < FAST, took
+    assert read.alike is False  # none reads it (the first's walk is cut before it reads it)
+
+
+def test_a_long_title_cut_short_of_its_chain_says_it_was_cut() -> None:
+    """The page could read the title over 2000 of its items in a chain; past the budget, it reads no
+    title, and says its walk was cut."""
+    read, took = _timed(_packed(1500, "A"), " ".join(["A"] * LONG_TITLE_WORDS))
+    assert took < FAST, took
+    assert read == registration.TitleRead(False, cut=True)
+
+
+def test_a_long_title_held_whole_by_one_item_still_reads_alike() -> None:
+    title = " ".join(f"W{i}" for i in range(LONG_TITLE_WORDS))
+    page = page_of(
+        item("S-02"), *[item("W1 W2", 10.0) for _ in range(1500)], item(f"SHEET {title} (R1)")
+    )
+    read, took = _timed(page, title)
+    assert took < FAST, took
+    assert read == registration.TitleRead(True)
+
+
+def test_a_title_over_three_lines_still_reads_alike_on_a_page_of_its_words() -> None:
+    """The budget built into the tables does not cut a real title's chain on a crowded page."""
+    lines = [
+        item("FIRST FLOOR BEAM", 10.0, (100.0, 100.0, 200.0, 110.0)),
+        item("LAYOUT PLAN AND SECTION", 10.0, (100.0, 112.0, 240.0, 122.0)),
+        item("DETAILS OF GRID LINES", 10.0, (100.0, 124.0, 230.0, 134.0)),
+    ]
+    crowd = [
+        item(word, 10.0, (5000.0 + i, 5000.0, 5030.0 + i, 5010.0))
+        for i, word in enumerate(w for _ in range(150) for w in TITLE_11.split())
+    ]
+    read, took = _timed(page_of(*crowd, *lines), TITLE_11)
+    assert took < FAST, took
+    assert read == registration.TitleRead(True)
+
+
+def test_the_bounded_read_agrees_with_the_unbounded_walk_on_titles_repeating_their_words() -> None:
+    """The tables are built from where each of the title's words stands in it (review 1 of #641): a
+    title repeating a word ("A A PLAN A") stands at several places, and each is read."""
+    import random
+
+    rng = random.Random(641)
+    vocabulary = ["A", "PLAN", "FLOOR", "S-02"]
+    for _ in range(1500):
+        title = " ".join(rng.choice(vocabulary[:3]) for _ in range(rng.randint(1, 7)))
+        items = []
+        for _ in range(rng.randint(0, 12)):
+            text = " ".join(rng.choice(vocabulary) for _ in range(rng.randint(1, 5)))
+            x, y = rng.choice([0.0, 40.0, 400.0]) + rng.random() * 20, rng.choice([0.0, 15.0, 300.0])
+            items.append(item(text, 10.0, (x, y, x + 60.0, y + 10.0)))
+        page = page_of(*items)
+        assert registration.reads_title(page, title) is _walked_unbounded(page, title), (title, items)

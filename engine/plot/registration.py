@@ -49,8 +49,9 @@ Nothing here reads a file: pages, sheets and buffers are values already read in 
 
 import math
 import re
+from bisect import bisect_left
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -255,54 +256,100 @@ class TitleRead:
 
 
 CHAIN_STEPS_PER_ITEM = 32
-"""How many pairs of items a title's chain walk may test for nearness, per item of the page (review
-1 of #638: a page of short items repeating the title's words made the walk the items squared times
-the title's words, seconds inside Step 1's write lock). Linear in the page's items; a real title
-block's chain takes a handful of steps."""
+"""How many steps a title's read may take, per item of the page: each pair of items its chain walk
+tests for nearness, and each word it compares building the tables the walk reads (review 1 of #638:
+a page of short items repeating the title's words made the walk the items squared times the title's
+words; review 1 of #641: a 2000-word title made the tables the items times the words squared, seconds
+inside Step 1's write lock). Linear in the page's items; a real title block's read takes a handful of
+steps."""
 CHAIN_STEPS_FLOOR = 4096
 """The budget's least, for a page of few items."""
 
 
 def title_read(page: Page, title: str | None) -> TitleRead:
-    """`reads_title`, saying whether its walk was cut at its budget (`TitleRead`)."""
+    """`reads_title`, saying whether its read was cut at its budget (`TitleRead`). Every comparison
+    of words is charged to the budget, the tables' building as the walk: past it, the page reads no
+    title (`cut`). Besides the charged steps, the read scans each word of the page and the title a
+    bounded number of times."""
     wanted = _words(title)
     if not wanted:
         return TitleRead(False)
     lines = [(item, words) for item in page.items if (words := _words(item.text))]
     n = len(wanted)
-    if any(_holds(words, wanted) for _, words in lines):
-        return TitleRead(True)
-    # The items that can follow a chain that has read the title to word k: those that finish it, and
-    # those that continue it whole, short of its end. Only they are tested for nearness.
-    finishing = {k: [item for item, words in lines if words[: n - k] == wanted[k:]] for k in range(1, n)}
-    continuing = {
-        k: [
-            (item, k + len(words))
-            for item, words in lines
-            if k + len(words) < n and wanted[k : k + len(words)] == words
-        ]
-        for k in range(1, n)
-    }
-    # Where a chain of items has read the title to, each short of the whole: (its last item, words read).
-    reached = [(item, k) for item, words in lines for k in range(1, n) if words[-k:] == wanted[:k]]
     budget = max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))
+    # One item's run of words holding the title whole: each place it could start is compared.
+    for _, words in lines:
+        for j in _places(words, wanted[0], 0, len(words) - n + 1):
+            budget -= n
+            if words[j : j + n] == wanted:
+                return TitleRead(True)
+            if budget <= 0:
+                return TitleRead(False, cut=True)
+    # The places of each of the title's words, to find where an item's first word puts it.
+    at: dict[str, list[int]] = {}
+    for k, word in enumerate(wanted):
+        at.setdefault(word, []).append(k)
+    # The items that can follow a chain that has read the title to word k: those that finish it, and
+    # those that continue it whole, short of its end. Only they are tested for nearness. And where a
+    # chain of items has read the title to, each short of the whole: (its last item, words read).
+    finishing: dict[int, list[TextItem]] = {}
+    continuing: dict[int, list[tuple[TextItem, int]]] = {}
+    reached: list[tuple[TextItem, int]] = []
+    for item, words in lines:
+        size = len(words)
+        places = at.get(words[0], [])
+        # The item holds the rest of the title from word k on (k its first word's place).
+        for index in range(bisect_left(places, max(1, n - size)), len(places)):
+            k = places[index]
+            budget -= n - k
+            if words[: n - k] == wanted[k:]:
+                finishing.setdefault(k, []).append(item)
+            if budget <= 0:
+                return TitleRead(False, cut=True)
+        # The item continues the title whole from word k on, short of its end.
+        for index in range(bisect_left(places, 1), bisect_left(places, n - size)):
+            k = places[index]
+            budget -= size
+            if wanted[k : k + size] == words:
+                continuing.setdefault(k, []).append((item, k + size))
+            if budget <= 0:
+                return TitleRead(False, cut=True)
+        starts = list(_places(words, wanted[0], max(0, size - n + 1), size))
+        for j in reversed(starts):  # the item ends with the title's first size - j words
+            budget -= size - j
+            if words[j:] == wanted[: size - j]:
+                reached.append((item, size - j))
+            if budget <= 0:
+                return TitleRead(False, cut=True)
     seen: set[tuple[int, int]] = set()
     while reached:
         last, k = reached.pop()
         if (id(last), k) in seen:
             continue
         seen.add((id(last), k))
-        for item in finishing[k]:
+        for item in finishing.get(k, ()):
             budget -= 1
             if item is not last and _near(last, item):
                 return TitleRead(True)
-        for item, to in continuing[k]:
+        for item, to in continuing.get(k, ()):
             budget -= 1
             if item is not last and (id(item), to) not in seen and _near(last, item):
                 reached.append((item, to))
         if budget <= 0:
             return TitleRead(False, cut=bool(reached))
     return TitleRead(False)
+
+
+def _places(words: list[str], word: str, start: int, stop: int) -> Iterator[int]:
+    """The places of `word` among `words[start:stop]`, found by the list's own scan."""
+    j = max(start, 0)
+    while j < stop:
+        try:
+            j = words.index(word, j, stop)
+        except ValueError:
+            return
+        yield j
+        j += 1
 
 
 def _near(a: TextItem, b: TextItem) -> bool:
