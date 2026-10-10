@@ -136,6 +136,14 @@
       "overhead water tank",
       "overhead tank"
     ],
+    "septic_tank": [
+      "septic tank",
+      "septic tanks",
+      "soak pit",
+      "soak pits",
+      "soak well",
+      "soak wells"
+    ],
     "grid": [
       "grid",
       "grids",

@@ -58,6 +58,7 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
     "slab": ("slabs",),
     "stair": ("stairs",),
     "tank": ("tanks",),
+    "septic_tank": ("tanks",),
     "grid": ("grid",),
 }
 """Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject (the subject

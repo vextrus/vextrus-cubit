@@ -174,3 +174,97 @@ def test_views_titled_by_their_marks_keep_the_continuation(title: str, first: st
     sheets = [sheet("S-30", title), sheet("S-31", title)]
     found = conflicts.find(sheets, [(view(first, kind),), (view(second, kind),)], CONVENTIONS)
     assert runs(found) == [["S-30", "S-31"]]
+
+
+# S19-B4: sizes are no marks (E1), a plan's marks for same_storey (E6) -----------------------------
+
+PATTERN = CONVENTIONS.member_range_pattern
+
+
+@pytest.mark.parametrize(
+    ("title", "plan_marks"),
+    [
+        ('SECTION THRU BEAM B-1, 11"X23"', [("b", 1, 1)]),
+        ('SECTION THRU BEAM B-2, 9" x 13"', [("b", 2, 2)]),
+        ("SECTION THRU BEAM B-2, 9\u2033\u00d713\u2033", [("b", 2, 2)]),
+        ("BEAM 250 mm X 500 mm", []),
+        ("SLAB STRIP 10'X12'", []),
+    ],
+)
+def test_a_section_size_names_no_member_mark(title: str, plan_marks: list[tuple[str, int, int]]) -> None:
+    """A size's second number is never a mark: not for a series (where `B-1` stays unread, E1) nor
+    for a plan's marks (E6)."""
+    assert conflicts._marks(title, PATTERN) == []
+    assert conflicts.plan_marks(title, PATTERN) == plan_marks
+
+
+def test_a_long_run_of_spaces_after_a_number_is_read_in_linear_time() -> None:
+    """A drawing's text is hostile: 300,000 spaces between a number and a word read at once (the size
+    pattern, with spaces under two quantifiers in a row, took minutes on this)."""
+    import time
+
+    text = "B 1" + " " * 300_000 + "y"
+    started = time.process_time()
+    assert conflicts.unsized(text) == text
+    assert conflicts._marks(text, PATTERN) == []
+    assert time.process_time() - started < 5.0
+
+
+def test_a_mark_beside_a_size_is_still_read() -> None:
+    assert conflicts._marks('LINK BEAM GB7 11"X17"', PATTERN) == [("gb", 7, 7)]
+    assert conflicts.plan_marks("CAP P.C-3 (5'X5')", PATTERN) == [("pc", 3, 3)]
+
+
+@pytest.mark.parametrize(
+    ("title", "marks"),
+    [
+        ("CAP P.C-1, PLAN", [("pc", 1, 1)]),
+        ("CAP PC1, PLAN", [("pc", 1, 1)]),
+        ("CAP P.C.-12 AND PC-13", [("pc", 12, 12), ("pc", 13, 13)]),
+        ("BEAMS GB2-GB5 PLAN", [("gb", 2, 5), ("gb", 2, 2), ("gb", 5, 5)]),
+        ("COLUMN PLAN, LEVELS 2 TO 5", []),
+        ("COLUMN PLAN, LEVELS F TO 3", []),
+        ("BEAM PLAN, LEVEL 5", []),
+        ("SLAB PLAN, 3RD TO 7TH FLOOR", []),
+        ("STAIR-1 PLAN", []),
+        (None, []),
+    ],
+)
+def test_a_plans_marks_are_its_dotted_and_word_marks_never_level_words(
+    title: str | None, marks: list[tuple[str, int, int]]
+) -> None:
+    assert sorted(conflicts.plan_marks(title, PATTERN)) == sorted(marks)
+
+
+def test_plans_titled_by_levels_and_numbers_still_raise_one_storey_drawn_twice() -> None:
+    """E6 reads no mark in "LEVELS 2 TO 5": two column plans sharing floors 3 to 5 are still one storey
+    drawn twice."""
+    sheets = [sheet("S-13", "COLUMN LAYOUT PLAN A"), sheet("S-14", "COLUMN LAYOUT PLAN B")]
+    first = column_plan("COLUMN PLAN, LEVELS 2 TO 5", ("floor_2", "floor_3", "floor_4", "floor_5"))
+    second = column_plan("COLUMN PLAN, LEVELS 3 TO 6", ("floor_3", "floor_4", "floor_5", "floor_6"))
+    assert storeys_drawn_twice(conflicts.find(sheets, [(first,), (second,)], CONVENTIONS)) == 1
+
+
+@pytest.mark.parametrize(
+    ("titles", "kept"),
+    [
+        (("CAP PC1", "CAP PC2", "CAP PC1"), [0, 2]),  # PC2 pairs with neither
+        (("CAP PC1", "CAP PC2", "CAPS ON PILES"), [0, 1, 2]),  # a plan naming none pairs with all
+        (("CAP PC1", "CAP PC2", "CAP PC3"), []),
+        (("BEAMS GB2-GB9", "BEAM GB4"), [0, 1]),  # a mark inside another plan's range
+        (("BEAM GB4", "BEAMS GB2-GB9"), [0, 1]),
+        (("BEAMS GB2-GB3", "BEAMS GB4-GB5"), []),
+        (("BEAM B1", "COLUMN C1"), []),  # other letters: no mark in common
+    ],
+)
+def test_two_plans_pair_unless_both_name_marks_and_none_in_common(
+    titles: tuple[str, ...], kept: list[int]
+) -> None:
+    marks = [conflicts.plan_marks(t, PATTERN) for t in titles]
+    sharers = [10 + k for k in range(len(titles))]
+    assert conflicts._paired(sharers, list(range(len(titles))), marks) == [10 + k for k in kept]
+
+
+def test_plans_at_one_place_never_pair_each_other() -> None:
+    marks = [conflicts.plan_marks(t, PATTERN) for t in ("CAP PC1", "CAP PC1", "CAP PC2")]
+    assert conflicts._paired([0, 1, 2], [0, 0, 1], marks) == []

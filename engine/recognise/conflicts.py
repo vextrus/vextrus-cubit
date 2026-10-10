@@ -38,7 +38,8 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2" are one number, never a run
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
   its title does not, or its views of its title's kind all disagree with it by layer or by every other
-  word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
+  word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`
+  when it would have run on from or into one of them (S19-B4's E2; else see a series).
   Nor do two consecutive numbers whose views state different storeys, or name different subjects
   (`_Drawn`: each states some, none shared; a stale title block on the next sheet, the owner's ruling of
   5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. Views that state the
@@ -53,13 +54,18 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
   GB2-GB9 DETAILS"), its joiner kept.
 - **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
-  places or more that do not all run on, none of its sheets contradicted and no consecutive pair parted
-  on what its views draw, whose runs draw different things (`_apart`). What a run draws, in this order:
-  (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a range, or
-  a word of one to three letters then one to four digits, "GRADE BEAM GB7") and its own titles' ranges,
-  each an interval; and only when it has neither, (c) the storeys, not symbolic, of the plan views of the
-  nearest sheet numbered before it (its group, Discipline and prefix) whose title reads as a plan (17's
-  `describe`): the layout each floor's details follow. The runs are a series when every run draws
+  places or more that do not all run on, no consecutive pair parted on what its views draw, and no
+  contradicted sheet among them that, its contradiction set aside, would run on from or into another of
+  its title's (by number and ascending ranges; S19-B4's E2: a copied title block far from its title is
+  told apart like any run), whose runs draw different things (`_apart`). What a run draws, in this
+  order: (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a
+  range, or a word of one to three letters then one to four digits, "GRADE BEAM GB7"; a section size's
+  second number, '11"X17"', is never a mark, E1, and "B-1" is never read: such marks restart on every
+  floor) and its own titles' ranges, each an interval; and only when it has neither, (c) the storeys,
+  not symbolic, of the plan views of the nearest sheet numbered before it (its group, Discipline and
+  prefix) whose title reads as a plan (17's `describe`): the layout each floor's details follow; when
+  that plan states only symbolic storeys (a tank's), the layer of the run's own titles, else of that
+  plan's views (E3), keyed apart from storeys. The runs are a series when every run draws
   something and no two share a storey or overlap in marks; else the title is `same_title` (one overlap
   keeps every sheet: no part is a series). What was not read is not different: a run that draws nothing
   keeps the Question.
@@ -76,7 +82,10 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   one class (`sheet_class`: a details sheet's title reads as a detail, a section or a schedule; every
   other is a layout sheet's): a layout sheet's plan is never compared with a details sheet's enlarged
   plan views (the owner's ruling of 5 Oct 2026). Never two views of one sheet, or of one continuation,
-  alone: the views must lie on two places or more. One Conflict per set of views: those sharing a storey,
+  alone: the views must lie on two places or more. Two plans whose titles both name member marks
+  (`plan_marks`: "P.C-1", "PC1", a range; never level words and numbers, "LEVELS 2 TO 5") with none in
+  common are never paired (S19-B4's E6: one pile cap's plan is not another's); a plan naming none pairs
+  with every plan. One Conflict per set of views: those sharing a storey,
   grouped by the set, so two plans overlapping on two floors are one Conflict. Evidence, for the words
   (m0-screens §5's "S-14 and S-15 both draw the 5th floor slab, bottom layer"): the first two sheets'
   numbers (else titles); the titles, as drawn, of their plans in the set (they state the storey and what
@@ -310,7 +319,7 @@ def compare(
             title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
             if (
-                not any(alone)
+                not _blocking(units, alone, reader, sheets, spans)
                 and not stale
                 and _apart(members_of, views, ranges, reader, plans, pattern)
             ):
@@ -319,12 +328,35 @@ def compare(
             evidence = codes.SAME_TITLE(title=title, sheets=len(ordered))["params"]
             by_title.append((min(ordered), Conflict(SAME_TITLE, candidates, evidence)))
 
-    by_storey = _same_storey(sheets, views, places, reader)
+    by_storey = _same_storey(sheets, views, places, reader, pattern)
     found: list[Found] = [c for _, c in sorted(continuations, key=_first)]
     found.extend(s for _, s in sorted(series, key=_first))
     for batch in (by_number, by_title, by_storey):
         found.extend(conflict for _, conflict in sorted(batch, key=_first))
     return found
+
+
+def _blocking(
+    units: list[list[int]],
+    alone: Sequence[bool],
+    reader: _Reader,
+    sheets: Sequence[SheetCandidate],
+    spans: list[list[_Span]],
+) -> bool:
+    """Whether a contradicted unit blocks its title's series: only one that, its contradiction set
+    aside, would run on from or into another unit of its title (by number and ascending ranges, #102:
+    a copied title block on the next sheet). One that runs on with none is told apart like any run
+    (S19-B4's E2)."""
+    if not any(alone):
+        return False
+    free = _runs(
+        units,
+        [reader.parts(sheets[unit[0]]) for unit in units],
+        [False] * len(units),
+        lambda before, after: _ascending(spans[before], spans[after]),
+    )
+    at = {id(unit): u for u, unit in enumerate(units)}  # by position: `_runs` returns the very units
+    return any(len(run) > 1 and any(alone[at[id(unit)]] for unit in run) for run in free)
 
 
 class _Drawn:
@@ -736,10 +768,24 @@ _MARK = re.compile(r"(?<![^\W_])([^\W\d_]{1,3})(\d{1,4})(?![^\W_])")
 ("GRADE BEAM GB7", "C12"), the marks the member range pattern joins."""
 
 
+_SIZE_TIMES = re.compile(r"(?<=\d)(\s*(?:(?:''|[\"'\u2032\u2033]|mm|cm)\s*)?)[xX\u00d7](?=\s*\d)")
+"""The times sign of a section size ('11"X17"', '9" x 13"', "230x300", "500 mm X 500"): a digit, its
+unit or none, spaces, an x, then a digit. Its x and the next number are no member mark (S19-B4's E1).
+Spaces are read once, never by two quantifiers in a row: a view's title is read raw, and a long run of
+spaces must not cost a square of its length."""
+
+
+def unsized(text: str) -> str:
+    """The text with each section size's times sign made a space, so its second number reads as no
+    member mark ('B-1, 11"X23"' names no mark `X23`)."""
+    return _SIZE_TIMES.sub(lambda match: match.group(1) + " ", text)
+
+
 def _marks(text: str, pattern: str | None) -> list[tuple[str, int, int]]:
-    """The member marks a view's title names, each an interval: its ranges and its single marks."""
+    """The member marks a view's title names, each an interval: its ranges and its single marks; a
+    section size is no mark (`unsized`)."""
     found = [(r.letters, r.low, r.high) for r in member_ranges(clean(text), pattern)]
-    for match in _MARK.finditer(text):
+    for match in _MARK.finditer(unsized(text)):
         letters = normal(match.group(1))
         if letters is not None:
             number = int(match.group(2))
@@ -804,7 +850,11 @@ def _apart(
     """Whether a title's runs draw different things (a series), by what each run draws: (a) the
     storeys its views state, (b) the member marks its views' titles and its own titles' ranges name,
     and (c) only when it has neither, the storeys of the plan views of the nearest plan sheet before
-    it. Apart when every run draws something and no two share a storey or overlap in marks."""
+    it, or, when that plan states only symbolic storeys, a layer: its own titles' (17's `describe`),
+    else that plan's views' (S19-B4's E3; keyed `layer:<key>`, so a layer never equals a storey).
+    Apart when every run draws something and no two share a storey or overlap in marks."""
+    from engine.recognise.views import describe  # 17's, imported where it is used
+
     storeys_of: dict[str, int] = {}
     marks: list[tuple[str, int, int, int]] = []
     for run, members in enumerate(runs):
@@ -819,12 +869,28 @@ def _apart(
                 for s in v.storeys
                 if not reader.symbolic(s)
             }
+            if not storeys:  # a plan of a symbolic storey (a tank's): its layer tells the runs apart
+                titles = (plans.sheets[i].title for i in members)
+                layers = {
+                    str(d.layer) for t in titles if t and (d := describe(t.value)).layer is not None
+                }
+                if not layers:
+                    layers = {
+                        str(v.layer)
+                        for v in views[plan]
+                        if v.kind == ViewKind.PLAN and v.layer is not None
+                    }
+                storeys = {LAYER_KEY + layer for layer in layers}
         if not storeys and not named:
             return False  # what was not read is not different
         if any(storeys_of.setdefault(storey, run) != run for storey in storeys):
             return False
         marks += [(letters, low, high, run) for letters, low, high in named]
     return not _overlap(marks)
+
+
+LAYER_KEY = "layer:"
+"""How `_apart` keys a run's layer beside its storeys, so a layer never equals a storey."""
 
 
 def _overlap(marks: list[tuple[str, int, int, int]]) -> bool:
@@ -927,6 +993,7 @@ def _same_storey(
     views: Sequence[Sequence[ViewCandidate]],
     places: _Places,
     reader: _Reader,
+    pattern: str | None = None,
 ) -> list[tuple[int, Conflict]]:
     """One storey drawn twice, by the module's rules: each (bucket, storey) gathers its views, and the
     views are grouped by the set they make. A bucket holds one class of sheet (`sheet_class`): a
@@ -953,7 +1020,13 @@ def _same_storey(
             for storey in storeys:
                 sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
     sets: dict[tuple[tuple[str, str, str, str, str], tuple[int, ...]], list[str]] = {}
+    named: dict[int, list[tuple[str, int, int]]] = {}  # each plan's marks, read once it is compared
     for (bucket, storey), sharers in sharing.items():
+        if len({flat[v][1] for v in sharers}) > 1:
+            for v in sharers:
+                if v not in named:
+                    named[v] = plan_marks(flat[v][0].title, pattern)
+            sharers = _paired(sharers, [flat[v][1] for v in sharers], [named[v] for v in sharers])
         if len({flat[v][1] for v in sharers}) > 1:
             sets.setdefault((bucket, tuple(sharers)), []).append(storey)
     found = []
@@ -988,3 +1061,74 @@ def _same_storey(
         candidates = tuple(flat[v][0] for v in members)
         found.append((members[0], Conflict(SAME_STOREY, candidates, evidence)))
     return found
+
+
+_PLAN_MARK = re.compile(
+    r"(?<![^\W_])([^\W\d_]{1,3}|[^\W\d_](?:\.[^\W\d_]){1,2}\.?)-?(\d{1,4})(?![^\W_])"
+)
+"""A member mark in a plan's title, for `same_storey`: one to three letters, or letters with dots
+between ("P.C"), then a hyphen or none, then one to four digits, a word each side ("CAP P.C-1",
+"PC1", "B-2"). Never words and numbers apart ("LEVELS 2 TO 5": a space is no part of a mark)."""
+
+
+def plan_marks(title: str | None, pattern: str | None) -> list[tuple[str, int, int]]:
+    """The member marks a plan's title names, each an interval (letters, dots dropped, in normal form):
+    its ranges (the conventions' pattern) and its single marks; a section size is no mark
+    (`unsized`). None for no title."""
+    if not title:
+        return []
+    text = unsized(clean(title))
+    found = [(r.letters, r.low, r.high) for r in member_ranges(text, pattern)]
+    for match in _PLAN_MARK.finditer(text):
+        letters = normal(match.group(1).replace(".", ""))
+        if letters is not None:
+            number = int(match.group(2))
+            found.append((letters, number, number))
+    return found
+
+
+def _paired(
+    sharers: Sequence[int], places: Sequence[int], marks: Sequence[Sequence[tuple[str, int, int]]]
+) -> list[int]:
+    """The plans of one (bucket, storey) that pair with a plan at another place: two plans pair unless
+    both titles name member marks and none in common (S19-B4's E6: one pile cap's plan is not
+    another's). `places[k]` and `marks[k]` are `sharers[k]`'s. In one sort: an interval meets one of
+    another place when, among the intervals starting at or below its end (of its letters), the
+    highest end of another place reaches its start."""
+    bare = [k for k in range(len(sharers)) if not marks[k]]
+    bare_places = {places[k] for k in bare}
+    every = set(places)
+    keep = [False] * len(sharers)
+    for k in range(len(sharers)):
+        if marks[k]:
+            keep[k] = bool(bare_places - {places[k]})  # a plan naming no mark pairs with every plan
+        else:
+            keep[k] = len(every) > 1
+    spans = sorted(
+        (letters, low, high, k) for k in range(len(sharers)) for letters, low, high in marks[k]
+    )
+    by_letters: dict[str, tuple[list[int], list[tuple[int, int, int, int]]]] = {}
+    best = second = (-1, -1)  # the prefix's highest end, and the highest of another place than its
+    for letters, low, high, k in spans:
+        if letters not in by_letters:
+            by_letters[letters] = ([], [])
+            best = second = (-1, -1)
+        place = places[k]
+        if place == best[1]:
+            best = (max(best[0], high), place)
+        elif high > best[0]:
+            best, second = (high, place), best
+        elif high > second[0]:
+            second = (high, place)
+        lows, tops = by_letters[letters]
+        lows.append(low)
+        tops.append((*best, *second))
+    for letters, low, high, k in spans:
+        if keep[k]:
+            continue
+        lows, tops = by_letters[letters]
+        at = bisect.bisect_right(lows, high) - 1  # the last interval starting at or below its end
+        best_high, best_place, second_high, _ = tops[at]
+        other = best_high if best_place != places[k] else second_high
+        keep[k] = other >= low
+    return [sharers[k] for k in range(len(sharers)) if keep[k]]
