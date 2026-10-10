@@ -34,10 +34,12 @@ Missed or wrong:
      set's highest numbered floor when Step 1 builds its set view (Edison stays 0 wrong) (`diag-s15-top.md`).
 - **Train A is not landed: PR #641 (branch `s20-train-a`, head 133bf426; #638 closed as superseded).** Its gates on
   133bf426 are posted (real-drawings, design-gate); its review round 1 is FIX with four findings in #642, the first a
-  70: review 3's fix retires a same-storey Question beside a confirmed sheet at another place. **Start here:** one fix
-  round for #642 (its builder's worktree `.claude/worktrees/S18-TRAINA-FIX2`, branch `s18-train-a` = 133bf426;
-  push the fix to `s20-train-a`), verify alone, round 2 of #641, re-post real drawings and the design gate on the new
-  head, land. Fix rounds left on #641: two (round 3 needs an exception).
+  70: review 3's fix retires a same-storey Question beside a confirmed sheet at another place. Train A has had four
+  reviews: three on #638 and the owner's one extra (round 1 of #641); ADR 0041 allows no more without the owner.
+  **Start here: ask the owner first**, recommending "one fix round for #642 and one more review on #641" (the
+  defects are small and the train holds seven tickets), the alternative being #642 as a new ticket after Train A
+  lands as is. If allowed: fix in `.claude/worktrees/S18-TRAINA-FIX2` (branch `s18-train-a` = 133bf426), push the
+  fix to `s20-train-a`, verify alone, the review, re-post real drawings and the design gate on the new head, land.
 - **Train B (branch `s20-train-b`, head 7b312dd0, local integrator in `.claude/worktrees/S20-TRAIN-B`):** S19-B1
   (number run), B2 (boundary storey by convention), B3 (stale layout dropped; ts15e4 amended), B4 (false conflicts;
   **changes `tools/scorer/`: the owner's custody re-run after it lands**), B5 (unbracketed storey line, ceiling
