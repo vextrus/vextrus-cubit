@@ -63,11 +63,27 @@ export function useKindLine(entry: QuestionEntry): string {
   const { i18n, t } = useLingui()
   const f = useFormat()
   const q = entry.question
+  // Counted as its body counts them, the sheets it holds (#167's words gate; review 2 of #641: one
+  // held, the others confirmed or left out, is never "two sheets"): "One title on 3 sheets".
+  const held = (key: string) => {
+    const n = q.params[key]
+    return typeof n === 'number' ? n : entry.holds.length
+  }
   if (q.code === 'engine.conflicts.same_title') {
-    // Counted as its body counts them (#167's words gate): "One title on 3 sheets".
-    const n = typeof q.params.sheets === 'number' ? q.params.sheets : entry.holds.length
+    const n = held('sheets')
     const count = f.integer(n)
+    if (n === 1) return t`One title on one sheet still to confirm`
     if (n > 2) return t`One title on ${count} sheets`
+  }
+  if (q.code === 'engine.conflicts.same_number') {
+    const n = held('copies')
+    const count = f.integer(n)
+    if (n > 2) return t`${count} sheets, one number`
+  }
+  if (q.code === 'engine.conflicts.same_storey') {
+    const n = held('sheets')
+    const count = f.integer(n)
+    if (n > 2) return t`Plans on ${count} sheets draw one thing`
   }
   return i18n._(QUESTION_KIND_BY_CODE[q.code] ?? QUESTION_KINDS[q.kind] ?? OTHER_QUESTION)
 }

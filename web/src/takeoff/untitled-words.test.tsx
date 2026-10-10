@@ -120,3 +120,24 @@ describe('a same-title conflict’s heading counts its sheets (#167 words gate, 
     expect(words(<KindLine entry={entryOf({ ...question, params: { ...question.params, sheets: 3 } }, [])} />)).toBe('One title on 3 sheets')
   })
 })
+
+describe('a conflict’s heading counts the sheets it holds, one and more (review 2 of #641)', () => {
+  const fake = new FakeAnswers()
+  const of = (code: string) => fake.everyShape().find((q) => q.code === code)!
+  const heading = (code: string, params: Record<string, unknown>) => {
+    const question = of(code)
+    return words(<KindLine entry={entryOf({ ...question, params: { ...question.params, ...params } }, [])} />)
+  }
+  it('heads a same title holding one sheet, the others confirmed or left out, as one sheet', () => {
+    expect(heading('engine.conflicts.same_title', { sheets: 1 })).toBe('One title on one sheet still to confirm')
+    expect(heading('engine.conflicts.same_title', { sheets: 2 })).toBe('One title on two sheets')
+  })
+  it('heads three copies of one number as three sheets', () => {
+    expect(heading('engine.conflicts.same_number', { copies: 3 })).toBe('3 sheets, one number')
+    expect(heading('engine.conflicts.same_number', { copies: 2 })).toBe('Two sheets, one number')
+  })
+  it('heads a same storey over three sheets as plans on three sheets, never two plans', () => {
+    expect(heading('engine.conflicts.same_storey', { sheets: 3 })).toBe('Plans on 3 sheets draw one thing')
+    for (const sheets of [1, 2]) expect(heading('engine.conflicts.same_storey', { sheets })).toBe('Two plans draw one thing')
+  })
+})

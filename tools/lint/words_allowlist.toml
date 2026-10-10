@@ -260,6 +260,16 @@ rule = "count without a plural"
 reason = "Shown only when n > 2 (questionWords.tsx:40; two sheets read \"One title on two sheets\"): it never reads \"1 sheets\"."
 
 [[allow]]
+msgid = "{count} sheets, one number"
+rule = "count without a plural"
+reason = "Shown only when a same number holds more than two copies (questionWords.tsx useKindLine; two read \"Two sheets, one number\"): it never reads \"1 sheets\"."
+
+[[allow]]
+msgid = "Plans on {count} sheets draw one thing"
+rule = "count without a plural"
+reason = "Shown only when a same storey holds more than two sheets (questionWords.tsx useKindLine; one or two read \"Two plans draw one thing\"): it never reads \"1 sheets\"."
+
+[[allow]]
 msgid = "<0/><1>, {count} copies</1>"
 rule = "count without a plural"
 reason = "A copies row holds two or more sheets (model.ts:272, holds.length > 1): it never reads \"1 copies\"."

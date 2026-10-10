@@ -1,8 +1,8 @@
 /*
  * The title-against-plans Question's title (engine.storey_titles.differs) is m0-screens §5's row,
  * verbatim (review 1 of #641, scored 55): "…do not agree with, for example S-11, which names …", no
- * comma after "example", and the singular branch in the row's form, not a colon of its own. The row
- * is read from the spec, so a change to either side fails here.
+ * comma after "example"; one sheet "namely" (review 2 of #641: never "for example" over one sheet), as
+ * the row's one-sheet form. The row is read from the spec, so a change to either side fails here.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -24,27 +24,32 @@ function specRow(): string {
   const spec = readFileSync(join(ROOT, 'docs', 'design', 'm0-screens.md'), 'utf8')
   const line = spec.split('\n').find((l) => l.startsWith('| Sheet titles and plans name different storeys'))
   if (!line) throw new Error('m0-screens §5 has no row for the title-against-plans Question')
-  const quoted = /\| "([^"]+)" Trace:/.exec(line)?.[1]
-  if (quoted === undefined) throw new Error('the row quotes no title')
-  return quoted
+  return line
+}
+
+/** The row's title for 3 sheets, and for one ("(one sheet: "…")"), as quoted. */
+function specTitles(): { many: string; one: string } {
+  const row = specRow()
+  const many = /\| "([^"]+)"/.exec(row)?.[1]
+  const one = /\(one sheet: "([^"]+)"\)/.exec(row)?.[1]
+  if (many === undefined || one === undefined) throw new Error('the row quotes no title for 3 sheets and for one')
+  return { many, one }
 }
 
 describe('engine.storey_titles.differs', () => {
   it('words three sheets exactly as m0-screens §5’s row', () => {
-    expect(said(3)).toBe(specRow())
+    expect(said(3)).toBe(specTitles().many)
   })
-  it('puts no comma after "for example"', () => {
-    for (const n of [1, 2, 5]) expect(said(n)).not.toMatch(/for example,/)
+  it('words one sheet exactly as the row’s one-sheet form: "namely", never "for example" over one sheet', () => {
+    expect(said(1)).toBe(specTitles().one)
+    expect(said(1)).not.toContain('for example')
+    expect(said(1)).toContain('agree with, namely S-11, which names')
   })
-  it('words one sheet in the row’s form, no colon of its own', () => {
-    expect(said(1)).toBe(
-      'The title of 1 sheet names storeys its plans do not agree with, for example S-11, which names ' +
-        '“3RD, 5TH & 7TH FLOOR” (1 storey in the title has no plan, and 1 storey on a plan is not in the ' +
-        'title). Vextrus takes the storeys from the plans.',
-    )
-    expect(said(1)).not.toContain(':')
+  it('puts no comma after "for example" or "namely"', () => {
+    for (const n of [1, 2, 5]) expect(said(n)).not.toMatch(/(for example|namely),/)
   })
   it('names a sheet known by its title as the row does a number', () => {
     expect(said(2, 'SLAB LAYOUT', 'title')).toContain('for example the sheet titled “SLAB LAYOUT”, which names')
+    expect(said(1, 'SLAB LAYOUT', 'title')).toContain('namely the sheet titled “SLAB LAYOUT”, which names')
   })
 })
