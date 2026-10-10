@@ -747,7 +747,11 @@ def _undecided(
     A same storey's words name and quote the sheets it holds (`named`: each sheet's name and plan
     title as 19b compared it): once a sheet is decided, its first two undecided ones, or the one it
     holds alone, their plans' titles read again from those sheets (reviews 1 and 2 of #638: never a
-    sheet, or a plan's title, the Question no longer holds). None: nothing to ask."""
+    sheet, or a plan's title, the Question no longer holds). Those it holds all at one place (the
+    copies of a number, a run's sheets) are one storey drawn once, nothing to ask (review 3 of #638),
+    unless a sheet confirmed at another place draws it too: then the first is named alone (`alone`),
+    like that sheet, and the Question still counts every sheet it holds (review 1 of #641). None:
+    nothing to ask."""
     undecided = [s for s in held if not s.decision]
     evidence = dict(conflict.evidence)
     if conflict.kind == finder.SAME_NUMBER:
@@ -765,14 +769,28 @@ def _undecided(
             if not kept:
                 return None
             first = kept[0]
+
+            def elsewhere(w: _Named) -> bool:
+                return w.place is None or w.place != first.place
+
             # The second sheet named lies at another place than the first, as 19b names its two
             # (review 3 of #638): never a copy of the first's number, or a sheet of its run.
-            apart = [w for w in kept[1:] if w.place is None or w.place != first.place]
-            if len(kept) > 1 and not apart:
-                return None  # every sheet it holds lies at one place: one storey drawn once
-            beside = apart[:1] if len(kept) > 1 else []
-            # One sheet held: it draws the storey like a sheet confirmed or left out, at another place.
-            like = [w for w in out if w.place is None or w.place != first.place][:1]
+            apart = [w for w in kept[1:] if elsewhere(w)]
+            confirmed = [named[s.id] for s in held if s.decision == CONFIRMED and s.id in named]
+            confirmed = [w for w in confirmed if elsewhere(w)]
+            if len(kept) > 1 and not apart and not confirmed:
+                # Two or more held, all at one place, and no sheet confirmed at another draws the
+                # storey: one storey drawn once (review 3 of #638). One sheet held alone is the
+                # Question narrowed to its last sheet, and still asks, like a sheet left out too
+                # (review 2 of #638, `test_one_held_sheet_quotes_its_own_plan_alone`).
+                return None
+            # Every sheet it holds lies at one place (one alone, the copies of a number, a run's
+            # sheets): the first is named alone, drawing the storey like a sheet confirmed or left
+            # out at another place, a confirmed one first (review 1 of #641: copies of S-41 beside a
+            # confirmed S-44 are one storey drawn twice).
+            alone = not apart
+            beside = [] if alone else apart[:1]
+            like = (confirmed or [w for w in out if elsewhere(w)])[:1]
             if first.name is not None:
                 evidence["first"], evidence["first_named"] = first.name
             second = next(iter(beside or like), None)
@@ -781,6 +799,7 @@ def _undecided(
             elif not beside:
                 evidence["second"], evidence["second_named"] = "", "none"
             evidence |= _storey_words([first, *beside])
+            evidence["alone"] = "yes" if alone else "no"
     return evidence, undecided
 
 

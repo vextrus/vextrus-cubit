@@ -17,7 +17,10 @@ a title is drawing text, as the first candidate prints it; the rest are counts a
   second sheet's plans (they state the storey and what is drawn); `titled` is `same` (the two titles
   alike: `plan` only), `differ` (both) or `none` (either plan untitled: both empty); `layer` is `top`,
   `bottom` or `none`; `views` how many (2 or more); `sheets` how many sheets they lie on (2 or more; 21c
-  sets it to the sheets its Question still holds), which the words count. 21c's Question title must word
+  sets it to the sheets its Question still holds), which the words count; `alone` is `yes` when the
+  sheets its Question still holds lie at one place (one sheet, the copies of a number, a run's sheets):
+  21c names the first alone, drawing the storey like `second`, a sheet confirmed or left out at another
+  place (review 1 of #641), else `no` (19b's own: two places). 21c's Question title must word
   m0-screens §5's verbatim from `storey` and `subject` once display words exist; this message is the
   Conflict's evidence line until then.
   `discipline`, `subject` and `storey` are keys (the Discipline's, the conventions' subject, 13's
@@ -32,6 +35,6 @@ SAME_STOREY = MessageCode(
     "engine.conflicts.same_storey",
     params=(
         "first", "first_named", "second", "second_named", "plan", "other", "titled", "layer", "views",
-        "sheets", "discipline", "subject", "storey",
+        "sheets", "alone", "discipline", "subject", "storey",
     ),
 )  # fmt: skip

@@ -397,6 +397,10 @@ msgid "Answering leaves the sheet without a number; confirm it in the list."
 msgstr "Answering leaves the sheet without a number; confirm it in the list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{count} sheets, one number"
+msgstr "{count} sheets, one number"
+
+#: src/takeoff/questionWords.tsx
 msgid "This file may be misread"
 msgstr "This file may be misread"
 
@@ -449,6 +453,10 @@ msgid "{n, plural, one {Answering confirms # sheet.} other {Answering confirms #
 msgstr "{n, plural, one {Answering confirms # sheet.} other {Answering confirms # sheets.}}"
 
 #: src/takeoff/questionWords.tsx
+msgid "Plans on {count} sheets draw one thing"
+msgstr "Plans on {count} sheets draw one thing"
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering decides which drawing list {name}’s sheets are counted against."
 msgstr "Answering decides which drawing list {name}’s sheets are counted against."
 
@@ -483,6 +491,10 @@ msgstr "Answering keeps this Question open."
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {copies}; {source}"
 msgstr "Trace: the title blocks of {copies}; {source}"
+
+#: src/takeoff/questionWords.tsx
+msgid "One title on one sheet still to confirm"
+msgstr "One title on one sheet still to confirm"
 
 #: src/takeoff/questionWords.tsx
 msgid "Both are titled “{title}”. Only one can be read."

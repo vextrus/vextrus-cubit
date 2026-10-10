@@ -8,4 +8,4 @@ msgstr ""
 
 #. vextrus/platform/messages/acts.py (S15-A2): an act refused because another change held what it changes (503).
 msgid "platform.acts.busy"
-msgstr "Someone else, or a file still reading, was changing this at the same time, so it was left as it was. Try again in a moment."
+msgstr "Someone else, or a file still being read, was changing this at the same time, so it was left as it was. Try again in a moment."

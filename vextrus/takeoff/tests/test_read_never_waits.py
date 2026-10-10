@@ -24,6 +24,7 @@ from django.db import OperationalError, connection, transaction
 
 from engine.read import pdf as pdf_reader
 from vextrus.drawings import services as drawings
+from vextrus.platform.messages import acts as said_acts
 from vextrus.platform.services import deadlocks, jev
 from vextrus.takeoff.models import StepProgress
 from vextrus.takeoff.services import step1 as step1_services
@@ -937,8 +938,9 @@ def test_a_confirm_aborted_once_by_postgres_is_run_again_and_answered(
 def test_a_confirm_aborted_past_the_retries_is_refused_whole_and_any_other_error_is_not_retried(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, parked: Parked
 ) -> None:
-    """Aborted on every try: three tries, then 503 and nothing kept. Another database error: one
-    try, raised as it is."""
+    """Aborted on every try: three tries, then 503 and nothing kept. The last try's answer is the
+    busy refusal (review 1 of #641): a body-less 503 reads as "cannot reach Vextrus" in the web.
+    Another database error: one try, raised as it is."""
     read_first_and_plot(qs_project, monkeypatch)
     project_id = qs_project.project_id
     api = api_as(qs_project.member)
@@ -951,7 +953,9 @@ def test_a_confirm_aborted_past_the_retries_is_refused_whole_and_any_other_error
 
     monkeypatch.setattr(deadlocks, "PAUSE", 0)
     monkeypatch.setattr(step1_services, "confirm", always_aborted)
-    assert confirm(api, project_id, [p01["id"]]).status_code == 503
+    refused = confirm(api, project_id, [p01["id"]])
+    assert refused.status_code == 503
+    assert refused.json() == said_acts.BUSY(), refused.content
     assert len(tries) == deadlocks.RETRIES + 1
     assert the(proposals(api, project_id), "S-01")["decision"] in (None, "", "proposed")
 
