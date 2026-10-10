@@ -96,6 +96,24 @@ FAIL_SAFE = 60.0
 """Seconds an Event is waited on before a test gives up (a hung thread, never the verdict)."""
 
 
+def waited(event: threading.Event, seconds: float) -> bool:
+    """Whether `event` is set within `seconds` by the monotonic clock. A Python built without
+    `sem_clockwait` ends a timed `Event.wait` at a wall-clock deadline, so a forward jump of the wall
+    clock (WSL2's time sync) returns it early; the wait goes on for what remains."""
+    deadline = time.monotonic() + seconds
+    while not event.wait(max(deadline - time.monotonic(), 0.0)):
+        if time.monotonic() >= deadline:
+            return False
+    return True
+
+
+def joined(thread: threading.Thread, seconds: float) -> None:
+    """`thread.join(seconds)` by the monotonic clock, as `waited`."""
+    deadline = time.monotonic() + seconds
+    while thread.is_alive() and (left := deadline - time.monotonic()) > 0:
+        thread.join(left)
+
+
 # Jev: a stand-in TypeSafe that notes where it was asked from ---------------------------------------
 
 
@@ -127,7 +145,7 @@ class StandInJev:
         self.asked.append(in_a_transaction())
         if self.armed and not self.reached.is_set():
             self.reached.set()
-            assert self.released.wait(FAIL_SAFE), "the test never let Jev answer"
+            assert waited(self.released, FAIL_SAFE), "the test never let Jev answer"
         body = json.loads(request.content)
         answers = {}
         for node, asked in body["questions"].items():
@@ -164,7 +182,7 @@ class ParkedPlot:
     def __call__(self, path: Path, **_: Any) -> list[Any]:
         if self.armed and not self.reached.is_set():
             self.reached.set()
-            assert self.released.wait(FAIL_SAFE), "the test never released the read job"
+            assert waited(self.released, FAIL_SAFE), "the test never released the read job"
         return []
 
 
@@ -229,7 +247,7 @@ def blocked_by(pid: int) -> list[int]:
 def watched(act: Outcome, job: Outcome) -> bool:
     """Watch the act until it finishes (True) or Postgres shows it waiting on another backend
     (False). While the read job is parked, a wait can only be on the job."""
-    assert act.started.wait(FAIL_SAFE), "the act's thread never started"
+    assert waited(act.started, FAIL_SAFE), "the act's thread never started"
     assert act.pid is not None, act.error
     while not act.done.wait(0.02):
         if blocked_by(act.pid):
@@ -271,7 +289,7 @@ def act_while_the_later_file_finishes(
     act_thread: threading.Thread | None = None
     acted = Outcome()
     try:
-        reached = parked.reached.wait(FAIL_SAFE)
+        reached = waited(parked.reached, FAIL_SAFE)
         assert reached or job.done.is_set(), "the read job neither parked nor ended"
         assert reached, f"the later file's read job never reached the parked call: {job.error!r}"
         assert str(file_state(qs, later)) != str(drawings.FileState.READ), "parked after the read"
@@ -280,8 +298,8 @@ def act_while_the_later_file_finishes(
     finally:
         parked.released.set()
     if act_thread is not None:
-        act_thread.join(FAIL_SAFE)
-    job_thread.join(FAIL_SAFE)
+        joined(act_thread, FAIL_SAFE)
+    joined(job_thread, FAIL_SAFE)
     assert acted.done.is_set(), "the act's thread did not end"
     assert job.done.is_set(), "the read job's thread did not end"
     if acted.error is not None:
@@ -479,7 +497,7 @@ def hold_row(proposal_id: str) -> tuple[threading.Thread, Holder]:
                 cursor.execute("select id from takeoff_proposal where id = %s for update", [proposal_id])
                 holder.found = cursor.fetchone() is not None
                 holder.holding.set()
-                holder.released.wait(FAIL_SAFE)
+                waited(holder.released, FAIL_SAFE)
         except BaseException as error:
             holder.error = error
         finally:
@@ -504,15 +522,15 @@ def test_an_act_blocked_on_a_held_row_is_refused_in_words_and_changes_nothing(
 
     holder_thread, holder = hold_row(made.row)
     try:
-        assert holder.holding.wait(FAIL_SAFE), "the row was never held"
+        assert waited(holder.holding, FAIL_SAFE), "the row was never held"
         assert holder.error is None, holder.error
         assert holder.found, "the Proposal's row was not found to hold"
         act_thread, acted = in_thread(made.do)
-        came_back = acted.done.wait(LOCK_TRIPWIRE)
+        came_back = waited(acted.done, LOCK_TRIPWIRE)
     finally:
         holder.released.set()
-    act_thread.join(FAIL_SAFE)
-    holder_thread.join(FAIL_SAFE)
+    joined(act_thread, FAIL_SAFE)
+    joined(holder_thread, FAIL_SAFE)
     assert came_back, f"the {act} waited on a held row for over {LOCK_TRIPWIRE} s: no lock_timeout"
     if acted.error is not None:
         raise acted.error
