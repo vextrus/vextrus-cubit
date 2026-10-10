@@ -78,7 +78,9 @@ describe('a revoked member’s next click (4.4’s finish line, step 10)', () =>
     expect(clean(screen.getByRole('main').querySelector('p')?.textContent)).toBe(
       'Your access to Shapla Homes Ltd has ended. Kamal Uddin revoked it on 28 Sep 2026. What you did before then is kept under your name.',
     )
-    expect(api.calls().slice(before)[0]).toBe('GET /api/me')
+    // The list's rows read their own files and Step 1 (and poll while a file is read): not what this test is about.
+    const rowReadings = /^GET \/api\/projects\/[^/]+\/(drawings\/files|takeoff\/step1\/progress)/
+    expect(api.calls().slice(before).find((call) => !rowReadings.test(call))).toBe('GET /api/me')
     await waitFor(() => expect(document.body.textContent).not.toContain('Bokul Place'))
   })
 

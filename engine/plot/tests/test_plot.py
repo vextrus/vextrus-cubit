@@ -812,3 +812,35 @@ def test_textless_pages_fitting_more_sheets_than_ink_tries_load_no_buffers_per_p
 
     assert {m.reason for m in found} == {"no_text"}
     assert geometry.loads <= 2 * len(sheets), geometry.loads
+
+
+@pytest.mark.parametrize(
+    ("crop", "shown"),
+    [((100.0, 50.0, 2484.0, 1734.0), (100.0, 50.0, 2384.0, 1684.0)),
+     ((2484.0, 1734.0, 100.0, 50.0), (100.0, 50.0, 2384.0, 1684.0)),
+     ((-500.0, -500.0, 9e9, 9e9), (0.0, 0.0, 2584.0, 1884.0)),
+     ((0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 2584.0, 1884.0)),
+     ((math.nan, 0.0, 10.0, 10.0), (0.0, 0.0, 2584.0, 1884.0)),
+     ((5000.0, 5000.0, 6000.0, 6000.0), (0.0, 0.0, 2584.0, 1884.0))],
+)  # fmt: skip
+def test_a_page_is_shown_as_its_cropbox_cut_to_the_page(
+    crop: tuple[float, float, float, float], shown: tuple[float, float, float, float]
+) -> None:
+    """#240: a viewer shows a page's CropBox; one reaching past the page is cut to it, and one with no
+    size on the page (a hostile file's) leaves the whole page."""
+    page = replace(page_of(size=(2584.0, 1884.0)), crop=crop)
+    assert registration.shown(page) == pytest.approx(shown)
+
+
+def test_a_page_placed_by_its_sizes_is_centred_on_its_cropbox() -> None:
+    """A sheet on a page whose CropBox is inset in a larger MediaBox lands on the CropBox at 1:1."""
+    sheet_pt = (A1[0] * registration.PT_PER_MM, A1[1] * registration.PT_PER_MM)
+    page = replace(
+        page_of(size=(sheet_pt[0] + 300, sheet_pt[1] + 200)),
+        crop=(100.0, 50.0, 100.0 + sheet_pt[0], 50.0 + sheet_pt[1]),
+    )
+    placed = registration.place(page, sheet(), sheet_buffers())
+    assert placed is not None
+    transform, _ = placed
+    assert transform.scale == pytest.approx(registration.PT_PER_MM)
+    assert transform.offset == pytest.approx((100.0, 50.0), abs=0.01)

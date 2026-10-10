@@ -47,6 +47,8 @@ export interface Row {
   /** The last number of a continuation; the first number after a numbering gap. */
   numberTo: string | null
   question: QuestionEntry | null
+  /** How many sheets share its title as one series (the server's `series`: one title on several runs, no Question); absent when in none. */
+  shares?: number
 }
 
 export interface QuestionEntry {
@@ -74,6 +76,8 @@ export interface DisciplineSection {
   numbering: { first: string; last: string; missing: readonly string[]; twice: readonly string[] } | null
   /** Every sheet settled, none of its Questions open, no view unaccounted (m0-screens §5). */
   confirmed: boolean
+  /** The sheets beside a numbering gap its open gap Question asks about (#229): one source each until it is answered. */
+  besideGap?: readonly string[]
 }
 
 export interface Bulk {
@@ -202,15 +206,30 @@ export function answeredQueue(questions: readonly QuestionOut[], proposals: read
 const decided = (p: ProposalOut) => p.decision !== null
 const sameState = (a: ProposalOut, b: ProposalOut) => a.decision === b.decision && a.excluded_reason === b.excluded_reason
 
-/** Consecutive numbers of one series with the same title: one continuation (m0-screens §5, Q3). */
+/**
+ * Two sheets, next in the list, of one continuation. The server names each run (`continuation`,
+ * T-W334): one title on consecutive numbers, or titles equal but for a member-mark range, and never
+ * two consecutive sheets whose views state different storeys or name different subjects (a stale
+ * pair, asked as a Question). A server before T-W334 sends no `continuation`: then consecutive numbers
+ * of one series with the same title are one (m0-screens §5, Q3). Never two sheets decided apart.
+ */
 function continues(a: ProposalOut, b: ProposalOut): boolean {
-  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title || a.discipline !== b.discipline || !sameState(a, b)) return false
+  if (a.discipline !== b.discipline || !sameState(a, b)) return false
+  if (a.continuation !== undefined || b.continuation !== undefined) return !!a.continuation && a.continuation === b.continuation
+  if (!a.number || !b.number || a.title.trim() === '' || a.title !== b.title) return false
   const x = numberParts(a.number)
   const y = numberParts(b.number)
   return !!x && !!y && x.prefix === y.prefix && x.suffix === y.suffix && y.running === x.running + 1
 }
 
-function sheetRows(sheets: readonly ProposalOut[]): Row[] {
+/** Each series' size (the server's `series`, every sheet of it counted, decided or not), by its id. */
+function seriesSizes(proposals: readonly ProposalOut[]): Map<string, number> {
+  const sizes = new Map<string, number>()
+  for (const p of proposals) if (p.series) sizes.set(p.series, (sizes.get(p.series) ?? 0) + 1)
+  return sizes
+}
+
+function sheetRows(sheets: readonly ProposalOut[], sizes: ReadonlyMap<string, number>): Row[] {
   const rows: Row[] = []
   for (const p of sheets) {
     const last = rows.at(-1)
@@ -218,7 +237,8 @@ function sheetRows(sheets: readonly ProposalOut[]): Row[] {
       rows[rows.length - 1] = { ...last, sheets: [...last.sheets, p], numberTo: p.number }
       continue
     }
-    rows.push({ key: `p:${p.id}`, kind: 'sheet', sheets: [p], number: p.number, numberTo: null, question: null })
+    const shares = p.series ? (sizes.get(p.series) ?? 0) : 0
+    rows.push({ key: `p:${p.id}`, kind: 'sheet', sheets: [p], number: p.number, numberTo: null, question: null, ...(shares > 1 ? { shares } : {}) })
   }
   return rows
 }
@@ -251,6 +271,35 @@ export function gapOf(q: QuestionOut): { after: string; before: string } | null 
   return q.code === 'engine.register_check.gap' && typeof after === 'string' && typeof before === 'string' ? { after, before } : null
 }
 
+export interface Gap {
+  after: string
+  before: string
+  missing: number
+}
+
+export const GAPS_CODE = 'engine.register_check.gaps'
+
+/**
+ * A Discipline's numbering gaps, as its one gap Question names them (#229: "all of one Discipline's
+ * gaps are asked as one Question"), in the Check's order; a Question asked before #229 names one gap.
+ * Empty for any other Question, or one whose gaps are not each two numbers and a count.
+ */
+export function gapsOf(q: QuestionOut): Gap[] {
+  const one = gapOf(q)
+  if (one) return [{ ...one, missing: typeof q.params.missing === 'number' ? q.params.missing : 1 }]
+  const listed: unknown = (q.params as Record<string, unknown>).gaps
+  if (q.code !== GAPS_CODE || !Array.isArray(listed)) return []
+  const gaps: Gap[] = []
+  for (const g of listed) {
+    if (!isRecord(g) || typeof g.after !== 'string' || typeof g.before !== 'string' || typeof g.missing !== 'number') return []
+    gaps.push({ after: g.after, before: g.before, missing: g.missing })
+  }
+  return gaps
+}
+
+/** Whether the Question is a Discipline's merged gap Question (it holds the sheets beside each gap, yet is a row of its own). */
+export const isGaps = (q: QuestionOut) => q.code === GAPS_CODE
+
 export function step1Model(data: Step1Data): Step1Model {
   const proposals = [...data.proposals].sort(
     (a, b) =>
@@ -264,11 +313,16 @@ export function step1Model(data: Step1Data): Step1Model {
   const answered = answeredQueue(data.questions, proposals, queue.length + withdrawnEntries.length)
   raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
-  for (const entry of [...queue, ...withdrawnEntries]) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  // The sheets beside a gap stay in their Discipline's rows, one source each while the gap is asked (#229).
+  for (const entry of [...queue, ...withdrawnEntries]) if (!isGaps(entry.question) || entry.withdrawn) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  const besideGap = new Set(queue.filter((e) => isGaps(e.question)).flatMap((e) => e.holds.map((p) => p.id)))
 
   const needsYou: Row[] = queue.map((entry) => {
     const q = entry.question
     const holds = entry.holds
+    // A Discipline's gaps: its row names the first gap's first number and the last gap's last (#229).
+    const gaps = gapsOf(q)
+    if (isGaps(q) && gaps.length > 0) return { key: `q:${q.id}`, kind: 'entry', sheets: [], number: gaps[0]!.after, numberTo: gaps.at(-1)!.before, question: entry }
     if (holds.length > 1) return { key: `q:${q.id}`, kind: 'copies', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     if (holds.length === 1) return { key: `q:${q.id}`, kind: 'sheet', sheets: holds, number: holds[0]!.number, numberTo: null, question: entry }
     // Only a held file's row is a file's (ticket 164): a numbering gap's row names its two numbers, a
@@ -280,17 +334,23 @@ export function step1Model(data: Step1Data): Step1Model {
     return { key: `q:${q.id}`, kind: 'entry', sheets: [], number, numberTo: null, question: entry }
   })
 
-  const withdrawn: Row[] = withdrawnEntries.map((entry) => ({
-    key: `q:${entry.question.id}`,
-    kind: entry.holds.length > 1 ? 'copies' : 'sheet',
-    sheets: entry.holds,
-    number: entry.holds[0]!.number,
-    numberTo: null,
-    question: entry,
-  }))
+  const withdrawn: Row[] = withdrawnEntries.map((entry) => {
+    const gaps = gapsOf(entry.question)
+    if (isGaps(entry.question) && gaps.length > 0)
+      return { key: `q:${entry.question.id}`, kind: 'entry', sheets: entry.holds, number: gaps[0]!.after, numberTo: gaps.at(-1)!.before, question: entry }
+    return {
+      key: `q:${entry.question.id}`,
+      kind: entry.holds.length > 1 ? 'copies' : 'sheet',
+      sheets: entry.holds,
+      number: entry.holds[0]!.number,
+      numberTo: null,
+      question: entry,
+    }
+  })
 
   const free = proposals.filter((p) => !heldBy.has(p.id))
-  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null))
+  const sizes = seriesSizes(proposals)
+  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null), sizes)
   const outIds = new Set(proposedOut.flatMap((r) => r.sheets.map((p) => p.id)))
 
   const coverageDone = data.coverage.unaccounted === 0
@@ -307,13 +367,14 @@ export function step1Model(data: Step1Data): Step1Model {
       const settled = mine.filter(decided).length
       return {
         discipline,
-        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id))),
+        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes),
         found: progress?.found ?? mine.length,
         settled,
         total: progress ? progress.total ?? null : mine.length,
         openQuestions,
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
+        besideGap: mine.filter((p) => besideGap.has(p.id)).map((p) => p.id),
         confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
       }
     })
@@ -367,7 +428,7 @@ export function rowState(row: Row): RowState {
 }
 
 /** Why a sheet has one source (6.5), for the bar to say. */
-export type OneSourceWhy = 'not-listed' | 'gap' | 'no-list-no-plot' | 'other'
+export type OneSourceWhy = 'not-listed' | 'gap' | 'twice' | 'no-list-no-plot' | 'plot-differs' | 'other'
 
 export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | undefined): OneSourceWhy {
   if (!section) return 'other'
@@ -380,9 +441,14 @@ export function whyOneSource(sheet: ProposalOut, section: DisciplineSection | un
     })
     return named ? 'other' : 'not-listed'
   }
-  const run = section.numbering
-  if (!run || run.missing.length > 0 || run.twice.length > 0) return 'gap'
-  return 'no-list-no-plot'
+  // With no drawing list, a matched Plot page is the second source (#229): only the sheets beside a
+  // gap the open gap Question asks about, and a number twice, lose it to the numbering.
+  if (section.besideGap?.includes(sheet.id)) return 'gap'
+  if (sheet.number && section.numbering?.twice.includes(sheet.number)) return 'twice'
+  if (sheet.plot_page === null || sheet.plot_page === undefined) return 'no-list-no-plot'
+  // A page matched by its number whose words do not read the sheet's number and title alike (#229).
+  if (sheet.plot_title_alike === false) return 'plot-differs'
+  return 'other'
 }
 
 /** The first open row after `key` (wrapping), for "Next open item": a Question's row or an undecided sheet. */

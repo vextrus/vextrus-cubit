@@ -149,7 +149,7 @@
           "required": ["value", "source"],
           "properties": {
             "value": {"type": "string", "minLength": 1},
-            "source": {"enum": ["title_block_attribute", "title_block_text", "file_name", "file"]}
+            "source": {"enum": ["title_block_attribute", "title_block_text", "file_name", "file", "view_title"]}
           }
         }
       ]

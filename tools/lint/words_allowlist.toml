@@ -348,3 +348,16 @@ reason = "m0-screens 6.17 (line 1571): \"two readers agree\" / \"the two readers
 msgid = "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 rule = "count without a plural"
 reason = "\"excludes\" is the verb after the Confirmed sheet's number, not a plural noun: one sheet is confirmed and the rest excluded."
+
+# S15-Q2's words beside a numbering gap: `{tag}` is a Question's tag ("Q2"), never a count, and "asks"
+# is its verb, not a plural noun.
+
+[[allow]]
+msgid = "They are beside a gap in the numbering that {tag} asks about. Answer {tag} to give them a second source, or open each to confirm it."
+rule = "count without a plural"
+reason = "{tag} is a Question's tag (Q2), not a count; \"asks\" is the verb it takes."
+
+[[allow]]
+msgid = "It is beside a gap in its Discipline’s numbering that {tag} asks about; answering {tag} can give it a second source."
+rule = "count without a plural"
+reason = "{tag} is a Question's tag (Q2), not a count; \"asks\" is the verb it takes."

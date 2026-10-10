@@ -28,7 +28,7 @@ def list_projects(request: HttpRequest) -> list[ProjectOut]:
 @router.get("/projects/{project_id}", response=ProjectOut)
 @declare(acts.OPEN, project="project_id")
 def get_project(request: HttpRequest, project_id: uuid.UUID) -> ProjectOut:
-    return ProjectOut.from_view(services.get(project_id))
+    return ProjectOut.from_view(services.detail(project_id))
 
 
 @router.post("/projects", response={201: ProjectOut, 400: ProjectRefusedOut, 409: ProjectRefusedOut})

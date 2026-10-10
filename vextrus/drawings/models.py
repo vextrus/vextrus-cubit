@@ -572,6 +572,11 @@ class SheetRevision(models.Model):
     plot_page = models.PositiveIntegerField(null=True, blank=True)
     plot_transform = models.JSONField(null=True, blank=True)
     plot_residual = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    plot_title_alike = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text="Its Plot page reads its title as well as its number: a second source (#229).",
+    )
     render_f1 = models.DecimalField(max_digits=7, decimal_places=6, null=True, blank=True)
     plot_none_reason = models.CharField(max_length=16, choices=PlotNone.choices, blank=True, default="")
     decision = models.CharField(max_length=16, choices=Decision.choices, blank=True, default="")
@@ -615,6 +620,10 @@ class SheetRevision(models.Model):
             models.CheckConstraint(
                 condition=models.Q(plot_none_reason="") | models.Q(plot_none_reason__in=PlotNone.values),
                 name="drawings_sheetrevision_plot_none",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(plot_title_alike=False) | models.Q(plot_page__isnull=False),
+                name="drawings_sheetrevision_plot_title_alike",
             ),
             *_decided("drawings_sheetrevision"),
         ]
@@ -682,6 +691,15 @@ class View(models.Model):
     storeys_as_stated = models.TextField(blank=True)
     storeys = models.JSONField(default=list, blank=True)
     storeys_meaning = models.CharField(max_length=16, blank=True, default="")
+    storeys_source = models.CharField(
+        max_length=16,
+        blank=True,
+        default="",
+        db_default="",
+        help_text=(
+            "Where its storeys were read: empty for its own title, else 'sheet_title' or 'title_line'."
+        ),
+    )
     subject = models.CharField(max_length=64, blank=True, default="")
     layer = models.CharField(max_length=8, blank=True, default="")
     steps = models.JSONField(default=list, blank=True)

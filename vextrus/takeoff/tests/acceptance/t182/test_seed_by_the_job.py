@@ -99,21 +99,25 @@ def test_the_jobs_coverage_is_70_views_68_proposed_2_unaccounted(
     }  # fmt: skip
 
 
-def test_the_bulk_act_holds_17_that_agree_and_the_electrical_sheets_have_one_source(
+def test_the_bulk_act_holds_11_that_agree_and_the_architectural_and_electrical_sheets_have_one_source(
     nusrat: Api, kr01: uuid.UUID, by_the_job: None
 ) -> None:
-    """§7: "17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04,
-    A-06, A-07); 'Confirm 17' (session 11 ruling: the job proposes no exclusion for A-07)";
-    "One source: 3"."""
+    """§7: "11 agree: Structural 11 (S-01 to S-12 but the two S-07s); 'Confirm 11' (session 11
+    ruling: the job proposes no exclusion for A-07)"; one source: A-01 to A-04, A-06, A-07 and E-01
+    to E-03 (A-05 is held by its kind Question as well). KR-ARC-R0.pdf draws its lettering as lines,
+    so its Plot pages are matched by their ink and read no title; with no drawing list a Plot page is
+    the second source only when its number and title read alike (Q2, #229), so no Architectural
+    sheet agrees (the orchestrator's ruling, session 19: the seed keeps lettering as lines)."""
     listed = proposals(nusrat, kr01)
 
     agreeing = [p for p in listed if p["agrees"]]
 
-    assert by_discipline(agreeing) == {"structural": 11, "architectural": 6}
-    assert sorted(p["number"] for p in agreeing if p["discipline"] == "architectural") == [
-        "A-01", "A-02", "A-03", "A-04", "A-06", "A-07",
-    ]  # fmt: skip
+    assert by_discipline(agreeing) == {"structural": 11}
     assert [p["number"] for p in agreeing if p["proposed_exclusion"]] == []
     assert [p["proposed_exclusion"] for p in listed if p["number"] == "A-07"] == [None]
     one_source = [p for p in listed if p["discipline"] == "electrical" and not p["agrees"]]
     assert sorted(p["number"] for p in one_source) == ["E-01", "E-02", "E-03"]
+    by_ink = [p for p in listed if p["discipline"] == "architectural" and p["number"]]
+    assert sorted(p["number"] for p in by_ink if not p["agrees"]) == [
+        "A-01", "A-02", "A-03", "A-04", "A-05", "A-06", "A-07",
+    ]  # fmt: skip

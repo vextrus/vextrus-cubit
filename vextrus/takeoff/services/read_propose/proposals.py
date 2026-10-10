@@ -1,19 +1,26 @@
 """The read job's Step 1 proposals and Questions (ticket 21c; docs/plans/M0.md, 21c): the last steps
 of a file's read job (21a's `files.read`), each kept once by `drawings`' StepStore.
 
-    propose(file_id, load, unread=2)     # `proposals`: a read file's sheets and views proposed
+    asked = to_ask(file_id, conventions)  # in a transaction, before `finishing`: Jev's questions
+    sent = send(asked)                     # between transactions: TypeSafe asked (S15-A2)
+    propose(file_id, load, conventions, sent=sent, unread=2)  # `finishing`: sheets, views proposed
     ask_held(file_id)                    # `held`: a held file's `file_misread` Question
 
 **A read file's sheets** (those in the sheet list): each a Proposal of its own, with its Traces
 (where its number and title were read, else its place) and Jev's answer about its kind, asked with
-13's question (`engine.recognise.sheets.judgement`) through 15's `jev.ask_judgement`: Jev's first
-choice is the proposed kind (#228, the owner's ruling "Propose Jev's top kind"), unless it is unsure
-(`unsure`: under `jev.SHEET_TYPE.proposes`, its top two close, or the sheet's title naming another
-kind), when a `low_confidence` Question offers the kinds most likely first, Jev's first picked; with
-TypeSafe unavailable the kind is left to the QS, and nothing is asked. Each view a Proposal with
-its Traces, and its Coverage row (`step1.record_coverage`: to its Takeoff Steps and its Discipline
-Part, proposed out with a reason, or unaccounted). A sheet with no number is asked (`missing`), one
-with no Discipline asked which it is (`missing_discipline`, #102).
+13's question (`engine.recognise.sheets.judgement`) through 15's Jev: Jev's first choice is the
+proposed kind (#228, the owner's ruling "Propose Jev's top kind"), unless it is unsure (`unsure`:
+under `jev.SHEET_TYPE.proposes`, its top two close, or the sheet's title naming another kind), when a
+`low_confidence` Question offers the kinds most likely first, Jev's first picked; with TypeSafe
+unavailable the kind is left to the QS, and nothing is asked. Jev is asked outside every transaction
+(S15-A2: a read job's transaction holds no network call, so no act waits on it): `to_ask` reads the
+file's recorded sheets in a short transaction of its own, before `finishing` lists them, for the
+questions the cache does not answer; `send` asks TypeSafe between transactions; `propose` keeps the
+answers in `finishing` (`jev.answer`, never a call). A question changed in between (a sheet's
+Discipline) is answered by neither: its kind is left to the QS.
+Each view a Proposal with its Traces, and its Coverage row (`step1.record_coverage`: to its
+Takeoff Steps and its Discipline Part, proposed out with a reason, or unaccounted). A sheet with no
+number is asked (`missing`), one with no Discipline asked which it is (`missing_discipline`, #102).
 A sheet the read proposed out with no number (a cover, a stale layout: `step1.proposed_out`) is
 proposed and asked nothing (#162): it is no sheet of the set's, and the QS sees it proposed out.
 The sheets 21b left out for unreadable writing are counted (`unread`; Coverage's `unread_sheets`).
@@ -29,8 +36,11 @@ answered one is never touched); the conflicts are asked again after every act on
 (`set_conflicts`); two plans of one subject whose floor-to-floor ranges meet at a storey asked where
 the first ends (a `convention` Question: 19b raises no conflict for them); the drawing list read on
 a sheet (13's register) kept per Discipline, and 19b's register Check run (`CheckRun`, trigger
-`read`), each finding a `check` Question. A Question raised again is the one asked
-(`step1.raise_question`).
+`read`), each finding a `check` Question; 19b's storey-titles Check (a sheet's title storeys against
+its plans', `CheckRun` too), its findings asked as one `check` Question per Discipline holding that
+Discipline's undecided disagreeing sheets (none undecided: nothing asked), retired when none is found
+again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet). A Question
+raised again is the one asked (`step1.raise_question`).
 """
 
 import re
@@ -38,11 +48,12 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from itertools import permutations
-from typing import Any
+from typing import Any, cast
 
 from django.conf import settings
 
 from engine.check import register as register_check
+from engine.messages import Message
 from engine.messages import conflicts as conflict_codes
 from engine.messages import register_check as list_codes
 from engine.read import ReadArtefact
@@ -54,6 +65,7 @@ from engine.recognise.types import (
     CheckOutcome,
     Conflict,
     DrawingList,
+    JudgementRequest,
     Layer,
     ListEntry,
     ListSource,
@@ -64,6 +76,7 @@ from engine.recognise.types import (
     SheetLocation,
     Sourced,
     StoreysMeaning,
+    StoreysSource,
     ValueSource,
     ViewCandidate,
     ViewKind,
@@ -73,6 +86,7 @@ from vextrus.platform.services import jev
 from vextrus.takeoff.messages import proposals as said
 from vextrus.takeoff.messages import step1 as step1_codes
 from vextrus.takeoff.services import step1
+from vextrus.takeoff.services.read_propose import storey_questions
 
 KEEP_OPEN = "keep_open"
 """Every Question's last option (m0-screens §5: "Keep open, ask the consultant")."""
@@ -83,6 +97,9 @@ MISSING_OPTIONS = ("no_number", "type_number", KEEP_OPEN)
 LISTS_OPTIONS = ("use_read", "use_given", KEEP_OPEN)
 BOUNDARY_OPTIONS = ("includes_storey", "excludes_storey", KEEP_OPEN)
 CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
+STOREY_TITLE_OPTIONS = ("plans_right", "title_right", KEEP_OPEN)
+"""The storey-titles Question's options: each is recorded only; no sheet or plan changes (no Step 1
+act edits a plan's storeys yet, story 28; S15-E3: no word promises one)."""
 
 
 def options(keys: Sequence[str]) -> list[dict[str, object]]:
@@ -113,23 +130,62 @@ def ask_held(file_id: uuid.UUID) -> dict[str, Any]:
 # A read file's sheets and views ------------------------------------------------------------------
 
 
+def to_ask(file_id: uuid.UUID, conventions: SheetConventions) -> list[jev.Request]:
+    """Jev's questions about the file's recorded sheets that the cache does not answer: read in a
+    transaction, before `finishing` (see the module)."""
+    asked: dict[str, jev.Request] = {}
+    for sheet, views in drawings.recorded_sheets(file_id):
+        request = _judgement(sheet, views, conventions)
+        prepared = jev.to_send(request) if request is not None else None
+        if prepared is not None:
+            asked.setdefault(prepared.cache_key, prepared)
+    return list(asked.values())
+
+
+def send(asked: Sequence[jev.Request]) -> jev.Sent:
+    """TypeSafe's answers to `to_ask`'s questions, asked outside every transaction (a read job asks
+    between its steps): no row is held while Jev answers."""
+    return {request.cache_key: jev.send(request) for request in asked}
+
+
 def propose(
     file_id: uuid.UUID,
     load: Callable[[], ReadArtefact],
     conventions: SheetConventions,
     *,
+    sent: jev.Sent,
     unread: int = 0,
 ) -> dict[str, Any]:
-    """The `proposals` step (see the module); what it proposed and asked, as counts."""
+    """The `proposals` step (see the module); what it proposed and asked, as counts. Jev's answers
+    are the cache's or `sent`'s: it calls nothing. Step 1's progress rows are written once, at its
+    end (`step1.progress_at_end`, #227)."""
+    with step1.progress_at_end():
+        return _propose(file_id, load, conventions, sent=sent, unread=unread)
+
+
+def _propose(
+    file_id: uuid.UUID,
+    load: Callable[[], ReadArtefact],
+    conventions: SheetConventions,
+    *,
+    sent: jev.Sent,
+    unread: int,
+) -> dict[str, Any]:
     view = drawings.file(file_id)
     project_id = view.project_id
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
+    # The reading first, writing nothing: Jev's answer about each sheet's kind (asked before the
+    # step, kept now), and the drawing lists read on the sheets. Then Step 1's write lock, before
+    # the first row written (#227).
+    viewed = [(sheet, drawings.views(sheet.id)) for sheet in listed]
+    judged = [(sheet, views, _judged(sheet, views, conventions, sent)) for sheet, views in viewed]
+    lists = _lists_read(listed, load, conventions) if listed else []
+    step1.lock_writes(project_id)
     step1.record_unread(project_id, file_id, sheet_found=len(listed), unread=unread)
     proposed = 0
-    for sheet in listed:
-        views = drawings.views(sheet.id)
+    for sheet, views, answer in judged:
         out = step1.proposed_out(sheet)
-        proposal_id = _propose_sheet(project_id, sheet, views, conventions, ask=not out)
+        proposal_id = _propose_sheet(project_id, sheet, answer, conventions, ask=not out)
         for seen in views:
             step1.propose_view(project_id, seen, traces=_view_traces(seen))
         step1.record_coverage(sheet.id)
@@ -154,8 +210,8 @@ def propose(
                 blocks=[proposal_id],
             )
         proposed += 1
-    if listed:
-        _read_lists(listed, load, conventions)
+    for sheet_id, discipline, rows in lists:
+        step1.record_read_list(sheet_id, discipline, rows)
     asked = set_questions(project_id, trigger_file=file_id)
     step1.record_progress(project_id)  # last: it counts the Questions the set's round asked
     return {"sheets": proposed, "questions": asked}
@@ -171,10 +227,11 @@ def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     listed = [s for s in drawings.sheets(view.set_id) if s.file_id == file_id]
     if not listed:
         return
-    step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
-    step1.ask_kind_again(view.project_id, listed)
-    set_questions(view.project_id, trigger_file=file_id)
-    step1.record_progress(view.project_id)
+    with step1.progress_at_end():  # the progress lock last, after the Questions' rows (#227)
+        step1.answer_disciplines(view.project_id, listed, actor_name=actor_name)
+        step1.ask_kind_again(view.project_id, listed)
+        set_questions(view.project_id, trigger_file=file_id)
+        step1.record_progress(view.project_id)
 
 
 NAMED_STOREYS = frozenset(
@@ -224,18 +281,35 @@ def named(sheet: drawings.SheetView, prefix: str = "") -> dict[str, str]:
     return {f"{prefix}sheet": "", f"{prefix}named": "none"}
 
 
+def _judgement(
+    sheet: drawings.SheetView, views: Sequence[drawings.ViewView], conventions: SheetConventions
+) -> JudgementRequest | None:
+    """13's question about the sheet's kind, or None when it has none to ask."""
+    return sheet_finder.judgement(
+        candidate(sheet), [v.title for v in views if v.title], conventions=conventions
+    )
+
+
+def _judged(
+    sheet: drawings.SheetView,
+    views: Sequence[drawings.ViewView],
+    conventions: SheetConventions,
+    sent: jev.Sent,
+) -> jev.Answer | jev.Unavailable | None:
+    """Jev's answer about the sheet's kind (13's question), kept before anything else is written:
+    the cache's or `sent`'s, never a call."""
+    request = _judgement(sheet, views, conventions)
+    return jev.answer(request, sent) if request is not None else None
+
+
 def _propose_sheet(
     project_id: uuid.UUID,
     sheet: drawings.SheetView,
-    views: Sequence[drawings.ViewView],
+    answer: jev.Answer | jev.Unavailable | None,
     conventions: SheetConventions,
     *,
     ask: bool = True,
 ) -> uuid.UUID:
-    request = sheet_finder.judgement(
-        candidate(sheet), [v.title for v in views if v.title], conventions=conventions
-    )
-    answer = jev.ask_judgement(request) if request is not None else None
     sure = isinstance(answer, jev.Answer) and not unsure(answer, sheet.title)
     proposal_id = step1.propose_sheet(
         sheet.id,
@@ -455,12 +529,15 @@ def candidate(
 def view_candidate(view: drawings.ViewView) -> ViewCandidate:
     x0, y0, x1, y1 = (float(v) for v in view.box)
     meaning = StoreysMeaning(view.storeys_meaning) if view.storeys and view.storeys_meaning else None
+    sources = {str(s) for s in StoreysSource}
+    source = view.storeys_source if meaning and view.storeys_source in sources else None
     return ViewCandidate(
         box=Box(x0, y0, x1, y1),
         kind=ViewKind(view.kind),
         title=view.title or None,
         storeys=tuple(view.storeys) if meaning else (),
         storeys_meaning=meaning,
+        storeys_source=StoreysSource(source) if source else None,
         subject=view.subject,
         layer=Layer(view.layer) if view.layer in {str(v) for v in Layer} else None,
     )
@@ -469,16 +546,17 @@ def view_candidate(view: drawings.ViewView) -> ViewCandidate:
 # The drawing lists read on the file's sheets -------------------------------------------------------
 
 
-def _read_lists(
+def _lists_read(
     listed: Sequence[drawings.SheetView],
     load: Callable[[], ReadArtefact],
     conventions: SheetConventions,
-) -> None:
-    """13's register on the file's sheets: each list kept for its Discipline, on its sheet."""
+) -> list[tuple[uuid.UUID, str, list[tuple[str, str]]]]:
+    """13's register on the file's sheets: each list for its Discipline, on its sheet (kept by the
+    caller: `step1.record_read_list`)."""
     candidates = [candidate(s, "file") for s in listed]
     entries = register_reader.find(load(), candidates, conventions=conventions)
     if not entries:
-        return
+        return []
     numbers = finder.Numbers(conventions, finder.recognisers(conventions))
     by_sheet: dict[int, dict[str, list[tuple[str, str]]]] = {}
     position = {id(c): i for i, c in enumerate(candidates)}
@@ -491,18 +569,21 @@ def _read_lists(
             continue
         rows = by_sheet.setdefault(position[id(entry.sheet)], {}).setdefault(discipline, [])
         rows.append((entry.number, entry.title or ""))
-    for index, lists in by_sheet.items():
-        for discipline, rows in lists.items():
-            step1.record_read_list(listed[index].id, discipline, rows)
+    return [
+        (listed[index].id, discipline, rows)
+        for index, lists in by_sheet.items()
+        for discipline, rows in lists.items()
+    ]
 
 
 # The set's Questions ------------------------------------------------------------------------------
 
 
 def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
-    """The set's conflicts, boundary storeys and register Check, over every sheet in the sheet list
-    (see the module); how many Questions they hold (asked now or before). No progress row is
-    written: the caller writes them once, after (the read job; a Step 1 act's `_after_act`)."""
+    """The set's conflicts, boundary storeys, register Check and storey-titles Check, over every sheet
+    in the sheet list (see the module); how many Questions they hold (asked now or before). No
+    progress row is written: the caller writes them once, after (the read job; a Step 1 act's
+    `_after_act`)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         return 0
@@ -520,6 +601,16 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
     asked = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
     asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    asked += storey_questions.ask(
+        project_id,
+        listed,
+        sheets,
+        views,
+        proposal_of,
+        recognisers,
+        conventions,
+        options=options(STOREY_TITLE_OPTIONS),
+    )
     return asked
 
 
@@ -534,8 +625,8 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         groups: dict[uuid.UUID, str] = {}
         of_sheet: dict[uuid.UUID, list[drawings.ViewView]] = {}
     else:
-        listed = drawings.sheets(drawing_set.id, anchors=False)
-        groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
+        listed = step1.sheets_of(project_id)
+        groups = {f.id: f.group for f in step1.files_of(project_id)}
         of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
     conventions = step1.sheet_conventions()
     return _conflicts(
@@ -547,6 +638,18 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         finder.recognisers(conventions),
         conventions,
     )
+
+
+def as_compared(
+    listed: Sequence[drawings.SheetView],
+    viewed: Sequence[Sequence[drawings.ViewView]],
+    groups: Mapping[uuid.UUID, str],
+) -> tuple[list[SheetCandidate], list[list[ViewCandidate]]]:
+    """The listed sheets as 19b compares them (`candidate` under its file's group, then `_compared`),
+    with their views: what `_conflicts` compares, for the groups Step 1 shows (T-W334's
+    `vextrus.takeoff.services.groups`)."""
+    sheets = [_compared(s, candidate(s, groups.get(s.file_id, "site"), anchors=False)) for s in listed]
+    return sheets, [[view_candidate(v) for v in vs] for vs in viewed]
 
 
 def _conflicts(
@@ -570,7 +673,9 @@ def _conflicts(
     for conflict in found:
         if not isinstance(conflict, Conflict):
             continue
-        trimmed = _undecided(conflict, [listed[i] for i in _held_sheets(conflict, at)])
+        held = _held_sheets(conflict, at)
+        names = {listed[i].id: finder.sheet_name(as_compared[i]) for i in held}
+        trimmed = _undecided(conflict, [listed[i] for i in held], names)
         if trimmed is not None:
             raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
     step1.retire_questions(project_id, CONFLICT_CODES, raised)
@@ -578,14 +683,19 @@ def _conflicts(
 
 
 def _undecided(
-    conflict: Conflict, held: Sequence[drawings.SheetView]
+    conflict: Conflict,
+    held: Sequence[drawings.SheetView],
+    names: Mapping[uuid.UUID, tuple[str, str] | None] | None = None,
 ) -> tuple[dict[str, Any], list[drawings.SheetView]] | None:
     """A Conflict's evidence and the sheets its Question holds: only those not yet decided, a
     confirmed or left-out sheet never grouped with another (#161). Copies of one number are a
     `same_number` Question only while none of them is confirmed (ruling 2 and the refuter's case of a
     copy confirmed by hand: a Revision's question) and two or more are undecided, its words counting
-    those; a same title or storey stands while any of its sheets is undecided, its words the set's.
-    None: nothing to ask."""
+    those; a same title or storey stands while any of its sheets is undecided, its words the set's
+    but its `sheets` the undecided sheets it holds (T-W334: the words count what the Question holds).
+    A same storey's words name the sheets it holds (`names`: each sheet's name as 19b compared it):
+    once a sheet is decided, its first two undecided ones, or the one it holds alone (review 1 of
+    #638: never a sheet the Question no longer holds). None: nothing to ask."""
     undecided = [s for s in held if not s.decision]
     evidence = dict(conflict.evidence)
     if conflict.kind == finder.SAME_NUMBER:
@@ -595,6 +705,13 @@ def _undecided(
         evidence |= {"number": undecided[0].number, "copies": len(undecided)}
     elif not undecided:
         return None
+    else:
+        evidence["sheets"] = len(undecided)
+        if conflict.kind == finder.SAME_STOREY and len(undecided) < len(held):
+            for place, sheet in zip(("first", "second"), undecided, strict=False):
+                name = (names or {}).get(sheet.id)
+                if name is not None:
+                    evidence[place], evidence[f"{place}_named"] = name
     return evidence, undecided
 
 
@@ -757,8 +874,12 @@ def _register(
     fired = [r for r in results if r.outcome == CheckOutcome.FIRED and r.finding is not None]
     by_sheet = {id(c): i for i, c in enumerate(sheets)}
     findings = []
+    gaps = [r.finding for r in fired if r.finding and r.finding["code"] == list_codes.GAP.code]
+    findings += _gaps(project_id, listed, gaps, proposal_of, finder.Numbers(conventions, recognisers))
     for result in fired:
         assert result.finding is not None
+        if result.finding["code"] == list_codes.GAP.code:
+            continue  # asked with its Discipline's other gaps, above
         subject = result.subject
         if isinstance(subject, RegisterEntry):
             subject = subject.sheet
@@ -781,6 +902,11 @@ def _register(
             else [],
         )
         findings.append((result.finding, [sheet.id] if sheet else [], question_id))
+    step1.retire_questions(
+        project_id,
+        (list_codes.GAP.code, list_codes.GAPS.code),
+        [q for _, _, q in findings if q is not None],
+    )
     step1.record_check_run(
         project_id,
         register_check.CODE,
@@ -790,3 +916,71 @@ def _register(
         findings=findings,
     )
     return len(fired)
+
+
+def _gaps(
+    project_id: uuid.UUID,
+    listed: Sequence[drawings.SheetView],
+    gaps: Sequence[Message],
+    proposal_of: Mapping[uuid.UUID, uuid.UUID],
+    numbers: finder.Numbers,
+) -> list[tuple[Message, list[uuid.UUID], uuid.UUID | None]]:
+    """Every gap of one Discipline's numbering not yet answered asked as one `gaps` Question (#229,
+    the owner's ruling: "all of one Discipline's gaps are asked as one Question"), holding only the
+    sheets beside its gaps while it is open: those whose series and running number are a gap's
+    `after` or `before` (a suffix aside: "S-04A" is beside a gap after "S-04"), not yet decided (an
+    undo brings one back into the hold through `step1._agreeing`, which reads the Question's gaps). A
+    gap answered before stays settled (`step1.answered_gaps`), however the others change. The
+    Question is the Discipline's (`step1.ask_gaps`, S15-Q2), whatever its gaps. Each gap a
+    finding of the Check's run, its subjects those sheets', its Question the one that asks or
+    answered it."""
+    settled = step1.answered_gaps(project_id)
+    of_discipline: dict[str, list[Message]] = {}
+    for gap in gaps:
+        of_discipline.setdefault(str(gap["params"]["discipline"]), []).append(gap)
+    found: list[tuple[Message, list[uuid.UUID], uuid.UUID | None]] = []
+    for discipline, every in of_discipline.items():
+        numbered = [s for s in listed if s.discipline == discipline and s.number]
+        place = {s.id: _place(numbers, s.number or "", discipline) for s in numbered}
+        beside: list[list[uuid.UUID]] = []
+        for gap in every:
+            ends = {_place(numbers, str(gap["params"][end]), discipline) for end in ("after", "before")}
+            beside.append([s.id for s in numbered if place[s.id] is not None and place[s.id] in ends])
+        answered = {i: settled.get((discipline, *_ends(gap))) for i, gap in enumerate(every)}
+        mine = [i for i in range(len(every)) if answered[i] is None]
+        if not mine:
+            found += [(gap, beside[i], answered[i]) for i, gap in enumerate(every) if answered[i]]
+            continue
+        undecided = {s.id for s in numbered if not s.decision}
+        held = dict.fromkeys(s for i in mine for s in beside[i] if s in undecided and s in proposal_of)
+        question_id = step1.ask_gaps(
+            project_id,
+            discipline,
+            _asked(discipline, [every[i] for i in mine]),
+            options=options(CHECK_OPTIONS),
+            check_code=register_check.CODE,
+            blocks=[proposal_of[s] for s in held],
+        )
+        found += [(gap, beside[i], answered[i] or question_id) for i, gap in enumerate(every)]
+    return found
+
+
+def _ends(gap: Message) -> tuple[str, str, int]:
+    params = gap["params"]
+    return (str(params["after"]), str(params["before"]), int(params["missing"]))
+
+
+def _place(numbers: finder.Numbers, number: str, discipline: str) -> tuple[str, int] | None:
+    parts = numbers.parts_in(number, discipline)
+    return None if parts is None else (parts[0], parts[1])
+
+
+def _asked(discipline: str, gaps: Sequence[Message]) -> Message:
+    """The `gaps` Question's words: its Discipline, each gap's two numbers and count missing, how many
+    gaps and how many numbers missing in all. Its
+    `gaps` param is a list, which `Param` (a scalar) does not name: the cast says so."""
+    each = [{k: gap["params"][k] for k in ("after", "before", "missing")} for gap in gaps]
+    missing = sum(int(gap["params"]["missing"]) for gap in gaps)
+    params = {"discipline": discipline, "gaps": each, "count": len(each), "missing": missing}
+    asked = {"code": list_codes.GAPS.code, "params": params}
+    return cast(Message, asked)

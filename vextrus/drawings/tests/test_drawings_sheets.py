@@ -2,6 +2,7 @@
 keeps, the sheet list, the QS's decisions, and a file's Discipline changed after its sheets."""
 
 import uuid
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -276,11 +277,29 @@ def test_a_plot_page_must_be_of_a_pdf_of_the_same_set(qs_project: QsProject) -> 
         with pytest.raises(auth.Refused):
             services.record_plot(printed.id, services.PlotNone.NO_PAGE, pdf_file_id=elsewhere.id)
     assert (matched.plot.file_id, matched.plot.page, matched.plot.none) == (pdf.id, 3, None)
-    assert matched.plot.transform == {"scale": "2.5", "rotation": 90, "offset": ["10.0", "20.0"]}
+    assert matched.plot.transform == {"scale": "2.5", "rotation": 90, "offset": ["10.0", "20.0"],
+                                      "crop": ["0.0", "0.0", "1190.0", "842.0"]}  # fmt: skip
     assert other_set.value.message["code"] == "drawings.reads.not_its_reading"
     # "No PDF" is about the set's PDFs, which change: read as they stand (a Structural one waits).
     assert none.plot.none == said.PLOT_NOT_YET()
     assert no_page.plot.none == said.PLOT_NO_PAGE(plot_file="KR-STR-R0.pdf")
+
+
+def test_a_plot_keeps_the_pages_cropbox_as_shown_for_the_viewer(qs_project: QsProject) -> None:
+    """#240: pdf.js draws a page's CropBox, so the Plot's transform carries it (18's `shown`: cut to
+    the page) for the viewer to lay the picture by."""
+    found = kept_dwg(qs_project, frames=1)
+    pdf = add(qs_project.member, qs_project.project_id, "KR-STR-R0.pdf", drawing("pdf")).file
+    with qs_project.member.acting():
+        [printed] = services.record_sheets(found.id, [sheet_candidate(0, found.group, number="S-01")])
+        services.mark_read(found.id)
+        candidate = sheet_candidate(0, found.group, number="S-01")
+        inset = replace(page(pdf.sha256, 1), crop=(100.0, 50.0, 1100.0, 9000.0))
+        matched = services.record_plot(
+            printed.id, PlotMatch(inset, candidate, PlotTransform(1.0, 0, (0.0, 0.0)), 0.1)
+        )
+    assert matched.plot.transform is not None
+    assert matched.plot.transform["crop"] == ["100.0", "50.0", "1100.0", "842.0"]
 
 
 def test_a_sheet_with_no_plot_recorded_says_whether_a_pdf_is_there_to_match(
@@ -528,3 +547,76 @@ def test_a_choice_refused_while_reading_is_kept_beside_a_limit_that_cut_the_read
         "code": "drawings.files.discipline_choice_undone",
         "params": {"discipline": "Structural", "sheet": "01"},
     }
+
+
+# A title read from a sheet's one view (#332) ---------------------------------------------------------
+
+
+def test_an_unnumbered_sheet_takes_a_view_title_on_its_own_row(qs_project: QsProject) -> None:
+    found = kept_dwg(qs_project, frames=1)
+    with qs_project.member.acting():
+        [unnumbered] = services.record_sheets(found.id, [sheet_candidate(0, found.group)])
+        titled = services.record_sheet_title(
+            unnumbered.id, title=Sourced("BOUNDARY WALL DETAIL", ValueSource.VIEW_TITLE)
+        )
+
+    assert (titled.title, titled.sources["title"]) == ("BOUNDARY WALL DETAIL", "view_title")
+    assert titled.number is None
+
+
+def _titled_by_view(project: QsProject) -> tuple[services.FileView, SheetCandidate, services.SheetView]:
+    """A numbered sheet whose title block gives no title, titled by its one view, its file read."""
+    found = kept_dwg(project, frames=1)
+    candidate = sheet_candidate(0, found.group, number="S-91")
+    with project.member.acting():
+        [sheet] = services.record_sheets(found.id, [candidate])
+        services.mark_read(found.id)
+        services.record_sheet_title(
+            sheet.id,
+            title=Sourced("4TH FLOOR SUNSHADE DETAIL", ValueSource.VIEW_TITLE),
+            storeys_as_stated=Sourced("4TH FLOOR", ValueSource.VIEW_TITLE),
+        )
+    return found, candidate, sheet
+
+
+@pytest.mark.parametrize("decided", [False, True])
+def test_recording_the_same_reading_again_keeps_a_title_from_a_view(
+    qs_project: QsProject, decided: bool
+) -> None:
+    found, candidate, sheet = _titled_by_view(qs_project)
+    with qs_project.member.acting():
+        if decided:
+            services.confirm_sheet(sheet.id, confirmation_id=uuid.uuid4())
+
+        [again] = services.record_sheets(found.id, [candidate])
+        retitled = services.record_sheet_title(
+            sheet.id,
+            title=Sourced("4TH FLOOR SUNSHADE DETAIL", ValueSource.VIEW_TITLE),
+            storeys_as_stated=Sourced("4TH FLOOR", ValueSource.VIEW_TITLE),
+        )
+
+    for view in (again, retitled):
+        assert (view.title, view.storeys_as_stated) == ("4TH FLOOR SUNSHADE DETAIL", "4TH FLOOR")
+        assert view.sources["title"] == view.sources["storeys_as_stated"] == "view_title"
+        assert view.decision == ("confirmed" if decided else None)
+
+
+def test_a_view_title_that_changed_replaces_the_old_one_unless_the_sheet_is_decided(
+    qs_project: QsProject,
+) -> None:
+    _, _, sheet = _titled_by_view(qs_project)
+    with qs_project.member.acting():
+        changed = services.record_sheet_title(
+            sheet.id, title=Sourced("ROOF SUNSHADE DETAIL", ValueSource.VIEW_TITLE)
+        )
+        services.confirm_sheet(sheet.id, confirmation_id=uuid.uuid4())
+        with pytest.raises(auth.Refused) as refused:
+            services.record_sheet_title(
+                sheet.id, title=Sourced("PARAPET SUNSHADE DETAIL", ValueSource.VIEW_TITLE)
+            )
+        read_back = services.sheet(sheet.id)
+
+    assert (changed.title, changed.storeys_as_stated) == ("ROOF SUNSHADE DETAIL", "")
+    assert "storeys_as_stated" not in changed.sources
+    assert refused.value.status == 409
+    assert read_back.title == "ROOF SUNSHADE DETAIL"

@@ -12,6 +12,15 @@ it "read anyway", when the job, queued again by the answer, reads on), 21b's `sh
 kept as codes, and the file marked read in the same transaction, with every limit that cut its sheets:
 the first is its finding, `takeoff.read_file.not_read_in_full {limit}`; and with 21c's proposals: its
 sheets and views proposed, the set's Questions asked and its Checks run, `read_propose.proposals`).
+Its order holds the rows a QS's act on Step 1 locks only for the moment before it commits (#227):
+the set's Plot found first (minutes on a large set, writing nothing: `plot.find`), then the
+proposals (Jev's answers kept first, writing nothing else), then, under Step 1's write lock
+(`step1.lock_writes`, taken first by every act too), the proposals' rows, the Plot's matches kept
+and Step 1's progress rows written once (`step1.progress_at_end`); so a QS's act never waits on its
+reading, and waits at most for its short write phase. Jev is asked before `finishing`, outside
+every transaction (S15-A2): the questions about the file's recorded sheets read in a short
+transaction of its own, TypeSafe asked with none open, its answers kept by `finishing`
+(`proposals.to_ask`, `send`, `propose`).
 
 A PDF: `opening` (the copy checked, and the PDF report kept as codes; a scan is refused by it) and
 `matching` (the file marked read, and its pages matched to the set's sheets in the same transaction:
@@ -56,7 +65,8 @@ from engine.render import fonts
 from engine.render.fonts import FontReport
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import files as file_words
-from vextrus.platform.services import auth, jobs, storage
+from vextrus.platform.services import auth, jev, jobs, storage
+from vextrus.takeoff.services import step1
 from vextrus.takeoff.services.read_propose import plot, proposals, sheets
 
 OUT_OF_MEMORY = read_codes.LIMIT_REACHED(limit="memory")
@@ -137,7 +147,13 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
     steps = run.steps(drawings.step_store(), subject_id=file_id, total=len(DWG_STEPS))
     try:
         try:
-            return _steps(steps, file_id, use, lambda: _held_answer(run, file_id))
+            return _steps(
+                steps,
+                file_id,
+                use,
+                lambda: _held_answer(run, file_id),
+                lambda: _ask_jev(run, file_id),
+            )
         except MemoryError:
             # The cad worker's cap, reached in this process: the same try would reach it again.
             # Leave the handler before anything else runs: the error's traceback holds the frames
@@ -156,7 +172,11 @@ def read(run: jobs.Run, file_id: uuid.UUID, readers: Readers | None = None) -> R
 
 
 def _steps(
-    steps: jobs.Steps, file_id: uuid.UUID, use: Readers, held_answer: Callable[[], object]
+    steps: jobs.Steps,
+    file_id: uuid.UUID,
+    use: Readers,
+    held_answer: Callable[[], object],
+    ask_jev: Callable[[], jev.Sent],
 ) -> Read:
     opened = steps.run(drawings.OPENING, lambda: _open(file_id, use), inputs={"file": file_id})
     sha256 = str(opened["sha256"])
@@ -187,6 +207,9 @@ def _steps(
         done_before=DWG_STEPS.index(drawings.SHEETS),
         after=len(DWG_STEPS) - DWG_STEPS.index(drawings.FINISHING),
     )
+    # Jev asked between the steps, never inside one's transaction (S15-A2). A `finishing` already
+    # kept has its answers cached, so only a question Jev did not answer (never cached) is sent again.
+    sent = ask_jev()
     steps.run(
         drawings.FINISHING,
         lambda: _finish(
@@ -194,7 +217,7 @@ def _steps(
             use,
             kept,
             found.not_read_in_full,
-            lambda: _propose(file_id, load, found.unread),
+            lambda: _propose(file_id, load, found.unread, sent),
         ),
         inputs={"sha256": sha256, **reader, **({"read_anyway": True} if read_anyway else {})},
     )
@@ -205,6 +228,14 @@ def _held_answer(run: jobs.Run, file_id: uuid.UUID) -> object:
     """What the QS answered about the held file, read as it stands (never kept by a step)."""
     with run.acting(), transaction.atomic():
         return drawings.held_answer(file_id)
+
+
+def _ask_jev(run: jobs.Run, file_id: uuid.UUID) -> jev.Sent:
+    """Jev's answers about the file's recorded sheets that the cache does not hold: the questions
+    read in a short transaction (never kept by a step), then TypeSafe asked with none open."""
+    with run.acting(), transaction.atomic():
+        asked = proposals.to_ask(file_id, sheets.conventions(file_id)[0])
+    return proposals.send(asked)
 
 
 # The steps' bodies: each runs inside its step's transaction, acting in the file's tenant -----------
@@ -274,12 +305,18 @@ def _finish(
     flagged = use.bangla_ansi(artefact)
     drawings.record_reports(file_id, font_report=font_report, bangla_ansi=flagged)
     view = drawings.mark_read(file_id, not_read_in_full)
-    # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step 1's
-    # proposals, Questions and Checks, so a read file is never listed without them.
-    proposed = propose()
-    # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
-    # sheet is never listed beside a read PDF it was not matched against.
-    matched = plot.match(file_id)
+    with step1.progress_at_end():
+        # 157: the set's read PDFs' pages matched to its sheets, in the same transaction, so a read
+        # sheet is never listed beside a read PDF it was not matched against. Found first (minutes
+        # on a large set, writing nothing), kept last (#227).
+        keep = plot.find(file_id)
+        # 21c: once the file is read (its sheets in the sheet list), in the same transaction: Step
+        # 1's proposals, Questions and Checks, so a read file is never listed without them.
+        proposed = propose()
+        # The rows a QS's act on Step 1 locks too (a sheet the match lets go, its progress rows,
+        # written as this block ends) are held only for the moment before the step commits, under
+        # Step 1's write lock, which `propose` takes after Jev's answers (fix round 3).
+        matched = keep()
     result: dict[str, Any] = {
         "fonts": len(font_report.fonts),
         "bangla_ansi_texts": len(flagged.texts),
@@ -292,8 +329,11 @@ def _finish(
     return result
 
 
-def _propose(file_id: uuid.UUID, load: Callable[[], ReadArtefact], unread: int) -> jobs.StepResult:
-    return proposals.propose(file_id, load, sheets.conventions(file_id)[0], unread=unread)
+def _propose(
+    file_id: uuid.UUID, load: Callable[[], ReadArtefact], unread: int, sent: jev.Sent
+) -> jobs.StepResult:
+    conventions = sheets.conventions(file_id)[0]
+    return proposals.propose(file_id, load, conventions, sent=sent, unread=unread)
 
 
 def _match(file_id: uuid.UUID) -> jobs.StepResult:

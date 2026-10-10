@@ -1,6 +1,8 @@
 """Registering the consultant's Plot: each PDF page matched to the sheet it plots, and placed on it.
 
     match(pages, sheets, geometry, plots) -> list[PlotMatch]     # the harness's `plot` stage
+    reads_title(page, title) -> bool                             # #229: the page reads the title
+    title_read(page, title) -> TitleRead                         # the same, saying if its walk was cut
 
 `pages` are 12's (`engine.read.pdf.page_text`), every PDF's of the set; `sheets` are 13's; `geometry[i]`
 is `sheets[i]`'s render buffers (11's `buffers.build`), or none where they were not built: the sheet's
@@ -28,16 +30,19 @@ is taken; a page whose ink names no one sheet (a frame and title block alone, wh
 draws alike) keeps its reason (`names_several_sheets`, `no_text`).
 
 **Where** (`PlotTransform`: sheet to page, a scale, a turn in 90° steps, then an offset in page units,
-points; the sheet in its paper millimetres, as the buffers draw it). From the sizes first: the sheet is
-turned when the page's orientation (landscape or portrait) differs from its paper's; it is plotted at
-1:1 (72/25.4 points a millimetre) when its paper fits the page so, else fitted to the page; and it is
-centred on the page. Then from the text both carry: each of the sheet's value texts (its anchors after
-the frame: number, title, revision and date, where the buffers draw them) is paired with each page
-item that reads one of those values; each pair says where the sheet's origin lands, and a place that
-at least `MIN_PAIRS` pairs agree on, within `AGREE_MM` on paper, is taken, at each of the four turns
-(the one most pairs agree on wins). **The residual** is how far those pairs lie from the place taken,
-root mean square, in millimetres on paper; none when fewer than two pairs agree, since then nothing
-measured the fit (the sizes alone place the sheet).
+points; the sheet in its paper millimetres, as the buffers draw it). From the sizes first, of the page
+as a viewer shows it (its CropBox, `shown`; #240): the sheet is turned when the page's orientation
+(landscape or portrait) differs from its paper's; it is plotted at 1:1 (72/25.4 points a millimetre)
+when its paper fits the page so, else (a paper larger than the page, or a model-space sheet's assumed
+paper, `paper_source` 2, whose size says nothing of the page's) fitted to the page, which the ink's
+alignment may rescale (`ink.align`); and it is centred on the CropBox. Then from the text both carry:
+each of the sheet's value texts (its anchors after the frame: number, title, revision and date, where
+the buffers draw them) is paired with each page item that reads one of those values; each pair says
+where the sheet's origin lands, and a place that at least `MIN_PAIRS` pairs agree on, within
+`AGREE_MM` on paper, is taken, at each of the four turns (the one most pairs agree on wins). **The
+residual** is how far those pairs lie from the place taken, root mean square, in millimetres on paper;
+none when fewer than two pairs agree, since then nothing measured the fit (the sizes alone place the
+sheet).
 
 Nothing here reads a file: pages, sheets and buffers are values already read in their sandboxes.
 """
@@ -57,7 +62,7 @@ from engine.read.anchor import DwgAnchor
 from engine.read.pdf.types import Page, TextItem
 from engine.recognise.conflicts import normal
 from engine.recognise.types import PlotMatch, PlotTransform, SheetCandidate
-from engine.render.buffers import Paper, SheetBuffers
+from engine.render.buffers import Paper, PaperSource, SheetBuffers
 
 PT_PER_MM = 72 / 25.4
 """A PDF point is 1/72 inch: a sheet plotted at 1:1 is this many points a paper millimetre."""
@@ -227,6 +232,103 @@ def mention(page: Page, number: str) -> tuple[bool, float] | None:
     return best
 
 
+def reads_title(page: Page, title: str | None) -> bool:
+    """Whether the page's text reads the sheet's title (#229: a matched page is the sheet's second
+    source only when its number and its title read alike): the title's words, in 13's normal form and
+    in their order, are one item's run of words, or a chain of near items' (a title drawn over lines
+    is one item a line, `_near`): the first ending with the title's start, each between it whole, the
+    last starting with the rest. The title's words scattered over the page's notes are not its title
+    (review 1 of #229: "FIRST FLOOR PLAN" beside a note on the GROUND level reads no "GROUND FLOOR
+    PLAN"). A word is one holding a letter or digit. A sheet with no title (or one of punctuation
+    alone), and a page with no text (one matched by its ink), read no title alike. A chain walked
+    past its budget (`title_read`) reads no title."""
+    return title_read(page, title).alike
+
+
+@dataclass(frozen=True)
+class TitleRead:
+    """`reads_title`'s answer, and whether its walk of chains stopped at its budget unfinished (`cut`:
+    then `alike` is False, the page no second source)."""
+
+    alike: bool
+    cut: bool = False
+
+
+CHAIN_STEPS_PER_ITEM = 32
+"""How many pairs of items a title's chain walk may test for nearness, per item of the page (review
+1 of #638: a page of short items repeating the title's words made the walk the items squared times
+the title's words, seconds inside Step 1's write lock). Linear in the page's items; a real title
+block's chain takes a handful of steps."""
+CHAIN_STEPS_FLOOR = 4096
+"""The budget's least, for a page of few items."""
+
+
+def title_read(page: Page, title: str | None) -> TitleRead:
+    """`reads_title`, saying whether its walk was cut at its budget (`TitleRead`)."""
+    wanted = _words(title)
+    if not wanted:
+        return TitleRead(False)
+    lines = [(item, words) for item in page.items if (words := _words(item.text))]
+    n = len(wanted)
+    if any(_holds(words, wanted) for _, words in lines):
+        return TitleRead(True)
+    # The items that can follow a chain that has read the title to word k: those that finish it, and
+    # those that continue it whole, short of its end. Only they are tested for nearness.
+    finishing = {k: [item for item, words in lines if words[: n - k] == wanted[k:]] for k in range(1, n)}
+    continuing = {
+        k: [
+            (item, k + len(words))
+            for item, words in lines
+            if k + len(words) < n and wanted[k : k + len(words)] == words
+        ]
+        for k in range(1, n)
+    }
+    # Where a chain of items has read the title to, each short of the whole: (its last item, words read).
+    reached = [(item, k) for item, words in lines for k in range(1, n) if words[-k:] == wanted[:k]]
+    budget = max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))
+    seen: set[tuple[int, int]] = set()
+    while reached:
+        last, k = reached.pop()
+        if (id(last), k) in seen:
+            continue
+        seen.add((id(last), k))
+        for item in finishing[k]:
+            budget -= 1
+            if item is not last and _near(last, item):
+                return TitleRead(True)
+        for item, to in continuing[k]:
+            budget -= 1
+            if item is not last and (id(item), to) not in seen and _near(last, item):
+                reached.append((item, to))
+        if budget <= 0:
+            return TitleRead(False, cut=bool(reached))
+    return TitleRead(False)
+
+
+def _near(a: TextItem, b: TextItem) -> bool:
+    """Whether two items are lines of one block: the gap between their boxes, across and along, is
+    within two of the taller's text heights."""
+    ax0, ay0, ax1, ay1 = a.anchor.box
+    bx0, by0, bx1, by1 = b.anchor.box
+    gap = (
+        max(min(bx0, bx1) - max(ax0, ax1), min(ax0, ax1) - max(bx0, bx1), 0.0),
+        max(min(by0, by1) - max(ay0, ay1), min(ay0, ay1) - max(by0, by1), 0.0),
+    )
+    return max(gap) <= 2 * max(_height(a), _height(b))
+
+
+def _holds(words: list[str], run: list[str]) -> bool:
+    return any(words[i : i + len(run)] == run for i in range(len(words) - len(run) + 1))
+
+
+def _words(text: str | None) -> list[str]:
+    key = normal(text)
+    if key is None:
+        return []
+    # A word is read by its letters or digits: a dash alone is no word of a title.
+    return [word for word in _WORDS.split(key) if any(char.isalnum() for char in word)]
+
+
 def _reason(code: object) -> str:
     return str(getattr(code, "code", "")).rsplit(".", 1)[1]
 
@@ -313,10 +415,23 @@ def _fits_size(page: Page, buffers: SheetBuffers | None) -> bool:
 
 def _fits_paper(page: Page, paper: Paper) -> bool:
     w, h = paper.width_mm * PT_PER_MM, paper.height_mm * PT_PER_MM
+    _, _, width, height = shown(page)
     return any(
-        abs(a - page.width) <= 0.02 * page.width and abs(b - page.height) <= 0.02 * page.height
-        for a, b in ((w, h), (h, w))
+        abs(a - width) <= 0.02 * width and abs(b - height) <= 0.02 * height for a, b in ((w, h), (h, w))
     )
+
+
+def shown(page: Page) -> tuple[float, float, float, float]:
+    """The page as a viewer displays it (pdfium and pdf.js draw the CropBox, #240): its CropBox's
+    lower-left corner and size, in points in the page's frame, cut to the page; the whole page when
+    the CropBox has no size on it (a hostile file's)."""
+    x0, y0, x1, y1 = page.crop
+    left, right = max(min(x0, x1), 0.0), min(max(x0, x1), page.width)
+    bottom, top = max(min(y0, y1), 0.0), min(max(y0, y1), page.height)
+    width, height = right - left, top - bottom
+    if all(map(math.isfinite, (left, bottom, width, height))) and min(width, height) >= MIN_SIDE:
+        return left, bottom, width, height
+    return 0.0, 0.0, page.width, page.height
 
 
 # Which sheet, by its ink ------------------------------------------------------------------------------
@@ -392,17 +507,21 @@ def place(
     """The sheet's transform onto the page and the fit's residual (the module's rules); none for a
     page or a paper with no size to place by (a page of 0 by 0 points names a sheet all the same)."""
     paper = buffers.paper
-    sizes = (page.width, page.height, paper.width_mm, paper.height_mm)
+    sizes = (*shown(page)[2:], paper.width_mm, paper.height_mm)
     if not all(math.isfinite(v) and v >= MIN_SIDE for v in sizes):
         return None
+    # A model-space sheet's assumed paper (A1's long side, `paper_source` 2) says nothing of its page's
+    # size; a layout's assumed paper is its own units taken as mm, at the size it is drawn.
+    sized = paper.source != PaperSource.ASSUMED or sheet.location.layout is not None
     anchors = [a for a in sheet.anchors[1:] if isinstance(a, DwgAnchor)][:MAX_DRAWN]
     drawn = [box for a in anchors if (box := drawn_at(buffers, a)) is not None]
     printed = [
         i.anchor.box for i in page.items if _on_page(i.anchor.box, page) and _reads_a_value(i, sheet)
     ][:MAX_PRINTED]
     with np.errstate(all="ignore"):
-        fits = [_fit(page, paper, turn, drawn, printed) for turn in TURNS]
-    upright = (paper.width_mm >= paper.height_mm) == (page.width >= page.height)
+        fits = [_fit(page, paper, turn, drawn, printed, sized) for turn in TURNS]
+    _, _, width, height = shown(page)
+    upright = (paper.width_mm >= paper.height_mm) == (width >= height)
     default = fits[0] if upright else fits[1]
     best = max(fits, key=lambda f: (f.pairs >= MIN_PAIRS, f.pairs, f is default))
     if best.pairs < MIN_PAIRS or not all(map(math.isfinite, (*best.offset, best.residual_mm or 0))):
@@ -422,11 +541,14 @@ def _on_page(box: tuple[float, float, float, float], page: Page) -> bool:
     )  # fmt: skip
 
 
-def _scale(page: Page, paper: Paper, turn: int) -> float:
+def _scale(page: Page, paper: Paper, turn: int, sized: bool = True) -> float:
+    """Points a paper mm: 1:1 when the paper fits the page as shown (`shown`) so and `sized` (its size
+    is the drawing's), else the paper fitted to it."""
     w, h = (paper.width_mm, paper.height_mm) if turn in (0, 180) else (paper.height_mm, paper.width_mm)
-    if w * PT_PER_MM <= page.width * FITS and h * PT_PER_MM <= page.height * FITS:
+    _, _, width, height = shown(page)
+    if sized and w * PT_PER_MM <= width * FITS and h * PT_PER_MM <= height * FITS:
         return PT_PER_MM
-    return min(page.width / w, page.height / h)
+    return min(width / w, height / h)
 
 
 def _turn(turn: int, x: float, y: float) -> tuple[float, float]:
@@ -448,10 +570,13 @@ def _marks(box: _Box) -> tuple[bool, list[tuple[float, float]]]:
     return False, [(cx, y0), (cx, cy), (cx, y1)]
 
 
-def _fit(page: Page, paper: Paper, turn: int, drawn: list[_Box], printed: list[_Box]) -> _Fit:
-    scale = _scale(page, paper, turn)
+def _fit(
+    page: Page, paper: Paper, turn: int, drawn: list[_Box], printed: list[_Box], sized: bool = True
+) -> _Fit:
+    scale = _scale(page, paper, turn, sized)
     cx, cy = _turn(turn, paper.width_mm / 2, paper.height_mm / 2)
-    centred = (page.width / 2 - scale * cx, page.height / 2 - scale * cy)
+    left, bottom, width, height = shown(page)
+    centred = (left + width / 2 - scale * cx, bottom + height / 2 - scale * cy)
     offsets: list[tuple[float, float]] = []
     tags: list[tuple[int, int]] = []
     ours = [_marks(_turned(turn, scale, box)) for box in drawn]

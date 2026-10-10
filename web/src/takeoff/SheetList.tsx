@@ -469,6 +469,16 @@ function Numbers({ numbers }: { numbers: readonly string[] }) {
   )
 }
 
+/**
+ * The storey keys the server read a row's titles to (`storeys_titled`): every sheet's that states
+ * storeys, together, or null when one of them read to none (its words are then shown as stated).
+ */
+function titledOf(sheets: readonly ProposalOut[]): string[] | null {
+  const stating = sheets.filter((p) => p.storeys_as_stated)
+  if (stating.length === 0 || stating.some((p) => !p.storeys_titled?.length)) return null
+  return [...new Set(stating.flatMap((p) => p.storeys_titled ?? []))]
+}
+
 function SheetRow({
   row,
   focused,
@@ -520,7 +530,8 @@ function SheetRow({
         </TooltipContent>
       </Tooltip>
     ) : null
-  else if (row.kind === 'copies')
+  else if (row.kind === 'copies' && q?.code === SAME_NUMBER)
+    // Copies are sheets of one number; one title on many numbers is never "copies" (#232).
     title = (
       <Trans>
         <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
@@ -528,13 +539,20 @@ function SheetRow({
       </Trans>
     )
   else if (row.sheets.length > 1)
+    // A continuation the server names is titled with its member-mark ranges joined (T-W334).
     title = (
       <Trans>
-        <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+        <DrawingText kind="title" text={(row.kind === 'sheet' ? first?.continuation_title : null) || (first?.title ?? '')} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )
   else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+  // One title on several runs that draw different things: told, never asked (the owner, 5 Oct 2026, #334).
+  const shares = row.shares ? (
+    <span className="ms-2 shrink-0 whitespace-nowrap text-ink-secondary">
+      <Plural value={row.shares} one="# sheet shares this title" other="# sheets share this title" />
+    </span>
+  ) : null
 
   return (
     <div
@@ -591,6 +609,7 @@ function SheetRow({
       {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
       <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
         {title}
+        {shares}
       </span>
       <span role="gridcell" className="truncate text-ink-secondary">
         {first ? <DisciplineCell sheet={first} /> : null}
@@ -603,7 +622,11 @@ function SheetRow({
           <>
             <StoreyStrip slots={slots} views={row.sheets.flatMap((p) => p.views ?? [])} muted={excluded} />
             <span className="min-w-0 truncate">
-              <StoreysText views={row.sheets.flatMap((p) => p.views ?? [])} stated={[...new Set(row.sheets.map((p) => p.storeys_as_stated).filter(Boolean))].join(', ')} />
+              <StoreysText
+                views={row.sheets.flatMap((p) => p.views ?? [])}
+                stated={[...new Set(row.sheets.map((p) => p.storeys_as_stated).filter(Boolean))].join(', ')}
+                titled={titledOf(row.sheets)}
+              />
             </span>
           </>
         ) : null}
@@ -631,6 +654,9 @@ function SheetRow({
  */
 /** How many of a cut file name's last stem characters always show. */
 const TAIL_KEPT = 6
+
+/** A Question over sheets of one number (19b's `same_number`): its sheets are copies. */
+const SAME_NUMBER = 'engine.conflicts.same_number'
 
 function FileName({ name }: { name: string }) {
   const dot = name.lastIndexOf('.')

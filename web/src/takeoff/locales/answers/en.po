@@ -20,6 +20,10 @@ msgid "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # she
 msgstr "{tag} answered. {n, plural, one {Confirms # sheet.} other {Confirms # sheets.}}"
 
 #: src/takeoff/questionWords.tsx
+msgid "Not part of this set: the numbering skips at each gap"
+msgstr "Not part of this set: the numbering skips at each gap"
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list on {sheet}"
 msgstr "the drawing list on {sheet}"
 
@@ -60,6 +64,10 @@ msgid "Trace: page {page} of the Plot"
 msgstr "Trace: page {page} of the Plot"
 
 #: src/takeoff/questionWords.tsx
+msgid "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of each gap stop waiting for it."
+msgstr "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of each gap stop waiting for it."
+
+#: src/takeoff/questionWords.tsx
 msgid "the pasted drawing list"
 msgstr "the pasted drawing list"
 
@@ -70,6 +78,10 @@ msgstr "A sheet in {file} has neither a number nor a title in its title block."
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
 msgstr "{tag} answered. Recorded the kind as {kind}; no sheet was confirmed."
+
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set.} other {Answering records that the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
+msgstr "{missing, plural, one {Answering records that the missing sheet is in a file not yet added; add it to the Drawing Set.} other {Answering records that the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering records that the sheet is not part of this set; it stays on the drawing list."
@@ -103,6 +115,10 @@ msgstr "One title on {count} sheets"
 #: src/takeoff/questionWords.tsx
 msgid "{0, plural, =2 {Neither has a title. Only one can be read, unless they are different sheets.} other {None of the # has a title. Only one can be read, unless they are different sheets.}}"
 msgstr "{0, plural, =2 {Neither has a title. Only one can be read, unless they are different sheets.} other {None of the # has a title. Only one can be read, unless they are different sheets.}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Answering records that the missing sheet is still to come; ask the consultant for it.} other {Answering records that the # missing sheets are still to come; ask the consultant for them.}}"
+msgstr "{missing, plural, one {Answering records that the missing sheet is still to come; ask the consultant for it.} other {Answering records that the # missing sheets are still to come; ask the consultant for them.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet is not part of this set."
@@ -213,6 +229,10 @@ msgid "{discipline} cannot be confirmed until this Question is answered."
 msgstr "{discipline} cannot be confirmed until this Question is answered."
 
 #: src/takeoff/questionWords.tsx
+msgid "Trace: the title blocks and plans of {sheets}"
+msgstr "Trace: the title blocks and plans of {sheets}"
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title block of {sheet}"
 msgstr "Trace: the title block of {sheet}"
 
@@ -257,16 +277,12 @@ msgid "Trace: the title blocks of {copies}"
 msgstr "Trace: the title blocks of {copies}"
 
 #: src/takeoff/questionWords.tsx
+msgid "Answering keeps these gaps open."
+msgstr "Answering keeps these gaps open."
+
+#: src/takeoff/questionWords.tsx
 msgid "Keep {kept} ({date}); leave {dropped} out as superseded"
 msgstr "Keep {kept} ({date}); leave {dropped} out as superseded"
-
-#: src/takeoff/questionWords.tsx
-msgid "{missing, plural, one {Answering records that the missing sheet is still to come. Paste the drawing list to count it.} other {Answering records that the # missing sheets are still to come. Paste the drawing list to count them.}}"
-msgstr "{missing, plural, one {Answering records that the missing sheet is still to come. Paste the drawing list to count it.} other {Answering records that the # missing sheets are still to come. Paste the drawing list to count them.}}"
-
-#: src/takeoff/questionWords.tsx
-msgid "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
-msgstr "{missing, plural, one {Not sent yet: keep the missing sheet in the count and ask the consultant} other {Not sent yet: keep the missing sheets in the count and ask the consultant}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps this gap open."
@@ -299,6 +315,14 @@ msgstr "Trace: the title block of {sheet} (the number field is empty)"
 #: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. The MD reads Questions and cannot answer them."
 msgstr "Waiting for the QS. The MD reads Questions and cannot answer them."
+
+#: src/takeoff/questionWords.tsx
+msgid "Answering records that the numbering skips at each gap: nothing is missing."
+msgstr "Answering records that the numbering skips at each gap: nothing is missing."
+
+#: src/takeoff/questionWords.tsx
+msgid "from {after} to {before}"
+msgstr "from {after} to {before}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title block of {untitled} (its number and title fields are empty)"
@@ -339,6 +363,10 @@ msgstr "{waiting, plural, one {# waits on another Question first.} other {# wait
 #: src/takeoff/questionWords.tsx
 msgid "Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 msgstr "Answering reads {file} anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
+
+#: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is in a file not yet added; add it to the Drawing Set.} other {the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
+msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is in a file not yet added; add it to the Drawing Set.} other {the # missing sheets are in a file not yet added; add that file to the Drawing Set.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "the typed drawing list"
@@ -437,6 +465,10 @@ msgid "{tag} answered. Recorded: {sheet} is not part of this set; it stays on th
 msgstr "{tag} answered. Recorded: {sheet} is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: the numbering skips at each gap; nothing is missing."
+msgstr "{tag} answered. Recorded: the numbering skips at each gap; nothing is missing."
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the sheet’s range includes its top storey."
 msgstr "{tag} answered. Recorded: the sheet’s range includes its top storey."
 
@@ -457,10 +489,6 @@ msgid "Both are titled “{title}”. Only one can be read."
 msgstr "Both are titled “{title}”. Only one can be read."
 
 #: src/takeoff/questionWords.tsx
-msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}"
-msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come. Paste the drawing list to count it.} other {the # missing sheets are still to come. Paste the drawing list to count them.}}"
-
-#: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering confirms {ready} of # sheet and cannot be undone.} other {Answering confirms {ready} of # sheets and cannot be undone.}}"
 msgstr "{n, plural, one {Answering confirms {ready} of # sheet and cannot be undone.} other {Answering confirms {ready} of # sheets and cannot be undone.}}"
 
@@ -477,8 +505,16 @@ msgid "the later revision mark and {list} agree"
 msgstr "the later revision mark and {list} agree"
 
 #: src/takeoff/questionWords.tsx
+msgid "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gap stop waiting for it."
+msgstr "Answering confirms no sheets: it records why the numbering skips, and the sheets either side of the gap stop waiting for it."
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
+
+#: src/takeoff/questionWords.tsx
+msgid "Trace: the title blocks of {sides}"
+msgstr "Trace: the title blocks of {sides}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {{tag} answered. The sheet is {kind}.} other {{tag} answered. All # sheets are {kind}.}}"
@@ -513,6 +549,10 @@ msgid "{tag} answered. The file is set aside, waiting for the re-saved file."
 msgstr "{tag} answered. The file is set aside, waiting for the re-saved file."
 
 #: src/takeoff/questionWords.tsx
+msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come; ask the consultant for it.} other {the # missing sheets are still to come; ask the consultant for them.}}"
+msgstr "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come; ask the consultant for it.} other {the # missing sheets are still to come; ask the consultant for them.}}"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 msgstr "{tag} answered. Confirms the latest copy of {number} and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 
@@ -535,6 +575,10 @@ msgstr "Answering confirms no sheets. Pick an answer: {keys}."
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps the file held. {discipline} cannot be confirmed until it is answered."
 msgstr "Answering keeps the file held. {discipline} cannot be confirmed until it is answered."
+
+#: src/takeoff/questionWords.tsx
+msgid "{missing, plural, one {Not sent yet: the missing sheet is still to come; ask the consultant} other {Not sent yet: the # missing sheets are still to come; ask the consultant}}"
+msgstr "{missing, plural, one {Not sent yet: the missing sheet is still to come; ask the consultant} other {Not sent yet: the # missing sheets are still to come; ask the consultant}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "the drawing list typed by {who}"

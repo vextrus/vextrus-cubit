@@ -301,6 +301,37 @@ def test_a_lost_reading_is_read_again_though_its_step_was_kept(
         )
 
 
+def test_a_reading_kept_in_an_older_artefact_version_is_read_again_though_its_step_was_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 1 of #638: S15-E2 raised the artefact's VERSION, so a file whose `reading` step was kept
+    before it holds an artefact `from_json` refuses. A job restarted after that step reads the file
+    again (as a missing copy is) and finishes, rather than failing on every try."""
+    from engine.read import artefact as artefact_shape
+
+    file_id = added(qs_project)
+    with pytest.raises(files.FileNotRead):
+        run_job(
+            qs_project.member,
+            file_id,
+            readers(Calls(), second=ReadError(agree_codes.STOPPED())),
+            monkeypatch,
+        )
+    monkeypatch.setattr(artefact_shape, "VERSION", artefact_shape.VERSION + 1)  # the kept one is older
+    with qs_project.member.acting():
+        drawings.restart(file_id)
+    calls = Calls()
+
+    run_job(qs_project.member, file_id, readers(calls), monkeypatch)
+
+    assert calls.names == ["dwg", "second", "fonts", "bangla_ansi"]
+    assert view(qs_project.member, file_id).state == drawings.FileState.READ
+    with qs_project.member.acting():
+        assert (
+            drawings.artefact(file_id).summary.source_sha256 == view(qs_project.member, file_id).sha256
+        )
+
+
 def test_a_missing_copy_ends_the_file_failed_with_why(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:

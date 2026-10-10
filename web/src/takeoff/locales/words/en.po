@@ -119,6 +119,10 @@ msgid "Perspective"
 msgstr "Perspective"
 
 #: src/takeoff/words.tsx
+msgid "Gaps in the numbering"
+msgstr "Gaps in the numbering"
+
+#: src/takeoff/words.tsx
 msgid "No Discipline"
 msgstr "No Discipline"
 
@@ -452,6 +456,10 @@ msgstr "Lift section"
 #: src/takeoff/words.tsx
 msgid "Roof plan"
 msgstr "Roof plan"
+
+#: src/takeoff/words.tsx
+msgid "Sheet titles and plans name different storeys"
+msgstr "Sheet titles and plans name different storeys"
 
 #: src/takeoff/words.tsx
 msgid "Septic tank details"

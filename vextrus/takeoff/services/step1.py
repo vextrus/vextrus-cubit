@@ -44,18 +44,19 @@ For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_ques
 """
 
 import contextlib
+import contextvars
 import hashlib
 import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from typing import Any, cast
 
 from django.db import connection, transaction
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from engine.check import register
@@ -143,9 +144,10 @@ class ProposalView:
     `question_answer` when answering a Question confirmed or left it out); None while undecided."""
     agrees: bool = False
     """Two sources agree on it (m0-screens §5, "What 'agrees' means"): its number and title from its
-    title block, and its Discipline's drawing list naming it, or, with no list, its Discipline's
-    numbering running without a gap and its Plot page matched; never while held or in an open
-    Question. Only such a sheet joins the bulk act (6.4); the others are Proposals "with one source"."""
+    title block, and its Discipline's drawing list naming it, or, with no list, its Plot page matched
+    with its number and title read alike (#229; a numbering gap holds only the sheets beside it, by
+    its open Question); never while held or in an open Question. Only such a sheet joins the bulk
+    act (6.4); the others are Proposals "with one source"."""
     decided_by_role: str | None = None
     """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
@@ -154,15 +156,27 @@ class ProposalView:
     """Where its number was read: "title_block_attribute", "title_block_text", …; None for none."""
     title_source: str | None = None
     storeys_as_stated: str = ""
+    storeys_titled: tuple[str, ...] | None = None
+    """The storey keys its title's storey words read to (17's `views.titled_storeys`, with where a
+    range runs to), derived on the read and stored nowhere; None when it states none or they read to
+    no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
     plot_file: str | None = None
     plot_page: int | None = None
     plot_residual: str | None = None
+    plot_title_alike: bool = False
+    """Its Plot page reads its title as well as its number (#229): the page is its second source."""
     plot_none: dict[str, Any] | None = None
     """Why it has no Plot (a message), or None when a page matched or no PDF was added."""
     views: list[SheetViewView] = field(default_factory=list)
     """Its views in reading order, title block included."""
+    continuation: str | None = None
+    """The continuation run it is in, by the run's first sheet's id (`groups`, T-W334); None alone."""
+    continuation_title: str | None = None
+    """The run's title, its member-mark ranges joined ("GRADE BEAM GB2-GB14 DETAILS"); None alone."""
+    series: str | None = None
+    """The series it is in, by the series' first sheet's id; None when it is in none."""
 
 
 @dataclass(frozen=True)
@@ -178,6 +192,9 @@ class SheetViewView:
     storeys: list[str]
     storeys_as_stated: str
     storeys_meaning: str | None
+    storeys_source: str | None
+    """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318),
+    "title_line" for a bracketed line under its title (S15-E3)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -335,10 +352,20 @@ def _user() -> uuid.UUID:
 
 def _sheets(project_id: uuid.UUID) -> list[drawings.SheetView]:
     """The Project's printed sheets in the sheet list (the scope checked first); none before a file.
-    Their anchors are not read (`drawings.UNLOADED`): Step 1's lists and acts never use them."""
-    projects.get(project_id)
-    drawing_set = drawings.set_of(project_id)
-    return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
+    Their anchors are not read (`drawings.UNLOADED`): Step 1's lists and acts never use them.
+    Inside an act, read once between its writes (`_remembered`)."""
+
+    def read() -> list[drawings.SheetView]:
+        _in_scope(project_id)
+        drawing_set = _set_of(project_id)
+        return drawings.sheets(drawing_set.id, anchors=False) if drawing_set else []
+
+    return list(_remembered(("sheets", project_id), read))
+
+
+def sheets_of(project_id: uuid.UUID) -> list[drawings.SheetView]:
+    """`_sheets`, for the conflicts' pass after an act (`proposals.set_conflicts`)."""
+    return _sheets(project_id)
 
 
 def _sheet(sheet_id: uuid.UUID) -> drawings.SheetView:
@@ -353,10 +380,15 @@ def _facts_by_id(project_id: uuid.UUID) -> dict[uuid.UUID, drawings.SheetFacts]:
 
 
 def _facts(project_id: uuid.UUID) -> list[drawings.SheetFacts]:
-    """`_sheets` as facts (`drawings.sheet_facts`, one statement): for counts and membership tests."""
-    projects.get(project_id)
-    drawing_set = drawings.set_of(project_id)
-    return drawings.sheet_facts(drawing_set.id) if drawing_set else []
+    """`_sheets` as facts (`drawings.sheet_facts`, one statement): for counts and membership tests.
+    Inside an act, read once between its writes (`_remembered`)."""
+
+    def read() -> list[drawings.SheetFacts]:
+        _in_scope(project_id)
+        drawing_set = _set_of(project_id)
+        return drawings.sheet_facts(drawing_set.id) if drawing_set else []
+
+    return list(_remembered(("facts", project_id), read))
 
 
 def _proposals_of(project_id: uuid.UUID, among: Q | None = None) -> list[Proposal]:
@@ -373,14 +405,19 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     sheet's `kind` is the one its kind Question was answered with while it still stands in that
     Question's Discipline (`_kinds_answered`, read as its confirmation reads it; never stored on the
     sheet: S18-Q1), else the kind as read, else Jev's pick."""
+    from vextrus.takeoff.services import groups  # it reads 19b's candidates of the read job's
+
     sheets = _sheets(project_id)
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
     answered = _kinds_answered(
         project_id, [p.id for s in sheets if not s.decision and (p := by_sheet.get(s.id)) is not None]
     )
-    drawing_set = drawings.set_of(project_id)
-    names = {f.id: f.name for f in drawings.files(drawing_set.id)} if drawing_set else {}
-    viewed = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+    drawing_set = _set_of(project_id)
+    files = files_of(project_id)
+    names = {f.id: f.name for f in files}
+    of_set = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+    viewed = [of_set.get(s.id, []) for s in sheets]  # read once: each row's and the groups'
+    grouped = groups.among(sheets, viewed, {f.id: f.group for f in files}, sheet_conventions())
     stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
@@ -391,15 +428,29 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
+    titled = _titled({s.storeys_as_stated for s in sheets})
     return [
         replace(
-            _proposal_view(s, by_sheet.get(s.id), viewed.get(s.id, []), names, who, order, answered),
+            _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
             agrees=s.id in agreeing,
+            storeys_titled=titled.get(s.storeys_as_stated),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
+            **asdict(grouped.get(s.id, groups.ALONE)),
         )
-        for s in sheets
+        for s, views in zip(sheets, viewed, strict=True)
     ]
+
+
+def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
+    """Each distinct storey wording a sheet's title states, read once to its storey keys
+    (`ProposalView.storeys_titled`)."""
+    conventions = sheet_conventions()
+    found: dict[str, tuple[str, ...] | None] = {}
+    for text in stated:
+        if text:
+            found[text] = view_finder.titled_storeys(text, conventions) or None
+    return found
 
 
 _TITLE_BLOCK = frozenset({ValueSource.TITLE_BLOCK_ATTRIBUTE, ValueSource.TITLE_BLOCK_TEXT})
@@ -415,11 +466,17 @@ def _agreeing(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
     asked = set(open_questions.exclude(subject_id=None).values_list("subject_id", flat=True))
-    linked = {
-        p for ps in _held(project_id, open_questions.values_list("id", flat=True)).values() for p in ps
-    }
+    gap_codes = {list_codes.GAP.code, list_codes.GAPS.code}
+    held = _held(project_id, open_questions.values_list("id", flat=True))
+    gapped = set(open_questions.filter(message_code__in=gap_codes).values_list("id", flat=True))
+    linked = {p for q, ps in held.items() if q not in gapped for p in ps}
+    # A numbering gap holds its neighbours only while its Discipline has no drawing list (#229): a
+    # list typed after the gap was asked is the second source, not the numbering. `_held` cuts a gap
+    # Question's hold to the sheets beside its gaps now (`_beside_now`).
+    gap_linked = {p for q, ps in held.items() if q in gapped for p in ps}
     conventions = _conventions()
     numbers = Numbers(conventions, recognisers(conventions))
+    beside = _beside_gaps(open_questions, numbers)
     of_discipline: dict[str, list[drawings.SheetView]] = {}
     for sheet in sheets:
         if sheet.discipline is not None:
@@ -434,8 +491,10 @@ def _agreeing(
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
-        elif standing is None and _without_gap(numbers, discipline, everyone):
-            second = {s.id for s in mine if s.plot.page is not None}
+        elif standing is None:
+            # A matched Plot page whose number and title read alike, gap or no gap (#229): a gap
+            # holds only the sheets beside it, through its open Question's links.
+            second = {s.id for s in mine if s.plot.page is not None and s.plot.title_alike}
         else:
             second = set()
         for sheet in mine:
@@ -447,20 +506,54 @@ def _agreeing(
                 and sheet.sources.get("title") in _TITLE_BLOCK
                 and sheet.id not in asked
                 and (proposal is None or proposal.id not in linked)
+                and (
+                    standing is not None
+                    or (
+                        (proposal is None or proposal.id not in gap_linked)
+                        and _place(numbers, sheet.number, discipline)
+                        not in beside.get(discipline, set())
+                    )
+                )
             ):
                 agreeing.add(sheet.id)
     return agreeing
 
 
-def _without_gap(numbers: Numbers, discipline: str, sheets: Sequence[drawings.SheetView]) -> bool:
-    """Every number from the Discipline's first to its last present once, in one series (a sheet
-    with no number sits out: it never agrees itself)."""
-    parts = [numbers.parts_in(s.number, discipline) for s in sheets if s.number]
-    if not parts or any(p is None for p in parts):
-        return False
-    series = {(p[0], p[2]) for p in parts if p is not None}
-    running = sorted(p[1] for p in parts if p is not None)
-    return len(series) == 1 and running == list(range(running[0], running[0] + len(running)))
+def gap_ends(question: Question) -> list[tuple[str, str, int]]:
+    """A numbering gap Question's gaps, `(after, before, missing)` each: the merged Question's list,
+    or an older Question's one gap (asked one per gap before #229); none for another Question."""
+    params = question.params if isinstance(question.params, dict) else {}
+    if question.message_code == list_codes.GAPS.code:
+        found = params.get("gaps")
+        listed = [g for g in found if isinstance(g, dict)] if isinstance(found, list) else []
+    elif question.message_code == list_codes.GAP.code:
+        listed = [params]
+    else:
+        return []
+    return [
+        (str(g.get("after", "")), str(g.get("before", "")), int(g.get("missing") or 0)) for g in listed
+    ]
+
+
+def _beside_gaps(questions: QuerySet[Question], numbers: Numbers) -> dict[str, set[Hashable]]:
+    """The places (series and running number, a suffix aside: "S-04A" is beside a gap after "S-04")
+    of the sheets either side of each gap an open gap Question asks, by Discipline: held while it is
+    open (#229), whatever the sheets' decisions were when it was asked (an undo brings one back)."""
+    codes = [list_codes.GAP.code, list_codes.GAPS.code]
+    held: dict[str, set[Hashable]] = {}
+    for question in questions.filter(message_code__in=codes):
+        for after, before, _missing in gap_ends(question):
+            for end in (after, before):
+                place = _place(numbers, end, question.discipline)
+                if place is not None:
+                    held.setdefault(question.discipline, set()).add(place)
+    return held
+
+
+def _place(numbers: Numbers, number: str | None, discipline: str) -> Hashable | None:
+    """A number's series and running number in its Discipline (its suffix aside); none without."""
+    parts = numbers.parts_in(number, discipline) if number else None
+    return None if parts is None else (parts[0], parts[1])
 
 
 def _proposal_view(
@@ -506,6 +599,7 @@ def _proposal_view(
         plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
         plot_page=sheet.plot.page,
         plot_residual=sheet.plot.residual,
+        plot_title_alike=sheet.plot.page is not None and sheet.plot.title_alike,
         plot_none=dict(sheet.plot.none) if sheet.plot.none else None,
         views=[_sheet_view_view(v) for v in views],
     )
@@ -522,6 +616,7 @@ def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
         storeys=list(view.storeys),
         storeys_as_stated=view.storeys_as_stated,
         storeys_meaning=view.storeys_meaning,
+        storeys_source=view.storeys_source,
         steps=list(view.steps),
         part=view.part,
         proposed_exclusion=view.proposed_exclusion,
@@ -535,7 +630,7 @@ def questions(project_id: uuid.UUID) -> list[QuestionView]:
     """The Project's Step 1 Questions: the open ones in queue order (m0-screens §5: a held file first,
     as it holds a whole file; then those holding the most sheets; then conflicts, missing items and
     low-confidence ones; then as they were raised), then those answered or withdrawn."""
-    projects.get(project_id)
+    _in_scope(project_id)
     held = _held(project_id)
     found = _asked(project_id, Question.objects.filter(project_id=project_id, step=SHEETS), held)
     # Counted over every Step 1 Question, asked still or not, so no tag moves when one stops being asked.
@@ -634,7 +729,17 @@ def _held(
     linked: the one reading of a Question's membership, which every reader takes (the listed card,
     its words, its answer and `group_changed`, bulk confirm's hold check, `agrees`; S18-Q1's re-read
     rule, review 1 of #628). A kind Question holds no link it let go (`_let_go`), and an open one no
-    sheet already decided (its answer would not decide it again)."""
+    sheet already decided (its answer would not decide it again). A numbering gap Question holds only
+    the sheets beside its gaps now (`_beside_now`, S15-Q2). Inside an act, read once between its
+    writes (`_remembered`)."""
+    asked = None if among is None else frozenset(among)
+    found = _remembered(("held", project_id, asked), lambda: _held_read(project_id, asked))
+    return {q: list(ps) for q, ps in found.items()}
+
+
+def _held_read(
+    project_id: uuid.UUID, among: frozenset[uuid.UUID] | None
+) -> dict[uuid.UUID, list[uuid.UUID]]:
     gone = _let_go(project_id)
     done = {s.id for s in _facts(project_id) if s.decision}
     links = QuestionLink.objects.filter(project_id=project_id)
@@ -655,7 +760,47 @@ def _held(
         if asking_kind and status == QuestionStatus.OPEN and sheet_id in done:
             continue
         held.setdefault(question_id, []).append(proposal_id)
-    return held
+    return _beside_now(project_id, held)
+
+
+def _beside_now(
+    project_id: uuid.UUID, held: Mapping[uuid.UUID, Sequence[uuid.UUID]]
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """`held` (Proposals by Question) with each numbering gap Question's cut to the Proposals whose
+    sheets are beside a gap it asks now (S15-Q2): the Discipline's one gap Question keeps its id while
+    a later file adds or fills a gap (`ask_gaps`), and a Question's links are append-only (19a), so a
+    sheet beside a gap since filled is linked still and held no more. A Proposal whose sheet is not in
+    the sheet list stays (`_asked` reads it)."""
+    out = {q: list(ps) for q, ps in held.items()}
+    gapped = list(
+        Question.objects.filter(
+            project_id=project_id,
+            id__in=list(held),
+            message_code__in=[list_codes.GAP.code, list_codes.GAPS.code],
+        )
+    )
+    if not gapped:
+        return out
+    conventions = _conventions()
+    numbers = Numbers(conventions, recognisers(conventions))
+    sheet_of = {s.id: s for s in _sheets(project_id)}
+    subject = dict(
+        Proposal.objects.filter(project_id=project_id, step=SHEETS).values_list("id", "subject_id")
+    )
+    for question in gapped:
+        places = {
+            _place(numbers, end, question.discipline) for gap in gap_ends(question) for end in gap[:2]
+        }
+        kept = []
+        for proposal_id in out[question.id]:
+            sheet_id = subject.get(proposal_id)
+            sheet = sheet_of.get(sheet_id) if sheet_id is not None else None
+            if sheet is None or (
+                sheet.number and _place(numbers, sheet.number, question.discipline) in places
+            ):
+                kept.append(proposal_id)
+        out[question.id] = kept
+    return out
 
 
 def _held_now(project_id: uuid.UUID, question: Question) -> list[uuid.UUID]:
@@ -784,12 +929,12 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
 
 def _unread(project_id: uuid.UUID) -> int:
     """The sheets the read left out for unreadable writing, of the files in the sheet list."""
-    drawing_set = drawings.set_of(project_id)
+    drawing_set = _set_of(project_id)
     if drawing_set is None:
         return 0
     read = {
         str(f.id)
-        for f in drawings.files(drawing_set.id)
+        for f in files_of(project_id)
         if f.state == drawings.FileState.READ or f.state == drawings.FileState.HELD
     }
     return sum(
@@ -836,8 +981,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
         for row in Coverage.objects.filter(project_id=project_id, status=CoverageStatus.UNACCOUNTED)
         if row.sheet_revision_id in discipline_of
     )
-    drawing_set = drawings.set_of(project_id)
-    files = drawings.files(drawing_set.id) if drawing_set else []
+    files = files_of(project_id)
     reading = Counter(
         f.discipline
         for f in files
@@ -927,8 +1071,7 @@ def _not_received(project_id: uuid.UUID) -> list[str]:
     if tenant_id is None:
         return []
     expected = EXPECTED.get(markets.of_developer(tenant_id).code, ())
-    drawing_set = drawings.set_of(project_id)
-    received = {f.discipline for f in drawings.files(drawing_set.id)} if drawing_set else set()
+    received = {f.discipline for f in files_of(project_id)}
     # A Discipline expected only from some storey count (Fire from 7) is listed while the count is not
     # known: M0 reads no storey count for the Building.
     return [e.discipline for e in expected if e.discipline not in received]
@@ -1054,7 +1197,7 @@ def _parse(text: object) -> register.Parsed:
 def read_list(project_id: uuid.UUID, discipline: str, text: str) -> ParsedList:
     """A pasted list or a typed range, read back for the QS to see before setting it; nothing kept."""
     auth.require(acts.DRAWING_LIST, project_id)
-    projects.get(project_id)
+    _in_scope(project_id)
     key = _discipline(discipline)
     return _parsed_view(key, _parse(text))
 
@@ -1088,10 +1231,10 @@ def set_list(project_id: uuid.UUID, discipline: str, text: str, *, actor_name: s
     """The QS's pasted list or typed range, set as the Discipline's drawing list, its source marked
     and under the QS's name (an act `undo` takes back)."""
     auth.require(acts.DRAWING_LIST, project_id)
-    projects.get(project_id)
+    _in_scope(project_id)
     key = _discipline(discipline)
     parsed = _parse(text)
-    with transaction.atomic():
+    with writing(project_id):
         act = _act(project_id, ConfirmationAct.DRAWING_LIST, 0, actor_name, discipline=key)
         row = DrawingRegister.objects.create(
             tenant_id=act.tenant_id,
@@ -1159,7 +1302,7 @@ def _ask_if_lists_differ(project_id: uuid.UUID, discipline: str) -> None:
 def drawing_list(project_id: uuid.UUID, discipline: str) -> ListView:
     """The Discipline's drawing list as it stands: the QS's (pasted or typed), else one read on a
     sheet; with none, no numbers."""
-    projects.get(project_id)
+    _in_scope(project_id)
     key = _discipline(discipline)
     lists = _lists(project_id, key)
     standing = lists.standing
@@ -1269,7 +1412,7 @@ def _confirm(
     """`confirm`; `answering` when a Question's answer confirms what it held: its sheets never agree
     (an open Question holds them), so the answer is its own act, of kind `question_answer`."""
     auth.require(acts.CONFIRM, project_id)
-    with transaction.atomic():
+    with writing(project_id):
         chosen = _chosen(project_id, ids)
         _no_question_first(project_id, chosen)
         if not answering:
@@ -1374,9 +1517,14 @@ def _holding(
         message_code=answer_codes.LISTS_DISAGREE.code,
         discipline__in=list(of_discipline),
     )
-    for q in open_questions.filter(
-        Q(subject_id__in=sheet_ids) | Q(id__in=list(linked)) | lists_disagree
-    ).order_by("created_at", "id"):
+    # A numbering gap holds nothing in a Discipline with a drawing list (#229, as `_agreeing`).
+    listed = [d for d in of_discipline if _lists(project_id, d).standing is not None]
+    gaps_listed = Q(message_code__in=[list_codes.GAP.code, list_codes.GAPS.code], discipline__in=listed)
+    for q in (
+        open_questions.filter(Q(subject_id__in=sheet_ids) | Q(id__in=list(linked)) | lists_disagree)
+        .exclude(gaps_listed)
+        .order_by("created_at", "id")
+    ):
         held = linked.get(q.id, set()) | ({q.subject_id} & set(sheet_ids) if q.subject_id else set())
         if q.kind == QuestionKind.CONFLICT and q.message_code == answer_codes.LISTS_DISAGREE.code:
             held |= set(of_discipline.get(q.discipline or "", []))
@@ -1523,7 +1671,7 @@ def _exclude(
     """`exclude`; `answering` when a Question's answer leaves the sheets out (`_confirm`'s)."""
     auth.require(acts.EXCLUDE, project_id)
     words = text if reason == OTHER else ""
-    with transaction.atomic():
+    with writing(project_id):
         views, ids = _views_chosen(project_id, ids)
         chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
@@ -1613,7 +1761,7 @@ def assign(
     as it is. A key that is no Step 2 to 14 is refused (400); a view left out, on its own or with its
     sheet, is refused (409); an id not of this Project's views is not found; nothing is done."""
     auth.require(acts.ASSIGN, project_id)
-    projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
+    _in_scope(project_id)  # a Project not in scope (of another Developer, or none) is not found
     if (
         not isinstance(steps, (list, tuple))
         or not steps
@@ -1622,7 +1770,7 @@ def assign(
         raise auth.Refused(said.STEP_UNKNOWN(), status=400)
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NO_VIEW_CHOSEN(), status=400)
-    with transaction.atomic():
+    with writing(project_id):
         views, rest = _views_chosen(project_id, ids)
         if rest:
             raise auth.NotFound
@@ -1758,8 +1906,8 @@ def undo(project_id: uuid.UUID) -> ActView:
     included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
     auth.require(acts.UNDO, project_id)
-    projects.get(project_id)  # a Project not in scope (of another Developer, or none) is not found
-    with transaction.atomic():
+    _in_scope(project_id)  # a Project not in scope (of another Developer, or none) is not found
+    with writing(project_id):
         act = (
             Confirmation.objects.select_for_update()
             .filter(project_id=project_id, step=SHEETS, user_id=_user(), undone_at__isnull=True)
@@ -2078,7 +2226,7 @@ def propose_sheet(
 def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Traces = ()) -> uuid.UUID:
     """A view of a printed sheet as a Step 1 Proposal (what 17 proposes to do with it: its steps,
     its Part, or leaving it out), with its Traces; the Proposal's id. Idempotent per view."""
-    projects.get(project_id)
+    _in_scope(project_id)
     sheet = _sheet(view.sheet_revision_id)
     if _project_of(sheet) != project_id:
         raise auth.NotFound
@@ -2125,7 +2273,7 @@ def sheet_conventions() -> SheetConventions:
 def record_unread(project_id: uuid.UUID, file_id: uuid.UUID, *, sheet_found: int, unread: int) -> None:
     """How many sheets a file's read found and how many it left out for unreadable writing (#135),
     which Coverage counts while the file is in the sheet list."""
-    projects.get(project_id)
+    _in_scope(project_id)
     RecogniseRun.objects.update_or_create(
         tenant_id=_tenant(),
         project_id=project_id,
@@ -2198,7 +2346,7 @@ def record_check_run(
 ) -> uuid.UUID:
     """One run of a Check on reading: how many subjects passed of N, and each finding (its message,
     its subjects' ids and the Question it raised)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     run = CheckRun.objects.create(
         tenant_id=_tenant(),
         project_id=project_id,
@@ -2219,6 +2367,22 @@ def record_check_run(
             question_id=question_id,
         )
     return run.id
+
+
+def answered_findings(project_id: uuid.UUID, check_key: str) -> dict[tuple[str, str], uuid.UUID]:
+    """The findings of a Check the QS has answered (each run's finding whose Question is answered),
+    by (subject id, params as JSON): the Question that answered each. The same finding found again
+    on the same subject is decided, and asked no more (#436's review round 1)."""
+    _in_scope(project_id)
+    found: dict[tuple[str, str], uuid.UUID] = {}
+    rows = CheckFinding.objects.filter(
+        project_id=project_id, run__check_key=check_key, question__status=QuestionStatus.ANSWERED
+    ).values_list("subject_ids", "params", "question_id")
+    for subjects, params, question_id in rows:
+        said = json.dumps(params, sort_keys=True, default=str)
+        for subject in subjects or ():
+            found.setdefault((str(subject), said), question_id)
+    return found
 
 
 def _project_of(sheet: drawings.SheetView) -> uuid.UUID:
@@ -2302,14 +2466,24 @@ def raise_question(
     options: Sequence[Any] = (),
     check_code: str = "",
     blocks: Sequence[uuid.UUID] = (),
+    keyed_by_holds: bool = False,
+    keyed_by: Sequence[str] = (),
 ) -> uuid.UUID:
     """A Step 1 Question, as a code and its parameters, once per (kind, subject, evidence): the
-    same Question raised again is the one already asked. `blocks`: the Proposals it holds."""
-    projects.get(project_id)
+    same Question raised again is the one already asked. `blocks`: the Proposals it holds.
+    `keyed_by_holds`: the Proposals it holds are part of its evidence too (a Question over a group of
+    sheets, T-W318's per Discipline: the same words over other sheets are another Question, since a
+    Question's holds are only ever added to). `keyed_by`: more evidence that is no word of it (the
+    storey-titles findings with their plans' storeys, S15-E3: an answered Question is never the one a
+    changed disagreement is asked by)."""
+    _in_scope(project_id)
     chosen = QuestionKind(kind)
-    identity = json.dumps(
-        [chosen, str(subject_id or ""), message["code"], message["params"]], sort_keys=True, default=str
-    )
+    evidence: list[Any] = [chosen, str(subject_id or ""), message["code"], message["params"]]
+    if keyed_by_holds:
+        evidence.append(sorted(str(b) for b in blocks))
+    if keyed_by:
+        evidence.append(sorted(keyed_by))
+    identity = json.dumps(evidence, sort_keys=True, default=str)
     key = hashlib.sha256(identity.encode()).hexdigest()
     row, _made = Question.objects.get_or_create(
         tenant_id=_tenant(),
@@ -2332,6 +2506,129 @@ def raise_question(
             tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
         )
     return row.id
+
+
+def ask_gaps(
+    project_id: uuid.UUID,
+    discipline: str,
+    message: Message,
+    *,
+    options: Sequence[Any] = (),
+    check_code: str = "",
+    blocks: Sequence[uuid.UUID] = (),
+) -> uuid.UUID:
+    """The Discipline's one numbering gap Question (S15-Q2, the owner's session-11 ruling: "all of one
+    Discipline's gaps are asked as one Question"), its identity the Discipline and never its gaps'
+    sheet numbers: a file that adds a gap or fills one changes what it asks (`message`) and the sheets
+    it holds (`blocks`; a sheet beside a gap since filled is held no more, `_beside_now`), never
+    which Question it is. The Discipline's last one not
+    answered is the one asked (reopened if a past round retired it); after an answer, a new one (the
+    Discipline once more: a gap found later is asked, never settled by an answer given before it).
+
+    A kept-open answer stays while every gap it asks lies within a gap asked when it was kept open (a
+    file that fills a gap, or part of one, asks no number the QS has not seen); a number missing that
+    it never asked makes it the QS's to answer again (review 1 of #229). Two read jobs take turns on the
+    Discipline (a transaction lock), as `ask_group`'s do."""
+    _in_scope(project_id)
+    base = hashlib.sha256(
+        json.dumps([QuestionKind.CHECK, "gaps", discipline], sort_keys=True).encode()
+    ).hexdigest()[:_GROUP_KEY]
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                [f"takeoff.question_group:{project_id}:{base}"],
+            )
+        tenant = _tenant()
+        asked = list(
+            Question.objects.select_for_update()
+            .filter(tenant_id=tenant, project_id=project_id, question_key__startswith=base)
+            .order_by("created_at", "id")
+        )
+        last = asked[-1] if asked else None
+        reusable = last is not None and (
+            last.status == QuestionStatus.OPEN
+            or (last.status == QuestionStatus.WITHDRAWN and last.withdrawn_by_id is None)
+        )
+        if last is not None and reusable:
+            row = last
+            params = dict(message["params"])
+            if row.params != params:
+                was = set(gap_ends(row))
+                row.params = params
+                fields = ["params"]
+                if row.answer is not None and not _within(gap_ends(row), was, discipline):
+                    row.answer = None  # a number the QS never kept open is theirs to answer
+                    fields.append("answer")
+                row.save(update_fields=fields)
+        else:
+            row = Question.objects.create(
+                tenant_id=tenant,
+                project_id=project_id,
+                question_key=f"{base}{len(asked):0{64 - _GROUP_KEY}x}",
+                step=SHEETS,
+                kind=QuestionKind.CHECK,
+                subject_id=None,
+                discipline=discipline,
+                message_code=message["code"],
+                params=dict(message["params"]),
+                options=list(options),
+                check_code=check_code,
+            )
+        # Links are append-only (19a): one beside a gap since filled stays, held no more
+        # (`_beside_now`).
+        for proposal_id in dict.fromkeys(blocks):
+            proposal = Proposal.objects.get(project_id=project_id, id=proposal_id)
+            QuestionLink.objects.get_or_create(
+                tenant_id=row.tenant_id, project_id=project_id, question=row, proposal=proposal
+            )
+    return row.id
+
+
+def _within(
+    gaps: Iterable[tuple[str, str, int]], before: Iterable[tuple[str, str, int]], discipline: str
+) -> bool:
+    """Whether each gap `(after, before, missing)` lies within one of `before`: the same series, its
+    two ends on or between that gap's (S15-Q2: a gap split by a sheet that came asks nothing new). A
+    number the conventions do not place matches only the same gap."""
+    conventions = _conventions()
+    numbers = Numbers(conventions, recognisers(conventions))
+
+    def ends(gap: tuple[str, str, int]) -> tuple[Any, Any]:
+        return numbers.parts_in(gap[0], discipline), numbers.parts_in(gap[1], discipline)
+
+    was = list(before)
+    for gap in gaps:
+        if gap in was:
+            continue
+        low, high = ends(gap)
+        if low is None or high is None:
+            return False
+        if not any(
+            (lo := ends(old)[0]) is not None
+            and (hi := ends(old)[1]) is not None
+            and lo[0] == low[0] == high[0] == hi[0]
+            and lo[1] <= low[1]
+            and high[1] <= hi[1]
+            for old in was
+        ):
+            return False
+    return True
+
+
+def answered_gaps(project_id: uuid.UUID) -> dict[tuple[str, str, str, int], uuid.UUID]:
+    """Each numbering gap a QS has answered (not kept open), as `(discipline, after, before,
+    missing)`, with the Question that answered it: settled, never asked again (#229)."""
+    settled: dict[tuple[str, str, str, int], uuid.UUID] = {}
+    for question in Question.objects.filter(
+        project_id=project_id,
+        step=SHEETS,
+        status=QuestionStatus.ANSWERED,
+        message_code__in=[list_codes.GAP.code, list_codes.GAPS.code],
+    ).order_by("answered_at", "id"):
+        for gap in gap_ends(question):
+            settled.setdefault((question.discipline, *gap), question.id)
+    return settled
 
 
 def ask_group(
@@ -2358,7 +2655,7 @@ def ask_group(
     Two read jobs asking one group take turns (a transaction lock on the group's identity), and the
     group's Questions are locked while it is chosen, so an answer given meanwhile waits or comes
     first: a sheet never joins a Question answered without it (the refuter's case)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     chosen = QuestionKind(kind)
     if chosen != QuestionKind.LOW_CONFIDENCE or code.code != answer_codes.WHICH_KIND.code:
         raise ValueError(f"a group Question is a kind Question, not {chosen} {code.code}")
@@ -2492,9 +2789,11 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     that a past round retired is open again, and each still open that was not raised is retired,
     `withdrawn` and still listed. An answered Question, or one withdrawn by leaving its sheet out, is
     never touched. One the QS kept open hands that answer to the Question that supersedes it (its
-    code, holding every sheet it held, not answered yet). How many were retired. No progress row is
-    written: the round's caller writes them once, last (an act's `_after_act`, the read job)."""
-    projects.get(project_id)
+    code, holding every sheet it held, not answered yet); a numbering gap's, to the Discipline's
+    `gaps` Question that asks only gaps they kept open (`_heir_of_gaps`). How many were retired. No
+    progress row is written: the round's caller writes them once, last (an act's `_after_act`, the read
+    job)."""
+    _in_scope(project_id)
     asked = set(raised)
     ours = Question.objects.filter(project_id=project_id, step=SHEETS, message_code__in=list(codes))
     ours.filter(id__in=asked, status=QuestionStatus.WITHDRAWN, withdrawn_by__isnull=True).update(
@@ -2505,7 +2804,10 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
     if kept:
         held = _links(project_id, [q.id for q in kept] + list(asked))
         heirs = list(ours.filter(id__in=asked, status=QuestionStatus.OPEN, answer__isnull=True))
-        for old in kept:
+        gapped = [q for q in kept if q.message_code in (list_codes.GAP.code, list_codes.GAPS.code)]
+        for given in _heir_of_gaps(gapped, heirs):
+            heirs.remove(given)
+        for old in (q for q in kept if q not in gapped):
             heir = next(
                 (q for q in heirs if q.message_code == old.message_code and held[old.id] <= held[q.id]),
                 None,
@@ -2515,6 +2817,26 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
                 heir.save(update_fields=["answer"])
                 heirs.remove(heir)
     return leaving.update(status=QuestionStatus.WITHDRAWN)
+
+
+def _heir_of_gaps(kept: Sequence[Question], heirs: Sequence[Question]) -> list[Question]:
+    """The `gaps` Questions given the keep-open answer of the numbering gap Questions they supersede,
+    each of a Discipline whose kept-open Questions asked every gap it asks (review 1 of #229: a read
+    that fills one gap re-asks the rest, which the QS kept open; a Question asked one per gap before
+    #229 is the merged one's predecessor). Matched by the gaps, not the sheets held: the filled gap's
+    sheets leave the hold. One asking a gap no kept-open Question asked is the QS's to answer."""
+    given = []
+    for heir in heirs:
+        if heir.message_code != list_codes.GAPS.code:
+            continue
+        before = [q for q in kept if q.discipline == heir.discipline]
+        asked = {gap for q in before for gap in gap_ends(q)}
+        wanted = set(gap_ends(heir))
+        if before and wanted and wanted <= asked:
+            heir.answer = before[0].answer
+            heir.save(update_fields=["answer"])
+            given.append(heir)
+    return given
 
 
 def _links(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
@@ -2536,7 +2858,7 @@ def record_read_list(
     sheet = _sheet(sheet_id)
     project_id = _project_of(sheet)
     key = _discipline(discipline)
-    with transaction.atomic():
+    with writing(project_id):
         row = DrawingRegister.objects.create(
             tenant_id=_tenant(),
             project_id=project_id,
@@ -2568,8 +2890,8 @@ def record_read_list(
 
 def answer_question(project_id: uuid.UUID, question_id: uuid.UUID, answer: Any) -> None:
     """Record a Question's answer, by the acting user, now (21c answers held files through it)."""
-    projects.get(project_id)
-    with transaction.atomic():
+    _in_scope(project_id)
+    with writing(project_id):
         row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
         if row is None:
             raise auth.NotFound
@@ -2609,9 +2931,9 @@ def answer(
     a sheet the QS did not see. A kind Question that let go of every sheet (`_asked`) is no longer
     asked (409)."""
     auth.require(acts.CONFIRM, project_id)
-    projects.get(project_id)
+    _in_scope(project_id)
     read_again = None
-    with transaction.atomic():
+    with writing(project_id):
         row = (
             Question.objects.select_for_update()
             .filter(project_id=project_id, step=SHEETS, id=question_id)
@@ -2650,7 +2972,7 @@ def answer(
         row.answered_at = timezone.now()
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         _after_act(project_id, corrected=corrected)
-    return Answered(_question_view(project_id, row.id), read_again, corrected)
+        return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
 def answer_disciplines(
@@ -2660,7 +2982,7 @@ def answer_disciplines(
     has (its file's, chosen by the QS: #159), as if the QS had picked it; how many were answered."""
     given = {s.id: s.discipline for s in sheets if s.discipline}
     answered = 0
-    with transaction.atomic():
+    with writing(project_id):
         for row in Question.objects.select_for_update().filter(
             project_id=project_id,
             step=SHEETS,
@@ -2686,7 +3008,7 @@ def answer_disciplines(
 
 def _question_view(project_id: uuid.UUID, question_id: uuid.UUID) -> QuestionView:
     """The one Question as `questions` lists it, read on its own (not every Question of the Project)."""
-    projects.get(project_id)
+    _in_scope(project_id)
     of_step = Question.objects.filter(project_id=project_id, step=SHEETS)
     q = of_step.filter(id=question_id).first()
     held = _held_now(project_id, q) if q is not None else []
@@ -2712,12 +3034,11 @@ def _apply(
         return row.subject_id if option == "read_anyway" else None
     if kind == QuestionKind.CONFLICT and row.message_code != answer_codes.LISTS_DISAGREE.code:
         if option == "keep_latest":
-            listed = {p.id: p for p in proposals(project_id)}
-            copies = [listed[i] for i in held if i in listed]
+            copies = _copies(project_id, held)
             if copies:
-                latest = max(copies, key=_newest)
-                _confirm(project_id, [latest.id], kind=None, actor_name=actor_name, answering=True)
-                others = [p.id for p in copies if p.id != latest.id]
+                latest = max(copies, key=lambda copy: copy[1])
+                _confirm(project_id, [latest[0]], kind=None, actor_name=actor_name, answering=True)
+                others = [i for i, _place in copies if i != latest[0]]
                 if others:
                     _exclude(project_id, others, "superseded", actor_name=actor_name, answering=True)
         elif option == "keep_all" and held:
@@ -2761,13 +3082,18 @@ def _kind_split(
 ) -> tuple[list[uuid.UUID], list[uuid.UUID]]:
     """What a kind Question's answer would do with the Proposals it holds (`_held_now`), in order:
     those it would confirm; and those it leaves open because another open Question holds them (by a
-    link or by its subject; the two drawing lists' Question, which holds a Discipline, aside). An open
-    kind Question holds no decided sheet (`_held`), so its words and its answer count the same."""
+    link or by its subject). The two drawing lists' Question, which holds a Discipline, and the
+    Discipline's numbering gap Question (S15-Q2), which holds the sheets beside its gaps from their
+    agreeing (`_agreeing`), are aside: neither asks what a sheet is, and the gap Question's links
+    stay after its gaps change (append-only), so a kind answer never waits on them. An open kind
+    Question holds no decided sheet (`_held`), so its words and its answer count the same."""
     facts = {s.id: s for s in _facts(project_id)}
     proposals_held = {p.id: p for p in Proposal.objects.filter(project_id=project_id, id__in=held)}
-    others = Question.objects.filter(
-        project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
-    ).exclude(id=question.id)
+    others = (
+        Question.objects.filter(project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN)
+        .exclude(id=question.id)
+        .exclude(message_code__in=[list_codes.GAP.code, list_codes.GAPS.code])
+    )
     linked = {
         p for ps in _held(project_id, others.values_list("id", flat=True)).values() for p in ps
     } & set(proposals_held)
@@ -2787,9 +3113,20 @@ def _kind_split(
     return ready, waiting
 
 
-def _newest(proposal: ProposalView) -> tuple[Any, ...]:
-    """A copy's place among copies of one number: its issue date, then its revision mark."""
-    return (_date_of(proposal.issue_date), _natural(proposal.revision_mark))
+def _copies(project_id: uuid.UUID, held: Sequence[uuid.UUID]) -> list[tuple[uuid.UUID, tuple[Any, ...]]]:
+    """The held Proposals `proposals` lists (each its sheet's one Proposal, the sheet in the sheet
+    list), in held order, each with its place among copies of one number (its issue date as
+    `proposals` words it, then its revision mark): read for these sheets alone, not the whole list
+    (S15-A2's 500 ms)."""
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    listed = {s.id: s for s in _sheets(project_id)}
+    sheet_of = {p.id: listed[sheet_id] for sheet_id, p in by_sheet.items() if sheet_id in listed}
+    order = markets.of_developer(_tenant()).date_order
+    return [
+        (i, (_date_of(iso_date(sheet.issue_date, order)), _natural(sheet.revision_mark)))
+        for i in held
+        if (sheet := sheet_of.get(i)) is not None
+    ]
 
 
 def _date_of(text: str | None) -> tuple[int, int, int]:
@@ -2810,23 +3147,163 @@ def _natural(text: str) -> list[tuple[int, int, str]]:
     ]
 
 
+_PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.ContextVar(
+    "step1_progress_at_end", default=None
+)
+
+
+@contextlib.contextmanager
+def writing(project_id: uuid.UUID) -> Iterator[None]:
+    """An act's transaction on Step 1 (#227): Step 1's write lock on the Project taken first
+    (`lock_writes`), and its progress rows written last (`progress_at_end`); the sheet list's facts
+    and the Questions' holdings read once between its writes (`reads_between_writes`)."""
+    with transaction.atomic(), reads_between_writes(), progress_at_end():
+        lock_writes(project_id)
+        yield
+
+
+_READS: contextvars.ContextVar[dict[Hashable, Any] | None] = contextvars.ContextVar(
+    "step1_reads", default=None
+)
+
+
+def _in_scope(project_id: uuid.UUID) -> None:
+    """Refuse a Project not in the acting Membership's scope as not found (`projects.get`); inside an
+    act, checked once (`_remembered`: a refusal is never remembered, so it refuses again)."""
+    _remembered(("scope", project_id), lambda: projects.get(project_id))
+
+
+def _set_of(project_id: uuid.UUID) -> drawings.SetView | None:
+    """The Project's Drawing Set (`drawings.set_of`); inside an act, read once between its writes."""
+    return _remembered(("set", project_id), lambda: drawings.set_of(project_id))
+
+
+def files_of(project_id: uuid.UUID) -> list[drawings.FileView]:
+    """The files of the Project's Drawing Set (`drawings.files`), none before its first. Read every
+    time, never remembered: a file's state is its read job's, which a worker moves on its own
+    connection, outside Step 1's write lock."""
+    drawing_set = _set_of(project_id)
+    return drawings.files(drawing_set.id) if drawing_set else []
+
+
+def _remembered[T](key: Hashable, read: Callable[[], T]) -> T:
+    """`read()`, or inside `reads_between_writes` what it gave since the act's last write. The
+    caller copies what it hands out, so no reader changes another's."""
+    memo = _READS.get()
+    if memo is None:
+        return read()
+    if key not in memo:
+        memo[key] = read()
+    return cast(T, memo[key])
+
+
+def _reading(sql: str) -> bool:
+    """Whether a statement only reads: a SELECT that sets no setting (`set_config` moves the tenant
+    row-level security reads by), or a savepoint made or released (a nested act's: neither changes
+    a row). Anything else (a write, a rollback to a savepoint) is a write."""
+    words = sql.lstrip().lower()
+    if words.startswith(("savepoint", "release savepoint")):  # a rollback to one is a write
+        return True
+    return words.startswith("select") and "set_config" not in words
+
+
+@contextlib.contextmanager
+def reads_between_writes() -> Iterator[None]:
+    """An act's repeated reads of the same rows answered once until its next write (S15-A2's 500 ms
+    bound, #638): every statement the act's connection runs that is not a plain read
+    (`_reading`) forgets them all, before it runs, so a read after a write is read again. Another
+    transaction's writes are not waited for: Step 1's write lock keeps a read job's writes out
+    while an act holds it (`lock_writes`). A block inside another shares the outer one's."""
+    if _READS.get() is not None:
+        yield
+        return
+    memo: dict[Hashable, Any] = {}
+
+    def forget_on_write(
+        execute: Callable[..., Any], sql: str, params: Any, many: bool, context: Any
+    ) -> Any:
+        if not _reading(sql):
+            memo.clear()
+        return execute(sql, params, many, context)
+
+    token = _READS.set(memo)
+    try:
+        with connection.execute_wrapper(forget_on_write):
+            yield
+    finally:
+        _READS.reset(token)
+
+
+def lock_writes(project_id: uuid.UUID) -> None:
+    """Step 1's write lock on the Project, held to the transaction's end (#227, review round 3).
+    Every act takes it as its transaction's first statement, before any row lock (`writing`); a
+    read job takes it just before its short write phase (the proposals' rows, the set's Questions,
+    the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers), which holds
+    no row an act locks. So an act and a job share their rows one at a time: an act waits at most
+    for a job's write phase (seconds), never for its reading, and the two never wait on each other
+    in a cycle, whatever rows they share (a sheet the match lets go, a Question both retire, a PDF's
+    row). The Discipline change takes it first too (`drawings.before_discipline_change`). Taken
+    again in the same transaction, it is already held; an act aborted anyway is run again
+    (`platform.services.deadlocks`)."""
+    assert connection.in_atomic_block, "Step 1's write lock is a transaction's"
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-write:{project_id}"]
+        )
+
+
+@contextlib.contextmanager
+def progress_at_end() -> Iterator[None]:
+    """Step 1's progress rows written once, as the block ends, however often it records them; a
+    block inside another is written as the outer one ends. `record_progress` takes a per-Project
+    lock, so the progress lock is the last lock any transaction takes, after all its own row locks:
+    every act and every read job's step runs inside one, the whole of its transaction (#227).
+    A read job's step holds the rows only for the moment before it commits, never while it
+    proposes. That alone does not keep an act and a job out of a cycle on the rows before it (a
+    Question both retire, a sheet the match lets go): Step 1's write lock does (`lock_writes`).
+    Nothing is written if the block raises (its transaction rolls back)."""
+    if _PROGRESS_AT_END.get() is not None:
+        yield
+        return
+    held: set[uuid.UUID] = set()
+    token = _PROGRESS_AT_END.set(held)
+    try:
+        yield
+    finally:
+        _PROGRESS_AT_END.reset(token)
+    for project_id in sorted(held, key=str):
+        record_progress(project_id)
+
+
 def record_progress(project_id: uuid.UUID) -> None:
     """Keep Step 1's progress rows as `progress` counts them, one per Discipline (and one for the
-    sheets of none)."""
-    tenant_id = _tenant()
-    for row in progress(project_id).disciplines:
-        status = row.status
-        StepProgress.objects.update_or_create(
-            tenant_id=tenant_id,
-            project_id=project_id,
-            building_id=None,
-            step=SHEETS,
-            discipline=row.discipline or "",
-            defaults={
-                "status": status,
-                "placed": row.confirmed,
-                "total": row.total,
-                "open_questions": row.open_questions,
-                "updated_at": timezone.now(),
-            },
-        )
+    sheets of none); inside `progress_at_end` (every act's and every read job's), as its block
+    ends."""
+    held = _PROGRESS_AT_END.get()
+    if held is not None:
+        held.add(project_id)
+        return
+    # Counted and written under one lock per Project, held to the transaction's end: an act and a
+    # read job writing the rows at once never write a count that misses the other's (#227's review).
+    with transaction.atomic():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
+            )
+        tenant_id = _tenant()
+        for row in progress(project_id).disciplines:
+            status = row.status
+            StepProgress.objects.update_or_create(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                building_id=None,
+                step=SHEETS,
+                discipline=row.discipline or "",
+                defaults={
+                    "status": status,
+                    "placed": row.confirmed,
+                    "total": row.total,
+                    "open_questions": row.open_questions,
+                    "updated_at": timezone.now(),
+                },
+            )

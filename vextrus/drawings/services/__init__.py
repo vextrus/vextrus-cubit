@@ -33,6 +33,7 @@ For 21b (sheets, views, render and Plot):
     services.record_plot(sr.id, plot_match)              # or services.PlotNone.NO_PDF, …
     services.hold_plots(set_id)                          # the set's Plot matching, one at a time
     services.record_kind(sr.id, "beam_layout")           # the kind as read (a key)
+    services.record_sheet_title(sr.id, title=Sourced("…", ValueSource.VIEW_TITLE))  # its one view's
     services.artefact(file_id)                           # the kept ReadArtefact, loaded back
     services.record_bangla_lines(file_id, flagged.findings(sheet_of))  # the Bangla-ANSI lines
     services.record_page_reasons(pdf_id, [reports.PAGE_SHEET_NOT_IN_DWG(page=12, sheet="S-13")])
@@ -44,6 +45,7 @@ For the page (20b), through `drawings/http/` (list, one file, cancel, restart, D
     services.file(file_id); services.report(file_id)     # a file's status; its report panel
     services.set_discipline(file_id, "electrical")       # its unconfirmed sheets move with it
     services.on_discipline_changed(follow)               # follow(file_id) after each such change
+    services.before_discipline_change(lock)              # lock(project_id) first, in each change
     services.cancel(file_id, actor_name=user.name); services.restart(file_id)
     services.mark_for_vextrus(file_id)                   # a file that could not be read (21c)
     services.disciplines()                               # the Market's, one name each (labels)
@@ -82,6 +84,7 @@ from vextrus.drawings.services.drawing_files import (
     FileView,
     SetView,
     add_file,
+    before_discipline_change,
     cancel,
     clean_name,
     file,
@@ -133,8 +136,10 @@ from vextrus.drawings.services.sheet_list import (
     record_kind,
     record_plot,
     record_render,
+    record_sheet_title,
     record_sheets,
     record_views,
+    recorded_sheets,
     render,
     sheet,
     sheet_discipline,
@@ -177,6 +182,7 @@ __all__ = [
     "answer_held",
     "artefact",
     "attach_read_job",
+    "before_discipline_change",
     "cancel",
     "clean_name",
     "confirm_sheet",
@@ -203,8 +209,10 @@ __all__ = [
     "record_plot",
     "record_render",
     "record_reports",
+    "record_sheet_title",
     "record_sheets",
     "record_views",
+    "recorded_sheets",
     "render",
     "report",
     "resolve",

@@ -1,15 +1,16 @@
 """Conflicts (ticket 19b): candidates of one group that cannot all be right, and the continuations
-that look like conflicts and are not. Found by code; 21c raises each Conflict as a `conflict` Question.
-They are not Checks: nothing independent is compared (the M0 plan, "The Checks M0 brings").
+and series that look like conflicts and are not. Found by code; 21c raises each Conflict as a
+`conflict` Question. They are not Checks: nothing independent is compared (the M0 plan, "The Checks
+M0 brings").
 
     find(sheets, views, conventions)          # the harness's stage (engine/harness.py)
     compare(sheets, views, recognisers=...)   # the pure function, for 21c and the tests
 
 `views[i]` are the views of `sheets[i]` (`()` where views were not read). Both return `Continuation`s,
-then `Conflict`s by kind (`same_number`, `same_title`, `same_storey`), each in the order of its first
-candidate in `sheets`, naming **the very objects given**: the export names candidates by identity, and
-two equal-by-value copies of a sheet in two files are two sheets, so nothing here keys a dict or a set,
-`in` or `.index()` by a candidate; everything goes by position.
+then `Series`, then `Conflict`s by kind (`same_number`, `same_title`, `same_storey`), each in the order
+of its first candidate in `sheets`, naming **the very objects given**: the export names candidates by
+identity, and two equal-by-value copies of a sheet in two files are two sheets, so nothing here keys a
+dict or a set, `in` or `.index()` by a candidate; everything goes by position.
 
 **The rules** (a test each side of every edge, engine/recognise/tests/test_conflicts.py):
 - **Within a group and a Discipline.** A sheet is compared only with sheets of its own group (the
@@ -38,33 +39,65 @@ two equal-by-value copies of a sheet in two files are two sheets, so nothing her
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
   its title does not, or its views of its title's kind all disagree with it by layer or by every other
   word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
+  Nor do two consecutive numbers whose views state different storeys, or name different subjects
+  (`_Drawn`: each states some, none shared; a stale title block on the next sheet, the owner's ruling of
+  5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. Views that state the
+  same storey and subject, or nothing, join as before.
+- **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
+  ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9 DETAILS") are one title: a title is grouped by
+  `range_key`, the normal form of the words around its ranges (the conventions' `member_range_pattern`;
+  none, or a title with no range: its normal form), so a title with a range never joins the same words
+  without one. A range's marks share their letters and ascend, below `RUNNING_LIMIT`; else it is no
+  range. Two sheets of such a title run on only when their numbers do and each range of the first lies
+  below the next's, of one letters ("GB2-GB5" then "GB6-GB9"; "GB2-GB5" then "GB4-GB8" do not); the run's
+  title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
+  GB2-GB9 DETAILS"), its joiner kept.
+- **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
+  places or more that do not all run on, none of its sheets contradicted and no consecutive pair parted
+  on what its views draw, whose runs draw different things (`_apart`). What a run draws, in this order:
+  (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a range, or
+  a word of one to three letters then one to four digits, "GRADE BEAM GB7") and its own titles' ranges,
+  each an interval; and only when it has neither, (c) the storeys, not symbolic, of the plan views of the
+  nearest sheet numbered before it (its group, Discipline and prefix) whose title reads as a plan (17's
+  `describe`): the layout each floor's details follow. The runs are a series when every run draws
+  something and no two share a storey or overlap in marks; else the title is `same_title` (one overlap
+  keeps every sheet: no part is a series). What was not read is not different: a run that draws nothing
+  keeps the Question.
 - **`same_title`:** one title on places that do not all run on, or on two numbers that share one place
   (one running number printed two ways, "S-09" and "S-9": not copies, since their normal forms differ,
-  and not two places): one Conflict naming every sheet of the title, in number order (a run among them
-  is also a Continuation); evidence: the title as the first sheet draws it, and how many sheets.
-  Copies of one number under one title are only `same_number`.
+  and not two places), and not a series: two of its runs may draw the same thing. One Conflict naming
+  every sheet of the title, in number order (a run among them is also a Continuation); evidence: the
+  title as the first sheet draws it, and how many sheets (`sheets`). Copies of one number under one
+  title are only `same_number`.
 - **`same_storey`** (one storey drawn twice; the M0 plan's review Q3): plan views of one Discipline
   (their sheets'), one subject (known: none matches nothing) and one layer (none matches none: a beam
   plan has no layer) whose storey lists share a storey that is not symbolic ("typical", "top" and "not
-  stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`). Never two
-  views of one sheet, or of one continuation, alone: the views must lie on two places or more. One
-  Conflict per set of views: those sharing a storey, grouped by the set, so two plans overlapping on two
-  floors are one Conflict. Evidence, for the words (m0-screens §5's "S-14 and S-15 both draw the 5th
-  floor slab, bottom layer"): the first two sheets' numbers (else titles); the titles, as drawn, of their
-  plans in the set (they state the storey and what is drawn), one when they are alike, both when they
-  differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH FLOOR SLAB"), none when either plan has no title (the
-  words then name no plan: a title read on one sheet is never said of the other); the layer (`none` for
-  none) and how many views; and, for 21c, the Discipline's, the subject's and the first shared storey's
-  keys (in the first view's order). A plan whose storeys run floor to floor (17's `floor_to_floor`: a
-  column layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd
-  to 6th floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with
-  neither number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word
-  m0-screens §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words
-  are its evidence line until then.
+  stated" are Step 3's to resolve: never a conflict on them alone; `Recognisers.symbolic`), on sheets of
+  one class (`sheet_class`: a details sheet's title reads as a detail, a section or a schedule; every
+  other is a layout sheet's): a layout sheet's plan is never compared with a details sheet's enlarged
+  plan views (the owner's ruling of 5 Oct 2026). Never two views of one sheet, or of one continuation,
+  alone: the views must lie on two places or more. One Conflict per set of views: those sharing a storey,
+  grouped by the set, so two plans overlapping on two floors are one Conflict. Evidence, for the words
+  (m0-screens §5's "S-14 and S-15 both draw the 5th floor slab, bottom layer"): the first two sheets'
+  numbers (else titles); the titles, as drawn, of their plans in the set (they state the storey and what
+  is drawn), one when they are alike, both when they differ ("3RD, 5TH & 7TH FLOOR SLAB" beside "5TH
+  FLOOR SLAB"), none when either plan has no title (the words then name no plan: a title read on one
+  sheet is never said of the other); the layer (`none` for none), how many views and how many sheets they
+  lie on (`sheets`); and, for 21c, the Discipline's, the subject's and the first shared storey's keys (in
+  the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title names a room or
+  a part, its floors only a bracketed line under it, #413) sits out: each bath's plan over "2nd to 6th
+  floor" is a different room's. A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
+  layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
+  floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with neither
+  number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens
+  §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words are its
+  evidence line until then.
 
 **The work is linear** in sheets, views and storeys, plus sorting: candidates are grouped by keys and
-never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs), and each
-number is read once.
+never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs; a title's
+runs are told apart by one sweep of their marks, `_overlap`), each number is read once, a title's
+ranges are read only up to `MAX_PATTERN_TEXT` characters, and a title's kind is read only where a rule
+needs it (a sheet with a plan view, a run that draws nothing of its own).
 
 **The trust boundary** (each refused with a `ValueError` or `TypeError`, so the stage fails, never
 passes): `views` not one list per sheet; one sheet or view object given twice; a sheet with no group;
@@ -72,6 +105,7 @@ a candidate of the wrong type (a sheet in a list of views among them); a reader 
 contract does not allow.
 """
 
+import bisect
 import re
 import unicodedata
 from collections.abc import Callable, Collection, Hashable, Iterable, Sequence
@@ -82,12 +116,15 @@ from engine.messages import conflicts as codes
 from engine.recognise.types import (
     Conflict,
     Continuation,
+    Series,
     SheetCandidate,
     SheetConventions,
     Sourced,
     StoreysMeaning,
+    StoreysSource,
     ViewCandidate,
     ViewKind,
+    pattern_finditer,
     pattern_search,
 )
 
@@ -176,11 +213,15 @@ def recognisers(conventions: SheetConventions | None) -> Recognisers:
     )
 
 
+type Found = Conflict | Continuation | Series
+"""What the stage finds: Continuations, then Series, then Conflicts."""
+
+
 def find(
     sheets: Sequence[SheetCandidate],
     views: Sequence[Sequence[ViewCandidate]],
     conventions: SheetConventions | None,
-) -> list[Conflict | Continuation]:
+) -> list[Found]:
     """The harness's stage: `compare` with 13's readers bound to the conventions the sheets were read
     with (none only when the run has no sheet conventions, and then it has no sheets)."""
     if sheets and conventions is None:
@@ -194,14 +235,19 @@ def compare(
     *,
     conventions: SheetConventions | None,
     recognisers: Recognisers,
-) -> list[Conflict | Continuation]:
-    """The set's Continuations and Conflicts, by the rules above; `conventions` give each
-    Discipline's prefixes (none: no prefix is a Discipline's own)."""
+) -> list[Found]:
+    """The set's Continuations, Series and Conflicts, by the rules above; `conventions` give each
+    Discipline's prefixes (none: no prefix is a Discipline's own) and the member range pattern."""
     given(sheets, views)
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
     numbers = [reader.key(sheet) for sheet in sheets]
-    titles = [_normal(sheet.title) for sheet in sheets]
+    pattern = None if conventions is None else conventions.member_range_pattern
+    keyed = [(None, (), "") if s.title is None else _keyed(s.title.value, pattern) for s in sheets]
+    titles = [key for key, _, _ in keyed]
+    ranges = [found for _, found, _ in keyed]
+    cleaned = [text for _, _, text in keyed]  # the text each title's ranges lie in
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
+    plans = _Plans(sheets, numbers, reader)
 
     by_number: list[tuple[int, Conflict]] = []
     for copies in _grouped(
@@ -218,6 +264,7 @@ def compare(
             by_number.append((copies[0], Conflict(SAME_NUMBER, candidates, evidence)))
 
     continuations: list[tuple[int, Continuation]] = []
+    series: list[tuple[int, Series]] = []
     by_title: list[tuple[int, Conflict]] = []
     for group in _grouped(
         (i, (s.group, s.discipline.value, titles[i]))
@@ -228,28 +275,88 @@ def compare(
         if len(units) < 2:
             continue
         alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone)
-        for run in runs:
-            members = [i for unit in run for i in unit]
+
+        spans = [_span([ranges[i] for i in unit]) for unit in units]
+        drawn = [_Drawn(unit, views, reader) for unit in units]
+        stale: list[bool] = []  # a consecutive pair parted because its views draw different things
+
+        def fits(
+            before: int,
+            after: int,
+            spans: list[list[_Span]] = spans,
+            drawn: list[_Drawn] = drawn,
+            stale: list[bool] = stale,
+        ) -> bool:
+            if not _ascending(spans[before], spans[after]):
+                return False
+            if drawn[before].differs(drawn[after]):
+                stale.append(True)
+                return False
+            return True
+
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits)
+        members_of = [[i for unit in run for i in unit] for run in runs]
+        for run, members in zip(runs, members_of, strict=True):
             places.join(members)
             if len(run) > 1:
-                title = sheets[members[0]].title
-                assert title is not None
-                continuation = Continuation(title.value, tuple(sheets[i] for i in members))
+                first, last = members[0], members[-1]
+                title = _drawn(sheets[first])
+                if ranges[first]:
+                    title = _joined(cleaned[first], ranges[first], cleaned[last], ranges[last])
+                continuation = Continuation(title, tuple(sheets[i] for i in members))
                 continuations.append((min(members), continuation))
         if len(runs) > 1:
-            ordered = [i for run in runs for unit in run for i in unit]
-            title = sheets[ordered[0]].title
-            assert title is not None
-            evidence = codes.SAME_TITLE(title=title.value, sheets=len(ordered))["params"]
+            ordered = [i for members in members_of for i in members]
+            title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
+            if (
+                not any(alone)
+                and not stale
+                and _apart(members_of, views, ranges, reader, plans, pattern)
+            ):
+                series.append((min(ordered), Series(title, candidates)))
+                continue
+            evidence = codes.SAME_TITLE(title=title, sheets=len(ordered))["params"]
             by_title.append((min(ordered), Conflict(SAME_TITLE, candidates, evidence)))
 
     by_storey = _same_storey(sheets, views, places, reader)
-    found: list[Conflict | Continuation] = [c for _, c in sorted(continuations, key=_first)]
+    found: list[Found] = [c for _, c in sorted(continuations, key=_first)]
+    found.extend(s for _, s in sorted(series, key=_first))
     for batch in (by_number, by_title, by_storey):
         found.extend(conflict for _, conflict in sorted(batch, key=_first))
     return found
+
+
+class _Drawn:
+    """What one number's sheets (its copies) state they draw in their views, read when first asked:
+    the storeys (not symbolic) and the subjects (each view's, and those its title names)."""
+
+    def __init__(
+        self, unit: Sequence[int], views: Sequence[Sequence[ViewCandidate]], reader: _Reader
+    ) -> None:
+        self.unit, self.views, self.reader = unit, views, reader
+        self._read: tuple[frozenset[str], frozenset[str]] | None = None
+
+    def read(self) -> tuple[frozenset[str], frozenset[str]]:
+        from engine.recognise.views import subjects  # 17's, imported where it is used
+
+        if self._read is None:
+            seen = [v for i in self.unit for v in self.views[i]]
+            storeys = {s for v in seen for s in v.storeys if not self.reader.symbolic(s)}
+            named = {v.subject for v in seen if v.subject is not None}
+            named |= {key for v in seen if v.title for key in subjects(v.title)}
+            self._read = frozenset(storeys), frozenset(named)
+        return self._read
+
+    def differs(self, other: _Drawn) -> bool:
+        """Whether the two state different storeys or different subjects: each states some, and
+        none is shared (a stale title block on the next sheet; the owner's ruling of 5 Oct 2026)."""
+        return any(a and b and not a & b for a, b in zip(self.read(), other.read(), strict=True))
+
+
+def _drawn(sheet: SheetCandidate) -> str:
+    assert sheet.title is not None  # only titled sheets are grouped by title
+    return sheet.title.value
 
 
 def _first(pair: tuple[int, object]) -> int:
@@ -471,10 +578,14 @@ def _grouped(keyed: Iterable[tuple[int, Hashable]]) -> list[list[int]]:
 
 
 def _runs(
-    units: list[list[int]], parts: list[tuple[str, int, str] | None], alone: Sequence[bool]
+    units: list[list[int]],
+    parts: list[tuple[str, int, str] | None],
+    alone: Sequence[bool],
+    fits: Callable[[int, int], bool] = lambda _before, _after: True,
 ) -> list[list[list[int]]]:
     """The units (copies of one number) joined into runs of numbers that run on, in number order (a
-    part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102)."""
+    part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102), and a
+    unit joins the next only when it `fits` before it (member ranges that ascend)."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -500,12 +611,14 @@ def _runs(
         after = by_running.get((prefix, suffix, running + 1))
         if after is not None:
             for u in members:
-                join(u, after[0])
+                if fits(u, after[0]):
+                    join(u, after[0])
     for (prefix, running, part), members in by_part.items():
         after = by_part.get((prefix, running, part + 1))
         if after is not None:
             for u in members:
-                join(u, after[0])
+                if fits(u, after[0]):
+                    join(u, after[0])
 
     def order(u: int) -> tuple[bool, str, int, bool, int, str, int]:
         p = parts[u]
@@ -518,6 +631,221 @@ def _runs(
     for u in sorted(range(len(units)), key=order):
         runs.setdefault(root(u), []).append(u)
     return [[units[u] for u in run] for run in runs.values()]
+
+
+# Member-mark ranges and series ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MemberRange:
+    """A range of member marks as a title draws it ("GB2-GB5", "W3 TO W6"): the marks' letters (in
+    normal form, one for both), the lowest and highest number, and where it lies in the drawn text
+    (`at` to `end`; `high_at` where its second mark starts)."""
+
+    letters: str
+    low: int
+    high: int
+    at: int
+    high_at: int
+    end: int
+
+
+RANGE_DIGITS = len(str(RUNNING_LIMIT)) - 1
+"""The most digits a mark's number may have: one of `RUNNING_LIMIT` or more is no range."""
+
+
+def member_ranges(text: str, pattern: str | None) -> tuple[MemberRange, ...]:
+    """The member ranges a text draws, by the conventions' pattern (none: none); a match whose marks'
+    letters differ or are missing, whose numbers are missing, not decimal digits, descend or reach
+    `RUNNING_LIMIT` is no range. A text longer than a pattern runs on has none (`pattern_finditer`).
+    Titles are read in their clean form (`_keyed`), so a format character or a fullwidth digit never
+    hides a range their normal form shows."""
+    if pattern is None:
+        return ()
+    found = []
+    for match in pattern_finditer(pattern, text):
+        low, high = match.group("low"), match.group("high")
+        if not (low and high and low.isdecimal() and high.isdecimal()):
+            continue  # a pattern of the conventions' may leave a mark's number out, or read letters
+        if len(low) > RANGE_DIGITS or len(high) > RANGE_DIGITS:
+            continue
+        letters = normal(match.group("a"))
+        if letters is None or letters != normal(match.group("b")) or int(low) > int(high):
+            continue
+        found.append(
+            MemberRange(letters, int(low), int(high), match.start(), match.start("b"), match.end())
+        )
+    return tuple(found)
+
+
+def range_key(title: str, pattern: str | None) -> Hashable | None:
+    """What a title is grouped by: its normal form, or, when it draws member ranges, the normal forms
+    of the words around them ("GRADE BEAM GB2-GB5 DETAILS" and "GRADE BEAM GB6-GB9 DETAILS" are one
+    title, never "GRADE BEAM DETAILS"); none when nothing is left."""
+    return _keyed(title, pattern)[0]
+
+
+def _keyed(title: str, pattern: str | None) -> tuple[Hashable | None, tuple[MemberRange, ...], str]:
+    """A title's key (`range_key`), its ranges, and the clean text they lie in: the ranges are read
+    in the title's clean form, whose case folded is its normal form, so the key never parts titles
+    the normal form joins."""
+    text = clean(title)
+    whole = text.casefold() or None
+    found = member_ranges(text, pattern) if whole is not None else ()
+    if not found:
+        return whole, (), text
+    edges = [0, *(i for r in found for i in (r.at, r.end)), len(text)]
+    words = tuple(normal(text[a:b]) or "" for a, b in zip(edges[::2], edges[1::2], strict=True))
+    return ("ranged", *words), found, text
+
+
+type _Span = tuple[str | None, int, int]
+"""One range of a number's copies: their letters (none when they differ), lowest and highest."""
+
+
+def _span(copies: Sequence[Sequence[MemberRange]]) -> list[_Span]:
+    """The ranges of one number's copies (one key, so as many each), each spanning all of them."""
+    spans: list[_Span] = []
+    for alike in zip(*copies, strict=True):
+        letters = {r.letters for r in alike}
+        one = letters.pop() if len(letters) == 1 else None
+        spans.append((one, min(r.low for r in alike), max(r.high for r in alike)))
+    return spans
+
+
+def _ascending(before: Sequence[_Span], after: Sequence[_Span]) -> bool:
+    """Whether a number's ranges run on to the next's: each of one letters, every copy's below every
+    copy of the next's."""
+    return all(
+        a[0] is not None and a[0] == b[0] and a[2] < b[1] for a, b in zip(before, after, strict=True)
+    )
+
+
+def _joined(first: str, firsts: Sequence[MemberRange], last: str, lasts: Sequence[MemberRange]) -> str:
+    """A run's title: the first sheet's as drawn, each range running on to the last sheet's second
+    mark ("GRADE BEAM GB2-GB5 DETAILS" to "GRADE BEAM GB10-GB14 DETAILS": "GRADE BEAM GB2-GB14
+    DETAILS")."""
+    text = first
+    for a, b in reversed(list(zip(firsts, lasts, strict=True))):
+        text = text[: a.high_at] + last[b.high_at : b.end] + text[a.end :]
+    return text
+
+
+_MARK = re.compile(r"(?<![^\W_])([^\W\d_]{1,3})(\d{1,4})(?![^\W_])")
+"""A single member mark in a view's title: a word of one to three letters then one to four digits
+("GRADE BEAM GB7", "C12"), the marks the member range pattern joins."""
+
+
+def _marks(text: str, pattern: str | None) -> list[tuple[str, int, int]]:
+    """The member marks a view's title names, each an interval: its ranges and its single marks."""
+    found = [(r.letters, r.low, r.high) for r in member_ranges(clean(text), pattern)]
+    for match in _MARK.finditer(text):
+        letters = normal(match.group(1))
+        if letters is not None:
+            number = int(match.group(2))
+            found.append((letters, number, number))
+    return found
+
+
+class _Plans:
+    """The sheets whose titles read as a plan (17's `describe`), by group, Discipline and prefix in
+    number order, read only when a series needs one (`before`)."""
+
+    def __init__(
+        self, sheets: Sequence[SheetCandidate], numbers: Sequence[Hashable | None], reader: _Reader
+    ) -> None:
+        self.sheets, self.numbers, self.reader = sheets, numbers, reader
+        self._by: dict[tuple[str, str, str], list[tuple[tuple[int, bool, int, str], int]]] | None
+        self._by = None
+
+    def _place(self, i: int) -> tuple[tuple[str, str, str], tuple[int, bool, int, str]] | None:
+        sheet = self.sheets[i]
+        if sheet.discipline is None or self.numbers[i] is None:
+            return None
+        parts = self.reader.parts(sheet)
+        if parts is None:
+            return None
+        prefix, running, suffix = parts
+        part = _part(suffix)
+        where = (str(sheet.group), sheet.discipline.value, prefix)
+        return where, (running, part is not None, part or 0, suffix)
+
+    def before(self, i: int) -> int | None:
+        """The nearest sheet numbered before sheet `i`, of its group, Discipline and prefix, whose
+        title reads as a plan; none."""
+        from engine.recognise.views import describe  # 17's, imported where it is used
+
+        if self._by is None:
+            self._by = {}
+            for j, sheet in enumerate(self.sheets):
+                place = self._place(j)
+                if place is None or sheet.title is None:
+                    continue
+                if describe(sheet.title.value).kind == ViewKind.PLAN:
+                    self._by.setdefault(place[0], []).append((place[1], j))
+            for listed in self._by.values():
+                listed.sort()
+        place = self._place(i)
+        if place is None:
+            return None
+        listed = self._by.get(place[0], [])
+        at = bisect.bisect_left(listed, (place[1],))
+        return listed[at - 1][1] if at else None
+
+
+def _apart(
+    runs: Sequence[Sequence[int]],
+    views: Sequence[Sequence[ViewCandidate]],
+    ranges: Sequence[Sequence[MemberRange]],
+    reader: _Reader,
+    plans: _Plans,
+    pattern: str | None,
+) -> bool:
+    """Whether a title's runs draw different things (a series), by what each run draws: (a) the
+    storeys its views state, (b) the member marks its views' titles and its own titles' ranges name,
+    and (c) only when it has neither, the storeys of the plan views of the nearest plan sheet before
+    it. Apart when every run draws something and no two share a storey or overlap in marks."""
+    storeys_of: dict[str, int] = {}
+    marks: list[tuple[str, int, int, int]] = []
+    for run, members in enumerate(runs):
+        storeys = {s for i in members for v in views[i] for s in v.storeys if not reader.symbolic(s)}
+        named = [(r.letters, r.low, r.high) for i in members for r in ranges[i]]
+        named += [m for i in members for v in views[i] if v.title for m in _marks(v.title, pattern)]
+        if not storeys and not named and (plan := plans.before(members[0])) is not None:
+            storeys = {
+                s
+                for v in views[plan]
+                if v.kind == ViewKind.PLAN
+                for s in v.storeys
+                if not reader.symbolic(s)
+            }
+        if not storeys and not named:
+            return False  # what was not read is not different
+        if any(storeys_of.setdefault(storey, run) != run for storey in storeys):
+            return False
+        marks += [(letters, low, high, run) for letters, low, high in named]
+    return not _overlap(marks)
+
+
+def _overlap(marks: list[tuple[str, int, int, int]]) -> bool:
+    """Whether two runs' mark intervals overlap (`(letters, low, high, run)`), in one sweep by low:
+    the highest end so far, and the highest of another run than its."""
+    marks.sort()
+    letters: str | None = None
+    best = second = (-1, -1)  # (high, run)
+    for mark_letters, low, high, run in marks:
+        if mark_letters != letters:
+            letters, best, second = mark_letters, (-1, -1), (-1, -1)
+        other = best[0] if best[1] != run else second[0]
+        if other >= low:
+            return True
+        if run == best[1]:
+            best = (max(best[0], high), run)
+        elif high > best[0]:
+            best, second = (high, run), best
+        elif high > second[0]:
+            second = (high, run)
+    return False
 
 
 def contradicted(
@@ -542,8 +870,10 @@ def contradicted(
 
     if sheet.title is None:
         return False
-    named = subjects(sheet.title.value)
     titled = [v.title for v in views if v.title]
+    if not titled:
+        return False  # both rules need a titled view: the title is not read for nothing
+    named = subjects(sheet.title.value)
     drawn = [found for t in titled if (found := subjects(t))]
     if named and drawn and not any(found & named for found in drawn):
         return True
@@ -576,6 +906,22 @@ def _part(suffix: str) -> int | None:
     return None
 
 
+LAYOUT = "layout"
+DETAILS = "details"
+DETAIL_KINDS = frozenset({ViewKind.DETAIL, ViewKind.SECTION, ViewKind.SCHEDULE})
+"""The kinds a details sheet's title reads as (17's `describe`)."""
+
+
+def sheet_class(sheet: SheetCandidate) -> str:
+    """A sheet's class for `same_storey`: `details` when its title reads as a detail, a section or a
+    schedule, else `layout` (a plan's title, one naming no kind, or none)."""
+    from engine.recognise.views import describe  # 17's, imported where it is used
+
+    if sheet.title is None:
+        return LAYOUT
+    return DETAILS if describe(sheet.title.value).kind in DETAIL_KINDS else LAYOUT
+
+
 def _same_storey(
     sheets: Sequence[SheetCandidate],
     views: Sequence[Sequence[ViewCandidate]],
@@ -583,29 +929,35 @@ def _same_storey(
     reader: _Reader,
 ) -> list[tuple[int, Conflict]]:
     """One storey drawn twice, by the module's rules: each (bucket, storey) gathers its views, and the
-    views are grouped by the set they make."""
+    views are grouped by the set they make. A bucket holds one class of sheet (`sheet_class`): a
+    layout sheet's plan is never compared with a details sheet's plan views (the owner's ruling of
+    5 Oct 2026: a details sheet's enlarged plan shares its layout's subject and storey)."""
     flat: list[tuple[ViewCandidate, int, int]] = []  # each plan view: its sheet's place, its sheet
-    sharing: dict[tuple[tuple[str, str, str, str], str], list[int]] = {}
+    sharing: dict[tuple[tuple[str, str, str, str, str], str], list[int]] = {}
     for i, sheet in enumerate(sheets):
         if sheet.discipline is None or sheet_name(sheet) is None:
             continue
+        kind: str | None = None  # the sheet's class, read once it has a plan view to compare
         for view in views[i]:
             if view.kind != ViewKind.PLAN or view.subject is None:
                 continue
+            if view.storeys_source == StoreysSource.TITLE_LINE:
+                continue  # a part plan (a bath's): its floors from its title's line (17's storeys)
+            kind = kind or sheet_class(sheet)
             layer = NO_LAYER if view.layer is None else str(view.layer)
-            bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer)
+            bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind)
             flat.append((view, places.of(i), i))
             storeys = [storey for storey in view.storeys if not reader.symbolic(storey)]
             if view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and len(storeys) > 1:
                 storeys = storeys[:-1]  # its top end is where the next range of columns starts
             for storey in storeys:
                 sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
-    sets: dict[tuple[tuple[str, str, str, str], tuple[int, ...]], list[str]] = {}
+    sets: dict[tuple[tuple[str, str, str, str, str], tuple[int, ...]], list[str]] = {}
     for (bucket, storey), sharers in sharing.items():
         if len({flat[v][1] for v in sharers}) > 1:
             sets.setdefault((bucket, tuple(sharers)), []).append(storey)
     found = []
-    for ((_, discipline, subject, layer), members), storeys in sets.items():
+    for ((_, discipline, subject, layer, _), members), storeys in sets.items():
         # The set's storeys were met first in its first view, in that view's order: the first of
         # them is the first it lists (no scan of the view's list per storey: that is quadratic).
         first = flat[members[0]]
@@ -628,6 +980,7 @@ def _same_storey(
             titled=titled,
             layer=layer,
             views=len(members),
+            sheets=len({flat[v][2] for v in members}),
             discipline=discipline,
             subject=subject,
             storey=storeys[0],

@@ -341,6 +341,9 @@ class DomainEvent(models.Model):
     class Meta:
         indexes: ClassVar = [
             models.Index(fields=["tenant_id", "occurred_at"], name="platform_event_tenant_time"),
+            models.Index(
+                fields=["tenant_id", "project_id", "occurred_at"], name="platform_event_project_time"
+            ),
         ]
 
     def __str__(self) -> str:

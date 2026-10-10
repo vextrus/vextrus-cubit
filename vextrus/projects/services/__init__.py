@@ -7,6 +7,7 @@ re-export line is the only shared edit.
     services.create(code="KR-01", name="Kadam Residence")  # its Site and one Building with it
     services.list()                    # the Projects the current Membership may open
     services.get(project_id)           # else services.ProjectNotFound, never "forbidden"
+    services.detail(project_id)        # `get` with its `updated_at`; `get` is the bare scope check
     services.buildings(project_id)     # for drawings (14): one in M0
     services.ended_access_codes()      # the codes of ended access's Projects (#75)
     services.invitation_projects(token)  # the Projects an invitation link gives (#75)
@@ -27,6 +28,7 @@ from vextrus.projects.services.projects import (
     Refused,
     buildings,
     create,
+    detail,
     get,
     list,
 )
@@ -42,6 +44,7 @@ __all__ = [
     "access",
     "buildings",
     "create",
+    "detail",
     "ended_access_codes",
     "get",
     "invitation_projects",

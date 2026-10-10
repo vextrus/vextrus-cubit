@@ -63,8 +63,11 @@ wording on this page stays as specified except where listed here.
 11. **Assign is hidden until M1** (Q10): M0 shows each view's proposed steps and Part, and the QS may
     exclude a view or confirm it back in; `A` is reserved (2.2, 6.9). The revision mark is also read
     from the file name, as its own source ("R0, from the file name"; Q10).
-12. **Sheets a QS reads as one** (Q3, Q4): identical titles on consecutive numbers are one continuation,
-    with no Question; a same-storey conflict needs the same Discipline, subject and layer; with no
+12. **Sheets a QS reads as one** (Q3, Q4): identical titles on consecutive numbers, or titles equal but
+    for a member-mark range ("GB2-GB5", "GB6-GB9"), are one continuation, with no Question; one title on
+    several runs that draw different storeys, marks or members is a series, with no Question (the owner,
+    5 Oct 2026); a same-storey conflict needs the same Discipline, subject and layer, and never sets a
+    layout sheet's plan against a details sheet's enlarged plans; with no
     drawing list the heading says "no drawing list; numbering runs 01–57 without a gap", and the QS may
     type a range as the drawing list (5, 6.2, 6.3, 6.7, 6.10).
 13. **Keys** (U1): Space is bound at region scope on Step 1's list and canvas, so it always swaps List ⇄
@@ -583,6 +586,20 @@ Drawing Set · Takeoff · Updated.
 | Takeoff | "Not started" / "Step 1: 5 Questions open" / per Discipline Part once one is confirmed (5): "Step 1: Structural confirmed · Electrical 3 to confirm" / "Step 1 confirmed" (every Discipline received) |
 | Updated | date |
 
+Each row reads its own project's files and Step 1 progress; a reading that cannot be had (not in yet,
+refused, failed) shows the empty figure (1.2) in its cell and nothing else, never an error.
+Drawing Set: while any file moves, "Reading 2 files" (", sheet 7 of 12", for a PDF ", page 7 of 12",
+only when exactly one moves and counts them); else "5 files read" ("No files read" at none), then, each only above none and in
+this order, ", 1 held", ", 2 could not be read", ", 1 refused", ", 1 stopped". Takeoff counts only the
+Disciplines with sheets found: none, "Not started"; none confirmed, "Step 1: 5 Questions open", else
+"Step 1: 9 sheets to confirm", else "Step 1: not yet confirmed"; once one is confirmed, each Discipline
+as Step 1's inspector words it ("Electrical: 2 Questions open", "Electrical: a view unaccounted"), and
+"Step 1 confirmed" only when every one is and none is still to come. When a project's files stop
+moving its Takeoff is read again. Updated is the day of the time of the project's newest DomainEvent
+(its creation's, a file's, any later act), sent with each project of `GET /api/projects` as `updated_at`
+to every role that may open it, as the Market writes a date in its time zone. Drawing Set and Takeoff stay one line, their full text in
+the cell's title.
+
 **New project dialog.** Title "New project". Fields: Name (required), Code (required, unique in the
 Developer: "Short, like KR-01"), Address, Display Units (segmented "Imperial (cft, sft, rft)" |
 "Metric", Imperial chosen, with the line "How quantities will be billed. You can change it later.").
@@ -590,8 +607,7 @@ The Display Units offered and the one chosen are the Market's (1.9); for Banglad
 these. No Market, currency or Building field (1.9, 1.10). Buttons "Create project" and "Cancel".
 Errors under fields: "Give the project a name." / "Give it a short code, like KR-01." / "KR-01 is
 already used by Kadam Residence. Choose another code." Creating the project also makes its Site and
-one Building, unseen (1.10). After create: straight to its Drawing Set (empty state); until 20b builds
-the Drawing Set, to the project's frame, `/p/<code>`.
+one Building, unseen (1.10). After create: straight to its Drawing Set (empty state).
 
 **States.** Loading: five Skeleton rows. Empty: glyph, "No projects yet. Create one for each
 development whose drawings you will take off." [New project] (MD: "No projects yet. Your QS creates
@@ -946,9 +962,9 @@ canvas foot and inspector is section 6 (layout A). Wireframes: `step1-shell-1440
   with its reason, Takeoff ruling 4; per-Discipline N from the drawing list or the Plot sits in the
   list, section 6.3), the sheet label and the viewer's switches.
 - The Confirmation bar floats at the canvas foot, 44 px, at most 820 px wide in list and sheet mode,
-  centred: what ("17 sheets agree: Structural, Architectural"), why ("Each has a number and title from
+  centred: what ("11 sheets agree: Structural"), why ("Each has a number and title from
   its title block, on its drawing list or in numbering without a gap"),
-  "Review one by one" (ghost), and the screen's one copper button "Confirm 17 ↵" (6.4's wording; the
+  "Review one by one" (ghost), and the screen's one copper button "Confirm 11 ↵" (6.4's wording; the
   seed's state, 7; #182: the read job proposes no sheet of the seed out).
 - Status bar Coverage (story 43): "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2
   unaccounted" (the seed after reading, 7); "unaccounted" in amber while above 0; clicking opens
@@ -1005,9 +1021,14 @@ reading of this sheet’s title and view titles". A pick still changes nothing u
 
 **What "agrees" means** (the plan's QS review, Q4). A sheet agrees when its number and title come from
 its title block and a second source confirms them: **with a drawing list**, the list names it; **with
-no drawing list**, its Discipline's numbering runs without a gap (every number from the first to the
-last present once) and its Plot page matched. A sheet with only one source (no list and no Plot) is a
-Proposal "with one source": it is not in the bulk act, and the QS confirms it on its own (6.5). The
+no drawing list**, its Plot page matched, its number and title read alike; a gap in the numbering holds
+only the sheets either side of it until its Question is answered, and all of one Discipline's gaps are
+asked as one Question (the owner's ruling of 4 Oct 2026, #229). That Question is the Discipline's,
+never a sheet's: a later file of the Discipline that adds a gap or fills one changes what it asks and
+which sheets it holds, never which Question it is; one answer settles every gap it asks, and once
+answered it holds no sheet (S15-Q2). A sheet with only one source (no list
+and no Plot, or a Plot page that shows another title) is a Proposal "with one source": it is not in the
+bulk act, and the QS confirms it on its own (6.5). The
 heading of a Discipline with no list says so: "no drawing list; numbering runs 01–57 without a gap"
 (never "—"; 6.3).
 
@@ -1032,13 +1053,15 @@ options; names and numbers invented; 6.7 shows each filled in):
 | Read and pasted drawing lists disagree (`conflict`) | "The drawing list on S-01 and the one you pasted differ" (N shows "—" until answered) | 1 "Use the list on S-01" · 2 "Use the pasted list" · 3 "Keep open, ask the consultant" |
 | Boundary storey (amendment 2) | "Does GROUND FLOOR BEAM LAYOUT mean the members at ground-floor level?" | 1 "Members at floor level" · 2 "The storey, floor to floor" · 3 "Keep open, ask the consultant" |
 | Floors that do not run, typical floor, a level title (6.7) | as 6.7 | as 6.7 |
+| Sheet titles and plans name different storeys (Check, one per Discipline; T-W318) | "The titles of 3 sheets name storeys their plans do not agree with, for example S-11, which names “3RD, 5TH & 7TH FLOOR” (1 storey in the title has no plan, and 1 storey on a plan is not in the title). Vextrus takes the storeys from the plans." Trace: "the title blocks and plans of S-11, S-12 and S-14" (links). Answered: "Q4 answered. Recorded: the plans’ storeys stand." / "Q4 answered. Recorded: the titles are right; correct each plan’s storeys in the list." | 1 "The plans are right: keep the storeys they name" · 2 "The titles are right: I’ll correct the plans’ storeys in the list" · 3 "Keep open, ask the consultant" (none pre-picked; each is recorded only: the QS corrects a plan's storeys in the inspector, story 28) |
 
 A sheet with neither number nor title is named by its layout and its file, never by an empty quotation:
 "an untitled sheet on layout “Layout2” of NT-ARC-R1.dwg" ("an untitled sheet laid out in the drawing of
 NT-ARC-R1.dwg" when it has no layout; the place sits inside the name, never after a comma), so two on two
 layouts of one file read apart ("A sheet in NT-ARC-R1.dwg has neither a number nor a title in its title
 block."; the bar: "… has neither a number nor a title in its title block"); a numbered sheet with no title by
-its number ("It has no title, so nothing says which kind of sheet A-05 is."). At a sentence's start it reads
+its number ("It has no title, so nothing says which kind of sheet A-05 is."). (A numbered sheet whose one drawing view is titled
+takes that title, marked "the title of its view", and so does not reach this sentence.) At a sentence's start it reads
 "An untitled sheet on layout …" or "An untitled sheet laid out in the drawing of …"; a possessive is never put on a sheet's name ("The kind of S-07 is Plan", not
 "S-07’s kind").
 
@@ -1050,12 +1073,19 @@ Reload the page to see it."
 confirmed until it is answered; "Not sent yet" answers it, and the sheet stays in the count as
 missing, so that Discipline can still be confirmed.
 
-**No Question for these** (the plan's QS review, Q3): **identical titles on consecutive numbers are one
-continuation** ("Column schedule, 3 sheets"), grouped in the list (6.2) with no Question; two plans of
-one storey that draw different subjects (a beam layout and a slab layout) or different layers (a slab's
-top and bottom reinforcement) are normal practice, never a conflict. One title on sheets whose numbers
-do not run on is a conflict headed "One title on two sheets" ("One title on 3 sheets" for more; whatever
-their kind: schedules, elevations); "Two plans draw one thing" heads only two plans of one storey.
+**No Question for these** (the plan's QS review, Q3; the owner, 5 Oct 2026): **identical titles on
+consecutive numbers are one continuation** ("Column schedule, 3 sheets"), and so are **titles equal but
+for a member-mark range** ("Grade beam details GB2-GB5", "GB6-GB9", "GB10-GB14": "Grade beam details GB2-GB14, 3 sheets"),
+grouped in the list (6.2) with no Question, unless two consecutive sheets' views state different
+storeys or name different subjects: a stale title block is a conflict, never grouped. **One title on several runs that draw different storeys,
+marks or members is a series** ("6 sheets share this title": each floor's beam details after that
+floor's layout plan), with no Question. Two plans of one storey that draw different subjects (a beam
+layout and a slab layout) or different layers (a slab's top and bottom reinforcement) are normal
+practice, never a conflict, and a layout sheet's plan is never compared with a details sheet's enlarged
+plans of its subject and storey. One title on sheets that may draw the same thing (two continuations
+or single sheets that share a storey or a mark, or that nothing read tells apart) is a conflict headed "One title on two sheets"
+("One title on 3 sheets" for more; whatever their kind: schedules, elevations), its count the sheets it
+holds; "Two plans draw one thing" heads only two plans of one storey.
 
 **Storeys.** A sheet's storeys come from its plan views as an explicit list, never an expanded
 first–last (amendment 1): shown as stated and normalised, "3RD, 5TH & 7TH FLOOR → 3rd, 5th, 7th";
@@ -1181,7 +1211,7 @@ to a second line at 1280 and 1440.
 | Title, as drawn | the rest (about 260) | the rest (about 260) | DrawingText (3), cut with an ellipsis, tooltip with the full title |
 | Discipline | 78 | 78 | The Discipline's one name (1.1), cut with an ellipsis where it does not fit ("Plumbing and s…", "Architectur…"); tooltip "Plumbing and sanitary, from the file KR-PLU-R0.dwg" |
 | Revision and date | 106 | 106 | "R1, 14 Sep 2026"; a mark read only from the file name shows "R0" with the tooltip "R0, from the file name KR-STR-R0.dwg"; "—" when neither has one; the older copy of a duplicated number in amber |
-| Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; "—" for a sheet with no plan view |
+| Storeys | 180, headed "Storeys per view" | 232, headed with the strip's key: "▮ floor to floor  ▁ at floor level" | The storey strip (6.8) and the storeys as text: "3rd, 5th, 7th"; "not stated" and "typical (range from Step 3)" in amber; a sheet with no plan view shows the storeys its title states, muted, "as titled" (else "—"), and so does a sheet whose only plan took its title's storeys |
 | Views | 40 | 40 | The number of views, title block included |
 | File | not shown | 104 | The source file; tooltip adds where in it ("laid out in the drawing", "layout "A-24"") |
 | State | 150 | 150 | "Proposal" (", corrected" after an edit) · "Proposal, one source" (5: not in the bulk act) · "Question Q3" · "Q3 kept open" · a proposed exclusion, in the "Proposed to leave out" section whose heading already says so, shows its reason's short form alone, in the Proposal colour with the dashed mark ("cover or index", "for information", "duplicate"; 5) · "Confirmed" with the actor's initials chip ("RH"; a Vextrus Engineer's chip reads "TA Vextrus") · "Excluded, superseded" |
@@ -1202,7 +1232,10 @@ are one continuation and one row: Number "S-09–S-11", Title "Column schedule, 
 columns as for one sheet (the Views column adds up the three). A chevron at the row's start (or `→`
 with the row focused) opens it to show the three sheets' own rows, indented; `←` closes it. Space opens
 its first sheet, and sheet mode pages through the three. Confirming or excluding the row does it to all
-three, and the Count counts three sheets. No Question is raised for them.
+three, and the Count counts three sheets. No Question is raised for them. Titles equal but for a
+member-mark range are one continuation too: Title "Grade beam details GB2-GB14, 3 sheets", the ranges joined
+first to last. A **series** (one title on runs that draw different storeys, marks or members) raises no
+Question; its sheets say "N sheets share this title" (T-W322 shows it).
 
 ### 6.3 Grouping and order
 Sections, top to bottom:
@@ -1246,9 +1279,9 @@ any agreeing sheet or proposed exclusion, the bar reads:
   one of them);
 - why: "Each has a number and title from its title block and is on its drawing list; storeys from its
   view titles. Left-out sheets stay in the count with their reason." With no drawing list (5): "Each
-  has a number and title from its title block, in numbering without a gap, and its Plot page matches;
+  has a number and title from its title block, and its Plot page shows the same number and title;
   storeys from its view titles." With both kinds: "Each has a number and title from its title block,
-  on its drawing list or in numbering without a gap; …";
+  and its drawing list names it or its Plot page shows the same number and title; …";
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1269,6 +1302,8 @@ never in the bulk act; the QS confirms each in sheet mode (6.5).
 | A row with nothing to act on | e.g. "On the drawing list, in no file. It stays in the count." · "Nothing to confirm here." | none |
 | Nothing left, files reading | "Reading NT-ARCH-R1.dwg: sheet 14 of 28" · "Its sheets join the list as they are read." | none |
 | Nothing left but sheets with one source | "3 Electrical sheets have one source each" · "No drawing list and no Plot to check them against. Open each to confirm it." | "Open E-01 Space" |
+| … beside a gap its Question asks about (#229) | "2 Architectural sheets have one source each" · "They are beside a gap in the numbering that Q3 asks about. Answer Q3 to give them a second source, or open each to confirm it." | "Open A-04 Space" |
+| … whose Plot pages show another title (#229) | "2 Architectural sheets have one source each" · "Their Plot pages show a different number or title. Open each to compare and confirm it." | "Open A-04 Space" |
 | Nothing left, Questions kept open | "2 Questions kept open for the consultant: Q5, Q7" · "Architectural is confirmed once they are answered." (the Discipline they hold) | ghost "Next open Question Q" |
 | Nothing left, Coverage not complete | "Coverage has a view that is neither assigned nor excluded" · "Open Coverage on the status bar to find it." | none |
 | A Discipline confirmed, others not | "Structural is confirmed: every sheet is confirmed or excluded, and none of its views is unaccounted" · "Electrical: 3 to confirm." | "Next open item ↵" |
@@ -1301,7 +1336,7 @@ and sheet mode alike (6.18). The toast sits just above it.
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
-  them against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
+  it against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
   exclusion: "Leave out S-39: for information" · "It stays in the count with its reason. X picks
   another reason." · "Leave out S-39 ↵". For a sheet a Question holds: that Question's bar. After the
   act, the next
@@ -1328,7 +1363,8 @@ drawing list pasted by Rafiq Hasan, 26 Sep 2026 09:58; 28 found (see the list)."
 2. Header: number and title; the state and when ("Confirmed RH 26 Sep 2026, 10:42"). In list mode
    only, a 294 px thumbnail of the sheet with its view outlines.
 3. **Proposal**, "where each was read": Number ("S-20 title-block attribute" / "text in the title
-   block" / "not found"); Title (the same); Discipline ("Structural from the file; the prefix
+   block" / "not found"); Title (the same / "the title of its view" where the title block gives none and the
+   sheet draws one other view; never counted as a source that agrees); Discipline ("Structural from the file; the prefix
    agrees"); Revision ("R1, 14 Sep 2026" / "R0, from the file name" / "none: the title block has none
    and the file name none"); File ("NT-STR-R1.dwg" / "laid out in the drawing" or
    "layout "A-24""); Storeys (text, meaning, strip); Plot ("NT-STR-R1.pdf page 20, registered to
@@ -1380,7 +1416,7 @@ Questions, section 7, follow the same templates), and one conflict by subject an
 | Floors that do not run | "3rd, 5th & 7th: three floors, or 3rd to 7th?" | "The title lists floors that do not run: "3rd, 5th & 7th floor beam layout". Vextrus read it as three floors. S-19 draws the 4th and 6th." Trace: "S-18 title block; the drawing list on S-01, row 18; S-19 title block" | 1 "3rd, 5th and 7th only, as written" (pre-picked: "the title and the drawing list agree, and S-19 draws the 4th and 6th") · 2 "3rd to 7th, five floors" · 3 "Keep open, ask the consultant" | "Answering confirms S-18 for the 3rd, 5th and 7th floor levels." |
 | Typical floor | "Which floors are "typical" on S-21?" | "S-21 "Typical floor slab layout" names no floors." Trace: "S-21 title block; the drawing list on S-01, row 21; A-5 title block" | 1 "2nd to 8th floor" (pre-picked: "the drawing list on S-01 ("typical floor, 2nd–8th") and A-5 "Typical floor plan, 2nd to 8th floor" agree") · 2 "Typical: take the floors from Step 3 (Storeys and levels)" · 3 "Keep open, ask the consultant" | 1: "Answering confirms S-21 for the 2nd to 8th floor levels." · 2: "Answering confirms S-21 as typical; its floors come from Step 3." |
 | Storey not read (an EL title) | "Which storey is EL +16′-6″?" | "S-22's title names a level, not a storey: "Beam layout plan at EL. +16′-6″". No title in the set names that level." Trace: "S-22 title block; S-38 building section" | 1 "Mezzanine: the building section on S-38 marks +16′-6″ as the mezzanine floor" · 2 "Keep "EL +16′-6″"; bind it to a storey in Step 3" · 3 "Keep open, ask the consultant" (none: one source only) | 1: "Answering confirms S-22 at the Mezzanine floor level." · 2: "Answering confirms S-22 at EL +16′-6″; Step 3 binds it to a storey." |
-| Two plans draw one thing (`conflict`; not in the prototype) | "S-24 and S-31 both draw the 5th floor slab, bottom layer" | "Both are structural slab plans of the 5th floor, bottom-layer reinforcement, and they are not one continuation (S-24 and S-31 are not consecutive). One may be superseded or misnumbered." Trace: "S-24 title block; S-31 title block" | 1 "Keep S-31 (R1, 14 Sep 2026); leave S-24 out as superseded" · 2 "Keep S-24; leave S-31 out as superseded" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" (none unless a second source agrees) | 1: "Answering confirms S-31 and excludes S-24 as superseded." · 3: "Answering confirms both." |
+| Two plans draw one thing (`conflict`; not in the prototype; two layout sheets or two details sheets, never one of each; its count the sheets it holds) | "S-24 and S-31 both draw the 5th floor slab, bottom layer" | "Both are structural slab plans of the 5th floor, bottom-layer reinforcement, and they are not one continuation (S-24 and S-31 are not consecutive). One may be superseded or misnumbered." Trace: "S-24 title block; S-31 title block" | 1 "Keep S-31 (R1, 14 Sep 2026); leave S-24 out as superseded" · 2 "Keep S-24; leave S-31 out as superseded" · 3 "They draw different things: keep both" · 4 "Keep open, ask the consultant" (none unless a second source agrees) | 1: "Answering confirms S-31 and excludes S-24 as superseded." · 3: "Answering confirms both." |
 
 Every "Keep open" option's first line reads "Answering keeps S-18 open." (or the file or copies it
 holds). A Plot page with no sheet ("Page 12 of … shows S-13, which no DWG has") uses the drawing-list
@@ -1394,9 +1430,14 @@ what one storey means (members at floor level or floor to floor): both are bound
   plans, sections). A sheet's storeys are its views' storeys together; its meaning is the views'
   meaning, or "mixed". Shown compactly: a run of three or more storeys one above another reads
   "2nd–8th"; anything else is listed ("3rd, 5th, 7th"). The roofs above the roof never form a run.
-- **Ruling 2: a missing storey is a Question only on plan views.** A sheet with a plan view whose title
-  states no storey shows amber "not stated" (and a Question when no second source settles it); a sheet
-  with no plan view (notes, details, schedules, elevations) shows "—" and raises nothing. An untitled
+- **Ruling 2: a missing storey is a Question only on plan views** (as amended by the owner's ruling of
+  5 Oct 2026 on #318, "Show the title's storeys, marked 'as titled'"). A sheet with a plan view whose
+  title states no storey takes the sheet title's storeys when that view is the sheet's only plan,
+  recorded as read from the sheet's title. A plan view that still states none, on a sheet that draws
+  several plans, shows amber "not stated" (and a Question when no second source settles it). A sheet
+  with no plan view (notes, details, schedules, elevations) shows the storeys its title states, muted,
+  "as titled", with no Question; with none stated it shows "—". A title whose storeys its plans
+  contradict raises one Question per Discipline, not one per sheet (section 5's table). An untitled
   typical floor shows amber "typical (range from Step 3)" until answered.
 - **Ruling 4: the storey strip stays.** A row of slots, one per storey of the building, low to high:
   foundations (pile, pile cap, grade beam) as one slot, Basement, Ground, Mezzanine, 1st…9th, Roof,
@@ -1522,7 +1563,7 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
 | **A held file (ruling 3)** | Its row heads "Needs you" with Question Q1; nothing from it is listed or counted; Coverage says so. Its Discipline may be confirmed once Q1 is answered (5's options); the file's chip and row stay marked: "Held, read anyway" (its sheets listed, each marked "held") / "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" |
 | **A Discipline not yet received** | 6.3's last section; the overview names it; nothing blocks the other Disciplines |
 | **A new Discipline's file arrives** (after others are confirmed) | Its sheets join under their own heading as Proposals; the confirmed Disciplines keep "✓ confirmed"; the rail shows Proposals ready again; the Projects page reads "Step 1: Structural confirmed · Electrical 38 to confirm" |
-| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; sheets agree on numbering and the Plot, else have one source (5) |
+| **A Discipline with no drawing list** | Its heading: "no drawing list; numbering runs E-01–E-03 without a gap"; a sheet agrees on its Plot page (number and title read alike), else has one source; a gap holds only the sheets either side of it until its Question is answered (5) |
 | **No Plot, and why** | "As read" only; Plot and Compare disabled with the reason as tooltip; `P` shows the note "No Plot for this sheet:" and the reason, top-left: "NT-ARCH-R1.dwg came with no PDF" · "the sheet has no number, so no PDF page could be matched to it" · "the PDF has no page for S-19 R0; its page 19 matched R1" · "PDF page 21 could not be matched: neither its title block nor the text on the page names a sheet" (a title block drawn as strokes is matched by the page's body text instead, 5). The inspector's Plot line repeats it ("None: …") |
 | **Bangla-font flag** | The file's chip "Bangla font" (amber); on an affected sheet, a canvas note "Bangla in a legacy font reads as "…"" and in the inspector "Bangla text here is set in SutonnyMJ, a legacy ANSI font. Vextrus reads it as "…", not as Bangla. The title and number are not affected." The file's report uses 4.5's wording |
 | **Kept open** | 6.7 |
@@ -1591,7 +1632,7 @@ owner's reversal at the M0 walk; ticket 22's design gate checks every row.
 | # | What | The one answer | Was | Why |
 |---|---|---|---|---|
 | 1 | The held file's Question (screens.md Step 1 ruling 3) | 1 "Read it anyway: its sheets join the list, marked held" · 2 "Set this file aside: I'll re-save it from AutoCAD (open it, run AUDIT, save) and add it again" · 3 "Set this file aside and mark it for Vextrus to look at" · 4 "Keep open, ask the consultant". Before the answer the file is "Held"; after it "Held, read anyway" (its sheets listed, each marked "held", their figures flagged later) or "Set aside: waiting for the re-saved file" / "Set aside: sent to Vextrus to check" (5, 6.7, 6.13, 4.5) | 5's re-save, mark for Vextrus, leave out; the prototype's re-save, send, leave out; "Set aside" also named the held state | The ruling's own two answers, with the ways to get a clean file kept |
-| 2 | The combined bulk act (ruling 1) | What: "Confirm 56 sheets that agree, and leave out 5: for information, cover or index, duplicate"; button "Confirm 56, leave out 5 ↵"; toast "Confirmed 56 sheets; left out 5, each with its reason." (6.4). On the seed: "Confirm 17 ↵" (4.7; #182) | Not prototyped | First judged at 22's gate |
+| 2 | The combined bulk act (ruling 1) | What: "Confirm 56 sheets that agree, and leave out 5: for information, cover or index, duplicate"; button "Confirm 56, leave out 5 ↵"; toast "Confirmed 56 sheets; left out 5, each with its reason." (6.4). On the seed: "Confirm 11 ↵" (4.7; #182) | Not prototyped | First judged at 22's gate |
 | 3 | What a view is proposed for | Excluded: title blocks, key plans, 3D and perspective views ("for information"), an architect's plan that draws structure ("duplicate: the structural set governs"). Assigned: legends, to their Discipline's Part (Step 2 for Structural and Architectural); steps 5–10 for Structural views only; fixture plans and toilet details also to the Plumbing and sanitary Part (5) | Legends excluded (5, the seed); the prototype assigned title blocks to Step 1 | The plan's QS review, Q2 and Q7 |
 | 4 | The toolbar's Count | "Confirmed n / N" (n confirmed, N found), then ", k excluded" once any is: "Confirmed 1 / 68, 1 excluded"; when every Discipline is confirmed, "✓ Confirmed 62 / 68, 6 excluded" (4.7, 6.11) | 4.7: "confirmed or excluded / found" | Takeoff ruling 4: an excluded item stays in N, and the count shows the gap with its reason; the prototype |
 | 5 | The bar's width | At most 820 px (the canvas less 32 px) in list and sheet mode; the exclusion picker 820 × 72 px, seven buttons in one row (6.4, 6.9) | 4.7: 720 px; the prototype: 820 in list mode, 800 in sheet mode | Seven reasons must fit one row |
@@ -1687,11 +1728,11 @@ Uploading, Upload stopped and Stopping are moments, not rows: the seed holds non
 |---|---|
 | Sheets found | 24: Structural 13, Architectural 8, Electrical 3 (KR-STR-old.dwg held, not counted). Toolbar "Confirmed 0 / 24" |
 | Headings (6.3) | "Structural 13 found, 13 on the drawing list on S-01 \| 0 / 13 settled" · "Architectural 8 found; no drawing list; numbering runs A-01–A-07 without a gap \| 0 / 8 settled" · "Electrical 3 found; no drawing list; numbering runs E-01–E-03 without a gap \| 0 / 3 settled" · "Disciplines not yet received: Plumbing and sanitary · Fire (a building of 7 storeys or more) · Lift" |
-| The bulk act | 17 agree: Structural 11 (S-01 to S-12 but the two S-07s), Architectural 6 (A-01 to A-04, A-06, A-07); "Confirm 17 ↵" (A-07's sheet is not proposed out: the read job proposes only its 3D view out, "for information"; #182) |
-| One source | 3: E-01 to E-03, "Proposal, one source" |
+| The bulk act | 11 agree: Structural 11 (S-01 to S-12 but the two S-07s); "Confirm 11 ↵". No Architectural sheet agrees: KR-ARC-R0.pdf draws its lettering as lines, so its Plot pages are matched by their ink and read no title, and with no drawing list a Plot page is the second source only when its number and title read alike (#229; the seed keeps lettering as lines, session 19) (A-07's sheet is not proposed out: the read job proposes only its 3D view out, "for information"; #182) |
+| One source | 9: A-01 to A-04, A-06, A-07 and E-01 to E-03, "Proposal, one source" (A-05 is held by its kind Question) |
 | Questions, 5 open, in queue order | Each tagged as the screen tags it, by the order the read job raised it (KR-STR-old.dwg was added and read first; #182): Q1 KR-STR-old.dwg may be misread (no pre-pick) · Q2 two sheets numbered S-07 (no pre-pick: the read job pre-picks none) · Q5 the unnumbered architectural schedule (no list names it: "Leave it without a number", "Type a number", "Keep open"; no pre-pick) · Q4 the kind of A-05 (no pre-pick) · Q3 the drawing list and the Plot both name S-13, which no DWG has (no pre-pick) |
 | Views, 70 | Proposed excluded 26 (24 title blocks, the key plan and the 3D view, "for information") · proposed to a step or Part 42 (the legends of S-01 and E-01 among them) · unaccounted 2 (S-01's drawing list and its standard hook and bend detail: neither names a member a Step reads; #182). Status bar: "Coverage 70 views: 0 assigned, 0 excluded, 68 proposed, 2 unaccounted" |
-| After the QS's walk | The bulk act; Q1 "Set this file aside…"; Q2 keep the latest (rev A excluded, superseded); Q5 typed "A-08"; Q4 answered; Q3 "Not sent yet" (S-13 in the count as missing); S-01's two unaccounted views excluded, "for information". Then "Step 1: Structural confirmed · Architectural confirmed · Electrical 3 to confirm"; then E-01 to E-03 confirmed one by one: "✓ Confirmed 23 / 24, 1 excluded" (#182: this walk's Coverage counts are not yet measured on the job's seed) |
+| After the QS's walk | The bulk act; Q1 "Set this file aside…"; Q2 keep the latest (rev A excluded, superseded); Q5 typed "A-08"; Q4 answered; Q3 "Not sent yet" (S-13 in the count as missing); S-01's two unaccounted views excluded, "for information". Then A-01 to A-04, A-06 and A-07 confirmed one by one; then "Step 1: Structural confirmed · Architectural confirmed · Electrical 3 to confirm"; then E-01 to E-03 confirmed one by one: "✓ Confirmed 23 / 24, 1 excluded" (#182: this walk's Coverage counts are not yet measured on the job's seed) |
 
 **What 22's design gate can reach in wave 5, and what waits** (the plan's UX review, U2). 22 is built
 while 21b and 21c are not merged, on 14's and 19a's rows and on 21a's per-file job:
@@ -1825,3 +1866,19 @@ looking empty (screens.md 5); its screenshots stay under `.private/`.
 - **4.4, the Vextrus access line: "Split by role"** (on 20a's design gate). The MD, who can end any
   Vextrus access, reads "… You can end it at any time."; a QS, who can end only the access they gave,
   reads "… You can end the access you gave; your MD can end any."
+
+## The owner's rulings (4 Oct 2026, session 11)
+- **5, what "agrees" means with no drawing list: "Plot match + gap local"** (#229). A sheet whose
+  Plot page matched (number and title read alike) has its second source; a numbering gap holds only
+  the sheets beside it; all of one Discipline's gaps are asked as one Question (the Discipline's, its
+  identity never a sheet's name; one answer for all its gaps).
+
+## The owner's rulings (5 Oct 2026, session 13)
+- **#334, "A series, no Question":** one title on several runs that draw different storeys, marks or
+  members is one series ("N sheets share this title"), no Question; the Question stays when two sheets
+  of one title draw the same thing; `same_storey` never compares a layout sheet's plan with a details
+  sheet's plan views; and "Continuation groups by member-mark range: In M0": titles equal but for a
+  member-mark range group as one continuation (5, 6.2; T-W334).
+- **Stale-title pairs are true Questions** (17:06Z): two consecutive sheets of one printed title whose
+  views state different storeys or name different subjects raise the one-title conflict; they are never
+  a continuation and never folded into a series (5; T-W334).

@@ -51,7 +51,7 @@ SHEETS = """
 VIEWS = """
     from engine.recognise.types import Box, ViewCandidate
 
-    def find(artefact, sheet, conventions):
+    def find(artefact, sheet, conventions, sheet_conventions=None):
         if sheet.number.value in ("S-07", "S-12"):
             return [
                 ViewCandidate(
@@ -153,6 +153,7 @@ def test_the_harness_runs_19bs_two_stages_and_writes_a_valid_export(
                 "titled": "same",
                 "layer": "bottom",
                 "views": 3,
+                "sheets": 3,
                 "discipline": "structural",
                 "subject": "slab",
                 "storey": "floor_5",
