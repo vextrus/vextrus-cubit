@@ -257,3 +257,12 @@ def test_a_stated_reader_returning_one_string_is_refused() -> None:
     readers = replace(READERS, stated=lambda text: "1ST FLOOR")
     with pytest.raises(TypeError):
         run(grid(), readers=readers)
+
+
+def test_a_joining_word_or_a_weak_storey_word_never_parts_two_stems() -> None:
+    """ "FOR" in one twin's title and not the other's, or "(TYPICAL)" on one: one stem."""
+    for titles in (
+        ("LUMINAIRE ARRANGEMENT FOR 1ST FLOOR", "LUMINAIRE ARRANGEMENT 3RD FLOOR"),
+        ("LUMINAIRE ARRANGEMENT (TYPICAL)", "LUMINAIRE ARRANGEMENT"),
+    ):
+        assert not parted(run(grid(twin_titles=titles), readers=stand_ins()))

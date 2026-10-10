@@ -199,7 +199,8 @@ together, the rest refused and counted (`read_budget`): the real sets read at mo
 (measured), about 20,000 a file."""
 MAX_LAYER_READS = 4_000_000
 """The most entities model space's sheets may count by layer together (`SheetCandidate.layers`,
-one file): past it the sheets left keep none, counted (`layer_budget`)."""
+one file): past it the sheets left keep none, counted (`layer_budget`, only when reached: not one
+of `LIMITS`, so every other file's report stays as it was)."""
 MAX_PAIRS = 4_000_000
 """The most label and value pairs one file's title blocks weigh; a sheet whose pairs are past it is
 read without its labelled values, counted (`pair_budget`): the real sets weigh at most 12.8 a text

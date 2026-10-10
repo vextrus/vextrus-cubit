@@ -1021,9 +1021,15 @@ TWIN = 0.9
 """A near twin's least weighted layer overlap (`_shared`; the session-19 analysis of stale-title
 pairs measured E-16/E-17-like twins at 0.96 and above, and true continuations at 0.07 to 0.57)."""
 
-MAX_TWIN_READS = 250_000
-"""The most layer overlaps one comparison reads looking for near twins: past it a sheet has none, and
-the content-twin rule sits out (its pair stays as the other rules leave it)."""
+MAX_TWIN_READS = 4_000_000
+"""The most layer entries one comparison reads for content twins (an overlap of two histograms costs
+both their lengths): past it a sheet has no near twin and a pair is never parted by the rule (it
+stays as the other rules leave it)."""
+
+
+SHORT = 3
+"""A stem leaves out words of this many letters or fewer: joining words never part two stems (a
+word that short and meaningful, "cap", "fan", only makes two stems one: the rule then sits out)."""
 
 
 def _shared(a: dict[str, int], b: dict[str, int]) -> float:
@@ -1064,7 +1070,7 @@ class _Twins:
                 *conventions.level_words,
                 *conventions.range_words,
                 *conventions.list_words,
-                *conventions.ordinal_suffixes,
+                *conventions.weak_storey_words,
             )
         )
         self.skip = frozenset(w for phrase in words for w in phrase.casefold().split())
@@ -1077,7 +1083,7 @@ class _Twins:
                 self.files.setdefault((sheet.group, source), []).append(i)
         self.near: dict[int, list[tuple[float, int]]] = {}
         self.stems: dict[int, tuple[str, ...] | None] = {}
-        self.reads = MAX_TWIN_READS
+        self.reads = MAX_TWIN_READS  # read when the first `_Twins` is made, so tests may set it
 
     def apart(self, first: Sequence[int], second: Sequence[int]) -> bool:
         """Whether two consecutive places of one title draw different things: each (its first copy)
@@ -1094,6 +1100,8 @@ class _Twins:
         stems_a = {self._stem(j) for _, j in near_a}
         stems_b = {self._stem(j) for _, j in near_b}
         if None in stems_a or None in stems_b or stems_a & stems_b:
+            return False
+        if not self._take(a, b):
             return False
         pair = _shared(self.layers[a], self.layers[b])
         return pair < max(w for w, _ in near_a) and pair < max(w for w, _ in near_b)
@@ -1112,20 +1120,29 @@ class _Twins:
                 continue
             if min(total, self.totals[j]) < TWIN * max(total, self.totals[j]):
                 continue  # the totals alone keep the overlap below `TWIN`
-            if self.reads <= 0:
+            if not self._take(i, j):
                 found = []  # past the bound: no twins, so the rule sits out
                 break
-            self.reads -= 1
             w = _shared(mine, self.layers[j])
             if w >= TWIN:
                 found.append((w, j))
         self.near[i] = found
         return found
 
+    def _take(self, i: int, j: int) -> bool:
+        """Spend the reads one overlap of `i` and `j` costs, or refuse past `MAX_TWIN_READS`."""
+        cost = len(self.layers[i]) + len(self.layers[j])
+        if cost > self.reads:
+            self.reads = 0
+            return False
+        self.reads -= cost
+        return True
+
     def _stem(self, j: int) -> tuple[str, ...] | None:
         """A title's stem: its words (letters only, case folded) without the storeys it states, its
-        member-mark ranges, or the conventions' floor, level, range and list words and ordinal
-        suffixes; so one drawing type over several floors or mark ranges is one stem. None when
+        member-mark ranges, the conventions' floor, level, range, list and weak storey words, or any
+        word of `SHORT` letters or fewer (an ordinal's suffix, "for", "of"): so one drawing type over
+        several floors or mark ranges, worded with or without a joining word, is one stem. None when
         nothing is left."""
         if j in self.stems:
             return self.stems[j]
@@ -1140,7 +1157,9 @@ class _Twins:
                 text = text.replace(part, " ")
         for found in reversed(member_ranges(text, self.pattern)):
             text = text[: found.at] + " " + text[found.end :]
-        words = tuple(w for w in re.findall(r"[^\W\d_]+", text.casefold()) if w not in self.skip)
+        words = tuple(
+            w for w in re.findall(r"[^\W\d_]+", text.casefold()) if len(w) > SHORT and w not in self.skip
+        )
         stem = words or None
         self.stems[j] = stem
         return stem
