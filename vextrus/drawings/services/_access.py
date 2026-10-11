@@ -39,10 +39,12 @@ def drawing_set(set_id: uuid.UUID) -> DrawingSet:
     return _checked(DrawingSet.objects.filter(id=set_id), lambda found: found.project_id)
 
 
-def drawing_file(file_id: uuid.UUID, *, lock: bool = False) -> DrawingFile:
+def drawing_file(file_id: uuid.UUID, *, lock: bool = False, nowait: bool = False) -> DrawingFile:
+    """The file in scope; `lock`: its row locked (`nowait`: or `DatabaseError` at once, the row held
+    by another transaction)."""
     rows = DrawingFile.objects.select_related("drawing_set").filter(id=file_id)
     if lock:
-        rows = rows.select_for_update(of=("self",))
+        rows = rows.select_for_update(of=("self",), nowait=nowait)
     return _checked(rows, lambda found: found.drawing_set.project_id)
 
 

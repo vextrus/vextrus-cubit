@@ -37,8 +37,9 @@ Coordinates are floats in drawing units: drawing geometry stays float inside the
 `to_json` writes `{"schema": SCHEMA, "version": VERSION, ...}`; `from_json` refuses any other schema
 or version, so a change to this shape is a new VERSION and never a silent reinterpretation. Version 2
 added the style table and `Text.style_handle` (#82); version 3 a layout's paper units
-(`Block.paper_mm_per_unit`, #87); an older version is refused, so an artefact stored before it is read
-again from its drawing.
+(`Block.paper_mm_per_unit`, #87); version 4 a layout's plot settings (`Block.plot`, S15-E2: its paper's
+size, margins, plot offset and turn, as the file states them); an older version is refused, so an
+artefact stored before it is read again from its drawing.
 """
 
 import math
@@ -52,7 +53,7 @@ from engine.read._json import Fields, Json
 from engine.read.anchor import is_handle
 
 SCHEMA = "engine.read.artefact"
-VERSION = 3
+VERSION = 4
 
 type Point = tuple[float, float, float]
 type StyleSource = Literal["own", "attdef", "none"]
@@ -163,6 +164,35 @@ def usable_angle(value: object) -> float | None:
 
 
 @dataclass(frozen=True)
+class PlotSettings:
+    """A layout's plot settings as the file states them (PLOTSETTINGS, S15-E2), every length in paper
+    millimetres whatever its paper units: the paper's size as the plotter holds it (`width_mm` by
+    `height_mm`, before the turn), its unprintable margins (left, bottom, right, top), the plot offset
+    (`origin_mm`, from the printable area's lower-left corner), and the turn of the drawing on the
+    paper (`rotation`: 0 none, 1 a quarter turn counterclockwise, 2 a half turn, 3 a quarter turn
+    clockwise). Read from a hostile file: every number is finite and `rotation` one of the four, else
+    the reader keeps none; whether the size is a sheet's is the reader of the artefact's to judge
+    (`engine.recognise.views.paper`)."""
+
+    width_mm: float
+    height_mm: float
+    margins_mm: tuple[float, float, float, float]
+    origin_mm: tuple[float, float]
+    rotation: int
+
+    def __post_init__(self) -> None:
+        numbers = (self.width_mm, self.height_mm, *self.margins_mm, *self.origin_mm)
+        if len(self.margins_mm) != 4 or len(self.origin_mm) != 2:
+            raise ValueError("read artefact: plot settings hold four margins and a two-number origin")
+        if not all(
+            isinstance(v, int | float) and not isinstance(v, bool) and math.isfinite(v) for v in numbers
+        ):
+            raise ValueError(f"read artefact: plot settings must be finite numbers, got {numbers!r}")
+        if type(self.rotation) is not int or self.rotation not in (0, 1, 2, 3):
+            raise ValueError(f"read artefact: a plot's rotation is 0 to 3, got {self.rotation!r}")
+
+
+@dataclass(frozen=True)
 class Block:
     """A block record: model space, a paper-space layout, or a block definition."""
 
@@ -175,6 +205,8 @@ class Block:
     """Millimetres of paper a layout's drawing unit plots at, as its plot settings state them: its paper
     units (25.4 inches, 1 millimetres) times its custom scale; none for any other record, or when the
     settings state neither inches nor millimetres (#87)."""
+    plot: PlotSettings | None = None
+    """A layout's plot settings (version 4), where its reader has them; none for any other record."""
 
 
 @dataclass(frozen=True)
@@ -326,7 +358,10 @@ def _optional_point(value: object, what: str) -> Point | None:
 def _number(value: object, what: str) -> float:
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ValueError(f"read artefact: {what} must be a number, got {value!r}")
-    return float(value)
+    try:
+        return float(value)
+    except OverflowError:  # an integer past any float
+        raise ValueError(f"read artefact: {what} must be a number a float holds") from None
 
 
 def _optional_number(value: object, what: str) -> float | None:
@@ -373,7 +408,35 @@ def _block_json(block: Block) -> dict[str, Any]:
         "layout": block.layout,
         "entities": list(block.entities),
         "paper_mm_per_unit": block.paper_mm_per_unit,
+        "plot": None if block.plot is None else _plot_json(block.plot),
     }
+
+
+def _plot_json(plot: PlotSettings) -> dict[str, Any]:
+    return {
+        "width_mm": plot.width_mm,
+        "height_mm": plot.height_mm,
+        "margins_mm": list(plot.margins_mm),
+        "origin_mm": list(plot.origin_mm),
+        "rotation": plot.rotation,
+    }
+
+
+def _plot_from_json(value: object) -> PlotSettings | None:
+    if value is None:
+        return None
+    fields = Fields(value, "read artefact plot settings")
+    margins = fields.array("margins_mm")
+    origin = fields.array("origin_mm")
+    plot = PlotSettings(
+        width_mm=_number(fields.raw("width_mm"), "a plot's paper width"),
+        height_mm=_number(fields.raw("height_mm"), "a plot's paper height"),
+        margins_mm=tuple(_number(v, "a plot's margin") for v in margins),  # type: ignore[arg-type]
+        origin_mm=tuple(_number(v, "a plot's offset") for v in origin),  # type: ignore[arg-type]
+        rotation=fields.integer("rotation"),
+    )
+    fields.done()
+    return plot
 
 
 def _block_from_json(value: object) -> Block:
@@ -385,6 +448,7 @@ def _block_from_json(value: object) -> Block:
         layout=fields.optional_string("layout"),
         entities=tuple(_handle(h, "a block's entity") for h in fields.array("entities")),
         paper_mm_per_unit=_paper_units(fields.raw("paper_mm_per_unit")),
+        plot=_plot_from_json(fields.raw("plot")),
     )
     fields.done()
     return block

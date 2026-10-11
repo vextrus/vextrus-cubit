@@ -5,11 +5,18 @@
 `Unavailable`. It acts in the tenant `tenancy.current()` names (with none it raises `NoTenant` before
 any call or write). It answers from the tenant's cache (JevAnswer) when the same node, facts, question,
 options and pinned model were asked before; else it asks TypeSafe and caches the answer in the
-caller's transaction. Otherwise it returns `Unavailable` within its deadline: it caches nothing,
+caller's transaction (a network call inside it: a read job never asks so, below). Otherwise it
+returns `Unavailable` within its deadline: it caches nothing,
 raises nothing into its caller, and the QS picks (ADR 0011: "the Takeoff never stops"). A question
 the node does not take (an undeclared or missing fact, bad option keys, an undeclared node) is the
 caller's mistake: logged as an error and answered `Unavailable(bad_question)`, so a job step still
 ends (only `prepare` raises it); drawing text too large to send is `Unavailable`, never cut.
+
+**Asked outside every transaction** (S15-A2; a read job's transaction holds no network call, so no
+QS's act waits on Jev): `to_send` (in a transaction: the request when the cache does not hold its
+answer), `send` (between transactions: TypeSafe asked, nothing written) and `answer` (in a
+transaction: the cache's answer, else the one sent for, cached now; never a call: one neither holds
+is `Unavailable(not_sent)`).
 
 - **The node** is declared once (`NODES`): its facts, its pinned model, the setting holding the
   confidence at which a caller proposes its answer rather than asks, and how a pre-pick names it. M0
@@ -39,8 +46,12 @@ ends (only `prepare` raises it); drawing text too large to send is `Unavailable`
 
 Who calls it (usage):
 
-    # 21c, per sheet inside a job step: propose, or raise a `low_confidence` Question; then pre-pick.
-    answer = jev.ask_judgement(request)          # 13's JudgementRequest(node="sheet_type", ...)
+    # 21c's read job: Jev asked outside every transaction (S15-A2), its answers kept inside a step.
+    with run.acting():                           # a short read: what the cache does not hold
+        to_send = [r for r in map(jev.to_send, requests) if r is not None]
+    sent = {r.cache_key: jev.send(r) for r in to_send}   # between steps: no transaction open
+    # ... then per sheet inside the step: propose, or raise a `low_confidence` Question; pre-pick.
+    answer = jev.answer(request, sent)           # 13's JudgementRequest(node="sheet_type", ...)
     if isinstance(answer, jev.Unavailable):
         ...                                      # the QS picks; nothing tells them why (22)
     elif jev.SHEET_TYPE.proposes(answer):
@@ -106,9 +117,11 @@ __all__ = [
     "NotAnOverride",
     "PrePick",
     "Request",
+    "Sent",
     "Source",
     "Unavailable",
     "Why",
+    "answer",
     "ask",
     "ask_judgement",
     "client",
@@ -116,7 +129,9 @@ __all__ = [
     "pre_pick",
     "prepare",
     "record_override",
+    "send",
     "tally",
+    "to_send",
     "using",
 ]
 
@@ -215,6 +230,9 @@ class Why(StrEnum):
     """The answer was larger than `VEXTRUS_JEV_MAX_RESPONSE_BYTES`."""
     MALFORMED = "malformed"
     """The answer was not an answer to what was asked."""
+    NOT_SENT = "not_sent"
+    """`answer` found it neither in the cache nor among the answers sent for outside the transaction
+    (the question changed between the two: a sheet's Discipline, say): nothing was sent."""
 
 
 _NOT_COUNTED = frozenset(
@@ -857,7 +875,8 @@ def using(replacement: Client) -> Iterator[Client]:
 def ask(node: str | Node, facts: Facts, question: str, options: Options) -> Answer | Unavailable:
     """Jev's answer from the acting tenant's cache or from TypeSafe; else `Unavailable`, with nothing
     cached, a question the node does not take among its reasons (`bad_question`, logged as the
-    caller's mistake). Raises `NoTenant` outside a tenant, before any call or write."""
+    caller's mistake). Raises `NoTenant` outside a tenant, before any call or write. It calls
+    TypeSafe inside the caller's transaction, if any: a read job uses `to_send`, `send` and `answer`."""
     tenant_id = _acting_tenant()
     request = _prepared(node, facts, question, options)
     if isinstance(request, Unavailable):
@@ -868,6 +887,54 @@ def ask(node: str | Node, facts: Facts, question: str, options: Options) -> Answ
     judged = client().send(request)
     if isinstance(judged, Unavailable):
         return judged
+    return _keep(tenant_id, request, judged)
+
+
+def ask_judgement(request: JudgementRequest) -> Answer | Unavailable:
+    """`ask` for the engine's JudgementRequest (13 emits one per sheet)."""
+    return ask(request.node, request.facts, request.question, request.options)
+
+
+type Sent = Mapping[str, Judgement | Unavailable]
+"""What TypeSafe answered outside the transaction (`send`), by its request's `cache_key`."""
+
+
+def to_send(request: JudgementRequest) -> Request | None:
+    """The request to send for 13's question, when the acting tenant's cache does not hold its
+    answer; None when it does, or when the question is not one to send (`answer` says why). Reads
+    only; raises `NoTenant` outside a tenant."""
+    tenant_id = _acting_tenant()
+    prepared = _prepared(request.node, request.facts, request.question, request.options)
+    if isinstance(prepared, Unavailable) or _cached(tenant_id, prepared.cache_key) is not None:
+        return None
+    return prepared
+
+
+def send(request: Request) -> Judgement | Unavailable:
+    """TypeSafe asked (never the cache), by the process's client: no database, no tenant. Called
+    outside every transaction, so no row is held while it waits (up to its deadline)."""
+    return client().send(request)
+
+
+def answer(request: JudgementRequest, sent: Sent) -> Answer | Unavailable:
+    """Jev's answer to 13's question from the acting tenant's cache, else the one `send` got for it,
+    cached now in the caller's transaction; never a call. `Unavailable` when the question is not one
+    to send, when TypeSafe did not answer it (its reason), or when neither holds it (`not_sent`)."""
+    tenant_id = _acting_tenant()
+    prepared = _prepared(request.node, request.facts, request.question, request.options)
+    if isinstance(prepared, Unavailable):
+        return prepared
+    cached = _cached(tenant_id, prepared.cache_key)
+    if cached is not None:
+        return cached
+    judged = sent.get(prepared.cache_key, Unavailable(Why.NOT_SENT))
+    if isinstance(judged, Unavailable):
+        return judged
+    return _keep(tenant_id, prepared, judged)
+
+
+def _keep(tenant_id: uuid.UUID, request: Request, judged: Judgement) -> Answer:
+    """TypeSafe's answer cached in the caller's transaction, as the cache gives it back."""
     # A step asking the same question at once may have written it first: its answer stands.
     JevAnswer.objects.bulk_create(
         [
@@ -888,11 +955,6 @@ def ask(node: str | Node, facts: Facts, question: str, options: Options) -> Answ
     if written is None:
         raise RuntimeError("the answer written could not be read back")
     return written
-
-
-def ask_judgement(request: JudgementRequest) -> Answer | Unavailable:
-    """`ask` for the engine's JudgementRequest (13 emits one per sheet)."""
-    return ask(request.node, request.facts, request.question, request.options)
 
 
 def _acting_tenant() -> uuid.UUID:

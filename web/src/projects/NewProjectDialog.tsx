@@ -7,7 +7,7 @@
  *
  * A refusal is shown under its field in the API's words ("Give the project a name.", "KR-01 is already
  * used by Kadam Residence. Choose another code."); any other in an ErrorBar, a server fault included. Created, the list is read
- * again and the project opens (`/p/<code>`; the Drawing Set's own address once 20b builds it).
+ * again and the project opens on its Drawing Set (`/p/<code>/drawing-set`, its empty state: §4.3).
  */
 import { useId, useState, type FormEvent } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
@@ -65,7 +65,7 @@ export function NewProjectDialog({ session, open, onOpenChange }: { session: Ses
       await queryClient.invalidateQueries({ queryKey: sessionQuery.queryKey })
       reset()
       onOpenChange(false)
-      go(PATHS.project(project.code))
+      go(PATHS.drawingSet(project.code))
     } catch (error) {
       if (!current()) return
       if (error instanceof ApiRefused && error.refusal && error.field) {

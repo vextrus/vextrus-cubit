@@ -233,10 +233,12 @@ def _not_on_the_list(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -
 
 def _a_gap_and_no_list(qs: QsProject, monkeypatch: pytest.MonkeyPatch, api: Any) -> Case:
     _read(qs, monkeypatch, [THREE[0], THREE[2]])
-    # The gap's `check` Question holds no sheet (it asks about S-02, which is not read).
-    assert all(q["proposals"] == [] for q in open_questions(api, qs.project_id))
+    # The gap's Question holds the sheets either side of it, S-01 and S-03 (#229): it is named.
+    [q] = open_questions(api, qs.project_id, "check")
     shown = proposals(api, qs.project_id)
-    return [the(shown, "S-01")["id"], the(shown, "S-03")["id"]], "one_source", None
+    beside = [the(shown, "S-01")["id"], the(shown, "S-03")["id"]]
+    assert sorted(q["proposals"]) == sorted(beside)
+    return beside, "question_first", q["id"]
 
 
 REASONS: dict[str, Callable[[QsProject, pytest.MonkeyPatch, Any], Case]] = {

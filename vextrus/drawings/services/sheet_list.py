@@ -23,7 +23,9 @@ steps remain; a held file read anyway is in it, its sheets marked (`held`).
 
 Titles, numbers and every word stored must be decoded already (11's `engine.text.decode`): a value
 still holding `%%`, `\\P`, `\\f`, `\\S`, `^J` or `{\\` is refused. A render must be a sheet buffer
-`SheetBuffers.from_bytes` reads; a Plot page must be of a PDF of the same Drawing Set.
+`SheetBuffers.from_bytes` reads; a Plot page must be of a PDF of the same Drawing Set. A matched page
+is kept with whether its text reads the sheet's title as well as its number (`PlotView.title_alike`,
+`engine.plot.registration.reads_title`): only then is it the sheet's second source (#229).
 """
 
 import hashlib
@@ -41,12 +43,16 @@ from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from engine.messages import Message
+from engine.plot import registration
+from engine.plot.registration import shown
 from engine.read.anchor import Anchor, DwgAnchor
+from engine.read.pdf.types import Page
 from engine.recognise.types import ExclusionReason as EngineExclusion
 from engine.recognise.types import (
     PlotMatch,
     SheetCandidate,
     SheetLocation,
+    Sourced,
     ValueSource,
     ViewCandidate,
 )
@@ -91,6 +97,8 @@ class PlotView:
     residual: str | None
     render_f1: str | None
     none: Message | None
+    title_alike: bool = False
+    """Its page reads the sheet's title as well as its number (#229): the sheet's second source."""
     """Why there is no Plot (m0-screens 4.6), or None when a page matched."""
 
 
@@ -145,6 +153,9 @@ class ViewView:
     storeys_as_stated: str
     storeys: tuple[str, ...]
     storeys_meaning: str | None
+    storeys_source: str | None
+    """Where its storeys were read: None for its own title, else "sheet_title" (T-W318) or
+    "title_line" (S15-E3)."""
     subject: str | None
     layer: str | None
     steps: tuple[str, ...]
@@ -427,6 +438,17 @@ def _keep_sheet(
         sheet_key = texts.layout
     discipline = row.discipline or (market[candidate.discipline.value] if candidate.discipline else None)
     number, title, storeys = texts.number, texts.title, texts.storeys
+    existing = SheetRevision.objects.filter(source_file=row, location_key=place).first()
+    sources = _sources(candidate)
+    # A title the sheet's step read from its one view (#332) is no part of the finder's candidate:
+    # recording the same reading again carries it, so it is neither dropped nor seen as a change.
+    if existing is not None:
+        for name in _from_view(existing, candidate):
+            sources[name] = str(ValueSource.VIEW_TITLE)
+            if name == "title":
+                title = existing.title
+            else:
+                storeys = existing.storeys_as_stated
     if number:
         sheet, _ = Sheet.objects.get_or_create(
             tenant_id=row.tenant_id,
@@ -461,13 +483,12 @@ def _keep_sheet(
         "revision_mark": texts.revision_mark,
         "issue_date": texts.issue_date,
         "storeys_as_stated": storeys,
-        "sources": _text.read_json(_sources(candidate)),
+        "sources": _text.read_json(sources),
         "source_sha256": row.sha256,
         "reader_version": reader_version,
         "proposed_exclusion": str(exclusion.reason) if exclusion else "",
         "proposed_exclusion_text": texts.exclusion_text,
     }
-    existing = SheetRevision.objects.filter(source_file=row, location_key=place).first()
     anchors = [_text.read_json(_detail(a)) for a in candidate.anchors]
     if existing is None:
         created = SheetRevision.objects.create(
@@ -485,6 +506,9 @@ def _keep_sheet(
             changed["anchors"] = anchors
         if changed and existing.decision:
             raise auth.Refused(refusal.DECIDED(file=row.original_name), status=409)
+        if "title" in changed and existing.plot_title_alike:
+            # Its Plot page read the old title: until the page is matched again it reads none (#229).
+            changed["plot_title_alike"] = False
         old_sheet_id = existing.sheet_id
         for name, value in changed.items():
             setattr(existing, name, value)
@@ -503,6 +527,19 @@ def _keep_sheet(
             sheet_revision=existing,
         )
     return existing
+
+
+def _from_view(existing: SheetRevision, candidate: SheetCandidate) -> list[str]:
+    """The stored fields a sheet's view gave (`record_sheet_title`) that its candidate leaves empty."""
+    if candidate.title is not None or existing.sources.get("title") != ValueSource.VIEW_TITLE:
+        return []
+    names = ["title"]
+    if (
+        candidate.storeys_as_stated is None
+        and existing.sources.get("storeys_as_stated") == ValueSource.VIEW_TITLE
+    ):
+        names.append("storeys_as_stated")
+    return names
 
 
 def _differs(existing: SheetRevision, name: str, value: object) -> bool:
@@ -589,11 +626,13 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
             subject = _text.read(candidate.subject)
             layer = _text.read(candidate.layer)
             meaning = _text.read(candidate.storeys_meaning)
+            source = _text.read(candidate.storeys_source)
             if not _text.fits(
                 (scale, _length(View, "stated_scale_text")),
                 (subject, _length(View, "subject")),
                 (layer, _length(View, "layer")),
                 (meaning, _length(View, "storeys_meaning")),
+                (source, _length(View, "storeys_source")),
             ):
                 continue
             made.append(
@@ -611,6 +650,7 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
                     storeys_as_stated=_text.read(candidate.storeys_as_stated),
                     storeys=_text.read_json(list(candidate.storeys)),
                     storeys_meaning=meaning,
+                    storeys_source=source,
                     subject=subject,
                     layer=layer,
                     steps=_text.read_json(list(candidate.steps)),
@@ -679,6 +719,15 @@ def hold_plots(set_id: uuid.UUID) -> None:
     _access.lock("plots", drawing_set.id)
 
 
+def _shown(page: object) -> dict[str, list[str]]:
+    """The page as a viewer shows it, its CropBox in 18's page frame (`registration.shown`, #240): the
+    viewer draws pdf.js's picture of it there; none for a page that is no engine page."""
+    if not isinstance(page, Page):
+        return {}
+    left, bottom, width, height = shown(page)
+    return {"crop": [_decimal(v) for v in (left, bottom, left + width, bottom + height)]}
+
+
 def record_plot(
     sheet_revision_id: uuid.UUID,
     match: PlotMatch | PlotNone | str,
@@ -698,6 +747,7 @@ def record_plot(
             "plot_transform": None,
             "plot_residual": None,
             "plot_none_reason": "",
+            "plot_title_alike": False,
             "render_f1": None if render_f1 is None else _decimal_of(render_f1, 6),
         }
         if isinstance(match, PlotMatch) and match.sheet is not None:
@@ -708,12 +758,17 @@ def record_plot(
             if not isinstance(number, int) or number < 1:
                 raise auth.Refused(refusal.NOT_ITS_READING(file=row.original_name), status=400)
             values["plot_page"] = number
+            # A second source only when the page reads the sheet's title too (#229).
+            values["plot_title_alike"] = isinstance(page, Page) and registration.reads_title(
+                page, sheet_revision.title
+            )
             if match.transform is not None:
                 t = match.transform
                 values["plot_transform"] = {
                     "scale": _decimal(t.scale),
                     "rotation": t.rotation,
                     "offset": [_decimal(v) for v in t.offset],
+                    **_shown(page),
                 }
             if match.residual is not None:
                 values["plot_residual"] = _decimal_of(match.residual, 6)
@@ -830,6 +885,15 @@ def sheet_facts(set_id: uuid.UUID) -> list[SheetFacts]:
         )
         placed.append((_placed(order, fact.discipline, fact.number, file_id, ordinal), fact))
     return [fact for _key, fact in sorted(placed, key=lambda pair: pair[0])]
+
+
+def recorded_sheets(file_id: uuid.UUID) -> list[tuple[SheetView, list[ViewView]]]:
+    """A file's printed sheets as its reading recorded them, each with its views in reading order,
+    whatever the file's state: its read job asks Jev about them before its `finishing` step lists
+    them (S15-A2). The same views `sheets` and `views` give once the file is listed."""
+    row = _access.drawing_file(file_id)
+    found = _all().filter(source_file=row).order_by("ordinal", "id")
+    return [(_sheet_view(sr), _views_of(sr)) for sr in found]
 
 
 def _placed(
@@ -973,6 +1037,7 @@ def _plot(sr: SheetRevision, context: _PlotContext) -> PlotView:
         residual=None if sr.plot_residual is None else str(sr.plot_residual),
         render_f1=None if sr.render_f1 is None else str(sr.render_f1),
         none=none,
+        title_alike=sr.plot_title_alike,
     )
 
 
@@ -1095,6 +1160,7 @@ def _view_view(view: View, *, anchors: bool = True) -> ViewView:
         storeys_as_stated=view.storeys_as_stated,
         storeys=tuple(view.storeys),
         storeys_meaning=view.storeys_meaning or None,
+        storeys_source=view.storeys_source or None,
         subject=view.subject or None,
         layer=view.layer or None,
         steps=tuple(view.steps),
@@ -1138,6 +1204,62 @@ def record_kind(sheet_revision_id: uuid.UUID, kind: str | None) -> SheetView:
             raise auth.Refused(refusal.DECIDED(file=file_name), status=409)
         sheet_revision.kind = kind or ""
         sheet_revision.save(update_fields=["kind"])
+    return _sheet_view(_all().get(id=sheet_revision.id))
+
+
+def record_sheet_title(
+    sheet_revision_id: uuid.UUID, *, title: Sourced, storeys_as_stated: Sourced | None = None
+) -> SheetView:
+    """Keep a printed sheet's title (and the storeys it states) read after its sheet, from its one
+    drawing view (21b's `sheet_<n>` step, #332), with its source. Never over a title of another
+    source, nor on a sheet the QS has decided with no title (it is returned as it is); the same
+    title again is nothing; a view's title that changed replaces the old one, and on a decided sheet
+    is refused as `record_sheets` refuses a changed reading (`reads.decided`, 409). The numbered
+    Sheet takes only what it has empty or had from this view, so another revision's title stays. A
+    raw code is refused as `record_sheets` does."""
+    with transaction.atomic():
+        sheet_revision = _access.sheet_revision(sheet_revision_id, lock=True)
+        file_name = sheet_revision.source_file.original_name
+        given = [title, *([storeys_as_stated] if storeys_as_stated is not None else [])]
+        _decoded(file_name, *(field.value for field in given))
+        text = _text.read(title.value)
+        sources = dict(sheet_revision.sources)
+        by_view = sources.get("title") == ValueSource.VIEW_TITLE
+        as_it_is = _sheet_view(_all().get(id=sheet_revision.id))
+        if not text.strip() or (sheet_revision.title and not by_view):
+            return as_it_is
+        if not sheet_revision.title and sheet_revision.decision:
+            return as_it_is
+        old = {"title": sheet_revision.title, "storeys_as_stated": ""}
+        new = {"title": text, "storeys_as_stated": sheet_revision.storeys_as_stated}
+        sources["title"] = str(title.source)
+        stated_by_view = sources.get("storeys_as_stated") == ValueSource.VIEW_TITLE
+        if stated_by_view or not sheet_revision.storeys_as_stated:
+            if stated_by_view:
+                old["storeys_as_stated"] = sheet_revision.storeys_as_stated
+            if storeys_as_stated is not None:
+                new["storeys_as_stated"] = _text.read(storeys_as_stated.value)
+                sources["storeys_as_stated"] = str(storeys_as_stated.source)
+            else:
+                new["storeys_as_stated"] = ""
+                sources.pop("storeys_as_stated", None)
+        sources = _text.read_json(sources)
+        if new == {k: getattr(sheet_revision, k) for k in new} and sources == sheet_revision.sources:
+            return as_it_is
+        if sheet_revision.decision:
+            raise auth.Refused(refusal.DECIDED(file=file_name), status=409)
+        for name, value in new.items():
+            setattr(sheet_revision, name, value)
+        sheet_revision.sources = sources
+        sheet_revision.save(update_fields=["title", "storeys_as_stated", "sources"])
+        sheet = Sheet.objects.get(id=sheet_revision.sheet_id)
+        mirrored = {
+            name: value
+            for name, value in new.items()
+            if getattr(sheet, name) in {"", old[name]} and getattr(sheet, name) != value
+        }
+        if sheet.number and mirrored:
+            Sheet.objects.filter(id=sheet.id).update(**mirrored)
     return _sheet_view(_all().get(id=sheet_revision.id))
 
 

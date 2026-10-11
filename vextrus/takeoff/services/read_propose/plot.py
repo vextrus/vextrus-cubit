@@ -7,7 +7,10 @@ the Drawing Set's read PDFs' pages matched to its listed sheets and placed on th
 It runs in the transaction that marks the file read (a PDF's `matching` step, a DWG's `finishing`),
 so no read PDF and read sheet are ever seen together unmatched: a sheet list asked in between sees
 neither the file read nor its matches. The set's matching is held one at a time
-(`drawings.services.hold_plots`), so a DWG and a PDF read at once each see the other's.
+(`drawings.services.hold_plots`), so a DWG and a PDF read at once each see the other's. In a DWG's
+`finishing` it is found before Step 1's proposals (`find`: minutes on a large set, writing nothing)
+and kept after them (short, locking the sheets it changes, which a QS's act on Step 1 locks too), so
+an act waits on it only for the moment before the step commits (#227).
 
 **A PDF** (`matching`): its pages against every listed sheet of the set, each placed where matched.
 **A DWG** (`finishing`): the set's read PDFs' pages against every listed sheet, its own now among
@@ -52,6 +55,7 @@ from engine.render.buffers import SheetBuffers
 from vextrus.drawings import services as drawings
 from vextrus.drawings.messages import reports
 from vextrus.platform.services import auth, jobs, storage
+from vextrus.takeoff.services import step1
 
 KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
@@ -64,13 +68,22 @@ _MAY_BE_ANY = frozenset({"names_several_sheets", "no_text"})
 def match(file_id: uuid.UUID) -> jobs.StepResult:
     """Match the set's Plot pages for the file just marked read (see the module); how many pages
     were tried and matched, for the step's result."""
+    return find(file_id)()
+
+
+def find(file_id: uuid.UUID) -> Callable[[], jobs.StepResult]:
+    """`match` in two parts, in one transaction: the pages read and matched now (the long part,
+    which writes nothing), and what is kept, by the call it gives back (short: it locks the sheets it
+    changes, a sheet let go among them, which a QS's act on Step 1 locks too). A DWG's `finishing`
+    keeps them after its proposals, so those rows are held only for the moment before it commits
+    (#227's review)."""
     view = drawings.file(file_id)
     drawings.hold_plots(view.set_id)
     listed = drawings.sheets(view.set_id)
     pdfs = sorted((f for f in drawings.files(view.set_id) if _is_read_pdf(f)), key=_added)
     tried = [f for f in pdfs if f.id == file_id] if view.format == "pdf" else pdfs
     if not listed or not tried:
-        return {"pages": 0, "matched": 0}
+        return lambda: {"pages": 0, "matched": 0}
     candidates = [candidate(s) for s in listed]
     disciplines = {pdf.sha256: pdf.discipline for pdf in pdfs}
     with ExitStack() as stack:
@@ -91,15 +104,17 @@ def match(file_id: uuid.UUID) -> jobs.StepResult:
             full = set(range(len(found)))
         else:
             found, full = _for_dwg(file_id, listed, pages, candidates, geometry, paths, disciplines)
-    matched = _keep(
-        listed, candidates, found, full, pdfs, set(paths), file_id if view.format == "dwg" else None
-    )
-    _keep_names(
-        found,
-        [pdf for pdf in tried if pdf.sha256 in paths],
-        {id(c): sh for c, sh in zip(candidates, listed, strict=True)},
-    )
-    return {"pages": len(found), "matched": matched}
+    read_again = set(paths)
+    dwg_id = file_id if view.format == "dwg" else None
+    names = {id(c): sh for c, sh in zip(candidates, listed, strict=True)}
+
+    def keep() -> jobs.StepResult:
+        step1.lock_writes(view.project_id)  # before the sheets it locks, as every act (#227)
+        matched = _keep(listed, candidates, found, full, pdfs, read_again, dwg_id)
+        _keep_names(found, [pdf for pdf in tried if pdf.sha256 in read_again], names)
+        return {"pages": len(found), "matched": matched}
+
+    return keep
 
 
 def _added(f: drawings.FileView) -> tuple[object, str]:

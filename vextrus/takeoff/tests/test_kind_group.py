@@ -479,7 +479,7 @@ def test_a_cards_words_count_the_sheets_its_answer_confirms_when_one_was_left_ou
 
 
 MEMBERSHIP_READERS = {
-    "_held": "the one reading",
+    "_held_read": "the one reading (`_held`, read once between an act's writes)",
     "_let_go": "the links a kind Question let go, which `_held` drops",
     "_asked": "whether a Question has any link at all (one that let every link go is not asked)",
     "ask_kind_again": "the links let go, to ask a sheet that came back",

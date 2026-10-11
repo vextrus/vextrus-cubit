@@ -14,6 +14,8 @@ import registerCodesPy from '../../../../engine/messages/register_check.py?raw'
 import { DISCIPLINES, QUESTION_SHAPES, SHEET_KINDS } from './options.fixture'
 
 const KEEP_OPEN = 'keep_open'
+/** The one `check` Question that is not the drawing-list Check's: the storey-titles Check's (T-W318, #318). */
+const STOREY_TITLES = 'engine.storey_titles.differs'
 
 /** A Python tuple of string literals and `KEEP_OPEN`, as its keys. */
 function tuple(body: string): string[] {
@@ -48,7 +50,7 @@ describe('the table of Question codes and option keys is the backend’s (#156)'
 
   it('uses every *_OPTIONS constant the read job raises Questions with, each with its keys', () => {
     const constants = optionConstants()
-    expect(Object.keys(constants).sort()).toEqual(['BOUNDARY_OPTIONS', 'CHECK_OPTIONS', 'CONFLICT_OPTIONS', 'HELD_OPTIONS', 'LISTS_OPTIONS', 'MISSING_OPTIONS', 'SAME_NUMBER_OPTIONS'])
+    expect(Object.keys(constants).sort()).toEqual(['BOUNDARY_OPTIONS', 'CHECK_OPTIONS', 'CONFLICT_OPTIONS', 'HELD_OPTIONS', 'LISTS_OPTIONS', 'MISSING_OPTIONS', 'SAME_NUMBER_OPTIONS', 'STOREY_TITLE_OPTIONS'])
     expect(shape('engine.decoders_agree.disagree')?.options).toEqual(constants.HELD_OPTIONS)
     expect(shape('engine.conflicts.same_number')?.options).toEqual(constants.SAME_NUMBER_OPTIONS)
     expect(shape('engine.conflicts.same_title')?.options).toEqual(constants.CONFLICT_OPTIONS)
@@ -56,6 +58,7 @@ describe('the table of Question codes and option keys is the backend’s (#156)'
     expect(shape('takeoff.step1.no_number')?.options).toEqual(constants.MISSING_OPTIONS)
     expect(shape('takeoff.proposals.boundary_storey')?.options).toEqual(constants.BOUNDARY_OPTIONS)
     expect(shape('engine.register_check.not_found')?.options).toEqual(constants.CHECK_OPTIONS)
+    expect(shape(STOREY_TITLES)?.options).toEqual(constants.STOREY_TITLE_OPTIONS)
   })
 
   it('gives the drawing-list Question Step 1 raises the keys step1.py offers', () => {
@@ -70,7 +73,7 @@ describe('the table of Question codes and option keys is the backend’s (#156)'
     expect(names.length).toBeGreaterThan(0)
     const codes = names.map((name) => new RegExp(`^${name}\\s*=\\s*MessageCode\\(\\s*"([a-z_.]+)"`, 'm').exec(registerCodesPy)?.[1])
     const checks = QUESTION_SHAPES.filter((s) => s.kind === 'check').map((s) => s.code)
-    expect(new Set(checks)).toEqual(new Set(codes))
+    expect(new Set(checks)).toEqual(new Set([...codes, STOREY_TITLES]))
   })
 
   it('names the Discipline and sheet-kind Questions by 21c’s codes, ending in "keep open"', () => {

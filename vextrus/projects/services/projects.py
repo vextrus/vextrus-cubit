@@ -55,6 +55,9 @@ class ProjectView:
     unit_system: str
     """Its Display Units: one of the unit systems its Market offers."""
     created_at: datetime
+    updated_at: datetime | None = None
+    """When the Project's newest DomainEvent happened (its creation's, at least), for every role. Set
+    by `list`, `detail` and `create`, which send it; `get`, the scope check, leaves it None."""
 
 
 @dataclass(frozen=True)
@@ -96,7 +99,9 @@ class Refused(auth.Refused):
 
 def list() -> builtins.list[ProjectView]:
     """The Projects the current Membership may open, by code."""
-    return [_view(project) for project in _open().order_by("code_key", "id")]
+    projects = builtins.list(_open().order_by("code_key", "id"))
+    newest = events.newest_for_projects([project.id for project in projects])
+    return [_view(project, newest) for project in projects]
 
 
 def get(project_id: uuid.UUID) -> ProjectView:
@@ -104,6 +109,14 @@ def get(project_id: uuid.UUID) -> ProjectView:
     if found is None:
         raise ProjectNotFound(project_id)
     return _view(found)
+
+
+def detail(project_id: uuid.UUID) -> ProjectView:
+    """`get` with its `updated_at`, for the answer that sends it (`get` stays a bare scope check)."""
+    found = _open().filter(id=project_id).first()
+    if found is None:
+        raise ProjectNotFound(project_id)
+    return _view(found, events.newest_for_projects([found.id]))
 
 
 def buildings(project_id: uuid.UUID) -> builtins.list[BuildingView]:
@@ -127,7 +140,11 @@ def _open() -> QuerySet[Project]:
     return found
 
 
-def _view(project: Project) -> ProjectView:
+def _view(project: Project, newest: dict[uuid.UUID, datetime] | None = None) -> ProjectView:
+    """The Project's view; with `newest` (its newest event times, by Project) it carries `updated_at`."""
+    updated_at = None
+    if newest is not None:
+        updated_at = max(newest.get(project.id, project.created_at), project.created_at)
     return ProjectView(
         id=project.id,
         code=project.code,
@@ -137,6 +154,7 @@ def _view(project: Project) -> ProjectView:
         currency=project.currency_code,
         unit_system=project.unit_system,
         created_at=project.created_at,
+        updated_at=updated_at,
     )
 
 
@@ -210,7 +228,7 @@ def create(*, code: str, name: str, address: str = "", unit_system: str | None =
             project_id=project.id,
             actor_user_id=tenancy.current().user_id,
         )
-    return _view(project)
+    return _view(project, events.newest_for_projects([project.id]))
 
 
 def _max_length(field: str) -> int:

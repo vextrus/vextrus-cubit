@@ -7,6 +7,16 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
+#. placeholder {0}: words.files
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Reading # file} other {Reading # files}}"
+msgstr "{0, plural, one {Reading # file} other {Reading # files}}"
+
+#. placeholder {0}: words.files
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Reading # file, sheet {position} of {total}} other {Reading # files, sheet {position} of {total}}}"
+msgstr "{0, plural, one {Reading # file, sheet {position} of {total}} other {Reading # files, sheet {position} of {total}}}"
+
 #: src/projects/ProjectsPage.tsx
 msgid "Projects"
 msgstr "Projects"
@@ -33,6 +43,10 @@ msgid "Name"
 msgstr "Name"
 
 #: src/projects/ProjectsPage.tsx
+msgid "{trouble} could not be read"
+msgstr "{trouble} could not be read"
+
+#: src/projects/ProjectsPage.tsx
 msgid "No projects yet. You will see them here once {developer} creates them."
 msgstr "No projects yet. You will see them here once {developer} creates them."
 
@@ -40,9 +54,22 @@ msgstr "No projects yet. You will see them here once {developer} creates them."
 msgid "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
 msgstr "You have no access to any Developer at the moment. Ask your MD, or Vextrus, for an invitation."
 
+#. placeholder {0}: words.sheets
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Step 1: # sheet to confirm} other {Step 1: # sheets to confirm}}"
+msgstr "{0, plural, one {Step 1: # sheet to confirm} other {Step 1: # sheets to confirm}}"
+
 #: src/projects/discard.tsx
 msgid "Discard"
 msgstr "Discard"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{held} held"
+msgstr "{held} held"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{stopped} stopped"
+msgstr "{stopped} stopped"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Cancel"
@@ -53,19 +80,40 @@ msgstr "Cancel"
 msgid "Address"
 msgstr "Address"
 
+#. Joins the counts of the Drawing Set column: "6 files read, 1 held".
+#: src/projects/ProjectsPage.tsx
+msgid ", "
+msgstr ", "
+
 #: src/projects/discard.tsx
 msgid "Close without saving what you entered?"
 msgstr "Close without saving what you entered?"
+
+#: src/projects/ProjectsPage.tsx
+msgid "No files read"
+msgstr "No files read"
 
 #: src/projects/NewProjectDialog.tsx
 #: src/projects/ProjectsPage.tsx
 msgid "Code"
 msgstr "Code"
 
+#: src/projects/ProjectsPage.tsx
+msgid "{name}: {openText} Questions open"
+msgstr "{name}: {openText} Questions open"
+
+#: src/projects/ProjectsPage.tsx
+msgid "No drawings yet"
+msgstr "No drawings yet"
+
 #: src/projects/NewProjectDialog.tsx
 #: src/projects/ProjectsPage.tsx
 msgid "New project"
 msgstr "New project"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{refused} refused"
+msgstr "{refused} refused"
 
 #: src/projects/ProjectsPage.tsx
 msgid "Opening the projects…"
@@ -74,6 +122,14 @@ msgstr "Opening the projects…"
 #: src/projects/ProjectsPage.tsx
 msgid "No projects yet. Create one for each development whose drawings you will take off."
 msgstr "No projects yet. Create one for each development whose drawings you will take off."
+
+#: src/projects/ProjectsPage.tsx
+msgid "{name}: a view unaccounted"
+msgstr "{name}: a view unaccounted"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{name} {leftText} to confirm"
+msgstr "{name} {leftText} to confirm"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Display Units"
@@ -86,6 +142,27 @@ msgstr "Open the project"
 #: src/projects/ProjectsPage.tsx
 msgid "None of the projects you were given is open now. Ask whoever invited you to give you another."
 msgstr "None of the projects you were given is open now. Ask whoever invited you to give you another."
+
+#. placeholder {0}: words.read
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {# file read} other {# files read}}"
+msgstr "{0, plural, one {# file read} other {# files read}}"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Step 1: {parts}"
+msgstr "Step 1: {parts}"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Not started"
+msgstr "Not started"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Step 1: not yet confirmed"
+msgstr "Step 1: not yet confirmed"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{name} confirmed"
+msgstr "{name} confirmed"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Create project"
@@ -102,6 +179,24 @@ msgstr "{n, plural, one {# project at {developer}} other {# projects at {develop
 #: src/projects/ProjectsPage.tsx
 msgid "Members and access"
 msgstr "Members and access"
+
+#: src/projects/ProjectsPage.tsx
+msgid "Step 1 confirmed"
+msgstr "Step 1 confirmed"
+
+#. placeholder {0}: words.files
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Reading # file, page {position} of {total}} other {Reading # files, page {position} of {total}}}"
+msgstr "{0, plural, one {Reading # file, page {position} of {total}} other {Reading # files, page {position} of {total}}}"
+
+#: src/projects/ProjectsPage.tsx
+msgid "{name}: 1 Question open"
+msgstr "{name}: 1 Question open"
+
+#. placeholder {0}: words.open
+#: src/projects/ProjectsPage.tsx
+msgid "{0, plural, one {Step 1: # Question open} other {Step 1: # Questions open}}"
+msgstr "{0, plural, one {Step 1: # Question open} other {Step 1: # Questions open}}"
 
 #: src/projects/NewProjectDialog.tsx
 msgid "Short, like KR-01"

@@ -566,6 +566,10 @@ msgid "Question {tag}"
 msgstr "Question {tag}"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "the title of its view"
+msgstr "the title of its view"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "No open Questions."
 msgstr "No open Questions."
 

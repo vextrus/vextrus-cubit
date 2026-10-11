@@ -97,6 +97,9 @@ msgstr "{actor} cancelled reading a file"
 msgid "drawings.files.read_restarted"
 msgstr "{actor} started reading a file again"
 
+msgid "drawings.files.reading"
+msgstr "This file is still being read, so its Discipline was not changed. Try again once its row says it is read."
+
 msgid "drawings.files.reading_drawing"
 msgstr "Reading the drawing"
 

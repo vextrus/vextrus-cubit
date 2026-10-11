@@ -58,6 +58,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from django.db import OperationalError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from ninja import NinjaAPI, Schema
 from ninja.errors import AuthenticationError
@@ -66,8 +67,9 @@ from ninja.security import SessionAuth
 from ninja.utils import check_csrf, contribute_operation_callback
 
 from engine.messages import Message
+from vextrus.platform.messages import acts as said
 from vextrus.platform.messages import auth as codes
-from vextrus.platform.services import auth
+from vextrus.platform.services import auth, deadlocks
 from vextrus.platform.services.auth import Act, Grant
 
 __all__ = [
@@ -223,5 +225,16 @@ def install(api: NinjaAPI) -> None:
         assert isinstance(exc, auth.Refused)
         return refusal(exc.status, exc.message)
 
+    def aborted(request: HttpRequest, exc: object) -> HttpResponse:
+        # An act PostgreSQL aborted, which the tenant middleware runs again (#227), so it is no
+        # uncaught error; any other database error is. Every try answers the busy refusal: the
+        # last try's answer is sent once the retries are spent, and a body-less 503 would read as
+        # "cannot reach Vextrus" in the web (review 1 of #641).
+        assert isinstance(exc, OperationalError)
+        if not deadlocks.will_retry(exc):
+            raise exc
+        return refusal(503, said.BUSY())
+
     api.add_exception_handler(AuthenticationError, signed_out)
     api.add_exception_handler(auth.Refused, refused)
+    api.add_exception_handler(OperationalError, aborted)

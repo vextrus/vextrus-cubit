@@ -8,6 +8,8 @@ import numpy as np
 import pytest
 
 from engine.geometry.placement import chain, chain_transform
+from engine.read.anchor import DwgAnchor
+from engine.read.artefact import ReadArtefact
 from engine.recognise import sheets, views
 from engine.recognise.tests.drawing import DEFAULT, H, Sheets, W, frame_block, rectangle, value_at
 from engine.recognise.types import (
@@ -16,6 +18,7 @@ from engine.recognise.types import (
     ExclusionReason,
     Layer,
     SheetCandidate,
+    SheetLocation,
     StoreysMeaning,
     ViewCandidate,
     ViewKind,
@@ -98,14 +101,240 @@ def test_a_model_space_views_box_is_on_paper_in_mm_from_the_frames_corner() -> N
     assert near(view.box, (40, 288, 340, 560))
 
 
-def test_a_frame_drawn_as_a_rectangle_takes_the_paper_that_makes_its_scale_round() -> None:
-    """No insert to read the scale from: an A1 rectangle 100 times its size is at 1:100."""
-    assert on_paper._paper_scale(Sheets().artefact(), None, Box(0, 0, 84_100, 59_400)) == pytest.approx(
-        100
+def test_a_frame_drawn_as_a_rectangle_is_a_standard_sheet_else_on_a1s_long_side() -> None:
+    """No insert to read the scale from: an A1 rectangle 100 times its size is at 1:100, read (a
+    standard sheet at a standard scale); a box that is no standard sheet has its long side taken as
+    A1's, assumed (#160's review: a roundest-scale guess of A3 or A4 laid a sheet plotted on A1 at a
+    quarter of its page)."""
+    artefact = Sheets().artefact()
+    for box in (Box(0, 0, 84_100, 59_400), Box(0, 0, 42_000, 29_700)):
+        scale, read = on_paper._paper_scale(artefact, None, box)
+        assert scale == pytest.approx(100)
+        assert read
+    scale, read = on_paper._paper_scale(artefact, None, Box(0, 0, 1000, 700))
+    assert 1000 / scale == pytest.approx(841)
+    assert not read
+
+
+def test_a_standard_sheet_at_a_standard_scale_no_round_one_holds_is_read_as_that_sheet() -> None:
+    """#160: the roundest scale alone read an A1 at 1:150 as an A0 (1:106) and an A1 at 1:96 in inches
+    as an A3; both sides matching a standard sheet at a standard scale say which it is."""
+    artefact = Sheets().artefact()
+    scale, read = on_paper._paper_scale(artefact, None, Box(0, 0, 841 * 150, 594 * 150))
+    assert scale == pytest.approx(150)
+    assert read
+    inches = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    scale, read = on_paper._paper_scale(inches, None, Box(0, 0, 841 * 96 / 25.4, 594 * 96 / 25.4))
+    assert scale == pytest.approx(96 / 25.4)
+    assert read
+
+
+@pytest.mark.parametrize("share", [0.4, 0.6, 0.97])
+def test_a_frame_whose_insert_gives_no_standard_sheet_takes_the_boxs_paper(share: float) -> None:
+    """#160: a frame block drawn at a fraction of its plotted size is no paper's; its paper is the
+    box's (a standard sheet at a standard scale, else the standard side at the roundest scale), as for
+    a frame drawn as a rectangle. A frame inside
+    a standard sheet by at most `BORDER_MM` a side (a border inside the paper's edge) keeps its
+    insert's scale; 0.4 of an A1 (336 x 238 mm) is inside none."""
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    artefact, frame = d.artefact(), sheet.anchors[0]
+    assert isinstance(frame, DwgAnchor)
+    box = Box(0, 0, W * 50 * share, H * 50 * share)  # the frame as 13 boxed it: `share` of A1 at 1:50
+    scale, read = on_paper._paper_scale(artefact, frame, box)
+    if share == 0.97:
+        assert scale == pytest.approx(50.0)
+        assert read
+    else:
+        assert (scale, read) == on_paper._paper_scale(artefact, None, box)
+        assert scale != pytest.approx(50.0)
+
+
+def test_a_frame_block_drawn_in_inches_at_a3_is_on_a3_in_views_and_buffers() -> None:
+    """#160: a drawing in inches whose A3 frame block is drawn at A3's size in inches, inserted at 60,
+    is not read as a paper of A3's size in mm read as inches (no paper) nor a fallback guess: the block
+    is in the drawing's units, so its paper is A3, in views and in the buffer alike."""
+    from engine.render import buffers
+
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    template = sheet.anchors[0]
+    assert isinstance(template, DwgAnchor)
+    block = d.block("A3-INCHES")
+    d.entity("LWPOLYLINE", rectangle(0, 0, 420 / 25.4, 297 / 25.4), owner=block)
+    at = (500_000.0, 0.0)
+    ins = d.insert(block, (*at, 0.0), scale=(60.0, 60.0, 60.0))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    box = Box(at[0], at[1], at[0] + 420 / 25.4 * 60, at[1] + 297 / 25.4 * 60)
+    anchor = replace(template, handle=ins, inserts=())
+    framed_sheet = SheetCandidate(SheetLocation(box=box), anchors=(anchor,))
+    scale, read = on_paper._paper_scale(artefact, anchor, box)
+    assert (box.x1 - box.x0) / scale == pytest.approx(420)
+    assert read
+    paper = buffers.build(artefact, framed_sheet).paper
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((420, 297))
+    assert paper.source == buffers.PaperSource.STANDARD
+    assert views.find(artefact, framed_sheet, CONVENTIONS).paper == pytest.approx((420, 297))
+
+
+@pytest.mark.parametrize("side", [1e-320, 5e-324])
+def test_a_box_too_small_for_a_power_of_ten_is_laid_alike_by_views_and_buffers(side: float) -> None:
+    """#160's refuter: a box of 1e-320 units took a power of ten of 0.0 and divided by it, in views and
+    then in the buffers that share its rule; now both lay it on one paper, or the buffer refuses it."""
+    from engine.render import buffers
+
+    d = Sheets()
+    sheet = SheetCandidate(SheetLocation(box=Box(0, 0, side, side)))
+    found = views.find(d.artefact(), sheet, CONVENTIONS).paper
+    try:
+        paper = buffers.build(d.artefact(), sheet).paper
+    except ValueError:
+        return  # refused, as every paper that is no sheet's is
+    assert found == pytest.approx((paper.width_mm, paper.height_mm))
+
+
+@pytest.mark.parametrize("scale", [37.0, 45.0, 100.0])
+def test_views_and_buffers_lay_a_framed_sheet_on_the_frames_paper(scale: float) -> None:
+    """#160: an A1 frame inserted at any scale, a round one or not, is on A1 in views and in the buffer
+    alike, and the buffer says its paper was read (never assumed) when the insert gave it."""
+    from engine.render import buffers
+
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=scale)
+    paper = buffers.build(d.artefact(), sheet).paper
+    assert views.find(d.artefact(), sheet, CONVENTIONS).paper == pytest.approx((W, H))
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((W, H))
+    assert paper.source == buffers.PaperSource.STANDARD
+
+
+def _fraction_frame() -> tuple[ReadArtefact, SheetCandidate, Box]:
+    """A drawing in inches whose frame block is drawn 120 x 85 units, inserted at 10 (a block at a
+    fraction of its plotted size, no standard sheet by its insert)."""
+    d = Sheets()
+    block = d.block("FRACTION")
+    d.entity("LWPOLYLINE", rectangle(0, 0, 120, 85), owner=block)
+    ins = d.insert(block, (0.0, 0.0, 0.0), scale=(10.0, 10.0, 10.0))
+    d.line((100, 100), (1200, 820))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    box = Box(0, 0, 1200, 850)
+    template = model_sheet([])[1].anchors[0]
+    assert isinstance(template, DwgAnchor)
+    anchor = replace(template, handle=ins, inserts=())
+    return artefact, SheetCandidate(SheetLocation(box=box), anchors=(anchor,)), box
+
+
+@pytest.mark.parametrize("page", [(420.0, 297.0), (297.0, 420.0)])
+def test_a_sheet_with_a_matched_plot_page_is_on_that_pages_paper_in_views_and_buffers(
+    page: tuple[float, float],
+) -> None:
+    """#160, the ruling of session 09: a model-space sheet whose Plot page was matched is on that
+    page's paper (A3 here, landscape or the page turned) at the scale that fits its frame's box to it,
+    in views and in the buffer alike, read; without the page, the fallback's guess (not A3)."""
+    from engine.render import buffers
+
+    artefact, sheet, box = _fraction_frame()
+    unplotted = buffers.build(artefact, sheet).paper
+    assert (unplotted.width_mm, unplotted.height_mm) != pytest.approx((420, 297), rel=0.05)
+    paper = buffers.build(artefact, sheet, page).paper
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((420, 297))
+    assert paper.source == buffers.PaperSource.STANDARD
+    assert paper.mm_per_unit == pytest.approx(min(420 / 1200, 297 / 850))
+    assert views.find(artefact, sheet, CONVENTIONS, page).paper == pytest.approx((420, 297))
+    # The box centred on the page: the margin the fit leaves is split on both sides.
+    left = (box.x0 - paper.origin[0]) * paper.mm_per_unit
+    right = paper.width_mm - (box.x1 - paper.origin[0]) * paper.mm_per_unit
+    assert left == pytest.approx(right)
+    assert left > 0
+
+
+@pytest.mark.parametrize("page", [(1e9, 1e9), (math.inf, 297.0), (0.0, 297.0), (math.nan, 1.0)])
+def test_a_plot_page_no_sheet_could_be_on_leaves_the_drawings_paper(page: tuple[float, float]) -> None:
+    """#160's trust boundary: a hostile PDF's page, larger than any sheet or with no size, gives no
+    paper; the sheet keeps the one its drawing gives in views and buffers alike (the buffer is built,
+    never refused for the page)."""
+    from engine.render import buffers
+
+    artefact, sheet, _ = _fraction_frame()
+    own = buffers.build(artefact, sheet).paper
+    paper = buffers.build(artefact, sheet, page).paper
+    assert paper == own
+    found = views.find(artefact, sheet, CONVENTIONS, page).paper
+    assert found == pytest.approx((own.width_mm, own.height_mm))
+
+
+def test_a_frame_read_at_its_scale_inside_the_plot_pages_edge_keeps_that_scale() -> None:
+    """#160, round 2: an A3 frame block drawn as a 400 x 277 mm border (inside the sheet's edge) and
+    read at its insert's scale; fitting that border to the 420 x 297 page would enlarge the drawing by
+    its margin and its ink fall off the Plot's. The page gives the paper; the drawing's read
+    scale, which lays the box on it within `FRAME_MATCH`, is kept, in views and buffers alike."""
+    from engine.render import buffers
+
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=50.0)
+    template = sheet.anchors[0]
+    assert isinstance(template, DwgAnchor)
+    block = d.block("A3-BORDER")
+    d.entity("LWPOLYLINE", rectangle(0, 0, 400 / 25.4, 277 / 25.4), owner=block)
+    ins = d.insert(block, (500_000.0, 0.0, 0.0), scale=(60.0, 60.0, 60.0))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=1))
+    box = Box(500_000.0, 0.0, 500_000.0 + 400 / 25.4 * 60, 277 / 25.4 * 60)
+    framed = SheetCandidate(SheetLocation(box=box), anchors=(replace(template, handle=ins, inserts=()),))
+    page = (297.0, 420.0)
+    paper = buffers.build(artefact, framed, page).paper
+    assert (paper.width_mm, paper.height_mm) == pytest.approx((420, 297))
+    assert paper.mm_per_unit == pytest.approx(25.4 / 60)
+    assert views.find(artefact, framed, CONVENTIONS, page).paper == pytest.approx((420, 297))
+    # A drawing whose read scale would not lay it on the page (an A1 frame on an A3 page) is fitted.
+    small = buffers.build(artefact, framed, (210.0, 148.0)).paper
+    assert small.mm_per_unit == pytest.approx(min(210 / (400 / 25.4 * 60), 148 / (277 / 25.4 * 60)))
+
+
+def test_a_views_box_on_a_plot_pages_paper_lies_over_the_buffers_drawing() -> None:
+    """#160: on a matched Plot page's paper, a view's box (paper mm) is where the buffer draws the same
+    model-space lines: one paper, one origin, one scale."""
+    from engine.render import buffers
+
+    scale = 50.0
+    d, sheet = model_sheet([("BEAM LAYOUT PLAN", (40, 300, 340, 560))], scale=scale)
+    page = (420.0, 297.0)
+    paper = buffers.build(d.artefact(), sheet, page).paper
+    found = [v for v in views.find(d.artefact(), sheet, CONVENTIONS, page)
+             if v.kind is not ViewKind.TITLE_BLOCK]  # fmt: skip
+    plain = drawn(d, sheet)
+    assert len(found) == len(plain) == 1
+    a = plain[0].box  # on the frame's own A1 at 1:50, from the frame's corner at (10,000, 0)
+    model = (10_000 + a.x0 * scale, a.y0 * scale, 10_000 + a.x1 * scale, a.y1 * scale)
+    expected = (
+        (model[0] - paper.origin[0]) * paper.mm_per_unit,
+        (model[1] - paper.origin[1]) * paper.mm_per_unit,
+        (model[2] - paper.origin[0]) * paper.mm_per_unit,
+        (model[3] - paper.origin[1]) * paper.mm_per_unit,
     )
-    assert on_paper._paper_scale(Sheets().artefact(), None, Box(0, 0, 42_000, 29_700)) == pytest.approx(
-        100
-    )
+    b = found[0].box
+    assert (b.x0, b.y0, b.x1, b.y1) == pytest.approx(expected, abs=0.5)
+
+
+@pytest.mark.parametrize(
+    ("box", "insunits"),
+    [((0, 0, 84_100, 59_400), 4), ((0, 0, 1000, 700), 4), ((0, 0, 841 * 150, 594 * 150), 4),
+     ((5, 5, 3178.6, 2245.0), 1), ((0, 0, 15_540, 10_989), 4), ((0, 0, 7, 3), 6)],
+)  # fmt: skip
+def test_views_and_buffers_agree_on_a_frameless_sheets_paper(
+    box: tuple[float, float, float, float], insunits: int
+) -> None:
+    """#160: with no frame insert, views and buffers take one paper by one rule, and the buffer's
+    source says whether the drawing gave it."""
+    from engine.render import buffers
+
+    d = Sheets()
+    d.line((box[0], box[1]), (box[2], box[3]))
+    artefact = d.artefact()
+    artefact = replace(artefact, summary=replace(artefact.summary, insunits=insunits))
+    sheet = SheetCandidate(SheetLocation(box=Box(*box)))
+    found = views.find(artefact, sheet, CONVENTIONS).paper
+    paper = buffers.build(artefact, sheet).paper
+    _, read = on_paper._paper_scale(artefact, None, Box(*box))
+    assert found == pytest.approx((paper.width_mm, paper.height_mm))
+    assert paper.source == (buffers.PaperSource.STANDARD if read else buffers.PaperSource.ASSUMED)
 
 
 def test_a_layout_sheets_views_seen_through_a_viewport_are_placed_on_its_paper() -> None:

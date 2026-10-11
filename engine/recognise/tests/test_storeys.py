@@ -337,3 +337,40 @@ def test_a_floor_word_after_the_phrase_s_own_names_the_subject_not_the_storey(
 
     assert found.keys == keys
     assert found.as_stated == as_stated
+
+
+# T-W318's words (D9, #233): data in sheet-default.json, each in a title of its shape -------------------
+
+
+@pytest.mark.parametrize(
+    ("title", "keys"),
+    [
+        ("LIFT MACHINE RM SLAB DETAIL", ("lift_machine_room",)),
+        ("LIFT MOTOR ROOM FLOOR BEAM LAYOUT", ("lift_machine_room",)),
+        ("LIFT MOTOR RM BEAM LAYOUT", ("lift_machine_room",)),
+        ("LIFT MOTOR ROOM ROOF SLAB", ("lift_machine_room_roof",)),
+        ("LIFT MACHINE RM ROOF BEAM LAYOUT", ("lift_machine_room_roof",)),
+        ("LIFT MOTOR RM ROOF LAYOUT", ("lift_machine_room_roof",)),
+    ],
+)
+def test_the_lift_machine_rooms_other_names_are_read(title: str, keys: tuple[str, ...]) -> None:
+    assert read(title).keys == keys
+
+
+@pytest.mark.parametrize("title", ["UNDER GROUND FLOOR SLAB LAYOUT", "Underground Floor Column Plan"])
+def test_an_underground_floor_in_either_spelling_is_below_ground(title: str) -> None:
+    found = read(title)
+
+    assert found.keys == ("foundation", "ground")
+    assert found.below_ground
+
+
+@pytest.mark.parametrize(
+    "title", ["UNDERGROUND TANK LAYOUT", "UNDER GROUND WATER RESERVOIR DETAIL", "LIFT MOTOR DETAIL"]
+)
+def test_underground_and_lift_motor_alone_name_no_storey(title: str) -> None:
+    """Only "underground floor" is a storey; a lift motor with no room is a part, not a level."""
+    found = read(title)
+
+    assert set(found.keys) <= {"not_stated"}
+    assert not found.below_ground

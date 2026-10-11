@@ -30,6 +30,10 @@ class Step1ViewOut(Schema):
     storeys: list[str]
     storeys_as_stated: str
     storeys_meaning: str | None
+    storeys_source: str | None = None
+    """Where its storeys were read: null for its own title, "sheet_title" for its sheet's title (the
+    sheet's only plan, whose own title states none), "title_line" for a bracketed line under its title
+    (a part plan's floors)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -80,16 +84,37 @@ class Step1ProposalOut(_FromView):
     title_source: str | None
     storeys_as_stated: str
     """The storeys its title states, as drawn ("3RD, 5TH & 7TH FLOOR"); "" for none."""
+    storeys_titled: list[str] | None = None
+    """The storey keys those words read to (["floor_3", "floor_5"]; a range's symbolic end last:
+    ["floor_1", "top"]); null when it states none or they read to no storey."""
     layout: str | None
     """The layout it is laid out on, by name; null when laid out in the drawing."""
     plot_file: str | None
     plot_page: int | None
     plot_residual: str | None
     """How closely its Plot page registered, in mm, as a decimal string."""
+    plot_title_alike: bool = False
+    """Its Plot page reads its title as well as its number (#229): only then is the page its second
+    source; false with no Plot page."""
     plot_none: dict[str, Any] | None
     """Why it has no Plot, as a message `{code, params}`; null when a page matched or none was added."""
     views: list[Step1ViewOut]
     """Its views in reading order, title block included (the Views column counts them)."""
+    continuation: str | None = Field(
+        None,
+        description="The continuation run it is in (one title on consecutive numbers, or titles equal "
+        "but for a member-mark range): one value on every sheet of the run. Null for a sheet alone.",
+    )
+    continuation_title: str | None = Field(
+        None,
+        description="The run's title as its row shows it, its member-mark ranges joined "
+        '("GRADE BEAM GB2-GB14 DETAILS"). Null when `continuation` is.',
+    )
+    series: str | None = Field(
+        None,
+        description="The series it is in (one title on several runs that draw different storeys, "
+        "marks or members: no Question): one value on every sheet of the series. Null otherwise.",
+    )
 
 
 class Step1ProposalsOut(Schema):

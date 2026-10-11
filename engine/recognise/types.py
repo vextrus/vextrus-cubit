@@ -137,6 +137,8 @@ class ValueSource(StrEnum):
     FILE_NAME = "file_name"
     FILE = "file"
     """The file itself: its Discipline default, for example."""
+    VIEW_TITLE = "view_title"
+    """The title of the sheet's one drawing view, where its title block gives none (#332)."""
 
 
 class StoreysMeaning(StrEnum):
@@ -146,6 +148,16 @@ class StoreysMeaning(StrEnum):
     """The members at those floor levels (a beam layout of the 1st floor slab)."""
     FLOOR_TO_FLOOR = "floor_to_floor"
     """The storeys, floor to floor (a column layout from the 1st to the 10th floor)."""
+
+
+class StoreysSource(StrEnum):
+    """Where a plan view's storeys were read when not from its own title (none: its own title)."""
+
+    SHEET_TITLE = "sheet_title"
+    """Its sheet's title: the sheet's only plan, whose own title states no storey (T-W318)."""
+    TITLE_LINE = "title_line"
+    """A bracketed line under its title ("(2ND TO 6TH FLOOR)"), its own title stating no storey: a
+    part plan's floors (a bath's, a kitchen's; #413, S15-E3)."""
 
 
 class Layer(StrEnum):
@@ -294,6 +306,8 @@ class ViewCandidate:
     storeys: tuple[str, ...] = ()
     """An explicit list of canonical storeys (13's `storeys.py`), never a first-to-last range."""
     storeys_meaning: StoreysMeaning | None = None
+    storeys_source: StoreysSource | None = None
+    """Where its storeys were read: none for its own title, else `StoreysSource` (only with storeys)."""
     subject: str | None = None
     """What a plan draws (a key of the conventions' subject words)."""
     layer: Layer | None = None
@@ -323,6 +337,10 @@ class ViewCandidate:
         _unique(self.steps, "the Takeoff Step")
         if self.storeys_meaning is not None:
             StoreysMeaning(self.storeys_meaning)
+        if self.storeys_source is not None:
+            StoreysSource(self.storeys_source)
+            if not self.storeys:
+                raise ValueError("a view's storeys source comes only with its storeys")
         if self.subject is not None:
             _key(self.subject, "a view's subject")
         if self.layer is not None:
@@ -364,6 +382,10 @@ class Conflict:
     """What conflicts, as a key (two sheets with one number, one storey drawn twice)."""
     candidates: tuple[SheetCandidate | ViewCandidate, ...]
     evidence: Mapping[str, Param] = field(default_factory=dict)
+    places: tuple[int, ...] = ()
+    """`same_storey`'s: where each candidate's sheet lies, one per candidate (copies of one number
+    and the sheets of one run are one place); empty for the other kinds. A Question that holds only
+    some of the sheets reads it to name two that lie apart (review 3 of #638)."""
 
     def __post_init__(self) -> None:
         _key(self.kind, "a conflict's kind")
@@ -371,6 +393,8 @@ class Conflict:
         _params(self.evidence, "a conflict's evidence")
         if len(self.candidates) < 2:
             raise ValueError("a conflict names two candidates or more")
+        if self.places and len(self.places) != len(self.candidates):
+            raise ValueError("a conflict's places are one per candidate")
 
 
 @dataclass(frozen=True)
@@ -387,6 +411,24 @@ class Continuation:
         _tuple_of(self.sheets, SheetCandidate, "a continuation's sheets")
         if len(self.sheets) < 2:
             raise ValueError("a continuation runs over two sheets or more")
+
+
+@dataclass(frozen=True)
+class Series:
+    """One title over two runs of numbers or more that draw different storeys, marks or members ("N
+    sheets share this title"; T-W334, the owner's ruling of 5 Oct 2026): no Question. Never exported:
+    its runs of two sheets or more are each a `Continuation`."""
+
+    title: str
+    sheets: tuple[SheetCandidate, ...]
+    """Every sheet of the title, in number order."""
+
+    def __post_init__(self) -> None:
+        _is(self.title, str, "a series' title")
+        _text(self.title, "a series' title")
+        _tuple_of(self.sheets, SheetCandidate, "a series' sheets")
+        if len(self.sheets) < 2:
+            raise ValueError("a series holds two sheets or more")
 
 
 @dataclass(frozen=True)
@@ -610,6 +652,10 @@ class StoreyWords:
         _key(self.storey, "a storey")
 
 
+MEMBER_RANGE_GROUPS = frozenset({"a", "low", "b", "high"})
+"""The named groups a member range pattern holds: each mark's letters and digits."""
+
+
 @dataclass(frozen=True)
 class SheetConventions:
     """The sheet part of a Drafting Profile's conventions (ADR 0039; docs/data-model.md §3.2).
@@ -663,6 +709,10 @@ class SheetConventions:
     of 29 Sep 2026, "Per-Discipline kinds")."""
     common_sheet_kinds: tuple[str, ...] = ()
     """The kinds every Discipline has (a cover or index, general notes, other)."""
+    member_range_pattern: str | None = None
+    """A range of member marks in a title ("GB2-GB5", "W3 TO W6"; T-W334): its named groups `a` and
+    `low` are the first mark's letters and digits, `b` and `high` the second's. Titles equal but for
+    such ranges are one title to 19b's conflicts (`conflicts.range_key`); none: no range is read."""
     sheet_kind_words: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """The words that name each kind's subject, by the kind's key ("beam" for `beam_layout` and
     `beam_details`; "foundation" for the pile kinds too, as a pile layout is often titled so): a title
@@ -674,8 +724,15 @@ class SheetConventions:
         _unique([d.key for d in self.disciplines], "the Discipline")
         _unique([f.field for f in self.title_block_fields], "the title-block field")
         _unique([s.storey for s in self.storey_words], "the storey")
-        for pattern in (*self.number_patterns, *filter(None, [self.revision_mark_pattern])):
+        optional = (self.revision_mark_pattern, self.member_range_pattern)
+        for pattern in (*self.number_patterns, *filter(None, optional)):
             _pattern(pattern)
+        if self.member_range_pattern is not None:
+            named = set(re.compile(self.member_range_pattern).groupindex)
+            if not named >= MEMBER_RANGE_GROUPS:
+                raise ValueError(
+                    f"the member range pattern names the groups {sorted(MEMBER_RANGE_GROUPS)}"
+                )
         for name in _WORD_FIELDS:
             for word in getattr(self, name):
                 _text(word, f"a word of {name}")
@@ -709,6 +766,7 @@ class SheetConventions:
             **{name: list(getattr(self, name)) for name in _WORD_FIELDS if name != "frame_hints"},
             "sheet_kinds": {k: list(v) for k, v in self.sheet_kinds.items()},
             "common_sheet_kinds": list(self.common_sheet_kinds),
+            "member_range_pattern": self.member_range_pattern,
             "sheet_kind_words": {k: list(v) for k, v in self.sheet_kind_words.items()},
         }
         return self._to_json() | {name: value for name, value in added.items() if value}
@@ -774,6 +832,7 @@ class SheetConventions:
                 for k, v in _mapping(data, "sheet_kinds").items()
             },
             common_sheet_kinds=_words(data, "common_sheet_kinds", "the common sheet kinds"),
+            member_range_pattern=_optional_str(data, "member_range_pattern"),
             sheet_kind_words={
                 k: _word_list(v, f"the words of the {k} sheet kind")
                 for k, v in _mapping(data, "sheet_kind_words").items()
@@ -878,6 +937,7 @@ _SHEET_KEYS = {
     *_WORD_FIELDS,
     "sheet_kinds",
     "common_sheet_kinds",
+    "member_range_pattern",
     "sheet_kind_words",
 }
 _VIEW_KEYS = {
@@ -1108,6 +1168,13 @@ def pattern_search(pattern: str, text: str) -> re.Match[str] | None:
     if len(text) > MAX_PATTERN_TEXT:
         return None
     return _compiled(pattern).search(text)
+
+
+def pattern_finditer(pattern: str, text: str) -> list[re.Match[str]]:
+    """Every match of a conventions pattern, as `pattern_search` bounds it: none on longer text."""
+    if len(text) > MAX_PATTERN_TEXT:
+        return []
+    return list(_compiled(pattern).finditer(text))
 
 
 def _object(value: Any, what: str, keys: set[str]) -> dict[str, Any]:

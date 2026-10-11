@@ -49,7 +49,7 @@ from typing import Any, BinaryIO, cast
 
 from django.conf import settings
 from django.core.files import File as DjangoFile
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.db.models import Exists, F, Max, OuterRef, Q
 from django.utils import timezone
 
@@ -759,10 +759,28 @@ def on_discipline_changed(follow: Callable[[uuid.UUID, str], None]) -> None:
         DISCIPLINE_CHANGED.append(follow)
 
 
+DISCIPLINE_CHANGING: list[Callable[[uuid.UUID], None]] = []
+"""What a file's Discipline change takes first, each called with the file's Project in the change's
+transaction before any row is locked: takeoff's Step 1 takes its write lock here (#227), as every
+act on Step 1 does, so the change and a read job never wait on each other in a cycle. Holding it,
+the change never waits on its file's row: a read job holds that row through a step's whole reading
+(its last step from `mark_read`), so the change is refused at once instead
+(`DISCIPLINE_FILE_READING`, 409), and Step 1's acts are never held up behind it."""
+
+
+def before_discipline_change(lock: Callable[[uuid.UUID], None]) -> None:
+    """Register `lock` once (see `DISCIPLINE_CHANGING`)."""
+    if lock not in DISCIPLINE_CHANGING:
+        DISCIPLINE_CHANGING.append(lock)
+
+
 def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> FileView:
     """The QS's choice of the file's Discipline: its sheets move with it (see the module)."""
     with transaction.atomic():
-        row = _access.drawing_file(file_id, lock=True)
+        project_id = _access.drawing_file(file_id).drawing_set.project_id
+        for lock in DISCIPLINE_CHANGING:
+            lock(project_id)
+        row = _unless_reading(file_id)
         discipline = library_disciplines.by_key(key)
         if discipline is None:
             raise auth.Refused(said.DISCIPLINE_UNKNOWN(), status=400)
@@ -791,6 +809,22 @@ def set_discipline(file_id: uuid.UUID, key: str, *, actor_name: str = "") -> Fil
         for follow in DISCIPLINE_CHANGED:
             follow(row.id, actor_name)
     return file(row.id)
+
+
+def _unless_reading(file_id: uuid.UUID) -> DrawingFile:
+    """The file's row, locked at once, or the change refused (409) when another transaction holds
+    it: a read job at a step that holds the file (see `DISCIPLINE_CHANGING`). In a savepoint, so the
+    refusal leaves the transaction usable."""
+    try:
+        with transaction.atomic():
+            return _access.drawing_file(file_id, lock=True, nowait=True)
+    except OperationalError as error:
+        if getattr(error.__cause__, "sqlstate", None) != LOCK_NOT_AVAILABLE:
+            raise
+    raise auth.Refused(said.DISCIPLINE_FILE_READING(), status=409)
+
+
+LOCK_NOT_AVAILABLE = "55P03"
 
 
 def _move_sheets(row: DrawingFile, discipline: Discipline) -> None:

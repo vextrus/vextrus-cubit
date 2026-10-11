@@ -1540,12 +1540,16 @@ def test_a_stopped_run_exits_128_plus_the_signal_and_logs_it(
 
 def test_the_ledger_record_is_never_cut_by_a_stop_signal() -> None:
     import signal as signals
+    import threading
 
     seen: list[int] = []
     old = signals.signal(signals.SIGHUP, lambda signum, _frame: seen.append(signum))
     try:
         with review.signals_held():
-            os.kill(os.getpid(), signals.SIGHUP)
+            # Sent to the thread that holds the mask (`signals_held` blocks in the main thread only):
+            # a process-directed `os.kill` may go to another thread of a pytest-xdist worker, where it
+            # is never pending here (#636).
+            signals.pthread_kill(threading.main_thread().ident or 0, signals.SIGHUP)
             assert seen == []  # held while the ledger writes
             assert signals.SIGHUP in signals.sigpending()
         assert seen == [signals.SIGHUP]  # delivered once the record is written

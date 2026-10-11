@@ -14,7 +14,7 @@ from engine.render.fixtures.artefacts import PAPER, Drawing
 from vextrus.drawings import services
 from vextrus.drawings.messages import files as said
 from vextrus.drawings.services import _on_sheets
-from vextrus.platform.services import auth
+from vextrus.platform.services import auth, storage
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject, add, drawing, frame, read_dwg, sheet_candidate
 
@@ -249,3 +249,27 @@ def test_a_bangla_text_on_two_sheets_is_counted_twice_by_the_header_as_by_its_li
     assert [s.texts for s in on.bangla({"1A"})] == [1, 1]
     params = line["params"]
     assert (params["texts"], params["on_sheets"], params["sheets"], params["outside"]) == (2, 2, 2, 0)
+
+
+def test_a_file_whose_kept_artefact_is_of_an_older_version_reports_none_kept(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 1 of #638 (S15-E2 raised the artefact's VERSION): an artefact kept before the shape
+    changed is refused by `from_json`; the file report of an already-read file says nothing is kept
+    on its sheets, never a 500."""
+    from engine.read import artefact as artefact_shape
+
+    file_id, _ = read_invented(qs_project)
+    monkeypatch.setattr(artefact_shape, "VERSION", artefact_shape.VERSION + 1)  # the kept one is older
+
+    response = api_as(qs_project.member).get(
+        f"/api/projects/{qs_project.project_id}/drawings/files/{file_id}/report"
+    )
+
+    assert response.status_code == 200, response.content
+    with qs_project.member.acting():
+        report = services.report(file_id)
+        with pytest.raises(storage.StorageError):
+            services.artefact(file_id)
+    assert report.bangla_sheets == ()
+    assert set(font_sheets(report).values()) == {0}

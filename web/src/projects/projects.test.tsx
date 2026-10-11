@@ -18,6 +18,7 @@ import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
 import { activatePseudoRtl } from '@/i18n/pseudo'
 import { UiProviders, expectKeyMapSound, notationProblems } from '@/ui'
+import { FakeReadings, aFile, cellOf, rowOf, type Column } from '@/acceptance/tw325/readings.fixture'
 import { ProjectsLoading } from './ProjectsPage'
 
 beforeEach(async () => {
@@ -70,7 +71,8 @@ describe('the list, by role (§4.3, §1.4)', () => {
     const table = screen.getByRole('listbox', { name: 'Projects' }).parentElement!
     expect(clean(table.firstElementChild?.textContent)).toBe('CodeNameAddressDrawing SetTakeoffUpdated')
     expect(codes()).toEqual(['BP-02', 'KR-01', 'SG-03'])
-    expect(clean(rows()[1]!.textContent)).toBe('KR-01Kadam ResidencePlot 14, Road 7, Block C, Dhaka———')
+    // The readings' cells are pinned by the acceptance tests (src/acceptance/tw325); here the row's own words.
+    expect(clean(rows()[1]!.textContent)).toMatch(/^KR-01Kadam ResidencePlot 14, Road 7, Block C, Dhaka/)
     expect(within(header()).getByRole('link', { name: 'Members and access' })).toHaveAttribute('href', '/members')
     expect(within(header()).getByRole('button', { name: 'New project' })).toBeVisible()
     expect(within(header()).queryByText(/Read only/)).toBeNull()
@@ -235,10 +237,14 @@ describe('the New project dialog (§4.3; stories 3, 4, 99)', () => {
     await userEvent.type(within(dialog).getByLabelText('Address'), 'Plot 3, Road 2, Dhaka')
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Metric' }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }))
-    await waitFor(() => expect(router.state.location.pathname).toBe('/p/HT-04/takeoff/1'))
+    // Created, it opens on its Drawing Set (§4.3: "After create: straight to its Drawing Set").
+    await waitFor(() => expect(router.state.location.pathname).toBe('/p/HT-04/drawing-set'))
     expect(bodies).toEqual([{ name: 'Hasnahena Tower', code: 'HT-04', address: 'Plot 3, Road 2, Dhaka', unit_system: 'metric' }])
     // Closed before the navigation starts; it leaves the page once its close animation ends.
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'New project' })).toBeNull())
+    expect(await screen.findByRole('heading', { name: 'Drawing Set' })).toBeVisible()
+    // Its Step 1 bills in the unit system chosen.
+    await router.navigate({ to: '/p/$code/takeoff/$step', params: { code: 'HT-04', step: '1' } })
     expect(await screen.findByTestId('unit-system')).toHaveTextContent('Metric')
   })
 
@@ -318,5 +324,19 @@ describe('at 1280 × 800', () => {
     expect(list.scrollWidth).toBeLessThanOrEqual(list.clientWidth)
     for (const row of rows()) expect(row.getBoundingClientRect().height).toBe(28)
     expect(within(header()).getByRole('button', { name: named(/New project/) }).getBoundingClientRect().right).toBeLessThanOrEqual(1280 - 80 + 1)
+  })
+})
+
+describe('the readings, review round 1 (#445)', () => {
+  const cell = async (code: string, column: Column) => clean(cellOf(rowOf(code), column).textContent).replace(/[‎‏]/g, '').trim()
+
+  it('counts a PDF’s pages as pages while it is read, a DWG’s as sheets', async () => {
+    const api = new FakeApi()
+    const readings = new FakeReadings(api)
+    readings.setFiles('KR-01', [aFile('elevations.pdf', 'reading', { status: { code: 'drawings.files.reading_page', params: { position: 3, total: 14 } } })])
+    readings.setFiles('BP-02', [aFile('slab.dwg', 'reading', { status: { code: 'drawings.files.reading_sheet_left', params: { position: 6, total: 8, minutes: 2 } } })])
+    await projects(PEOPLE.qs, api)
+    await waitFor(async () => expect(await cell('KR-01', 'Drawing Set')).toBe('Reading 1 file, page 3 of 14'))
+    await waitFor(async () => expect(await cell('BP-02', 'Drawing Set')).toBe('Reading 1 file, sheet 6 of 8'))
   })
 })

@@ -447,8 +447,13 @@ export class FakeApi {
     }
   }
 
+  /** The time of the project's newest DomainEvent: its creation's, or the newest act on it. */
+  private newestAct(p: Project): string {
+    return this.acts.filter((a) => a.tenant === p.tenant && a.projectId === p.id).reduce((newest, a) => (Date.parse(a.at) > Date.parse(newest) ? a.at : newest), p.createdAt)
+  }
+
   private projectOut(p: Project): Schemas['ProjectOut'] {
-    return { id: p.id, code: p.code, name: p.name, address: p.address, market_id: 'm-bd', currency: 'BDT', unit_system: p.unitSystem, created_at: p.createdAt }
+    return { id: p.id, code: p.code, name: p.name, address: p.address, market_id: 'm-bd', currency: 'BDT', unit_system: p.unitSystem, created_at: p.createdAt, updated_at: this.newestAct(p) }
   }
 
   private seenProjects(viewer: Membership, theirs: string[]): { all: boolean; ids: string[] } | null {

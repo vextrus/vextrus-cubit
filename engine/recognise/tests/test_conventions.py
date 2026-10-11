@@ -43,6 +43,7 @@ FULL: dict[str, Any] = {
     "register_words": ["drawing list"],
     "sheet_kinds": {"structural": ["pile_layout", "beam_layout"], "electrical": ["lighting_layout"]},
     "common_sheet_kinds": ["cover_index", "general_notes", "other"],
+    "member_range_pattern": r"(?P<a>[A-Z]{1,2})(?P<low>\d{1,3})-(?P<b>[A-Z]{1,2})(?P<high>\d{1,3})",
 }
 
 

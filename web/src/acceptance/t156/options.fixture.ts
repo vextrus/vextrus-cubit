@@ -51,4 +51,6 @@ export const QUESTION_SHAPES: readonly QuestionShape[] = [
   { kind: 'check', code: 'engine.register_check.not_found', options: CHECK },
   { kind: 'check', code: 'engine.register_check.not_listed', options: CHECK },
   { kind: 'check', code: 'engine.register_check.gap', options: CHECK },
+  // T-W318 (the owner's #318 ruling): a Sheet title its plans contradict raises one Question per Discipline.
+  { kind: 'check', code: 'engine.storey_titles.differs', options: ['plans_right', 'title_right', KEEP_OPEN] },
 ]

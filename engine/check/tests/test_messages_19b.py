@@ -71,7 +71,8 @@ def test_each_message_uses_only_the_parameters_its_code_declares() -> None:
     # Carried for 21c, 19a and the export, not said: keys (the Discipline's, subject's, storey's) and
     # 18's reason.
     assert arguments(ALL["engine.conflicts.same_storey"]) == {
-        "views", "first", "first_named", "second", "second_named", "titled", "plan", "other", "layer"
+        "sheets", "first", "first_named", "second", "second_named", "titled", "plan", "other", "layer",
+        "alone",
     }  # fmt: skip
     assert arguments(ALL["engine.register_check.gap"]) == {"after", "before", "missing"}
     assert arguments(ALL["engine.plot_pages.no_sheet"]) == {"page"}
@@ -134,10 +135,10 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
 
     assert words == [
         "3 sheets are numbered S-07",
-        "3 sheets are titled \u201cColumn schedule\u201d but are not all numbered one after the other",
+        "3 sheets are titled \u201cColumn schedule\u201d and may draw the same thing",  # #638 r3
         "S-14 and S-15 both draw \u201c5TH FLOOR SLAB, TOP\u201d, top layer",
         "S-24 and S-31 both draw \u201c5TH FLOOR SLAB, BOTTOM\u201d, bottom layer",
-        "S-50, S-51 and 1 more plan draw \u201c5TH FLOOR BEAM LAYOUT\u201d",
+        "S-50, S-51 and 1 more sheet draw \u201c5TH FLOOR BEAM LAYOUT\u201d",  # T-W334: sheets
         (  # the words gate's round 2
             "S-60 and S-61 both draw one storey, as \u201c3RD, 5TH & 7TH FLOOR SLAB\u201d and "
             "\u201c5TH FLOOR SLAB\u201d, bottom layer"
@@ -150,13 +151,29 @@ def test_the_conflicts_format_as_m0_screens_words_them() -> None:
     )
     untitled: dict[str, str | int] = {
         "first": "S-14", "first_named": "number", "second": "S-15", "second_named": "number",
-        "plan": "", "other": "", "titled": "none", "layer": "bottom", "views": 4,
+        "plan": "", "other": "", "titled": "none", "layer": "bottom", "views": 5, "sheets": 4,
+        "alone": "no",
     }  # fmt: skip
     assert render(ALL["engine.conflicts.same_storey"], untitled) == (
-        "S-14, S-15 and 2 more plans draw a plan of one storey, bottom layer"
+        "S-14, S-15 and 2 more sheets draw a plan of one storey, bottom layer"
     )
     two: dict[str, str | int] = {"title": "Notes", "sheets": 2}
     assert render(ALL["engine.conflicts.same_title"], two).startswith("Two sheets are titled")
+    # T-W334: a Question counts the sheets it still holds, one once the others are decided
+    assert render(ALL["engine.conflicts.same_title"], {**two, "sheets": 1}).startswith("One sheet is")
+    # Reviews 1 and 3 of #638: one sheet held is named alone, like the one confirmed or left out
+    assert render(ALL["engine.conflicts.same_storey"], {**untitled, "sheets": 1}) == (
+        "S-14 draws a plan of one storey, bottom layer, like S-15, already confirmed or left out"
+    )
+    # Review 1 of #641: the sheets held lie at one place (copies of S-14): named once, like the one
+    # confirmed at another, yet counted as the Question holds them
+    for held in (1, 2, 3):
+        assert render(
+            ALL["engine.conflicts.same_storey"], {**untitled, "sheets": held, "alone": "yes"}
+        ) == ("S-14 draws a plan of one storey, bottom layer, like S-15, already confirmed or left out")
+    assert render(ALL["engine.conflicts.same_storey"], {**untitled, "sheets": 2, "alone": "no"}) == (
+        "S-14 and S-15 both draw a plan of one storey, bottom layer"
+    )
     assert branches(ALL["engine.conflicts.same_storey"], "layer") >= {str(layer) for layer in Layer}
     assert branches(ALL["engine.conflicts.same_storey"], "titled") >= {"same", "differ"}
     assert branches(ALL["engine.conflicts.same_storey"], "first_named") >= {"title"}
@@ -258,7 +275,7 @@ def test_the_storey_finding_formats_each_side(
 
     assert result.finding is not None
     middle = "names \u201c3RD, 5TH & 7TH FLOOR\u201d, but its plans do not agree"
-    end = " Vextrus takes the storeys from its plans; if the title is right, correct the plans' storeys."
+    end = " Vextrus takes the storeys from its plans."  # no storey edit promised (S15-E3)
     start = "The title of " if number else "The sheet titled "
     assert said(result.finding) == start + expected.format(middle) + end
 
