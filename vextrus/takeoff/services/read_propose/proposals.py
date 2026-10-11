@@ -501,7 +501,8 @@ def candidate(
     sheet: drawings.SheetView, group: str | None = None, *, anchors: bool = True
 ) -> SheetCandidate:
     """A printed sheet as 13's candidate again: its place, what was read on it, its group; its anchors
-    unless `anchors=False` (a sheet listed without them: the conflict check does not read them)."""
+    unless `anchors=False` (a sheet listed without them: the conflict check reads no anchor, and its
+    content twins take each sheet's file from `files_of`, never from an anchor, PR #648)."""
     location = sheet.location
     if "layout" in location:
         place = SheetLocation(layout=str(location["layout"]))
@@ -596,6 +597,8 @@ class SetInputs:
     conventions. No decision is in it: a sheet's decision is read when the Questions are kept."""
 
     sheet_ids: tuple[uuid.UUID, ...]
+    files: tuple[str | None, ...]
+    """Each sheet's file (`files_of`: content twins compare only sheets of one file, PR #648)."""
     conventions: SheetConventions
     sheets: tuple[SheetCandidate, ...]
     """Each sheet under its file's group (the Checks' candidates)."""
@@ -712,6 +715,7 @@ def _read_set(
         viewed,
         SetInputs(
             sheet_ids=tuple(s.id for s in listed),
+            files=tuple(files_of(listed)),
             conventions=conventions,
             sheets=sheets,
             compared=tuple(_compared(s, c) for s, c in zip(listed, sheets, strict=True)),
@@ -727,7 +731,11 @@ def _found(inputs: SetInputs) -> FoundQuestions:
     conventions = inputs.conventions
     recognisers = finder.recognisers(conventions)
     compared = finder.compare(
-        inputs.compared, inputs.views, conventions=conventions, recognisers=recognisers
+        inputs.compared,
+        inputs.views,
+        conventions=conventions,
+        recognisers=recognisers,
+        files=inputs.files,
     )
     reading = SetReading(
         sheets=inputs.sheets,
@@ -768,8 +776,17 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     compared = [_compared(s, candidate(s, groups.get(s.file_id, "site"), anchors=False)) for s in listed]
     views = [[view_candidate(v) for v in of_sheet.get(s.id, [])] for s in listed]
     recognisers = finder.recognisers(conventions)
-    found = finder.compare(compared, views, conventions=conventions, recognisers=recognisers)
+    found = finder.compare(
+        compared, views, conventions=conventions, recognisers=recognisers, files=files_of(listed)
+    )
     return len(_conflicts(project_id, listed, compared, views, found, step1.proposal_ids(project_id)))
+
+
+def files_of(listed: Sequence[drawings.SheetView]) -> list[str | None]:
+    """Each listed sheet's file, as 19b's content twins compare them (`finder.compare`'s `files`):
+    its file's id, so a sheet listed with or without its anchors twins alike (the read job's pass
+    and every act's, PR #648)."""
+    return [str(s.file_id) for s in listed]
 
 
 def as_compared(
@@ -1024,7 +1041,9 @@ def _boundaries(
     phrase never meets). By the Dhaka convention the first plan's columns stop at that slab, so the
     meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
     (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
-    claims that storey is it asked. Returns how many it asked."""
+    claims that storey is it asked, and a meeting the convention settled before the third plan was
+    read is opened again (`step1.reopen_by_claim`), whichever file came first. Returns how many it
+    asked."""
     conventions = step1.sheet_conventions()
 
     def ranged(view: drawings.ViewView) -> bool:
@@ -1070,6 +1089,9 @@ def _boundaries(
                 blocks=blocks,
             )
             if claimed:
+                # A third plan read after the convention settled the meeting: asked, never left
+                # settled (review 1 of #648: the claim must not depend on which file came first).
+                step1.reopen_by_claim(project_id, question_id)
                 asked += 1
                 continue
             traces = [

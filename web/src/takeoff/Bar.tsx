@@ -77,13 +77,37 @@ function BulkWhy({ model, reading }: { model: Step1Model; reading: number }) {
   )
 }
 
-function BulkReasons({ model }: { model: Step1Model }) {
-  const bulk = new Set(model.bulk.confirm.map((p) => p.discipline))
-  const sections = model.disciplines.filter((d) => bulk.has(d.discipline))
-  const listed = sections.some((d) => d.list)
-  const unlisted = sections.some((d) => !d.list)
+/** The second sources of the sheets the bulk act confirms (the API's `agrees_by`, m0-screens §5). */
+export function bulkSources(model: Step1Model): { listed: boolean; plotted: boolean; run: boolean } {
+  const by = new Set(model.bulk.confirm.map((p) => p.agrees_by ?? null))
+  return { listed: by.has('list'), plotted: by.has('plot'), run: by.has('run') }
+}
+
+export function BulkReasons({ model }: { model: Step1Model }) {
+  const { listed, plotted, run } = bulkSources(model)
+  const unlisted = plotted
   const out = model.bulk.leaveOut.length > 0
   const tail = out ? <Trans>Left-out sheets stay in the count with their reason.</Trans> : null
+  // A run of numbers is a second source of its own (the session-18 ruling): no Plot page is claimed
+  // for a sheet that agrees by its run (review 1 of #648, design gate must 1; 4.7's sentence).
+  if (run && plotted)
+    return (
+      <>
+        <Trans>Each has a number and title from its title block, and its drawing list names it, its Plot page shows the same number and title, or it is in numbering without a gap; storeys from its view titles.</Trans> {tail}
+      </>
+    )
+  if (run && listed)
+    return (
+      <>
+        <Trans>Each has a number and title from its title block, on its drawing list or in numbering without a gap; storeys from its view titles.</Trans> {tail}
+      </>
+    )
+  if (run)
+    return (
+      <>
+        <Trans>Each has a number and title from its title block, in numbering without a gap; storeys from its view titles.</Trans> {tail}
+      </>
+    )
   if (listed && unlisted)
     return (
       <>
@@ -278,14 +302,9 @@ export function useBar(c: BarContext): BarSpec | null {
         }
       }
       const agrees = row.sheets.every((s) => s.agrees)
-      const section = model.disciplines.find((d) => d.discipline === sheet.discipline)
       return {
         what: agrees ? (
-          section?.list ? (
-            <Trans>{Name} agrees: number and title from the title block, on the drawing list</Trans>
-          ) : (
-            <Trans>{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
-          )
+          <AgreesWhat sheet={sheet} model={model} name={Name} />
         ) : (
           <OneSourceWhat sheet={sheet} name={Name} />
         ),
@@ -387,6 +406,16 @@ export function Bar({ spec }: { spec: BarSpec }) {
 }
 
 /** "S-07 has one source: …"; a sheet with neither number nor title has neither to read (#167's words gate, M5). */
+/** One agreeing sheet's line (4.7): its second source as the API names it (`agrees_by`), so a sheet
+ * agreeing by its run of numbers claims no Plot page (review 1 of #648, design gate must 1). */
+export function AgreesWhat({ sheet, model, name }: { sheet: ProposalOut; model: Step1Model; name: ReactNode }) {
+  const Name = name
+  const by = sheet.agrees_by ?? (model.disciplines.find((d) => d.discipline === sheet.discipline)?.list ? 'list' : 'plot')
+  if (by === 'list') return <Trans>{Name} agrees: number and title from the title block, on the drawing list</Trans>
+  if (by === 'run') return <Trans>{Name} agrees: number and title from the title block, in numbering without a gap</Trans>
+  return <Trans>{Name} agrees: number and title from the title block, in numbering without a gap, and its Plot page matches</Trans>
+}
+
 export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
   if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has neither a number nor a title in its title block</Trans>
   return <Trans>{name} has one source: number and title from its title block</Trans>

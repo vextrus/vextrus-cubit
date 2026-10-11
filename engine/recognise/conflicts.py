@@ -50,7 +50,8 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   M0"): two consecutive numbers of one title also part, the same way, when what they draw says they are
   two drawings. What a sheet draws is its layer histogram (`SheetCandidate.layers`, model space's only);
   two histograms' weighted overlap is the sum of the lesser counts over the sum of the greater. A near
-  twin of a sheet is another titled sheet of its group and its own file (never another file's) at
+  twin of a sheet is another titled sheet of its group and its own file (never another file's; the
+  file is `compare`'s `files` when given, else the sheet's first anchor's) at
   `TWIN` (0.9) or more, neither of the pair's places. They part when each has a near twin, no near twin
   of one shares a title stem with a near twin of the other (a stem: the title's words without the
   storeys it states, its member-mark ranges and the conventions' floor, level, range and list words,
@@ -272,10 +273,16 @@ def compare(
     *,
     conventions: SheetConventions | None,
     recognisers: Recognisers,
+    files: Sequence[str | None] | None = None,
 ) -> list[Found]:
     """The set's Continuations, Series and Conflicts, by the rules above; `conventions` give each
-    Discipline's prefixes (none: no prefix is a Discipline's own) and the member range pattern."""
+    Discipline's prefixes (none: no prefix is a Discipline's own) and the member range pattern.
+    `files` names each sheet's file (`files[i]` is `sheets[i]`'s) for content twins, which compare
+    only sheets of one file: a caller holding sheets without their anchors gives it (the product's
+    acts, PR #648); none, each sheet's file is its first anchor's."""
     given(sheets, views)
+    if files is not None and len(files) != len(sheets):
+        raise ValueError("files name one file per sheet")
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
     numbers = [reader.key(sheet) for sheet in sheets]
     pattern = None if conventions is None else conventions.member_range_pattern
@@ -285,7 +292,7 @@ def compare(
     cleaned = [text for _, _, text in keyed]  # the text each title's ranges lie in
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
     plans = _Plans(sheets, numbers, reader)
-    twins = _Twins(sheets, recognisers, conventions)
+    twins = _Twins(sheets, recognisers, conventions, files)
 
     by_number: list[tuple[int, Conflict]] = []
     for copies in _grouped(
@@ -1219,8 +1226,10 @@ class _Twins:
         sheets: Sequence[SheetCandidate],
         recognisers: Recognisers,
         conventions: SheetConventions | None,
+        files: Sequence[str | None] | None = None,
     ) -> None:
         self.sheets = sheets
+        self.sources = [_source(s) for s in sheets] if files is None else list(files)
         self.recognisers = recognisers
         self.pattern = None if conventions is None else conventions.member_range_pattern
         words = (
@@ -1239,7 +1248,7 @@ class _Twins:
         self.totals = [sum(layers.values()) for layers in self.layers]
         self.files: dict[tuple[str | None, str], list[int]] = {}
         for i, sheet in enumerate(sheets):
-            source = _source(sheet)
+            source = self.sources[i]
             if source is not None and self.layers[i]:
                 self.files.setdefault((sheet.group, source), []).append(i)
         self.near: dict[int, list[tuple[float, int]]] = {}
@@ -1273,7 +1282,7 @@ class _Twins:
         if held is not None:
             return held
         sheet = self.sheets[i]
-        source = _source(sheet)
+        source = self.sources[i]
         found: list[tuple[float, int]] = []
         mine, total = self.layers[i], self.totals[i]
         for j in [] if source is None else self.files.get((sheet.group, source), []):

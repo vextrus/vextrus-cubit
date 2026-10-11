@@ -189,3 +189,60 @@ def test_a_histogram_the_database_cannot_hold_as_given_is_kept_as_none(
 def test_a_stored_histogram_not_in_the_written_shape_reads_as_none(stored: object) -> None:
     assert sheet_list._layers_of(stored) == ()
     assert sheet_list._layers_of([["A", 2], ["B", 1]]) == (("A", 2), ("B", 1))
+
+
+def test_the_twins_question_survives_every_act_on_the_set(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PR #648 (85): every act re-asks the set's conflicts on sheets listed without their anchors
+    (`proposals.set_conflicts`, Step 1's groups through `as_compared`); content twins take each
+    sheet's file from `proposals.files_of`, so the act path parts the pair as the read job did and
+    the `same_title` Question is never withdrawn by a confirm, an exclusion or an undo."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import confirm, exclude, step1
+
+    read(qs_project, monkeypatch, COPIED)
+    api = api_as(qs_project.member)
+    listed = proposals(api, qs_project.project_id)
+    [asked] = open_questions(api, qs_project.project_id, "conflict")
+
+    def still_asked() -> None:
+        [q] = open_questions(api, qs_project.project_id, "conflict")
+        assert q["id"] == asked["id"]
+        assert q["code"] == conflict_codes.SAME_TITLE.code
+        pair = {the(proposals(api, qs_project.project_id), n)["id"] for n in ("S-03", "S-04")}
+        assert set(q["proposals"]) == pair
+
+    confirm(api, qs_project.project_id, [the(listed, "S-01")["id"]])
+    still_asked()
+    exclude(api, qs_project.project_id, [the(listed, "S-02")["id"]], "superseded")
+    still_asked()
+    api.post(f"{step1(qs_project.project_id)}/undo", {})
+    still_asked()
+    api.post(f"{step1(qs_project.project_id)}/undo", {})
+    still_asked()
+
+
+def test_step1s_groups_keep_the_copied_pair_apart_without_anchors(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Step 1's groups (`groups.among`, through `as_compared`, anchors unread) part the copied pair as
+    the read job did: neither of S-03 and S-04 is in a Continuation."""
+    from vextrus.takeoff.services import groups
+    from vextrus.takeoff.services import step1 as step1_service
+    from vextrus.takeoff.services.read_propose import proposals as proposal_service
+
+    file_id = read(qs_project, monkeypatch, COPIED)
+    with qs_project.member.acting():
+        listed = step1_service.sheets_of(qs_project.project_id)
+        set_id = drawings.file(file_id).set_id
+        of_sheet = drawings.views_of_set(set_id, anchors=False)
+        found = groups.among(
+            listed,
+            [of_sheet.get(s.id, []) for s in listed],
+            {f.id: f.group for f in step1_service.files_of(qs_project.project_id)},
+            step1_service.sheet_conventions(),
+        )
+        assert proposal_service.files_of(listed) == [str(s.file_id) for s in listed]
+    pair = [s.id for s in listed if s.number in ("S-03", "S-04")]
+    assert len(pair) == 2
+    assert all(not found.get(i) or not found[i].continuation for i in pair)

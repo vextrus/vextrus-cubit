@@ -1285,7 +1285,15 @@ any agreeing sheet or proposed exclusion, the bar reads:
   view titles. Left-out sheets stay in the count with their reason." With no drawing list (5): "Each
   has a number and title from its title block, and its Plot page shows the same number and title;
   storeys from its view titles." With both kinds: "Each has a number and title from its title block,
-  and its drawing list names it or its Plot page shows the same number and title; …";
+  and its drawing list names it or its Plot page shows the same number and title; …". A sheet that
+  agrees by an unbroken run of numbers (no list and no PDF in its Discipline, 5) is never said to
+  match a Plot page: run alone, "Each has a number and title from its title block, in numbering without
+  a gap; storeys from its view titles."; run beside a drawing list (the seed, 7), 4.7's "Each has a
+  number and title from its title block, on its drawing list or in numbering without a gap; storeys
+  from its view titles."; run beside a Plot page, "Each has a number and title from its title block,
+  and its drawing list names it, its Plot page shows the same number and title, or it is in numbering
+  without a gap; …". The words follow each sheet's second source as the API names it (`agrees_by`:
+  list, plot or run);
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1336,7 +1344,9 @@ and sheet mode alike (6.18). The toast sits just above it.
   screens.md sheet ruling 1); `Esc` fits back to the working view; past the last view, no view is
   selected.
 - **The bar (ruling 5): Enter confirms the sheet and opens the next one needing the QS.** For an
-  agreeing sheet: "S-20 agrees: number and title from the title block, on the drawing list" · "3 views;
+  agreeing sheet: "S-20 agrees: number and title from the title block, on the drawing list" (by its
+  run of numbers: "E-01 agrees: number and title from the title block, in numbering without a gap"; by
+  its Plot page: "…, and its Plot page matches") · "3 views;
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
@@ -1432,8 +1442,10 @@ meeting counts only when both views state a two-ended "X to Y" range (the owner,
 
 ### 6.8 Storeys and the storey strip
 - **Storeys are an explicit list per plan view,** with its meaning: "at floor level" (members at that
-  floor level: beam and slab layouts) or "floor to floor" (the storey: column plans, architectural
-  plans, sections). A sheet's storeys are its views' storeys together; its meaning is the views'
+  floor level: beam and slab layouts), "floor to floor" (the storey: column plans, architectural
+  plans, sections), or "at ceiling level" (what hangs under those storeys' ceilings: a pipe or drain
+  layout titled at ceiling level; read from the title, never chosen: S19-B5). The strip draws "at
+  ceiling level" as "at floor level", a bar at the slot's foot (no mark of its own). A sheet's storeys are its views' storeys together; its meaning is the views'
   meaning, or "mixed". Shown compactly: a run of three or more storeys one above another reads
   "2nd–8th"; anything else is listed ("3rd, 5th, 7th"). The roofs above the roof never form a run.
 - **Ruling 2: a missing storey is a Question only on plan views** (as amended by the owner's ruling of
@@ -1453,7 +1465,7 @@ meeting counts only when both views state a two-ended "X to Y" range (the owner,
   floor is hatched over the typical range. An excluded sheet's strip is at 40 % opacity. The
   header's key at 1440 (and its tooltip at both sizes) explains the two marks: "Each slot is a storey:
   foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to
-  floor; a bar at its foot is members at that floor level." Before Step 3 the slots come from the
+  floor; a bar at its foot is members at that floor level or what hangs under its ceiling." Before Step 3 the slots come from the
   canonical storey vocabulary, in the order the titles name the storeys (6.18).
 - The storey vocabulary is the spec's (amendment 3).
 
@@ -1487,7 +1499,9 @@ meeting counts only when both views state a two-ended "X to Y" range (the owner,
   "Mechanical (HVAC)", "Lift", "Gas"); `↑ ↓` move, `Space` ticks, `Enter` saves, `Esc` cancels.
 - **Corrections (`E`):** "Correct the Proposal" opens in the inspector in place of the Proposal block:
   Number, Title, and for each plan view "Storeys of "<view title>", each listed" (placeholder "3rd,
-  5th, 7th") with its meaning as a two-choice toggle, "at floor level" | "floor to floor"; "Save ↵"
+  5th, 7th") with its meaning as a two-choice toggle, "at floor level" | "floor to floor" (a view read
+  "at ceiling level" shows that meaning as read beside the toggle, and the toggle does not offer it: a
+  correction picks one of the two); "Save ↵"
   and "Cancel Esc". A correction leaves the sheet a Proposal: toast "Corrected
   S-18: storeys of "3rd, 5th & 7th floor beam layout". Still a Proposal until confirmed."; the State
   column adds ", corrected"; "Who did what" records "Corrected: number — → S-12; title; storeys of

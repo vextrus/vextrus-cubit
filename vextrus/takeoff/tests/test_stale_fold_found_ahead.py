@@ -11,6 +11,8 @@ from typing import Any
 import pytest
 from django.utils import timezone
 
+from engine.recognise import conflicts as conflict_finder
+from vextrus.drawings import services as drawings
 from vextrus.takeoff.models import Question, QuestionStatus
 from vextrus.takeoff.services import step1
 from vextrus.takeoff.services.read_propose import proposals, storey_questions
@@ -81,3 +83,29 @@ def test_a_conflict_answered_after_the_find_is_read_under_the_lock(
     assert (asked["params"]["sheet"], asked["params"]["count"]) == ("A-62", 1)
     [finding] = last_findings(qs_project)
     assert str(finding.question_id) == asked["id"]
+
+
+def test_the_find_before_the_lock_compares_each_sheet_under_its_file(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Train B's fix 1 of #648 (content twins compare only sheets of one file, named by `files_of`)
+    joined with C1's find: the compare run before the lock is given every sheet's file too, and the
+    files are among the inputs a kept find is checked against."""
+    record(qs_project.member, qs_project.project_id, "KZ-ARC-R0.dwg", pair())
+    given: list[object] = []
+    real = conflict_finder.compare
+
+    def watched(*args: Any, **kwargs: Any) -> Any:
+        given.append(kwargs.get("files"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(conflict_finder, "compare", watched)
+    with qs_project.member.acting():
+        found = proposals.find_questions(qs_project.project_id)
+    assert found is not None
+    with qs_project.member.acting():
+        drawing_set = drawings.set_of(qs_project.project_id)
+        assert drawing_set is not None
+        files = tuple(str(s.file_id) for s in drawings.sheets(drawing_set.id))
+    assert given == [files]
+    assert found.inputs.files == files
