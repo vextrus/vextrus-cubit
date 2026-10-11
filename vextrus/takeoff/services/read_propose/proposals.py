@@ -1050,19 +1050,14 @@ def _boundaries(
     meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
     (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
     claims that storey is it asked, and a meeting the convention settled before the third plan was
-    read is opened again (`step1.reopen_by_claim`), whichever file came first. A third plan is another
-    plan view: a second view on a meeting sheet is one, while a copy of a meeting view (the same
-    storeys on another printed sheet of its number: a revision in a later file) is that view; a sheet
-    left out claims nothing. Every act runs it again (`set_conflicts`), so leaving the third plan out
+    read is opened again (`step1.reopen_by_claim`), whichever file came first. A plan is its subject
+    and storey range: a view of either meeting range (a copy in a later file, a second viewport or
+    half) is that plan, and one meeting is asked once; a view of another range holding the storey is
+    a third plan; a sheet left out claims nothing, and a meeting whose own sheet is left out is not
+    asked. Every act runs it again (`set_conflicts`), so leaving the third plan out
     settles the meeting and undoing that asks it again, with no later read. Returns how many it
     asked."""
     conventions = step1.sheet_conventions()
-
-    def numbered(sheet: drawings.SheetView) -> tuple[str | None, str | None] | uuid.UUID:
-        """One plan's identity: its Discipline and number (copies of a number are one), or the
-        printed sheet itself when it has no number."""
-        number = finder.normal(sheet.number)
-        return sheet.id if number is None else (sheet.discipline, number)
 
     def ranged(view: drawings.ViewView) -> bool:
         stated = view.storeys_as_stated or view.title
@@ -1076,6 +1071,8 @@ def _boundaries(
     ]
     ranges = [(i, v) for i, v in plans if len(v.storeys) > 1 and ranged(v)]
     asked = 0
+    met: set[tuple[object, ...]] = set()
+    raised: list[uuid.UUID] = []
     for i, first in ranges:
         for j, then in ranges:
             if i == j or listed[i].discipline != listed[j].discipline or first.subject != then.subject:
@@ -1084,21 +1081,23 @@ def _boundaries(
                 continue
             meeting = first.storeys[-1]
             sheet = listed[i]
-            # A plan is a view: another view on a meeting sheet is a third plan, while a copy of a
-            # meeting view (the same storeys on another printed sheet of that number: a revision in a
-            # later file) is that view (reviews 2 and 3 of #648); a sheet the QS left out claims
-            # nothing.
-            copies = {(numbered(listed[k]), tuple(v.storeys)) for k, v in ((i, first), (j, then))}
+            if "excluded" in (sheet.decision, listed[j].decision):
+                continue  # a meeting whose own sheet the QS left out is not asked (#650)
+            # A plan is its subject and its storey range (#650, the root of reviews 2 and 3 of
+            # #648): every view of the first's or the then plan's range, on any sheet, copy or half,
+            # is that plan, and each meeting of two ranges is asked once; a view of the subject with
+            # another range holding the storey is a third plan; a sheet left out claims nothing.
+            ends = (tuple(first.storeys), tuple(then.storeys))
+            key = (sheet.discipline, first.subject, *ends)
+            if key in met:
+                continue
+            met.add(key)
             claimed = any(
-                v.id not in (first.id, then.id)
-                and listed[k].discipline == sheet.discipline
+                listed[k].discipline == sheet.discipline
                 and v.subject == first.subject
                 and meeting in v.storeys
                 and listed[k].decision != "excluded"
-                and not (
-                    listed[k].id not in (listed[i].id, listed[j].id)
-                    and (numbered(listed[k]), tuple(v.storeys)) in copies
-                )
+                and tuple(v.storeys) not in ends
                 for k, v in plans
             )
             blocks = [proposal_of[sheet.id]] if sheet.id in proposal_of else []
@@ -1116,6 +1115,7 @@ def _boundaries(
                 options=options(BOUNDARY_OPTIONS),
                 blocks=blocks,
             )
+            raised.append(question_id)
             if claimed:
                 # A third plan read after the convention settled the meeting: asked, never left
                 # settled (review 1 of #648: the claim must not depend on which file came first).
@@ -1132,6 +1132,9 @@ def _boundaries(
                 if listed[k].id in proposal_of
             ]
             step1.settle_by_convention(project_id, question_id, "excludes_storey", traces)
+    # A boundary storey no longer asked (its meeting sheet left out, or one meeting raised twice
+    # before #650) is withdrawn; one asked again (an undo) is open again; an answered one stays.
+    step1.retire_questions(project_id, (said.BOUNDARY_STOREY.code,), raised)
     return asked
 
 
