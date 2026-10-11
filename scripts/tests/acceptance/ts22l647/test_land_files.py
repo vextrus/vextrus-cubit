@@ -2,9 +2,11 @@
 
 GitHub refuses `gh pr diff` over 20000 lines (HTTP 406 too_large), so `scripts.land` refused any big PR
 ("land: refused: PR 641: gh pr diff failed"). As merge_ready reads it (#645), the lander's file list is
-read from git after fetching `refs/pull/<PR>/head` and the PR's base (baseRefOid / headRefOid from gh's
-JSON): files = `git diff --name-only <base>...<head>`, every file, no cap. Driven through the existing
-seam `scripts.land.Gh(repo).files(<PR>)` in a fresh clone with a stub `gh` (see `_world.py`)."""
+read from git after fetching `refs/pull/<PR>/head` and the PR's base (head.sha, base.sha and base.ref
+from the REST pull, `gh api repos/vextrus/vextrus-cubit/pulls/<PR>`, as tools/leakscan reads them; gh's
+`pr view --json` has no `baseRefOid`): files = `git diff --name-only <base>...<head>`, every file, no
+cap. Driven through the existing seam `scripts.land.Gh(repo).files(<PR>)` in a fresh clone with a
+stub `gh` (see `_world.py`)."""
 
 from __future__ import annotations
 
@@ -53,6 +55,19 @@ def test_the_list_is_the_prs_own_change_not_mains_later_one(work: Path) -> None:
 
 def test_a_small_pr_lists_its_files_from_git_too(work: Path) -> None:
     assert land.Gh(work).files(w.SMALL) == w.SMALL_FILES
+
+
+def test_the_head_and_base_come_from_the_rest_pull(tmp_path: Path, work: Path) -> None:
+    """gh has no `pr view --json baseRefOid` (PR #655's review): the shas and the base branch are read
+    from `gh api repos/vextrus/vextrus-cubit/pulls/<n>` (head.sha, base.sha, base.ref)."""
+    assert land.Gh(work).files(w.BIG)
+    rest = [
+        call
+        for call in w.gh_calls(tmp_path)
+        if call[:1] == ["api"]
+        and any(part.lstrip("/") == f"repos/vextrus/vextrus-cubit/pulls/{w.BIG}" for part in call)
+    ]
+    assert rest, f"the lander did not read the REST pull: {w.gh_calls(tmp_path)}"
 
 
 def test_gh_pr_diff_is_never_asked_for(tmp_path: Path, work: Path) -> None:

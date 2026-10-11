@@ -2,10 +2,13 @@
 
 A world is a tmp bare `hub.git` (GitHub's side: `refs/heads/main` and `refs/pull/<n>/head`), a `work`
 clone of it that is the current directory when the lander runs (as the main checkout is), and a stub
-`gh` first on PATH. The stub answers `gh pr view <n> --json ...` (with `-q .<field>`), `gh api graphql`
-(merge_ready's shape, files capped at 100) and `gh api repos/<repo>/pulls/<n>` from the world's pull
-requests; it refuses `gh pr diff` for the big PR as GitHub refuses a diff over 20000 lines (exit 1, HTTP
-406 too_large) and answers it for the small ones. Every call is logged. No network, no real drawing.
+`gh` first on PATH. The stub answers `gh api repos/<repo>/pulls/<n>` (the REST pull: head.sha,
+base.sha, base.ref), `gh api graphql` (merge_ready's shape, files capped at 100) and `gh pr view <n>
+--json ...` (with `-q .<field>`) from the world's pull requests. Like real gh, `pr view` refuses a field
+outside gh's own list (GH_PR_VIEW_FIELDS, kept in tools/leakscan/tests/test_pr_view_fields.py; it has
+no `baseRefOid`) with "Unknown JSON field" and exit 1. It refuses `gh pr diff` for the big PR as
+GitHub refuses a diff over 20000 lines (exit 1, HTTP 406 too_large) and answers it for the small ones.
+Every call is logged. No network, no real drawing.
 
 The pull requests (all forked from main's first commit; main then moves on, MAIN_ONLY):
 - BIG (7): 150 files added; the first 149 are not engine paths, the 150th added is `engine/...`.
@@ -24,6 +27,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from tools.leakscan.tests.test_pr_view_fields import GH_PR_VIEW_FIELDS
+
 BIG, SMALL, NO_REF, GONE_BASE, GONE_HEAD = 7, 5, 8, 9, 10
 GONE = "0123456789abcdef0123456789abcdef01234567"
 NAME_SENTINEL = "নমুনা"
@@ -35,6 +40,7 @@ SMALL_FILES = ["docs/small.md"]
 OTHER_FILES = {GONE_BASE: ["pkg/nine.py"], GONE_HEAD: ["pkg/ten.py"]}
 MAIN_ONLY = "main-only.txt"
 STUB_GH = """import json, os, re, sys
+KNOWN = set(KNOWN_FIELDS)
 args = sys.argv[1:]
 with open(os.environ["S22L647_GH_LOG"], "a") as log:
     log.write(json.dumps(args) + "\\n")
@@ -52,7 +58,13 @@ def value(flag):
 
 if args[:2] == ["pr", "view"]:
     pr = pull(args[2])
-    fields = {k: v for k, v in pr.items() if k != "files"}
+    fields = {k: v for k, v in pr.items() if k not in ("files", "baseRefOid")}
+    asked = [f for f in (value("--json") or "").split(",") if f]
+    for field in asked:
+        if field not in KNOWN:
+            sys.stderr.write('Unknown JSON field: "%s"\\nAvailable fields:\\n' % field)
+            sys.stderr.write("".join("  %s\\n" % k for k in sorted(KNOWN)))
+            sys.exit(1)
     query = value("-q") or value("--jq")
     if query:
         if not re.fullmatch(r"\\.[A-Za-z]+", query):
@@ -61,8 +73,7 @@ if args[:2] == ["pr", "view"]:
         out = fields[query[1:]]
         print(out if isinstance(out, str) else json.dumps(out))
     else:
-        wanted = (value("--json") or "").split(",")
-        print(json.dumps({k: fields[k] for k in wanted if k in fields}))
+        print(json.dumps({k: fields[k] for k in asked if k in fields}))
     sys.exit(0)
 if args[:2] == ["api", "graphql"]:
     number = next(a.split("=", 1)[1] for a in args if a.startswith("pr="))
@@ -72,11 +83,20 @@ if args[:2] == ["api", "graphql"]:
              "files": {"nodes": [{"path": p} for p in sorted(pr["files"])[:100]]}}
     print(json.dumps({"data": {"repository": {"pullRequest": node}}}))
     sys.exit(0)
-if args[:1] == ["api"] and len(args) > 1 and re.fullmatch(r"/?repos/[^/]+/[^/]+/pulls/\\d+", args[1]):
-    pr = pull(args[1].rsplit("/", 1)[1])
-    print(json.dumps({"number": pr["number"], "state": "open",
-                      "head": {"sha": pr["headRefOid"], "ref": pr["headRefName"]},
-                      "base": {"sha": pr["baseRefOid"], "ref": pr["baseRefName"]}}))
+rest = [a for a in args[1:] if re.fullmatch(r"/?repos/vextrus/vextrus-cubit/pulls/\\d+", a)]
+if args[:1] == ["api"] and rest and (value("--method") or value("-X") or "GET") == "GET":
+    pr = pull(rest[0].rsplit("/", 1)[1])
+    answer = {"number": pr["number"], "state": "open",
+              "head": {"sha": pr["headRefOid"], "ref": pr["headRefName"]},
+              "base": {"sha": pr["baseRefOid"], "ref": pr["baseRefName"]}}
+    query = value("-q") or value("--jq")
+    if query:
+        if not re.fullmatch(r"(\\.[A-Za-z_]+)+", query):
+            sys.stderr.write("stub gh: unsupported --jq\\n")
+            sys.exit(1)
+        for key in query[1:].split("."):
+            answer = answer[key]
+    print(answer if isinstance(answer, str) else json.dumps(answer))
     sys.exit(0)
 if args[:2] == ["pr", "diff"]:
     pr = pull(args[2])
@@ -89,7 +109,7 @@ if args[:2] == ["pr", "diff"]:
     sys.exit(0)
 sys.stderr.write("stub gh: unexpected call\\n")
 sys.exit(1)
-""".replace("BIG_NUMBER", str(BIG))
+""".replace("BIG_NUMBER", str(BIG)).replace("KNOWN_FIELDS", repr(sorted(GH_PR_VIEW_FIELDS)))
 
 
 def git(repo: Path, *args: str) -> str:

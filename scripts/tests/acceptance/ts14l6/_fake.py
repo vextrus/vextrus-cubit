@@ -48,6 +48,8 @@ from typing import Any
 
 import pytest
 
+from tools.leakscan.tests.test_pr_view_fields import GH_PR_VIEW_FIELDS
+
 FIXTURES = Path(__file__).parents[1] / "p6_land" / "fixtures"
 REPOSITORY = "vextrus/vextrus-cubit"
 CI_JOB = "111597106799"
@@ -57,6 +59,7 @@ import json, re, subprocess, sys
 from pathlib import Path
 
 DOCS = "https://docs.github.com/rest/pulls/pulls#update-a-pull-request-branch"
+KNOWN = set({known!r})
 STATE = Path({state!r})
 LOG = Path({log!r})
 
@@ -108,6 +111,16 @@ def show(payload):
         fail("unscripted query: " + query)
 
 
+def main_tip():
+    # GitHub's base sha: the base branch's tip now (origin's refs/heads/main).
+    tip = subprocess.run(
+        ["git", "ls-remote", "origin", "refs/heads/main"], capture_output=True, text=True
+    ).stdout.split()
+    if not tip:
+        fail("fake gh: cannot read origin's refs/heads/main for the base sha")
+    return tip[0]
+
+
 def pr_of(number):
     pr = state["prs"].get(str(number))
     if pr is None:
@@ -131,19 +144,16 @@ method = method or ("POST" if any(part in FIELDS for part in args) else "GET")
 if args[:2] == ["pr", "view"] and len(args) > 2:
     pr = pr_of(args[2])
     fields = [f for f in (option(args, "--json") or "").split(",") if f]
+    for field in fields:
+        if field not in KNOWN:
+            fail('Unknown JSON field: "' + field + '"\\nAvailable fields:\\n'
+                 + "".join("  " + k + "\\n" for k in sorted(KNOWN)))
     payload = {{}}
     for field in fields:
         if field == "headRefOid":
             payload[field] = pr["head"]
         elif field == "baseRefName":
             payload[field] = "main"
-        elif field == "baseRefOid":
-            tip = subprocess.run(
-                ["git", "ls-remote", "origin", "refs/heads/main"], capture_output=True, text=True
-            ).stdout.split()
-            if not tip:
-                fail("fake gh: cannot read origin's refs/heads/main for baseRefOid")
-            payload[field] = tip[0]
         elif field == "files":
             payload[field] = [{{"path": p, "additions": 1, "deletions": 0}} for p in pr["files"]]
         elif field == "statusCheckRollup":
@@ -188,6 +198,16 @@ if args[:2] == ["run", "rerun"] and "--failed" in args:
     sys.exit(0)
 if args[:1] == ["api"]:
     path = next((p for p in args[1:] if p.lstrip("/").startswith("repos/")), "").lstrip("/")
+    rest = re.fullmatch(r"repos/vextrus/vextrus-cubit/pulls/([0-9]+)", path)
+    if rest and method == "GET":
+        pr = pr_of(rest[1])
+        print(json.dumps({{
+            "number": int(rest[1]),
+            "state": "open",
+            "head": {{"sha": pr["head"], "ref": "pr" + rest[1]}},
+            "base": {{"sha": main_tip(), "ref": "main"}},
+        }}))
+        sys.exit(0)
     files = re.fullmatch(r"repos/vextrus/vextrus-cubit/pulls/([0-9]+)/files(\\?.*)?", path)
     if files and method == "GET":
         print(json.dumps([{{"filename": p, "status": "modified"}} for p in pr_of(files[1])["files"]]))
@@ -338,7 +358,12 @@ def install(root: Path, monkeypatch: pytest.MonkeyPatch, prs: dict[int, dict[str
     folder.mkdir(exist_ok=True)
     gh = folder / "gh"
     gh.write_text(
-        SCRIPT.format(python=sys.executable, state=str(fake.state_path), log=str(fake.log_path))
+        SCRIPT.format(
+            python=sys.executable,
+            known=sorted(GH_PR_VIEW_FIELDS),
+            state=str(fake.state_path),
+            log=str(fake.log_path),
+        )
     )
     gh.chmod(gh.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     monkeypatch.setenv("PATH", f"{folder}{os.pathsep}{os.environ.get('PATH', '')}")
