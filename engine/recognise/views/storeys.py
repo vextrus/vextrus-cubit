@@ -59,7 +59,7 @@ ARCHITECTURAL = "architectural"
 """The Discipline whose plans are drawn floor to floor (m0-screens 6.8), but those of `AT_FLOOR`."""
 AT_FLOOR = frozenset({"slab", "beam"})
 """Subjects an Architectural plan draws at its floor's level (a slab outline, a beam, a lintel): one
-whose title names any of them, first or not ("O.H.W.R BOTTOM SLAB OUTLINE"), reads at floor level."""
+whose title names any of them, first or not ("WATER TANK BOTTOM SLAB OUTLINE"), reads at floor level."""
 
 STATES_NONE = ((), ("not_stated",))
 """A plan's storeys when its own title states none: no title, or one naming no storey."""
