@@ -276,19 +276,8 @@ def test_bodies_since_reports_an_issue_body_line_without_text(leak: Leak) -> Non
     assert_no_text(done)
 
 
-def test_pr_reports_every_part_of_a_pr_without_text_and_writes_no_stamp(leak: Leak) -> None:
-    done = leak.run("pr", "12", path_prefix=_stub(leak))
-    assert done.returncode == 1, done.stdout + done.stderr
-    wheres = [where for where, _ in hits(done)]
-    assert "pr:12:title" in wheres
-    assert "pr:12:body:2" in wheres
-    assert any(where.startswith("pr:12:comment:") and where.endswith(":3") for where in wheres)
-    assert "pr:12:branch" in wheres
-    assert "src/plan.txt:2" in wheres
-    assert any(where.startswith("commit:abcdef012345:") for where in wheres)
-    assert "name:1" in wheres
-    assert leak.stamps() == []
-    assert_no_text(done)
+# `pr` reporting every part of a PR, without text and writing no stamp, is pinned from a clone by
+# ts21mr/test_pr_from_git.py (S21-MR: the diff, names and commits come from git, not gh).
 
 
 def test_a_gh_failure_cannot_scan(leak: Leak) -> None:
