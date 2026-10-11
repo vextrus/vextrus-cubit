@@ -540,3 +540,10 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   key writes the table of cases (copies, halves, another view, excluded, undo) as tests before the fix.
 - **A fourth power cut (03:41Z-09:50Z) killed every agent;** resumed copies took new names, so messages to the old
   name went to a stale Remote Control entry. No check: find sessions by `cwd` (`claude agents --json`).
+
+## Session 22 (11 Oct 2026): the Correct act (S22-FL8)
+- **An act that keeps typed text in its own row must check that text before the row is written.** S22-FL8's
+  first head wrote the correction's Confirmation (its `before` keeps the new number and title) before the
+  drawings setters checked the text, so a NUL or a lone surrogate was a 500 (jsonb refused it), not a coded
+  400; the refuter found it (score 50). Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_typed_text_that_cannot_be_kept_is_refused_with_a_code_and_nothing_is_written`).
