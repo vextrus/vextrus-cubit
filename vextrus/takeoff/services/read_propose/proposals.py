@@ -1042,9 +1042,16 @@ def _boundaries(
     meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
     (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
     claims that storey is it asked, and a meeting the convention settled before the third plan was
-    read is opened again (`step1.reopen_by_claim`), whichever file came first. Returns how many it
-    asked."""
+    read is opened again (`step1.reopen_by_claim`), whichever file came first. A third plan is one of
+    another number: copies of either meeting plan's number (a revision in a later file) are that plan,
+    and a sheet left out claims nothing. Returns how many it asked."""
     conventions = step1.sheet_conventions()
+
+    def numbered(sheet: drawings.SheetView) -> tuple[str | None, str | None] | uuid.UUID:
+        """One plan's identity: its Discipline and number (copies of a number are one), or the
+        printed sheet itself when it has no number."""
+        number = finder.normal(sheet.number)
+        return sheet.id if number is None else (sheet.discipline, number)
 
     def ranged(view: drawings.ViewView) -> bool:
         stated = view.storeys_as_stated or view.title
@@ -1066,11 +1073,16 @@ def _boundaries(
                 continue
             meeting = first.storeys[-1]
             sheet = listed[i]
+            # Copies of one number are one plan (a revised S-21 in a later file is S-21 again, never
+            # a third plan), and a sheet the QS left out claims nothing (review 2 of #648).
+            meeting_plans = {numbered(listed[k]) for k in (i, j)}
             claimed = any(
                 v.id not in (first.id, then.id)
                 and listed[k].discipline == sheet.discipline
                 and v.subject == first.subject
                 and meeting in v.storeys
+                and listed[k].decision != "excluded"
+                and numbered(listed[k]) not in meeting_plans
                 for k, v in plans
             )
             blocks = [proposal_of[sheet.id]] if sheet.id in proposal_of else []
