@@ -162,19 +162,89 @@ def test_a_meeting_plan_drawn_as_two_halves_of_one_range_is_one_plan(
 def test_a_meeting_whose_own_sheet_is_left_out_is_not_asked(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#650 (40): S-21/S-22 meet and S-23 claims the storey, so it is asked; leaving S-22 (the meeting's
-    own sheet) out withdraws the Question; undoing that asks it again."""
-    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import exclude, proposals, step1, the
+    """#650 (40, the owner's ruling of 11 Oct 2026): a meeting whose own sheet the QS left out is not
+    asked. S-21/S-22 settled by the convention; S-22 left out; then a file brings S-23 claiming the
+    storey: the settled meeting is not opened again (and no Question is retired: it stays as it is)."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import exclude, proposals, the
+    from vextrus.testing.auth import api_as
+
+    read(qs_project, monkeypatch, TWO, "KR-STR-COL-R0.dwg")
+    [settled] = boundary(qs_project)
+    api = api_as(qs_project.member)
+    s22 = the(proposals(api, qs_project.project_id), "S-22")["id"]
+    assert exclude(api, qs_project.project_id, [s22], "superseded").status_code == 200
+
+    read(qs_project, monkeypatch, THIRD, "KR-STR-SETOUT-R0.dwg")
+
+    assert open_boundaries(qs_project) == []
+    [still] = boundary(qs_project)
+    assert (still["id"], still["status"], still["answer"]["option"]) == (
+        settled["id"],
+        "answered",
+        EXCLUDES,
+    )
+
+
+def test_a_boundary_storey_left_as_it_is_is_settled_once_its_meeting_is_back_unclaimed(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#650 (50): S-21/S-22 asked (S-23 claims the storey). Leaving S-22 out leaves the Question as it
+    is; S-23 left out too; S-22 confirmed back in: the meeting is asked again with no claim, and the
+    convention settles that same Question (before the ruling, retiring withdrew it, the convention
+    skipped it as withdrawn, and the next retire opened it unclaimed)."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import confirm, exclude, proposals, the
     from vextrus.testing.auth import api_as
 
     read(qs_project, monkeypatch, [*TWO, *THIRD], "KR-STR-R0.dwg")
     [asked] = open_boundaries(qs_project)
     api = api_as(qs_project.member)
+    listed = proposals(api, qs_project.project_id)
+    s22, s23 = (the(listed, n)["id"] for n in ("S-22", "S-23"))
+
+    assert exclude(api, qs_project.project_id, [s22], "superseded").status_code == 200
+    assert [q["id"] for q in open_boundaries(qs_project)] == [asked["id"]]
+    assert exclude(api, qs_project.project_id, [s23], "superseded").status_code == 200
+    assert confirm(api, qs_project.project_id, [s22]).status_code == 200
+
+    assert open_boundaries(qs_project) == []
+    [settled] = boundary(qs_project)
+    assert (settled["id"], settled["status"], settled["answer"]["option"]) == (
+        asked["id"],
+        "answered",
+        EXCLUDES,
+    )
+
+
+def test_a_kept_open_boundary_storey_keeps_its_answer_and_hands_it_to_no_other(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#650 (50): the QS keeps the column plans' boundary storey open; S-22 is then left out, so that
+    meeting is no longer asked. The kept-open Question stays as it is, its answer its own, and the
+    shear walls' boundary storey at the same floor gets no answer it was not given (before the
+    ruling, retiring handed a kept-open answer to another storey's Question)."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import answer, exclude, proposals, the
+    from vextrus.testing.auth import api_as
+
+    walls = [
+        plan("S-31", "SHEAR WALL LAYOUT GRD TO 3RD FLOOR"),
+        plan("S-32", "SHEAR WALL LAYOUT 3RD TO 5TH FLOOR"),
+        plan("S-33", "SHEAR WALL LAYOUT AT 3RD FLOOR"),
+    ]
+    read(qs_project, monkeypatch, [*TWO, *THIRD, *walls], "KR-STR-R0.dwg")
+    asked = open_boundaries(qs_project)
+    assert len(asked) == 2
+    columns = next(q for q in asked if q["params"]["sheet"] == "S-21")
+    others = [q["id"] for q in asked if q["id"] != columns["id"]]
+    api = api_as(qs_project.member)
+    assert answer(api, qs_project.project_id, columns["id"], "keep_open").status_code == 200
     s22 = the(proposals(api, qs_project.project_id), "S-22")["id"]
 
     assert exclude(api, qs_project.project_id, [s22], "superseded").status_code == 200
-    assert open_boundaries(qs_project) == []
 
-    api.post(f"{step1(qs_project.project_id)}/undo", {})
-    [again] = open_boundaries(qs_project)
-    assert again["id"] == asked["id"]
+    by_id = {q["id"]: q for q in boundary(qs_project)}
+    assert (by_id[columns["id"]]["status"], by_id[columns["id"]]["answer"]["option"]) == (
+        "open",
+        "keep_open",
+    )
+    assert [by_id[i]["status"] for i in others] == ["open"]
+    assert [by_id[i].get("answer") for i in others] == [None]
