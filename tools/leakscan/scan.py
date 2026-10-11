@@ -433,14 +433,19 @@ def _comments(corpus: Corpus, result: Result, prefix: str, comments: Iterable[ob
 
 
 def scan_pr(corpus: Corpus, number: int) -> Result:
-    """A PR as `merge_ready` re-scans it: added lines, commit messages, file names, branch, title, body,
-    comments and reviews."""
-    fields = "number,title,body,headRefName,comments,reviews,files,commits"
-    view = gh("pr", "view", str(number), "--json", fields)
-    if not isinstance(view, dict):
+    """A PR as `merge_ready` re-scans it: title, body, comments, reviews, review comments and branch
+    through `gh` (reads only); the added lines, file names and commits from git, run from a clone, after
+    fetching `refs/pull/<n>/head` and the base (GitHub refuses `gh pr diff` over 20000 lines and gh reads
+    one page of files and commits): the net `git diff <base>...<head>`, its names, and every commit of
+    `<base>..<head>` as `range` scans it. No clone, a failed fetch or a head or base git lacks is
+    `cannot-scan gh-failed`."""
+    view = gh("pr", "view", str(number), "--json", ",".join(PR_VIEW_FIELDS))
+    pull = gh("api", f"repos/{{owner}}/{{repo}}/pulls/{number}")
+    if not isinstance(view, dict) or not isinstance(pull, dict):
         raise CannotScan("gh-failed")
-    diff = gh("pr", "diff", str(number))
     review_comments = gh("api", "--paginate", f"repos/{{owner}}/{{repo}}/pulls/{number}/comments")
+    repo = Path.cwd()
+    head, base = _pr_fetched(repo, number, pull)
     result = Result()
     prefix = f"pr:{number}"
     result.test(corpus, f"{prefix}:title", _text(view.get("title")))
@@ -449,48 +454,70 @@ def scan_pr(corpus: Corpus, number: int) -> Result:
     _comments(corpus, result, prefix, view.get("reviews") or [])
     _comments(corpus, result, prefix, review_comments if isinstance(review_comments, list) else [])
     result.test(corpus, f"{prefix}:branch", _text(view.get("headRefName")))
-    names = [_text(item.get("path")) for item in view.get("files") or [] if isinstance(item, dict)]
-    scan_diff(corpus, result, diff if isinstance(diff, str) else "", names)
-    for commit in view.get("commits") or []:
-        if isinstance(commit, dict):
-            headline, body = _text(commit.get("messageHeadline")), _text(commit.get("messageBody"))
-            scan_message(
-                corpus, result, _text(commit.get("oid")), f"{headline}\n\n{body}" if body else headline
-            )
-    _scan_pr_commits(corpus, result, number, view.get("commits") or [], names)
+    span = f"{base}...{head}"
+    common = (
+        "--no-color",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--text",
+        "--no-renames",
+        "--no-relative",
+        "--ignore-submodules=none",
+    )
+    listed = _run(repo, "diff", *common, "--name-only", "-z", span, "--")
+    names = [name for name in listed.split("\0") if name]
+    scan_diff(corpus, result, _run(repo, "diff", *common, span, "--"), names)
+    commits = _run(repo, "rev-list", "--reverse", "--topo-order", f"{base}..{head}", "--").split()
+    for sha in commits:
+        message = _run(repo, "log", "-1", "--format=%B", sha, "--")
+        scan_message(corpus, result, sha, message.strip("\n"))
+    for sha in commits:
+        scan_commit(corpus, result, repo, sha, names)
     scan_names(corpus, result, names)
     return result
 
 
-def _scan_pr_commits(
-    corpus: Corpus, result: Result, number: int, commits: list[Any], names: list[str]
-) -> None:
-    """Each of the PR's commits, scanned locally commit by commit (`gh pr diff` is only the net diff).
-    Run from a clone (the main checkout); a commit it lacks is fetched from the PR's head ref, and one
-    still missing refuses the scan. Outside a clone only the net diff is read."""
-    repo = Path.cwd()
+# What `gh pr view --json` is asked for: each must be a field gh knows (`baseRefOid` is not one; the
+# head and base shas come from the REST pull instead), or gh exits 1 and the PR cannot be scanned.
+PR_VIEW_FIELDS = ("number", "title", "body", "headRefName", "comments", "reviews")
+_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def _pr_fetched(repo: Path, number: int, pull: dict[str, Any]) -> tuple[str, str]:
+    """The PR's head and base shas (the REST pull's), once the clone holds both: `refs/pull/<n>/head`
+    and the base branch fetched from origin. No clone, a failed fetch or a sha git lacks:
+    `cannot-scan gh-failed`."""
+    tip, root = pull.get("head"), pull.get("base")
+    tip, root = (tip if isinstance(tip, dict) else {}), (root if isinstance(root, dict) else {})
+    head, base, branch = _text(tip.get("sha")), _text(root.get("sha")), _text(root.get("ref"))
+    if not (_SHA.fullmatch(head) and _SHA.fullmatch(base)) or not branch or branch.startswith("-"):
+        raise CannotScan("gh-failed")
     if git(repo, "rev-parse", "--git-dir").returncode != 0:
-        return
-    oids = [_text(commit.get("oid")) for commit in commits if isinstance(commit, dict)]
-
-    def missing() -> list[str]:
-        return [oid for oid in oids if git(repo, "cat-file", "-e", f"{oid}^{{commit}}").returncode != 0]
-
-    if missing():
-        try:
-            subprocess.run(
-                ["git", "fetch", "-q", "--no-tags", "origin", f"refs/pull/{number}/head"],
-                cwd=repo,
-                capture_output=True,
-                check=False,
-                timeout=300,
-            )
-        except _GH_FAILED:
-            raise CannotScan("gh-failed") from None
-        if missing():
+        raise CannotScan("gh-failed")
+    try:
+        fetched = subprocess.run(
+            [
+                "git",
+                "fetch",
+                "-q",
+                "--no-tags",
+                "origin",
+                f"refs/pull/{number}/head",
+                f"refs/heads/{branch}",
+            ],
+            cwd=repo,
+            capture_output=True,
+            check=False,
+            timeout=300,
+        )
+    except _GH_FAILED:
+        raise CannotScan("gh-failed") from None
+    if fetched.returncode != 0:
+        raise CannotScan("gh-failed")
+    for sha in (head, base):
+        if git(repo, "cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
             raise CannotScan("gh-failed")
-    for oid in oids:
-        scan_commit(corpus, result, repo, oid, names)
+    return head, base
 
 
 def scan_bodies(corpus: Corpus, since: str) -> Result:
