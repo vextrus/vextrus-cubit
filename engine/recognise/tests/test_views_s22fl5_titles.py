@@ -1,8 +1,9 @@
 """S22-FL5's builder tests, review 1 of PR #676: a text of 13 to 16 words is a view title only when it is
 one line stating storeys that stands in no drawing. A callout of that length naming a kind word inside a
-plan's grid stays the plan's annotation (with storeys or not) (the plan keeps its own title and its drawing), and a one-line
-notes heading of that length with nothing under it stays a notes view of its own. Every title and note
-here is invented; the sheets are drawn as the acceptance cases' (`ts22fl5/drawing.py`).
+plan's grid, stating storeys or not, stays the plan's annotation (the plan keeps its own title and its
+drawing), and a one-line notes heading of that length with nothing under it stays a notes view of its
+own. Every title and note here is invented; the sheets are drawn as the acceptance cases'
+(`ts22fl5/drawing.py`).
 
     uv run pytest engine/recognise/tests/test_views_s22fl5_titles.py
 """
