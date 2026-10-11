@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -159,7 +159,7 @@ export interface SheetChange {
 function CorrectedWords({ change }: { change: SheetChange }) {
   const to = change.number !== undefined ? <DrawingText kind="sheet-number" text={change.number} truncate={false} /> : null
   if (to && change.title !== undefined) return <Trans>number → {to}; title</Trans>
-  if (to) return <Trans>number → {to}</Trans>
+  if (to) return <Trans context="a correction, after its sheet's name">number → {to}</Trans>
   return <Trans>title</Trans>
 }
 
@@ -183,6 +183,18 @@ export interface Step1Acts {
  * Step 1 reloaded after the act (#167, F1), so the toast never stands beside the Count it changed.
  */
 export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1Acts {
+  // A correction is one of the acts below (its Ctrl Z and its toast are theirs), handed out through a ref.
+  const corrector = useRef<Step1Acts['correctSheet'] | null>(null)
+  const handOut = useCallback((correct: Step1Acts['correctSheet']) => {
+    corrector.current = correct
+  }, [])
+  const acts = useActs(projectId, shown, handOut)
+  const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change) => corrector.current?.(sheet, change) ?? Promise.resolve(false), [])
+  return { ...acts, correctSheet }
+}
+
+/** Step 1's acts but the correction, which it gives `handOut` for `useStep1Acts` to return. */
+function useActs(projectId: string, shown: Step1Data | null | undefined, handOut: (correct: Step1Acts['correctSheet']) => void): Omit<Step1Acts, 'correctSheet'> {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -626,7 +638,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
         [() => correct(projectId, sheet.id, change)],
         <Trans>corrected {name}</Trans>,
         sheet.decision === 'excluded' ? (
-          <Trans>
+          <Trans context="the toast of a correction of an excluded sheet">
             Corrected {name}: {what}. It stays excluded.
           </Trans>
         ) : (
@@ -638,6 +650,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     },
     [projectId, run],
   )
+  useLayoutEffect(() => handOut(correctSheet), [handOut, correctSheet])
 
   const answerQuestion = useCallback(
     async (entry: QuestionEntry, option: string, text = '') => {
@@ -677,5 +690,5 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     [begin, marked, projectId, say, settle, showDone],
   )
 
-  return { bulk, confirmSheets, excludeSheets, correctSheet, setDrawingList, answerQuestion, undoLast, busy }
+  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }
 }
