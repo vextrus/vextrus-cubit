@@ -9,7 +9,11 @@ Promises pinned here:
 1. **The statements run under Step 1's write lock do not grow with the views a sheet has.** The same
    number of sheets at 5 and at 50 views a sheet: the counts differ by at most `SLACK`, and each is at
    most `PER_SHEET` a sheet plus `CONSTANT`.
-2. **An act is answered while a big file finishes.** An exclude issued the moment a 30-sheet,
+2. **The written result is unchanged.** The Proposals (keys, values, sources), Traces, Coverage rows
+   and Coverage Steps the step writes are those the per-view writes on main write
+   (`step1.propose_view`, `step1.record_coverage`), and the step run again on the same file updates
+   every row in place, never duplicating one (these two are guards: green on main, kept green).
+3. **An act is answered while a big file finishes.** An exclude issued the moment a 30-sheet,
    10-views-a-sheet file's `finishing` takes the lock is answered 200, never 503.
 
 `PER_SHEET` = 60: the acceptance writer's sketch (a sheet's views' Proposals, Traces, Coverage rows and
@@ -143,3 +147,36 @@ def test_an_exclude_issued_while_a_30_sheet_file_finishes_is_answered_not_busy(
     many_views.assert_read(qs_project, later)
     [after] = [p for p in proposals(api, qs_project.project_id) if p["id"] == s01["id"]]
     assert after["decision"] == "excluded", after
+
+
+# The written result unchanged (guards: green on main) ---------------------------------------------
+
+ROW_SHEETS = 3
+ROW_VIEWS = 7
+
+
+def test_each_view_has_its_proposal_traces_coverage_and_steps_as_before(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One view Proposal per view keyed `view:<id>` with the view's values, its Traces (its anchors,
+    or its place), one Coverage row and a CoverageStep per Takeoff Step: as the per-view writes."""
+    file_id = many_views.read(qs_project, monkeypatch, "S22LH-SAME.dwg", ROW_SHEETS, ROW_VIEWS)
+    assert many_views.views_found(qs_project, file_id) >= ROW_SHEETS * ROW_VIEWS
+    expected = many_views.expected_from_the_views(qs_project, file_id)
+    assert many_views.written_for_the_views(qs_project) == expected
+
+
+def test_the_finishing_step_run_again_updates_every_row_in_place(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The step run again on the same file (a retried step): every Proposal, Trace, Coverage row and
+    Coverage Step is the same row with the same values, none added, none lost."""
+    file_id = many_views.read(qs_project, monkeypatch, "S22LH-AGAIN.dwg", ROW_SHEETS, ROW_VIEWS)
+    first = many_views.written(qs_project)
+    assert first["proposals"], first
+    assert first["traces"], first
+    assert first["coverage"], first
+    many_views.finishing_again(qs_project, file_id, ROW_SHEETS, ROW_VIEWS)()
+    assert many_views.written(qs_project) == first
+    expected = many_views.expected_from_the_views(qs_project, file_id)
+    assert many_views.written_for_the_views(qs_project) == expected
