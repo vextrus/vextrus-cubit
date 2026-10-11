@@ -158,7 +158,8 @@ class ProposalView:
     storeys_as_stated: str = ""
     storeys_titled: tuple[str, ...] | None = None
     """The storey keys its title's storey words read to (17's `views.titled_storeys`, with where a
-    range runs to), derived on the read and stored nowhere; None when it states none or they read to
+    range runs to, a range's `top` resolved to the set's highest numbered floor: 13's `to_top`),
+    derived on the read and stored nowhere; None when it states none or they read to
     no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
@@ -429,6 +430,13 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
     titled = _titled({s.storeys_as_stated for s in sheets})
+    # A range to the roof or the top floor shown up to the set's highest numbered floor (S21-C4):
+    # read across every file's titles and views, here only; the checks above compare as read.
+    highest = view_finder.highest_floor(
+        [*(k for k in titled.values() if k), *(v.storeys for vs in viewed for v in vs)]
+    )
+    titled = {text: _to_top(keys, highest) for text, keys in titled.items()}
+    shown = [[_view_to_top(v, highest) for v in vs] for vs in viewed]
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
@@ -438,8 +446,18 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
             **asdict(grouped.get(s.id, groups.ALONE)),
         )
-        for s, views in zip(sheets, viewed, strict=True)
+        for s, views in zip(sheets, shown, strict=True)
     ]
+
+
+def _to_top(keys: tuple[str, ...] | None, highest: int | None) -> tuple[str, ...] | None:
+    return view_finder.to_top(keys, highest) if keys else keys
+
+
+def _view_to_top(view: drawings.ViewView, highest: int | None) -> drawings.ViewView:
+    """A view as Step 1 shows it: a range's `top` resolved (13's `storeys.to_top`)."""
+    storeys = view_finder.to_top(view.storeys, highest)
+    return view if storeys == view.storeys else replace(view, storeys=storeys)
 
 
 def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:

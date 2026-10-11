@@ -28,6 +28,8 @@ class Step1ViewOut(Schema):
     stated_scale: str
     not_to_scale: bool
     storeys: list[str]
+    """Its storey keys; a range's symbolic `top` shown to the set's highest numbered floor, as
+    `storeys_titled`'s (S21-C4)."""
     storeys_as_stated: str
     storeys_meaning: str | None
     storeys_source: str | None = None
@@ -85,8 +87,10 @@ class Step1ProposalOut(_FromView):
     storeys_as_stated: str
     """The storeys its title states, as drawn ("3RD, 5TH & 7TH FLOOR"); "" for none."""
     storeys_titled: list[str] | None = None
-    """The storey keys those words read to (["floor_3", "floor_5"]; a range's symbolic end last:
-    ["floor_1", "top"]); null when it states none or they read to no storey."""
+    """The storey keys those words read to (["floor_3", "floor_5"]); a range to the roof or the top
+    floor runs to the set's highest numbered floor (S21-C4), and keeps its symbolic end last
+    (["floor_1", "top"]) only where the set states no numbered floor at or above its start; null when
+    it states none or they read to no storey."""
     layout: str | None
     """The layout it is laid out on, by name; null when laid out in the drawing."""
     plot_file: str | None
