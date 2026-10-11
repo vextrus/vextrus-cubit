@@ -403,3 +403,14 @@ def test_files_refuses_an_answer_that_is_not_a_pull_request(
     monkeypatch.setattr(gh, "_run", lambda *argv: body)
     with pytest.raises(Refused, match="not a pull request"):
         gh.files(7)
+
+
+@pytest.mark.parametrize("ref", ["--upload-pack=x", "a:b", "x y", ""])
+def test_files_refuses_a_base_that_is_not_a_plain_branch_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ref: str
+) -> None:
+    gh = Gh(tmp_path)
+    body = json.dumps({"head": {"sha": "a"}, "base": {"sha": "b", "ref": ref}})
+    monkeypatch.setattr(gh, "_run", lambda *argv: body)
+    with pytest.raises(Refused, match="plain branch name"):
+        gh.files(7)
