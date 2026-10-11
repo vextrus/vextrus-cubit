@@ -272,6 +272,12 @@ inside Step 1's write lock). Linear in the page's items; a real title block's re
 steps."""
 CHAIN_STEPS_FLOOR = 4096
 """The budget's least, for a page of few items."""
+TITLE_STEPS_PER_ITEM = 4
+"""How many steps all the title reads of one page naming several sheets may take together, per item of
+the page (`_title_named`): a few, not `CHAIN_STEPS_PER_ITEM`, since each line a read visits is charged a
+step and a page of short lines each starting with a title's word made 32 reads visit every line,
+about 10 reads' time (the refuter on review 1 of #653). Past it the page keeps naming several, as it
+did before its titles were read; a real page's reads take a few steps a candidate."""
 
 
 def title_read(page: Page, title: str | None, budget: list[int] | None = None) -> TitleRead:
@@ -286,13 +292,54 @@ def title_read(page: Page, title: str | None, budget: list[int] | None = None) -
     wanted = _words(title)
     if not wanted:
         return TitleRead(False)
+    text = _text(page)
+    left = (
+        budget
+        if budget is not None
+        else [max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(text.lines))]
+    )
+    return _read(text, wanted, left)
+
+
+@dataclass(frozen=True)
+class _Text:
+    """A page's text as its titles are read: the items holding a word, each with its words in 13's
+    normal form (`lines`), and where each word is: the lines holding it (`holding`) and the lines it
+    starts (`starting`), each in the page's order. Made once for all a page's reads (`_title_named`;
+    review 1 of #653: a pass over the page per candidate, never charged, made 32 reads cost 33 passes,
+    and a walk of every line per read made a page of many short items cost 12 reads): a read visits
+    only the lines holding its title's first word or starting with one of its words, each visit
+    charged to its budget."""
+
+    lines: list[tuple[TextItem, list[str]]]
+    holding: dict[str, list[int]]
+    starting: dict[str, list[int]]
+
+
+def _text(page: Page) -> _Text:
     lines = [(item, words) for item in page.items if (words := _words(item.text))]
+    holding: dict[str, list[int]] = {}
+    starting: dict[str, list[int]] = {}
+    for i, (_, words) in enumerate(lines):
+        for word in dict.fromkeys(words):
+            holding.setdefault(word, []).append(i)
+        starting.setdefault(words[0], []).append(i)
+    return _Text(lines, holding, starting)
+
+
+def _read(text: _Text, wanted: list[str], left: list[int]) -> TitleRead:
+    """`title_read` on the page's `_text`, for the title's words `wanted` (none empty), each
+    comparison charged to `left`. Only the lines a comparison is charged for are visited, in the
+    page's order: a line neither holding the title's first word nor starting with one of its words
+    holds no part of a chain (each line visited is charged at least one step)."""
+    lines = text.lines
     n = len(wanted)
-    left = budget if budget is not None else [max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))]
     if left[0] <= 0:
         return TitleRead(False, cut=True)  # a shared budget spent by the page's earlier reads
     # One item's run of words holding the title whole: each place it could start is compared.
-    for _, words in lines:
+    leading = text.holding.get(wanted[0], [])
+    for i in leading:
+        words = lines[i][1]
         for j in _places(words, wanted[0], 0, len(words) - n + 1):
             left[0] -= n
             if words[j : j + n] == wanted:
@@ -309,7 +356,11 @@ def title_read(page: Page, title: str | None, budget: list[int] | None = None) -
     finishing: dict[int, list[TextItem]] = {}
     continuing: dict[int, list[tuple[TextItem, int]]] = {}
     reached: list[tuple[TextItem, int]] = []
-    for item, words in lines:
+    visited = set(leading)
+    for word in at:
+        visited.update(text.starting.get(word, ()))
+    for i in sorted(visited):
+        item, words = lines[i]
         size = len(words)
         places = at.get(words[0], [])
         # The item holds the rest of the title from word k on (k its first word's place).
@@ -464,21 +515,23 @@ def _title_named(page: Page, sheets: Sequence[SheetCandidate], candidates: Seque
     candidates share: a title read twice tells nothing apart), when a read was cut at its budget (a
     title it may read), or when there are more than `MAX_TITLE_READS` candidates. A title is read
     only when each of its words is a word of the page (a chain of items reads none other), and the
-    page's reads share one read's budget (`title_read`'s, charged their tables and their walks): a
-    page whose reads it cannot pay for keeps naming several."""
+    page's reads share one budget of `TITLE_STEPS_PER_ITEM` a page item (charged their tables, their
+    walks and each line they visit): a page whose reads it cannot pay for keeps naming several. The
+    page's text is put in normal form and indexed once for all its reads (`_text`; review 1 of #653),
+    so the page costs one pass over its text and a few charged steps an item, however many candidates
+    are read."""
     if not candidates or len(candidates) > MAX_TITLE_READS:
         return None
-    lines = [words for item in page.items if (words := _words(item.text))]
-    words_on_page = {word for words in lines for word in words}
-    budget = [max(CHAIN_STEPS_FLOOR, CHAIN_STEPS_PER_ITEM * len(lines))]
+    text = _text(page)  # once for every read: each read is charged for the lines it visits
+    budget = [max(CHAIN_STEPS_FLOOR, TITLE_STEPS_PER_ITEM * len(text.lines))]
     read: list[int] = []
     for i in dict.fromkeys(candidates):
         sourced = sheets[i].title
         title = sourced.value if sourced is not None else None
         wanted = _words(title)
-        if not wanted or not words_on_page.issuperset(wanted):
+        if not wanted or not all(word in text.holding for word in wanted):
             continue
-        answer = title_read(page, title, budget)
+        answer = _read(text, wanted, budget)
         if answer.cut:
             return None
         if answer.alike:
