@@ -2,14 +2,12 @@
 the reads of a page share) is charged every comparison the read makes, the tables' building as the
 walk (#642), and a read the shared budget cannot pay for is cut. Every word is invented."""
 
-import time
-from collections.abc import Callable
-
 import pytest
 
 from engine.plot import registration
 from engine.plot.tests.test_plot import item, page_of
 from engine.plot.tests.test_title_named import marks, named, titled
+from engine.plot.tests.timing import best_of
 from engine.read.pdf.types import Page
 from engine.recognise.types import SheetCandidate
 
@@ -70,12 +68,9 @@ def test_a_page_of_many_scattered_titles_costs_about_one_read() -> None:
     page passes. The page's items are put in normal form once; its reads share one budget."""
     page, sheets = _scattered_titles_page()
 
-    began = time.monotonic()
-    registration.title_read(page, "INVENTEDHEAD0 INVENTEDTAIL0")
-    one = time.monotonic() - began
-    began = time.monotonic()
+    one = best_of(lambda: registration.title_read(page, "INVENTEDHEAD0 INVENTEDTAIL0"))
+    page_reads = best_of(lambda: named(page, sheets))
     found = named(page, sheets)
-    page_reads = time.monotonic() - began
 
     assert found == "names_several_sheets"
     assert page_reads < 4 * one + 0.05, (page_reads, one)
@@ -122,12 +117,9 @@ def test_a_page_of_many_short_items_and_scattered_titles_costs_about_one_read() 
     pad = [item(f"W{i}X", 1.0, (5000.0 + i % 97, 5000.0, 5001.0 + i % 97, 5001.0)) for i in range(20000)]
     page = page_of(*marks(numbers), *heads, *tails, *pad)
 
-    began = time.monotonic()
-    registration.title_read(page, "INVENTEDHEAD0 INVENTEDTAIL0")
-    one = time.monotonic() - began
-    began = time.monotonic()
+    one = best_of(lambda: registration.title_read(page, "INVENTEDHEAD0 INVENTEDTAIL0"))
+    page_reads = best_of(lambda: named(page, sheets))
     found = named(page, sheets)
-    page_reads = time.monotonic() - began
 
     assert found == "names_several_sheets"
     assert page_reads < 4 * one + 0.05, (page_reads, one)
@@ -151,12 +143,9 @@ def test_a_page_of_short_lines_each_starting_every_title_costs_about_one_read() 
     ]
     page = page_of(*marks(numbers), *pad, *tails)
 
-    began = time.monotonic()
-    registration.title_read(page, "INVENTEDLEAD INVENTEDTAIL0")
-    one = time.monotonic() - began
-    began = time.monotonic()
+    one = best_of(lambda: registration.title_read(page, "INVENTEDLEAD INVENTEDTAIL0"))
+    page_reads = best_of(lambda: named(page, sheets))
     found = named(page, sheets)
-    page_reads = time.monotonic() - began
 
     assert found == "names_several_sheets"
     assert page_reads < 4 * one + 0.05, (page_reads, one)
@@ -183,20 +172,12 @@ def test_a_page_whose_first_candidates_read_is_cheap_and_the_rest_dear_costs_abo
     ]
     page = page_of(*marks(numbers), *rare, *pad, *tails)
 
-    one = min(
-        _timed(lambda: registration.title_read(page, "INVENTEDRARE INVENTEDTAIL0")) for _ in range(3)
-    )
-    page_reads = _timed(lambda: named(page, sheets))
+    one = best_of(lambda: registration.title_read(page, "INVENTEDRARE INVENTEDTAIL0"))
+    page_reads = best_of(lambda: named(page, sheets))
 
     assert named(page, sheets) == "names_several_sheets"
     assert page_reads < 4 * one + 0.05, (page_reads, one)
     assert registration.TITLE_STEPS_PER_ITEM == 1
-
-
-def _timed(call: Callable[[], object]) -> float:
-    began = time.monotonic()
-    call()
-    return time.monotonic() - began
 
 
 # Review 2 of #653: titles held whole are read first, for every candidate at once, never cut
@@ -274,8 +255,8 @@ def test_32_candidates_of_2000_word_titles_one_held_whole_stays_within_the_bound
     ]
     page = page_of(*marks(numbers), *lines, *ends, item(titles[0], 1.0, (10.0, 10.0, 11.0, 11.0)))
 
-    one = min(_timed(lambda: registration.title_read(page, titles[0])) for _ in range(3))
-    page_reads = _timed(lambda: named(page, sheets))
+    one = best_of(lambda: registration.title_read(page, titles[0]))
+    page_reads = best_of(lambda: named(page, sheets))
 
     assert named(page, sheets) == 0
     assert page_reads < 4 * one + 0.05, (page_reads, one)
@@ -327,10 +308,8 @@ def test_chain_reads_charge_each_line_they_visit_holding_a_titles_first_word_mid
     ]
     page = page_of(*marks(numbers), *rare, *pad, *tails)
 
-    one = min(
-        _timed(lambda: registration.title_read(page, "INVENTEDRARE INVENTEDTAIL0")) for _ in range(3)
-    )
-    page_reads = _timed(lambda: named(page, sheets))
+    one = best_of(lambda: registration.title_read(page, "INVENTEDRARE INVENTEDTAIL0"))
+    page_reads = best_of(lambda: named(page, sheets))
 
     assert named(page, sheets) == "names_several_sheets"
     assert page_reads < 4 * one + 0.05, (page_reads, one)
