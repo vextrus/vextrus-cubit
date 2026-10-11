@@ -6,6 +6,7 @@ subject and layer, and what it is proposed for.
                                                           (the `views` stage; `.paper`)
     views.working_view(views) -> int | None                            (16's and 22's fit)
     views.titled_storeys(stated, sheet_conventions=None) -> tuple[str, ...]  (Step 1's `storeys_titled`)
+    views.highest_floor(lists) -> int | None; views.to_top(keys, highest)  (13's top resolved, S21-C4)
     views.kind_steps(kind, discipline, conventions=None) -> tuple[str, ...]  (Step 1, #158)
     views.subjects(text, conventions=None) -> frozenset[str]             (19b's continuations)
     views.describe(text, conventions=None) -> Described                   (19b's continuations)
@@ -39,6 +40,7 @@ from collections.abc import Sequence
 from engine.read.anchor import DwgAnchor
 from engine.read.artefact import ReadArtefact
 from engine.recognise import scales
+from engine.recognise.storeys import highest_floor, to_top
 from engine.recognise.types import (
     Box,
     SheetCandidate,
@@ -92,9 +94,11 @@ __all__ = [
     "default_conventions",
     "describe",
     "find",
+    "highest_floor",
     "kind_steps",
     "subjects",
     "titled_storeys",
+    "to_top",
     "working_view",
 ]
 

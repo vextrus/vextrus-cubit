@@ -1,6 +1,8 @@
 """Storeys as a title states them, and as an explicit list, by code (13; ADR 0011: code owns storeys).
 
     storeys.read(text, conventions, *, plan_title) -> Storeys
+    storeys.highest_floor(lists) -> int | None          (a set's highest stated `floor_<n>`)
+    storeys.to_top(keys, highest) -> tuple[str, ...]     (a range's `top` resolved to it; S21-C4)
 
 `text` is a decoded title (11's `engine.text.decode`); `conventions` carries the words (the
 `SheetConventions` storey fields: data a Drafting Profile extends in M1); `plan_title` says the text
@@ -48,11 +50,19 @@ than `MAX_DIGITS` digits is never turned into a number, and a phrase naming a fl
 (or the 0th) is kept as stated, with no list: a safety bound, not a storey total. A digit is a
 Unicode decimal digit of any script (a fullwidth 1 and "st" is the 1st); a superscript or other
 numeral is not one.
+
+**The top resolved** (S21-C4; Step 1 shows it, nothing stores it): a title reads alone, so a range to
+the roof or the top floor ends at the symbolic `top`. Given the highest `floor_<n>` stated anywhere in
+a Drawing Set (`highest_floor`: every sheet title's and view's keys), `to_top` replaces a range's `top`
+(the last key, after a concrete start) by the floors above the start's highest numbered floor up to
+it, the ground floor too where the start is below ground, and keeps every other key (the roof only
+where the title states it). With no numbered floor, or one below the start, `top` stays; a `top` not
+ending a range (alone, or listed beside other storeys: first in the keys) is never touched.
 """
 
 import re
 import unicodedata
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -131,6 +141,54 @@ def read(text: str, conventions: SheetConventions, *, plan_title: bool) -> Store
         ordered = ("not_stated",)
     ranged = len(phrases) == 1 and not below and phrases[0].is_one_range()
     return Storeys(as_stated=as_stated, keys=ordered, runs_to=runs_to, below_ground=below, ranged=ranged)
+
+
+_FLOOR_KEY = re.compile(r"floor_([1-9][0-9]*)")
+ABOVE_FLOORS = frozenset({"roof", "stair_room_roof", "lift_machine_room", "lift_machine_room_roof"})
+"""The keys ranked above every numbered floor (the roofs and what stands on them)."""
+SYMBOLIC = frozenset({"typical", "top", "not_stated"})
+_BELOW_GROUND = frozenset({"pile", "pile_cap", "foundation", "lower_ground", "plinth"})
+
+
+def _floor(key: str) -> int | None:
+    """The number of a `floor_<n>` key within 1 to `MAX_FLOOR`; none for any other key."""
+    found = _FLOOR_KEY.fullmatch(key) if len(key) <= 16 else None
+    n = int(found.group(1)) if found else None
+    return n if n is not None and n <= MAX_FLOOR else None
+
+
+def highest_floor(lists: Iterable[Iterable[str]]) -> int | None:
+    """The highest numbered floor (`floor_<n>`) any of the storey key lists states; none for none."""
+    return max((n for keys in lists for k in keys if (n := _floor(k)) is not None), default=None)
+
+
+def to_top(keys: Sequence[str], highest: int | None) -> tuple[str, ...]:
+    """A range's symbolic `top` resolved to the set's highest floor (the module's docstring): the keys
+    unchanged unless `top` is their last key after a concrete start and `highest` is at or above the
+    start's highest numbered floor."""
+    keys = tuple(keys)
+    if highest is None or not keys or keys[-1] != "top" or "top" in keys[:-1]:
+        return keys
+    rest = keys[:-1]
+    starts = [k for k in rest if k not in SYMBOLIC and k not in ABOVE_FLOORS]
+    if not starts:
+        return keys
+    start = max((n for k in starts if (n := _floor(k)) is not None), default=0)
+    if highest < start:
+        return keys
+    floors = [f"floor_{n}" for n in range(start + 1, highest + 1)]
+    at = next((i for i, k in enumerate(rest) if k in ABOVE_FLOORS), len(rest))
+    found = [*rest[:at], *floors, *rest[at:]]
+    if start == 0 and "ground" not in rest and any(_below_ground(k) for k in starts):
+        # A range from below ground lists the ground floor (as `read`'s ranges do).
+        found.insert(
+            next((i for i, k in enumerate(found) if not _below_ground(k)), len(found)), "ground"
+        )
+    return tuple(dict.fromkeys(found))
+
+
+def _below_ground(key: str) -> bool:
+    return key in _BELOW_GROUND or key.startswith("basement_")
 
 
 def names_a_plan(text: str, conventions: SheetConventions) -> bool:
