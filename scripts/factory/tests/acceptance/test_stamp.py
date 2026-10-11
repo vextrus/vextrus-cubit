@@ -218,7 +218,7 @@ def test_s6_a_builders_budget_record_lives_in_the_main_repos_git_folder(
 
 # S7
 @pytest.mark.parametrize(
-    ("budget", "minutes"), [("11h", 660), ("330m", 330), ("5h30m", 330), ("abc", None)]
+    ("budget", "minutes"), [("11h", 660), ("330m", 330), ("5h30m", 330), ("90", None), ("abc", None)]
 )
 def test_s7_budget_forms_parse_to_minutes_and_a_non_duration_exits_2(
     stamp: Stamp, budget: str, minutes: int | None
