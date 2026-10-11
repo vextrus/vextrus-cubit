@@ -888,7 +888,9 @@ def _boundaries(
     phrase never meets). By the Dhaka convention the first plan's columns stop at that slab, so the
     meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
     (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
-    claims that storey is it asked. Returns how many it asked."""
+    claims that storey is it asked, and a meeting the convention settled before the third plan was
+    read is opened again (`step1.reopen_by_claim`), whichever file came first. Returns how many it
+    asked."""
     conventions = step1.sheet_conventions()
 
     def ranged(view: drawings.ViewView) -> bool:
@@ -934,6 +936,9 @@ def _boundaries(
                 blocks=blocks,
             )
             if claimed:
+                # A third plan read after the convention settled the meeting: asked, never left
+                # settled (review 1 of #648: the claim must not depend on which file came first).
+                step1.reopen_by_claim(project_id, question_id)
                 asked += 1
                 continue
             traces = [

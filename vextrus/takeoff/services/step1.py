@@ -2952,6 +2952,27 @@ def settle_by_convention(
     return True
 
 
+def reopen_by_claim(project_id: uuid.UUID, question_id: uuid.UUID) -> bool:
+    """Open again a Question the convention settled (`settle_by_convention`) once a third plan claims
+    its storey (the owner's ruling, session 19: the convention settles two plans; a third plan's claim
+    is asked; review 1 of #648): its answer is withdrawn, so the QS answers it; the convention's
+    Traces stay (Traces are never deleted: they say what was read). One the QS answered, or still
+    open, is left as it is; whether this call opened it."""
+    projects.get(project_id)
+    with writing(project_id):
+        row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
+        if row is None:
+            raise auth.NotFound
+        if row.status != QuestionStatus.ANSWERED or (row.answer or {}).get("by") != "convention":
+            return False
+        row.status = QuestionStatus.OPEN
+        row.answer = None
+        row.answered_at = None
+        row.save(update_fields=["status", "answer", "answered_at"])
+        record_progress(project_id)
+    return True
+
+
 @dataclass(frozen=True)
 class Answered:
     question: QuestionView
