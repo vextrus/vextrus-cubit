@@ -6,8 +6,17 @@ which reads the set once for every Check it runs, and runs the Check before Step
 (S21-C1: `found`, writing nothing), keeping its results under it (`ask`).
 
     results = storey_questions.found(sheets, views, recognisers, conventions)
+    stale = storey_questions.stale_copies(results, sheets, views, recognisers, same_titles)
     storey_questions.ask(project_id, listed, sheets, views, proposal_of, results,
-                         options=...) -> int    (how many Questions were asked)
+                         options=..., stale=...) -> int    (how many Questions were asked)
+
+A stale copy (S21-C2) is asked by its `same_title` conflict alone: a sheet whose title's storeys are
+exactly the plans' storeys of a sheet sharing its title (a `same_title` conflict holding both), not
+its own plans', is a title block copied onto the next sheet; the conflict's answer settles it, so
+its finding is recorded under that conflict's Question and no storey-titles Question holds it, while
+that Question is open. Which sheets are stale copies is found before the lock with the Check
+(`stale_copies`, from the set's inputs alone); which conflict's Question is asked and open, and which
+sheet is undecided, are read under it (`ask`).
 """
 
 import json
@@ -37,6 +46,11 @@ one of the same counts (S15-E3's refuter: plans redrawn from the 6th to the 7th 
 It is never worded: Step 1's Question takes the finding's own params."""
 
 
+def _drawn(views: Sequence[ViewCandidate]) -> frozenset[str]:
+    """The storey keys a sheet's plans name."""
+    return frozenset(s for v in views if v.kind == ViewKind.PLAN for s in v.storeys)
+
+
 def _with_plans(finding: Message, views: Sequence[ViewCandidate]) -> Message:
     """The finding as recorded: its params and `PLANS`, its sheet's plans' storey keys in order."""
     plans = sorted(" ".join(v.storeys) for v in views if v.kind == ViewKind.PLAN)
@@ -60,6 +74,47 @@ def found(
     return storey_titles.check(reading, recognisers=recognisers)
 
 
+def stale_copies(
+    results: Sequence[CheckResult],
+    sheets: Sequence[SheetCandidate],
+    views: Sequence[Sequence[ViewCandidate]],
+    recognisers: finder.Recognisers,
+    same_titles: Sequence[tuple[int, Sequence[int]]],
+) -> dict[int, tuple[int, ...]]:
+    """The disagreeing sheets (`results`: `found`'s run over `sheets` and `views`) that may be stale
+    copies, by sheet index: the keys of the `same_title` conflicts (`same_titles`: each conflict's key
+    and the indices of every sheet it holds, decided ones too) whose other sheet's plans' storeys are
+    exactly the sheet's title storeys (13's keys, as the Check reads them), which are not its own
+    plans'; in `same_titles`' order. It reads no decision and writes nothing: `ask` keeps the first
+    one asked, while its Question is open, for an undecided sheet."""
+    of: dict[int, list[tuple[int, Sequence[int]]]] = {}
+    for conflict in same_titles:
+        for held in conflict[1]:
+            of.setdefault(held, []).append(conflict)
+    at = {id(c): i for i, c in enumerate(sheets)}
+    copies: dict[int, tuple[int, ...]] = {}
+    for result in results:
+        if result.outcome != CheckOutcome.FIRED or result.finding is None or result.subject is None:
+            continue
+        index = at.get(id(result.subject))
+        if index is None or index not in of:
+            continue
+        stated = sheets[index].storeys_as_stated
+        if stated is None:
+            continue
+        title = frozenset(recognisers.storeys(stated.value))
+        if not title or title == _drawn(views[index]):
+            continue
+        keys = tuple(
+            key
+            for key, held in of[index]
+            if any(other != index and _drawn(views[other]) == title for other in held)
+        )
+        if keys:
+            copies[index] = keys
+    return copies
+
+
 def ask(
     project_id: uuid.UUID,
     listed: Sequence[drawings.SheetView],
@@ -69,19 +124,23 @@ def ask(
     results: Sequence[CheckResult],
     *,
     options: Sequence[dict[str, object]],
+    stale: Mapping[int, Sequence[uuid.UUID]] | None = None,
 ) -> int:
     """19b's storey-titles Check over the set (`results`: `found`'s run over `sheets` and `views`,
     whose findings refer to those very candidates): each sheet whose title names storeys its plans do not
     agree with, asked as one `check` Question per Discipline (`storey_codes.DIFFERS`, the first such
     sheet named as the example) holding its undecided disagreeing sheets; a sheet of no Discipline, a
     decided one, or one whose same disagreement the QS has answered (`step1.answered_findings`: never
-    asked again, #436's review round 1), is held by none. The Check's run is recorded with each
-    finding, an answered one under the Question that answered it. How many Questions
-    were asked."""
+    asked again, #436's review round 1), is held by none; nor is a stale copy (`stale`: by sheet
+    index, the Questions asked this round of the `same_title` conflicts `stale_copies` found its
+    title copies, in order), asked by the first while it is open. The Check's run is recorded with
+    each finding, an answered one under the Question that answered it, a stale copy's under its
+    conflict's. How many Questions were asked."""
     at = {id(c): i for i, c in enumerate(sheets)}
     answered = step1.answered_findings(project_id, storey_titles.CODE)
     fired: list[tuple[Message, drawings.SheetView | None, uuid.UUID | None]] = []
-    asked: dict[str, list[tuple[Message, drawings.SheetView]]] = {}
+    stale = stale or {}
+    copies: dict[uuid.UUID, uuid.UUID] = {}
     for result in results:
         if result.outcome != CheckOutcome.FIRED or result.finding is None:
             continue
@@ -91,7 +150,17 @@ def ask(
         said = json.dumps(dict(recorded["params"]), sort_keys=True, default=str)
         decided = answered.get((str(sheet.id), said)) if sheet is not None else None
         fired.append((recorded, sheet, decided))
-        if decided is None and sheet is not None and sheet.discipline and not sheet.decision:
+        undecided = decided is None and sheet is not None and not sheet.decision
+        if undecided and index is not None and sheet is not None and stale.get(index):
+            copies[sheet.id] = stale[index][0]  # its conflict's, kept below while open
+    if copies:
+        still = step1.open_questions(project_id, copies.values())
+        copies = {sheet_id: q for sheet_id, q in copies.items() if q in still}
+    asked: dict[str, list[tuple[Message, drawings.SheetView]]] = {}
+    for recorded, sheet, decided in fired:
+        if decided is not None or sheet is None or not sheet.discipline or sheet.decision:
+            continue
+        if sheet.id not in copies:
             asked.setdefault(sheet.discipline, []).append((recorded, sheet))
     raised: dict[str, uuid.UUID] = {}
     for discipline, found in asked.items():
@@ -116,7 +185,9 @@ def ask(
             [sheet.id] if sheet is not None else [],
             decided
             or (
-                raised.get(sheet.discipline or "") if sheet is not None and not sheet.decision else None
+                copies.get(sheet.id) or raised.get(sheet.discipline or "")
+                if sheet is not None and not sheet.decision
+                else None
             ),
         )
         for finding, sheet, decided in fired

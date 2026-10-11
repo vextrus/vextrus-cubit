@@ -39,7 +39,9 @@ a sheet (13's register) kept per Discipline, and 19b's register Check run (`Chec
 `read`), each finding a `check` Question; 19b's storey-titles Check (a sheet's title storeys against
 its plans', `CheckRun` too), its findings asked as one `check` Question per Discipline holding that
 Discipline's undecided disagreeing sheets (none undecided: nothing asked), retired when none is found
-again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet). A Question
+again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet), but for a
+stale copy (a title block stating its same-title partner's plans' storeys: S21-C2), asked by its
+open `same_title` conflict alone. A Question
 raised again is the one asked (`step1.raise_question`).
 """
 
@@ -352,9 +354,10 @@ def kind_options(
 
 def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:
     """What the sheets one kind Question asks share (S15-Q1, grouped by Discipline and Jev's top two
-    kinds): its Discipline's key and Jev's first and second kinds, in that order (so the kind picked
-    first is one for all of them). Never a sheet's name or number."""
-    return ["which_kind", discipline or "", *ranked[:2]]
+    kinds): its Discipline's key and Jev's first and second kinds as an unordered pair, sorted (S21-C2:
+    two kinds Jev all but ties on come in either order, run to run and sheet to sheet, and one pair
+    is one Question; a pair sharing one kind only is another). Never a sheet's name or number."""
+    return ["which_kind", discipline or "", *sorted(ranked[:2])]
 
 
 def unsure(answer: jev.Judgement, title: str) -> bool:
@@ -614,6 +617,9 @@ class FoundQuestions:
     conflicts: tuple[Any, ...] = field(compare=False)
     register: tuple[CheckResult, ...] = field(compare=False)
     storey_titles: tuple[CheckResult, ...] = field(compare=False)
+    stale: Mapping[int, tuple[int, ...]] = field(compare=False)
+    """The disagreeing sheets that may be stale copies (S21-C2: `storey_questions.stale_copies`), by
+    sheet index: the keys of the `same_title` conflicts in `conflicts` whose title each copies."""
 
 
 ListsRead = Sequence[tuple[uuid.UUID, str, Sequence[tuple[str, str]]]]
@@ -655,7 +661,10 @@ def set_questions(
     proposal_of = step1.proposal_ids(project_id)
     recognisers = found.recognisers
     conventions = inputs.conventions
-    asked = _conflicts(project_id, listed, inputs.compared, inputs.views, found.conflicts, proposal_of)
+    conflicts = _conflicts(
+        project_id, listed, inputs.compared, inputs.views, found.conflicts, proposal_of
+    )
+    asked = len(conflicts)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
     asked += _register(
         project_id, listed, inputs.sheets, found.register, proposal_of, recognisers, conventions
@@ -668,6 +677,7 @@ def set_questions(
         proposal_of,
         found.storey_titles,
         options=options(STOREY_TITLE_OPTIONS),
+        stale=_stale(found, conflicts),
     )
     return asked
 
@@ -729,7 +739,15 @@ def _found(inputs: SetInputs) -> FoundQuestions:
     )
     checked = register_check.check(reading, recognisers=recognisers)
     storeys = storey_questions.found(inputs.sheets, inputs.views, recognisers, conventions)
-    return FoundQuestions(inputs, recognisers, tuple(compared), tuple(checked), tuple(storeys))
+    at = {id(c): i for i, c in enumerate(inputs.compared)}
+    at |= {id(v): i for i, vs in enumerate(inputs.views) for v in vs}
+    same_titles = [
+        (key, _held_sheets(c, at))
+        for key, c in enumerate(compared)
+        if isinstance(c, Conflict) and c.kind == finder.SAME_TITLE
+    ]
+    stale = storey_questions.stale_copies(storeys, inputs.sheets, inputs.views, recognisers, same_titles)
+    return FoundQuestions(inputs, recognisers, tuple(compared), tuple(checked), tuple(storeys), stale)
 
 
 def set_conflicts(project_id: uuid.UUID) -> int:
@@ -751,7 +769,7 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     views = [[view_candidate(v) for v in of_sheet.get(s.id, [])] for s in listed]
     recognisers = finder.recognisers(conventions)
     found = finder.compare(compared, views, conventions=conventions, recognisers=recognisers)
-    return _conflicts(project_id, listed, compared, views, found, step1.proposal_ids(project_id))
+    return len(_conflicts(project_id, listed, compared, views, found, step1.proposal_ids(project_id)))
 
 
 def as_compared(
@@ -773,24 +791,43 @@ def _conflicts(
     views: Sequence[Sequence[ViewCandidate]],
     found: Sequence[Any],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
-) -> int:
+) -> list[_Asked]:
     """19b's Conflicts (`found`: its compare over every listed sheet `as_compared`, a decided one
     keeping a run's or a storey's context), each trimmed to the sheets not yet decided
     (`_undecided`) and asked as a `conflict` Question; every one asked before and not found now
-    retired (`step1.retire_questions`). How many were asked."""
+    retired (`step1.retire_questions`). Those asked."""
     at = {id(c): i for i, c in enumerate(as_compared)}
     at |= {id(v): i for i, vs in enumerate(views) for v in vs}
-    raised: list[uuid.UUID] = []
-    for conflict in found:
+    raised: list[_Asked] = []
+    for key, conflict in enumerate(found):
         if not isinstance(conflict, Conflict):
             continue
         held = _held_sheets(conflict, at)
         named = {listed[i].id: _named(conflict, at, as_compared[i], i) for i in held}
         trimmed = _undecided(conflict, [listed[i] for i in held], named)
         if trimmed is not None:
-            raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
-    step1.retire_questions(project_id, CONFLICT_CODES, raised)
-    return len(raised)
+            question_id = _conflict(project_id, conflict.kind, *trimmed, proposal_of)
+            raised.append(_Asked(conflict.kind, question_id, key))
+    step1.retire_questions(project_id, CONFLICT_CODES, [a.question_id for a in raised])
+    return raised
+
+
+@dataclass(frozen=True)
+class _Asked:
+    """A Conflict asked as a `conflict` Question (open, or one answered in its words before): its
+    kind, the Question's id, and its key (its place in the compare's findings, as `_found`'s
+    `stale_copies` names it)."""
+
+    kind: str
+    question_id: uuid.UUID
+    key: int
+
+
+def _stale(found: FoundQuestions, conflicts: Sequence[_Asked]) -> dict[int, tuple[uuid.UUID, ...]]:
+    """By sheet index, the Questions asked this round of the `same_title` conflicts whose title the
+    sheet copies (`found.stale`, found before the lock), in order (S21-C2)."""
+    asked = {a.key: a.question_id for a in conflicts if a.kind == finder.SAME_TITLE}
+    return {index: tuple(asked[k] for k in keys if k in asked) for index, keys in found.stale.items()}
 
 
 @dataclass(frozen=True)
