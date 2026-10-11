@@ -86,9 +86,7 @@ def stamp(tmp_path: Path) -> Stamp:
 
 
 @pytest.mark.parametrize("budget", ["8", "12", "90", " 12 "])
-def test_a_bare_number_budget_is_refused_and_writes_no_session_record(
-    stamp: Stamp, budget: str
-) -> None:
+def test_a_bare_number_budget_is_refused_and_writes_no_session_record(stamp: Stamp, budget: str) -> None:
     done = stamp.start(budget)
     assert done.returncode == 2, f"{BARE}: {show(done)}"
     assert not stamp.session.exists(), show(done)
