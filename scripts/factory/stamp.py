@@ -31,8 +31,10 @@ lines; "No check yet" is no check), and after the final stamp appends the measur
 `$VEXTRUS_FACTORY_DIR/measures-<started>.json` for the next session's comparison. `end` takes no
 arguments; text that starts with a subcommand's name is stamped with `stamp stamp "end of wave"`.
 
-Budgets and phase lengths are minutes: `90`, `330m`, `11h` or `5h30m`. The clock is `VEXTRUS_NOW` when
-set. Exit 0 done, 2 refused or usage error.
+A session `--budget` must name its unit (`11h`, `330m` or `5h30m`); `start` refuses a bare number
+(exit 2, no session record, even with `--force`), since `--budget 8` once set an 8-minute clock.
+Phase lengths and `budget --minutes` are minutes and may be bare: `90`, `330m`, `11h` or `5h30m`.
+The clock is `VEXTRUS_NOW` when set. Exit 0 done, 2 refused or usage error.
 """
 
 from __future__ import annotations
@@ -107,6 +109,10 @@ def make_state_folder(state: Path) -> None:
 
 
 def start(budget: str, state: str, phases: str | None, force: bool) -> None:
+    if budget.strip().isdigit():
+        raise Refused(
+            f"a session budget names its unit, not a bare number: {budget!r} (use 8h, 90m or 5h30m)"
+        )
     minutes = parse_minutes(budget)
     planned: list[dict[str, Any]] = []
     for part in (phases or "").split(","):
