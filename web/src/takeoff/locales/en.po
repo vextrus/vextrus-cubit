@@ -312,6 +312,10 @@ msgstr "Confirm {n}, leave out {m}"
 msgid "Number"
 msgstr "Number"
 
+#: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, on its drawing list or in numbering without a gap; storeys from its view titles."
+msgstr "Each has a number and title from its title block, on its drawing list or in numbering without a gap; storeys from its view titles."
+
 #: src/takeoff/storeys.tsx
 msgid "as titled"
 msgstr "as titled"
@@ -364,6 +368,10 @@ msgstr "Plot: {file} page {page}, registered to {residual} mm"
 #: src/takeoff/DrawingListDialog.tsx
 msgid "The drawing list, pasted or typed"
 msgstr "The drawing list, pasted or typed"
+
+#: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, in numbering without a gap; storeys from its view titles."
+msgstr "Each has a number and title from its title block, in numbering without a gap; storeys from its view titles."
 
 #: src/takeoff/storeyTitles.tsx
 msgid "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
@@ -571,6 +579,10 @@ msgid "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers
 msgstr "{n, plural, one {# sheet, two readers agree} other {# sheets, two readers agree}}"
 
 #: src/takeoff/Bar.tsx
+msgid "Each has a number and title from its title block, and its drawing list names it, its Plot page shows the same number and title, or it is in numbering without a gap; storeys from its view titles."
+msgstr "Each has a number and title from its title block, and its drawing list names it, its Plot page shows the same number and title, or it is in numbering without a gap; storeys from its view titles."
+
+#: src/takeoff/Bar.tsx
 msgid "Open {name}"
 msgstr "Open {name}"
 
@@ -684,6 +696,10 @@ msgstr "Step 1 is confirmed. You are reading it as the MD."
 #: src/takeoff/Bar.tsx
 msgid "Exclude {name}. Why?"
 msgstr "Exclude {name}. Why?"
+
+#: src/takeoff/Bar.tsx
+msgid "{Name} agrees: number and title from the title block, in numbering without a gap"
+msgstr "{Name} agrees: number and title from the title block, in numbering without a gap"
 
 #: src/takeoff/storeys.tsx
 msgctxt "storey"

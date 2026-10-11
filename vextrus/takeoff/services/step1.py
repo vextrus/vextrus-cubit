@@ -148,6 +148,9 @@ class ProposalView:
     with its number and title read alike (#229; a numbering gap holds only the sheets beside it, by
     its open Question); never while held or in an open Question. Only such a sheet joins the bulk
     act (6.4); the others are Proposals "with one source"."""
+    agrees_by: str | None = None
+    """Its second source while it `agrees`: "list", "plot" or "run" (an unbroken run of numbers with
+    no list and no PDF, the session-18 ruling); None while it does not. The bar words it (4.7)."""
     decided_by_role: str | None = None
     """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
@@ -433,6 +436,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
             agrees=s.id in agreeing,
+            agrees_by=agreeing.get(s.id),
             storeys_titled=titled.get(s.storeys_as_stated),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
@@ -460,8 +464,9 @@ def _agreeing(
     project_id: uuid.UUID,
     sheets: Sequence[drawings.SheetView],
     by_sheet: Mapping[uuid.UUID, Proposal],
-) -> set[uuid.UUID]:
-    """The printed sheets two sources agree on (`ProposalView.agrees`)."""
+) -> dict[uuid.UUID, str]:
+    """The printed sheets two sources agree on (`ProposalView.agrees`), each with its second source:
+    "list", "plot" or "run" (`ProposalView.agrees_by`)."""
     open_questions = Question.objects.filter(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
@@ -481,7 +486,7 @@ def _agreeing(
     for sheet in sheets:
         if sheet.discipline is not None:
             of_discipline.setdefault(sheet.discipline, []).append(sheet)
-    agreeing: set[uuid.UUID] = set()
+    agreeing: dict[uuid.UUID, str] = {}
     for discipline, everyone in of_discipline.items():
         # Two sheets of one number never agree: which of them is the sheet is a Question's.
         keys = Counter(numbers.key(s.number, discipline) for s in everyone if s.number)
@@ -491,10 +496,12 @@ def _agreeing(
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
+            source = "list"
         elif standing is None and any(s.plot.file_id or s.plot.page is not None for s in everyone):
             # A matched Plot page whose number and title read alike, gap or no gap (#229): a gap
             # holds only the sheets beside it, through its open Question's links.
             second = {s.id for s in mine if s.plot.page is not None and s.plot.title_alike}
+            source = "plot"
         elif standing is None:
             # No list and no PDF in this Discipline: an unbroken run of running numbers is the
             # second source (the owner's ruling, session 18, docs/rulings.md). A gap ends a run;
@@ -502,8 +509,10 @@ def _agreeing(
             # gap stay held below.
             places = {_place(numbers, s.number, discipline) for s in everyone if s.number} - {None}
             second = {s.id for s in mine if _in_run(_place(numbers, s.number, discipline), places)}
+            source = "run"
         else:
             second = set()
+            source = "list"
         for sheet in mine:
             proposal = by_sheet.get(sheet.id)
             if (
@@ -522,7 +531,7 @@ def _agreeing(
                     )
                 )
             ):
-                agreeing.add(sheet.id)
+                agreeing[sheet.id] = source
     return agreeing
 
 

@@ -1285,7 +1285,15 @@ any agreeing sheet or proposed exclusion, the bar reads:
   view titles. Left-out sheets stay in the count with their reason." With no drawing list (5): "Each
   has a number and title from its title block, and its Plot page shows the same number and title;
   storeys from its view titles." With both kinds: "Each has a number and title from its title block,
-  and its drawing list names it or its Plot page shows the same number and title; …";
+  and its drawing list names it or its Plot page shows the same number and title; …". A sheet that
+  agrees by an unbroken run of numbers (no list and no PDF in its Discipline, 5) is never said to
+  match a Plot page: run alone, "Each has a number and title from its title block, in numbering without
+  a gap; storeys from its view titles."; run beside a drawing list (the seed, 7), 4.7's "Each has a
+  number and title from its title block, on its drawing list or in numbering without a gap; storeys
+  from its view titles."; run beside a Plot page, "Each has a number and title from its title block,
+  and its drawing list names it, its Plot page shows the same number and title, or it is in numbering
+  without a gap; …". The words follow each sheet's second source as the API names it (`agrees_by`:
+  list, plot or run);
 - button: "Confirm 56, leave out 5 ↵"; in list mode with a sheet focused, also the ghost "Open S-04
   Space".
 
@@ -1336,7 +1344,9 @@ and sheet mode alike (6.18). The toast sits just above it.
   screens.md sheet ruling 1); `Esc` fits back to the working view; past the last view, no view is
   selected.
 - **The bar (ruling 5): Enter confirms the sheet and opens the next one needing the QS.** For an
-  agreeing sheet: "S-20 agrees: number and title from the title block, on the drawing list" · "3 views;
+  agreeing sheet: "S-20 agrees: number and title from the title block, on the drawing list" (by its
+  run of numbers: "E-01 agrees: number and title from the title block, in numbering without a gap"; by
+  its Plot page: "…, and its Plot page matches") · "3 views;
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
   "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
