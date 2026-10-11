@@ -51,7 +51,11 @@ def among(
         return {}
     sheets, views = proposals.as_compared(listed, viewed, file_groups)
     found = finder.compare(
-        sheets, views, conventions=conventions, recognisers=finder.recognisers(conventions)
+        sheets,
+        views,
+        conventions=conventions,
+        recognisers=finder.recognisers(conventions),
+        files=proposals.files_of(listed),
     )
     at = {id(sheet): i for i, sheet in enumerate(sheets)}
     grouped: dict[uuid.UUID, Group] = {}

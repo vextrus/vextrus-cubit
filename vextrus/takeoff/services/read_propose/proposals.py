@@ -494,7 +494,8 @@ def candidate(
     sheet: drawings.SheetView, group: str | None = None, *, anchors: bool = True
 ) -> SheetCandidate:
     """A printed sheet as 13's candidate again: its place, what was read on it, its group; its anchors
-    unless `anchors=False` (a sheet listed without them: the conflict check does not read them)."""
+    unless `anchors=False` (a sheet listed without them: the conflict check reads no anchor, and its
+    content twins take each sheet's file from `files_of`, never from an anchor, PR #648)."""
     location = sheet.location
     if "layout" in location:
         place = SheetLocation(layout=str(location["layout"]))
@@ -642,6 +643,13 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     )
 
 
+def files_of(listed: Sequence[drawings.SheetView]) -> list[str | None]:
+    """Each listed sheet's file, as 19b's content twins compare them (`finder.compare`'s `files`):
+    its file's id, so a sheet listed with or without its anchors twins alike (the read job's pass
+    and every act's, PR #648)."""
+    return [str(s.file_id) for s in listed]
+
+
 def as_compared(
     listed: Sequence[drawings.SheetView],
     viewed: Sequence[Sequence[drawings.ViewView]],
@@ -668,7 +676,9 @@ def _conflicts(
     every one asked before and not found now retired (`step1.retire_questions`). How many were
     asked."""
     as_compared = [_compared(s, c) for s, c in zip(listed, sheets, strict=True)]
-    found = finder.compare(as_compared, views, conventions=conventions, recognisers=recognisers)
+    found = finder.compare(
+        as_compared, views, conventions=conventions, recognisers=recognisers, files=files_of(listed)
+    )
     at = {id(c): i for i, c in enumerate(as_compared)}
     at |= {id(v): i for i, vs in enumerate(views) for v in vs}
     raised: list[uuid.UUID] = []
