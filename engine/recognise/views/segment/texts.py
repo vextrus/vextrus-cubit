@@ -15,9 +15,13 @@ from engine.recognise.types import ViewKind
 from engine.recognise.views.paper import _bounds, _Text
 from engine.recognise.views.titles import _heading, _Reading, _tokens
 
-MAX_TITLE_WORDS = 16
-"""A text of more words is a note, not a view title: a one-line plan title listing its floors one by
-one ("2ND, 3RD, ... & 11TH FLOOR WORKING-DRAWING FURNITURE LAYOUT PLAN") runs to 16 (S22-FL5)."""
+MAX_TITLE_WORDS = 12
+"""A text of more words is a note, not a view title (but a storeys title, `MAX_STOREY_TITLE_WORDS`)."""
+MAX_STOREY_TITLE_WORDS = 16
+"""A one-line text of more than `MAX_TITLE_WORDS` words and at most this many is a title only when it
+states storeys and stands in no drawing: a plan's title listing its floors one by one ("2ND, 3RD, ...
+& 11TH FLOOR WORKING-DRAWING FURNITURE LAYOUT PLAN", S22-FL5); a callout or a notes line that long
+is not."""
 MAX_TITLE_LINES = 3
 """The most lines a title holds under it (its second line, its scale line, its storeys)."""
 SUBTITLE_GAP = 3.5
