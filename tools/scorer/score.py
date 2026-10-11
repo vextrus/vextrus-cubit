@@ -116,6 +116,7 @@ SUBJECTS = (
     "slab",
     "stair",
     "tank",
+    "septic_tank",
     "grid",
     "fixture",
     "toilet",

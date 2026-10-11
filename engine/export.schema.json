@@ -238,7 +238,7 @@
         "stated_scale": {"$ref": "#/$defs/text"},
         "storeys_as_stated": {"$ref": "#/$defs/text"},
         "storeys": {"type": "array", "items": {"$ref": "#/$defs/key"}},
-        "storeys_meaning": {"enum": ["at_floor_level", "floor_to_floor", null]},
+        "storeys_meaning": {"enum": ["at_floor_level", "floor_to_floor", "at_ceiling_level", null]},
         "subject": {"anyOf": [{"$ref": "#/$defs/key"}, {"type": "null"}]},
         "layer": {"enum": ["top", "bottom", null]},
         "steps": {"type": "array", "items": {"$ref": "#/$defs/key"}},

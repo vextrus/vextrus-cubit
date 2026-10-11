@@ -134,6 +134,8 @@ class SheetView:
     plot: PlotView
     held: bool
     """From a held file the QS chose to read anyway: its sheets are marked."""
+    layers: tuple[tuple[str, int], ...] = ()
+    """What it draws by layer, as the reading counted it (`SheetCandidate.layers`); none unread."""
 
 
 @dataclass(frozen=True)
@@ -490,6 +492,7 @@ def _keep_sheet(
         "proposed_exclusion_text": texts.exclusion_text,
     }
     anchors = [_text.read_json(_detail(a)) for a in candidate.anchors]
+    layers = _layers_json(candidate.layers)
     if existing is None:
         created = SheetRevision.objects.create(
             tenant_id=row.tenant_id,
@@ -497,6 +500,7 @@ def _keep_sheet(
             source_file=row,
             location_key=place,
             anchors=anchors,
+            layers=layers,
             **values,
         )
         existing = created
@@ -514,6 +518,9 @@ def _keep_sheet(
             setattr(existing, name, value)
         if changed:
             existing.save(update_fields=[_column(name) for name in changed])
+        if existing.layers != layers:  # counted, never shown or decided: a decision stands
+            existing.layers = layers
+            existing.save(update_fields=["layers"])
         if existing.sheet_id != old_sheet_id:
             _drop_sheet_if_empty(old_sheet_id)
     if sheet.number and (sheet.title, sheet.storeys_as_stated) != (title, storeys):
@@ -527,6 +534,46 @@ def _keep_sheet(
             sheet_revision=existing,
         )
     return existing
+
+
+MAX_LAYERS = 1000
+"""The most layers a printed sheet's histogram keeps: one with more keeps none (S19-B7's content-twin
+rule then sits out for it)."""
+MAX_LAYER_NAME = 255
+"""AutoCAD's longest layer name: a histogram naming a longer one is kept as none."""
+
+
+def _layers_json(layers: Sequence[tuple[str, int]]) -> list[list[Any]]:
+    """A candidate's layer histogram as stored: [name, count] pairs; none (`[]`) when it is past
+    `MAX_LAYERS` or names a layer the database cannot hold as given (a NUL, a lone surrogate, past
+    `MAX_LAYER_NAME`): a partial histogram would misstate what the sheet draws."""
+    if len(layers) > MAX_LAYERS:
+        return []
+    for name, _ in layers:
+        if len(name) > MAX_LAYER_NAME or "\x00" in name:
+            return []
+        try:
+            name.encode("utf-8")
+        except UnicodeEncodeError:
+            return []
+    return [[name, count] for name, count in layers]
+
+
+def _layers_of(stored: object) -> tuple[tuple[str, int], ...]:
+    """A stored histogram read back; anything not in the shape `_layers_json` writes reads as none."""
+    if not isinstance(stored, list) or len(stored) > MAX_LAYERS:
+        return ()
+    found: list[tuple[str, int]] = []
+    for item in stored:
+        if not (isinstance(item, list) and len(item) == 2 and isinstance(item[0], str)):
+            return ()
+        name, count = item
+        if type(count) is not int or count < 1:
+            return ()
+        found.append((name, count))
+    if len({name for name, _ in found}) != len(found):
+        return ()
+    return tuple(found)
 
 
 def _from_view(existing: SheetRevision, candidate: SheetCandidate) -> list[str]:
@@ -1011,6 +1058,7 @@ def _sheet_view(
         has_render=bool(sr.render_key),
         plot=_plot(sr, context),
         held=source.read_status == ReadStatus.QUARANTINED,
+        layers=_layers_of(sr.layers),
     )
 
 

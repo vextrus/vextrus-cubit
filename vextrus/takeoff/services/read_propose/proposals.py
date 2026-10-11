@@ -60,6 +60,7 @@ from engine.read import ReadArtefact
 from engine.recognise import conflicts as finder
 from engine.recognise import register as register_reader
 from engine.recognise import sheets as sheet_finder
+from engine.recognise import storeys as storey_reader
 from engine.recognise.types import (
     Box,
     CheckOutcome,
@@ -493,7 +494,8 @@ def candidate(
     sheet: drawings.SheetView, group: str | None = None, *, anchors: bool = True
 ) -> SheetCandidate:
     """A printed sheet as 13's candidate again: its place, what was read on it, its group; its anchors
-    unless `anchors=False` (a sheet listed without them: the conflict check does not read them)."""
+    unless `anchors=False` (a sheet listed without them: the conflict check reads no anchor, and its
+    content twins take each sheet's file from `files_of`, never from an anchor, PR #648)."""
     location = sheet.location
     if "layout" in location:
         place = SheetLocation(layout=str(location["layout"]))
@@ -523,6 +525,7 @@ def candidate(
         storeys_as_stated=sourced(sheet.storeys_as_stated, "storeys_as_stated"),
         anchors=tuple(found),
         group=group,
+        layers=sheet.layers,
     )
 
 
@@ -615,10 +618,11 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
 
 
 def set_conflicts(project_id: uuid.UUID) -> int:
-    """The set's conflicts asked again after an act decided or undid sheets (confirm, exclude, an
-    answer, undo): those of sheets now decided retired, those of sheets undecided again asked again;
-    how many are open. No Check is run (its runs are the reads'), and no progress row written (the
-    act's `step1._after_act` writes them after)."""
+    """The set's conflicts and boundary storeys asked again after an act decided or undid sheets
+    (confirm, exclude, an answer, undo): conflicts of sheets now decided retired, those of sheets
+    undecided again asked again, and a boundary storey settled or asked again as its third plan's
+    claim went or came back (`_boundaries`); how many are open. No Check is run (its runs are the
+    reads'), and no progress row written (the act's `step1._after_act` writes them after)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         listed: list[drawings.SheetView] = []
@@ -629,15 +633,27 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         groups = {f.id: f.group for f in step1.files_of(project_id)}
         of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
     conventions = step1.sheet_conventions()
-    return _conflicts(
+    proposal_of = step1.proposal_ids(project_id)
+    viewed = [of_sheet.get(s.id, []) for s in listed]
+    asked = _conflicts(
         project_id,
         listed,
         [candidate(s, groups.get(s.file_id, "site"), anchors=False) for s in listed],
-        [[view_candidate(v) for v in of_sheet.get(s.id, [])] for s in listed],
-        step1.proposal_ids(project_id),
+        [[view_candidate(v) for v in vs] for vs in viewed],
+        proposal_of,
         finder.recognisers(conventions),
         conventions,
     )
+    # The boundary storeys too: an exclusion or its undo takes a third plan's claim away or gives it
+    # back (review 3 of #648), on the sheets and views already read here.
+    return asked + _boundaries(project_id, listed, viewed, proposal_of)
+
+
+def files_of(listed: Sequence[drawings.SheetView]) -> list[str | None]:
+    """Each listed sheet's file, as 19b's content twins compare them (`finder.compare`'s `files`):
+    its file's id, so a sheet listed with or without its anchors twins alike (the read job's pass
+    and every act's, PR #648)."""
+    return [str(s.file_id) for s in listed]
 
 
 def as_compared(
@@ -666,7 +682,9 @@ def _conflicts(
     every one asked before and not found now retired (`step1.retire_questions`). How many were
     asked."""
     as_compared = [_compared(s, c) for s, c in zip(listed, sheets, strict=True)]
-    found = finder.compare(as_compared, views, conventions=conventions, recognisers=recognisers)
+    found = finder.compare(
+        as_compared, views, conventions=conventions, recognisers=recognisers, files=files_of(listed)
+    )
     at = {id(c): i for i, c in enumerate(as_compared)}
     at |= {id(v): i for i, vs in enumerate(views) for v in vs}
     raised: list[uuid.UUID] = []
@@ -870,41 +888,96 @@ def _boundaries(
     viewed: Sequence[Sequence[drawings.ViewView]],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
 ) -> int:
-    """Two floor-to-floor plans of one Discipline and subject where the first's range ends at the
-    storey the second's starts: does the first include that storey? (m0-screens 6.7's boundary
-    storey; 19b raises no conflict: consecutive ranges meet at a floor by the drafting convention.)"""
-    ranges = [
+    """Two floor-to-floor plans of one Discipline and subject whose ranges meet at a storey: the
+    first's range ends where the second's starts (m0-screens 6.7's boundary storey). A meeting needs
+    both views to state one two-ended "X to Y" range (`Storeys.ranged`: a list or a "below ground"
+    phrase never meets). By the Dhaka convention the first plan's columns stop at that slab, so the
+    meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
+    (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
+    claims that storey is it asked, and a meeting the convention settled before the third plan was
+    read is opened again (`step1.reopen_by_claim`), whichever file came first. A plan is its subject
+    and storey range: a view of either meeting range (a copy in a later file, a second viewport or
+    half) is that plan, and one meeting is asked once; a view of another range holding the storey is
+    a third plan; a sheet left out claims nothing, and a meeting whose own sheet is left out is not
+    asked (a Question asked before stays as it is: none is retired here). Every act runs it again
+    (`set_conflicts`), so leaving the third plan out settles the meeting and undoing that asks it
+    again, with no later read. Returns how many it asked."""
+    conventions = step1.sheet_conventions()
+
+    def ranged(view: drawings.ViewView) -> bool:
+        stated = view.storeys_as_stated or view.title
+        return bool(stated) and storey_reader.read(stated, conventions, plan_title=True).ranged
+
+    plans = [
         (i, v)
         for i, vs in enumerate(viewed)
         for v in vs
-        if v.kind == ViewKind.PLAN
-        and v.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR
-        and len(v.storeys) > 1
-        and v.subject
+        if v.kind == ViewKind.PLAN and v.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and v.subject
     ]
+    ranges = [(i, v) for i, v in plans if len(v.storeys) > 1 and ranged(v)]
     asked = 0
+    met: set[tuple[object, ...]] = set()
     for i, first in ranges:
         for j, then in ranges:
             if i == j or listed[i].discipline != listed[j].discipline or first.subject != then.subject:
                 continue
-            if first.storeys[-1] != then.storeys[0] or not (first.storeys_as_stated or first.title):
-                continue  # no range as the drawing states it: nothing to ask it by
+            if first.storeys[-1] != then.storeys[0]:
+                continue
+            meeting = first.storeys[-1]
             sheet = listed[i]
-            step1.raise_question(
+            if "excluded" in (sheet.decision, listed[j].decision):
+                continue  # a meeting whose own sheet the QS left out is not asked (#650)
+            # A plan is its subject and its storey range (#650, the root of reviews 2 and 3 of
+            # #648): every view of the first's or the then plan's range, on any sheet, copy or half,
+            # is that plan, and each meeting of two ranges is asked once; a view of the subject with
+            # another range holding the storey is a third plan; a sheet left out claims nothing.
+            ends = (tuple(first.storeys), tuple(then.storeys))
+            key = (sheet.discipline, first.subject, *ends)
+            if key in met:
+                continue
+            met.add(key)
+            claimed = any(
+                listed[k].discipline == sheet.discipline
+                and v.subject == first.subject
+                and meeting in v.storeys
+                and listed[k].decision != "excluded"
+                and tuple(v.storeys) not in ends
+                for k, v in plans
+            )
+            blocks = [proposal_of[sheet.id]] if sheet.id in proposal_of else []
+            question_id = step1.raise_question(
                 project_id,
                 "convention",
                 said.BOUNDARY_STOREY(
                     **named(sheet),
                     range=first.storeys_as_stated or first.title,
                     **named(listed[j], "next_"),
-                    **storey_named(first.storeys[-1]),
+                    **storey_named(meeting),
                 ),
                 subject_id=first.id,
                 discipline=sheet.discipline,
                 options=options(BOUNDARY_OPTIONS),
-                blocks=[proposal_of[sheet.id]] if sheet.id in proposal_of else [],
+                blocks=blocks,
             )
-            asked += 1
+            if claimed:
+                # A third plan read after the convention settled the meeting: asked, never left
+                # settled (review 1 of #648: the claim must not depend on which file came first).
+                step1.reopen_by_claim(project_id, question_id)
+                asked += 1
+                continue
+            traces = [
+                (
+                    proposal_of[listed[k].id],
+                    "view_title",
+                    {"sheet_revision_id": str(v.sheet_revision_id), "view_id": str(v.id)},
+                )
+                for k, v in ((i, first), (j, then))
+                if listed[k].id in proposal_of
+            ]
+            step1.settle_by_convention(project_id, question_id, "excludes_storey", traces)
+    # A boundary storey no longer asked stays as it is: it is never retired here (the owner's ruling,
+    # 11 Oct 2026, on #650: retiring reopened a withdrawn one the convention had skipped, and handed a
+    # kept-open answer to another storey's Question).
     return asked
 
 

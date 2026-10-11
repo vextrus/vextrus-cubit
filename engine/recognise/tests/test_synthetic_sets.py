@@ -7,7 +7,8 @@ the real writer and read by the real reader, so these need the toolchain:
 Set A (engine/fixtures/dwg/sheet_set_layouts.py): sheets on layouts, an attributed frame block,
 landscape and portrait. Set B (sheet_set_model.py): frames in model space, turned, scaled and
 mirrored, a title block of plain text labelled with words only set B's conventions hold, a cover and
-a stale layout. Synthetic sets prove mechanics, never a reading.
+a stale layout (dropped beside the model-space Sheets; S19-B3). Synthetic sets prove mechanics, never
+a reading.
 """
 
 import json
@@ -91,9 +92,11 @@ def test_set_b_frames_in_model_space_are_read_with_its_own_conventions(sets: dic
     out = {s.exclusion.reason: s for s in found if s.exclusion is not None}
     framed = [s for s in found if s.exclusion is None]
     assert len(framed) == 5
-    assert set(out) == {ExclusionReason.BLANK, ExclusionReason.COVER_INDEX}
-    assert out[ExclusionReason.BLANK].location.layout == "Layout1"
-    assert out[ExclusionReason.BLANK].number is None
+    # The stale Layout1 beside model-space Sheets is dropped and counted, never proposed out: a stale
+    # tab beside model-space Sheets is a leftover, never a Sheet (S19-B3; Edison, 3 of 3).
+    assert set(out) == {ExclusionReason.COVER_INDEX}
+    assert not [s for s in found if s.location.layout == "Layout1"]
+    assert found.budget.report()["layout_stale_beside_model_sheets"] == 1
     # The cover (a plain rectangle of text) is kept, proposed out, with nothing read from it (#162).
     cover = out[ExclusionReason.COVER_INDEX]
     assert cover.location.box is not None
@@ -118,7 +121,7 @@ def test_set_b_frames_in_model_space_are_read_with_its_own_conventions(sets: dic
 
 
 @pytest.mark.needs_toolchain
-@pytest.mark.parametrize(("name", "sheet_count"), [("sheet_set_layouts", 3), ("sheet_set_model", 7)])
+@pytest.mark.parametrize(("name", "sheet_count"), [("sheet_set_layouts", 3), ("sheet_set_model", 6)])
 def test_the_harness_segments_each_set_with_its_own_conventions_file(
     sets: dict[str, Path], tmp_path: Path, name: str, sheet_count: int
 ) -> None:

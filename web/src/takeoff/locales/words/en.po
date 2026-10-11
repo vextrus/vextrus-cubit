@@ -132,6 +132,10 @@ msgid "Schedule"
 msgstr "Schedule"
 
 #: src/takeoff/words.tsx
+msgid "at ceiling level"
+msgstr "at ceiling level"
+
+#: src/takeoff/words.tsx
 msgid "mechanical (HVAC)"
 msgstr "mechanical (HVAC)"
 

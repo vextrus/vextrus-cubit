@@ -7,15 +7,24 @@ Market's, as data), else the default sheet conventions; every reading below uses
 **Its own title.** A plan's storeys are 13's `storeys.read(title, plan_title=True)`: an explicit list
 (and the symbolic end a range runs to), so "typical" is a storey only beside a floor or plan word.
 They mean the floors' levels (`at_floor_level`) unless its subject is one drawn floor to floor
-(`FLOOR_TO_FLOOR`). A view of another kind, or with no title, has none.
+(`FLOOR_TO_FLOOR`) or its title puts them at ceiling level (below). A view of another kind, or with
+no title, has none.
 
-**A bracketed line under its title** (#413): a plan whose own title states no storey takes the storeys
-of the first line under that title which is bracketed whole and holds storey words only ("(2ND TO 6TH
-FLOOR)"; not "(SEE 3RD FLOOR PLAN)", a reference, nor "(1ST FLOOR) AND (TYP.)"),
-stated as the line states it and recorded as read from that line (`StoreysSource.TITLE_LINE`). Such a
-plan names only a room or a part ("TOILET LAYOUT PLAN") and gives its floors in the line: it is a part
-plan, and `conflicts`' `same_storey` leaves it out (each bath is a different room). A line naming no
-storey ("(SCALE 1:50)") gives none, and a title's own storeys (a "typical" too) are never replaced.
+**A line under its title** (#413; S19-B5): a plan whose own title states no storey takes the storeys
+of the first line under that title which holds storey words only, read whole: bracketed whole ("(2ND
+TO 6TH FLOOR)"), or bare under the scale note ("7TH TO 11TH FLOOR"); not "(SEE 3RD FLOOR PLAN)" nor
+"REFER 6TH FLOOR PLAN", a reference, not "7TH TO 11TH FLOORS ONLY" nor a misspelt word, which 13's
+reader reads only in part, and not a line holding a bracket it does not close whole ("(1ST FLOOR) AND
+(TYP.)", "(2ND TO 6TH FLOOR"). The storeys are stated as the line states them and recorded as read
+from that line (`StoreysSource.TITLE_LINE`). Such a plan names only a room or a part ("TOILET LAYOUT
+PLAN") and gives its floors in the line, or carries a copied title block whose storeys the line
+corrects: `conflicts`' `same_storey` leaves it out (each bath is a different room). A line naming no
+storey ("SCALE 1:50") gives none, and a title's own storeys (a "typical" too) are never replaced.
+
+**At ceiling level** (S19-B5): a plan whose own title names a `ceiling_level_words` phrase ("PIPE
+LAYOUT AT 2ND FLOOR CEILING LEVEL") draws what hangs under its storeys' ceilings, whichever way its
+storeys are read (`StoreysMeaning.AT_CEILING_LEVEL`): a drawing apart from the plan of those storeys
+at floor level.
 
 **Its sheet's title** (T-W318; the owner's ruling of 5 Oct 2026 on #318): a sheet's only plan that
 still states no storey takes the storeys its sheet's title states (13's `storeys_as_stated`, read the
@@ -38,6 +47,7 @@ from engine.recognise.types import (
     ViewCandidate,
     ViewKind,
 )
+from engine.recognise.views.titles import _tokens as title_words
 
 FLOOR_TO_FLOOR = frozenset({"column", "shear_wall"})
 """Subjects whose storeys run floor to floor (a column from the 1st to the 10th floor)."""
@@ -64,7 +74,25 @@ def words(conventions: SheetConventions | None) -> SheetConventions:
     return conventions if conventions is not None else sheet_finder.default_conventions()
 
 
-def _meaning(subject: str | None) -> StoreysMeaning:
+def at_ceiling_level(title: str | None, conventions: SheetConventions | None = None) -> bool:
+    """Whether a plan's title names a ceiling level phrase (the sheet conventions'
+    `ceiling_level_words`), its words whole and in order."""
+    if not title:
+        return False
+    said = title_words(title)
+    for phrase in words(conventions).ceiling_level_words:
+        wanted = title_words(phrase)
+        n = len(wanted)
+        if n and any(said[i : i + n] == wanted for i in range(len(said) - n + 1)):
+            return True
+    return False
+
+
+def _meaning(
+    subject: str | None, title: str | None = None, conventions: SheetConventions | None = None
+) -> StoreysMeaning:
+    if at_ceiling_level(title, conventions):
+        return StoreysMeaning.AT_CEILING_LEVEL
     return StoreysMeaning.FLOOR_TO_FLOOR if subject in FLOOR_TO_FLOOR else StoreysMeaning.AT_FLOOR_LEVEL
 
 
@@ -73,13 +101,13 @@ def _keys(found: storey_reader.Storeys) -> tuple[str, ...]:
 
 
 def _inside(line: str) -> str | None:
-    """The words inside a line bracketed whole, its brackets once ("(2ND TO 6TH FLOOR)"); none for
-    any other line, or one holding another bracket ("(1ST FLOOR) AND (TYP.)")."""
+    """The words a line under a title gives to be read whole: those inside a line bracketed whole, its
+    brackets once ("(2ND TO 6TH FLOOR)"), or a bare line as it stands ("7TH TO 11TH FLOOR"); none for
+    a line holding any other bracket ("(1ST FLOOR) AND (TYP.)", "(2ND TO 6TH FLOOR")."""
     text = " ".join(line.split())
-    if len(text) <= 2 or _BRACKETS.get(text[0]) != text[-1]:
-        return None
-    inner = text[1:-1].strip()
-    return None if any(c in inner for c in "()[]") else inner
+    if len(text) > 2 and _BRACKETS.get(text[0]) == text[-1]:
+        text = text[1:-1].strip()
+    return None if not text or any(c in text for c in "()[]") else text
 
 
 def read(
@@ -89,7 +117,7 @@ def read(
     lines: Sequence[str] = (),
     conventions: SheetConventions | None = None,
 ) -> ViewStoreys:
-    """The storeys a view's title, else a bracketed line under it, states (the module's docstring);
+    """The storeys a view's title, else a line under it read whole, states (the module's docstring);
     none for a view with no title or another kind than a plan. `lines` are the lines under its
     title, top down."""
     if title is None or kind is not ViewKind.PLAN:
@@ -105,8 +133,9 @@ def read(
             under = storey_reader.read(inner, held, plan_title=True)
             given = _keys(under)
             if given not in STATES_NONE and under.as_stated == inner:
-                return ViewStoreys(given, under.as_stated, _meaning(subject), StoreysSource.TITLE_LINE)
-    return ViewStoreys(keys, found.as_stated, _meaning(subject) if keys else None)
+                meaning = _meaning(subject, title, conventions)
+                return ViewStoreys(given, under.as_stated, meaning, StoreysSource.TITLE_LINE)
+    return ViewStoreys(keys, found.as_stated, _meaning(subject, title, conventions) if keys else None)
 
 
 def titled(stated: str | None, conventions: SheetConventions | None = None) -> tuple[str, ...]:
@@ -140,7 +169,7 @@ def inherit(
         plan,
         storeys=keys,
         storeys_as_stated=" ".join(stated.split()),
-        storeys_meaning=_meaning(subject),
+        storeys_meaning=_meaning(subject, plan.title, conventions),
         storeys_source=StoreysSource.SHEET_TITLE,
     )
     return [given if i == plans[0] else v for i, v in enumerate(made)]

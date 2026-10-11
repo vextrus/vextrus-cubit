@@ -148,6 +148,9 @@ class ProposalView:
     with its number and title read alike (#229; a numbering gap holds only the sheets beside it, by
     its open Question); never while held or in an open Question. Only such a sheet joins the bulk
     act (6.4); the others are Proposals "with one source"."""
+    agrees_by: str | None = None
+    """Its second source while it `agrees`: "list", "plot" or "run" (an unbroken run of numbers with
+    no list and no PDF, the session-18 ruling); None while it does not. The bar words it (4.7)."""
     decided_by_role: str | None = None
     """The actor's role in the Developer ("qs", "vextrus_engineer"): "Nusrat Jahan, QS" (6.6)."""
     decided_with: int = 0
@@ -433,6 +436,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
             agrees=s.id in agreeing,
+            agrees_by=agreeing.get(s.id),
             storeys_titled=titled.get(s.storeys_as_stated),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
@@ -460,8 +464,9 @@ def _agreeing(
     project_id: uuid.UUID,
     sheets: Sequence[drawings.SheetView],
     by_sheet: Mapping[uuid.UUID, Proposal],
-) -> set[uuid.UUID]:
-    """The printed sheets two sources agree on (`ProposalView.agrees`)."""
+) -> dict[uuid.UUID, str]:
+    """The printed sheets two sources agree on (`ProposalView.agrees`), each with its second source:
+    "list", "plot" or "run" (`ProposalView.agrees_by`)."""
     open_questions = Question.objects.filter(
         project_id=project_id, step=SHEETS, status=QuestionStatus.OPEN
     )
@@ -481,7 +486,7 @@ def _agreeing(
     for sheet in sheets:
         if sheet.discipline is not None:
             of_discipline.setdefault(sheet.discipline, []).append(sheet)
-    agreeing: set[uuid.UUID] = set()
+    agreeing: dict[uuid.UUID, str] = {}
     for discipline, everyone in of_discipline.items():
         # Two sheets of one number never agree: which of them is the sheet is a Question's.
         keys = Counter(numbers.key(s.number, discipline) for s in everyone if s.number)
@@ -491,12 +496,23 @@ def _agreeing(
         if standing is not None and not lists.disagree:
             listed = {numbers.key(n, discipline) for n in _numbers(standing)}
             second = {s.id for s in mine if s.number and numbers.key(s.number, discipline) in listed}
-        elif standing is None:
+            source = "list"
+        elif standing is None and any(s.plot.file_id or s.plot.page is not None for s in everyone):
             # A matched Plot page whose number and title read alike, gap or no gap (#229): a gap
             # holds only the sheets beside it, through its open Question's links.
             second = {s.id for s in mine if s.plot.page is not None and s.plot.title_alike}
+            source = "plot"
+        elif standing is None:
+            # No list and no PDF in this Discipline: an unbroken run of running numbers is the
+            # second source (the owner's ruling, session 18, docs/rulings.md). A gap ends a run;
+            # a number held twice breaks none; a lone number has no run. The sheets beside an open
+            # gap stay held below.
+            places = {_place(numbers, s.number, discipline) for s in everyone if s.number} - {None}
+            second = {s.id for s in mine if _in_run(_place(numbers, s.number, discipline), places)}
+            source = "run"
         else:
             second = set()
+            source = "list"
         for sheet in mine:
             proposal = by_sheet.get(sheet.id)
             if (
@@ -515,7 +531,7 @@ def _agreeing(
                     )
                 )
             ):
-                agreeing.add(sheet.id)
+                agreeing[sheet.id] = source
     return agreeing
 
 
@@ -548,6 +564,14 @@ def _beside_gaps(questions: QuerySet[Question], numbers: Numbers) -> dict[str, s
                 if place is not None:
                     held.setdefault(question.discipline, set()).add(place)
     return held
+
+
+def _in_run(place: Hashable | None, places: set[Hashable | None]) -> bool:
+    """Whether a place (series, running number) has a neighbour either side in its series."""
+    if place is None:
+        return False
+    series, at = cast("tuple[Hashable, int]", place)
+    return (series, at - 1) in places or (series, at + 1) in places
 
 
 def _place(numbers: Numbers, number: str | None, discipline: str) -> Hashable | None:
@@ -2901,6 +2925,61 @@ def answer_question(project_id: uuid.UUID, question_id: uuid.UUID, answer: Any) 
         row.answered_at = timezone.now()
         row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         record_progress(project_id)
+
+
+def settle_by_convention(
+    project_id: uuid.UUID,
+    question_id: uuid.UUID,
+    option: str,
+    traces: Sequence[tuple[uuid.UUID, str, Mapping[str, Any]]],
+) -> bool:
+    """Settle an open Question by a convention (S19-B2: the owner's ruling, 9 Oct 2026): its answer
+    is `option` by "convention", and each `(proposal, fact, anchor)` is recorded as its Trace. One
+    already answered, or kept open by the QS, is left as it is; whether this call settled it."""
+    projects.get(project_id)
+    with writing(project_id):
+        row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
+        if row is None:
+            raise auth.NotFound
+        if row.status != QuestionStatus.OPEN or row.answer:
+            return False
+        for proposal_id, fact, anchor in traces:
+            proposal = Proposal.objects.get(project_id=project_id, id=proposal_id)
+            ProposalTrace.objects.get_or_create(
+                tenant_id=row.tenant_id,
+                project_id=project_id,
+                proposal=proposal,
+                question=row,
+                fact=fact[:64],
+                anchor=dict(anchor),
+            )
+        row.status = QuestionStatus.ANSWERED
+        row.answer = {"option": option, "by": "convention"}
+        row.answered_at = timezone.now()
+        row.save(update_fields=["status", "answer", "answered_at"])
+        record_progress(project_id)
+    return True
+
+
+def reopen_by_claim(project_id: uuid.UUID, question_id: uuid.UUID) -> bool:
+    """Open again a Question the convention settled (`settle_by_convention`) once a third plan claims
+    its storey (the owner's ruling, session 19: the convention settles two plans; a third plan's claim
+    is asked; review 1 of #648): its answer is withdrawn, so the QS answers it; the convention's
+    Traces stay (Traces are never deleted: they say what was read). One the QS answered, or still
+    open, is left as it is; whether this call opened it."""
+    projects.get(project_id)
+    with writing(project_id):
+        row = Question.objects.select_for_update().filter(project_id=project_id, id=question_id).first()
+        if row is None:
+            raise auth.NotFound
+        if row.status != QuestionStatus.ANSWERED or (row.answer or {}).get("by") != "convention":
+            return False
+        row.status = QuestionStatus.OPEN
+        row.answer = None
+        row.answered_at = None
+        row.save(update_fields=["status", "answer", "answered_at"])
+        record_progress(project_id)
+    return True
 
 
 @dataclass(frozen=True)

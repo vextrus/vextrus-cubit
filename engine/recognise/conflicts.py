@@ -38,11 +38,27 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2" are one number, never a run
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
   its title does not, or its views of its title's kind all disagree with it by layer or by every other
-  word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`.
+  word; a copied title block, #102) runs on with none, so its title's sheets are raised as `same_title`
+  when it would have run on from or into one of them (S19-B4's E2; else see a series).
   Nor do two consecutive numbers whose views state different storeys, or name different subjects
   (`_Drawn`: each states some, none shared; a stale title block on the next sheet, the owner's ruling of
-  5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. Views that state the
-  same storey and subject, or nothing, join as before.
+  5 Oct 2026, 17:06Z): they part, and their title is `same_title`, never a series. A storey is stated
+  at its level (`level`): one storey's plan at ceiling level (17's `at_ceiling_level`, a pipe layout
+  hung under its slab) and its plan at floor level share no storey (S19-B5). Views that state the same
+  storey and subject, or nothing, join as before.
+- **Content twins** (S19-B7; a copied title block over the next row's drawing, the owner's "Keep it in
+  M0"): two consecutive numbers of one title also part, the same way, when what they draw says they are
+  two drawings. What a sheet draws is its layer histogram (`SheetCandidate.layers`, model space's only);
+  two histograms' weighted overlap is the sum of the lesser counts over the sum of the greater. A near
+  twin of a sheet is another titled sheet of its group and its own file (never another file's; the
+  file is `compare`'s `files` when given, else the sheet's first anchor's) at
+  `TWIN` (0.9) or more, neither of the pair's places. They part when each has a near twin, no near twin
+  of one shares a title stem with a near twin of the other (a stem: the title's words without the
+  storeys it states, its member-mark ranges and the conventions' floor, level, range and list words,
+  so one drawing type over several floors or mark ranges is one stem), and each is closer to its
+  nearest twin than to the other. True continuations share little and twin nothing; details per floor
+  twin each other under one stem; a pair nearer each other than its twins is one drawing: all stay.
+  A sheet without a histogram (a layout's), or past `MAX_TWIN_READS`, has no twin: the rule sits out.
 - **Member-mark ranges** (T-W334; the owner's "In M0"): titles equal but for a range of member marks
   ("GRADE BEAM GB2-GB5 DETAILS", "GRADE BEAM GB6-GB9 DETAILS") are one title: a title is grouped by
   `range_key`, the normal form of the words around its ranges (the conventions' `member_range_pattern`;
@@ -53,13 +69,18 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
   GB2-GB9 DETAILS"), its joiner kept.
 - **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
-  places or more that do not all run on, none of its sheets contradicted and no consecutive pair parted
-  on what its views draw, whose runs draw different things (`_apart`). What a run draws, in this order:
-  (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a range, or
-  a word of one to three letters then one to four digits, "GRADE BEAM GB7") and its own titles' ranges,
-  each an interval; and only when it has neither, (c) the storeys, not symbolic, of the plan views of the
-  nearest sheet numbered before it (its group, Discipline and prefix) whose title reads as a plan (17's
-  `describe`): the layout each floor's details follow. The runs are a series when every run draws
+  places or more that do not all run on, no consecutive pair parted on what its views draw, and no
+  contradicted sheet among them that, its contradiction set aside, would run on from or into another of
+  its title's (by number and ascending ranges; S19-B4's E2: a copied title block far from its title is
+  told apart like any run), whose runs draw different things (`_apart`). What a run draws, in this
+  order: (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a
+  range, or a word of one to three letters then one to four digits, "GRADE BEAM GB7"; a section size's
+  second number, '11"X17"', is never a mark, E1, and "B-1" is never read: such marks restart on every
+  floor) and its own titles' ranges, each an interval; and only when it has neither, (c) the storeys,
+  not symbolic, of the plan views of the nearest sheet numbered before it (its group, Discipline and
+  prefix) whose title reads as a plan (17's `describe`): the layout each floor's details follow; when
+  that plan states only symbolic storeys (a tank's), the layer of the run's own titles, else of that
+  plan's views (E3), keyed apart from storeys. The runs are a series when every run draws
   something and no two share a storey or overlap in marks; else the title is `same_title` (one overlap
   keeps every sheet: no part is a series). What was not read is not different: a run that draws nothing
   keeps the Question.
@@ -76,7 +97,10 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   one class (`sheet_class`: a details sheet's title reads as a detail, a section or a schedule; every
   other is a layout sheet's): a layout sheet's plan is never compared with a details sheet's enlarged
   plan views (the owner's ruling of 5 Oct 2026). Never two views of one sheet, or of one continuation,
-  alone: the views must lie on two places or more. One Conflict per set of views: those sharing a storey,
+  alone: the views must lie on two places or more. Two plans whose titles both name member marks
+  (`plan_marks`: "P.C-1", "PC1", a range; never level words and numbers, "LEVELS 2 TO 5") with none in
+  common are never paired (S19-B4's E6: one pile cap's plan is not another's); a plan naming none pairs
+  with every plan. One Conflict per set of views: those sharing a storey,
   grouped by the set, so two plans overlapping on two floors are one Conflict. Evidence, for the words
   (m0-screens §5's "S-14 and S-15 both draw the 5th floor slab, bottom layer"): the first two sheets'
   numbers (else titles); the titles, as drawn, of their plans in the set (they state the storey and what
@@ -85,10 +109,11 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   sheet is never said of the other); the layer (`none` for none), how many views and how many sheets they
   lie on (`sheets`); and, for 21c, the Discipline's, the subject's and the first shared storey's keys (in
   the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title names a room or
-  a part, its floors only a bracketed line under it, #413) sits out: each bath's plan over "2nd to 6th
+  a part, its floors only a line under it, #413, S19-B5) sits out: each bath's plan over "2nd to 6th
   floor" is a different room's. A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
   layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
-  floor"): consecutive ranges meet at a floor by the drafting convention. A plan on a sheet with neither
+  floor"): consecutive ranges meet at a floor by the drafting convention. A plan at ceiling level is
+  compared only with plans at ceiling level (`level`). A plan on a sheet with neither
   number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens
   §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words are its
   evidence line until then.
@@ -97,7 +122,9 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
 never compared pairwise (10,000 sheets of one title are one group, not 50 million pairs; a title's
 runs are told apart by one sweep of their marks, `_overlap`), each number is read once, a title's
 ranges are read only up to `MAX_PATTERN_TEXT` characters, and a title's kind is read only where a rule
-needs it (a sheet with a plan view, a run that draws nothing of its own).
+needs it (a sheet with a plan view, a run that draws nothing of its own). The one pairwise reading is
+content twins': only for a consecutive pair's sheets, against their own file's, at most
+`MAX_TWIN_READS` overlaps.
 
 **The trust boundary** (each refused with a `ValueError` or `TypeError`, so the stage fails, never
 passes): `views` not one list per sheet; one sheet or view object given twice; a sheet with no group;
@@ -172,6 +199,10 @@ class Recognisers:
     `storeys.read(text, conventions, plan_title=True)`: its explicit list and its end)."""
     symbolic: Callable[[str], bool]
     """Whether a storey key is one Step 3 resolves (13's "typical", "top" and "not stated")."""
+    stated: Callable[[str], Sequence[str]] = lambda _: ()
+    """The storey words a title states, each phrase verbatim (13's `storeys.read(text, conventions,
+    plan_title=True).as_stated`, split at its ", "): what a title's stem leaves out (`_Twins`). A
+    stand-in without it states none."""
 
 
 SYMBOLIC = frozenset({"typical", "top", "not_stated"})
@@ -199,17 +230,24 @@ def recognisers(conventions: SheetConventions | None) -> Recognisers:
         def unbound(_: str) -> NoReturn:
             raise ValueError("a number or a storey is read under the sheets' conventions; none given")
 
-        return Recognisers(sequence=unbound, storeys=unbound, symbolic=SYMBOLIC.__contains__)
+        return Recognisers(
+            sequence=unbound, storeys=unbound, symbolic=SYMBOLIC.__contains__, stated=unbound
+        )
     bound = conventions
 
     def title_storeys(text: str) -> tuple[str, ...]:
         read = storeys.read(text, bound, plan_title=True)
         return (*read.keys, *([read.runs_to] if read.runs_to else []))
 
+    def stated(text: str) -> tuple[str, ...]:
+        found = storeys.read(text, bound, plan_title=True).as_stated
+        return tuple(part for part in (found or "").split(", ") if part)
+
     return Recognisers(
         sequence=lambda number: sheets.sequence(number, bound),
         storeys=title_storeys,
         symbolic=SYMBOLIC.__contains__,
+        stated=stated,
     )
 
 
@@ -235,10 +273,16 @@ def compare(
     *,
     conventions: SheetConventions | None,
     recognisers: Recognisers,
+    files: Sequence[str | None] | None = None,
 ) -> list[Found]:
     """The set's Continuations, Series and Conflicts, by the rules above; `conventions` give each
-    Discipline's prefixes (none: no prefix is a Discipline's own) and the member range pattern."""
+    Discipline's prefixes (none: no prefix is a Discipline's own) and the member range pattern.
+    `files` names each sheet's file (`files[i]` is `sheets[i]`'s) for content twins, which compare
+    only sheets of one file: a caller holding sheets without their anchors gives it (the product's
+    acts, PR #648); none, each sheet's file is its first anchor's."""
     given(sheets, views)
+    if files is not None and len(files) != len(sheets):
+        raise ValueError("files name one file per sheet")
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
     numbers = [reader.key(sheet) for sheet in sheets]
     pattern = None if conventions is None else conventions.member_range_pattern
@@ -248,6 +292,7 @@ def compare(
     cleaned = [text for _, _, text in keyed]  # the text each title's ranges lie in
     places = _Places(len(sheets))  # where a sheet lies for `same_storey`: copies and runs are one
     plans = _Plans(sheets, numbers, reader)
+    twins = _Twins(sheets, recognisers, conventions, files)
 
     by_number: list[tuple[int, Conflict]] = []
     for copies in _grouped(
@@ -286,10 +331,11 @@ def compare(
             spans: list[list[_Span]] = spans,
             drawn: list[_Drawn] = drawn,
             stale: list[bool] = stale,
+            units: list[list[int]] = units,
         ) -> bool:
             if not _ascending(spans[before], spans[after]):
                 return False
-            if drawn[before].differs(drawn[after]):
+            if drawn[before].differs(drawn[after]) or twins.apart(units[before], units[after]):
                 stale.append(True)
                 return False
             return True
@@ -310,7 +356,7 @@ def compare(
             title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
             if (
-                not any(alone)
+                not _blocking(units, alone, reader, sheets, spans)
                 and not stale
                 and _apart(members_of, views, ranges, reader, plans, pattern)
             ):
@@ -319,7 +365,7 @@ def compare(
             evidence = codes.SAME_TITLE(title=title, sheets=len(ordered))["params"]
             by_title.append((min(ordered), Conflict(SAME_TITLE, candidates, evidence)))
 
-    by_storey = _same_storey(sheets, views, places, reader)
+    by_storey = _same_storey(sheets, views, places, reader, pattern)
     found: list[Found] = [c for _, c in sorted(continuations, key=_first)]
     found.extend(s for _, s in sorted(series, key=_first))
     for batch in (by_number, by_title, by_storey):
@@ -327,9 +373,44 @@ def compare(
     return found
 
 
+def _blocking(
+    units: list[list[int]],
+    alone: Sequence[bool],
+    reader: _Reader,
+    sheets: Sequence[SheetCandidate],
+    spans: list[list[_Span]],
+) -> bool:
+    """Whether a contradicted unit blocks its title's series: only one that, its contradiction set
+    aside, would run on from or into another unit of its title (by number and ascending ranges, #102:
+    a copied title block on the next sheet). One that runs on with none is told apart like any run
+    (S19-B4's E2)."""
+    if not any(alone):
+        return False
+    free = _runs(
+        units,
+        [reader.parts(sheets[unit[0]]) for unit in units],
+        [False] * len(units),
+        lambda before, after: _ascending(spans[before], spans[after]),
+    )
+    at = {id(unit): u for u, unit in enumerate(units)}  # by position: `_runs` returns the very units
+    return any(len(run) > 1 and any(alone[at[id(unit)]] for unit in run) for run in free)
+
+
+CEILING = "ceiling"
+FLOOR = "floor"
+
+
+def level(view: ViewCandidate) -> str:
+    """The level a plan's storeys are drawn at: `ceiling` for 17's `at_ceiling_level` (what hangs
+    under a storey's slab), else `floor` (at floor level, or floor to floor: both draw the storey's
+    own floor). One storey at the two levels is two drawings."""
+    return CEILING if view.storeys_meaning == StoreysMeaning.AT_CEILING_LEVEL else FLOOR
+
+
 class _Drawn:
     """What one number's sheets (its copies) state they draw in their views, read when first asked:
-    the storeys (not symbolic) and the subjects (each view's, and those its title names)."""
+    the storeys (not symbolic), each at its `level`, and the subjects (each view's, and those its
+    title names)."""
 
     def __init__(
         self, unit: Sequence[int], views: Sequence[Sequence[ViewCandidate]], reader: _Reader
@@ -342,7 +423,7 @@ class _Drawn:
 
         if self._read is None:
             seen = [v for i in self.unit for v in self.views[i]]
-            storeys = {s for v in seen for s in v.storeys if not self.reader.symbolic(s)}
+            storeys = {f"{s}@{level(v)}" for v in seen for s in v.storeys if not self.reader.symbolic(s)}
             named = {v.subject for v in seen if v.subject is not None}
             named |= {key for v in seen if v.title for key in subjects(v.title)}
             self._read = frozenset(storeys), frozenset(named)
@@ -736,10 +817,24 @@ _MARK = re.compile(r"(?<![^\W_])([^\W\d_]{1,3})(\d{1,4})(?![^\W_])")
 ("GRADE BEAM GB7", "C12"), the marks the member range pattern joins."""
 
 
+_SIZE_TIMES = re.compile(r"(?<=\d)(\s*(?:(?:''|[\"'\u2032\u2033]|mm|cm)\s*)?)[xX\u00d7](?=\s*\d)")
+"""The times sign of a section size ('11"X17"', '9" x 13"', "230x300", "500 mm X 500"): a digit, its
+unit or none, spaces, an x, then a digit. Its x and the next number are no member mark (S19-B4's E1).
+Spaces are read once, never by two quantifiers in a row: a view's title is read raw, and a long run of
+spaces must not cost a square of its length."""
+
+
+def unsized(text: str) -> str:
+    """The text with each section size's times sign made a space, so its second number reads as no
+    member mark ('B-1, 11"X23"' names no mark `X23`)."""
+    return _SIZE_TIMES.sub(lambda match: match.group(1) + " ", text)
+
+
 def _marks(text: str, pattern: str | None) -> list[tuple[str, int, int]]:
-    """The member marks a view's title names, each an interval: its ranges and its single marks."""
+    """The member marks a view's title names, each an interval: its ranges and its single marks; a
+    section size is no mark (`unsized`)."""
     found = [(r.letters, r.low, r.high) for r in member_ranges(clean(text), pattern)]
-    for match in _MARK.finditer(text):
+    for match in _MARK.finditer(unsized(text)):
         letters = normal(match.group(1))
         if letters is not None:
             number = int(match.group(2))
@@ -804,7 +899,11 @@ def _apart(
     """Whether a title's runs draw different things (a series), by what each run draws: (a) the
     storeys its views state, (b) the member marks its views' titles and its own titles' ranges name,
     and (c) only when it has neither, the storeys of the plan views of the nearest plan sheet before
-    it. Apart when every run draws something and no two share a storey or overlap in marks."""
+    it, or, when that plan states only symbolic storeys, a layer: its own titles' (17's `describe`),
+    else that plan's views' (S19-B4's E3; keyed `layer:<key>`, so a layer never equals a storey).
+    Apart when every run draws something and no two share a storey or overlap in marks."""
+    from engine.recognise.views import describe  # 17's, imported where it is used
+
     storeys_of: dict[str, int] = {}
     marks: list[tuple[str, int, int, int]] = []
     for run, members in enumerate(runs):
@@ -819,12 +918,28 @@ def _apart(
                 for s in v.storeys
                 if not reader.symbolic(s)
             }
+            if not storeys:  # a plan of a symbolic storey (a tank's): its layer tells the runs apart
+                titles = (plans.sheets[i].title for i in members)
+                layers = {
+                    str(d.layer) for t in titles if t and (d := describe(t.value)).layer is not None
+                }
+                if not layers:
+                    layers = {
+                        str(v.layer)
+                        for v in views[plan]
+                        if v.kind == ViewKind.PLAN and v.layer is not None
+                    }
+                storeys = {LAYER_KEY + layer for layer in layers}
         if not storeys and not named:
             return False  # what was not read is not different
         if any(storeys_of.setdefault(storey, run) != run for storey in storeys):
             return False
         marks += [(letters, low, high, run) for letters, low, high in named]
     return not _overlap(marks)
+
+
+LAYER_KEY = "layer:"
+"""How `_apart` keys a run's layer beside its storeys, so a layer never equals a storey."""
 
 
 def _overlap(marks: list[tuple[str, int, int, int]]) -> bool:
@@ -927,13 +1042,14 @@ def _same_storey(
     views: Sequence[Sequence[ViewCandidate]],
     places: _Places,
     reader: _Reader,
+    pattern: str | None = None,
 ) -> list[tuple[int, Conflict]]:
     """One storey drawn twice, by the module's rules: each (bucket, storey) gathers its views, and the
     views are grouped by the set they make. A bucket holds one class of sheet (`sheet_class`): a
     layout sheet's plan is never compared with a details sheet's plan views (the owner's ruling of
     5 Oct 2026: a details sheet's enlarged plan shares its layout's subject and storey)."""
     flat: list[tuple[ViewCandidate, int, int]] = []  # each plan view: its sheet's place, its sheet
-    sharing: dict[tuple[tuple[str, str, str, str, str], str], list[int]] = {}
+    sharing: dict[tuple[tuple[str, str, str, str, str, str], str], list[int]] = {}
     for i, sheet in enumerate(sheets):
         if sheet.discipline is None or sheet_name(sheet) is None:
             continue
@@ -945,19 +1061,25 @@ def _same_storey(
                 continue  # a part plan (a bath's): its floors from its title's line (17's storeys)
             kind = kind or sheet_class(sheet)
             layer = NO_LAYER if view.layer is None else str(view.layer)
-            bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind)
+            bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind, level(view))
             flat.append((view, places.of(i), i))
             storeys = [storey for storey in view.storeys if not reader.symbolic(storey)]
             if view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and len(storeys) > 1:
                 storeys = storeys[:-1]  # its top end is where the next range of columns starts
             for storey in storeys:
                 sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
-    sets: dict[tuple[tuple[str, str, str, str, str], tuple[int, ...]], list[str]] = {}
+    sets: dict[tuple[tuple[str, str, str, str, str, str], tuple[int, ...]], list[str]] = {}
+    named: dict[int, list[tuple[str, int, int]]] = {}  # each plan's marks, read once it is compared
     for (bucket, storey), sharers in sharing.items():
+        if len({flat[v][1] for v in sharers}) > 1:
+            for v in sharers:
+                if v not in named:
+                    named[v] = plan_marks(flat[v][0].title, pattern)
+            sharers = _paired(sharers, [flat[v][1] for v in sharers], [named[v] for v in sharers])
         if len({flat[v][1] for v in sharers}) > 1:
             sets.setdefault((bucket, tuple(sharers)), []).append(storey)
     found = []
-    for ((_, discipline, subject, layer, _), members), storeys in sets.items():
+    for ((_, discipline, subject, layer, _, _), members), storeys in sets.items():
         # The set's storeys were met first in its first view, in that view's order: the first of
         # them is the first it lists (no scan of the view's list per storey: that is quadratic).
         first = flat[members[0]]
@@ -990,3 +1112,224 @@ def _same_storey(
         places_of = tuple(flat[v][1] for v in members)
         found.append((members[0], Conflict(SAME_STOREY, candidates, evidence, places_of)))
     return found
+
+
+_PLAN_MARK = re.compile(
+    r"(?<![^\W_])([^\W\d_]{1,3}|[^\W\d_](?:\.[^\W\d_]){1,2}\.?)-?(\d{1,4})(?![^\W_])"
+)
+"""A member mark in a plan's title, for `same_storey`: one to three letters, or letters with dots
+between ("P.C"), then a hyphen or none, then one to four digits, a word each side ("CAP P.C-1",
+"PC1", "B-2"). Never words and numbers apart ("LEVELS 2 TO 5": a space is no part of a mark)."""
+
+
+def plan_marks(title: str | None, pattern: str | None) -> list[tuple[str, int, int]]:
+    """The member marks a plan's title names, each an interval (letters, dots dropped, in normal form):
+    its ranges (the conventions' pattern) and its single marks; a section size is no mark
+    (`unsized`). None for no title."""
+    if not title:
+        return []
+    text = unsized(clean(title))
+    found = [(r.letters, r.low, r.high) for r in member_ranges(text, pattern)]
+    for match in _PLAN_MARK.finditer(text):
+        letters = normal(match.group(1).replace(".", ""))
+        if letters is not None:
+            number = int(match.group(2))
+            found.append((letters, number, number))
+    return found
+
+
+def _paired(
+    sharers: Sequence[int], places: Sequence[int], marks: Sequence[Sequence[tuple[str, int, int]]]
+) -> list[int]:
+    """The plans of one (bucket, storey) that pair with a plan at another place: two plans pair unless
+    both titles name member marks and none in common (S19-B4's E6: one pile cap's plan is not
+    another's). `places[k]` and `marks[k]` are `sharers[k]`'s. In one sort: an interval meets one of
+    another place when, among the intervals starting at or below its end (of its letters), the
+    highest end of another place reaches its start."""
+    bare = [k for k in range(len(sharers)) if not marks[k]]
+    bare_places = {places[k] for k in bare}
+    every = set(places)
+    keep = [False] * len(sharers)
+    for k in range(len(sharers)):
+        if marks[k]:
+            keep[k] = bool(bare_places - {places[k]})  # a plan naming no mark pairs with every plan
+        else:
+            keep[k] = len(every) > 1
+    spans = sorted(
+        (letters, low, high, k) for k in range(len(sharers)) for letters, low, high in marks[k]
+    )
+    by_letters: dict[str, tuple[list[int], list[tuple[int, int, int, int]]]] = {}
+    best = second = (-1, -1)  # the prefix's highest end, and the highest of another place than its
+    for letters, low, high, k in spans:
+        if letters not in by_letters:
+            by_letters[letters] = ([], [])
+            best = second = (-1, -1)
+        place = places[k]
+        if place == best[1]:
+            best = (max(best[0], high), place)
+        elif high > best[0]:
+            best, second = (high, place), best
+        elif high > second[0]:
+            second = (high, place)
+        lows, tops = by_letters[letters]
+        lows.append(low)
+        tops.append((*best, *second))
+    for letters, low, high, k in spans:
+        if keep[k]:
+            continue
+        lows, tops = by_letters[letters]
+        at = bisect.bisect_right(lows, high) - 1  # the last interval starting at or below its end
+        best_high, best_place, second_high, _ = tops[at]
+        other = best_high if best_place != places[k] else second_high
+        keep[k] = other >= low
+    return [sharers[k] for k in range(len(sharers)) if keep[k]]
+
+
+TWIN = 0.9
+"""A near twin's least weighted layer overlap (`_shared`; the session-19 analysis of stale-title
+pairs measured E-16/E-17-like twins at 0.96 and above, and true continuations at 0.07 to 0.57)."""
+
+MAX_TWIN_READS = 4_000_000
+"""The most layer entries one comparison reads for content twins (an overlap of two histograms costs
+both their lengths): past it a sheet has no near twin and a pair is never parted by the rule (it
+stays as the other rules leave it)."""
+
+
+SHORT = 3
+"""A stem leaves out words of this many letters or fewer: joining words never part two stems (a
+word that short and meaningful, "cap", "fan", only makes two stems one: the rule then sits out)."""
+
+
+def _shared(a: dict[str, int], b: dict[str, int]) -> float:
+    """Two layer histograms' weighted overlap: the sum over layers of the lesser count over the sum of
+    the greater (1 the same content, 0 nothing shared)."""
+    high = sum(max(count, b.get(layer, 0)) for layer, count in a.items())
+    high += sum(count for layer, count in b.items() if layer not in a)
+    low = sum(min(count, b.get(layer, 0)) for layer, count in a.items())
+    return low / high if high > 0 else 0.0
+
+
+def _source(sheet: SheetCandidate) -> str | None:
+    """The file a sheet was read from (its first anchor's), or none."""
+    if not sheet.anchors:
+        return None
+    source: str | None = getattr(sheet.anchors[0], "source_sha256", None)
+    return source
+
+
+class _Twins:
+    """The content-twin rule (the module's rules): each sheet's near twins in its own file, read once
+    and only for sheets a pair asks about, and each twin's title stem."""
+
+    def __init__(
+        self,
+        sheets: Sequence[SheetCandidate],
+        recognisers: Recognisers,
+        conventions: SheetConventions | None,
+        files: Sequence[str | None] | None = None,
+    ) -> None:
+        self.sheets = sheets
+        self.sources = [_source(s) for s in sheets] if files is None else list(files)
+        self.recognisers = recognisers
+        self.pattern = None if conventions is None else conventions.member_range_pattern
+        words = (
+            ()
+            if conventions is None
+            else (
+                *conventions.floor_words,
+                *conventions.level_words,
+                *conventions.range_words,
+                *conventions.list_words,
+                *conventions.weak_storey_words,
+            )
+        )
+        self.skip = frozenset(w for phrase in words for w in phrase.casefold().split())
+        self.layers = [dict(s.layers) for s in sheets]
+        self.totals = [sum(layers.values()) for layers in self.layers]
+        self.files: dict[tuple[str | None, str], list[int]] = {}
+        for i, sheet in enumerate(sheets):
+            source = self.sources[i]
+            if source is not None and self.layers[i]:
+                self.files.setdefault((sheet.group, source), []).append(i)
+        self.near: dict[int, list[tuple[float, int]]] = {}
+        self.stems: dict[int, tuple[str, ...] | None] = {}
+        self.reads = MAX_TWIN_READS  # read when the first `_Twins` is made, so tests may set it
+
+    def apart(self, first: Sequence[int], second: Sequence[int]) -> bool:
+        """Whether two consecutive places of one title draw different things: each (its first copy)
+        has a near twin outside the two, no twin of one shares a title stem with a twin of the other,
+        and each is closer to its nearest twin than to the other."""
+        a, b = first[0], second[0]
+        if not self.layers[a] or not self.layers[b]:
+            return False
+        out = {*first, *second}
+        near_a = [(w, j) for w, j in self._near(a) if j not in out]
+        near_b = [(w, j) for w, j in self._near(b) if j not in out]
+        if not near_a or not near_b:
+            return False
+        stems_a = {self._stem(j) for _, j in near_a}
+        stems_b = {self._stem(j) for _, j in near_b}
+        if None in stems_a or None in stems_b or stems_a & stems_b:
+            return False
+        if not self._take(a, b):
+            return False
+        pair = _shared(self.layers[a], self.layers[b])
+        return pair < max(w for w, _ in near_a) and pair < max(w for w, _ in near_b)
+
+    def _near(self, i: int) -> list[tuple[float, int]]:
+        """The titled sheets of `i`'s group and file whose overlap with it is `TWIN` or more."""
+        held = self.near.get(i)
+        if held is not None:
+            return held
+        sheet = self.sheets[i]
+        source = self.sources[i]
+        found: list[tuple[float, int]] = []
+        mine, total = self.layers[i], self.totals[i]
+        for j in [] if source is None else self.files.get((sheet.group, source), []):
+            if j == i or self.sheets[j].title is None:
+                continue
+            if min(total, self.totals[j]) < TWIN * max(total, self.totals[j]):
+                continue  # the totals alone keep the overlap below `TWIN`
+            if not self._take(i, j):
+                found = []  # past the bound: no twins, so the rule sits out
+                break
+            w = _shared(mine, self.layers[j])
+            if w >= TWIN:
+                found.append((w, j))
+        self.near[i] = found
+        return found
+
+    def _take(self, i: int, j: int) -> bool:
+        """Spend the reads one overlap of `i` and `j` costs, or refuse past `MAX_TWIN_READS`."""
+        cost = len(self.layers[i]) + len(self.layers[j])
+        if cost > self.reads:
+            self.reads = 0
+            return False
+        self.reads -= cost
+        return True
+
+    def _stem(self, j: int) -> tuple[str, ...] | None:
+        """A title's stem: its words (letters only, case folded) without the storeys it states, its
+        member-mark ranges, the conventions' floor, level, range, list and weak storey words, or any
+        word of `SHORT` letters or fewer (an ordinal's suffix, "for", "of"): so one drawing type over
+        several floors or mark ranges, worded with or without a joining word, is one stem. None when
+        nothing is left."""
+        if j in self.stems:
+            return self.stems[j]
+        title = self.sheets[j].title
+        assert title is not None
+        text = clean(title.value)
+        stated = self.recognisers.stated(text)
+        if isinstance(stated, str) or not all(isinstance(part, str) for part in stated):
+            raise TypeError(f"a title's stated storeys are a list of text, not {stated!r}")
+        for part in stated:
+            if part:
+                text = text.replace(part, " ")
+        for found in reversed(member_ranges(text, self.pattern)):
+            text = text[: found.at] + " " + text[found.end :]
+        words = tuple(
+            w for w in re.findall(r"[^\W\d_]+", text.casefold()) if len(w) > SHORT and w not in self.skip
+        )
+        stem = words or None
+        self.stems[j] = stem
+        return stem

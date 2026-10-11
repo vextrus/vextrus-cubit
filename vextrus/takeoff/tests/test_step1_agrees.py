@@ -1,8 +1,8 @@
 """A Proposal's `agrees` (ticket 22; m0-screens §5, "What 'agrees' means"): the field Step 1's bulk act
 ("Confirm 16, leave out 1 ↵", 6.4) is worked out from. A sheet read from its title block agrees once
-a second source confirms it: its Discipline's drawing list names it (or, with no list, the numbering
-runs without a gap and its Plot page matched). A sheet in an open Question, or with one source, never
-agrees."""
+a second source confirms it: its Discipline's drawing list names it (or, with no list, its Plot page
+matched, or, with no PDF either, an unbroken run of numbers: docs/rulings.md). A sheet in an open
+Question, or with one source, never agrees."""
 
 import uuid
 from dataclasses import replace
@@ -30,8 +30,11 @@ def agrees(project: Step1Project) -> dict[str | None, bool]:
     return {p["number"]: p["agrees"] for p in body["proposals"]}
 
 
-def test_with_no_list_and_no_plot_every_sheet_has_one_source(step1_project: Step1Project) -> None:
-    assert agrees(step1_project) == {"S-01": False, "S-02": False, "S-03": False}
+def test_with_no_list_and_no_plot_an_unbroken_run_is_the_second_source(
+    step1_project: Step1Project,
+) -> None:
+    """The owner's ruling, session 18 (docs/rulings.md): S-01 to S-03, no list and no Plot."""
+    assert agrees(step1_project) == {"S-01": True, "S-02": True, "S-03": True}
 
 
 def test_a_drawing_list_naming_a_sheet_is_its_second_source(step1_project: Step1Project) -> None:
@@ -286,3 +289,35 @@ def test_a_proposal_carries_where_each_fact_was_read_and_its_views(step1_project
     assert [v["kind"] for v in first["views"]] == ["title_block"]
     shown = {"title", "stated_scale", "storeys", "storeys_meaning", "steps", "box"}
     assert set(first["views"][0]) >= shown
+
+
+def agrees_by(project: Step1Project) -> dict[str | None, str | None]:
+    body: dict[str, Any] = (
+        api_as(project.member).get(f"/api/projects/{project.project_id}/takeoff/step1/proposals").json()
+    )
+    return {p["number"]: p["agrees_by"] for p in body["proposals"]}
+
+
+def test_each_agreeing_sheet_names_its_second_source_for_the_bars_words(
+    step1_project: Step1Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 1 of #648 (design gate, must 1): the bar words a sheet's second source, so the API says
+    which it is: "run" with no list and no PDF, "list" once a list names it, "plot" for a Plot page
+    read alike with no list; null for one source."""
+    assert agrees_by(step1_project) == {"S-01": "run", "S-02": "run", "S-03": "run"}
+
+    real = step1._sheets
+
+    def with_plots(project_id: uuid.UUID) -> list[drawings.SheetView]:
+        return [
+            replace(s, plot=replace(s.plot, page=i + 1, title_alike=True)) if s.number != "S-03" else s
+            for i, s in enumerate(real(project_id))
+        ]
+
+    monkeypatch.setattr(step1, "_sheets", with_plots)
+    assert agrees_by(step1_project) == {"S-01": "plot", "S-02": "plot", "S-03": None}
+    monkeypatch.setattr(step1, "_sheets", real)
+
+    with step1_project.member.acting():
+        step1.set_list(step1_project.project_id, "structural", "S-01 to S-02", actor_name="QS")
+    assert agrees_by(step1_project) == {"S-01": "list", "S-02": "list", "S-03": None}

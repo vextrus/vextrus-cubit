@@ -195,7 +195,8 @@ export function stripSlots(all: readonly (readonly ViewOut[] | undefined)[]): st
   return [...slots.entries()].sort((a, b) => a[1] - b[1]).map(([slot]) => slot)
 }
 
-/** The storey strip (6.8): 5 px slots with a 1 px gap; Ground and Roof a shade darker; full = floor to floor, a bar = at floor level. */
+/** The storey strip (6.8): 5 px slots with a 1 px gap; Ground and Roof a shade darker; full = floor to floor, a bar = at floor level
+ * or at ceiling level (what hangs under that storey's ceiling: no mark of its own, the orchestrator's default on review 1 of #648). */
 export function StoreyStrip({ slots, views, muted, size = 5 }: { slots: readonly string[]; views: readonly ViewOut[] | undefined; muted?: boolean; size?: number }) {
   const full = new Set<string>()
   const bar = new Set<string>()

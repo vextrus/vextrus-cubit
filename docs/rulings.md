@@ -47,9 +47,12 @@ Session 19, the owner (9 Oct 2026, 19:05Z), on the boundary storey: "Settle by c
 column or shear-wall plans state storey ranges that share an end ("foundation to 3rd" and "3rd to 6th"), Vextrus
 settles it by the Dhaka convention that the first plan's columns stop at that slab (`excludes_storey`), records both
 titles as Trace and asks no Question; it asks only when a third plan of the same subject also claims that storey.
-This narrows m0-screens 6.7's boundary-storey card (S19-B2 amends the documents when it lands).
+A meeting counts only when both views state a two-ended "X to Y" range; a list or a "below ground" phrase never
+meets. This narrows m0-screens 6.7's boundary-storey card. One ruling, recorded twice: by the session-19 close and by
+S19-B2, which built it and amended the documents (Train B).
 
 ruling: takeoff.boundary_storey.shared_end = excludes_storey
+ruling: takeoff.boundary_storey.meets_only = two-ended ranges
 
 Session 20, the owner (10 Oct 2026, 09:16Z), on Edison E-16/E-17 (a copied title block over a different drawing that
 only the drawn content tells apart): "Keep it in M0": build a content comparison now; G1's expectation is unchanged.
