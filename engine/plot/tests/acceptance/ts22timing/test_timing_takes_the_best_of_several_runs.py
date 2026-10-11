@@ -7,6 +7,7 @@ name each offending test; the behavioural tests drive the helper with a fake clo
 
 import ast
 from collections.abc import Callable
+from importlib import import_module
 from pathlib import Path
 
 TESTS = Path(__file__).resolve().parents[2]
@@ -181,6 +182,12 @@ def test_each_timing_test_against_a_fixed_bound_takes_the_best_of_its_side() -> 
     assert not short, f"does not time its side through best_of: {short}"
 
 
+def _best_of() -> Callable[..., float]:
+    """The shared helper: ModuleNotFoundError until it is built."""
+    best_of: Callable[..., float] = import_module("engine.plot.tests.timing").best_of
+    return best_of
+
+
 class _FakeClock:
     """Each read returns the next reading, and records it beside the timed call's runs."""
 
@@ -202,7 +209,7 @@ def _counted(log: list[str]) -> Callable[[], object]:
 
 
 def test_best_of_returns_the_least_of_n_runs_of_the_clock() -> None:
-    from engine.plot.tests.timing import best_of
+    best_of = _best_of()
 
     log: list[str] = []
     # Runs of 5, 2, 9, 0.5 and 3 ticks: the least is 0.5.
@@ -214,7 +221,7 @@ def test_best_of_returns_the_least_of_n_runs_of_the_clock() -> None:
 
 
 def test_best_of_honours_more_runs_than_five() -> None:
-    from engine.plot.tests.timing import best_of
+    best_of = _best_of()
 
     log: list[str] = []
     readings = [float(x) for k in range(8) for x in (10 * k, 10 * k + 8 - k)]
@@ -225,7 +232,7 @@ def test_best_of_honours_more_runs_than_five() -> None:
 
 
 def test_best_of_runs_at_least_five_times_by_default() -> None:
-    from engine.plot.tests.timing import best_of
+    best_of = _best_of()
 
     log: list[str] = []
     readings = [float(x) for k in range(100) for x in (10 * k, 10 * k + 7)]
@@ -238,7 +245,7 @@ def test_best_of_runs_at_least_five_times_by_default() -> None:
 
 def test_a_regression_slowing_every_run_still_shows_through_best_of() -> None:
     """The least of the runs drops one slow (noisy) run but keeps a slowdown every run shares."""
-    from engine.plot.tests.timing import best_of
+    best_of = _best_of()
 
     noisy = [0.0, 1.0, 10.0, 18.0, 20.0, 21.0, 30.0, 31.0, 40.0, 41.0]
     slow = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0]
