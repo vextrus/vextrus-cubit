@@ -517,3 +517,26 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   builders by `cwd` (session 18's lesson held).
 - **Several sessions' budget records share `.git/vextrus/`,** so a builder's clock line showed another ticket's
   record. No check yet: name each record by the worktree, not only the ticket.
+
+## Session 21 (10-11 Oct 2026): Train A landed, merge_ready reads large PRs, Train B's boundary rule regressed five times
+
+- **merge_ready, the PR leak scan and the lander read `gh pr diff`, which GitHub refuses over 20000 lines,** and
+  GraphQL's `files(first: 100)` cut a 207-file PR's facts short, so Train A (#641) could not pass the merge gate at
+  all. Check: `scripts/tests/acceptance/ts21mr/test_large_pr.py` (#645: merge_ready and `leakscan pr` read diff,
+  files and commits from git; a 150th-file leak is found). The lander's `Gh.files` still reads it: #647 (no check yet); #641 landed by hand.
+- **Drawing text reached test fixtures twice in one session** (C2's acceptance writer, C4's builder), each called
+  "invented". Check: `scripts/verify.py`'s leak scan (and publish's) caught both before any push; each was redone on a fresh
+  branch. The guard refuses `tools.leakscan range` from a builder's worktree, so the orchestrator scans for them.
+- **A sha typed from memory again** (an rdlock no-post run on a head that does not exist); caught before any gate,
+  restarted with `git rev-parse`. No check: `rdlock run --head` should refuse a sha git cannot resolve.
+- **`stamp start --budget 12` reads 12 minutes,** not hours. No check: refuse a bare number.
+- **Verify races on a fresh worktree** (contract-fixtures before openapi-export; pytest-lint sees other worktrees'
+  databases): four builders lost a 30-minute verify to it. No check: #644.
+- **A HOLD file ordered verifies better than messages:** builders hold suites while
+  `.private/work/session-21/HOLD` exists; each verify then ran alone on the critical path. No check: a practice the orchestrator keeps, not
+  a code path.
+- **A fix round that redefines an identity ("what counts as the same plan") regressed in every review** (#648 r1-r3,
+  #650 r1: by number, then view, then storey range, then a withdrawal). No check: a builder changing an identity
+  key writes the table of cases (copies, halves, another view, excluded, undo) as tests before the fix.
+- **A fourth power cut (03:41Z-09:50Z) killed every agent;** resumed copies took new names, so messages to the old
+  name went to a stale Remote Control entry. No check: find sessions by `cwd` (`claude agents --json`).
