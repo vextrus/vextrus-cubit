@@ -1054,9 +1054,9 @@ def _boundaries(
     and storey range: a view of either meeting range (a copy in a later file, a second viewport or
     half) is that plan, and one meeting is asked once; a view of another range holding the storey is
     a third plan; a sheet left out claims nothing, and a meeting whose own sheet is left out is not
-    asked. Every act runs it again (`set_conflicts`), so leaving the third plan out
-    settles the meeting and undoing that asks it again, with no later read. Returns how many it
-    asked."""
+    asked (a Question asked before stays as it is: none is retired here). Every act runs it again
+    (`set_conflicts`), so leaving the third plan out settles the meeting and undoing that asks it
+    again, with no later read. Returns how many it asked."""
     conventions = step1.sheet_conventions()
 
     def ranged(view: drawings.ViewView) -> bool:
@@ -1072,7 +1072,6 @@ def _boundaries(
     ranges = [(i, v) for i, v in plans if len(v.storeys) > 1 and ranged(v)]
     asked = 0
     met: set[tuple[object, ...]] = set()
-    raised: list[uuid.UUID] = []
     for i, first in ranges:
         for j, then in ranges:
             if i == j or listed[i].discipline != listed[j].discipline or first.subject != then.subject:
@@ -1115,7 +1114,6 @@ def _boundaries(
                 options=options(BOUNDARY_OPTIONS),
                 blocks=blocks,
             )
-            raised.append(question_id)
             if claimed:
                 # A third plan read after the convention settled the meeting: asked, never left
                 # settled (review 1 of #648: the claim must not depend on which file came first).
@@ -1132,9 +1130,9 @@ def _boundaries(
                 if listed[k].id in proposal_of
             ]
             step1.settle_by_convention(project_id, question_id, "excludes_storey", traces)
-    # A boundary storey no longer asked (its meeting sheet left out, or one meeting raised twice
-    # before #650) is withdrawn; one asked again (an undo) is open again; an answered one stays.
-    step1.retire_questions(project_id, (said.BOUNDARY_STOREY.code,), raised)
+    # A boundary storey no longer asked stays as it is: it is never retired here (the owner's ruling,
+    # 11 Oct 2026, on #650: retiring reopened a withdrawn one the convention had skipped, and handed a
+    # kept-open answer to another storey's Question).
     return asked
 
 
