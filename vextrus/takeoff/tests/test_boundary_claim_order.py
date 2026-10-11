@@ -130,3 +130,51 @@ def test_leaving_the_third_plan_out_settles_the_meeting_and_undo_asks_it_again(
     api.post(f"{step1(qs_project.project_id)}/undo", {})
     [asked] = open_boundaries(qs_project)
     assert asked["id"] == settled["id"]
+
+
+@pytest.mark.parametrize("halved", ["first", "then"])
+def test_a_meeting_plan_drawn_as_two_halves_of_one_range_is_one_plan(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, halved: str
+) -> None:
+    """#650 (55): a plan is its subject and storey range. A meeting plan drawn as two viewports of one
+    range (left half, right half) is that one plan, never a third: the convention settles the meeting
+    and nothing is open, as with one viewport each."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet
+
+    first = "COLUMN SETTING-OUT PLAN GRD TO 3RD FLOOR"
+    then = "COLUMN SETTING-OUT PLAN 3RD TO 5TH FLOOR"
+
+    def halves(title: str) -> tuple[str, str]:
+        return (f"{title} LEFT HALF", f"{title} RIGHT HALF")
+
+    sheets = [
+        Sheet("S-21", first, halves(first) if halved == "first" else (first,)),
+        Sheet("S-22", then, halves(then) if halved == "then" else (then,)),
+    ]
+    read(qs_project, monkeypatch, sheets, "KR-STR-COL-R0.dwg")
+
+    assert open_boundaries(qs_project) == []
+    assert boundary(qs_project)
+    answered = [q for q in boundary(qs_project) if q["status"] == "answered"]
+    assert [q["answer"]["option"] for q in answered] == [EXCLUDES]
+
+
+def test_a_meeting_whose_own_sheet_is_left_out_is_not_asked(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#650 (40): S-21/S-22 meet and S-23 claims the storey, so it is asked; leaving S-22 (the meeting's
+    own sheet) out withdraws the Question; undoing that asks it again."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import exclude, proposals, step1, the
+    from vextrus.testing.auth import api_as
+
+    read(qs_project, monkeypatch, [*TWO, *THIRD], "KR-STR-R0.dwg")
+    [asked] = open_boundaries(qs_project)
+    api = api_as(qs_project.member)
+    s22 = the(proposals(api, qs_project.project_id), "S-22")["id"]
+
+    assert exclude(api, qs_project.project_id, [s22], "superseded").status_code == 200
+    assert open_boundaries(qs_project) == []
+
+    api.post(f"{step1(qs_project.project_id)}/undo", {})
+    [again] = open_boundaries(qs_project)
+    assert again["id"] == asked["id"]
