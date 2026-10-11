@@ -1406,7 +1406,7 @@ _EVENTS = {
 
 
 def _event_of(act: ConfirmationAct, before: Sequence[drawings.SheetView]) -> MessageCode:
-    """The act's code in the event log: a confirm of sheets all excluded before is "confirmed back in"."""
+    """The act's code in the event log: confirming sheets all excluded before is "confirmed back in"."""
     if act == ConfirmationAct.CONFIRM and before and all(s.decision == "excluded" for s in before):
         return said.CONFIRMED_BACK_IN
     return _EVENTS[act]
