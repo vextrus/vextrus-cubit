@@ -27,9 +27,11 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from scripts.ledger import default_ledger_dir
+from scripts.merge_ready import Unfetchable, changed_files, fetch_pull
 from tools.lint.engine_paths import matching, read_patterns
 
 REPOSITORY = "vextrus/vextrus-cubit"
+BRANCH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
 FLAKY = Path(".github/flaky.txt")
 ENGINE_PATHS = Path(".github/engine-paths.txt")
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -286,7 +288,25 @@ class Gh:
         ).strip()
 
     def files(self, pr: int) -> list[str]:
-        return self._run("gh", "pr", "diff", str(pr), "--repo", REPOSITORY, "--name-only").split()
+        """The PR's own files, read from git (`gh pr diff` is refused over 20000 lines): the pull ref and
+        the base are fetched, then `git diff --name-only <base>...<head>`. A failed fetch, or a head or
+        base git does not hold, is a refusal."""
+        answer = self._run("gh", "api", f"repos/{REPOSITORY}/pulls/{pr}")
+        try:
+            pull = json.loads(answer)
+        except ValueError:
+            raise Refused("GitHub's answer is not a pull request: run again") from None
+        try:
+            head, base, branch = pull["head"]["sha"], pull["base"]["sha"], pull["base"]["ref"]
+            if not isinstance(branch, str) or not BRANCH.fullmatch(branch):
+                raise Refused("the PR's base is not a plain branch name")
+            with contextlib.chdir(self.repo):
+                fetch_pull(pr, branch, head, base)
+                return changed_files(base, head)
+        except Unfetchable as error:
+            raise Refused(str(error)) from None
+        except KeyError, TypeError:
+            raise Refused("GitHub's answer is not a pull request: run again") from None
 
     def conflicting(self, pr: int) -> bool:
         """GitHub reports the PR CONFLICTING / DIRTY. `mergeable` UNKNOWN (not computed yet) is polled a
