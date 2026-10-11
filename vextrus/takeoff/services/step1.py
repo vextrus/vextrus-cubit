@@ -161,7 +161,8 @@ class ProposalView:
     storeys_as_stated: str = ""
     storeys_titled: tuple[str, ...] | None = None
     """The storey keys its title's storey words read to (17's `views.titled_storeys`, with where a
-    range runs to), derived on the read and stored nowhere; None when it states none or they read to
+    range runs to, a range's `top` resolved to the set's highest numbered floor: 13's `to_top`),
+    derived on the read and stored nowhere; None when it states none or they read to
     no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
@@ -432,6 +433,13 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     agreeing = _agreeing(project_id, sheets, by_sheet)
     order = markets.of_developer(_tenant()).date_order
     titled = _titled({s.storeys_as_stated for s in sheets})
+    # A range to the roof or the top floor shown up to the set's highest numbered floor (S21-C4):
+    # read across every file's titles and views, here only; the checks above compare as read.
+    highest = view_finder.highest_floor(
+        [*(k for k in titled.values() if k), *(v.storeys for vs in viewed for v in vs)]
+    )
+    titled = {text: _to_top(keys, highest) for text, keys in titled.items()}
+    shown = [[_view_to_top(v, highest) for v in vs] for vs in viewed]
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
@@ -442,8 +450,18 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
             **asdict(grouped.get(s.id, groups.ALONE)),
         )
-        for s, views in zip(sheets, viewed, strict=True)
+        for s, views in zip(sheets, shown, strict=True)
     ]
+
+
+def _to_top(keys: tuple[str, ...] | None, highest: int | None) -> tuple[str, ...] | None:
+    return view_finder.to_top(keys, highest) if keys else keys
+
+
+def _view_to_top(view: drawings.ViewView, highest: int | None) -> drawings.ViewView:
+    """A view as Step 1 shows it: a range's `top` resolved (13's `storeys.to_top`)."""
+    storeys = view_finder.to_top(view.storeys, highest)
+    return view if storeys == view.storeys else replace(view, storeys=storeys)
 
 
 def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
@@ -2808,6 +2826,23 @@ def asked_of(
     return next((row.id for row in rows if set(held.get(row.id, ())) == wanted), None)
 
 
+def open_questions(project_id: uuid.UUID, ids: Iterable[uuid.UUID]) -> set[uuid.UUID]:
+    """Those of these Step 1 Questions still open (neither answered nor withdrawn)."""
+    _in_scope(project_id)
+    wanted = list(set(ids))
+    if not wanted:
+        return set()
+    return set(
+        Question.objects.filter(
+            tenant_id=_tenant(),
+            project_id=project_id,
+            step=SHEETS,
+            id__in=wanted,
+            status=QuestionStatus.OPEN,
+        ).values_list("id", flat=True)
+    )
+
+
 def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterable[uuid.UUID]) -> int:
     """After a round that asked the set's Questions of these codes again (#161): each one `raised`
     that a past round retired is open again, and each still open that was not raised is retired,
@@ -3317,9 +3352,10 @@ def lock_writes(project_id: uuid.UUID) -> None:
     """Step 1's write lock on the Project, held to the transaction's end (#227, review round 3).
     Every act takes it as its transaction's first statement, before any row lock (`writing`); a
     read job takes it just before its short write phase (the proposals' rows, the set's Questions,
-    the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers), which holds
-    no row an act locks. So an act and a job share their rows one at a time: an act waits at most
-    for a job's write phase (seconds), never for its reading, and the two never wait on each other
+    the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers, the set's
+    recognisers: S21-C1's `proposals.find_questions`), which holds no row an act locks. So an act
+    and a job share their rows one at a time: an act waits at most for a job's write phase
+    (seconds), never for its reading, and the two never wait on each other
     in a cycle, whatever rows they share (a sheet the match lets go, a Question both retire, a PDF's
     row). The Discipline change takes it first too (`drawings.before_discipline_change`). Taken
     again in the same transaction, it is already held; an act aborted anyway is run again

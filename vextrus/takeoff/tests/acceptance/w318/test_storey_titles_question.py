@@ -318,9 +318,9 @@ def test_a_source_with_no_storeys_is_refused_as_a_candidate() -> None:
 
 
 def test_each_proposal_gives_its_sheet_titles_storeys_as_keys(qs_project: QsProject) -> None:
-    """C8: `storeys_titled`, the keys the Sheet's stated title reads to (with where a range runs to),
-    null when it states none or its words read to no key; for a Sheet with plan Views (inherited or
-    not) and for one with none."""
+    """C8: `storeys_titled`, the keys the Sheet's stated title reads to (a range to the top floor runs
+    to the set's highest numbered floor, S21-C4), null when it states none or its words read to no
+    key; for a Sheet with plan Views (inherited or not) and for one with none."""
     section = Plan(kind=ViewKind.SECTION, title="SECTION R-R")
     record(qs_project.member, qs_project.project_id, "KR-STR-R0.dwg", [
         Sheet("S-81", "3RD & 5TH FLOOR", (section,)),
@@ -338,7 +338,7 @@ def test_each_proposal_gives_its_sheet_titles_storeys_as_keys(qs_project: QsProj
 
     assert titled == {
         "S-81": ["floor_3", "floor_5"],
-        "S-82": ["floor_1", "top"],
+        "S-82": [f"floor_{n}" for n in range(1, 10)],
         "S-83": None,
         "S-84": None,
         "S-85": ["floor_9"],

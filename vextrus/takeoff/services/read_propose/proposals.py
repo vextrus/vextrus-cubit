@@ -39,14 +39,16 @@ a sheet (13's register) kept per Discipline, and 19b's register Check run (`Chec
 `read`), each finding a `check` Question; 19b's storey-titles Check (a sheet's title storeys against
 its plans', `CheckRun` too), its findings asked as one `check` Question per Discipline holding that
 Discipline's undecided disagreeing sheets (none undecided: nothing asked), retired when none is found
-again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet). A Question
+again (the owner's ruling of 5 Oct 2026: one Question per Discipline, not one per sheet), but for a
+stale copy (a title block stating its same-title partner's plans' storeys: S21-C2), asked by its
+open `same_title` conflict alone. A Question
 raised again is the one asked (`step1.raise_question`).
 """
 
 import re
 import uuid
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from itertools import permutations
 from typing import Any, cast
 
@@ -64,6 +66,7 @@ from engine.recognise import storeys as storey_reader
 from engine.recognise.types import (
     Box,
     CheckOutcome,
+    CheckResult,
     Conflict,
     DrawingList,
     JudgementRequest,
@@ -181,6 +184,9 @@ def _propose(
     viewed = [(sheet, drawings.views(sheet.id)) for sheet in listed]
     judged = [(sheet, views, _judged(sheet, views, conventions, sent)) for sheet, views in viewed]
     lists = _lists_read(listed, load, conventions) if listed else []
+    # The set's Questions found too, before the lock (S21-C1: seconds on a real set, which a QS's
+    # act would wait out); kept under it, or found again if the set moved meanwhile.
+    found = find_questions(project_id, lists_read=lists)
     step1.lock_writes(project_id)
     step1.record_unread(project_id, file_id, sheet_found=len(listed), unread=unread)
     proposed = 0
@@ -213,7 +219,7 @@ def _propose(
         proposed += 1
     for sheet_id, discipline, rows in lists:
         step1.record_read_list(sheet_id, discipline, rows)
-    asked = set_questions(project_id, trigger_file=file_id)
+    asked = set_questions(project_id, trigger_file=file_id, found=found)
     step1.record_progress(project_id)  # last: it counts the Questions the set's round asked
     return {"sheets": proposed, "questions": asked}
 
@@ -348,9 +354,10 @@ def kind_options(
 
 def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:
     """What the sheets one kind Question asks share (S15-Q1, grouped by Discipline and Jev's top two
-    kinds): its Discipline's key and Jev's first and second kinds, in that order (so the kind picked
-    first is one for all of them). Never a sheet's name or number."""
-    return ["which_kind", discipline or "", *ranked[:2]]
+    kinds): its Discipline's key and Jev's first and second kinds as an unordered pair, sorted (S21-C2:
+    two kinds Jev all but ties on come in either order, run to run and sheet to sheet, and one pair
+    is one Question; a pair sharing one kind only is another). Never a sheet's name or number."""
+    return ["which_kind", discipline or "", *sorted(ranked[:2])]
 
 
 def unsure(answer: jev.Judgement, title: str) -> bool:
@@ -582,39 +589,173 @@ def _lists_read(
 # The set's Questions ------------------------------------------------------------------------------
 
 
-def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = None) -> int:
+@dataclass(frozen=True)
+class SetInputs:
+    """What the set's three recognisers read (19b's conflicts' compare, the register Check, the
+    storey-titles Check): every listed sheet by id, in the sheet list's order, as each compares it,
+    with its views, the drawing lists read on the sheets and the QS's given lists, under the
+    conventions. No decision is in it: a sheet's decision is read when the Questions are kept."""
+
+    sheet_ids: tuple[uuid.UUID, ...]
+    files: tuple[str | None, ...]
+    """Each sheet's file (`files_of`: content twins compare only sheets of one file, PR #648)."""
+    conventions: SheetConventions
+    sheets: tuple[SheetCandidate, ...]
+    """Each sheet under its file's group (the Checks' candidates)."""
+    compared: tuple[SheetCandidate, ...]
+    """Each sheet as 19b's compare takes it (`_compared`)."""
+    views: tuple[tuple[ViewCandidate, ...], ...]
+    register: tuple[RegisterEntry, ...]
+    lists: tuple[DrawingList, ...]
+
+
+@dataclass(frozen=True)
+class FoundQuestions:
+    """The set's recognisers run over `inputs` (`find_questions`), what each found, for
+    `set_questions` to keep while its inputs still hold. Each finding refers to `inputs`' own
+    candidates (by identity, as the Questions' code maps them back to their sheets)."""
+
+    inputs: SetInputs
+    recognisers: finder.Recognisers = field(compare=False)
+    conflicts: tuple[Any, ...] = field(compare=False)
+    register: tuple[CheckResult, ...] = field(compare=False)
+    storey_titles: tuple[CheckResult, ...] = field(compare=False)
+    stale: Mapping[int, tuple[int, ...]] = field(compare=False)
+    """The disagreeing sheets that may be stale copies (S21-C2: `storey_questions.stale_copies`), by
+    sheet index: the keys of the `same_title` conflicts in `conflicts` whose title each copies."""
+
+
+ListsRead = Sequence[tuple[uuid.UUID, str, Sequence[tuple[str, str]]]]
+"""Drawing lists read on a file's sheets, not yet recorded: (sheet id, Discipline, its rows)."""
+
+
+def find_questions(project_id: uuid.UUID, *, lists_read: ListsRead = ()) -> FoundQuestions | None:
+    """The set's recognisers run over the set as it stands, writing nothing, before Step 1's write
+    lock is taken (S21-C1: on a real set they take seconds, and a QS's act waits on that lock), with
+    `lists_read` as the read job will record them; None for a set with no sheet listed. The read
+    job's `finishing` hands it to `set_questions`, which keeps it only if the set did not move
+    meanwhile."""
+    read = _read_set(project_id, lists_read)
+    return None if read is None else _found(read[2])
+
+
+def set_questions(
+    project_id: uuid.UUID,
+    *,
+    trigger_file: uuid.UUID | None = None,
+    found: FoundQuestions | None = None,
+) -> int:
     """The set's conflicts, boundary storeys, register Check and storey-titles Check, over every sheet
     in the sheet list (see the module); how many Questions they hold (asked now or before). No
     progress row is written: the caller writes them once, after (the read job; a Step 1 act's
-    `_after_act`)."""
-    drawing_set = drawings.set_of(project_id)
-    if drawing_set is None:
+    `_after_act`).
+
+    `found` is what `find_questions` found before the caller took Step 1's write lock: it is kept
+    when the recognisers' inputs read now are the same (a decision made meanwhile is read now, and
+    no recogniser reads one); when the set moved (a number typed, a list given, a sheet listed or let
+    go), the set is found again, here (S21-C1: no Question lost, none stale)."""
+    read = _read_set(project_id)
+    if read is None:
         return 0
-    listed = drawings.sheets(drawing_set.id)
-    if not listed:
-        return 0
-    groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
-    conventions = step1.sheet_conventions()
-    sheets = [candidate(s, groups.get(s.file_id, "site")) for s in listed]
-    of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
-    viewed = [of_sheet.get(s.id, []) for s in listed]
-    views = [[view_candidate(v) for v in vs] for vs in viewed]
+    listed, viewed, now = read
+    if found is None or found.inputs != now:
+        found = _found(now)  # the set moved since it was found: found again, under the lock
+    inputs = found.inputs  # equal to `now`; its findings refer to its own candidates
     proposal_of = step1.proposal_ids(project_id)
-    recognisers = finder.recognisers(conventions)
-    asked = _conflicts(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    recognisers = found.recognisers
+    conventions = inputs.conventions
+    conflicts = _conflicts(
+        project_id, listed, inputs.compared, inputs.views, found.conflicts, proposal_of
+    )
+    asked = len(conflicts)
     asked += _boundaries(project_id, listed, viewed, proposal_of)
-    asked += _register(project_id, listed, sheets, views, proposal_of, recognisers, conventions)
+    asked += _register(
+        project_id, listed, inputs.sheets, found.register, proposal_of, recognisers, conventions
+    )
     asked += storey_questions.ask(
         project_id,
         listed,
-        sheets,
-        views,
+        inputs.sheets,
+        inputs.views,
         proposal_of,
-        recognisers,
-        conventions,
+        found.storey_titles,
         options=options(STOREY_TITLE_OPTIONS),
+        stale=_stale(found, conflicts),
     )
     return asked
+
+
+def _read_set(
+    project_id: uuid.UUID, lists_read: ListsRead = ()
+) -> tuple[list[drawings.SheetView], list[list[drawings.ViewView]], SetInputs] | None:
+    """The sheet list, each sheet's views and the recognisers' `SetInputs` as the set stands (plain
+    reads), with `lists_read` as `step1.record_read_list` will keep them (the latest list per sheet
+    and Discipline, each number once, its first title); None for a set with no sheet listed."""
+    drawing_set = drawings.set_of(project_id)
+    if drawing_set is None:
+        return None
+    listed = drawings.sheets(drawing_set.id)
+    if not listed:
+        return None
+    groups = {f.id: f.group for f in drawings.files(drawing_set.id)}
+    conventions = step1.sheet_conventions()
+    sheets = tuple(candidate(s, groups.get(s.file_id, "site")) for s in listed)
+    of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
+    viewed = [of_sheet.get(s.id, []) for s in listed]
+    views = tuple(tuple(view_candidate(v) for v in vs) for vs in viewed)
+    read = {(r.sheet_id, r.discipline): list(r.entries) for r in step1.read_lists(project_id)}
+    for sheet_id, discipline, rows in lists_read:
+        kept: dict[str, str] = {}
+        for number, title in rows:
+            kept.setdefault(number, title)
+        read[(sheet_id, discipline)] = list(kept.items())
+    entries, lists = _register_reading(project_id, listed, sheets, read)
+    return (
+        listed,
+        viewed,
+        SetInputs(
+            sheet_ids=tuple(s.id for s in listed),
+            files=tuple(files_of(listed)),
+            conventions=conventions,
+            sheets=sheets,
+            compared=tuple(_compared(s, c) for s, c in zip(listed, sheets, strict=True)),
+            views=views,
+            register=entries,
+            lists=lists,
+        ),
+    )
+
+
+def _found(inputs: SetInputs) -> FoundQuestions:
+    """The set's three recognisers run over `inputs` (the long part: O(set), writing nothing)."""
+    conventions = inputs.conventions
+    recognisers = finder.recognisers(conventions)
+    compared = finder.compare(
+        inputs.compared,
+        inputs.views,
+        conventions=conventions,
+        recognisers=recognisers,
+        files=inputs.files,
+    )
+    reading = SetReading(
+        sheets=inputs.sheets,
+        views=inputs.views,
+        register=inputs.register,
+        lists=inputs.lists,
+        read=frozenset({"register", "views"}),
+        conventions=conventions,
+    )
+    checked = register_check.check(reading, recognisers=recognisers)
+    storeys = storey_questions.found(inputs.sheets, inputs.views, recognisers, conventions)
+    at = {id(c): i for i, c in enumerate(inputs.compared)}
+    at |= {id(v): i for i, vs in enumerate(inputs.views) for v in vs}
+    same_titles = [
+        (key, _held_sheets(c, at))
+        for key, c in enumerate(compared)
+        if isinstance(c, Conflict) and c.kind == finder.SAME_TITLE
+    ]
+    stale = storey_questions.stale_copies(storeys, inputs.sheets, inputs.views, recognisers, same_titles)
+    return FoundQuestions(inputs, recognisers, tuple(compared), tuple(checked), tuple(storeys), stale)
 
 
 def set_conflicts(project_id: uuid.UUID) -> int:
@@ -635,17 +776,17 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     conventions = step1.sheet_conventions()
     proposal_of = step1.proposal_ids(project_id)
     viewed = [of_sheet.get(s.id, []) for s in listed]
-    asked = _conflicts(
-        project_id,
-        listed,
-        [candidate(s, groups.get(s.file_id, "site"), anchors=False) for s in listed],
-        [[view_candidate(v) for v in vs] for vs in viewed],
-        proposal_of,
-        finder.recognisers(conventions),
-        conventions,
+    compared = [_compared(s, candidate(s, groups.get(s.file_id, "site"), anchors=False)) for s in listed]
+    views = [[view_candidate(v) for v in vs] for vs in viewed]
+    recognisers = finder.recognisers(conventions)
+    found = finder.compare(
+        compared, views, conventions=conventions, recognisers=recognisers, files=files_of(listed)
     )
+    asked = len(_conflicts(project_id, listed, compared, views, found, proposal_of))
     # The boundary storeys too: an exclusion or its undo takes a third plan's claim away or gives it
-    # back (review 3 of #648), on the sheets and views already read here.
+    # back (review 3 of #648), on the sheets and views already read here. An act holds Step 1's
+    # write lock from its first statement, so this runs under it, as the read job's does (it reads
+    # each sheet's decision, which no find before the lock may keep: S21-C1's `SetInputs`).
     return asked + _boundaries(project_id, listed, viewed, proposal_of)
 
 
@@ -671,33 +812,47 @@ def as_compared(
 def _conflicts(
     project_id: uuid.UUID,
     listed: Sequence[drawings.SheetView],
-    sheets: Sequence[SheetCandidate],
+    as_compared: Sequence[SheetCandidate],
     views: Sequence[Sequence[ViewCandidate]],
+    found: Sequence[Any],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
-    recognisers: finder.Recognisers,
-    conventions: SheetConventions,
-) -> int:
-    """19b's Conflicts over every listed sheet (a decided one keeps a run's or a storey's context),
-    each trimmed to the sheets not yet decided (`_undecided`) and asked as a `conflict` Question;
-    every one asked before and not found now retired (`step1.retire_questions`). How many were
-    asked."""
-    as_compared = [_compared(s, c) for s, c in zip(listed, sheets, strict=True)]
-    found = finder.compare(
-        as_compared, views, conventions=conventions, recognisers=recognisers, files=files_of(listed)
-    )
+) -> list[_Asked]:
+    """19b's Conflicts (`found`: its compare over every listed sheet `as_compared`, a decided one
+    keeping a run's or a storey's context), each trimmed to the sheets not yet decided
+    (`_undecided`) and asked as a `conflict` Question; every one asked before and not found now
+    retired (`step1.retire_questions`). Those asked."""
     at = {id(c): i for i, c in enumerate(as_compared)}
     at |= {id(v): i for i, vs in enumerate(views) for v in vs}
-    raised: list[uuid.UUID] = []
-    for conflict in found:
+    raised: list[_Asked] = []
+    for key, conflict in enumerate(found):
         if not isinstance(conflict, Conflict):
             continue
         held = _held_sheets(conflict, at)
         named = {listed[i].id: _named(conflict, at, as_compared[i], i) for i in held}
         trimmed = _undecided(conflict, [listed[i] for i in held], named)
         if trimmed is not None:
-            raised.append(_conflict(project_id, conflict.kind, *trimmed, proposal_of))
-    step1.retire_questions(project_id, CONFLICT_CODES, raised)
-    return len(raised)
+            question_id = _conflict(project_id, conflict.kind, *trimmed, proposal_of)
+            raised.append(_Asked(conflict.kind, question_id, key))
+    step1.retire_questions(project_id, CONFLICT_CODES, [a.question_id for a in raised])
+    return raised
+
+
+@dataclass(frozen=True)
+class _Asked:
+    """A Conflict asked as a `conflict` Question (open, or one answered in its words before): its
+    kind, the Question's id, and its key (its place in the compare's findings, as `_found`'s
+    `stale_copies` names it)."""
+
+    kind: str
+    question_id: uuid.UUID
+    key: int
+
+
+def _stale(found: FoundQuestions, conflicts: Sequence[_Asked]) -> dict[int, tuple[uuid.UUID, ...]]:
+    """By sheet index, the Questions asked this round of the `same_title` conflicts whose title the
+    sheet copies (`found.stale`, found before the lock), in order (S21-C2)."""
+    asked = {a.key: a.question_id for a in conflicts if a.kind == finder.SAME_TITLE}
+    return {index: tuple(asked[k] for k in keys if k in asked) for index, keys in found.stale.items()}
 
 
 @dataclass(frozen=True)
@@ -981,33 +1136,26 @@ def _boundaries(
     return asked
 
 
-def _register(
+def _register_reading(
     project_id: uuid.UUID,
     listed: Sequence[drawings.SheetView],
     sheets: Sequence[SheetCandidate],
-    views: Sequence[Sequence[ViewCandidate]],
-    proposal_of: Mapping[uuid.UUID, uuid.UUID],
-    recognisers: finder.Recognisers,
-    conventions: SheetConventions,
-) -> int:
-    """19b's register Check over the set: the lists read on its sheets (kept per Discipline) and,
-    where there is none, the QS's; each finding a `check` Question."""
+    read: Mapping[tuple[uuid.UUID, str], Sequence[tuple[str, str]]],
+) -> tuple[tuple[RegisterEntry, ...], tuple[DrawingList, ...]]:
+    """What 19b's register Check reads of the set: the lists `read` on its sheets (by sheet and
+    Discipline; kept per Discipline) and, where there is none, the QS's."""
     at = {s.id: i for i, s in enumerate(listed)}
     entries: list[RegisterEntry] = []
-    for row in step1.read_lists(project_id):
-        index = at.get(row.sheet_id)
+    for (sheet_id, _), rows in read.items():
+        index = at.get(sheet_id)
         if index is None:
             continue  # a list read on a sheet no longer in the sheet list
         on = sheets[index]
-        for number, title in row.entries:
+        for number, title in rows:
             entries.append(
                 RegisterEntry(on, Box(0.0, 0.0, 0.0, 0.0), number=number, title=title or None)
             )
-    read_for = {
-        (str(sheets[at[r.sheet_id]].group), r.discipline)
-        for r in step1.read_lists(project_id)
-        if r.sheet_id in at
-    }
+    read_for = {(str(sheets[at[sheet_id]].group), d) for sheet_id, d in read if sheet_id in at}
     lists = []
     for given in step1.given_lists(project_id):
         for group in sorted({str(s.group) for s in sheets}):
@@ -1021,15 +1169,20 @@ def _register(
                     tuple(ListEntry(n, line) for line, n in enumerate(given.numbers, start=1)),
                 )
             )
-    reading = SetReading(
-        sheets=tuple(sheets),
-        views=tuple(tuple(vs) for vs in views),
-        register=tuple(entries),
-        lists=tuple(lists),
-        read=frozenset({"register", "views"}),
-        conventions=conventions,
-    )
-    results = register_check.check(reading, recognisers=recognisers)
+    return tuple(entries), tuple(lists)
+
+
+def _register(
+    project_id: uuid.UUID,
+    listed: Sequence[drawings.SheetView],
+    sheets: Sequence[SheetCandidate],
+    results: Sequence[CheckResult],
+    proposal_of: Mapping[uuid.UUID, uuid.UUID],
+    recognisers: finder.Recognisers,
+    conventions: SheetConventions,
+) -> int:
+    """19b's register Check over the set (`results`: its run over `_register_reading`), each finding
+    a `check` Question."""
     fired = [r for r in results if r.outcome == CheckOutcome.FIRED and r.finding is not None]
     by_sheet = {id(c): i for i, c in enumerate(sheets)}
     findings = []
