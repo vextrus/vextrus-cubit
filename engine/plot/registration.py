@@ -54,7 +54,7 @@ Nothing here reads a file: pages, sheets and buffers are values already read in 
 import math
 import re
 from bisect import bisect_left
-from collections import Counter
+from collections import Counter, deque
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -128,6 +128,8 @@ def match(
     found = []
     budget = [MAX_INK_TRIES]
     papers: list[Paper | None] | None = None  # each sheet's, read once for the pages with no text
+    # Each sheet's title's words, read once for every page (`_title_named`).
+    titles: dict[int, list[str]] = {}
     marks: dict[int, str] = {}  # a page matched by its ink: its place in `found`, and its reason
     for page in pages:
         if page.scan:
@@ -168,7 +170,7 @@ def match(
                 )
             continue
         discipline = (disciplines or {}).get(page.source_sha256)
-        chosen = _sheet_named(page, sheets, by_number, geometry, discipline)
+        chosen = _sheet_named(page, sheets, by_number, geometry, discipline, titles)
         if isinstance(chosen, list):  # several sheets named alike: their ink may tell them apart
             inked = (
                 by_ink(
@@ -340,8 +342,7 @@ def _read(text: _Text, wanted: list[str], left: list[int]) -> TitleRead:
     if left[0] <= 0:
         return TitleRead(False, cut=True)  # a shared budget spent by the page's earlier reads
     # One item's run of words holding the title whole: each place it could start is compared.
-    leading = text.holding.get(wanted[0], [])
-    for i in leading:
+    for i in text.holding.get(wanted[0], []):
         words = lines[i][1]
         for j in _places(words, wanted[0], 0, len(words) - n + 1):
             left[0] -= n
@@ -349,6 +350,20 @@ def _read(text: _Text, wanted: list[str], left: list[int]) -> TitleRead:
                 return TitleRead(True)
             if left[0] <= 0:
                 return TitleRead(False, cut=True)
+    return _chain(text, wanted, left)
+
+
+def _chain(text: _Text, wanted: list[str], left: list[int], visit: int = 0) -> TitleRead:
+    """Whether a chain of near items reads the title (`reads_title`), each comparison charged to
+    `left`: `_read` past its whole-item read, or `_title_named`'s read of a title no item holds
+    whole. `visit` is charged for each line visited besides its comparisons: `_title_named`'s reads
+    skip the whole-item loop that charged each line holding the title's first word, so a line holding
+    it short of its last words is charged here (review 2 of #653), or 31 reads visited it uncharged."""
+    lines = text.lines
+    n = len(wanted)
+    if left[0] <= 0:
+        return TitleRead(False, cut=True)
+    leading = text.holding.get(wanted[0], [])
     # The places of each of the title's words, to find where an item's first word puts it.
     at: dict[str, list[int]] = {}
     for k, word in enumerate(wanted):
@@ -365,6 +380,10 @@ def _read(text: _Text, wanted: list[str], left: list[int]) -> TitleRead:
     for i in sorted(visited):
         item, words = lines[i]
         size = len(words)
+        if visit:
+            left[0] -= visit
+            if left[0] <= 0:
+                return TitleRead(False, cut=True)
         places = at.get(words[0], [])
         # The item holds the rest of the title from word k on (k its first word's place).
         for index in range(bisect_left(places, max(1, n - size)), len(places)):
@@ -457,6 +476,7 @@ def _sheet_named(
     by_number: dict[str, list[int]],
     geometry: Sequence[SheetBuffers | None],
     discipline: str | None = None,
+    titles: dict[int, list[str]] | None = None,
 ) -> int | str | list[int]:
     """The index of the sheet the page names; the indices of the sheets it names alike, none more
     surely (`names_several_sheets` unless their ink tells them apart); or the key of why none."""
@@ -496,7 +516,7 @@ def _sheet_named(
             if w
             for i in ([j for j in by_number[n] if ours(j)] or by_number[n])
         ]
-        titled = _title_named(page, sheets, whole_sheets)
+        titled = _title_named(page, sheets, whole_sheets, titles)
         return titled if titled is not None else several
     candidates = by_number[ranked[0][0]]
     candidates = [i for i in candidates if ours(i)] or candidates
@@ -507,41 +527,119 @@ def _sheet_named(
         return fitting[0]
     # The page's surest number is these sheets' alone: its title tells only them apart (never a
     # smaller cross-reference's sheet), and a sheet whose paper the page's size ruled out is none.
-    titled = _title_named(page, sheets, fitting or candidates) if ranked[0][1][0] else None
+    titled = _title_named(page, sheets, fitting or candidates, titles) if ranked[0][1][0] else None
     return titled if titled is not None else fitting or candidates
 
 
-def _title_named(page: Page, sheets: Sequence[SheetCandidate], candidates: Sequence[int]) -> int | None:
+def _title_named(
+    page: Page,
+    sheets: Sequence[SheetCandidate],
+    candidates: Sequence[int],
+    words: dict[int, list[str]] | None = None,
+) -> int | None:
     """The one candidate whose title the page reads (`title_read`), for a page naming several sheets
     alike (S21-C3: a structural page whose grid and detail marks are other sheets' numbers, larger
     than its title block's); none when it reads no candidate's title, or two (two titles, or one two
-    candidates share: a title read twice tells nothing apart), when a read was cut at its budget (a
-    title it may read), or when there are more than `MAX_TITLE_READS` candidates. A title is read
-    only when each of its words is a word of the page (a chain of items reads none other), and the page's
-    reads share one budget, `TITLE_STEPS_PER_ITEM` a page item and at least the floor (charged their
-    tables, their walks and each line they visit): a page whose reads it cannot pay for keeps naming
-    several. The page's text is put in normal form and indexed once for all its reads (`_text`; review 1
-    of #653), so the page costs one pass over its text and about one charged step an item, however many
-    candidates are read."""
+    candidates share: a title read twice tells nothing apart), or when there are more than
+    `MAX_TITLE_READS` candidates. A title is read only when each of its words is a word of the page.
+
+    The reading order (the orchestrator's ruling on review 2 of #653): first every candidate's title
+    held whole in one item, read for all at once, exactly and never cut (`_whole_reads`); then, for the
+    candidates not read whole, a chain of near items (`_chain`), the chain reads sharing one budget of
+    `TITLE_STEPS_PER_ITEM` a page item, at least the floor (charged their tables, their walks and each
+    line they visit). Two or more read, whole or by chain: none. Exactly one read whole and a chain
+    read of another cut: the whole read stands (a title held whole in one item outranks a chain the
+    budget could not finish). None read whole and a chain read cut: none. The page's text is put in
+    normal form and indexed once (`_text`; review 1 of #653): the page costs one pass over its text,
+    one walk of its words for the whole reads, and about one charged step an item for the chains,
+    however many candidates are read and however long their titles. `words` holds each sheet's
+    title's words once read, for every page of a match (`match`'s): a sheet's title is put in normal
+    form once a match, not once a page (the refuter on review 2 of #653: 32 long titles off the page,
+    normalised for each page, cost 27 reads of one)."""
     if not candidates or len(candidates) > MAX_TITLE_READS:
         return None
-    text = _text(page)  # once for every read: each read is charged for the lines it visits
-    budget = [max(CHAIN_STEPS_FLOOR, TITLE_STEPS_PER_ITEM * len(text.lines))]
-    read: list[int] = []
+    text = _text(page)  # once for every read
+    known = words if words is not None else {}
+    titles: dict[int, list[str]] = {}
     for i in dict.fromkeys(candidates):
-        sourced = sheets[i].title
-        title = sourced.value if sourced is not None else None
-        wanted = _words(title)
-        if not wanted or not all(word in text.holding for word in wanted):
+        if i not in known:
+            sourced = sheets[i].title
+            known[i] = _words(sourced.value if sourced is not None else None)
+        wanted = known[i]
+        if wanted and all(word in text.holding for word in wanted):
+            titles[i] = wanted
+    whole = _whole_reads(text, titles)
+    if len(whole) > 1:
+        return None
+    budget = [max(CHAIN_STEPS_FLOOR, TITLE_STEPS_PER_ITEM * len(text.lines))]
+    read = list(whole)
+    for i, wanted in titles.items():
+        if i in whole:
             continue
-        answer = _read(text, wanted, budget)
+        answer = _chain(text, wanted, budget, visit=1)
         if answer.cut:
-            return None
+            # The budget is spent: a title held whole outranks a chain it could not finish.
+            return whole[0] if whole else None
         if answer.alike:
             read.append(i)
             if len(read) > 1:
                 return None
     return read[0] if read else None
+
+
+def _whole_reads(text: _Text, titles: Mapping[int, list[str]]) -> list[int]:
+    """The candidates whose title (`titles`: each one's words) one item of the page holds whole, a
+    run of its words, read for every candidate at once, exactly and never cut; the first two found
+    where two or more are (more tell nothing more apart). The titles are one trie of words with
+    Aho-Corasick's links, and each line holding a title's first word is walked once, word by word:
+    the cost is the page's words and the titles' words, however many candidates there are and however
+    long their titles (review 2 of #653)."""
+    goto: list[dict[str, int]] = [{}]
+    ends: list[list[int]] = [[]]
+    for i, wanted in titles.items():
+        node = 0
+        for word in wanted:
+            step = goto[node].get(word)
+            if step is None:
+                step = len(goto)
+                goto[node][word] = step
+                goto.append({})
+                ends.append([])
+            node = step
+        ends[node].append(i)
+    # Each node's link: the longest proper suffix of its words that is a node; and its output: the
+    # nearest node down its links that ends a title (0, the root, for none).
+    link = [0] * len(goto)
+    output = [0] * len(goto)
+    queue = deque(goto[0].values())
+    while queue:
+        node = queue.popleft()
+        for word, step in goto[node].items():
+            back = link[node]
+            while back and word not in goto[back]:
+                back = link[back]
+            target = goto[back].get(word, 0)
+            link[step] = target
+            output[step] = target if ends[target] else output[target]
+            queue.append(step)
+    firsts = {wanted[0] for wanted in titles.values()}
+    lines = sorted({i for word in firsts for i in text.holding.get(word, ())})
+    told = [False] * len(goto)
+    found: list[int] = []
+    for i in lines:
+        node = 0
+        for word in text.lines[i][1]:
+            while node and word not in goto[node]:
+                node = link[node]
+            node = goto[node].get(word, 0)
+            hit = node if ends[node] else output[node]
+            while hit and not told[hit]:  # a node told has had every node down its outputs told
+                told[hit] = True
+                found += ends[hit]
+                hit = output[hit]
+            if len(found) > 1:
+                return found[:2]
+    return found
 
 
 def _buffers(geometry: Sequence[SheetBuffers | None], i: int) -> SheetBuffers | None:

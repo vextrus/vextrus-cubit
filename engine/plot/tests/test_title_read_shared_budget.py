@@ -197,3 +197,140 @@ def _timed(call: Callable[[], object]) -> float:
     began = time.monotonic()
     call()
     return time.monotonic() - began
+
+
+# Review 2 of #653: titles held whole are read first, for every candidate at once, never cut
+
+
+def _column_page(
+    columns: int, count: int, own: int, label: str = ""
+) -> tuple[Page, list[SheetCandidate]]:
+    """The reviewer's column plan: `count` sheets tied on the page's number, every title starting
+    COLUMN, `columns` items 'COLUMN C<n>' (and `label`, where given), the page's own title (sheet
+    `own`'s) one whole item and the others' words scattered far apart."""
+    numbers = [f"S-{k}" for k in range(count)]
+    sheets = [titled(number, f"COLUMN INVENTED{k} PLAN") for k, number in enumerate(numbers)]
+    scattered = [
+        item(f"INVENTED{k}", 7.0, (3000.0, 30.0 + 20 * k, 3080.0, 37.0 + 20 * k))
+        for k in range(count)
+        if k != own
+    ]
+    grid = [
+        item(
+            f"COLUMN C{n}{label}",
+            5.0,
+            (
+                100.0 + 60 * (n % 40),
+                100.0 + 30 * (n // 40),
+                140.0 + 60 * (n % 40),
+                105.0 + 30 * (n // 40),
+            ),
+        )
+        for n in range(columns)
+    ]
+    page = page_of(
+        *marks(numbers),
+        *grid,
+        *scattered,
+        item("PLAN", 7.0, (3500.0, 700.0, 3540.0, 707.0)),
+        item(f"COLUMN INVENTED{own} PLAN", 7.0, (2500.0, 1000.0, 2600.0, 1007.0)),
+    )
+    return page, sheets
+
+
+def test_a_column_plan_whose_own_title_is_whole_names_its_sheet() -> None:
+    """Review 2 of #653: 1204 items, four tied candidates whose titles start COLUMN, 1200 items
+    'COLUMN C<n>'. Each chain read costs about 2400 steps; under one shared budget the third was cut
+    and the page named several, though its own title is one whole item."""
+    page, sheets = _column_page(1200, 4, own=2)
+
+    assert named(page, sheets) == 2
+
+
+def test_a_smaller_column_plan_of_three_candidates_names_its_sheet() -> None:
+    """The same loss at about 800 items with three candidates (the reviewer's measure), each column
+    label three words, so that each read is charged about three steps a label."""
+    page, sheets = _column_page(800, 3, own=0, label=" INVENTEDTYPE")
+
+    assert named(page, sheets) == 0
+
+
+def test_32_candidates_of_2000_word_titles_one_held_whole_stays_within_the_bound() -> None:
+    """32 titles of about 2000 words (review 1 of #641's length), each of distinct length, on a page of
+    300 items of 500 of their words: the whole reads are one walk of the page's words, however long
+    the titles; the title held whole in one item is read, the others' chains cut."""
+    count = registration.MAX_TITLE_READS
+    numbers = [f"S-{k}" for k in range(count)]
+    titles = [" ".join(["INVENTEDA"] * (1968 + k) + [f"INVENTEDEND{k}"]) for k in range(count)]
+    sheets = [titled(number, title) for number, title in zip(numbers, titles, strict=True)]
+    filler = " ".join(["INVENTEDA"] * 500)
+    lines = [
+        item(filler, 1.0, (5000.0 + i % 13, 100.0 + i % 11, 5001.0 + i % 13, 101.0 + i % 11))
+        for i in range(300)
+    ]
+    ends = [
+        item(f"INVENTEDEND{k}", 7.0, (3000.0, 30.0 + 20 * k, 3080.0, 37.0 + 20 * k))
+        for k in range(count)
+    ]
+    page = page_of(*marks(numbers), *lines, *ends, item(titles[0], 1.0, (10.0, 10.0, 11.0, 11.0)))
+
+    one = min(_timed(lambda: registration.title_read(page, titles[0])) for _ in range(3))
+    page_reads = _timed(lambda: named(page, sheets))
+
+    assert named(page, sheets) == 0
+    assert page_reads < 4 * one + 0.05, (page_reads, one)
+
+
+def test_a_match_puts_each_sheets_title_in_normal_form_once_however_many_pages_name_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The refuter on review 2 of #653: 32 candidates' long titles, none of their words on the page,
+    were each put in normal form for every page that named them, uncharged (27 reads of one a page).
+    A match reads each sheet's title once, for all its pages."""
+    count = registration.MAX_TITLE_READS
+    numbers = [f"S-{k}" for k in range(count)]
+    titles = [" ".join(f"INVENTEDOFF{k}W{w}" for w in range(50)) for k in range(count)]
+    sheets = [titled(number, title) for number, title in zip(numbers, titles, strict=True)]
+    pages = [page_of(*marks(numbers)) for _ in range(5)]
+    counts: dict[str, int] = {}
+    words = registration._words
+
+    def counted(text: str | None) -> list[str]:
+        if text in titles:
+            counts[text] = counts.get(text, 0) + 1
+        return words(text)
+
+    monkeypatch.setattr(registration, "_words", counted)
+    found = registration.match(pages, sheets)
+
+    assert [f.reason for f in found] == ["names_several_sheets"] * len(pages)
+    assert set(counts) == set(titles)
+    assert set(counts.values()) == {1}, max(counts.values())
+
+
+def test_chain_reads_charge_each_line_they_visit_holding_a_titles_first_word_mid_line() -> None:
+    """Review 2 of #653's own regression: the chain reads skip the whole-item loop that charged each
+    line holding the title's first word, so 60000 lines 'A<i> INVENTEDLEAD B C' were visited by 31
+    reads uncharged, 6.6 reads of one. Each line a chain read visits is charged."""
+    count = registration.MAX_TITLE_READS
+    numbers = [f"S-{k}" for k in range(count)]
+    lead = ["INVENTEDRARE", *(["INVENTEDLEAD"] * (count - 1))]
+    sheets = [titled(number, f"{lead[k]} INVENTEDTAIL{k}") for k, number in enumerate(numbers)]
+    rare = [item("INVENTEDRARE", 7.0, (10.0, 30.0, 90.0, 37.0))]
+    tails = [
+        item(f"INVENTEDTAIL{k}", 7.0, (1500.0, 60.0 + 20 * k, 1580.0, 67.0 + 20 * k))
+        for k in range(count)
+    ]
+    pad = [
+        item(f"A{i} INVENTEDLEAD B C", 1.0, (5000.0 + i % 97, 5000.0, 5001.0 + i % 97, 5001.0))
+        for i in range(60000)
+    ]
+    page = page_of(*marks(numbers), *rare, *pad, *tails)
+
+    one = min(
+        _timed(lambda: registration.title_read(page, "INVENTEDRARE INVENTEDTAIL0")) for _ in range(3)
+    )
+    page_reads = _timed(lambda: named(page, sheets))
+
+    assert named(page, sheets) == "names_several_sheets"
+    assert page_reads < 4 * one + 0.05, (page_reads, one)

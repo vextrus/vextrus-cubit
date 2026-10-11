@@ -53,21 +53,43 @@ def test_a_page_naming_more_sheets_than_the_bound_reads_no_title() -> None:
     assert case(registration.MAX_TITLE_READS + 1) == "names_several_sheets"
 
 
-def test_a_read_cut_at_its_budget_tells_nothing_apart() -> None:
-    """One candidate's title read past its walk's budget may be on the page: the other candidate's
-    title, read whole, is not the only one, so the page still names several."""
-    packed = [
+def _packed() -> list[TextItem]:
+    """1500 items 'A' packed near each other: a chain read of a title of ten 'A's and a 'B' walks
+    past its budget."""
+    return [
         item("A", 10.0, (2000.0 + i % 7, 10.0 + i % 5, 2030.0 + i % 7, 20.0 + i % 5))
         for i in range(1500)
     ]
+
+
+def test_a_title_read_whole_stands_over_a_chain_read_of_another_cut_at_its_budget() -> None:
+    """The ruling on review 2 of #653: a title held whole in one item outranks a chain the budget
+    could not finish (S21-C3 had the page name several)."""
     sheets = [titled("S-1", " ".join(["A"] * 10 + ["B"])), titled("S-2", "INVENTED SLAB PLAN")]
     page = page_of(
         *marks(["S-1", "S-2"]),
-        *packed,
+        *_packed(),
         item("B", 10.0, (2000.0, 400.0, 2010.0, 410.0)),
         item("INVENTED SLAB PLAN", 7.0, (10.0, 30.0, 90.0, 37.0)),
     )
     assert registration.title_read(page, sheets[0].title.value).cut  # type: ignore[union-attr]
+
+    assert named(page, sheets) == 1
+
+
+def test_a_chain_read_cut_at_its_budget_where_no_title_is_read_whole_tells_nothing_apart() -> None:
+    """No title held whole, and one candidate's chain read cut: its title may be on the page, so the
+    other's chain read is not the only one and the page still names several."""
+    sheets = [titled("S-1", " ".join(["A"] * 10 + ["B"])), titled("S-2", "INVENTED SLAB PLAN")]
+    page = page_of(
+        *marks(["S-1", "S-2"]),
+        *_packed(),
+        item("B", 10.0, (2000.0, 400.0, 2010.0, 410.0)),
+        item("INVENTED SLAB", 7.0, (10.0, 30.0, 90.0, 37.0)),
+        item("PLAN", 7.0, (10.0, 39.0, 40.0, 46.0)),
+    )
+    assert registration.title_read(page, sheets[0].title.value).cut  # type: ignore[union-attr]
+    assert registration.reads_title(page, "INVENTED SLAB PLAN")
 
     assert named(page, sheets) == "names_several_sheets"
 
