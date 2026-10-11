@@ -67,7 +67,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, invitations, jev, markets, tenancy
+from vextrus.platform.services import auth, events, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -1375,7 +1375,7 @@ def _act(
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
 ) -> Confirmation:
-    return Confirmation.objects.create(
+    row = Confirmation.objects.create(
         before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
         tenant_id=_tenant(),
         project_id=project_id,
@@ -1392,6 +1392,35 @@ def _act(
         ),
         act=act,
         proposals=sheets,
+    )
+    _record(row, _event_of(act, before))
+    return row
+
+
+_EVENTS = {
+    ConfirmationAct.CONFIRM: said.CONFIRMED,
+    ConfirmationAct.EXCLUDE: said.EXCLUDED,
+    ConfirmationAct.ASSIGN: said.ASSIGNED,
+    ConfirmationAct.DRAWING_LIST: said.DRAWING_LIST_SET,
+}
+
+
+def _event_of(act: ConfirmationAct, before: Sequence[drawings.SheetView]) -> MessageCode:
+    """The act's code in the event log: a confirm of sheets all excluded before is "confirmed back in"."""
+    if act == ConfirmationAct.CONFIRM and before and all(s.decision == "excluded" for s in before):
+        return said.CONFIRMED_BACK_IN
+    return _EVENTS[act]
+
+
+def _record(row: Confirmation, code: MessageCode) -> None:
+    """The act in the event log, in the act's own transaction (so a refused act records nothing)."""
+    events.record(
+        code,
+        subject_type="confirmation",
+        subject_id=row.id,
+        actor_user_id=row.user_id,
+        project_id=row.project_id,
+        payload={"sheets": row.proposals},
     )
 
 
@@ -2018,6 +2047,7 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
+        _record(act, said.UNDONE)
         _after_act(project_id)
     return _act_view(act)
 
