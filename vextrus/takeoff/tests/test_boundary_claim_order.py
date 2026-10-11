@@ -83,3 +83,48 @@ def test_a_third_plan_after_a_revised_copy_still_reopens_the_boundary_storey(
     read(qs_project, monkeypatch, THIRD, "KR-STR-SETOUT-R0.dwg")
 
     assert open_boundaries(qs_project)
+
+
+def test_a_second_plan_view_on_a_meeting_sheet_is_a_third_plan(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 3 of #648 (55): a plan is a view. S-21 drawing "GRD TO 3RD" and "AT 3RD" beside S-22
+    "3RD TO 5TH" asks the boundary storey, as the same "AT 3RD" view on a sheet of its own does."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import Sheet
+
+    both = ("COLUMN SETTING-OUT PLAN GRD TO 3RD FLOOR", "COLUMN SETTING-OUT PLAN AT 3RD FLOOR")
+    read(qs_project, monkeypatch, [
+        Sheet("S-21", "COLUMN SETTING-OUT PLANS", both),
+        plan("S-22", "COLUMN SETTING-OUT PLAN 3RD TO 5TH FLOOR"),
+    ], "KR-STR-COL-R0.dwg")  # fmt: skip
+
+    [q] = open_boundaries(qs_project)
+    assert (q["params"]["sheet"], q["params"]["storey"], q["params"]["next_sheet"]) == (
+        "S-21",
+        "floor_3",
+        "S-22",
+    )
+
+
+def test_leaving_the_third_plan_out_settles_the_meeting_and_undo_asks_it_again(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review 3 of #648 (50): the act path re-runs the boundary storeys. Leaving S-23 out takes its
+    claim away, so the convention settles S-21/S-22 at once, with no later read; undoing the exclusion
+    gives the claim back and the Question is asked again."""
+    from vextrus.takeoff.tests.acceptance.t21c.step1_whole import exclude, proposals, step1, the
+    from vextrus.testing.auth import api_as
+
+    read(qs_project, monkeypatch, [*TWO, *THIRD], "KR-STR-R0.dwg")
+    assert open_boundaries(qs_project)
+    api = api_as(qs_project.member)
+    s23 = the(proposals(api, qs_project.project_id), "S-23")["id"]
+
+    assert exclude(api, qs_project.project_id, [s23], "superseded").status_code == 200
+    assert open_boundaries(qs_project) == []
+    [settled] = boundary(qs_project)
+    assert (settled["status"], settled["answer"]["option"]) == ("answered", EXCLUDES)
+
+    api.post(f"{step1(qs_project.project_id)}/undo", {})
+    [asked] = open_boundaries(qs_project)
+    assert asked["id"] == settled["id"]
