@@ -5,6 +5,8 @@ ts19b2's: invented column plans read by 21c's read job, the Questions read throu
 Every number and title is invented.
 """
 
+from typing import Any
+
 import pytest
 
 from vextrus.takeoff.tests.acceptance.ts19b2.test_boundary_convention import (
@@ -49,7 +51,7 @@ def test_a_third_plan_in_another_file_asks_the_boundary_storey_in_either_order(
     )
 
 
-def open_boundaries(qs: QsProject) -> list[dict[str, object]]:
+def open_boundaries(qs: QsProject) -> list[dict[str, Any]]:
     return [q for q in boundary(qs) if q["status"] == "open"]
 
 
