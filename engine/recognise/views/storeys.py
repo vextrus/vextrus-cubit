@@ -7,9 +7,9 @@ Market's, as data), else the default sheet conventions; every reading below uses
 **Its own title.** A plan's storeys are 13's `storeys.read(title, plan_title=True)`: an explicit list
 (and the symbolic end a range runs to), so "typical" is a storey only beside a floor or plan word.
 They mean the floors' levels (`at_floor_level`) unless its subject is one drawn floor to floor
-(`FLOOR_TO_FLOOR`), its sheet is Architectural and its subject is not a slab's or a beam's (`AT_FLOOR`;
-m0-screens 6.8: architectural plans are "floor to floor", S22-FL5), or its title puts them at ceiling
-level (below). A view of another kind, or with
+(`FLOOR_TO_FLOOR`), its sheet is Architectural and its title names no slab nor beam (`AT_FLOOR`, any
+subject it names; m0-screens 6.8: architectural plans are "floor to floor", S22-FL5), or its title
+puts them at ceiling level (below). A view of another kind, or with
 no title, has none.
 
 **A line under its title** (#413; S19-B5): a plan whose own title states no storey takes the storeys
@@ -31,12 +31,13 @@ at floor level.
 **Its sheet's title** (T-W318; the owner's ruling of 5 Oct 2026 on #318): a sheet's only plan that
 still states no storey takes the storeys its sheet's title states (13's `storeys_as_stated`, read the
 same way), recorded as read from the sheet's title (`StoreysSource.SHEET_TITLE`); their meaning is
-decided by its own subject, else by the sheet title's when it names exactly one, and its own subject is
-left as read. A sheet of two or more plans gives none of them its title's storeys (a plan that states
+decided by its own subject, else by the sheet title's when it names exactly one (an Architectural
+plan's slab or beam: any its own title names, else any its sheet's title names), and its own subject
+is left as read. A sheet of two or more plans gives none of them its title's storeys (a plan that states
 none stays `not_stated`), and no view of another kind takes any.
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass, replace
 
 from engine.recognise import sheets as sheet_finder
@@ -49,6 +50,7 @@ from engine.recognise.types import (
     ViewCandidate,
     ViewKind,
 )
+from engine.recognise.views.titles import _Reading, _subjects_in_order
 from engine.recognise.views.titles import _tokens as title_words
 
 FLOOR_TO_FLOOR = frozenset({"column", "shear_wall"})
@@ -56,7 +58,8 @@ FLOOR_TO_FLOOR = frozenset({"column", "shear_wall"})
 ARCHITECTURAL = "architectural"
 """The Discipline whose plans are drawn floor to floor (m0-screens 6.8), but those of `AT_FLOOR`."""
 AT_FLOOR = frozenset({"slab", "beam"})
-"""Subjects an Architectural plan draws at its floor's level (a slab outline, a beam, a lintel)."""
+"""Subjects an Architectural plan draws at its floor's level (a slab outline, a beam, a lintel): one
+whose title names any of them, first or not ("O.H.W.R BOTTOM SLAB OUTLINE"), reads at floor level."""
 
 STATES_NONE = ((), ("not_stated",))
 """A plan's storeys when its own title states none: no title, or one naming no storey."""
@@ -99,13 +102,16 @@ def _meaning(
     title: str | None = None,
     conventions: SheetConventions | None = None,
     discipline: str | None = None,
+    named: Collection[str] = (),
 ) -> StoreysMeaning:
     """What a plan's storeys mean: at ceiling level when its title names a ceiling level; floor to
-    floor for a column or shear-wall subject, and for an Architectural plan of any subject but a
-    slab's or a beam's (m0-screens 6.8); else at floor level."""
+    floor for a column or shear-wall subject, and for an Architectural plan whose subject and
+    `named` (every subject its title names) hold no slab or beam (m0-screens 6.8); else at floor
+    level."""
     if at_ceiling_level(title, conventions):
         return StoreysMeaning.AT_CEILING_LEVEL
-    if subject in FLOOR_TO_FLOOR or (discipline == ARCHITECTURAL and subject not in AT_FLOOR):
+    level = AT_FLOOR.intersection({subject, *named})
+    if subject in FLOOR_TO_FLOOR or (discipline == ARCHITECTURAL and not level):
         return StoreysMeaning.FLOOR_TO_FLOOR
     return StoreysMeaning.AT_FLOOR_LEVEL
 
@@ -131,10 +137,12 @@ def read(
     lines: Sequence[str] = (),
     conventions: SheetConventions | None = None,
     discipline: str | None = None,
+    named: Collection[str] = (),
 ) -> ViewStoreys:
     """The storeys a view's title, else a line under it read whole, states (the module's docstring);
     none for a view with no title or another kind than a plan. `lines` are the lines under its
-    title, top down; `discipline`: its sheet's, which decides what they mean (`_meaning`)."""
+    title, top down; `discipline` (its sheet's) and `named` (every subject its title names) decide what
+    they mean (`_meaning`)."""
     if title is None or kind is not ViewKind.PLAN:
         return ViewStoreys()
     held = words(conventions)
@@ -148,10 +156,10 @@ def read(
             under = storey_reader.read(inner, held, plan_title=True)
             given = _keys(under)
             if given not in STATES_NONE and under.as_stated == inner:
-                meaning = _meaning(subject, title, conventions, discipline)
+                meaning = _meaning(subject, title, conventions, discipline, named)
                 return ViewStoreys(given, under.as_stated, meaning, StoreysSource.TITLE_LINE)
     return ViewStoreys(
-        keys, found.as_stated, _meaning(subject, title, conventions, discipline) if keys else None
+        keys, found.as_stated, _meaning(subject, title, conventions, discipline, named) if keys else None
     )
 
 
@@ -170,9 +178,11 @@ def inherit(
     sheet: SheetCandidate,
     on_sheet: Sequence[str],
     conventions: SheetConventions | None = None,
+    reading: _Reading | None = None,
 ) -> list[ViewCandidate]:
     """The sheet's only plan, when it states no storey, given the storeys its sheet's title states
-    (the module's docstring); every other view as made."""
+    (the module's docstring); every other view as made. `reading`: the view words its title's
+    subjects are read by (none: its own subject only)."""
     plans = [i for i, v in enumerate(made) if v.kind is ViewKind.PLAN]
     stated = sheet.storeys_as_stated.value if sheet.storeys_as_stated is not None else ""
     if len(plans) != 1 or not stated or made[plans[0]].storeys not in STATES_NONE:
@@ -183,11 +193,13 @@ def inherit(
     plan = made[plans[0]]
     discipline = sheet.discipline.value if sheet.discipline is not None else None
     subject = plan.subject or (on_sheet[0] if len(on_sheet) == 1 else None)
+    own = _subjects_in_order(plan.title, reading) if plan.title and reading is not None else ()
+    named = own or tuple(on_sheet)
     given = replace(
         plan,
         storeys=keys,
         storeys_as_stated=" ".join(stated.split()),
-        storeys_meaning=_meaning(subject, plan.title, conventions, discipline),
+        storeys_meaning=_meaning(subject, plan.title, conventions, discipline, named),
         storeys_source=StoreysSource.SHEET_TITLE,
     )
     return [given if i == plans[0] else v for i, v in enumerate(made)]

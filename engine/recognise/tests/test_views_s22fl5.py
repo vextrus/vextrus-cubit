@@ -71,3 +71,37 @@ def test_a_structural_sheets_only_plan_takes_its_titles_storeys_as_before() -> N
 
     assert plan.storeys_source is StoreysSource.SHEET_TITLE
     assert plan.storeys_meaning is StoreysMeaning.AT_FLOOR_LEVEL
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["3RD FLOOR WATER TANK BOTTOM SLAB OUTLINE PLAN", "3RD FLOOR STAIR AND BEAM LAYOUT PLAN"],
+    ids=["tank-then-slab", "stair-then-beam"],
+)
+def test_an_architectural_plan_naming_a_slab_or_beam_after_another_subject_reads_at_floor_level(
+    title: str,
+) -> None:
+    """The subject is the title's first ("tank", "stair"); a slab or beam it names later still puts
+    the plan at its floor's level."""
+    (plan,) = plans(Sheet("A-33", "GENERAL ARRANGEMENT", None, title))
+
+    assert plan.storeys == ("floor_3",)
+    assert plan.subject in {"tank", "stair"}
+    assert plan.storeys_meaning is StoreysMeaning.AT_FLOOR_LEVEL
+
+
+def test_an_architectural_sheets_only_tank_slab_plan_takes_its_titles_storeys_at_floor_level() -> None:
+    (plan,) = plans(
+        Sheet("A-34", "WATER TANK, 7TH FLOOR", "7TH FLOOR", "WATER TANK BOTTOM SLAB OUTLINE PLAN")
+    )
+
+    assert plan.storeys_source is StoreysSource.SHEET_TITLE
+    assert plan.subject == "tank"
+    assert plan.storeys_meaning is StoreysMeaning.AT_FLOOR_LEVEL
+
+
+def test_an_architectural_tank_plan_naming_no_slab_or_beam_runs_floor_to_floor() -> None:
+    (plan,) = plans(Sheet("A-35", "GENERAL ARRANGEMENT", None, "3RD FLOOR WATER TANK LAYOUT PLAN"))
+
+    assert plan.subject == "tank"
+    assert plan.storeys_meaning is StoreysMeaning.FLOOR_TO_FLOOR
