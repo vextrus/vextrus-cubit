@@ -3287,9 +3287,10 @@ def lock_writes(project_id: uuid.UUID) -> None:
     """Step 1's write lock on the Project, held to the transaction's end (#227, review round 3).
     Every act takes it as its transaction's first statement, before any row lock (`writing`); a
     read job takes it just before its short write phase (the proposals' rows, the set's Questions,
-    the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers), which holds
-    no row an act locks. So an act and a job share their rows one at a time: an act waits at most
-    for a job's write phase (seconds), never for its reading, and the two never wait on each other
+    the Plot's matches kept), after its long reading (the Plot's pages, Jev's answers, the set's
+    recognisers: S21-C1's `proposals.find_questions`), which holds no row an act locks. So an act
+    and a job share their rows one at a time: an act waits at most for a job's write phase
+    (seconds), never for its reading, and the two never wait on each other
     in a cycle, whatever rows they share (a sheet the match lets go, a Question both retire, a PDF's
     row). The Discipline change takes it first too (`drawings.before_discipline_change`). Taken
     again in the same transaction, it is already held; an act aborted anyway is run again
