@@ -156,8 +156,17 @@ class Unfetchable(Exception):
 
 
 # A diff git writes the same whatever the user's configuration: no colour, no external diff or textconv,
-# every name as written (core.quotePath), a rename as a delete and an add so both names are seen.
-_DIFF = ("-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv")
+# the whole tree whatever the directory (diff.relative), every name as written (core.quotePath). Callers
+# add --no-renames: a rename is a delete and an add, so both names reach the scan and the READY check.
+_DIFF = (
+    "-c",
+    "core.quotePath=false",
+    "diff",
+    "--no-color",
+    "--no-ext-diff",
+    "--no-textconv",
+    "--no-relative",
+)
 
 
 def _read(*args: str) -> str:
@@ -193,8 +202,10 @@ def fetch_review(pr: int) -> dict[str, Any]:
         ["git", "fetch", "-q", "--no-tags", "origin", *refs], capture_output=True, text=True, check=False
     )
     if fetched.returncode != 0:
-        said = next((row.strip() for row in fetched.stderr.splitlines() if row.strip()), "no message")
-        raise Unfetchable(f"cannot fetch {' and '.join(refs)} from origin: {said}")
+        # git's words are not printed: they may carry the remote's URL.
+        raise Unfetchable(
+            f"cannot fetch {' and '.join(refs)} from origin (git fetch exit {fetched.returncode})"
+        )
     for role, sha in (("head", head), ("base", base)):
         if (
             not SHA.fullmatch(sha or "")
@@ -210,7 +221,7 @@ def fetch_review(pr: int) -> dict[str, Any]:
     files = [
         path for path in _read(*_DIFF, "--no-renames", "--name-only", "-z", span).split("\0") if path
     ]
-    log = _read("log", "-z", "--format=%B", f"{base}..{head}")
+    log = _read("-c", "log.showSignature=false", "log", "-z", "--format=%B", f"{base}..{head}")
     messages = [message.removesuffix("\n") for message in log.split("\0") if message]
     return {
         "pr": pr,

@@ -106,12 +106,16 @@ def test_a_rename_lists_both_names_and_mains_own_files_are_not_the_prs(world: di
     assert "later.txt" not in facts["diff"]
 
 
-def test_the_diff_ignores_an_external_diff_set_in_the_clones_config(world: dict[str, str]) -> None:
+def test_the_diff_ignores_the_clones_diff_config_from_a_subdirectory(world: dict[str, str]) -> None:
     git(Path(world["work"]), "config", "diff.external", "false")
     git(Path(world["work"]), "config", "color.diff", "always")
+    git(Path(world["work"]), "config", "diff.relative", "true")
+    (Path(world["work"]) / "sub").mkdir()
+    os.chdir(Path(world["work"]) / "sub")
     facts = merge_ready.fetch_review(1)
     assert "+x = 1" in facts["diff"]
     assert "\x1b[" not in facts["diff"]
+    assert sorted(facts["files"]) == ["moved.py", "new.py", "old.py"]
 
 
 def test_a_base_git_does_not_hold_is_unfetchable_naming_the_base(world: dict[str, str]) -> None:
