@@ -620,9 +620,9 @@ def set_questions(project_id: uuid.UUID, *, trigger_file: uuid.UUID | None = Non
 def set_conflicts(project_id: uuid.UUID) -> int:
     """The set's conflicts and boundary storeys asked again after an act decided or undid sheets
     (confirm, exclude, an answer, undo): conflicts of sheets now decided retired, those of sheets
-    undecided again asked again, and a boundary storey settled or asked again as its third plan's claim
-    went or came back (`_boundaries`); how many are open. No Check is run (its runs are the reads'), and no progress row written (the
-    act's `step1._after_act` writes them after)."""
+    undecided again asked again, and a boundary storey settled or asked again as its third plan's
+    claim went or came back (`_boundaries`); how many are open. No Check is run (its runs are the
+    reads'), and no progress row written (the act's `step1._after_act` writes them after)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         listed: list[drawings.SheetView] = []
