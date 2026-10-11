@@ -5,7 +5,7 @@ label, a person by their name; nothing here names a storage key or a sha256."""
 import uuid
 from dataclasses import asdict
 from datetime import datetime
-from typing import Literal, Any, Self
+from typing import Any, Literal, Self
 
 from ninja import Field, Schema
 
