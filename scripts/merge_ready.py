@@ -91,8 +91,6 @@ query($owner: String!, $name: String!, $pr: Int!) {
     pullRequest(number: $pr) {
       headRefOid headRefName baseRefOid baseRefName title body
       comments(last: 100) { nodes { databaseId body } }
-      files(first: 100) { nodes { path } }
-      commits(last: 250) { nodes { commit { message } } }
     }
   }
 }
@@ -153,8 +151,29 @@ def problems(pull: dict[str, Any]) -> list[str]:
     return found
 
 
+class Unfetchable(Exception):
+    """The PR's commits cannot be read from git: a refusal, never a crash."""
+
+
+# A diff git writes the same whatever the user's configuration: no colour, no external diff or textconv,
+# every name as written (core.quotePath), a rename as a delete and an add so both names are seen.
+_DIFF = ("-c", "core.quotePath=false", "diff", "--no-color", "--no-ext-diff", "--no-textconv")
+
+
+def _read(*args: str) -> str:
+    """`git <args>` in the current directory; its output, or Unfetchable naming what failed."""
+    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    if done.returncode != 0:
+        said = next((row.strip() for row in done.stderr.splitlines() if row.strip()), "no message")
+        raise Unfetchable(f"git {' '.join(args[:3])}: {said}")
+    return done.stdout
+
+
 def fetch_review(pr: int) -> dict[str, Any]:
-    """What the review gate reads of the PR, through `gh` (reads only), and its head fetched locally."""
+    """What the review gate reads of the PR: its head, base and words through `gh` (reads only), and
+    its diff, files and commit messages from git after fetching the pull ref and the base, so a PR of any
+    size is read whole (GitHub refuses `gh pr diff` over 20000 lines and caps GraphQL's lists). Raises
+    Unfetchable when the fetch fails or git does not hold the head or base GraphQL names."""
     owner, name = REPOSITORY
     fields = [
         "-f",
@@ -168,21 +187,35 @@ def fetch_review(pr: int) -> dict[str, Any]:
     ]
     done = subprocess.run(["gh", "api", "graphql", *fields], capture_output=True, text=True, check=True)
     pull = json.loads(done.stdout)["data"]["repository"]["pullRequest"]
-    diff = subprocess.run(
-        ["gh", "pr", "diff", str(pr), "--repo", "/".join(REPOSITORY)],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    subprocess.run(
-        ["git", "fetch", "-q", "origin", f"refs/pull/{pr}/head", "refs/heads/main"],
-        capture_output=True,
-        check=True,
+    head, base = pull["headRefOid"], pull["baseRefOid"]
+    refs = [f"refs/pull/{pr}/head", f"refs/heads/{pull['baseRefName']}"]
+    fetched = subprocess.run(
+        ["git", "fetch", "-q", "--no-tags", "origin", *refs], capture_output=True, text=True, check=False
     )
+    if fetched.returncode != 0:
+        said = next((row.strip() for row in fetched.stderr.splitlines() if row.strip()), "no message")
+        raise Unfetchable(f"cannot fetch {' and '.join(refs)} from origin: {said}")
+    for role, sha in (("head", head), ("base", base)):
+        if (
+            not SHA.fullmatch(sha or "")
+            or subprocess.run(
+                ["git", "cat-file", "-e", f"{sha}^{{commit}}"], capture_output=True, check=False
+            ).returncode
+        ):
+            raise Unfetchable(
+                f"the PR's {role} {str(sha)[:12]} is not in the fetched refs (force-pushed?): run again"
+            )
+    span = f"{base}...{head}"
+    diff = _read(*_DIFF, "--no-renames", span)
+    files = [
+        path for path in _read(*_DIFF, "--no-renames", "--name-only", "-z", span).split("\0") if path
+    ]
+    log = _read("log", "-z", "--format=%B", f"{base}..{head}")
+    messages = [message.removesuffix("\n") for message in log.split("\0") if message]
     return {
         "pr": pr,
-        "head": pull["headRefOid"],
-        "base": pull["baseRefOid"],
+        "head": head,
+        "base": base,
         "base_branch": pull["baseRefName"],
         "title": pull["title"],
         "body": pull["body"] or "",
@@ -190,9 +223,9 @@ def fetch_review(pr: int) -> dict[str, Any]:
         "comments": [
             {"id": node["databaseId"], "body": node["body"] or ""} for node in pull["comments"]["nodes"]
         ],
-        "files": [node["path"] for node in pull["files"]["nodes"]],
+        "files": files,
         "diff": diff,
-        "messages": [node["commit"]["message"] for node in pull["commits"]["nodes"]],
+        "messages": messages,
     }
 
 
@@ -516,7 +549,12 @@ def main(
     pr = int(args[0])
     pull = get(pr)
     found = problems(pull)
-    review = facts(pr)
+    try:
+        review = facts(pr)
+    except Unfetchable as error:
+        for problem in [*found, str(error)]:
+            print(f"merge-ready: {problem}")
+        return 1
     if review["head"] != pull["headRefOid"]:
         found.append("the head moved while reading the PR: run again")
     if review.get("base_branch", "main") != "main":
