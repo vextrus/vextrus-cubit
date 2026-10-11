@@ -67,6 +67,10 @@ msgstr "Views"
 msgid "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
 msgstr "{n, plural, one {Confirm # sheet that agrees} other {Confirm # sheets that agree}}, and leave out {m}: {reasons}"
 
+#: src/takeoff/SheetList.tsx
+msgid "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level or what hangs under its ceiling."
+msgstr "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level or what hangs under its ceiling."
+
 #: src/takeoff/SheetLook.tsx
 msgid "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
 msgstr "No Plot for this sheet, and Vextrus did not record why. Tell Vextrus."
@@ -668,10 +672,6 @@ msgstr "{file}, layout “<0/>”"
 #: src/takeoff/SheetList.tsx
 msgid "{file}, laid out in the drawing"
 msgstr "{file}, laid out in the drawing"
-
-#: src/takeoff/SheetList.tsx
-msgid "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level."
-msgstr "Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level."
 
 #: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}, Vextrus Engineer"

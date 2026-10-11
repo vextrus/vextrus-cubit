@@ -1442,8 +1442,10 @@ meeting counts only when both views state a two-ended "X to Y" range (the owner,
 
 ### 6.8 Storeys and the storey strip
 - **Storeys are an explicit list per plan view,** with its meaning: "at floor level" (members at that
-  floor level: beam and slab layouts) or "floor to floor" (the storey: column plans, architectural
-  plans, sections). A sheet's storeys are its views' storeys together; its meaning is the views'
+  floor level: beam and slab layouts), "floor to floor" (the storey: column plans, architectural
+  plans, sections), or "at ceiling level" (what hangs under those storeys' ceilings: a pipe or drain
+  layout titled at ceiling level; read from the title, never chosen: S19-B5). The strip draws "at
+  ceiling level" as "at floor level", a bar at the slot's foot (no mark of its own). A sheet's storeys are its views' storeys together; its meaning is the views'
   meaning, or "mixed". Shown compactly: a run of three or more storeys one above another reads
   "2nd–8th"; anything else is listed ("3rd, 5th, 7th"). The roofs above the roof never form a run.
 - **Ruling 2: a missing storey is a Question only on plan views** (as amended by the owner's ruling of
@@ -1463,7 +1465,7 @@ meeting counts only when both views state a two-ended "X to Y" range (the owner,
   floor is hatched over the typical range. An excluded sheet's strip is at 40 % opacity. The
   header's key at 1440 (and its tooltip at both sizes) explains the two marks: "Each slot is a storey:
   foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to
-  floor; a bar at its foot is members at that floor level." Before Step 3 the slots come from the
+  floor; a bar at its foot is members at that floor level or what hangs under its ceiling." Before Step 3 the slots come from the
   canonical storey vocabulary, in the order the titles name the storeys (6.18).
 - The storey vocabulary is the spec's (amendment 3).
 
@@ -1497,7 +1499,9 @@ meeting counts only when both views state a two-ended "X to Y" range (the owner,
   "Mechanical (HVAC)", "Lift", "Gas"); `↑ ↓` move, `Space` ticks, `Enter` saves, `Esc` cancels.
 - **Corrections (`E`):** "Correct the Proposal" opens in the inspector in place of the Proposal block:
   Number, Title, and for each plan view "Storeys of "<view title>", each listed" (placeholder "3rd,
-  5th, 7th") with its meaning as a two-choice toggle, "at floor level" | "floor to floor"; "Save ↵"
+  5th, 7th") with its meaning as a two-choice toggle, "at floor level" | "floor to floor" (a view read
+  "at ceiling level" shows that meaning as read beside the toggle, and the toggle does not offer it: a
+  correction picks one of the two); "Save ↵"
   and "Cancel Esc". A correction leaves the sheet a Proposal: toast "Corrected
   S-18: storeys of "3rd, 5th & 7th floor beam layout". Still a Proposal until confirmed."; the State
   column adds ", corrected"; "Who did what" records "Corrected: number — → S-12; title; storeys of

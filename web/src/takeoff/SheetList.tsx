@@ -366,7 +366,7 @@ function StoreysHeader() {
         </span>
       </TooltipTrigger>
       <TooltipContent className="max-w-xs">
-        <Trans>Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level.</Trans>
+        <Trans>Each slot is a storey: foundations, Basement, Ground, Mezzanine, 1st to 9th, Roof, the roofs above. A full slot is floor to floor; a bar at its foot is members at that floor level or what hangs under its ceiling.</Trans>
       </TooltipContent>
     </Tooltip>
   )
