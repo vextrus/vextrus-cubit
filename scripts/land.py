@@ -290,18 +290,20 @@ class Gh:
         """The PR's own files, read from git (`gh pr diff` is refused over 20000 lines): the pull ref and
         the base are fetched, then `git diff --name-only <base>...<head>`. A failed fetch, or a head or
         base git does not hold, is a refusal."""
-        pull = json.loads(
-            self._run(
-                "gh",
-                "pr",
-                "view",
-                str(pr),
-                "--repo",
-                REPOSITORY,
-                "--json",
-                "headRefOid,baseRefOid,baseRefName",
-            )
+        answer = self._run(
+            "gh",
+            "pr",
+            "view",
+            str(pr),
+            "--repo",
+            REPOSITORY,
+            "--json",
+            "headRefOid,baseRefOid,baseRefName",
         )
+        try:
+            pull = json.loads(answer)
+        except ValueError:
+            raise Refused("GitHub's answer is not a pull request: run again") from None
         try:
             head, base, branch = pull["headRefOid"], pull["baseRefOid"], pull["baseRefName"]
             with contextlib.chdir(self.repo):

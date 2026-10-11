@@ -392,3 +392,14 @@ def test_an_unknown_mergeable_is_polled_then_read_or_taken_as_clean(tmp_path: Pa
     never = Views(tmp_path, [unknown, unknown, unknown])
     assert never.conflicting(12) is False
     assert never.reads == 3
+
+
+@pytest.mark.parametrize("body", ["", "not json", "[]", "null", '{"headRefOid": "a"}'])
+def test_files_refuses_an_answer_that_is_not_a_pull_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, body: str
+) -> None:
+    """gh exiting 0 with an empty or non-JSON body is a refusal (exit 3), not a JSONDecodeError."""
+    gh = Gh(tmp_path)
+    monkeypatch.setattr(gh, "_run", lambda *argv: body)
+    with pytest.raises(Refused, match="not a pull request"):
+        gh.files(7)
