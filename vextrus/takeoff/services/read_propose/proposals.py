@@ -759,10 +759,11 @@ def _found(inputs: SetInputs) -> FoundQuestions:
 
 
 def set_conflicts(project_id: uuid.UUID) -> int:
-    """The set's conflicts asked again after an act decided or undid sheets (confirm, exclude, an
-    answer, undo): those of sheets now decided retired, those of sheets undecided again asked again;
-    how many are open. No Check is run (its runs are the reads'), and no progress row written (the
-    act's `step1._after_act` writes them after)."""
+    """The set's conflicts and boundary storeys asked again after an act decided or undid sheets
+    (confirm, exclude, an answer, undo): conflicts of sheets now decided retired, those of sheets
+    undecided again asked again, and a boundary storey settled or asked again as its third plan's
+    claim went or came back (`_boundaries`); how many are open. No Check is run (its runs are the
+    reads'), and no progress row written (the act's `step1._after_act` writes them after)."""
     drawing_set = drawings.set_of(project_id)
     if drawing_set is None:
         listed: list[drawings.SheetView] = []
@@ -773,13 +774,20 @@ def set_conflicts(project_id: uuid.UUID) -> int:
         groups = {f.id: f.group for f in step1.files_of(project_id)}
         of_sheet = drawings.views_of_set(drawing_set.id, anchors=False)
     conventions = step1.sheet_conventions()
+    proposal_of = step1.proposal_ids(project_id)
+    viewed = [of_sheet.get(s.id, []) for s in listed]
     compared = [_compared(s, candidate(s, groups.get(s.file_id, "site"), anchors=False)) for s in listed]
-    views = [[view_candidate(v) for v in of_sheet.get(s.id, [])] for s in listed]
+    views = [[view_candidate(v) for v in vs] for vs in viewed]
     recognisers = finder.recognisers(conventions)
     found = finder.compare(
         compared, views, conventions=conventions, recognisers=recognisers, files=files_of(listed)
     )
-    return len(_conflicts(project_id, listed, compared, views, found, step1.proposal_ids(project_id)))
+    asked = len(_conflicts(project_id, listed, compared, views, found, proposal_of))
+    # The boundary storeys too: an exclusion or its undo takes a third plan's claim away or gives it
+    # back (review 3 of #648), on the sheets and views already read here. An act holds Step 1's
+    # write lock from its first statement, so this runs under it, as the read job's does (it reads
+    # each sheet's decision, which no find before the lock may keep: S21-C1's `SetInputs`).
+    return asked + _boundaries(project_id, listed, viewed, proposal_of)
 
 
 def files_of(listed: Sequence[drawings.SheetView]) -> list[str | None]:
@@ -1042,9 +1050,12 @@ def _boundaries(
     meeting is settled as `excludes_storey` with both plans as its Trace and no Question left open
     (the owner's ruling, session 19, 9 Oct 2026); only where a third plan of the same subject also
     claims that storey is it asked, and a meeting the convention settled before the third plan was
-    read is opened again (`step1.reopen_by_claim`), whichever file came first. A third plan is one of
-    another number: copies of either meeting plan's number (a revision in a later file) are that plan,
-    and a sheet left out claims nothing. Returns how many it asked."""
+    read is opened again (`step1.reopen_by_claim`), whichever file came first. A third plan is another
+    plan view: a second view on a meeting sheet is one, while a copy of a meeting view (the same
+    storeys on another printed sheet of its number: a revision in a later file) is that view; a sheet
+    left out claims nothing. Every act runs it again (`set_conflicts`), so leaving the third plan out
+    settles the meeting and undoing that asks it again, with no later read. Returns how many it
+    asked."""
     conventions = step1.sheet_conventions()
 
     def numbered(sheet: drawings.SheetView) -> tuple[str | None, str | None] | uuid.UUID:
@@ -1073,16 +1084,21 @@ def _boundaries(
                 continue
             meeting = first.storeys[-1]
             sheet = listed[i]
-            # Copies of one number are one plan (a revised S-21 in a later file is S-21 again, never
-            # a third plan), and a sheet the QS left out claims nothing (review 2 of #648).
-            meeting_plans = {numbered(listed[k]) for k in (i, j)}
+            # A plan is a view: another view on a meeting sheet is a third plan, while a copy of a
+            # meeting view (the same storeys on another printed sheet of that number: a revision in a
+            # later file) is that view (reviews 2 and 3 of #648); a sheet the QS left out claims
+            # nothing.
+            copies = {(numbered(listed[k]), tuple(v.storeys)) for k, v in ((i, first), (j, then))}
             claimed = any(
                 v.id not in (first.id, then.id)
                 and listed[k].discipline == sheet.discipline
                 and v.subject == first.subject
                 and meeting in v.storeys
                 and listed[k].decision != "excluded"
-                and numbered(listed[k]) not in meeting_plans
+                and not (
+                    listed[k].id not in (listed[i].id, listed[j].id)
+                    and (numbered(listed[k]), tuple(v.storeys)) in copies
+                )
                 for k, v in plans
             )
             blocks = [proposal_of[sheet.id]] if sheet.id in proposal_of else []
