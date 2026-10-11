@@ -202,7 +202,7 @@ def _candidate(
     subject = _subject(title, reading) if title is not None else None
     layer = _layer(title, reading) if title is not None else None
     lines = [" ".join(u.shown.split()) for u in view.lines]
-    stated = storeys.read(title, view.kind, subject, lines, storey_words)
+    stated = storeys.read(title, view.kind, subject, lines, storey_words, discipline)
     structure = title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
         view.kind, subject, discipline, on_sheet, notes=reading.notes, structure=structure
