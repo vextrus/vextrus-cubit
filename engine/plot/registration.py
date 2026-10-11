@@ -272,12 +272,15 @@ inside Step 1's write lock). Linear in the page's items; a real title block's re
 steps."""
 CHAIN_STEPS_FLOOR = 4096
 """The budget's least, for a page of few items."""
-TITLE_STEPS_PER_ITEM = 4
+TITLE_STEPS_PER_ITEM = 1
 """How many steps all the title reads of one page naming several sheets may take together, per item of
-the page (`_title_named`): a few, not `CHAIN_STEPS_PER_ITEM`, since each line a read visits is charged a
-step and a page of short lines each starting with a title's word made 32 reads visit every line,
-about 10 reads' time (the refuter on review 1 of #653). Past it the page keeps naming several, as it
-did before its titles were read; a real page's reads take a few steps a candidate."""
+the page (`_title_named`), and at least `CHAIN_STEPS_FLOOR`: one, not `CHAIN_STEPS_PER_ITEM`. Each line a
+read visits is charged a step, and a visit costs about what putting a short item in normal form does; the
+refuter on review 1 of #653 made 32 reads visit every line of a page of short lines each starting with
+their titles' first word, about 10 reads' time at 32 steps an item and 5 to 7 at 4, so the page's reads
+together may visit about as many lines as it has: one page pass more. Past it the page keeps naming
+several, as it did before its titles were read; a real page's reads take a handful of steps a candidate,
+well within the floor."""
 
 
 def title_read(page: Page, title: str | None, budget: list[int] | None = None) -> TitleRead:
@@ -514,12 +517,12 @@ def _title_named(page: Page, sheets: Sequence[SheetCandidate], candidates: Seque
     than its title block's); none when it reads no candidate's title, or two (two titles, or one two
     candidates share: a title read twice tells nothing apart), when a read was cut at its budget (a
     title it may read), or when there are more than `MAX_TITLE_READS` candidates. A title is read
-    only when each of its words is a word of the page (a chain of items reads none other), and the
-    page's reads share one budget of `TITLE_STEPS_PER_ITEM` a page item (charged their tables, their
-    walks and each line they visit): a page whose reads it cannot pay for keeps naming several. The
-    page's text is put in normal form and indexed once for all its reads (`_text`; review 1 of #653),
-    so the page costs one pass over its text and a few charged steps an item, however many candidates
-    are read."""
+    only when each of its words is a word of the page (a chain of items reads none other), and the page's
+    reads share one budget, `TITLE_STEPS_PER_ITEM` a page item and at least the floor (charged their
+    tables, their walks and each line they visit): a page whose reads it cannot pay for keeps naming
+    several. The page's text is put in normal form and indexed once for all its reads (`_text`; review 1
+    of #653), so the page costs one pass over its text and about one charged step an item, however many
+    candidates are read."""
     if not candidates or len(candidates) > MAX_TITLE_READS:
         return None
     text = _text(page)  # once for every read: each read is charged for the lines it visits

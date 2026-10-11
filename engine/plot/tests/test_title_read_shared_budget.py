@@ -3,6 +3,7 @@ the reads of a page share) is charged every comparison the read makes, the table
 walk (#642), and a read the shared budget cannot pay for is cut. Every word is invented."""
 
 import time
+from collections.abc import Callable
 
 import pytest
 
@@ -160,3 +161,39 @@ def test_a_page_of_short_lines_each_starting_every_title_costs_about_one_read() 
     assert found == "names_several_sheets"
     assert page_reads < 4 * one + 0.05, (page_reads, one)
     assert registration.TITLE_STEPS_PER_ITEM < registration.CHAIN_STEPS_PER_ITEM
+
+
+def test_a_page_whose_first_candidates_read_is_cheap_and_the_rest_dear_costs_about_one_read() -> None:
+    """The refuter's page on the third fix of review 1 of #653: candidate 0's title leads with a word
+    one line holds, the other 31 with a word 20000 short lines are. One read of candidate 0's title is
+    one page pass; at 4 steps an item the other reads visited 4 lines an item, 5 to 7 such reads'
+    time. The page's reads together visit about as many lines as it has (`TITLE_STEPS_PER_ITEM`)."""
+    count = registration.MAX_TITLE_READS
+    numbers = [f"S-{k}" for k in range(count)]
+    lead = ["INVENTEDRARE", *(["INVENTEDLEAD"] * (count - 1))]
+    sheets = [titled(number, f"{lead[k]} INVENTEDTAIL{k}") for k, number in enumerate(numbers)]
+    rare = [item("INVENTEDRARE", 7.0, (10.0, 30.0, 90.0, 37.0))]
+    tails = [
+        item(f"INVENTEDTAIL{k}", 7.0, (1500.0, 60.0 + 20 * k, 1580.0, 67.0 + 20 * k))
+        for k in range(count)
+    ]
+    pad = [
+        item("INVENTEDLEAD", 1.0, (5000.0 + i % 97, 5000.0, 5001.0 + i % 97, 5001.0))
+        for i in range(60000)
+    ]
+    page = page_of(*marks(numbers), *rare, *pad, *tails)
+
+    one = min(
+        _timed(lambda: registration.title_read(page, "INVENTEDRARE INVENTEDTAIL0")) for _ in range(3)
+    )
+    page_reads = _timed(lambda: named(page, sheets))
+
+    assert named(page, sheets) == "names_several_sheets"
+    assert page_reads < 4 * one + 0.05, (page_reads, one)
+    assert registration.TITLE_STEPS_PER_ITEM == 1
+
+
+def _timed(call: Callable[[], object]) -> float:
+    began = time.monotonic()
+    call()
+    return time.monotonic() - began
