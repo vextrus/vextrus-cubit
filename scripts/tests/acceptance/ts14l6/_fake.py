@@ -135,6 +135,12 @@ if args[:2] == ["pr", "view"] and len(args) > 2:
     for field in fields:
         if field == "headRefOid":
             payload[field] = pr["head"]
+        elif field == "baseRefName":
+            payload[field] = "main"
+        elif field == "baseRefOid":
+            payload[field] = subprocess.run(
+                ["git", "ls-remote", "origin", "refs/heads/main"], capture_output=True, text=True
+            ).stdout.split()[0]
         elif field == "files":
             payload[field] = [{{"path": p, "additions": 1, "deletions": 0}} for p in pr["files"]]
         elif field == "statusCheckRollup":
