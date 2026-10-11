@@ -47,3 +47,39 @@ def test_a_third_plan_in_another_file_asks_the_boundary_storey_in_either_order(
         "floor_3",
         "S-22",
     )
+
+
+def open_boundaries(qs: QsProject) -> list[dict[str, object]]:
+    return [q for q in boundary(qs) if q["status"] == "open"]
+
+
+@pytest.mark.parametrize("revised_first", [False, True], ids=["r0-then-r1", "r1-then-r0"])
+def test_a_revised_copy_of_the_two_meeting_plans_is_no_third_plan(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, revised_first: bool
+) -> None:
+    """Review 2 of #648 (50, strict): S-21 and S-22 again in a later file (their R1) are the same two
+    plans, never a third: the meeting stays settled by the convention and no boundary storey is open."""
+    files = [("KR-STR-COL-R0.dwg", TWO), ("KR-STR-COL-R1.dwg", TWO)]
+    if revised_first:
+        files.reverse()
+    for name, sheets in files:
+        read(qs_project, monkeypatch, sheets, name)
+
+    assert open_boundaries(qs_project) == []
+    assert boundary(qs_project)
+    assert all(
+        (q["status"], (q["answer"] or {}).get("option")) == ("answered", EXCLUDES)
+        for q in boundary(qs_project)
+    )
+
+
+def test_a_third_plan_after_a_revised_copy_still_reopens_the_boundary_storey(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The copies of S-21 and S-22 claim nothing; S-23, another number, still does."""
+    read(qs_project, monkeypatch, TWO, "KR-STR-COL-R0.dwg")
+    read(qs_project, monkeypatch, TWO, "KR-STR-COL-R1.dwg")
+    assert open_boundaries(qs_project) == []
+    read(qs_project, monkeypatch, THIRD, "KR-STR-SETOUT-R0.dwg")
+
+    assert open_boundaries(qs_project)
