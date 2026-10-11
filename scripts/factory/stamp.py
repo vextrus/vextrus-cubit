@@ -1,6 +1,7 @@
 """The clock's data: the session's budget and phases, the state file's stamped lines, a ticket's budget.
 
-    python -m scripts.factory.stamp start --budget 11h --state <STATE.md>
+    python -m scripts.factory.stamp start --budget 11h --state <STATE.md>   (the unit is required:
+        8h, 90m, 5h30m; a bare number is refused, exit 2; --phases keeps bare minutes)
         [--phases "p1=150,p3=330"] [--force]
     python -m scripts.factory.stamp "<text>"          (also: stamp "<text>")
     python -m scripts.factory.stamp phase <name>
@@ -106,8 +107,15 @@ def make_state_folder(state: Path) -> None:
         raise Refused(f"the folder of {state} cannot be made: {error}") from error
 
 
+def parse_budget(text: str) -> int:
+    """A session budget names its unit: `--budget 8` once made an 8-minute clock."""
+    if text.strip().isdigit():
+        raise Refused(f"--budget {text.strip()} has no unit: write 8h, 90m or 5h30m")
+    return parse_minutes(text)
+
+
 def start(budget: str, state: str, phases: str | None, force: bool) -> None:
-    minutes = parse_minutes(budget)
+    minutes = parse_budget(budget)
     planned: list[dict[str, Any]] = []
     for part in (phases or "").split(","):
         if not part.strip():
