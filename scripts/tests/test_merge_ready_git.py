@@ -139,3 +139,38 @@ def test_an_unfetchable_pr_prints_the_status_problems_too(
         "merge-ready: the PR is closed, not open",
         "merge-ready: cannot fetch refs/pull/1/head",
     ]
+
+
+def test_bytes_that_are_not_utf8_are_read_not_a_crash(world: dict[str, str], tmp_path: Path) -> None:
+    """A latin-1 file and a raw latin-1 message in the PR (refuter, S21-MR): replaced and read."""
+    dev = tmp_path / "dev"
+    git(dev, "checkout", "-q", "pr")
+    (dev / "latin.txt").write_bytes("café x\n".encode("latin-1"))
+    (tmp_path / "message").write_bytes("café message\n".encode("latin-1"))
+    git(dev, "add", "latin.txt")
+    git(dev, "commit", "-q", "-F", str(tmp_path / "message"))
+    head = git(dev, "rev-parse", "HEAD")
+    git(dev, "push", "-q", str(tmp_path / "hub.git"), "pr:refs/pull/1/head")
+    answer = json.loads(Path(world["answer"]).read_text())
+    answer["data"]["repository"]["pullRequest"]["headRefOid"] = head
+    Path(world["answer"]).write_text(json.dumps(answer))
+    facts = merge_ready.fetch_review(1)
+    assert "+caf� x" in facts["diff"]
+    assert "latin.txt" in facts["files"]
+    assert facts["messages"][0] in ("caf� message", "café message")  # git may re-encode it
+
+
+@pytest.mark.parametrize(
+    ("answer", "code"),
+    [("", 1), ("{}", 0), ('{"data": {"repository": {"pullRequest": null}}}', 0)],
+    ids=["gh-fails", "no-data", "no-pull-request"],
+)
+def test_a_github_answer_that_cannot_be_read_is_unfetchable(
+    world: dict[str, str], answer: str, code: int, tmp_path: Path
+) -> None:
+    """`gh api graphql` failing or answering no pull request is a refusal (refuter, S21-MR)."""
+    Path(world["answer"]).write_text(answer)
+    if code:
+        (tmp_path / "bin" / "gh").write_text(f"#!{sys.executable}\nimport sys\nsys.exit({code})\n")
+    with pytest.raises(merge_ready.Unfetchable, match="PR 1"):
+        merge_ready.fetch_review(1)

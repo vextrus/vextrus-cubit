@@ -166,12 +166,14 @@ _DIFF = (
     "--no-ext-diff",
     "--no-textconv",
     "--no-relative",
+    "--ignore-submodules=none",
 )
 
 
 def _read(*args: str) -> str:
-    """`git <args>` in the current directory; its output, or Unfetchable naming what failed."""
-    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    """`git <args>` in the current directory; its output, or Unfetchable naming what failed. A PR's
+    bytes need not be UTF-8: an undecodable byte is replaced, never a crash."""
+    done = subprocess.run(["git", *args], capture_output=True, text=True, errors="replace", check=False)
     if done.returncode != 0:
         said = next((row.strip() for row in done.stderr.splitlines() if row.strip()), "no message")
         raise Unfetchable(f"git {' '.join(args[:3])}: {said}")
@@ -194,9 +196,14 @@ def fetch_review(pr: int) -> dict[str, Any]:
         "-f",
         f"name={name}",
     ]
-    done = subprocess.run(["gh", "api", "graphql", *fields], capture_output=True, text=True, check=True)
-    pull = json.loads(done.stdout)["data"]["repository"]["pullRequest"]
-    head, base = pull["headRefOid"], pull["baseRefOid"]
+    done = subprocess.run(["gh", "api", "graphql", *fields], capture_output=True, text=True, check=False)
+    if done.returncode != 0:
+        raise Unfetchable(f"cannot read PR {pr} from GitHub (gh api graphql exit {done.returncode})")
+    try:
+        pull = json.loads(done.stdout)["data"]["repository"]["pullRequest"]
+        head, base = pull["headRefOid"], pull["baseRefOid"]
+    except ValueError, KeyError, TypeError:
+        raise Unfetchable(f"GitHub's answer for PR {pr} is not a pull request: run again") from None
     refs = [f"refs/pull/{pr}/head", f"refs/heads/{pull['baseRefName']}"]
     fetched = subprocess.run(
         ["git", "fetch", "-q", "--no-tags", "origin", *refs], capture_output=True, text=True, check=False
