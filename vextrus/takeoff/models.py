@@ -300,6 +300,9 @@ class ConfirmationAct(models.TextChoices):
     DRAWING_LIST = "drawing_list"
     ASSIGN = "assign"
     """Views put in Takeoff Steps by the QS (#158)."""
+    CORRECT = "correct"
+    """A sheet's number or title corrected by the QS (m0-screens 6.9, `E`); `before["corrected"]`
+    keeps what it changed, `{sheet, number?: [old, new], title?: [old, new]}`, for its undo."""
 
 
 class Confirmation(models.Model):

@@ -181,6 +181,9 @@ class ProposalView:
     """The run's title, its member-mark ranges joined ("GRADE BEAM GB2-GB14 DETAILS"); None alone."""
     series: str | None = None
     """The series it is in, by the series' first sheet's id; None when it is in none."""
+    corrected: bool = False
+    """A correction still standing changed its number or title (the State column's ", corrected",
+    m0-screens 6.9)."""
 
 
 @dataclass(frozen=True)
@@ -431,6 +434,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     role = {c.id: roles.get(c.user_id) for c in acts}
     size = {c.id: c.proposals for c in acts}
     agreeing = _agreeing(project_id, sheets, by_sheet)
+    corrected = _corrected(project_id)
     order = markets.of_developer(_tenant()).date_order
     titled = _titled({s.storeys_as_stated for s in sheets})
     # A range to the roof or the top floor shown up to the set's highest numbered floor (S21-C4):
@@ -448,10 +452,19 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
             storeys_titled=titled.get(s.storeys_as_stated),
             decided_by_role=role.get(s.confirmation_id) if s.confirmation_id else None,
             decided_with=size.get(s.confirmation_id, 0) if s.confirmation_id else 0,
+            corrected=s.id in corrected,
             **asdict(grouped.get(s.id, groups.ALONE)),
         )
         for s, views in zip(sheets, shown, strict=True)
     ]
+
+
+def _corrected(project_id: uuid.UUID) -> set[uuid.UUID]:
+    """The printed sheets a correction still standing changed."""
+    kept = Confirmation.objects.filter(
+        project_id=project_id, step=SHEETS, act=ConfirmationAct.CORRECT, undone_at__isnull=True
+    ).values_list("before", flat=True)
+    return {uuid.UUID(c["sheet"]) for before in kept if (c := before.get("corrected"))}
 
 
 def _to_top(keys: tuple[str, ...] | None, highest: int | None) -> tuple[str, ...] | None:
@@ -1374,9 +1387,14 @@ def _act(
     discipline: str = "",
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
+    corrected: Mapping[str, Any] | None = None,
 ) -> Confirmation:
+    """`corrected`: what a correction changed, kept in `before` (the app writes a row once)."""
+    kept: dict[str, Any] = {"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}}
+    if corrected is not None:
+        kept["corrected"] = dict(corrected)
     return Confirmation.objects.create(
-        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
+        before=kept,
         tenant_id=_tenant(),
         project_id=project_id,
         step=SHEETS,
@@ -1941,9 +1959,69 @@ def _account(
     return True
 
 
+def correct(
+    project_id: uuid.UUID,
+    proposal: object,
+    *,
+    number: object = None,
+    title: object = None,
+    actor_name: str,
+) -> ActView:
+    """The QS corrects a sheet's number or title (m0-screens 2.2 and 6.9, `E`), one act: the sheet
+    stays a Proposal (an excluded one stays out); a confirmed one is refused (409), its Confirmation
+    to be undone first. A value given as it already is changes nothing; none changed is refused
+    (400). The act keeps what it changed (`before["corrected"]`) for its undo, and the set's
+    Questions are asked again: a number another sheet of the Discipline has is a conflict."""
+    auth.require(acts.CORRECT, project_id)
+    with transaction.atomic(), writing(project_id):
+        [(sheet, _proposal)] = _chosen(project_id, [proposal])
+        changed: dict[str, Any] = {"sheet": str(sheet.id)}
+        if isinstance(number, str) and number.strip() != (sheet.number or ""):
+            changed["number"] = [sheet.number or "", number.strip()]
+        if isinstance(title, str) and title.strip() != sheet.title:
+            changed["title"] = [sheet.title, title.strip()]
+        if len(changed) == 1:
+            raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
+        if sheet.decision == "confirmed":
+            raise auth.Refused(said.CONFIRMED_NOT_CORRECTED(), status=409)
+        act = _act(
+            project_id,
+            ConfirmationAct.CORRECT,
+            1,
+            actor_name,
+            discipline=sheet.discipline or "",
+            corrected=changed,
+        )
+        if "number" in changed:
+            drawings.set_sheet_number(sheet.id, changed["number"][1])
+        if "title" in changed:
+            drawings.set_sheet_title(sheet.id, changed["title"][1])
+        _after_act(project_id, corrected=True)
+    return _act_view(act)
+
+
+def _put_back_correction(act: Confirmation) -> None:
+    """A correction undone: each value it changed goes back to what it was, unless changed again
+    since (another correction, a typed number) or the sheet is confirmed since: it stays as it is."""
+    changed = act.before.get("corrected") or {}
+    try:
+        sheet = _sheet(uuid.UUID(changed["sheet"]))
+    except KeyError, ValueError, auth.NotFound:
+        return  # off the sheet list since
+    if sheet.decision == "confirmed":
+        return
+    number, title = changed.get("number"), changed.get("title")
+    drawings.put_back_sheet(
+        sheet.id,
+        number=number[0] if number and (sheet.number or "") == number[1] else None,
+        title=title[0] if title and sheet.title == title[1] else None,
+    )
+
+
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
-    exclusion, a drawing list); refused as `answer_stays` when that act answered a Question. Each
+    exclusion, a drawing list, a correction); refused as `answer_stays` when that act answered a
+    Question. A correction's number and title go back (`_put_back_correction`). Each
     sheet it still decides goes back to what it carried before the act (another person's decision
     included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
@@ -2018,16 +2096,20 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
-        _after_act(project_id)
+        corrected = act.act == ConfirmationAct.CORRECT
+        if corrected:
+            _put_back_correction(act)
+        _after_act(project_id, corrected=corrected)
     return _act_view(act)
 
 
 def _after_act(project_id: uuid.UUID, *, corrected: bool = False) -> None:
     """The one pass each act (confirm, exclude, undo, an answer) ends in, in its transaction: the
     set's conflicts asked again (a decided sheet is in no conflict, one undecided again is compared
-    again: #161), or every Question of the set after an answer `corrected` a sheet's number or
-    Discipline (a typed number another sheet has is a conflict); then the progress rows written once,
-    last, so they count every Question the pass raised or retired."""
+    again: #161), or every Question of the set after an answer, a correction or its undo
+    `corrected` a sheet's number, title or Discipline (a typed number another sheet has is a
+    conflict); then the progress rows written once, last, so they count every Question the pass
+    raised or retired."""
     from vextrus.takeoff.services.read_propose import proposals  # it imports this module
 
     if corrected:

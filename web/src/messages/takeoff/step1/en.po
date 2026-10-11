@@ -19,8 +19,14 @@ msgstr "This sheet has no number in its title block"
 msgid "takeoff.step1.nothing_chosen"
 msgstr "No sheet was chosen, so nothing was changed. Select one or more sheets, then confirm or exclude them."
 
+msgid "takeoff.step1.nothing_to_correct"
+msgstr "The number and title are as they were, so nothing was corrected. Change one of them, then save."
+
+msgid "takeoff.step1.confirmed_not_corrected"
+msgstr "This sheet is confirmed, so it was not corrected. Undo its Confirmation first, then correct it."
+
 msgid "takeoff.step1.nothing_to_undo"
-msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, or paste the drawing list again."
+msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions, corrections and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, or paste the drawing list again."
 
 msgid "takeoff.step1.answer_stays"
 msgstr "Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."

@@ -123,6 +123,9 @@ class Step1ProposalOut(_FromView):
         description="The series it is in (one title on several runs that draw different storeys, "
         "marks or members: no Question): one value on every sheet of the series. Null otherwise.",
     )
+    corrected: bool = False
+    """A correction still standing changed its number or title: the State column adds ", corrected"
+    (m0-screens 6.9)."""
 
 
 class Step1ProposalsOut(Schema):
@@ -248,6 +251,13 @@ class Step1ExcludeIn(Schema):
     proposals: list[uuid.UUID]
     reason: str
     text: str = ""
+
+
+class Step1CorrectIn(Schema):
+    proposal: uuid.UUID
+    """The sheet's Proposal (its `id` in the Proposals list)."""
+    number: str | None = None
+    title: str | None = None
 
 
 class Step1UndoIn(Schema):

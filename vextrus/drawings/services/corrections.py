@@ -1,15 +1,18 @@
 """The QS's corrections to what a read found on a printed sheet (ticket 21c, answering Step 1's
-`missing` and `missing_discipline` Questions): its number, typed; its Discipline, chosen among the
-Market's.
+`missing` and `missing_discipline` Questions; S22-FL8, Step 1's Correct act): its number and its
+title, typed; its Discipline, chosen among the Market's.
 
     drawings.services.set_sheet_number(sr.id, "S-02")
+    drawings.services.set_sheet_title(sr.id, "Ground floor slab layout")
     drawings.services.set_sheet_discipline(sr.id, "structural")
+    drawings.services.put_back_sheet(sr.id, number="", title="…")  # a correction undone
 
 The printed sheet keeps its id and its place in its file; it moves to the Sheet its new number or
 Discipline names (`(set, Building, Discipline, number)`, made when none is), and a Sheet it leaves
 with no printed sheet is dropped. A printed sheet the QS has confirmed is not corrected (409): undo
 the confirmation first; one left out may be (its number or Discipline answered, it comes back
-in). A number is typed text: decoded, no drawing code, within its column.
+in). A number or a title is typed text: on one line, decoded, no drawing code, within its column
+(a title within `TITLE_LENGTH`).
 """
 
 import unicodedata
@@ -37,6 +40,38 @@ def set_sheet_number(sheet_revision_id: uuid.UUID, number: str) -> sheet_list.Sh
     return sheet_list.sheet(printed.id)
 
 
+TITLE_LENGTH = 500
+"""The longest title the QS may type: a title block's runs to a line or two."""
+
+
+def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.SheetView:
+    """The printed sheet's title, as the QS typed it (a correction). Its numbered Sheet takes it
+    where it had none or the old one, so another revision's own title stays."""
+    typed = title.strip() if isinstance(title, str) else ""
+    if not typed or not _one_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
+        raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
+    if not _text.fits((typed, TITLE_LENGTH)):
+        raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
+    with transaction.atomic():
+        printed = _undecided(sheet_revision_id)
+        _retitle(printed, typed)
+    return sheet_list.sheet(printed.id)
+
+
+def put_back_sheet(
+    sheet_revision_id: uuid.UUID, *, number: str | None = None, title: str | None = None
+) -> sheet_list.SheetView:
+    """A correction undone: the printed sheet's number (none included) and title as they were kept
+    before it, each when given. Values once kept, so not checked again as typed text."""
+    with transaction.atomic():
+        printed = _undecided(sheet_revision_id)
+        if number is not None:
+            _move(printed, printed.sheet.discipline, number)
+        if title is not None:
+            _retitle(printed, title)
+    return sheet_list.sheet(printed.id)
+
+
 def set_sheet_discipline(sheet_revision_id: uuid.UUID, key: str) -> sheet_list.SheetView:
     """The printed sheet's Discipline, one of the Market's by key (a sheet of none: #102)."""
     market = {d.key: d for d in library_disciplines.market()}
@@ -61,6 +96,17 @@ def _undecided(sheet_revision_id: uuid.UUID) -> SheetRevision:
     if printed.decision == Decision.CONFIRMED:  # a sheet left out may still be corrected
         raise auth.Refused(said.DECIDED_ALREADY(), status=409)
     return printed
+
+
+def _retitle(printed: SheetRevision, title: str) -> None:
+    old = printed.title
+    if title == old:
+        return
+    printed.title = title
+    printed.save(update_fields=["title"])
+    sheet = Sheet.objects.get(id=printed.sheet_id)
+    if sheet.number and sheet.title in {"", old}:
+        Sheet.objects.filter(id=sheet.id).update(title=title)
 
 
 def _move(printed: SheetRevision, discipline: Discipline | None, number: str) -> None:

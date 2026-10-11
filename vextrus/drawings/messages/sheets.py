@@ -46,3 +46,6 @@ REASON_UNKNOWN = MessageCode("drawings.sheets.reason_unknown")
 """A reason to leave out that is not one of the seven (400)."""
 DECIDED_ALREADY = MessageCode("drawings.sheets.decided_already")
 NUMBER_UNREADABLE = MessageCode("drawings.sheets.number_unreadable")
+TITLE_UNREADABLE = MessageCode("drawings.sheets.title_unreadable")
+"""A typed title that is empty, runs over more than one line, holds a drawing code or a character
+that cannot be kept, or is longer than `corrections.TITLE_LENGTH` (400)."""
