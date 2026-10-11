@@ -19,7 +19,6 @@ from typing import Any
 import pytest
 
 from vextrus.platform.services import tenancy
-from vextrus.seed.demo import Demo
 from vextrus.takeoff.models import Confirmation
 from vextrus.testing.auth import Api
 
@@ -29,6 +28,9 @@ from ..t19a.step1 import NOT_FOUND, by_number, proposals, step1
 pytestmark = pytest.mark.django_db(databases=["default", "owner"])
 
 NEW_TITLE = "Lift core wall details"
+
+type Demo = dict[str, Any]
+"""The demo seed's ids by key (`vextrus.seed.demo.Demo`, a layer above takeoff: not imported)."""
 
 
 def correct(api: Api, project: uuid.UUID, body: dict[str, Any]) -> Any:
