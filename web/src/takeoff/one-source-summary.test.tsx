@@ -60,6 +60,7 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     decided_at: null,
     decided_act: null,
     agrees: true,
+    corrected: false,
     decided_by_role: null,
     decided_with: 0,
     number_source: 'title_block_attribute',

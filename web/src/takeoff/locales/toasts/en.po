@@ -24,6 +24,10 @@ msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
 
 #: src/takeoff/acts.tsx
+msgid "number → {to}; title"
+msgstr "number → {to}; title"
+
+#: src/takeoff/acts.tsx
 msgid "Confirmed {name}."
 msgstr "Confirmed {name}."
 
@@ -46,6 +50,10 @@ msgstr "{m, plural, one {Left out # sheet, with its reason.} other {Left out # s
 #: src/takeoff/acts.tsx
 msgid "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
 msgstr "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+
+#: src/takeoff/acts.tsx
+msgid "Corrected {name}: {what}. Still a Proposal until confirmed."
+msgstr "Corrected {name}: {what}. Still a Proposal until confirmed."
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."
@@ -93,12 +101,28 @@ msgid "confirmed {name}"
 msgstr "confirmed {name}"
 
 #: src/takeoff/acts.tsx
+msgid "your last correction of a sheet’s number or title"
+msgstr "your last correction of a sheet’s number or title"
+
+#: src/takeoff/acts.tsx
+msgid "title"
+msgstr "title"
+
+#: src/takeoff/acts.tsx
 msgid "{n, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 
 #: src/takeoff/acts.tsx
 msgid "{Name} excluded: {short}. They stay in the count."
 msgstr "{Name} excluded: {short}. They stay in the count."
+
+#: src/takeoff/acts.tsx
+msgid "number → {to}"
+msgstr "number → {to}"
+
+#: src/takeoff/acts.tsx
+msgid "Corrected {name}: {what}. It stays excluded."
+msgstr "Corrected {name}: {what}. It stays excluded."
 
 #: src/takeoff/acts.tsx
 msgid "an untitled sheet laid out in the drawing of {file}"
@@ -119,6 +143,10 @@ msgstr "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may b
 #: src/takeoff/acts.tsx
 msgid "{m, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{m, plural, one {left out # sheet} other {left out # sheets}}"
+
+#: src/takeoff/acts.tsx
+msgid "corrected {name}"
+msgstr "corrected {name}"
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}"

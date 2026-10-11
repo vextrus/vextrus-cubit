@@ -4,6 +4,7 @@ title, typed; its Discipline, chosen among the Market's.
 
     drawings.services.set_sheet_number(sr.id, "S-02")
     drawings.services.set_sheet_title(sr.id, "Ground floor slab layout")
+    drawings.services.typed_number(" S-02 ")              # "S-02", or refused (400): nothing written
     drawings.services.set_sheet_discipline(sr.id, "structural")
     drawings.services.put_back_sheet(sr.id, number="", title="…")  # a correction undone
 
@@ -27,13 +28,20 @@ from vextrus.drawings.services import _access, _text, library_disciplines, sheet
 from vextrus.platform.services import auth
 
 
-def set_sheet_number(sheet_revision_id: uuid.UUID, number: str) -> sheet_list.SheetView:
-    """The printed sheet's number, as the QS typed it (a sheet the read found none on)."""
+def typed_number(number: object) -> str:
+    """A number as the QS typed it, stripped, as it may be kept; else refused (400), before anything
+    is written (a NUL or a lone surrogate never reaches a write, nor a correction's act)."""
     typed = number.strip() if isinstance(number, str) else ""
     if not typed or not _one_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
         raise auth.Refused(said.NUMBER_UNREADABLE(), status=400)
     if not _text.fits((typed, sheet_list._length(Sheet, "number"))):
         raise auth.Refused(said.NUMBER_UNREADABLE(), status=400)
+    return typed
+
+
+def set_sheet_number(sheet_revision_id: uuid.UUID, number: str) -> sheet_list.SheetView:
+    """The printed sheet's number, as the QS typed it (a sheet the read found none on)."""
+    typed = typed_number(number)
     with transaction.atomic():
         printed = _undecided(sheet_revision_id)
         _move(printed, printed.sheet.discipline, typed)
@@ -44,14 +52,20 @@ TITLE_LENGTH = 500
 """The longest title the QS may type: a title block's runs to a line or two."""
 
 
-def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.SheetView:
-    """The printed sheet's title, as the QS typed it (a correction). Its numbered Sheet takes it
-    where it had none or the old one, so another revision's own title stays."""
+def typed_title(title: object) -> str:
+    """A title as the QS typed it, stripped, as it may be kept; else refused (400), as `typed_number`."""
     typed = title.strip() if isinstance(title, str) else ""
     if not typed or not _one_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
         raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
     if not _text.fits((typed, TITLE_LENGTH)):
         raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
+    return typed
+
+
+def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.SheetView:
+    """The printed sheet's title, as the QS typed it (a correction). Its numbered Sheet takes it
+    where it had none or the old one, so another revision's own title stays."""
+    typed = typed_title(title)
     with transaction.atomic():
         printed = _undecided(sheet_revision_id)
         _retitle(printed, typed)

@@ -73,6 +73,8 @@ from vextrus.drawings.services.corrections import (
     set_sheet_discipline,
     set_sheet_number,
     set_sheet_title,
+    typed_number,
+    typed_title,
 )
 from vextrus.drawings.services.drawing_files import (
     FINISHING,
@@ -235,6 +237,8 @@ __all__ = [
     "step_store",
     "store_artefact",
     "summary",
+    "typed_number",
+    "typed_title",
     "undo",
     "views",
     "views_of_set",

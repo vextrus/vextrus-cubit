@@ -18,7 +18,7 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
+import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -92,10 +92,11 @@ export function SheetName({ sheets, start = false, count = false }: { sheets: re
 
 function UndoneWords({ act }: { act: ActOut }) {
   const n = act.sheets
-  // 19a's ConfirmationAct: confirm, exclude, drawing_list.
+  // 19a's ConfirmationAct: confirm, exclude, drawing_list; S22-FL8's correct.
   if (act.act === 'confirm' || act.act === 'confirmed') return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
   if (act.act === 'exclude' || act.act === 'excluded') return <Plural value={n} one="left out # sheet" other="left out # sheets" />
   if (act.act === 'drawing_list') return <Trans>the drawing list you set</Trans>
+  if (act.act === 'correct') return <Trans>your last correction of a sheet’s number or title</Trans>
   return <Trans>your last change to Step 1</Trans>
 }
 
@@ -148,12 +149,28 @@ function StaleWords({ done }: { done: ReactNode }) {
   )
 }
 
+/** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
+export interface SheetChange {
+  number?: string
+  title?: string
+}
+
+/** What a correction changed, after "Corrected S-05: " (§6.9): "number → S-51", "title", or both. */
+function CorrectedWords({ change }: { change: SheetChange }) {
+  const to = change.number !== undefined ? <DrawingText kind="sheet-number" text={change.number} truncate={false} /> : null
+  if (to && change.title !== undefined) return <Trans>number → {to}; title</Trans>
+  if (to) return <Trans>number → {to}</Trans>
+  return <Trans>title</Trans>
+}
+
 export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
+  /** Corrects a sheet's number or title (§6.9, `E`): only what changed. */
+  correctSheet(sheet: ProposalOut, change: SheetChange): Promise<boolean>
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
@@ -600,6 +617,28 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     [begin, i18n, marked, projectId, say, settle, showDone, undoFor],
   )
 
+  const correctSheet = useCallback(
+    (sheet: ProposalOut, change: SheetChange) => {
+      const name = <SheetName sheets={[sheet]} />
+      const what = <CorrectedWords change={change} />
+      // A sheet left out stays out (the words gate of S22-FL8): only an undecided one is "still a Proposal".
+      return run(
+        [() => correct(projectId, sheet.id, change)],
+        <Trans>corrected {name}</Trans>,
+        sheet.decision === 'excluded' ? (
+          <Trans>
+            Corrected {name}: {what}. It stays excluded.
+          </Trans>
+        ) : (
+          <Trans>
+            Corrected {name}: {what}. Still a Proposal until confirmed.
+          </Trans>
+        ),
+      )
+    },
+    [projectId, run],
+  )
+
   const answerQuestion = useCallback(
     async (entry: QuestionEntry, option: string, text = '') => {
       const counted = begin()
@@ -638,5 +677,5 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     [begin, marked, projectId, say, settle, showDone],
   )
 
-  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }
+  return { bulk, confirmSheets, excludeSheets, correctSheet, setDrawingList, answerQuestion, undoLast, busy }
 }

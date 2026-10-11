@@ -1975,11 +1975,12 @@ def correct(
     auth.require(acts.CORRECT, project_id)
     with transaction.atomic(), writing(project_id):
         [(sheet, _proposal)] = _chosen(project_id, [proposal])
+        # Typed text checked before the act is written: its `before` keeps the new values too.
         changed: dict[str, Any] = {"sheet": str(sheet.id)}
         if isinstance(number, str) and number.strip() != (sheet.number or ""):
-            changed["number"] = [sheet.number or "", number.strip()]
+            changed["number"] = [sheet.number or "", drawings.typed_number(number)]
         if isinstance(title, str) and title.strip() != sheet.title:
-            changed["title"] = [sheet.title, title.strip()]
+            changed["title"] = [sheet.title, drawings.typed_title(title)]
         if len(changed) == 1:
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
         if sheet.decision == "confirmed":

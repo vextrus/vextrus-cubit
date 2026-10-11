@@ -104,6 +104,10 @@ msgctxt "storey"
 msgid "Ground"
 msgstr "Ground"
 
+#: src/takeoff/SheetList.tsx
+msgid "Proposal, corrected"
+msgstr "Proposal, corrected"
+
 #: src/takeoff/Bar.tsx
 msgid "Question {tag}: {title}"
 msgstr "Question {tag}: {title}"
@@ -450,6 +454,10 @@ msgstr "{count, plural, one {# Question is open} other {# Questions are open}}"
 #: src/takeoff/storeyTitles.tsx
 msgid "Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}."
 msgstr "Answering records whether the titles or the plans are right; no sheet changes. Pick an answer: {keys}."
+
+#: src/takeoff/SheetList.tsx
+msgid "One source, corrected"
+msgstr "One source, corrected"
 
 #: src/takeoff/Bar.tsx
 msgid "They are beside a gap in the numbering. Answer its Question to give them a second source, or open each to confirm it."
