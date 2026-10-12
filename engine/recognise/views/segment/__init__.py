@@ -256,7 +256,9 @@ def _views(
             if upper is None:
                 continue
             title = upper
-            while title in own:
+            for _ in range(len(own)):  # bounded: hostile texts may make a ring of second lines
+                if title not in own:
+                    break
                 title = own[title]
             if title in short and _subtitle(texts[j], texts[upper]) and _aligned(texts[j], texts[title]):
                 second.setdefault(title, []).append(j)
