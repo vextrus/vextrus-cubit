@@ -373,10 +373,17 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
     first = ranked[0]
     if len(ranked) > 1:
         lead = answer.probability(first) - answer.probability(ranked[1])
-        if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY:
+        if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY and not _refines(first, ranked[1]):
             return True
     named = kinds_named(title, ranked)
     return bool(named) and first not in named
+
+
+def _refines(first: str, second: str) -> bool:
+    """Whether Jev's first is a specific `*_details` kind and its runner-up the generic `details`
+    it refines (S24-A7): no doubt, as the specific kind says what `details` says and more; Jev's
+    scores around the close-by line would otherwise flip the Question run to run."""
+    return second == "details" and first.endswith("_details") and first != "details"
 
 
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
