@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -203,13 +203,19 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
   const handOut = useCallback((correct: Step1Acts['correctSheet']) => {
     corrector.current = correct
   }, [])
-  const acts = useActs(projectId, shown, handOut)
+  const [correctionRefusal, setCorrectionRefusal] = useState<CorrectionRefusal | null>(null)
+  const acts = useActs(projectId, shown, handOut, setCorrectionRefusal)
   const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change, opened) => corrector.current?.(sheet, change, opened) ?? Promise.resolve(false), [])
-  return { ...acts, correctSheet }
+  return { ...acts, correctSheet, correctionRefusal }
 }
 
 /** Step 1's acts but the correction, which it gives `handOut` for `useStep1Acts` to return. */
-function useActs(projectId: string, shown: Step1Data | null | undefined, handOut: (correct: Step1Acts['correctSheet']) => void): Omit<Step1Acts, 'correctSheet'> {
+function useActs(
+  projectId: string,
+  shown: Step1Data | null | undefined,
+  handOut: (correct: Step1Acts['correctSheet']) => void,
+  setCorrectionRefusal: Dispatch<SetStateAction<CorrectionRefusal | null>>,
+): Omit<Step1Acts, 'correctSheet' | 'correctionRefusal'> {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -222,7 +228,6 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
   const undos = useRef(0)
   const chain = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState(false)
-  const [correctionRefusal, setCorrectionRefusal] = useState<CorrectionRefusal | null>(null)
   // An answer can move a file's status too (a held file set aside, §6.13), so the files band is read again with Step 1.
   const refresh = useCallback(
     () => Promise.all([queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey })]).then(() => {}),
@@ -585,7 +590,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         showDone(done, await settle(mark), mark)
       }
     },
-    [begin, marked, say, settle, showDone, undoFor],
+    [begin, failedText, marked, say, setCorrectionRefusal, settle, showDone, undoFor],
   )
 
   const bulk = useCallback(
@@ -741,7 +746,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         name,
       )
     },
-    [projectId, run],
+    [projectId, run, setCorrectionRefusal],
   )
   useLayoutEffect(() => handOut(correctSheet), [handOut, correctSheet])
 
@@ -783,5 +788,5 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
     [begin, marked, projectId, say, settle, showDone],
   )
 
-  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy, correctionRefusal }
+  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }
 }
