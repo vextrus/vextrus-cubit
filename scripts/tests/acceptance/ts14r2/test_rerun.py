@@ -10,11 +10,12 @@ A normal PR runs lens A (an `opus` model) and lens B (a `sonnet` model). In the 
 finishes and lens B fails (past its cap, or a reply outside the schema): nothing is recorded. The rerun
 of round 1 starts both lenses again, and the recorded verdict comes from the rerun's answers only. A
 PASS answer planted where an earlier run of this PR, head and round would keep it is never read: the
-lenses start and their BLOCK is recorded. A new head is a new review: every lens runs again.
+lenses start and their own answers are recorded. A new head is a new review: every lens runs again.
 
 S24-L1 (the ledger's verdict follows the bar): a lens's FIX with no finding that could block now
-records PASS, so these tests tell the rerun's answers (and the lenses' own answers) from a PASS by a
-lens's BLOCK, which still wins; they were FIX before S24-L1.
+records PASS. The rerun test tells the rerun's answers by a lens's BLOCK (which still wins); the planted
+answer test by the lenses' two findings (the planted PASS has none) and pins the bar's PASS for their
+FIX over findings of 20 and 30. Both recorded FIX before S24-L1.
 
 Seam assumed, as in test_lens_failures.py: `VEXTRUS_REVIEW_LENS_TIMEOUT` (seconds)."""
 
@@ -132,14 +133,15 @@ def test_a_rerun_records_only_the_rerun_s_answers(world: World) -> None:
 def test_a_planted_pass_answer_for_this_head_and_round_is_never_read(world: World) -> None:
     head = world.pr(12, NORMAL)
     plant_pass(world, 12, head, 1)
-    world.lenses(opus=review_reply("BLOCK", [DEPTH]), sonnet=review_reply("BLOCK", [ADVERSARY]))
+    world.lenses(opus=review_reply("FIX", [DEPTH]), sonnet=review_reply("FIX", [ADVERSARY]))
     done = world.run("12", "--round", "1")
     assert (kinds(world, "opus"), kinds(world, "sonnet")) == (1, 1), (
         f"a planted answer stood in for a lens: {world.lens_calls()}; {why(done)}"
     )
     record = world.record(12, head)
     assert record is not None, why(done)
-    assert record["verdict"] == "BLOCK", f"the planted PASS was recorded: {record}"
+    assert record["verdict"] == "PASS", f"the lenses' FIX overrode the bar: {record}"
+    assert record["counts"]["findings"] == 2, f"the planted PASS was recorded: {record}"
 
 
 def test_a_new_head_runs_every_lens_again(world: World) -> None:
