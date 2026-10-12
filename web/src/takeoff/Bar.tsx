@@ -421,9 +421,9 @@ export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined;
   // A corrected value is the QS's own typing, not a reading (design gate of #706): said as the inspector says it.
   const typedNumber = sheet?.number_source === 'typed'
   const typedTitle = sheet?.title_source === 'typed'
-  if (typedNumber && typedTitle) return <Trans>{name} has one source: its number and title as you typed them. Open it to confirm it.</Trans>
-  if (typedTitle) return <Trans>{name} has one source: its title as you typed it, and its number from its title block. Open it to confirm it.</Trans>
-  if (typedNumber) return <Trans>{name} has one source: its number as you typed it, and its title from its title block. Open it to confirm it.</Trans>
+  if (typedNumber && typedTitle) return <Trans>{name} has one source: its number and title as you typed them.</Trans>
+  if (typedTitle) return <Trans>{name} has one source: its title as you typed it, and its number from its title block.</Trans>
+  if (typedNumber) return <Trans>{name} has one source: its number as you typed it, and its title from its title block.</Trans>
   return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 

@@ -73,6 +73,7 @@ describe('Correct the Proposal (§6.9)', () => {
     // Design gate of #706 (50): the refusal stands under its field, marked and described.
     const field = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
     expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(within(screen.getByRole('complementary')).getByRole('alert')).toHaveTextContent('so nothing was changed')
     expect(field.getAttribute('aria-describedby')).toBeTruthy()
     expect((within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' }) as HTMLInputElement).value).toBe('S-5 1')
   })
@@ -270,6 +271,60 @@ describe('Correct the Proposal (§6.9)', () => {
     await userEvent.type(number, 'S-51')
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(bodyText()).toContain('It is no longer in Confirm all: confirm it on its own.'))
+  })
+
+  it('gives the sheet\'s row the focus back after an undo that moved it (design gate of #706, 65)', async () => {
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    let release: () => void = () => {}
+    const base = api.handle
+    api.handle = async (request: Request) => {
+      if (request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/undo')) await new Promise<void>((resolve) => (release = resolve))
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    step1.answerOnce('POST /correct', 200, { confirmation_id: '01a10000-0000-7000-8000-0000000000a5', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    const number = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+    await userEvent.clear(number)
+    await userEvent.type(number, 'S-51')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Corrected S-05'))
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+
+    step1.answerOnce('POST /undo', 200, { confirmation_id: '01a10000-0000-7000-8000-0000000000a5', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    await userEvent.keyboard('{Control>}z{/Control}')
+    // The row moves back under the undo: the browser's focus is dropped to the page body meanwhile.
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    release()
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+    await waitFor(() => expect(document.activeElement?.closest('[data-row]')).not.toBeNull())
+  })
+
+  it('names the Question that holds a corrected sheet, and keeps the toast narrow', async () => {
+    // Design gate of #706 (35, 30).
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    const s05 = step1.proposals.find((p) => p.number === 'S-05')!
+    const holding = step1.questions[0]!
+    Object.assign(holding, { subject_id: s05.sheet_id, raised: 7 })
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    step1.answerOnce('POST /correct', 200, { confirmation_id: '01a10000-0000-7000-8000-0000000000a5', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    const number = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+    await userEvent.clear(number)
+    await userEvent.type(number, 'S-51')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toMatch(/A Question holds it now: answer Q\d+ first\./))
+    expect(bodyText()).not.toContain('confirm it on its own')
+    const toast = document.querySelector('[role="status"] > div') as HTMLElement
+    expect(toast.getBoundingClientRect().width).toBeLessThanOrEqual(42 * 16 + 1)
   })
 
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {

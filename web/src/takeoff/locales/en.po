@@ -128,6 +128,10 @@ msgstr "The reason, in a few words"
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source: its number and title as you typed them."
+msgstr "{name} has one source: its number and title as you typed them."
+
 #: src/takeoff/SheetList.tsx
 msgid "Disciplines not yet received"
 msgstr "Disciplines not yet received"
@@ -235,6 +239,10 @@ msgstr "You are reading this as the MD."
 #: src/takeoff/Bar.tsx
 msgid "Nothing else confirms it."
 msgstr "Nothing else confirms it."
+
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source: its number as you typed it, and its title from its title block."
+msgstr "{name} has one source: its number as you typed it, and its title from its title block."
 
 #: src/takeoff/SheetLook.tsx
 msgid "Compare: what was read in red over the Plot"
@@ -385,10 +393,6 @@ msgstr "Each has a number and title from its title block, in numbering without a
 msgid "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
 msgstr "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
 
-#: src/takeoff/Bar.tsx
-msgid "{name} has one source: its number as you typed it, and its title from its title block. Open it to confirm it."
-msgstr "{name} has one source: its number as you typed it, and its title from its title block. Open it to confirm it."
-
 #: src/takeoff/SheetList.tsx
 msgid "{start} and {tail}"
 msgstr "{start} and {tail}"
@@ -426,10 +430,6 @@ msgstr "Each has a number and title from its title block and is on its drawing l
 #: src/takeoff/Bar.tsx
 msgid "{name} has neither a number nor a title in its title block"
 msgstr "{name} has neither a number nor a title in its title block"
-
-#: src/takeoff/Bar.tsx
-msgid "{name} has one source: its number and title as you typed them. Open it to confirm it."
-msgstr "{name} has one source: its number and title as you typed them. Open it to confirm it."
 
 #: src/takeoff/FilesBand.tsx
 msgid "Bangla font"
@@ -641,10 +641,6 @@ msgstr "Foundations"
 msgid "{name} waiting for its DWG"
 msgstr "{name} waiting for its DWG"
 
-#: src/takeoff/Bar.tsx
-msgid "{name} has one source: its title as you typed it, and its number from its title block. Open it to confirm it."
-msgstr "{name} has one source: its title as you typed it, and its number from its title block. Open it to confirm it."
-
 #: src/takeoff/storeys.tsx
 msgid "{below} to Roof (floors between from Step 3)"
 msgstr "{below} to Roof (floors between from Step 3)"
@@ -753,3 +749,7 @@ msgstr "found, {listed} on the drawing list found in the drawings"
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
+
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source: its title as you typed it, and its number from its title block."
+msgstr "{name} has one source: its title as you typed it, and its number from its title block."

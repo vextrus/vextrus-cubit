@@ -19,6 +19,11 @@ msgstr "Undone: {words}"
 msgid "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # sheets.}}"
 msgstr "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # sheets.}}"
 
+#. placeholder {0}: holding.raised
+#: src/takeoff/acts.tsx
+msgid "A Question holds it now: answer Q{0} first."
+msgstr "A Question holds it now: answer Q{0} first."
+
 #: src/takeoff/acts.tsx
 msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
@@ -73,6 +78,10 @@ msgid "Corrected {name}: {what}. Still a Proposal until confirmed."
 msgstr "Corrected {name}: {what}. Still a Proposal until confirmed."
 
 #: src/takeoff/acts.tsx
+msgid "Corrected {name}: {what}. Still a Proposal until confirmed. <0/>"
+msgstr "Corrected {name}: {what}. Still a Proposal until confirmed. <0/>"
+
+#: src/takeoff/acts.tsx
 msgid "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."
 msgstr "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."
 
@@ -83,10 +92,6 @@ msgstr "The rest was not done: {refused}"
 #: src/takeoff/acts.tsx
 msgid "the drawing list you set"
 msgstr "the drawing list you set"
-
-#: src/takeoff/acts.tsx
-msgid "Corrected {name}: {what}. Still a Proposal until confirmed. It is no longer in Confirm all: confirm it on its own."
-msgstr "Corrected {name}: {what}. Still a Proposal until confirmed. It is no longer in Confirm all: confirm it on its own."
 
 #: src/takeoff/acts.tsx
 msgctxt "a correction, after its sheet's name"
@@ -141,6 +146,10 @@ msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 #: src/takeoff/acts.tsx
 msgid "{Name} excluded: {short}. They stay in the count."
 msgstr "{Name} excluded: {short}. They stay in the count."
+
+#: src/takeoff/acts.tsx
+msgid "It is no longer in Confirm all: confirm it on its own."
+msgstr "It is no longer in Confirm all: confirm it on its own."
 
 #: src/takeoff/acts.tsx
 msgid "an untitled sheet laid out in the drawing of {file}"
