@@ -253,11 +253,23 @@ class Step1ExcludeIn(Schema):
     text: str = ""
 
 
+class Step1CorrectViewIn(Schema):
+    view: uuid.UUID
+    """A plan view of the sheet (its `id` in the Proposal's `views`)."""
+    storeys: str
+    """The storeys as the QS typed them, each listed ("3rd, 5th, 7th")."""
+    meaning: str
+    """`at_floor_level` or `floor_to_floor`."""
+
+
 class Step1CorrectIn(Schema):
     proposal: uuid.UUID
     """The sheet's Proposal (its `id` in the Proposals list)."""
     number: str | None = None
     title: str | None = None
+    views: list[Step1CorrectViewIn] | None = None
+    """Plan views whose storeys and meaning are corrected (S24-B2); the views' storeys are then
+    marked typed (`storeys_source`)."""
 
 
 class Step1UndoIn(Schema):
@@ -303,6 +315,8 @@ __all__ = [
     "Step1ActOut",
     "Step1AssignIn",
     "Step1ConfirmIn",
+    "Step1CorrectIn",
+    "Step1CorrectViewIn",
     "Step1CoverageOut",
     "Step1DrawingListIn",
     "Step1DrawingListOut",

@@ -19,8 +19,9 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   (`sheet`, `named` as `question_first`).
 - `held_file` (166): as `one_source`, for sheets of a held file the QS chose to read anyway (no
   open Question holds them; they never agree, m0-screens 6.4), with the same params.
-- `nothing_to_correct` (S22-FL8): a correction giving no number or title other than the sheet's
-  own (400).
+- `nothing_to_correct` (S22-FL8, S24-B2): a correction giving no number, title or plan view storeys
+  or meaning other than the sheet's own (400). A view's storeys and meaning have their own refusals,
+  `drawings.sheets.storeys_*` (400).
 - `confirmed_not_corrected` (S22-FL8): a correction of a confirmed sheet (409); its Confirmation is
   undone first.
 - `correction_moved_on` (S23-FL8): undo of a correction whose sheet has changed since (a later
@@ -45,7 +46,7 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
 - The acts, in the event log (S22-FL10; `event=True`, each with the acting user, the Project and the
   Confirmation as subject; payload `sheets`: how many it decided): `confirmed`, `confirmed_back_in`
   (every sheet it confirmed was excluded before), `excluded`, `assigned` (views put in Steps),
-  `drawing_list_set`, `corrected` (S22-FL8: one sheet's number or title; payload `sheets` 1) and
+  `drawing_list_set`, `corrected` (S22-FL8: one sheet's number, title or plan views' storeys; payload `sheets` 1) and
   `undone`. An answer to a Question is recorded as the confirm or exclusion it
   makes; a refused act records nothing.
 """

@@ -114,13 +114,14 @@ def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) 
 @router.post(f"{_PREFIX}/correct", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CORRECT, project="project_id")
 def correct(request: HttpRequest, project_id: uuid.UUID, payload: Step1CorrectIn) -> Step1ActOut:
-    """Correct a sheet's number or title (m0-screens 6.9, `E`): it stays a Proposal."""
+    """Correct a sheet's number, title or plan views' storeys (m0-screens 6.9, `E`): it stays a Proposal."""
     view = deadlocks.retried(
         lambda: step1.correct(
             project_id,
             payload.proposal,
             number=payload.number,
             title=payload.title,
+            views=[(v.view, v.storeys, v.meaning) for v in payload.views] if payload.views else None,
             actor_name=actor(request),
         ),
         what="step1.correct",

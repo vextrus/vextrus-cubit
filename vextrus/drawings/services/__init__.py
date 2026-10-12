@@ -68,13 +68,18 @@ For 19a and 21c (Step 1):
 from vextrus.drawings.models import HeldAnswer, PlotNone
 from vextrus.drawings.services.anchors import Resolved, resolve
 from vextrus.drawings.services.corrections import (
+    ViewStoreys,
     held_answer,
     put_back_sheet,
+    put_back_view_storeys,
     set_sheet_discipline,
     set_sheet_number,
     set_sheet_title,
+    set_view_storeys,
     typed_number,
+    typed_storeys,
     typed_title,
+    typed_view_storeys,
 )
 from vextrus.drawings.services.drawing_files import (
     FINISHING,
@@ -183,6 +188,7 @@ __all__ = [
     "SheetFacts",
     "SheetView",
     "StoredAnchor",
+    "ViewStoreys",
     "ViewView",
     "add_file",
     "answer_held",
@@ -209,6 +215,7 @@ __all__ = [
     "original",
     "page_step",
     "put_back_sheet",
+    "put_back_view_storeys",
     "quarantine",
     "record_bangla_lines",
     "record_kind",
@@ -229,6 +236,7 @@ __all__ = [
     "set_sheet_discipline",
     "set_sheet_number",
     "set_sheet_title",
+    "set_view_storeys",
     "sheet",
     "sheet_discipline",
     "sheet_facts",
@@ -238,7 +246,9 @@ __all__ = [
     "store_artefact",
     "summary",
     "typed_number",
+    "typed_storeys",
     "typed_title",
+    "typed_view_storeys",
     "undo",
     "views",
     "views_of_set",

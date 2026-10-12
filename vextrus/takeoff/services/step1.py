@@ -2031,13 +2031,16 @@ def correct(
     *,
     number: object = None,
     title: object = None,
+    views: Sequence[tuple[object, object, object]] | None = None,
     actor_name: str,
 ) -> ActView:
-    """The QS corrects a sheet's number or title (m0-screens 2.2 and 6.9, `E`), one act: the sheet
-    stays a Proposal (an excluded one stays out); a confirmed one is refused (409), its Confirmation
-    to be undone first. A value given as it already is changes nothing; none changed is refused
-    (400). The act keeps what it changed (`before["corrected"]`) for its undo, and the set's
-    Questions are asked again: a number another sheet of the Discipline has is a conflict."""
+    """The QS corrects a sheet's number, title or plan views' storeys (m0-screens 2.2 and 6.9, `E`),
+    one act: the sheet stays a Proposal (an excluded one stays out); a confirmed one is refused (409),
+    its Confirmation to be undone first. `views` are `(view, storeys as typed, meaning)`: the view's
+    storeys and meaning are then the QS's, marked typed. A value given as it already is changes
+    nothing; none changed is refused (400). The act keeps what it changed (`before["corrected"]`) for
+    its undo, and the set's Questions are asked again: a number another sheet of the Discipline has is
+    a conflict, and the storeys the plans name are compared with the title's again."""
     auth.require(acts.CORRECT, project_id)
     with transaction.atomic(), writing(project_id):
         [(sheet, _proposal)] = _chosen(project_id, [proposal])
@@ -2047,6 +2050,9 @@ def correct(
             changed["number"] = [sheet.number or "", drawings.typed_number(number)]
         if isinstance(title, str) and title.strip() != sheet.title:
             changed["title"] = [sheet.title, drawings.typed_title(title)]
+        viewed = drawings.typed_view_storeys(sheet.id, views or [])
+        if viewed:
+            changed["views"] = [_view_change(before, after) for before, after in viewed]
         if len(changed) == 1:
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
         # Where each value was read, for its undo (the reading's source, not the correction's).
@@ -2085,8 +2091,34 @@ def correct(
             asked.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         if "title" in changed:
             drawings.set_sheet_title(sheet.id, changed["title"][1])
+        if viewed:
+            drawings.set_view_storeys(sheet.id, [after for _before, after in viewed])
         _after_act(project_id, corrected=True)
     return _act_view(act)
+
+
+def _view_change(before: drawings.ViewStoreys, after: drawings.ViewStoreys) -> dict[str, Any]:
+    """A plan view's storeys correction as the act keeps it: each of storeys, meaning and source as
+    `[before, after]` (the undo puts the first back, and stands only while the second is kept)."""
+    return {
+        "view": str(before.view),
+        "storeys": [list(before.storeys), list(after.storeys)],
+        "meaning": [before.meaning, after.meaning],
+        "source": [before.source, after.source],
+    }
+
+
+def _view_storeys(changed: Mapping[str, Any], side: int) -> list[drawings.ViewStoreys]:
+    """The views a correction changed, as they were (`side` 0) or as it left them (`side` 1)."""
+    return [
+        drawings.ViewStoreys(
+            uuid.UUID(v["view"]),
+            tuple(v["storeys"][side]),
+            v["meaning"][side],
+            v["source"][side],
+        )
+        for v in changed.get("views") or []
+    ]
 
 
 def _correction_act(
@@ -2155,6 +2187,16 @@ def _correction_stands(act: Confirmation) -> bool:
         return False
     if title and sheet.title != title[1]:
         return False
+    if changed.get("views"):
+        kept = {v.id: v for v in drawings.views(sheet.id)}
+        for left in _view_storeys(changed, 1):
+            now = kept.get(left.view)  # a view read again since holds nothing to put back
+            if now is not None and (tuple(now.storeys), now.storeys_meaning, now.storeys_source) != (
+                left.storeys,
+                left.meaning,
+                left.source,
+            ):
+                return False
     asked = changed.get("question")
     if asked and number:
         question = Question.objects.filter(project_id=act.project_id, id=uuid.UUID(asked["id"])).first()
@@ -2171,8 +2213,9 @@ def _correction_stands(act: Confirmation) -> bool:
 
 def _put_back_correction(act: Confirmation) -> None:
     """A correction undone (`_correction_stands` first): the number and title it changed go back to
-    its own `before`, with their sources, and the `missing` Question it answered asks again as the
-    sheet stands now, with the answer (a "keep open") it had before the correction."""
+    its own `before`, with their sources, and so do its plan views' storeys, meaning and source; the
+    `missing` Question it answered asks again as the sheet stands now, with the answer (a "keep
+    open") it had before the correction."""
     changed = act.before.get("corrected") or {}
     try:
         sheet = _sheet(uuid.UUID(changed["sheet"]))
@@ -2180,6 +2223,8 @@ def _put_back_correction(act: Confirmation) -> None:
         return  # off the sheet list since
     number, title = changed.get("number"), changed.get("title")
     sources = changed.get("sources") or {}
+    if changed.get("views"):
+        drawings.put_back_view_storeys(sheet.id, _view_storeys(changed, 0))
     back = drawings.put_back_sheet(
         sheet.id,
         number=number[0] if number else None,
@@ -2225,7 +2270,7 @@ def _passed_named(correction: Confirmation) -> dict[str, str]:
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
     exclusion, a drawing list, a correction); refused as `answer_stays` when that act answered a
-    Question. A correction's number and title go back (`_put_back_correction`). Each
+    Question. A correction's number, title and views' storeys go back (`_put_back_correction`). Each
     sheet it still decides goes back to what it carried before the act (another person's decision
     included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""

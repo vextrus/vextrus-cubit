@@ -7,6 +7,9 @@ title, typed; its Discipline, chosen among the Market's.
     drawings.services.typed_number(" S-02 ")              # "S-02", or refused (400): nothing written
     drawings.services.set_sheet_discipline(sr.id, "structural")
     drawings.services.put_back_sheet(sr.id, number="", title="…")  # a correction undone
+    drawings.services.typed_view_storeys(sr.id, [(view_id, "3rd, 5th", "at_floor_level")])
+    drawings.services.set_view_storeys(sr.id, changes)    # a plan view's storeys, typed (S24-B2)
+    drawings.services.put_back_view_storeys(sr.id, before)
 
 The printed sheet keeps its id and its place in its file; it moves to the Sheet its new number or
 Discipline names (`(set, Building, Discipline, number)`, made when none is), and a Sheet it leaves
@@ -16,15 +19,21 @@ in). A number or a title is typed text: on one line, decoded, no drawing code, w
 (a title within `TITLE_LENGTH`).
 """
 
+import re
 import unicodedata
 import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 
 from django.db import transaction
 
 from engine.messages import MessageCode
+from engine.recognise import storeys as storey_reader
+from engine.recognise.sheets import default_conventions
+from engine.recognise.types import SheetConventions, StoreysMeaning
 from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import sheets as said
-from vextrus.drawings.models import Decision, Discipline, HeldAnswer, Sheet, SheetRevision
+from vextrus.drawings.models import Decision, Discipline, HeldAnswer, Sheet, SheetRevision, View
 from vextrus.drawings.services import _access, _text, library_disciplines, sheet_list
 from vextrus.platform.services import auth
 
@@ -118,6 +127,152 @@ def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.Shee
         _retitle(printed, typed)
         _source(printed, title=TYPED)
     return sheet_list.sheet(printed.id)
+
+
+STOREYS_LENGTH = 200
+"""The longest storey list the QS may type: a title's storey words run to a line."""
+MAX_STOREYS = 40
+"""The most storeys one view may be given: a tall tower's floors listed one by one."""
+MEANINGS = (StoreysMeaning.AT_FLOOR_LEVEL.value, StoreysMeaning.FLOOR_TO_FLOOR.value)
+"""The meanings a correction picks between; a view read "at ceiling level" is not given it again."""
+
+_LIST_MARKS = re.compile(r"[,;&+/]|\band\b", re.IGNORECASE)
+_EDGE = ".: \t"
+
+
+@dataclass(frozen=True)
+class ViewStoreys:
+    """A plan view's storeys as kept: their keys low to high, their meaning, where they were read
+    (`TYPED`, or none for a reading's own)."""
+
+    view: uuid.UUID
+    storeys: tuple[str, ...]
+    meaning: str | None
+    source: str | None
+
+
+def typed_storeys(storeys: object) -> tuple[str, ...]:
+    """A plan view's storeys as the QS typed them, each listed ("3rd, 5th, 7th"), as the storey keys
+    low to high; else refused (400), before anything is written. The words are the engine's
+    (`storeys.read`, ADR 0011: code owns storeys), read one item at a time: each item names exactly
+    one storey, so a range ("2nd to 6th") or an open end ("1st to top") is refused, and so is a word
+    naming no storey. A storey named twice is kept once."""
+    typed = storeys.strip() if isinstance(storeys, str) else ""
+    _refuse_unless_typed(
+        typed,
+        length=STOREYS_LENGTH,
+        empty=said.STOREYS_EMPTY,
+        long=said.STOREYS_TOO_LONG,
+        lines=said.STOREYS_MANY_LINES,
+        code=said.STOREYS_DRAWING_CODE,
+        unprintable=said.STOREYS_UNREADABLE,
+        bidi=False,
+    )
+    items = [item for part in _LIST_MARKS.split(typed) if (item := part.strip(_EDGE))]
+    if not items:
+        raise auth.Refused(said.STOREYS_EMPTY(), status=400)
+    if len(items) > MAX_STOREYS:
+        raise auth.Refused(said.STOREYS_TOO_MANY(limit=MAX_STOREYS), status=400)
+    conventions = default_conventions()
+    read: dict[str, str] = {}
+    for item in items:
+        key, words = _one_storey(item, conventions)
+        read.setdefault(key, words)
+    # The engine orders a list low to high; the keys it reads from the items together must be the
+    # keys read from each (a list it reads differently is refused, never kept as something else).
+    joined = storey_reader.read(", ".join(read.values()), conventions, plan_title=False)
+    if set(joined.keys) != set(read) or joined.runs_to is not None or joined.ranged:
+        raise auth.Refused(said.STOREYS_UNREADABLE(), status=400)
+    return joined.keys
+
+
+def _one_storey(item: str, conventions: SheetConventions) -> tuple[str, str]:
+    """The storey key one typed item names, with the words it was read from ("3rd" is read as "3rd
+    floor"): the whole item, naming one storey; else refused (400). Both readings are taken before
+    either is accepted: the engine reads "basement to 3rd" as the basement alone, and only the
+    reading with a floor word shows the range."""
+    spoken = item[:60]
+    reads = [(words, storey_reader.read(words, conventions, plan_title=False)) for words in (item, f"{item} floor")]
+    if _ranges(item, conventions) or any(
+        found.ranged or found.runs_to is not None or len(found.keys) > 1 for _words, found in reads
+    ):
+        raise auth.Refused(said.STOREYS_RANGE(word=spoken), status=400)
+    for words, found in reads:
+        if (
+            len(found.keys) == 1
+            and found.keys[0] not in storey_reader.SYMBOLIC
+            and not found.below_ground
+            and _folded(found.as_stated) == _folded(words)
+        ):
+            return found.keys[0], words
+    raise auth.Refused(said.STOREYS_NOT_A_STOREY(word=spoken), status=400)
+
+
+def _ranges(item: str, conventions: SheetConventions) -> bool:
+    """Whether an item holds a range word ("to", "through") or a dash between its words."""
+    words = {w for phrase in conventions.range_words for w in phrase.casefold().split()}
+    return any(c in item for c in "-\u2013\u2014~") or any(w in words for w in item.casefold().split())
+
+
+def _folded(text: str | None) -> str:
+    return " ".join((text or "").casefold().split())
+
+
+def typed_view_storeys(
+    sheet_revision_id: uuid.UUID, given: Sequence[tuple[object, object, object]]
+) -> list[tuple[ViewStoreys, ViewStoreys]]:
+    """The corrections of a printed sheet's plan views' storeys, each `(view, storeys as typed,
+    meaning)`, as `(before, after)` for the views they change (a view given as it already is changes
+    nothing); else refused (400) before anything is written: a view that is not one of the sheet's,
+    or not a plan, named twice, storeys that cannot be read, a meaning other than the two a correction
+    picks. The sheet's views are those of its kept reading."""
+    if not given:
+        return []
+    kept = {v.id: v for v in sheet_list.views(sheet_revision_id)}
+    seen: set[uuid.UUID] = set()
+    changes: list[tuple[ViewStoreys, ViewStoreys]] = []
+    for view_id, storeys, meaning in given:
+        view = kept.get(view_id) if isinstance(view_id, uuid.UUID) else None
+        if view is None:
+            raise auth.Refused(said.STOREYS_VIEW_UNKNOWN(), status=400)
+        if (view.confirmed_kind or view.kind) != "plan":
+            raise auth.Refused(said.STOREYS_NOT_A_PLAN(), status=400)
+        if view.id in seen:
+            raise auth.Refused(said.STOREYS_VIEW_TWICE(), status=400)
+        seen.add(view.id)
+        keys = typed_storeys(storeys)
+        if not isinstance(meaning, str) or meaning not in MEANINGS:
+            raise auth.Refused(said.STOREYS_MEANING_UNKNOWN(), status=400)
+        before = ViewStoreys(view.id, tuple(view.storeys), view.storeys_meaning, view.storeys_source)
+        after = ViewStoreys(view.id, keys, meaning, TYPED)
+        if (before.storeys, before.meaning) != (after.storeys, after.meaning):
+            changes.append((before, after))
+    return changes
+
+
+def set_view_storeys(sheet_revision_id: uuid.UUID, changes: Sequence[ViewStoreys]) -> None:
+    """Plan views' storeys and meaning as the QS typed them (`typed_view_storeys` first), each marked
+    typed. A printed sheet the QS has confirmed is not corrected (409)."""
+    _write_view_storeys(sheet_revision_id, changes)
+
+
+def put_back_view_storeys(sheet_revision_id: uuid.UUID, before: Sequence[ViewStoreys]) -> None:
+    """A correction undone: plan views' storeys, meaning and source as they were kept before it. A
+    view gone from the sheet's kept reading (it was read again) holds nothing to put back."""
+    _write_view_storeys(sheet_revision_id, before)
+
+
+def _write_view_storeys(sheet_revision_id: uuid.UUID, kept: Sequence[ViewStoreys]) -> None:
+    with transaction.atomic():
+        printed = _undecided(sheet_revision_id)
+        for one in kept:
+            View.objects.filter(
+                id=one.view, sheet_revision=printed, reader_version=printed.reader_version
+            ).update(
+                storeys=list(one.storeys),
+                storeys_meaning=one.meaning or "",
+                storeys_source=one.source or "",
+            )
 
 
 def put_back_sheet(

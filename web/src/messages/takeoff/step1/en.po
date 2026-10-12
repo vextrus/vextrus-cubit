@@ -20,7 +20,7 @@ msgid "takeoff.step1.nothing_chosen"
 msgstr "No sheet was chosen, so nothing was changed. Select one or more sheets, then confirm or exclude them."
 
 msgid "takeoff.step1.nothing_to_correct"
-msgstr "The number and title are as they were, so nothing was corrected. Change one of them, then save."
+msgstr "The number, the title and the storeys are as they were, so nothing was corrected. Change one of them, then save."
 
 msgid "takeoff.step1.confirmed_not_corrected"
 msgstr "This sheet is confirmed, so it was not corrected. To correct it, exclude it, correct it, then confirm it back in."
