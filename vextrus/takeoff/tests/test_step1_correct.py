@@ -561,7 +561,10 @@ def test_the_refusal_to_undo_a_moved_on_correction_names_its_sheet(
 
     assert (refused.status_code, refused.json()) == (
         409,
-        {"code": "takeoff.step1.correction_moved_on", "params": {"sheet": "S-05", "named": "number"}},
+        {
+            "code": "takeoff.step1.correction_moved_on",
+            "params": {"sheet": "S-05", "named": "number", "moved": "no", "now": "S-05"},
+        },
     )
 
 
@@ -596,7 +599,7 @@ def test_an_undo_that_passes_over_a_correction_and_meets_an_answer_says_both(
         409,
         "takeoff.step1.answer_stays_after_correction",
     )
-    assert refused.json()["params"] == {"sheet": "S-05", "named": "number"}  # names the sheet (review 3)
+    assert refused.json()["params"]["sheet"] == "S-05"  # names the sheet (review 3)
 
 
 def test_the_refusal_says_that_sheet_when_its_number_is_no_longer_the_one_the_correction_set(
@@ -611,7 +614,13 @@ def test_the_refusal_says_that_sheet_when_its_number_is_no_longer_the_one_the_co
     refused = nusrat.post(f"{step1(kr01)}/undo", {})
 
     assert refused.status_code == 409
-    assert refused.json()["params"] == {"sheet": "", "named": "none"}
+    # Named by the number the correction set, and where it is now (review 2 of #706: never "that sheet").
+    assert refused.json()["params"] == {
+        "sheet": "A-93",
+        "named": "number",
+        "moved": "yes",
+        "now": "A-94",
+    }
 
 
 def open_questions_of(api: Api, project: uuid.UUID) -> list[tuple[str, str, str]]:
@@ -681,7 +690,15 @@ def test_a_save_from_a_form_opened_before_another_persons_correction_is_refused(
     assert refused.status_code == 409, refused.content
     assert refused.json() == {
         "code": "takeoff.step1.corrected_since",
-        "params": {"field": "title", "value": "Theirs", "sheet": "S-05", "named": "number"},
+        "params": {
+            "field": "title",
+            "value": "Theirs",
+            "has": "yes",
+            "sheet": "S-05",
+            "named": "number",
+            "moved": "no",
+            "now": "S-05",
+        },
     }
     assert the(nusrat, kr01, sheet["id"])["title"] == "Theirs"
     # Opened with the current values, the same save goes through.
@@ -689,3 +706,62 @@ def test_a_save_from_a_form_opened_before_another_persons_correction_is_refused(
         nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}, {"number": "S-05", "title": "Theirs"}
     )
     assert ok.status_code == 200, ok.content
+
+
+def test_a_kept_open_answer_on_one_listed_number_is_not_handed_to_another_numbers_question(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 2 of #706 (70/68): retire_questions' heir rule with the list Questions' empty hold.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-02")
+    path = step1(kr01)
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "S-02A"}).status_code == 200
+    listed = nusrat.get(f"{path}/questions").json()["questions"]
+    others_before = {
+        q["id"]
+        for q in listed
+        if q["status"] == "open" and q.get("code") == "engine.register_check.not_found"
+    }
+    [mine] = [
+        q
+        for q in listed
+        if q["status"] == "open"
+        and q.get("code") == "engine.register_check.not_found"
+        and q["params"].get("number") == "S-02"
+    ]
+    kept = nusrat.post(f"{path}/questions/{mine['id']}/answer", {"option": "keep_open"})
+    assert kept.status_code == 200, kept.content
+
+    undo(nusrat, kr01)  # S-02 is S-02 again: its not_found is retired, its answer goes to no one
+
+    after = nusrat.get(f"{path}/questions").json()["questions"]
+    handed = [
+        q
+        for q in after
+        if q["status"] == "open"
+        and q.get("code") == "engine.register_check.not_found"
+        and q["id"] in others_before
+        and q["id"] != mine["id"]
+        and (q.get("answer") or {}).get("option") == "keep_open"
+    ]
+    assert handed == []
+
+
+def test_corrected_since_names_the_sheet_as_the_qs_saw_it_and_says_when_it_has_no_number(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 2 of #706 (55, 45/40): never "“”", never "that sheet".
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    assert correct(other, kr01, {"proposal": sheet["id"], "number": "A-92"}).status_code == 200
+    undo(other, kr01)  # the number is none again
+    refused = correct_opened_with(
+        nusrat,
+        kr01,
+        {"proposal": sheet["id"], "number": "A-95"},
+        {"number": "A-92", "title": sheet["title"]},
+    )
+
+    assert refused.status_code == 409, refused.content
+    params = refused.json()["params"]
+    assert (params["field"], params["has"], params["value"]) == ("number", "no", "")
+    assert (params["sheet"], params["moved"]) == ("A-92", "none")  # the number the QS saw

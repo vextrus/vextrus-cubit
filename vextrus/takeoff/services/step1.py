@@ -2053,8 +2053,16 @@ def correct(
                 and now[field] != was
                 and sent.strip() != now[field]
             ):
+                # Named by the number the QS saw when the form opened, then what it is now.
+                seen = str((opened or {}).get("number") or "")
                 raise auth.Refused(
-                    said.CORRECTED_SINCE(field=field, value=now[field], **_named(sheet)), status=409
+                    said.CORRECTED_SINCE(
+                        field=field,
+                        value=now[field],
+                        has="yes" if now[field] else "no",
+                        **_label(seen, sheet),
+                    ),
+                    status=409,
                 )
         # Typed text checked before the act is written: its `before` keeps the new values too.
         changed: dict[str, Any] = {"sheet": str(sheet.id)}
@@ -2222,19 +2230,25 @@ def _put_back_correction(act: Confirmation) -> None:
     )
 
 
+def _label(typed: str, sheet: drawings.SheetView | None) -> dict[str, str]:
+    """A sheet as the words name it when its number has moved since the QS saw or typed `typed`:
+    "S-06, now S-07" (`moved` "yes"), "S-06, now without a number" ("none"), else as `_named`."""
+    now = (sheet.number or "") if sheet is not None else ""
+    if typed and typed != now:
+        return {"sheet": typed, "named": "number", "moved": "yes" if now else "none", "now": now}
+    return {**_named(sheet), "moved": "no", "now": now}
+
+
 def _passed_named(correction: Confirmation) -> dict[str, str]:
-    """The sheet of a correction the undo passed over, as the words name it: by its number only while
-    that is the number the correction set (or it set none), else "that sheet" (never a number the QS
-    never typed: review 3 of #691)."""
+    """The sheet of a correction the undo passed over, named by the number the correction set (or the
+    sheet's own, when it set none), and where it is now if that has moved (review of #706)."""
     changed = correction.before.get("corrected") or {}
     try:
         sheet = _sheet(uuid.UUID(changed["sheet"]))
     except KeyError, ValueError, auth.NotFound:
-        return _named(None)
+        return {**_named(None), "moved": "no", "now": ""}
     number = changed.get("number")
-    if number and (sheet.number or "") != number[1]:
-        return _named(None)
-    return _named(sheet)
+    return _label(number[1] if number else (sheet.number or ""), sheet)
 
 
 def undo(project_id: uuid.UUID) -> ActView:
@@ -3309,7 +3323,15 @@ def retire_questions(project_id: uuid.UUID, codes: Iterable[str], raised: Iterab
         status=QuestionStatus.OPEN
     )
     leaving = ours.filter(status=QuestionStatus.OPEN).exclude(id__in=asked)
-    kept = [q for q in leaving if isinstance(q.answer, dict) and q.answer.get("option") == KEEP_OPEN]
+    # A number listed and in no file (or in a file and not listed) is about its own number: its keep-open
+    # answer is never handed to another number's Question (the owner's ruling of 11 Oct 2026; #706 r2).
+    kept = [
+        q
+        for q in leaving
+        if isinstance(q.answer, dict)
+        and q.answer.get("option") == KEEP_OPEN
+        and q.message_code not in (list_codes.NOT_FOUND.code, list_codes.NOT_LISTED.code)
+    ]
     if kept:
         held = _links(project_id, [q.id for q in kept] + list(asked))
         heirs = list(ours.filter(id__in=asked, status=QuestionStatus.OPEN, answer__isnull=True))
