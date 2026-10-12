@@ -171,7 +171,7 @@ def find(
     on_sheet = _subjects_in_order(sheet.title.value, reading) if sheet.title is not None else ()
     held_words = storeys.words(sheet_conventions)
     made = [_candidate(v, paper, reading, discipline, on_sheet, held_words) for v in found]
-    result = FoundViews(storeys.inherit(made, sheet, on_sheet, held_words))
+    result = FoundViews(storeys.inherit(made, sheet, on_sheet, held_words, reading))
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(budget)
     return result
@@ -205,7 +205,8 @@ def _candidate(
     subject = _subject(title, reading) if title is not None else None
     layer = _layer(title, reading) if title is not None else None
     lines = [" ".join(u.shown.split()) for u in view.lines]
-    stated = storeys.read(title, view.kind, subject, lines, storey_words)
+    named = _subjects_in_order(title, reading) if title is not None else ()
+    stated = storeys.read(title, view.kind, subject, lines, storey_words, discipline, named)
     structure = title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
         view.kind,
