@@ -161,6 +161,8 @@ function StaleWords({ done }: { done: ReactNode }) {
 export interface CorrectionRefusal {
   text: string
   field: 'number' | 'title' | null
+  /** The value the sheet holds now, when the refusal is `corrected_since`: the form takes it as what it opened with. */
+  current?: { field: 'number' | 'title'; value: string }
   n: number
 }
 
@@ -187,6 +189,8 @@ export interface Step1Acts {
   correctSheet(sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }): Promise<boolean>
   /** The last correction's refusal, shown under its field in the form (not as a toast over the bar). */
   correctionRefusal: CorrectionRefusal | null
+  /** The form closed (or opens): a refusal belongs to the form it was made in. */
+  clearCorrectionRefusal(): void
   /** Counts the undos that have ended (Ctrl Z or the toast's Undo): the screen puts focus back after each. */
   undone: number
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
@@ -210,7 +214,8 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
   const [undone, setUndone] = useState(0)
   const acts = useActs(projectId, shown, handOut, setCorrectionRefusal, setUndone)
   const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change, opened) => corrector.current?.(sheet, change, opened) ?? Promise.resolve(false), [])
-  return { ...acts, correctSheet, correctionRefusal, undone }
+  const clearCorrectionRefusal = useCallback(() => setCorrectionRefusal(null), [])
+  return { ...acts, correctSheet, correctionRefusal, clearCorrectionRefusal, undone }
 }
 
 /** Step 1's acts but the correction, which it gives `handOut` for `useStep1Acts` to return. */
@@ -220,7 +225,7 @@ function useActs(
   handOut: (correct: Step1Acts['correctSheet']) => void,
   setCorrectionRefusal: Dispatch<SetStateAction<CorrectionRefusal | null>>,
   setUndone: Dispatch<SetStateAction<number>>,
-): Omit<Step1Acts, 'correctSheet' | 'correctionRefusal' | 'undone'> {
+): Omit<Step1Acts, 'correctSheet' | 'correctionRefusal' | 'clearCorrectionRefusal' | 'undone'> {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -585,16 +590,19 @@ function useActs(
           // A refused correction is said under its field in the form, and kept there (aria-invalid,
           // aria-describedby), not as a toast over the bar's main button (design gate of #706).
           let field: CorrectionRefusal['field'] = null
+          let current: CorrectionRefusal['current']
           try {
             const problem = problemOf(error)
             const refusal = problem && 'refusal' in problem ? problem.refusal : null
             const asked = String((refusal?.params as Record<string, unknown> | undefined)?.field ?? refusal?.code ?? '')
             field = asked.includes('number') ? 'number' : asked.includes('title') ? 'title' : null
+            const params = refusal?.params as Record<string, unknown> | undefined
+            if (refusal?.code === 'takeoff.step1.corrected_since' && field && typeof params?.value === 'string') current = { field, value: params.value }
           } catch {
             // Not the API's refusal: said plainly, under no field.
           }
           refusals.current += 1 // never reset: a second refusal is newer than what the person typed after the first
-          setCorrectionRefusal({ text: failedText(error), field, n: refusals.current })
+          setCorrectionRefusal({ text: failedText(error), field, current, n: refusals.current })
         } else say(error)
         return false
       } finally {

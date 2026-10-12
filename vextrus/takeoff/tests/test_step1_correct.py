@@ -765,3 +765,24 @@ def test_corrected_since_names_the_sheet_as_the_qs_saw_it_and_says_when_it_has_n
     params = refused.json()["params"]
     assert (params["field"], params["has"], params["value"]) == ("number", "no", "")
     assert (params["sheet"], params["moved"]) == ("A-92", "none")  # the number the QS saw
+
+
+def test_undoing_an_exclusion_does_not_confirm_a_value_corrected_while_the_sheet_was_out(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 3 of #706 (55, blocks): the Confirmation came back over a title nobody confirmed.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    path = step1(kr01)
+    assert nusrat.post(f"{path}/confirm", {"proposals": [sheet["id"]]}).status_code == 200
+    assert (
+        nusrat.post(f"{path}/exclude", {"proposals": [sheet["id"]], "reason": "superseded"}).status_code
+        == 200
+    )
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "THEIRS"}).status_code == 200
+
+    undo(nusrat, kr01)  # the exclusion
+
+    after = the(nusrat, kr01, sheet["id"])
+    assert after["title"] == "THEIRS"
+    assert after["decision"] != "confirmed"  # a Proposal again: nobody confirmed THEIRS

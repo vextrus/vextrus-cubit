@@ -2055,12 +2055,13 @@ def correct(
             ):
                 # Named by the number the QS saw when the form opened, then what it is now.
                 seen = str((opened or {}).get("number") or "")
+                titled = str((opened or {}).get("title") or "")
+                named = _label(seen, sheet)
+                if not seen and titled:  # a sheet that had no number: by the title the form opened with
+                    named = {**named, "sheet": titled, "named": "title"}
                 raise auth.Refused(
                     said.CORRECTED_SINCE(
-                        field=field,
-                        value=now[field],
-                        has="yes" if now[field] else "no",
-                        **_label(seen, sheet),
+                        field=field, value=now[field], has="yes" if now[field] else "no", **named
                     ),
                     status=409,
                 )
@@ -2336,7 +2337,21 @@ def undo(project_id: uuid.UUID) -> ActView:
             ):
                 _follow_sheet(row)
         for sheet_id in listed:
-            _put_back_sheet(project_id, sheet_id, _standing_before(act, sheet_id))
+            standing = _standing_before(act, sheet_id)
+            if standing is not None and standing[1].get("decision") == "confirmed":
+                # A value another person corrected since (the sheet was out: a correction is allowed) was
+                # never confirmed: the sheet comes back a Proposal, not "confirmed" under it (#706 r3).
+                moved = Confirmation.objects.filter(
+                    project_id=project_id,
+                    step=SHEETS,
+                    act=ConfirmationAct.CORRECT,
+                    undone_at__isnull=True,
+                    before__corrected__sheet=str(sheet_id),
+                    at__gt=act.at,
+                ).exists()
+                if moved:
+                    standing = None
+            _put_back_sheet(project_id, sheet_id, standing)
         for sheet_id in off_list:
             _put_back_sheet(project_id, sheet_id, None)
         # The views the act put in Steps (an `assign`) stand as their sheets do without its steps;

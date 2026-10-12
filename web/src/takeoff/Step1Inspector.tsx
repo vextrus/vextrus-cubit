@@ -548,7 +548,14 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
   const { save, cancel, refusal } = correcting
   // What the form opened with: the sheet may be reloaded under it (another person's correction), but a
   // save is judged against these, and sent with them (the server refuses a value changed since).
-  const [opened] = useState({ number: correcting.sheet.number ?? '', title: correcting.sheet.title })
+  const [opened, setOpened] = useState({ number: correcting.sheet.number ?? '', title: correcting.sheet.title })
+  // A refusal that names what the sheet holds now: that is what the person has seen, so the next save
+  // is judged against it and can go through (what was typed stays). Set while rendering, once per refusal.
+  const [adopted, setAdopted] = useState(0)
+  if (refusal?.current && refusal.n > adopted) {
+    setAdopted(refusal.n)
+    setOpened((was) => ({ ...was, [refusal.current!.field]: refusal.current!.value }))
+  }
   const [number, setNumber] = useState(opened.number)
   const [title, setTitle] = useState(opened.title)
   // A refusal stands under its field until that field (or the other) is typed in.

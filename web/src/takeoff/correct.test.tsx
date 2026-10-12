@@ -347,7 +347,7 @@ describe('Correct the Proposal (§6.9)', () => {
     await userEvent.type(title, 'MY TITLE')
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
-    expect(bodyText()).toContain('was changed by another person since you opened it')
+    expect(bodyText()).toContain('was changed since you opened it')
     // Typing clears it; a second refused save shows it again.
     step1.answerOnce('POST /correct', 409, refusal)
     await userEvent.type(form().getByRole('textbox', { name: 'Title' }), '!')
@@ -377,6 +377,52 @@ describe('Correct the Proposal (§6.9)', () => {
     await waitFor(() => expect(within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })).toHaveAttribute('aria-invalid', 'true'))
     expect(bodyText()).toContain('Correct the Proposal')
     expect(document.activeElement).toBe(within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' }))
+  })
+
+  it('clears a refusal when the form closes, and takes the newer values as what it opened with', async () => {
+    // Review 3 of #706 (70/55): an old refusal shown in a new form; a form that could never save again.
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    const sent: (string | null)[] = []
+    const base = api.handle
+    api.handle = async (request: Request) => {
+      if (request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/correct')) sent.push(request.headers.get('X-Step1-Opened-With'))
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    const form = () => within(screen.getByRole('complementary'))
+    step1.proposals.find((p) => p.number === 'S-05')!.title = 'THEIR TITLE'
+    step1.answerOnce('POST /correct', 409, { code: 'takeoff.step1.corrected_since', params: { field: 'title', value: 'THEIR TITLE', has: 'yes', sheet: 'S-05', named: 'number', moved: 'no', now: 'S-05' } })
+    await userEvent.clear(form().getByRole('textbox', { name: 'Title' }))
+    await userEvent.type(form().getByRole('textbox', { name: 'Title' }), 'MY TITLE')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+
+    // The form takes THEIR TITLE as what it opened with: the next Enter is sent with it (so it can go through).
+    step1.answerOnce('POST /correct', 200, { confirmation_id: '01a10000-0000-7000-8000-0000000000a5', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    await userEvent.type(form().getByRole('textbox', { name: 'Title' }), '!')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(sent).toHaveLength(2))
+    expect(decodeURIComponent(sent[1]!)).toContain('THEIR TITLE')
+
+    // A refusal does not outlive its form: Esc, E again, nothing under the field.
+    await waitFor(() => expect(bodyText()).not.toContain('Correct the Proposal'))
+    step1.answerOnce('POST /correct', 409, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    await userEvent.type(form().getByRole('textbox', { name: 'Title' }), 'x')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(bodyText()).not.toContain('Correct the Proposal'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    expect(form().getByRole('textbox', { name: 'Title' })).not.toHaveAttribute('aria-invalid')
   })
 
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {

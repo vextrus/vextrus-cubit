@@ -674,12 +674,14 @@ function Step1({
     setPicker(null)
     setPanel(null)
     shell.showInspectorTab('selection')
+    acts.clearCorrectionRefusal()
     setCorrecting(focusedSheet.id)
   }
   // Tied to its sheet by id: a reload (another person changed its number) moves the row, never the form.
   const correctingSheet = correcting !== null ? (model.rows.flatMap((r) => [...r.sheets]).find((s) => s.id === correcting) ?? null) : null
   const closeCorrection = (sheetId: string) => {
     setCorrecting(null)
+    acts.clearCorrectionRefusal()
     refocusSheet.current = sheetId
   }
   const saveCorrection = (sheet: ProposalOut, change: SheetChange, opened: { number: string; title: string }) => {
