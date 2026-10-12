@@ -15,7 +15,8 @@ an act waits on it only for the moment before the step commits (#227).
 **A PDF** (`matching`): its pages against every listed sheet of the set, each placed where matched.
 **A DWG** (`finishing`): the set's read PDFs' pages against every listed sheet, its own now among
 them; only the pages that could be its sheets' are matched in full (named for one of them, or naming
-none surely: several sheets alike, or no text), the rest named as before, so a set's Plot is not
+none surely: several sheets alike, or no text; or naming a sheet another page of their PDF names,
+S24-A5), the rest named as before, so a set's Plot is not
 aligned again each time one of its DWGs is read. A page's naming depends on the page, the whole
 sheet list and, for a page matched by its ink, the other pages' text (`registration.unclaimed`);
 and a page given to a sheet now is let go by any sheet that held it before (`_release`), so the
@@ -61,7 +62,7 @@ KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
 needs them, never all together under the cad worker's memory cap)."""
 _WORDS = ("number", "title", "revision_mark", "issue_date")
-_MAY_BE_ANY = frozenset({"names_several_sheets", "no_text", "same_sheet_as_another_page"})
+_MAY_BE_ANY = frozenset({"names_several_sheets", "no_text"})
 """A page's reasons, named without geometry, that its geometry may still turn into a match."""
 
 
@@ -136,15 +137,23 @@ def _for_dwg(
     disciplines: dict[str, str | None],
 ) -> tuple[list[PlotMatch], set[int]]:
     """Every page's match: named without geometry, then matched in full where it could be one of
-    the file's sheets (see the module); and the places of those matched in full."""
+    the file's sheets (see the module), or where another page of its PDF names its sheet too; and
+    the places of those matched in full. "One page, one sheet" (18's `one_page_each`, S24-A5) runs
+    once, over every page of the set's read PDFs, as a PDF's own read runs it: never over the part
+    matched here, so the set's Plot is the same whichever file was read last (#703's review)."""
     ours = {id(c) for c, s in zip(candidates, listed, strict=True) if s.file_id == file_id}
-    named = registration.match(pages, candidates, (), None, disciplines)
+    named = registration.match(pages, candidates, (), None, disciplines, one_each=False)
+    shared = _sharing(named)
     again = [
         i
         for i, m in enumerate(named)
-        if (m.sheet is not None and id(m.sheet) in ours) or (m.sheet is None and m.reason in _MAY_BE_ANY)
+        if (m.sheet is not None and id(m.sheet) in ours)
+        or (m.sheet is None and m.reason in _MAY_BE_ANY)
+        or i in shared
     ]
-    full = registration.match([pages[i] for i in again], candidates, geometry, paths, disciplines)
+    full = registration.match(
+        [pages[i] for i in again], candidates, geometry, paths, disciplines, one_each=False
+    )
     found = list(named)
     for i, m in zip(again, full, strict=True):
         found[i] = m
@@ -153,13 +162,21 @@ def _for_dwg(
     inked = {
         i: str(named[i].reason) for i in again if named[i].sheet is None and found[i].sheet is not None
     }
-    # One page a sheet in each PDF, over every page (S24-A5): the pages matched in full were matched
-    # without the others, so a sheet another page holds was free to them. No ink is tried again here:
-    # the full match spent the set's tries (18's `MAX_INK_TRIES`).
-    kept = registration.one_page_each(
-        registration.unclaimed(found, inked), candidates, geometry, paths, disciplines, [0]
-    )
+    found = registration.unclaimed(found, inked)
+    # Its ink tries are its own (18's `MAX_INK_TRIES`), as in a PDF's read: at most that many more.
+    kept = registration.one_page_each(found, candidates, geometry, paths, disciplines)
     return kept, set(again)
+
+
+def _sharing(named: Sequence[PlotMatch]) -> set[int]:
+    """The places of the pages that name a sheet another page of their PDF names too: matched in
+    full, so "One page, one sheet" weighs them with their geometry whichever file was read last,
+    and a sheet let go (`_release`) is kept again from its own page."""
+    by: dict[tuple[str, int], list[int]] = {}
+    for i, m in enumerate(named):
+        if m.sheet is not None:
+            by.setdefault((getattr(m.page, "source_sha256", ""), id(m.sheet)), []).append(i)
+    return {i for places in by.values() if len(places) > 1 for i in places}
 
 
 def _keep(

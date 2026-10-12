@@ -1,12 +1,16 @@
 """S24-A5's tests: one page a sheet and one sheet a page in a PDF (`registration.one_page_each`). A
 page whose own number is small text, beside a larger mark that is another sheet's number, named that
 sheet, which its own page named too: two pages on one sheet, and the page's own sheet left with none.
-In a PDF whose pages are in their sheets' order the order decides; out of order, the pages take
-none. The sheets and pages are invented, matched by their text alone (no buffers: nothing is placed).
+A page's place among the pages holding their sheets alone decides; where it does not, the ink; where
+neither does, the pages are left as they named it (the product keeps the surest). A swapped pair of
+pages makes only its own places unknown. The sheets and pages are invented, matched by their text
+alone unless a test draws them.
 """
 
 import random
+from collections.abc import Sequence
 from pathlib import Path
+from typing import overload
 
 import pytest
 
@@ -19,6 +23,7 @@ from engine.plot.tests.test_plot import sheet as titled_sheet
 from engine.read.pdf import page_text
 from engine.read.pdf.types import Page, TextItem
 from engine.recognise.types import PlotMatch, SheetCandidate, SheetLocation, Sourced, ValueSource
+from engine.render.buffers import SheetBuffers
 
 SHA_A = "a" * 64
 SHA_B = "b" * 64
@@ -98,9 +103,9 @@ def test_the_page_its_place_does_not_hold_takes_none_when_it_names_no_sheet_ther
     no_sheet_twice(found)
 
 
-def test_two_pages_in_the_same_place_take_none() -> None:
-    """Pages 3 and 4 both name S-03 and nothing else, between S-02 and S-05: the order cannot tell
-    which is S-03's, so neither takes it (never both)."""
+def test_two_pages_as_sure_in_the_same_place_are_left_as_they_named_it() -> None:
+    """Pages 3 and 4 both name S-03 alone, between S-02 and S-05: nothing here tells which, so both
+    are left naming it, as before (the product keeps one, its report saying both show it)."""
     sheets = [sheet(n) for n in numbered(5)]
     pages = [
         page(1, own("S-01")),
@@ -110,9 +115,7 @@ def test_two_pages_in_the_same_place_take_none() -> None:
         page(5, own("S-05")),
     ]
 
-    found = registration.match(pages, sheets)
-
-    assert read(found) == ["S-01", "S-02", SAME, SAME, "S-05"]
+    assert read(registration.match(pages, sheets)) == ["S-01", "S-02", "S-03", "S-03", "S-05"]
 
 
 def test_two_pages_in_the_same_place_leave_the_sheet_to_the_surer() -> None:
@@ -131,19 +134,40 @@ def test_two_pages_in_the_same_place_leave_the_sheet_to_the_surer() -> None:
     assert read(registration.match(pages, sheets)) == ["S-01", "S-02", "S-03", "S-03", "S-05"]
 
 
-def test_out_of_order_the_surer_page_is_no_surer() -> None:
-    """The same pages, the PDF out of order: a larger mark is no surer (S24-A5's set: a larger mark
-    was another sheet's number), so neither takes S-03."""
-    sheets = [sheet(n) for n in numbered(5)]
+def test_a_swapped_pair_elsewhere_leaves_the_order_to_decide() -> None:
+    """Pages 2 and 3 are swapped (S-03, S-02), and page 4's larger mark is S-06's number: page 4's
+    place (S-02 to S-05) is known all the same, so it is S-04 and page 6 is S-06 (#703's review: one
+    swapped pair made the whole PDF out of order)."""
+    sheets = [sheet(n) for n in numbered(6)]
     pages = [
-        page(1, own("S-02")),
-        page(2, own("S-01")),
-        page(3, own("S-03")),
-        page(4, mark("S-03")),
+        page(1, own("S-01")),
+        page(2, own("S-03")),
+        page(3, own("S-02")),
+        page(4, own("S-04"), mark("S-06")),
         page(5, own("S-05")),
+        page(6, own("S-06")),
     ]
 
-    assert read(registration.match(pages, sheets)) == ["S-02", "S-01", SAME, SAME, "S-05"]
+    found = registration.match(pages, sheets)
+
+    assert read(found) == ["S-01", "S-03", "S-02", "S-04", "S-05", "S-06"]
+    no_sheet_twice(found)
+
+
+def test_a_page_between_a_swapped_pair_loses_its_sheet_to_the_page_whose_place_holds_it() -> None:
+    """Page 3 lies between S-04 and S-02, a swapped pair: its place is not known. Page 6's place
+    holds S-06, which page 3's larger mark names too: page 6 is S-06's, and page 3 says so."""
+    sheets = [sheet(n) for n in numbered(6)]
+    pages = [
+        page(1, own("S-01")),
+        page(2, own("S-04")),
+        page(3, own("S-03"), mark("S-06")),
+        page(4, own("S-02")),
+        page(5, own("S-05")),
+        page(6, own("S-06")),
+    ]
+
+    assert read(registration.match(pages, sheets)) == ["S-01", "S-04", SAME, "S-02", "S-05", "S-06"]
 
 
 def test_a_page_given_its_sheet_by_the_order_frees_the_next_choice() -> None:
@@ -234,9 +258,9 @@ def test_two_pages_naming_a_sheet_alike_are_told_apart_by_its_ink(tmp_path: Path
 
 
 @pytest.mark.usefixtures("_no_sandbox")
-def test_in_a_pdf_in_order_the_ink_never_gives_a_sheet_against_the_order(tmp_path: Path) -> None:
-    """The same two pages between S-101's page and S-102's: S-201 fits neither's place, so neither
-    takes it, though the second page's ink agrees with it clearly best."""
+def test_the_ink_never_gives_a_sheet_against_the_order(tmp_path: Path) -> None:
+    """The same two pages between S-101's page and S-102's: S-201 fits neither's place, so the ink
+    is not asked (it would take the second page), and both are left as they named it."""
     path = _two_page_plot(tmp_path, before="S-101", after="S-102")
     pages = page_text(path)
     sheets = [titled_sheet(), sheet("S-101"), sheet("S-102")]
@@ -244,13 +268,13 @@ def test_in_a_pdf_in_order_the_ink_never_gives_a_sheet_against_the_order(tmp_pat
 
     found = registration.match(pages, sheets, [sheet_buffers()], plots)
 
-    assert read(found) == ["S-101", SAME, SAME, "S-102"]
+    assert read(found) == ["S-101", "S-201", "S-201", "S-102"]
 
 
 @pytest.mark.usefixtures("_no_sandbox")
 def test_the_ink_is_tried_only_within_the_budget_it_is_given(tmp_path: Path) -> None:
     """The ink tries are the match's (`MAX_INK_TRIES`, shared): with fewer left than the pages to
-    try, nothing is drawn and neither page takes the sheet; with enough, the ink decides."""
+    try, nothing is drawn and the pages are left as they named it; with enough, the ink decides."""
     path = _two_page_plot(tmp_path)
     pages = page_text(path)
     plots = {pages[0].source_sha256: path}
@@ -263,25 +287,58 @@ def test_the_ink_is_tried_only_within_the_budget_it_is_given(tmp_path: Path) -> 
 
     spent = [1]
     short = registration.one_page_each(found, [one], [buffers], plots, budget=spent)
-    assert [m.reason for m in short] == [SAME, SAME]
+    assert [m.reason for m in short] == [None, None]  # left as they named it
     assert spent == [1]
     enough = registration.one_page_each(found, [one], [buffers], plots, budget=[2])
     assert [m.reason for m in enough] == [SAME, None]
 
 
-def test_without_its_ink_two_pages_naming_a_sheet_alike_take_none(tmp_path: Path) -> None:
-    """The same pages with no buffers to draw: nothing tells them apart, and neither takes it."""
+def test_the_budget_is_checked_before_a_sheets_buffers_are_asked_for() -> None:
+    """With no ink tries left, no sheet's buffers are loaded (a large set's are loaded as asked
+    for: #703's review)."""
+
+    class Counted(Sequence[SheetBuffers | None]):
+        """A set's buffers, loaded as asked for (as the product's), counting each ask."""
+
+        def __init__(self, held: list[SheetBuffers | None]) -> None:
+            self.held, self.asked = held, 0
+
+        def __len__(self) -> int:
+            return len(self.held)
+
+        @overload
+        def __getitem__(self, index: int) -> SheetBuffers | None: ...
+        @overload
+        def __getitem__(self, index: slice) -> Sequence[SheetBuffers | None]: ...
+        def __getitem__(self, index: int | slice) -> SheetBuffers | Sequence[SheetBuffers | None] | None:
+            self.asked += 1
+            return self.held[index]
+
+    one = sheet("S-01")
+    found = [PlotMatch(page(k, own("S-01")), sheet=one) for k in (1, 2)]
+    geometry = Counted([sheet_buffers()])
+
+    registration.one_page_each(found, [one], geometry, {SHA_A: Path("unused.pdf")}, budget=[0])
+
+    assert geometry.asked == 0
+
+
+def test_without_its_ink_two_pages_naming_a_sheet_alike_are_left_as_they_named_it(
+    tmp_path: Path,
+) -> None:
+    """The same pages with no buffers to draw: nothing tells them apart, so both are left naming
+    it, as before (the product keeps the surer)."""
     pages = page_text(_two_page_plot(tmp_path))
 
-    assert read(registration.match(pages, [titled_sheet()])) == [SAME, SAME]
+    assert read(registration.match(pages, [titled_sheet()])) == ["S-201", "S-201"]
 
 
 # Out of order: raised, never a double match ----------------------------------------------------------
 
 
-def test_a_collision_in_a_pdf_out_of_order_takes_none() -> None:
-    """The pages holding their sheets alone are out of their numbers' order (S-04, S-01, S-02): the
-    order tells nothing, so pages 3 and 5, both naming S-05, take none."""
+def test_a_collision_is_decided_by_the_places_around_it_in_a_pdf_out_of_order() -> None:
+    """Pages out of their numbers' order (S-04, S-01, S-02), page 3's larger mark naming S-05: page
+    3's place (S-01 to S-02) does not hold S-05, page 5's does; page 5 is S-05's."""
     sheets = [sheet(n) for n in numbered(5)]
     pages = [
         page(1, own("S-04")),
@@ -291,10 +348,7 @@ def test_a_collision_in_a_pdf_out_of_order_takes_none() -> None:
         page(5, own("S-05")),
     ]
 
-    found = registration.match(pages, sheets)
-
-    assert read(found) == ["S-04", "S-01", SAME, "S-02", SAME]
-    no_sheet_twice(found)
+    assert read(registration.match(pages, sheets)) == ["S-04", "S-01", SAME, "S-02", "S-05"]
 
 
 def test_pages_of_two_pdfs_naming_one_sheet_are_left_to_the_product() -> None:
@@ -307,11 +361,11 @@ def test_pages_of_two_pdfs_naming_one_sheet_are_left_to_the_product() -> None:
     assert read(registration.match(pages, sheets)) == ["S-01", "S-02", "S-03", "S-02"]
 
 
-@pytest.mark.parametrize("seed", range(40))
-def test_no_sheet_ever_gets_two_pages_of_a_pdf(seed: int) -> None:
-    """Pages naming numbers at random, in order or not, own numbers and marks alike, none surer than
-    another (the surer of two pages in one place is left to the report): never one sheet on two
-    pages of a PDF, and every page a sheet or a reason."""
+@pytest.mark.parametrize("seed", range(60))
+def test_the_pass_never_makes_a_sheet_two_pages_nor_drops_one_without_cause(seed: int) -> None:
+    """Pages naming numbers at random, in order or not: a sheet is on two pages only where it was
+    before the pass; a page given another sheet names it; a page that says
+    `same_sheet_as_another_page` lost its sheet to another page, which holds it."""
     rng = random.Random(seed)
     numbers = numbered(rng.randint(3, 12))
     sheets = [sheet(n) for n in numbers]
@@ -321,13 +375,27 @@ def test_no_sheet_ever_gets_two_pages_of_a_pdf(seed: int) -> None:
     pages = []
     for k, n in enumerate(order):
         items = [own(n)] if rng.random() < 0.8 else []
-        items += [own(rng.choice(numbers)) for _ in range(rng.randint(0, 2))]
+        items += [rng.choice((own, mark))(rng.choice(numbers)) for _ in range(rng.randint(0, 2))]
         pages.append(page(k + 1, *items))
 
-    found = registration.match(pages, sheets)
+    before = registration.match(pages, sheets, one_each=False)
+    after = registration.match(pages, sheets)
 
-    no_sheet_twice(found)
-    assert all((m.sheet is None) != (m.reason is None) for m in found)
+    holders: dict[int, list[int]] = {}
+    for k, m in enumerate(after):
+        assert (m.sheet is None) != (m.reason is None)
+        if m.sheet is not None:
+            holders.setdefault(id(m.sheet), []).append(k)
+            assert m.sheet is before[k].sheet or m.sheet.number.value in {  # type: ignore[union-attr]
+                i.text
+                for i in m.page.items  # type: ignore[attr-defined]
+            }
+    for ks in holders.values():
+        if len(ks) > 1:
+            assert all(before[k].sheet is after[k].sheet for k in ks)
+    for k, m in enumerate(after):
+        if m.reason == SAME:
+            assert any(j != k for j in holders.get(id(before[k].sheet), []))
 
 
 # The order's key ---------------------------------------------------------------------------------------
