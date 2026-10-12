@@ -1,7 +1,8 @@
 # Session 24: M0 done — every G1 blocker built in parallel, G1 PASS twice on main, M1 wave 0 ready
 
 **The goal, in one line:** `uv run python -m scripts.walk.ready origin/main` exits 0 (two counted G1 PASS verdicts
-on main's current product code), then M1 wave 0 starts. Everything below serves that line. Today it exits 1:
+on main's current product code), so the owner can walk M0; M1 wave 0 starts after that walk (docs/plans/M1.md O2).
+Everything below serves that line. Today it exits 1:
 "0 counted PASS verdict(s) on main, 2 needed".
 
 ## Session 23's measures (`scripts/factory/measures.py`, 12 Oct 06:52Z to 13:11Z; then 13:17Z-14:49Z)
@@ -54,14 +55,14 @@ boxes (no Bengali font, #689).
 1. `date -u`; once the budget is known (step 4):
    `uv run python -m scripts.factory.stamp start --budget <h> --state .private/work/s24/STATE.md --phases "waveA=240,g1=180,m1=60"`.
    Until then, launch only.
-2. `uv run python -m scripts.factory.state`; `claude agents --json` (respawn any `failed` builder with
-   `claude respawn <id>`; after a power cut, `claude respawn --all`); `df`, `free`;
+2. `uv run python -m scripts.factory.state`; `claude agents --json` (resume a `stopped` or `failed` builder only
+   through `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`, never by hand); `df`, `free`;
    `uv run python -m scripts.factory.watch ensure`; arm Monitor on `.private/work/factory/events.log` (READY,
    BLOCKED, LEAK-HIT, CI-RED, WALK done) before any question.
 3. **Launch Wave A's first three now** (they need no ruling): A0 (G1 script layer on main, detached), A1 (FL8 round
    3), A3 (FL13 web). Then the rest of Wave A.
-4. **One batched AskUserQuestion, at most four questions, each with the recommendation first**, and only after
-   step 3, so builders work while the owner reads:
+4. **The owner's questions, one at a time (CLAUDE.md), each with the recommendation first and the reason in a
+   line, all asked now and none later**, and only after step 3, so builders work while the owner reads:
    - Budget: **12 hours** (two G1 walks with their agent layer need about 3 h after the last merge).
    - Review bar: **move `engine/recognise/**` and `engine/plot/**` to `[lax]` for this session** (75 blocks; 50-74
      become issues), so heuristic rules land on the real-set evidence and G1's critics judge them.
@@ -101,12 +102,12 @@ At most 3 local builders at once (eight filled swap once); cloud for everything 
 - **Merge freeze at hour 7 of 12:** land what passed, cut the rest (issues under `## Cut`), then walk main: G1 #1
   (script and agent layer), fix what blocks, G1 #2 on the same product code. Only after `scripts.walk.ready
   origin/main` exits 0 may the owner be told the milestone is ready (the walk-gate Stop hook enforces it).
-- **Power cuts:** every builder keeps `.private/work/<ticket>/NOTES.txt`; on restart `claude respawn --all`, then
-  `scripts.factory.state` and re-check every head.
+- **Power cuts:** every builder keeps `.private/work/<ticket>/NOTES.txt`; on restart, `scripts.factory.state`, then
+  resume each `stopped` or `failed` builder through `scripts.factory.say`, and re-check every head.
 
 ## Claude Code features to use (official docs, Oct 2026; CLAUDE.md's limits stand unless the owner rules)
-- `claude agents`, `claude respawn`, `claude attach` for local builders (a session cut by a crash shows `failed`;
-  respawn resumes its conversation).
+- `claude agents --json` to see local builders (a session cut by a crash shows `failed`); resume one only through
+  `scripts.factory.say`, which runs the resume with the builder's settings.
 - `SendMessage` with `notify_when_idle` to every builder you message; Monitor on events.log for READY and BLOCKED.
 - Subagent frontmatter (`model`, `effort`, `isolation: worktree`) for every agent you launch; set both model and
   effort each time.
@@ -116,7 +117,7 @@ At most 3 local builders at once (eight filled swap once); cloud for everything 
   unpushed, any run on a superseded head) instead of memory.
 - Hooks in place: the guard, walk-gate, precompact, stop-gate. None added this session without a ticket.
 
-## M1 (after G1 PASS twice, or in parallel if the owner says so in step 4)
+## M1 (wave 0 after G1 PASS twice and the owner's M0 walk, docs/plans/M1.md O2; its docs and owner-time tickets earlier only if the owner says so in step 4)
 M1 is "the frame and piles, priced" (docs/milestones.md). Startable without touching M0 code: M1-24
 (`docs/design/m1-screens.md`, docs only), M1-02 (the Sample Project's element key, 1.5 h of the owner's time),
 M1-05 (Edison's counts per family per storey, 1.5 h), M1-06 (the Held-out instance script; the owner runs it with
@@ -126,7 +127,8 @@ harvest ideas ticket by ticket, never merge them.
 ## Finish line (checked by its command)
 1. `uv run python -m scripts.walk.ready origin/main` exits 0.
 2. Every G1 finding of block or misleading closed or filed; FL6 and FL13 PASS.
-3. `docs/handoff/session-25-prompt.md` merged, opening with session 24's measures and M1 wave 0's plan.
+3. `docs/handoff/session-25-prompt.md` merged, opening with session 24's measures and M1 wave 0's plan (to start
+   after the owner's M0 walk).
 
 ## Housekeeping
 - Never push local branches s22-fl7, s22-fl7b, s22-fl5b (real titles or a leaking commit).
