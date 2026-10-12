@@ -81,6 +81,7 @@ class _Reading:
     notes: frozenset[str] = frozenset()  # the Disciplines whose sheets are general notes
     headings: _Words = _Words(())  # words that make a text a heading of their kind when they lead it
     heading_tokens: frozenset[str] = frozenset()  # their words, one by one
+    building: _Words = _Words(())  # the subject words but site works': what a view's subject is
 
 
 _readings: list[tuple[ViewConventions, _Reading]] = []
@@ -100,6 +101,7 @@ def _prepare(conventions: ViewConventions) -> _Reading:
         kinds=_Words.of({str(k): v for k, v in conventions.kind_words.items()}),
         order={str(k): i for i, k in enumerate(conventions.kind_words)},
         subjects=_Words.of(conventions.subject_words),
+        building=_Words.of({k: v for k, v in conventions.subject_words.items() if k != "site_works"}),
         layers=_Words.of({str(k): v for k, v in conventions.layer_words.items()}),
         patterns=conventions.scale_patterns,
         after_top=frozenset(after),
@@ -142,8 +144,11 @@ def _named_kind(text: str, reading: _Reading) -> ViewKind | None:
 
 
 def _subject(text: str, reading: _Reading) -> str | None:
-    named = _named(text, reading)
-    return named[0][1] if named else None
+    """A view's subject: the building subject whose words stand first in the title. Site works are
+    never a view's subject (`building`): the subject is what it was before they were words, so
+    storeys, conflicts and the structural set's duplicate rule read what they always read."""
+    found = reading.building.matches(_tokens(text))
+    return found[0][2] if found else None
 
 
 SITE_WORKS = "site_works"
@@ -184,10 +189,28 @@ def _named(text: str, reading: _Reading) -> list[tuple[str, str]]:
     return [(" ".join(tokens[s:e]), key) for n, (s, e, key) in enumerate(found) if n not in drop]
 
 
-def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:
-    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS"),
-    without its qualifiers (`_named`)."""
-    return tuple(dict.fromkeys(key for _, key in _named(text, reading)))
+class SheetSubjects(tuple[str, ...]):
+    """What a sheet's title names: its building subjects, as a tuple (what storeys and the Steps of
+    an untitled view always read), and `site_works`: whether it names site works as well (a boundary
+    wall, a setback, the site), which only Step 14's routing reads."""
+
+    site_works: bool
+
+    def __new__(cls, keys: Sequence[str] = (), site_works: bool = False) -> SheetSubjects:
+        made = super().__new__(cls, keys)
+        made.site_works = site_works
+        return made
+
+
+def _subjects_in_order(text: str, reading: _Reading) -> SheetSubjects:
+    """Every building subject the text names, each once, in the order they stand ("COLUMN & BEAM
+    DETAILS"), and whether it names site works (`_named`: a bare "site" or a setback beside a storey
+    or an element names none)."""
+    found = reading.building.matches(_tokens(text))
+    return SheetSubjects(
+        tuple(dict.fromkeys(key for _, _, key in found)),
+        any(key == SITE_WORKS for _, key in _named(text, reading)),
+    )
 
 
 @dataclass(frozen=True)
@@ -224,12 +247,12 @@ def _mark(word: str) -> bool:
 
 
 def subjects(text: str, conventions: ViewConventions | None = None) -> frozenset[str]:
-    """Every subject a text names by the conventions' subject words (19b's continuations, #102), as
-    `_named` reads them, but site works: a sheet titled by its site ("SITE ARRANGEMENT") draws its
-    retaining walls and tanks, so a title naming it contradicts nothing its views draw, and a view
-    naming a boundary wall contradicts no title (as before site works were words)."""
+    """Every subject a text names by the conventions' building subject words (19b's continuations,
+    #102): site works are none (a sheet titled by its site draws its retaining walls and tanks, so its
+    title contradicts nothing its views draw, and a boundary wall in a view's title contradicts no
+    title), as before they were words."""
     reading = _reading(conventions if conventions is not None else default_conventions())
-    return frozenset(key for _, key in _named(text, reading) if key != SITE_WORKS)
+    return frozenset(key for _, _, key in reading.building.matches(_tokens(text)))
 
 
 def _layer(text: str, reading: _Reading) -> Layer | None:

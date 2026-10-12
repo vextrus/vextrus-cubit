@@ -71,6 +71,7 @@ from engine.recognise.views.titles import (
     _layer,
     _Reading,
     _reading,
+    _subject,
     _subjects_in_order,
     default_conventions,
     describe,
@@ -201,14 +202,14 @@ def _candidate(
     if title is not None and scale is None:
         scale = scales.read(title, reading.patterns)
     own = _own(title, reading, structural=discipline == "structural") if title is not None else _Own()
-    subject = own.subject
+    subject = _subject(title, reading) if title is not None else None
     layer = _layer(title, reading) if title is not None else None
     lines = [" ".join(u.shown.split()) for u in view.lines]
     stated = storeys.read(title, view.kind, subject, lines, storey_words)
     structure = title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
         view.kind,
-        subject,
+        own.subject,
         discipline,
         on_sheet,
         notes=reading.notes,

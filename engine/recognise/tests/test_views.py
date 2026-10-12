@@ -1620,7 +1620,8 @@ def test_a_sheet_titled_with_a_setback_storey_names_no_site_works() -> None:
     reading = titles_part._reading(CONVENTIONS)
     named = titles_part._subjects_in_order("7TH FLOOR SETBACK COLUMN LAYOUT PLAN", reading)
     assert named == ("column",)
-    assert titles_part._subjects_in_order("PLOT SETBACK ARRANGEMENT ZQ", reading) == ("site_works",)
+    sheet = titles_part._subjects_in_order("PLOT SETBACK ARRANGEMENT ZQ", reading)
+    assert (tuple(sheet), sheet.site_works) == ((), True)
 
 
 @pytest.mark.parametrize(

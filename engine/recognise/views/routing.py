@@ -49,6 +49,7 @@ from engine.recognise.views.titles import (
     _Reading,
     _reading,
     _subjects_in_order,
+    _tokens,
     default_conventions,
 )
 
@@ -111,15 +112,16 @@ def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
     well when it names site works; the QS confirms, and no word list decides between them. Its subject
     is the first building element, else site works. Any other sheet's subject is its first one that is
     not site works: the structural set's duplicate rule is unchanged there."""
-    found = _named(text, reading)
-    building = [(w, k) for w, k in found if k != SITE_WORKS]
+    tokens = _tokens(text)
+    building = [(" ".join(tokens[s:e]), k) for s, e, k in reading.building.matches(tokens)]
+    works = [w for w, k in _named(text, reading) if k == SITE_WORKS]
     if not structural:
         return _Own(building[0][1], building[0][0]) if building else _Own()
     if building:
         elements = tuple(dict.fromkeys(k for _, k in building))
-        return _Own(building[0][1], building[0][0], len(building) < len(found), elements)
-    if found:
-        return _Own(SITE_WORKS, found[0][0], True)
+        return _Own(building[0][1], building[0][0], bool(works), elements)
+    if works:
+        return _Own(SITE_WORKS, works[0], True)
     return _Own()
 
 
@@ -200,8 +202,8 @@ def kind_steps(
 
 def _structural_steps(named: Sequence[str]) -> tuple[str, ...]:
     """The Steps of every subject named, in order, each once; Step 14 alone when site works are among
-    them (`SITE_WORKS`)."""
-    if SITE_WORKS in named:
+    them (`SITE_WORKS`: a sheet title's `SheetSubjects.site_works`, or the key itself)."""
+    if SITE_WORKS in named or getattr(named, "site_works", False):
         return STRUCTURAL_STEPS[SITE_WORKS]
     return tuple(dict.fromkeys(step for key in named for step in STRUCTURAL_STEPS.get(key, ())))
 
