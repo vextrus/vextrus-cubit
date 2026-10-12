@@ -164,7 +164,10 @@ function LeavesConfirmAll({ projectId, proposal, sheet }: { projectId: string; p
   const queryClient = useQueryClient()
   const asked = queryClient.getQueryData<readonly QuestionOut[]>(questionsQuery(projectId).queryKey) ?? []
   const holding = asked.find((q) => q.status === 'open' && (q.subject_id === sheet || ((q.proposals ?? []) as readonly string[]).includes(proposal)))
-  if (holding) return <Trans>A Question holds it now: answer Q{holding.raised} first.</Trans>
+  if (holding) {
+    const tag = `Q${holding.raised}`
+    return <Trans>A Question holds it now: answer {tag} first.</Trans>
+  }
   return <Trans>It is no longer in Confirm all: confirm it on its own.</Trans>
 }
 
@@ -198,6 +201,8 @@ export interface Step1Acts {
   correctSheet(sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }): Promise<boolean>
   /** The last correction's refusal, shown under its field in the form (not as a toast over the bar). */
   correctionRefusal: CorrectionRefusal | null
+  /** Counts the undos that have ended (Ctrl Z or the toast's Undo): the screen puts focus back after each. */
+  undone: number
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
@@ -216,9 +221,10 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     corrector.current = correct
   }, [])
   const [correctionRefusal, setCorrectionRefusal] = useState<CorrectionRefusal | null>(null)
-  const acts = useActs(projectId, shown, handOut, setCorrectionRefusal)
+  const [undone, setUndone] = useState(0)
+  const acts = useActs(projectId, shown, handOut, setCorrectionRefusal, setUndone)
   const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change, opened) => corrector.current?.(sheet, change, opened) ?? Promise.resolve(false), [])
-  return { ...acts, correctSheet, correctionRefusal }
+  return { ...acts, correctSheet, correctionRefusal, undone }
 }
 
 /** Step 1's acts but the correction, which it gives `handOut` for `useStep1Acts` to return. */
@@ -227,7 +233,8 @@ function useActs(
   shown: Step1Data | null | undefined,
   handOut: (correct: Step1Acts['correctSheet']) => void,
   setCorrectionRefusal: Dispatch<SetStateAction<CorrectionRefusal | null>>,
-): Omit<Step1Acts, 'correctSheet' | 'correctionRefusal'> {
+  setUndone: Dispatch<SetStateAction<number>>,
+): Omit<Step1Acts, 'correctSheet' | 'correctionRefusal' | 'undone'> {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -531,6 +538,7 @@ function useActs(
           const fresh = reloaded(mark)
           undos.current -= 1
           if (undos.current === 0 && !pending.current) setBusy(false)
+          if (undos.current === 0) setUndone((n) => n + 1)
           showDone(done, fresh, mark)
         }
       }
@@ -538,7 +546,7 @@ function useActs(
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [f, i18n, marked, projectId, refresh, reloaded, restore, say, showDone, toast],
+    [f, i18n, marked, projectId, refresh, reloaded, restore, say, setUndone, showDone, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */

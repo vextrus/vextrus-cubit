@@ -19,11 +19,6 @@ msgstr "Undone: {words}"
 msgid "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # sheets.}}"
 msgstr "{n, plural, one {Drawing list set: # sheet.} other {Drawing list set: # sheets.}}"
 
-#. placeholder {0}: holding.raised
-#: src/takeoff/acts.tsx
-msgid "A Question holds it now: answer Q{0} first."
-msgstr "A Question holds it now: answer Q{0} first."
-
 #: src/takeoff/acts.tsx
 msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
@@ -162,6 +157,10 @@ msgstr "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}"
 #: src/takeoff/acts.tsx
 msgid "{Name} excluded: {short}. It stays in the count."
 msgstr "{Name} excluded: {short}. It stays in the count."
+
+#: src/takeoff/acts.tsx
+msgid "A Question holds it now: answer {tag} first."
+msgstr "A Question holds it now: answer {tag} first."
 
 #: src/takeoff/acts.tsx
 msgid "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."

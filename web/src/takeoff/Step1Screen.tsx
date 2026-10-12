@@ -313,7 +313,6 @@ function Step1({
   const refocusSheet = useRef<string | null>(null)
   /** The sheet last focused, and whether an act was running: an act or undo that drops the browser's focus gives it back (below). */
   const lastSheet = useRef<string | null>(null)
-  const wasBusy = useRef(false)
   const [, refocus] = useState(0)
   /** O: the view outlines drawn on the sheet; kept through paging. */
   const [outlinesOn, setOutlinesOn] = useState(true)
@@ -351,7 +350,6 @@ function Step1({
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
   /** The focused sheet: in sheet mode the one open (of two copies in one row, the one shown), else the row's first. */
   const focusedSheet = (mode === 'sheet' && open && focusedRow?.sheets.some((s) => s.id === open.id) ? open : focusedRow?.sheets[0]) ?? null
-  if (focusedSheet) lastSheet.current = focusedSheet.id
   const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
   const viewsInOrder = open ? [...(open.views ?? [])].sort((a, b) => a.ordinal - b.ordinal) : []
   const selectedRows = useMemo(() => {
@@ -369,20 +367,19 @@ function Step1({
     setViewPick(next ? { sheet: open.id, view: next.id } : null)
   }
 
+  const focusedSheetId = focusedSheet?.id ?? null
   useEffect(() => {
-    if (acts.busy) {
-      wasBusy.current = true
-      return
-    }
-    if (!wasBusy.current) return
-    wasBusy.current = false
+    if (focusedSheetId) lastSheet.current = focusedSheetId
+  }, [focusedSheetId])
+  useEffect(() => {
+    if (acts.undone === 0) return
     // An undo moves a corrected sheet's row (a number back in Structural): focus lost to the page body
     // would send the next E nowhere and the next Enter to the bar's act. Put on the sheet's row.
     if ((!document.activeElement || document.activeElement === document.body) && lastSheet.current) {
       refocusSheet.current = lastSheet.current
       refocus((n) => n + 1)
     }
-  }, [acts.busy])
+  }, [acts.undone])
 
   // A correction closed: in the list, its sheet's row as Step 1 now draws it (a new number may put it in a
   // Question's row) takes the browser's focus, and with it the screen's (the row's own focus handler).
