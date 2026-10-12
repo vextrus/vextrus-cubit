@@ -46,8 +46,8 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
 - The acts, in the event log (S22-FL10; `event=True`, each with the acting user, the Project and the
   Confirmation as subject; payload `sheets`: how many it decided): `confirmed`, `confirmed_back_in`
   (every sheet it confirmed was excluded before), `excluded`, `assigned` (views put in Steps),
-  `drawing_list_set`, `corrected` (S22-FL8: one sheet's number, title or plan views' storeys; payload `sheets` 1) and
-  `undone`. An answer to a Question is recorded as the confirm or exclusion it
+  `drawing_list_set`, `corrected` (S22-FL8: one sheet's number, title or plan views' storeys; payload
+  `sheets` 1) and `undone`. An answer to a Question is recorded as the confirm or exclusion it
   makes; a refused act records nothing.
 """
 

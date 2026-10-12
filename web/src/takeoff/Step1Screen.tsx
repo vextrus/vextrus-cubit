@@ -679,7 +679,7 @@ function Step1({
     { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat ? undefined : enter()) },
     { key: 'Ctrl Z', label: t`Undo your last confirmation, exclusion, correction or drawing list on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
     { key: 'X', label: t`Exclude the focused sheet, with a reason`, group: 'screen', run: excludeKey },
-    { key: 'E', label: t`Correct the focused sheet’s number or title`, group: 'screen', when: () => focusedSheet !== null, run: (event) => (event.repeat ? undefined : correctKey()) },
+    { key: 'E', label: t`Correct the focused sheet’s number, title or storeys`, group: 'screen', when: () => focusedSheet !== null, run: (event) => (event.repeat ? undefined : correctKey()) },
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
     { key: ']', label: t`Next sheet`, group: 'sheet', when: () => mode === 'sheet', run: () => page(1) },

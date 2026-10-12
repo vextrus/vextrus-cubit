@@ -34,6 +34,9 @@ def refused(typed: object) -> dict[str, Any]:
         ("8th", ("floor_8",)),
         ("second floor", ("floor_2",)),
         ("pile cap, ground", ("pile_cap", "ground")),
+        ("Stair-room roof", ("stair_room_roof",)),
+        ("Lift machine room, Lift machine room roof", ("lift_machine_room", "lift_machine_room_roof")),
+        ("Basement 2, Basement, Foundations", ("foundation", "basement_2", "basement_1")),
     ],
 )
 def test_each_storey_listed_is_read_low_to_high(typed: str, keys: tuple[str, ...]) -> None:
@@ -58,7 +61,17 @@ def test_a_range_is_refused_and_named(typed: str) -> None:
 
 @pytest.mark.parametrize(
     "typed",
-    ["kitchen", "3rd, kitchen, 7th", "big 3rd", "3rd beam", "typical", "top", "0th", "9999th", "level 3"],
+    [
+        "kitchen",
+        "3rd, kitchen, 7th",
+        "big 3rd",
+        "3rd beam",
+        "typical",
+        "top",
+        "0th",
+        "9999th",
+        "level 3",
+    ],
 )
 def test_a_word_naming_no_single_storey_is_refused_and_named(typed: str) -> None:
     refusal = refused(typed)

@@ -12,12 +12,13 @@ import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
 import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
+import { FieldError } from '@/ui/FieldError'
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { ActorChip } from './ActorChip'
-import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storeys'
+import { StoreyStrip, StoreysText, knownStorey, useListedStoreys, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
-import { SheetName, type SheetChange } from './acts'
+import { SheetName, type SheetChange, type ViewChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
@@ -535,22 +536,109 @@ function FormKeys({ bindings }: { bindings: Parameters<typeof useKeys>[0] }) {
   return null
 }
 
+/** The two meanings a correction picks between (§6.9); a third, "at ceiling level", is only ever read. */
+const PICKED = ['at_floor_level', 'floor_to_floor'] as const
+type Picked = (typeof PICKED)[number]
+const picked = (meaning: string | null | undefined): Picked | null => PICKED.find((m) => m === meaning) ?? null
+
+/** What the form holds for one plan view: the storeys typed and the meaning chosen, with where they started. */
+interface ViewDraft {
+  storeys: string
+  meaning: Picked | null
+}
+
 /**
- * §6.9 "Corrections (E)": "Correct the Proposal" in place of the Proposal block; Number and Title (S22-FL8's
- * cut: a view's storeys are a later ticket's), "Save ↵" and "Cancel Esc". A mode of its own while open,
- * so Enter saves and Esc cancels from either field, and no screen key acts behind it.
+ * One plan view's part of the correction form (§6.9): "Storeys of "<view title>", each listed" and the
+ * meaning as a two-choice toggle, "at floor level" | "floor to floor". A view read "at ceiling level" shows
+ * that beside the toggle, which does not offer it: a correction picks one of the two, none chosen at first.
+ */
+function ViewStoreysFields({ view, draft, onChange, error }: { view: ViewOut; draft: ViewDraft; onChange: (next: ViewDraft) => void; error: boolean }) {
+  const { t } = useLingui()
+  const title = <DrawingText kind="title" text={view.title} truncate={false} />
+  const name = useId()
+  const meaningRead = view.storeys_meaning && picked(view.storeys_meaning) === null ? view.storeys_meaning : null
+  return (
+    <div className="flex flex-col gap-1">
+      <TextField
+        label={<Trans>Storeys of “{title}”, each listed</Trans>}
+        dir="auto"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={t`3rd, 5th, 7th`}
+        value={draft.storeys}
+        onChange={(event) => onChange({ ...draft, storeys: event.target.value })}
+      />
+      <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-describedby={error ? `${name}-error` : undefined}>
+        <legend className="sr-only">
+          <Trans>What the storeys of “{title}” mean</Trans>
+        </legend>
+        {PICKED.map((meaning) => (
+          <label key={meaning} className="inline-flex items-center gap-1">
+            <input
+              type="radio"
+              name={name}
+              value={meaning}
+              checked={draft.meaning === meaning}
+              onChange={() => onChange({ ...draft, meaning })}
+              className="accent-primary"
+            />
+            <OptionMeaning meaning={meaning} />
+          </label>
+        ))}
+        {meaningRead ? (
+          <span className="text-muted-foreground">
+            <Trans>
+              Read as <OptionMeaning meaning={meaningRead} />
+            </Trans>
+          </span>
+        ) : null}
+      </fieldset>
+      <FieldError id={`${name}-error`}>{error ? <Trans>Choose what the storeys mean, then save.</Trans> : null}</FieldError>
+    </div>
+  )
+}
+
+function OptionMeaning({ meaning }: { meaning: string }) {
+  const { i18n } = useLingui()
+  const words = STOREY_MEANINGS[meaning]
+  return <>{words ? i18n._(words) : meaning}</>
+}
+
+/**
+ * §6.9 "Corrections (E)": "Correct the Proposal" in place of the Proposal block; Number and Title (S22-FL8)
+ * and, for each plan view, its storeys and their meaning (S24-B2); "Save ↵" and "Cancel Esc". A mode of its
+ * own while open, so Enter saves and Esc cancels from any field, and no screen key acts behind it. Only what
+ * changed is sent; a view whose storeys changed with no meaning chosen (one read at ceiling level) is not sent
+ * until the QS chooses.
  */
 function CorrectForm({ correcting }: { correcting: Correcting }) {
   const { t } = useLingui()
+  const listed = useListedStoreys()
   const { sheet, save, cancel } = correcting
   const [number, setNumber] = useState(sheet.number ?? '')
   const [title, setTitle] = useState(sheet.title)
+  const plans = [...(sheet.views ?? [])].filter((v) => v.kind === 'plan').sort((a, b) => a.ordinal - b.ordinal)
+  const start = (v: ViewOut): ViewDraft => ({ storeys: listed(v.storeys), meaning: picked(v.storeys_meaning) })
+  const [drafts, setDrafts] = useState<Record<string, ViewDraft>>(() => Object.fromEntries(plans.map((v) => [v.id, start(v)])))
+  const [unchosen, setUnchosen] = useState<ReadonlySet<string>>(new Set())
   const submit = () => {
-    const change: SheetChange = {}
+    const change: { number?: string; title?: string; views?: ViewChange[] } = {}
     if (number.trim() !== (sheet.number ?? '')) change.number = number.trim()
     if (title.trim() !== sheet.title) change.title = title.trim()
+    const views: ViewChange[] = []
+    const missing = new Set<string>()
+    for (const v of plans) {
+      const draft = drafts[v.id]
+      const was = start(v)
+      if (!draft || (draft.storeys.trim() === was.storeys.trim() && draft.meaning === was.meaning)) continue
+      if (draft.meaning === null) missing.add(v.id)
+      else views.push({ view: v.id, title: v.title, storeys: draft.storeys.trim(), meaning: draft.meaning })
+    }
+    setUnchosen(missing)
+    if (missing.size > 0) return
+    if (views.length > 0) change.views = views
     // Nothing changed: nothing to send, as Cancel.
-    if (change.number === undefined && change.title === undefined) return cancel()
+    if (change.number === undefined && change.title === undefined && change.views === undefined) return cancel()
     save(change)
   }
   return (
@@ -571,6 +659,18 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
         >
           <TextField label={<Trans>Number</Trans>} dir="ltr" autoFocus autoComplete="off" spellCheck={false} value={number} onChange={(event) => setNumber(event.target.value)} />
           <TextField label={<Trans>Title</Trans>} autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} />
+          {plans.map((v) => (
+            <ViewStoreysFields
+              key={v.id}
+              view={v}
+              draft={drafts[v.id] ?? start(v)}
+              error={unchosen.has(v.id)}
+              onChange={(next) => {
+                setDrafts((all) => ({ ...all, [v.id]: next }))
+                setUnchosen((all) => (all.has(v.id) ? new Set([...all].filter((id) => id !== v.id)) : all))
+              }}
+            />
+          ))}
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
               <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />

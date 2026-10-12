@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -18,7 +18,7 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
+import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data, type ViewStoreysChange } from './data'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -100,7 +100,7 @@ function UndoneWords({ act }: { act: ActOut }) {
   if (act.act === 'confirm' || act.act === 'confirmed') return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
   if (act.act === 'exclude' || act.act === 'excluded') return <Plural value={n} one="left out # sheet" other="left out # sheets" />
   if (act.act === 'drawing_list') return <Trans>the drawing list you set</Trans>
-  if (act.act === 'correct') return <Trans>your last correction of a sheet’s number or title</Trans>
+  if (act.act === 'correct') return <Trans>your last correction of a sheet’s number, title or storeys</Trans>
   return <Trans>your last change to Step 1</Trans>
 }
 
@@ -153,18 +153,40 @@ function StaleWords({ done }: { done: ReactNode }) {
   )
 }
 
-/** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
+/** One plan view's storeys a correction changed: the view's title (for the toast), its storeys as typed, their meaning. */
+export interface ViewChange extends ViewStoreysChange {
+  title: string
+}
+
+/** What a correction changes: the number, the title, plan views' storeys, or several (S22-FL8, S24-B2). */
 export interface SheetChange {
   number?: string
   title?: string
+  views?: readonly ViewChange[]
 }
 
-/** What a correction changed, after "Corrected S-05: " (§6.9): "number → S-51", "title", or both. */
+/** What a correction changed, after "Corrected S-05: " (§6.9): "number → S-51", "title", "storeys of “…”", joined by "; ". */
 function CorrectedWords({ change }: { change: SheetChange }) {
-  const to = change.number !== undefined ? <DrawingText kind="sheet-number" text={change.number} truncate={false} /> : null
-  if (to && change.title !== undefined) return <Trans>number → {to}; title</Trans>
-  if (to) return <Trans context="a correction, after its sheet's name">number → {to}</Trans>
-  return <Trans>title</Trans>
+  const parts: ReactNode[] = []
+  if (change.number !== undefined) {
+    const to = <DrawingText kind="sheet-number" text={change.number} truncate={false} />
+    parts.push(<Trans context="a correction, after its sheet's name">number → {to}</Trans>)
+  }
+  if (change.title !== undefined) parts.push(<Trans>title</Trans>)
+  for (const v of change.views ?? []) {
+    const title = <DrawingText kind="title" text={v.title} truncate={false} />
+    parts.push(<Trans>storeys of “{title}”</Trans>)
+  }
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 ? '; ' : null}
+          {part}
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 export interface Step1Acts {
@@ -173,7 +195,7 @@ export interface Step1Acts {
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
-  /** Corrects a sheet's number or title (§6.9, `E`): only what changed. */
+  /** Corrects a sheet's number, title or plan views' storeys (§6.9, `E`): only what changed. */
   correctSheet(sheet: ProposalOut, change: SheetChange): Promise<boolean>
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>

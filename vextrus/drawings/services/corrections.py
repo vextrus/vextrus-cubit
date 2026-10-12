@@ -192,7 +192,10 @@ def _one_storey(item: str, conventions: SheetConventions) -> tuple[str, str]:
     either is accepted: the engine reads "basement to 3rd" as the basement alone, and only the
     reading with a floor word shows the range."""
     spoken = item[:60]
-    reads = [(words, storey_reader.read(words, conventions, plan_title=False)) for words in (item, f"{item} floor")]
+    reads = [
+        (words, storey_reader.read(words, conventions, plan_title=False))
+        for words in (item, f"{item} floor")
+    ]
     if _ranges(item, conventions) or any(
         found.ranged or found.runs_to is not None or len(found.keys) > 1 for _words, found in reads
     ):
@@ -209,9 +212,10 @@ def _one_storey(item: str, conventions: SheetConventions) -> tuple[str, str]:
 
 
 def _ranges(item: str, conventions: SheetConventions) -> bool:
-    """Whether an item holds a range word ("to", "through") or a dash between its words."""
+    """Whether an item holds a range word ("to", "through"). A dash between two storeys ("2nd-6th") is
+    seen by the reading with a floor word; one inside a name ("stair-room roof") is not a range."""
     words = {w for phrase in conventions.range_words for w in phrase.casefold().split()}
-    return any(c in item for c in "-\u2013\u2014~") or any(w in words for w in item.casefold().split())
+    return any(w in words for w in item.casefold().split())
 
 
 def _folded(text: str | None) -> str:

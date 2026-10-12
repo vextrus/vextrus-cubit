@@ -142,9 +142,18 @@ export async function exclude(projectId: string, proposals: readonly string[], r
   return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/exclude', { ...path(projectId), body: { proposals: [...proposals], reason, text } }))
 }
 
-/** A sheet's number or title as the QS corrected it (m0-screens §6.9, `E`): only what changed is sent. */
-export async function correct(projectId: string, proposal: string, change: { number?: string; title?: string }): Promise<ActOut> {
-  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body: { proposal, ...change } }))
+/** A plan view's storeys as the QS typed them, each listed, and their meaning's key (S24-B2). */
+export interface ViewStoreysChange {
+  view: string
+  storeys: string
+  meaning: 'at_floor_level' | 'floor_to_floor'
+}
+
+/** A sheet's number, title or plan views' storeys as the QS corrected them (m0-screens §6.9, `E`): only what changed is sent. */
+export async function correct(projectId: string, proposal: string, change: { number?: string; title?: string; views?: readonly ViewStoreysChange[] }): Promise<ActOut> {
+  const { views, ...sheet } = change
+  const body = { proposal, ...sheet, ...(views ? { views: views.map(({ view, storeys, meaning }) => ({ view, storeys, meaning })) } : {}) }
+  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body }))
 }
 
 export async function undo(projectId: string): Promise<ActOut> {

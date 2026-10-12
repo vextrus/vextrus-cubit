@@ -78,9 +78,7 @@ def test_the_meaning_alone_may_be_corrected(demo: Any, nusrat: Api, kr01: uuid.U
     assert plan_now(nusrat, kr01) == (READ[0], "floor_to_floor", "typed")
 
 
-def test_a_view_given_as_it_already_is_changes_nothing(
-    demo: Any, nusrat: Api, kr01: uuid.UUID
-) -> None:
+def test_a_view_given_as_it_already_is_changes_nothing(demo: Any, nusrat: Api, kr01: uuid.UUID) -> None:
     sheet, plan = s06_plan(nusrat, kr01)
     earlier = acts(demo, kr01)
 
@@ -169,19 +167,18 @@ def test_a_storeys_correction_does_not_stand_once_the_view_changed_under_it(
 def test_the_app_writes_a_views_storeys_meaning_and_source_and_no_other_column(
     demo: Any, nusrat: Api, kr01: uuid.UUID
 ) -> None:
-    with tenancy.acting_in(demo["developer:shapla"]):
-        with connection.cursor() as cursor:
+    with tenancy.acting_in(demo["developer:shapla"]), connection.cursor() as cursor:
+        cursor.execute(
+            "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", ["storeys"]
+        )
+        assert cursor.fetchone() == (True,)
+        for column in ("storeys_meaning", "storeys_source"):
             cursor.execute(
-                "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", ["storeys"]
+                "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", [column]
             )
             assert cursor.fetchone() == (True,)
-            for column in ("storeys_meaning", "storeys_source"):
-                cursor.execute(
-                    "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", [column]
-                )
-                assert cursor.fetchone() == (True,)
-            for column in ("title", "kind", "box", "storeys_as_stated", "sheet_revision_id"):
-                cursor.execute(
-                    "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", [column]
-                )
-                assert cursor.fetchone() == (False,), column
+        for column in ("title", "kind", "box", "storeys_as_stated", "sheet_revision_id"):
+            cursor.execute(
+                "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", [column]
+            )
+            assert cursor.fetchone() == (False,), column

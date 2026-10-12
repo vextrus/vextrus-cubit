@@ -75,7 +75,8 @@ STOREYS_RANGE = MessageCode("drawings.sheets.storeys_range", params=("word",))
 listed (400); `word` is that item as typed."""
 STOREYS_TOO_MANY = MessageCode("drawings.sheets.storeys_too_many", params=("limit",))
 STOREYS_MEANING_UNKNOWN = MessageCode("drawings.sheets.storeys_meaning_unknown")
-"""A meaning that is not one of the two a correction picks, "at floor level" or "floor to floor" (400)."""
+"""A meaning that is not one of the two a correction picks, "at floor level" or "floor to floor"
+(400)."""
 STOREYS_VIEW_UNKNOWN = MessageCode("drawings.sheets.storeys_view_unknown")
 """A view that is not one of the corrected sheet's (400)."""
 STOREYS_NOT_A_PLAN = MessageCode("drawings.sheets.storeys_not_a_plan")
