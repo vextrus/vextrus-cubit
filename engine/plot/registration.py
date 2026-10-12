@@ -304,7 +304,12 @@ def one_page_each(
             | _elsewhere(found[k].page, places[k], by_number, keys, taken, sheets, discipline)
             for k in contested
         }
-        chosen, unused = _decide(found, options, own, places, keys, geometry, plots, budget)
+        fitted = {
+            i: w
+            for i, ks in held.items()
+            if len(ks) > 1 and (w := _fits_clearly(found, ks, i, geometry, plots, budget)) is not None
+        }
+        chosen, unused = _decide(found, options, own, places, keys, fitted)
         for k in contested:
             page = found[k].page
             if k in unused:
@@ -367,20 +372,20 @@ def _decide(
     own: Mapping[int, int],
     places: Mapping[int, _Place | None],
     keys: Sequence[_Key | None],
-    geometry: Sequence[SheetBuffers | None],
-    plots: Mapping[str, Path] | None,
-    budget: list[int],
+    fitted: Mapping[int, int],
 ) -> tuple[dict[int, int], set[int]]:
     """Each contested page's sheet (`one_page_each`), and the pages left naming a sheet another
-    page was taken for (unused). A page with one option left takes it, and the sheet leaves the
-    others' options. A sheet that is the one option left of several pages goes to the one its
-    drawing fits clearly best (`_fits_clearly`), else to the one whose known place alone holds it;
+    page was taken for (unused). First each sheet the drawing fits one page of clearly (`fitted`,
+    asked for every contested sheet before anything else: #703's review); then a page with one
+    option left takes it, and the sheet leaves the
+    others' options. A sheet that is the one option left of several pages goes to the one whose
+    known place alone holds it;
     the others whose own sheet it is name it unused. Where neither tells, those are left naming it
     (the product keeps the surest, its report saying both show it). A page that would have moved
     to the sheet and was not taken for it stays on its own. A page left at the end keeps its own
     sheet: unused where another page was taken for it."""
-    left = {k: set(o) for k, o in options.items()}
-    chosen: dict[int, int] = {}
+    chosen: dict[int, int] = {k: i for i, k in fitted.items()}
+    left = {k: set(o) - set(fitted) for k, o in options.items() if k not in chosen}
     unused: set[int] = set()
     while True:
         singles: dict[int, list[int]] = {}
@@ -392,10 +397,8 @@ def _decide(
         i, ks = min(singles.items(), key=lambda kv: kv[1][0])
         winner: int | None = ks[0]
         if len(ks) > 1:
-            winner = _fits_clearly(found, ks, i, geometry, plots, budget)
-            if winner is None:
-                holding = [k for k in ks if _in_place(places[k], keys[i])]
-                winner = holding[0] if len(holding) == 1 else None
+            holding = [k for k in ks if _in_place(places[k], keys[i])]
+            winner = holding[0] if len(holding) == 1 else None
         for k in ks:
             if k == winner or own[k] == i:
                 chosen[k] = i  # the sheet's page, or one left naming it (unused where one won)
@@ -405,7 +408,7 @@ def _decide(
             if r not in chosen:
                 left[r].discard(i)  # one that would have moved to it keeps its own (below)
     given = set(chosen.values())
-    for k in left:
+    for k in options:
         if k not in chosen:
             chosen[k] = own[k]
             if own[k] in given:  # its own sheet went to another page, and nothing else fits it

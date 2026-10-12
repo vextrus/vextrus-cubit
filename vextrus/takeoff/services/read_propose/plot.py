@@ -12,15 +12,11 @@ neither the file read nor its matches. The set's matching is held one at a time
 and kept after them (short, locking the sheets it changes, which a QS's act on Step 1 locks too), so
 an act waits on it only for the moment before the step commits (#227).
 
-**A PDF** (`matching`): its pages against every listed sheet of the set, each placed where matched.
-**A DWG** (`finishing`): the set's read PDFs' pages against every listed sheet, its own now among
-them; only the pages that could be its sheets' are matched in full (named for one of them, or naming
-none surely: several sheets alike, or no text; or naming a sheet another page of their PDF names,
-S24-A5), the rest named as before, so a set's Plot is not
-aligned again each time one of its DWGs is read. A page's naming depends on the page, the whole
-sheet list and, for a page matched by its ink, the other pages' text (`registration.unclaimed`);
-and a page given to a sheet now is let go by any sheet that held it before (`_release`), so the
-set ends with one sheet per page whichever order its files were read in.
+**A PDF** (`matching`) **or a DWG** (`finishing`): every read PDF's pages of the set against every
+listed sheet, each placed where matched, and every listed sheet's Plot kept again from that one
+match (S24-A5, #703's review: a set-level step whose outcome is a function of the set's read PDFs'
+pages and listed sheets alone, so the order its files were read in cannot change it; 18's "One
+page, one sheet" runs once, over all of them).
 
 **What is kept.** A sheet named by a page gets it, placed, unless it has a page of a PDF added
 before this page's (the first added PDF with a page for a sheet is its Plot, the report's rule,
@@ -62,8 +58,6 @@ KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
 needs them, never all together under the cad worker's memory cap)."""
 _WORDS = ("number", "title", "revision_mark", "issue_date")
-_MAY_BE_ANY = frozenset({"names_several_sheets", "no_text"})
-"""A page's reasons, named without geometry, that its geometry may still turn into a match."""
 
 
 def match(file_id: uuid.UUID) -> jobs.StepResult:
@@ -82,7 +76,7 @@ def find(file_id: uuid.UUID) -> Callable[[], jobs.StepResult]:
     drawings.hold_plots(view.set_id)
     listed = drawings.sheets(view.set_id)
     pdfs = sorted((f for f in drawings.files(view.set_id) if _is_read_pdf(f)), key=_added)
-    tried = [f for f in pdfs if f.id == file_id] if view.format == "pdf" else pdfs
+    tried = pdfs  # every read PDF of the set, whichever file was read: one set-level match (S24-A5)
     if not listed or not tried:
         return lambda: {"pages": 0, "matched": 0}
     candidates = [candidate(s) for s in listed]
@@ -100,18 +94,13 @@ def find(file_id: uuid.UUID) -> Callable[[], jobs.StepResult]:
                 continue  # another PDF, read before, that cannot be read again now: left as it was
             paths[pdf.sha256] = path
         geometry = _Geometry(listed)
-        if view.format == "pdf":
-            found = registration.match(pages, candidates, geometry, paths, disciplines)
-            full = set(range(len(found)))
-        else:
-            found, full = _for_dwg(file_id, listed, pages, candidates, geometry, paths, disciplines)
+        found = registration.match(pages, candidates, geometry, paths, disciplines)
     read_again = set(paths)
-    dwg_id = file_id if view.format == "dwg" else None
     names = {id(c): sh for c, sh in zip(candidates, listed, strict=True)}
 
     def keep() -> jobs.StepResult:
         step1.lock_writes(view.project_id)  # before the sheets it locks, as every act (#227)
-        matched = _keep(listed, candidates, found, full, pdfs, read_again, dwg_id)
+        matched = _keep(listed, candidates, found, pdfs, read_again)
         _keep_names(found, [pdf for pdf in tried if pdf.sha256 in read_again], names)
         return {"pages": len(found), "matched": matched}
 
@@ -127,151 +116,44 @@ def _is_read_pdf(f: drawings.FileView) -> bool:
     return f.format == "pdf" and f.state == drawings.FileState.READ
 
 
-def _for_dwg(
-    file_id: uuid.UUID,
-    listed: Sequence[drawings.SheetView],
-    pages: list[Page],
-    candidates: list[SheetCandidate],
-    geometry: Sequence[SheetBuffers | None],
-    paths: dict[str, Path],
-    disciplines: dict[str, str | None],
-) -> tuple[list[PlotMatch], set[int]]:
-    """Every page's match: named without geometry, then matched in full where it could be one of
-    the file's sheets (see the module), or where another page of its PDF names its sheet too; and
-    the places of those matched in full. "One page, one sheet" (18's `one_page_each`, S24-A5) runs
-    once, over every page of the set's read PDFs, as a PDF's own read runs it: never over the part
-    matched here, so the set's Plot is the same whichever file was read last (#703's review)."""
-    ours = {id(c) for c, s in zip(candidates, listed, strict=True) if s.file_id == file_id}
-    named = registration.match(pages, candidates, (), None, disciplines, one_each=False)
-    shared = _sharing(named)
-    again = [
-        i
-        for i, m in enumerate(named)
-        if (m.sheet is not None and id(m.sheet) in ours)
-        or (m.sheet is None and m.reason in _MAY_BE_ANY)
-        or i in shared
-    ]
-    full = registration.match(
-        [pages[i] for i in again], candidates, geometry, paths, disciplines, one_each=False
-    )
-    found = list(named)
-    for i, m in zip(again, full, strict=True):
-        found[i] = m
-    # A page matched by its ink never takes a sheet another page names by its text, whichever of
-    # the pages was matched in full here (18's rule, over every page, as a PDF's own match has it).
-    inked = {
-        i: str(named[i].reason) for i in again if named[i].sheet is None and found[i].sheet is not None
-    }
-    found = registration.unclaimed(found, inked)
-    # Its ink tries are its own (18's `MAX_INK_TRIES`), as in a PDF's read: at most that many more.
-    kept = registration.one_page_each(found, candidates, geometry, paths, disciplines)
-    return kept, set(again)
-
-
-def _sharing(named: Sequence[PlotMatch]) -> set[int]:
-    """The places of the pages that name a sheet another page of their PDF names too: matched in
-    full, so "One page, one sheet" weighs them with their geometry whichever file was read last,
-    and a sheet let go (`_release`) is kept again from its own page."""
-    by: dict[tuple[str, int], list[int]] = {}
-    for i, m in enumerate(named):
-        if m.sheet is not None:
-            by.setdefault((getattr(m.page, "source_sha256", ""), id(m.sheet)), []).append(i)
-    return {i for places in by.values() if len(places) > 1 for i in places}
-
-
 def _keep(
     listed: Sequence[drawings.SheetView],
     candidates: Sequence[SheetCandidate],
     found: Sequence[PlotMatch],
-    full: set[int],
     pdfs: Sequence[drawings.FileView],
     tried: set[str],
-    dwg_id: uuid.UUID | None,
 ) -> int:
-    """Keep each named sheet's page and each unmatched covered sheet's `NO_PAGE` (see the module);
-    for a DWG, only its own sheets. `tried`: the sha256 of each PDF whose pages were matched here.
-    How many sheets got a page."""
+    """Every listed sheet's Plot from the set's pages as matched now (S24-A5: a set-level step, its
+    outcome a function of the set's read PDFs' pages and its listed sheets alone, so the order its
+    files were read in cannot change it): the surest page (`_surest`) of the first added PDF with a
+    page naming the sheet; else, for a numbered sheet of a Discipline a PDF tried here covers,
+    `PlotNone.NO_PAGE` naming it. A sheet whose kept Plot is a page of a PDF that could not be read
+    again now is left as it was. `tried`: the sha256 of each PDF whose pages were matched here. How
+    many sheets got a page."""
     by_candidate = {id(c): s for c, s in zip(candidates, listed, strict=True)}
     by_sha = {pdf.sha256: pdf for pdf in pdfs}
     by_id = {pdf.id: pdf for pdf in pdfs}
-    given: set[uuid.UUID] = set()
     surest = _surest(found, by_candidate, by_sha)
-
-    def give(
-        of: Callable[[drawings.SheetView], bool], let_go: set[uuid.UUID], only: set[int] | None
-    ) -> None:
-        for k, m in enumerate(found):
-            if only is not None and k not in only:
-                continue
-            sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
-            if sheet is None or sheet.id in given or not of(sheet):
-                continue
-            pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
-            if pdf is None or surest.get((sheet.id, pdf.id)) != k:
-                continue  # another page of this PDF names the sheet more surely: its page
-            held = sheet.plot.page is not None and sheet.id not in let_go
-            kept = by_id.get(sheet.plot.file_id) if held and sheet.plot.file_id else None
-            if kept is not None and kept.id != pdf.id and _added(kept) < _added(pdf):
-                continue  # its Plot is a page of a PDF added before this one: the first added keeps it
-            drawings.record_plot(sheet.id, m)
-            given.add(sheet.id)
-
-    give(lambda sheet: dwg_id is None or sheet.file_id == dwg_id, set(), None)
-    released = _release(listed, found, full, by_candidate, by_sha, surest, given)
-    # A sheet let go (of any file) is kept again from this run's pages matched in full, so the set's
-    # Plot is the same whichever order its files were read in (157's review, N2).
-    give(lambda sheet: sheet.id in released, released, full)
-    for sheet in listed:
-        if sheet.id in given or sheet.number is None or sheet.plot.page is not None:
-            continue
-        if dwg_id is not None and sheet.file_id != dwg_id:
-            continue
-        # Named only by a PDF whose pages were matched here: one that could not be read again
-        # was never tried against the sheet.
-        covering = [pdf for pdf in _covering(sheet, pdfs) if pdf.sha256 in tried]
-        if not covering:
-            continue  # no PDF tried here is its Discipline's: what it says is unchanged
-        drawings.record_plot(sheet.id, drawings.PlotNone.NO_PAGE, pdf_file_id=covering[0].id)
-    return len(given)
-
-
-def _release(
-    listed: Sequence[drawings.SheetView],
-    found: Sequence[PlotMatch],
-    full: set[int],
-    by_candidate: Mapping[int, drawings.SheetView],
-    by_sha: Mapping[str, drawings.FileView],
-    surest: Mapping[tuple[uuid.UUID, uuid.UUID], int],
-    given: set[uuid.UUID],
-) -> set[uuid.UUID]:
-    """One page, one sheet: a page matched in full here (with its geometry), that now names another
-    sheet surely, or names none (several, which its ink cannot tell apart), is let go by each sheet
-    that held it before (a DWG read later carries the sheet the page plots). Never on a page only
-    named here: a ranking made without geometry is not surer than
-    the one that gave the page. A sheet let go is kept as `PlotNone.NO_PAGE` naming that PDF (the
-    PDF's report lists it, "has no page in this PDF"), unless this run's pages give it another
-    (`_keep`). The sheets let go."""
-    holders: dict[tuple[uuid.UUID, int], list[drawings.SheetView]] = {}
-    for sheet in listed:
-        if sheet.plot.page is not None and sheet.plot.file_id is not None:
-            holders.setdefault((sheet.plot.file_id, sheet.plot.page), []).append(sheet)
-    released: set[uuid.UUID] = set()
-    for k, m in enumerate(found):
+    given: set[uuid.UUID] = set()
+    for k, m in enumerate(found):  # the pages in their PDFs' order, first added first
+        sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
         pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
-        number = getattr(m.page, "number", None)
-        if k not in full or pdf is None or not isinstance(number, int):
+        if sheet is None or pdf is None or sheet.id in given:
             continue
-        named = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
-        if named is not None and surest.get((named.id, pdf.id)) != k:
-            continue  # another page of this PDF names the sheet more surely: that page decides
-        # A page matched in full that names no sheet (several, or none) is let go by all that held
-        # it: kept, the Plot would hang on the order the files were read in (157's re-check).
-        owner = named.id if named is not None else None
-        for held in holders.get((pdf.id, number), ()):
-            if held.id != owner and held.id not in given:
-                drawings.record_plot(held.id, drawings.PlotNone.NO_PAGE, pdf_file_id=pdf.id)
-                released.add(held.id)
-    return released
+        if surest.get((sheet.id, pdf.id)) != k:
+            continue  # another page of this PDF is more surely its page
+        drawings.record_plot(sheet.id, m)
+        given.add(sheet.id)
+    for sheet in listed:
+        if sheet.id in given or sheet.number is None:
+            continue
+        kept = by_id.get(sheet.plot.file_id) if sheet.plot.file_id else None
+        if sheet.plot.page is not None and kept is not None and kept.sha256 not in tried:
+            continue  # its Plot's PDF could not be read again now: left as it was
+        covering = [pdf for pdf in _covering(sheet, pdfs) if pdf.sha256 in tried]
+        if covering:
+            drawings.record_plot(sheet.id, drawings.PlotNone.NO_PAGE, pdf_file_id=covering[0].id)
+    return len(given)
 
 
 def _surest(

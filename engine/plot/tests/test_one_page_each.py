@@ -419,6 +419,21 @@ def test_a_page_that_fits_its_sheet_clearly_is_used_whatever_the_order_says() ->
     assert read(registration.one_page_each(found, [s201, s250])) == ["S-201~", "S-250", "S-201"]
 
 
+def test_a_clear_fit_is_asked_before_any_page_takes_a_sheet_by_elimination() -> None:
+    """Page 3 is S-201's own (0.0 mm) and names S-202 whole in a note, S-202 free in its place
+    (after S-200's page); page 1 only refers to S-201 (3.0 mm), its one option. The fit is asked
+    first: page 3 keeps S-201, page 1 names it unused (#703's review, round 3)."""
+    s200, s201, s202 = sheet("S-200"), sheet("S-201"), sheet("S-202")
+    pages = [page(1, own("S-201")), page(2, own("S-200")), page(3, own("S-201"), own("S-202"))]
+    found = [
+        PlotMatch(pages[0], sheet=s201, residual=3.0),
+        PlotMatch(pages[1], sheet=s200, residual=0.0),
+        PlotMatch(pages[2], sheet=s201, residual=0.0),
+    ]
+
+    assert read(registration.one_page_each(found, [s200, s201, s202])) == ["S-201~", "S-200", "S-201"]
+
+
 def test_a_page_is_never_moved_off_its_only_sheet_by_the_order_alone() -> None:
     """Pages S-01, S-02, S-03, S-05, S-04, then S-06 with a larger mark reading S-05: page 4 names
     S-05 alone and keeps it; page 6 names S-06 whole in its place and takes it (#703's review)."""
