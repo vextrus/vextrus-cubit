@@ -240,3 +240,22 @@ def test_a_clear_lead_is_proposed_without_a_question(
 
     assert asked == [], f"a clear lead asked: kind Questions holding {asked_sheets(qs_project, asked)}"
     assert kinds_proposed(qs_project) == {"S-01": (None, first)}
+
+
+def test_a_details_kind_over_details_is_proposed_whatever_the_close_by_setting(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline, settings: Any
+) -> None:
+    """The rule is a shape, not a constant: with `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY` at 0.60, a lead of
+    0.30 (beam_details 0.60 against `details` 0.30) is a near-tie, yet the first refines the second,
+    so it is proposed beam_details and no kind Question is asked."""
+    settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY = Decimal("0.60")
+    asked = read_ranked(
+        qs_project,
+        monkeypatch,
+        jev_offline,
+        STRUCTURAL,
+        [(("beam_details", "0.60"), (GENERIC, "0.30"))],
+    )
+
+    assert asked == [], f"{REFINED}: kind Questions holding {asked_sheets(qs_project, asked)}"
+    assert kinds_proposed(qs_project) == {"S-01": (None, "beam_details")}
