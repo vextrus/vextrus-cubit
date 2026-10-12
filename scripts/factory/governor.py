@@ -427,15 +427,21 @@ def admit(
 
 def launch_records(ticket: str, folder: Path | None = None) -> list[tuple[Path, dict[str, Any]]]:
     """A ticket's launch records, newest first: those whose own `ticket` field is this ticket (a file
-    name only starts with it; `T-ACC` and `T-WATCH-LOCAL` are other tickets)."""
+    name only starts with it; `T-ACC` and `T-WATCH-LOCAL` are other tickets). A refused launch is no
+    launch: a record whose judge is not ok and that has no session is left out (it names only the
+    branch that was asked for)."""
     folder = folder if folder is not None else status.factory_dir() / "launches"
     found = []
     for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
         if path.name.endswith(".agents.json"):
             continue
         record = _read_record(path)
-        if record is not None and record.get("ticket") == ticket:
-            found.append((path, record))
+        if record is None or record.get("ticket") != ticket:
+            continue
+        judge = record.get("judge")
+        if not record.get("session_id") and not (isinstance(judge, dict) and judge.get("ok") is True):
+            continue
+        found.append((path, record))
     return found
 
 

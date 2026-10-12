@@ -290,3 +290,28 @@ def test_a_launch_in_flight_counts_as_a_live_builder_but_the_callers_own_does_no
         governor.live_builder("tnew", factory / "launches", agent_rows=list, prs=list, own_pid=other)
         is None
     )
+
+
+# --- round 4: a refused launch is no builder; the contract lists builder-live
+
+
+def test_a_refused_launch_record_never_names_the_tickets_branch(factory: Path) -> None:
+    folder = factory / "launches"
+    put(folder, cloud_record("tref", "tref-real", "2026-10-12T09:00:00Z"))
+    refused = cloud_record("tref", "tref-other", "2026-10-12T10:00:00Z", session="")
+    refused["session_id"] = None
+    refused["judge"] = {"ok": False, "code": "builder-live"}
+    put(folder, refused)
+    writer = cloud_record("tref", "tref-writer", "2026-10-12T11:00:00Z", session="session_01W")
+    writer["role"] = "acceptance-writer"
+    put(folder, writer)
+    assert rdlock.ticket_branch("tref") == "tref-real"
+    assert len(governor.launch_records("tref", folder)) == 2
+
+
+def test_every_refusal_code_the_launchers_print_is_in_the_contracts_list() -> None:
+    root = Path(__file__).resolve().parents[3]
+    contract = (root / "docs/specs/factory/contracts/launch-cli.md").read_text()
+    listed = contract.split("`<code>` in `REFUSED <code>: ...` is one of:")[1].split("\n\n")[0]
+    for code in ("builder-live", "duplicate-name", "branch-not-on-origin"):
+        assert f"`{code}`" in listed, code

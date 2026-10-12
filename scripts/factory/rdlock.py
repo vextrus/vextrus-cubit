@@ -182,6 +182,8 @@ def ticket_branch(ticket: str | None) -> str | None:
     if not ticket:
         return None
     for _, record in governor.launch_records(ticket):
+        if record.get("role", "builder") in governor.NOT_BUILDER_ROLES:
+            continue
         if record["branch"]:
             return str(record["branch"])
     return None
