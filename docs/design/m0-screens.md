@@ -1129,7 +1129,10 @@ Reasons are stored as codes (1.7); an "other" reason's text is kept as typed.
   Step 14 (Site works and MEP) alone, never to the building's Steps as well: a view whose own title names
   site works, or an untitled section or detail on a sheet whose title does (the owner's ruling, 11 Oct
   2026, session 22). A view whose own title names a building subject keeps its Step ("Column layout" on
-  a site sheet: Step 6).
+  a site sheet: Step 6), whichever words come first: "Site plan and column layout" and "Column layout
+  and site plan" are both Step 6, and "Setback and beam layout" Steps 7 and 14. The bare word "site"
+  only says where; a footing or beam tied to a boundary wall by "of" or "for" ("Footing detail of
+  boundary wall") goes with the wall to Step 14.
 - A layout tab whose viewports show nothing is dropped, or proposed out as "blank" where the reader
   cannot tell; never a phantom sheet (4.5).
 

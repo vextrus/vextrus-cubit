@@ -56,6 +56,8 @@ from engine.recognise.views.routing import (
     PLUMBING_PART,
     STEP_DISCIPLINES,
     _draws_structure,
+    _Own,
+    _own,
     _proposal,
     kind_steps,
     working_view,
@@ -69,7 +71,6 @@ from engine.recognise.views.titles import (
     _layer,
     _Reading,
     _reading,
-    _subject,
     _subjects_in_order,
     default_conventions,
     describe,
@@ -199,13 +200,14 @@ def _candidate(
     scale = view.scale
     if title is not None and scale is None:
         scale = scales.read(title, reading.patterns)
-    subject = _subject(title, reading) if title is not None else None
+    own = _own(title, reading) if title is not None else _Own()
+    subject = own.subject
     layer = _layer(title, reading) if title is not None else None
     lines = [" ".join(u.shown.split()) for u in view.lines]
     stated = storeys.read(title, view.kind, subject, lines, storey_words)
     structure = title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
-        view.kind, subject, discipline, on_sheet, notes=reading.notes, structure=structure
+        view.kind, subject, discipline, on_sheet, notes=reading.notes, structure=structure, site=own.site
     )
     anchors: tuple[DwgAnchor, ...] = ()
     if view.title is not None and paper.anchor is not None:

@@ -26,6 +26,7 @@ from engine.recognise.types import (
 from engine.recognise.views import paper as on_paper
 from engine.recognise.views import routing as routing_part
 from engine.recognise.views import segment as segment_part
+from engine.recognise.views import storeys as storeys_part
 from engine.recognise.views import titles as titles_part
 from engine.recognise.views.segment import block as block_part
 from engine.recognise.views.segment import pieces as pieces_part
@@ -682,7 +683,6 @@ def test_a_views_own_subject_still_decides_on_a_site_works_sheet(
     [
         ("PLOT SETBACK ARRANGEMENT ZQ", None),
         ("BOUNDARY WALL TYPICAL ZQ", None),
-        ("SITE ARRANGEMENT ZQ WITH COLUMNS", None),
     ],
 )
 def test_architectural_site_works_stay_in_walls_and_rooms(
@@ -1499,3 +1499,58 @@ def test_a_lone_line_running_past_a_drawing_is_no_drawing_of_its_own() -> None:
     found = drawn(d, sheet)
     assert [v.title for v in found] == ["LONG SECTION OF BEAM B1"]
     assert found[0].box.x1 >= 400
+
+
+_SITE_CASES = [
+    # (title, subject, steps): presence decides, never order (S22-FL7 review 1)
+    ("SITE PLAN AND COLUMN LAYOUT", "column", ("columns",)),
+    ("COLUMN LAYOUT AND SITE PLAN", "column", ("columns",)),
+    ("SITE PLAN WITH PILE LAYOUT", "pile", ("foundations",)),
+    ("SITE FOUNDATION PLAN", "foundation", ("foundations",)),
+    ("SITE WATER TANK DETAIL", "tank", ("tanks",)),
+    ("SITE COLUMN LAYOUT PLAN", "column", ("columns",)),
+    ("SITE PLAN", "site_works", ("site_mep",)),
+    ("BOUNDARY WALL FOOTING DETAIL", "site_works", ("site_mep",)),
+    ("FOOTING DETAIL OF BOUNDARY WALL", "site_works", ("site_mep",)),
+    ("FOUNDATION PLAN FOR COMPOUND WALL", "site_works", ("site_mep",)),
+    ("SETBACK AND BEAM LAYOUT", "beam", ("beams", "site_mep")),
+    ("BEAM LAYOUT AND SETBACK", "beam", ("beams", "site_mep")),
+    ("BOUNDARY WALL AND COLUMN LAYOUT", "column", ("columns", "site_mep")),
+]
+
+
+@pytest.mark.parametrize(("title", "subject", "steps"), _SITE_CASES)
+def test_site_works_are_decided_by_presence_not_word_order(
+    title: str, subject: str, steps: tuple[str, ...]
+) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    own = routing_part._own(title, reading)
+    found, _, _ = routing_part._proposal(ViewKind.PLAN, own.subject, "structural", (), site=own.site)
+    assert (own.subject, found) == (subject, steps)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "SITE PLAN AND COLUMN LAYOUT",
+        "COLUMN LAYOUT AND SITE PLAN",
+        "SETBACK AND BEAM LAYOUT",
+        "SITE ARRANGEMENT ZQ WITH COLUMNS",
+    ],
+)
+def test_both_word_orders_are_a_duplicate_on_an_architectural_sheet(title: str) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    own = routing_part._own(title, reading)
+    structure = routing_part._draws_structure(title, reading)
+    _, _, exclusion = routing_part._proposal(
+        ViewKind.PLAN, own.subject, "architectural", structure=structure
+    )
+    assert exclusion is not None
+    assert exclusion.reason is ExclusionReason.DUPLICATE
+
+
+def test_a_site_view_with_a_column_has_the_columns_storey_meaning() -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    for title in ("SITE PLAN AND COLUMN LAYOUT", "COLUMN LAYOUT AND SITE PLAN"):
+        subject = routing_part._own(title, reading).subject
+        assert storeys_part._meaning(subject) == storeys_part._meaning("column")

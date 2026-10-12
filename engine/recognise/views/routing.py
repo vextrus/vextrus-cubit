@@ -10,12 +10,14 @@ General Discipline, #159) but its title block goes to Step 2, whatever its kind;
 plans and 3D/perspective views are excluded `for_information`; a legend goes to Step
 2 for Structural and Architectural, else to its Discipline's Part; every view of an MEP sheet (any
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
-Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10, and 14 for site works);
-one whose own title
-names no subject with a Step ("SECTION 1-1") goes to the Steps of every subject its sheet's title names
-("BEAM DETAILS": beams), in the title's order, its own subject kept as its title says (#158), or to
-Step 14 alone when its sheet's title names site works (a boundary wall, say); on a sheet whose title
-names none either it has no Step (unaccounted until the QS assigns it or
+Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10, and 14 for site works).
+A title is read by what it names, never by the order of its words (`_own`): a bare "site" only says
+where; a footing tied to a boundary wall by "of" or "for" goes with it; a building element named on
+its own keeps its Step beside Step 14. One whose own title names no subject with a Step ("SECTION
+1-1") goes to the Steps of every subject its sheet's title names ("BEAM DETAILS": beams), in the
+title's order, its own subject kept as its title says (#158), or to Step 14 alone when its sheet's
+title names site works (a boundary wall, say); on a sheet whose title names none either it has no
+Step (unaccounted until the QS assigns it or
 Step 1 tells it from the kind the sheet is confirmed as, `vextrus/takeoff/services/step1.py`). An
 Architectural plan drawing the structure (a column or beam subject, named by a word not a lintel's:
 `NOT_STRUCTURE_WORDS`) is excluded as a `duplicate` (the structural set governs); an Architectural
@@ -29,6 +31,7 @@ and 22 open a sheet fitted to; none when the sheet has no such plan.
 """
 
 from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass
 
 from engine.recognise.types import (
     Exclusion,
@@ -38,6 +41,7 @@ from engine.recognise.types import (
     ViewKind,
 )
 from engine.recognise.views.titles import (
+    LOCATION_WORDS,
     _Reading,
     _reading,
     _subjects_in_order,
@@ -70,7 +74,8 @@ cantilever slab; a boundary wall, a compound wall, a setback or the site, site w
 SITE_WORKS = "site_works"
 """The subject of a Structural sheet's site works: the owner's ruling (11 Oct 2026, session 22) sends
 them to Step 14 (`site_mep`) alone, never to the building's Steps (a boundary wall's footing is
-measured with the external works, not the building's foundations)."""
+measured with the external works, not the building's foundations); a view's title that also names a
+building element on its own keeps that element's Step beside it (`_own`)."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
@@ -85,16 +90,57 @@ PLUMBING_PART = "plumbing"
 _EXCLUDED_KINDS = frozenset({ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.PERSPECTIVE})
 
 
-def _draws_structure(text: str, reading: _Reading) -> bool:
-    """Whether the text's subject (its first subject words, as `_subject`) is one the structural set
-    governs, named by a word other than a lintel's (`NOT_STRUCTURE_WORDS`): "BEAM LAYOUT PLAN" is,
-    "LINTEL LAYOUT PLAN" is not, nor "STAIR AND BEAM PLAN" (its subject is the stair)."""
+TIE_WORDS = frozenset({"of", "for", "to", "at", "under"})
+"""The words that tie a building element to a site work beside it ("FOOTING OF BOUNDARY WALL"): the
+element is that site work's own and goes with it. "AND" and "WITH" tie nothing."""
+FILLER_WORDS = frozenset({"detail", "details", "plan", "layout", "arrangement", "section", "typical"})
+"""Words that may stand beside a tie word between the two ("FOUNDATION PLAN FOR COMPOUND WALL")."""
+
+
+@dataclass(frozen=True)
+class _Own:
+    """A view's own title read by the presence of its subjects, never their order: its subject, the
+    words that name it, and whether site works are named as well (Step 14 beside its own Step)."""
+
+    subject: str | None = None
+    words: str = ""
+    site: bool = False
+
+
+def _own(text: str, reading: _Reading) -> _Own:
+    """The subject of a view's title (the module's docstring). The site words that only say where
+    ("site", `LOCATION_WORDS`) are a location: they name site works only when nothing else is named. A
+    building element tied to a site work ("FOOTING OF BOUNDARY WALL", `TIE_WORDS`) is that site work's;
+    a title that names a building element on its own keeps its Step, beside Step 14 when it names site
+    works too ("SETBACK AND BEAM LAYOUT"). Its subject is the first building element not so tied."""
     tokens = _tokens(text)
-    found = reading.subjects.matches(tokens)
+    found = [(s, e, k, " ".join(tokens[s:e])) for s, e, k in reading.subjects.matches(tokens)]
     if not found:
-        return False
-    start, end, key = found[0]
-    return key in STRUCTURE_SUBJECTS and " ".join(tokens[start:end]) not in NOT_STRUCTURE_WORDS
+        return _Own()
+    works = [m for m in found if m[2] == SITE_WORKS and m[3] not in LOCATION_WORDS]
+
+    def tied(start: int, end: int) -> bool:
+        def joined(gap: list[str]) -> bool:
+            return not gap or (bool(TIE_WORDS & set(gap)) and set(gap) <= TIE_WORDS | FILLER_WORDS)
+
+        return any(
+            joined(tokens[end:s] if end <= s else tokens[e:start])
+            for s, e, _, _ in works
+            if end <= s or e <= start
+        )
+
+    own = [m for m in found if m[2] != SITE_WORKS and not tied(m[0], m[1])]
+    if own:
+        return _Own(own[0][2], own[0][3], bool(works))
+    return _Own(SITE_WORKS, found[0][3], True)
+
+
+def _draws_structure(text: str, reading: _Reading) -> bool:
+    """Whether the text's subject (`_own`) is one the structural set governs, named by a word other
+    than a lintel's (`NOT_STRUCTURE_WORDS`): "BEAM LAYOUT PLAN" is, "LINTEL LAYOUT PLAN" is not, nor
+    "STAIR AND BEAM PLAN" (its subject is the stair)."""
+    own = _own(text, reading)
+    return own.subject in STRUCTURE_SUBJECTS and own.words not in NOT_STRUCTURE_WORDS
 
 
 def _proposal(
@@ -105,12 +151,14 @@ def _proposal(
     *,
     notes: Collection[str] = (),
     structure: bool | None = None,
+    site: bool = False,
 ) -> tuple[tuple[str, ...], str | None, Exclusion | None]:
     """A view's proposed Takeoff Steps, Part or exclusion (the module's docstring); `on_sheet`: the
     subjects its sheet's title names, in order; `notes`: the Disciplines whose sheets are general notes
     (`ViewConventions.notes_disciplines`): every view of theirs is Step 2's, whatever its kind, but its
     title block (never a note: #159's acceptance); `structure`: whether its title names the structure
-    by a word not a lintel's (`_draws_structure`; by default, whether its subject is one)."""
+    by a word not a lintel's (`_draws_structure`; by default, whether its subject is one); `site`:
+    whether its title names site works beside its own subject (`_Own.site`): Step 14 as well."""
     if discipline is not None and discipline in notes and kind is not ViewKind.TITLE_BLOCK:
         return (GENERAL_NOTES,), None, None
     if structure is None:
@@ -126,7 +174,11 @@ def _proposal(
     if discipline == "structural":
         own = STRUCTURAL_STEPS.get(subject or "", ())
         if own:
-            return own, None, None
+            return (
+                (*own, *(s for s in STRUCTURAL_STEPS[SITE_WORKS] if site and s not in own)),
+                None,
+                None,
+            )
         return _structural_steps(on_sheet), None, None
     if kind is ViewKind.PLAN and structure:
         return (), None, Exclusion(ExclusionReason.DUPLICATE)

@@ -145,9 +145,22 @@ def _subject(text: str, reading: _Reading) -> str | None:
     return found[0][2] if found else None
 
 
+LOCATION_WORDS = frozenset({"site"})
+"""The site words that only say where a drawing is ("SITE FOUNDATION PLAN"): a location, so no site
+works of their own once a title names another subject."""
+
+
 def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:
-    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS")."""
-    return tuple(dict.fromkeys(key for _, _, key in reading.subjects.matches(_tokens(text))))
+    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS"); a
+    bare location word ("site", `LOCATION_WORDS`) is left out when another subject is named."""
+    tokens = _tokens(text)
+    found = reading.subjects.matches(tokens)
+    others = any(" ".join(tokens[s:e]) not in LOCATION_WORDS for s, e, _ in found)
+    return tuple(
+        dict.fromkeys(
+            key for s, e, key in found if not (others and " ".join(tokens[s:e]) in LOCATION_WORDS)
+        )
+    )
 
 
 @dataclass(frozen=True)
