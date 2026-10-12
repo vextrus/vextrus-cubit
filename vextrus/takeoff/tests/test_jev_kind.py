@@ -359,3 +359,10 @@ def test_a_details_kind_over_details_with_nothing_else_near_is_proposed() -> Non
     assert not unsure(
         answer(("beam_details", "0.45"), ("details", "0.33"), ("beam_layout", "0.05")), "T"
     )
+
+
+def test_the_generic_details_hides_nothing_however_thin_jev_is_spread() -> None:
+    """beam_details 0.28 / details 0.20 / beam_layout 0.14 and 0.14 / 0.13 / 0.12 ask, as they do
+    without `details`."""
+    assert unsure(answer(("beam_details", "0.28"), ("details", "0.20"), ("beam_layout", "0.14")), "T")
+    assert unsure(answer(("beam_details", "0.14"), ("details", "0.13"), ("beam_layout", "0.12")), "T")

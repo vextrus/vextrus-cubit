@@ -51,6 +51,6 @@ VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY = Decimal("0.15")
 the first still be proposed (#228, the owner's ruling "Propose Jev's top kind"): a lead of less than
 this is close, and the sheet's kind is asked as a `low_confidence` Question, Jev's first choice
 picked. When Jev's first is a specific `*_details` kind, the generic `details` it refines is no rival
-(S24-A7): the first is measured against the best other kind, and that kind counts only when it holds
-at least this much probability itself. 0.15 is the session-11 orchestrator's starting value, to be
-tuned in the scored loop on the real sets."""
+(S24-A7): the first is measured against the best other kind, whatever the probabilities.
+0.15 is the session-11 orchestrator's starting value, to be tuned in the scored loop on the real
+sets."""
