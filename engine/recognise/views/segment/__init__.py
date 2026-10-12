@@ -15,13 +15,13 @@ of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of `M
 alike (a note's; a scale text in the column is the title's scale line, not a note's). A one-line text of
 up to `MAX_LONG_TITLE_WORDS` words passing those gates is a title by its shape: a column of one (no line
 alike over or under it within `NOTE_LINE_GAP`, scale lines aside) that no notes heading's column holds
-(the columns are found first, a long line never taken). A title lying under
-another within `SUBTITLE_GAP` of its height, across the same place, is its second line (a long line
-too, before it may stand alone) ("PRESENTATION
-PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
-grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
-axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). **A ruled
-table** drawn with such rules (`_tables`: at least `MIN_TABLE_RULES` each way, every rule across
+(the columns are found first, a long line never taken). A title lying under another within
+`SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION PLAN" under
+"GROUND FLOOR PLAN"), no title of its own; a long line is one only right under the title, nothing
+between, and aligned to it (`_aligned`), before it may stand alone. Titles, second lines and scale texts
+stay off the grid, and so do the lines within a title's band (its underline), and straight lines along
+the paper's axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details).
+**A ruled table** drawn with such rules (`_tables`: at least `MIN_TABLE_RULES` each way, each rule across
 running between the outermost rules down and every rule down between the outermost across, within
 `TABLE_TOLERANCE`) is one piece, what it holds with it, unless a drawing's title stands in it (a grid
 of titled details, its rules dividing them); a table with no title is a schedule. Each title
@@ -122,8 +122,10 @@ from engine.recognise.views.segment.texts import (
     MIN_HEADING,
     MIN_NOTE_LINES,
     NOTE_LINE_GAP,
+    _aligned,
     _beside,
     _column_under,
+    _line_over,
     _notes_heading,
     _Placing,
     _Stacks,
@@ -216,9 +218,12 @@ def _views(
         head = next((i for i in titles if i != j and _subtitle(texts[j], texts[i])), None)
         if head is not None:
             second.setdefault(head, []).append(j)
-    for j in long_titles:  # a long line under a title is its second line, as a short one is
-        head = next((i for i in titles if i not in heads and _subtitle(texts[j], texts[i])), None)
-        if head is not None:  # under a second line: the title's that line is under
+    short = {i for i in titles if i not in heads}
+    placing = _Placing.of(texts) if long_titles else None
+    for j in long_titles:  # a long line is a title's own second line: right under it, aligned to it
+        assert placing is not None
+        head = _line_over(placing, j, scale_texts)
+        if head in short and _subtitle(texts[j], texts[head]) and _aligned(texts[j], texts[head]):
             root = next((k for k, lines in second.items() if head in lines), head)
             second.setdefault(root, []).append(j)
     subtitles = {j for lines in second.values() for j in lines}

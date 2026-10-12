@@ -107,6 +107,28 @@ def _subtitle(lower: _Text, upper: _Text) -> bool:
     return 0 <= gap <= SUBTITLE_GAP and lower.box[0] <= upper.box[2] and upper.box[0] <= lower.box[2]
 
 
+def _line_over(placed: _Placing, i: int, skip: Collection[int] = ()) -> int | None:
+    """The text standing nearest over text `i` across its span (a scale line in `skip` aside), with
+    no text between: a heading or a line there is what stands over it, not the title above them."""
+    boxes, heights = placed.boxes, placed.heights
+    x0, _, x1, top = boxes[i]
+    gap = boxes[:, 1] - top
+    over = (heights > 0) & (gap >= -0.2 * heights) & (boxes[:, 0] <= x1) & (boxes[:, 2] >= x0)
+    over[i] = False
+    if skip:
+        over[list(skip)] = False
+    found = np.flatnonzero(over)
+    return None if not len(found) else int(found[np.argmin(gap[found])])
+
+
+def _aligned(lower: _Text, upper: _Text) -> bool:
+    """Whether a line is aligned to the one over it: left edges, or centres, within one of the upper
+    line's heights (a long title's second line, never a wider line under a neighbour's title)."""
+    h = upper.height
+    centres = abs((lower.box[0] + lower.box[2]) - (upper.box[0] + upper.box[2])) / 2
+    return abs(lower.box[0] - upper.box[0]) <= h or centres <= h
+
+
 _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 """A numbered line ("5. See ...", "(a) ..."): a note's, not a view title."""
 

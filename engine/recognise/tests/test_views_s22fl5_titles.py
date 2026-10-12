@@ -125,11 +125,12 @@ def test_a_lone_long_line_passing_every_gate_is_a_title_even_in_a_grid(callout: 
 
 UNDER_TITLE = {
     "centred": ((198.5, 545.0), (59.5, 531.0)),
-    "indented": ((40.0, 545.0), (60.0, 531.0)),
+    "indented": ((40.0, 545.0), (45.0, 531.0)),
     "flush": ((40.0, 545.0), (40.0, 531.0)),
 }
 """A plan's title over its grid (6 mm lettering, 63 mm wide) and a long line 14 mm under it (342 mm
-wide): centred on the title, indented under it, or flush with its left edge."""
+wide): centred on the title, indented under it (5 mm: within one height, review 2 of PR #686), or
+flush with its left edge."""
 
 
 @pytest.mark.parametrize("callout", [CALLOUT, STOREY_CALLOUT], ids=["no-storeys", "storeys"])
@@ -142,6 +143,38 @@ def test_a_long_line_under_a_plans_title_is_its_second_line_not_a_title(
     found = read([PLAN], [Text("2ND FLOOR PLAN", title), Text(callout, line)])
 
     assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "2ND FLOOR PLAN")]
+
+
+NOTE_LINE = "THE 4TH TO 6TH FLOOR PLANS FOLLOW THE 3RD FLOOR PLAN SAVE FOR THE STAIR LANDING"
+
+
+def test_a_long_notes_line_under_a_heading_under_a_plans_title_stays_the_headings() -> None:
+    """Review 2 of PR #686: a heading between them, the long line is the heading's, not the title's."""
+    found = read(
+        [PLAN],
+        [
+            Text("2ND FLOOR PLAN", (40.0, 208.0)),
+            Text("NOTES:", (40.0, 190.0)),
+            Text(NOTE_LINE, (40.0, 182.0)),
+        ],
+    )
+
+    assert sorted((v.kind, v.title or "") for v in found) == [
+        (ViewKind.NOTES, "NOTES:"),
+        (ViewKind.PLAN, "2ND FLOOR PLAN"),
+    ]
+
+
+def test_a_long_title_under_a_neighbours_title_titles_its_own_view() -> None:
+    """Review 2 of PR #686: the long line runs under a small plan's title beside it, aligned to
+    neither its left edge nor its centre, so it is no second line of that title."""
+    small, wide = (40.0, 250.0, 110.0, 450.0), (130.0, 240.0, 480.0, 520.0)
+    found = read(
+        [small, wide], [Text("2ND FLOOR PLAN", (40.0, 236.0)), Text(STOREY_CALLOUT, (90.0, 226.0))]
+    )
+
+    assert sorted(v.title or "" for v in found) == sorted(["2ND FLOOR PLAN", STOREY_CALLOUT])
+    assert [(v.box.x0, v.box.x1) for v in found if v.title == "2ND FLOOR PLAN"] == [(40.0, 110.0)]
 
 
 @pytest.mark.parametrize("place", [(40.0, 590.0), (40.0, 150.0)], ids=["above", "below"])
