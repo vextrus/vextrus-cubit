@@ -76,7 +76,7 @@ boxes (no Bengali font, #689).
 ## Wave A (parallel; dependency-free)
 | Ticket | What | Where, tier | Notes |
 |---|---|---|---|
-| A0 | G1 script layer on main now (`uv run python -m scripts.walk.run <main sha40>`), both sets | detached | measures Edison act p95 and the question cap on main; 60-75 min; read walk.json, file what fails |
+| A0 | G1 script layer on main now (`uv run python -m scripts.walk.run <main sha40> --hold-minutes 1`: no agent layer on this run, so the stack and the G1 slot free at once), both sets | detached | measures Edison act p95 and the question cap on main; 60-75 min; read walk.json, file what fails |
 | A1 | FL8 #691 round 3 (`fix-regression`): web Ctrl Z and toast word the result from the server's reply; correction_moved_on names its sheet; the limits as `{limit}` placeholders | local builder s23-fl8 (alive), ordinary/high | then design gate (keyboard walk of E, undo, the refusal words) on a served head |
 | A2 | FL5 #692 round 3 (`fix-regression`): a table box is never a drawing a long line may title unless it holds a drawing's geometry; the guard uses pairing's own TITLE_GAP rule | local builder s23-fl5 (alive), hard | real drawings; its builder's direct read on 413f6764: Edison architecture 8 phantoms gone, 4 long titles gained, 0 lost |
 | A3 | FL13 + FL7 words: #666/#581 cursor and save-state items; #667/#580 role-aware "Needs you"; #670, #663, #672; #664/#690 Coverage totals agree | cloud, ordinary/high | acceptance-writer first (m0-screens' words verbatim) |
@@ -108,7 +108,8 @@ At most 3 local builders at once (eight filled swap once); cloud for everything 
 ## Claude Code features to use (official docs, Oct 2026; CLAUDE.md's limits stand unless the owner rules)
 - `claude agents --json` to see local builders (a session cut by a crash shows `failed`); resume one only through
   `scripts.factory.say`, which runs the resume with the builder's settings.
-- `SendMessage` with `notify_when_idle` to every builder you message; Monitor on events.log for READY and BLOCKED.
+- `SendMessage` with `notify_when_idle` to every local builder you message; cloud builders only through
+  `uv run python -m scripts.factory.launch say <session-id> --ticket <t> --file <f>`; Monitor on events.log for READY and BLOCKED.
 - Subagent frontmatter (`model`, `effort`, `isolation: worktree`) for every agent you launch; set both model and
   effort each time.
 - The `real-set-walk` workflow for G1's agent layer (the only workflow allowed, per CLAUDE.md); resume a failed run
@@ -121,7 +122,7 @@ At most 3 local builders at once (eight filled swap once); cloud for everything 
 M1 is "the frame and piles, priced" (docs/milestones.md). Startable without touching M0 code: M1-24
 (`docs/design/m1-screens.md`, docs only), M1-02 (the Sample Project's element key, 1.5 h of the owner's time),
 M1-05 (Edison's counts per family per storey, 1.5 h), M1-06 (the Held-out instance script; the owner runs it with
-sudo). Not before M0's G1: M1-00 (stubs every route). The drafts #595-#598 and #601 are 515 commits behind main:
+sudo). Not before the owner's M0 walk: M1-00 (stubs every route). The drafts #595-#598 and #601 are 515 commits behind main:
 harvest ideas ticket by ticket, never merge them.
 
 ## Finish line (checked by its command)
