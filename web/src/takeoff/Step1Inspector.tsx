@@ -991,7 +991,7 @@ export function CoveragePanel({
             {unaccounted.map(({ entry, sheet, view }) => {
               const name = <UnaccountedName sheet={sheet} view={view} />
               return (
-                <li key={entry.id} className="text-xs text-question">
+                <li key={entry.id} className="text-question">
                   {sheet && onOpenView ? (
                     <button type="button" onClick={() => onOpenView(sheet, entry.view_id)} className="text-start underline underline-offset-2 hover:text-foreground">
                       {name}
