@@ -134,26 +134,35 @@ def _keep(
     by_sha = {pdf.sha256: pdf for pdf in pdfs}
     by_id = {pdf.id: pdf for pdf in pdfs}
     surest = _surest(found, by_candidate, by_sha)
+    # A sheet whose kept Plot is a page of a PDF that could not be read again now is left as it
+    # was: its page was not matched here, so no other PDF's page may take it (#712's review).
+    left = {sheet.id for sheet in listed if _unread_plot(sheet, by_id, tried)}
     given: set[uuid.UUID] = set()
     for k, m in enumerate(found):  # the pages in their PDFs' order, first added first
         sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
         pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
-        if sheet is None or pdf is None or sheet.id in given:
+        if sheet is None or pdf is None or sheet.id in given or sheet.id in left:
             continue
         if surest.get((sheet.id, pdf.id)) != k:
             continue  # another page of this PDF is more surely its page
         drawings.record_plot(sheet.id, m)
         given.add(sheet.id)
     for sheet in listed:
-        if sheet.id in given or sheet.number is None:
+        if sheet.id in given or sheet.id in left or sheet.number is None:
             continue
-        kept = by_id.get(sheet.plot.file_id) if sheet.plot.file_id else None
-        if sheet.plot.page is not None and kept is not None and kept.sha256 not in tried:
-            continue  # its Plot's PDF could not be read again now: left as it was
         covering = [pdf for pdf in _covering(sheet, pdfs) if pdf.sha256 in tried]
         if covering:
             drawings.record_plot(sheet.id, drawings.PlotNone.NO_PAGE, pdf_file_id=covering[0].id)
     return len(given)
+
+
+def _unread_plot(
+    sheet: drawings.SheetView, by_id: Mapping[uuid.UUID, drawings.FileView], tried: set[str]
+) -> bool:
+    """Whether the sheet's kept Plot is a page of a read PDF of the set that was not matched here
+    (its copy or reading failed now)."""
+    kept = by_id.get(sheet.plot.file_id) if sheet.plot.file_id else None
+    return sheet.plot.page is not None and kept is not None and kept.sha256 not in tried
 
 
 def _surest(
