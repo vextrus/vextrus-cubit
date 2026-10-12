@@ -192,10 +192,15 @@ def test_how_close_is_close_is_the_setting_vextrus_jev_sheet_type_close_by(
     settings: Any,
 ) -> None:
     """The closeness ("close") is a setting (the brief: "a setting"), so the scored loop tunes it on the
-    real sets: with it at 0.60, a lead of 0.50 is close and asks."""
+    real sets: with it at 0.60, a lead of 0.50 is close and asks.
+
+    Amended for S24-A7 (a `*_details` kind near-tied with the generic `details` refines it and is
+    proposed): the two kinds given hold all but 0.10 of the probability, so the other kinds offered
+    (the generic `details` among them) stay below the second, and the near-tie is between two
+    specific kinds, never a refinement of `details`."""
     assert isinstance(getattr(jev_settings, "VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY", None), Decimal)
     settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY = Decimal("0.60")
-    jev_ranks(jev_offline, {BEAM_DETAILS.title: ("beam_details", "0.60", "beam_layout", "0.10")})
+    jev_ranks(jev_offline, {BEAM_DETAILS.title: ("beam_details", "0.70", "beam_layout", "0.20")})
     read(qs_project, monkeypatch, {STRUCTURAL: [BEAM_DETAILS]})
     api = api_as(qs_project.member)
     [sheet] = proposals(api, qs_project.project_id)
