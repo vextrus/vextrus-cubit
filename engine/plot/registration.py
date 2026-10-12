@@ -107,9 +107,11 @@ textless page of a large set with every sheet on its paper is left unmatched rat
 times. Checked before a sheet's buffers are loaded (`_may_ink`): past it, nothing is drawn or loaded
 for the page."""
 MAX_INK_TRIES = 128
-"""The most sheets drawn and aligned by ink in one match, over all its pages (a few minutes): a PDF of
+"""The most sheets drawn and aligned by ink for one PDF's pages in one match (a few minutes): a PDF of
 hundreds of pages with no text is hostile input as much as a Plot, and the rest of its pages keep
-their reasons once this is spent."""
+their reasons once this is spent. It is the PDF's, not the match's (S24-A5): a set-level match of
+every PDF of a set gives each PDF the tries its own read would, so a PDF's pages are matched alike
+whichever file of the set was read last (a set of N PDFs is at most N times this)."""
 MIN_INK_F1 = 0.6
 INK_MARGIN = 0.2
 """A sheet is a page's by its ink when their inks agree (F1, `ink.agreement`) at least 0.6 and by 0.2
@@ -146,7 +148,7 @@ def match(
         if key is not None:
             by_number.setdefault(key, []).append(i)
     found = []
-    budget = [MAX_INK_TRIES]
+    budgets: dict[str, list[int]] = {}  # each PDF's ink tries left (`MAX_INK_TRIES`)
     papers: list[Paper | None] | None = None  # each sheet's, read once for the pages with no text
     # Each sheet's title's words, read once for every page (`_title_named`).
     titles: dict[int, list[str]] = {}
@@ -156,6 +158,7 @@ def match(
             found.append(PlotMatch(page, reason=_reason(codes.SCAN)))
             continue
         plot = (plots or {}).get(page.source_sha256)
+        budget = budgets.setdefault(page.source_sha256, [MAX_INK_TRIES])
         if not page.items:
             # Every sheet on the page's paper is a candidate (its PDF's Discipline's first); a sheet
             # never drawn has no known paper and cannot be ruled out, so with one such the page is
@@ -217,7 +220,7 @@ def match(
             continue
         found.append(_placed(page, sheets[chosen], _buffers(geometry, chosen), plot))
     found = unclaimed(found, marks)
-    return one_page_each(found, sheets, geometry, plots, disciplines, budget) if one_each else found
+    return one_page_each(found, sheets, geometry, plots, disciplines, budgets) if one_each else found
 
 
 def _placed(
@@ -255,7 +258,7 @@ def one_page_each(
     geometry: Sequence[SheetBuffers | None] = (),
     plots: Mapping[str, Path] | None = None,
     disciplines: Mapping[str, str | None] | None = None,
-    budget: list[int] | None = None,
+    budgets: Mapping[str, list[int]] | None = None,
 ) -> list[PlotMatch]:
     """The matches with one page used a sheet in each PDF where anything tells which (S24-A5, the
     module's "One page, one sheet"): where two or more pages of a PDF name one sheet, a page that
@@ -264,8 +267,8 @@ def one_page_each(
     order holds it, is the sheet's, and the others name it unused (`PlotMatch.used`); where nothing
     tells, they are left as they were. Pages of two PDFs naming one sheet are left as they are: a set
     may hold a sheet's full Plot and a partial one (the product keeps the first added PDF's page,
-    `vextrus/takeoff/services/read_propose/plot.py`). `budget` is the ink tries left of
-    `MAX_INK_TRIES`, shared with the match that found the pages (`match`'s); a full one without."""
+    `vextrus/takeoff/services/read_propose/plot.py`). `budgets` is each PDF's ink tries left of
+    `MAX_INK_TRIES` (by its sha256), shared with the match that found its pages; a full one without."""
     index = {id(sheet): i for i, sheet in enumerate(sheets)}
     # By PDF, each sheet's index -> the places in `found` of the PDF's pages holding it.
     holding: dict[object, dict[int, list[int]]] = {}
@@ -282,8 +285,8 @@ def one_page_each(
         if number is not None and keys[i] is not None:
             by_number.setdefault(number, []).append(i)
     out = list(found)
-    budget = budget if budget is not None else [MAX_INK_TRIES]
     for source, held in holding.items():
+        budget = (budgets or {}).get(source, [MAX_INK_TRIES]) if isinstance(source, str) else [0]
         contested = sorted(k for ks in held.values() if len(ks) > 1 for k in ks)
         if not contested:
             continue
@@ -952,7 +955,7 @@ def _may_ink(candidates: Sequence[int], budget: list[int]) -> bool:
     """Whether a page's candidates may be tried by ink, checked before any sheet's buffers are
     loaded: at least two (one sheet alone has no rival to be measured against: a frame and title
     block alone agree with a sparse sheet as well as its own page would), at most `MAX_BY_INK`, and
-    no more than the match's budget has left."""
+    no more than its PDF's budget has left in the match."""
     return 2 <= len(candidates) <= min(MAX_BY_INK, budget[0])
 
 

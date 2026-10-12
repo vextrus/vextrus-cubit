@@ -22,7 +22,14 @@ from engine.plot.tests.test_plot import A1, PT, TITLE_BLOCK, body, item, sheet_b
 from engine.plot.tests.test_plot import sheet as titled_sheet
 from engine.read.pdf import page_text
 from engine.read.pdf.types import Page, TextItem
-from engine.recognise.types import PlotMatch, SheetCandidate, SheetLocation, Sourced, ValueSource
+from engine.recognise.types import (
+    PlotMatch,
+    PlotTransform,
+    SheetCandidate,
+    SheetLocation,
+    Sourced,
+    ValueSource,
+)
 from engine.render.buffers import SheetBuffers
 
 SHA_A = "a" * 64
@@ -291,10 +298,14 @@ def test_the_ink_is_tried_only_within_the_budget_it_is_given(tmp_path: Path) -> 
         found.append(PlotMatch(p, sheet=one, transform=placed[0]))
 
     spent = [1]
-    short = registration.one_page_each(found, [one], [buffers], plots, budget=spent)
+    short = registration.one_page_each(
+        found, [one], [buffers], plots, budgets={pages[0].source_sha256: spent}
+    )
     assert read(short) == ["S-201", "S-201"]  # left as they named it
     assert spent == [1]
-    enough = registration.one_page_each(found, [one], [buffers], plots, budget=[2])
+    enough = registration.one_page_each(
+        found, [one], [buffers], plots, budgets={pages[0].source_sha256: [2]}
+    )
     assert read(enough) == ["S-201~", "S-201"]
 
 
@@ -323,9 +334,34 @@ def test_the_budget_is_checked_before_a_sheets_buffers_are_asked_for() -> None:
     found = [PlotMatch(page(k, own("S-01")), sheet=one) for k in (1, 2)]
     geometry = Counted([sheet_buffers()])
 
-    registration.one_page_each(found, [one], geometry, {SHA_A: Path("unused.pdf")}, budget=[0])
+    registration.one_page_each(found, [one], geometry, {SHA_A: Path("unused.pdf")}, budgets={SHA_A: [0]})
 
     assert geometry.asked == 0
+
+
+def test_each_pdf_has_its_own_ink_tries_in_a_match_of_the_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two PDFs, one page each naming S-201, which two sheets carry: each page is told apart by its
+    ink. With tries for one page only (`MAX_INK_TRIES` 2), a set-level match still tries both, as
+    each PDF's own read did: the tries are the PDF's, not the match's (#712's CI: a sheet lost its
+    page when the first PDF spent them)."""
+    tried: list[str] = []
+
+    def by_ink(page: Page, sheets: object, geometry: object, plot: object, budget: list[int]) -> object:
+        budget[0] -= 2
+        tried.append(page.source_sha256)
+        return len(tried) - 1, PlotTransform(PT, 0, (0.0, 0.0)), None
+
+    monkeypatch.setattr(registration, "MAX_INK_TRIES", 2)
+    monkeypatch.setattr(registration, "by_ink", by_ink)
+    a, b = sheet("S-201"), sheet("S-201")
+    pages = [page(1, own("S-201")), page(1, own("S-201"), source=SHA_B)]
+
+    found = registration.match(pages, [a, b], [None, None], {SHA_A: Path("a.pdf"), SHA_B: Path("b.pdf")})
+
+    assert tried == [SHA_A, SHA_B]
+    assert all(m.sheet is not None for m in found)
 
 
 def test_without_its_ink_two_pages_naming_a_sheet_alike_are_left_as_they_named_it(
