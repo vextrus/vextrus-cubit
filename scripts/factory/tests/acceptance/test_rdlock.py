@@ -173,3 +173,18 @@ def test_r5_run_holds_the_lock_logs_unbuffered_and_releases_even_on_failure(
     assert text.split("rdpid=")[1].split()[0].isdigit(), text
     assert lock.holder() is None
     assert lock.acquire("scored", head(8)) == 0
+
+
+def test_r5b_a_posting_run_with_no_review_pass_for_its_head_runs_nothing_and_writes_no_log(
+    lock: Lock,
+) -> None:
+    """S24-A6: a posting run needs a review PASS recorded for its head; with none (here no ledger at
+    all, no `--ticket` and no git repository) it is refused, its command never runs and no log or
+    `rd.pid` is left, and the lock is free for the next run."""
+    sha = head(9)
+    done = lock.run("run", "--kind", "posting", "--head", sha, "--", sys.executable, "-c", RUN, "0")
+    assert "No module named" not in done.stderr, show(done)
+    assert done.returncode != 0, f"the run was not refused: {show(done)}"
+    assert sorted((lock.factory.parent / "rd").glob(f"{sha[:8]}-posting-*.log")) == []
+    assert not (lock.factory / "rd.pid").exists()
+    assert lock.acquire("scored", head(8)) == 0, "a refused run left the lock held"
