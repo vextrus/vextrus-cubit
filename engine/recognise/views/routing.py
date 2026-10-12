@@ -44,11 +44,11 @@ from engine.recognise.types import (
     ViewKind,
 )
 from engine.recognise.views.titles import (
-    _qualifiers,
+    SITE_WORKS,
+    _named,
     _Reading,
     _reading,
     _subjects_in_order,
-    _tokens,
     default_conventions,
 )
 
@@ -74,7 +74,6 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
 """Steps 4 to 10 (the grid, then foundations to tanks) and Step 14 (site works) by a Structural view's
 subject (the subject words make a lintel a beam over an opening and a sunshade, or chajja, a
 cantilever slab; a boundary wall, a compound wall, a setback or the site, site works)."""
-SITE_WORKS = "site_works"
 """The subject of a Structural sheet's site works: the owner's ruling (11 Oct 2026, session 22) sends
 them to Step 14 (`site_mep`) alone, never to the building's Steps (a boundary wall's footing is
 measured with the external works, not the building's foundations); a view whose own title names a
@@ -112,10 +111,7 @@ def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
     well when it names site works; the QS confirms, and no word list decides between them. Its subject
     is the first building element, else site works. Any other sheet's subject is its first one that is
     not site works: the structural set's duplicate rule is unchanged there."""
-    tokens = _tokens(text)
-    matches = reading.subjects.matches(tokens)
-    drop = _qualifiers(tokens, matches, reading)
-    found = [(" ".join(tokens[s:e]), k) for n, (s, e, k) in enumerate(matches) if n not in drop]
+    found = _named(text, reading)
     building = [(w, k) for w, k in found if k != SITE_WORKS]
     if not structural:
         return _Own(building[0][1], building[0][0]) if building else _Own()
@@ -171,12 +167,13 @@ def _proposal(
                 step for key in (subject, *elements) for step in STRUCTURAL_STEPS.get(key or "", ())
             )
         )
+        if site:
+            # Site works named beside elements: Step 14 beside the elements' own Steps, and when none
+            # of them has a Structural Step ("BOUNDARY WALL DOOR DETAIL"), Step 14 alone, never the
+            # sheet's.
+            return (*own, *(s for s in STRUCTURAL_STEPS[SITE_WORKS] if s not in own)), None, None
         if own:
-            return (
-                (*own, *(s for s in STRUCTURAL_STEPS[SITE_WORKS] if site and s not in own)),
-                None,
-                None,
-            )
+            return own, None, None
         return _structural_steps(on_sheet), None, None
     if kind is ViewKind.PLAN and structure:
         return (), None, Exclusion(ExclusionReason.DUPLICATE)

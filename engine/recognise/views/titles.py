@@ -142,10 +142,12 @@ def _named_kind(text: str, reading: _Reading) -> ViewKind | None:
 
 
 def _subject(text: str, reading: _Reading) -> str | None:
-    found = reading.subjects.matches(_tokens(text))
-    return found[0][2] if found else None
+    named = _named(text, reading)
+    return named[0][1] if named else None
 
 
+SITE_WORKS = "site_works"
+"""The subject key of site works (`view-default.json`)."""
 LOCATION_WORDS = frozenset({"site"})
 """The site words that only say where a drawing is ("SITE FOUNDATION PLAN"): a location, so no site
 works of their own once a title names another subject."""
@@ -163,7 +165,7 @@ def _qualifiers(
     element or a storey is named (`SETBACK_WORDS`)."""
     words = [" ".join(tokens[s:e]) for s, e, _ in found]
     others = any(w not in LOCATION_WORDS for w in words)
-    building = any(k != "site_works" for _, _, k in found)
+    building = any(k != SITE_WORKS for _, _, k in found)
     storey = any(t in reading.after_top or _ORDINAL.fullmatch(t) for t in tokens)
     return frozenset(
         n
@@ -172,13 +174,20 @@ def _qualifiers(
     )
 
 
-def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:
-    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS"),
-    without its qualifiers (`_qualifiers`)."""
+def _named(text: str, reading: _Reading) -> list[tuple[str, str]]:
+    """What a title names, in the order it stands: each subject's words and key, but its qualifiers
+    (`_qualifiers`). The one reading every consumer of a title's subjects calls (a view's subject and
+    Steps, a sheet's, `subjects` for the conflicts)."""
     tokens = _tokens(text)
     found = reading.subjects.matches(tokens)
     drop = _qualifiers(tokens, found, reading)
-    return tuple(dict.fromkeys(key for n, (_, _, key) in enumerate(found) if n not in drop))
+    return [(" ".join(tokens[s:e]), key) for n, (s, e, key) in enumerate(found) if n not in drop]
+
+
+def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:
+    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS"),
+    without its qualifiers (`_named`)."""
+    return tuple(dict.fromkeys(key for _, key in _named(text, reading)))
 
 
 @dataclass(frozen=True)
@@ -215,9 +224,12 @@ def _mark(word: str) -> bool:
 
 
 def subjects(text: str, conventions: ViewConventions | None = None) -> frozenset[str]:
-    """Every subject a text names by the conventions' subject words (19b's continuations, #102)."""
+    """Every subject a text names by the conventions' subject words (19b's continuations, #102), as
+    `_named` reads them, but site works: a sheet titled by its site ("SITE ARRANGEMENT") draws its
+    retaining walls and tanks, so a title naming it contradicts nothing its views draw, and a view
+    naming a boundary wall contradicts no title (as before site works were words)."""
     reading = _reading(conventions if conventions is not None else default_conventions())
-    return frozenset(key for _, _, key in reading.subjects.matches(_tokens(text)))
+    return frozenset(key for _, key in _named(text, reading) if key != SITE_WORKS)
 
 
 def _layer(text: str, reading: _Reading) -> Layer | None:

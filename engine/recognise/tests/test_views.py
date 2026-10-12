@@ -1621,3 +1621,26 @@ def test_a_sheet_titled_with_a_setback_storey_names_no_site_works() -> None:
     named = titles_part._subjects_in_order("7TH FLOOR SETBACK COLUMN LAYOUT PLAN", reading)
     assert named == ("column",)
     assert titles_part._subjects_in_order("PLOT SETBACK ARRANGEMENT ZQ", reading) == ("site_works",)
+
+
+@pytest.mark.parametrize(
+    ("title", "sheet_title", "steps"),
+    [
+        ("BOUNDARY WALL DOOR DETAIL ZQ", "TYPICAL DETAILS ZQ", ("site_mep",)),
+        ("COMPOUND WALL WINDOW DETAIL ZQ", "TYPICAL DETAILS ZQ", ("site_mep",)),
+        ("BOUNDARY WALL TOILET DETAIL ZQ", "TYPICAL DETAILS ZQ", ("site_mep",)),
+        ("BOUNDARY WALL DOOR DETAIL ZQ", "BEAM DETAILS ZQ", ("site_mep",)),
+        ("COMPOUND WALL WINDOW DETAIL ZQ", "BEAM DETAILS ZQ", ("site_mep",)),
+        ("BOUNDARY WALL AND BEAM DETAIL ZQ", "BEAM DETAILS ZQ", ("beams", "site_mep")),
+    ],
+)
+def test_a_site_work_beside_an_element_with_no_step_is_proposed_for_step_14_never_the_sheets(
+    title: str, sheet_title: str, steps: tuple[str, ...]
+) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    on_sheet = titles_part._subjects_in_order(sheet_title, reading)
+    own = routing_part._own(title, reading)
+    found, _, exclusion = routing_part._proposal(
+        ViewKind.DETAIL, own.subject, "structural", on_sheet, site=own.site, elements=own.elements
+    )
+    assert (found, exclusion) == (steps, None)
