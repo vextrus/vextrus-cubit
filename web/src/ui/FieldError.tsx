@@ -10,7 +10,7 @@ import { cn } from './cn'
 export function FieldError({ id, children, className }: { id?: string; children?: ReactNode; className?: string }) {
   if (children === null || children === undefined || children === false || children === '') return null
   return (
-    <p id={id} role="alert" data-field-error="" className={cn('text-xs text-destructive', className)}>
+    <p id={id} data-field-error="" className={cn('text-xs text-destructive', className)}>
       {children}
     </p>
   )

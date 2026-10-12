@@ -602,6 +602,12 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
               setEdited(refusal?.n ?? 0)
             }}
           />
+          {/* The refusal is announced (a live region of its own; the field's error stays the visible one). */}
+          {shown ? (
+            <p role="alert" className="sr-only">
+              {shown.text}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
               <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />

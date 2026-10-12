@@ -434,6 +434,7 @@ function useActs(
         queued.current = queued.current.filter((q) => q !== ask)
         // Its toast waits for the reload too (#167, F1): "Undone: …" never beside the Count it changed.
         let done: Done | null = null
+        let undoneKind: string | null = null
         try {
           if (ask.off) {
             done = ask.carry ?? null // undone by the press before it: that press's toast, shown by this last one
@@ -519,6 +520,7 @@ function useActs(
           } else {
             try {
               const act = await undo(projectId)
+              undoneKind = act.act
               done = {
                 message: <Trans>Undone: <UndoneWords act={act} /></Trans>,
                 stale: (
@@ -538,7 +540,8 @@ function useActs(
           const fresh = reloaded(mark)
           undos.current -= 1
           if (undos.current === 0 && !pending.current) setBusy(false)
-          if (undos.current === 0) setUndone((n) => n + 1)
+          // Only a correction's undo moves a row (a number back in its Discipline): focus follows that sheet.
+          if (undos.current === 0 && (entry?.kind === 'correct' || undoneKind === 'correct')) setUndone((n) => n + 1)
           showDone(done, fresh, mark)
         }
       }
