@@ -569,8 +569,8 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
             submit()
           }}
         >
-          <TextField label={<Trans>Number</Trans>} dir="ltr" autoFocus autoComplete="off" spellCheck={false} maxLength={64} value={number} onChange={(event) => setNumber(event.target.value)} />
-          <TextField label={<Trans>Title</Trans>} autoComplete="off" maxLength={500} value={title} onChange={(event) => setTitle(event.target.value)} />
+          <TextField label={<Trans>Number</Trans>} dir="ltr" autoFocus autoComplete="off" spellCheck={false} value={number} onChange={(event) => setNumber(event.target.value)} />
+          <TextField label={<Trans>Title</Trans>} autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} />
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
               <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />

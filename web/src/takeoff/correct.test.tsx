@@ -127,4 +127,16 @@ describe('Correct the Proposal (§6.9)', () => {
     await waitFor(() => expect(step1.seen.find((s) => s.call === 'POST /correct')?.body).toEqual({ proposal: step1.proposals.find((p) => p.number === 'S-05')!.id, number: 'S-51' }))
     await waitFor(() => expect(bodyText()).toContain('Corrected S-05: number → S-51. Still a Proposal until confirmed.'))
   })
+
+  it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {
+    const { step1, title } = await correcting()
+    step1.answerOnce('POST /correct', 400, msg('drawings.sheets.title_too_long'))
+    const long = 'T'.repeat(600)
+    await userEvent.click(title)
+    await userEvent.clear(title)
+    await userEvent.paste(long)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect((step1.seen.find((s) => s.call === 'POST /correct')?.body as { title?: string }).title).toBe(long))
+    await waitFor(() => expect(bodyText()).toContain('longer than 500 characters'))
+  })
 })

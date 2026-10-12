@@ -23,6 +23,8 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   own (400).
 - `confirmed_not_corrected` (S22-FL8): a correction of a confirmed sheet (409); its Confirmation is
   undone first.
+- `correction_moved_on` (S23-FL8): undo of a correction whose sheet has changed since (a later
+  correction, a number or answer given, a confirmation) (409); nothing is restored through them.
 - `nothing_to_undo`: undo with no act of the QS's own left to undo on Step 1 (409).
 - `answer_stays` (156): undo whose act to take back was made by answering a Question (its confirm
   or exclusion); an answer has no undo, so nothing changes (409).
@@ -56,6 +58,7 @@ NOTHING_TO_UNDO = MessageCode("takeoff.step1.nothing_to_undo")
 NOTHING_TO_CORRECT = MessageCode("takeoff.step1.nothing_to_correct")
 CONFIRMED_NOT_CORRECTED = MessageCode("takeoff.step1.confirmed_not_corrected")
 ANSWER_STAYS = MessageCode("takeoff.step1.answer_stays")
+CORRECTION_MOVED_ON = MessageCode("takeoff.step1.correction_moved_on")
 QUESTION_FIRST = MessageCode(
     "takeoff.step1.question_first", params=("count", "asks", "sheet", "named", "question")
 )

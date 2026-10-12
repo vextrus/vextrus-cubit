@@ -158,18 +158,22 @@ def test_undoing_a_correction_retires_the_conflict_its_number_raised(
     assert conflicts_holding(nusrat, kr01, s05["id"]) == []
 
 
-def test_a_title_changed_again_since_is_left_by_the_first_corrections_undo(
+MOVED_ON = {"code": "takeoff.step1.correction_moved_on", "params": {}}
+
+
+def test_a_correction_is_not_undone_once_another_correction_stands_after_it(
     nusrat: Api, kr01: uuid.UUID, as_person: Any
 ) -> None:
+    # Review 3 of #680: undo takes back only the sheet's latest standing correction.
     [s05] = by_number(proposals(nusrat, kr01), "S-05")
     assert correct(nusrat, kr01, {"proposal": s05["id"], "title": "First"}).status_code == 200
-    # The Vextrus Engineer corrects it again: the QS's undo takes back only the QS's own act.
     arif = as_person("arif@vextrus.example", "shapla")
     second = correct(arif, kr01, {"proposal": s05["id"], "title": "Second"})
     assert second.status_code == 200, second.content
 
-    undo(nusrat, kr01)
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
 
+    assert (refused.status_code, refused.json()) == (409, MOVED_ON)
     after = the(nusrat, kr01, s05["id"])
     assert (after["title"], after["corrected"]) == ("Second", True)
 
@@ -364,20 +368,27 @@ def test_a_corrected_value_is_sourced_to_the_correction_so_the_sheet_does_not_ag
     assert (back["title_source"], back["agrees"]) == (first[1], True)
 
 
-def test_two_people_correcting_one_sheet_undo_back_to_the_reading_whatever_the_order(
+def test_two_people_correcting_one_sheet_undo_only_the_latest_each_time(
     demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
 ) -> None:
-    # Review 3 of #680 (60): B's undo restored A's undone value, the sheet kept A's number.
+    # Reviews 2 and 3 of #680: A corrects, B corrects; A's undo is refused (B's number would be
+    # overwritten); B's takes the sheet back to A's number; then A's takes it back to the reading.
     other = second_qs(demo, sign_in, kr01)
     [sheet] = by_number(proposals(nusrat, kr01), None)
     was = the(nusrat, kr01, sheet["id"])
     assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-93"}).status_code == 200
     assert correct(other, kr01, {"proposal": sheet["id"], "number": "A-94"}).status_code == 200
 
-    undo(nusrat, kr01)  # A's: B's number stands, nothing is put back
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
+    assert (refused.status_code, refused.json()) == (409, MOVED_ON)
     assert the(nusrat, kr01, sheet["id"])["number"] == "A-94"
-    undo(other, kr01)  # B's: no correction stands, so the reading
 
+    undo(other, kr01)
+    mid = the(nusrat, kr01, sheet["id"])
+    assert (mid["number"], mid["corrected"], mid["number_source"]) == ("A-93", True, "typed")
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["answered"]
+
+    undo(nusrat, kr01)
     after = the(nusrat, kr01, sheet["id"])
     assert (after["number"], after["corrected"], after["number_source"]) == (
         None,
@@ -387,18 +398,56 @@ def test_two_people_correcting_one_sheet_undo_back_to_the_reading_whatever_the_o
     assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["open"]
 
 
-def test_the_earlier_correction_stands_when_the_later_one_is_undone(
-    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+def test_a_number_typed_through_the_question_since_is_not_undone_by_an_older_correction(
+    nusrat: Api, kr01: uuid.UUID
 ) -> None:
-    other = second_qs(demo, sign_in, kr01)
-    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
-    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "First title"}).status_code == 200
-    assert correct(other, kr01, {"proposal": sheet["id"], "title": "Second title"}).status_code == 200
+    # Review 3 of #680 (70): the correction's undo restored the oldest `before` over a typed number.
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-93"}).status_code == 200
+    undo(nusrat, kr01)  # the Question asks again
+    [question] = [
+        q
+        for q in nusrat.get(f"{step1(kr01)}/questions").json()["questions"]
+        if q["kind"] == "missing" and str(q["subject_id"]) == sheet["sheet_id"]
+    ]
+    typed = nusrat.post(
+        f"{step1(kr01)}/questions/{question['id']}/answer", {"option": "type_number", "text": "A-96"}
+    )
+    assert typed.status_code == 200, typed.content
 
-    undo(other, kr01)
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
 
-    after = the(nusrat, kr01, sheet["id"])
-    assert (after["title"], after["corrected"], after["title_source"]) == ("First title", True, "typed")
+    assert refused.status_code == 409  # an answer has no undo, nor anything before it
+    assert the(nusrat, kr01, sheet["id"])["number"] == "A-96"
+
+
+def test_a_keep_open_answer_given_after_an_undone_correction_is_kept_by_the_next_ones_undo(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 3 of #680 (52, 50): the Question's answer comes from the undone correction's own
+    # snapshot only, never an older one.
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    path = step1(kr01)
+
+    def question() -> dict[str, Any]:
+        listed = nusrat.get(f"{path}/questions").json()["questions"]
+        [found] = [
+            q for q in listed if q["kind"] == "missing" and str(q["subject_id"]) == sheet["sheet_id"]
+        ]
+        found: dict[str, Any]
+        return found
+
+    first_id = question()["id"]
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-93"}).status_code == 200
+    undo(nusrat, kr01)
+    kept = nusrat.post(f"{path}/questions/{first_id}/answer", {"option": "keep_open"})
+    assert kept.status_code == 200, kept.content
+    given = (question()["status"], question().get("answer"))
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-97"}).status_code == 200
+
+    undo(nusrat, kr01)
+
+    assert (question()["status"], question().get("answer")) == given
 
 
 def test_undoing_a_correction_keeps_a_keep_open_answer_given_before_it(

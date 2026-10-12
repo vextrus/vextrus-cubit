@@ -446,7 +446,7 @@ function State({ row }: { row: Row }) {
       <span className="inline-flex items-center gap-1.5 text-proposal">
         <StatusMark status="proposal" compact />
         {/* The compact mark says "Proposal" (its tooltip, and to a screen reader): 150 px holds no more. */}
-        {state.oneSource ? <Trans>One source, corrected</Trans> : <Trans>Proposal, corrected</Trans>}
+        <Trans>Proposal, corrected</Trans>
       </span>
     )
   return state.oneSource ? (

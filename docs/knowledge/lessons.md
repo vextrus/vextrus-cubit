@@ -585,5 +585,10 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `record_sheets` does). Round 3 found the same class again (an undo that restored one act's old value over
   another person's: A and B correct, A undoes, B undoes). Check: `vextrus/takeoff/tests/test_step1_correct.py`
   (`test_a_correction_undone_after_the_exclusion_it_followed_was_undone_asks_the_question_open`,
-  `test_two_people_correcting_one_sheet_undo_back_to_the_reading_whatever_the_order`,
+  `test_two_people_correcting_one_sheet_undo_only_the_latest_each_time`,
   `test_correcting_a_title_clears_the_plot_page_that_read_the_old_title`).
+- **A fourth round of the same undo class: restoring "through a chain" of other people's acts never stopped finding
+  cases** (#680 reviews 2-3: five findings, one root). Round 4 changed the shape, as the constant-tuning lesson
+  says: an undo takes back only the latest standing act, only while the row is as the act left it, else it is
+  refused in words. Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_a_correction_is_not_undone_once_another_correction_stands_after_it`).
