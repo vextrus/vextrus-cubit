@@ -1214,9 +1214,16 @@ def _register(
             else [],
         )
         findings.append((result.finding, [sheet.id] if sheet else [], question_id))
+    # A number listed and in no file, or in a file and not listed, no longer so (a correction undone
+    # takes the number back) is withdrawn with its gaps (design gate of #706).
     step1.retire_questions(
         project_id,
-        (list_codes.GAP.code, list_codes.GAPS.code),
+        (
+            list_codes.GAP.code,
+            list_codes.GAPS.code,
+            list_codes.NOT_FOUND.code,
+            list_codes.NOT_LISTED.code,
+        ),
         [q for _, _, q in findings if q is not None],
     )
     step1.record_check_run(

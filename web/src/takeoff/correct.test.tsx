@@ -193,12 +193,56 @@ describe('Correct the Proposal (§6.9)', () => {
     await userEvent.keyboard('{Control>}z{/Control}')
     await waitFor(() => expect(bodyText()).toContain('Undone: corrected S-05'))
     expect(bodyText()).not.toContain('Undone: corrected S-06')
+    // Design gate of #706 (70): the toast says the passed-over correction stays, and why.
+    expect(bodyText()).toContain('Your correction of S-06 stays: it has changed since.')
     await settled()
 
     // S-06's correction stayed in the history: the next Ctrl Z takes it (its own Confirmation).
     step1.answerOnce('POST /undo', 200, out('correct', '01a10000-0000-7000-8000-0000000000a6'))
     await userEvent.keyboard('{Control>}z{/Control}')
     await waitFor(() => expect(bodyText()).toContain('Undone: corrected S-06'))
+  })
+
+  it('two Ctrl Z pressed quickly: the second is the first one\'s own, already undone, so it makes no call', async () => {
+    // Review 1 of #706 (50): press 2 popped an entry before press 1's reply arrived.
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    let release: () => void = () => {}
+    const base = api.handle
+    let holdOnce = true
+    api.handle = async (request: Request) => {
+      if (holdOnce && request.method === 'POST' && new URL(request.url, location.origin).pathname.endsWith('/undo')) {
+        holdOnce = false
+        await new Promise<void>((resolve) => (release = resolve))
+      }
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    const out = (id: string) => ({ confirmation_id: id, act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    const settled = () => waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+    const ids: Record<string, string> = { 'S-01': '01a10000-0000-7000-8000-0000000000b1', 'S-02': '01a10000-0000-7000-8000-0000000000b2', 'S-05': '01a10000-0000-7000-8000-0000000000b5' }
+    for (const [current, typed] of [['S-01', 'S-11'], ['S-02', 'S-12'], ['S-05', 'S-15']] as const) {
+      await userEvent.click(within(rowFor(current)).getByText(current))
+      await userEvent.keyboard('e')
+      await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+      const field = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+      step1.answerOnce('POST /correct', 200, out(ids[current]!))
+      await userEvent.clear(field)
+      await userEvent.type(field, typed)
+      await userEvent.keyboard('{Enter}')
+      await waitFor(() => expect(bodyText()).toContain(`Corrected ${current}`))
+      await settled()
+    }
+    // Another person corrected S-05: the server passes it over and undoes S-02's.
+    step1.answerOnce('POST /undo', 200, out(ids['S-02']!))
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await userEvent.keyboard('{Control>}z{/Control}') // pressed before the first one's reply
+    release()
+    await waitFor(() => expect(bodyText()).toContain('Undone: corrected S-02'))
+    await settled()
+    expect(bodyText()).not.toContain('Undone: corrected S-05')
+    expect(count(step1, 'POST /undo')).toBe(1)
   })
 
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {

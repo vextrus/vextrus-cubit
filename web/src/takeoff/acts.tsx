@@ -67,6 +67,8 @@ interface Entry {
   kind?: 'correct'
   /** The Confirmations its server calls made (the replies' `confirmation_id`): an undo's reply is matched to its entry by them. */
   ids: string[]
+  /** A correction's sheet, named in "Your correction of S-04 stays: it has changed since." */
+  name?: ReactNode
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -313,7 +315,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
    * counts its calls once they are made. A key that comes while another act or an undo is in flight is
    * dropped, and kept as an act that made nothing, so the Ctrl Z after it undoes nothing and says so.
    */
-  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct', ids?: string[]) => void) | null => {
+  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct', ids?: string[], name?: ReactNode) => void) | null => {
     if (pending.current || undos.current > 0) {
       if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true, ids: [] })
       return null
@@ -327,7 +329,8 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
     let counted = () => {}
     const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false, ids: [] }
     history.current.push(entry)
-    return (calls, words, kind, ids) => {
+    return (calls, words, kind, ids, name) => {
+      entry.name = name
       entry.calls = calls
       entry.words = words
       entry.kind = kind
@@ -357,7 +360,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
    * refuter of round 4: otherwise the next undo takes back the server's latest act under another act's
    * words).
    */
-  const queued = useRef<{ entry: Entry | undefined; off: boolean; kept: boolean }[]>([])
+  const queued = useRef<{ entry: Entry | undefined; off: boolean; kept: boolean; carry?: Done }[]>([])
 
   /** Puts acts back under any dropped keys kept since (no act is made while undos run). */
   const restore = useCallback((entries: Entry[]) => {
@@ -398,7 +401,10 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         // Its toast waits for the reload too (#167, F1): "Undone: …" never beside the Count it changed.
         let done: Done | null = null
         try {
-          if (ask.off) return
+          if (ask.off) {
+            done = ask.carry ?? null // undone by the press before it: that press's toast, shown by this last one
+            return
+          }
           if (entry) {
             // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
             const waited = !entry.counted
@@ -425,30 +431,49 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
               let reply: ActOut | undefined
               for (; left > 0; left--) reply = await undo(projectId)
               let words = entry.words
+              let stays: ReactNode = null
+              let carried: (typeof queued.current)[number] | undefined
               if (entry.kind === 'correct' && reply && entry.ids.length > 0 && !entry.ids.includes(reply.confirmation_id)) {
                 // The server passed the correction over (its sheet moved on) and undid another act: matched
                 // to its entry by the Confirmation it took, so exactly that entry goes, the words are its,
                 // and every passed-over correction stays to undo.
                 const at = history.current.findLastIndex((e) => e.ids.includes(reply.confirmation_id))
-                const taken = at === -1 ? undefined : history.current[at]
-                if (taken) {
+                // Or another press already popped it and is still queued behind this one: undone now,
+                // so that press makes no second call (review 1 of #706).
+                const behind = at === -1 ? queued.current.find((q) => q.entry?.ids.includes(reply.confirmation_id)) : undefined
+                const taken = at !== -1 ? history.current[at] : behind?.entry
+                if (behind) behind.off = true
+                carried = behind
+                if (taken && taken.calls > 1) {
+                  // A bulk act of several calls: one of them is taken back; the rest stay to undo.
+                  taken.calls -= 1
                   taken.ids = taken.ids.filter((id) => id !== reply.confirmation_id)
-                  if (taken.calls > 1) {
-                    // A bulk act of several calls: one of them is taken back; the rest stay to undo.
-                    taken.calls -= 1
-                    words = <UndoneWords act={reply} />
-                  } else {
-                    history.current.splice(at, 1)
-                    words = taken.words ?? <UndoneWords act={reply} />
-                  }
-                } else {
                   words = <UndoneWords act={reply} />
+                  if (behind) behind.off = false // the rest of it is that press's to undo
+                } else {
+                  if (at !== -1) history.current.splice(at, 1)
+                  words = taken?.words ?? <UndoneWords act={reply} />
                 }
                 restore([entry])
+                if (entry.kind === 'correct') stays = entry.name ?? <Trans>a sheet</Trans>
               }
-              done = {
-                message: <Trans>Undone: {words}</Trans>,
-                stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
+              done = stays
+                ? {
+                    message: <Trans>Undone: {words}. Your correction of {stays} stays: it has changed since.</Trans>,
+                    stale: (
+                      <Trans>
+                        Undone: {words}. Your correction of {stays} stays: it has changed since. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.
+                      </Trans>
+                    ),
+                  }
+                : {
+                    message: <Trans>Undone: {words}</Trans>,
+                    stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
+                  }
+              if (carried && carried.off) {
+                // The press behind this one was undone by it: its (last) toast is this one's words.
+                carried.carry = done
+                done = null
               }
             } catch (error) {
               if (reached(error)) left -= 1
@@ -512,7 +537,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
 
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
-    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode, kind?: 'correct'): Promise<boolean> => {
+    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode, kind?: 'correct', name?: ReactNode): Promise<boolean> => {
       const counted = begin()
       if (!counted) return false
       const mark = marked()
@@ -533,7 +558,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         say(error)
         return false
       } finally {
-        counted(made, words, kind, ids)
+        counted(made, words, kind, ids, name)
         showDone(done, await settle(mark), mark)
       }
     },
@@ -681,6 +706,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
           </Trans>
         ),
         'correct',
+        name,
       )
     },
     [projectId, run],

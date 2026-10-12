@@ -612,3 +612,38 @@ def test_the_refusal_says_that_sheet_when_its_number_is_no_longer_the_one_the_co
 
     assert refused.status_code == 409
     assert refused.json()["params"] == {"sheet": "", "named": "none"}
+
+
+def open_questions_of(api: Api, project: uuid.UUID) -> list[tuple[str, str, str]]:
+    listed = api.get(f"{step1(project)}/questions").json()["questions"]
+    return sorted(
+        (q["kind"], q.get("code") or "", str(q.get("subject_id") or ""))
+        for q in listed
+        if q["status"] == "open"
+    )
+
+
+def test_undoing_a_number_correction_leaves_the_open_questions_exactly_as_before(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Design gate of #706 (90): the Questions the new number raised stayed open and held the sheet.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-02")
+    before = open_questions_of(nusrat, kr01)
+
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "S-02A"}).status_code == 200
+    assert open_questions_of(nusrat, kr01) != before  # the number raised its own Questions
+    undo(nusrat, kr01)
+
+    after = open_questions_of(nusrat, kr01)
+    assert [q for q in after if q not in before] == []
+    assert [q for q in before if q not in after] == []
+
+
+def test_answer_stays_after_correction_ends_with_answer_stays_closing_words() -> None:
+    # Review 1 of #706 (55): the owner's verbatim words are not cut (m0-screens 1.1, 5 / 6.9).
+    from pathlib import Path
+
+    po = (Path(__file__).resolve().parents[3] / "web/src/messages/takeoff/step1/en.po").read_text()
+    closing = "To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."
+    after = po.split('msgid "takeoff.step1.answer_stays_after_correction"')[1].split("\n\n")[0]
+    assert closing in after
