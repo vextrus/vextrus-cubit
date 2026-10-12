@@ -39,8 +39,8 @@ beams) under the act confirming it; the QS may put any view not left out in Step
 the API's only in M0: m0-screens 6.9). A step given by an act stands while the act is not undone
 (`CoverageStep.confirmation`; the app deletes no row).
 
-For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_question`,
-`answer_question` and `record_progress` write the rows Step 1 reads.
+For the seed and 21c's read job: `propose_sheet`, `record_coverage` (`propose_views`: a file's views
+at once), `raise_question`, `answer_question` and `record_progress` write the rows Step 1 reads.
 """
 
 import contextlib
@@ -53,6 +53,7 @@ from collections import Counter
 from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, cast
 
 from django.db import connection, transaction
@@ -2320,7 +2321,34 @@ def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Trac
     sheet = _sheet(view.sheet_revision_id)
     if _project_of(sheet) != project_id:
         raise auth.NotFound
-    values = {
+    return _view_rows(project_id, [(view, traces)])[view.id]
+
+
+def propose_views(
+    project_id: uuid.UUID,
+    viewed: Sequence[tuple[drawings.SheetView, Sequence[drawings.ViewView]]],
+    traces: Callable[[drawings.ViewView], Traces],
+) -> int:
+    """Each view of the printed sheets given (each sheet with its views, as `drawings.views` lists
+    them) as `propose_view` and `record_coverage` write it, the views' rows written together: the
+    scope and each file's Project read once, every view's Proposal in one upsert, their Traces in one
+    insert, every Coverage row in one upsert and its Coverage Steps in one insert (S22-LOCKHOLD: the
+    read job writes them under Step 1's write lock, which an act waits on for 3 s at most). The
+    same rows as the per-view writes; idempotent; the views written."""
+    _in_scope(project_id)
+    owners: dict[uuid.UUID, uuid.UUID] = {}
+    for sheet, views in viewed:
+        if sheet.file_id not in owners:
+            owners[sheet.file_id] = drawings.file(sheet.file_id).project_id
+        if owners[sheet.file_id] != project_id or any(v.sheet_revision_id != sheet.id for v in views):
+            raise auth.NotFound
+    every = [view for _sheet_, views in viewed for view in views]
+    _view_rows(project_id, [(view, traces(view)) for view in every])
+    return _coverage_rows(project_id, every)
+
+
+def _view_values(view: drawings.ViewView) -> dict[str, Any]:
+    return {
         "sheet_id": str(view.sheet_revision_id),
         "title": view.title,
         "kind": view.kind,
@@ -2328,26 +2356,89 @@ def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Trac
         "part": view.part,
         "exclusion": view.proposed_exclusion,
     }
-    row, _made = Proposal.objects.update_or_create(
-        tenant_id=_tenant(),
-        project_id=project_id,
-        step=SHEETS,
-        candidate_key=f"view:{view.id}",
-        defaults={"subject": ProposalSubject.VIEW, "subject_id": view.id, "values": values},
+
+
+def _view_rows(
+    project_id: uuid.UUID, viewed: Sequence[tuple[drawings.ViewView, Traces]]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The views' Proposals (keyed `view:<id>`; an existing one's subject and values updated in
+    place, as `update_or_create` did) in one upsert, then their Traces; each Proposal's id by its
+    view's. Statements: a fixed few, whatever the number of views."""
+    if not viewed:
+        return {}
+    tenant_id = _tenant()
+    by_key = {f"view:{view.id}": (view, traces) for view, traces in viewed}
+    Proposal.objects.bulk_create(
+        [
+            Proposal(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                step=SHEETS,
+                candidate_key=key,
+                subject=ProposalSubject.VIEW,
+                subject_id=view.id,
+                values=_view_values(view),
+            )
+            for key, (view, _traces) in by_key.items()
+        ],
+        update_conflicts=True,
+        unique_fields=["tenant_id", "project_id", "step", "candidate_key"],
+        update_fields=["subject", "subject_id", "values"],
     )
-    _trace(row, traces)
-    return row.id
+    ids = dict(
+        Proposal.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, step=SHEETS, candidate_key__in=by_key
+        ).values_list("candidate_key", "id")
+    )
+    _traces(tenant_id, project_id, [(ids[key], traces) for key, (_view, traces) in by_key.items()])
+    return {view.id: ids[key] for key, (view, _traces) in by_key.items()}
 
 
 def _trace(proposal: Proposal, traces: Traces) -> None:
-    for fact, anchor in traces:
-        ProposalTrace.objects.get_or_create(
-            tenant_id=proposal.tenant_id,
-            project_id=proposal.project_id,
-            proposal=proposal,
-            fact=fact[:64],
-            anchor=dict(anchor),
-        )
+    _traces(proposal.tenant_id, proposal.project_id, [(proposal.id, traces)])
+
+
+def _traces(
+    tenant_id: uuid.UUID, project_id: uuid.UUID, given: Sequence[tuple[uuid.UUID, Traces]]
+) -> None:
+    """Each Proposal's Traces, once each (fact cut to 64, anchor): a Trace already written is kept,
+    as `get_or_create` kept it; the missing ones inserted together. Two statements at most."""
+    wanted = [(pid, fact[:64], dict(anchor)) for pid, traces in given for fact, anchor in traces]
+    if not wanted:
+        return
+    have = {
+        (pid, fact, _same(anchor))
+        for pid, fact, anchor in ProposalTrace.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, proposal_id__in={w[0] for w in wanted}
+        ).values_list("proposal_id", "fact", "anchor")
+    }
+    made = []
+    for pid, fact, anchor in wanted:
+        key = (pid, fact, _same(anchor))
+        if key not in have:
+            have.add(key)
+            made.append(
+                ProposalTrace(
+                    tenant_id=tenant_id, project_id=project_id, proposal_id=pid, fact=fact, anchor=anchor
+                )
+            )
+    if made:
+        ProposalTrace.objects.bulk_create(made)
+
+
+def _same(value: Any) -> Hashable:
+    """A JSON value as a key equal for values PostgreSQL's `jsonb` holds equal (`get_or_create`'s
+    `anchor=` matched in the database): numbers by value (1 and 1.0 alike), a boolean never a number,
+    objects whatever their keys' order."""
+    if isinstance(value, Mapping):
+        return ("object", frozenset((str(k), _same(v)) for k, v in value.items()))
+    if isinstance(value, list | tuple):
+        return ("array", tuple(_same(v) for v in value))
+    if isinstance(value, bool) or value is None:
+        return ("literal", value)
+    if isinstance(value, int | float):
+        return ("number", Decimal(repr(value)))
+    return ("string", str(value))
 
 
 def proposal_ids(project_id: uuid.UUID) -> dict[uuid.UUID, uuid.UUID]:
@@ -2514,36 +2605,70 @@ def record_coverage(sheet_id: uuid.UUID) -> int:
     """Each view of a printed sheet as a Coverage row, from its proposal: to its Takeoff Steps or its
     Discipline Part, left out with a reason, or unaccounted. Idempotent; the rows written."""
     sheet = _sheet(sheet_id)
-    project_id = _project_of(sheet)
+    return _coverage_rows(_project_of(sheet), drawings.views(sheet_id))
+
+
+def _coverage_rows(project_id: uuid.UUID, views: Sequence[drawings.ViewView]) -> int:
+    """The views' Coverage rows (an existing proposed row's proposal and standing put back as read,
+    as `update_or_create` did) in one upsert, then their proposed Coverage Steps in one insert, an
+    existing one kept. Statements: a fixed few, whatever the number of views; the rows written."""
+    if not views:
+        return 0
     tenant_id = _tenant()
-    written = 0
-    for view in drawings.views(sheet_id):
+    rows = {}
+    for view in views:
         if view.proposed_exclusion:
             status, reason = CoverageStatus.EXCLUDED, view.proposed_exclusion
         elif view.steps or view.part:
             status, reason = CoverageStatus.ASSIGNED, ""
         else:
             status, reason = CoverageStatus.UNACCOUNTED, ""
-        row, _made = Coverage.objects.update_or_create(
+        rows[view.id] = Coverage(
             tenant_id=tenant_id,
             project_id=project_id,
             drawing_set_state_id=None,
             view_id=view.id,
-            defaults={
-                "sheet_revision_id": sheet_id,
-                "proposed_status": status,
-                "proposed_reason": reason,
-                "status": status,
-                "reason": reason,
-                "part_key": view.part or "",
-            },
+            sheet_revision_id=view.sheet_revision_id,
+            proposed_status=status,
+            proposed_reason=reason,
+            status=status,
+            reason=reason,
+            part_key=view.part or "",
         )
-        for step in view.steps:
-            CoverageStep.objects.get_or_create(
-                tenant_id=tenant_id, project_id=project_id, coverage=row, step=step, confirmation=None
-            )
-        written += 1
-    return written
+    Coverage.objects.bulk_create(
+        list(rows.values()),
+        update_conflicts=True,
+        unique_fields=["tenant_id", "project_id", "drawing_set_state_id", "view_id"],
+        update_fields=[
+            "sheet_revision_id",
+            "proposed_status",
+            "proposed_reason",
+            "status",
+            "reason",
+            "part_key",
+        ],
+    )
+    ids = dict(
+        Coverage.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, drawing_set_state_id=None, view_id__in=rows
+        ).values_list("view_id", "id")
+    )
+    steps = {(ids[view.id], step) for view in views for step in view.steps}
+    if steps:
+        CoverageStep.objects.bulk_create(
+            [
+                CoverageStep(
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    coverage_id=coverage_id,
+                    step=step,
+                    confirmation=None,
+                )
+                for coverage_id, step in sorted(steps, key=lambda s: (str(s[0]), s[1]))
+            ],
+            ignore_conflicts=True,
+        )
+    return len(rows)
 
 
 def raise_question(
