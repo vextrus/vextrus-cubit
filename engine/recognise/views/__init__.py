@@ -200,7 +200,7 @@ def _candidate(
     scale = view.scale
     if title is not None and scale is None:
         scale = scales.read(title, reading.patterns)
-    own = _own(title, reading) if title is not None else _Own()
+    own = _own(title, reading, structural=discipline == "structural") if title is not None else _Own()
     subject = own.subject
     layer = _layer(title, reading) if title is not None else None
     lines = [" ".join(u.shown.split()) for u in view.lines]

@@ -15,6 +15,7 @@ N.T.S. marks it not to scale.
 """
 
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
@@ -148,19 +149,36 @@ def _subject(text: str, reading: _Reading) -> str | None:
 LOCATION_WORDS = frozenset({"site"})
 """The site words that only say where a drawing is ("SITE FOUNDATION PLAN"): a location, so no site
 works of their own once a title names another subject."""
+SETBACK_WORDS = frozenset({"setback", "setbacks", "set back"})
+"""A setback is site works only when the title names no storey and no building element: on a stepped
+high-rise it is a storey's word ("7TH FLOOR SETBACK COLUMN LAYOUT PLAN")."""
+_ORDINAL = re.compile(r"\d+(st|nd|rd|th)")
+
+
+def _qualifiers(
+    tokens: Sequence[str], found: Sequence[tuple[int, int, str]], reading: _Reading
+) -> frozenset[int]:
+    """The indexes of the matches that only qualify the title and name no subject of their own: a
+    location word when another subject is named (`LOCATION_WORDS`); a setback word when a building
+    element or a storey is named (`SETBACK_WORDS`)."""
+    words = [" ".join(tokens[s:e]) for s, e, _ in found]
+    others = any(w not in LOCATION_WORDS for w in words)
+    building = any(k != "site_works" for _, _, k in found)
+    storey = any(t in reading.after_top or _ORDINAL.fullmatch(t) for t in tokens)
+    return frozenset(
+        n
+        for n, w in enumerate(words)
+        if (w in LOCATION_WORDS and others) or (w in SETBACK_WORDS and (building or storey))
+    )
 
 
 def _subjects_in_order(text: str, reading: _Reading) -> tuple[str, ...]:
-    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS"); a
-    bare location word ("site", `LOCATION_WORDS`) is left out when another subject is named."""
+    """Every subject the text names, each once, in the order they stand ("COLUMN & BEAM DETAILS"),
+    without its qualifiers (`_qualifiers`)."""
     tokens = _tokens(text)
     found = reading.subjects.matches(tokens)
-    others = any(" ".join(tokens[s:e]) not in LOCATION_WORDS for s, e, _ in found)
-    return tuple(
-        dict.fromkeys(
-            key for s, e, key in found if not (others and " ".join(tokens[s:e]) in LOCATION_WORDS)
-        )
-    )
+    drop = _qualifiers(tokens, found, reading)
+    return tuple(dict.fromkeys(key for n, (_, _, key) in enumerate(found) if n not in drop))
 
 
 @dataclass(frozen=True)

@@ -653,7 +653,7 @@ def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> No
     [
         "COMPOUND WALL TYPICALS ZQ",
         "FOOTING ZQ AND BOUNDARY WALL ARRANGEMENT",
-        "PLOT SETBACK ZQ AND PILE ARRANGEMENT",
+        "COMPOUND WALL ZQ AND PILE ARRANGEMENT",
     ],
 )
 def test_a_sheet_naming_site_works_sends_its_untitled_views_to_step_14_alone(sheet_title: str) -> None:
@@ -1513,8 +1513,19 @@ _SITE_CASES = [
     ("BOUNDARY WALL FOOTING DETAIL", "site_works", ("site_mep",)),
     ("FOOTING DETAIL OF BOUNDARY WALL", "site_works", ("site_mep",)),
     ("FOUNDATION PLAN FOR COMPOUND WALL", "site_works", ("site_mep",)),
-    ("SETBACK AND BEAM LAYOUT", "beam", ("beams", "site_mep")),
-    ("BEAM LAYOUT AND SETBACK", "beam", ("beams", "site_mep")),
+    ("SETBACK AND BEAM LAYOUT", "beam", ("beams",)),
+    ("BEAM LAYOUT AND SETBACK", "beam", ("beams",)),
+    ("PLOT SETBACK ARRANGEMENT ZQ", "site_works", ("site_mep",)),
+    ("SETBACK PLAN ZQ", "site_works", ("site_mep",)),
+    ("7TH FLOOR SETBACK COLUMN LAYOUT PLAN", "column", ("columns",)),
+    ("7TH FLOOR SETBACK BEAM LAYOUT PLAN", "beam", ("beams",)),
+    ("BEAM LAYOUT PLAN AT SETBACK", "beam", ("beams",)),
+    ("(SETBACK) COLUMN LAYOUT PLAN 7TH TO 10TH FLOOR", "column", ("columns",)),
+    ("FOOTING AND GRADE BEAM DETAIL OF BOUNDARY WALL ZQ", "site_works", ("site_mep",)),
+    ("FOOTING AND TIE BEAM SECTION OF COMPOUND WALL ZQ", "site_works", ("site_mep",)),
+    ("FOOTING DETAIL OF COLUMN AT BOUNDARY WALL ZQ", "site_works", ("site_mep",)),
+    ("FOOTING DETAIL OF BOUNDARY WALL ZQ", "site_works", ("site_mep",)),
+    ("BOUNDARY WALL FOOTING AND TIE BEAM DETAIL", "site_works", ("site_mep",)),
     ("BOUNDARY WALL AND COLUMN LAYOUT", "column", ("columns", "site_mep")),
 ]
 
@@ -1554,3 +1565,40 @@ def test_a_site_view_with_a_column_has_the_columns_storey_meaning() -> None:
     for title in ("SITE PLAN AND COLUMN LAYOUT", "COLUMN LAYOUT AND SITE PLAN"):
         subject = routing_part._own(title, reading).subject
         assert storeys_part._meaning(subject) == storeys_part._meaning("column")
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "COLUMN LAYOUT PLAN FOR COMPOUND WALL",
+        "BEAM LAYOUT PLAN AT BOUNDARY WALL",
+        "BOUNDARY WALL COLUMN LAYOUT",
+    ],
+)
+def test_a_tie_to_a_site_work_is_a_structural_sheets_only(title: str) -> None:
+    """An Architectural sheet keeps its subject-duplicate rule: the structure it draws is the set's."""
+    reading = titles_part._reading(CONVENTIONS)
+    structure = routing_part._draws_structure(title, reading)
+    own = routing_part._own(title, reading, structural=False)
+    _, _, exclusion = routing_part._proposal(
+        ViewKind.PLAN, own.subject, "architectural", structure=structure
+    )
+    assert exclusion is not None
+    assert exclusion.reason is ExclusionReason.DUPLICATE
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["7TH FLOOR SETBACK COLUMN LAYOUT PLAN", "7TH FLOOR SETBACK BEAM LAYOUT PLAN"],
+)
+def test_a_setback_storey_is_not_drawn_twice_with_its_neighbour(title: str) -> None:
+    """A setback word in a storey's title keeps the building subject (no false same-storey conflict)."""
+    reading = titles_part._reading(CONVENTIONS)
+    assert routing_part._own(title, reading).subject != "site_works"
+
+
+def test_a_sheet_titled_with_a_setback_storey_names_no_site_works() -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    named = titles_part._subjects_in_order("7TH FLOOR SETBACK COLUMN LAYOUT PLAN", reading)
+    assert named == ("column",)
+    assert titles_part._subjects_in_order("PLOT SETBACK ARRANGEMENT ZQ", reading) == ("site_works",)

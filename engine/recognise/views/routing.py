@@ -12,13 +12,15 @@ plans and 3D/perspective views are excluded `for_information`; a legend goes to 
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
 Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10, and 14 for site works).
 A title is read by what it names, never by the order of its words (`_own`): a bare "site" only says
-where; a footing tied to a boundary wall by "of" or "for" goes with it; a building element named on
-its own keeps its Step beside Step 14. One whose own title names no subject with a Step ("SECTION
-1-1") goes to the Steps of every subject its sheet's title names ("BEAM DETAILS": beams), in the
-title's order, its own subject kept as its title says (#158), or to Step 14 alone when its sheet's
-title names site works (a boundary wall, say); on a sheet whose title names none either it has no
-Step (unaccounted until the QS assigns it or
-Step 1 tells it from the kind the sheet is confirmed as, `vextrus/takeoff/services/step1.py`). An
+where, and a setback beside a storey or a building element is a storey's word; on a Structural sheet
+the group of elements a boundary wall leads into or "of" and "for" lead from ("FOOTING AND GRADE BEAM
+DETAIL OF BOUNDARY WALL") goes with it to Step 14, and an element named on its own keeps its Step.
+One whose own title names no subject with a Step ("SECTION 1-1") goes to the Steps of every subject
+its sheet's title names ("BEAM DETAILS": beams), in the title's order, its own subject kept as its
+title says (#158), or to Step 14 alone when its sheet's title names site works (a boundary wall,
+say); on a sheet whose title names none either it has no Step (unaccounted until the QS assigns it
+or Step 1 tells it from the kind the sheet is confirmed as,
+`vextrus/takeoff/services/step1.py`). An
 Architectural plan drawing the structure (a column or beam subject, named by a word not a lintel's:
 `NOT_STRUCTURE_WORDS`) is excluded as a `duplicate` (the structural set governs); an Architectural
 fixture plan or toilet detail goes to Steps 11 and 12 and to the Plumbing and sanitary Part as well;
@@ -41,7 +43,7 @@ from engine.recognise.types import (
     ViewKind,
 )
 from engine.recognise.views.titles import (
-    LOCATION_WORDS,
+    _qualifiers,
     _Reading,
     _reading,
     _subjects_in_order,
@@ -92,9 +94,11 @@ _EXCLUDED_KINDS = frozenset({ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.P
 
 TIE_WORDS = frozenset({"of", "for", "to", "at", "under"})
 """The words that tie a building element to a site work beside it ("FOOTING OF BOUNDARY WALL"): the
-element is that site work's own and goes with it. "AND" and "WITH" tie nothing."""
+element is that site work's own and goes with it. "AND" and "WITH" tie nothing by themselves."""
 FILLER_WORDS = frozenset({"detail", "details", "plan", "layout", "arrangement", "section", "typical"})
 """Words that may stand beside a tie word between the two ("FOUNDATION PLAN FOR COMPOUND WALL")."""
+JOIN_WORDS = frozenset({"and"})
+"""Words that join building elements into one group ("FOOTING AND GRADE BEAM")."""
 
 
 @dataclass(frozen=True)
@@ -107,39 +111,66 @@ class _Own:
     site: bool = False
 
 
-def _own(text: str, reading: _Reading) -> _Own:
-    """The subject of a view's title (the module's docstring). The site words that only say where
-    ("site", `LOCATION_WORDS`) are a location: they name site works only when nothing else is named. A
-    building element tied to a site work ("FOOTING OF BOUNDARY WALL", `TIE_WORDS`) is that site work's;
-    a title that names a building element on its own keeps its Step, beside Step 14 when it names site
-    works too ("SETBACK AND BEAM LAYOUT"). Its subject is the first building element not so tied."""
+def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
+    """The subject of a view's title (the module's docstring). Qualifiers name nothing (`_qualifiers`:
+    a bare "site" says where, a setback beside a storey or an element is a storey's). On a Structural
+    sheet the group of building elements a site work leads into, or a tie word leads from ("FOOTING
+    AND GRADE BEAM DETAIL OF BOUNDARY WALL", "FOOTING OF COLUMN AT BOUNDARY WALL"), is that site work's,
+    and a building element named on its own keeps its Step, beside Step 14 when the title names site
+    works too. Its subject is the first building element not so tied. Any other sheet's subject is its
+    first one that is not site works: the structural set's duplicate rule is unchanged there."""
     tokens = _tokens(text)
-    found = [(s, e, k, " ".join(tokens[s:e])) for s, e, k in reading.subjects.matches(tokens)]
+    matches = reading.subjects.matches(tokens)
+    drop = _qualifiers(tokens, matches, reading)
+    found = [(s, e, k, " ".join(tokens[s:e])) for n, (s, e, k) in enumerate(matches) if n not in drop]
+    if not structural:
+        first = next((m for m in found if m[2] != SITE_WORKS), None)
+        return _Own(first[2], first[3]) if first else _Own()
     if not found:
         return _Own()
-    works = [m for m in found if m[2] == SITE_WORKS and m[3] not in LOCATION_WORDS]
+    works = [m for m in found if m[2] == SITE_WORKS]
+    building = [m for m in found if m[2] != SITE_WORKS]
+    covered = {i for s, e, _, _ in building for i in range(s, e)}
 
-    def tied(start: int, end: int) -> bool:
-        def joined(gap: list[str]) -> bool:
-            return not gap or (bool(TIE_WORDS & set(gap)) and set(gap) <= TIE_WORDS | FILLER_WORDS)
+    def gap(a: tuple[int, int], b: tuple[int, int]) -> list[int]:
+        """The token indexes between two spans, whichever stands first."""
+        return list(range(a[1], b[0]) if a[1] <= b[0] else range(b[1], a[0]))
 
-        return any(
-            joined(tokens[end:s] if end <= s else tokens[e:start])
-            for s, e, _, _ in works
-            if end <= s or e <= start
-        )
+    def ok(indexes: list[int], allowed: frozenset[str]) -> bool:
+        return all(i in covered or tokens[i] in allowed for i in indexes)
 
-    own = [m for m in found if m[2] != SITE_WORKS and not tied(m[0], m[1])]
+    tied: set[int] = set()
+    for n, (s, e, _, _) in enumerate(building):
+        for ws, we, _, _ in works:
+            between = gap((s, e), (ws, we))
+            has_tie = any(tokens[i] in TIE_WORDS for i in between)
+            if ok(between, FILLER_WORDS) or (
+                has_tie and ok(between, TIE_WORDS | FILLER_WORDS | JOIN_WORDS)
+            ):
+                tied.add(n)
+    grown = True
+    while grown:
+        grown = False
+        for n, (s, e, _, _) in enumerate(building):
+            if n in tied:
+                continue
+            if any(
+                ok(gap((s, e), (building[t][0], building[t][1])), TIE_WORDS | FILLER_WORDS | JOIN_WORDS)
+                for t in tied
+            ):
+                tied.add(n)
+                grown = True
+    own = [m for n, m in enumerate(building) if n not in tied]
     if own:
         return _Own(own[0][2], own[0][3], bool(works))
     return _Own(SITE_WORKS, found[0][3], True)
 
 
-def _draws_structure(text: str, reading: _Reading) -> bool:
+def _draws_structure(text: str, reading: _Reading, *, structural: bool = False) -> bool:
     """Whether the text's subject (`_own`) is one the structural set governs, named by a word other
     than a lintel's (`NOT_STRUCTURE_WORDS`): "BEAM LAYOUT PLAN" is, "LINTEL LAYOUT PLAN" is not, nor
     "STAIR AND BEAM PLAN" (its subject is the stair)."""
-    own = _own(text, reading)
+    own = _own(text, reading, structural=structural)
     return own.subject in STRUCTURE_SUBJECTS and own.words not in NOT_STRUCTURE_WORDS
 
 
