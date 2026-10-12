@@ -53,9 +53,11 @@ TITLE_LENGTH = 500
 
 
 def typed_title(title: object) -> str:
-    """A title as the QS typed it, stripped, as it may be kept; else refused (400), as `typed_number`."""
+    """A title as the QS typed it, stripped, as it may be kept; else refused (400), as `typed_number`.
+    A title is words: its joiners and soft hyphens are its own (Bangla's ra + ZWJ + virama + ya:
+    review 1 of #680), so only a control, a line break or a bidi control refuses it."""
     typed = title.strip() if isinstance(title, str) else ""
-    if not typed or not _one_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
+    if not typed or not _title_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
         raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
     if not _text.fits((typed, TITLE_LENGTH)):
         raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
@@ -102,6 +104,18 @@ def _one_line(text: str) -> bool:
     break, a tab, a bidi override would print a number other than the one kept)."""
     return _text.typed(text) and not any(
         unicodedata.category(c) in ("Cc", "Cf", "Zl", "Zp") for c in text
+    )
+
+
+_BIDI_CONTROLS = frozenset("\u200e\u200f\u061c\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+"""Format characters that reorder what prints (marks, embeddings, overrides, isolates)."""
+
+
+def _title_line(text: str) -> bool:
+    """A title as a person types it: one line, no control, no bidi control; other format characters
+    (ZWJ, ZWNJ, a soft hyphen) are kept."""
+    return _text.typed(text) and not any(
+        unicodedata.category(c) in ("Cc", "Zl", "Zp") or c in _BIDI_CONTROLS for c in text
     )
 
 

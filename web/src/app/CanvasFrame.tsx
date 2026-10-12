@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip
 import { AppLink, PATHS } from './AppLink'
 import { usePerfFlag } from './perf'
 import type { ProjectSummary, Session } from './session'
-import { useCloseOnEsc, useShell } from './shell'
+import { useCloseOnEsc, useInspectorTab, useShell } from './shell'
 import { SlotOutlet } from './slots'
 import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 
@@ -154,9 +154,10 @@ function Toolbar({ session, project, step }: { session: Session; project: Projec
 function Inspector({ project, step }: { project: ProjectSummary; step: TakeoffStep }) {
   const { t } = useLingui()
   const questions = step.number === 1 ? project.step1.questionsOpen : 0
+  const [tab, setTab] = useInspectorTab()
   return (
     <aside data-region="inspector" aria-label={t`Inspector`} className="focus-inset flex w-inspector shrink-0 flex-col border-s border-border bg-chrome">
-      <Tabs defaultValue="selection" className="min-h-0 flex-1">
+      <Tabs value={tab} onValueChange={(value) => setTab(value === 'questions' ? 'questions' : 'selection')} className="min-h-0 flex-1">
         <TabsList>
           <TabsTrigger value="selection">
             <Trans>Selection</Trans>

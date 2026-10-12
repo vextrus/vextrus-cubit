@@ -14,7 +14,7 @@ msgid "drawings.sheets.kind_unknown"
 msgstr "That kind of sheet or view is not one Vextrus offers, so nothing was changed. Choose one from the list."
 
 msgid "drawings.sheets.title_unreadable"
-msgstr "That title is empty, longer than 500 characters, runs over more than one line, or holds a drawing code or a character a title block cannot print, so nothing was changed. Type it again on one line, as its title block prints it."
+msgstr "That title is empty, longer than 500 characters, runs over more than one line, or holds a character a title block cannot print, so nothing was changed. Type it again on one line, as its title block prints it."
 
 msgid "drawings.sheets.number_unreadable"
 msgstr "That number is empty, too long, runs over more than one line, or holds a character a title block cannot print, so nothing was changed. Type it again on one line, as its title block would print it."

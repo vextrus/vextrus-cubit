@@ -20,6 +20,7 @@ import { getRouteApi, useSearch } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizontal } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
+import { useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { problemText } from '@/auth/problem'
@@ -271,6 +272,7 @@ function Step1({
   const { t, i18n } = useLingui()
   const readOnly = readOnlyRole(session)
   const refuse = useReadOnlyToast()
+  const shell = useShell()
   // The data drawn now: an act's toast waits until it is what Step 1 reloaded (#167, F1).
   const acts = useStep1Acts(project.id, drawn)
   const toast = useToast()
@@ -641,7 +643,10 @@ function Step1({
     if (!focusedSheet || chosenKeys.size > 1) return
     // A confirmed sheet is never corrected: said at the key, in the server's words, not after typing.
     if (focusedSheet.decision === 'confirmed') return toast.show({ message: problemText({ refusal: CONFIRMED_NOT_CORRECTED }, format, i18n) })
+    // The form is drawn in the Selection tab, in place of the sheet's facts: shown, never behind the Questions tab or a panel.
     setPicker(null)
+    setPanel(null)
+    shell.showInspectorTab('selection')
     setCorrecting(focusedSheet.id)
   }
   const correctingSheet = correcting !== null && focusedSheet?.id === correcting ? focusedSheet : null

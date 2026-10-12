@@ -159,3 +159,55 @@ def test_a_title_changed_again_since_is_left_by_the_first_corrections_undo(
 
     after = the(nusrat, kr01, s05["id"])
     assert (after["title"], after["corrected"]) == ("Second", True)
+
+
+def missing_question(api: Api, project: uuid.UUID, sheet_id: str) -> list[str]:
+    listed = api.get(f"{step1(project)}/questions").json()["questions"]
+    return [q["status"] for q in listed if q["kind"] == "missing" and str(q["subject_id"]) == sheet_id]
+
+
+def test_a_number_given_by_e_answers_the_sheets_missing_question_so_it_confirms(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 1 of #680 (75): the numbered sheet's confirmation was refused as `question_first`.
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["open"]
+
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-90"}).status_code == 200
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["answered"]
+    confirmed = nusrat.post(f"{step1(kr01)}/confirm", {"proposals": [sheet["id"]]})
+
+    assert confirmed.status_code == 200, confirmed.content
+
+
+def test_undoing_the_number_asks_the_missing_question_again(nusrat: Api, kr01: uuid.UUID) -> None:
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-90"}).status_code == 200
+
+    undo(nusrat, kr01)
+
+    assert the(nusrat, kr01, sheet["id"])["number"] is None
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["open"]
+
+
+def test_an_excluded_sheet_numbered_by_e_confirms_back_in(nusrat: Api, kr01: uuid.UUID) -> None:
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    path = step1(kr01)
+    out = nusrat.post(f"{path}/exclude", {"proposals": [sheet["id"]], "reason": "superseded"})
+    assert out.status_code == 200, out.content
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-91"}).status_code == 200
+
+    back = nusrat.post(f"{path}/confirm", {"proposals": [sheet["id"]]})
+
+    assert back.status_code == 200, back.content
+
+
+def test_a_bangla_title_holding_a_joiner_or_a_soft_hyphen_is_kept(nusrat: Api, kr01: uuid.UUID) -> None:
+    # Review 1 of #680 (50): ra + ZWJ + virama + ya ("ramp"), and a soft hyphen, are a title's own.
+    [s05] = by_number(proposals(nusrat, kr01), "S-05")
+    title = "র‍্যাম্প ক্­ষ"
+
+    response = correct(nusrat, kr01, {"proposal": s05["id"], "title": title})
+
+    assert response.status_code == 200, response.content
+    assert the(nusrat, kr01, s05["id"])["title"] == title

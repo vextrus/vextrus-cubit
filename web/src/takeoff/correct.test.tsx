@@ -37,6 +37,11 @@ async function correcting() {
   return { step1, inspector, title: within(inspector).getByRole('textbox', { name: 'Title' }), number: within(inspector).getByRole('textbox', { name: 'Number' }) }
 }
 
+function rowFor(number: string): HTMLElement {
+  const rows = [...document.querySelectorAll<HTMLElement>('[role="option"], [role="row"], tr')].filter((r) => clean(r.textContent).includes(number))
+  return rows.find((r) => !rows.some((o) => o !== r && r.contains(o)))!
+}
+
 const posts = (step1: FakeStep1) => step1.calls().filter((c) => c.startsWith('POST'))
 
 describe('Correct the Proposal (§6.9)', () => {
@@ -80,6 +85,37 @@ describe('Correct the Proposal (§6.9)', () => {
     await waitFor(() => expect(bodyText()).toContain('This sheet is confirmed, so it was not corrected.'))
     expect(bodyText()).not.toContain('Correct the Proposal')
     expect(posts(step1)).toEqual([])
+  })
+
+  /** The design gate of PR #680: E opens the form where it is seen, focused, never hidden behind a tab or a panel. */
+  async function eFrom(before: () => Promise<void>) {
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    const rows = [...document.querySelectorAll<HTMLElement>('[role="option"], [role="row"], tr')].filter((r) => clean(r.textContent).includes('S-05'))
+    const row = rows.find((r) => !rows.some((o) => o !== r && r.contains(o)))!
+    await userEvent.click(within(row).getByText('S-05'))
+    await before()
+    await userEvent.keyboard('e')
+    const number = await waitFor(() => within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' }))
+    await waitFor(() => expect(number.checkVisibility()).toBe(true))
+    expect(document.activeElement).toBe(number)
+    return step1
+  }
+
+  it('shows the form on the Selection tab when E is pressed with the Questions tab open', async () => {
+    await eFrom(async () => {
+      await userEvent.click(screen.getByRole('tab', { name: /^Questions/ }))
+      await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    })
+  })
+
+  it('closes an open panel when E is pressed, so the form is drawn', async () => {
+    await eFrom(async () => {
+      await userEvent.click(screen.getAllByRole('button').find((b) => clean(b.textContent).startsWith('Coverage 70 views'))!)
+      await waitFor(() => expect(bodyText()).not.toContain('Proposal: where each was read'))
+    })
   })
 
   it('sends only what changed', async () => {

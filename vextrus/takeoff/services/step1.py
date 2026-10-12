@@ -1387,14 +1387,9 @@ def _act(
     discipline: str = "",
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
-    corrected: Mapping[str, Any] | None = None,
 ) -> Confirmation:
-    """`corrected`: what a correction changed, kept in `before` (the app writes a row once)."""
-    kept: dict[str, Any] = {"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}}
-    if corrected is not None:
-        kept["corrected"] = dict(corrected)
     return Confirmation.objects.create(
-        before=kept,
+        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
         tenant_id=_tenant(),
         project_id=project_id,
         step=SHEETS,
@@ -1985,25 +1980,69 @@ def correct(
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
         if sheet.decision == "confirmed":
             raise auth.Refused(said.CONFIRMED_NOT_CORRECTED(), status=409)
-        act = _act(
-            project_id,
-            ConfirmationAct.CORRECT,
-            1,
-            actor_name,
-            discipline=sheet.discipline or "",
-            corrected=changed,
-        )
+        asked = _number_asked(project_id, sheet.id) if "number" in changed else None
+        if asked is not None:  # its status before, for the undo to put back
+            changed["question"] = {"id": str(asked.id), "status": asked.status}
+        act = _correction_act(project_id, sheet, changed, actor_name)
         if "number" in changed:
             drawings.set_sheet_number(sheet.id, changed["number"][1])
+        if asked is not None:
+            # The number the sheet's `missing` Question asks for is given: answered by the correction,
+            # so the numbered sheet is a Proposal its confirmation is not refused for (review 1, 75).
+            asked.status = QuestionStatus.ANSWERED
+            asked.answer = {
+                "option": "type_number",
+                "text": changed["number"][1],
+                "by": actor_name,
+                "given_by": "correction",
+            }
+            asked.answered_by_id = _user()
+            asked.answered_at = timezone.now()
+            asked.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         if "title" in changed:
             drawings.set_sheet_title(sheet.id, changed["title"][1])
         _after_act(project_id, corrected=True)
     return _act_view(act)
 
 
+def _correction_act(
+    project_id: uuid.UUID, sheet: drawings.SheetView, changed: Mapping[str, Any], actor_name: str
+) -> Confirmation:
+    """A correction's act, one sheet's, with what it changed in `before["corrected"]` (the app writes
+    a Confirmation once: its `undone_at` is the only column it may change)."""
+    return Confirmation.objects.create(
+        before={"sheets": {}, "corrected": dict(changed)},
+        tenant_id=_tenant(),
+        project_id=project_id,
+        step=SHEETS,
+        discipline=sheet.discipline or "",
+        user_id=_user(),
+        by_name=actor_name,
+        kind=ConfirmationKind.SINGLE,
+        act=ConfirmationAct.CORRECT,
+        proposals=1,
+    )
+
+
+def _number_asked(project_id: uuid.UUID, sheet_id: uuid.UUID) -> Question | None:
+    """The sheet's `missing` Question still asking its number: open, or withdrawn by its exclusion
+    still standing (answerable while the sheet is out)."""
+    for row in Question.objects.select_for_update().filter(
+        project_id=project_id,
+        step=SHEETS,
+        kind=QuestionKind.MISSING,
+        subject_id=sheet_id,
+        status__in=[QuestionStatus.OPEN, QuestionStatus.WITHDRAWN],
+    ):
+        if row.status == QuestionStatus.OPEN or _withdrawn_by_standing_exclusion(row):
+            return row
+    return None
+
+
 def _put_back_correction(act: Confirmation) -> None:
     """A correction undone: each value it changed goes back to what it was, unless changed again
-    since (another correction, a typed number) or the sheet is confirmed since: it stays as it is."""
+    since (another correction, a typed number) or the sheet is confirmed since: it stays as it is.
+    A `missing` Question it answered asks again, as it stood, once the sheet has no number again."""
     changed = act.before.get("corrected") or {}
     try:
         sheet = _sheet(uuid.UUID(changed["sheet"]))
@@ -2012,11 +2051,19 @@ def _put_back_correction(act: Confirmation) -> None:
     if sheet.decision == "confirmed":
         return
     number, title = changed.get("number"), changed.get("title")
-    drawings.put_back_sheet(
+    back = drawings.put_back_sheet(
         sheet.id,
         number=number[0] if number and (sheet.number or "") == number[1] else None,
         title=title[0] if title and sheet.title == title[1] else None,
     )
+    asked = changed.get("question")
+    if asked and not back.number:
+        Question.objects.filter(
+            project_id=act.project_id,
+            id=uuid.UUID(asked["id"]),
+            status=QuestionStatus.ANSWERED,
+            answer__given_by="correction",
+        ).update(status=asked["status"], answer=None, answered_by=None, answered_at=None)
 
 
 def undo(project_id: uuid.UUID) -> ActView:
@@ -2065,6 +2112,11 @@ def undo(project_id: uuid.UUID) -> ActView:
         drawings.undo(act.id)
         act.undone_at = timezone.now()
         act.save(update_fields=["undone_at"])
+        if act.act == ConfirmationAct.CORRECT:
+            # Its number and title go back, and the set's Questions are asked again (a conflict its
+            # number raised retired); the act decided no sheet, so nothing below finds one of it.
+            _put_back_correction(act)
+            _ask_set_again(project_id)
         # The Questions the act withdrew (its sheets left out) and not answered since are asked again
         # (a "keep open" given meanwhile stays, as on any open Question).
         Question.objects.filter(
@@ -2097,10 +2149,7 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
-        corrected = act.act == ConfirmationAct.CORRECT
-        if corrected:
-            _put_back_correction(act)
-        _after_act(project_id, corrected=corrected)
+        _after_act(project_id)
     return _act_view(act)
 
 
@@ -2119,6 +2168,13 @@ def _after_act(project_id: uuid.UUID, *, corrected: bool = False) -> None:
         proposals.set_conflicts(project_id)
     ask_kind_again(project_id, [s for s in _facts(project_id) if not s.decision])
     record_progress(project_id)
+
+
+def _ask_set_again(project_id: uuid.UUID) -> None:
+    """Every Question of the set asked again, after a sheet's number or title moved."""
+    from vextrus.takeoff.services.read_propose import proposals  # it imports this module
+
+    proposals.set_questions(project_id)
 
 
 def _decision_of(sheet: drawings.SheetView) -> dict[str, Any] | None:
