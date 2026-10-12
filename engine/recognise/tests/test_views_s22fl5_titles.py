@@ -177,6 +177,59 @@ def test_a_long_title_under_a_neighbours_title_titles_its_own_view() -> None:
     assert [(v.box.x0, v.box.x1) for v in found if v.title == "2ND FLOOR PLAN"] == [(40.0, 110.0)]
 
 
+REMARK = "BEAM SECTION DETAIL AS PER SHEET S-12 SAVE AT THE STAIR LANDING AND LIFT CORE"
+SCHEDULE_RULES = [((60.0, y), (800.0, y)) for y in (100.0, 227.0, 353.0, 480.0)] + [
+    ((x, 100.0), (x, 480.0)) for x in (60.0, 200.0, 340.0, 800.0)
+]
+"""A ruled schedule of three rows and three columns, its rules across most of the paper."""
+SCHEDULE_CELLS = [
+    Text(shown, (x + 8.0, y + 50.0))
+    for shown, x, y in [
+        ("B1", 60.0, 353.0),
+        ("300 X 600", 200.0, 353.0),
+        ("B2", 60.0, 227.0),
+        ("250 X 500", 200.0, 227.0),
+        ("B3", 60.0, 100.0),
+        ("250 X 450", 200.0, 100.0),
+    ]
+]
+
+
+def test_a_lone_long_remark_in_a_ruled_schedule_leaves_it_a_schedule() -> None:
+    """Review 3 of PR #686: the remark, alone in its sparse column, named a view kind and passed every
+    gate, so the table read as a grid of titled drawings and no view was found."""
+    found = read([], [*SCHEDULE_CELLS, Text(REMARK, (348.0, 400.0))], SCHEDULE_RULES)
+
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.SCHEDULE, None)]
+
+
+STOREYS_LINE = {
+    "centred": ((198.5, 545.0), (205.0, 537.0), (59.5, 529.0)),
+    "indented": ((40.0, 548.0), (40.0, 539.0), (45.0, 527.0)),
+}
+"""A plan's title over its grid, its storeys line under it (5 mm lettering), then a long line under
+that, aligned to the title."""
+
+
+@pytest.mark.parametrize("callout", [CALLOUT, STOREY_CALLOUT], ids=["no-storeys", "storeys"])
+@pytest.mark.parametrize("places", list(STOREYS_LINE.values()), ids=list(STOREYS_LINE))
+def test_a_long_line_under_a_titles_storeys_line_is_its_second_line(
+    callout: str, places: tuple[tuple[float, float], ...]
+) -> None:
+    """Review 3 of PR #686: the title's own storeys line between them is no line between."""
+    title, storeys_line, line = places
+    found = read(
+        [PLAN],
+        [
+            Text("2ND FLOOR PLAN", title),
+            Text("2ND TO 4TH FLOOR", storeys_line, 5.0),
+            Text(callout, line),
+        ],
+    )
+
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "2ND FLOOR PLAN")]
+
+
 @pytest.mark.parametrize("place", [(40.0, 590.0), (40.0, 150.0)], ids=["above", "below"])
 def test_a_long_one_line_notes_heading_with_nothing_under_it_is_a_notes_view(
     place: tuple[float, float],

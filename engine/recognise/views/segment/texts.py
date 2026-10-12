@@ -108,8 +108,8 @@ def _subtitle(lower: _Text, upper: _Text) -> bool:
 
 
 def _line_over(placed: _Placing, i: int, skip: Collection[int] = ()) -> int | None:
-    """The text standing nearest over text `i` across its span (a scale line in `skip` aside), with
-    no text between: a heading or a line there is what stands over it, not the title above them."""
+    """The text standing nearest over text `i` across its span (those in `skip` aside): what stands
+    right over it, nothing between."""
     boxes, heights = placed.boxes, placed.heights
     x0, _, x1, top = boxes[i]
     gap = boxes[:, 1] - top

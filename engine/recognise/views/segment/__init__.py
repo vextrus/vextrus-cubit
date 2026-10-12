@@ -105,6 +105,7 @@ from engine.recognise.views.paper import (
 from engine.recognise.views.segment.block import RULE_MM
 from engine.recognise.views.segment.pieces import (
     MIN_DRAWING,
+    MIN_VIEW_MM,
     TABLE_TOLERANCE,
     _cut_shared,
     _off_paper,
@@ -218,18 +219,8 @@ def _views(
         head = next((i for i in titles if i != j and _subtitle(texts[j], texts[i])), None)
         if head is not None:
             second.setdefault(head, []).append(j)
-    short = {i for i in titles if i not in heads}
-    placing = _Placing.of(texts) if long_titles else None
-    for j in long_titles:  # a long line is a title's own second line: right under it, aligned to it
-        assert placing is not None
-        head = _line_over(placing, j, scale_texts)
-        if head in short and _subtitle(texts[j], texts[head]) and _aligned(texts[j], texts[head]):
-            root = next((k for k, lines in second.items() if head in lines), head)
-            second.setdefault(root, []).append(j)
     subtitles = {j for lines in second.values() for j in lines}
     titles = [i for i in titles if i not in subtitles]
-    alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a long title stands alone
-    long_titles = [i for i in long_titles if i not in subtitles and alone.alone(i)]
     taken = set(titles) | subtitles  # a scale-like line in a column is a note's ("RAMP AT 1:12")
     placed = _Placing.of(texts) if heads else None
     columns = {i: _column_under(texts, placed, i, taken) for i in heads if placed is not None}
@@ -242,20 +233,45 @@ def _views(
         and (len(_tokens(texts[i].shown)) > MAX_TITLE_WORDS or "\n" in texts[i].placed.shown.strip())
     }
     noted = {j for lines in columns.values() for j in lines}
-    titles = sorted([*titles, *(i for i in long_titles if i not in noted)])  # unclaimed by a heading
     scale_texts = [i for i in scale_texts if i not in noted]
     drawn_titles = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
     for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles) | noted).items():
         second.setdefault(ti, []).extend(lines)
-    subtitles = {j for lines in second.values() for j in lines}
-    off_grid = set(titles) | subtitles | set(scale_texts) | noted
-    titles = [i for i in titles if not columns.get(i) and i not in lone]  # the rest pair with drawings
-    underlined = _underlines(paper.segments, [texts[i] for i in titles])
     off = (  # a long line running off a framed sheet is no view's
         _off_paper(paper.segments, paper.region, paper.lengths)
         if len(paper.frame)
         else np.zeros(len(paper.segments), dtype=bool)
     )
+    long_titles = [i for i in long_titles if i not in noted]  # a notes heading's line is its
+    if long_titles:  # decided last: the tables, the headings' columns and the titles' blocks known
+        schedules = _schedules(replace(paper, segments=paper.segments[~off], lengths=None))
+        long_titles = [  # a line in a ruled table holding no drawing is the table's
+            i for i in long_titles if not any(_inside(_centre(texts[i].box), b) for b in schedules)
+        ]
+        placing = _Placing.of(texts)
+        own = {j: ti for ti, lines in second.items() for j in lines}  # each title's own lines
+        short = {i for i in titles if i not in heads}
+        for j in long_titles:  # a title's own second line: under it or its block, nothing between
+            upper = _line_over(placing, j)
+            if upper is None:
+                continue
+            title = upper
+            while title in own:
+                title = own[title]
+            if title in short and _subtitle(texts[j], texts[upper]) and _aligned(texts[j], texts[title]):
+                second.setdefault(title, []).append(j)
+        joined = {j for lines in second.values() for j in lines}
+        alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a column of one
+        standing = [i for i in long_titles if i not in joined and alone.alone(i)]
+        drawn_long = [i for i in standing if _kind(texts[i].shown, reading) not in _HEADINGS]
+        claimed = joined | set(titles) | noted | set(standing)
+        for ti, lines in _title_lines(texts, drawn_long, claimed).items():
+            second.setdefault(ti, []).extend(lines)
+        titles = sorted([*titles, *standing])
+    subtitles = {j for lines in second.values() for j in lines}
+    off_grid = set(titles) | subtitles | set(scale_texts) | noted
+    titles = [i for i in titles if not columns.get(i) and i not in lone]  # the rest pair with drawings
+    underlined = _underlines(paper.segments, [texts[i] for i in titles])
     drawn = replace(paper, segments=paper.segments[~(underlined | off)], lengths=None)
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
@@ -367,6 +383,22 @@ def _views(
             best[1].scale = scales.read(s.shown, reading.patterns)
             best[1].box = _union(best[1].box, s.box)
     return views[:MAX_VIEWS]
+
+
+def _schedules(paper: _Paper) -> list[Bounds]:
+    """The ruled tables (`_tables`) that hold no drawing: no piece of lines alone (texts aside) of
+    `MIN_VIEW_MM` or more lies in the table's box. A grid of panes, each holding a drawing, is none."""
+    tables = _tables(paper.segments, paper.region)
+    if not tables:
+        return []
+    rx0, ry0, rx1, ry1 = paper.region
+    least = MIN_VIEW_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    drawings = [
+        q.box
+        for q in _pieces(paper, paper.texts, ())
+        if max(q.box[2] - q.box[0], q.box[3] - q.box[1]) >= least
+    ]
+    return [b for b in tables if not any(_holds(b, d) for d in drawings)]
 
 
 def _row_under(row: Bounds, body: Bounds, by: float) -> bool:
