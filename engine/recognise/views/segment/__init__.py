@@ -167,7 +167,11 @@ _HEADINGS = frozenset({ViewKind.NOTES, ViewKind.LEGEND, ViewKind.SCHEDULE})
 
 
 def _views(
-    paper: _Paper, reading: _Reading, untitled: ViewKind, block: Bounds | None = None
+    paper: _Paper,
+    reading: _Reading,
+    untitled: ViewKind,
+    block: Bounds | None = None,
+    notes_sheet: bool = False,
 ) -> list[_View]:
     rx0, ry0, rx1, ry1 = paper.region
     letter = MAX_LETTER * min(rx1 - rx0, ry1 - ry0)  # taller is no lettering (a hostile height)
@@ -370,6 +374,8 @@ def _views(
                 kind = ViewKind.SCHEDULE  # a ruled table with no title
             else:
                 kind = ViewKind.NOTES if piece.words > piece.lines else untitled
+                if notes_sheet and kind is ViewKind.PLAN:
+                    kind = ViewKind.DETAIL  # a notes sheet's untitled drawing is never a plan (R1)
             views.append(_View(piece, None, kind, piece.box))
     for k, piece in enumerate(pieces):
         if k in by_piece or any(v.piece is piece for v in views):
