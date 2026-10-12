@@ -7,17 +7,17 @@
  * The QS answers on the card (#156; §6.7): a pick (a click, or the number key on the focused Question)
  * changes nothing until "Answer Q1 ↵" (Enter); the MD and a Guest read the card and cannot pick.
  */
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
-import { Button, DrawingText, KeyCombo, TextField, cn } from '@/ui'
+import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
 import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
-import { SheetName } from './acts'
+import { SheetName, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
@@ -328,6 +328,7 @@ function ReadFrom({ source }: { source: string | null | undefined }) {
   if (source === 'register') return <Trans>the drawing list</Trans>
   if (source === 'file_name') return <Trans>the file name</Trans>
   if (source === 'view_title') return <Trans>the title of its view</Trans>
+  if (source === 'typed') return <Trans>typed by a person</Trans>
   return null
 }
 
@@ -518,6 +519,70 @@ export interface SheetActs {
   exclude: () => void
   /** "Confirm back in" an excluded sheet. */
   confirmBackIn: () => void
+  /** E: "Correct the Proposal" for the sheet (§6.9). */
+  correct: () => void
+}
+
+/** The open "Correct the Proposal" form's sheet, and what saving or cancelling it does. */
+export interface Correcting {
+  sheet: ProposalOut
+  save: (change: SheetChange) => void
+  cancel: () => void
+}
+
+function FormKeys({ bindings }: { bindings: Parameters<typeof useKeys>[0] }) {
+  useKeys(bindings)
+  return null
+}
+
+/**
+ * §6.9 "Corrections (E)": "Correct the Proposal" in place of the Proposal block; Number and Title (S22-FL8's
+ * cut: a view's storeys are a later ticket's), "Save ↵" and "Cancel Esc". A mode of its own while open,
+ * so Enter saves and Esc cancels from either field, and no screen key acts behind it.
+ */
+function CorrectForm({ correcting }: { correcting: Correcting }) {
+  const { t } = useLingui()
+  const { sheet, save, cancel } = correcting
+  const [number, setNumber] = useState(sheet.number ?? '')
+  const [title, setTitle] = useState(sheet.title)
+  const submit = () => {
+    const change: SheetChange = {}
+    if (number.trim() !== (sheet.number ?? '')) change.number = number.trim()
+    if (title.trim() !== sheet.title) change.title = title.trim()
+    // Nothing changed: nothing to send, as Cancel.
+    if (change.number === undefined && change.title === undefined) return cancel()
+    save(change)
+  }
+  return (
+    <KeyScope level="mode" name="correct-proposal" modal>
+      <FormKeys
+        bindings={[
+          { key: 'Enter', label: t`Save the correction`, group: 'screen', run: (event) => (event.repeat ? undefined : submit()) },
+          { key: 'Esc', label: t`Cancel the correction`, group: 'screen', run: cancel },
+        ]}
+      />
+      <Block title={<Trans>Correct the Proposal</Trans>}>
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
+        >
+          <TextField label={<Trans>Number</Trans>} dir="ltr" autoFocus autoComplete="off" spellCheck={false} value={number} onChange={(event) => setNumber(event.target.value)} />
+          <TextField label={<Trans>Title</Trans>} autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
+              <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />
+            </Button>
+            <Button variant="secondary" type="button" onClick={cancel} aria-keyshortcuts="Escape" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
+              <Trans>Cancel</Trans> <KeyCombo combo="Escape" />
+            </Button>
+          </div>
+        </form>
+      </Block>
+    </KeyScope>
+  )
 }
 
 export function SheetFacts({
@@ -529,10 +594,13 @@ export function SheetFacts({
   onSelectView,
   slots = [],
   open,
+  correcting = null,
 }: {
   row: Row
   /** In sheet mode, the sheet open: of two copies in one row, the one shown (M18). */
   open?: ProposalOut
+  /** "Correct the Proposal" open on this row's sheet: shown in place of the Proposal block (§6.9). */
+  correcting?: Correcting | null
   showTitle: boolean
   readOnly: boolean
   acts?: SheetActs
@@ -558,6 +626,9 @@ export function SheetFacts({
           </span>
         </div>
       </Block>
+      {correcting ? (
+        <CorrectForm key={correcting.sheet.id} correcting={correcting} />
+      ) : (
       <Block title={<Trans>Proposal: where each was read</Trans>}>
         <dl className="flex flex-col gap-1">
           <Fact label={<Trans>Number</Trans>}>
@@ -603,6 +674,7 @@ export function SheetFacts({
           </Fact>
         </dl>
       </Block>
+      )}
       <Views sheet={sheet} selected={selectedView} onSelect={onSelectView} readOnly={readOnly} />
       <Block title={<Trans>Who did what</Trans>}>
         {decided.length === 0 ? (
@@ -625,6 +697,10 @@ export function SheetFacts({
       {!readOnly && acts ? (
         <Block>
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={acts.correct} aria-keyshortcuts="E" disabled={!!correcting}>
+              <Trans>Correct</Trans>
+              <KeyCombo combo="E" />
+            </Button>
             {excluded ? (
               <Button variant="secondary" onClick={acts.confirmBackIn}>
                 <Trans>Confirm back in</Trans>

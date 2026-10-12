@@ -104,6 +104,10 @@ msgctxt "storey"
 msgid "Ground"
 msgstr "Ground"
 
+#: src/takeoff/SheetList.tsx
+msgid "Proposal, corrected"
+msgstr "Proposal, corrected"
+
 #: src/takeoff/Bar.tsx
 msgid "Question {tag}: {title}"
 msgstr "Question {tag}: {title}"

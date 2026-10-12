@@ -20,6 +20,7 @@ from vextrus.takeoff.schemas.step1 import (
     Step1AnswerIn,
     Step1AssignIn,
     Step1ConfirmIn,
+    Step1CorrectIn,
     Step1CoverageOut,
     Step1DrawingListIn,
     Step1DrawingListOut,
@@ -106,6 +107,23 @@ def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) 
     view = deadlocks.retried(
         lambda: step1.assign(project_id, payload.proposals, payload.steps, actor_name=actor(request)),
         what="step1.assign",
+    )
+    return Step1ActOut.from_view(view)
+
+
+@router.post(f"{_PREFIX}/correct", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
+@declare(acts.CORRECT, project="project_id")
+def correct(request: HttpRequest, project_id: uuid.UUID, payload: Step1CorrectIn) -> Step1ActOut:
+    """Correct a sheet's number or title (m0-screens 6.9, `E`): it stays a Proposal."""
+    view = deadlocks.retried(
+        lambda: step1.correct(
+            project_id,
+            payload.proposal,
+            number=payload.number,
+            title=payload.title,
+            actor_name=actor(request),
+        ),
+        what="step1.correct",
     )
     return Step1ActOut.from_view(view)
 
