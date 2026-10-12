@@ -579,3 +579,9 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   drawings setters checked the text, so a NUL or a lone surrogate was a 500 (jsonb refused it), not a coded
   400; the refuter found it (score 50). Check: `vextrus/takeoff/tests/test_step1_correct.py`
   (`test_typed_text_that_cannot_be_kept_is_refused_with_a_code_and_nothing_is_written`).
+- **An undo that restores a row "as it stood" restores a state other people's acts may have moved on from** (S22-FL8
+  review 2: a correction's undo put the `missing` Question back withdrawn by an exclusion since undone, so a
+  numberless sheet confirmed). A text edit also has to clear what read the old text (`plot_title_alike`, as
+  `record_sheets` does). Checks: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_a_correction_undone_after_the_exclusion_it_followed_was_undone_asks_the_question_open`,
+  `test_correcting_a_title_clears_the_plot_page_that_read_the_old_title`).

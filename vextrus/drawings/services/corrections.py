@@ -131,7 +131,14 @@ def _retitle(printed: SheetRevision, title: str) -> None:
     if title == old:
         return
     printed.title = title
-    printed.save(update_fields=["title"])
+    fields = ["title"]
+    if printed.plot_title_alike:
+        # Its Plot page read the old title: until the page is matched again it reads none, as
+        # `record_sheets` does on any title change (#229; review 2 of #680), so the sheet is not
+        # one two sources agree on by a title nobody read there.
+        printed.plot_title_alike = False
+        fields.append("plot_title_alike")
+    printed.save(update_fields=fields)
     sheet = Sheet.objects.get(id=printed.sheet_id)
     if sheet.number and sheet.title in {"", old}:
         Sheet.objects.filter(id=sheet.id).update(title=title)
@@ -164,10 +171,16 @@ def _move(printed: SheetRevision, discipline: Discipline | None, number: str) ->
         )
         if target.discipline_id != (discipline.id if discipline else None):
             Sheet.objects.filter(id=target.id).update(discipline=discipline)
-    if target.id == old.id:
+    fields = ["sheet"]
+    if number != old.number and printed.plot_title_alike:
+        # The page was matched to the old number (and read its title there): no longer a second
+        # source for the number typed (review 2 of #680).
+        printed.plot_title_alike = False
+        fields.append("plot_title_alike")
+    if target.id == old.id and len(fields) == 1:
         return
     printed.sheet = target
-    printed.save(update_fields=["sheet"])
+    printed.save(update_fields=fields)
     sheet_list._drop_sheet_if_empty(old.id)
 
 

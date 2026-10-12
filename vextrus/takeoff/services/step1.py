@@ -2107,12 +2107,22 @@ def _put_back_correction(act: Confirmation) -> None:
     )
     asked = changed.get("question")
     if asked and not back.number:
+        # It asks again as the sheet stands NOW, not as it stood then (review 2 of #680): withdrawn
+        # only while an exclusion that still stands holds the sheet out (that act its `withdrawn_by`),
+        # else open; an exclusion undone since leaves it open, so the numberless sheet is held.
+        held_by = back.confirmation_id if back.decision == "excluded" else None
         Question.objects.filter(
             project_id=act.project_id,
             id=uuid.UUID(asked["id"]),
             status=QuestionStatus.ANSWERED,
             answer__given_by="correction",
-        ).update(status=asked["status"], answer=None, answered_by=None, answered_at=None)
+        ).update(
+            status=QuestionStatus.WITHDRAWN if held_by else QuestionStatus.OPEN,
+            withdrawn_by=held_by,
+            answer=None,
+            answered_by=None,
+            answered_at=None,
+        )
 
 
 def undo(project_id: uuid.UUID) -> ActView:

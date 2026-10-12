@@ -10,10 +10,12 @@ import pytest
 
 from vextrus.drawings.services.corrections import TITLE_LENGTH
 from vextrus.platform.services import tenancy
+from vextrus.drawings.models import SheetRevision
 from vextrus.takeoff.models import Confirmation
 from vextrus.takeoff.tests.acceptance.t19a.step1 import *  # noqa: F403 (its fixtures, by name)
 from vextrus.takeoff.tests.acceptance.t19a.step1 import by_number, proposals, step1
-from vextrus.testing.auth import Api
+from vextrus.testing.auth import Api, api_as
+from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db(databases=["default", "owner"])
 
@@ -242,3 +244,82 @@ def test_a_correction_records_one_corrected_event_and_its_undo_an_undone_one(
         ("takeoff.step1.undone", str(act.id)),
     ]
     assert {who for _code, _subject, who in added} == {str(act.user_id)}
+
+
+def second_qs(demo: Any, sign_in: Any, kr01: uuid.UUID) -> Api:
+    """Another QS of the Developer on the Project (the Engineer's part in a two-person sequence)."""
+    member: Member = sign_in(role="qs", developer_id=demo["developer:shapla"], projects=[kr01])
+    return api_as(member)
+
+
+def test_a_correction_undone_after_the_exclusion_it_followed_was_undone_asks_the_question_open(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 2 of #680 (60/55): the Question was put back "withdrawn" by an exclusion no longer
+    # standing, so the numberless sheet confirmed (200).
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    path = step1(kr01)
+    assert (
+        other.post(f"{path}/exclude", {"proposals": [sheet["id"]], "reason": "superseded"}).status_code
+        == 200
+    )
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-92"}).status_code == 200
+    undo(other, kr01)  # their exclusion is taken back: the sheet is a Proposal again
+    undo(nusrat, kr01)  # the correction is taken back: no number again
+
+    after = the(nusrat, kr01, sheet["id"])
+    assert (after["number"], after["decision"]) == (None, None)
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["open"]
+    confirmed = nusrat.post(f"{path}/confirm", {"proposals": [sheet["id"]]})
+    assert confirmed.status_code == 409, confirmed.content
+
+
+def test_a_correction_undone_while_the_exclusion_stands_keeps_the_question_withdrawn(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    path = step1(kr01)
+    assert (
+        other.post(f"{path}/exclude", {"proposals": [sheet["id"]], "reason": "superseded"}).status_code
+        == 200
+    )
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-92"}).status_code == 200
+
+    undo(nusrat, kr01)
+
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["withdrawn"]
+    # Their exclusion stands, so it still holds the Question: undoing it asks the number again.
+    undo(other, kr01)
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["open"]
+
+
+def alike(demo: Any, sheet: dict[str, Any]) -> None:
+    """Its Plot page reads its title as well as its number (a second source, #229)."""
+    with tenancy.acting_in(demo["developer:shapla"]):
+        assert SheetRevision.objects.filter(id=sheet["sheet_id"]).update(plot_title_alike=True)
+
+
+def test_correcting_a_title_clears_the_plot_page_that_read_the_old_title(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 2 of #680 (50): as `record_sheets` does on any title change (#229).
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    alike(demo, sheet)
+    assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is True
+
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "Another title"}).status_code == 200
+
+    assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is False
+
+
+def test_correcting_a_number_clears_the_plot_page_that_read_the_old_numbers_title(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    alike(demo, sheet)
+
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "S-55"}).status_code == 200
+
+    assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is False
