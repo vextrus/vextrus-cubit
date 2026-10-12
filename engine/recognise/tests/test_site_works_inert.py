@@ -123,3 +123,22 @@ def test_a_views_subject_is_what_it_was_before_site_works_were_words(title: str)
     assert now == before
     assert now != "site_works"
     assert titles_part.subjects(title, default) == titles_part.subjects(title, without)
+
+
+@pytest.mark.parametrize(
+    ("sheet_title", "view_title", "steps"),
+    [
+        ("7TH FLOOR SETBACK BEAM DETAILS ZQ", "SECTION AT SETBACK ZQ-1", ("beams",)),
+        ("8TH FLOOR SETBACK SLAB LAYOUT ZQ", "SETBACK EDGE DETAIL ZQ", ("slabs",)),
+        ("SETBACK ARRANGEMENT ZQ", "SETBACK EDGE DETAIL ZQ", ("site_mep",)),
+        ("SETBACK ARRANGEMENT ZQ", "SECTION AT SETBACK ZQ-1", ("site_mep",)),
+    ],
+)
+def test_a_setback_is_judged_by_the_views_sheet_too(
+    sheet_title: str, view_title: str, steps: tuple[str, ...]
+) -> None:
+    """A setback word is site works only when neither the view's title nor its sheet's names a storey
+    or a building element; else the view takes its sheet's building Step."""
+    [view] = structural_views(sheet_title, [(view_title, LEFT)], number="S-41")
+    assert view.steps == steps
+    assert view.subject != "site_works"

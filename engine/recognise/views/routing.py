@@ -105,16 +105,17 @@ class _Own:
     elements: tuple[str, ...] = ()
 
 
-def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
+def _own(text: str, reading: _Reading, *, structural: bool = True, sheet: Sequence[str] = ()) -> _Own:
     """The subject of a view's title (the module's docstring). Qualifiers name nothing (`_qualifiers`:
     a bare "site" says where, a setback beside a storey or an element is a storey's). On a Structural
     sheet the title is proposed for the Step of every building element it names, and for Step 14 as
     well when it names site works; the QS confirms, and no word list decides between them. Its subject
-    is the first building element, else site works. Any other sheet's subject is its first one that is
-    not site works: the structural set's duplicate rule is unchanged there."""
+    is the first building element, else site works. A setback is judged by the title and by its
+    `sheet`'s (`SheetSubjects`). Any other sheet's subject is its first one that is not site works:
+    the structural set's duplicate rule is unchanged there."""
     tokens = _tokens(text)
     building = [(" ".join(tokens[s:e]), k) for s, e, k in reading.building.matches(tokens)]
-    works = [w for w, k in _named(text, reading) if k == SITE_WORKS]
+    works = [w for w, k in _named(text, reading, sheet) if k == SITE_WORKS]
     if not structural:
         return _Own(building[0][1], building[0][0]) if building else _Own()
     if building:
