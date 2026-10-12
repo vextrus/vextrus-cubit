@@ -207,7 +207,14 @@ def _candidate(
     stated = storeys.read(title, view.kind, subject, lines, storey_words)
     structure = title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
-        view.kind, subject, discipline, on_sheet, notes=reading.notes, structure=structure, site=own.site
+        view.kind,
+        subject,
+        discipline,
+        on_sheet,
+        notes=reading.notes,
+        structure=structure,
+        site=own.site,
+        elements=own.elements,
     )
     anchors: tuple[DwgAnchor, ...] = ()
     if view.title is not None and paper.anchor is not None:

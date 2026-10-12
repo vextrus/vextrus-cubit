@@ -1510,9 +1510,9 @@ _SITE_CASES = [
     ("SITE WATER TANK DETAIL", "tank", ("tanks",)),
     ("SITE COLUMN LAYOUT PLAN", "column", ("columns",)),
     ("SITE PLAN", "site_works", ("site_mep",)),
-    ("BOUNDARY WALL FOOTING DETAIL", "site_works", ("site_mep",)),
-    ("FOOTING DETAIL OF BOUNDARY WALL", "site_works", ("site_mep",)),
-    ("FOUNDATION PLAN FOR COMPOUND WALL", "site_works", ("site_mep",)),
+    ("BOUNDARY WALL FOOTING DETAIL", "foundation", ("foundations", "site_mep")),
+    ("FOOTING DETAIL OF BOUNDARY WALL", "foundation", ("foundations", "site_mep")),
+    ("FOUNDATION PLAN FOR COMPOUND WALL", "foundation", ("foundations", "site_mep")),
     ("SETBACK AND BEAM LAYOUT", "beam", ("beams",)),
     ("BEAM LAYOUT AND SETBACK", "beam", ("beams",)),
     ("PLOT SETBACK ARRANGEMENT ZQ", "site_works", ("site_mep",)),
@@ -1521,12 +1521,29 @@ _SITE_CASES = [
     ("7TH FLOOR SETBACK BEAM LAYOUT PLAN", "beam", ("beams",)),
     ("BEAM LAYOUT PLAN AT SETBACK", "beam", ("beams",)),
     ("(SETBACK) COLUMN LAYOUT PLAN 7TH TO 10TH FLOOR", "column", ("columns",)),
-    ("FOOTING AND GRADE BEAM DETAIL OF BOUNDARY WALL ZQ", "site_works", ("site_mep",)),
-    ("FOOTING AND TIE BEAM SECTION OF COMPOUND WALL ZQ", "site_works", ("site_mep",)),
-    ("FOOTING DETAIL OF COLUMN AT BOUNDARY WALL ZQ", "site_works", ("site_mep",)),
-    ("FOOTING DETAIL OF BOUNDARY WALL ZQ", "site_works", ("site_mep",)),
-    ("BOUNDARY WALL FOOTING AND TIE BEAM DETAIL", "site_works", ("site_mep",)),
+    (
+        "FOOTING AND GRADE BEAM DETAIL OF BOUNDARY WALL ZQ",
+        "foundation",
+        ("foundations", "beams", "site_mep"),
+    ),
+    (
+        "FOOTING AND TIE BEAM SECTION OF COMPOUND WALL ZQ",
+        "foundation",
+        ("foundations", "beams", "site_mep"),
+    ),
+    (
+        "FOOTING DETAIL OF COLUMN AT BOUNDARY WALL ZQ",
+        "foundation",
+        ("foundations", "columns", "site_mep"),
+    ),
+    ("FOOTING DETAIL OF BOUNDARY WALL ZQ", "foundation", ("foundations", "site_mep")),
+    ("BOUNDARY WALL FOOTING AND TIE BEAM DETAIL", "foundation", ("foundations", "beams", "site_mep")),
     ("BOUNDARY WALL AND COLUMN LAYOUT", "column", ("columns", "site_mep")),
+    ("FOOTING DETAIL OF PERIMETER BOUNDARY WALL ZQ", "foundation", ("foundations", "site_mep")),
+    ("COLUMN LAYOUT & BOUNDARY WALL DETAIL ZQ", "column", ("columns", "site_mep")),
+    ("BOUNDARY WALL DETAIL ZQ & COLUMN LAYOUT", "column", ("columns", "site_mep")),
+    ("BOUNDARY WALL DETAIL ZQ", "site_works", ("site_mep",)),
+    ("COMPOUND WALL AND BEAM AND COLUMN LAYOUT", "beam", ("beams", "columns", "site_mep")),
 ]
 
 
@@ -1536,7 +1553,9 @@ def test_site_works_are_decided_by_presence_not_word_order(
 ) -> None:
     reading = titles_part._reading(CONVENTIONS)
     own = routing_part._own(title, reading)
-    found, _, _ = routing_part._proposal(ViewKind.PLAN, own.subject, "structural", (), site=own.site)
+    found, _, _ = routing_part._proposal(
+        ViewKind.PLAN, own.subject, "structural", (), site=own.site, elements=own.elements
+    )
     assert (own.subject, found) == (subject, steps)
 
 

@@ -12,9 +12,10 @@ plans and 3D/perspective views are excluded `for_information`; a legend goes to 
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
 Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10, and 14 for site works).
 A title is read by what it names, never by the order of its words (`_own`): a bare "site" only says
-where, and a setback beside a storey or a building element is a storey's word; on a Structural sheet
-the group of elements a boundary wall leads into or "of" and "for" lead from ("FOOTING AND GRADE BEAM
-DETAIL OF BOUNDARY WALL") goes with it to Step 14, and an element named on its own keeps its Step.
+where, and a setback beside a storey or a building element is a storey's word. On a Structural sheet a
+view whose own title names several building elements is proposed for the Step of each, and one that
+names a site work (a boundary or compound wall) as well for Step 14 too; one naming site works only
+goes to Step 14 alone. The QS confirms; no word list decides between them.
 One whose own title names no subject with a Step ("SECTION 1-1") goes to the Steps of every subject
 its sheet's title names ("BEAM DETAILS": beams), in the title's order, its own subject kept as its
 title says (#158), or to Step 14 alone when its sheet's title names site works (a boundary wall,
@@ -76,8 +77,8 @@ cantilever slab; a boundary wall, a compound wall, a setback or the site, site w
 SITE_WORKS = "site_works"
 """The subject of a Structural sheet's site works: the owner's ruling (11 Oct 2026, session 22) sends
 them to Step 14 (`site_mep`) alone, never to the building's Steps (a boundary wall's footing is
-measured with the external works, not the building's foundations); a view's title that also names a
-building element on its own keeps that element's Step beside it (`_own`)."""
+measured with the external works, not the building's foundations); a view whose own title names a
+building element as well is proposed for both (`_own`)."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
@@ -92,78 +93,38 @@ PLUMBING_PART = "plumbing"
 _EXCLUDED_KINDS = frozenset({ViewKind.TITLE_BLOCK, ViewKind.KEY_PLAN, ViewKind.PERSPECTIVE})
 
 
-TIE_WORDS = frozenset({"of", "for", "to", "at", "under"})
-"""The words that tie a building element to a site work beside it ("FOOTING OF BOUNDARY WALL"): the
-element is that site work's own and goes with it. "AND" and "WITH" tie nothing by themselves."""
-FILLER_WORDS = frozenset({"detail", "details", "plan", "layout", "arrangement", "section", "typical"})
-"""Words that may stand beside a tie word between the two ("FOUNDATION PLAN FOR COMPOUND WALL")."""
-JOIN_WORDS = frozenset({"and"})
-"""Words that join building elements into one group ("FOOTING AND GRADE BEAM")."""
-
-
 @dataclass(frozen=True)
 class _Own:
-    """A view's own title read by the presence of its subjects, never their order: its subject, the
-    words that name it, and whether site works are named as well (Step 14 beside its own Step)."""
+    """A view's own title read by the presence of its subjects, never their order: its subject (the
+    first building element it names, else site works), every building element it names, and whether
+    site works are named as well (Step 14 beside the elements' Steps)."""
 
     subject: str | None = None
     words: str = ""
     site: bool = False
+    elements: tuple[str, ...] = ()
 
 
 def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
     """The subject of a view's title (the module's docstring). Qualifiers name nothing (`_qualifiers`:
     a bare "site" says where, a setback beside a storey or an element is a storey's). On a Structural
-    sheet the group of building elements a site work leads into, or a tie word leads from ("FOOTING
-    AND GRADE BEAM DETAIL OF BOUNDARY WALL", "FOOTING OF COLUMN AT BOUNDARY WALL"), is that site work's,
-    and a building element named on its own keeps its Step, beside Step 14 when the title names site
-    works too. Its subject is the first building element not so tied. Any other sheet's subject is its
-    first one that is not site works: the structural set's duplicate rule is unchanged there."""
+    sheet the title is proposed for the Step of every building element it names, and for Step 14 as
+    well when it names site works; the QS confirms, and no word list decides between them. Its subject
+    is the first building element, else site works. Any other sheet's subject is its first one that is
+    not site works: the structural set's duplicate rule is unchanged there."""
     tokens = _tokens(text)
     matches = reading.subjects.matches(tokens)
     drop = _qualifiers(tokens, matches, reading)
-    found = [(s, e, k, " ".join(tokens[s:e])) for n, (s, e, k) in enumerate(matches) if n not in drop]
+    found = [(" ".join(tokens[s:e]), k) for n, (s, e, k) in enumerate(matches) if n not in drop]
+    building = [(w, k) for w, k in found if k != SITE_WORKS]
     if not structural:
-        first = next((m for m in found if m[2] != SITE_WORKS), None)
-        return _Own(first[2], first[3]) if first else _Own()
-    if not found:
-        return _Own()
-    works = [m for m in found if m[2] == SITE_WORKS]
-    building = [m for m in found if m[2] != SITE_WORKS]
-    covered = {i for s, e, _, _ in building for i in range(s, e)}
-
-    def gap(a: tuple[int, int], b: tuple[int, int]) -> list[int]:
-        """The token indexes between two spans, whichever stands first."""
-        return list(range(a[1], b[0]) if a[1] <= b[0] else range(b[1], a[0]))
-
-    def ok(indexes: list[int], allowed: frozenset[str]) -> bool:
-        return all(i in covered or tokens[i] in allowed for i in indexes)
-
-    tied: set[int] = set()
-    for n, (s, e, _, _) in enumerate(building):
-        for ws, we, _, _ in works:
-            between = gap((s, e), (ws, we))
-            has_tie = any(tokens[i] in TIE_WORDS for i in between)
-            if ok(between, FILLER_WORDS) or (
-                has_tie and ok(between, TIE_WORDS | FILLER_WORDS | JOIN_WORDS)
-            ):
-                tied.add(n)
-    grown = True
-    while grown:
-        grown = False
-        for n, (s, e, _, _) in enumerate(building):
-            if n in tied:
-                continue
-            if any(
-                ok(gap((s, e), (building[t][0], building[t][1])), TIE_WORDS | FILLER_WORDS | JOIN_WORDS)
-                for t in tied
-            ):
-                tied.add(n)
-                grown = True
-    own = [m for n, m in enumerate(building) if n not in tied]
-    if own:
-        return _Own(own[0][2], own[0][3], bool(works))
-    return _Own(SITE_WORKS, found[0][3], True)
+        return _Own(building[0][1], building[0][0]) if building else _Own()
+    if building:
+        elements = tuple(dict.fromkeys(k for _, k in building))
+        return _Own(building[0][1], building[0][0], len(building) < len(found), elements)
+    if found:
+        return _Own(SITE_WORKS, found[0][0], True)
+    return _Own()
 
 
 def _draws_structure(text: str, reading: _Reading, *, structural: bool = False) -> bool:
@@ -183,13 +144,15 @@ def _proposal(
     notes: Collection[str] = (),
     structure: bool | None = None,
     site: bool = False,
+    elements: Sequence[str] = (),
 ) -> tuple[tuple[str, ...], str | None, Exclusion | None]:
     """A view's proposed Takeoff Steps, Part or exclusion (the module's docstring); `on_sheet`: the
     subjects its sheet's title names, in order; `notes`: the Disciplines whose sheets are general notes
     (`ViewConventions.notes_disciplines`): every view of theirs is Step 2's, whatever its kind, but its
     title block (never a note: #159's acceptance); `structure`: whether its title names the structure
     by a word not a lintel's (`_draws_structure`; by default, whether its subject is one); `site`:
-    whether its title names site works beside its own subject (`_Own.site`): Step 14 as well."""
+    whether its title names site works beside its own subject (`_Own.site`): Step 14 as well;
+    `elements`: every building element it names (`_Own.elements`): each one's Step."""
     if discipline is not None and discipline in notes and kind is not ViewKind.TITLE_BLOCK:
         return (GENERAL_NOTES,), None, None
     if structure is None:
@@ -203,7 +166,11 @@ def _proposal(
     if kind in (ViewKind.LEGEND, ViewKind.NOTES):
         return (GENERAL_NOTES,), None, None
     if discipline == "structural":
-        own = STRUCTURAL_STEPS.get(subject or "", ())
+        own = tuple(
+            dict.fromkeys(
+                step for key in (subject, *elements) for step in STRUCTURAL_STEPS.get(key or "", ())
+            )
+        )
         if own:
             return (
                 (*own, *(s for s in STRUCTURAL_STEPS[SITE_WORKS] if site and s not in own)),
