@@ -123,6 +123,27 @@ def test_a_lone_long_line_passing_every_gate_is_a_title_even_in_a_grid(callout: 
     assert [v.title for v in short] == ["TYPICAL BEAM SECTION DETAIL"]
 
 
+UNDER_TITLE = {
+    "centred": ((198.5, 545.0), (59.5, 531.0)),
+    "indented": ((40.0, 545.0), (60.0, 531.0)),
+    "flush": ((40.0, 545.0), (40.0, 531.0)),
+}
+"""A plan's title over its grid (6 mm lettering, 63 mm wide) and a long line 14 mm under it (342 mm
+wide): centred on the title, indented under it, or flush with its left edge."""
+
+
+@pytest.mark.parametrize("callout", [CALLOUT, STOREY_CALLOUT], ids=["no-storeys", "storeys"])
+@pytest.mark.parametrize("places", list(UNDER_TITLE.values()), ids=list(UNDER_TITLE))
+def test_a_long_line_under_a_plans_title_is_its_second_line_not_a_title(
+    callout: str, places: tuple[tuple[float, float], tuple[float, float]]
+) -> None:
+    """Review 1 of PR #686: the long line, nearer the drawing, took the plan from its title."""
+    title, line = places
+    found = read([PLAN], [Text("2ND FLOOR PLAN", title), Text(callout, line)])
+
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "2ND FLOOR PLAN")]
+
+
 @pytest.mark.parametrize("place", [(40.0, 590.0), (40.0, 150.0)], ids=["above", "below"])
 def test_a_long_one_line_notes_heading_with_nothing_under_it_is_a_notes_view(
     place: tuple[float, float],

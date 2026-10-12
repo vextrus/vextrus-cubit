@@ -16,7 +16,8 @@ alike (a note's; a scale text in the column is the title's scale line, not a not
 up to `MAX_LONG_TITLE_WORDS` words passing those gates is a title by its shape: a column of one (no line
 alike over or under it within `NOTE_LINE_GAP`, scale lines aside) that no notes heading's column holds
 (the columns are found first, a long line never taken). A title lying under
-another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
+another within `SUBTITLE_GAP` of its height, across the same place, is its second line (a long line
+too, before it may stand alone) ("PRESENTATION
 PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
 grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
 axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). **A ruled
@@ -204,8 +205,6 @@ def _views(
     stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     every = _Stacks(texts) if heads else stacks  # a notes line over a heading, scale-like or not
     titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
-    alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a long title stands alone
-    long_titles = [i for i in long_titles if alone.alone(i)]
     heads = {  # a notes heading heads its column: no line like it stands over it
         i for i in heads if stacks.lines(i) < MIN_NOTE_LINES or every.next(i, 1) is None
     }
@@ -217,8 +216,15 @@ def _views(
         head = next((i for i in titles if i != j and _subtitle(texts[j], texts[i])), None)
         if head is not None:
             second.setdefault(head, []).append(j)
+    for j in long_titles:  # a long line under a title is its second line, as a short one is
+        head = next((i for i in titles if i not in heads and _subtitle(texts[j], texts[i])), None)
+        if head is not None:  # under a second line: the title's that line is under
+            root = next((k for k, lines in second.items() if head in lines), head)
+            second.setdefault(root, []).append(j)
     subtitles = {j for lines in second.values() for j in lines}
     titles = [i for i in titles if i not in subtitles]
+    alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a long title stands alone
+    long_titles = [i for i in long_titles if i not in subtitles and alone.alone(i)]
     taken = set(titles) | subtitles  # a scale-like line in a column is a note's ("RAMP AT 1:12")
     placed = _Placing.of(texts) if heads else None
     columns = {i: _column_under(texts, placed, i, taken) for i in heads if placed is not None}
