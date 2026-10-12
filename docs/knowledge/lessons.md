@@ -592,6 +592,10 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   says: an undo takes back only the latest standing act, only while the row is as the act left it, else it is
   refused in words. Check: `vextrus/takeoff/tests/test_step1_correct.py`
   (`test_a_correction_is_not_undone_once_another_correction_stands_after_it`).
+- **A server act that can undo another act than the tab expects makes the tab's own history words wrong** (#691 round 2:
+  the web said "corrected S-05" while the server undid a confirmation). The words and the history follow the
+  server's reply. Check: `web/src/takeoff/correct.test.tsx` (the test "words Ctrl Z from the server when it
+  passed the correction over, and keeps the correction to undo").
 
 ## Session 23 (12 Oct 2026): M0's blockers went round the review cap; the real-drawing lock set the pace
 

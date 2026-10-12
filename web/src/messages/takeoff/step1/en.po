@@ -29,7 +29,10 @@ msgid "takeoff.step1.nothing_to_undo"
 msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions, corrections and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, correct it again, or paste the drawing list again."
 
 msgid "takeoff.step1.correction_moved_on"
-msgstr "Nothing undone: that sheet has changed since you corrected it, so the correction stays. To change it again, correct it with E; if it is confirmed, exclude it first, correct it, then confirm it back in."
+msgstr "Nothing undone: {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {that sheet}} has changed since you corrected it, so the correction stays. To change it again, correct it with E; if it is confirmed, exclude it first, correct it, then confirm it back in."
+
+msgid "takeoff.step1.answer_stays_after_correction"
+msgstr "Nothing undone: your correction stays because its sheet has changed since, and the act before it answered a Question, which cannot be undone. To change what the answer decided, exclude a sheet it confirmed or confirm back one it excluded."
 
 msgid "takeoff.step1.answer_stays"
 msgstr "Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."

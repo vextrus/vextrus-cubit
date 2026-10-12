@@ -63,6 +63,8 @@ interface Entry {
    * for an answer). Set when the answer is sent, so a Ctrl Z while it is in flight is held by it too.
    */
   answer?: boolean
+  /** A correction: the server may pass it over (its sheet moved on) and undo the act before it. */
+  kind?: 'correct'
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -309,7 +311,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
    * counts its calls once they are made. A key that comes while another act or an undo is in flight is
    * dropped, and kept as an act that made nothing, so the Ctrl Z after it undoes nothing and says so.
    */
-  const begin = useCallback((): ((calls: number, words: ReactNode) => void) | null => {
+  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct') => void) | null => {
     if (pending.current || undos.current > 0) {
       if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true })
       return null
@@ -323,9 +325,10 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
     let counted = () => {}
     const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false }
     history.current.push(entry)
-    return (calls, words) => {
+    return (calls, words, kind) => {
       entry.calls = calls
       entry.words = words
+      entry.kind = kind
       entry.counted = true
       counted()
     }
@@ -416,8 +419,24 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
             }
             let left = entry.calls
             try {
-              for (; left > 0; left--) await undo(projectId)
-              const words = entry.words
+              let reply: ActOut | undefined
+              for (; left > 0; left--) reply = await undo(projectId)
+              let words = entry.words
+              if (entry.kind === 'correct' && reply && reply.act !== 'correct') {
+                // The server passed the correction over (its sheet moved on) and undid the act before
+                // it: the words are that act's, taken from the server's reply, and the correction stays.
+                const at = history.current.findLastIndex((e) => !e.dropped && !e.answer && e.calls > 0)
+                const before = at === -1 ? undefined : history.current[at]
+                if (before && before.calls > 1) {
+                  // A bulk act of several calls: one of them is taken back; the rest stay to undo.
+                  before.calls -= 1
+                  words = <UndoneWords act={reply} />
+                } else {
+                  if (at !== -1) history.current.splice(at, 1)
+                  words = before?.words ?? <UndoneWords act={reply} />
+                }
+                restore([entry])
+              }
               done = {
                 message: <Trans>Undone: {words}</Trans>,
                 stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
@@ -484,7 +503,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
 
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
-    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
+    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode, kind?: 'correct'): Promise<boolean> => {
       const counted = begin()
       if (!counted) return false
       const mark = marked()
@@ -502,7 +521,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         say(error)
         return false
       } finally {
-        counted(made, words)
+        counted(made, words, kind)
         showDone(done, await settle(mark), mark)
       }
     },
@@ -646,6 +665,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
             Corrected {name}: {what}. Still a Proposal until confirmed.
           </Trans>
         ),
+        'correct',
       )
     },
     [projectId, run],

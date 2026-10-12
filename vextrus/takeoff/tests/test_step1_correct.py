@@ -113,7 +113,7 @@ def test_typed_text_that_cannot_be_kept_is_refused_with_a_code_and_nothing_is_wr
         if len(text) > TITLE_LENGTH or (field == "number" and len(text) > 64)
         else "unreadable"
     )
-    assert response.json() == {"code": f"drawings.sheets.{field}_{cause}", "params": {}}
+    assert response.json()["code"] == f"drawings.sheets.{field}_{cause}"
     assert facts(nusrat, kr01) == before
     assert len(confirmations(demo, kr01)) == acts
 
@@ -158,7 +158,7 @@ def test_undoing_a_correction_retires_the_conflict_its_number_raised(
     assert conflicts_holding(nusrat, kr01, s05["id"]) == []
 
 
-MOVED_ON = {"code": "takeoff.step1.correction_moved_on", "params": {}}
+MOVED_ON = "takeoff.step1.correction_moved_on"
 
 
 def test_a_correction_is_not_undone_once_another_correction_stands_after_it(
@@ -173,7 +173,7 @@ def test_a_correction_is_not_undone_once_another_correction_stands_after_it(
 
     refused = nusrat.post(f"{step1(kr01)}/undo", {})
 
-    assert (refused.status_code, refused.json()) == (409, MOVED_ON)
+    assert (refused.status_code, refused.json()["code"]) == (409, MOVED_ON)
     after = the(nusrat, kr01, s05["id"])
     assert (after["title"], after["corrected"]) == ("Second", True)
 
@@ -380,7 +380,7 @@ def test_two_people_correcting_one_sheet_undo_only_the_latest_each_time(
     assert correct(other, kr01, {"proposal": sheet["id"], "number": "A-94"}).status_code == 200
 
     refused = nusrat.post(f"{step1(kr01)}/undo", {})
-    assert (refused.status_code, refused.json()) == (409, MOVED_ON)
+    assert (refused.status_code, refused.json()["code"]) == (409, MOVED_ON)
     assert the(nusrat, kr01, sheet["id"])["number"] == "A-94"
 
     undo(other, kr01)
@@ -509,7 +509,7 @@ def test_a_correction_is_not_undone_through_a_decision_made_since(
 
     refused = nusrat.post(f"{step1(kr01)}/undo", {})
 
-    assert (refused.status_code, refused.json()) == (409, MOVED_ON)
+    assert (refused.status_code, refused.json()["code"]) == (409, MOVED_ON)
     after = the(nusrat, kr01, sheet["id"])
     assert (after["title"], after["decision"]) == ("Mine", "excluded")
 
@@ -531,7 +531,7 @@ def test_an_undo_passes_over_a_correction_that_has_moved_on_to_the_act_before_it
     assert the(nusrat, kr01, s01["id"])["decision"] in (None, "")
     assert the(nusrat, kr01, s05["id"])["title"] == "Theirs"
     again = nusrat.post(f"{path}/undo", {})  # nothing else of theirs to take back
-    assert (again.status_code, again.json()) == (409, MOVED_ON)
+    assert (again.status_code, again.json()["code"]) == (409, MOVED_ON)
 
 
 def test_undoing_a_correction_gives_back_the_plot_match_it_cleared(
@@ -546,3 +546,53 @@ def test_undoing_a_correction_gives_back_the_plot_match_it_cleared(
     undo(nusrat, kr01)
 
     assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is True
+
+
+def test_the_refusal_to_undo_a_moved_on_correction_names_its_sheet(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Fix round 3 of #691 (35): as question_first names its sheet.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}).status_code == 200
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "Theirs"}).status_code == 200
+
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
+
+    assert (refused.status_code, refused.json()) == (
+        409,
+        {"code": "takeoff.step1.correction_moved_on", "params": {"sheet": "S-05", "named": "number"}},
+    )
+
+
+def test_the_too_long_words_carry_their_limit(nusrat: Api, kr01: uuid.UUID) -> None:
+    # Fix round 3 of #691 (35): the limits come from the columns, not from the words.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+
+    title = correct(nusrat, kr01, {"proposal": sheet["id"], "title": "t" * (TITLE_LENGTH + 1)})
+    number = correct(nusrat, kr01, {"proposal": sheet["id"], "number": "N" * 65})
+
+    assert title.json() == {"code": "drawings.sheets.title_too_long", "params": {"limit": TITLE_LENGTH}}
+    assert number.json() == {"code": "drawings.sheets.number_too_long", "params": {"limit": 64}}
+
+
+def test_an_undo_that_passes_over_a_correction_and_meets_an_answer_says_both(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Fix round 3 of #691 (25): answer_stays alone would not say why the correction stayed.
+    other = second_qs(demo, sign_in, kr01)
+    path = step1(kr01)
+    listed = nusrat.get(f"{path}/questions").json()["questions"]
+    [kind] = [q for q in listed if q["kind"] == "low_confidence"][:1]
+    answered = nusrat.post(f"{path}/questions/{kind['id']}/answer", {"option": "working_plan"})
+    assert answered.status_code == 200, answered.content  # confirms its sheet: a Question's answer
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}).status_code == 200
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "Theirs"}).status_code == 200
+
+    refused = nusrat.post(f"{path}/undo", {})
+
+    assert (refused.status_code, refused.json()["code"]) == (
+        409,
+        "takeoff.step1.answer_stays_after_correction",
+    )

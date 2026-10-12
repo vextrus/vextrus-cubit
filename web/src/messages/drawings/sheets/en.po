@@ -17,7 +17,7 @@ msgid "drawings.sheets.title_empty"
 msgstr "That title is empty, so nothing was changed. Type the title as its title block prints it."
 
 msgid "drawings.sheets.title_too_long"
-msgstr "That title is longer than 500 characters, so nothing was changed. Type only the title, as its title block prints it."
+msgstr "That title is longer than {limit} characters, so nothing was changed. Type only the title, as its title block prints it."
 
 msgid "drawings.sheets.title_many_lines"
 msgstr "That title runs over more than one line, so nothing was changed. Type it on one line, as its title block prints it."
@@ -32,7 +32,7 @@ msgid "drawings.sheets.number_empty"
 msgstr "That number is empty, so nothing was changed. Type the number as its title block prints it."
 
 msgid "drawings.sheets.number_too_long"
-msgstr "That number is longer than 64 characters, so nothing was changed. Type only the number, as its title block prints it."
+msgstr "That number is longer than {limit} characters, so nothing was changed. Type only the number, as its title block prints it."
 
 msgid "drawings.sheets.number_many_lines"
 msgstr "That number runs over more than one line, so nothing was changed. Type it on one line, as its title block prints it."

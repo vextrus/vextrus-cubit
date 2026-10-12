@@ -42,6 +42,7 @@ function rowFor(number: string): HTMLElement {
   return rows.find((r) => !rows.some((o) => o !== r && r.contains(o)))!
 }
 
+const count = (step1: FakeStep1, call: string) => step1.calls().filter((c) => c === call).length
 const posts = (step1: FakeStep1) => step1.calls().filter((c) => c.startsWith('POST'))
 
 describe('Correct the Proposal (§6.9)', () => {
@@ -128,9 +129,45 @@ describe('Correct the Proposal (§6.9)', () => {
     await waitFor(() => expect(bodyText()).toContain('Corrected S-05: number → S-51. Still a Proposal until confirmed.'))
   })
 
+  it('words Ctrl Z from the server when it passed the correction over, and keeps the correction to undo', async () => {
+    // Fix round 3 of #691 (70/60): the tab's own history said "corrected S-05" for any Ctrl Z.
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    const out = (act: string) => ({ confirmation_id: '01a10000-0000-7000-8000-00000000c0e2', act, sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    await userEvent.click(within(rowFor('S-01')).getByText('S-01'))
+    step1.answerOnce('POST /confirm', 200, out('confirm'))
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(count(step1, 'POST /confirm')).toBe(1))
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    const number = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+    step1.answerOnce('POST /correct', 200, out('correct'))
+    await userEvent.clear(number)
+    await userEvent.type(number, 'S-51')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Corrected S-05'))
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+
+    // Another person corrected S-05 meanwhile: the server passes the correction over and undoes the confirmation.
+    step1.answerOnce('POST /undo', 200, out('confirm'))
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Undone: confirmed 1 sheet'))
+    expect(bodyText()).not.toContain('Undone: corrected S-05')
+    await waitFor(() => expect(document.querySelector('[data-step1]')?.getAttribute('aria-busy')).not.toBe('true'))
+
+    // The correction is still the last act of this tab: the next Ctrl Z takes it.
+    step1.answerOnce('POST /undo', 200, out('correct'))
+    await userEvent.keyboard('{Control>}z{/Control}')
+    await waitFor(() => expect(bodyText()).toContain('Undone: corrected S-05'))
+  })
+
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {
     const { step1, title } = await correcting()
-    step1.answerOnce('POST /correct', 400, msg('drawings.sheets.title_too_long'))
+    step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })
     const long = 'T'.repeat(600)
     await userEvent.click(title)
     await userEvent.clear(title)

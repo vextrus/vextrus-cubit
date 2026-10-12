@@ -54,7 +54,7 @@ def _refuse_unless_typed(
     if any(c in typed for c in sheet_list._RAW_CODES):
         raise auth.Refused(code(), status=400)
     if len(typed) > length:
-        raise auth.Refused(long(), status=400)
+        raise auth.Refused(long(limit=length), status=400)
     printable = _title_line(typed) if bidi else _one_line(typed)
     if not printable:
         raise auth.Refused(unprintable(), status=400)
