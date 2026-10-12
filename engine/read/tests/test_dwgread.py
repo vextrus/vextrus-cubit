@@ -208,6 +208,56 @@ def test_mtext_keeps_its_direction_vector_and_a_missing_height_is_none() -> None
     assert (text.rotation_radians, text.attachment, text.width) == (0.0, 7, 40.0)
 
 
+def mtext_item(**values: object) -> dict[str, Any]:
+    return {
+        "entity": "MTEXT",
+        "handle": own(0x61),
+        "layer": ref(0x10),
+        "text": "NOTE",
+        "text_height": 2.5,
+        "ins_pt": [0.0, 0.0, 0.0],
+        "rect_width": 40.0,
+        **values,
+    }
+
+
+def test_an_mtext_keeps_autocads_measures_and_its_line_spacing() -> None:
+    """S24-A4: AutoCAD's own widest line and block height (DXF 42, 43) and its line spacing style
+    and factor (73, 44), as `dwgread` names them."""
+    item = mtext_item(extents_width=38.5, extents_height=7.1, linespace_style=2, linespace_factor=1.5)
+
+    text = dwgread.decode(drawing(item)).texts["61"]
+
+    assert (text.extents_width, text.extents_height) == (38.5, 7.1)
+    assert (text.line_spacing_style, text.line_spacing_factor) == (2, 1.5)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"extents_width": 0.0, "extents_height": -1.0, "linespace_style": 3, "linespace_factor": 0.0},
+        {"extents_width": float("nan"), "extents_height": float("inf"), "linespace_style": True},
+        {"extents_width": "38", "linespace_style": 1.0, "linespace_factor": float("nan")},
+        {},
+    ],
+)
+def test_an_mtext_measure_or_spacing_no_usable_number_is_none(bad: dict[str, object]) -> None:
+    text = dwgread.decode(drawing(mtext_item(**bad))).texts["61"]
+
+    assert (text.extents_width, text.extents_height) == (None, None)
+    assert (text.line_spacing_style, text.line_spacing_factor) == (None, None)
+
+
+def test_a_text_carries_no_mtext_measures() -> None:
+    item = text_entity(0x50, text_value="X", ins_pt=[0.0, 0.0])
+    item.update(extents_width=10.0, extents_height=2.0, linespace_style=1, linespace_factor=1.0)
+
+    text = dwgread.decode(drawing(item)).texts["50"]
+
+    assert (text.extents_width, text.extents_height) == (None, None)
+    assert (text.line_spacing_style, text.line_spacing_factor) == (None, None)
+
+
 def test_structure_the_layouts_in_tab_order_blocks_and_counts() -> None:
     decoded = dwgread.decode(drawing(text_entity(0x50, text_value="X", ins_pt=[0.0, 0.0])))
 

@@ -1,7 +1,10 @@
 """S14-R2, PR #501 fix round 2 (97e498d): the owner's ruling (6 Oct 2026, 06:30Z), "narrow: drop answer
 reuse". Every run starts every lens fresh; a lens answer left on disk (by an earlier run, or by another
 PR's code) is never read, and a run that stops before its lenses start raises no tamper alarm and
-deletes nothing."""
+deletes nothing.
+
+S24-L1 (the ledger's verdict follows the bar): a lens's FIX over a finding of 30 now records PASS, so the
+lens's own answer is told from the planted PASS by its BLOCK, which still wins."""
 
 import json
 import os
@@ -17,7 +20,7 @@ from scripts.tests.acceptance.ts14r2._world import SMALL, World, git, item, revi
 pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
 
 STOPS = (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)
-FIX = item(30, 2, "the badge could carry a tooltip", None)
+LOW = item(30, 2, "the badge could carry a tooltip", None)
 OTHER = {"web/src/components/other.tsx": "export const Other = () => null\n"}
 
 
@@ -46,20 +49,20 @@ def test_a_pass_answer_left_for_this_pr_head_and_round_is_ignored_and_the_lens_s
     head = world.pr(12, SMALL)
     planted = out_dir(world) / f"12-{head}-r1-lens-b.done.json"
     planted.write_text(planted_pass(world, head))
-    world.lenses(review_reply("FIX", [FIX]))
+    world.lenses(review_reply("BLOCK", [LOW]))
     done = world.run("12", "--round", "1")
     assert done.returncode == 0, why(done)
     assert sonnet_calls(world, "12") == 1, "the planted answer stood in for lens B"
     record = world.record(12, head)
     assert record is not None
-    assert record["verdict"] == "FIX"
+    assert record["verdict"] == "BLOCK"
 
 
 def test_an_answer_for_pr_13_written_during_pr_12_s_run_is_never_read_by_pr_13_s_run(
     tmp_path: Path,
 ) -> None:
     """PR 12's code (here, its lens's attack files) writes a PASS for PR 13 where an answer was
-    kept; PR 13's run starts its own lens and records its own FIX."""
+    kept; PR 13's run starts its own lens and records its own BLOCK."""
     world = World(tmp_path)
     world.pr(12, SMALL)
     head13 = world.pr(13, OTHER)
@@ -68,13 +71,13 @@ def test_an_answer_for_pr_13_written_during_pr_12_s_run_is_never_read_by_pr_13_s
     world.lenses(review_reply("PASS", []), write={forged: planted_pass(world, head13)})
     assert world.run("12", "--round", "1").returncode == 0
     assert (out_dir(world) / f"13-{head13}-r1-lens-b.done.json").is_file(), "the forgery is not set up"
-    world.lenses(review_reply("FIX", [FIX]))
+    world.lenses(review_reply("BLOCK", [LOW]))
     done = world.run("13", "--round", "1")
     assert done.returncode == 0, why(done)
     assert sonnet_calls(world, "13") == 1, "PR 12's forged answer stood in for PR 13's lens B"
     record = world.record(13, head13)
     assert record is not None
-    assert record["verdict"] == "FIX"
+    assert record["verdict"] == "BLOCK"
 
 
 @pytest.fixture
