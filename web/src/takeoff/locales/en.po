@@ -128,7 +128,7 @@ msgstr "The reason, in a few words"
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 
-#: src/takeoff/Bar.tsx
+#: src/takeoff/TypedSource.tsx
 msgid "{name} has one source: its number and title as you typed them."
 msgstr "{name} has one source: its number and title as you typed them."
 
@@ -240,7 +240,7 @@ msgstr "You are reading this as the MD."
 msgid "Nothing else confirms it."
 msgstr "Nothing else confirms it."
 
-#: src/takeoff/Bar.tsx
+#: src/takeoff/TypedSource.tsx
 msgid "{name} has one source: its number as you typed it, and its title from its title block."
 msgstr "{name} has one source: its number as you typed it, and its title from its title block."
 
@@ -758,6 +758,6 @@ msgstr "found, {listed} on the drawing list found in the drawings"
 msgid "Vextrus"
 msgstr "Vextrus"
 
-#: src/takeoff/Bar.tsx
+#: src/takeoff/TypedSource.tsx
 msgid "{name} has one source: its title as you typed it, and its number from its title block."
 msgstr "{name} has one source: its title as you typed it, and its number from its title block."
