@@ -529,7 +529,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   branch. The guard refuses `tools.leakscan range` from a builder's worktree, so the orchestrator scans for them.
 - **A sha typed from memory again** (an rdlock no-post run on a head that does not exist); caught before any gate,
   restarted with `git rev-parse`. No check: `rdlock run --head` should refuse a sha git cannot resolve.
-- **`stamp start --budget 12` reads 12 minutes,** not hours. Check (session 22, after a repeat): `scripts/factory/tests/acceptance/ts22stamp/` (#675).
+- **`stamp start --budget 12` reads 12 minutes,** not hours. Check: `scripts/factory/tests/acceptance/ts22stamp/` (#675, session 22, after a repeat).
 - **Verify races on a fresh worktree** (contract-fixtures before openapi-export; pytest-lint sees other worktrees'
   databases): four builders lost a 30-minute verify to it. No check: #644.
 - **A HOLD file ordered verifies better than messages:** builders hold suites while
@@ -543,8 +543,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 
 ## Session 22 (11-12 Oct 2026): Trains B and C landed; G1 measured M0's real distance
 
-- **`stamp start --budget 8` read 8 minutes, a second time** (session 21 noted it with no check). Check: S22-STAMP
-  (`stamp start` refuses a bare-number budget; `scripts/factory/tests/acceptance/ts22stamp/`).
+- **`stamp start --budget 8` read 8 minutes, a second time** (session 21 noted it without one). Check:
+  `scripts/factory/tests/acceptance/ts22stamp/` (S22-STAMP, #675: `stamp start` refuses a bare-number budget).
 - **A fix round that tunes a budget constant regressed in the next review** (#653: one shared budget of one step an item
   cut real-size column plans). Round 3 changed the shape instead (titles held whole read first in one linear pass,
   never cut) and passed. Same class as session 21's identity treadmill. No check: after one regression from a
@@ -552,17 +552,17 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **A wall-clock test timed once, cold, flaked on CI the day it landed** (#653's shared-budget tests; #655's python
   (rest)). Check: `engine/plot/tests/acceptance/ts22timing/` (every engine/plot timing comparison takes the best of
   several runs through one helper).
-- **A builder changed an acceptance fixture itself under an `acceptance:` commit** (#654). Check: CI's acceptance lint
-  refused it (no red/green lines); redone through `scripts.factory.amend` on a fresh branch.
+- **A builder changed an acceptance fixture itself under an `acceptance:` commit** (#654). Check: `tools/lint/acceptance.py`
+  (CI refused it: no red/green lines); redone through `scripts.factory.amend` on a fresh branch.
 - **`gh pr view --json baseRefOid` again** (S21-MR, then #655's first head: real gh has no such field, so the lander
   refused every PR; the fakes answered any field). Root: the orchestrator's acceptance brief named the field. Check:
   `scripts/tests/acceptance/ts22l647/test_gh_pr_view_fields.py` (every `pr view --json` field in scripts/ and tools/
   is one gh knows; the fakes refuse others).
 - **The orchestrator's own brief carried a real sheet title into an acceptance test** (S22-FL7), and a writer copied
-  another (S22-FL5). Check: the range leak scan before push caught both; redone on fresh branches. No check for briefs:
-  example titles in a brief are invented.
-- **merge_ready read "for a later ticket" notes under `## Cut` as unfiled cut items** (#650). Check: merge_ready itself
-  (it refused); publish builds bodies that can do it. No check in publish yet.
+  another (S22-FL5); the range scan before a push caught both, redone on fresh branches. No check: example titles
+  in a brief are invented.
+- **merge_ready read "for a later ticket" notes under `## Cut` as unfiled cut items** (#650). Check:
+  `scripts/merge_ready.py` (it refused); publish still builds bodies that can do it.
 - **G1's script layer passed all but one check while the agent layer failed seven milestone items, with seven blockers.** The script checks
   measure what earlier tickets fixed; the critics found unbuilt spec (Correct E), unlogged acts and wrong meanings.
   No check: run the agent layer on every walk, even when the script layer fails.
@@ -570,4 +570,5 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   on a 278-view DWG), not from finding Questions (C1's target). Check: `vextrus/takeoff/tests/acceptance/ts22lockhold/`
   (statements under the lock flat in views a sheet; an act during finishing is answered).
 - **The branch held by another worktree** blocks a launch on it: the orchestrator detaches the writer's worktree
-  (`git switch --detach`) before launching the builder, or builds on a sibling branch and fast-forwards. No check.
+  (`git switch --detach`) before launching the builder, or builds on a sibling branch and fast-forwards. No check:
+  a practice the orchestrator keeps.
