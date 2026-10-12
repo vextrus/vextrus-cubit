@@ -80,6 +80,7 @@ the grid; at most `MAX_TITLES` titles and as many scale texts, the `MAX_PIECES` 
 """
 
 import math
+from collections.abc import Sequence
 from dataclasses import replace
 from statistics import median
 
@@ -136,6 +137,12 @@ from engine.recognise.views.segment.texts import (
 )
 from engine.recognise.views.titles import _kind, _named_kind, _Reading, _tokens
 
+LONG_TITLE_CENTRED = 0.25
+"""How far a long title's centre may lie from its drawing's centre, a share of the drawing's width (the
+real long titles: 0.06 at most; a long title in a pane of a ruled sheet, wider than its plan: 0.2)."""
+LONG_TITLE_GAP = 6.0
+"""The farthest a long title stands under or over its drawing, in its heights (the real ones: 3.2 to 3.5,
+a scale line under them)."""
 ROW_SHARE = 0.25
 """A drawing's detached row (its grid marks, its dimensions) is at most this share of its body's
 height."""
@@ -244,10 +251,6 @@ def _views(
     )
     long_titles = [i for i in long_titles if i not in noted]  # a notes heading's line is its
     if long_titles:  # decided last: the tables, the headings' columns and the titles' blocks known
-        schedules = _schedules(replace(paper, segments=paper.segments[~off], lengths=None))
-        long_titles = [  # a line in a ruled table holding no drawing is the table's
-            i for i in long_titles if not any(_inside(_centre(texts[i].box), b) for b in schedules)
-        ]
         placing = _Placing.of(texts)
         own = {j: ti for ti, lines in second.items() for j in lines}  # each title's own lines
         short = {i for i in titles if i not in heads}
@@ -265,6 +268,10 @@ def _views(
         joined = {j for lines in second.values() for j in lines}
         alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a column of one
         standing = [i for i in long_titles if i not in joined and alone.alone(i)]
+        if standing:  # and it titles a drawing no short title stands at
+            drawings = _drawings(replace(paper, segments=paper.segments[~off], lengths=None))
+            shorts = [texts[i] for i in short]
+            standing = [i for i in standing if _titles_a_drawing(texts[i], drawings, shorts)]
         drawn_long = [i for i in standing if _kind(texts[i].shown, reading) not in _HEADINGS]
         claimed = joined | set(titles) | noted | set(standing)
         for ti, lines in _title_lines(texts, drawn_long, claimed).items():
@@ -387,20 +394,37 @@ def _views(
     return views[:MAX_VIEWS]
 
 
-def _schedules(paper: _Paper) -> list[Bounds]:
-    """The ruled tables (`_tables`) that hold no drawing: no piece of lines alone (texts aside) of
-    `MIN_VIEW_MM` or more lies in the table's box. A grid of panes, each holding a drawing, is none."""
-    tables = _tables(paper.segments, paper.region)
-    if not tables:
-        return []
+def _drawings(paper: _Paper) -> list[Bounds]:
+    """The boxes of the sheet's drawn pieces (lines alone, texts aside, dividers out) at least
+    `MIN_VIEW_MM` each way (never a rule or a dash), and of its ruled tables: a text in a table's box
+    is never at it (`_at`)."""
     rx0, ry0, rx1, ry1 = paper.region
     least = MIN_VIEW_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
-    drawings = [
-        q.box
-        for q in _pieces(paper, paper.texts, ())
-        if max(q.box[2] - q.box[0], q.box[3] - q.box[1]) >= least
-    ]
-    return [b for b in tables if not any(_holds(b, d) for d in drawings)]
+    boxes = (q.box for q in _pieces(paper, paper.texts, ()))
+    drawn = [b for b in boxes if min(b[2] - b[0], b[3] - b[1]) >= least]
+    return [*drawn, *_tables(paper.segments, paper.region)]  # a grid drawn with dividers, too
+
+
+def _at(t: _Text, drawing: Bounds) -> bool:
+    """Whether a text stands directly under or over a drawing: its centre across the drawing, and
+    the gap between them `LONG_TITLE_GAP` of its heights at most."""
+    cx = (t.box[0] + t.box[2]) / 2
+    reach = LONG_TITLE_GAP * t.height
+    under, over = drawing[1] - t.box[3], t.box[1] - drawing[3]
+    return drawing[0] <= cx <= drawing[2] and (0 <= under <= reach or 0 <= over <= reach)
+
+
+def _titles_a_drawing(t: _Text, drawings: Sequence[Bounds], shorts: Sequence[_Text]) -> bool:
+    """Whether a long line stands as a drawing's title (the shape of every real long title, S23):
+    directly under or over the drawing (`_at`), its centre within `LONG_TITLE_CENTRED` of the
+    drawing's width of the drawing's centre, and no short title standing at that drawing."""
+    cx = (t.box[0] + t.box[2]) / 2
+    return any(
+        abs(cx - (d[0] + d[2]) / 2) <= LONG_TITLE_CENTRED * (d[2] - d[0])
+        and _at(t, d)
+        and not any(_at(u, d) for u in shorts)
+        for d in drawings
+    )
 
 
 def _row_under(row: Bounds, body: Bounds, by: float) -> bool:

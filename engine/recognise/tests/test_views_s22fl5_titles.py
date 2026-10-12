@@ -1,12 +1,11 @@
 """S22-FL5's builder tests, rewritten in S23 to the long-title shape rule: a one-line text of 13 to
 16 words is a view title only when it passes every gate a short title passes, stands alone in its column
 (no line of the same lettering over or under it within a notes line's gap) and no notes heading's column
-holds it; whether it states storeys or stands within a drawing does not count. So a long callout inside
-a plan's grid stacked over a line like it, or under a "NOTE:" heading, stays the plan's annotation (the
-plan keeps its own title); a lone long line passing every gate is a title even inside a grid (the rule's
-known trade-off: no real sheet has one); and a one-line notes heading of that length with nothing under
-it stays a notes view of its own. Every title and note here is invented; the sheets are drawn as the
-acceptance cases' (`ts22fl5/drawing.py`).
+holds it, and (review 1 of PR #692) it stands directly under or over a drawing, centred on it, where
+no short title stands; whether it states storeys does not count. So a long callout inside a plan's grid
+stays the plan's annotation (the plan keeps its own title, or stays untitled); and a one-line notes
+heading of that length with nothing under it stays a notes view of its own. Every title and note here
+is invented; the sheets are drawn as the acceptance cases' (`ts22fl5/drawing.py`).
 
     uv run pytest engine/recognise/tests/test_views_s22fl5_titles.py
 """
@@ -113,13 +112,14 @@ def test_a_long_title_with_a_line_like_it_beyond_a_notes_gap_titles_its_drawing(
 
 
 @pytest.mark.parametrize("callout", [CALLOUT, STOREY_CALLOUT], ids=["no-storeys", "storeys"])
-def test_a_lone_long_line_passing_every_gate_is_a_title_even_in_a_grid(callout: str) -> None:
-    """The rule's known trade-off (no real sheet has one): a lone long callout a height inside an
-    untitled plan's lower edge titles it, as a short title there does."""
+def test_a_lone_long_line_inside_a_plans_grid_is_no_title_where_a_short_one_is(callout: str) -> None:
+    """Review 1 of PR #692: a long line titles a drawing only standing under or over it, never within
+    it (the shape of every real long title); a short title a height inside the lower edge still titles
+    it (main's reading)."""
     long = read([PLAN], [Text(callout, (120.0, 226.0))])
     short = read([PLAN], [Text("TYPICAL BEAM SECTION DETAIL", (120.0, 226.0))])
 
-    assert [v.title for v in long] == [callout]
+    assert [(v.kind, v.title) for v in long] == [(ViewKind.PLAN, None)]
     assert [v.title for v in short] == ["TYPICAL BEAM SECTION DETAIL"]
 
 
@@ -228,6 +228,39 @@ def test_a_long_line_under_a_titles_storeys_line_is_its_second_line(
     )
 
     assert [(v.kind, v.title) for v in found] == [(ViewKind.PLAN, "2ND FLOOR PLAN")]
+
+
+SCHEDULE_MARKS = {
+    "a-group-rule": [((340.0, 455.0), (800.0, 455.0))],
+    "a-dash": [((560.0, 300.0), (572.0, 300.0))],
+    "a-strike": [((340.0, 100.0), (800.0, 227.0))],
+}
+"""A schedule's own marks, none a drawing that a long line could title: a rule across the last
+column's top cell, a 12 mm dash in a cell, a strike through an empty cell."""
+
+
+@pytest.mark.parametrize("marks", list(SCHEDULE_MARKS.values()), ids=list(SCHEDULE_MARKS))
+def test_a_long_remark_in_a_schedule_with_its_own_marks_leaves_it_a_schedule(
+    marks: list[tuple[tuple[float, float], tuple[float, float]]],
+) -> None:
+    """Review 1 of PR #692: a short rule or a dash in the table made it "hold a drawing", and the
+    remark became a title again (no view, or an untitled plan)."""
+    found = read([], [*SCHEDULE_CELLS, Text(REMARK, (348.0, 400.0))], [*SCHEDULE_RULES, *marks])
+
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.SCHEDULE, None)]
+
+
+@pytest.mark.parametrize("callout", [CALLOUT, STOREY_CALLOUT], ids=["no-storeys", "storeys"])
+def test_a_long_remark_beside_a_plans_title_leaves_the_plan_its_title(callout: str) -> None:
+    """Review 1 of PR #692: lettered on the strip under the drawing beside the plan's own title, a
+    millimetre nearer the grid, the remark took the plan by its gap; a short title stands at that
+    drawing, so no long line titles it."""
+    wide = (40.0, 220.0, 620.0, 520.0)
+    found = read([wide], [Text("2ND FLOOR PLAN", (412.0, 208.0)), Text(callout, (60.0, 209.0))])
+
+    plans = [v for v in found if v.kind is ViewKind.PLAN]
+    assert [(v.title, v.storeys) for v in plans] == [("2ND FLOOR PLAN", ("floor_2",))]
+    assert all(v.title != callout for v in found)
 
 
 @pytest.mark.parametrize("place", [(40.0, 590.0), (40.0, 150.0)], ids=["above", "below"])
