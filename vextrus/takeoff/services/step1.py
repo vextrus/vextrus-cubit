@@ -39,8 +39,8 @@ beams) under the act confirming it; the QS may put any view not left out in Step
 the API's only in M0: m0-screens 6.9). A step given by an act stands while the act is not undone
 (`CoverageStep.confirmation`; the app deletes no row).
 
-For the seed and 21c's read job: `propose_sheet`, `record_coverage`, `raise_question`,
-`answer_question` and `record_progress` write the rows Step 1 reads.
+For the seed and 21c's read job: `propose_sheet`, `record_coverage` (`propose_views`: a file's views
+at once), `raise_question`, `answer_question` and `record_progress` write the rows Step 1 reads.
 """
 
 import contextlib
@@ -53,6 +53,7 @@ from collections import Counter
 from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, cast
 
 from django.db import connection, transaction
@@ -67,7 +68,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, invitations, jev, markets, tenancy
+from vextrus.platform.services import auth, events, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -915,6 +916,28 @@ def _asked(
     ]
 
 
+def _in_list_order(
+    project_id: uuid.UUID, deciding: Mapping[uuid.UUID, Any], found: list[UnaccountedView]
+) -> list[UnaccountedView]:
+    """The unaccounted views in the sheet list's order, then their reading order on the sheet: a
+    Coverage query has no order of its own, and the list of entries must not move from load to load."""
+    if len(found) < 2:
+        return found
+    drawing_set = _set_of(project_id)
+    ordinals = {
+        v.id: v.ordinal
+        for views in (
+            drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+        ).values()
+        for v in views
+    }
+    rank = {sheet_id: at for at, sheet_id in enumerate(deciding)}
+    return sorted(
+        found,
+        key=lambda u: (rank.get(u.sheet_id, len(rank)), ordinals.get(u.view_id, 0), str(u.view_id)),
+    )
+
+
 def coverage(project_id: uuid.UUID) -> CoverageView:
     """Every view of every sheet in the sheet list, counted once (a held file's views are not
     counted until it is read anyway): assigned, excluded, proposed or unaccounted; used from M1."""
@@ -955,6 +978,7 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
             notes = row.part_key in view_finder.STEP_DISCIPLINES and view_finder.GENERAL_NOTES in served
             if row.part_key and row.part_key not in served and not notes:
                 by_step[row.part_key] += 1
+    unaccounted = _in_list_order(project_id, deciding, unaccounted)
     return CoverageView(
         views=len(rows),
         assigned=counts["assigned"],
@@ -1374,8 +1398,10 @@ def _act(
     discipline: str = "",
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
+    views: int = 0,
 ) -> Confirmation:
-    return Confirmation.objects.create(
+    """`views`: how many of `sheets` (the act's proposals) are views left out on their own."""
+    row = Confirmation.objects.create(
         before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
         tenant_id=_tenant(),
         project_id=project_id,
@@ -1392,6 +1418,50 @@ def _act(
         ),
         act=act,
         proposals=sheets,
+    )
+    code = _event_of(act, before)
+    payload = {"sheets": sheets - views, "views": views} if code == said.EXCLUDED else {"sheets": sheets}
+    if answering:
+        # One answer, one event: the first act an answer takes is the answer's event (keep_latest
+        # confirms one copy and leaves the others out: two acts, one answer).
+        taken = _ANSWER_ACTS.get()
+        if taken is not None:
+            if taken:
+                return row
+            taken.append(row.id)
+    _record(row, code, payload)
+    return row
+
+
+_ANSWER_ACTS: contextvars.ContextVar[list[uuid.UUID] | None] = contextvars.ContextVar(
+    "step1_answer_acts", default=None
+)
+
+
+_EVENTS = {
+    ConfirmationAct.CONFIRM: said.CONFIRMED,
+    ConfirmationAct.EXCLUDE: said.EXCLUDED,
+    ConfirmationAct.ASSIGN: said.ASSIGNED,
+    ConfirmationAct.DRAWING_LIST: said.DRAWING_LIST_SET,
+}
+
+
+def _event_of(act: ConfirmationAct, before: Sequence[drawings.SheetView]) -> MessageCode:
+    """The act's code in the event log: confirming sheets all excluded before is "confirmed back in"."""
+    if act == ConfirmationAct.CONFIRM and before and all(s.decision == "excluded" for s in before):
+        return said.CONFIRMED_BACK_IN
+    return _EVENTS[act]
+
+
+def _record(row: Confirmation, code: MessageCode, payload: dict[str, int] | None = None) -> None:
+    """The act in the event log, in the act's own transaction (so a refused act records nothing)."""
+    events.record(
+        code,
+        subject_type="confirmation",
+        subject_id=row.id,
+        actor_user_id=row.user_id,
+        project_id=row.project_id,
+        payload=payload or {},
     )
 
 
@@ -1724,6 +1794,7 @@ def _exclude(
             discipline=_one(chosen) if chosen else "",
             before=[sheet for sheet, _p in chosen],
             answering=answering,
+            views=len(views),
         )
         _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
@@ -2018,6 +2089,7 @@ def undo(project_id: uuid.UUID) -> ActView:
         ):
             if row.status != CoverageStatus.EXCLUDED:
                 _follow_sheet(row)
+        _record(act, said.UNDONE)
         _after_act(project_id)
     return _act_view(act)
 
@@ -2272,7 +2344,34 @@ def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Trac
     sheet = _sheet(view.sheet_revision_id)
     if _project_of(sheet) != project_id:
         raise auth.NotFound
-    values = {
+    return _view_rows(project_id, [(view, traces)])[view.id]
+
+
+def propose_views(
+    project_id: uuid.UUID,
+    viewed: Sequence[tuple[drawings.SheetView, Sequence[drawings.ViewView]]],
+    traces: Callable[[drawings.ViewView], Traces],
+) -> int:
+    """Each view of the printed sheets given (each sheet with its views, as `drawings.views` lists
+    them) as `propose_view` and `record_coverage` write it, the views' rows written together: the
+    scope and each file's Project read once, every view's Proposal in one upsert, their Traces in one
+    insert, every Coverage row in one upsert and its Coverage Steps in one insert (S22-LOCKHOLD: the
+    read job writes them under Step 1's write lock, which an act waits on for 3 s at most). The
+    same rows as the per-view writes; idempotent; the views written."""
+    _in_scope(project_id)
+    owners: dict[uuid.UUID, uuid.UUID] = {}
+    for sheet, views in viewed:
+        if sheet.file_id not in owners:
+            owners[sheet.file_id] = drawings.file(sheet.file_id).project_id
+        if owners[sheet.file_id] != project_id or any(v.sheet_revision_id != sheet.id for v in views):
+            raise auth.NotFound
+    every = [view for _sheet_, views in viewed for view in views]
+    _view_rows(project_id, [(view, traces(view)) for view in every])
+    return _coverage_rows(project_id, every)
+
+
+def _view_values(view: drawings.ViewView) -> dict[str, Any]:
+    return {
         "sheet_id": str(view.sheet_revision_id),
         "title": view.title,
         "kind": view.kind,
@@ -2280,26 +2379,89 @@ def propose_view(project_id: uuid.UUID, view: drawings.ViewView, *, traces: Trac
         "part": view.part,
         "exclusion": view.proposed_exclusion,
     }
-    row, _made = Proposal.objects.update_or_create(
-        tenant_id=_tenant(),
-        project_id=project_id,
-        step=SHEETS,
-        candidate_key=f"view:{view.id}",
-        defaults={"subject": ProposalSubject.VIEW, "subject_id": view.id, "values": values},
+
+
+def _view_rows(
+    project_id: uuid.UUID, viewed: Sequence[tuple[drawings.ViewView, Traces]]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """The views' Proposals (keyed `view:<id>`; an existing one's subject and values updated in
+    place, as `update_or_create` did) in one upsert, then their Traces; each Proposal's id by its
+    view's. Statements: a fixed few, whatever the number of views."""
+    if not viewed:
+        return {}
+    tenant_id = _tenant()
+    by_key = {f"view:{view.id}": (view, traces) for view, traces in viewed}
+    Proposal.objects.bulk_create(
+        [
+            Proposal(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                step=SHEETS,
+                candidate_key=key,
+                subject=ProposalSubject.VIEW,
+                subject_id=view.id,
+                values=_view_values(view),
+            )
+            for key, (view, _traces) in by_key.items()
+        ],
+        update_conflicts=True,
+        unique_fields=["tenant_id", "project_id", "step", "candidate_key"],
+        update_fields=["subject", "subject_id", "values"],
     )
-    _trace(row, traces)
-    return row.id
+    ids = dict(
+        Proposal.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, step=SHEETS, candidate_key__in=by_key
+        ).values_list("candidate_key", "id")
+    )
+    _traces(tenant_id, project_id, [(ids[key], traces) for key, (_view, traces) in by_key.items()])
+    return {view.id: ids[key] for key, (view, _traces) in by_key.items()}
 
 
 def _trace(proposal: Proposal, traces: Traces) -> None:
-    for fact, anchor in traces:
-        ProposalTrace.objects.get_or_create(
-            tenant_id=proposal.tenant_id,
-            project_id=proposal.project_id,
-            proposal=proposal,
-            fact=fact[:64],
-            anchor=dict(anchor),
-        )
+    _traces(proposal.tenant_id, proposal.project_id, [(proposal.id, traces)])
+
+
+def _traces(
+    tenant_id: uuid.UUID, project_id: uuid.UUID, given: Sequence[tuple[uuid.UUID, Traces]]
+) -> None:
+    """Each Proposal's Traces, once each (fact cut to 64, anchor): a Trace already written is kept,
+    as `get_or_create` kept it; the missing ones inserted together. Two statements at most."""
+    wanted = [(pid, fact[:64], dict(anchor)) for pid, traces in given for fact, anchor in traces]
+    if not wanted:
+        return
+    have = {
+        (pid, fact, _same(anchor))
+        for pid, fact, anchor in ProposalTrace.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, proposal_id__in={w[0] for w in wanted}
+        ).values_list("proposal_id", "fact", "anchor")
+    }
+    made = []
+    for pid, fact, anchor in wanted:
+        key = (pid, fact, _same(anchor))
+        if key not in have:
+            have.add(key)
+            made.append(
+                ProposalTrace(
+                    tenant_id=tenant_id, project_id=project_id, proposal_id=pid, fact=fact, anchor=anchor
+                )
+            )
+    if made:
+        ProposalTrace.objects.bulk_create(made)
+
+
+def _same(value: Any) -> Hashable:
+    """A JSON value as a key equal for values PostgreSQL's `jsonb` holds equal (`get_or_create`'s
+    `anchor=` matched in the database): numbers by value (1 and 1.0 alike), a boolean never a number,
+    objects whatever their keys' order."""
+    if isinstance(value, Mapping):
+        return ("object", frozenset((str(k), _same(v)) for k, v in value.items()))
+    if isinstance(value, list | tuple):
+        return ("array", tuple(_same(v) for v in value))
+    if isinstance(value, bool) or value is None:
+        return ("literal", value)
+    if isinstance(value, int | float):
+        return ("number", Decimal(repr(value)))
+    return ("string", str(value))
 
 
 def proposal_ids(project_id: uuid.UUID) -> dict[uuid.UUID, uuid.UUID]:
@@ -2466,36 +2628,70 @@ def record_coverage(sheet_id: uuid.UUID) -> int:
     """Each view of a printed sheet as a Coverage row, from its proposal: to its Takeoff Steps or its
     Discipline Part, left out with a reason, or unaccounted. Idempotent; the rows written."""
     sheet = _sheet(sheet_id)
-    project_id = _project_of(sheet)
+    return _coverage_rows(_project_of(sheet), drawings.views(sheet_id))
+
+
+def _coverage_rows(project_id: uuid.UUID, views: Sequence[drawings.ViewView]) -> int:
+    """The views' Coverage rows (an existing proposed row's proposal and standing put back as read,
+    as `update_or_create` did) in one upsert, then their proposed Coverage Steps in one insert, an
+    existing one kept. Statements: a fixed few, whatever the number of views; the rows written."""
+    if not views:
+        return 0
     tenant_id = _tenant()
-    written = 0
-    for view in drawings.views(sheet_id):
+    rows = {}
+    for view in views:
         if view.proposed_exclusion:
             status, reason = CoverageStatus.EXCLUDED, view.proposed_exclusion
         elif view.steps or view.part:
             status, reason = CoverageStatus.ASSIGNED, ""
         else:
             status, reason = CoverageStatus.UNACCOUNTED, ""
-        row, _made = Coverage.objects.update_or_create(
+        rows[view.id] = Coverage(
             tenant_id=tenant_id,
             project_id=project_id,
             drawing_set_state_id=None,
             view_id=view.id,
-            defaults={
-                "sheet_revision_id": sheet_id,
-                "proposed_status": status,
-                "proposed_reason": reason,
-                "status": status,
-                "reason": reason,
-                "part_key": view.part or "",
-            },
+            sheet_revision_id=view.sheet_revision_id,
+            proposed_status=status,
+            proposed_reason=reason,
+            status=status,
+            reason=reason,
+            part_key=view.part or "",
         )
-        for step in view.steps:
-            CoverageStep.objects.get_or_create(
-                tenant_id=tenant_id, project_id=project_id, coverage=row, step=step, confirmation=None
-            )
-        written += 1
-    return written
+    Coverage.objects.bulk_create(
+        list(rows.values()),
+        update_conflicts=True,
+        unique_fields=["tenant_id", "project_id", "drawing_set_state_id", "view_id"],
+        update_fields=[
+            "sheet_revision_id",
+            "proposed_status",
+            "proposed_reason",
+            "status",
+            "reason",
+            "part_key",
+        ],
+    )
+    ids = dict(
+        Coverage.objects.filter(
+            tenant_id=tenant_id, project_id=project_id, drawing_set_state_id=None, view_id__in=rows
+        ).values_list("view_id", "id")
+    )
+    steps = {(ids[view.id], step) for view in views for step in view.steps}
+    if steps:
+        CoverageStep.objects.bulk_create(
+            [
+                CoverageStep(
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    coverage_id=coverage_id,
+                    step=step,
+                    confirmation=None,
+                )
+                for coverage_id, step in sorted(steps, key=lambda s: (str(s[0]), s[1]))
+            ],
+            ignore_conflicts=True,
+        )
+    return len(rows)
 
 
 def raise_question(
@@ -3046,47 +3242,81 @@ def answer(
     asked (409)."""
     auth.require(acts.CONFIRM, project_id)
     _in_scope(project_id)
+    taken: list[uuid.UUID] = []
+    token = _ANSWER_ACTS.set(taken)
+    try:
+        with writing(project_id):
+            return _answer(project_id, question_id, option, text, actor_name, seen, taken)
+    finally:
+        _ANSWER_ACTS.reset(token)
+
+
+def _answered(row: Question) -> None:
+    """An answer that took no act (it confirmed and left out nothing) in the event log, under the
+    QS: so their Acts count every answer (`takeoff.step1.answered`, S22-FL10 round 1)."""
+    events.record(
+        said.ANSWERED,
+        subject_type="question",
+        subject_id=row.id,
+        actor_user_id=_user(),
+        project_id=row.project_id,
+    )
+
+
+def _answer(
+    project_id: uuid.UUID,
+    question_id: uuid.UUID,
+    option: object,
+    text: str,
+    actor_name: str,
+    seen: Sequence[uuid.UUID] | None,
+    taken: list[uuid.UUID],
+) -> Answered:
+    """`answer`, in its transaction. Every answer is one event in the log: the confirm or exclude
+    it took (`_act`), else `takeoff.step1.answered`, the Question's own."""
     read_again = None
-    with writing(project_id):
-        row = (
-            Question.objects.select_for_update()
-            .filter(project_id=project_id, step=SHEETS, id=question_id)
-            .first()
-        )
-        if row is None:
-            raise auth.NotFound
-        if row.status != QuestionStatus.OPEN and not _withdrawn_by_standing_exclusion(row):
-            raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
-        held = _held_now(project_id, row)
-        if _grouped(row) and not held:
-            raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
-        offered = [o.get("key") for o in row.options if isinstance(o, dict)]
-        if not isinstance(option, str) or option not in offered:
-            raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
-        words = text.strip() if isinstance(text, str) else ""
-        given: dict[str, Any] = {"option": option, "by": actor_name}
-        if words and option == "type_number":  # the only option that takes the QS's words
-            given["text"] = words
-        if option == KEEP_OPEN:
-            row.answer = given
-            row.save(update_fields=["answer"])
-            _after_act(project_id)
-            return Answered(_question_view(project_id, row.id), None)
-        if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
-            raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
-        if _grouped(row):  # what its card listed, for good (`_let_go`): never a sheet left out then
-            given["sheets"] = [str(p) for p in held]
-        read_again = _apply(project_id, row, option, words, held, actor_name)
-        corrected = (
-            row.kind == QuestionKind.MISSING and option == "type_number"
-        ) or row.kind == QuestionKind.MISSING_DISCIPLINE
-        row.status = QuestionStatus.ANSWERED
+    row = (
+        Question.objects.select_for_update()
+        .filter(project_id=project_id, step=SHEETS, id=question_id)
+        .first()
+    )
+    if row is None:
+        raise auth.NotFound
+    if row.status != QuestionStatus.OPEN and not _withdrawn_by_standing_exclusion(row):
+        raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
+    held = _held_now(project_id, row)
+    if _grouped(row) and not held:
+        raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
+    offered = [o.get("key") for o in row.options if isinstance(o, dict)]
+    if not isinstance(option, str) or option not in offered:
+        raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
+    words = text.strip() if isinstance(text, str) else ""
+    given: dict[str, Any] = {"option": option, "by": actor_name}
+    if words and option == "type_number":  # the only option that takes the QS's words
+        given["text"] = words
+    if option == KEEP_OPEN:
         row.answer = given
-        row.answered_by_id = _user()
-        row.answered_at = timezone.now()
-        row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
-        _after_act(project_id, corrected=corrected)
-        return Answered(_question_view(project_id, row.id), read_again, corrected)
+        row.save(update_fields=["answer"])
+        _answered(row)
+        _after_act(project_id)
+        return Answered(_question_view(project_id, row.id), None)
+    if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
+        raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
+    if _grouped(row):  # what its card listed, for good (`_let_go`): never a sheet left out then
+        given["sheets"] = [str(p) for p in held]
+    read_again = _apply(project_id, row, option, words, held, actor_name)
+    corrected = (
+        row.kind == QuestionKind.MISSING and option == "type_number"
+    ) or row.kind == QuestionKind.MISSING_DISCIPLINE
+    row.status = QuestionStatus.ANSWERED
+    row.answer = given
+    row.answered_by_id = _user()
+    row.answered_at = timezone.now()
+    row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
+    if not taken:
+        _answered(row)
+    _after_act(project_id, corrected=corrected)
+    return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
 def answer_disciplines(

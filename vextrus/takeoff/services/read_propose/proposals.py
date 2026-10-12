@@ -18,7 +18,7 @@ file's recorded sheets in a short transaction of its own, before `finishing` lis
 questions the cache does not answer; `send` asks TypeSafe between transactions; `propose` keeps the
 answers in `finishing` (`jev.answer`, never a call). A question changed in between (a sheet's
 Discipline) is answered by neither: its kind is left to the QS.
-Each view a Proposal with its Traces, and its Coverage row (`step1.record_coverage`: to its
+Each view a Proposal with its Traces, and its Coverage row (`step1.propose_views`: to its
 Takeoff Steps and its Discipline Part, proposed out with a reason, or unaccounted). A sheet with no
 number is asked (`missing`), one with no Discipline asked which it is (`missing_discipline`, #102).
 A sheet the read proposed out with no number (a cover, a stale layout: `step1.proposed_out`) is
@@ -190,12 +190,9 @@ def _propose(
     step1.lock_writes(project_id)
     step1.record_unread(project_id, file_id, sheet_found=len(listed), unread=unread)
     proposed = 0
-    for sheet, views, answer in judged:
+    for sheet, _views, answer in judged:
         out = step1.proposed_out(sheet)
         proposal_id = _propose_sheet(project_id, sheet, answer, conventions, ask=not out)
-        for seen in views:
-            step1.propose_view(project_id, seen, traces=_view_traces(seen))
-        step1.record_coverage(sheet.id)
         if sheet.number is None and not out:
             step1.raise_question(
                 project_id,
@@ -217,6 +214,9 @@ def _propose(
                 blocks=[proposal_id],
             )
         proposed += 1
+    # Every view's Proposal, Traces and Coverage written together, a few statements for the file
+    # whatever its views (S22-LOCKHOLD: per view, a 278-view file held the lock 9-10 s).
+    step1.propose_views(project_id, viewed, _view_traces)
     for sheet_id, discipline, rows in lists:
         step1.record_read_list(sheet_id, discipline, rows)
     asked = set_questions(project_id, trigger_file=file_id, found=found)

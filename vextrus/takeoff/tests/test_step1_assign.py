@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from vextrus.platform.services import tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff.models import Confirmation, CoverageStep
 from vextrus.takeoff.services import step1 as service
@@ -503,3 +504,36 @@ def test_the_app_never_deletes_a_step_given_nor_names_another_projects_act(
             "update takeoff_coveragestep set confirmation_id = %s where id = %s",
             [theirs.id, given.id],
         )
+
+
+def test_the_unaccounted_views_come_in_the_sheet_lists_order_then_reading_order(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Coverage's Unaccounted entries do not move from load to load: the sheet list's order, then each
+    sheet's reading order (S22-FL7 design gate)."""
+    from vextrus.drawings import services as drawings
+
+    read(
+        qs_project,
+        monkeypatch,
+        [
+            Sheet("S-02", "TYPICAL DETAILS", ("SECTION 9-9", "SECTION 8-8", "SECTION 7-7")),
+            Sheet("S-01", "TYPICAL DETAILS", ("SECTION 6-6", "SECTION 5-5")),
+        ],
+    )
+    api = api_as(qs_project.member)
+    listed = [p["sheet_id"] for p in proposals(api, qs_project.project_id) if p.get("sheet_id")]
+    entries = coverage(api, qs_project.project_id)["unaccounted_views"]
+    assert len(entries) == 5
+    seen = list(dict.fromkeys(e["sheet_id"] for e in entries))
+    assert len(seen) == 2
+    # the sheet list's order, a sheet's views together
+    assert seen == [i for i in listed if i in seen]
+    assert [e["sheet_id"] for e in entries] == sorted((e["sheet_id"] for e in entries), key=seen.index)
+    # each sheet's views in reading order
+    developer, user = qs_project.member.developer_id, qs_project.member.user.pk
+    for sheet_id in seen:
+        with tenancy.acting_in(developer, user_id=user):
+            ordinals = {str(v.id): v.ordinal for v in drawings.views(uuid.UUID(str(sheet_id)))}
+        mine = [ordinals[str(e["view_id"])] for e in entries if e["sheet_id"] == sheet_id]
+        assert mine == sorted(mine)

@@ -947,12 +947,33 @@ function StepOrPart({ step, part }: { step: number | null; part: string | null }
   return <Trans>{name}, M3 onwards</Trans>
 }
 
-/** `held`: the held files' names; `reading`: the files still reading (m0-screens 6.11's line for each). */
-export function CoveragePanel({ coverage, held, reading }: { coverage: CoverageOut; held: readonly string[]; reading: readonly string[] }) {
+/**
+ * `held`: the held files' names; `reading`: the files still reading (m0-screens 6.11's line for each);
+ * `sheets`: the Step's sheets, which Coverage's `unaccounted_views` name by `sheet_id`; `onOpenView`: an
+ * "Unaccounted" entry opens its sheet with that view selected.
+ */
+export function CoveragePanel({
+  coverage,
+  held,
+  reading,
+  sheets = [],
+  onOpenView,
+}: {
+  coverage: CoverageOut
+  held: readonly string[]
+  reading: readonly string[]
+  sheets?: readonly ProposalOut[]
+  onOpenView?: (sheet: ProposalOut, view: string) => void
+}) {
   const f = useFormat()
   const reasons = Object.entries(coverage.by_reason)
   const steps = stepRows(coverage.by_step)
   const { i18n } = useLingui()
+  const unaccounted = (coverage.unaccounted_views ?? []).map((entry) => {
+    const sheet = sheets.find((p) => p.sheet_id === entry.sheet_id) ?? null
+    const view = sheet?.views?.find((v) => v.id === entry.view_id) ?? null
+    return { entry, sheet, view }
+  })
   return (
     <>
       <Block title={<Trans>Coverage, every view on every sheet read</Trans>}>
@@ -964,6 +985,26 @@ export function CoveragePanel({ coverage, held, reading }: { coverage: CoverageO
         </p>
         <CoverageLine coverage={coverage} />
       </Block>
+      {unaccounted.length > 0 ? (
+        <Block title={<Trans>Unaccounted</Trans>}>
+          <ul className="flex flex-col gap-1">
+            {unaccounted.map(({ entry, sheet, view }) => {
+              const name = <UnaccountedName sheet={sheet} view={view} />
+              return (
+                <li key={entry.id} className="text-question">
+                  {sheet && onOpenView ? (
+                    <button type="button" onClick={() => onOpenView(sheet, entry.view_id)} className="text-start underline underline-offset-2 hover:text-foreground">
+                      {name}
+                    </button>
+                  ) : (
+                    name
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </Block>
+      ) : null}
       {steps.length > 0 ? (
         <Block title={<Trans>Views by the step that will read them, proposed or assigned</Trans>}>
           <dl className="flex flex-col gap-1">
@@ -1005,6 +1046,18 @@ export function CoveragePanel({ coverage, held, reading }: { coverage: CoverageO
       <p className="px-3 py-2 text-xs text-muted-foreground">
         <Trans>Esc goes back.</Trans>
       </p>
+    </>
+  )
+}
+
+/** An "Unaccounted" entry (m0-screens 6.11): its sheet's number and the view's title ("S-20 8th floor beam layout"), its kind when untitled. */
+function UnaccountedName({ sheet, view }: { sheet: ProposalOut | null; view: ViewOut | null }) {
+  const { i18n } = useLingui()
+  const title = view?.title ? <DrawingText kind="title" text={view.title} truncate={false} /> : i18n._(view ? (VIEW_KINDS[view.kind] ?? OTHER_VIEW_KIND) : OTHER_VIEW_KIND)
+  if (!sheet) return <>{title}</>
+  return (
+    <>
+      <SheetName sheets={[sheet]} /> {title}
     </>
   )
 }

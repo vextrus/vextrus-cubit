@@ -5,6 +5,7 @@ import pytest
 
 from engine.plot import registration
 from engine.plot.tests.test_plot import item, page_of
+from engine.plot.tests.timing import best_of
 from engine.read.pdf.types import Page
 
 
@@ -123,22 +124,16 @@ def _packed(n: int, word: str) -> Page:
 
 
 def test_a_page_of_items_repeating_the_titles_first_word_is_read_fast() -> None:
-    import time
-
     page = _packed(1500, "FIRST")
-    began = time.monotonic()
-    read = registration.reads_title(page, TITLE_11)
-    assert time.monotonic() - began < 0.2
-    assert read is False
+    assert best_of(lambda: registration.reads_title(page, TITLE_11)) < 0.2
+    assert registration.reads_title(page, TITLE_11) is False
 
 
 def test_a_title_of_one_word_repeated_over_a_page_of_it_stops_at_its_budget() -> None:
-    import time
-
     page = _packed(1500, "A")
-    began = time.monotonic()
-    read = registration.title_read(page, " ".join(["A"] * 10 + ["B"]))
-    assert time.monotonic() - began < 0.2
+    title = " ".join(["A"] * 10 + ["B"])
+    assert best_of(lambda: registration.title_read(page, title)) < 0.2
+    read = registration.title_read(page, title)
     assert read == registration.TitleRead(False, cut=True)
     assert registration.reads_title(page, " ".join(["A"] * 10 + ["B"])) is False
 
@@ -206,12 +201,8 @@ FAST = 0.5
 CI runs about 5.5 times slower, so the margin is wide."""
 
 
-def _timed(page: Page, title: str) -> tuple[registration.TitleRead, float]:
-    import time
-
-    began = time.monotonic()
-    read = registration.title_read(page, title)
-    return read, time.monotonic() - began
+def _read_and_time(page: Page, title: str) -> tuple[registration.TitleRead, float]:
+    return registration.title_read(page, title), best_of(lambda: registration.title_read(page, title))
 
 
 def _spread(n: int, texts: list[str]) -> Page:
@@ -246,7 +237,7 @@ def test_a_long_title_over_a_large_page_is_answered_fast_and_never_alike_unread(
     the words squared) were built before its budget applied: a 2000-word title over a 1500-item page
     took seconds inside Step 1's write lock. Built within the budget, the answer comes fast, and a
     page whose walk was cut reads no title."""
-    read, took = _timed(page, title)
+    read, took = _read_and_time(page, title)
     assert took < FAST, took
     assert read.alike is False  # none reads it (the first's walk is cut before it reads it)
 
@@ -254,7 +245,7 @@ def test_a_long_title_over_a_large_page_is_answered_fast_and_never_alike_unread(
 def test_a_long_title_cut_short_of_its_chain_says_it_was_cut() -> None:
     """The page could read the title over 2000 of its items in a chain; past the budget, it reads no
     title, and says its walk was cut."""
-    read, took = _timed(_packed(1500, "A"), " ".join(["A"] * LONG_TITLE_WORDS))
+    read, took = _read_and_time(_packed(1500, "A"), " ".join(["A"] * LONG_TITLE_WORDS))
     assert took < FAST, took
     assert read == registration.TitleRead(False, cut=True)
 
@@ -264,7 +255,7 @@ def test_a_long_title_held_whole_by_one_item_still_reads_alike() -> None:
     page = page_of(
         item("S-02"), *[item("W1 W2", 10.0) for _ in range(1500)], item(f"SHEET {title} (R1)")
     )
-    read, took = _timed(page, title)
+    read, took = _read_and_time(page, title)
     assert took < FAST, took
     assert read == registration.TitleRead(True)
 
@@ -280,7 +271,7 @@ def test_a_title_over_three_lines_still_reads_alike_on_a_page_of_its_words() -> 
         item(word, 10.0, (5000.0 + i, 5000.0, 5030.0 + i, 5010.0))
         for i, word in enumerate(w for _ in range(150) for w in TITLE_11.split())
     ]
-    read, took = _timed(page_of(*crowd, *lines), TITLE_11)
+    read, took = _read_and_time(page_of(*crowd, *lines), TITLE_11)
     assert took < FAST, took
     assert read == registration.TitleRead(True)
 

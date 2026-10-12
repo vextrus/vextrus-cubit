@@ -523,13 +523,13 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **merge_ready, the PR leak scan and the lander read `gh pr diff`, which GitHub refuses over 20000 lines,** and
   GraphQL's `files(first: 100)` cut a 207-file PR's facts short, so Train A (#641) could not pass the merge gate at
   all. Check: `scripts/tests/acceptance/ts21mr/test_large_pr.py` (#645: merge_ready and `leakscan pr` read diff,
-  files and commits from git; a 150th-file leak is found). The lander's `Gh.files` still reads it: #647 (no check yet); #641 landed by hand.
+  files and commits from git; a 150th-file leak is found). The lander's `Gh.files` read it too until #655 (check: `scripts/tests/acceptance/ts22l647/`); #641 landed by hand.
 - **Drawing text reached test fixtures twice in one session** (C2's acceptance writer, C4's builder), each called
   "invented". Check: `scripts/verify.py`'s leak scan (and publish's) caught both before any push; each was redone on a fresh
   branch. The guard refuses `tools.leakscan range` from a builder's worktree, so the orchestrator scans for them.
 - **A sha typed from memory again** (an rdlock no-post run on a head that does not exist); caught before any gate,
   restarted with `git rev-parse`. No check: `rdlock run --head` should refuse a sha git cannot resolve.
-- **`stamp start --budget 12` reads 12 minutes,** not hours. No check: refuse a bare number.
+- **`stamp start --budget 12` reads 12 minutes,** not hours. Check: `scripts/factory/tests/acceptance/ts22stamp/` (#675, session 22, after a repeat).
 - **Verify races on a fresh worktree** (contract-fixtures before openapi-export; pytest-lint sees other worktrees'
   databases): four builders lost a 30-minute verify to it. No check: #644.
 - **A HOLD file ordered verifies better than messages:** builders hold suites while
@@ -540,3 +540,67 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   key writes the table of cases (copies, halves, another view, excluded, undo) as tests before the fix.
 - **A fourth power cut (03:41Z-09:50Z) killed every agent;** resumed copies took new names, so messages to the old
   name went to a stale Remote Control entry. No check: find sessions by `cwd` (`claude agents --json`).
+
+## Session 22 (11-12 Oct 2026): Trains B and C landed; G1 measured M0's real distance
+
+- **`stamp start --budget 8` read 8 minutes, a second time** (session 21 noted it without one). Check:
+  `scripts/factory/tests/acceptance/ts22stamp/` (S22-STAMP, #675: `stamp start` refuses a bare-number budget).
+- **A fix round that tunes a budget constant regressed in the next review** (#653: one shared budget of one step an item
+  cut real-size column plans). Round 3 changed the shape instead (titles held whole read first in one linear pass,
+  never cut) and passed. Same class as session 21's identity treadmill. No check: after one regression from a
+  constant, the next round changes the shape, not the number.
+- **A wall-clock test timed once, cold, flaked on CI the day it landed** (#653's shared-budget tests; #655's python
+  (rest)). Check: `engine/plot/tests/acceptance/ts22timing/` (every engine/plot timing comparison takes the best of
+  several runs through one helper).
+- **A builder changed an acceptance fixture itself under an `acceptance:` commit** (#654). Check: `tools/lint/acceptance.py`
+  (CI refused it: no red/green lines); redone through `scripts.factory.amend` on a fresh branch.
+- **`gh pr view --json baseRefOid` again** (S21-MR, then #655's first head: real gh has no such field, so the lander
+  refused every PR; the fakes answered any field). Root: the orchestrator's acceptance brief named the field. Check:
+  `scripts/tests/acceptance/ts22l647/test_gh_pr_view_fields.py` (every `pr view --json` field in scripts/ and tools/
+  is one gh knows; the fakes refuse others).
+- **The orchestrator's own brief carried a real sheet title into an acceptance test** (S22-FL7), and a writer copied
+  another (S22-FL5); the range scan before a push caught both, redone on fresh branches. No check: example titles
+  in a brief are invented.
+- **merge_ready read "for a later ticket" notes under `## Cut` as unfiled cut items** (#650). Check:
+  `scripts/merge_ready.py` (it refused); publish still builds bodies that can do it.
+- **G1's script layer passed all but one check while the agent layer failed seven milestone items, with seven blockers.** The script checks
+  measure what earlier tickets fixed; the critics found unbuilt spec (Correct E), unlogged acts and wrong meanings.
+  No check: run the agent layer on every walk, even when the script layer fails.
+- **An act's 503 during a read came from per-row ORM writes under Step 1's write lock** (12,560 statements, 9-10 s
+  on a 278-view DWG), not from finding Questions (C1's target). Check: `vextrus/takeoff/tests/acceptance/ts22lockhold/`
+  (statements under the lock flat in views a sheet; an act during finishing is answered).
+- **The branch held by another worktree** blocks a launch on it: the orchestrator detaches the writer's worktree
+  (`git switch --detach`) before launching the builder, or builds on a sibling branch and fast-forwards. No check:
+  a practice the orchestrator keeps.
+
+## Session 23 (12 Oct 2026): M0's blockers went round the review cap; the real-drawing lock set the pace
+
+- **A question to the owner blocks the orchestrator's turn: two hours passed with two READY heads unread** (asked at
+  3:05 of 8:00, answered at 5:08; FL8's and FL5's READY heads waited). No check: before asking, every running
+  builder has its next message and every READY head its next step; ask only what nothing else waits on.
+- **A rule built on word order went round three reviews, each finding a new word case** (#682, then #684: the tie
+  between a building element and a site work). The fourth shape (a view proposes every element's Step plus Step 14,
+  no tie; site works never a view's subject) held. Same class as sessions 21 and 22. Check:
+  `engine/recognise/tests/test_views.py` (every reviewer's example pinned through `views.find` and `conflicts.find`).
+- **A fix round's docstring claimed inertness the code did not have** (#684 round 1: site works "as before they
+  were words" in `subjects()`, while `ViewCandidate.subject` still carried them to the conflicts stage). Check:
+  `engine/recognise/tests/test_site_works_inert.py` (`test_a_views_subject_is_what_it_was_before_site_works_were_words`:
+  a view's subject equals main's for any title; and the continuation and same-storey cases).
+- **The FL5 cases table over every real sheet changed the rule in one pass** (#676's "states storeys and stands in
+  no drawing" kept 2 of 4 real long titles; the shape rule kept 4 of 4 and 124 of 124 shorter ones). No check:
+  a recogniser rule that a review sent back once is designed from a cases table of the real sets first.
+- **The real-drawing lock is the session's pace: a run takes 22-41 minutes and they queue one at a time** (#681's
+  no-post and posting runs alone took 79 minutes). Posting runs went straight to `--accept "<reason>"` when an
+  earlier no-post of the same code had been judged. No check: queue a posting run only for a head whose review
+  passed; cancel a run whose head a fix round has replaced.
+- **The design gate needs every item 1-11 named once; "none" is not a value** (post-status refused `--failed none`
+  and a list without 11). No check: post-status refuses it by itself.
+- **Two builders on one ticket both reached READY** (#680: the cloud builder silent for an hour pushed at 09:25 while
+  a local relaunch finished at 09:34). No check: before relaunching a silent cloud builder, tell it to stop and
+  wait for its answer or its deadline.
+- **A wall-clock ratio test in engine/plot still compares single runs** and failed #680's CI once under load.
+  No check: #685 carries the fix and its check.
+- **Correction undo restored through a chain and broke three rounds running** (#680: each round's fix of
+  "restore what the correction replaced" met a new interleaving of corrections, undos and answers; round 3 found
+  75 and 70). Stopped at the cap. No check: session 24 changes the shape (Ctrl Z takes back only a sheet's
+  latest standing correction), with every reviewer's sequence pinned.

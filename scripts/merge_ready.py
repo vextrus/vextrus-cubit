@@ -180,6 +180,36 @@ def _read(*args: str) -> str:
     return done.stdout
 
 
+def fetch_pull(pr: int, base_branch: str, head: str, base: str) -> None:
+    """Fetch the pull ref and the base branch into the object store (no branch moves), then check git
+    holds the head and base GitHub names. Raises Unfetchable if the fetch fails or either is missing."""
+    refs = [f"refs/pull/{pr}/head", f"refs/heads/{base_branch}"]
+    fetched = subprocess.run(
+        ["git", "fetch", "-q", "--no-tags", "origin", *refs], capture_output=True, text=True, check=False
+    )
+    if fetched.returncode != 0:
+        # git's words are not printed: they may carry the remote's URL.
+        raise Unfetchable(
+            f"cannot fetch {' and '.join(refs)} from origin (git fetch exit {fetched.returncode})"
+        )
+    for role, sha in (("head", head), ("base", base)):
+        if (
+            not SHA.fullmatch(sha or "")
+            or subprocess.run(
+                ["git", "cat-file", "-e", f"{sha}^{{commit}}"], capture_output=True, check=False
+            ).returncode
+        ):
+            raise Unfetchable(
+                f"the PR's {role} {str(sha)[:12]} is not in the fetched refs (force-pushed?): run again"
+            )
+
+
+def changed_files(base: str, head: str) -> list[str]:
+    """The PR's own files (`base...head`), every name as written, uncapped."""
+    out = _read(*_DIFF, "--no-renames", "--name-only", "-z", f"{base}...{head}")
+    return [path for path in out.split("\0") if path]
+
+
 def fetch_review(pr: int) -> dict[str, Any]:
     """What the review gate reads of the PR: its head, base and words through `gh` (reads only), and
     its diff, files and commit messages from git after fetching the pull ref and the base, so a PR of any
@@ -204,30 +234,10 @@ def fetch_review(pr: int) -> dict[str, Any]:
         head, base = pull["headRefOid"], pull["baseRefOid"]
     except ValueError, KeyError, TypeError:
         raise Unfetchable(f"GitHub's answer for PR {pr} is not a pull request: run again") from None
-    refs = [f"refs/pull/{pr}/head", f"refs/heads/{pull['baseRefName']}"]
-    fetched = subprocess.run(
-        ["git", "fetch", "-q", "--no-tags", "origin", *refs], capture_output=True, text=True, check=False
-    )
-    if fetched.returncode != 0:
-        # git's words are not printed: they may carry the remote's URL.
-        raise Unfetchable(
-            f"cannot fetch {' and '.join(refs)} from origin (git fetch exit {fetched.returncode})"
-        )
-    for role, sha in (("head", head), ("base", base)):
-        if (
-            not SHA.fullmatch(sha or "")
-            or subprocess.run(
-                ["git", "cat-file", "-e", f"{sha}^{{commit}}"], capture_output=True, check=False
-            ).returncode
-        ):
-            raise Unfetchable(
-                f"the PR's {role} {str(sha)[:12]} is not in the fetched refs (force-pushed?): run again"
-            )
+    fetch_pull(pr, pull["baseRefName"], head, base)
     span = f"{base}...{head}"
     diff = _read(*_DIFF, "--no-renames", span)
-    files = [
-        path for path in _read(*_DIFF, "--no-renames", "--name-only", "-z", span).split("\0") if path
-    ]
+    files = changed_files(base, head)
     log = _read("-c", "log.showSignature=false", "log", "-z", "--format=%B", f"{base}..{head}")
     messages = [message.removesuffix("\n") for message in log.split("\0") if message]
     return {
