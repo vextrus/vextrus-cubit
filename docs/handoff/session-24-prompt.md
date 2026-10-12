@@ -29,6 +29,15 @@ Missed or wrong:
   because a fix round replaced their head.
 
 ## Where things stand (read first)
+- **Final state at 14:52Z:** both went one round further. **#691 (FL8) at 1b76c0dc: review 2 FIX** (70, 60: round 1
+  made the server's undo pass over a moved-on correction to the person's earlier act, but the web's Ctrl Z and the
+  toast's Undo still word the result from the tab's own history, ignoring the reply; 35: correction_moved_on names
+  no sheet; 35: the length limits are literals, not placeholders). **#692 (FL5) at 413f6764: review 2 FIX** (65: a
+  ruled schedule's box counts as a drawing a 13-16 word footnote can title; 55: the "no short title at that
+  drawing" guard uses a narrower rule than pairing's TITLE_GAP). Both rounds' findings come from round 1's change,
+  so round 3 under `fix-regression` is open to each; it is the last. Neither has a real-drawings status; #692's
+  builder read four DWGs directly on 413f6764 (Edison architecture: the 8 phantom views gone, the 4 long titles
+  gained, 0 titles lost; three other DWGs' title lists identical to main's).
 - **Update after the close (12 Oct, 13:15-14:52Z, the budget's last 95 minutes):** both stopped tickets went to
   their new shapes on fresh PRs. **#691 (FL8, branch s23-fl8c)**: Ctrl Z takes back only a sheet's latest standing
   correction; review 1 FIX (60: an undo goes through another person's answer; 55/45: a refused undo blocks the
