@@ -118,6 +118,7 @@ SUBJECTS = (
     "tank",
     "septic_tank",
     "grid",
+    "site_works",
     "fixture",
     "toilet",
     "opening",
