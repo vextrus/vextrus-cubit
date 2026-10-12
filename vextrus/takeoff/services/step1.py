@@ -1374,7 +1374,9 @@ def _act(
     discipline: str = "",
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
+    views: int = 0,
 ) -> Confirmation:
+    """`views`: how many of `sheets` (the act's proposals) are views left out on their own."""
     row = Confirmation.objects.create(
         before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
         tenant_id=_tenant(),
@@ -1393,8 +1395,23 @@ def _act(
         act=act,
         proposals=sheets,
     )
-    _record(row, _event_of(act, before))
+    code = _event_of(act, before)
+    payload = {"sheets": sheets - views, "views": views} if code == said.EXCLUDED else {"sheets": sheets}
+    if answering:
+        # One answer, one event: the first act an answer takes is the answer's event (keep_latest
+        # confirms one copy and leaves the others out: two acts, one answer).
+        taken = _ANSWER_ACTS.get()
+        if taken is not None:
+            if taken:
+                return row
+            taken.append(row.id)
+    _record(row, code, payload)
     return row
+
+
+_ANSWER_ACTS: contextvars.ContextVar[list[uuid.UUID] | None] = contextvars.ContextVar(
+    "step1_answer_acts", default=None
+)
 
 
 _EVENTS = {
@@ -1412,7 +1429,7 @@ def _event_of(act: ConfirmationAct, before: Sequence[drawings.SheetView]) -> Mes
     return _EVENTS[act]
 
 
-def _record(row: Confirmation, code: MessageCode) -> None:
+def _record(row: Confirmation, code: MessageCode, payload: dict[str, int] | None = None) -> None:
     """The act in the event log, in the act's own transaction (so a refused act records nothing)."""
     events.record(
         code,
@@ -1420,7 +1437,7 @@ def _record(row: Confirmation, code: MessageCode) -> None:
         subject_id=row.id,
         actor_user_id=row.user_id,
         project_id=row.project_id,
-        payload={"sheets": row.proposals},
+        payload=payload or {},
     )
 
 
@@ -1753,6 +1770,7 @@ def _exclude(
             discipline=_one(chosen) if chosen else "",
             before=[sheet for sheet, _p in chosen],
             answering=answering,
+            views=len(views),
         )
         _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
@@ -3076,47 +3094,81 @@ def answer(
     asked (409)."""
     auth.require(acts.CONFIRM, project_id)
     _in_scope(project_id)
+    taken: list[uuid.UUID] = []
+    token = _ANSWER_ACTS.set(taken)
+    try:
+        with writing(project_id):
+            return _answer(project_id, question_id, option, text, actor_name, seen, taken)
+    finally:
+        _ANSWER_ACTS.reset(token)
+
+
+def _answered(row: Question) -> None:
+    """An answer that took no act (it confirmed and left out nothing) in the event log, under the
+    QS: so their Acts count every answer (`takeoff.step1.answered`, S22-FL10 round 1)."""
+    events.record(
+        said.ANSWERED,
+        subject_type="question",
+        subject_id=row.id,
+        actor_user_id=_user(),
+        project_id=row.project_id,
+    )
+
+
+def _answer(
+    project_id: uuid.UUID,
+    question_id: uuid.UUID,
+    option: object,
+    text: str,
+    actor_name: str,
+    seen: Sequence[uuid.UUID] | None,
+    taken: list[uuid.UUID],
+) -> Answered:
+    """`answer`, in its transaction. Every answer is one event in the log: the confirm or exclude
+    it took (`_act`), else `takeoff.step1.answered`, the Question's own."""
     read_again = None
-    with writing(project_id):
-        row = (
-            Question.objects.select_for_update()
-            .filter(project_id=project_id, step=SHEETS, id=question_id)
-            .first()
-        )
-        if row is None:
-            raise auth.NotFound
-        if row.status != QuestionStatus.OPEN and not _withdrawn_by_standing_exclusion(row):
-            raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
-        held = _held_now(project_id, row)
-        if _grouped(row) and not held:
-            raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
-        offered = [o.get("key") for o in row.options if isinstance(o, dict)]
-        if not isinstance(option, str) or option not in offered:
-            raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
-        words = text.strip() if isinstance(text, str) else ""
-        given: dict[str, Any] = {"option": option, "by": actor_name}
-        if words and option == "type_number":  # the only option that takes the QS's words
-            given["text"] = words
-        if option == KEEP_OPEN:
-            row.answer = given
-            row.save(update_fields=["answer"])
-            _after_act(project_id)
-            return Answered(_question_view(project_id, row.id), None)
-        if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
-            raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
-        if _grouped(row):  # what its card listed, for good (`_let_go`): never a sheet left out then
-            given["sheets"] = [str(p) for p in held]
-        read_again = _apply(project_id, row, option, words, held, actor_name)
-        corrected = (
-            row.kind == QuestionKind.MISSING and option == "type_number"
-        ) or row.kind == QuestionKind.MISSING_DISCIPLINE
-        row.status = QuestionStatus.ANSWERED
+    row = (
+        Question.objects.select_for_update()
+        .filter(project_id=project_id, step=SHEETS, id=question_id)
+        .first()
+    )
+    if row is None:
+        raise auth.NotFound
+    if row.status != QuestionStatus.OPEN and not _withdrawn_by_standing_exclusion(row):
+        raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
+    held = _held_now(project_id, row)
+    if _grouped(row) and not held:
+        raise auth.Refused(answer_codes.ANSWERED_ALREADY(), status=409)
+    offered = [o.get("key") for o in row.options if isinstance(o, dict)]
+    if not isinstance(option, str) or option not in offered:
+        raise auth.Refused(answer_codes.OPTION_NOT_OFFERED(), status=400)
+    words = text.strip() if isinstance(text, str) else ""
+    given: dict[str, Any] = {"option": option, "by": actor_name}
+    if words and option == "type_number":  # the only option that takes the QS's words
+        given["text"] = words
+    if option == KEEP_OPEN:
         row.answer = given
-        row.answered_by_id = _user()
-        row.answered_at = timezone.now()
-        row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
-        _after_act(project_id, corrected=corrected)
-        return Answered(_question_view(project_id, row.id), read_again, corrected)
+        row.save(update_fields=["answer"])
+        _answered(row)
+        _after_act(project_id)
+        return Answered(_question_view(project_id, row.id), None)
+    if row.kind == QuestionKind.LOW_CONFIDENCE and seen is not None and set(seen) != set(held):
+        raise auth.Refused(answer_codes.GROUP_CHANGED(sheets=len(held)), status=409)
+    if _grouped(row):  # what its card listed, for good (`_let_go`): never a sheet left out then
+        given["sheets"] = [str(p) for p in held]
+    read_again = _apply(project_id, row, option, words, held, actor_name)
+    corrected = (
+        row.kind == QuestionKind.MISSING and option == "type_number"
+    ) or row.kind == QuestionKind.MISSING_DISCIPLINE
+    row.status = QuestionStatus.ANSWERED
+    row.answer = given
+    row.answered_by_id = _user()
+    row.answered_at = timezone.now()
+    row.save(update_fields=["status", "answer", "answered_by", "answered_at"])
+    if not taken:
+        _answered(row)
+    _after_act(project_id, corrected=corrected)
+    return Answered(_question_view(project_id, row.id), read_again, corrected)
 
 
 def answer_disciplines(

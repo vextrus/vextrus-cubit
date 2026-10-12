@@ -74,7 +74,8 @@ CONFIRMED = MessageCode("takeoff.step1.confirmed", params=("actor", "sheets"), e
 CONFIRMED_BACK_IN = MessageCode(
     "takeoff.step1.confirmed_back_in", params=("actor", "sheets"), event=True
 )
-EXCLUDED = MessageCode("takeoff.step1.excluded", params=("actor", "sheets"), event=True)
+EXCLUDED = MessageCode("takeoff.step1.excluded", params=("actor", "sheets", "views"), event=True)
 ASSIGNED = MessageCode("takeoff.step1.assigned", params=("actor", "sheets"), event=True)
 DRAWING_LIST_SET = MessageCode("takeoff.step1.drawing_list_set", params=("actor",), event=True)
-UNDONE = MessageCode("takeoff.step1.undone", params=("actor", "sheets"), event=True)
+UNDONE = MessageCode("takeoff.step1.undone", params=("actor",), event=True)
+ANSWERED = MessageCode("takeoff.step1.answered", params=("actor",), event=True)

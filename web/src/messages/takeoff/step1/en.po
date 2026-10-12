@@ -72,13 +72,16 @@ msgid "takeoff.step1.confirmed_back_in"
 msgstr "{actor} confirmed {sheets, plural, one {# sheet} other {# sheets}} back in on Step 1, left out before"
 
 msgid "takeoff.step1.excluded"
-msgstr "{actor} left {sheets, plural, one {# sheet} other {# sheets}} out on Step 1"
+msgstr "{actor} left {sheets, plural, =0 {{views, plural, one {# view} other {# views}}} one {# sheet{views, plural, =0 {} one { and # view} other { and # views}}} other {# sheets{views, plural, =0 {} one { and # view} other { and # views}}}} out on Step 1"
 
 msgid "takeoff.step1.assigned"
 msgstr "{actor} put {sheets, plural, one {# view} other {# views}} in Takeoff Steps"
 
 msgid "takeoff.step1.drawing_list_set"
 msgstr "{actor} set a drawing list on Step 1"
+
+msgid "takeoff.step1.answered"
+msgstr "{actor} answered a Question on Step 1"
 
 msgid "takeoff.step1.undone"
 msgstr "{actor} undid their last act on Step 1"
