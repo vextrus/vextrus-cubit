@@ -32,7 +32,7 @@ msgid "takeoff.step1.correction_moved_on"
 msgstr "Nothing undone: {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {that sheet}} has changed since you corrected it, so the correction stays. To change it again, correct it with E; if it is confirmed, exclude it first, correct it, then confirm it back in."
 
 msgid "takeoff.step1.answer_stays_after_correction"
-msgstr "Nothing undone: your correction stays because its sheet has changed since, and the act before it answered a Question, which cannot be undone. To change what the answer decided, exclude a sheet it confirmed or confirm back one it excluded."
+msgstr "Nothing undone: your correction to {named, select, number {{sheet}} title {the sheet titled “{sheet}”} other {that sheet}} stays because that sheet has changed since, and before it you answered a Question, and an answer cannot be undone, nor anything before it."
 
 msgid "takeoff.step1.answer_stays"
 msgstr "Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."

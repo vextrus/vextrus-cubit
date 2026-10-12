@@ -2207,6 +2207,21 @@ def _put_back_correction(act: Confirmation) -> None:
     )
 
 
+def _passed_named(correction: Confirmation) -> dict[str, str]:
+    """The sheet of a correction the undo passed over, as the words name it: by its number only while
+    that is the number the correction set (or it set none), else "that sheet" (never a number the QS
+    never typed: review 3 of #691)."""
+    changed = correction.before.get("corrected") or {}
+    try:
+        sheet = _sheet(uuid.UUID(changed["sheet"]))
+    except KeyError, ValueError, auth.NotFound:
+        return _named(None)
+    number = changed.get("number")
+    if number and (sheet.number or "") != number[1]:
+        return _named(None)
+    return _named(sheet)
+
+
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
     exclusion, a drawing list, a correction); refused as `answer_stays` when that act answered a
@@ -2233,17 +2248,15 @@ def undo(project_id: uuid.UUID) -> ActView:
             break
         if act is None:
             if passed is not None:
-                try:
-                    named = _named(_sheet(uuid.UUID(passed.before["corrected"]["sheet"])))
-                except KeyError, ValueError, auth.NotFound:
-                    named = _named(None)
-                raise auth.Refused(said.CORRECTION_MOVED_ON(**named), status=409)
+                raise auth.Refused(said.CORRECTION_MOVED_ON(**_passed_named(passed)), status=409)
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
         if act.kind == ConfirmationKind.QUESTION_ANSWER:
             # An answer has no undo: taking back its confirm or exclusion would leave the Question
             # answered by sheets it no longer decides. Its sheets are still excluded or confirmed.
             raise auth.Refused(
-                said.ANSWER_STAYS_AFTER_CORRECTION() if passed is not None else said.ANSWER_STAYS(),
+                said.ANSWER_STAYS_AFTER_CORRECTION(**_passed_named(passed))
+                if passed is not None
+                else said.ANSWER_STAYS(),
                 status=409,
             )
         listed = {s.id for s in _facts(project_id) if s.confirmation_id == act.id}

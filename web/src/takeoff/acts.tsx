@@ -65,6 +65,8 @@ interface Entry {
   answer?: boolean
   /** A correction: the server may pass it over (its sheet moved on) and undo the act before it. */
   kind?: 'correct'
+  /** The Confirmations its server calls made (the replies' `confirmation_id`): an undo's reply is matched to its entry by them. */
+  ids: string[]
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -311,9 +313,9 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
    * counts its calls once they are made. A key that comes while another act or an undo is in flight is
    * dropped, and kept as an act that made nothing, so the Ctrl Z after it undoes nothing and says so.
    */
-  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct') => void) | null => {
+  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct', ids?: string[]) => void) | null => {
     if (pending.current || undos.current > 0) {
-      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true })
+      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true, ids: [] })
       return null
     }
     pending.current = true
@@ -323,12 +325,13 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
     toast.clear()
     waiting.current = null
     let counted = () => {}
-    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false }
+    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false, ids: [] }
     history.current.push(entry)
-    return (calls, words, kind) => {
+    return (calls, words, kind, ids) => {
       entry.calls = calls
       entry.words = words
       entry.kind = kind
+      entry.ids = ids ?? []
       entry.counted = true
       counted()
     }
@@ -422,18 +425,24 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
               let reply: ActOut | undefined
               for (; left > 0; left--) reply = await undo(projectId)
               let words = entry.words
-              if (entry.kind === 'correct' && reply && reply.act !== 'correct') {
-                // The server passed the correction over (its sheet moved on) and undid the act before
-                // it: the words are that act's, taken from the server's reply, and the correction stays.
-                const at = history.current.findLastIndex((e) => !e.dropped && !e.answer && e.calls > 0)
-                const before = at === -1 ? undefined : history.current[at]
-                if (before && before.calls > 1) {
-                  // A bulk act of several calls: one of them is taken back; the rest stay to undo.
-                  before.calls -= 1
-                  words = <UndoneWords act={reply} />
+              if (entry.kind === 'correct' && reply && entry.ids.length > 0 && !entry.ids.includes(reply.confirmation_id)) {
+                // The server passed the correction over (its sheet moved on) and undid another act: matched
+                // to its entry by the Confirmation it took, so exactly that entry goes, the words are its,
+                // and every passed-over correction stays to undo.
+                const at = history.current.findLastIndex((e) => e.ids.includes(reply.confirmation_id))
+                const taken = at === -1 ? undefined : history.current[at]
+                if (taken) {
+                  taken.ids = taken.ids.filter((id) => id !== reply.confirmation_id)
+                  if (taken.calls > 1) {
+                    // A bulk act of several calls: one of them is taken back; the rest stay to undo.
+                    taken.calls -= 1
+                    words = <UndoneWords act={reply} />
+                  } else {
+                    history.current.splice(at, 1)
+                    words = taken.words ?? <UndoneWords act={reply} />
+                  }
                 } else {
-                  if (at !== -1) history.current.splice(at, 1)
-                  words = before?.words ?? <UndoneWords act={reply} />
+                  words = <UndoneWords act={reply} />
                 }
                 restore([entry])
               }
@@ -508,11 +517,14 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
       if (!counted) return false
       const mark = marked()
       let made = 0
+      const ids: string[] = []
       let done: Done | null = null
       try {
         for (const call of calls) {
-          await call()
+          const out = await call()
           made += 1
+          const id = (out as { confirmation_id?: unknown } | undefined)?.confirmation_id
+          if (typeof id === 'string') ids.push(id)
         }
         done = { message: said, onUndo: undoFor(words) }
         return true
@@ -521,7 +533,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         say(error)
         return false
       } finally {
-        counted(made, words, kind)
+        counted(made, words, kind, ids)
         showDone(done, await settle(mark), mark)
       }
     },
@@ -541,6 +553,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         if (ids.length) calls.push({ sheets: ids.length, out: true, call: () => exclude(projectId, ids, reason) })
       }
       let made = 0
+      const ids: string[] = []
       let n = 0
       let m = 0
       // Made before the calls, so the toast's Undo and the entry share it; it reads n and m when shown.
@@ -555,8 +568,10 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
       try {
         for (const c of calls) {
           at = c
-          await c.call()
+          const out = await c.call()
           count(c)
+          const id = (out as { confirmation_id?: unknown } | undefined)?.confirmation_id
+          if (typeof id === 'string') ids.push(id)
         }
         done = { message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) }
       } catch (error) {
@@ -573,7 +588,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
             onUndo: undoFor(words),
           }
       } finally {
-        counted(made, words)
+        counted(made, words, undefined, ids)
         showDone(done, await settle(mark), mark)
       }
     },

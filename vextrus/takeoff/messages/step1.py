@@ -60,7 +60,9 @@ CONFIRMED_NOT_CORRECTED = MessageCode("takeoff.step1.confirmed_not_corrected")
 ANSWER_STAYS = MessageCode("takeoff.step1.answer_stays")
 CORRECTION_MOVED_ON = MessageCode("takeoff.step1.correction_moved_on", params=("sheet", "named"))
 """A correction not undone because its sheet changed since (409); `sheet`, `named`: as question_first."""
-ANSWER_STAYS_AFTER_CORRECTION = MessageCode("takeoff.step1.answer_stays_after_correction")
+ANSWER_STAYS_AFTER_CORRECTION = MessageCode(
+    "takeoff.step1.answer_stays_after_correction", params=("sheet", "named")
+)
 """`answer_stays`, when the undo passed over a correction that had moved on first (409)."""
 QUESTION_FIRST = MessageCode(
     "takeoff.step1.question_first", params=("count", "asks", "sheet", "named", "question")

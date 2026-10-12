@@ -596,3 +596,19 @@ def test_an_undo_that_passes_over_a_correction_and_meets_an_answer_says_both(
         409,
         "takeoff.step1.answer_stays_after_correction",
     )
+    assert refused.json()["params"] == {"sheet": "S-05", "named": "number"}  # names the sheet (review 3)
+
+
+def test_the_refusal_says_that_sheet_when_its_number_is_no_longer_the_one_the_correction_set(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 3 of #691 (30): never a number the QS never typed.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-93"}).status_code == 200
+    assert correct(other, kr01, {"proposal": sheet["id"], "number": "A-94"}).status_code == 200
+
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
+
+    assert refused.status_code == 409
+    assert refused.json()["params"] == {"sheet": "", "named": "none"}

@@ -26,7 +26,7 @@ msgid "drawings.sheets.title_drawing_code"
 msgstr "That title holds code copied from drawing text, so nothing was changed. Type the words the title block prints."
 
 msgid "drawings.sheets.title_unreadable"
-msgstr "That title holds a character a title block cannot print, so nothing was changed. Retype it, or paste it as plain text."
+msgstr "That title holds a character a title block cannot print, such as a tab or a hidden mark, so nothing was changed. Type it again by hand."
 
 msgid "drawings.sheets.number_empty"
 msgstr "That number is empty, so nothing was changed. Type the number as its title block prints it."
@@ -41,7 +41,7 @@ msgid "drawings.sheets.number_drawing_code"
 msgstr "That number holds code copied from drawing text, so nothing was changed. Type the number the title block prints."
 
 msgid "drawings.sheets.number_unreadable"
-msgstr "That number holds a character a title block cannot print, so nothing was changed. Retype it, or paste it as plain text."
+msgstr "That number holds a character a title block cannot print, such as a tab or a hidden mark, so nothing was changed. Type it again by hand."
 
 msgid "drawings.sheets.other_needs_text"
 msgstr "Nothing was left out: \"Other\" needs a few words. Say why it is left out."
