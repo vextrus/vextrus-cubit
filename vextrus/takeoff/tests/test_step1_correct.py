@@ -434,8 +434,7 @@ def test_a_keep_open_answer_given_after_an_undone_correction_is_kept_by_the_next
         [found] = [
             q for q in listed if q["kind"] == "missing" and str(q["subject_id"]) == sheet["sheet_id"]
         ]
-        found: dict[str, Any]
-        return found
+        return dict(found)
 
     first_id = question()["id"]
     assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-93"}).status_code == 200
