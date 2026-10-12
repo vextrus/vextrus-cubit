@@ -152,6 +152,17 @@
       "gridline",
       "gridlines"
     ],
+    "site_works": [
+      "site",
+      "site works",
+      "boundary wall",
+      "boundary walls",
+      "compound wall",
+      "compound walls",
+      "setback",
+      "setbacks",
+      "set back"
+    ],
     "fixture": [
       "fixture",
       "fixtures",

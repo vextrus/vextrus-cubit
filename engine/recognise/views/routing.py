@@ -10,10 +10,12 @@ General Discipline, #159) but its title block goes to Step 2, whatever its kind;
 plans and 3D/perspective views are excluded `for_information`; a legend goes to Step
 2 for Structural and Architectural, else to its Discipline's Part; every view of an MEP sheet (any
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
-Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10 only here); one whose
-own title names no subject with a Step ("SECTION 1-1") goes to the Steps of every subject its sheet's
-title names ("BEAM DETAILS": beams), in the title's order, its own subject kept as its title says
-(#158); on a sheet whose title names none either it has no Step (unaccounted until the QS assigns it or
+Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10, and 14 for site works);
+one whose own title
+names no subject with a Step ("SECTION 1-1") goes to the Steps of every subject its sheet's title names
+("BEAM DETAILS": beams), in the title's order, its own subject kept as its title says (#158), or to
+Step 14 alone when its sheet's title names site works (a boundary wall, say); on a sheet whose title
+names none either it has no Step (unaccounted until the QS assigns it or
 Step 1 tells it from the kind the sheet is confirmed as, `vextrus/takeoff/services/step1.py`). An
 Architectural plan drawing the structure (a column or beam subject, named by a word not a lintel's:
 `NOT_STRUCTURE_WORDS`) is excluded as a `duplicate` (the structural set governs); an Architectural
@@ -60,9 +62,15 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
     "tank": ("tanks",),
     "septic_tank": ("tanks",),
     "grid": ("grid",),
+    "site_works": ("site_mep",),
 }
-"""Steps 4 to 10 (the grid, then foundations to tanks) by a Structural view's subject (the subject
-words make a lintel a beam over an opening and a sunshade, or chajja, a cantilever slab)."""
+"""Steps 4 to 10 (the grid, then foundations to tanks) and Step 14 (site works) by a Structural view's
+subject (the subject words make a lintel a beam over an opening and a sunshade, or chajja, a
+cantilever slab; a boundary wall, a compound wall, a setback or the site, site works)."""
+SITE_WORKS = "site_works"
+"""The subject of a Structural sheet's site works: the owner's ruling (11 Oct 2026, session 22) sends
+them to Step 14 (`site_mep`) alone, never to the building's Steps (a boundary wall's footing is
+measured with the external works, not the building's foundations)."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
@@ -119,8 +127,7 @@ def _proposal(
         own = STRUCTURAL_STEPS.get(subject or "", ())
         if own:
             return own, None, None
-        steps = (step for key in on_sheet for step in STRUCTURAL_STEPS.get(key, ()))
-        return tuple(dict.fromkeys(steps)), None, None
+        return _structural_steps(on_sheet), None, None
     if kind is ViewKind.PLAN and structure:
         return (), None, Exclusion(ExclusionReason.DUPLICATE)
     if subject in PLUMBING_SUBJECTS:
@@ -133,15 +140,22 @@ def kind_steps(
 ) -> tuple[str, ...]:
     """The Takeoff Steps a Structural sheet's kind names by its subject words, in order
     (`beam_details`: beams; `column_schedule` and `shear_wall_details`: columns; `pile_cap_details`:
-    foundations; `general_notes`: Step 2; `details` or `site_plan`: none): what Step 1 gives a view
-    of that sheet whose own title and sheet's title name no subject, once the QS confirms the sheet
-    as that kind (#158). No other Discipline's kind names a Step here."""
+    foundations; `general_notes`: Step 2; `site_plan`: Step 14, site works; `details`: none): what
+    Step 1 gives a view of that sheet whose own title and sheet's title name no subject, once the QS
+    confirms the sheet as that kind (#158). No other Discipline's kind names a Step here."""
     if discipline != "structural":
         return ()
     if kind == GENERAL_NOTES:
         return (GENERAL_NOTES,)
     reading = _reading(conventions if conventions is not None else default_conventions())
-    named = _subjects_in_order(kind.replace("_", " "), reading)
+    return _structural_steps(_subjects_in_order(kind.replace("_", " "), reading))
+
+
+def _structural_steps(named: Sequence[str]) -> tuple[str, ...]:
+    """The Steps of every subject named, in order, each once; Step 14 alone when site works are among
+    them (`SITE_WORKS`)."""
+    if SITE_WORKS in named:
+        return STRUCTURAL_STEPS[SITE_WORKS]
     return tuple(dict.fromkeys(step for key in named for step in STRUCTURAL_STEPS.get(key, ())))
 
 

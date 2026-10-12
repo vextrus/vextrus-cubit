@@ -408,6 +408,14 @@ function Step1({
     setMode('sheet')
   }
 
+  /** An "Unaccounted" entry of the Coverage panel (6.11): its sheet in sheet mode, that view selected. */
+  const openView = (sheet: ProposalOut, view: string) => {
+    if (!rowOfSheet(sheet.id)) return
+    setPanel(null)
+    openSheetOf(sheet)
+    setViewPick({ sheet: sheet.id, view })
+  }
+
   const toList = () => {
     const row = rowOfSheet(openSheet)
     setMode('list')
@@ -685,6 +693,8 @@ function Step1({
       coverage={coverage}
       held={model.queue.filter((e) => e.question.kind === 'file_misread' && e.question.subject_id && model.fileNames[e.question.subject_id]).map((e) => model.fileNames[e.question.subject_id!]!)}
       reading={reading.filter((f) => f.state === 'reading').map((f) => f.name)}
+      sheets={order}
+      onOpenView={openView}
     />
   ) : focusedRow ? (
     <>

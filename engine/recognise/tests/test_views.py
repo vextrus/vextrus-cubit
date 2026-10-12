@@ -617,7 +617,7 @@ def test_a_section_on_a_sheet_whose_title_names_no_subject_is_proposed_for_nothi
         ("tank_details", ("tanks",)),
         ("grid_layout", ("grid",)),
         ("details", ()),
-        ("site_plan", ()),
+        ("site_plan", ("site_mep",)),  # the owner's ruling, 11 Oct 2026: Step 14
         ("general_notes", ("general_notes",)),
     ],
 )
@@ -645,6 +645,57 @@ def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> No
     )
     steps, _, _ = routing_part._proposal(ViewKind.DETAIL, None, "structural", on_sheet)
     assert steps == ("beams", "slabs")
+
+
+@pytest.mark.parametrize(
+    "sheet_title",
+    [
+        "COMPOUND WALL TYPICALS ZQ",
+        "FOOTING ZQ AND BOUNDARY WALL ARRANGEMENT",
+        "PLOT SETBACK ZQ AND PILE ARRANGEMENT",
+    ],
+)
+def test_a_sheet_naming_site_works_sends_its_untitled_views_to_step_14_alone(sheet_title: str) -> None:
+    """The owner's ruling (11 Oct 2026): a Structural sheet's site works are Step 14's, never the
+    building's foundations as well, whatever else its title names and in whichever order."""
+    on_sheet = titles_part._subjects_in_order(sheet_title, titles_part._reading(CONVENTIONS))
+    steps, part, exclusion = routing_part._proposal(ViewKind.SECTION, None, "structural", on_sheet)
+    assert (steps, part, exclusion) == (("site_mep",), None, None)
+
+
+@pytest.mark.parametrize(
+    ("view_title", "steps"),
+    [("FOOTING ZQ-2", ("foundations",)), ("BOUNDARY WALL CUT ZQ-1", ("site_mep",))],
+)
+def test_a_views_own_subject_still_decides_on_a_site_works_sheet(
+    view_title: str, steps: tuple[str, ...]
+) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    on_sheet = titles_part._subjects_in_order("COMPOUND WALL TYPICALS ZQ", reading)
+    subject = titles_part._subject(view_title, reading)
+    found, _, _ = routing_part._proposal(ViewKind.SECTION, subject, "structural", on_sheet)
+    assert found == steps
+
+
+@pytest.mark.parametrize(
+    ("title", "exclusion"),
+    [
+        ("PLOT SETBACK ARRANGEMENT ZQ", None),
+        ("BOUNDARY WALL TYPICAL ZQ", None),
+        ("SITE ARRANGEMENT ZQ WITH COLUMNS", None),
+    ],
+)
+def test_architectural_site_works_stay_in_walls_and_rooms(
+    title: str, exclusion: ExclusionReason | None
+) -> None:
+    """Step 14 is the Structural sheets' route only: an Architectural site plan keeps Steps 11 and 12."""
+    reading = titles_part._reading(CONVENTIONS)
+    subject = titles_part._subject(title, reading)
+    structure = routing_part._draws_structure(title, reading)
+    steps, _, found = routing_part._proposal(
+        ViewKind.PLAN, subject, "architectural", structure=structure
+    )
+    assert (steps, found) == (("walls", "rooms"), exclusion)
 
 
 @pytest.mark.parametrize(
@@ -682,7 +733,7 @@ def test_every_structural_kind_but_the_general_ones_names_a_step() -> None:
     """The conventions' Structural kinds, each told a Step but those that name no subject."""
     kinds = sheets.default_conventions().sheet_kinds["structural"]
     told = {kind for kind in kinds if views.kind_steps(kind, "structural")}
-    assert set(kinds) - told == {"site_plan", "details", "roof_structure_details"}
+    assert set(kinds) - told == {"details", "roof_structure_details"}
 
 
 def test_steps_five_to_ten_are_proposed_for_structural_views_only() -> None:
