@@ -2032,6 +2032,7 @@ def correct(
         if asked is not None:  # its status before, for the undo to put back
             changed["question"] = {"id": str(asked.id), "status": asked.status}
         act = _correction_act(project_id, sheet, changed, actor_name)
+        _record(act, said.CORRECTED, {"sheets": 1})
         if "number" in changed:
             drawings.set_sheet_number(sheet.id, changed["number"][1])
         if asked is not None:

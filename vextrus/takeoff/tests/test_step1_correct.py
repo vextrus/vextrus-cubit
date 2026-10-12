@@ -211,3 +211,34 @@ def test_a_bangla_title_holding_a_joiner_or_a_soft_hyphen_is_kept(nusrat: Api, k
 
     assert response.status_code == 200, response.content
     assert the(nusrat, kr01, s05["id"])["title"] == title
+
+
+def step1_events(md: Api, project: uuid.UUID) -> list[tuple[str, Any, Any]]:
+    """Step 1's acts of the Project as the MD reads them (the activity list), oldest first:
+    (code, subject, actor)."""
+    seen = md.get("/api/activity", project=str(project), limit=200)
+    assert seen.status_code == 200, seen.content
+    acts = [a for a in seen.json() if a["code"].startswith("takeoff.step1.")]
+    return [(a["code"], a["subject_id"], (a["actor"] or {}).get("id")) for a in reversed(acts)]
+
+
+def test_a_correction_records_one_corrected_event_and_its_undo_an_undone_one(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, as_person: Any
+) -> None:
+    # S22-FL10's event log (#681): a correction is a Step 1 act like the others.
+    [s05] = by_number(proposals(nusrat, kr01), "S-05")
+    kamal = as_person("kamal@shapla-homes.example", "shapla")
+    earlier = len(step1_events(kamal, kr01))
+
+    assert correct(nusrat, kr01, {"proposal": s05["id"], "title": "Renamed"}).status_code == 200
+    refused = correct(nusrat, kr01, {"proposal": s05["id"], "title": "Renamed"})
+    assert refused.status_code == 400  # nothing to correct: no event
+    undo(nusrat, kr01)
+
+    [act] = [c for c in confirmations(demo, kr01) if c.act == "correct"]
+    added = step1_events(kamal, kr01)[earlier:]
+    assert [(code, subject) for code, subject, _who in added] == [
+        ("takeoff.step1.corrected", str(act.id)),
+        ("takeoff.step1.undone", str(act.id)),
+    ]
+    assert {who for _code, _subject, who in added} == {str(act.user_id)}

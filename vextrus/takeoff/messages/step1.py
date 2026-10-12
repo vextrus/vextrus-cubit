@@ -43,7 +43,8 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
 - The acts, in the event log (S22-FL10; `event=True`, each with the acting user, the Project and the
   Confirmation as subject; payload `sheets`: how many it decided): `confirmed`, `confirmed_back_in`
   (every sheet it confirmed was excluded before), `excluded`, `assigned` (views put in Steps),
-  `drawing_list_set` and `undone`. An answer to a Question is recorded as the confirm or exclusion it
+  `drawing_list_set`, `corrected` (S22-FL8: one sheet's number or title; payload `sheets` 1) and
+  `undone`. An answer to a Question is recorded as the confirm or exclusion it
   makes; a refused act records nothing.
 """
 
@@ -83,5 +84,6 @@ CONFIRMED_BACK_IN = MessageCode(
 EXCLUDED = MessageCode("takeoff.step1.excluded", params=("actor", "sheets", "views"), event=True)
 ASSIGNED = MessageCode("takeoff.step1.assigned", params=("actor", "sheets"), event=True)
 DRAWING_LIST_SET = MessageCode("takeoff.step1.drawing_list_set", params=("actor",), event=True)
+CORRECTED = MessageCode("takeoff.step1.corrected", params=("actor",), event=True)
 UNDONE = MessageCode("takeoff.step1.undone", params=("actor",), event=True)
 ANSWERED = MessageCode("takeoff.step1.answered", params=("actor",), event=True)
