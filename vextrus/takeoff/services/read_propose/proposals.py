@@ -363,7 +363,11 @@ def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:
 def unsure(answer: jev.Judgement, title: str) -> bool:
     """Whether Jev's kind for a sheet is asked rather than proposed (#228): never when Jev is sure
     (`jev.SHEET_TYPE.proposes`); else when its top two are close (its first's lead under
-    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first: it names kinds offered
+    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`; when the first is a `*_details` kind, the generic `details`
+    it refines is left out of the comparison, so the first is measured against the best other
+    kind, so `details` never shields a near-tie between two specific kinds, S24-A7; a kind behind that
+    generic with less probability than `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY` is no contender) or the
+    title contradicts its first: it names kinds offered
     (`kinds_named`) and not Jev's first. "BEAM LAYOUT & DETAILS" names `beam_details` and so does
     not contradict it; "BEAM LAYOUT" and "COLUMN LAYOUT & BEAM DETAILS" contradict `beam_layout`'s
     neighbour `beam_details` and `beam_layout` (reviews 2 and 3)."""
@@ -371,19 +375,21 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
         return False
     ranked = answer.ranked()
     first = ranked[0]
-    if len(ranked) > 1:
-        lead = answer.probability(first) - answer.probability(ranked[1])
-        if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY and not _refines(first, ranked[1]):
+    rivals = [k for k in ranked[1:] if not _refines(first, k)]
+    if rivals:
+        close_by = settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY
+        lead = answer.probability(first) - answer.probability(rivals[0])
+        behind_generic = rivals[0] != ranked[1]
+        if lead < close_by and not (behind_generic and answer.probability(rivals[0]) < close_by):
             return True
     named = kinds_named(title, ranked)
     return bool(named) and first not in named
 
 
-def _refines(first: str, second: str) -> bool:
-    """Whether Jev's first is a specific `*_details` kind and its runner-up the generic `details`
-    it refines (S24-A7): no doubt, as the specific kind says what `details` says and more; Jev's
-    scores around the close-by line would otherwise flip the Question run to run."""
-    return second == "details" and first.endswith("_details") and first != "details"
+def _refines(first: str, other: str) -> bool:
+    """Whether Jev's first is a specific `*_details` kind and `other` the generic `details` it
+    refines (S24-A7): the generic says what the specific kind says, less, so it is no rival to it."""
+    return other == "details" and first.endswith("_details") and first != "details"
 
 
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
