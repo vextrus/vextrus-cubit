@@ -263,6 +263,38 @@ def test_a_long_remark_beside_a_plans_title_leaves_the_plan_its_title(callout: s
     assert all(v.title != callout for v in found)
 
 
+@pytest.mark.parametrize("marks", [[], SCHEDULE_MARKS["a-strike"]], ids=["bare", "with-a-strike"])
+@pytest.mark.parametrize("at", [(230.0, 70.0), (230.0, 495.0)], ids=["under", "over"])
+def test_a_long_footnote_by_a_schedule_leaves_it_a_schedule(
+    at: tuple[float, float], marks: list[tuple[tuple[float, float], tuple[float, float]]]
+) -> None:
+    """Review 2 of PR #692: a ruled table's box was a drawing a long line could title, so a footnote
+    centred under or over the schedule took it. A table holding text rows and no drawing is none, and
+    a strike through a cell (one stroke, under MIN_STROKES) is no drawing."""
+    found = read([], [*SCHEDULE_CELLS, Text(REMARK, at)], [*SCHEDULE_RULES, *marks])
+
+    assert [(v.kind, v.title) for v in found] == [(ViewKind.SCHEDULE, None)]
+
+
+SHORT_AT = {"a-height-inside-the-lower-edge": (300.0, 226.0), "7.3-heights-under": (300.0, 170.2)}
+"""Where a plan's short title stands that pairing lets take the grid (inside an edge, or within
+TITLE_GAP under it) but which is not right under it, a long callout standing a height under the grid."""
+
+
+@pytest.mark.parametrize("callout", [CALLOUT, STOREY_CALLOUT], ids=["no-storeys", "storeys"])
+@pytest.mark.parametrize("at", list(SHORT_AT.values()), ids=list(SHORT_AT))
+def test_a_long_callout_under_a_grid_leaves_a_short_title_pairing_takes_it(
+    callout: str, at: tuple[float, float]
+) -> None:
+    """Review 2 of PR #692: the guard "no short title stands at that drawing" now asks pairing's own
+    rule (`pieces._reach`), so the short title keeps its view and storeys."""
+    found = read([PLAN], [Text(callout, (40.0, 208.0)), Text("2ND FLOOR PLAN", at)])
+
+    assert [(v.kind, v.title, v.storeys) for v in found] == [
+        (ViewKind.PLAN, "2ND FLOOR PLAN", ("floor_2",))
+    ]
+
+
 @pytest.mark.parametrize("place", [(40.0, 590.0), (40.0, 150.0)], ids=["above", "below"])
 def test_a_long_one_line_notes_heading_with_nothing_under_it_is_a_notes_view(
     place: tuple[float, float],
