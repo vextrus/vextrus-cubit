@@ -7,10 +7,10 @@ import uuid
 from typing import Any
 
 import pytest
+from django.db import connection
 
 from vextrus.drawings.services.corrections import TITLE_LENGTH
 from vextrus.platform.services import tenancy
-from vextrus.drawings.models import SheetRevision
 from vextrus.takeoff.models import Confirmation
 from vextrus.takeoff.tests.acceptance.t19a.step1 import *  # noqa: F403 (its fixtures, by name)
 from vextrus.takeoff.tests.acceptance.t19a.step1 import by_number, proposals, step1
@@ -297,8 +297,13 @@ def test_a_correction_undone_while_the_exclusion_stands_keeps_the_question_withd
 
 def alike(demo: Any, sheet: dict[str, Any]) -> None:
     """Its Plot page reads its title as well as its number (a second source, #229)."""
-    with tenancy.acting_in(demo["developer:shapla"]):
-        assert SheetRevision.objects.filter(id=sheet["sheet_id"]).update(plot_title_alike=True)
+    with tenancy.acting_in(demo["developer:shapla"]), connection.cursor() as cursor:
+        cursor.execute(
+            "update drawings_sheetrevision set plot_title_alike = true"
+            " where id = %s and plot_page is not null",
+            [sheet["sheet_id"]],
+        )
+        assert cursor.rowcount == 1
 
 
 def test_correcting_a_title_clears_the_plot_page_that_read_the_old_title(
