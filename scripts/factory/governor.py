@@ -435,12 +435,14 @@ def live_builder(
     """The live builder already launched on a ticket, as a sentence naming its session, or None.
 
     Live: a cloud builder record whose judge was ok, whose STOP was not sent, that has not aged out
-    (`ageing`) and whose branch has no merged PR; a local builder record whose session `claude agents`
-    lists with a pid (an ended session is none; an unreadable list counts as live, failing closed). An
-    acceptance-writer's, reviewer's or refuter's record is no builder."""
+    (`ageing`) and whose branch has no PR that ended after it started (`_release`); a local builder
+    record whose session `claude agents` lists with a pid (an ended session is none; an unreadable list
+    counts as live, failing closed). An acceptance-writer's, reviewer's or refuter's record is no
+    builder."""
     folder = folder if folder is not None else status.factory_dir() / "launches"
     agent_rows = agent_rows or read_agents
     prs = prs or read_prs
+    released: dict[str, tuple[datetime | None, int]] | None = None
     for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
         if path.name.endswith(".agents.json"):
             continue
@@ -468,11 +470,9 @@ def live_builder(
             continue
         if aged_out(record, agent_rows) is not None:
             continue
-        merged = any(
-            row.get("headRefName") == record["branch"] and row.get("state") == "MERGED"
-            for row in prs() or []
-        )
-        if not merged:
+        if released is None:
+            released = _released(prs() or [])
+        if not _release(record, released)[0]:
             return f"cloud builder {session} is live on {record['branch']}"
     return None
 
@@ -804,6 +804,10 @@ def _release(
     if started < end:
         return True, f"started {status.utc(started)}, before PR {number} ended {status.utc(end)}"
     return False, f"started {status.utc(started)}, after PR {number} ended {status.utc(end)}"
+
+
+released_branches = _released
+record_released = _release
 
 
 def _agent_rows() -> Callable[[], list[dict[str, Any]] | None]:

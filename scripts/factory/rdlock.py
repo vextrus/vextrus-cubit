@@ -25,10 +25,13 @@ A `posting` run starts only on a head the review ledger passed
 (`$VEXTRUS_FACTORY_DIR/ledger/<PR>-<head>.json` with `verdict` `PASS`) and, when `--ticket` names a
 launch whose branch is known, only while `git ls-remote origin <branch>` still reads that head. The
 check runs before the run queues and again when its turn comes; a refusal exits 6 naming the missing
-PASS or the newer head, runs nothing and frees the lock.
+PASS or the newer head, runs nothing and frees the lock. A head also counts as passed when it differs
+from a passed head only by clean merges of main (`land.reviewed`). A posting run already running is
+stopped (exit 7, a `CANCELLED` line naming the newer head, the lock released) when its branch moves
+past its head; the branch is read every 5 s (`VEXTRUS_RDLOCK_POLL`).
 `scored` and `no-post` runs are not gated.
 
-Exit 0, 4 queued, 5 a duplicate waiter, 6 a posting run refused, 2 usage error.
+Exit 0, 4 queued, 5 a duplicate waiter, 6 a posting run refused, 7 cancelled, 2 usage error.
 """
 
 from __future__ import annotations
@@ -53,7 +56,8 @@ from scripts.factory import status
 KINDS = ("posting", "scored", "no-post")
 RANK = {kind: rank for rank, kind in enumerate(KINDS)}
 WAIT_SECONDS = 5.0
-HELD, QUEUED, DUPLICATE, REFUSED = 0, 4, 5, 6
+HELD, QUEUED, DUPLICATE, REFUSED, CANCELLED = 0, 4, 5, 6, 7
+POLL_SECONDS = 5.0
 LS_REMOTE_SECONDS = 60
 
 
@@ -188,15 +192,43 @@ def ticket_branch(ticket: str | None) -> str | None:
     return None
 
 
-def refusal(kind: str, head: str, ticket: str | None) -> str | None:
-    """Why a run may not start, or None. Only posting runs are gated."""
-    if kind != "posting":
-        return None
-    if not passed(head):
-        return f"no review PASS is recorded for head {head[:8]}"
+def covered(head: str) -> bool:
+    """The ledger covers this head as `land.reviewed` does: a PASS for it, or a PASS for an earlier head
+    of the same PR followed only by clean merges of main (`merge_ready.merges_since`)."""
+    if passed(head):
+        return True
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        return False
+    folder = status.factory_dir() / "ledger"
+    numbers = sorted(
+        {
+            int(m.group(1))
+            for path in folder.glob("*.json")
+            if (m := re.match(r"(\d+)-[0-9a-f]{40}$", path.stem))
+        }
+    )
+    if not numbers:
+        return False
+    from scripts.land import reviewed
+
+    return any(reviewed(folder, number, head, repo=Path.cwd()) for number in numbers)
+
+
+def moved(head: str, ticket: str | None) -> str | None:
+    """Why the branch no longer stands at this head (it names the newer head), or None; a branch that
+    cannot be read gives a reason starting `unreadable:`."""
     branch = ticket_branch(ticket)
     if branch is None:
         return None
+    tip = tip_of(branch, head)
+    if tip.startswith("unreadable:"):
+        return tip
+    if tip and not tip.startswith(head) and not head.startswith(tip):
+        return f"head {head[:8]} is superseded: {branch} has moved to {tip[:8]}"
+    return None
+
+
+def tip_of(branch: str, head: str) -> str:
     try:
         done = subprocess.run(
             ["git", "ls-remote", "origin", f"refs/heads/{branch}"],
@@ -207,13 +239,59 @@ def refusal(kind: str, head: str, ticket: str | None) -> str | None:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        return f"cannot read the tip of {branch} to check head {head[:8]}: {error}"
+        return f"unreadable: cannot read the tip of {branch} to check head {head[:8]}: {error}"
     if done.returncode != 0:
-        return f"cannot read the tip of {branch} to check head {head[:8]}: {done.stderr.strip()}"
-    tip = done.stdout.split()[0] if done.stdout.split() else ""
-    if tip and not tip.startswith(head) and not head.startswith(tip):
-        return f"head {head[:8]} is superseded: {branch} has moved to {tip[:8]}"
-    return None
+        reason = done.stderr.strip()
+        return f"unreadable: cannot read the tip of {branch} to check head {head[:8]}: {reason}"
+    return done.stdout.split()[0] if done.stdout.split() else ""
+
+
+def refusal(kind: str, head: str, ticket: str | None) -> str | None:
+    """Why a run may not start, or None. Only posting runs are gated."""
+    if kind != "posting":
+        return None
+    if not covered(head):
+        return f"no review PASS is recorded for head {head[:8]}"
+    return moved(head, ticket)
+
+
+def poll_seconds() -> float:
+    try:
+        return max(0.5, float(os.environ.get("VEXTRUS_RDLOCK_POLL", POLL_SECONDS)))
+    except ValueError:
+        return POLL_SECONDS
+
+
+def stop_group(proc: subprocess.Popen[bytes]) -> None:
+    """End the command and everything it started: TERM, then KILL after a grace."""
+    for sig, wait in ((signal.SIGTERM, 10), (signal.SIGKILL, 10)):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError, PermissionError:
+            return
+        try:
+            proc.wait(timeout=wait)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def supervise(
+    proc: subprocess.Popen[bytes], kind: str, head: str, ticket: str | None
+) -> tuple[int, str | None]:
+    """Wait for the command; a posting run whose branch moves past its head is stopped. Returns the exit
+    code and, when it was stopped, the line that says why. An unreadable branch never stops a run."""
+    while True:
+        try:
+            return proc.wait(timeout=poll_seconds()), None
+        except subprocess.TimeoutExpired:
+            pass
+        if kind != "posting":
+            continue
+        why = moved(head, ticket)
+        if why and not why.startswith("unreadable:"):
+            stop_group(proc)
+            return CANCELLED, why
 
 
 def _stop(signum: int, frame: FrameType | None) -> None:
@@ -250,11 +328,24 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
         pidfile.write_text(f"{pid}\n")
         env = dict(os.environ, PYTHONUNBUFFERED="1")
         with log.open("ab", buffering=0) as out:
-            done = subprocess.run(
-                command, stdout=out, stderr=out, stdin=subprocess.DEVNULL, env=env, check=False
+            proc = subprocess.Popen(
+                command,
+                stdout=out,
+                stderr=out,
+                stdin=subprocess.DEVNULL,
+                env=env,
+                start_new_session=True,
             )
-        print(f"rdlock: exit {done.returncode}; log {log}")
-        return done.returncode
+            try:
+                code, cancelled = supervise(proc, kind, head, ticket)
+            finally:
+                if proc.poll() is None:
+                    stop_group(proc)
+        if cancelled:
+            print(f"rdlock: CANCELLED: {cancelled}; log {log}")
+        else:
+            print(f"rdlock: exit {code}; log {log}")
+        return code
     finally:
         if status.read_pidfile(pidfile) == pid:
             pidfile.unlink(missing_ok=True)

@@ -335,7 +335,10 @@ def gh_prs() -> list[dict[str, Any]] | None:
             return None
     else:
         argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
-        argv += ["--json", "number,headRefName,headRefOid,state,statusCheckRollup"]
+        argv += [
+            "--json",
+            "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt",
+        ]
         try:
             done = subprocess.run(
                 argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
@@ -395,9 +398,11 @@ def load_launches(
     was launched on. A record whose `review` is not null (review_cloud.py's reviewer or refuter) is not a
     builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch.
     With the PR list `prs`: a ticket launched before `since` is still followed while its branch's PR is
-    open (carried over); a ticket whose branch's PR has merged is dropped, whatever its launch time."""
+    open (carried over); a ticket whose branch's PR ended (merged or closed) after the record started is
+    dropped (the governor's release rule)."""
     newest: dict[str, dict[str, Any]] = {}
     reviews: dict[str, str] = {}
+    ended = governor.released_branches([row for row in prs or [] if _has_pr_keys(row)])
     for path in sorted((folder / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
             continue
@@ -428,8 +433,8 @@ def load_launches(
             continue
         pr = pr_for(branch, prs)
         state = pr.get("state") if pr is not None else None
-        if state == "MERGED":
-            continue
+        if governor.record_released(record, ended)[0]:
+            continue  # its branch's PR merged or closed after this record started
         if since is not None and started < since and state != "OPEN":
             continue
         record["_started"] = started
@@ -451,6 +456,10 @@ def load_launches(
         or builders[record["branch"]] < record["_started"]
     }
     return followed, reviews
+
+
+def _has_pr_keys(row: Any) -> bool:
+    return isinstance(row, dict) and all(k in row for k in ("number", "headRefName", "state"))
 
 
 def is_builder(record: dict[str, Any]) -> bool:
