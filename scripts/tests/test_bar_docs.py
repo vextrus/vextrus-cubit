@@ -68,3 +68,20 @@ def test_the_old_definition_is_caught() -> None:
     ):
         assert OLD_DEFINITION.search(text)
     assert not OLD_DEFINITION.search(f"strict unless it matches a `[lax]` glob and {DEFAULT_RULE}")
+
+
+# PR #698 round 1 (session 24): pr-reviewer.md said "only the web's view components and the docs'
+# Markdown are lax", so both lenses wrote FIX for findings of 62 and 65 on a path the tiers file made
+# lax for the session; the ledger keeps a lens's FIX whatever the bar. A bar document names the tiers
+# file as the list in force and never closes the lax list in words.
+CLOSED_LAX_LIST = re.compile(r"\bonly\b[^.;]{0,80}\bare\s+lax\b", re.IGNORECASE)
+
+
+@pytest.mark.parametrize("name", BAR_DOCS)
+def test_no_bar_document_closes_the_lax_list_in_words(name: str) -> None:
+    assert not CLOSED_LAX_LIST.search(flat(name)), f"{name} lists the lax paths as closed"
+
+
+def test_the_closed_lax_list_is_caught() -> None:
+    assert CLOSED_LAX_LIST.search("only the web's view components and the docs' Markdown are lax")
+    assert not CLOSED_LAX_LIST.search("read that file on main, which may hold a session's ruling")

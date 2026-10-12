@@ -304,7 +304,10 @@ class World:
     # --- the ledger, through scripts.ledger's own functions
     def verdict(self, pr: int, head: str, round_: int, word: str) -> None:
         self.monkeypatch.delenv("CLAUDE_CODE_REMOTE", raising=False)
-        decision = ledger.decide(f"VERDICT: {word} at {head}\n".encode(), head)
+        # S24-L1 (the ledger's verdict follows the bar): a lens's FIX alone now decides PASS, so a FIX
+        # record is made from a finding that blocks (a confirmed 80), as a real one is.
+        found = "FINDING f1 80 CONFIRMED\n" if word == "FIX" else ""
+        decision = ledger.decide(f"VERDICT: {word} at {head}\n{found}".encode(), head)
         self.comments += 1
         comment = 9000 + self.comments
         ledger.commit_record(
