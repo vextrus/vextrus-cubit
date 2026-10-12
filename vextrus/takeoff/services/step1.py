@@ -916,6 +916,28 @@ def _asked(
     ]
 
 
+def _in_list_order(
+    project_id: uuid.UUID, deciding: Mapping[uuid.UUID, Any], found: list[UnaccountedView]
+) -> list[UnaccountedView]:
+    """The unaccounted views in the sheet list's order, then their reading order on the sheet: a
+    Coverage query has no order of its own, and the list of entries must not move from load to load."""
+    if len(found) < 2:
+        return found
+    drawing_set = _set_of(project_id)
+    ordinals = {
+        v.id: v.ordinal
+        for views in (
+            drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+        ).values()
+        for v in views
+    }
+    rank = {sheet_id: at for at, sheet_id in enumerate(deciding)}
+    return sorted(
+        found,
+        key=lambda u: (rank.get(u.sheet_id, len(rank)), ordinals.get(u.view_id, 0), str(u.view_id)),
+    )
+
+
 def coverage(project_id: uuid.UUID) -> CoverageView:
     """Every view of every sheet in the sheet list, counted once (a held file's views are not
     counted until it is read anyway): assigned, excluded, proposed or unaccounted; used from M1."""
@@ -956,6 +978,7 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
             notes = row.part_key in view_finder.STEP_DISCIPLINES and view_finder.GENERAL_NOTES in served
             if row.part_key and row.part_key not in served and not notes:
                 by_step[row.part_key] += 1
+    unaccounted = _in_list_order(project_id, deciding, unaccounted)
     return CoverageView(
         views=len(rows),
         assigned=counts["assigned"],

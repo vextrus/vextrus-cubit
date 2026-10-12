@@ -59,6 +59,8 @@ is compared with `_` folded to a space and "3D/perspective", "3D" and "perspecti
 view's subject is a free phrase, mapped to the first of the engine's subject words (SUBJECTS) in it,
 whole words, the longest first; a joined view's subject is right when that word is the export's, and a
 phrase naming none of them is left out of the count and reported as "subjects outside the vocabulary".
+A phrase naming site works (`site_works`) is right when the export's subject is it or the export's view
+is proposed for Step 14 (`steps` holds `site_mep`): the engine never gives site works as a subject.
 A Development Set's answer adds counts in general terms (missing views by kind per sheet; unjoined key
 and export views by cause; how many would join with the frames' lower-left corners aligned; joined
 views with no export subject); a Held-out Set's answer is its two totals, as before.
@@ -118,6 +120,7 @@ SUBJECTS = (
     "tank",
     "septic_tank",
     "grid",
+    "site_works",
     "fixture",
     "toilet",
     "opening",
@@ -444,6 +447,8 @@ def _score(key: dict[str, Any], export: dict[str, Any]) -> Score:
 
 
 Box = tuple[float, float, float, float]
+SITE_WORKS_STEP = "site_mep"
+"""Takeoff Step 14, Site works and MEP: where the engine proposes a view naming site works."""
 
 
 class _View:
@@ -454,6 +459,11 @@ class _View:
         self.kind = _kind(view.get("kind"))
         self.title = _title(view.get("title"))
         self.subject = _underscored(view.get("subject"))
+        # The Takeoff Steps the export proposes it for: site works are never a view's subject (the
+        # engine proposes them as Step 14, `site_mep`, beside or alone), so a key phrase naming them
+        # is read against these.
+        steps = view.get("steps")
+        self.steps = tuple(_text(x).strip() for x in steps) if isinstance(steps, list) else ()
         # The subject word a key's phrase names, found here, for every view, so its cost and any
         # failure never depend on which views join (a Held-out Set's joins are never told; 24g's
         # refuter: a huge phrase ran out of memory only when its view joined).
@@ -469,6 +479,7 @@ def _moved(view: _View, scale: tuple[float, float], shift: tuple[float, float] =
     moved = _View({})
     moved.box = (x0 * sx + dx, y0 * sy + dy, x1 * sx + dx, y1 * sy + dy)
     moved.kind, moved.title, moved.subject = view.kind, view.title, view.subject
+    moved.steps = view.steps
     moved.word = view.word
     return moved
 
@@ -600,13 +611,16 @@ def _score_views(
         title = view.title == found[f].title
         score.count("view titles", title)
         titles += not title
-        score.no_export_subject += not found[f].subject
+        on_step_14 = SITE_WORKS_STEP in found[f].steps
+        score.no_export_subject += not found[f].subject and not on_step_14
         # A key phrase naming none of the engine's subject words is left out of the count (R1).
         word = view.word
         if word is None:
             score.outside += 1
             continue
-        subject = word == found[f].subject
+        # Site works are never a view's subject: a key phrase naming them is right when the export
+        # proposes the view for Step 14 (or, as a hand-made export may, gives the subject itself).
+        subject = word == found[f].subject or (word == "site works" and on_step_14)
         score.count("view subjects", subject)
         subjects += not subject
     reasons = [

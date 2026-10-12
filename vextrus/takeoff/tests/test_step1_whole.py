@@ -181,7 +181,10 @@ def test_undoing_an_assigned_views_own_exclusion_puts_it_back_under_its_confirme
 ) -> None:
     read(qs_project, monkeypatch, LOOSE)
     api = api_as(qs_project.member)
-    confirm(api, qs_project.project_id, [p["id"] for p in proposals(api, qs_project.project_id)])
+    # Confirmed as `details`, a kind naming no Step: the stand-in's first kind, `site_plan`, names
+    # Step 14 (the owner's ruling, 11 Oct 2026) and would give the section a step.
+    ids = [p["id"] for p in proposals(api, qs_project.project_id)]
+    confirm(api, qs_project.project_id, ids, "details")
     with qs_project.member.acting():
         from vextrus.takeoff.models import Proposal
 

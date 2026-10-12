@@ -162,3 +162,22 @@ def test_an_underscored_key_phrase_is_folded_before_mapping(
     assert place.score() == 0
     output = shown(capfd)
     assert total(output, "view subjects", 1, 1), output
+
+
+def test_site_works_layout_maps_to_site_works_and_is_right(
+    tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """S22-FL7: the engine's subject `site_works` is in the scorer's table, so a key phrase naming site
+    works maps to it, not outside the vocabulary."""
+    place = Place(tmp_path)
+    one_sheet(
+        place,
+        [key_view(A_BOX, "View A", subject="site works layout")],
+        [export_view(A_BOX, "View A", subject="site_works")],
+    )
+
+    assert place.score() == 0
+    output = shown(capfd)
+    assert total(output, "view subjects", 1, 1), output
+    assert "subject wrong" not in output
+    assert not outside_the_vocabulary(output, 1), output
