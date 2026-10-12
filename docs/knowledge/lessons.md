@@ -584,8 +584,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `engine/recognise/tests/test_views.py` (every reviewer's example pinned through `views.find` and `conflicts.find`).
 - **A fix round's docstring claimed inertness the code did not have** (#684 round 1: site works "as before they
   were words" in `subjects()`, while `ViewCandidate.subject` still carried them to the conflicts stage). Check:
-  `engine/recognise/tests/test_site_vocabulary_inert.py` (the inertness property: a view's subject equals main's
-  for any title).
+  `engine/recognise/tests/test_site_works_inert.py` (`test_a_views_subject_is_what_it_was_before_site_works_were_words`:
+  a view's subject equals main's for any title; and the continuation and same-storey cases).
 - **The FL5 cases table over every real sheet changed the rule in one pass** (#676's "states storeys and stands in
   no drawing" kept 2 of 4 real long titles; the shape rule kept 4 of 4 and 124 of 124 shorter ones). No check:
   a recogniser rule that a review sent back once is designed from a cases table of the real sets first.
