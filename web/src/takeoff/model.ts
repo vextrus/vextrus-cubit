@@ -364,7 +364,7 @@ export function step1Model(data: Step1Data): Step1Model {
       const list = data.lists[discipline] ?? null
       const hasList = list !== null && list.source !== null && list.numbers.length > 0
       const openQuestions = progress?.open_questions ?? queue.filter((e) => e.question.discipline === discipline).length
-      const settled = mine.filter(decided).length
+      const settled = progress?.confirmed ?? mine.filter(decided).length
       return {
         discipline,
         rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes),
@@ -375,7 +375,7 @@ export function step1Model(data: Step1Data): Step1Model {
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
         besideGap: mine.filter((p) => besideGap.has(p.id)).map((p) => p.id),
-        confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
+        confirmed: mine.length > 0 && settled >= (progress?.found ?? mine.length) && openQuestions === 0 && coverageDone,
       }
     })
 
