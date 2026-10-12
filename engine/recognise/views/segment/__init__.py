@@ -374,8 +374,6 @@ def _views(
                 kind = ViewKind.SCHEDULE  # a ruled table with no title
             else:
                 kind = ViewKind.NOTES if piece.words > piece.lines else untitled
-                if notes_sheet and kind is ViewKind.PLAN:
-                    kind = ViewKind.DETAIL  # a notes sheet's untitled drawing is never a plan (R1)
             views.append(_View(piece, None, kind, piece.box))
     for k, piece in enumerate(pieces):
         if k in by_piece or any(v.piece is piece for v in views):
@@ -385,6 +383,10 @@ def _views(
             smallest = min(holders, key=lambda v: _area(v.box))
             smallest.box = _union(smallest.box, piece.box)
     _plans_reach(views, pieces, drawn.segments, (rx1 - rx0, ry1 - ry0), unit, block)
+    if notes_sheet:  # R1, after the plans have taken what is theirs: no untitled drawing is a plan
+        for v in views:
+            if v.title is None and v.kind is ViewKind.PLAN:
+                v.kind = ViewKind.DETAIL
     for si in scale_texts:
         s = texts[si]
         best: tuple[float, _View] | None = None
