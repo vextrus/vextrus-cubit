@@ -60,4 +60,41 @@ describe('the save state', () => {
     actStarted()
     expect(told).toBe(2)
   })
+
+  it('stays dropped when an act sent before the lost one is answered after it (an earlier answer never clears a later loss)', () => {
+    const a = actStarted()
+    const b = actStarted()
+    b('dropped')
+    expect(saveState()).toBe('saving')
+    a('answered')
+    expect(saveState()).toBe('dropped')
+  })
+
+  it('stays dropped when the earlier act is answered before the later one is lost', () => {
+    const a = actStarted()
+    const b = actStarted()
+    a('answered')
+    b('dropped')
+    expect(saveState()).toBe('dropped')
+  })
+
+  it('is saved again only once an act sent after the last lost one is answered', () => {
+    const a = actStarted()
+    const b = actStarted()
+    b('dropped')
+    a('answered')
+    const c = actStarted()
+    c('answered')
+    expect(saveState()).toBe('saved')
+  })
+
+  it('holds a second loss against the first act answered after the first loss', () => {
+    actStarted()('dropped')
+    const old = actStarted()
+    actStarted()('dropped')
+    old('answered')
+    expect(saveState()).toBe('dropped')
+    actStarted()('answered')
+    expect(saveState()).toBe('saved')
+  })
 })

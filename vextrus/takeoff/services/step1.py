@@ -255,7 +255,8 @@ class CoverageView:
     by_step: dict[str, int] = field(default_factory=dict)
     """Views by the step (or Part) that will read them, proposed or assigned."""
     by_reason: dict[str, int] = field(default_factory=dict)
-    """Views excluded or proposed to be, by reason."""
+    """Views excluded and confirmed so, by reason: they add up to `excluded`. A view only proposed to be
+    left out counts under `proposed` alone (m0-screens 6.11)."""
     unaccounted_views: list[UnaccountedView] = field(default_factory=list)
     unread_sheets: int = 0
     """Sheets the read left out for unreadable writing (#135): never silently unread."""
