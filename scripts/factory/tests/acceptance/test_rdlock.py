@@ -156,6 +156,10 @@ def test_r5_run_holds_the_lock_logs_unbuffered_and_releases_even_on_failure(
     lock: Lock, code: int
 ) -> None:
     sha = head(7)
+    # A posting run needs a review PASS recorded for its head (S24-A6): the ledger has one.
+    ledger = lock.factory / "ledger"
+    ledger.mkdir()
+    (ledger / f"1-{sha}.json").write_text(json.dumps({"pr": 1, "head": sha, "verdict": "PASS"}))
     done = lock.run(
         "run", "--kind", "posting", "--head", sha, "--", sys.executable, "-c", RUN, str(code)
     )
