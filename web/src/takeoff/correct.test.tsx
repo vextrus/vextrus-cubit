@@ -327,6 +327,58 @@ describe('Correct the Proposal (§6.9)', () => {
     expect(toast.getBoundingClientRect().width).toBeLessThanOrEqual(42 * 16 + 1)
   })
 
+  it('keeps a stale-form refusal under its field through the list reload, and again on a second save', async () => {
+    // Design gate of #706, final walk (80): the refusal was lost when the list refetch landed.
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    const form = () => within(screen.getByRole('complementary'))
+    // Another person corrected S-05's title meanwhile: the server's list now holds theirs.
+    const s05 = step1.proposals.find((p) => p.number === 'S-05')!
+    s05.title = 'THEIR TITLE'
+    const refusal = { code: 'takeoff.step1.corrected_since', params: { field: 'title', value: 'THEIR TITLE', has: 'yes', sheet: 'S-05', named: 'number', moved: 'no', now: 'S-05' } }
+    step1.answerOnce('POST /correct', 409, refusal)
+    const title = form().getByRole('textbox', { name: 'Title' })
+    await userEvent.clear(title)
+    await userEvent.type(title, 'MY TITLE')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+    expect(bodyText()).toContain('was changed by another person since you opened it')
+    // Typing clears it; a second refused save shows it again.
+    step1.answerOnce('POST /correct', 409, refusal)
+    await userEvent.type(form().getByRole('textbox', { name: 'Title' }), '!')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+  })
+
+  it.each([
+    ['S-05B', { has: 'yes', moved: 'yes', now: 'S-05B' }],
+    [null, { has: 'yes', moved: 'none', now: '' }],
+  ])('keeps the form, with its refusal, when the other person moved the sheet to %s', async (moved, more) => {
+    // Design gate of #706, final walk (80): the row moved on the reload and the form vanished.
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    const s05 = step1.proposals.find((p) => p.number === 'S-05')!
+    Object.assign(s05, { number: moved })
+    step1.answerOnce('POST /correct', 409, { code: 'takeoff.step1.corrected_since', params: { field: 'number', value: moved ?? '', sheet: 'S-05', named: 'number', ...more } })
+    const number = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+    await userEvent.clear(number)
+    await userEvent.type(number, 'S-06X')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })).toHaveAttribute('aria-invalid', 'true'))
+    expect(bodyText()).toContain('Correct the Proposal')
+    expect(document.activeElement).toBe(within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' }))
+  })
+
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {
     const { step1, title } = await correcting()
     step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })

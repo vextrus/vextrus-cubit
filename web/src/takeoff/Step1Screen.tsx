@@ -674,7 +674,13 @@ function Step1({
     shell.showInspectorTab('selection')
     setCorrecting(focusedSheet.id)
   }
-  const correctingSheet = correcting !== null && focusedSheet?.id === correcting ? focusedSheet : null
+  // Tied to its sheet by id: a reload (another person changed its number) moves the row, never the form.
+  const correctingSheet = correcting !== null ? (model.rows.flatMap((r) => [...r.sheets]).find((s) => s.id === correcting) ?? null) : null
+  useEffect(() => {
+    if (correcting === null) return
+    const row = model.rows.find((r) => r.sheets.some((s) => s.id === correcting))
+    if (row && row.key !== focused) setFocusedState(row.key)
+  })
   const closeCorrection = (sheetId: string) => {
     setCorrecting(null)
     refocusSheet.current = sheetId

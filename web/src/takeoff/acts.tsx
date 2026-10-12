@@ -227,6 +227,8 @@ function useActs(
   const f = useFormat()
   /** The acts started in this tab, the last on top: what Ctrl Z takes back. */
   const history = useRef<Entry[]>([])
+  /** Counts the correction refusals, so each is newer than the typing that cleared the one before. */
+  const refusals = useRef(0)
   /** An act in flight: another (a second Enter, a key held down) is dropped until it and its reload end. */
   const pending = useRef(false)
   /** Undos asked for and not yet ended: they run one after another, in the order pressed. */
@@ -591,7 +593,8 @@ function useActs(
           } catch {
             // Not the API's refusal: said plainly, under no field.
           }
-          setCorrectionRefusal((last) => ({ text: failedText(error), field, n: (last?.n ?? 0) + 1 }))
+          refusals.current += 1 // never reset: a second refusal is newer than what the person typed after the first
+          setCorrectionRefusal({ text: failedText(error), field, n: refusals.current })
         } else say(error)
         return false
       } finally {
