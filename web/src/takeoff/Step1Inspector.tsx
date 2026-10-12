@@ -328,6 +328,7 @@ function ReadFrom({ source }: { source: string | null | undefined }) {
   if (source === 'register') return <Trans>the drawing list</Trans>
   if (source === 'file_name') return <Trans>the file name</Trans>
   if (source === 'view_title') return <Trans>the title of its view</Trans>
+  if (source === 'typed') return <Trans>typed by a person</Trans>
   return null
 }
 

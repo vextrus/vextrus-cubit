@@ -21,21 +21,59 @@ import uuid
 
 from django.db import transaction
 
+from engine.messages import MessageCode
 from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import sheets as said
 from vextrus.drawings.models import Decision, Discipline, HeldAnswer, Sheet, SheetRevision
 from vextrus.drawings.services import _access, _text, library_disciplines, sheet_list
 from vextrus.platform.services import auth
 
+TYPED = "typed"
+"""A value's source once the QS typed it: not read from the title block, so a sheet carrying it is
+not one two sources agree on until the QS confirms it (m0-screens 5; review 3 of #680)."""
+
+_LINE_BREAKS = frozenset("\n\r\v\f\x85\u2028\u2029")
+
+
+def _refuse_unless_typed(
+    typed: str,
+    *,
+    length: int,
+    empty: MessageCode,
+    long: MessageCode,
+    lines: MessageCode,
+    code: MessageCode,
+    unprintable: MessageCode,
+    bidi: bool,
+) -> None:
+    """Why typed text is refused, each cause its own message (400), before anything is written."""
+    if not typed:
+        raise auth.Refused(empty(), status=400)
+    if any(c in _LINE_BREAKS for c in typed):
+        raise auth.Refused(lines(), status=400)
+    if any(c in typed for c in sheet_list._RAW_CODES):
+        raise auth.Refused(code(), status=400)
+    if len(typed) > length:
+        raise auth.Refused(long(), status=400)
+    printable = _title_line(typed) if bidi else _one_line(typed)
+    if not printable:
+        raise auth.Refused(unprintable(), status=400)
+
 
 def typed_number(number: object) -> str:
     """A number as the QS typed it, stripped, as it may be kept; else refused (400), before anything
     is written (a NUL or a lone surrogate never reaches a write, nor a correction's act)."""
     typed = number.strip() if isinstance(number, str) else ""
-    if not typed or not _one_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
-        raise auth.Refused(said.NUMBER_UNREADABLE(), status=400)
-    if not _text.fits((typed, sheet_list._length(Sheet, "number"))):
-        raise auth.Refused(said.NUMBER_UNREADABLE(), status=400)
+    _refuse_unless_typed(
+        typed,
+        length=sheet_list._length(Sheet, "number"),
+        empty=said.NUMBER_EMPTY,
+        long=said.NUMBER_TOO_LONG,
+        lines=said.NUMBER_MANY_LINES,
+        code=said.NUMBER_DRAWING_CODE,
+        unprintable=said.NUMBER_UNREADABLE,
+        bidi=False,
+    )
     return typed
 
 
@@ -45,6 +83,7 @@ def set_sheet_number(sheet_revision_id: uuid.UUID, number: str) -> sheet_list.Sh
     with transaction.atomic():
         printed = _undecided(sheet_revision_id)
         _move(printed, printed.sheet.discipline, typed)
+        _source(printed, number=TYPED)
     return sheet_list.sheet(printed.id)
 
 
@@ -57,10 +96,16 @@ def typed_title(title: object) -> str:
     A title is words: its joiners and soft hyphens are its own (Bangla's ra + ZWJ + virama + ya:
     review 1 of #680), so only a control, a line break or a bidi control refuses it."""
     typed = title.strip() if isinstance(title, str) else ""
-    if not typed or not _title_line(typed) or any(code in typed for code in sheet_list._RAW_CODES):
-        raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
-    if not _text.fits((typed, TITLE_LENGTH)):
-        raise auth.Refused(said.TITLE_UNREADABLE(), status=400)
+    _refuse_unless_typed(
+        typed,
+        length=TITLE_LENGTH,
+        empty=said.TITLE_EMPTY,
+        long=said.TITLE_TOO_LONG,
+        lines=said.TITLE_MANY_LINES,
+        code=said.TITLE_DRAWING_CODE,
+        unprintable=said.TITLE_UNREADABLE,
+        bidi=True,
+    )
     return typed
 
 
@@ -71,20 +116,30 @@ def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.Shee
     with transaction.atomic():
         printed = _undecided(sheet_revision_id)
         _retitle(printed, typed)
+        _source(printed, title=TYPED)
     return sheet_list.sheet(printed.id)
 
 
 def put_back_sheet(
-    sheet_revision_id: uuid.UUID, *, number: str | None = None, title: str | None = None
+    sheet_revision_id: uuid.UUID,
+    *,
+    number: str | None = None,
+    title: str | None = None,
+    number_source: str | None = None,
+    title_source: str | None = None,
 ) -> sheet_list.SheetView:
     """A correction undone: the printed sheet's number (none included) and title as they were kept
-    before it, each when given. Values once kept, so not checked again as typed text."""
+    before it, each when given, with its source (the reading's, or the earlier correction's); a value
+    put back with no source given was read with none. Values once kept, so not checked again as
+    typed text."""
     with transaction.atomic():
         printed = _undecided(sheet_revision_id)
         if number is not None:
             _move(printed, printed.sheet.discipline, number)
+            _source(printed, number=number_source or None)
         if title is not None:
             _retitle(printed, title)
+            _source(printed, title=title_source or None)
     return sheet_list.sheet(printed.id)
 
 
@@ -124,6 +179,20 @@ def _undecided(sheet_revision_id: uuid.UUID) -> SheetRevision:
     if printed.decision == Decision.CONFIRMED:  # a sheet left out may still be corrected
         raise auth.Refused(said.DECIDED_ALREADY(), status=409)
     return printed
+
+
+def _source(printed: SheetRevision, **sources: str | None) -> None:
+    """Where the value now kept was read (`SheetRevision.sources`): a typed one is `TYPED`; a value
+    put back is its reading's, none when the reading had none."""
+    kept = dict(printed.sources)
+    for name, source in sources.items():
+        if source is None:
+            kept.pop(name, None)
+        else:
+            kept[name] = source
+    if kept != printed.sources:
+        printed.sources = kept
+        printed.save(update_fields=["sources"])
 
 
 def _retitle(printed: SheetRevision, title: str) -> None:

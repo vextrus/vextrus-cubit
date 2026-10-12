@@ -102,7 +102,18 @@ def test_typed_text_that_cannot_be_kept_is_refused_with_a_code_and_nothing_is_wr
     response = correct(nusrat, kr01, {"proposal": s05["id"], field: text})
 
     assert response.status_code == 400, response.content
-    assert response.json() == {"code": f"drawings.sheets.{field}_unreadable", "params": {}}
+    cause = (
+        "empty"
+        if not text.strip()
+        else "many_lines"
+        if "\n" in text
+        else "drawing_code"
+        if "{\\" in text or "%%" in text
+        else "too_long"
+        if len(text) > TITLE_LENGTH or (field == "number" and len(text) > 64)
+        else "unreadable"
+    )
+    assert response.json() == {"code": f"drawings.sheets.{field}_{cause}", "params": {}}
     assert facts(nusrat, kr01) == before
     assert len(confirmations(demo, kr01)) == acts
 
@@ -328,3 +339,111 @@ def test_correcting_a_number_clears_the_plot_page_that_read_the_old_numbers_titl
     assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "S-55"}).status_code == 200
 
     assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is False
+
+
+def sources_of(api: Api, project: uuid.UUID, proposal_id: str) -> tuple[Any, Any]:
+    found = the(api, project, proposal_id)
+    return found["number_source"], found["title_source"]
+
+
+def test_a_corrected_value_is_sourced_to_the_correction_so_the_sheet_does_not_agree(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 3 of #680 (60): m0-screens 5, a sheet agrees only on values read from its title block.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    first = sources_of(nusrat, kr01, sheet["id"])
+    assert the(nusrat, kr01, sheet["id"])["agrees"] is True
+
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "Another title"}).status_code == 200
+
+    after = the(nusrat, kr01, sheet["id"])
+    assert (after["title_source"], after["agrees"]) == ("typed", False)
+    assert after["number_source"] == first[0]
+    undo(nusrat, kr01)
+    back = the(nusrat, kr01, sheet["id"])
+    assert (back["title_source"], back["agrees"]) == (first[1], True)
+
+
+def test_two_people_correcting_one_sheet_undo_back_to_the_reading_whatever_the_order(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 3 of #680 (60): B's undo restored A's undone value, the sheet kept A's number.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    was = the(nusrat, kr01, sheet["id"])
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-93"}).status_code == 200
+    assert correct(other, kr01, {"proposal": sheet["id"], "number": "A-94"}).status_code == 200
+
+    undo(nusrat, kr01)  # A's: B's number stands, nothing is put back
+    assert the(nusrat, kr01, sheet["id"])["number"] == "A-94"
+    undo(other, kr01)  # B's: no correction stands, so the reading
+
+    after = the(nusrat, kr01, sheet["id"])
+    assert (after["number"], after["corrected"], after["number_source"]) == (
+        None,
+        False,
+        was["number_source"],
+    )
+    assert missing_question(nusrat, kr01, sheet["sheet_id"]) == ["open"]
+
+
+def test_the_earlier_correction_stands_when_the_later_one_is_undone(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "First title"}).status_code == 200
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "Second title"}).status_code == 200
+
+    undo(other, kr01)
+
+    after = the(nusrat, kr01, sheet["id"])
+    assert (after["title"], after["corrected"], after["title_source"]) == ("First title", True, "typed")
+
+
+def test_undoing_a_correction_keeps_a_keep_open_answer_given_before_it(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 3 of #680 (50): the undo erased the answer, as an exclusion's undo does not.
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    [question] = [
+        q
+        for q in nusrat.get(f"{step1(kr01)}/questions").json()["questions"]
+        if q["kind"] == "missing" and str(q["subject_id"]) == sheet["sheet_id"]
+    ]
+    kept = nusrat.post(f"{step1(kr01)}/questions/{question['id']}/answer", {"option": "keep_open"})
+    assert kept.status_code == 200, kept.content
+
+    def answer_of() -> Any:
+        listed = nusrat.get(f"{step1(kr01)}/questions").json()["questions"]
+        [found] = [q for q in listed if q["id"] == question["id"]]
+        return found["status"], found.get("answer")
+
+    before = answer_of()
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "A-95"}).status_code == 200
+    undo(nusrat, kr01)
+
+    assert answer_of() == before
+
+
+def test_each_cause_of_an_unkeepable_number_or_title_has_its_own_words(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 3 of #680 (52): one message named every cause, and not the drawing code.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+
+    def refused(**typed: str) -> str:
+        response = correct(nusrat, kr01, {"proposal": sheet["id"], **typed})
+        assert response.status_code == 400, response.content
+        return str(response.json()["code"])
+
+    sheets = "drawings.sheets."
+    assert refused(title="   ") == sheets + "title_empty"
+    assert refused(title="a" * 501) == sheets + "title_too_long"
+    assert refused(title="one\ntwo") == sheets + "title_many_lines"
+    assert refused(title="pile %%c20") == sheets + "title_drawing_code"
+    assert refused(title="pile\x07") == sheets + "title_unreadable"
+    assert refused(number="S-%%c1") == sheets + "number_drawing_code"
+    assert refused(number="S" * 200) == sheets + "number_too_long"
+    assert refused(number="S-1\nS-2") == sheets + "number_many_lines"
+    assert refused(number="S-\x071") == sheets + "number_unreadable"

@@ -754,6 +754,10 @@ msgstr "Discipline"
 msgid "Zoom to the selected view"
 msgstr "Zoom to the selected view"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "typed by a person"
+msgstr "typed by a person"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Outlines"
 msgstr "Outlines"

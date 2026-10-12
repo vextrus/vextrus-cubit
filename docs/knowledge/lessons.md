@@ -582,6 +582,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **An undo that restores a row "as it stood" restores a state other people's acts may have moved on from** (S22-FL8
   review 2: a correction's undo put the `missing` Question back withdrawn by an exclusion since undone, so a
   numberless sheet confirmed). A text edit also has to clear what read the old text (`plot_title_alike`, as
-  `record_sheets` does). Checks: `vextrus/takeoff/tests/test_step1_correct.py`
+  `record_sheets` does). Round 3 found the same class again (an undo that restored one act's old value over
+  another person's: A and B correct, A undoes, B undoes). Check: `vextrus/takeoff/tests/test_step1_correct.py`
   (`test_a_correction_undone_after_the_exclusion_it_followed_was_undone_asks_the_question_open`,
+  `test_two_people_correcting_one_sheet_undo_back_to_the_reading_whatever_the_order`,
   `test_correcting_a_title_clears_the_plot_page_that_read_the_old_title`).

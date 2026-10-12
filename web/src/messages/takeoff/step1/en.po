@@ -23,7 +23,7 @@ msgid "takeoff.step1.nothing_to_correct"
 msgstr "The number and title are as they were, so nothing was corrected. Change one of them, then save."
 
 msgid "takeoff.step1.confirmed_not_corrected"
-msgstr "This sheet is confirmed, so it was not corrected. To correct it, exclude the sheet, correct it, then confirm it back in. Or, if its Confirmation was your own last act on Step 1, Ctrl Z takes that back along with every other sheet it held."
+msgstr "This sheet is confirmed, so it was not corrected. To correct it, exclude it, correct it, then confirm it back in."
 
 msgid "takeoff.step1.nothing_to_undo"
 msgstr "You have nothing left to undo on Step 1: undo takes back only your own Confirmations, exclusions, corrections and drawing lists. To change another person\'s, exclude the sheet, confirm it back in, correct it again, or paste the drawing list again."

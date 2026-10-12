@@ -2026,11 +2026,21 @@ def correct(
             changed["title"] = [sheet.title, drawings.typed_title(title)]
         if len(changed) == 1:
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
+        # Where each value was read, for its undo (the reading's source, not the correction's).
+        changed["sources"] = {
+            name: sheet.sources.get(name) for name in ("number", "title") if name in changed
+        }
         if sheet.decision == "confirmed":
             raise auth.Refused(said.CONFIRMED_NOT_CORRECTED(), status=409)
         asked = _number_asked(project_id, sheet.id) if "number" in changed else None
         if asked is not None:  # its status before, for the undo to put back
-            changed["question"] = {"id": str(asked.id), "status": asked.status}
+            changed["question"] = {
+                "id": str(asked.id),
+                "status": asked.status,
+                "answer": asked.answer,  # a "keep open" answer given before, kept for the undo
+                "answered_by": str(asked.answered_by_id) if asked.answered_by_id else None,
+                "answered_at": asked.answered_at.isoformat() if asked.answered_at else None,
+            }
         act = _correction_act(project_id, sheet, changed, actor_name)
         _record(act, said.CORRECTED, {"sheets": 1})
         if "number" in changed:
@@ -2088,10 +2098,25 @@ def _number_asked(project_id: uuid.UUID, sheet_id: uuid.UUID) -> Question | None
     return None
 
 
+def _corrections_of(project_id: uuid.UUID, sheet_id: str) -> list[Confirmation]:
+    """Every correction of the sheet, oldest first, those undone included."""
+    return list(
+        Confirmation.objects.filter(
+            project_id=project_id,
+            step=SHEETS,
+            act=ConfirmationAct.CORRECT,
+            before__corrected__sheet=sheet_id,
+        ).order_by("at", "id")
+    )
+
+
 def _put_back_correction(act: Confirmation) -> None:
-    """A correction undone: each value it changed goes back to what it was, unless changed again
+    """A correction undone: each value it changed goes back to what the sheet's corrections still
+    standing give it, or to the reading when none stands (review 3 of #680: A corrects, B corrects,
+    A undoes, B undoes: the reading, not A's undone value), with its source; unless changed again
     since (another correction, a typed number) or the sheet is confirmed since: it stays as it is.
-    A `missing` Question it answered asks again, as it stood, once the sheet has no number again."""
+    A `missing` Question a correction answered asks again, as the sheet stands now, with the answer
+    (a "keep open") it had before."""
     changed = act.before.get("corrected") or {}
     try:
         sheet = _sheet(uuid.UUID(changed["sheet"]))
@@ -2099,30 +2124,59 @@ def _put_back_correction(act: Confirmation) -> None:
         return  # off the sheet list since
     if sheet.decision == "confirmed":
         return
-    number, title = changed.get("number"), changed.get("title")
+    chain = _corrections_of(act.project_id, changed["sheet"])
+    others = [c for c in chain if c.id != act.id]
+    standing = [c for c in others if c.undone_at is None]
+
+    def back_to(field: str) -> tuple[str, str | None] | None:
+        """The value and source `field` goes back to: the last correction still standing's (typed),
+        else the reading's (the first correction's own before)."""
+        mine = changed.get(field)
+        now = (sheet.number or "") if field == "number" else sheet.title
+        if not mine or now != mine[1]:
+            return None  # not changed by this act, or changed again since: it stays as it is
+        for c in reversed(standing):
+            theirs = (c.before.get("corrected") or {}).get(field)
+            if theirs and c.at <= act.at:
+                return theirs[1], "typed"
+        for c in chain:
+            first = (c.before.get("corrected") or {}).get(field)
+            if first:
+                return first[0], (c.before["corrected"].get("sources") or {}).get(field)
+        return None
+
+    number, title = back_to("number"), back_to("title")
     back = drawings.put_back_sheet(
         sheet.id,
-        number=number[0] if number and (sheet.number or "") == number[1] else None,
-        title=title[0] if title and sheet.title == title[1] else None,
+        number=number[0] if number else None,
+        title=title[0] if title else None,
+        number_source=number[1] if number else None,
+        title_source=title[1] if title else None,
     )
-    asked = changed.get("question")
-    if asked and not back.number:
-        # It asks again as the sheet stands NOW, not as it stood then (review 2 of #680): withdrawn
-        # only while an exclusion that still stands holds the sheet out (that act its `withdrawn_by`),
-        # else open; an exclusion undone since leaves it open, so the numberless sheet is held.
-        held_by = back.confirmation_id if back.decision == "excluded" else None
-        Question.objects.filter(
-            project_id=act.project_id,
-            id=uuid.UUID(asked["id"]),
-            status=QuestionStatus.ANSWERED,
-            answer__given_by="correction",
-        ).update(
-            status=QuestionStatus.WITHDRAWN if held_by else QuestionStatus.OPEN,
-            withdrawn_by=held_by,
-            answer=None,
-            answered_by=None,
-            answered_at=None,
-        )
+    if back.number:
+        return
+    # No number again: the Question a correction answered asks as the sheet stands now, with the
+    # answer it had before (the first correction that answered it holds that).
+    for c in chain:
+        asked = (c.before.get("corrected") or {}).get("question")
+        if asked:
+            break
+    else:
+        return
+    held_by = back.confirmation_id if back.decision == "excluded" else None
+    before = asked.get("answered_at")
+    Question.objects.filter(
+        project_id=act.project_id,
+        id=uuid.UUID(asked["id"]),
+        status=QuestionStatus.ANSWERED,
+        answer__given_by="correction",
+    ).update(
+        status=QuestionStatus.WITHDRAWN if held_by else QuestionStatus.OPEN,
+        withdrawn_by=held_by,
+        answer=asked.get("answer"),
+        answered_by=uuid.UUID(asked["answered_by"]) if asked.get("answered_by") else None,
+        answered_at=datetime.fromisoformat(before) if before else None,
+    )
 
 
 def undo(project_id: uuid.UUID) -> ActView:
