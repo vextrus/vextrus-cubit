@@ -1125,6 +1125,18 @@ Reasons are stored as codes (1.7); an "other" reason's text is kept as typed.
   M3 onwards"), since M3 builds each MEP office's Drafting Profile from its legend.
 - **Steps 5–10** (foundations to tanks) are proposed for Structural views only. Architectural fixture
   plans and toilet details go to steps 11 and 12 and to the Plumbing and sanitary Part as well.
+- **A Structural sheet's site works** (a boundary wall, a compound wall, a plot's setback, the site plan) go to
+  Step 14 (Site works and MEP) alone, never to the building's Steps as well: a view whose own title names
+  site works, or an untitled section or detail on a sheet whose title does (the owner's ruling, 11 Oct
+  2026, session 22). A view whose own title names a site work and a building element is proposed for both
+  Steps: "Column layout and boundary wall detail" and "Boundary wall detail and column layout" are
+  Steps 6 and 14, and "Footing and grade beam detail of boundary wall" Steps 5, 7 and 14. A view
+  naming only site works is Step 14 alone, and a view naming several building elements is proposed for
+  each one's Step; the QS confirms, and no word list decides between them. The bare word "site" only
+  says where ("Site plan and column layout": Step 6); a setback is site works only as a
+  plot's ("Plot setback plan": Step 14, on any sheet); any other setback view ("Podium setback plan",
+  "7th floor setback column layout plan") takes its sheet's Steps, or the Step of the building element
+  it names. An Architectural sheet keeps its duplicate rule.
 - A layout tab whose viewports show nothing is dropped, or proposed out as "blank" where the reader
   cannot tell; never a phantom sheet (4.5).
 
@@ -1540,7 +1552,8 @@ pastes that disagree raise a Question (5); until it is answered, N shows "—".
 - **Coverage panel** (a click on it; in the inspector, 4.1): "Coverage, every view on every sheet
   read"; "A view counts once it is assigned to a step that will read it, or excluded with a reason.
   Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up
-  to more than the views."; "Unaccounted" (each "S-20 8th floor beam layout", in amber); "Views by the
+  to more than the views."; "Unaccounted" (each "S-20 8th floor beam layout", in amber; a click or Enter opens its sheet with that
+  view selected); "Views by the
   step that will read them, proposed or assigned" (step and count, two columns); "Excluded, by reason";
   the held-file line "NT-ARCH-Details-R1.dwg is held: its views are not counted unless you read it
   anyway."; while reading, "NT-ARCH-R1.dwg is still reading; its views join as its sheets arrive."

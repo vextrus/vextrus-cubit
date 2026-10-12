@@ -26,6 +26,7 @@ from engine.recognise.types import (
 from engine.recognise.views import paper as on_paper
 from engine.recognise.views import routing as routing_part
 from engine.recognise.views import segment as segment_part
+from engine.recognise.views import storeys as storeys_part
 from engine.recognise.views import titles as titles_part
 from engine.recognise.views.segment import block as block_part
 from engine.recognise.views.segment import pieces as pieces_part
@@ -617,7 +618,7 @@ def test_a_section_on_a_sheet_whose_title_names_no_subject_is_proposed_for_nothi
         ("tank_details", ("tanks",)),
         ("grid_layout", ("grid",)),
         ("details", ()),
-        ("site_plan", ()),
+        ("site_plan", ("site_mep",)),  # the owner's ruling, 11 Oct 2026: Step 14
         ("general_notes", ("general_notes",)),
     ],
 )
@@ -645,6 +646,56 @@ def test_a_detail_on_a_lintel_and_sunshade_sheet_goes_to_beams_and_slabs() -> No
     )
     steps, _, _ = routing_part._proposal(ViewKind.DETAIL, None, "structural", on_sheet)
     assert steps == ("beams", "slabs")
+
+
+@pytest.mark.parametrize(
+    "sheet_title",
+    [
+        "COMPOUND WALL TYPICALS ZQ",
+        "FOOTING ZQ AND BOUNDARY WALL ARRANGEMENT",
+        "COMPOUND WALL ZQ AND PILE ARRANGEMENT",
+    ],
+)
+def test_a_sheet_naming_site_works_sends_its_untitled_views_to_step_14_alone(sheet_title: str) -> None:
+    """The owner's ruling (11 Oct 2026): a Structural sheet's site works are Step 14's, never the
+    building's foundations as well, whatever else its title names and in whichever order."""
+    on_sheet = titles_part._subjects_in_order(sheet_title, titles_part._reading(CONVENTIONS))
+    steps, part, exclusion = routing_part._proposal(ViewKind.SECTION, None, "structural", on_sheet)
+    assert (steps, part, exclusion) == (("site_mep",), None, None)
+
+
+@pytest.mark.parametrize(
+    ("view_title", "steps"),
+    [("FOOTING ZQ-2", ("foundations",)), ("BOUNDARY WALL CUT ZQ-1", ("site_mep",))],
+)
+def test_a_views_own_subject_still_decides_on_a_site_works_sheet(
+    view_title: str, steps: tuple[str, ...]
+) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    on_sheet = titles_part._subjects_in_order("COMPOUND WALL TYPICALS ZQ", reading)
+    subject = titles_part._subject(view_title, reading)
+    found, _, _ = routing_part._proposal(ViewKind.SECTION, subject, "structural", on_sheet)
+    assert found == steps
+
+
+@pytest.mark.parametrize(
+    ("title", "exclusion"),
+    [
+        ("PLOT SETBACK ARRANGEMENT ZQ", None),
+        ("BOUNDARY WALL TYPICAL ZQ", None),
+    ],
+)
+def test_architectural_site_works_stay_in_walls_and_rooms(
+    title: str, exclusion: ExclusionReason | None
+) -> None:
+    """Step 14 is the Structural sheets' route only: an Architectural site plan keeps Steps 11 and 12."""
+    reading = titles_part._reading(CONVENTIONS)
+    subject = titles_part._subject(title, reading)
+    structure = routing_part._draws_structure(title, reading)
+    steps, _, found = routing_part._proposal(
+        ViewKind.PLAN, subject, "architectural", structure=structure
+    )
+    assert (steps, found) == (("walls", "rooms"), exclusion)
 
 
 @pytest.mark.parametrize(
@@ -682,7 +733,7 @@ def test_every_structural_kind_but_the_general_ones_names_a_step() -> None:
     """The conventions' Structural kinds, each told a Step but those that name no subject."""
     kinds = sheets.default_conventions().sheet_kinds["structural"]
     told = {kind for kind in kinds if views.kind_steps(kind, "structural")}
-    assert set(kinds) - told == {"site_plan", "details", "roof_structure_details"}
+    assert set(kinds) - told == {"details", "roof_structure_details"}
 
 
 def test_steps_five_to_ten_are_proposed_for_structural_views_only() -> None:
@@ -1448,3 +1499,152 @@ def test_a_lone_line_running_past_a_drawing_is_no_drawing_of_its_own() -> None:
     found = drawn(d, sheet)
     assert [v.title for v in found] == ["LONG SECTION OF BEAM B1"]
     assert found[0].box.x1 >= 400
+
+
+_SITE_CASES = [
+    # (title, subject, steps): presence decides, never order (S22-FL7 review 1)
+    ("SITE PLAN AND COLUMN LAYOUT", "column", ("columns",)),
+    ("COLUMN LAYOUT AND SITE PLAN", "column", ("columns",)),
+    ("SITE PLAN WITH PILE LAYOUT", "pile", ("foundations",)),
+    ("SITE FOUNDATION PLAN", "foundation", ("foundations",)),
+    ("SITE WATER TANK DETAIL", "tank", ("tanks",)),
+    ("SITE COLUMN LAYOUT PLAN", "column", ("columns",)),
+    ("SITE PLAN", "site_works", ("site_mep",)),
+    ("BOUNDARY WALL FOOTING DETAIL", "foundation", ("foundations", "site_mep")),
+    ("FOOTING DETAIL OF BOUNDARY WALL", "foundation", ("foundations", "site_mep")),
+    ("FOUNDATION PLAN FOR COMPOUND WALL", "foundation", ("foundations", "site_mep")),
+    ("SETBACK AND BEAM LAYOUT", "beam", ("beams",)),
+    ("BEAM LAYOUT AND SETBACK", "beam", ("beams",)),
+    ("PLOT SETBACK ARRANGEMENT ZQ", "site_works", ("site_mep",)),
+    ("PLOT SETBACK PLAN ZQ", "site_works", ("site_mep",)),
+    ("SETBACK PLAN ZQ", None, ()),
+    ("PODIUM SETBACK PLAN ZQ", None, ()),
+    ("7TH FLOOR SETBACK PLAN ZQ", None, ()),
+    ("7TH FLOOR SETBACK COLUMN LAYOUT PLAN", "column", ("columns",)),
+    ("7TH FLOOR SETBACK BEAM LAYOUT PLAN", "beam", ("beams",)),
+    ("BEAM LAYOUT PLAN AT SETBACK", "beam", ("beams",)),
+    ("(SETBACK) COLUMN LAYOUT PLAN 7TH TO 10TH FLOOR", "column", ("columns",)),
+    (
+        "FOOTING AND GRADE BEAM DETAIL OF BOUNDARY WALL ZQ",
+        "foundation",
+        ("foundations", "beams", "site_mep"),
+    ),
+    (
+        "FOOTING AND TIE BEAM SECTION OF COMPOUND WALL ZQ",
+        "foundation",
+        ("foundations", "beams", "site_mep"),
+    ),
+    (
+        "FOOTING DETAIL OF COLUMN AT BOUNDARY WALL ZQ",
+        "foundation",
+        ("foundations", "columns", "site_mep"),
+    ),
+    ("FOOTING DETAIL OF BOUNDARY WALL ZQ", "foundation", ("foundations", "site_mep")),
+    ("BOUNDARY WALL FOOTING AND TIE BEAM DETAIL", "foundation", ("foundations", "beams", "site_mep")),
+    ("BOUNDARY WALL AND COLUMN LAYOUT", "column", ("columns", "site_mep")),
+    ("FOOTING DETAIL OF PERIMETER BOUNDARY WALL ZQ", "foundation", ("foundations", "site_mep")),
+    ("COLUMN LAYOUT & BOUNDARY WALL DETAIL ZQ", "column", ("columns", "site_mep")),
+    ("BOUNDARY WALL DETAIL ZQ & COLUMN LAYOUT", "column", ("columns", "site_mep")),
+    ("BOUNDARY WALL DETAIL ZQ", "site_works", ("site_mep",)),
+    ("COMPOUND WALL AND BEAM AND COLUMN LAYOUT", "beam", ("beams", "columns", "site_mep")),
+]
+
+
+@pytest.mark.parametrize(("title", "subject", "steps"), _SITE_CASES)
+def test_site_works_are_decided_by_presence_not_word_order(
+    title: str, subject: str, steps: tuple[str, ...]
+) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    own = routing_part._own(title, reading)
+    found, _, _ = routing_part._proposal(
+        ViewKind.PLAN, own.subject, "structural", (), site=own.site, elements=own.elements
+    )
+    assert (own.subject, found) == (subject, steps)
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "SITE PLAN AND COLUMN LAYOUT",
+        "COLUMN LAYOUT AND SITE PLAN",
+        "SETBACK AND BEAM LAYOUT",
+        "SITE ARRANGEMENT ZQ WITH COLUMNS",
+    ],
+)
+def test_both_word_orders_are_a_duplicate_on_an_architectural_sheet(title: str) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    own = routing_part._own(title, reading)
+    structure = routing_part._draws_structure(title, reading)
+    _, _, exclusion = routing_part._proposal(
+        ViewKind.PLAN, own.subject, "architectural", structure=structure
+    )
+    assert exclusion is not None
+    assert exclusion.reason is ExclusionReason.DUPLICATE
+
+
+def test_a_site_view_with_a_column_has_the_columns_storey_meaning() -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    for title in ("SITE PLAN AND COLUMN LAYOUT", "COLUMN LAYOUT AND SITE PLAN"):
+        subject = routing_part._own(title, reading).subject
+        assert storeys_part._meaning(subject) == storeys_part._meaning("column")
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "COLUMN LAYOUT PLAN FOR COMPOUND WALL",
+        "BEAM LAYOUT PLAN AT BOUNDARY WALL",
+        "BOUNDARY WALL COLUMN LAYOUT",
+    ],
+)
+def test_a_tie_to_a_site_work_is_a_structural_sheets_only(title: str) -> None:
+    """An Architectural sheet keeps its subject-duplicate rule: the structure it draws is the set's."""
+    reading = titles_part._reading(CONVENTIONS)
+    structure = routing_part._draws_structure(title, reading)
+    own = routing_part._own(title, reading, structural=False)
+    _, _, exclusion = routing_part._proposal(
+        ViewKind.PLAN, own.subject, "architectural", structure=structure
+    )
+    assert exclusion is not None
+    assert exclusion.reason is ExclusionReason.DUPLICATE
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["7TH FLOOR SETBACK COLUMN LAYOUT PLAN", "7TH FLOOR SETBACK BEAM LAYOUT PLAN"],
+)
+def test_a_setback_storey_is_not_drawn_twice_with_its_neighbour(title: str) -> None:
+    """A setback word in a storey's title keeps the building subject (no false same-storey conflict)."""
+    reading = titles_part._reading(CONVENTIONS)
+    assert routing_part._own(title, reading).subject != "site_works"
+
+
+def test_a_sheet_titled_with_a_setback_storey_names_no_site_works() -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    named = titles_part._subjects_in_order("7TH FLOOR SETBACK COLUMN LAYOUT PLAN", reading)
+    assert named == ("column",)
+    sheet = titles_part._subjects_in_order("PLOT SETBACK ARRANGEMENT ZQ", reading)
+    assert (tuple(sheet), sheet.site_works) == ((), True)
+
+
+@pytest.mark.parametrize(
+    ("title", "sheet_title", "steps"),
+    [
+        ("BOUNDARY WALL DOOR DETAIL ZQ", "TYPICAL DETAILS ZQ", ("site_mep",)),
+        ("COMPOUND WALL WINDOW DETAIL ZQ", "TYPICAL DETAILS ZQ", ("site_mep",)),
+        ("BOUNDARY WALL TOILET DETAIL ZQ", "TYPICAL DETAILS ZQ", ("site_mep",)),
+        ("BOUNDARY WALL DOOR DETAIL ZQ", "BEAM DETAILS ZQ", ("site_mep",)),
+        ("COMPOUND WALL WINDOW DETAIL ZQ", "BEAM DETAILS ZQ", ("site_mep",)),
+        ("BOUNDARY WALL AND BEAM DETAIL ZQ", "BEAM DETAILS ZQ", ("beams", "site_mep")),
+    ],
+)
+def test_a_site_work_beside_an_element_with_no_step_is_proposed_for_step_14_never_the_sheets(
+    title: str, sheet_title: str, steps: tuple[str, ...]
+) -> None:
+    reading = titles_part._reading(CONVENTIONS)
+    on_sheet = titles_part._subjects_in_order(sheet_title, reading)
+    own = routing_part._own(title, reading)
+    found, _, exclusion = routing_part._proposal(
+        ViewKind.DETAIL, own.subject, "structural", on_sheet, site=own.site, elements=own.elements
+    )
+    assert (found, exclusion) == (steps, None)

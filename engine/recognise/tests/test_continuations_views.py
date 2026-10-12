@@ -268,3 +268,26 @@ def test_two_plans_pair_unless_both_name_marks_and_none_in_common(
 def test_plans_at_one_place_never_pair_each_other() -> None:
     marks = [conflicts.plan_marks(t, PATTERN) for t in ("CAP PC1", "CAP PC1", "CAP PC2")]
     assert conflicts._paired([0, 1, 2], [0, 0, 1], marks) == []
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "SITE ARRANGEMENT ZQ",
+        "SETBACK ARRANGEMENT ZQ",
+        "SITE DRAINAGE LAYOUT ZQ",
+        "BOUNDARY WALL TYPICALS ZQ",
+    ],
+)
+@pytest.mark.parametrize(
+    "drawn", ["RETAINING WALL SECTION ZQ", "SEPTIC TANK DETAIL ZQ", "COLUMN POSITIONS ZQ"]
+)
+def test_a_site_titled_sheet_whose_views_draw_its_elements_stays_a_continuation(
+    title: str, drawn: str
+) -> None:
+    """The site-works words name nothing a sheet's views can contradict (S22-FL7 review 1 of #684):
+    the same pair without the words is a continuation, and so is it with them."""
+    sheets = [sheet("S-23", title), sheet("S-24", title)]
+    found = conflicts.find(sheets, [(view(drawn),), (view(drawn),)], CONVENTIONS)
+    assert runs(found) == [["S-23", "S-24"]]
+    assert not [c for c in found if isinstance(c, Conflict)]

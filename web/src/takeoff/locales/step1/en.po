@@ -621,6 +621,10 @@ msgstr "→ walks them"
 msgid "proposed"
 msgstr "proposed"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Unaccounted"
+msgstr "Unaccounted"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Last row"
 msgstr "Last row"
