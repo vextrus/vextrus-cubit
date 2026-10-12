@@ -229,6 +229,10 @@ msgid "read by Vextrus from the title"
 msgstr "read by Vextrus from the title"
 
 #: src/takeoff/Step1Screen.tsx
+msgid "X — Y —"
+msgstr "X — Y —"
+
+#: src/takeoff/Step1Screen.tsx
 msgid "Still reading {name}: page {at} of {of}."
 msgstr "Still reading {name}: page {at} of {of}."
 
@@ -304,6 +308,10 @@ msgstr "Proposal: where each was read"
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: no PDF has been added for {discipline}"
 msgstr "None: no PDF has been added for {discipline}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Copy"
+msgstr "Copy"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 7 on the focused Question"
@@ -454,6 +462,10 @@ msgid "Pick an answer to {tag} first: {keys}"
 msgstr "Pick an answer to {tag} first: {keys}"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "Date"
+msgstr "Date"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "None: no page of {file} matched it"
 msgstr "None: no page of {file} matched it"
 
@@ -480,6 +492,10 @@ msgstr "text in the title block"
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: its PDF is still being read"
 msgstr "None: its PDF is still being read"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{n, plural, one {# sheet, and the Trace} other {# sheets, and the Trace}}"
+msgstr "{n, plural, one {# sheet, and the Trace} other {# sheets, and the Trace}}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} confirmed"
@@ -709,6 +725,10 @@ msgstr "Pick answer 1 on the focused Question"
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 4 on the focused Question"
 msgstr "Pick answer 4 on the focused Question"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "X {x} Y {y}"
+msgstr "X {x} Y {y}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: its PDF could not be read"

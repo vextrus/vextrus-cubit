@@ -30,6 +30,8 @@ export interface SheetListProps {
   onExtendTo?: (key: string) => void
   /** A click without Shift: the selection ends. */
   onClearSelection?: () => void
+  /** The MD and a Guest read the list and act on nothing (§6.12): "Needs you" is the QS's line, so theirs never says what Enter does. */
+  readOnly?: boolean
 }
 
 const NO_ROWS: ReadonlySet<string> = new Set()
@@ -48,7 +50,7 @@ const COLS = cn(
   '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_104px_150px]',
 )
 
-export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList, selection = NO_ROWS, onExtendTo, onClearSelection }, ref) {
+export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList, selection = NO_ROWS, onExtendTo, onClearSelection, readOnly = false }, ref) {
   const { t } = useLingui()
   const questions = model.queue.length
   const slots = stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))
@@ -84,7 +86,13 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
         {model.needsYou.length > 0 ? (
           <Section
             tone="question"
-            heading={<Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />}
+            heading={
+              readOnly ? (
+                <Plural value={questions} one="Open: # Question, waiting for the QS" other="Open: # Questions, waiting for the QS" />
+              ) : (
+                <Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />
+              )
+            }
             rows={model.needsYou}
             focused={focused}
             onFocusRow={onFocusRow}

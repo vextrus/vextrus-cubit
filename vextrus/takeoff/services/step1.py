@@ -956,7 +956,8 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
         )
     }
     for row in rows:
-        counts[_counted(row)] += 1
+        counted = _counted(row)
+        counts[counted] += 1
         if row.status == CoverageStatus.UNACCOUNTED:
             unaccounted.append(
                 UnaccountedView(
@@ -965,7 +966,9 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
             )
         if any(s.used for s in steps.get(row.id, ())):
             used += 1
-        if row.status == CoverageStatus.EXCLUDED:
+        if counted == "excluded":
+            # Only what the Coverage line counts as excluded (confirmed): a view proposed to be left
+            # out is counted under "proposed" alone, so the two "excluded" figures agree.
             by_reason[row.reason] += 1
         elif row.status == CoverageStatus.ASSIGNED:
             # A view counts under every step and Part it serves (a toilet detail under the walls,

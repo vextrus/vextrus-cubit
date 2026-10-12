@@ -8,9 +8,10 @@
  * Later tickets only fill it: the canvas is the step route's child (22 draws Step 1 there), and the
  * toolbar, status bar and inspector take items through slots (slots.tsx).
  */
-import { useState, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { ChevronRight, Keyboard } from 'lucide-react'
+import { onSaveState, saveState } from '@/api/saves'
 import { useFormat } from '@/format'
 import { useLanguage } from '@/i18n/activate'
 import { Count, IconButton, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
@@ -181,6 +182,16 @@ function Inspector({ project, step }: { project: ProjectSummary; step: TakeoffSt
   )
 }
 
+/** The save state (§4.1), from the API client's acts; "Not saved" is the one that asks for the eye. */
+function SaveState() {
+  const state = useSyncExternalStore(onSaveState, saveState)
+  return (
+    <span role="status" data-testid="save-state" className={cn(state === 'dropped' && 'font-medium text-destructive')}>
+      {state === 'saving' ? <Trans>Saving…</Trans> : state === 'dropped' ? <Trans>Not saved: the connection dropped. Trying again.</Trans> : <Trans>All changes saved</Trans>}
+    </span>
+  )
+}
+
 function StatusBar() {
   const f = useFormat()
   const perf = usePerfFlag()
@@ -190,6 +201,7 @@ function StatusBar() {
       <span data-testid="unit-system">{f.unitSystemName}</span>
       <span className="flex-1" />
       <SlotOutlet name="status.end" className="gap-4" />
+      <SaveState />
       {perf ? <SlotOutlet name="status.perf" className="gap-3" /> : null}
     </footer>
   )
