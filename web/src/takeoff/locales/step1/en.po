@@ -35,6 +35,10 @@ msgstr "{projectName}’s sheets"
 msgid "Answers"
 msgstr "Answers"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Corrected"
+msgstr "Corrected"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "{kind}, not to scale"
 msgstr "{kind}, not to scale"
@@ -131,6 +135,10 @@ msgstr "Cancel the correction"
 msgid "List or sheet"
 msgstr "List or sheet"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "corrected by {name}; none was read"
+msgstr "corrected by {name}; none was read"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Questions withdrawn"
 msgstr "Questions withdrawn"
@@ -163,6 +171,10 @@ msgstr "Next view on the sheet"
 msgid "{by}, {date}, {time}"
 msgstr "{by}, {date}, {time}"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Undone"
+msgstr "Undone"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Previous view on the sheet"
 msgstr "Previous view on the sheet"
@@ -191,6 +203,10 @@ msgstr "Coverage, every view on every sheet read"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{questions, plural, one {Answer # Question: the held file’s} other {Answer # Questions: the held file first, then those holding the most sheets}}"
 msgstr "{questions, plural, one {Answer # Question: the held file’s} other {Answer # Questions: the held file first, then those holding the most sheets}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Confirmed back in"
+msgstr "Confirmed back in"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Proposal {p} · Assigned {a} · Question {q} · Excluded {x}"
@@ -231,6 +247,10 @@ msgstr "{name}, {role}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "read by Vextrus from the title"
 msgstr "read by Vextrus from the title"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "the title, as read by Vextrus"
+msgstr "the title, as read by Vextrus"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Still reading {name}: page {at} of {of}."
@@ -301,6 +321,10 @@ msgstr "Answered"
 msgid "mixed"
 msgstr "mixed"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Corrected: number {before} → {after}"
+msgstr "Corrected: number {before} → {after}"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 2 on the focused Question"
 msgstr "Pick answer 2 on the focused Question"
@@ -350,12 +374,24 @@ msgid "held by Question {tag}"
 msgstr "held by Question {tag}"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "the title-block attribute"
+msgstr "the title-block attribute"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "File"
 msgstr "File"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{count} with no Discipline"
 msgstr "{count} with no Discipline"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Corrected: title"
+msgstr "Corrected: title"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Corrected: number {before} → {after}; title"
+msgstr "Corrected: number {before} → {after}; title"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}: no drawing list; numbering runs {range} with gaps or repeats (see the list); {found} found."
@@ -372,6 +408,10 @@ msgstr "{name} {leftText} to confirm"
 #: src/takeoff/Step1Screen.tsx
 msgid "Previous row; in a sheet, the previous sheet"
 msgstr "Previous row; in a sheet, the previous sheet"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Excluded"
+msgstr "Excluded"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed"
@@ -421,6 +461,15 @@ msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # s
 msgid "{name}: no drawing list; {found} found."
 msgstr "{name}: no drawing list; {found} found."
 
+#. placeholder {0}: sheets - 1
+#: src/takeoff/Step1Inspector.tsx
+msgid "{0, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+msgstr "{0, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "the text in the title block"
+msgstr "the text in the title block"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
 msgstr "{n, plural, one {Confirm the # sheet that agrees} other {Confirm the # sheets that agree}} and leave out {m}: {reasons}"
@@ -432,6 +481,10 @@ msgstr "{name} is waiting to be read."
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: no PDF was added to the Drawing Set"
 msgstr "None: no PDF was added to the Drawing Set"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "an earlier correction"
+msgstr "an earlier correction"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Confirmed by {name} (Vextrus), {date}"
@@ -448,6 +501,10 @@ msgstr "Next sheet"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Title"
 msgstr "Title"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "corrected by {name}; read {old} from {where}"
+msgstr "corrected by {name}; read {old} from {where}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "not to scale"
@@ -500,6 +557,10 @@ msgstr "Next open Question"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Kept open"
 msgstr "Kept open"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "corrected by {name}; read {old}"
+msgstr "corrected by {name}; read {old}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "layout “<0/>”"
@@ -705,6 +766,10 @@ msgstr "No sheets yet. The QS adds the Drawing Set’s files; Step 1 fills as th
 #: src/takeoff/Step1Inspector.tsx
 msgid "Withdrawn"
 msgstr "Withdrawn"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "“<0/>”"
+msgstr "“<0/>”"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Plot"

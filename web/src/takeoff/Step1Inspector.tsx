@@ -8,6 +8,7 @@
  * changes nothing until "Answer Q1 ↵" (Enter); the MD and a Guest read the card and cannot pick.
  */
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
@@ -19,7 +20,7 @@ import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storey
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
-import type { CoverageOut, ProposalOut, ViewOut } from './data'
+import { historyQuery, type CoverageOut, type HistoryAct, type ProposalOut, type ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
@@ -243,14 +244,24 @@ function reasonOf(sheet: { excluded_reason: string | null; excluded_text?: strin
 }
 
 /** One act in "who did what" (§6.6): the what, over "name, role, time" with the initials chip. */
-function Act({ sheet }: { sheet: ProposalOut }) {
+function ActEntry({ what, name, role, at }: { what: ReactNode; name: string; role: string | null | undefined; at: string | null | undefined }) {
   const { i18n } = useLingui()
   const f = useFormat()
-  const name = sheet.decided_by ?? ''
-  const roleWords = sheet.decided_by_role ? ROLE_NAMES[sheet.decided_by_role] : undefined
-  const role = roleWords ? i18n._(roleWords) : null
-  const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
-  const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
+  const roleWords = role ? ROLE_NAMES[role] : undefined
+  return (
+    <div className="flex flex-col">
+      <span>{what}</span>
+      <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
+        {name ? <ActorChip name={name} role={role} /> : null}
+        <ActLine name={name} role={roleWords ? i18n._(roleWords) : null} date={at ? f.date(at) : ''} time={at ? f.time(at) : ''} />
+      </span>
+    </div>
+  )
+}
+
+/** The sheet's standing decision as one act: what the sheet itself carries, where its history cannot be read. */
+function Act({ sheet }: { sheet: ProposalOut }) {
+  const { i18n } = useLingui()
   const others = Math.max(0, (sheet.decided_with ?? 0) - 1)
   const reason = reasonOf(sheet, i18n)
   const what =
@@ -261,14 +272,71 @@ function Act({ sheet }: { sheet: ProposalOut }) {
     ) : (
       <Trans>Confirmed</Trans>
     )
+  return <ActEntry what={what} name={sheet.decided_by ?? ''} role={sheet.decided_by_role} at={sheet.decided_at} />
+}
+
+/** What an act of the event log did (§6.6 item 5, §6.9): "Excluded: for information", "Corrected: number S-05 → S-51", "Undone". */
+function ActWhat({ act }: { act: HistoryAct }) {
+  const { i18n } = useLingui()
+  const sheets = act.sheets ?? 1
+  if (act.code === 'takeoff.step1.confirmed')
+    return sheets > 1 ? <Plural value={sheets - 1} one="Confirmed in bulk with # other sheet" other="Confirmed in bulk with # other sheets" /> : <Trans>Confirmed</Trans>
+  if (act.code === 'takeoff.step1.confirmed_back_in') return <Trans>Confirmed back in</Trans>
+  if (act.code === 'takeoff.step1.excluded') {
+    if (!act.reason) return <Trans>Excluded</Trans>
+    const reason = reasonOf({ excluded_reason: act.reason, excluded_text: act.text ?? '' }, i18n)
+    return <Trans>Excluded: {reason}</Trans>
+  }
+  if (act.code === 'takeoff.step1.undone') return <Trans>Undone</Trans>
+  if (act.code === 'takeoff.step1.corrected') {
+    const number = act.changes?.number
+    const title = act.changes?.title
+    if (number) {
+      const before = number.old ? <DrawingText kind="sheet-number" text={number.old} truncate={false} /> : '—'
+      const after = <DrawingText kind="sheet-number" text={number.new} truncate={false} />
+      return title ? (
+        <Trans>
+          Corrected: number {before} → {after}; title
+        </Trans>
+      ) : (
+        <Trans>
+          Corrected: number {before} → {after}
+        </Trans>
+      )
+    }
+    return title ? <Trans>Corrected: title</Trans> : <Trans>Corrected</Trans>
+  }
+  return null
+}
+
+const KNOWN_ACTS = new Set(['takeoff.step1.confirmed', 'takeoff.step1.confirmed_back_in', 'takeoff.step1.excluded', 'takeoff.step1.corrected', 'takeoff.step1.undone'])
+
+/** A sheet's "Who did what" (§6.6 item 5): every act of the event log, oldest first, an undone act followed by its undo. */
+function SheetActs({ projectId, sheet }: { projectId: string; sheet: ProposalOut }) {
+  const history = useQuery(historyQuery(projectId, sheet.id))
+  if (history.isError)
+    // The history unread: the sheet's own latest decision, which it carries.
+    return sheet.decision ? (
+      <Act sheet={sheet} />
+    ) : (
+      <p>
+        <Trans>Proposed by Vextrus from the file; no one has acted on it yet.</Trans>
+      </p>
+    )
+  const acts = history.data?.filter((a) => KNOWN_ACTS.has(a.code))
+  if (!acts) return null
+  if (acts.length === 0)
+    return (
+      <p>
+        <Trans>Proposed by Vextrus from the file; no one has acted on it yet.</Trans>
+      </p>
+    )
   return (
-    <div className="flex flex-col">
-      <span>{what}</span>
-      <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
-        {name ? <ActorChip name={name} role={sheet.decided_by_role} /> : null}
-        <ActLine name={name} role={role} date={date} time={time} />
-      </span>
-    </div>
+    <>
+      {acts.map((a, i) => (
+        <ActEntry key={`${a.id}-${a.code}-${i}`} what={<ActWhat act={a} />} name={a.actor} role={a.actor_role} at={a.at} />
+      ))}
+    </>
   )
 }
 
@@ -330,6 +398,33 @@ function ReadFrom({ source }: { source: string | null | undefined }) {
   if (source === 'view_title') return <Trans>the title of its view</Trans>
   if (source === 'typed') return <Trans>typed by a person</Trans>
   return null
+}
+
+/** Where a corrected value had been read, said after "from": "the title-block attribute". */
+function fromThe(source: string | null | undefined): ReactNode {
+  if (source === 'title_block_attribute') return <Trans>the title-block attribute</Trans>
+  if (source === 'title_block_text') return <Trans>the text in the title block</Trans>
+  if (source === 'jev') return <Trans>the title, as read by Vextrus</Trans>
+  if (source === 'register') return <Trans>the drawing list</Trans>
+  if (source === 'file_name') return <Trans>the file name</Trans>
+  if (source === 'view_title') return <Trans>the title of its view</Trans>
+  if (source === 'typed') return <Trans>an earlier correction</Trans>
+  return null
+}
+
+/** A typed number or title names the person (#689): "corrected by Nusrat Jahan; read S-05 from the title-block attribute". */
+function CorrectedBy({ projectId, sheet, field }: { projectId: string; sheet: ProposalOut; field: 'number' | 'title' }) {
+  const history = useQuery(historyQuery(projectId, sheet.id))
+  const value = field === 'number' ? sheet.number : sheet.title
+  // The latest correction that gave the value it holds now (a correction undone since gave another).
+  const act = history.data?.findLast((a) => a.code === 'takeoff.step1.corrected' && a.changes?.[field]?.new === value)
+  const change = act?.changes?.[field]
+  if (!act || !change) return <ReadFrom source="typed" />
+  const name = act.actor
+  if (!change.old) return <Trans>corrected by {name}; none was read</Trans>
+  const old = field === 'number' ? <DrawingText kind="sheet-number" text={change.old} truncate={false} /> : <Trans>“<DrawingText kind="title" text={change.old} truncate={false} />”</Trans>
+  const where = fromThe(change.old_source)
+  return where ? <Trans>corrected by {name}; read {old} from {where}</Trans> : <Trans>corrected by {name}; read {old}</Trans>
 }
 
 /** "3rd, 5th, 7th, at floor level" with the strip, from the plan views; amber "not stated"; with no plan view, the title's storeys muted "as titled", else "—" (6.6, 6.8). */
@@ -586,6 +681,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
 }
 
 export function SheetFacts({
+  projectId,
   row,
   showTitle,
   readOnly,
@@ -596,6 +692,7 @@ export function SheetFacts({
   open,
   correcting = null,
 }: {
+  projectId: string
   row: Row
   /** In sheet mode, the sheet open: of two copies in one row, the one shown (M18). */
   open?: ProposalOut
@@ -612,7 +709,6 @@ export function SheetFacts({
   const sheet = open && row.sheets.some((s) => s.id === open.id) ? open : row.sheets[0]
   if (!sheet) return null
   const excluded = row.sheets.every((s) => s.decision === 'excluded')
-  const decided = row.sheets.filter((s) => s.decision)
   return (
     <>
       <Block>
@@ -634,7 +730,8 @@ export function SheetFacts({
           <Fact label={<Trans>Number</Trans>}>
             {sheet.number ? (
               <>
-                <DrawingText kind="sheet-number" text={sheet.number} truncate={false} /> <ReadFrom source={sheet.number_source} />
+                <DrawingText kind="sheet-number" text={sheet.number} truncate={false} />{' '}
+                {sheet.number_source === 'typed' ? <CorrectedBy projectId={projectId} sheet={sheet} field="number" /> : <ReadFrom source={sheet.number_source} />}
               </>
             ) : (
               <span className="text-question">
@@ -644,7 +741,7 @@ export function SheetFacts({
           </Fact>
           <Fact label={<Trans>Title</Trans>}>
             {sheet.title ? (
-              <ReadFrom source={sheet.title_source} />
+              sheet.title_source === 'typed' ? <CorrectedBy projectId={projectId} sheet={sheet} field="title" /> : <ReadFrom source={sheet.title_source} />
             ) : (
               <span className="text-question">
                 <Trans>not found</Trans>
@@ -677,22 +774,16 @@ export function SheetFacts({
       )}
       <Views sheet={sheet} selected={selectedView} onSelect={onSelectView} readOnly={readOnly} />
       <Block title={<Trans>Who did what</Trans>}>
-        {decided.length === 0 ? (
-          <p>
-            <Trans>Proposed by Vextrus from the file; no one has acted on it yet.</Trans>
-          </p>
-        ) : (
-          decided.map((s) => (
-            <div key={s.id}>
-              {row.sheets.length > 1 ? (
-                <span className="text-xs text-ink-secondary">
-                  <SheetName sheets={[s]} /> <Copy sheet={s} />
-                </span>
-              ) : null}
-              <Act sheet={s} />
-            </div>
-          ))
-        )}
+        {row.sheets.map((s) => (
+          <div key={s.id}>
+            {row.sheets.length > 1 ? (
+              <span className="text-xs text-ink-secondary">
+                <SheetName sheets={[s]} /> <Copy sheet={s} />
+              </span>
+            ) : null}
+            <SheetActs projectId={projectId} sheet={s} />
+          </div>
+        ))}
       </Block>
       {!readOnly && acts ? (
         <Block>

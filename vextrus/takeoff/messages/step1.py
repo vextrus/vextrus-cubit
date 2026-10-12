@@ -47,7 +47,9 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   (every sheet it confirmed was excluded before), `excluded`, `assigned` (views put in Steps),
   `drawing_list_set`, `corrected` (S22-FL8: one sheet's number or title; payload `sheets` 1) and
   `undone`. An answer to a Question is recorded as the confirm or exclusion it
-  makes; a refused act records nothing.
+  makes; a refused act records nothing. A sheet's acts are read back, oldest first, by
+  `GET .../proposals/{id}/history` (S24-B1): an event names its act (the Confirmation, which keeps the
+  names, an exclusion's reason and a correction's old and new values; the log keeps ids and counts only).
 """
 
 from engine.messages import MessageCode

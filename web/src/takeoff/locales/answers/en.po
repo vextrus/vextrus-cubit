@@ -249,6 +249,10 @@ msgid "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in 
 msgstr "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{number} is in a file added, and the drawing list does not name it."
+msgstr "{number} is in a file added, and the drawing list does not name it."
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The sheet stays without a number."
 msgstr "{tag} answered. The sheet stays without a number."
 

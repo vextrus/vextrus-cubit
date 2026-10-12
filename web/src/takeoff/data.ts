@@ -18,6 +18,7 @@ export type CoverageOut = components['schemas']['Step1CoverageOut']
 export type ProgressOut = components['schemas']['Step1ProgressOut']
 export type DisciplineProgress = components['schemas']['Step1DisciplineProgressOut']
 export type ActOut = components['schemas']['Step1ActOut']
+export type HistoryAct = components['schemas']['Step1HistoryActOut']
 export type ParsedListOut = components['schemas']['Step1ParsedListOut']
 export type DrawingListOut = components['schemas']['Step1DrawingListOut']
 
@@ -29,6 +30,15 @@ export function proposalsQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'proposals'],
     queryFn: async () => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/proposals', path(projectId)))).proposals,
+  })
+}
+
+/** A sheet's acts from the event log, oldest first (m0-screens §6.6 item 5); `proposal` is its `id`. */
+export function historyQuery(projectId: string, proposal: string) {
+  return queryOptions({
+    queryKey: [...step1Key(projectId), 'history', proposal],
+    queryFn: async () =>
+      (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/proposals/{proposal_id}/history', { params: { path: { project_id: projectId, proposal_id: proposal } } }))).acts,
   })
 }
 

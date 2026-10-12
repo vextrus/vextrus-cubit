@@ -101,6 +101,9 @@ MISSING_OPTIONS = ("no_number", "type_number", KEEP_OPEN)
 LISTS_OPTIONS = ("use_read", "use_given", KEEP_OPEN)
 BOUNDARY_OPTIONS = ("includes_storey", "excludes_storey", KEEP_OPEN)
 CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
+NOT_LISTED_CHOICES = ("not_in_set", KEEP_OPEN)
+"""A sheet in a file the drawing list does not name: it is not missing, so "not sent yet" and "in a
+file not yet added" do not apply (m0-screens §5's table, the drawing list against sheets)."""
 STOREY_TITLE_OPTIONS = ("plans_right", "title_right", KEEP_OPEN)
 """The storey-titles Question's options: each is recorded only; no sheet or plan changes (no Step 1
 act edits a plan's storeys yet, story 28; S15-E3: no word promises one)."""
@@ -1207,7 +1210,11 @@ def _register(
             result.finding,
             subject_id=None if about_list or sheet is None else sheet.id,
             discipline=str(discipline) if discipline else None,
-            options=options(CHECK_OPTIONS),
+            options=options(
+                NOT_LISTED_CHOICES
+                if result.finding["code"] == list_codes.NOT_LISTED.code
+                else CHECK_OPTIONS
+            ),
             check_code=register_check.CODE,
             blocks=[proposal_of[sheet.id]]
             if sheet is not None and not about_list and sheet.id in proposal_of
