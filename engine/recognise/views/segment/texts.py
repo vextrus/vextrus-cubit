@@ -16,12 +16,13 @@ from engine.recognise.views.paper import _bounds, _Text
 from engine.recognise.views.titles import _heading, _Reading, _tokens
 
 MAX_TITLE_WORDS = 12
-"""A text of more words is a note, not a view title (but a storeys title, `MAX_STOREY_TITLE_WORDS`)."""
-MAX_STOREY_TITLE_WORDS = 16
-"""A one-line text of more than `MAX_TITLE_WORDS` words and at most this many is a title only when it
-states storeys and stands in no drawing: a plan's title listing its floors one by one ("2ND, 3RD, ...
-& 11TH FLOOR WORKING-DRAWING FURNITURE LAYOUT PLAN", S22-FL5); a callout or a notes line that long
-is not."""
+"""A text of more words is a note, not a view title (but a long title, `MAX_LONG_TITLE_WORDS`)."""
+MAX_LONG_TITLE_WORDS = 16
+"""A one-line text of more than `MAX_TITLE_WORDS` words and at most this many is a view title by its
+shape, not its words (S22-FL5, S23): it passes every gate a short title passes, stands alone in its
+column (`_Stacks` with its gap `NOTE_LINE_GAP`: no line of the same lettering over or under it, a scale
+line aside) and no notes heading's column holds it. A notes line, a callout list or a schedule row that
+long always has a line like it beside it; a slab outline plan's long title does not."""
 MAX_TITLE_LINES = 3
 """The most lines a title holds under it (its second line, its scale line, its storeys)."""
 SUBTITLE_GAP = 3.5
@@ -38,6 +39,9 @@ line's hanging indent) and still be its."""
 NOTE_LINE_GAP = 3.5
 """How far under the line before, in the taller one's heights, a notes heading's next line may stand (a
 blank line between two notes)."""
+STACK_GAP = 2.5
+"""How far over or under a line, baseline to baseline in its heights, a line like it stands in its column
+(`_Stacks`)."""
 NOTE_NEW_HEADING = 1.15
 """A line taller than this many of the line before's heights ends a notes heading's column."""
 MAX_NOTE_LINES = 200
@@ -110,8 +114,11 @@ _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 class _Stacks:
     """Texts by their left edge, to tell a note's line (one of a column of lines alike) from a title."""
 
-    def __init__(self, texts: Sequence[_Text], skip: frozenset[int] = frozenset()) -> None:
+    def __init__(
+        self, texts: Sequence[_Text], skip: frozenset[int] = frozenset(), gap: float = STACK_GAP
+    ) -> None:
         self.texts = texts
+        self.gap = gap
         self.columns: dict[tuple[int, int], list[int]] = {}
         for i, t in enumerate(texts):
             if t.height > 0 and i not in skip:
@@ -137,9 +144,13 @@ class _Stacks:
                     gap = (o.box[1] - t.box[1]) * direction / t.height
                     same = abs(o.height - t.height) <= 0.15 * t.height
                     near = j != i and same and abs(o.box[0] - t.box[0]) <= t.height
-                    if near and 0.5 < gap < 2.5 and (best is None or gap < best[0]):
+                    if near and 0.5 < gap < self.gap and (best is None or gap < best[0]):
                         best = (gap, j)
         return None if best is None else best[1]
+
+    def alone(self, i: int) -> bool:
+        """Whether no line like it stands next over or under it: a column of one."""
+        return self._next(i, 1) is None and self._next(i, -1) is None
 
     def lines(self, i: int) -> int:
         """How many lines stand in the text's column, it among them (at most `MIN_NOTE_LINES`)."""

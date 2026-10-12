@@ -8,13 +8,14 @@ paper, grown by `GAP_MM` so that what is drawn closer than that joins, and split
 These sizes, `MIN_VIEW_MM` and `JOIN_MM` are an A1 sheet's (`REFERENCE_MM` long), scaled to the sheet's
 paper, so a frame whose paper is read too small or too large is split alike (a frame block drawn at a
 fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm plotted on A3 and A1). A
-**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most (a one-line text
-stating storeys up to `MAX_STOREY_TITLE_WORDS`, unless it stands within a drawing: a callout, S22-FL5)
-holding a kind's words
+**view title** is a text of two lines at most and `MAX_TITLE_WORDS` words at most holding a kind's words
 (the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is
 a detail), not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER`
 of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines
-alike (a note's; a scale text in the column is the title's scale line, not a note's). A title lying under
+alike (a note's; a scale text in the column is the title's scale line, not a note's). A one-line text of
+up to `MAX_LONG_TITLE_WORDS` words passing those gates is a title by its shape: a column of one (no line
+alike over or under it within `NOTE_LINE_GAP`, scale lines aside) that no notes heading's column holds
+(the columns are found first, a long line never taken). A title lying under
 another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
 PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
 grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
@@ -78,16 +79,13 @@ the grid; at most `MAX_TITLES` titles and as many scale texts, the `MAX_PIECES` 
 """
 
 import math
-from collections.abc import Sequence
 from dataclasses import replace
 from statistics import median
 
 import numpy as np
 
 from engine.recognise import scales
-from engine.recognise import sheets as sheet_finder
-from engine.recognise import storeys as storey_reader
-from engine.recognise.types import SheetConventions, ViewKind
+from engine.recognise.types import ViewKind
 from engine.recognise.views.paper import (
     REFERENCE_MM,
     Bounds,
@@ -107,7 +105,6 @@ from engine.recognise.views.segment.block import RULE_MM
 from engine.recognise.views.segment.pieces import (
     MIN_DRAWING,
     TABLE_TOLERANCE,
-    TITLE_INSIDE,
     _cut_shared,
     _off_paper,
     _pairs,
@@ -119,10 +116,11 @@ from engine.recognise.views.segment.pieces import (
 )
 from engine.recognise.views.segment.texts import (
     _ENUMERATED,
-    MAX_STOREY_TITLE_WORDS,
+    MAX_LONG_TITLE_WORDS,
     MAX_TITLE_WORDS,
     MIN_HEADING,
     MIN_NOTE_LINES,
+    NOTE_LINE_GAP,
     _beside,
     _column_under,
     _notes_heading,
@@ -133,8 +131,6 @@ from engine.recognise.views.segment.texts import (
     _underlines,
 )
 from engine.recognise.views.titles import _kind, _named_kind, _Reading, _tokens
-
-_STATES_NONE = ((), ("not_stated",))
 
 ROW_SHARE = 0.25
 """A drawing's detached row (its grid marks, its dimensions) is at most this share of its body's
@@ -154,28 +150,8 @@ _HEADINGS = frozenset({ViewKind.NOTES, ViewKind.LEGEND, ViewKind.SCHEDULE})
 """Kinds whose title heads its content: the lines under it are the view's, not the title's."""
 
 
-def _states_storeys(text: str, storey_words: SheetConventions | None) -> bool:
-    """Whether a text, read as a plan's title (13's `storeys.read`), states at least one storey."""
-    held = storey_words if storey_words is not None else sheet_finder.default_conventions()
-    found = storey_reader.read(text, held, plan_title=True)
-    return tuple(found.keys) not in _STATES_NONE
-
-
-def _in_a_drawing(box: Bounds, height: float, drawings: Sequence[Bounds]) -> bool:
-    """Whether a text's centre lies inside a drawing's box (a piece's, a ruled table's) farther than
-    `TITLE_INSIDE` of its heights from the box's lower and upper edges: within the drawing, not the
-    band a title may stand in."""
-    cx, cy = _centre(box)
-    band = TITLE_INSIDE * height
-    return any(b[0] <= cx <= b[2] and b[1] + band < cy < b[3] - band for b in drawings)
-
-
 def _views(
-    paper: _Paper,
-    reading: _Reading,
-    untitled: ViewKind,
-    block: Bounds | None = None,
-    storey_words: SheetConventions | None = None,
+    paper: _Paper, reading: _Reading, untitled: ViewKind, block: Bounds | None = None
 ) -> list[_View]:
     rx0, ry0, rx1, ry1 = paper.region
     letter = MAX_LETTER * min(rx1 - rx0, ry1 - ry0)  # taller is no lettering (a hostile height)
@@ -197,7 +173,7 @@ def _views(
     titles: list[int] = []
     scale_texts: list[int] = []
     heads: set[int] = set()  # notes headings: titles whatever their height or length, own cap
-    storey_titles: set[int] = set()  # titles longer than MAX_TITLE_WORDS: they state storeys
+    long_titles: list[int] = []  # one line longer than MAX_TITLE_WORDS: a title by its shape only
     for i, t in enumerate(texts):
         if _notes_heading(t, reading) and MIN_HEADING * letter <= t.height <= letter:
             if len(heads) < MAX_TITLES:  # a block of notes in one text, too
@@ -214,23 +190,22 @@ def _views(
             if len(scale_texts) < MAX_TITLES:
                 scale_texts.append(i)
             continue
-        long = (  # a plan's title listing its floors one by one, of one line
-            MAX_TITLE_WORDS < len(words) <= MAX_STOREY_TITLE_WORDS and "\n" not in t.placed.shown.strip()
+        long = (  # a slab outline plan's title naming all it draws, of one line
+            MAX_TITLE_WORDS < len(words) <= MAX_LONG_TITLE_WORDS and "\n" not in t.placed.shown.strip()
         )
         if (
-            len(titles) < MAX_TITLES
+            len(titles) + len(long_titles) < MAX_TITLES
             and (0 < len(words) <= MAX_TITLE_WORDS or long)
             and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
             and _named_kind(t.shown, reading) is not None  # a heading word alone is no title's
-            and (not long or _states_storeys(t.shown, storey_words))
         ):
-            titles.append(i)
-            if long:
-                storey_titles.add(i)
+            (long_titles if long else titles).append(i)
     stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     every = _Stacks(texts) if heads else stacks  # a notes line over a heading, scale-like or not
     titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
+    alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a long title stands alone
+    long_titles = [i for i in long_titles if alone.alone(i)]
     heads = {  # a notes heading heads its column: no line like it stands over it
         i for i in heads if stacks.lines(i) < MIN_NOTE_LINES or every.next(i, 1) is None
     }
@@ -256,6 +231,7 @@ def _views(
         and (len(_tokens(texts[i].shown)) > MAX_TITLE_WORDS or "\n" in texts[i].placed.shown.strip())
     }
     noted = {j for lines in columns.values() for j in lines}
+    titles = sorted([*titles, *(i for i in long_titles if i not in noted)])  # unclaimed by a heading
     scale_texts = [i for i in scale_texts if i not in noted]
     drawn_titles = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
     for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles) | noted).items():
@@ -269,17 +245,6 @@ def _views(
         if len(paper.frame)
         else np.zeros(len(paper.segments), dtype=bool)
     )
-    if storey_titles:  # a long text within a drawing is its callout, never a title (S22-FL5)
-        whole = replace(paper, segments=paper.segments[~off], lengths=None)  # no underline taken
-        grid = (i for i in range(len(texts)) if i not in off_grid)
-        first = [*(q.box for q in _pieces(whole, texts, grid)), *_tables(whole.segments, paper.region)]
-        callouts = {
-            i for i in storey_titles & set(titles) if _in_a_drawing(texts[i].box, texts[i].height, first)
-        }
-        if callouts:
-            titles = [i for i in titles if i not in callouts]
-            off_grid -= callouts | {j for i in callouts for j in second.pop(i, [])}  # the drawing's
-            underlined = _underlines(paper.segments, [texts[i] for i in titles])
     drawn = replace(paper, segments=paper.segments[~(underlined | off)], lengths=None)
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
