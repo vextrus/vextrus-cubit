@@ -132,7 +132,7 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
     assert argv[argv.index("--json") + 1] == (
-        "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt"
+        "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt,isCrossRepository"
     )
 
 

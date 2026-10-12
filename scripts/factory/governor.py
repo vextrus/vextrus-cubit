@@ -425,12 +425,42 @@ def admit(
         os.close(fd)
 
 
+def launch_records(ticket: str, folder: Path | None = None) -> list[tuple[Path, dict[str, Any]]]:
+    """A ticket's launch records, newest first: those whose own `ticket` field is this ticket (a file
+    name only starts with it; `T-ACC` and `T-WATCH-LOCAL` are other tickets)."""
+    folder = folder if folder is not None else status.factory_dir() / "launches"
+    found = []
+    for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
+        if path.name.endswith(".agents.json"):
+            continue
+        record = _read_record(path)
+        if record is not None and record.get("ticket") == ticket:
+            found.append((path, record))
+    return found
+
+
+def pending_builder(ticket: str, own_pid: int) -> str | None:
+    """A launch of this ticket still in flight (`admit`'s pending record, its launcher alive), other
+    than the caller's own."""
+    for path in sorted((status.factory_dir() / PENDING).glob(f"{ticket}-*.json")):
+        record = _read_record(path)
+        if record is None or record.get("ticket") != ticket:
+            continue
+        pid = record.get("pid")
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or pid == own_pid:
+            continue
+        if isinstance(pid, int) and not isinstance(pid, bool) and status.pid_alive(pid):
+            return f"a {record.get('where', 'builder')} launch is in flight (pid {pid})"
+    return None
+
+
 def live_builder(
     ticket: str,
     folder: Path | None = None,
     *,
     agent_rows: Callable[[], list[dict[str, Any]] | None] | None = None,
     prs: Callable[[], list[dict[str, Any]] | None] | None = None,
+    own_pid: int | None = None,
 ) -> str | None:
     """The live builder already launched on a ticket, as a sentence naming its session, or None.
 
@@ -443,12 +473,9 @@ def live_builder(
     agent_rows = agent_rows or read_agents
     prs = prs or read_prs
     released: dict[str, tuple[datetime | None, int]] | None = None
-    for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
-        if path.name.endswith(".agents.json"):
-            continue
-        record = _read_record(path)
-        if record is None or record.get("ticket") != ticket:
-            continue
+    if pending := pending_builder(ticket, own_pid if own_pid is not None else os.getpid()):
+        return pending
+    for path, record in launch_records(ticket, folder):
         if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
             continue
         if record.get("stop_sent") is True:
@@ -775,6 +802,9 @@ def _released(prs: list[dict[str, Any]]) -> dict[str, tuple[datetime | None, int
     wins over one with none; only a branch whose rows have no time at all gets a None end, which
     releases every record on it."""
     released: dict[str, tuple[datetime | None, int]] = {}
+    prs = [
+        row for row in prs if row.get("isCrossRepository") is not True
+    ]  # a fork's PR counts for nothing
     for row in prs:
         if row["state"] not in ("MERGED", "CLOSED"):
             continue
@@ -785,6 +815,9 @@ def _released(prs: list[dict[str, Any]]) -> dict[str, tuple[datetime | None, int
             if end is None or (previous is not None and end <= previous):
                 continue
         released[name] = (end, row["number"])
+    for row in prs:  # a branch with an open PR is still in flight, whatever older PRs on it ended
+        if row["state"] == "OPEN":
+            released.pop(row["headRefName"], None)
     return released
 
 

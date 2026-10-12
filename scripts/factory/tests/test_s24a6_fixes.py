@@ -5,6 +5,7 @@ its branch moves."""
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -227,3 +228,65 @@ def test_a_running_posting_run_is_stopped_with_a_cancelled_line_when_the_branch_
     assert yard.lock()["holder"] is None
     assert not (yard.factory / "rd.pid").exists()
     assert PR  # the yard's PR is open throughout
+
+
+# --- round 3: one reader of a ticket's records, one release rule, pending launches
+
+
+def test_the_branch_of_a_ticket_is_never_taken_from_a_ticket_that_shares_its_prefix(
+    factory: Path,
+) -> None:
+    folder = factory / "launches"
+    put(folder, cloud_record("s22-fl5", "s22-fl5b", "2026-10-12T09:00:00Z"))
+    put(folder, cloud_record("s22-fl5-ACC", "s22-fl5", "2026-10-12T08:00:00Z"))
+    put(folder, cloud_record("s22-fl5-FIX1", "s22-fl5-fix", "2026-10-12T10:00:00Z"))
+    assert rdlock.ticket_branch("s22-fl5") == "s22-fl5b"
+    assert [r["ticket"] for _, r in governor.launch_records("s22-fl5", folder)] == ["s22-fl5"]
+
+
+def test_a_branch_with_an_open_pr_is_not_released_by_an_older_closed_one(factory: Path) -> None:
+    put(factory / "launches", cloud_record("tre", "tre-b", "2026-10-12T09:00:00Z"))
+    rows = [
+        pr_row("tre-b", "CLOSED", end="2026-10-12T10:00:00Z", number=610),
+        pr_row("tre-b", "OPEN", number=611),
+    ]
+    assert "session_01Dead" in (live(factory, "tre", rows) or "")
+    since = datetime(2026, 10, 12, 0, 0, tzinfo=UTC)
+    records, _ = watch.load_launches(factory, since, rows)
+    assert sorted(records) == ["tre"]
+
+
+def test_a_fork_pr_never_releases_a_factory_branch(factory: Path) -> None:
+    put(factory / "launches", cloud_record("tfk", "tfk-b", "2026-10-12T09:00:00Z"))
+    fork = {**pr_row("tfk-b", "CLOSED", end="2026-10-12T09:31:00Z"), "isCrossRepository": True}
+    assert "session_01Dead" in (live(factory, "tfk", [fork]) or "")
+    records, _ = watch.load_launches(factory, None, [fork])
+    assert sorted(records) == ["tfk"]
+
+
+def test_the_watcher_leaves_fork_prs_out_of_its_list(
+    factory: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seam = tmp_path / "prs.json"
+    rows = [
+        {"number": 1, "headRefName": "x", "isCrossRepository": True},
+        {"number": 2, "headRefName": "y"},
+    ]
+    seam.write_text(json.dumps(rows))
+    monkeypatch.setenv("VEXTRUS_PRS_FILE", str(seam))
+    assert [r["number"] for r in watch.gh_prs() or []] == [2]
+
+
+def test_a_launch_in_flight_counts_as_a_live_builder_but_the_callers_own_does_not(factory: Path) -> None:
+    pending = factory / "pending"
+    pending.mkdir()
+    other = os.getppid()  # a live process that is not the caller
+    record = {"ticket": "tnew", "branch": "tnew-b", "where": "cloud", "role": "builder", "pid": other}
+    (pending / f"tnew-{other}.json").write_text(json.dumps(record))
+    said_ = governor.live_builder("tnew", factory / "launches", agent_rows=list, prs=list)
+    assert said_ is not None
+    assert str(other) in said_
+    assert (
+        governor.live_builder("tnew", factory / "launches", agent_rows=list, prs=list, own_pid=other)
+        is None
+    )

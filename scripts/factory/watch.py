@@ -337,7 +337,7 @@ def gh_prs() -> list[dict[str, Any]] | None:
         argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
         argv += [
             "--json",
-            "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt",
+            "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt,isCrossRepository",
         ]
         try:
             done = subprocess.run(
@@ -354,7 +354,13 @@ def gh_prs() -> list[dict[str, Any]] | None:
         return None
     if not isinstance(loaded, list):
         return None
-    return [row for row in loaded if isinstance(row, dict) and isinstance(row.get("number"), int)]
+    return [  # a fork's PR on a factory branch's name is no PR of that branch's ticket
+        row
+        for row in loaded
+        if isinstance(row, dict)
+        and isinstance(row.get("number"), int)
+        and row.get("isCrossRepository") is not True
+    ]
 
 
 def jev_command() -> list[str] | None:

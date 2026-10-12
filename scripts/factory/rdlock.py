@@ -51,7 +51,7 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from scripts.factory import status
+from scripts.factory import governor, status
 
 KINDS = ("posting", "scored", "no-post")
 RANK = {kind: rank for rank, kind in enumerate(KINDS)}
@@ -181,14 +181,9 @@ def ticket_branch(ticket: str | None) -> str | None:
     """The branch named by the ticket's newest launch record, or None."""
     if not ticket:
         return None
-    for path in sorted((status.factory_dir() / "launches").glob(f"{ticket}-*.json"), reverse=True):
-        try:
-            record = json.loads(path.read_text())
-        except OSError, ValueError:
-            continue
-        branch = record.get("branch") if isinstance(record, dict) else None
-        if isinstance(branch, str) and branch:
-            return branch
+    for _, record in governor.launch_records(ticket):
+        if record["branch"]:
+            return str(record["branch"])
     return None
 
 
