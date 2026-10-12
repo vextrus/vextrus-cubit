@@ -2053,6 +2053,8 @@ def correct(
         changed["sources"] = {
             name: sheet.sources.get(name) for name in ("number", "title") if name in changed
         }
+        if sheet.plot.page is not None and sheet.plot.title_alike:
+            changed["plot_alike"] = True  # cleared by the correction, given back by its undo
         if sheet.decision == "confirmed":
             raise auth.Refused(said.CONFIRMED_NOT_CORRECTED(), status=409)
         asked = _number_asked(project_id, sheet.id) if "number" in changed else None
@@ -2142,6 +2144,12 @@ def _correction_stands(act: Confirmation) -> bool:
         return False
     if sheet.decision == "confirmed":
         return False
+    if sheet.confirmation_id and sheet.confirmation_id != act.id:
+        # Decided by an act since (an answer's confirm or exclusion included): taking this back
+        # would go through it. A decision made before the correction stands with it (an exclusion).
+        decider = Confirmation.objects.filter(id=sheet.confirmation_id, undone_at__isnull=True).first()
+        if decider is not None and (decider.at, decider.id) > (act.at, act.id):
+            return False
     number, title = changed.get("number"), changed.get("title")
     if number and (sheet.number or "") != number[1]:
         return False
@@ -2178,6 +2186,7 @@ def _put_back_correction(act: Confirmation) -> None:
         title=title[0] if title else None,
         number_source=sources.get("number") if number else None,
         title_source=sources.get("title") if title else None,
+        plot_title_alike=bool(changed.get("plot_alike")),
     )
     asked = changed.get("question")
     if not asked or back.number:
@@ -2208,22 +2217,28 @@ def undo(project_id: uuid.UUID) -> ActView:
     auth.require(acts.UNDO, project_id)
     _in_scope(project_id)  # a Project not in scope (of another Developer, or none) is not found
     with writing(project_id):
-        act = (
-            Confirmation.objects.select_for_update()
-            .filter(project_id=project_id, step=SHEETS, user_id=_user(), undone_at__isnull=True)
-            .order_by("-at", "-id")
-            .first()
-        )
+        # The acting user's own last act not undone, passing over a correction whose sheet has moved
+        # on (it stays, and Ctrl Z reaches the act before it: review 1 of #691); with nothing else
+        # to take back, that correction is refused in words.
+        mine = Confirmation.objects.filter(
+            project_id=project_id, step=SHEETS, user_id=_user(), undone_at__isnull=True
+        ).order_by("-at", "-id")
+        act = None
+        passed = False
+        for candidate in mine.iterator():
+            if candidate.act == ConfirmationAct.CORRECT and not _correction_stands(candidate):
+                passed = True
+                continue
+            act = Confirmation.objects.select_for_update().get(id=candidate.id)
+            break
         if act is None:
+            if passed:
+                raise auth.Refused(said.CORRECTION_MOVED_ON(), status=409)
             raise auth.Refused(said.NOTHING_TO_UNDO(), status=409)
         if act.kind == ConfirmationKind.QUESTION_ANSWER:
             # An answer has no undo: taking back its confirm or exclusion would leave the Question
             # answered by sheets it no longer decides. Its sheets are still excluded or confirmed.
             raise auth.Refused(said.ANSWER_STAYS(), status=409)
-        if act.act == ConfirmationAct.CORRECT and not _correction_stands(act):
-            # Taken back only while its sheet is as it left it, and no later correction stands:
-            # restoring through other people's later acts would overwrite them.
-            raise auth.Refused(said.CORRECTION_MOVED_ON(), status=409)
         listed = {s.id for s in _facts(project_id) if s.confirmation_id == act.id}
         # Every sheet the act still decides, those off the sheet list now included (a held file set
         # aside after the act): drawings clears them all; a sheet off the list cannot be decided

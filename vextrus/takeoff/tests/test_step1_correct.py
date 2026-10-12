@@ -495,3 +495,54 @@ def test_each_cause_of_an_unkeepable_number_or_title_has_its_own_words(
     assert refused(number="S" * 200) == sheets + "number_too_long"
     assert refused(number="S-1\nS-2") == sheets + "number_many_lines"
     assert refused(number="S-\x071") == sheets + "number_unreadable"
+
+
+def test_a_correction_is_not_undone_through_a_decision_made_since(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 1 of #691 (60): another person's act decided the sheet after the correction.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}).status_code == 200
+    out = other.post(f"{step1(kr01)}/exclude", {"proposals": [sheet["id"]], "reason": "superseded"})
+    assert out.status_code == 200, out.content
+
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
+
+    assert (refused.status_code, refused.json()) == (409, MOVED_ON)
+    after = the(nusrat, kr01, sheet["id"])
+    assert (after["title"], after["decision"]) == ("Mine", "excluded")
+
+
+def test_an_undo_passes_over_a_correction_that_has_moved_on_to_the_act_before_it(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 1 of #691 (55, 45): the moved-on correction stayed the person's last act for ever.
+    other = second_qs(demo, sign_in, kr01)
+    [s01] = by_number(proposals(nusrat, kr01), "S-01")
+    [s05] = by_number(proposals(nusrat, kr01), "S-05")
+    path = step1(kr01)
+    assert nusrat.post(f"{path}/confirm", {"proposals": [s01["id"]]}).status_code == 200
+    assert correct(nusrat, kr01, {"proposal": s05["id"], "title": "Mine"}).status_code == 200
+    assert correct(other, kr01, {"proposal": s05["id"], "title": "Theirs"}).status_code == 200
+
+    undo(nusrat, kr01)  # the confirmation before it; the correction stays, nothing of Theirs is undone
+
+    assert the(nusrat, kr01, s01["id"])["decision"] in (None, "")
+    assert the(nusrat, kr01, s05["id"])["title"] == "Theirs"
+    again = nusrat.post(f"{path}/undo", {})  # nothing else of theirs to take back
+    assert (again.status_code, again.json()) == (409, MOVED_ON)
+
+
+def test_undoing_a_correction_gives_back_the_plot_match_it_cleared(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 1 of #691 (50): the title and its source came back, the Plot page's reading did not.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    alike(demo, sheet)
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "title": "Other"}).status_code == 200
+    assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is False
+
+    undo(nusrat, kr01)
+
+    assert the(nusrat, kr01, sheet["id"])["plot_title_alike"] is True

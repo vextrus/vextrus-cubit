@@ -127,6 +127,7 @@ def put_back_sheet(
     title: str | None = None,
     number_source: str | None = None,
     title_source: str | None = None,
+    plot_title_alike: bool = False,
 ) -> sheet_list.SheetView:
     """A correction undone: the printed sheet's number (none included) and title as they were kept
     before it, each when given, with its source (the reading's, or the earlier correction's); a value
@@ -140,6 +141,10 @@ def put_back_sheet(
         if title is not None:
             _retitle(printed, title)
             _source(printed, title=title_source or None)
+        if plot_title_alike and printed.plot_page is not None:
+            # Its Plot page read the title the correction replaced: it reads it again.
+            printed.plot_title_alike = True
+            printed.save(update_fields=["plot_title_alike"])
     return sheet_list.sheet(printed.id)
 
 
