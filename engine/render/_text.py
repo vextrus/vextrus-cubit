@@ -71,8 +71,9 @@ FIT_TOLERANCE = 0.05
 MIN_SQUEEZE = 0.6
 SQUEEZE_STEP = 0.01
 MAX_FIT_CHARACTERS = 2_000
-"""The longest MTEXT fitted (each squeeze wraps it again: one entity's cost stays bounded apart from
-the sheet's budget, as `engine.render.buffers` asks); the real sets' longest is 300."""
+"""The longest MTEXT fitted, counting each line break as a character (each squeeze wraps it again: one
+entity's cost stays bounded apart from the sheet's budget, as `engine.render.buffers` asks); the real
+sets' longest is 300."""
 FIRST_LINE_DEPTH = 1.03
 """AutoCAD's measured height of one line, in its tallest run's heights (both real sets)."""
 ITALIC_SLANT = math.tan(math.radians(12))
@@ -252,7 +253,8 @@ def _baselines(lines: list[list[_Atom]], mtext: bool, exactly: bool, factor: flo
         if index == 0:
             y = -tallest if mtext else 0.0  # an MTEXT hangs from its top; a TEXT sits on its baseline
         else:
-            y -= LINE_SPACING * factor * (1.0 if exactly else tallest)
+            lower = y - LINE_SPACING * factor * (1.0 if exactly else tallest)
+            y = lower if math.isfinite(lower) else y  # a pitch past any float: the line stays put
         baselines.append(y)
     return baselines
 
@@ -299,7 +301,7 @@ def _fit(
     limit = (text.width or 0.0) / local_height
     wrapping = math.isfinite(limit) and limit > 0
     measured = _usable(text.extents_width, local_height)
-    if measured is None or sum(len(line) for line in paragraphs) > MAX_FIT_CHARACTERS:
+    if measured is None or sum(len(line) + 1 for line in paragraphs) > MAX_FIT_CHARACTERS:
         return _wrapped(paragraphs, limit), 1.0
     outline = any(a.font.key is not FontKey.STROKE for line in paragraphs for a in line)
     box = measured if outline else limit if wrapping else None
