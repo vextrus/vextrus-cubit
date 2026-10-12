@@ -202,7 +202,8 @@ class SheetViewView:
     storeys_meaning: str | None
     storeys_source: str | None
     """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318),
-    "title_line" for a bracketed line under its title (S15-E3)."""
+    "title_line" for a bracketed line under its title (S15-E3), "typed" once the QS corrected them
+    (S24-B2; the steps after Step 1 read a typed view as one of its own title)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None

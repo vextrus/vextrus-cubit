@@ -71,6 +71,10 @@ def test_a_range_is_refused_and_named(typed: str) -> None:
         "0th",
         "9999th",
         "level 3",
+        "3rd!",
+        "3rd *",
+        "(3rd)",
+        "3\u0661rd",
     ],
 )
 def test_a_word_naming_no_single_storey_is_refused_and_named(typed: str) -> None:

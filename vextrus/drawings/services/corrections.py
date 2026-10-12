@@ -192,6 +192,8 @@ def _one_storey(item: str, conventions: SheetConventions) -> tuple[str, str]:
     either is accepted: the engine reads "basement to 3rd" as the basement alone, and only the
     reading with a floor word shows the range."""
     spoken = item[:60]
+    if not _plain(item):
+        raise auth.Refused(said.STOREYS_NOT_A_STOREY(word=spoken), status=400)
     reads = [
         (words, storey_reader.read(words, conventions, plan_title=False))
         for words in (item, f"{item} floor")
@@ -209,6 +211,15 @@ def _one_storey(item: str, conventions: SheetConventions) -> tuple[str, str]:
         ):
             return found.keys[0], words
     raise auth.Refused(said.STOREYS_NOT_A_STOREY(word=spoken), status=400)
+
+
+def _plain(item: str) -> bool:
+    """An item of letters, digits of one script, spaces, hyphens and dots only: the engine skips other
+    marks ("3rd!", "3rd *"), which would be kept as a storey nobody typed."""
+    if not all(c.isalnum() or c in " -.'" for c in item):
+        return False
+    scripts = {unicodedata.name(c, "?").split()[0] for c in item if c.isdigit()}
+    return len(scripts) <= 1
 
 
 def _ranges(item: str, conventions: SheetConventions) -> bool:
