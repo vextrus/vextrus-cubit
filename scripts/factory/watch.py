@@ -389,11 +389,13 @@ def models_check() -> tuple[str, str | None]:
 
 # --- the world's records
 def load_launches(
-    folder: Path, since: datetime | None
+    folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None = None
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     """The builders' newest launch record per ticket, and the cloud reviews' branches with the head each
     was launched on. A record whose `review` is not null (review_cloud.py's reviewer or refuter) is not a
-    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch."""
+    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch.
+    With the PR list `prs`: a ticket launched before `since` is still followed while its branch's PR is
+    open (carried over); a ticket whose branch's PR has merged is dropped, whatever its launch time."""
     newest: dict[str, dict[str, Any]] = {}
     reviews: dict[str, str] = {}
     for path in sorted((folder / "launches").glob("*.json")):
@@ -424,7 +426,11 @@ def load_launches(
         refused = isinstance(judge, dict) and judge.get("ok") is False
         if (refused and not record.get("session_id")) or record.get("stop_sent") is True:
             continue
-        if since is not None and started < since:
+        pr = pr_for(branch, prs)
+        state = pr.get("state") if pr is not None else None
+        if state == "MERGED":
+            continue
+        if since is not None and started < since and state != "OPEN":
             continue
         record["_started"] = started
         if ticket not in newest or started >= newest[ticket]["_started"]:
@@ -597,16 +603,15 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     step = Pass(folder, at, state)
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
-    records, reviews = load_launches(folder, since)
-    refs = remote_heads()
-    main_sha = refs.get("main") if refs is not None else None
-
     if step.due("prs_read_at", PRS_EVERY):
         state["prs_read_at"] = status.utc(at)
         read = gh_prs()
         if read is not None:
             state["prs"] = read
     prs: list[dict[str, Any]] | None = state.get("prs")
+    records, reviews = load_launches(folder, since, prs)
+    refs = remote_heads()
+    main_sha = refs.get("main") if refs is not None else None
 
     if step.due("usage_read_at", USAGE_EVERY):
         state["usage_read_at"] = status.utc(at)

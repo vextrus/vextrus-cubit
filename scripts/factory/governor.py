@@ -425,6 +425,58 @@ def admit(
         os.close(fd)
 
 
+def live_builder(
+    ticket: str,
+    folder: Path | None = None,
+    *,
+    agent_rows: Callable[[], list[dict[str, Any]] | None] | None = None,
+    prs: Callable[[], list[dict[str, Any]] | None] | None = None,
+) -> str | None:
+    """The live builder already launched on a ticket, as a sentence naming its session, or None.
+
+    Live: a cloud builder record whose judge was ok, whose STOP was not sent, that has not aged out
+    (`ageing`) and whose branch has no merged PR; a local builder record whose session `claude agents`
+    lists with a pid (an ended session is none; an unreadable list counts as live, failing closed). An
+    acceptance-writer's, reviewer's or refuter's record is no builder."""
+    folder = folder if folder is not None else status.factory_dir() / "launches"
+    agent_rows = agent_rows or read_agents
+    prs = prs or read_prs
+    for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
+        if path.name.endswith(".agents.json"):
+            continue
+        record = _read_record(path)
+        if record is None or record.get("ticket") != ticket:
+            continue
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
+            continue
+        if record.get("stop_sent") is True:
+            continue
+        session = record.get("session_id") or record.get("name") or path.name
+        if record.get("where") == "local":
+            rows = agent_rows()
+            if rows is None:
+                return f"local builder {session} (the agents list is unreadable)"
+            for row in rows:
+                same = row.get("name") == record.get("name") or (
+                    record.get("session_id") and row.get("sessionId") == record.get("session_id")
+                )
+                if same and row.get("pid") is not None:
+                    return f"local builder {session} is live (pid {row['pid']})"
+            continue
+        judge = record.get("judge")
+        if not (isinstance(judge, dict) and judge.get("ok") is True):
+            continue
+        if aged_out(record, agent_rows) is not None:
+            continue
+        merged = any(
+            row.get("headRefName") == record["branch"] and row.get("state") == "MERGED"
+            for row in prs() or []
+        )
+        if not merged:
+            return f"cloud builder {session} is live on {record['branch']}"
+    return None
+
+
 def release_hold(ticket: str, pid: int) -> None:
     """Remove a launch's pending record (`admit`); none there is no error."""
     if not TICKET_RE.fullmatch(ticket):

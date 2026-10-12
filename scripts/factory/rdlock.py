@@ -21,7 +21,14 @@ runs the command with its output unbuffered into `$VEXTRUS_FACTORY_DIR/../rd/<he
 and releases the lock and removes `rd.pid` when the command ends, failed or not, or on SIGTERM, SIGHUP
 or SIGINT. It exits with the command's code.
 
-Exit 0, 4 queued, 5 a duplicate waiter, 2 usage error.
+A `posting` run starts only on a head the review ledger passed
+(`$VEXTRUS_FACTORY_DIR/ledger/<PR>-<head>.json` with `verdict` `PASS`) and, when `--ticket` names a
+launch whose branch is known, only while `git ls-remote origin <branch>` still reads that head. The
+check runs before the run queues and again when its turn comes; a refusal exits 6 naming the missing
+PASS or the newer head, runs nothing and frees the lock.
+`scored` and `no-post` runs are not gated.
+
+Exit 0, 4 queued, 5 a duplicate waiter, 6 a posting run refused, 2 usage error.
 """
 
 from __future__ import annotations
@@ -46,7 +53,8 @@ from scripts.factory import status
 KINDS = ("posting", "scored", "no-post")
 RANK = {kind: rank for rank, kind in enumerate(KINDS)}
 WAIT_SECONDS = 5.0
-HELD, QUEUED, DUPLICATE = 0, 4, 5
+HELD, QUEUED, DUPLICATE, REFUSED = 0, 4, 5, 6
+LS_REMOTE_SECONDS = 60
 
 
 def lock_file() -> Path:
@@ -148,6 +156,66 @@ def show() -> list[str]:
     return lines
 
 
+def passed(head: str) -> bool:
+    """True when the ledger holds a PASS record for exactly this head."""
+    folder = status.factory_dir() / "ledger"
+    for path in sorted(folder.glob(f"*-{head}*.json")):
+        try:
+            record = json.loads(path.read_text())
+        except OSError, ValueError:
+            continue
+        if (
+            isinstance(record, dict)
+            and record.get("verdict") == "PASS"
+            and str(record.get("head", "")).startswith(head)
+        ):
+            return True
+    return False
+
+
+def ticket_branch(ticket: str | None) -> str | None:
+    """The branch named by the ticket's newest launch record, or None."""
+    if not ticket:
+        return None
+    for path in sorted((status.factory_dir() / "launches").glob(f"{ticket}-*.json"), reverse=True):
+        try:
+            record = json.loads(path.read_text())
+        except OSError, ValueError:
+            continue
+        branch = record.get("branch") if isinstance(record, dict) else None
+        if isinstance(branch, str) and branch:
+            return branch
+    return None
+
+
+def refusal(kind: str, head: str, ticket: str | None) -> str | None:
+    """Why a run may not start, or None. Only posting runs are gated."""
+    if kind != "posting":
+        return None
+    if not passed(head):
+        return f"no review PASS is recorded for head {head[:8]}"
+    branch = ticket_branch(ticket)
+    if branch is None:
+        return None
+    try:
+        done = subprocess.run(
+            ["git", "ls-remote", "origin", f"refs/heads/{branch}"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=LS_REMOTE_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"cannot read the tip of {branch} to check head {head[:8]}: {error}"
+    if done.returncode != 0:
+        return f"cannot read the tip of {branch} to check head {head[:8]}: {done.stderr.strip()}"
+    tip = done.stdout.split()[0] if done.stdout.split() else ""
+    if tip and not tip.startswith(head) and not head.startswith(tip):
+        return f"head {head[:8]} is superseded: {branch} has moved to {tip[:8]}"
+    return None
+
+
 def _stop(signum: int, frame: FrameType | None) -> None:
     raise SystemExit(128 + signum)
 
@@ -156,6 +224,10 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     pid = os.getpid()
     for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(signum, _stop)  # the finally below releases; subprocess.run kills the command
+    why = refusal(kind, head, ticket)
+    if why:
+        print(f"rdlock: refused: {why}")
+        return REFUSED
     try:
         code = acquire(kind, head, pid, ticket, block=True)
     except SystemExit:
@@ -164,6 +236,11 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     if code != HELD:  # a duplicate waiter: never run without the lock, never touch rd.pid
         print(f"rdlock: refused: a {kind} run for {head[:8]} is already queued or holding the lock")
         return code
+    why = refusal(kind, head, ticket)  # the branch may have moved while the run waited
+    if why:
+        release(kind, head, pid)
+        print(f"rdlock: refused at its turn: {why}")
+        return REFUSED
     folder = status.factory_dir()
     pidfile = folder / "rd.pid"
     try:

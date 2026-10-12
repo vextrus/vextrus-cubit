@@ -949,6 +949,10 @@ def _launch_cloud(
         return run.refuse(
             "branch-not-on-origin", f"git ls-remote finds no refs/heads/{req.branch} on origin"
         )
+    if req.role not in governor.NOT_BUILDER_ROLES and (
+        live := governor.live_builder(req.ticket, record_dir)
+    ):
+        return run.refuse("builder-live", f"ticket {req.ticket} already has a live builder: {live}")
     if req.role not in NO_ACCEPTANCE_NEEDED and req.untestable is None:
         found = has_acceptance_commit(root, req.branch, sha)
         if isinstance(found, str):
