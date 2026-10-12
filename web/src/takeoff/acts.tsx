@@ -156,6 +156,13 @@ function StaleWords({ done }: { done: ReactNode }) {
 }
 
 /** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
+/** A refused correction: its words, and the field they are about (none: the form's). `n` is new for each refusal. */
+export interface CorrectionRefusal {
+  text: string
+  field: 'number' | 'title' | null
+  n: number
+}
+
 export interface SheetChange {
   number?: string
   title?: string
@@ -176,7 +183,9 @@ export interface Step1Acts {
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   /** Corrects a sheet's number or title (§6.9, `E`): only what changed. */
-  correctSheet(sheet: ProposalOut, change: SheetChange): Promise<boolean>
+  correctSheet(sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }): Promise<boolean>
+  /** The last correction's refusal, shown under its field in the form (not as a toast over the bar). */
+  correctionRefusal: CorrectionRefusal | null
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
@@ -195,7 +204,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     corrector.current = correct
   }, [])
   const acts = useActs(projectId, shown, handOut)
-  const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change) => corrector.current?.(sheet, change) ?? Promise.resolve(false), [])
+  const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change, opened) => corrector.current?.(sheet, change, opened) ?? Promise.resolve(false), [])
   return { ...acts, correctSheet }
 }
 
@@ -213,6 +222,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
   const undos = useRef(0)
   const chain = useRef<Promise<void>>(Promise.resolve())
   const [busy, setBusy] = useState(false)
+  const [correctionRefusal, setCorrectionRefusal] = useState<CorrectionRefusal | null>(null)
   // An answer can move a file's status too (a held file set aside, §6.13), so the files band is read again with Step 1.
   const refresh = useCallback(
     () => Promise.all([queryClient.invalidateQueries({ queryKey: step1Key(projectId) }), queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey })]).then(() => {}),
@@ -383,7 +393,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
       const mark = marked()
       undos.current += 1
       setBusy(true)
-      const ask = { entry, off: false, kept }
+      const ask: { entry: Entry | undefined; off: boolean; kept: boolean; carry?: Done } = { entry, off: false, kept }
       queued.current.push(ask)
       /** A refused undo: keeps what it did not undo, and calls off the presses behind it. */
       const refused = (left: Entry | null) => {
@@ -555,7 +565,20 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         return true
       } catch (error) {
         if (reached(error)) made += 1
-        say(error)
+        if (kind === 'correct') {
+          // A refused correction is said under its field in the form, and kept there (aria-invalid,
+          // aria-describedby), not as a toast over the bar's main button (design gate of #706).
+          let field: CorrectionRefusal['field'] = null
+          try {
+            const problem = problemOf(error)
+            const refusal = problem && 'refusal' in problem ? problem.refusal : null
+            const asked = String((refusal?.params as Record<string, unknown> | undefined)?.field ?? refusal?.code ?? '')
+            field = asked.includes('number') ? 'number' : asked.includes('title') ? 'title' : null
+          } catch {
+            // Not the API's refusal: said plainly, under no field.
+          }
+          setCorrectionRefusal((last) => ({ text: failedText(error), field, n: (last?.n ?? 0) + 1 }))
+        } else say(error)
         return false
       } finally {
         counted(made, words, kind, ids, name)
@@ -689,21 +712,30 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
   )
 
   const correctSheet = useCallback(
-    (sheet: ProposalOut, change: SheetChange) => {
+    (sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }) => {
       const name = <SheetName sheets={[sheet]} />
       const what = <CorrectedWords change={change} />
+      // A sheet two sources agreed on leaves "Confirm all" with its typed value: said, not silent (design gate of #706).
+      const leaves = sheet.agrees && sheet.decision !== 'excluded'
+      setCorrectionRefusal(null)
       // A sheet left out stays out (the words gate of S22-FL8): only an undecided one is "still a Proposal".
       return run(
-        [() => correct(projectId, sheet.id, change)],
+        [() => correct(projectId, sheet.id, change, opened)],
         <Trans>corrected {name}</Trans>,
         sheet.decision === 'excluded' ? (
           <Trans context="the toast of a correction of an excluded sheet">
             Corrected {name}: {what}. It stays excluded.
           </Trans>
         ) : (
-          <Trans>
-            Corrected {name}: {what}. Still a Proposal until confirmed.
-          </Trans>
+          leaves ? (
+            <Trans>
+              Corrected {name}: {what}. Still a Proposal until confirmed. It is no longer in Confirm all: confirm it on its own.
+            </Trans>
+          ) : (
+            <Trans>
+              Corrected {name}: {what}. Still a Proposal until confirmed.
+            </Trans>
+          )
         ),
         'correct',
         name,
@@ -751,5 +783,5 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
     [begin, marked, projectId, say, settle, showDone],
   )
 
-  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }
+  return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy, correctionRefusal }
 }

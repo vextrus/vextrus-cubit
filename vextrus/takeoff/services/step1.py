@@ -2031,6 +2031,7 @@ def correct(
     *,
     number: object = None,
     title: object = None,
+    opened: Mapping[str, object] | None = None,
     actor_name: str,
 ) -> ActView:
     """The QS corrects a sheet's number or title (m0-screens 2.2 and 6.9, `E`), one act: the sheet
@@ -2041,6 +2042,20 @@ def correct(
     auth.require(acts.CORRECT, project_id)
     with transaction.atomic(), writing(project_id):
         [(sheet, _proposal)] = _chosen(project_id, [proposal])
+        # The form's own values (`opened`): a value another person corrected since is theirs, not
+        # silently overwritten by a save from a form opened before it (review of #706, B).
+        now = {"number": sheet.number or "", "title": sheet.title}
+        for field, sent in (("number", number), ("title", title)):
+            was = (opened or {}).get(field)
+            if (
+                isinstance(sent, str)
+                and isinstance(was, str)
+                and now[field] != was
+                and sent.strip() != now[field]
+            ):
+                raise auth.Refused(
+                    said.CORRECTED_SINCE(field=field, value=now[field], **_named(sheet)), status=409
+                )
         # Typed text checked before the act is written: its `before` keeps the new values too.
         changed: dict[str, Any] = {"sheet": str(sheet.id)}
         if isinstance(number, str) and number.strip() != (sheet.number or ""):

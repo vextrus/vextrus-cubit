@@ -60,6 +60,11 @@ CONFIRMED_NOT_CORRECTED = MessageCode("takeoff.step1.confirmed_not_corrected")
 ANSWER_STAYS = MessageCode("takeoff.step1.answer_stays")
 CORRECTION_MOVED_ON = MessageCode("takeoff.step1.correction_moved_on", params=("sheet", "named"))
 """A correction not undone because its sheet changed since (409); `sheet`, `named`: as question_first."""
+CORRECTED_SINCE = MessageCode(
+    "takeoff.step1.corrected_since", params=("field", "value", "sheet", "named")
+)
+"""A correction made from a form opened before the sheet's number or title changed (409): nothing is
+written; `field` is "number" or "title", `value` what it is now."""
 ANSWER_STAYS_AFTER_CORRECTION = MessageCode(
     "takeoff.step1.answer_stays_after_correction", params=("sheet", "named")
 )

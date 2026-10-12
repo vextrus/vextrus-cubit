@@ -70,6 +70,10 @@ describe('Correct the Proposal (§6.9)', () => {
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(bodyText()).toContain('so nothing was changed'))
     expect(bodyText()).toContain('Correct the Proposal')
+    // Design gate of #706 (50): the refusal stands under its field, marked and described.
+    const field = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field.getAttribute('aria-describedby')).toBeTruthy()
     expect((within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' }) as HTMLInputElement).value).toBe('S-5 1')
   })
 

@@ -85,6 +85,10 @@ msgid "the drawing list you set"
 msgstr "the drawing list you set"
 
 #: src/takeoff/acts.tsx
+msgid "Corrected {name}: {what}. Still a Proposal until confirmed. It is no longer in Confirm all: confirm it on its own."
+msgstr "Corrected {name}: {what}. Still a Proposal until confirmed. It is no longer in Confirm all: confirm it on its own."
+
+#: src/takeoff/acts.tsx
 msgctxt "a correction, after its sheet's name"
 msgid "number → {to}"
 msgstr "number → {to}"

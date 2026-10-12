@@ -647,3 +647,45 @@ def test_answer_stays_after_correction_ends_with_answer_stays_closing_words() ->
     closing = "To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."
     after = po.split('msgid "takeoff.step1.answer_stays_after_correction"')[1].split("\n\n")[0]
     assert closing in after
+
+
+def correct_opened_with(
+    api: Api, project: uuid.UUID, body: dict[str, Any], opened: dict[str, str]
+) -> Any:
+    """`correct` as the form sends it: with the values it opened with in its header."""
+    import json
+    from urllib.parse import quote
+
+    return api.client.post(
+        f"{step1(project)}/correct",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "X-CSRFToken": api.csrf_token(),
+            "X-Step1-Opened-With": quote(json.dumps(opened)),
+        },
+    )
+
+
+def test_a_save_from_a_form_opened_before_another_persons_correction_is_refused(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Design gate of #706 (60): the lost update. Her title stands; his form is refused with it shown.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    opened = {"number": sheet["number"], "title": sheet["title"]}
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "Theirs"}).status_code == 200
+
+    refused = correct_opened_with(nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}, opened)
+
+    assert refused.status_code == 409, refused.content
+    assert refused.json() == {
+        "code": "takeoff.step1.corrected_since",
+        "params": {"field": "title", "value": "Theirs", "sheet": "S-05", "named": "number"},
+    }
+    assert the(nusrat, kr01, sheet["id"])["title"] == "Theirs"
+    # Opened with the current values, the same save goes through.
+    ok = correct_opened_with(
+        nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}, {"number": "S-05", "title": "Theirs"}
+    )
+    assert ok.status_code == 200, ok.content

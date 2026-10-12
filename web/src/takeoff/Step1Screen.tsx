@@ -662,9 +662,9 @@ function Step1({
     setCorrecting(null)
     refocusSheet.current = sheetId
   }
-  const saveCorrection = (sheet: ProposalOut, change: SheetChange) => {
-    // Refused (its words toasted) or dropped behind another act: the form stays, with what was typed.
-    void acts.correctSheet(sheet, change).then((done) => done && closeCorrection(sheet.id))
+  const saveCorrection = (sheet: ProposalOut, change: SheetChange, opened: { number: string; title: string }) => {
+    // Refused (its words under the field) or dropped behind another act: the form stays, with what was typed.
+    void acts.correctSheet(sheet, change, opened).then((done) => done && closeCorrection(sheet.id))
   }
   const excludeKey = () => {
     if (readOnly) return refuse(readOnly)
@@ -758,7 +758,7 @@ function Step1({
         readOnly={readOnly !== null}
         open={mode === 'sheet' && open ? open : undefined}
         acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false), correct: correctKey }}
-        correcting={correctingSheet ? { sheet: correctingSheet, save: (change) => saveCorrection(correctingSheet, change), cancel: () => closeCorrection(correctingSheet.id) } : null}
+        correcting={correctingSheet ? { sheet: correctingSheet, refusal: acts.correctionRefusal, save: (change, opened) => saveCorrection(correctingSheet, change, opened), cancel: () => closeCorrection(correctingSheet.id) } : null}
         selectedView={selectedView}
         slots={stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))}
         onSelectView={mode === 'sheet' && open ? (view) => setViewPick({ sheet: open.id, view }) : undefined}

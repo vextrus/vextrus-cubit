@@ -385,6 +385,10 @@ msgstr "Each has a number and title from its title block, in numbering without a
 msgid "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
 msgstr "{tag} answered. Recorded: the titles are right; the plans’ storeys stay as read."
 
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source: its number as you typed it, and its title from its title block. Open it to confirm it."
+msgstr "{name} has one source: its number as you typed it, and its title from its title block. Open it to confirm it."
+
 #: src/takeoff/SheetList.tsx
 msgid "{start} and {tail}"
 msgstr "{start} and {tail}"
@@ -422,6 +426,10 @@ msgstr "Each has a number and title from its title block and is on its drawing l
 #: src/takeoff/Bar.tsx
 msgid "{name} has neither a number nor a title in its title block"
 msgstr "{name} has neither a number nor a title in its title block"
+
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source: its number and title as you typed them. Open it to confirm it."
+msgstr "{name} has one source: its number and title as you typed them. Open it to confirm it."
 
 #: src/takeoff/FilesBand.tsx
 msgid "Bangla font"
@@ -632,6 +640,10 @@ msgstr "Foundations"
 #: src/takeoff/FilesBand.tsx
 msgid "{name} waiting for its DWG"
 msgstr "{name} waiting for its DWG"
+
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source: its title as you typed it, and its number from its title block. Open it to confirm it."
+msgstr "{name} has one source: its title as you typed it, and its number from its title block. Open it to confirm it."
 
 #: src/takeoff/storeys.tsx
 msgid "{below} to Roof (floors between from Step 3)"

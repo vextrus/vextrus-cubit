@@ -418,6 +418,12 @@ export function AgreesWhat({ sheet, model, name }: { sheet: ProposalOut; model: 
 
 export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
   if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has neither a number nor a title in its title block</Trans>
+  // A corrected value is the QS's own typing, not a reading (design gate of #706): said as the inspector says it.
+  const typedNumber = sheet?.number_source === 'typed'
+  const typedTitle = sheet?.title_source === 'typed'
+  if (typedNumber && typedTitle) return <Trans>{name} has one source: its number and title as you typed them. Open it to confirm it.</Trans>
+  if (typedTitle) return <Trans>{name} has one source: its title as you typed it, and its number from its title block. Open it to confirm it.</Trans>
+  if (typedNumber) return <Trans>{name} has one source: its number as you typed it, and its title from its title block. Open it to confirm it.</Trans>
   return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 
