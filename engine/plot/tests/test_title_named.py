@@ -4,6 +4,7 @@ the page's surest number, the bound on how many titles are read, and a read cut 
 
 from engine.plot import registration
 from engine.plot.tests.test_plot import item, page_of, sheet_buffers
+from engine.plot.tests.timing import best_of
 from engine.read.pdf.types import Page, TextItem
 from engine.recognise.types import SheetCandidate, SheetLocation, Sourced, ValueSource
 
@@ -152,8 +153,6 @@ def test_two_sheets_sharing_a_number_held_only_in_a_note_are_not_told_apart_by_t
 def test_a_page_whose_reads_all_walk_near_their_budget_stays_fast() -> None:
     """32 candidates, each title's words all on the page, each walk long but uncut: the page's reads
     share one read's budget, so the page costs about one read, not 32 (the refuter's hostile page)."""
-    import time
-
     numbers = [f"S-{k}" for k in range(registration.MAX_TITLE_READS)]
     sheets = [titled(number, " ".join(["A"] * 10 + ["B"])) for number in numbers]
     packed = [
@@ -162,12 +161,11 @@ def test_a_page_whose_reads_all_walk_near_their_budget_stays_fast() -> None:
     pad = [item(f"P{i}", 1.0, (5000.0 + i, 5000.0, 5001.0 + i, 5001.0)) for i in range(20000)]
     page = page_of(*marks(numbers), *packed, *pad, item("B", 10.0, (2000.0, 900.0, 2010.0, 910.0)))
 
-    began = time.monotonic()
-    registration.title_read(page, sheets[0].title.value if sheets[0].title else None)
-    one = time.monotonic() - began
-    began = time.monotonic()
+    one = best_of(
+        lambda: registration.title_read(page, sheets[0].title.value if sheets[0].title else None)
+    )
+    page_reads = best_of(lambda: named(page, sheets))
     found = named(page, sheets)
-    page_reads = time.monotonic() - began
 
     assert page_reads < 4 * one + 0.05, (page_reads, one)
     assert found == "names_several_sheets"

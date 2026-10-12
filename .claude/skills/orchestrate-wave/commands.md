@@ -7,7 +7,7 @@ classifier refuses is the owner's to run: say the exact command and let the owne
 SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the guard accepts only those.
 
 ## The clock
-- `uv run python -m scripts.factory.stamp start --budget <h> --state <STATE.md> --phases "<p=min,...>"`: the
+- `uv run python -m scripts.factory.stamp start --budget <with unit: 8h, 90m, 5h30m> --state <STATE.md> --phases "<p=min,...>"`: the
   session's budget and phases (`--force` only over a session that never ran `stamp end`).
 - `uv run python -m scripts.factory.stamp phase <name>`: the phase now running.
 - `uv run python -m scripts.factory.stamp elapsed --ticket <ticket>`: a ticket's `[elapsed n/m min]`.
