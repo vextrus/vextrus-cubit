@@ -267,13 +267,7 @@ def test_every_reason_is_worded_for_the_qs() -> None:
     from engine.messages import plot as codes
 
     words = (Path(__file__).parents[3] / "web/src/messages/engine/plot/en.po").read_text()
-    assert set(codes.REASONS) == {
-        "names_no_sheet",
-        "names_several_sheets",
-        "no_text",
-        "scan",
-        "same_sheet_as_another_page",
-    }
+    assert set(codes.REASONS) == {"names_no_sheet", "names_several_sheets", "no_text", "scan"}
     for code in codes.REASONS.values():
         assert f'msgid "{code.code}"' in words
 

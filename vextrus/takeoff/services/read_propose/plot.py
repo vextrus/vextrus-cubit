@@ -280,12 +280,13 @@ def _surest(
     by_sha: Mapping[str, drawings.FileView],
 ) -> dict[tuple[uuid.UUID, uuid.UUID], int]:
     """For each sheet and PDF, the place in `found` of the PDF's page that is the sheet's own: of
-    the pages naming it, one with its number whole (`registration.mention`) before one holding it
-    among other words; then the one its drawing lies on best (the smaller residual: a real set had
-    two pages with the number whole, the wrong one fitting at the residual's ceiling); then the
-    larger text; then the first. A page that refers to a sheet whose own page is in the same PDF
-    never takes it from that page."""
-    best: dict[tuple[uuid.UUID, uuid.UUID], tuple[tuple[bool, float, float], int]] = {}
+    the pages naming it, one 18 used (`PlotMatch.used`: "One page, one sheet" took another page for
+    it, by its drawing's fit or the PDF's order) before one it left unused; then one with its
+    number whole (`registration.mention`) before one holding it among other words; then the one its
+    drawing lies on best (the smaller residual: a real set had two pages with the number whole, the
+    wrong one fitting at the residual's ceiling); then the larger text; then the first. A page that
+    refers to a sheet whose own page is in the same PDF never takes it from that page."""
+    best: dict[tuple[uuid.UUID, uuid.UUID], tuple[tuple[bool, bool, float, float], int]] = {}
     for k, m in enumerate(found):
         sheet = by_candidate.get(id(m.sheet)) if m.sheet is not None else None
         pdf = by_sha.get(getattr(m.page, "source_sha256", ""))
@@ -294,7 +295,8 @@ def _surest(
         page = m.page
         sure = registration.mention(page, sheet.number or "") if isinstance(page, Page) else None
         whole, height = sure or (False, -1.0)
-        rank = (whole, -(m.residual if m.residual is not None else math.inf), height)
+        # A page 18 left naming the sheet unused (`PlotMatch.used`, S24-A5) is never its page.
+        rank = (m.used, whole, -(m.residual if m.residual is not None else math.inf), height)
         kept = best.get((sheet.id, pdf.id))
         if kept is None or rank > kept[0]:
             best[(sheet.id, pdf.id)] = (rank, k)

@@ -34,22 +34,21 @@ is taken; a page whose ink names no one sheet (a frame and title block alone, wh
 draws alike) keeps its reason (`names_several_sheets`, `no_text`).
 
 **One page, one sheet** (S24-A5; `one_page_each`). Where two or more pages of a PDF name one sheet
-(a page whose own number is small text, and a larger mark on it another sheet's number), each is
-given the sheet its place in the PDF's order holds. The order is read from the PDF's pages that
-alone hold their sheets: a page's place runs from the number of the last such page before it to the
-next's (in a sheet list's order: "S-9" before "S-10"; two pages of one number alike), and is not
-known where those two are out of order (a swapped pair makes only its own places unknown). A page
-whose place is known may take any sheet it names (whole or among words; its PDF's Discipline's
-first) that no page holds alone and whose number lies in its place. A page left one such sheet
-takes it, and the sheet leaves the others' choices; a sheet that is the one choice left of two
-pages is neither's. A sheet the order gives no page is the page's its ink agrees with clearly best,
-as by its ink above, of the pages whose place may hold it (`_by_its_ink`; 157's review: a page
-referring to a sheet in its body draws another sheet). A sheet still given no page is left as the
-pages named it, those whose place may hold it (the product keeps the surest and its report says
-both show it, m0-screens 4.5: "Pages 4 and 5 both show S-04; page 5 is used."). A page left
-without its sheet, the sheet given to another page or another page's place holding it where its
-own does not, says so (`same_sheet_as_another_page`). Pages of two PDFs naming one sheet are left as
-they are (a full Plot and a partial one: the product keeps the first added PDF's page).
+(a page whose own number is small text, and a larger mark on it another sheet's number), one is
+used for it where anything tells which. A page takes another sheet it names whole that no page
+holds alone and that its place in the PDF's order holds: the place runs from the number of the
+last page before it holding its sheet alone to the next's (a sheet list's order: "S-9" before
+"S-10"), and is not known where those two are out of order (a swapped pair makes only its own
+places unknown). A page left one sheet takes it, and the sheet leaves the others' choices. Of pages
+left naming one sheet alone, the one its drawing fits clearly best is used (its ink as by its ink
+above, else its placing's residual: 0.0 mm against 3.0 for a page referring to it, #703's review),
+else the one whose known place alone holds it; the others still name it, unused
+(`PlotMatch.used`), so the report says both show it and which is used (m0-screens 4.5: "Pages 4
+and 5 both show S-04; page 5 is used."). Where nothing tells, they are left as they were (the
+product keeps the surest). The order never moves a page by itself: it chooses only between pages
+its fit does not tell apart, or for a page that names another sheet whole. Pages of two PDFs naming
+one sheet are left as they are (a full Plot and a partial one: the product keeps the first added
+PDF's page).
 
 **Where** (`PlotTransform`: sheet to page, a scale, a turn in 90° steps, then an offset in page units,
 points; the sheet in its paper millimetres, as the buffers draw it). From the sizes first, of the page
@@ -74,7 +73,7 @@ import re
 from bisect import bisect_left
 from collections import Counter, deque
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -258,13 +257,13 @@ def one_page_each(
     disciplines: Mapping[str, str | None] | None = None,
     budget: list[int] | None = None,
 ) -> list[PlotMatch]:
-    """The matches with one page a sheet in each PDF where the order or the ink tells which (S24-A5,
-    the module's "One page, one sheet"): where two or more pages of a PDF name one sheet, each is
-    given the sheet its place in the PDF's order holds, or the sheet whose ink it agrees with
-    clearly best where the order gave that sheet no page (`_by_its_ink`); a sheet neither gave a
-    page is left as the pages whose place may hold it named it; any other page of the contest says
-    `same_sheet_as_another_page`. Pages of two PDFs naming one sheet are left as they are: a set may
-    hold a sheet's full Plot and a partial one (the product keeps the first added PDF's page,
+    """The matches with one page used a sheet in each PDF where anything tells which (S24-A5, the
+    module's "One page, one sheet"): where two or more pages of a PDF name one sheet, a page that
+    names another sheet whole, free and in its place takes it; of pages left naming one sheet alone,
+    the one its drawing fits clearly best (`_fits_clearly`), else the one whose place in the PDF's
+    order holds it, is the sheet's, and the others name it unused (`PlotMatch.used`); where nothing
+    tells, they are left as they were. Pages of two PDFs naming one sheet are left as they are: a set
+    may hold a sheet's full Plot and a partial one (the product keeps the first added PDF's page,
     `vextrus/takeoff/services/read_propose/plot.py`). `budget` is the ink tries left of
     `MAX_INK_TRIES`, shared with the match that found the pages (`match`'s); a full one without."""
     index = {id(sheet): i for i, sheet in enumerate(sheets)}
@@ -288,95 +287,176 @@ def one_page_each(
         contested = sorted(k for ks in held.values() if len(ks) > 1 for k in ks)
         if not contested:
             continue
-        # The PDF's order, read from its pages that alone hold their sheets, by page.
         taken = {i for i, ks in held.items() if len(ks) == 1}
+        # The PDF's order, read from its pages that alone hold their sheets, by page.
         row = sorted(
             (page.number, key)
             for i in taken
             if isinstance(page := found[held[i][0]].page, Page) and (key := keys[i]) is not None
         )
         discipline = (disciplines or {}).get(source) if isinstance(source, str) else None
+        own = {k: index[id(found[k].sheet)] for k in contested}
         places = {
-            k: _in_its_place(page, row, by_number, keys, taken, sheets, discipline)
-            if isinstance(page := found[k].page, Page)
-            else None
+            k: _place(page, row) if isinstance(page := found[k].page, Page) else None for k in contested
+        }
+        options = {
+            k: {own[k]}
+            | _elsewhere(found[k].page, places[k], by_number, keys, taken, sheets, discipline)
             for k in contested
         }
-        chosen = _one_each({k: o for k, o in places.items() if o is not None})
-        chosen.update(_by_its_ink(found, held, chosen, places, sheets, geometry, plots, budget))
-        given = set(chosen.values())
-        for i, ks in held.items():
-            if len(ks) < 2:
-                continue
-            # The pages naming a sheet that no page was given, and whose place may hold it: left
-            # naming it, as before (the product keeps the surest, its report saying both show it).
-            staying = [k for k in ks if k not in chosen and _may_hold(places[k], i)]
-            for k in ks:
-                page = found[k].page
-                if k in chosen:
-                    if found[k].sheet is not sheets[chosen[k]] and isinstance(page, Page):
-                        plot = (plots or {}).get(page.source_sha256)
-                        buffers = _buffers(geometry, chosen[k])
-                        out[k] = _placed(page, sheets[chosen[k]], buffers, plot)
-                elif i in given or (staying and k not in staying):
-                    out[k] = PlotMatch(page, reason=_reason(codes.SAME_SHEET_AS_ANOTHER_PAGE))
+        chosen, unused = _decide(found, options, own, places, keys, geometry, plots, budget)
+        for k in contested:
+            page = found[k].page
+            if k in unused:
+                out[k] = replace(found[k], used=False)
+            elif chosen[k] != own[k] and isinstance(page, Page):
+                plot = (plots or {}).get(page.source_sha256)
+                out[k] = _placed(page, sheets[chosen[k]], _buffers(geometry, chosen[k]), plot)
     return out
 
 
-def _may_hold(place: set[int] | None, i: int) -> bool:
-    """Whether a page's place in its PDF's order may hold the sheet: it holds it, or the place is
-    not known (`_in_its_place`)."""
-    return place is None or i in place
+def _place(page: Page, row: Sequence[tuple[int, _Key]]) -> _Place | None:
+    """The page's place in its PDF's order: from the number of the last page before it holding its
+    sheet alone to the next's (`row`, by page; none at an end); not known (none) where those two are
+    out of their numbers' order (a swapped pair makes only its own places unknown)."""
+    at = bisect_left(row, (page.number,))
+    low = row[at - 1][1] if at > 0 else None
+    high = row[at][1] if at < len(row) else None
+    if low is not None and high is not None and low > high:
+        return None
+    return low, high
 
 
-def _by_its_ink(
-    found: Sequence[PlotMatch],
-    held: Mapping[int, list[int]],
-    chosen: Mapping[int, int],
-    places: Mapping[int, set[int] | None],
+def _in_place(place: _Place | None, key: _Key | None) -> bool:
+    """Whether a known place holds the number."""
+    if place is None or key is None:
+        return False
+    low, high = place
+    return (low is None or low <= key) and (high is None or key <= high)
+
+
+def _elsewhere(
+    page: object,
+    place: _Place | None,
+    by_number: Mapping[str, list[int]],
+    keys: Sequence[_Key | None],
+    taken: set[int],
     sheets: Sequence[SheetCandidate],
+    discipline: str | None,
+) -> set[int]:
+    """The other sheets a page sharing its sheet may be: those whose number is one of its items
+    whole, that no page holds alone, and whose number its known place holds; its PDF's Discipline's
+    alone where it names one of those; none past `MAX_TITLE_READS` (a page naming hundreds tells
+    nothing). A number the page mentions only among other words, or one its place does not hold, is
+    never taken for another sheet: the order is a tie-break, never a reason to move a page alone."""
+    if not isinstance(page, Page) or place is None:
+        return set()
+    named: set[int] = set()
+    for item in page.items:
+        text = normal(item.text)
+        if text is not None:
+            named.update(by_number.get(text, ()))
+    fits = {i for i in named - taken if _in_place(place, keys[i])}
+    fits = {i for i in fits if _of(sheets[i], discipline)} or fits
+    return fits if len(fits) <= MAX_TITLE_READS else set()
+
+
+def _decide(
+    found: Sequence[PlotMatch],
+    options: Mapping[int, set[int]],
+    own: Mapping[int, int],
+    places: Mapping[int, _Place | None],
+    keys: Sequence[_Key | None],
     geometry: Sequence[SheetBuffers | None],
     plots: Mapping[str, Path] | None,
     budget: list[int],
-) -> dict[int, int]:
-    """Of the pages of a PDF naming a sheet that the order gave no page (`one_page_each`), the one its
-    ink agrees with clearly best, as `by_ink` takes a sheet for a page: each page's ink, where the
-    page was placed, against the sheet's (`ink.agreement`), the best at least `MIN_INK_F1` and by
-    `INK_MARGIN` more than the next (157's review: a page referring to a sheet in its body draws
-    another sheet). Only the pages whose place may hold the sheet are tried (`places`, `_may_hold`):
-    the ink never gives a sheet against the order. None where a page was not placed, its PDF or the
-    sheet's buffers are not given, or the pages are more than `MAX_BY_INK` or `budget` has left (the
-    match's, `MAX_INK_TRIES`): checked before the sheet's buffers are asked for (`_may_ink`)."""
+) -> tuple[dict[int, int], set[int]]:
+    """Each contested page's sheet (`one_page_each`), and the pages left naming a sheet another
+    page was taken for (unused). A page with one option left takes it, and the sheet leaves the
+    others' options. A sheet that is the one option left of several pages goes to the one its
+    drawing fits clearly best (`_fits_clearly`), else to the one whose known place alone holds it;
+    the others whose own sheet it is name it unused. Where neither tells, those are left naming it
+    (the product keeps the surest, its report saying both show it). A page that would have moved
+    to the sheet and was not taken for it stays on its own. A page left at the end keeps its own
+    sheet: unused where another page was taken for it."""
+    left = {k: set(o) for k, o in options.items()}
+    chosen: dict[int, int] = {}
+    unused: set[int] = set()
+    while True:
+        singles: dict[int, list[int]] = {}
+        for k in sorted(left):
+            if k not in chosen and len(left[k]) == 1:
+                singles.setdefault(next(iter(left[k])), []).append(k)
+        if not singles:
+            break
+        i, ks = min(singles.items(), key=lambda kv: kv[1][0])
+        winner: int | None = ks[0]
+        if len(ks) > 1:
+            winner = _fits_clearly(found, ks, i, geometry, plots, budget)
+            if winner is None:
+                holding = [k for k in ks if _in_place(places[k], keys[i])]
+                winner = holding[0] if len(holding) == 1 else None
+        for k in ks:
+            if k == winner or own[k] == i:
+                chosen[k] = i  # the sheet's page, or one left naming it (unused where one won)
+                if winner is not None and k != winner:
+                    unused.add(k)
+        for r in left:
+            if r not in chosen:
+                left[r].discard(i)  # one that would have moved to it keeps its own (below)
     given = set(chosen.values())
-    out: dict[int, int] = {}
-    for i, ks in held.items():
-        pages = [k for k in ks if k not in chosen and _may_hold(places.get(k), i)]
-        if len(ks) < 2 or i in given or not _may_ink(pages, budget):
-            continue
+    for k in left:
+        if k not in chosen:
+            chosen[k] = own[k]
+            if own[k] in given:  # its own sheet went to another page, and nothing else fits it
+                unused.add(k)
+    return chosen, unused
+
+
+def _fits_clearly(
+    found: Sequence[PlotMatch],
+    pages: list[int],
+    i: int,
+    geometry: Sequence[SheetBuffers | None],
+    plots: Mapping[str, Path] | None,
+    budget: list[int],
+) -> int | None:
+    """Of pages naming one sheet, the one its drawing fits clearly best: by their ink, as `by_ink`
+    takes a sheet for a page (`ink.agreement`, at least `MIN_INK_F1` and by `INK_MARGIN` more than
+    the next; 157's review: a page referring to a sheet in its body draws another sheet), where the
+    pages were placed on it with their PDF and the sheet's buffers given, the tries within `budget`
+    (checked before the buffers are asked for); else by their placing's residual, every page's
+    measured, the best within `AGREE_MM` and the next `AGREE_MM` more (#703's review: a page
+    plotting the sheet fit it at 0.0 mm, one referring to it at 3.0). None where neither tells."""
+    matches = [found[k] for k in pages]
+    if _may_ink(pages, budget) and all(m.transform is not None for m in matches):
         buffers = _buffers(geometry, i)
-        if buffers is None:
-            continue
-        budget[0] -= len(pages)
-        scored: list[tuple[float, int]] = []
-        for k in pages:
-            m = found[k]
-            plot = (plots or {}).get(getattr(m.page, "source_sha256", ""))
-            agrees = (
-                ink.agreement(m.page, buffers, m.transform, plot)
-                if isinstance(m.page, Page) and m.transform is not None and plot is not None
-                else None
-            )
-            if agrees is None:
-                break
-            scored.append((agrees, k))
-        else:
-            scored.sort(reverse=True)
-            if scored[0][0] >= MIN_INK_F1 and scored[0][0] - scored[1][0] >= INK_MARGIN:
-                out[scored[0][1]] = i
-    return out
+        if buffers is not None:
+            budget[0] -= len(pages)
+            scored: list[tuple[float, int]] = []
+            for k, m in zip(pages, matches, strict=True):
+                plot = (plots or {}).get(getattr(m.page, "source_sha256", ""))
+                agrees = (
+                    ink.agreement(m.page, buffers, m.transform, plot)
+                    if isinstance(m.page, Page) and m.transform is not None and plot is not None
+                    else None
+                )
+                if agrees is None:
+                    break
+                scored.append((agrees, k))
+            else:
+                scored.sort(reverse=True)
+                if scored[0][0] >= MIN_INK_F1 and scored[0][0] - scored[1][0] >= INK_MARGIN:
+                    return scored[0][1]
+    measured = sorted(
+        (m.residual, k) for k, m in zip(pages, matches, strict=True) if m.residual is not None
+    )
+    clear = len(measured) == len(pages) and measured[0][0] <= AGREE_MM
+    return measured[0][1] if clear and measured[1][0] - measured[0][0] >= AGREE_MM else None
 
 
 type _Key = tuple[tuple[int, int, str], ...]
+type _Place = tuple[_Key | None, _Key | None]
 
 
 def _order_key(number: str | None) -> _Key | None:
@@ -392,70 +472,6 @@ def _order_key(number: str | None) -> _Key | None:
         (0, len(run.lstrip("0")), run.lstrip("0")) if run[0] in "0123456789" else (1, 0, run)
         for run in runs
     )
-
-
-def _in_its_place(
-    page: Page,
-    row: Sequence[tuple[int, _Key]],
-    by_number: Mapping[str, list[int]],
-    keys: Sequence[_Key | None],
-    taken: set[int],
-    sheets: Sequence[SheetCandidate],
-    discipline: str | None,
-) -> set[int] | None:
-    """The sheets a page sharing its sheet may be by its place (`one_page_each`): those it names
-    (its text holds the number, whole or among words), no page holds alone, whose number lies in
-    the page's place in its PDF's order (from the number of the last page before it holding its
-    sheet alone to the next's, `row`); its PDF's Discipline's alone where it names one of those.
-    None, its place not known, where those two pages are out of their numbers' order (a swapped
-    pair makes only its own places unknown, never the whole PDF's), or where the sheets are more
-    than `MAX_TITLE_READS` (a page naming hundreds tells nothing)."""
-    at = bisect_left(row, (page.number,))
-    low = row[at - 1][1] if at > 0 else None
-    high = row[at][1] if at < len(row) else None
-    if low is not None and high is not None and low > high:
-        return None
-    named: set[int] = set()
-    for item in page.items:
-        text = normal(item.text)
-        if text is None:
-            continue
-        for word in {text, *_WORDS.split(text)}:
-            named.update(by_number.get(word, ()))
-    fits = set()
-    for i in named - taken:
-        key = keys[i]
-        if key is not None and (low is None or low <= key) and (high is None or key <= high):
-            fits.add(i)
-    ours = {i for i in fits if _of(sheets[i], discipline)}
-    fits = ours or fits
-    return fits if len(fits) <= MAX_TITLE_READS else None
-
-
-def _one_each(options: Mapping[int, set[int]]) -> dict[int, int]:
-    """Each page's sheet, of its `options`, one page a sheet: a page with one option left takes it,
-    and it leaves the others' options; a sheet that is the one option left of two pages is neither's
-    (nothing tells which), and leaves them all. A page left with none, or several, takes none."""
-    left = {k: set(o) for k, o in options.items()}
-    holders: dict[int, set[int]] = {}
-    for k, o in left.items():
-        for i in o:
-            holders.setdefault(i, set()).add(k)
-    chosen: dict[int, int] = {}
-    queue = deque(k for k in sorted(left) if len(left[k]) == 1)
-    while queue:
-        k = queue.popleft()
-        if k in chosen or len(left[k]) != 1:
-            continue
-        (i,) = left[k]
-        alone = [r for r in holders.get(i, ()) if len(left[r]) == 1]
-        if len(alone) == 1:
-            chosen[k] = i
-        for r in holders.pop(i, ()):
-            left[r].discard(i)
-            if r != k and len(left[r]) == 1:
-                queue.append(r)
-    return chosen
 
 
 def mention(page: Page, number: str) -> tuple[bool, float] | None:
