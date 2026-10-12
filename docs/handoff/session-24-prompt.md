@@ -29,6 +29,17 @@ Missed or wrong:
   because a fix round replaced their head.
 
 ## Where things stand (read first)
+- **Update after the close (12 Oct, 13:15-14:52Z, the budget's last 95 minutes):** both stopped tickets went to
+  their new shapes on fresh PRs. **#691 (FL8, branch s23-fl8c)**: Ctrl Z takes back only a sheet's latest standing
+  correction; review 1 FIX (60: an undo goes through another person's answer; 55/45: a refused undo blocks the
+  person's earlier acts for good; 50: undo does not give back the Plot match; 45: a re-read overwrites a
+  correction); fix round 1 was with its builder at the session's end. **#692 (FL5, branch s23-fl5c)**: long lines
+  decided last, after ruled tables and each title's own lines; review 1 FIX (65: any short rule makes a schedule
+  "hold a drawing"; 60: a long remark beside a plan's title takes its drawing); fix round 1 (a long title must be
+  centred on, and directly under or over, its drawing, as all four real long titles are) was with its builder.
+  #680 and #686 are closed. Read `uv run python -m scripts.factory.state` for both heads first; neither has a
+  real-drawings status yet. Issues filed: #689 (the Correct form's six mays), #690 (the Coverage panel's two
+  excluded totals). The older bullets below describe #680 and #686 as they stood at the close.
 - Landed: #681 (FL10: every Step 1 act and answer is one event). #687 (FL7: a Structural view proposes the Step of every building element its own title names, plus Step 14 for a site work; site works are never a view's subject; "setback" is site works only as a plot's; the Coverage panel's Unaccounted list, m0-screens 6.11; real-drawing run: 16 views and 10 checks changed, nothing lost or gained). It replaces #682 and #684 (closed with reasons). Owed: the owner's custody re-run of `tools/scorer/` (#687 changed `tools/scorer/score.py`: a 'site works' key phrase is read against a view's Step 14).
 - **#680 (FL8, branch s22-fl8, head 9fb8e7d2): FIX at round 3, the cap.** Review 3's standing findings: a
   correction's undo restores the oldest correction's `before` even when that correction was undone (75), and
@@ -49,7 +60,7 @@ Missed or wrong:
 - **Open for the owner:** #687 narrows "setback" to "plot setback" (review 2's 30: a Structural sheet titled just
   "SETBACK ARRANGEMENT" leaves its untitled section unaccounted, where the 11 Oct ruling's words give Step 14).
 - Issues: #685 (a flaky engine/plot timing test; failed #680's CI once).
-- Mays from the design gates (not filed yet): FL8 D1 (a corrected value's provenance line), D2 (E on a grouped
+- Mays from the design gates (filed as #689 and #690): FL8 D1 (a corrected value's provenance line), D2 (E on a grouped
   row names no copy), D3 (focus lost after undo moves a row), D4 (an empty Number's toast far from the field);
   FL7's "Excluded, by reason" total disagrees with the Coverage line (40).
 - Housekeeping: local branches s22-fl7, s22-fl7b and s22-fl5b hold real titles or a leaking commit: never push
