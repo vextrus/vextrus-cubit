@@ -35,6 +35,10 @@ msgstr "{projectName}’s sheets"
 msgid "Answers"
 msgstr "Answers"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "As read: <0/>"
+msgstr "As read: <0/>"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "{kind}, not to scale"
 msgstr "{kind}, not to scale"
@@ -737,10 +741,6 @@ msgstr "{name}, M3 onwards"
 #: src/takeoff/Step1Inspector.tsx
 msgid "Excluded by {name} (Vextrus), {date}: {reason}"
 msgstr "Excluded by {name} (Vextrus), {date}: {reason}"
-
-#: src/takeoff/Step1Inspector.tsx
-msgid "Read as <0/>"
-msgstr "Read as <0/>"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name}, {role}, {date}, {time}"

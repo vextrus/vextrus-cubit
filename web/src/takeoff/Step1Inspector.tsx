@@ -588,7 +588,7 @@ function ViewStoreysFields({ view, draft, onChange, error }: { view: ViewOut; dr
         {meaningRead ? (
           <span className="text-muted-foreground">
             <Trans>
-              Read as <OptionMeaning meaning={meaningRead} />
+              As read: <OptionMeaning meaning={meaningRead} />
             </Trans>
           </span>
         ) : null}

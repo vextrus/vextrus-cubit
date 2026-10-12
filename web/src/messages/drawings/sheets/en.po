@@ -80,7 +80,7 @@ msgid "drawings.sheets.text_unreadable"
 msgstr "Those words hold a character that cannot be kept, so nothing was left out. Type them again, or paste them as plain text."
 
 msgid "drawings.sheets.storeys_empty"
-msgstr "No storey was given, so nothing was changed. List the storeys the plan draws, each one, for example 3rd, 5th, 7th."
+msgstr "No storey was given, so nothing was changed. List each storey the plan draws, for example 3rd, 5th, 7th."
 
 msgid "drawings.sheets.storeys_too_long"
 msgstr "That list of storeys is longer than {limit, plural, one {# character} other {# characters}}, so nothing was changed. List only the storeys the plan draws."
@@ -107,10 +107,10 @@ msgid "drawings.sheets.storeys_meaning_unknown"
 msgstr "The storeys must mean either \"at floor level\" or \"floor to floor\", so nothing was changed. Choose one."
 
 msgid "drawings.sheets.storeys_view_unknown"
-msgstr "That drawing is not one of this sheet's, so nothing was changed. Reload the sheet and try again."
+msgstr "That view is not on this sheet, so nothing was changed. Reload the sheet and try again."
 
 msgid "drawings.sheets.storeys_not_a_plan"
-msgstr "Only a plan has storeys to correct, so nothing was changed."
+msgstr "That view is not a plan, and only a plan view has storeys, so nothing was changed. Reload the sheet and try again."
 
 msgid "drawings.sheets.storeys_view_twice"
-msgstr "One drawing was given storeys twice, so nothing was changed. Give each drawing its storeys once."
+msgstr "One view was given storeys twice, so nothing was changed. Give each view its storeys once."
