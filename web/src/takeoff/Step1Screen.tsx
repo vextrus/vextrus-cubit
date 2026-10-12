@@ -20,14 +20,16 @@ import { getRouteApi, useSearch } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizontal } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
+import { useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
+import { problemText } from '@/auth/problem'
 import { SheetViewer, type SheetOutline } from '@/sheet'
 import { useFormat } from '@/format'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/primitives/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
 import { DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
-import { SheetName, useStep1Acts } from './acts'
+import { SheetName, useStep1Acts, type SheetChange } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
 import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
@@ -230,6 +232,9 @@ function useSummaryCounts(project: ProjectSummary, model: Step1Model) {
 }
 
 /** Sheets in list order: what sheet mode pages through (a Question's copies included, files not). */
+/** E on a confirmed sheet: the words the server refuses its correction with. */
+const CONFIRMED_NOT_CORRECTED = { code: 'takeoff.step1.confirmed_not_corrected', params: {} } as const
+
 function sheetsInOrder(model: Step1Model): ProposalOut[] {
   // Each printed sheet once, by its id: two copies of one number are two stops (M18).
   const seen = new Set<string>()
@@ -264,9 +269,10 @@ function Step1({
   drawn: Step1Data
   reading: readonly FileOut[]
 }) {
-  const { t } = useLingui()
+  const { t, i18n } = useLingui()
   const readOnly = readOnlyRole(session)
   const refuse = useReadOnlyToast()
+  const shell = useShell()
   // The data drawn now: an act's toast waits until it is what Step 1 reloaded (#167, F1).
   const acts = useStep1Acts(project.id, drawn)
   const toast = useToast()
@@ -291,13 +297,20 @@ function Step1({
    * inspector card, the bar, Q) leaves an exclusion picker acting on rows the list has since left.
    */
   const setFocused = (key: string | null) => {
-    if (key !== focused) setPicker(null)
+    if (key !== focused) {
+      setPicker(null)
+      setCorrecting(null)
+    }
     setFocusedState(key)
   }
   const setRange = (next: { anchor: string; end: string } | null) => {
     setPicker(null)
     setRangeState(next)
   }
+  /** E: "Correct the Proposal" open in the inspector (§6.9), on this sheet's Proposal (by its id); closed when focus leaves it. */
+  const [correcting, setCorrecting] = useState<string | null>(null)
+  /** A correction closed: its sheet's row takes the focus again once drawn (a new number may move the row). */
+  const refocusSheet = useRef<string | null>(null)
   /** O: the view outlines drawn on the sheet; kept through paging. */
   const [outlinesOn, setOutlinesOn] = useState(true)
   /** Z: each press (or the button) flies to the selected view again. */
@@ -332,6 +345,8 @@ function Step1({
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
+  /** The focused sheet: in sheet mode the one open (of two copies in one row, the one shown), else the row's first. */
+  const focusedSheet = (mode === 'sheet' && open && focusedRow?.sheets.some((s) => s.id === open.id) ? open : focusedRow?.sheets[0]) ?? null
   const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
   const viewsInOrder = open ? [...(open.views ?? [])].sort((a, b) => a.ordinal - b.ordinal) : []
   const selectedRows = useMemo(() => {
@@ -348,6 +363,22 @@ function Step1({
     const next = at === -1 ? (by > 0 ? viewsInOrder[0] : viewsInOrder.at(-1)) : viewsInOrder[at + by]
     setViewPick(next ? { sheet: open.id, view: next.id } : null)
   }
+
+  // A correction closed: in the list, its sheet's row as Step 1 now draws it (a new number may put it in a
+  // Question's row) takes the browser's focus, and with it the screen's (the row's own focus handler).
+  useLayoutEffect(() => {
+    const id = refocusSheet.current
+    if (!id) return
+    if (mode !== 'list') {
+      refocusSheet.current = null
+      return
+    }
+    const row = model.rows.find((r) => r.sheets.some((p) => p.id === id))
+    const el = row ? listRef.current?.querySelector<HTMLElement>(`[data-row="${CSS.escape(row.key)}"]`) : null
+    if (!el) return
+    refocusSheet.current = null
+    el.focus({ preventScroll: false })
+  })
 
   // A row focused by the keys (↑ ↓, Q, back from a sheet) takes the browser's focus once it is drawn.
   useLayoutEffect(() => {
@@ -614,6 +645,27 @@ function Step1({
     else nextOpen()
   }
   const undoKey = () => (readOnly ? refuse(readOnly) : void acts.undoLast())
+  /** E (§2.2, §6.9): "Correct the Proposal" for the focused sheet, in the inspector; one sheet at a time. */
+  const correctKey = () => {
+    if (readOnly) return refuse(readOnly)
+    if (!focusedSheet || chosenKeys.size > 1) return
+    // A confirmed sheet is never corrected: said at the key, in the server's words, not after typing.
+    if (focusedSheet.decision === 'confirmed') return toast.show({ message: problemText({ refusal: CONFIRMED_NOT_CORRECTED }, format, i18n) })
+    // The form is drawn in the Selection tab, in place of the sheet's facts: shown, never behind the Questions tab or a panel.
+    setPicker(null)
+    setPanel(null)
+    shell.showInspectorTab('selection')
+    setCorrecting(focusedSheet.id)
+  }
+  const correctingSheet = correcting !== null && focusedSheet?.id === correcting ? focusedSheet : null
+  const closeCorrection = (sheetId: string) => {
+    setCorrecting(null)
+    refocusSheet.current = sheetId
+  }
+  const saveCorrection = (sheet: ProposalOut, change: SheetChange) => {
+    // Refused (its words toasted) or dropped behind another act: the form stays, with what was typed.
+    void acts.correctSheet(sheet, change).then((done) => done && closeCorrection(sheet.id))
+  }
   const excludeKey = () => {
     if (readOnly) return refuse(readOnly)
     // Several rows selected (list mode): one exclusion for all their sheets, with one reason (§6.9).
@@ -625,8 +677,9 @@ function Step1({
   const spaceLabel = t`Open the focused sheet, or go back to the list`
   useKeys([
     { key: 'Enter', label: t`Do what the bar says`, group: 'screen', run: (event) => (event.repeat ? undefined : enter()) },
-    { key: 'Ctrl Z', label: t`Undo your last confirmation, exclusion or drawing list on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
+    { key: 'Ctrl Z', label: t`Undo your last confirmation, exclusion, correction or drawing list on Step 1`, group: 'screen', run: (event) => (event.repeat ? undefined : undoKey()) },
     { key: 'X', label: t`Exclude the focused sheet, with a reason`, group: 'screen', run: excludeKey },
+    { key: 'E', label: t`Correct the focused sheet’s number or title`, group: 'screen', when: () => focusedSheet !== null, run: (event) => (event.repeat ? undefined : correctKey()) },
     { key: '↓', label: t`Next row; in a sheet, the next sheet`, group: 'screen', run: () => moveFocus(1) },
     { key: '↑', label: t`Previous row; in a sheet, the previous sheet`, group: 'screen', run: () => moveFocus(-1) },
     { key: ']', label: t`Next sheet`, group: 'sheet', when: () => mode === 'sheet', run: () => page(1) },
@@ -704,7 +757,8 @@ function Step1({
         showTitle={mode === 'list'}
         readOnly={readOnly !== null}
         open={mode === 'sheet' && open ? open : undefined}
-        acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false) }}
+        acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false), correct: correctKey }}
+        correcting={correctingSheet ? { sheet: correctingSheet, save: (change) => saveCorrection(correctingSheet, change), cancel: () => closeCorrection(correctingSheet.id) } : null}
         selectedView={selectedView}
         slots={stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))}
         onSelectView={mode === 'sheet' && open ? (view) => setViewPick({ sheet: open.id, view }) : undefined}

@@ -19,6 +19,12 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   (`sheet`, `named` as `question_first`).
 - `held_file` (166): as `one_source`, for sheets of a held file the QS chose to read anyway (no
   open Question holds them; they never agree, m0-screens 6.4), with the same params.
+- `nothing_to_correct` (S22-FL8): a correction giving no number or title other than the sheet's
+  own (400).
+- `confirmed_not_corrected` (S22-FL8): a correction of a confirmed sheet (409); its Confirmation is
+  undone first.
+- `correction_moved_on` (S23-FL8): undo of a correction whose sheet has changed since (a later
+  correction, a number or answer given, a confirmation) (409); nothing is restored through them.
 - `nothing_to_undo`: undo with no act of the QS's own left to undo on Step 1 (409).
 - `answer_stays` (156): undo whose act to take back was made by answering a Question (its confirm
   or exclusion); an answer has no undo, so nothing changes (409).
@@ -39,7 +45,8 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
 - The acts, in the event log (S22-FL10; `event=True`, each with the acting user, the Project and the
   Confirmation as subject; payload `sheets`: how many it decided): `confirmed`, `confirmed_back_in`
   (every sheet it confirmed was excluded before), `excluded`, `assigned` (views put in Steps),
-  `drawing_list_set` and `undone`. An answer to a Question is recorded as the confirm or exclusion it
+  `drawing_list_set`, `corrected` (S22-FL8: one sheet's number or title; payload `sheets` 1) and
+  `undone`. An answer to a Question is recorded as the confirm or exclusion it
   makes; a refused act records nothing.
 """
 
@@ -48,7 +55,15 @@ from engine.messages import MessageCode
 NOTHING_CHOSEN = MessageCode("takeoff.step1.nothing_chosen")
 DISCIPLINE_UNKNOWN = MessageCode("takeoff.step1.discipline_unknown")
 NOTHING_TO_UNDO = MessageCode("takeoff.step1.nothing_to_undo")
+NOTHING_TO_CORRECT = MessageCode("takeoff.step1.nothing_to_correct")
+CONFIRMED_NOT_CORRECTED = MessageCode("takeoff.step1.confirmed_not_corrected")
 ANSWER_STAYS = MessageCode("takeoff.step1.answer_stays")
+CORRECTION_MOVED_ON = MessageCode("takeoff.step1.correction_moved_on", params=("sheet", "named"))
+"""A correction not undone because its sheet changed since (409); `sheet`, `named`: as question_first."""
+ANSWER_STAYS_AFTER_CORRECTION = MessageCode(
+    "takeoff.step1.answer_stays_after_correction", params=("sheet", "named")
+)
+"""`answer_stays`, when the undo passed over a correction that had moved on first (409)."""
 QUESTION_FIRST = MessageCode(
     "takeoff.step1.question_first", params=("count", "asks", "sheet", "named", "question")
 )
@@ -77,5 +92,6 @@ CONFIRMED_BACK_IN = MessageCode(
 EXCLUDED = MessageCode("takeoff.step1.excluded", params=("actor", "sheets", "views"), event=True)
 ASSIGNED = MessageCode("takeoff.step1.assigned", params=("actor", "sheets"), event=True)
 DRAWING_LIST_SET = MessageCode("takeoff.step1.drawing_list_set", params=("actor",), event=True)
+CORRECTED = MessageCode("takeoff.step1.corrected", params=("actor",), event=True)
 UNDONE = MessageCode("takeoff.step1.undone", params=("actor",), event=True)
 ANSWERED = MessageCode("takeoff.step1.answered", params=("actor",), event=True)

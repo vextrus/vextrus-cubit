@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -18,7 +18,7 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
+import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -63,6 +63,10 @@ interface Entry {
    * for an answer). Set when the answer is sent, so a Ctrl Z while it is in flight is held by it too.
    */
   answer?: boolean
+  /** A correction: the server may pass it over (its sheet moved on) and undo the act before it. */
+  kind?: 'correct'
+  /** The Confirmations its server calls made (the replies' `confirmation_id`): an undo's reply is matched to its entry by them. */
+  ids: string[]
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -92,10 +96,11 @@ export function SheetName({ sheets, start = false, count = false }: { sheets: re
 
 function UndoneWords({ act }: { act: ActOut }) {
   const n = act.sheets
-  // 19a's ConfirmationAct: confirm, exclude, drawing_list.
+  // 19a's ConfirmationAct: confirm, exclude, drawing_list; S22-FL8's correct.
   if (act.act === 'confirm' || act.act === 'confirmed') return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
   if (act.act === 'exclude' || act.act === 'excluded') return <Plural value={n} one="left out # sheet" other="left out # sheets" />
   if (act.act === 'drawing_list') return <Trans>the drawing list you set</Trans>
+  if (act.act === 'correct') return <Trans>your last correction of a sheet’s number or title</Trans>
   return <Trans>your last change to Step 1</Trans>
 }
 
@@ -148,12 +153,28 @@ function StaleWords({ done }: { done: ReactNode }) {
   )
 }
 
+/** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
+export interface SheetChange {
+  number?: string
+  title?: string
+}
+
+/** What a correction changed, after "Corrected S-05: " (§6.9): "number → S-51", "title", or both. */
+function CorrectedWords({ change }: { change: SheetChange }) {
+  const to = change.number !== undefined ? <DrawingText kind="sheet-number" text={change.number} truncate={false} /> : null
+  if (to && change.title !== undefined) return <Trans>number → {to}; title</Trans>
+  if (to) return <Trans context="a correction, after its sheet's name">number → {to}</Trans>
+  return <Trans>title</Trans>
+}
+
 export interface Step1Acts {
   bulk(confirming: readonly ProposalOut[], leavingOut: readonly ProposalOut[]): Promise<void>
   /** `backIn`: the actor's name, when the sheets were excluded and are confirmed back in (6.9). */
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
+  /** Corrects a sheet's number or title (§6.9, `E`): only what changed. */
+  correctSheet(sheet: ProposalOut, change: SheetChange): Promise<boolean>
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
@@ -166,6 +187,18 @@ export interface Step1Acts {
  * Step 1 reloaded after the act (#167, F1), so the toast never stands beside the Count it changed.
  */
 export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1Acts {
+  // A correction is one of the acts below (its Ctrl Z and its toast are theirs), handed out through a ref.
+  const corrector = useRef<Step1Acts['correctSheet'] | null>(null)
+  const handOut = useCallback((correct: Step1Acts['correctSheet']) => {
+    corrector.current = correct
+  }, [])
+  const acts = useActs(projectId, shown, handOut)
+  const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change) => corrector.current?.(sheet, change) ?? Promise.resolve(false), [])
+  return { ...acts, correctSheet }
+}
+
+/** Step 1's acts but the correction, which it gives `handOut` for `useStep1Acts` to return. */
+function useActs(projectId: string, shown: Step1Data | null | undefined, handOut: (correct: Step1Acts['correctSheet']) => void): Omit<Step1Acts, 'correctSheet'> {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
@@ -280,9 +313,9 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
    * counts its calls once they are made. A key that comes while another act or an undo is in flight is
    * dropped, and kept as an act that made nothing, so the Ctrl Z after it undoes nothing and says so.
    */
-  const begin = useCallback((): ((calls: number, words: ReactNode) => void) | null => {
+  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct', ids?: string[]) => void) | null => {
     if (pending.current || undos.current > 0) {
-      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true })
+      if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true, ids: [] })
       return null
     }
     pending.current = true
@@ -292,11 +325,13 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     toast.clear()
     waiting.current = null
     let counted = () => {}
-    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false }
+    const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false, ids: [] }
     history.current.push(entry)
-    return (calls, words) => {
+    return (calls, words, kind, ids) => {
       entry.calls = calls
       entry.words = words
+      entry.kind = kind
+      entry.ids = ids ?? []
       entry.counted = true
       counted()
     }
@@ -387,8 +422,30 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
             }
             let left = entry.calls
             try {
-              for (; left > 0; left--) await undo(projectId)
-              const words = entry.words
+              let reply: ActOut | undefined
+              for (; left > 0; left--) reply = await undo(projectId)
+              let words = entry.words
+              if (entry.kind === 'correct' && reply && entry.ids.length > 0 && !entry.ids.includes(reply.confirmation_id)) {
+                // The server passed the correction over (its sheet moved on) and undid another act: matched
+                // to its entry by the Confirmation it took, so exactly that entry goes, the words are its,
+                // and every passed-over correction stays to undo.
+                const at = history.current.findLastIndex((e) => e.ids.includes(reply.confirmation_id))
+                const taken = at === -1 ? undefined : history.current[at]
+                if (taken) {
+                  taken.ids = taken.ids.filter((id) => id !== reply.confirmation_id)
+                  if (taken.calls > 1) {
+                    // A bulk act of several calls: one of them is taken back; the rest stay to undo.
+                    taken.calls -= 1
+                    words = <UndoneWords act={reply} />
+                  } else {
+                    history.current.splice(at, 1)
+                    words = taken.words ?? <UndoneWords act={reply} />
+                  }
+                } else {
+                  words = <UndoneWords act={reply} />
+                }
+                restore([entry])
+              }
               done = {
                 message: <Trans>Undone: {words}</Trans>,
                 stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
@@ -455,16 +512,19 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
 
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
-    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode): Promise<boolean> => {
+    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode, kind?: 'correct'): Promise<boolean> => {
       const counted = begin()
       if (!counted) return false
       const mark = marked()
       let made = 0
+      const ids: string[] = []
       let done: Done | null = null
       try {
         for (const call of calls) {
-          await call()
+          const out = await call()
           made += 1
+          const id = (out as { confirmation_id?: unknown } | undefined)?.confirmation_id
+          if (typeof id === 'string') ids.push(id)
         }
         done = { message: said, onUndo: undoFor(words) }
         return true
@@ -473,7 +533,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
         say(error)
         return false
       } finally {
-        counted(made, words)
+        counted(made, words, kind, ids)
         showDone(done, await settle(mark), mark)
       }
     },
@@ -493,6 +553,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
         if (ids.length) calls.push({ sheets: ids.length, out: true, call: () => exclude(projectId, ids, reason) })
       }
       let made = 0
+      const ids: string[] = []
       let n = 0
       let m = 0
       // Made before the calls, so the toast's Undo and the entry share it; it reads n and m when shown.
@@ -507,8 +568,10 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
       try {
         for (const c of calls) {
           at = c
-          await c.call()
+          const out = await c.call()
           count(c)
+          const id = (out as { confirmation_id?: unknown } | undefined)?.confirmation_id
+          if (typeof id === 'string') ids.push(id)
         }
         done = { message: <BulkDone n={n} m={m} />, onUndo: undoFor(words) }
       } catch (error) {
@@ -525,7 +588,7 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
             onUndo: undoFor(words),
           }
       } finally {
-        counted(made, words)
+        counted(made, words, undefined, ids)
         showDone(done, await settle(mark), mark)
       }
     },
@@ -599,6 +662,30 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
     },
     [begin, i18n, marked, projectId, say, settle, showDone, undoFor],
   )
+
+  const correctSheet = useCallback(
+    (sheet: ProposalOut, change: SheetChange) => {
+      const name = <SheetName sheets={[sheet]} />
+      const what = <CorrectedWords change={change} />
+      // A sheet left out stays out (the words gate of S22-FL8): only an undecided one is "still a Proposal".
+      return run(
+        [() => correct(projectId, sheet.id, change)],
+        <Trans>corrected {name}</Trans>,
+        sheet.decision === 'excluded' ? (
+          <Trans context="the toast of a correction of an excluded sheet">
+            Corrected {name}: {what}. It stays excluded.
+          </Trans>
+        ) : (
+          <Trans>
+            Corrected {name}: {what}. Still a Proposal until confirmed.
+          </Trans>
+        ),
+        'correct',
+      )
+    },
+    [projectId, run],
+  )
+  useLayoutEffect(() => handOut(correctSheet), [handOut, correctSheet])
 
   const answerQuestion = useCallback(
     async (entry: QuestionEntry, option: string, text = '') => {

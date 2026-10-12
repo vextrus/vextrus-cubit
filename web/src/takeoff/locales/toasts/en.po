@@ -24,6 +24,10 @@ msgid "your last change to Step 1"
 msgstr "your last change to Step 1"
 
 #: src/takeoff/acts.tsx
+msgid "number → {to}; title"
+msgstr "number → {to}; title"
+
+#: src/takeoff/acts.tsx
 msgid "Confirmed {name}."
 msgstr "Confirmed {name}."
 
@@ -34,6 +38,11 @@ msgstr "Undone: <0/>"
 #: src/takeoff/acts.tsx
 msgid "An untitled sheet laid out in the drawing of {file}"
 msgstr "An untitled sheet laid out in the drawing of {file}"
+
+#: src/takeoff/acts.tsx
+msgctxt "the toast of a correction of an excluded sheet"
+msgid "Corrected {name}: {what}. It stays excluded."
+msgstr "Corrected {name}: {what}. It stays excluded."
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}"
@@ -48,6 +57,10 @@ msgid "Step 1 could not be reloaded, so the confirmed count may be behind. Reloa
 msgstr "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
 
 #: src/takeoff/acts.tsx
+msgid "Corrected {name}: {what}. Still a Proposal until confirmed."
+msgstr "Corrected {name}: {what}. Still a Proposal until confirmed."
+
+#: src/takeoff/acts.tsx
 msgid "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."
 msgstr "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."
 
@@ -58,6 +71,11 @@ msgstr "The rest was not done: {refused}"
 #: src/takeoff/acts.tsx
 msgid "the drawing list you set"
 msgstr "the drawing list you set"
+
+#: src/takeoff/acts.tsx
+msgctxt "a correction, after its sheet's name"
+msgid "number → {to}"
+msgstr "number → {to}"
 
 #. placeholder {0}: sheets.length
 #: src/takeoff/acts.tsx
@@ -93,6 +111,14 @@ msgid "confirmed {name}"
 msgstr "confirmed {name}"
 
 #: src/takeoff/acts.tsx
+msgid "your last correction of a sheet’s number or title"
+msgstr "your last correction of a sheet’s number or title"
+
+#: src/takeoff/acts.tsx
+msgid "title"
+msgstr "title"
+
+#: src/takeoff/acts.tsx
 msgid "{n, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{n, plural, one {left out # sheet} other {left out # sheets}}"
 
@@ -119,6 +145,10 @@ msgstr "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may b
 #: src/takeoff/acts.tsx
 msgid "{m, plural, one {left out # sheet} other {left out # sheets}}"
 msgstr "{m, plural, one {left out # sheet} other {left out # sheets}}"
+
+#: src/takeoff/acts.tsx
+msgid "corrected {name}"
+msgstr "corrected {name}"
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {confirmed # sheet} other {confirmed # sheets}} and left out {m}"
