@@ -249,6 +249,29 @@ describe('Correct the Proposal (§6.9)', () => {
     expect(count(step1, 'POST /undo')).toBe(1)
   })
 
+  it('says a typed source in the bar, as the inspector does, and that a corrected sheet leaves Confirm all', async () => {
+    // Design gate of #706 (65): the bar read "from its title block" for a typed title.
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    Object.assign(step1.proposals.find((p) => p.number === 'E-01')!, { title_source: 'typed' })
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('E-01')).getByText('E-01'))
+    await waitFor(() => expect(bodyText()).toContain('E-01 has one source: its title as you typed it, and its number from its title block'))
+    expect(bodyText()).not.toContain('E-01 has one source: number and title from its title block')
+
+    // S-05 agrees: a correction takes it out of Confirm all, and the toast says so.
+    step1.answerOnce('POST /correct', 200, { confirmation_id: '01a10000-0000-7000-8000-00000000c0e2', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    const number = within(screen.getByRole('complementary')).getByRole('textbox', { name: 'Number' })
+    await userEvent.clear(number)
+    await userEvent.type(number, 'S-51')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('It is no longer in Confirm all: confirm it on its own.'))
+  })
+
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {
     const { step1, title } = await correcting()
     step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })
