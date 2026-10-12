@@ -143,10 +143,6 @@ msgid "{Name} excluded: {short}. They stay in the count."
 msgstr "{Name} excluded: {short}. They stay in the count."
 
 #: src/takeoff/acts.tsx
-msgid "It is no longer in Confirm all: confirm it on its own."
-msgstr "It is no longer in Confirm all: confirm it on its own."
-
-#: src/takeoff/acts.tsx
 msgid "an untitled sheet laid out in the drawing of {file}"
 msgstr "an untitled sheet laid out in the drawing of {file}"
 
@@ -157,10 +153,6 @@ msgstr "{n, plural, one {confirmed # sheet} other {confirmed # sheets}}"
 #: src/takeoff/acts.tsx
 msgid "{Name} excluded: {short}. It stays in the count."
 msgstr "{Name} excluded: {short}. It stays in the count."
-
-#: src/takeoff/acts.tsx
-msgid "A Question holds it now: answer {tag} first."
-msgstr "A Question holds it now: answer {tag} first."
 
 #: src/takeoff/acts.tsx
 msgid "Undone: <0/>. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."

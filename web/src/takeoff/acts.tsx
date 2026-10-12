@@ -18,7 +18,8 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, correct, drawingListQuery, exclude, questionsQuery, setList, step1Key, undo, type ActOut, type ProposalOut, type QuestionOut, type Step1Data } from './data'
+import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
+import { LeavesConfirmAll } from './LeavesConfirmAll'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -156,21 +157,6 @@ function StaleWords({ done }: { done: ReactNode }) {
 }
 
 /** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
-/**
- * The tail of a correction's toast for a sheet that was in Confirm all: read when the toast is drawn, so it
- * names the Question the new number raised (it holds the sheet: answered, not "confirmed on its own").
- */
-function LeavesConfirmAll({ projectId, proposal, sheet }: { projectId: string; proposal: string; sheet: string }) {
-  const queryClient = useQueryClient()
-  const asked = queryClient.getQueryData<readonly QuestionOut[]>(questionsQuery(projectId).queryKey) ?? []
-  const holding = asked.find((q) => q.status === 'open' && (q.subject_id === sheet || ((q.proposals ?? []) as readonly string[]).includes(proposal)))
-  if (holding) {
-    const tag = `Q${holding.raised}`
-    return <Trans>A Question holds it now: answer {tag} first.</Trans>
-  }
-  return <Trans>It is no longer in Confirm all: confirm it on its own.</Trans>
-}
-
 /** A refused correction: its words, and the field they are about (none: the form's). `n` is new for each refusal. */
 export interface CorrectionRefusal {
   text: string

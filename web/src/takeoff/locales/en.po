@@ -570,6 +570,10 @@ msgstr "It is beside a gap in its Discipline’s numbering that {tag} asks about
 msgid "State"
 msgstr "State"
 
+#: src/takeoff/LeavesConfirmAll.tsx
+msgid "It is no longer in Confirm all: confirm it on its own."
+msgstr "It is no longer in Confirm all: confirm it on its own."
+
 #: src/takeoff/DrawingListDialog.tsx
 msgid "A range such as 01–29, or the list as the consultant sent it"
 msgstr "A range such as 01–29, or the list as the consultant sent it"
@@ -717,6 +721,10 @@ msgstr "{Name} agrees: number and title from the title block, in numbering witho
 msgctxt "storey"
 msgid "Lift machine room roof"
 msgstr "Lift machine room roof"
+
+#: src/takeoff/LeavesConfirmAll.tsx
+msgid "A Question holds it now: answer {tag} first."
+msgstr "A Question holds it now: answer {tag} first."
 
 #: src/takeoff/SheetList.tsx
 msgid "State mark"
