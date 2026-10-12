@@ -347,7 +347,9 @@ function Step1({
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
-  const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
+  // While a correction is open, the focused row is its sheet's row wherever a reload has put it (another person's number).
+  const correctingRow = correcting === null ? null : (model.rows.find((r) => r.sheets.some((s) => s.id === correcting)) ?? null)
+  const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : correctingRow && !rowByKey(focused) ? correctingRow : rowByKey(focused)
   /** The focused sheet: in sheet mode the one open (of two copies in one row, the one shown), else the row's first. */
   const focusedSheet = (mode === 'sheet' && open && focusedRow?.sheets.some((s) => s.id === open.id) ? open : focusedRow?.sheets[0]) ?? null
   const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
@@ -676,11 +678,6 @@ function Step1({
   }
   // Tied to its sheet by id: a reload (another person changed its number) moves the row, never the form.
   const correctingSheet = correcting !== null ? (model.rows.flatMap((r) => [...r.sheets]).find((s) => s.id === correcting) ?? null) : null
-  useEffect(() => {
-    if (correcting === null) return
-    const row = model.rows.find((r) => r.sheets.some((s) => s.id === correcting))
-    if (row && row.key !== focused) setFocusedState(row.key)
-  })
   const closeCorrection = (sheetId: string) => {
     setCorrecting(null)
     refocusSheet.current = sheetId
