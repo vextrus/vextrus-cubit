@@ -406,6 +406,8 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "scripts/tests/acceptance/ts17f6/test_bar.py",
         "CLAUDE.md",
         "web/src/permissions/Grant.tsx",
+        "engine/plot/picture.py",
+        "engine/plot/_picture_child.py",
     ],
 )
 def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:

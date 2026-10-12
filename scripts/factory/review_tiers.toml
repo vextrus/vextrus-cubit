@@ -110,6 +110,8 @@ paths = [
   "docs/design/**",  # web/scripts/lint-design-docs.mjs (web.yml), tools/lint/words.py
   "**/CLAUDE*.md",  # Claude Code loads it as instructions, in any folder
   "**/AGENTS*.md",
+  # Inside the session-24 engine globs below: the hostile-PDF sandbox (pdfium under bubblewrap).
+  "engine/plot/*picture*",
 ]
 
 [lax]
