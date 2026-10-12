@@ -128,17 +128,26 @@ def test_a_views_subject_is_what_it_was_before_site_works_were_words(title: str)
 @pytest.mark.parametrize(
     ("sheet_title", "view_title", "steps"),
     [
+        # a setback view takes its sheet's Steps, whatever storey word it carries or none
         ("7TH FLOOR SETBACK BEAM DETAILS ZQ", "SECTION AT SETBACK ZQ-1", ("beams",)),
         ("8TH FLOOR SETBACK SLAB LAYOUT ZQ", "SETBACK EDGE DETAIL ZQ", ("slabs",)),
-        ("SETBACK ARRANGEMENT ZQ", "SETBACK EDGE DETAIL ZQ", ("site_mep",)),
-        ("SETBACK ARRANGEMENT ZQ", "SECTION AT SETBACK ZQ-1", ("site_mep",)),
+        ("BEAM DETAILS ZQ", "PODIUM SETBACK PLAN ZQ", ("beams",)),
+        ("BEAM DETAILS ZQ", "ROOF SETBACK PLAN ZQ", ("beams",)),
+        ("BEAM DETAILS ZQ", "BASEMENT SETBACK PLAN ZQ", ("beams",)),
+        ("BEAM DETAILS ZQ", "MEZZANINE SETBACK PLAN ZQ", ("beams",)),
+        ("TYPICAL DETAILS ZQ", "PODIUM SETBACK PLAN ZQ", ()),
+        ("TYPICAL DETAILS ZQ", "7TH FLOOR SETBACK PLAN ZQ", ()),
+        # a plot's setback is site works, on whatever sheet
+        ("TYPICAL DETAILS ZQ", "PLOT SETBACK PLAN ZQ", ("site_mep",)),
+        ("7TH FLOOR BEAM DETAILS ZQ", "PLOT SETBACK PLAN ZQ", ("site_mep",)),
+        # the sheet's own site works reach its untitled views (the acceptance's rule)
+        ("PLOT SETBACK ARRANGEMENT ZQ", "SETBACK PLAN ZQ", ("site_mep",)),
+        ("PLOT SETBACK ARRANGEMENT ZQ", "SECTION AT SETBACK ZQ-1", ("site_mep",)),
     ],
 )
-def test_a_setback_is_judged_by_the_views_sheet_too(
+def test_a_setback_is_site_works_only_as_a_plots(
     sheet_title: str, view_title: str, steps: tuple[str, ...]
 ) -> None:
-    """A setback word is site works only when neither the view's title nor its sheet's names a storey
-    or a building element; else the view takes its sheet's building Step."""
     [view] = structural_views(sheet_title, [(view_title, LEFT)], number="S-41")
     assert view.steps == steps
     assert view.subject != "site_works"

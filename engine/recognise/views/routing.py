@@ -12,7 +12,7 @@ plans and 3D/perspective views are excluded `for_information`; a legend goes to 
 Discipline but those of `STEP_DISCIPLINES`) to its Discipline's Part; general notes to Step 2. A
 Structural view goes to the Steps of its subject (`STRUCTURAL_STEPS`: 4 to 10, and 14 for site works).
 A title is read by what it names, never by the order of its words (`_own`): a bare "site" only says
-where, and a setback beside a storey or a building element is a storey's word. On a Structural sheet a
+where, and a setback is site works only as a plot's ("PLOT SETBACK"). On a Structural sheet a
 view whose own title names several building elements is proposed for the Step of each, and one that
 names a site work (a boundary or compound wall) as well for Step 14 too; one naming site works only
 goes to Step 14 alone. The QS confirms; no word list decides between them.
@@ -74,7 +74,7 @@ STRUCTURAL_STEPS: Mapping[str, tuple[str, ...]] = {
 }
 """Steps 4 to 10 (the grid, then foundations to tanks) and Step 14 (site works) by a Structural view's
 subject (the subject words make a lintel a beam over an opening and a sunshade, or chajja, a
-cantilever slab; a boundary wall, a compound wall, a setback or the site, site works)."""
+cantilever slab; a boundary wall, a compound wall, a plot's setback or the site, site works)."""
 """The subject of a Structural sheet's site works: the owner's ruling (11 Oct 2026, session 22) sends
 them to Step 14 (`site_mep`) alone, never to the building's Steps (a boundary wall's footing is
 measured with the external works, not the building's foundations); a view whose own title names a
@@ -105,17 +105,16 @@ class _Own:
     elements: tuple[str, ...] = ()
 
 
-def _own(text: str, reading: _Reading, *, structural: bool = True, sheet: Sequence[str] = ()) -> _Own:
-    """The subject of a view's title (the module's docstring). Qualifiers name nothing (`_qualifiers`:
-    a bare "site" says where, a setback beside a storey or an element is a storey's). On a Structural
-    sheet the title is proposed for the Step of every building element it names, and for Step 14 as
-    well when it names site works; the QS confirms, and no word list decides between them. Its subject
-    is the first building element, else site works. A setback is judged by the title and by its
-    `sheet`'s (`SheetSubjects`). Any other sheet's subject is its first one that is not site works:
-    the structural set's duplicate rule is unchanged there."""
+def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
+    """The subject of a view's title (the module's docstring). A qualifier names nothing
+    (`_qualifiers`: a bare "site" says where). On a Structural sheet the title is proposed for the
+    Step of every building element it names, and for Step 14 as well when it names site works; the
+    QS confirms, and no word list decides between them. Its subject is the first building element,
+    else site works. Any other sheet's subject is its first one that is not site works: the
+    structural set's duplicate rule is unchanged there."""
     tokens = _tokens(text)
     building = [(" ".join(tokens[s:e]), k) for s, e, k in reading.building.matches(tokens)]
-    works = [w for w, k in _named(text, reading, sheet) if k == SITE_WORKS]
+    works = [w for w, k in _named(text, reading) if k == SITE_WORKS]
     if not structural:
         return _Own(building[0][1], building[0][0]) if building else _Own()
     if building:

@@ -15,7 +15,6 @@ N.T.S. marks it not to scale.
 """
 
 import json
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
@@ -156,74 +155,51 @@ SITE_WORKS = "site_works"
 LOCATION_WORDS = frozenset({"site"})
 """The site words that only say where a drawing is ("SITE FOUNDATION PLAN"): a location, so no site
 works of their own once a title names another subject."""
-SETBACK_WORDS = frozenset({"setback", "setbacks", "set back"})
-"""A setback is site works only when the title names no storey and no building element: on a stepped
-high-rise it is a storey's word ("7TH FLOOR SETBACK COLUMN LAYOUT PLAN")."""
-_ORDINAL = re.compile(r"\d+(st|nd|rd|th)")
 
 
 def _qualifiers(
-    tokens: Sequence[str],
-    found: Sequence[tuple[int, int, str]],
-    reading: _Reading,
-    sheet: Sequence[str] = (),
+    tokens: Sequence[str], found: Sequence[tuple[int, int, str]], reading: _Reading
 ) -> frozenset[int]:
     """The indexes of the matches that only qualify the title and name no subject of their own: a
-    location word when another subject is named (`LOCATION_WORDS`); a setback word when a building
-    element or a storey is named (`SETBACK_WORDS`), by the title or by its `sheet`'s (`SheetSubjects`:
-    "SECTION AT SETBACK" on a "7TH FLOOR SETBACK BEAM DETAILS" sheet is the beams')."""
+    location word when another subject is named (`LOCATION_WORDS`: "SITE FOUNDATION PLAN" is the
+    foundation's). A setback is site works only as a plot's ("PLOT SETBACK", a word of its own): any
+    other setback view takes its sheet's Steps like any view naming no subject."""
     words = [" ".join(tokens[s:e]) for s, e, _ in found]
     others = any(w not in LOCATION_WORDS for w in words)
-    building = any(k != SITE_WORKS for _, _, k in found) or bool(sheet)
-    storey = _names_a_storey(tokens, reading) or bool(getattr(sheet, "storey", False))
-    return frozenset(
-        n
-        for n, w in enumerate(words)
-        if (w in LOCATION_WORDS and others) or (w in SETBACK_WORDS and (building or storey))
-    )
+    return frozenset(n for n, w in enumerate(words) if w in LOCATION_WORDS and others)
 
 
-def _names_a_storey(tokens: Sequence[str], reading: _Reading) -> bool:
-    return any(t in reading.after_top or _ORDINAL.fullmatch(t) for t in tokens)
-
-
-def _named(text: str, reading: _Reading, sheet: Sequence[str] = ()) -> list[tuple[str, str]]:
+def _named(text: str, reading: _Reading) -> list[tuple[str, str]]:
     """What a title names, in the order it stands: each subject's words and key, but its qualifiers
     (`_qualifiers`). The one reading every consumer of a title's subjects calls (a view's subject and
     Steps, a sheet's, `subjects` for the conflicts)."""
     tokens = _tokens(text)
     found = reading.subjects.matches(tokens)
-    drop = _qualifiers(tokens, found, reading, sheet)
+    drop = _qualifiers(tokens, found, reading)
     return [(" ".join(tokens[s:e]), key) for n, (s, e, key) in enumerate(found) if n not in drop]
 
 
 class SheetSubjects(tuple[str, ...]):
     """What a sheet's title names: its building subjects, as a tuple (what storeys and the Steps of
     an untitled view always read), and `site_works`: whether it names site works as well (a boundary
-    wall, a setback, the site), which only Step 14's routing reads; `storey`: whether it names a storey
-    (a setback beside one is a storey's, as beside a building element)."""
+    wall, a plot's setback, the site), which only Step 14's routing reads."""
 
     site_works: bool
-    storey: bool
 
-    def __new__(
-        cls, keys: Sequence[str] = (), site_works: bool = False, storey: bool = False
-    ) -> SheetSubjects:
+    def __new__(cls, keys: Sequence[str] = (), site_works: bool = False) -> SheetSubjects:
         made = super().__new__(cls, keys)
         made.site_works = site_works
-        made.storey = storey
         return made
 
 
 def _subjects_in_order(text: str, reading: _Reading) -> SheetSubjects:
     """Every building subject the text names, each once, in the order they stand ("COLUMN & BEAM
-    DETAILS"), and whether it names site works (`_named`: a bare "site" or a setback beside a storey
-    or an element names none)."""
+    DETAILS"), and whether it names site works (`_named`: a bare "site" beside another subject
+    names none)."""
     found = reading.building.matches(_tokens(text))
     return SheetSubjects(
         tuple(dict.fromkeys(key for _, _, key in found)),
         any(key == SITE_WORKS for _, key in _named(text, reading)),
-        _names_a_storey(_tokens(text), reading),
     )
 
 

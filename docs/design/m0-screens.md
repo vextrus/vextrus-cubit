@@ -1125,7 +1125,7 @@ Reasons are stored as codes (1.7); an "other" reason's text is kept as typed.
   M3 onwards"), since M3 builds each MEP office's Drafting Profile from its legend.
 - **Steps 5–10** (foundations to tanks) are proposed for Structural views only. Architectural fixture
   plans and toilet details go to steps 11 and 12 and to the Plumbing and sanitary Part as well.
-- **A Structural sheet's site works** (a boundary wall, a compound wall, a setback, the site plan) go to
+- **A Structural sheet's site works** (a boundary wall, a compound wall, a plot's setback, the site plan) go to
   Step 14 (Site works and MEP) alone, never to the building's Steps as well: a view whose own title names
   site works, or an untitled section or detail on a sheet whose title does (the owner's ruling, 11 Oct
   2026, session 22). A view whose own title names a site work and a building element is proposed for both
@@ -1133,9 +1133,10 @@ Reasons are stored as codes (1.7); an "other" reason's text is kept as typed.
   Steps 6 and 14, and "Footing and grade beam detail of boundary wall" Steps 5, 7 and 14. A view
   naming only site works is Step 14 alone, and a view naming several building elements is proposed for
   each one's Step; the QS confirms, and no word list decides between them. The bare word "site" only
-  says where ("Site plan and column layout": Step 6); "setback" is site works only when the title
-  names no storey and no building element ("Setback plan": Step 14; "7th floor setback column layout
-  plan": Step 6). An Architectural sheet keeps its duplicate rule.
+  says where ("Site plan and column layout": Step 6); a setback is site works only as a
+  plot's ("Plot setback plan": Step 14, on any sheet); any other setback view ("Podium setback plan",
+  "7th floor setback column layout plan") takes its sheet's Steps, or the Step of the building element
+  it names. An Architectural sheet keeps its duplicate rule.
 - A layout tab whose viewports show nothing is dropped, or proposed out as "blank" where the reader
   cannot tell; never a phantom sheet (4.5).
 
