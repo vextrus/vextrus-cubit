@@ -229,12 +229,17 @@ def test_an_mtext_longer_than_the_fit_bound_is_laid_out_without_a_fit() -> None:
 
 def test_line_breaks_count_toward_the_fit_bound() -> None:
     """Review of S24-A4: an MTEXT of line breaks alone has no characters but costs a wrap per line."""
-    text = "\\P" * MAX_FIT_CHARACTERS
-    plain = lay_out(_mtext(text + "BAR", font="arialn.ttf", width=1.0), 1.0)
+    text = "\\P" * MAX_FIT_CHARACTERS + "BAR"
+    measured = _natural("BAR") * CONDENSED  # within the squeeze: fitted, "BAR" would be drawn narrower
+    plain = lay_out(_mtext(text, font="arialn.ttf", width=measured * 1.01), 1.0)
 
-    laid = lay_out(_mtext(text + "BAR", font="arialn.ttf", width=1.0, extents_width=0.5), 1.0)
+    laid = lay_out(_mtext(text, font="arialn.ttf", width=measured * 1.01, extents_width=measured), 1.0)
 
     assert laid.glyphs == plain.glyphs
+    fitted = lay_out(
+        _mtext("BAR", font="arialn.ttf", width=measured * 1.01, extents_width=measured), 1.0
+    )
+    assert fitted.glyphs[0].sx < plain.glyphs[0].sx  # the same measure on a short text is fitted
 
 
 def test_a_line_pitch_past_any_float_keeps_every_baseline_finite() -> None:
