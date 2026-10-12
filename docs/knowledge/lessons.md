@@ -572,3 +572,35 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **The branch held by another worktree** blocks a launch on it: the orchestrator detaches the writer's worktree
   (`git switch --detach`) before launching the builder, or builds on a sibling branch and fast-forwards. No check:
   a practice the orchestrator keeps.
+
+## Session 23 (12 Oct 2026): M0's blockers went round the review cap; the real-drawing lock set the pace
+
+- **A question to the owner blocks the orchestrator's turn: two hours passed with two READY heads unread** (asked at
+  3:05 of 8:00, answered at 5:08; FL8's and FL5's READY heads waited). No check: before asking, every running
+  builder has its next message and every READY head its next step; ask only what nothing else waits on.
+- **A rule built on word order went round three reviews, each finding a new word case** (#682, then #684: the tie
+  between a building element and a site work). The fourth shape (a view proposes every element's Step plus Step 14,
+  no tie; site works never a view's subject) held. Same class as sessions 21 and 22. Check:
+  `engine/recognise/tests/test_views.py` (every reviewer's example pinned through `views.find` and `conflicts.find`).
+- **A fix round's docstring claimed inertness the code did not have** (#684 round 1: site works "as before they
+  were words" in `subjects()`, while `ViewCandidate.subject` still carried them to the conflicts stage). Check:
+  `engine/recognise/tests/test_site_vocabulary_inert.py` (the inertness property: a view's subject equals main's
+  for any title).
+- **The FL5 cases table over every real sheet changed the rule in one pass** (#676's "states storeys and stands in
+  no drawing" kept 2 of 4 real long titles; the shape rule kept 4 of 4 and 124 of 124 shorter ones). No check:
+  a recogniser rule that a review sent back once is designed from a cases table of the real sets first.
+- **The real-drawing lock is the session's pace: a run takes 22-41 minutes and they queue one at a time** (#681's
+  no-post and posting runs alone took 79 minutes). Posting runs went straight to `--accept "<reason>"` when an
+  earlier no-post of the same code had been judged. No check: queue a posting run only for a head whose review
+  passed; cancel a run whose head a fix round has replaced.
+- **The design gate needs every item 1-11 named once; "none" is not a value** (post-status refused `--failed none`
+  and a list without 11). No check: post-status refuses it by itself.
+- **Two builders on one ticket both reached READY** (#680: the cloud builder silent for an hour pushed at 09:25 while
+  a local relaunch finished at 09:34). No check: before relaunching a silent cloud builder, tell it to stop and
+  wait for its answer or its deadline.
+- **A wall-clock ratio test in engine/plot still compares single runs** and failed #680's CI once under load.
+  No check: #685 carries the fix and its check.
+- **Correction undo restored through a chain and broke three rounds running** (#680: each round's fix of
+  "restore what the correction replaced" met a new interleaving of corrections, undos and answers; round 3 found
+  75 and 70). Stopped at the cap. No check: session 24 changes the shape (Ctrl Z takes back only a sheet's
+  latest standing correction), with every reviewer's sequence pinned.
