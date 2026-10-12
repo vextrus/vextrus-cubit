@@ -66,8 +66,10 @@ def chips_unaccounted(api: Any, project_id: Any) -> int:
     return sum(chip_unaccounted(v) for p in proposals(api, project_id) for v in p["views"])
 
 
-def drawn(api: Any, project_id: Any, number: str, title: str = SECTION) -> dict[str, Any]:
-    [view] = [v for v in the(proposals(api, project_id), number)["views"] if v["title"] == title]
+def drawn(api: Any, project_id: Any, number: str | None, title: str = SECTION) -> dict[str, Any]:
+    """The sheet's view of that title, as Step 1's proposals show it."""
+    views: list[dict[str, Any]] = the(proposals(api, project_id), number)["views"]
+    [view] = [v for v in views if v["title"] == title]
     return view
 
 
