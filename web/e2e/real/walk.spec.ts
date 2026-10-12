@@ -16,10 +16,11 @@
  *     it is answered), with `acts_before_bulk` (0: no other act came first; an answer cannot be undone,
  *     so a count read after other answers would be inflated);
  *   - the third (WK-Ann, `acts_project`) takes the same files and the acts: confirm, undo, exclude,
- *     undo and answer on Step 1 by their keys while a later file reads, in rounds until each kind has
- *     five samples or the files run out, each timed from its key to its answer and recorded with the
- *     answer's status. An act counts as during a read only if the API showed a file reading both
- *     before and after it.
+ *     undo and answer on Step 1 by their keys from the moment the first file's read starts (act-driver.ts),
+ *     in rounds until each kind has act_samples_min samples (the set's expectation; 5 when it has none)
+ *     or every read has ended (`reads_ended_before_samples`), each timed from its key to its answer and
+ *     recorded with the answer's status. An act counts as during a read only if the API showed a file
+ *     reading both before and after it.
  *
  * walk.json (walk.schema.json) records each file's end state and read time (the first Project), the
  * acts (the third), and Questions per Discipline by kind with the burden counts (the snapshot). Beside
@@ -35,19 +36,32 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { actWhileReading, type ActKind } from './act-driver'
 import { timedAct, type ActRecord } from './act-timer'
 
 const QS = 'nusrat@shapla-homes.example' // the seed's QS (docs/design/m0-screens.md §7)
 const MOVING = new Set(['waiting', 'reading', 'stopping', 'retrying'])
 const FILE_TIMEOUT_MS = 45 * 60 * 1000
-const ROUNDS_PER_FILE = 10
-const SAMPLES_EACH = 5
-const ACT_KINDS = ['confirm', 'undo', 'exclude', 'answer']
+const SAMPLES_EACH = 5 // act_samples_min when a set's expectation is not at hand (the owner's Q5 limits)
+const ACT_PAUSE_MS = 2000
 const SAME_TITLE = 'engine.conflicts.same_title'
 const SAME_STOREY = 'engine.conflicts.same_storey'
 const CONTINUATION_CODES = new Set([SAME_TITLE, SAME_STOREY])
 const GAP_CODES = new Set(['engine.register_check.gap', 'engine.register_check.gaps'])
 const POLL_MS = 3000
+
+/** The set's act_samples_min from its expectation (private, scripts/walk/run.py's WALK_EXPECT); the
+ * owner's Q5 limit when the file or the key is not there. The walk judges nothing: this only says how
+ * long to keep acting. */
+function samplesMinOf(dir: string | undefined, slug: string): number {
+  if (!dir) return SAMPLES_EACH
+  try {
+    const found = (JSON.parse(readFileSync(`${dir}/${slug}.json`, 'utf8')) as { act_samples_min?: unknown }).act_samples_min
+    return typeof found === 'number' && Number.isInteger(found) && found >= 0 ? found : SAMPLES_EACH
+  } catch {
+    return SAMPLES_EACH
+  }
+}
 
 function required(name: string): string {
   const value = process.env[name]
@@ -65,6 +79,8 @@ type SetRecord = {
   confirm_targets: number
   files: FileRecord[]
   acts: ActRecord[]
+  /** Only when true: every read ended before each kind of act had its samples. */
+  reads_ended_before_samples?: boolean
   questions: Record<string, Record<string, number>>
   burden: Record<string, Burden>
 }
@@ -255,60 +271,89 @@ async function focusFirstRow(page: Page): Promise<boolean> {
   return true
 }
 
-/** Each kind has its samples: acts during a read that answered (a status of 1 to 399). */
-function sampled(acts: ActRecord[]): boolean {
-  const good = acts.filter((a) => a.read_running && a.status > 0 && a.status < 400)
-  return ACT_KINDS.every((kind) => good.filter((a) => a.kind === kind).length >= SAMPLES_EACH)
+/** Waits for every file of a Project to end its read (the acts Project's reads are not timed). */
+async function readsEnd(api: Api, projectId: string): Promise<void> {
+  const deadline = Date.now() + FILE_TIMEOUT_MS
+  while ((await api.reading(projectId)) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, POLL_MS))
 }
 
-/** Acts on Step 1 while a later file reads: rounds of the four acts until each kind has its samples,
- * at most ROUNDS_PER_FILE rounds for this file. */
-async function actWhileReading(page: Page, api: Api, project: { id: string; code: string }, record: SetRecord) {
-  const acts = record.acts
-  await page.goto(`/p/${project.code}/takeoff/1`)
+/** The acts Project: its files uploaded in order, acted on from the first read's start until each kind
+ * has its samples (act-driver.ts), then waited on until every read ends. */
+async function actsProject(
+  page: Page,
+  api: Api,
+  project: { id: string; code: string },
+  files: string[],
+  samplesMin: number,
+  record: SetRecord,
+) {
   const grid = page.getByRole('grid', { name: 'Sheets' })
-  try {
-    await grid.waitFor({ state: 'visible', timeout: 60_000 })
-  } catch {
-    return // no sheet list yet: nothing read to act on
+  let onStep1 = false
+  // Step 1's list, once a Sheet has been read; false (nothing to act on yet) until then.
+  const ready = async (): Promise<boolean> => {
+    if (onStep1) return true
+    await page.goto(`/p/${project.code}/takeoff/1`)
+    try {
+      await grid.waitFor({ state: 'visible', timeout: 60_000 })
+    } catch {
+      return false
+    }
+    onStep1 = true
+    return true
   }
-  for (let round = 0; round < ROUNDS_PER_FILE && !sampled(acts); round++) {
-    if (!(await api.reading(project.id))) return
-    const act = async (kind: string, keys: string[]) => {
-      const done = await timedAct(page, api, project.id, kind, keys)
-      if (done) acts.push(done)
-      return done
-    }
-    // A confirm only on a Sheet that offers one; with none, the round has no confirm target (counted:
-    // walk.json's confirm_targets, so a walk with none reads as not measured, never as slow).
-    if (await focusConfirmable(page, api, project.id)) {
-      record.confirm_targets += 1
-      // One sheet, opened and confirmed; else the bulk confirmation when the bar offers one.
-      let confirmed = await act('confirm', ['Space', 'Enter'])
-      if (!confirmed && (await focusConfirmable(page, api, project.id))) confirmed = await act('confirm', ['Escape', 'Enter'])
-      if (confirmed) await act('undo', ['Control+z'])
-      await page.keyboard.press('Escape')
-    }
-    if (await focusFirstRow(page)) {
-      if (await act('exclude', ['x', '1'])) await act('undo', ['Control+z'])
-      else await page.keyboard.press('Escape')
-    }
-    await act('answer', ['q', '1'])
-  }
+  const timed = async (kind: ActKind, keys: string[]) => timedAct(page, api, project.id, kind, keys)
+  const acts = await actWhileReading({
+    files,
+    samplesMin,
+    idle: () => new Promise((resolve) => setTimeout(resolve, ACT_PAUSE_MS)),
+    async upload(file) {
+      await upload(page, project, file)
+      onStep1 = false // the upload page replaced the list
+    },
+    reading: () => api.reading(project.id),
+    async act(kind) {
+      if (!(await ready())) return null
+      switch (kind) {
+        case 'confirm': {
+          // A confirm only on a Sheet that offers one; with none, no confirm target (counted:
+          // walk.json's confirm_targets, so a walk with none reads as not measured, never as slow).
+          if (!(await focusConfirmable(page, api, project.id))) return null
+          record.confirm_targets += 1
+          let confirmed = await timed(kind, ['Space', 'Enter'])
+          if (!confirmed && (await focusConfirmable(page, api, project.id))) confirmed = await timed(kind, ['Escape', 'Enter'])
+          if (!confirmed) await page.keyboard.press('Escape')
+          return confirmed
+        }
+        case 'exclude': {
+          if (!(await focusFirstRow(page))) return null
+          const excluded = await timed(kind, ['x', '1'])
+          if (!excluded) await page.keyboard.press('Escape')
+          return excluded
+        }
+        case 'undo': {
+          const undone = await timed(kind, ['Control+z'])
+          await page.keyboard.press('Escape')
+          return undone
+        }
+        case 'answer':
+          return timed(kind, ['q', '1'])
+      }
+    },
+  })
+  record.acts.push(...acts.acts)
+  if (acts.reads_ended_before_samples) record.reads_ended_before_samples = true
+  await readsEnd(api, project.id)
 }
 
-/** Uploads one file and waits for its read to end (acting meanwhile, when given acts): its end state
- * and read time. */
+/** Uploads one file and waits for its read to end: its end state and read time. */
 async function uploadAndRead(
   page: Page,
   api: Api,
   project: { id: string; code: string },
   file: string,
-  meanwhile?: () => Promise<void>,
 ): Promise<{ state: string; seconds: number | null }> {
   const since = Date.now()
   const fileId = await upload(page, project, file)
-  if (meanwhile) await meanwhile()
   return readEnd(api, project.id, fileId, since)
 }
 
@@ -402,6 +447,7 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
   const snapshotOut = required('WALK_SNAPSHOT')
   const sets = JSON.parse(readFileSync(required('WALK_SETS'), 'utf8')) as Record<string, string[]>
   const origin = new URL(required('WALK_URL')).origin
+  const expectDir = process.env.WALK_EXPECT
   const walk = {
     schema: 1,
     sha: required('WALK_SHA'),
@@ -464,9 +510,7 @@ test('G1: reads complete, acts while reading, the burden before any act', async 
       taken.snapshot.bulk_after_gaps = await bulkAfterGaps(api, bulk.id)
       // (3) The Project the acts are timed in: the same files, read again, acted on while they read.
       const acting = await api.post<{ id: string; code: string }>('/api/projects', { code: actsCode, name: `Walk set ${n} acts` })
-      for (const [i, file] of files.entries()) {
-        await uploadAndRead(page, api, acting, file, i > 0 ? () => actWhileReading(page, api, acting, record) : undefined)
-      }
+      await actsProject(page, api, acting, files, samplesMinOf(expectDir, slug), record)
       record.project_acts = stepPosts.get(project.id) ?? 0
       await page.goto(`/p/${project.code}/takeoff/1`)
     }

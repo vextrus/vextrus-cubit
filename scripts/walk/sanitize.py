@@ -127,6 +127,7 @@ MEASURED_KEYS: frozenset[str] = frozenset(
         "answer",
         "failed_acts",
         "no_confirm_target",
+        "reads_ended_before_samples",
         # questions_per_discipline
         "questions_max_per_discipline",
         "disciplines",

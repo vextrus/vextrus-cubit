@@ -290,6 +290,7 @@ def _holds(name: str, m: Any, e: Any, rows: Sequence[Mapping[str, Any]]) -> bool
                 and m("p95_ms") <= m("max_ms") <= e("max_ms_max")
                 and m("p95_ms") <= e("p95_ms_max")
                 and m("failed_acts") == 0
+                and not m("reads_ended_before_samples")
             )
         case "questions_per_discipline":
             most, count, limit = (
@@ -361,11 +362,13 @@ def result_of(verdict: Mapping[str, Any]) -> str:
     return "PASS" if passed else "FAIL"
 
 
-def _acts(acts: list[Any], confirm_targets: object = None) -> dict[str, Any]:
+def _acts(acts: list[Any], confirm_targets: object = None, reads_ended: object = None) -> dict[str, Any]:
     """Act timing: samples are acts of a read that ran before and after them and that answered (a
     status of 1 to 399, or none recorded); an act answered 0 (never) or 400 and up is a failed act.
     A walk that found no Sheet offering a confirm (`confirm_targets` 0) and timed none is not
-    measured (`no_confirm_target`): it fails for want of a target, never as slow acts."""
+    measured (`no_confirm_target`): it fails for want of a target, never as slow acts. A walk whose
+    reads all ended before each kind had its samples (`reads_ended_before_samples` true) fails naming
+    it (`reads_ended_before_samples` 1): the walk's scheduling, never the product's speed."""
     during: list[float] = []
     kinds = dict.fromkeys(ACT_KINDS, 0)
     failed = 0
@@ -388,6 +391,8 @@ def _acts(acts: list[Any], confirm_targets: object = None) -> dict[str, Any]:
     targets = _optional_count(confirm_targets, "confirm_targets")
     if targets == 0 and kinds["confirm"] == 0:
         measured |= {"unmeasured": 1, "no_confirm_target": 1}
+    if reads_ended is True:
+        measured |= {"reads_ended_before_samples": 1}
     return measured
 
 
@@ -487,7 +492,7 @@ def _set_checks(
     act_check = _check(
         "act_p95_during_read",
         name,
-        _acts(acts, record.get("confirm_targets")),
+        _acts(acts, record.get("confirm_targets"), record.get("reads_ended_before_samples")),
         limits(
             ("p95_ms_max", "act_max_ms", "act_samples_min"),
             {
