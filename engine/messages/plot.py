@@ -11,6 +11,9 @@ with no sheet carries the reason's key (`REASONS`, the code's last part); a scre
   or one number several sheets carry that the page's size cannot tell apart.
 - `no_text`: the page carries no text at all to match (a blank page, or lettering drawn as lines).
 - `scan`: the page is a scan (12's rule): nothing on it but a picture.
+- `same_sheet_as_another_page` (S24-A5): it names a sheet another page names too, and neither its
+  text nor its place among the pages shows it plots that sheet (one sheet, one page): the PDF's
+  order puts the sheet on the other page, or the PDF is out of order, or both name it alike.
 """
 
 from engine.messages import MessageCode
@@ -19,8 +22,10 @@ NAMES_NO_SHEET = MessageCode("engine.plot.names_no_sheet", params=("page",))
 NAMES_SEVERAL_SHEETS = MessageCode("engine.plot.names_several_sheets", params=("page",))
 NO_TEXT = MessageCode("engine.plot.no_text", params=("page",))
 SCAN = MessageCode("engine.plot.scan", params=("page",))
+SAME_SHEET_AS_ANOTHER_PAGE = MessageCode("engine.plot.same_sheet_as_another_page", params=("page",))
 
 REASONS = {
-    code.code.rsplit(".", 1)[1]: code for code in (NAMES_NO_SHEET, NAMES_SEVERAL_SHEETS, NO_TEXT, SCAN)
+    code.code.rsplit(".", 1)[1]: code
+    for code in (NAMES_NO_SHEET, NAMES_SEVERAL_SHEETS, NO_TEXT, SCAN, SAME_SHEET_AS_ANOTHER_PAGE)
 }
 """Each reason's key, as a `PlotMatch` carries it, to its code."""

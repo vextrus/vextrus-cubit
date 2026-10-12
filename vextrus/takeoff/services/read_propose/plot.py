@@ -61,7 +61,7 @@ KEPT_BUFFERS = 4
 """The most sheets' render buffers held at once while matching (a large set's are loaded as a page
 needs them, never all together under the cad worker's memory cap)."""
 _WORDS = ("number", "title", "revision_mark", "issue_date")
-_MAY_BE_ANY = frozenset({"names_several_sheets", "no_text"})
+_MAY_BE_ANY = frozenset({"names_several_sheets", "no_text", "same_sheet_as_another_page"})
 """A page's reasons, named without geometry, that its geometry may still turn into a match."""
 
 
@@ -153,7 +153,13 @@ def _for_dwg(
     inked = {
         i: str(named[i].reason) for i in again if named[i].sheet is None and found[i].sheet is not None
     }
-    return registration.unclaimed(found, inked), set(again)
+    # One page a sheet in each PDF, over every page (S24-A5): the pages matched in full were matched
+    # without the others, so a sheet another page holds was free to them. No ink is tried again here:
+    # the full match spent the set's tries (18's `MAX_INK_TRIES`).
+    kept = registration.one_page_each(
+        registration.unclaimed(found, inked), candidates, geometry, paths, disciplines, [0]
+    )
+    return kept, set(again)
 
 
 def _keep(

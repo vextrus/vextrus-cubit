@@ -20,3 +20,7 @@ msgstr "PDF page {page} could not be matched: it has no text on it, so nothing o
 #. The page is a scan (12's rule): a picture, with no text or lines.
 msgid "engine.plot.scan"
 msgstr "PDF page {page} could not be matched: it is a scanned picture, with no lines or text to read. Ask the consultant for this page plotted from AutoCAD."
+
+#. S24-A5: the page names a sheet another page names too, and it is not given that sheet: the order of the PDF's pages puts the sheet on the other page and nothing else on this one names a sheet that fits its place; or the pages are out of sheet order, so their order tells nothing; or the two name it as clearly as each other. A sheet gets one page; a sheet neither page is given then shows it has no page. The words must hold in each case.
+msgid "engine.plot.same_sheet_as_another_page"
+msgstr "PDF page {page} could not be matched: another page names the same sheet, and neither the text on this page nor its place among the pages shows it plots that sheet."
