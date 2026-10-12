@@ -36,6 +36,11 @@ words (21c's read job raises its own). Worded in `web/src/messages/takeoff/step1
   sheets neither confirmed nor excluded), `lists_disagree` (two drawing lists disagree: N is "—"),
   `questions_open` (its Questions open or kept open) and `views_unaccounted` (its views with no step,
   Part or exclusion).
+- The acts, in the event log (S22-FL10; `event=True`, each with the acting user, the Project and the
+  Confirmation as subject; payload `sheets`: how many it decided): `confirmed`, `confirmed_back_in`
+  (every sheet it confirmed was excluded before), `excluded`, `assigned` (views put in Steps),
+  `drawing_list_set` and `undone`. An answer to a Question is recorded as the confirm or exclusion it
+  makes; a refused act records nothing.
 """
 
 from engine.messages import MessageCode
@@ -64,3 +69,13 @@ SHEETS_UNDECIDED = MessageCode("takeoff.step1.sheets_undecided", params=("count"
 LISTS_DISAGREE = MessageCode("takeoff.step1.lists_disagree")
 QUESTIONS_OPEN = MessageCode("takeoff.step1.questions_open", params=("count",))
 VIEWS_UNACCOUNTED = MessageCode("takeoff.step1.views_unaccounted", params=("count",))
+
+CONFIRMED = MessageCode("takeoff.step1.confirmed", params=("actor", "sheets"), event=True)
+CONFIRMED_BACK_IN = MessageCode(
+    "takeoff.step1.confirmed_back_in", params=("actor", "sheets"), event=True
+)
+EXCLUDED = MessageCode("takeoff.step1.excluded", params=("actor", "sheets", "views"), event=True)
+ASSIGNED = MessageCode("takeoff.step1.assigned", params=("actor", "sheets"), event=True)
+DRAWING_LIST_SET = MessageCode("takeoff.step1.drawing_list_set", params=("actor",), event=True)
+UNDONE = MessageCode("takeoff.step1.undone", params=("actor",), event=True)
+ANSWERED = MessageCode("takeoff.step1.answered", params=("actor",), event=True)
