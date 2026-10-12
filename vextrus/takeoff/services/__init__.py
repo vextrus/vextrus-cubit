@@ -10,9 +10,12 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from vextrus.takeoff.services import step1  # 19a
+    from vextrus.takeoff.services import (
+        frame_steps,  # S16-T2
+        step1,  # 19a
+    )
 
-__all__ = ["step1"]
+__all__ = ["frame_steps", "step1"]
 
 
 def __getattr__(name: str) -> object:

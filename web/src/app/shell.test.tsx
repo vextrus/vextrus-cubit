@@ -73,10 +73,10 @@ describe('the canvas frame (m0-screens §4.1)', () => {
     expect(canvas.width / 1280).toBeGreaterThanOrEqual(0.7)
   })
 
-  it('shows only Takeoff and Drawing Set in the top bar, the project switcher, and no building anywhere (§1.10)', async () => {
+  it('shows Takeoff, Drawing Set, Priced BOQ and Market Prices in the top bar, the project switcher, and no building anywhere (§1.10)', async () => {
     await takeoff()
     const nav = within(region('top-bar')).getByRole('navigation', { name: 'Project' })
-    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Takeoff', 'Drawing Set'])
+    expect(within(nav).getAllByRole('link').map((a) => a.textContent)).toEqual(['Takeoff', 'Drawing Set', 'Priced BOQ', 'Market Prices'])
     expect(within(nav).getByRole('link', { name: 'Takeoff' })).toHaveAttribute('aria-current', 'page')
     expect(within(region('top-bar')).getByRole('button', { name: named(/Project: Kadam Residence/) })).toBeVisible()
     expect(document.body.textContent).not.toMatch(/Building/)

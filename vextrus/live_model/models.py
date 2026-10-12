@@ -41,6 +41,18 @@ ATTRIBUTE_GROUPS = ("identity", "geometry", "cost", "construction", "om")
 ATTRIBUTE_LEVELS = ("occurrence", "type")
 RECORD_LIFE_PHASES = ("as_built", "as_maintained")
 RECORD_SOURCES = ("site_record", "maintenance_record", "handover")
+MODEL_VERSION_CAUSES = ("confirmation", "carry_over", "unconfirm")
+REBAR_BASES = ("by_ratio", "from_drawing", "from_drawing_rules", "none")
+TRACE_KINDS = (
+    "sheet_entity",
+    "question",
+    "best_candidate",
+    "qs_typed",
+    "default",
+    "derived",
+    "developer_specification",
+)
+PLACEMENT_MEANINGS = ("at_floor_level", "floor_to_floor")
 RELATION_KINDS = (
     "hosted_in",
     "passes_through",
@@ -121,7 +133,8 @@ class AttributeDefinition(models.Model):
     names. It is one row per `(tenant_id, key)`, so a reference by id names one version.
     `life_phases` lists the Life Phases that may hold a value (a Confirmation writes As designed, a
     Record the others); `market_scope` lists Market codes (empty: every Market); `ifc` holds the IFC
-    mapping.
+    mapping. `meaning`, `reference_face` and `datum` are M1.md C8's three words: what the value is,
+    the face it is measured from, and the level or point it is measured against.
     """
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
@@ -148,6 +161,9 @@ class AttributeDefinition(models.Model):
         default=list, blank=True, help_text="Market codes; empty for every Market."
     )
     ifc = models.JSONField(default=dict, blank=True)
+    meaning = models.TextField(blank=True, default="")
+    reference_face = models.TextField(blank=True, default="")
+    datum = models.TextField(blank=True, default="")
 
     class Meta:
         constraints: ClassVar = [
@@ -360,3 +376,234 @@ class ClassificationReference(models.Model):
 
     def __str__(self) -> str:
         return self.code
+
+
+# M1's spine (M1.md C7; docs/data-model.md §3.3; session 16's subset). Every table is T but
+# FamilyClassification (L). ModelVersion is append-only; an ElementState, an ElementTrace and a
+# ViewPlacement only ever have their valid_to_seq set (migration 0002 holds both for vextrus_app).
+# `apply` (services) is their one writer.
+
+
+class DisciplinePart(models.Model):
+    """One Discipline's part of a Building (T): the structural Elements belong to it.
+    `discipline` is a Discipline's key, by value (`drawings` owns the Disciplines)."""
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    building_id = models.UUIDField()
+    discipline = models.CharField(max_length=32)
+    responsible_user_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "building_id", "discipline"], name="live_model_part_identity"
+            ),
+            models.UniqueConstraint(fields=["tenant_id", "id"], name="live_model_part_tenant_id"),
+        ]
+
+    def __str__(self) -> str:
+        return self.discipline
+
+
+class ModelVersion(models.Model):
+    """One version of a Building's Live Model (T; append-only), numbered `seq` from 1 per Building.
+
+    `figures_hash` is a hash over every state valid at `seq` (`services.figures_hash`), `boq`'s cache
+    key; `figures_changed` says it differs from the version before. `confirmation_id` (upward) and
+    `drawing_set_state_id` are plain ids.
+    """
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    building_id = models.UUIDField()
+    seq = models.PositiveIntegerField()
+    cause = models.CharField(max_length=16)
+    figures_changed = models.BooleanField()
+    figures_hash = models.CharField(max_length=80)
+    complete_for_state = models.BooleanField(default=False)
+    confirmation_id = models.UUIDField(null=True, blank=True)
+    drawing_set_state_id = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "building_id", "seq"], name="live_model_version_identity"
+            ),
+            models.CheckConstraint(condition=models.Q(seq__gte=1), name="live_model_version_seq"),
+            models.CheckConstraint(
+                condition=models.Q(cause__in=MODEL_VERSION_CAUSES), name="live_model_version_cause"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.building_id} @ {self.seq}"
+
+
+class ElementState(models.Model):
+    """An Element's facts over a range of Model Versions (T): the typed core and `attrs` (SI decimal
+    strings keyed by Attribute Definition keys). Never updated in place: a change closes it
+    (`valid_to_seq`) and opens the next. `storey_id` is the storey Element it is in."""
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    element = models.ForeignKey(Element, models.PROTECT, related_name="+", db_index=False)
+    valid_from_seq = models.PositiveIntegerField()
+    valid_to_seq = models.PositiveIntegerField(null=True, blank=True)
+    mark = models.CharField(max_length=64, blank=True)
+    storey_id = models.UUIDField(null=True, blank=True)
+    band_from_id = models.UUIDField(null=True, blank=True)
+    band_to_id = models.UUIDField(null=True, blank=True)
+    grid_ref = models.CharField(max_length=64, blank=True)
+    x_m = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    y_m = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    rotation = models.DecimalField(max_digits=18, decimal_places=6, null=True, blank=True)
+    mix = models.CharField(max_length=32, blank=True)
+    grade = models.CharField(max_length=32, blank=True)
+    rebar_basis = models.CharField(max_length=24, blank=True)
+    construction_stage = models.CharField(max_length=32, blank=True)
+    casting_stage_id = models.UUIDField(null=True, blank=True)
+    attrs = models.JSONField(default=dict, blank=True)
+    held_by_question_id = models.UUIDField(null=True, blank=True)
+    facts_hash = models.CharField(max_length=80)
+    figures_hash = models.CharField(max_length=80)
+    confirmation_id = models.UUIDField(null=True, blank=True)
+
+    class Meta:
+        indexes: ClassVar = [
+            models.Index(
+                fields=["tenant_id", "element", "valid_to_seq"], name="live_model_state_element"
+            ),
+        ]
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "element", "valid_from_seq"], name="live_model_state_identity"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_to_seq__isnull=True)
+                | models.Q(valid_to_seq__gt=models.F("valid_from_seq")),
+                name="live_model_state_valid_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rebar_basis="") | models.Q(rebar_basis__in=REBAR_BASES),
+                name="live_model_state_rebar_basis",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.mark or self.element_id} from {self.valid_from_seq}"
+
+
+class ElementTrace(models.Model):
+    """Where one fact of an Element came from (T), copied in on Confirmation: `anchor` names the
+    sheet, the view and the entity. It has its own validity range, so a re-anchored fact opens a
+    new row. `question_id` (upward) is a plain id."""
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    element = models.ForeignKey(Element, models.PROTECT, related_name="+", db_index=False)
+    fact = models.CharField(max_length=64)
+    kind = models.CharField(max_length=32)
+    anchor = models.JSONField(default=dict, blank=True)
+    question_id = models.UUIDField(null=True, blank=True)
+    valid_from_seq = models.PositiveIntegerField()
+    valid_to_seq = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        indexes: ClassVar = [
+            models.Index(
+                fields=["tenant_id", "element", "valid_to_seq"], name="live_model_trace_element"
+            ),
+        ]
+        constraints: ClassVar = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=TRACE_KINDS), name="live_model_trace_kind"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_to_seq__isnull=True)
+                | models.Q(valid_to_seq__gt=models.F("valid_from_seq")),
+                name="live_model_trace_valid_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.fact} ({self.kind})"
+
+
+class ViewPlacement(models.Model):
+    """Where a plan view sits in the Building (T): its meaning and, as ViewPlacementStorey rows, the
+    explicit list of storeys it shows (never a first-last range). `view_id` is `drawings`' View."""
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    building_id = models.UUIDField()
+    view_id = models.UUIDField()
+    meaning = models.CharField(max_length=16)
+    valid_from_seq = models.PositiveIntegerField()
+    valid_to_seq = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "view_id", "valid_from_seq"], name="live_model_placement_identity"
+            ),
+            models.UniqueConstraint(fields=["tenant_id", "id"], name="live_model_placement_tenant_id"),
+            models.CheckConstraint(
+                condition=models.Q(meaning__in=PLACEMENT_MEANINGS),
+                name="live_model_placement_meaning",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_to_seq__isnull=True)
+                | models.Q(valid_to_seq__gt=models.F("valid_from_seq")),
+                name="live_model_placement_valid_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.view_id} from {self.valid_from_seq}"
+
+
+class ViewPlacementStorey(models.Model):
+    """One storey a View Placement shows (T): the storey's Element."""
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    placement = models.ForeignKey(ViewPlacement, models.PROTECT, related_name="+", db_index=False)
+    storey_element = models.ForeignKey(Element, models.PROTECT, related_name="+", db_index=False)
+
+    class Meta:
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "placement", "storey_element"],
+                name="live_model_placement_storey_identity",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.placement_id}: {self.storey_element_id}"
+
+
+class FamilyClassification(models.Model):
+    """An Element Family's default reference in a classification system (L): the Library's column
+    is Uniclass `EF_20_10`. The family and the reference may be the tenant's own or its Library's."""
+
+    id = models.UUIDField(primary_key=True, default=new_id, editable=False)
+    tenant_id = models.UUIDField()
+    family = models.ForeignKey(ElementFamily, models.PROTECT, related_name="+", db_index=False)
+    reference = models.ForeignKey(
+        ClassificationReference, models.PROTECT, related_name="+", db_index=False
+    )
+
+    class Meta:
+        indexes: ClassVar = [
+            models.Index(fields=["tenant_id", "family"], name="live_model_famclass_family"),
+        ]
+        constraints: ClassVar = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "family", "reference"], name="live_model_famclass_identity"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.family_id}: {self.reference_id}"

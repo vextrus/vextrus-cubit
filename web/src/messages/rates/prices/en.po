@@ -1,0 +1,19 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+msgid "rates.prices.amount_invalid"
+msgstr "Enter the price as a number, for example 520.00. It cannot be negative."
+
+msgid "rates.prices.price_changed"
+msgstr "{actor} changed a price"
+
+msgid "rates.prices.price_set_missing"
+msgstr "There are no starter prices for this market yet."
+
+msgid "rates.prices.resource_unknown"
+msgstr "There is no price for {code}."

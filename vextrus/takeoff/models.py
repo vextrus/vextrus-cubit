@@ -300,6 +300,11 @@ class ConfirmationAct(models.TextChoices):
     DRAWING_LIST = "drawing_list"
     ASSIGN = "assign"
     """Views put in Takeoff Steps by the QS (#158)."""
+    EDIT = "edit"
+    """Values typed by the QS over the read ones (M1.md C9; Step 6's size answer, S16-T2)."""
+    UNCONFIRM = "unconfirm"
+    """Confirmed Elements made Proposals again (M1.md C9: an undo is an unconfirm and a new
+    ModelVersion)."""
 
 
 class Confirmation(models.Model):
@@ -316,7 +321,7 @@ class Confirmation(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, models.PROTECT, related_name="+", db_index=False)
     by_name = models.CharField(max_length=200, help_text="Who, by their name as it was then.")
     kind = models.CharField(max_length=16, choices=ConfirmationKind.choices)
-    act = models.CharField(max_length=16, choices=ConfirmationAct.choices)
+    act = models.CharField(max_length=32, choices=ConfirmationAct.choices)
     question = models.ForeignKey(
         "Question", models.PROTECT, null=True, blank=True, related_name="+", db_index=False
     )

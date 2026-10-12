@@ -1,0 +1,281 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-07 12:34+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/boq/BoqPage.tsx
+msgid "Gross Floor Area not entered"
+msgstr "Gross Floor Area not entered"
+
+#: src/boq/BoqPage.tsx
+msgid "Opening the Priced BOQ…"
+msgstr "Opening the Priced BOQ…"
+
+#: src/boq/BoqPage.tsx
+msgid "Nothing is measured yet. BOQ Items appear here as Takeoff Steps are confirmed."
+msgstr "Nothing is measured yet. BOQ Items appear here as Takeoff Steps are confirmed."
+
+#: src/boq/words.ts
+msgid "Finishes"
+msgstr "Finishes"
+
+#: src/boq/BoqPage.tsx
+msgid "Open the Measurement Lines"
+msgstr "Open the Measurement Lines"
+
+#: src/boq/LinesPanel.tsx
+msgid "Opening the Measurement Lines…"
+msgstr "Opening the Measurement Lines…"
+
+#: src/boq/BoqPage.tsx
+msgid "from the drawing"
+msgstr "from the drawing"
+
+#: src/boq/BoqPage.tsx
+msgid "Totals"
+msgstr "Totals"
+
+#: src/boq/words.ts
+msgid "Super-structure"
+msgstr "Super-structure"
+
+#: src/boq/BoqPage.tsx
+msgid "Total"
+msgstr "Total"
+
+#: src/boq/LinesPanel.tsx
+msgid "Close the Measurement Lines"
+msgstr "Close the Measurement Lines"
+
+#: src/boq/words.ts
+msgid "Masonry"
+msgstr "Masonry"
+
+#: src/boq/BoqPage.tsx
+msgid "Waiting on a Question"
+msgstr "Waiting on a Question"
+
+#: src/boq/BoqPage.tsx
+msgid "Unit"
+msgstr "Unit"
+
+#: src/boq/words.ts
+msgid "Grid"
+msgstr "Grid"
+
+#: src/boq/BoqPage.tsx
+msgid "Next BOQ Item"
+msgstr "Next BOQ Item"
+
+#: src/boq/BoqPage.tsx
+msgid "Gross Floor Area: {area} {unitWords}"
+msgstr "Gross Floor Area: {area} {unitWords}"
+
+#: src/boq/words.ts
+msgid "Doors & Windows"
+msgstr "Doors & Windows"
+
+#: src/boq/BoqPage.tsx
+msgid "Open the Rate Analysis"
+msgstr "Open the Rate Analysis"
+
+#: src/boq/LinesPanel.tsx
+msgid "Element"
+msgstr "Element"
+
+#: src/boq/BoqPage.tsx
+msgid "by ratio"
+msgstr "by ratio"
+
+#: src/boq/BoqPage.tsx
+msgid "{rate}, Rate Analysis of {number}"
+msgstr "{rate}, Rate Analysis of {number}"
+
+#: src/boq/words.ts
+msgid "Beams"
+msgstr "Beams"
+
+#: src/boq/words.ts
+msgid "Stairs"
+msgstr "Stairs"
+
+#: src/boq/BoqPage.tsx
+msgid "Rate"
+msgstr "Rate"
+
+#: src/boq/BoqPage.tsx
+msgid "Last BOQ Item"
+msgstr "Last BOQ Item"
+
+#: src/boq/LinesPanel.tsx
+msgid "Storey"
+msgstr "Storey"
+
+#: src/boq/BoqPage.tsx
+msgid "First BOQ Item"
+msgstr "First BOQ Item"
+
+#: src/boq/LinesPanel.tsx
+msgid "Trace {mark} to its sheet"
+msgstr "Trace {mark} to its sheet"
+
+#: src/boq/words.ts
+msgid "Slabs"
+msgstr "Slabs"
+
+#: src/boq/BoqPage.tsx
+msgid "Vextrus default, Low"
+msgstr "Vextrus default, Low"
+
+#: src/boq/BoqPage.tsx
+msgid "Amount"
+msgstr "Amount"
+
+#: src/boq/LinesPanel.tsx
+msgid "Trace"
+msgstr "Trace"
+
+#: src/boq/BoqPage.tsx
+msgid "{quantity} {unit}, Measurement Lines of {number}"
+msgstr "{quantity} {unit}, Measurement Lines of {number}"
+
+#: src/boq/BoqPage.tsx
+msgid "{unpriced, plural, one {# BOQ Item has no rate yet; it adds nothing to the totals until a price is entered under Market Prices.} other {# BOQ Items have no rate yet; they add nothing to the totals until prices are entered under Market Prices.}}"
+msgstr "{unpriced, plural, one {# BOQ Item has no rate yet; it adds nothing to the totals until a price is entered under Market Prices.} other {# BOQ Items have no rate yet; they add nothing to the totals until prices are entered under Market Prices.}}"
+
+#: src/boq/words.ts
+msgid "Tanks"
+msgstr "Tanks"
+
+#: src/boq/words.ts
+msgid "Levels"
+msgstr "Levels"
+
+#: src/boq/words.ts
+msgid "Columns"
+msgstr "Columns"
+
+#: src/boq/BoqPage.tsx
+msgid "Allowance"
+msgstr "Allowance"
+
+#: src/boq/BoqPage.tsx
+msgid "rate not entered, Rate Analysis of {number}"
+msgstr "rate not entered, Rate Analysis of {number}"
+
+#: src/boq/BoqPage.tsx
+msgid "m²"
+msgstr "m²"
+
+#: src/boq/words.ts
+msgid "Services"
+msgstr "Services"
+
+#: src/boq/BoqPage.tsx
+msgid "{measured} measured so far"
+msgstr "{measured} measured so far"
+
+#: src/boq/words.ts
+msgid "External works"
+msgstr "External works"
+
+#: src/boq/BoqPage.tsx
+msgid "Description"
+msgstr "Description"
+
+#: src/boq/BoqPage.tsx
+msgid "Enter the Gross Floor Area above to see the allowances and the total per area."
+msgstr "Enter the Gross Floor Area above to see the allowances and the total per area."
+
+#: src/boq/BoqPage.tsx
+msgid "Type the area as a number, like 38400."
+msgstr "Type the area as a number, like 38400."
+
+#: src/boq/BoqPage.tsx
+msgid "from the drawing + rules"
+msgstr "from the drawing + rules"
+
+#: src/boq/words.ts
+msgid "Roof"
+msgstr "Roof"
+
+#: src/boq/words.ts
+msgid "Foundations"
+msgstr "Foundations"
+
+#: src/boq/BoqPage.tsx
+msgid "sft"
+msgstr "sft"
+
+#: src/boq/BoqPage.tsx
+msgid "Gross Floor Area"
+msgstr "Gross Floor Area"
+
+#: src/boq/BoqPage.tsx
+msgid "Priced BOQ"
+msgstr "Priced BOQ"
+
+#: src/boq/BoqPage.tsx
+msgid "+ {awaiting} {unit} waiting on a Question"
+msgstr "+ {awaiting} {unit} waiting on a Question"
+
+#: src/boq/BoqPage.tsx
+msgid "Measured share of the total"
+msgstr "Measured share of the total"
+
+#: src/boq/words.ts
+msgid "Sub-structure"
+msgstr "Sub-structure"
+
+#: src/boq/BoqPage.tsx
+msgid "Per area"
+msgstr "Per area"
+
+#: src/boq/LinesPanel.tsx
+msgid "No Element is measured into this BOQ Item yet."
+msgstr "No Element is measured into this BOQ Item yet."
+
+#: src/boq/words.ts
+msgid "the rest"
+msgstr "the rest"
+
+#: src/boq/LinesPanel.tsx
+msgid "Measurement Lines"
+msgstr "Measurement Lines"
+
+#: src/boq/BoqPage.tsx
+#: src/boq/LinesPanel.tsx
+msgid "Quantity"
+msgstr "Quantity"
+
+#: src/boq/BoqPage.tsx
+msgid "Per {unit}"
+msgstr "Per {unit}"
+
+#: src/boq/words.ts
+msgid "Walls"
+msgstr "Walls"
+
+#: src/boq/BoqPage.tsx
+msgid "Measured"
+msgstr "Measured"
+
+#: src/boq/words.ts
+msgid "piles and pile caps"
+msgstr "piles and pile caps"
+
+#: src/boq/BoqPage.tsx
+msgid "rate not entered"
+msgstr "rate not entered"
+
+#: src/boq/BoqPage.tsx
+msgid "Previous BOQ Item"
+msgstr "Previous BOQ Item"
+
+#: src/boq/BoqPage.tsx
+msgid "Allowances"
+msgstr "Allowances"

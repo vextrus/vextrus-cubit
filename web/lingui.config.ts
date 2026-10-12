@@ -20,6 +20,7 @@ const TAKEOFF_AREAS: Record<string, string[]> = {
   answers: ['questionWords.tsx'],
   step1: ['Step1Screen.tsx', 'Step1Inspector.tsx'],
   toasts: ['acts.tsx'],
+  frame: ['frame/**'],
 }
 const TAKEOFF_SPLIT = Object.values(TAKEOFF_AREAS).flat()
 

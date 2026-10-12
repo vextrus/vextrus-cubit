@@ -1,0 +1,20 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/boq/messages (session 16, S16-B): the BOQ Item descriptions of docs/plans/M1.md C13, worded by S16-W3's design gate.
+msgid "boq.item.rcc"
+msgstr "RCC {mix} ({strength_mpa} MPa) in {class}"
+
+msgid "boq.item.formwork"
+msgstr "Formwork to {class}"
+
+msgid "boq.item.rebar"
+msgstr "Rebar, Grade {grade}, in {class}"
+
+msgid "boq.item.allowance"
+msgstr "Allowance for {step}"

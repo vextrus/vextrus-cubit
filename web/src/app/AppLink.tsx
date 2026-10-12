@@ -20,6 +20,8 @@ export const PATHS = {
   noAccess: '/no-access',
   project: (code: string) => `/p/${encodeURIComponent(code)}`,
   drawingSet: (code: string) => `/p/${encodeURIComponent(code)}/drawing-set`,
+  boq: (code: string) => `/p/${encodeURIComponent(code)}/boq`,
+  prices: (code: string) => `/p/${encodeURIComponent(code)}/prices`,
   takeoff: (code: string, step: number) => `/p/${encodeURIComponent(code)}/takeoff/${step}`,
 } as const
 

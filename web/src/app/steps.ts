@@ -12,17 +12,17 @@ export interface TakeoffStep {
   number: number
   key: keyof typeof STEP_GLYPHS
   name: MessageDescriptor
-  /** Open in M0: only Step 1. */
+  /** Open: Step 1 (M0); Steps 3, 4 and 6 (S16-W1). */
   open: boolean
 }
 
 export const TAKEOFF_STEPS: readonly TakeoffStep[] = [
   { number: 1, key: 'sheets', name: msg({ message: 'Sheets', context: 'Takeoff Step' }), open: true },
   { number: 2, key: 'notes', name: msg({ message: 'Notes', context: 'Takeoff Step' }), open: false },
-  { number: 3, key: 'level', name: msg({ message: 'Levels', context: 'Takeoff Step' }), open: false },
-  { number: 4, key: 'grid', name: msg({ message: 'Grid', context: 'Takeoff Step' }), open: false },
+  { number: 3, key: 'level', name: msg({ message: 'Levels', context: 'Takeoff Step' }), open: true },
+  { number: 4, key: 'grid', name: msg({ message: 'Grid', context: 'Takeoff Step' }), open: true },
   { number: 5, key: 'foundation', name: msg({ message: 'Foundations', context: 'Takeoff Step' }), open: false },
-  { number: 6, key: 'column', name: msg({ message: 'Columns', context: 'Takeoff Step' }), open: false },
+  { number: 6, key: 'column', name: msg({ message: 'Columns', context: 'Takeoff Step' }), open: true },
   { number: 7, key: 'beam', name: msg({ message: 'Beams', context: 'Takeoff Step' }), open: false },
   { number: 8, key: 'slab', name: msg({ message: 'Slabs', context: 'Takeoff Step' }), open: false },
   { number: 9, key: 'stair', name: msg({ message: 'Stairs', context: 'Takeoff Step' }), open: false },

@@ -59,6 +59,13 @@ def library_rows(table: str, library: uuid.UUID) -> list[Any]:
         return [row for (row,) in owner.fetchall()]
 
 
+def library_ids(table: str, library: uuid.UUID) -> set[uuid.UUID]:
+    """Every Library row's id of a table, as the owner reads it."""
+    with connections[OWNER_ALIAS].cursor() as owner:
+        owner.execute(f"select id from {table} where tenant_id = %s", [library])
+        return {row_id for (row_id,) in owner.fetchall()}
+
+
 @pytest.fixture
 def in_library(market: MarketProfile) -> dict[str, Any]:
     return rows.every_l_table(market.library_id, OWNER_ALIAS)
@@ -86,7 +93,9 @@ def test_a_tenant_reads_its_library_s_rows_and_writes_none(
 
     with transaction.atomic():
         act(cursor, tenant=a, library=library)
-        assert ids(cursor, table) == {in_library[table].pk}
+        # Every Library row, the synced Library's (S16-L) and the one made here, and no other.
+        assert in_library[table].pk in ids(cursor, table)
+        assert ids(cursor, table) == library_ids(table, library)
 
         cursor.execute(f"update {table} set {UPDATES[table]} where id = %s", target)
         assert cursor.rowcount == 0

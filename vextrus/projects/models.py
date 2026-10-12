@@ -76,7 +76,8 @@ class Site(models.Model):
 
 class Building(models.Model):
     """One structure of a Project (ADR 0036). M0 makes one with each Project and never a second;
-    M4 reads more. Gross Floor Area is an M1 to M2 field."""
+    M4 reads more. Its Gross Floor Area (M1.md C15) is entered by the QS, stored in m2 to four
+    places whatever unit it was typed in (`services.gfa`), with who entered it and when."""
 
     id = models.UUIDField(primary_key=True, default=new_id, editable=False)
     tenant_id = models.UUIDField(editable=False)
@@ -84,11 +85,19 @@ class Building(models.Model):
     code = models.CharField(max_length=32)
     name = models.CharField(max_length=200)
     ordinal = models.PositiveSmallIntegerField()
+    gross_floor_area_m2 = models.DecimalField(max_digits=14, decimal_places=4, null=True)
+    gfa_entered_by = models.UUIDField(null=True, editable=False)
+    gfa_entered_at = models.DateTimeField(null=True, editable=False)
 
     class Meta:
         constraints: ClassVar = [
             models.UniqueConstraint(
                 fields=["tenant_id", "project", "code"], name="projects_building_code_unique"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(gross_floor_area_m2__isnull=True)
+                | models.Q(gross_floor_area_m2__gt=0),
+                name="projects_building_gfa_positive",
             ),
             models.UniqueConstraint(
                 fields=["tenant_id", "project", "ordinal"], name="projects_building_ordinal_unique"

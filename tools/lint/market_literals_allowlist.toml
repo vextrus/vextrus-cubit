@@ -8,6 +8,12 @@ reason = """The demo seed is data: the invented demo project on the Bangladesh M
 (docs/design/m0-screens.md §7), for walking the product."""
 
 [[allow]]
+path = "vextrus/measurement/library.py"
+reason = """The Rule Set's Library rows (session 16, S16-M): a BOQ Item's Billing Units are one row per unit \
+system, so the rows name the two systems' keys, the same for every Market (ADR 0038 item 6); which ones a \
+Market offers is the Market's data."""
+
+[[allow]]
 path = "web/src/i18n/pseudo-tag.ts"
 literal = "en-XB"
 reason = """The test-only pseudo right-to-left language's tag (docs/design/m0-screens.md §1.8; ADR 0038): \
@@ -28,3 +34,10 @@ sends the Market; it must match the Market row ticket 02 seeds."""
 path = "web/src/format/units.ts"
 reason = """The unit systems' own definitions (ADR 0038 item 6): each one's key, its name in the catalogue and \
 how it writes drawing notation, the same for every Market. Which ones a Market offers is the Market's data."""
+
+[[allow]]
+path = "web/src/acceptance/ts16w3/boq.fixture.ts"
+literal = "BDT"
+reason = """S16-W3's acceptance fake: its money fixtures are `{amount, currency}` on the Bangladesh Market's currency, \
+the invented demo project's (docs/design/m0-screens.md §7); it stands in for the API, which sends the Project's \
+currency (docs/plans/M1.md C13). An acceptance file, committed by `acceptance:` commits only."""
