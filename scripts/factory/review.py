@@ -1427,11 +1427,15 @@ def keep_attacks(run: Run, rv: Path, main: Path) -> None:
     kept: list[dict[str, Any]] = []
     folders: set[str] = set()
     for item in run.findings:
-        if item.score < 50 or item.word not in ledger.STANDS or item.repro is None:
+        if item.score < 50 or item.word not in ledger.STANDS:
             continue
-        if item.id.startswith("r") or (target := replay_target(rv, item.repro)) is None:
-            continue  # an earlier round's attack (kept already) or no file
-        folders.add(PurePosixPath(target).parent.as_posix())
+        if item.id.startswith("r"):
+            continue  # an earlier round's attack, kept with its own round
+        # A standing finding with no repro file is kept too (test_file null): the next delta review
+        # hands it to its lens, never drops it.
+        target = replay_target(rv, item.repro) if item.repro is not None else None
+        if target is not None:
+            folders.add(PurePosixPath(target).parent.as_posix())
         kept.append({"id": item.id, "score": item.score, "file": item.file, "line": item.line,
                      "summary": item.summary, "test_file": target})  # fmt: skip
     if not kept:
@@ -1445,6 +1449,7 @@ def keep_attacks(run: Run, rv: Path, main: Path) -> None:
             copy = where / folder / path.relative_to(source)
             copy.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, copy)
+    where.mkdir(parents=True, exist_ok=True)
     (where / MANIFEST).write_text(json.dumps(kept, indent=1) + "\n")
 
 
@@ -1467,6 +1472,16 @@ def earlier_rounds(
             if not isinstance(manifest, list) or not all(isinstance(e, dict) for e in manifest):
                 raise Refused(f"round {number}'s kept attacks cannot be read")
             found.append((number, where, manifest))
+            if untested := [entry for entry in manifest if not entry.get("test_file")]:
+                run.earlier_text.append(
+                    f"Round {number}'s findings with no attack test (re-prove each one still present "
+                    "as a finding with a repro):"
+                )
+                run.earlier_text += [
+                    unnamed(f"- {entry.get('file')}:{entry.get('line')} ({entry.get('score')}): "
+                            f"{entry.get('summary')}")
+                    for entry in untested
+                ]  # fmt: skip
             continue
         try:
             views = json.loads(findings_file(decisions, run.pr, head).read_text())
@@ -1508,9 +1523,17 @@ def replay_earlier(
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)
         for entry in manifest:
-            test_file = plain_test_path(str(entry.get("test_file") or ""))
+            if not entry.get("test_file"):
+                continue  # no attack test: handed to the lens as text (`earlier_rounds`)
+            test_file = plain_test_path(str(entry["test_file"]))
             name = f"{ATTACKS}/round{number}/{test_file}" if test_file is not None else None
-            failed = name is None or not (rv / name).is_file() or replay(rv, run.slot, name)
+            # An attack that already failed once passes only by exiting 0 now: an error, a timeout
+            # or a missing file blocks (never "did not fail by name").
+            if name is not None and (rv / name).is_file():
+                replay(rv, run.slot, name)
+                failed = REPLAYS.get((str(rv), name), {}).get("exit") != 0
+            else:
+                failed = True
             item = Finding(
                 f"r{number}-{entry.get('id')}",
                 max(int(entry.get("score") or 0), ledger.BLOCK_AT),

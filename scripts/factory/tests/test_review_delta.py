@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from scripts import ledger, merge_ready
+from scripts.factory import review
 from scripts.tests.acceptance.ts14r1._world import review_reply, why
 from scripts.tests.acceptance.ts26fx4._world import (
     H3,
@@ -168,3 +169,72 @@ def test_merge_ready_reads_a_record_past_round_three_only_as_a_delta_review(
 ) -> None:
     problems = merge_ready.record_problems(shaped(round_, kind), PR, "a" * 40)
     assert (problems == []) is ok, problems
+
+
+def kept_round(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[review.Run, Path, Path]:
+    """Round 1 kept: one standing finding with an attack file, one standing with none."""
+    main, rv = tmp_path / "main", tmp_path / "rv"
+    (rv / "review_attacks" / "lens-b").mkdir(parents=True)
+    (rv / "review_attacks" / "lens-b" / "test_a.py").write_text("def test_a() -> None:\n    pass\n")
+    head = "c" * 40
+    one = review.Run(PR, 1, head=head)
+    one.findings = [
+        review.Finding("l1-f1", 80, TOTAL, 1, "the total is wrong", "review_attacks/lens-b/test_a.py",
+                       word="CONFIRMED"),
+        review.Finding("l1-f2", 90, TOTAL, 2, "UNTESTED_FINDING", None, word="UNPROVEN"),
+    ]  # fmt: skip
+    review.keep_attacks(one, rv, main)
+    monkeypatch.setattr(ledger, "round_head", lambda _dir, _pr, _round: head)
+    return review.Run(PR, 2, head="d" * 40, merged="d" * 40, slot=1), main, rv
+
+
+def test_a_standing_finding_with_no_attack_test_is_handed_to_the_next_delta_lens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run, main, _rv = kept_round(tmp_path, monkeypatch)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    assert [number for number, _where, _manifest in earlier] == [1]
+    assert any("UNTESTED_FINDING" in line for line in run.earlier_text), run.earlier_text
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        {"outcome": "did not fail by name", "exit": 2},  # a collection error: no FAILED line
+        {"outcome": "timed out after 1200 seconds", "exit": None},
+        {"outcome": "did not fail by name", "exit": 5},  # nothing ran
+    ],
+    ids=["error", "timeout", "nothing-ran"],
+)
+def test_an_earlier_attack_that_does_not_exit_zero_blocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, outcome: dict[str, Any]
+) -> None:
+    run, main, rv = kept_round(tmp_path, monkeypatch)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+
+    def replay(where: Path, _slot: int, name: str) -> bool:
+        review.REPLAYS[(str(where), name)] = outcome
+        return False
+
+    monkeypatch.setattr(review, "replay", replay)
+    monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
+    review.replay_earlier(run, rv, main, earlier)
+    assert [(item.id, item.word) for item in run.findings] == [("r1-l1-f1", "CONFIRMED")]
+    assert run.findings[0].score >= ledger.BLOCK_AT
+
+
+def test_an_earlier_attack_that_passes_adds_nothing_that_blocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run, main, rv = kept_round(tmp_path, monkeypatch)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+
+    def replay(where: Path, _slot: int, name: str) -> bool:
+        review.REPLAYS[(str(where), name)] = {"outcome": "did not fail by name", "exit": 0}
+        return False
+
+    monkeypatch.setattr(review, "replay", replay)
+    review.replay_earlier(run, rv, main, earlier)
+    assert run.findings == []
