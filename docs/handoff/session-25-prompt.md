@@ -92,7 +92,7 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
 |---|---|
 | Q10 | "Production grade" is measurable gates, not a feeling: the table below. The owner rules its numbers at the start. |
 | Q11 | Two model pilots: Haiku 5.5 for look-ups and mechanical steps, measured against Sonnet `low` on 20 look-ups; Fable 5.1 only as an escalation when the same ticket fails the same class twice. Each result goes to `lessons.md` before any role moves. |
-| Q13 | The bar: a finding blocks when it scores 75 or more, or when a QS or MD would hit it (user-facing). An edge-case or rule-only finding scoring 50–74 is filed as an issue that still owes its committed check. ADR 0043 item 2 changes accordingly. |
+| Q13 | The bar: a finding blocks when it scores 75 or more, or when a QS or MD would hit it (user-facing). An edge-case or rule-only finding scoring 50–74 is filed as an issue that still owes its committed check. The bar lives in ADR 0041 item 7 (amended 7 Oct), CLAUDE.md's "Every serious finding" line and the ledger's verdict; F2 changes all three together. Open at the start: does a hostile-input finding of 50–74 on a trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger: `builder.md`'s list) still block? Recommended: yes, so Q13 relaxes edge findings only away from trust boundaries. |
 | Q14 | A pilot of `review self` on one wave: before READY, the builder runs review.py's two lenses on its own diff, with no ledger and no post. It is measured by round-1 PASS before and after. |
 | Q15 | M1 gains a pick-to-add act: a QS adds an Element the reader missed by picking it on the sheet. |
 | Q16 | The bar-bending schedule beyond columns, editable Rule Sets and Rebar Ratios, and Excel/PDF stay where the plans put them (M2–M4); M2's grill revisits them. |
@@ -110,7 +110,9 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
    GitHub-write rules (`:1696-1714`): a crash or a 10 s timeout lets every other refused act through. It also matches words, not acts:
    the status rule refuses a read-only query of a commit's checks, and the privilege rule refuses a note that merely names a root command
    (`:1440-1458`, reproduced).
-4. **`docs/plans/M1.md:642-647` prices cement with 3 % wastage**; the owner's verified default is 2 % (`docs/specs/bd-defaults.md:78`).
+4. **`docs/plans/M1.md:642-647` prices cement with 3 % wastage**, and `docs/design/m1-screens.md:425` on main repeats it as the words
+   "Cement 411 bags (398.20 net + 3 % wastage)"; the owner's verified default is 2 % (`docs/specs/bd-defaults.md:78`). #700 (ae830596)
+   drops the screens line; the plans example is fixed nowhere.
 
 ## Why M0 took 24 sessions (measured; numbers from `m0-numbers/`, checked by refuters)
 - **Review rarely passes the first time, and fixes make new faults.** Round-1 PASS since session 18: 17 of 53 (32 %); on product code
@@ -135,7 +137,7 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
    - **F1 `review self`** (Q14): `scripts/factory/review_self.py` reuses `lens_command` and `run_lens` (`review.py:748, :912`) on
      `git diff main...HEAD` in the builder's worktree, its own database or no pytest, no ledger; `builder.md` runs it once before READY and on
      each fix's own diff, then re-runs the previous round's attack tests. Cost: A+B ≈ $2.56 and 7 min a run (`review-cost.jsonl`).
-   - **F2 the bar** (Q13): each lens tags a finding's class (user-facing, edge, rule-only); the verdict blocks on ≥75 or user-facing; ADR 0043
+   - **F2 the bar** (Q13): each lens tags a finding's class (user-facing, edge, rule-only); the verdict blocks on ≥75, user-facing, or (if the owner confirms) a trust boundary at 50; ADR 0041
      item 2 amended; a check that every filed 50–74 issue names its owed check. **Re-score sessions 18–24's round-1 verdicts under
      the new bar first:** that is the Q14 pilot's baseline, or the pilot mixes the two changes.
    - **F3 #701** (A6 factory quick wins: the watcher, rdlock, launch), reviewed fresh from round 1.
@@ -147,7 +149,8 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
 4. **0:45, M1 wave 0 beside it, within O2** (`docs/plans/M1.md`: docs and owner-time tickets now; M1-00's freeze and code only after the
    owner's M0 walk). The "M1 wave 0" section below stands; add to it: M1-24's fresh PR from #700 (ae830596) carries Q15's act in
    `m1-screens.md`; and one spec PR:
-   - `docs/plans/M1.md:642-647`: cement 2 %: 398.20 × 1.02 = 406.164, up to 407 (the example's gross 411 → 407).
+   - `docs/plans/M1.md:642-647`: cement 2 %: 398.20 × 1.02 = 406.164, up to 407 (the example's gross 411 → 407); and, if #700 has not
+     merged first, `docs/design/m1-screens.md:425`'s words to "Cement 407 bags (398.20 net + 2 % wastage)", so the BOQ and the screen agree.
    - `docs/plans/M1.md` C7 (`:399`): `mix`, `grade` and `rebar_basis` are null for a family that is not cast concrete.
    - `docs/specs/M1.md:797`: what a relabelled grid line does (a changed fact, never a removed and an added Element).
    - Q15's act in `docs/specs/M1.md`: **Add an Element the reader missed**: the QS picks the entity on the sheet (the buffers carry entity
