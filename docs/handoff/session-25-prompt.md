@@ -97,6 +97,7 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
 | Q15 | M1 gains a pick-to-add act: a QS adds an Element the reader missed by picking it on the sheet. |
 | Q16 | The bar-bending schedule beyond columns, editable Rule Sets and Rebar Ratios, and Excel/PDF stay where the plans put them (M2–M4); M2's grill revisits them. |
 | Q17 | The factory takes at most about 30 % of session 25's time, and each factory change names the measured cost it removes. M1 wave 0 runs beside the M0 close. |
+| Q18 | The orchestrator stays Opus 5.5 `medium` (`scripts/factory/orchestrator.sh:41`), whatever the owner's own default effort; builders, critics and refuters keep their mapped levels. |
 
 ## What is broken (each verified, and none in the lists above)
 1. **The served product has never passed its end-to-end test.** `e2e.yml` failed 129 times on main (2 cancelled) and has 0 passes in its last
@@ -171,6 +172,27 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
 | Design gate | 18/18 items PASS or not applicable | ux-critic, `post-status` | items 1–11 exist |
 | Errors | 0 API 5xx, 0 uncaught console errors per walk and e2e run | collectors in both | not built |
 | Figures | RCC ±1 %, formwork ±3 % against the Hand Takeoff; the Held-out Set scored blind | `tools/scorer` (`M1.md:1438-1447`) | M1-01 |
+
+## The self-improving loop and Claude Code's newest features (each names the cost it removes; Q17)
+The loop is already law: every serious finding leaves a committed check, and each session's measures open the next brief. Session 25
+closes its gaps:
+- **Measure what this diagnosis had to dig for.** `measures.py` gains round-1 PASS by area, rounds per ticket (closed PRs included;
+  `rounds_per_pr` counts merged PRs only), minutes from READY to review start, the factory's share of builder hours, and the e2e
+  pass streak on main. These lead every brief from session 26 on.
+- **Refute before steering** (bound below), and record each model pilot's result in `lessons.md` (Q11).
+
+Adopt in this order, each only with its cost named (Claude Code 2.1.296 is installed):
+| Feature (version) | The cost it removes | Where |
+|---|---|---|
+| Hook `onFailure: "block"` (2.1.295) | the guard fails open on a crash or timeout | F4: the PreToolUse guard only, after one throwaway cloud launch |
+| A model-map lint; agent `effort` frontmatter (2.1.267) and the Agent tool's `effort` (2.1.292) | `review-pr.js` ran its adversary and refuter on Opus against the map | `tools/lint`: every `.claude/agents/*.md` and workflow `agent()` names a model and effort from CLAUDE.md's map |
+| The factory mod's clock (`$.clock.every`; mods on by default since 2.1.287) waking the orchestrator from the watcher's events | Monitor's 30-minute deadline (2.1.271); A7 sat BLOCKED 55 minutes unseen | `tools/mod/vextrus-factory`; it lifts `factory.md:652`'s read-only ruling for this one hook: ask the owner at the start (recommended: yes) |
+| `/model` and `/effort` sent from `claude agents` to a busy background builder (2.1.290) | relaunching a builder to change its model | the Q11 Fable escalation: switch the stuck builder, keep its context |
+| `maxTurns` and `autoCompactWindow` (2.1.296) in long agents' frontmatter | runaway or over-compacted hours-long analyst and reviewer runs (unmeasured: measure first) | `drawing-analyst.md`, `pr-reviewer.md` |
+| Haiku 5.5 (2.1.293) | Sonnet's cost on look-ups | the Q11 pilot |
+
+Not adopted: the guard as a mod (cloud sessions install no repo or user plugins; the shell guard in `.claude/settings.json` stays the
+wall); dynamic workflows for routine work (CLAUDE.md; the owner's Q12 allowed one for the exploring session only).
 
 ## Bound from the exploring session
 - A claim that changes a plan, a brief or a scope gets one `refuter` before it steers. A depth review on Opus `high` had none of its nine
