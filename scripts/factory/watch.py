@@ -499,6 +499,11 @@ def load_launches(
     return followed, reviews
 
 
+def is_builder(record: dict[str, Any]) -> bool:
+    """A builder's record; an older record without a role is one."""
+    return str(record.get("role") or "builder") == "builder"
+
+
 def carried_over(
     folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None
 ) -> dict[str, dict[str, Any]]:
@@ -513,11 +518,6 @@ def carried_over(
         if record["_started"] < since and pr is not None and pr.get("state") == "OPEN":
             found[ticket] = record
     return found
-
-
-def is_builder(record: dict[str, Any]) -> bool:
-    """A builder's record; an older record without a role is one."""
-    return str(record.get("role") or "builder") == "builder"
 
 
 def read_session() -> dict[str, Any] | None:
@@ -675,7 +675,6 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
         if read is not None:
             state["prs"] = read
     prs: list[dict[str, Any]] | None = state.get("prs")
-    records = {**carried_over(folder, since, prs), **records}
 
     if step.due("usage_read_at", USAGE_EVERY):
         state["usage_read_at"] = status.utc(at)
@@ -695,6 +694,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
             )
             log.write(f"{status.utc(at)} {line}\n")
 
+    records = {**carried_over(folder, since, prs), **records}
     rows = governor.read_agents() if any(r["where"] == "local" for r in records.values()) else None
     items = [
         track(step, ticket, record, refs, main_sha, prs, rows)
