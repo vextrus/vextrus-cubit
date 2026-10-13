@@ -1573,7 +1573,9 @@ def _no_one_source_in_bulk(
     the sheet. Then a held file's sheets read anyway are refused as `held_file`, and otherwise the
     sheets with one source as `one_source`: each naming its sheets by their Proposals' ids (the
     printed sheet's while none is proposed), in the order chosen, the first by number, and how
-    many."""
+    many. An act of exactly one whole continuation run (the server's own grouping, `groups.among`) is
+    a row, not the bulk act (m0-screens 6.2): its one-source sheets pass, the Question and held-file
+    refusals above still stand."""
     if len(chosen) < 2:
         return
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
@@ -1595,11 +1597,37 @@ def _no_one_source_in_bulk(
     held = [(sheet, p) for sheet, p in lone if sheet.held]
     alone = held or lone
     first, _p = alone[0]
+    if not held and _is_whole_run(project_id, chosen):
+        return
     code = said.HELD_FILE if held else said.ONE_SOURCE
     # `sheets` is a list, which `Message`'s params (str | int) do not type: the ruling's shape.
     message = code(count=len(alone), sheets="", **_named(first))
     message["params"]["sheets"] = cast(Any, [str(p.id if p else s.id) for s, p in alone])
     raise auth.Refused(message, status=409)
+
+
+def _is_whole_run(
+    project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
+) -> bool:
+    """Whether the chosen sheets are exactly one continuation run, every sheet of it, by the grouping
+    `proposals` shows (`groups.among`, T-W334): part of a run, or a run and another sheet, is not."""
+    from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
+
+    sheets = _sheets(project_id)
+    drawing_set = _set_of(project_id)
+    of_set = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+    grouped = groups.among(
+        sheets,
+        [of_set.get(s.id, []) for s in sheets],
+        {f.id: f.group for f in files_of(project_id)},
+        sheet_conventions(),
+    )
+    runs = {grouped.get(sheet.id, groups.ALONE).continuation for sheet, _p in chosen}
+    if len(runs) != 1 or None in runs:
+        return False
+    run = runs.pop()
+    whole = {s.id for s in sheets if grouped.get(s.id, groups.ALONE).continuation == run}
+    return whole == {sheet.id for sheet, _p in chosen}
 
 
 def _holding(
