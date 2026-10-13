@@ -128,6 +128,10 @@ msgstr "The reason, in a few words"
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 msgstr "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
 
+#: src/takeoff/TypedSource.tsx
+msgid "{name} has one source: its number and title as you typed them."
+msgstr "{name} has one source: its number and title as you typed them."
+
 #: src/takeoff/SheetList.tsx
 msgid "Disciplines not yet received"
 msgstr "Disciplines not yet received"
@@ -235,6 +239,10 @@ msgstr "You are reading this as the MD."
 #: src/takeoff/Bar.tsx
 msgid "Nothing else confirms it."
 msgstr "Nothing else confirms it."
+
+#: src/takeoff/TypedSource.tsx
+msgid "{name} has one source: its number as you typed it, and its title from its title block."
+msgstr "{name} has one source: its number as you typed it, and its title from its title block."
 
 #: src/takeoff/SheetLook.tsx
 msgid "Compare: what was read in red over the Plot"
@@ -562,6 +570,10 @@ msgstr "It is beside a gap in its Discipline’s numbering that {tag} asks about
 msgid "State"
 msgstr "State"
 
+#: src/takeoff/LeavesConfirmAll.tsx
+msgid "It is no longer in Confirm all: confirm it on its own."
+msgstr "It is no longer in Confirm all: confirm it on its own."
+
 #: src/takeoff/DrawingListDialog.tsx
 msgid "A range such as 01–29, or the list as the consultant sent it"
 msgstr "A range such as 01–29, or the list as the consultant sent it"
@@ -710,6 +722,10 @@ msgctxt "storey"
 msgid "Lift machine room roof"
 msgstr "Lift machine room roof"
 
+#: src/takeoff/LeavesConfirmAll.tsx
+msgid "A Question holds it now: answer {tag} first."
+msgstr "A Question holds it now: answer {tag} first."
+
 #: src/takeoff/SheetList.tsx
 msgid "State mark"
 msgstr "State mark"
@@ -741,3 +757,7 @@ msgstr "found, {listed} on the drawing list found in the drawings"
 #: src/takeoff/ActorChip.tsx
 msgid "Vextrus"
 msgstr "Vextrus"
+
+#: src/takeoff/TypedSource.tsx
+msgid "{name} has one source: its title as you typed it, and its number from its title block."
+msgstr "{name} has one source: its title as you typed it, and its number from its title block."

@@ -311,6 +311,9 @@ function Step1({
   const [correcting, setCorrecting] = useState<string | null>(null)
   /** A correction closed: its sheet's row takes the focus again once drawn (a new number may move the row). */
   const refocusSheet = useRef<string | null>(null)
+  /** The sheet last focused, and whether an act was running: an act or undo that drops the browser's focus gives it back (below). */
+  const lastSheet = useRef<string | null>(null)
+  const [, refocus] = useState(0)
   /** O: the view outlines drawn on the sheet; kept through paging. */
   const [outlinesOn, setOutlinesOn] = useState(true)
   /** Z: each press (or the button) flies to the selected view again. */
@@ -344,7 +347,9 @@ function Step1({
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
-  const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : rowByKey(focused)
+  // While a correction is open, the focused row is its sheet's row wherever a reload has put it (another person's number).
+  const correctingRow = correcting === null ? null : (model.rows.find((r) => r.sheets.some((s) => s.id === correcting)) ?? null)
+  const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : correctingRow && !rowByKey(focused) ? correctingRow : rowByKey(focused)
   /** The focused sheet: in sheet mode the one open (of two copies in one row, the one shown), else the row's first. */
   const focusedSheet = (mode === 'sheet' && open && focusedRow?.sheets.some((s) => s.id === open.id) ? open : focusedRow?.sheets[0]) ?? null
   const selectedView = mode === 'sheet' && open && viewPick?.sheet === open.id ? viewPick.view : null
@@ -363,6 +368,20 @@ function Step1({
     const next = at === -1 ? (by > 0 ? viewsInOrder[0] : viewsInOrder.at(-1)) : viewsInOrder[at + by]
     setViewPick(next ? { sheet: open.id, view: next.id } : null)
   }
+
+  const focusedSheetId = focusedSheet?.id ?? null
+  useEffect(() => {
+    if (focusedSheetId) lastSheet.current = focusedSheetId
+  }, [focusedSheetId])
+  useEffect(() => {
+    if (acts.undone === 0) return
+    // An undo moves a corrected sheet's row (a number back in Structural): focus lost to the page body
+    // would send the next E nowhere and the next Enter to the bar's act. Put on the sheet's row.
+    if ((!document.activeElement || document.activeElement === document.body) && lastSheet.current) {
+      refocusSheet.current = lastSheet.current
+      refocus((n) => n + 1)
+    }
+  }, [acts.undone])
 
   // A correction closed: in the list, its sheet's row as Step 1 now draws it (a new number may put it in a
   // Question's row) takes the browser's focus, and with it the screen's (the row's own focus handler).
@@ -655,16 +674,19 @@ function Step1({
     setPicker(null)
     setPanel(null)
     shell.showInspectorTab('selection')
+    acts.clearCorrectionRefusal()
     setCorrecting(focusedSheet.id)
   }
-  const correctingSheet = correcting !== null && focusedSheet?.id === correcting ? focusedSheet : null
+  // Tied to its sheet by id: a reload (another person changed its number) moves the row, never the form.
+  const correctingSheet = correcting !== null ? (model.rows.flatMap((r) => [...r.sheets]).find((s) => s.id === correcting) ?? null) : null
   const closeCorrection = (sheetId: string) => {
     setCorrecting(null)
+    acts.clearCorrectionRefusal()
     refocusSheet.current = sheetId
   }
-  const saveCorrection = (sheet: ProposalOut, change: SheetChange) => {
-    // Refused (its words toasted) or dropped behind another act: the form stays, with what was typed.
-    void acts.correctSheet(sheet, change).then((done) => done && closeCorrection(sheet.id))
+  const saveCorrection = (sheet: ProposalOut, change: SheetChange, opened: { number: string; title: string }) => {
+    // Refused (its words under the field) or dropped behind another act: the form stays, with what was typed.
+    void acts.correctSheet(sheet, change, opened).then((done) => done && closeCorrection(sheet.id))
   }
   const excludeKey = () => {
     if (readOnly) return refuse(readOnly)
@@ -758,7 +780,7 @@ function Step1({
         readOnly={readOnly !== null}
         open={mode === 'sheet' && open ? open : undefined}
         acts={{ exclude: excludeKey, confirmBackIn: () => void confirmRow(focusedRow, false), correct: correctKey }}
-        correcting={correctingSheet ? { sheet: correctingSheet, save: (change) => saveCorrection(correctingSheet, change), cancel: () => closeCorrection(correctingSheet.id) } : null}
+        correcting={correctingSheet ? { sheet: correctingSheet, refusal: acts.correctionRefusal, save: (change, opened) => saveCorrection(correctingSheet, change, opened), cancel: () => closeCorrection(correctingSheet.id) } : null}
         selectedView={selectedView}
         slots={stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))}
         onSelectView={mode === 'sheet' && open ? (view) => setViewPick({ sheet: open.id, view }) : undefined}

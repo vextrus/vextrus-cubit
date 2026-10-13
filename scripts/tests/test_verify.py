@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.verify import Check, flakes_in, plan, pytest_workers, run_command
+from scripts.verify import Check, chains_of, flakes_in, plan, pytest_workers, run_command
 
 ENTRIES = [("scripts/tests/test_x.py :: test_a", "scripts/tests/test_x.py", "test_a")]
 
@@ -108,3 +108,17 @@ def test_a_check_never_inherits_a_forced_colour(monkeypatch: pytest.MonkeyPatch,
 def test_what_the_words_lint_reads_plans_it(path: str, tmp_path: Path) -> None:
     names = [check.name for check in plan([path], root=tmp_path)]
     assert "words-lint" in names
+
+
+@pytest.mark.parametrize(
+    "paths",
+    [
+        ["vextrus/takeoff/tests/acceptance/t1/test_x.py"],  # no web file: #709's race
+        ["web/src/takeoff/model.ts"],
+    ],
+)
+def test_contract_fixtures_runs_after_the_export_in_its_chain(paths: list[str]) -> None:
+    checks = plan(paths, have=lambda tool: True)
+    [chain] = [c for c in chains_of(checks) if any(check.name == "contract-fixtures" for _, check in c)]
+    names = [check.name for _, check in chain]
+    assert names.index("openapi-export") < names.index("contract-fixtures")

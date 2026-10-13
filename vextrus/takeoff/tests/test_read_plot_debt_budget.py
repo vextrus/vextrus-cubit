@@ -1,4 +1,5 @@
-"""Debt (#197), from #157's re-check 3.
+"""Was debt #197 (from #157's re-check 3), fixed by S24-A5's set-level Plot match: every read
+matches the set's pages, each PDF with its own ink tries.
 With the ink budget spent, a DWG read later (unrelated sheets) lets go of a page an
 earlier PDF run gave by ink. Budget patched to 2 to stand for 128 on a large set."""
 
@@ -31,10 +32,6 @@ def test_budget(
     budget: int,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    if request.node.callspec.id == "a-b-pdfs-c-2":
-        request.applymarker(
-            pytest.mark.xfail(strict=True, reason="#197: a sheet ends with no Plot in this order")
-        )
     monkeypatch.setattr(registration, "MAX_INK_TRIES", budget)
     files = {
         "KR-STR-A.dwg": _build(tmp_path, "a", [("S-201", T.REGION_A), ("S-203", REGION_C)]),

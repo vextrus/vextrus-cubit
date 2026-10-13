@@ -145,10 +145,15 @@ class Drawing:
         extrusion: Point = (0.0, 0.0, 1.0),
         tag: str | None = None,
         style_handle: str | None = None,
+        extents_width: float | None = None,
+        extents_height: float | None = None,
+        line_spacing_style: int | None = None,
+        line_spacing_factor: float | None = None,
     ) -> str:
         """A text; when `style_handle` names one of this drawing's styles (`style`'s return), its style
         name and fonts are that style's, as the reader gives them, and `style` and `font` are not
-        used (a handle naming none is kept, and `artefact()` refuses it)."""
+        used (a handle naming none is kept, and `artefact()` refuses it). An MTEXT's measures and line
+        spacing (`extents_width`, `extents_height`, `line_spacing_*`) are kept as given."""
         mtext = kind == "MTEXT"
         bigfont = None
         if (named := self.styles.get(style_handle or "")) is not None:
@@ -175,6 +180,10 @@ class Drawing:
             tag=tag,
             extrusion=extrusion,
             style_handle=style_handle,
+            extents_width=extents_width,
+            extents_height=extents_height,
+            line_spacing_style=line_spacing_style,
+            line_spacing_factor=line_spacing_factor,
         )
         return self._add(entity, owner)
 

@@ -37,7 +37,7 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   Opus 5.5 `high`: every `acceptance-writer` (the owner's Q20, 4 Oct 2026: "yes for most scenario if it comes to quality"), the `pr-reviewer` depth lens,
   `qs-critic`, `drawing-analyst`, the `ux-critic` walk, hard builders (drawings, hostile input, security walls; `launch --tier hard`). Sonnet 5.5: ordinary builders with
   committed tests (`--tier ordinary`, `medium`; `high` if long or spanning modules); at `high` the adversary lens, `refuter`, words-only `ux-critic`; `Explore`, look-ups (`low`).
-  Mechanical steps are scripts. Haiku 4.5 and Fable 5.1 are not used. A role moves to a cheaper model only with a pilot result in `docs/knowledge/lessons.md`.
+  Mechanical steps are scripts. Haiku 5.5 and Fable 5.1 run only in their pilots (the owner's Q11, 13 Oct 2026): Haiku for look-ups and mechanical steps, measured against Sonnet `low`; Fable only as an escalation when the same ticket fails the same class twice. A role moves model only with a pilot result in `docs/knowledge/lessons.md`.
 - **Cloud and local sessions:** cloud for tickets provable by committed tests; local (`claude --bg`, one
   worktree each) for anything touching real drawings. Cloud builders push their own branch only; local
   builders commit and never push. Neither opens a PR: the orchestrator pushes, opens it and merges after

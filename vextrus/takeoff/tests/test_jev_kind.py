@@ -337,3 +337,32 @@ def test_a_run_of_subjects_names_each_kind_whose_subject_it_holds(
     assert kind in kinds_named(title, offered(discipline))
     assert unsure(clear_over(discipline, first, kind), title)
     assert not unsure(clear_over(discipline, kind, first), title)
+
+
+# S24-A7 review: the generic `details` never shields a near-tie between two specific kinds ----------
+
+
+def test_the_generic_details_second_does_not_hide_a_specific_kind_close_behind_it() -> None:
+    """beam_details 0.40, details 0.30, beam_layout 0.29: beam_layout is within close-by of the
+    first, so the kind is asked; the same pair without `details` between them asks too."""
+    assert unsure(answer(("beam_details", "0.40"), ("details", "0.30"), ("beam_layout", "0.29")), "T")
+    assert unsure(answer(("beam_details", "0.40"), ("beam_layout", "0.29")), "T")
+
+
+def test_the_generic_details_second_does_not_hide_a_second_specific_details_kind() -> None:
+    """beam_details 0.35, details 0.34, slab_details 0.31 asks, as it does with details at 0.30."""
+    assert unsure(answer(("beam_details", "0.35"), ("details", "0.34"), ("slab_details", "0.31")), "T")
+    assert unsure(answer(("beam_details", "0.35"), ("slab_details", "0.31"), ("details", "0.30")), "T")
+
+
+def test_a_details_kind_over_details_with_nothing_else_near_is_proposed() -> None:
+    assert not unsure(
+        answer(("beam_details", "0.45"), ("details", "0.33"), ("beam_layout", "0.05")), "T"
+    )
+
+
+def test_the_generic_details_hides_nothing_however_thin_jev_is_spread() -> None:
+    """beam_details 0.28 / details 0.20 / beam_layout 0.14 and 0.14 / 0.13 / 0.12 ask, as they do
+    without `details`."""
+    assert unsure(answer(("beam_details", "0.28"), ("details", "0.20"), ("beam_layout", "0.14")), "T")
+    assert unsure(answer(("beam_details", "0.14"), ("details", "0.13"), ("beam_layout", "0.12")), "T")

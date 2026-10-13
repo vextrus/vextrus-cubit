@@ -1,4 +1,5 @@
-"""Debt (#197), from #157's re-check 3.
+"""Was debt #197 (from #157's re-check 3), fixed by S24-A5's set-level Plot match: every read
+matches the set's pages, each PDF with its own ink tries.
 A textless page given by ink in PLOT-1's run; PLOT-2 (added later) has a page naming the
 sheet by text. A later unrelated DWG's run full-matches the textless page, `unclaimed` takes its ink
 match back (a text page names the sheet), and `_release` now lets the sheet go, while PLOT-2's page is
@@ -40,10 +41,6 @@ def test_unclaimed(
     tmp_path: Path,
     order: str,
 ) -> None:
-    if request.node.callspec.id == "a-p1-p2-c":
-        request.applymarker(
-            pytest.mark.xfail(strict=True, reason="#197: a sheet ends with no Plot in this order")
-        )
     files = {
         "KR-STR-A.dwg": _build(tmp_path, "a", [("S-201", T.REGION_A), ("S-203", REGION_C)]),
         "KR-STR-C.dwg": _build(tmp_path, "c", [("S-301", REGION_C)]),

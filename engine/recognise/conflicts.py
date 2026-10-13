@@ -110,9 +110,11 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   lie on (`sheets`); and, for 21c, the Discipline's, the subject's and the first shared storey's keys (in
   the first view's order). A part plan (17's `StoreysSource.TITLE_LINE`: its own title names a room or
   a part, its floors only a line under it, #413, S19-B5) sits out: each bath's plan over "2nd to 6th
-  floor" is a different room's. A plan whose storeys run floor to floor (17's `floor_to_floor`: a column
-  layout "foundation to 3rd floor") shares none at its top end, where the next range starts ("3rd to 6th
-  floor"): consecutive ranges meet at a floor by the drafting convention. A plan at ceiling level is
+  floor" is a different room's. A column or shear-wall plan (`COLUMN_SUBJECTS`) whose storeys run floor
+  to floor (17's `floor_to_floor`: a column layout "foundation to 3rd floor") shares none at its top
+  end, where the next range starts ("3rd to 6th floor"): consecutive ranges meet at a floor by the
+  drafting convention; an architectural plan, read floor to floor too (S22-FL5), claims every storey
+  it states. A plan at ceiling level is
   compared only with plans at ceiling level (`level`). A plan on a sheet with neither
   number nor title sits out (its Question is 21c's `missing`). 21c's Question title must word m0-screens
   §5's verbatim from `storey` and `subject` once display words exist; this Conflict's words are its
@@ -154,6 +156,7 @@ from engine.recognise.types import (
     pattern_finditer,
     pattern_search,
 )
+from engine.recognise.views.storeys import FLOOR_TO_FLOOR
 
 if TYPE_CHECKING:
     from engine.recognise.views import Described
@@ -162,6 +165,11 @@ RUNNING_LIMIT = 10**15
 """A running number this large or larger is no running number: every count made from running numbers
 stays below 2**53, so a browser formats it exactly (a gap's count), and a running number is never too
 long to print. A bound on what the code can say, not a threshold on what the drawings hold."""
+
+COLUMN_SUBJECTS = FLOOR_TO_FLOOR
+"""The subjects the column storey rule is for (17's floor-to-floor subjects: column, shear wall): a
+range's top storey is where the next range of columns starts. An architectural plan read floor to floor
+(any other subject) states every storey it names."""
 
 SAME_NUMBER = "same_number"
 SAME_TITLE = "same_title"
@@ -1064,7 +1072,11 @@ def _same_storey(
             bucket = (str(sheet.group), sheet.discipline.value, view.subject, layer, kind, level(view))
             flat.append((view, places.of(i), i))
             storeys = [storey for storey in view.storeys if not reader.symbolic(storey)]
-            if view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and len(storeys) > 1:
+            if (
+                view.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR
+                and view.subject in COLUMN_SUBJECTS
+                and len(storeys) > 1
+            ):  # the column storey rule: a column or shear-wall plan's alone (S22-FL5)
                 storeys = storeys[:-1]  # its top end is where the next range of columns starts
             for storey in storeys:
                 sharing.setdefault((bucket, storey), []).append(len(flat) - 1)
