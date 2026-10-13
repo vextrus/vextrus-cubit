@@ -75,14 +75,21 @@ Plain words, brief. Only a command you ran is evidence.
 
 The last line of your final message is exactly `VERDICT: PASS|FIX|BLOCK at <40-hex sha>` (one word, the
 full sha of the head you reviewed): PASS when no finding that blocks stands, FIX when one does and a fix
-round can mend it, BLOCK when the PR's approach cannot. A finding blocks at 75 or more, or at 50 or more
-when its file is on a strict path (every file is strict unless it matches a `[lax]` glob and no `[strict]`
-carve-out in `scripts/factory/review_tiers.toml`; read that file on main, which may hold a session's ruling
-beyond the web's view components and the docs' Markdown); one of 50-74 off them is filed as an issue and
-does not make your verdict FIX (ADR 0041, amended 7 Oct 2026).
-Each finding scored 50 or more also goes on its own line as `FINDING <id> <score> - <file>` (the
-refuter's verdict replaces `-`; the file is the repository path you named, and with none it is judged
-strict). Code computes the recorded verdict from these lines; nobody transcribes it.
+round can mend it, BLOCK when the PR's approach cannot. Tag each finding with its class (the owner's Q13,
+13 Oct 2026): **user-facing** (a QS or MD would hit it), **edge** (an edge case no user meets in normal
+work) or **rule-only** (it breaks only the factory's own rules); say whether it sits on a trust boundary
+(a tenant wall, a parser of hostile input, a gate, the review record); and name the committed check (a test, lint
+or scan) that would fail on its class. A finding blocks at 75 or more, or at 50 or more when it is
+user-facing or on a trust boundary (or its file matches a `[strict] paths` carve-out); an edge or
+rule-only finding of 50-74 off a trust boundary is filed as an issue that still owes its check and does
+not make your verdict FIX (ADR 0041 item 7, amended 13 Oct 2026). An untagged finding keeps the path bar:
+50 or more on a strict path (every file is strict unless it matches a `[lax]` glob and no `[strict]`
+carve-out in `scripts/factory/review_tiers.toml`; read that file on main, which may hold a session's
+ruling beyond the web's view components and the docs' Markdown).
+Each finding scored 50 or more also goes on its own line as
+`FINDING <id> <score> - <file> class=<user-facing|edge|rule-only> boundary=<yes|no>` (the refuter's
+verdict replaces `-`; the file is the repository path you named, and with none it is judged on a trust
+boundary). Code computes the recorded verdict from these lines; nobody transcribes it.
 
 **In the cloud** (a review launched by `scripts/factory/review_cloud.py`, tier 2): run the full Python and
 web suites on your own VM; commit exactly one file, the verdict file the prompt names
