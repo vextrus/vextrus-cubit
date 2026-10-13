@@ -819,6 +819,89 @@ function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer
   )
 }
 
+/**
+ * What the card shows of the sheets it holds, then the Trace line (§6.7): two copies of one number as a table
+ * (Copy · Date · File); any other Question's sheets as a list. Over four sheets they fold behind one line, so
+ * the options stay on screen: a numbering gap over 17 gaps holds 34 sheets (#663). The fold is a native
+ * <details>: its summary takes the keys (Tab to it, Enter or Space opens it).
+ */
+function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: CardContext; onOpen?: (sheet: ProposalOut) => void }) {
+  const f = useFormat()
+  const copies = entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+  const trace = (
+    <p className="text-xs text-ink-secondary empty:hidden">
+      <Trace entry={entry} context={context} onOpen={onOpen} />
+    </p>
+  )
+  if (copies)
+    return (
+      <>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-ink-secondary">
+              <th scope="col" className="pe-2 text-start font-medium">
+                <Trans>Copy</Trans>
+              </th>
+              <th scope="col" className="pe-2 text-start font-medium">
+                <Trans>Date</Trans>
+              </th>
+              <th scope="col" className="text-start font-medium">
+                <Trans>File</Trans>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {entry.holds.map((s) => (
+              <tr key={s.id} className="align-top">
+                <td className="pe-2">
+                  <Copy sheet={s} />
+                </td>
+                <td className="pe-2 whitespace-nowrap">{s.issue_date ? f.day(s.issue_date) : '—'}</td>
+                <td className="min-w-0 break-all">
+                  <CopyPlace sheet={s} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {trace}
+      </>
+    )
+  const list =
+    entry.holds.length > 1 ? (
+      <ul className="text-xs">
+        {entry.holds.map((s) => (
+          <li key={s.id}>
+            <SheetName sheets={[s]} /> <Copy sheet={s} />
+            {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
+          </li>
+        ))}
+      </ul>
+    ) : null
+  if (entry.holds.length <= FOLD_OVER)
+    return (
+      <>
+        {list}
+        {trace}
+      </>
+    )
+  const n = entry.holds.length
+  return (
+    <details className="flex flex-col gap-2 text-xs">
+      <summary className="cursor-pointer text-ink-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring">
+        <Plural value={n} one="# sheet, and the Trace" other="# sheets, and the Trace" />
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+        {list}
+        {trace}
+      </div>
+    </details>
+  )
+}
+
+/** Sheets a card lists before it folds them (and its Trace) behind "n sheets, and the Trace". */
+const FOLD_OVER = 4
+
 export function QuestionCard({
   entry,
   readOnly,
@@ -835,12 +918,9 @@ export function QuestionCard({
 }) {
   const names = context.names
   const { t } = useLingui()
-  const f = useFormat()
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
-  // Copies told apart by title: the table shows it, as the options name them by it.
-  const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
   const pick = usePick(entry, context)
   const sources = usePickSources(entry, context)
   // Unique per card: the same Question's card is in the Selection and the Questions tab at once, and
@@ -870,44 +950,7 @@ export function QuestionCard({
         <p className="text-xs text-ink-secondary empty:hidden">
           <QuestionBody entry={entry} context={context} />
         </p>
-        {entry.holds.length > 1 ? (
-          <table className="text-xs">
-            <thead>
-              <tr className="text-start text-ink-secondary">
-                <th scope="col" className="pe-3 font-normal">
-                  <Trans>Copy</Trans>
-                </th>
-                <th scope="col" className="pe-3 font-normal">
-                  <Trans>Date</Trans>
-                </th>
-                <th scope="col" className="font-normal">
-                  <Trans>File</Trans>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {entry.holds.map((s) => (
-                <tr key={s.id} className="align-top">
-                  <td className="pe-3">
-                    <Copy sheet={s} />
-                    {titlesDiffer ? (
-                      <span className="block text-ink-secondary">
-                        <DrawingText kind="title" text={s.title} truncate={false} />
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="pe-3">{s.issue_date ? f.day(s.issue_date) : null}</td>
-                  <td>
-                    <CopyPlace sheet={s} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-        <p className="text-xs text-ink-secondary empty:hidden">
-          <Trace entry={entry} context={context} onOpen={onOpen} />
-        </p>
+        <Evidence entry={entry} context={context} onOpen={onOpen} />
         {/* A radiogroup: the key map leaves the arrows to it, and Enter on an option answers (the screen's Enter). */}
         <fieldset role="radiogroup" aria-label={t`Answers`} className="flex flex-col gap-1" disabled={!can || answerer.busy}>
           {options.map((o, i) => (
