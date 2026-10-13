@@ -35,8 +35,9 @@ export const TABS = ["Builders", "Reviews", "Lock", "PR queue"]
 // Calls that submit a prompt, put words in the owner's prompt box or transcript, run a model, start
 // an agent, a tool, a command or a process, end a turn, reach the network or write a file: none is
 // the mod's (read-only in v1; the owner's ruling Q6).
+// Amended 13 Oct 2026 (S26-FX2): `prompt.submit`, the wake, left this list by the owner's ruling Q-R4;
+// ts26fx2's tests pin when it may.
 const FORBIDDEN_NAMES = new Set([
-  "prompt.submit",
   "prompt.fill",
   "prompt.suggest",
   "session.send",

@@ -30,7 +30,8 @@ test("claude plugin validate passes on the mod", { skip: SKIP }, () => {
   assert.match(out, /Validation passed/)
 })
 
-test("the mod's call list holds $.ui.toast and nothing that submits a prompt or runs a model, an agent, a tool or a process", { skip: SKIP }, () => {
+// Amended 13 Oct 2026 (S26-FX2): $.prompt.submit, the wake, is allowed by the owner's ruling Q-R4.
+test("the mod's call list holds $.ui.toast and nothing that fills the prompt box or runs a model, an agent, a tool or a process", { skip: SKIP }, () => {
   const { status, out } = validate()
   assert.equal(status, 0, out)
   const calls = out

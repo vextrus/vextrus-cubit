@@ -34,8 +34,13 @@ export type Tab = {
   name: 'Builders' | 'Reviews' | 'Lock' | 'PR queue'
 }
 
+/** The wake (S26-FX2): true while a due wake is held by the cap of 12 an hour; the band says "wakes capped". */
+export type Wake = {
+  capped: boolean
+}
+
 declare module 'claude-code' {
   interface PluginState {
-    'vextrus-factory': { reading: Reading; events: Events; session: Session; cost: Cost; verdicts: Verdicts; tab: Tab }
+    'vextrus-factory': { reading: Reading; events: Events; session: Session; cost: Cost; verdicts: Verdicts; tab: Tab; wake: Wake }
   }
 }
