@@ -514,6 +514,11 @@ def lock_view(folder: Path, at: datetime) -> dict[str, Any]:
     return {"holder": holder, "waiters": waiters}
 
 
+# `scripts.ledger.LAST_ROUND` (delta reviews run to round 9): the script form runs under the machine's
+# python3, which cannot import the ledger, so a unit test pins the two equal.
+LAST_ROUND = 9
+
+
 def reviews_view(folder: Path, prs: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     by_pr: dict[int, list[dict[str, Any]]] = {}
     for path in sorted((folder / "ledger").glob("*.json")):
@@ -525,7 +530,7 @@ def reviews_view(folder: Path, prs: list[dict[str, Any]] | None) -> list[dict[st
             continue
         if (
             pr < 1
-            or not 1 <= round_ <= 3
+            or not 1 <= round_ <= LAST_ROUND
             or not SHA40.match(head)
             or verdict not in ("PASS", "FIX", "BLOCK")
         ):

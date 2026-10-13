@@ -35,7 +35,7 @@ def test_a_good_record_is_read(tmp_path: Path) -> None:
         record(8, HEAD),  # names another PR than its file
         record(7, "b" * 40),  # names another head than its file
         record(7, HEAD, verdict="MAYBE"),
-        record(7, HEAD, round=9),
+        record(7, HEAD, round=10),  # past the last delta-review round (ledger.LAST_ROUND)
     ],
 )
 def test_a_record_that_disagrees_with_its_name_marks_the_pr_unreadable(

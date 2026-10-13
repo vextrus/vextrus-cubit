@@ -8,6 +8,7 @@ the tenant the transaction acts in (`app.tenant_id`), and the app can never upda
 
 import uuid
 from collections.abc import Collection, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 from django.db import connection
@@ -82,6 +83,34 @@ def latest(
         .annotate(at=Max("occurred_at"))
     )
     return {(kind, subject): at for kind, subject, at in found if subject is not None}
+
+
+@dataclass(frozen=True)
+class Recorded:
+    """One event as read back: its kind's code, its subject, who acted, its payload and when."""
+
+    kind: str
+    subject_id: uuid.UUID
+    actor_user_id: uuid.UUID | None
+    payload: Mapping[str, int | str]
+    occurred_at: datetime
+
+
+def of_subjects(
+    kinds: Sequence[MessageCode], *, subject_type: str, subject_ids: Collection[uuid.UUID]
+) -> list[Recorded]:
+    """Every event of these kinds about these subjects, oldest first, in the acting tenant (row-level
+    security): a subject's history (`takeoff`'s "Who did what")."""
+    if not kinds or not subject_ids:
+        return []
+    found = DomainEvent.objects.filter(
+        kind__in=[k.code for k in kinds], subject_type=subject_type, subject_id__in=list(subject_ids)
+    ).order_by("occurred_at", "id")
+    return [
+        Recorded(e.kind, e.subject_id, e.actor_user_id, e.payload, e.occurred_at)
+        for e in found
+        if e.subject_id is not None
+    ]
 
 
 def newest_for_projects(project_ids: Collection[uuid.UUID]) -> dict[uuid.UUID, datetime]:

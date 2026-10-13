@@ -22,6 +22,9 @@ holds only when the run's own counts agree (see `root_only_in`): exit code 1, th
 tests that did not run" section; otherwise the command's exit code stands. An entry names a test
 exactly: `<path>::<title>` followed by `[`, a space or the end of the line (a vitest line: the title
 ends the line).
+A `web-test` that fails with every failing test's error vitest's `Error: Test timed out in <n>ms.` line
+(the counts agreeing, see `timed_out_files`) has each such file run again alone, `--maxWorkers=1`, as its
+own `web-test-rerun` check; it passes only if every re-run passes, and any other failure stands.
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -54,6 +57,8 @@ VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
 SUMMARY_LINE = re.compile(r"^=*\s*\d+ \w.*\bin \d+(?:\.\d+)?s\b")
 VITEST_SUMMARY = re.compile(r"^\s+Tests\s+\d")
 NOT_RUN_SECTION = "acceptance tests that did not run"
+VITEST_FAIL_FILE = re.compile(r"^\s*FAIL\s+(?:\|[^|]*\|\s+)?(\S+)\s+>\s")
+VITEST_TIMEOUT = re.compile(r"^Error: Test timed out in \d+ms\.\s*$")
 
 
 @dataclass(frozen=True)
@@ -335,6 +340,36 @@ def root_only_in(code: int, output: str, entries: list[tuple[str, str, str]]) ->
     return flakes_in(output, entries)
 
 
+def timed_out_files(code: int, output: str) -> list[str] | None:
+    """The test files of a failed vitest run (default reporter, either project: `|node|`,
+    `|browser (chromium)|`) when every failing test's error is the timeout line right after its `FAIL`
+    line (`Error: Test timed out in <n>ms.`), else None. The run's own counts must agree: exit code 1,
+    the `Tests` line's failed count equal to the FAIL lines, no unhandled errors. A failure of any other
+    kind, an assertion quoting the timeout text included, keeps the command's exit code."""
+    if code != 1 or re.search(r"^\s*Errors\s+\d|Unhandled Errors", output, re.M):
+        return None
+    lines = output.splitlines()
+    summary = [line for line in lines if VITEST_SUMMARY.match(line)]
+    if not summary:
+        return None
+    failed = {word: int(n) for n, word in re.findall(r"(\d+) (failed)\b", summary[-1])}
+    files: list[str] = []
+    fails = 0
+    for index, line in enumerate(lines):
+        if not VITEST_FAILURE.match(line):
+            continue
+        fails += 1
+        named = VITEST_FAIL_FILE.match(line)
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        if named is None or not VITEST_TIMEOUT.match(following):
+            return None
+        if named[1] not in files:
+            files.append(named[1])
+    if not fails or failed.get("failed", 0) != fails:
+        return None
+    return files
+
+
 def _git(*args: str) -> str:
     done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
     if done.returncode != 0:
@@ -520,7 +555,7 @@ def main(
 
     def settle(index: int, check: Check) -> dict[str, object]:
         code, output = run(check)
-        raw, flakes, root_only = code, [], []
+        raw, flakes, root_only, reruns = code, [], [], 0
         # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
         excusable = check.name != "crosspr"
         if (
@@ -537,6 +572,24 @@ def main(
                 code, flakes = 0, listed
             else:
                 code = raw = again
+        elif code != 0 and check.name == "web-test" and (files := timed_out_files(code, output)):
+            # Each timed-out file alone, vitest's workers capped: a pool under load times a slow
+            # test out; only a file that passes alone is excused (the owner's Q-R3).
+            codes = []
+            for file in files:
+                alone = Check(
+                    "web-test-rerun",
+                    (*check.argv, "--", file, "--maxWorkers=1"),
+                    check.env,
+                )
+                again, rerun = run(alone)
+                output += f"\n--- rerun alone (timed out: {file}) ---\n{rerun}"
+                codes.append(again)
+            reruns = len(files)
+            if all(c == 0 for c in codes):
+                code = 0
+            else:
+                code = raw = next(c for c in codes if c != 0)
         stem = check.name if names.count(check.name) == 1 else f"{check.name}-{index}"
         name = outputs / f"{stem}.txt"
         (root / name).write_text(output)
@@ -544,7 +597,8 @@ def main(
             print(
                 f"verify: {check.name} {code}"
                 + (f" (flakes: {len(flakes)})" if flakes else "")
-                + (f" (root-only: {len(root_only)})" if root_only else ""),
+                + (f" (root-only: {len(root_only)})" if root_only else "")
+                + (f" (timeout re-run alone: {reruns})" if reruns else ""),
                 flush=True,
             )
         return {

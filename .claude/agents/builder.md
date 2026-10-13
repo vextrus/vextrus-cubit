@@ -31,7 +31,8 @@ tests at those seams or the module's public interface (the `tdd` skill).
 Every ticket has a budget; the orchestrator's messages start with elapsed against it. Past the budget, cut
 scope in the ticket's cut order and name each cut; never overrun silently. Every cut item goes in the PR
 body under `## Cut`, naming the issue title to file (the orchestrator files it and links it; `merge_ready`
-refuses an unlinked cut item).
+refuses an unlinked cut item). Each cut item is one line ending in its issue written `(#n)`; when nothing
+was cut, `## Cut` says `None.` and nothing longer.
 
 ## Commands and suites
 - Commit with explicit paths (`git add <path> ...`); never `git add -A` or `git add .`.
