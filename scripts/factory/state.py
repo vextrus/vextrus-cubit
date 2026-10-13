@@ -95,7 +95,7 @@ def read_ledger(folder: Path) -> Ledger:
                 int(raw["pr"]) != pr
                 or raw["head"] != head
                 or verdict not in ledger.RANK
-                or not 1 <= round_ <= ledger.MAX_ROUND
+                or not 1 <= round_ <= ledger.LAST_ROUND
             ):
                 raise ValueError(name)
         except OSError, ValueError, KeyError, TypeError:
