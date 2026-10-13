@@ -103,13 +103,14 @@ describe('the bar on a confirmed sheet once Step 1 is confirmed (m0-screens §6.
 
   it('acts on nothing on Enter: no request, focus stays on S-05, and the bar still says Step 1 is confirmed', async () => {
     const step1 = await confirmedS05()
-    await waitFor(() => expect(bodyText()).toContain(STEP1_CONFIRMED))
+    // Every sheet is settled once the list has drawn S-05 confirmed; Enter is pressed whatever the bar says.
+    await waitFor(() => expect(bodyText()).toContain('Coverage 70 views: 39 assigned, 28 excluded, 3 proposed, 0 unaccounted'))
     const before = posts(step1)
     await userEvent.keyboard('{Enter}')
     await new Promise<void>((done) => requestAnimationFrame(() => done()))
-    expect(posts(step1)).toEqual(before)
+    expect(posts(step1), 'no act on Enter').toEqual(before)
     expect(focusedOn('S-05'), 'focus stays on S-05').toBe(true)
-    expect(bodyText()).toContain(STEP1_CONFIRMED)
+    await waitFor(() => expect(bodyText()).toContain(STEP1_CONFIRMED))
   })
 })
 
