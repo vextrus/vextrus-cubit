@@ -101,6 +101,10 @@ msgstr "{count, plural, one {# act, last {last}} other {# acts, last {last}}}"
 msgid "{name} (Vextrus)"
 msgstr "{name} (Vextrus)"
 
+#: src/members/ActsPanel.tsx
+msgid "Confirmed {number} back in, excluded before as {why}"
+msgstr "Confirmed {number} back in, excluded before as {why}"
+
 #: src/members/LinkShown.tsx
 msgid "Link copied"
 msgstr "Link copied"
@@ -260,6 +264,10 @@ msgstr "Reading their acts…"
 #: src/members/MembersPage.tsx
 msgid "Copy link"
 msgstr "Copy link"
+
+#: src/members/ActsPanel.tsx
+msgid "{number} back in, excluded before as {why}"
+msgstr "{number} back in, excluded before as {why}"
 
 #: src/members/DateField.tsx
 msgid "Enter a date like {example}."
