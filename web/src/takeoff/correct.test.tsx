@@ -425,6 +425,41 @@ describe('Correct the Proposal (§6.9)', () => {
     expect(form().getByRole('textbox', { name: 'Title' })).not.toHaveAttribute('aria-invalid')
   })
 
+  it('takes a save pressed while the list is still reloading after a refusal, whatever the reload takes', async () => {
+    // S26-D7: the refusal is under its field before the reload ends; an Enter in that window was dropped (the slowed run).
+    const api = new FakeApi()
+    const step1 = new FakeStep1(api)
+    const base = api.handle
+    let release: () => void = () => {}
+    let hold: Promise<void> | null = null
+    const posted: string[] = []
+    api.handle = async (request: Request) => {
+      const path = new URL(request.url, location.origin).pathname
+      if (request.method === 'POST' && path.endsWith('/correct')) posted.push(path)
+      if (request.method === 'GET' && path.endsWith('/proposals') && hold) await hold
+      return base(request)
+    }
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await userEvent.click(within(rowFor('S-05')).getByText('S-05'))
+    await userEvent.keyboard('e')
+    await waitFor(() => expect(bodyText()).toContain('Correct the Proposal'))
+    const form = () => within(screen.getByRole('complementary'))
+    step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })
+    hold = new Promise<void>((resolve) => (release = resolve))
+    await userEvent.type(form().getByRole('textbox', { name: 'Title' }), 'x')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+    // The list has not come back; the person saves again.
+    step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })
+    await userEvent.type(form().getByRole('textbox', { name: 'Title' }), 'y')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(posted).toHaveLength(2))
+    release()
+    await waitFor(() => expect(form().getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+    await waitFor(() => expect(document.querySelector('[data-step1]')).toHaveAttribute('aria-busy', 'false'))
+  })
+
   it('sends a pasted line whole, so the server refuses it in words, not cut silently by the field', async () => {
     const { step1, title } = await correcting()
     step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.title_too_long', params: { limit: 500 } })
