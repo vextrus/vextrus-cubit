@@ -1,6 +1,7 @@
 # Posts "not applicable" for the two statuses a PR may not need (the M0 plan, Labels and 01c; s02
 # reviews R3, U10): `real-drawings` success when no changed file matches an engine path
-# (.github/engine-paths.txt), and `design-gate` success when none matches web/**. Otherwise it posts
+# (.github/engine-paths.txt), and `design-gate` success when none matches web/** or when every web/**
+# path is a test (web/src/acceptance/**, web/e2e/**, a file named *.test.*). Otherwise it posts
 # nothing, and the owner's GitHub App posts the status after the check or the gate.
 #
 # It runs on pull_request_target, so main's copy of this file, of engine-paths.txt and of the matcher
@@ -72,6 +73,9 @@ jobs:
           # The code hash's set: the engine paths and what the check's checkout carries beside them.
           engine=$(touches --patterns .github/engine-paths.txt --patterns .github/checkout-also.txt)
           web=$(touches --pattern 'web/**')
+          # The web paths that are not tests; any left needs the real design gate (the owner's ruling,
+          # 13 Oct 2026). A renamed file is listed under both names, so the old name still counts.
+          nontest=$(grep -vE '^web/(src/acceptance/|e2e/)|^web/(.*/)?[^/]*\.test\.[^/]*$' <<< "$web" || true)
           if [ -z "$engine" ]; then
             post real-drawings "no engine path changed"
           else
@@ -79,6 +83,8 @@ jobs:
           fi
           if [ -z "$web" ]; then
             post design-gate "nothing under web/ changed"
+          elif [ -z "$nontest" ]; then
+            post design-gate "every web/ path changed is a test"
           else
             echo "a UI PR: the owner's design gate posts design-gate"
           fi
