@@ -11,7 +11,7 @@ import { disciplinesQuery, useDisciplineName } from '@/drawing-set'
 import { useFormat } from '@/format'
 import { proposalsQuery, questionsQuery, type ProposalOut } from '@/takeoff/data'
 import { requestSheet } from '@/takeoff/jump'
-import { questionQueue } from '@/takeoff/model'
+import { holdsItsSheets, questionQueue } from '@/takeoff/model'
 import { step1AddressFor } from '@/takeoff/paths'
 import { Copy } from '@/takeoff/questionWords'
 import { DrawingText, StatusMark, type Status } from '@/ui'
@@ -73,9 +73,10 @@ export function JumpTo({
   const disciplineName = useDisciplineName(disciplines)
   const sheets = useQuery({ ...proposalsQuery(project?.id ?? ''), enabled: open && project !== undefined }).data
   const questions = useQuery({ ...questionsQuery(project?.id ?? ''), enabled: open && project !== undefined }).data
-  // A sheet an open Question holds shows the Question mark, as the list's State column does.
+  // A sheet an open Question holds shows the Question mark, as the list's State column does: a Discipline's gaps
+  // Question leaves the sheets beside its gaps in their rows, so they keep their own mark (the model's rule).
   // Worked out only while Jump to is open: the frame draws it on every screen, whatever the cache holds.
-  const asked = new Set(open && sheets?.length && questions ? questionQueue(questions, sheets).flatMap((e) => e.holds.map((h) => h.id)) : [])
+  const asked = new Set(open && sheets?.length && questions ? questionQueue(questions, sheets).filter(holdsItsSheets).flatMap((e) => e.holds.map((h) => h.id)) : [])
   const statusOf = (p: ProposalOut): Status => (asked.has(p.id) ? 'question' : p.decision === 'confirmed' ? 'confirmed' : p.decision === 'excluded' ? 'excluded' : 'proposal')
   return (
     <CommandDialog filter={jumpFilter} open={open} onOpenChange={onOpenChange} title={t`Jump to`} description={t`Go to a project, or to a place or sheet in this one.`}>

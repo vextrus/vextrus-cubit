@@ -282,7 +282,7 @@ function Step1({
   useSummaryCounts(project, model)
 
   // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118), or its
-  // number ("S-04", Jump to's address). Read as the text typed: the router's own parse makes `101` a number.
+  // number ("S-04", Jump to's address). Read as the text typed: the router keeps `sheet` as text (app/router.ts), so `101` and `1.10` stay as written.
   const asked = useRouterState({ select: (s) => new URLSearchParams(s.location.searchStr).get('sheet') ?? undefined })
   // A sheet_id wins, so an id keeps working; two sheets may share a number, and the first in the list opens.
   const findAsked = (what: string | undefined) => {

@@ -300,6 +300,13 @@ export function gapsOf(q: QuestionOut): Gap[] {
 /** Whether the Question is a Discipline's merged gap Question (it holds the sheets beside each gap, yet is a row of its own). */
 export const isGaps = (q: QuestionOut) => q.code === GAPS_CODE
 
+/**
+ * Whether the Question's sheets leave their Discipline's rows (a Question of their own, whose mark they show); a
+ * Discipline's gaps Question holds the sheets beside its gaps yet leaves them in their rows (#229), unless withdrawn.
+ * The one rule: the list's State column and Jump to's marks both take it from here.
+ */
+export const holdsItsSheets = (entry: QuestionEntry) => !isGaps(entry.question) || entry.withdrawn
+
 export function step1Model(data: Step1Data): Step1Model {
   const proposals = [...data.proposals].sort(
     (a, b) =>
@@ -314,7 +321,7 @@ export function step1Model(data: Step1Data): Step1Model {
   raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
   // The sheets beside a gap stay in their Discipline's rows, one source each while the gap is asked (#229).
-  for (const entry of [...queue, ...withdrawnEntries]) if (!isGaps(entry.question) || entry.withdrawn) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  for (const entry of [...queue, ...withdrawnEntries]) if (holdsItsSheets(entry)) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
   const besideGap = new Set(queue.filter((e) => isGaps(e.question)).flatMap((e) => e.holds.map((p) => p.id)))
 
   const needsYou: Row[] = queue.map((entry) => {
