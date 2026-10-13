@@ -284,3 +284,54 @@ def test_a_corrected_part_plan_stays_out_of_the_same_storey_comparison(
         assert kept.storeys_source == drawings.TYPED_PART
         assert str(reading.view_candidate(kept).storeys_source) == "title_line"
     assert plan_now(nusrat, kr01) == (["floor_2"], "floor_to_floor", "typed")
+
+
+# Review 1 of #780 ------------------------------------------------------------------------------------
+
+
+def test_undo_after_a_re_read_puts_the_storeys_back(demo: Any, nusrat: Api, kr01: uuid.UUID) -> None:
+    from vextrus.takeoff.services.read_propose import proposals as reading
+
+    sheet, plan = s06_plan(nusrat, kr01)
+    sheet_id = uuid.UUID(sheet["sheet_id"])
+    assert correct(nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor"))).status_code == 200
+    with tenancy.acting_in(demo["developer:shapla"]):  # the file's views read again: new view rows
+        again = [reading.view_candidate(v) for v in drawings.views(sheet_id)]
+        drawings.record_views(sheet_id, again)
+    [_sheet, moved] = s06_plan(nusrat, kr01)
+    assert moved["id"] != plan["id"]
+    assert plan_now(nusrat, kr01) == (["floor_2"], "floor_to_floor", "typed")
+
+    undone = nusrat.post(f"{step1(kr01)}/undo", {})
+
+    assert undone.status_code == 200, undone.content
+    assert plan_now(nusrat, kr01) == (READ[0], READ[1], plan["storeys_source"])
+
+
+@pytest.mark.parametrize(
+    "views",
+    [
+        "storeys",
+        ["not", "a", "mapping"],
+        {"PLAN": {"storeys": 5, "meaning": "at_floor_level"}},
+        {"PLAN": {"storeys": True, "meaning": "at_floor_level"}},
+        {"PLAN": {"storeys": 2.5, "meaning": "at_floor_level"}},
+        {"PLAN": {"storeys": [3, 5], "meaning": "at_floor_level"}},
+        {"PLAN": {"storeys": {"floor_3": 1}, "meaning": "at_floor_level"}},
+        {"PLAN": {"storeys": ["floor_3"], "meaning": 7}},
+        {"PLAN": {"storeys": ["floor_3"], "meaning": ["at_floor_level"]}},
+    ],
+)
+def test_an_opened_with_view_of_the_wrong_types_counts_as_no_header(
+    nusrat: Api, kr01: uuid.UUID, views: Any
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    if isinstance(views, dict):
+        views = {plan["id"]: views["PLAN"]}
+
+    done = post_opened(
+        nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor")), {"views": views}
+    )
+
+    assert done.status_code == 200, done.content
+    assert plan_now(nusrat, kr01)[0] == ["floor_2"]

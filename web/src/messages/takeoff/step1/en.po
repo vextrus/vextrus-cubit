@@ -102,7 +102,7 @@ msgid "takeoff.step1.answered"
 msgstr "{actor} answered a Question on Step 1"
 
 msgid "takeoff.step1.corrected"
-msgstr "{actor} corrected a sheet’s number or title on Step 1"
+msgstr "{actor} corrected a sheet’s number, title or storeys on Step 1"
 
 msgid "takeoff.step1.undone"
 msgstr "{actor} undid their last act on Step 1"

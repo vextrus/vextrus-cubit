@@ -2209,8 +2209,8 @@ def correct(
         viewed = drawings.typed_view_storeys(sheet.id, views or [])
         if viewed:
             _refuse_if_storeys_moved(opened, viewed, sheet)
-            titles = {v.id: v.title for v in drawings.views(sheet.id)}
-            changed["views"] = [_view_change(b, a, titles.get(b.view, "")) for b, a in viewed]
+            read = {v.id: v for v in drawings.views(sheet.id)}
+            changed["views"] = [_view_change(b, a, read[b.view]) for b, a in viewed]
         if len(changed) == 1:
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
         # Where each value was read, for its undo (the reading's source, not the correction's).
@@ -2271,10 +2271,15 @@ def _refuse_if_storeys_moved(
         was = seen.get(str(before.view))
         if not isinstance(was, Mapping):
             continue
-        if (list(before.storeys), before.meaning or "") != (
-            list(was.get("storeys") or []),
-            was.get("meaning") or "",
-        ):
+        storeys, meaning = was.get("storeys"), was.get("meaning")
+        # A view's opened state of other types is unreadable, so not judged (review 1 of #780, 50).
+        if storeys is None:
+            storeys = []
+        if not isinstance(storeys, list) or not all(isinstance(k, str) for k in storeys):
+            continue
+        if meaning is not None and not isinstance(meaning, str):
+            continue
+        if (list(before.storeys), before.meaning or "") != (storeys, meaning or ""):
             named = _label(str((opened or {}).get("number") or ""), sheet)
             raise auth.Refused(
                 said.STOREYS_CORRECTED_SINCE(
@@ -2285,14 +2290,17 @@ def _refuse_if_storeys_moved(
 
 
 def _view_change(
-    before: drawings.ViewStoreys, after: drawings.ViewStoreys, title: str
+    before: drawings.ViewStoreys, after: drawings.ViewStoreys, view: drawings.ViewView
 ) -> dict[str, Any]:
     """A plan view's storeys correction as the act keeps it: each of storeys, meaning and source as
-    `[before, after]` (the undo puts the first back, and stands only while the second is kept), and
-    the view's title for the sheet's history."""
+    `[before, after]` (the undo puts the first back, and stands only while the second is kept), the
+    view's title for the sheet's history, and its place and kind: with its title, what a re-read
+    carries the typed storeys by (`drawings.record_views`), for the undo to find the view again."""
     return {
         "view": str(before.view),
-        "title": title,
+        "title": view.title,
+        "ordinal": view.ordinal,
+        "kind": view.kind,
         "storeys": [list(before.storeys), list(after.storeys)],
         "meaning": [before.meaning, after.meaning],
         "source": [before.source, after.source],
@@ -2310,6 +2318,23 @@ def _view_storeys(changed: Mapping[str, Any], side: int) -> list[drawings.ViewSt
         )
         for v in changed.get("views") or []
     ]
+
+
+def _views_now(sheet_id: uuid.UUID, changed: Mapping[str, Any]) -> dict[str, drawings.ViewView]:
+    """The views a correction changed as the sheet keeps them now, by the act's view id: the same
+    row, or the one a re-read carried its typed storeys to (same place, kind and title; review 1 of
+    #780). A view the reading no longer holds is not here: it holds nothing to put back."""
+    kept = drawings.views(sheet_id)
+    by_id = {str(v.id): v for v in kept}
+    by_place = {(v.ordinal, v.kind, v.title): v for v in kept}
+    found: dict[str, drawings.ViewView] = {}
+    for one in changed.get("views") or []:
+        now = by_id.get(one["view"]) or by_place.get(
+            (one.get("ordinal"), one.get("kind"), one.get("title"))
+        )
+        if now is not None:
+            found[one["view"]] = now
+    return found
 
 
 def _correction_act(
@@ -2379,9 +2404,9 @@ def _correction_stands(act: Confirmation) -> bool:
     if title and sheet.title != title[1]:
         return False
     if changed.get("views"):
-        kept = {v.id: v for v in drawings.views(sheet.id)}
+        kept = _views_now(sheet.id, changed)
         for left in _view_storeys(changed, 1):
-            now = kept.get(left.view)  # a view read again since holds nothing to put back
+            now = kept.get(str(left.view))  # a view the reading no longer holds: nothing to put back
             if now is not None and (tuple(now.storeys), now.storeys_meaning, now.storeys_source) != (
                 left.storeys,
                 left.meaning,
@@ -2415,7 +2440,15 @@ def _put_back_correction(act: Confirmation) -> None:
     number, title = changed.get("number"), changed.get("title")
     sources = changed.get("sources") or {}
     if changed.get("views"):
-        drawings.put_back_view_storeys(sheet.id, _view_storeys(changed, 0))
+        kept = _views_now(sheet.id, changed)
+        drawings.put_back_view_storeys(
+            sheet.id,
+            [
+                replace(was, view=kept[str(was.view)].id)
+                for was in _view_storeys(changed, 0)
+                if str(was.view) in kept
+            ],
+        )
     back = drawings.put_back_sheet(
         sheet.id,
         number=number[0] if number else None,
