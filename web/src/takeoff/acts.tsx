@@ -763,7 +763,7 @@ function useActs(
       const name = <SheetName sheets={[sheet]} />
       const what = <CorrectedWords change={change} />
       // A sheet two sources agreed on leaves "Confirm all" with its typed value: said, not silent (design gate of #706).
-      const leaves = sheet.agrees && sheet.decision !== 'excluded'
+      const leaves = (change.number !== undefined || change.title !== undefined) && sheet.agrees && sheet.decision !== 'excluded'
       setCorrectionRefusal(null)
       // A sheet left out stays out (the words gate of S22-FL8): only an undecided one is "still a Proposal".
       return run(

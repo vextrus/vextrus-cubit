@@ -617,10 +617,10 @@ function OptionMeaning({ meaning }: { meaning: string }) {
 function CorrectForm({ correcting }: { correcting: Correcting }) {
   const { t } = useLingui()
   const listed = useListedStoreys()
-  const { sheet, save, cancel, refusal } = correcting
+  const { save, cancel, refusal } = correcting
   // What the form opened with: the sheet may be reloaded under it (another person's correction), but a
   // save is judged against these, and sent with them (the server refuses a value changed since).
-  const [opened, setOpened] = useState({ number: sheet.number ?? '', title: sheet.title })
+  const [opened, setOpened] = useState({ number: correcting.sheet.number ?? '', title: correcting.sheet.title })
   // A refusal that names what the sheet holds now: that is what the person has seen, so the next save
   // is judged against it and can go through (what was typed stays). Set while rendering, once per refusal.
   const [adopted, setAdopted] = useState(0)
@@ -634,7 +634,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
   const [edited, setEdited] = useState<number>(0)
   const shown = refusal && refusal.n > edited ? refusal : null
   const fieldError = (field: 'number' | 'title') => (shown && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
-  const plans = [...(sheet.views ?? [])].filter((v) => v.kind === 'plan').sort((a, b) => a.ordinal - b.ordinal)
+  const plans = [...(correcting.sheet.views ?? [])].filter((v) => v.kind === 'plan').sort((a, b) => a.ordinal - b.ordinal)
   const start = (v: ViewOut): ViewDraft => ({ storeys: listed(v.storeys), meaning: picked(v.storeys_meaning) })
   const [drafts, setDrafts] = useState<Record<string, ViewDraft>>(() => Object.fromEntries(plans.map((v) => [v.id, start(v)])))
   const [unchosen, setUnchosen] = useState<ReadonlySet<string>>(new Set())
