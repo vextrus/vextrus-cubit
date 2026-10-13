@@ -17,6 +17,7 @@ export const meta = {
   phases: [
     { title: 'Check', detail: 'walk.json exists; the served URLs' },
     { title: 'Walk', detail: 'ux-critic and qs-critic on the served stack' },
+    { title: 'Roles', detail: 'M0-FL1, M0-FL10, M0-FL11 as the other roles, then one retry of any item still NOT_WALKED' },
     { title: 'Triage', detail: 'findings, issue drafts through sanitize and issues, dedup comments' },
     { title: 'Verdict', detail: 'leak scan, then verdict.json' },
   ],
@@ -140,11 +141,57 @@ async function gate() {
       ),
   ])
 
+  // The critics share one browser profile, so another role signs in only after both ended: a second
+  // sign-in during their walk would replace the QS's cookie.
+  phase('Roles')
+  const empty = { items: [], findings: [] }
+  const reports = walkers.map((r) => r || empty)
+  const ROLE_ITEMS = ['M0-FL1', 'M0-FL10', 'M0-FL11']
+  const role = await agent(
+    [
+      `G1 role walk of the head ${SHA} served at ${served.web}, after both critics ended. Walk`,
+      `${ROLE_ITEMS.join(', ')} of docs/specs/factory.md 5's table, each PASS, FAIL or NOT_WALKED. They need`,
+      'other roles than the QS: .private/work/factory/g1.sign-in holds a "people" list of role and email, and',
+      'the one "password" (read it; never print, quote or pass it on; if it is missing, every item is NOT_WALKED).',
+      `M0-FL1 needs a Vextrus staff sign-in, and staff create the two Developers in the Django admin at ${served.api}/admin/`,
+      `(the API origin; the web origin ${served.web} proxies only /api). M0-FL10 needs the MD, the Vextrus Engineer`,
+      `and a Guest and M0-FL11 a user of a second Developer, both on the web origin ${served.web}.`,
+      'Sign out before each sign-in as the next person (one browser profile). Use your own',
+      `page, selected by URL before every action; ${FOLDER}/walk.json names each set's project.`,
+      CLOSED_WORDS,
+    ].join(' '),
+    { label: 'role-walker', phase: 'Roles', agentType: 'ux-critic', model: 'opus', schema: WALKED },
+  )
+  reports.push(role || empty)
+
+  // The merge rule of triage step 1, applied here to find what is still NOT_WALKED: one retry, no more.
+  const merged = (list) =>
+    ITEMS.map((item) => {
+      const seen = list.flatMap((r) => (r.items || []).filter((i) => i.item === item).map((i) => i.status))
+      const status = seen.includes('FAIL') ? 'FAIL' : seen.includes('PASS') ? 'PASS' : 'NOT_WALKED'
+      return [item, status]
+    })
+  const unwalked = merged(reports).filter(([, status]) => status === 'NOT_WALKED').map(([item]) => item)
+  if (unwalked.length > 0) {
+    const retry = await agent(
+      [
+        `G1 retry walk of the head ${SHA} served at ${served.web}: only ${unwalked.join(', ')} of docs/specs/factory.md 5's`,
+        'table are still unwalked. Walk exactly these, each PASS, FAIL or NOT_WALKED, signing in as the role each needs',
+        'from .private/work/factory/g1.sign-in (QS in "email" and "password", other roles in "people" with the same',
+        `password; never print, quote or pass it on). The web origin is ${served.web}; the Django admin, where staff`,
+        `create Developers, is at ${served.api}/admin/, the API origin. Your own page, selected by URL before every action.`,
+        `${FOLDER}/walk.json names each set's project.`,
+        CLOSED_WORDS,
+      ].join(' '),
+      { label: 'retry', phase: 'Roles', agentType: 'ux-critic', model: 'opus', schema: WALKED },
+    )
+    reports.push(retry || empty)
+  }
+
   phase('Triage')
-  const reports = walkers.map((r) => r || { items: [], findings: [] })
   const triaged = await agent(
     [
-      `You triage G1's agent layer for ${SHA}. The two critics returned (JSON): ${JSON.stringify(reports)}.`,
+      `You triage G1's agent layer for ${SHA}. The critics, the role walk and any retry returned (JSON, one report each): ${JSON.stringify(reports)}.`,
       `1. Merge their items: an item is FAIL if either says FAIL, PASS if one says PASS and neither FAIL,`,
       `else NOT_WALKED; list all of ${ITEMS.join(', ')} once each.`,
       '2. Give each finding an id f-1, f-2 and so on; severity BLOCKS for BLOCKS_DEMO, WRONG_NUMBER or',

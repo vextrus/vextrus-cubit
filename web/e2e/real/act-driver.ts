@@ -5,7 +5,8 @@
  * remains. It says why it stopped short, so the act check names the walk's scheduling or the screen,
  * never the product's speed:
  *
- *   - reads_ended_before_samples: every read ended while every kind had answered at least once;
+ *   - reads_ended_before_samples: every read ended while every kind had answered at least once (an
+ *     answer turn skipped for want of a running read counts here, never as kind_not_offered);
  *   - kind_not_offered: a kind never answered 1 to 399 in any act (the screen offered none, or every
  *     act of it failed): the reads ending is then not the reason;
  *   - reads_timed_out: files whose read had not ended FILE_TIMEOUT_MS after its upload (each file keeps
@@ -32,6 +33,10 @@ export type ActWalk = {
   upload(file: string): Promise<void>
   /** Whether any file of the acts Project is still reading. */
   reading(): Promise<boolean>
+  /** Waits until the screen can take an act (Step 1's list shown); optional. The driver calls it before
+   * it decides an answer, so that decision is made after any wait `act` would otherwise do first. Resolving false (not ready
+   * in time) defers the answer turn. */
+  ready?(): Promise<boolean | void>
   /** One timed act by its keys; null when the screen offered nothing to act on. */
   act(kind: ActKind): Promise<ActRecord | null>
   /** A pause between polls and after a cycle that made no act (the screen has nothing yet): optional. */
@@ -59,8 +64,11 @@ function sampled(acts: readonly ActRecord[], samplesMin: number): boolean {
 }
 
 /** Some kind never answered 1 to 399 in any act, during a read or not. */
-function notOffered(acts: readonly ActRecord[]): boolean {
-  return KINDS.some((kind) => !acts.some((a) => a.kind === kind && answered(a)))
+function notOffered(acts: readonly ActRecord[], answerUnasked: boolean): boolean {
+  // An answer never asked for (every turn skipped for want of a read) is not one the screen failed to offer.
+  return KINDS.some(
+    (kind) => !(answerUnasked && kind === 'answer') && !acts.some((a) => a.kind === kind && answered(a)),
+  )
 }
 
 export async function actWhileReading(walk: ActWalk): Promise<ActOutcome> {
@@ -94,6 +102,8 @@ export async function actWhileReading(walk: ActWalk): Promise<ActOutcome> {
   }
 
   let ended = false
+  let deferred = false // an answer turn was skipped because no read ran
+  let asked = false // an answer act was tried (made or null) while a read ran
   if (walk.files.length > 0) await start()
   for (let cycle = 0; cycle < CYCLES_MAX && !sampled(acts, walk.samplesMin); cycle++) {
     if (!(await walk.reading())) {
@@ -114,7 +124,13 @@ export async function actWhileReading(walk: ActWalk): Promise<ActOutcome> {
     // A cycle: confirm, undo, exclude, undo and answer (an undo only of an act that was made).
     if (await act('confirm')) await act('undo')
     if (await act('exclude')) await act('undo')
-    await act('answer')
+    // An answer cannot be undone and the supply is fixed: spend one only while a read runs.
+    // The decision comes after the screen is ready: its wait can outlast the read.
+    // A screen not ready (false) is a deferral too: `act` would wait for it again, after this decision.
+    if ((await walk.ready?.()) !== false && (await walk.reading())) {
+      asked = true
+      await act('answer')
+    } else deferred = true
     if (acts.length === before && walk.idle) await walk.idle()
   }
   // Every file is uploaded once, in order, each after the read before it ended or timed out.
@@ -123,7 +139,7 @@ export async function actWhileReading(walk: ActWalk): Promise<ActOutcome> {
     await start()
   }
   await settle()
-  const unoffered = ended && notOffered(acts)
+  const unoffered = ended && notOffered(acts, deferred && !asked)
   return {
     acts,
     reads_ended_before_samples: ended && !unoffered,

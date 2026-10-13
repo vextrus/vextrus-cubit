@@ -155,3 +155,119 @@ describe('why the driver stopped short (S24-W1 fix)', () => {
     expect(result.reads_timed_out).toBe(0)
   })
 })
+
+describe('an answer deferred for want of a read (S25-W2 fix round)', () => {
+  it('still says kind_not_offered when every answer asked for failed, at any read length', async () => {
+    for (let length = 40; length <= 80; length++) {
+      const w = world(['kilo.dwg'], { 'kilo.dwg': length }, (kind, running) =>
+        record(kind, { read_running: running, status: kind === 'answer' ? 500 : 200 }),
+      )
+      const result = await actWhileReading(w.walk)
+      expect(result.kind_not_offered, `read of ${length} ticks`).toBe(true)
+      expect(result.reads_ended_before_samples, `read of ${length} ticks`).toBe(false)
+    }
+  })
+
+  it('still says kind_not_offered when a later read offers no answer after an earlier turn was deferred', async () => {
+    const w = world(['kilo.dwg', 'lima.dwg'], { 'kilo.dwg': 3, 'lima.dwg': 200 }, (kind, running) =>
+      kind === 'answer' ? null : record(kind, { read_running: running }),
+    )
+    const result = await actWhileReading(w.walk)
+    expect(result.kind_not_offered).toBe(true)
+    expect(result.reads_ended_before_samples).toBe(false)
+  })
+
+  it('decides an answer after the walk is ready, not before: a wait that outlasts the read spends none', async () => {
+    let tick = 0
+    let listShown = false
+    const answers: boolean[] = []
+    const walk = {
+      files: ['kilo.dwg'],
+      samplesMin: 5,
+      fileTimeoutMs: 100_000,
+      now: () => tick,
+      async idle() {
+        tick += 1
+      },
+      async upload() {
+        tick += 1
+      },
+      async reading() {
+        tick += 1
+        return tick < 150
+      },
+      // Step 1's list appears only when the read ends, as a 60-tick wait that timed out would leave it.
+      async ready() {
+        if (!listShown) {
+          tick = Math.max(tick, 151)
+          listShown = true
+        }
+      },
+      async act(kind: ActKind) {
+        if (kind !== 'answer') return null // nothing to confirm or exclude before the list shows
+        await walk.ready()
+        const running = tick < 150
+        tick += 1
+        if (kind === 'answer') answers.push(running)
+        return record(kind, { read_running: running })
+      },
+    }
+    await actWhileReading(walk)
+    expect(answers.every(Boolean)).toBe(true)
+  })
+})
+
+describe('an answer turn when the screen is not ready in time (S25-W2 round 2)', () => {
+  it('defers the answer when ready() times out, so act’s own wait cannot spend it after its read ended', async () => {
+    const reads: { start: number; end: number }[] = []
+    let tick = 0
+    let listShown = false
+    const answers: boolean[] = []
+    const running = () => reads.some((r) => r.start <= tick && tick < r.end)
+    // As walk.spec.ts's ready(): a 60-tick wait for Step 1's list, false when it timed out; the list
+    // shows only once the read has ended.
+    const ready = async () => {
+      if (listShown) return true
+      tick += 60
+      if (running()) return false
+      listShown = true
+      return true
+    }
+    const lengths = [200, 400]
+    const walk = {
+      files: ['kilo.dwg', 'lima.dwg'],
+      samplesMin: 5,
+      fileTimeoutMs: 100_000,
+      now: () => tick,
+      async idle() {
+        tick += 1
+      },
+      async upload() {
+        tick += 1
+        const start = Math.max(tick, reads.at(-1)?.end ?? 0)
+        reads.push({ start, end: start + lengths[reads.length]! })
+        listShown = false
+      },
+      async reading() {
+        tick += 1
+        return running()
+      },
+      ready,
+      async act(kind: ActKind) {
+        if (!(await ready())) return null
+        const during = running()
+        tick += 1
+        if (kind === 'answer') answers.push(during)
+        return record(kind, { read_running: during })
+      },
+    }
+    await actWhileReading(walk)
+    expect(answers.every(Boolean)).toBe(true)
+  })
+
+  it('still asks for an answer once the screen is ready and a read runs', async () => {
+    const w = world(['kilo.dwg'], { 'kilo.dwg': 900 })
+    const result = await actWhileReading({ ...w.walk, ready: async () => true })
+    expect(result.acts.filter((a) => a.kind === 'answer' && a.read_running).length).toBeGreaterThanOrEqual(5)
+  })
+})
