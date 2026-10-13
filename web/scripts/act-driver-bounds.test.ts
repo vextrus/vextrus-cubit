@@ -155,3 +155,64 @@ describe('why the driver stopped short (S24-W1 fix)', () => {
     expect(result.reads_timed_out).toBe(0)
   })
 })
+
+describe('an answer deferred for want of a read (S25-W2 fix round)', () => {
+  it('still says kind_not_offered when every answer asked for failed, at any read length', async () => {
+    for (let length = 40; length <= 80; length++) {
+      const w = world(['kilo.dwg'], { 'kilo.dwg': length }, (kind, running) =>
+        record(kind, { read_running: running, status: kind === 'answer' ? 500 : 200 }),
+      )
+      const result = await actWhileReading(w.walk)
+      expect(result.kind_not_offered, `read of ${length} ticks`).toBe(true)
+      expect(result.reads_ended_before_samples, `read of ${length} ticks`).toBe(false)
+    }
+  })
+
+  it('still says kind_not_offered when a later read offers no answer after an earlier turn was deferred', async () => {
+    const w = world(['kilo.dwg', 'lima.dwg'], { 'kilo.dwg': 3, 'lima.dwg': 200 }, (kind, running) =>
+      kind === 'answer' ? null : record(kind, { read_running: running }),
+    )
+    const result = await actWhileReading(w.walk)
+    expect(result.kind_not_offered).toBe(true)
+    expect(result.reads_ended_before_samples).toBe(false)
+  })
+
+  it('decides an answer after the walk is ready, not before: a wait that outlasts the read spends none', async () => {
+    let tick = 0
+    let listShown = false
+    const answers: boolean[] = []
+    const walk = {
+      files: ['kilo.dwg'],
+      samplesMin: 5,
+      fileTimeoutMs: 100_000,
+      now: () => tick,
+      async idle() {
+        tick += 1
+      },
+      async upload() {
+        tick += 1
+      },
+      async reading() {
+        tick += 1
+        return tick < 150
+      },
+      // Step 1's list appears only when the read ends, as a 60-tick wait that timed out would leave it.
+      async ready() {
+        if (!listShown) {
+          tick = Math.max(tick, 151)
+          listShown = true
+        }
+      },
+      async act(kind: ActKind) {
+        if (kind !== 'answer') return null // nothing to confirm or exclude before the list shows
+        await walk.ready()
+        const running = tick < 150
+        tick += 1
+        if (kind === 'answer') answers.push(running)
+        return record(kind, { read_running: running })
+      },
+    }
+    await actWhileReading(walk)
+    expect(answers.every(Boolean)).toBe(true)
+  })
+})
