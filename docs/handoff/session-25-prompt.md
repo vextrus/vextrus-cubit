@@ -138,7 +138,7 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
      `git diff main...HEAD` in the builder's worktree, its own database or no pytest, no ledger; `builder.md` runs it once before READY and on
      each fix's own diff, then re-runs the previous round's attack tests. Cost: A+B ≈ $2.56 and 7 min a run (`review-cost.jsonl`).
    - **F2 the bar** (Q13): each lens tags a finding's class (user-facing, edge, rule-only); the verdict blocks on ≥75, user-facing, or (if the owner confirms) a trust boundary at 50; ADR 0041
-     item 2 amended; a check that every filed 50–74 issue names its owed check. **Re-score sessions 18–24's round-1 verdicts under
+     item 7 (and item 5's late-finding rule), CLAUDE.md's "Every serious finding" line and the ledger's verdict amended together; a check that every filed 50–74 issue names its owed check. **Re-score sessions 18–24's round-1 verdicts under
      the new bar first:** that is the Q14 pilot's baseline, or the pilot mixes the two changes.
    - **F3 #701** (A6 factory quick wins: the watcher, rdlock, launch), reviewed fresh from round 1.
    - **F4 the guard**: `onFailure: "block"` on the PreToolUse guard only (prove first on one throwaway cloud launch that the cloud CLI keeps
