@@ -11,6 +11,9 @@ followed by its number (`E4a 141.81`: the number is the figure). Before a workin
 bracketed aside of words with no `=` in it is dropped (`1 kg x 1.03 (3% cutting wastage) x 88.50`), and a
 `: word x` is read as `x` (`8,400 cft: labour x 6.88`).
 
+A result followed by an operator (`= 4 x 15.97`) is a restatement of the working and is accepted only
+when its chain rebuilds the left side's value; otherwise it is a finding (or `unchecked:`).
+
 What the lint does NOT check is reported, never skipped silently: every `= figure` it cannot rebuild
 a chain for is printed as `unchecked:` with its row and what stands before the `=`. The shapes it
 cannot rebuild are: a bare row id (`M3 + M4`, no figure on the line); a chain that mixes `+` with
@@ -104,6 +107,19 @@ ASIDE = re.compile(r"\s*\((?=[^()=]*[A-Za-z])[^()=]*\)")
 LABEL = re.compile(r":\s*[a-z]+\s*(?=\u00d7)")
 
 
+def _restates(left: str, segment: str) -> bool:
+    """The segment opens with a chain that rebuilds `left` (`4 x E1b = 4 x 15.97`): the working restated,
+    not a result. The two chains agree at two places (1.3's Measurement Line)."""
+    right = re.match(rf"\s*({CHAIN})", _clean(segment))
+    if not right:
+        return False
+    a, b = _evaluate(left), _evaluate(right.group(1))
+    if a is None or b is None:
+        return False
+    places = Decimal("0.01")
+    return a.quantize(places, rounding=ROUND_HALF_UP) == b.quantize(places, rounding=ROUND_HALF_UP)
+
+
 def _clean(segment: str) -> str:
     return LABEL.sub(" ", ASIDE.sub("", segment))
 
@@ -141,7 +157,7 @@ def scan(path: Path) -> tuple[list[str], list[str]]:
         row, derivation, value = cells[0], cells[2], cells[3]
         segments = derivation.split("=")
         for index in range(1, len(segments)):
-            result = re.match(rf"\s*({NUMBER})(?!\s*[\u00d7+\u2212\u00f7]|\d|[,.]\d)", segments[index])
+            result = re.match(rf"\s*({NUMBER})(?!\d|[,.]\d)", segments[index])
             before = _clean(segments[index - 1])
             found = BEFORE.search(before) if result else None
             if result and (not found or _evaluate(found.group(1)) is None):
@@ -149,7 +165,12 @@ def scan(path: Path) -> tuple[list[str], list[str]]:
                     f"{path}:{number}: unchecked: row {row}: "
                     f"...{before.strip()[-40:]} = {result.group(1)}"
                 )
-            if found and result and not _agrees(found.group(1), result.group(1)):
+            if (
+                found
+                and result
+                and not _agrees(found.group(1), result.group(1))
+                and not _restates(found.group(1), segments[index])
+            ):
                 findings.append(
                     f"{path}:{number}: row {row}: {found.group(1).strip()} = {result.group(1)}, "
                     f"which it does not make"

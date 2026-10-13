@@ -87,6 +87,15 @@ def test_a_rate_less_working_is_reported_unchecked_by_name(tmp_path: Path) -> No
     assert "56,47,388.04" in listed[0]
 
 
+def test_a_result_followed_by_an_operator_is_checked_not_skipped(tmp_path: Path) -> None:
+    found = run(tmp_path, "| A1 | Beams | 2 \u00d7 3 = 7 \u00d7 1.00 | 7.00 |\n")
+    assert any("2 \u00d7 3 = 7" in f for f in found), found
+
+
+def test_a_restated_result_followed_by_an_operator_passes(tmp_path: Path) -> None:
+    assert run(tmp_path, "| A1 | Beams | 2 \u00d7 3 = 6 \u00d7 1.00 = 6.00 | 6.00 |\n") == []
+
+
 def test_a_bump_of_a_checked_working_fails_and_the_rest_are_listed() -> None:
     """The mutation test: bump the last digit of every printed result on the real page; the bump is
     a finding, or the working was reported unchecked (the known gap in the module's docstring)."""
@@ -107,8 +116,10 @@ def test_a_bump_of_a_checked_working_fails_and_the_rest_are_listed() -> None:
             cells = [c.strip() for c in row.strip().strip("|").split("|")]
             if len(cells) < 4:
                 continue
-            for hit in re.finditer(r"= (\d[\d,]*\.\d+)(?![\d])", cells[2]):
+            for hit in re.finditer(r"= (\d[\d,]*(?:\.\d+)?)(?![\d,.])", cells[2]):
                 figure = hit.group(1)
+                if not figure[-1].isdigit():
+                    continue
                 digit = figure[-1]
                 bumped = figure[:-1] + str((int(digit) + 1) % 10)
                 changed = table.copy()
@@ -118,3 +129,27 @@ def test_a_bump_of_a_checked_working_fails_and_the_rest_are_listed() -> None:
                 if not found and not any(f"= {bumped}" in u for u in seed_workings.unchecked(scratch)):
                     survived.append(f"{cells[0]}: {figure} -> {bumped}")
     assert survived == [], survived
+
+
+def test_every_unpriced_count_on_the_page_is_u1s() -> None:
+    """U1 gives the unpriced Items and the prices behind them; every other count of either on the page
+    (the strip, the status bar, the Prices filter, 6.2's Prices row) is that figure."""
+    import re
+
+    text = (Path(__file__).resolve().parents[3] / "docs/design/m1-screens.md").read_text(
+        encoding="utf-8"
+    )
+    u1 = re.search(r"\| U1 \|.*\| (\d+) BOQ Items from (\d+) prices \|", text)
+    assert u1, "U1 row not found"
+    items, prices = u1.group(1), u1.group(2)
+    wrong = [
+        m.group(0) for m in re.finditer(r"(\d+) BOQ Items have no rate yet", text) if m.group(1) != items
+    ]
+    wrong += [
+        m.group(0) for m in re.finditer(r"from (\d+) prices not entered", text) if m.group(1) != prices
+    ]
+    wrong += [m.group(0) for m in re.finditer(r"Not entered \((\d+)\)", text) if m.group(1) != prices]
+    wrong += [
+        m.group(0) for m in re.finditer(r"outside the (\d+) unpriced Items", text) if m.group(1) != items
+    ]
+    assert wrong == [], wrong
