@@ -11,6 +11,9 @@ Prints exactly one line, `ready=true` or `ready=false` (a step appends it to `$G
   naming this commit's tree; or when it is a merge of main onto a commit that is READY by this same rule
   (GitHub's "Update branch" and `land update` make the head that lands such a merge). A merge onto a head
   that is not READY, or of anything but main, is not READY.
+- A builder's answer to a status message (the owner's Q-R6) keeps READY: an empty commit (its tree its
+  parent's) whose only `Factory-` trailer is `Factory-Status:`, on a head that is READY by these rules; a
+  chain of them too. A commit with any file change never does, whatever trailers it carries.
 - A commit git cannot read exits non-zero, so the step fails closed, as the workflows' path steps do.
 """
 
@@ -20,7 +23,7 @@ import os
 import subprocess
 import sys
 
-from scripts.factory.trailers import read
+from scripts.factory.trailers import read, status_line
 
 MAIN_REFS = ("refs/remotes/origin/main", "refs/heads/main")
 
@@ -57,14 +60,24 @@ def _on_main(sha: str) -> bool:
     return False
 
 
+def _is_status_reply(sha: str, parent: str) -> bool:
+    """Whether `sha` is an empty commit on `parent` (same tree) whose only factory trailer is a
+    `Factory-Status:` line."""
+    if status_line(_git("show", "-s", "--format=%B", sha).stdout) is None:
+        return False
+    return _git("rev-parse", f"{sha}^{{tree}}").stdout == _git("rev-parse", f"{parent}^{{tree}}").stdout
+
+
 def is_ready(sha: str) -> bool:
-    """READY by the trailer rule, or a chain of merges of main onto a commit that is."""
+    """READY by the trailer rule, or a chain of merges of main and empty status replies onto a commit
+    that is."""
     current = _commit(sha)
     while True:
         if _reads_ready(current):
             return True
         parents = _git("rev-list", "--parents", "-n", "1", current).stdout.split()[1:]
-        if len(parents) != 2 or not _on_main(parents[1]):
+        merge = len(parents) == 2 and _on_main(parents[1])
+        if not (merge or (len(parents) == 1 and _is_status_reply(current, parents[0]))):
             return False
         current = parents[0]
 

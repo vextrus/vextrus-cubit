@@ -18,14 +18,15 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
   amended 13 Oct 2026): a PASS whose only standing findings are 50-74 that cannot block may merge, those
   filed as issues. A newer head than the
   reviewed one passes only if every commit since it is a merge of main whose own resolution
-  (`git diff-tree --cc`) is empty: a resolved conflict is unreviewed code;
+  (`git diff-tree --cc`) is empty (a resolved conflict is unreviewed code), or an empty commit whose only
+  factory trailer is `Factory-Status:` (a builder's reply to a status message: the reviewed tree);
 - (b) a round-3 record with no exception;
 - (c) an item under a `## Cut`, `## Not done` or `## Deferred` heading of the body that links no open
   issue;
 - (e) a head that `scripts/factory/ci_gate.py` reads not READY (no `Factory-State: READY` with this
-  tree's `Factory-Verify`, and not a merge of main onto such a head) when the PR changes a file outside
-  the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a green `ci` proves nothing
-  ran. A PR of documents alone needs no heavy job and no trailer;
+  tree's `Factory-Verify`, and not a merge of main or an empty status reply onto such a head) when the
+  PR changes a file outside the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a
+  green `ci` proves nothing ran. A PR of documents alone needs no heavy job and no trailer;
 - (d) a leak-scan hit (or no leak scan) on the PR's added lines, commit messages, file names, branch
   name, title, body or comments. A problem names the part and the count, never the text.
 
@@ -41,6 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.factory import ci_gate
+from scripts.factory.trailers import status_line
 from scripts.ledger import default_ledger_dir
 
 REPOSITORY = ("vextrus", "vextrus-cubit")
@@ -436,8 +438,18 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=False)
 
 
+def _is_status_reply(repo: Path, commit: str, parent: str) -> bool:
+    """An empty commit on `parent` (its tree the parent's) whose only factory trailer is
+    `Factory-Status:`: a builder's answer to a status message (Q-R6), nothing to review."""
+    message = _git(repo, "log", "-1", "--format=%B", commit)
+    trees = [_git(repo, "rev-parse", f"{sha}^{{tree}}") for sha in (commit, parent)]
+    same = all(tree.returncode == 0 for tree in trees) and trees[0].stdout == trees[1].stdout
+    return message.returncode == 0 and status_line(message.stdout) is not None and same
+
+
 def merges_since(repo: Path, reviewed: str, head: str, base: str) -> str | None:
-    """None when every commit from the reviewed head to this head is a clean merge of main; else why not.
+    """None when every commit from the reviewed head to this head is a clean merge of main (or an empty
+    `Factory-Status:` reply, whose tree is the reviewed one); else why not.
 
     Each commit must have exactly two parents: one the reviewed head (or a merge already checked), the
     other an ancestor of main; and its tree must be the one `git merge-tree` makes from those two with no
@@ -454,6 +466,9 @@ def merges_since(repo: Path, reviewed: str, head: str, base: str) -> str | None:
     checked = {reviewed}
     for row in listed.stdout.splitlines():
         commit, *parents = row.split()
+        if len(parents) == 1 and parents[0] in checked and _is_status_reply(repo, commit, parents[0]):
+            checked.add(commit)
+            continue
         ours = [parent for parent in parents if parent in checked]
         theirs = [parent for parent in parents if parent not in checked]
         if len(parents) != 2 or len(ours) != 1 or len(theirs) != 1:
