@@ -9,11 +9,13 @@ Run it from the main checkout: git runs in the current directory's repository.
 Each pass (every `--interval` seconds; `--once` makes one pass and exits):
 - the ticket branches named by the launch records (`$VEXTRUS_FACTORY_DIR/launches/<ticket>-<utc>.json`,
   launch-cli.md 5; the newest record per ticket, and only those started since `session.json`'s start when
-  a session is running) are read with one `git ls-remote --heads origin`; a local builder's head is its
-  `refs/heads/<branch>` in this checkout (its worktree shares the refs; it never pushes), origin's tip
-  until that ref exists. A new head is a push (a heartbeat; on a local branch a commit): it is fetched,
-  its tip's trailers are read exactly as trailers.md 1 defines them (never a reading of free text; a
-  clean merge of main on the head last seen READY stays READY), and on a cloud branch `python -m
+  a session is running, or whose branch has an open PR) are read with one `git ls-remote --heads
+  origin`; a local builder's head is the head of its worktree (the record's: it may rename its branch or
+  switch to a new one), else `refs/heads/<branch>` in this checkout (the worktree shares the refs; it
+  never sends to origin), origin's tip until that exists. A new head is a push (a heartbeat; on a local
+  branch a commit): it is fetched, its tip's trailers are read exactly as trailers.md 1 defines them
+  (never a reading of free text; a clean merge of main or a status reply on the head last seen READY
+  stays READY), and on a cloud branch `python -m
   tools.leakscan range origin/main..<head> --no-stamp` (or `VEXTRUS_LEAKSCAN_CMD`) scans its diff and
   messages; the scan's output is reduced to `file:line` and a count, its text is never kept. No scanner
   (before PR f2) is recorded as `absent` in `watch-state.json` and is not an alarm. A hit on a cloud
@@ -28,8 +30,11 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
 
 It writes one `status.json` (status.schema.json, atomically, through `status.py`) and appends one line
 `<UTC> <KIND> <ticket|-> <detail>` per change to `events.log`. The kinds: PUSH, COMMIT (a local head
-that is not origin's tip), READY, BLOCKED, CI-RED (an open PR's required `ci` check failed; events)
-and the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
+that is not origin's tip), READY, BLOCKED (a BLOCKED head with no one-line reason says `no reason
+given`), STATUS (a builder's empty `Factory-Status:` commit: the line it carries; on a READY head it
+keeps READY, as a clean merge of main does), CI-RED (an open PR's required `ci` check failed; events),
+WALK-SCRIPT-DONE and G1 (`../walks/<sha40>/walk.json` and `verdict.json` appearing; the result) and
+the alarms, status.schema.json's codes: READY-WAITING, READY-NO-VERIFY, BUILDER-QUIET,
 BUILDER-BLOCKED, LOCAL-IDLE, NEW-CLAUDE-BRANCH, LEAK-HIT, BUDGET-PASSED, FLOOR-CROSSED, REVIEW-READY,
 JEV-MODEL-MOVED. Alarms are edge-triggered: a line when one is raised, none while it holds, and it
 leaves `status.json` when its cause clears. Its memory is `watch-state.json`, so a READY head already
@@ -68,7 +73,7 @@ if not __package__:  # the script form, `python3 scripts/factory/watch.py`
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.factory import governor, leakwhere, stamp, status
-from scripts.factory.trailers import Trailers
+from scripts.factory.trailers import TRAILER, Trailers, status_line
 from scripts.factory.trailers import read as read_trailers
 
 QUIET_MINUTES = 30
@@ -93,14 +98,31 @@ CLOSED_PR = {"MERGED", "CLOSED"}
 
 
 # --- trailers (trailers.md 1: scripts/factory/trailers.py, the reading the guard and stop gate share)
-MERGE_DEPTH = 20
 # The trailer reading's version: a state written by another version has every seen head re-read once.
-PARSER = 3
+PARSER = 5
+
+
+BLOCKED_NO_REASON = "BLOCKED without a one-line Factory-Reason"
+NO_REASON = "no reason given"
+
+
+def blocked_reason(message: str) -> str:
+    """The Factory-Reason line of a BLOCKED message the strict reading refused (too long, or none)."""
+    for line in reversed(message.replace("\r", "").split("\n")):
+        found = TRAILER.match(line)
+        if found and found.group(1).lower() == "factory-reason" and found.group(2) != "":
+            return found.group(2)
+    return NO_REASON
 
 
 def parse_trailers(message: str, tree: str) -> Trailers:
     """The tip commit's factory trailers (trailers.md 1), its reason made one public line."""
     read = read_trailers(message, tree)
+    if read.outcome is None and read.why == BLOCKED_NO_REASON:
+        # The reading stays strict for the guard and the stop gate; the watcher still says it is BLOCKED.
+        return Trailers(
+            "BLOCKED", public(blocked_reason(message), 200) or NO_REASON, read.why, read.gated
+        )
     if read.reason is None:
         return read
     return Trailers(read.outcome, public(read.reason, 200), read.why, read.gated)
@@ -163,6 +185,18 @@ def read_head(branch: str, sha: str) -> tuple[str, str] | None:
     return message, tree.strip()
 
 
+def worktree_head(record: dict[str, Any]) -> str | None:
+    """The head of a local builder's worktree (its launch record's), wherever its branch has gone: a
+    builder may rename its branch or switch to a new one. None when the record names no worktree that
+    exists, or git cannot read its HEAD."""
+    path = record.get("worktree")
+    if not isinstance(path, str) or not Path(path).is_dir():
+        return None
+    done = git("-C", path, "rev-parse", "--verify", "-q", "HEAD")
+    sha = done.stdout.strip() if done is not None and done.returncode == 0 else ""
+    return sha if SHA40.match(sha) else None
+
+
 def local_head(branch: str) -> str | None:
     """`refs/heads/<branch>` in the main checkout: a local builder's worktree shares these refs, so this
     is its own head, pushed or not. None when there is no such ref or git refuses the name."""
@@ -171,16 +205,33 @@ def local_head(branch: str) -> str | None:
     return sha if SHA40.match(sha) else None
 
 
+def status_reply(sha: str) -> str | None:
+    """The `Factory-Status:` line when `sha` is a builder's reply to a status message: an empty commit
+    (one parent, its tree the parent's) whose only factory trailer is that line; else None."""
+    parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
+    message = git_out("log", "-1", "--format=%B", sha)
+    line = status_line(message) if message is not None and len(parents) == 1 else None
+    if line is None:
+        return None
+    trees = [git_out("rev-parse", f"{commit}^{{tree}}") for commit in (sha, parents[0])]
+    return public(line, 200) if trees[0] is not None and trees[0] == trees[1] else None
+
+
 def clean_merges_of_main(sha: str, ready_head: str, main_sha: str | None) -> bool:
-    """Whether `sha` is `ready_head` followed only by clean merges of main: each a two-parent merge whose
-    first parent is the one before, whose second is on origin/main, and whose tree is the one
-    `git merge-tree` makes from the two with no conflict (merge_ready's rule: a resolved conflict, a
-    `-s ours` or an edit inside the merge is new work)."""
+    """Whether `sha` is `ready_head` followed only by clean merges of main and builders' status replies
+    (`status_reply`): each merge a two-parent merge whose first parent is the one before, whose second is
+    on origin/main, and whose tree is the one `git merge-tree` makes from the two with no conflict
+    (merge_ready's rule: a resolved conflict, a `-s ours` or an edit inside the merge is new work)."""
     main = main_sha or "refs/remotes/origin/main"
     if main_sha is not None:
         fetch("main", main_sha)
-    for _ in range(MERGE_DEPTH):
+    while True:
         parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
+        if len(parents) == 1 and status_reply(sha) is not None:
+            sha = parents[0]
+            if sha == ready_head:
+                return True
+            continue
         if len(parents) != 2:
             return False
         on_main = git("merge-base", "--is-ancestor", parents[1], main)
@@ -193,7 +244,6 @@ def clean_merges_of_main(sha: str, ready_head: str, main_sha: str | None) -> boo
         if parents[0] == ready_head:
             return True
         sha = parents[0]
-    return False
 
 
 # --- the leak scan (leakscan-cli.md 6: the watcher only alarms, never stamps)
@@ -453,6 +503,22 @@ def is_builder(record: dict[str, Any]) -> bool:
     return str(record.get("role") or "builder") == "builder"
 
 
+def carried_over(
+    folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None
+) -> dict[str, dict[str, Any]]:
+    """The launches of an earlier session (before `since`) whose branch's PR is open: they are followed
+    until the PR ends, whatever session is running."""
+    if since is None:
+        return {}
+    earlier, _ = load_launches(folder, None)
+    found = {}
+    for ticket, record in earlier.items():
+        pr = pr_for(str(record["branch"]), prs)
+        if record["_started"] < since and pr is not None and pr.get("state") == "OPEN":
+            found[ticket] = record
+    return found
+
+
 def read_session() -> dict[str, Any] | None:
     try:
         return stamp.load_session()
@@ -635,6 +701,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
             )
             log.write(f"{status.utc(at)} {line}\n")
 
+    records = {**carried_over(folder, since, prs), **records}
     rows = governor.read_agents() if any(r["where"] == "local" for r in records.values()) else None
     items = [
         track(step, ticket, record, refs, main_sha, prs, rows)
@@ -644,6 +711,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
 
     if refs is not None:
         watch_branches(step, refs, reviews)
+    watch_walks(step)
     if session is not None:
         spent = status.minutes_between(status.parse_utc(session["started_utc"]), at)
         if spent > int(session["budget_minutes"]):
@@ -724,24 +792,29 @@ def track(
         seen = tickets[ticket] = {"branch": branch, "head": None, "last_push_at": None, "outcome": None}
     tip = refs.get(branch) if refs is not None else None  # origin's
     # A local builder's own head is its ref in this checkout; origin's tip until it has one.
-    mine = local_head(branch) if where == "local" else None
+    mine = (worktree_head(record) or local_head(branch)) if where == "local" else None
     head = mine or (tip if refs is not None else seen["head"])
     if (refs is not None or mine is not None) and head != seen["head"]:
         info = read_head(branch, head) if head is not None else ("", "")
         if info is not None:
             message, tree = info
             trailers = parse_trailers(message, tree) if head is not None else Trailers(None)
-            # A clean merge of main on the head last seen READY (the lander's) keeps that READY, its
-            # time and its event; anything else in the merge is new work.
-            ready_head = seen.get("ready_head")
-            inherited = (
-                head is not None
-                and trailers.outcome is None
-                and isinstance(ready_head, str)
-                and clean_merges_of_main(head, ready_head, main_sha)
+            # Clean merges of main (the lander's) and a builder's status replies on a commit that reads
+            # READY or BLOCKED keep that outcome (and a BLOCKED its reason), found by walking back
+            # whether or not this watcher saw it; anything else in the merge is new work. The outcome
+            # commit's own event fires once: when it is not the one this watcher already recorded.
+            found = (
+                settled_under(head, main_sha) if head is not None and trailers.outcome is None else None
             )
-            if inherited:
-                trailers = Trailers("READY")
+            under = found[0] if found is not None else None
+            if found is not None:
+                trailers = found[1]
+            inherited = (
+                found is not None
+                and seen.get("outcome") == trailers.outcome
+                and seen.get("ready_commit" if trailers.outcome == "READY" else "blocked_commit")
+                in (None, under)
+            )
             seen.update(
                 head=head,
                 last_push_at=status.utc(at) if head is not None else seen["last_push_at"],
@@ -750,6 +823,8 @@ def track(
                 why=trailers.why,
                 outcome_at=seen.get("outcome_at") if inherited else status.utc(at),
                 ready_head=head if trailers.outcome == "READY" else None,
+                ready_commit=(under or head) if trailers.outcome == "READY" else None,
+                blocked_commit=(under or head) if trailers.outcome == "BLOCKED" else None,
                 leak=None,
                 acceptance=head is not None and message.startswith("acceptance:"),
                 idle_since=None,
@@ -760,10 +835,13 @@ def track(
                 elif head != tip:  # equal to origin's tip: the launch tip or a head already pushed
                     step.event("COMMIT", ticket, head[:8])
                     seen["committed"] = True
+                reply = status_reply(head)
+                if reply is not None:
+                    step.event("STATUS", ticket, f"{head[:8]} {reply}")
                 if trailers.outcome == "READY" and not inherited:
-                    step.event("READY", ticket, head[:8])
-                elif trailers.outcome == "BLOCKED":
-                    step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
+                    step.event("READY", ticket, (under or head)[:8])
+                elif trailers.outcome == "BLOCKED" and not inherited:
+                    step.event("BLOCKED", ticket, f"{(under or head)[:8]} {trailers.reason}")
                 if where == "cloud":
                     seen["leak"] = leak_scan(head, main_sha)
                     step.state["leakscan"] = seen["leak"]["result"]
@@ -926,17 +1004,25 @@ def local_idle(step: Pass, ticket: str, seen: dict[str, Any], row: dict[str, Any
 
 def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) -> None:
     """Read a seen head's outcome again: the state was written by another version of the trailer
-    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both. A READY
-    inherited onto clean merges of main (track's rule) stays READY."""
+    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both. A head
+    that reads no outcome itself is walked back (`settled_under`) whatever the stored outcome is: a
+    READY or BLOCKED under clean merges of main and status replies is the head's outcome, with its
+    reason, so a state an earlier parser wrote for such a head reads it after the upgrade."""
     head = seen["head"]
     info = read_head(seen["branch"], head)
     if info is None:
         return
     trailers = parse_trailers(*info)
-    if trailers.outcome is None and seen.get("outcome") == "READY" and inherits_ready(head, main_sha):
-        return
+    under = head
+    if trailers.outcome is None:
+        found = settled_under(head, main_sha)
+        if found is not None:
+            under, trailers = found
+            if trailers.outcome == seen.get("outcome"):
+                return
     if trailers.outcome == "READY":  # every READY records its head, unchanged or not
         seen["ready_head"] = head
+        seen["ready_commit"] = under
     if trailers.outcome == seen.get("outcome"):
         return
     seen.update(
@@ -945,29 +1031,43 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
         why=trailers.why,
         outcome_at=status.utc(step.at),
         ready_head=head if trailers.outcome == "READY" else None,
+        ready_commit=under if trailers.outcome == "READY" else None,
+        blocked_commit=under if trailers.outcome == "BLOCKED" else None,
     )
     if trailers.outcome == "READY":
-        step.event("READY", ticket, head[:8])
+        step.event("READY", ticket, under[:8])
     elif trailers.outcome == "BLOCKED":
-        step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
+        step.event("BLOCKED", ticket, f"{under[:8]} {trailers.reason}")
 
 
-def inherits_ready(head: str, main_sha: str | None) -> bool:
-    """Whether `head` is clean merges of main on a commit that reads READY: track() records such a merge
-    as its own READY head, so the READY commit under it is found again by walking first parents."""
+def settled_under(head: str, main_sha: str | None) -> tuple[str, Trailers] | None:
+    """(the commit, its trailers) of the READY or BLOCKED commit under `head` when `head` is clean merges
+    of main and status replies on it, found by walking first parents (so it needs no earlier sight of
+    that commit) with no depth cut, as `ci_gate.ready_commit` has none; else None. A status reply on a
+    BLOCKED head keeps BLOCKED and its reason, as it keeps READY."""
     sha = head
-    for _ in range(MERGE_DEPTH):
+    while True:
         parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
-        if len(parents) != 2:
-            return False
-        sha = parents[0]
+        if len(parents) == 1 and status_reply(sha) is not None:
+            sha = parents[0]  # a builder's status reply: the commit under it is the one to read
+        elif len(parents) == 2:
+            sha = parents[0]
+        else:
+            return None
         message = git_out("log", "-1", "--format=%B", sha)
         tree = git_out("rev-parse", f"{sha}^{{tree}}")
         if message is None or tree is None:
-            return False
-        if parse_trailers(message, tree.strip()).outcome == "READY":
-            return clean_merges_of_main(head, sha, main_sha)
-    return False
+            return None
+        found = parse_trailers(message, tree.strip())
+        if found.outcome in ("READY", "BLOCKED"):
+            return (sha, found) if clean_merges_of_main(head, sha, main_sha) else None
+
+
+def inherits_outcome(head: str, main_sha: str | None) -> str | None:
+    """The outcome (READY or BLOCKED) `head` inherits through clean merges of main and status replies
+    (`settled_under`): `state.outcome_of` asks it of a head that does not read an outcome itself."""
+    found = settled_under(head, main_sha)
+    return found[1].outcome if found is not None else None
 
 
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
@@ -1039,6 +1139,54 @@ def watch_branches(step: Pass, refs: dict[str, str], reviews: dict[str, str]) ->
             step.alarm(
                 f"{name}|{tip}", "REVIEW-READY", f"#{match.group(1)}", f"review verdict {tip[:8]}"
             )
+
+
+def walk_entries(folder: Path) -> dict[str, dict[str, Any]]:
+    """{sha40: {key: the verdict's result or None}} for each walk file in `folder`: `walk.json` is keyed
+    by name, a `verdict.json` by its `finished_at` (`verdict.json@<finished_at>`; the file's mtime and
+    inode when it has none), so a re-walk of the same head, which verdict.py writes over the same name,
+    is a new entry. A verdict unreadable now (half-written?) is left out: read again next pass."""
+    found: dict[str, dict[str, Any]] = {}
+    for path in sorted(folder.glob("*/walk.json")) + sorted(folder.glob("*/verdict.json")):
+        sha = path.parent.name
+        if not SHA40.match(sha):
+            continue
+        if path.name == "walk.json":
+            found.setdefault(sha, {})[path.name] = None
+            continue
+        try:
+            verdict = json.loads(path.read_text())
+            result = verdict["result"]
+            stat = path.stat()
+        except status.RECORD_ERRORS:
+            continue
+        finished = verdict.get("finished_at") if isinstance(verdict, dict) else None
+        stamp = finished if isinstance(finished, str) else f"{stat.st_mtime_ns}-{stat.st_ino}"
+        found.setdefault(sha, {})[f"{path.name}@{stamp}"] = result
+    return found
+
+
+def watch_walks(step: Pass) -> None:
+    """One WALK-SCRIPT-DONE per `../walks/<sha40>/walk.json` and one G1 (with its result) per verdict
+    that appears, a re-walk of a head included (`walk_entries` keys a verdict by its `finished_at`); a
+    restart does not repeat either. The first pass only records what is there: the folder holds every
+    earlier walk, which is history, not news."""
+    seen: dict[str, list[str]] | None = step.state.get("walks")
+    found = walk_entries(step.folder.parent / "walks")
+    step.state["walks"] = {sha: sorted(entries) for sha, entries in found.items()} | {
+        sha: names for sha, names in (seen or {}).items() if sha not in found
+    }
+    if seen is None:
+        return
+    for sha, entries in sorted(found.items()):
+        for key, result in entries.items():
+            # A state an older watcher wrote names the verdict `verdict.json`: that walk is seen.
+            if key in seen.get(sha, []) or (result is not None and "verdict.json" in seen.get(sha, [])):
+                continue
+            if key == "walk.json":
+                step.event("WALK-SCRIPT-DONE", sha[:8], "walk.json written")
+            elif result in ("PASS", "FAIL"):
+                step.event("G1", sha[:8], result)
 
 
 def watch_floors(step: Pass) -> dict[str, Any]:

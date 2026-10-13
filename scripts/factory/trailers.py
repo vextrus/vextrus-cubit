@@ -79,6 +79,27 @@ def read(message: str, tree: str) -> Trailers:
     return Trailers("READY-NO-VERIFY", None, found.why or LOOSE, gated)
 
 
+def status_line(message: str) -> str | None:
+    """The `Factory-Status:` line of a builder's reply to a status message (an empty commit), or None.
+
+    Not a reading of the commit's outcome (`read` stays strict): the message's only `Factory-*` line must
+    be one `Factory-Status: <line>`, in the last two paragraphs, its value one non-blank line. Whether
+    the commit is empty (its tree its parent's) is the caller's to check."""
+    text = message.replace("\r", "")
+    paragraphs = [p.split("\n") for p in PARAGRAPH_BREAK.split(text) if NOT_BLANK.search(p)]
+    factory = [(i, line) for i, p in enumerate(paragraphs) for line in p if is_factory(line)]
+    if len(factory) != 1 or factory[0][0] < len(paragraphs) - 2:
+        return None
+    match = TRAILER.match(factory[0][1])
+    if (
+        match is None
+        or match.group(1).lower() != "factory-status"
+        or not NOT_BLANK.search(match.group(2))
+    ):
+        return None
+    return match.group(2)
+
+
 def _core(lines: list[str], tree: str) -> Trailers:
     """The read paragraph's factory trailers: READY, BLOCKED, or None with why it is malformed."""
     found: dict[str, list[str]] = {}
