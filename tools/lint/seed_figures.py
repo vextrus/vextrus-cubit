@@ -35,6 +35,13 @@ TIMES = "\u00d7\u00f7"
 # A word after a figure that is not a unit; `lakh` and `crore` are short forms, never compared.
 FILLER = {"per", "of", "in", "on", "and", "to", "at", "by", "is", "the", "a"}
 SHORT_FORMS = {"lakh", "crore"}
+# A real unit: a copy in one the row does not hold is another measure of the thing, never compared.
+# Any other word after a figure (`covers`, `columns`) is prose, and the copy is a unitless one.
+REAL_UNITS = {
+    "%", "sft", "sqft", "cft", "cuft", "sqm", "cum", "ft", "inch", "mm", "cm", "m", "km", "rft",
+    "ton", "tons", "tonne", "tonnes", "kg", "mt", "kn", "mpa", "psi", "ltr", "litre", "bag", "bags",
+    "nos", "pcs",
+}  # fmt: skip
 HEADER = ("id", "what", "derivation", "value")
 LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 WORKING = re.compile(rf"[{TIMES}+]|/(?![A-Za-z])")
@@ -60,11 +67,18 @@ def _cells(line: str) -> list[str]:
 
 
 def _values(cell: str) -> tuple[tuple[str, str], ...]:
-    """A Value cell's figures: those after the last `=` of the whole cell when it has one, else all of
-    them, but for a section number named by prose (`the level table of 6.2`)."""
-    result = cell.rsplit("=", 1)[-1]
+    """A Value cell's figures: those after the last `=` of each result, a result ending at a `;` that
+    follows an `=` (`dry = 276.67; wet = 308.17` holds two), else all of them, but for a section number
+    named by prose (`the level table of 6.2`)."""
+    results: list[str] = []
+    for part in cell.split(";"):
+        if results and "=" not in results[-1]:
+            results[-1] += ";" + part
+        else:
+            results.append(part)
     return tuple(
         (m.group(0), _unit(result[m.end() :]))
+        for result in (r.rsplit("=", 1)[-1] for r in results)
         for m in re.finditer(NUMBER, result)
         if not re.search(PROSE_REF, result[: m.start()])
     )
@@ -96,17 +110,31 @@ def seed_rows(lines: Sequence[str]) -> tuple[dict[str, Row], set[int]]:
 
 
 def _agrees(copy: str, unit: str, values: tuple[tuple[str, str], ...]) -> bool:
-    """The copy against the row's figures in the copy's own unit (those without a unit when the row
-    has none in it); a copy in a unit the row does not hold is not compared."""
+    """The copy against the row's figures. A copy without a unit, or in a word that is no unit, is
+    compared with all of them (it may drop the unit the row carries); one in a real unit, with the
+    row's figures in that unit, and is not compared when the row holds none in it."""
     if unit in SHORT_FORMS:
         return True
-    pool = [n for n, u in values if u == unit] or [n for n, u in values if not u]
+    if unit not in REAL_UNITS:
+        pool = [n for n, _ in values]
+    else:
+        pool = [n for n, u in values if u == unit]
+        if not pool and not any(u in REAL_UNITS for _, u in values):
+            pool = [n for n, _ in values]
     places = len(copy.split(".")[1]) if "." in copy else 0
     quantum = Decimal(1).scaleb(-places)
     want = Decimal(copy.replace(",", ""))
     return not pool or any(
         Decimal(n.replace(",", "")).quantize(quantum, rounding=ROUND_HALF_UP) == want for n in pool
     )
+
+
+def _clause(text: str) -> str:
+    """The clause that ends `text`: closed parentheses are dropped (but one that ends the text, a
+    working's own bracket), then it begins after the last `;`, `(`, comma, sentence end or colon."""
+    while (shorter := re.sub(r"\([^()]*\)(?!\s*$)", " ", text)) != text:
+        text = shorter
+    return re.split(r";|\(|,\s|:\s|\.\s", text)[-1]
 
 
 def _part_before(text: str, start: int) -> bool:
@@ -119,8 +147,7 @@ def _part_before(text: str, start: int) -> bool:
     if re.search(rf"[{TIMES}+]$|/$", before):
         return True
     if before.endswith("="):
-        clause = re.split(r";|\(|,\s", before[:-1])[-1]
-        return WORKING.search(clause) is not None
+        return WORKING.search(_clause(before[:-1])) is not None
     return False
 
 
@@ -143,7 +170,9 @@ def _citations(text: str, ids: Sequence[str]) -> list[tuple[tuple[str, ...], str
         token = rf"(?<![A-Za-z0-9-]){re.escape(row_id)}(?![A-Za-z0-9-])"
         for found in re.finditer(rf"{token}(?:\s*=\s*|\s+)[\u09f3$]?\s*({NUMBER})(%|/[A-Za-z]+)?", text):
             before = text[: found.start()]
-            if re.search(rf"[{TIMES}+/]\s*$", before) or _operand_after(text, found.end()):
+            if re.search(rf"[{TIMES}+/{MINUS}]\s*$|\s-\s*$", before) or _operand_after(
+                text, found.end()
+            ):
                 continue
             if re.search(rf"[+{MINUS}-][\u09f3$]?$", text[: found.start(1)]):
                 continue
