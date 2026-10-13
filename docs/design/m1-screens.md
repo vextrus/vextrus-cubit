@@ -324,8 +324,10 @@ Read from `web/src/ui/keys/registry.ts` and its provider (12 Oct 2026):
   (the overlay's three headings: "On this screen", "On the sheet", "Everywhere"). Keys match on
   `event.key`, letters are case-folded, `Shift` is a written modifier (`Shift F`, `Shift ↑`,
   `Shift Enter`), `Esc` and `Escape` are one key, and browser keys (Ctrl W, T, N, L, R, Tab-switching,
-  F5, F11, F12) cannot be bound. Typing wins in a text field, **except that every `Ctrl` combination
-  still reaches the map** (`reachesMapWhileTyping`): so `Ctrl Z`, `Ctrl C` and `Ctrl V` carry
+  F5, F11, F12) cannot be bound. Typing wins in a text field, **except that every `Ctrl` combination,
+  and `Esc`, `Enter`, `Tab` and `Shift Tab`, still reach the map** (`reachesMapWhileTyping`): so a
+  form with fields (4.1.2's "Add an Element", `E`'s edit) is a scope of its own, binding `Enter` and
+  `Esc` above the screen's, or an `Enter` typed in its field would confirm the group; and `Ctrl Z`, `Ctrl C` and `Ctrl V` carry
   `when: () => !editingField` on every screen that binds them, **and so does every other `Ctrl`
   combination a region binds** (`Ctrl A`, `Ctrl Home`, `Ctrl End`, `Ctrl Enter`, `Ctrl K` excepted:
   that one is global and opens the jump list from a field): the field's own undo, select-all, caret
@@ -373,6 +375,7 @@ Proposal groups has focus; "canvas" means the source sheet is open across the ca
 | `Q` | screen | Focus the group row the next open Question holds, in the queue's order (4.1); its card shows in the inspector, and `1`–`9` then pick | M1-18a |
 | `1`–`9` | screen (the focused group's Question, shown in its card) | Pick that answer on the card; a pick changes nothing until `Enter` or "Answer". When the picker (X) is open it claims every digit | M1-18a |
 | `Ctrl Z` | screen (not while a field is being edited) | Undo the last act on this step, naming it in the toast. An answer that confirmed or excluded Elements is never undone, nor anything before it (m0-screens 6.9) | M1-18a |
+| `Enter`, `Esc` | form: Add an Element (its own scope, above the screen's) | `Enter` adds, from any of its fields; `Esc` closes the form, a second `Esc` leaves the pick mode | story 125 |
 | `Shift A` | screen (a frame step in review) | Add an Element not read from the drawing: pick its entity on the sheet, name the family, `Enter` adds (4.1.2); `Ctrl Z` removes it | story 125 |
 | `T` | screen (a figure focused) | Open the focused figure's Trace (4.10); `T` again, or `Esc`, closes it | M1-23 |
 | `←` `→` | dialog: a Trace | Step through the figure's sources: the sheet flies to each in turn | M1-23 |
@@ -385,7 +388,7 @@ Proposal groups has focus; "canvas" means the source sheet is open across the ca
 | `D` `P` `F` `Shift F` `Z` `O` `+` `−` `[` `]` | sheet | As M0 (the sheet's own keys): CAD-dark, Plot, fit, working view, zoom to the view, outlines, zoom, page sheets | M0 |
 
 **`Esc`'s stack in a frame step** (m0-screens 2.2, unchanged, listed for the walk): the Trace
-popover; a dialog or the Profile panel; the exclusion picker or an inline edit; one-by-one review;
+popover; a dialog or the Profile panel; the exclusion picker, an inline edit or the Add an Element form (then its pick mode); one-by-one review;
 the open sheet (back to the list); the selection. Never the page; never typed text without asking.
 
 ### 2.3 The canvas and the 3D
@@ -564,7 +567,9 @@ the 320 px inspector, the status bar. The canvas is 912 px at 1280 and 1072 px a
   word as a tooltip that opens on focus; the words show in the open rail, which opens while the rail
   has focus (2.1: the rail is an F6 stop, `↑ ↓` and `Enter` move and open).
 - **The toolbar:** "Step 6 Columns", the Count "Confirmed 14 / 110, 2 excluded" (an excluded element
-  stays in N, screens.md Takeoff ruling 4; the Count is m0-screens 6.18 item 4's), then on the right
+  stays in N, screens.md Takeoff ruling 4; the Count is m0-screens 6.18 item 4's; **an Element the QS
+  added (4.1.2) is counted in n and grows N by one, the reason beside it: "Confirmed 14 / 111, 2
+  excluded · 1 added by you"**, so n never passes N), then on the right
   "List | Sheet" (the segmented control of M0, 6.1), the Drafting Profile button (4.9: icon-only at
   1280, "Drafting Profile" at 1440), the overlays toggle (4.9), the keys button. The width budget
   of m0-screens 4.1 holds: the toolbar on one line at 1280 with the longest step name, "Profile" and
@@ -650,13 +655,16 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
   named, never typed free), **Mark** (the schedule's marks, the nearest label pre-picked, so the
   Element has its size and Rebar from the schedule's row) and **Storeys** (the view's, defaulting to
   its whole band; a plan that serves 2nd to 8th adds 7 Elements, and the form says "7 columns"
-  before "Add ↵"). The quantity follows E1 to E3's basis, like any column's. The act records a
-  Confirmation and a Trace anchored on that entity; each Element joins the list in the band its
-  Storey names, marked "Added by Nusrat Jahan: not read from the drawing", and **counts in n / N**
-  (n and N as 4.1.1 defines them: the Elements the group holds; "13 / 14" becomes "14 / 15"). A count
-  that the schedule does not hold is not in N: the step's Checks say it separately ("15 on the plan,
-  14 on the schedule"). The toast names the act with "Undo  Ctrl Z": "Added a C2 column at 3/C,
-  4th." **Undo removes it** (the step's last act: the usual `Ctrl Z` rule). A re-read (a Revision or
+  before "Add ↵"). The quantity follows E1 to E3's basis, like any column's. **One act, one Confirmation:**
+  C9's act list has none for it, so it is named here (8, item 19): a Confirmation act `add` carrying
+  the picked entity's anchor, the Family, the Mark and the Storeys; the API makes one Element per
+  Storey, all in that one Confirmation, with one Trace anchor, one toast and one `Ctrl Z`. Each
+  Element joins the list in the band its Storey names, marked "Added by Nusrat Jahan: not read from
+  the drawing", and **counts in n and grows N by itself** (the toolbar's Count of 4.1.1: "14 / 110"
+  becomes "14 / 111 · 1 added by you"; a group's "13 / 14" becomes "14 / 15"), so the Count never
+  reads n above N; the plan-against-schedule difference is shown there and not as a separate Check.
+  The toast names the act with "Undo  Ctrl Z": "Added a C2 column at 3/C, 4th." (for
+  a band: "Added 7 C2 columns at 3/C, 2nd to 8th.") **Undo removes it** (the step's last act: the usual `Ctrl Z` rule). A re-read (a Revision or
   a reader upgrade) keeps it as added, never proposing it "removed"; only a Revision whose sheet no
   longer carries the entity proposes its removal (M1.md, Takeoff). Closing the step then never drops
   it from the Priced BOQ unpriced. A second tenant never sees it; the MD is offered no such act (1.5).
@@ -669,7 +677,7 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
 #### 4.1.3 The inspector (320 px; tabs "Selection" and "Questions (4)")
 **Selection, nothing focused: the overview.**
 1. "Step 6, columns, shear walls and core" / "Confirmed 14 / 110, 2 excluded" / "Read from 6 plans." /
-   "110 on the column schedule on S-09; 110 found." (G3) (the N's source; `—` and "no schedule: N comes from
+   "110 on the column schedule on S-09; 110 found." (G3; with one Element added, "110 on the column schedule on S-09, 1 added by you; 111 found") (the N's source; `—` and "no schedule: N comes from
    the plan alone" where the drawing gives none, story 55).
 2. "Enter takes them in this order": 1 "Confirm the 86 columns that agree" · 2 "Answer 4 Questions:
    the largest quantity first" · 3 "Close Step 6".
@@ -1602,11 +1610,14 @@ the Live Model; the Esc stack of 2.2.
   typed in one pass), `Esc` cancels and the field restores the old price. An empty field with `Enter`
   clears the price ("Price removed. BOQ Items using it show rate not entered." with Undo). The save is
   one write; the row's date and name update from the reply; the toast reads "Price of Rebar, Grade
-  500W saved. 3 BOQ Items repriced." with Undo `Ctrl Z`. A write refused shows the ErrorBar at the row
+  500W saved. 4 BOQ Items repriced." with Undo `Ctrl Z`. A write refused shows the ErrorBar at the row
   and keeps the text.
-- **Effects shown:** after a price change the page notes "Allowances follow: the beams allowance rose
-  ৳47,880.00." (A1: Rebar 88.50 to 89.50 is ৳1.00 on 47,880 kg) where the change moved an unmeasured step's allowance (story 114), as one line under
-  the toast's.
+- **Effects shown:** after a price change the page notes "Allowances follow:" and one line per step whose allowance moved
+  (story 114; 8, item 13), as lines under the toast's. On KR-01, Rebar 88.50 to 89.50 is ৳1.00 on
+  each kg (6.1): the toast reads "4 BOQ Items repriced" (M5, M8, M11, M14: 23,056 kg, ৳23,056.00,
+  with W3's 668 kg awaiting answer, ৳668.00), and the lines read Beams +৳47,880.00 (A1), Slabs
+  +৳51,240.00 (A2), "Shear walls and lift core" +৳8,820.00 (A3), the other steps +৳16,422.00 (A4):
+  ৳1,24,362.00 of allowance; with the measured ৳23,724.00 the strip's total moves ৳1,48,086.00.
 - **States:** loading "Reading prices…"; error "The prices could not be read. Nothing is lost." with
   "Try again"; read-only (the MD): ReadOnlyChip and no field, a Guest "Ask the Developer for access to
   costs"; filter chips include "Not entered (9)" (where "Enter prices" from the Priced BOQ lands, with
@@ -2216,11 +2227,12 @@ plan or the spec disagree, those win until the owner rules.
 | 10 | **Element exclusion reasons.** C9's `reason?` is free text; this page offers five (4.1.3) | The picker's five, stored as the catalogue message's English text | M1-11b | A `reason: {key, text?}` of five keys, so nothing the machine stores is English prose (m0-screens 1.7) |
 | 11 | **File ownership of edits the screens need:** the sheet's keyboard pan is in `web/src/sheet/`; the top bar's links (Priced BOQ, Material Schedule, Live Model) and the project navigation are in `web/src/app/`; M1-18a owns `web/src/takeoff/steps/` only | M1-18a does the pan edit; M1-20, M1-22, M1-25 add their own link | the plan | Add both to the owning tickets' "Owns" lines |
 | 12 | **"Unclassified" (story 89):** nothing in C13 says an item has no Rate Analysis | The heading is drawn for items whose `rate` is null and whose analysis route says none | M1-15a | an `analysis: true | false` on a BOQ Item as billed |
-| 13 | **Price writes:** `PUT prices/{code}` returns the row only; the toast "3 BOQ Items repriced", the "Used by" column, "Allowances follow" and clearing a price (`price: null`) need more | The toast says "Price of … saved." only; "Used by" absent | M1-14 | Return `repriced_items: n`, `allowance_changes: [{step, delta}]`; add `used_by` to `GET prices`; accept `price: null` |
+| 13 | **Price writes:** `PUT prices/{code}` returns the row only; the toast "4 BOQ Items repriced", the "Used by" column, "Allowances follow" and clearing a price (`price: null`) need more | The toast says "Price of … saved." only; "Used by" absent | M1-14 | Return `repriced_items: n`, `allowance_changes: [{step, delta}]`; add `used_by` to `GET prices`; accept `price: null` |
 | 14 | **Coverage's M1 meaning:** M0's "used" is 0; M1 needs per step "used by this step / assigned to later steps / excluded / unaccounted" (story 59) | The status bar words of 4.1.1 | M1-11b | extend the Coverage response by step, as M0's contract does |
 | 15 | **Address forms:** `?highlight=` is C9's; the 3D's `?select=<element_id>` and every M1 route and page title of 3.1 are this page's | the routes of 3.1 are used | each owning ticket | C17, C13, C14 and C15 name their route and its title |
 | 16 | **Step 1's words:** M0's "Step 1 is confirmed" and the rail's "Confirmed" for a step become "Closed" (1.1, one word per state) | the rail and bars say "Closed" from M1-18a | M1-18a | change M0's catalogue messages in the same PR, with their tests |
 | 17 | **"There are none" (4.1.2):** closing a step that has nothing to read (no piles, no core) is an act the API must accept with zero Elements and a recorded name | the bar's action is drawn; until accepted the step cannot close | M1-11a | `close` accepted with `elements: 0` and `act: none_found`, shown "Closed, none" |
+| 19 | **Adding an Element the drawing read missed (story 125; the owner's Q15).** C9's act list and `POST confirmations` carry no picked entity, family, mark or storeys, and M1.md names none of them | The act is not drawn until the route exists (never disabled) | M1-18a with the takeoff API's ticket | a Confirmation act `add` with the entity's anchor, `family`, `mark` and `storeys`: one Confirmation, one Element per storey, one Trace anchor; undone whole by `Ctrl Z`; the Count's N grows by it |
 | 18 | **Rebar by ratio's Trace and the whole-building check** (QS 6): the Trace needs the ratio and the volume it multiplied; the check needs the Building's Rebar kg and Gross Floor Area | the Trace and the inspector line of 4.13 are drawn from the lines' own fields; the check is absent until sent | M1-15a | a derived Trace entry `{volume, ratio, kg}` and `rebar_kg_per_area` on `GET boq` |
 
 ---
