@@ -156,6 +156,20 @@ describe('a typed value names the person', () => {
     expect(inspector()).not.toContain('corrected by Arif Rahman')
   })
 
+  it('credits the newest correction not undone, never an undone one that gave the same value', async () => {
+    const { api, step1, acts } = kr01()
+    const s05 = sheetOf(step1, 'S-05')
+    Object.assign(s05, { number: 'S-51', number_source: 'typed', corrected: true })
+    acts.set(s05.id, [
+      { id: 'a1', code: 'takeoff.step1.corrected', ...NUSRAT, at: '2026-09-27T04:00:00Z', sheets: 1, changes: { number: { old: 'S-05', new: 'S-51', old_source: 'title_block_attribute' } } },
+      { id: 'a2', code: 'takeoff.step1.corrected', actor: 'Arif Rahman', actor_role: 'vextrus_engineer', at: '2026-09-27T05:00:00Z', sheets: 1, changes: { number: { old: 'S-51', new: 'S-51', old_source: 'typed' } } },
+      { id: 'a2', code: 'takeoff.step1.undone', actor: 'Arif Rahman', actor_role: 'vextrus_engineer', at: '2026-09-27T05:05:00Z', sheets: 1 },
+    ])
+    await focus(api, 'S-51')
+    await waitFor(() => expect(inspector()).toContain('corrected by Nusrat Jahan; read S-05 from the title-block attribute'))
+    expect(inspector()).not.toContain('corrected by Arif Rahman')
+  })
+
   it('falls back to “typed by a person” where the history names no such correction', async () => {
     const { api, step1 } = kr01()
     Object.assign(sheetOf(step1, 'S-05'), { number: 'S-51', number_source: 'typed', corrected: true })
