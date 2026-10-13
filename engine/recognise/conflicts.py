@@ -162,6 +162,7 @@ from engine.recognise.types import (
     Series,
     SheetCandidate,
     SheetConventions,
+    SheetField,
     Sourced,
     StoreysMeaning,
     StoreysSource,
@@ -800,18 +801,35 @@ RANGE_DIGITS = len(str(RUNNING_LIMIT)) - 1
 
 
 class Citations:
-    """What tells a range in a title as sheets it cites, never member marks: a citation word right
-    before it (the conventions' `citation_words`, its punctuation aside: "SEE S-12 TO S-14", "REF.
-    Q-12 TO Q-14", "(SEE: S-12 TO S-14)"), or both its marks, as printed (normal form, a revision
-    mark split off), numbers of the set's sheets, of any Discipline ("Q-12 TO Q-14" where sheets
-    Q-12 and Q-14 are). A mark that only shares a prefix with sheets ("TR-1" where no sheet TR-1 is)
-    is a member mark."""
+    """What tells a range in a title as sheets it cites, never member marks: a citation word before
+    it (the conventions' `citation_words`), with nothing between but punctuation and the words that
+    label a sheet number (the number field's title-block words, each word alone, plural or not:
+    "SEE S-12 TO S-14", "REF. Q-12 TO Q-14", "(SEE: S-12 TO S-14)", "SEE SHEET S-12 TO S-14",
+    "REFER TO DWG NO. S-12 TO S-14"); or both its marks, as printed (normal form, a revision mark
+    split off), numbers of the set's sheets, of any Discipline ("Q-12 TO Q-14" where sheets Q-12 and
+    Q-14 are). A mark that only shares a prefix with sheets ("TR-1" where no sheet TR-1 is) is a
+    member mark."""
 
     def __init__(self, conventions: SheetConventions | None, sheets: Iterable[SheetCandidate]) -> None:
         words = () if conventions is None else conventions.citation_words
         phrases = [r"\s+".join(map(re.escape, w.split())) for w in words if w.split()]
+        labels = sorted(
+            {
+                word
+                for f in (() if conventions is None else conventions.title_block_fields)
+                if f.field == SheetField.NUMBER
+                for phrase in f.words
+                for word in phrase.casefold().split()
+            },
+            key=lambda word: (-len(word), word),
+        )
+        label = (
+            rf"(?:[\W_]{{0,6}}(?:{'|'.join(map(re.escape, labels))})s?){{0,{LABEL_WORDS}}}"
+            if labels
+            else ""
+        )
         self.cue = (
-            re.compile(rf"(?<!\w)(?:{'|'.join(phrases)})[\W_]{{0,6}}$", re.IGNORECASE)
+            re.compile(rf"(?<!\w)(?:{'|'.join(phrases)}){label}[\W_]{{0,6}}$", re.IGNORECASE)
             if phrases
             else None
         )
@@ -830,6 +848,9 @@ class Citations:
             return True
         return normal(low) in self.numbers and normal(high) in self.numbers
 
+
+LABEL_WORDS = 3
+"""The most sheet-number label words between a citation word and its range ("DWG NO.", "SHEET NO.")."""
 
 CUE_REACH = 64
 """How much of the text before a range is searched for a citation word: the words right before it."""

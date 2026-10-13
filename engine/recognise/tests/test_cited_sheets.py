@@ -168,6 +168,10 @@ def test_a_range_whose_ends_are_both_sheets_of_the_set_cites_them() -> None:
         "DETAILS IN S-12 - S-14",
         "AS PER S-12 THRU S-14",
         "FOR DETAILS SEE S12-S14",
+        "FOR DETAILS SEE SHEET S-12 TO S-14",
+        "FOR DETAILS SEE SHEETS S-12 TO S-14",
+        "REFER TO DWG NO. S-12 TO S-14",
+        "REFER TO DRAWING NUMBER S-12 TO S-14",
     ],
 )
 def test_a_range_right_after_a_citation_word_cites_sheets(title: str) -> None:
@@ -181,6 +185,8 @@ def test_a_range_right_after_a_citation_word_cites_sheets(title: str) -> None:
         "BEAM B-1 TO B-4 DETAILS",
         "SEE NOTES. BEAM B-1 TO B-4 DETAILS",
         "OVERSEE B-1 TO B-4",
+        "SHEET PILE B-1 TO B-4",
+        "SEE NOTES. SHEET PILE B-1 TO B-4",
     ],
 )
 def test_a_range_with_no_citation_word_right_before_it_is_a_member_range(title: str) -> None:
@@ -191,3 +197,7 @@ def test_conventions_with_no_citation_words_cite_by_the_sets_numbers_alone() -> 
     bare = SheetConventions.from_json({**CONV.to_json(), "citation_words": []})
     assert read("SEE S-12 TO S-14", cited(conventions=bare)) == [("s", 12, 14)]
     assert read("SEE S-12 TO S-14", cited("S-12", "S-14", conventions=bare)) == []
+
+
+def test_an_unhyphenated_range_of_the_sheets_letters_is_still_a_member_range() -> None:
+    assert read("SLAB S12-S14 DETAILS", cited("S-41", "S-42")) == [("s", 12, 14)]
