@@ -3,3 +3,6 @@
 ci_wall_p50_min = 10
 verify_p90_min = 10
 crosspr_max_min = 5
+# S25-F5: the loop's two targets. Higher is better for the streak; the share is Q17's cap.
+e2e_main_streak = 5
+factory_hours_share = 0.3
