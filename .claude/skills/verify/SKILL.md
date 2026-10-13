@@ -19,7 +19,8 @@ them one after another:
 - Python: the changed modules' `pytest -rf`, `ruff check`, `ruff format --check`, `mypy`, `lint-imports`;
 - web, in the order that works on a fresh checkout: `export_openapi_schema`, `api:types`, `typecheck`,
   `lint`, `messages:check`, `npm --prefix web test`;
-- hooks: `node --test '.claude/hooks/**/*.test.mjs'` (a glob: Node 24 fails on a folder argument);
+- node tests, for any change under `.claude/`, `scripts/`, `tools/mod/`, `.github/` or `docs/`: CI's harness
+  step, read from `.github/workflows/ci.yml` (quoted globs: Node 24 fails on a folder argument);
 - workflow scripts: `python -m tools.lint.workflows_js`;
 - web, CI's second pass: `web-test-slowed` runs after `web-test`, the same run with
   `VITE_FAKE_API_LATENCY_MS` read from `.github/workflows/web.yml`; a timed-out file of it is re-run alone, still

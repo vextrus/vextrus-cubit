@@ -198,6 +198,42 @@ def vitest_port(root: Path) -> int:
     return 20000 + start
 
 
+CI_WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml"
+NODE_TEST_ROOTS = (".claude/", "scripts/", "tools/mod/", ".github/", "docs/")
+"""The folders node tests can read; a root-level file (CLAUDE.md, CONTEXT.md ...) is read too."""
+
+
+def reads_node_tests(path: str) -> bool:
+    return path.startswith(NODE_TEST_ROOTS) or "/" not in path
+
+
+def ci_node_command(workflow: Path = CI_WORKFLOW) -> tuple[str, ...]:
+    """The argv of the one `run: node --test ...` step of ci.yml's `harness` job (quoted globs: Node 24
+    runs a directory argument as a file)."""
+    lines = workflow.read_text().splitlines()
+    if "  harness:" not in lines:
+        raise SystemExit("verify: ci.yml's harness job has 0 `node --test` steps, not one")
+    start = lines.index("  harness:")
+    end = next(
+        (
+            i
+            for i in range(start + 1, len(lines))
+            if lines[i].startswith("  ") and lines[i][2:3].isalpha()
+        ),
+        len(lines),
+    )
+    commands = [
+        shlex.split(line.strip().removeprefix("- ").removeprefix("run:").strip(), comments=True)
+        for line in lines[start:end]
+        if line.strip().removeprefix("- ").startswith("run: node --test")
+    ]
+    if len(commands) != 1:
+        raise SystemExit(
+            f"verify: ci.yml's harness job has {len(commands)} `node --test` steps, not one"
+        )
+    return tuple(commands[0])
+
+
 WORDS_INPUTS = frozenset({"tools/lint/words.py", "tools/lint/words_allowlist.toml"})
 """What the words lint reads besides `web/`'s catalogues."""
 
@@ -265,9 +301,9 @@ def plan_with_notes(
             checks.append(Check("openapi-export", (*export, "--output", schema)))
         contract = ("uv", "run", "python", "-m", "tools.lint.contract_fixtures", "--schema", schema)
         checks.append(Check("contract-fixtures", contract))
-    if any(p.startswith(".claude/hooks/") for p in paths):
-        # A glob, never a folder: `node --test <dir>` fails on Node 24.
-        checks.append(Check("node-test", ("node", "--test", ".claude/hooks/**/*.test.mjs")))
+    if any(reads_node_tests(p) for p in paths):
+        # CI's harness step itself (S26-FX10), never a restated copy: the two cannot drift.
+        checks.append(Check("node-test", ci_node_command()))
     if any(p.startswith(".claude/workflows/") for p in paths):
         checks.append(Check("workflows-js", ("python3", "-m", "tools.lint.workflows_js")))
     if any(p.startswith((".github/workflows/", ".github/actions/")) for p in paths):
