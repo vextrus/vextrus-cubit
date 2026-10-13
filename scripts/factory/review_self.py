@@ -6,8 +6,8 @@ terminal, and the builder fixes what is real. Advisory: a clean run is not a PAS
 
     uv run python -m scripts.factory.review_self [--base <ref>]
 
-`--base` names the ref the branch is compared with (default `main`, else `origin/main`), so a fix round
-can review its own diff (`--base <the previous round's head>`).
+`--base` names the ref the branch is compared with (default `origin/main`, fetched first, else `main`),
+so a fix round can review its own diff (`--base <the previous round's head>`).
 """
 
 from __future__ import annotations
@@ -48,7 +48,9 @@ def worktree() -> Path:
 
 
 def base_ref(where: Path, wanted: str | None) -> str:
-    candidates = [wanted] if wanted else ["main", "origin/main"]
+    if not wanted:  # best effort: the refs below still answer when the network does not
+        review._run([*review.GIT, "-C", str(where), "fetch", "-q", "origin", "main"], timeout=120)
+    candidates = [wanted] if wanted else ["origin/main", "main"]
     for ref in candidates:
         done = review._run(
             [*review.GIT, "-C", str(where), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"]
@@ -58,6 +60,19 @@ def base_ref(where: Path, wanted: str | None) -> str:
     raise Refused(f"no base to compare with ({', '.join(candidates)} not found)")
 
 
+def uncommitted(where: Path) -> str:
+    """Staged and unstaged changes to tracked files, then every untracked file (not ignored), as diffs:
+    review self runs before the READY commit, so the work may not be committed yet."""
+    parts = [review.git(where, "diff", "HEAD")]
+    names = review.git(where, "ls-files", "--others", "--exclude-standard", "-z").split("\0")
+    for name in filter(None, names):
+        done = review._run(
+            [*review.GIT, "-C", str(where), "diff", "--no-index", "--", "/dev/null", name]
+        )
+        parts.append(done.stdout)  # exit 1 means "differs", as it must
+    return "".join(parts)
+
+
 def brief(lens: Lens, head: str, base: str, where: Path, diff: Path, log: Path) -> str:
     marked = ", ".join(sorted(lens_pytest.declared_markers()))
     return "\n".join(
@@ -65,7 +80,7 @@ def brief(lens: Lens, head: str, base: str, where: Path, diff: Path, log: Path) 
             f"A builder's own review before READY: head {head}, compared with {base}",
             f"(`git diff {base}...HEAD`).",
             f"Your working directory {where} is the builder's worktree, at the head.",
-            f"The change under review (read it; it is the branch's side only): {diff}",
+            f"The change under review (read it; the branch's side, then any uncommitted work): {diff}",
             f"and its commits: {log}. Authority: the ticket the builder was given.",
             f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{SLOT}.",
             "Run only the changed test files and your own attack tests, with exactly",
@@ -118,7 +133,9 @@ def run(args: argparse.Namespace) -> int:
     with tempfile.TemporaryDirectory(prefix="review-self-") as scratch:
         keep = Path(scratch)
         diff, log = keep / "change.diff", keep / "commits.txt"
-        diff.write_text(review.git(where, "diff", f"{base}...HEAD"), errors="surrogateescape")
+        diff.write_text(
+            review.git(where, "diff", f"{base}...HEAD") + uncommitted(where), errors="surrogateescape"
+        )
         log.write_text(
             review.git(where, "log", "--format=%h %s", f"{base}..HEAD"), errors="surrogateescape"
         )
