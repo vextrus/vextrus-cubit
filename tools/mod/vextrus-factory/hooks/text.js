@@ -203,7 +203,8 @@ export const BAND_EVENTS = 5
 // Only the log's tail is parsed here: a log grows without end (the mod reads only small logs or
 // watch.py's events.tail; see register.js).
 const LOG_TAIL = 256 * 1024
-const EVENT = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z) ([A-Z][A-Z-]*) ([^ ]+)(?: (.*))?$/
+// A kind may hold digits after its first letter (`G1`).
+const EVENT = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z) ([A-Z][A-Z0-9-]*) ([^ ]+)(?: (.*))?$/
 
 // The log's text -> the events whose kind is in `kinds`, oldest first, each { at, kind, ticket,
 // detail, line }. A line that is not watch.py's form is skipped. Never throws.
@@ -248,4 +249,62 @@ export function eventRow(event, columns) {
 export function toastText(event) {
   const who = event.ticket === "-" ? "" : ` ${event.ticket}`
   return oneLine(`${event.kind}${who}: ${event.detail}`).trim()
+}
+
+// ---- the live tickets and the wake (S26-FX2; the owner's ruling Q-R4) ----
+
+// A live ticket is a builders.items entry whose state is not done or stopped.
+const ENDED = ["done", "stopped"]
+export const WAKE_END = "Act on these; no Monitor is needed."
+export const TABLE_HEAD = "ticket state head8 Δmin relay"
+
+// A fresh, valid status, else null (a stale or future one is the watcher down).
+function freshStatus(status, nowMs) {
+  if (status === null) return null
+  const age = nowMs - Date.parse(status.written_at)
+  return age <= STALE_MS && age >= -FUTURE_MS ? status : null
+}
+
+// A ticket name as one line: the watcher writes at most 80 characters of one line; a name that is
+// not one is still printed only as one line of at most 80 characters.
+const ticketName = (t) => (typeof t === "string" && t !== "" ? oneLine(t).slice(0, 80) : "?")
+
+// Minutes since the item's state_at (else its last_push_at); "?" when neither is a UTC time.
+function sinceMinutes(item, nowMs) {
+  const at = isUtc(item.state_at) ? item.state_at : isUtc(item.last_push_at) ? item.last_push_at : null
+  return at === null ? "?" : String(Math.floor(Math.max(0, nowMs - Date.parse(at)) / 60_000))
+}
+
+// One live ticket's row: `S25-D1 ready 4596e870 9`, with ` relay` when the watcher set relay.
+export function ticketRow(item, nowMs) {
+  const head = typeof item.head === "string" && SHA.test(item.head) ? item.head.slice(0, 8) : "-"
+  const state = typeof item.state === "string" ? oneLine(item.state).slice(0, 20) : "?"
+  return `${ticketName(item.ticket)} ${state} ${head} ${sinceMinutes(item, nowMs)}${item.relay === true ? " relay" : ""}`
+}
+
+// The live tickets' rows of a fresh status, oldest-first as the watcher lists them; [] when the
+// status is missing or stale (the summary row says WATCHER DOWN).
+export function liveRows(status, nowMs) {
+  const fresh = freshStatus(status, nowMs)
+  if (fresh === null) return []
+  return fresh.builders.items.filter((i) => isObj(i) && !ENDED.includes(i.state)).map((i) => ticketRow(i, nowMs))
+}
+
+// The band's ticket rows, each cut to `columns` cells.
+export function ticketRows(status, nowMs, columns) {
+  return liveRows(status, nowMs).map((row) => fitRow(row, columns))
+}
+
+// The wake's text: the new lines, then the live tickets' table, then the closing sentence. Every
+// line is one line (no control, separator or bidi character), so nothing read from a file forges one.
+export function wakeText(lines, status, nowMs, schema = false) {
+  const out = ["New factory events:", ...lines.map((l) => oneLine(String(l)))]
+  const fresh = freshStatus(status, nowMs)
+  if (fresh === null) out.push(schema ? `status.json: ${DOWN} status schema` : `status.json: ${DOWN}`)
+  else {
+    const rows = liveRows(fresh, nowMs)
+    out.push(TABLE_HEAD, ...(rows.length === 0 ? ["(no live tickets)"] : rows))
+  }
+  out.push(WAKE_END)
+  return out.map(oneLine).join("\n")
 }
