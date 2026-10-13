@@ -611,3 +611,45 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   "restore what the correction replaced" met a new interleaving of corrections, undos and answers; round 3 found
   75 and 70). Stopped at the cap. No check: session 24 changes the shape (Ctrl Z takes back only a sheet's
   latest standing correction), with every reviewer's sequence pinned.
+
+## Session 24 (12 Oct 2026): seven merges, one G1 walk; the factory's own gates cost the most time
+
+- **A lens's FIX outranked the review bar** (#698 rounds 1-2: findings of 60-65 on a path the owner's ruling made lax,
+  recorded FIX twice because a lens wrote FIX). Check: `scripts/tests/acceptance/ts24l1/` (#707: the verdict is
+  computed from the bar; a lens FIX with no standing finding at the bar is PASS).
+- **The reviewer's own words closed the lax list** ("only the web's view components and the docs' Markdown are lax"),
+  so lenses judged a session ruling's paths strict. Check: `scripts/tests/test_bar_docs.py`
+  (`test_no_bar_document_closes_the_lax_list_in_words`).
+- **An accept reason was posted from a builder's counts before the run's own table was read** (#698: the table had 88
+  changed views the reason did not name; judged afterwards, nothing worse). No check yet: run `--accept-if-clean`
+  first and write the reason only from the table.
+- **A posting run on a branch older than main shows main's merges in reverse** (#710's first run: 88 views and 55
+  render losses that were #698's and #704's). No check yet: `land update` before every posting run.
+- **Cloud builders could not finish verify's web tests under load** (A3, B1, B3 blocked for hours); the orchestrator
+  verified the same trees locally with a clean `npm ci` and they were green. A symlinked node_modules made a false
+  "regression" (gate.test.tsx) that cost a builder a round. No check yet: a session-25 ticket gives verify a serial
+  web mode for cloud boxes.
+- **The watcher missed carried-over tickets' READY and a cloud BLOCKED** (A1 three times, A7 55 minutes). No check yet:
+  read every builder's branch tip on each self-check (#701, cut, adds the watcher's check).
+- **Two open PRs that conflict each refuse the other's READY through crosspr** (#706 and #714). No check yet: the
+  orchestrator orders them and closes the later one until the first lands.
+- **A spec's worked money example drew new findings every round** (#700, three rounds). No check yet: one seed table
+  that every figure cites (its reshape, ae830596).
+
+## The exploring session beside session 24 (12-13 Oct 2026): M0 dragged on execution, not design
+
+- **A depth review overclaimed until refuted** (an Opus `high` product review: none of its nine "change before M1" claims
+  survived a refuter as cheap-now; the exploring session's own "verified" was once half-checked). No check yet: every claim
+  that changes a plan, a brief or a scope gets one `refuter` before it steers.
+- **One figure was quoted three ways** (round-1 PASS as 24 %, 13-24 % and 32 %, each right only for its window). No check
+  yet: a figure in a brief names its source and window (`docs/research/2026-10-13-why-m0-dragged.md`).
+- **A machine command named no device** (`swapon -a` reads `/etc/fstab`, which lists no swap on this WSL; swap stayed off
+  about 47 minutes). No check yet: a command that changes the machine names its device (`/dev/sdc`).
+- **A workflow stayed red for a week with no owner** (`e2e.yml`: 129 failures on main, 0 passes in 300 runs; the smoke test
+  waits for words the screen no longer says). No check yet: session 25's measures add the e2e pass streak on main.
+- **The guard fails open and matches words, not acts** (no hook sets `onFailure`; `guard.mjs` fails closed only for its
+  `closed` rules; its status, privilege and stamp rules refused read-only queries and notes that merely named a word, four
+  times in one evening). No check yet: session 25's F4 (the PreToolUse guard's `onFailure: "block"`, allow cases in
+  `guard.test.mjs`).
+- **A fix round introduced a new fault** (#728 round 1 changed "ADR 0043" to "ADR 0041" and kept the wrong item; 12 of 16
+  sampled later-round findings came from the previous fix). No check yet: session 25's F1 (`review self` on each fix's own diff).

@@ -120,9 +120,4 @@ paths = [
 paths = [
   "web/src/**/*.tsx",
   "docs/**/*.md",
-  # The owner's ruling, session 24 (12 Oct 2026), for that session only: recogniser and Plot rules
-  # land on the real-set evidence and G1's critics judge them (session 23: 17 of 18 blocking findings
-  # scored 50-75 here and never converged). The next session's brief removes these two lines.
-  "engine/recognise/**",
-  "engine/plot/**",
 ]
