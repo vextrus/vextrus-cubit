@@ -157,7 +157,7 @@ def test_every_view_is_counted_and_every_structural_view_is_accounted(
     # orchestrator's ruling, session 08): every Structural view reaches a step, so none is left
     # unaccounted (this pinned S-201's one view no step read before 158).
     assert (shown["views"], shown["proposed"], shown["unaccounted"]) == (17, 17, 0)
-    assert shown["by_reason"].get("for_information") == 4
+    assert shown["by_reason"].get("for_information") is None  # #690: confirmed exclusions only
     assert shown["unaccounted_views"] == []
 
 
