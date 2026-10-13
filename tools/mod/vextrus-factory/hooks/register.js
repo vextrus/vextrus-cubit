@@ -188,7 +188,12 @@ async function wake($, log, unreadable, statusText) {
   sentMemory = state.sentAt
   // Stored before the submit: a failed write submits nothing, so no line is sent twice.
   await $.store.set(WAKE_STORE, state)
-  await $.state.set(WAKE, { capped })
+  // Its own try: the band's "wakes capped" is cosmetic; the lines just stored as sent are not.
+  try {
+    await $.state.set(WAKE, { capped })
+  } catch {
+    // the band misses the cap's words this poll
+  }
   if (lines === null) return
   const { status, schema } = parseStatus(statusText)
   const text = wakeText(lines, status, nowMs, schema)
