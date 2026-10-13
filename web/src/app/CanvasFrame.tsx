@@ -14,7 +14,7 @@ import { ChevronRight, Keyboard } from 'lucide-react'
 import { onSaveState, saveState } from '@/api/saves'
 import { useFormat } from '@/format'
 import { useLanguage } from '@/i18n/activate'
-import { Count, IconButton, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
+import { Count, IconButton, SkeletonBar, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { AppLink, PATHS } from './AppLink'
@@ -120,6 +120,12 @@ function StepRail({ project, step1, current }: { project: ProjectSummary; step1:
   )
 }
 
+/** The toolbar's "n / N": a bar while Step 1's queries are pending on first load, never "0 / —" (S26-D7). */
+function ConfirmedCount({ counts, format }: { counts: Step1Counts; format: (value: number) => string }) {
+  if (counts.found === null) return <SkeletonBar className="inline-block h-3.5 w-16 align-middle" />
+  return <Count n={counts.confirmed} N={counts.found} format={format} />
+}
+
 function Toolbar({ session, step1, step }: { session: Session; step1: Step1Counts; step: TakeoffStep }) {
   const { t, i18n } = useLingui()
   const f = useFormat()
@@ -136,7 +142,7 @@ function Toolbar({ session, step1, step }: { session: Session; step1: Step1Count
       {step.number === 1 ? (
         <span className="text-sm whitespace-nowrap text-ink-secondary">
           <Trans>
-            Confirmed <Count n={s.confirmed} N={s.found} format={f.integer} />
+            Confirmed <ConfirmedCount counts={s} format={f.integer} />
           </Trans>
           {excluded > 0 ? <Trans>, {excluded} excluded</Trans> : null}
         </span>

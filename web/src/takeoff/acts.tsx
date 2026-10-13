@@ -144,6 +144,8 @@ type Done = Parameters<ReturnType<typeof useToast>['show']>[0] & {
 /** Where an act began: its generation, and the Step 1 queries failing then (their failure is not the act's). */
 interface Mark {
   generation: number
+  /** The act that held the gate (`acting`) when this began, so a late reload does not free a newer act's gate. */
+  owner: number
   failing: ReadonlySet<string>
 }
 
@@ -236,6 +238,8 @@ function useActs(
   const refusals = useRef(0)
   /** An act in flight: another (a second Enter, a key held down) is dropped until it and its reload end. */
   const pending = useRef(false)
+  /** Counts the acts begun: the one holding `pending` is the newest (a refused correction frees it before its reload ends). */
+  const acting = useRef(0)
   /** Undos asked for and not yet ended: they run one after another, in the order pressed. */
   const undos = useRef(0)
   const chain = useRef<Promise<void>>(Promise.resolve())
@@ -265,7 +269,7 @@ function useActs(
   /** Bumped by each act begun: a toast queued for an earlier act is then dropped, as `toast.clear()` drops a shown one. */
   const generation = useRef(0)
   /** An act's place, taken as it begins: its generation and the Step 1 queries already failing. */
-  const marked = useCallback((): Mark => ({ generation: generation.current, failing: failing() }), [failing])
+  const marked = useCallback((): Mark => ({ generation: generation.current, owner: acting.current, failing: failing() }), [failing])
   /** The toast of the last act, waiting for the screen to render what Step 1 reloaded. */
   const waiting = useRef<{ toast: Done; generation: number } | null>(null)
   /** Bumped when a toast starts waiting, so the effect below looks again. */
@@ -348,6 +352,7 @@ function useActs(
       return null
     }
     pending.current = true
+    acting.current += 1
     generation.current += 1
     setBusy(true)
     // The last act's toast goes: its Undo would now take back this act (the server undoes the latest).
@@ -373,8 +378,11 @@ function useActs(
     async (mark: Mark): Promise<boolean> => {
       // Held until Step 1 has reloaded: a second Enter during the reload would send the act again.
       await refresh().catch(() => {})
-      pending.current = false
-      if (undos.current === 0) setBusy(false)
+      // A refused correction freed the gate when it was refused, and a newer act may hold it now.
+      if (mark.owner === acting.current) {
+        pending.current = false
+        if (undos.current === 0) setBusy(false)
+      }
       return reloaded(mark)
     },
     [refresh, reloaded],
@@ -587,6 +595,12 @@ function useActs(
       } catch (error) {
         if (reached(error)) made += 1
         if (kind === 'correct') {
+          // A refusal changed nothing, so there is nothing to send twice: the next save goes at once, not after the reload
+          // (the person sees the refusal now and may save again before the list is back). Unless the call may have gone through.
+          if (!reached(error) && mark.owner === acting.current) {
+            pending.current = false
+            if (undos.current === 0) setBusy(false)
+          }
           // A refused correction is said under its field in the form, and kept there (aria-invalid,
           // aria-describedby), not as a toast over the bar's main button (design gate of #706).
           let field: CorrectionRefusal['field'] = null
