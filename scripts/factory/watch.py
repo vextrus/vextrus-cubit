@@ -72,6 +72,7 @@ from scripts.factory.trailers import Trailers
 from scripts.factory.trailers import read as read_trailers
 
 QUIET_MINUTES = 30
+SAID_QUIET_MINUTES = 10  # a SAID with no PUSH, COMMIT or STATUS this long sets the item's relay
 READY_WAIT_MINUTES = 10
 IDLE_MINUTES = 10
 USAGE_EVERY = timedelta(minutes=15)
@@ -626,6 +627,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
             )
             log.write(f"{status.utc(at)} {line}\n")
 
+    watch_said(step)
     rows = governor.read_agents() if any(r["where"] == "local" for r in records.values()) else None
     items = [
         track(step, ticket, record, refs, main_sha, prs, rows)
@@ -815,7 +817,58 @@ def track(
         "last_push_at": last_push,
         "quiet_minutes": quiet if where == "cloud" else None,
         "pr": pr["number"] if pr is not None and pr["number"] >= 1 else None,
+        "state_at": state_at(step, seen, head, state),
+        "relay": relay(step, ticket, seen),
     }
+
+
+def state_at(step: Pass, seen: dict[str, Any], head: str | None, state: str) -> str:
+    """When the ticket's head or state last changed, as the passes saw it (S26-FX2)."""
+    mark = [head, state]
+    if seen.get("state_mark") != mark or not isinstance(seen.get("state_at"), str):
+        seen["state_mark"] = mark
+        seen["state_at"] = status.utc(step.at)
+    return str(seen["state_at"])
+
+
+def relay(step: Pass, ticket: str, seen: dict[str, Any]) -> bool:
+    """True when a `SAID` to the ticket has had no PUSH, COMMIT or STATUS for SAID_QUIET_MINUTES: the
+    owner may need to carry the builder's reply by hand (S26-FX2)."""
+    said = step.state.get("said", {}).get(ticket)
+    if not isinstance(said, str):
+        return False
+    said_at = status.parse_utc(said)
+    for key in ("last_push_at", "status_at"):
+        answered = seen.get(key)
+        if isinstance(answered, str) and status.parse_utc(answered) > said_at:
+            return False
+    return status.minutes_between(said_at, step.at) >= SAID_QUIET_MINUTES
+
+
+def watch_said(step: Pass) -> None:
+    """One `SAID <ticket>` event for each line `launch say` appended to said.log since the last pass
+    (`<UTC> <ticket> <session>`), and the ticket's newest SAID time for its relay. A partial last line
+    waits for the next pass; a shorter file than the offset read (replaced) is read from its start."""
+    try:
+        data = (step.folder / "said.log").read_bytes()
+    except OSError:
+        return
+    offset = step.state.get("said_offset")
+    if not isinstance(offset, int) or not 0 <= offset <= len(data):
+        offset = 0
+    chunk = data[offset : data.rfind(b"\n") + 1] if data.rfind(b"\n") >= offset else b""
+    step.state["said_offset"] = offset + len(chunk)
+    said: dict[str, str] = step.state.setdefault("said", {})
+    for line in chunk.decode("utf-8", "replace").splitlines():
+        parts = line.split(" ")
+        if len(parts) < 2 or not parts[1]:
+            continue
+        try:
+            when = status.parse_utc(parts[0])
+        except ValueError:
+            continue
+        said[parts[1]] = status.utc(when)
+        step.event("SAID", parts[1], "sent")
 
 
 ENDED_ROW_STATES = {"done", "stopped", "failed"}
@@ -1036,8 +1089,11 @@ def raise_alarms(step: Pass) -> None:
 # The mod cannot read a file over 4 MiB (the host's fs.read rejects it) and events.log only grows, so
 # every pass leaves the mod its tail: the last EVENTS_TAIL_LINES lines of the kinds it shows or toasts,
 # from the last EVENTS_TAIL_BYTES of the log, in `events.tail`.
+# With S26-FX2 the tail also carries every kind the mod's wake reads (wakes and rides along).
 EVENTS_TAIL_KINDS = frozenset(
     {"READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-RED", "OWNER-COMMAND", "OWNER-RULING"}
+    | {"STATUS", "WALK-SCRIPT-DONE", "G1", "WALK", "PUSH", "COMMIT"}
+    | {"READY-WAITING", "BUILDER-QUIET", "FLOOR-CROSSED"}
 )
 EVENTS_TAIL_LINES = 200
 EVENTS_TAIL_BYTES = 512 * 1024

@@ -1,6 +1,6 @@
 ---
 name: orchestrate-wave
-description: The orchestrator's runbook for building one wave of a milestone autonomously (ADR 0041, ADR 0042): set the budgets, pass the governor's preflight, have acceptance-writer pin each ticket's tests, launch builders through scripts.factory.launch (cloud for committed-test tickets, local for real drawings), watch the event log with Monitor, review each READY head with /review-pr in at most two fix rounds, land, run the G1 walk before any "walk now", and record measures. Use when launching or running a wave (a session brief says "build wave N").
+description: The orchestrator's runbook for building one wave of a milestone autonomously (ADR 0041, ADR 0042): set the budgets, pass the governor's preflight, have acceptance-writer pin each ticket's tests, launch builders through scripts.factory.launch (cloud for committed-test tickets, local for real drawings), let the factory mod's wake report the event log, review each READY head with /review-pr in at most two fix rounds, land, run the G1 walk before any "walk now", and record measures. Use when launching or running a wave (a session brief says "build wave N").
 ---
 # Orchestrating a wave
 
@@ -34,8 +34,11 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    file. Message and resume a local builder only through `scripts.factory.say` by its full `sessionId`: it resumes
    only `stopped` or `failed` with no `pid`, with `--settings` again; a `done` session is alive and
    waiting: SendMessage it, never resume it. Never restart a builder over its work.
-4. **Watch.** Monitor on the event log (`events.log` under `.private/work/factory/`), re-armed at its deadline, and
-   `notify_when_idle` for local builders. No polling and no foreground sleep; never wait on a process listing. The
+4. **Watch.** The `vextrus-factory` mod wakes you: on a READY, BLOCKED, CI red, a walk file or a builder's first
+   push in 15 min it submits one batched message (the new `events.log` lines, the live tickets' table, at most 12 an
+   hour, then `wakes capped` in the band). Act on it; arm no Monitor on the event log. Monitor stays only for one
+   foreground command's log; `notify_when_idle` for local builders. A row marked `relay` had a `launch say` with no
+   answer for 10 min: read the builder's session. No polling and no foreground sleep; never wait on a process listing. The
    SessionStart hook restarts the watcher when its pidfile is stale (or `watch ensure`, `commands.md`). A builder finishes with a `Factory-State:
    READY` (verified) or `BLOCKED` trailer; a READY head with no verify record is bounced, not reviewed. A local
    builder never pushes: push its READY head yourself after the leak scan, by `commands.md`'s PR recipe.

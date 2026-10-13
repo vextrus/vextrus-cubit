@@ -835,6 +835,14 @@ drawing text under the owner's local key, or under the cloud key for the two Dev
   crash rules (VCC:426-427). `watch.py` is the single source, so the band and the status line cannot disagree.
 - **It intercepts nothing.** It registers no `tool.check`, `prompt.edit` or `agent.spawn` handler: a mod can approve a
   call the guard blocked (VCC:407-408). Its test asserts the exact list of events it registers.
+- **The wake (S26-FX2; the owner's ruling Q-R4, 13 Oct 2026: "The factory mod may submit one batched, rate-capped
+  wake prompt into the orchestrator's session").** Its one acting call: from the 15 s poll, `$.prompt.submit({ text })`,
+  framed as the plugin's message, when events.log has a new waking line (READY, BLOCKED, CI-RED, LEAK-HIT, STATUS,
+  WALK-SCRIPT-DONE, G1, BUDGET-PASSED, OWNER-*, `WALK - <sha> done`; PUSH and COMMIT once per ticket per 15 min;
+  READY-WAITING, BUILDER-QUIET and FLOOR-CROSSED ride along). One waits at a time, 12 an hour (then the band says
+  `wakes capped`); its cursor and cap live in `$.store`. The text: the new lines, the live tickets' table (`ticket state
+  head8 Δmin relay`, from `builders.items`' `state_at` and `relay`), then "Act on these; no Monitor is needed." The band
+  shows the same rows, one per live ticket. It registers no `prompt.*` hook.
 - **How it stays off for builders (four walls):**
   1. It loads only through `--plugin-dir`, which is session-only and writes no settings (VCC:409-411). Only
      `orchestrator.sh` passes it. The launchers never do, and builders are never started with `/bg` or

@@ -508,7 +508,8 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
 def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
     tmp_path: Path,
 ) -> None:
-    routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
+    # over 4 MiB: the mod cannot read it (the mod never reads SAID; PUSH is the wake's, S26-FX2)
+    routine = "2026-10-06T00:00:00Z SAID t sent\n" * 200_000
     wanted = [
         "2026-10-06T01:00:00Z READY t abc1234",
         "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
@@ -531,3 +532,30 @@ def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_l
 def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
     watch.write_events_tail(tmp_path)
     assert not (tmp_path / "events.tail").exists()
+
+
+def test_said_log_emits_one_said_per_complete_line_and_relay_reads_it(tmp_path: Path) -> None:
+    """S26-FX2: a partial last line waits for the next pass; a replaced (shorter) file is read from
+    its start; relay is set 10 min after a SAID with no push or status after it."""
+    start = datetime(2026, 10, 13, 1, 0, tzinfo=UTC)
+    state: dict[str, Any] = {"alarms": {}, "tickets": {}}
+    said = tmp_path / "said.log"
+    said.write_text("2026-10-13T01:00:00Z t1 session_a\n2026-10-13T01:00:30Z t2 sess")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t1", "sent")]
+    said.write_text(said.read_text() + "ion_b\n")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t2", "sent")]
+    said.write_text("2026-10-13T01:01:00Z t1 session_c\n")  # replaced by a shorter file
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t1", "sent")]
+    seen: dict[str, Any] = {"last_push_at": "2026-10-13T01:00:30Z"}
+    late = watch.Pass(tmp_path, start + timedelta(minutes=12), state)
+    assert watch.relay(late, "t1", seen) is True
+    early = watch.Pass(tmp_path, start + timedelta(minutes=10), state)
+    assert watch.relay(early, "t1", seen) is False
+    assert watch.relay(late, "t1", {**seen, "status_at": "2026-10-13T01:05:00Z"}) is False
+    assert watch.relay(late, "t3", seen) is False

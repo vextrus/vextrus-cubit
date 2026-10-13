@@ -1161,7 +1161,39 @@ def main_say(argv: list[str]) -> int:
         text = a.file.read_text()
     except (OSError, UnicodeDecodeError) as error:
         return _error(f"cannot read the message file ({type(error).__name__})").exit_code
-    return say(a.session_id, text, elapsed=elapsed, scan=default_scan(root)).exit_code
+    outcome = say(a.session_id, text, elapsed=elapsed, scan=default_scan(root))
+    if outcome.exit_code == 0:
+        _record_said(a.ticket or _session_ticket(a.session_id), a.session_id)
+    return outcome.exit_code
+
+
+def _session_ticket(session_id: str) -> str | None:
+    """The ticket of the launch record naming this session, if one does."""
+    for path in sorted(launches_dir().glob("*.json")):
+        try:
+            record = json.loads(path.read_text())
+        except OSError, ValueError:
+            continue
+        if isinstance(record, dict) and record.get("session_id") == session_id:
+            ticket = record.get("ticket")
+            if isinstance(ticket, str) and TICKET.match(ticket):
+                return ticket
+    return None
+
+
+def _record_said(ticket: str | None, session_id: str) -> None:
+    """One `<UTC> <ticket> <session>` line in the factory folder's said.log once a message was sent:
+    the watcher turns it into a `SAID <ticket>` event and the ticket's relay (S26-FX2). Best effort:
+    the message is sent whatever happens to the record."""
+    if ticket is None:
+        return
+    try:
+        folder = status.factory_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        with (folder / "said.log").open("a") as log:
+            log.write(f"{status.utc(status.now())} {ticket} {session_id}\n")
+    except OSError:
+        print("warning: the SAID record could not be written", file=sys.stderr)
 
 
 # --- local -----------------------------------------------------------------------------------------
