@@ -19,7 +19,7 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
   filed as issues. A newer head than the
   reviewed one passes only if every commit since it is a merge of main whose own resolution
   (`git diff-tree --cc`) is empty: a resolved conflict is unreviewed code;
-- (b) a round-3 record with no exception;
+- (b) a record of round 3 or later with no exception, or past round 3 with any but `delta-review`;
 - (c) an item under a `## Cut`, `## Not done` or `## Deferred` heading of the body that links no open
   issue;
 - (e) a head that `scripts/factory/ci_gate.py` reads not READY (no `Factory-State: READY` with this
@@ -96,6 +96,11 @@ query($owner: String!, $name: String!, $pr: Int!) {
   }
 }
 """
+# The contract's exception kinds and rounds, read here on their own (never from the ledger that writes
+# them): past round 3, up to round 9, only a delta review (the owner's Q-R1, 13 Oct 2026).
+DELTA = "delta-review"
+EXCEPTION_KINDS = ("security75", "crash", "false-statement", "fix-regression", DELTA)
+LAST_ROUND = 9
 COUNT_KEYS = ("reviewers", "findings", "findings_ge_50", "confirmed", "refuted", "unproven")
 
 
@@ -402,7 +407,7 @@ def record_problems(record: Any, pr: int, head: str) -> list[str]:
         "schema_version": record["schema_version"] == 1,
         "pr": record["pr"] == pr and _integer(record["pr"]),
         "head": record["head"] == head,
-        "round": _integer(record["round"]) and 1 <= record["round"] <= 3,
+        "round": _integer(record["round"]) and 1 <= record["round"] <= LAST_ROUND,
         "verdict": record["verdict"] in ("PASS", "FIX", "BLOCK"),
         "counts": isinstance(counts, dict)
         and set(counts) == {*COUNT_KEYS, "unrefuted_ge_50"}
@@ -414,10 +419,15 @@ def record_problems(record: Any, pr: int, head: str) -> list[str]:
         or (
             isinstance(exception, dict)
             and set(exception) == {"kind", "reason"}
-            and exception["kind"] in ("security75", "crash", "false-statement", "fix-regression")
+            and exception["kind"] in EXCEPTION_KINDS
             and isinstance(exception["reason"], str)
             and 1 <= len(exception["reason"]) <= 300
+            # a delta review only past the cap; past round 3, only a delta review (the owner's Q-R1)
+            and (exception["kind"] != DELTA or (_integer(record["round"]) and record["round"] >= 3))
         ),
+        "round past the cap": not _integer(record["round"])
+        or record["round"] <= 3
+        or (isinstance(exception, dict) and exception.get("kind") == DELTA),
         "source": record["source"] in ("review-pr", "fetch-verdict"),
         "recorded_at": isinstance(record["recorded_at"], str)
         and re.fullmatch(
@@ -509,8 +519,10 @@ def ledger_problems(facts: dict[str, Any], ledger_dir: Path, repo: Path) -> list
     found = []
     if chosen["verdict"] != "PASS":
         found.append(f"the ledger says {chosen['verdict']} for {chosen['head'][:12]}, not PASS")
-    if chosen["round"] == 3 and chosen["exception"] is None:
-        found.append("the ledger's record is round 3 with no exception: two fix rounds at most")
+    if chosen["round"] >= 3 and chosen["exception"] is None:
+        found.append(
+            f"the ledger's record is round {chosen['round']} with no exception: two fix rounds at most"
+        )
     markers = [c for c in facts["comments"] if MARKER.search(c["body"] or "")]
     newest = max(markers, key=lambda comment: int(comment["id"]), default=None)
     if newest is None:

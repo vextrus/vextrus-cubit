@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
@@ -12,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from scripts import ledger as ledger_module
 from scripts.factory import trailers, watch
 
 TREE = "a" * 40
@@ -114,6 +116,26 @@ def test_reviews_skip_closed_prs_and_a_pass_on_the_current_head(tmp_path: Path) 
     (ledger / "broken.json").write_text("{")
     prs = [{"number": 2, "state": "MERGED", "headRefOid": "f" * 40}]
     assert watch.reviews_view(tmp_path, prs) == [{"pr": 1, "round": 2, "head": "e" * 40}]
+
+
+def write_records(tmp_path: Path, rows: tuple[tuple[str, int, str], ...]) -> None:
+    ledger = tmp_path / "ledger"
+    ledger.mkdir()
+    for head, round_, verdict in rows:
+        record = {"pr": 1, "head": head, "round": round_, "verdict": verdict, "recorded_at": "t"}
+        (ledger / f"1-{head}.json").write_text(json.dumps(record))
+
+
+def test_a_round_four_pass_on_the_head_closes_the_open_review(tmp_path: Path) -> None:
+    """PR #789 review 1: rounds 4 to 9 (delta reviews) are records, read up to ledger.LAST_ROUND."""
+    write_records(tmp_path, (("d" * 40, 3, "FIX"), ("e" * 40, 4, "PASS")))
+    prs = [{"number": 1, "state": "OPEN", "headRefOid": "e" * 40}]
+    assert watch.reviews_view(tmp_path, prs) == []
+
+
+def test_a_round_four_fix_shows_round_four_on_its_head(tmp_path: Path) -> None:
+    write_records(tmp_path, (("d" * 40, 3, "FIX"), ("e" * 40, 4, "FIX")))
+    assert watch.reviews_view(tmp_path, None) == [{"pr": 1, "round": 4, "head": "e" * 40}]
 
 
 def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -531,3 +553,15 @@ def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_l
 def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
     watch.write_events_tail(tmp_path)
     assert not (tmp_path / "events.tail").exists()
+
+
+def test_the_status_contract_reads_rounds_up_to_the_ledger_s_last_round() -> None:
+    schema = Path(__file__).resolve().parents[3] / "docs/specs/factory/contracts/status.schema.json"
+    text = schema.read_text()
+    found = re.search(r'"round": \{"type": "integer", "minimum": 1, "maximum": (\d+)\}', text)
+    assert found is not None
+    assert int(found[1]) == ledger_module.LAST_ROUND
+
+
+def test_the_watcher_s_last_round_is_the_ledger_s() -> None:
+    assert watch.LAST_ROUND == ledger_module.LAST_ROUND
