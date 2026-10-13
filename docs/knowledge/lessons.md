@@ -712,5 +712,4 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   direction follows.
 - **The orchestrator passed drawing phrases to builders in its messages** (E1: the two phrases a set prints where a member
   continues on the next sheet), and a builder and an acceptance writer copied them into code and a commit message; verify's
-  leak scan stopped both before any push. Check: `tools.leakscan` in verify (it held). No check yet on the orchestrator's own
-  messages: scan a fix message with `tools.leakscan file` before sending it.
+  leak scan stopped both before any push, so the commits held. Check: `tools/leakscan/` (run by `scripts/verify.py`).
