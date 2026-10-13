@@ -69,8 +69,12 @@ from vextrus.drawings.models import HeldAnswer, PlotNone
 from vextrus.drawings.services.anchors import Resolved, resolve
 from vextrus.drawings.services.corrections import (
     held_answer,
+    put_back_sheet,
     set_sheet_discipline,
     set_sheet_number,
+    set_sheet_title,
+    typed_number,
+    typed_title,
 )
 from vextrus.drawings.services.drawing_files import (
     FINISHING,
@@ -204,6 +208,7 @@ __all__ = [
     "on_discipline_changed",
     "original",
     "page_step",
+    "put_back_sheet",
     "quarantine",
     "record_bangla_lines",
     "record_kind",
@@ -223,6 +228,7 @@ __all__ = [
     "set_of",
     "set_sheet_discipline",
     "set_sheet_number",
+    "set_sheet_title",
     "sheet",
     "sheet_discipline",
     "sheet_facts",
@@ -231,6 +237,8 @@ __all__ = [
     "step_store",
     "store_artefact",
     "summary",
+    "typed_number",
+    "typed_title",
     "undo",
     "views",
     "views_of_set",
