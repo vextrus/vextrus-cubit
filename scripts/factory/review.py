@@ -164,7 +164,9 @@ FINDING_SCHEMA: dict[str, Any] = {
             "description": (
                 "user-facing: a QS or MD would hit it; edge: an edge case no user meets in normal "
                 "work; rule-only: it breaks only the factory's own rules (a 50-74 user-facing "
-                "finding blocks; an edge or rule-only one off a trust boundary is filed)"
+                "finding blocks; an edge or rule-only one off a trust boundary is filed). Give it "
+                "with trust_boundary or neither: one without the other reads as user-facing on a "
+                "trust boundary"
             ),
         },
         "trust_boundary": {
@@ -369,13 +371,15 @@ class Finding:
 
     @classmethod
     def tags(cls, item: dict[str, Any]) -> dict[str, Any]:
-        """The lens's tags of one finding, both or neither (a half-tagged finding keeps the path bar),
-        and its owed check when it named one."""
+        """The lens's tags of one finding, and its owed check when it named one. Neither tag: untagged
+        (the path bar). A tag without its partner, or with a value outside the schema, reads as the
+        stricter one (PR #757 round 1): a missing or bad class is user-facing and a missing or bad
+        boundary is a trust boundary, so a half-tagged 50-74 can block and is never filed as untagged."""
         kind, boundary, owed = item.get("class"), item.get("trust_boundary"), item.get("owed_check")
-        tagged = kind in ledger.CLASSES and isinstance(boundary, bool)
+        tagged = kind is not None or boundary is not None
         return {
-            "kind": kind if tagged else None,
-            "boundary": boundary if tagged else None,
+            "kind": (kind if kind in ledger.CLASSES else "user-facing") if tagged else None,
+            "boundary": (boundary if isinstance(boundary, bool) else True) if tagged else None,
             "owed_check": owed if isinstance(owed, str) and owed.strip() else None,
         }
 

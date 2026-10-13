@@ -23,14 +23,18 @@ def lens_item(**tags: Any) -> dict[str, Any]:
     [
         ({"class": "edge", "trust_boundary": False}, "edge", False),
         ({"class": "user-facing", "trust_boundary": True}, "user-facing", True),
-        ({"class": "edge"}, None, None),  # half-tagged: the path bar
-        ({"trust_boundary": False}, None, None),
-        ({"class": "Edge", "trust_boundary": False}, None, None),
-        ({"class": "edge", "trust_boundary": 0}, None, None),
+        # PR #757 round 1: a half or bad tag reads as the stricter one, never as untagged
+        ({"class": "edge"}, "edge", True),
+        ({"class": "user-facing"}, "user-facing", True),
+        ({"trust_boundary": False}, "user-facing", False),
+        ({"trust_boundary": True}, "user-facing", True),
+        ({"class": "Edge", "trust_boundary": False}, "user-facing", False),
+        ({"class": "edge", "trust_boundary": 0}, "edge", True),
+        ({"class": None, "trust_boundary": None}, None, None),
         ({}, None, None),
     ],
 )
-def test_a_lens_s_tags_are_read_both_or_neither(
+def test_a_lens_s_tags_are_read_both_or_the_stricter(
     tags: dict[str, Any], kind: str | None, boundary: bool | None
 ) -> None:
     read = review.Finding.tags(lens_item(**tags))
@@ -50,7 +54,24 @@ def test_an_edge_60_on_a_product_file_off_a_boundary_cannot_block() -> None:
     assert finding().could_block is True  # untagged: strict by default
     half = finding(**{"class": "edge"})
     assert half.could_block is True
-    assert half.tag_text == ""
+    assert half.tag_text == " class=edge boundary=yes"
+
+
+LAX = "web/src/components/badge.tsx"
+
+
+@pytest.mark.parametrize("tags", [{"class": "user-facing"}, {"trust_boundary": True}, {"class": "edge"}])
+def test_a_half_tagged_confirmed_60_on_a_lax_file_records_fix(tags: dict[str, Any]) -> None:
+    """PR #757 round 1: a lens reply with one tag passes FINDING_SCHEMA; on a lax web view component
+    its CONFIRMED 60 must block, never be filed under the path bar."""
+    item = {**lens_item(**tags), "file": LAX}
+    assert review.conforms(item, review.FINDING_SCHEMA)
+    found = review.Finding("l1-f1", 60, LAX, 3, "s", None, "CONFIRMED", **review.Finding.tags(item))
+    found.on_tree = True
+    line = f"FINDING {found.id} {found.score} {found.word} {found.named_file}{found.tag_text}"
+    decision = ledger.decide(f"VERDICT: PASS at {H}\n{line}\n".encode(), H)
+    assert (decision.verdict, decision.to_file) == ("FIX", ())
+    assert review.standing([found.view()]) == [found.view()]
 
 
 def test_the_finding_line_carries_the_tags_and_the_ledger_reads_them(tmp_path: Path) -> None:
