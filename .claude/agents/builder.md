@@ -81,7 +81,7 @@ Before the READY commit:
 3. Run `uv run python -m scripts.factory.review_self` once before READY (the owner's Q14, 13 Oct 2026): it
    runs review's two lenses on `git diff origin/main...HEAD` plus your uncommitted work in your worktree, with no ledger, no post and no
    refuter. The lenses are read-only (they cannot change your tree). Fix what is real and say in
-   the READY body what it found. On a fix round, run it on that round's own diff (`--base <the previous head>`).
+   the READY body what it found. On a fix round, run it on that round's own diff (`--base <the previous head>`; the main you merged is left out).
 4. A fix round re-runs the previous round's attack tests (the `repro` test files its findings gave) and
    they must pass on your fix, before you push it.
 5. Put the line crosspr printed last (`Cross-PR: #51 #53 ok` or `Cross-PR: none ok`) in the READY commit

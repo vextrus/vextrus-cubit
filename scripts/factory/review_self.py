@@ -7,7 +7,11 @@ terminal, and the builder fixes what is real. Advisory: a clean run is not a PAS
     uv run python -m scripts.factory.review_self [--base <ref>]
 
 `--base` names the ref the branch is compared with (default `origin/main`, fetched first, else `main`),
-so a fix round can review its own diff (`--base <the previous round's head>`).
+so a fix round can review its own diff (`--base <the previous round's head>`). A fix round that merged
+main reviews only the fix: the diff runs from the previous head merged with the main it merged (the
+delta review's computation, review.write_delta), so main's own commits reach neither lens.
+
+Ctrl-C (or SIGTERM or SIGHUP) kills both lenses and ends the run at once, exit 128 + the signal.
 """
 
 from __future__ import annotations
@@ -15,9 +19,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
@@ -32,6 +38,7 @@ SLOT = 0  # review self's own database (vextrus_rv_slot0); review.py's slots sta
 # before the READY commit, where a lens that rewrote a file would lose the builder's uncommitted work.
 SELF_LENSES = tuple(replace(lens, writes=False) for lens in (review.LENS_A, review.LENS_B))
 FETCH_TIMEOUT = "VEXTRUS_REVIEW_SELF_FETCH_TIMEOUT"  # seconds; default 60
+STOPPED = threading.Event()  # a stop signal came: no lens may start after it
 
 
 class _Parser(argparse.ArgumentParser):
@@ -52,18 +59,18 @@ def worktree() -> Path:
     return Path(review.git(Path.cwd(), "rev-parse", "--show-toplevel").strip())
 
 
-def base_ref(where: Path, wanted: str | None) -> str:
-    if not wanted:  # best effort: the refs below still answer when the network does not
-        try:
-            review._run(
-                [*review.GIT, "-C", str(where), "fetch", "-q", "origin", "main"],
-                timeout=int(os.environ.get(FETCH_TIMEOUT) or 60),
-            )
-        except subprocess.TimeoutExpired:
-            print(
-                "review self: the fetch of origin/main timed out; using the refs here", file=sys.stderr
-            )
-    candidates = [wanted] if wanted else ["origin/main", "main"]
+def fetch_main(where: Path) -> None:
+    """Best effort: the refs here still answer when the network does not."""
+    try:
+        review._run(
+            [*review.GIT, "-C", str(where), "fetch", "-q", "origin", "main"],
+            timeout=int(os.environ.get(FETCH_TIMEOUT) or 60),
+        )
+    except subprocess.TimeoutExpired:
+        print("review self: the fetch of origin/main timed out; using the refs here", file=sys.stderr)
+
+
+def first_commit(where: Path, candidates: list[str]) -> str:
     for ref in candidates:
         done = review._run(
             [*review.GIT, "-C", str(where), "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"]
@@ -71,6 +78,46 @@ def base_ref(where: Path, wanted: str | None) -> str:
         if done.returncode == 0:
             return ref
     raise Refused(f"no base to compare with ({', '.join(candidates)} not found)")
+
+
+def base_ref(where: Path, wanted: str | None) -> str:
+    fetch_main(where)
+    return first_commit(where, [wanted] if wanted else ["origin/main", "main"])
+
+
+def fix_start(where: Path, base: str, main_ref: str) -> str | None:
+    """Where a fix round's own diff starts when `base` is the previous round's head and the round merged
+    main: the previous head merged with the newest main commit the head holds (`merge-base HEAD main`,
+    so a main fetched after the merge cannot show as removed), the delta review's computation
+    (review.write_delta). None when `base` is not an ancestor of HEAD (then the plain three-dot diff is
+    right) or does not merge cleanly with that main (then the previous head itself: more than the fix,
+    never less)."""
+    if review._run(
+        [*review.GIT, "-C", str(where), "merge-base", "--is-ancestor", base, "HEAD"]
+    ).returncode:
+        return None
+    fork = review._run([*review.GIT, "-C", str(where), "merge-base", "HEAD", main_ref])
+    if fork.returncode or not fork.stdout.split():
+        return base
+    tree = review._run(
+        [*review.GIT, "-C", str(where), "merge-tree", "--write-tree", fork.stdout.split()[0], base]
+    )
+    return tree.stdout.split()[0] if tree.returncode == 0 and tree.stdout.split() else base
+
+
+def branch_change(where: Path, base: str, main_ref: str) -> tuple[str, str]:
+    """The diff and the commit list of the change under review: `base...HEAD`, or for a fix round
+    (`base` an ancestor of HEAD) the fix alone, the main it merged left out."""
+    start = fix_start(where, base, main_ref)
+    if start is None:
+        diff = review.git(where, "diff", f"{base}...HEAD")
+        log = review.git(where, "log", "--format=%h %s", f"{base}..HEAD")
+        return diff, log
+    fork = review._run([*review.GIT, "-C", str(where), "merge-base", "HEAD", main_ref])
+    held = fork.stdout.split()[:1] if fork.returncode == 0 else []
+    diff = review.git(where, "diff", "--no-renames", start, "HEAD")
+    log = review.git(where, "log", "--format=%h %s", "HEAD", "--not", base, *held)
+    return diff, log
 
 
 def uncommitted(where: Path) -> str:
@@ -112,6 +159,8 @@ def brief(lens: Lens, head: str, base: str, where: Path, diff: Path, log: Path) 
 
 
 def one_lens(lens: Lens, prompt: str, head: str, where: Path, keep: Path, main: Path) -> dict[str, Any]:
+    if STOPPED.is_set():  # the signal came while this lens was being set up
+        raise review.Stopped(signal.SIGINT)
     result = review.run_lens(lens, prompt, where, SLOT, keep / f"{lens.label}.json", main)
     return review.read_review(lens, result, head)
 
@@ -142,15 +191,20 @@ def run(args: argparse.Namespace) -> int:
     main = review.main_checkout()
     head = review.git(where, "rev-parse", "HEAD").strip()
     base = base_ref(where, args.base)
+    main_ref = first_commit(where, ["origin/main", "main"])
     with tempfile.TemporaryDirectory(prefix="review-self-") as scratch:
         keep = Path(scratch)
         diff, log = keep / "change.diff", keep / "commits.txt"
-        diff.write_text(
-            review.git(where, "diff", f"{base}...HEAD") + uncommitted(where), errors="surrogateescape"
+        text, commits = (
+            branch_change(where, base, main_ref)
+            if args.base
+            else (
+                review.git(where, "diff", f"{base}...HEAD"),
+                review.git(where, "log", "--format=%h %s", f"{base}..HEAD"),
+            )
         )
-        log.write_text(
-            review.git(where, "log", "--format=%h %s", f"{base}..HEAD"), errors="surrogateescape"
-        )
+        diff.write_text(text + uncommitted(where), errors="surrogateescape")
+        log.write_text(commits, errors="surrogateescape")
         prompts = [brief(lens, head, base, where, diff, log) for lens in SELF_LENSES]
         with ThreadPoolExecutor(max_workers=len(SELF_LENSES)) as pool:
             futures = [
@@ -173,9 +227,26 @@ def run(args: argparse.Namespace) -> int:
     return REFUSED if failed else OK
 
 
+def stop(signum: int, frame: object) -> None:
+    """Ctrl-C, SIGTERM or SIGHUP: no lens starts after it, every running lens group is killed (the
+    lenses are in their own sessions, so they never see the signal), and the run ends."""
+    STOPPED.set()
+    review.stop_everything(signum, frame)
+
+
+def install_stop_handlers() -> None:
+    if threading.current_thread() is threading.main_thread():
+        for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+            signal.signal(signum, stop)
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
+        install_stop_handlers()
         return run(parse(sys.argv[1:] if argv is None else argv))
+    except review.Stopped as error:
+        print(f"review self: {error}", file=sys.stderr)
+        return 128 + error.signum
     except BadInput as error:
         print(f"review self: {error}", file=sys.stderr)
         return BAD
