@@ -43,7 +43,7 @@ export function ToastProvider({ children, viewport = true }: { children: ReactNo
     <ToastContext.Provider value={api}>
       <ToastState.Provider value={{ current, clear }}>
         {children}
-        {viewport ? <ToastViewport className="fixed inset-x-0 bottom-6" /> : null}
+        {viewport ? <ToastViewport className="fixed inset-x-0 bottom-24" /> : null}
       </ToastState.Provider>
     </ToastContext.Provider>
   )
@@ -64,7 +64,7 @@ export function ToastViewport({ className }: { className?: string }) {
       {toast ? (
         <div
           key={toast.id}
-          className="pointer-events-auto inline-flex h-toast items-center gap-3 rounded-full bg-inverse ps-4 pe-1.5 text-sm text-ink-inverse shadow-3 animate-in fade-in-0 duration-(--motion-panel)"
+          className="pointer-events-auto inline-flex min-h-10 max-w-[min(42rem,calc(100vw-4rem))] items-center gap-3 rounded-3xl bg-inverse py-1.5 ps-4 pe-1.5 text-sm text-ink-inverse shadow-3 animate-in fade-in-0 duration-(--motion-panel)"
         >
           <span>{toast.message}</span>
           {toast.onUndo ? (

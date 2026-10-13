@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -19,6 +19,7 @@ import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
+import { LeavesConfirmAll } from './LeavesConfirmAll'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
 import { SheetRange } from './SheetRange'
@@ -67,6 +68,8 @@ interface Entry {
   kind?: 'correct'
   /** The Confirmations its server calls made (the replies' `confirmation_id`): an undo's reply is matched to its entry by them. */
   ids: string[]
+  /** A correction's sheet, named in "Your correction of S-04 stays: it has changed since." */
+  name?: ReactNode
 }
 
 /** The label a sheet or a continuation goes by in a sentence: "S-02", "E-02–E-03", or its title. */
@@ -154,6 +157,15 @@ function StaleWords({ done }: { done: ReactNode }) {
 }
 
 /** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
+/** A refused correction: its words, and the field they are about (none: the form's). `n` is new for each refusal. */
+export interface CorrectionRefusal {
+  text: string
+  field: 'number' | 'title' | null
+  /** The value the sheet holds now, when the refusal is `corrected_since`: the form takes it as what it opened with. */
+  current?: { field: 'number' | 'title'; value: string }
+  n: number
+}
+
 export interface SheetChange {
   number?: string
   title?: string
@@ -174,7 +186,13 @@ export interface Step1Acts {
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   /** Corrects a sheet's number or title (§6.9, `E`): only what changed. */
-  correctSheet(sheet: ProposalOut, change: SheetChange): Promise<boolean>
+  correctSheet(sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }): Promise<boolean>
+  /** The last correction's refusal, shown under its field in the form (not as a toast over the bar). */
+  correctionRefusal: CorrectionRefusal | null
+  /** The form closed (or opens): a refusal belongs to the form it was made in. */
+  clearCorrectionRefusal(): void
+  /** Counts the undos that have ended (Ctrl Z or the toast's Undo): the screen puts focus back after each. */
+  undone: number
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
@@ -192,19 +210,30 @@ export function useStep1Acts(projectId: string, shown?: Step1Data | null): Step1
   const handOut = useCallback((correct: Step1Acts['correctSheet']) => {
     corrector.current = correct
   }, [])
-  const acts = useActs(projectId, shown, handOut)
-  const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change) => corrector.current?.(sheet, change) ?? Promise.resolve(false), [])
-  return { ...acts, correctSheet }
+  const [correctionRefusal, setCorrectionRefusal] = useState<CorrectionRefusal | null>(null)
+  const [undone, setUndone] = useState(0)
+  const acts = useActs(projectId, shown, handOut, setCorrectionRefusal, setUndone)
+  const correctSheet = useCallback<Step1Acts['correctSheet']>((sheet, change, opened) => corrector.current?.(sheet, change, opened) ?? Promise.resolve(false), [])
+  const clearCorrectionRefusal = useCallback(() => setCorrectionRefusal(null), [])
+  return { ...acts, correctSheet, correctionRefusal, clearCorrectionRefusal, undone }
 }
 
 /** Step 1's acts but the correction, which it gives `handOut` for `useStep1Acts` to return. */
-function useActs(projectId: string, shown: Step1Data | null | undefined, handOut: (correct: Step1Acts['correctSheet']) => void): Omit<Step1Acts, 'correctSheet'> {
+function useActs(
+  projectId: string,
+  shown: Step1Data | null | undefined,
+  handOut: (correct: Step1Acts['correctSheet']) => void,
+  setCorrectionRefusal: Dispatch<SetStateAction<CorrectionRefusal | null>>,
+  setUndone: Dispatch<SetStateAction<number>>,
+): Omit<Step1Acts, 'correctSheet' | 'correctionRefusal' | 'clearCorrectionRefusal' | 'undone'> {
   const queryClient = useQueryClient()
   const toast = useToast()
   const { i18n } = useLingui()
   const f = useFormat()
   /** The acts started in this tab, the last on top: what Ctrl Z takes back. */
   const history = useRef<Entry[]>([])
+  /** Counts the correction refusals, so each is newer than the typing that cleared the one before. */
+  const refusals = useRef(0)
   /** An act in flight: another (a second Enter, a key held down) is dropped until it and its reload end. */
   const pending = useRef(false)
   /** Undos asked for and not yet ended: they run one after another, in the order pressed. */
@@ -313,7 +342,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
    * counts its calls once they are made. A key that comes while another act or an undo is in flight is
    * dropped, and kept as an act that made nothing, so the Ctrl Z after it undoes nothing and says so.
    */
-  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct', ids?: string[]) => void) | null => {
+  const begin = useCallback((): ((calls: number, words: ReactNode, kind?: 'correct', ids?: string[], name?: ReactNode) => void) | null => {
     if (pending.current || undos.current > 0) {
       if (!history.current.at(-1)?.dropped) history.current.push({ calls: 0, words: null, made: Promise.resolve(), counted: true, dropped: true, ids: [] })
       return null
@@ -327,7 +356,8 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
     let counted = () => {}
     const entry: Entry = { calls: 0, words: null, made: new Promise<void>((resolve) => (counted = resolve)), counted: false, dropped: false, ids: [] }
     history.current.push(entry)
-    return (calls, words, kind, ids) => {
+    return (calls, words, kind, ids, name) => {
+      entry.name = name
       entry.calls = calls
       entry.words = words
       entry.kind = kind
@@ -357,7 +387,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
    * refuter of round 4: otherwise the next undo takes back the server's latest act under another act's
    * words).
    */
-  const queued = useRef<{ entry: Entry | undefined; off: boolean; kept: boolean }[]>([])
+  const queued = useRef<{ entry: Entry | undefined; off: boolean; kept: boolean; carry?: Done }[]>([])
 
   /** Puts acts back under any dropped keys kept since (no act is made while undos run). */
   const restore = useCallback((entries: Entry[]) => {
@@ -380,7 +410,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
       const mark = marked()
       undos.current += 1
       setBusy(true)
-      const ask = { entry, off: false, kept }
+      const ask: { entry: Entry | undefined; off: boolean; kept: boolean; carry?: Done } = { entry, off: false, kept }
       queued.current.push(ask)
       /** A refused undo: keeps what it did not undo, and calls off the presses behind it. */
       const refused = (left: Entry | null) => {
@@ -397,8 +427,12 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         queued.current = queued.current.filter((q) => q !== ask)
         // Its toast waits for the reload too (#167, F1): "Undone: …" never beside the Count it changed.
         let done: Done | null = null
+        let undoneKind: string | null = null
         try {
-          if (ask.off) return
+          if (ask.off) {
+            done = ask.carry ?? null // undone by the press before it: that press's toast, shown by this last one
+            return
+          }
           if (entry) {
             // An act in flight is waited for, so this undoes it; one that made nothing undoes nothing.
             const waited = !entry.counted
@@ -425,30 +459,49 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
               let reply: ActOut | undefined
               for (; left > 0; left--) reply = await undo(projectId)
               let words = entry.words
+              let stays: ReactNode = null
+              let carried: (typeof queued.current)[number] | undefined
               if (entry.kind === 'correct' && reply && entry.ids.length > 0 && !entry.ids.includes(reply.confirmation_id)) {
                 // The server passed the correction over (its sheet moved on) and undid another act: matched
                 // to its entry by the Confirmation it took, so exactly that entry goes, the words are its,
                 // and every passed-over correction stays to undo.
                 const at = history.current.findLastIndex((e) => e.ids.includes(reply.confirmation_id))
-                const taken = at === -1 ? undefined : history.current[at]
-                if (taken) {
+                // Or another press already popped it and is still queued behind this one: undone now,
+                // so that press makes no second call (review 1 of #706).
+                const behind = at === -1 ? queued.current.find((q) => q.entry?.ids.includes(reply.confirmation_id)) : undefined
+                const taken = at !== -1 ? history.current[at] : behind?.entry
+                if (behind) behind.off = true
+                carried = behind
+                if (taken && taken.calls > 1) {
+                  // A bulk act of several calls: one of them is taken back; the rest stay to undo.
+                  taken.calls -= 1
                   taken.ids = taken.ids.filter((id) => id !== reply.confirmation_id)
-                  if (taken.calls > 1) {
-                    // A bulk act of several calls: one of them is taken back; the rest stay to undo.
-                    taken.calls -= 1
-                    words = <UndoneWords act={reply} />
-                  } else {
-                    history.current.splice(at, 1)
-                    words = taken.words ?? <UndoneWords act={reply} />
-                  }
-                } else {
                   words = <UndoneWords act={reply} />
+                  if (behind) behind.off = false // the rest of it is that press's to undo
+                } else {
+                  if (at !== -1) history.current.splice(at, 1)
+                  words = taken?.words ?? <UndoneWords act={reply} />
                 }
                 restore([entry])
+                if (entry.kind === 'correct') stays = entry.name ?? <Trans>a sheet</Trans>
               }
-              done = {
-                message: <Trans>Undone: {words}</Trans>,
-                stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
+              done = stays
+                ? {
+                    message: <Trans>Undone: {words}. Your correction of {stays} stays: it has changed since.</Trans>,
+                    stale: (
+                      <Trans>
+                        Undone: {words}. Your correction of {stays} stays: it has changed since. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.
+                      </Trans>
+                    ),
+                  }
+                : {
+                    message: <Trans>Undone: {words}</Trans>,
+                    stale: <Trans>Undone: {words}. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it.</Trans>,
+                  }
+              if (carried && carried.off) {
+                // The press behind this one was undone by it: its (last) toast is this one's words.
+                carried.carry = done
+                done = null
               }
             } catch (error) {
               if (reached(error)) left -= 1
@@ -460,6 +513,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
           } else {
             try {
               const act = await undo(projectId)
+              undoneKind = act.act
               done = {
                 message: <Trans>Undone: <UndoneWords act={act} /></Trans>,
                 stale: (
@@ -479,6 +533,8 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
           const fresh = reloaded(mark)
           undos.current -= 1
           if (undos.current === 0 && !pending.current) setBusy(false)
+          // Only a correction's undo moves a row (a number back in its Discipline): focus follows that sheet.
+          if (undos.current === 0 && (entry?.kind === 'correct' || undoneKind === 'correct')) setUndone((n) => n + 1)
           showDone(done, fresh, mark)
         }
       }
@@ -486,7 +542,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
       chain.current = chain.current.then(one).catch(() => {})
       return chain.current
     },
-    [f, i18n, marked, projectId, refresh, reloaded, restore, say, showDone, toast],
+    [f, i18n, marked, projectId, refresh, reloaded, restore, say, setUndone, showDone, toast],
   )
 
   /** Ctrl Z: the last act as it stands now, even one still in flight. */
@@ -512,7 +568,7 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
 
   /** Runs the server acts in turn; whatever of them was done is one act to undo. */
   const run = useCallback(
-    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode, kind?: 'correct'): Promise<boolean> => {
+    async (calls: (() => Promise<unknown>)[], words: ReactNode, said: ReactNode, kind?: 'correct', name?: ReactNode): Promise<boolean> => {
       const counted = begin()
       if (!counted) return false
       const mark = marked()
@@ -530,14 +586,31 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
         return true
       } catch (error) {
         if (reached(error)) made += 1
-        say(error)
+        if (kind === 'correct') {
+          // A refused correction is said under its field in the form, and kept there (aria-invalid,
+          // aria-describedby), not as a toast over the bar's main button (design gate of #706).
+          let field: CorrectionRefusal['field'] = null
+          let current: CorrectionRefusal['current']
+          try {
+            const problem = problemOf(error)
+            const refusal = problem && 'refusal' in problem ? problem.refusal : null
+            const asked = String((refusal?.params as Record<string, unknown> | undefined)?.field ?? refusal?.code ?? '')
+            field = asked.includes('number') ? 'number' : asked.includes('title') ? 'title' : null
+            const params = refusal?.params as Record<string, unknown> | undefined
+            if (refusal?.code === 'takeoff.step1.corrected_since' && field && typeof params?.value === 'string') current = { field, value: params.value }
+          } catch {
+            // Not the API's refusal: said plainly, under no field.
+          }
+          refusals.current += 1 // never reset: a second refusal is newer than what the person typed after the first
+          setCorrectionRefusal({ text: failedText(error), field, current, n: refusals.current })
+        } else say(error)
         return false
       } finally {
-        counted(made, words, kind, ids)
+        counted(made, words, kind, ids, name)
         showDone(done, await settle(mark), mark)
       }
     },
-    [begin, marked, say, settle, showDone, undoFor],
+    [begin, failedText, marked, say, setCorrectionRefusal, settle, showDone, undoFor],
   )
 
   const bulk = useCallback(
@@ -664,26 +737,36 @@ function useActs(projectId: string, shown: Step1Data | null | undefined, handOut
   )
 
   const correctSheet = useCallback(
-    (sheet: ProposalOut, change: SheetChange) => {
+    (sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }) => {
       const name = <SheetName sheets={[sheet]} />
       const what = <CorrectedWords change={change} />
+      // A sheet two sources agreed on leaves "Confirm all" with its typed value: said, not silent (design gate of #706).
+      const leaves = sheet.agrees && sheet.decision !== 'excluded'
+      setCorrectionRefusal(null)
       // A sheet left out stays out (the words gate of S22-FL8): only an undecided one is "still a Proposal".
       return run(
-        [() => correct(projectId, sheet.id, change)],
+        [() => correct(projectId, sheet.id, change, opened)],
         <Trans>corrected {name}</Trans>,
         sheet.decision === 'excluded' ? (
           <Trans context="the toast of a correction of an excluded sheet">
             Corrected {name}: {what}. It stays excluded.
           </Trans>
         ) : (
-          <Trans>
-            Corrected {name}: {what}. Still a Proposal until confirmed.
-          </Trans>
+          leaves ? (
+            <Trans>
+              Corrected {name}: {what}. Still a Proposal until confirmed. <LeavesConfirmAll projectId={projectId} proposal={sheet.id} sheet={sheet.sheet_id} />
+            </Trans>
+          ) : (
+            <Trans>
+              Corrected {name}: {what}. Still a Proposal until confirmed.
+            </Trans>
+          )
         ),
         'correct',
+        name,
       )
     },
-    [projectId, run],
+    [projectId, run, setCorrectionRefusal],
   )
   useLayoutEffect(() => handOut(correctSheet), [handOut, correctSheet])
 

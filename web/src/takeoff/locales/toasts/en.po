@@ -28,6 +28,10 @@ msgid "number → {to}; title"
 msgstr "number → {to}; title"
 
 #: src/takeoff/acts.tsx
+msgid "a sheet"
+msgstr "a sheet"
+
+#: src/takeoff/acts.tsx
 msgid "Confirmed {name}."
 msgstr "Confirmed {name}."
 
@@ -49,6 +53,10 @@ msgid "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list s
 msgstr "{n, plural, one {Drawing list set: # {kind} sheet.} other {Drawing list set: # {kind} sheets.}}"
 
 #: src/takeoff/acts.tsx
+msgid "Undone: {words}. Your correction of {stays} stays: it has changed since."
+msgstr "Undone: {words}. Your correction of {stays} stays: it has changed since."
+
+#: src/takeoff/acts.tsx
 msgid "{m, plural, one {Left out # sheet, with its reason.} other {Left out # sheets, each with its reason.}}"
 msgstr "{m, plural, one {Left out # sheet, with its reason.} other {Left out # sheets, each with its reason.}}"
 
@@ -57,8 +65,16 @@ msgid "Step 1 could not be reloaded, so the confirmed count may be behind. Reloa
 msgstr "Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
 
 #: src/takeoff/acts.tsx
+msgid "Undone: {words}. Your correction of {stays} stays: it has changed since. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+msgstr "Undone: {words}. Your correction of {stays} stays: it has changed since. Step 1 could not be reloaded, so the confirmed count may be behind. Reload the page to see it."
+
+#: src/takeoff/acts.tsx
 msgid "Corrected {name}: {what}. Still a Proposal until confirmed."
 msgstr "Corrected {name}: {what}. Still a Proposal until confirmed."
+
+#: src/takeoff/acts.tsx
+msgid "Corrected {name}: {what}. Still a Proposal until confirmed. <0/>"
+msgstr "Corrected {name}: {what}. Still a Proposal until confirmed. <0/>"
 
 #: src/takeoff/acts.tsx
 msgid "{n, plural, one {Confirmed # sheet} other {Confirmed # sheets}}; left out {m}, each with its reason."

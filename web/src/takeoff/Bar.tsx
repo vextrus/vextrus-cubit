@@ -13,6 +13,7 @@ import { REASONS, isGaps, whyOneSource, type Reason, type Row, type Step1Model }
 import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
 import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
+import { typedSourceWords } from './TypedSource'
 import { REASON_NAMES, REASON_SHORT, UNKNOWN_REASON } from './words'
 
 export interface BarSpec {
@@ -418,6 +419,8 @@ export function AgreesWhat({ sheet, model, name }: { sheet: ProposalOut; model: 
 
 export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined; name: ReactNode }) {
   if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has neither a number nor a title in its title block</Trans>
+  const typed = typedSourceWords(sheet, name)
+  if (typed) return typed
   return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 

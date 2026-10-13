@@ -18,7 +18,7 @@ import { msg } from '@lingui/core/macro'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
-import { SheetName, type SheetChange } from './acts'
+import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import { historyQuery, type CoverageOut, type HistoryAct, type ProposalOut, type ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
@@ -621,7 +621,10 @@ export interface SheetActs {
 /** The open "Correct the Proposal" form's sheet, and what saving or cancelling it does. */
 export interface Correcting {
   sheet: ProposalOut
-  save: (change: SheetChange) => void
+  /** Why the last save was refused, in words, and the field it is about. */
+  refusal?: CorrectionRefusal | null
+  /** `opened`: the values the form opened with, so another person's correction since is refused, not overwritten. */
+  save: (change: SheetChange, opened: { number: string; title: string }) => void
   cancel: () => void
 }
 
@@ -637,16 +640,30 @@ function FormKeys({ bindings }: { bindings: Parameters<typeof useKeys>[0] }) {
  */
 function CorrectForm({ correcting }: { correcting: Correcting }) {
   const { t } = useLingui()
-  const { sheet, save, cancel } = correcting
-  const [number, setNumber] = useState(sheet.number ?? '')
-  const [title, setTitle] = useState(sheet.title)
+  const { save, cancel, refusal } = correcting
+  // What the form opened with: the sheet may be reloaded under it (another person's correction), but a
+  // save is judged against these, and sent with them (the server refuses a value changed since).
+  const [opened, setOpened] = useState({ number: correcting.sheet.number ?? '', title: correcting.sheet.title })
+  // A refusal that names what the sheet holds now: that is what the person has seen, so the next save
+  // is judged against it and can go through (what was typed stays). Set while rendering, once per refusal.
+  const [adopted, setAdopted] = useState(0)
+  if (refusal?.current && refusal.n > adopted) {
+    setAdopted(refusal.n)
+    setOpened((was) => ({ ...was, [refusal.current!.field]: refusal.current!.value }))
+  }
+  const [number, setNumber] = useState(opened.number)
+  const [title, setTitle] = useState(opened.title)
+  // A refusal stands under its field until that field (or the other) is typed in.
+  const [edited, setEdited] = useState<number>(0)
+  const shown = refusal && refusal.n > edited ? refusal : null
+  const fieldError = (field: 'number' | 'title') => (shown && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
   const submit = () => {
     const change: SheetChange = {}
-    if (number.trim() !== (sheet.number ?? '')) change.number = number.trim()
-    if (title.trim() !== sheet.title) change.title = title.trim()
+    if (number.trim() !== opened.number) change.number = number.trim()
+    if (title.trim() !== opened.title) change.title = title.trim()
     // Nothing changed: nothing to send, as Cancel.
     if (change.number === undefined && change.title === undefined) return cancel()
-    save(change)
+    save(change, opened)
   }
   return (
     <KeyScope level="mode" name="correct-proposal" modal>
@@ -664,8 +681,35 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
             submit()
           }}
         >
-          <TextField label={<Trans>Number</Trans>} dir="ltr" autoFocus autoComplete="off" spellCheck={false} value={number} onChange={(event) => setNumber(event.target.value)} />
-          <TextField label={<Trans>Title</Trans>} autoComplete="off" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <TextField
+            label={<Trans>Number</Trans>}
+            dir="ltr"
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            value={number}
+            error={fieldError('number')}
+            onChange={(event) => {
+              setNumber(event.target.value)
+              setEdited(refusal?.n ?? 0)
+            }}
+          />
+          <TextField
+            label={<Trans>Title</Trans>}
+            autoComplete="off"
+            value={title}
+            error={fieldError('title')}
+            onChange={(event) => {
+              setTitle(event.target.value)
+              setEdited(refusal?.n ?? 0)
+            }}
+          />
+          {/* The refusal is announced (a live region of its own; the field's error stays the visible one). */}
+          {shown ? (
+            <p role="alert" className="sr-only">
+              {shown.text}
+            </p>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
               <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />

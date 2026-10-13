@@ -16,7 +16,13 @@ from engine.recognise.views.paper import _bounds, _Text
 from engine.recognise.views.titles import _heading, _Reading, _tokens
 
 MAX_TITLE_WORDS = 12
-"""A text of more words is a note, not a view title."""
+"""A text of more words is a note, not a view title (but a long title, `MAX_LONG_TITLE_WORDS`)."""
+MAX_LONG_TITLE_WORDS = 16
+"""A one-line text of more than `MAX_TITLE_WORDS` words and at most this many is a view title by its
+shape, not its words (S22-FL5, S23): it passes every gate a short title passes, stands alone in its
+column (`_Stacks` with its gap `NOTE_LINE_GAP`: no line of the same lettering over or under it, a scale
+line aside) and no notes heading's column holds it. A notes line, a callout list or a schedule row that
+long always has a line like it beside it; a slab outline plan's long title does not."""
 MAX_TITLE_LINES = 3
 """The most lines a title holds under it (its second line, its scale line, its storeys)."""
 SUBTITLE_GAP = 3.5
@@ -33,6 +39,9 @@ line's hanging indent) and still be its."""
 NOTE_LINE_GAP = 3.5
 """How far under the line before, in the taller one's heights, a notes heading's next line may stand (a
 blank line between two notes)."""
+STACK_GAP = 2.5
+"""How far over or under a line, baseline to baseline in its heights, a line like it stands in its column
+(`_Stacks`)."""
 NOTE_NEW_HEADING = 1.15
 """A line taller than this many of the line before's heights ends a notes heading's column."""
 MAX_NOTE_LINES = 200
@@ -98,6 +107,28 @@ def _subtitle(lower: _Text, upper: _Text) -> bool:
     return 0 <= gap <= SUBTITLE_GAP and lower.box[0] <= upper.box[2] and upper.box[0] <= lower.box[2]
 
 
+def _line_over(placed: _Placing, i: int, skip: Collection[int] = ()) -> int | None:
+    """The text standing nearest over text `i` across its span (those in `skip` aside): what stands
+    right over it, nothing between."""
+    boxes, heights = placed.boxes, placed.heights
+    x0, _, x1, top = boxes[i]
+    gap = boxes[:, 1] - top
+    over = (heights > 0) & (gap >= -0.2 * heights) & (boxes[:, 0] <= x1) & (boxes[:, 2] >= x0)
+    over[i] = False
+    if skip:
+        over[list(skip)] = False
+    found = np.flatnonzero(over)
+    return None if not len(found) else int(found[np.argmin(gap[found])])
+
+
+def _aligned(lower: _Text, upper: _Text) -> bool:
+    """Whether a line is aligned to the one over it: left edges, or centres, within one of the upper
+    line's heights (a long title's second line, never a wider line under a neighbour's title)."""
+    h = upper.height
+    centres = abs((lower.box[0] + lower.box[2]) - (upper.box[0] + upper.box[2])) / 2
+    return abs(lower.box[0] - upper.box[0]) <= h or centres <= h
+
+
 _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 """A numbered line ("5. See ...", "(a) ..."): a note's, not a view title."""
 
@@ -105,8 +136,11 @@ _ENUMERATED = re.compile(r"\s{0,4}\(?(?:\d{1,3}[.)]|[A-Za-z]\))\s")
 class _Stacks:
     """Texts by their left edge, to tell a note's line (one of a column of lines alike) from a title."""
 
-    def __init__(self, texts: Sequence[_Text], skip: frozenset[int] = frozenset()) -> None:
+    def __init__(
+        self, texts: Sequence[_Text], skip: frozenset[int] = frozenset(), gap: float = STACK_GAP
+    ) -> None:
         self.texts = texts
+        self.gap = gap
         self.columns: dict[tuple[int, int], list[int]] = {}
         for i, t in enumerate(texts):
             if t.height > 0 and i not in skip:
@@ -132,9 +166,13 @@ class _Stacks:
                     gap = (o.box[1] - t.box[1]) * direction / t.height
                     same = abs(o.height - t.height) <= 0.15 * t.height
                     near = j != i and same and abs(o.box[0] - t.box[0]) <= t.height
-                    if near and 0.5 < gap < 2.5 and (best is None or gap < best[0]):
+                    if near and 0.5 < gap < self.gap and (best is None or gap < best[0]):
                         best = (gap, j)
         return None if best is None else best[1]
+
+    def alone(self, i: int) -> bool:
+        """Whether no line like it stands next over or under it: a column of one."""
+        return self._next(i, 1) is None and self._next(i, -1) is None
 
     def lines(self, i: int) -> int:
         """How many lines stand in the text's column, it among them (at most `MIN_NOTE_LINES`)."""
