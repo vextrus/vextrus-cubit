@@ -139,6 +139,8 @@ class ValueSource(StrEnum):
     """The file itself: its Discipline default, for example."""
     VIEW_TITLE = "view_title"
     """The title of the sheet's one drawing view, where its title block gives none (#332)."""
+    TYPED = "typed"
+    """Typed by the QS (a correction, S22-FL8): never a source a sheet agrees by."""
 
 
 class StoreysMeaning(StrEnum):

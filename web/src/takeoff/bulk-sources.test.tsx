@@ -46,7 +46,7 @@ function sheet(number: string, discipline: string, agreesBy: ProposalOut['agrees
     decided_by: null, decided_at: null, decided_act: null, agrees: agreesBy != null, agrees_by: agreesBy, decided_by_role: null,
     decided_with: 0, number_source: 'title_block_attribute', title_source: 'title_block_attribute', storeys_as_stated: '',
     layout: null, plot_file: null, plot_page: agreesBy === 'plot' ? n : null, plot_residual: null, plot_none: null,
-    plot_title_alike: agreesBy === 'plot', views: [],
+    plot_title_alike: agreesBy === 'plot', views: [], corrected: false,
   } as ProposalOut
 }
 
