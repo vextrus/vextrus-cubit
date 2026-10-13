@@ -324,6 +324,22 @@ def test_overlapping_member_mark_ranges_are_no_continuation_and_keep_the_questio
     assert no_series(found)
 
 
+TOUCHING = "ranges sharing one boundary mark do not run on"
+"""The owner's ruling of 13 Oct 2026 (Q-R9): two ranges that share exactly one boundary mark, the last
+mark of one the first of the next, continue one another: a member continued on the next sheet."""
+
+
+def test_ranges_sharing_one_boundary_mark_on_consecutive_numbers_are_one_continuation() -> None:
+    sheets = [sheet("S-17", "LINTEL L3-L8 DETAILS"), sheet("S-18", "LINTEL L8-L14 DETAILS")]
+
+    found = compare(sheets)
+
+    assert continuations(found) == [["S-17", "S-18"]], TOUCHING
+    assert continuation_titles(found) == ["LINTEL L3-L14 DETAILS"]
+    assert conflicts_of(found) == []
+    assert no_series(found)
+
+
 def test_disjoint_ranges_on_numbers_that_do_not_run_on_are_a_series() -> None:
     found = compare([sheet("S-17", "LINTEL L3-L8 DETAILS"), sheet("S-23", "LINTEL L9-L14 DETAILS")])
 
@@ -389,10 +405,26 @@ def test_two_thousand_ascending_ranges_on_consecutive_numbers_are_one_continuati
     assert conflicts_of(found) == []
 
 
-def test_two_thousand_overlapping_ranges_are_one_question_in_linear_time() -> None:
-    """Each range overlaps the next, so no two join and no two runs draw apart: one Question holds
-    them all, found without comparing the runs pairwise."""
+def test_two_thousand_ranges_each_touching_the_next_are_one_continuation_in_linear_time() -> None:
+    """L1-L2, L2-L3, ... L2000-L2001: each range shares exactly its one boundary mark with the next, so
+    each continues the next (Q-R9) and the 2,000 sheets are one Continuation, with no Question for any
+    pair of them, found without comparing the runs pairwise."""
     sheets = [sheet(f"S-{n}", f"LINTEL L{n}-L{n + 1} DETAILS") for n in range(1, MANY + 1)]
+
+    spent, found = cpu(sheets)
+
+    assert spent < CPU_SECONDS
+    assert [len(run) for run in continuations(found)] == [MANY], TOUCHING
+    assert continuation_titles(found) == [f"LINTEL L1-L{MANY + 1} DETAILS"]
+    assert conflicts_of(found) == []
+    assert no_series(found)
+
+
+def test_two_thousand_overlapping_ranges_are_one_question_in_linear_time() -> None:
+    """L1-L3, L2-L4, ...: each range overlaps the next by more than its boundary mark, so no two join
+    and no two runs draw apart: one Question holds them all, found without comparing the runs
+    pairwise."""
+    sheets = [sheet(f"S-{n}", f"LINTEL L{n}-L{n + 2} DETAILS") for n in range(1, MANY + 1)]
 
     spent, found = cpu(sheets)
 
