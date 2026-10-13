@@ -22,7 +22,7 @@ type Placed = ProposalOut & { layout: string | null }
  * KR-01 with its two S-07 copies alike in file, mark and date: `places` and `titles` set each copy's
  * layout (null: laid out in the drawing) and title. The S-07 Question offers the read job's options.
  */
-function kr01(places: [string | null, string | null], titles: [string, string], files: [string, string] = [FILE, FILE]): FakeApi {
+function kr01(places: [string | null, string | null], titles: [string, string], files: [string, string] = [FILE, FILE], distinctIds = false): FakeApi {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   const copies = step1.proposals.filter((p) => p.number === 'S-07')
@@ -34,7 +34,7 @@ function kr01(places: [string | null, string | null], titles: [string, string], 
       revision_mark: 'R0',
       revision_mark_source: 'title_block',
       issue_date: '2026-08-20',
-      file_id: files[i] === FILE ? fileOf(FILE).file_id : `other-file-${i}`,
+      file_id: files[i] === FILE && !distinctIds ? fileOf(FILE).file_id : `other-file-${i}`,
       file_name: files[i]!,
       layout: places[i]!,
     }),
@@ -114,5 +114,13 @@ describe('a "Two sheets, one number" card: the table shows what the options name
   it('does not say they are alike when one field differs', async () => {
     const section = await card(kr01([null, 'Layout2'], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
     expect(clean(section.textContent)).not.toContain('alike in every field')
+  })
+
+  it('treats two files that share a name as a tie, not as told apart by file (round 2)', async () => {
+    const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT'], [FILE, FILE], true))
+    expect(clean(section.textContent)).toContain('The copies are alike in every field the table shows.')
+    const keep = optionWords(section).find((w) => /superseded/.test(w))
+    expect(keep, optionWords(section).join(' | ')).not.toMatch(/the copy in /)
+    expect(keep).toMatch(/upper copy in the table|lower copy in the table/)
   })
 })

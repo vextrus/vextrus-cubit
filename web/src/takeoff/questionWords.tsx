@@ -285,9 +285,42 @@ function Joined({ items }: { items: readonly ReactNode[] }) {
   )
 }
 
-/** Whether two copies are alike in every field the copies table shows (mark, date, title, file, place). */
+/** The fields that tell copies apart, in the order a copy is named by them: the first that tells IT from EVERY other. */
+const COPY_FIELDS = ['title', 'file', 'place', 'mark', 'date'] as const
+type CopyField = (typeof COPY_FIELDS)[number]
+
+function copyField(h: ProposalOut, field: CopyField): string {
+  switch (field) {
+    case 'title':
+      return h.title.trim()
+    case 'file':
+      return h.file_name
+    case 'place':
+      return h.layout ?? ''
+    case 'mark':
+      return h.revision_mark.trim()
+    case 'date':
+      return h.issue_date ?? ''
+  }
+}
+
+/**
+ * The first field whose value on `sheet` no other copy has (an empty title, mark or date names nothing),
+ * or null when none does. The file is compared by the name the table shows, not by id: two files can
+ * share a name (the upload keeps a same-named file beside the first).
+ */
+export function telling(sheet: ProposalOut, holds: readonly ProposalOut[]): CopyField | null {
+  for (const field of COPY_FIELDS) {
+    const mine = copyField(sheet, field)
+    if (field !== 'file' && field !== 'place' && !mine) continue
+    if (holds.every((o) => o === sheet || copyField(o, field) !== mine)) return field
+  }
+  return null
+}
+
+/** Whether the copies are alike in every field the copies table shows (mark, date, title, file name, place). */
 export function copiesTie(holds: readonly ProposalOut[]): boolean {
-  const key = (h: ProposalOut) => [h.revision_mark.trim(), h.issue_date ?? '', h.title.trim(), h.file_id, h.layout ?? ''].join('\u0000')
+  const key = (h: ProposalOut) => COPY_FIELDS.map((f) => copyField(h, f)).join('\u0000')
   return holds.length > 1 && new Set(holds.map(key)).size === 1
 }
 
@@ -299,32 +332,34 @@ export function Copy({ sheet }: { sheet: ProposalOut }) {
 }
 
 /**
- * Two copies told apart in an option's words: by mark where both have one and they differ, else by
- * date, else by title, file and place (the fields the copies table shows), else, when they are alike in
- * all of them, by their place in the table (the card says so).
+ * One copy named in an option's words by the first field that tells it from every other copy (title, file,
+ * place, mark, date); when none does, by its place in the table, and the card says the copies tie.
  */
-function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOut; first: boolean }) {
+function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly ProposalOut[] }) {
   const f = useFormat()
-  if (sheet.revision_mark.trim() && other.revision_mark.trim() && sheet.revision_mark !== other.revision_mark) return <Copy sheet={sheet} />
-  if (sheet.issue_date && other.issue_date && sheet.issue_date !== other.issue_date) {
-    const date = f.day(sheet.issue_date)
-    return <Trans>the copy dated {date}</Trans>
+  switch (telling(sheet, holds)) {
+    case 'title': {
+      const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
+      return <Trans>the copy titled “{named}”</Trans>
+    }
+    case 'file': {
+      const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+      return <Trans>the copy in {file}</Trans>
+    }
+    case 'place': {
+      if (!sheet.layout) return <Trans>the copy laid out in the drawing</Trans>
+      const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
+      return <Trans>the copy on layout “{layout}”</Trans>
+    }
+    case 'mark':
+      return <Copy sheet={sheet} />
+    case 'date': {
+      const date = f.day(sheet.issue_date!)
+      return <Trans>the copy dated {date}</Trans>
+    }
+    default:
+      return holds[0] === sheet ? <Trans>the upper copy in the table</Trans> : <Trans>the lower copy in the table</Trans>
   }
-  const title = sheet.title.trim()
-  if (title && other.title.trim() && title !== other.title.trim()) {
-    const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
-    return <Trans>the copy titled “{named}”</Trans>
-  }
-  if (sheet.file_id !== other.file_id) {
-    const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
-    return <Trans>the copy in {file}</Trans>
-  }
-  if ((sheet.layout ?? null) !== (other.layout ?? null)) {
-    if (!sheet.layout) return <Trans>the copy laid out in the drawing</Trans>
-    const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
-    return <Trans>the copy on layout “{layout}”</Trans>
-  }
-  return first ? <Trans>the upper copy in the table</Trans> : <Trans>the lower copy in the table</Trans>
 }
 
 /** Where a copy sits, as the File cell words it: its file, then its layout or "laid out in the drawing" (6.6). */
@@ -435,9 +470,8 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const pair = keptAndDropped(entry, key)
   if (pair) {
     const { keep, drop } = pair
-    const later = entry.holds[0]
-    const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
-    const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
+    const kept = <CopyIn sheet={keep} holds={entry.holds} />
+    const dropped = <CopyIn sheet={drop} holds={entry.holds} />
     const byMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark !== drop.revision_mark
     const date = byMark && keep.issue_date ? f.day(keep.issue_date) : null
     const others = entry.holds.length - 1
@@ -611,8 +645,8 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const pair = keptAndDropped(entry, picked)
     if (pair) {
       const { keep, drop } = pair
-      const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
-      const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
+      const kept = <CopyIn sheet={keep} holds={entry.holds} />
+      const dropped = <CopyIn sheet={drop} holds={entry.holds} />
       const others = n - 1
       if (others > 1)
         return (
