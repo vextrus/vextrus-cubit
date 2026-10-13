@@ -186,7 +186,7 @@ checked by the server's `figure()` formatter, C16), already isolated left to rig
 
 | Kind | Form | Notes |
 |---|---|---|
-| Money | one rule: **a grid cell carries paisa and no symbol** (its header says "Amount (৳)" or "Rate (৳)"): 3,68,247.77; **the strip carries whole taka with the symbol** (৳9,81,21,666) and under each figure its short form in the Market's words ("9.81 crore"; the MD reads it first); a figure in prose carries the symbol and paisa where it is a rate or an amount ("৳276.67") and whole taka where it is a total; lakh-and-crore grouping throughout | never ৳0 for a price not entered: "rate not entered" (4.13); the currency word is "taka" (the minor unit "paisa"), never "rupee"; a total's whole-taka rounding is for display only and the three parts add up as displayed |
+| Money | one rule: **a grid cell carries paisa and no symbol** (its header says "Amount (৳)" or "Rate (৳)"): 3,68,247.77; **the strip carries whole taka with the symbol** (৳9,81,27,474) and under each figure its short form in the Market's words ("9.81 crore"; the MD reads it first); a figure in prose carries the symbol and paisa where it is a rate or an amount ("৳276.67") and whole taka where it is a total; lakh-and-crore grouping throughout | never ৳0 for a price not entered: "rate not entered" (4.13); the currency word is "taka" (the minor unit "paisa"), never "rupee"; a total's whole-taka rounding is for display only and the three parts add up as displayed |
 | Quantity | 1,331.00 cft; 4,792.00 sft; 47 nos; 8,350 kg | in the BOQ Item's Billing Unit, rounded as the Rule Set says (each Measurement Line to 2 decimals; nos, bags whole; a Rebar line to 2 decimals of a kg and the item in whole kg, screens.md Priced BOQ ruling 6); the unit always beside the figure, in the cell or its header |
 | Rate | 276.67 (header "Rate (৳) per unit") | "per cft" is the Billing Unit's word; a rate shows its unit once in its column header and in its Rate Analysis |
 | Level | +10′-0″ or +3.048 m, always signed | isolated left to right, in the Display Units; a Display Units switch re-forms every level |
@@ -238,7 +238,10 @@ first; the Takeoff is one link away. M1's additions:
 - **A Guest is money-blind until the owner rules** (9, item 5): the Priced BOQ, Prices, the Material
   Schedule's amounts and the project settings' allowances show "Ask the Developer for access to costs"
   in place of any amount, quantity-only views excepted; the Takeoff and the Live Model are open to
-  read.
+  read **without their money**: the step's Cost Basis block (4.1.3), the "of the total rests on them"
+  amount on the bar (4.1.2) and any ৳ in the 3D inspector are absent for a Guest, quantities (cft,
+  sft, kg, counts) staying. The page cannot enforce this: the contracts must withhold amounts by role
+  (8, item 20).
 - **The Vextrus Engineer** works as a QS: every act, price edit and typed level shows under their own
   name with "(Vextrus)" after it (m0-screens 1.4); "Who changed this price" says so.
 - **Typed values name who typed them** ("typed by Nusrat Jahan, 7 Oct 2026"), for every role.
@@ -326,10 +329,13 @@ Read from `web/src/ui/keys/registry.ts` and its provider (12 Oct 2026):
   `Shift Enter`), `Esc` and `Escape` are one key, and browser keys (Ctrl W, T, N, L, R, Tab-switching,
   F5, F11, F12) cannot be bound. Typing wins in a text field, **except that every `Ctrl` combination,
   and `Esc`, `Enter`, `Tab` and `Shift Tab`, still reach the map** (`reachesMapWhileTyping`): so a
-  form with fields (4.1.2's "Add an Element", `E`'s edit) is a **modal mode scope** of its own
-  (`level: 'mode'`, `modal: true`: `activeScopesFor` then returns it alone, so no region or screen
-  binding sees its keys), binding `Enter` and `Esc`, or an `Enter` typed in its field would confirm
-  the group; a mode that precedes a form ends before the form opens, so two never compete; and `Ctrl Z`, `Ctrl C` and `Ctrl V` carry
+  form with fields (4.1.2's "Add an Element", `E`'s edit) is a **non-modal mode scope** of its own
+  (`level: 'mode'`, `modal: false`: `activeScopesFor` ranks it above every region and screen scope,
+  so its `Enter` and `Esc` win, and the global keys `?`, `F6` and `Ctrl K` stay reachable, which a
+  modal scope would cut off), and every screen binding that would act on a row behind it
+  (`Ctrl Enter`, `Shift Enter`, `X`, `Q`, `1`–`9`, `Shift A`) carries `when: () => !formOpen`, or an
+  `Enter` typed in its field would confirm the group; a mode that precedes a form ends before the
+  form opens, so two never compete; and `Ctrl Z`, `Ctrl C` and `Ctrl V` carry
   `when: () => !editingField` on every screen that binds them, **and so does every other `Ctrl`
   combination a region binds** (`Ctrl A`, `Ctrl Home`, `Ctrl End`, `Ctrl Enter`, `Ctrl K` excepted:
   that one is global and opens the jump list from a field): the field's own undo, select-all, caret
@@ -377,7 +383,7 @@ Proposal groups has focus; "canvas" means the source sheet is open across the ca
 | `Q` | screen | Focus the group row the next open Question holds, in the queue's order (4.1); its card shows in the inspector, and `1`–`9` then pick | M1-18a |
 | `1`–`9` | screen (the focused group's Question, shown in its card) | Pick that answer on the card; a pick changes nothing until `Enter` or "Answer". When the picker (X) is open it claims every digit | M1-18a |
 | `Ctrl Z` | screen (not while a field is being edited) | Undo the last act on this step, naming it in the toast. An answer that confirmed or excluded Elements is never undone, nor anything before it (m0-screens 6.9) | M1-18a |
-| `Enter`, `Esc` | form: Add an Element (a modal mode scope; the pick mode has ended when it opens) | `Enter` adds, from any of its fields; `Esc` closes the form and clears the box (`Shift A` picks again) | story 125 |
+| `Enter`, `Esc` | form: Add an Element (a non-modal mode scope, 2.1; the pick mode has ended when it opens) | `Enter` adds, from any of its fields; `Esc` closes the form and clears the box (`Shift A` picks again) | story 125 |
 | `Shift A` | screen (a frame step in review) | Add an Element not read from the drawing: pick its entity on the sheet, name the family, `Enter` adds (4.1.2); `Ctrl Z` removes it | story 125 |
 | `T` | screen (a figure focused) | Open the focused figure's Trace (4.10); `T` again, or `Esc`, closes it | M1-23 |
 | `←` `→` | dialog: a Trace | Step through the figure's sources: the sheet flies to each in turn | M1-23 |
@@ -597,7 +603,7 @@ the 320 px inspector, the status bar. The canvas is 912 px at 1280 and 1072 px a
   |---|---|---|---|
   | (mark) | 24 | 24 | StatusMark glyph (1.1) |
   | Group | the rest (276) | the rest (386) | The group's name: "C2 · 2nd to 8th" (a mark within a Storey Band), "Grid line B", "Pile type P1", "Slab panel S3"; a typed name in its own direction |
-  | Elements | 72 | 72 | n / N of the Elements this group holds that are confirmed or excluded: "0 / 14" |
+  | Elements | 72 | 72 | n confirmed of the N Elements this group holds, then ", k excluded" once any is (m0-screens 6.18 item 4; an excluded Element stays in N): "0 / 14", "9 / 11, 2 excluded" |
   | Size or fact | 150 | 190 | The group's defining fact in the Display Units: "10″ × 20″"; "20″ dia, cut-off −5′-0″"; "5″ thick"; "—" where the Elements differ ("2 sizes: click to see") |
   | Quantity | 110 | 120 | What confirming would add, in the Billing Unit, from the preview (M1-23): "186.34 cft"; absent (column hidden, not "—") until previews are wired; "—" where the preview refused |
   | Basis | 130 | 130 | BasisMark with its words at both widths ("by ratio", "from the drawing + rules" fit in 130 px) |
@@ -623,10 +629,10 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
 | A group whose Question asks only about its bars (ruling 5) | the Confirmation as above, with the why's last line "Q9 asks about the bars; it does not hold this Confirmation. The Rebar stays from the drawing + rules until it is answered." | as above |
 | A confirmed group | "14 C2 columns are confirmed by Nusrat Jahan" · "12 Oct 2026, 10:42. X excludes one; Ctrl Z takes back the last change." | "Next open item ↵" |
 | An excluded Element | "C7 at 5/D, 4th is excluded: duplicate" · "By Nusrat Jahan, 12 Oct 2026, 10:50. It stays in the count." | "Confirm back in ↵" |
-| Nothing left, Questions open | "Every column that agrees is confirmed" · "2 Questions are open: Q4, Q7. Closed with them open, their 8 columns are priced as read and marked awaiting answer." | "Next open Question Q ↵"; ghost "Close with 2 Questions open Shift ↵" |
+| Nothing left, Questions open | "Every column that agrees is confirmed" · "2 Questions are open: Q4, Q7. Closed with them open, their 8 columns are priced at the size the sources agree on, or the plan's, and marked awaiting answer." | "Next open Question Q ↵"; ghost "Close with 2 Questions open Shift ↵" |
 | Nothing left, nothing open | "Every column is confirmed or excluded" · "Close Step 6 to measure the frame from it." | "Close Step 6 ↵" |
 | The step is closed, nothing held | "Step 6 is closed" · "Closed by Nusrat Jahan, 12 Oct 2026, 11:20. Later steps stand on it." | "Go to Step 7 ↵" (after Step 8, "Go to the Priced BOQ ↵"); ghost "Reopen Step 6" (opens the dialog below) |
-| The step is closed with Questions open | "Step 6 is closed with 2 Questions open" · "8 columns are awaiting answer: ৳1,25,572 of the total rests on them (T2)." | "Answer Q4 ↵"; ghosts "Go to Step 7", "Reopen Step 6" |
+| The step is closed with Questions open | "Step 6 is closed with 2 Questions open" · "8 columns are awaiting answer: ৳1,31,380 of the total rests on them (T2)." (a Guest: "8 columns are awaiting answer.") | "Answer Q4 ↵"; ghosts "Go to Step 7", "Reopen Step 6" |
 | There is nothing to read (no piles, no core, a raft) | "No piles were found on the plans read" · "If this building has none, say so and close the step." | "There are none ↵" (an act under the QS's name; the step closes "Closed, none"); ghost "Open Step 1" |
 | Reading | "Reading the columns: plan 4 of 6" · "Proposals join the list as they are read." | none |
 | A read ended | "Read: 42 Proposals, 2 Questions" · "This line stays until you act." | none |
@@ -685,7 +691,8 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
    the plan alone" where the drawing gives none, story 55).
 2. "Enter takes them in this order": 1 "Confirm the 86 columns that agree" · 2 "Answer 4 Questions:
    the largest quantity first" · 3 "Close Step 6".
-3. Cost Basis: "Allowance until this step is closed: ৳1,00,46,919.54 (columns ৳83,03,563.80; shear walls and lift core
+3. Cost Basis (QS, Vextrus Engineer and the MD; a Guest sees "Ask the Developer for access to costs"
+   in its place, 1.5): "Allowance until this step is closed: ৳1,00,46,919.54 (columns ৳83,03,563.80; shear walls and lift core
    ৳17,43,355.74). Measured so far, 14 confirmed columns: ৳2,19,751.11 (X1)"
    (story 98; no flag, no projection: "likely over allowance" is the Summary's, M2).
 4. "Rebar: 81% from the drawing, the rest laps and hooks from rules" (the Rebar of the confirmed columns).
@@ -1149,7 +1156,7 @@ canvas's top-left note "On S-12 R0, superseded by R1" and still opens. A Trace w
   | supplied by a Question (`question`) | "From Q4, answered by Nusrat Jahan, 12 Oct 2026: 10″ × 24″" | focuses the answered Question in the Questions tab |
   | typed (`qs_typed`) | "Typed by Nusrat Jahan, 12 Oct 2026" (with "(Vextrus)" for an Engineer) | none |
   | derived (`derived`) | "Derived from the 2nd's slab level +20′-0″ and the 3rd's +30′-0″"; "A Rule Set default: slab 5″" | focuses the facts it came from |
-  | best candidate (`best_candidate`) | "Awaiting answer, Q4: priced as read, the plan's 10″ × 20″" | focuses the Question |
+  | best candidate (`best_candidate`) | "Awaiting answer, Q4: priced at 10″ × 24″, the size the schedule and the label agree on" (with no two sources agreeing, as Q7: "priced at the plan's 10″ × 20″, the first it ranked") | focuses the Question |
 
 - **The rules** a Measurement Line names appear as "Measured by: Column height" with the rule's words and
   its code and source on a second line, as the Rule Set prints them ("F1 · From the top of the pile
@@ -1392,15 +1399,15 @@ figure: `T` on the focused label opens it.
 ```
 ┌ top bar: Takeoff · Drawing Set · Priced BOQ · Material Schedule · Live Model ─────────────────┐
 │ rail │ ┌ strip ─────────────────────────────────────────────────────────────┐ ┌ inspector ┐ │
-│      │ │ Total ৳9,81,21,666 (9.81 crore) │ ৳2,336 per sft │ Measured 7% of total │ │ BOQ Item  │ │
-│      │ │ Measured ৳67,56,094 │ Awaiting answer ৳1,25,572 │ Allowance ৳9,12,40,000 │ │ facts,    │ │
+│      │ │ Total ৳9,81,27,474 (9.81 crore) │ ৳2,336 per sft │ Measured 7% of total │ │ BOQ Item  │ │
+│      │ │ Measured ৳67,56,094 │ Awaiting answer ৳1,31,380 │ Allowance ৳9,12,40,000 │ │ facts,    │ │
 │      │ ├ toolbar: By item | By floor   Show: All ▾   Prices   Imperial | Metric ┤ │ Questions,│ │
 │      │ │ No.   Description                    Unit  Quantity   Rate (৳) Amount (৳) ▪ │ │ Rule Set, │ │
 │      │ │ 2.1   Columns                                                              │ │ Rebar kg/ │ │
 │      │ │ 2.1.1 RCC 1:1.5:3, f′c 3600 psi, in columns (stone chips 20 mm down, OPC),  │ │ sft       │ │
 │      │ │       excl. formwork and Rebar                                              │ │           │ │
 │      │ │       Measured                        cft  1,331.00   276.67  3,68,247.77 ▪ │ │           │ │
-│      │ │       + 106.48 · Q4, Q7                                       + 29,459.82   │ │           │ │
+│      │ │       + 117.13 · Q4, Q7                                       + 32,406.36   │ │           │ │
 │      │ │ 2.1.2 Formwork to columns, plywood    sft  4,792.00    96.50  4,62,428.00 ▪ │ │           │ │
 │      │ │ 2.1.3 Rebar, Grade 500W, in columns   kg       8,350    88.50  7,38,975.00 ▪ │ │           │ │
 │      │ │       from the drawing + rules                                              │ │           │ │
@@ -1417,7 +1424,7 @@ figure: `T` on the focused label opens it.
   words and never by colour alone). Row two: **Measured**, **Awaiting answer**, **Allowance**, and the
   **unpriced count** ("14 BOQ Items have no rate yet, from 9 prices not entered"; a link, below).
   **Money in the strip is whole taka** with its short form in the Market's words beneath ("9.81
-  crore", "1.26 lakh"), the figures adding as displayed (1.3). Each figure is focusable; `T` opens
+  crore", "1.31 lakh"), the figures adding as displayed (1.3). Each figure is focusable; `T` opens
   its Trace: its breakdown by BOQ Section, each row focusing that section in the grid.
 - **Heights (one budget):** the strip is 72 px at 1280 (two rows of 36 px, each figure with its short
   form beside or beneath it in a smaller size) and 48 px at 1440; the toolbar 32 px; **a grid row is
@@ -1438,10 +1445,10 @@ figure: `T` on the focused label opens it.
   closed, 1 closed with a Question open; 2 on allowance" / "Measured Rebar: 38% read from the drawing,
   62% by ratio" / **"Rebar 3.53 kg per sft of Gross Floor Area so far (usual range 4.5 to 6 for the whole
   Building)"** with its second line **"Measured: piles, pile caps, column stubs and columns (23,056
-  kg, 668 kg awaiting answer); on allowance: beams, slabs, core, stairs, tanks, lintels, roof room
+  kg, 672 kg awaiting answer); on allowance: beams, slabs, core, stairs, tanks, lintels, roof room
   and the rest of foundations (124,362 kg)"**,
   flagged in amber and never blocking where it falls outside (the whole-building check, over
-  measured, awaiting-answer and **every** allowance row's Rebar, A4's included: 148,086 kg ÷ 42,000
+  measured, awaiting-answer and **every** allowance row's Rebar, A4's included: 148,090 kg ÷ 42,000
   sft (T8); a light measured frame is shown against the whole-building range with that said, never
   alone); an item focused, its facts
   (description, Billing Unit, Cost Basis, Rebar Basis and, for Rebar by ratio, its ratio "5.1 kg per
@@ -1458,9 +1465,9 @@ figure: `T` on the focused label opens it.
 | Number | 56 | 56 | "2.1.1", section.group.item, derived by the API and never typed (a Lump Sum's too) |
 | Description | 428 (flex, at least 330) | 470 | Line one: the grid's short description of 1.7 (ending in the group when its section row is collapsed); allowance lines "Beams: RCC in beams, allowance". **Line two, muted, always: the Basis in words** ("Measured", "Allowance", "by ratio", "from the drawing + rules") |
 | Unit | 48 | 48 | The Billing Unit's word: "cft", "sft", "rft", "kg", "nos" |
-| Quantity | 112 | 120 | Right-aligned (`QuantityCell`): the measured quantity "1,331.00"; a second muted line "+ 106.48 · Q4, Q7" (never inside the figure; its own focus stop, `↓`; the full words in the tooltip and the inspector: "106.48 cft awaiting an answer to Q4 and Q7") |
+| Quantity | 112 | 120 | Right-aligned (`QuantityCell`): the measured quantity "1,331.00"; a second muted line "+ 117.13 · Q4, Q7" (never inside the figure; its own focus stop, `↓`; the full words in the tooltip and the inspector: "117.13 cft awaiting an answer to Q4 and Q7") |
 | Rate (৳) | 92 | 100 | `MoneyCell`: "276.67", header "Rate (৳) per unit"; "rate not entered" in amber; never an editor (screens.md ruling 3: F2) |
-| Amount (৳) | 128 | 140 | `MoneyCell`: "3,68,247.77" (M12); "—" for an unpriced item; a second muted line "+ 29,459.82" for the awaiting answer (W1) |
+| Amount (৳) | 128 | 140 | `MoneyCell`: "3,68,247.77" (M12); "—" for an unpriced item; a second muted line "+ 32,406.36" for the awaiting answer (W1) |
 | Basis | 24 | 24 | `BasisMark` glyph (the words are line two of the Description) |
 | Share | — | 90 | Rebar items only: "81% from the drawing"; at 1280 it is in the inspector |
 | Trace | 24 | 24 | the leader glyph; `T` on the row's figure opens it |
@@ -1619,10 +1626,10 @@ the Live Model; the Esc stack of 2.2.
 - **Effects shown:** after a price change the page notes "Allowances follow:" and one line per step whose allowance moved
   (story 114; 8, item 13), as lines under the toast's. On KR-01, Rebar 88.50 to 89.50 is ৳1.00 on
   each kg (6.1): the toast reads "4 BOQ Items repriced" (M5, M8, M11, M14: 23,056 kg, ৳23,056.00,
-  with W3's 668 kg awaiting answer, ৳668.00), and the lines read Beams +৳47,880.00 (A1), Slabs
+  with W3's 672.48 kg awaiting answer, ৳672.48), and the lines read Beams +৳47,880.00 (A1), Slabs
   +৳51,240.00 (A2), "Shear walls and lift core" +৳8,820.00 (A3), the other steps +৳16,422.00 (A4):
-  the strip's three parts move Measured +৳23,056.00 (T1), Awaiting answer +৳668.00 (T2, W3) and
-  Allowance +৳1,24,362.00 (T3): ৳1,48,086.00 in all (T8's 148,086 kg × ৳1.00).
+  the strip's three parts move Measured +৳23,056.00 (T1), Awaiting answer +৳672.48 (T2, W3) and
+  Allowance +৳1,24,362.00 (T3): ৳1,48,090.48 in all (T8's 148,090.48 kg × ৳1.00).
 - **States:** loading "Reading prices…"; error "The prices could not be read. Nothing is lost." with
   "Try again"; read-only (the MD): ReadOnlyChip and no field, a Guest "Ask the Developer for access to
   costs"; filter chips include "Not entered (9)" (where "Enter prices" from the Priced BOQ lands, with
@@ -1942,7 +1949,7 @@ it exists a reviewer checks the rows by hand.
 | **Given** | | | |
 | G1 | Gross Floor Area | entered | 42,000 sft |
 | G2 | Storeys | Ground, 1st … 9th, Roof; 10′-0″ floor to floor; 5″ slabs; datum Ground +0′-0″; existing ground −2′-0″ | the level table of 6.2 |
-| G3 | Columns on the schedule | 11 per storey × 10 storeys (Ground to 9th); every column 10″ × 20″ (the held C5's plan size too) | 110 |
+| G3 | Columns on the schedule | 11 per storey × 10 storeys (Ground to 9th); every column 10″ × 20″ but the 4 C5 of Q4, drawn 10″ × 20″ on the plan and 10″ × 24″ on the schedule and the label (E1b to E3b) | 110 |
 | G4 | Columns by state, Moment B | measured by storey Ground to 9th: 9, 11, 11, 11, 9, 8, 10, 10, 10, 11; awaiting answer 8 (Q4: 2 in 4th and 2 in 5th; Q7: 1 each in 5th to 8th); excluded 2 (Ground, duplicates) | 100 + 8 + 2 = 110 |
 | G5 | Columns by state, Moment A | confirmed 14 (one group); excluded 2; agreeing 86 (6 groups); blocked by Q4 and Q7 8 | 14 + 2 + 86 + 8 = 110 |
 | G6 | Piles | type P1, 20″ dia; cut-off −5′-0″, toe −70′-0″ from the datum; over-cast 2′-0″; head breaking per pile | 47 |
@@ -1953,6 +1960,9 @@ it exists a reviewer checks the rows by hand.
 | E1 | Column concrete | 10″ × 20″ = 1.3889 sft × 9′-7″ (10′-0″ less the 5″ slab, J1 until Step 8) | 13.31 cft |
 | E2 | Column formwork | 2 × (10″ + 20″) = 5′-0″ × 9′-7″ | 47.92 sft |
 | E3 | Column Rebar | net 8 × 3.048 m = 24.384 m × 2.466 = 60.13 kg; laps 8 × 0.800 m × 2.466 = 15.78 kg; ties 14 × 1.372 m × 0.395 = 7.59 kg | 83.50 kg |
+| E1b | Column concrete, 10″ × 24″ (Q4's best candidate: the schedule and the label agree) | 10″ × 24″ = 1.6667 sft × 9′-7″ | 15.97 cft |
+| E2b | Column formwork, 10″ × 24″ | 2 × (10″ + 24″) = 5′-8″ × 9′-7″ | 54.31 sft |
+| E3b | Column Rebar, 10″ × 24″ | the bars and laps of E3 (60.13 + 15.78); ties 14 × 1.575 m × 0.395 = 8.71 (E3's tie length 1.372 m is its perimeter 2 × (10″ + 20″) less 6″; here 68″ less 6″ = 62″ = 1.575 m) | 84.62 kg |
 | E4 | Pile cross-section | π ÷ 4 × (20 ÷ 12)² | 2.18166 sft |
 | E5 | Cement, per cft of RCC 1:1.5:3 | 21.8 bags per 100 cft; wastage 2% | 0.218 bag net |
 | **Rates** (৳) | | | |
@@ -1977,10 +1987,10 @@ it exists a reviewer checks the rows by hand.
 | M14 | Rebar in columns, from the drawing + rules | G4 100 × E3 83.50 = 8,350 kg × R3 88.50 | 7,38,975.00 |
 | **T1** | **Measured** | M1 to M14 | **67,56,093.82** |
 | **Awaiting answer** (8 columns, Q4 and Q7) | | | |
-| W1 | RCC | G4 8 × E1 = 106.48 cft × R1 | 29,459.82 |
-| W2 | Formwork | G4 8 × E2 = 383.36 sft × R2 | 36,994.24 |
-| W3 | Rebar | G4 8 × E3 = 668 kg × R3 | 59,118.00 |
-| **T2** | **Awaiting answer** | W1 to W3 | **1,25,572.06** |
+| W1 | RCC | Q4's 4 at the best candidate, 10″ × 24″ (the schedule and the label agree): 4 × E1b = 63.89 cft; Q7's 4 at the plan's 10″ × 20″ (no two sources agree: the one ranked first): 4 × E1 = 53.24 cft; 117.13 cft × R1 | 32,406.36 |
+| W2 | Formwork | 4 × E2b = 217.22 sft + 4 × E2 = 191.68 sft = 408.90 sft × R2 | 39,458.85 |
+| W3 | Rebar | 4 × E3b = 338.48 kg + 4 × E3 = 334.00 kg = 672.48 kg × R3 | 59,514.48 |
+| **T2** | **Awaiting answer** | W1 to W3 | **1,31,379.69** |
 | **Allowance** (parts not yet measured) | | | |
 | A1 | Beams | G9 × G1: 9,240 cft × 276.67 = 25,56,430.80; 28,560 sft × 96.50 = 27,56,040.00; 47,880 kg × 88.50 = 42,37,380.00 | 95,49,850.80 |
 | A2 | Slabs | 20,412 cft = 56,47,388.04; 36,960 sft = 35,66,640.00; 51,240 kg = 45,34,740.00; casting area 42,000 sft × 170.00 = 71,40,000.00 | 2,08,88,768.04 |
@@ -1990,11 +2000,11 @@ it exists a reviewer checks the rows by hand.
 | A5 | Step 6, columns part (Moment A only) | 7,140 cft = 19,75,423.80; 19,740 sft = 19,04,910.00; 49,980 kg = 44,23,230.00 | 83,03,563.80 |
 | A6 | Step 6 as a whole at Moment A | A5 + A3 | 1,00,46,919.54 |
 | **Totals** | | | |
-| T4 | Total | T1 + T2 + T3 = 67,56,093.82 + 1,25,572.06 + 9,12,40,000.00 | 9,81,21,665.88 |
-| T5 | Per sft | T4 ÷ G1 | 2,336.23 |
+| T4 | Total | T1 + T2 + T3 = 67,56,093.82 + 1,31,379.69 + 9,12,40,000.00 | 9,81,27,473.51 |
+| T5 | Per sft | T4 ÷ G1 | 2,336.37 |
 | T6 | Measured share | T1 ÷ T4 | 6.89% |
-| T7 | The strip, whole taka | 67,56,094 + 1,25,572 + 9,12,40,000 (adds as displayed) | 9,81,21,666 |
-| T8 | Rebar so far, per sft (the whole-building check, bd-defaults 59-60: 4.5 to 6) | measured: read M11 + M14 = 8,766 kg; by ratio M5 + M8 = 14,290 kg (23,056 kg); awaiting answer W3 668 kg; allowance Rebar, every row: A1 47,880 + A2 51,240 + A3 8,820 + A4 16,422 = 124,362 kg; whole Building 23,056 + 668 + 124,362 = 148,086 kg ÷ G1. Day one on G9 alone: 0.94 + 1.40 + 1.14 + 1.22 + 0.05 + 0.10 + 0.03 + 0.03 = 4.91 kg per sft (B.3 prints 4.90). What is measured (piles, caps, stubs, 100 columns, with the 8 awaiting: 23,724 kg, 0.56 kg per sft) stands where their allowances (0.759 + 1.19 = 1.95 kg per sft, 81,858 kg) would have been, so a light measured frame pulls the figure below the range; the screen says which steps are measured | 38% of the measured read, 62% ratio; 3.53 kg per sft, amber |
+| T7 | The strip, whole taka | 67,56,094 + 1,31,380 + 9,12,40,000 (adds as displayed) | 9,81,27,474 |
+| T8 | Rebar so far, per sft (the whole-building check, bd-defaults 59-60: 4.5 to 6) | measured: read M11 + M14 = 8,766 kg; by ratio M5 + M8 = 14,290 kg (23,056 kg); awaiting answer W3 672.48 kg; allowance Rebar, every row: A1 47,880 + A2 51,240 + A3 8,820 + A4 16,422 = 124,362 kg; whole Building 23,056 + 672.48 + 124,362 = 148,090.48 kg ÷ G1. Day one on G9 alone: 0.94 + 1.40 + 1.14 + 1.22 + 0.05 + 0.10 + 0.03 + 0.03 = 4.91 kg per sft (B.3 prints 4.90). What is measured (piles, caps, stubs, 100 columns, with the 8 awaiting: 23,728.48 kg, 0.56 kg per sft) stands where their allowances (0.759 + 1.19 = 1.95 kg per sft, 81,858 kg) would have been, so a light measured frame pulls the figure below the range; the screen says which steps are measured | 38% of the measured read, 62% ratio; 3.53 kg per sft, amber |
 | **Moment A** | | | |
 | X1 | Step 6, measured so far | G5 14 × E1 = 186.34 cft × R1 = 51,554.69; 14 × E2 = 670.88 sft × R2 = 64,739.92; 14 × E3 = 1,169 kg × R3 = 1,03,456.50 | 2,19,751.11 |
 | **Cement** (C14: net × 1.02, rounded up per cell; E5) | | | |
@@ -2033,7 +2043,7 @@ it exists a reviewer checks the rows by hand.
 | What | State |
 |---|---|
 | Steps | 2 to 5 closed, 6 closed with Q4 and Q7 open (8 columns awaiting answer), 7 and 8 on allowance |
-| Strip (whole taka, 1.3) | Measured T1 ৳67,56,094 (67.56 lakh) · Awaiting answer T2 ৳1,25,572 (1.26 lakh) · Allowance T3 ৳9,12,40,000 (9.12 crore) · Total T7 ৳9,81,21,666 (9.81 crore) · T5 ৳2,336 per sft · Measured T6 7% of the total · 14 BOQ Items have no rate yet, from 9 prices not entered |
+| Strip (whole taka, 1.3) | Measured T1 ৳67,56,094 (67.56 lakh) · Awaiting answer T2 ৳1,31,380 (1.31 lakh) · Allowance T3 ৳9,12,40,000 (9.12 crore) · Total T7 ৳9,81,27,474 (9.81 crore) · T5 ৳2,336 per sft · Measured T6 7% of the total · 14 BOQ Items have no rate yet, from 9 prices not entered |
 | Items | M1 to M14, W1 to W3 and A1 to A4 as 6.1; also an "Unclassified" item, an unpriced item, the casting-area line carried by A2 and the shutter-hire line "rate not entered" |
 | Prices | starter prices with their citation; one entered by Nusrat Jahan; one labour rate "low confidence"; one not entered (9 in all) |
 | The piling choice | Labour only (the starter), switchable to Material and labour (rate not entered) |
@@ -2067,7 +2077,7 @@ m0-screens 8's eleven checks hold on every M1 UI PR. M1 adds (numbering continue
 | 19 | **Keys as 2 says:** the overlay lists exactly the keys active on the screen; no binding without a label; nothing binds `D` or `P` in the 3D; `Shift` + an arrow pans on the sheet and in the 3D; every action on the screen is reachable without a pointer | *Automated* (the registry's test and each screen's key test); *by eye* (the keyboard walk, 7.2) |
 | 20 | **A description never has an empty fragment** (1.7) | *Automated* (`describe`'s table) |
 | 21 | **Awaiting answer is apart:** an awaiting-answer quantity or amount is never inside the measured figure, in the grid, the strip, the Material Schedule or the 3D's legend | *Automated* (M1-20's grid test and M1-22's) |
-| 22 | **Read-only roles** (1.5): the MD and a Guest are offered no act on any M1 screen (a field they cannot use is absent, not disabled), may use the viewer's tools, and see the Display Units as words; a Guest is money-blind until the owner rules (9.5); each page shows the ReadOnlyChip | *Automated* (the API refuses; each screen's role test); *by eye* (chips, toasts) |
+| 22 | **Read-only roles** (1.5): the MD and a Guest are offered no act on any M1 screen (a field they cannot use is absent, not disabled), may use the viewer's tools, and see the Display Units as words; a Guest is money-blind until the owner rules (9.5), on the Takeoff too (no ৳ on its bar or Cost Basis); each page shows the ReadOnlyChip | *Automated* (the API refuses writes; each screen's role test, the Takeoff's included; a Guest's reads carry no amount once 8, item 20 is built); *by eye* (chips, toasts) |
 | 23 | **The 3D draws Proposals, held and confirmed as 4.11.2 says** and the browser's volumes equal the server's per Element | *Automated* (M1-25's geometry test); *by eye* (cyan dashed, amber, concrete grey) |
 | 24 | **Words:** every new message under `web/src/messages/**` is read by `ux-critic` (words-only gate) and each Question's card has what-answering-does first | *By eye* |
 | 25 | **Budgets** (ADR 0022) on the reference setup | *Owner's run* (M1-43), `?bench`; the `design-gate` status posts this check as not applicable on every PR until M1-43 |
@@ -2095,7 +2105,8 @@ prefix KW- so that a failed line named in a PR (`KW-F6`) is never taken for the 
   `↓` `Enter` opens Step 7 without a pointer.
 - [ ] KW-K6 Reduced motion on → no shimmer, no pulse, no flight animation beyond a jump.
 - [ ] KW-K8 Sign in as a Guest → the money screens say "Ask the Developer for access to costs" and no
-  amount shows; the Takeoff and the Live Model read.
+  amount shows; the Takeoff and the Live Model read, and Step 6 closed with Questions open shows "8
+  columns are awaiting answer." with no ৳, its Cost Basis block saying the same words.
 - [ ] KW-K7 Sign in as the MD → no act is offered on any screen walked; `Enter`, `X`, `E`, `Ctrl Z` show the
   toast of 1.5; the viewer's tools work.
 
@@ -2238,6 +2249,7 @@ plan or the spec disagree, those win until the owner rules.
 | 16 | **Step 1's words:** M0's "Step 1 is confirmed" and the rail's "Confirmed" for a step become "Closed" (1.1, one word per state) | the rail and bars say "Closed" from M1-18a | M1-18a | change M0's catalogue messages in the same PR, with their tests |
 | 17 | **"There are none" (4.1.2):** closing a step that has nothing to read (no piles, no core) is an act the API must accept with zero Elements and a recorded name | the bar's action is drawn; until accepted the step cannot close | M1-11a | `close` accepted with `elements: 0` and `act: none_found`, shown "Closed, none" |
 | 19 | **Adding an Element the drawing read missed (story 125; the owner's Q15).** C9's act list and `POST confirmations` carry no picked entity, family, mark or storeys, and M1.md names none of them | The act is not drawn until the route exists (never disabled) | M1-18a with the takeoff API's ticket | a Confirmation act `add` with the entity's anchor, `family`, `mark` and `storeys`: one Confirmation, one Element per storey, one Trace anchor; undone whole by `Ctrl Z`; the Count's N grows by it |
+| 20 | **A Guest's money on the Takeoff and in the API (1.5, 9.5).** C9's step figures, C13's `GET boq` and `GET prices` carry every amount to any role; the money-blind Guest is this page's rule only | The screens omit the amounts (4.1.2, 4.1.3, 4.11), which does not stop a browser from receiving them | the contracts' ticket (M1-15a with M1-11c) | withhold amounts, rates and allowances from a Guest in the API itself (a role-scoped serializer), with a test that a Guest's response carries none |
 | 18 | **Rebar by ratio's Trace and the whole-building check** (QS 6): the Trace needs the ratio and the volume it multiplied; the check needs the Building's Rebar kg and Gross Floor Area | the Trace and the inspector line of 4.13 are drawn from the lines' own fields; the check is absent until sent | M1-15a | a derived Trace entry `{volume, ratio, kg}` and `rebar_kg_per_area` on `GET boq` |
 
 ---
