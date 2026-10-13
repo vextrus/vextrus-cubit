@@ -21,7 +21,7 @@ import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
@@ -839,6 +839,8 @@ export function QuestionCard({
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
+  // Copies told apart by title: the table shows it, as the options name them by it.
+  const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
   const pick = usePick(entry, context)
   const sources = usePickSources(entry, context)
   // Unique per card: the same Question's card is in the Selection and the Questions tab at once, and
@@ -869,14 +871,39 @@ export function QuestionCard({
           <QuestionBody entry={entry} context={context} />
         </p>
         {entry.holds.length > 1 ? (
-          <ul className="text-xs">
-            {entry.holds.map((s) => (
-              <li key={s.id}>
-                <SheetName sheets={[s]} /> <Copy sheet={s} />
-                {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
-              </li>
-            ))}
-          </ul>
+          <table className="text-xs">
+            <thead>
+              <tr className="text-start text-ink-secondary">
+                <th scope="col" className="pe-3 font-normal">
+                  <Trans>Copy</Trans>
+                </th>
+                <th scope="col" className="pe-3 font-normal">
+                  <Trans>Date</Trans>
+                </th>
+                <th scope="col" className="font-normal">
+                  <Trans>File</Trans>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {entry.holds.map((s) => (
+                <tr key={s.id} className="align-top">
+                  <td className="pe-3">
+                    <Copy sheet={s} />
+                    {titlesDiffer ? (
+                      <span className="block text-ink-secondary">
+                        <DrawingText kind="title" text={s.title} truncate={false} />
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="pe-3">{s.issue_date ? f.day(s.issue_date) : null}</td>
+                  <td>
+                    <CopyPlace sheet={s} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : null}
         <p className="text-xs text-ink-secondary empty:hidden">
           <Trace entry={entry} context={context} onOpen={onOpen} />

@@ -296,7 +296,25 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
     const date = f.day(sheet.issue_date)
     return <Trans>the copy dated {date}</Trans>
   }
-  return first ? <Trans>the first copy</Trans> : <Trans>the second copy</Trans>
+  const title = sheet.title.trim()
+  if (title && other.title.trim() && title !== other.title.trim()) {
+    const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
+    return <Trans>the copy titled “{named}”</Trans>
+  }
+  if ((sheet.layout ?? null) !== (other.layout ?? null)) {
+    if (!sheet.layout) return <Trans>the copy laid out in the drawing</Trans>
+    const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
+    return <Trans>the copy on layout “{layout}”</Trans>
+  }
+  return first ? <Trans>the upper copy in the table</Trans> : <Trans>the lower copy in the table</Trans>
+}
+
+/** Where a copy sits, as the File cell words it: its file, then its layout or "laid out in the drawing" (6.6). */
+export function CopyPlace({ sheet }: { sheet: ProposalOut }) {
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+  if (!sheet.layout) return <Trans>{file}, laid out in the drawing</Trans>
+  const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
+  return <Trans>{file}, layout “{layout}”</Trans>
 }
 
 /**

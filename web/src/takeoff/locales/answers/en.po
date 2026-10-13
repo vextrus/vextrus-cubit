@@ -209,10 +209,6 @@ msgid "Answering records that {entryName} is not part of this set; it stays on t
 msgstr "Answering records that {entryName} is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/questionWords.tsx
-msgid "the second copy"
-msgstr "the second copy"
-
-#: src/takeoff/questionWords.tsx
 msgid "Answering keeps the sheet in the count as missing."
 msgstr "Answering keeps the sheet in the count as missing."
 
@@ -265,6 +261,10 @@ msgid "Answering keeps the file held."
 msgstr "Answering keeps the file held."
 
 #: src/takeoff/questionWords.tsx
+msgid "the lower copy in the table"
+msgstr "the lower copy in the table"
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list on <0/>"
 msgstr "the drawing list on <0/>"
 
@@ -311,6 +311,10 @@ msgstr "{tag} answered. {name}’s sheets are counted against the range you type
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title block of {sheet} (the number field is empty)"
 msgstr "Trace: the title block of {sheet} (the number field is empty)"
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy titled “{named}”"
+msgstr "the copy titled “{named}”"
 
 #: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. The MD reads Questions and cannot answer them."
@@ -403,10 +407,6 @@ msgstr "{count} sheets, one number"
 #: src/takeoff/questionWords.tsx
 msgid "This file may be misread"
 msgstr "This file may be misread"
-
-#: src/takeoff/questionWords.tsx
-msgid "the first copy"
-msgstr "the first copy"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked."
@@ -525,6 +525,10 @@ msgid "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 
 #: src/takeoff/questionWords.tsx
+msgid "the copy laid out in the drawing"
+msgstr "the copy laid out in the drawing"
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {sides}"
 msgstr "Trace: the title blocks of {sides}"
 
@@ -535,6 +539,10 @@ msgstr "{n, plural, one {{tag} answered. The sheet is {kind}.} other {{tag} answ
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 msgstr "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
+
+#: src/takeoff/questionWords.tsx
+msgid "the upper copy in the table"
+msgstr "the upper copy in the table"
 
 #: src/takeoff/questionWords.tsx
 msgid "Not part of this set: record it, then exclude it in the list"
@@ -549,12 +557,20 @@ msgid "A pick changes nothing until you answer."
 msgstr "A pick changes nothing until you answer."
 
 #: src/takeoff/questionWords.tsx
+msgid "the copy on layout “{layout}”"
+msgstr "the copy on layout “{layout}”"
+
+#: src/takeoff/questionWords.tsx
 msgid "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
 msgstr "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
 
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
 msgstr "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{file}, layout “{layout}”"
+msgstr "{file}, layout “{layout}”"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The file is set aside, waiting for the re-saved file."
@@ -607,6 +623,10 @@ msgstr "Their titles differ. Only one can be read, unless they are different she
 #: src/takeoff/questionWords.tsx
 msgid "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 msgstr "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
+
+#: src/takeoff/questionWords.tsx
+msgid "{file}, laid out in the drawing"
+msgstr "{file}, laid out in the drawing"
 
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone.} other {Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone.}}"

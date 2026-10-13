@@ -313,6 +313,10 @@ msgstr "Proposal: where each was read"
 msgid "None: no PDF has been added for {discipline}"
 msgstr "None: no PDF has been added for {discipline}"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Copy"
+msgstr "Copy"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 7 on the focused Question"
 msgstr "Pick answer 7 on the focused Question"
@@ -460,6 +464,10 @@ msgstr "the file name"
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick an answer to {tag} first: {keys}"
 msgstr "Pick an answer to {tag} first: {keys}"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Date"
+msgstr "Date"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: no page of {file} matched it"
