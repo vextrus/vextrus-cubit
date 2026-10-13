@@ -797,16 +797,19 @@ def track(
         if info is not None:
             message, tree = info
             trailers = parse_trailers(message, tree) if head is not None else Trailers(None)
-            # A clean merge of main on the head last seen READY (the lander's) keeps that READY, its
-            # time and its event; anything else in the merge is new work.
-            ready_head = seen.get("ready_head")
-            inherited = (
-                head is not None
-                and trailers.outcome is None
-                and isinstance(ready_head, str)
-                and clean_merges_of_main(head, ready_head, main_sha)
+            # Clean merges of main (the lander's) and a builder's status replies on a commit that reads
+            # READY keep that READY, found by walking back whether or not this watcher saw it; anything
+            # else in the merge is new work. The READY commit's own event fires once: when it is not the
+            # one this watcher already recorded.
+            under = (
+                ready_under(head, main_sha) if head is not None and trailers.outcome is None else None
             )
-            if inherited:
+            inherited = (
+                under is not None
+                and seen.get("outcome") == "READY"
+                and seen.get("ready_commit") in (None, under)
+            )
+            if under is not None:
                 trailers = Trailers("READY")
             seen.update(
                 head=head,
@@ -816,6 +819,7 @@ def track(
                 why=trailers.why,
                 outcome_at=seen.get("outcome_at") if inherited else status.utc(at),
                 ready_head=head if trailers.outcome == "READY" else None,
+                ready_commit=(under or head) if trailers.outcome == "READY" else None,
                 leak=None,
                 acceptance=head is not None and message.startswith("acceptance:"),
                 idle_since=None,
@@ -830,7 +834,7 @@ def track(
                 if reply is not None:
                     step.event("STATUS", ticket, f"{head[:8]} {reply}")
                 if trailers.outcome == "READY" and not inherited:
-                    step.event("READY", ticket, head[:8])
+                    step.event("READY", ticket, (under or head)[:8])
                 elif trailers.outcome == "BLOCKED":
                     step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
                 if where == "cloud":
@@ -943,7 +947,7 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
     if trailers.outcome is None and seen.get("outcome") == "READY" and inherits_ready(head, main_sha):
         return
     if trailers.outcome == "READY":  # every READY records its head, unchanged or not
-        seen["ready_head"] = head
+        seen["ready_head"] = seen["ready_commit"] = head
     if trailers.outcome == seen.get("outcome"):
         return
     seen.update(
@@ -952,6 +956,7 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
         why=trailers.why,
         outcome_at=status.utc(step.at),
         ready_head=head if trailers.outcome == "READY" else None,
+        ready_commit=head if trailers.outcome == "READY" else None,
     )
     if trailers.outcome == "READY":
         step.event("READY", ticket, head[:8])
@@ -959,10 +964,9 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
         step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
 
 
-def inherits_ready(head: str, main_sha: str | None) -> bool:
-    """Whether `head` is clean merges of main and status replies on a commit that reads READY: track()
-    records such a head as its own READY head, so the READY commit under it is found again by walking
-    first parents."""
+def ready_under(head: str, main_sha: str | None) -> str | None:
+    """The commit that reads READY under `head` when `head` is clean merges of main and status replies on
+    it, found by walking first parents (so it needs no earlier sight of that commit); else None."""
     sha = head
     for _ in range(MERGE_DEPTH):
         parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
@@ -971,14 +975,20 @@ def inherits_ready(head: str, main_sha: str | None) -> bool:
         elif len(parents) == 2:
             sha = parents[0]
         else:
-            return False
+            return None
         message = git_out("log", "-1", "--format=%B", sha)
         tree = git_out("rev-parse", f"{sha}^{{tree}}")
         if message is None or tree is None:
-            return False
+            return None
         if parse_trailers(message, tree.strip()).outcome == "READY":
-            return clean_merges_of_main(head, sha, main_sha)
-    return False
+            return sha if clean_merges_of_main(head, sha, main_sha) else None
+    return None
+
+
+def inherits_ready(head: str, main_sha: str | None) -> bool:
+    """Whether `head` is clean merges of main and status replies on a commit that reads READY
+    (`ready_under`): reread() and `state.outcome_of` ask it of a head that does not read READY itself."""
+    return ready_under(head, main_sha) is not None
 
 
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:
@@ -1052,38 +1062,51 @@ def watch_branches(step: Pass, refs: dict[str, str], reviews: dict[str, str]) ->
             )
 
 
-def watch_walks(step: Pass) -> None:
-    """One WALK-SCRIPT-DONE per `../walks/<sha40>/walk.json` and one G1 (with its result) per
-    `verdict.json` that appears; a restart does not repeat either. The first pass only records what is
-    there: the folder holds every earlier walk, which is history, not news."""
-    seen: dict[str, list[str]] | None = step.state.get("walks")
-    found: dict[str, list[str]] = {}
-    for path in sorted((step.folder.parent / "walks").glob("*/walk.json")) + sorted(
-        (step.folder.parent / "walks").glob("*/verdict.json")
-    ):
+def walk_entries(folder: Path) -> dict[str, dict[str, Any]]:
+    """{sha40: {key: the verdict's result or None}} for each walk file in `folder`: `walk.json` is keyed
+    by name, a `verdict.json` by its `finished_at` (`verdict.json@<finished_at>`; the file's mtime and
+    inode when it has none), so a re-walk of the same head, which verdict.py writes over the same name,
+    is a new entry. A verdict unreadable now (half-written?) is left out: read again next pass."""
+    found: dict[str, dict[str, Any]] = {}
+    for path in sorted(folder.glob("*/walk.json")) + sorted(folder.glob("*/verdict.json")):
         sha = path.parent.name
-        if SHA40.match(sha):
-            found.setdefault(sha, []).append(path.name)
-    step.state["walks"] = {sha: sorted(names) for sha, names in found.items()} | {
+        if not SHA40.match(sha):
+            continue
+        if path.name == "walk.json":
+            found.setdefault(sha, {})[path.name] = None
+            continue
+        try:
+            verdict = json.loads(path.read_text())
+            result = verdict["result"]
+            stat = path.stat()
+        except status.RECORD_ERRORS:
+            continue
+        finished = verdict.get("finished_at") if isinstance(verdict, dict) else None
+        stamp = finished if isinstance(finished, str) else f"{stat.st_mtime_ns}-{stat.st_ino}"
+        found.setdefault(sha, {})[f"{path.name}@{stamp}"] = result
+    return found
+
+
+def watch_walks(step: Pass) -> None:
+    """One WALK-SCRIPT-DONE per `../walks/<sha40>/walk.json` and one G1 (with its result) per verdict
+    that appears, a re-walk of a head included (`walk_entries` keys a verdict by its `finished_at`); a
+    restart does not repeat either. The first pass only records what is there: the folder holds every
+    earlier walk, which is history, not news."""
+    seen: dict[str, list[str]] | None = step.state.get("walks")
+    found = walk_entries(step.folder.parent / "walks")
+    step.state["walks"] = {sha: sorted(entries) for sha, entries in found.items()} | {
         sha: names for sha, names in (seen or {}).items() if sha not in found
     }
     if seen is None:
         return
-    for sha, names in sorted(found.items()):
-        for name in names:
-            if name in seen.get(sha, []):
+    for sha, entries in sorted(found.items()):
+        for key, result in entries.items():
+            # A state an older watcher wrote names the verdict `verdict.json`: that walk is seen.
+            if key in seen.get(sha, []) or (result is not None and "verdict.json" in seen.get(sha, [])):
                 continue
-            if name == "walk.json":
+            if key == "walk.json":
                 step.event("WALK-SCRIPT-DONE", sha[:8], "walk.json written")
-                continue
-            try:
-                verdict = json.loads((step.folder.parent / "walks" / sha / name).read_text())
-                result = verdict["result"]
-            except status.RECORD_ERRORS:
-                found[sha].remove(name)  # unreadable now (half-written?): read again next pass
-                step.state["walks"][sha].remove(name)
-                continue
-            if result in ("PASS", "FAIL"):
+            elif result in ("PASS", "FAIL"):
                 step.event("G1", sha[:8], result)
 
 

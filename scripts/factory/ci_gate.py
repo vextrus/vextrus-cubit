@@ -32,54 +32,64 @@ class Unreadable(RuntimeError):
     """A commit or ref git cannot read."""
 
 
-def _git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+def _git(
+    *args: str, check: bool = True, cwd: str | os.PathLike[str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False, cwd=cwd)
     if check and done.returncode != 0:
         raise Unreadable(f"git {' '.join(args)}: {done.stderr.strip() or done.returncode}")
     return done
 
 
-def _commit(sha: str) -> str:
+def _commit(sha: str, cwd: str | os.PathLike[str] | None = None) -> str:
     """The full id of the commit `sha` names; Unreadable when it names none."""
-    return _git("rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}").stdout.strip()
+    return _git("rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}", cwd=cwd).stdout.strip()
 
 
-def _reads_ready(sha: str) -> bool:
-    message = _git("show", "-s", "--format=%B", sha).stdout
-    tree = _git("rev-parse", f"{sha}^{{tree}}").stdout.strip()
+def _reads_ready(sha: str, cwd: str | os.PathLike[str] | None = None) -> bool:
+    message = _git("show", "-s", "--format=%B", sha, cwd=cwd).stdout
+    tree = _git("rev-parse", f"{sha}^{{tree}}", cwd=cwd).stdout.strip()
     return read(message, tree).outcome == "READY"
 
 
-def _on_main(sha: str) -> bool:
+def _on_main(sha: str, cwd: str | os.PathLike[str] | None = None) -> bool:
     """Whether `sha` is main's tip or in its history (origin's copy first, then a local one)."""
     for ref in MAIN_REFS:
-        if _git("rev-parse", "--verify", "--quiet", ref, check=False).returncode != 0:
+        if _git("rev-parse", "--verify", "--quiet", ref, check=False, cwd=cwd).returncode != 0:
             continue
-        if _git("merge-base", "--is-ancestor", sha, ref, check=False).returncode == 0:
+        if _git("merge-base", "--is-ancestor", sha, ref, check=False, cwd=cwd).returncode == 0:
             return True
     return False
 
 
-def _is_status_reply(sha: str, parent: str) -> bool:
+def _is_status_reply(sha: str, parent: str, cwd: str | os.PathLike[str] | None = None) -> bool:
     """Whether `sha` is an empty commit on `parent` (same tree) whose only factory trailer is a
     `Factory-Status:` line."""
-    if status_line(_git("show", "-s", "--format=%B", sha).stdout) is None:
+    if status_line(_git("show", "-s", "--format=%B", sha, cwd=cwd).stdout) is None:
         return False
-    return _git("rev-parse", f"{sha}^{{tree}}").stdout == _git("rev-parse", f"{parent}^{{tree}}").stdout
+    trees = [_git("rev-parse", f"{commit}^{{tree}}", cwd=cwd).stdout for commit in (sha, parent)]
+    return trees[0] == trees[1]
+
+
+def ready_commit(sha: str, cwd: str | os.PathLike[str] | None = None) -> str | None:
+    """The commit that reads READY under `sha`: `sha` itself, or the first one found by walking back
+    over merges of main and empty status replies (the newest commit on that chain carrying the trailer);
+    None when the chain reaches a commit that is neither."""
+    current = _commit(sha, cwd)
+    while True:
+        if _reads_ready(current, cwd):
+            return current
+        parents = _git("rev-list", "--parents", "-n", "1", current, cwd=cwd).stdout.split()[1:]
+        merge = len(parents) == 2 and _on_main(parents[1], cwd)
+        if not (merge or (len(parents) == 1 and _is_status_reply(current, parents[0], cwd))):
+            return None
+        current = parents[0]
 
 
 def is_ready(sha: str) -> bool:
     """READY by the trailer rule, or a chain of merges of main and empty status replies onto a commit
     that is."""
-    current = _commit(sha)
-    while True:
-        if _reads_ready(current):
-            return True
-        parents = _git("rev-list", "--parents", "-n", "1", current).stdout.split()[1:]
-        merge = len(parents) == 2 and _on_main(parents[1])
-        if not (merge or (len(parents) == 1 and _is_status_reply(current, parents[0]))):
-            return False
-        current = parents[0]
+    return ready_commit(sha) is not None
 
 
 def main(argv: list[str]) -> int:

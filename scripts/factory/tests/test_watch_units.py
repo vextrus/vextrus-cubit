@@ -401,7 +401,9 @@ def test_a_clean_merge_of_main_on_the_ready_head_stays_ready_without_a_new_event
     assert state["tickets"]["tu"]["outcome_at"] == "2026-10-04T19:10:00Z"
 
 
-def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo) -> None:
+def test_a_merge_with_its_own_edit_is_not_ready_and_a_clean_one_is_whoever_saw_the_ready(
+    repo: Repo,
+) -> None:
     git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
     ready = repo.ready("r.txt")
     git_in(repo.path, "checkout", "-q", "main")
@@ -419,8 +421,9 @@ def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo)
     git_in(repo.path, "reset", "-q", "--hard", ready)
     git_in(repo.path, "merge", "-q", "--no-edit", "main")
     clean = repo.sha("HEAD")
-    _, item = track_once(seen_ready(repo.seed), clean, main)  # READY last seen on another head
-    assert item["state"] == "working"
+    # READY last seen on another head: the walk back to the READY commit finds it all the same
+    _, item = track_once(seen_ready(repo.seed), clean, main)
+    assert item["state"] == "ready"
 
 
 def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_landers_merge(

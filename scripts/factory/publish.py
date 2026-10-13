@@ -4,15 +4,16 @@ Run it from the main checkout. In order, each step refusing (non-zero, nothing p
 fails:
 1. an open PR for the branch already: it names that PR and changes nothing (exit 0);
 2. the head is the branch's `refs/heads/<branch>` here (a local builder's), else origin's tip (a cloud
-   builder's); its tip must read READY (trailers.md 1);
+   builder's); its tip must read READY (trailers.md 1), or be merges of main and empty `Factory-Status:`
+   replies on a commit that does (`ci_gate.ready_commit`, the rule CI's gate reads);
 3. `tools.leakscan range <merge-base>..<head> --ref <branch>` scans every commit of the range, not only
    the tip, and writes the head's stamp; a hit is refused naming each `file:line` (the scanner's
    locations, never its text), and a head left without a valid stamp (no corpus) is refused;
 4. `git push origin <branch>` pushes exactly that head, alone (a head only on origin is already there);
-5. the body is the READY commit's message after its subject, without its `Factory-` and attribution
-   trailers, plus a footer under its own heading (built first: `merge_ready.cut_problems` runs on it
-   before any push, and a problem is refused, #759); `tools.leakscan file` scans it (and stamps its
-   sha256), then `gh pr create --body-file` opens one PR.
+5. the title is the READY commit's subject (never a status reply's) and the body its message after it,
+   without its `Factory-` and attribution trailers, plus a footer under its own heading (built first:
+   `merge_ready.cut_problems` runs on it before any push, and a problem is refused, #759);
+   `tools.leakscan file` scans it (and stamps its sha256), then `gh pr create --body-file` opens one PR.
 
 Stamps and the corpus are written only by `tools.leakscan`; this module never prints a matched string.
 `VEXTRUS_LEAKSCAN_CMD` names another scanner command line (a test seam, as the watcher's).
@@ -31,7 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts import merge_ready
-from scripts.factory import leakwhere
+from scripts.factory import ci_gate, leakwhere
 from scripts.factory.trailers import read as read_trailers
 
 TREE = Path(__file__).resolve().parents[2]  # the tree holding this module and its scanner
@@ -249,11 +250,14 @@ def ready_problem(root: Path, head: str) -> str | None:
     return None
 
 
-def push(root: Path, branch: str, head: str) -> None:
-    """`git push origin <branch>` of exactly `head`, after the guard's READY gate (`ready_problem`)."""
+def push(root: Path, branch: str, head: str, ready: str | None = None) -> None:
+    """`git push origin <branch>` of exactly `head`, after the guard's READY gate (`ready_problem`) on
+    the head and on the READY commit under it (a status reply on it carries no gated trailer)."""
     if git_out(root, "rev-parse", "--verify", "-q", f"refs/heads/{branch}") != head:
         raise Refused("the branch moved during the scan: nothing is pushed")
-    problem = ready_problem(root, head)
+    problem = ready_problem(root, head) or (
+        ready_problem(root, ready) if ready is not None and ready != head else None
+    )
     if problem is not None:
         raise Refused(f"{problem}: run scripts.verify on that tree; nothing is pushed")
     done = git(root, "push", "origin", branch)
@@ -276,6 +280,23 @@ def valid_branch(root: Path, branch: str) -> bool:
         and not branch.startswith("-")
         and git(root, "check-ref-format", "--branch", branch).returncode == 0
     )
+
+
+def ready_source(root: Path, head: str) -> str:
+    """The commit whose message is the PR's: `head` when it reads READY, else the READY commit under it
+    (`ci_gate.ready_commit`: the newest one on the chain of merges of main and empty `Factory-Status:`
+    replies, so a builder's answer to a status message after its READY commit keeps it READY, the rule
+    CI's gate and merge_ready read). Refused when the chain holds none."""
+    try:
+        found = ci_gate.ready_commit(head, root)
+    except ci_gate.Unreadable:
+        raise Refused(f"the head {head[:8]} cannot be read") from None
+    if found is None:
+        message = git_out(root, "log", "-1", "--format=%B", head) or ""
+        tree = git_out(root, "rev-parse", f"{head}^{{tree}}") or ""
+        outcome = read_trailers(message, tree).outcome
+        raise Refused(f"the head {head[:8]} is not READY ({outcome or 'no Factory-State'})")
+    return found
 
 
 def pr_body(message: str, sha: str) -> tuple[str, str]:
@@ -314,11 +335,8 @@ def publish(root: Path, branch: str) -> int:
     head = local or remote
     if head is None:
         raise Refused(f"no branch {branch} here or on origin")
-    message = git_out(root, "log", "-1", "--format=%B", head) or ""
-    tree = git_out(root, "rev-parse", f"{head}^{{tree}}") or ""
-    outcome = read_trailers(message, tree).outcome
-    if outcome != "READY":
-        raise Refused(f"the head {head[:8]} is not READY ({outcome or 'no Factory-State'})")
+    ready = ready_source(root, head)
+    message = git_out(root, "log", "-1", "--format=%B", ready) or ""
     base = git_out(root, "merge-base", main, head)
     if base is None:
         raise Refused("the head shares no history with origin/main")
@@ -330,7 +348,7 @@ def publish(root: Path, branch: str) -> int:
         )
     range_scan(root, base, head, branch)
     if local is not None and local != remote:
-        push(root, branch, head)
+        push(root, branch, head, ready)
         print(f"publish: pushed {branch} at {head[:8]}")
     else:
         print(f"publish: {branch} at {head[:8]} is already on origin")
