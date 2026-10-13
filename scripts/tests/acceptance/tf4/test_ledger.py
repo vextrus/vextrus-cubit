@@ -153,15 +153,18 @@ def test_a_finding_stands_unless_refuted_and_only_50_or_more_raises_pass_to_fix(
     assert result["counts"] == expected
 
 
+# S24-L1 (the ledger's verdict follows the bar): a lens's BLOCK still wins, but a lens's FIX no longer
+# raises the verdict by itself; with no finding that could block standing, the verdict is PASS (was
+# "fix-over-pass" -> FIX). The bar's cases are pinned in ts24l1/test_verdict_follows_the_bar.py.
 @pytest.mark.parametrize(
     ("rows", "verdict"),
     [
         ((f"VERDICT: PASS at {H}", f"VERDICT: BLOCK at {H}", f"VERDICT: FIX at {H}"), "BLOCK"),
-        ((f"VERDICT: PASS at {H}", f"VERDICT: FIX at {H}"), "FIX"),
+        ((f"VERDICT: PASS at {H}", f"VERDICT: FIX at {H}"), "PASS"),
     ],
-    ids=["block-wins", "fix-over-pass"],
+    ids=["block-wins", "a-lens-fix-alone-passes"],
 )
-def test_the_worst_reviewer_verdict_wins(
+def test_a_lens_block_wins_and_a_lens_fix_alone_does_not_block(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], rows: tuple[str, ...], verdict: str
 ) -> None:
     source = lines(tmp_path / "final.txt", *rows)
