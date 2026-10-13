@@ -90,6 +90,20 @@ def pytest_target(path: str) -> str | None:
 
 LINT_TESTS = "tools/lint/tests"
 WEB_CHAIN = ("openapi-export", "api-types", "typecheck", "lint", "messages-check", "web-test")
+# The checks that read the exported schema run after it, in its chain (#709: contract-fixtures raced
+# openapi-export when it ran as its own chain).
+SCHEMA_CHAIN = (*WEB_CHAIN, "contract-fixtures")
+
+
+def chains_of(checks: list[Check]) -> list[list[tuple[int, Check]]]:
+    """The schema's checks keep their plan order in one chain; every other check is its own chain."""
+    indexed = list(enumerate(checks))
+    chained = set(SCHEMA_CHAIN)
+    chains = [[ic for ic in indexed if ic[1].name in chained]]
+    chains += [[ic] for ic in indexed if ic[1].name not in chained]
+    return [chain for chain in chains if chain]
+
+
 LOCAL_WORKERS = 6
 CLOUD_WORKERS = 4
 
@@ -545,11 +559,7 @@ def main(
 
     # The web checks keep their order (each needs the one before) in one chain; every other check is
     # its own chain, so pytest and the cheap checks run concurrently.
-    indexed = list(enumerate(checks))
-    web_names = set(WEB_CHAIN)
-    chains = [[ic for ic in indexed if ic[1].name in web_names]]
-    chains += [[ic] for ic in indexed if ic[1].name not in web_names]
-    chains = [chain for chain in chains if chain]
+    chains = chains_of(checks)
 
     def run_chain(chain: list[tuple[int, Check]]) -> list[tuple[int, dict[str, object]]]:
         return [(index, settle(index, check)) for index, check in chain]

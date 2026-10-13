@@ -580,6 +580,30 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   (`git switch --detach`) before launching the builder, or builds on a sibling branch and fast-forwards. No check:
   a practice the orchestrator keeps.
 
+## Session 22 (11 Oct 2026): the Correct act (S22-FL8)
+- **An act that keeps typed text in its own row must check that text before the row is written.** S22-FL8's
+  first head wrote the correction's Confirmation (its `before` keeps the new number and title) before the
+  drawings setters checked the text, so a NUL or a lone surrogate was a 500 (jsonb refused it), not a coded
+  400; the refuter found it (score 50). Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_typed_text_that_cannot_be_kept_is_refused_with_a_code_and_nothing_is_written`).
+- **An undo that restores a row "as it stood" restores a state other people's acts may have moved on from** (S22-FL8
+  review 2: a correction's undo put the `missing` Question back withdrawn by an exclusion since undone, so a
+  numberless sheet confirmed). A text edit also has to clear what read the old text (`plot_title_alike`, as
+  `record_sheets` does). Round 3 found the same class again (an undo that restored one act's old value over
+  another person's: A and B correct, A undoes, B undoes). Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_a_correction_undone_after_the_exclusion_it_followed_was_undone_asks_the_question_open`,
+  `test_two_people_correcting_one_sheet_undo_only_the_latest_each_time`,
+  `test_correcting_a_title_clears_the_plot_page_that_read_the_old_title`).
+- **A fourth round of the same undo class: restoring "through a chain" of other people's acts never stopped finding
+  cases** (#680 reviews 2-3: five findings, one root). Round 4 changed the shape, as the constant-tuning lesson
+  says: an undo takes back only the latest standing act, only while the row is as the act left it, else it is
+  refused in words. Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_a_correction_is_not_undone_once_another_correction_stands_after_it`).
+- **A server act that can undo another act than the tab expects makes the tab's own history words wrong** (#691 round 2:
+  the web said "corrected S-05" while the server undid a confirmation). The words and the history follow the
+  server's reply. Check: `web/src/takeoff/correct.test.tsx` (the test "words Ctrl Z from the server when it
+  passed the correction over, and keeps the correction to undo").
+
 ## Session 23 (12 Oct 2026): M0's blockers went round the review cap; the real-drawing lock set the pace
 
 - **A question to the owner blocks the orchestrator's turn: two hours passed with two READY heads unread** (asked at

@@ -46,3 +46,17 @@ REASON_UNKNOWN = MessageCode("drawings.sheets.reason_unknown")
 """A reason to leave out that is not one of the seven (400)."""
 DECIDED_ALREADY = MessageCode("drawings.sheets.decided_already")
 NUMBER_UNREADABLE = MessageCode("drawings.sheets.number_unreadable")
+"""A typed number holding a character a title block cannot print (a control, a lone surrogate, a bidi
+control: 400). The other causes have their own words: empty, too long, more than one line, a drawing
+code (review 3 of #680)."""
+NUMBER_EMPTY = MessageCode("drawings.sheets.number_empty")
+NUMBER_TOO_LONG = MessageCode("drawings.sheets.number_too_long", params=("limit",))
+NUMBER_MANY_LINES = MessageCode("drawings.sheets.number_many_lines")
+NUMBER_DRAWING_CODE = MessageCode("drawings.sheets.number_drawing_code")
+TITLE_EMPTY = MessageCode("drawings.sheets.title_empty")
+TITLE_TOO_LONG = MessageCode("drawings.sheets.title_too_long", params=("limit",))
+TITLE_MANY_LINES = MessageCode("drawings.sheets.title_many_lines")
+TITLE_DRAWING_CODE = MessageCode("drawings.sheets.title_drawing_code")
+TITLE_UNREADABLE = MessageCode("drawings.sheets.title_unreadable")
+"""A typed title holding a character a title block cannot print (400); its other causes have their
+own words, as the number's."""

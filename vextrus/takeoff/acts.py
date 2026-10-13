@@ -13,6 +13,8 @@ EXCLUDE = Act("takeoff.exclude", Grant.CHANGE)
 """Leave a sheet out, for one of the seven reasons."""
 ASSIGN = Act("takeoff.assign", Grant.CHANGE)
 """Put views in Takeoff Steps (#158: a view no step accounts for; the API's only, in M0)."""
+CORRECT = Act("takeoff.correct", Grant.CHANGE)
+"""Correct a sheet's number or title (m0-screens 6.9's `E`): it stays a Proposal."""
 UNDO = Act("takeoff.undo", Grant.CHANGE)
 """Undo one's own last act on Step 1."""
 DRAWING_LIST = Act("takeoff.drawing_list", Grant.CHANGE)
