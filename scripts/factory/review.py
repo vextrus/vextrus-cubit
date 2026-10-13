@@ -77,6 +77,7 @@ import os
 import re
 import secrets
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -321,6 +322,17 @@ LENS_B = Lens(
     "You are the adversary lens: find the failing scenario a user meets with this change and prove it "
     "with a test you write in this worktree. Ignore style; report only what breaks.",
 )
+# The one lens of a delta review (the owner's Q-R1): the depth reviewer, on the fix's own diff only.
+DELTA = Lens(
+    "delta",
+    "pr-reviewer",
+    OPUS,
+    "This is a delta review past the round cap: the earlier rounds reviewed the rest of the change. "
+    "Review only the fix's own diff named above, in your six passes, and whether it truly fixes what "
+    "the earlier rounds found; report what in that diff breaks.",
+    max_turns=150,
+    max_budget_usd=10.0,
+)
 WORDS = Lens(
     "words",
     "ux-critic",
@@ -436,6 +448,11 @@ class Run:
     lenses: list[dict[str, Any]] = field(default_factory=list)
     launched: list[str] = field(default_factory=list)  # --where cloud: the review branches
     findings: list[Finding] = field(default_factory=list)
+    since: str | None = None  # a delta review: the previous round's head, where the fix starts
+    not_kept: list[int] = field(
+        default_factory=list
+    )  # a delta review: rounds whose attacks were not kept
+    earlier_text: list[str] = field(default_factory=list)  # their standing findings, for the lens
 
     def cost(self) -> float:
         return round(sum(float(lens.get("total_cost_usd") or 0.0) for lens in self.lenses), 6)
@@ -696,8 +713,28 @@ def red_ci(rollup: Any) -> list[str]:
     return red
 
 
+def unfinished_ci(rollup: Any) -> list[str]:
+    """The `ci` checks not yet finished (queued, in progress, pending): no lens starts before they end,
+    or a head that turns red spends a review (session 25: $12.05 on three such heads)."""
+    waiting = []
+    for check in rollup if isinstance(rollup, list) else []:
+        if not isinstance(check, dict):
+            continue
+        name = str(check.get("name") or check.get("context") or "")
+        if name != "ci" and check.get("workflowName") != "ci":
+            continue
+        if "status" in check:  # a check run
+            done = str(check.get("status") or "").upper() == "COMPLETED"
+        else:  # a status context
+            done = str(check.get("state") or "").upper() not in ("", "PENDING", "EXPECTED")
+        if not done:
+            waiting.append(name)
+    return waiting
+
+
 def resolve(pr: int) -> str:
-    """The PR's head, refused unless the PR is open, the head is 40-hex and its `ci` is not red."""
+    """The PR's head, refused unless the PR is open, the head is 40-hex and its `ci` has finished
+    and is not red."""
     view = pr_view(pr)
     if view.get("number") not in (None, pr):
         raise Refused("gh answered for another PR")
@@ -708,6 +745,11 @@ def resolve(pr: int) -> str:
         raise Refused("the PR's head is not a full 40-hex sha")
     if red := red_ci(view.get("statusCheckRollup")):
         raise Refused(f"the head's CI is red ({', '.join(sorted(set(red)))}): fix it before review")
+    if waiting := unfinished_ci(view.get("statusCheckRollup")):
+        raise Refused(
+            f"the head's CI has not finished ({', '.join(sorted(set(waiting)))}): review it once "
+            "`ci` is green"
+        )
     return head
 
 
@@ -734,6 +776,14 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] |
             f"Tests here use VEXTRUS_DB_NAME=vextrus_rv_slot{run.slot}, shared with the other lenses.",
             *(
                 [
+                    f"A delta review: round {run.round_ - 1} reviewed head {run.since}. The fix's",
+                    "own diff since it (merges of main left out; read it, there is no git command):",
+                    f"{facts[0]}",
+                    f"and the fix's commits: {facts[1]}. Authority: the ticket in the PR body.",
+                    *run.earlier_text,
+                ]
+                if facts and run.since is not None
+                else [
                     f"The change merging the PR makes (read it; there is no git command): {facts[0]}",
                     f"and its commits: {facts[1]}. Authority: the ticket in the PR body.",
                 ]
@@ -1246,17 +1296,26 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
     lens_timeout()  # a malformed cap is bad input before anything starts
     if getattr(args, "relaunch", None) and getattr(args, "where", "local") != "cloud":
         raise BadInput("--relaunch is for --where cloud")
+    delta = args.exception == ledger.DELTA
+    cloud = getattr(args, "where", "local") == "cloud"
+    if delta and cloud:
+        raise Refused(f"a {ledger.DELTA} runs locally: run it without --where")
+    run.since = ledger.round_head(ledger_dir, run.pr, run.round_ - 1) if delta else None
     run.head = resolve(run.pr)
     if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
         raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
     held.enter_context(round_lock(main, run))
     with locked(review_dir / ".git.lock"):
         run.merged, run.base = merged_head(main, run.pr, run.head)
+        if run.since is not None:
+            fix_only(main, run.since, run.head, run.base)  # its walls, before anything starts
         rows, allowlist_added = changes(main, run.merged, run.base)
         bases = merge_bases(main, run.head, run.base)
     run.paths = [path for path, _, _ in rows]
+    if delta:
+        delta_review(run, args, main, ledger_dir)
+        return
     run.tier = tier(rows, allowlist_added, bases=bases)
-    cloud = getattr(args, "where", "local") == "cloud"
     if cloud and run.tier in ("allowlist-only", "docs-only"):
         raise Refused(f"a {run.tier} PR is passed by code, with no reviewer: run it without --where")
     if run.tier in ("allowlist-only", "docs-only"):
@@ -1286,6 +1345,218 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
                 prepare(main, rv, run.merged, clean=True)
             reviews = lenses_in(run, lenses, rv, slot, main)
             confirm_and_refute(run, rv, slot, main, reviews)
+            keep_attacks(run, rv, main)
+        finally:
+            with ledger.ledger_lock(ledger_dir):
+                check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
+        if resolve(run.pr) != run.head:
+            raise Refused("the PR's head moved during the review: review the new head")
+        record(run, args, ledger_dir, [out["verdict"] for out in reviews], factory / "verdicts")
+
+
+def fix_only(main: Path, since: str, head: str, base: str) -> None:
+    """The walls of a delta review: the head descends from `since` (the previous round's head), and
+    every commit since it continues the PR's line, any other parent being main's (a clean merge of main
+    is not the fix; another branch merged in would ride in unreviewed). Refused (exit 3) otherwise."""
+    if _run([*GIT, "-C", str(main), "cat-file", "-e", f"{since}^{{commit}}"]).returncode != 0:
+        raise Refused(
+            f"the previous round's head {since[:12]} is not in this repository: review in full"
+        )
+    ancestor = _run([*GIT, "-C", str(main), "merge-base", "--is-ancestor", since, head])
+    if ancestor.returncode != 0:
+        raise Refused(
+            f"the head does not descend from the previous round's head {since[:12]} (a rewrite): a "
+            "delta review cannot tell the fix from the rest"
+        )
+    listed = git(main, "rev-list", "--topo-order", "--reverse", "--parents", head, "--not", since, base)
+    line = {since}
+    for row in listed.splitlines():
+        commit, *parents = row.split()
+        ours = [parent for parent in parents if parent in line]
+        others = [parent for parent in parents if parent not in line]
+        if not ours or len(parents) > 2:
+            raise Refused(
+                f"commit {commit[:12]} since the previous round's head is not on the PR's line (another "
+                "branch's work): a delta review takes only the fix and merges of main"
+            )
+        for other in others:
+            if _run([*GIT, "-C", str(main), "merge-base", "--is-ancestor", other, base]).returncode:
+                raise Refused(
+                    f"merge {commit[:12]} since the previous round's head merges a branch other than "
+                    "main: a delta review takes only the fix and merges of main"
+                )
+        line.add(commit)
+    if head not in line:
+        raise Refused("the head is not reached from the previous round's head: review in full")
+
+
+def write_delta(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
+    """The fix's own diff and commits for a delta review: from the previous round's head merged with
+    main's sha at the fetch to the merged head (main's own lines cancel out), and the commits since that
+    head, main's left out. When the previous head no longer merges cleanly with main the diff is taken
+    from that head itself: more than the fix (main's lines too), never less."""
+    assert run.since is not None
+    assert run.merged is not None
+    assert run.base is not None
+    assert run.head is not None
+    stem.parent.mkdir(parents=True, exist_ok=True)
+    diff, log = stem.with_name(f"{stem.name}.delta.diff"), stem.with_name(f"{stem.name}.delta.log")
+    tree = _run([*GIT, "-C", str(main), "merge-tree", "--write-tree", run.base, run.since])
+    start = tree.stdout.split()[0] if tree.returncode == 0 and tree.stdout.split() else run.since
+    text = git(main, "diff", "--no-renames", start, run.merged)
+    diff.write_text(text, errors="surrogateescape")
+    commits = git(
+        main, "log", "--stat", "--format=%H %an %ad%n%B", run.head, "--not", run.since, run.base
+    )
+    log.write_text(commits, errors="surrogateescape")
+    return diff, log
+
+
+def attacks_dir(main: Path, pr: int, head: str) -> Path:
+    """Where a recorded round's attack tests are kept, for the delta reviews after it."""
+    return main / ".private" / "work" / "factory" / "review" / "attacks" / f"{pr}-{head}"
+
+
+MANIFEST = "attacks.json"
+
+
+def keep_attacks(run: Run, rv: Path, main: Path) -> None:
+    """Keep the attack tests of the round's standing findings of 50 or more (each repro's folder, its
+    files only, never a link), with a manifest, for a later delta review to re-run."""
+    assert run.head is not None
+    kept: list[dict[str, Any]] = []
+    folders: set[str] = set()
+    for item in run.findings:
+        if item.score < 50 or item.word not in ledger.STANDS or item.repro is None:
+            continue
+        if item.id.startswith("r") or (target := replay_target(rv, item.repro)) is None:
+            continue  # an earlier round's attack (kept already) or no file
+        folders.add(PurePosixPath(target).parent.as_posix())
+        kept.append({"id": item.id, "score": item.score, "file": item.file, "line": item.line,
+                     "summary": item.summary, "test_file": target})  # fmt: skip
+    if not kept:
+        return
+    where = attacks_dir(main, run.pr, run.head)
+    for folder in sorted(folders):
+        source = rv / folder
+        for path in sorted(source.rglob("*")):
+            if path.is_symlink() or not path.is_file() or path.name in PYTEST_CONFIG:
+                continue
+            copy = where / folder / path.relative_to(source)
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, copy)
+    (where / MANIFEST).write_text(json.dumps(kept, indent=1) + "\n")
+
+
+def earlier_rounds(
+    run: Run, main: Path, ledger_dir: Path
+) -> list[tuple[int, Path, list[dict[str, Any]]]]:
+    """Each earlier round's kept attacks `(round, folder, manifest)`. A round whose standing findings
+    were not kept (recorded before attacks were kept) is named in `run.not_kept`, and its findings are
+    handed to the lens to re-prove: a missing attack never reads as a pass."""
+    found = []
+    decisions = main / ".private" / "work" / "factory" / "verdicts"
+    for number in range(1, run.round_):
+        head = ledger.round_head(ledger_dir, run.pr, number)
+        where = attacks_dir(main, run.pr, head)
+        if (where / MANIFEST).is_file():
+            try:
+                manifest = json.loads((where / MANIFEST).read_text())
+            except (OSError, ValueError) as error:
+                raise Refused(f"round {number}'s kept attacks cannot be read") from error
+            if not isinstance(manifest, list) or not all(isinstance(e, dict) for e in manifest):
+                raise Refused(f"round {number}'s kept attacks cannot be read")
+            found.append((number, where, manifest))
+            continue
+        try:
+            views = json.loads(findings_file(decisions, run.pr, head).read_text())
+        except OSError, ValueError:
+            views = []
+        standing = [
+            view for view in views if isinstance(view, dict)
+            and view.get("status") in ledger.STANDS and int(view.get("score") or 0) >= 50
+        ]  # fmt: skip
+        if standing:
+            run.not_kept.append(number)
+            run.earlier_text.append(
+                f"Round {number}'s attack tests were not kept; its findings were (re-prove each one "
+                "still present as a finding with a repro):"
+            )
+            run.earlier_text += [
+                unnamed(f"- {view.get('file')}:{view.get('line')} ({view.get('score')}): "
+                        f"{view.get('summary')}")
+                for view in standing
+            ]  # fmt: skip
+    return found
+
+
+def replay_earlier(
+    run: Run, rv: Path, main: Path, earlier: list[tuple[int, Path, list[dict[str, Any]]]]
+) -> None:
+    """Re-run every earlier round's kept attack on the merged head (in `rv`, reset to it): one that
+    fails by name again is a CONFIRMED finding that blocks."""
+    assert run.merged is not None
+    assert run.slot is not None
+    git(rv, "reset", "-q", "--hard", run.merged)
+    git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules", f"--exclude=/{ATTACKS}")
+    found: list[Finding] = []
+    for number, where, manifest in earlier:
+        into = rv / ATTACKS / f"round{number}"
+        for path in sorted(where.rglob("*")):
+            if path.is_file() and not path.is_symlink() and path.name != MANIFEST:
+                target = into / path.relative_to(where)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(path, target)
+        for entry in manifest:
+            test_file = plain_test_path(str(entry.get("test_file") or ""))
+            name = f"{ATTACKS}/round{number}/{test_file}" if test_file is not None else None
+            failed = name is None or not (rv / name).is_file() or replay(rv, run.slot, name)
+            item = Finding(
+                f"r{number}-{entry.get('id')}",
+                max(int(entry.get("score") or 0), ledger.BLOCK_AT),
+                str(entry.get("file") or ""),
+                int(entry.get("line") or 0),
+                f"round {number}'s attack fails again: {entry.get('summary')}",
+                name,
+                word="CONFIRMED" if failed else "REFUTED",
+                method="replay",
+            )
+            if name is not None:
+                item.replayed = REPLAYS.pop((str(rv), name), {"outcome": "not run: no file"})
+            if failed:
+                found.append(item)
+    mark_on_tree(found, main, run.merged)
+    run.findings += found
+
+
+def delta_review(run: Run, args: argparse.Namespace, main: Path, ledger_dir: Path) -> None:
+    """A delta review past the round cap (the owner's Q-R1): one lens on the fix's own diff, then every
+    earlier round's kept attack re-run on the head; PASS only when they pass and no finding could
+    block (the ledger decides)."""
+    factory = main / ".private" / "work" / "factory"
+    review_dir = factory / "review"
+    run.tier = "delta"
+    earlier = earlier_rounds(run, main, ledger_dir)
+    run.slot, claim = claim_slot(review_dir)
+    with claim:
+        slot = review_dir / f"slot{run.slot}"
+        rv = main / ".claude" / "worktrees" / f"rv{run.slot}"
+        with ledger.ledger_lock(ledger_dir):
+            mark = journal_mark(ledger_dir)
+            before = ledger_snapshot(ledger_dir)
+        assert run.head is not None
+        assert run.merged is not None
+        try:
+            with locked(review_dir / ".git.lock"):
+                prepare(main, slot, run.merged, clean=True)
+                prepare(main, rv, run.merged, clean=True)
+                facts = write_delta(
+                    main, run, review_dir / "out" / f"{run.pr}-{run.head[:12]}-r{run.round_}"
+                )
+            reviews = lenses_in(run, [DELTA], rv, slot, main, facts)
+            confirm_and_refute(run, rv, slot, main, reviews)
+            replay_earlier(run, rv, main, earlier)
+            keep_attacks(run, rv, main)
         finally:
             with ledger.ledger_lock(ledger_dir):
                 check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
@@ -1430,7 +1701,14 @@ def write_facts(main: Path, run: Run, stem: Path) -> tuple[Path, Path]:
 # ---------------------------------------------------------------------------------------------- lenses
 
 
-def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) -> list[dict[str, Any]]:
+def lenses_in(
+    run: Run,
+    lenses: list[Lens],
+    rv: Path,
+    slot: Path,
+    main: Path,
+    facts: tuple[Path, Path] | None = None,
+) -> list[dict[str, Any]]:
     """Every lens, in parallel, started fresh by this run: its answer is read only from the output of
     the process this run started. Each result's cost is kept even when another lens fails."""
     assert run.head is not None
@@ -1438,7 +1716,7 @@ def lenses_in(run: Run, lenses: list[Lens], rv: Path, slot: Path, main: Path) ->
     n, head = run.slot, run.head
     out = main / ".private" / "work" / "factory" / "review" / "out"
     stem = f"{run.pr}-{head[:12]}-r{run.round_}"
-    facts = write_facts(main, run, out / stem)
+    facts = facts or write_facts(main, run, out / stem)
 
     def one(lens: Lens) -> dict[str, Any]:
         keep = out / f"{stem}-{lens.label}.json"
@@ -2106,6 +2384,7 @@ def summary(run: Run, code: int, why: str | None) -> dict[str, Any]:
         "lenses": run.lenses,
         "launched": run.launched,
         "total_cost_usd": run.cost(),
+        **({"earlier_attacks_not_kept": run.not_kept} if run.not_kept else {}),
     }
 
 
