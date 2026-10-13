@@ -97,4 +97,15 @@ describe('the save state', () => {
     actStarted()('answered')
     expect(saveState()).toBe('saved')
   })
+
+  it('stays dropped when a quick act is answered and then a slow act, started before it, is lost', () => {
+    const slow = actStarted()
+    const quick = actStarted()
+    quick('answered')
+    expect(saveState()).toBe('saving')
+    slow('dropped')
+    expect(saveState()).toBe('dropped')
+    actStarted()('answered')
+    expect(saveState()).toBe('saved')
+  })
 })
