@@ -603,6 +603,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     state = load_state(folder)
     step = Pass(folder, at, state)
+    watch_said(step)  # before track(): this pass's SAID lines count toward each item's relay
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
     records, reviews = load_launches(folder, since)
@@ -634,7 +635,6 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
             )
             log.write(f"{status.utc(at)} {line}\n")
 
-    watch_said(step)
     rows = governor.read_agents() if any(r["where"] == "local" for r in records.values()) else None
     items = [
         track(step, ticket, record, refs, main_sha, prs, rows)
@@ -841,17 +841,24 @@ def state_at(step: Pass, seen: dict[str, Any], head: str | None, state: str) -> 
 def relay(step: Pass, ticket: str, seen: dict[str, Any]) -> bool:
     """True when a `SAID` to the ticket has had no PUSH, COMMIT or STATUS for SAID_QUIET_MINUTES: the
     owner may need to carry the builder's reply by hand (S26-FX2)."""
-    try:
-        said_at = status.parse_utc(step.state.get("said", {}).get(ticket))
-    except TypeError, ValueError:
+    said_at = utc_or_none(step.state.get("said", {}).get(ticket))
+    if said_at is None:
         return False
     for answered in (seen.get("last_push_at"), step.state.get("status_at", {}).get(ticket)):
-        try:
-            if status.parse_utc(answered) > said_at:
-                return False
-        except TypeError, ValueError:
-            continue
+        answered_at = utc_or_none(answered)
+        if answered_at is not None and answered_at > said_at:
+            return False
     return status.minutes_between(said_at, step.at) >= SAID_QUIET_MINUTES
+
+
+def utc_or_none(value: Any) -> datetime | None:
+    """A UTC time read from the watcher's own state, or None for anything else."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return status.parse_utc(value)
+    except ValueError:
+        return None
 
 
 def watch_said(step: Pass) -> None:
