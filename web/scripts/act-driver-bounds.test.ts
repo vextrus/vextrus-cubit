@@ -216,3 +216,58 @@ describe('an answer deferred for want of a read (S25-W2 fix round)', () => {
     expect(answers.every(Boolean)).toBe(true)
   })
 })
+
+describe('an answer turn when the screen is not ready in time (S25-W2 round 2)', () => {
+  it('defers the answer when ready() times out, so act’s own wait cannot spend it after its read ended', async () => {
+    const reads: { start: number; end: number }[] = []
+    let tick = 0
+    let listShown = false
+    const answers: boolean[] = []
+    const running = () => reads.some((r) => r.start <= tick && tick < r.end)
+    // As walk.spec.ts's ready(): a 60-tick wait for Step 1's list, false when it timed out; the list
+    // shows only once the read has ended.
+    const ready = async () => {
+      if (listShown) return true
+      tick += 60
+      if (running()) return false
+      listShown = true
+      return true
+    }
+    const lengths = [200, 400]
+    const walk = {
+      files: ['kilo.dwg', 'lima.dwg'],
+      samplesMin: 5,
+      fileTimeoutMs: 100_000,
+      now: () => tick,
+      async idle() {
+        tick += 1
+      },
+      async upload() {
+        tick += 1
+        const start = Math.max(tick, reads.at(-1)?.end ?? 0)
+        reads.push({ start, end: start + lengths[reads.length]! })
+        listShown = false
+      },
+      async reading() {
+        tick += 1
+        return running()
+      },
+      ready,
+      async act(kind: ActKind) {
+        if (!(await ready())) return null
+        const during = running()
+        tick += 1
+        if (kind === 'answer') answers.push(during)
+        return record(kind, { read_running: during })
+      },
+    }
+    await actWhileReading(walk)
+    expect(answers.every(Boolean)).toBe(true)
+  })
+
+  it('still asks for an answer once the screen is ready and a read runs', async () => {
+    const w = world(['kilo.dwg'], { 'kilo.dwg': 900 })
+    const result = await actWhileReading({ ...w.walk, ready: async () => true })
+    expect(result.acts.filter((a) => a.kind === 'answer' && a.read_running).length).toBeGreaterThanOrEqual(5)
+  })
+})

@@ -34,8 +34,9 @@ export type ActWalk = {
   /** Whether any file of the acts Project is still reading. */
   reading(): Promise<boolean>
   /** Waits until the screen can take an act (Step 1's list shown); optional. The driver calls it before
-   * it decides an answer, so that decision is made after any wait `act` would otherwise do first. */
-  ready?(): Promise<unknown>
+   * it decides an answer, so that decision is made after any wait `act` would otherwise do first. Resolving false (not ready
+   * in time) defers the answer turn. */
+  ready?(): Promise<boolean | void>
   /** One timed act by its keys; null when the screen offered nothing to act on. */
   act(kind: ActKind): Promise<ActRecord | null>
   /** A pause between polls and after a cycle that made no act (the screen has nothing yet): optional. */
@@ -125,8 +126,8 @@ export async function actWhileReading(walk: ActWalk): Promise<ActOutcome> {
     if (await act('exclude')) await act('undo')
     // An answer cannot be undone and the supply is fixed: spend one only while a read runs.
     // The decision comes after the screen is ready: its wait can outlast the read.
-    await walk.ready?.()
-    if (await walk.reading()) {
+    // A screen not ready (false) is a deferral too: `act` would wait for it again, after this decision.
+    if ((await walk.ready?.()) !== false && (await walk.reading())) {
       asked = true
       await act('answer')
     } else deferred = true
