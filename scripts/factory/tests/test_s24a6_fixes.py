@@ -343,63 +343,44 @@ def test_a_local_builder_whose_session_id_was_not_read_still_blocks_a_second_bui
     assert len(governor.launch_records("t-loc", factory / "launches")) == 1
 
 
-def _without_ticket(argv: list[str]) -> list[str]:
-    at = argv.index("--ticket")
-    return argv[:at] + argv[at + 2 :]
+def test_the_runbook_passes_the_ticket_on_the_real_drawing_line() -> None:
+    root = Path(__file__).resolve().parents[3]
+    text = (root / ".claude/skills/orchestrate-wave/commands.md").read_text()
+    lines = [line for line in text.splitlines() if "scripts.factory.rdlock run" in line]
+    assert lines
+    assert all("--ticket" in line for line in lines), lines
 
 
-def test_a_posting_run_without_a_ticket_is_refused_when_its_pr_branch_has_moved(
+def test_a_posting_run_with_a_ticket_is_refused_when_the_branch_tip_cannot_be_read(
     tmp_path: Path,
 ) -> None:
     yard = Yard(tmp_path)
     yard.review(yard.first, "PASS")
-    newer = yard.push("fix: pushed after the review")
-    argv = _without_ticket(yard.argv("posting", yard.first))
-    done = subprocess.run(
-        argv, cwd=yard.clone, env=yard.env(), capture_output=True, text=True, stdin=subprocess.DEVNULL,
-        timeout=120, check=False,
-    )  # fmt: skip
+    yard.git(yard.clone, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
+    done = yard.run("posting", yard.first)
     assert done.returncode == rdlock.REFUSED, show(done)
-    assert newer[:8] in said(done), show(done)
+    assert "unreadable" in said(done), show(done)
     assert not yard.ran()
 
 
-def test_a_running_posting_run_without_a_ticket_is_cancelled_when_its_pr_branch_moves(
-    tmp_path: Path,
-) -> None:
+def test_a_posting_run_without_a_ticket_never_calls_gh(tmp_path: Path) -> None:
     yard = Yard(tmp_path)
     yard.review(yard.first, "PASS")
-    env = yard.env()
-    env["VEXTRUS_RDLOCK_POLL"] = "1"
-    command = f"import time; time.sleep(40); open({str(yard.marker)!r}, 'w').write('ran')"
-    argv = [*_without_ticket(yard.argv("posting", yard.first))[:-1], command]
-    proc = subprocess.Popen(
-        argv, cwd=yard.clone, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    calls = tmp_path / "gh-calls.txt"
+    (yard.stubs / "gh").write_text(
+        f"#!{sys.executable}\nimport sys\nopen({str(calls)!r}, 'a').write('x')\nsys.exit(1)\n"
     )
-    try:
-        for _ in range(100):
-            if yard.lock()["holder"] is not None or proc.poll() is not None:
-                break
-            time.sleep(0.1)
-        assert yard.lock()["holder"] is not None, "the run never started"
-        newer = yard.push("fix: pushed while the run ran")
-        out, err = proc.communicate(timeout=60)
-    finally:
-        if proc.poll() is None:
-            proc.kill()
-    assert proc.returncode == rdlock.CANCELLED, (out, err)
-    assert newer[:8] in out
-    assert not yard.ran()
-    assert yard.lock()["holder"] is None
-
-
-def test_a_posting_run_without_a_ticket_still_starts_on_the_current_head(tmp_path: Path) -> None:
-    yard = Yard(tmp_path)
-    yard.review(yard.first, "PASS")
-    argv = _without_ticket(yard.argv("posting", yard.first))
+    argv = yard.argv("posting", yard.first)
+    at = argv.index("--ticket")
     done = subprocess.run(
-        argv, cwd=yard.clone, env=yard.env(), capture_output=True, text=True, stdin=subprocess.DEVNULL,
-        timeout=120, check=False,
-    )  # fmt: skip
+        [*argv[:at], *argv[at + 2 :]],
+        cwd=yard.clone,
+        env={k: v for k, v in yard.env().items() if k != "VEXTRUS_PRS_FILE"},
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        timeout=120,
+        check=False,
+    )
     assert done.returncode == 0, show(done)
-    assert yard.ran()
+    assert not calls.exists(), "rdlock called gh without a ticket"

@@ -23,9 +23,10 @@ or SIGINT. It exits with the command's code.
 
 A `posting` run starts only on a head the review ledger passed
 (`$VEXTRUS_FACTORY_DIR/ledger/<PR>-<head>.json` with `verdict` `PASS`) and, when `--ticket` names a
-launch whose branch is known, only while `git ls-remote origin <branch>` still reads that head (with no
-`--ticket`, the branch is the `headRefName` of the PR whose ledger record names the head). The check
-runs before the run queues and again when its turn comes; a refusal exits 6 naming the missing
+launch whose branch is known, only while `git ls-remote origin <branch>` still reads that head (an
+unreadable branch refuses). Without `--ticket` no branch is known and only the ledger gate applies, so
+the runbook passes `--ticket` on every posting run. The check runs before the run queues and again when
+its turn comes; a refusal exits 6 naming the missing
 PASS or the newer head, runs nothing and frees the lock. A head also counts as passed when it differs
 from a passed head only by clean merges of main (`land.reviewed`). A posting run already running is
 stopped (exit 7, a `CANCELLED` line naming the newer head, the lock released) when its branch moves
@@ -212,41 +213,11 @@ def covered(head: str) -> bool:
     return any(reviewed(folder, number, head, repo=Path.cwd()) for number in numbers)
 
 
-def head_branch(head: str) -> str | None:
-    """The branch of the PR whose ledger record names this head (`ledger/<PR>-<head>.json`, then the PR
-    list's `headRefName`), or None; used when no `--ticket` names the branch."""
-    if not re.fullmatch(r"[0-9a-f]{40}", head):
-        return None
-    numbers = {
-        int(m.group(1))
-        for path in (status.factory_dir() / "ledger").glob(f"*-{head}.json")
-        if (m := re.match(r"(\d+)-", path.name))
-    }
-    if not numbers:
-        return None
-    try:
-        rows = json.loads(governor.prs_text())
-    except ValueError:
-        return None
-    if not isinstance(rows, list):
-        return None
-    for row in rows:
-        if (
-            isinstance(row, dict)
-            and row.get("number") in numbers
-            and row.get("isCrossRepository") is not True
-        ):
-            name = row.get("headRefName")
-            if isinstance(name, str) and name:
-                return name
-    return None
-
-
 def moved(head: str, ticket: str | None) -> str | None:
     """Why the branch no longer stands at this head (it names the newer head), or None; a branch that
-    cannot be read gives a reason starting `unreadable:`. The branch is the ticket's launch record's, or,
-    with no `--ticket`, the one of the PR the ledger passed this head for."""
-    branch = ticket_branch(ticket) or head_branch(head)
+    cannot be read gives a reason starting `unreadable:`. The branch is the ticket's launch record's;
+    with no `--ticket` no branch is known and nothing is checked (the runbook passes `--ticket`)."""
+    branch = ticket_branch(ticket)
     if branch is None:
         return None
     tip = tip_of(branch, head)
