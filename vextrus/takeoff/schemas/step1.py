@@ -139,6 +139,14 @@ class Step1CorrectedValueOut(Schema):
     """Where the old value was read, as `number_source` / `title_source` are; null where none is kept."""
 
 
+class Step1HistoryViewOut(Schema):
+    title: str
+    """The plan view's title."""
+    old: list[str]
+    new: list[str]
+    """Its storeys as keys, low to high, before and after the correction."""
+
+
 class Step1HistoryActOut(_FromView):
     """One act on a sheet, from the event log (m0-screens 6.6 item 5, "Who did what")."""
 
@@ -156,6 +164,8 @@ class Step1HistoryActOut(_FromView):
     """An exclusion's "other" words, as the QS typed them."""
     changes: dict[str, Step1CorrectedValueOut] | None = None
     """A correction's `number` and/or `title`, old to new."""
+    views: list[Step1HistoryViewOut] | None = None
+    """A correction's plan views whose storeys it changed (S24-B2)."""
 
 
 class Step1HistoryOut(Schema):

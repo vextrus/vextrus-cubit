@@ -71,6 +71,12 @@ CORRECTED_SINCE = MessageCode(
 )
 """A correction made from a form opened before the sheet's number or title changed (409): nothing is
 written; `field` is "number" or "title", `value` what it is now."""
+STOREYS_CORRECTED_SINCE = MessageCode(
+    "takeoff.step1.storeys_corrected_since", params=("view", "view_id", "sheet", "named", "moved", "now")
+)
+"""A correction made from a form opened before a plan view's storeys changed (409): nothing is
+written; `view` is the view's title and `view_id` its id; the sheet is named as `corrected_since`
+names it."""
 ANSWER_STAYS_AFTER_CORRECTION = MessageCode(
     "takeoff.step1.answer_stays_after_correction", params=("sheet", "named", "moved", "now")
 )

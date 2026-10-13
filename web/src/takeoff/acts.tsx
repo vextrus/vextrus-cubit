@@ -18,7 +18,7 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data, type ViewStoreysChange } from './data'
+import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type OpenedWith, type Step1Data, type ViewStoreysChange } from './data'
 import { LeavesConfirmAll } from './LeavesConfirmAll'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
@@ -165,6 +165,8 @@ export interface ViewChange extends ViewStoreysChange {
 export interface CorrectionRefusal {
   text: string
   field: 'number' | 'title' | null
+  /** The plan view it is about, when it is about a view's storeys: said under that view's fields, not the sheet's. */
+  view?: string
   /** The value the sheet holds now, when the refusal is `corrected_since`: the form takes it as what it opened with. */
   current?: { field: 'number' | 'title'; value: string }
   n: number
@@ -208,7 +210,7 @@ export interface Step1Acts {
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
   /** Corrects a sheet's number, title or plan views' storeys (§6.9, `E`): only what changed. */
-  correctSheet(sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }): Promise<boolean>
+  correctSheet(sheet: ProposalOut, change: SheetChange, opened?: OpenedWith): Promise<boolean>
   /** The last correction's refusal, shown under its field in the form (not as a toast over the bar). */
   correctionRefusal: CorrectionRefusal | null
   /** The form closed (or opens): a refusal belongs to the form it was made in. */
@@ -613,18 +615,20 @@ function useActs(
           // aria-describedby), not as a toast over the bar's main button (design gate of #706).
           let field: CorrectionRefusal['field'] = null
           let current: CorrectionRefusal['current']
+          let view: string | undefined
           try {
             const problem = problemOf(error)
             const refusal = problem && 'refusal' in problem ? problem.refusal : null
             const asked = String((refusal?.params as Record<string, unknown> | undefined)?.field ?? refusal?.code ?? '')
             field = asked.includes('number') ? 'number' : asked.includes('title') ? 'title' : null
             const params = refusal?.params as Record<string, unknown> | undefined
+            if (typeof params?.view_id === 'string') view = params.view_id
             if (refusal?.code === 'takeoff.step1.corrected_since' && field && typeof params?.value === 'string') current = { field, value: params.value }
           } catch {
             // Not the API's refusal: said plainly, under no field.
           }
           refusals.current += 1 // never reset: a second refusal is newer than what the person typed after the first
-          setCorrectionRefusal({ text: failedText(error), field, current, n: refusals.current })
+          setCorrectionRefusal({ text: failedText(error), field, view, current, n: refusals.current })
         } else say(error)
         return false
       } finally {
@@ -759,7 +763,7 @@ function useActs(
   )
 
   const correctSheet = useCallback(
-    (sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }) => {
+    (sheet: ProposalOut, change: SheetChange, opened?: OpenedWith) => {
       const name = <SheetName sheets={[sheet]} />
       const what = <CorrectedWords change={change} />
       // A sheet two sources agreed on leaves "Confirm all" with its typed value: said, not silent (design gate of #706).

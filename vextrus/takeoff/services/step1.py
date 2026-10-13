@@ -337,6 +337,8 @@ class HistoryAct:
     """An exclusion's "other" words, as the QS typed them."""
     changes: dict[str, dict[str, str | None]] | None = None
     """A correction's `{number?, title?: {old, new, old_source}}`."""
+    views: list[dict[str, Any]] | None = None
+    """A correction's plan views' storeys: `{title, old, new}` each, storey keys low to high (S24-B2)."""
 
 
 @dataclass(frozen=True)
@@ -738,7 +740,9 @@ def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
         storeys=list(view.storeys),
         storeys_as_stated=view.storeys_as_stated,
         storeys_meaning=view.storeys_meaning,
-        storeys_source=view.storeys_source,
+        # A part plan the QS corrected is "typed" to the web, as any other (the part-plan standing is the
+        # steps' business).
+        storeys_source="typed" if view.storeys_source == drawings.TYPED_PART else view.storeys_source,
         steps=list(view.steps),
         part=view.part,
         proposed_exclusion=view.proposed_exclusion,
@@ -2204,7 +2208,9 @@ def correct(
             changed["title"] = [sheet.title, drawings.typed_title(title)]
         viewed = drawings.typed_view_storeys(sheet.id, views or [])
         if viewed:
-            changed["views"] = [_view_change(before, after) for before, after in viewed]
+            _refuse_if_storeys_moved(opened, viewed, sheet)
+            titles = {v.id: v.title for v in drawings.views(sheet.id)}
+            changed["views"] = [_view_change(b, a, titles.get(b.view, "")) for b, a in viewed]
         if len(changed) == 1:
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
         # Where each value was read, for its undo (the reading's source, not the correction's).
@@ -2249,11 +2255,44 @@ def correct(
     return _act_view(act)
 
 
-def _view_change(before: drawings.ViewStoreys, after: drawings.ViewStoreys) -> dict[str, Any]:
+def _refuse_if_storeys_moved(
+    opened: Mapping[str, object] | None,
+    viewed: Sequence[tuple[drawings.ViewStoreys, drawings.ViewStoreys]],
+    sheet: drawings.SheetView,
+) -> None:
+    """A view's storeys another person corrected since the form opened are theirs, not silently
+    overwritten (409), as a number or title is: `opened["views"]` holds, per view the form sends, the
+    storeys (keys) and meaning it opened with. A view the form sent no opened state for is not judged."""
+    seen = (opened or {}).get("views")
+    if not isinstance(seen, Mapping):
+        return
+    titles = {v.id: v.title for v in drawings.views(sheet.id)}
+    for before, _after in viewed:
+        was = seen.get(str(before.view))
+        if not isinstance(was, Mapping):
+            continue
+        if (list(before.storeys), before.meaning or "") != (
+            list(was.get("storeys") or []),
+            was.get("meaning") or "",
+        ):
+            named = _label(str((opened or {}).get("number") or ""), sheet)
+            raise auth.Refused(
+                said.STOREYS_CORRECTED_SINCE(
+                    view=titles.get(before.view, "")[:80], view_id=str(before.view), **named
+                ),
+                status=409,
+            )
+
+
+def _view_change(
+    before: drawings.ViewStoreys, after: drawings.ViewStoreys, title: str
+) -> dict[str, Any]:
     """A plan view's storeys correction as the act keeps it: each of storeys, meaning and source as
-    `[before, after]` (the undo puts the first back, and stands only while the second is kept)."""
+    `[before, after]` (the undo puts the first back, and stands only while the second is kept), and
+    the view's title for the sheet's history."""
     return {
         "view": str(before.view),
+        "title": title,
         "storeys": [list(before.storeys), list(after.storeys)],
         "meaning": [before.meaning, after.meaning],
         "source": [before.source, after.source],
@@ -2627,7 +2666,12 @@ def _given_by(code: str, act: Confirmation, sheet: str) -> dict[str, Any]:
                 name: {"old": made[name][0], "new": made[name][1], "old_source": sources.get(name)}
                 for name in ("number", "title")
                 if name in made
-            }
+            },
+            "views": [
+                {"title": v.get("title") or "", "old": v["storeys"][0], "new": v["storeys"][1]}
+                for v in made.get("views") or []
+            ]
+            or None,
         }
     return {}
 

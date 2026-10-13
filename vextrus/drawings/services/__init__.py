@@ -133,6 +133,7 @@ from vextrus.drawings.services.reads import (
 )
 from vextrus.drawings.services.reports import BanglaSheet, FontRow, Report, report
 from vextrus.drawings.services.sheet_list import (
+    TYPED_PART,
     UNLOADED,
     AnchorsNotLoaded,
     PlotView,
@@ -168,6 +169,7 @@ __all__ = [
     "READING",
     "SECOND_READER",
     "SHEETS",
+    "TYPED_PART",
     "UNLOADED",
     "Added",
     "AnchorsNotLoaded",

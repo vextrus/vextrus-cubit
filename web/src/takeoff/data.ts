@@ -159,12 +159,19 @@ export interface ViewStoreysChange {
   meaning: 'at_floor_level' | 'floor_to_floor'
 }
 
+/** What the form opened with, sent beside a save: the server refuses a value another person changed since. `views`: each plan view sent, by id. */
+export interface OpenedWith {
+  number: string
+  title: string
+  views?: Record<string, { storeys: readonly string[]; meaning: string }>
+}
+
 /** A sheet's number, title or plan views' storeys as the QS corrected them (m0-screens §6.9, `E`): only what changed is sent. */
 export async function correct(
   projectId: string,
   proposal: string,
   change: { number?: string; title?: string; views?: readonly ViewStoreysChange[] },
-  opened?: { number: string; title: string },
+  opened?: OpenedWith,
 ): Promise<ActOut> {
   const { views, ...sheet } = change
   const body = { proposal, ...sheet, ...(views ? { views: views.map(({ view, storeys, meaning }) => ({ view, storeys, meaning })) } : {}) }

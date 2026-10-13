@@ -34,6 +34,9 @@ msgstr "Nothing undone: {named, select, number {{sheet}{moved, select, yes {, no
 msgid "takeoff.step1.corrected_since"
 msgstr "Nothing was corrected: {named, select, number {{sheet}{moved, select, yes {, now {now},} none {, now without a number,} other {}}} title {the sheet titled “{sheet}”} other {that sheet}} was changed since you opened it. {has, select, no {It now has no {field, select, number {number} other {title}}.} other {Its {field, select, number {number} other {title}} is now “{value}”.}} To change the sheet again, save it again."
 
+msgid "takeoff.step1.storeys_corrected_since"
+msgstr "Nothing was corrected: {named, select, number {{sheet}{moved, select, yes {, now {now},} none {, now without a number,} other {}}} title {the sheet titled “{sheet}”} other {that sheet}} was changed since you opened it. The storeys of “{view}” are no longer what the form showed. To see them, cancel the correction and open it again with E."
+
 msgid "takeoff.step1.answer_stays_after_correction"
 msgstr "Your correction to {named, select, number {{sheet}{moved, select, yes {, now {now},} none {, now without a number,} other {}}} title {the sheet titled “{sheet}”} other {that sheet}} stays, because that sheet has changed since. Nothing undone: an answer to a Question cannot be undone, nor anything before it. To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."
 

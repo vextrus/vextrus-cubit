@@ -15,6 +15,7 @@ from vextrus.platform.services import tenancy
 from vextrus.takeoff.models import Confirmation
 from vextrus.takeoff.tests.acceptance.t19a.step1 import *  # noqa: F403 (its fixtures, by name)
 from vextrus.takeoff.tests.acceptance.t19a.step1 import by_number, proposals, step1
+from vextrus.takeoff.tests.acceptance.ts24b1.history import history
 from vextrus.testing.auth import Api
 
 pytestmark = pytest.mark.django_db(databases=["default", "owner"])
@@ -127,10 +128,8 @@ def test_a_range_is_refused_with_the_item_named(nusrat: Api, kr01: uuid.UUID) ->
     refused = correct(nusrat, kr01, body(sheet, (plan["id"], "2nd, basement to 3rd", "floor_to_floor")))
 
     assert refused.status_code == 400
-    assert refused.json() == {
-        "code": "drawings.sheets.storeys_range",
-        "params": {"word": "basement to 3rd"},
-    }
+    assert refused.json()["code"] == "drawings.sheets.storeys_range"
+    assert refused.json()["params"]["word"] == "basement to 3rd"
 
 
 def test_a_storeys_correction_does_not_stand_once_another_persons_correction_follows_it(
@@ -182,3 +181,106 @@ def test_the_app_writes_a_views_storeys_meaning_and_source_and_no_other_column(
                 "select has_column_privilege(current_user, 'drawings_view', %s, 'UPDATE')", [column]
             )
             assert cursor.fetchone() == (False,), column
+
+
+# Review of #777 --------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("typed", "meaning", "code"),
+    [
+        ("", "at_floor_level", "drawings.sheets.storeys_empty"),
+        ("2nd, kitchen", "at_floor_level", "drawings.sheets.storeys_not_a_storey"),
+        ("2nd", "at ceiling", "drawings.sheets.storeys_meaning_unknown"),
+    ],
+)
+def test_a_storeys_refusal_names_the_view_it_is_about(
+    nusrat: Api, kr01: uuid.UUID, typed: str, meaning: str, code: str
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+
+    refused = correct(nusrat, kr01, body(sheet, (plan["id"], typed, meaning)))
+
+    assert (refused.status_code, refused.json()["code"]) == (400, code)
+    assert refused.json()["params"]["view_id"] == plan["id"]
+    assert refused.json()["params"]["view_title"] == plan["title"][:80]
+
+
+def opened_with(plan: dict[str, Any]) -> dict[str, Any]:
+    return {"views": {plan["id"]: {"storeys": plan["storeys"], "meaning": plan["storeys_meaning"]}}}
+
+
+def post_opened(api: Api, project: uuid.UUID, payload: dict[str, Any], opened: dict[str, Any]) -> Any:
+    """`correct` as the form sends it: with the values it opened with in its header."""
+    import json
+    from urllib.parse import quote
+
+    return api.client.post(
+        f"{step1(project)}/correct",
+        data=json.dumps(payload),
+        content_type="application/json",
+        headers={"X-CSRFToken": api.csrf_token(), "X-Step1-Opened-With": quote(json.dumps(opened))},
+    )
+
+
+def test_storeys_another_person_corrected_since_the_form_opened_are_not_overwritten(
+    nusrat: Api, kr01: uuid.UUID, as_person: Any
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    arif = as_person("arif@vextrus.example", "shapla")
+    assert correct(arif, kr01, body(sheet, (plan["id"], "9th", "at_floor_level"))).status_code == 200
+
+    stale = post_opened(
+        nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor")), opened_with(plan)
+    )
+
+    assert (stale.status_code, stale.json()["code"]) == (409, "takeoff.step1.storeys_corrected_since")
+    assert stale.json()["params"]["view"] == plan["title"][:80]
+    assert stale.json()["params"]["view_id"] == plan["id"]
+    assert plan_now(nusrat, kr01) == (["floor_9"], "at_floor_level", "typed")
+
+
+def test_storeys_saved_from_a_form_that_is_current_go_through(nusrat: Api, kr01: uuid.UUID) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+
+    done = post_opened(
+        nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor")), opened_with(plan)
+    )
+
+    assert done.status_code == 200, done.content
+    assert plan_now(nusrat, kr01)[0] == ["floor_2"]
+
+
+def test_a_sheets_history_names_the_storeys_a_correction_changed(nusrat: Api, kr01: uuid.UUID) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    assert (
+        correct(nusrat, kr01, body(sheet, (plan["id"], "2nd, 4th", "floor_to_floor"))).status_code == 200
+    )
+
+    [act] = [a for a in history(nusrat, kr01, sheet["id"]) if a["code"] == "takeoff.step1.corrected"]
+
+    assert act["views"] == [{"title": plan["title"], "old": READ[0], "new": ["floor_2", "floor_4"]}]
+
+
+def test_a_corrected_part_plan_stays_out_of_the_same_storey_comparison(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    from vextrus.takeoff.services.read_propose import proposals as reading
+
+    sheet, plan = s06_plan(nusrat, kr01)
+    sheet_id = uuid.UUID(sheet["sheet_id"])
+    with tenancy.acting_in(demo["developer:shapla"]):  # a part plan: its storeys read from a title line
+        drawings.set_view_storeys(
+            sheet_id,
+            [drawings.ViewStoreys(uuid.UUID(plan["id"]), ("floor_3",), "at_floor_level", "title_line")],
+        )
+    [sheet] = by_number(proposals(nusrat, kr01), "S-06")
+    [plan] = [v for v in sheet["views"] if v["kind"] == "plan"]
+
+    assert correct(nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor"))).status_code == 200
+
+    with tenancy.acting_in(demo["developer:shapla"]):
+        [kept] = [v for v in drawings.views(sheet_id) if str(v.id) == plan["id"]]
+        assert kept.storeys_source == drawings.TYPED_PART
+        assert str(reading.view_candidate(kept).storeys_source) == "title_line"
+    assert plan_now(nusrat, kr01) == (["floor_2"], "floor_to_floor", "typed")

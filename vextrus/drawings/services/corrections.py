@@ -129,8 +129,8 @@ def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.Shee
     return sheet_list.sheet(printed.id)
 
 
-STOREYS_LENGTH = 200
-"""The longest storey list the QS may type: a title's storey words run to a line."""
+STOREYS_LENGTH = 500
+"""The longest storey list the QS may type: room for `MAX_STOREYS` listed one by one ("40th floor, ")."""
 MAX_STOREYS = 40
 """The most storeys one view may be given: a tall tower's floors listed one by one."""
 MEANINGS = (StoreysMeaning.AT_FLOOR_LEVEL.value, StoreysMeaning.FLOOR_TO_FLOOR.value)
@@ -255,11 +255,21 @@ def typed_view_storeys(
         if view.id in seen:
             raise auth.Refused(said.STOREYS_VIEW_TWICE(), status=400)
         seen.add(view.id)
-        keys = typed_storeys(storeys)
-        if not isinstance(meaning, str) or meaning not in MEANINGS:
-            raise auth.Refused(said.STOREYS_MEANING_UNKNOWN(), status=400)
+        try:
+            keys = typed_storeys(storeys)
+            if not isinstance(meaning, str) or meaning not in MEANINGS:
+                raise auth.Refused(said.STOREYS_MEANING_UNKNOWN(), status=400)
+        except auth.Refused as refused:
+            # Which view it is about, for the form to say it under that view's fields (the words stay).
+            about = {**refused.message["params"], "view_id": str(view.id), "view_title": view.title[:80]}
+            raise auth.Refused(
+                {"code": refused.message["code"], "params": about}, status=refused.status
+            ) from None
         before = ViewStoreys(view.id, tuple(view.storeys), view.storeys_meaning, view.storeys_source)
-        after = ViewStoreys(view.id, keys, meaning, TYPED)
+        # A part plan (its storeys read from a title line) stays one: it sits out of the same-storey
+        # comparison once corrected, as it did before (review of #777).
+        part = view.storeys_source in ("title_line", sheet_list.TYPED_PART)
+        after = ViewStoreys(view.id, keys, meaning, sheet_list.TYPED_PART if part else TYPED)
         if (before.storeys, before.meaning) != (after.storeys, after.meaning):
             changes.append((before, after))
     return changes

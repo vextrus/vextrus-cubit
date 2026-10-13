@@ -117,4 +117,44 @@ describe('the storeys fields of E (§6.9)', () => {
     await userEvent.tab()
     expect(within(inspector).getAllByRole('radio').map((r) => (r as HTMLInputElement).checked)).toEqual([false, false])
   })
+
+  it('says a storeys refusal under the view it is about, not under Number, and retyping the storeys clears it', async () => {
+    const plan = view('1', 'plan', PLAN, { storeys: ['floor_2', 'floor_3', 'floor_4'], storeys_meaning: 'floor_to_floor' })
+    const other = view('2', 'plan', 'Beam layout 5th floor', { storeys: ['floor_5'], storeys_meaning: 'floor_to_floor' })
+    const { step1, inspector } = await correcting([plan, other])
+    const field = fieldOf(inspector, 'Beam layout 5th floor')
+    await userEvent.clear(field)
+    await userEvent.type(field, 'kitchen')
+    step1.answerOnce('POST /correct', 400, { code: 'drawings.sheets.storeys_not_a_storey', params: { word: 'kitchen', view_id: other.id, view_title: other.title } })
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fieldOf(inspector, 'Beam layout 5th floor')).toHaveAttribute('aria-invalid', 'true'))
+    expect(within(inspector).getByRole('textbox', { name: 'Number' })).not.toHaveAttribute('aria-invalid')
+    expect(fieldOf(inspector, PLAN)).not.toHaveAttribute('aria-invalid')
+
+    await userEvent.type(fieldOf(inspector, 'Beam layout 5th floor'), 's')
+    await waitFor(() => expect(fieldOf(inspector, 'Beam layout 5th floor')).not.toHaveAttribute('aria-invalid'))
+  })
+
+  it('sends no storeys the QS never touched after the sheet is reloaded under the open form', async () => {
+    // Review of #777: the draft was frozen at open but compared with the reloaded sheet, so another person's
+    // storeys (or a reload) made an untouched view look changed.
+    const plan = view('1', 'plan', PLAN, { storeys: ['floor_2', 'floor_3', 'floor_4'], storeys_meaning: 'floor_to_floor' })
+    const { step1, inspector } = await correcting([plan])
+    const stored = step1.proposals.find((p) => p.number === 'S-06') as unknown as { views: { storeys: string[] }[] }
+    stored.views[0]!.storeys = ['floor_9'] // another person's correction, landing with the next reload
+    step1.answerOnce('POST /correct', 409, { code: 'takeoff.step1.corrected_since', params: { field: 'title', value: 'THEIR TITLE', has: 'yes', sheet: 'S-06', named: 'number', moved: 'no', now: 'S-06' } })
+    const title = within(inspector).getByRole('textbox', { name: 'Title' })
+    await userEvent.clear(title)
+    await userEvent.type(title, 'My title')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(within(inspector).getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
+    await waitFor(() => expect(step1.calls().filter((c) => c === 'GET /proposals').length).toBeGreaterThan(1))
+
+    await userEvent.type(within(inspector).getByRole('textbox', { name: 'Title' }), '!')
+    await userEvent.keyboard('{Enter}')
+
+    await waitFor(() => expect(step1.seen.filter((x) => x.call === 'POST /correct').length).toBe(2))
+    const second = step1.seen.filter((x) => x.call === 'POST /correct')[1]!.body as Record<string, unknown>
+    expect(second).not.toHaveProperty('views')
+  })
 })

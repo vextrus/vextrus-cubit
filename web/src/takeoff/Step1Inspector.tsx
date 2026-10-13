@@ -19,7 +19,7 @@ import { StoreyStrip, StoreysText, knownStorey, useListedStoreys, useStoreysWord
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName, type CorrectionRefusal, type SheetChange, type ViewChange } from './acts'
 import { SheetRange } from './SheetRange'
-import type { CoverageOut, ProposalOut, ViewOut } from './data'
+import type { CoverageOut, OpenedWith, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
@@ -473,7 +473,7 @@ export interface Correcting {
   /** Why the last save was refused, in words, and the field it is about. */
   refusal?: CorrectionRefusal | null
   /** `opened`: the values the form opened with, so another person's correction since is refused, not overwritten. */
-  save: (change: SheetChange, opened: { number: string; title: string }) => void
+  save: (change: SheetChange, opened: OpenedWith) => void
   cancel: () => void
 }
 
@@ -498,7 +498,7 @@ interface ViewDraft {
  * meaning as a two-choice toggle, "at floor level" | "floor to floor". A view read "at ceiling level" shows
  * that beside the toggle, which does not offer it: a correction picks one of the two, none chosen at first.
  */
-function ViewStoreysFields({ view, draft, onChange, error }: { view: ViewOut; draft: ViewDraft; onChange: (next: ViewDraft) => void; error: boolean }) {
+function ViewStoreysFields({ view, draft, onChange, error, refusal }: { view: ViewOut; draft: ViewDraft; onChange: (next: ViewDraft) => void; error: boolean; refusal?: string }) {
   const { t } = useLingui()
   const title = <DrawingText kind="title" text={view.title} truncate={false} />
   const name = useId()
@@ -512,6 +512,7 @@ function ViewStoreysFields({ view, draft, onChange, error }: { view: ViewOut; dr
         spellCheck={false}
         placeholder={t`3rd, 5th, 7th`}
         value={draft.storeys}
+        error={refusal}
         onChange={(event) => onChange({ ...draft, storeys: event.target.value })}
       />
       <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-describedby={error ? `${name}-error` : undefined}>
@@ -576,21 +577,28 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
   // A refusal stands under its field until that field (or the other) is typed in.
   const [edited, setEdited] = useState<number>(0)
   const shown = refusal && refusal.n > edited ? refusal : null
-  const fieldError = (field: 'number' | 'title') => (shown && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
+  const fieldError = (field: 'number' | 'title') => (shown && !shown.view && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
   const plans = [...(correcting.sheet.views ?? [])].filter((v) => v.kind === 'plan').sort((a, b) => a.ordinal - b.ordinal)
   const start = (v: ViewOut): ViewDraft => ({ storeys: listed(v.storeys), meaning: picked(v.storeys_meaning) })
   const [drafts, setDrafts] = useState<Record<string, ViewDraft>>(() => Object.fromEntries(plans.map((v) => [v.id, start(v)])))
+  // Each view as the form opened with it: the sheet may be reloaded under the form, but a view is sent only when
+  // its draft differs from this, never from the reloaded sheet (and the server is told what it opened with).
+  const [openedViews] = useState(() => Object.fromEntries(plans.map((v) => [v.id, { draft: start(v), storeys: [...v.storeys], meaning: v.storeys_meaning ?? '' }])))
   const [unchosen, setUnchosen] = useState<ReadonlySet<string>>(new Set())
   const submit = () => {
     const change: { number?: string; title?: string; views?: ViewChange[] } = {}
     if (number.trim() !== opened.number) change.number = number.trim()
     if (title.trim() !== opened.title) change.title = title.trim()
     const views: ViewChange[] = []
+    const sent: NonNullable<OpenedWith['views']> = {}
     const missing = new Set<string>()
     for (const v of plans) {
       const draft = drafts[v.id]
-      const was = start(v)
-      if (!draft || (draft.storeys.trim() === was.storeys.trim() && draft.meaning === was.meaning)) continue
+      const opened = openedViews[v.id]
+      if (!draft || !opened) continue
+      const was = opened.draft
+      if (draft.storeys.trim() === was.storeys.trim() && draft.meaning === was.meaning) continue
+      sent[v.id] = { storeys: opened.storeys, meaning: opened.meaning }
       if (draft.meaning === null) missing.add(v.id)
       else views.push({ view: v.id, title: v.title, storeys: draft.storeys.trim(), meaning: draft.meaning })
     }
@@ -599,7 +607,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
     if (views.length > 0) change.views = views
     // Nothing changed: nothing to send, as Cancel.
     if (change.number === undefined && change.title === undefined && change.views === undefined) return cancel()
-    save(change, opened)
+    save(change, Object.keys(sent).length > 0 ? { ...opened, views: sent } : opened)
   }
   return (
     <KeyScope level="mode" name="correct-proposal" modal>
@@ -646,7 +654,9 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
               view={v}
               draft={drafts[v.id] ?? start(v)}
               error={unchosen.has(v.id)}
+              refusal={shown?.view === v.id ? shown.text : undefined}
               onChange={(next) => {
+                setEdited(refusal?.n ?? 0)
                 setDrafts((all) => ({ ...all, [v.id]: next }))
                 setUnchosen((all) => (all.has(v.id) ? new Set([...all].filter((id) => id !== v.id)) : all))
               }}

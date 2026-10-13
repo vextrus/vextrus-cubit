@@ -557,7 +557,11 @@ def view_candidate(view: drawings.ViewView) -> ViewCandidate:
     x0, y0, x1, y1 = (float(v) for v in view.box)
     meaning = StoreysMeaning(view.storeys_meaning) if view.storeys and view.storeys_meaning else None
     sources = {str(s) for s in StoreysSource}
-    source = view.storeys_source if meaning and view.storeys_source in sources else None
+    # A part plan the QS corrected (`typed_part`) is still a part plan: it sits out of same_storey.
+    kept = (
+        StoreysSource.TITLE_LINE if view.storeys_source == drawings.TYPED_PART else view.storeys_source
+    )
+    source = kept if meaning and kept in sources else None
     return ViewCandidate(
         box=Box(x0, y0, x1, y1),
         kind=ViewKind(view.kind),
