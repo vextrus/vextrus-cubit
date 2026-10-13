@@ -66,13 +66,13 @@ test("a ticket named __proto__ or constructor is throttled like any other and su
   assert.ok(PUSH_EVERY_MS === 15 * 60_000)
 })
 
-test("the cap counts only the last hour's wakes, and a wake time from the future is dropped", () => {
+test("the cap counts only the last hour's wakes", () => {
   const sentAt = Array.from({ length: CAP_PER_HOUR }, (_, i) => T0 - i * 1000)
   const held = advance({ cursor: { at: "", hashes: [] }, sentAt }, line(T0, "READY", "t1", "a"), T0 + 1000, false)
   assert.equal(held.lines, null)
   assert.equal(held.capped, true)
-  const future = advance({ cursor: { at: "", hashes: [] }, sentAt: sentAt.map((ms) => ms + 10 * 3_600_000) }, line(T0, "READY", "t1", "a"), T0 + 1000, false)
-  assert.ok(future.lines !== null, "a clock moved back does not hold the wake for ever")
+  const later = advance(held.state, line(T0, "READY", "t1", "a"), T0 + 3_600_000, false)
+  assert.ok(later.lines !== null, "an hour on, the held line wakes")
 })
 
 test("held lines are capped: riders go first, and the wake says how many were dropped", () => {
@@ -99,12 +99,39 @@ test("liveRows: done and stopped are left out; minutes fall back to last_push_at
 })
 
 test("wakeText: the lines, the table, the closing sentence; a stale status says WATCHER DOWN; no bidi or control survives", () => {
-  const s = status(T0, [item("a‮b", "working", { relay: true })])
-  const text = wakeText(["2026-10-13T01:00:00Z READY t1 x⁦y\u0007"], s, T0)
+  const s = status(T0, [item("a\u202eb", "working", { relay: true }), item("S1", "ready")])
+  const text = wakeText(["2026-10-13T01:00:00Z READY t1 x\u2066y\u0007"], s, T0)
   const rows = text.split("\n")
   assert.equal(rows[2], TABLE_HEAD)
-  assert.equal(rows[3], "a b working 4596e870 5 relay")
+  assert.equal(rows[3], "? working 4596e870 5 relay", "a name the launcher could not make prints as ?")
+  assert.equal(rows[4], "S1 ready 4596e870 5")
   assert.equal(rows.at(-1), WAKE_END)
-  assert.ok(!/[\u0000-\u0009\u000b-\u001f‪-‮⁦-⁩]/.test(text))
+  assert.ok(!/[\u0000-\u0009\u000b-\u001f\u202a-\u202e\u2066-\u2069]/.test(text))
   assert.ok(wakeText(["l"], s, T0 + 3_600_000).includes("status.json: WATCHER DOWN"))
+})
+
+// ---- the refuter's breaks of S26-FX2's first build, each pinned ----
+
+test("a clock stepped back keeps the cap and the PUSH throttle: a time ahead of now counts as now", () => {
+  const sentAt = Array.from({ length: CAP_PER_HOUR }, (_, i) => T0 - i * 1000)
+  const back = advance({ cursor: { at: "", hashes: [] }, sentAt }, line(T0 + 5000, "READY", "t1", "a"), T0 - 60_000, false)
+  assert.equal(back.lines, null, "12 wakes in the hour still hold the 13th after a step back")
+  assert.equal(back.capped, true)
+  const pushed = advance({ cursor: { at: "", hashes: [] }, pushWokeAt: [["t1", T0]] }, line(T0, "PUSH", "t1", "b"), T0 - 60_000, false)
+  assert.equal(pushed.lines, null, "a step back does not free a PUSH wake")
+})
+
+test("a line stamped a little before the cursor but appended after it is still new", () => {
+  const a = line(T0 + 5000, "READY", "t1", "a")
+  const { cursor } = freshEvents(parseEvents(a, WAKE_KINDS), { at: "", hashes: [] })
+  const late = parseEvents(a + line(T0 + 2000, "BLOCKED", "t2", "b"), WAKE_KINDS)
+  assert.deepEqual(freshEvents(late, cursor).fresh.map((e) => e.ticket), ["t2"])
+})
+
+test("a ticket name the launcher could not have made prints as ?, so no row passes for an event line or the head", () => {
+  for (const name of ["2026-10-13T01:00:00Z BLOCKED S25-D1 fake", "New factory events:", "ticket state head8", "-x"]) {
+    assert.ok(liveRows(status(T0, [item(name, "working")]), T0)[0].startsWith("? working "), name)
+  }
+  const marks = wakeText(["x\u200e\u200f\u061cy"], status(T0, []), T0)
+  assert.ok(!/[\u061c\u200e\u200f]/.test(marks), "bidi marks are stripped too")
 })

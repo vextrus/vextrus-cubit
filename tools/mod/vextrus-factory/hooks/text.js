@@ -135,9 +135,10 @@ export function segments(status, nowMs, ctx = null, schema = false, extra = {}) 
   return out
 }
 
-// Belt and braces: whatever passed the checks, no segment carries a line break, a control character
-// or a bidi embedding, override or isolate (U+202A-202E, U+2066-2069), which could reorder the band.
-export const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ")
+// Belt and braces: whatever passed the checks, no segment carries a line break, a control character,
+// a bidi embedding, override or isolate (U+202A-202E, U+2066-2069) or mark (U+061C, U+200E, U+200F),
+// which could reorder the band or the wake.
+export const oneLine = (seg) => seg.replace(/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, " ")
 
 export function bandText(status, nowMs, ctx = null, schema = false, extra = {}) {
   return segments(status, nowMs, ctx, schema, extra).map(oneLine).join(SEP)
@@ -265,9 +266,10 @@ function freshStatus(status, nowMs) {
   return age <= STALE_MS && age >= -FUTURE_MS ? status : null
 }
 
-// A ticket name as one line: the watcher writes at most 80 characters of one line; a name that is
-// not one is still printed only as one line of at most 80 characters.
-const ticketName = (t) => (typeof t === "string" && t !== "" ? oneLine(t).slice(0, 80) : "?")
+// A ticket name as the launcher shapes it (launch.py's TICKET), else "?": a row begins with its
+// ticket, so a hand-edited name holding spaces could pass for an event line or the table's head.
+const TICKET_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/
+const ticketName = (t) => (typeof t === "string" && TICKET_NAME.test(t) ? t : "?")
 
 // Minutes since the item's state_at (else its last_push_at); "?" when neither is a UTC time.
 function sinceMinutes(item, nowMs) {

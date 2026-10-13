@@ -588,6 +588,8 @@ class Pass:
 
     def event(self, kind: str, subject: str | None, detail: str) -> None:
         self.events.append((kind, subject, detail))
+        if kind == "STATUS" and subject:  # a builder's answer: it clears the ticket's relay (S26-FX2)
+            self.state.setdefault("status_at", {})[subject] = status.utc(self.at)
 
     def alarm(self, key: str, code: str, subject: str | None, detail: str) -> None:
         self.alarms[f"{code}|{key}"] = (code, subject, detail)
@@ -839,14 +841,16 @@ def state_at(step: Pass, seen: dict[str, Any], head: str | None, state: str) -> 
 def relay(step: Pass, ticket: str, seen: dict[str, Any]) -> bool:
     """True when a `SAID` to the ticket has had no PUSH, COMMIT or STATUS for SAID_QUIET_MINUTES: the
     owner may need to carry the builder's reply by hand (S26-FX2)."""
-    said = step.state.get("said", {}).get(ticket)
-    if not isinstance(said, str):
+    try:
+        said_at = status.parse_utc(step.state.get("said", {}).get(ticket))
+    except TypeError, ValueError:
         return False
-    said_at = status.parse_utc(said)
-    for key in ("last_push_at", "status_at"):
-        answered = seen.get(key)
-        if isinstance(answered, str) and status.parse_utc(answered) > said_at:
-            return False
+    for answered in (seen.get("last_push_at"), step.state.get("status_at", {}).get(ticket)):
+        try:
+            if status.parse_utc(answered) > said_at:
+                return False
+        except TypeError, ValueError:
+            continue
     return status.minutes_between(said_at, step.at) >= SAID_QUIET_MINUTES
 
 
@@ -864,7 +868,7 @@ def watch_said(step: Pass) -> None:
     chunk = data[offset : data.rfind(b"\n") + 1] if data.rfind(b"\n") >= offset else b""
     step.state["said_offset"] = offset + len(chunk)
     said: dict[str, str] = step.state.setdefault("said", {})
-    for line in chunk.decode("utf-8", "replace").splitlines():
+    for line in chunk.decode("utf-8", "replace").split("\n"):
         parts = line.split(" ")
         if len(parts) < 2 or not parts[1]:
             continue
@@ -872,7 +876,9 @@ def watch_said(step: Pass) -> None:
             when = status.parse_utc(parts[0])
         except ValueError:
             continue
-        said[parts[1]] = status.utc(when)
+        held = said.get(parts[1])
+        if not isinstance(held, str) or held < status.utc(when):  # the newest SAID counts
+            said[parts[1]] = status.utc(when)
         step.event("SAID", parts[1], "sent")
 
 

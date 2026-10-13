@@ -18,7 +18,7 @@
 
 import { TABS, VERDICTS, budgetText, factoryView, lastCost, sessionBudget, verdictKey, wipText } from "./factory.js"
 import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, oneLine, parseEvents, parseStatus, ticketRows, toastText, wakeText } from "./text.js"
-import { advance, giveBack } from "./wake.js"
+import { advance, giveBack, readWake } from "./wake.js"
 
 // "band" draws above the prompt (AbovePrompt); "status" is the verified fallback, $.ui.status(text).
 const SURFACE = "band"
@@ -164,24 +164,35 @@ async function toastOwnerLines($, text, nowMs) {
 // A submitted wake waits until the session is idle; the engine resolves its promise as its turn
 // starts. Until then no second wake is submitted: the lines are held for the next one. A wake whose
 // submit failed gives its lines back to the next poll.
-let waiting = false
+// A wake still waiting after WAIT_MAX_MS no longer holds the next (the cap still does): a submit the
+// engine never starts must not stop every later wake.
+const WAIT_MAX_MS = 30 * 60_000
+let waitingSince = null
 let givenBack = []
+// The hour's wake times as this module last stored them: a store that reads back off-form must not
+// reset the cap (it is the loop guard).
+let sentMemory = []
 
-async function wake($, log, statusText) {
+async function wake($, log, unreadable, statusText) {
   const nowMs = await $.clock.now()
-  let held = await $.store.get(WAKE_STORE)
+  let held = readWake(await $.store.get(WAKE_STORE))
+  held = { ...held, sentAt: [...new Set([...held.sentAt, ...sentMemory])] }
   if (givenBack.length > 0) {
     held = giveBack(held, givenBack)
     givenBack = []
   }
-  const { state, lines, capped } = advance(held, log, nowMs, waiting)
+  // No events.log yet: every line it later gets is news. An unreadable one is not read as empty.
+  const read = log === null && !unreadable ? "" : log
+  const waiting = waitingSince !== null && nowMs - waitingSince < WAIT_MAX_MS
+  const { state, lines, capped } = advance(held, read, nowMs, waiting)
+  sentMemory = state.sentAt
   // Stored before the submit: a failed write submits nothing, so no line is sent twice.
   await $.store.set(WAKE_STORE, state)
   await $.state.set(WAKE, { capped })
   if (lines === null) return
   const { status, schema } = parseStatus(statusText)
   const text = wakeText(lines, status, nowMs, schema)
-  waiting = true
+  waitingSince = nowMs
   let sent
   try {
     sent = Promise.resolve($.prompt.submit({ text }))
@@ -191,10 +202,10 @@ async function wake($, log, statusText) {
   // Never awaited: the poll goes on while the wake waits for the session to be idle.
   sent.then(
     () => {
-      waiting = false
+      waitingSince = null
     },
     () => {
-      waiting = false
+      waitingSince = null
       givenBack.push(...lines)
     },
   )
@@ -223,7 +234,7 @@ async function poll($, paths) {
       $.ui.status(bandText(status, await $.clock.now(), null, schema))
     }
     if (log !== null) await toastOwnerLines($, log, await $.clock.now())
-    await wake($, log, text)
+    await wake($, log, unreadable, text)
   } catch {
     // never throw out of the poll
   } finally {

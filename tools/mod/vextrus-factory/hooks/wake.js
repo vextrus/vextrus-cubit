@@ -62,19 +62,24 @@ export function readWake(raw) {
   return { cursor, held, dropped, pushWokeAt, sentAt }
 }
 
-// The cursor at the log's newest second: that second and the hashes of every line written in it
-// (watch.py stamps a pass's lines with one second).
+// How far before the cursor's second a line appended later is still read as new (a pass's lines share
+// one second; a clock stepped back a little stamps a later line earlier).
+export const CURSOR_WINDOW_MS = 120_000
+const within = (at, cursorAt) => Date.parse(at) >= Date.parse(cursorAt) - CURSOR_WINDOW_MS
+
+// The cursor at the log's newest second, with the hashes of every line of its window. An identical
+// line written twice inside the window is read once.
 function endCursor(events, previous) {
   if (events.length === 0) return previous ?? { at: "", hashes: [] }
   const at = events.reduce((m, e) => (e.at > m ? e.at : m), "")
-  return { at, hashes: [...new Set(events.filter((e) => e.at === at).map((e) => lineHash(e.line)))] }
+  return { at, hashes: [...new Set(events.filter((e) => within(e.at, at)).map((e) => lineHash(e.line)))] }
 }
 
 // The lines of `events` after the cursor. A first reading (no cursor) is history, not news: it sets
 // the cursor at the log's end and returns nothing.
 export function freshEvents(events, cursor) {
   if (cursor === null) return { fresh: [], cursor: endCursor(events, null) }
-  const fresh = events.filter((e) => e.at > cursor.at || (e.at === cursor.at && !cursor.hashes.includes(lineHash(e.line))))
+  const fresh = events.filter((e) => e.at > cursor.at || (within(e.at, cursor.at) && !cursor.hashes.includes(lineHash(e.line))))
   return { fresh, cursor: fresh.length === 0 ? cursor : endCursor(events, cursor) }
 }
 
@@ -96,7 +101,8 @@ export function advance(state, text, nowMs, waiting) {
   const s = readWake(state)
   const events = text === null ? [] : parseEvents(text, WAKE_KINDS)
   const { fresh, cursor } = text === null ? { fresh: [], cursor: s.cursor } : freshEvents(events, s.cursor)
-  const pushWokeAt = new Map(s.pushWokeAt.filter(([, ms]) => nowMs - ms < PUSH_EVERY_MS && ms <= nowMs))
+  // A time ahead of the clock (the clock stepped back) counts as now: a step back never frees a wake.
+  const pushWokeAt = new Map(s.pushWokeAt.map(([t, ms]) => [t, Math.min(ms, nowMs)]).filter(([, ms]) => nowMs - ms < PUSH_EVERY_MS))
   let held = [...s.held]
   for (const e of fresh) {
     const kind = kindOf(e)
@@ -110,7 +116,7 @@ export function advance(state, text, nowMs, waiting) {
   }
   const trimmed = trimHeld(held, s.dropped)
   held = trimmed.held
-  const sentAt = s.sentAt.filter((ms) => nowMs - ms < HOUR_MS && ms <= nowMs)
+  const sentAt = s.sentAt.map((ms) => Math.min(ms, nowMs)).filter((ms) => nowMs - ms < HOUR_MS)
   const due = held.some((h) => h.wakes)
   const capped = due && sentAt.length >= CAP_PER_HOUR
   if (!due || capped || waiting) {

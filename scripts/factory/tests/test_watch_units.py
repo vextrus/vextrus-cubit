@@ -579,8 +579,15 @@ def test_said_log_emits_one_said_per_complete_line_and_relay_reads_it(tmp_path: 
     assert watch.relay(late, "t1", seen) is True
     early = watch.Pass(tmp_path, start + timedelta(minutes=10), state)
     assert watch.relay(early, "t1", seen) is False
-    assert watch.relay(late, "t1", {**seen, "status_at": "2026-10-13T01:05:00Z"}) is False
     assert watch.relay(late, "t3", seen) is False
+    assert watch.relay(late, "t1", {"last_push_at": "not a time"}) is True
+    watch.Pass(tmp_path, start + timedelta(minutes=5), state).event("STATUS", "t1", "on it")
+    assert watch.relay(late, "t1", seen) is False, "a STATUS after the SAID answers it"
+    said.write_text(said.read_text() + "2026-10-13T00:50:00Z t2 x\x0b2026-10-13T00:51:00Z t9 y\n")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t2", "sent")], "one line, one SAID; only a newline ends a line"
+    assert state["said"]["t2"] == "2026-10-13T01:00:30Z", "an older SAID does not replace the newest"
 
 
 def test_the_status_contract_reads_rounds_up_to_the_ledger_s_last_round() -> None:

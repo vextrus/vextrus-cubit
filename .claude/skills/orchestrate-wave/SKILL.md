@@ -34,14 +34,11 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    file. Message and resume a local builder only through `scripts.factory.say` by its full `sessionId`: it resumes
    only `stopped` or `failed` with no `pid`, with `--settings` again; a `done` session is alive and
    waiting: SendMessage it, never resume it. Never restart a builder over its work.
-4. **Watch.** The `vextrus-factory` mod wakes you: on a READY, BLOCKED, CI red, a walk file or a builder's first
-   push in 15 min it submits one batched message (the new `events.log` lines, the live tickets' table, at most 12 an
-   hour, then `wakes capped` in the band). Act on it; arm no Monitor on the event log. Monitor stays only for one
-   foreground command's log; `notify_when_idle` for local builders. A row marked `relay` had a `launch say` with no
-   answer for 10 min: read the builder's session. No polling and no foreground sleep; never wait on a process listing. The
-   SessionStart hook restarts the watcher when its pidfile is stale (or `watch ensure`, `commands.md`). A builder finishes with a `Factory-State:
-   READY` (verified) or `BLOCKED` trailer; a READY head with no verify record is bounced, not reviewed. A local
-   builder never pushes: push its READY head yourself after the leak scan, by `commands.md`'s PR recipe.
+4. **Watch.** The `vextrus-factory` mod wakes you with one batched message (new `events.log` lines, the live tickets'
+   table; 12 an hour, then `wakes capped`): act on it, arm no Monitor on the event log (Monitor only for one foreground
+   command's log); a `relay` row is a `launch say` unanswered for 10 min. No polling, no foreground sleep, no process
+   listing. The SessionStart hook restarts the watcher (or `watch ensure`, `commands.md`). A READY head with no verify
+   record is bounced; a local builder never pushes: push its READY head after the leak scan (`commands.md`'s PR recipe).
 5. **Review with `/review-pr`.** On each READY head, merged with `main` and any PR it meets: one review, then at
    most two fix rounds (a third only under a recorded exception: `security75`, `crash`, `false-statement` or
    `fix-regression`). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message per round:
