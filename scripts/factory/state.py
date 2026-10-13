@@ -51,7 +51,7 @@ from scripts.merge_ready import merges_since
 READY_NO_PR = "READY, no PR"
 LIVE_NOTE = "building"
 SHA40 = re.compile(r"[0-9a-f]{40}")
-RECORD_NAME = re.compile(r"(\d+)-([0-9a-f]{40})\.json")
+RECORD_NAME = re.compile(r"(\d+)-([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")  # -r<n>: same head
 SKIPPED_BRANCHES = ("review/",)
 GH_TIMEOUT = 120
 PR_LIMIT = 5000
@@ -96,6 +96,7 @@ def read_ledger(folder: Path) -> Ledger:
                 or raw["head"] != head
                 or verdict not in ledger.RANK
                 or not 1 <= round_ <= ledger.LAST_ROUND
+                or (match.group(3) is not None and int(match.group(3)) != round_)
             ):
                 raise ValueError(name)
         except OSError, ValueError, KeyError, TypeError:
