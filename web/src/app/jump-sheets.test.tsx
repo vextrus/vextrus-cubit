@@ -40,7 +40,12 @@ describe('the sheets filter', () => {
     expect(f('ROOF SLAB (TYP.)', 'typ')).toBeGreaterThan(0)
     expect(f('GROUND FLOOR BEAM LAYOUT', 's-09 ground')).toBeGreaterThan(0)
     expect(f('কলাম বিস্তারিত', 'বিস্তারিত')).toBeGreaterThan(0)
+    expect(f('PILE-CAP LAYOUT', 'cap')).toBeGreaterThan(0)
+    expect(f('COLUMN-BEAM JOINT', 'beam')).toBeGreaterThan(0)
+    expect(f('PLINTH/GRADE BEAM LAYOUT', 'grade')).toBeGreaterThan(0)
+    expect(f('TYPICAL FLOOR (2ND-9TH) BEAM LAYOUT', '9th')).toBeGreaterThan(0)
     expect(f('COLUMN C-1 DETAILS', 'c-2')).toBe(0)
+    expect(f('PILE-CAP LAYOUT', 'ile')).toBe(0)
   })
 })
 

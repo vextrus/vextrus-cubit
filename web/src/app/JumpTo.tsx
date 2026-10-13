@@ -26,8 +26,8 @@ export function jumpFilter(value: string, search: string, keywords?: string[]): 
   const typed = words(search)
   if (typed.length === 0) return 1
   const [number = '', title = ''] = keywords ?? []
-  // The option as shown: its number, then its title; each typed word starts one of them, as written or past its leading marks.
-  const shown = words(`${number} ${title}`).flatMap((w) => [w, w.replace(/^[^\p{L}\p{M}\p{N}]+/u, '')])
+  // The option as shown: its number, then its title; each word as written, past its leading marks, and in its parts ("GROUND-FLOOR", "PLINTH/GRADE").
+  const shown = words(`${number} ${title}`).flatMap((w) => [w, w.replace(/^[^\p{L}\p{M}\p{N}]+/u, ''), ...w.split(/[^\p{L}\p{M}\p{N}]+/u)])
   if (!typed.every((token) => shown.some((w) => w.startsWith(token)))) return 0
   return number.toLowerCase().startsWith(typed[0]!) ? 1 : 0.5
 }
