@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 REPO = Path(__file__).resolve().parents[3]
 HEAD = "ab" * 20
@@ -31,6 +34,9 @@ def test_a_run_for_a_held_head_and_kind_exits_5_and_runs_nothing(tmp_path: Path)
     factory.mkdir(parents=True)
     held = rdlock(factory, "acquire", "--kind", "posting", "--head", HEAD, "--pid", str(os.getpid()))
     assert held.returncode == 0, held.stdout
+    ledger = factory / "ledger"
+    ledger.mkdir()
+    (ledger / f"1-{HEAD}.json").write_text(json.dumps({"pr": 1, "head": HEAD, "verdict": "PASS"}))
     pidfile = factory / "rd.pid"
     pidfile.write_text(f"{os.getpid()}\n")  # the holder's own run
     marker = tmp_path / "marker"
@@ -43,3 +49,23 @@ def test_a_run_for_a_held_head_and_kind_exits_5_and_runs_nothing(tmp_path: Path)
     assert not (tmp_path / "work" / "rd").exists() or not list((tmp_path / "work" / "rd").iterdir())
     status = rdlock(factory, "status")
     assert f"holder: posting {HEAD[:8]}" in status.stdout
+
+
+def test_a_posting_run_is_gated_by_the_ledger_and_other_kinds_are_not(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scripts.factory import rdlock as lock
+
+    monkeypatch.setenv("VEXTRUS_FACTORY_DIR", str(tmp_path))
+    assert lock.refusal("scored", HEAD, None) is None
+    assert lock.refusal("no-post", HEAD, None) is None
+    assert "PASS" in (lock.refusal("posting", HEAD, None) or "")
+    (tmp_path / "ledger").mkdir()
+    (tmp_path / "ledger" / f"1-{HEAD}.json").write_text(
+        json.dumps({"pr": 1, "head": HEAD, "verdict": "FIX"})
+    )
+    assert "PASS" in (lock.refusal("posting", HEAD, None) or "")
+    (tmp_path / "ledger" / f"1-{HEAD}.json").write_text(
+        json.dumps({"pr": 1, "head": HEAD, "verdict": "PASS"})
+    )
+    assert lock.refusal("posting", HEAD, None) is None

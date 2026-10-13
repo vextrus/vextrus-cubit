@@ -56,6 +56,10 @@ msgid "{tag} answered. The Discipline of {sheet} is {discipline}."
 msgstr "{tag} answered. The Discipline of {sheet} is {discipline}."
 
 #: src/takeoff/questionWords.tsx
+msgid "{mark} ({place})"
+msgstr "{mark} ({place})"
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list found in the drawings"
 msgstr "the drawing list found in the drawings"
 
@@ -88,10 +92,6 @@ msgid "Answering records that the sheet is not part of this set; it stays on the
 msgstr "Answering records that the sheet is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/questionWords.tsx
-msgid "{file}, laid out in the drawing, x {x}"
-msgstr "{file}, laid out in the drawing, x {x}"
-
-#: src/takeoff/questionWords.tsx
 msgid "{head} and {tail}"
 msgstr "{head} and {tail}"
 
@@ -110,10 +110,6 @@ msgstr "Answering decides whether this file’s sheets join the list."
 #: src/takeoff/questionWords.tsx
 msgid "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
 msgstr "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
-
-#: src/takeoff/questionWords.tsx
-msgid "the copy laid out in the drawing at x {x}"
-msgstr "the copy laid out in the drawing at x {x}"
 
 #: src/takeoff/questionWords.tsx
 msgid "One title on {count} sheets"
@@ -225,6 +221,10 @@ msgid "{tag} answered. Its sheets are unchanged: confirm or exclude them in the 
 msgstr "{tag} answered. Its sheets are unchanged: confirm or exclude them in the list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{mark} ({date})"
+msgstr "{mark} ({date})"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 msgstr "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 
@@ -249,6 +249,10 @@ msgid "{tag} answered. Recorded: the range on {sheet} includes its top storey."
 msgstr "{tag} answered. Recorded: the range on {sheet} includes its top storey."
 
 #: src/takeoff/questionWords.tsx
+msgid "{mark} ({file})"
+msgstr "{mark} ({file})"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list."
 msgstr "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list."
 
@@ -271,6 +275,18 @@ msgstr "It has no title, so nothing says which kind of sheet {number} is. Its ki
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps the file held."
 msgstr "Answering keeps the file held."
+
+#: src/takeoff/questionWords.tsx
+msgid "{file}, laid out in the drawing, x {x}"
+msgstr "{file}, laid out in the drawing, x {x}"
+
+#: src/takeoff/questionWords.tsx
+msgid "laid out in the drawing, x {x}"
+msgstr "laid out in the drawing, x {x}"
+
+#: src/takeoff/questionWords.tsx
+msgid "laid out in the drawing"
+msgstr "laid out in the drawing"
 
 #: src/takeoff/questionWords.tsx
 msgid "the drawing list on <0/>"
@@ -457,6 +473,10 @@ msgid "It has neither a number nor a title, so nothing says which kind of sheet 
 msgstr "It has neither a number nor a title, so nothing says which kind of sheet it is. Its kind decides which Takeoff steps read it."
 
 #: src/takeoff/questionWords.tsx
+msgid "layout “<0/>”"
+msgstr "layout “<0/>”"
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering records your pick; {entryName} stays in the list, to confirm or exclude."
 msgstr "Answering records your pick; {entryName} stays in the list, to confirm or exclude."
 
@@ -517,12 +537,20 @@ msgid "Both are titled “{title}”. Only one can be read."
 msgstr "Both are titled “{title}”. Only one can be read."
 
 #: src/takeoff/questionWords.tsx
+msgid "the copy laid out in the drawing at x {x}"
+msgstr "the copy laid out in the drawing at x {x}"
+
+#: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering confirms {ready} of # sheet and cannot be undone.} other {Answering confirms {ready} of # sheets and cannot be undone.}}"
 msgstr "{n, plural, one {Answering confirms {ready} of # sheet and cannot be undone.} other {Answering confirms {ready} of # sheets and cannot be undone.}}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Your answer is recorded."
 msgstr "{tag} answered. Your answer is recorded."
+
+#: src/takeoff/questionWords.tsx
+msgid "{mark} (row {row})"
+msgstr "{mark} (row {row})"
 
 #: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. A Guest reads Questions and cannot answer them."
@@ -587,6 +615,10 @@ msgstr "{file}, layout “{layout}”"
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The file is set aside, waiting for the re-saved file."
 msgstr "{tag} answered. The file is set aside, waiting for the re-saved file."
+
+#: src/takeoff/questionWords.tsx
+msgid "{mark} (“{named}”)"
+msgstr "{mark} (“{named}”)"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come; ask the consultant for it.} other {the # missing sheets are still to come; ask the consultant for them.}}"

@@ -30,7 +30,7 @@ from typing import Any
 
 from scripts import ledger
 
-RECORD = re.compile(r"([0-9]+)-([0-9a-f]{40})\.json")
+RECORD = re.compile(r"([0-9]+)-([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")  # -r<n>: same head
 UNTAGGED = re.compile(r"(FINDING (\S+) \S+ \S+(?: (?!class=)\S+)?)")
 TAGS = re.compile(r"class=\S+ boundary=\S+")
 
@@ -100,13 +100,18 @@ def main(argv: Sequence[str] | None = None) -> int:
             for ids in sidecar.values()
         ):
             raise ValueError("the tags file is not {input name: {finding id: tags}}")
-        names = sorted(path for path in args.ledger.iterdir() if RECORD.fullmatch(path.name))
+        names = sorted(args.ledger.iterdir())
         rows: list[tuple[int, str, str, str, str]] = []
         for path in names:
+            named = RECORD.fullmatch(path.name)
+            if named is None:
+                continue
             record = json.loads(path.read_text())
+            if named[3] is not None and record.get("round") != int(named[3]):
+                raise ValueError(f"{path.name} names another round than it holds")
             if record.get("round") != 1 or not in_window(record, args.since, args.until):
                 continue
-            if record.get("verdict") not in ledger.RANK or record.get("head") != path.name[-45:-5]:
+            if record.get("verdict") not in ledger.RANK or record.get("head") != named[2]:
                 raise ValueError(f"{path.name} is not a round's record")
             name = f"{record['pr']}-{record['head'][:12]}-r1.txt"
             after, note = rescored(args.verdicts, record, sidecar.get(name, {}))

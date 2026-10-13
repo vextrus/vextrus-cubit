@@ -59,7 +59,8 @@ test("an OWNER-RULING line raises exactly one toast carrying the ruling asked, t
   assert.equal(w.toasts.length, 1, `still one toast after more polls and a reload, got ${JSON.stringify(w.toasts)}`)
 })
 
-test("the owner's command is shown as a toast and never acted on: no prompt submitted, no model, agent, tool or process run", async () => {
+// Amended 13 Oct 2026 (S26-FX2): the wake ($.prompt.submit, Q-R4) may carry the line; it runs nothing.
+test("the owner's command is shown as a toast and never acted on: no model, agent, tool or process run", async () => {
   const command = "! uv run python -m scripts.factory.governor check cloud-session"
   const w = await afterOnePoll(
     eventLine(T0 + 1_000, "READY", "s14-r1", "Factory-Verify ok") +

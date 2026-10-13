@@ -33,10 +33,12 @@ export const POLL_MS = 15_000
 export const ENGINE_BAND = "engine-band-sentinel"
 export const T0 = Date.parse("2026-10-06T01:00:00Z")
 
-// Calls that submit a prompt, put words in the owner's prompt box or transcript, run a model, start
-// an agent, a tool, a command or a process, end a turn, or reach the network: none is the mod's.
+// Calls that put words in the owner's prompt box or transcript, run a model, start an agent, a tool,
+// a command or a process, end a turn, or reach the network: none is the mod's.
+// Amended 13 Oct 2026 (S26-FX2): `prompt.submit` left this list by the owner's ruling Q-R4 ("The
+// factory mod may submit one batched, rate-capped wake prompt into the orchestrator's session");
+// ts26fx2's tests pin when it may.
 export const FORBIDDEN = [
-  "prompt.submit",
   "prompt.fill",
   "session.send",
   "session.append",

@@ -5,12 +5,13 @@
  * top bar, the ErrorBar when Vextrus can't be reached, the phone and narrow notices (§1.5) and the
  * shell's keys; below the top bar, a page screen (PageLayout) or a canvas screen (CanvasFrame).
  */
-import { useLayoutEffect, type ReactNode } from 'react'
+import { useLayoutEffect, useSyncExternalStore, type ReactNode } from 'react'
 import { Trans } from '@lingui/react/macro'
 import { i18n } from '@lingui/core'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { useParams, useRouterState } from '@tanstack/react-router'
 import { SearchX } from 'lucide-react'
+import { onSaveState, saveState } from '@/api/saves'
 import { FormatProvider, type MarketFormat } from '@/format'
 import { activateLanguage, currentLanguage, useLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
@@ -45,11 +46,13 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const project = code ? projectFor(session, code) : undefined
   const go = useGo()
   useMarketLanguage(session.market)
+  // An act that did not reach the server: the phone notice then promises nothing about saving.
+  const lost = useSyncExternalStore(onSaveState, saveState) === 'dropped'
   return (
     <FormatProvider profile={session.market} unitSystem={project?.unitSystem}>
       <SlotsProvider>
         <ShellProvider session={session} project={project}>
-          <DesktopOnly onSignOut={() => go(PATHS.signIn)}>
+          <DesktopOnly onSignOut={() => go(PATHS.signIn)} lost={lost}>
             <div data-frame="" className="flex h-dvh flex-col bg-background max-[1279px]:h-[calc(100dvh-var(--notice-bar))]">
               <TopBar session={session} project={project} />
               <UnreachableBar className="shrink-0" />

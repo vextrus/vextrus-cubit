@@ -18,16 +18,21 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
   amended 13 Oct 2026): a PASS whose only standing findings are 50-74 that cannot block may merge, those
   filed as issues. A newer head than the
   reviewed one passes only if every commit since it is a merge of main whose own resolution
-  (`git diff-tree --cc`) is empty: a resolved conflict is unreviewed code;
+  (`git diff-tree --cc`) is empty (a resolved conflict is unreviewed code), or an empty commit whose only
+  factory trailer is `Factory-Status:` (a builder's reply to a status message: the reviewed tree);
 - (b) a record of round 3 or later with no exception, or past round 3 with any but `delta-review`;
 - (c) an item under a `## Cut`, `## Not done` or `## Deferred` heading of the body that links no open
   issue;
 - (e) a head that `scripts/factory/ci_gate.py` reads not READY (no `Factory-State: READY` with this
-  tree's `Factory-Verify`, and not a merge of main onto such a head) when the PR changes a file outside
-  the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a green `ci` proves nothing
-  ran. A PR of documents alone needs no heavy job and no trailer;
+  tree's `Factory-Verify`, and not a merge of main or an empty status reply onto such a head) when the
+  PR changes a file outside the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a
+  green `ci` proves nothing ran. A PR of documents alone needs no heavy job and no trailer;
 - (d) a leak-scan hit (or no leak scan) on the PR's added lines, commit messages, file names, branch
   name, title, body or comments. A problem names the part and the count, never the text.
+
+A same-head record (`<PR>-<head>-r<n>.json`, S26-FX9) is refused under (b) unless it is a delta review
+of round n whose head's round n-1 record is a FIX that rested only on unconfirmed replayed attacks
+(`replays_only`); the newest round's record of a head is the one read.
 
 It prints each finding and exits 0 (ready) or 1 (not ready). It reads; it never posts or merges.
 """
@@ -41,6 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.factory import ci_gate
+from scripts.factory.trailers import status_line
 from scripts.ledger import default_ledger_dir
 
 REPOSITORY = ("vextrus", "vextrus-cubit")
@@ -104,6 +110,48 @@ DELTA = "delta-review"
 EXCEPTION_KINDS = ("security75", "crash", "false-statement", "fix-regression", DELTA)
 LAST_ROUND = 9
 COUNT_KEYS = ("reviewers", "findings", "findings_ge_50", "confirmed", "refuted", "unproven")
+# After `<PR>-`: the head, then `-r<round>` for a same-head re-review (S26-FX9).
+RECORD_NAME = re.compile(r"([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")
+
+
+def record_name(pr: int, name: str) -> tuple[str, int | None] | None:
+    """`(head, round)` a ledger file's name gives (round None: the head's first record), or None when
+    the name is not a record of this PR."""
+    named = RECORD_NAME.fullmatch(name.removeprefix(f"{pr}-")) if name.startswith(f"{pr}-") else None
+    return None if named is None else (named[1], None if named[2] is None else int(named[2]))
+
+
+def same_head_problems(records: list[tuple[str, int | None, dict[str, Any]]]) -> list[str]:
+    """Why a same-head record is not one the ledger may write: each `-r<n>` record must hold round n
+    as a delta review, right after the same head's round n-1 FIX with `replays_only` (no refuter
+    shopping: never after a refuter-confirmed replay or a lens finding)."""
+    found: list[str] = []
+    by_head: dict[str, list[dict[str, Any]]] = {}
+    for head, _named, record in records:
+        by_head.setdefault(head, []).append(record)
+    for head, named, record in records:
+        if named is None:
+            continue
+        earlier = {other["round"]: other for other in by_head[head]}
+        before = earlier.get(named - 1)
+        exception = record["exception"]
+        if not (
+            record["round"] == named
+            and isinstance(exception, dict)
+            and exception.get("kind") == DELTA
+            and before is not None
+            and before["verdict"] == "FIX"
+            and before.get("replays_only") is True
+        ):
+            found.append(
+                f"the ledger record {pr_name(head, named)} re-reviews a head whose last FIX did not "
+                "rest only on unconfirmed replayed attacks"
+            )
+    return found
+
+
+def pr_name(head: str, round_: int) -> str:
+    return f"{head[:12]}-r{round_}"
 
 
 def fetch(pr: int) -> dict[str, Any]:
@@ -401,7 +449,7 @@ def record_problems(record: Any, pr: int, head: str) -> list[str]:
         "source",
         "recorded_at",
     }
-    if not isinstance(record, dict) or set(record) != keys:
+    if not isinstance(record, dict) or set(record) - {"replays_only"} != keys:
         return ["is not shaped as the contract says (its keys)"]
     counts = record["counts"]
     exception = record["exception"]
@@ -431,6 +479,7 @@ def record_problems(record: Any, pr: int, head: str) -> list[str]:
         or record["round"] <= 3
         or (isinstance(exception, dict) and exception.get("kind") == DELTA),
         "source": record["source"] in ("review-pr", "fetch-verdict"),
+        "replays_only": isinstance(record.get("replays_only", False), bool),
         "recorded_at": isinstance(record["recorded_at"], str)
         and re.fullmatch(
             r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", record["recorded_at"]
@@ -448,8 +497,18 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=False)
 
 
+def _is_status_reply(repo: Path, commit: str, parent: str) -> bool:
+    """An empty commit on `parent` (its tree the parent's) whose only factory trailer is
+    `Factory-Status:`: a builder's answer to a status message (Q-R6), nothing to review."""
+    message = _git(repo, "log", "-1", "--format=%B", commit)
+    trees = [_git(repo, "rev-parse", f"{sha}^{{tree}}") for sha in (commit, parent)]
+    same = all(tree.returncode == 0 for tree in trees) and trees[0].stdout == trees[1].stdout
+    return message.returncode == 0 and status_line(message.stdout) is not None and same
+
+
 def merges_since(repo: Path, reviewed: str, head: str, base: str) -> str | None:
-    """None when every commit from the reviewed head to this head is a clean merge of main; else why not.
+    """None when every commit from the reviewed head to this head is a clean merge of main (or an empty
+    `Factory-Status:` reply, whose tree is the reviewed one); else why not.
 
     Each commit must have exactly two parents: one the reviewed head (or a merge already checked), the
     other an ancestor of main; and its tree must be the one `git merge-tree` makes from those two with no
@@ -466,6 +525,9 @@ def merges_since(repo: Path, reviewed: str, head: str, base: str) -> str | None:
     checked = {reviewed}
     for row in listed.stdout.splitlines():
         commit, *parents = row.split()
+        if len(parents) == 1 and parents[0] in checked and _is_status_reply(repo, commit, parents[0]):
+            checked.add(commit)
+            continue
         ours = [parent for parent in parents if parent in checked]
         theirs = [parent for parent in parents if parent not in checked]
         if len(parents) != 2 or len(ours) != 1 or len(theirs) != 1:
@@ -494,10 +556,12 @@ def ledger_problems(facts: dict[str, Any], ledger_dir: Path, repo: Path) -> list
     broken: list[str] = []
     stale: list[str] = []
     eligible: list[dict[str, Any]] = []
+    read: list[tuple[str, int | None, dict[str, Any]]] = []
     for path in sorted(ledger_dir.glob(f"{pr}-*.json")) if ledger_dir.is_dir() else []:
-        reviewed = path.stem.removeprefix(f"{pr}-")
-        if not SHA.fullmatch(reviewed):
+        named = record_name(pr, path.name)
+        if named is None:
             continue
+        reviewed = named[0]
         try:
             record = json.loads(path.read_text())
         except OSError, ValueError:
@@ -506,6 +570,9 @@ def ledger_problems(facts: dict[str, Any], ledger_dir: Path, repo: Path) -> list
         if wrong := record_problems(record, pr, reviewed):
             broken.extend(f"the ledger record {path.name} {problem}" for problem in wrong)
             continue
+        read.append((reviewed, named[1], record))
+    broken += same_head_problems(read)
+    for reviewed, _named, record in read:
         if reviewed != head and (why := merges_since(repo, reviewed, head, base)) is not None:
             if record["verdict"] == "PASS":
                 stale.append(f"the ledger's PASS is for {reviewed[:12]}, not the head: {why}")

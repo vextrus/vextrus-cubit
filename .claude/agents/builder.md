@@ -27,6 +27,12 @@ them. If one cannot pass as written, finish BLOCKED and say which and why. Never
 code must do what the test's promise says for every input, not for the one the test uses. Add your own unit
 tests at those seams or the module's public interface (the `tdd` skill).
 
+## Status messages
+A message that starts `[elapsed ...]` and asks where you are is answered with an empty commit, never with
+text alone: `git commit --allow-empty -m "status: <topic>" -m "Factory-Status: <one line>"` (that line the
+only `Factory-` trailer, no `Factory-State`), then push it. It changes no file, so a READY head stays READY
+and a reviewed head stays reviewed; the watcher shows the line. Commit a new `Factory-Status:` per message.
+
 ## Time and cuts
 Every ticket has a budget; the orchestrator's messages start with elapsed against it. Past the budget, cut
 scope in the ticket's cut order and name each cut; never overrun silently. Every cut item goes in the PR

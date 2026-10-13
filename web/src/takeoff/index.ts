@@ -4,7 +4,8 @@
  *
  *   <Step1Page />      the route's component (routes/_app/p/$code/takeoff/1.tsx)
  *   step1SheetPath('KR-01', sheetId)   "/p/KR-01/takeoff/1?sheet=…": Step 1 opened on that printed sheet
+ *   step1AddressFor('KR-01', sheet, sheets)   the same, written as the sheet's number where it is unique, else its id
  */
 export { Step1Page } from './Step1Screen'
 export { step1Model, type Step1Model } from './model'
-export { step1SheetPath } from './paths'
+export { sheetAddress, step1AddressFor, step1SheetPath } from './paths'

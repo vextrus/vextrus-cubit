@@ -919,7 +919,8 @@ CASES = {
     "ready-wrong-tree": "READY-NO-VERIFY",
     "ready-with-reason": "READY-NO-VERIFY",
     "blocked-ok": "BLOCKED",
-    "blocked-no-reason": None,
+    # S26-FX1 (#761): the watcher writes `BLOCKED <t> <sha8> no reason given`; the guard stays strict.
+    "blocked-no-reason": "BLOCKED",
     "repeated-key": "READY-NO-VERIFY",
     "lowercase-value": "READY-NO-VERIFY",
     "none": None,

@@ -39,8 +39,9 @@ AT = datetime(2026, 10, 4, 21, 8, tzinfo=UTC)
         (f"Factory-State: READY\nFactory-Verify: {TREE} ok\nFactory-Mood: fine", "READY-NO-VERIFY"),
         ("Factory-State: BLOCKED\nFactory-Reason: waiting on a ruling", "BLOCKED"),
         (f"Factory-State: BLOCKED\nFactory-Reason: r\nFactory-Verify: {TREE} ok", "BLOCKED"),
-        ("Factory-State: BLOCKED", None),
-        ("Factory-State: BLOCKED\nFactory-Reason: " + "x" * 201, None),
+        # S26-FX1: the watcher says BLOCKED for a head with no one-line reason (the reading stays strict)
+        ("Factory-State: BLOCKED", "BLOCKED"),
+        ("Factory-State: BLOCKED\nFactory-Reason: " + "x" * 201, "BLOCKED"),
         ("Factory-State: DONE", None),
         (f"Factory-Verify: {TREE} ok", None),
         ("Signed-off-by: someone", None),
@@ -49,6 +50,16 @@ AT = datetime(2026, 10, 4, 21, 8, tzinfo=UTC)
 def test_trailers_follow_trailers_md(last_paragraph: str, outcome: str | None) -> None:
     message = f"feat: a thing\n\nThe body.\n\n{last_paragraph}\n"
     assert watch.parse_trailers(message, TREE).outcome == outcome
+
+
+def test_a_blocked_head_without_a_one_line_reason_says_so() -> None:
+    bare = watch.parse_trailers("fix: x\n\nFactory-State: BLOCKED\n", TREE)
+    assert (bare.outcome, bare.reason) == ("BLOCKED", "no reason given")
+    long = watch.parse_trailers(
+        "fix: x\n\nFactory-State: BLOCKED\nFactory-Reason: " + "y" * 300 + "\n", TREE
+    )
+    assert (long.outcome, long.reason) == ("BLOCKED", "y" * 200)
+    assert trailers.read("fix: x\n\nFactory-State: BLOCKED\n", TREE).outcome is None
 
 
 def test_the_factory_block_is_read_from_the_last_two_paragraphs_only() -> None:
@@ -153,7 +164,9 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert watch.gh_prs() == [{"number": 7, "headRefName": "b", "headRefOid": "x", "state": "OPEN"}]
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
-    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state,statusCheckRollup"
+    assert argv[argv.index("--json") + 1] == (
+        "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt,isCrossRepository"
+    )
 
 
 def test_the_default_scanner_is_the_main_checkouts_tools_leakscan(
@@ -390,7 +403,9 @@ def test_a_clean_merge_of_main_on_the_ready_head_stays_ready_without_a_new_event
     assert state["tickets"]["tu"]["outcome_at"] == "2026-10-04T19:10:00Z"
 
 
-def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo) -> None:
+def test_a_merge_with_its_own_edit_is_not_ready_and_a_clean_one_is_whoever_saw_the_ready(
+    repo: Repo,
+) -> None:
     git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
     ready = repo.ready("r.txt")
     git_in(repo.path, "checkout", "-q", "main")
@@ -408,8 +423,9 @@ def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo)
     git_in(repo.path, "reset", "-q", "--hard", ready)
     git_in(repo.path, "merge", "-q", "--no-edit", "main")
     clean = repo.sha("HEAD")
-    _, item = track_once(seen_ready(repo.seed), clean, main)  # READY last seen on another head
-    assert item["state"] == "working"
+    # READY last seen on another head: the walk back to the READY commit finds it all the same
+    _, item = track_once(seen_ready(repo.seed), clean, main)
+    assert item["state"] == "ready"
 
 
 def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_landers_merge(
@@ -527,19 +543,23 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     assert at(95, idle) == []
 
 
-def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
+def test_events_tail_keeps_the_last_lines_of_a_log_over_the_hosts_limit(
     tmp_path: Path,
 ) -> None:
+    """Every kind is kept (the mod's wake reads every kind, review round 2 of PR #794); a line not
+    in the watcher's form is not."""
     routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
     wanted = [
         "2026-10-06T01:00:00Z READY t abc1234",
         "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
-        "2026-10-06T01:02:00Z CI-RED t #7 abc1234 required check ci failed",
+        "2026-10-06T01:02:00Z STOP-FAILURE - rate_limit abcdef12",
     ]
-    (tmp_path / "events.log").write_text(routine + "\n".join(wanted) + "\n")
+    (tmp_path / "events.log").write_text(routine + "not a line\n".join(f"{w}\n" for w in wanted))
     assert (tmp_path / "events.log").stat().st_size > 4 * 1024 * 1024
     watch.write_events_tail(tmp_path)
-    assert (tmp_path / "events.tail").read_text() == "".join(f"{line}\n" for line in wanted)
+    kept = (tmp_path / "events.tail").read_text().splitlines()
+    assert kept[-3:] == wanted
+    assert "not a line" not in kept
     assert not (tmp_path / "events.tail.tmp").exists()
     (tmp_path / "events.log").write_text(
         "".join(f"2026-10-06T02:00:{i % 60:02d}Z READY t{i} x\n" for i in range(300))
@@ -553,6 +573,40 @@ def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_l
 def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
     watch.write_events_tail(tmp_path)
     assert not (tmp_path / "events.tail").exists()
+
+
+def test_said_log_emits_one_said_per_complete_line_and_relay_reads_it(tmp_path: Path) -> None:
+    """S26-FX2: a partial last line waits for the next pass; a replaced (shorter) file is read from
+    its start; relay is set 10 min after a SAID with no push or status after it."""
+    start = datetime(2026, 10, 13, 1, 0, tzinfo=UTC)
+    state: dict[str, Any] = {"alarms": {}, "tickets": {}}
+    said = tmp_path / "said.log"
+    said.write_text("2026-10-13T01:00:00Z t1 session_a\n2026-10-13T01:00:30Z t2 sess")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t1", "sent")]
+    said.write_text(said.read_text() + "ion_b\n")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t2", "sent")]
+    said.write_text("2026-10-13T01:01:00Z t1 session_c\n")  # replaced by a shorter file
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t1", "sent")]
+    seen: dict[str, Any] = {"last_push_at": "2026-10-13T01:00:30Z"}
+    late = watch.Pass(tmp_path, start + timedelta(minutes=12), state)
+    assert watch.relay(late, "t1", seen) is True
+    early = watch.Pass(tmp_path, start + timedelta(minutes=10), state)
+    assert watch.relay(early, "t1", seen) is False
+    assert watch.relay(late, "t3", seen) is False
+    assert watch.relay(late, "t1", {"last_push_at": "not a time"}) is True
+    watch.Pass(tmp_path, start + timedelta(minutes=5), state).event("STATUS", "t1", "on it")
+    assert watch.relay(late, "t1", seen) is False, "a STATUS after the SAID answers it"
+    said.write_text(said.read_text() + "2026-10-13T00:50:00Z t2 x\x0b2026-10-13T00:51:00Z t9 y\n")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t2", "sent")], "one line, one SAID; only a newline ends a line"
+    assert state["said"]["t2"] == "2026-10-13T01:00:30Z", "an older SAID does not replace the newest"
 
 
 def test_the_status_contract_reads_rounds_up_to_the_ledger_s_last_round() -> None:

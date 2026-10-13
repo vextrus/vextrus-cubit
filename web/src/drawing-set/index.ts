@@ -5,3 +5,4 @@
 export { DrawingSetLoading, DrawingSetPage, DrawingSetView } from './DrawingSetPage'
 export { ReportPanel } from './ReportPanel'
 export { filesQuery, disciplinesQuery, reportQuery, upload, type FileOut, type UploadOut } from './data'
+export { useDisciplineName } from './discipline'
