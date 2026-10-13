@@ -103,6 +103,9 @@ UPDATABLE = {
         "decision",
         "excluded_reason",
         "excluded_text",
+        "storeys",
+        "storeys_meaning",
+        "storeys_source",
     },
     "live_model_elementrelation": {"valid_to_seq"},
     "takeoff_confirmation": {"undone_at"},  # an act is undone by stamping it (19a)

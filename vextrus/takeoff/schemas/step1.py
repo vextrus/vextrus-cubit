@@ -35,7 +35,7 @@ class Step1ViewOut(Schema):
     storeys_source: str | None = None
     """Where its storeys were read: null for its own title, "sheet_title" for its sheet's title (the
     sheet's only plan, whose own title states none), "title_line" for a bracketed line under its title
-    (a part plan's floors)."""
+    (a part plan's floors), "typed" once the QS corrected them (E)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -143,6 +143,16 @@ class Step1CorrectedValueOut(Schema):
     """Where the old value was read, as `number_source` / `title_source` are; null where none is kept."""
 
 
+class Step1HistoryViewOut(Schema):
+    title: str
+    """The plan view's title ("" when it has none)."""
+    place: int | None = None
+    """Its place among the sheet's plans, from 1 in reading order: an untitled one's name."""
+    old: list[str]
+    new: list[str]
+    """Its storeys as keys, low to high, before and after the correction."""
+
+
 class Step1HistoryActOut(_FromView):
     """One act on a sheet, from the event log (m0-screens 6.6 item 5, "Who did what")."""
 
@@ -160,6 +170,8 @@ class Step1HistoryActOut(_FromView):
     """An exclusion's "other" words, as the QS typed them."""
     changes: dict[str, Step1CorrectedValueOut] | None = None
     """A correction's `number` and/or `title`, old to new."""
+    views: list[Step1HistoryViewOut] | None = None
+    """A correction's plan views whose storeys it changed (S24-B2)."""
 
 
 class Step1HistoryOut(Schema):
@@ -288,11 +300,23 @@ class Step1ExcludeIn(Schema):
     text: str = ""
 
 
+class Step1CorrectViewIn(Schema):
+    view: uuid.UUID
+    """A plan view of the sheet (its `id` in the Proposal's `views`)."""
+    storeys: str
+    """The storeys as the QS typed them, each listed ("3rd, 5th, 7th")."""
+    meaning: str
+    """`at_floor_level` or `floor_to_floor`."""
+
+
 class Step1CorrectIn(Schema):
     proposal: uuid.UUID
     """The sheet's Proposal (its `id` in the Proposals list)."""
     number: str | None = None
     title: str | None = None
+    views: list[Step1CorrectViewIn] | None = None
+    """Plan views whose storeys and meaning are corrected (S24-B2); the views' storeys are then
+    marked typed (`storeys_source`)."""
 
 
 class Step1UndoIn(Schema):
@@ -338,6 +362,8 @@ __all__ = [
     "Step1ActOut",
     "Step1AssignIn",
     "Step1ConfirmIn",
+    "Step1CorrectIn",
+    "Step1CorrectViewIn",
     "Step1CoverageOut",
     "Step1DrawingListIn",
     "Step1DrawingListOut",

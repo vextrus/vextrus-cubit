@@ -60,3 +60,26 @@ TITLE_DRAWING_CODE = MessageCode("drawings.sheets.title_drawing_code")
 TITLE_UNREADABLE = MessageCode("drawings.sheets.title_unreadable")
 """A typed title holding a character a title block cannot print (400); its other causes have their
 own words, as the number's."""
+
+# A plan view's storeys, typed (S24-B2; m0-screens 6.9) -------------------------------------------------
+
+STOREYS_EMPTY = MessageCode("drawings.sheets.storeys_empty")
+STOREYS_TOO_LONG = MessageCode("drawings.sheets.storeys_too_long", params=("limit",))
+STOREYS_MANY_LINES = MessageCode("drawings.sheets.storeys_many_lines")
+STOREYS_DRAWING_CODE = MessageCode("drawings.sheets.storeys_drawing_code")
+STOREYS_UNREADABLE = MessageCode("drawings.sheets.storeys_unreadable")
+STOREYS_NOT_A_STOREY = MessageCode("drawings.sheets.storeys_not_a_storey", params=("word",))
+"""A typed storey list holding a word that names no storey (400); `word` is that item as typed."""
+STOREYS_RANGE = MessageCode("drawings.sheets.storeys_range", params=("word",))
+"""A typed storey list holding a range ("2nd to 6th") or an open end ("to the top"): each storey is
+listed (400); `word` is that item as typed."""
+STOREYS_TOO_MANY = MessageCode("drawings.sheets.storeys_too_many", params=("limit",))
+STOREYS_MEANING_UNKNOWN = MessageCode("drawings.sheets.storeys_meaning_unknown")
+"""A meaning that is not one of the two a correction picks, "at floor level" or "floor to floor"
+(400)."""
+STOREYS_VIEW_UNKNOWN = MessageCode("drawings.sheets.storeys_view_unknown")
+"""A view that is not one of the corrected sheet's (400)."""
+STOREYS_NOT_A_PLAN = MessageCode("drawings.sheets.storeys_not_a_plan")
+"""A view that is not a plan has no storeys to correct (400)."""
+STOREYS_VIEW_TWICE = MessageCode("drawings.sheets.storeys_view_twice")
+"""One view named twice in a correction (400)."""

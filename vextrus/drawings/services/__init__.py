@@ -68,13 +68,19 @@ For 19a and 21c (Step 1):
 from vextrus.drawings.models import HeldAnswer, PlotNone
 from vextrus.drawings.services.anchors import Resolved, resolve
 from vextrus.drawings.services.corrections import (
+    ViewStoreys,
     held_answer,
+    lock_sheet,
     put_back_sheet,
+    put_back_view_storeys,
     set_sheet_discipline,
     set_sheet_number,
     set_sheet_title,
+    set_view_storeys,
     typed_number,
+    typed_storeys,
     typed_title,
+    typed_view_storeys,
 )
 from vextrus.drawings.services.drawing_files import (
     FINISHING,
@@ -128,6 +134,7 @@ from vextrus.drawings.services.reads import (
 )
 from vextrus.drawings.services.reports import BanglaSheet, FontRow, Report, report
 from vextrus.drawings.services.sheet_list import (
+    TYPED_PART,
     UNLOADED,
     AnchorsNotLoaded,
     PlotView,
@@ -163,6 +170,7 @@ __all__ = [
     "READING",
     "SECOND_READER",
     "SHEETS",
+    "TYPED_PART",
     "UNLOADED",
     "Added",
     "AnchorsNotLoaded",
@@ -183,6 +191,7 @@ __all__ = [
     "SheetFacts",
     "SheetView",
     "StoredAnchor",
+    "ViewStoreys",
     "ViewView",
     "add_file",
     "answer_held",
@@ -201,6 +210,7 @@ __all__ = [
     "held_answer",
     "hold_plots",
     "kept",
+    "lock_sheet",
     "mark_failed",
     "mark_for_vextrus",
     "mark_read",
@@ -209,6 +219,7 @@ __all__ = [
     "original",
     "page_step",
     "put_back_sheet",
+    "put_back_view_storeys",
     "quarantine",
     "record_bangla_lines",
     "record_kind",
@@ -229,6 +240,7 @@ __all__ = [
     "set_sheet_discipline",
     "set_sheet_number",
     "set_sheet_title",
+    "set_view_storeys",
     "sheet",
     "sheet_discipline",
     "sheet_facts",
@@ -238,7 +250,9 @@ __all__ = [
     "store_artefact",
     "summary",
     "typed_number",
+    "typed_storeys",
     "typed_title",
+    "typed_view_storeys",
     "undo",
     "views",
     "views_of_set",

@@ -7,7 +7,7 @@
  * a call). An act made before this tab opened is undone one server act at a time, worded from 19a's
  * reply.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
@@ -18,7 +18,8 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
-import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type Step1Data } from './data'
+import { PlanViewName } from './storeys'
+import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type OpenedWith, type Step1Data, type ViewStoreysChange } from './data'
 import { LeavesConfirmAll } from './LeavesConfirmAll'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
@@ -103,7 +104,7 @@ function UndoneWords({ act }: { act: ActOut }) {
   if (act.act === 'confirm' || act.act === 'confirmed') return <Plural value={n} one="confirmed # sheet" other="confirmed # sheets" />
   if (act.act === 'exclude' || act.act === 'excluded') return <Plural value={n} one="left out # sheet" other="left out # sheets" />
   if (act.act === 'drawing_list') return <Trans>the drawing list you set</Trans>
-  if (act.act === 'correct') return <Trans>your last correction of a sheet’s number or title</Trans>
+  if (act.act === 'correct') return <Trans>your last correction of a sheet’s number, title or storeys</Trans>
   return <Trans>your last change to Step 1</Trans>
 }
 
@@ -156,27 +157,52 @@ function StaleWords({ done }: { done: ReactNode }) {
   )
 }
 
-/** What a correction changes: the number, the title, or both (S22-FL8: storeys are a later ticket's). */
+/** One plan view's storeys a correction changed: the view's title and its place among the sheet's plans (for the toast), its storeys as typed, their meaning. */
+export interface ViewChange extends ViewStoreysChange {
+  title: string
+  place: number
+}
+
 /** A refused correction: its words, and the field they are about (none: the form's). `n` is new for each refusal. */
 export interface CorrectionRefusal {
   text: string
   field: 'number' | 'title' | null
+  /** The plan view it is about, when it is about a view's storeys: said under that view's fields, not the sheet's. */
+  view?: string
   /** The value the sheet holds now, when the refusal is `corrected_since`: the form takes it as what it opened with. */
   current?: { field: 'number' | 'title'; value: string }
   n: number
 }
 
+/** What a correction changes: the number, the title, plan views' storeys, or several (S22-FL8, S24-B2). */
 export interface SheetChange {
   number?: string
   title?: string
+  views?: readonly ViewChange[]
 }
 
-/** What a correction changed, after "Corrected S-05: " (§6.9): "number → S-51", "title", or both. */
+/** What a correction changed, after "Corrected S-05: " (§6.9): "number → S-51", "title", "storeys of “…”", joined by "; ". */
 function CorrectedWords({ change }: { change: SheetChange }) {
-  const to = change.number !== undefined ? <DrawingText kind="sheet-number" text={change.number} truncate={false} /> : null
-  if (to && change.title !== undefined) return <Trans>number → {to}; title</Trans>
-  if (to) return <Trans context="a correction, after its sheet's name">number → {to}</Trans>
-  return <Trans>title</Trans>
+  const parts: ReactNode[] = []
+  if (change.number !== undefined) {
+    const to = <DrawingText kind="sheet-number" text={change.number} truncate={false} />
+    parts.push(<Trans context="a correction, after its sheet's name">number → {to}</Trans>)
+  }
+  if (change.title !== undefined) parts.push(<Trans>title</Trans>)
+  for (const v of change.views ?? []) {
+    const view = <PlanViewName title={v.title} place={v.place} />
+    parts.push(<Trans>storeys of {view}</Trans>)
+  }
+  return (
+    <>
+      {parts.map((part, i) => (
+        <Fragment key={i}>
+          {i > 0 ? '; ' : null}
+          {part}
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 export interface Step1Acts {
@@ -185,8 +211,8 @@ export interface Step1Acts {
   confirmSheets(sheets: readonly ProposalOut[], backIn?: string): Promise<boolean>
   excludeSheets(sheets: readonly ProposalOut[], reason: Reason, text?: string, several?: boolean): Promise<boolean>
   setDrawingList(discipline: string, text: string): Promise<boolean>
-  /** Corrects a sheet's number or title (§6.9, `E`): only what changed. */
-  correctSheet(sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }): Promise<boolean>
+  /** Corrects a sheet's number, title or plan views' storeys (§6.9, `E`): only what changed. */
+  correctSheet(sheet: ProposalOut, change: SheetChange, opened?: OpenedWith): Promise<boolean>
   /** The last correction's refusal, shown under its field in the form (not as a toast over the bar). */
   correctionRefusal: CorrectionRefusal | null
   /** The form closed (or opens): a refusal belongs to the form it was made in. */
@@ -591,18 +617,20 @@ function useActs(
           // aria-describedby), not as a toast over the bar's main button (design gate of #706).
           let field: CorrectionRefusal['field'] = null
           let current: CorrectionRefusal['current']
+          let view: string | undefined
           try {
             const problem = problemOf(error)
             const refusal = problem && 'refusal' in problem ? problem.refusal : null
             const asked = String((refusal?.params as Record<string, unknown> | undefined)?.field ?? refusal?.code ?? '')
             field = asked.includes('number') ? 'number' : asked.includes('title') ? 'title' : null
             const params = refusal?.params as Record<string, unknown> | undefined
+            if (typeof params?.view_id === 'string') view = params.view_id
             if (refusal?.code === 'takeoff.step1.corrected_since' && field && typeof params?.value === 'string') current = { field, value: params.value }
           } catch {
             // Not the API's refusal: said plainly, under no field.
           }
           refusals.current += 1 // never reset: a second refusal is newer than what the person typed after the first
-          setCorrectionRefusal({ text: failedText(error), field, current, n: refusals.current })
+          setCorrectionRefusal({ text: failedText(error), field, view, current, n: refusals.current })
         } else say(error)
         return false
       } finally {
@@ -737,11 +765,11 @@ function useActs(
   )
 
   const correctSheet = useCallback(
-    (sheet: ProposalOut, change: SheetChange, opened?: { number: string; title: string }) => {
+    (sheet: ProposalOut, change: SheetChange, opened?: OpenedWith) => {
       const name = <SheetName sheets={[sheet]} />
       const what = <CorrectedWords change={change} />
       // A sheet two sources agreed on leaves "Confirm all" with its typed value: said, not silent (design gate of #706).
-      const leaves = sheet.agrees && sheet.decision !== 'excluded'
+      const leaves = (change.number !== undefined || change.title !== undefined) && sheet.agrees && sheet.decision !== 'excluded'
       setCorrectionRefusal(null)
       // A sheet left out stays out (the words gate of S22-FL8): only an undecided one is "still a Proposal".
       return run(

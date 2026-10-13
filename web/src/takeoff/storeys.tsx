@@ -15,6 +15,18 @@ import { Trans, useLingui } from '@lingui/react/macro'
 import { DrawingText, cn } from '@/ui'
 import type { ViewOut } from './data'
 
+/**
+ * A plan view named in a sentence (§6.9's correction form, its toast and history line): its title in quotes, or,
+ * untitled, its place among its sheet's plans ("plan view 2 (untitled)"), never an empty quote (review 2 of #780).
+ */
+export function PlanViewName({ title, place }: { title: string; place?: number | null }) {
+  if (title.trim()) {
+    const text = <DrawingText kind="title" text={title} truncate={false} />
+    return <Trans context="a plan view's title, quoted">“{text}”</Trans>
+  }
+  return place ? <Trans>plan view {place} (untitled)</Trans> : <Trans>an untitled plan view</Trans>
+}
+
 const NAMED: Readonly<Record<string, { rank: number; words: MessageDescriptor; slot: string }>> = {
   pile: { rank: 0, words: msg({ message: 'Pile', context: 'storey' }), slot: 'foundations' },
   pile_cap: { rank: 1, words: msg({ message: 'Pile cap', context: 'storey' }), slot: 'foundations' },
@@ -104,6 +116,26 @@ export function useStoreysWords() {
     return keys.includes('top') && listed ? t`${listed} to top (top from Step 3)` : listed
   }
 }
+
+/**
+ * The storeys a correction's field starts from (§6.9: "each listed"): every storey as its own word, low to
+ * high ("3rd, 5th, 7th"; "2nd, 3rd, 4th" for a run), never "2nd–8th", which the server refuses as a range.
+ * Empty when any key is not a storey of the building (typical, top, not stated): the field then shows its
+ * placeholder.
+ */
+export function useListedStoreys() {
+  const word = useStoreyWord()
+  return (keys: readonly string[]): string => {
+    if (keys.length === 0 || !keys.every(knownStorey)) return ''
+    return [...new Set(keys)]
+      .sort((a, b) => (storeyRank(a) ?? 5000) - (storeyRank(b) ?? 5000))
+      .map((key) => word(key).replace(BIDI, ''))
+      .join(', ')
+  }
+}
+
+/** The isolates and marks the catalogue's formatting puts round a number: not part of what the QS types. */
+const BIDI = /[\u2066-\u2069\u200e\u200f\u061c]/g
 
 const plans = (views: readonly ViewOut[] | undefined) => (views ?? []).filter((v) => v.kind === 'plan')
 
