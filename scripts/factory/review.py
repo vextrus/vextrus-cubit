@@ -453,6 +453,10 @@ class Run:
         default_factory=list
     )  # a delta review: rounds whose attacks were not kept
     earlier_text: list[str] = field(default_factory=list)  # their standing findings, for the lens
+    # A delta review: the earlier rounds' kept attack files the refuter judges (relative path: source)
+    # and their replays that failed elsewhere than on their own round (STALE, never sent to a refuter).
+    claim_files: dict[str, Path] = field(default_factory=dict)
+    stale: list[Finding] = field(default_factory=list)
 
     def cost(self) -> float:
         return round(sum(float(lens.get("total_cost_usd") or 0.0) for lens in self.lenses), 6)
@@ -1198,8 +1202,49 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
         "summary": summary_counts(plain),
         "command": shlex.join(command),
         "output_tail": tail(f"{done.stdout}\n{done.stderr}"),
+        "failed_at": failed_at(plain, test_file),
+        "collection_error": collection_error(plain, test_file),
     }
     return confirmed
+
+
+def failed_at(output: str, test_file: str) -> str | None:
+    """Where a replay failed: the tests that failed by name and every line of the test file their
+    tracebacks pass through (`<id> ... at <file>:<line> ...`); None when no test failed by name."""
+    escaped = re.escape(test_file)
+    failed = sorted(set(re.findall(rf"^FAILED ({escaped}::\S+)", output, re.MULTILINE)))
+    if not failed:
+        return None
+    lines = list(dict.fromkeys(re.findall(rf"(?:^|[\s/]){escaped}:(\d+)", output, re.MULTILINE)))
+    return " ".join([*failed, "at", *(f"{test_file}:{line}" for line in lines)])
+
+
+def collection_error(output: str, test_file: str) -> bool:
+    """pytest could not collect the test file (an import error, a module-level assertion): its
+    `ERROR collecting <file>` header or its short summary's `ERROR <file>` line, never a captured
+    log's `ERROR` (S26-FX9)."""
+    escaped = re.escape(test_file)
+    shapes = (rf"^_+ ERROR collecting {escaped} _+$", rf"^ERROR {escaped}(?: - |\s*$)")
+    return any(re.search(shape, output, re.MULTILINE) for shape in shapes)
+
+
+def fails_elsewhere(own: str, shown: dict[str, Any]) -> bool:
+    """A replay is STALE (S26-FX9) only when its file no longer collects, or it failed by name and
+    no test that failed on the attack's own round (`own`, `failed_at`'s words) still fails at a line it
+    failed at then. A timeout, a skip, nothing run, or any failure sharing a test and a line with its
+    own round is never stale: those go to the refuter."""
+    if shown.get("collection_error"):
+        return True
+    now = shown.get("failed_at")
+    if not isinstance(now, str):
+        return False
+
+    def split(place: str) -> tuple[set[str], set[str]]:
+        tests, _at, lines = place.partition(" at ")
+        return set(tests.split()), set(lines.split())
+
+    (own_tests, own_lines), (now_tests, now_lines) = split(own), split(now)
+    return not (own_tests & now_tests and own_lines & now_lines)
 
 
 # ---------------------------------------------------------------------------------------------- the run
@@ -1260,6 +1305,7 @@ def record(
         + (f" {name}" if (name := item.named_file) else "")
         + item.tag_text
         for item in run.findings
+        if item.word != "STALE"  # recorded in the findings file and the summary; it judges nothing
     ]
     decisions.mkdir(parents=True, exist_ok=True)
     source = decisions / f"{run.pr}-{run.head[:12]}-r{run.round_}.txt"
@@ -1275,8 +1321,19 @@ def record(
         raise BadInput("the ledger refused the decision input")
     if code != ledger.OK:
         raise Refused("the ledger refused the record")
-    loaded = json.loads((ledger_dir / f"{run.pr}-{run.head}.json").read_text())
+    loaded = ledger.newest_record(ledger_dir, run.pr, run.head)
+    assert loaded is not None
     run.verdict = str(loaded["verdict"])
+
+
+def once_per_head(ledger_dir: Path, run: Run, exception: str | None) -> None:
+    """A head is reviewed once, but by a delta review after a FIX that rested only on unconfirmed
+    replayed attacks: the ledger decides (`ledger.check_head`), before anything starts."""
+    assert run.head is not None
+    try:
+        ledger.check_head(ledger_dir, run.pr, run.head, run.round_, exception)
+    except ledger.Refused as error:
+        raise Refused(str(error)) from error
 
 
 @contextlib.contextmanager
@@ -1317,8 +1374,7 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         raise Refused(f"a {ledger.DELTA} runs locally: run it without --where")
     run.since = ledger.round_head(ledger_dir, run.pr, run.round_ - 1) if delta else None
     run.head = resolve(run.pr)
-    if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
-        raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
+    once_per_head(ledger_dir, run, args.exception)
     held.enter_context(round_lock(main, run))
     with locked(review_dir / ".git.lock"):
         run.merged, run.base = merged_head(main, run.pr, run.head)
@@ -1454,8 +1510,11 @@ def keep_attacks(run: Run, rv: Path, main: Path) -> None:
         target = replay_target(rv, item.repro) if proven and item.repro is not None else None
         if target is not None:
             folders.add(PurePosixPath(target).parent.as_posix())
+        # Where it failed on its own round: a later replay failing anywhere else is STALE (S26-FX9).
+        place = (item.replayed or {}).get("failed_at") if target is not None else None
         kept.append({"id": item.id, "score": item.score, "file": item.file, "line": item.line,
-                     "summary": item.summary, "test_file": target, "could_block": True})  # fmt: skip
+                     "summary": item.summary, "test_file": target, "could_block": True,
+                     "failed_at": place})  # fmt: skip
     if not kept:
         return
     where = attacks_dir(main, run.pr, run.head)
@@ -1468,6 +1527,12 @@ def keep_attacks(run: Run, rv: Path, main: Path) -> None:
             copy.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, copy)
     where.mkdir(parents=True, exist_ok=True)
+    # A same-head re-review shares the head's folder; the round before it kept nothing that could block
+    # (its FIX rested only on replays: `ledger.check_head`), so this only ever adds.
+    if (where / MANIFEST).is_file():
+        with contextlib.suppress(OSError, ValueError):
+            earlier = json.loads((where / MANIFEST).read_text())
+            kept = [*(earlier if isinstance(earlier, list) else []), *kept]
     (where / MANIFEST).write_text(json.dumps(kept, indent=1) + "\n")
 
 
@@ -1479,9 +1544,13 @@ def earlier_rounds(
     handed to the lens to re-prove: a missing attack never reads as a pass."""
     found = []
     decisions = main / ".private" / "work" / "factory" / "verdicts"
+    seen: set[Path] = set()
     for number in range(1, run.round_):
         head = ledger.round_head(ledger_dir, run.pr, number)
         where = attacks_dir(main, run.pr, head)
+        if where in seen:
+            continue  # a same-head re-review's round: its head's attacks are read once
+        seen.add(where)
         if (where / MANIFEST).is_file():
             try:
                 manifest = json.loads((where / MANIFEST).read_text())
@@ -1525,11 +1594,15 @@ def earlier_rounds(
 
 def replay_earlier(
     run: Run, rv: Path, main: Path, earlier: list[tuple[int, Path, list[dict[str, Any]]]]
-) -> None:
+) -> list[Finding]:
     """Re-run every earlier round's kept attack on the merged head, one round at a time, each at its
     original relative path in `rv` (reset to the head and cleaned before each round), so an attack that
-    finds the repository from its own file still does: one that does not pass again is a CONFIRMED
-    finding that blocks. Run after this round's own attacks are kept (`keep_attacks`)."""
+    finds the repository from its own file still does. A replay that passes drops its finding. One that
+    fails is a claim, never CONFIRMED by replay alone (S26-FX9): failing where it failed on its own
+    round (or kept with no such place), it goes to the round's batched refuter (returned, UNPROVEN until
+    judged); failing anywhere else (a staleness guard, an import or collection error, a fix refusing
+    earlier) it is STALE, in `run.stale`, and its original finding is handed to the delta lens as text.
+    Run before the lens."""
     assert run.merged is not None
     assert run.slot is not None
     found: list[Finding] = []
@@ -1556,8 +1629,9 @@ def replay_earlier(
             plain = plain_test_path(str(entry["test_file"]))
             name = plain.as_posix() if plain is not None else None
             # An attack that already failed once passes only by exiting 0 with every test passed
-            # now: an error, a timeout, a missing file, a skip or an xfail blocks (the attack may be
-            # the test skipped).
+            # now: an error, a timeout, a missing file, a skip or an xfail is a claim for the
+            # refuter (the attack may be the test skipped), STALE only by `fails_elsewhere`.
+            shown: dict[str, Any] = {}
             if name is not None and (rv / name).is_file():
                 replay(rv, run.slot, name)
                 shown = REPLAYS.get((str(rv), name), {})
@@ -1565,6 +1639,12 @@ def replay_earlier(
                 failed = shown.get("exit") != 0 or not counts.get("passed") or not set(counts) <= QUIET
             else:
                 failed = True
+            if not failed:
+                if name is not None:
+                    REPLAYS.pop((str(rv), name), None)
+                continue
+            own = entry.get("failed_at")
+            stale = isinstance(own, str) and fails_elsewhere(own, shown)
             item = Finding(
                 f"r{number}-{entry.get('id')}",
                 max(int(entry.get("score") or 0), ledger.BLOCK_AT),
@@ -1572,21 +1652,39 @@ def replay_earlier(
                 int(entry.get("line") or 0),
                 f"round {number}'s attack fails again: {entry.get('summary')}",
                 name,
-                word="CONFIRMED" if failed else "REFUTED",
-                method="replay",
+                word="STALE" if stale else "UNPROVEN",
+                method="replay" if stale else None,
+                proof={"test_file": name, "expect_fail": True, "failed_on_its_round_at": own},
             )
             if name is not None:
                 item.replayed = REPLAYS.pop((str(rv), name), {"outcome": "not run: no file"})
-            if failed:
-                found.append(item)
-    mark_on_tree(found, main, run.merged)
-    run.findings += found
+            if stale:
+                run.stale.append(item)
+                run.earlier_text += [
+                    (
+                        f"Round {number}'s attack {name} failed elsewhere than on its own round (a "
+                        "staleness guard, or an error before its check): it proves nothing either "
+                        "way. Re-prove its finding if it is still present, as a finding with a repro:"
+                    ),
+                    unnamed(f"- {entry.get('file')}:{entry.get('line')} ({entry.get('score')}): "
+                            f"{entry.get('summary')}"),
+                ]  # fmt: skip
+                continue
+            found.append(item)
+            if name is not None:
+                for path in sorted(where.rglob("*")):
+                    relative = path.relative_to(where).as_posix()
+                    if path.is_file() and not path.is_symlink() and path.name != MANIFEST:
+                        run.claim_files.setdefault(relative, path)
+    mark_on_tree([*found, *run.stale], main, run.merged)
+    return found
 
 
 def delta_review(run: Run, args: argparse.Namespace, main: Path, ledger_dir: Path) -> None:
-    """A delta review past the round cap (the owner's Q-R1): one lens on the fix's own diff, then every
-    earlier round's kept attack re-run on the head; PASS only when they pass and no finding could
-    block (the ledger decides)."""
+    """A delta review past the round cap (the owner's Q-R1): every earlier round's kept attack re-run on
+    the head first (`replay_earlier`: a stale one's finding is handed to the lens as text), then one
+    lens on the fix's own diff; the lens's findings and the failed replays go to one batched refuter.
+    PASS only when no finding that could block stands (the ledger decides)."""
     factory = main / ".private" / "work" / "factory"
     review_dir = factory / "review"
     run.tier = "delta"
@@ -1607,10 +1705,13 @@ def delta_review(run: Run, args: argparse.Namespace, main: Path, ledger_dir: Pat
                 facts = write_delta(
                     main, run, review_dir / "out" / f"{run.pr}-{run.head[:12]}-r{run.round_}"
                 )
+            claims = replay_earlier(run, rv, main, earlier)
+            with locked(review_dir / ".git.lock"):
+                prepare(main, rv, run.merged, clean=True)  # the lens never sees the replays' files
             reviews = lenses_in(run, [DELTA], rv, slot, main, facts)
-            confirm_and_refute(run, rv, slot, main, reviews)
-            keep_attacks(run, rv, main)  # before the replay, which cleans `rv` round by round
-            replay_earlier(run, rv, main, earlier)
+            confirm_and_refute(run, rv, slot, main, reviews, claims)
+            keep_attacks(run, rv, main)
+            run.findings += run.stale  # recorded STALE, never judged, never blocking
         finally:
             with ledger.ledger_lock(ledger_dir):
                 check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))
@@ -1692,9 +1793,16 @@ def check_ledger(
 
 
 def confirm_and_refute(
-    run: Run, rv: Path, slot: Path, main: Path, reviews: list[dict[str, Any]]
+    run: Run,
+    rv: Path,
+    slot: Path,
+    main: Path,
+    reviews: list[dict[str, Any]],
+    claims: Sequence[Finding] = (),
 ) -> None:
-    """The lenses' findings, each replayed by its test, the rest judged by the batched refuter."""
+    """The lenses' findings, each replayed by its test, the rest judged by the batched refuter; with
+    them the earlier rounds' failed replays (`claims`), never replayed again here: only the refuter
+    confirms one (S26-FX9)."""
     for number, out in enumerate(reviews, start=1):
         for index, item in enumerate(out["findings"], start=1):
             repro = item.get("repro")
@@ -1712,6 +1820,7 @@ def confirm_and_refute(
             )
     mark_on_tree(run.findings, main, run.merged)
     confirm(run, rv)
+    run.findings += claims
     refute(run, rv, slot, main)
 
 
@@ -1937,6 +2046,12 @@ def refuter_tree(run: Run, rv: Path) -> None:
     assert run.merged is not None
     git(rv, "reset", "-q", "--hard", run.merged)
     git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules", f"--exclude=/{ATTACKS}")
+    for relative, source in run.claim_files.items():  # a replayed attack's files (a lens's win)
+        target = rv / relative
+        if target.exists() or not target.resolve().is_relative_to(rv.resolve()):
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
     drop_attack_config(rv)  # no folder of its own: every conftest.py goes too
 
 
@@ -2259,8 +2374,7 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
     ledger.check_exception(run.round_, args.exception, args.reason)
     ledger.check_round(ledger_dir, run.pr, run.round_, args.exception)
     run.head = resolve(run.pr)
-    if (ledger_dir / f"{run.pr}-{run.head}.json").exists():
-        raise Refused(f"PR {run.pr} at {run.head} is already recorded: a head is reviewed once")
+    once_per_head(ledger_dir, run, args.exception)
     held.enter_context(round_lock(main, run))
     path = handoff_path(factory / "review" / "cloud", run.pr, run.head, run.round_)
     manifest = read_manifest(path, run)
