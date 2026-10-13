@@ -21,6 +21,9 @@ them one after another:
   `lint`, `messages:check`, `npm --prefix web test`;
 - hooks: `node --test '.claude/hooks/**/*.test.mjs'` (a glob: Node 24 fails on a folder argument);
 - workflow scripts: `python -m tools.lint.workflows_js`;
+- web, CI's second pass: `web-test-slowed` runs after `web-test`, the same run with
+  `VITE_FAKE_API_LATENCY_MS` read from `.github/workflows/web.yml`; a timed-out file of it is re-run alone, still
+  slowed;
 - a Claude Code plugin under `tools/mod/`: `claude plugin validate --json --strict` and `claude plugin
   test` (left out, with a `not run: claude absent` line, when `claude` is not on PATH).
 
