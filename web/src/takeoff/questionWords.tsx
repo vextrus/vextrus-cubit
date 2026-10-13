@@ -185,6 +185,8 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
       const page = q.params.page
       return <Trans>Page {page} of the Plot shows {number}, and no DWG has a sheet with that number.</Trans>
     }
+    // A sheet in a file the drawing list does not name: it exists, so it is never "in no file" (#689).
+    if (q.code === 'engine.register_check.not_listed') return <Trans>{number} is in a file added, and the drawing list does not name it.</Trans>
     const list = <ListSource entry={entry} context={context} />
     return <Trans>{number} is named on {list}, and no file added has a sheet with that number.</Trans>
   }

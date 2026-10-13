@@ -259,7 +259,8 @@ class CoverageView:
     by_step: dict[str, int] = field(default_factory=dict)
     """Views by the step (or Part) that will read them, proposed or assigned."""
     by_reason: dict[str, int] = field(default_factory=dict)
-    """Views excluded or proposed to be, by reason."""
+    """Views excluded and confirmed so, by reason: they add up to `excluded`. A view only proposed to be
+    left out counts under `proposed` alone (m0-screens 6.11)."""
     unaccounted_views: list[UnaccountedView] = field(default_factory=list)
     unread_sheets: int = 0
     """Sheets the read left out for unreadable writing (#135): never silently unread."""
@@ -313,6 +314,29 @@ class ActView:
     sheets: int
     by: str
     at: datetime
+
+
+@dataclass(frozen=True)
+class HistoryAct:
+    """One act on a sheet, from the event log (m0-screens 6.6 item 5, "Who did what")."""
+
+    id: uuid.UUID
+    """The act's Confirmation: an undo has its undone act's."""
+    code: str
+    """The event's code (`takeoff.step1.` + `confirmed`, `confirmed_back_in`, `excluded`, `corrected`
+    or `undone`)."""
+    actor: str
+    """The person's name as it was then."""
+    actor_role: str | None
+    at: datetime
+    sheets: int | None = None
+    """How many sheets the act decided."""
+    reason: str | None = None
+    """An exclusion's reason key."""
+    text: str | None = None
+    """An exclusion's "other" words, as the QS typed them."""
+    changes: dict[str, dict[str, str | None]] | None = None
+    """A correction's `{number?, title?: {old, new, old_source}}`."""
 
 
 @dataclass(frozen=True)
@@ -445,7 +469,9 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
         [*(k for k in titled.values() if k), *(v.storeys for vs in viewed for v in vs)]
     )
     titled = {text: _to_top(keys, highest) for text, keys in titled.items()}
-    shown = [[_view_to_top(v, highest) for v in vs] for vs in viewed]
+    shown = _as_coverage_stands(
+        project_id, sheets, [[_view_to_top(v, highest) for v in vs] for vs in viewed]
+    )
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
@@ -477,6 +503,45 @@ def _view_to_top(view: drawings.ViewView, highest: int | None) -> drawings.ViewV
     """A view as Step 1 shows it: a range's `top` resolved (13's `storeys.to_top`)."""
     storeys = view_finder.to_top(view.storeys, highest)
     return view if storeys == view.storeys else replace(view, storeys=storeys)
+
+
+def _as_coverage_stands(
+    project_id: uuid.UUID,
+    sheets: Sequence[drawings.SheetView],
+    shown: list[list[drawings.ViewView]],
+) -> list[list[drawings.ViewView]]:
+    """Once a sheet is decided, each of its views shows the steps and Part its Coverage row now
+    stands at (`_steps_standing` under the sheet's deciding Confirmation; the Part is `part_key`),
+    not the read's own, so a view's chips and Coverage's unaccounted count never disagree (S24-C2,
+    M0-FL7). An undecided sheet's views stay as read. Every decided sheet's Coverage rows in one query
+    and their standing steps once, never one query per sheet."""
+    decided = {s.id: s.confirmation_id for s in sheets if s.decision}
+    if not decided:
+        return shown
+    rows = list(Coverage.objects.filter(project_id=project_id, sheet_revision_id__in=list(decided)))
+    standing = _steps_standing(rows, decided)
+    of_view = {r.view_id: r for r in rows}
+    return [
+        [
+            _stands_at(v, of_view[v.id], standing.get(of_view[v.id].id, ()))
+            if s.id in decided and v.id in of_view
+            else v
+            for v in views
+        ]
+        for s, views in zip(sheets, shown, strict=True)
+    ]
+
+
+def _stands_at(
+    view: drawings.ViewView, row: Coverage, steps: Sequence[CoverageStep]
+) -> drawings.ViewView:
+    """The view as its Coverage row stands: the steps standing for it and its Part, and, where the
+    row stands excluded (its sheet excluded, or the view), the exclusion and its reason: Coverage counts
+    it excluded, so its chip must not read "no step: unaccounted"."""
+    stood = replace(view, steps=tuple(s.step for s in steps), part=row.part_key or None)
+    if row.status != CoverageStatus.EXCLUDED:
+        return stood
+    return replace(stood, decision="excluded", excluded_reason=row.reason, excluded_text=row.reason_text)
 
 
 def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
@@ -970,7 +1035,8 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
         )
     }
     for row in rows:
-        counts[_counted(row)] += 1
+        counted = _counted(row)
+        counts[counted] += 1
         if row.status == CoverageStatus.UNACCOUNTED:
             unaccounted.append(
                 UnaccountedView(
@@ -979,7 +1045,9 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
             )
         if any(s.used for s in steps.get(row.id, ())):
             used += 1
-        if row.status == CoverageStatus.EXCLUDED:
+        if counted == "excluded":
+            # Only what the Coverage line counts as excluded (confirmed): a view proposed to be left
+            # out is counted under "proposed" alone, so the two "excluded" figures agree.
             by_reason[row.reason] += 1
         elif row.status == CoverageStatus.ASSIGNED:
             # A view counts under every step and Part it serves (a toilet detail under the walls,
@@ -1413,10 +1481,13 @@ def _act(
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
     views: int = 0,
+    excluded: Mapping[str, str] | None = None,
 ) -> Confirmation:
-    """`views`: how many of `sheets` (the act's proposals) are views left out on their own."""
+    """`views`: how many of `sheets` (the act's proposals) are views left out on their own.
+    `excluded`: the reason (and the QS's words) of an exclusion, kept with the act for "Who did what"."""
+    given = {"excluded": dict(excluded)} if excluded else {}
     row = Confirmation.objects.create(
-        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
+        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}, **given},
         tenant_id=_tenant(),
         project_id=project_id,
         step=SHEETS,
@@ -1587,7 +1658,9 @@ def _no_one_source_in_bulk(
     the sheet. Then a held file's sheets read anyway are refused as `held_file`, and otherwise the
     sheets with one source as `one_source`: each naming its sheets by their Proposals' ids (the
     printed sheet's while none is proposed), in the order chosen, the first by number, and how
-    many."""
+    many. An act of exactly one whole continuation run (the server's own grouping, `groups.among`) is
+    a row, not the bulk act (m0-screens 6.2): its one-source sheets pass, the Question and held-file
+    refusals above still stand."""
     if len(chosen) < 2:
         return
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
@@ -1609,11 +1682,64 @@ def _no_one_source_in_bulk(
     held = [(sheet, p) for sheet, p in lone if sheet.held]
     alone = held or lone
     first, _p = alone[0]
+    if not held and _is_whole_run(project_id, chosen):
+        return
     code = said.HELD_FILE if held else said.ONE_SOURCE
     # `sheets` is a list, which `Message`'s params (str | int) do not type: the ruling's shape.
     message = code(count=len(alone), sheets="", **_named(first))
     message["params"]["sheets"] = cast(Any, [str(p.id if p else s.id) for s, p in alone])
     raise auth.Refused(message, status=409)
+
+
+def _is_whole_run(
+    project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
+) -> bool:
+    """Whether the chosen sheets are exactly one continuation row, built as the web's `sheetRows` and
+    `continues` build it: in the Discipline's sheets in list order (`_sheets`, the order `proposals`
+    returns) less those an open Question holds and the undecided ones proposed out (their own list),
+    a row is a stretch of next-to-each-other sheets of one run (`groups.among`, T-W334) decided alike
+    (never two sheets decided apart). A run split by another sheet is two rows; part of a row, or a
+    row and another sheet, is not one."""
+    from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
+
+    sheets = _sheets(project_id)
+    drawing_set = _set_of(project_id)
+    of_set = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+    grouped = groups.among(
+        sheets,
+        [of_set.get(s.id, []) for s in sheets],
+        {f.id: f.group for f in files_of(project_id)},
+        sheet_conventions(),
+    )
+
+    def run_of(sheet: drawings.SheetView) -> str | None:
+        return grouped.get(sheet.id, groups.ALONE).continuation
+
+    def state_of(sheet: drawings.SheetView) -> tuple[str | None, str | None]:
+        return (sheet.decision, sheet.excluded_reason)
+
+    first, _p = chosen[0]
+    if run_of(first) is None or len({sheet.discipline for sheet, _p in chosen}) != 1:
+        return False
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    mine = [(s, by_sheet.get(s.id)) for s in sheets if s.discipline == first.discipline]
+    held = _holding(project_id, mine)
+    rows: list[list[drawings.SheetView]] = []
+    for sheet, _p in mine:
+        if sheet.id in held or (sheet.decision is None and sheet.proposed_exclusion):
+            continue
+        last = rows[-1][-1] if rows else None
+        if (
+            last
+            and run_of(last) == run_of(sheet)
+            and state_of(last) == state_of(sheet)
+            and run_of(sheet)
+        ):
+            rows[-1].append(sheet)
+        else:
+            rows.append([sheet])
+    wanted = {sheet.id for sheet, _p in chosen}
+    return any({s.id for s in row} == wanted for row in rows)
 
 
 def _holding(
@@ -1809,6 +1935,7 @@ def _exclude(
             before=[sheet for sheet, _p in chosen],
             answering=answering,
             views=len(views),
+            excluded={"reason": reason, "text": words},
         )
         _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
@@ -2413,6 +2540,96 @@ def undo(project_id: uuid.UUID) -> ActView:
         _record(act, said.UNDONE)
         _after_act(project_id)
     return _act_view(act)
+
+
+_HISTORY = (said.CONFIRMED, said.CONFIRMED_BACK_IN, said.EXCLUDED, said.CORRECTED, said.UNDONE)
+
+
+def history(project_id: uuid.UUID, proposal: uuid.UUID) -> list[HistoryAct]:
+    """Every act on a printed sheet, oldest first, from the event log (and the Confirmation of an
+    answer's second act, which logs none): confirmations (bulk ones with
+    how many sheets they decided), exclusions with their reason, corrections old to new, and each
+    undo after the act it took back (the undone act stays listed). `proposal`: the Proposal's id, or
+    the sheet's while none is proposed; any other, of another Project or none, is not found. An act is
+    found by the sheet its Confirmation names (`before`), so a sheet's number or title moving does not
+    lose it."""
+    sheet_id = next((p.subject_id for p in _proposals_of(project_id, Q(id=proposal))), proposal)
+    if sheet_id not in {s.id for s in _sheets(project_id)}:
+        raise auth.NotFound
+    named = str(sheet_id)
+    acts_of = {
+        c.id: c
+        for c in Confirmation.objects.filter(project_id=project_id, step=SHEETS).filter(
+            Q(before__sheets__has_key=named) | Q(before__corrected__sheet=named)
+        )
+    }
+    recorded = events.of_subjects(_HISTORY, subject_type="confirmation", subject_ids=acts_of)
+    roles = invitations.roles_of({c.user_id for c in acts_of.values()})
+    found: list[HistoryAct] = []
+    for event in recorded:
+        act = acts_of[event.subject_id]
+        counted = event.payload.get("sheets")
+        found.append(
+            HistoryAct(
+                id=act.id,
+                code=event.kind,
+                actor=act.by_name,
+                actor_role=roles.get(act.user_id),
+                at=event.occurred_at,
+                sheets=counted if isinstance(counted, int) else None,
+                **_given_by(event.kind, act, named),
+            )
+        )
+    # One answer is one event: the second act an answer takes (keep_latest confirms one copy and
+    # leaves the others out) logs none (`_act`), so its sheet's act is read from its Confirmation.
+    logged = {e.subject_id for e in recorded}
+    for act in acts_of.values():
+        if act.id in logged or act.act not in (ConfirmationAct.CONFIRM, ConfirmationAct.EXCLUDE):
+            continue
+        code = _event_of_act(act)
+        found.append(
+            HistoryAct(
+                id=act.id,
+                code=code.code,
+                actor=act.by_name,
+                actor_role=roles.get(act.user_id),
+                at=act.at,
+                sheets=act.proposals,
+                **_given_by(code.code, act, named),
+            )
+        )
+    return sorted(found, key=lambda a: a.at)
+
+
+def _event_of_act(act: Confirmation) -> MessageCode:
+    """The code `_event_of` gave an act, read back from its Confirmation: confirming sheets all
+    excluded before is "confirmed back in"."""
+    if act.act == ConfirmationAct.EXCLUDE:
+        return said.EXCLUDED
+    before = list((act.before.get("sheets") or {}).values())
+    if before and all(d and d.get("decision") == "excluded" for d in before):
+        return said.CONFIRMED_BACK_IN
+    return said.CONFIRMED
+
+
+def _given_by(code: str, act: Confirmation, sheet: str) -> dict[str, Any]:
+    """What an act gave, for its history entry: an exclusion's reason, a correction's changes."""
+    if code == said.EXCLUDED.code:
+        given = act.before.get("excluded") or {}
+        reason = given.get("reason")
+        text = given.get("text") if reason == "other" else None
+        return {"reason": reason, "text": text or None}
+    if code == said.CORRECTED.code:
+        made = act.before.get("corrected") or {}
+        sources = made.get("sources") or {}
+        return {
+            "changes": {
+                name: {"old": made[name][0], "new": made[name][1], "old_source": sources.get(name)}
+                for name in ("number", "title")
+                if name in made
+            }
+        }
+    return {}
 
 
 def _after_act(project_id: uuid.UUID, *, corrected: bool = False) -> None:

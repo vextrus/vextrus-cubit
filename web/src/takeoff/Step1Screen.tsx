@@ -25,7 +25,7 @@ import { SlotFill } from '@/app/slots'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { problemText } from '@/auth/problem'
 import { SheetViewer, type SheetOutline } from '@/sheet'
-import { useFormat } from '@/format'
+import { lengthFromMm, useFormat } from '@/format'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/primitives/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
 import { DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
@@ -775,6 +775,7 @@ function Step1({
     <>
       {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} context={cardContext(model)} onOpen={openSheetOf} answerer={answerer} /> : null}
       <SheetFacts
+        projectId={project.id}
         row={focusedRow}
         showTitle={mode === 'list'}
         readOnly={readOnly !== null}
@@ -829,6 +830,7 @@ function Step1({
             selection={chosenKeys}
             onExtendTo={extendTo}
             onClearSelection={() => setRange(null)}
+            readOnly={readOnly !== null}
           />
         </ListRegion>
       ) : open ? (
@@ -1097,6 +1099,9 @@ function SheetMode({
       <SlotFill slot="toolbar.end" order={1}>
         <ViewerTools selected={selectedView !== null} outlinesOn={outlinesOn} onOutlines={onOutlines} onZoom={onZoom} />
       </SlotFill>
+      <SlotFill slot="status.start" order={-1}>
+        <CursorReadout cursor={cursor} view={stated} />
+      </SlotFill>
       {stated && (stated.not_to_scale || stated.stated_scale) ? (
         <SlotFill slot="status.start" order={0}>
           <StatedScale view={stated} />
@@ -1190,6 +1195,35 @@ function statedView(views: readonly ViewOut[], cursor: { x: number; y: number } 
         .sort((a, b) => (a.box[2] - a.box[0]) * (a.box[3] - a.box[1]) - (b.box[2] - b.box[0]) * (b.box[3] - b.box[1]))[0]?.v
     : undefined
   return under ?? views.find((v) => v.id === selected) ?? [...views].sort((a, b) => a.ordinal - b.ordinal)[0]
+}
+
+/**
+ * The status bar's cursor (§4.1, §4.6): "X 42′-7½″  Y 18′-3″" in the project's units, "X —  Y —" off the sheet.
+ * A layout-tab sheet's origin is not settled (m0-screens, "not settled"), so only a view stated at 1:N reads a
+ * figure: from the view's lower left corner at the drawing's size (the paper's mm × N). Anywhere else, never
+ * paper millimetres written as a coordinate: "X —  Y —".
+ */
+function CursorReadout({ cursor, view }: { cursor: { x: number; y: number } | null; view: ViewOut | undefined }) {
+  const f = useFormat()
+  const box = view && !view.not_to_scale && view.stated_scale ? (view.box.map(Number) as [number, number, number, number]) : null
+  const n = view?.stated_scale ? Number(/^\s*1\s*:\s*(\d+(?:\.\d+)?)\s*$/.exec(view.stated_scale)?.[1]) : Number.NaN
+  const over = cursor !== null && box !== null && Number.isFinite(n) && n > 0 && cursor.x >= box[0] && cursor.x <= box[2] && cursor.y >= box[1] && cursor.y <= box[3]
+  if (!over) {
+    return (
+      <span>
+        <Trans>X — Y —</Trans>
+      </span>
+    )
+  }
+  const x = f.coordinate(lengthFromMm((cursor.x - box[0]) * n))
+  const y = f.coordinate(lengthFromMm((cursor.y - box[1]) * n))
+  return (
+    <span>
+      <Trans>
+        X {x} Y {y}
+      </Trans>
+    </span>
+  )
 }
 
 /** The status bar's stated scale for the view under the cursor (§4.1): "1:100, as stated", or "Not to scale". */

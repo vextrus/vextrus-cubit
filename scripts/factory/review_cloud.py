@@ -94,8 +94,11 @@ def prompt_for(args: argparse.Namespace, nonce: str, branch: str, claim: str | N
         f"Then commit exactly one file, `{verdict_path}`, as a child of {head}: the JSON object",
         f'{{"pr": {pr}, "head_sha": "{head}", "nonce": "{nonce}", "agent": "{agent}",',
         f'"verdict": <{verdicts}>, "findings": [{{"score": 0-100, "file": "<repo path>", "line": <n>,',
-        '"summary": "<public words>"}]}',
-        "(docs/specs/factory/contracts/review-verdict.schema.json; a refuter writes []).",
+        '"summary": "<public words>", "class": "<user-facing|edge|rule-only>",',
+        '"trust_boundary": <true|false>, "owed_check": "<the check that fails on its class>"}]}',
+        "(docs/specs/factory/contracts/review-verdict.schema.json; a refuter writes []; class and",
+        "trust_boundary go together or not at all: an edge or rule-only 50-74 off a trust boundary",
+        "is filed).",
         f"Push only that commit: `git push origin HEAD:refs/heads/{branch}`. Never push another branch,",
         "never open a PR, never comment anywhere. The nonce goes only in that file.",
         "End with your verdict line ("

@@ -303,7 +303,7 @@ def test_a_pass_with_an_unrefuted_finding_that_could_block_is_refused_at_record(
     tmp_path: Path,
 ) -> None:
     """`commit_record` itself (as `fetch-verdict` reaches it, with no `decide` refusal before it)."""
-    decision = ledger.judge(["PASS"], {"f1": (60, "-", "vextrus/rates/table.py")}, "0" * 64)
+    decision = ledger.judge(["PASS"], {"f1": ledger.Judged(60, "-", "vextrus/rates/table.py")}, "0" * 64)
     assert decision.verdict == "PASS"
     with pytest.raises(ledger.Refused):
         ledger.commit_record(
@@ -314,7 +314,9 @@ def test_a_pass_with_an_unrefuted_finding_that_could_block_is_refused_at_record(
 
 
 def test_a_pass_with_an_unrefuted_74_off_the_strict_paths_is_recorded(tmp_path: Path) -> None:
-    decision = ledger.judge(["PASS"], {"f1": (74, "-", "web/src/components/badge.tsx")}, "0" * 64)
+    decision = ledger.judge(
+        ["PASS"], {"f1": ledger.Judged(74, "-", "web/src/components/badge.tsx")}, "0" * 64
+    )
     ledger.commit_record(
         pr=12, head=H, round_=1, decision=decision, exception=None, source="fetch-verdict",
         scan=lambda text: 0, post=lambda pr, body: 5, ledger_dir=tmp_path / "ledger",
@@ -500,3 +502,89 @@ def test_no_lens_verdict_decides_nothing() -> None:
     """Fail closed: a caller that hands the bar no lens's verdict never gets a PASS."""
     with pytest.raises(ValueError, match="no lens's verdict"):
         ledger.verdict([], [])
+
+
+# S25-F2, the owner's Q13: a tagged finding is judged by its class and trust boundary, not its path.
+
+
+@pytest.mark.parametrize(
+    ("row", "verdict", "filed"),
+    [
+        # an edge 60 off a boundary on a strict-by-default product file: filed, not fixed
+        (f"FINDING f1 60 CONFIRMED {STRICT} class=edge boundary=no", "PASS", ("f1",)),
+        (f"FINDING f1 60 CONFIRMED {STRICT} class=rule-only boundary=no", "PASS", ("f1",)),
+        # the same file untagged keeps the path bar
+        (f"FINDING f1 60 CONFIRMED {STRICT}", "FIX", ()),
+        # a lens's boundary=no never un-walls a [strict] carve-out
+        ("FINDING f1 60 CONFIRMED web/src/api/client.tsx class=edge boundary=no", "FIX", ()),
+        ("FINDING f1 60 CONFIRMED web/src/useAuth.tsx class=rule-only boundary=no", "FIX", ()),
+        # tags with no file: judged on a trust boundary
+        ("FINDING f1 60 CONFIRMED class=edge boundary=no", "FIX", ()),
+        ("FINDING f1 60 CONFIRMED ../x.py class=edge boundary=no", "FIX", ()),
+        (f"FINDING f1 49 CONFIRMED {STRICT} class=user-facing boundary=yes", "PASS", ()),
+    ],
+)
+def test_a_tagged_finding_is_judged_by_its_class_and_boundary(
+    tmp_path: Path, row: str, verdict: str, filed: tuple[str, ...]
+) -> None:
+    decision = ledger.decide(source(tmp_path, f"VERDICT: FIX at {H}", row).read_bytes(), H)
+    assert (decision.verdict, decision.to_file) == (verdict, filed)
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        f"FINDING f1 60 CONFIRMED {LAX} class=edge",
+        f"FINDING f1 60 CONFIRMED {LAX} boundary=no",
+        f"FINDING f1 60 CONFIRMED {LAX} class=edge boundary=No",
+        f"FINDING f1 60 CONFIRMED {LAX} class=edge boundary=",
+        f"FINDING f1 60 CONFIRMED {LAX} class=edge boundary=no extra",
+        f"FINDING f1 60 CONFIRMED {LAX} boundary=no class=edge",
+        f"FINDING f1 60 CONFIRMED {LAX}  class=edge boundary=no",
+        f"FINDING f1 60 CONFIRMED {LAX} class=edge boundary=no\t",
+    ],
+)
+def test_a_malformed_tag_is_refused(tmp_path: Path, row: str) -> None:
+    with pytest.raises(ledger.BadInput):
+        ledger.decide(source(tmp_path, f"VERDICT: PASS at {H}", row).read_bytes(), H)
+
+
+def test_an_unreadable_strict_list_puts_every_tagged_finding_on_a_wall(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ledger, "strict_paths", lambda: None)
+    assert ledger.could_block(60, STRICT, "edge", False) is True
+
+
+CLOUD = {"score": 60, "file": "a.py", "line": 1, "summary": "a row is read twice"}
+
+
+@pytest.mark.parametrize(
+    ("extra", "ok"),
+    [
+        ({}, True),
+        ({"class": "edge", "trust_boundary": False}, True),
+        ({"class": "user-facing", "trust_boundary": True, "owed_check": "a test"}, True),
+        ({"owed_check": "a test"}, True),
+        ({"class": "edge"}, False),
+        ({"trust_boundary": False}, False),
+        ({"class": "minor", "trust_boundary": False}, False),
+        ({"class": ["edge"], "trust_boundary": False}, False),
+        ({"class": "edge", "trust_boundary": 0}, False),
+        ({"class": "edge", "trust_boundary": "no"}, False),
+        ({"class": "edge", "trust_boundary": False, "owed_check": ""}, False),
+        ({"class": "edge", "trust_boundary": False, "owed_check": 3}, False),
+        ({"severity": "low"}, False),
+    ],
+)
+def test_a_cloud_finding_may_carry_both_tags_or_neither(extra: dict[str, Any], ok: bool) -> None:
+    assert ledger._finding_ok({**CLOUD, **extra}) is ok
+
+
+def test_a_cloud_finding_s_tags_reach_the_bar() -> None:
+    tree = frozenset({STRICT})
+    edge = ledger.judged_cloud({**CLOUD, "file": STRICT, "class": "edge", "trust_boundary": False}, tree)
+    assert not ledger.blocks(edge)
+    assert ledger.blocks(ledger.judged_cloud({**CLOUD, "file": STRICT}, tree))
+    wall = ledger.judged_cloud({**CLOUD, "file": STRICT, "class": "edge", "trust_boundary": True}, tree)
+    assert ledger.blocks(wall)

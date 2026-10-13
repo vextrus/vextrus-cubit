@@ -20,11 +20,15 @@
         "additionalProperties": false,
         "required": ["score", "file", "line", "summary"],
         "properties": {
-          "score": {"type": "integer", "minimum": 0, "maximum": 100, "description": "The reviewer's score; one that could block (75 or more, or 50 or more on a strict path: ADR 0041, amended 7 Oct 2026) needs a refuter before it reaches the builder."},
+          "score": {"type": "integer", "minimum": 0, "maximum": 100, "description": "The reviewer's score; one that could block (75 or more, or 50 or more when user-facing or on a trust boundary, or untagged on a strict path: ADR 0041, amended 13 Oct 2026) needs a refuter before it reaches the builder."},
           "file": {"type": "string", "minLength": 1, "maxLength": 300, "description": "A repository path (never a drawing's name)."},
           "line": {"type": "integer", "minimum": 0, "description": "The line in the new file; 0 when the finding is about the file as a whole."},
-          "summary": {"type": "string", "minLength": 1, "maxLength": 600, "description": "One or two sentences: the failing scenario. Public words."}
-        }
+          "summary": {"type": "string", "minLength": 1, "maxLength": 600, "description": "One or two sentences: the failing scenario. Public words."},
+          "class": {"enum": ["user-facing", "edge", "rule-only"], "description": "Optional, with trust_boundary (both or neither; the owner's Q13): user-facing, a QS or MD would hit it; edge, an edge case; rule-only, it breaks only the factory's own rules. Untagged, the finding keeps the path bar."},
+          "trust_boundary": {"type": "boolean", "description": "Optional, with class: true when the finding sits on a trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger), where a 50-74 blocks whatever its class."},
+          "owed_check": {"type": "string", "minLength": 1, "maxLength": 300, "description": "Optional: the committed check (a test, lint or scan) that would fail on the finding's class; a filed finding still owes it."}
+        },
+        "dependentRequired": {"class": ["trust_boundary"], "trust_boundary": ["class"]}
       }
     }
   },

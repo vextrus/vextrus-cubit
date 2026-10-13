@@ -167,7 +167,11 @@ _HEADINGS = frozenset({ViewKind.NOTES, ViewKind.LEGEND, ViewKind.SCHEDULE})
 
 
 def _views(
-    paper: _Paper, reading: _Reading, untitled: ViewKind, block: Bounds | None = None
+    paper: _Paper,
+    reading: _Reading,
+    untitled: ViewKind,
+    block: Bounds | None = None,
+    notes_sheet: bool = False,
 ) -> list[_View]:
     rx0, ry0, rx1, ry1 = paper.region
     letter = MAX_LETTER * min(rx1 - rx0, ry1 - ry0)  # taller is no lettering (a hostile height)
@@ -379,6 +383,10 @@ def _views(
             smallest = min(holders, key=lambda v: _area(v.box))
             smallest.box = _union(smallest.box, piece.box)
     _plans_reach(views, pieces, drawn.segments, (rx1 - rx0, ry1 - ry0), unit, block)
+    if notes_sheet:  # R1, after the plans have taken what is theirs: no untitled drawing is a plan
+        for v in views:
+            if v.title is None and v.kind is ViewKind.PLAN:
+                v.kind = ViewKind.DETAIL
     for si in scale_texts:
         s = texts[si]
         best: tuple[float, _View] | None = None
