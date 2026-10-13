@@ -207,8 +207,8 @@ const LOG_TAIL = 256 * 1024
 // A kind may hold digits after its first letter (`G1`).
 const EVENT = /^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z) ([A-Z][A-Z0-9-]*) ([^ ]+)(?: (.*))?$/
 
-// The log's text -> the events whose kind is in `kinds`, oldest first, each { at, kind, ticket,
-// detail, line }. A line that is not watch.py's form is skipped. Never throws.
+// The log's text -> the events whose kind is in `kinds` (null: every kind), oldest first, each
+// { at, kind, ticket, detail, line }. A line that is not watch.py's form is skipped. Never throws.
 export function parseEvents(text, kinds) {
   const out = []
   try {
@@ -216,7 +216,7 @@ export function parseEvents(text, kinds) {
     const tail = text.length > LOG_TAIL ? text.slice(text.indexOf("\n", text.length - LOG_TAIL) + 1) : text
     for (const raw of tail.split("\n")) {
       const m = EVENT.exec(raw.replace(/\r$/, ""))
-      if (m === null || !kinds.includes(m[2]) || !Number.isFinite(Date.parse(m[1]))) continue
+      if (m === null || (kinds !== null && !kinds.includes(m[2])) || !Number.isFinite(Date.parse(m[1]))) continue
       out.push({ at: m[1], kind: m[2], ticket: m[3], detail: m[4] ?? "", line: raw })
     }
   } catch {

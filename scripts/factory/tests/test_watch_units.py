@@ -527,20 +527,23 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     assert at(95, idle) == []
 
 
-def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
+def test_events_tail_keeps_the_last_lines_of_a_log_over_the_hosts_limit(
     tmp_path: Path,
 ) -> None:
-    # over 4 MiB: the mod cannot read it (the mod never reads SAID; PUSH is the wake's, S26-FX2)
-    routine = "2026-10-06T00:00:00Z SAID t sent\n" * 200_000
+    """Every kind is kept (the mod's wake reads every kind, review round 2 of PR #794); a line not
+    in the watcher's form is not."""
+    routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
     wanted = [
         "2026-10-06T01:00:00Z READY t abc1234",
         "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
-        "2026-10-06T01:02:00Z CI-RED t #7 abc1234 required check ci failed",
+        "2026-10-06T01:02:00Z STOP-FAILURE - rate_limit abcdef12",
     ]
-    (tmp_path / "events.log").write_text(routine + "\n".join(wanted) + "\n")
+    (tmp_path / "events.log").write_text(routine + "not a line\n".join(f"{w}\n" for w in wanted))
     assert (tmp_path / "events.log").stat().st_size > 4 * 1024 * 1024
     watch.write_events_tail(tmp_path)
-    assert (tmp_path / "events.tail").read_text() == "".join(f"{line}\n" for line in wanted)
+    kept = (tmp_path / "events.tail").read_text().splitlines()
+    assert kept[-3:] == wanted
+    assert "not a line" not in kept
     assert not (tmp_path / "events.tail.tmp").exists()
     (tmp_path / "events.log").write_text(
         "".join(f"2026-10-06T02:00:{i % 60:02d}Z READY t{i} x\n" for i in range(300))

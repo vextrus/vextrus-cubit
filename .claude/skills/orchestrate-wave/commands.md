@@ -32,9 +32,11 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - A cloud builder is messaged through `uv run python -m scripts.factory.launch say <session-id> --ticket <ticket> --file <f>`.
 
 ## 4. Watch
-- `uv run python -m scripts.factory.watch ensure`: starts the watcher when its pidfile is stale; then Monitor
-  on `events.log` under `.private/work/factory/`.
-- The one tail, event kinds to watch: READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, LOCAL-IDLE.
+- `uv run python -m scripts.factory.watch ensure`: starts the watcher when its pidfile is stale; the
+  `vextrus-factory` mod reads `events.log` under `.private/work/factory/` and wakes the orchestrator.
+- The kinds that wake it: READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, LOCAL-IDLE and every other kind, but
+  READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED, SAID and SAY (they ride along) and PUSH and COMMIT past the
+  first per ticket in 15 min.
 
 ## Real drawings
 - `uv run python -m scripts.factory.rdlock run --kind <kind> --head <sha> -- <cmd>`: one real-drawing run at a

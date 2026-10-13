@@ -3,13 +3,13 @@
 // poll (register.js) reads events.log, asks `advance` what to hold and whether to submit, keeps the
 // returned state in $.store, and submits the lines it is handed.
 //
-// What wakes: READY, BLOCKED, CI-RED, LEAK-HIT, STATUS, WALK-SCRIPT-DONE, G1, BUDGET-PASSED, OWNER-*,
-// READY-NO-VERIFY, LOCAL-IDLE, BUILDER-BLOCKED (review round 1 of PR #794: with no Monitor on the log
-// nothing else reports them), and a walk's close: scripts/walk/run.py's `WALK - <sha8> done PASS`,
-// `done FAIL` or `error` (and `WALK - <sha> done`). PUSH and COMMIT wake at most once per ticket per 15 minutes (decided when
-// the line arrives); READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED and the PUSH or COMMIT that does not
-// wake ride along with the next wake. At most 12 wakes in any hour: past that the lines wait and the
-// band says "wakes capped".
+// What wakes: every kind written to events.log (review round 2 of PR #794: a list of waking kinds missed
+// a writer twice), but these: READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED, SAID (the orchestrator's own
+// send) and SAY (the watcher's leak message; its LEAK-HIT wakes) ride along with the next wake; PUSH and
+// COMMIT wake at most once per ticket per 15 minutes (decided when the line arrives), else ride; a WALK
+// wakes only on a walk's close (scripts/walk/run.py: `WALK - <sha8> done PASS|FAIL`, `error`, or
+// `<sha> done`). At most 12 wakes in any hour: past that the lines wait and the band says "wakes capped".
+// scripts/factory/tests/test_wake_kinds.py checks every writer's kinds in the tree against this.
 
 import { parseEvents } from "./text.js"
 
@@ -18,27 +18,23 @@ export const HOUR_MS = 3_600_000
 export const PUSH_EVERY_MS = 15 * 60_000
 // The held lines kept at most: riders are dropped first, oldest first.
 export const HELD_MAX = 100
-export const WAKING = ["READY", "BLOCKED", "CI-RED", "LEAK-HIT", "STATUS", "WALK-SCRIPT-DONE", "G1", "BUDGET-PASSED", "READY-NO-VERIFY", "LOCAL-IDLE", "BUILDER-BLOCKED"]
 // A walk's closing detail, run.py's Events: `<sha> done`, `<sha> done PASS|FAIL` or `<sha> error`.
 // Its `started` and `check <id> PASS|FAIL|UNSET` lines ride along.
 const WALK_CLOSE = /^[0-9a-f]{7,40} (done(?: (PASS|FAIL))?|error)$/
-export const RIDING = ["READY-WAITING", "BUILDER-QUIET", "FLOOR-CROSSED"]
+export const RIDING = ["READY-WAITING", "BUILDER-QUIET", "FLOOR-CROSSED", "SAID", "SAY"]
 export const ROUTINE = ["PUSH", "COMMIT"]
-// Every kind the wake reads (OWNER-* are the two the watcher and the orchestrator write).
-export const WAKE_KINDS = [...WAKING, ...RIDING, ...ROUTINE, "WALK", "OWNER-COMMAND", "OWNER-RULING"]
 
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
 const isText = (v) => typeof v === "string"
 const isTime = (v) => typeof v === "number" && Number.isFinite(v)
 
-// "wake", "ride" or "routine" for a parsed event; null for a kind the wake ignores.
+// "wake", "ride" or "routine" for a parsed event: any kind not named here wakes.
 export function kindOf(event) {
   const { kind, detail } = event
-  if (WAKING.includes(kind) || kind.startsWith("OWNER-")) return "wake"
   if (kind === "WALK") return WALK_CLOSE.test(detail) ? "wake" : "ride"
   if (RIDING.includes(kind)) return "ride"
   if (ROUTINE.includes(kind)) return "routine"
-  return null
+  return "wake"
 }
 
 // FNV-1a over the line's UTF-16 units, as 8 hex digits: the cursor's memory of the lines at its second.
@@ -104,14 +100,13 @@ function trimHeld(held, dropped) {
 // whether a due wake is held by the hourly cap.
 export function advance(state, text, nowMs, waiting) {
   const s = readWake(state)
-  const events = text === null ? [] : parseEvents(text, WAKE_KINDS)
+  const events = text === null ? [] : parseEvents(text, null)
   const { fresh, cursor } = text === null ? { fresh: [], cursor: s.cursor } : freshEvents(events, s.cursor)
   // A time ahead of the clock (the clock stepped back) counts as now: a step back never frees a wake.
   const pushWokeAt = new Map(s.pushWokeAt.map(([t, ms]) => [t, Math.min(ms, nowMs)]).filter(([, ms]) => nowMs - ms < PUSH_EVERY_MS))
   let held = [...s.held]
   for (const e of fresh) {
     const kind = kindOf(e)
-    if (kind === null) continue
     let wakes = kind === "wake"
     if (kind === "routine" && !pushWokeAt.has(e.ticket)) {
       wakes = true

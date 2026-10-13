@@ -6,7 +6,7 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 
 import { TABLE_HEAD, WAKE_END, liveRows, parseEvents, wakeText } from "../hooks/text.js"
-import { CAP_PER_HOUR, HELD_MAX, PUSH_EVERY_MS, WAKE_KINDS, advance, freshEvents, giveBack, kindOf, readWake } from "../hooks/wake.js"
+import { CAP_PER_HOUR, HELD_MAX, PUSH_EVERY_MS, advance, freshEvents, giveBack, kindOf, readWake } from "../hooks/wake.js"
 
 const T0 = Date.parse("2026-10-13T01:00:00Z")
 const iso = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z")
@@ -23,14 +23,16 @@ function status(writtenMs, items) {
 }
 const item = (ticket, state, extra = {}) => ({ ticket, where: "cloud", state, branch: "b", head: SHA, last_push_at: iso(T0 - 5 * 60_000), quiet_minutes: 5, pr: null, ...extra })
 
-test("kindOf: G1 and a done WALK wake, a WALK not done rides, PUSH is routine, an unknown kind is ignored", () => {
-  const ev = (text) => parseEvents(text, [...WAKE_KINDS, "SAID"])[0]
+test("kindOf: G1 and a done WALK wake, a WALK not done rides, PUSH is routine, SAID rides, an unknown kind wakes", () => {
+  const ev = (text) => parseEvents(text, null)[0]
   assert.equal(kindOf(ev(line(T0, "G1", "-", "4596e870 PASS"))), "wake")
   assert.equal(kindOf(ev(line(T0, "WALK", "-", `${SHA} done`))), "wake")
   assert.equal(kindOf(ev(line(T0, "WALK", "-", `${SHA} started`))), "ride")
   assert.equal(kindOf(ev(line(T0, "OWNER-RULING", "-", "Q1"))), "wake")
   assert.equal(kindOf(ev(line(T0, "PUSH", "t1", "abc"))), "routine")
-  assert.equal(kindOf(ev(line(T0, "SAID", "t1", "sent"))), null)
+  assert.equal(kindOf(ev(line(T0, "SAID", "t1", "sent"))), "ride")
+  assert.equal(kindOf(ev(line(T0, "STOP-FAILURE", "-", "rate_limit abcdef12"))), "wake")
+  assert.equal(kindOf(ev(line(T0, "SOME-FUTURE-KIND", "t1", "x"))), "wake", "a kind not named wakes by default")
 })
 
 test("a first reading is history: it sets the cursor at the log's end and wakes for nothing", () => {
@@ -44,8 +46,8 @@ test("a first reading is history: it sets the cursor at the log's end and wakes 
 
 test("lines written in the cursor's second after it was read are still new; the ones read are not", () => {
   const a = line(T0, "READY", "t1", "a")
-  const { cursor } = freshEvents(parseEvents(a, WAKE_KINDS), { at: "", hashes: [] })
-  const both = parseEvents(a + line(T0, "READY", "t2", "b"), WAKE_KINDS)
+  const { cursor } = freshEvents(parseEvents(a, null), { at: "", hashes: [] })
+  const both = parseEvents(a + line(T0, "READY", "t2", "b"), null)
   const { fresh } = freshEvents(both, cursor)
   assert.deepEqual(fresh.map((e) => e.ticket), ["t2"])
 })
@@ -123,8 +125,8 @@ test("a clock stepped back keeps the cap and the PUSH throttle: a time ahead of 
 
 test("a line stamped a little before the cursor but appended after it is still new", () => {
   const a = line(T0 + 5000, "READY", "t1", "a")
-  const { cursor } = freshEvents(parseEvents(a, WAKE_KINDS), { at: "", hashes: [] })
-  const late = parseEvents(a + line(T0 + 2000, "BLOCKED", "t2", "b"), WAKE_KINDS)
+  const { cursor } = freshEvents(parseEvents(a, null), { at: "", hashes: [] })
+  const late = parseEvents(a + line(T0 + 2000, "BLOCKED", "t2", "b"), null)
   assert.deepEqual(freshEvents(late, cursor).fresh.map((e) => e.ticket), ["t2"])
 })
 
@@ -139,10 +141,10 @@ test("a ticket name the launcher could not have made prints as ?, so no row pass
 // ---- review round 1 of PR #794 ----
 
 test("the walk script's closing lines wake (done PASS, done FAIL, error, a bare done); its started and check lines ride", () => {
-  const ev = (detail) => parseEvents(line(T0, "WALK", "-", detail), WAKE_KINDS)[0]
+  const ev = (detail) => parseEvents(line(T0, "WALK", "-", detail), null)[0]
   for (const detail of ["4596e870 done PASS", "4596e870 done FAIL", "4596e870 error", `${SHA} done`]) assert.equal(kindOf(ev(detail)), "wake", detail)
   for (const detail of ["4596e870 started", "4596e870 check c1 PASS", "4596e870 check done FAIL", "4596e870 check c2 UNSET"]) assert.equal(kindOf(ev(detail)), "ride", detail)
-  assert.equal(kindOf(parseEvents(line(T0, "WALK", "smoke", "4596e870 done PASS"), WAKE_KINDS)[0]), "wake", "a smoke walk's close wakes too")
+  assert.equal(kindOf(parseEvents(line(T0, "WALK", "smoke", "4596e870 done PASS"), null)[0]), "wake", "a smoke walk's close wakes too")
 })
 
 test("READY-NO-VERIFY, LOCAL-IDLE and BUILDER-BLOCKED wake: with no Monitor, nothing else reports them", () => {

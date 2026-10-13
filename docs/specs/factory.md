@@ -837,10 +837,10 @@ drawing text under the owner's local key, or under the cloud key for the two Dev
   call the guard blocked (VCC:407-408). Its test asserts the exact list of events it registers.
 - **The wake (S26-FX2; the owner's ruling Q-R4, 13 Oct 2026: "The factory mod may submit one batched, rate-capped
   wake prompt into the orchestrator's session").** Its one acting call: from the 15 s poll, `$.prompt.submit({ text })`,
-  framed as the plugin's message, when events.log has a new waking line (READY, BLOCKED, CI-RED, LEAK-HIT, STATUS,
-  WALK-SCRIPT-DONE, G1, BUDGET-PASSED, OWNER-*, READY-NO-VERIFY, LOCAL-IDLE, BUILDER-BLOCKED, a walk's close
-  `WALK - <sha8> done PASS|FAIL` or `error` (scripts/walk/run.py); PUSH and COMMIT once per ticket per 15 min;
-  READY-WAITING, BUILDER-QUIET and FLOOR-CROSSED ride along). One waits at a time, 12 an hour (then the band says
+  framed as the plugin's message, when events.log has a new waking line: every kind wakes (review round 2 of
+  PR #794) but READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED, SAID and SAY, which ride along, PUSH and COMMIT past
+  the first per ticket in 15 min, and a WALK other than a walk's close (`WALK - <sha8> done PASS|FAIL` or `error`,
+  scripts/walk/run.py). One waits at a time, 12 an hour (then the band says
   `wakes capped`); its cursor and cap live in `$.store`. The text: the new lines, the live tickets' table (`ticket state
   head8 Δmin relay`, from `builders.items`' `state_at` and `relay`), then "Act on these; no Monitor is needed." The band
   shows the same rows, one per live ticket. It registers no `prompt.*` hook.

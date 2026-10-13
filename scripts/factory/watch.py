@@ -1105,15 +1105,10 @@ def raise_alarms(step: Pass) -> None:
 
 
 # The mod cannot read a file over 4 MiB (the host's fs.read rejects it) and events.log only grows, so
-# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES lines of the kinds it shows or toasts,
-# from the last EVENTS_TAIL_BYTES of the log, in `events.tail`.
-# With S26-FX2 the tail also carries every kind the mod's wake reads (wakes and rides along).
-EVENTS_TAIL_KINDS = frozenset(
-    {"READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-RED", "OWNER-COMMAND", "OWNER-RULING"}
-    | {"STATUS", "WALK-SCRIPT-DONE", "G1", "WALK", "PUSH", "COMMIT"}
-    | {"READY-NO-VERIFY", "LOCAL-IDLE", "BUILDER-BLOCKED"}
-    | {"READY-WAITING", "BUILDER-QUIET", "FLOOR-CROSSED"}
-)
+# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES well-formed lines, of every kind (the
+# mod's wake reads every kind: review round 2 of PR #794), from the last EVENTS_TAIL_BYTES of the log,
+# in `events.tail`.
+EVENT_LINE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z [A-Z][A-Z0-9-]* \S")
 EVENTS_TAIL_LINES = 200
 EVENTS_TAIL_BYTES = 512 * 1024
 
@@ -1126,11 +1121,7 @@ def write_events_tail(folder: Path) -> None:
             raw = log.read()
         if size > EVENTS_TAIL_BYTES:
             raw = raw.partition(b"\n")[2]  # the first line is cut
-        lines = [
-            line
-            for line in raw.decode("utf-8", "replace").splitlines()
-            if len(parts := line.split(" ", 2)) > 1 and parts[1] in EVENTS_TAIL_KINDS
-        ]
+        lines = [line for line in raw.decode("utf-8", "replace").splitlines() if EVENT_LINE.match(line)]
         text = "".join(f"{line}\n" for line in lines[-EVENTS_TAIL_LINES:])
         path = folder / "events.tail"
         if path.exists() and path.read_text() == text:
