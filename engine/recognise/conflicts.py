@@ -33,7 +33,12 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a running number); or when
   their running numbers match and their suffixes are single Latin letters one apart: "S-101A"/"S-101B".
   "S-101"/"S-101A" do not run on; a number with no running number (no digit, or one of `RUNNING_LIMIT` or
-  more) runs on with none. Copies of one number are one place in a run. A run is in number order, a part
+  more) runs on with none. A number drawn by several sheets of one title (a duplicate, its own
+  `same_number` Question) leaves its next numbers out: it runs on across as many numbers less one as it
+  has copies ("S-41", "S-42" twice, "S-44": 43 is the second copy's), when its copies are different
+  drawings (their member ranges ascend one after the other, never the same or none) and no sheet of
+  the group and Discipline carries a number in the gap, with any suffix ("S-43A", "S-43.1" hold it).
+  Copies of one number are one place in a run. A run is in number order, a part
   by its number ("S-01/9" before "S-01/10"); a revision mark written after a number ("S-01 R1",
   `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2" are one number, never a run
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
@@ -65,7 +70,9 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   none, or a title with no range: its normal form), so a title with a range never joins the same words
   without one. A range's marks share their letters and ascend, below `RUNNING_LIMIT`; else it is no
   range. Two sheets of such a title run on only when their numbers do and each range of the first lies
-  below the next's, of one letters ("GB2-GB5" then "GB6-GB9"; "GB2-GB5" then "GB4-GB8" do not); the run's
+  below the next's, or touches it at one mark when each spans more than one (the owner's ruling Q-R9: a
+  member continued on the next sheet), of one letters ("GB2-GB5" then "GB6-GB9" or "GB5-GB9"; "GB2-GB5"
+  then "GB4-GB8", or "GB2-GB5" again, do not); the run's
   title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
   GB2-GB9 DETAILS"), its joiner kept.
 - **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
@@ -139,6 +146,7 @@ import re
 import unicodedata
 from collections.abc import Callable, Collection, Hashable, Iterable, Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import TYPE_CHECKING, NoReturn, Protocol
 
 from engine.messages import conflicts as codes
@@ -319,11 +327,16 @@ def compare(
     continuations: list[tuple[int, Continuation]] = []
     series: list[tuple[int, Series]] = []
     by_title: list[tuple[int, Conflict]] = []
-    carried = {  # every number a sheet of a group and Discipline carries, titled alike or not
-        (s.group, s.discipline.value, *parts)
-        for s in sheets
-        if s.discipline is not None and s.number is not None and (parts := reader.parts(s)) is not None
-    }
+    carried: set[tuple[object, str, str, int]] = set()
+    for s in sheets:  # every running number a sheet of a group and Discipline carries, in any suffix
+        if s.discipline is None or s.number is None:
+            continue
+        if (parts := reader.parts(s)) is not None:
+            carried.add((s.group, s.discipline.value, parts[0], parts[1]))
+        if (lead := _LEADING.match(clean(s.number.value))) is not None:  # "S-43.1" carries 43 too
+            head = reader.numbers.parts_in(lead[1] + "0", s.discipline.value)
+            if head is not None:
+                carried.add((s.group, s.discipline.value, head[0], int(lead[2])))
     for group in _grouped(
         (i, (s.group, s.discipline.value, titles[i]))
         for i, s in enumerate(sheets)
@@ -337,8 +350,22 @@ def compare(
         spans = [_span([ranges[i] for i in unit]) for unit in units]
         gkey = (sheets[group[0]].group, sheets[group[0]].discipline.value)  # type: ignore[union-attr]
 
-        def held(prefix: str, suffix: str, running: int, gkey: tuple[object, str] = gkey) -> bool:
-            return (*gkey, prefix, running, suffix) in carried
+        successive = [_successive([ranges[i] for i in unit]) for unit in units]
+
+        def crosses(
+            u: int,
+            prefix: str,
+            running: int,
+            step: int,
+            gkey: tuple[object, str] = gkey,
+            successive: list[bool] = successive,
+        ) -> bool:
+            """Whether unit `u`, its copies `step` numbers wide, may run on across the numbers a
+            duplicate left out: its copies are successive ranges and no sheet carries any number
+            between them, with any suffix."""
+            return successive[u] and not any(
+                (*gkey, prefix, n) in carried for n in range(running + 1, running + step)
+            )
 
         drawn = [_Drawn(unit, views, reader) for unit in units]
         stale: list[bool] = []  # a consecutive pair parted because its views draw different things
@@ -358,7 +385,7 @@ def compare(
                 return False
             return True
 
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits, held)
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits, crosses)
         members_of = [[i for unit in run for i in unit] for run in runs]
         for run, members in zip(runs, members_of, strict=True):
             places.join(members)
@@ -374,7 +401,7 @@ def compare(
             title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
             if (
-                not _blocking(units, alone, reader, sheets, spans, held)
+                not _blocking(units, alone, reader, sheets, spans, crosses)
                 and not stale
                 and _apart(members_of, views, ranges, reader, plans, pattern)
             ):
@@ -397,7 +424,7 @@ def _blocking(
     reader: _Reader,
     sheets: Sequence[SheetCandidate],
     spans: list[list[_Span]],
-    held: Callable[[str, str, int], bool] | None = None,
+    crosses: Callable[[int, str, int, int], bool] | None = None,
 ) -> bool:
     """Whether a contradicted unit blocks its title's series: only one that, its contradiction set
     aside, would run on from or into another unit of its title (by number and ascending ranges, #102:
@@ -410,7 +437,7 @@ def _blocking(
         [reader.parts(sheets[unit[0]]) for unit in units],
         [False] * len(units),
         lambda before, after: _ascending(spans[before], spans[after]),
-        held,
+        crosses,
     )
     at = {id(unit): u for u, unit in enumerate(units)}  # by position: `_runs` returns the very units
     return any(len(run) > 1 and any(alone[at[id(unit)]] for unit in run) for run in free)
@@ -683,13 +710,14 @@ def _runs(
     parts: list[tuple[str, int, str] | None],
     alone: Sequence[bool],
     fits: Callable[[int, int], bool] = lambda _before, _after: True,
-    held: Callable[[str, str, int], bool] | None = None,
+    crosses: Callable[[int, str, int, int], bool] | None = None,
 ) -> list[list[list[int]]]:
     """The units (copies of one number) joined into runs of numbers that run on, in number order (a
     part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102), and a
     unit joins the next only when it `fits` before it (member ranges that ascend). A unit of several
     copies (a duplicated number, its own same_number Question) leaves a gap of as many numbers less
-    one: it may run on across them when `held` says no sheet at all carries any of them."""
+    one: it may run on across them when `crosses` allows (its copies are different drawings, and no
+    sheet carries a number in the gap)."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -714,11 +742,9 @@ def _runs(
     for (prefix, suffix, running), members in by_running.items():
         for u in members:
             after = by_running.get((prefix, suffix, running + 1))
-            if after is None and held is not None:  # a number a duplicate's copy should have had
-                step = len(units[u])
-                gap = range(running + 1, running + step)
-                if step > 1 and not any(held(prefix, suffix, n) for n in gap):
-                    after = by_running.get((prefix, suffix, running + step))
+            step = len(units[u])
+            if after is None and step > 1 and crosses is not None and crosses(u, prefix, running, step):
+                after = by_running.get((prefix, suffix, running + step))
             if after is not None and fits(u, after[0]):
                 join(u, after[0])
     for (prefix, running, part), members in by_part.items():
@@ -828,6 +854,21 @@ def _ascending(before: Sequence[_Span], after: Sequence[_Span]) -> bool:
         a[0] is not None and a[0] == b[0] and (a[2] < b[1] or _touches(a, b))
         for a, b in zip(before, after, strict=True)
     )
+
+
+_LEADING = re.compile(r"([^\W\d_]+[\W_]*|)(\d{1,4})")
+"""A number's first running number, the letters and separators before it kept ("S-43.1": "S-", 43)."""
+
+
+def _successive(copies: Sequence[Sequence[MemberRange]]) -> bool:
+    """Whether a number's copies are different drawings of one member family: each draws ranges, and
+    the copies' ranges, taken in order of their lowest mark, ascend one after the other (touching at
+    a mark allowed). Copies with no range, or drawing the same or overlapping ranges, are one
+    drawing twice, never the next sheet the number left out."""
+    if len(copies) < 2 or not all(copies) or len({len(c) for c in copies}) != 1:
+        return False
+    spans = sorted((_span([c]) for c in copies), key=lambda one: one[0][1])
+    return all(_ascending(a, b) for a, b in pairwise(spans))
 
 
 def _touches(a: _Span, b: _Span) -> bool:

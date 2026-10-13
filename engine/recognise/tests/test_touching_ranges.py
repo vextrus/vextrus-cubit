@@ -112,3 +112,57 @@ def test_a_gap_is_not_crossed_when_another_sheet_carries_the_number() -> None:
 def test_a_missing_number_without_a_duplicate_is_no_gap() -> None:
     found = compare([("S-41", "BEAM B1-B4 DETAILS"), ("S-43", "BEAM B5-B8 DETAILS")])
     assert runs(found) == []
+
+
+def test_a_duplicate_of_the_same_drawing_leaves_no_gap_to_cross() -> None:
+    """One sheet twice (in two files, or beside its revision) is no sheet that was mis-numbered."""
+    found = compare(
+        [
+            ("S-41", "BEAM B1-B4 DETAILS"),
+            ("S-42", "BEAM B5-B8 DETAILS"),
+            ("S-42", "BEAM B5-B8 DETAILS"),
+            ("S-44", "BEAM B13-B16 DETAILS"),
+        ]
+    )
+    assert ["S-41", "S-42", "S-42", "S-44"] not in runs(found)
+    assert all(not ("S-42" in r and "S-44" in r) for r in runs(found))
+    assert [c.kind for c in found if isinstance(c, Conflict)] == ["same_number"]
+
+
+def test_a_duplicate_of_an_unranged_title_leaves_no_gap_to_cross() -> None:
+    found = compare(
+        [
+            ("S-41", "COLUMN SCHEDULE"),
+            ("S-42", "COLUMN SCHEDULE"),
+            ("S-42", "COLUMN SCHEDULE"),
+            ("S-44", "COLUMN SCHEDULE"),
+        ]
+    )
+    assert all(not ("S-42" in r and "S-44" in r) for r in runs(found))
+    assert same_title(found) != []
+
+
+def test_copies_whose_ranges_overlap_are_no_successive_sheets() -> None:
+    found = compare(
+        [
+            ("S-41", "BEAM B1-B4 DETAILS"),
+            ("S-42", "BEAM B5-B8 DETAILS"),
+            ("S-42", "BEAM B6-B9 DETAILS"),
+            ("S-44", "BEAM B13-B16 DETAILS"),
+        ]
+    )
+    assert all(not ("S-42" in r and "S-44" in r) for r in runs(found))
+
+
+@pytest.mark.parametrize("held", ["S-43A", "S-43.1", "S-43/1", "S-43B"])
+def test_a_number_carried_with_a_suffix_is_no_gap(held: str) -> None:
+    found = compare(
+        [
+            ("S-41", "BEAM B1-B4 DETAILS"),
+            ("S-42", "BEAM B5-B8 DETAILS"),
+            ("S-42", "BEAM B9-B12 DETAILS"),
+            (held, "SLAB PLAN"),
+            ("S-44", "BEAM B13-B16 DETAILS"),
+        ]
+    )
+    assert all(not ("S-42" in r and "S-44" in r) for r in runs(found))
