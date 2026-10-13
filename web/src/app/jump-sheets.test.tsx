@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { PEOPLE, mountApp } from '@/app/testing'
 import { canvasOf, clean, openList, seed } from '../acceptance/ts15w2/keys.fixture'
+import { step1AddressFor, sheetAddress } from '@/takeoff/paths'
 import { jumpFilter } from './JumpTo'
 
 beforeEach(async () => {
@@ -123,5 +124,112 @@ describe('two sheets sharing a number', () => {
     await waitFor(() => expect(label().some((t) => t.includes('S-04') && t.includes(opens))).toBe(true))
     expect(label().some((t) => t.includes(other))).toBe(false)
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+  })
+})
+
+/** The address `?sheet=` holds now, as typed. */
+const addressed = (app: Awaited<ReturnType<typeof mountApp>>) => new URLSearchParams(app.router.state.location.searchStr).get('sheet')
+
+describe('the sheet address (S25-D4, the design gate)', () => {
+  it('is the number where it is unique in the project, the id only for copies sharing one', () => {
+    const a = { sheet_id: 'id-a', number: 'S-04' }
+    const b = { sheet_id: 'id-b', number: 'S-05' }
+    const c = { sheet_id: 'id-c', number: 'S-04' }
+    expect(sheetAddress(a, [a, b])).toBe('S-04')
+    expect(sheetAddress(a, [a, b, c])).toBe('id-a')
+    expect(sheetAddress(c, [a, b, c])).toBe('id-c')
+    expect(sheetAddress({ sheet_id: 'id-n', number: null }, [a, b])).toBe('id-n')
+    expect(step1AddressFor('KR-01', a, [a, b])).toBe('/p/KR-01/takeoff/1?sheet=S-04')
+  })
+
+  it('is written as the number after a jump, and follows paging without sending the QS back', async () => {
+    const app = await openList(seed())
+    await jumpTyping('S-04')
+    await screen.findByRole('option', { name: /S-04/ })
+    await userEvent.keyboard('{Enter}')
+    await canvasOf('S-04')
+    await waitFor(() => expect(addressed(app)).toBe('S-04'))
+    await userEvent.keyboard('{PageDown}')
+    await canvasOf('S-05')
+    await waitFor(() => expect(addressed(app)).toBe('S-05'))
+    // A second page lands on the next sheet: nothing re-read the address as S-04.
+    await userEvent.keyboard('{PageUp}')
+    await canvasOf('S-04')
+    await userEvent.keyboard('{PageUp}')
+    await canvasOf('S-03')
+    await waitFor(() => expect(addressed(app)).toBe('S-03'))
+  })
+
+  it('leaves the address when the QS goes back to the list', async () => {
+    const app = await mountApp('/p/KR-01/takeoff/1?sheet=S-04', { as: PEOPLE.qs, api: seed().api })
+    await canvasOf('S-04')
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /^Sheet\s/ })).toBeNull())
+    await waitFor(() => expect(addressed(app)).toBeNull())
+  })
+
+  it('names a copy sharing its number by its id, and the copy opens', async () => {
+    const s = seed()
+    Object.assign(s.of('S-05'), { number: 'S-04', title: 'SECOND COPY', revision_mark: 'Rev B' })
+    Object.assign(s.of('S-04'), { revision_mark: 'Rev A' })
+    const app = await openList(s)
+    await jumpTyping('S-04')
+    const copy = (await screen.findAllByRole('option', { name: /S-04/ })).find((o) => clean(o.textContent).includes('Rev B'))!
+    await userEvent.click(copy)
+    const second = s.step1.proposals.find((p) => p.title === 'SECOND COPY')!
+    await waitFor(() => expect(addressed(app)).toBe(second.sheet_id))
+    // The id opens that copy, not the other with the same number.
+    expect(await screen.findByRole('group', { name: /^Sheet\s.*S-04 rev B/i })).toBeVisible()
+  })
+})
+
+describe('Jump to’s sheet rows (S25-D4, the design gate)', () => {
+  it('reads shared copies as "rev A, 12 Sep 2026", with the Discipline only where it differs', async () => {
+    const s = seed()
+    Object.assign(s.of('S-04'), { revision_mark: 'A', issue_date: '2026-09-12' })
+    Object.assign(s.of('S-05'), { number: 'S-04', title: 'SECOND COPY', revision_mark: 'B', issue_date: '2026-09-20' })
+    Object.assign(s.of('S-03'), { number: 'S-02', title: 'THIRD COPY', discipline: 'architectural', revision_mark: 'A', issue_date: '2026-09-01' })
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: s.api })
+    const jump = await jumpTyping('S-0')
+    const text = (number: string, title: string) => clean(within(jump).getAllByRole('option').find((o) => clean(o.textContent).includes(title) && clean(o.textContent).includes(number))!.textContent)
+    // Same Discipline: revision and date only.
+    expect(text('S-04', 'GROUND FLOOR BEAM LAYOUT')).toMatch(/rev A, 12 Sep 2026$/)
+    expect(text('S-04', 'GROUND FLOOR BEAM LAYOUT')).not.toContain('·')
+    expect(text('S-04', 'SECOND COPY')).toMatch(/rev B, 20 Sep 2026$/)
+    // Two Disciplines sharing a number: the Discipline too.
+    expect(text('S-02', 'THIRD COPY')).toMatch(/rev A, 1 Sep 2026 · \S+$/)
+    // A sheet with no copy shows nothing of the kind.
+    expect(text('S-01', 'GENERAL NOTES')).not.toMatch(/rev|·/)
+  })
+
+  it('shows the compact status mark (Proposal, Confirmed, Question) before the number', async () => {
+    const s = seed()
+    Object.assign(s.of('S-02'), { decision: 'confirmed' })
+    s.step1.questions = [
+      {
+        id: 'c0000000-0000-4000-8000-000000000001',
+        kind: 'missing',
+        status: 'open',
+        code: 'takeoff.step1.no_number',
+        params: {},
+        options: [{ key: 'keep_open', picked: false }],
+        discipline: 'structural',
+        subject_id: s.of('S-03').sheet_id,
+        check_code: null,
+        answer: null,
+        answered_at: null,
+      },
+    ]
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: s.api })
+    const jump = await jumpTyping('S-0')
+    const markOf = (number: string) => {
+      const option = within(jump).getAllByRole('option').find((o) => clean(o.textContent).includes(number))!
+      const mark = option.querySelector<HTMLElement>('[title]')!
+      expect(mark.compareDocumentPosition(option.querySelector('[data-notation="sheet-number"]')!) & Node.DOCUMENT_POSITION_FOLLOWING, 'the mark comes before the number').toBeTruthy()
+      return mark.getAttribute('title')
+    }
+    expect(markOf('S-01')).toBe('Proposal')
+    expect(markOf('S-02')).toBe('Confirmed')
+    expect(markOf('S-03')).toBe('Question')
   })
 })

@@ -82,7 +82,7 @@ export function ShellProvider({ session, project, children }: { session: Session
       group: 'global',
       run: () => void [...closers.current].reverse().some((close) => close()),
     },
-    { key: 'Ctrl K', label: t`Jump to a project, or a place in this one`, group: 'global', run: () => shell.openJump(document.activeElement) },
+    { key: 'Ctrl K', label: t`Jump to a project, a place or a sheet`, group: 'global', run: () => shell.openJump(document.activeElement) },
     { key: 'F6', label: t`Move to the next region`, group: 'global', run: () => void moveToRegion(1) },
     { key: 'Shift F6', label: t`Move to the previous region`, group: 'global', run: () => void moveToRegion(-1) },
   ])

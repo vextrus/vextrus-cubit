@@ -16,9 +16,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useIsFetching, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { getRouteApi, useRouterState } from '@tanstack/react-router'
+import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizontal } from 'lucide-react'
-import { AppLink, PATHS } from '@/app/AppLink'
+import { AppLink, PATHS, useGo } from '@/app/AppLink'
 import { useSheetRequest } from './jump'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { useShell } from '@/app/shell'
@@ -30,6 +30,7 @@ import { lengthFromMm, useFormat } from '@/format'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/primitives/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
 import { DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
+import { sheetAddress } from './paths'
 import { SheetName, useStep1Acts, type SheetChange } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
@@ -355,6 +356,18 @@ function Step1({
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
+  // The address follows the sheet open: `?sheet=` holds its number (its id for copies sharing one) in sheet mode and is
+  // gone in list mode, so a remount of this screen lands where the QS is, never on the sheet a jump or a link named first.
+  // Written over the current entry (paging is not a history). It runs on a change of the sheet open, not of the address, so
+  // the browser's Back is not undone here.
+  const go = useGo()
+  const router = useRouter()
+  const wantedAddress = mode === 'sheet' && open ? sheetAddress(open, order) : undefined
+  useEffect(() => {
+    if (wantedAddress === (new URLSearchParams(router.state.location.searchStr).get('sheet') ?? undefined)) return
+    go(wantedAddress === undefined ? PATHS.takeoff(project.code, 1) : `${PATHS.takeoff(project.code, 1)}?sheet=${encodeURIComponent(wantedAddress)}`, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedAddress])
   // While a correction is open, the focused row is its sheet's row wherever a reload has put it (another person's number).
   const correctingRow = correcting === null ? null : (model.rows.find((r) => r.sheets.some((s) => s.id === correcting)) ?? null)
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : correctingRow && !rowByKey(focused) ? correctingRow : rowByKey(focused)

@@ -84,3 +84,27 @@ export async function mountApp(path: string, { as = PEOPLE.qs, api, step1, sessi
   )
   return { router, keyMap, queryClient, api: fake, ...view }
 }
+
+/**
+ * Jump to's sheet rows against §1.8 ("every piece of drawing notation carries `data-notation`"): `notationProblems`
+ * checks only the elements already marked, so a number written as a plain `<bdi>` passes it. Every row of the dialog's
+ * Sheets group must hold its number as `sheet-number`, and each of `marks` (revision marks the rows show) as `revision`.
+ */
+// Its findings are for developers' test output, never shown in the UI.
+/* eslint-disable lingui/no-unlocalized-strings */
+export function sheetRowNotationProblems(group: ParentNode, marks: readonly string[] = []): string[] {
+  const rows = [...group.querySelectorAll<HTMLElement>('[role="option"]')]
+  if (rows.length === 0) return ['no sheet rows to check']
+  const problems: string[] = []
+  const text = (el: Element) => (el.textContent ?? '').replace(/[⁦-⁩]/g, '').trim()
+  for (const row of rows) {
+    if (!row.querySelector('[data-notation="sheet-number"]')) problems.push(`${text(row)}: the sheet number has no data-notation="sheet-number"`)
+    for (const mark of marks) {
+      if (!text(row).includes(mark)) continue
+      const marked = [...row.querySelectorAll('[data-notation="revision"]')].some((el) => text(el).includes(mark))
+      if (!marked) problems.push(`${text(row)}: the revision mark ${mark} has no data-notation="revision"`)
+    }
+  }
+  return problems
+}
+/* eslint-enable lingui/no-unlocalized-strings */

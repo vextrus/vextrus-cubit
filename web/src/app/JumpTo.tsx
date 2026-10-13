@@ -8,9 +8,13 @@ import { defaultFilter } from 'cmdk'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/ui/primitives/command'
 import { useQuery } from '@tanstack/react-query'
 import { disciplinesQuery, useDisciplineName } from '@/drawing-set'
-import { proposalsQuery } from '@/takeoff/data'
+import { useFormat } from '@/format'
+import { proposalsQuery, questionsQuery, type ProposalOut } from '@/takeoff/data'
 import { requestSheet } from '@/takeoff/jump'
-import { step1SheetPath } from '@/takeoff/paths'
+import { questionQueue } from '@/takeoff/model'
+import { step1AddressFor } from '@/takeoff/paths'
+import { Copy } from '@/takeoff/questionWords'
+import { DrawingText, StatusMark, type Status } from '@/ui'
 import { PATHS, useGo } from './AppLink'
 import type { ProjectSummary, Session } from './session'
 
@@ -37,6 +41,15 @@ function words(text: string): string[] {
   return text.normalize('NFC').toLowerCase().split(/\s+/u).filter(Boolean)
 }
 
+/** A copy sharing its number with another, told apart by revision and date ("rev A, 12 Sep 2026", the list's form). */
+function CopyOf({ sheet }: { sheet: ProposalOut }) {
+  const f = useFormat()
+  const date = sheet.issue_date ? f.day(sheet.issue_date) : null
+  if (!sheet.revision_mark.trim()) return <>{date}</>
+  const mark = <Copy sheet={sheet} />
+  return date ? <Trans>{mark}, {date}</Trans> : mark
+}
+
 export function JumpTo({
   open,
   onOpenChange,
@@ -59,9 +72,14 @@ export function JumpTo({
   const disciplines = useQuery({ ...disciplinesQuery(project?.id ?? ''), enabled: open && project !== undefined }).data
   const disciplineName = useDisciplineName(disciplines)
   const sheets = useQuery({ ...proposalsQuery(project?.id ?? ''), enabled: open && project !== undefined }).data
+  const questions = useQuery({ ...questionsQuery(project?.id ?? ''), enabled: open && project !== undefined }).data
+  // A sheet an open Question holds shows the Question mark, as the list's State column does.
+  // Worked out only while Jump to is open: the frame draws it on every screen, whatever the cache holds.
+  const asked = new Set(open && sheets?.length && questions ? questionQueue(questions, sheets).flatMap((e) => e.holds.map((h) => h.id)) : [])
+  const statusOf = (p: ProposalOut): Status => (asked.has(p.id) ? 'question' : p.decision === 'confirmed' ? 'confirmed' : p.decision === 'excluded' ? 'excluded' : 'proposal')
   return (
-    <CommandDialog filter={jumpFilter} open={open} onOpenChange={onOpenChange} title={t`Jump to`} description={t`Go to a project, or to a place in this one.`}>
-      <CommandInput placeholder={t`Jump to a project or a place…`} />
+    <CommandDialog filter={jumpFilter} open={open} onOpenChange={onOpenChange} title={t`Jump to`} description={t`Go to a project, or to a place or sheet in this one.`}>
+      <CommandInput placeholder={t`Jump to a project, a place or a sheet number…`} />
       <CommandList>
         <CommandEmpty>
           <Trans>Nothing here by that name.</Trans>
@@ -84,8 +102,10 @@ export function JumpTo({
         {project && sheets?.length ? (
           <CommandGroup heading={t`Sheets`}>
             {sheets.map((p) => {
-              // Copies of one number (revisions, or one number in two Disciplines) are told apart by both.
-              const shared = sheets.filter((o) => o.number === p.number).length > 1
+              // Copies of one number (revisions, or one number in two Disciplines) are told apart by revision and date,
+              // and by Discipline only where the copies' Disciplines differ.
+              const others = sheets.filter((o) => o.number === p.number && o.sheet_id !== p.sheet_id)
+              const differs = others.some((o) => o.discipline !== p.discipline)
               return (
                 <CommandItem
                   key={p.id}
@@ -93,16 +113,16 @@ export function JumpTo({
                   keywords={[p.number ?? '', p.title ?? '']}
                   onSelect={() => {
                     requestSheet(p.sheet_id)
-                    jump(step1SheetPath(project.code, p.sheet_id))
+                    jump(step1AddressFor(project.code, p, sheets))
                   }}
                 >
-                  <bdi dir="ltr" className="num text-xs text-muted-foreground">
-                    {p.number}
-                  </bdi>
-                  <span className="min-w-0 flex-1 truncate">{p.title}</span>
-                  {shared ? (
+                  <StatusMark status={statusOf(p)} compact />
+                  <DrawingText kind="sheet-number" text={p.number ?? ''} truncate={false} className="num text-xs text-muted-foreground" />
+                  <DrawingText kind="title" text={p.title ?? ''} className="min-w-0 flex-1" />
+                  {others.length > 0 ? (
                     <span className="text-xs text-muted-foreground">
-                      <bdi dir="ltr">{p.revision_mark}</bdi> · {disciplineName(p.discipline ?? '')}
+                      <CopyOf sheet={p} />
+                      {differs ? <> · {disciplineName(p.discipline ?? '')}</> : null}
                     </span>
                   ) : null}
                 </CommandItem>
