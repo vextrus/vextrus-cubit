@@ -81,7 +81,9 @@ HEADING = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)[ \t#]*$")
 # A section starts at a heading whose first word is Cut or Deferred, or whose first two are Not done
 # ("## Cut", "## Cut items", "## Cut: tier 2"); it ends at the next heading.
 GATED = re.compile(r"(cut|deferred|not[ \t]+done)\b", re.IGNORECASE)
-NOTHING = re.compile(r"^(?:[-*+][ \t]+)?(?:none|nothing)\.?$", re.IGNORECASE)
+NOTHING = re.compile(
+    r"^(?:[-*+][ \t]+)?(?:none|nothing|none cut|nothing cut|nothing was cut)\.?$", re.IGNORECASE
+)
 LIST_ITEM = re.compile(r"^ {0,6}(?:[-*+]|\d+[.)])[ \t]+")
 ISSUE_LINK = re.compile(
     r"(?<![\w/&])#([0-9]+)\b|https://github\.com/vextrus/vextrus-cubit/issues/([0-9]+)\b"

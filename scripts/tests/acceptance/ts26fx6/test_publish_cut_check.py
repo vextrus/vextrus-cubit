@@ -6,7 +6,8 @@ The authority:
 - Session 26's brief, "The factory fixes", FX6: "`scripts.factory.publish` runs merge_ready's Cut check
   on the body it builds and refuses before opening the PR (#759)".
 - Issue #759: merge_ready's Cut check (`scripts/merge_ready.py` `cut_problems`) refused #755 and #757
-  twice each at land time (a wrapped item's second line, notes after "Nothing cut."); "Owed check:
+  twice each at land time (a wrapped item's second line, notes after "Nothing cut."; S26-FX8 later
+  ruled "Nothing cut." an empty Cut, so notes after it are published); "Owed check:
   scripts.factory.publish runs the same cut_problems on the body it builds and refuses before opening
   the PR".
 - The orchestrator's ticket: refused means nothing pushed and no `gh pr create`; the check is the same
@@ -172,19 +173,20 @@ def test_a_cloud_builders_branch_already_on_origin_is_refused_before_the_pr_is_o
     )
 
 
-def test_notes_after_nothing_cut_are_refused_as_merge_ready_refuses_them(world: World) -> None:
+def test_notes_after_nothing_cut_are_published_as_merge_ready_accepts_them(world: World) -> None:
+    # Amended by S26-FX8 (the orchestrator's ruling, 13 Oct 2026): "Nothing cut." is an empty Cut and,
+    # as after "None.", prose after it is not a Cut item. This test pinned the defect before.
     set_issues(world, {})
-    commit_ready_with(
+    head = commit_ready_with(
         world, "## Cut\nNothing cut.\nThe tier 2 export waits for the owner.\n\n## Notes\nA note.\n"
     )
     world.to_main(BRANCH)
-    before = world.origin_refs()
 
     done = world.publish(BRANCH)
 
-    assert_refused(
-        world, (done.returncode, done.stdout + done.stderr), "'cut' item 1 links no issue", before
-    )
+    assert done.returncode == 0, f"publish refused notes after an empty Cut: {show(done)}"
+    assert world.origin_refs().get(f"refs/heads/{BRANCH}") == head, show(done)
+    assert len(world.prs_created()) == 1, world.gh_calls()
 
 
 def test_a_wrapped_cut_items_second_line_is_refused_as_merge_ready_refuses_it(world: World) -> None:
