@@ -250,14 +250,40 @@ def test_roots_git_never_reads_the_owners_checkout_or_home(tmp_path: Path) -> No
 
 
 def routes(
-    tmp_path: Path, groups: str, answer: str, interop: str | None
+    tmp_path: Path, groups: str, answer: str, interop: str | None, drive: Path | None = None
 ) -> subprocess.CompletedProcess[str]:
     binfmt = tmp_path / "binfmt"
     binfmt.mkdir(parents=True, exist_ok=True)
     if interop is not None:
         (binfmt / "WSLInterop").write_text(f"{interop}\ninterpreter /init\n")
-    body = f'BINFMT={binfmt}; OWNER=someone; id() {{ echo "{groups}"; }}; root_routes && echo PASSED'
+    mounts = tmp_path / "mounts"
+    lines = ["none /usr/lib/wsl/drivers 9p ro 0 0", "/dev/sdc / ext4 rw 0 0"]
+    if drive is not None:
+        lines.append(f"C:\\134 {drive} 9p rw 0 0")
+    mounts.write_text("\n".join(lines) + "\n")
+    body = (
+        f'BINFMT={binfmt}; MOUNTS={mounts}; OWNER=someone; id() {{ echo "{groups}"; }};'
+        " root_routes && echo PASSED"
+    )
     return sourced(body, answer=answer)
+
+
+def test_a_writable_windows_drive_stops_the_script_unless_the_owner_accepts_it(tmp_path: Path) -> None:
+    # The refuter of M1-06, round 2 (55): with interop off, a file the owner's user drops in Windows'
+    # Startup folder on a writable drive still runs wsl -u root at the next Windows sign-in.
+    drive = tmp_path / "c"
+    drive.mkdir()
+    stopped = routes(tmp_path, "someone users", "n\n", None, drive)
+    assert stopped.returncode != 0
+    assert "stopped at the writable Windows drives" in stopped.stdout
+    assert str(drive) in stopped.stdout
+    assert "PASSED" in routes(tmp_path, "someone users", "y\n", None, drive).stdout
+    drive.chmod(0o555)
+    try:
+        if not os.access(drive, os.W_OK):  # (root writes anything)
+            assert "PASSED" in routes(tmp_path, "someone users", "", None, drive).stdout
+    finally:
+        drive.chmod(0o755)
 
 
 def test_wsl_interop_stops_the_script_unless_the_owner_accepts_it(tmp_path: Path) -> None:
@@ -283,6 +309,19 @@ def test_the_launcher_refuses_a_taken_port_and_says_to_keep_the_sign_in_apart() 
     assert '(exec 3<>"/dev/tcp/127.0.0.1/$port")' in serve
     assert "for port in 8300 5300; do" in serve
     assert "a browser profile of its own" in serve
+
+
+def test_root_runs_only_roots_programs_and_never_from_the_key_users_home() -> None:
+    # The refuter, round 2: root's PATH was the one it started with (sudo -E keeps the owner's), and
+    # step 7's refusals ran from the key user's home (a refusal there could be the folder's).
+    text = SCRIPT.read_text()
+    main = text[text.index("\nmain() {\n") :]
+    assert main.index("export PATH=$CLEAN_PATH") < main.index('step "1/7')
+    assert main.index("cd /") < main.index('step "1/7')
+    assert 'cd -- "$INSTANCE"' not in text
+    assert variable("CLEAN_PATH").split(":") == [
+        "/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin",
+    ]  # fmt: skip
 
 
 HBA = """# PostgreSQL Client Authentication Configuration File
@@ -385,7 +424,9 @@ def test_the_sql_names_the_ticket_s_database_and_roles_and_revokes_connect() -> 
     assert "REVOKE ALL ON DATABASE vextrus_heldout FROM PUBLIC;" in sql
     assert "GRANT CONNECT, TEMPORARY ON DATABASE vextrus_heldout TO vextrus_heldout_app;" in sql
     assert not [
-        line for line in sql.splitlines() if "PASSWORD" in line.upper() and not line.startswith("--")
+        line
+        for line in sql.splitlines()
+        if "PASSWORD" in line.upper() and not line.lstrip().startswith("--")
     ]
     for line in sql.splitlines():
         if "GRANT" in line and not line.startswith("--"):
@@ -648,6 +689,13 @@ def test_the_sql_stops_on_a_role_that_may_set_role_to_a_server_files_role_or_cop
         assert "may read or run files on the server: vextrus" in stopped.stderr
     finally:
         assert cluster.psql("REVOKE pg_execute_server_program FROM vextrus").returncode == 0
+    # The refuter, round 2 (15): a second superuser, named like a Unix user, signs in by peer.
+    assert cluster.psql("CREATE ROLE someone_super SUPERUSER LOGIN").returncode == 0
+    try:
+        stopped = run_sql()
+        assert "these roles are superusers besides postgres: someone_super" in stopped.stderr
+    finally:
+        assert cluster.psql("DROP ROLE someone_super").returncode == 0
     assert cluster.psql("ALTER ROLE vextrus_app REPLICATION").returncode == 0
     try:
         stopped = run_sql()

@@ -68,7 +68,7 @@ NODE_DIR=$LIB/node-v$NODE_VERSION
 NODE_URL=https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz
 HBA_BEGIN='# >>> vextrus-heldout (scripts/owner/heldout-instance.sh, ticket M1-06): do not edit by hand'
 HBA_END='# <<< vextrus-heldout'
-CLEAN_PATH=/usr/local/bin:/usr/bin:/bin
+CLEAN_PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 DRY_RUN=0
 
 step() { printf '\n== %s\n' "$1"; }
@@ -90,10 +90,13 @@ as_root_clean() {
 }
 
 # The routes from your user to root that no file mode stops, each refused unless you accept it here:
-# WSL's interop (any process of yours runs wsl.exe -u root) and the docker group (a daemon is root).
+# WSL's interop (any process of yours runs wsl.exe -u root); a Windows drive your user can write (a file
+# dropped in Windows' Startup folder runs `wsl -u root` at your next Windows sign-in); and the docker
+# group (a daemon is root).
 BINFMT=/proc/sys/fs/binfmt_misc
+MOUNTS=/proc/mounts
 root_routes() {
-  local interop
+  local interop mount writable=()
   for interop in "$BINFMT"/WSLInterop*; do
     if [ -f "$interop" ] && [ "$(head -n 1 "$interop")" = enabled ]; then
       echo "  WSL interop is on: any process of $OWNER (every build session's tests, npm scripts, tools) can"
@@ -104,6 +107,16 @@ root_routes() {
       break
     fi
   done
+  while read -r mount; do
+    if as_owner test -w "$mount"; then writable+=("$mount"); fi
+  done < <(awk '$3 == "9p" || $3 == "drvfs" || $3 == "virtiofs" { print $2 }' "$MOUNTS")
+  if [ "${#writable[@]}" -gt 0 ]; then
+    echo "  $OWNER can write the Windows drive(s) ${writable[*]}: a file put in Windows' Startup folder there"
+    echo "  runs at your next Windows sign-in, as you, and can run wsl -u root. Closing interop alone does not"
+    echo "  close this: [automount] enabled=false (or a read-only mount) in /etc/wsl.conf, then wsl --shutdown."
+    confirm "Go on with the Windows drives writable (the Held-out walls then hold against the guard, not root)?" \
+      || die "stopped at the writable Windows drives; nothing was changed"
+  fi
   if id -nG "$OWNER" | tr ' ' '\n' | grep -qx docker; then
     if as_owner test -w /var/run/docker.sock; then
       die "$OWNER can reach Docker (/var/run/docker.sock), which is root: take $OWNER out of the docker group (gpasswd -d $OWNER docker)"
@@ -295,6 +308,7 @@ main() {
     # Root's files are root's alone unless made otherwise by name (the bundle the key user fetches):
     # the temporary folder's name shows in /tmp, and it must be traversable for that bundle.
     umask 077
+    export PATH=$CLEAN_PATH  # root runs only root's programs, whatever PATH it was started with
     checkout=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
     cd /  # root never works inside your checkout (its .git/config is yours)
     tmp=$(mktemp -d)
@@ -305,8 +319,8 @@ main() {
   plan "root; the owner $OWNER and the key user $KEY_USER exist; $KEY_HOME is $KEY_USER's, mode 700" \
     "the cluster on port $PORT is PostgreSQL $CLUSTER_MAJOR (the 16 cluster on 5544 is never touched); its pg_hba.conf" \
     "root's $UV and the toolchain's Python under $TOOLCHAIN_PYTHON_DIR, each root's alone" \
-    "the routes from $OWNER to root that no file mode stops (WSL interop, the docker group): each stops the" \
-    "  script unless you accept it; a reachable Docker daemon always stops it"
+    "the routes from $OWNER to root that no file mode stops (WSL interop, a writable Windows drive, the" \
+    "  docker group): each stops the script unless you accept it; a reachable Docker daemon always stops it"
   if ! dry; then
     id "$OWNER" >/dev/null 2>&1 || die "no user $OWNER"
     id "$KEY_USER" >/dev/null 2>&1 || die "no key user $KEY_USER: run scripts/owner/custody-setup.sh first"
@@ -417,7 +431,6 @@ main() {
       chmod -R go-w "$NODE_DIR"
     fi
     ok "Node $("$NODE_DIR/bin/node" --version), root's"
-    cd -- "$INSTANCE"
     as_key env -C "$APP" UV_PYTHON_INSTALL_DIR="$TOOLCHAIN_PYTHON_DIR" UV_PYTHON_DOWNLOADS=never \
       UV_CACHE_DIR="$INSTANCE/.cache/uv" "$UV" sync --locked --quiet || die "uv sync failed (above)"
     as_key env -C "$APP" npm_config_cache="$INSTANCE/.cache/npm" npm --prefix web ci --no-audit --no-fund --silent \

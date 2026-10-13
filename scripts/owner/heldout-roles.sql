@@ -73,6 +73,13 @@ BEGIN
   IF found IS NOT NULL THEN
     RAISE EXCEPTION 'these roles may read or run files on the server: %', found;
   END IF;
+  -- No superuser but the cluster's own: another (a role named like a Unix user, say) could sign in by
+  -- peer over the socket with no password and read every database.
+  SELECT string_agg(rolname, ', ') INTO found
+    FROM pg_roles WHERE rolsuper AND rolname <> 'postgres';
+  IF found IS NOT NULL THEN
+    RAISE EXCEPTION 'these roles are superusers besides postgres: %', found;
+  END IF;
   -- No role but the superusers copies the whole cluster (a base backup over a replication connection).
   SELECT string_agg(rolname, ', ') INTO found
     FROM pg_roles WHERE rolreplication AND NOT rolsuper;
