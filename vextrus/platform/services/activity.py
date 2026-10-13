@@ -17,7 +17,8 @@ sees those picks by name (ADR 0034).
 """
 
 import uuid
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from datetime import datetime
 
 from django.db.models import Q
@@ -27,6 +28,24 @@ from vextrus.platform.models import Developer, DomainEvent, Membership, Role, Us
 from vextrus.platform.services import auth, invitations
 
 MAX_LIMIT = 200
+
+type Detail = Param | list[dict[str, str]]
+"""A parameter an act's module adds when the acts are read: a list of small records of codes and
+ids (never drawing text), where the event log itself keeps ids and counts only."""
+
+type Resolver = Callable[[Sequence[ActView]], dict[uuid.UUID, dict[str, Detail]]]
+"""A higher module's reader of its own acts: given the acts shown (already the viewer's to
+see), the extra parameters by event id."""
+
+_resolvers: list[Resolver] = []
+
+
+def on_params(resolver: Resolver) -> None:
+    """A module registers how its acts' parameters are filled in beyond the payload (platform names
+    no higher module); registered once, in the module's `ready()`."""
+    if resolver not in _resolvers:
+        _resolvers.append(resolver)
+
 
 BY_PERSON = "person"
 BY_VEXTRUS = "vextrus"
@@ -56,7 +75,7 @@ class Actor:
 class ActView:
     id: uuid.UUID
     code: str
-    params: dict[str, Param]
+    params: dict[str, Detail]
     actor: Actor | None
     project_id: uuid.UUID | None
     building_id: uuid.UUID | None
@@ -101,7 +120,7 @@ def acts(
             actor = Actor(
                 user.pk, user.name, role, role == Role.VEXTRUS_ENGINEER or user.is_vextrus_staff
             )
-        params: dict[str, Param] = dict(event.payload)
+        params: dict[str, Detail] = dict(event.payload)
         params["actor"] = actor.name if actor else ""
         params["by"] = BY_PERSON if actor else BY_VEXTRUS
         subject = subjects.get((event.subject_type, event.subject_id))
@@ -121,6 +140,12 @@ def acts(
                 occurred_at=event.occurred_at,
             )
         )
+    for resolver in _resolvers:
+        more = resolver(shown)
+        shown = [
+            replace(act, params={**act.params, **more[act.id]}) if act.id in more else act
+            for act in shown
+        ]
     return shown
 
 
