@@ -25,7 +25,8 @@ them one after another:
   test` (left out, with a `not run: claude absent` line, when `claude` is not on PATH).
 
 Each check's output is kept under `.private/work/verify/<tree>/`. A failure made only of tests listed as
-known flakes is run once more and, if that passes, recorded as a flake. The record goes to
+known flakes is run once more and, if that passes, recorded as a flake. A web test run that failed only by vitest's `Error: Test timed out` has each timed-out
+file run again alone with `--maxWorkers=1`, and passes only if each passes; any other failure stands. The record goes to
 `$(git rev-parse --git-common-dir)/vextrus/verify-<tree>.json`, shared by every worktree, never committed;
 the guard's READY push gate reads it.
 

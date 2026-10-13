@@ -2,9 +2,10 @@
 (docs/specs/factory.md 2.2 "Review record"; `docs/specs/factory/contracts/ledger-record.schema.json`).
 
 - `check <PR> --round n [--exception <kind> --reason "<text>"]` (kinds: security75, crash,
-  false-statement, fix-regression): may review round n start? Rounds 1 and 2 may; round 3 only with
-  an allowed exception; never a round at or below the highest already recorded for the PR (a round
-  cannot be relabelled lower).
+  false-statement, fix-regression, delta-review): may review round n start? Rounds 1 and 2 may; round 3
+  only with an allowed exception; a round past 3 (up to 9) only as a `delta-review` (the owner's Q-R1:
+  at the round cap, a fix-only delta review, not a cut), which also needs round n-1 recorded; never a
+  round at or below the highest already recorded for the PR (a round cannot be relabelled lower).
 - `decide --from <file> --head <sha>`: the verdict, computed here and nowhere else, from the reviewers'
   and refuters' final lines, one per line: `VERDICT: PASS|FIX|BLOCK at <40-hex>` (one per reviewer lens)
   and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> [<file>] [class=<c> boundary=<yes|no>]`
@@ -75,10 +76,12 @@ FINDING = re.compile(
 # trust boundary.
 CLASSES = ("user-facing", "edge", "rule-only")
 BOUNDARY = {"yes": True, "no": False}
-EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression")
+EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression", "delta-review")
+DELTA = "delta-review"  # the fix-only review past the cap (the owner's Q-R1, 13 Oct 2026)
 RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
 STANDS = {"CONFIRMED", "UNPROVEN"}
-MAX_ROUND = 3
+MAX_ROUND = 3  # the last round an exception other than a delta review may open
+LAST_ROUND = 9  # delta reviews only past MAX_ROUND; a ceiling, so a typo never opens round 400
 OK, BAD, REFUSED = 0, 2, 3
 # The review bar (the owner's ruling, 7 Oct 2026, session 17).
 BLOCK_AT = 75
@@ -381,42 +384,65 @@ def marker(round_: int, head: str, decision: Decision) -> str:
 
 def recorded_rounds(ledger_dir: Path, pr: int) -> list[int]:
     """The rounds already recorded for the PR; Refused if a record cannot be read (fail closed)."""
-    rounds: list[int] = []
+    return [round_ for round_, _head in recorded(ledger_dir, pr)]
+
+
+def recorded(ledger_dir: Path, pr: int) -> list[tuple[int, str]]:
+    """`(round, head)` of each record of the PR; Refused if a record cannot be read (fail closed)."""
+    found: list[tuple[int, str]] = []
     if not ledger_dir.exists():
-        return rounds
+        return found
     try:
         names = sorted(os.listdir(ledger_dir))
     except OSError as error:  # not a folder, or not listable: never "no rounds yet"
         raise Refused("the ledger folder cannot be listed") from error
     for name in names:
         path = ledger_dir / name
-        if not name.endswith(".json") or not SHA.fullmatch(
-            name.removesuffix(".json").removeprefix(f"{pr}-")
-        ):
+        head = name.removesuffix(".json").removeprefix(f"{pr}-")
+        if not name.endswith(".json") or not SHA.fullmatch(head):
             continue
         try:
-            rounds.append(int(json.loads(path.read_text())["round"]))
+            found.append((int(json.loads(path.read_text())["round"]), head))
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise Refused(f"cannot read the ledger record {path.name}") from error
-    return rounds
+    return found
+
+
+def round_head(ledger_dir: Path, pr: int, round_: int) -> str:
+    """The head recorded for the PR's round `round_`; Refused unless exactly one record holds it."""
+    heads = [head for number, head in recorded(ledger_dir, pr) if number == round_]
+    if len(heads) != 1:
+        raise Refused(f"PR {pr} has {len(heads)} records of round {round_}, not one")
+    return heads[0]
 
 
 def check_round(ledger_dir: Path, pr: int, round_: int, exception: str | None) -> None:
-    if not 1 <= round_ <= MAX_ROUND:
-        raise Refused(f"round {round_}: the rounds are 1 and 2, and 3 only with an exception")
+    if not 1 <= round_ <= LAST_ROUND:
+        raise Refused(
+            f"round {round_}: the rounds are 1 and 2, 3 only with an exception, and 4 to "
+            f"{LAST_ROUND} only as a {DELTA}"
+        )
     if exception is not None and exception not in EXCEPTIONS:
         raise Refused(f"exception {exception!r} is not one of {', '.join(EXCEPTIONS)}")
     if round_ == MAX_ROUND and exception is None:
         raise Refused(
             "round 3 needs a recorded exception (--exception "
-            "security75|crash|false-statement|fix-regression --reason ...): two fix rounds at most"
+            f"{'|'.join(EXCEPTIONS)} --reason ...): two fix rounds at most"
         )
+    if round_ > MAX_ROUND and exception != DELTA:
+        raise Refused(f"round {round_} is past the cap: only a {DELTA} reviews it")
     if round_ < MAX_ROUND and exception is not None:
-        raise BadInput("an exception is for round 3 only")
-    if (rounds := recorded_rounds(ledger_dir, pr)) and round_ <= max(rounds):
+        raise BadInput("an exception is for round 3 or later only")
+    rounds = recorded_rounds(ledger_dir, pr)
+    if rounds and round_ <= max(rounds):
         raise Refused(
             f"round {round_} is not above round {max(rounds)}, already recorded for PR {pr}: a round "
             "is never relabelled"
+        )
+    if exception == DELTA and round_ - 1 not in rounds:
+        raise Refused(
+            f"a {DELTA} reviews the fix since round {round_ - 1}'s head: round {round_ - 1} is not "
+            f"recorded for PR {pr}"
         )
 
 

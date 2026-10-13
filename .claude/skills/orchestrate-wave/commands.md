@@ -53,6 +53,11 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   lens with no launch (its launch failed or was cut off) is launched by running the round again with
   `--where cloud`; a lens whose session died is launched again only when named, `--relaunch <lens>`
   (a lens with an accepted verdict is kept; `collect` takes each lens's newest).
+  Past the two-round cap, `--round <n> --exception delta-review --reason "<text>"` (n 3 to 9, round
+  n-1 recorded; local only): one lens on the fix's own diff since round n-1's head (merges of main left
+  out; a rewrite or another branch merged in is refused, exit 3), and the earlier rounds' kept attack
+  tests re-run on the head; PASS only when they pass and no finding could block. A head whose `ci` is
+  red or not yet finished starts no lens (exit 3).
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
   An allowlist-only PR and a docs-only PR (`review_tiers.toml` `docs_only`) get no model and pass by code
