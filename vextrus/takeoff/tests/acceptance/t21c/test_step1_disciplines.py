@@ -98,7 +98,7 @@ def test_structural_views_are_proposed_to_steps_5_to_10_by_their_subject(
     assert shown["by_step"] == {"foundations": 1, "beams": 2, "columns": 1}
     # Four drawn views and three title blocks (a View, CONTEXT.md; ruling R2), proposed out.
     assert (shown["proposed"], shown["unaccounted"]) == (7, 0)
-    assert shown["by_reason"] == {"for_information": 3}
+    assert shown["by_reason"] == {}  # #690: confirmed exclusions only
 
 
 def test_an_architectural_plan_of_the_structure_is_proposed_out_and_a_toilet_detail_to_plumbing(
@@ -112,7 +112,7 @@ def test_an_architectural_plan_of_the_structure_is_proposed_out_and_a_toilet_det
     shown = coverage(api_as(qs_project.member), qs_project.project_id)
 
     assert shown["views"] == 5  # three drawn views and each sheet's title block
-    assert shown["by_reason"] == {"duplicate": 1, "for_information": 2}
+    assert shown["by_reason"] == {}  # #690: confirmed exclusions only
     assert shown["by_step"] == {"walls": 2, "rooms": 2, "plumbing": 1}
     assert shown["unaccounted"] == 0
 
@@ -132,7 +132,7 @@ def test_an_mep_sheet_is_proposed_under_its_discipline_its_views_to_its_part(
     assert sheet["id"] != sheet["sheet_id"]
     # The lighting plan, the legend and the sheet's title block (proposed out for information).
     assert (shown["views"], shown["proposed"], shown["by_step"]) == (3, 3, {"electrical": 2})
-    assert shown["by_reason"] == {"for_information": 1}
+    assert shown["by_reason"] == {}  # #690: confirmed exclusions only
 
 
 def test_an_mep_sheet_confirmed_has_its_views_assigned_to_its_part_and_its_step_1_confirmed(

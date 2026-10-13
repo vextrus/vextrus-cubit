@@ -258,7 +258,8 @@ class CoverageView:
     by_step: dict[str, int] = field(default_factory=dict)
     """Views by the step (or Part) that will read them, proposed or assigned."""
     by_reason: dict[str, int] = field(default_factory=dict)
-    """Views excluded or proposed to be, by reason."""
+    """Views excluded and confirmed so, by reason: they add up to `excluded`. A view only proposed to be
+    left out counts under `proposed` alone (m0-screens 6.11)."""
     unaccounted_views: list[UnaccountedView] = field(default_factory=list)
     unread_sheets: int = 0
     """Sheets the read left out for unreadable writing (#135): never silently unread."""
@@ -1033,7 +1034,8 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
         )
     }
     for row in rows:
-        counts[_counted(row)] += 1
+        counted = _counted(row)
+        counts[counted] += 1
         if row.status == CoverageStatus.UNACCOUNTED:
             unaccounted.append(
                 UnaccountedView(
@@ -1042,7 +1044,9 @@ def coverage(project_id: uuid.UUID) -> CoverageView:
             )
         if any(s.used for s in steps.get(row.id, ())):
             used += 1
-        if row.status == CoverageStatus.EXCLUDED:
+        if counted == "excluded":
+            # Only what the Coverage line counts as excluded (confirmed): a view proposed to be left
+            # out is counted under "proposed" alone, so the two "excluded" figures agree.
             by_reason[row.reason] += 1
         elif row.status == CoverageStatus.ASSIGNED:
             # A view counts under every step and Part it serves (a toilet detail under the walls,
@@ -1653,7 +1657,9 @@ def _no_one_source_in_bulk(
     the sheet. Then a held file's sheets read anyway are refused as `held_file`, and otherwise the
     sheets with one source as `one_source`: each naming its sheets by their Proposals' ids (the
     printed sheet's while none is proposed), in the order chosen, the first by number, and how
-    many."""
+    many. An act of exactly one whole continuation run (the server's own grouping, `groups.among`) is
+    a row, not the bulk act (m0-screens 6.2): its one-source sheets pass, the Question and held-file
+    refusals above still stand."""
     if len(chosen) < 2:
         return
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
@@ -1675,11 +1681,64 @@ def _no_one_source_in_bulk(
     held = [(sheet, p) for sheet, p in lone if sheet.held]
     alone = held or lone
     first, _p = alone[0]
+    if not held and _is_whole_run(project_id, chosen):
+        return
     code = said.HELD_FILE if held else said.ONE_SOURCE
     # `sheets` is a list, which `Message`'s params (str | int) do not type: the ruling's shape.
     message = code(count=len(alone), sheets="", **_named(first))
     message["params"]["sheets"] = cast(Any, [str(p.id if p else s.id) for s, p in alone])
     raise auth.Refused(message, status=409)
+
+
+def _is_whole_run(
+    project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
+) -> bool:
+    """Whether the chosen sheets are exactly one continuation row, built as the web's `sheetRows` and
+    `continues` build it: in the Discipline's sheets in list order (`_sheets`, the order `proposals`
+    returns) less those an open Question holds and the undecided ones proposed out (their own list),
+    a row is a stretch of next-to-each-other sheets of one run (`groups.among`, T-W334) decided alike
+    (never two sheets decided apart). A run split by another sheet is two rows; part of a row, or a
+    row and another sheet, is not one."""
+    from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
+
+    sheets = _sheets(project_id)
+    drawing_set = _set_of(project_id)
+    of_set = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
+    grouped = groups.among(
+        sheets,
+        [of_set.get(s.id, []) for s in sheets],
+        {f.id: f.group for f in files_of(project_id)},
+        sheet_conventions(),
+    )
+
+    def run_of(sheet: drawings.SheetView) -> str | None:
+        return grouped.get(sheet.id, groups.ALONE).continuation
+
+    def state_of(sheet: drawings.SheetView) -> tuple[str | None, str | None]:
+        return (sheet.decision, sheet.excluded_reason)
+
+    first, _p = chosen[0]
+    if run_of(first) is None or len({sheet.discipline for sheet, _p in chosen}) != 1:
+        return False
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    mine = [(s, by_sheet.get(s.id)) for s in sheets if s.discipline == first.discipline]
+    held = _holding(project_id, mine)
+    rows: list[list[drawings.SheetView]] = []
+    for sheet, _p in mine:
+        if sheet.id in held or (sheet.decision is None and sheet.proposed_exclusion):
+            continue
+        last = rows[-1][-1] if rows else None
+        if (
+            last
+            and run_of(last) == run_of(sheet)
+            and state_of(last) == state_of(sheet)
+            and run_of(sheet)
+        ):
+            rows[-1].append(sheet)
+        else:
+            rows.append([sheet])
+    wanted = {sheet.id for sheet, _p in chosen}
+    return any({s.id for s in row} == wanted for row in rows)
 
 
 def _holding(
