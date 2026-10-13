@@ -339,7 +339,7 @@ def owner_rows(sql: str, params: Sequence[Any] = ()) -> list[tuple[Any, ...]]:
 
 
 def propose_out(project_id: uuid.UUID, number: str, reason: str) -> None:
-    """Mark a read sheet of the project proposed out (the reader's proposed exclusion), for a test's scene."""
+    """Mark a read sheet of the project proposed out, for a test's scene."""
     from vextrus.drawings import models
 
     models.SheetRevision.objects.filter(drawing_set__project_id=project_id, sheet__number=number).update(
