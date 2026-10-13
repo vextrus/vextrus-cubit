@@ -123,6 +123,10 @@ msgstr "Open the sheet the bar names, or go back to the list"
 msgid "Revision"
 msgstr "Revision"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Cancel the correction"
+msgstr "Cancel the correction"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "List or sheet"
 msgstr "List or sheet"
@@ -212,9 +216,9 @@ msgstr "Views by the step that will read them, proposed or assigned"
 msgid "Exclude"
 msgstr "Exclude"
 
-#: src/takeoff/Step1Screen.tsx
-msgid "Undo your last confirmation, exclusion or drawing list on Step 1"
-msgstr "Undo your last confirmation, exclusion or drawing list on Step 1"
+#: src/takeoff/Step1Inspector.tsx
+msgid "Cancel"
+msgstr "Cancel"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "No sheets yet: they arrive as {name} is read."
@@ -239,6 +243,10 @@ msgstr "Still reading {name}: page {at} of {of}."
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 5 on the focused Question"
 msgstr "Pick answer 5 on the focused Question"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Save the correction"
+msgstr "Save the correction"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Proposed to leave out"
@@ -514,6 +522,10 @@ msgid "layout “<0/>”"
 msgstr "layout “<0/>”"
 
 #: src/takeoff/Step1Screen.tsx
+msgid "Undo your last confirmation, exclusion, correction or drawing list on Step 1"
+msgstr "Undo your last confirmation, exclusion, correction or drawing list on Step 1"
+
+#: src/takeoff/Step1Screen.tsx
 msgid "View outlines"
 msgstr "View outlines"
 
@@ -544,6 +556,10 @@ msgstr "Pick answer 3 on the focused Question"
 #: src/takeoff/Step1Screen.tsx
 msgid "none"
 msgstr "none"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Correct the Proposal"
+msgstr "Correct the Proposal"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Zoom to view"
@@ -577,6 +593,10 @@ msgstr "Its sheets join the list when it is read."
 msgid "Sources"
 msgstr "Sources"
 
+#: src/takeoff/Step1Screen.tsx
+msgid "Correct the focused sheet’s number or title"
+msgstr "Correct the focused sheet’s number or title"
+
 #: src/takeoff/Step1Inspector.tsx
 msgid "Question {tag}"
 msgstr "Question {tag}"
@@ -598,8 +618,16 @@ msgid "Not to scale"
 msgstr "Not to scale"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "Correct"
+msgstr "Correct"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "Storeys"
 msgstr "Storeys"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Save"
+msgstr "Save"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "→ walks them"
@@ -749,6 +777,10 @@ msgstr "Discipline"
 #: src/takeoff/Step1Screen.tsx
 msgid "Zoom to the selected view"
 msgstr "Zoom to the selected view"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "typed by a person"
+msgstr "typed by a person"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Outlines"

@@ -125,7 +125,7 @@ def test_a_typed_number_holding_a_drawing_code_is_refused_and_changes_nothing(
     raw = answer(api, qs_project.project_id, q["id"], "type_number", text="S-%%C02")
     empty = answer(api, qs_project.project_id, q["id"], "type_number")
 
-    assert (raw.status_code, raw.json()["code"]) == (400, "drawings.sheets.number_unreadable")
+    assert (raw.status_code, raw.json()["code"]) == (400, "drawings.sheets.number_drawing_code")
     assert (empty.status_code, empty.json()["code"]) == (400, "takeoff.proposals.number_needed")
     assert the(proposals(api, qs_project.project_id), None)["sheet_id"] == q["subject_id"]
     assert [x["id"] for x in open_questions(api, qs_project.project_id, "missing")] == [q["id"]]
@@ -216,9 +216,10 @@ def test_a_typed_number_holding_a_control_or_format_character_is_refused(
 
     response = answer(api, qs_project.project_id, q["id"], "type_number", text=typed)
 
+    cause = "many_lines" if "\n" in typed else "unreadable"  # review 3 of #680: each cause its words
     assert (response.status_code, response.json()) == (
         400,
-        {"code": "drawings.sheets.number_unreadable", "params": {}},
+        {"code": f"drawings.sheets.number_{cause}", "params": {}},
     )
     assert [p["number"] for p in proposals(api, qs_project.project_id)] == ["S-01", None]
 
@@ -312,7 +313,7 @@ def test_the_questions_queue_by_sheets_held_then_conflicts_missing_items_and_che
 
 UNNUMBERED = [
     Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
-    Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    Sheet(None, "COLUMN LAYOUT PLAN", ("COLUMN PLAN",)),
 ]
 
 
@@ -353,7 +354,7 @@ def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_i
                 "params": {
                     "count": 1,
                     "asks": "number",
-                    "sheet": "STAIR DETAILS",
+                    "sheet": "COLUMN LAYOUT PLAN",
                     "named": "title",
                     "question": asked["id"],
                 },

@@ -12,10 +12,13 @@
   finding "could block" when it scores 75 or more, or 50 or more on a strict path (strict by default:
   lax only on a `[lax]` glob of `scripts/factory/review_tiers.toml` off its `[strict]` carve-outs,
   the file read afresh for each decision; no file, a climbing or absolute path, or an unreadable list
-  is judged strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The worst
-  VERDICT wins (BLOCK over FIX over PASS); a finding that could block and stands (CONFIRMED or
-  UNPROVEN) raises PASS to FIX; one that could block with no refuter verdict is refused. Prints one
-  JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
+  is judged strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The
+  verdict follows the bar (S24-L1), in this order: BLOCK when any lens says BLOCK; else FIX while a
+  finding that could block stands (CONFIRMED or UNPROVEN); else PASS, whatever a lens's FIX or PASS
+  line says (a lens's FIX over findings that cannot block, or refuted ones, records PASS). One that
+  could block with no refuter verdict is refused here; in `fetch-verdict` (a cloud lens's findings
+  carry none) a lens's FIX over such a finding records FIX, and `record` refuses a PASS over one.
+  Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
 - `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
   line `{"to_file": [<id>, ...]}`, the standing findings of 50 to 74 off the strict paths, to be filed
   as issues rather than fixed.
@@ -274,12 +277,21 @@ def judge(verdicts: Sequence[str], findings: dict[str, Judged], sha256: str) -> 
 
 
 def verdict(verdicts: Sequence[str], findings: Sequence[Judged]) -> str:
-    worst = max(verdicts, key=RANK.__getitem__)
-    if worst == "PASS" and any(
-        word in STANDS and could_block(score, file) for score, word, file in findings
-    ):
+    """The bar's verdict (S24-L1): BLOCK when any lens says BLOCK (the approach, which only a lens
+    can judge); else FIX while a finding that could block stands (CONFIRMED or UNPROVEN), or when a
+    lens says FIX over one that could block with no refuter verdict (reachable only through
+    `fetch-verdict`: `decide` refuses such a finding first); else PASS, whatever a lens's FIX or PASS
+    line says (a 50-74 off the strict paths is filed, never fixed). No lens's verdict is no PASS."""
+    if not verdicts:
+        raise ValueError("no lens's verdict: the bar decides nothing")
+    if "BLOCK" in verdicts:
+        return "BLOCK"
+    blocking = [word for score, word, file in findings if could_block(score, file)]
+    if any(word in STANDS for word in blocking):
         return "FIX"
-    return worst
+    if "FIX" in verdicts and "-" in blocking:
+        return "FIX"
+    return "PASS"
 
 
 def counts(reviewers: int, findings: Sequence[Judged]) -> dict[str, int]:

@@ -12,12 +12,16 @@ fraction of its plotted size: the real sets' frames give papers of 130 to 420 mm
 (the kind listed first in the conventions wins where several are named: "TYPICAL BEAM SECTION DETAIL" is
 a detail), not in the title block, at least as tall as the sheet's median text (and at most `MAX_LETTER`
 of the paper), not numbered ("5. SEE SECTION ...") and not one of a column of `MIN_NOTE_LINES` lines
-alike (a note's; a scale text in the column is the title's scale line, not a note's). A title lying under
-another within `SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION
-PLAN" under "GROUND FLOOR PLAN"), no title of its own. Titles, second lines and scale texts stay off the
-grid, and so do the lines within a title's band (its underline), and straight lines along the paper's
-axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details). **A ruled
-table** drawn with such rules (`_tables`: at least `MIN_TABLE_RULES` each way, every rule across
+alike (a note's; a scale text in the column is the title's scale line, not a note's). A one-line text of
+up to `MAX_LONG_TITLE_WORDS` words passing those gates is a title by its shape: a column of one (no line
+alike over or under it within `NOTE_LINE_GAP`, scale lines aside) that no notes heading's column holds
+(the columns are found first, a long line never taken). A title lying under another within
+`SUBTITLE_GAP` of its height, across the same place, is its second line ("PRESENTATION PLAN" under
+"GROUND FLOOR PLAN"), no title of its own; a long line is one only right under the title, nothing
+between, and aligned to it (`_aligned`), before it may stand alone. Titles, second lines and scale texts
+stay off the grid, and so do the lines within a title's band (its underline), and straight lines along
+the paper's axes of `DIVIDER_SHARE` of its side or longer (borders, dividers between rows of details).
+**A ruled table** drawn with such rules (`_tables`: at least `MIN_TABLE_RULES` each way, each rule across
 running between the outermost rules down and every rule down between the outermost across, within
 `TABLE_TOLERANCE`) is one piece, what it holds with it, unless a drawing's title stands in it (a grid
 of titled details, its rules dividing them); a table with no title is a schedule. Each title
@@ -76,6 +80,7 @@ the grid; at most `MAX_TITLES` titles and as many scale texts, the `MAX_PIECES` 
 """
 
 import math
+from collections.abc import Sequence
 from dataclasses import replace
 from statistics import median
 
@@ -101,23 +106,30 @@ from engine.recognise.views.paper import (
 from engine.recognise.views.segment.block import RULE_MM
 from engine.recognise.views.segment.pieces import (
     MIN_DRAWING,
+    MIN_VIEW_MM,
     TABLE_TOLERANCE,
     _cut_shared,
+    _dividers_out,
     _off_paper,
     _pairs,
     _Piece,
     _pieces,
     _plans_reach,
+    _reach,
     _tables,
     _View,
 )
 from engine.recognise.views.segment.texts import (
     _ENUMERATED,
+    MAX_LONG_TITLE_WORDS,
     MAX_TITLE_WORDS,
     MIN_HEADING,
     MIN_NOTE_LINES,
+    NOTE_LINE_GAP,
+    _aligned,
     _beside,
     _column_under,
+    _line_over,
     _notes_heading,
     _Placing,
     _Stacks,
@@ -127,6 +139,15 @@ from engine.recognise.views.segment.texts import (
 )
 from engine.recognise.views.titles import _kind, _named_kind, _Reading, _tokens
 
+LONG_TITLE_CENTRED = 0.25
+"""How far a long title's centre may lie from its drawing's centre, a share of the drawing's width (the
+real long titles: 0.06 at most; a long title in a pane of a ruled sheet, wider than its plan: 0.2)."""
+MIN_STROKES = 3
+"""The fewest strokes a drawing a long line may title is drawn with: a rule, a dash or a strike through
+a schedule's cell is one."""
+LONG_TITLE_GAP = 6.0
+"""The farthest a long title stands under or over its drawing, in its heights (the real ones: 3.2 to 3.5,
+a scale line under them)."""
 ROW_SHARE = 0.25
 """A drawing's detached row (its grid marks, its dimensions) is at most this share of its body's
 height."""
@@ -168,6 +189,7 @@ def _views(
     titles: list[int] = []
     scale_texts: list[int] = []
     heads: set[int] = set()  # notes headings: titles whatever their height or length, own cap
+    long_titles: list[int] = []  # one line longer than MAX_TITLE_WORDS: a title by its shape only
     for i, t in enumerate(texts):
         if _notes_heading(t, reading) and MIN_HEADING * letter <= t.height <= letter:
             if len(heads) < MAX_TITLES:  # a block of notes in one text, too
@@ -184,14 +206,17 @@ def _views(
             if len(scale_texts) < MAX_TITLES:
                 scale_texts.append(i)
             continue
+        long = (  # a slab outline plan's title naming all it draws, of one line
+            MAX_TITLE_WORDS < len(words) <= MAX_LONG_TITLE_WORDS and "\n" not in t.placed.shown.strip()
+        )
         if (
-            len(titles) < MAX_TITLES
-            and 0 < len(words) <= MAX_TITLE_WORDS
+            len(titles) + len(long_titles) < MAX_TITLES
+            and (0 < len(words) <= MAX_TITLE_WORDS or long)
             and tall <= t.height <= letter
             and not _ENUMERATED.match(t.shown)
             and _named_kind(t.shown, reading) is not None  # a heading word alone is no title's
         ):
-            titles.append(i)
+            (long_titles if long else titles).append(i)
     stacks = _Stacks(texts, skip=frozenset(scale_texts))  # a title's scale line is no note's
     every = _Stacks(texts) if heads else stacks  # a notes line over a heading, scale-like or not
     titles = [i for i in titles if stacks.lines(i) < MIN_NOTE_LINES]
@@ -224,15 +249,44 @@ def _views(
     drawn_titles = [i for i in titles if _kind(texts[i].shown, reading) not in _HEADINGS]
     for ti, lines in _title_lines(texts, drawn_titles, subtitles | set(titles) | noted).items():
         second.setdefault(ti, []).extend(lines)
-    subtitles = {j for lines in second.values() for j in lines}
-    off_grid = set(titles) | subtitles | set(scale_texts) | noted
-    titles = [i for i in titles if not columns.get(i) and i not in lone]  # the rest pair with drawings
-    underlined = _underlines(paper.segments, [texts[i] for i in titles])
     off = (  # a long line running off a framed sheet is no view's
         _off_paper(paper.segments, paper.region, paper.lengths)
         if len(paper.frame)
         else np.zeros(len(paper.segments), dtype=bool)
     )
+    long_titles = [i for i in long_titles if i not in noted]  # a notes heading's line is its
+    if long_titles:  # decided last: the tables, the headings' columns and the titles' blocks known
+        placing = _Placing.of(texts)
+        own = {j: ti for ti, lines in second.items() for j in lines}  # each title's own lines
+        short = {i for i in titles if i not in heads}
+        for j in long_titles:  # a title's own second line: under it or its block, nothing between
+            upper = _line_over(placing, j)
+            if upper is None:
+                continue
+            title = upper
+            for _ in range(len(own)):  # bounded: hostile texts may make a ring of second lines
+                if title not in own:
+                    break
+                title = own[title]
+            if title in short and _subtitle(texts[j], texts[upper]) and _aligned(texts[j], texts[title]):
+                second.setdefault(title, []).append(j)
+        joined = {j for lines in second.values() for j in lines}
+        alone = _Stacks(texts, skip=frozenset(scale_texts), gap=NOTE_LINE_GAP)  # a column of one
+        standing = [i for i in long_titles if i not in joined and alone.alone(i)]
+        if standing:  # and it titles a drawing no short title stands at
+            drawings = _drawings(replace(paper, segments=paper.segments[~off], lengths=None))
+            shorts = [(texts[i], _kind(texts[i].shown, reading) in _HEADINGS) for i in short]
+            scale = max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+            standing = [i for i in standing if _titles_a_drawing(texts[i], drawings, shorts, scale)]
+        drawn_long = [i for i in standing if _kind(texts[i].shown, reading) not in _HEADINGS]
+        claimed = joined | set(titles) | noted | set(standing)
+        for ti, lines in _title_lines(texts, drawn_long, claimed).items():
+            second.setdefault(ti, []).extend(lines)
+        titles = sorted([*titles, *standing])
+    subtitles = {j for lines in second.values() for j in lines}
+    off_grid = set(titles) | subtitles | set(scale_texts) | noted
+    titles = [i for i in titles if not columns.get(i) and i not in lone]  # the rest pair with drawings
+    underlined = _underlines(paper.segments, [texts[i] for i in titles])
     drawn = replace(paper, segments=paper.segments[~(underlined | off)], lengths=None)
     pieces = _pieces(drawn, texts, (i for i in range(len(texts)) if i not in off_grid))
     pieces = sorted(pieces, key=lambda q: -q.area)[:MAX_PIECES]
@@ -344,6 +398,57 @@ def _views(
             best[1].scale = scales.read(s.shown, reading.patterns)
             best[1].box = _union(best[1].box, s.box)
     return views[:MAX_VIEWS]
+
+
+def _drawings(paper: _Paper) -> list[Bounds]:
+    """The boxes a long line may title: the sheet's drawn pieces (lines alone, texts aside, dividers
+    out) at least `MIN_VIEW_MM` each way and drawn with `MIN_STROKES` or more (never a rule, a dash or
+    a strike through a cell), and each ruled table that holds one, or holds no text (a grid drawn with
+    dividers): a schedule's box, its rows text in its own rules, is none."""
+    rx0, ry0, rx1, ry1 = paper.region
+    least = MIN_VIEW_MM * max(rx1 - rx0, ry1 - ry0) / REFERENCE_MM
+    strokes = _dividers_out(paper.segments, rx1 - rx0, ry1 - ry0)
+    lo_x, hi_x = np.minimum(strokes[:, 0], strokes[:, 2]), np.maximum(strokes[:, 0], strokes[:, 2])
+    lo_y, hi_y = np.minimum(strokes[:, 1], strokes[:, 3]), np.maximum(strokes[:, 1], strokes[:, 3])
+    drawn: list[Bounds] = []
+    for q in _pieces(paper, paper.texts, ()):
+        x0, y0, x1, y1 = q.box
+        if min(x1 - x0, y1 - y0) < least:
+            continue
+        held = (lo_x >= x0 - least) & (hi_x <= x1 + least) & (lo_y >= y0 - least) & (hi_y <= y1 + least)
+        if int(held.sum()) >= MIN_STROKES:
+            drawn.append(q.box)
+    tables = [
+        b
+        for b in _tables(paper.segments, paper.region)
+        if any(_holds(b, d) for d in drawn) or not any(_inside(_centre(t.box), b) for t in paper.texts)
+    ]
+    return [*drawn, *tables]
+
+
+def _at(t: _Text, drawing: Bounds) -> bool:
+    """Whether a text stands directly under or over a drawing: its centre across the drawing, and
+    the gap between them `LONG_TITLE_GAP` of its heights at most."""
+    cx = (t.box[0] + t.box[2]) / 2
+    reach = LONG_TITLE_GAP * t.height
+    under, over = drawing[1] - t.box[3], t.box[1] - drawing[3]
+    return drawing[0] <= cx <= drawing[2] and (0 <= under <= reach or 0 <= over <= reach)
+
+
+def _titles_a_drawing(
+    t: _Text, drawings: Sequence[Bounds], shorts: Sequence[tuple[_Text, bool]], unit: float
+) -> bool:
+    """Whether a long line stands as a drawing's title (the shape of every real long title, S23):
+    directly under or over the drawing (`_at`), its centre within `LONG_TITLE_CENTRED` of the
+    drawing's width of the drawing's centre, and no short title (`shorts`: each with whether it is a
+    heading) that pairing would let take that drawing (`_reach`, pairing's own rule)."""
+    cx = (t.box[0] + t.box[2]) / 2
+    return any(
+        abs(cx - (d[0] + d[2]) / 2) <= LONG_TITLE_CENTRED * (d[2] - d[0])
+        and _at(t, d)
+        and not any(_reach(u, d, unit, head) is not None for u, head in shorts)
+        for d in drawings
+    )
 
 
 def _row_under(row: Bounds, body: Bounds, by: float) -> bool:

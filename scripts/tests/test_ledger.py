@@ -375,7 +375,7 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "vextrus/projects/services/access.py",
         "vextrus/rates",  # a folder: `X/**` matches `X`
         "engine/read",
-        "engine/recognise/storeys.py",
+        "engine/assemble/storeys.py",
         "vextrus/projects/services/projects.py",  # PR #610 review, round 2: walls in each module
         "vextrus/drawings/http/files.py",
         "vextrus/drawings/acts.py",
@@ -387,7 +387,7 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "scripts/real_drawings/x.py",
         "scripts/real-drawings",
         "newtop/x.py",  # an unlisted new top-level folder
-        "engine/plot/x.py",
+        "engine/read/x.py",
         "scripts/ledger.py",
         "scripts/factory/launch.py",
         "scripts/factory/review_tiers.toml",
@@ -406,6 +406,11 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "scripts/tests/acceptance/ts17f6/test_bar.py",
         "CLAUDE.md",
         "web/src/permissions/Grant.tsx",
+        "engine/plot/picture.py",
+        "engine/plot/_picture_child.py",
+        # The owner's ruling of session 24 made these lax for that session only; session 25 ended it.
+        "engine/recognise/storeys.py",
+        "engine/plot/x.py",
     ],
 )
 def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
@@ -415,7 +420,14 @@ def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
     assert decision.to_file == ()
 
 
-@pytest.mark.parametrize("file", ["web/src/x.tsx", "docs/x.md", "web/src/components/badge.tsx"])
+@pytest.mark.parametrize(
+    "file",
+    [
+        "web/src/x.tsx",
+        "docs/x.md",
+        "web/src/components/badge.tsx",
+    ],
+)
 def test_a_60_off_the_strict_trees_is_filed_not_blocking(tmp_path: Path, file: str) -> None:
     given = source(tmp_path, f"VERDICT: PASS at {H}", f"FINDING f1 60 CONFIRMED {file}")
     decision = ledger.decide(given.read_bytes(), H)
@@ -434,3 +446,57 @@ def test_a_lax_glob_matches_the_whole_path_only() -> None:
     assert ledger.on_strict_path("x/docs/a.md") is True
     assert ledger.on_strict_path("x/README.md") is True
     assert ledger.on_strict_path("x/web/src/ui/Button.tsx") is True
+
+
+LAX = "web/src/components/badge.tsx"
+STRICT = "vextrus/rates/table.py"
+
+
+@pytest.mark.parametrize(
+    ("said", "findings", "expected"),
+    [
+        (["PASS", "BLOCK"], [(80, "CONFIRMED", STRICT)], "BLOCK"),  # 1: a lens's BLOCK wins
+        (["BLOCK"], [], "BLOCK"),
+        (["PASS"], [(75, "UNPROVEN", LAX)], "FIX"),  # 2: a standing finding that could block
+        (["PASS"], [(50, "CONFIRMED", STRICT)], "FIX"),
+        (["FIX"], [(80, "-", STRICT)], "FIX"),  # 3: a lens's FIX over an unrefuted one
+        (["PASS", "FIX"], [(50, "-", None)], "FIX"),  # no file: judged strict
+        (["PASS"], [(80, "-", STRICT)], "PASS"),  # 3 needs a lens's FIX (`record` refuses this)
+        (["FIX"], [(74, "-", LAX)], "PASS"),  # 4: unrefuted, but it cannot block
+        (["FIX"], [(74, "CONFIRMED", LAX), (49, "CONFIRMED", STRICT)], "PASS"),
+        (["FIX", "FIX"], [(100, "REFUTED", STRICT)], "PASS"),
+        (["FIX"], [], "PASS"),
+    ],
+)
+def test_the_verdict_follows_the_bar_in_order(
+    said: list[str], findings: list[ledger.Judged], expected: str
+) -> None:
+    """S24-L1: BLOCK by a lens; else FIX while a finding that could block stands, or a lens's FIX over
+    one with no refuter verdict (fetch-verdict's cloud findings); else PASS, whatever the lenses said."""
+    assert ledger.verdict(said, findings) == expected
+
+
+def test_fetch_verdict_records_a_lens_fix_over_its_own_unrefuted_60_on_a_strict_path_as_fix(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rule 3 end to end: a cloud lens's findings carry no refuter verdict, so its FIX over a 60 on a
+    strict path (`app.py`, strict by default) stays FIX rather than becoming a PASS that is refused."""
+    from scripts.tests.acceptance.tf4.test_ledger_fetch_verdict import (
+        VERDICT_PATH,
+        Origin,
+        fetch,
+        verdict_file,
+    )
+
+    origin = Origin(tmp_path)
+    found = [{"score": 60, "file": "app.py", "line": 1, "summary": "a row is read twice"}]
+    origin.review_branch({VERDICT_PATH: verdict_file(origin.head, verdict="FIX", findings=found)})
+    done, store = fetch(origin, tmp_path, monkeypatch)
+    assert done == 0
+    assert json.loads((store / f"12-{origin.head}.json").read_text())["verdict"] == "FIX"
+
+
+def test_no_lens_verdict_decides_nothing() -> None:
+    """Fail closed: a caller that hands the bar no lens's verdict never gets a PASS."""
+    with pytest.raises(ValueError, match="no lens's verdict"):
+        ledger.verdict([], [])

@@ -38,8 +38,10 @@ Coordinates are floats in drawing units: drawing geometry stays float inside the
 or version, so a change to this shape is a new VERSION and never a silent reinterpretation. Version 2
 added the style table and `Text.style_handle` (#82); version 3 a layout's paper units
 (`Block.paper_mm_per_unit`, #87); version 4 a layout's plot settings (`Block.plot`, S15-E2: its paper's
-size, margins, plot offset and turn, as the file states them); an older version is refused, so an
-artefact stored before it is read again from its drawing.
+size, margins, plot offset and turn, as the file states them); version 5 an MTEXT's own measures
+(`Text.extents_width`, `extents_height`: the widest line and the block's height as AutoCAD laid them
+out, S24-A4) and its line spacing (`line_spacing_style`, `line_spacing_factor`); an older version is
+refused, so an artefact stored before it is read again from its drawing.
 """
 
 import math
@@ -53,7 +55,7 @@ from engine.read._json import Fields, Json
 from engine.read.anchor import is_handle
 
 SCHEMA = "engine.read.artefact"
-VERSION = 4
+VERSION = 5
 
 type Point = tuple[float, float, float]
 type StyleSource = Literal["own", "attdef", "none"]
@@ -123,6 +125,10 @@ class Text:
     tag: str | None  # ATTRIB and ATTDEF
     extrusion: Point
     style_handle: str | None = None  # its style in the artefact's `styles`; for "attdef", the ATTDEF's
+    extents_width: float | None = None  # MTEXT: AutoCAD's own measure of its widest line, as stored
+    extents_height: float | None = None  # MTEXT: AutoCAD's own measure of its block's height, as stored
+    line_spacing_style: int | None = None  # MTEXT: 1 at least, 2 exactly, as stored
+    line_spacing_factor: float | None = None  # MTEXT: times single spacing, as stored
 
 
 type AnyEntity = Entity | Insert | Text
@@ -543,6 +549,10 @@ def _entity_json(entity: AnyEntity) -> dict[str, Any]:
                 "attachment": entity.attachment,
                 "tag": entity.tag,
                 "extrusion": list(entity.extrusion),
+                "extents_width": entity.extents_width,
+                "extents_height": entity.extents_height,
+                "line_spacing_style": entity.line_spacing_style,
+                "line_spacing_factor": entity.line_spacing_factor,
             }
         case Insert():
             return {
@@ -613,6 +623,18 @@ def _entity_from_json(value: object) -> AnyEntity:
             attachment=_optional_int(fields.raw("attachment"), f"text {handle}'s attachment"),
             tag=fields.optional_string("tag"),
             extrusion=_point(fields.raw("extrusion"), f"text {handle}'s extrusion"),
+            extents_width=_optional_number(
+                fields.raw("extents_width"), f"text {handle}'s extents width"
+            ),
+            extents_height=_optional_number(
+                fields.raw("extents_height"), f"text {handle}'s extents height"
+            ),
+            line_spacing_style=_optional_int(
+                fields.raw("line_spacing_style"), f"text {handle}'s line spacing style"
+            ),
+            line_spacing_factor=_optional_number(
+                fields.raw("line_spacing_factor"), f"text {handle}'s line spacing factor"
+            ),
         )
     else:
         raise fields.fail("kind", "entity, insert or text")

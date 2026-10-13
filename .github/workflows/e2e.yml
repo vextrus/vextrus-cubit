@@ -80,6 +80,46 @@ jobs:
           curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
           bash "$RUNNER_TEMP/dotnet-install.sh" --version "$(tr -d '[:space:]' < toolchain/dotnet.version)" \
             --install-dir /opt/vextrus/dotnet --no-path
+      - name: The ACadSharp dumper, built from tools/acadsharp-dump with that SDK, installed only at its pin
+        # As scripts/owner/toolchain.sh's install_acadsharp_dump does, minus root: the folder is the
+        # pin's first 12 hex, which the engine reads from toolchain/acadsharp-dump.sha256.
+        run: |
+          set -euo pipefail
+          PREFIX=/opt/vextrus
+          PINS="$GITHUB_WORKSPACE/toolchain"
+          TOOL="$GITHUB_WORKSPACE/tools/acadsharp-dump"
+          pinned=$(cut -d" " -f1 toolchain/acadsharp-dump.sha256)
+          dest="/opt/vextrus/acadsharp-dump/${pinned:0:12}"
+          build=$(mktemp -d "$PREFIX/.acadsharp-dump-build.XXXXXX")
+          source="$build/src"
+          out="$build/out"
+          mkdir -p "$source/acadsharp" "$build/tmp"
+          cp "$TOOL/acadsharp-dump.csproj" "$TOOL/Program.cs" "$TOOL/packages.lock.json" "$TOOL/global.json" "$source/"
+          cp "$TOOL/acadsharp/ACadSharp.csproj" "$TOOL/acadsharp/packages.lock.json" "$source/acadsharp/"
+          dotnet_here() {
+            ( cd "$source" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$build/home" \
+              NUGET_PACKAGES="$build/nuget" TMPDIR="$build/tmp" "$PREFIX/dotnet/dotnet" "$@" "$source" \
+              -noAutoResponse -nodeReuse:false -p:ImportDirectoryBuildProps=false \
+              -p:ImportDirectoryBuildTargets=false -p:ImportDirectoryPackagesProps=false )
+          }
+          bash "$TOOL/prepare-source.sh" --lock "$PINS/acadsharp-source.lock" --dest "$source/upstream"
+          dotnet_here restore
+          ( cd "$build/nuget/microsoft.netcore.app.runtime.linux-x64/"*/ &&
+            sha512sum -c --quiet "$PINS/acadsharp-dump.runtime.sha512" )
+          dotnet_here publish -c Release -o "$out" --no-restore
+          built=$(sha256sum "$out/acadsharp-dump" | cut -d' ' -f1)
+          if [ "$built" != "$pinned" ]; then
+            echo "acadsharp-dump built as $built, not the pin $pinned: not installed" >&2
+            exit 1
+          fi
+          runtime=$(echo "$build"/nuget/microsoft.netcore.app.runtime.linux-x64/*)
+          install -d -m 0755 "$dest"
+          install -m 0644 "$TOOL/ACADSHARP-LICENSE.txt" "$dest/ACADSHARP-LICENSE.txt"
+          install -m 0644 "$runtime/LICENSE.TXT" "$dest/DOTNET-LICENSE.TXT"
+          install -m 0644 "$runtime/THIRD-PARTY-NOTICES.TXT" "$dest/DOTNET-THIRD-PARTY-NOTICES.TXT"
+          install -m 0755 "$out/acadsharp-dump" "$dest/acadsharp-dump"
+          rm -rf -- "$build"
+          test "$(sha256sum "$dest/acadsharp-dump" | cut -d' ' -f1)" = "$pinned"
       - name: Bubblewrap, and the AppArmor limit on unprivileged user namespaces lifted
         run: |
           sudo apt-get update -qq
