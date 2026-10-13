@@ -2058,6 +2058,7 @@ def main(argv: list[str] | None = None) -> int:
     run = Run(pr=0, round_=0)
     code, why = ledger.OK, None
     home: Path | None = None
+    started_at = ledger.utc_now()
     try:
         args = parse(sys.argv[1:] if argv is None else argv)
         if args.command == "fix-message":
@@ -2077,6 +2078,7 @@ def main(argv: list[str] | None = None) -> int:
         code, why = CRASHED, f"crashed: {type(error).__name__}: {error}"
     if home is not None and run.tier is not None:  # past its checks: every such run leaves a cost line
         line = summary(run, code, why)
+        line["started_at"] = started_at  # measures.py's READY-to-review wait reads it
         line["at"] = ledger.utc_now()
         append_cost(home, line)
     if why is not None:

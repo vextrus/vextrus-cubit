@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from scripts.factory import measures, stamp, status
 
-WINDOW = {"started_utc": "2026-10-08T06:00:00Z", "ended_utc": "2026-10-08T18:00:00Z"}
+WINDOW: dict[str, Any] = {"started_utc": "2026-10-08T06:00:00Z", "ended_utc": "2026-10-08T18:00:00Z"}
 
 
 def test_a_session_with_no_data_has_none_for_every_percentile() -> None:
@@ -132,3 +133,35 @@ def test_one_cancelled_required_run_leaves_the_whole_head_out_and_a_skipped_one_
     ]
     got = measures.compute(**WINDOW, prs=[], ledger=[], lock_spans=[], verify_spans=[], ci_runs=runs)
     assert got["ci_wall_p50_min"] == pytest.approx(12)
+
+
+def test_a_builders_span_runs_from_its_launch_to_its_first_ready_or_blocked_event(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "launches").mkdir()
+    launch = {
+        "ticket": "S25-X1",
+        "branch": "s25-x1",
+        "started_at": "2026-10-08T07:00:00Z",
+        "review": None,
+    }
+    (tmp_path / "launches" / "S25-X1-1.json").write_text(__import__("json").dumps(launch))
+    unfinished = {**launch, "ticket": "S25-X2", "branch": "s25-x2"}
+    (tmp_path / "launches" / "S25-X2-1.json").write_text(__import__("json").dumps(unfinished))
+    events = [
+        "2026-10-08T06:00:00Z READY S25-X1 aaaaaaaa",
+        "2026-10-08T08:00:00Z READY S25-X1 bbbbbbbb",
+        "2026-10-08T09:00:00Z BLOCKED S25-X1 cccccccc",
+    ]
+    assert measures.read_builder_spans(tmp_path, events) == [
+        ("s25-x1", "2026-10-08T07:00:00Z", "2026-10-08T08:00:00Z")
+    ]
+
+
+def test_a_cost_line_without_started_at_is_not_a_review_start(tmp_path: Path) -> None:
+    (tmp_path / "review-cost.jsonl").write_text(
+        '{"pr":1,"head":"a","at":"x"}\nnot json\n{"pr":2,"head":"b","started_at":"t"}\n'
+    )
+    assert [row["pr"] for row in measures.read_review_starts(tmp_path)] == [2]
+    assert measures.read_review_starts(tmp_path / "none") == []
+    assert measures.read_events(tmp_path / "none") is None
