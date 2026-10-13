@@ -22,6 +22,7 @@ from engine.recognise.types import (
     SheetCandidate,
     SheetConventions,
     ViewCandidate,
+    ViewKind,
 )
 
 DEFAULT = json.loads(
@@ -269,3 +270,65 @@ def test_a_stale_pair_keeps_the_whole_title_a_question_never_a_series() -> None:
 
     assert kinds(found) == [conflicts.SAME_TITLE]
     assert [s.number.value for s in found[0].candidates if s.number] == ["S-71", "S-72", "S-76"]
+
+
+# S25-E1 round 3: a range of hyphenated marks tells no run apart --------------------------------
+
+
+@pytest.mark.parametrize(
+    ("titles", "cut"),
+    [
+        (["DETAILS OF BEAM BARS"] * 3, 'SECTION THRU BEAMS B-1 TO B-6, 11"X23"'),
+        (
+            ["BEAM B-1 TO B-6 DETAILS", "BEAM B-7 TO B-12 DETAILS", "BEAM B-1 TO B-6 DETAILS"],
+            'SECTION THRU BEAM B-1, 11"X23"',
+        ),
+        (["BEAM B-1 - B-6 DETAILS", "BEAM B-6 - B-12 DETAILS", "BEAM B-1 - B-6 DETAILS"], None),
+    ],
+)
+def test_per_floor_runs_named_by_a_hyphenated_range_are_a_series(
+    titles: list[str], cut: str | None
+) -> None:
+    """Hyphenated marks ("B-1") restart on every floor, so their range, like a single one, is no mark
+    for a series: the floor of the plan before each run parts the runs (S19-B4's E1 shape)."""
+
+    def framing(number: str, storey: str) -> tuple[SheetCandidate, tuple[ViewCandidate, ...]]:
+        title = f"FRAMING PLAN OF BEAMS, LEVEL {storey[-1]}"
+        return sheet(number, title), (plan([storey], "beam", title=title),)
+
+    def detail(number: str, title: str) -> tuple[SheetCandidate, tuple[ViewCandidate, ...]]:
+        cuts = () if cut is None else (plan([], None, kind=ViewKind.SECTION, title=cut),)
+        return sheet(number, title), cuts
+
+    rows = [
+        framing("S-01", "floor_1"),
+        detail("S-02", titles[0]),
+        detail("S-03", titles[1]),
+        framing("S-04", "floor_2"),
+        detail("S-05", titles[2]),
+    ]
+    found = compare([s for s, _ in rows], [v for _, v in rows])
+
+    assert [numbers(c) for c in found if isinstance(c, Continuation)] == [["S-02", "S-03"]]
+    assert [numbers(c) for c in found if isinstance(c, Series)] == [["S-02", "S-03", "S-05"]]
+    assert [c for c in found if isinstance(c, Conflict)] == []
+
+
+def test_unhyphenated_ranges_on_two_floors_still_tell_runs_apart_by_their_marks() -> None:
+    """Marks written without a joiner ("B1") are read as before: the same range on two floors'
+    runs overlaps and keeps the Question."""
+    rows = [
+        (sheet("S-01", "FRAMING PLAN OF BEAMS, LEVEL 1"), (plan(["floor_1"], "beam"),)),
+        (sheet("S-02", "BEAM B1 TO B6 DETAILS"), ()),
+        (sheet("S-04", "FRAMING PLAN OF BEAMS, LEVEL 2"), (plan(["floor_2"], "beam"),)),
+        (sheet("S-05", "BEAM B1 TO B6 DETAILS"), ()),
+    ]
+    found = compare([s for s, _ in rows], [v for _, v in rows])
+    assert [c.kind for c in found if isinstance(c, Conflict)] == ["same_title"]
+
+
+def test_a_hyphenated_range_still_groups_and_runs_on() -> None:
+    """Grouping and continuations keep reading hyphenated ranges (the owner's Q-R9)."""
+    found = compare([sheet("S-02", "BEAM B-1 TO B-6 DETAILS"), sheet("S-03", "BEAM B-6 TO B-9 DETAILS")])
+    assert [numbers(c) for c in found if isinstance(c, Continuation)] == [["S-02", "S-03"]]
+    assert [c.title for c in found if isinstance(c, Continuation)] == ["BEAM B-1 TO B-9 DETAILS"]
