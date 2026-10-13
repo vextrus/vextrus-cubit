@@ -20,10 +20,11 @@ in). A number or a title is typed text: on one line, decoded, no drawing code, w
 (a title within `TITLE_LENGTH`).
 """
 
+import functools
 import re
 import unicodedata
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from django.db import transaction
@@ -130,9 +131,13 @@ def set_sheet_title(sheet_revision_id: uuid.UUID, title: str) -> sheet_list.Shee
     return sheet_list.sheet(printed.id)
 
 
-STOREYS_LENGTH = 500
-"""The longest storey list the QS may type: room for `MAX_STOREYS` listed one by one ("40th floor, ")."""
-MAX_STOREYS = 40
+MAX_STOREYS = storey_reader.MAX_FLOOR + len(storey_reader.NAMED) + 20
+"""The most storeys a typed list may name: every storey the engine reads on a plan (its floors to
+`MAX_FLOOR`, its named storeys and 20 basements), so a list the form prefills from a plan's storeys is
+never refused as too many (review 1 of #811: a plan read "2ND TO 45TH FLOOR" names 44)."""
+STOREYS_LENGTH = MAX_STOREYS * len("lift machine room roof, ")
+"""The longest storey list the QS may type: room for `MAX_STOREYS` listed one by one, each by its
+longest name."""
 """The most storeys one view may be given: a tall tower's floors listed one by one."""
 MEANINGS = (StoreysMeaning.AT_FLOOR_LEVEL.value, StoreysMeaning.FLOOR_TO_FLOOR.value)
 """The meanings a correction picks between; a view read "at ceiling level" is not given it again."""
@@ -180,11 +185,41 @@ def typed_storeys(storeys: object) -> tuple[str, ...]:
         key, words = _one_storey(item, conventions)
         read.setdefault(key, words)
     # The engine orders a list low to high; the keys it reads from the items together must be the
-    # keys read from each (a list it reads differently is refused, never kept as something else).
-    joined = storey_reader.read(", ".join(read.values()), conventions, plan_title=False)
-    if set(joined.keys) != set(read) or joined.runs_to is not None or joined.ranged:
-        raise auth.Refused(said.STOREYS_UNREADABLE(), status=400)
-    return joined.keys
+    # keys read from each (a list it reads differently is refused, never kept as something else). A
+    # list longer than the engine reads at once (`MAX_TEXT`) is read together in parts, each a list.
+    together: list[str] = []
+    parts = _parts(list(read.values()))
+    for part in parts:
+        joined = storey_reader.read(part, conventions, plan_title=False)
+        if joined.runs_to is not None or joined.ranged:
+            raise auth.Refused(said.STOREYS_READ_TOGETHER(), status=400)
+        together.extend(joined.keys)
+    if len(together) != len(read) or set(together) != set(read):
+        raise auth.Refused(said.STOREYS_READ_TOGETHER(), status=400)
+    if len(parts) == 1:  # as the engine ordered it
+        return tuple(together)
+    return _low_to_high(read, conventions)
+
+
+def _low_to_high(read: Mapping[str, str], conventions: SheetConventions) -> tuple[str, ...]:
+    """A long list's keys low to high, each pair ordered as the engine orders it read together."""
+
+    def compare(a: str, b: str) -> int:
+        keys = storey_reader.read(f"{read[a]}, {read[b]}", conventions, plan_title=False).keys
+        return -1 if a in keys and b in keys and keys.index(a) < keys.index(b) else 1
+
+    return tuple(sorted(read, key=functools.cmp_to_key(compare)))
+
+
+def _parts(words: Sequence[str]) -> list[str]:
+    """The items' words joined as lists of at most `storey_reader.MAX_TEXT` characters each."""
+    parts: list[str] = []
+    for item in words:
+        if parts and len(parts[-1]) + 2 + len(item) <= storey_reader.MAX_TEXT:
+            parts[-1] = f"{parts[-1]}, {item}"
+        else:
+            parts.append(item)
+    return parts
 
 
 def _one_storey(item: str, conventions: SheetConventions) -> tuple[str, str]:

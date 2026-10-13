@@ -2261,6 +2261,8 @@ def correct(
             changed["number"] = [sheet.number or "", drawings.typed_number(number)]
         if isinstance(title, str) and title.strip() != sheet.title:
             changed["title"] = [sheet.title, drawings.typed_title(title)]
+        if views:
+            _refuse_if_views_read_again(opened, sheet, views)
         viewed = drawings.typed_view_storeys(sheet.id, views or [])
         if viewed:
             # The sheet is locked (`typed_view_storeys`): these are the views just read and judged.
@@ -2320,6 +2322,31 @@ def correct(
                     raise _storeys_since(opened, sheet, uuid.UUID(v["view"]), v["title"], v["place"])
         _after_act(project_id, corrected=True)
     return _act_view(act)
+
+
+def _refuse_if_views_read_again(
+    opened: Mapping[str, object] | None,
+    sheet: drawings.SheetView,
+    views: Sequence[tuple[object, object, object]],
+) -> None:
+    """A view the form opened with that is no longer the sheet's (its file read again since: its rows
+    replaced, with new ids) is refused as changed since (409, whose words say to open the form
+    again), not as a view unknown to the sheet (400), judged before the views are looked up (review 1
+    of #811). It is named as the form named it (`opened["views"]`' `title` and `place`), else by its
+    place among the views sent."""
+    seen = (opened or {}).get("views")
+    if not isinstance(seen, Mapping):
+        return
+    drawings.lock_sheet(sheet.id)  # the views read are those the correction then judges
+    now = {v.id for v in drawings.views(sheet.id)}
+    for at, (view, _storeys, _meaning) in enumerate(views, start=1):
+        was = seen.get(str(view))
+        if not isinstance(view, uuid.UUID) or view in now or not isinstance(was, Mapping):
+            continue
+        title, place = was.get("title"), was.get("place")
+        named = title if isinstance(title, str) else ""
+        counted = place if isinstance(place, int) and not isinstance(place, bool) and place > 0 else at
+        raise _storeys_since(opened, sheet, view, named, counted)
 
 
 def _refuse_if_storeys_moved(

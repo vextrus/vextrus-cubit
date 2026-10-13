@@ -511,3 +511,100 @@ def test_a_storeys_undo_locks_the_sheet_before_reading_its_views(
     assert nusrat.post(f"{step1(kr01)}/undo", {}).status_code == 200
 
     assert calls[-3:] == ["lock", "views", "put_back"]
+
+
+# The design gate of #811 (the orchestrator's ruling, for the owner's M0 walk): a typed storeys
+# correction is the QS's own word, so the title-against-plans Check asks no Question over it.
+DIFFERS = "engine.storey_titles.differs"
+
+
+def holding(api: Api, project: uuid.UUID, sheet: dict[str, Any]) -> list[str]:
+    """The codes of the open Questions that hold the sheet's Proposal."""
+    listed = api.get(f"{step1(project)}/questions").json()
+    items = listed["questions"]
+    return [q["code"] for q in items if q["status"] == "open" and sheet["id"] in q["proposals"]]
+
+
+def latest_findings(demo: Any, project: uuid.UUID, number: str) -> list[dict[str, Any]]:
+    """The storey-titles Check's findings naming the sheet in its latest run."""
+    from vextrus.takeoff.models import CheckFinding, CheckRun
+
+    with tenancy.acting_in(demo["developer:shapla"]):
+        run = CheckRun.objects.filter(project_id=project, check_key="storey_titles").latest("at")
+        rows = CheckFinding.objects.filter(run=run).values_list("params", flat=True)
+        return [dict(p) for p in rows if p.get("sheet") == number]
+
+
+def test_typed_storeys_against_the_title_ask_no_question_and_are_recorded_as_the_qs_correction(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+
+    done = correct(nusrat, kr01, body(sheet, (plan["id"], "2nd, 4th, 6th", "floor_to_floor")))
+
+    assert done.status_code == 200, done.content
+    assert DIFFERS not in holding(nusrat, kr01, sheet)
+    [after] = [p for p in proposals(nusrat, kr01) if p["id"] == sheet["id"]]
+    assert after["corrected"] is True  # the State column's ", corrected", at once
+    # Recorded, never silent: the Check's finding stands, marked as the QS's correction.
+    [finding] = latest_findings(demo, kr01, "S-06")
+    assert finding["answered"] == "correction"
+
+    assert nusrat.post(f"{step1(kr01)}/undo", {}).status_code == 200
+    assert plan_now(nusrat, kr01)[:2] == READ
+    assert latest_findings(demo, kr01, "S-06") == []  # as read, the title agrees
+
+
+def test_typed_storeys_ask_no_title_question_but_a_real_duplicate_still_is_one(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    [s04] = by_number(proposals(nusrat, kr01), "S-04")
+    [plan] = [v for v in s04["views"] if v["kind"] == "plan"]
+
+    done = correct(nusrat, kr01, body(s04, (plan["id"], "Ground, 1st", "at_floor_level")))
+
+    assert done.status_code == 200, done.content
+    codes = holding(nusrat, kr01, s04)
+    assert DIFFERS not in codes
+    # Two beam layouts now draw the 1st floor (S-04 typed, S-05 read): a real duplicate, still asked.
+    assert codes, codes
+
+
+# Review 1 of #811 ------------------------------------------------------------------------------------
+
+
+def test_a_view_read_again_under_an_open_form_is_refused_as_changed_since(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    from vextrus.takeoff.services.read_propose import proposals as reading
+
+    sheet, plan = s06_plan(nusrat, kr01)
+    sheet_id = uuid.UUID(sheet["sheet_id"])
+    with tenancy.acting_in(demo["developer:shapla"]):  # the file read again: new view rows, new ids
+        again = [reading.view_candidate(v) for v in drawings.views(sheet_id)]
+        drawings.record_views(sheet_id, again)
+    opened = {
+        "views": {
+            plan["id"]: {**opened_with(plan)["views"][plan["id"]], "title": plan["title"], "place": 1}
+        }
+    }
+
+    stale = post_opened(nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor")), opened)
+
+    assert (stale.status_code, stale.json()["code"]) == (409, "takeoff.step1.storeys_corrected_since")
+    assert stale.json()["params"]["view"] == plan["title"][:80]
+    assert (stale.json()["params"]["titled"], stale.json()["params"]["place"]) == ("yes", 1)
+    assert plan_now(nusrat, kr01)[:2] == READ
+
+
+def test_a_view_unknown_to_a_form_that_never_opened_it_is_still_refused_as_unknown(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    stranger = str(uuid.uuid4())
+
+    refused = post_opened(
+        nusrat, kr01, body(sheet, (stranger, "2nd", "floor_to_floor")), opened_with(plan)
+    )
+
+    assert (refused.status_code, refused.json()["code"]) == (400, "drawings.sheets.storeys_view_unknown")

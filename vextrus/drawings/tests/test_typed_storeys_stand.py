@@ -74,10 +74,15 @@ def test_storeys_the_reading_changed_its_mind_about_are_not_kept_for_another_vie
 
 
 def test_a_list_of_the_most_storeys_fits_its_length() -> None:
-    typed = ", ".join(f"{n}th floor" for n in range(4, 4 + corrections.MAX_STOREYS))
+    # Every storey the engine reads on a plan, each by a long name: its floors, 20 basements, the rest.
+    named = ["pile", "pile cap", "foundations", "lower ground", "plinth", "ground", "mezzanine"]
+    above = ["podium", "roof", "stair room roof", "lift machine room", "lift machine room roof"]
+    basements = [f"basement {n}" for n in range(1, 21)]
+    typed = ", ".join([*named, *basements, *above, *(f"{n}th floor" for n in range(1, 201))])
 
-    assert len(typed) > 200
-    assert len(corrections.typed_storeys(typed)) == corrections.MAX_STOREYS
+    assert len(typed) <= corrections.STOREYS_LENGTH
+    assert len(corrections.typed_storeys(typed)) == 200 + 20 + len(named) + len(above)
+    assert len(corrections.typed_storeys(typed)) <= corrections.MAX_STOREYS
 
 
 def test_another_developer_cannot_read_or_write_a_views_storeys(

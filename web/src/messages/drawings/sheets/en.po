@@ -94,6 +94,9 @@ msgstr "Those storeys hold code copied from drawing text, so nothing was changed
 msgid "drawings.sheets.storeys_unreadable"
 msgstr "Those storeys hold a character that cannot be kept, such as a tab or a hidden mark, so nothing was changed. Type them again by hand."
 
+msgid "drawings.sheets.storeys_read_together"
+msgstr "Read together as one list, those storeys name other storeys than each names alone, so nothing was changed. List each storey by its full name, for example 3rd floor, 5th floor, roof."
+
 msgid "drawings.sheets.storeys_not_a_storey"
 msgstr "\"{word}\" does not name a storey, so nothing was changed. Name each storey, for example 3rd, ground or roof."
 
@@ -107,10 +110,10 @@ msgid "drawings.sheets.storeys_meaning_unknown"
 msgstr "The storeys must mean either \"at floor level\" or \"floor to floor\", so nothing was changed. Choose one."
 
 msgid "drawings.sheets.storeys_view_unknown"
-msgstr "That view is not on this sheet, so nothing was changed. Reload the sheet and try again."
+msgstr "That view is not on this sheet, so nothing was changed. Cancel the correction and open it again with E."
 
 msgid "drawings.sheets.storeys_not_a_plan"
-msgstr "That view is not a plan, and only a plan view has storeys, so nothing was changed. Reload the sheet and try again."
+msgstr "That view is not a plan, and only a plan view has storeys, so nothing was changed. Cancel the correction and open it again with E."
 
 msgid "drawings.sheets.storeys_view_twice"
-msgstr "One view was given storeys twice, so nothing was changed. Give each view its storeys once."
+msgstr "One view was given storeys twice, so nothing was changed. Cancel the correction and open it again with E."
