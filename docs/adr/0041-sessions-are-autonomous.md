@@ -27,8 +27,22 @@ nothing lax, it judges every path strict. A path nobody listed, a finding
 with no file, or a file that is not exactly a file of the head's tree, is strict. A
 standing finding of 50-74 off the strict paths does not block: `python -m scripts.ledger to-file` lists it and it is filed as an issue. The refuter judges a
 sample: every finding that could block and that no test replay confirmed, plus at most three others of 50-74,
-highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Item
-7's serious finding is the same: 75 or more, 50 or more on a strict path, or any class seen twice.
+highest score first. `scripts/ledger.py` decides it and `scripts/merge_ready.py` reads the ledger's verdict. Since
+13 Oct 2026 (the amendment below) a finding a lens tags is judged by its class and trust boundary instead of its
+path; an untagged one keeps this path bar. Item 7's serious finding follows item 7 as amended: 75 or more, 50 or
+more when user-facing or on a trust boundary (untagged: on a strict path), or any class seen twice.
+
+**Amended 13 Oct 2026 (session 25)** (the owner's Q13: "a finding blocks when it scores 75 or more, or when a QS or
+MD would hit it (user-facing). An edge-case or rule-only finding scoring 50–74 is filed as an issue that still owes
+its committed check"; and at session 25's start, asked whether a trust-boundary finding of 50–74 still blocks: yes):
+items 5 and 7 — each lens tags a finding's class (user-facing, edge or rule-only) and whether it sits on a trust
+boundary (a tenant wall, a parser of hostile input, a gate, a ledger). A standing finding blocks at 75 or more, or
+at 50 or more when it is user-facing or on a trust boundary (a lens's `boundary=no` never un-walls a file matching a
+`[strict] paths` carve-out, nor a finding with no plain file of the head's tree); an edge or rule-only finding of
+50–74 off a trust boundary is filed as an issue naming the check it still owes. Why: round-1 PASS since session 18
+was 17 of 53, and 4 of 27 on product code, where strict is the default; in a sample of 30 findings of 50 or more, 5
+broke only the factory's own rules. `scripts/factory/rescore.py` re-decides the recorded round-1 verdicts under this
+bar (the Q14 pilot's baseline).
 
 The owner decides product and scope and walks each milestone's finish line on real drawings; everything
 between is done by agents, without waiting for the owner:
@@ -63,15 +77,19 @@ between is done by agents, without waiting for the owner:
    budget (`elapsed 40 min / 120 min`) in every message to a builder: the one speed lever the research
    measured (docs/research/opus-5-5-agentic-orchestration.md §3, §7 item 15).
 5. **At most two review rounds per ticket.** A later finding is filed as an issue, unless it is a
-   security hole scoring 75 or more, or a crash or false statement a QS meets.
+   security hole scoring 75 or more, or a crash or false statement a QS meets (amended 13 Oct 2026: a
+   user-facing finding, or one on a trust boundary, that blocks under item 7's bar).
 6. **Acceptance tests come first,** written from the plan's entry, its contracts and m0-screens' words by
    a separate agent (`acceptance-writer`) and committed on the ticket's branch before the builder starts.
    The builder may not weaken them: CI's acceptance check (`tools/lint/acceptance.py`) fails any commit
    that changes a file under an acceptance path unless its message starts `acceptance:` and it changes
    nothing else; the reviewer reads any such commit against the writer's report.
 7. **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class) in
-   the PR that fixes it: a finding scoring 75 or more, or 50 or more on a strict path (amended 7 Oct 2026),
-   or any class seen twice. `docs/knowledge/lessons.md`
+   the PR that fixes it: a finding scoring 75 or more, or 50 or more when it is user-facing (a QS or MD
+   would hit it) or on a trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger), or
+   any class seen twice (amended 13 Oct 2026, the owner's Q13; an untagged finding keeps 7 Oct's bar, 50
+   or more on a strict path). An edge or rule-only finding of 50-74 off a trust boundary does not block:
+   it is filed as an issue that names the committed check it still owes. `docs/knowledge/lessons.md`
    becomes an index pointing each lesson at its check; a lesson without a check is a debt, listed in the
    milestone issue until it has one.
 8. **Effort defaults to medium** for Opus 5.5 (the committed settings), **high** only for hard tickets:

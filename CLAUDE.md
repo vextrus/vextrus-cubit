@@ -46,8 +46,11 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
 - **Every serious finding leaves a committed check** (a test, lint or scan that fails on the class): a
-  score of 75, or 50 on a strict path (`scripts/factory/review_tiers.toml`), or any repeated class (ADR 0041,
-  7 Oct). `docs/knowledge/lessons.md` points each lesson at its check; a lesson without one is a debt.
+  score of 75, or 50 when user-facing (a QS or MD would hit it) or on a trust boundary (a tenant wall, a
+  hostile-input parser, a gate, a ledger), or any repeated class (ADR 0041, 13 Oct; the owner's Q13). An
+  edge or rule-only 50-74 off a trust boundary is filed as an issue naming the check it owes; an untagged
+  finding keeps the path bar (`scripts/factory/review_tiers.toml`). `docs/knowledge/lessons.md` points
+  each lesson at its check; a lesson without one is a debt.
 - **A mistake made twice gets a check; if no check can catch it, it goes into this file.**
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every action;
     per-page viewport emulation only; never touch another agent's page.
