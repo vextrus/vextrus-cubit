@@ -1577,7 +1577,7 @@ def act_params(events: Sequence[activity.ActView]) -> dict[uuid.UUID, dict[str, 
     """What the acts-read adds to a "confirmed back in" event (the log keeps ids and counts only):
     `excluded_before`, one `{sheet, reason}` per sheet it confirmed back in, the sheet's number and
     the code of the reason it was excluded for, from the act's `before` (m0-screens 4.4). Codes and
-    numbers only: no other drawing text."""
+    numbers only, and the title of a sheet that has no number."""
     back_in = {
         e.subject_id: e
         for e in events
@@ -1601,7 +1601,12 @@ def act_params(events: Sequence[activity.ActView]) -> dict[uuid.UUID, dict[str, 
             continue
         named = drawings.sheets(set_id, anchors=False, among=[uuid.UUID(k) for k in earlier])
         entries = [
-            {"sheet": sheet.number or "", "reason": earlier[str(sheet.id)]}
+            {
+                "sheet": sheet.number or "",
+                "reason": earlier[str(sheet.id)],
+                # A numberless sheet is named by its title, as the Step 1 list does.
+                **({"title": sheet.title} if not sheet.number and sheet.title else {}),
+            }
             for sheet in named
             if str(sheet.id) in earlier
         ]
