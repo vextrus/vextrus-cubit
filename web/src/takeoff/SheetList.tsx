@@ -439,6 +439,16 @@ function State({ row }: { row: Row }) {
       </span>
     )
   }
+  // §6.9: a correction leaves the sheet a Proposal, and the State column adds ", corrected".
+  const corrected = row.sheets.some((p) => p.corrected)
+  if (corrected)
+    return (
+      <span className="inline-flex items-center gap-1.5 text-proposal">
+        <StatusMark status="proposal" compact />
+        {/* The compact mark says "Proposal" (its tooltip, and to a screen reader): 150 px holds no more. */}
+        <Trans>Proposal, corrected</Trans>
+      </span>
+    )
   return state.oneSource ? (
     <span className="inline-flex items-center gap-1.5 text-proposal">
       <StatusMark status="proposal" compact />

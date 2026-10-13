@@ -142,6 +142,18 @@ export async function exclude(projectId: string, proposals: readonly string[], r
   return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/exclude', { ...path(projectId), body: { proposals: [...proposals], reason, text } }))
 }
 
+/** A sheet's number or title as the QS corrected it (m0-screens §6.9, `E`): only what changed is sent. */
+export async function correct(
+  projectId: string,
+  proposal: string,
+  change: { number?: string; title?: string },
+  opened?: { number: string; title: string },
+): Promise<ActOut> {
+  // The values the form opened with, so a value another person corrected since is refused, not overwritten.
+  const headers = opened ? { 'X-Step1-Opened-With': encodeURIComponent(JSON.stringify(opened)) } : undefined
+  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body: { proposal, ...change }, headers }))
+}
+
 export async function undo(projectId: string): Promise<ActOut> {
   return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/undo', { ...path(projectId), body: {} }))
 }
