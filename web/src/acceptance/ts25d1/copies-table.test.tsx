@@ -121,6 +121,11 @@ describe('m0-screens §6.7: a "Two sheets, one number" card tells its copies apa
     expect(drawn, files.join(' | ')).toHaveLength(1)
     expect(onLayout, files.join(' | ')).toHaveLength(1)
     expect(rows[0]!.join(' · ')).not.toBe(rows[1]!.join(' · '))
+    // Alike but for their place, the options cannot name them by place in the list either.
+    for (const w of optionWords(section)) {
+      expect(w).not.toMatch(/\bfirst copy\b/i)
+      expect(w).not.toMatch(/\bsecond copy\b/i)
+    }
   })
 
   it('names the kept copy by what differs, never "the first copy" or "the second copy"', async () => {
