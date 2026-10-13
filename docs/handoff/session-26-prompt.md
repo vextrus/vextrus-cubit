@@ -17,15 +17,14 @@ main's current product code), so the owner can walk M0. Today it exits 1: 0 of 2
 5. **The last 45 minutes:** measures, lessons, the next brief, `stamp end`.
 
 ## Before the session: the owner's steps (check each in the first 15 minutes)
-1. e2e is a required check on main's ruleset (Q-R6). 2. Stopped or kept, as the owner chose: the local builders
+1. Nothing yet for e2e: e2e.yml runs only on pushes to main, nightly and by hand, never on pull requests, so a required `smoke` check would hold every PR. FX0 below first. 2. Stopped or kept, as the owner chose: the local builders
 `s25-e1`, `s25-w3`, `m1-24`, `m1-06` (each committed work stays on its local branch). 3. The scratch worktrees and the
 `vextrus_gate714` database the gate critics left are removed. 4. WSL restarted if swap or disk need it.
 
 ## First 15 minutes
 1. `date -u`; `stamp start` (above); `uv run python -m scripts.factory.state`; read every live ticket's branch tip on origin
    AND each local builder's local branch yourself (the watcher misses both until FX1 lands: #761). `df`, `free`, swap.
-2. `gh run list --workflow e2e.yml --branch main --limit 5`: the streak was 5 green at 07:41Z. The owner adds `e2e` to main's
-   required checks (Q-R6); confirm it is listed on a PR's checks.
+2. `gh run list --workflow e2e.yml --branch main --limit 5`: the streak was 5 green at 07:41Z (Q-R6 makes it required).
 3. Read `.private/work/s25/STATE.md` (timeline and every ruling), `.private/work/s25/explore/` (retro.md,
    factory-mod-design.md, claude-code-features.md) and `.private/work/s25/walkA-briefs.md`.
 
@@ -50,6 +49,11 @@ main's current product code), so the owner can walk M0. Today it exits 1: 0 of 2
 | Q-R6 | The owner makes e2e required on PRs. A builder answers a status message with an empty `Factory-Status:` commit. |
 
 ## The factory fixes (0:00-1:30): each names the measured cost it removes (`.private/work/s25/explore/`)
+- **FX0 e2e on PRs (Q-R6).** e2e.yml gains a `pull_request` trigger for PRs that change product paths (a docs-only PR
+  gets the check reported as passing, as `real-drawings-na.yml` does for its check), so a required check never waits
+  forever. After it lands and runs green on a PR, the owner adds the `smoke` check to ruleset `main` (id 24103083),
+  in the session, and the orchestrator confirms it on the next PR's checks. Cost removed: a PR can break the served product
+  unseen (the e2e test was red 129 times on main before session 25).
 - **FX1 the watcher's misses (#761).** `scripts/factory/trailers.py:111-113` writes no event for a BLOCKED commit without a
   `Factory-Reason`; `watch.py:427` drops every launch record started before the session, so carried-over tickets are never
   watched; a local builder whose worktree switched branch drops out. Fix all three, add events for walk.json, verdict.json and
