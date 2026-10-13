@@ -1,15 +1,18 @@
-"""S25-E1 review round 1 of #811: a range of sheet numbers a title cites is never a member range.
+"""S25-E1 review rounds 1 (#811) and 5 (#775): a range of sheets a title cites is no member range.
 
 E1 reads a range of hyphenated marks ("C-1 TO C-12"); a title citing sheets the same way ("FOR DETAILS
 SEE S-12 TO S-14") must not be read as one, or two sheets that differ only by the sheets they cite run
-on as one Continuation. A mark that reads as a sheet number of the title's own Discipline (its prefix)
-is a citation. Every title and number is invented.
+on as one Continuation. A range is a citation when a citation word comes right before it, or when both
+its marks are numbers of sheets of the set, of any Discipline; a mark that only shares a prefix with
+sheets ("TR-1" where no sheet TR-1 is) is a member mark. Every title and number is invented.
 """
 
 import json
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from engine.recognise import conflicts
 from engine.recognise.conflicts import member_ranges
@@ -39,11 +42,12 @@ def runs(found: list[Any]) -> list[list[str]]:
     return [[s.number.value for s in c.sheets if s.number] for c in found if isinstance(c, Continuation)]
 
 
-def cited_in(discipline: str) -> Any:
-    reader = conflicts._Reader(
-        conflicts.recognisers(CONV), conflicts.Numbers(CONV, conflicts.recognisers(CONV))
-    )
-    return reader.cites(sheet("S-01", "ANY", discipline=discipline))
+def cited(*numbers: str, conventions: SheetConventions = CONV) -> conflicts.Citations:
+    return conflicts.Citations(conventions, [sheet(n, "ANY") for n in numbers])
+
+
+def read(title: str, citations: conflicts.Citations | None) -> list[tuple[str, int, int]]:
+    return [(r.letters, r.low, r.high) for r in member_ranges(title, PATTERN, citations)]
 
 
 def test_two_sheets_citing_different_sheet_ranges_do_not_run_on() -> None:
@@ -96,17 +100,94 @@ def test_a_fire_sheet_citing_fire_sheets_does_not_run_on() -> None:
     assert runs(found) == []
 
 
-def test_a_citation_is_no_member_range_only_where_its_marks_read_as_the_disciplines_sheets() -> None:
-    title = "DETAILS SEE S-12 TO S-14"
-    structural = cited_in("structural")
+def test_another_disciplines_sheets_cited_without_a_cue_do_not_run_on() -> None:
+    cited_sheets = [
+        sheet(n, "WINDOW SCHEDULE", discipline="electrical") for n in ("Q-12", "Q-14", "Q-20", "Q-22")
+    ]
+    sheets = [
+        sheet("A-41", "WINDOW SILL NOTES Q-12 TO Q-14", discipline="architectural"),
+        sheet("A-42", "WINDOW SILL NOTES Q-20 TO Q-22", discipline="architectural"),
+        *cited_sheets,
+    ]
+    found = conflicts.compare(
+        sheets, [()] * len(sheets), conventions=CONV, recognisers=conflicts.recognisers(CONV)
+    )
+    assert runs(list(found)) == []
 
-    assert [(r.letters, r.low, r.high) for r in member_ranges(title, PATTERN)] == [("s", 12, 14)]
-    assert member_ranges(title, PATTERN, structural) == ()
-    assert [(r.low, r.high) for r in member_ranges(title, PATTERN, cited_in("fire"))] == [(12, 14)]
-    assert [(r.low, r.high) for r in member_ranges("BEAM B-1 TO B-4", PATTERN, structural)] == [(1, 4)]
+
+def test_another_disciplines_sheets_cited_after_a_cue_do_not_run_on() -> None:
+    found = compare(
+        [
+            ("A-41", "WINDOW SILL NOTES SEE Q-12 TO Q-14"),
+            ("A-42", "WINDOW SILL NOTES SEE Q-20 TO Q-22"),
+        ],
+        discipline="architectural",
+    )
+    assert runs(found) == []
 
 
-def test_an_unhyphenated_range_of_the_disciplines_letters_is_still_a_member_range() -> None:
-    assert [
-        (r.low, r.high) for r in member_ranges("SLAB S12-S14 DETAILS", PATTERN, cited_in("structural"))
-    ] == [(12, 14)]
+def test_marks_that_share_only_a_disciplines_prefix_are_member_marks() -> None:
+    data = json.loads(json.dumps(CONV.to_json()))
+    for discipline in data["disciplines"]:
+        if discipline["key"] == "structural":
+            discipline["prefixes"].append("TR")
+    conventions = SheetConventions.from_json(data)
+    sheets = [
+        sheet("TR-41", "STAIR TR-1 TO TR-2 DETAILS"),
+        sheet("TR-42", "STAIR TR-3 TO TR-4 DETAILS"),
+    ]
+    found = conflicts.compare(
+        sheets,
+        [()] * len(sheets),
+        conventions=conventions,
+        recognisers=conflicts.recognisers(conventions),
+    )
+    assert runs(list(found)) == [["TR-41", "TR-42"]]
+
+
+def test_a_slab_range_in_the_disciplines_own_letters_is_a_member_range() -> None:
+    found = compare([("S-41", "SLAB S-1 TO S-4 DETAILS"), ("S-42", "SLAB S-5 TO S-8 DETAILS")])
+    assert runs(found) == [["S-41", "S-42"]]
+
+
+def test_a_range_whose_ends_are_both_sheets_of_the_set_cites_them() -> None:
+    assert read("STAIR TR-1 TO TR-2 DETAILS", cited("TR-1", "TR-2")) == []
+    assert read("STAIR TR-1 TO TR-2 DETAILS", cited("TR-1", "TR-3")) == [("tr", 1, 2)]
+    assert read("STAIR TR-1 TO TR-2 DETAILS", cited("TR-01", "TR-02")) == [("tr", 1, 2)]
+    assert read("STAIR TR-1 TO TR-2 DETAILS", cited("TR-1 R1", "TR-2 R2")) == []
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "FOR DETAILS SEE S-12 TO S-14",
+        "NOTES (SEE: S-12 TO S-14)",
+        "REFER TO S-12 TO S-14",
+        "REF. S-12 TO S-14",
+        "DETAILS ON S-12 TO S-14",
+        "DETAILS IN S-12 - S-14",
+        "AS PER S-12 THRU S-14",
+        "FOR DETAILS SEE S12-S14",
+    ],
+)
+def test_a_range_right_after_a_citation_word_cites_sheets(title: str) -> None:
+    assert read(title, None) == [("s", 12, 14)]
+    assert read(title, cited()) == []
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "BEAM B-1 TO B-4 DETAILS",
+        "SEE NOTES. BEAM B-1 TO B-4 DETAILS",
+        "OVERSEE B-1 TO B-4",
+    ],
+)
+def test_a_range_with_no_citation_word_right_before_it_is_a_member_range(title: str) -> None:
+    assert read(title, cited("S-12", "S-14")) == [("b", 1, 4)]
+
+
+def test_conventions_with_no_citation_words_cite_by_the_sets_numbers_alone() -> None:
+    bare = SheetConventions.from_json({**CONV.to_json(), "citation_words": []})
+    assert read("SEE S-12 TO S-14", cited(conventions=bare)) == [("s", 12, 14)]
+    assert read("SEE S-12 TO S-14", cited("S-12", "S-14", conventions=bare)) == []

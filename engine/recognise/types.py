@@ -729,6 +729,9 @@ class SheetConventions:
     """Words that join a list ("and"); a comma, "&", "+" and "/" do too."""
     register_words: tuple[str, ...] = ()
     """A drawing register's heading words ("drawing list")."""
+    citation_words: tuple[str, ...] = ()
+    """Words that cite other sheets when they come right before a range of marks ("see", "refer
+    to"): such a range is sheets, never a range of member marks (`conflicts.Citations`)."""
     sheet_kinds: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """The kinds of sheet a QS names in each Discipline, by the Discipline's key (the owner's ruling
     of 29 Sep 2026, "Per-Discipline kinds")."""
@@ -952,6 +955,7 @@ _WORD_FIELDS = (
     "range_words",
     "list_words",
     "register_words",
+    "citation_words",
 )
 """SheetConventions' fields that are lists of words."""
 _SHEET_KEYS = {

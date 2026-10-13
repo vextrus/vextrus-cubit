@@ -74,9 +74,11 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   member continued on the next sheet), of one letters ("GB2-GB5" then "GB6-GB9" or "GB5-GB9"; "GB2-GB5"
   then "GB4-GB8", or "GB2-GB5" again, do not); the run's
   title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
-  GB2-GB9 DETAILS"), its joiner kept. A range of hyphenated marks that read as sheet numbers of the
-  title's own Discipline (its prefix, "SEE S-12 TO S-14" on a Structural sheet) cites sheets and is no
-  member range: two titles that differ only by the sheets they cite are two titles, as before E1.
+  GB2-GB9 DETAILS"), its joiner kept. A range that cites sheets is no member range (`Citations`): one
+  a citation word comes right before ("SEE S-12 TO S-14", "REF. Q-12 TO Q-14"; the conventions'
+  `citation_words`), or both of whose marks are, as printed, the numbers of sheets of the set, of any
+  Discipline; so two titles that differ only by the sheets they cite are two titles, as before E1,
+  and a stair's "TR-1 TO TR-2" is a member range where no sheet TR-1 is.
 - **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
   places or more that do not all run on, no consecutive pair parted on what its views draw, and no
   contradicted sheet among them that, its contradiction set aside, would run on from or into another of
@@ -306,10 +308,9 @@ def compare(
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
     numbers = [reader.key(sheet) for sheet in sheets]
     pattern = None if conventions is None else conventions.member_range_pattern
-    cites = [reader.cites(s) for s in sheets]
+    cites = Citations(conventions, sheets)
     keyed = [
-        (None, (), "") if s.title is None else _keyed(s.title.value, pattern, cites[i])
-        for i, s in enumerate(sheets)
+        (None, (), "") if s.title is None else _keyed(s.title.value, pattern, cites) for s in sheets
     ]
     titles = [key for key, _, _ in keyed]
     ranges = [found for _, found, _ in keyed]
@@ -649,20 +650,6 @@ class _Reader:
         assert sheet.discipline is not None
         return self.numbers.parts_in(sheet.number.value, sheet.discipline.value)
 
-    def cites(self, sheet: SheetCandidate) -> Callable[[str], bool] | None:
-        """What tells a mark on the sheet as a sheet number its titles cite: one that reads within the
-        sheet's Discipline with its own prefix ("S-12" on a Structural sheet; "B-1" or "F-1" not), or
-        none for a sheet with no Discipline."""
-        if sheet.discipline is None:
-            return None
-        discipline = sheet.discipline.value
-
-        def cited(text: str) -> bool:
-            parts = self.numbers.parts_in(text, discipline)
-            return parts is not None and parts[0] == ""
-
-        return cited
-
     def key(self, sheet: SheetCandidate) -> Hashable | None:
         """What the sheet's number is compared by, or none when it has no number (or no Discipline,
         whose prefixes decide it)."""
@@ -812,14 +799,49 @@ RANGE_DIGITS = len(str(RUNNING_LIMIT)) - 1
 """The most digits a mark's number may have: one of `RUNNING_LIMIT` or more is no range."""
 
 
+class Citations:
+    """What tells a range in a title as sheets it cites, never member marks: a citation word right
+    before it (the conventions' `citation_words`, its punctuation aside: "SEE S-12 TO S-14", "REF.
+    Q-12 TO Q-14", "(SEE: S-12 TO S-14)"), or both its marks, as printed (normal form, a revision
+    mark split off), numbers of the set's sheets, of any Discipline ("Q-12 TO Q-14" where sheets
+    Q-12 and Q-14 are). A mark that only shares a prefix with sheets ("TR-1" where no sheet TR-1 is)
+    is a member mark."""
+
+    def __init__(self, conventions: SheetConventions | None, sheets: Iterable[SheetCandidate]) -> None:
+        words = () if conventions is None else conventions.citation_words
+        phrases = [r"\s+".join(map(re.escape, w.split())) for w in words if w.split()]
+        self.cue = (
+            re.compile(rf"(?<!\w)(?:{'|'.join(phrases)})[\W_]{{0,6}}$", re.IGNORECASE)
+            if phrases
+            else None
+        )
+        revision = None if conventions is None else conventions.revision_mark_pattern
+        self.numbers = frozenset(
+            n
+            for s in sheets
+            if s.number is not None
+            and (n := normal(split_revision(s.number.value, revision)[0])) is not None
+        )
+
+    def cites(self, before: str, low: str, high: str) -> bool:
+        """Whether a range whose marks are printed `low` and `high`, after the text `before`, cites
+        sheets."""
+        if self.cue is not None and self.cue.search(before[-CUE_REACH:]) is not None:
+            return True
+        return normal(low) in self.numbers and normal(high) in self.numbers
+
+
+CUE_REACH = 64
+"""How much of the text before a range is searched for a citation word: the words right before it."""
+
+
 def member_ranges(
-    text: str, pattern: str | None, cited: Callable[[str], bool] | None = None
+    text: str, pattern: str | None, cited: Citations | None = None
 ) -> tuple[MemberRange, ...]:
     """The member ranges a text draws, by the conventions' pattern (none: none); a match whose marks'
     letters differ or are missing, whose numbers are missing, not decimal digits, descend or reach
-    `RUNNING_LIMIT` is no range, nor a range of hyphenated marks `cited` tells as sheet numbers
-    ("SEE S-12 TO S-14": its first mark as written, `_Reader.cites`). A text longer than a pattern
-    runs on has none (`pattern_finditer`).
+    `RUNNING_LIMIT` is no range, nor a range `cited` tells as sheets ("SEE S-12 TO S-14",
+    `Citations`). A text longer than a pattern runs on has none (`pattern_finditer`).
     Titles are read in their clean form (`_keyed`), so a format character or a fullwidth digit never
     hides a range their normal form shows."""
     if pattern is None:
@@ -835,7 +857,11 @@ def member_ranges(
         if letters is None or letters != normal(match.group("b")) or int(low) > int(high):
             continue
         hyphenated = match.end("a") < match.start("low") or match.end("b") < match.start("high")
-        if hyphenated and cited is not None and cited(text[match.start("a") : match.end("low")]):
+        if cited is not None and cited.cites(
+            text[: match.start()],
+            text[match.start("a") : match.end("low")],
+            text[match.start("b") : match.end("high")],
+        ):
             continue  # sheets cited, never members
         found.append(
             MemberRange(
@@ -845,9 +871,7 @@ def member_ranges(
     return tuple(found)
 
 
-def range_key(
-    title: str, pattern: str | None, cited: Callable[[str], bool] | None = None
-) -> Hashable | None:
+def range_key(title: str, pattern: str | None, cited: Citations | None = None) -> Hashable | None:
     """What a title is grouped by: its normal form, or, when it draws member ranges, the normal forms
     of the words around them ("GRADE BEAM GB2-GB5 DETAILS" and "GRADE BEAM GB6-GB9 DETAILS" are one
     title, never "GRADE BEAM DETAILS"); none when nothing is left."""
@@ -855,7 +879,7 @@ def range_key(
 
 
 def _keyed(
-    title: str, pattern: str | None, cited: Callable[[str], bool] | None = None
+    title: str, pattern: str | None, cited: Citations | None = None
 ) -> tuple[Hashable | None, tuple[MemberRange, ...], str]:
     """A title's key (`range_key`), its ranges, and the clean text they lie in: the ranges are read
     in the title's clean form, whose case folded is its normal form, so the key never parts titles
@@ -972,7 +996,7 @@ def _marks(
     text: str,
     pattern: str | None,
     hyphenated: bool = False,
-    cited: Callable[[str], bool] | None = None,
+    cited: Citations | None = None,
 ) -> list[tuple[str, int, int]]:
     """The member marks a view's title names, each an interval: its ranges and its single marks; a
     section size is no mark (`unsized`), nor a range of hyphenated marks (`_named`) or of cited
@@ -1039,7 +1063,7 @@ def _apart(
     reader: _Reader,
     plans: _Plans,
     pattern: str | None,
-    cites: Sequence[Callable[[str], bool] | None],
+    cites: Citations,
 ) -> bool:
     """Whether a title's runs draw different things (a series): by every mark read, a hyphenated
     range ("RB-1 - RB-5" against "REB-2 - REB-4") telling runs apart when no two overlap; else by
@@ -1057,12 +1081,12 @@ def _drawn_apart(
     reader: _Reader,
     plans: _Plans,
     pattern: str | None,
-    cites: Sequence[Callable[[str], bool] | None],
+    cites: Citations,
     hyphenated: bool,
 ) -> bool:
     """Whether a title's runs draw different things, by what each run draws: (a) the
     storeys its views state, (b) the member marks its views' titles and its own titles' ranges name
-    (hyphenated ones only when `hyphenated`, `_named`; none citing sheets, `cites[i]` the sheet's),
+    (hyphenated ones only when `hyphenated`, `_named`; none citing sheets, `cites`),
     and (c) only when it has neither, the storeys of the plan views of the nearest plan sheet before
     it, or, when that plan states only symbolic storeys, a layer: its own titles' (17's `describe`),
     else that plan's views' (S19-B4's E3; keyed `layer:<key>`, so a layer never equals a storey).
@@ -1079,7 +1103,7 @@ def _drawn_apart(
             for i in members
             for v in views[i]
             if v.title
-            for m in _marks(v.title, pattern, hyphenated, cites[i])
+            for m in _marks(v.title, pattern, hyphenated, cites)
         ]
         if not storeys and not named and (plan := plans.before(members[0])) is not None:
             storeys = {
