@@ -195,3 +195,31 @@ def test_the_gap_is_crossed_under_a_prefix_with_a_digit_when_nothing_holds_it() 
         ]
     )
     assert runs(found) == [["S1-41", "S1-42", "S1-42", "S1-44"]]
+
+
+def test_runs_of_different_hyphenated_marks_are_a_series_not_a_question() -> None:
+    """Three sheets, not adjacent, one title shape with a hyphenated range each: the first two run on
+    (marks 1-5, 6-8), the third draws other marks (a new letter prefix): the runs never overlap in
+    marks, so they are a Series, not a same_title Question (S25-E1 round 4)."""
+    found = compare(
+        [
+            ("S-41", "ROOF BEAM SECTIONS (RB-1 - RB-5)"),
+            ("S-42", "ROOF BEAM SECTIONS (RB-6 - RB-8)"),
+            ("S-44", "ROOF BEAM SECTIONS (REB-2 - REB-4)"),
+        ]
+    )
+    assert runs(found) == [["S-41", "S-42"]]
+    assert same_title(found) == []
+    assert any(type(c).__name__ == "Series" for c in found)
+
+
+def test_runs_of_the_same_hyphenated_marks_stay_a_question() -> None:
+    """The restart case without any plan to part them: nothing tells the runs apart, so one
+    Question, as before."""
+    found = compare(
+        [
+            ("S-41", "ROOF BEAM SECTIONS (RB-1 - RB-5)"),
+            ("S-44", "ROOF BEAM SECTIONS (RB-1 - RB-5)"),
+        ]
+    )
+    assert len(same_title(found)) == 1

@@ -82,8 +82,9 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   told apart like any run), whose runs draw different things (`_apart`). What a run draws, in this
   order: (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a
   range, or a word of one to three letters then one to four digits, "GRADE BEAM GB7"; a section size's
-  second number, '11"X17"', is never a mark, E1, and "B-1" is never read, nor a range of such marks,
-  "B-1 TO B-6", which grouping and continuations do read: such marks restart on every floor) and its
+  second number, '11"X17"', is never a mark, E1, and "B-1" is never read; a range of such marks,
+  "B-1 TO B-6", is read first, so runs that overlap in no mark are apart ("RB-1 - RB-5" and
+  "REB-2 - REB-4"), and then not at all, since such marks restart on every floor) and its
   own titles' ranges, each an interval; and only when it has neither, (c) the storeys,
   not symbolic, of the plan views of the nearest sheet numbered before it (its group, Discipline and
   prefix) whose title reads as a plan (17's `describe`): the layout each floor's details follow; when
@@ -930,16 +931,17 @@ def unsized(text: str) -> str:
     return _SIZE_TIMES.sub(lambda match: match.group(1) + " ", text)
 
 
-def _named(ranges: Iterable[MemberRange]) -> list[tuple[str, int, int]]:
+def _named(ranges: Iterable[MemberRange], hyphenated: bool = False) -> list[tuple[str, int, int]]:
     """The ranges a series reads, each an interval: a range of hyphenated marks ("B-1 TO B-6") is
-    left unread, as a single "B-1" is (`_MARK`), since such marks restart on every floor."""
-    return [(r.letters, r.low, r.high) for r in ranges if not r.hyphenated]
+    left unread, as a single "B-1" is (`_MARK`), since such marks restart on every floor, unless
+    `hyphenated` reads it (`_apart`'s first reading)."""
+    return [(r.letters, r.low, r.high) for r in ranges if hyphenated or not r.hyphenated]
 
 
-def _marks(text: str, pattern: str | None) -> list[tuple[str, int, int]]:
+def _marks(text: str, pattern: str | None, hyphenated: bool = False) -> list[tuple[str, int, int]]:
     """The member marks a view's title names, each an interval: its ranges and its single marks; a
     section size is no mark (`unsized`), nor a range of hyphenated marks (`_named`)."""
-    found = _named(member_ranges(clean(text), pattern))
+    found = _named(member_ranges(clean(text), pattern), hyphenated)
     for match in _MARK.finditer(unsized(text)):
         letters = normal(match.group(1))
         if letters is not None:
@@ -1002,9 +1004,27 @@ def _apart(
     plans: _Plans,
     pattern: str | None,
 ) -> bool:
-    """Whether a title's runs draw different things (a series), by what each run draws: (a) the
+    """Whether a title's runs draw different things (a series): by every mark read, a hyphenated
+    range ("RB-1 - RB-5" against "REB-2 - REB-4") telling runs apart when no two overlap; else by
+    the marks unhyphenated only, since hyphenated marks restart on every floor ("B-1 TO B-6" on each
+    floor's details: the floor of the plan before each run parts them, S19-B4's E1)."""
+    if _drawn_apart(runs, views, ranges, reader, plans, pattern, True):
+        return True
+    return _drawn_apart(runs, views, ranges, reader, plans, pattern, False)
+
+
+def _drawn_apart(
+    runs: Sequence[Sequence[int]],
+    views: Sequence[Sequence[ViewCandidate]],
+    ranges: Sequence[Sequence[MemberRange]],
+    reader: _Reader,
+    plans: _Plans,
+    pattern: str | None,
+    hyphenated: bool,
+) -> bool:
+    """Whether a title's runs draw different things, by what each run draws: (a) the
     storeys its views state, (b) the member marks its views' titles and its own titles' ranges name
-    (never hyphenated ones, `_named`),
+    (hyphenated ones only when `hyphenated`, `_named`),
     and (c) only when it has neither, the storeys of the plan views of the nearest plan sheet before
     it, or, when that plan states only symbolic storeys, a layer: its own titles' (17's `describe`),
     else that plan's views' (S19-B4's E3; keyed `layer:<key>`, so a layer never equals a storey).
@@ -1015,8 +1035,10 @@ def _apart(
     marks: list[tuple[str, int, int, int]] = []
     for run, members in enumerate(runs):
         storeys = {s for i in members for v in views[i] for s in v.storeys if not reader.symbolic(s)}
-        named = [m for i in members for m in _named(ranges[i])]
-        named += [m for i in members for v in views[i] if v.title for m in _marks(v.title, pattern)]
+        named = [m for i in members for m in _named(ranges[i], hyphenated)]
+        named += [
+            m for i in members for v in views[i] if v.title for m in _marks(v.title, pattern, hyphenated)
+        ]
         if not storeys and not named and (plan := plans.before(members[0])) is not None:
             storeys = {
                 s
