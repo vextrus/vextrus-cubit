@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { ProposalOut, QuestionOut, Step1Data } from './data'
-import { compareNumbers, gapsOf, nextOpenRow, numberingOf, questionQueue, rowState, step1Model, whyOneSource } from './model'
+import { compareNumbers, gapsOf, nextOpenRow, numberingOf, questionQueue, rowState, step1Counts, step1Model, whyOneSource } from './model'
 
 let n = 0
 function sheet(number: string | null, over: Partial<ProposalOut> = {}): ProposalOut {
@@ -34,6 +34,7 @@ function sheet(number: string | null, over: Partial<ProposalOut> = {}): Proposal
     decided_at: null,
     decided_act: null,
     agrees: true,
+    corrected: false,
     decided_by_role: null,
     decided_with: 0,
     number_source: 'title_block_attribute',
@@ -370,5 +371,16 @@ describe('the sheets of no Discipline (#167; its refuter)', () => {
     expect(model.noDiscipline).toBe(2)
     expect(model.found).toBe(3)
     expect(step1Model(data([sheet('S-01'), cover])).noDiscipline).toBe(1)
+  })
+})
+
+describe('the frame\'s counts (S26-D7)', () => {
+  it('are the model\'s own, from the Proposals and Questions alone', () => {
+    const proposals = [sheet('S-01', { decision: 'confirmed' }), sheet('S-02', { decision: 'excluded' }), sheet('S-03'), sheet('S-04')]
+    const questions = [question('missing', { subject_id: proposals[2]!.sheet_id }), question('missing', { status: 'answered' }), question('conflict', { status: 'withdrawn' })]
+    const counts = step1Counts(proposals, questions)
+    const model = step1Model(data(proposals, questions))
+    expect(counts).toEqual({ found: 4, confirmed: 1, excluded: 1, questionsOpen: 1 })
+    expect(counts).toEqual({ found: model.found, confirmed: model.confirmed, excluded: model.excluded, questionsOpen: model.queue.length })
   })
 })

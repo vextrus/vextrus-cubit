@@ -63,8 +63,18 @@ class GitHub(Protocol):
 
 def has_pass(ledger_dir: Path, pr: int, head: str) -> bool:
     """The ledger holds a PASS for exactly this head (round 3 only with its exception)."""
+    from scripts.merge_ready import record_name
+
+    # The newest round's record of the head (a same-head re-review is `<PR>-<head>-r<n>.json`).
+    names = [
+        (named[1] or 0, path)
+        for path in (ledger_dir.glob(f"{pr}-{head}*.json") if ledger_dir.is_dir() else [])
+        if (named := record_name(pr, path.name)) is not None and named[0] == head
+    ]
+    if not names:
+        return False
     try:
-        record = json.loads((ledger_dir / f"{pr}-{head}.json").read_text())
+        record = json.loads(max(names)[1].read_text())
     except OSError, ValueError:
         return False
     return (
@@ -83,13 +93,14 @@ def reviewed(ledger_dir: Path, pr: int, head: str, *, repo: Path, base: str = "o
     unreadable record refuses, as `merge_ready.ledger_problems` decides."""
     if has_pass(ledger_dir, pr, head):
         return True
-    from scripts.merge_ready import merges_since, record_problems
+    from scripts.merge_ready import merges_since, record_name, record_problems
 
     newest: tuple[int, str] | None = None
     for path in sorted(ledger_dir.glob(f"{pr}-*.json")) if ledger_dir.is_dir() else []:
-        sha = path.stem.removeprefix(f"{pr}-")
-        if not SHA.fullmatch(sha):
+        named = record_name(pr, path.name)
+        if named is None:
             continue
+        sha = named[0]
         try:
             record = json.loads(path.read_text())
         except OSError, ValueError:

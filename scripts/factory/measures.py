@@ -19,8 +19,26 @@ The seven measures, for a session's window [started, ended]:
   left out (`cancel-in-progress` ends a superseded head's runs after minutes); only `success` and
   `failure` runs count.
 
+The loop's measures (S25-F5), each None when its source was not given or gh failed:
+
+- `round1_pass_product`, `round1_pass_factory`, `round1_pass_docs`: of the PRs of that area (merged,
+  closed or open) whose round-1 review record was recorded in the window, the fraction that PASSed.
+  A PR's area
+  is where most of its changed lines are (`vextrus/`, `web/`, `engine/` product; `scripts/`, `tools/`,
+  `.claude/`, `.github/` factory; `docs/` docs).
+- `rounds_per_ticket`: mean review rounds per ticket (a ticket is its branch, so a closed PR
+  and the fresh PR that replaced it count together), over the reviewed tickets with a PR merged or closed
+  in the window.
+- `ready_to_review_p50_min`: median minutes from a READY event (events.log) in the window to the first
+  review start of that head (`review-cost.jsonl`'s `started_at`, which review.py writes).
+- `factory_hours_share`: factory-area builder minutes over all builder minutes started in the window. A
+  builder's span runs from its launch record to the ticket's first READY or BLOCKED event.
+- `e2e_main_streak`: consecutive successful `e2e` runs on main, newest first by `createdAt`, over every
+  run gh gives; a run not completed or cancelled neither counts nor breaks it.
+
 A percentile is the inclusive linear interpolation. A measure with no data (or whose source gh could not
-give) is None, shown as "not measured". Lower is better for every measure but `prs_merged`.
+give) is None, shown as "not measured". Lower is better for every measure but
+`prs_merged`, the round-1 rates and the e2e streak.
 
 Approximation: the real-drawing lock keeps no history, so a hold is an `rdlock run` log of
 `.private/work/rd/`: it began at the time in its file name and ended at the log's last write. A verify
@@ -40,6 +58,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.factory import status
+from scripts.factory.governor import NOT_BUILDER_ROLES
 
 KEYS = (
     "prs_merged",
@@ -49,8 +68,26 @@ KEYS = (
     "verify_p50_min",
     "verify_p90_min",
     "ci_wall_p50_min",
+    "round1_pass_product",
+    "round1_pass_factory",
+    "round1_pass_docs",
+    "rounds_per_ticket",
+    "ready_to_review_p50_min",
+    "factory_hours_share",
+    "e2e_main_streak",
 )
-HIGHER_IS_BETTER = ("prs_merged",)
+HIGHER_IS_BETTER = (
+    "prs_merged",
+    "round1_pass_product",
+    "round1_pass_factory",
+    "round1_pass_docs",
+    "e2e_main_streak",
+)
+AREAS = {
+    "product": ("vextrus/", "web/", "engine/"),
+    "factory": ("scripts/", "tools/", ".claude/", ".github/"),
+    "docs": ("docs/",),
+}
 GH_TIMEOUT = 60
 GH_ERRORS = (*status.RUN_ERRORS, ValueError)
 REQUIRED_WORKFLOWS = ("ci", "engine")  # the workflows that carry required checks
@@ -118,6 +155,128 @@ def _head_walls(ci_runs: Sequence[Mapping[str, Any]], window: tuple[datetime, da
     return walls
 
 
+def _area(files: Any) -> str | None:
+    """The area holding most of the changed lines of `files` (gh's `files` rows), None for no files."""
+    weight: dict[str, int] = {}
+    for row in files or []:
+        path = str(row.get("path", "")) if isinstance(row, Mapping) else ""
+        for area, prefixes in AREAS.items():
+            if path.startswith(prefixes):
+                lines = int(row.get("additions") or 0) + int(row.get("deletions") or 0)
+                weight[area] = weight.get(area, 0) + max(lines, 1)
+                break
+    return max(sorted(weight), key=lambda area: weight[area]) if weight else None
+
+
+def _branch_areas(prs: Sequence[Mapping[str, Any]]) -> dict[str, str | None]:
+    """Each branch's area, from the files of all its PRs together."""
+    files: dict[str, list[Any]] = {}
+    for row in prs:
+        files.setdefault(str(row.get("headRefName")), []).extend(row.get("files") or [])
+    return {branch: _area(rows) for branch, rows in files.items()}
+
+
+def _round1_pass(
+    prs: Sequence[Mapping[str, Any]],
+    ledger: Sequence[Mapping[str, Any]],
+    window: tuple[datetime, datetime],
+) -> dict[str, float | None]:
+    area_of = {row["number"]: _area(row.get("files")) for row in prs if "number" in row}
+    first: dict[Any, tuple[datetime, str]] = {}
+    for record in ledger:
+        recorded = _time(record.get("recorded_at"))
+        if record.get("round") != 1 or recorded is None or not window[0] <= recorded <= window[1]:
+            continue
+        number = record.get("pr")
+        if number in area_of and (number not in first or recorded < first[number][0]):
+            first[number] = (recorded, str(record.get("verdict")))
+    out: dict[str, float | None] = {}
+    for area in AREAS:
+        verdicts = [v for number, (_, v) in first.items() if area_of[number] == area]
+        out[f"round1_pass_{area}"] = verdicts.count("PASS") / len(verdicts) if verdicts else None
+    return out
+
+
+def _rounds_per_ticket(
+    prs: Sequence[Mapping[str, Any]],
+    ledger: Sequence[Mapping[str, Any]],
+    window: tuple[datetime, datetime],
+) -> float | None:
+    rounds: dict[Any, set[Any]] = {}
+    for record in ledger:
+        rounds.setdefault(record.get("pr"), set()).add(record.get("round"))
+    totals: dict[str, int] = {}
+    for row in prs:
+        ended = _time(row.get("mergedAt") or row.get("closedAt"))
+        if ended is not None and window[0] <= ended <= window[1]:
+            totals[str(row.get("headRefName"))] = 0
+    for row in prs:
+        branch = str(row.get("headRefName"))
+        if branch in totals:
+            totals[branch] += len(rounds.get(row.get("number"), ()))
+    reviewed = [count for count in totals.values() if count]
+    return sum(reviewed) / len(reviewed) if reviewed else None
+
+
+def _ready_to_review(
+    events: Iterable[str],
+    review_starts: Iterable[Mapping[str, Any]],
+    window: tuple[datetime, datetime],
+) -> float | None:
+    first: dict[str, datetime] = {}
+    for row in review_starts:
+        started, head = _time(row.get("started_at")), str(row.get("head") or "")
+        if started is not None and head and (head not in first or started < first[head]):
+            first[head] = started
+    waits = []
+    for line in events:
+        parts = str(line).split(" ", 3)
+        ready = _time(parts[0])
+        if len(parts) < 4 or parts[1] != "READY" or ready is None or not window[0] <= ready <= window[1]:
+            continue
+        words = parts[3].split()
+        prefix = words[0] if words else ""
+        starts = [at for head, at in first.items() if prefix and head.startswith(prefix) and at >= ready]
+        if starts:
+            waits.append(_minutes(ready, min(starts)))
+    return percentile(waits, 0.5)
+
+
+def _factory_share(
+    spans: Iterable[tuple[str, str, str]],
+    prs: Sequence[Mapping[str, Any]],
+    window: tuple[datetime, datetime],
+) -> float | None:
+    area_of = _branch_areas(prs)
+    total = factory = 0.0
+    for branch, start_text, end_text in spans:
+        start, end = _time(start_text), _time(end_text)
+        if start is None or end is None or not window[0] <= start <= window[1]:
+            continue
+        minutes = _minutes(start, end)
+        total += minutes
+        if area_of.get(branch) == "factory":
+            factory += minutes
+    return factory / total if total else None
+
+
+def _e2e_streak(ci_runs: Sequence[Mapping[str, Any]]) -> int:
+    runs = []
+    for run in ci_runs:
+        created = _time(run.get("createdAt"))
+        if run.get("workflowName") == "e2e" and run.get("headBranch") == "main" and created:
+            runs.append((created, run))
+    streak = 0
+    for _, run in sorted(runs, key=lambda pair: pair[0], reverse=True):
+        conclusion = run.get("conclusion")
+        if run.get("status") != "completed" or conclusion == "cancelled":
+            continue
+        if conclusion != "success":
+            break
+        streak += 1
+    return streak
+
+
 def compute(
     *,
     started_utc: str,
@@ -127,8 +286,12 @@ def compute(
     lock_spans: Iterable[Span],
     verify_spans: Iterable[Span],
     ci_runs: Sequence[Mapping[str, Any]] | None,
+    events: Iterable[str] | None = None,
+    review_starts: Iterable[Mapping[str, Any]] | None = None,
+    builder_spans: Iterable[tuple[str, str, str]] | None = None,
 ) -> dict[str, float | int | None]:
-    """The seven measures of the window; `prs` or `ci_runs` None (gh failed) leaves theirs None."""
+    """The measures of the window; `prs` or `ci_runs` None (gh failed) leaves theirs None, and so does a
+    loop source (`events`, `review_starts`, `builder_spans`) not given."""
     started, ended = status.parse_utc(started_utc), status.parse_utc(ended_utc)
     window = (started, ended)
     out: dict[str, float | int | None] = dict.fromkeys(KEYS)
@@ -146,6 +309,12 @@ def compute(
                 rounds[record["pr"]].add(record.get("round"))
         reviewed = [len(seen) for seen in rounds.values() if seen]
         out["rounds_per_pr"] = sum(reviewed) / len(reviewed) if reviewed else None
+        out.update(_round1_pass(prs, ledger, window))
+        out["rounds_per_ticket"] = _rounds_per_ticket(prs, ledger, window)
+        if builder_spans is not None:
+            out["factory_hours_share"] = _factory_share(builder_spans, prs, window)
+    if events is not None and review_starts is not None:
+        out["ready_to_review_p50_min"] = _ready_to_review(events, review_starts, window)
     held = _span_minutes(lock_spans, window, 0)
     out["rdlock_min"] = sum(held)
     verify = _span_minutes(verify_spans, window, 1)
@@ -153,6 +322,7 @@ def compute(
     out["verify_p90_min"] = percentile(verify, 0.9)
     if ci_runs is not None:
         out["ci_wall_p50_min"] = percentile(_head_walls(ci_runs, window), 0.5)
+        out["e2e_main_streak"] = _e2e_streak(ci_runs)
     return out
 
 
@@ -178,12 +348,13 @@ def compare(
         if now_value is None:
             continue
         target = targets.get(key)
-        if target is not None and now_value > target:
+        short = key in HIGHER_IS_BETTER
+        if target is not None and (now_value < target if short else now_value > target):
             flags.append(f"{key}: missed target ({_show(now_value)} against {_show(target)})")
         before = (previous or {}).get(key)
         if before is None:
             continue
-        worse = now_value < before if key in HIGHER_IS_BETTER else now_value > before
+        worse = now_value < before if short else now_value > before
         if worse:
             flags.append(f"{key}: regressed ({_show(before)} -> {_show(now_value)})")
     return flags
@@ -244,11 +415,11 @@ def read_prs() -> list[dict[str, Any]] | None:
             "pr",
             "list",
             "--state",
-            "merged",
+            "all",
             "--limit",
             "300",
             "--json",
-            "number,headRefName,state,createdAt,mergedAt",
+            "number,headRefName,state,createdAt,mergedAt,closedAt,files",
         ]
     )
 
@@ -257,7 +428,7 @@ def read_ci_runs() -> list[dict[str, Any]] | None:
     return _gh_json(
         [
             "run", "list", "--limit", "300", "--json",
-            "databaseId,workflowName,headSha,event,status,conclusion,createdAt,startedAt,updatedAt",
+            "databaseId,workflowName,headBranch,headSha,event,status,conclusion,createdAt,startedAt,updatedAt",
         ]
     )  # fmt: skip
 
@@ -302,6 +473,78 @@ def read_verify_spans(common: Path) -> list[Span]:
     return spans
 
 
+def read_events(factory: Path) -> list[str] | None:
+    """The lines of the watcher's `events.log`; None when it cannot be read."""
+    try:
+        return (factory / "events.log").read_text().splitlines()
+    except status.READ_ERRORS:
+        return None
+
+
+def read_review_starts(factory: Path) -> list[dict[str, Any]]:
+    """One row per review run from `review-cost.jsonl` (review.py writes `started_at` on each line; a
+    line without it, written before it existed, is not a start)."""
+    rows: list[dict[str, Any]] = []
+    try:
+        lines = (factory / "review-cost.jsonl").read_text().splitlines()
+    except status.READ_ERRORS:
+        return rows
+    for line in lines:
+        try:
+            loaded = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(loaded, dict) and loaded.get("started_at") and loaded.get("head"):
+            rows.append(loaded)
+    return rows
+
+
+def _is_builder_record(record: Mapping[str, Any]) -> bool:
+    """governor.read_builders' filter: a builder role, no review, no STOP sent, and a local launch or a
+    cloud one whose judge was ok (a refused launch also writes a record)."""
+    if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
+        return False
+    if record.get("stop_sent") is True:
+        return False
+    judge = record.get("judge")
+    return record.get("where") == "local" or (isinstance(judge, Mapping) and judge.get("ok") is True)
+
+
+def read_builder_spans(factory: Path, events: Sequence[str]) -> list[tuple[str, str, str]]:
+    """`(branch, start, end)` per builder launch record that governor.read_builders would count: from the
+    record's `started_at` to the ticket's first READY or BLOCKED event after it, or to the ticket's next
+    builder launch if that came first, so a relaunch never counts the same minutes twice. A builder with
+    no such end yet has no span."""
+    finished: dict[str, list[datetime]] = {}
+    for line in events:
+        parts = line.split(" ", 3)
+        at = _time(parts[0])
+        if len(parts) > 2 and parts[1] in ("READY", "BLOCKED") and at is not None:
+            finished.setdefault(parts[2], []).append(at)
+    launches: dict[str, list[tuple[datetime, str, str]]] = {}
+    for path in sorted((factory / "launches").glob("*.json")):
+        if path.name.endswith(".agents.json"):
+            continue
+        try:
+            record = json.loads(path.read_text())
+            started = status.parse_utc(record["started_at"])
+            ticket, branch = str(record["ticket"]), str(record["branch"])
+        except status.RECORD_ERRORS:
+            continue
+        if isinstance(record, dict) and _is_builder_record(record):
+            launches.setdefault(ticket, []).append((started, branch, record["started_at"]))
+    spans = []
+    for ticket, rows in launches.items():
+        rows.sort()
+        for index, (started, branch, text) in enumerate(rows):
+            ends = [at for at in finished.get(ticket, []) if at >= started]
+            if index + 1 < len(rows):
+                ends.append(rows[index + 1][0])
+            if ends:
+                spans.append((branch, text, status.utc(min(ends))))
+    return spans
+
+
 def previous_measures(factory: Path, started_utc: str) -> dict[str, Any] | None:
     """The stored measures of the newest session that started before this one."""
     best: tuple[datetime, dict[str, Any]] | None = None
@@ -320,6 +563,7 @@ def previous_measures(factory: Path, started_utc: str) -> dict[str, Any] | None:
 def collect(repo: Path, factory: Path, started_utc: str, ended_utc: str) -> dict[str, Any]:
     """The measures for `stamp end`: gh and the folders read, a source that fails left unmeasured."""
     common = status.git_common_dir(repo)
+    events = read_events(factory)
     return compute(
         started_utc=started_utc,
         ended_utc=ended_utc,
@@ -328,4 +572,7 @@ def collect(repo: Path, factory: Path, started_utc: str, ended_utc: str) -> dict
         lock_spans=read_lock_spans(factory),
         verify_spans=read_verify_spans(common) if common else [],
         ci_runs=read_ci_runs(),
+        events=events,
+        review_starts=None if events is None else read_review_starts(factory),
+        builder_spans=None if events is None else read_builder_spans(factory, events),
     )

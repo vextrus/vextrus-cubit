@@ -14,7 +14,7 @@ import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
-import { QuestionTitle } from './questionWords'
+import { CopyPlace, QuestionTitle } from './questionWords'
 import { listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -30,6 +30,8 @@ export interface SheetListProps {
   onExtendTo?: (key: string) => void
   /** A click without Shift: the selection ends. */
   onClearSelection?: () => void
+  /** The MD and a Guest read the list and act on nothing (§6.12): "Needs you" is the QS's line, so theirs never says what Enter does. */
+  readOnly?: boolean
 }
 
 const NO_ROWS: ReadonlySet<string> = new Set()
@@ -48,7 +50,7 @@ const COLS = cn(
   '@min-[1000px]:grid-cols-[24px_76px_minmax(0,1fr)_78px_106px_232px_40px_104px_150px]',
 )
 
-export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList, selection = NO_ROWS, onExtendTo, onClearSelection }, ref) {
+export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function SheetList({ model, focused, onFocusRow, onOpenRow, onPasteList, selection = NO_ROWS, onExtendTo, onClearSelection, readOnly = false }, ref) {
   const { t } = useLingui()
   const questions = model.queue.length
   const slots = stripSlots(model.rows.flatMap((r) => r.sheets.map((p) => p.views)))
@@ -84,7 +86,13 @@ export const SheetList = forwardRef<HTMLDivElement, SheetListProps>(function She
         {model.needsYou.length > 0 ? (
           <Section
             tone="question"
-            heading={<Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />}
+            heading={
+              readOnly ? (
+                <Plural value={questions} one="Open: # Question, waiting for the QS" other="Open: # Questions, waiting for the QS" />
+              ) : (
+                <Plural value={questions} one="Needs you: # Question open" other="Needs you: # Questions open, in the order Enter takes them" />
+              )
+            }
             rows={model.needsYou}
             focused={focused}
             onFocusRow={onFocusRow}
@@ -310,8 +318,6 @@ const FILE_COLUMN = 'hidden @min-[1000px]:block'
 
 /** The source file (6.2); its tooltip adds where in it the sheet is laid out. */
 function FileCell({ sheet }: { sheet: ProposalOut }) {
-  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
-  const layout = sheet.layout
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -320,13 +326,10 @@ function FileCell({ sheet }: { sheet: ProposalOut }) {
         </span>
       </TooltipTrigger>
       <TooltipContent>
-        {layout ? (
-          <Trans>
-            {file}, layout “<DrawingText kind="mark" text={layout} truncate={false} />”
-          </Trans>
-        ) : (
-          <Trans>{file}, laid out in the drawing</Trans>
-        )}
+        {/* One flow child: the shared content is a flex row, which would set the file name and the x in columns. */}
+        <span>
+          <CopyPlace sheet={sheet} />
+        </span>
       </TooltipContent>
     </Tooltip>
   )
@@ -439,6 +442,16 @@ function State({ row }: { row: Row }) {
       </span>
     )
   }
+  // §6.9: a correction leaves the sheet a Proposal, and the State column adds ", corrected".
+  const corrected = row.sheets.some((p) => p.corrected)
+  if (corrected)
+    return (
+      <span className="inline-flex items-center gap-1.5 text-proposal">
+        <StatusMark status="proposal" compact />
+        {/* The compact mark says "Proposal" (its tooltip, and to a screen reader): 150 px holds no more. */}
+        <Trans>Proposal, corrected</Trans>
+      </span>
+    )
   return state.oneSource ? (
     <span className="inline-flex items-center gap-1.5 text-proposal">
       <StatusMark status="proposal" compact />

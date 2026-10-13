@@ -60,8 +60,9 @@ for (const [who, env] of OTHERS) {
 // The mod's own source: no call through `$` (or any name) to an API that submits a prompt, fills
 // the prompt box, sends into the session, runs a model, an agent, a tool, a command, a process, the
 // network, or writes a file. `on("command.run", ...)`, a hook, is not a call.
+// Amended 13 Oct 2026 (S26-FX2): `prompt.submit`, the wake, is allowed by the owner's ruling Q-R4.
 const FORBIDDEN_SOURCE = [
-  /\.\s*prompt\s*\.\s*(submit|fill|suggest)\b/,
+  /\.\s*prompt\s*\.\s*(fill|suggest)\b/,
   /\.\s*session\s*\.\s*(send|append|compact)\b/,
   /\.\s*model\s*\.\s*(complete|fork|classify)\b/,
   /\.\s*agent\s*\.\s*spawn\b/,

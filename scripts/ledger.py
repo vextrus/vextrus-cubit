@@ -2,31 +2,45 @@
 (docs/specs/factory.md 2.2 "Review record"; `docs/specs/factory/contracts/ledger-record.schema.json`).
 
 - `check <PR> --round n [--exception <kind> --reason "<text>"]` (kinds: security75, crash,
-  false-statement, fix-regression): may review round n start? Rounds 1 and 2 may; round 3 only with
-  an allowed exception; never a round at or below the highest already recorded for the PR (a round
-  cannot be relabelled lower).
+  false-statement, fix-regression, delta-review): may review round n start? Rounds 1 and 2 may; round 3
+  only with an allowed exception; a round past 3 (up to 9) only as a `delta-review` (the owner's Q-R1:
+  at the round cap, a fix-only delta review, not a cut), which also needs round n-1 recorded; never a
+  round at or below the highest already recorded for the PR (a round cannot be relabelled lower).
 - `decide --from <file> --head <sha>`: the verdict, computed here and nowhere else, from the reviewers'
   and refuters' final lines, one per line: `VERDICT: PASS|FIX|BLOCK at <40-hex>` (one per reviewer lens)
-  and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> [<file>]` (the refuter's verdict; `-`:
-  none run; the file the reviewer named). The bar (the owner's ruling, 7 Oct 2026; ADR 0041 amended): a
-  finding "could block" when it scores 75 or more, or 50 or more on a strict path (strict by default:
-  lax only on a `[lax]` glob of `scripts/factory/review_tiers.toml` off its `[strict]` carve-outs,
-  the file read afresh for each decision; no file, a climbing or absolute path, or an unreadable list
-  is judged strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The
-  verdict follows the bar (S24-L1), in this order: BLOCK when any lens says BLOCK; else FIX while a
+  and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> [<file>] [class=<c> boundary=<yes|no>]`
+  (the refuter's verdict; `-`: none run; the file the reviewer named; the lens's tags, both or
+  neither). The bar (the owner's Q13, 13 Oct 2026; ADR 0041 items 5 and 7 amended): a tagged finding
+  "could block" when it scores 75 or more, or 50 or more when it is user-facing (a QS or MD would hit
+  it) or sits on a trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger: the lens
+  says `boundary=yes`, or its file matches a `[strict] paths` carve-out of
+  `scripts/factory/review_tiers.toml`, or it names no plain file of the head's tree); an edge or
+  rule-only finding of 50-74 off a trust boundary is filed as an issue that owes its check. A class
+  outside user-facing, edge and rule-only, or a boundary but yes or no, is refused. An untagged
+  finding keeps the path bar (the owner's ruling, 7 Oct 2026): 75 or more, or 50 or more on a strict
+  path (strict by default: lax only on a `[lax]` glob with no `[strict]` carve-out, the file read
+  afresh for each decision; no file, a climbing or absolute path, or an unreadable list is judged
+  strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The verdict
+  follows the bar (S24-L1), in this order: BLOCK when any lens says BLOCK; else FIX while a
   finding that could block stands (CONFIRMED or UNPROVEN); else PASS, whatever a lens's FIX or PASS
   line says (a lens's FIX over findings that cannot block, or refuted ones, records PASS). One that
   could block with no refuter verdict is refused here; in `fetch-verdict` (a cloud lens's findings
   carry none) a lens's FIX over such a finding records FIX, and `record` refuses a PASS over one.
   Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
 - `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
-  line `{"to_file": [<id>, ...]}`, the standing findings of 50 to 74 off the strict paths, to be filed
-  as issues rather than fixed.
+  line `{"to_file": [<id>, ...]}`, the standing findings of 50 to 74 that cannot block (tagged: edge or
+  rule-only off a trust boundary; untagged: off the strict paths), to be filed as issues rather than
+  fixed, each naming the check it owes.
 - `record <PR> --round n --head <sha> --from <file> [--exception … --reason …]`: decides, leak-scans
   what it will post and write, posts one marker comment
   (`<!-- vextrus-review round=N head=<sha> verdict=V findings=k -->`), then writes
-  `<ledger>/<PR>-<head>.json` atomically, once: a record is never overwritten. The record of truth is
-  local: refused in a cloud session (`CLAUDE_CODE_REMOTE=true`).
+  `<ledger>/<PR>-<head>.json` atomically, once: a record is never overwritten. A head is reviewed once,
+  with one exception (S26-FX9): a `delta-review` round n may re-review the head round n-1 recorded when
+  that round's FIX rested only on replayed attacks no refuter confirmed (its record's `replays_only`;
+  never after a refuter-confirmed replay or a lens's finding: no refuter shopping); its record is
+  `<PR>-<head>-r<n>.json`, and the newest round's record of a head is the one read. A FINDING whose
+  id is `r<n>-<id>` is an earlier round's attack replayed (review.py names them so). The record of
+  truth is local: refused in a cloud session (`CLAUDE_CODE_REMOTE=true`).
 - `fetch-verdict <PR> --launch <launch record> --round n` (a cloud review): fetches the review branch the
   launch record names and records its verdict file only if the branch's tip is one commit on the PR's
   head adding only that file, and the file's nonce, head and PR match the launch record and the PR's
@@ -53,17 +67,30 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 REPOSITORY = "vextrus/vextrus-cubit"
 SHA = re.compile(r"[0-9a-f]{40}")
+# A record's file name after `<PR>-`: the head, then `-r<round>` for a same-head re-review (S26-FX9).
+RECORD_NAME = re.compile(r"([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")
+# An earlier round's replayed attack, as review.py names its FINDING (`r<round>-<id>`).
+REPLAYED = re.compile(r"r[1-9][0-9]*-\S+")
 NONCE = re.compile(r"[0-9a-f]{32}")
 VERDICT = re.compile(r"VERDICT: (PASS|FIX|BLOCK) at (\S+)")
-FINDING = re.compile(r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)(?: (\S+))?")
-EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression")
+FINDING = re.compile(
+    r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)(?: (\S+))?"
+    r"(?: class=(\S*) boundary=(\S*))?"
+)
+# The classes a lens tags a finding with (the owner's Q13): only a user-facing one blocks at 50 off a
+# trust boundary.
+CLASSES = ("user-facing", "edge", "rule-only")
+BOUNDARY = {"yes": True, "no": False}
+EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression", "delta-review")
+DELTA = "delta-review"  # the fix-only review past the cap (the owner's Q-R1, 13 Oct 2026)
 RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
 STANDS = {"CONFIRMED", "UNPROVEN"}
-MAX_ROUND = 3
+MAX_ROUND = 3  # the last round an exception other than a delta review may open
+LAST_ROUND = 9  # delta reviews only past MAX_ROUND; a ceiling, so a typo never opens round 400
 OK, BAD, REFUSED = 0, 2, 3
 # The review bar (the owner's ruling, 7 Oct 2026, session 17).
 BLOCK_AT = 75
@@ -76,8 +103,17 @@ PLAIN_PATH = re.compile(r"[A-Za-z0-9_@+.-][A-Za-z0-9_@+./-]*")  # relative, no b
 Scan = Callable[[str], int]
 Post = Callable[[int, str], int]
 HeadOf = Callable[[int], str]
-# One finding as the bar reads it: its score, its refuter word and its file (None: none named).
-Judged = tuple[int, str, str | None]
+
+
+class Judged(NamedTuple):
+    """One finding as the bar reads it: its score, its refuter word, its file (None: none named) and
+    the lens's tags (None: untagged, which keeps the path bar)."""
+
+    score: int
+    word: str
+    file: str | None
+    kind: str | None = None
+    boundary: bool | None = None
 
 
 class Refused(Exception):
@@ -97,6 +133,8 @@ class Decision:
     # verdict, which `commit_record` refuses under a PASS; the ids to file as issues, in input order).
     unrefuted_blocking: int = 0
     to_file: tuple[str, ...] = ()
+    # Recorded, never printed: a FIX that rests only on replayed attacks no refuter confirmed (S26-FX9).
+    replays_only: bool = False
 
     def line(self) -> str:
         return json.dumps(
@@ -214,14 +252,48 @@ def on_strict_path(file: str | None) -> bool:
     return not any(pattern.fullmatch(tails[0]) for pattern in lax)
 
 
-def could_block(score: int, file: str | None) -> bool:
-    """The bar: 75 or more anywhere, or 50 or more on a strict path."""
-    return score >= BLOCK_AT or (score >= BLOCK_AT_ON_STRICT_PATH and on_strict_path(file))
+def on_a_wall(file: str | None) -> bool:
+    """True when `file` is no plain relative path, or matches a `[strict] paths` carve-out (the named
+    walls): a tagged finding there sits on a trust boundary whatever the lens's tag says."""
+    patterns = strict_paths()
+    if not file or patterns is None:
+        return True
+    path = LOCATION.sub("", file)
+    parts = path.split("/")
+    if not PLAIN_PATH.fullmatch(path) or any(not part or part.startswith(".") for part in parts):
+        return True
+    tails = ["/".join(parts[index:]) for index in range(len(parts))]
+    return any(pattern.fullmatch(tail) for pattern in patterns for tail in tails)
 
 
-def to_file(score: int, word: str, file: str | None) -> bool:
-    """A finding that stands (or no refuter judged) at 50-74 off the strict paths: filed, not fixed."""
-    return word != "REFUTED" and score >= BLOCK_AT_ON_STRICT_PATH and not could_block(score, file)
+def could_block(
+    score: int, file: str | None, kind: str | None = None, boundary: bool | None = None
+) -> bool:
+    """The bar: 75 or more anywhere; else 50 or more when the finding is user-facing or on a trust
+    boundary (tagged: Q13), or on a strict path (untagged: the path bar)."""
+    if score >= BLOCK_AT:
+        return True
+    if score < BLOCK_AT_ON_STRICT_PATH:
+        return False
+    if kind is None or boundary is None:
+        return on_strict_path(file)
+    return kind == "user-facing" or boundary or on_a_wall(file)
+
+
+def to_file(
+    score: int, word: str, file: str | None, kind: str | None = None, boundary: bool | None = None
+) -> bool:
+    """A finding that stands (or no refuter judged) at 50-74 and cannot block: filed with its owed
+    check, not fixed."""
+    return (
+        word != "REFUTED"
+        and score >= BLOCK_AT_ON_STRICT_PATH
+        and not could_block(score, file, kind, boundary)
+    )
+
+
+def blocks(finding: Judged) -> bool:
+    return could_block(finding.score, finding.file, finding.kind, finding.boundary)
 
 
 def decide(data: bytes, head: str) -> Decision:
@@ -246,33 +318,55 @@ def decide(data: bytes, head: str) -> Decision:
                 raise BadInput(f"line {number}: finding {name} scores outside 0-100")
             if name in findings:
                 raise BadInput(f"line {number}: finding {name} is listed twice")
-            findings[name] = (score, found[3], found[4])
+            kind, boundary = found[5], found[6]
+            if kind is not None and (kind not in CLASSES or boundary not in BOUNDARY):
+                raise BadInput(
+                    f"line {number}: finding {name}'s tags are not class=<{'|'.join(CLASSES)}> "
+                    "boundary=<yes|no>"
+                )
+            findings[name] = Judged(
+                score, found[3], found[4], kind, None if boundary is None else BOUNDARY[boundary]
+            )
         else:
             raise BadInput(f"line {number}: not a VERDICT or FINDING line")
     if not verdicts:
         raise BadInput("no VERDICT line: at least one reviewer's final line is needed")
     unrefuted = sorted(
-        name
-        for name, (score, word, file) in findings.items()
-        if word == "-" and could_block(score, file)
+        name for name, finding in findings.items() if finding.word == "-" and blocks(finding)
     )
     if unrefuted:
         raise BadInput(
-            f"findings that could block (75 or more, or 50 or more on a strict path) with no refuter "
-            f"verdict: {', '.join(unrefuted)}: run a refuter on each first"
+            f"findings that could block (75 or more, or 50 or more when user-facing, on a trust "
+            f"boundary or, untagged, on a strict path) with no refuter verdict: "
+            f"{', '.join(unrefuted)}: run a refuter on each first"
         )
     return judge(verdicts, findings, hashlib.sha256(data).hexdigest())
 
 
 def judge(verdicts: Sequence[str], findings: dict[str, Judged], sha256: str) -> Decision:
     """The decision from the reviewers' verdicts and the findings by id, as the bar reads them."""
-    judged = list(findings.values())
+    judged = [Judged(*finding) for finding in findings.values()]
+    decided = verdict(verdicts, judged)
     return Decision(
-        verdict(verdicts, judged),
+        decided,
         counts(len(verdicts), judged),
         sha256,
-        sum(word == "-" and could_block(score, file) for score, word, file in judged),
-        tuple(name for name, finding in findings.items() if to_file(*finding)),
+        sum(finding.word == "-" and blocks(finding) for finding in judged),
+        tuple(name for name, finding in findings.items() if to_file(*Judged(*finding))),
+        decided == "FIX" and rests_on_replays(findings),
+    )
+
+
+def rests_on_replays(findings: dict[str, Judged]) -> bool:
+    """Every finding that could block and stands is an earlier round's replayed attack that no
+    refuter confirmed (UNPROVEN), and there is one: the only FIX a same-head delta review may follow.
+    A refuter-confirmed replay or any lens finding that stands rules it out (no refuter shopping)."""
+    standing = [
+        (name, finding) for name, finding in findings.items()
+        if finding.word in STANDS and blocks(finding)
+    ]  # fmt: skip
+    return bool(standing) and all(
+        REPLAYED.fullmatch(name) is not None and finding.word == "UNPROVEN" for name, finding in standing
     )
 
 
@@ -281,12 +375,12 @@ def verdict(verdicts: Sequence[str], findings: Sequence[Judged]) -> str:
     can judge); else FIX while a finding that could block stands (CONFIRMED or UNPROVEN), or when a
     lens says FIX over one that could block with no refuter verdict (reachable only through
     `fetch-verdict`: `decide` refuses such a finding first); else PASS, whatever a lens's FIX or PASS
-    line says (a 50-74 off the strict paths is filed, never fixed). No lens's verdict is no PASS."""
+    line says (a 50-74 that cannot block is filed, never fixed). No lens's verdict is no PASS."""
     if not verdicts:
         raise ValueError("no lens's verdict: the bar decides nothing")
     if "BLOCK" in verdicts:
         return "BLOCK"
-    blocking = [word for score, word, file in findings if could_block(score, file)]
+    blocking = [finding.word for finding in (Judged(*one) for one in findings) if blocks(finding)]
     if any(word in STANDS for word in blocking):
         return "FIX"
     if "FIX" in verdicts and "-" in blocking:
@@ -295,15 +389,15 @@ def verdict(verdicts: Sequence[str], findings: Sequence[Judged]) -> str:
 
 
 def counts(reviewers: int, findings: Sequence[Judged]) -> dict[str, int]:
-    words = [word for _, word, _ in findings]
+    words = [finding[1] for finding in findings]
     return {
         "reviewers": reviewers,
         "findings": sum(word != "REFUTED" for word in words),
-        "findings_ge_50": sum(score >= 50 for score, _, _ in findings),
+        "findings_ge_50": sum(finding[0] >= 50 for finding in findings),
         "confirmed": words.count("CONFIRMED"),
         "refuted": words.count("REFUTED"),
         "unproven": words.count("UNPROVEN"),
-        "unrefuted_ge_50": sum(score >= 50 and word == "-" for score, word, _ in findings),
+        "unrefuted_ge_50": sum(finding[0] >= 50 and finding[1] == "-" for finding in findings),
     }
 
 
@@ -316,42 +410,107 @@ def marker(round_: int, head: str, decision: Decision) -> str:
 
 def recorded_rounds(ledger_dir: Path, pr: int) -> list[int]:
     """The rounds already recorded for the PR; Refused if a record cannot be read (fail closed)."""
-    rounds: list[int] = []
+    return [round_ for round_, _head in recorded(ledger_dir, pr)]
+
+
+def recorded(ledger_dir: Path, pr: int) -> list[tuple[int, str]]:
+    """`(round, head)` of each record of the PR; Refused if a record cannot be read (fail closed)."""
+    return [(round_, head) for round_, head, _record in records_of(ledger_dir, pr)]
+
+
+def records_of(ledger_dir: Path, pr: int) -> list[tuple[int, str, dict[str, Any]]]:
+    """`(round, head, record)` of each record of the PR, by round; Refused if a record cannot be read,
+    or a same-head record's name and round disagree (fail closed)."""
+    found: list[tuple[int, str, dict[str, Any]]] = []
     if not ledger_dir.exists():
-        return rounds
+        return found
     try:
         names = sorted(os.listdir(ledger_dir))
     except OSError as error:  # not a folder, or not listable: never "no rounds yet"
         raise Refused("the ledger folder cannot be listed") from error
     for name in names:
         path = ledger_dir / name
-        if not name.endswith(".json") or not SHA.fullmatch(
-            name.removesuffix(".json").removeprefix(f"{pr}-")
-        ):
+        named = RECORD_NAME.fullmatch(name.removeprefix(f"{pr}-")) if name.startswith(f"{pr}-") else None
+        if named is None:
             continue
         try:
-            rounds.append(int(json.loads(path.read_text())["round"]))
+            record = json.loads(path.read_text())
+            round_ = int(record["round"])
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise Refused(f"cannot read the ledger record {path.name}") from error
-    return rounds
+        if named[2] is not None and int(named[2]) != round_:
+            raise Refused(f"the ledger record {path.name} names another round than it holds")
+        found.append((round_, named[1], record))
+    return sorted(found, key=lambda one: one[0])
+
+
+def record_path(ledger_dir: Path, pr: int, head: str, round_: int) -> Path:
+    """Where round `round_`'s record of `head` goes: `<PR>-<head>.json` for the head's first record,
+    `<PR>-<head>-r<round>.json` for a same-head re-review (a name no other round writes)."""
+    first = ledger_dir / f"{pr}-{head}.json"
+    return first if not first.exists() else ledger_dir / f"{pr}-{head}-r{round_}.json"
+
+
+def newest_record(ledger_dir: Path, pr: int, head: str) -> dict[str, Any] | None:
+    """The newest round's record of `head` (None: the head has none)."""
+    mine = [record for _round, sha, record in records_of(ledger_dir, pr) if sha == head]
+    return mine[-1] if mine else None
+
+
+def check_head(ledger_dir: Path, pr: int, head: str, round_: int, exception: str | None) -> None:
+    """A head is reviewed once; a `delta-review` round n may re-review the head only when round n-1
+    recorded it with a FIX that rested only on replayed attacks no refuter confirmed (S26-FX9)."""
+    last = newest_record(ledger_dir, pr, head)
+    if last is None:
+        return
+    if (
+        exception == DELTA
+        and last.get("round") == round_ - 1
+        and last.get("verdict") == "FIX"
+        and last.get("replays_only") is True
+    ):
+        return
+    raise Refused(
+        f"PR {pr} at {head} is already recorded: a head is reviewed once (a {DELTA} re-reviews it "
+        "only after a FIX that rested only on replayed attacks no refuter confirmed)"
+    )
+
+
+def round_head(ledger_dir: Path, pr: int, round_: int) -> str:
+    """The head recorded for the PR's round `round_`; Refused unless exactly one record holds it."""
+    heads = [head for number, head in recorded(ledger_dir, pr) if number == round_]
+    if len(heads) != 1:
+        raise Refused(f"PR {pr} has {len(heads)} records of round {round_}, not one")
+    return heads[0]
 
 
 def check_round(ledger_dir: Path, pr: int, round_: int, exception: str | None) -> None:
-    if not 1 <= round_ <= MAX_ROUND:
-        raise Refused(f"round {round_}: the rounds are 1 and 2, and 3 only with an exception")
+    if not 1 <= round_ <= LAST_ROUND:
+        raise Refused(
+            f"round {round_}: the rounds are 1 and 2, 3 only with an exception, and 4 to "
+            f"{LAST_ROUND} only as a {DELTA}"
+        )
     if exception is not None and exception not in EXCEPTIONS:
         raise Refused(f"exception {exception!r} is not one of {', '.join(EXCEPTIONS)}")
     if round_ == MAX_ROUND and exception is None:
         raise Refused(
             "round 3 needs a recorded exception (--exception "
-            "security75|crash|false-statement|fix-regression --reason ...): two fix rounds at most"
+            f"{'|'.join(EXCEPTIONS)} --reason ...): two fix rounds at most"
         )
+    if round_ > MAX_ROUND and exception != DELTA:
+        raise Refused(f"round {round_} is past the cap: only a {DELTA} reviews it")
     if round_ < MAX_ROUND and exception is not None:
-        raise BadInput("an exception is for round 3 only")
-    if (rounds := recorded_rounds(ledger_dir, pr)) and round_ <= max(rounds):
+        raise BadInput("an exception is for round 3 or later only")
+    rounds = recorded_rounds(ledger_dir, pr)
+    if rounds and round_ <= max(rounds):
         raise Refused(
             f"round {round_} is not above round {max(rounds)}, already recorded for PR {pr}: a round "
             "is never relabelled"
+        )
+    if exception == DELTA and round_ - 1 not in rounds:
+        raise Refused(
+            f"a {DELTA} reviews the fix since round {round_ - 1}'s head: round {round_ - 1} is not "
+            f"recorded for PR {pr}"
         )
 
 
@@ -414,13 +573,14 @@ def commit_record(
 ) -> None:
     """Scan, post the marker, then write the record: the steps every record takes, in this order."""
     refuse_in_the_cloud()
-    path = ledger_dir / f"{pr}-{head}.json"
+    check_head(ledger_dir, pr, head, round_, None if exception is None else exception["kind"])
+    path = record_path(ledger_dir, pr, head, round_)
     if path.exists():
         raise Refused(f"{path.name} is already recorded: a record is never overwritten")
     if decision.verdict == "PASS" and decision.unrefuted_blocking:
         raise Refused(
-            "a PASS with a finding that could block (75 or more, or 50 or more on a strict path) that "
-            "no refuter has seen"
+            "a PASS with a finding that could block (75 or more, or 50 or more when user-facing, on a "
+            "trust boundary or, untagged, on a strict path) that no refuter has seen"
         )
     try:
         ledger_dir.mkdir(parents=True, exist_ok=True)
@@ -448,6 +608,8 @@ def commit_record(
             "exception": exception,
             "source": source,
             "recorded_at": utc_now(),
+            # Only on a FIX resting on unconfirmed replays: every other record keeps its old shape.
+            **({"replays_only": True} if decision.replays_only and source == "review-pr" else {}),
         },
     )
     with journal_path(ledger_dir).open("a") as journal:  # under the ledger lock, as every record
@@ -496,16 +658,33 @@ def _integer(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+FINDING_KEYS = {"score", "file", "line", "summary"}
+# What a lens may add (the owner's Q13): the class, the trust boundary and the check it owes.
+FINDING_TAGS = {"class", "trust_boundary", "owed_check"}
+
+
 def _finding_ok(item: Any) -> bool:
-    if not isinstance(item, dict) or set(item) != {"score", "file", "line", "summary"}:
+    if not isinstance(item, dict) or not FINDING_KEYS <= set(item) <= FINDING_KEYS | FINDING_TAGS:
         return False
     score, line = item["score"], item["line"]
     if not (_integer(score) and 0 <= score <= 100 and _integer(line) and line >= 0):
         return False
-    return all(
-        isinstance(item[key], str) and 1 <= len(item[key]) <= limit
-        for key, limit in (("file", 300), ("summary", 600))
-    )
+    if ("class" in item) != ("trust_boundary" in item):  # both tags or neither, as on a FINDING line
+        return False
+    if "class" in item and (
+        item["class"] not in CLASSES or not isinstance(item["trust_boundary"], bool)
+    ):
+        return False
+    limits = (("file", 300), ("summary", 600), *((("owed_check", 300),) if "owed_check" in item else ()))
+    return all(isinstance(item[key], str) and 1 <= len(item[key]) <= limit for key, limit in limits)
+
+
+def judged_cloud(item: dict[str, Any], tree: frozenset[str]) -> Judged:
+    """A cloud lens's finding as the bar reads it: no refuter verdict, its file only if on the tree,
+    and its tags when it sent them (`_finding_ok` has checked them)."""
+    kind = item.get("class")
+    boundary = item.get("trust_boundary") if kind is not None else None
+    return Judged(item["score"], "-", on_tree(item["file"], tree), kind, boundary)
 
 
 def unique_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -580,7 +759,7 @@ def fetch_verdict(
     else:
         tree = tree_files(head)
         findings: dict[str, Judged] = {
-            f"f{number}": (item["score"], "-", on_tree(item["file"], tree))
+            f"f{number}": judged_cloud(item, tree)
             for number, item in enumerate(verdict_file["findings"], start=1)
         }
         decision = judge([verdict_file["verdict"]], findings, hashlib.sha256(text.encode()).hexdigest())

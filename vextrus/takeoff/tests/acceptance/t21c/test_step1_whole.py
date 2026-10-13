@@ -151,7 +151,7 @@ def test_every_view_read_is_counted_once_in_coverage_as_proposed(
         "views": VIEWS, "assigned": 0, "excluded": 0, "proposed": VIEWS, "unaccounted": 0, "used": 0,
     }  # fmt: skip
     assert shown["by_step"] == {"foundations": 1, "beams": 2, "columns": 1}
-    assert shown["by_reason"] == {"for_information": TITLE_BLOCKS}
+    assert shown["by_reason"] == {}  # #690: confirmed exclusions only
 
 
 # The bulk act and Coverage ---------------------------------------------------------------------------

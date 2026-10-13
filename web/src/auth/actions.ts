@@ -36,6 +36,11 @@ export function sessionChanged(queryClient: QueryClient): void {
   epochs.set(queryClient, (epochs.get(queryClient) ?? 0) + 1)
 }
 
+/** How many times what the app held has been forgotten: a snapshot kept across this moving is someone else's. */
+export function sessionEpoch(queryClient: QueryClient): number {
+  return epochs.get(queryClient) ?? 0
+}
+
 /**
  * Asked before an act's await: a check that is true while the session is still the one it was.
  *

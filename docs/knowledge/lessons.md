@@ -580,6 +580,30 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   (`git switch --detach`) before launching the builder, or builds on a sibling branch and fast-forwards. No check:
   a practice the orchestrator keeps.
 
+## Session 22 (11 Oct 2026): the Correct act (S22-FL8)
+- **An act that keeps typed text in its own row must check that text before the row is written.** S22-FL8's
+  first head wrote the correction's Confirmation (its `before` keeps the new number and title) before the
+  drawings setters checked the text, so a NUL or a lone surrogate was a 500 (jsonb refused it), not a coded
+  400; the refuter found it (score 50). Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_typed_text_that_cannot_be_kept_is_refused_with_a_code_and_nothing_is_written`).
+- **An undo that restores a row "as it stood" restores a state other people's acts may have moved on from** (S22-FL8
+  review 2: a correction's undo put the `missing` Question back withdrawn by an exclusion since undone, so a
+  numberless sheet confirmed). A text edit also has to clear what read the old text (`plot_title_alike`, as
+  `record_sheets` does). Round 3 found the same class again (an undo that restored one act's old value over
+  another person's: A and B correct, A undoes, B undoes). Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_a_correction_undone_after_the_exclusion_it_followed_was_undone_asks_the_question_open`,
+  `test_two_people_correcting_one_sheet_undo_only_the_latest_each_time`,
+  `test_correcting_a_title_clears_the_plot_page_that_read_the_old_title`).
+- **A fourth round of the same undo class: restoring "through a chain" of other people's acts never stopped finding
+  cases** (#680 reviews 2-3: five findings, one root). Round 4 changed the shape, as the constant-tuning lesson
+  says: an undo takes back only the latest standing act, only while the row is as the act left it, else it is
+  refused in words. Check: `vextrus/takeoff/tests/test_step1_correct.py`
+  (`test_a_correction_is_not_undone_once_another_correction_stands_after_it`).
+- **A server act that can undo another act than the tab expects makes the tab's own history words wrong** (#691 round 2:
+  the web said "corrected S-05" while the server undid a confirmation). The words and the history follow the
+  server's reply. Check: `web/src/takeoff/correct.test.tsx` (the test "words Ctrl Z from the server when it
+  passed the correction over, and keeps the correction to undo").
+
 ## Session 23 (12 Oct 2026): M0's blockers went round the review cap; the real-drawing lock set the pace
 
 - **A question to the owner blocks the orchestrator's turn: two hours passed with two READY heads unread** (asked at
@@ -653,3 +677,39 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `guard.test.mjs`).
 - **A fix round introduced a new fault** (#728 round 1 changed "ADR 0043" to "ADR 0041" and kept the wrong item; 12 of 16
   sampled later-round findings came from the previous fix). No check yet: session 25's F1 (`review self` on each fix's own diff).
+
+## Session 25 (13 Oct 2026): nineteen merges, e2e green for the first time, one G1 walk; the watcher's misses cost the most
+
+- **The e2e test was right and CI was wrong** (e2e.yml never installed the ACadSharp dumper, so every read failed at the
+  second reader; the brief blamed the test's words). Check: `scripts/tests/acceptance/ts25e2e/` (#749). e2e then went green
+  on main for the first time and held 5 runs.
+- **verify's contract-fixtures raced the schema export** (#709; 4 of the orchestrator's first 5 local verifies). Check:
+  `scripts/tests/test_verify.py` (`test_contract_fixtures_runs_after_the_export_in_its_chain`, #750).
+- **The watcher missed BLOCKED pushes without a Factory-Reason, every carried-over ticket's push, local builders' commits
+  on a renamed branch, and every builder's reply** (~290-340 builder-minutes unseen; the owner relayed one reply by hand).
+  No check yet: #761 (FX1, FX2 in session 26's brief).
+- **The round cap closed five PRs whose last findings were under 75 and came from the previous fix** (F1 #748, F3 #737,
+  M1-24 #747/#756, M1-06 #753: $45.83 of $94.04, none merged). No check yet: the owner's delta-review ruling (FX4).
+- **A docs page with one seed table never converged under review** (M1-24: a stale copy of a changed figure in every
+  round, two PRs). No check yet: the seed-figure lint #765 (#762).
+- **merge_ready's Cut parser counts every non-blank line under a Cut heading as an item** (#755 and #757 refused twice
+  each at land). No check yet: #759 (publish runs the same check).
+- **A posting run started with a reason judged from an older head's table** (#711 after #723's engine merge): stopped
+  before it posted; re-run no-post on the new head. No check yet: the session-24 lesson stands.
+- **Parallel local verifies time out the same three web tests that pass alone**, as cloud verifies do. No check yet: FX3.
+- **The exploring session's diagnosis missed the factory's own gate friction**: design gates on test-only web PRs, the Cut
+  parser, catalogue caps crossed only after a main merge, an engine timing test failing an unrelated PR's CI.
+  No check yet: each is filed with its owed check (#759, #761, #764; the design gate is FX5 in session 26's brief).
+- **An orchestrator's READY commit claimed a fix its tree did not hold** (D2 #773: the builder's push predated the fix
+  message; round 2 caught it). No check yet: FX1's ci_gate change should refuse a READY commit whose subject names a fix round
+  while the tree equals its parent's; until then, diff before writing the subject.
+- **Fixes to UI tickets made new faults in round 2 on D1, D2 and D4 alike** (copy naming, the confirmed bar, the sheet filter).
+  No check yet: FX4's delta review re-runs the earlier rounds' attack tests on each fix.
+- **The real-drawing lock, not the builders, set session 25's pace at the close**: five engine-path tickets each owed a 25-45
+  min run, strictly serial. No check yet: the owner's Q-R10 (one integration run) is session 26's rule.
+- **The orchestrator's own fix direction contradicted the spec** (D1 #774: "name a copy by title first" against m0-screens
+  6.7's mark first; round 3 caught it). No check yet: every fix message the orchestrator writes cites the spec line its
+  direction follows.
+- **The orchestrator passed drawing phrases to builders in its messages** (E1: the two phrases a set prints where a member
+  continues on the next sheet), and a builder and an acceptance writer copied them into code and a commit message; verify's
+  leak scan stopped both before any push, so the commits held. Check: `tools/leakscan/` (run by `scripts/verify.py`).

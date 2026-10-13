@@ -19,6 +19,7 @@
  */
 import createClient, { type Middleware } from 'openapi-fetch'
 import { emitActUnreachable, emitSessionEvent } from './events'
+import { actStarted, resetSaves } from './saves'
 import { refusalCode, sessionEventOf } from './refusal'
 import type { paths } from './schema.gen'
 
@@ -38,8 +39,10 @@ let transport: Transport = (request) => fetch(request)
 export function setTransport(fake: Transport): () => void {
   const before = transport
   transport = fake
+  resetSaves()
   return () => {
     transport = before
+    resetSaves()
   }
 }
 
@@ -90,14 +93,18 @@ async function gatewayAnsweredNothing(response: Response): Promise<boolean> {
 /** One request through the transport; an act that cannot reach the server is announced (events.ts). */
 async function send(request: Request): Promise<Response> {
   const act = !SAFE_METHODS.has(request.method)
+  const settle = act ? actStarted() : undefined
   let response: Response
   try {
     response = await transport(request)
   } catch (error) {
     if (act && error instanceof TypeError) emitActUnreachable()
+    settle?.(error instanceof TypeError ? 'dropped' : 'answered')
     throw error
   }
-  if (act && (await gatewayAnsweredNothing(response))) emitActUnreachable()
+  const nothing = act && (await gatewayAnsweredNothing(response))
+  if (nothing) emitActUnreachable()
+  settle?.(nothing ? 'dropped' : 'answered')
   return response
 }
 

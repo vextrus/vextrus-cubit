@@ -7,23 +7,22 @@
  * The QS answers on the card (#156; §6.7): a pick (a click, or the number key on the focused Question)
  * changes nothing until "Answer Q1 ↵" (Enter); the MD and a Guest read the card and cannot pick.
  */
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
-import { useFormat } from '@/format'
-import { Button, DrawingText, KeyCombo, TextField, cn } from '@/ui'
-import type { MessageDescriptor } from '@lingui/core'
+import { lengthFromMm, useFormat } from '@/format'
+import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
 import { msg } from '@lingui/core/macro'
-import { ActorChip } from './ActorChip'
+import { CorrectedBy, SheetHistory, reasonOf } from './SheetHistory'
 import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
-import { SheetName } from './acts'
+import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, copiesNamedByRow, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
-import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
+import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
@@ -238,62 +237,6 @@ function Decided({ sheet, readOnly }: { sheet: ProposalOut; readOnly: boolean })
   )
 }
 
-function reasonOf(sheet: { excluded_reason: string | null; excluded_text?: string }, i18n: { _: (d: MessageDescriptor) => string }): string {
-  return sheet.excluded_reason === 'other' && sheet.excluded_text ? sheet.excluded_text : i18n._((sheet.excluded_reason && REASON_SHORT[sheet.excluded_reason]) || UNKNOWN_REASON)
-}
-
-/** One act in "who did what" (§6.6): the what, over "name, role, time" with the initials chip. */
-function Act({ sheet }: { sheet: ProposalOut }) {
-  const { i18n } = useLingui()
-  const f = useFormat()
-  const name = sheet.decided_by ?? ''
-  const roleWords = sheet.decided_by_role ? ROLE_NAMES[sheet.decided_by_role] : undefined
-  const role = roleWords ? i18n._(roleWords) : null
-  const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
-  const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
-  const others = Math.max(0, (sheet.decided_with ?? 0) - 1)
-  const reason = reasonOf(sheet, i18n)
-  const what =
-    sheet.decision === 'excluded' ? (
-      <Trans>Excluded: {reason}</Trans>
-    ) : others > 0 ? (
-      <Plural value={others} one="Confirmed in bulk with # other sheet" other="Confirmed in bulk with # other sheets" />
-    ) : (
-      <Trans>Confirmed</Trans>
-    )
-  return (
-    <div className="flex flex-col">
-      <span>{what}</span>
-      <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
-        {name ? <ActorChip name={name} role={sheet.decided_by_role} /> : null}
-        <ActLine name={name} role={role} date={date} time={time} />
-      </span>
-    </div>
-  )
-}
-
-/** "Nusrat Jahan, QS, 26 Sep 2026, 10:42", leaving out what is not known (no hanging comma). */
-function ActLine({ name, role, date, time }: { name: string; role: string | null; date: string; time: string }) {
-  if (name && role && date)
-    return (
-      <Trans>
-        {name}, {role}, {date}, {time}
-      </Trans>
-    )
-  if (name && date)
-    return (
-      <Trans>
-        {name}, {date}, {time}
-      </Trans>
-    )
-  if (name && role)
-    return (
-      <Trans>
-        {name}, {role}
-      </Trans>
-    )
-  return <>{name}</>
-}
 
 function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
@@ -328,6 +271,7 @@ function ReadFrom({ source }: { source: string | null | undefined }) {
   if (source === 'register') return <Trans>the drawing list</Trans>
   if (source === 'file_name') return <Trans>the file name</Trans>
   if (source === 'view_title') return <Trans>the title of its view</Trans>
+  if (source === 'typed') return <Trans>typed by a person</Trans>
   return null
 }
 
@@ -518,9 +462,118 @@ export interface SheetActs {
   exclude: () => void
   /** "Confirm back in" an excluded sheet. */
   confirmBackIn: () => void
+  /** E: "Correct the Proposal" for the sheet (§6.9). */
+  correct: () => void
+}
+
+/** The open "Correct the Proposal" form's sheet, and what saving or cancelling it does. */
+export interface Correcting {
+  sheet: ProposalOut
+  /** Why the last save was refused, in words, and the field it is about. */
+  refusal?: CorrectionRefusal | null
+  /** `opened`: the values the form opened with, so another person's correction since is refused, not overwritten. */
+  save: (change: SheetChange, opened: { number: string; title: string }) => void
+  cancel: () => void
+}
+
+function FormKeys({ bindings }: { bindings: Parameters<typeof useKeys>[0] }) {
+  useKeys(bindings)
+  return null
+}
+
+/**
+ * §6.9 "Corrections (E)": "Correct the Proposal" in place of the Proposal block; Number and Title (S22-FL8's
+ * cut: a view's storeys are a later ticket's), "Save ↵" and "Cancel Esc". A mode of its own while open,
+ * so Enter saves and Esc cancels from either field, and no screen key acts behind it.
+ */
+function CorrectForm({ correcting }: { correcting: Correcting }) {
+  const { t } = useLingui()
+  const { save, cancel, refusal } = correcting
+  // What the form opened with: the sheet may be reloaded under it (another person's correction), but a
+  // save is judged against these, and sent with them (the server refuses a value changed since).
+  const [opened, setOpened] = useState({ number: correcting.sheet.number ?? '', title: correcting.sheet.title })
+  // A refusal that names what the sheet holds now: that is what the person has seen, so the next save
+  // is judged against it and can go through (what was typed stays). Set while rendering, once per refusal.
+  const [adopted, setAdopted] = useState(0)
+  if (refusal?.current && refusal.n > adopted) {
+    setAdopted(refusal.n)
+    setOpened((was) => ({ ...was, [refusal.current!.field]: refusal.current!.value }))
+  }
+  const [number, setNumber] = useState(opened.number)
+  const [title, setTitle] = useState(opened.title)
+  // A refusal stands under its field until that field (or the other) is typed in.
+  const [edited, setEdited] = useState<number>(0)
+  const shown = refusal && refusal.n > edited ? refusal : null
+  const fieldError = (field: 'number' | 'title') => (shown && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
+  const submit = () => {
+    const change: SheetChange = {}
+    if (number.trim() !== opened.number) change.number = number.trim()
+    if (title.trim() !== opened.title) change.title = title.trim()
+    // Nothing changed: nothing to send, as Cancel.
+    if (change.number === undefined && change.title === undefined) return cancel()
+    save(change, opened)
+  }
+  return (
+    <KeyScope level="mode" name="correct-proposal" modal>
+      <FormKeys
+        bindings={[
+          { key: 'Enter', label: t`Save the correction`, group: 'screen', run: (event) => (event.repeat ? undefined : submit()) },
+          { key: 'Esc', label: t`Cancel the correction`, group: 'screen', run: cancel },
+        ]}
+      />
+      <Block title={<Trans>Correct the Proposal</Trans>}>
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
+        >
+          <TextField
+            label={<Trans>Number</Trans>}
+            dir="ltr"
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            value={number}
+            error={fieldError('number')}
+            onChange={(event) => {
+              setNumber(event.target.value)
+              setEdited(refusal?.n ?? 0)
+            }}
+          />
+          <TextField
+            label={<Trans>Title</Trans>}
+            autoComplete="off"
+            value={title}
+            error={fieldError('title')}
+            onChange={(event) => {
+              setTitle(event.target.value)
+              setEdited(refusal?.n ?? 0)
+            }}
+          />
+          {/* The refusal is announced (a live region of its own; the field's error stays the visible one). */}
+          {shown ? (
+            <p role="alert" className="sr-only">
+              {shown.text}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
+              <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />
+            </Button>
+            <Button variant="secondary" type="button" onClick={cancel} aria-keyshortcuts="Escape" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
+              <Trans>Cancel</Trans> <KeyCombo combo="Escape" />
+            </Button>
+          </div>
+        </form>
+      </Block>
+    </KeyScope>
+  )
 }
 
 export function SheetFacts({
+  projectId,
   row,
   showTitle,
   readOnly,
@@ -529,10 +582,14 @@ export function SheetFacts({
   onSelectView,
   slots = [],
   open,
+  correcting = null,
 }: {
+  projectId: string
   row: Row
   /** In sheet mode, the sheet open: of two copies in one row, the one shown (M18). */
   open?: ProposalOut
+  /** "Correct the Proposal" open on this row's sheet: shown in place of the Proposal block (§6.9). */
+  correcting?: Correcting | null
   showTitle: boolean
   readOnly: boolean
   acts?: SheetActs
@@ -544,7 +601,6 @@ export function SheetFacts({
   const sheet = open && row.sheets.some((s) => s.id === open.id) ? open : row.sheets[0]
   if (!sheet) return null
   const excluded = row.sheets.every((s) => s.decision === 'excluded')
-  const decided = row.sheets.filter((s) => s.decision)
   return (
     <>
       <Block>
@@ -558,12 +614,16 @@ export function SheetFacts({
           </span>
         </div>
       </Block>
+      {correcting ? (
+        <CorrectForm key={correcting.sheet.id} correcting={correcting} />
+      ) : (
       <Block title={<Trans>Proposal: where each was read</Trans>}>
         <dl className="flex flex-col gap-1">
           <Fact label={<Trans>Number</Trans>}>
             {sheet.number ? (
               <>
-                <DrawingText kind="sheet-number" text={sheet.number} truncate={false} /> <ReadFrom source={sheet.number_source} />
+                <DrawingText kind="sheet-number" text={sheet.number} truncate={false} />{' '}
+                {sheet.number_source === 'typed' ? <CorrectedBy projectId={projectId} sheet={sheet} field="number" /> : <ReadFrom source={sheet.number_source} />}
               </>
             ) : (
               <span className="text-question">
@@ -573,7 +633,7 @@ export function SheetFacts({
           </Fact>
           <Fact label={<Trans>Title</Trans>}>
             {sheet.title ? (
-              <ReadFrom source={sheet.title_source} />
+              sheet.title_source === 'typed' ? <CorrectedBy projectId={projectId} sheet={sheet} field="title" /> : <ReadFrom source={sheet.title_source} />
             ) : (
               <span className="text-question">
                 <Trans>not found</Trans>
@@ -589,7 +649,7 @@ export function SheetFacts({
           <Fact label={<Trans>File</Trans>}>
             <DrawingText kind="file-name" text={sheet.file_name} />
             <span className="block text-xs text-ink-secondary">
-              {sheet.layout ? <Trans>layout “<DrawingText kind="mark" text={sheet.layout} truncate={false} />”</Trans> : <Trans>laid out in the drawing</Trans>}
+              <CopyPlace sheet={sheet} withoutFile />
             </span>
           </Fact>
           <Fact label={<Trans>Storeys</Trans>}>
@@ -603,28 +663,27 @@ export function SheetFacts({
           </Fact>
         </dl>
       </Block>
+      )}
       <Views sheet={sheet} selected={selectedView} onSelect={onSelectView} readOnly={readOnly} />
       <Block title={<Trans>Who did what</Trans>}>
-        {decided.length === 0 ? (
-          <p>
-            <Trans>Proposed by Vextrus from the file; no one has acted on it yet.</Trans>
-          </p>
-        ) : (
-          decided.map((s) => (
-            <div key={s.id}>
-              {row.sheets.length > 1 ? (
-                <span className="text-xs text-ink-secondary">
-                  <SheetName sheets={[s]} /> <Copy sheet={s} />
-                </span>
-              ) : null}
-              <Act sheet={s} />
-            </div>
-          ))
-        )}
+        {row.sheets.map((s) => (
+          <div key={s.id}>
+            {row.sheets.length > 1 ? (
+              <span className="text-xs text-ink-secondary">
+                <SheetName sheets={[s]} /> <Copy sheet={s} />
+              </span>
+            ) : null}
+            <SheetHistory projectId={projectId} sheet={s} />
+          </div>
+        ))}
       </Block>
       {!readOnly && acts ? (
         <Block>
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={acts.correct} aria-keyshortcuts="E" disabled={!!correcting}>
+              <Trans>Correct</Trans>
+              <KeyCombo combo="E" />
+            </Button>
             {excluded ? (
               <Button variant="secondary" onClick={acts.confirmBackIn}>
                 <Trans>Confirm back in</Trans>
@@ -699,6 +758,108 @@ function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer
   )
 }
 
+/** A tied copy's row number, as the options name it ("the copy in row 2"). */
+function CopyRow({ row }: { row: string }) {
+  return (
+    <span className="block whitespace-nowrap text-ink-secondary">
+      <Trans>Row {row}</Trans>
+    </span>
+  )
+}
+
+/**
+ * What the card shows of the sheets it holds, then the Trace line (§6.7): two copies of one number as a table
+ * (Copy · Date · File); any other Question's sheets as a list. Over four sheets they fold behind one line, so
+ * the options stay on screen: a numbering gap over 17 gaps holds 34 sheets (#663). The fold is a native
+ * <details>: its summary takes the keys (Tab to it, Enter or Space opens it).
+ */
+function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: CardContext; onOpen?: (sheet: ProposalOut) => void }) {
+  const f = useFormat()
+  const copies = entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+  // Copies told apart by title: the table shows it, as the options name them by it.
+  const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
+  // A copy no field tells apart is named by its row in the options ("the copy in row 2"), so the table numbers the rows.
+  const tied = copiesNamedByRow(entry.holds, (mm) => f.plain.coordinate(lengthFromMm(mm)))
+  const trace = (
+    <p className="text-xs text-ink-secondary empty:hidden">
+      <Trace entry={entry} context={context} onOpen={onOpen} />
+    </p>
+  )
+  if (copies)
+    return (
+      <>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-ink-secondary">
+              <th scope="col" className="pe-2 text-start font-medium">
+                <Trans>Copy</Trans>
+              </th>
+              <th scope="col" className="pe-2 text-start font-medium">
+                <Trans>Date</Trans>
+              </th>
+              <th scope="col" className="text-start font-medium">
+                <Trans>File</Trans>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {entry.holds.map((s, i) => (
+              <tr key={s.id} className="align-top">
+                <td className="pe-2">
+                  {tied ? <CopyRow row={f.integer(i + 1)} /> : null}
+                  <Copy sheet={s} />
+                  {titlesDiffer ? (
+                    <span className="block text-ink-secondary">
+                      <DrawingText kind="title" text={s.title} truncate={false} />
+                    </span>
+                  ) : null}
+                </td>
+                <td className="pe-2 whitespace-nowrap">{s.issue_date ? f.day(s.issue_date) : '—'}</td>
+                <td className="min-w-0 break-words">
+                  <CopyPlace sheet={s} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {trace}
+      </>
+    )
+  const list =
+    entry.holds.length > 1 ? (
+      <ul className="text-xs">
+        {entry.holds.map((s) => (
+          <li key={s.id}>
+            <SheetName sheets={[s]} /> <Copy sheet={s} />
+            {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
+          </li>
+        ))}
+      </ul>
+    ) : null
+  if (entry.holds.length <= FOLD_OVER)
+    return (
+      <>
+        {list}
+        {trace}
+      </>
+    )
+  const n = entry.holds.length
+  return (
+    <details className="flex flex-col gap-2 text-xs">
+      <summary className="cursor-pointer text-ink-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring">
+        <Plural value={n} one="# sheet, and the Trace" other="# sheets, and the Trace" />
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+        {list}
+        {trace}
+      </div>
+    </details>
+  )
+}
+
+/** Sheets a card lists before it folds them (and its Trace) behind "n sheets, and the Trace". */
+const FOLD_OVER = 4
+
 export function QuestionCard({
   entry,
   readOnly,
@@ -715,7 +876,6 @@ export function QuestionCard({
 }) {
   const names = context.names
   const { t } = useLingui()
-  const f = useFormat()
   const kind = useKindLine(entry)
   const tag = entry.tag
   const options = optionsOf(entry)
@@ -748,19 +908,7 @@ export function QuestionCard({
         <p className="text-xs text-ink-secondary empty:hidden">
           <QuestionBody entry={entry} context={context} />
         </p>
-        {entry.holds.length > 1 ? (
-          <ul className="text-xs">
-            {entry.holds.map((s) => (
-              <li key={s.id}>
-                <SheetName sheets={[s]} /> <Copy sheet={s} />
-                {s.issue_date ? <> · {f.day(s.issue_date)}</> : null} · <DrawingText kind="file-name" text={s.file_name} />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <p className="text-xs text-ink-secondary empty:hidden">
-          <Trace entry={entry} context={context} onOpen={onOpen} />
-        </p>
+        <Evidence entry={entry} context={context} onOpen={onOpen} />
         {/* A radiogroup: the key map leaves the arrows to it, and Enter on an option answers (the screen's Enter). */}
         <fieldset role="radiogroup" aria-label={t`Answers`} className="flex flex-col gap-1" disabled={!can || answerer.busy}>
           {options.map((o, i) => (

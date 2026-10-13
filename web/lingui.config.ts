@@ -18,6 +18,7 @@ const NOT_FEATURES = ['messages', 'routes', 'i18n', 'test', 'api', 'acceptance']
 const TAKEOFF_AREAS: Record<string, string[]> = {
   words: ['words.tsx'],
   answers: ['questionWords.tsx'],
+  history: ['SheetHistory.tsx'],
   step1: ['Step1Screen.tsx', 'Step1Inspector.tsx'],
   toasts: ['acts.tsx'],
 }

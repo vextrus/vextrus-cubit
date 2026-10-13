@@ -1,6 +1,6 @@
 ---
 name: orchestrate-wave
-description: The orchestrator's runbook for building one wave of a milestone autonomously (ADR 0041, ADR 0042): set the budgets, pass the governor's preflight, have acceptance-writer pin each ticket's tests, launch builders through scripts.factory.launch (cloud for committed-test tickets, local for real drawings), watch the event log with Monitor, review each READY head with /review-pr in at most two fix rounds, land, run the G1 walk before any "walk now", and record measures. Use when launching or running a wave (a session brief says "build wave N").
+description: The orchestrator's runbook for building one wave of a milestone autonomously (ADR 0041, ADR 0042): set the budgets, pass the governor's preflight, have acceptance-writer pin each ticket's tests, launch builders through scripts.factory.launch (cloud for committed-test tickets, local for real drawings), let the factory mod's wake report the event log, review each READY head with /review-pr in at most two fix rounds, land, run the G1 walk before any "walk now", and record measures. Use when launching or running a wave (a session brief says "build wave N").
 ---
 # Orchestrating a wave
 
@@ -34,17 +34,18 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    file. Message and resume a local builder only through `scripts.factory.say` by its full `sessionId`: it resumes
    only `stopped` or `failed` with no `pid`, with `--settings` again; a `done` session is alive and
    waiting: SendMessage it, never resume it. Never restart a builder over its work.
-4. **Watch.** Monitor on the event log (`events.log` under `.private/work/factory/`), re-armed at its deadline, and
-   `notify_when_idle` for local builders. No polling and no foreground sleep; never wait on a process listing. The
-   SessionStart hook restarts the watcher when its pidfile is stale (or `watch ensure`, `commands.md`). A builder finishes with a `Factory-State:
-   READY` (verified) or `BLOCKED` trailer; a READY head with no verify record is bounced, not reviewed. A local
-   builder never pushes: push its READY head yourself after the leak scan, by `commands.md`'s PR recipe.
+4. **Watch.** The `vextrus-factory` mod wakes you with one batched message (new `events.log` lines, the live tickets'
+   table; 12 an hour, then `wakes capped`): act on it; it replaces only the event-log Monitor (Monitor stays for one
+   foreground command's log). Send `SendMessage` with `notify_when_idle` to each local builder you launch. A `relay` row
+   is a `launch say` unanswered for 10 min. No polling, no foreground sleep, no process listing; `watch ensure` restarts
+   the watcher. A READY head with no verify record is bounced; a local builder never pushes: push its head after the leak scan.
 5. **Review with `/review-pr`.** On each READY head, merged with `main` and any PR it meets: one review, then at
    most two fix rounds (a third only under a recorded exception: `security75`, `crash`, `false-statement` or
    `fix-regression`). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message per round:
    elapsed, what held, each finding with its score, failing scenario and fix direction; each fix with a test that
-   fails without it, and a committed check for a finding that blocks (75 or more, or 50 or more on a strict path) or a repeated
-   class; the ledger's `to-file` lists the standing 50-74 off the strict paths to file as issues. A finding after the cap
+   fails without it, and a committed check for a finding that blocks (75 or more, or 50 or more when user-facing or on a
+   trust boundary; untagged, on a strict path) or a repeated class; the ledger's `to-file` lists the standing edge or
+   rule-only 50-74 off a trust boundary to file as issues, each naming the check it owes (`fix-message` prints it). A finding after the cap
    becomes an issue (`needs-triage`, "found after the cap").
 6. **Land.** `uv run python -m scripts.land <PR> [<PR> ...]` orders them itself (engine PRs with a ledger PASS
    first), needs a ledger PASS for each head, lands it as it stands (no update; a PR GitHub reports conflicting is refused, naming `land update`), waits for CI, prints the gates still

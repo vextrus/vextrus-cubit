@@ -2,9 +2,12 @@
 //
 // Its only data: .private/work/factory/status.json and events.log (scripts/factory/watch.py writes
 // them), read at session start and every 15 s with $.clock.every and $.fs.read. The band shows the
-// newest high-signal events; an OWNER-COMMAND or OWNER-RULING line raises one toast from the poll.
-// Read-only (the owner's ruling Q6): no prompt, model, agent, tool or $.process call. It intercepts
-// nothing: it registers session.start and ui.render on AbovePrompt, and no other event.
+// summary, one row per live ticket and the newest high-signal events; an OWNER-COMMAND or OWNER-RULING
+// line raises one toast from the poll. Its one acting call is the wake (the owner's ruling Q-R4, 13 Oct
+// 2026, which lifts Q6's read-only for exactly this): from the poll, one batched, rate-capped
+// $.prompt.submit({ text }), framed as this plugin's message (wake.js decides; text.js words it). No
+// model, agent, tool or $.process call. It intercepts nothing: it registers session.start and
+// ui.render on AbovePrompt, and no other event (no prompt.* hook).
 //
 // Walls for builders: it loads only through --plugin-dir (orchestrator.sh), builder.settings.json
 // turns it off, and it reads, stores and draws nothing when CLAUDE_CODE_REMOTE is "true" or
@@ -14,7 +17,8 @@
 // Every handler catches its own errors: a throw out of a hook could end the session.
 
 import { TABS, VERDICTS, budgetText, factoryView, lastCost, sessionBudget, verdictKey, wipText } from "./factory.js"
-import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, oneLine, parseEvents, parseStatus, toastText } from "./text.js"
+import { OWNER_KINDS, bandEvents, bandRows, bandText, eventRow, fitRow, oneLine, parseEvents, parseStatus, ticketRows, toastText, wakeText } from "./text.js"
+import { advance, giveBack, readWake } from "./wake.js"
 
 // "band" draws above the prompt (AbovePrompt); "status" is the verified fallback, $.ui.status(text).
 const SURFACE = "band"
@@ -40,6 +44,12 @@ const SESSION = { plugin: "vextrus-factory", key: "session" }
 const COST = { plugin: "vextrus-factory", key: "cost" }
 const VERDICTS_REF = { plugin: "vextrus-factory", key: "verdicts" }
 const TAB = { plugin: "vextrus-factory", key: "tab" }
+// The band's view of the wake: { capped } (a due wake held by the hourly cap).
+const WAKE = { plugin: "vextrus-factory", key: "wake" }
+// The wake's own memory in $.store (cursor, held lines, per-ticket PUSH times, the hour's wakes): a
+// reload or a restart never wakes again for a line already sent, and the cap holds across both.
+const WAKE_STORE = "wake"
+export const CAPPED_WORDS = "wakes capped"
 // A toast is raised for an owner-action line at most this old, and its line is remembered in the
 // store (across polls, reloads and sessions) so it is raised once.
 const TOAST_WINDOW_MS = 6 * 3_600_000
@@ -151,6 +161,68 @@ async function toastOwnerLines($, text, nowMs) {
   }
 }
 
+// A submitted wake waits until the session is idle; the engine resolves its promise as its turn
+// starts. Until then no second wake is submitted: the lines are held for the next one. A wake whose
+// submit failed gives its lines back to the next poll.
+// A wake still waiting after WAIT_MAX_MS no longer holds the next (the cap still does): a submit the
+// engine never starts must not stop every later wake.
+const WAIT_MAX_MS = 30 * 60_000
+let waitingSince = null
+let givenBack = []
+// The hour's wake times as this module last stored them: a store that reads back off-form must not
+// reset the cap (it is the loop guard).
+let sentMemory = []
+
+async function wake($, log, unreadable, statusText) {
+  const nowMs = await $.clock.now()
+  let held = readWake(await $.store.get(WAKE_STORE))
+  held = { ...held, sentAt: [...new Set([...held.sentAt, ...sentMemory])] }
+  if (givenBack.length > 0) {
+    held = giveBack(held, givenBack)
+    givenBack = []
+  }
+  // No events.log yet: every line it later gets is news. An unreadable one is not read as empty.
+  const read = log === null && !unreadable ? "" : log
+  const waiting = waitingSince !== null && nowMs - waitingSince < WAIT_MAX_MS
+  let self = null
+  try {
+    const id = await $.session.id()
+    self = typeof id === "string" ? id.slice(0, 8) : null
+  } catch {
+    // no id: this session's own STOP-FAILURE wakes like any other
+  }
+  const { state, lines, capped } = advance(held, read, nowMs, waiting, self)
+  sentMemory = state.sentAt
+  // Stored before the submit: a failed write submits nothing, so no line is sent twice.
+  await $.store.set(WAKE_STORE, state)
+  // Its own try: the band's "wakes capped" is cosmetic; the lines just stored as sent are not.
+  try {
+    await $.state.set(WAKE, { capped })
+  } catch {
+    // the band misses the cap's words this poll
+  }
+  if (lines === null) return
+  const { status, schema } = parseStatus(statusText)
+  const text = wakeText(lines, status, nowMs, schema)
+  waitingSince = nowMs
+  let sent
+  try {
+    sent = Promise.resolve($.prompt.submit({ text }))
+  } catch (error) {
+    sent = Promise.reject(error)
+  }
+  // Never awaited: the poll goes on while the wake waits for the session to be idle.
+  sent.then(
+    () => {
+      waitingSince = null
+    },
+    () => {
+      waitingSince = null
+      givenBack.push(...lines)
+    },
+  )
+}
+
 // The module's own timer: a reload drops it with the old environment; a second session.start in
 // the same environment cancels it before starting another, so one poll runs.
 let timer = null
@@ -174,6 +246,7 @@ async function poll($, paths) {
       $.ui.status(bandText(status, await $.clock.now(), null, schema))
     }
     if (log !== null) await toastOwnerLines($, log, await $.clock.now())
+    await wake($, log, unreadable, text)
   } catch {
     // never throw out of the poll
   } finally {
@@ -232,8 +305,12 @@ export function register(on) {
           const held = (await $.state.get(EVENTS)).value
           const events = held !== undefined && Array.isArray(held.events) ? held.events : []
           const unreadable = held !== undefined && held.unreadable === true
-          const all = [...rows, ...events.map((event) => eventRow(event, e.props.bodyColumns))]
+          const now = await $.clock.now()
+          const tickets = ticketRows(status, now, e.props.bodyColumns)
+          const all = [...rows, ...tickets, ...events.map((event) => eventRow(event, e.props.bodyColumns))]
           if (unreadable) all.push(fitRow("events: unreadable", e.props.bodyColumns))
+          const woke = (await $.state.get(WAKE)).value
+          if (woke !== undefined && woke.capped === true) all.push(fitRow(CAPPED_WORDS, e.props.bodyColumns))
           tree = h(Box, { flexDirection: "column" }, ...all.map((row) => h(Text, null, row)))
         }
       }

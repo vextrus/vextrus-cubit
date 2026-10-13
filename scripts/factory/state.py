@@ -51,7 +51,7 @@ from scripts.merge_ready import merges_since
 READY_NO_PR = "READY, no PR"
 LIVE_NOTE = "building"
 SHA40 = re.compile(r"[0-9a-f]{40}")
-RECORD_NAME = re.compile(r"(\d+)-([0-9a-f]{40})\.json")
+RECORD_NAME = re.compile(r"(\d+)-([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")  # -r<n>: same head
 SKIPPED_BRANCHES = ("review/",)
 GH_TIMEOUT = 120
 PR_LIMIT = 5000
@@ -95,7 +95,8 @@ def read_ledger(folder: Path) -> Ledger:
                 int(raw["pr"]) != pr
                 or raw["head"] != head
                 or verdict not in ledger.RANK
-                or not 1 <= round_ <= ledger.MAX_ROUND
+                or not 1 <= round_ <= ledger.LAST_ROUND
+                or (match.group(3) is not None and int(match.group(3)) != round_)
             ):
                 raise ValueError(name)
         except OSError, ValueError, KeyError, TypeError:
@@ -238,14 +239,14 @@ def reviewed_record(mine: list[Record], head: str, main_sha: str | None) -> Reco
 
 def outcome_of(branch: str, head: str, main_sha: str | None) -> tuple[str | None, bool]:
     """(the head's Factory-State, whether the head could be read): the shared reader's reading of its
-    message, and READY for clean merges of main on a READY head (`watch.inherits_ready`, the rule the
-    watcher uses)."""
+    message, and the READY or BLOCKED of the commit under clean merges of main and status replies
+    (`watch.inherits_outcome`, the rule the watcher uses)."""
     info = watch.read_head(branch, head)
     if info is None:
         return None, False
     outcome = watch.parse_trailers(*info).outcome
-    if outcome is None and watch.inherits_ready(head, main_sha):
-        outcome = "READY"
+    if outcome is None:
+        outcome = watch.inherits_outcome(head, main_sha)
     return outcome, True
 
 

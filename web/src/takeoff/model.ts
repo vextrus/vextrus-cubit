@@ -68,7 +68,7 @@ export interface DisciplineSection {
   rows: readonly Row[]
   found: number
   settled: number
-  /** N: the drawing list's count, else the sheets found; null ("—") while two lists disagree. */
+  /** N: the sheets found, whatever the drawing list counts (m0-screens §6.3); null ("—") while two lists disagree. */
   total: number | null
   openQuestions: number
   list: DrawingListOut | null
@@ -124,6 +124,27 @@ export type Reason = (typeof REASONS)[number]
 const KIND_RANK: Record<string, number> = { file_misread: 0, conflict: 1, missing: 2, low_confidence: 3 }
 
 const open = (q: QuestionOut) => q.status === 'open'
+
+/** Step 1's counts, which the frame around it shows (the toolbar's Count, the rail's mark, the Questions tab's number). */
+export interface Step1Counts {
+  /** Sheets found; null while Step 1 has not been read. */
+  found: number | null
+  confirmed: number
+  excluded: number
+  questionsOpen: number
+}
+
+export const STEP1_NOT_READ: Step1Counts = { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 }
+
+/** The counts from Step 1's own Proposals and Questions: the queue holds each open Question once, so these are the model's. */
+export function step1Counts(proposals: readonly ProposalOut[], questions: readonly QuestionOut[]): Step1Counts {
+  return {
+    found: proposals.length,
+    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
+    excluded: proposals.filter((p) => p.decision === 'excluded').length,
+    questionsOpen: questions.filter(open).length,
+  }
+}
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 
 /** Kept open: status `open`, its answer's option `keep_open` (the ruling of session 08: no `kept_open` status). */
@@ -364,18 +385,18 @@ export function step1Model(data: Step1Data): Step1Model {
       const list = data.lists[discipline] ?? null
       const hasList = list !== null && list.source !== null && list.numbers.length > 0
       const openQuestions = progress?.open_questions ?? queue.filter((e) => e.question.discipline === discipline).length
-      const settled = mine.filter(decided).length
+      const settled = progress?.confirmed ?? mine.filter(decided).length
       return {
         discipline,
         rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes),
         found: progress?.found ?? mine.length,
         settled,
-        total: progress ? progress.total ?? null : mine.length,
+        total: progress ? (progress.total === null ? null : progress.found) : mine.length,
         openQuestions,
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
         besideGap: mine.filter((p) => besideGap.has(p.id)).map((p) => p.id),
-        confirmed: mine.length > 0 && settled === mine.length && openQuestions === 0 && coverageDone,
+        confirmed: mine.length > 0 && settled >= (progress?.found ?? mine.length) && openQuestions === 0 && coverageDone,
       }
     })
 
@@ -385,6 +406,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const reasons = REASONS.filter((r) => bulkOut.some((p) => p.proposed_exclusion === r))
 
   const rows = [...needsYou, ...withdrawn, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
+  const counts = step1Counts(proposals, data.questions)
   return {
     needsYou,
     withdrawn,
@@ -395,9 +417,9 @@ export function step1Model(data: Step1Data): Step1Model {
     answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
-    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
-    excluded: proposals.filter((p) => p.decision === 'excluded').length,
-    found: proposals.length,
+    confirmed: counts.confirmed,
+    excluded: counts.excluded,
+    found: counts.found!,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
     // Every Proposal of no Discipline, as the toolbar's Count counts it (19a's progress row leaves out a sheet proposed out, #167's refuter).
     noDiscipline: proposals.filter((p) => p.discipline === null).length,
