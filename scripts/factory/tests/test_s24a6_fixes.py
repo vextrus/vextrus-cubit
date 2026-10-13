@@ -315,3 +315,91 @@ def test_every_refusal_code_the_launchers_print_is_in_the_contracts_list() -> No
     listed = contract.split("`<code>` in `REFUSED <code>: ...` is one of:")[1].split("\n\n")[0]
     for code in ("builder-live", "duplicate-name", "branch-not-on-origin"):
         assert f"`{code}`" in listed, code
+
+
+# --- round 5: a local record without a session id is a builder; a posting run needs no --ticket
+
+
+def test_a_local_builder_whose_session_id_was_not_read_still_blocks_a_second_builder(
+    factory: Path,
+) -> None:
+    record = {
+        "ticket": "t-loc",
+        "branch": "t-loc",
+        "where": "local",
+        "role": "builder",
+        "name": "t-loc-builder",
+        "session_id": None,
+        "judge": None,
+        "started_at": "2026-10-12T10:30:00Z",
+        "stop_sent": False,
+        "review": None,
+    }
+    put(factory / "launches", record)
+    rows = [{"name": "t-loc-builder", "pid": 4242, "state": "working"}]
+    found = governor.live_builder("t-loc", factory / "launches", agent_rows=lambda: rows, prs=list)
+    assert found is not None
+    assert "t-loc-builder" in found
+    assert len(governor.launch_records("t-loc", factory / "launches")) == 1
+
+
+def _without_ticket(argv: list[str]) -> list[str]:
+    at = argv.index("--ticket")
+    return argv[:at] + argv[at + 2 :]
+
+
+def test_a_posting_run_without_a_ticket_is_refused_when_its_pr_branch_has_moved(
+    tmp_path: Path,
+) -> None:
+    yard = Yard(tmp_path)
+    yard.review(yard.first, "PASS")
+    newer = yard.push("fix: pushed after the review")
+    argv = _without_ticket(yard.argv("posting", yard.first))
+    done = subprocess.run(
+        argv, cwd=yard.clone, env=yard.env(), capture_output=True, text=True, stdin=subprocess.DEVNULL,
+        timeout=120, check=False,
+    )  # fmt: skip
+    assert done.returncode == rdlock.REFUSED, show(done)
+    assert newer[:8] in said(done), show(done)
+    assert not yard.ran()
+
+
+def test_a_running_posting_run_without_a_ticket_is_cancelled_when_its_pr_branch_moves(
+    tmp_path: Path,
+) -> None:
+    yard = Yard(tmp_path)
+    yard.review(yard.first, "PASS")
+    env = yard.env()
+    env["VEXTRUS_RDLOCK_POLL"] = "1"
+    command = f"import time; time.sleep(40); open({str(yard.marker)!r}, 'w').write('ran')"
+    argv = [*_without_ticket(yard.argv("posting", yard.first))[:-1], command]
+    proc = subprocess.Popen(
+        argv, cwd=yard.clone, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
+    try:
+        for _ in range(100):
+            if yard.lock()["holder"] is not None or proc.poll() is not None:
+                break
+            time.sleep(0.1)
+        assert yard.lock()["holder"] is not None, "the run never started"
+        newer = yard.push("fix: pushed while the run ran")
+        out, err = proc.communicate(timeout=60)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+    assert proc.returncode == rdlock.CANCELLED, (out, err)
+    assert newer[:8] in out
+    assert not yard.ran()
+    assert yard.lock()["holder"] is None
+
+
+def test_a_posting_run_without_a_ticket_still_starts_on_the_current_head(tmp_path: Path) -> None:
+    yard = Yard(tmp_path)
+    yard.review(yard.first, "PASS")
+    argv = _without_ticket(yard.argv("posting", yard.first))
+    done = subprocess.run(
+        argv, cwd=yard.clone, env=yard.env(), capture_output=True, text=True, stdin=subprocess.DEVNULL,
+        timeout=120, check=False,
+    )  # fmt: skip
+    assert done.returncode == 0, show(done)
+    assert yard.ran()

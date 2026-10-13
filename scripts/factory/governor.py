@@ -427,9 +427,10 @@ def admit(
 
 def launch_records(ticket: str, folder: Path | None = None) -> list[tuple[Path, dict[str, Any]]]:
     """A ticket's launch records, newest first: those whose own `ticket` field is this ticket (a file
-    name only starts with it; `T-ACC` and `T-WATCH-LOCAL` are other tickets). A refused launch is no
-    launch: a record whose judge is not ok and that has no session is left out (it names only the
-    branch that was asked for)."""
+    name only starts with it; `T-ACC` and `T-WATCH-LOCAL` are other tickets). A refused cloud launch is
+    no launch: a cloud record with no session and a judge that is not ok is left out (it names only the
+    branch that was asked for). A local record always stays: it carries no judge, and its session id is
+    null when `claude --bg` started the session before its agents row was listed."""
     folder = folder if folder is not None else status.factory_dir() / "launches"
     found = []
     for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
@@ -439,7 +440,10 @@ def launch_records(ticket: str, folder: Path | None = None) -> list[tuple[Path, 
         if record is None or record.get("ticket") != ticket:
             continue
         judge = record.get("judge")
-        if not record.get("session_id") and not (isinstance(judge, dict) and judge.get("ok") is True):
+        refused = not record.get("session_id") and not (
+            isinstance(judge, dict) and judge.get("ok") is True
+        )
+        if refused and record.get("where") != "local":
             continue
         found.append((path, record))
     return found
