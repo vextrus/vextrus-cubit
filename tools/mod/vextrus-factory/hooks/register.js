@@ -184,7 +184,14 @@ async function wake($, log, unreadable, statusText) {
   // No events.log yet: every line it later gets is news. An unreadable one is not read as empty.
   const read = log === null && !unreadable ? "" : log
   const waiting = waitingSince !== null && nowMs - waitingSince < WAIT_MAX_MS
-  const { state, lines, capped } = advance(held, read, nowMs, waiting)
+  let self = null
+  try {
+    const id = await $.session.id()
+    self = typeof id === "string" ? id.slice(0, 8) : null
+  } catch {
+    // no id: this session's own STOP-FAILURE wakes like any other
+  }
+  const { state, lines, capped } = advance(held, read, nowMs, waiting, self)
   sentMemory = state.sentAt
   // Stored before the submit: a failed write submits nothing, so no line is sent twice.
   await $.store.set(WAKE_STORE, state)

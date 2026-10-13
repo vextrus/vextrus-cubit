@@ -28,10 +28,13 @@ const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v)
 const isText = (v) => typeof v === "string"
 const isTime = (v) => typeof v === "number" && Number.isFinite(v)
 
-// "wake", "ride" or "routine" for a parsed event: any kind not named here wakes.
-export function kindOf(event) {
+// "wake", "ride" or "routine" for a parsed event: any kind not named here wakes. `self` is the first 8
+// characters of this session's id: a STOP-FAILURE (.claude/hooks/stop-failure.mjs, `- <type> <session8>`,
+// written by every session) of this session's own rides along (review round 3 of PR #794).
+export function kindOf(event, self = null) {
   const { kind, detail } = event
   if (kind === "WALK") return WALK_CLOSE.test(detail) ? "wake" : "ride"
+  if (kind === "STOP-FAILURE" && typeof self === "string" && self.length === 8 && detail.split(" ").at(-1) === self) return "ride"
   if (RIDING.includes(kind)) return "ride"
   if (ROUTINE.includes(kind)) return "routine"
   return "wake"
@@ -96,9 +99,9 @@ function trimHeld(held, dropped) {
 }
 
 // One poll's step. `text` is the events text read (null: none), `nowMs` the clock, `waiting` true while
-// a submitted wake has not started. Returns the new state, the lines to submit (null: none) and
-// whether a due wake is held by the hourly cap.
-export function advance(state, text, nowMs, waiting) {
+// a submitted wake has not started, `self` this session's id's first 8 characters (or null). Returns
+// the new state, the lines to submit (null: none) and whether a due wake is held by the hourly cap.
+export function advance(state, text, nowMs, waiting, self = null) {
   const s = readWake(state)
   const events = text === null ? [] : parseEvents(text, null)
   const { fresh, cursor } = text === null ? { fresh: [], cursor: s.cursor } : freshEvents(events, s.cursor)
@@ -106,7 +109,7 @@ export function advance(state, text, nowMs, waiting) {
   const pushWokeAt = new Map(s.pushWokeAt.map(([t, ms]) => [t, Math.min(ms, nowMs)]).filter(([, ms]) => nowMs - ms < PUSH_EVERY_MS))
   let held = [...s.held]
   for (const e of fresh) {
-    const kind = kindOf(e)
+    const kind = kindOf(e, self)
     let wakes = kind === "wake"
     if (kind === "routine" && !pushWokeAt.has(e.ticket)) {
       wakes = true

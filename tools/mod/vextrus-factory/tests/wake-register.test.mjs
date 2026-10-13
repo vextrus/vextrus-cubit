@@ -48,3 +48,16 @@ test("a submit that never starts holds the next wake for at most 30 minutes", as
   assert.equal(w.submits.length, 2)
   assert.ok(w.submits[1].text.includes("READY S25-D2 0e361a97"))
 })
+
+// Review round 3 of PR #794: stop-failure.mjs runs in every session, the orchestrator's too.
+test("the orchestrator's own STOP-FAILURE never wakes it; a builder's still does", async () => {
+  const w = world({ env: { VEXTRUS_ROLE: "orchestrator", __session: "0f3a9c2e-1111-2222-3333-444455556666" }, files: { "status.json": JSON.stringify(status(T0)), "events.log": "" } })
+  await w.load()
+  await w.start()
+  await poll(w, ["STOP-FAILURE", "-", "overloaded 0f3a9c2e"])
+  await poll(w)
+  assert.equal(w.submits.length, 0, "its own stop failure does not wake it")
+  await poll(w, ["STOP-FAILURE", "-", "rate_limit abcdef12"])
+  assert.equal(w.submits.length, 1, "a builder's stop failure wakes it")
+  assert.ok(w.submits[0].text.includes("STOP-FAILURE - overloaded 0f3a9c2e"), "its own line rides along")
+})
