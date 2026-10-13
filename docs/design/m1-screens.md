@@ -196,7 +196,7 @@ checked by the server's `figure()` formatter, C16), already isolated left to rig
 | Count | 5 / 7 (n / N), `—` for an N the drawing does not give | M0's Count; "5 / 7" never "71%" |
 | Date | 12 Oct 2026 | m0-screens 1.2; times in the Market's zone, never named |
 | Ratio | "1:1.5:3" | a Mix; "0.20 cft per sft" for an allowance's consumption, with its unit |
-| Rebar Ratio | "5.1 kg per cft" | the Rebar Basis "by ratio" always shows its ratio (4.1.3, 4.10.2, 4.13); a whole-building "3.1 kg per sft" beside the usual range (4.13.1) |
+| Rebar Ratio | "5.1 kg per cft" | the Rebar Basis "by ratio" always shows its ratio (4.1.3, 4.10.2, 4.13); a whole-building "3.53 kg per sft" beside the usual range (4.13.1) |
 
 **Money and quantities are grouped as the Market groups them; coordinates, dimensions and marks
 never** (CONTEXT.md, Display Units). A number typed by the QS is accepted in either grouping
@@ -373,6 +373,7 @@ Proposal groups has focus; "canvas" means the source sheet is open across the ca
 | `Q` | screen | Focus the group row the next open Question holds, in the queue's order (4.1); its card shows in the inspector, and `1`–`9` then pick | M1-18a |
 | `1`–`9` | screen (the focused group's Question, shown in its card) | Pick that answer on the card; a pick changes nothing until `Enter` or "Answer". When the picker (X) is open it claims every digit | M1-18a |
 | `Ctrl Z` | screen (not while a field is being edited) | Undo the last act on this step, naming it in the toast. An answer that confirmed or excluded Elements is never undone, nor anything before it (m0-screens 6.9) | M1-18a |
+| `Shift A` | screen (a frame step in review) | Add an Element the reader missed: pick its entity on the sheet, name the family, `Enter` adds (4.1.2); `Ctrl Z` removes it | story 125 |
 | `T` | screen (a figure focused) | Open the focused figure's Trace (4.10); `T` again, or `Esc`, closes it | M1-23 |
 | `←` `→` | dialog: a Trace | Step through the figure's sources: the sheet flies to each in turn | M1-23 |
 | `G` | screen | Go to the same Element in the Live Model (the 3D opens with it selected); from the 3D, the same key goes to its row in its step | M1-18a, M1-25 |
@@ -638,6 +639,21 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
 - **After an act** focus moves to the first row of the next item in the queue (as M0 6.4); the toast
   names the act with "Undo  Ctrl Z": "Confirmed 14 C2 columns of 2nd to 8th." / "Q4 answered.
   Confirms 4 columns = 63.89 cft." / "Closed Step 6."
+- **Add an Element the reader missed** (story 125; the owner's Q15, 13 Oct 2026; the cause's name is
+  the ticket's to choose in `CONTEXT.md` first). In a step in review, "Add an Element" (`Shift A`, a frame
+  step's screen; settled here, `A` being Assign in Step 1 and Measure area in the 3D) puts the sheet
+  into a pick mode (`Esc` leaves it, as `W`'s mode does): the QS clicks the entity on the sheet, or
+  moves a crosshair by 8 px (`Shift` ×8) and presses `Enter`, which picks the entity under it; the
+  picked entity is boxed and the inspector shows the form "Add an Element": its source (its layer and handle on S-09), **Family** (the step's families, named, never typed free), and
+  "Add ↵". The act records a Confirmation and a Trace anchored on that entity; the Element joins the
+  list in the band its sheet position names, marked "Added by Nusrat Jahan: the reader missed it",
+  and **counts in n / N** (the group's "13 / 14" becomes "14 / 15"; N is the schedule's, so an added
+  Element that the schedule does not hold raises N and says so: "15 on the plan, 14 on the
+  schedule"). The toast names the act with "Undo  Ctrl Z": "Added a C2 column at 3/C, 4th." **Undo
+  removes it** (it is the step's last act: the usual `Ctrl Z` rule). A re-read (a Revision or a
+  reader upgrade) keeps it as added, never proposing it "removed"; only a Revision whose sheet no
+  longer carries the entity proposes its removal (M1.md, Takeoff). Closing the step then never drops
+  it from the Priced BOQ unpriced. A second tenant never sees it; the MD is offered no such act (1.5).
 - **Quantities that change** after a later step's act: "Step 8 closed. 14 C2 columns are measured
   again: 186.34 cft is now 184.72 cft (height to the slab soffit, a 6″ slab)." as a toast and a line in
   the group's Who did what (spec stories 66, 80; O6).
@@ -649,8 +665,8 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
    the plan alone" where the drawing gives none, story 55).
 2. "Enter takes them in this order": 1 "Confirm the 86 columns that agree" · 2 "Answer 4 Questions:
    the largest quantity first" · 3 "Close Step 6".
-3. Cost Basis: "Allowance until this step is closed: ৳83,88,130.80 (columns ৳60,48,688.80; shear walls and lift core
-   ৳23,39,442.00). Measured so far, 14 confirmed columns: ৳2,19,751.11 (X1)"
+3. Cost Basis: "Allowance until this step is closed: ৳1,00,46,919.54 (columns ৳83,03,563.80; shear walls and lift core
+   ৳17,43,355.74). Measured so far, 14 confirmed columns: ৳2,19,751.11 (X1)"
    (story 98; no flag, no projection: "likely over allowance" is the Summary's, M2).
 4. "Rebar: 81% from the drawing, the rest laps and hooks from rules" (the Rebar of the confirmed columns).
 5. "A Proposal counts toward nothing until you confirm it."
@@ -1400,9 +1416,14 @@ figure: `T` on the focused label opens it.
 - **The inspector** (320 px, kept as the frame's): nothing focused, "Priced BOQ of Kadam Residence" /
   "Rule Set: Standard rules, version 1" with "Read the rules" (4.15) / "5 of 7 steps measured: 4
   closed, 1 closed with a Question open; 2 on allowance" / "Rebar: 38% read from the drawing, 62%
-  by ratio" / **"Rebar 3.1 kg per sft of Gross Floor Area so far (usual range 4.5 to 6)"**, flagged in
-  amber and never blocking where it falls outside (the whole-building check, over measured, awaiting
-  and allowance Rebar: 128,976 kg ÷ 42,000 sft (T8)); an item focused, its facts
+  by ratio" / **"Rebar 3.53 kg per sft of Gross Floor Area so far (usual range 4.5 to 6 for the whole
+  Building)"** with its second line **"Measured: piles, pile caps, column stubs and columns (23,056
+  kg, 668 kg awaiting answer); on allowance: beams, slabs, core, stairs, tanks, lintels, roof room
+  and the rest of foundations (124,362 kg)"**,
+  flagged in amber and never blocking where it falls outside (the whole-building check, over
+  measured, awaiting-answer and **every** allowance row's Rebar, A4's included: 148,086 kg ÷ 42,000
+  sft (T8); a light measured frame is shown against the whole-building range with that said, never
+  alone); an item focused, its facts
   (description, Billing Unit, Cost Basis, Rebar Basis and, for Rebar by ratio, its ratio "5.1 kg per
   cft" and its from-the-drawing share, the Rate Analysis's source line, its Questions with their
   cards).
@@ -1445,20 +1466,22 @@ figure: `T` on the focused label opens it.
 - **An allowance line** sits inside its step's BOQ Section and is never split (screens.md Summary
   ruling 7): hatched, with the word "Allowance", **one row per BOQ Item** the step will bring, each
   its consumption × the Gross Floor Area at current Market Prices, and the step's heading the sum of
-  its rows. Beams (A1), from its rows: concrete 0.20 cft per sft = 8,400 cft × 276.67 = ৳23,24,028.00;
-  formwork 0.55 sft per sft = 23,100 sft × 96.50 = ৳22,29,150.00; Rebar 1.02 kg per sft = 42,840 kg ×
-  88.50 = ৳37,91,340.00; **Beams: allowance ৳83,44,518.00**, "Nothing measured yet" while the step is on
-  allowance. Slabs (A2): concrete 0.42 cft per sft = 17,640 cft (৳48,80,458.80); formwork 1.00 sft per sft
-  = 42,000 sft (৳40,53,000.00); Rebar 1.05 kg per sft = 44,100 kg (৳39,02,850.00); casting labour
-  37,800 sft (৳64,26,000.00); **Slabs: allowance ৳1,92,62,308.80**. A step in review shows "Measured
-  so far ৳2,19,751.11 of an allowance of ৳83,88,130.80" on its heading row (Step 6 at Moment A: its
+  its rows. Every consumption here is G9's, which is B.2 of `docs/research/tax-and-allowances.md` at G+9
+  (6.1). Beams (A1), from its rows: concrete 0.22 cft per sft = 9,240 cft × 276.67 = ৳25,56,430.80;
+  formwork 0.68 sft per sft = 28,560 sft × 96.50 = ৳27,56,040.00; Rebar 1.14 kg per sft = 47,880 kg ×
+  88.50 = ৳42,37,380.00; **Beams: allowance ৳95,49,850.80**, "Nothing measured yet" while the step is on
+  allowance. Slabs (A2): concrete 0.486 cft per sft (0.465 slab, 0.021 edge members) = 20,412 cft
+  (৳56,47,388.04); formwork 0.88 sft per sft = 36,960 sft (৳35,66,640.00); Rebar 1.22 kg per sft =
+  51,240 kg (৳45,34,740.00); casting labour 1.00 sft per sft = 42,000 sft (৳71,40,000.00); **Slabs:
+  allowance ৳2,08,88,768.04**. A step in review shows "Measured
+  so far ৳2,19,751.11 of an allowance of ৳1,00,46,919.54" on its heading row (Step 6 at Moment A: its
   14 confirmed columns, X1: 186.34 cft × 276.67 + 670.88 sft × 96.50 + 1,169 kg × 88.50; A6; story 98); its source
   reads "Vextrus default, low confidence" (editable: 4.15). **Step 6's allowance has two parts, as Step 5
-  has two:** the columns part (concrete 0.12 cft per sft = 5,040 cft × 276.67 = ৳13,94,416.80; formwork
-  0.40 sft per sft = 16,800 sft × 96.50 = ৳16,21,200.00; Rebar 0.816 kg per sft = 34,272 kg × 88.50 =
-  ৳30,33,072.00; ৳60,48,688.80) and **"Shear walls and lift core"** (concrete 0.05 cft per sft = 2,100
-  cft = ৳5,81,007.00; formwork 0.20 sft per sft = 8,400 sft = ৳8,10,600.00; Rebar 0.255 kg per sft =
-  10,710 kg = ৳9,47,835.00; ৳23,39,442.00). Closing the step replaces the columns part whole by the
+  has two:** the columns part (concrete 0.17 cft per sft = 7,140 cft × 276.67 = ৳19,75,423.80; formwork
+  0.47 sft per sft = 19,740 sft × 96.50 = ৳19,04,910.00; Rebar 1.19 kg per sft = 49,980 kg × 88.50 =
+  ৳44,23,230.00; ৳83,03,563.80) and **"Shear walls and lift core"** (concrete 0.041 cft per sft = 1,722
+  cft = ৳4,76,425.74; formwork 0.12 sft per sft = 5,040 sft = ৳4,86,360.00; Rebar 0.21 kg per sft =
+  8,820 kg = ৳7,80,570.00; ৳17,43,355.74). Closing the step replaces the columns part whole by the
   measured items (story 99); **the walls-and-core part stays, hatched, until M1-37 reads the walls**
   (4.6), so unread walls never drop out of the total. Items outside the casting-area contract (pile
   caps, grade beams, the column stub from cap top to plinth) carry their own casting labour, RCC
@@ -1696,7 +1719,7 @@ current set, with each price's change history (`T`); Issued Estimates' frozen se
      words (story 4). **Specified, route open** (8, item 6).
   4. **Allowances:** **one row per Takeoff Step and BOQ Item** it will bring, not yet closed (the MEP
      Parts' lines join in M3): Step | BOQ Item | Consumption with its unit per sft ("Beams · RCC in beams ·
-     0.20 cft per sft"; "Beams · Formwork to beams · 0.55 sft per sft"; "Beams · Rebar · 1.02 kg per
+     0.22 cft per sft"; "Beams · Formwork to beams · 0.68 sft per sft"; "Beams · Rebar · 1.14 kg per
      sft") | Source ("Vextrus default, low confidence" | "Entered by
      …") | Quantity and amount at the Gross Floor Area; the foundations step in its two parts ("Piles and pile caps", "The rest of
      foundations"); a consumption is a typed cell (`E`, `Enter` saves, `Ctrl V` pastes down a column).
@@ -1901,7 +1924,7 @@ table once, by hand, and the citations by grep. Arithmetic: `.private/work/M1-24
 | G6 | Piles | type P1, 20″ dia; cut-off −5′-0″, toe −70′-0″ from the datum; over-cast 2′-0″; head breaking per pile | 47 |
 | G7 | Pile caps | given totals | 1,184.00 cft; sides 1,056.00 sft |
 | G8 | Column stubs, cap top to plinth | one per column position, 10″ × 20″ × 4′-0″ | 11 |
-| G9 | Allowance consumptions per sft of floor | Beams: concrete 0.20 cft, formwork 0.55 sft, Rebar 1.02 kg; Slabs: 0.42 cft, 1.00 sft, 1.05 kg, casting area 0.90 sft; Step 6 columns: 0.12 cft, 0.40 sft, 0.816 kg; Step 6 shear walls and lift core: 0.05 cft, 0.20 sft, 0.255 kg; the rest of Step 5: 0.181 kg | as listed |
+| G9 | Allowance consumptions per sft of floor: **the one seed table**, `docs/research/tax-and-allowances.md` B.2 at G+9 (Library defaults, bd-defaults 116-118; the Rebar is B.2's printed row, concretes printed to two places so concrete × ratio differs from it by under 0.04 kg) | Beams (Step 7): concrete 0.22 cft, formwork 0.68 sft, Rebar 1.14 kg (5.1 per cft); Slabs (Step 8): concrete 0.465 + edge members 0.021 = 0.486 cft, formwork 0.88 sft, Rebar 1.22 kg (2.5 per cft), casting area 1.00 sft; Step 6 columns: 0.17 cft, formwork 0.47 sft, Rebar 1.19 kg (6.8 per cft); Step 6 shear walls and lift core: 0.041 cft, formwork 0.12 sft (0.041 × 2 faces ÷ 8″, B.2's "core both faces"), Rebar 0.21 kg (0.041 × 5.1); Step 6's B.2 totals 0.59 sft and 1.40 kg are the sums (columns formwork and Rebar are the totals less the core's); the rest of Step 5: Rebar 0.181 kg; stairs 0.05, tanks 0.10, lintels 0.03, roof stair and lift room 0.03 kg | as listed |
 | **Per element** | | | |
 | E1 | Column concrete | 10″ × 20″ = 1.3889 sft × 9′-7″ (10′-0″ less the 5″ slab, J1 until Step 8) | 13.31 cft |
 | E2 | Column formwork | 2 × (10″ + 20″) = 5′-0″ × 9′-7″ | 47.92 sft |
@@ -1935,19 +1958,19 @@ table once, by hand, and the citations by grep. Arithmetic: `.private/work/M1-24
 | W3 | Rebar | G4 8 × E3 = 668 kg × R3 | 59,118.00 |
 | **T2** | **Awaiting answer** | W1 to W3 | **1,25,572.06** |
 | **Allowance** (parts not yet measured) | | | |
-| A1 | Beams | G9 × G1: 8,400 cft × 276.67 = 23,24,028.00; 23,100 sft × 96.50 = 22,29,150.00; 42,840 kg × 88.50 = 37,91,340.00 | 83,44,518.00 |
-| A2 | Slabs | 17,640 cft = 48,80,458.80; 42,000 sft = 40,53,000.00; 44,100 kg = 39,02,850.00; casting area 37,800 sft × 170.00 = 64,26,000.00 | 1,92,62,308.80 |
-| A3 | Step 6, shear walls and lift core | 2,100 cft = 5,81,007.00; 8,400 sft = 8,10,600.00; 10,710 kg = 9,47,835.00 | 23,39,442.00 |
-| A4 | The remaining allowance lines (Steps 9 to 14, the rest of Step 5, the MEP template) | a balancing figure to the Library's per-step defaults: 9,12,40,000.00 − (A1 + A2 + A3); the seed writes its rows | 6,12,93,731.20 |
+| A1 | Beams | G9 × G1: 9,240 cft × 276.67 = 25,56,430.80; 28,560 sft × 96.50 = 27,56,040.00; 47,880 kg × 88.50 = 42,37,380.00 | 95,49,850.80 |
+| A2 | Slabs | 20,412 cft = 56,47,388.04; 36,960 sft = 35,66,640.00; 51,240 kg = 45,34,740.00; casting area 42,000 sft × 170.00 = 71,40,000.00 | 2,08,88,768.04 |
+| A3 | Step 6, shear walls and lift core | 1,722 cft = 4,76,425.74; 5,040 sft = 4,86,360.00; 8,820 kg = 7,80,570.00 | 17,43,355.74 |
+| A4 | The remaining allowance lines (Steps 9 to 14, the rest of Step 5, the MEP template) | a balancing figure to the Library's per-step defaults: 9,12,40,000.00 − (A1 + A2 + A3); the seed writes its rows. Its Rebar rows (G9): the rest of Step 5 0.181 × G1 = 7,602 kg; stairs, tanks, lintels, roof room (0.05 + 0.10 + 0.03 + 0.03) × G1 = 8,820 kg; 16,422 kg in all | 5,90,58,025.42 |
 | **T3** | **Allowance** | A1 to A4 | **9,12,40,000.00** |
-| A5 | Step 6, columns part (Moment A only) | 5,040 cft = 13,94,416.80; 16,800 sft = 16,21,200.00; 34,272 kg = 30,33,072.00 | 60,48,688.80 |
-| A6 | Step 6 as a whole at Moment A | A5 + A3 | 83,88,130.80 |
+| A5 | Step 6, columns part (Moment A only) | 7,140 cft = 19,75,423.80; 19,740 sft = 19,04,910.00; 49,980 kg = 44,23,230.00 | 83,03,563.80 |
+| A6 | Step 6 as a whole at Moment A | A5 + A3 | 1,00,46,919.54 |
 | **Totals** | | | |
 | T4 | Total | T1 + T2 + T3 = 67,56,093.82 + 1,25,572.06 + 9,12,40,000.00 | 9,81,21,665.88 |
 | T5 | Per sft | T4 ÷ G1 | 2,336.23 |
 | T6 | Measured share | T1 ÷ T4 | 6.89% |
 | T7 | The strip, whole taka | 67,56,094 + 1,25,572 + 9,12,40,000 (adds as displayed) | 9,81,21,666 |
-| T8 | Rebar read, by ratio, per sft | read M11 + M14 = 8,766 kg; by ratio M5 + M8 = 14,290 kg; whole Building (+ W3 668 + A1 42,840 + A2 44,100 + A3 10,710 + the rest of Step 5 7,602) = 128,976 kg ÷ G1 | 38% read, 62% ratio; 3.07 kg per sft |
+| T8 | Rebar so far, per sft (the whole-building check, bd-defaults 59-60: 4.5 to 6) | measured: read M11 + M14 = 8,766 kg; by ratio M5 + M8 = 14,290 kg (23,056 kg); awaiting answer W3 668 kg; allowance Rebar, every row: A1 47,880 + A2 51,240 + A3 8,820 + A4 16,422 = 124,362 kg; whole Building 23,056 + 668 + 124,362 = 148,086 kg ÷ G1. Day one on G9 alone: 0.94 + 1.40 + 1.14 + 1.22 + 0.05 + 0.10 + 0.03 + 0.03 = 4.91 kg per sft (B.3 prints 4.90). What is measured (piles, caps, stubs, 100 columns, with the 8 awaiting: 23,724 kg, 0.56 kg per sft) stands where their allowances (0.759 + 1.19 = 1.95 kg per sft, 81,858 kg) would have been, so a light measured frame pulls the figure below the range; the screen says which steps are measured | 38% of the measured read, 62% ratio; 3.53 kg per sft, amber |
 | **Moment A** | | | |
 | X1 | Step 6, measured so far | G5 14 × E1 = 186.34 cft × R1 = 51,554.69; 14 × E2 = 670.88 sft × R2 = 64,739.92; 14 × E3 = 1,169 kg × R3 = 1,03,456.50 | 2,19,751.11 |
 | **Cement** (C14: net × 1.02, rounded up per cell; E5) | | | |
@@ -2058,6 +2081,7 @@ prefix KW- so that a failed line named in a PR (`KW-F6`) is never taken for the 
 - [ ] KW-F2 `↓` to a group that agrees, `Enter` → "Confirmed 14 C2 columns…" toast with Undo; focus moves to
   the next row.
 - [ ] KW-F3 `Ctrl Z` → the group is a Proposal again and the toast names what it undid.
+- [ ] KW-F3a `Shift A`, pick an entity on the sheet, choose a Family, `Enter` → the Element joins the list marked "Added by" and n / N counts it; `Ctrl Z` → it is gone and n / N is as before.
 - [ ] KW-F4 `→` on a group, `→` `→`, `Esc` → Elements step in order, the counter reads "Column 3 of 14",
   `Esc` leaves the review.
 - [ ] KW-F5b `Space` on a group, then `→` `→` in the canvas → the sheet flies to each Element in turn,
@@ -2142,7 +2166,7 @@ prefix KW- so that a failed line named in a PR (`KW-F6`) is never taken for the 
   the browser taking them; one `Ctrl V` of a column of figures from Excel lines up in an allowance
   column.
 - [ ] KW-B12 Formwork, Rebar by ratio ("1.7 kg per cft") and the casting-area line are present; the
-  inspector's "Rebar 3.1 kg per sft so far" is there.
+  inspector's "Rebar 3.53 kg per sft so far" is there, with the steps it was measured on.
 
 **Prices, settings, Material Schedule (4.14–4.16)**
 - [ ] KW-P1 `Enter` on a price → field; type; `Enter` saves and moves down; `Esc` restores; the toast names the
