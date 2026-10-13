@@ -16,13 +16,21 @@ const bodyText = () => clean(document.body.textContent)
 const FILE = 'KR-STR-R0.dwg'
 
 /** A Proposal with its place in its file (`layout`, which t22's fixture type leaves out). */
-type Placed = ProposalOut & { layout: string | null }
+type Placed = ProposalOut & { layout: string | null; x_mm?: number | null }
 
 /**
  * KR-01 with its two S-07 copies alike in file, mark and date: `places` and `titles` set each copy's
  * layout (null: laid out in the drawing) and title. The S-07 Question offers the read job's options.
  */
-function kr01(places: [string | null, string | null], titles: [string, string], files: [string, string] = [FILE, FILE], distinctIds = false, over: [Partial<Placed>, Partial<Placed>] = [{}, {}]): FakeApi {
+function kr01(
+  places: [string | null, string | null],
+  titles: [string, string],
+  files: [string, string] = [FILE, FILE],
+  distinctIds = false,
+  over: [Partial<Placed>, Partial<Placed>] = [{}, {}],
+  /** Copies beyond the two, each a clone of the second (a conflict holds every copy of its number). */
+  more = 0,
+): FakeApi {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   const copies = step1.proposals.filter((p) => p.number === 'S-07')
@@ -40,6 +48,7 @@ function kr01(places: [string | null, string | null], titles: [string, string], 
       ...over[i]!,
     }),
   )
+  for (let i = 0; i < more; i++) step1.proposals.push({ ...copies[1]!, id: `copy-${i + 3}`, sheet_id: `sheet-${i + 3}` } as Placed)
   for (const p of step1.proposals) if (!('layout' in p)) Object.assign(p as Placed, { layout: null })
   const q = step1.questions.find((x) => x.code === 'engine.conflicts.same_number')!
   q.options = ['keep_latest', 'keep_all', 'keep_open'].map((key) => ({ key, picked: false }))
@@ -49,7 +58,7 @@ function kr01(places: [string | null, string | null], titles: [string, string], 
 /** The S-07 Question's card, opened from the S-07 row. */
 async function card(api: FakeApi): Promise<HTMLElement> {
   await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
-  await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+  await waitFor(() => expect(bodyText()).toMatch(/Confirmed 0 \/ \d+/))
   const rows = () => {
     const all = [...document.querySelectorAll<HTMLElement>('tr, [role="row"], [role="option"]')].filter((r) => clean(r.textContent).includes('S-07'))
     return all.filter((r) => !all.some((o) => o !== r && r.contains(o)))
@@ -109,7 +118,7 @@ describe('a "Two sheets, one number" card: the table shows what the options name
     const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
     expect(clean(section.textContent)).toContain('The copies are alike in every field the table shows.')
     const keep = optionWords(section).find((w) => /superseded/.test(w))
-    expect(keep, optionWords(section).join(' | ')).toMatch(/upper copy in the table|lower copy in the table/)
+    expect(keep, optionWords(section).join(' | ')).toMatch(/the copy in row [12]/)
   })
 
   it('does not say they are alike when one field differs', async () => {
@@ -121,8 +130,8 @@ describe('a "Two sheets, one number" card: the table shows what the options name
     const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT'], [FILE, FILE], true))
     expect(clean(section.textContent)).toContain('The copies are alike in every field the table shows.')
     const keep = optionWords(section).find((w) => /superseded/.test(w))
-    expect(keep, optionWords(section).join(' | ')).not.toMatch(/the copy in /)
-    expect(keep).toMatch(/upper copy in the table|lower copy in the table/)
+    expect(keep, optionWords(section).join(' | ')).not.toMatch(/the copy in \S+\.dwg/)
+    expect(keep).toMatch(/the copy in row [12]/)
   })
 
   it('says the copies are alike when they tie and neither has a title (round 3)', async () => {
@@ -139,5 +148,51 @@ describe('a "Two sheets, one number" card: the table shows what the options name
     const keep = words.find((w) => /superseded/.test(w))
     expect(keep, words.join(' | ')).toMatch(/^\d?Keep R[01] \(\d\d \w{3} 2026\); leave R[01] out as superseded/)
     expect(keep).not.toMatch(/title|dwg/i)
+  })
+})
+
+/*
+ * S25-D1 round 4 (#774): the File cell breaks only inside the file name; a tied copy is named by its row;
+ * the Question offers a keep for each copy (m0-screens 6.7).
+ */
+describe('a "Two sheets, one number" card: round 4', () => {
+  it('lets only the file name break anywhere: the words around it never break mid-word', async () => {
+    const section = await card(kr01([null, 'Layout2'], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
+    const cell = within(section).getByRole('table').querySelectorAll('tbody tr')[0]!.querySelectorAll('td')[2]!
+    expect(cell.className).not.toMatch(/break-all/)
+    expect(cell.className).toMatch(/break-words/)
+    const name = cell.querySelector('bdi')!
+    expect(clean(name.textContent)).toBe(FILE)
+    expect(name.className).toMatch(/overflow-wrap:anywhere/)
+  })
+
+  it('names a tied copy by its row, never "the upper copy" or "the lower copy"', async () => {
+    const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
+    const keep = optionWords(section).find((w) => /superseded/.test(w))
+    expect(keep, optionWords(section).join(' | ')).toMatch(/Keep the copy in row 1; leave the copy in row 2 out as superseded/)
+  })
+
+  it('names tied copies by their row when there are three: the kept copy by its row, the others counted', async () => {
+    const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT'], [FILE, FILE], false, [{}, {}], 1))
+    const keep = optionWords(section).find((w) => /superseded/.test(w))
+    expect(keep, optionWords(section).join(' | ')).toMatch(/Keep the copy in row 1; leave the other 2 copies out as superseded/)
+    for (const w of optionWords(section)) expect(w).not.toMatch(/upper copy|lower copy/i)
+  })
+
+  it('says where each copy laid out in the drawing sits in its file, in the Display Units (m0-screens 6.7: ", x 2,460′")', async () => {
+    const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT'], [FILE, FILE], false, [{ x_mm: 749808 }, { x_mm: -360000 }]))
+    const cells = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => r.querySelectorAll('td')[2]!)
+    expect(cells.map((c) => clean(c.textContent))).toEqual([`${FILE}, laid out in the drawing, x 2460′-0″`, `${FILE}, laid out in the drawing, x −1181′-1¼″`])
+    for (const cell of cells) expect(cell.querySelector('[data-notation="coordinate"]'), 'x is isolated as a figure').not.toBeNull()
+    // Told apart by where they sit, the card does not say they are alike, and the options name each by its x.
+    expect(clean(section.textContent)).not.toContain('alike in every field')
+    const keep = optionWords(section).find((w) => /superseded/.test(w))
+    expect(keep, optionWords(section).join(' | ')).toMatch(/the copy laid out in the drawing at x /)
+  })
+
+  it('says nothing of x for a copy on a layout, or one whose frame has no known position', async () => {
+    const section = await card(kr01([null, 'Layout2'], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
+    const files = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => clean(r.querySelectorAll('td')[2]!.textContent))
+    expect(files).toEqual([`${FILE}, laid out in the drawing`, `${FILE}, layout “Layout2”`])
   })
 })

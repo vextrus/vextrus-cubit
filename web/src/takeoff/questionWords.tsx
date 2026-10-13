@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import type { I18n } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
-import { useFormat } from '@/format'
+import { lengthFromMm, useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { isolateLtr } from '@/ui/notation'
@@ -301,7 +301,8 @@ function copyField(h: ProposalOut, field: CopyField): string {
     case 'file':
       return h.file_name
     case 'place':
-      return h.layout ?? ''
+      // A copy laid out in the drawing is placed by where its frame sits (the File cell says it).
+      return h.layout ?? (h.x_mm == null ? '' : `x ${h.x_mm}`)
     case 'mark':
       return h.revision_mark.trim()
     case 'date':
@@ -352,7 +353,11 @@ function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly Proposal
       return <Trans>the copy in {file}</Trans>
     }
     case 'place': {
-      if (!sheet.layout) return <Trans>the copy laid out in the drawing</Trans>
+      if (!sheet.layout) {
+        if (sheet.x_mm == null) return <Trans>the copy laid out in the drawing</Trans>
+        const x = f.coordinate(lengthFromMm(sheet.x_mm))
+        return <Trans>the copy laid out in the drawing at x {x}</Trans>
+      }
       const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
       return <Trans>the copy on layout “{layout}”</Trans>
     }
@@ -362,15 +367,25 @@ function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly Proposal
       const date = f.day(sheet.issue_date!)
       return <Trans>the copy dated {date}</Trans>
     }
-    default:
-      return holds[0] === sheet ? <Trans>the upper copy in the table</Trans> : <Trans>the lower copy in the table</Trans>
+    default: {
+      // A tied copy is named by its row, so no two options read the same (3 or more copies tie as easily as 2).
+      const row = f.integer(holds.indexOf(sheet) + 1)
+      return <Trans>the copy in row {row}</Trans>
+    }
   }
 }
 
 /** Where a copy sits, as the File cell words it: its file, then its layout or "laid out in the drawing" (6.6). */
 export function CopyPlace({ sheet }: { sheet: ProposalOut }) {
-  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
-  if (!sheet.layout) return <Trans>{file}, laid out in the drawing</Trans>
+  const f = useFormat()
+  // Only the file name breaks anywhere (a long one must fit its cell); the words around it break at spaces.
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} className="[overflow-wrap:anywhere]" />
+  if (!sheet.layout) {
+    if (sheet.x_mm == null) return <Trans>{file}, laid out in the drawing</Trans>
+    // Where its frame sits along the file's x axis, in the user's Display Units (m0-screens 6.7: "x 2,460′").
+    const x = f.coordinate(lengthFromMm(sheet.x_mm))
+    return <Trans>{file}, laid out in the drawing, x {x}</Trans>
+  }
   const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
   return <Trans>{file}, layout “{layout}”</Trans>
 }

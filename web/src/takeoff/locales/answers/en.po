@@ -88,6 +88,10 @@ msgid "Answering records that the sheet is not part of this set; it stays on the
 msgstr "Answering records that the sheet is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{file}, laid out in the drawing, x {x}"
+msgstr "{file}, laid out in the drawing, x {x}"
+
+#: src/takeoff/questionWords.tsx
 msgid "{head} and {tail}"
 msgstr "{head} and {tail}"
 
@@ -106,6 +110,10 @@ msgstr "Answering decides whether this file’s sheets join the list."
 #: src/takeoff/questionWords.tsx
 msgid "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
 msgstr "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy laid out in the drawing at x {x}"
+msgstr "the copy laid out in the drawing at x {x}"
 
 #: src/takeoff/questionWords.tsx
 msgid "One title on {count} sheets"
@@ -261,10 +269,6 @@ msgid "Answering keeps the file held."
 msgstr "Answering keeps the file held."
 
 #: src/takeoff/questionWords.tsx
-msgid "the lower copy in the table"
-msgstr "the lower copy in the table"
-
-#: src/takeoff/questionWords.tsx
 msgid "the drawing list on <0/>"
 msgstr "the drawing list on <0/>"
 
@@ -319,6 +323,10 @@ msgstr "the copy titled “{named}”"
 #: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. The MD reads Questions and cannot answer them."
 msgstr "Waiting for the QS. The MD reads Questions and cannot answer them."
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy in row {row}"
+msgstr "the copy in row {row}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering records that the numbering skips at each gap: nothing is missing."
@@ -543,10 +551,6 @@ msgstr "{n, plural, one {{tag} answered. The sheet is {kind}.} other {{tag} answ
 #: src/takeoff/questionWords.tsx
 msgid "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
 msgstr "Answering confirms {number} ({kept}) and excludes the other {others, plural, one {# copy} other {# copies}} as superseded."
-
-#: src/takeoff/questionWords.tsx
-msgid "the upper copy in the table"
-msgstr "the upper copy in the table"
 
 #: src/takeoff/questionWords.tsx
 msgid "Not part of this set: record it, then exclude it in the list"

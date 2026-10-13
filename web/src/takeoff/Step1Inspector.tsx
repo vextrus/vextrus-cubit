@@ -864,7 +864,7 @@ function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: C
                   ) : null}
                 </td>
                 <td className="pe-2 whitespace-nowrap">{s.issue_date ? f.day(s.issue_date) : '—'}</td>
-                <td className="min-w-0 break-all">
+                <td className="min-w-0 break-words">
                   <CopyPlace sheet={s} />
                 </td>
               </tr>
