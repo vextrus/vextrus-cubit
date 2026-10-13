@@ -1622,10 +1622,12 @@ def _no_one_source_in_bulk(
 def _is_whole_run(
     project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
 ) -> bool:
-    """Whether the chosen sheets are exactly one continuation row as the web builds it: the sheets of
-    one run (the grouping `proposals` shows, `groups.among`, T-W334) in one Discipline and decided
-    alike (`continues`: never two sheets decided apart), less any an open Question holds (the web
-    leaves those out of the row). Part of that row, or the row and another sheet, is not."""
+    """Whether the chosen sheets are exactly one continuation row, built as the web's `sheetRows` and
+    `continues` build it: in the Discipline's sheets in list order (`_sheets`, the order `proposals`
+    returns) less those an open Question holds and the undecided ones proposed out (their own list),
+    a row is a stretch of next-to-each-other sheets of one run (`groups.among`, T-W334) decided alike
+    (never two sheets decided apart). A run split by another sheet is two rows; part of a row, or a
+    row and another sheet, is not one."""
     from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
 
     sheets = _sheets(project_id)
@@ -1637,21 +1639,35 @@ def _is_whole_run(
         {f.id: f.group for f in files_of(project_id)},
         sheet_conventions(),
     )
-    runs = {grouped.get(sheet.id, groups.ALONE).continuation for sheet, _p in chosen}
-    states = {(sheet.discipline, sheet.decision, sheet.excluded_reason) for sheet, _p in chosen}
-    if len(runs) != 1 or None in runs or len(states) != 1:
+
+    def run_of(sheet: drawings.SheetView) -> str | None:
+        return grouped.get(sheet.id, groups.ALONE).continuation
+
+    def state_of(sheet: drawings.SheetView) -> tuple[str | None, str | None]:
+        return (sheet.decision, sheet.excluded_reason)
+
+    first, _p = chosen[0]
+    if run_of(first) is None or len({sheet.discipline for sheet, _p in chosen}) != 1:
         return False
-    run = runs.pop()
-    state = states.pop()
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
-    row = [
-        (s, by_sheet.get(s.id))
-        for s in sheets
-        if grouped.get(s.id, groups.ALONE).continuation == run
-        and (s.discipline, s.decision, s.excluded_reason) == state
-    ]
-    held = _holding(project_id, row)
-    return {s.id for s, _p in row if s.id not in held} == {sheet.id for sheet, _p in chosen}
+    mine = [(s, by_sheet.get(s.id)) for s in sheets if s.discipline == first.discipline]
+    held = _holding(project_id, mine)
+    rows: list[list[drawings.SheetView]] = []
+    for sheet, _p in mine:
+        if sheet.id in held or (sheet.decision is None and sheet.proposed_exclusion):
+            continue
+        last = rows[-1][-1] if rows else None
+        if (
+            last
+            and run_of(last) == run_of(sheet)
+            and state_of(last) == state_of(sheet)
+            and run_of(sheet)
+        ):
+            rows[-1].append(sheet)
+        else:
+            rows.append([sheet])
+    wanted = {sheet.id for sheet, _p in chosen}
+    return any({s.id for s in row} == wanted for row in rows)
 
 
 def _holding(
