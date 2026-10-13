@@ -20,7 +20,7 @@ import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, copiesTie, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, copiesNamedByRow, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
@@ -761,7 +761,7 @@ function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer
 /** A tied copy's row number, as the options name it ("the copy in row 2"). */
 function CopyRow({ row }: { row: string }) {
   return (
-    <span className="block text-ink-secondary">
+    <span className="block whitespace-nowrap text-ink-secondary">
       <Trans>Row {row}</Trans>
     </span>
   )
@@ -778,8 +778,8 @@ function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: C
   const copies = entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
   // Copies told apart by title: the table shows it, as the options name them by it.
   const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
-  // Copies alike in every field are named by their row in the options ("the copy in row 2"), so the table numbers them.
-  const tied = copiesTie(entry.holds, (mm) => f.plain.coordinate(lengthFromMm(mm)))
+  // A copy no field tells apart is named by its row in the options ("the copy in row 2"), so the table numbers the rows.
+  const tied = copiesNamedByRow(entry.holds, (mm) => f.plain.coordinate(lengthFromMm(mm)))
   const trace = (
     <p className="text-xs text-ink-secondary empty:hidden">
       <Trace entry={entry} context={context} onOpen={onOpen} />

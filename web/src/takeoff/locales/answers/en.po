@@ -56,6 +56,10 @@ msgid "{tag} answered. The Discipline of {sheet} is {discipline}."
 msgstr "{tag} answered. The Discipline of {sheet} is {discipline}."
 
 #: src/takeoff/questionWords.tsx
+msgid "{mark} ({place})"
+msgstr "{mark} ({place})"
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list found in the drawings"
 msgstr "the drawing list found in the drawings"
 
@@ -217,6 +221,10 @@ msgid "{tag} answered. Its sheets are unchanged: confirm or exclude them in the 
 msgstr "{tag} answered. Its sheets are unchanged: confirm or exclude them in the list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{mark} ({date})"
+msgstr "{mark} ({date})"
+
+#: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 msgstr "{tag} answered. Confirms {number} {kept} and excludes {dropped} as superseded."
 
@@ -239,6 +247,10 @@ msgstr "{tag} answered. The sheet stays in the count as missing."
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: the range on {sheet} includes its top storey."
 msgstr "{tag} answered. Recorded: the range on {sheet} includes its top storey."
+
+#: src/takeoff/questionWords.tsx
+msgid "{mark} ({file})"
+msgstr "{mark} ({file})"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: {sheet} is not part of this set; exclude it in the list."
@@ -537,6 +549,10 @@ msgid "{tag} answered. Your answer is recorded."
 msgstr "{tag} answered. Your answer is recorded."
 
 #: src/takeoff/questionWords.tsx
+msgid "{mark} (row {row})"
+msgstr "{mark} (row {row})"
+
+#: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. A Guest reads Questions and cannot answer them."
 msgstr "Waiting for the QS. A Guest reads Questions and cannot answer them."
 
@@ -599,6 +615,10 @@ msgstr "{file}, layout “{layout}”"
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The file is set aside, waiting for the re-saved file."
 msgstr "{tag} answered. The file is set aside, waiting for the re-saved file."
+
+#: src/takeoff/questionWords.tsx
+msgid "{mark} (“{named}”)"
+msgstr "{mark} (“{named}”)"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. Recorded: {missing, plural, one {the missing sheet is still to come; ask the consultant for it.} other {the # missing sheets are still to come; ask the consultant for them.}}"

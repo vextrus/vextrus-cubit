@@ -217,7 +217,7 @@ export function Trace({ entry, context, onOpen }: { entry: QuestionEntry; contex
     return <Trans>Trace: {file}, as each of the two readers read it</Trans>
   }
   if (isCopies(entry)) {
-    const copies = <Joined items={entry.holds.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen}><SheetName sheets={[h]} /> <Copy sheet={h} /></SheetLink>)} />
+    const copies = <Joined items={entry.holds.map((h) => <SheetLink key={h.id} sheet={h} onOpen={onOpen}><SheetName sheets={[h]} /> <TracedCopy sheet={h} holds={entry.holds} /></SheetLink>)} />
     const list = context.lists[q.discipline ?? '']
     if (first?.number && list?.numbers.includes(first.number)) {
       const source = <ListSource entry={entry} context={context} onOpen={onOpen} />
@@ -336,11 +336,49 @@ export function copiesTie(holds: readonly ProposalOut[], xWords?: XWords): boole
   return holds.length > 1 && new Set(holds.map(key)).size === 1
 }
 
+/** Whether any option names a copy by its row in the table (no field tells it from every other copy), so the table numbers its rows. */
+export function copiesNamedByRow(holds: readonly ProposalOut[], xWords?: XWords): boolean {
+  return holds.length > 1 && holds.some((h) => telling(h, holds, xWords) === null)
+}
+
 /** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7); "no revision mark" for none. */
 export function Copy({ sheet }: { sheet: ProposalOut }) {
   if (!sheet.revision_mark.trim()) return <Trans>no revision mark</Trans>
   const mark = <DrawingText kind="revision" text={sheet.revision_mark} truncate={false} />
   return /^rev\b|^r\d/i.test(sheet.revision_mark) ? mark : <Trans>rev {mark}</Trans>
+}
+
+/**
+ * A copy in the Trace line, named as the options name it: by its mark when the mark tells it apart, else the mark
+ * and, in brackets, the field that does (its row when none does), so the one-click trace tells the copies apart.
+ */
+function TracedCopy({ sheet, holds }: { sheet: ProposalOut; holds: readonly ProposalOut[] }) {
+  const f = useFormat()
+  const mark = <Copy sheet={sheet} />
+  switch (telling(sheet, holds, (mm) => f.plain.coordinate(lengthFromMm(mm)))) {
+    case 'mark':
+      return mark
+    case 'date': {
+      const date = f.day(sheet.issue_date!)
+      return <Trans>{mark} ({date})</Trans>
+    }
+    case 'title': {
+      const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
+      return <Trans>{mark} (“{named}”)</Trans>
+    }
+    case 'file': {
+      const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+      return <Trans>{mark} ({file})</Trans>
+    }
+    case 'place': {
+      const place = <CopyPlace sheet={sheet} withoutFile />
+      return <Trans>{mark} ({place})</Trans>
+    }
+    default: {
+      const row = f.integer(holds.indexOf(sheet) + 1)
+      return <Trans>{mark} (row {row})</Trans>
+    }
+  }
 }
 
 /**

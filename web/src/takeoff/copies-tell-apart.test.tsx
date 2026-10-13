@@ -224,3 +224,44 @@ describe('a "Two sheets, one number" card: the design gate’s fixes', () => {
     expect(first).toEqual(['R0', 'R0'])
   })
 })
+
+/*
+ * S26-D6 fix round 2 (#801 re-walk): "Row 1" stays on one line in the narrow Copy column (a short label in a narrow cell:
+ * measured, as file-tooltip.test.tsx measures); the Trace line tells tied copies apart as the options do; the rows are
+ * numbered whenever any option names a copy by its row.
+ */
+describe('a "Two sheets, one number" card: round 2 of the design gate', () => {
+  const TIED: [string, string] = ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']
+  const trace = (section: HTMLElement) => clean([...section.querySelectorAll('p')].find((p) => clean(p.textContent).startsWith('Trace:'))?.textContent)
+
+  it.each([1440, 1024])('keeps "Row N" on one line box in the Copy column at %i px', async (width) => {
+    await page.viewport(width, 900)
+    const section = await card(kr01([null, null], TIED))
+    const labels = [...within(section).getByRole('table').querySelectorAll<HTMLElement>('tbody tr td:first-child span')].filter((s) => /^Row \d/.test(clean(s.textContent)))
+    expect(labels).toHaveLength(2)
+    for (const l of labels) {
+      const range = document.createRange()
+      range.selectNodeContents(l)
+      const lines = new Set([...range.getClientRects()].map((r) => Math.round(r.top)))
+      expect(lines.size, `${clean(l.textContent)} on ${lines.size} lines`).toBe(1)
+    }
+  })
+
+  it('tells tied copies apart in the Trace line by their row, as the options do', async () => {
+    const section = await card(kr01([null, null], TIED))
+    expect(trace(section)).toMatch(/the title blocks of S-07 R0 \(row 1\) and S-07 R0 \(row 2\)/)
+  })
+
+  it('tells copies that only the place tells apart by their place in the Trace line', async () => {
+    const section = await card(kr01([null, 'Layout2'], TIED))
+    expect(trace(section)).toMatch(/S-07 R0 \(laid out in the drawing\) and S-07 R0 \(layout “Layout2”\)/)
+  })
+
+  it('numbers the rows when any option names a copy by its row: three copies, the kept one alike with another', async () => {
+    const section = await card(kr01([null, null], TIED, [FILE, FILE], false, [{}, { issue_date: '2026-09-14' }], 1))
+    const first = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => clean(r.querySelectorAll('td')[0]!.textContent))
+    expect(first.some((c) => /^Row \d/.test(c)), first.join(' | ')).toBe(true)
+    expect(optionWords(section).join(' | ')).toMatch(/the copy in row \d/)
+    expect(trace(section)).toMatch(/\(row [23]\)/)
+  })
+})
