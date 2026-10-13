@@ -34,8 +34,13 @@
 - `record <PR> --round n --head <sha> --from <file> [--exception … --reason …]`: decides, leak-scans
   what it will post and write, posts one marker comment
   (`<!-- vextrus-review round=N head=<sha> verdict=V findings=k -->`), then writes
-  `<ledger>/<PR>-<head>.json` atomically, once: a record is never overwritten. The record of truth is
-  local: refused in a cloud session (`CLAUDE_CODE_REMOTE=true`).
+  `<ledger>/<PR>-<head>.json` atomically, once: a record is never overwritten. A head is reviewed once,
+  with one exception (S26-FX9): a `delta-review` round n may re-review the head round n-1 recorded when
+  that round's FIX rested only on replayed attacks no refuter confirmed (its record's `replays_only`;
+  never after a refuter-confirmed replay or a lens's finding: no refuter shopping); its record is
+  `<PR>-<head>-r<n>.json`, and the newest round's record of a head is the one read. A FINDING whose
+  id is `r<n>-<id>` is an earlier round's attack replayed (review.py names them so). The record of
+  truth is local: refused in a cloud session (`CLAUDE_CODE_REMOTE=true`).
 - `fetch-verdict <PR> --launch <launch record> --round n` (a cloud review): fetches the review branch the
   launch record names and records its verdict file only if the branch's tip is one commit on the PR's
   head adding only that file, and the file's nonce, head and PR match the launch record and the PR's
@@ -66,6 +71,10 @@ from typing import Any, NamedTuple
 
 REPOSITORY = "vextrus/vextrus-cubit"
 SHA = re.compile(r"[0-9a-f]{40}")
+# A record's file name after `<PR>-`: the head, then `-r<round>` for a same-head re-review (S26-FX9).
+RECORD_NAME = re.compile(r"([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")
+# An earlier round's replayed attack, as review.py names its FINDING (`r<round>-<id>`).
+REPLAYED = re.compile(r"r[1-9][0-9]*-\S+")
 NONCE = re.compile(r"[0-9a-f]{32}")
 VERDICT = re.compile(r"VERDICT: (PASS|FIX|BLOCK) at (\S+)")
 FINDING = re.compile(
@@ -124,6 +133,8 @@ class Decision:
     # verdict, which `commit_record` refuses under a PASS; the ids to file as issues, in input order).
     unrefuted_blocking: int = 0
     to_file: tuple[str, ...] = ()
+    # Recorded, never printed: a FIX that rests only on replayed attacks no refuter confirmed (S26-FX9).
+    replays_only: bool = False
 
     def line(self) -> str:
         return json.dumps(
@@ -335,12 +346,27 @@ def decide(data: bytes, head: str) -> Decision:
 def judge(verdicts: Sequence[str], findings: dict[str, Judged], sha256: str) -> Decision:
     """The decision from the reviewers' verdicts and the findings by id, as the bar reads them."""
     judged = [Judged(*finding) for finding in findings.values()]
+    decided = verdict(verdicts, judged)
     return Decision(
-        verdict(verdicts, judged),
+        decided,
         counts(len(verdicts), judged),
         sha256,
         sum(finding.word == "-" and blocks(finding) for finding in judged),
         tuple(name for name, finding in findings.items() if to_file(*Judged(*finding))),
+        decided == "FIX" and rests_on_replays(findings),
+    )
+
+
+def rests_on_replays(findings: dict[str, Judged]) -> bool:
+    """Every finding that could block and stands is an earlier round's replayed attack that no
+    refuter confirmed (UNPROVEN), and there is one: the only FIX a same-head delta review may follow.
+    A refuter-confirmed replay or any lens finding that stands rules it out (no refuter shopping)."""
+    standing = [
+        (name, finding) for name, finding in findings.items()
+        if finding.word in STANDS and blocks(finding)
+    ]  # fmt: skip
+    return bool(standing) and all(
+        REPLAYED.fullmatch(name) is not None and finding.word == "UNPROVEN" for name, finding in standing
     )
 
 
@@ -389,7 +415,13 @@ def recorded_rounds(ledger_dir: Path, pr: int) -> list[int]:
 
 def recorded(ledger_dir: Path, pr: int) -> list[tuple[int, str]]:
     """`(round, head)` of each record of the PR; Refused if a record cannot be read (fail closed)."""
-    found: list[tuple[int, str]] = []
+    return [(round_, head) for round_, head, _record in records_of(ledger_dir, pr)]
+
+
+def records_of(ledger_dir: Path, pr: int) -> list[tuple[int, str, dict[str, Any]]]:
+    """`(round, head, record)` of each record of the PR, by round; Refused if a record cannot be read,
+    or a same-head record's name and round disagree (fail closed)."""
+    found: list[tuple[int, str, dict[str, Any]]] = []
     if not ledger_dir.exists():
         return found
     try:
@@ -398,14 +430,50 @@ def recorded(ledger_dir: Path, pr: int) -> list[tuple[int, str]]:
         raise Refused("the ledger folder cannot be listed") from error
     for name in names:
         path = ledger_dir / name
-        head = name.removesuffix(".json").removeprefix(f"{pr}-")
-        if not name.endswith(".json") or not SHA.fullmatch(head):
+        named = RECORD_NAME.fullmatch(name.removeprefix(f"{pr}-")) if name.startswith(f"{pr}-") else None
+        if named is None:
             continue
         try:
-            found.append((int(json.loads(path.read_text())["round"]), head))
+            record = json.loads(path.read_text())
+            round_ = int(record["round"])
         except (OSError, ValueError, KeyError, TypeError) as error:
             raise Refused(f"cannot read the ledger record {path.name}") from error
-    return found
+        if named[2] is not None and int(named[2]) != round_:
+            raise Refused(f"the ledger record {path.name} names another round than it holds")
+        found.append((round_, named[1], record))
+    return sorted(found, key=lambda one: one[0])
+
+
+def record_path(ledger_dir: Path, pr: int, head: str, round_: int) -> Path:
+    """Where round `round_`'s record of `head` goes: `<PR>-<head>.json` for the head's first record,
+    `<PR>-<head>-r<round>.json` for a same-head re-review (a name no other round writes)."""
+    first = ledger_dir / f"{pr}-{head}.json"
+    return first if not first.exists() else ledger_dir / f"{pr}-{head}-r{round_}.json"
+
+
+def newest_record(ledger_dir: Path, pr: int, head: str) -> dict[str, Any] | None:
+    """The newest round's record of `head` (None: the head has none)."""
+    mine = [record for _round, sha, record in records_of(ledger_dir, pr) if sha == head]
+    return mine[-1] if mine else None
+
+
+def check_head(ledger_dir: Path, pr: int, head: str, round_: int, exception: str | None) -> None:
+    """A head is reviewed once; a `delta-review` round n may re-review the head only when round n-1
+    recorded it with a FIX that rested only on replayed attacks no refuter confirmed (S26-FX9)."""
+    last = newest_record(ledger_dir, pr, head)
+    if last is None:
+        return
+    if (
+        exception == DELTA
+        and last.get("round") == round_ - 1
+        and last.get("verdict") == "FIX"
+        and last.get("replays_only") is True
+    ):
+        return
+    raise Refused(
+        f"PR {pr} at {head} is already recorded: a head is reviewed once (a {DELTA} re-reviews it "
+        "only after a FIX that rested only on replayed attacks no refuter confirmed)"
+    )
 
 
 def round_head(ledger_dir: Path, pr: int, round_: int) -> str:
@@ -505,7 +573,8 @@ def commit_record(
 ) -> None:
     """Scan, post the marker, then write the record: the steps every record takes, in this order."""
     refuse_in_the_cloud()
-    path = ledger_dir / f"{pr}-{head}.json"
+    check_head(ledger_dir, pr, head, round_, None if exception is None else exception["kind"])
+    path = record_path(ledger_dir, pr, head, round_)
     if path.exists():
         raise Refused(f"{path.name} is already recorded: a record is never overwritten")
     if decision.verdict == "PASS" and decision.unrefuted_blocking:
@@ -539,6 +608,8 @@ def commit_record(
             "exception": exception,
             "source": source,
             "recorded_at": utc_now(),
+            # Only on a FIX resting on unconfirmed replays: every other record keeps its old shape.
+            **({"replays_only": True} if decision.replays_only and source == "review-pr" else {}),
         },
     )
     with journal_path(ledger_dir).open("a") as journal:  # under the ledger lock, as every record

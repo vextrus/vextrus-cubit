@@ -61,6 +61,7 @@ from vextrus.drawings.messages import files as file_words
 from vextrus.drawings.messages import reads as refusal
 from vextrus.drawings.messages import sheets as said
 from vextrus.drawings.models import (
+    Artefact,
     Decision,
     Discipline,
     DisciplineKind,
@@ -136,6 +137,9 @@ class SheetView:
     """From a held file the QS chose to read anyway: its sheets are marked."""
     layers: tuple[tuple[str, int], ...] = ()
     """What it draws by layer, as the reading counted it (`SheetCandidate.layers`); none unread."""
+    drawing_unit: str = ""
+    """The unit its file draws in (`inch`, `ft`, `mm`, `m`) that its `location`'s box is in; "" for
+    a unit not named here."""
 
 
 @dataclass(frozen=True)
@@ -1080,6 +1084,7 @@ def _sheet_view(
         plot=_plot(sr, context),
         held=source.read_status == ReadStatus.QUARANTINED,
         layers=_layers_of(sr.layers),
+        drawing_unit=context.unit(sr.source_file_id, sr.reader_version),
     )
 
 
@@ -1119,6 +1124,17 @@ class _PlotContext:
         self._market = market
         self._pdfs: list[tuple[uuid.UUID | None, datetime, str, str]] | None = None
         self._names: dict[uuid.UUID, str] | None = None
+        self._units: dict[tuple[uuid.UUID, str], str] | None = None
+
+    def unit(self, file_id: uuid.UUID, reader_version: str) -> str:
+        """The unit a file's reading drew in (`inch`, `ft`, `mm`, `m`); "" for one not named here."""
+        if self._units is None:
+            kept = Artefact.objects.filter(file__drawing_set_id=self._set_id)
+            self._units = {
+                (file, version): _UNITS.get(units, "")
+                for file, version, units in kept.values_list("file_id", "reader_version", "insunits")
+            }
+        return self._units.get((file_id, reader_version), "")
 
     def pdfs(self) -> list[tuple[uuid.UUID | None, datetime, str, str]]:
         """The set's PDFs: Discipline, added, name and read status, of none last, oldest first."""

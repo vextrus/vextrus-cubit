@@ -25,6 +25,8 @@ ends the line).
 A `web-test` that fails with every failing test's error vitest's `Error: Test timed out in <n>ms.` line
 (the counts agreeing, see `timed_out_files`) has each such file run again alone, `--maxWorkers=1`, as its
 own `web-test-rerun` check; it passes only if every re-run passes, and any other failure stands.
+`web-test-slowed` is CI's second pass: `web-test` with `VITE_FAKE_API_LATENCY_MS` read from
+`.github/workflows/web.yml`; its timed-out files are re-run alone the same way, latency kept.
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -52,6 +54,10 @@ PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
 FLAKY = ".github/flaky.txt"
 FLAKY_ROOT = ".github/flaky-root.txt"
+WEB_YML = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "web.yml"
+LATENCY_KEY = "VITE_FAKE_API_LATENCY_MS"
+LATENCY_SETTING = re.compile(rf"^\s*{LATENCY_KEY}:\s*[\"']?(\d+)[\"']?\s*$", re.M)
+SLOWED = "web-test-slowed"
 PYTEST_FAILURE = re.compile(r"^(?:FAILED|ERROR) (\S.*)$")
 VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
 SUMMARY_LINE = re.compile(r"^=*\s*\d+ \w.*\bin \d+(?:\.\d+)?s\b")
@@ -94,7 +100,15 @@ def pytest_target(path: str) -> str | None:
 
 
 LINT_TESTS = "tools/lint/tests"
-WEB_CHAIN = ("openapi-export", "api-types", "typecheck", "lint", "messages-check", "web-test")
+WEB_CHAIN = (
+    "openapi-export",
+    "api-types",
+    "typecheck",
+    "lint",
+    "messages-check",
+    "web-test",
+    "web-test-slowed",
+)
 # The checks that read the exported schema run after it, in its chain (#709: contract-fixtures raced
 # openapi-export when it ran as its own chain).
 SCHEMA_CHAIN = (*WEB_CHAIN, "contract-fixtures")
@@ -166,6 +180,14 @@ def _port_free(port: int) -> bool:
     return True
 
 
+def ci_latency() -> str:
+    """CI's slowed-fake latency, read from web.yml when verify runs (it cannot drift)."""
+    found = LATENCY_SETTING.findall(WEB_YML.read_text())
+    if len(found) != 1:
+        raise SystemExit(f"verify: {WEB_YML} must set {LATENCY_KEY} exactly once, found {len(found)}")
+    return str(found[0])
+
+
 def vitest_port(root: Path) -> int:
     """The first of a block of three free ports, begun at a slot the root's hash picks."""
     start = (int(_digest(root)[:8], 16) % 10000) * BROWSER_PORTS
@@ -174,6 +196,42 @@ def vitest_port(root: Path) -> int:
         if all(_port_free(first + k) for k in range(BROWSER_PORTS)):
             return first
     return 20000 + start
+
+
+CI_WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml"
+NODE_TEST_ROOTS = (".claude/", "scripts/", "tools/mod/", ".github/", "docs/")
+"""The folders node tests can read; a root-level file (CLAUDE.md, CONTEXT.md ...) is read too."""
+
+
+def reads_node_tests(path: str) -> bool:
+    return path.startswith(NODE_TEST_ROOTS) or "/" not in path
+
+
+def ci_node_command(workflow: Path = CI_WORKFLOW) -> tuple[str, ...]:
+    """The argv of the one `run: node --test ...` step of ci.yml's `harness` job (quoted globs: Node 24
+    runs a directory argument as a file)."""
+    lines = workflow.read_text().splitlines()
+    if "  harness:" not in lines:
+        raise SystemExit("verify: ci.yml's harness job has 0 `node --test` steps, not one")
+    start = lines.index("  harness:")
+    end = next(
+        (
+            i
+            for i in range(start + 1, len(lines))
+            if lines[i].startswith("  ") and lines[i][2:3].isalpha()
+        ),
+        len(lines),
+    )
+    commands = [
+        shlex.split(line.strip().removeprefix("- ").removeprefix("run:").strip(), comments=True)
+        for line in lines[start:end]
+        if line.strip().removeprefix("- ").startswith("run: node --test")
+    ]
+    if len(commands) != 1:
+        raise SystemExit(
+            f"verify: ci.yml's harness job has {len(commands)} `node --test` steps, not one"
+        )
+    return tuple(commands[0])
 
 
 WORDS_INPUTS = frozenset({"tools/lint/words.py", "tools/lint/words_allowlist.toml"})
@@ -229,6 +287,12 @@ def plan_with_notes(
                 ("npm", "--prefix", "web", "test"),
                 {"VEXTRUS_VITEST_PORT": str(vitest_port(root))},
             ),
+            # CI's second pass (web.yml): every FakeApi answer waits, so a latency race fails here.
+            Check(
+                SLOWED,
+                ("npm", "--prefix", "web", "test"),
+                {"VEXTRUS_VITEST_PORT": str(vitest_port(root)), LATENCY_KEY: ci_latency()},
+            ),
         ]
     if fixtures:
         # Reply fixtures against the exported schema (S17-F5); an acceptance-only change exports it too.
@@ -237,9 +301,9 @@ def plan_with_notes(
             checks.append(Check("openapi-export", (*export, "--output", schema)))
         contract = ("uv", "run", "python", "-m", "tools.lint.contract_fixtures", "--schema", schema)
         checks.append(Check("contract-fixtures", contract))
-    if any(p.startswith(".claude/hooks/") for p in paths):
-        # A glob, never a folder: `node --test <dir>` fails on Node 24.
-        checks.append(Check("node-test", ("node", "--test", ".claude/hooks/**/*.test.mjs")))
+    if any(reads_node_tests(p) for p in paths):
+        # CI's harness step itself (S26-FX10), never a restated copy: the two cannot drift.
+        checks.append(Check("node-test", ci_node_command()))
     if any(p.startswith(".claude/workflows/") for p in paths):
         checks.append(Check("workflows-js", ("python3", "-m", "tools.lint.workflows_js")))
     if any(p.startswith((".github/workflows/", ".github/actions/")) for p in paths):
@@ -572,13 +636,15 @@ def main(
                 code, flakes = 0, listed
             else:
                 code = raw = again
-        elif code != 0 and check.name == "web-test" and (files := timed_out_files(code, output)):
+        elif (
+            code != 0 and check.name in ("web-test", SLOWED) and (files := timed_out_files(code, output))
+        ):
             # Each timed-out file alone, vitest's workers capped: a pool under load times a slow
             # test out; only a file that passes alone is excused (the owner's Q-R3).
             codes = []
             for file in files:
                 alone = Check(
-                    "web-test-rerun",
+                    f"{check.name}-rerun",
                     (*check.argv, "--", file, "--maxWorkers=1"),
                     check.env,
                 )

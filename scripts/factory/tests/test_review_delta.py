@@ -3,6 +3,7 @@ round 3 FIX need round 4 as a delta review). Round 4's base is round 3's head; i
 the fix since then; round 3's kept attack re-runs; a round-4 PASS of kind delta-review lets the PR
 merge, and the ledger's and merge_ready's round rules hold past round 3."""
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -219,9 +220,11 @@ def test_an_earlier_attack_that_does_not_exit_zero_blocks(
 
     monkeypatch.setattr(review, "replay", replay)
     monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
-    review.replay_earlier(run, rv, main, earlier)
-    assert [(item.id, item.word) for item in run.findings] == [("r1-l1-f1", "CONFIRMED")]
-    assert run.findings[0].score >= ledger.BLOCK_AT
+    claims = review.replay_earlier(run, rv, main, earlier)
+    # A failed replay is a claim for the refuter, never CONFIRMED by replay alone (S26-FX9).
+    assert [(item.id, item.word, item.method) for item in claims] == [("r1-l1-f1", "UNPROVEN", None)]
+    assert claims[0].score >= ledger.BLOCK_AT
+    assert run.findings == []
 
 
 def test_an_earlier_attack_that_passes_adds_nothing_that_blocks(
@@ -240,7 +243,7 @@ def test_an_earlier_attack_that_passes_adds_nothing_that_blocks(
         return False
 
     monkeypatch.setattr(review, "replay", replay)
-    review.replay_earlier(run, rv, main, earlier)
+    assert review.replay_earlier(run, rv, main, earlier) == []
     assert run.findings == []
 
 
@@ -262,8 +265,8 @@ def test_an_earlier_attack_that_skips_every_test_blocks(
 
     monkeypatch.setattr(review, "replay", replay)
     monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
-    review.replay_earlier(run, rv, main, earlier)
-    assert [(item.id, item.word) for item in run.findings] == [("r1-l1-f1", "CONFIRMED")]
+    claims = review.replay_earlier(run, rv, main, earlier)
+    assert [(item.id, item.word) for item in claims] == [("r1-l1-f1", "UNPROVEN")]
 
 
 @pytest.mark.parametrize(
@@ -307,8 +310,7 @@ def test_an_earlier_attack_reads_fixed_only_when_every_test_passed(
 
     monkeypatch.setattr(review, "replay", replay)
     monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
-    review.replay_earlier(run, rv, main, earlier)
-    assert (run.findings == []) is fixed
+    assert (review.replay_earlier(run, rv, main, earlier) == []) is fixed
 
 
 @pytest.mark.parametrize(
@@ -384,3 +386,210 @@ def test_an_earlier_attack_replays_from_its_own_path_so_it_finds_the_repository(
     review.replay_earlier(run, rv, main, earlier)
     assert seen == [rv.resolve()]
     assert run.findings == []
+
+
+FAILED_HERE = (
+    "review_attacks/lens-b/test_a.py:5: AssertionError\n"
+    "FAILED review_attacks/lens-b/test_a.py::test_a - AssertionError: no TOTAL_OK\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("output", "place"),
+    [
+        (FAILED_HERE, "review_attacks/lens-b/test_a.py::test_a at review_attacks/lens-b/test_a.py:5"),
+        # --tb=line prints the absolute path
+        (("/x/rv1/review_attacks/lens-b/test_a.py:9: AssertionError: guard\n"
+          "FAILED review_attacks/lens-b/test_a.py::test_a - AssertionError: guard\n"),
+         "review_attacks/lens-b/test_a.py::test_a at review_attacks/lens-b/test_a.py:9"),
+        # a collection error is no failure by name: always elsewhere
+        ("ERROR review_attacks/lens-b/test_a.py - AssertionError: guard\n", None),
+        ("______ ERROR collecting review_attacks/lens-b/test_a.py ______\nE   AssertionError\n", None),
+        # a captured log's ERROR line changes nothing
+        (FAILED_HERE + "ERROR    x:test_a.py:5 boom\n",
+         "review_attacks/lens-b/test_a.py::test_a at review_attacks/lens-b/test_a.py:5"),
+        ("1 passed in 0.01s\n", None),
+        # --tb=no, or pytest.fail(pytrace=False): no line of the test file is printed
+        ("FAILED review_attacks/lens-b/test_a.py::test_a - Failed: guard\n",
+         "review_attacks/lens-b/test_a.py::test_a"),
+    ],
+    ids=["long", "line", "collection-error", "collection-header", "a-logged-error", "passed",
+         "no-traceback"],
+)  # fmt: skip
+def test_failed_at_names_the_failing_tests_and_their_lines_in_the_attack(
+    output: str, place: str | None
+) -> None:
+    assert review.failed_at(output, "review_attacks/lens-b/test_a.py") == place
+    collected = review.collection_error(output, "review_attacks/lens-b/test_a.py")
+    assert collected is output.startswith(("ERROR review_attacks", "______ ERROR collecting"))
+
+
+def test_keep_attacks_keeps_where_the_attack_failed_on_its_own_round(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    main, rv = tmp_path / "main", tmp_path / "rv"
+    (rv / "review_attacks" / "lens-b").mkdir(parents=True)
+    (rv / "review_attacks" / "lens-b" / "test_a.py").write_text("def test_a() -> None:\n    pass\n")
+    one = review.Run(PR, 1, head="c" * 40)
+    item = review.Finding("l1-f1", 80, TOTAL, 1, "the total is wrong", "review_attacks/lens-b/test_a.py",
+                          word="CONFIRMED", method="replay")  # fmt: skip
+    item.replayed = {"failed_at": "THE_PLACE"}
+    one.findings = [item]
+    review.keep_attacks(one, rv, main)
+    manifest = json.loads((review.attacks_dir(main, PR, "c" * 40) / review.MANIFEST).read_text())
+    assert [entry["failed_at"] for entry in manifest] == ["THE_PLACE"]
+
+
+OWN = "t.py::test_one t.py::test_two[1] at t.py:5 t.py:9"
+
+
+NO_TB = "FAILED t.py::test_one - Failed: guard\n"
+TB = "t.py:5: AssertionError\nFAILED t.py::test_one - AssertionError\n"
+
+
+@pytest.mark.parametrize(
+    ("own", "now", "elsewhere"),
+    [
+        # a signature without lines (--tb=no, --tb=native, pytrace=False) is compared by test id
+        (NO_TB, NO_TB, False),
+        (NO_TB, TB, False),
+        (TB, NO_TB, False),
+        (NO_TB, "FAILED t.py::test_two - Failed: guard\n", True),
+        (TB, "FAILED t.py::test_two - Failed: guard\n", True),
+        (TB, TB, False),
+        (TB, "t.py:3: AssertionError\nFAILED t.py::test_one - AssertionError\n", True),
+    ],
+    ids=["none-none", "none-lines", "lines-none", "none-other-test", "lines-other-test",
+         "lines-lines", "lines-other-line"],
+)  # fmt: skip
+def test_a_replay_without_a_traceback_is_judged_by_its_test_id(
+    own: str, now: str, elsewhere: bool
+) -> None:
+    """Review round 1 of PR 808 (52, 50): a lines-free signature read STALE whatever failed."""
+    place = review.failed_at(own, "t.py")
+    assert place is not None
+    assert review.fails_elsewhere(place, {"failed_at": review.failed_at(now, "t.py")}) is elsewhere
+
+
+@pytest.mark.parametrize("own", ["t.py::test_one at", "t.py::test_one at "])
+def test_a_kept_signature_with_a_dangling_at_reads_as_no_lines(own: str) -> None:
+    assert review.fails_elsewhere(own, {"failed_at": "t.py::test_one"}) is False
+    assert review.fails_elsewhere(own, {"failed_at": "t.py::test_two at t.py:5"}) is True
+
+
+@pytest.mark.parametrize(
+    ("shown", "word"),
+    [
+        ({"exit": 1, "summary": {"failed": 1}, "failed_at": OWN}, "UNPROVEN"),
+        # the refuter of this ticket: a partial fix leaves test_two failing at line 9
+        ({"exit": 1, "summary": {"failed": 1}, "failed_at": "t.py::test_two[1] at t.py:9"},
+         "UNPROVEN"),
+        ({"exit": 1, "summary": {"failed": 1}, "failed_at": "t.py::test_one at t.py:3"}, "STALE"),
+        ({"exit": 2, "summary": {"error": 1}, "failed_at": None, "collection_error": True},
+         "STALE"),
+        # a timeout, a skip, nothing run: never stale, the refuter judges them
+        ({"outcome": "timed out", "exit": None}, "UNPROVEN"),
+        ({"exit": 0, "summary": {"skipped": 1}, "failed_at": None}, "UNPROVEN"),
+        ({"exit": 5, "summary": {}, "failed_at": None}, "UNPROVEN"),
+    ],
+    ids=["same-place", "partial-fix", "elsewhere", "collection-error", "timeout", "skip", "none-ran"],
+)  # fmt: skip
+def test_a_replay_failing_elsewhere_than_on_its_own_round_is_stale_and_handed_as_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, shown: dict[str, Any], word: str
+) -> None:
+    run, main, rv = kept_round(tmp_path, monkeypatch)
+    where = review.attacks_dir(main, PR, "c" * 40)
+    manifest = json.loads((where / review.MANIFEST).read_text())
+    for entry in manifest:
+        entry["failed_at"] = OWN if entry["test_file"] else None
+    (where / review.MANIFEST).write_text(json.dumps(manifest))
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+
+    def replay(at: Path, _slot: int, name: str) -> bool:
+        review.REPLAYS[(str(at), name)] = dict(shown)
+        return False
+
+    monkeypatch.setattr(review, "replay", replay)
+    monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
+    claims = review.replay_earlier(run, rv, main, earlier)
+    judged = [(item.id, item.word) for item in [*claims, *run.stale]]
+    assert judged == [("r1-l1-f1", word)]
+    handed = "\n".join(run.earlier_text)
+    assert ("the total is wrong" in handed) is (word == "STALE"), handed
+
+
+@pytest.mark.parametrize(
+    ("findings", "rests"),
+    [
+        ({"r1-l1-f1": ledger.Judged(80, "UNPROVEN", None)}, True),
+        ({"r1-l1-f1": ledger.Judged(80, "CONFIRMED", None)}, False),  # the refuter confirmed it
+        ({"r1-l1-f1": ledger.Judged(80, "UNPROVEN", None),
+          "l1-f1": ledger.Judged(80, "UNPROVEN", None)}, False),  # a lens finding stands too
+        ({"r1-l1-f1": ledger.Judged(80, "REFUTED", None)}, False),  # nothing stands: PASS
+    ],
+    ids=["unproven-replay", "confirmed-replay", "lens-finding", "refuted"],
+)  # fmt: skip
+def test_a_fix_rests_on_replays_only_when_no_refuter_confirmed_one_and_no_lens_finding_stands(
+    findings: dict[str, ledger.Judged], rests: bool
+) -> None:
+    decision = ledger.judge(["PASS"], findings, "0" * 64)
+    assert decision.replays_only is rests, decision
+
+
+def seed(store: Path, name: str, round_: int, verdict: str, *, replays_only: bool | None) -> None:
+    record: dict[str, Any] = {
+        "schema_version": 1, "pr": PR, "head": "a" * 40, "round": round_, "verdict": verdict,
+        "counts": {"reviewers": 1, "findings": 1, "findings_ge_50": 1, "confirmed": 0, "refuted": 0,
+                   "unproven": 1, "unrefuted_ge_50": 0},
+        "decision_input_sha256": "0" * 64, "comment_id": round_,
+        "exception": {"kind": ledger.DELTA, "reason": "the cap"}, "source": "review-pr",
+        "recorded_at": "2026-10-13T00:00:00Z",
+    }  # fmt: skip
+    if replays_only is not None:
+        record["replays_only"] = replays_only
+    store.mkdir(parents=True, exist_ok=True)
+    (store / name).write_text(json.dumps(record))
+
+
+@pytest.mark.parametrize(
+    ("verdict", "replays_only", "round_", "exception", "allowed"),
+    [
+        ("FIX", True, 4, ledger.DELTA, True),
+        ("FIX", None, 4, ledger.DELTA, False),  # a FIX on a lens or refuter-confirmed finding
+        ("FIX", True, 4, None, False),  # only a delta review
+        ("FIX", True, 5, ledger.DELTA, False),  # only the very next round
+        ("PASS", None, 4, ledger.DELTA, False),
+    ],
+)
+def test_a_head_is_re_reviewed_only_after_a_fix_resting_only_on_unconfirmed_replays(
+    tmp_path: Path,
+    verdict: str,
+    replays_only: bool | None,
+    round_: int,
+    exception: str | None,
+    allowed: bool,
+) -> None:
+    store = tmp_path / "ledger"
+    seed(store, f"{PR}-{'a' * 40}.json", 3, verdict, replays_only=replays_only)
+    if allowed:
+        ledger.check_head(store, PR, "a" * 40, round_, exception)
+        assert ledger.record_path(store, PR, "a" * 40, round_).name == f"{PR}-{'a' * 40}-r{round_}.json"
+    else:
+        with pytest.raises(ledger.Refused, match="reviewed once"):
+            ledger.check_head(store, PR, "a" * 40, round_, exception)
+
+
+@pytest.mark.parametrize(("replays_only", "ok"), [(True, True), (None, False)])
+def test_merge_ready_reads_a_same_head_record_only_after_a_fix_resting_on_replays(
+    tmp_path: Path, replays_only: bool | None, ok: bool
+) -> None:
+    store = tmp_path / "ledger"
+    seed(store, f"{PR}-{'a' * 40}.json", 3, "FIX", replays_only=replays_only)
+    seed(store, f"{PR}-{'a' * 40}-r4.json", 4, "PASS", replays_only=None)
+    assert ledger.newest_record(store, PR, "a" * 40)["round"] == 4  # type: ignore[index]
+    facts = {"pr": PR, "head": "a" * 40, "base": "b" * 40,
+             "comments": [{"id": 4, "body": f"<!-- vextrus-review round=4 head={'a' * 40} "
+                                            "verdict=PASS findings=1 -->"}]}  # fmt: skip
+    problems = merge_ready.ledger_problems(facts, store, tmp_path)
+    assert (problems == []) is ok, problems

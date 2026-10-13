@@ -9,9 +9,8 @@
  * sheet (so the list's own Space-to-select is off), everything else at the screen's scope. The MD and
  * a Guest see everything and change nothing: a key that would change something says so (§1.4).
  *
- * The toolbar's Count ("Confirmed 16 / 24, 1 excluded") is the frame's (03), read from the session's
- * project summary; the API does not send Step 1's counts there, so this screen writes what it reads
- * from 19a into that summary (the rail's mark and count follow).
+ * The toolbar's Count ("Confirmed 16 / 24, 1 excluded") is the frame's (03), read from this screen's own
+ * queries (counts.ts), so it changes in the same render as the rows.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
@@ -216,21 +215,6 @@ function NoSheets({ project, readOnly }: { project: ProjectSummary; readOnly: bo
   )
 }
 
-/** The project summary's Step 1 counts, from what Step 1 read (the frame's Count and the rail's mark). */
-function useSummaryCounts(project: ProjectSummary, model: Step1Model) {
-  const queryClient = useQueryClient()
-  const { data: session } = useSuspenseQuery(sessionQuery)
-  const counts = useMemo(
-    () => ({ found: model.found, confirmed: model.confirmed, excluded: model.excluded, questionsOpen: model.queue.length }),
-    [model.found, model.confirmed, model.excluded, model.queue.length],
-  )
-  const shown = session.projects.find((p) => p.id === project.id)?.step1
-  useEffect(() => {
-    if (shown && shown.found === counts.found && shown.confirmed === counts.confirmed && shown.excluded === counts.excluded && shown.questionsOpen === counts.questionsOpen) return
-    queryClient.setQueryData<Session>(sessionQuery.queryKey, (s) => (s ? { ...s, projects: s.projects.map((p) => (p.id === project.id ? { ...p, step1: counts } : p)) } : s))
-  }, [queryClient, project.id, counts, shown])
-}
-
 /** Sheets in list order: what sheet mode pages through (a Question's copies included, files not). */
 /** E on a confirmed sheet: the words the server refuses its correction with. */
 const CONFIRMED_NOT_CORRECTED = { code: 'takeoff.step1.confirmed_not_corrected', params: {} } as const
@@ -277,7 +261,6 @@ function Step1({
   const acts = useStep1Acts(project.id, drawn)
   const toast = useToast()
   const format = useFormat()
-  useSummaryCounts(project, model)
 
   // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
   const { sheet: asked } = useSearch({ strict: false }) as { sheet?: string }

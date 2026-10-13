@@ -14,7 +14,7 @@ import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
 import { ActorChip } from './ActorChip'
 import { StoreyStrip, StoreysText, stripSlots } from './storeys'
-import { QuestionTitle } from './questionWords'
+import { CopyPlace, QuestionTitle } from './questionWords'
 import { listSheet, rowState, type DisciplineSection, type Row, type Step1Model } from './model'
 import { DISCIPLINE_NAMES, NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, REASON_SHORT, UNKNOWN_REASON } from './words'
 
@@ -318,8 +318,6 @@ const FILE_COLUMN = 'hidden @min-[1000px]:block'
 
 /** The source file (6.2); its tooltip adds where in it the sheet is laid out. */
 function FileCell({ sheet }: { sheet: ProposalOut }) {
-  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
-  const layout = sheet.layout
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -328,13 +326,10 @@ function FileCell({ sheet }: { sheet: ProposalOut }) {
         </span>
       </TooltipTrigger>
       <TooltipContent>
-        {layout ? (
-          <Trans>
-            {file}, layout “<DrawingText kind="mark" text={layout} truncate={false} />”
-          </Trans>
-        ) : (
-          <Trans>{file}, laid out in the drawing</Trans>
-        )}
+        {/* One flow child: the shared content is a flex row, which would set the file name and the x in columns. */}
+        <span>
+          <CopyPlace sheet={sheet} />
+        </span>
       </TooltipContent>
     </Tooltip>
   )

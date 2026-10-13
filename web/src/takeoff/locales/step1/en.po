@@ -261,10 +261,6 @@ msgid "{name}: {openText} Questions open"
 msgstr "{name}: {openText} Questions open"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "laid out in the drawing"
-msgstr "laid out in the drawing"
-
-#: src/takeoff/Step1Inspector.tsx
 #: src/takeoff/Step1Screen.tsx
 msgid "Nothing is waiting."
 msgstr "Nothing is waiting."
@@ -522,8 +518,8 @@ msgid "Kept open"
 msgstr "Kept open"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "layout “<0/>”"
-msgstr "layout “<0/>”"
+msgid "Row {row}"
+msgstr "Row {row}"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Undo your last confirmation, exclusion, correction or drawing list on Step 1"

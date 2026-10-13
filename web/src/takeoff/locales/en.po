@@ -707,14 +707,6 @@ msgstr "{name}: no page matched a sheet"
 msgid "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
 msgstr "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
 
-#: src/takeoff/SheetList.tsx
-msgid "{file}, layout “<0/>”"
-msgstr "{file}, layout “<0/>”"
-
-#: src/takeoff/SheetList.tsx
-msgid "{file}, laid out in the drawing"
-msgstr "{file}, laid out in the drawing"
-
 #: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}, Vextrus Engineer"
 msgstr "{Name} is confirmed by {by}, Vextrus Engineer"
