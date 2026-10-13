@@ -466,6 +466,7 @@ def walk_spec(
             "WALK_CONFLICTS": str(walk.out_dir / "conflicts.json"),
             "WALK_SNAPSHOT": str(walk.out_dir / "snapshot.json"),
             "WALK_SETS": str(manifest),
+            "WALK_EXPECT": str(root / ".private" / "work" / "walk-expect"),
             "WALK_SHA": walk.sha,
             "WALK_STARTED_AT": started_at,
             "WALK_SMOKE": "1" if smoke else "",

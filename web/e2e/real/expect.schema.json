@@ -20,8 +20,8 @@
   },
   "properties": {
     "files": { "type": "integer", "minimum": 1, "description": "How many files the set holds; every one must be read." },
-    "p95_ms_max": { "type": "number", "minimum": 0, "description": "The act p95 limit, in ms, while a later file reads." },
-    "act_max_ms": { "type": "number", "minimum": 0, "description": "The worst act's limit, in ms, while a later file reads." },
+    "p95_ms_max": { "type": "number", "minimum": 0, "description": "The act p95 limit, in ms, while a read runs (from the first file's read on)." },
+    "act_max_ms": { "type": "number", "minimum": 0, "description": "The worst act's limit, in ms, while a read runs (from the first file's read on)." },
     "act_samples_min": { "type": "integer", "minimum": 0, "description": "Acts of each kind (confirm, undo, exclude, answer) the walk must time while a read runs." },
     "questions_max_per_discipline": { "type": "integer", "minimum": 0, "description": "Q5: machine-doubt Questions per Discipline (open Questions not on true_questions, numbering gaps once per file)." },
     "bulk_confirmable_share_min": { "type": "number", "minimum": 0, "maximum": 1, "description": "Q5: the share of Sheets the QS can confirm in bulk: (a) the set's bulk Sheets, of every Discipline (one the key does not name too) and of none, are at least the share of the key's N for the set, and (b) each Discipline's bulk Sheets (Sheets with no Discipline one row) are at least the share of the Sheets the product itself files under it; the numbers against the key's N per Discipline are reported, never judged (the owner, 5 Oct 2026: \"Total + own split\"; Q9)." },

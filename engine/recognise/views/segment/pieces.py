@@ -349,29 +349,40 @@ def _pairs(
     content under it."""
     pairs: list[tuple[float, int, int]] = []
     for ti in titles:
-        t = texts[ti]
-        x0, y0, x1, y1 = t.box
-        h = max(t.height, 1e-9)
         for k, piece in enumerate(pieces):
-            px0, py0, px1, py1 = piece.box
-            if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * unit or px0 > x1 or px1 < x0:
-                continue
-            if py1 - py0 < MIN_DRAWING * h:
-                continue  # a band: the title's own frame or a row of labels, not its drawing
-            below = (py0 - y1) / h  # the drawing above its title
-            above = (y0 - py1) / h  # the drawing under its title
-            if ti in heads and -0.5 <= above <= TITLE_GAP_UNDER:
-                pairs.append((above, ti, k))
-            elif -0.5 <= below <= TITLE_GAP:
-                pairs.append((below + (TITLE_GAP_UNDER if ti in heads else 0.0), ti, k))
-            elif -0.5 <= above <= TITLE_GAP_UNDER:
-                pairs.append((above + TITLE_GAP, ti, k))
-            elif py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
-                depth = min(y0 - py0, py1 - y1) / h
-                if depth <= TITLE_INSIDE:
-                    pairs.append((TITLE_GAP + TITLE_GAP_UNDER + depth, ti, k))
+            score = _reach(texts[ti], piece.box, unit, ti in heads)
+            if score is not None:
+                pairs.append((score, ti, k))
     pairs.sort()
     return pairs
+
+
+def _reach(t: _Text, box: Bounds, unit: float, head: bool = False) -> float | None:
+    """How well a title may take a drawing's box (`_pairs`' rule, its score; None when it may not): a
+    box at least `MIN_VIEW_MM` across (scaled by `unit`) and `MIN_DRAWING` of the title's heights tall,
+    across the title, which it lies under (within `TITLE_GAP`), else over (`TITLE_GAP_UNDER`), else
+    which holds it within `TITLE_INSIDE` of an edge; a heading (`head`) takes the box it lies over
+    first, its content under it."""
+    x0, y0, x1, y1 = t.box
+    h = max(t.height, 1e-9)
+    px0, py0, px1, py1 = box
+    if max(px1 - px0, py1 - py0) < MIN_VIEW_MM * unit or px0 > x1 or px1 < x0:
+        return None
+    if py1 - py0 < MIN_DRAWING * h:
+        return None  # a band: the title's own frame or a row of labels, not its drawing
+    below = (py0 - y1) / h  # the drawing above its title
+    above = (y0 - py1) / h  # the drawing under its title
+    if head and -0.5 <= above <= TITLE_GAP_UNDER:
+        return above
+    if -0.5 <= below <= TITLE_GAP:
+        return below + (TITLE_GAP_UNDER if head else 0.0)
+    if -0.5 <= above <= TITLE_GAP_UNDER:
+        return above + TITLE_GAP
+    if py0 <= y0 and y1 <= py1:  # its drawing runs past it, under or over
+        depth = min(y0 - py0, py1 - y1) / h
+        if depth <= TITLE_INSIDE:
+            return TITLE_GAP + TITLE_GAP_UNDER + depth
+    return None
 
 
 def _cut_shared(

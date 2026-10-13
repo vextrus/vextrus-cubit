@@ -52,8 +52,9 @@ refuted, then under their own heading the findings to file as issues (50-74 off 
 `scripts.factory.review_cloud` (`launch cloud --role reviewer`, the lens's model), and nothing is
 recorded (a no-model tier is refused: it needs no reviewer). It leaves a hand-off naming each lens's
 review branch; `collect <PR> --round n` reads every lens's verdict file through the ledger's own checks
-and records ONE decision from all of them (the worst verdict, every finding), or refuses while any lens
-has not answered. `ledger fetch-verdict` refuses such a head: one lens alone never makes its record.
+and records ONE decision from all of them (the bar's verdict over every lens and finding), or refuses
+while any lens has not answered. `ledger fetch-verdict` refuses such a head: one lens alone never makes
+its record.
 
 The PR's code runs as the orchestrator's user without a sandbox, so it can write any file the user
 can (#488); review.py does not claim to stop that. It runs only in `rv<N>`: the lenses' and the
@@ -1853,7 +1854,8 @@ def read_handed(main: Path, run: Run, lens: Any) -> tuple[str, dict[str, Any], s
 def collect(run: Run, args: argparse.Namespace, main: Path) -> None:
     """`collect <PR> --round n`: every lens handed off to the cloud for the PR's head answered, each
     verdict file checked by the ledger's own reader; ONE decision is recorded from all of them
-    together (the worst verdict, every finding), or nothing is recorded while any lens is missing."""
+    together (the bar's verdict over every lens and finding: the ledger's `verdict`), or nothing is
+    recorded while any lens is missing."""
     with contextlib.ExitStack() as held:
         collect_round(run, args, main, held)
 
