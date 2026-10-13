@@ -38,7 +38,7 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    table; 12 an hour, then `wakes capped`): act on it; it replaces only the event-log Monitor (Monitor stays for one
    foreground command's log). Send `SendMessage` with `notify_when_idle` to each local builder you launch. A `relay` row
    is a `launch say` unanswered for 10 min. No polling, no foreground sleep, no process listing; `watch ensure` restarts
-   the watcher. A READY head with no verify record is bounced; push a local builder's READY head after the leak scan.
+   the watcher. A READY head with no verify record is bounced; a local builder never pushes: push its head after the leak scan.
 5. **Review with `/review-pr`.** On each READY head, merged with `main` and any PR it meets: one review, then at
    most two fix rounds (a third only under a recorded exception: `security75`, `crash`, `false-statement` or
    `fix-regression`). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message per round:
