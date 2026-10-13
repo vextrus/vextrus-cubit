@@ -874,7 +874,10 @@ def test_the_agent_layers_sign_in_is_owner_only_and_outside_the_walk(tmp_path: P
     run.write_sign_in(path, PLANTED)  # a stale one is replaced
 
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert json.loads(path.read_text()) == {"email": run.QS_EMAIL, "password": PLANTED}
+    data = json.loads(path.read_text())
+    assert (data["email"], data["password"]) == (run.QS_EMAIL, PLANTED)
+    assert {person["email"] for person in data["people"]} == {e for _, e in run.SEEDED_PEOPLE}
+    assert len(run.SEEDED_PEOPLE) == 6
     assert "walks" not in path.parts
 
 
