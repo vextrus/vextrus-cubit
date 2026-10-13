@@ -3,11 +3,12 @@
  * Chromium at the design gate's sizes, signed in through the in-memory API (src/app/testing.tsx);
  * Step 1's counts, which 19a will send, are the seed's static copy.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { onlineManager } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
+import { actStarted, resetSaves } from '@/api/saves'
 import { activateLanguage } from '@/i18n/activate'
 import { englishMessages } from '@/i18n/catalogues'
 import { ENGLISH } from '@/i18n/languages'
@@ -18,7 +19,8 @@ import { LtrCanvas, expectKeyMapSound, notationProblems } from '@/ui'
 import { i18n } from '@lingui/core'
 import { overrideLanguage } from './dev-language'
 import { BANGLADESH, STEP1 } from './seed/demo.fixture'
-import { PEOPLE, mountApp, sessionAs } from './testing'
+import { PEOPLE, mountApp, sessionAs, sheetRowNotationProblems } from './testing'
+import { openList, seed } from '../acceptance/ts15w2/keys.fixture'
 
 const QS = PEOPLE.qs
 const MD = PEOPLE.md
@@ -228,7 +230,7 @@ describe('the global keys (§2.2)', () => {
     expect(within(everywhere).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
       expect.arrayContaining([
         expect.stringContaining('Open or close the keys overlay'),
-        expect.stringContaining('Jump to a project, or a place in this one'),
+        expect.stringContaining('Jump to a project, a place or a sheet'),
         expect.stringContaining('Move to the next region'),
         expect.stringContaining('Move to the previous region'),
       ]),
@@ -374,6 +376,20 @@ describe('desktop only (§1.5)', () => {
     await mountApp('/p/KR-01/takeoff/1')
     expect(await screen.findByRole('heading', { name: 'Vextrus needs a desktop' })).toBeVisible()
     expect(document.querySelector('[data-region="top-bar"]')).toBeNull()
+    expect(clean(document.body.textContent)).toContain('Your work is saved; nothing is lost.')
+  })
+
+  it('does not promise that the work is saved at 390 px while an act is lost', async () => {
+    onTestFinished(() => resetSaves())
+    await page.viewport(390, 844)
+    await mountApp('/p/KR-01/takeoff/1')
+    expect(await screen.findByRole('heading', { name: 'Vextrus needs a desktop' })).toBeVisible()
+    // (mountApp starts from a clean network; the act is lost after, as when the connection drops mid-work.)
+    act(() => actStarted()('dropped'))
+    await waitFor(() => expect(clean(document.body.textContent)).not.toContain('nothing is lost'))
+    const words = clean(document.body.textContent)
+    expect(words).toContain('Open it on a screen 1280 px wide or more.')
+    expect(words).not.toMatch(/saved|nothing is lost/i)
   })
 })
 
@@ -456,6 +472,35 @@ describe('drawing notation on the frame (U9: the DOM test)', () => {
     await takeoff()
     expect(notationProblems(document.body)).toEqual([])
     expect(unmarkedNotation(document.body)).toEqual([])
+  })
+
+  it('finds none in the open Jump to dialog: its sheet rows hold the number, the revision and the title as drawing notation', async () => {
+    const s = seed()
+    // Two copies of S-04, told apart by revision mark and date, as Jump to shows them.
+    Object.assign(s.of('S-04'), { revision_mark: 'Rev A', issue_date: '2026-09-12' })
+    Object.assign(s.of('S-05'), { number: 'S-04', title: 'SECOND COPY', revision_mark: 'Rev B', issue_date: '2026-09-20' })
+    await openList(s)
+    await userEvent.keyboard('{Control>}k{/Control}')
+    const dialog = await screen.findByRole('dialog')
+    const sheets = await within(dialog).findByRole('group', { name: 'Sheets' })
+    await waitFor(() => expect(within(sheets).getAllByRole('option').length).toBeGreaterThan(1))
+    expect(notationProblems(dialog)).toEqual([])
+    expect(sheetRowNotationProblems(sheets, ['Rev A', 'Rev B'])).toEqual([])
+    // The mark and the date, as the list's Revision column words them; the title is isolated in its own direction.
+    expect(clean(sheets.textContent)).toContain('Rev A, 12 Sep 2026')
+    expect(sheets.querySelector('[data-notation="sheet-number"]')!.closest('[role="option"]')!.querySelector('bdi[dir="auto"]')).not.toBeNull()
+  })
+
+  it('would find a sheet number or a revision mark in Jump to written without data-notation', () => {
+    const rows = document.createElement('div')
+    rows.innerHTML =
+      '<div role="option"><bdi dir="ltr" class="num">S-04</bdi><bdi dir="auto">GROUND FLOOR</bdi><span><bdi dir="ltr">Rev A</bdi>, 12 Sep 2026</span></div>' +
+      '<div role="option"><bdi dir="ltr" data-notation="sheet-number">S-05</bdi><bdi dir="auto">ROOF</bdi><span><bdi dir="ltr">Rev B</bdi></span></div>'
+    expect(sheetRowNotationProblems(rows, ['Rev A', 'Rev B'])).toEqual([
+      'S-04GROUND FLOORRev A, 12 Sep 2026: the sheet number has no data-notation="sheet-number"',
+      'S-04GROUND FLOORRev A, 12 Sep 2026: the revision mark Rev A has no data-notation="revision"',
+      'S-05ROOFRev B: the revision mark Rev B has no data-notation="revision"',
+    ])
   })
 
   it('would find a formatted figure left unmarked', () => {

@@ -436,7 +436,7 @@ they do not restyle. 01b's pieces are judged at the design gate on a specimen ro
 | **ErrorBar** | A red inset bar: what went wrong and what to do, with one action | Never a red wall; field errors are a red edge and a line under the field |
 | **Toast** | Dark pill at the canvas foot or page foot, 6 s, with "Undo  Ctrl Z" when the act can be undone | One at a time; a new one replaces the old; `role=status` |
 | **Dialog, Popover, Menu, Tabs, Tooltip, Command** | shadcn primitives on the tokens | Every close is registered with the key map's Esc stack |
-| **PhoneNotice** | Full screen under 640 px | "Vextrus needs a desktop" / "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost." / link "Sign out" (`m0-wireframes/phone-notice-390.svg`) |
+| **PhoneNotice** | Full screen under 640 px | "Vextrus needs a desktop" / "Open it on a screen 1280 px wide or more. Your work is saved; nothing is lost." / link "Sign out" (`m0-wireframes/phone-notice-390.svg`). While a lost act shows ("Not saved", 4.1) the second line is "Open it on a screen 1280 px wide or more." and says nothing about saving |
 | **NarrowNotice** | A 28 px bar at the top, 640–1279 px | "This screen is built for 1280 px or wider. Some of it may be cut off; scroll sideways to see it." |
 | **List** | The keyboard list every table uses: 28 px rows, a focused row, `↑ ↓ Home End`, and on lists that opt in, selection by Space, Shift-click and `Shift ↑ ↓` (2.2) | Focus survives a re-render; the focused row scrolls into view |
 | **ReadOnlyChip** | In the toolbar or page header, for the MD and a Guest | "Read only: MD" / "Read only: Guest", with tooltip "You can look at the Takeoff but not change it." |
@@ -521,8 +521,10 @@ replacing its content until Esc (ux-critic #14: the Coverage popover covered the
 kind; "X —  Y —" off the sheet); the stated scale ("1:100, as stated", or "Not to scale"); "Imperial"
 (the name of the project's Display Units, a unit system its Market offers, 1.9); then on the right
 Coverage and the save state: "All changes saved" /
-"Saving…" / "Not saved: the connection dropped. Trying again." `?perf` readouts sit at the far right
-(1.6).
+"Saving…" / "Not saved: the connection dropped. Trying again." (while the connection is down) /
+"Not saved: your last change did not reach Vextrus. Do it again." (once the connection is back after a
+lost act; nothing is sent again by itself, the owner, 13 Oct 2026). `?perf` readouts sit at the far
+right (1.6).
 
 **States.**
 | State | What shows |

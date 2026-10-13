@@ -15,9 +15,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useIsFetching, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { getRouteApi, useSearch } from '@tanstack/react-router'
+import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizontal } from 'lucide-react'
-import { AppLink, PATHS } from '@/app/AppLink'
+import { AppLink, PATHS, useGo } from '@/app/AppLink'
+import { useSheetRequest } from './jump'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
@@ -28,6 +29,7 @@ import { lengthFromMm, useFormat } from '@/format'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/ui/primitives/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/ui/primitives/popover'
 import { DrawingText, Empty, IconButton, KeyCombo, KeyRegion, KeyScope, Skeleton, SheetsGlyph, buttonVariants, cn, isolateLtr, useKeys, useToast } from '@/ui'
+import { sheetAddress } from './paths'
 import { SheetName, useStep1Acts, type SheetChange } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
@@ -262,13 +264,20 @@ function Step1({
   const toast = useToast()
   const format = useFormat()
 
-  // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
-  const { sheet: asked } = useSearch({ strict: false }) as { sheet?: string }
-  const [start] = useState(() => {
-    const row = asked ? model.rows.find((r) => r.sheets.some((p) => p.sheet_id === asked)) : undefined
-    const first = row?.sheets.find((p) => p.sheet_id === asked)
-    return row && first ? { row: row.key, sheet: first.id } : null
-  })
+  // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118), or its
+  // number ("S-04", Jump to's address). Read as the text typed: the router keeps `sheet` as text (app/router.ts), so `101` and `1.10` stay as written.
+  const asked = useRouterState({ select: (s) => new URLSearchParams(s.location.searchStr).get('sheet') ?? undefined })
+  // A sheet_id wins, so an id keeps working; two sheets may share a number, and the first in the list opens.
+  const findAsked = (what: string | undefined) => {
+    if (!what) return null
+    for (const by of [(p: ProposalOut) => p.sheet_id === what, (p: ProposalOut) => p.number === what]) {
+      const row = model.rows.find((r) => r.sheets.some(by))
+      const first = row?.sheets.find(by)
+      if (row && first) return { row: row.key, sheet: first.id }
+    }
+    return null
+  }
+  const [start] = useState(() => findAsked(asked))
   const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
   const [focused, setFocusedState] = useState<string | null>(start?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
@@ -330,6 +339,18 @@ function Step1({
   const rowOfSheet = (id: string | null) => (id ? (model.rows.find((r) => r.sheets.some((s) => s.id === id)) ?? null) : null)
   const order = sheetsInOrder(model)
   const open = order.find((s) => s.id === openSheet) ?? null
+  // The address follows the sheet open: `?sheet=` holds its number (its id for copies sharing one) in sheet mode and is
+  // gone in list mode, so a remount of this screen lands where the QS is, never on the sheet a jump or a link named first.
+  // Written over the current entry (paging is not a history). It runs on a change of the sheet open, not of the address, so
+  // the browser's Back is not undone here.
+  const go = useGo()
+  const router = useRouter()
+  const wantedAddress = mode === 'sheet' && open ? sheetAddress(open, order) : undefined
+  useEffect(() => {
+    if (wantedAddress === (new URLSearchParams(router.state.location.searchStr).get('sheet') ?? undefined)) return
+    go(wantedAddress === undefined ? PATHS.takeoff(project.code, 1) : `${PATHS.takeoff(project.code, 1)}?sheet=${encodeURIComponent(wantedAddress)}`, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedAddress])
   // While a correction is open, the focused row is its sheet's row wherever a reload has put it (another person's number).
   const correctingRow = correcting === null ? null : (model.rows.find((r) => r.sheets.some((s) => s.id === correcting)) ?? null)
   const focusedRow = mode === 'sheet' ? rowOfSheet(openSheet) : correctingRow && !rowByKey(focused) ? correctingRow : rowByKey(focused)
@@ -428,6 +449,21 @@ function Step1({
     setOpenSheet(first.id)
     setFocused(row.key)
     setMode('sheet')
+  }
+
+  // Jump to (Ctrl K) on this screen: every jump opens its sheet, even one already asked for (state adjusted as it renders).
+  const request = useSheetRequest()
+  const [seenRequest, setSeenRequest] = useState(request.count)
+  if (seenRequest !== request.count) {
+    setSeenRequest(request.count)
+    const found = findAsked(request.sheet)
+    if (found) {
+      setPicker(null)
+      setRange(null)
+      setOpenSheet(found.sheet)
+      setFocused(found.row)
+      setMode('sheet')
+    }
   }
 
   /** A Trace link: open that sheet in sheet mode. */

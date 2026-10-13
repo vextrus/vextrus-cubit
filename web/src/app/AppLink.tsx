@@ -47,8 +47,8 @@ export function AppLink({
   )
 }
 
-/** Navigates to an address in PATHS. */
-export function useGo(): (to: string) => void {
+/** Navigates to an address in PATHS; `replace` writes it over the current history entry instead of adding one. */
+export function useGo(): (to: string, options?: { replace?: boolean }) => void {
   const navigate = useNavigate()
-  return (to) => void navigate({ to: to as AnyPath })
+  return (to, options) => void navigate({ to: to as AnyPath, replace: options?.replace })
 }

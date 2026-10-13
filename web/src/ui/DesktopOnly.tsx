@@ -25,8 +25,11 @@ function useMedia(query: string): boolean {
   )
 }
 
-/** "Vextrus needs a desktop": fills its container (the whole screen under 640 px). */
-export function PhoneNotice({ onSignOut, className }: { onSignOut?: () => void; className?: string }) {
+/**
+ * "Vextrus needs a desktop": fills its container (the whole screen under 640 px). While an act is lost (the status bar
+ * says "Not saved"), it does not promise that the work is saved: it says nothing about saving.
+ */
+export function PhoneNotice({ onSignOut, lost, className }: { onSignOut?: () => void; lost?: boolean; className?: string }) {
   const width = DESKTOP_FROM_PX
   return (
     <main className={cn('flex min-h-full flex-col items-center justify-center gap-4 bg-background px-8 py-12 text-center', className)}>
@@ -35,7 +38,7 @@ export function PhoneNotice({ onSignOut, className }: { onSignOut?: () => void; 
         <Trans>Vextrus needs a desktop</Trans>
       </h1>
       <p className="max-w-[34ch] text-md text-ink-secondary">
-        <Trans>Open it on a screen {width} px wide or more. Your work is saved; nothing is lost.</Trans>
+        {lost ? <Trans>Open it on a screen {width} px wide or more.</Trans> : <Trans>Open it on a screen {width} px wide or more. Your work is saved; nothing is lost.</Trans>}
       </p>
       {onSignOut ? (
         <Button variant="ghost" onClick={onSignOut} className="text-ink-link underline underline-offset-2">
@@ -56,10 +59,10 @@ export function NarrowNotice({ className }: { className?: string }) {
   )
 }
 
-export function DesktopOnly({ children, onSignOut }: { children: ReactNode; onSignOut?: () => void }) {
+export function DesktopOnly({ children, onSignOut, lost }: { children: ReactNode; onSignOut?: () => void; lost?: boolean }) {
   const phone = useMedia(`(max-width: ${PHONE_BELOW_PX - 1}px)`)
   const narrow = useMedia(`(max-width: ${DESKTOP_FROM_PX - 1}px)`)
-  if (phone) return <PhoneNotice onSignOut={onSignOut} className="min-h-dvh" />
+  if (phone) return <PhoneNotice onSignOut={onSignOut} lost={lost} className="min-h-dvh" />
   if (!narrow) return <>{children}</>
   return (
     <>

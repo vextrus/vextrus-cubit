@@ -57,8 +57,8 @@ msgid "Switch to {developer}"
 msgstr "Switch to {developer}"
 
 #: src/app/JumpTo.tsx
-msgid "Go to a project, or to a place in this one."
-msgstr "Go to a project, or to a place in this one."
+msgid "Go to a project, or to a place or sheet in this one."
+msgstr "Go to a project, or to a place or sheet in this one."
 
 #: src/app/shell.tsx
 msgid "Move to the previous region"
@@ -129,6 +129,10 @@ msgctxt "Takeoff Step"
 msgid "Beams"
 msgstr "Beams"
 
+#: src/app/JumpTo.tsx
+msgid "{mark}, {date}"
+msgstr "{mark}, {date}"
+
 #: src/app/roles.ts
 msgctxt "role"
 msgid "QS"
@@ -155,6 +159,10 @@ msgstr "Walls"
 #: src/app/CanvasFrame.tsx
 msgid ", {excluded} excluded"
 msgstr ", {excluded} excluded"
+
+#: src/app/JumpTo.tsx
+msgid "Jump to a project, a place or a sheet number…"
+msgstr "Jump to a project, a place or a sheet number…"
 
 #: src/app/TopBar.tsx
 msgid "Project: {name}. Switch project"
@@ -199,6 +207,10 @@ msgid "Move to the next region"
 msgstr "Move to the next region"
 
 #: src/app/CanvasFrame.tsx
+msgid "Not saved: your last change did not reach Vextrus. Do it again."
+msgstr "Not saved: your last change did not reach Vextrus. Do it again."
+
+#: src/app/CanvasFrame.tsx
 msgid "Selection"
 msgstr "Selection"
 
@@ -220,6 +232,10 @@ msgstr "Site"
 msgid "Members and access"
 msgstr "Members and access"
 
+#: src/app/JumpTo.tsx
+msgid "Sheets"
+msgstr "Sheets"
+
 #: src/app/CanvasFrame.tsx
 msgid "Confirmed <0/>"
 msgstr "Confirmed <0/>"
@@ -237,6 +253,10 @@ msgstr "Guest"
 msgid "Step {number}"
 msgstr "Step {number}"
 
+#: src/app/shell.tsx
+msgid "Jump to a project, a place or a sheet"
+msgstr "Jump to a project, a place or a sheet"
+
 #: src/app/CanvasFrame.tsx
 msgid "Not saved: the connection dropped. Trying again."
 msgstr "Not saved: the connection dropped. Trying again."
@@ -244,10 +264,6 @@ msgstr "Not saved: the connection dropped. Trying again."
 #: src/app/Frame.tsx
 msgid "There is nothing at this address. It may have been a link to another Developer’s project, or to a project you have not been given."
 msgstr "There is nothing at this address. It may have been a link to another Developer’s project, or to a project you have not been given."
-
-#: src/app/shell.tsx
-msgid "Jump to a project, or a place in this one"
-msgstr "Jump to a project, or a place in this one"
 
 #: src/app/TopBar.tsx
 msgid "Jump to…"
@@ -278,10 +294,6 @@ msgstr "Open the step rail"
 #: src/app/TopBar.tsx
 msgid "Working in {current}"
 msgstr "Working in {current}"
-
-#: src/app/JumpTo.tsx
-msgid "Jump to a project or a place…"
-msgstr "Jump to a project or a place…"
 
 #: src/app/roles.ts
 msgctxt "role"
