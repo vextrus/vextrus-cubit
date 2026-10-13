@@ -233,7 +233,7 @@ on the step it belongs to; Prices and Project settings undo their own last save.
 first; the Takeoff is one link away. M1's additions:
 - **The MD's landing** from the project page is the Priced BOQ (the strip first). It reads for the
   MD as a document, with no field and no action the MD cannot take: "The Gross Floor Area is not
-  entered yet. Nusrat Jahan (QS) enters it." and "14 BOQ Items have no rate yet; the QS enters
+  entered yet. Nusrat Jahan (QS) enters it." and "6 BOQ Items have no rate yet; the QS enters
   prices." (the names are the project's QS and Vextrus Engineers, by role).
 - **A Guest is money-blind until the owner rules** (9, item 5): the Priced BOQ, Prices, the Material
   Schedule's amounts and the project settings' allowances show "Ask the Developer for access to costs"
@@ -1416,7 +1416,7 @@ figure: `T` on the focused label opens it.
 │      │ │   ▾ 100 Measurement Lines …                                                 │ │           │ │
 │      │ │ 2.9.1 Casting labour (Labour Contract),  sft 42,000.00  170.00 71,40,000.00 ░│ │           │ │
 │      │ └─────────────────────────────────────────────────────────────────────┘ └────────────┘ │
-│ status bar: Rule Set: Standard rules, version 1 · 14 BOQ Items have no rate yet               │
+│ status bar: Rule Set: Standard rules, version 1 · 6 BOQ Items have no rate yet               │
 └───────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 - **The strip** (C13) at the top of the canvas, two rows at 1280 and one at 1440. Row one (the
@@ -1424,7 +1424,7 @@ figure: `T` on the focused label opens it.
   per sft of 42,000 sft, entered"), and **the measured share** ("Measured 6% of the total", with a
   three-part bar: measured solid, awaiting answer amber hatched, allowance grey hatched, a legend by
   words and never by colour alone). Row two: **Measured**, **Awaiting answer**, **Allowance**, and the
-  **unpriced count** ("14 BOQ Items have no rate yet, from 9 prices not entered"; a link, below).
+  **unpriced count** ("6 BOQ Items have no rate yet, from 4 prices not entered"; a link, below).
   **Money in the strip is whole taka** with its short form in the Market's words beneath ("11.61
   crore", "1.34 lakh"), the figures adding as displayed (1.3). Each figure is focusable; `T` opens
   its Trace: its breakdown by BOQ Section, each row focusing that section in the grid.
@@ -1515,7 +1515,10 @@ figure: `T` on the focused label opens it.
   (4.6), so unread walls never drop out of the total. Items outside the casting-area contract (pile
   caps, grade beams, the column stub from cap top to plinth) carry their own casting labour, RCC
   308.17 per cft (276.67 + the starter's 31.50) and formwork 114.50 per sft (96.50 + 18.00); their
-  Rebar binding labour has no starter figure and reads "rate not entered", counted among the unpriced.
+  Rebar binding labour is outside the casting-area contract and has no starter figure (bd-defaults
+  221): the Rebar analysis (4.14.2) shows it as its own line, "rate not entered", and the item is
+  counted among the unpriced (U1) while its amount carries only its priced lines (the rod and the
+  wire, R3 92.36).
   A step closed replaces its allowance whole by its measured items (story 99), except a part that is
   not read.
 - **"Unclassified":** a BOQ Item with no Rate Analysis is shown unpriced under a heading "Unclassified:
@@ -1571,7 +1574,7 @@ refused (`projects.units.not_offered`) with "This project can be billed in imper
 | **Empty** | "Nothing is measured yet. BOQ Items appear here as Takeoff Steps are closed." and, while the Gross Floor Area is not entered, the allowance lines are absent and the strip says so |
 | **Loading** | the Skeleton over the strip and the grid with "Pricing the Building…" |
 | **No Gross Floor Area** | QS: "Enter the Gross Floor Area to price the allowances and the total per area." with the field in the strip (type "42,000", unit chip "sft"); the MD and a Guest: "The Gross Floor Area is not entered yet. Nusrat Jahan (QS) enters it." with no field. Until then the Allowance shows "—" and the Total's label reads "Total, measured and awaiting answer only" |
-| **Unpriced** | QS: "14 BOQ Items have no rate yet; they add nothing to the totals until prices are entered." with "Enter prices", which opens Prices with the filter "Not entered (9)" on and its first row focused, so `Enter`, type, `Enter` walks the list; the MD and a Guest: "14 BOQ Items have no rate yet; the QS enters prices." with no action |
+| **Unpriced** | QS: "6 BOQ Items have no rate yet; they add only their priced lines, or nothing, to the totals until prices are entered." with "Enter prices", which opens Prices with the filter "Not entered (4)" on and its first row focused, so `Enter`, type, `Enter` walks the list; the MD and a Guest: "6 BOQ Items have no rate yet; the QS enters prices." with no action |
 | **Held** | an "awaiting answer" quantity and amount beside the measured, never inside; a click opens its Question |
 | **Step closed with Questions** | the strip's Awaiting answer figure is non-zero and amber |
 | **Out of date** | 1.4's bar |
@@ -1635,7 +1638,7 @@ the Live Model; the Esc stack of 2.2.
   +৳692.16 (T2, W3) and Allowance +৳1,19,008.26 (T3): ৳1,43,383.21 in all.
 - **States:** loading "Reading prices…"; error "The prices could not be read. Nothing is lost." with
   "Try again"; read-only (the MD): ReadOnlyChip and no field, a Guest "Ask the Developer for access to
-  costs"; filter chips include "Not entered (9)" (where "Enter prices" from the Priced BOQ lands, with
+  costs"; filter chips include "Not entered (4)" (where "Enter prices" from the Priced BOQ lands, with
   its first row focused; 4.13.6); empty list: "No prices yet. Enter the first price here, or ask Vextrus to load the starter prices." (a defect state);
   filtered by group chips ("All", "Cement", "Rebar", "Labour"…); search by Resource name (the
   Resource's label; a typed query never matches a code, 5).
@@ -1699,6 +1702,10 @@ the Live Model; the Esc stack of 2.2.
   | Labour: binding | 100 | kg | | covered by Casting labour (Labour Contract) | 0.00 |
   | **Rate per 100 kg** | | | | | **9,235.50** |
   | **Rate per kg** | | | | | **92.36** |
+
+  For an item outside the casting-area contract (pile Rebar, pile-cap Rebar, the column stub, the
+  grade beams) the "Labour: binding" line does not read "covered": it reads "rate not entered" in
+  amber and counts among the unpriced (U1); the rate per kg stays the rod and the wire, 92.36.
 
   (the wire is 10 kg per ton of rod; the Rebar Basis stays "by ratio" or "from the drawing + rules":
   the kg are net, and the Material Schedule adds the 3%.)
@@ -1827,7 +1834,8 @@ current set, with each price's change history (`T`); Issued Estimates' frozen se
   a tooltip "The diameters are assumed for Rebar by ratio."), one from the drawing none; the footer
   repeats the split: "From the drawing: 8.964 ton · Assumed (by ratio): 14.720 ton", **gross**: the net kg of T8 plus 3% cutting
   wastage, rounded up in kg (C11; M1.md C14), with the 8 columns awaiting answer apart, "0.693 ton awaiting
-  answer" (W3).
+  answer" (W3). **Binding wire (G.I.)**, a Resource of the rod item (R3), has its own row in the Rebar
+  group: 88 kg read from the drawing, 143 kg by ratio and 7 kg awaiting answer, apart (C12).
 - **Allowance rows** sit in the "Not yet by floor" column, hatched, "allowance".
 - **Material-and-Labour materials never appear:** a note row at the foot lists them: "Not in this
   schedule: ready-mix concrete (a Material-and-Labour Contract); piling when its contract is Material
@@ -1994,7 +2002,7 @@ it exists a reviewer checks the rows by hand.
 | **Rates** (৳) | | | |
 | R1 | RCC per cft | the Rate Analysis of 4.14.2: 27,666.96 per 100 cft; outside the casting-area contract + 31.50 casting labour | 276.67; 308.17 |
 | R2 | Formwork per sft | the Rate Analysis of 4.14.2: 9,650.00 per 100 sft; outside the contract + 18.00 shuttering labour | 96.50; 114.50 |
-| R3 | Rebar per kg | the Rate Analysis of 4.14.2 (the Library's rod item): rod 1 kg × 1.03 (3% cutting wastage) × 88.50 = 91.155, plus binding wire 0.01 kg (10 kg per ton) × 120.00 = 1.20; binding labour inside the casting-area contract | 92.36 |
+| R3 | Rebar per kg | the Rate Analysis of 4.14.2 (the Library's rod item): rod 1 kg × 1.03 (3% cutting wastage) × 88.50 = 91.155, plus binding wire 0.01 kg (10 kg per ton) × 120.00 = 1.20; binding labour inside the casting-area contract for the frame's items (M14); outside it (M5, M8, M11 and A4b's grade beams) binding labour is its own line, "rate not entered" (4.13.2, U1), and 92.36 is the rod and the wire only | 92.36 |
 | R4 | Piling | boring per rft; head breaking per head; casting area per sft | 450.00; 345.00; 170.00 |
 | R5 | Filling sand (F.M. 0.8) per cft | PWD SoR 2022 16.70 (`SAND-FILL`); supplied at the 1.20 compaction factor, the basis of the 6.88 plinth labour (bd-defaults 220) | 16.70 |
 | **Measured** (Steps 2 to 6) | | | |
@@ -2033,6 +2041,7 @@ it exists a reviewer checks the rows by hand.
 | T6 | Measured share | T1 ÷ T4 | 5.88% |
 | T7 | The strip, whole taka | 68,20,009 + 1,33,930 + 10,91,28,701 (adds as displayed: T4 rounds to 11,60,82,641, and the strip's Total is the sum of the figures it shows, 1.3) | 11,60,82,640 |
 | T8 | Rebar so far, per sft (the whole-building check, bd-defaults 59-60: 4.5 to 6) | measured: read M11 + M14 = 352 + 8,350 = 8,702 kg; by ratio M5 + M8 = 11,331 + 2,960 = 14,291 kg (22,993 kg); awaiting answer W3 672 kg; allowance Rebar, every row: A1 47,880 + A2 51,240 + A3 8,820 + A4a 8,820 + A4b 7,602 = 1,24,362 kg; whole Building 22,993 + 672 + 1,24,362 = 1,48,027 kg ÷ G1, net kg (B.3's basis, before the 3% wastage). Day one on G9 alone: 0.94 + 1.40 + 1.14 + 1.22 + 0.05 + 0.10 + 0.03 + 0.03 = 4.91 kg per sft (B.3 prints 4.90). What is measured (piles, caps, stubs, 100 columns, with the 8 awaiting: 23,665 kg, 0.56 kg per sft) stands where their allowances (0.759 + 1.19 = 1.95 kg per sft, 81,858 kg) would have been, so a light measured frame pulls the figure below the range (the seed's columns are light: 11 of 10″ × 20″ a storey, about 0.035 cft of column concrete per sft against G9's 0.17); the screen says which steps are measured | 38% of the measured read, 62% ratio; 3.52 kg per sft, amber |
+| U1 | The unpriced count (the strip and the status bar, 1.3; Prices' "Not entered") | BOQ Items with a price not entered: the shutter-hire line 1; the "Unclassified" item 1; the seed's unpriced item 1; Rebar items whose binding labour is outside the casting-area contract, M5 + M8 + M11 = 3; the prices behind them: shutter hire, the Unclassified item's, the unpriced item's, binding labour outside the contract = 4. A4b's grade-beam binding, soling and blinding are allowance lines, outside the count | 6 BOQ Items from 4 prices |
 | **Moment A** | | | |
 | X1 | Step 6, measured so far | G5 14 × E1 = 186.34 cft × R1 = 51,554.69; 14 × E2 = 670.88 sft × R2 = 64,739.92; 14 × E3 = 1,169 kg × R3 92.36 = 1,07,968.84 | 2,24,263.45 |
 | **Cement** (C14: net × 1.02, rounded up per cell; E5) | | | |
@@ -2048,6 +2057,7 @@ it exists a reviewer checks the rows by hand.
 | C10 | Columns awaiting answer (Q4, Q7), apart, each cell rounded up on its own | of the 4th: 2 × E1b 15.97 = 31.94 cft → 6.96 net, 8 bags; of the 5th: 2 × E1b + E1 = 45.25 cft → 9.86 net, 11 bags; of the 6th, 7th, 8th: E1 13.31 cft → 2.90 net, 3 bags each | 28 bags |
 | **Rebar, gross** (C14: net × 1.03, 3% cutting wastage, rounded up in kg) | | | |
 | C11 | Rebar, gross | read M11 + M14 8,702 × 1.03 = 8,963.06; by ratio M5 + M8, 14,291 kg × 1.03 = 14,719.73; awaiting W3 672 × 1.03 = 692.16 | 8,964 kg; 14,720 kg; 693 kg |
+| C12 | Binding wire (G.I.), gross: R3's wire, 0.01 kg per kg of Rebar, rounded up in kg | read M11 + M14 8,702 × 0.01 = 87.02; by ratio M5 + M8 14,291 × 0.01 = 142.91; awaiting W3 672 × 0.01 = 6.72 | 88 kg; 143 kg; 7 kg |
 
 ### 6.2 Moments, levels and roles
 **The storeys every example draws from** (the Dhaka way: Ground, then 1st above it; G2):
@@ -2074,7 +2084,7 @@ it exists a reviewer checks the rows by hand.
 | What | State |
 |---|---|
 | Steps | 2 to 5 closed (Step 5's ground-level Question answered since Moment A), 6 closed with Q4 and Q7 open (8 columns awaiting answer), 7 and 8 on allowance |
-| Strip (whole taka, 1.3) | Measured T1 ৳68,20,009 (68.20 lakh) · Awaiting answer T2 ৳1,33,930 (1.34 lakh) · Allowance T3 ৳10,91,28,701 (10.91 crore) · Total T7 ৳11,60,82,640 (11.61 crore) · T5 ৳2,764 per sft · Measured T6 6% of the total · 14 BOQ Items have no rate yet, from 9 prices not entered |
+| Strip (whole taka, 1.3) | Measured T1 ৳68,20,009 (68.20 lakh) · Awaiting answer T2 ৳1,33,930 (1.34 lakh) · Allowance T3 ৳10,91,28,701 (10.91 crore) · Total T7 ৳11,60,82,640 (11.61 crore) · T5 ৳2,764 per sft · Measured T6 6% of the total · 6 BOQ Items have no rate yet, from 4 prices not entered |
 | Items | M1 to M14, W1 to W3, A1 to A3, A4a and A4b as 6.1; also an "Unclassified" item, an unpriced item, the casting-area line carried by A2 and the shutter-hire line "rate not entered" |
 | Prices | starter prices with their citation; one entered by Nusrat Jahan; one labour rate "low confidence"; one not entered (9 in all) |
 | The piling choice | Labour only (the starter), switchable to Material and labour (rate not entered) |
@@ -2238,7 +2248,7 @@ prefix KW- so that a failed line named in a PR (`KW-F6`) is never taken for the 
 - [ ] KW-P1 `Enter` on a price → field; type; `Enter` saves and moves down; `Esc` restores; the toast names the
   Resource and "BOQ Items repriced"; `Ctrl Z` and `Ctrl V` inside the open field act on the typing, not on
   the last save or the grid.
-- [ ] KW-P1b "Enter prices" on the Priced BOQ → Prices with "Not entered (9)" on and the first row
+- [ ] KW-P1b "Enter prices" on the Priced BOQ → Prices with "Not entered (4)" on and the first row
   focused.
 - [ ] KW-P2 An edited price's source reads "Entered by …", never the starter's citation.
 - [ ] KW-P3 Piling choice: change → the dialog states what is replaced; `Enter` confirms; the BOQ and the
@@ -2316,8 +2326,10 @@ plan or the spec disagree, those win until the owner rules.
 6. **Fire protection at ৳120 per sft in KR-01's Step 14 (an assumption, the orchestrator's ruling of
    13 Oct 2026, for the owner to confirm at the M0 walk).** M1.md (lines 1022 to 1023, Q32) gives fire
    ৳50 per sft below 7 storeys and ৳120 from 7; KR-01 has 10. The owner's A4 ruling makes B.4 the price
-   source for Steps 9 to 14 and says nothing about fire; B.4's 785 for Step 14 embeds the low-rise 50. A4a
-   prices Step 14 at 855 per sft (785 with fire 120), ৳29,40,000.00 more in T3. Recommendation: **keep
+   source for Steps 9 to 14 and says nothing about fire; B.4's 785 for Step 14 carries fire at 50 (its
+   line 558). A4a applies **855** per sft, which is B.4's 785 with fire at 120 (785 − 50 + 120), ৳29,40,000.00
+   (70 × 42,000) more in T3, because the signed spec says 120 from 7 storeys and KR-01 has 10; 785 would
+   be the figure with fire left at 50. The owner confirms which. Recommendation: **keep
    120 from 7 storeys, as the signed spec says.** Why: an engine built to M1.md computes 120 for this
    seed, and the seed test must agree with it.
 
