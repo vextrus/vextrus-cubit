@@ -1,6 +1,7 @@
 """Ticket 162: a sheet the read proposes out (a cover, or a box of notes the cover rule takes for one)
 is listed, proposed out, asks no Question and stays in Step 1's progress count, settled once the QS
-confirms it in or leaves it out (#322 replaced #162's not counting it) (on hand-built artefacts, as `acceptance/t21c` builds them)."""
+confirms it in or leaves it out (#322 replaced #162's not counting it) (on hand-built artefacts, as
+`acceptance/t21c` builds them)."""
 
 import uuid
 from collections.abc import Sequence

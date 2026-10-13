@@ -1179,7 +1179,8 @@ def _outstanding(
 
 def proposed_out(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     """The read proposed the sheet out and it has no number (a cover, a stale layout; #162): it is
-    asked nothing. It stays in Step 1's count (#322), settled once the QS confirms it in or leaves it out."""
+    asked nothing. It stays in Step 1's count (#322), settled once the QS confirms it in or leaves
+    it out."""
     return bool(sheet.proposed_exclusion) and not sheet.number
 
 
