@@ -441,13 +441,11 @@ def models_check() -> tuple[str, str | None]:
 
 # --- the world's records
 def load_launches(
-    folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None = None
+    folder: Path, since: datetime | None
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     """The builders' newest launch record per ticket, and the cloud reviews' branches with the head each
     was launched on. A record whose `review` is not null (review_cloud.py's reviewer or refuter) is not a
-    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch.
-    A launch before `since` (an earlier session's) is carried over while its branch's PR in `prs` is
-    open."""
+    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch."""
     newest: dict[str, dict[str, Any]] = {}
     reviews: dict[str, str] = {}
     for path in sorted((folder / "launches").glob("*.json")):
@@ -478,9 +476,7 @@ def load_launches(
         refused = isinstance(judge, dict) and judge.get("ok") is False
         if (refused and not record.get("session_id")) or record.get("stop_sent") is True:
             continue
-        pr = pr_for(branch, prs)
-        state = pr.get("state") if pr is not None else None
-        if since is not None and started < since and state != "OPEN":
+        if since is not None and started < since:
             continue
         record["_started"] = started
         if ticket not in newest or started >= newest[ticket]["_started"]:
@@ -501,6 +497,22 @@ def load_launches(
         or builders[record["branch"]] < record["_started"]
     }
     return followed, reviews
+
+
+def carried_over(
+    folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None
+) -> dict[str, dict[str, Any]]:
+    """The launches of an earlier session (before `since`) whose branch's PR is open: they are followed
+    until the PR ends, whatever session is running."""
+    if since is None:
+        return {}
+    earlier, _ = load_launches(folder, None)
+    found = {}
+    for ticket, record in earlier.items():
+        pr = pr_for(str(record["branch"]), prs)
+        if record["_started"] < since and pr is not None and pr.get("state") == "OPEN":
+            found[ticket] = record
+    return found
 
 
 def is_builder(record: dict[str, Any]) -> bool:
@@ -653,15 +665,17 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     step = Pass(folder, at, state)
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
+    records, reviews = load_launches(folder, since)
+    refs = remote_heads()
+    main_sha = refs.get("main") if refs is not None else None
+
     if step.due("prs_read_at", PRS_EVERY):
         state["prs_read_at"] = status.utc(at)
         read = gh_prs()
         if read is not None:
             state["prs"] = read
     prs: list[dict[str, Any]] | None = state.get("prs")
-    records, reviews = load_launches(folder, since, prs)
-    refs = remote_heads()
-    main_sha = refs.get("main") if refs is not None else None
+    records = {**carried_over(folder, since, prs), **records}
 
     if step.due("usage_read_at", USAGE_EVERY):
         state["usage_read_at"] = status.utc(at)
