@@ -205,6 +205,86 @@ def test_no_secret_is_ever_an_argument_or_shown() -> None:
 # --------------------------------------------------------------------------------------- its functions
 
 
+def _git(*args: str, cwd: Path) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+
+def test_roots_git_never_reads_the_owners_checkout_or_home(tmp_path: Path) -> None:
+    # The refuter of M1-06 (80): root's `git ls-remote` ran inside the owner's checkout, whose
+    # .git/config (url.insteadOf) swapped GitHub's answer for a commit the owner's user chose.
+    planted = tmp_path / "planted.git"
+    planted.mkdir()
+    _git("init", "--quiet", "--bare", cwd=planted)
+    work = tmp_path / "work"
+    work.mkdir()
+    _git("init", "--quiet", "-b", "main", cwd=work)
+    _git(
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@t",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "x",
+        cwd=work,
+    )
+    _git("push", "--quiet", str(planted), "main", cwd=work)
+    url = f"file://{tmp_path}/nowhere/vextrus-cubit.git"  # not there: fails at once
+    for config in (work / ".git" / "config", tmp_path / ".gitconfig"):
+        with config.open("a") as file:
+            file.write(f'[url "{planted}"]\n\tinsteadOf = {url}\n')
+    body = f"cd {work}; git ls-remote {url} refs/heads/main"
+    env = {"PATH": os.environ["PATH"], "HOME": str(tmp_path)}
+    control = sourced(body, env=env)
+    assert control.returncode == 0  # the plant works on a plain git...
+    assert "refs/heads/main" in control.stdout
+    clean = sourced(f"cd {work}; as_root_clean git ls-remote {url} refs/heads/main", env=env)
+    assert clean.returncode != 0  # ...and root's git never reads it
+    assert "refs/heads/main" not in clean.stdout
+    text = SCRIPT.read_text()
+    assert "as_root_clean git ls-remote" in text
+    assert "as_root_clean curl -q " in text
+    assert len(re.findall(r"^\s*(?:github_main=\$\()?(?:git|curl) ", text, re.M)) == 0
+
+
+def routes(
+    tmp_path: Path, groups: str, answer: str, interop: str | None
+) -> subprocess.CompletedProcess[str]:
+    binfmt = tmp_path / "binfmt"
+    binfmt.mkdir(parents=True, exist_ok=True)
+    if interop is not None:
+        (binfmt / "WSLInterop").write_text(f"{interop}\ninterpreter /init\n")
+    body = f'BINFMT={binfmt}; OWNER=someone; id() {{ echo "{groups}"; }}; root_routes && echo PASSED'
+    return sourced(body, answer=answer)
+
+
+def test_wsl_interop_stops_the_script_unless_the_owner_accepts_it(tmp_path: Path) -> None:
+    # The refuter of M1-06 (80): with interop on, any process of the owner's user runs wsl.exe -u root.
+    stopped = routes(tmp_path, "someone users", "n\n", "enabled")
+    assert stopped.returncode != 0
+    assert "stopped at WSL interop" in stopped.stdout
+    accepted = routes(tmp_path, "someone users", "y\n", "enabled")
+    assert "PASSED" in accepted.stdout
+    assert "PASSED" in routes(tmp_path / "off", "someone users", "", "disabled").stdout
+
+
+def test_the_docker_group_stops_the_script_unless_the_owner_accepts_it(tmp_path: Path) -> None:
+    stopped = routes(tmp_path, "someone docker users", "n\n", None)
+    assert stopped.returncode != 0
+    assert "stopped at the docker group" in stopped.stdout
+    assert "PASSED" in routes(tmp_path, "someone docker", "y\n", None).stdout
+    assert "PASSED" in routes(tmp_path, "someone users", "", None).stdout
+
+
+def test_the_launcher_refuses_a_taken_port_and_says_to_keep_the_sign_in_apart() -> None:
+    serve = sourced("serve_script").stdout
+    assert '(exec 3<>"/dev/tcp/127.0.0.1/$port")' in serve
+    assert "for port in 8300 5300; do" in serve
+    assert "a browser profile of its own" in serve
+
+
 HBA = """# PostgreSQL Client Authentication Configuration File
 # TYPE  DATABASE  USER  ADDRESS  METHOD
 
@@ -546,6 +626,35 @@ def test_a_pg_hba_with_an_error_is_put_back_and_never_loaded(cluster: Cluster, t
         assert hba.read_text() == broken  # the copy taken first, which held the error, is back
     finally:
         hba.write_text(before)
+
+
+@needs_postgres
+def test_the_sql_stops_on_a_role_that_may_set_role_to_a_server_files_role_or_copy_the_cluster(
+    cluster: Cluster,
+) -> None:
+    # The refuter of M1-06: USAGE missed a membership WITH INHERIT FALSE that may still SET ROLE, and
+    # nothing looked for a REPLICATION role (a base backup copies every database).
+    def run_sql() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["psql", "-X", "-q", "-h", str(cluster.socket), "-p", str(cluster.port), "-U", "postgres",
+             "-d", "postgres", "-f", str(ROLES_SQL)],
+            capture_output=True, text=True, check=False,
+        )  # fmt: skip
+
+    granted = cluster.psql("GRANT pg_execute_server_program TO vextrus WITH INHERIT FALSE, SET TRUE")
+    assert granted.returncode == 0, granted.stderr
+    try:
+        stopped = run_sql()
+        assert "may read or run files on the server: vextrus" in stopped.stderr
+    finally:
+        assert cluster.psql("REVOKE pg_execute_server_program FROM vextrus").returncode == 0
+    assert cluster.psql("ALTER ROLE vextrus_app REPLICATION").returncode == 0
+    try:
+        stopped = run_sql()
+        assert "may copy the whole cluster (REPLICATION): vextrus_app" in stopped.stderr
+    finally:
+        assert cluster.psql("ALTER ROLE vextrus_app NOREPLICATION").returncode == 0
+    assert run_sql().returncode == 0
 
 
 @needs_postgres

@@ -38,6 +38,7 @@ ALTER DATABASE vextrus_heldout SET log_min_duration_sample = -1;
 ALTER DATABASE vextrus_heldout SET log_duration = off;
 ALTER DATABASE vextrus_heldout SET log_lock_waits = off;
 ALTER DATABASE vextrus_heldout SET log_temp_files = -1;
+ALTER DATABASE vextrus_heldout SET log_transaction_sample_rate = 0;
 ALTER DATABASE vextrus_heldout SET log_parameter_max_length_on_error = 0;
 
 -- The walls, checked: any failure stops the script (ON_ERROR_STOP) before a password is set.
@@ -61,15 +62,22 @@ BEGIN
   IF found IS NOT NULL THEN
     RAISE EXCEPTION 'these roles may still connect to vextrus_heldout: %', found;
   END IF;
-  -- No login role but the superusers reads or runs anything on the server's disk as its user.
+  -- No login role but the superusers reads or runs anything on the server's disk as its user: MEMBER,
+  -- not USAGE, so a membership WITH INHERIT FALSE that may still SET ROLE is caught too.
   SELECT string_agg(rolname, ', ') INTO found
     FROM pg_roles
    WHERE rolcanlogin AND NOT rolsuper
-     AND (pg_has_role(oid, 'pg_read_server_files', 'USAGE')
-       OR pg_has_role(oid, 'pg_write_server_files', 'USAGE')
-       OR pg_has_role(oid, 'pg_execute_server_program', 'USAGE'));
+     AND (pg_has_role(oid, 'pg_read_server_files', 'MEMBER')
+       OR pg_has_role(oid, 'pg_write_server_files', 'MEMBER')
+       OR pg_has_role(oid, 'pg_execute_server_program', 'MEMBER'));
   IF found IS NOT NULL THEN
     RAISE EXCEPTION 'these roles may read or run files on the server: %', found;
+  END IF;
+  -- No role but the superusers copies the whole cluster (a base backup over a replication connection).
+  SELECT string_agg(rolname, ', ') INTO found
+    FROM pg_roles WHERE rolreplication AND NOT rolsuper;
+  IF found IS NOT NULL THEN
+    RAISE EXCEPTION 'these roles may copy the whole cluster (REPLICATION): %', found;
   END IF;
   IF EXISTS (SELECT FROM pg_roles WHERE rolname = ANY (held)
               AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN

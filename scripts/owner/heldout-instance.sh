@@ -81,6 +81,38 @@ confirm() { local reply; read -r -p "  $1 [y/N] " reply; [[ "$reply" =~ ^[Yy] ]]
 as_owner() { runuser -u "$OWNER" -- env -i HOME="/home/$OWNER" PATH="$CLEAN_PATH" LANG=C.UTF-8 "$@"; }
 as_key() { runuser -u "$KEY_USER" -- env -i HOME="$KEY_HOME" PATH="$NODE_DIR/bin:$CLEAN_PATH" LANG=C.UTF-8 "$@"; }
 as_postgres() { runuser -u postgres -- env -i PATH="$CLEAN_PATH" LANG=C.UTF-8 "$@"; }
+# Root's own git and curl: run from /, with no environment, no home, and no user's or system's git
+# config, so nothing of your user's (a checkout's .git/config, a ~/.gitconfig or ~/.curlrc, whose
+# url.insteadOf or ext:: could swap GitHub's answer or run a program) is ever read.
+as_root_clean() {
+  (cd / && env -i HOME=/nonexistent PATH="$CLEAN_PATH" LANG=C.UTF-8 GIT_CONFIG_NOSYSTEM=1 \
+    GIT_CONFIG_GLOBAL=/dev/null "$@")
+}
+
+# The routes from your user to root that no file mode stops, each refused unless you accept it here:
+# WSL's interop (any process of yours runs wsl.exe -u root) and the docker group (a daemon is root).
+BINFMT=/proc/sys/fs/binfmt_misc
+root_routes() {
+  local interop
+  for interop in "$BINFMT"/WSLInterop*; do
+    if [ -f "$interop" ] && [ "$(head -n 1 "$interop")" = enabled ]; then
+      echo "  WSL interop is on: any process of $OWNER (every build session's tests, npm scripts, tools) can"
+      echo "  run wsl.exe -u root and read everything here. To close it: [interop] enabled=false in"
+      echo "  /etc/wsl.conf, then wsl --shutdown from Windows (Windows programs then no longer start from Linux)."
+      confirm "Go on with interop on (the Held-out walls then hold against the guard, not against root)?" \
+        || die "stopped at WSL interop; nothing was changed"
+      break
+    fi
+  done
+  if id -nG "$OWNER" | tr ' ' '\n' | grep -qx docker; then
+    if as_owner test -w /var/run/docker.sock; then
+      die "$OWNER can reach Docker (/var/run/docker.sock), which is root: take $OWNER out of the docker group (gpasswd -d $OWNER docker)"
+    fi
+    echo "  $OWNER is in the docker group: no daemon answers now, but one started later makes $OWNER root."
+    confirm "Go on (or stop, and take $OWNER out of the group: gpasswd -d $OWNER docker)?" \
+      || die "stopped at the docker group; nothing was changed"
+  fi
+}
 # The superuser, over the cluster's Unix socket (peer), on the cluster on $PORT, in the postgres database.
 super_psql() { as_postgres psql -X -q -v ON_ERROR_STOP=1 -p "$PORT" -d postgres "$@"; }
 
@@ -230,6 +262,13 @@ set +a
 TYPESAFE_API_KEY=\$(cat $JEV_KEY)
 export TYPESAFE_API_KEY HOME=$KEY_HOME PATH=$NODE_DIR/bin:$CLEAN_PATH
 cd $APP
+# A program already on either port (any user's) would take your sign-in: refuse to start beside one.
+for port in $API_PORT $WEB_PORT; do
+  if (exec 3<>"/dev/tcp/$HOST/\$port") 2>/dev/null; then
+    echo "port \$port on $HOST is already taken: stop what runs there first (it would see your sign-in)"
+    exit 1
+  fi
+done
 pids=()
 start() { local name=\$1; shift; "\$@" >> "$LOGS/\$name.log" 2>&1 & pids+=(\$!); }
 stop() { kill "\${pids[@]}" 2>/dev/null || true; wait || true; }
@@ -241,6 +280,8 @@ start worker .venv/bin/python manage.py worker
 start worker-cad .venv/bin/python manage.py worker --queue cad
 start web npm --prefix web run dev
 echo "The Held-out instance: http://$HOST:$WEB_PORT (logs in $LOGS). Ctrl-C stops it."
+echo "Open it only in a browser profile of its own (or a private window) and nothing else there: a browser"
+echo "sends its sign-in cookie to every server on $HOST, whatever the port, build sessions' servers too."
 wait -n
 SERVE
 }
@@ -254,6 +295,8 @@ main() {
     # Root's files are root's alone unless made otherwise by name (the bundle the key user fetches):
     # the temporary folder's name shows in /tmp, and it must be traversable for that bundle.
     umask 077
+    checkout=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+    cd /  # root never works inside your checkout (its .git/config is yours)
     tmp=$(mktemp -d)
     trap 'rm -f -- "$tmp"/*; rmdir -- "$tmp"' EXIT
   fi
@@ -262,7 +305,8 @@ main() {
   plan "root; the owner $OWNER and the key user $KEY_USER exist; $KEY_HOME is $KEY_USER's, mode 700" \
     "the cluster on port $PORT is PostgreSQL $CLUSTER_MAJOR (the 16 cluster on 5544 is never touched); its pg_hba.conf" \
     "root's $UV and the toolchain's Python under $TOOLCHAIN_PYTHON_DIR, each root's alone" \
-    "$OWNER reaches no Docker daemon (one would be root)"
+    "the routes from $OWNER to root that no file mode stops (WSL interop, the docker group): each stops the" \
+    "  script unless you accept it; a reachable Docker daemon always stops it"
   if ! dry; then
     id "$OWNER" >/dev/null 2>&1 || die "no user $OWNER"
     id "$KEY_USER" >/dev/null 2>&1 || die "no key user $KEY_USER: run scripts/owner/custody-setup.sh first"
@@ -276,10 +320,8 @@ main() {
     if [ ! -x "$UV" ] || [ "$(stat -c %U "$UV")" != root ]; then die "no root's $UV: run scripts/owner/keys-custody.sh first"; fi
     bad=$(find "$TOOLCHAIN_PYTHON_DIR" "$UV" \( ! -user root -o -perm /022 \) ! -type l -print -quit)
     [ -z "$bad" ] || die "$bad is not root's alone: fix that before anything runs as the key user from it"
-    if as_owner test -w /var/run/docker.sock; then
-      die "$OWNER can reach Docker (/var/run/docker.sock), which is root: turn Docker's WSL integration off, or take $OWNER out of the docker group"
-    fi
-    ok "root; $KEY_HOME is 700; PostgreSQL $version on $PORT ($hba); root's uv; no Docker for $OWNER"
+    root_routes
+    ok "root; $KEY_HOME is 700; PostgreSQL $version on $PORT ($hba); root's uv; the routes to root as you chose"
   fi
 
   step "2/7 Take GitHub's main into the key user's own clone"
@@ -289,9 +331,9 @@ main() {
   if ! dry; then
     chmod 0711 "$tmp"
     install -m 0644 /dev/null "$tmp/main.bundle"
-    as_owner git -C "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)" bundle create --quiet - refs/heads/main \
+    as_owner git -C "$checkout" bundle create --quiet - refs/heads/main \
       > "$tmp/main.bundle" || die "your checkout could not bundle main"
-    github_main=$(git ls-remote "$REPOSITORY_URL" refs/heads/main | cut -f1)
+    github_main=$(as_root_clean git ls-remote "$REPOSITORY_URL" refs/heads/main | cut -f1)
     [[ "$github_main" =~ ^[0-9a-f]{40}$ ]] || die "GitHub could not be asked which commit main is"
     install -d -o "$KEY_USER" -g "$KEY_USER" -m 0700 "$INSTANCE" "$APP"
     [ -d "$APP/.git" ] || as_key git -C "$APP" init --quiet
@@ -366,7 +408,7 @@ main() {
     unset jev
     [ -s "$JEV_KEY" ] || die "no Jev key in $JEV_KEY: run this again and paste it"
     if [ ! -x "$NODE_DIR/bin/node" ]; then
-      curl -sSfL -o "$tmp/node.tar.xz" "$NODE_URL" || die "Node $NODE_VERSION could not be downloaded"
+      as_root_clean curl -q -sSfL -o "$tmp/node.tar.xz" "$NODE_URL" || die "Node $NODE_VERSION could not be downloaded"
       echo "$NODE_SHA256  $tmp/node.tar.xz" | sha256sum -c --quiet - || die "Node's download is not the pinned release"
       install -d -o root -g root -m 0755 "$NODE_DIR"
       tar -xJf "$tmp/node.tar.xz" -C "$NODE_DIR" --strip-components=1 --no-same-owner
@@ -462,7 +504,8 @@ main() {
   [ "$fail" = 0 ] || { echo "Something above failed; tell Claude which line."; exit 1; }
   echo
   echo "Done. Serve the instance with your password, as the key user:  sudo -u $KEY_USER $SERVE"
-  echo "Then open http://$HOST:$WEB_PORT in your browser. Its logs are the key user's, in $LOGS."
+  echo "Then open http://$HOST:$WEB_PORT in a browser profile of its own (or a private window), with"
+  echo "nothing else open there: its sign-in cookie goes to every server on $HOST. Its logs are in $LOGS."
 }
 
 # Only when run, never when sourced (the tests source this file to call its functions as your user).
