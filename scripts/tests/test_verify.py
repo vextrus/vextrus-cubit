@@ -16,11 +16,12 @@ def test_shared_python_configuration_runs_the_whole_suite() -> None:
 
 
 def test_a_ci_workflow_change_runs_the_workflow_lint() -> None:
-    assert [check.name for check in plan([".github/workflows/ci.yml"])] == ["workflows"]
+    assert [check.name for check in plan([".github/workflows/ci.yml"])] == ["node-test", "workflows"]
 
 
 def test_a_file_directly_under_tools_mod_is_not_a_plugin() -> None:
-    assert plan(["tools/mod/README.md"], have=lambda tool: True) == []
+    checks = plan(["tools/mod/README.md"], have=lambda tool: True)
+    assert [check.name for check in checks] == ["node-test"]
 
 
 def test_flakes_need_every_failure_listed_and_at_least_one_failure() -> None:
