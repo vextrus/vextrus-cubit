@@ -169,6 +169,12 @@ describe('"Page not found" (§4.1; the Project scope)', () => {
   })
 })
 
+// Jump to's Sheets group: the sheets the demo seed (STEP1) puts in Kadam Residence's Step 1, as the seed numbers and titles them.
+const SEEDED_SHEETS = Array.from({ length: STEP1['KR-01']?.found ?? 0 }, (_, i) => {
+  const n = String(i + 1).padStart(2, '0')
+  return `ProposalS-${n}Seeded sheet ${n}`
+})
+
 describe('roles on the frame (§1.4)', () => {
   it('names the Guest’s projects and end date on the AccessChip, and gives no Members and access', async () => {
     await takeoff('/p/KR-01/takeoff/1', GUEST)
@@ -190,7 +196,7 @@ describe('roles on the frame (§1.4)', () => {
     await userEvent.keyboard('{Control>}k{/Control}')
     const jump = await screen.findByRole('dialog')
     const options = within(jump).getAllByRole('option').map((o) => clean(o.textContent))
-    expect(options).toEqual(['Drawing Set', 'Step 1, Sheets', 'Kadam ResidenceKR-01'])
+    expect(options).toEqual(['Drawing Set', 'Step 1, Sheets', ...SEEDED_SHEETS, 'Kadam ResidenceKR-01'])
   })
 
   it('shows the Engineer’s Vextrus access with its end date', async () => {
@@ -213,6 +219,7 @@ describe('roles on the frame (§1.4)', () => {
       'Drawing Set',
       'Step 1, Sheets',
       'Members and access',
+      ...SEEDED_SHEETS,
       'Bokul PlaceBP-02',
       'Kadam ResidenceKR-01',
       'Shimul GardenSG-03',
