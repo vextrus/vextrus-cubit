@@ -627,10 +627,10 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   render losses that were #698's and #704's). No check yet: `land update` before every posting run.
 - **Cloud builders could not finish verify's web tests under load** (A3, B1, B3 blocked for hours); the orchestrator
   verified the same trees locally with a clean `npm ci` and they were green. A symlinked node_modules made a false
-  "regression" (gate.test.tsx) that cost a builder a round. No check yet (session-25 ticket: a serial web mode for
-  cloud boxes).
-- **The watcher missed carried-over tickets' READY and a cloud BLOCKED** (A1 three times, A7 55 minutes). No check yet
-  (#701, cut): read every builder's branch tip on each self-check.
+  "regression" (gate.test.tsx) that cost a builder a round. No check yet: a session-25 ticket gives verify a serial
+  web mode for cloud boxes.
+- **The watcher missed carried-over tickets' READY and a cloud BLOCKED** (A1 three times, A7 55 minutes). No check yet:
+  read every builder's branch tip on each self-check (#701, cut, adds the watcher's check).
 - **Two open PRs that conflict each refuse the other's READY through crosspr** (#706 and #714). No check yet: the
   orchestrator orders them and closes the later one until the first lands.
 - **A spec's worked money example drew new findings every round** (#700, three rounds). No check yet: one seed table

@@ -68,6 +68,22 @@ then G1 #2 and #3 on the final main. Every walk 1 finding of OTHER is filed (#71
 - M1-06 (the Held-out instance) never launched (six local agents held every slot); its prompt is
   `.private/work/s24/m1-06-prompt.md`, branch m1-06 on origin.
 
+## M1 wave 0 (after the owner's M0 walk, docs/plans/M1.md O2; its docs and owner-time tickets already started)
+- M1-24 m1-screens: #700 reshaped to one seed table (ae830596); review it fresh, then ux-critic and qs-critic (the
+  qs-critic signed the previous head). It merges before any M1 UI ticket's acceptance writer starts.
+- M1-05 Edison counts: both analysts done; 10 rulings wait for the owner (`.private/work/m1-05/disagreements.md`).
+- M1-02 the Sample Project's element key: the owner's 1.5 h (the key user's reduction script).
+- M1-06 the Held-out instance: never launched; prompt `.private/work/s24/m1-06-prompt.md`, branch m1-06 on origin.
+- M1-00 the contract freeze: only after the owner's M0 walk.
+- #705 (rebar defaults: allowance rates sum 3.1 kg/sft against the 4.5-6 check) blocks M1-07 until ruled.
+
+## Housekeeping
+- Never push local branches s22-fl7, s22-fl7b, s22-fl5b (real titles or a leaking commit).
+- Open for the owner (carried from session 24): #687 narrowed "setback" to "plot setback", so a Structural sheet
+  titled only "SETBACK ARRANGEMENT" leaves its untitled section unaccounted where the 11 Oct ruling gives Step 14.
+- The owner clears stale builder worktrees under `.claude/worktrees/` (31 GB; sessions 15-22) and stops s22-fl7 from
+  `claude agents` (the daemon resumed it after a kill).
+
 ## Effort and models; laws that do not change
 CLAUDE.md's "Effort and models" and Law sections in full. The orchestrator stays Opus 5.5 `medium`, with no workflow
 but `real-set-walk`.
