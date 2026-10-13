@@ -1609,8 +1609,10 @@ def _no_one_source_in_bulk(
 def _is_whole_run(
     project_id: uuid.UUID, chosen: Sequence[tuple[drawings.SheetView, Proposal | None]]
 ) -> bool:
-    """Whether the chosen sheets are exactly one continuation run, every sheet of it, by the grouping
-    `proposals` shows (`groups.among`, T-W334): part of a run, or a run and another sheet, is not."""
+    """Whether the chosen sheets are exactly one continuation row as the web builds it: the sheets of
+    one run (the grouping `proposals` shows, `groups.among`, T-W334) in one Discipline and decided
+    alike (`continues`: never two sheets decided apart), less any an open Question holds (the web
+    leaves those out of the row). Part of that row, or the row and another sheet, is not."""
     from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
 
     sheets = _sheets(project_id)
@@ -1623,11 +1625,20 @@ def _is_whole_run(
         sheet_conventions(),
     )
     runs = {grouped.get(sheet.id, groups.ALONE).continuation for sheet, _p in chosen}
-    if len(runs) != 1 or None in runs:
+    states = {(sheet.discipline, sheet.decision, sheet.excluded_reason) for sheet, _p in chosen}
+    if len(runs) != 1 or None in runs or len(states) != 1:
         return False
     run = runs.pop()
-    whole = {s.id for s in sheets if grouped.get(s.id, groups.ALONE).continuation == run}
-    return whole == {sheet.id for sheet, _p in chosen}
+    state = states.pop()
+    by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
+    row = [
+        (s, by_sheet.get(s.id))
+        for s in sheets
+        if grouped.get(s.id, groups.ALONE).continuation == run
+        and (s.discipline, s.decision, s.excluded_reason) == state
+    ]
+    held = _holding(project_id, row)
+    return {s.id for s, _p in row if s.id not in held} == {sheet.id for sheet, _p in chosen}
 
 
 def _holding(
