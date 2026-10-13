@@ -497,8 +497,13 @@ def _as_coverage_stands(
 def _stands_at(
     view: drawings.ViewView, row: Coverage, steps: Sequence[CoverageStep]
 ) -> drawings.ViewView:
-    """The view as its Coverage row stands: the steps standing for it and its Part."""
-    return replace(view, steps=tuple(s.step for s in steps), part=row.part_key or None)
+    """The view as its Coverage row stands: the steps standing for it and its Part, and, where the
+    row stands excluded (its sheet excluded, or the view), the exclusion and its reason: Coverage counts
+    it excluded, so its chip must not read "no step: unaccounted"."""
+    stood = replace(view, steps=tuple(s.step for s in steps), part=row.part_key or None)
+    if row.status != CoverageStatus.EXCLUDED:
+        return stood
+    return replace(stood, decision="excluded", excluded_reason=row.reason, excluded_text=row.reason_text)
 
 
 def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
