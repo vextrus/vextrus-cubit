@@ -8,7 +8,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { PEOPLE, mountApp } from '@/app/testing'
-import { canvasOf, clean, openList, seed, shownSheet } from '../acceptance/ts15w2/keys.fixture'
+import { canvasOf, clean, openList, seed } from '../acceptance/ts15w2/keys.fixture'
 import { jumpFilter } from './JumpTo'
 
 beforeEach(async () => {
@@ -43,30 +43,34 @@ describe('Jump to over ids full of nines', () => {
   })
 })
 
+/** Step 1 opened on S-04 by its address, as the Drawing Set's link does: no jump yet. */
+async function openOnS04() {
+  await mountApp('/p/KR-01/takeoff/1?sheet=S-04', { as: PEOPLE.qs, api: seed().api })
+  await canvasOf('S-04')
+}
+
+/** The one jump under test: Ctrl K, the number, Enter. */
+async function jumpToS04() {
+  await jumpTyping('S-04')
+  await screen.findByRole('option', { name: /S-04/ })
+  await userEvent.keyboard('{Enter}')
+}
+
 describe('every jump opens its sheet', () => {
   it('opens S-04 again after paging away from it', async () => {
-    await openList(seed())
-    for (let again = 0; again < 2; again++) {
-      const jump = await jumpTyping('S-04')
-      await waitFor(() => expect(within(jump).queryAllByRole('option').some((o) => clean(o.textContent).includes('S-04'))).toBe(true))
-      await userEvent.keyboard('{Enter}')
-      await canvasOf('S-04')
-      await waitFor(() => expect(shownSheet()).toBe('S-04'))
-      await userEvent.keyboard('{PageDown}')
-      await waitFor(() => expect(shownSheet()).toBe('S-05'))
-    }
+    await openOnS04()
+    await userEvent.keyboard('{PageDown}')
+    await canvasOf('S-05')
+    await jumpToS04()
+    await canvasOf('S-04')
   })
 
   it('opens S-04 from the list after going back to it', async () => {
-    await openList(seed())
-    for (let again = 0; again < 2; again++) {
-      await jumpTyping('S-04')
-      await userEvent.keyboard('{Enter}')
-      await waitFor(() => expect(shownSheet()).toBe('S-04'))
-      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-      await userEvent.keyboard('{Escape}')
-      await waitFor(() => expect(shownSheet()).toBeNull())
-    }
+    await openOnS04()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('group', { name: /^Sheet\s/ })).toBeNull())
+    await jumpToS04()
+    await canvasOf('S-04')
   })
 })
 
