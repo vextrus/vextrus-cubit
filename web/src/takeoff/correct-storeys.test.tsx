@@ -149,6 +149,8 @@ describe('the storeys fields of E (§6.9)', () => {
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(within(inspector).getByRole('textbox', { name: 'Title' })).toHaveAttribute('aria-invalid', 'true'))
     await waitFor(() => expect(step1.calls().filter((c) => c === 'GET /proposals').length).toBeGreaterThan(1))
+    // The request is not the reload: an Enter before Step 1 has reloaded is dropped by design (acts.tsx), so wait for it to land.
+    await waitFor(() => expect(document.querySelector('[data-step1]')).toHaveAttribute('aria-busy', 'false'))
 
     await userEvent.type(within(inspector).getByRole('textbox', { name: 'Title' }), '!')
     await userEvent.keyboard('{Enter}')
