@@ -68,6 +68,9 @@ STOREYS_TOO_LONG = MessageCode("drawings.sheets.storeys_too_long", params=("limi
 STOREYS_MANY_LINES = MessageCode("drawings.sheets.storeys_many_lines")
 STOREYS_DRAWING_CODE = MessageCode("drawings.sheets.storeys_drawing_code")
 STOREYS_UNREADABLE = MessageCode("drawings.sheets.storeys_unreadable")
+STOREYS_READ_TOGETHER = MessageCode("drawings.sheets.storeys_read_together")
+"""A typed storey list whose items, read together as one list, name other storeys than each names
+alone (400): kept as neither, never as something the QS did not type."""
 STOREYS_NOT_A_STOREY = MessageCode("drawings.sheets.storeys_not_a_storey", params=("word",))
 """A typed storey list holding a word that names no storey (400); `word` is that item as typed."""
 STOREYS_RANGE = MessageCode("drawings.sheets.storeys_range", params=("word",))

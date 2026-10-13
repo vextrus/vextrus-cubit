@@ -11,7 +11,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
-import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
+import { Button, DrawingText, KeyCombo, KeyScope, Segmented, TextField, cn, useKeys } from '@/ui'
 import { FieldError } from '@/ui/FieldError'
 import { msg } from '@lingui/core/macro'
 import { CorrectedBy, SheetHistory, reasonOf } from './SheetHistory'
@@ -503,6 +503,7 @@ function ViewStoreysFields({ view, place, draft, onChange, error, refusal }: { v
   const named = <PlanViewName title={view.title} place={place} />
   const name = useId()
   const meaningRead = view.storeys_meaning && picked(view.storeys_meaning) === null ? view.storeys_meaning : null
+  const titled = view.title.trim()
   return (
     <div className="flex flex-col gap-1">
       <TextField
@@ -515,23 +516,15 @@ function ViewStoreysFields({ view, place, draft, onChange, error, refusal }: { v
         error={refusal}
         onChange={(event) => onChange({ ...draft, storeys: event.target.value })}
       />
-      <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-describedby={error ? `${name}-error` : undefined}>
-        <legend className="sr-only">
-          <Trans>What the storeys of {named} mean</Trans>
-        </legend>
-        {PICKED.map((meaning) => (
-          <label key={meaning} className="inline-flex items-center gap-1">
-            <input
-              type="radio"
-              name={name}
-              value={meaning}
-              checked={draft.meaning === meaning}
-              onChange={() => onChange({ ...draft, meaning })}
-              className="accent-primary"
-            />
-            <OptionMeaning meaning={meaning} />
-          </label>
-        ))}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <Segmented
+          describedBy={error ? `${name}-error` : undefined}
+          className="h-control-lg" /* each segment at least 24 px (WCAG 2.5.8), not the 13 px of a native radio */
+          label={view.title.trim() ? t`What the storeys of “${titled}” mean` : t`What the storeys of plan view ${place} (untitled) mean`}
+          value={draft.meaning}
+          options={PICKED.map((meaning) => ({ value: meaning, label: <OptionMeaning meaning={meaning} /> }))}
+          onChange={(meaning) => onChange({ ...draft, meaning })}
+        />
         {meaningRead ? (
           <span className="text-muted-foreground">
             <Trans>
@@ -539,7 +532,7 @@ function ViewStoreysFields({ view, place, draft, onChange, error, refusal }: { v
             </Trans>
           </span>
         ) : null}
-      </fieldset>
+      </div>
       <FieldError id={`${name}-error`}>{error ? <Trans>Choose what the storeys mean, then save.</Trans> : null}</FieldError>
     </div>
   )
@@ -577,8 +570,11 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
   // A refusal stands under its field until that field (or the other) is typed in.
   const [edited, setEdited] = useState<number>(0)
   const shown = refusal && refusal.n > edited ? refusal : null
-  const fieldError = (field: 'number' | 'title') => (shown && !shown.view && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
+  const fieldError = (field: 'number' | 'title') => (shown && !shown.view && shown.field === field ? shown.text : undefined)
   const plans = [...(correcting.sheet.views ?? [])].filter((v) => v.kind === 'plan').sort((a, b) => a.ordinal - b.ordinal)
+  // A refusal of no field (nothing to correct; a view no longer on the sheet, read again since): the form's,
+  // said above Save with no field marked (design gate of #811).
+  const formError = shown && shown.field === null && !plans.some((v) => v.id === shown.view) ? shown.text : undefined
   const start = (v: ViewOut): ViewDraft => ({ storeys: listed(v.storeys), meaning: picked(v.storeys_meaning) })
   const [drafts, setDrafts] = useState<Record<string, ViewDraft>>(() => Object.fromEntries(plans.map((v) => [v.id, start(v)])))
   // Each view as the form opened with it: the sheet may be reloaded under the form, but a view is sent only when
@@ -598,7 +594,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
       if (!draft || !opened) continue
       const was = opened.draft
       if (draft.storeys.trim() === was.storeys.trim() && draft.meaning === was.meaning) continue
-      sent[v.id] = { storeys: opened.storeys, meaning: opened.meaning }
+      sent[v.id] = { storeys: opened.storeys, meaning: opened.meaning, title: v.title, place: plans.indexOf(v) + 1 }
       if (draft.meaning === null) missing.add(v.id)
       else views.push({ view: v.id, title: v.title, place: plans.indexOf(v) + 1, storeys: draft.storeys.trim(), meaning: draft.meaning })
     }
@@ -669,6 +665,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
               {shown.text}
             </p>
           ) : null}
+          {formError ? <p data-form-error="" className="text-xs text-destructive">{formError}</p> : null}
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" type="submit" aria-keyshortcuts="Enter" /* eslint-disable-line lingui/no-unlocalized-strings -- a key name */>
               <Trans>Save</Trans> <KeyCombo combo="Enter" className="[&_kbd]:border-transparent [&_kbd]:bg-transparent [&_kbd]:text-current" />

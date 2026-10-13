@@ -163,7 +163,8 @@ export interface ViewStoreysChange {
 export interface OpenedWith {
   number: string
   title: string
-  views?: Record<string, { storeys: readonly string[]; meaning: string }>
+  /** Each view sent, as the form opened with it, and how the form named it (a view read again since is named so in the 409). */
+  views?: Record<string, { storeys: readonly string[]; meaning: string; title: string; place: number }>
 }
 
 /** A sheet's number, title or plan views' storeys as the QS corrected them (m0-screens §6.9, `E`): only what changed is sent. */

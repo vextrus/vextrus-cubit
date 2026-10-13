@@ -5,7 +5,7 @@
  * yet received. Rows are 28 px; continuation sheets are one row. The list is a key region (Space opens
  * the focused sheet; the screen owns the keys); a click focuses a row, a double-click opens it.
  */
-import { createContext, forwardRef, useContext, type ReactNode } from 'react'
+import { Fragment, createContext, forwardRef, useContext, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
 import { DrawingText, StatusMark, cn, isolateLtr } from '@/ui'
@@ -522,6 +522,10 @@ function SheetRow({
   const count = f.integer(row.sheets.length)
   let title: ReactNode
   const q = row.question?.question
+  // A Question holding several sheets of different numbers (two plans drawing one thing; corrections make
+  // this reachable): named by each number, so every sheet stays findable by its own (design gate of #811).
+  const numbers = row.question && row.kind !== 'entry' && q?.code !== SAME_NUMBER ? [...new Set(row.sheets.map((s) => s.number).filter((n): n is string => !!n))] : []
+  const several = numbers.length > 1 ? numbers : null
   const file = q?.subject_id ? names[q.subject_id] : undefined
   if (row.kind === 'file')
     title = file ? (
@@ -555,6 +559,17 @@ function SheetRow({
         <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} copies</span>
       </Trans>
+    )
+  else if (several)
+    title = (
+      <span className="min-w-0 truncate">
+        {row.sheets.map((s, i) => (
+          <Fragment key={s.id}>
+            {i > 0 ? '; ' : null}
+            <DrawingText kind="title" text={s.title} truncate={false} />
+          </Fragment>
+        ))}
+      </span>
     )
   else if (row.sheets.length > 1)
     // A continuation the server names is titled with its member-mark ranges joined (T-W334).
@@ -603,7 +618,14 @@ function SheetRow({
         <StatusMark status={rowState(row).kind === 'question' ? 'question' : first?.decision === 'confirmed' ? 'confirmed' : excluded ? 'excluded' : 'proposal'} compact />
       </span>
       <span role="gridcell" className={cn('truncate font-semibold', excluded && 'line-through')}>
-        {row.number ? (
+        {several ? (
+          several.map((n, i) => (
+            <Fragment key={n}>
+              {i > 0 ? ', ' : null}
+              <DrawingText kind="sheet-number" text={n} truncate={false} />
+            </Fragment>
+          ))
+        ) : row.number ? (
           row.numberTo ? (
             <>
               <SheetRange first={row.number} last={row.numberTo} />

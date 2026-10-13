@@ -224,10 +224,6 @@ msgstr "Exclude"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/takeoff/Step1Inspector.tsx
-msgid "What the storeys of {named} mean"
-msgstr "What the storeys of {named} mean"
-
 #: src/takeoff/Step1Screen.tsx
 msgid "No sheets yet: they arrive as {name} is read."
 msgstr "No sheets yet: they arrive as {name} is read."
@@ -348,6 +344,10 @@ msgstr "Number"
 #: src/takeoff/Step1Screen.tsx
 msgid "The sheet picker"
 msgstr "The sheet picker"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "What the storeys of plan view {place} (untitled) mean"
+msgstr "What the storeys of plan view {place} (untitled) mean"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "A view counts once it is assigned to a step that will read it, or excluded with a reason. Used is 0: no step after Step 1 runs in M0. A view may feed several steps, so the steps below add up to more than the views."
@@ -701,6 +701,10 @@ msgstr "None: its PDF was a scan and was refused"
 #: src/takeoff/Step1Screen.tsx
 msgid "Opening Step 1…"
 msgstr "Opening Step 1…"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "What the storeys of “{titled}” mean"
+msgstr "What the storeys of “{titled}” mean"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Leave out {m}: {reasons}"

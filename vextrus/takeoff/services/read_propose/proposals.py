@@ -702,8 +702,19 @@ def set_questions(
         found.storey_titles,
         options=options(STOREY_TITLE_OPTIONS),
         stale=_stale(found, conflicts),
+        typed=_typed(viewed),
     )
     return asked
+
+
+def _typed(viewed: Sequence[Sequence[drawings.ViewView]]) -> set[int]:
+    """The sheets, by index, with a plan whose storeys the QS typed (S24-B2): their title's
+    disagreement with the plans is the QS's own correction (`storey_questions.TYPED`)."""
+    return {
+        i
+        for i, vs in enumerate(viewed)
+        if any(v.kind == ViewKind.PLAN and v.storeys_source in drawings.TYPED_STOREYS for v in vs)
+    }
 
 
 def _read_set(

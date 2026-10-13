@@ -21,7 +21,7 @@ sheet is undecided, are read under it (`ask`).
 
 import json
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 
 from engine.check import storey_titles
 from engine.messages import Message
@@ -44,6 +44,11 @@ PLANS = "plans"
 sheet's plans ("floor_2 floor_6; roof"), so an answer decides that disagreement only, never a later
 one of the same counts (S15-E3's refuter: plans redrawn from the 6th to the 7th floor are asked again).
 It is never worded: Step 1's Question takes the finding's own params."""
+
+TYPED = "answered"
+"""The recorded finding's mark when the QS typed a plan's storeys on its sheet (S24-B2, the
+orchestrator's ruling for the owner's M0 walk): the typed storeys stand, so the title's disagreement
+with them is the QS's own correction, recorded as `{TYPED: "correction"}` and held by no Question."""
 
 
 def _drawn(views: Sequence[ViewCandidate]) -> frozenset[str]:
@@ -125,6 +130,7 @@ def ask(
     *,
     options: Sequence[dict[str, object]],
     stale: Mapping[int, Sequence[uuid.UUID]] | None = None,
+    typed: Collection[int] = (),
 ) -> int:
     """19b's storey-titles Check over the set (`results`: `found`'s run over `sheets` and `views`,
     whose findings refer to those very candidates): each sheet whose title names storeys its plans do not
@@ -135,7 +141,9 @@ def ask(
     index, the Questions asked this round of the `same_title` conflicts `stale_copies` found its
     title copies, in order), asked by the first while it is open. The Check's run is recorded with
     each finding, an answered one under the Question that answered it, a stale copy's under its
-    conflict's. How many Questions were asked."""
+    conflict's. A sheet whose plan's storeys the QS typed (`typed`: by sheet index) is held by none:
+    its finding is recorded marked as the QS's correction (`TYPED`), never dropped; an undo of the
+    correction reads the plan again, and the Check asks again. How many Questions were asked."""
     at = {id(c): i for i, c in enumerate(sheets)}
     answered = step1.answered_findings(project_id, storey_titles.CODE)
     fired: list[tuple[Message, drawings.SheetView | None, uuid.UUID | None]] = []
@@ -147,6 +155,10 @@ def ask(
         index = at.get(id(result.subject)) if result.subject is not None else None
         sheet = listed[index] if index is not None else None
         recorded = _with_plans(result.finding, views[index] if index is not None else ())
+        if index is not None and index in typed:  # the QS's own word: recorded, asked by no Question
+            recorded = Message(code=recorded["code"], params={**recorded["params"], TYPED: "correction"})
+            fired.append((recorded, sheet, None))
+            continue
         said = json.dumps(dict(recorded["params"]), sort_keys=True, default=str)
         decided = answered.get((str(sheet.id), said)) if sheet is not None else None
         fired.append((recorded, sheet, decided))
@@ -159,6 +171,8 @@ def ask(
     asked: dict[str, list[tuple[Message, drawings.SheetView]]] = {}
     for recorded, sheet, decided in fired:
         if decided is not None or sheet is None or not sheet.discipline or sheet.decision:
+            continue
+        if TYPED in recorded["params"]:
             continue
         if sheet.id not in copies:
             asked.setdefault(sheet.discipline, []).append((recorded, sheet))
@@ -186,7 +200,7 @@ def ask(
             decided
             or (
                 copies.get(sheet.id) or raised.get(sheet.discipline or "")
-                if sheet is not None and not sheet.decision
+                if sheet is not None and not sheet.decision and TYPED not in finding["params"]
                 else None
             ),
         )

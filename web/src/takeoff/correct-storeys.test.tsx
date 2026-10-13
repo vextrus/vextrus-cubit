@@ -115,7 +115,7 @@ describe('the storeys fields of E (§6.9)', () => {
     const { inspector } = await correcting([ceiling])
     await userEvent.click(fieldOf(inspector, CEILING))
     await userEvent.tab()
-    expect(within(inspector).getAllByRole('radio').map((r) => (r as HTMLInputElement).checked)).toEqual([false, false])
+    expect(within(inspector).getAllByRole('radio').map((r) => r.getAttribute('aria-checked'))).toEqual(['false', 'false'])
   })
 
   it('says a storeys refusal under the view it is about, not under Number, and retyping the storeys clears it', async () => {
@@ -170,7 +170,7 @@ describe('the storeys fields of E (§6.9)', () => {
     expect(labelled('Storeys of plan view 1 (untitled), each listed').value).toBe('2nd')
     expect(labelled('Storeys of plan view 2 (untitled), each listed').value).toBe('4th')
     expect(fieldOf(inspector, PLAN).value).toBe('5th')
-    const groups = within(inspector).getAllByRole('group').map((g) => clean(g.querySelector('legend')?.textContent))
+    const groups = within(inspector).getAllByRole('radiogroup').map((g) => clean(g.getAttribute('aria-label')))
     expect(groups).toEqual(expect.arrayContaining(['What the storeys of plan view 1 (untitled) mean', 'What the storeys of plan view 2 (untitled) mean']))
     expect(bodyText()).not.toContain('""')
 
