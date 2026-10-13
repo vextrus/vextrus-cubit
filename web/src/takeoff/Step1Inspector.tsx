@@ -12,13 +12,14 @@ import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
 import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
+import { FieldError } from '@/ui/FieldError'
 import { msg } from '@lingui/core/macro'
 import { CorrectedBy, SheetHistory, reasonOf } from './SheetHistory'
-import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storeys'
+import { StoreyStrip, StoreysText, knownStorey, useListedStoreys, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
-import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
+import { SheetName, type CorrectionRefusal, type SheetChange, type ViewChange } from './acts'
 import { SheetRange } from './SheetRange'
-import type { CoverageOut, ProposalOut, ViewOut } from './data'
+import type { CoverageOut, OpenedWith, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
@@ -472,7 +473,7 @@ export interface Correcting {
   /** Why the last save was refused, in words, and the field it is about. */
   refusal?: CorrectionRefusal | null
   /** `opened`: the values the form opened with, so another person's correction since is refused, not overwritten. */
-  save: (change: SheetChange, opened: { number: string; title: string }) => void
+  save: (change: SheetChange, opened: OpenedWith) => void
   cancel: () => void
 }
 
@@ -481,13 +482,85 @@ function FormKeys({ bindings }: { bindings: Parameters<typeof useKeys>[0] }) {
   return null
 }
 
+/** The two meanings a correction picks between (§6.9); a third, "at ceiling level", is only ever read. */
+const PICKED = ['at_floor_level', 'floor_to_floor'] as const
+type Picked = (typeof PICKED)[number]
+const picked = (meaning: string | null | undefined): Picked | null => PICKED.find((m) => m === meaning) ?? null
+
+/** What the form holds for one plan view: the storeys typed and the meaning chosen, with where they started. */
+interface ViewDraft {
+  storeys: string
+  meaning: Picked | null
+}
+
 /**
- * §6.9 "Corrections (E)": "Correct the Proposal" in place of the Proposal block; Number and Title (S22-FL8's
- * cut: a view's storeys are a later ticket's), "Save ↵" and "Cancel Esc". A mode of its own while open,
- * so Enter saves and Esc cancels from either field, and no screen key acts behind it.
+ * One plan view's part of the correction form (§6.9): "Storeys of "<view title>", each listed" and the
+ * meaning as a two-choice toggle, "at floor level" | "floor to floor". A view read "at ceiling level" shows
+ * that beside the toggle, which does not offer it: a correction picks one of the two, none chosen at first.
+ */
+function ViewStoreysFields({ view, draft, onChange, error, refusal }: { view: ViewOut; draft: ViewDraft; onChange: (next: ViewDraft) => void; error: boolean; refusal?: string }) {
+  const { t } = useLingui()
+  const title = <DrawingText kind="title" text={view.title} truncate={false} />
+  const name = useId()
+  const meaningRead = view.storeys_meaning && picked(view.storeys_meaning) === null ? view.storeys_meaning : null
+  return (
+    <div className="flex flex-col gap-1">
+      <TextField
+        label={<Trans>Storeys of “{title}”, each listed</Trans>}
+        dir="auto"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={t`3rd, 5th, 7th`}
+        value={draft.storeys}
+        error={refusal}
+        onChange={(event) => onChange({ ...draft, storeys: event.target.value })}
+      />
+      <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-describedby={error ? `${name}-error` : undefined}>
+        <legend className="sr-only">
+          <Trans>What the storeys of “{title}” mean</Trans>
+        </legend>
+        {PICKED.map((meaning) => (
+          <label key={meaning} className="inline-flex items-center gap-1">
+            <input
+              type="radio"
+              name={name}
+              value={meaning}
+              checked={draft.meaning === meaning}
+              onChange={() => onChange({ ...draft, meaning })}
+              className="accent-primary"
+            />
+            <OptionMeaning meaning={meaning} />
+          </label>
+        ))}
+        {meaningRead ? (
+          <span className="text-muted-foreground">
+            <Trans>
+              As read: <OptionMeaning meaning={meaningRead} />
+            </Trans>
+          </span>
+        ) : null}
+      </fieldset>
+      <FieldError id={`${name}-error`}>{error ? <Trans>Choose what the storeys mean, then save.</Trans> : null}</FieldError>
+    </div>
+  )
+}
+
+function OptionMeaning({ meaning }: { meaning: string }) {
+  const { i18n } = useLingui()
+  const words = STOREY_MEANINGS[meaning]
+  return <>{words ? i18n._(words) : meaning}</>
+}
+
+/**
+ * §6.9 "Corrections (E)": "Correct the Proposal" in place of the Proposal block; Number and Title (S22-FL8)
+ * and, for each plan view, its storeys and their meaning (S24-B2); "Save ↵" and "Cancel Esc". A mode of its
+ * own while open, so Enter saves and Esc cancels from any field, and no screen key acts behind it. Only what
+ * changed is sent; a view whose storeys changed with no meaning chosen (one read at ceiling level) is not sent
+ * until the QS chooses.
  */
 function CorrectForm({ correcting }: { correcting: Correcting }) {
   const { t } = useLingui()
+  const listed = useListedStoreys()
   const { save, cancel, refusal } = correcting
   // What the form opened with: the sheet may be reloaded under it (another person's correction), but a
   // save is judged against these, and sent with them (the server refuses a value changed since).
@@ -504,14 +577,37 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
   // A refusal stands under its field until that field (or the other) is typed in.
   const [edited, setEdited] = useState<number>(0)
   const shown = refusal && refusal.n > edited ? refusal : null
-  const fieldError = (field: 'number' | 'title') => (shown && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
+  const fieldError = (field: 'number' | 'title') => (shown && !shown.view && (shown.field === field || (shown.field === null && field === 'number')) ? shown.text : undefined)
+  const plans = [...(correcting.sheet.views ?? [])].filter((v) => v.kind === 'plan').sort((a, b) => a.ordinal - b.ordinal)
+  const start = (v: ViewOut): ViewDraft => ({ storeys: listed(v.storeys), meaning: picked(v.storeys_meaning) })
+  const [drafts, setDrafts] = useState<Record<string, ViewDraft>>(() => Object.fromEntries(plans.map((v) => [v.id, start(v)])))
+  // Each view as the form opened with it: the sheet may be reloaded under the form, but a view is sent only when
+  // its draft differs from this, never from the reloaded sheet (and the server is told what it opened with).
+  const [openedViews] = useState(() => Object.fromEntries(plans.map((v) => [v.id, { draft: start(v), storeys: [...v.storeys], meaning: v.storeys_meaning ?? '' }])))
+  const [unchosen, setUnchosen] = useState<ReadonlySet<string>>(new Set())
   const submit = () => {
-    const change: SheetChange = {}
+    const change: { number?: string; title?: string; views?: ViewChange[] } = {}
     if (number.trim() !== opened.number) change.number = number.trim()
     if (title.trim() !== opened.title) change.title = title.trim()
+    const views: ViewChange[] = []
+    const sent: NonNullable<OpenedWith['views']> = {}
+    const missing = new Set<string>()
+    for (const v of plans) {
+      const draft = drafts[v.id]
+      const opened = openedViews[v.id]
+      if (!draft || !opened) continue
+      const was = opened.draft
+      if (draft.storeys.trim() === was.storeys.trim() && draft.meaning === was.meaning) continue
+      sent[v.id] = { storeys: opened.storeys, meaning: opened.meaning }
+      if (draft.meaning === null) missing.add(v.id)
+      else views.push({ view: v.id, title: v.title, storeys: draft.storeys.trim(), meaning: draft.meaning })
+    }
+    setUnchosen(missing)
+    if (missing.size > 0) return
+    if (views.length > 0) change.views = views
     // Nothing changed: nothing to send, as Cancel.
-    if (change.number === undefined && change.title === undefined) return cancel()
-    save(change, opened)
+    if (change.number === undefined && change.title === undefined && change.views === undefined) return cancel()
+    save(change, Object.keys(sent).length > 0 ? { ...opened, views: sent } : opened)
   }
   return (
     <KeyScope level="mode" name="correct-proposal" modal>
@@ -552,6 +648,20 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
               setEdited(refusal?.n ?? 0)
             }}
           />
+          {plans.map((v) => (
+            <ViewStoreysFields
+              key={v.id}
+              view={v}
+              draft={drafts[v.id] ?? start(v)}
+              error={unchosen.has(v.id)}
+              refusal={shown?.view === v.id ? shown.text : undefined}
+              onChange={(next) => {
+                setEdited(refusal?.n ?? 0)
+                setDrafts((all) => ({ ...all, [v.id]: next }))
+                setUnchosen((all) => (all.has(v.id) ? new Set([...all].filter((id) => id !== v.id)) : all))
+              }}
+            />
+          ))}
           {/* The refusal is announced (a live region of its own; the field's error stays the visible one). */}
           {shown ? (
             <p role="alert" className="sr-only">

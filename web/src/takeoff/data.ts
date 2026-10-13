@@ -152,16 +152,32 @@ export async function exclude(projectId: string, proposals: readonly string[], r
   return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/exclude', { ...path(projectId), body: { proposals: [...proposals], reason, text } }))
 }
 
-/** A sheet's number or title as the QS corrected it (m0-screens §6.9, `E`): only what changed is sent. */
+/** A plan view's storeys as the QS typed them, each listed, and their meaning's key (S24-B2). */
+export interface ViewStoreysChange {
+  view: string
+  storeys: string
+  meaning: 'at_floor_level' | 'floor_to_floor'
+}
+
+/** What the form opened with, sent beside a save: the server refuses a value another person changed since. `views`: each plan view sent, by id. */
+export interface OpenedWith {
+  number: string
+  title: string
+  views?: Record<string, { storeys: readonly string[]; meaning: string }>
+}
+
+/** A sheet's number, title or plan views' storeys as the QS corrected them (m0-screens §6.9, `E`): only what changed is sent. */
 export async function correct(
   projectId: string,
   proposal: string,
-  change: { number?: string; title?: string },
-  opened?: { number: string; title: string },
+  change: { number?: string; title?: string; views?: readonly ViewStoreysChange[] },
+  opened?: OpenedWith,
 ): Promise<ActOut> {
+  const { views, ...sheet } = change
+  const body = { proposal, ...sheet, ...(views ? { views: views.map(({ view, storeys, meaning }) => ({ view, storeys, meaning })) } : {}) }
   // The values the form opened with, so a value another person corrected since is refused, not overwritten.
   const headers = opened ? { 'X-Step1-Opened-With': encodeURIComponent(JSON.stringify(opened)) } : undefined
-  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body: { proposal, ...change }, headers }))
+  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body, headers }))
 }
 
 export async function undo(projectId: string): Promise<ActOut> {
