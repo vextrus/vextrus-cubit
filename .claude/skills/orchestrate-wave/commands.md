@@ -39,8 +39,9 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   first per ticket in 15 min.
 
 ## Real drawings
-- `uv run python -m scripts.factory.rdlock run --kind <kind> --head <sha> -- <cmd>`: one real-drawing run at a
-  time (`posting`, `scored` or `no-post`), queued visibly.
+- `uv run python -m scripts.factory.rdlock run --kind <kind> --head <sha> --ticket <ticket> -- <cmd>`: one real-drawing
+  run at a time (`posting`, `scored` or `no-post`), queued visibly; a posting run without `--ticket` is
+  never checked against a newer head.
 
 ## 5. Review
 - `uv run python -m scripts.factory.review run <PR> --round <n> [--exception <kind> --reason "<text>"]

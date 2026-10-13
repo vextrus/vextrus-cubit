@@ -12,6 +12,7 @@ import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { ChevronRight, Keyboard } from 'lucide-react'
 import { onSaveState, saveState } from '@/api/saves'
+import { useUnreachable } from './Unreachable'
 import { useFormat } from '@/format'
 import { useLanguage } from '@/i18n/activate'
 import { Count, IconButton, SkeletonBar, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
@@ -191,9 +192,13 @@ function Inspector({ step1, step }: { step1: Step1Counts; step: TakeoffStep }) {
 /** The save state (§4.1), from the API client's acts; "Not saved" is the one that asks for the eye. */
 function SaveState() {
   const state = useSyncExternalStore(onSaveState, saveState)
+  // "Trying again." is the connection's probe: it is true only while the frame says the server is down.
+  const down = useUnreachable()
   return (
     <span role="status" data-testid="save-state" className={cn(state === 'dropped' && 'font-medium text-destructive')}>
-      {state === 'saving' ? <Trans>Saving…</Trans> : state === 'dropped' ? <Trans>Not saved: the connection dropped. Trying again.</Trans> : <Trans>All changes saved</Trans>}
+      {state === 'saving' ? <Trans>Saving…</Trans> : state === 'dropped' ? (
+        down ? <Trans>Not saved: the connection dropped. Trying again.</Trans> : <Trans>Not saved: your last change did not reach Vextrus. Do it again.</Trans>
+      ) : <Trans>All changes saved</Trans>}
     </span>
   )
 }

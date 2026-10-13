@@ -164,7 +164,9 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert watch.gh_prs() == [{"number": 7, "headRefName": "b", "headRefOid": "x", "state": "OPEN"}]
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
-    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state,statusCheckRollup"
+    assert argv[argv.index("--json") + 1] == (
+        "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt,isCrossRepository"
+    )
 
 
 def test_the_default_scanner_is_the_main_checkouts_tools_leakscan(

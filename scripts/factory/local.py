@@ -211,6 +211,11 @@ def _launch(args: argparse.Namespace, verdict: governor.Verdict) -> list[str]:
     if (row := live_row(rows, args.name)) is not None:
         raise Stop(2, f"REFUSED duplicate-name: a live session is named {args.name} (pid {row['pid']})")
 
+    if getattr(args, "role", None) not in governor.NOT_BUILDER_ROLES and (
+        live := governor.live_builder(args.ticket, agent_rows=lambda: rows)
+    ):
+        raise Stop(2, f"REFUSED builder-live: ticket {args.ticket} already has a live builder: {live}")
+
     worktree = main_checkout / ".claude" / "worktrees" / args.ticket
     if (other := sharing_database(main_checkout, args.ticket)) is not None:
         raise Stop(

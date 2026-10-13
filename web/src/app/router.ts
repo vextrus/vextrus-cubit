@@ -8,6 +8,7 @@ import { createRouter, type RouterHistory } from '@tanstack/react-router'
 import { ScreenError } from '@/auth'
 import { routeTree } from '@/routeTree.gen'
 import { mutationPolicy, queryPolicy } from './query-policy'
+import { parseSearch, stringifySearch } from './search'
 
 export interface RouterContext {
   queryClient: QueryClient
@@ -31,6 +32,8 @@ export function createAppRouter({ queryClient, history }: { queryClient: QueryCl
     routeTree,
     history,
     context: { queryClient },
+    parseSearch,
+    stringifySearch,
     // A screen that throws is shown inside the frame; routes with a component of their own keep it.
     defaultErrorComponent: ScreenError,
     defaultPreload: 'intent',
