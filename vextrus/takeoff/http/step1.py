@@ -139,15 +139,17 @@ def _opened_with(request: HttpRequest) -> dict[str, object] | None:
 @router.post(f"{_PREFIX}/correct", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CORRECT, project="project_id")
 def correct(request: HttpRequest, project_id: uuid.UUID, payload: Step1CorrectIn) -> Step1ActOut:
-    """Correct a sheet's number or title (m0-screens 6.9, `E`): it stays a Proposal. The header
-    `X-Step1-Opened-With` (URL-encoded JSON `{"number": …, "title": …}`) holds the values the form was
-    opened with: a value changed since is refused (409), never overwritten."""
+    """Correct a sheet's number, title or views' storeys (m0-screens 6.9, `E`): it stays a Proposal.
+    The header `X-Step1-Opened-With` (URL-encoded JSON: `number`, `title`, and `views`, the storey keys
+    and meaning of each view the form sends, by its id) holds the values the form was opened with: a
+    value changed since is refused (409), never overwritten."""
     view = deadlocks.retried(
         lambda: step1.correct(
             project_id,
             payload.proposal,
             number=payload.number,
             title=payload.title,
+            views=[(v.view, v.storeys, v.meaning) for v in payload.views] if payload.views else None,
             opened=_opened_with(request),
             actor_name=actor(request),
         ),

@@ -32,6 +32,10 @@ msgid "Confirmed back in"
 msgstr "Confirmed back in"
 
 #: src/takeoff/SheetHistory.tsx
+msgid "number {before} → {after}"
+msgstr "number {before} → {after}"
+
+#: src/takeoff/SheetHistory.tsx
 msgid "{name}, {role}"
 msgstr "{name}, {role}"
 
@@ -40,20 +44,12 @@ msgid "the title, as read by Vextrus"
 msgstr "the title, as read by Vextrus"
 
 #: src/takeoff/SheetHistory.tsx
-msgid "Corrected: number {before} → {after}"
-msgstr "Corrected: number {before} → {after}"
+msgid "storeys of “{title}”"
+msgstr "storeys of “{title}”"
 
 #: src/takeoff/SheetHistory.tsx
 msgid "the title-block attribute"
 msgstr "the title-block attribute"
-
-#: src/takeoff/SheetHistory.tsx
-msgid "Corrected: title"
-msgstr "Corrected: title"
-
-#: src/takeoff/SheetHistory.tsx
-msgid "Corrected: number {before} → {after}; title"
-msgstr "Corrected: number {before} → {after}; title"
 
 #: src/takeoff/SheetHistory.tsx
 msgid "Excluded"
@@ -97,8 +93,16 @@ msgid "corrected by {name}; read {old}"
 msgstr "corrected by {name}; read {old}"
 
 #: src/takeoff/SheetHistory.tsx
+msgid "title"
+msgstr "title"
+
+#: src/takeoff/SheetHistory.tsx
 msgid "the title of its view"
 msgstr "the title of its view"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Corrected: {what}"
+msgstr "Corrected: {what}"
 
 #: src/takeoff/SheetHistory.tsx
 msgid "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"

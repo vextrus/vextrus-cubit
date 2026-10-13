@@ -78,3 +78,39 @@ msgstr "Nothing was left out: only \"Other\" takes words of its own. Choose \"Ot
 
 msgid "drawings.sheets.text_unreadable"
 msgstr "Those words hold a character that cannot be kept, so nothing was left out. Type them again, or paste them as plain text."
+
+msgid "drawings.sheets.storeys_empty"
+msgstr "No storey was given, so nothing was changed. List each storey the plan draws, for example 3rd, 5th, 7th."
+
+msgid "drawings.sheets.storeys_too_long"
+msgstr "That list of storeys is longer than {limit, plural, one {# character} other {# characters}}, so nothing was changed. List only the storeys the plan draws."
+
+msgid "drawings.sheets.storeys_many_lines"
+msgstr "The storeys must be on one line, so nothing was changed. List them separated by commas, for example 3rd, 5th, 7th."
+
+msgid "drawings.sheets.storeys_drawing_code"
+msgstr "Those storeys hold code copied from drawing text, so nothing was changed. Type the storeys the plan draws, for example 3rd, 5th, 7th."
+
+msgid "drawings.sheets.storeys_unreadable"
+msgstr "Those storeys hold a character that cannot be kept, such as a tab or a hidden mark, so nothing was changed. Type them again by hand."
+
+msgid "drawings.sheets.storeys_not_a_storey"
+msgstr "\"{word}\" does not name a storey, so nothing was changed. Name each storey, for example 3rd, ground or roof."
+
+msgid "drawings.sheets.storeys_range"
+msgstr "\"{word}\" names a range, and each storey must be listed on its own, so nothing was changed. List every storey the plan draws, for example 2nd, 3rd, 4th."
+
+msgid "drawings.sheets.storeys_too_many"
+msgstr "More than {limit, plural, one {# storey} other {# storeys}} were listed, so nothing was changed. List only the storeys the plan draws."
+
+msgid "drawings.sheets.storeys_meaning_unknown"
+msgstr "The storeys must mean either \"at floor level\" or \"floor to floor\", so nothing was changed. Choose one."
+
+msgid "drawings.sheets.storeys_view_unknown"
+msgstr "That view is not on this sheet, so nothing was changed. Reload the sheet and try again."
+
+msgid "drawings.sheets.storeys_not_a_plan"
+msgstr "That view is not a plan, and only a plan view has storeys, so nothing was changed. Reload the sheet and try again."
+
+msgid "drawings.sheets.storeys_view_twice"
+msgstr "One view was given storeys twice, so nothing was changed. Give each view its storeys once."

@@ -31,6 +31,10 @@ msgstr "{projectName}’s sheets"
 msgid "Answers"
 msgstr "Answers"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "As read: <0/>"
+msgstr "As read: <0/>"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "{kind}, not to scale"
 msgstr "{kind}, not to scale"
@@ -116,6 +120,10 @@ msgid "Revision"
 msgstr "Revision"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "Choose what the storeys mean, then save."
+msgstr "Choose what the storeys mean, then save."
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "Cancel the correction"
 msgstr "Cancel the correction"
 
@@ -158,6 +166,10 @@ msgstr "{by}, {date}, {time}"
 #: src/takeoff/Step1Screen.tsx
 msgid "Previous view on the sheet"
 msgstr "Previous view on the sheet"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "Correct the focused sheet’s number, title or storeys"
+msgstr "Correct the focused sheet’s number, title or storeys"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Previous sheet"
@@ -217,6 +229,10 @@ msgid "No sheets yet: they arrive as {name} is read."
 msgstr "No sheets yet: they arrive as {name} is read."
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "3rd, 5th, 7th"
+msgstr "3rd, 5th, 7th"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "read by Vextrus from the title"
 msgstr "read by Vextrus from the title"
 
@@ -260,6 +276,10 @@ msgstr "Answer {tag}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} {settled} / {total} settled"
 msgstr "{name} {settled} / {total} settled"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "What the storeys of “{title}” mean"
+msgstr "What the storeys of “{title}” mean"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "Ask later"
@@ -573,10 +593,6 @@ msgstr "Its sheets join the list when it is read."
 msgid "Sources"
 msgstr "Sources"
 
-#: src/takeoff/Step1Screen.tsx
-msgid "Correct the focused sheet’s number or title"
-msgstr "Correct the focused sheet’s number or title"
-
 #: src/takeoff/Step1Inspector.tsx
 msgid "Question {tag}"
 msgstr "Question {tag}"
@@ -628,6 +644,10 @@ msgstr "Last row"
 #: src/takeoff/Step1Inspector.tsx
 msgid "{mark}, from the file name"
 msgstr "{mark}, from the file name"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Storeys of “{title}”, each listed"
+msgstr "Storeys of “{title}”, each listed"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Opening <0/>…"

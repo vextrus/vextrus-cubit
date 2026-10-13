@@ -2,7 +2,7 @@
  * A sheet's "Who did what" (m0-screens §6.6 item 5, §6.9) and a typed value's provenance (#689), read from
  * the event log through the sheet's history (S24-B1): its own file, so its words have their own catalogue.
  */
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import type { MessageDescriptor } from '@lingui/core'
@@ -63,21 +63,29 @@ function ActWhat({ act }: { act: HistoryAct }) {
   if (act.code === 'takeoff.step1.undone') return <Trans>Undone</Trans>
   if (act.code === 'takeoff.step1.corrected') {
     const number = act.changes?.number
-    const title = act.changes?.title
+    const parts: ReactNode[] = []
     if (number) {
       const before = number.old ? <DrawingText kind="sheet-number" text={number.old} truncate={false} /> : '—'
       const after = <DrawingText kind="sheet-number" text={number.new} truncate={false} />
-      return title ? (
-        <Trans>
-          Corrected: number {before} → {after}; title
-        </Trans>
-      ) : (
-        <Trans>
-          Corrected: number {before} → {after}
-        </Trans>
-      )
+      parts.push(<Trans>number {before} → {after}</Trans>)
     }
-    return title ? <Trans>Corrected: title</Trans> : <Trans>Corrected</Trans>
+    if (act.changes?.title) parts.push(<Trans>title</Trans>)
+    for (const v of act.views ?? []) {
+      const title = <DrawingText kind="title" text={v.title} truncate={false} />
+      parts.push(<Trans>storeys of “{title}”</Trans>)
+    }
+    if (parts.length === 0) return <Trans>Corrected</Trans>
+    const what = (
+      <>
+        {parts.map((part, i) => (
+          <Fragment key={i}>
+            {i > 0 ? '; ' : null}
+            {part}
+          </Fragment>
+        ))}
+      </>
+    )
+    return <Trans>Corrected: {what}</Trans>
   }
   return null
 }
