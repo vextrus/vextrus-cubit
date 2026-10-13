@@ -114,6 +114,8 @@ jobs:
         run: python3 -m tools.lint.root_only
       - name: Seed figures (a figure that cites a seed row of m1-screens 6.1 agrees with it)
         run: python3 -m tools.lint.seed_figures docs/design/m1-screens.md
+      - name: Seed workings (a working of a seed row of m1-screens 6.1 is the product of the figures it prints)
+        run: python3 -m tools.lint.seed_workings docs/design/m1-screens.md
       - name: Acceptance check (only `acceptance:` commits change acceptance tests; ADR 0041)
         if: github.event_name == 'pull_request'
         env:
