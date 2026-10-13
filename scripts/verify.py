@@ -25,6 +25,8 @@ ends the line).
 A `web-test` that fails with every failing test's error vitest's `Error: Test timed out in <n>ms.` line
 (the counts agreeing, see `timed_out_files`) has each such file run again alone, `--maxWorkers=1`, as its
 own `web-test-rerun` check; it passes only if every re-run passes, and any other failure stands.
+`web-test-slowed` is CI's second pass: `web-test` with `VITE_FAKE_API_LATENCY_MS` read from
+`.github/workflows/web.yml`; its timed-out files are re-run alone the same way, latency kept.
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
@@ -52,6 +54,10 @@ PYTHON = re.compile(r"\.pyi?$|^(?:pyproject\.toml|uv\.lock|\.importlinter)$")
 WEB_SCHEMA = ".private/work/verify/openapi.json"
 FLAKY = ".github/flaky.txt"
 FLAKY_ROOT = ".github/flaky-root.txt"
+WEB_YML = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "web.yml"
+LATENCY_KEY = "VITE_FAKE_API_LATENCY_MS"
+LATENCY_SETTING = re.compile(rf"^\s*{LATENCY_KEY}:\s*[\"']?(\d+)[\"']?\s*$", re.M)
+SLOWED = "web-test-slowed"
 PYTEST_FAILURE = re.compile(r"^(?:FAILED|ERROR) (\S.*)$")
 VITEST_FAILURE = re.compile(r"^\s*FAIL\s+(\S.*)$")
 SUMMARY_LINE = re.compile(r"^=*\s*\d+ \w.*\bin \d+(?:\.\d+)?s\b")
@@ -94,7 +100,15 @@ def pytest_target(path: str) -> str | None:
 
 
 LINT_TESTS = "tools/lint/tests"
-WEB_CHAIN = ("openapi-export", "api-types", "typecheck", "lint", "messages-check", "web-test")
+WEB_CHAIN = (
+    "openapi-export",
+    "api-types",
+    "typecheck",
+    "lint",
+    "messages-check",
+    "web-test",
+    "web-test-slowed",
+)
 # The checks that read the exported schema run after it, in its chain (#709: contract-fixtures raced
 # openapi-export when it ran as its own chain).
 SCHEMA_CHAIN = (*WEB_CHAIN, "contract-fixtures")
@@ -164,6 +178,14 @@ def _port_free(port: int) -> bool:
         except OSError:
             return False
     return True
+
+
+def ci_latency() -> str:
+    """CI's slowed-fake latency, read from web.yml when verify runs (it cannot drift)."""
+    found = LATENCY_SETTING.findall(WEB_YML.read_text())
+    if len(found) != 1:
+        raise SystemExit(f"verify: {WEB_YML} must set {LATENCY_KEY} exactly once, found {len(found)}")
+    return str(found[0])
 
 
 def vitest_port(root: Path) -> int:
@@ -264,6 +286,12 @@ def plan_with_notes(
                 "web-test",
                 ("npm", "--prefix", "web", "test"),
                 {"VEXTRUS_VITEST_PORT": str(vitest_port(root))},
+            ),
+            # CI's second pass (web.yml): every FakeApi answer waits, so a latency race fails here.
+            Check(
+                SLOWED,
+                ("npm", "--prefix", "web", "test"),
+                {"VEXTRUS_VITEST_PORT": str(vitest_port(root)), LATENCY_KEY: ci_latency()},
             ),
         ]
     if fixtures:
@@ -608,13 +636,15 @@ def main(
                 code, flakes = 0, listed
             else:
                 code = raw = again
-        elif code != 0 and check.name == "web-test" and (files := timed_out_files(code, output)):
+        elif (
+            code != 0 and check.name in ("web-test", SLOWED) and (files := timed_out_files(code, output))
+        ):
             # Each timed-out file alone, vitest's workers capped: a pool under load times a slow
             # test out; only a file that passes alone is excused (the owner's Q-R3).
             codes = []
             for file in files:
                 alone = Check(
-                    "web-test-rerun",
+                    f"{check.name}-rerun",
                     (*check.argv, "--", file, "--maxWorkers=1"),
                     check.env,
                 )
