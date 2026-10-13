@@ -50,9 +50,11 @@ refuses an unlinked cut item).
 In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). Say it under "Not verified".
 
 ## Quality
-- Every serious finding (scored 75 or more, or 50 or more on a strict path: every file unless it matches a
-  `[lax]` glob and no `[strict]` carve-out in `scripts/factory/review_tiers.toml`; or a repeated class) leaves a committed check: a test, lint or scan
-  that fails on the class.
+- Every serious finding (scored 75 or more; or 50 or more when user-facing, a QS or MD would hit it, or on
+  a trust boundary; an untagged one at 50 or more on a strict path: every file unless it matches a `[lax]`
+  glob and no `[strict]` carve-out in `scripts/factory/review_tiers.toml`; or a repeated class) leaves a
+  committed check: a test, lint or scan that fails on the class. An edge or rule-only finding of 50-74 off
+  a trust boundary is filed as an issue that names the check it still owes (the owner's Q13).
 - On the trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger), ask a `refuter` agent
   to break your claim before READY.
 - If you add or change words under `web/src/messages/**`, ask `ux-critic` for the words-only design gate
