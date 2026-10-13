@@ -309,6 +309,7 @@ async function actsProject(
       onStep1 = false // the upload page replaced the list
     },
     reading: () => api.reading(project.id),
+    ready,
     async act(kind) {
       if (!(await ready())) return null
       switch (kind) {
