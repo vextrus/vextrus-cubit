@@ -43,3 +43,21 @@ def test_the_two_aliases_are_the_app_and_the_owner() -> None:
 def test_the_jev_key_is_named_never_held() -> None:
     assert settings.VEXTRUS_JEV_KEY_VARIABLE == "TYPESAFE_API_KEY"
     assert not any("TYPESAFE" in name and name != "VEXTRUS_JEV_KEY_VARIABLE" for name in dir(settings))
+
+
+def test_the_roles_may_be_renamed_by_the_environment_to_plain_identifiers_only() -> None:
+    # The Held-out instance's pair (ticket M1-06); unset, the M0 names.
+    from django.core.exceptions import ImproperlyConfigured
+
+    from vextrus.settings.tenancy import role_name
+
+    assert role_name("VEXTRUS_APP_ROLE", "vextrus_app", {}) == "vextrus_app"
+    assert role_name("VEXTRUS_APP_ROLE", "vextrus_app", {"VEXTRUS_APP_ROLE": ""}) == "vextrus_app"
+    renamed = {"VEXTRUS_APP_ROLE": "vextrus_heldout_app"}
+    assert role_name("VEXTRUS_APP_ROLE", "vextrus_app", renamed) == "vextrus_heldout_app"
+    for hostile in ('x"; drop', "Vextrus", "1role", "a b", "a" * 64, "role;", "r\n"):
+        try:
+            role_name("VEXTRUS_APP_ROLE", "vextrus_app", {"VEXTRUS_APP_ROLE": hostile})
+        except ImproperlyConfigured:
+            continue
+        raise AssertionError(f"{hostile!r} was taken as a role name")
