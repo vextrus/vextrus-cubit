@@ -68,7 +68,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, events, invitations, jev, markets, tenancy
+from vextrus.platform.services import activity, auth, events, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -1545,6 +1545,42 @@ def _record(row: Confirmation, code: MessageCode, payload: dict[str, int] | None
         project_id=row.project_id,
         payload=payload or {},
     )
+
+
+def act_params(events: Sequence[activity.ActView]) -> dict[uuid.UUID, dict[str, Any]]:
+    """What the acts-read adds to a "confirmed back in" event (the log keeps ids and counts only):
+    `excluded_before`, one `{sheet, reason}` per sheet it confirmed back in, the sheet's number and
+    the code of the reason it was excluded for, from the act's `before` (m0-screens 4.4). Codes and
+    numbers only: no other drawing text."""
+    back_in = {
+        e.subject_id: e
+        for e in events
+        if e.code == said.CONFIRMED_BACK_IN.code and e.subject_type == "confirmation" and e.subject_id
+    }
+    if not back_in:
+        return {}
+    found: dict[uuid.UUID, dict[str, Any]] = {}
+    sets: dict[uuid.UUID, uuid.UUID | None] = {}
+    for act in Confirmation.objects.filter(id__in=list(back_in)):
+        earlier = {
+            key: prior["reason"]
+            for key, prior in act.before.get("sheets", {}).items()
+            if prior and prior.get("decision") == "excluded" and prior.get("reason")
+        }
+        if act.project_id not in sets:
+            drawing_set = drawings.set_of(act.project_id)
+            sets[act.project_id] = drawing_set.id if drawing_set else None
+        set_id = sets[act.project_id]
+        if not earlier or set_id is None:
+            continue
+        named = drawings.sheets(set_id, anchors=False, among=[uuid.UUID(k) for k in earlier])
+        entries = [
+            {"sheet": sheet.number or "", "reason": earlier[str(sheet.id)]}
+            for sheet in named
+            if str(sheet.id) in earlier
+        ]
+        found[back_in[act.id].id] = {"excluded_before": entries}
+    return found
 
 
 def _chosen(
