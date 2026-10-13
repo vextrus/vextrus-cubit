@@ -561,7 +561,10 @@ def test_the_refusal_to_undo_a_moved_on_correction_names_its_sheet(
 
     assert (refused.status_code, refused.json()) == (
         409,
-        {"code": "takeoff.step1.correction_moved_on", "params": {"sheet": "S-05", "named": "number"}},
+        {
+            "code": "takeoff.step1.correction_moved_on",
+            "params": {"sheet": "S-05", "named": "number", "moved": "no", "now": "S-05"},
+        },
     )
 
 
@@ -596,7 +599,7 @@ def test_an_undo_that_passes_over_a_correction_and_meets_an_answer_says_both(
         409,
         "takeoff.step1.answer_stays_after_correction",
     )
-    assert refused.json()["params"] == {"sheet": "S-05", "named": "number"}  # names the sheet (review 3)
+    assert refused.json()["params"]["sheet"] == "S-05"  # names the sheet (review 3)
 
 
 def test_the_refusal_says_that_sheet_when_its_number_is_no_longer_the_one_the_correction_set(
@@ -611,4 +614,175 @@ def test_the_refusal_says_that_sheet_when_its_number_is_no_longer_the_one_the_co
     refused = nusrat.post(f"{step1(kr01)}/undo", {})
 
     assert refused.status_code == 409
-    assert refused.json()["params"] == {"sheet": "", "named": "none"}
+    # Named by the number the correction set, and where it is now (review 2 of #706: never "that sheet").
+    assert refused.json()["params"] == {
+        "sheet": "A-93",
+        "named": "number",
+        "moved": "yes",
+        "now": "A-94",
+    }
+
+
+def open_questions_of(api: Api, project: uuid.UUID) -> list[tuple[str, str, str]]:
+    listed = api.get(f"{step1(project)}/questions").json()["questions"]
+    return sorted(
+        (q["kind"], q.get("code") or "", str(q.get("subject_id") or ""))
+        for q in listed
+        if q["status"] == "open"
+    )
+
+
+def test_undoing_a_number_correction_leaves_the_open_questions_exactly_as_before(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Design gate of #706 (90): the Questions the new number raised stayed open and held the sheet.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-02")
+    before = open_questions_of(nusrat, kr01)
+
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "S-02A"}).status_code == 200
+    assert open_questions_of(nusrat, kr01) != before  # the number raised its own Questions
+    undo(nusrat, kr01)
+
+    after = open_questions_of(nusrat, kr01)
+    assert [q for q in after if q not in before] == []
+    assert [q for q in before if q not in after] == []
+
+
+def test_answer_stays_after_correction_ends_with_answer_stays_closing_words() -> None:
+    # Review 1 of #706 (55): the owner's verbatim words are not cut (m0-screens 1.1, 5 / 6.9).
+    from pathlib import Path
+
+    po = (Path(__file__).resolve().parents[3] / "web/src/messages/takeoff/step1/en.po").read_text()
+    closing = "To change what it decided, exclude a sheet it confirmed or confirm back one it excluded."
+    after = po.split('msgid "takeoff.step1.answer_stays_after_correction"')[1].split("\n\n")[0]
+    assert closing in after
+
+
+def correct_opened_with(
+    api: Api, project: uuid.UUID, body: dict[str, Any], opened: dict[str, str]
+) -> Any:
+    """`correct` as the form sends it: with the values it opened with in its header."""
+    import json
+    from urllib.parse import quote
+
+    return api.client.post(
+        f"{step1(project)}/correct",
+        data=json.dumps(body),
+        content_type="application/json",
+        headers={
+            "X-CSRFToken": api.csrf_token(),
+            "X-Step1-Opened-With": quote(json.dumps(opened)),
+        },
+    )
+
+
+def test_a_save_from_a_form_opened_before_another_persons_correction_is_refused(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Design gate of #706 (60): the lost update. Her title stands; his form is refused with it shown.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    opened = {"number": sheet["number"], "title": sheet["title"]}
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "Theirs"}).status_code == 200
+
+    refused = correct_opened_with(nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}, opened)
+
+    assert refused.status_code == 409, refused.content
+    assert refused.json() == {
+        "code": "takeoff.step1.corrected_since",
+        "params": {
+            "field": "title",
+            "value": "Theirs",
+            "has": "yes",
+            "sheet": "S-05",
+            "named": "number",
+            "moved": "no",
+            "now": "S-05",
+        },
+    }
+    assert the(nusrat, kr01, sheet["id"])["title"] == "Theirs"
+    # Opened with the current values, the same save goes through.
+    ok = correct_opened_with(
+        nusrat, kr01, {"proposal": sheet["id"], "title": "Mine"}, {"number": "S-05", "title": "Theirs"}
+    )
+    assert ok.status_code == 200, ok.content
+
+
+def test_a_kept_open_answer_on_one_listed_number_is_not_handed_to_another_numbers_question(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    # Review 2 of #706 (70/68): retire_questions' heir rule with the list Questions' empty hold.
+    [sheet] = by_number(proposals(nusrat, kr01), "S-02")
+    path = step1(kr01)
+    assert correct(nusrat, kr01, {"proposal": sheet["id"], "number": "S-02A"}).status_code == 200
+    listed = nusrat.get(f"{path}/questions").json()["questions"]
+    others_before = {
+        q["id"]
+        for q in listed
+        if q["status"] == "open" and q.get("code") == "engine.register_check.not_found"
+    }
+    [mine] = [
+        q
+        for q in listed
+        if q["status"] == "open"
+        and q.get("code") == "engine.register_check.not_found"
+        and q["params"].get("number") == "S-02"
+    ]
+    kept = nusrat.post(f"{path}/questions/{mine['id']}/answer", {"option": "keep_open"})
+    assert kept.status_code == 200, kept.content
+
+    undo(nusrat, kr01)  # S-02 is S-02 again: its not_found is retired, its answer goes to no one
+
+    after = nusrat.get(f"{path}/questions").json()["questions"]
+    handed = [
+        q
+        for q in after
+        if q["status"] == "open"
+        and q.get("code") == "engine.register_check.not_found"
+        and q["id"] in others_before
+        and q["id"] != mine["id"]
+        and (q.get("answer") or {}).get("option") == "keep_open"
+    ]
+    assert handed == []
+
+
+def test_corrected_since_names_the_sheet_as_the_qs_saw_it_and_says_when_it_has_no_number(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 2 of #706 (55, 45/40): never "“”", never "that sheet".
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), None)
+    assert correct(other, kr01, {"proposal": sheet["id"], "number": "A-92"}).status_code == 200
+    undo(other, kr01)  # the number is none again
+    refused = correct_opened_with(
+        nusrat,
+        kr01,
+        {"proposal": sheet["id"], "number": "A-95"},
+        {"number": "A-92", "title": sheet["title"]},
+    )
+
+    assert refused.status_code == 409, refused.content
+    params = refused.json()["params"]
+    assert (params["field"], params["has"], params["value"]) == ("number", "no", "")
+    assert (params["sheet"], params["moved"]) == ("A-92", "none")  # the number the QS saw
+
+
+def test_undoing_an_exclusion_does_not_confirm_a_value_corrected_while_the_sheet_was_out(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, sign_in: Any
+) -> None:
+    # Review 3 of #706 (55, blocks): the Confirmation came back over a title nobody confirmed.
+    other = second_qs(demo, sign_in, kr01)
+    [sheet] = by_number(proposals(nusrat, kr01), "S-05")
+    path = step1(kr01)
+    assert nusrat.post(f"{path}/confirm", {"proposals": [sheet["id"]]}).status_code == 200
+    assert (
+        nusrat.post(f"{path}/exclude", {"proposals": [sheet["id"]], "reason": "superseded"}).status_code
+        == 200
+    )
+    assert correct(other, kr01, {"proposal": sheet["id"], "title": "THEIRS"}).status_code == 200
+
+    undo(nusrat, kr01)  # the exclusion
+
+    after = the(nusrat, kr01, sheet["id"])
+    assert after["title"] == "THEIRS"
+    assert after["decision"] != "confirmed"  # a Proposal again: nobody confirmed THEIRS

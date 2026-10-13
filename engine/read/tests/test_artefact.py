@@ -78,6 +78,10 @@ def artefact() -> ReadArtefact:
                 tag=None,
                 extrusion=(0.0, 0.0, 1.0),
                 style_handle="C1",
+                extents_width=2.9,
+                extents_height=4.1,
+                line_spacing_style=2,
+                line_spacing_factor=1.5,
             ),
             Text(
                 handle="A4",
@@ -128,7 +132,7 @@ def test_the_summary_carries_what_the_contract_fixes() -> None:
 def test_the_json_names_its_schema_and_version() -> None:
     data = artefact().to_json()
 
-    assert (data["schema"], data["version"]) == (SCHEMA, VERSION) == ("engine.read.artefact", 4)
+    assert (data["schema"], data["version"]) == (SCHEMA, VERSION) == ("engine.read.artefact", 5)
 
 
 def test_an_artefact_survives_json_text_unchanged() -> None:
@@ -154,13 +158,23 @@ def test_an_mtext_keeps_no_height_as_none_and_its_direction_vector() -> None:
     assert mtext["text"] == "line one\nline two"
 
 
+def test_an_mtext_keeps_autocads_measures_and_its_line_spacing() -> None:
+    """S24-A4: the renderer fits an MTEXT to the widest line and the height AutoCAD measured."""
+    mtext, attrib = artefact().to_json()["entities"][2:4]
+
+    assert (mtext["extents_width"], mtext["extents_height"]) == (2.9, 4.1)
+    assert (mtext["line_spacing_style"], mtext["line_spacing_factor"]) == (2, 1.5)
+    assert attrib["extents_width"] is attrib["line_spacing_style"] is None
+
+
 @pytest.mark.parametrize(
     ("where", "value", "message"),
     [
         ("version", 1, "version"),  # 04's, which carried no style table (#82)
         ("version", 2, "version"),  # #82's, which carried no layout's paper units (#87)
         ("version", 3, "version"),  # #87's, which carried no layout's plot settings (S15-E2)
-        ("version", 5, "version"),
+        ("version", 4, "version"),  # S15-E2's, which carried no MTEXT measures (S24-A4)
+        ("version", 6, "version"),
         ("schema", "engine.read.other", "schema"),
         ("extra", 1, "unknown fields"),
     ],

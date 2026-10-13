@@ -313,7 +313,7 @@ def test_the_questions_queue_by_sheets_held_then_conflicts_missing_items_and_che
 
 UNNUMBERED = [
     Sheet("S-01", "PILE LAYOUT PLAN", ("PILE LAYOUT PLAN",)),
-    Sheet(None, "STAIR DETAILS", ("STAIR SECTION",)),
+    Sheet(None, "COLUMN LAYOUT PLAN", ("COLUMN PLAN",)),
 ]
 
 
@@ -354,7 +354,7 @@ def test_a_sheet_held_by_an_open_missing_question_cannot_be_confirmed_until_it_i
                 "params": {
                     "count": 1,
                     "asks": "number",
-                    "sheet": "STAIR DETAILS",
+                    "sheet": "COLUMN LAYOUT PLAN",
                     "named": "title",
                     "question": asked["id"],
                 },

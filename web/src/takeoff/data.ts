@@ -150,10 +150,17 @@ export interface ViewStoreysChange {
 }
 
 /** A sheet's number, title or plan views' storeys as the QS corrected them (m0-screens §6.9, `E`): only what changed is sent. */
-export async function correct(projectId: string, proposal: string, change: { number?: string; title?: string; views?: readonly ViewStoreysChange[] }): Promise<ActOut> {
+export async function correct(
+  projectId: string,
+  proposal: string,
+  change: { number?: string; title?: string; views?: readonly ViewStoreysChange[] },
+  opened?: { number: string; title: string },
+): Promise<ActOut> {
   const { views, ...sheet } = change
   const body = { proposal, ...sheet, ...(views ? { views: views.map(({ view, storeys, meaning }) => ({ view, storeys, meaning })) } : {}) }
-  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body }))
+  // The values the form opened with, so a value another person corrected since is refused, not overwritten.
+  const headers = opened ? { 'X-Step1-Opened-With': encodeURIComponent(JSON.stringify(opened)) } : undefined
+  return unwrap(api.POST('/api/projects/{project_id}/takeoff/step1/correct', { ...path(projectId), body, headers }))
 }
 
 export async function undo(projectId: string): Promise<ActOut> {

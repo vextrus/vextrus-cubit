@@ -493,10 +493,16 @@ class PlotMatch:
     transform: PlotTransform | None = None
     residual: float | None = None
     reason: str | None = None
+    used: bool = True
+    """False for a page that names the sheet while another page of its PDF was taken as the sheet's
+    page (18's "One page, one sheet", S24-A5): its report says both show the sheet and which is used
+    (m0-screens 4.5), and it is never the sheet's Plot."""
 
     def __post_init__(self) -> None:
         if (self.sheet is None) == (self.reason is None):
             raise ValueError("a page matches a sheet or says why it matched none, exactly one")
+        if not isinstance(self.used, bool) or (self.sheet is None and not self.used):
+            raise ValueError("only a page that names a sheet is left unused")
         if self.sheet is None and (self.transform is not None or self.residual is not None):
             raise ValueError("a page that matched no sheet has no transform and no residual")
         if self.sheet is not None:
