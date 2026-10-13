@@ -425,6 +425,95 @@ def admit(
         os.close(fd)
 
 
+def launch_records(ticket: str, folder: Path | None = None) -> list[tuple[Path, dict[str, Any]]]:
+    """A ticket's launch records, newest first: those whose own `ticket` field is this ticket (a file
+    name only starts with it; `T-ACC` and `T-WATCH-LOCAL` are other tickets). A refused cloud launch is
+    no launch: a cloud record with no session and a judge that is not ok is left out (it names only the
+    branch that was asked for). A local record always stays: it carries no judge, and its session id is
+    null when `claude --bg` started the session before its agents row was listed."""
+    folder = folder if folder is not None else status.factory_dir() / "launches"
+    found = []
+    for path in sorted(folder.glob(f"{ticket}-*.json"), reverse=True):
+        if path.name.endswith(".agents.json"):
+            continue
+        record = _read_record(path)
+        if record is None or record.get("ticket") != ticket:
+            continue
+        judge = record.get("judge")
+        refused = not record.get("session_id") and not (
+            isinstance(judge, dict) and judge.get("ok") is True
+        )
+        if refused and record.get("where") != "local":
+            continue
+        found.append((path, record))
+    return found
+
+
+def pending_builder(ticket: str, own_pid: int) -> str | None:
+    """A launch of this ticket still in flight (`admit`'s pending record, its launcher alive), other
+    than the caller's own."""
+    for path in sorted((status.factory_dir() / PENDING).glob(f"{ticket}-*.json")):
+        record = _read_record(path)
+        if record is None or record.get("ticket") != ticket:
+            continue
+        pid = record.get("pid")
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or pid == own_pid:
+            continue
+        if isinstance(pid, int) and not isinstance(pid, bool) and status.pid_alive(pid):
+            return f"a {record.get('where', 'builder')} launch is in flight (pid {pid})"
+    return None
+
+
+def live_builder(
+    ticket: str,
+    folder: Path | None = None,
+    *,
+    agent_rows: Callable[[], list[dict[str, Any]] | None] | None = None,
+    prs: Callable[[], list[dict[str, Any]] | None] | None = None,
+    own_pid: int | None = None,
+) -> str | None:
+    """The live builder already launched on a ticket, as a sentence naming its session, or None.
+
+    Live: a cloud builder record whose judge was ok, whose STOP was not sent, that has not aged out
+    (`ageing`) and whose branch has no PR that ended after it started (`_release`); a local builder
+    record whose session `claude agents` lists with a pid (an ended session is none; an unreadable list
+    counts as live, failing closed). An acceptance-writer's, reviewer's or refuter's record is no
+    builder."""
+    folder = folder if folder is not None else status.factory_dir() / "launches"
+    agent_rows = agent_rows or read_agents
+    prs = prs or read_prs
+    released: dict[str, tuple[datetime | None, int]] | None = None
+    if pending := pending_builder(ticket, own_pid if own_pid is not None else os.getpid()):
+        return pending
+    for path, record in launch_records(ticket, folder):
+        if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
+            continue
+        if record.get("stop_sent") is True:
+            continue
+        session = record.get("session_id") or record.get("name") or path.name
+        if record.get("where") == "local":
+            rows = agent_rows()
+            if rows is None:
+                return f"local builder {session} (the agents list is unreadable)"
+            for row in rows:
+                same = row.get("name") == record.get("name") or (
+                    record.get("session_id") and row.get("sessionId") == record.get("session_id")
+                )
+                if same and row.get("pid") is not None:
+                    return f"local builder {session} is live (pid {row['pid']})"
+            continue
+        judge = record.get("judge")
+        if not (isinstance(judge, dict) and judge.get("ok") is True):
+            continue
+        if aged_out(record, agent_rows) is not None:
+            continue
+        if released is None:
+            released = _released(prs() or [])
+        if not _release(record, released)[0]:
+            return f"cloud builder {session} is live on {record['branch']}"
+    return None
+
+
 def release_hold(ticket: str, pid: int) -> None:
     """Remove a launch's pending record (`admit`); none there is no error."""
     if not TICKET_RE.fullmatch(ticket):
@@ -723,6 +812,9 @@ def _released(prs: list[dict[str, Any]]) -> dict[str, tuple[datetime | None, int
     wins over one with none; only a branch whose rows have no time at all gets a None end, which
     releases every record on it."""
     released: dict[str, tuple[datetime | None, int]] = {}
+    prs = [
+        row for row in prs if row.get("isCrossRepository") is not True
+    ]  # a fork's PR counts for nothing
     for row in prs:
         if row["state"] not in ("MERGED", "CLOSED"):
             continue
@@ -733,6 +825,9 @@ def _released(prs: list[dict[str, Any]]) -> dict[str, tuple[datetime | None, int
             if end is None or (previous is not None and end <= previous):
                 continue
         released[name] = (end, row["number"])
+    for row in prs:  # a branch with an open PR is still in flight, whatever older PRs on it ended
+        if row["state"] == "OPEN":
+            released.pop(row["headRefName"], None)
     return released
 
 
@@ -752,6 +847,10 @@ def _release(
     if started < end:
         return True, f"started {status.utc(started)}, before PR {number} ended {status.utc(end)}"
     return False, f"started {status.utc(started)}, after PR {number} ended {status.utc(end)}"
+
+
+released_branches = _released
+record_released = _release
 
 
 def _agent_rows() -> Callable[[], list[dict[str, Any]] | None]:

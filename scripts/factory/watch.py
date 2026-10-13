@@ -386,7 +386,10 @@ def gh_prs() -> list[dict[str, Any]] | None:
             return None
     else:
         argv = ["gh", "pr", "list", "--state", "all", "--limit", "200"]
-        argv += ["--json", "number,headRefName,headRefOid,state,statusCheckRollup"]
+        argv += [
+            "--json",
+            "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt,isCrossRepository",
+        ]
         try:
             done = subprocess.run(
                 argv, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, check=False
@@ -402,7 +405,13 @@ def gh_prs() -> list[dict[str, Any]] | None:
         return None
     if not isinstance(loaded, list):
         return None
-    return [row for row in loaded if isinstance(row, dict) and isinstance(row.get("number"), int)]
+    return [  # a fork's PR on a factory branch's name is no PR of that branch's ticket
+        row
+        for row in loaded
+        if isinstance(row, dict)
+        and isinstance(row.get("number"), int)
+        and row.get("isCrossRepository") is not True
+    ]
 
 
 def jev_command() -> list[str] | None:
@@ -440,13 +449,17 @@ def models_check() -> tuple[str, str | None]:
 
 # --- the world's records
 def load_launches(
-    folder: Path, since: datetime | None
+    folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None = None
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     """The builders' newest launch record per ticket, and the cloud reviews' branches with the head each
     was launched on. A record whose `review` is not null (review_cloud.py's reviewer or refuter) is not a
-    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch."""
+    builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch.
+    With the PR list `prs`: a ticket launched before `since` is still followed while its branch's PR is
+    open (carried over); a ticket whose branch's PR ended (merged or closed) after the record started is
+    dropped (the governor's release rule)."""
     newest: dict[str, dict[str, Any]] = {}
     reviews: dict[str, str] = {}
+    ended = governor.released_branches([row for row in prs or [] if _has_pr_keys(row)])
     for path in sorted((folder / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
             continue
@@ -475,7 +488,11 @@ def load_launches(
         refused = isinstance(judge, dict) and judge.get("ok") is False
         if (refused and not record.get("session_id")) or record.get("stop_sent") is True:
             continue
-        if since is not None and started < since:
+        pr = pr_for(branch, prs)
+        state = pr.get("state") if pr is not None else None
+        if governor.record_released(record, ended)[0]:
+            continue  # its branch's PR merged or closed after this record started
+        if since is not None and started < since and state != "OPEN":
             continue
         record["_started"] = started
         if ticket not in newest or started >= newest[ticket]["_started"]:
@@ -496,6 +513,10 @@ def load_launches(
         or builders[record["branch"]] < record["_started"]
     }
     return followed, reviews
+
+
+def _has_pr_keys(row: Any) -> bool:
+    return isinstance(row, dict) and all(k in row for k in ("number", "headRefName", "state"))
 
 
 def is_builder(record: dict[str, Any]) -> bool:
@@ -672,16 +693,15 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     watch_said(step)  # before track(): this pass's SAID lines count toward each item's relay
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
-    records, reviews = load_launches(folder, since)
-    refs = remote_heads()
-    main_sha = refs.get("main") if refs is not None else None
-
     if step.due("prs_read_at", PRS_EVERY):
         state["prs_read_at"] = status.utc(at)
         read = gh_prs()
         if read is not None:
             state["prs"] = read
     prs: list[dict[str, Any]] | None = state.get("prs")
+    records, reviews = load_launches(folder, since, prs)
+    refs = remote_heads()
+    main_sha = refs.get("main") if refs is not None else None
 
     if step.due("usage_read_at", USAGE_EVERY):
         state["usage_read_at"] = status.utc(at)
