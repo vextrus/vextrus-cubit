@@ -17,7 +17,7 @@ The raw tables and scripts are local (`.private/work/s24-explore/`); nothing her
    gives the same rate (18 of 57 PRs). By area in that window: docs 7/13, factory 6/13, engine 2/17, backend 1/8, web 1/2, so product
    code passed 4 of 27. Over sessions 14–24 the per-area rates were 13–24 % for code and 43 % for docs. Over all sessions the markers give 24 %.
 2. **The findings are real.** A stratified sample of 30 findings scored 50 or more (sessions 18–24, all areas, rounds 1–3), each read
-   against the reviewed head: 10 user-facing defects, 14 edge, hostile-input or race defects, 5 breaking only the factory's own rules,
+   against the reviewed head: 10 user-facing defects (8 in the product, 2 in factory tooling), 14 edge, hostile-input or race defects, 5 breaking only the factory's own rules,
    1 spec gap, 0 false. Caveats: the shares are not population rates; 12 rows were read in code, the rest rest on the refuter, which
    confirmed 436 of 445 findings largely by re-running the reviewer's own failing test.
 3. **Most were catchable before the PR** (one reader's judgment): 15 by the builder running the same review lens on its own diff, 8 by
