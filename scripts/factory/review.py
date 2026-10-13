@@ -1144,6 +1144,20 @@ def replay_marks(test_file: Path) -> list[str]:
 
 
 TAIL_LINES = 40
+# pytest's closing summary line (`== 1 passed, 1 skipped in 0.01s ==`): read last, so no warning's or
+# skip reason's own words are counted (an all-skipped run exits 0 too).
+SUMMARY = re.compile(r"^=*\s*(\d+ [a-z]+(?:, \d+ [a-z]+)*) in \d+(?:\.\d+)?s\b", re.MULTILINE)
+QUIET = frozenset({"passed", "warning", "warnings"})  # a run of only these is a pass
+
+
+def summary_counts(output: str) -> dict[str, int]:
+    """The counts of pytest's last summary line, by outcome (`{"passed": 1, "skipped": 1}`)."""
+    found = SUMMARY.findall(output)
+    if not found:
+        return {}
+    return {kind: int(count) for count, kind in re.findall(r"(\d+) ([a-z]+)", found[-1])}
+
+
 TAIL_CHARS = 4000
 # What each replay showed, by (worktree, test file): the batched refuter is told it (`confirm` reads it;
 # `replay` keeps its bool answer, the seam the unit tests replace).
@@ -1181,6 +1195,7 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
     REPLAYS[(str(rv), test_file)] = {
         "outcome": "failed by name" if confirmed else "did not fail by name",
         "exit": done.returncode,
+        "summary": summary_counts(plain),
         "command": shlex.join(command),
         "output_tail": tail(f"{done.stdout}\n{done.stderr}"),
     }
@@ -1421,23 +1436,26 @@ MANIFEST = "attacks.json"
 
 
 def keep_attacks(run: Run, rv: Path, main: Path) -> None:
-    """Keep the attack tests of the round's standing findings of 50 or more (each repro's folder, its
-    files only, never a link), with a manifest, for a later delta review to re-run."""
+    """Keep the round's standing findings that could block, with a manifest, for a later delta review:
+    each one whose attack failed by name on this round (method 'replay') with its repro's folder (its
+    files only, never a link), to re-run; every other one as text (test_file null), handed to the next
+    delta lens. A finding the bar files (it cannot block) is never kept (PR #789 review 1)."""
     assert run.head is not None
     kept: list[dict[str, Any]] = []
     folders: set[str] = set()
     for item in run.findings:
-        if item.score < 50 or item.word not in ledger.STANDS:
+        if item.score < 50 or item.word not in ledger.STANDS or not item.could_block:
             continue
         if item.id.startswith("r"):
             continue  # an earlier round's attack, kept with its own round
-        # A standing finding with no repro file is kept too (test_file null): the next delta review
-        # hands it to its lens, never drops it.
-        target = replay_target(rv, item.repro) if item.repro is not None else None
+        # An attack that never failed on its own round proves nothing by passing later: only a
+        # replay-confirmed one is re-run; the rest go to the next delta lens as text, never dropped.
+        proven = item.method == "replay" and item.repro is not None
+        target = replay_target(rv, item.repro) if proven and item.repro is not None else None
         if target is not None:
             folders.add(PurePosixPath(target).parent.as_posix())
         kept.append({"id": item.id, "score": item.score, "file": item.file, "line": item.line,
-                     "summary": item.summary, "test_file": target})  # fmt: skip
+                     "summary": item.summary, "test_file": target, "could_block": True})  # fmt: skip
     if not kept:
         return
     where = attacks_dir(main, run.pr, run.head)
@@ -1508,30 +1526,43 @@ def earlier_rounds(
 def replay_earlier(
     run: Run, rv: Path, main: Path, earlier: list[tuple[int, Path, list[dict[str, Any]]]]
 ) -> None:
-    """Re-run every earlier round's kept attack on the merged head (in `rv`, reset to it): one that
-    fails by name again is a CONFIRMED finding that blocks."""
+    """Re-run every earlier round's kept attack on the merged head, one round at a time, each at its
+    original relative path in `rv` (reset to the head and cleaned before each round), so an attack that
+    finds the repository from its own file still does: one that does not pass again is a CONFIRMED
+    finding that blocks. Run after this round's own attacks are kept (`keep_attacks`)."""
     assert run.merged is not None
     assert run.slot is not None
-    git(rv, "reset", "-q", "--hard", run.merged)
-    git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules", f"--exclude=/{ATTACKS}")
     found: list[Finding] = []
     for number, where, manifest in earlier:
-        into = rv / ATTACKS / f"round{number}"
+        git(rv, "reset", "-q", "--hard", run.merged)
+        git(rv, "clean", "-fdqx", "--exclude=/.venv", "--exclude=node_modules")
+        plains = [plain_test_path(str(entry.get("test_file") or "")) for entry in manifest]
+        tests = {plain.as_posix() for plain in plains if plain is not None}
         for path in sorted(where.rglob("*")):
             if path.is_file() and not path.is_symlink() and path.name != MANIFEST:
-                target = into / path.relative_to(where)
+                relative = path.relative_to(where).as_posix()
+                target = rv / relative
+                # The head's own files stay (a helper the PR changed), never the attack test itself.
+                if target.exists() and relative not in tests:
+                    continue
+                if not target.resolve().is_relative_to(rv.resolve()):
+                    continue
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)
+        drop_attack_config(rv, frozenset(PurePosixPath(test).parent.as_posix() for test in tests))
         for entry in manifest:
-            if not entry.get("test_file"):
+            if not entry.get("test_file") or entry.get("could_block") is False:
                 continue  # no attack test: handed to the lens as text (`earlier_rounds`)
-            test_file = plain_test_path(str(entry["test_file"]))
-            name = f"{ATTACKS}/round{number}/{test_file}" if test_file is not None else None
-            # An attack that already failed once passes only by exiting 0 now: an error, a timeout
-            # or a missing file blocks (never "did not fail by name").
+            plain = plain_test_path(str(entry["test_file"]))
+            name = plain.as_posix() if plain is not None else None
+            # An attack that already failed once passes only by exiting 0 with every test passed
+            # now: an error, a timeout, a missing file, a skip or an xfail blocks (the attack may be
+            # the test skipped).
             if name is not None and (rv / name).is_file():
                 replay(rv, run.slot, name)
-                failed = REPLAYS.get((str(rv), name), {}).get("exit") != 0
+                shown = REPLAYS.get((str(rv), name), {})
+                counts = shown.get("summary") or {}
+                failed = shown.get("exit") != 0 or not counts.get("passed") or not set(counts) <= QUIET
             else:
                 failed = True
             item = Finding(
@@ -1578,8 +1609,8 @@ def delta_review(run: Run, args: argparse.Namespace, main: Path, ledger_dir: Pat
                 )
             reviews = lenses_in(run, [DELTA], rv, slot, main, facts)
             confirm_and_refute(run, rv, slot, main, reviews)
+            keep_attacks(run, rv, main)  # before the replay, which cleans `rv` round by round
             replay_earlier(run, rv, main, earlier)
-            keep_attacks(run, rv, main)
         finally:
             with ledger.ledger_lock(ledger_dir):
                 check_ledger(ledger_dir, before, run, journaled_since(ledger_dir, mark))

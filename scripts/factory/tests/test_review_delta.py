@@ -180,7 +180,7 @@ def kept_round(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[review.
     one = review.Run(PR, 1, head=head)
     one.findings = [
         review.Finding("l1-f1", 80, TOTAL, 1, "the total is wrong", "review_attacks/lens-b/test_a.py",
-                       word="CONFIRMED"),
+                       word="CONFIRMED", method="replay"),
         review.Finding("l1-f2", 90, TOTAL, 2, "UNTESTED_FINDING", None, word="UNPROVEN"),
     ]  # fmt: skip
     review.keep_attacks(one, rv, main)
@@ -232,9 +232,155 @@ def test_an_earlier_attack_that_passes_adds_nothing_that_blocks(
     monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
 
     def replay(where: Path, _slot: int, name: str) -> bool:
-        review.REPLAYS[(str(where), name)] = {"outcome": "did not fail by name", "exit": 0}
+        review.REPLAYS[(str(where), name)] = {
+            "outcome": "did not fail by name",
+            "exit": 0,
+            "summary": {"passed": 1},
+        }
         return False
 
     monkeypatch.setattr(review, "replay", replay)
     review.replay_earlier(run, rv, main, earlier)
+    assert run.findings == []
+
+
+def test_an_earlier_attack_that_skips_every_test_blocks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PR #789 review 1 (80): exit 0 with no test passed (all skipped) is not a fix."""
+    run, main, rv = kept_round(tmp_path, monkeypatch)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+
+    def replay(where: Path, _slot: int, name: str) -> bool:
+        review.REPLAYS[(str(where), name)] = {
+            "outcome": "did not fail by name",
+            "exit": 0,
+            "summary": {"skipped": 1},
+        }
+        return False
+
+    monkeypatch.setattr(review, "replay", replay)
+    monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
+    review.replay_earlier(run, rv, main, earlier)
+    assert [(item.id, item.word) for item in run.findings] == [("r1-l1-f1", "CONFIRMED")]
+
+
+@pytest.mark.parametrize(
+    ("output", "counts"),
+    [
+        ("===== 3 passed in 0.01s =====", {"passed": 3}),
+        ("1 passed, 1 warning in 0.01s", {"passed": 1, "warning": 1}),
+        # The refuter of PR #789's fix round: a warning's or a skip reason's own words never count.
+        ("UserWarning: report said 7 passed in 2s\n== 1 skipped, 1 warning in 0.01s ==",
+         {"skipped": 1, "warning": 1}),
+        ("SKIPPED [1] t.py:3: only 3 passed checks apply\n1 skipped in 0.01s", {"skipped": 1}),
+        ("no summary at all", {}),
+    ],
+)  # fmt: skip
+def test_the_replay_reads_only_pytest_s_summary_line(output: str, counts: dict[str, int]) -> None:
+    assert review.summary_counts(output) == counts
+
+
+@pytest.mark.parametrize(
+    ("summary", "fixed"),
+    [
+        ({"passed": 2}, True),
+        ({"passed": 1, "warning": 3}, True),
+        ({"passed": 1, "skipped": 1}, False),  # the attack itself may be the skipped one
+        ({"passed": 1, "xfailed": 1}, False),
+        ({"passed": 1, "xpassed": 1}, False),
+        ({"skipped": 2}, False),
+        ({}, False),
+    ],
+)
+def test_an_earlier_attack_reads_fixed_only_when_every_test_passed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, summary: dict[str, int], fixed: bool
+) -> None:
+    run, main, rv = kept_round(tmp_path, monkeypatch)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+
+    def replay(where: Path, _slot: int, name: str) -> bool:
+        review.REPLAYS[(str(where), name)] = {"outcome": "x", "exit": 0, "summary": summary}
+        return False
+
+    monkeypatch.setattr(review, "replay", replay)
+    monkeypatch.setattr(review, "mark_on_tree", lambda *_args: None)
+    review.replay_earlier(run, rv, main, earlier)
+    assert (run.findings == []) is fixed
+
+
+@pytest.mark.parametrize(
+    ("word", "method"),
+    [("UNPROVEN", None), ("CONFIRMED", "refuter")],
+    ids=["unproven", "refuter-confirmed"],
+)
+def test_a_standing_finding_its_own_round_did_not_replay_is_handed_as_text_never_replayed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, word: str, method: str | None
+) -> None:
+    """PR #789 review 1 (80): an attack that never failed on its own round proves nothing by passing
+    later; its finding goes to the next delta lens as text."""
+    main, rv = tmp_path / "main", tmp_path / "rv"
+    (rv / "review_attacks" / "lens-b").mkdir(parents=True)
+    (rv / "review_attacks" / "lens-b" / "test_a.py").write_text("def test_a() -> None:\n    pass\n")
+    head = "c" * 40
+    one = review.Run(PR, 1, head=head)
+    one.findings = [
+        review.Finding("l1-f1", 80, TOTAL, 1, "MISSED_BY_ITS_TEST", "review_attacks/lens-b/test_a.py",
+                       word=word, method=method),
+    ]  # fmt: skip
+    review.keep_attacks(one, rv, main)
+    manifest = review.attacks_dir(main, PR, head) / review.MANIFEST
+    assert [entry["test_file"] for entry in __import__("json").loads(manifest.read_text())] == [None]
+    assert not (review.attacks_dir(main, PR, head) / "review_attacks").exists()
+    monkeypatch.setattr(ledger, "round_head", lambda _dir, _pr, _round: head)
+    run = review.Run(PR, 2, head="d" * 40, merged="d" * 40, slot=1)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    assert any("MISSED_BY_ITS_TEST" in line for line in run.earlier_text), run.earlier_text
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+    monkeypatch.setattr(review, "replay", lambda *_args: pytest.fail("replayed"))
+    review.replay_earlier(run, rv, main, earlier)
+    assert run.findings == []
+
+
+def test_a_finding_the_bar_files_is_never_kept(tmp_path: Path) -> None:
+    """PR #789 review 1 (75): an edge 60 off a trust boundary is filed; it must not block later."""
+    main, rv = tmp_path / "main", tmp_path / "rv"
+    (rv / "review_attacks" / "lens-b").mkdir(parents=True)
+    (rv / "review_attacks" / "lens-b" / "test_a.py").write_text("def test_a() -> None:\n    pass\n")
+    head = "c" * 40
+    one = review.Run(PR, 1, head=head)
+    filed = review.Finding("l1-f1", 60, TOTAL, 1, "an edge", "review_attacks/lens-b/test_a.py",
+                           word="CONFIRMED", method="replay", kind="edge", boundary=False,
+                           on_tree=True)  # fmt: skip
+    assert not filed.could_block
+    one.findings = [filed]
+    review.keep_attacks(one, rv, main)
+    assert not review.attacks_dir(main, PR, head).exists()
+
+
+def test_an_earlier_attack_replays_from_its_own_path_so_it_finds_the_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PR #789 review 1 (75): an attack that locates the worktree from its own file
+    (`Path(__file__).resolve().parents[2]`) still does when it is replayed."""
+    run, main, rv = kept_round(tmp_path, monkeypatch)
+    earlier = review.earlier_rounds(run, main, tmp_path / "ledger")
+    (rv / "review_attacks" / "lens-b" / "test_a.py").unlink()  # the clean between rounds
+    monkeypatch.setattr(review, "git", lambda *_args, **_kw: "")
+    seen: list[Path] = []
+
+    def replay(where: Path, _slot: int, name: str) -> bool:
+        seen.append((where / name).resolve().parents[2])
+        review.REPLAYS[(str(where), name)] = {
+            "outcome": "did not fail by name",
+            "exit": 0,
+            "summary": {"passed": 1},
+        }
+        return False
+
+    monkeypatch.setattr(review, "replay", replay)
+    review.replay_earlier(run, rv, main, earlier)
+    assert seen == [rv.resolve()]
     assert run.findings == []
