@@ -166,3 +166,32 @@ def test_a_number_carried_with_a_suffix_is_no_gap(held: str) -> None:
         ]
     )
     assert all(not ("S-42" in r and "S-44" in r) for r in runs(found))
+
+
+@pytest.mark.parametrize(("prefix", "held"), [("S1-", "S1-43.1"), ("S-1.", "S-1.43.1")])
+def test_a_dotted_number_under_a_prefix_with_a_digit_is_no_gap(prefix: str, held: str) -> None:
+    """#781: the gap's number is the running number before the part ("S1-43.1" holds 43, not the
+    prefix's 1)."""
+    found = compare(
+        [
+            (f"{prefix}41", "BEAM B1-B4 DETAILS"),
+            (f"{prefix}42", "BEAM B5-B8 DETAILS"),
+            (f"{prefix}42", "BEAM B9-B12 DETAILS"),
+            (held, "SLAB PLAN"),
+            (f"{prefix}44", "BEAM B13-B16 DETAILS"),
+        ]
+    )
+    assert all(not (f"{prefix}42" in r and f"{prefix}44" in r) for r in runs(found))
+
+
+def test_the_gap_is_crossed_under_a_prefix_with_a_digit_when_nothing_holds_it() -> None:
+    found = compare(
+        [
+            ("S1-41", "BEAM B1-B4 DETAILS"),
+            ("S1-42", "BEAM B5-B8 DETAILS"),
+            ("S1-42", "BEAM B9-B12 DETAILS"),
+            ("S1-45.1", "SLAB PLAN"),
+            ("S1-44", "BEAM B13-B16 DETAILS"),
+        ]
+    )
+    assert runs(found) == [["S1-41", "S1-42", "S1-42", "S1-44"]]
