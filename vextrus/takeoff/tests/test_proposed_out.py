@@ -1,6 +1,6 @@
 """Ticket 162: a sheet the read proposes out (a cover, or a box of notes the cover rule takes for one)
-is listed, proposed out, asks no Question and is not counted in Step 1's progress until the QS
-confirms it in (on hand-built artefacts, as `acceptance/t21c` builds them)."""
+is listed, proposed out, asks no Question and stays in Step 1's progress count, settled once the QS
+confirms it in or leaves it out (#322 replaced #162's not counting it) (on hand-built artefacts, as `acceptance/t21c` builds them)."""
 
 import uuid
 from collections.abc import Sequence
@@ -135,7 +135,7 @@ def test_a_proposed_out_sheet_jev_is_unsure_of_raises_no_low_confidence_question
     assert kinds.count("low_confidence") == 2
 
 
-def test_a_proposed_out_sheet_is_not_counted_until_the_qs_confirms_it_in(
+def test_a_proposed_out_sheet_is_counted_and_settled_once_the_qs_confirms_it_in(
     qs_project: QsProject, monkeypatch: pytest.MonkeyPatch, jev_offline: Offline
 ) -> None:
     jev_says(jev_offline, "0.97")
@@ -145,14 +145,14 @@ def test_a_proposed_out_sheet_is_not_counted_until_the_qs_confirms_it_in(
     assert len(listed) == 3
 
     row = rows(api, qs_project.project_id)["structural"]
-    assert (row["found"], row["total"], row["confirmed"]) == (2, 2, 0)
+    assert (row["found"], row["total"], row["confirmed"]) == (3, 3, 0)
     assert row["open_questions"] == 0
 
     numbered = [p["id"] for p in listed if p["number"]]
     for one in numbered:  # m0-screens 6.4 (#166): one-source sheets one by one
         assert confirm(api, qs_project.project_id, [one]).status_code == 200
     row = rows(api, qs_project.project_id)["structural"]
-    assert (row["found"], row["confirmed"], row["status"]) == (2, 2, "confirmed")
+    assert (row["found"], row["confirmed"], row["status"]) == (3, 2, "in_review")
 
     cover = the(listed, None)
     response = confirm(api, qs_project.project_id, [cover["id"]], kind="cover_index")
