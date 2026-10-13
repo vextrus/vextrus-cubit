@@ -165,6 +165,10 @@ msgid "Close the step rail"
 msgstr "Close the step rail"
 
 #: src/app/CanvasFrame.tsx
+msgid "Saving…"
+msgstr "Saving…"
+
+#: src/app/CanvasFrame.tsx
 msgid "Confirmed"
 msgstr "Confirmed"
 
@@ -180,6 +184,10 @@ msgstr "Columns"
 #: src/app/JumpTo.tsx
 msgid "Jump to"
 msgstr "Jump to"
+
+#: src/app/CanvasFrame.tsx
+msgid "All changes saved"
+msgstr "All changes saved"
 
 #: src/app/steps.ts
 msgctxt "Takeoff Step"
@@ -228,6 +236,10 @@ msgstr "Guest"
 #: src/app/CanvasFrame.tsx
 msgid "Step {number}"
 msgstr "Step {number}"
+
+#: src/app/CanvasFrame.tsx
+msgid "Not saved: the connection dropped. Trying again."
+msgstr "Not saved: the connection dropped. Trying again."
 
 #: src/app/Frame.tsx
 msgid "There is nothing at this address. It may have been a link to another Developer’s project, or to a project you have not been given."
