@@ -44,4 +44,5 @@ def test_the_walk_scripts_closing_line_wakes(tmp_path: Path, closing: str) -> No
     events(closing)
     log = (tmp_path / ".private/work/factory/events.log").read_text()
     lines = submitted(log)
-    assert lines is not None and lines[-1].endswith(f" WALK - 4596e870 {closing}"), lines
+    assert lines is not None, f"the walk's closing line {closing!r} wakes"
+    assert lines[-1].endswith(f" WALK - 4596e870 {closing}"), lines
