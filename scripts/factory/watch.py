@@ -97,9 +97,8 @@ CLOSED_PR = {"MERGED", "CLOSED"}
 
 
 # --- trailers (trailers.md 1: scripts/factory/trailers.py, the reading the guard and stop gate share)
-MERGE_DEPTH = 20
 # The trailer reading's version: a state written by another version has every seen head re-read once.
-PARSER = 4
+PARSER = 5
 
 
 BLOCKED_NO_REASON = "BLOCKED without a one-line Factory-Reason"
@@ -225,7 +224,7 @@ def clean_merges_of_main(sha: str, ready_head: str, main_sha: str | None) -> boo
     main = main_sha or "refs/remotes/origin/main"
     if main_sha is not None:
         fetch("main", main_sha)
-    for _ in range(MERGE_DEPTH):
+    while True:
         parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
         if len(parents) == 1 and status_reply(sha) is not None:
             sha = parents[0]
@@ -244,7 +243,6 @@ def clean_merges_of_main(sha: str, ready_head: str, main_sha: str | None) -> boo
         if parents[0] == ready_head:
             return True
         sha = parents[0]
-    return False
 
 
 # --- the leak scan (leakscan-cli.md 6: the watcher only alarms, never stamps)
@@ -798,19 +796,21 @@ def track(
             message, tree = info
             trailers = parse_trailers(message, tree) if head is not None else Trailers(None)
             # Clean merges of main (the lander's) and a builder's status replies on a commit that reads
-            # READY keep that READY, found by walking back whether or not this watcher saw it; anything
-            # else in the merge is new work. The READY commit's own event fires once: when it is not the
-            # one this watcher already recorded.
-            under = (
-                ready_under(head, main_sha) if head is not None and trailers.outcome is None else None
+            # READY or BLOCKED keep that outcome (and a BLOCKED its reason), found by walking back
+            # whether or not this watcher saw it; anything else in the merge is new work. The outcome
+            # commit's own event fires once: when it is not the one this watcher already recorded.
+            found = (
+                settled_under(head, main_sha) if head is not None and trailers.outcome is None else None
             )
+            under = found[0] if found is not None else None
+            if found is not None:
+                trailers = found[1]
             inherited = (
-                under is not None
-                and seen.get("outcome") == "READY"
-                and seen.get("ready_commit") in (None, under)
+                found is not None
+                and seen.get("outcome") == trailers.outcome
+                and seen.get("ready_commit" if trailers.outcome == "READY" else "blocked_commit")
+                in (None, under)
             )
-            if under is not None:
-                trailers = Trailers("READY")
             seen.update(
                 head=head,
                 last_push_at=status.utc(at) if head is not None else seen["last_push_at"],
@@ -820,6 +820,7 @@ def track(
                 outcome_at=seen.get("outcome_at") if inherited else status.utc(at),
                 ready_head=head if trailers.outcome == "READY" else None,
                 ready_commit=(under or head) if trailers.outcome == "READY" else None,
+                blocked_commit=(under or head) if trailers.outcome == "BLOCKED" else None,
                 leak=None,
                 acceptance=head is not None and message.startswith("acceptance:"),
                 idle_since=None,
@@ -835,8 +836,8 @@ def track(
                     step.event("STATUS", ticket, f"{head[:8]} {reply}")
                 if trailers.outcome == "READY" and not inherited:
                     step.event("READY", ticket, (under or head)[:8])
-                elif trailers.outcome == "BLOCKED":
-                    step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
+                elif trailers.outcome == "BLOCKED" and not inherited:
+                    step.event("BLOCKED", ticket, f"{(under or head)[:8]} {trailers.reason}")
                 if where == "cloud":
                     seen["leak"] = leak_scan(head, main_sha)
                     step.state["leakscan"] = seen["leak"]["result"]
@@ -944,8 +945,10 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
     if info is None:
         return
     trailers = parse_trailers(*info)
-    if trailers.outcome is None and seen.get("outcome") == "READY" and inherits_ready(head, main_sha):
-        return
+    if trailers.outcome is None and seen.get("outcome") in ("READY", "BLOCKED"):
+        found = settled_under(head, main_sha)
+        if found is not None and found[1].outcome == seen.get("outcome"):
+            return
     if trailers.outcome == "READY":  # every READY records its head, unchanged or not
         seen["ready_head"] = seen["ready_commit"] = head
     if trailers.outcome == seen.get("outcome"):
@@ -964,11 +967,13 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
         step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
 
 
-def ready_under(head: str, main_sha: str | None) -> str | None:
-    """The commit that reads READY under `head` when `head` is clean merges of main and status replies on
-    it, found by walking first parents (so it needs no earlier sight of that commit); else None."""
+def settled_under(head: str, main_sha: str | None) -> tuple[str, Trailers] | None:
+    """(the commit, its trailers) of the READY or BLOCKED commit under `head` when `head` is clean merges
+    of main and status replies on it, found by walking first parents (so it needs no earlier sight of
+    that commit) with no depth cut, as `ci_gate.ready_commit` has none; else None. A status reply on a
+    BLOCKED head keeps BLOCKED and its reason, as it keeps READY."""
     sha = head
-    for _ in range(MERGE_DEPTH):
+    while True:
         parents = (git_out("rev-list", "--parents", "-n", "1", sha) or "").split()[1:]
         if len(parents) == 1 and status_reply(sha) is not None:
             sha = parents[0]  # a builder's status reply: the commit under it is the one to read
@@ -980,15 +985,16 @@ def ready_under(head: str, main_sha: str | None) -> str | None:
         tree = git_out("rev-parse", f"{sha}^{{tree}}")
         if message is None or tree is None:
             return None
-        if parse_trailers(message, tree.strip()).outcome == "READY":
-            return sha if clean_merges_of_main(head, sha, main_sha) else None
-    return None
+        found = parse_trailers(message, tree.strip())
+        if found.outcome in ("READY", "BLOCKED"):
+            return (sha, found) if clean_merges_of_main(head, sha, main_sha) else None
 
 
-def inherits_ready(head: str, main_sha: str | None) -> bool:
-    """Whether `head` is clean merges of main and status replies on a commit that reads READY
-    (`ready_under`): reread() and `state.outcome_of` ask it of a head that does not read READY itself."""
-    return ready_under(head, main_sha) is not None
+def inherits_outcome(head: str, main_sha: str | None) -> str | None:
+    """The outcome (READY or BLOCKED) `head` inherits through clean merges of main and status replies
+    (`settled_under`): `state.outcome_of` asks it of a head that does not read an outcome itself."""
+    found = settled_under(head, main_sha)
+    return found[1].outcome if found is not None else None
 
 
 def pr_for(branch: str, prs: list[dict[str, Any]] | None) -> dict[str, Any] | None:

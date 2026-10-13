@@ -62,9 +62,15 @@ from them) on the head the watcher last saw READY (the lander's merge) stays REA
 
 A builder answers a status message (the owner's Q-R6, S26-FX1) with an empty commit (its tree its parent's) whose
 only `Factory-` trailer is one `Factory-Status: <line>` (`trailers.status_line`; `read` stays strict and gives it no
-outcome). The watcher writes a STATUS event with the line; on a READY head it keeps READY (like a merge of main, and a
-chain of them), and so do `ci_gate.is_ready` and `merge_ready`'s READY reading, and `merge_ready`'s ledger check keeps
-the reviewed head's PASS. A commit with any file change never does, whatever trailers it carries. A BLOCKED head with
+outcome). The watcher writes a STATUS event with the line; on a READY or BLOCKED head, on any head, it keeps that
+outcome (and a BLOCKED its reason; like a merge of main, and a chain of them), and so do `ci_gate.is_ready` (READY)
+and `merge_ready`'s READY reading, and `merge_ready`'s ledger check keeps the reviewed head's PASS. READY is read under
+CLEAN merges of main only (two parents, the second on main, the tree `git merge-tree` makes from them) by the watcher,
+`merge_ready` and `scripts.factory.publish` (`ci_gate.ready_commit(clean_merges=True)`): a hand-resolved merge or a
+file added inside one is new work, and publish refuses it; CI's gate takes any merge of main (GitHub's "Update
+branch"). When the tree publish pushes is not the READY commit's, it needs a green verify record of its own. The walk
+back has no depth cut in the watcher, `ci_gate` or publish. A commit with any file change never does, whatever
+trailers it carries. A BLOCKED head with
 no one-line `Factory-Reason` reads as no outcome here (as the guard reads it), but the watcher writes
 `BLOCKED <sha8> no reason given`.
 

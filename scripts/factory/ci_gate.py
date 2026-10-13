@@ -10,7 +10,8 @@ Prints exactly one line, `ready=true` or `ready=false` (a step appends it to `$G
   (`scripts.factory.trailers`, docs/specs/factory/contracts/trailers.md 1) with its Factory-Verify line
   naming this commit's tree; or when it is a merge of main onto a commit that is READY by this same rule
   (GitHub's "Update branch" and `land update` make the head that lands such a merge). A merge onto a head
-  that is not READY, or of anything but main, is not READY.
+  that is not READY, or of anything but main, is not READY. The walk back has no depth cut, as the
+  watcher's and publish's have none.
 - A builder's answer to a status message (the owner's Q-R6) keeps READY: an empty commit (its tree its
   parent's) whose only `Factory-` trailer is `Factory-Status:`, on a head that is READY by these rules; a
   chain of them too. A commit with any file change never does, whatever trailers it carries.
@@ -71,16 +72,33 @@ def _is_status_reply(sha: str, parent: str, cwd: str | os.PathLike[str] | None =
     return trees[0] == trees[1]
 
 
-def ready_commit(sha: str, cwd: str | os.PathLike[str] | None = None) -> str | None:
+def _is_clean_merge(sha: str, parents: list[str], cwd: str | os.PathLike[str] | None = None) -> bool:
+    """Whether `sha`'s tree is the one `git merge-tree` makes from its two parents with no conflict
+    (merge_ready's rule: a resolved conflict, a `-s ours` or a file added inside is new work)."""
+    made = _git("merge-tree", "--write-tree", "--no-messages", *parents, check=False, cwd=cwd)
+    tree = _git("rev-parse", f"{sha}^{{tree}}", cwd=cwd).stdout
+    return made.returncode == 0 and made.stdout.split()[:1] == tree.split()
+
+
+def ready_commit(
+    sha: str, cwd: str | os.PathLike[str] | None = None, *, clean_merges: bool = False
+) -> str | None:
     """The commit that reads READY under `sha`: `sha` itself, or the first one found by walking back
     over merges of main and empty status replies (the newest commit on that chain carrying the trailer);
-    None when the chain reaches a commit that is neither."""
+    None when the chain reaches a commit that is neither. The walk has no depth cut (the watcher's and
+    publish's have none). CI's gate takes any merge whose second parent is on main (GitHub's "Update
+    branch" makes it); `clean_merges` takes only one `_is_clean_merge` accepts, as the watcher and
+    merge_ready read it, which is publish's rule."""
     current = _commit(sha, cwd)
     while True:
         if _reads_ready(current, cwd):
             return current
         parents = _git("rev-list", "--parents", "-n", "1", current, cwd=cwd).stdout.split()[1:]
-        merge = len(parents) == 2 and _on_main(parents[1], cwd)
+        merge = (
+            len(parents) == 2
+            and _on_main(parents[1], cwd)
+            and (not clean_merges or _is_clean_merge(current, parents, cwd))
+        )
         if not (merge or (len(parents) == 1 and _is_status_reply(current, parents[0], cwd))):
             return None
         current = parents[0]

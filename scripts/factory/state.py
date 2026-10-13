@@ -238,14 +238,14 @@ def reviewed_record(mine: list[Record], head: str, main_sha: str | None) -> Reco
 
 def outcome_of(branch: str, head: str, main_sha: str | None) -> tuple[str | None, bool]:
     """(the head's Factory-State, whether the head could be read): the shared reader's reading of its
-    message, and READY for clean merges of main on a READY head (`watch.inherits_ready`, the rule the
-    watcher uses)."""
+    message, and the READY or BLOCKED of the commit under clean merges of main and status replies
+    (`watch.inherits_outcome`, the rule the watcher uses)."""
     info = watch.read_head(branch, head)
     if info is None:
         return None, False
     outcome = watch.parse_trailers(*info).outcome
-    if outcome is None and watch.inherits_ready(head, main_sha):
-        outcome = "READY"
+    if outcome is None:
+        outcome = watch.inherits_outcome(head, main_sha)
     return outcome, True
 
 
