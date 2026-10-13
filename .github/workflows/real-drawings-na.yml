@@ -48,8 +48,11 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          # A name holding a control character (a newline would split into two lines the matchers read
+          # as two files) fails the step: jq's error exits gh non-zero, so nothing is posted.
           gh api --paginate "repos/$REPO/pulls/$PR/files" \
-            --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed.txt"
+            --jq '.[] | (.filename, (.previous_filename // empty)) | if (explode | any(. < 32 or . == 127)) then error("a changed file name holds a control character") else . end' \
+            > "$RUNNER_TEMP/changed.txt"
           wc -l < "$RUNNER_TEMP/changed.txt"
       - name: Post "not applicable" where no changed file needs the status
         # Fails closed: both matchers run as their own commands under `shell: bash` (-e -o pipefail),
