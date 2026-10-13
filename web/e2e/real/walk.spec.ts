@@ -18,7 +18,8 @@
  *   - the third (WK-Ann, `acts_project`) takes the same files and the acts: confirm, undo, exclude,
  *     undo and answer on Step 1 by their keys from the moment the first file's read starts (act-driver.ts),
  *     in rounds until each kind has act_samples_min samples (the set's expectation; 5 when it has none)
- *     or every read has ended (`reads_ended_before_samples`), each timed from its key to its answer and
+ *     or every read has ended (`reads_ended_before_samples`; `kind_not_offered` when a kind never answered;
+ *     `reads_timed_out` for a read that never ended), each timed from its key to its answer and
  *     recorded with the answer's status. An act counts as during a read only if the API showed a file
  *     reading both before and after it.
  *
@@ -36,12 +37,11 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
-import { actWhileReading, type ActKind } from './act-driver'
+import { actWhileReading, FILE_TIMEOUT_MS, type ActKind } from './act-driver'
 import { timedAct, type ActRecord } from './act-timer'
 
 const QS = 'nusrat@shapla-homes.example' // the seed's QS (docs/design/m0-screens.md §7)
 const MOVING = new Set(['waiting', 'reading', 'stopping', 'retrying'])
-const FILE_TIMEOUT_MS = 45 * 60 * 1000
 const SAMPLES_EACH = 5 // act_samples_min when a set's expectation is not at hand (the owner's Q5 limits)
 const ACT_PAUSE_MS = 2000
 const SAME_TITLE = 'engine.conflicts.same_title'
@@ -81,6 +81,10 @@ type SetRecord = {
   acts: ActRecord[]
   /** Only when true: every read ended before each kind of act had its samples. */
   reads_ended_before_samples?: boolean
+  /** Only when true: some kind of act never answered (never offered, or every act of it failed). */
+  kind_not_offered?: boolean
+  /** Only when above 0: files of the acts Project whose read had not ended FILE_TIMEOUT_MS after its upload. */
+  reads_timed_out?: number
   questions: Record<string, Record<string, number>>
   burden: Record<string, Burden>
 }
@@ -271,14 +275,8 @@ async function focusFirstRow(page: Page): Promise<boolean> {
   return true
 }
 
-/** Waits for every file of a Project to end its read (the acts Project's reads are not timed). */
-async function readsEnd(api: Api, projectId: string): Promise<void> {
-  const deadline = Date.now() + FILE_TIMEOUT_MS
-  while ((await api.reading(projectId)) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, POLL_MS))
-}
-
 /** The acts Project: its files uploaded in order, acted on from the first read's start until each kind
- * has its samples (act-driver.ts), then waited on until every read ends. */
+ * has its samples (act-driver.ts), which also waits for every read to end (each file its own deadline). */
 async function actsProject(
   page: Page,
   api: Api,
@@ -342,7 +340,8 @@ async function actsProject(
   })
   record.acts.push(...acts.acts)
   if (acts.reads_ended_before_samples) record.reads_ended_before_samples = true
-  await readsEnd(api, project.id)
+  if (acts.kind_not_offered) record.kind_not_offered = true
+  if (acts.reads_timed_out > 0) record.reads_timed_out = acts.reads_timed_out
 }
 
 /** Uploads one file and waits for its read to end: its end state and read time. */
