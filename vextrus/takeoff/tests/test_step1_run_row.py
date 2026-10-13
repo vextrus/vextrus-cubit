@@ -3,9 +3,8 @@ decided alike), not every sheet of the run. The scene is the acceptance test's, 
 
 import pytest
 
-from vextrus.drawings import models
 from vextrus.takeoff.tests.acceptance.ts24c1 import test_a_run_confirms_as_its_row as scene
-from vextrus.testing.drawings import QsProject
+from vextrus.testing.drawings import QsProject, propose_out
 
 pytestmark = pytest.mark.django_db
 
@@ -110,9 +109,7 @@ def test_a_run_whose_middle_sheet_is_proposed_out_confirms_as_the_row_left(
 ) -> None:
     # S-01 confirmed first, S-03 proposed out (blank): the web lists S-02, S-04 as the row left.
     assert the_set.confirm(["S-01"]).status_code == 200
-    models.SheetRevision.objects.filter(
-        drawing_set__project_id=the_set.project_id, sheet__number="S-03"
-    ).update(proposed_exclusion="blank")
+    propose_out(the_set.project_id, "S-03", "blank")
     assert the_set.listed()["S-03"]["proposed_exclusion"] == "blank"
 
     response = the_set.confirm(["S-02", "S-04"])
