@@ -124,6 +124,27 @@ export type Reason = (typeof REASONS)[number]
 const KIND_RANK: Record<string, number> = { file_misread: 0, conflict: 1, missing: 2, low_confidence: 3 }
 
 const open = (q: QuestionOut) => q.status === 'open'
+
+/** Step 1's counts, which the frame around it shows (the toolbar's Count, the rail's mark, the Questions tab's number). */
+export interface Step1Counts {
+  /** Sheets found; null while Step 1 has not been read. */
+  found: number | null
+  confirmed: number
+  excluded: number
+  questionsOpen: number
+}
+
+export const STEP1_NOT_READ: Step1Counts = { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 }
+
+/** The counts from Step 1's own Proposals and Questions: the queue holds each open Question once, so these are the model's. */
+export function step1Counts(proposals: readonly ProposalOut[], questions: readonly QuestionOut[]): Step1Counts {
+  return {
+    found: proposals.length,
+    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
+    excluded: proposals.filter((p) => p.decision === 'excluded').length,
+    questionsOpen: questions.filter(open).length,
+  }
+}
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 
 /** Kept open: status `open`, its answer's option `keep_open` (the ruling of session 08: no `kept_open` status). */
@@ -385,6 +406,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const reasons = REASONS.filter((r) => bulkOut.some((p) => p.proposed_exclusion === r))
 
   const rows = [...needsYou, ...withdrawn, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
+  const counts = step1Counts(proposals, data.questions)
   return {
     needsYou,
     withdrawn,
@@ -395,9 +417,9 @@ export function step1Model(data: Step1Data): Step1Model {
     answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
-    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
-    excluded: proposals.filter((p) => p.decision === 'excluded').length,
-    found: proposals.length,
+    confirmed: counts.confirmed,
+    excluded: counts.excluded,
+    found: counts.found!,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
     // Every Proposal of no Discipline, as the toolbar's Count counts it (19a's progress row leaves out a sheet proposed out, #167's refuter).
     noDiscipline: proposals.filter((p) => p.discipline === null).length,
