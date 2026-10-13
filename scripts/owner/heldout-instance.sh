@@ -95,6 +95,7 @@ as_root_clean() {
 # group (a daemon is root).
 BINFMT=/proc/sys/fs/binfmt_misc
 MOUNTS=/proc/mounts
+DOCKER_SOCKET=/var/run/docker.sock
 root_routes() {
   local interop mount writable=()
   for interop in "$BINFMT"/WSLInterop*; do
@@ -118,8 +119,8 @@ root_routes() {
       || die "stopped at the writable Windows drives; nothing was changed"
   fi
   if id -nG "$OWNER" | tr ' ' '\n' | grep -qx docker; then
-    if as_owner test -w /var/run/docker.sock; then
-      die "$OWNER can reach Docker (/var/run/docker.sock), which is root: take $OWNER out of the docker group (gpasswd -d $OWNER docker)"
+    if as_owner test -w "$DOCKER_SOCKET"; then
+      die "$OWNER can reach Docker ($DOCKER_SOCKET), which is root: take $OWNER out of the docker group (gpasswd -d $OWNER docker)"
     fi
     echo "  $OWNER is in the docker group: no daemon answers now, but one started later makes $OWNER root."
     confirm "Go on (or stop, and take $OWNER out of the group: gpasswd -d $OWNER docker)?" \
@@ -220,6 +221,20 @@ new_password() {
   install -o "$KEY_USER" -g "$KEY_USER" -m 0600 "$tmp/pgpass" "$KEY_PGPASS"
   rm -f -- "$tmp/pgpass"
   unset password
+}
+
+# The first run makes the database and both roles fresh: with no line of ours in the key user's pgpass
+# file, this script never ran to its passwords, so a vextrus_heldout or either role already there was made
+# by someone else (the superuser, before step 3 closed it, or a role with CREATEDB) and is never taken
+# over: it stops, naming what to drop.
+refuse_foreign_instance() {
+  local found
+  if [ -f "$KEY_PGPASS" ] && grep -q "^$HOST:$PORT:$DB:$OWNER_ROLE:" "$KEY_PGPASS"; then return 0; fi
+  found=$(super_psql -At -c "select string_agg(name, ', ') from (
+      select 'database ' || datname as name from pg_database where datname = '$DB'
+      union all select 'role ' || rolname from pg_roles where rolname in ('$OWNER_ROLE', '$APP_ROLE')) made")
+  [ -z "$found" ] \
+    || die "the first run found $found already made, not by this script: drop them (sudo -u postgres psql -p $PORT), then run again"
 }
 
 # Removes the password of every superuser that has one, after the owner confirms: a superuser reads any
@@ -328,8 +343,9 @@ main() {
     read -r version port hba < <(super_psql -At -F ' ' -c \
       "select current_setting('server_version_num'), current_setting('port'), current_setting('hba_file')") \
       || die "the superuser could not reach the cluster on port $PORT"
-    [ "${version:0:2}" = "$CLUSTER_MAJOR" ] && [ "$port" = "$PORT" ] \
-      || die "port $PORT runs PostgreSQL ${version:0:2} on port $port, not $CLUSTER_MAJOR on $PORT"
+    if [ "${version:0:2}" != "$CLUSTER_MAJOR" ] || [ "$port" != "$PORT" ]; then
+      die "port $PORT runs PostgreSQL ${version:0:2} on port $port, not $CLUSTER_MAJOR on $PORT"
+    fi
     if [ -L "$hba" ] || [ ! -f "$hba" ]; then die "$hba is not a plain file"; fi
     if [ ! -x "$UV" ] || [ "$(stat -c %U "$UV")" != root ]; then die "no root's $UV: run scripts/owner/keys-custody.sh first"; fi
     bad=$(find "$TOOLCHAIN_PYTHON_DIR" "$UV" \( ! -user root -o -perm /022 \) ! -type l -print -quit)
@@ -370,11 +386,13 @@ main() {
   fi
 
   step "4/7 The database and its two roles"
-  plan "as the superuser, over the socket, in the postgres database: main's scripts/owner/heldout-roles.sql" \
+  plan "the first run (no password of ours in $KEY_PGPASS) stops if $DB or either role already exists" \
+    "as the superuser, over the socket, in the postgres database: main's scripts/owner/heldout-roles.sql" \
     "  (roles $OWNER_ROLE and $APP_ROLE; database $DB, its owner $OWNER_ROLE; CONNECT revoked from PUBLIC;" \
     "  its statements kept out of the server's log; each wall checked)" \
     "a fresh password for each role, set as a SCRAM verifier, written into $KEY_PGPASS (600) only"
   if ! dry; then
+    refuse_foreign_instance
     as_key git -C "$APP" show "$github_main:scripts/owner/heldout-roles.sql" > "$tmp/heldout-roles.sql"
     super_psql -f - < "$tmp/heldout-roles.sql" || die "heldout-roles.sql stopped (above); no password was set"
     new_password "$OWNER_ROLE"
@@ -482,7 +500,7 @@ main() {
     if eval "$2" >/dev/null 2>&1; then printf '  ok: %s\n' "$1"; pass=$((pass + 1))
     else printf '  FAILED: %s\n' "$1"; fail=$((fail + 1)); fi
   }
-  # shellcheck disable=SC2329 # called through check's eval
+  # shellcheck disable=SC2317,SC2329 # called through check's eval
   owner_psql() { as_owner env PGCONNECT_TIMEOUT=5 psql -X -w "$@" -Atc 'select 1'; }
   for role in vextrus vextrus_app "$OWNER" postgres; do
     for where in "-h $HOST" "-h ::1" "-h /var/run/postgresql"; do

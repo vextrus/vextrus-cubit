@@ -17,9 +17,21 @@ SELECT 'CREATE ROLE vextrus_heldout_app'
 ALTER ROLE vextrus_heldout     LOGIN NOCREATEDB NOSUPERUSER NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 ALTER ROLE vextrus_heldout_app LOGIN NOCREATEDB NOSUPERUSER NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 
+-- A vextrus_heldout this file did not make is never taken over: a role with CREATEDB (the owner's
+-- `vextrus`) could have made it first, with a schema of its own and a search_path that runs its functions
+-- in the instance's sessions. Its owner is never changed here; drop such a database by hand.
+DO $foreign$
+DECLARE
+  owner text;
+BEGIN
+  SELECT pg_get_userbyid(datdba) INTO owner FROM pg_database WHERE datname = 'vextrus_heldout';
+  IF owner IS NOT NULL AND owner <> 'vextrus_heldout' THEN
+    RAISE EXCEPTION 'vextrus_heldout exists, made by %, not by this file: drop it (DROP DATABASE vextrus_heldout) and run again', owner;
+  END IF;
+END
+$foreign$;
 SELECT 'CREATE DATABASE vextrus_heldout OWNER vextrus_heldout'
  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'vextrus_heldout') \gexec
-ALTER DATABASE vextrus_heldout OWNER TO vextrus_heldout;
 -- Never a template: a role with CREATEDB could otherwise copy it (CREATE DATABASE … TEMPLATE).
 ALTER DATABASE vextrus_heldout IS_TEMPLATE false;
 
@@ -89,6 +101,19 @@ BEGIN
   IF EXISTS (SELECT FROM pg_roles WHERE rolname = ANY (held)
               AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
     RAISE EXCEPTION 'a Held-out role carries a power it must not';
+  END IF;
+  -- No setting reaches the instance's sessions but the log settings above: a search_path (or any other)
+  -- set on the database, on either role, or on every role, by anyone, stops it.
+  SELECT string_agg(setting, ', ') INTO found
+    FROM pg_db_role_setting s, unnest(s.setconfig) AS setting
+   WHERE (s.setdatabase = 0 OR s.setdatabase = (SELECT oid FROM pg_database WHERE datname = 'vextrus_heldout'))
+     AND (s.setrole = 0 OR pg_get_userbyid(s.setrole) = ANY (held))
+     AND NOT (s.setrole = 0 AND s.setdatabase <> 0 AND split_part(setting, '=', 1) = ANY (ARRAY[
+       'log_statement', 'log_min_error_statement', 'log_min_messages', 'log_min_duration_statement',
+       'log_min_duration_sample', 'log_duration', 'log_lock_waits', 'log_temp_files',
+       'log_transaction_sample_rate', 'log_parameter_max_length_on_error']));
+  IF found IS NOT NULL THEN
+    RAISE EXCEPTION 'settings this file did not write reach vextrus_heldout''s sessions: %', found;
   END IF;
   IF EXISTS (SELECT FROM pg_database WHERE datname = 'vextrus_heldout' AND datistemplate) THEN
     RAISE EXCEPTION 'vextrus_heldout is a template';

@@ -250,8 +250,15 @@ def test_roots_git_never_reads_the_owners_checkout_or_home(tmp_path: Path) -> No
 
 
 def routes(
-    tmp_path: Path, groups: str, answer: str, interop: str | None, drive: Path | None = None
+    tmp_path: Path,
+    groups: str,
+    answer: str,
+    interop: str | None,
+    drive: Path | None = None,
+    socket_path: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    """root_routes on invented places: never this machine's binfmt, mounts or Docker socket (CI's runner
+    has a writable one: the PR #753 review, round 1)."""
     binfmt = tmp_path / "binfmt"
     binfmt.mkdir(parents=True, exist_ok=True)
     if interop is not None:
@@ -262,7 +269,8 @@ def routes(
         lines.append(f"C:\\134 {drive} 9p rw 0 0")
     mounts.write_text("\n".join(lines) + "\n")
     body = (
-        f'BINFMT={binfmt}; MOUNTS={mounts}; OWNER=someone; id() {{ echo "{groups}"; }};'
+        f"BINFMT={binfmt}; MOUNTS={mounts}; DOCKER_SOCKET={socket_path or tmp_path / 'no-docker.sock'};"
+        f' OWNER=someone; id() {{ echo "{groups}"; }};'
         " root_routes && echo PASSED"
     )
     return sourced(body, answer=answer)
@@ -278,10 +286,15 @@ def test_a_writable_windows_drive_stops_the_script_unless_the_owner_accepts_it(t
     assert "stopped at the writable Windows drives" in stopped.stdout
     assert str(drive) in stopped.stdout
     assert "PASSED" in routes(tmp_path, "someone users", "y\n", None, drive).stdout
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root writes a read-only folder")
+def test_a_read_only_windows_drive_passes_without_a_question(tmp_path: Path) -> None:
+    drive = tmp_path / "c"
+    drive.mkdir()
     drive.chmod(0o555)
     try:
-        if not os.access(drive, os.W_OK):  # (root writes anything)
-            assert "PASSED" in routes(tmp_path, "someone users", "", None, drive).stdout
+        assert "PASSED" in routes(tmp_path, "someone users", "", None, drive).stdout
     finally:
         drive.chmod(0o755)
 
@@ -302,6 +315,15 @@ def test_the_docker_group_stops_the_script_unless_the_owner_accepts_it(tmp_path:
     assert "stopped at the docker group" in stopped.stdout
     assert "PASSED" in routes(tmp_path, "someone docker", "y\n", None).stdout
     assert "PASSED" in routes(tmp_path, "someone users", "", None).stdout
+
+
+def test_a_docker_socket_the_owner_can_write_always_stops_the_script(tmp_path: Path) -> None:
+    sock = tmp_path / "docker.sock"
+    sock.write_text("")
+    stopped = routes(tmp_path, "someone docker", "y\ny\n", None, socket_path=sock)
+    assert stopped.returncode != 0
+    assert f"someone can reach Docker ({sock})" in stopped.stdout
+    assert "PASSED" not in stopped.stdout
 
 
 def test_the_launcher_refuses_a_taken_port_and_says_to_keep_the_sign_in_apart() -> None:
@@ -444,10 +466,27 @@ def _binaries() -> Path | None:
     return None
 
 
+def postgres_skip_reason(euid: int, binaries: Path | None, psql: str | None) -> str | None:
+    """Why the cluster tests cannot run here, or None. initdb and pg_ctl refuse to run as root, and the
+    cloud's sessions run as uid 0 (the PR #753 review, round 1)."""
+    if euid == 0:
+        return "PostgreSQL refuses to make or start a cluster as root"
+    if binaries is None or psql is None:
+        return "no PostgreSQL server binaries here"
+    return None
+
+
+def test_the_cluster_tests_skip_as_root_and_without_postgresql() -> None:
+    folder = Path("/usr/lib/postgresql/18/bin")
+    assert postgres_skip_reason(0, folder, "/usr/bin/psql") is not None
+    assert postgres_skip_reason(1000, None, "/usr/bin/psql") is not None
+    assert postgres_skip_reason(1000, folder, None) is not None
+    assert postgres_skip_reason(1000, folder, "/usr/bin/psql") is None
+
+
 BINARIES = _binaries()
-needs_postgres = pytest.mark.skipif(
-    BINARIES is None or shutil.which("psql") is None, reason="no PostgreSQL server binaries here"
-)
+SKIP_REASON = postgres_skip_reason(os.geteuid(), BINARIES, shutil.which("psql"))
+needs_postgres = pytest.mark.skipif(SKIP_REASON is not None, reason=SKIP_REASON or "")
 PASSWORD = "the-owners-password-for-every-m0-role"
 
 
@@ -703,6 +742,73 @@ def test_the_sql_stops_on_a_role_that_may_set_role_to_a_server_files_role_or_cop
     finally:
         assert cluster.psql("ALTER ROLE vextrus_app NOREPLICATION").returncode == 0
     assert run_sql().returncode == 0
+
+
+def _run_roles_sql(cluster: Cluster) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["psql", "-X", "-q", "-h", str(cluster.socket), "-p", str(cluster.port), "-U", "postgres",
+         "-d", "postgres", "-f", str(ROLES_SQL)],
+        capture_output=True, text=True, check=False,
+    )  # fmt: skip
+
+
+@needs_postgres
+def test_the_sql_never_takes_over_a_heldout_database_someone_else_made(cluster: Cluster) -> None:
+    # The PR #753 review, round 1 (75): `vextrus` (CREATEDB, its password in the owner's pgpass file)
+    # made vextrus_heldout first, with a schema and search_path of its own; the SQL changed its owner and
+    # the instance then ran the owner's user's functions.
+    assert cluster.psql(f"ALTER DATABASE {DB} RENAME TO heldout_kept").returncode == 0
+    try:
+        made = cluster.psql(f"CREATE DATABASE {DB}", user="vextrus", host="127.0.0.1")
+        assert made.returncode == 0, made.stderr
+        stopped = _run_roles_sql(cluster)
+        assert stopped.returncode != 0
+        assert "vextrus_heldout exists, made by vextrus, not by this file" in stopped.stderr
+        owner = cluster.psql(f"select pg_get_userbyid(datdba) from pg_database where datname = '{DB}'")
+        assert owner.stdout.strip() == "vextrus"  # never taken over
+    finally:
+        cluster.psql(f"DROP DATABASE IF EXISTS {DB}")
+        assert cluster.psql(f"ALTER DATABASE heldout_kept RENAME TO {DB}").returncode == 0
+    assert _run_roles_sql(cluster).returncode == 0
+
+
+@needs_postgres
+@pytest.mark.parametrize(
+    "plant",
+    [
+        f"ALTER DATABASE {DB} SET search_path = 'planted, pg_catalog, public'",
+        "ALTER ROLE vextrus_heldout_app SET search_path = 'planted, pg_catalog, public'",
+        f"ALTER ROLE vextrus_heldout IN DATABASE {DB} SET search_path = 'planted'",
+        "ALTER ROLE ALL SET search_path = 'planted, pg_catalog, public'",
+        f"ALTER DATABASE {DB} SET application_name = 'x'",
+    ],
+    ids=["database", "role", "role-in-database", "every-role", "any-other-setting"],
+)
+def test_the_sql_stops_on_any_setting_it_did_not_write(cluster: Cluster, plant: str) -> None:
+    assert cluster.psql(plant).returncode == 0
+    reset = plant.split(" SET ")[0] + " RESET " + plant.split(" SET ")[1].split(" = ")[0]
+    try:
+        stopped = _run_roles_sql(cluster)
+        assert stopped.returncode != 0
+        assert "settings this file did not write reach vextrus_heldout's sessions" in stopped.stderr
+    finally:
+        assert cluster.psql(reset).returncode == 0, reset
+    assert _run_roles_sql(cluster).returncode == 0
+
+
+@needs_postgres
+def test_the_first_run_stops_on_a_database_or_role_it_did_not_make(
+    cluster: Cluster, tmp_path: Path
+) -> None:
+    # With no password of ours in the key user's pgpass file the script never got that far, so what is
+    # already there was made by someone else (the superuser before step 3, say): never taken over.
+    fresh = tmp_path / "no-pgpass-yet"
+    stopped = cluster.script(f"KEY_PGPASS={fresh}; refuse_foreign_instance")
+    assert stopped.returncode != 0
+    assert "database vextrus_heldout, role vextrus_heldout, role vextrus_heldout_app" in stopped.stdout
+    assert "not by this script" in stopped.stdout
+    # A later run (its passwords in the key user's file) goes on.
+    assert cluster.script("refuse_foreign_instance").returncode == 0
 
 
 @needs_postgres
