@@ -18,17 +18,23 @@ const SHEET = 'sheet:'
 
 /**
  * cmdk's own filter matches letters in order anywhere in the text, so "S-99" would find any sheet whose text
- * holds an S, a 9 and a dash. A sheet is found by its number's start or by the starts of its title's words;
+ * holds an S, a 9 and a dash. A sheet is found when every typed word starts a word of its number or title;
  * everything else keeps cmdk's.
  */
 export function jumpFilter(value: string, search: string, keywords?: string[]): number {
   if (!value.startsWith(SHEET)) return defaultFilter(value, search, keywords)
-  const typed = search.trim().toLowerCase()
-  if (!typed) return 1
+  const typed = words(search)
+  if (typed.length === 0) return 1
   const [number = '', title = ''] = keywords ?? []
-  if (number.toLowerCase().startsWith(typed)) return 1
-  const words = title.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
-  return typed.split(/\s+/).every((token) => words.some((w) => w.startsWith(token))) ? 0.5 : 0
+  // The option as shown: its number, then its title; each typed word starts one of them, as written or past its leading marks.
+  const shown = words(`${number} ${title}`).flatMap((w) => [w, w.replace(/^[^\p{L}\p{M}\p{N}]+/u, '')])
+  if (!typed.every((token) => shown.some((w) => w.startsWith(token)))) return 0
+  return number.toLowerCase().startsWith(typed[0]!) ? 1 : 0.5
+}
+
+/** The one tokenizer for what is typed and for what is shown: the text's words between spaces, as written (so "C-1", "&" and Bangla words stay whole). */
+function words(text: string): string[] {
+  return text.normalize('NFC').toLowerCase().split(/\s+/u).filter(Boolean)
 }
 
 export function JumpTo({

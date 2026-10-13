@@ -30,6 +30,18 @@ describe('the sheets filter', () => {
     expect(jumpFilter('sheet:a', 'S-99', k)).toBe(0)
     expect(jumpFilter('sheet:a', 'round', k)).toBe(0)
   })
+
+  it('finds titles typed with dashes, marks and all, as shown', () => {
+    const f = (title: string, typed: string) => jumpFilter('sheet:a', typed, ['S-09', title])
+    expect(f('COLUMN C-1 DETAILS', 'c-1')).toBeGreaterThan(0)
+    expect(f('SECTION A-A', 'section a-a')).toBeGreaterThan(0)
+    expect(f('GF & 1ST FLOOR SLAB', 'gf & 1st')).toBeGreaterThan(0)
+    expect(f('ROOF SLAB (TYP.)', '(typ.')).toBeGreaterThan(0)
+    expect(f('ROOF SLAB (TYP.)', 'typ')).toBeGreaterThan(0)
+    expect(f('GROUND FLOOR BEAM LAYOUT', 's-09 ground')).toBeGreaterThan(0)
+    expect(f('কলাম বিস্তারিত', 'বিস্তারিত')).toBeGreaterThan(0)
+    expect(f('COLUMN C-1 DETAILS', 'c-2')).toBe(0)
+  })
 })
 
 describe('Jump to over ids full of nines', () => {
@@ -84,7 +96,10 @@ describe('?sheet= is read as typed', () => {
 })
 
 describe('two sheets sharing a number', () => {
-  it('are shown apart and each opens by its own id', async () => {
+  it.each([
+    ['Rev A', 'GROUND FLOOR BEAM LAYOUT', 'SECOND COPY'],
+    ['Rev B', 'SECOND COPY', 'GROUND FLOOR BEAM LAYOUT'],
+  ])('are shown apart and %s opens by its own id', async (mark, opens, other) => {
     const s = seed()
     const a = s.of('S-04')
     const b = s.of('S-05')
@@ -95,10 +110,13 @@ describe('two sheets sharing a number', () => {
     const options = within(jump).getAllByRole('option').filter((o) => clean(o.textContent).includes('S-04'))
     expect(options).toHaveLength(2)
     expect(clean(options[0]!.textContent)).not.toBe(clean(options[1]!.textContent))
-    const second = options.find((o) => clean(o.textContent).includes('Rev B'))!
-    expect(clean(second.textContent)).toContain('Rev B')
-    await userEvent.click(second)
-    await waitFor(() => expect(clean(document.body.textContent)).toContain('SECOND COPY'))
+    const chosen = options.find((o) => clean(o.textContent).includes(mark))!
+    await userEvent.click(chosen)
+    // The sheet label in the toolbar names the copy that opened, not the other with the same number.
+    const label = () =>
+      [...document.querySelectorAll<HTMLElement>('button[aria-haspopup], button[aria-expanded]')].filter((x) => x.offsetParent !== null && !x.closest('[role="dialog"]')).map((x) => clean(x.textContent))
+    await waitFor(() => expect(label().some((t) => t.includes('S-04') && t.includes(opens))).toBe(true))
+    expect(label().some((t) => t.includes(other))).toBe(false)
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 })
