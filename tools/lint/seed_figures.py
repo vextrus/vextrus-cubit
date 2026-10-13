@@ -28,42 +28,46 @@ from pathlib import Path
 
 NUMBER = r"\d+(?:,\d+)*(?:\.\d+)?"
 IDENT = r"[A-Za-z][A-Za-z0-9]*"
-PROSE_REF = r"(?:\bof|\bsee|§)\s*$"
+PROSE_REF = r"(?:\bof|\bsee|\u00a7)\s*$"
 # Written as escapes: the page prints the minus sign and the multiplication and division signs.
 MINUS = "\u2212"
-MULTIPLY = "\u00d7\u00f7*/"
-SIGNS = ("+", MINUS, "-")
+TIMES = "\u00d7\u00f7"
+# A word after a figure that is not a unit; `lakh` and `crore` are short forms, never compared.
+FILLER = {"per", "of", "in", "on", "and", "to", "at", "by", "is", "the", "a"}
+SHORT_FORMS = {"lakh", "crore"}
 HEADER = ("id", "what", "derivation", "value")
+LIST_ITEM = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
+WORKING = re.compile(rf"[{TIMES}+]|/(?![A-Za-z])")
 
 
 @dataclass(frozen=True)
 class Row:
     id: str
-    values: tuple[str, ...]  # as the page prints them, grouping and all
-    shown: str
+    values: tuple[tuple[str, str], ...]  # (figure as printed, its unit: `%`, a word, or "")
+
+
+def _unit(after: str) -> str:
+    """The unit right after a figure: `%`, the word that follows it, or "" (a rate's `/sft` is none)."""
+    if after.startswith("%"):
+        return "%"
+    word = re.match(r"\s+([A-Za-z]+)", after)
+    found = word.group(1).lower() if word else ""
+    return "" if found in FILLER else found
 
 
 def _cells(line: str) -> list[str]:
     return [cell.strip().replace("*", "").strip() for cell in line.strip().strip("|").split("|")]
 
 
-def _number(text: str) -> str | None:
-    found = re.search(NUMBER, text)
-    return found.group(0) if found else None
-
-
-def _values(cell: str) -> tuple[str, ...]:
-    """The figures a Value cell stands for: each `;` part's result (after its last `=`), every number in
-    it but a section number named by prose (`the level table of 6.2`)."""
-    out: list[str] = []
-    for part in cell.split(";"):
-        result = part.rsplit("=", 1)[-1]
-        out += [
-            m.group(0)
-            for m in re.finditer(NUMBER, result)
-            if not re.search(PROSE_REF, result[: m.start()])
-        ]
-    return tuple(out)
+def _values(cell: str) -> tuple[tuple[str, str], ...]:
+    """A Value cell's figures: those after the last `=` of the whole cell when it has one, else all of
+    them, but for a section number named by prose (`the level table of 6.2`)."""
+    result = cell.rsplit("=", 1)[-1]
+    return tuple(
+        (m.group(0), _unit(result[m.end() :]))
+        for m in re.finditer(NUMBER, result)
+        if not re.search(PROSE_REF, result[: m.start()])
+    )
 
 
 def seed_rows(lines: Sequence[str]) -> tuple[dict[str, Row], set[int]]:
@@ -81,73 +85,108 @@ def seed_rows(lines: Sequence[str]) -> tuple[dict[str, Row], set[int]]:
             while index < len(lines) and lines[index].lstrip().startswith("|"):
                 taken.add(index)
                 cells = _cells(lines[index])
-                if len(cells) >= 4 and cells[0] and re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", cells[0]):
+                if len(cells) >= 4 and cells[0] and re.fullmatch(IDENT, cells[0]):
                     values = _values(cells[3])
                     if values:
-                        rows[cells[0]] = Row(cells[0], values, cells[3])
+                        rows[cells[0]] = Row(cells[0], values)
                 index += 1
         else:
             index += 1
     return rows, taken
 
 
-def _places(figure: str) -> int:
-    return len(figure.split(".")[1]) if "." in figure else 0
-
-
-def _agrees(copy: str, values: tuple[str, ...]) -> bool:
-    places = _places(copy)
-    want = Decimal(copy.replace(",", ""))
+def _agrees(copy: str, unit: str, values: tuple[tuple[str, str], ...]) -> bool:
+    """The copy against the row's figures in the copy's own unit (those without a unit when the row
+    has none in it); a copy in a unit the row does not hold is not compared."""
+    if unit in SHORT_FORMS:
+        return True
+    pool = [n for n, u in values if u == unit] or [n for n, u in values if not u]
+    places = len(copy.split(".")[1]) if "." in copy else 0
     quantum = Decimal(1).scaleb(-places)
-    return any(
-        Decimal(v.replace(",", "")).quantize(quantum, rounding=ROUND_HALF_UP) == want for v in values
+    want = Decimal(copy.replace(",", ""))
+    return not pool or any(
+        Decimal(n.replace(",", "")).quantize(quantum, rounding=ROUND_HALF_UP) == want for n in pool
     )
 
 
 def _part_before(text: str, start: int) -> bool:
-    """The figure at `start` is a signed change or an operand or result of a working: `+৳47,880.00`,
-    `42,000 sft x 170.00 = ৳71,40,000.00`. Such a copy is a part of a row, not the row's figure."""
-    before = text[:start].rstrip(" ৳$")
-    if before.endswith((*SIGNS, *MULTIPLY)):
+    """The figure at `start` is a signed change, an operand, or the result of a working (a clause with
+    an operator before the `=`); such a copy is a part of a row, not the row's figure."""
+    before = text[:start]
+    if re.search(rf"[+{MINUS}-][\u09f3$]?$", before):
         return True
-    return before.endswith("=") and re.search(f"[{MULTIPLY}+]", before) is not None
+    before = before.rstrip(" \u09f3$")
+    if re.search(rf"[{TIMES}+]$|/$", before):
+        return True
+    if before.endswith("="):
+        clause = re.split(r";|\(|,\s", before[:-1])[-1]
+        return WORKING.search(clause) is not None
+    return False
 
 
 def _operand_after(text: str, end: int) -> bool:
-    return re.match(rf"%?(?:\s+[A-Za-z]+)?\s*[{MULTIPLY}]", text[end:]) is not None
+    return re.match(rf"\s*(?:[{TIMES}]|/(?![A-Za-z]))", text[end:]) is not None
 
 
-def _citations(text: str, ids: Sequence[str]) -> list[tuple[tuple[str, ...], str, int]]:
-    """(the rows cited, the copy's figure, where it starts) for each citation in `text`."""
-    out: list[tuple[tuple[str, ...], str, int]] = []
+def _citations(text: str, ids: Sequence[str]) -> list[tuple[tuple[str, ...], str, str, int]]:
+    """(the rows cited, the copy's figure, its unit, where it starts) for each citation in `text`."""
+    out: list[tuple[tuple[str, ...], str, str, int]] = []
     known = set(ids)
     listed = rf"\(\s*({IDENT}(?:\s*[,;]\s*{IDENT})*)\s*\)"
-    for found in re.finditer(rf"(?<![A-Za-z0-9.,])({NUMBER})%?(?:\s+[A-Za-z]+){{0,3}}\s*{listed}", text):
-        rows = tuple(i for i in re.split(r"\s*[,;]\s*", found.group(2)) if i in known)
+    shape = rf"(?<![A-Za-z0-9.,])({NUMBER})(%|/[A-Za-z]+)?((?:\s+[A-Za-z]+){{0,3}})\s*{listed}"
+    for found in re.finditer(shape, text):
+        rows = tuple(i for i in re.split(r"\s*[,;]\s*", found.group(4)) if i in known)
         if rows and not _part_before(text, found.start(1)):
-            out.append((rows, found.group(1), found.start(1)))
+            unit = _unit(found.group(2) or found.group(3))
+            out.append((rows, found.group(1), unit, found.start(1)))
     for row_id in ids:
         token = rf"(?<![A-Za-z0-9-]){re.escape(row_id)}(?![A-Za-z0-9-])"
-        for found in re.finditer(rf"{token}(?:\s*=\s*|\s+)[৳$]?\s*({NUMBER})", text):
-            if re.search(rf"[+{MINUS}{MULTIPLY}]\s*$", text[: found.start()]) or _operand_after(
-                text, found.end()
-            ):
+        for found in re.finditer(rf"{token}(?:\s*=\s*|\s+)[\u09f3$]?\s*({NUMBER})(%|/[A-Za-z]+)?", text):
+            before = text[: found.start()]
+            if re.search(rf"[{TIMES}+/]\s*$", before) or _operand_after(text, found.end()):
                 continue
-            if text[: found.start(1)].rstrip(" ৳$").endswith(SIGNS):
+            if re.search(rf"[+{MINUS}-][\u09f3$]?$", text[: found.start(1)]):
                 continue
-            out.append(((row_id,), found.group(1), found.start(1)))
+            unit = _unit(found.group(2) or text[found.end() :])
+            out.append(((row_id,), found.group(1), unit, found.start(1)))
     return out
 
 
-def _joined(lines: Sequence[str], number: int) -> str:
-    """Line `number`, with the next line after it when the paragraph wraps."""
-    line = lines[number]
-    follow = lines[number + 1] if number + 1 < len(lines) else ""
-    if not line.strip() or line.lstrip().startswith(("|", "#", "```")):
-        return line
-    if not follow.strip() or follow.lstrip().startswith(("|", "#", "```")):
-        return line
-    return line + " " + follow.strip()
+def _paragraphs(lines: Sequence[str], skip: set[int]) -> list[tuple[str, list[tuple[int, int]]]]:
+    """Each paragraph of the page as one text (list markers, bold and italics stripped, wrapped lines
+    joined), with the (offset, line) where each of its lines starts. A heading, a table row and a list
+    item start a paragraph of their own; the seed table and fenced blocks are left out."""
+    out: list[tuple[str, list[tuple[int, int]]]] = []
+    text = ""
+    starts: list[tuple[int, int]] = []
+    fenced = False
+
+    def flush() -> None:
+        nonlocal text, starts
+        if text:
+            out.append((text, starts))
+        text, starts = "", []
+
+    for number, line in enumerate(lines):
+        if line.lstrip().startswith("```"):
+            flush()
+            fenced = not fenced
+            continue
+        if fenced or number in skip or not line.strip():
+            flush()
+            continue
+        item = LIST_ITEM.match(line)
+        body = line[item.end() :] if item else line
+        body = body.replace("*", "").strip()
+        alone = body.startswith(("|", "#"))
+        if item or alone:
+            flush()
+        starts.append((len(text) + (1 if text else 0), number))
+        text = f"{text} {body}" if text else body
+        if alone:
+            flush()
+    flush()
+    return out
 
 
 def check(path: Path) -> list[str]:
@@ -156,24 +195,16 @@ def check(path: Path) -> list[str]:
     if not rows:
         return []
     ids = sorted(rows, key=len, reverse=True)
-    plain = [line.replace("**", "") for line in lines]
     findings: list[tuple[int, int, str]] = []
-    fenced = False
-    for number, line in enumerate(lines):
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
-            continue
-        if fenced or number in taken:
-            continue
-        text = _joined(plain, number)
-        for cited, copy, start in _citations(text, ids):
-            if start >= len(plain[number]):
-                continue
+    for text, starts in _paragraphs(lines, taken):
+        for cited, copy, unit, start in _citations(text, ids):
+            number = [line for offset, line in starts if offset <= start][-1]
             values = tuple(v for i in cited for v in rows[i].values)
-            if not _agrees(copy, values):
+            if not _agrees(copy, unit, values):
+                shown = "; ".join(dict.fromkeys(n for n, _ in values))
                 message = (
                     f"{path}:{number + 1}: row {', '.join(cited)}: the copy reads {copy} but the seed "
-                    f"table's value is {'; '.join(dict.fromkeys(values))}"
+                    f"table's value is {shown}"
                 )
                 findings.append((number, start, message))
     return [message for _, _, message in sorted(findings)]

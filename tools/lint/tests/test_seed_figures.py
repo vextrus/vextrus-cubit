@@ -8,6 +8,7 @@ TABLE = (
     "| Id | What | Derivation | Value |\n|---|---|---|---|\n"
     "| A1 | Rate | entered | 2.50 |\n"
     "| **T2** | Total | W1 to W3 | **1,31,378.85** |\n"
+    "| K1 | Area | entered | 42,000 sft |\n"
     "| W3 | Awaiting | entered | 672.48 |\n"
     "| G4 | Columns | by state | 100 + 8 + 2 = 110 |\n"
     "| G2 | Storeys | by level | the level table of 6.2 |\n"
@@ -75,3 +76,38 @@ def test_a_signed_change_or_a_working_is_not_the_rows_figure(tmp_path: Path) -> 
         run(tmp_path, "+\u09f347.00 (A1), 2 sft \u00d7 3.00 = \u09f36.00 (A1); G4 100 \u00d7 E1 = 5\n")
         == []
     )
+
+
+def test_a_list_marker_is_not_a_sign(tmp_path: Path) -> None:
+    assert len(run(tmp_path, "- \u09f31,31,387.85 (T2) is awaiting an answer.\n")) == 1
+    assert len(run(tmp_path, "- **4%** of the total (A1)\n")) == 1
+    assert run(tmp_path, "- \u09f31,31,379 (T2)\n") == []
+
+
+def test_the_operator_must_be_in_the_clause_of_the_equals(tmp_path: Path) -> None:
+    for line in (
+        "On the strip (Measured / Awaiting), the awaiting answer = \u09f31,31,387.85 (T2).",
+        "Beams +\u09f347.00 (A1); the awaiting answer = \u09f31,31,387.85 (T2).",
+        "In *the strip* the awaiting answer = \u09f31,31,387.85 (T2).",
+    ):
+        assert len(run(tmp_path, line + "\n")) == 1, line
+    assert run(tmp_path, "2 sft \u00d7 3.00 = \u09f36.00 (A1)\n") == []
+
+
+def test_a_rate_with_a_unit_slash_is_compared_but_a_division_is_a_working(tmp_path: Path) -> None:
+    assert len(run(tmp_path, "A1 \u09f32.60/sft\n")) == 1
+    assert len(run(tmp_path, "\u09f32.60/cft (A1)\n")) == 1
+    assert run(tmp_path, "\u09f32.50/cft (A1)\n") == []
+    assert run(tmp_path, "A1 12 / 4\n") == []
+
+
+def test_a_working_wrapped_across_lines_gives_no_finding(tmp_path: Path) -> None:
+    assert (
+        run(tmp_path, "Steps 9 to 14: 42,000 sft \u00d7\n170.00 = \u09f371,40,000.00 (A1), a part\n")
+        == []
+    )
+
+
+def test_a_figure_in_another_unit_or_a_short_form_is_not_compared(tmp_path: Path) -> None:
+    assert run(tmp_path, "T2 1.31 lakh, and K1 = 42 ton\n") == []
+    assert len(run(tmp_path, "K1 = 42,001 sft\n")) == 1
