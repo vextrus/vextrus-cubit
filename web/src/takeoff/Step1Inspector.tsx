@@ -828,6 +828,8 @@ function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer
 function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: CardContext; onOpen?: (sheet: ProposalOut) => void }) {
   const f = useFormat()
   const copies = entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+  // Copies told apart by title: the table shows it, as the options name them by it.
+  const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
   const trace = (
     <p className="text-xs text-ink-secondary empty:hidden">
       <Trace entry={entry} context={context} onOpen={onOpen} />
@@ -855,6 +857,11 @@ function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: C
               <tr key={s.id} className="align-top">
                 <td className="pe-2">
                   <Copy sheet={s} />
+                  {titlesDiffer ? (
+                    <span className="block text-ink-secondary">
+                      <DrawingText kind="title" text={s.title} truncate={false} />
+                    </span>
+                  ) : null}
                 </td>
                 <td className="pe-2 whitespace-nowrap">{s.issue_date ? f.day(s.issue_date) : '—'}</td>
                 <td className="min-w-0 break-all">

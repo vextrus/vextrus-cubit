@@ -160,6 +160,13 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
     const titles = [...new Set(entry.holds.map((h) => h.title))]
     if (titles.length === 1 && !titles[0]!.trim())
       return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
+    if (copiesTie(entry.holds)) {
+      const tied = <Trans>The copies are alike in every field the table shows.</Trans>
+      if (titles.length === 1 && titles[0]!.trim()) {
+        const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
+        return <Trans>Both are titled “{title}”. Only one can be read. {tied}</Trans>
+      }
+    }
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
       return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
@@ -278,6 +285,12 @@ function Joined({ items }: { items: readonly ReactNode[] }) {
   )
 }
 
+/** Whether two copies are alike in every field the copies table shows (mark, date, title, file, place). */
+export function copiesTie(holds: readonly ProposalOut[]): boolean {
+  const key = (h: ProposalOut) => [h.revision_mark.trim(), h.issue_date ?? '', h.title.trim(), h.file_id, h.layout ?? ''].join('\u0000')
+  return holds.length > 1 && new Set(holds.map(key)).size === 1
+}
+
 /** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7); "no revision mark" for none. */
 export function Copy({ sheet }: { sheet: ProposalOut }) {
   if (!sheet.revision_mark.trim()) return <Trans>no revision mark</Trans>
@@ -287,7 +300,8 @@ export function Copy({ sheet }: { sheet: ProposalOut }) {
 
 /**
  * Two copies told apart in an option's words: by mark where both have one and they differ, else by
- * date, else by place in the card's list of copies.
+ * date, else by title, file and place (the fields the copies table shows), else, when they are alike in
+ * all of them, by their place in the table (the card says so).
  */
 function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOut; first: boolean }) {
   const f = useFormat()
@@ -300,6 +314,10 @@ function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOu
   if (title && other.title.trim() && title !== other.title.trim()) {
     const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
     return <Trans>the copy titled “{named}”</Trans>
+  }
+  if (sheet.file_id !== other.file_id) {
+    const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+    return <Trans>the copy in {file}</Trans>
   }
   if ((sheet.layout ?? null) !== (other.layout ?? null)) {
     if (!sheet.layout) return <Trans>the copy laid out in the drawing</Trans>

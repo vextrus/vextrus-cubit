@@ -137,6 +137,10 @@ msgid "Trace: the file’s two readings"
 msgstr "Trace: the file’s two readings"
 
 #: src/takeoff/questionWords.tsx
+msgid "Both are titled “{title}”. Only one can be read. {tied}"
+msgstr "Both are titled “{title}”. Only one can be read. {tied}"
+
+#: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering keeps the sheet open.} other {Answering keeps all # sheets open.}}"
 msgstr "{n, plural, one {Answering keeps the sheet open.} other {Answering keeps all # sheets open.}}"
 
@@ -347,6 +351,10 @@ msgstr "{tag} answered. {Sheet} stays in the count as missing until its file is 
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {first} and {second}"
 msgstr "Trace: the title blocks of {first} and {second}"
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy in {file}"
+msgstr "the copy in {file}"
 
 #: src/takeoff/questionWords.tsx
 msgid "rev {mark}"
@@ -643,6 +651,10 @@ msgstr "{sheet} stays left out until this Question is answered. A pick changes n
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering sets the kind of the sheet and confirms it. It cannot be undone.} other {Answering sets the kind of all # sheets and confirms them. It cannot be undone.}}"
 msgstr "{n, plural, one {Answering sets the kind of the sheet and confirms it. It cannot be undone.} other {Answering sets the kind of all # sheets and confirms them. It cannot be undone.}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "The copies are alike in every field the table shows."
+msgstr "The copies are alike in every field the table shows."
 
 #: src/takeoff/questionWords.tsx
 msgid "the copy dated {date}"
