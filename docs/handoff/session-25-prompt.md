@@ -88,6 +88,26 @@ then G1 #2 and #3 on the final main. Every walk 1 finding of OTHER is filed (#71
 The owner ran a read-only session beside session 24, measured why M0 dragged, put every claim through a refuter, and
 ruled on its questions. The numbers and their sources: `docs/research/2026-10-13-why-m0-dragged.md`; the raw tables stay local under `.private/work/s24-explore/`.
 
+**Read this first: where this brief's sections meet** (a cold read on Opus `medium` found these):
+- **The owner's start prompt may answer the opening questions** (the budget, Q10's numbers, the trust-boundary bar, the mod clock).
+  Ask only what it leaves open. Run `stamp start` once the budget is known.
+- **"Cut" means carried over, not dropped.** #724 (W1) is in the landing order. #701 is F3. #700 continues as M1-24.
+- **#711's round 3 is ADR 0041 item 5's exception** (a false statement a QS meets), not a third ordinary round.
+- **#700:** M1-24 continues on #700 while its review loop has rounds left; otherwise it gets a fresh PR from ae830596.
+  Q15's act is added to `m1-screens.md` either way.
+- **#723's design gate** was posted on d978bfb0 at 13 Oct 00:21Z. Post it again only if the head moves.
+- **The 30 % cap counts builder hours.** The factory tickets are F1 to F4 plus F5, which adds `measures.py`'s new measures.
+  - The model-map lint, the mod clock, and `maxTurns`/`autoCompactWindow` are filed as issues. They are built only if F1 to F5
+    land with time left.
+  - The Haiku pilot runs on look-ups and needs no ticket.
+- **Q10's gates are M1's finish line,** not session 25's. Session 25's "walk now" stays `scripts.walk.ready` exiting 0 (CLAUDE.md law).
+- **The quiet machine:** during a G1 walk, no posting run and no local test suite starts. Builders may keep editing, and their
+  verify waits.
+- **The Q14 pilot's wave** is the first wave launched after F1 merges. Its "before" baseline is sessions 18 to 24 re-scored under the new bar (F2).
+- **The e2e fix asserts the counter by its message code** if the DOM carries one. Otherwise it uses the current English from `en.po`.
+- **A1 and A7** are session 24's tickets (FL8 #706→#723 and the question cap #710, merged).
+- **#687's "setback" item** is an owner question. Ask it after M1-02.
+
 | Q | Ruling (the owner, 13 Oct 2026) |
 |---|---|
 | Q10 | "Production grade" is measurable gates, not a feeling: the table below. The owner rules its numbers at the start. |
@@ -110,9 +130,9 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
    GitHub-write rules (`:1696-1714`): a crash or a 10 s timeout lets every other refused act through. It also matches words, not acts:
    the status rule refuses a read-only query of a commit's checks, and the privilege rule refuses a note that merely names a root command
    (`:1440-1458`, reproduced).
-4. **`docs/plans/M1.md:642-647` prices cement with 3 % wastage**, and `docs/design/m1-screens.md:425` on main repeats it as the words
-   "Cement 411 bags (398.20 net + 3 % wastage)"; the owner's verified default is 2 % (`docs/specs/bd-defaults.md:78`). #700 (ae830596)
-   drops the screens line; the plans example is fixed nowhere.
+4. **`docs/design/m1-screens.md:425` on main still prices cement at 3 % wastage** ("Cement 411 bags (398.20 net + 3 % wastage)"); the
+   owner's verified default is 2 % (`docs/specs/bd-defaults.md:78`). `docs/plans/M1.md`'s example is fixed on main (407 bags);
+   #700 (ae830596) drops the screens line.
 
 ## Why M0 took 24 sessions (measured; numbers from `m0-numbers/`, checked by refuters)
 - **Review rarely passes the first time, and fixes make new faults.** Round-1 PASS since session 18: 17 of 53 (32 %); on product code
@@ -129,11 +149,11 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
   0037 already cover them; multi-Building sheets stay M4's open question). Its one confirmed gap, adding a missed Element, became Q15.
 
 ## Session 25's order (amends "First 15 minutes"; steps 1–3 there stand)
-1. **0:00 to 0:20.** The steps 1–3 above. Then ask the owner, one at a time: the budget; Q10's numbers (the table below); then session 24's questions.
+1. **0:00 to 0:20.** The steps 1–3 above. Then ask the owner, one at a time, each with its recommendation: the budget; Q10's numbers (the table below); whether a trust-boundary finding of 50–74 still blocks (Q13's row; recommended yes); lifting `factory.md:652`'s read-only ruling for the mod clock only (the features table; recommended yes); then session 24's questions. Build nothing that depends on an unanswered one.
 2. **0:10, the M0 close (the product's critical path).** Session 24's order stands: #723, #711, #724, C1, C2, C3 fixed, #714, B1, B2. Add the
    e2e fix: `smoke.spec.ts` is an acceptance test, so the acceptance-writer amends it (an `acceptance:` commit; builders never change it),
    asserting the counter by its message code, not its English. Only the first failure is known; what fails after line 62 is unmeasured.
-3. **0:30, the factory (at most 30 % of builder hours; Q17).** Four tickets, each with its measured cost:
+3. **0:30, the factory (at most 30 % of builder hours; Q17).** Five tickets, each with its measured cost:
    - **F1 `review self`** (Q14): `scripts/factory/review_self.py` reuses `lens_command` and `run_lens` (`review.py:748, :912`) on
      `git diff main...HEAD` in the builder's worktree, its own database or no pytest, no ledger; `builder.md` runs it once before READY and on
      each fix's own diff, then re-runs the previous round's attack tests. Cost: A+B ≈ $2.56 and 7 min a run (`review-cost.jsonl`).
@@ -144,15 +164,16 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
    - **F4 the guard**: `onFailure: "block"` on the PreToolUse guard only (prove first on one throwaway cloud launch that the cloud CLI keeps
      the settings file and the selftest still refuses a force push). Not on the Stop and SubagentStop gates until `hooks.md` shows a blocked
      Stop cannot loop a builder; allow cases in `guard.test.mjs` for read-only queries and notes that name a word.
+   - **F5 the measures** (`scripts/factory/measures.py`): round-1 PASS by area, rounds per ticket including closed PRs, minutes from READY
+     to review start, the factory's share of builder hours, and the e2e pass streak on main (the loop section below).
    - File the rest as issues, each with its owed check: the governor's idle slots, the sweep keep rule, generated catalogues that deadlock stacked
-     PRs, symlinked node_modules in verify worktrees, `measures.py`'s `rounds_per_ticket` and READY-to-review minutes.
+     PRs, symlinked node_modules in verify worktrees, and test databases nobody drops (2,927 of them, 39 GB, on 13 Oct; `scripts/owner/clean.sh` only lists them).
 4. **0:45, M1 wave 0 beside it, within O2** (`docs/plans/M1.md`: docs and owner-time tickets now; M1-00's freeze and code only after the
    owner's M0 walk). The "M1 wave 0" section below stands; add to it: M1-24's fresh PR from #700 (ae830596) carries Q15's act in
    `m1-screens.md`; and one spec PR:
-   - `docs/plans/M1.md:642-647`: cement 2 %: 398.20 × 1.02 = 406.164, up to 407 (the example's gross 411 → 407); and, if #700 has not
-     merged first, `docs/design/m1-screens.md:425`'s words to "Cement 407 bags (398.20 net + 2 % wastage)", so the BOQ and the screen agree.
-   - `docs/plans/M1.md` C7 (`:399`): `mix`, `grade` and `rebar_basis` are null for a family that is not cast concrete.
-   - `docs/specs/M1.md:797`: what a relabelled grid line does (a changed fact, never a removed and an added Element).
+   - Already on main (the exploring session's last PR, 13 Oct): `docs/plans/M1.md`'s cement example at 2 % (407 bags), C7's nullable
+     concrete fields, and `docs/specs/M1.md`'s grid-line relabel rule. Still open: if #700 has not merged first,
+     `docs/design/m1-screens.md:425`'s words to "Cement 407 bags (398.20 net + 2 % wastage)", so the BOQ and the screen agree.
    - Q15's act in `docs/specs/M1.md`: **Add an Element the reader missed**: the QS picks the entity on the sheet (the buffers carry entity
      handles, `engine/render/buffers.py:27-30`); the act records a Confirmation and a Trace anchored on that entity (its cause's name is
      the ticket's to choose, in `CONTEXT.md` first); ADR 0015's position matching applies to it on the next read; the step's n/N counts it;
