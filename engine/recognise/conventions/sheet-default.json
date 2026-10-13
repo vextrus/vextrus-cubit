@@ -48,6 +48,7 @@
   "ordinal_suffixes": ["st", "nd", "rd", "th"],
   "range_words": ["to", "thru", "through", "upto", "up to", "till", "until"],
   "list_words": ["and"],
+  "citation_words": ["see", "refer to", "refer", "ref", "details on", "details in", "detail on", "detail in", "as per"],
   "register_words": ["drawing list", "list of drawings", "drawing register", "drawing index", "index of drawings", "sheet index", "list of sheets", "sheet list", "schedule of drawings", "drawing schedule"],
   "sheet_kinds": {
     "structural": ["site_plan", "grid_layout", "pile_layout", "pile_details", "pile_cap_layout", "pile_cap_details", "foundation_layout", "foundation_details", "column_layout", "column_schedule", "shear_wall_details", "beam_layout", "beam_details", "slab_layout", "slab_details", "stair_details", "retaining_wall_details", "tank_details", "roof_structure_details", "details"],
