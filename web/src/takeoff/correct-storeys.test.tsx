@@ -178,6 +178,8 @@ describe('the storeys fields of E (§6.9)', () => {
     step1.answerOnce('POST /correct', 409, { code: 'takeoff.step1.storeys_corrected_since', params: { view: '', view_id: second.id, titled: 'no', place: 2, sheet: 'S-06', named: 'number', moved: 'no', now: 'S-06' } })
     await userEvent.keyboard('{Enter}')
     await waitFor(() => expect(bodyText()).toContain('The storeys of plan view 2 (untitled) are no longer what the form showed.'))
+    // The refusal shows before Step 1 has reloaded, and an Enter during the reload is dropped by design (acts.tsx).
+    await waitFor(() => expect(document.querySelector('[data-step1]')).toHaveAttribute('aria-busy', 'false'))
 
     step1.answerOnce('POST /correct', 200, { confirmation_id: '01a10000-0000-7000-8000-00000000c0e3', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
     await userEvent.keyboard('{Enter}')
