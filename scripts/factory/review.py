@@ -2,7 +2,8 @@
 review round of a PR head, by code (issues #452, #406, #420, #453, #342; the session-13 close's review
 research, section 3). `fix-message <PR> --from-verdict` prints the fix message of the PR's latest
 recorded round: one line per standing finding that blocks (`file:line (score): summary`), none
-refuted, then under their own heading the findings to file as issues (50-74 off the strict paths).
+refuted, then under their own heading the findings to file as issues (50-74 that cannot block), each
+naming the check it owes.
 
 1. **Resolve (code).** `gh pr view` gives the PR's state, its 40-hex head and its checks: nobody types a
    sha. The ledger's own `check_exception` and `check_round` run in this process; a closed PR, a short or
@@ -35,12 +36,13 @@ refuted, then under their own heading the findings to file as issues (50-74 off 
    (tracked files reset to the merged head first): a non-zero exit with `FAILED <test_file>` is
    CONFIRMED (the lenses' `review_attacks/` folders stay, less their pytest config files). The
    refuter judges a sample (the owner's ruling, 7 Oct 2026): every other finding that could block (75
-   or more, or 50 or more on a strict path, `ledger.could_block`), plus at most 3 of the others of
+   or more, or 50 or more when tagged user-facing or on a trust boundary, or untagged on a strict path,
+   `ledger.could_block`), plus at most 3 of the others of
    50-74, highest score first, each with its repro and what its replay showed (exit, output tail), go
    to ONE batched `refuter` process, started only when one that could block is among them. Its
    verdict per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded;
    a refuter that fails or answers outside its schema refutes nothing (UNPROVEN stands). A finding of
-   50-74 off the strict paths left out stands unjudged (`-`): it is filed as an issue, never blocks.
+   50-74 that cannot block left out stands unjudged (`-`): it is filed as an issue, never blocks.
 7. **Record (code).** The `VERDICT`/`FINDING` lines (each finding's file its fifth field) go to a
    file and `scripts.ledger record` is called in
    this process: the verdict is decided there and nowhere else, its leak scan runs and it posts the one
@@ -155,6 +157,32 @@ FINDING_SCHEMA: dict[str, Any] = {
         },
         "line": {"type": "integer", "minimum": 0},
         "summary": {"type": "string", "description": "the failing scenario, in public words"},
+        # The owner's Q13 (13 Oct 2026): the class and the trust boundary decide a 50-74. Offered, not
+        # required: a reply without them keeps the path bar.
+        "class": {
+            "enum": list(ledger.CLASSES),
+            "description": (
+                "user-facing: a QS or MD would hit it; edge: an edge case no user meets in normal "
+                "work; rule-only: it breaks only the factory's own rules (a 50-74 user-facing "
+                "finding blocks; an edge or rule-only one off a trust boundary is filed). Give it "
+                "with trust_boundary or neither: one without the other reads as user-facing on a "
+                "trust boundary"
+            ),
+        },
+        "trust_boundary": {
+            "type": "boolean",
+            "description": (
+                "true when the finding sits on a trust boundary (a tenant wall, a parser of hostile "
+                "input, a gate, the review record): there a 50-74 blocks whatever its class"
+            ),
+        },
+        "owed_check": {
+            "type": "string",
+            "description": (
+                "the committed check (a test, lint or scan) that would fail on this finding's class: "
+                "a filed finding still owes it"
+            ),
+        },
         "repro": {
             "type": ["object", "null"],
             "description": (
@@ -337,6 +365,23 @@ class Finding:
     proof: dict[str, Any] | None = None  # the lens's repro: test_file, command, expect_fail
     replayed: dict[str, Any] | None = None  # the replay's outcome, exit and output tail
     on_tree: bool = False  # the file is exactly a file of the reviewed head's tree (`mark_on_tree`)
+    kind: str | None = None  # the lens's class tag (`ledger.CLASSES`); None: untagged, the path bar
+    boundary: bool | None = None  # the lens's trust-boundary tag; None with `kind`
+    owed_check: str | None = None  # the check the finding owes, as the lens named it
+
+    @classmethod
+    def tags(cls, item: dict[str, Any]) -> dict[str, Any]:
+        """The lens's tags of one finding, and its owed check when it named one. Neither tag: untagged
+        (the path bar). A tag without its partner, or with a value outside the schema, reads as the
+        stricter one (PR #757 round 1): a missing or bad class is user-facing and a missing or bad
+        boundary is a trust boundary, so a half-tagged 50-74 can block and is never filed as untagged."""
+        kind, boundary, owed = item.get("class"), item.get("trust_boundary"), item.get("owed_check")
+        tagged = kind is not None or boundary is not None
+        return {
+            "kind": (kind if kind in ledger.CLASSES else "user-facing") if tagged else None,
+            "boundary": (boundary if isinstance(boundary, bool) else True) if tagged else None,
+            "owed_check": owed if isinstance(owed, str) and owed.strip() else None,
+        }
 
     @property
     def named_file(self) -> str | None:
@@ -346,8 +391,16 @@ class Finding:
 
     @property
     def could_block(self) -> bool:
-        """The review bar: 75 or more, or 50 or more on a strict path (`ledger.could_block`)."""
-        return ledger.could_block(self.score, self.named_file)
+        """The review bar (`ledger.could_block`): 75 or more; else 50 or more when user-facing or on a
+        trust boundary (tagged), or on a strict path (untagged)."""
+        return ledger.could_block(self.score, self.named_file, self.kind, self.boundary)
+
+    @property
+    def tag_text(self) -> str:
+        """The FINDING line's tags (` class=<class> boundary=<yes|no>`), empty when untagged."""
+        if self.kind is None or self.boundary is None:
+            return ""
+        return f" class={self.kind} boundary={'yes' if self.boundary else 'no'}"
 
     def view(self) -> dict[str, Any]:
         return {
@@ -359,6 +412,9 @@ class Finding:
             "status": self.word,
             "method": self.method,
             "on_tree": self.on_tree,
+            "class": self.kind,
+            "trust_boundary": self.boundary,
+            "owed_check": self.owed_check,
         }
 
 
@@ -1132,9 +1188,12 @@ def record(
     """Write the decision lines and the findings, and have the ledger decide and record them."""
     assert run.head is not None
     lines = [f"VERDICT: {verdict} at {run.head}" for verdict in verdicts]
-    # Each finding's file is the line's fifth field: the ledger judges the bar by it (none: strict).
+    # Each finding's file is the line's fifth field (none: strict), then the lens's tags: the ledger
+    # judges the bar by them.
     lines += [
-        f"FINDING {item.id} {item.score} {item.word}" + (f" {name}" if (name := item.named_file) else "")
+        f"FINDING {item.id} {item.score} {item.word}"
+        + (f" {name}" if (name := item.named_file) else "")
+        + item.tag_text
         for item in run.findings
     ]
     decisions.mkdir(parents=True, exist_ok=True)
@@ -1323,6 +1382,7 @@ def confirm_and_refute(
                     item["summary"],
                     repro.get("test_file") if isinstance(repro, dict) else None,
                     proof=repro if isinstance(repro, dict) else None,
+                    **Finding.tags(item),
                 )
             )
     mark_on_tree(run.findings, main, run.merged)
@@ -1565,7 +1625,7 @@ def refuter_claims(findings: list[Finding]) -> list[Finding]:
 
 def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     """One batched refuter judges the sample (`refuter_claims`); its verdict per finding (matched by
-    file and line) is the one recorded. A finding of 50-74 off the strict paths left out of the sample
+    file and line) is the one recorded. A finding of 50-74 that cannot block left out of the sample
     stands unjudged (`-`): it cannot block and is filed, not fixed. A refuter that fails, runs past its
     cap or answers outside its schema refutes nothing: each finding it was told stays UNPROVEN."""
     assert run.head is not None
@@ -1916,6 +1976,7 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
                     None,
                     # A cloud reviewer's finding was never replayed or refuted here: it stands.
                     "UNPROVEN" if item["score"] >= 50 else "-",
+                    **Finding.tags(item),
                 )
             )
     if resolve(run.pr) != run.head:
@@ -1932,22 +1993,34 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
 
 def fix_text(pr: int, head: str | None, views: list[dict[str, Any]]) -> str:
     """One line per standing finding that blocks (`file:line`, score, summary), the highest score
-    first; then, under their own heading, the ones to file as issues (50-74 off the strict paths)."""
+    first; then, under their own heading, the ones to file as issues (50-74 that cannot block), each
+    naming the check it still owes."""
 
-    def lines(found: list[dict[str, Any]]) -> list[str]:
+    def lines(found: list[dict[str, Any]], *, owed: bool = False) -> list[str]:
         ordered = sorted(found, key=lambda item: (-int(item["score"]), str(item["id"])))
-        return [f"- {i['file']}:{i['line']} ({i['score']}): {i['summary']}" for i in ordered]
+        return [
+            f"- {i['file']}:{i['line']} ({i['score']}): {i['summary']}" + (owes(i) if owed else "")
+            for i in ordered
+        ]
 
     blocking, filed = standing(views), to_file(views)
     parts: list[str] = []
     if blocking:
         parts += [f"Fix round for PR {pr} at {head}:", *lines(blocking)]
     if filed:
-        parts += [
-            f"File as issues for PR {pr} at {head} (50-74 off the strict paths; they do not block):",
-            *lines(filed),
-        ]
+        heading = (
+            f"File as issues for PR {pr} at {head} (50-74 that cannot block: edge or rule-only off a "
+            "trust boundary, or untagged off the strict paths; each still owes its committed check):"
+        )
+        parts += [heading, *lines(filed, owed=True)]
     return "\n".join(parts)
+
+
+def owes(view: dict[str, Any]) -> str:
+    """A filed finding's owed check, as the lens named it (or that none was named: still owed)."""
+    owed = view.get("owed_check")
+    named = " ".join(owed.split()) if isinstance(owed, str) else ""  # one line: never a forged row
+    return f"; owes: {named}" if named else "; owes: a committed check (the lens named none)"
 
 
 def view_file(view: dict[str, Any]) -> str | None:
@@ -1955,19 +2028,24 @@ def view_file(view: dict[str, Any]) -> str | None:
     return ledger.named_file(view["file"]) if view.get("on_tree") is True else None
 
 
+def view_judged(view: dict[str, Any]) -> ledger.Judged:
+    """A kept finding as the ledger's bar reads it (its tags only when both are there and valid: a
+    finding kept before the tags keeps the path bar)."""
+    tags = Finding.tags(view)
+    return ledger.Judged(
+        int(view["score"]), str(view["status"]), view_file(view), tags["kind"], tags["boundary"]
+    )
+
+
 def standing(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The findings that block: CONFIRMED or UNPROVEN, never REFUTED, and over the bar (75, or 50 on
-    a strict path: `ledger.could_block`)."""
-    return [
-        v
-        for v in views
-        if v["status"] in ledger.STANDS and ledger.could_block(int(v["score"]), view_file(v))
-    ]
+    """The findings that block: CONFIRMED or UNPROVEN, never REFUTED, and over the bar
+    (`ledger.could_block`)."""
+    return [v for v in views if v["status"] in ledger.STANDS and ledger.blocks(view_judged(v))]
 
 
 def to_file(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The findings to file as issues rather than fix (`ledger.to_file`)."""
-    return [v for v in views if ledger.to_file(int(v["score"]), str(v["status"]), view_file(v))]
+    return [v for v in views if ledger.to_file(*view_judged(v))]
 
 
 def fix_message(run: Run) -> str:
@@ -2058,6 +2136,7 @@ def main(argv: list[str] | None = None) -> int:
     run = Run(pr=0, round_=0)
     code, why = ledger.OK, None
     home: Path | None = None
+    started_at = ledger.utc_now()
     try:
         args = parse(sys.argv[1:] if argv is None else argv)
         if args.command == "fix-message":
@@ -2077,6 +2156,7 @@ def main(argv: list[str] | None = None) -> int:
         code, why = CRASHED, f"crashed: {type(error).__name__}: {error}"
     if home is not None and run.tier is not None:  # past its checks: every such run leaves a cost line
         line = summary(run, code, why)
+        line["started_at"] = started_at  # measures.py's READY-to-review wait reads it
         line["at"] = ledger.utc_now()
         append_cost(home, line)
     if why is not None:
