@@ -158,18 +158,23 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry, i18n) }} /> : null
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
+    // Alike in every field the table shows: said, so the QS knows nothing on the card can tell them apart.
+    const tied = copiesTie(entry.holds) ? <> <Trans>The copies are alike in every field the table shows.</Trans></> : null
     if (titles.length === 1 && !titles[0]!.trim())
-      return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
-    if (copiesTie(entry.holds)) {
-      const tied = <Trans>The copies are alike in every field the table shows.</Trans>
-      if (titles.length === 1 && titles[0]!.trim()) {
-        const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
-        return <Trans>Both are titled “{title}”. Only one can be read. {tied}</Trans>
-      }
-    }
+      return (
+        <>
+          <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
+          {tied}
+        </>
+      )
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
-      return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+      return (
+        <>
+          <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+          {tied}
+        </>
+      )
     }
     return <Trans>Their titles differ. Only one can be read, unless they are different sheets.</Trans>
   }
@@ -285,8 +290,8 @@ function Joined({ items }: { items: readonly ReactNode[] }) {
   )
 }
 
-/** The fields that tell copies apart, in the order a copy is named by them: the first that tells IT from EVERY other. */
-const COPY_FIELDS = ['title', 'file', 'place', 'mark', 'date'] as const
+/** The fields that tell copies apart, in the order a copy is named by them (m0-screens 6.7 names it "R1 (14 Sep 2026)" first): the first that tells IT from EVERY other. */
+const COPY_FIELDS = ['mark', 'date', 'title', 'file', 'place'] as const
 type CopyField = (typeof COPY_FIELDS)[number]
 
 function copyField(h: ProposalOut, field: CopyField): string {
@@ -332,8 +337,8 @@ export function Copy({ sheet }: { sheet: ProposalOut }) {
 }
 
 /**
- * One copy named in an option's words by the first field that tells it from every other copy (title, file,
- * place, mark, date); when none does, by its place in the table, and the card says the copies tie.
+ * One copy named in an option's words by the first field that tells it from every other copy (mark, date, title,
+ * file, place; m0-screens 6.7); when none does, by its place in the table, and the card says the copies tie.
  */
 function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly ProposalOut[] }) {
   const f = useFormat()

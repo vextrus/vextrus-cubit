@@ -22,7 +22,7 @@ type Placed = ProposalOut & { layout: string | null }
  * KR-01 with its two S-07 copies alike in file, mark and date: `places` and `titles` set each copy's
  * layout (null: laid out in the drawing) and title. The S-07 Question offers the read job's options.
  */
-function kr01(places: [string | null, string | null], titles: [string, string], files: [string, string] = [FILE, FILE], distinctIds = false): FakeApi {
+function kr01(places: [string | null, string | null], titles: [string, string], files: [string, string] = [FILE, FILE], distinctIds = false, over: [Partial<Placed>, Partial<Placed>] = [{}, {}]): FakeApi {
   const api = new FakeApi()
   const step1 = new FakeStep1(api)
   const copies = step1.proposals.filter((p) => p.number === 'S-07')
@@ -37,6 +37,7 @@ function kr01(places: [string | null, string | null], titles: [string, string], 
       file_id: files[i] === FILE && !distinctIds ? fileOf(FILE).file_id : `other-file-${i}`,
       file_name: files[i]!,
       layout: places[i]!,
+      ...over[i]!,
     }),
   )
   for (const p of step1.proposals) if (!('layout' in p)) Object.assign(p as Placed, { layout: null })
@@ -122,5 +123,21 @@ describe('a "Two sheets, one number" card: the table shows what the options name
     const keep = optionWords(section).find((w) => /superseded/.test(w))
     expect(keep, optionWords(section).join(' | ')).not.toMatch(/the copy in /)
     expect(keep).toMatch(/upper copy in the table|lower copy in the table/)
+  })
+
+  it('says the copies are alike when they tie and neither has a title (round 3)', async () => {
+    const section = await card(kr01([null, null], ['', '']))
+    expect(clean(section.textContent)).toContain('Neither has a title.')
+    expect(clean(section.textContent)).toContain('The copies are alike in every field the table shows.')
+  })
+
+  it('names by revision mark and date before title or file (m0-screens 6.7: "Keep R1 (14 Sep 2026); leave R0 out as superseded")', async () => {
+    const section = await card(
+      kr01([null, null], ['NEW TITLE', 'OLD TITLE'], [FILE, 'KR-STR-R1.dwg'], false, [{ revision_mark: 'R1', issue_date: '2026-09-14' }, { revision_mark: 'R0', issue_date: '2026-08-02' }]),
+    )
+    const words = optionWords(section)
+    const keep = words.find((w) => /superseded/.test(w))
+    expect(keep, words.join(' | ')).toMatch(/^\d?Keep R[01] \(\d\d \w{3} 2026\); leave R[01] out as superseded/)
+    expect(keep).not.toMatch(/title|dwg/i)
   })
 })

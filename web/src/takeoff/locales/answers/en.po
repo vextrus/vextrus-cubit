@@ -137,10 +137,6 @@ msgid "Trace: the file’s two readings"
 msgstr "Trace: the file’s two readings"
 
 #: src/takeoff/questionWords.tsx
-msgid "Both are titled “{title}”. Only one can be read. {tied}"
-msgstr "Both are titled “{title}”. Only one can be read. {tied}"
-
-#: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering keeps the sheet open.} other {Answering keeps all # sheets open.}}"
 msgstr "{n, plural, one {Answering keeps the sheet open.} other {Answering keeps all # sheets open.}}"
 
