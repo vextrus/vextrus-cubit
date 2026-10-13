@@ -326,8 +326,10 @@ Read from `web/src/ui/keys/registry.ts` and its provider (12 Oct 2026):
   `Shift Enter`), `Esc` and `Escape` are one key, and browser keys (Ctrl W, T, N, L, R, Tab-switching,
   F5, F11, F12) cannot be bound. Typing wins in a text field, **except that every `Ctrl` combination,
   and `Esc`, `Enter`, `Tab` and `Shift Tab`, still reach the map** (`reachesMapWhileTyping`): so a
-  form with fields (4.1.2's "Add an Element", `E`'s edit) is a scope of its own, binding `Enter` and
-  `Esc` above the screen's, or an `Enter` typed in its field would confirm the group; and `Ctrl Z`, `Ctrl C` and `Ctrl V` carry
+  form with fields (4.1.2's "Add an Element", `E`'s edit) is a **modal mode scope** of its own
+  (`level: 'mode'`, `modal: true`: `activeScopesFor` then returns it alone, so no region or screen
+  binding sees its keys), binding `Enter` and `Esc`, or an `Enter` typed in its field would confirm
+  the group; a mode that precedes a form ends before the form opens, so two never compete; and `Ctrl Z`, `Ctrl C` and `Ctrl V` carry
   `when: () => !editingField` on every screen that binds them, **and so does every other `Ctrl`
   combination a region binds** (`Ctrl A`, `Ctrl Home`, `Ctrl End`, `Ctrl Enter`, `Ctrl K` excepted:
   that one is global and opens the jump list from a field): the field's own undo, select-all, caret
@@ -375,7 +377,7 @@ Proposal groups has focus; "canvas" means the source sheet is open across the ca
 | `Q` | screen | Focus the group row the next open Question holds, in the queue's order (4.1); its card shows in the inspector, and `1`–`9` then pick | M1-18a |
 | `1`–`9` | screen (the focused group's Question, shown in its card) | Pick that answer on the card; a pick changes nothing until `Enter` or "Answer". When the picker (X) is open it claims every digit | M1-18a |
 | `Ctrl Z` | screen (not while a field is being edited) | Undo the last act on this step, naming it in the toast. An answer that confirmed or excluded Elements is never undone, nor anything before it (m0-screens 6.9) | M1-18a |
-| `Enter`, `Esc` | form: Add an Element (its own scope, above the screen's) | `Enter` adds, from any of its fields; `Esc` closes the form, a second `Esc` leaves the pick mode | story 125 |
+| `Enter`, `Esc` | form: Add an Element (a modal mode scope; the pick mode has ended when it opens) | `Enter` adds, from any of its fields; `Esc` closes the form and clears the box (`Shift A` picks again) | story 125 |
 | `Shift A` | screen (a frame step in review) | Add an Element not read from the drawing: pick its entity on the sheet, name the family, `Enter` adds (4.1.2); `Ctrl Z` removes it | story 125 |
 | `T` | screen (a figure focused) | Open the focused figure's Trace (4.10); `T` again, or `Esc`, closes it | M1-23 |
 | `←` `→` | dialog: a Trace | Step through the figure's sources: the sheet flies to each in turn | M1-23 |
@@ -388,7 +390,7 @@ Proposal groups has focus; "canvas" means the source sheet is open across the ca
 | `D` `P` `F` `Shift F` `Z` `O` `+` `−` `[` `]` | sheet | As M0 (the sheet's own keys): CAD-dark, Plot, fit, working view, zoom to the view, outlines, zoom, page sheets | M0 |
 
 **`Esc`'s stack in a frame step** (m0-screens 2.2, unchanged, listed for the walk): the Trace
-popover; a dialog or the Profile panel; the exclusion picker, an inline edit or the Add an Element form (then its pick mode); one-by-one review;
+popover; a dialog or the Profile panel; the exclusion picker, an inline edit or the Add an Element form (its pick mode having ended at the pick; `Esc` in the pick mode leaves the pick); one-by-one review;
 the open sheet (back to the list); the selection. Never the page; never typed text without asking.
 
 ### 2.3 The canvas and the 3D
@@ -568,8 +570,9 @@ the 320 px inspector, the status bar. The canvas is 912 px at 1280 and 1072 px a
   has focus (2.1: the rail is an F6 stop, `↑ ↓` and `Enter` move and open).
 - **The toolbar:** "Step 6 Columns", the Count "Confirmed 14 / 110, 2 excluded" (an excluded element
   stays in N, screens.md Takeoff ruling 4; the Count is m0-screens 6.18 item 4's; **an Element the QS
-  added (4.1.2) is counted in n and grows N by one, the reason beside it: "Confirmed 14 / 111, 2
-  excluded · 1 added by you"**, so n never passes N), then on the right
+  added (4.1.2) is counted in n and grows N by one, the reason beside it: "Confirmed 15 / 111, 2
+  excluded · 1 added by you"**, from 14 / 110: the added Element is confirmed by the act, so n
+  and N each grow by one and n never passes N), then on the right
   "List | Sheet" (the segmented control of M0, 6.1), the Drafting Profile button (4.9: icon-only at
   1280, "Drafting Profile" at 1440), the overlays toggle (4.9), the keys button. The width budget
   of m0-screens 4.1 holds: the toolbar on one line at 1280 with the longest step name, "Profile" and
@@ -649,7 +652,8 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
   Element" (`Shift A`, a frame step's screen; settled here, `A` being Assign in Step 1 and Measure
   area in the 3D) puts the sheet into a pick mode (`Esc` leaves it, as `W`'s mode does): the QS clicks
   the entity on the sheet, or moves a crosshair by 8 px and presses `Enter`, which picks the entity
-  under it. The picked entity is boxed on the sheet, and the inspector shows the form "Add an
+  under it. **The pick ends the pick mode** (a mode scope never stays under the form, 2.1); the
+  picked entity is boxed on the sheet, and the inspector shows the form "Add an
   Element" with what a QS reads: the sheet ("S-09, Column layout") and the view, never a layer name
   or a handle (1.1; the handle stays in the Trace's anchor). It asks **Family** (the step's families,
   named, never typed free), **Mark** (the schedule's marks, the nearest label pre-picked, so the
@@ -661,7 +665,7 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
   Storey, all in that one Confirmation, with one Trace anchor, one toast and one `Ctrl Z`. Each
   Element joins the list in the band its Storey names, marked "Added by Nusrat Jahan: not read from
   the drawing", and **counts in n and grows N by itself** (the toolbar's Count of 4.1.1: "14 / 110"
-  becomes "14 / 111 · 1 added by you"; a group's "13 / 14" becomes "14 / 15"), so the Count never
+  becomes "15 / 111 · 1 added by you", `Ctrl Z` returning it to "14 / 110"; a group's "13 / 14" becomes "14 / 15"), so the Count never
   reads n above N; the plan-against-schedule difference is shown there and not as a separate Check.
   The toast names the act with "Undo  Ctrl Z": "Added a C2 column at 3/C, 4th." (for
   a band: "Added 7 C2 columns at 3/C, 2nd to 8th.") **Undo removes it** (the step's last act: the usual `Ctrl Z` rule). A re-read (a Revision or
@@ -1617,7 +1621,8 @@ the Live Model; the Esc stack of 2.2.
   each kg (6.1): the toast reads "4 BOQ Items repriced" (M5, M8, M11, M14: 23,056 kg, ৳23,056.00,
   with W3's 668 kg awaiting answer, ৳668.00), and the lines read Beams +৳47,880.00 (A1), Slabs
   +৳51,240.00 (A2), "Shear walls and lift core" +৳8,820.00 (A3), the other steps +৳16,422.00 (A4):
-  ৳1,24,362.00 of allowance; with the measured ৳23,724.00 the strip's total moves ৳1,48,086.00.
+  the strip's three parts move Measured +৳23,056.00 (T1), Awaiting answer +৳668.00 (T2, W3) and
+  Allowance +৳1,24,362.00 (T3): ৳1,48,086.00 in all (T8's 148,086 kg × ৳1.00).
 - **States:** loading "Reading prices…"; error "The prices could not be read. Nothing is lost." with
   "Try again"; read-only (the MD): ReadOnlyChip and no field, a Guest "Ask the Developer for access to
   costs"; filter chips include "Not entered (9)" (where "Enter prices" from the Priced BOQ lands, with
@@ -2100,7 +2105,7 @@ prefix KW- so that a failed line named in a PR (`KW-F6`) is never taken for the 
 - [ ] KW-F2 `↓` to a group that agrees, `Enter` → "Confirmed 14 C2 columns…" toast with Undo; focus moves to
   the next row.
 - [ ] KW-F3 `Ctrl Z` → the group is a Proposal again and the toast names what it undid.
-- [ ] KW-F3a `Shift A`, pick an entity on the sheet, choose a Family, `Enter` → the Element joins the list marked "Added by" and n / N counts it; `Ctrl Z` → it is gone and n / N is as before.
+- [ ] KW-F3a `Shift A`, pick an entity on the sheet, choose a Family, `Enter` → the Element joins the list marked "Added by" and the Count reads "Confirmed 15 / 111, 2 excluded · 1 added by you"; `Ctrl Z` → it is gone and the Count reads "Confirmed 14 / 110, 2 excluded".
 - [ ] KW-F4 `→` on a group, `→` `→`, `Esc` → Elements step in order, the counter reads "Column 3 of 14",
   `Esc` leaves the review.
 - [ ] KW-F5b `Space` on a group, then `→` `→` in the canvas → the sheet flies to each Element in turn,
