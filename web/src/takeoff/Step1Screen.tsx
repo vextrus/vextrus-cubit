@@ -281,11 +281,17 @@ function Step1({
 
   // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
   const { sheet: asked } = useSearch({ strict: false }) as { sheet?: string }
-  const [start] = useState(() => {
-    const row = asked ? model.rows.find((r) => r.sheets.some((p) => p.sheet_id === asked)) : undefined
-    const first = row?.sheets.find((p) => p.sheet_id === asked)
-    return row && first ? { row: row.key, sheet: first.id } : null
-  })
+  // It may also be the sheet's number ("S-04", Jump to's address); a sheet_id wins, so an id keeps working.
+  const findAsked = (what: string | undefined) => {
+    if (!what) return null
+    for (const by of [(p: ProposalOut) => p.sheet_id === what, (p: ProposalOut) => p.number === what]) {
+      const row = model.rows.find((r) => r.sheets.some(by))
+      const first = row?.sheets.find(by)
+      if (row && first) return { row: row.key, sheet: first.id }
+    }
+    return null
+  }
+  const [start] = useState(() => findAsked(asked))
   const [mode, setMode] = useState<'list' | 'sheet'>(start ? 'sheet' : 'list')
   const [focused, setFocusedState] = useState<string | null>(start?.row ?? null)
   const [openSheet, setOpenSheet] = useState<string | null>(start?.sheet ?? null)
@@ -445,6 +451,20 @@ function Step1({
     setOpenSheet(first.id)
     setFocused(row.key)
     setMode('sheet')
+  }
+
+  // Jump to (Ctrl K) on this screen changes `?sheet=` under it: the screen follows (state adjusted as it renders).
+  const [seenAsked, setSeenAsked] = useState(asked)
+  if (seenAsked !== asked) {
+    setSeenAsked(asked)
+    const found = findAsked(asked)
+    if (found) {
+      setPicker(null)
+      setRange(null)
+      setOpenSheet(found.sheet)
+      setFocused(found.row)
+      setMode('sheet')
+    }
   }
 
   /** A Trace link: open that sheet in sheet mode. */

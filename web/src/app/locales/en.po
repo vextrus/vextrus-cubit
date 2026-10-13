@@ -199,6 +199,10 @@ msgid "Move to the next region"
 msgstr "Move to the next region"
 
 #: src/app/CanvasFrame.tsx
+msgid "Not saved: your last change did not reach Vextrus. Do it again."
+msgstr "Not saved: your last change did not reach Vextrus. Do it again."
+
+#: src/app/CanvasFrame.tsx
 msgid "Selection"
 msgstr "Selection"
 
@@ -219,6 +223,10 @@ msgstr "Site"
 #: src/app/TopBar.tsx
 msgid "Members and access"
 msgstr "Members and access"
+
+#: src/app/JumpTo.tsx
+msgid "Sheets"
+msgstr "Sheets"
 
 #: src/app/CanvasFrame.tsx
 msgid "Confirmed <0/>"
