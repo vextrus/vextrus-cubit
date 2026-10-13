@@ -938,19 +938,25 @@ def local_idle(step: Pass, ticket: str, seen: dict[str, Any], row: dict[str, Any
 
 def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) -> None:
     """Read a seen head's outcome again: the state was written by another version of the trailer
-    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both. A READY
-    inherited onto clean merges of main (track's rule) stays READY."""
+    reading. A changed outcome is an event and starts its clock; an unchanged one keeps both. A head
+    that reads no outcome itself is walked back (`settled_under`) whatever the stored outcome is: a
+    READY or BLOCKED under clean merges of main and status replies is the head's outcome, with its
+    reason, so a state an earlier parser wrote for such a head reads it after the upgrade."""
     head = seen["head"]
     info = read_head(seen["branch"], head)
     if info is None:
         return
     trailers = parse_trailers(*info)
-    if trailers.outcome is None and seen.get("outcome") in ("READY", "BLOCKED"):
+    under = head
+    if trailers.outcome is None:
         found = settled_under(head, main_sha)
-        if found is not None and found[1].outcome == seen.get("outcome"):
-            return
+        if found is not None:
+            under, trailers = found
+            if trailers.outcome == seen.get("outcome"):
+                return
     if trailers.outcome == "READY":  # every READY records its head, unchanged or not
-        seen["ready_head"] = seen["ready_commit"] = head
+        seen["ready_head"] = head
+        seen["ready_commit"] = under
     if trailers.outcome == seen.get("outcome"):
         return
     seen.update(
@@ -959,12 +965,13 @@ def reread(step: Pass, ticket: str, seen: dict[str, Any], main_sha: str | None) 
         why=trailers.why,
         outcome_at=status.utc(step.at),
         ready_head=head if trailers.outcome == "READY" else None,
-        ready_commit=head if trailers.outcome == "READY" else None,
+        ready_commit=under if trailers.outcome == "READY" else None,
+        blocked_commit=under if trailers.outcome == "BLOCKED" else None,
     )
     if trailers.outcome == "READY":
-        step.event("READY", ticket, head[:8])
+        step.event("READY", ticket, under[:8])
     elif trailers.outcome == "BLOCKED":
-        step.event("BLOCKED", ticket, f"{head[:8]} {trailers.reason}")
+        step.event("BLOCKED", ticket, f"{under[:8]} {trailers.reason}")
 
 
 def settled_under(head: str, main_sha: str | None) -> tuple[str, Trailers] | None:
