@@ -21,12 +21,13 @@
 #      uv and the toolchain's Python, and that your user reaches no Docker daemon;
 #   2. takes GitHub's main into the key user's own clone (your user bundles main; root checks the commit
 #      against GitHub);
-#   3. the database: scripts/owner/heldout-roles.sql (main's) as the superuser, then a fresh password for
+#   3. closes the superuser to passwords: with a password (yours, in your ~/.pgpass) every build session
+#      could sign in as the superuser, who reads any database's files; it then signs in only as the
+#      postgres Unix user (`sudo -u postgres psql`). Asked first; refused, the script stops before
+#      anything in the cluster changes;
+#   4. the database: scripts/owner/heldout-roles.sql (main's) as the superuser, then a fresh password for
 #      each of the two roles, set as a SCRAM verifier (the password itself never reaches the server or its
 #      log) and written into the key user's own ~/.pgpass only, never yours, never shown;
-#   4. closes the superuser to passwords: with a password (yours, in your ~/.pgpass) every build session
-#      could sign in as the superuser, who reads any database's files; it then signs in only as the
-#      postgres Unix user (`sudo -u postgres psql`). Asked first; refused, the script stops;
 #   5. pg_hba.conf: a marked block before every other rule, letting only the two roles reach
 #      vextrus_heldout, over 127.0.0.1 with a password, and rejecting every other role, address and the
 #      socket there; checked for errors before the reload (a reload, never a restart);
@@ -176,6 +177,29 @@ new_password() {
   unset password
 }
 
+# Removes the password of every superuser that has one, after the owner confirms: a superuser reads any
+# database's files, and the owner's ~/.pgpass (which libpq reads in every build session, each run as the
+# owner's user) holds the postgres one. Peer sign-in over the socket, as the postgres Unix user, stays.
+close_superusers() {
+  local query supers role
+  query="select string_agg(rolname, ' ' order by rolname) from pg_authid where rolsuper and rolpassword is not null"
+  supers=$(super_psql -At -c "$query")
+  if [ -z "$supers" ]; then
+    ok "no superuser signs in with a password"
+    return 0
+  fi
+  echo "  These superusers sign in with a password: $supers. Your user holds the postgres one in ~/.pgpass,"
+  echo "  and every build session runs as your user: a superuser reads any database's files."
+  confirm "Remove their passwords (they sign in as the postgres Unix user only)?" \
+    || die "the superuser keeps its password, so a Held-out database would have no wall; nothing in the cluster changed"
+  for role in $supers; do
+    [[ "$role" =~ ^[a-z_][a-z0-9_]*$ ]] || die "a superuser's name is not plain: $role"
+    printf 'ALTER ROLE %s PASSWORD NULL;\n' "$role" | super_psql
+  done
+  [ -z "$(super_psql -At -c "$query")" ] || die "a superuser still signs in with a password"
+  ok "no superuser signs in with a password now"
+}
+
 # The instance's settings (no secret but the Django key, generated here; the Jev key is its own file).
 instance_settings() {
   printf '%s\n' \
@@ -275,7 +299,16 @@ main() {
     ok "$APP is GitHub's main, ${github_main:0:12}"
   fi
 
-  step "3/7 The database and its two roles"
+  step "3/7 Close the superuser to passwords"
+  plan "each superuser role with a password loses it (ALTER ROLE ... PASSWORD NULL), after you confirm:" \
+    "  it then signs in only as the postgres Unix user, over the socket: sudo -u postgres psql -p $PORT" \
+    "  (your ~/.pgpass's superuser line stops working; scripts/owner/db-local.sh then needs that route)" \
+    "refused, the script stops here, before anything in the cluster changes"
+  if ! dry; then
+    close_superusers
+  fi
+
+  step "4/7 The database and its two roles"
   plan "as the superuser, over the socket, in the postgres database: main's scripts/owner/heldout-roles.sql" \
     "  (roles $OWNER_ROLE and $APP_ROLE; database $DB, its owner $OWNER_ROLE; CONNECT revoked from PUBLIC;" \
     "  its statements kept out of the server's log; each wall checked)" \
@@ -287,27 +320,6 @@ main() {
     new_password "$OWNER_ROLE"
     new_password "$APP_ROLE"
     ok "$DB, $OWNER_ROLE and $APP_ROLE; both passwords in $KEY_PGPASS only (not shown)"
-  fi
-
-  step "4/7 Close the superuser to passwords"
-  plan "each superuser role with a password loses it (ALTER ROLE ... PASSWORD NULL), after you confirm:" \
-    "  it then signs in only as the postgres Unix user, over the socket: sudo -u postgres psql -p $PORT" \
-    "  (your ~/.pgpass's superuser line stops working; scripts/owner/db-local.sh then needs that route)"
-  if ! dry; then
-    supers=$(super_psql -At -c "select string_agg(rolname, ' ') from pg_authid where rolsuper and rolpassword is not null")
-    if [ -z "$supers" ]; then
-      ok "no superuser signs in with a password"
-    else
-      echo "  These superusers sign in with a password: $supers. Your user holds the postgres one in ~/.pgpass,"
-      echo "  and every build session runs as your user: a superuser reads any database's files."
-      confirm "Remove their passwords (they sign in as the postgres Unix user only)?" \
-        || die "the superuser keeps its password, so the Held-out database has no wall; nothing else was changed"
-      for role in $supers; do
-        [[ "$role" =~ ^[a-z_][a-z0-9_]*$ ]] || die "a superuser's name is not plain: $role"
-        printf 'ALTER ROLE %s PASSWORD NULL;\n' "$role" | super_psql
-      done
-      ok "no superuser signs in with a password now"
-    fi
   fi
 
   step "5/7 pg_hba.conf"

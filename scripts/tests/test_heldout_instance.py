@@ -44,10 +44,14 @@ as_postgres() { "$@"; }
 """
 
 
-def sourced(body: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    """Runs `body` in bash after sourcing the script and the stubs."""
+def sourced(
+    body: str, env: dict[str, str] | None = None, answer: str = ""
+) -> subprocess.CompletedProcess[str]:
+    """Runs `body` in bash after sourcing the script and the stubs; `answer` is its stdin."""
     script = f"source {SCRIPT}\n{STUBS}\n{body}\n"
-    return subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=False, env=env)
+    return subprocess.run(
+        ["bash", "-c", script], input=answer, capture_output=True, text=True, check=False, env=env
+    )
 
 
 def variable(name: str) -> str:
@@ -344,14 +348,15 @@ class Cluster:
             capture_output=True, text=True, env=env, check=False,
         )  # fmt: skip
 
-    def script(self, body: str) -> subprocess.CompletedProcess[str]:
+    def script(self, body: str, answer: str = "") -> subprocess.CompletedProcess[str]:
         """`body` after sourcing the script, its places and switches moved onto this cluster."""
         places = (
             f"PORT={self.port}; KEY_PGPASS={self.key_pgpass}; tmp={self.data.parent / 'tmp'};"
             f' super_psql() {{ psql -X -q -v ON_ERROR_STOP=1 -h "{self.socket}" -p "$PORT"'
             ' -U postgres -d postgres "$@"; }'
         )
-        return sourced(f"{places}\n{body}", env={"PATH": os.environ["PATH"], "HOME": "/nonexistent"})
+        env = {"PATH": os.environ["PATH"], "HOME": "/nonexistent"}
+        return sourced(f"{places}\n{body}", env=env, answer=answer)
 
 
 def _free_port() -> int:
@@ -534,6 +539,25 @@ def test_a_pg_hba_with_an_error_is_put_back_and_never_loaded(cluster: Cluster, t
         assert hba.read_text() == broken  # the copy taken first, which held the error, is back
     finally:
         hba.write_text(before)
+
+
+@needs_postgres
+def test_the_superuser_loses_its_password_only_when_the_owner_says_so(cluster: Cluster) -> None:
+    # On this machine the owner's user (every build session's) signs in as the superuser with a password.
+    assert cluster.psql("select 1", host="127.0.0.1").returncode == 0
+    refused = cluster.script("close_superusers", answer="n\n")
+    assert refused.returncode != 0
+    assert "nothing in the cluster changed" in refused.stdout
+    assert cluster.psql("select 1", host="127.0.0.1").returncode == 0
+    try:
+        closed = cluster.script("close_superusers", answer="y\n")
+        assert closed.returncode == 0, closed.stdout + closed.stderr
+        assert "no superuser signs in with a password now" in closed.stdout
+        assert cluster.psql("select 1", host="127.0.0.1").returncode != 0  # the owner's line is dead
+        assert cluster.psql("select 1").returncode == 0  # the socket (peer on the real cluster) stays
+        assert "no superuser signs in with a password" in cluster.script("close_superusers").stdout
+    finally:
+        cluster.psql(f"ALTER ROLE postgres PASSWORD '{PASSWORD}'")  # for the other tests here
 
 
 # ------------------------------------------------------------------------ a build session is refused
