@@ -195,6 +195,9 @@ def test_no_secret_is_ever_an_argument_or_shown() -> None:
             assert "printf '%s" in code or code.lstrip().startswith(
                 ("instance_settings ", "if [ -n ", "[ -n ")
             ), line
+    # The proof that the owner cannot act as the key user asks sudo's rule, never the password the owner
+    # just typed for this script (cached for that terminal).
+    assert '"! as_owner sudo -n -k -u $KEY_USER true"' in text
     # Nothing secret reaches the key user's processes through an argument or the debug pages.
     assert "VEXTRUS_DEBUG" not in sourced("serve_script").stdout.replace("Never VEXTRUS_DEBUG", "")
 

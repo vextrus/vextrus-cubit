@@ -456,7 +456,8 @@ main() {
         "! runuser -u $user -- test -r $path && ! runuser -u $user -- ls $path"
     done
   done
-  check "$OWNER cannot run anything as $KEY_USER without the password" "! as_owner sudo -n -u $KEY_USER true"
+  # -k: the password you typed for this script is cached for your terminal; the rule itself is asked.
+  check "$OWNER cannot run anything as $KEY_USER without the password" "! as_owner sudo -n -k -u $KEY_USER true"
   printf '\n  %s passed, %s failed.\n' "$pass" "$fail"
   [ "$fail" = 0 ] || { echo "Something above failed; tell Claude which line."; exit 1; }
   echo
