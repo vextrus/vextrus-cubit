@@ -15,7 +15,7 @@ import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from 
 import { FieldError } from '@/ui/FieldError'
 import { msg } from '@lingui/core/macro'
 import { CorrectedBy, SheetHistory, reasonOf } from './SheetHistory'
-import { StoreyStrip, StoreysText, knownStorey, useListedStoreys, useStoreysWords } from './storeys'
+import { PlanViewName, StoreyStrip, StoreysText, knownStorey, useListedStoreys, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName, type CorrectionRefusal, type SheetChange, type ViewChange } from './acts'
 import { SheetRange } from './SheetRange'
@@ -498,15 +498,15 @@ interface ViewDraft {
  * meaning as a two-choice toggle, "at floor level" | "floor to floor". A view read "at ceiling level" shows
  * that beside the toggle, which does not offer it: a correction picks one of the two, none chosen at first.
  */
-function ViewStoreysFields({ view, draft, onChange, error, refusal }: { view: ViewOut; draft: ViewDraft; onChange: (next: ViewDraft) => void; error: boolean; refusal?: string }) {
+function ViewStoreysFields({ view, place, draft, onChange, error, refusal }: { view: ViewOut; place: number; draft: ViewDraft; onChange: (next: ViewDraft) => void; error: boolean; refusal?: string }) {
   const { t } = useLingui()
-  const title = <DrawingText kind="title" text={view.title} truncate={false} />
+  const named = <PlanViewName title={view.title} place={place} />
   const name = useId()
   const meaningRead = view.storeys_meaning && picked(view.storeys_meaning) === null ? view.storeys_meaning : null
   return (
     <div className="flex flex-col gap-1">
       <TextField
-        label={<Trans>Storeys of “{title}”, each listed</Trans>}
+        label={<Trans>Storeys of {named}, each listed</Trans>}
         dir="auto"
         autoComplete="off"
         spellCheck={false}
@@ -517,7 +517,7 @@ function ViewStoreysFields({ view, draft, onChange, error, refusal }: { view: Vi
       />
       <fieldset className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" aria-describedby={error ? `${name}-error` : undefined}>
         <legend className="sr-only">
-          <Trans>What the storeys of “{title}” mean</Trans>
+          <Trans>What the storeys of {named} mean</Trans>
         </legend>
         {PICKED.map((meaning) => (
           <label key={meaning} className="inline-flex items-center gap-1">
@@ -600,7 +600,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
       if (draft.storeys.trim() === was.storeys.trim() && draft.meaning === was.meaning) continue
       sent[v.id] = { storeys: opened.storeys, meaning: opened.meaning }
       if (draft.meaning === null) missing.add(v.id)
-      else views.push({ view: v.id, title: v.title, storeys: draft.storeys.trim(), meaning: draft.meaning })
+      else views.push({ view: v.id, title: v.title, place: plans.indexOf(v) + 1, storeys: draft.storeys.trim(), meaning: draft.meaning })
     }
     setUnchosen(missing)
     if (missing.size > 0) return
@@ -648,10 +648,11 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
               setEdited(refusal?.n ?? 0)
             }}
           />
-          {plans.map((v) => (
+          {plans.map((v, i) => (
             <ViewStoreysFields
               key={v.id}
               view={v}
+              place={i + 1}
               draft={drafts[v.id] ?? start(v)}
               error={unchosen.has(v.id)}
               refusal={shown?.view === v.id ? shown.text : undefined}

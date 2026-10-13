@@ -33,6 +33,10 @@ msgstr "Stair-room roof"
 msgid "Open Coverage on the status bar to find it."
 msgstr "Open Coverage on the status bar to find it."
 
+#: src/takeoff/storeys.tsx
+msgid "plan view {place} (untitled)"
+msgstr "plan view {place} (untitled)"
+
 #: src/takeoff/Bar.tsx
 msgid "Leave out {name}"
 msgstr "Leave out {name}"
@@ -123,6 +127,10 @@ msgstr "found; no drawing list; numbering runs {range}; {listed} missing"
 #: src/takeoff/Bar.tsx
 msgid "The reason, in a few words"
 msgstr "The reason, in a few words"
+
+#: src/takeoff/storeys.tsx
+msgid "an untitled plan view"
+msgstr "an untitled plan view"
 
 #: src/takeoff/Bar.tsx
 msgid "{count, plural, one {# {discipline} sheet has one source} other {# {discipline} sheets have one source each}}"
@@ -235,6 +243,11 @@ msgstr "Their Plot pages show a different number or title. Open each to compare 
 #: src/takeoff/Bar.tsx
 msgid "Left-out sheets stay in the count with their reason."
 msgstr "Left-out sheets stay in the count with their reason."
+
+#: src/takeoff/storeys.tsx
+msgctxt "a plan view's title, quoted"
+msgid "“{text}”"
+msgstr "“{text}”"
 
 #: src/takeoff/storeyTitles.tsx
 msgid "The plans are right: keep the storeys they name"

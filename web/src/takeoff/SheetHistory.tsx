@@ -8,6 +8,7 @@ import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import type { MessageDescriptor } from '@lingui/core'
 import { useFormat } from '@/format'
 import { DrawingText } from '@/ui'
+import { PlanViewName } from './storeys'
 import { ActorChip } from './ActorChip'
 import { historyQuery, type HistoryAct, type ProposalOut } from './data'
 import { REASON_SHORT, ROLE_NAMES, UNKNOWN_REASON } from './words'
@@ -71,8 +72,8 @@ function ActWhat({ act }: { act: HistoryAct }) {
     }
     if (act.changes?.title) parts.push(<Trans>title</Trans>)
     for (const v of act.views ?? []) {
-      const title = <DrawingText kind="title" text={v.title} truncate={false} />
-      parts.push(<Trans>storeys of “{title}”</Trans>)
+      const view = <PlanViewName title={v.title} place={v.place} />
+      parts.push(<Trans>storeys of {view}</Trans>)
     }
     if (parts.length === 0) return <Trans>Corrected</Trans>
     const what = (

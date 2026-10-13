@@ -8,6 +8,10 @@ msgstr ""
 "Language: en\n"
 
 #: src/takeoff/acts.tsx
+msgid "storeys of {view}"
+msgstr "storeys of {view}"
+
+#: src/takeoff/acts.tsx
 msgid "{Name} confirmed back in, under {backIn}’s name."
 msgstr "{Name} confirmed back in, under {backIn}’s name."
 
@@ -87,10 +91,6 @@ msgstr "the drawing list you set"
 #: src/takeoff/acts.tsx
 msgid "your last correction of a sheet’s number, title or storeys"
 msgstr "your last correction of a sheet’s number, title or storeys"
-
-#: src/takeoff/acts.tsx
-msgid "storeys of “{title}”"
-msgstr "storeys of “{title}”"
 
 #: src/takeoff/acts.tsx
 msgctxt "a correction, after its sheet's name"

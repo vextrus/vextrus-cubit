@@ -15,6 +15,18 @@ import { Trans, useLingui } from '@lingui/react/macro'
 import { DrawingText, cn } from '@/ui'
 import type { ViewOut } from './data'
 
+/**
+ * A plan view named in a sentence (§6.9's correction form, its toast and history line): its title in quotes, or,
+ * untitled, its place among its sheet's plans ("plan view 2 (untitled)"), never an empty quote (review 2 of #780).
+ */
+export function PlanViewName({ title, place }: { title: string; place?: number | null }) {
+  if (title.trim()) {
+    const text = <DrawingText kind="title" text={title} truncate={false} />
+    return <Trans context="a plan view's title, quoted">“{text}”</Trans>
+  }
+  return place ? <Trans>plan view {place} (untitled)</Trans> : <Trans>an untitled plan view</Trans>
+}
+
 const NAMED: Readonly<Record<string, { rank: number; words: MessageDescriptor; slot: string }>> = {
   pile: { rank: 0, words: msg({ message: 'Pile', context: 'storey' }), slot: 'foundations' },
   pile_cap: { rank: 1, words: msg({ message: 'Pile cap', context: 'storey' }), slot: 'foundations' },

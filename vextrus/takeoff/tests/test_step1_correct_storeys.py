@@ -259,7 +259,9 @@ def test_a_sheets_history_names_the_storeys_a_correction_changed(nusrat: Api, kr
 
     [act] = [a for a in history(nusrat, kr01, sheet["id"]) if a["code"] == "takeoff.step1.corrected"]
 
-    assert act["views"] == [{"title": plan["title"], "old": READ[0], "new": ["floor_2", "floor_4"]}]
+    assert act["views"] == [
+        {"title": plan["title"], "place": 1, "old": READ[0], "new": ["floor_2", "floor_4"]}
+    ]
 
 
 def test_a_corrected_part_plan_stays_out_of_the_same_storey_comparison(
@@ -335,3 +337,120 @@ def test_an_opened_with_view_of_the_wrong_types_counts_as_no_header(
 
     assert done.status_code == 200, done.content
     assert plan_now(nusrat, kr01)[0] == ["floor_2"]
+
+
+# Review 2 of #780 ------------------------------------------------------------------------------------
+
+
+def read_again_after(demo: Any, real: Any, sheet_id: uuid.UUID) -> Any:
+    """`real`, called once the sheet's file is read again (new view rows) inside the act: the re-read a
+    read job makes between the act reading the views and writing them."""
+    from vextrus.takeoff.services.read_propose import proposals as reading
+
+    def then(*args: Any, **kwargs: Any) -> Any:
+        with tenancy.acting_in(demo["developer:shapla"]):
+            drawings.record_views(
+                sheet_id, [reading.view_candidate(v) for v in drawings.views(sheet_id)]
+            )
+        return real(*args, **kwargs)
+
+    return then
+
+
+@pytest.mark.parametrize("between", ["set_view_storeys", "typed_view_storeys"])
+def test_a_storeys_correction_read_again_under_it_is_refused_and_writes_nothing(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, monkeypatch: pytest.MonkeyPatch, between: str
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    sheet_id = uuid.UUID(sheet["sheet_id"])
+    earlier = acts(demo, kr01)
+    if between == "set_view_storeys":  # re-read before the write: the write would update no row
+        monkeypatch.setattr(
+            drawings, "set_view_storeys", read_again_after(demo, drawings.set_view_storeys, sheet_id)
+        )
+    else:  # re-read just after the views were judged: they are gone when the act names them
+        real = drawings.typed_view_storeys
+
+        def judged(*args: Any, **kwargs: Any) -> Any:
+            out = real(*args, **kwargs)
+            read_again_after(demo, lambda: None, sheet_id)()
+            return out
+
+        monkeypatch.setattr(drawings, "typed_view_storeys", judged)
+
+    refused = correct(nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor")))
+
+    assert (refused.status_code, refused.json()["code"]) == (
+        409,
+        "takeoff.step1.storeys_corrected_since",
+    )
+    monkeypatch.undo()
+    [after, kept] = s06_plan(nusrat, kr01)
+    assert (kept["id"], after["corrected"]) == (plan["id"], False)  # the re-read went with the act
+    assert plan_now(nusrat, kr01)[:2] == READ
+    assert acts(demo, kr01) == earlier
+
+
+def untitled_plans(demo: Any, api: Api, project: uuid.UUID) -> tuple[dict[str, Any], list[Any]]:
+    """S-06 read again with two plan views and no title on either."""
+    from dataclasses import replace
+
+    from vextrus.takeoff.services.read_propose import proposals as reading
+
+    sheet, _plan = s06_plan(api, project)
+    sheet_id = uuid.UUID(sheet["sheet_id"])
+    with tenancy.acting_in(demo["developer:shapla"]):
+        read = [reading.view_candidate(v) for v in drawings.views(sheet_id)]
+        [plan] = [replace(c, title=None) for c in read if str(c.kind) == "plan"]
+        drawings.record_views(sheet_id, [plan, plan, *(c for c in read if str(c.kind) != "plan")])
+    [sheet] = by_number(proposals(api, project), "S-06")
+    plans = sorted((v for v in sheet["views"] if v["kind"] == "plan"), key=lambda v: v["ordinal"])
+    assert [v["title"] for v in plans] == ["", ""]
+    return sheet, plans
+
+
+def test_an_untitled_plan_is_named_by_its_place_when_its_storeys_moved_on(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, as_person: Any
+) -> None:
+    sheet, [_first, second] = untitled_plans(demo, nusrat, kr01)
+    arif = as_person("arif@vextrus.example", "shapla")
+    assert correct(arif, kr01, body(sheet, (second["id"], "9th", "at_floor_level"))).status_code == 200
+
+    stale = post_opened(
+        nusrat, kr01, body(sheet, (second["id"], "2nd", "floor_to_floor")), opened_with(second)
+    )
+
+    assert (stale.status_code, stale.json()["code"]) == (409, "takeoff.step1.storeys_corrected_since")
+    params = stale.json()["params"]
+    assert (params["view"], params["titled"], params["place"]) == ("", "no", 2)
+
+
+def test_a_titled_plan_moved_on_is_named_by_its_title(
+    nusrat: Api, kr01: uuid.UUID, as_person: Any
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    arif = as_person("arif@vextrus.example", "shapla")
+    assert correct(arif, kr01, body(sheet, (plan["id"], "9th", "at_floor_level"))).status_code == 200
+
+    stale = post_opened(
+        nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor")), opened_with(plan)
+    )
+
+    params = stale.json()["params"]
+    assert (params["view"], params["titled"], params["place"]) == (plan["title"][:80], "yes", 1)
+
+
+def test_a_sheets_history_names_an_untitled_plan_by_its_place(
+    demo: Any, nusrat: Api, kr01: uuid.UUID
+) -> None:
+    sheet, [first, second] = untitled_plans(demo, nusrat, kr01)
+    done = correct(
+        nusrat,
+        kr01,
+        body(sheet, (first["id"], "2nd", "floor_to_floor"), (second["id"], "4th", "floor_to_floor")),
+    )
+    assert done.status_code == 200, done.content
+
+    [act] = [a for a in history(nusrat, kr01, sheet["id"]) if a["code"] == "takeoff.step1.corrected"]
+
+    assert [(v["title"], v["place"]) for v in act["views"]] == [("", 1), ("", 2)]

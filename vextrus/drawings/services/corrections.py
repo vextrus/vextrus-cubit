@@ -243,6 +243,9 @@ def typed_view_storeys(
     picks. The sheet's views are those of its kept reading."""
     if not given:
         return []
+    # The sheet is locked before its views are read, as a re-read of its file locks it before replacing
+    # them (`record_views`): the views read here are those the correction writes (review 2 of #780).
+    sheet_list._listed(sheet_revision_id, lock=True)
     kept = {v.id: v for v in sheet_list.views(sheet_revision_id)}
     seen: set[uuid.UUID] = set()
     changes: list[tuple[ViewStoreys, ViewStoreys]] = []
@@ -275,10 +278,11 @@ def typed_view_storeys(
     return changes
 
 
-def set_view_storeys(sheet_revision_id: uuid.UUID, changes: Sequence[ViewStoreys]) -> None:
+def set_view_storeys(sheet_revision_id: uuid.UUID, changes: Sequence[ViewStoreys]) -> set[uuid.UUID]:
     """Plan views' storeys and meaning as the QS typed them (`typed_view_storeys` first), each marked
-    typed. A printed sheet the QS has confirmed is not corrected (409)."""
-    _write_view_storeys(sheet_revision_id, changes)
+    typed; the views written. A view not written (its file read again since: its row replaced) is the
+    caller's to refuse. A printed sheet the QS has confirmed is not corrected (409)."""
+    return _write_view_storeys(sheet_revision_id, changes)
 
 
 def put_back_view_storeys(sheet_revision_id: uuid.UUID, before: Sequence[ViewStoreys]) -> None:
@@ -287,17 +291,20 @@ def put_back_view_storeys(sheet_revision_id: uuid.UUID, before: Sequence[ViewSto
     _write_view_storeys(sheet_revision_id, before)
 
 
-def _write_view_storeys(sheet_revision_id: uuid.UUID, kept: Sequence[ViewStoreys]) -> None:
+def _write_view_storeys(sheet_revision_id: uuid.UUID, kept: Sequence[ViewStoreys]) -> set[uuid.UUID]:
+    written: set[uuid.UUID] = set()
     with transaction.atomic():
         printed = _undecided(sheet_revision_id)
         for one in kept:
-            View.objects.filter(
+            if View.objects.filter(
                 id=one.view, sheet_revision=printed, reader_version=printed.reader_version
             ).update(
                 storeys=list(one.storeys),
                 storeys_meaning=one.meaning or "",
                 storeys_source=one.source or "",
-            )
+            ):
+                written.add(one.view)
+    return written
 
 
 def put_back_sheet(

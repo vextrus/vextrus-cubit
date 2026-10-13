@@ -12,6 +12,10 @@ msgid "Proposed by Vextrus from the file; no one has acted on it yet."
 msgstr "Proposed by Vextrus from the file; no one has acted on it yet."
 
 #: src/takeoff/SheetHistory.tsx
+msgid "storeys of {view}"
+msgstr "storeys of {view}"
+
+#: src/takeoff/SheetHistory.tsx
 msgid "Corrected"
 msgstr "Corrected"
 
@@ -42,10 +46,6 @@ msgstr "{name}, {role}"
 #: src/takeoff/SheetHistory.tsx
 msgid "the title, as read by Vextrus"
 msgstr "the title, as read by Vextrus"
-
-#: src/takeoff/SheetHistory.tsx
-msgid "storeys of “{title}”"
-msgstr "storeys of “{title}”"
 
 #: src/takeoff/SheetHistory.tsx
 msgid "the title-block attribute"

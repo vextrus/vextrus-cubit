@@ -157,4 +157,31 @@ describe('the storeys fields of E (§6.9)', () => {
     const second = step1.seen.filter((x) => x.call === 'POST /correct')[1]!.body as Record<string, unknown>
     expect(second).not.toHaveProperty('views')
   })
+
+  it('names an untitled plan by its place among the sheet’s plans in its label, legend, toast and refusal, never an empty quote (review 2 of #780)', async () => {
+    const first = view('1', 'plan', '', { storeys: ['floor_2'], storeys_meaning: 'floor_to_floor' })
+    const legend = view('2', 'legend', 'LEGEND')
+    const second = view('3', 'plan', '', { storeys: ['floor_4'], storeys_meaning: 'floor_to_floor' })
+    const titled = view('4', 'plan', PLAN, { storeys: ['floor_5'], storeys_meaning: 'floor_to_floor' })
+    const { step1, inspector } = await correcting([first, legend, second, titled])
+    const labelled = (name: string) => within(inspector).getByRole('textbox', { name: (n) => clean(n) === name }) as HTMLInputElement
+    expect(labelled('Storeys of plan view 1 (untitled), each listed').value).toBe('2nd')
+    expect(labelled('Storeys of plan view 2 (untitled), each listed').value).toBe('4th')
+    expect(fieldOf(inspector, PLAN).value).toBe('5th')
+    const groups = within(inspector).getAllByRole('group').map((g) => clean(g.querySelector('legend')?.textContent))
+    expect(groups).toEqual(expect.arrayContaining(['What the storeys of plan view 1 (untitled) mean', 'What the storeys of plan view 2 (untitled) mean']))
+    expect(bodyText()).not.toContain('""')
+
+    const field = labelled('Storeys of plan view 2 (untitled), each listed')
+    await userEvent.clear(field)
+    await userEvent.type(field, '6th')
+    step1.answerOnce('POST /correct', 409, { code: 'takeoff.step1.storeys_corrected_since', params: { view: '', view_id: second.id, titled: 'no', place: 2, sheet: 'S-06', named: 'number', moved: 'no', now: 'S-06' } })
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('The storeys of plan view 2 (untitled) are no longer what the form showed.'))
+
+    step1.answerOnce('POST /correct', 200, { confirmation_id: '01a10000-0000-7000-8000-00000000c0e3', act: 'correct', sheets: 1, by: step1.actor, at: '2026-09-28T06:00:00Z' })
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(bodyText()).toContain('Corrected S-06: storeys of plan view 2 (untitled). Still a Proposal until confirmed.'))
+    expect(bodyText()).not.toContain('""')
+  })
 })

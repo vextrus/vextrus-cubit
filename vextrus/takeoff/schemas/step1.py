@@ -141,7 +141,9 @@ class Step1CorrectedValueOut(Schema):
 
 class Step1HistoryViewOut(Schema):
     title: str
-    """The plan view's title."""
+    """The plan view's title ("" when it has none)."""
+    place: int | None = None
+    """Its place among the sheet's plans, from 1 in reading order: an untitled one's name."""
     old: list[str]
     new: list[str]
     """Its storeys as keys, low to high, before and after the correction."""

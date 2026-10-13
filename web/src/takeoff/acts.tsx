@@ -18,6 +18,7 @@ import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
+import { PlanViewName } from './storeys'
 import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type OpenedWith, type Step1Data, type ViewStoreysChange } from './data'
 import { LeavesConfirmAll } from './LeavesConfirmAll'
 import { REASONS, type QuestionEntry, type Reason } from './model'
@@ -156,9 +157,10 @@ function StaleWords({ done }: { done: ReactNode }) {
   )
 }
 
-/** One plan view's storeys a correction changed: the view's title (for the toast), its storeys as typed, their meaning. */
+/** One plan view's storeys a correction changed: the view's title and its place among the sheet's plans (for the toast), its storeys as typed, their meaning. */
 export interface ViewChange extends ViewStoreysChange {
   title: string
+  place: number
 }
 
 /** A refused correction: its words, and the field they are about (none: the form's). `n` is new for each refusal. */
@@ -188,8 +190,8 @@ function CorrectedWords({ change }: { change: SheetChange }) {
   }
   if (change.title !== undefined) parts.push(<Trans>title</Trans>)
   for (const v of change.views ?? []) {
-    const title = <DrawingText kind="title" text={v.title} truncate={false} />
-    parts.push(<Trans>storeys of “{title}”</Trans>)
+    const view = <PlanViewName title={v.title} place={v.place} />
+    parts.push(<Trans>storeys of {view}</Trans>)
   }
   return (
     <>

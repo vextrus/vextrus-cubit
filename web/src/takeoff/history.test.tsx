@@ -34,7 +34,7 @@ interface Act {
   reason?: string
   text?: string
   changes?: Record<string, { old: string; new: string; old_source: string | null }>
-  views?: { title: string; old: string[]; new: string[] }[]
+  views?: { title: string; place?: number | null; old: string[]; new: string[] }[]
 }
 const NUSRAT = { actor: 'Nusrat Jahan', actor_role: 'qs' }
 
@@ -141,6 +141,18 @@ describe('Who did what words each act of the log', () => {
     ])
     await focus(api, 'S-05')
     await waitFor(() => expect(whoDidWhat()).toContain('Corrected: title; storeys of “Column layout 2nd floor”'))
+  })
+
+  it('names an untitled plan by its place among the sheet’s plans, never an empty quote (review 2 of #780)', async () => {
+    const { api, step1, acts } = kr01()
+    const s05 = sheetOf(step1, 'S-05')
+    Object.assign(s05, { corrected: true })
+    acts.set(s05.id, [
+      { id: 'a1', code: 'takeoff.step1.corrected', ...NUSRAT, at: '2026-09-27T04:00:00Z', sheets: 1, views: [{ title: '', place: 1, old: [], new: ['floor_2'] }, { title: '', place: 2, old: [], new: ['floor_4'] }] },
+    ])
+    await focus(api, 'S-05')
+    await waitFor(() => expect(whoDidWhat()).toContain('Corrected: storeys of plan view 1 (untitled); storeys of plan view 2 (untitled)'))
+    expect(whoDidWhat()).not.toContain('“”')
   })
 })
 
