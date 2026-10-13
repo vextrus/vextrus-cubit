@@ -58,6 +58,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.factory import status
+from scripts.factory.governor import NOT_BUILDER_ROLES
 
 KEYS = (
     "prs_merged",
@@ -498,16 +499,29 @@ def read_review_starts(factory: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _is_builder_record(record: Mapping[str, Any]) -> bool:
+    """governor.read_builders' filter: a builder role, no review, no STOP sent, and a local launch or a
+    cloud one whose judge was ok (a refused launch also writes a record)."""
+    if record.get("role", "builder") in NOT_BUILDER_ROLES or record.get("review") is not None:
+        return False
+    if record.get("stop_sent") is True:
+        return False
+    judge = record.get("judge")
+    return record.get("where") == "local" or (isinstance(judge, Mapping) and judge.get("ok") is True)
+
+
 def read_builder_spans(factory: Path, events: Sequence[str]) -> list[tuple[str, str, str]]:
-    """`(branch, start, end)` per builder launch record: the record's `started_at` to the ticket's first
-    READY or BLOCKED event after it. A builder with no such event yet has no span."""
+    """`(branch, start, end)` per builder launch record that governor.read_builders would count: from the
+    record's `started_at` to the ticket's first READY or BLOCKED event after it, or to the ticket's next
+    builder launch if that came first, so a relaunch never counts the same minutes twice. A builder with
+    no such end yet has no span."""
     finished: dict[str, list[datetime]] = {}
     for line in events:
         parts = line.split(" ", 3)
         at = _time(parts[0])
         if len(parts) > 2 and parts[1] in ("READY", "BLOCKED") and at is not None:
             finished.setdefault(parts[2], []).append(at)
-    spans = []
+    launches: dict[str, list[tuple[datetime, str, str]]] = {}
     for path in sorted((factory / "launches").glob("*.json")):
         if path.name.endswith(".agents.json"):
             continue
@@ -517,9 +531,17 @@ def read_builder_spans(factory: Path, events: Sequence[str]) -> list[tuple[str, 
             ticket, branch = str(record["ticket"]), str(record["branch"])
         except status.RECORD_ERRORS:
             continue
-        ends = [at for at in finished.get(ticket, []) if at >= started]
-        if record.get("review") is None and ends:
-            spans.append((branch, record["started_at"], status.utc(min(ends))))
+        if isinstance(record, dict) and _is_builder_record(record):
+            launches.setdefault(ticket, []).append((started, branch, record["started_at"]))
+    spans = []
+    for ticket, rows in launches.items():
+        rows.sort()
+        for index, (started, branch, text) in enumerate(rows):
+            ends = [at for at in finished.get(ticket, []) if at >= started]
+            if index + 1 < len(rows):
+                ends.append(rows[index + 1][0])
+            if ends:
+                spans.append((branch, text, status.utc(min(ends))))
     return spans
 
 
