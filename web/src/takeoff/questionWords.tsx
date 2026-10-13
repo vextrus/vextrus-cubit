@@ -362,7 +362,7 @@ function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly Proposal
       if (!sheet.layout) {
         if (sheet.x_mm == null) return <Trans>the copy laid out in the drawing</Trans>
         const x = f.coordinate(lengthFromMm(sheet.x_mm))
-        return <Trans>the copy laid out in the drawing at x {x}</Trans>
+        return <Trans>the copy laid out in the drawing at x&nbsp;{x}</Trans>
       }
       const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
       return <Trans>the copy on layout “{layout}”</Trans>
@@ -391,13 +391,13 @@ export function CopyPlace({ sheet, withoutFile }: { sheet: ProposalOut; withoutF
     if (sheet.layout) return <Trans>layout “<DrawingText kind="mark" text={sheet.layout} truncate={false} />”</Trans>
     if (sheet.x_mm == null) return <Trans>laid out in the drawing</Trans>
     const x = f.coordinate(lengthFromMm(sheet.x_mm))
-    return <Trans>laid out in the drawing, x {x}</Trans>
+    return <Trans>laid out in the drawing, x&nbsp;{x}</Trans>
   }
   if (!sheet.layout) {
     if (sheet.x_mm == null) return <Trans>{file}, laid out in the drawing</Trans>
-    // Where its frame sits along the file's x axis, in the user's Display Units (m0-screens 6.7: "x 2,460′").
+    // Where its frame sits along the file's x axis, in the user's Display Units (m0-screens 6.7: "x 2460′-0″"; the space after "x" does not break, so no line ends on it).
     const x = f.coordinate(lengthFromMm(sheet.x_mm))
-    return <Trans>{file}, laid out in the drawing, x {x}</Trans>
+    return <Trans>{file}, laid out in the drawing, x&nbsp;{x}</Trans>
   }
   const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
   return <Trans>{file}, layout “{layout}”</Trans>

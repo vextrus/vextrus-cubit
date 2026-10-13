@@ -326,7 +326,10 @@ function FileCell({ sheet }: { sheet: ProposalOut }) {
         </span>
       </TooltipTrigger>
       <TooltipContent>
-        <CopyPlace sheet={sheet} />
+        {/* One flow child: the shared content is a flex row, which would set the file name and the x in columns. */}
+        <span>
+          <CopyPlace sheet={sheet} />
+        </span>
       </TooltipContent>
     </Tooltip>
   )

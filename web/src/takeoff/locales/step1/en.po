@@ -493,6 +493,10 @@ msgstr "Next open Question"
 msgid "Kept open"
 msgstr "Kept open"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Row {row}"
+msgstr "Row {row}"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Undo your last confirmation, exclusion, correction or drawing list on Step 1"
 msgstr "Undo your last confirmation, exclusion, correction or drawing list on Step 1"

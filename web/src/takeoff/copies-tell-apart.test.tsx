@@ -179,7 +179,7 @@ describe('a "Two sheets, one number" card: round 4', () => {
     for (const w of optionWords(section)) expect(w).not.toMatch(/upper copy|lower copy/i)
   })
 
-  it('says where each copy laid out in the drawing sits in its file, in the Display Units (m0-screens 6.7: ", x 2,460′")', async () => {
+  it('says where each copy laid out in the drawing sits in its file, in the Display Units (m0-screens 6.7: ", x 2460′-0″")', async () => {
     const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT'], [FILE, FILE], false, [{ x_mm: 749808 }, { x_mm: -360000 }]))
     const cells = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => r.querySelectorAll('td')[2]!)
     expect(cells.map((c) => clean(c.textContent))).toEqual([`${FILE}, laid out in the drawing, x 2460′-0″`, `${FILE}, laid out in the drawing, x −1181′-1¼″`])
@@ -194,5 +194,33 @@ describe('a "Two sheets, one number" card: round 4', () => {
     const section = await card(kr01([null, 'Layout2'], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
     const files = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => clean(r.querySelectorAll('td')[2]!.textContent))
     expect(files).toEqual([`${FILE}, laid out in the drawing`, `${FILE}, layout “Layout2”`])
+  })
+})
+
+/*
+ * S26-D6 fix round (#801 design gate): the space after "x" does not break, so no line ends on "x"; a card whose
+ * copies tie numbers the table's rows, so "the copy in row 2" points at something visible.
+ */
+describe('a "Two sheets, one number" card: the design gate’s fixes', () => {
+  const nbspAfterX = (text: string | null) => /x\u00a0\S/.test(text ?? '') && !/x [^\s]/.test(text ?? '')
+
+  it('keeps the x with its figure: a no-break space after "x" in the File cell and in the option names', async () => {
+    const section = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT'], [FILE, FILE], false, [{ x_mm: 749808 }, { x_mm: -360000 }]))
+    const cells = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => r.querySelectorAll('td')[2]!.textContent)
+    for (const c of cells) expect(nbspAfterX(c), JSON.stringify(c)).toBe(true)
+    const keep = within(section).getAllByRole('radio').map((r) => r.closest('label')?.textContent ?? '').find((w) => /superseded/.test(w))
+    expect(nbspAfterX(keep ?? null), JSON.stringify(keep)).toBe(true)
+  })
+
+  it('numbers the rows of the copies table when the copies tie, and only then', async () => {
+    const tied = await card(kr01([null, null], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
+    const first = [...within(tied).getByRole('table').querySelectorAll('tbody tr')].map((r) => clean(r.querySelectorAll('td')[0]!.textContent))
+    expect(first).toEqual(['Row 1R0', 'Row 2R0'])
+  })
+
+  it('does not number the rows when the copies differ', async () => {
+    const section = await card(kr01([null, 'Layout2'], ['TYPICAL FLOOR SLAB LAYOUT', 'TYPICAL FLOOR SLAB LAYOUT']))
+    const first = [...within(section).getByRole('table').querySelectorAll('tbody tr')].map((r) => clean(r.querySelectorAll('td')[0]!.textContent))
+    expect(first).toEqual(['R0', 'R0'])
   })
 })
