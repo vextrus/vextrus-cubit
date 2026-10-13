@@ -1122,9 +1122,10 @@ def _counted(row: Coverage) -> str:
 
 def progress(project_id: uuid.UUID) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
-    row, last), and the Market's expected Disciplines not yet received. A sheet proposed out with no
-    number is not counted unless the QS confirmed it."""
-    sheets = [s for s in _facts(project_id) if _counted_sheet(s)]
+    row, last), and the Market's expected Disciplines not yet received. Every sheet found is counted,
+    a sheet proposed out and a sheet left out among them (m0-screens: excluded sheets stay in the
+    count); a sheet left out is settled."""
+    sheets = _facts(project_id)
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
     decided: Counter[str | None] = Counter()
@@ -1226,12 +1227,9 @@ def _outstanding(
 
 def proposed_out(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     """The read proposed the sheet out and it has no number (a cover, a stale layout; #162): it is
-    asked nothing, and Step 1 does not count it unless the QS confirms it in."""
+    asked nothing. It stays in Step 1's count (#322), settled once the QS confirms it in or leaves
+    it out."""
     return bool(sheet.proposed_exclusion) and not sheet.number
-
-
-def _counted_sheet(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
-    return not proposed_out(sheet) or sheet.decision == "confirmed"
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:

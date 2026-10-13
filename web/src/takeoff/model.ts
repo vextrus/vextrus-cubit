@@ -399,7 +399,7 @@ export function step1Model(data: Step1Data): Step1Model {
     excluded: proposals.filter((p) => p.decision === 'excluded').length,
     found: proposals.length,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
-    // Every Proposal of no Discipline, as the toolbar's Count counts it (19a's progress row leaves out a sheet proposed out, #167's refuter).
+    // Every Proposal of no Discipline, as the toolbar's Count counts it; the progress row counts them too, a sheet proposed out or left out among them (#322).
     noDiscipline: proposals.filter((p) => p.discipline === null).length,
     allConfirmed: disciplines.length > 0 && disciplines.every((d) => d.confirmed),
     unaccounted: data.coverage.unaccounted,
