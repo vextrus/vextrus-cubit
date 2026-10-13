@@ -88,6 +88,10 @@ msgid "Answering records that the sheet is not part of this set; it stays on the
 msgstr "Answering records that the sheet is not part of this set; it stays on the drawing list."
 
 #: src/takeoff/questionWords.tsx
+msgid "{file}, laid out in the drawing, x {x}"
+msgstr "{file}, laid out in the drawing, x {x}"
+
+#: src/takeoff/questionWords.tsx
 msgid "{head} and {tail}"
 msgstr "{head} and {tail}"
 
@@ -106,6 +110,10 @@ msgstr "Answering decides whether this file’s sheets join the list."
 #: src/takeoff/questionWords.tsx
 msgid "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
 msgstr "{waiting, plural, one {# stays open: another Question about it comes first.} other {# stay open: other Questions about them come first.}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy laid out in the drawing at x {x}"
+msgstr "the copy laid out in the drawing at x {x}"
 
 #: src/takeoff/questionWords.tsx
 msgid "One title on {count} sheets"
@@ -207,10 +215,6 @@ msgstr "Answering confirms both copies."
 #: src/takeoff/questionWords.tsx
 msgid "Answering records that {entryName} is not part of this set; it stays on the drawing list."
 msgstr "Answering records that {entryName} is not part of this set; it stays on the drawing list."
-
-#: src/takeoff/questionWords.tsx
-msgid "the second copy"
-msgstr "the second copy"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering keeps the sheet in the count as missing."
@@ -317,8 +321,16 @@ msgid "Trace: the title block of {sheet} (the number field is empty)"
 msgstr "Trace: the title block of {sheet} (the number field is empty)"
 
 #: src/takeoff/questionWords.tsx
+msgid "the copy titled “{named}”"
+msgstr "the copy titled “{named}”"
+
+#: src/takeoff/questionWords.tsx
 msgid "Waiting for the QS. The MD reads Questions and cannot answer them."
 msgstr "Waiting for the QS. The MD reads Questions and cannot answer them."
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy in row {row}"
+msgstr "the copy in row {row}"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering records that the numbering skips at each gap: nothing is missing."
@@ -347,6 +359,10 @@ msgstr "{tag} answered. {Sheet} stays in the count as missing until its file is 
 #: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {first} and {second}"
 msgstr "Trace: the title blocks of {first} and {second}"
+
+#: src/takeoff/questionWords.tsx
+msgid "the copy in {file}"
+msgstr "the copy in {file}"
 
 #: src/takeoff/questionWords.tsx
 msgid "rev {mark}"
@@ -407,10 +423,6 @@ msgstr "{count} sheets, one number"
 #: src/takeoff/questionWords.tsx
 msgid "This file may be misread"
 msgstr "This file may be misread"
-
-#: src/takeoff/questionWords.tsx
-msgid "the first copy"
-msgstr "the first copy"
 
 #: src/takeoff/questionWords.tsx
 msgid "Answering sets the kind of {sheet} to {kind} and confirms it, unless its number or Discipline is still asked."
@@ -529,6 +541,10 @@ msgid "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 msgstr "{tag} answered. {Sheet} stays in the list, to confirm or exclude."
 
 #: src/takeoff/questionWords.tsx
+msgid "the copy laid out in the drawing"
+msgstr "the copy laid out in the drawing"
+
+#: src/takeoff/questionWords.tsx
 msgid "Trace: the title blocks of {sides}"
 msgstr "Trace: the title blocks of {sides}"
 
@@ -553,12 +569,20 @@ msgid "A pick changes nothing until you answer."
 msgstr "A pick changes nothing until you answer."
 
 #: src/takeoff/questionWords.tsx
+msgid "the copy on layout “{layout}”"
+msgstr "the copy on layout “{layout}”"
+
+#: src/takeoff/questionWords.tsx
 msgid "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
 msgstr "Keep {kept} ({date}); leave the other {others, plural, one {# copy} other {# copies}} out as superseded"
 
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
 msgstr "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "{file}, layout “{layout}”"
+msgstr "{file}, layout “{layout}”"
 
 #: src/takeoff/questionWords.tsx
 msgid "{tag} answered. The file is set aside, waiting for the re-saved file."
@@ -613,6 +637,10 @@ msgid "Answering reads this file anyway: its sheets join the list as Proposals, 
 msgstr "Answering reads this file anyway: its sheets join the list as Proposals, each marked held, and their figures are flagged later."
 
 #: src/takeoff/questionWords.tsx
+msgid "{file}, laid out in the drawing"
+msgstr "{file}, laid out in the drawing"
+
+#: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone.} other {Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone.}}"
 msgstr "{n, plural, one {Answering confirms no sheet now: the sheet waits on another Question first. It cannot be undone.} other {Answering confirms no sheet now: each of the # sheets waits on another Question first. It cannot be undone.}}"
 
@@ -627,6 +655,10 @@ msgstr "{sheet} stays left out until this Question is answered. A pick changes n
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, one {Answering sets the kind of the sheet and confirms it. It cannot be undone.} other {Answering sets the kind of all # sheets and confirms them. It cannot be undone.}}"
 msgstr "{n, plural, one {Answering sets the kind of the sheet and confirms it. It cannot be undone.} other {Answering sets the kind of all # sheets and confirms them. It cannot be undone.}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "The copies are alike in every field the table shows."
+msgstr "The copies are alike in every field the table shows."
 
 #: src/takeoff/questionWords.tsx
 msgid "the copy dated {date}"

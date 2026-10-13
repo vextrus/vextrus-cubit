@@ -527,19 +527,23 @@ def test_local_idle_measures_from_the_first_idle_reading_and_resets_when_busy(tm
     assert at(95, idle) == []
 
 
-def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_limit(
+def test_events_tail_keeps_the_last_lines_of_a_log_over_the_hosts_limit(
     tmp_path: Path,
 ) -> None:
+    """Every kind is kept (the mod's wake reads every kind, review round 2 of PR #794); a line not
+    in the watcher's form is not."""
     routine = "2026-10-06T00:00:00Z PUSH t abc1234\n" * 150_000  # over 4 MiB: the mod cannot read it
     wanted = [
         "2026-10-06T01:00:00Z READY t abc1234",
         "2026-10-06T01:01:00Z OWNER-COMMAND - ! gh auth refresh",
-        "2026-10-06T01:02:00Z CI-RED t #7 abc1234 required check ci failed",
+        "2026-10-06T01:02:00Z STOP-FAILURE - rate_limit abcdef12",
     ]
-    (tmp_path / "events.log").write_text(routine + "\n".join(wanted) + "\n")
+    (tmp_path / "events.log").write_text(routine + "not a line\n".join(f"{w}\n" for w in wanted))
     assert (tmp_path / "events.log").stat().st_size > 4 * 1024 * 1024
     watch.write_events_tail(tmp_path)
-    assert (tmp_path / "events.tail").read_text() == "".join(f"{line}\n" for line in wanted)
+    kept = (tmp_path / "events.tail").read_text().splitlines()
+    assert kept[-3:] == wanted
+    assert "not a line" not in kept
     assert not (tmp_path / "events.tail.tmp").exists()
     (tmp_path / "events.log").write_text(
         "".join(f"2026-10-06T02:00:{i % 60:02d}Z READY t{i} x\n" for i in range(300))
@@ -553,6 +557,40 @@ def test_events_tail_keeps_the_mods_kinds_from_the_end_of_a_log_over_the_hosts_l
 def test_events_tail_without_a_log_is_not_an_error(tmp_path: Path) -> None:
     watch.write_events_tail(tmp_path)
     assert not (tmp_path / "events.tail").exists()
+
+
+def test_said_log_emits_one_said_per_complete_line_and_relay_reads_it(tmp_path: Path) -> None:
+    """S26-FX2: a partial last line waits for the next pass; a replaced (shorter) file is read from
+    its start; relay is set 10 min after a SAID with no push or status after it."""
+    start = datetime(2026, 10, 13, 1, 0, tzinfo=UTC)
+    state: dict[str, Any] = {"alarms": {}, "tickets": {}}
+    said = tmp_path / "said.log"
+    said.write_text("2026-10-13T01:00:00Z t1 session_a\n2026-10-13T01:00:30Z t2 sess")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t1", "sent")]
+    said.write_text(said.read_text() + "ion_b\n")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t2", "sent")]
+    said.write_text("2026-10-13T01:01:00Z t1 session_c\n")  # replaced by a shorter file
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t1", "sent")]
+    seen: dict[str, Any] = {"last_push_at": "2026-10-13T01:00:30Z"}
+    late = watch.Pass(tmp_path, start + timedelta(minutes=12), state)
+    assert watch.relay(late, "t1", seen) is True
+    early = watch.Pass(tmp_path, start + timedelta(minutes=10), state)
+    assert watch.relay(early, "t1", seen) is False
+    assert watch.relay(late, "t3", seen) is False
+    assert watch.relay(late, "t1", {"last_push_at": "not a time"}) is True
+    watch.Pass(tmp_path, start + timedelta(minutes=5), state).event("STATUS", "t1", "on it")
+    assert watch.relay(late, "t1", seen) is False, "a STATUS after the SAID answers it"
+    said.write_text(said.read_text() + "2026-10-13T00:50:00Z t2 x\x0b2026-10-13T00:51:00Z t9 y\n")
+    step = watch.Pass(tmp_path, start, state)
+    watch.watch_said(step)
+    assert step.events == [("SAID", "t2", "sent")], "one line, one SAID; only a newline ends a line"
+    assert state["said"]["t2"] == "2026-10-13T01:00:30Z", "an older SAID does not replace the newest"
 
 
 def test_the_status_contract_reads_rounds_up_to_the_ledger_s_last_round() -> None:

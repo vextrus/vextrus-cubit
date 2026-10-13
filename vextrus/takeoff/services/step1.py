@@ -167,6 +167,9 @@ class ProposalView:
     no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
+    x_mm: float | None = None
+    """Where its frame's left edge sits in its file's drawing, in millimetres (m0-screens 6.7's
+    "laid out in the drawing, x 2,460 ft"); None on a layout, and for a unit the file does not name."""
     plot_file: str | None = None
     plot_page: int | None = None
     plot_residual: str | None = None
@@ -677,6 +680,23 @@ def _place(numbers: Numbers, number: str | None, discipline: str) -> Hashable | 
     return None if parts is None else (parts[0], parts[1])
 
 
+_UNIT_MM = {"inch": Decimal("25.4"), "ft": Decimal("304.8"), "mm": Decimal(1), "m": Decimal(1000)}
+
+
+def _frame_x_mm(sheet: drawings.SheetView) -> float | None:
+    """The left edge of the frame a sheet is laid out in, in millimetres: its stored box's x0 in the
+    file's drawing units. None for a sheet on a layout (no box), or a file whose unit is not named."""
+    box = sheet.location.get("box")
+    unit = _UNIT_MM.get(sheet.drawing_unit)
+    if unit is None or not isinstance(box, list | tuple) or not box:
+        return None
+    try:
+        x = Decimal(str(box[0])) * unit
+    except ArithmeticError:
+        return None
+    return float(x) if x.is_finite() else None
+
+
 def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
@@ -717,6 +737,7 @@ def _proposal_view(
         title_source=sheet.sources.get("title"),
         storeys_as_stated=sheet.storeys_as_stated,
         layout=layout if isinstance(layout := sheet.location.get("layout"), str) else None,
+        x_mm=_frame_x_mm(sheet),
         plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
         plot_page=sheet.plot.page,
         plot_residual=sheet.plot.residual,

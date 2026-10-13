@@ -72,6 +72,7 @@ from scripts.factory.trailers import Trailers
 from scripts.factory.trailers import read as read_trailers
 
 QUIET_MINUTES = 30
+SAID_QUIET_MINUTES = 10  # a SAID with no PUSH, COMMIT or STATUS this long sets the item's relay
 READY_WAIT_MINUTES = 10
 IDLE_MINUTES = 10
 USAGE_EVERY = timedelta(minutes=15)
@@ -587,6 +588,8 @@ class Pass:
 
     def event(self, kind: str, subject: str | None, detail: str) -> None:
         self.events.append((kind, subject, detail))
+        if kind == "STATUS" and subject:  # a builder's answer: it clears the ticket's relay (S26-FX2)
+            self.state.setdefault("status_at", {})[subject] = status.utc(self.at)
 
     def alarm(self, key: str, code: str, subject: str | None, detail: str) -> None:
         self.alarms[f"{code}|{key}"] = (code, subject, detail)
@@ -600,6 +603,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     state = load_state(folder)
     step = Pass(folder, at, state)
+    watch_said(step)  # before track(): this pass's SAID lines count toward each item's relay
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
     records, reviews = load_launches(folder, since)
@@ -820,7 +824,69 @@ def track(
         "last_push_at": last_push,
         "quiet_minutes": quiet if where == "cloud" else None,
         "pr": pr["number"] if pr is not None and pr["number"] >= 1 else None,
+        "state_at": state_at(step, seen, head, state),
+        "relay": relay(step, ticket, seen),
     }
+
+
+def state_at(step: Pass, seen: dict[str, Any], head: str | None, state: str) -> str:
+    """When the ticket's head or state last changed, as the passes saw it (S26-FX2)."""
+    mark = [head, state]
+    if seen.get("state_mark") != mark or not isinstance(seen.get("state_at"), str):
+        seen["state_mark"] = mark
+        seen["state_at"] = status.utc(step.at)
+    return str(seen["state_at"])
+
+
+def relay(step: Pass, ticket: str, seen: dict[str, Any]) -> bool:
+    """True when a `SAID` to the ticket has had no PUSH, COMMIT or STATUS for SAID_QUIET_MINUTES: the
+    owner may need to carry the builder's reply by hand (S26-FX2)."""
+    said_at = utc_or_none(step.state.get("said", {}).get(ticket))
+    if said_at is None:
+        return False
+    for answered in (seen.get("last_push_at"), step.state.get("status_at", {}).get(ticket)):
+        answered_at = utc_or_none(answered)
+        if answered_at is not None and answered_at > said_at:
+            return False
+    return status.minutes_between(said_at, step.at) >= SAID_QUIET_MINUTES
+
+
+def utc_or_none(value: Any) -> datetime | None:
+    """A UTC time read from the watcher's own state, or None for anything else."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return status.parse_utc(value)
+    except ValueError:
+        return None
+
+
+def watch_said(step: Pass) -> None:
+    """One `SAID <ticket>` event for each line `launch say` appended to said.log since the last pass
+    (`<UTC> <ticket> <session>`), and the ticket's newest SAID time for its relay. A partial last line
+    waits for the next pass; a shorter file than the offset read (replaced) is read from its start."""
+    try:
+        data = (step.folder / "said.log").read_bytes()
+    except OSError:
+        return
+    offset = step.state.get("said_offset")
+    if not isinstance(offset, int) or not 0 <= offset <= len(data):
+        offset = 0
+    chunk = data[offset : data.rfind(b"\n") + 1] if data.rfind(b"\n") >= offset else b""
+    step.state["said_offset"] = offset + len(chunk)
+    said: dict[str, str] = step.state.setdefault("said", {})
+    for line in chunk.decode("utf-8", "replace").split("\n"):
+        parts = line.split(" ")
+        if len(parts) < 2 or not parts[1]:
+            continue
+        try:
+            when = status.parse_utc(parts[0])
+        except ValueError:
+            continue
+        held = said.get(parts[1])
+        if not isinstance(held, str) or held < status.utc(when):  # the newest SAID counts
+            said[parts[1]] = status.utc(when)
+        step.event("SAID", parts[1], "sent")
 
 
 ENDED_ROW_STATES = {"done", "stopped", "failed"}
@@ -1039,11 +1105,10 @@ def raise_alarms(step: Pass) -> None:
 
 
 # The mod cannot read a file over 4 MiB (the host's fs.read rejects it) and events.log only grows, so
-# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES lines of the kinds it shows or toasts,
-# from the last EVENTS_TAIL_BYTES of the log, in `events.tail`.
-EVENTS_TAIL_KINDS = frozenset(
-    {"READY", "BLOCKED", "LEAK-HIT", "BUDGET-PASSED", "CI-RED", "OWNER-COMMAND", "OWNER-RULING"}
-)
+# every pass leaves the mod its tail: the last EVENTS_TAIL_LINES well-formed lines, of every kind (the
+# mod's wake reads every kind: review round 2 of PR #794), from the last EVENTS_TAIL_BYTES of the log,
+# in `events.tail`.
+EVENT_LINE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z [A-Z][A-Z0-9-]* \S")
 EVENTS_TAIL_LINES = 200
 EVENTS_TAIL_BYTES = 512 * 1024
 
@@ -1056,11 +1121,7 @@ def write_events_tail(folder: Path) -> None:
             raw = log.read()
         if size > EVENTS_TAIL_BYTES:
             raw = raw.partition(b"\n")[2]  # the first line is cut
-        lines = [
-            line
-            for line in raw.decode("utf-8", "replace").splitlines()
-            if len(parts := line.split(" ", 2)) > 1 and parts[1] in EVENTS_TAIL_KINDS
-        ]
+        lines = [line for line in raw.decode("utf-8", "replace").splitlines() if EVENT_LINE.match(line)]
         text = "".join(f"{line}\n" for line in lines[-EVENTS_TAIL_LINES:])
         path = folder / "events.tail"
         if path.exists() and path.read_text() == text:

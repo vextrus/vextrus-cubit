@@ -314,6 +314,20 @@ function rowsOf(node: any): number {
   return Math.max(1, ...kids)
 }
 
+// The sample's live tickets: builders.items whose state is not done or stopped (S26-FX2).
+const LIVE: string[] = SAMPLE.builders.items.filter((i: any) => !['done', 'stopped'].includes(i.state)).map((i: any) => i.ticket)
+
+// The tree's rows as text: a column Box stacks its children's rows, a row Box or a Text is one row
+// (a newline inside a text starts a row).
+function rowTexts(node: any): string[] {
+  if (typeof node === 'string') return node.split('\n')
+  if (node === null || typeof node !== 'object') return []
+  if (node.type === 'Box' && String(node.props?.flexDirection ?? 'row').startsWith('column')) {
+    return (node.children ?? []).flatMap(rowTexts)
+  }
+  return textOf(node).split('\n')
+}
+
 async function band($: any, surface: 'terminal' | 'desktop' = 'terminal'): Promise<{ tree: any; text: string }> {
   const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: PROPS })
   const tree = await ui.drawn()
@@ -367,7 +381,11 @@ test('M1 registers exactly session.start, command.run on /wip and /factory, and 
   ])
 })
 
-test('M2 as the orchestrator, the AbovePrompt band carries every segment of the sample in at most 2 rows of Box and Text', async ($, on) => {
+// Amended 13 Oct 2026 (S26-FX2, the orchestrator's ruling on the owner's Q-R4 band): the band carries
+// the summary in at most 2 rows plus one row per live ticket (session 26's brief, row FX2: "a status
+// band of live tickets"; the factory-mod design, section 1: "a status table of every live ticket, one
+// row each"). A live ticket is a builders.items entry whose state is not done or stopped.
+test('M2 as the orchestrator, the AbovePrompt band carries every segment of the sample in at most 2 summary rows plus one row per live ticket, of Box and Text', async ($, on) => {
   const w = world(on, { ...ORCHESTRATOR }, WRITTEN, JSON.stringify(SAMPLE))
   await start($, w)
   for (const surface of ['terminal', 'desktop'] as const) {
@@ -375,8 +393,25 @@ test('M2 as the orchestrator, the AbovePrompt band carries every segment of the 
     for (const token of TOKENS) expect(text, `${surface}: segment ${JSON.stringify(token)}`).toContain(token)
     expect(text).not.toContain('WATCHER DOWN')
     expect(text).not.toContain(ENGINE_BAND)
-    expect(rowsOf(tree), `${surface}: rows`).toBeLessThanOrEqual(2)
+    expect(rowsOf(tree), `${surface}: rows`).toBeLessThanOrEqual(2 + LIVE.length)
     for (const type of typesOf(tree)) expect(['Box', 'Text'], `${surface}: element ${type}`).toContain(type)
+  }
+})
+
+// Added 13 Oct 2026 (S26-FX2): session 26's brief, row FX2, "a status band of live tickets"; the
+// factory-mod design, section 1: "a status table of every live ticket, one row each: `ticket state
+// head8 Δmin relay`".
+test('M2b as the orchestrator, each live ticket of the sample has its own band row naming its ticket', async ($, on) => {
+  const w = world(on, { ...ORCHESTRATOR }, WRITTEN, JSON.stringify(SAMPLE))
+  await start($, w)
+  expect(LIVE.length, 'the sample has live tickets').toBeGreaterThan(0)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const { tree } = await band($, surface)
+    const rows = rowTexts(tree)
+    for (const ticket of LIVE) {
+      const named = new RegExp(`(^|[^\\w-])${ticket}($|[^\\w-])`)
+      expect(rows.filter(row => named.test(row)).length, `FX2: ${surface}: one band row names live ticket ${ticket}; rows ${JSON.stringify(rows)}`).toBe(1)
+    }
   }
 })
 
