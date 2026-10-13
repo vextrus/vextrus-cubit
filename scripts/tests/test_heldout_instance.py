@@ -184,15 +184,19 @@ def test_no_secret_is_ever_an_argument_or_shown() -> None:
     assert "printf '%s' \"$password\" | scram_verifier" in text
     assert "printf '%s' \"$password\" | pgpass_with" in text
     assert 'printf \'%s\' "$jev" > "$tmp/jev"' in text
-    assert "read -r -s -p" in text
+    assert "printf '%s\\n' \"$demo\" | as_key bash -c 'IFS= read -r VEXTRUS_DEMO_PASSWORD;" in text
+    assert text.count("read -r -s -p") == 2
+    secrets = ('"$password"', '"$jev"', '"$secret"', '"$demo"')
     for line in text.splitlines():
         code = line.split(" #")[0]
-        if any(secret in code for secret in ('"$password"', '"$jev"', '"$secret"')):
+        if any(secret in code for secret in secrets):
             # bash's own printf, into a pipe or a file; or the settings, written into a root-only file
             # (`[` is bash's own too)
             assert "printf '%s" in code or code.lstrip().startswith(
-                ("instance_settings ", "if [ -n ")
+                ("instance_settings ", "if [ -n ", "[ -n ")
             ), line
+    # Nothing secret reaches the key user's processes through an argument or the debug pages.
+    assert "VEXTRUS_DEBUG" not in sourced("serve_script").stdout.replace("Never VEXTRUS_DEBUG", "")
 
 
 # --------------------------------------------------------------------------------------- its functions

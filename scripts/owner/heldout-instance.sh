@@ -234,7 +234,9 @@ pids=()
 start() { local name=\$1; shift; "\$@" >> "$LOGS/\$name.log" 2>&1 & pids+=(\$!); }
 stop() { kill "\${pids[@]}" 2>/dev/null || true; wait || true; }
 trap stop EXIT INT TERM
-start api env VEXTRUS_DEBUG=1 .venv/bin/python manage.py runserver $HOST:$API_PORT --noreload
+# Never VEXTRUS_DEBUG: its error pages show a request's traceback and variables to any user of this
+# machine. --insecure only serves the admin's static files without it.
+start api .venv/bin/python manage.py runserver $HOST:$API_PORT --noreload --insecure
 start worker .venv/bin/python manage.py worker
 start worker-cad .venv/bin/python manage.py worker --queue cad
 start web npm --prefix web run dev
@@ -249,6 +251,9 @@ main() {
     echo "Dry run: each step is printed, nothing runs, nothing changes."
   else
     [ "$(id -u)" = 0 ] || die "run this as root: sudo bash scripts/owner/heldout-instance.sh"
+    # Root's files are root's alone unless made otherwise by name (the bundle the key user fetches):
+    # the temporary folder's name shows in /tmp, and it must be traversable for that bundle.
+    umask 077
     tmp=$(mktemp -d)
     trap 'rm -f -- "$tmp"/*; rmdir -- "$tmp"' EXIT
   fi
@@ -315,7 +320,6 @@ main() {
     "a fresh password for each role, set as a SCRAM verifier, written into $KEY_PGPASS (600) only"
   if ! dry; then
     as_key git -C "$APP" show "$github_main:scripts/owner/heldout-roles.sql" > "$tmp/heldout-roles.sql"
-    chmod 0644 "$tmp/heldout-roles.sql"
     super_psql -f - < "$tmp/heldout-roles.sql" || die "heldout-roles.sql stopped (above); no password was set"
     new_password "$OWNER_ROLE"
     new_password "$APP_ROLE"
@@ -339,7 +343,8 @@ main() {
     "the Jev key: you paste your TypeSafe key, hidden; it goes into $JEV_KEY (600), never shown (Enter keeps the copy there)" \
     "Node $NODE_VERSION from its release, sha256-checked, root's, at $NODE_DIR" \
     "as $KEY_USER: uv sync --locked, npm ci, manage.py migrate and sync_library" \
-    "the launcher $SERVE, root's"
+    "if you say so, the invented demo (seed_demo), its people's password typed by you, hidden: your first sign-in" \
+    "the launcher $SERVE, root's: the API on $HOST:$API_PORT (never in debug), both workers, the web on $HOST:$WEB_PORT"
   if ! dry; then
     install -d -o "$KEY_USER" -g "$KEY_USER" -m 0700 "$INSTANCE" "$STORE" "$LOGS"
     if [ -f "$SETTINGS" ]; then
@@ -383,6 +388,20 @@ main() {
         || { install -o "$KEY_USER" -g "$KEY_USER" -m 0600 "$tmp/manage.log" "$LOGS/setup.log"; \
              die "manage.py $command failed: its output is in $LOGS/setup.log (the key user's)"; }
     done
+    # The first sign-in: the invented demo's people (vextrus/seed/platform.py), with a password you type
+    # here, hidden, passed on stdin (never an argument); you create the Held-out Project as its MD.
+    if confirm "Load the invented demo, so you can sign in (only the first time; Enter skips)?"; then
+      read -r -s -p "  A password for the demo's people (hidden): " demo; echo
+      [ -n "$demo" ] || die "no password typed; run this again to load the demo"
+      # shellcheck disable=SC2016 # expanded by the key user's shell
+      printf '%s\n' "$demo" | as_key bash -c 'IFS= read -r VEXTRUS_DEMO_PASSWORD; export VEXTRUS_DEMO_PASSWORD
+        set -a; . "$1"; set +a; cd "$2"; exec .venv/bin/python manage.py seed_demo' _ "$SETTINGS" "$APP" \
+        >> "$tmp/manage.log" 2>&1 \
+        || { install -o "$KEY_USER" -g "$KEY_USER" -m 0600 "$tmp/manage.log" "$LOGS/setup.log"; \
+             die "seed_demo failed: its output is in $LOGS/setup.log (the key user's)"; }
+      unset demo
+      ok "the demo is loaded: sign in as kamal@shapla-homes.example (its MD) with that password"
+    fi
     install -o "$KEY_USER" -g "$KEY_USER" -m 0600 "$tmp/manage.log" "$LOGS/setup.log"
     rm -f -- "$tmp/manage.log"
     serve_script > "$tmp/serve"
