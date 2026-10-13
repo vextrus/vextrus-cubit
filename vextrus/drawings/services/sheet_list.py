@@ -451,6 +451,15 @@ def _keep_sheet(
                 title = existing.title
             else:
                 storeys = existing.storeys_as_stated
+    if existing is not None and not existing.decision:
+        # A value the QS typed stands over a re-read (review 1 of #691): a standing correction is
+        # undone by its undo, never by the file read again.
+        if existing.sources.get("title") == ValueSource.TYPED:
+            title = existing.title
+            sources["title"] = str(ValueSource.TYPED)
+        if existing.sources.get("number") == ValueSource.TYPED and existing.sheet.number:
+            number = existing.sheet.number
+            sources["number"] = str(ValueSource.TYPED)
     if number:
         sheet, _ = Sheet.objects.get_or_create(
             tenant_id=row.tenant_id,
