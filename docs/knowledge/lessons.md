@@ -611,3 +611,27 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   "restore what the correction replaced" met a new interleaving of corrections, undos and answers; round 3 found
   75 and 70). Stopped at the cap. No check: session 24 changes the shape (Ctrl Z takes back only a sheet's
   latest standing correction), with every reviewer's sequence pinned.
+
+## Session 24 (12 Oct 2026): seven merges, one G1 walk; the factory's own gates cost the most time
+
+- **A lens's FIX outranked the review bar** (#698 rounds 1-2: findings of 60-65 on a path the owner's ruling made lax,
+  recorded FIX twice because a lens wrote FIX). Check: `scripts/tests/acceptance/ts24l1/` (#707: the verdict is
+  computed from the bar; a lens FIX with no standing finding at the bar is PASS).
+- **The reviewer's own words closed the lax list** ("only the web's view components and the docs' Markdown are lax"),
+  so lenses judged a session ruling's paths strict. Check: `scripts/tests/test_bar_docs.py`
+  (`test_no_bar_document_closes_the_lax_list_in_words`).
+- **An accept reason was posted from a builder's counts before the run's own table was read** (#698: the table had 88
+  changed views the reason did not name; judged afterwards, nothing worse). No check yet: run `--accept-if-clean`
+  first and write the reason only from the table.
+- **A posting run on a branch older than main shows main's merges in reverse** (#710's first run: 88 views and 55
+  render losses that were #698's and #704's). No check yet: `land update` before every posting run.
+- **Cloud builders could not finish verify's web tests under load** (A3, B1, B3 blocked for hours); the orchestrator
+  verified the same trees locally with a clean `npm ci` and they were green. A symlinked node_modules made a false
+  "regression" (gate.test.tsx) that cost a builder a round. No check yet: a session-25 ticket gives verify a serial
+  web mode for cloud boxes.
+- **The watcher missed carried-over tickets' READY and a cloud BLOCKED** (A1 three times, A7 55 minutes). No check yet:
+  read every builder's branch tip on each self-check (#701, cut, adds the watcher's check).
+- **Two open PRs that conflict each refuse the other's READY through crosspr** (#706 and #714). No check yet: the
+  orchestrator orders them and closes the later one until the first lands.
+- **A spec's worked money example drew new findings every round** (#700, three rounds). No check yet: one seed table
+  that every figure cites (its reshape, ae830596).
