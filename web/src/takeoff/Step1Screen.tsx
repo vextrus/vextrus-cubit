@@ -16,9 +16,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { useIsFetching, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { getRouteApi, useSearch } from '@tanstack/react-router'
+import { getRouteApi, useRouterState } from '@tanstack/react-router'
 import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizontal } from 'lucide-react'
 import { AppLink, PATHS } from '@/app/AppLink'
+import { useSheetRequest } from './jump'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
@@ -279,9 +280,10 @@ function Step1({
   const format = useFormat()
   useSummaryCounts(project, model)
 
-  // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118).
-  const { sheet: asked } = useSearch({ strict: false }) as { sheet?: string }
-  // It may also be the sheet's number ("S-04", Jump to's address); a sheet_id wins, so an id keeps working.
+  // `?sheet=<printed sheet's id>` opens that sheet (the Drawing Set report's "Open in Step 1", #118), or its
+  // number ("S-04", Jump to's address). Read as the text typed: the router's own parse makes `101` a number.
+  const asked = useRouterState({ select: (s) => new URLSearchParams(s.location.searchStr).get('sheet') ?? undefined })
+  // A sheet_id wins, so an id keeps working; two sheets may share a number, and the first in the list opens.
   const findAsked = (what: string | undefined) => {
     if (!what) return null
     for (const by of [(p: ProposalOut) => p.sheet_id === what, (p: ProposalOut) => p.number === what]) {
@@ -453,11 +455,12 @@ function Step1({
     setMode('sheet')
   }
 
-  // Jump to (Ctrl K) on this screen changes `?sheet=` under it: the screen follows (state adjusted as it renders).
-  const [seenAsked, setSeenAsked] = useState(asked)
-  if (seenAsked !== asked) {
-    setSeenAsked(asked)
-    const found = findAsked(asked)
+  // Jump to (Ctrl K) on this screen: every jump opens its sheet, even one already asked for (state adjusted as it renders).
+  const request = useSheetRequest()
+  const [seenRequest, setSeenRequest] = useState(request.count)
+  if (seenRequest !== request.count) {
+    setSeenRequest(request.count)
+    const found = findAsked(request.sheet)
     if (found) {
       setPicker(null)
       setRange(null)
