@@ -72,3 +72,45 @@ Session 20, the owner (10 Oct 2026, 18:37Z), on Train A after its third review r
 (#641 for #638); the cap itself is unchanged.
 
 ruling: review.round4.train_a = allowed-once
+
+Session 25, the owner (13 Oct 2026), on the review bar (Q13 and the session's opening answers): a finding blocks at 75,
+or at 50 when a QS or MD would meet it (user-facing) or when it sits on a trust boundary (a tenant wall, a parser of
+hostile input, a gate, a ledger); an edge or rule-only finding of 50-74 off a trust boundary is filed with its owed check.
+
+ruling: review.bar.block_at = 75
+ruling: review.bar.user_facing_block_at = 50
+ruling: review.bar.trust_boundary_block_at = 50
+
+Session 25, the owner (13 Oct 2026, 07:16Z), on the save state after a lost act: "New words, no retry": once the
+connection is back the status bar reads "Not saved: your last change did not reach Vextrus. Do it again."; nothing
+re-sends the act.
+
+ruling: web.save_state.lost_after_reconnect = Not saved: your last change did not reach Vextrus. Do it again.
+ruling: web.save_state.lost_act_resent = never
+
+Session 25, the owner (13 Oct 2026, 08:20Z), on G1's items: every real defect in an M0 finish-line item fails that
+item, whether or not a critic marks it misleading.
+
+ruling: g1.item_fails_on = any real defect in the item
+
+Session 25, the owner (13 Oct 2026, 09:36Z), on member-mark ranges: two ranges that share exactly one boundary mark (one
+member's section continued on the next sheet) continue one another.
+
+ruling: recognise.member_range.touching_one_mark = one continuation
+
+Session 25, the owner (13 Oct 2026, 07:46Z-07:52Z), on the factory: at the round cap, a fix-only delta review (only the
+fix's own diff and the earlier rounds' attack tests), not a cut; the design gate is "not applicable" when every web/**
+path a PR changes is a test; verify re-runs a web test file that failed only by timing out, alone; the factory mod may
+submit one batched, rate-capped wake prompt into the orchestrator's session.
+
+ruling: review.round_cap = delta-review
+ruling: design_gate.test_only_web = not-applicable
+ruling: verify.web_timeout = rerun-alone
+ruling: factory_mod.wake = prompt-submit
+
+Session 25, the owner (13 Oct 2026, 09:58Z), on landing M0's last engine tickets: each passes review on its own PR, then
+they land together as one integration PR with one no-post run judged per ticket and one posting run; and no G1 walk
+starts until every G1-path ticket has merged.
+
+ruling: m0.last_engine_tickets.land = one-integration-run
+ruling: g1.walk_starts_after = every-g1-path-ticket-merged
