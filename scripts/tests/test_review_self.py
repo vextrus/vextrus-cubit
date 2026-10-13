@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import shutil
+import time
 from pathlib import Path
 
 import pytest
 
-from scripts.tests.acceptance.ts25f1._world import BRANCH_MARK, MAIN_MARK, World, git
+from scripts.tests.acceptance.ts25f1._world import BRANCH_MARK, MAIN_MARK, World, git, script
 
 STAGED_MARK = "STAGED_EDIT_MARK_1A"
 UNSTAGED_MARK = "UNSTAGED_EDIT_MARK_2B"
@@ -66,3 +68,36 @@ def test_staged_unstaged_and_untracked_work_reaches_the_lenses(world: World) -> 
     for text in seen:
         for mark in (BRANCH_MARK, STAGED_MARK, UNSTAGED_MARK, UNTRACKED_MARK):
             assert mark in text, mark
+
+
+def test_the_lenses_carry_no_write_grant(world: World) -> None:
+    from scripts.factory import review_self
+
+    ran = world.run()
+    calls = world.calls()
+    assert len(calls) == 2, ran.text
+    for call in calls:
+        argv = call["argv"]
+        allowed = argv[argv.index("--allowedTools") + 1].split(",")
+        denied = argv[argv.index("--disallowedTools") + 1].split(",")
+        assert not [tool for tool in allowed if tool.startswith(("Edit", "Write", "NotebookEdit"))]
+        assert {"Edit", "Write", "NotebookEdit"} <= set(denied)
+    assert all(not lens.writes for lens in review_self.SELF_LENSES)
+
+
+def test_a_hung_fetch_falls_back_to_the_refs_here_without_a_traceback(
+    world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("VEXTRUS_REVIEW_SELF_FETCH_TIMEOUT", "2")
+    real = shutil.which("git")
+    script(
+        world.bin / "git",
+        f'#!/bin/sh\ncase " $* " in *" fetch "*) exec sleep 600;; esac\nexec {real} "$@"\n',
+    )
+    start = time.monotonic()
+    ran = world.run()
+    assert time.monotonic() - start < 120
+    assert ran.code == 0, ran.text
+    assert "Traceback" not in ran.text
+    assert "timed out" in ran.stderr
+    assert len(world.calls()) == 2

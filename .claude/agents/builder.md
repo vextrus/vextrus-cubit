@@ -70,8 +70,8 @@ Before the READY commit:
 2. Re-read your whole diff once more against every finding class your ticket's reviews found (re-read it
    for each class, not for the tests alone), and fix what you find.
 3. Run `uv run python -m scripts.factory.review_self` once before READY (the owner's Q14, 13 Oct 2026): it
-   runs review's two lenses on `git diff main...HEAD` in your worktree, with no ledger, no post and no
-   refuter. Fix what is real, delete the lenses' `review_attacks/` files after reading them, and say in
+   runs review's two lenses on `git diff origin/main...HEAD` plus your uncommitted work in your worktree, with no ledger, no post and no
+   refuter. The lenses are read-only (they cannot change your tree). Fix what is real and say in
    the READY body what it found. On a fix round, run it on that round's own diff (`--base <the previous head>`).
 4. A fix round re-runs the previous round's attack tests (the `repro` test files its findings gave) and
    they must pass on your fix, before you push it.

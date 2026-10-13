@@ -15,9 +15,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +28,10 @@ from scripts.factory.review import BadInput, Lens, Refused
 
 OK, BAD, REFUSED = 0, 2, 3
 SLOT = 0  # review self's own database (vextrus_rv_slot0); review.py's slots start at 1
-SELF_LENSES = (review.LENS_A, review.LENS_B)
+# Read-only grants (no Edit, Write or NotebookEdit): review self runs in the builder's own worktree,
+# before the READY commit, where a lens that rewrote a file would lose the builder's uncommitted work.
+SELF_LENSES = tuple(replace(lens, writes=False) for lens in (review.LENS_A, review.LENS_B))
+FETCH_TIMEOUT = "VEXTRUS_REVIEW_SELF_FETCH_TIMEOUT"  # seconds; default 60
 
 
 class _Parser(argparse.ArgumentParser):
@@ -49,7 +54,15 @@ def worktree() -> Path:
 
 def base_ref(where: Path, wanted: str | None) -> str:
     if not wanted:  # best effort: the refs below still answer when the network does not
-        review._run([*review.GIT, "-C", str(where), "fetch", "-q", "origin", "main"], timeout=120)
+        try:
+            review._run(
+                [*review.GIT, "-C", str(where), "fetch", "-q", "origin", "main"],
+                timeout=int(os.environ.get(FETCH_TIMEOUT) or 60),
+            )
+        except subprocess.TimeoutExpired:
+            print(
+                "review self: the fetch of origin/main timed out; using the refs here", file=sys.stderr
+            )
     candidates = [wanted] if wanted else ["origin/main", "main"]
     for ref in candidates:
         done = review._run(
@@ -90,10 +103,9 @@ def brief(lens: Lens, head: str, base: str, where: Path, diff: Path, log: Path) 
             "carries such a mark, add `-m <that mark>`, or nothing runs (exit 5); never select `live`.",
             "Never push, commit or post anything. Public words only.",
             lens.task,
-            "For each finding scored 50 or more, write a failing test that proves it, only under",
-            f"review_attacks/{lens.label}/ in this worktree (the builder deletes it after reading);",
-            "give it as `repro` (test_file relative to this worktree, the command, expect_fail true);",
-            "repro null if you could not. Your answer is the JSON the schema asks for;",
+            "You cannot write or edit any file (the builder's uncommitted work is in this worktree):",
+            "prove a finding by reading and by running the changed tests, and give `repro` null.",
+            "Your answer is the JSON the schema asks for;",
             f"its `head` is {head}.",
         ]
     )
