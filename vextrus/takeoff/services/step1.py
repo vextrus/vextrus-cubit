@@ -440,7 +440,9 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
         [*(k for k in titled.values() if k), *(v.storeys for vs in viewed for v in vs)]
     )
     titled = {text: _to_top(keys, highest) for text, keys in titled.items()}
-    shown = [[_view_to_top(v, highest) for v in vs] for vs in viewed]
+    shown = _as_coverage_stands(
+        project_id, sheets, [[_view_to_top(v, highest) for v in vs] for vs in viewed]
+    )
     return [
         replace(
             _proposal_view(s, by_sheet.get(s.id), views, names, who, order, answered),
@@ -463,6 +465,40 @@ def _view_to_top(view: drawings.ViewView, highest: int | None) -> drawings.ViewV
     """A view as Step 1 shows it: a range's `top` resolved (13's `storeys.to_top`)."""
     storeys = view_finder.to_top(view.storeys, highest)
     return view if storeys == view.storeys else replace(view, storeys=storeys)
+
+
+def _as_coverage_stands(
+    project_id: uuid.UUID,
+    sheets: Sequence[drawings.SheetView],
+    shown: list[list[drawings.ViewView]],
+) -> list[list[drawings.ViewView]]:
+    """Once a sheet is decided, each of its views shows the steps and Part its Coverage row now
+    stands at (`_steps_standing` under the sheet's deciding Confirmation; the Part is `part_key`),
+    not the read's own, so a view's chips and Coverage's unaccounted count never disagree (S24-C2,
+    M0-FL7). An undecided sheet's views stay as read. Every decided sheet's Coverage rows in one query
+    and their standing steps once, never one query per sheet."""
+    decided = {s.id: s.confirmation_id for s in sheets if s.decision}
+    if not decided:
+        return shown
+    rows = list(Coverage.objects.filter(project_id=project_id, sheet_revision_id__in=list(decided)))
+    standing = _steps_standing(rows, decided)
+    of_view = {r.view_id: r for r in rows}
+    return [
+        [
+            _stands_at(v, of_view[v.id], standing.get(of_view[v.id].id, ()))
+            if s.id in decided and v.id in of_view
+            else v
+            for v in views
+        ]
+        for s, views in zip(sheets, shown, strict=True)
+    ]
+
+
+def _stands_at(
+    view: drawings.ViewView, row: Coverage, steps: Sequence[CoverageStep]
+) -> drawings.ViewView:
+    """The view as its Coverage row stands: the steps standing for it and its Part."""
+    return replace(view, steps=tuple(s.step for s in steps), part=row.part_key or None)
 
 
 def _titled(stated: Iterable[str]) -> dict[str, tuple[str, ...] | None]:
