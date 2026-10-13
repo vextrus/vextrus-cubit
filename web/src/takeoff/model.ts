@@ -68,7 +68,7 @@ export interface DisciplineSection {
   rows: readonly Row[]
   found: number
   settled: number
-  /** N: the drawing list's count, else the sheets found; null ("—") while two lists disagree. */
+  /** N: the sheets found, whatever the drawing list counts (m0-screens §6.3); null ("—") while two lists disagree. */
   total: number | null
   openQuestions: number
   list: DrawingListOut | null
@@ -370,7 +370,7 @@ export function step1Model(data: Step1Data): Step1Model {
         rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes),
         found: progress?.found ?? mine.length,
         settled,
-        total: progress ? progress.total ?? null : mine.length,
+        total: progress ? (progress.total === null ? null : progress.found) : mine.length,
         openQuestions,
         list: hasList ? list : null,
         numbering: hasList ? null : numberingOf(mine),
