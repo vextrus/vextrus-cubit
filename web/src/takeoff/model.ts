@@ -124,6 +124,27 @@ export type Reason = (typeof REASONS)[number]
 const KIND_RANK: Record<string, number> = { file_misread: 0, conflict: 1, missing: 2, low_confidence: 3 }
 
 const open = (q: QuestionOut) => q.status === 'open'
+
+/** Step 1's counts, which the frame around it shows (the toolbar's Count, the rail's mark, the Questions tab's number). */
+export interface Step1Counts {
+  /** Sheets found; null while Step 1 has not been read. */
+  found: number | null
+  confirmed: number
+  excluded: number
+  questionsOpen: number
+}
+
+export const STEP1_NOT_READ: Step1Counts = { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 }
+
+/** The counts from Step 1's own Proposals and Questions: the queue holds each open Question once, so these are the model's. */
+export function step1Counts(proposals: readonly ProposalOut[], questions: readonly QuestionOut[]): Step1Counts {
+  return {
+    found: proposals.length,
+    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
+    excluded: proposals.filter((p) => p.decision === 'excluded').length,
+    questionsOpen: questions.filter(open).length,
+  }
+}
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
 
 /** Kept open: status `open`, its answer's option `keep_open` (the ruling of session 08: no `kept_open` status). */
@@ -300,6 +321,13 @@ export function gapsOf(q: QuestionOut): Gap[] {
 /** Whether the Question is a Discipline's merged gap Question (it holds the sheets beside each gap, yet is a row of its own). */
 export const isGaps = (q: QuestionOut) => q.code === GAPS_CODE
 
+/**
+ * Whether the Question's sheets leave their Discipline's rows (a Question of their own, whose mark they show); a
+ * Discipline's gaps Question holds the sheets beside its gaps yet leaves them in their rows (#229), unless withdrawn.
+ * The one rule: the list's State column and Jump to's marks both take it from here.
+ */
+export const holdsItsSheets = (entry: QuestionEntry) => !isGaps(entry.question) || entry.withdrawn
+
 export function step1Model(data: Step1Data): Step1Model {
   const proposals = [...data.proposals].sort(
     (a, b) =>
@@ -314,7 +342,7 @@ export function step1Model(data: Step1Data): Step1Model {
   raisedTags([...queue, ...withdrawnEntries, ...answered])
   const heldBy = new Map<string, QuestionEntry>()
   // The sheets beside a gap stay in their Discipline's rows, one source each while the gap is asked (#229).
-  for (const entry of [...queue, ...withdrawnEntries]) if (!isGaps(entry.question) || entry.withdrawn) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
+  for (const entry of [...queue, ...withdrawnEntries]) if (holdsItsSheets(entry)) for (const p of entry.holds) if (!heldBy.has(p.id)) heldBy.set(p.id, entry)
   const besideGap = new Set(queue.filter((e) => isGaps(e.question)).flatMap((e) => e.holds.map((p) => p.id)))
 
   const needsYou: Row[] = queue.map((entry) => {
@@ -385,6 +413,7 @@ export function step1Model(data: Step1Data): Step1Model {
   const reasons = REASONS.filter((r) => bulkOut.some((p) => p.proposed_exclusion === r))
 
   const rows = [...needsYou, ...withdrawn, ...proposedOut, ...disciplines.flatMap((d) => d.rows)]
+  const counts = step1Counts(proposals, data.questions)
   return {
     needsYou,
     withdrawn,
@@ -395,9 +424,9 @@ export function step1Model(data: Step1Data): Step1Model {
     answered,
     bulk: { confirm: bulkConfirm, leaveOut: bulkOut, reasons },
     rows,
-    confirmed: proposals.filter((p) => p.decision === 'confirmed').length,
-    excluded: proposals.filter((p) => p.decision === 'excluded').length,
-    found: proposals.length,
+    confirmed: counts.confirmed,
+    excluded: counts.excluded,
+    found: counts.found!,
     oneSource: free.filter((p) => !decided(p) && !p.agrees && p.proposed_exclusion === null),
     // Every Proposal of no Discipline, as the toolbar's Count counts it (19a's progress row leaves out a sheet proposed out, #167's refuter).
     noDiscipline: proposals.filter((p) => p.discipline === null).length,

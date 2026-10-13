@@ -32,6 +32,7 @@ orchestrator adds it to the owner's list to delete in claude.ai/code (O8).
 `prompt-leak`, `leakscan-unavailable`, `bundled`, `wrong-repository`, `wrong-revision`, `no-git-source`,
 `no-session`, `wrong-environment` (the log names another environment, or the CLI fell back to the first one),
 `launch-timeout` (the CLI did not finish in 180 s and a session exists), `branch-not-rd` (a `--drawings` launch on a branch not starting `rd/`), `duplicate-name` (local),
+`builder-live` (cloud and local, exit 2: the ticket already has a live builder, named by its session),
 `merge-conflict` (local, carried branch; the worktree is removed and a branch this launch created is deleted), `no-preflight` (before f3: neither `--preflight` nor governor),
 `send-failed` (`say`: the CLI did not return `ok: true`), `governor` (exit 3: the governor refused the unit),
 `wrong-account` (all three subcommands, before anything runs: `CLAUDE_CONFIG_DIR` is set and is not `~/.claude`, account A's
@@ -127,7 +128,7 @@ when it refuses); `git fetch origin`; a worktree at `origin/<branch>` under `.cl
 lacks `.claude/agents/builder.md`, `origin/main` is merged into it first as a recorded merge commit (`merge-conflict`,
 exit 2, on a conflict); `ensure_database` for the worktree; `npm --prefix web ci --no-audit --no-fund` (its own 900 s
 timeout) when the worktree has `web/package-lock.json` and no `web/node_modules`; `duplicate-name` (exit 2) if a live
-session already has `--name`. A conflict, or a failing `ensure_database` or `npm ci` (exit 1, `ERROR`), undoes the launch:
+session already has `--name`; `builder-live` (exit 2) if the ticket already has a live builder. A conflict, or a failing `ensure_database` or `npm ci` (exit 1, `ERROR`), undoes the launch:
 the worktree is removed (never forced) and the branch deleted only when this launch created it and it still sits at
 origin's tip; a kept branch at another sha, and the existing-branch error, name `git branch -f <b> origin/<b>` (the
 launcher never resets a branch). The ticket is the worktree's folder and so its database (`vextrus_<slug>`, cut at 40):

@@ -974,6 +974,12 @@ def _launch_cloud(
         )
     if req.usage_checked:
         run.governor["usage_checked"] = req.usage_checked
+    # After the governor's `admit` wrote this launch's pending record, so two launches of one ticket
+    # in the same window see each other (the caller's own pending record is skipped).
+    if req.role not in governor.NOT_BUILDER_ROLES and (
+        live := governor.live_builder(req.ticket, record_dir)
+    ):
+        return run.refuse("builder-live", f"ticket {req.ticket} already has a live builder: {live}")
 
     prompt = preamble(req.branch, req.repository) + "\n" + text
     if scan is not None:

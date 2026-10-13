@@ -7,9 +7,12 @@
  *   await confirm(project.id, ids)                // one act on the server (19a's Confirmation)
  *   await undo(project.id)                        // the acting user's own last act
  */
-import { queryOptions, useQueries, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { queryOptions, useIsFetching, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
+import { sessionQuery } from '@/app/session'
+import { sessionEpoch } from '@/auth/actions'
 
 export type ProposalOut = components['schemas']['Step1ProposalOut']
 export type ViewOut = components['schemas']['Step1ViewOut']
@@ -109,12 +112,51 @@ export interface Step1Data {
   fileNames?: Readonly<Record<string, string>>
 }
 
+export interface Step1Parts {
+  proposals: readonly ProposalOut[]
+  questions: readonly QuestionOut[]
+  coverage: CoverageOut
+  progress: ProgressOut
+}
+
+const WHOLE = ['proposals', 'questions', 'coverage', 'progress']
+
+/**
+ * The Proposals, Questions, Coverage and progress that the rows, the frame's Count and the status bar's
+ * Coverage are drawn from, as one snapshot: while any of the four is reloading, the last whole snapshot
+ * stays, so no render shows one of them ahead of the others (S26-D7). `fresh` is what the caller reads of
+ * the four (the frame needs the first two only); every caller sees the snapshot change in the same render.
+ * The snapshot is the one person's, in the one project, in the one session: when the four's data is gone
+ * (the cache reset for another person, or a project not yet read) or the session, person or project moves,
+ * it is dropped and the caller shows its loading state, never the last person's rows.
+ */
+export function useSettled<T extends object>(projectId: string, fresh: T | null): T | null {
+  const queryClient = useQueryClient()
+  const fetching =
+    useIsFetching({ predicate: (query) => query.queryKey[0] === 'step1' && query.queryKey[1] === projectId && WHOLE.includes(query.queryKey[2] as string) }) > 0
+  const person = queryClient.getQueryData(sessionQuery.queryKey)?.user.id ?? ''
+  const key = `${sessionEpoch(queryClient)}:${person}:${projectId}`
+  const [held, setHeld] = useState<{ key: string; value: T | null }>({ key, value: fresh })
+  const kept = held.key === key ? held.value : null
+  const same = kept === fresh || (kept !== null && fresh !== null && Object.entries(fresh).every(([k, value]) => (kept as Record<string, unknown>)[k] === value))
+  // Set while rendering: the snapshot moves when the reload has ended, and is dropped at once when the four's data is gone.
+  if (fresh === null || !fetching) {
+    if (!same || held.key !== key) setHeld({ key, value: fresh })
+    return fresh
+  }
+  return kept
+}
+
 /** Everything Step 1 shows, or the first load's error. */
 export function useStep1(projectId: string): { data: Step1Data | null; error: unknown; retry: () => void } {
   const proposals = useQuery(proposalsQuery(projectId))
   const questions = useQuery(questionsQuery(projectId))
   const coverage = useQuery(coverageQuery(projectId))
   const progress = useQuery(progressQuery(projectId))
+  const parts = useSettled<Step1Parts>(
+    projectId,
+    proposals.data && questions.data && coverage.data && progress.data ? { proposals: proposals.data, questions: questions.data, coverage: coverage.data, progress: progress.data } : null,
+  )
   const disciplines = progress.data?.disciplines.map((d) => d.discipline).filter((d): d is string => d !== null) ?? []
   const lists = useQueries({ queries: disciplines.map((d) => drawingListQuery(projectId, d)) })
   const fileNames = useQuery(fileNamesQuery(projectId))
@@ -123,17 +165,14 @@ export function useStep1(projectId: string): { data: Step1Data | null; error: un
   const retryAll = () => {
     for (const q of all) if (q.error) void q.refetch()
   }
-  if (!proposals.data || !questions.data || !coverage.data || !progress.data) return { data: null, error, retry: retryAll }
+  if (!parts) return { data: null, error, retry: retryAll }
   const byDiscipline: Record<string, DrawingListOut | undefined> = {}
   disciplines.forEach((d, i) => {
     byDiscipline[d] = lists[i]?.data
   })
   return {
     data: {
-      proposals: proposals.data,
-      questions: questions.data,
-      coverage: coverage.data,
-      progress: progress.data,
+      ...parts,
       lists: byDiscipline,
       fileNames: fileNames.data ?? {},
     },

@@ -10,7 +10,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
-import { useFormat } from '@/format'
+import { lengthFromMm, useFormat } from '@/format'
 import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
 import { msg } from '@lingui/core/macro'
 import { CorrectedBy, SheetHistory, reasonOf } from './SheetHistory'
@@ -20,7 +20,7 @@ import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, copiesNamedByRow, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
@@ -649,7 +649,7 @@ export function SheetFacts({
           <Fact label={<Trans>File</Trans>}>
             <DrawingText kind="file-name" text={sheet.file_name} />
             <span className="block text-xs text-ink-secondary">
-              {sheet.layout ? <Trans>layout “<DrawingText kind="mark" text={sheet.layout} truncate={false} />”</Trans> : <Trans>laid out in the drawing</Trans>}
+              <CopyPlace sheet={sheet} withoutFile />
             </span>
           </Fact>
           <Fact label={<Trans>Storeys</Trans>}>
@@ -758,6 +758,15 @@ function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer
   )
 }
 
+/** A tied copy's row number, as the options name it ("the copy in row 2"). */
+function CopyRow({ row }: { row: string }) {
+  return (
+    <span className="block whitespace-nowrap text-ink-secondary">
+      <Trans>Row {row}</Trans>
+    </span>
+  )
+}
+
 /**
  * What the card shows of the sheets it holds, then the Trace line (§6.7): two copies of one number as a table
  * (Copy · Date · File); any other Question's sheets as a list. Over four sheets they fold behind one line, so
@@ -769,6 +778,8 @@ function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: C
   const copies = entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
   // Copies told apart by title: the table shows it, as the options name them by it.
   const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
+  // A copy no field tells apart is named by its row in the options ("the copy in row 2"), so the table numbers the rows.
+  const tied = copiesNamedByRow(entry.holds, (mm) => f.plain.coordinate(lengthFromMm(mm)))
   const trace = (
     <p className="text-xs text-ink-secondary empty:hidden">
       <Trace entry={entry} context={context} onOpen={onOpen} />
@@ -792,9 +803,10 @@ function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: C
             </tr>
           </thead>
           <tbody>
-            {entry.holds.map((s) => (
+            {entry.holds.map((s, i) => (
               <tr key={s.id} className="align-top">
                 <td className="pe-2">
+                  {tied ? <CopyRow row={f.integer(i + 1)} /> : null}
                   <Copy sheet={s} />
                   {titlesDiffer ? (
                     <span className="block text-ink-secondary">

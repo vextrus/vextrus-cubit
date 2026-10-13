@@ -21,7 +21,24 @@ runs the command with its output unbuffered into `$VEXTRUS_FACTORY_DIR/../rd/<he
 and releases the lock and removes `rd.pid` when the command ends, failed or not, or on SIGTERM, SIGHUP
 or SIGINT. It exits with the command's code.
 
-Exit 0, 4 queued, 5 a duplicate waiter, 2 usage error.
+A `posting` run starts only on a head the review ledger passed
+(`$VEXTRUS_FACTORY_DIR/ledger/<PR>-<head>.json` with `verdict` `PASS`) and, when `--ticket` names a
+launch whose branch is known, only while `git ls-remote origin <branch>` still reads that head (an
+unreadable branch refuses). The ticket is matched without regard to case (`S25-F3` on `s25-f3`); a
+`--ticket` with no builder launch record refuses. Without `--ticket` no branch is known and only the
+ledger gate applies, so the runbook passes `--ticket` on every posting run.
+The check runs before the run queues and again when
+its turn comes; a refusal exits 6 naming the missing
+PASS or the newer head, runs nothing and frees the lock. A head also counts as passed when it differs
+from a passed head only by clean merges of main (`land.reviewed`). A posting run already running is
+stopped (exit 7, a `CANCELLED` line naming the newer head, the lock released) when its branch moves
+past its head; the branch is read every 5 s (`VEXTRUS_RDLOCK_POLL`).
+Whatever its kind, a run of `scripts/real-drawings <branch|main|PR>` is refused (exit 6, at the start and
+at its turn) when the commit that runner would read (the local `refs/heads/<branch>`, which may be stale,
+or origin's `refs/pull/<PR>/head`) is not `--head`.
+`scored` and `no-post` runs are not otherwise gated.
+
+Exit 0, 4 queued, 5 a duplicate waiter, 6 a posting run refused, 7 cancelled, 2 usage error.
 """
 
 from __future__ import annotations
@@ -41,12 +58,14 @@ from pathlib import Path
 from types import FrameType
 from typing import Any
 
-from scripts.factory import status
+from scripts.factory import governor, status
 
 KINDS = ("posting", "scored", "no-post")
 RANK = {kind: rank for rank, kind in enumerate(KINDS)}
 WAIT_SECONDS = 5.0
-HELD, QUEUED, DUPLICATE = 0, 4, 5
+HELD, QUEUED, DUPLICATE, REFUSED, CANCELLED = 0, 4, 5, 6, 7
+POLL_SECONDS = 5.0
+LS_REMOTE_SECONDS = 60
 
 
 def lock_file() -> Path:
@@ -148,6 +167,214 @@ def show() -> list[str]:
     return lines
 
 
+def passed(head: str) -> bool:
+    """True when the ledger holds a PASS record for exactly this head."""
+    folder = status.factory_dir() / "ledger"
+    for path in sorted(folder.glob(f"*-{head}*.json")):
+        try:
+            record = json.loads(path.read_text())
+        except OSError, ValueError:
+            continue
+        if (
+            isinstance(record, dict)
+            and record.get("verdict") == "PASS"
+            and str(record.get("head", "")).startswith(head)
+        ):
+            return True
+    return False
+
+
+def recorded_spellings(ticket: str) -> set[str]:
+    """The ticket as the launch records spell it: the factory records `S25-F3` for the branch `s25-f3`,
+    so a ticket given in the branch's casing is matched without regard to case."""
+    spellings = {ticket}
+    folder = status.factory_dir() / "launches"
+    for path in folder.glob("*.json"):
+        if path.name.casefold().startswith(f"{ticket.casefold()}-") and not path.name.endswith(
+            ".agents.json"
+        ):
+            try:
+                record = json.loads(path.read_text())
+            except status.RECORD_ERRORS:
+                continue
+            name = record.get("ticket") if isinstance(record, dict) else None
+            if isinstance(name, str) and name.casefold() == ticket.casefold():
+                spellings.add(name)
+    return spellings
+
+
+def ticket_branch(ticket: str | None) -> str | None:
+    """The branch named by the ticket's newest launch record (the ticket matched without regard to
+    case), or None."""
+    if not ticket:
+        return None
+    records = [found for name in recorded_spellings(ticket) for found in governor.launch_records(name)]
+    for _, record in sorted(records, key=lambda found: found[0].name, reverse=True):
+        if record.get("role", "builder") in governor.NOT_BUILDER_ROLES:
+            continue
+        if record["branch"]:
+            return str(record["branch"])
+    return None
+
+
+def covered(head: str) -> bool:
+    """The ledger covers this head as `land.reviewed` does: a PASS for it, or a PASS for an earlier head
+    of the same PR followed only by clean merges of main (`merge_ready.merges_since`)."""
+    if passed(head):
+        return True
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        return False
+    folder = status.factory_dir() / "ledger"
+    numbers = sorted(
+        {
+            int(m.group(1))
+            for path in folder.glob("*.json")
+            if (m := re.match(r"(\d+)-[0-9a-f]{40}$", path.stem))
+        }
+    )
+    if not numbers:
+        return False
+    from scripts.land import reviewed
+
+    return any(reviewed(folder, number, head, repo=Path.cwd()) for number in numbers)
+
+
+def moved(head: str, ticket: str | None) -> str | None:
+    """Why the branch no longer stands at this head (it names the newer head), or None; a branch that
+    cannot be read gives a reason starting `unreadable:`, as does a `--ticket` with no builder launch
+    record (a typo, a PR label: no branch to check, so no posting). The branch is the ticket's launch
+    record's; with no `--ticket` no branch is known and nothing is checked (the runbook passes it)."""
+    if not ticket:
+        return None
+    branch = ticket_branch(ticket)
+    if branch is None:
+        return f"unreadable: --ticket {ticket} has no builder launch record, so its branch is unknown"
+    tip = tip_of(branch, head)
+    if tip.startswith("unreadable:"):
+        return tip
+    if tip and not tip.startswith(head) and not head.startswith(tip):
+        return f"head {head[:8]} is superseded: {branch} has moved to {tip[:8]}"
+    return None
+
+
+def tip_of(branch: str, head: str) -> str:
+    return remote_tip(f"refs/heads/{branch}", head)
+
+
+def remote_tip(ref: str, head: str) -> str:
+    try:
+        done = subprocess.run(
+            ["git", "ls-remote", "origin", ref],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=LS_REMOTE_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"unreadable: cannot read the tip of {ref} to check head {head[:8]}: {error}"
+    if done.returncode != 0:
+        reason = done.stderr.strip()
+        return f"unreadable: cannot read the tip of {ref} to check head {head[:8]}: {reason}"
+    return done.stdout.split()[0] if done.stdout.split() else ""
+
+
+def runner_target(command: list[str]) -> tuple[Path, str] | None:
+    """The checkout and target of a `scripts/real-drawings <target>` (or `-m scripts.real_drawings
+    <target>`) command, or None when the command is not that runner. The runner reads a PR's head from
+    origin and a branch or `main` from the checkout's own `refs/heads/`."""
+    for at, word in enumerate(command):
+        if Path(word).name == "real-drawings":
+            root = Path(word).resolve().parent.parent
+        elif word == "scripts.real_drawings" and command[at - 1 : at] == ["-m"]:
+            root = Path.cwd()
+        else:
+            continue
+        rest = [arg for arg in command[at + 1 :] if not arg.startswith("-")]
+        return (root, rest[0]) if rest else None
+    return None
+
+
+def reads_other(head: str, command: list[str]) -> str | None:
+    """Why the commit the real-drawing runner would read is not `--head` (or cannot be read), or None.
+    A stale local branch ran 25 minutes on the wrong code while `--head` named origin's tip."""
+    found = runner_target(command)
+    if found is None:
+        return None
+    root, target = found
+    if target.isdigit():
+        read = remote_tip(f"refs/pull/{target}/head", head)
+        where = f"origin's PR {target}"
+    else:
+        done = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--verify", f"refs/heads/{target}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            check=False,
+        )
+        missing = f"unreadable: no local {target} in {root}"
+        read = done.stdout.strip() if done.returncode == 0 else missing
+        where = f"the local {target}"
+    if read.startswith("unreadable:"):
+        return read
+    if not read or (not read.startswith(head) and not head.startswith(read)):
+        return f"the run would read {where} at {read[:8] or 'nothing'}, not --head {head[:8]}"
+    return None
+
+
+def refusal(kind: str, head: str, ticket: str | None, command: list[str] | None = None) -> str | None:
+    """Why a run may not start, or None. A run whose real-drawing runner would read another commit than
+    `--head` is refused whatever its kind; only posting runs are gated by the ledger and the branch."""
+    other = reads_other(head, command or [])
+    if other:
+        return other
+    if kind != "posting":
+        return None
+    if not covered(head):
+        return f"no review PASS is recorded for head {head[:8]}"
+    return moved(head, ticket)
+
+
+def poll_seconds() -> float:
+    try:
+        return max(0.5, float(os.environ.get("VEXTRUS_RDLOCK_POLL", POLL_SECONDS)))
+    except ValueError:
+        return POLL_SECONDS
+
+
+def stop_group(proc: subprocess.Popen[bytes]) -> None:
+    """End the command and everything it started: TERM, then KILL after a grace."""
+    for sig, wait in ((signal.SIGTERM, 10), (signal.SIGKILL, 10)):
+        try:
+            os.killpg(proc.pid, sig)
+        except ProcessLookupError, PermissionError:
+            return
+        try:
+            proc.wait(timeout=wait)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+
+
+def supervise(
+    proc: subprocess.Popen[bytes], kind: str, head: str, ticket: str | None
+) -> tuple[int, str | None]:
+    """Wait for the command; a posting run whose branch moves past its head is stopped. Returns the exit
+    code and, when it was stopped, the line that says why. An unreadable branch never stops a run."""
+    while True:
+        try:
+            return proc.wait(timeout=poll_seconds()), None
+        except subprocess.TimeoutExpired:
+            pass
+        if kind != "posting":
+            continue
+        why = moved(head, ticket)
+        if why and not why.startswith("unreadable:"):
+            stop_group(proc)
+            return CANCELLED, why
+
+
 def _stop(signum: int, frame: FrameType | None) -> None:
     raise SystemExit(128 + signum)
 
@@ -156,6 +383,10 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     pid = os.getpid()
     for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(signum, _stop)  # the finally below releases; subprocess.run kills the command
+    why = refusal(kind, head, ticket, command)
+    if why:
+        print(f"rdlock: refused: {why}")
+        return REFUSED
     try:
         code = acquire(kind, head, pid, ticket, block=True)
     except SystemExit:
@@ -164,6 +395,11 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     if code != HELD:  # a duplicate waiter: never run without the lock, never touch rd.pid
         print(f"rdlock: refused: a {kind} run for {head[:8]} is already queued or holding the lock")
         return code
+    why = refusal(kind, head, ticket, command)  # the branch may have moved while the run waited
+    if why:
+        release(kind, head, pid)
+        print(f"rdlock: refused at its turn: {why}")
+        return REFUSED
     folder = status.factory_dir()
     pidfile = folder / "rd.pid"
     try:
@@ -173,11 +409,24 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
         pidfile.write_text(f"{pid}\n")
         env = dict(os.environ, PYTHONUNBUFFERED="1")
         with log.open("ab", buffering=0) as out:
-            done = subprocess.run(
-                command, stdout=out, stderr=out, stdin=subprocess.DEVNULL, env=env, check=False
+            proc = subprocess.Popen(
+                command,
+                stdout=out,
+                stderr=out,
+                stdin=subprocess.DEVNULL,
+                env=env,
+                start_new_session=True,
             )
-        print(f"rdlock: exit {done.returncode}; log {log}")
-        return done.returncode
+            try:
+                code, cancelled = supervise(proc, kind, head, ticket)
+            finally:
+                if proc.poll() is None:
+                    stop_group(proc)
+        if cancelled:
+            print(f"rdlock: CANCELLED: {cancelled}; log {log}")
+        else:
+            print(f"rdlock: exit {code}; log {log}")
+        return code
     finally:
         if status.read_pidfile(pidfile) == pid:
             pidfile.unlink(missing_ok=True)

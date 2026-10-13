@@ -39,8 +39,9 @@ AT = datetime(2026, 10, 4, 21, 8, tzinfo=UTC)
         (f"Factory-State: READY\nFactory-Verify: {TREE} ok\nFactory-Mood: fine", "READY-NO-VERIFY"),
         ("Factory-State: BLOCKED\nFactory-Reason: waiting on a ruling", "BLOCKED"),
         (f"Factory-State: BLOCKED\nFactory-Reason: r\nFactory-Verify: {TREE} ok", "BLOCKED"),
-        ("Factory-State: BLOCKED", None),
-        ("Factory-State: BLOCKED\nFactory-Reason: " + "x" * 201, None),
+        # S26-FX1: the watcher says BLOCKED for a head with no one-line reason (the reading stays strict)
+        ("Factory-State: BLOCKED", "BLOCKED"),
+        ("Factory-State: BLOCKED\nFactory-Reason: " + "x" * 201, "BLOCKED"),
         ("Factory-State: DONE", None),
         (f"Factory-Verify: {TREE} ok", None),
         ("Signed-off-by: someone", None),
@@ -49,6 +50,16 @@ AT = datetime(2026, 10, 4, 21, 8, tzinfo=UTC)
 def test_trailers_follow_trailers_md(last_paragraph: str, outcome: str | None) -> None:
     message = f"feat: a thing\n\nThe body.\n\n{last_paragraph}\n"
     assert watch.parse_trailers(message, TREE).outcome == outcome
+
+
+def test_a_blocked_head_without_a_one_line_reason_says_so() -> None:
+    bare = watch.parse_trailers("fix: x\n\nFactory-State: BLOCKED\n", TREE)
+    assert (bare.outcome, bare.reason) == ("BLOCKED", "no reason given")
+    long = watch.parse_trailers(
+        "fix: x\n\nFactory-State: BLOCKED\nFactory-Reason: " + "y" * 300 + "\n", TREE
+    )
+    assert (long.outcome, long.reason) == ("BLOCKED", "y" * 200)
+    assert trailers.read("fix: x\n\nFactory-State: BLOCKED\n", TREE).outcome is None
 
 
 def test_the_factory_block_is_read_from_the_last_two_paragraphs_only() -> None:
@@ -153,7 +164,9 @@ def test_gh_pr_list_is_the_command_line(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert watch.gh_prs() == [{"number": 7, "headRefName": "b", "headRefOid": "x", "state": "OPEN"}]
     argv = json.loads(record.read_text())
     assert argv[:2] == ["pr", "list"]
-    assert argv[argv.index("--json") + 1] == "number,headRefName,headRefOid,state,statusCheckRollup"
+    assert argv[argv.index("--json") + 1] == (
+        "number,headRefName,headRefOid,state,statusCheckRollup,createdAt,closedAt,mergedAt,isCrossRepository"
+    )
 
 
 def test_the_default_scanner_is_the_main_checkouts_tools_leakscan(
@@ -390,7 +403,9 @@ def test_a_clean_merge_of_main_on_the_ready_head_stays_ready_without_a_new_event
     assert state["tickets"]["tu"]["outcome_at"] == "2026-10-04T19:10:00Z"
 
 
-def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo) -> None:
+def test_a_merge_with_its_own_edit_is_not_ready_and_a_clean_one_is_whoever_saw_the_ready(
+    repo: Repo,
+) -> None:
     git_in(repo.path, "checkout", "-q", "-b", "tu-branch")
     ready = repo.ready("r.txt")
     git_in(repo.path, "checkout", "-q", "main")
@@ -408,8 +423,9 @@ def test_a_merge_with_its_own_edit_or_on_an_unseen_head_is_not_ready(repo: Repo)
     git_in(repo.path, "reset", "-q", "--hard", ready)
     git_in(repo.path, "merge", "-q", "--no-edit", "main")
     clean = repo.sha("HEAD")
-    _, item = track_once(seen_ready(repo.seed), clean, main)  # READY last seen on another head
-    assert item["state"] == "working"
+    # READY last seen on another head: the walk back to the READY commit finds it all the same
+    _, item = track_once(seen_ready(repo.seed), clean, main)
+    assert item["state"] == "ready"
 
 
 def test_an_unchanged_ready_re_read_after_an_upgrade_records_its_head_for_the_landers_merge(

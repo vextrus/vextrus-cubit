@@ -24,8 +24,9 @@ function CommandDialog({
   description,
   children,
   className,
+  filter,
   ...props
-}: ComponentProps<typeof Dialog> & { title: string; description: string; className?: string }) {
+}: ComponentProps<typeof Dialog> & { title: string; description: string; className?: string; filter?: ComponentProps<typeof CommandPrimitive>['filter'] }) {
   return (
     <Dialog {...props}>
       <DialogContent className={cn('overflow-hidden p-0 sm:max-w-[560px]', className)} showCloseButton={false}>
@@ -34,7 +35,7 @@ function CommandDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         {/* The title names the search box too: cmdk labels its input from `label` (design gate, PR #59). */}
-        <Command label={title} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-secondary">
+        <Command label={title} filter={filter} className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-ink-secondary">
           {children}
         </Command>
       </DialogContent>

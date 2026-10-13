@@ -10,7 +10,11 @@ Prints exactly one line, `ready=true` or `ready=false` (a step appends it to `$G
   (`scripts.factory.trailers`, docs/specs/factory/contracts/trailers.md 1) with its Factory-Verify line
   naming this commit's tree; or when it is a merge of main onto a commit that is READY by this same rule
   (GitHub's "Update branch" and `land update` make the head that lands such a merge). A merge onto a head
-  that is not READY, or of anything but main, is not READY.
+  that is not READY, or of anything but main, is not READY. The walk back has no depth cut, as the
+  watcher's and publish's have none.
+- A builder's answer to a status message (the owner's Q-R6) keeps READY: an empty commit (its tree its
+  parent's) whose only `Factory-` trailer is `Factory-Status:`, on a head that is READY by these rules; a
+  chain of them too. A commit with any file change never does, whatever trailers it carries.
 - A commit git cannot read exits non-zero, so the step fails closed, as the workflows' path steps do.
 """
 
@@ -20,7 +24,7 @@ import os
 import subprocess
 import sys
 
-from scripts.factory.trailers import read
+from scripts.factory.trailers import read, status_line
 
 MAIN_REFS = ("refs/remotes/origin/main", "refs/heads/main")
 
@@ -29,44 +33,81 @@ class Unreadable(RuntimeError):
     """A commit or ref git cannot read."""
 
 
-def _git(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+def _git(
+    *args: str, check: bool = True, cwd: str | os.PathLike[str] | None = None
+) -> subprocess.CompletedProcess[str]:
+    done = subprocess.run(["git", *args], capture_output=True, text=True, check=False, cwd=cwd)
     if check and done.returncode != 0:
         raise Unreadable(f"git {' '.join(args)}: {done.stderr.strip() or done.returncode}")
     return done
 
 
-def _commit(sha: str) -> str:
+def _commit(sha: str, cwd: str | os.PathLike[str] | None = None) -> str:
     """The full id of the commit `sha` names; Unreadable when it names none."""
-    return _git("rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}").stdout.strip()
+    return _git("rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}", cwd=cwd).stdout.strip()
 
 
-def _reads_ready(sha: str) -> bool:
-    message = _git("show", "-s", "--format=%B", sha).stdout
-    tree = _git("rev-parse", f"{sha}^{{tree}}").stdout.strip()
+def _reads_ready(sha: str, cwd: str | os.PathLike[str] | None = None) -> bool:
+    message = _git("show", "-s", "--format=%B", sha, cwd=cwd).stdout
+    tree = _git("rev-parse", f"{sha}^{{tree}}", cwd=cwd).stdout.strip()
     return read(message, tree).outcome == "READY"
 
 
-def _on_main(sha: str) -> bool:
+def _on_main(sha: str, cwd: str | os.PathLike[str] | None = None) -> bool:
     """Whether `sha` is main's tip or in its history (origin's copy first, then a local one)."""
     for ref in MAIN_REFS:
-        if _git("rev-parse", "--verify", "--quiet", ref, check=False).returncode != 0:
+        if _git("rev-parse", "--verify", "--quiet", ref, check=False, cwd=cwd).returncode != 0:
             continue
-        if _git("merge-base", "--is-ancestor", sha, ref, check=False).returncode == 0:
+        if _git("merge-base", "--is-ancestor", sha, ref, check=False, cwd=cwd).returncode == 0:
             return True
     return False
 
 
-def is_ready(sha: str) -> bool:
-    """READY by the trailer rule, or a chain of merges of main onto a commit that is."""
-    current = _commit(sha)
+def _is_status_reply(sha: str, parent: str, cwd: str | os.PathLike[str] | None = None) -> bool:
+    """Whether `sha` is an empty commit on `parent` (same tree) whose only factory trailer is a
+    `Factory-Status:` line."""
+    if status_line(_git("show", "-s", "--format=%B", sha, cwd=cwd).stdout) is None:
+        return False
+    trees = [_git("rev-parse", f"{commit}^{{tree}}", cwd=cwd).stdout for commit in (sha, parent)]
+    return trees[0] == trees[1]
+
+
+def _is_clean_merge(sha: str, parents: list[str], cwd: str | os.PathLike[str] | None = None) -> bool:
+    """Whether `sha`'s tree is the one `git merge-tree` makes from its two parents with no conflict
+    (merge_ready's rule: a resolved conflict, a `-s ours` or a file added inside is new work)."""
+    made = _git("merge-tree", "--write-tree", "--no-messages", *parents, check=False, cwd=cwd)
+    tree = _git("rev-parse", f"{sha}^{{tree}}", cwd=cwd).stdout
+    return made.returncode == 0 and made.stdout.split()[:1] == tree.split()
+
+
+def ready_commit(
+    sha: str, cwd: str | os.PathLike[str] | None = None, *, clean_merges: bool = False
+) -> str | None:
+    """The commit that reads READY under `sha`: `sha` itself, or the first one found by walking back
+    over merges of main and empty status replies (the newest commit on that chain carrying the trailer);
+    None when the chain reaches a commit that is neither. The walk has no depth cut (the watcher's and
+    publish's have none). CI's gate takes any merge whose second parent is on main (GitHub's "Update
+    branch" makes it); `clean_merges` takes only one `_is_clean_merge` accepts, as the watcher and
+    merge_ready read it, which is publish's rule."""
+    current = _commit(sha, cwd)
     while True:
-        if _reads_ready(current):
-            return True
-        parents = _git("rev-list", "--parents", "-n", "1", current).stdout.split()[1:]
-        if len(parents) != 2 or not _on_main(parents[1]):
-            return False
+        if _reads_ready(current, cwd):
+            return current
+        parents = _git("rev-list", "--parents", "-n", "1", current, cwd=cwd).stdout.split()[1:]
+        merge = (
+            len(parents) == 2
+            and _on_main(parents[1], cwd)
+            and (not clean_merges or _is_clean_merge(current, parents, cwd))
+        )
+        if not (merge or (len(parents) == 1 and _is_status_reply(current, parents[0], cwd))):
+            return None
         current = parents[0]
+
+
+def is_ready(sha: str) -> bool:
+    """READY by the trailer rule, or a chain of merges of main and empty status replies onto a commit
+    that is."""
+    return ready_commit(sha) is not None
 
 
 def main(argv: list[str]) -> int:
