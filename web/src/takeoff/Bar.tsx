@@ -9,7 +9,7 @@ import { useFormat } from '@/format'
 import { Button, KeyCombo, KeyScope, cn, useKeys } from '@/ui'
 import { SheetName } from './acts'
 import type { ProposalOut } from './data'
-import { REASONS, isGaps, whyOneSource, type Reason, type Row, type Step1Model } from './model'
+import { REASONS, isGaps, nextOpenRow, whyOneSource, type Reason, type Row, type Step1Model } from './model'
 import { Answering, QuestionTitle, cardContext, prePick } from './questionWords'
 import type { Answerer } from './Step1Inspector'
 import { disciplineName } from './SheetList'
@@ -181,6 +181,14 @@ export function useBar(c: BarContext): BarSpec | null {
   const n = model.bulk.confirm.length
   const m = model.bulk.leaveOut.length
   const bulkable = n + m > 0
+  // Nothing open: every sheet confirmed or excluded, no Question open, Coverage none unaccounted (§6.4's "Step 1 confirmed").
+  // A file still being read keeps it open: its sheets have not joined the list (§4.7); nothing open is no next row.
+  const reading = (c.reading ?? 0) > 0
+  const settled = !reading && model.allConfirmed && !bulkable && model.unaccounted === 0 && nextOpenRow(model.rows, null) === null
+  const confirmedBar: BarSpec = {
+    what: <Trans>Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage has none unaccounted</Trans>,
+    why: <Trans>Step 2, General notes and specification, comes in M1.</Trans>,
+  }
 
   if (c.readOnly) {
     const role = c.readOnly
@@ -259,6 +267,8 @@ export function useBar(c: BarContext): BarSpec | null {
       }
     }
     if (sheet && sheet.decision === 'confirmed') {
+      // With nothing left open there is no next item: the bar says Step 1 is confirmed, with no button for Enter.
+      if (settled) return confirmedBar
       const by = sheet.decided_by ?? ''
       const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
       const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
@@ -346,11 +356,7 @@ export function useBar(c: BarContext): BarSpec | null {
     return { ...bulkSpec, ghost: { label: <Trans>Open <SheetName sheets={row.sheets} /></Trans>, run: () => c.openRow(openRow), combo: 'Space' } }
   }
   if (bulkable) return bulkSpec
-  if (model.allConfirmed)
-    return {
-      what: <Trans>Step 1 is confirmed: every sheet is confirmed or excluded, and Coverage has none unaccounted</Trans>,
-      why: <Trans>Step 2, General notes and specification, comes in M1.</Trans>,
-    }
+  if (model.allConfirmed && !reading) return confirmedBar
   if (model.oneSource.length > 0) {
     const first = model.oneSource[0]!
     const count = model.oneSource.filter((p) => p.discipline === first.discipline).length

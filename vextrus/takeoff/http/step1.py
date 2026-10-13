@@ -10,6 +10,7 @@ another Developer, or none at all is the one 404 (`platform.auth.not_found`), an
 import json
 import urllib.parse
 import uuid
+from dataclasses import asdict
 
 from django.http import HttpRequest
 from ninja import Router
@@ -27,6 +28,7 @@ from vextrus.takeoff.schemas.step1 import (
     Step1DrawingListIn,
     Step1DrawingListOut,
     Step1ExcludeIn,
+    Step1HistoryOut,
     Step1ParsedListOut,
     Step1ProgressOut,
     Step1ProposalOut,
@@ -53,6 +55,15 @@ def list_proposals(request: HttpRequest, project_id: uuid.UUID) -> Step1Proposal
     """One per printed sheet: by Discipline, then number in natural order, with who decided it."""
     return Step1ProposalsOut(
         proposals=[Step1ProposalOut.from_view(p) for p in step1.proposals(project_id)]
+    )
+
+
+@router.get(f"{_PREFIX}/proposals/{{proposal_id}}/history", response=Step1HistoryOut)
+@declare(acts.LOOK, project="project_id")
+def get_history(request: HttpRequest, project_id: uuid.UUID, proposal_id: uuid.UUID) -> Step1HistoryOut:
+    """Every act on the sheet from the event log, oldest first ("Who did what", m0-screens 6.6)."""
+    return Step1HistoryOut.model_validate(
+        {"acts": [asdict(a) for a in step1.history(project_id, proposal_id)]}
     )
 
 
