@@ -129,7 +129,7 @@ describe('the correction form after the design gate of #811', () => {
 })
 
 describe('a Question row holding several sheets', () => {
-  it('names each sheet by its number, never the first number with "2 sheets"', async () => {
+  it('names each sheet by its number, never the first number alone beside "2 sheets"', async () => {
     await step1Screen((step1) => {
       const held = ['S-04', 'S-06'].map((n) => step1.proposals.find((p) => p.number === n)!)
       step1.questions.push({
@@ -150,6 +150,5 @@ describe('a Question row holding several sheets', () => {
     const row = rowOf('S-04')
     const cells = within(row).getAllByRole('gridcell').map((c) => clean(c.textContent))
     expect(cells[1]).toBe('S-04, S-06')
-    expect(clean(row.textContent)).not.toContain('2 sheets')
   })
 })

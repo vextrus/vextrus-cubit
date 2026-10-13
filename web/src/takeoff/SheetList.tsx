@@ -560,17 +560,6 @@ function SheetRow({
         <span className="shrink-0 whitespace-nowrap">, {count} copies</span>
       </Trans>
     )
-  else if (several)
-    title = (
-      <span className="min-w-0 truncate">
-        {row.sheets.map((s, i) => (
-          <Fragment key={s.id}>
-            {i > 0 ? '; ' : null}
-            <DrawingText kind="title" text={s.title} truncate={false} />
-          </Fragment>
-        ))}
-      </span>
-    )
   else if (row.sheets.length > 1)
     // A continuation the server names is titled with its member-mark ranges joined (T-W334).
     title = (

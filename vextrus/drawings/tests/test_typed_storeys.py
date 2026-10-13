@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from engine.recognise import storeys as storey_reader
 from vextrus.drawings.services import corrections
 from vextrus.platform.services import auth
 
@@ -139,7 +140,7 @@ def test_every_floor_the_engine_reads_may_be_listed_in_any_order() -> None:
 def test_a_list_read_together_otherwise_than_item_by_item_has_its_own_words(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    real = corrections.storey_reader.read
+    real = storey_reader.read
 
     def read(text: str, conventions: Any, *, plan_title: bool) -> Any:
         found = real(text, conventions, plan_title=plan_title)
@@ -147,6 +148,6 @@ def test_a_list_read_together_otherwise_than_item_by_item_has_its_own_words(
             return type(found)(as_stated=found.as_stated, keys=(*found.keys, "floor_99"))
         return found
 
-    monkeypatch.setattr(corrections.storey_reader, "read", read)
+    monkeypatch.setattr(storey_reader, "read", read)
 
     assert refused("3rd, 5th")["code"] == "drawings.sheets.storeys_read_together"
