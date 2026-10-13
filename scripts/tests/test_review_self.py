@@ -23,6 +23,8 @@ from scripts.tests.acceptance.ts25f1._world import (
     script,
 )
 
+pytestmark = pytest.mark.serial  # the Ctrl-C test sends a signal: not under xdist (see ci.yml)
+
 STAGED_MARK = "STAGED_EDIT_MARK_1A"
 UNSTAGED_MARK = "UNSTAGED_EDIT_MARK_2B"
 UNTRACKED_MARK = "UNTRACKED_FILE_MARK_3C"
