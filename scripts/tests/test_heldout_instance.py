@@ -797,6 +797,85 @@ def test_the_sql_stops_on_any_setting_it_did_not_write(cluster: Cluster, plant: 
 
 
 @needs_postgres
+def test_the_database_is_copied_from_template0_never_a_planted_template1(cluster: Cluster) -> None:
+    # The PR #753 review, round 2 (65): until step 3 every build session held the superuser's
+    # password, so it could plant a SECURITY DEFINER event trigger in template1, which CREATE DATABASE
+    # copies.
+    plant = (
+        "CREATE FUNCTION planted_copy() RETURNS event_trigger LANGUAGE plpgsql SECURITY DEFINER"
+        " AS $$ BEGIN END $$;"
+        " CREATE EVENT TRIGGER planted ON ddl_command_end EXECUTE FUNCTION planted_copy()"
+    )
+    assert cluster.psql(f"ALTER DATABASE {DB} RENAME TO heldout_kept").returncode == 0
+    try:
+        planted = cluster.psql(plant, db="template1")
+        assert planted.returncode == 0, planted.stderr
+        made = _run_roles_sql(cluster)
+        assert made.returncode == 0, made.stderr
+        found = cluster.psql(
+            "select (select count(*) from pg_event_trigger) + (select count(*) from pg_proc"
+            " where proname = 'planted_copy')",
+            user="vextrus_heldout",
+            db=DB,
+            host="127.0.0.1",
+            pgpass=cluster.key_pgpass,
+        )
+        assert found.returncode == 0, found.stderr
+        assert found.stdout.strip() == "0"
+    finally:
+        cluster.psql(
+            "DROP EVENT TRIGGER IF EXISTS planted; DROP FUNCTION IF EXISTS planted_copy()",
+            db="template1",
+        )
+        cluster.psql(f"DROP DATABASE IF EXISTS {DB}")
+        assert cluster.psql(f"ALTER DATABASE heldout_kept RENAME TO {DB}").returncode == 0
+    assert _run_roles_sql(cluster).returncode == 0
+
+
+@needs_postgres
+def test_the_sql_stops_when_template0_takes_connections(cluster: Cluster) -> None:
+    assert cluster.psql("ALTER DATABASE template0 ALLOW_CONNECTIONS true").returncode == 0
+    try:
+        stopped = _run_roles_sql(cluster)
+        assert stopped.returncode != 0
+        assert "template0 takes connections" in stopped.stderr
+    finally:
+        assert cluster.psql("ALTER DATABASE template0 ALLOW_CONNECTIONS false").returncode == 0
+
+
+@needs_postgres
+def test_a_first_run_stopped_half_way_resumes_from_its_own_mark(
+    cluster: Cluster, tmp_path: Path
+) -> None:
+    # The PR #753 review, round 2 (55): a wall stopped the first run after the SQL made the roles and the
+    # database but before any password; the re-run took them for someone else's.
+    fresh = tmp_path / "no-pgpass-yet"
+    mark = tmp_path / "first-run-started"
+    mark.write_text("")
+    resumed = cluster.script(f"KEY_PGPASS={fresh}; FIRST_RUN={mark}; refuse_foreign_instance")
+    assert resumed.returncode == 0, resumed.stdout
+    link = tmp_path / "linked-mark"
+    link.symlink_to(mark)
+    linked = cluster.script(f"KEY_PGPASS={fresh}; FIRST_RUN={link}; refuse_foreign_instance")
+    assert linked.returncode != 0
+    absent = cluster.script(
+        f"KEY_PGPASS={fresh}; FIRST_RUN={tmp_path / 'none'}; refuse_foreign_instance"
+    )
+    assert absent.returncode != 0
+    assert "not by this script" in absent.stdout
+
+
+def test_the_mark_is_written_the_key_users_after_the_check_and_before_the_sql() -> None:
+    text = SCRIPT.read_text()
+    main = text[text.index("\nmain() {\n") :]
+    check = main.index("    refuse_foreign_instance\n")
+    mark = main.index('    install -o "$KEY_USER" -g "$KEY_USER" -m 0600 /dev/null "$FIRST_RUN"\n')
+    sql = main.index('super_psql -f - < "$tmp/heldout-roles.sql"')
+    assert main.index("    close_superusers\n") < check < mark < sql
+    assert variable("FIRST_RUN").startswith(variable("INSTANCE") + "/")
+
+
+@needs_postgres
 def test_the_first_run_stops_on_a_database_or_role_it_did_not_make(
     cluster: Cluster, tmp_path: Path
 ) -> None:

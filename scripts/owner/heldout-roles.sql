@@ -30,7 +30,18 @@ BEGIN
   END IF;
 END
 $foreign$;
-SELECT 'CREATE DATABASE vextrus_heldout OWNER vextrus_heldout'
+-- Copied from template0, never template1: template1 is whatever the cluster's superuser left in it, and
+-- until step 3 every build session held that superuser's password, so a SECURITY DEFINER event trigger
+-- planted there would fire as the superuser in the instance's own migrations. template0 takes no
+-- connections (checked below), so no one has shaped it.
+DO $template$
+BEGIN
+  IF EXISTS (SELECT FROM pg_database WHERE datname = 'template0' AND (datallowconn OR NOT datistemplate)) THEN
+    RAISE EXCEPTION 'template0 takes connections, so it may have been changed: ALTER DATABASE template0 ALLOW_CONNECTIONS false, and check it';
+  END IF;
+END
+$template$;
+SELECT 'CREATE DATABASE vextrus_heldout OWNER vextrus_heldout TEMPLATE template0'
  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'vextrus_heldout') \gexec
 -- Never a template: a role with CREATEDB could otherwise copy it (CREATE DATABASE … TEMPLATE).
 ALTER DATABASE vextrus_heldout IS_TEMPLATE false;

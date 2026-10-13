@@ -46,6 +46,7 @@ STORE=$INSTANCE/store        # VEXTRUS_STORAGE_ROOT: the Held-out Set's uploaded
 LOGS=$INSTANCE/logs          # each process's log
 SETTINGS=$INSTANCE/instance.env
 JEV_KEY=$INSTANCE/jev.key    # the key user's own copy of the owner's local key (ADR 0013)
+FIRST_RUN=$INSTANCE/.first-run-started  # this script's own mark: its first run reached the SQL
 SERVE=$INSTANCE/serve        # the launcher, root's
 HOST=127.0.0.1
 PORT=5432
@@ -223,12 +224,15 @@ new_password() {
   unset password
 }
 
-# The first run makes the database and both roles fresh: with no line of ours in the key user's pgpass
-# file, this script never ran to its passwords, so a vextrus_heldout or either role already there was made
-# by someone else (the superuser, before step 3 closed it, or a role with CREATEDB) and is never taken
-# over: it stops, naming what to drop.
+# The first run makes the database and both roles fresh. Before it runs the SQL (after step 3 has closed
+# the superuser), the script writes $FIRST_RUN under the key user's home, which no one else can write; a
+# run that stopped half-way (a wall the owner then fixed) resumes from it. With neither that marker nor a
+# line of ours in the key user's pgpass file, a vextrus_heldout or either role already there was made by
+# someone else (the superuser, before step 3 closed it, or a role with CREATEDB) and is never taken over:
+# it stops, naming what to drop.
 refuse_foreign_instance() {
   local found
+  if [ -f "$FIRST_RUN" ] && [ ! -L "$FIRST_RUN" ]; then return 0; fi
   if [ -f "$KEY_PGPASS" ] && grep -q "^$HOST:$PORT:$DB:$OWNER_ROLE:" "$KEY_PGPASS"; then return 0; fi
   found=$(super_psql -At -c "select string_agg(name, ', ') from (
       select 'database ' || datname as name from pg_database where datname = '$DB'
@@ -393,6 +397,7 @@ main() {
     "a fresh password for each role, set as a SCRAM verifier, written into $KEY_PGPASS (600) only"
   if ! dry; then
     refuse_foreign_instance
+    install -o "$KEY_USER" -g "$KEY_USER" -m 0600 /dev/null "$FIRST_RUN"
     as_key git -C "$APP" show "$github_main:scripts/owner/heldout-roles.sql" > "$tmp/heldout-roles.sql"
     super_psql -f - < "$tmp/heldout-roles.sql" || die "heldout-roles.sql stopped (above); no password was set"
     new_password "$OWNER_ROLE"
