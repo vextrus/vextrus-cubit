@@ -4,7 +4,9 @@
 // returned state in $.store, and submits the lines it is handed.
 //
 // What wakes: READY, BLOCKED, CI-RED, LEAK-HIT, STATUS, WALK-SCRIPT-DONE, G1, BUDGET-PASSED, OWNER-*,
-// and `WALK - <sha> done`. PUSH and COMMIT wake at most once per ticket per 15 minutes (decided when
+// READY-NO-VERIFY, LOCAL-IDLE, BUILDER-BLOCKED (review round 1 of PR #794: with no Monitor on the log
+// nothing else reports them), and a walk's close: scripts/walk/run.py's `WALK - <sha8> done PASS`,
+// `done FAIL` or `error` (and `WALK - <sha> done`). PUSH and COMMIT wake at most once per ticket per 15 minutes (decided when
 // the line arrives); READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED and the PUSH or COMMIT that does not
 // wake ride along with the next wake. At most 12 wakes in any hour: past that the lines wait and the
 // band says "wakes capped".
@@ -16,7 +18,10 @@ export const HOUR_MS = 3_600_000
 export const PUSH_EVERY_MS = 15 * 60_000
 // The held lines kept at most: riders are dropped first, oldest first.
 export const HELD_MAX = 100
-export const WAKING = ["READY", "BLOCKED", "CI-RED", "LEAK-HIT", "STATUS", "WALK-SCRIPT-DONE", "G1", "BUDGET-PASSED"]
+export const WAKING = ["READY", "BLOCKED", "CI-RED", "LEAK-HIT", "STATUS", "WALK-SCRIPT-DONE", "G1", "BUDGET-PASSED", "READY-NO-VERIFY", "LOCAL-IDLE", "BUILDER-BLOCKED"]
+// A walk's closing detail, run.py's Events: `<sha> done`, `<sha> done PASS|FAIL` or `<sha> error`.
+// Its `started` and `check <id> PASS|FAIL|UNSET` lines ride along.
+const WALK_CLOSE = /^[0-9a-f]{7,40} (done(?: (PASS|FAIL))?|error)$/
 export const RIDING = ["READY-WAITING", "BUILDER-QUIET", "FLOOR-CROSSED"]
 export const ROUTINE = ["PUSH", "COMMIT"]
 // Every kind the wake reads (OWNER-* are the two the watcher and the orchestrator write).
@@ -30,7 +35,7 @@ const isTime = (v) => typeof v === "number" && Number.isFinite(v)
 export function kindOf(event) {
   const { kind, detail } = event
   if (WAKING.includes(kind) || kind.startsWith("OWNER-")) return "wake"
-  if (kind === "WALK") return /(^| )done$/.test(detail) ? "wake" : "ride"
+  if (kind === "WALK") return WALK_CLOSE.test(detail) ? "wake" : "ride"
   if (RIDING.includes(kind)) return "ride"
   if (ROUTINE.includes(kind)) return "routine"
   return null

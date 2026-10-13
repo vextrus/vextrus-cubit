@@ -135,3 +135,19 @@ test("a ticket name the launcher could not have made prints as ?, so no row pass
   const marks = wakeText(["x\u200e\u200f\u061cy"], status(T0, []), T0)
   assert.ok(!/[\u061c\u200e\u200f]/.test(marks), "bidi marks are stripped too")
 })
+
+// ---- review round 1 of PR #794 ----
+
+test("the walk script's closing lines wake (done PASS, done FAIL, error, a bare done); its started and check lines ride", () => {
+  const ev = (detail) => parseEvents(line(T0, "WALK", "-", detail), WAKE_KINDS)[0]
+  for (const detail of ["4596e870 done PASS", "4596e870 done FAIL", "4596e870 error", `${SHA} done`]) assert.equal(kindOf(ev(detail)), "wake", detail)
+  for (const detail of ["4596e870 started", "4596e870 check c1 PASS", "4596e870 check done FAIL", "4596e870 check c2 UNSET"]) assert.equal(kindOf(ev(detail)), "ride", detail)
+  assert.equal(kindOf(parseEvents(line(T0, "WALK", "smoke", "4596e870 done PASS"), WAKE_KINDS)[0]), "wake", "a smoke walk's close wakes too")
+})
+
+test("READY-NO-VERIFY, LOCAL-IDLE and BUILDER-BLOCKED wake: with no Monitor, nothing else reports them", () => {
+  for (const kind of ["READY-NO-VERIFY", "LOCAL-IDLE", "BUILDER-BLOCKED"]) {
+    const r = advance({ cursor: { at: "", hashes: [] } }, line(T0, kind, "t1", "x"), T0, false)
+    assert.ok(r.lines !== null && r.lines[0].includes(`${kind} t1 x`), kind)
+  }
+})
