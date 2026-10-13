@@ -97,6 +97,10 @@ class Step1ProposalOut(_FromView):
     it states none or they read to no storey."""
     layout: str | None
     """The layout it is laid out on, by name; null when laid out in the drawing."""
+    x_mm: float | None = None
+    """Where the frame it is laid out in sits along its file's x axis, in millimetres from the
+    drawing's origin (m0-screens 6.7: "laid out in the drawing, x 2,460 ft"); null on a layout, or
+    where the file's unit is not named."""
     plot_file: str | None
     plot_page: int | None
     plot_residual: str | None
