@@ -12,10 +12,6 @@ msgid "As its title block should read. Enter answers."
 msgstr "As its title block should read. Enter answers."
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "Proposed by Vextrus from the file; no one has acted on it yet."
-msgstr "Proposed by Vextrus from the file; no one has acted on it yet."
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "None: no PDF page is matched to it"
 msgstr "None: no PDF page is matched to it"
 
@@ -86,10 +82,6 @@ msgstr "Still reading {name}."
 #: src/takeoff/Step1Screen.tsx
 msgid "Go to the Drawing Set"
 msgstr "Go to the Drawing Set"
-
-#: src/takeoff/Step1Inspector.tsx
-msgid "Excluded: {reason}"
-msgstr "Excluded: {reason}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{file} page {page}, registered to {residual} mm"
@@ -225,12 +217,12 @@ msgid "No sheets yet: they arrive as {name} is read."
 msgstr "No sheets yet: they arrive as {name} is read."
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "{name}, {role}"
-msgstr "{name}, {role}"
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "read by Vextrus from the title"
 msgstr "read by Vextrus from the title"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "X — Y —"
+msgstr "X — Y —"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Still reading {name}: page {at} of {of}."
@@ -313,6 +305,10 @@ msgstr "Proposal: where each was read"
 msgid "None: no PDF has been added for {discipline}"
 msgstr "None: no PDF has been added for {discipline}"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Copy"
+msgstr "Copy"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 7 on the focused Question"
 msgstr "Pick answer 7 on the focused Question"
@@ -374,16 +370,8 @@ msgid "Previous row; in a sheet, the previous sheet"
 msgstr "Previous row; in a sheet, the previous sheet"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "Confirmed"
-msgstr "Confirmed"
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "What the QS has left, in order"
 msgstr "What the QS has left, in order"
-
-#: src/takeoff/Step1Inspector.tsx
-msgid "{name}, {date}, {time}"
-msgstr "{name}, {date}, {time}"
 
 #: src/takeoff/Step1Screen.tsx
 msgid "Show or hide the view outlines"
@@ -462,6 +450,10 @@ msgid "Pick an answer to {tag} first: {keys}"
 msgstr "Pick an answer to {tag} first: {keys}"
 
 #: src/takeoff/Step1Inspector.tsx
+msgid "Date"
+msgstr "Date"
+
+#: src/takeoff/Step1Inspector.tsx
 msgid "None: no page of {file} matched it"
 msgstr "None: no page of {file} matched it"
 
@@ -488,6 +480,10 @@ msgstr "text in the title block"
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: its PDF is still being read"
 msgstr "None: its PDF is still being read"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "{n, plural, one {# sheet, and the Trace} other {# sheets, and the Trace}}"
+msgstr "{n, plural, one {# sheet, and the Trace} other {# sheets, and the Trace}}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "{name} confirmed"
@@ -687,10 +683,6 @@ msgid "Opening Step 1…"
 msgstr "Opening Step 1…"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
-msgstr "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "Leave out {m}: {reasons}"
 msgstr "Leave out {m}: {reasons}"
 
@@ -723,10 +715,6 @@ msgid "Excluded by {name} (Vextrus), {date}: {reason}"
 msgstr "Excluded by {name} (Vextrus), {date}: {reason}"
 
 #: src/takeoff/Step1Inspector.tsx
-msgid "{name}, {role}, {date}, {time}"
-msgstr "{name}, {role}, {date}, {time}"
-
-#: src/takeoff/Step1Inspector.tsx
 msgid "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it."
 msgstr "↓ walks the list; Space opens a sheet; a Proposal counts toward nothing until the QS confirms it."
 
@@ -737,6 +725,10 @@ msgstr "Pick answer 1 on the focused Question"
 #: src/takeoff/Step1Screen.tsx
 msgid "Pick answer 4 on the focused Question"
 msgstr "Pick answer 4 on the focused Question"
+
+#: src/takeoff/Step1Screen.tsx
+msgid "X {x} Y {y}"
+msgstr "X {x} Y {y}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "None: its PDF could not be read"

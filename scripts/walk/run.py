@@ -412,16 +412,32 @@ def _wait_for(url: str, stack: Stack) -> None:
 QS_EMAIL = "nusrat@shapla-homes.example"
 """The seed's QS (docs/design/m0-screens.md 7), whom the scripted walk and the agent layer sign in as."""
 
+SEEDED_PEOPLE = (
+    ("qs", QS_EMAIL),
+    ("md", "kamal@shapla-homes.example"),
+    ("vextrus_engineer (Vextrus staff)", "arif@vextrus.example"),
+    ("guest", "farhana@padma-builders.example"),
+    ("qs of the second Developer Meghna", "tanvir@meghna.example"),
+    ("qs of the second Developer Chameli", "sharmin@chameli-homes.example"),
+)
+"""Every seeded role the finish-line items need (vextrus/seed/platform.py), one password for all."""
+
 
 def write_sign_in(path: Path, password: str) -> None:
     """The agent layer's sign-in for the served stack: one file, owner-only (0600), outside every walk
     folder (so no scan or summary reads it), removed when the stack stops. It is the only place the
-    per-run password is written; it is never printed or logged."""
+    per-run password is written; it is never printed or logged. `email` and `password` stay the QS's
+    pair the critics read; `people` names every other seeded role (all with that one password)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.unlink(missing_ok=True)
     handle = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(handle, "w", encoding="utf-8") as file:
-        file.write(json.dumps({"email": QS_EMAIL, "password": password}) + "\n")
+        data = {
+            "email": QS_EMAIL,
+            "password": password,
+            "people": [{"role": role, "email": email} for role, email in SEEDED_PEOPLE],
+        }
+        file.write(json.dumps(data) + "\n")
 
 
 def serve(walk: Plan, password: str, stack: Stack) -> None:
