@@ -116,10 +116,10 @@ def test_a_scripts_and_tools_change_runs_both_test_folders() -> None:
     assert any(part.startswith("tools/lint") for part in parts)
 
 
-def test_a_docs_only_change_plans_nothing() -> None:
+def test_a_docs_only_change_plans_only_the_node_tests() -> None:
     from scripts.verify import plan
 
-    assert plan(["docs/a.md"]) == []
+    assert [check.name for check in plan(["docs/a.md"])] == ["node-test"]
 
 
 def git(root: Path, *args: str) -> str:

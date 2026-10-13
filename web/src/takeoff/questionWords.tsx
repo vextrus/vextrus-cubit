@@ -8,7 +8,7 @@ import type { ReactNode } from 'react'
 import type { I18n } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
-import { useFormat } from '@/format'
+import { lengthFromMm, useFormat } from '@/format'
 import { MachineText } from '@/format/machine'
 import { DrawingText } from '@/ui'
 import { isolateLtr } from '@/ui/notation'
@@ -158,11 +158,23 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (q.kind === 'file_misread') return has(q.code) ? <MachineText message={{ code: q.code, params: params(entry, i18n) }} /> : null
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
+    // Alike in every field the table shows: said, so the QS knows nothing on the card can tell them apart.
+    const tied = copiesTie(entry.holds) ? <> <Trans>The copies are alike in every field the table shows.</Trans></> : null
     if (titles.length === 1 && !titles[0]!.trim())
-      return <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
+      return (
+        <>
+          <Plural value={entry.holds.length} _2="Neither has a title. Only one can be read, unless they are different sheets." other="None of the # has a title. Only one can be read, unless they are different sheets." />
+          {tied}
+        </>
+      )
     if (titles.length === 1) {
       const title = <DrawingText kind="title" text={titles[0]!} truncate={false} />
-      return <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+      return (
+        <>
+          <Trans>Both are titled “{title}”. Only one can be read.</Trans>
+          {tied}
+        </>
+      )
     }
     return <Trans>Their titles differ. Only one can be read, unless they are different sheets.</Trans>
   }
@@ -185,6 +197,8 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
       const page = q.params.page
       return <Trans>Page {page} of the Plot shows {number}, and no DWG has a sheet with that number.</Trans>
     }
+    // A sheet in a file the drawing list does not name: it exists, so it is never "in no file" (#689).
+    if (q.code === 'engine.register_check.not_listed') return <Trans>{number} is in a file added, and the drawing list does not name it.</Trans>
     const list = <ListSource entry={entry} context={context} />
     return <Trans>{number} is named on {list}, and no file added has a sheet with that number.</Trans>
   }
@@ -278,6 +292,46 @@ function Joined({ items }: { items: readonly ReactNode[] }) {
   )
 }
 
+/** The fields that tell copies apart, in the order a copy is named by them (m0-screens 6.7 names it "R1 (14 Sep 2026)" first): the first that tells IT from EVERY other. */
+const COPY_FIELDS = ['mark', 'date', 'title', 'file', 'place'] as const
+type CopyField = (typeof COPY_FIELDS)[number]
+
+function copyField(h: ProposalOut, field: CopyField): string {
+  switch (field) {
+    case 'title':
+      return h.title.trim()
+    case 'file':
+      return h.file_name
+    case 'place':
+      // A copy laid out in the drawing is placed by where its frame sits (the File cell says it).
+      return h.layout ?? (h.x_mm == null ? '' : `x ${h.x_mm}`)
+    case 'mark':
+      return h.revision_mark.trim()
+    case 'date':
+      return h.issue_date ?? ''
+  }
+}
+
+/**
+ * The first field whose value on `sheet` no other copy has (an empty title, mark or date names nothing),
+ * or null when none does. The file is compared by the name the table shows, not by id: two files can
+ * share a name (the upload keeps a same-named file beside the first).
+ */
+export function telling(sheet: ProposalOut, holds: readonly ProposalOut[]): CopyField | null {
+  for (const field of COPY_FIELDS) {
+    const mine = copyField(sheet, field)
+    if (field !== 'file' && field !== 'place' && !mine) continue
+    if (holds.every((o) => o === sheet || copyField(o, field) !== mine)) return field
+  }
+  return null
+}
+
+/** Whether the copies are alike in every field the copies table shows (mark, date, title, file name, place). */
+export function copiesTie(holds: readonly ProposalOut[]): boolean {
+  const key = (h: ProposalOut) => COPY_FIELDS.map((f) => copyField(h, f)).join('\u0000')
+  return holds.length > 1 && new Set(holds.map(key)).size === 1
+}
+
 /** A copy by its mark: "R1" as drawn, a bare letter as "rev B" (§5, §6.7); "no revision mark" for none. */
 export function Copy({ sheet }: { sheet: ProposalOut }) {
   if (!sheet.revision_mark.trim()) return <Trans>no revision mark</Trans>
@@ -286,17 +340,56 @@ export function Copy({ sheet }: { sheet: ProposalOut }) {
 }
 
 /**
- * Two copies told apart in an option's words: by mark where both have one and they differ, else by
- * date, else by place in the card's list of copies.
+ * One copy named in an option's words by the first field that tells it from every other copy (mark, date, title,
+ * file, place; m0-screens 6.7); when none does, by its place in the table, and the card says the copies tie.
  */
-function CopyIn({ sheet, other, first }: { sheet: ProposalOut; other: ProposalOut; first: boolean }) {
+function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly ProposalOut[] }) {
   const f = useFormat()
-  if (sheet.revision_mark.trim() && other.revision_mark.trim() && sheet.revision_mark !== other.revision_mark) return <Copy sheet={sheet} />
-  if (sheet.issue_date && other.issue_date && sheet.issue_date !== other.issue_date) {
-    const date = f.day(sheet.issue_date)
-    return <Trans>the copy dated {date}</Trans>
+  switch (telling(sheet, holds)) {
+    case 'title': {
+      const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
+      return <Trans>the copy titled “{named}”</Trans>
+    }
+    case 'file': {
+      const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} />
+      return <Trans>the copy in {file}</Trans>
+    }
+    case 'place': {
+      if (!sheet.layout) {
+        if (sheet.x_mm == null) return <Trans>the copy laid out in the drawing</Trans>
+        const x = f.coordinate(lengthFromMm(sheet.x_mm))
+        return <Trans>the copy laid out in the drawing at x {x}</Trans>
+      }
+      const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
+      return <Trans>the copy on layout “{layout}”</Trans>
+    }
+    case 'mark':
+      return <Copy sheet={sheet} />
+    case 'date': {
+      const date = f.day(sheet.issue_date!)
+      return <Trans>the copy dated {date}</Trans>
+    }
+    default: {
+      // A tied copy is named by its row, so no two options read the same (3 or more copies tie as easily as 2).
+      const row = f.integer(holds.indexOf(sheet) + 1)
+      return <Trans>the copy in row {row}</Trans>
+    }
   }
-  return first ? <Trans>the first copy</Trans> : <Trans>the second copy</Trans>
+}
+
+/** Where a copy sits, as the File cell words it: its file, then its layout or "laid out in the drawing" (6.6). */
+export function CopyPlace({ sheet }: { sheet: ProposalOut }) {
+  const f = useFormat()
+  // Only the file name breaks anywhere (a long one must fit its cell); the words around it break at spaces.
+  const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} className="[overflow-wrap:anywhere]" />
+  if (!sheet.layout) {
+    if (sheet.x_mm == null) return <Trans>{file}, laid out in the drawing</Trans>
+    // Where its frame sits along the file's x axis, in the user's Display Units (m0-screens 6.7: "x 2,460′").
+    const x = f.coordinate(lengthFromMm(sheet.x_mm))
+    return <Trans>{file}, laid out in the drawing, x {x}</Trans>
+  }
+  const layout = <DrawingText kind="mark" text={sheet.layout} truncate={false} />
+  return <Trans>{file}, layout “{layout}”</Trans>
 }
 
 /**
@@ -399,9 +492,8 @@ export function OptionWords({ entry, option }: { entry: QuestionEntry; option: O
   const pair = keptAndDropped(entry, key)
   if (pair) {
     const { keep, drop } = pair
-    const later = entry.holds[0]
-    const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
-    const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
+    const kept = <CopyIn sheet={keep} holds={entry.holds} />
+    const dropped = <CopyIn sheet={drop} holds={entry.holds} />
     const byMark = !!keep.revision_mark.trim() && !!drop.revision_mark.trim() && keep.revision_mark !== drop.revision_mark
     const date = byMark && keep.issue_date ? f.day(keep.issue_date) : null
     const others = entry.holds.length - 1
@@ -575,8 +667,8 @@ export function Answering({ entry, context, choice, hint = false }: { entry: Que
     const pair = keptAndDropped(entry, picked)
     if (pair) {
       const { keep, drop } = pair
-      const kept = <CopyIn sheet={keep} other={drop} first={keep === later} />
-      const dropped = <CopyIn sheet={drop} other={keep} first={drop === later} />
+      const kept = <CopyIn sheet={keep} holds={entry.holds} />
+      const dropped = <CopyIn sheet={drop} holds={entry.holds} />
       const others = n - 1
       if (others > 1)
         return (

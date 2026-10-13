@@ -12,18 +12,17 @@ import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { TAKEOFF_STEPS } from '@/app/steps'
 import { useFormat } from '@/format'
 import { Button, DrawingText, KeyCombo, KeyScope, TextField, cn, useKeys } from '@/ui'
-import type { MessageDescriptor } from '@lingui/core'
 import { msg } from '@lingui/core/macro'
-import { ActorChip } from './ActorChip'
+import { CorrectedBy, SheetHistory, reasonOf } from './SheetHistory'
 import { StoreyStrip, StoreysText, knownStorey, useStoreysWords } from './storeys'
 import { QuestionGlyph } from '@/ui/glyphs'
 import { SheetName, type CorrectionRefusal, type SheetChange } from './acts'
 import { SheetRange } from './SheetRange'
 import type { CoverageOut, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
-import { AnswerNote, Answering, cardContext, Copy, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
+import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
 import { disciplineName } from './SheetList'
-import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, ROLE_NAMES, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
+import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
   return (
@@ -238,62 +237,6 @@ function Decided({ sheet, readOnly }: { sheet: ProposalOut; readOnly: boolean })
   )
 }
 
-function reasonOf(sheet: { excluded_reason: string | null; excluded_text?: string }, i18n: { _: (d: MessageDescriptor) => string }): string {
-  return sheet.excluded_reason === 'other' && sheet.excluded_text ? sheet.excluded_text : i18n._((sheet.excluded_reason && REASON_SHORT[sheet.excluded_reason]) || UNKNOWN_REASON)
-}
-
-/** One act in "who did what" (§6.6): the what, over "name, role, time" with the initials chip. */
-function Act({ sheet }: { sheet: ProposalOut }) {
-  const { i18n } = useLingui()
-  const f = useFormat()
-  const name = sheet.decided_by ?? ''
-  const roleWords = sheet.decided_by_role ? ROLE_NAMES[sheet.decided_by_role] : undefined
-  const role = roleWords ? i18n._(roleWords) : null
-  const date = sheet.decided_at ? f.date(sheet.decided_at) : ''
-  const time = sheet.decided_at ? f.time(sheet.decided_at) : ''
-  const others = Math.max(0, (sheet.decided_with ?? 0) - 1)
-  const reason = reasonOf(sheet, i18n)
-  const what =
-    sheet.decision === 'excluded' ? (
-      <Trans>Excluded: {reason}</Trans>
-    ) : others > 0 ? (
-      <Plural value={others} one="Confirmed in bulk with # other sheet" other="Confirmed in bulk with # other sheets" />
-    ) : (
-      <Trans>Confirmed</Trans>
-    )
-  return (
-    <div className="flex flex-col">
-      <span>{what}</span>
-      <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
-        {name ? <ActorChip name={name} role={sheet.decided_by_role} /> : null}
-        <ActLine name={name} role={role} date={date} time={time} />
-      </span>
-    </div>
-  )
-}
-
-/** "Nusrat Jahan, QS, 26 Sep 2026, 10:42", leaving out what is not known (no hanging comma). */
-function ActLine({ name, role, date, time }: { name: string; role: string | null; date: string; time: string }) {
-  if (name && role && date)
-    return (
-      <Trans>
-        {name}, {role}, {date}, {time}
-      </Trans>
-    )
-  if (name && date)
-    return (
-      <Trans>
-        {name}, {date}, {time}
-      </Trans>
-    )
-  if (name && role)
-    return (
-      <Trans>
-        {name}, {role}
-      </Trans>
-    )
-  return <>{name}</>
-}
 
 function Fact({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
@@ -630,6 +573,7 @@ function CorrectForm({ correcting }: { correcting: Correcting }) {
 }
 
 export function SheetFacts({
+  projectId,
   row,
   showTitle,
   readOnly,
@@ -640,6 +584,7 @@ export function SheetFacts({
   open,
   correcting = null,
 }: {
+  projectId: string
   row: Row
   /** In sheet mode, the sheet open: of two copies in one row, the one shown (M18). */
   open?: ProposalOut
@@ -656,7 +601,6 @@ export function SheetFacts({
   const sheet = open && row.sheets.some((s) => s.id === open.id) ? open : row.sheets[0]
   if (!sheet) return null
   const excluded = row.sheets.every((s) => s.decision === 'excluded')
-  const decided = row.sheets.filter((s) => s.decision)
   return (
     <>
       <Block>
@@ -678,7 +622,8 @@ export function SheetFacts({
           <Fact label={<Trans>Number</Trans>}>
             {sheet.number ? (
               <>
-                <DrawingText kind="sheet-number" text={sheet.number} truncate={false} /> <ReadFrom source={sheet.number_source} />
+                <DrawingText kind="sheet-number" text={sheet.number} truncate={false} />{' '}
+                {sheet.number_source === 'typed' ? <CorrectedBy projectId={projectId} sheet={sheet} field="number" /> : <ReadFrom source={sheet.number_source} />}
               </>
             ) : (
               <span className="text-question">
@@ -688,7 +633,7 @@ export function SheetFacts({
           </Fact>
           <Fact label={<Trans>Title</Trans>}>
             {sheet.title ? (
-              <ReadFrom source={sheet.title_source} />
+              sheet.title_source === 'typed' ? <CorrectedBy projectId={projectId} sheet={sheet} field="title" /> : <ReadFrom source={sheet.title_source} />
             ) : (
               <span className="text-question">
                 <Trans>not found</Trans>
@@ -721,22 +666,16 @@ export function SheetFacts({
       )}
       <Views sheet={sheet} selected={selectedView} onSelect={onSelectView} readOnly={readOnly} />
       <Block title={<Trans>Who did what</Trans>}>
-        {decided.length === 0 ? (
-          <p>
-            <Trans>Proposed by Vextrus from the file; no one has acted on it yet.</Trans>
-          </p>
-        ) : (
-          decided.map((s) => (
-            <div key={s.id}>
-              {row.sheets.length > 1 ? (
-                <span className="text-xs text-ink-secondary">
-                  <SheetName sheets={[s]} /> <Copy sheet={s} />
-                </span>
-              ) : null}
-              <Act sheet={s} />
-            </div>
-          ))
-        )}
+        {row.sheets.map((s) => (
+          <div key={s.id}>
+            {row.sheets.length > 1 ? (
+              <span className="text-xs text-ink-secondary">
+                <SheetName sheets={[s]} /> <Copy sheet={s} />
+              </span>
+            ) : null}
+            <SheetHistory projectId={projectId} sheet={s} />
+          </div>
+        ))}
       </Block>
       {!readOnly && acts ? (
         <Block>
@@ -828,6 +767,8 @@ function NumberField({ entry, answerer, pick }: { entry: QuestionEntry; answerer
 function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: CardContext; onOpen?: (sheet: ProposalOut) => void }) {
   const f = useFormat()
   const copies = entry.question.code === 'engine.conflicts.same_number' && entry.holds.length >= 2
+  // Copies told apart by title: the table shows it, as the options name them by it.
+  const titlesDiffer = new Set(entry.holds.map((h) => h.title.trim())).size > 1
   const trace = (
     <p className="text-xs text-ink-secondary empty:hidden">
       <Trace entry={entry} context={context} onOpen={onOpen} />
@@ -855,10 +796,15 @@ function Evidence({ entry, context, onOpen }: { entry: QuestionEntry; context: C
               <tr key={s.id} className="align-top">
                 <td className="pe-2">
                   <Copy sheet={s} />
+                  {titlesDiffer ? (
+                    <span className="block text-ink-secondary">
+                      <DrawingText kind="title" text={s.title} truncate={false} />
+                    </span>
+                  ) : null}
                 </td>
                 <td className="pe-2 whitespace-nowrap">{s.issue_date ? f.day(s.issue_date) : '—'}</td>
-                <td className="min-w-0 break-all">
-                  <DrawingText kind="file-name" text={s.file_name} />
+                <td className="min-w-0 break-words">
+                  <CopyPlace sheet={s} />
                 </td>
               </tr>
             ))}

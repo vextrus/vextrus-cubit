@@ -19,13 +19,18 @@ them one after another:
 - Python: the changed modules' `pytest -rf`, `ruff check`, `ruff format --check`, `mypy`, `lint-imports`;
 - web, in the order that works on a fresh checkout: `export_openapi_schema`, `api:types`, `typecheck`,
   `lint`, `messages:check`, `npm --prefix web test`;
-- hooks: `node --test '.claude/hooks/**/*.test.mjs'` (a glob: Node 24 fails on a folder argument);
+- node tests, for any change under `.claude/`, `scripts/`, `tools/mod/`, `.github/` or `docs/`: CI's harness
+  step, read from `.github/workflows/ci.yml` (quoted globs: Node 24 fails on a folder argument);
 - workflow scripts: `python -m tools.lint.workflows_js`;
+- web, CI's second pass: `web-test-slowed` runs after `web-test`, the same run with
+  `VITE_FAKE_API_LATENCY_MS` read from `.github/workflows/web.yml`; a timed-out file of it is re-run alone, still
+  slowed;
 - a Claude Code plugin under `tools/mod/`: `claude plugin validate --json --strict` and `claude plugin
   test` (left out, with a `not run: claude absent` line, when `claude` is not on PATH).
 
 Each check's output is kept under `.private/work/verify/<tree>/`. A failure made only of tests listed as
-known flakes is run once more and, if that passes, recorded as a flake. The record goes to
+known flakes is run once more and, if that passes, recorded as a flake. A web test run that failed only by vitest's `Error: Test timed out` has each timed-out
+file run again alone with `--maxWorkers=1`, and passes only if each passes; any other failure stands. The record goes to
 `$(git rev-parse --git-common-dir)/vextrus/verify-<tree>.json`, shared by every worktree, never committed;
 the guard's READY push gate reads it.
 

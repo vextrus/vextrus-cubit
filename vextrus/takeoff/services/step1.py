@@ -167,6 +167,9 @@ class ProposalView:
     no key. The screen words these, never the stated words (S15-E3)."""
     layout: str | None = None
     """The layout it is laid out on, by name; None when laid out in the drawing (a frame)."""
+    x_mm: float | None = None
+    """Where its frame's left edge sits in its file's drawing, in millimetres (m0-screens 6.7's
+    "laid out in the drawing, x 2,460 ft"); None on a layout, and for a unit the file does not name."""
     plot_file: str | None = None
     plot_page: int | None = None
     plot_residual: str | None = None
@@ -313,6 +316,29 @@ class ActView:
     sheets: int
     by: str
     at: datetime
+
+
+@dataclass(frozen=True)
+class HistoryAct:
+    """One act on a sheet, from the event log (m0-screens 6.6 item 5, "Who did what")."""
+
+    id: uuid.UUID
+    """The act's Confirmation: an undo has its undone act's."""
+    code: str
+    """The event's code (`takeoff.step1.` + `confirmed`, `confirmed_back_in`, `excluded`, `corrected`
+    or `undone`)."""
+    actor: str
+    """The person's name as it was then."""
+    actor_role: str | None
+    at: datetime
+    sheets: int | None = None
+    """How many sheets the act decided."""
+    reason: str | None = None
+    """An exclusion's reason key."""
+    text: str | None = None
+    """An exclusion's "other" words, as the QS typed them."""
+    changes: dict[str, dict[str, str | None]] | None = None
+    """A correction's `{number?, title?: {old, new, old_source}}`."""
 
 
 @dataclass(frozen=True)
@@ -654,6 +680,23 @@ def _place(numbers: Numbers, number: str | None, discipline: str) -> Hashable | 
     return None if parts is None else (parts[0], parts[1])
 
 
+_UNIT_MM = {"inch": Decimal("25.4"), "ft": Decimal("304.8"), "mm": Decimal(1), "m": Decimal(1000)}
+
+
+def _frame_x_mm(sheet: drawings.SheetView) -> float | None:
+    """The left edge of the frame a sheet is laid out in, in millimetres: its stored box's x0 in the
+    file's drawing units. None for a sheet on a layout (no box), or a file whose unit is not named."""
+    box = sheet.location.get("box")
+    unit = _UNIT_MM.get(sheet.drawing_unit)
+    if unit is None or not isinstance(box, list | tuple) or not box:
+        return None
+    try:
+        x = Decimal(str(box[0])) * unit
+    except ArithmeticError:
+        return None
+    return float(x) if x.is_finite() else None
+
+
 def _proposal_view(
     sheet: drawings.SheetView,
     proposal: Proposal | None,
@@ -694,6 +737,7 @@ def _proposal_view(
         title_source=sheet.sources.get("title"),
         storeys_as_stated=sheet.storeys_as_stated,
         layout=layout if isinstance(layout := sheet.location.get("layout"), str) else None,
+        x_mm=_frame_x_mm(sheet),
         plot_file=names.get(sheet.plot.file_id) if sheet.plot.file_id and sheet.plot.page else None,
         plot_page=sheet.plot.page,
         plot_residual=sheet.plot.residual,
@@ -1457,10 +1501,13 @@ def _act(
     before: Sequence[drawings.SheetView] = (),
     answering: bool = False,
     views: int = 0,
+    excluded: Mapping[str, str] | None = None,
 ) -> Confirmation:
-    """`views`: how many of `sheets` (the act's proposals) are views left out on their own."""
+    """`views`: how many of `sheets` (the act's proposals) are views left out on their own.
+    `excluded`: the reason (and the QS's words) of an exclusion, kept with the act for "Who did what"."""
+    given = {"excluded": dict(excluded)} if excluded else {}
     row = Confirmation.objects.create(
-        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}},
+        before={"sheets": {str(sheet.id): _decision_of(sheet) for sheet in before}, **given},
         tenant_id=_tenant(),
         project_id=project_id,
         step=SHEETS,
@@ -1944,6 +1991,7 @@ def _exclude(
             before=[sheet for sheet, _p in chosen],
             answering=answering,
             views=len(views),
+            excluded={"reason": reason, "text": words},
         )
         _withdraw_first(project_id, chosen, act)
         for sheet, proposal in chosen:
@@ -2503,6 +2551,96 @@ def undo(project_id: uuid.UUID) -> ActView:
         _record(act, said.UNDONE)
         _after_act(project_id)
     return _act_view(act)
+
+
+_HISTORY = (said.CONFIRMED, said.CONFIRMED_BACK_IN, said.EXCLUDED, said.CORRECTED, said.UNDONE)
+
+
+def history(project_id: uuid.UUID, proposal: uuid.UUID) -> list[HistoryAct]:
+    """Every act on a printed sheet, oldest first, from the event log (and the Confirmation of an
+    answer's second act, which logs none): confirmations (bulk ones with
+    how many sheets they decided), exclusions with their reason, corrections old to new, and each
+    undo after the act it took back (the undone act stays listed). `proposal`: the Proposal's id, or
+    the sheet's while none is proposed; any other, of another Project or none, is not found. An act is
+    found by the sheet its Confirmation names (`before`), so a sheet's number or title moving does not
+    lose it."""
+    sheet_id = next((p.subject_id for p in _proposals_of(project_id, Q(id=proposal))), proposal)
+    if sheet_id not in {s.id for s in _sheets(project_id)}:
+        raise auth.NotFound
+    named = str(sheet_id)
+    acts_of = {
+        c.id: c
+        for c in Confirmation.objects.filter(project_id=project_id, step=SHEETS).filter(
+            Q(before__sheets__has_key=named) | Q(before__corrected__sheet=named)
+        )
+    }
+    recorded = events.of_subjects(_HISTORY, subject_type="confirmation", subject_ids=acts_of)
+    roles = invitations.roles_of({c.user_id for c in acts_of.values()})
+    found: list[HistoryAct] = []
+    for event in recorded:
+        act = acts_of[event.subject_id]
+        counted = event.payload.get("sheets")
+        found.append(
+            HistoryAct(
+                id=act.id,
+                code=event.kind,
+                actor=act.by_name,
+                actor_role=roles.get(act.user_id),
+                at=event.occurred_at,
+                sheets=counted if isinstance(counted, int) else None,
+                **_given_by(event.kind, act, named),
+            )
+        )
+    # One answer is one event: the second act an answer takes (keep_latest confirms one copy and
+    # leaves the others out) logs none (`_act`), so its sheet's act is read from its Confirmation.
+    logged = {e.subject_id for e in recorded}
+    for act in acts_of.values():
+        if act.id in logged or act.act not in (ConfirmationAct.CONFIRM, ConfirmationAct.EXCLUDE):
+            continue
+        code = _event_of_act(act)
+        found.append(
+            HistoryAct(
+                id=act.id,
+                code=code.code,
+                actor=act.by_name,
+                actor_role=roles.get(act.user_id),
+                at=act.at,
+                sheets=act.proposals,
+                **_given_by(code.code, act, named),
+            )
+        )
+    return sorted(found, key=lambda a: a.at)
+
+
+def _event_of_act(act: Confirmation) -> MessageCode:
+    """The code `_event_of` gave an act, read back from its Confirmation: confirming sheets all
+    excluded before is "confirmed back in"."""
+    if act.act == ConfirmationAct.EXCLUDE:
+        return said.EXCLUDED
+    before = list((act.before.get("sheets") or {}).values())
+    if before and all(d and d.get("decision") == "excluded" for d in before):
+        return said.CONFIRMED_BACK_IN
+    return said.CONFIRMED
+
+
+def _given_by(code: str, act: Confirmation, sheet: str) -> dict[str, Any]:
+    """What an act gave, for its history entry: an exclusion's reason, a correction's changes."""
+    if code == said.EXCLUDED.code:
+        given = act.before.get("excluded") or {}
+        reason = given.get("reason")
+        text = given.get("text") if reason == "other" else None
+        return {"reason": reason, "text": text or None}
+    if code == said.CORRECTED.code:
+        made = act.before.get("corrected") or {}
+        sources = made.get("sources") or {}
+        return {
+            "changes": {
+                name: {"old": made[name][0], "new": made[name][1], "old_source": sources.get(name)}
+                for name in ("number", "title")
+                if name in made
+            }
+        }
+    return {}
 
 
 def _after_act(project_id: uuid.UUID, *, corrected: bool = False) -> None:

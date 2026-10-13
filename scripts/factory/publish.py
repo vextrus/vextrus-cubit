@@ -10,8 +10,9 @@ fails:
    locations, never its text), and a head left without a valid stamp (no corpus) is refused;
 4. `git push origin <branch>` pushes exactly that head, alone (a head only on origin is already there);
 5. the body is the READY commit's message after its subject, without its `Factory-` and attribution
-   trailers, plus a footer; `tools.leakscan file` scans it (and stamps its sha256), then `gh pr create
-   --body-file` opens one PR.
+   trailers, plus a footer under its own heading (built first: `merge_ready.cut_problems` runs on it
+   before any push, and a problem is refused, #759); `tools.leakscan file` scans it (and stamps its
+   sha256), then `gh pr create --body-file` opens one PR.
 
 Stamps and the corpus are written only by `tools.leakscan`; this module never prints a matched string.
 `VEXTRUS_LEAKSCAN_CMD` names another scanner command line (a test seam, as the watcher's).
@@ -29,6 +30,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from scripts import merge_ready
 from scripts.factory import leakwhere
 from scripts.factory.trailers import read as read_trailers
 
@@ -40,6 +42,7 @@ TITLE_LIMIT = 72
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
 ATTRIBUTION = re.compile(r"^(?:co-authored-by|claude-session|signed-off-by)\s*:", re.IGNORECASE)
 FACTORY = re.compile(r"^\s*factory[-_ ]", re.IGNORECASE)
+FOOTER_HEADING = "## Published"  # its own heading: a Cut section above never swallows the footer
 FOOTER = "Published by `scripts.factory.publish` from {sha}, its range leak-scanned."
 
 
@@ -281,7 +284,7 @@ def pr_body(message: str, sha: str) -> tuple[str, str]:
     title = lines[0].strip()[:TITLE_LIMIT] if lines else ""
     kept = [line for line in lines[1:] if not FACTORY.match(line) and not ATTRIBUTION.match(line)]
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip("\n")
-    return title, f"{body}\n\n{FOOTER.format(sha=sha)}\n"
+    return title, f"{body}\n\n{FOOTER_HEADING}\n{FOOTER.format(sha=sha)}\n"
 
 
 def body_file(root: Path, branch: str, sha: str, body: str) -> Path:
@@ -319,13 +322,18 @@ def publish(root: Path, branch: str) -> int:
     base = git_out(root, "merge-base", main, head)
     if base is None:
         raise Refused("the head shares no history with origin/main")
+    title, body = pr_body(message, head)
+    problems = merge_ready.cut_problems(body, merge_ready.issue_is_open)
+    if problems:
+        raise Refused(
+            f"merge_ready's Cut check would refuse the PR body: {'; '.join(problems)}: nothing is pushed"
+        )
     range_scan(root, base, head, branch)
     if local is not None and local != remote:
         push(root, branch, head)
         print(f"publish: pushed {branch} at {head[:8]}")
     else:
         print(f"publish: {branch} at {head[:8]} is already on origin")
-    title, body = pr_body(message, head)
     path = body_file(root, branch, head, body)
     scan_body(root, path)
     url = create_pr(branch, title, path)

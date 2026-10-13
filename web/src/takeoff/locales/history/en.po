@@ -1,0 +1,117 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-10-13 07:16+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Proposed by Vextrus from the file; no one has acted on it yet."
+msgstr "Proposed by Vextrus from the file; no one has acted on it yet."
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Corrected"
+msgstr "Corrected"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Excluded: {reason}"
+msgstr "Excluded: {reason}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "corrected by {name}; none was read"
+msgstr "corrected by {name}; none was read"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Undone"
+msgstr "Undone"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Confirmed back in"
+msgstr "Confirmed back in"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "{name}, {role}"
+msgstr "{name}, {role}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "the title, as read by Vextrus"
+msgstr "the title, as read by Vextrus"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Corrected: number {before} → {after}"
+msgstr "Corrected: number {before} → {after}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "the title-block attribute"
+msgstr "the title-block attribute"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Corrected: title"
+msgstr "Corrected: title"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Corrected: number {before} → {after}; title"
+msgstr "Corrected: number {before} → {after}; title"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Excluded"
+msgstr "Excluded"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "Confirmed"
+msgstr "Confirmed"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "{name}, {date}, {time}"
+msgstr "{name}, {date}, {time}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "the drawing list"
+msgstr "the drawing list"
+
+#. placeholder {0}: sheets - 1
+#: src/takeoff/SheetHistory.tsx
+msgid "{0, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+msgstr "{0, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "the text in the title block"
+msgstr "the text in the title block"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "an earlier correction"
+msgstr "an earlier correction"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "corrected by {name}; read {old} from {where}"
+msgstr "corrected by {name}; read {old} from {where}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "the file name"
+msgstr "the file name"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "corrected by {name}; read {old}"
+msgstr "corrected by {name}; read {old}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "the title of its view"
+msgstr "the title of its view"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+msgstr "{others, plural, one {Confirmed in bulk with # other sheet} other {Confirmed in bulk with # other sheets}}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "“<0/>”"
+msgstr "“<0/>”"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "{name}, {role}, {date}, {time}"
+msgstr "{name}, {role}, {date}, {time}"
+
+#: src/takeoff/SheetHistory.tsx
+msgid "typed by a person"
+msgstr "typed by a person"

@@ -97,6 +97,10 @@ class Step1ProposalOut(_FromView):
     it states none or they read to no storey."""
     layout: str | None
     """The layout it is laid out on, by name; null when laid out in the drawing."""
+    x_mm: float | None = None
+    """Where the frame it is laid out in sits along its file's x axis, in millimetres from the
+    drawing's origin (m0-screens 6.7: "laid out in the drawing, x 2,460 ft"); null on a layout, or
+    where the file's unit is not named."""
     plot_file: str | None
     plot_page: int | None
     plot_residual: str | None
@@ -130,6 +134,37 @@ class Step1ProposalOut(_FromView):
 
 class Step1ProposalsOut(Schema):
     proposals: list[Step1ProposalOut]
+
+
+class Step1CorrectedValueOut(Schema):
+    old: str
+    new: str
+    old_source: str | None
+    """Where the old value was read, as `number_source` / `title_source` are; null where none is kept."""
+
+
+class Step1HistoryActOut(_FromView):
+    """One act on a sheet, from the event log (m0-screens 6.6 item 5, "Who did what")."""
+
+    id: uuid.UUID
+    """The act's Confirmation; an undo has the id of the act it took back."""
+    code: str
+    """`takeoff.step1.confirmed`, `confirmed_back_in`, `excluded`, `corrected` or `undone`."""
+    actor: str
+    actor_role: str | None
+    at: datetime
+    sheets: int | None = None
+    reason: str | None = None
+    """An exclusion's reason key."""
+    text: str | None = None
+    """An exclusion's "other" words, as the QS typed them."""
+    changes: dict[str, Step1CorrectedValueOut] | None = None
+    """A correction's `number` and/or `title`, old to new."""
+
+
+class Step1HistoryOut(Schema):
+    acts: list[Step1HistoryActOut]
+    """Oldest first."""
 
 
 class Step1QuestionOut(_FromView):
