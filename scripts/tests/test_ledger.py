@@ -408,6 +408,9 @@ def test_fetch_verdict_judges_a_cloud_pass_by_the_bar(
         "web/src/permissions/Grant.tsx",
         "engine/plot/picture.py",
         "engine/plot/_picture_child.py",
+        # The owner's ruling of session 24 made these lax for that session only; session 25 ended it.
+        "engine/recognise/storeys.py",
+        "engine/plot/x.py",
     ],
 )
 def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
@@ -423,9 +426,6 @@ def test_a_60_on_a_wall_folder_blocks(tmp_path: Path, file: str) -> None:
         "web/src/x.tsx",
         "docs/x.md",
         "web/src/components/badge.tsx",
-        # The owner's ruling, session 24: recogniser and Plot rules are lax for that session only.
-        "engine/recognise/storeys.py",
-        "engine/plot/x.py",
     ],
 )
 def test_a_60_off_the_strict_trees_is_filed_not_blocking(tmp_path: Path, file: str) -> None:
