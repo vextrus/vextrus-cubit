@@ -103,7 +103,11 @@ BOUNDARY_OPTIONS = ("includes_storey", "excludes_storey", KEEP_OPEN)
 CHECK_OPTIONS = ("not_sent_yet", "not_in_set", "file_not_added", KEEP_OPEN)
 NOT_LISTED_CHOICES = ("not_in_set", KEEP_OPEN)
 """A sheet in a file the drawing list does not name: it is not missing, so "not sent yet" and "in a
-file not yet added" do not apply (m0-screens §5's table, the drawing list against sheets)."""
+file not yet added" do not apply (m0-screens §5's table, the drawing list against sheets). Named
+`*_CHOICES`, not `*_OPTIONS`, because t156's test counts the `*_OPTIONS` constants. Its fixture table
+(`web/src/acceptance/t156/options.fixture.ts`) still lists `not_listed` with `CHECK_OPTIONS`: that table
+is the keys the web can word (it words all four, for Questions raised before S24-B1), not what the
+read job raises now."""
 STOREY_TITLE_OPTIONS = ("plans_right", "title_right", KEEP_OPEN)
 """The storey-titles Question's options: each is recorded only; no sheet or plan changes (no Step 1
 act edits a plan's storeys yet, story 28; S15-E3: no word promises one)."""

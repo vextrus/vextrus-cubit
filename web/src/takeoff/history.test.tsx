@@ -80,6 +80,15 @@ describe('Who did what, where the history cannot be read', () => {
     expect(whoDidWhat()).toContain('Nusrat Jahan, QS, 26 Sep 2026')
   })
 
+  it('never says no one has acted on a decided sheet whose history lists nothing (an answer’s second act)', async () => {
+    const { api, step1 } = kr01()
+    Object.assign(sheetOf(step1, 'S-04'), { decision: 'excluded', excluded_reason: 'superseded', decided_by: 'Nusrat Jahan', decided_by_role: 'qs', decided_at: '2026-09-26T05:20:00Z', decided_with: 1 })
+    await focus(api, 'S-04')
+    await waitFor(() => expect(whoDidWhat()).toContain('Excluded: superseded'))
+    expect(whoDidWhat()).not.toContain('no one has acted on it yet')
+    expect(whoDidWhat()).toContain('Nusrat Jahan, QS, 26 Sep 2026')
+  })
+
   it('says no one has acted on an undecided sheet', async () => {
     const { api } = kr01(true)
     await focus(api, 'S-06')

@@ -111,3 +111,21 @@ def test_a_history_for_an_id_in_the_path_that_is_not_an_id_is_refused_whole(
     response = nusrat.get(f"{step1(kr01)}/proposals/not-an-id/history")
 
     assert response.status_code in (404, 422)
+
+
+def test_the_copy_a_keep_latest_answer_left_out_lists_its_exclusion(
+    nusrat: Api, kr01: uuid.UUID
+) -> None:
+    """One answer, one event: the answer's second act logs none, yet its sheet's history lists it."""
+    questions = nusrat.get(f"{step1(kr01)}/questions").json()["questions"]
+    [conflict] = [q for q in questions if q["kind"] == "conflict" and q["status"] == "open"]
+    response = nusrat.post(f"{step1(kr01)}/questions/{conflict['id']}/answer", {"option": "keep_latest"})
+    assert response.status_code == 200, response.content
+    [left_out] = [p for p in by_number(proposals(nusrat, kr01), "S-07") if p["decision"] == "excluded"]
+    [kept] = [p for p in by_number(proposals(nusrat, kr01), "S-07") if p["decision"] == "confirmed"]
+
+    acts = history(nusrat, kr01, left_out["id"])
+
+    assert [(a["code"], a["actor"], a["actor_role"]) for a in acts] == [(EXCLUDED, "Nusrat Jahan", "qs")]
+    assert acts[0]["reason"] == left_out["excluded_reason"]
+    assert codes(history(nusrat, kr01, kept["id"])) == [CONFIRMED]

@@ -325,6 +325,8 @@ function SheetActs({ projectId, sheet }: { projectId: string; sheet: ProposalOut
     )
   const acts = history.data?.filter((a) => KNOWN_ACTS.has(a.code))
   if (!acts) return null
+  // A decided sheet never reads "no one has acted": what it carries stands when its history lists nothing.
+  if (acts.length === 0 && sheet.decision) return <Act sheet={sheet} />
   if (acts.length === 0)
     return (
       <p>

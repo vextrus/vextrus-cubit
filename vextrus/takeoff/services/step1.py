@@ -2400,7 +2400,8 @@ _HISTORY = (said.CONFIRMED, said.CONFIRMED_BACK_IN, said.EXCLUDED, said.CORRECTE
 
 
 def history(project_id: uuid.UUID, proposal: uuid.UUID) -> list[HistoryAct]:
-    """Every act on a printed sheet, oldest first, from the event log: confirmations (bulk ones with
+    """Every act on a printed sheet, oldest first, from the event log (and the Confirmation of an
+    answer's second act, which logs none): confirmations (bulk ones with
     how many sheets they decided), exclusions with their reason, corrections old to new, and each
     undo after the act it took back (the undone act stays listed). `proposal`: the Proposal's id, or
     the sheet's while none is proposed; any other, of another Project or none, is not found. An act is
@@ -2417,8 +2418,8 @@ def history(project_id: uuid.UUID, proposal: uuid.UUID) -> list[HistoryAct]:
         )
     }
     recorded = events.of_subjects(_HISTORY, subject_type="confirmation", subject_ids=acts_of)
-    roles = invitations.roles_of({e.actor_user_id for e in recorded if e.actor_user_id})
-    found = []
+    roles = invitations.roles_of({c.user_id for c in acts_of.values()})
+    found: list[HistoryAct] = []
     for event in recorded:
         act = acts_of[event.subject_id]
         counted = event.payload.get("sheets")
@@ -2433,7 +2434,36 @@ def history(project_id: uuid.UUID, proposal: uuid.UUID) -> list[HistoryAct]:
                 **_given_by(event.kind, act, named),
             )
         )
-    return found
+    # One answer is one event: the second act an answer takes (keep_latest confirms one copy and
+    # leaves the others out) logs none (`_act`), so its sheet's act is read from its Confirmation.
+    logged = {e.subject_id for e in recorded}
+    for act in acts_of.values():
+        if act.id in logged or act.act not in (ConfirmationAct.CONFIRM, ConfirmationAct.EXCLUDE):
+            continue
+        code = _event_of_act(act)
+        found.append(
+            HistoryAct(
+                id=act.id,
+                code=code.code,
+                actor=act.by_name,
+                actor_role=roles.get(act.user_id),
+                at=act.at,
+                sheets=act.proposals,
+                **_given_by(code.code, act, named),
+            )
+        )
+    return sorted(found, key=lambda a: a.at)
+
+
+def _event_of_act(act: Confirmation) -> MessageCode:
+    """The code `_event_of` gave an act, read back from its Confirmation: confirming sheets all
+    excluded before is "confirmed back in"."""
+    if act.act == ConfirmationAct.EXCLUDE:
+        return said.EXCLUDED
+    before = list((act.before.get("sheets") or {}).values())
+    if before and all(d and d.get("decision") == "excluded" for d in before):
+        return said.CONFIRMED_BACK_IN
+    return said.CONFIRMED
 
 
 def _given_by(code: str, act: Confirmation, sheet: str) -> dict[str, Any]:
