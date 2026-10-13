@@ -152,6 +152,7 @@ export function cardContext(model: Step1Model): CardContext {
 /** The body under the title (§6.7): what was read and why it is asked, with its figures in their kinds. */
 export function QuestionBody({ entry, context }: { entry: QuestionEntry; context: CardContext }) {
   const { i18n } = useLingui()
+  const f = useFormat()
   const has = useHasEnglish()
   const q = entry.question
   const first = entry.holds[0]
@@ -159,7 +160,7 @@ export function QuestionBody({ entry, context }: { entry: QuestionEntry; context
   if (isCopies(entry)) {
     const titles = [...new Set(entry.holds.map((h) => h.title))]
     // Alike in every field the table shows: said, so the QS knows nothing on the card can tell them apart.
-    const tied = copiesTie(entry.holds) ? <> <Trans>The copies are alike in every field the table shows.</Trans></> : null
+    const tied = copiesTie(entry.holds, (mm) => f.plain.coordinate(lengthFromMm(mm))) ? <> <Trans>The copies are alike in every field the table shows.</Trans></> : null
     if (titles.length === 1 && !titles[0]!.trim())
       return (
         <>
@@ -294,7 +295,10 @@ function Joined({ items }: { items: readonly ReactNode[] }) {
 const COPY_FIELDS = ['mark', 'date', 'title', 'file', 'place'] as const
 type CopyField = (typeof COPY_FIELDS)[number]
 
-function copyField(h: ProposalOut, field: CopyField): string {
+/** How an x is worded for comparison: the words the table shows (a caller with the Format passes its plain coordinate); the raw millimetres without one. */
+type XWords = (mm: number) => string
+
+function copyField(h: ProposalOut, field: CopyField, xWords?: XWords): string {
   switch (field) {
     case 'title':
       return h.title.trim()
@@ -302,7 +306,7 @@ function copyField(h: ProposalOut, field: CopyField): string {
       return h.file_name
     case 'place':
       // A copy laid out in the drawing is placed by where its frame sits (the File cell says it).
-      return h.layout ?? (h.x_mm == null ? '' : `x ${h.x_mm}`)
+      return h.layout ?? (h.x_mm == null ? '' : `x ${xWords ? xWords(h.x_mm) : h.x_mm}`)
     case 'mark':
       return h.revision_mark.trim()
     case 'date':
@@ -315,18 +319,18 @@ function copyField(h: ProposalOut, field: CopyField): string {
  * or null when none does. The file is compared by the name the table shows, not by id: two files can
  * share a name (the upload keeps a same-named file beside the first).
  */
-export function telling(sheet: ProposalOut, holds: readonly ProposalOut[]): CopyField | null {
+export function telling(sheet: ProposalOut, holds: readonly ProposalOut[], xWords?: XWords): CopyField | null {
   for (const field of COPY_FIELDS) {
-    const mine = copyField(sheet, field)
+    const mine = copyField(sheet, field, xWords)
     if (field !== 'file' && field !== 'place' && !mine) continue
-    if (holds.every((o) => o === sheet || copyField(o, field) !== mine)) return field
+    if (holds.every((o) => o === sheet || copyField(o, field, xWords) !== mine)) return field
   }
   return null
 }
 
 /** Whether the copies are alike in every field the copies table shows (mark, date, title, file name, place). */
-export function copiesTie(holds: readonly ProposalOut[]): boolean {
-  const key = (h: ProposalOut) => COPY_FIELDS.map((f) => copyField(h, f)).join('\u0000')
+export function copiesTie(holds: readonly ProposalOut[], xWords?: XWords): boolean {
+  const key = (h: ProposalOut) => COPY_FIELDS.map((f) => copyField(h, f, xWords)).join('\u0000')
   return holds.length > 1 && new Set(holds.map(key)).size === 1
 }
 
@@ -343,7 +347,7 @@ export function Copy({ sheet }: { sheet: ProposalOut }) {
  */
 function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly ProposalOut[] }) {
   const f = useFormat()
-  switch (telling(sheet, holds)) {
+  switch (telling(sheet, holds, (mm) => f.plain.coordinate(lengthFromMm(mm)))) {
     case 'title': {
       const named = <DrawingText kind="title" text={sheet.title} truncate={false} />
       return <Trans>the copy titled “{named}”</Trans>
@@ -376,10 +380,17 @@ function CopyIn({ sheet, holds }: { sheet: ProposalOut; holds: readonly Proposal
 }
 
 /** Where a copy sits, as the File cell words it: its file, then its layout or "laid out in the drawing" (6.6). */
-export function CopyPlace({ sheet }: { sheet: ProposalOut }) {
+export function CopyPlace({ sheet, withoutFile }: { sheet: ProposalOut; withoutFile?: boolean }) {
   const f = useFormat()
   // Only the file name breaks anywhere (a long one must fit its cell); the words around it break at spaces.
   const file = <DrawingText kind="file-name" text={sheet.file_name} truncate={false} className="[overflow-wrap:anywhere]" />
+  if (withoutFile) {
+    // The inspector's File row shows the name above and says only the place under it.
+    if (sheet.layout) return <Trans>layout “<DrawingText kind="mark" text={sheet.layout} truncate={false} />”</Trans>
+    if (sheet.x_mm == null) return <Trans>laid out in the drawing</Trans>
+    const x = f.coordinate(lengthFromMm(sheet.x_mm))
+    return <Trans>laid out in the drawing, x {x}</Trans>
+  }
   if (!sheet.layout) {
     if (sheet.x_mm == null) return <Trans>{file}, laid out in the drawing</Trans>
     // Where its frame sits along the file's x axis, in the user's Display Units (m0-screens 6.7: "x 2,460′").

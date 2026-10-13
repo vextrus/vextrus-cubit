@@ -269,6 +269,10 @@ msgid "Answering keeps the file held."
 msgstr "Answering keeps the file held."
 
 #: src/takeoff/questionWords.tsx
+msgid "laid out in the drawing"
+msgstr "laid out in the drawing"
+
+#: src/takeoff/questionWords.tsx
 msgid "the drawing list on <0/>"
 msgstr "the drawing list on <0/>"
 
@@ -453,6 +457,10 @@ msgid "It has neither a number nor a title, so nothing says which kind of sheet 
 msgstr "It has neither a number nor a title, so nothing says which kind of sheet it is. Its kind decides which Takeoff steps read it."
 
 #: src/takeoff/questionWords.tsx
+msgid "layout “<0/>”"
+msgstr "layout “<0/>”"
+
+#: src/takeoff/questionWords.tsx
 msgid "Answering records your pick; {entryName} stays in the list, to confirm or exclude."
 msgstr "Answering records your pick; {entryName} stays in the list, to confirm or exclude."
 
@@ -575,6 +583,10 @@ msgstr "Keep {kept} ({date}); leave the other {others, plural, one {# copy} othe
 #: src/takeoff/questionWords.tsx
 msgid "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
 msgstr "{n, plural, =0 {They are different sheets: keep them all} one {They are different sheets: keep it} =2 {They are different sheets: keep both} other {They are different sheets: keep all #}}"
+
+#: src/takeoff/questionWords.tsx
+msgid "laid out in the drawing, x {x}"
+msgstr "laid out in the drawing, x {x}"
 
 #: src/takeoff/questionWords.tsx
 msgid "{file}, layout “{layout}”"

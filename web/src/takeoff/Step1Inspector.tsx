@@ -704,7 +704,7 @@ export function SheetFacts({
           <Fact label={<Trans>File</Trans>}>
             <DrawingText kind="file-name" text={sheet.file_name} />
             <span className="block text-xs text-ink-secondary">
-              {sheet.layout ? <Trans>layout “<DrawingText kind="mark" text={sheet.layout} truncate={false} />”</Trans> : <Trans>laid out in the drawing</Trans>}
+              <CopyPlace sheet={sheet} withoutFile />
             </span>
           </Fact>
           <Fact label={<Trans>Storeys</Trans>}>
