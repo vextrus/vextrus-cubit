@@ -81,7 +81,7 @@
         "required": ["pr", "round", "head"],
         "properties": {
           "pr": {"type": "integer", "minimum": 1},
-          "round": {"type": "integer", "minimum": 1, "maximum": 3},
+          "round": {"type": "integer", "minimum": 1, "maximum": 9},
           "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The head the round reviewed; null if not yet known."}
         }
       }

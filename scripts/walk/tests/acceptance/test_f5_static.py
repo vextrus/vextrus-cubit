@@ -138,11 +138,11 @@ def test_e2e_runs_on_main_and_nightly_and_never_the_real_walk() -> None:
 
     text = E2E.read_text()
 
-    assert triggers(text) == {"push", "schedule", "workflow_dispatch"}
+    # The owner's Q-R6 (13 Oct 2026): e2e runs on pull requests too (S26-FX0).
+    assert triggers(text) == {"pull_request", "push", "schedule", "workflow_dispatch"}
     on = text.split("\non:", 1)[1].split("\npermissions:", 1)[0]
     push = on.split("push:", 1)[1].split("schedule:", 1)[0].split("workflow_dispatch:", 1)[0]
     branches = re.search(r"branches:\s*(\[[^\]]*\]|(?:\s*-\s*\S+)+)", push)
     assert branches, "push names its branches"
     assert re.findall(r"[\w./*][\w./*-]*", branches.group(1)) == ["main"], "push is limited to main"
-    assert "pull_request" not in text
     assert "web/e2e/real" not in text
