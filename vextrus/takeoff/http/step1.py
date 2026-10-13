@@ -7,7 +7,10 @@ named by its own id, so the service checks it is of the path's Project: one of a
 another Developer, or none at all is the one 404 (`platform.auth.not_found`), and nothing is done.
 """
 
+import json
+import urllib.parse
 import uuid
+from dataclasses import asdict
 
 from django.http import HttpRequest
 from ninja import Router
@@ -20,10 +23,12 @@ from vextrus.takeoff.schemas.step1 import (
     Step1AnswerIn,
     Step1AssignIn,
     Step1ConfirmIn,
+    Step1CorrectIn,
     Step1CoverageOut,
     Step1DrawingListIn,
     Step1DrawingListOut,
     Step1ExcludeIn,
+    Step1HistoryOut,
     Step1ParsedListOut,
     Step1ProgressOut,
     Step1ProposalOut,
@@ -50,6 +55,15 @@ def list_proposals(request: HttpRequest, project_id: uuid.UUID) -> Step1Proposal
     """One per printed sheet: by Discipline, then number in natural order, with who decided it."""
     return Step1ProposalsOut(
         proposals=[Step1ProposalOut.from_view(p) for p in step1.proposals(project_id)]
+    )
+
+
+@router.get(f"{_PREFIX}/proposals/{{proposal_id}}/history", response=Step1HistoryOut)
+@declare(acts.LOOK, project="project_id")
+def get_history(request: HttpRequest, project_id: uuid.UUID, proposal_id: uuid.UUID) -> Step1HistoryOut:
+    """Every act on the sheet from the event log, oldest first ("Who did what", m0-screens 6.6)."""
+    return Step1HistoryOut.model_validate(
+        {"acts": [asdict(a) for a in step1.history(project_id, proposal_id)]}
     )
 
 
@@ -106,6 +120,38 @@ def assign(request: HttpRequest, project_id: uuid.UUID, payload: Step1AssignIn) 
     view = deadlocks.retried(
         lambda: step1.assign(project_id, payload.proposals, payload.steps, actor_name=actor(request)),
         what="step1.assign",
+    )
+    return Step1ActOut.from_view(view)
+
+
+def _opened_with(request: HttpRequest) -> dict[str, object] | None:
+    """The values the correction form opened with, from its header; none (or unreadable) is none."""
+    raw = request.headers.get("X-Step1-Opened-With")
+    if not raw:
+        return None
+    try:
+        found = json.loads(urllib.parse.unquote(raw))
+    except ValueError:
+        return None
+    return found if isinstance(found, dict) else None
+
+
+@router.post(f"{_PREFIX}/correct", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
+@declare(acts.CORRECT, project="project_id")
+def correct(request: HttpRequest, project_id: uuid.UUID, payload: Step1CorrectIn) -> Step1ActOut:
+    """Correct a sheet's number or title (m0-screens 6.9, `E`): it stays a Proposal. The header
+    `X-Step1-Opened-With` (URL-encoded JSON `{"number": …, "title": …}`) holds the values the form was
+    opened with: a value changed since is refused (409), never overwritten."""
+    view = deadlocks.retried(
+        lambda: step1.correct(
+            project_id,
+            payload.proposal,
+            number=payload.number,
+            title=payload.title,
+            opened=_opened_with(request),
+            actor_name=actor(request),
+        ),
+        what="step1.correct",
     )
     return Step1ActOut.from_view(view)
 

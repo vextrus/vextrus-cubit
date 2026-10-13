@@ -81,7 +81,7 @@
         "required": ["pr", "round", "head"],
         "properties": {
           "pr": {"type": "integer", "minimum": 1},
-          "round": {"type": "integer", "minimum": 1, "maximum": 3},
+          "round": {"type": "integer", "minimum": 1, "maximum": 9},
           "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The head the round reviewed; null if not yet known."}
         }
       }
@@ -217,7 +217,9 @@
         "head": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/sha"}], "description": "The branch tip the watcher last fetched; null before the first push."},
         "last_push_at": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/utc"}], "description": "When the tip last changed, as the watcher saw it."},
         "quiet_minutes": {"type": ["integer", "null"], "minimum": 0, "description": "Minutes since `last_push_at` for a cloud builder; null for a local builder."},
-        "pr": {"type": ["integer", "null"], "minimum": 1}
+        "pr": {"type": ["integer", "null"], "minimum": 1},
+        "state_at": {"$ref": "#/$defs/utc", "description": "When the head or state last changed, as the watcher saw it (S26-FX2); a row's minutes count from it. Declared, not required: an older status.json has none."},
+        "relay": {"type": "boolean", "description": "True when a `SAID` to the ticket has had no PUSH, COMMIT or STATUS for 10 minutes: the owner may need to carry the reply by hand (S26-FX2)."}
       }
     },
     "g1State": {

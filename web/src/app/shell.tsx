@@ -20,6 +20,19 @@ interface Shell {
   openJump(from: Element | null): void
   /** Adds a panel Esc closes; `close` returns false when the panel is not open. Returns the remover. */
   addCloser(close: () => boolean): () => void
+  /** Shows the inspector's tab (an act that opens a form in the Selection, Step 1's E: PR #680's design gate). */
+  showInspectorTab(tab: InspectorTab): void
+}
+
+export type InspectorTab = 'selection' | 'questions'
+
+/** The inspector's tab shown, and its setter (CanvasFrame's tabs, controlled). */
+const InspectorTabContext = createContext<[InspectorTab, (tab: InspectorTab) => void] | null>(null)
+
+export function useInspectorTab(): [InspectorTab, (tab: InspectorTab) => void] {
+  const tab = useContext(InspectorTabContext)
+  if (!tab) throw new Error('useInspectorTab() is used inside the frame')
+  return tab
 }
 
 const ShellContext = createContext<Shell | null>(null)
@@ -36,6 +49,8 @@ export function ShellProvider({ session, project, children }: { session: Session
   const [jumpOpen, setJumpOpen] = useState(false)
   const [keysFrom, setKeysFrom] = useState<Element | null>(null)
   const closers = useRef<(() => boolean)[]>([])
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('selection')
+  const tabState = useMemo<[InspectorTab, (tab: InspectorTab) => void]>(() => [inspectorTab, setInspectorTab], [inspectorTab])
 
   const shell = useMemo<Shell>(
     () => ({
@@ -51,6 +66,9 @@ export function ShellProvider({ session, project, children }: { session: Session
         return () => {
           closers.current = closers.current.filter((c) => c !== close)
         }
+      },
+      showInspectorTab(tab) {
+        setInspectorTab(tab)
       },
     }),
     [],
@@ -71,7 +89,7 @@ export function ShellProvider({ session, project, children }: { session: Session
 
   return (
     <ShellContext.Provider value={shell}>
-      {children}
+      <InspectorTabContext.Provider value={tabState}>{children}</InspectorTabContext.Provider>
       <KeysOverlay open={keysOpen} onOpenChange={setKeysOpen} from={keysFrom} />
       <JumpTo open={jumpOpen} onOpenChange={setJumpOpen} session={session} project={project} />
     </ShellContext.Provider>

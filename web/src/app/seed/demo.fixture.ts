@@ -9,7 +9,7 @@
  */
 import { ENGLISH } from '@/i18n/languages'
 import type { MarketFormat } from '@/format/profile'
-import type { ProjectSummary } from '@/app/session'
+import type { Step1Counts } from '@/takeoff/model'
 
 /** The Bangladesh Market's format profile (ADR 0038): English borrowing en-IN for lakh and crore. */
 export const BANGLADESH: MarketFormat = {
@@ -23,6 +23,6 @@ export const BANGLADESH: MarketFormat = {
 }
 
 /** Step 1's counts per project after reading (m0-screens §7): 24 sheets found, 5 Questions open. */
-export const STEP1: Readonly<Record<string, ProjectSummary['step1']>> = {
+export const STEP1: Readonly<Record<string, Step1Counts>> = {
   'KR-01': { found: 24, confirmed: 0, excluded: 0, questionsOpen: 5 },
 }

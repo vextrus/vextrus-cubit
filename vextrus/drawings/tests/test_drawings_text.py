@@ -279,3 +279,21 @@ def test_a_finding_code_from_the_engine_is_kept_as_it_is(qs_project: QsProject) 
     with qs_project.member.acting():
         shown = services.mark_failed(found.id, read_codes.OBJECTS_MISSING(count=3))
     assert shown.finding == read_codes.OBJECTS_MISSING(count=3)
+
+
+def test_a_value_the_qs_typed_stands_over_the_file_read_again(qs_project: QsProject) -> None:
+    # Review 1 of #691 (45): record_sheets on an undecided printed sheet overwrote a correction.
+    from django.db import connection
+
+    found = kept_dwg(qs_project)
+    with qs_project.member.acting():
+        [printed] = services.record_sheets(found.id, [candidate(found, 0, number="S-01")])
+        with connection.cursor() as cursor:  # as a correction leaves it (set_sheet_title's rows)
+            cursor.execute(
+                "update drawings_sheetrevision set title = %s, sources = sources || %s::jsonb"
+                " where id = %s",
+                ["Typed title", '{"title": "typed"}', printed.id],
+            )
+            assert cursor.rowcount == 1
+        [again] = services.record_sheets(found.id, [candidate(found, 0, number="S-01")])
+    assert (again.id, again.title, again.sources.get("title")) == (printed.id, "Typed title", "typed")

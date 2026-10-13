@@ -27,11 +27,18 @@ them. If one cannot pass as written, finish BLOCKED and say which and why. Never
 code must do what the test's promise says for every input, not for the one the test uses. Add your own unit
 tests at those seams or the module's public interface (the `tdd` skill).
 
+## Status messages
+A message that starts `[elapsed ...]` and asks where you are is answered with an empty commit, never with
+text alone: `git commit --allow-empty -m "status: <topic>" -m "Factory-Status: <one line>"` (that line the
+only `Factory-` trailer, no `Factory-State`), then push it. It changes no file, so a READY head stays READY
+and a reviewed head stays reviewed; the watcher shows the line. Commit a new `Factory-Status:` per message.
+
 ## Time and cuts
 Every ticket has a budget; the orchestrator's messages start with elapsed against it. Past the budget, cut
 scope in the ticket's cut order and name each cut; never overrun silently. Every cut item goes in the PR
 body under `## Cut`, naming the issue title to file (the orchestrator files it and links it; `merge_ready`
-refuses an unlinked cut item).
+refuses an unlinked cut item). Each cut item is one line ending in its issue written `(#n)`; when nothing
+was cut, `## Cut` says `None.` and nothing longer.
 
 ## Commands and suites
 - Commit with explicit paths (`git add <path> ...`); never `git add -A` or `git add .`.
@@ -50,9 +57,11 @@ refuses an unlinked cut item).
 In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has no such browser. Report that the walk was not done, and never walk with Playwright instead (Playwright stays the web's test runner, not a walker). Say it under "Not verified".
 
 ## Quality
-- Every serious finding (scored 75 or more, or 50 or more on a strict path: every file unless it matches a
-  `[lax]` glob and no `[strict]` carve-out in `scripts/factory/review_tiers.toml`; or a repeated class) leaves a committed check: a test, lint or scan
-  that fails on the class.
+- Every serious finding (scored 75 or more; or 50 or more when user-facing, a QS or MD would hit it, or on
+  a trust boundary; an untagged one at 50 or more on a strict path: every file unless it matches a `[lax]`
+  glob and no `[strict]` carve-out in `scripts/factory/review_tiers.toml`; or a repeated class) leaves a
+  committed check: a test, lint or scan that fails on the class. An edge or rule-only finding of 50-74 off
+  a trust boundary is filed as an issue that names the check it still owes (the owner's Q13).
 - On the trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger), ask a `refuter` agent
   to break your claim before READY.
 - If you add or change words under `web/src/messages/**`, ask `ux-critic` for the words-only design gate

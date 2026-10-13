@@ -8,25 +8,25 @@
  * Later tickets only fill it: the canvas is the step route's child (22 draws Step 1 there), and the
  * toolbar, status bar and inspector take items through slots (slots.tsx).
  */
-import { useState, type ReactNode } from 'react'
+import { useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { ChevronRight, Keyboard } from 'lucide-react'
+import { onSaveState, saveState } from '@/api/saves'
 import { useFormat } from '@/format'
 import { useLanguage } from '@/i18n/activate'
-import { Count, IconButton, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
+import { Count, IconButton, SkeletonBar, ReadOnlyChip, STEP_GLYPHS, ConfirmedGlyph, ProposalGlyph, QuestionGlyph, Empty, buttonVariants, cn } from '@/ui'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { AppLink, PATHS } from './AppLink'
 import { usePerfFlag } from './perf'
+import type { Step1Counts } from '@/takeoff/model'
 import type { ProjectSummary, Session } from './session'
-import { useCloseOnEsc, useShell } from './shell'
+import { useCloseOnEsc, useInspectorTab, useShell } from './shell'
 import { SlotOutlet } from './slots'
 import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 
-type Step1 = ProjectSummary['step1']
-
 /** Step 1's state mark (screens.md): a Question wins, then all confirmed, then Proposals ready; none before. */
-function step1Mark(s: Step1): 'question' | 'confirmed' | 'proposal' | null {
+function step1Mark(s: Step1Counts): 'question' | 'confirmed' | 'proposal' | null {
   if (s.questionsOpen > 0) return 'question'
   if (s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found) return 'confirmed'
   if (s.found !== null && s.found > 0) return 'proposal'
@@ -41,7 +41,7 @@ function StepMark({ mark }: { mark: ReturnType<typeof step1Mark> }) {
   return null
 }
 
-function StepRail({ project, current }: { project: ProjectSummary; current: TakeoffStep }) {
+function StepRail({ project, step1, current }: { project: ProjectSummary; step1: Step1Counts; current: TakeoffStep }) {
   const { t, i18n } = useLingui()
   const f = useFormat()
   const language = useLanguage()
@@ -78,7 +78,7 @@ function StepRail({ project, current }: { project: ProjectSummary; current: Take
                 <Glyph size={20} aria-hidden />
                 {step.number === 1 ? (
                   <span className="absolute -end-1.5 -bottom-1 rounded-xs bg-chrome">
-                    <StepMark mark={step1Mark(project.step1)} />
+                    <StepMark mark={step1Mark(step1)} />
                   </span>
                 ) : null}
               </span>
@@ -86,7 +86,7 @@ function StepRail({ project, current }: { project: ProjectSummary; current: Take
                 <>
                   <span className="num w-5 shrink-0 text-end text-xs text-muted-foreground">{f.integer(step.number)}</span>
                   <span className="min-w-0 flex-1 truncate">{name}</span>
-                  {step.number === 1 ? <Count n={project.step1.confirmed} N={project.step1.found} format={f.integer} className="text-xs" /> : null}
+                  {step.number === 1 ? <Count n={step1.confirmed} N={step1.found} format={f.integer} className="text-xs" /> : null}
                 </>
               ) : (
                 <span className="sr-only">{tip}</span>
@@ -120,12 +120,18 @@ function StepRail({ project, current }: { project: ProjectSummary; current: Take
   )
 }
 
-function Toolbar({ session, project, step }: { session: Session; project: ProjectSummary; step: TakeoffStep }) {
+/** The toolbar's "n / N": a bar while Step 1's queries are pending on first load, never "0 / —" (S26-D7). */
+function ConfirmedCount({ counts, format }: { counts: Step1Counts; format: (value: number) => string }) {
+  if (counts.found === null) return <SkeletonBar className="inline-block h-3.5 w-16 align-middle" />
+  return <Count n={counts.confirmed} N={counts.found} format={format} />
+}
+
+function Toolbar({ session, step1, step }: { session: Session; step1: Step1Counts; step: TakeoffStep }) {
   const { t, i18n } = useLingui()
   const f = useFormat()
   const shell = useShell()
   const number = step.number
-  const s = project.step1
+  const s = step1
   const excluded = s.excluded
   return (
     <div data-region="toolbar" role="toolbar" aria-label={t`The step's tools`} className="focus-inset flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
@@ -136,7 +142,7 @@ function Toolbar({ session, project, step }: { session: Session; project: Projec
       {step.number === 1 ? (
         <span className="text-sm whitespace-nowrap text-ink-secondary">
           <Trans>
-            Confirmed <Count n={s.confirmed} N={s.found} format={f.integer} />
+            Confirmed <ConfirmedCount counts={s} format={f.integer} />
           </Trans>
           {excluded > 0 ? <Trans>, {excluded} excluded</Trans> : null}
         </span>
@@ -151,12 +157,13 @@ function Toolbar({ session, project, step }: { session: Session; project: Projec
   )
 }
 
-function Inspector({ project, step }: { project: ProjectSummary; step: TakeoffStep }) {
+function Inspector({ step1, step }: { step1: Step1Counts; step: TakeoffStep }) {
   const { t } = useLingui()
-  const questions = step.number === 1 ? project.step1.questionsOpen : 0
+  const questions = step.number === 1 ? step1.questionsOpen : 0
+  const [tab, setTab] = useInspectorTab()
   return (
     <aside data-region="inspector" aria-label={t`Inspector`} className="focus-inset flex w-inspector shrink-0 flex-col border-s border-border bg-chrome">
-      <Tabs defaultValue="selection" className="min-h-0 flex-1">
+      <Tabs value={tab} onValueChange={(value) => setTab(value === 'questions' ? 'questions' : 'selection')} className="min-h-0 flex-1">
         <TabsList>
           <TabsTrigger value="selection">
             <Trans>Selection</Trans>
@@ -181,6 +188,16 @@ function Inspector({ project, step }: { project: ProjectSummary; step: TakeoffSt
   )
 }
 
+/** The save state (§4.1), from the API client's acts; "Not saved" is the one that asks for the eye. */
+function SaveState() {
+  const state = useSyncExternalStore(onSaveState, saveState)
+  return (
+    <span role="status" data-testid="save-state" className={cn(state === 'dropped' && 'font-medium text-destructive')}>
+      {state === 'saving' ? <Trans>Saving…</Trans> : state === 'dropped' ? <Trans>Not saved: the connection dropped. Trying again.</Trans> : <Trans>All changes saved</Trans>}
+    </span>
+  )
+}
+
 function StatusBar() {
   const f = useFormat()
   const perf = usePerfFlag()
@@ -190,25 +207,26 @@ function StatusBar() {
       <span data-testid="unit-system">{f.unitSystemName}</span>
       <span className="flex-1" />
       <SlotOutlet name="status.end" className="gap-4" />
+      <SaveState />
       {perf ? <SlotOutlet name="status.perf" className="gap-3" /> : null}
     </footer>
   )
 }
 
-export function CanvasFrame({ session, project, step, children }: { session: Session; project: ProjectSummary; step: TakeoffStep; children: ReactNode }) {
+export function CanvasFrame({ session, project, step1, step, children }: { session: Session; project: ProjectSummary; step1: Step1Counts; step: TakeoffStep; children: ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
         <div className="relative w-rail shrink-0">
-          <StepRail project={project} current={step} />
+          <StepRail project={project} step1={step1} current={step} />
         </div>
         <main className="flex min-w-0 flex-1 flex-col">
-          <Toolbar session={session} project={project} step={step} />
+          <Toolbar session={session} step1={step1} step={step} />
           <div data-region="canvas" data-canvas-area="" className="focus-inset relative min-h-0 flex-1 overflow-hidden bg-background">
             {children}
           </div>
         </main>
-        <Inspector project={project} step={step} />
+        <Inspector step1={step1} step={step} />
       </div>
       <StatusBar />
     </div>

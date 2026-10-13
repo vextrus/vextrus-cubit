@@ -66,3 +66,11 @@ def test_any_bad_hits_line_refuses_the_batch(text: str) -> None:
 def test_a_hits_file_with_no_location_is_refused() -> None:
     with pytest.raises(Refused):
         parse("# nothing judged\n\n")
+
+
+def test_the_footer_never_sits_inside_a_cut_section() -> None:
+    from scripts.merge_ready import cut_problems
+
+    message = MESSAGE.replace("None.\n", "- the tier 2 export (#12)\n")
+    _, body = pr_body(message, "d" * 40)
+    assert cut_problems(body, lambda number: number == 12) == []

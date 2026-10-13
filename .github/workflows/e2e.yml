@@ -8,9 +8,13 @@
 # made for this run only and masked. The real-set walk (G1) never runs here: it runs locally only.
 name: e2e
 
-# On each push to main and nightly (docs/specs/factory.md 3.9); it moves to PRs only after five green
-# runs on main (a measure, not a gate). By hand too.
+# On each pull request, each commit to main and nightly (docs/specs/factory.md 3.9; the owner's Q-R6:
+# e2e becomes required once it runs on PRs). By hand too. Required checks are never filtered by path
+# at the workflow level (a skipped workflow leaves a required check waiting): the `changes` job
+# decides, and `smoke` is skipped by its `if:` on a PR that changes no product path or whose head is
+# not READY, which GitHub reports as passing, as ci.yml does for its heavy jobs.
 on:
+  pull_request:
   push:
     branches: [main]
   schedule:
@@ -22,10 +26,53 @@ permissions:
 
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      product: ${{ steps.paths.outputs.product }}
+      ready: ${{ steps.gate.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        name: Does this change touch a product path? (the list of scripts/walk/ready.py)
+        # Fails closed: `git diff` runs as its own command under `shell: bash` (-e -o pipefail), so a
+        # failed one (a bad BASE) fails the step, and so `smoke`, instead of reading as "untouched".
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo product=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # As scripts/walk/ready.py lists them: --no-renames (a rename counts under both names) and -z
+          # (a non-ASCII name is not C-quoted). The list goes to a file so a failed `git diff` fails the step.
+          list="$RUNNER_TEMP/changed.z"
+          git diff --no-renames --name-only -z "$BASE"...HEAD > "$list"
+          if grep -zqE '^(vextrus/|engine/|web/src/|pyproject\.toml$|uv\.lock$)' "$list"; then
+            echo product=true
+          else
+            echo product=false
+          fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's smoke runs only then; main's always does)
+        # Fails closed, as ci.yml's gate (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
+
   smoke:
+    needs: changes
+    # A failed `changes` job fails smoke (the first step), never skips it as "not concerned".
+    if: >-
+      !cancelled() && (needs.changes.result != 'success' ||
+      (needs.changes.outputs.product == 'true' && needs.changes.outputs.ready == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     services:
@@ -49,6 +96,11 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: The `changes` job must have passed
+        if: needs.changes.result != 'success'
+        run: |
+          echo "the changes job: ${{ needs.changes.result }}" >&2
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -80,6 +132,46 @@ jobs:
           curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
           bash "$RUNNER_TEMP/dotnet-install.sh" --version "$(tr -d '[:space:]' < toolchain/dotnet.version)" \
             --install-dir /opt/vextrus/dotnet --no-path
+      - name: The ACadSharp dumper, built from tools/acadsharp-dump with that SDK, installed only at its pin
+        # As scripts/owner/toolchain.sh's install_acadsharp_dump does, minus root: the folder is the
+        # pin's first 12 hex, which the engine reads from toolchain/acadsharp-dump.sha256.
+        run: |
+          set -euo pipefail
+          PREFIX=/opt/vextrus
+          PINS="$GITHUB_WORKSPACE/toolchain"
+          TOOL="$GITHUB_WORKSPACE/tools/acadsharp-dump"
+          pinned=$(cut -d" " -f1 toolchain/acadsharp-dump.sha256)
+          dest="/opt/vextrus/acadsharp-dump/${pinned:0:12}"
+          build=$(mktemp -d "$PREFIX/.acadsharp-dump-build.XXXXXX")
+          source="$build/src"
+          out="$build/out"
+          mkdir -p "$source/acadsharp" "$build/tmp"
+          cp "$TOOL/acadsharp-dump.csproj" "$TOOL/Program.cs" "$TOOL/packages.lock.json" "$TOOL/global.json" "$source/"
+          cp "$TOOL/acadsharp/ACadSharp.csproj" "$TOOL/acadsharp/packages.lock.json" "$source/acadsharp/"
+          dotnet_here() {
+            ( cd "$source" && DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_CLI_HOME="$build/home" \
+              NUGET_PACKAGES="$build/nuget" TMPDIR="$build/tmp" "$PREFIX/dotnet/dotnet" "$@" "$source" \
+              -noAutoResponse -nodeReuse:false -p:ImportDirectoryBuildProps=false \
+              -p:ImportDirectoryBuildTargets=false -p:ImportDirectoryPackagesProps=false )
+          }
+          bash "$TOOL/prepare-source.sh" --lock "$PINS/acadsharp-source.lock" --dest "$source/upstream"
+          dotnet_here restore
+          ( cd "$build/nuget/microsoft.netcore.app.runtime.linux-x64/"*/ &&
+            sha512sum -c --quiet "$PINS/acadsharp-dump.runtime.sha512" )
+          dotnet_here publish -c Release -o "$out" --no-restore
+          built=$(sha256sum "$out/acadsharp-dump" | cut -d' ' -f1)
+          if [ "$built" != "$pinned" ]; then
+            echo "acadsharp-dump built as $built, not the pin $pinned: not installed" >&2
+            exit 1
+          fi
+          runtime=$(echo "$build"/nuget/microsoft.netcore.app.runtime.linux-x64/*)
+          install -d -m 0755 "$dest"
+          install -m 0644 "$TOOL/ACADSHARP-LICENSE.txt" "$dest/ACADSHARP-LICENSE.txt"
+          install -m 0644 "$runtime/LICENSE.TXT" "$dest/DOTNET-LICENSE.TXT"
+          install -m 0644 "$runtime/THIRD-PARTY-NOTICES.TXT" "$dest/DOTNET-THIRD-PARTY-NOTICES.TXT"
+          install -m 0755 "$out/acadsharp-dump" "$dest/acadsharp-dump"
+          rm -rf -- "$build"
+          test "$(sha256sum "$dest/acadsharp-dump" | cut -d' ' -f1)" = "$pinned"
       - name: Bubblewrap, and the AppArmor limit on unprivileged user namespaces lifted
         run: |
           sudo apt-get update -qq

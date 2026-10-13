@@ -32,9 +32,11 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - A cloud builder is messaged through `uv run python -m scripts.factory.launch say <session-id> --ticket <ticket> --file <f>`.
 
 ## 4. Watch
-- `uv run python -m scripts.factory.watch ensure`: starts the watcher when its pidfile is stale; then Monitor
-  on `events.log` under `.private/work/factory/`.
-- The one tail, event kinds to watch: READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, LOCAL-IDLE.
+- `uv run python -m scripts.factory.watch ensure`: starts the watcher when its pidfile is stale; the
+  `vextrus-factory` mod reads `events.log` under `.private/work/factory/` and wakes the orchestrator.
+- The kinds that wake it: READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, LOCAL-IDLE and every other kind, but
+  READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED, SAID and SAY (they ride along) and PUSH and COMMIT past the
+  first per ticket in 15 min.
 
 ## Real drawings
 - `uv run python -m scripts.factory.rdlock run --kind <kind> --head <sha> -- <cmd>`: one real-drawing run at a
@@ -53,6 +55,14 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   lens with no launch (its launch failed or was cut off) is launched by running the round again with
   `--where cloud`; a lens whose session died is launched again only when named, `--relaunch <lens>`
   (a lens with an accepted verdict is kept; `collect` takes each lens's newest).
+  Past the two-round cap, `--round <n> --exception delta-review --reason "<text>"` (n 3 to 9, round
+  n-1 recorded; local only): one lens on the fix's own diff since round n-1's head (merges of main left
+  out; a rewrite or another branch merged in is refused, exit 3), and the earlier rounds' kept attack
+  tests re-run on the head first: a failed replay is a claim for the round's refuter (refuted, it does
+  not block), and one failing elsewhere than on its own round is STALE, its finding handed to the lens
+  as text; PASS only when no finding could block. It may re-run on the same head only after a FIX that
+  rested only on replays no refuter confirmed (S26-FX9). A head whose `ci` is red or not yet finished
+  starts no lens (exit 3).
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
   An allowlist-only PR and a docs-only PR (`review_tiers.toml` `docs_only`) get no model and pass by code

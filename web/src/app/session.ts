@@ -37,8 +37,6 @@ export interface ProjectSummary {
   unitSystem: string
   /** When the project's newest DomainEvent happened (UTC, as the API sends it), for every role. */
   updatedAt: string
-  /** Step 1's counts: sheets found (null when unknown), confirmed, excluded, and open Questions. */
-  step1: { found: number | null; confirmed: number; excluded: number; questionsOpen: number }
 }
 
 /** One of the user's current Memberships, in any of their Developers. */
@@ -98,8 +96,6 @@ export interface Session {
   /** Only the projects this member may open, in code order. */
   projects: readonly ProjectSummary[]
 }
-
-const STEP1_NOT_STARTED: ProjectSummary['step1'] = { found: null, confirmed: 0, excluded: 0, questionsOpen: 0 }
 
 /**
  * The Market on the web (ADR 0038): `/api/me`'s MarketOut as the formatters take it. Only a shipped
@@ -187,7 +183,7 @@ export function sessionFrom(me: Me, projects: readonly ProjectOut[]): Session {
   const membership = me.memberships.find((m) => m.developer.id === me.developerId)
   if (!membership || !me.market) throw new NoDeveloper(me)
   const summaries = projects
-    .map<ProjectSummary>((p) => ({ id: p.id, code: p.code, name: p.name, address: p.address, unitSystem: p.unit_system, updatedAt: p.updated_at, step1: STEP1_NOT_STARTED }))
+    .map<ProjectSummary>((p) => ({ id: p.id, code: p.code, name: p.name, address: p.address, unitSystem: p.unit_system, updatedAt: p.updated_at }))
     .sort((a, b) => a.code.localeCompare(b.code))
   const scope = membership.projectIds.length === 0 ? 'all' : summaries.filter((p) => membership.projectIds.includes(p.id)).map((p) => p.code)
   return {
