@@ -1,6 +1,11 @@
-# Session 24: land FL5, FL7 and FL8, then G1 on main twice
+# Session 24: M0 done — every G1 blocker built in parallel, G1 PASS twice on main, M1 wave 0 ready
 
-## Session 23's measures (`scripts/factory/measures.py`, 12 Oct 06:52Z to 13:11Z)
+**The goal, in one line:** `uv run python -m scripts.walk.ready origin/main` exits 0 (two counted G1 PASS verdicts
+on main's current product code), so the owner can walk M0; M1 wave 0 starts after that walk (docs/plans/M1.md O2).
+Everything below serves that line. Today it exits 1:
+"0 counted PASS verdict(s) on main, 2 needed".
+
+## Session 23's measures (`scripts/factory/measures.py`, 12 Oct 06:52Z to 13:11Z; then 13:17Z-14:49Z)
 | measure | value | previous | target |
 |---|---|---|---|
 | prs_merged | 2 | 6 | |
@@ -11,70 +16,134 @@
 | verify_p90_min | 10.7 | 13.6 | 10 |
 | ci_wall_p50_min | 9.9 | 10.7 | 10 |
 
-(The session ended at 6:18 of its 8 hours: by then FL5 and FL8 had reached the review cap, and a G1 walk with its
-agent layer, about 80 minutes, would have failed on their items. rounds_per_pr counts merged PRs only; FL5, FL7
-and FL8 took nine review rounds between them over six PRs.)
+rounds_per_pr counts merged PRs only: FL5, FL7 and FL8 took 17 review rounds over seven PRs. Session 23 put about
+187 minutes into real-drawing runs; about 60 went to heads that landed (the rest: superseded heads, a no-post run
+followed by a posting run that re-read everything). One owner question held the orchestrator for two hours.
 
-Missed or wrong:
-- **M0's finish line (G1 PASS twice) was not met; G1 was not run on main this session.** The day went to landing
-  M0-FL5, FL7, FL8 and FL10, and each of FL5, FL7 and FL8 went the full review cap. FL10 landed (#681); FL7
-  landed (#687); FL5 (#686) stopped at the cap; FL8 (#680) stopped at the cap.
-- **A question to the owner held the orchestrator for two hours** (asked at 3:05 of 8:00, answered at 5:08); two
-  READY heads (FL8, FL5) waited unread meanwhile.
-- **Rules built on word order and on undo chains took three review rounds each** (FL7: the tie between a building
-  element and a site work, then the setback word; FL8: restoring a correction through a chain of undone ones).
-  FL7 came right only when the shape changed (no tie; site works never a view's subject; setback only as a
-  plot's). FL8 has not yet changed shape.
-- **The real-drawing lock set the pace:** each run took 22-41 minutes, one at a time; four runs were cancelled
-  because a fix round replaced their head.
+## Why G1 has never passed (eight sessions, 16-23)
+Throughput by session: 7, 6, 2, 0, 2, 6, 2 PRs. G1 never passed; it was run on main once (walk 1, 51507b85: script
+layer 15/16, agent layer 5/12 items). The causes, in order of hours lost:
+1. **Review rounds on heuristic code that never converge** (2.5-4 h a session). Recogniser rules (FL5 titles, FL7
+   site works) and undo chains (FL8) drew a new 50-65 finding every round; 17 of 18 blocking findings in session 23
+   scored 50-75 on strict paths. Each came right only when the shape changed, usually after the cap.
+2. **The real-drawing lock** (1.5-3.5 h): runs of 22-41 min, one at a time, each re-installing and re-reading main;
+   no-post then posting doubles it; runs on superseded heads waste the rest.
+3. **G1 is scheduled last, so it is cut** (sessions 17-23). Nothing walks a candidate head before merge.
+4. **The orchestrator blocks** on owner questions (5 h, 3.5 h, 2 h) and leaves READY heads unread.
+5. **Power cuts** (four), killing sessions with no restart.
+6. **"Non-blocking" items still fail G1:** FL6 and FL13 count (every walked item must PASS), and nobody owned them.
 
-## Where things stand (read first)
-- Landed: #681 (FL10: every Step 1 act and answer is one event). #687 (FL7: a Structural view proposes the Step of every building element its own title names, plus Step 14 for a site work; site works are never a view's subject; "setback" is site works only as a plot's; the Coverage panel's Unaccounted list, m0-screens 6.11; real-drawing run: 16 views and 10 checks changed, nothing lost or gained). It replaces #682 and #684 (closed with reasons). Owed: the owner's custody re-run of `tools/scorer/` (#687 changed `tools/scorer/score.py`: a 'site works' key phrase is read against a view's Step 14).
-- **#680 (FL8, branch s22-fl8, head 9fb8e7d2): FIX at round 3, the cap.** Review 3's standing findings: a
-  correction's undo restores the oldest correction's `before` even when that correction was undone (75), and
-  so loses a number typed through the missing-number Question since (70); the Question's keep-open answer is
-  restored from the first correction's snapshot (52, 50); a later standing correction landing on the same value
-  is overwritten (50); below the bar: the form's maxLength cuts a pasted line silently (45), "One source,
-  corrected" drops "Proposal" (30), limits as literals in the words (25), "title" in the toast (25), the event
-  line names no sheet (20). Its design gate PASSED on cf2aa78f (walk) and the words passed on 9fb8e7d2. The
-  ledger allows no fourth round: the shape change goes on a new branch and PR with a fresh review, as #687 did
-  for FL7 under the owner's ruling (12 Oct). Shape: Ctrl Z takes back only a sheet's latest standing correction
-  (refuse any other with words naming the route), so nothing restores through a chain; every reviewer's
-  sequence pinned.
-- **#686 (FL5, branch s23-fl5)**: head a94d133a, FIX at round 3, the cap. Standing: a lone 13-16 word remark naming a view kind in a sparse column of a ruled schedule is taken as a title and the schedule is lost (55); round 2's join test does not skip the title's own storeys line, so a long second line under a titled plan with a storeys line stands alone again (50). Review 2's and 1's fixed. Below the bar: a lone long callout inside a titled plan's grid removes the plan (40; a short one does the same on main), a long title lettered as two centred lines is split (35). Next shape: decide long lines after tables and a title's own block (its storeys line, its scale line) are known, so a schedule's cell and a title block's line are never candidates; a new branch and PR. The rule, from a cases table over all 285 real sheets
-  (.private/work/s23/fl5-cases.md): a 13-16 word one-line title is a title when it passes the short-title gates,
-  stands as a column of one, and no notes heading claims it; a long line joins a title only as its own second
-  line (nearest above, nothing between, aligned). Posting run reason: 4 long-titled plans now titled; 8 lost
-  are their phantom duplicates; 84 changed storeys_meaning only.
-- **Open for the owner:** #687 narrows "setback" to "plot setback" (review 2's 30: a Structural sheet titled just
-  "SETBACK ARRANGEMENT" leaves its untitled section unaccounted, where the 11 Oct ruling's words give Step 14).
-- Issues: #685 (a flaky engine/plot timing test; failed #680's CI once).
-- Mays from the design gates (not filed yet): FL8 D1 (a corrected value's provenance line), D2 (E on a grouped
-  row names no copy), D3 (focus lost after undo moves a row), D4 (an empty Number's toast far from the field);
-  FL7's "Excluded, by reason" total disagrees with the Coverage line (40).
-- Housekeeping: local branches s22-fl7, s22-fl7b and s22-fl5b hold real titles or a leaking commit: never push
-  them; delete them once their worktrees are free. Scratch worktrees: .private/work/s23/fl5-acc/throwaway,
-  .claude/worktrees/S22-FL7C/.private/work/fl7c-*.
+## Where main stands, item by item (audit: .private/work/s23/g1-gaps.md; predicted, not walked)
+| Item | State on main 42b5aca8 | What remains |
+|---|---|---|
+| FL1-FL4, FL11 | PASS likely | #668 (FL4 words) optional |
+| FL5 sheet list | FAIL | #692 (branch s23-fl5c, 413f6764): review 2 FIX — 65: a ruled schedule's box counts as a drawing a 13-16 word footnote can title; 55: the "no short title at that drawing" guard is narrower than pairing's TITLE_GAP. Round 3 under `fix-regression` is the last. |
+| FL6 legible, paged | FAIL | #665 (note diagrams on General sheets read as Plan views), #660 (Plot matching gives one sheet two pages; another none), #661 (annotation overlaps and overflow). Untouched. Real drawings. |
+| FL7 coverage | likely FAIL | #687 landed; #664 (misleading: Coverage figures disagree) and #690 stand; Edison's unaccounted count unmeasured. |
+| FL8 Questions, fixes | FAIL | #691 (branch s23-fl8c, 1b76c0dc): review 2 FIX — 70/60: the server's undo now passes over a moved-on correction to the person's earlier act, but the web's Ctrl Z and the toast's Undo word the result from the tab's own history; 35/35 words. Round 3 (`fix-regression`) is the last. Critics may also want storeys by E (#677). |
+| FL9 Sample Project | likely PASS | act p95 674 and 905 ms (limit 1000) on two script walks; Edison 980 ms in walk 1 — unmeasured since. |
+| FL10 roles | FAIL | #681 landed; #314 (misleading) stands: the inspector's Act shows one decision per sheet, never "Confirmed back in" (Who did what from the event log, #678). |
+| FL13 words | FAIL | #666/#581 (cursor and save-state status items missing), #667/#580 ("Needs you … in the order Enter takes them" shown to MD and Guest, `SheetList.tsx`); with them #670, #663, #672. |
+| question cap | at risk | `questions_per_discipline` failed on 4bc05e8e (Structural 4 > 3) and passed at exactly 3 on cf2aa78f. |
+| Misleading findings open | 5 | #660, #665, #314, #664, #667 — G1 needs 0. |
 
-## Plan
-1. Ask the owner for the custody re-run of `tools/scorer/` (#687), with the command.
-2. FL8 (#680) and FL5 (#686) by their new shapes (above), each on a fresh branch and PR (each old PR's ledger is at
-   the cap): acceptance amendment if the pins need it, a builder, review, gates; every reviewer's sequence pinned.
-3. G1 on main: `uv run python -m scripts.walk.run <sha40>` then the real-set-walk workflow; read its agent layer.
-   Twice, on main's current product code.
-4. If time: the FL6/FL13 issues; #677 (storeys corrections); the mays above.
+Critics will also look where no script does: storeys meaning, the Discipline split (walk 1 on Edison: General 9 vs
+3, Mechanical 0 vs 4, Structural 57 vs 65 — #671), the correction's provenance line (#689 D1), Bangla titles as
+boxes (no Bengali font, #689).
+
+## First 15 minutes (do these before anything else, in this order)
+1. `date -u`; once the budget is known (step 4):
+   `uv run python -m scripts.factory.stamp start --budget <h> --state .private/work/s24/STATE.md --phases "waveA=240,g1=180,m1=60"`.
+   Until then, launch only.
+2. `uv run python -m scripts.factory.state`; `claude agents --json` (resume a `stopped` or `failed` builder only
+   through `uv run python -m scripts.factory.say <session-uuid> --file <f> --elapsed <n/m>`, never by hand); `df`, `free`;
+   `uv run python -m scripts.factory.watch ensure`; arm Monitor on `.private/work/factory/events.log` (READY,
+   BLOCKED, LEAK-HIT, CI-RED, WALK done) before any question.
+3. **Launch Wave A's first three now** (they need no ruling): A0 (G1 script layer on main, detached), A1 (FL8 round
+   3), A3 (FL13 web). Then the rest of Wave A.
+4. **The owner's questions, one at a time (CLAUDE.md), each with the recommendation first and the reason in a
+   line, all asked now and none later**, and only after step 3, so builders work while the owner reads:
+   - Budget: **12 hours** (two G1 walks with their agent layer need about 3 h after the last merge).
+   - Review bar: **move `engine/recognise/**` and `engine/plot/**` to `[lax]` for this session** (75 blocks; 50-74
+     become issues), so heuristic rules land on the real-set evidence and G1's critics judge them.
+   - Real-drawing runs: **posting runs only, after a review PASS; and allow two runs at once** if one run's peak
+     memory (measured at the first run) leaves 8 GB free.
+   - M1: **start M1 wave 0's docs and owner-time tickets in parallel (M1-24 m1-screens, M1-02, M1-05, M1-06)**,
+     though the M1 plan's O2 says after M0's walk.
+   Also say, not ask: #687 changed `tools/scorer/`; the owner's custody re-run is owed (give the exact `! <command>`).
+   Never ask anything else mid-session: a question holds the turn.
+
+## Wave A (parallel; dependency-free)
+| Ticket | What | Where, tier | Notes |
+|---|---|---|---|
+| A0 | G1 script layer on main now (`uv run python -m scripts.walk.run <main sha40> --hold-minutes 1`: no agent layer on this run, so the stack and the G1 slot free at once), both sets | detached | measures Edison act p95 and the question cap on main; 60-75 min; read walk.json, file what fails |
+| A1 | FL8 #691 round 3 (`fix-regression`): web Ctrl Z and toast word the result from the server's reply; correction_moved_on names its sheet; the limits as `{limit}` placeholders | local builder s23-fl8 (alive), ordinary/high | then design gate (keyboard walk of E, undo, the refusal words) on a served head |
+| A2 | FL5 #692 round 3 (`fix-regression`): a table box is never a drawing a long line may title unless it holds a drawing's geometry; the guard uses pairing's own TITLE_GAP rule | local builder s23-fl5 (alive), hard | real drawings; its builder's direct read on 413f6764: Edison architecture 8 phantoms gone, 4 long titles gained, 0 lost |
+| A3 | FL13 + FL7 words: #666/#581 cursor and save-state items; #667/#580 role-aware "Needs you"; #670, #663, #672; #664/#690 Coverage totals agree | cloud, ordinary/high | acceptance-writer first (m0-screens' words verbatim) |
+| A4 | FL6 #661: annotation text fits its box | local, hard | real drawings |
+| A5 | FL6 #660: one sheet, one Plot page | local, hard | real drawings |
+| A6 | Factory quick wins (one PR): `rdlock` refuses a posting run without a review PASS and cancels runs on superseded heads; `launch` refuses a second builder on a ticket; the watcher watches carried-over tickets and prunes merged ones; #685 uses the best-of helper | cloud, ordinary | no owner ruling needed |
+
+Then **Wave B**: B1 Who did what from the event log (#314, #678, #689 D1; after A1, A3; cloud); B2 storeys by E
+(#677; after A1; cloud); B3 FL6 #665 note diagrams not Plan views (after A2, same files; local, hard).
+
+At most 3 local builders at once (eight filled swap once); cloud for everything provable by committed tests.
+
+## How this session runs (binding)
+- **Never idle, never blocked.** Every READY head is pushed and reviewed within 10 minutes (events.log READY). While
+  waiting: file 50-74 findings as issues, write cases tables, warm main's real-drawing cache after each merge.
+- **Heuristic rules:** a builder writes a cases table from the real sets before round 1 (drawing-analyst), and after
+  any round-1 FIX on a recogniser rule the next round changes the shape, never a constant or a word list.
+- **Real drawings:** one posting run per head, after review PASS, with the reason judged from the builder's own
+  no-post or direct read; cancel any run whose head a fix replaced.
+- **G1 rehearsal before the merge freeze:** when A1 and A2 pass review, merge them and every Wave A PR that passed
+  into an integration branch and run the G1 script layer on it (`scripts/walk/run.py <sha>`; 60-75 min), then the
+  agent layer (`/real-set-walk`); its findings become Wave C tickets while the PRs land.
+- **Merge freeze at hour 7 of 12:** land what passed, cut the rest (issues under `## Cut`), then walk main: G1 #1
+  (script and agent layer), fix what blocks, G1 #2 on the same product code. Only after `scripts.walk.ready
+  origin/main` exits 0 may the owner be told the milestone is ready (the walk-gate Stop hook enforces it).
+- **Power cuts:** every builder keeps `.private/work/<ticket>/NOTES.txt`; on restart, `scripts.factory.state`, then
+  resume each `stopped` or `failed` builder through `scripts.factory.say`, and re-check every head.
+
+## Claude Code features to use (official docs, Oct 2026; CLAUDE.md's limits stand unless the owner rules)
+- `claude agents --json` to see local builders (a session cut by a crash shows `failed`); resume one only through
+  `scripts.factory.say`, which runs the resume with the builder's settings.
+- `SendMessage` with `notify_when_idle` to every local builder you message; cloud builders only through
+  `uv run python -m scripts.factory.launch say <session-id> --ticket <t> --file <f>`; Monitor on events.log for READY and BLOCKED.
+- Subagent frontmatter (`model`, `effort`, `isolation: worktree`) for every agent you launch; set both model and
+  effort each time.
+- The `real-set-walk` workflow for G1's agent layer (the only workflow allowed, per CLAUDE.md); resume a failed run
+  with `resumeFromRunId`.
+- `CronCreate` or `ScheduleWakeup` for a self-check every 20 minutes (`scripts.factory.state`: any READY head
+  unpushed, any run on a superseded head) instead of memory.
+- Hooks in place: the guard, walk-gate, precompact, stop-gate. None added this session without a ticket.
+
+## M1 (wave 0 after G1 PASS twice and the owner's M0 walk, docs/plans/M1.md O2; its docs and owner-time tickets earlier only if the owner says so in step 4)
+M1 is "the frame and piles, priced" (docs/milestones.md). Startable without touching M0 code: M1-24
+(`docs/design/m1-screens.md`, docs only), M1-02 (the Sample Project's element key, 1.5 h of the owner's time),
+M1-05 (Edison's counts per family per storey, 1.5 h), M1-06 (the Held-out instance script; the owner runs it with
+sudo). Not before the owner's M0 walk: M1-00 (stubs every route). The drafts #595-#598 and #601 are 515 commits behind main:
+harvest ideas ticket by ticket, never merge them.
 
 ## Finish line (checked by its command)
-1. G1 PASS twice on main's current product code (`scripts.walk.ready origin/main` exit 0).
-2. `docs/handoff/session-25-prompt.md` merged, opening with session 24's measures table.
-Budget: ask the owner (recommend **8 hours**), before anything else, and ask nothing else that can wait: a question
-holds the orchestrator's turn.
+1. `uv run python -m scripts.walk.ready origin/main` exits 0.
+2. Every G1 finding of block or misleading closed or filed; FL6 and FL13 PASS.
+3. `docs/handoff/session-25-prompt.md` merged, opening with session 24's measures and M1 wave 0's plan (to start
+   after the owner's M0 walk).
+
+## Housekeeping
+- Never push local branches s22-fl7, s22-fl7b, s22-fl5b (real titles or a leaking commit).
+- Session 23's evidence: .private/work/s23/ (g1-gaps.md, factory-gaps.md, fl5-cases.md, review-*.json, ux-*.md).
+- Issues from session 23: #685 (flaky timing test), #689 (Correct form mays), #690 (Coverage totals).
+- Open for the owner: #687 narrowed "setback" to "plot setback" (a Structural sheet titled only "SETBACK
+  ARRANGEMENT" leaves its untitled section unaccounted, where the 11 Oct ruling gives Step 14).
 
 ## Binding from session 23 (`docs/knowledge/lessons.md`, Session 23)
-- Before asking the owner anything, give every running builder its next message.
-- A recogniser rule that a review sent back once is designed from a cases table of the real sets first.
+- Before asking the owner anything, every running builder has its next message; ask once, at the start.
+- A recogniser rule a review sent back once is designed from a cases table of the real sets first.
 - Queue a posting run only for a head whose review passed; cancel a run whose head was replaced.
 - The design gate names every item 1-11 once.
 
 ## Effort and models; laws that do not change
-CLAUDE.md's "Effort and models" and Law sections in full.
+CLAUDE.md's "Effort and models" and Law sections in full. The orchestrator stays Opus 5.5 `medium`, with no
+Ultracode and no workflow but `real-set-walk`, unless the owner rules otherwise in step 4.

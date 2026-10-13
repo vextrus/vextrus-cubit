@@ -10,7 +10,12 @@ A normal PR runs lens A (an `opus` model) and lens B (a `sonnet` model). In the 
 finishes and lens B fails (past its cap, or a reply outside the schema): nothing is recorded. The rerun
 of round 1 starts both lenses again, and the recorded verdict comes from the rerun's answers only. A
 PASS answer planted where an earlier run of this PR, head and round would keep it is never read: the
-lenses start and their FIX is recorded. A new head is a new review: every lens runs again.
+lenses start and their own answers are recorded. A new head is a new review: every lens runs again.
+
+S24-L1 (the ledger's verdict follows the bar): a lens's FIX with no finding that could block now
+records PASS. The rerun test tells the rerun's answers by a lens's BLOCK (which still wins); the planted
+answer test by the lenses' two findings (the planted PASS has none) and pins the bar's PASS for their
+FIX over findings of 20 and 30. Both recorded FIX before S24-L1.
 
 Seam assumed, as in test_lens_failures.py: `VEXTRUS_REVIEW_LENS_TIMEOUT` (seconds)."""
 
@@ -98,7 +103,7 @@ def test_a_rerun_of_the_round_starts_every_lens_again(world: World, how: str) ->
     assert world.record(12, head) is None, f"the failed run recorded a verdict; {why(first)}"
     assert (kinds(world, "opus"), kinds(world, "sonnet")) == (1, 1), world.lens_calls()
     world.kill_hung()
-    world.lenses(opus=review_reply("FIX", [RERUN_DEPTH]), sonnet=review_reply("PASS", [ADVERSARY]))
+    world.lenses(opus=review_reply("BLOCK", [RERUN_DEPTH]), sonnet=review_reply("PASS", [ADVERSARY]))
     second = world.run("12", "--round", "1", hang=HANG_GUARD)
     assert kinds(world, "opus") == 2, (
         f"lens A, finished in the first run, was not started again; {why(second)}"
@@ -106,7 +111,7 @@ def test_a_rerun_of_the_round_starts_every_lens_again(world: World, how: str) ->
     assert kinds(world, "sonnet") == 2, "lens B, which did not finish, was not started again"
     record = world.record(12, head)
     assert record is not None, why(second)
-    assert record["verdict"] == "FIX", f"the verdict is not from the rerun's answers: {record}"
+    assert record["verdict"] == "BLOCK", f"the verdict is not from the rerun's answers: {record}"
 
 
 def test_a_rerun_records_only_the_rerun_s_answers(world: World) -> None:
@@ -135,7 +140,8 @@ def test_a_planted_pass_answer_for_this_head_and_round_is_never_read(world: Worl
     )
     record = world.record(12, head)
     assert record is not None, why(done)
-    assert record["verdict"] == "FIX", f"the planted PASS was recorded: {record}"
+    assert record["verdict"] == "PASS", f"the lenses' FIX overrode the bar: {record}"
+    assert record["counts"]["findings"] == 2, f"the planted PASS was recorded: {record}"
 
 
 def test_a_new_head_runs_every_lens_again(world: World) -> None:

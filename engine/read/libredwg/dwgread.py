@@ -53,7 +53,8 @@ _ENTITY_KEEP = frozenset({"entity", "handle", "layer", "ownerhandle", "entmode",
 _TEXT_KEEP = _ENTITY_KEEP | {
     "text_value", "text", "style", "height", "text_height", "ins_pt", "alignment_pt", "elevation",
     "horiz_alignment", "vert_alignment", "rotation", "x_axis_dir", "width_factor", "rect_width",
-    "attachment", "tag", "extrusion", "default_value",
+    "attachment", "tag", "extrusion", "default_value", "extents_width", "extents_height",
+    "linespace_style", "linespace_factor",
 }  # fmt: skip
 _TEXT_FIELD = {"MTEXT": "text", "ATTDEF": "default_value"}  # else "text_value"
 _INSERT_KEEP = _ENTITY_KEEP | {"ins_pt", "scale", "rotation", "extrusion", "block_header", "attribs"}
@@ -452,7 +453,17 @@ def _text(item: Mapping[str, Any], placed: Placed, styles: Mapping[str, TextStyl
         attachment=int(item.get("attachment", 1)) if is_mtext else None,
         tag=str(item["tag"]) if "tag" in item else None,
         extrusion=_point3(item.get("extrusion"), 1.0) if item.get("extrusion") else (0.0, 0.0, 1.0),
+        extents_width=usable_size(item.get("extents_width")) if is_mtext else None,
+        extents_height=usable_size(item.get("extents_height")) if is_mtext else None,
+        line_spacing_style=_line_spacing_style(item.get("linespace_style")) if is_mtext else None,
+        line_spacing_factor=usable_size(item.get("linespace_factor")) if is_mtext else None,
     )
+
+
+def _line_spacing_style(value: object) -> int | None:
+    """An MTEXT's line spacing style as the file stores it (DXF group 73): 1 at least, 2 exactly;
+    anything else is none, and the renderer reads none as at least."""
+    return value if type(value) is int and value in (1, 2) else None
 
 
 def _attdef_style(

@@ -363,7 +363,10 @@ def kind_group(discipline: str | None, ranked: Sequence[str]) -> list[str]:
 def unsure(answer: jev.Judgement, title: str) -> bool:
     """Whether Jev's kind for a sheet is asked rather than proposed (#228): never when Jev is sure
     (`jev.SHEET_TYPE.proposes`); else when its top two are close (its first's lead under
-    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`) or the title contradicts its first: it names kinds offered
+    `VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY`; when the first is a `*_details` kind, the generic `details`
+    it refines is left out of the comparison, so the first is measured against the best other
+    kind, so `details` never shields a near-tie between two specific kinds, S24-A7) or the
+    title contradicts its first: it names kinds offered
     (`kinds_named`) and not Jev's first. "BEAM LAYOUT & DETAILS" names `beam_details` and so does
     not contradict it; "BEAM LAYOUT" and "COLUMN LAYOUT & BEAM DETAILS" contradict `beam_layout`'s
     neighbour `beam_details` and `beam_layout` (reviews 2 and 3)."""
@@ -371,12 +374,19 @@ def unsure(answer: jev.Judgement, title: str) -> bool:
         return False
     ranked = answer.ranked()
     first = ranked[0]
-    if len(ranked) > 1:
-        lead = answer.probability(first) - answer.probability(ranked[1])
+    rivals = [k for k in ranked[1:] if not _refines(first, k)]
+    if rivals:
+        lead = answer.probability(first) - answer.probability(rivals[0])
         if lead < settings.VEXTRUS_JEV_SHEET_TYPE_CLOSE_BY:
             return True
     named = kinds_named(title, ranked)
     return bool(named) and first not in named
+
+
+def _refines(first: str, other: str) -> bool:
+    """Whether Jev's first is a specific `*_details` kind and `other` the generic `details` it
+    refines (S24-A7): the generic says what the specific kind says, less, so it is no rival to it."""
+    return other == "details" and first.endswith("_details") and first != "details"
 
 
 def kinds_named(title: str, kinds: Sequence[str]) -> list[str]:
@@ -1043,7 +1053,9 @@ def _boundaries(
     viewed: Sequence[Sequence[drawings.ViewView]],
     proposal_of: Mapping[uuid.UUID, uuid.UUID],
 ) -> int:
-    """Two floor-to-floor plans of one Discipline and subject whose ranges meet at a storey: the
+    """Two floor-to-floor column or shear-wall plans (`conflicts.COLUMN_SUBJECTS`; an architectural
+    plan, read floor to floor too, is no column change: S22-FL5) of one Discipline and subject whose
+    ranges meet at a storey: the
     first's range ends where the second's starts (m0-screens 6.7's boundary storey). A meeting needs
     both views to state one two-ended "X to Y" range (`Storeys.ranged`: a list or a "below ground"
     phrase never meets). By the Dhaka convention the first plan's columns stop at that slab, so the
@@ -1067,7 +1079,9 @@ def _boundaries(
         (i, v)
         for i, vs in enumerate(viewed)
         for v in vs
-        if v.kind == ViewKind.PLAN and v.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR and v.subject
+        if v.kind == ViewKind.PLAN
+        and v.storeys_meaning == StoreysMeaning.FLOOR_TO_FLOOR
+        and v.subject in finder.COLUMN_SUBJECTS  # an architectural plan's floors are no column change
     ]
     ranges = [(i, v) for i, v in plans if len(v.storeys) > 1 and ranged(v)]
     asked = 0
