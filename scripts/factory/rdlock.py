@@ -24,14 +24,19 @@ or SIGINT. It exits with the command's code.
 A `posting` run starts only on a head the review ledger passed
 (`$VEXTRUS_FACTORY_DIR/ledger/<PR>-<head>.json` with `verdict` `PASS`) and, when `--ticket` names a
 launch whose branch is known, only while `git ls-remote origin <branch>` still reads that head (an
-unreadable branch refuses). Without `--ticket` no branch is known and only the ledger gate applies, so
-the runbook passes `--ticket` on every posting run. The check runs before the run queues and again when
+unreadable branch refuses). The ticket is matched without regard to case (`S25-F3` on `s25-f3`); a
+`--ticket` with no builder launch record refuses. Without `--ticket` no branch is known and only the
+ledger gate applies, so the runbook passes `--ticket` on every posting run.
+The check runs before the run queues and again when
 its turn comes; a refusal exits 6 naming the missing
 PASS or the newer head, runs nothing and frees the lock. A head also counts as passed when it differs
 from a passed head only by clean merges of main (`land.reviewed`). A posting run already running is
 stopped (exit 7, a `CANCELLED` line naming the newer head, the lock released) when its branch moves
 past its head; the branch is read every 5 s (`VEXTRUS_RDLOCK_POLL`).
-`scored` and `no-post` runs are not gated.
+Whatever its kind, a run of `scripts/real-drawings <branch|main|PR>` is refused (exit 6, at the start and
+at its turn) when the commit that runner would read (the local `refs/heads/<branch>`, which may be stale,
+or origin's `refs/pull/<PR>/head`) is not `--head`.
+`scored` and `no-post` runs are not otherwise gated.
 
 Exit 0, 4 queued, 5 a duplicate waiter, 6 a posting run refused, 7 cancelled, 2 usage error.
 """
@@ -179,11 +184,32 @@ def passed(head: str) -> bool:
     return False
 
 
+def recorded_spellings(ticket: str) -> set[str]:
+    """The ticket as the launch records spell it: the factory records `S25-F3` for the branch `s25-f3`,
+    so a ticket given in the branch's casing is matched without regard to case."""
+    spellings = {ticket}
+    folder = status.factory_dir() / "launches"
+    for path in folder.glob("*.json"):
+        if path.name.casefold().startswith(f"{ticket.casefold()}-") and not path.name.endswith(
+            ".agents.json"
+        ):
+            try:
+                record = json.loads(path.read_text())
+            except status.RECORD_ERRORS:
+                continue
+            name = record.get("ticket") if isinstance(record, dict) else None
+            if isinstance(name, str) and name.casefold() == ticket.casefold():
+                spellings.add(name)
+    return spellings
+
+
 def ticket_branch(ticket: str | None) -> str | None:
-    """The branch named by the ticket's newest launch record, or None."""
+    """The branch named by the ticket's newest launch record (the ticket matched without regard to
+    case), or None."""
     if not ticket:
         return None
-    for _, record in governor.launch_records(ticket):
+    records = [found for name in recorded_spellings(ticket) for found in governor.launch_records(name)]
+    for _, record in sorted(records, key=lambda found: found[0].name, reverse=True):
         if record.get("role", "builder") in governor.NOT_BUILDER_ROLES:
             continue
         if record["branch"]:
@@ -215,11 +241,14 @@ def covered(head: str) -> bool:
 
 def moved(head: str, ticket: str | None) -> str | None:
     """Why the branch no longer stands at this head (it names the newer head), or None; a branch that
-    cannot be read gives a reason starting `unreadable:`. The branch is the ticket's launch record's;
-    with no `--ticket` no branch is known and nothing is checked (the runbook passes `--ticket`)."""
+    cannot be read gives a reason starting `unreadable:`, as does a `--ticket` with no builder launch
+    record (a typo, a PR label: no branch to check, so no posting). The branch is the ticket's launch
+    record's; with no `--ticket` no branch is known and nothing is checked (the runbook passes it)."""
+    if not ticket:
+        return None
     branch = ticket_branch(ticket)
     if branch is None:
-        return None
+        return f"unreadable: --ticket {ticket} has no builder launch record, so its branch is unknown"
     tip = tip_of(branch, head)
     if tip.startswith("unreadable:"):
         return tip
@@ -229,9 +258,13 @@ def moved(head: str, ticket: str | None) -> str | None:
 
 
 def tip_of(branch: str, head: str) -> str:
+    return remote_tip(f"refs/heads/{branch}", head)
+
+
+def remote_tip(ref: str, head: str) -> str:
     try:
         done = subprocess.run(
-            ["git", "ls-remote", "origin", f"refs/heads/{branch}"],
+            ["git", "ls-remote", "origin", ref],
             capture_output=True,
             text=True,
             stdin=subprocess.DEVNULL,
@@ -239,15 +272,63 @@ def tip_of(branch: str, head: str) -> str:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
-        return f"unreadable: cannot read the tip of {branch} to check head {head[:8]}: {error}"
+        return f"unreadable: cannot read the tip of {ref} to check head {head[:8]}: {error}"
     if done.returncode != 0:
         reason = done.stderr.strip()
-        return f"unreadable: cannot read the tip of {branch} to check head {head[:8]}: {reason}"
+        return f"unreadable: cannot read the tip of {ref} to check head {head[:8]}: {reason}"
     return done.stdout.split()[0] if done.stdout.split() else ""
 
 
-def refusal(kind: str, head: str, ticket: str | None) -> str | None:
-    """Why a run may not start, or None. Only posting runs are gated."""
+def runner_target(command: list[str]) -> tuple[Path, str] | None:
+    """The checkout and target of a `scripts/real-drawings <target>` (or `-m scripts.real_drawings
+    <target>`) command, or None when the command is not that runner. The runner reads a PR's head from
+    origin and a branch or `main` from the checkout's own `refs/heads/`."""
+    for at, word in enumerate(command):
+        if Path(word).name == "real-drawings":
+            root = Path(word).resolve().parent.parent
+        elif word == "scripts.real_drawings" and command[at - 1 : at] == ["-m"]:
+            root = Path.cwd()
+        else:
+            continue
+        rest = [arg for arg in command[at + 1 :] if not arg.startswith("-")]
+        return (root, rest[0]) if rest else None
+    return None
+
+
+def reads_other(head: str, command: list[str]) -> str | None:
+    """Why the commit the real-drawing runner would read is not `--head` (or cannot be read), or None.
+    A stale local branch ran 25 minutes on the wrong code while `--head` named origin's tip."""
+    found = runner_target(command)
+    if found is None:
+        return None
+    root, target = found
+    if target.isdigit():
+        read = remote_tip(f"refs/pull/{target}/head", head)
+        where = f"origin's PR {target}"
+    else:
+        done = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--verify", f"refs/heads/{target}^{{commit}}"],
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            check=False,
+        )
+        missing = f"unreadable: no local {target} in {root}"
+        read = done.stdout.strip() if done.returncode == 0 else missing
+        where = f"the local {target}"
+    if read.startswith("unreadable:"):
+        return read
+    if not read or (not read.startswith(head) and not head.startswith(read)):
+        return f"the run would read {where} at {read[:8] or 'nothing'}, not --head {head[:8]}"
+    return None
+
+
+def refusal(kind: str, head: str, ticket: str | None, command: list[str] | None = None) -> str | None:
+    """Why a run may not start, or None. A run whose real-drawing runner would read another commit than
+    `--head` is refused whatever its kind; only posting runs are gated by the ledger and the branch."""
+    other = reads_other(head, command or [])
+    if other:
+        return other
     if kind != "posting":
         return None
     if not covered(head):
@@ -302,7 +383,7 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     pid = os.getpid()
     for signum in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
         signal.signal(signum, _stop)  # the finally below releases; subprocess.run kills the command
-    why = refusal(kind, head, ticket)
+    why = refusal(kind, head, ticket, command)
     if why:
         print(f"rdlock: refused: {why}")
         return REFUSED
@@ -314,7 +395,7 @@ def run(kind: str, head: str, ticket: str | None, command: list[str]) -> int:
     if code != HELD:  # a duplicate waiter: never run without the lock, never touch rd.pid
         print(f"rdlock: refused: a {kind} run for {head[:8]} is already queued or holding the lock")
         return code
-    why = refusal(kind, head, ticket)  # the branch may have moved while the run waited
+    why = refusal(kind, head, ticket, command)  # the branch may have moved while the run waited
     if why:
         release(kind, head, pid)
         print(f"rdlock: refused at its turn: {why}")
