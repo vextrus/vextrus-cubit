@@ -409,8 +409,12 @@ FAILED_HERE = (
         (FAILED_HERE + "ERROR    x:test_a.py:5 boom\n",
          "review_attacks/lens-b/test_a.py::test_a at review_attacks/lens-b/test_a.py:5"),
         ("1 passed in 0.01s\n", None),
+        # --tb=no, or pytest.fail(pytrace=False): no line of the test file is printed
+        ("FAILED review_attacks/lens-b/test_a.py::test_a - Failed: guard\n",
+         "review_attacks/lens-b/test_a.py::test_a"),
     ],
-    ids=["long", "line", "collection-error", "collection-header", "a-logged-error", "passed"],
+    ids=["long", "line", "collection-error", "collection-header", "a-logged-error", "passed",
+         "no-traceback"],
 )  # fmt: skip
 def test_failed_at_names_the_failing_tests_and_their_lines_in_the_attack(
     output: str, place: str | None
@@ -437,6 +441,40 @@ def test_keep_attacks_keeps_where_the_attack_failed_on_its_own_round(
 
 
 OWN = "t.py::test_one t.py::test_two[1] at t.py:5 t.py:9"
+
+
+NO_TB = "FAILED t.py::test_one - Failed: guard\n"
+TB = "t.py:5: AssertionError\nFAILED t.py::test_one - AssertionError\n"
+
+
+@pytest.mark.parametrize(
+    ("own", "now", "elsewhere"),
+    [
+        # a signature without lines (--tb=no, --tb=native, pytrace=False) is compared by test id
+        (NO_TB, NO_TB, False),
+        (NO_TB, TB, False),
+        (TB, NO_TB, False),
+        (NO_TB, "FAILED t.py::test_two - Failed: guard\n", True),
+        (TB, "FAILED t.py::test_two - Failed: guard\n", True),
+        (TB, TB, False),
+        (TB, "t.py:3: AssertionError\nFAILED t.py::test_one - AssertionError\n", True),
+    ],
+    ids=["none-none", "none-lines", "lines-none", "none-other-test", "lines-other-test",
+         "lines-lines", "lines-other-line"],
+)  # fmt: skip
+def test_a_replay_without_a_traceback_is_judged_by_its_test_id(
+    own: str, now: str, elsewhere: bool
+) -> None:
+    """Review round 1 of PR 808 (52, 50): a lines-free signature read STALE whatever failed."""
+    place = review.failed_at(own, "t.py")
+    assert place is not None
+    assert review.fails_elsewhere(place, {"failed_at": review.failed_at(now, "t.py")}) is elsewhere
+
+
+@pytest.mark.parametrize("own", ["t.py::test_one at", "t.py::test_one at "])
+def test_a_kept_signature_with_a_dangling_at_reads_as_no_lines(own: str) -> None:
+    assert review.fails_elsewhere(own, {"failed_at": "t.py::test_one"}) is False
+    assert review.fails_elsewhere(own, {"failed_at": "t.py::test_two at t.py:5"}) is True
 
 
 @pytest.mark.parametrize(

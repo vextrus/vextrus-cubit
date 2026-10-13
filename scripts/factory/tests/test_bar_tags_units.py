@@ -158,6 +158,29 @@ def test_the_window_leaves_out_records_outside_it(
     assert json.loads(out)["rounds"] == 1
 
 
+@pytest.mark.parametrize(
+    ("text", "code"),
+    [
+        # a same-head re-review's record is read (never a round-1 row) ...
+        ('{{"pr": 7, "head": "{h}", "round": 2, "verdict": "PASS"}}', 0),
+        # ... and fails closed like any other record (review round 1 of PR 808, 55)
+        ('{{"pr": 7, "head": "{h}", "round": 3, "verdict": "PASS"}}', 2),
+        ('{{"pr": 7, "head": "', 2),
+    ],
+    ids=["read", "another-round", "truncated"],
+)
+def test_a_same_head_record_is_read_by_rescore(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], text: str, code: int
+) -> None:
+    world(tmp_path, ["VERDICT: FIX at {h}"])
+    head = "6" * 40
+    (tmp_path / "records" / f"7-{head}-r2.json").write_text(text.format(h=head))
+    done, out, _ = run(tmp_path, capsys)
+    assert done == code
+    if code == 0:
+        assert json.loads(out)["rounds"] == 1
+
+
 def test_a_bad_tags_file_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     world(tmp_path, ["VERDICT: FIX at {h}", f"FINDING f1 62 CONFIRMED {PRODUCT}"])
     tags = tmp_path / "tags.json"

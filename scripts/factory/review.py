@@ -1210,13 +1210,14 @@ def replay(rv: Path, slot: int, test_file: str) -> bool:
 
 def failed_at(output: str, test_file: str) -> str | None:
     """Where a replay failed: the tests that failed by name and every line of the test file their
-    tracebacks pass through (`<id> ... at <file>:<line> ...`); None when no test failed by name."""
+    tracebacks pass through (`<id> ... at <file>:<line> ...`, or `<id> ...` alone when pytest printed
+    no line of the file: `--tb=no`, `pytrace=False`); None when no test failed by name."""
     escaped = re.escape(test_file)
     failed = sorted(set(re.findall(rf"^FAILED ({escaped}::\S+)", output, re.MULTILINE)))
     if not failed:
         return None
     lines = list(dict.fromkeys(re.findall(rf"(?:^|[\s/]){escaped}:(\d+)", output, re.MULTILINE)))
-    return " ".join([*failed, "at", *(f"{test_file}:{line}" for line in lines)])
+    return " ".join([*failed, *(["at"] if lines else []), *(f"{test_file}:{line}" for line in lines)])
 
 
 def collection_error(output: str, test_file: str) -> bool:
@@ -1231,8 +1232,9 @@ def collection_error(output: str, test_file: str) -> bool:
 def fails_elsewhere(own: str, shown: dict[str, Any]) -> bool:
     """A replay is STALE (S26-FX9) only when its file no longer collects, or it failed by name and
     no test that failed on the attack's own round (`own`, `failed_at`'s words) still fails at a line it
-    failed at then. A timeout, a skip, nothing run, or any failure sharing a test and a line with its
-    own round is never stale: those go to the refuter."""
+    failed at then. When either side names no line (pytest printed no traceback), the test ids alone
+    are compared. A timeout, a skip, nothing run, or any failure sharing a test (and a line, when both
+    name lines) with its own round is never stale: those go to the refuter."""
     if shown.get("collection_error"):
         return True
     now = shown.get("failed_at")
@@ -1240,11 +1242,13 @@ def fails_elsewhere(own: str, shown: dict[str, Any]) -> bool:
         return False
 
     def split(place: str) -> tuple[set[str], set[str]]:
-        tests, _at, lines = place.partition(" at ")
-        return set(tests.split()), set(lines.split())
+        words = place.split()
+        at = words.index("at") if "at" in words else len(words)
+        return set(words[:at]), set(words[at + 1 :])
 
     (own_tests, own_lines), (now_tests, now_lines) = split(own), split(now)
-    return not (own_tests & now_tests and own_lines & now_lines)
+    same_lines = not own_lines or not now_lines or bool(own_lines & now_lines)
+    return not (own_tests & now_tests and same_lines)
 
 
 # ---------------------------------------------------------------------------------------------- the run
