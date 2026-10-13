@@ -75,7 +75,11 @@ jobs:
           web=$(touches --pattern 'web/**')
           # The web paths that are not tests; any left needs the real design gate (the owner's ruling,
           # 13 Oct 2026). A renamed file is listed under both names, so the old name still counts.
-          nontest=$(grep -vE '^web/(src/acceptance/|e2e/)|^web/(.*/)?[^/]*\.test\.[^/]*$' <<< "$web" || true)
+          # A file under web/src/routes/ is a route (the generated route tree takes every .ts/.tsx there),
+          # never a test, whatever its name.
+          routes=$(grep -E '^web/src/routes/' <<< "$web" || true)
+          others=$(grep -vE '^web/src/routes/|^web/(src/acceptance/|e2e/)|^web/(.*/)?[^/]*\.test\.[^/]*$' <<< "$web" || true)
+          nontest="$routes$others"
           if [ -z "$engine" ]; then
             post real-drawings "no engine path changed"
           else
