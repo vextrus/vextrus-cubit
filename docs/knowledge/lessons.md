@@ -677,3 +677,26 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   `guard.test.mjs`).
 - **A fix round introduced a new fault** (#728 round 1 changed "ADR 0043" to "ADR 0041" and kept the wrong item; 12 of 16
   sampled later-round findings came from the previous fix). No check yet: session 25's F1 (`review self` on each fix's own diff).
+
+## Session 25 (13 Oct 2026): eleven merges, e2e green for the first time, one G1 walk; the watcher's misses cost the most
+
+- **The e2e test was right and CI was wrong** (e2e.yml never installed the ACadSharp dumper, so every read failed at the
+  second reader; the brief blamed the test's words). Check: `scripts/tests/acceptance/ts25e2e/` (#749). e2e then went green
+  on main for the first time and held 5 runs.
+- **verify's contract-fixtures raced the schema export** (#709; 4 of the orchestrator's first 5 local verifies). Check:
+  `scripts/tests/test_verify.py::test_contract_fixtures_runs_after_the_export_in_its_chain` (#750).
+- **The watcher missed BLOCKED pushes without a Factory-Reason, every carried-over ticket's push, local builders' commits
+  on a renamed branch, and every builder's reply** (~290-340 builder-minutes unseen; the owner relayed one reply by hand).
+  No check yet: #761 (FX1, FX2 in session 26's brief).
+- **The round cap closed five PRs whose last findings were under 75 and came from the previous fix** (F1 #748, F3 #737,
+  M1-24 #747/#756, M1-06 #753: $45.83 of $94.04, none merged). No check yet: the owner's delta-review ruling (FX4).
+- **A docs page with one seed table never converged under review** (M1-24: a stale copy of a changed figure in every
+  round, two PRs). No check yet: the seed-figure lint #765 (#762).
+- **merge_ready's Cut parser counts every non-blank line under a Cut heading as an item** (#755 and #757 refused twice
+  each at land). No check yet: #759 (publish runs the same check).
+- **A posting run started with a reason judged from an older head's table** (#711 after #723's engine merge): stopped
+  before it posted; re-run no-post on the new head. The session-24 lesson stands; no check yet.
+- **Parallel local verifies time out the same three web tests that pass alone**, as cloud verifies do. No check yet: FX3.
+- **The exploring session's diagnosis missed the factory's own gate friction**: design gates on test-only web PRs, the Cut
+  parser, catalogue caps crossed only after a main merge, an engine timing test failing an unrelated PR's CI.
+  `.private/work/s25/explore/factory-mod-design.md` §5 lists each with its owed check.
