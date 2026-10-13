@@ -319,6 +319,11 @@ def compare(
     continuations: list[tuple[int, Continuation]] = []
     series: list[tuple[int, Series]] = []
     by_title: list[tuple[int, Conflict]] = []
+    carried = {  # every number a sheet of a group and Discipline carries, titled alike or not
+        (s.group, s.discipline.value, *parts)
+        for s in sheets
+        if s.discipline is not None and s.number is not None and (parts := reader.parts(s)) is not None
+    }
     for group in _grouped(
         (i, (s.group, s.discipline.value, titles[i]))
         for i, s in enumerate(sheets)
@@ -330,6 +335,11 @@ def compare(
         alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
 
         spans = [_span([ranges[i] for i in unit]) for unit in units]
+        gkey = (sheets[group[0]].group, sheets[group[0]].discipline.value)  # type: ignore[union-attr]
+
+        def held(prefix: str, suffix: str, running: int, gkey: tuple[object, str] = gkey) -> bool:
+            return (*gkey, prefix, running, suffix) in carried
+
         drawn = [_Drawn(unit, views, reader) for unit in units]
         stale: list[bool] = []  # a consecutive pair parted because its views draw different things
 
@@ -348,7 +358,7 @@ def compare(
                 return False
             return True
 
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits)
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits, held)
         members_of = [[i for unit in run for i in unit] for run in runs]
         for run, members in zip(runs, members_of, strict=True):
             places.join(members)
@@ -364,7 +374,7 @@ def compare(
             title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
             if (
-                not _blocking(units, alone, reader, sheets, spans)
+                not _blocking(units, alone, reader, sheets, spans, held)
                 and not stale
                 and _apart(members_of, views, ranges, reader, plans, pattern)
             ):
@@ -387,6 +397,7 @@ def _blocking(
     reader: _Reader,
     sheets: Sequence[SheetCandidate],
     spans: list[list[_Span]],
+    held: Callable[[str, str, int], bool] | None = None,
 ) -> bool:
     """Whether a contradicted unit blocks its title's series: only one that, its contradiction set
     aside, would run on from or into another unit of its title (by number and ascending ranges, #102:
@@ -399,6 +410,7 @@ def _blocking(
         [reader.parts(sheets[unit[0]]) for unit in units],
         [False] * len(units),
         lambda before, after: _ascending(spans[before], spans[after]),
+        held,
     )
     at = {id(unit): u for u, unit in enumerate(units)}  # by position: `_runs` returns the very units
     return any(len(run) > 1 and any(alone[at[id(unit)]] for unit in run) for run in free)
@@ -671,10 +683,13 @@ def _runs(
     parts: list[tuple[str, int, str] | None],
     alone: Sequence[bool],
     fits: Callable[[int, int], bool] = lambda _before, _after: True,
+    held: Callable[[str, str, int], bool] | None = None,
 ) -> list[list[list[int]]]:
     """The units (copies of one number) joined into runs of numbers that run on, in number order (a
     part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102), and a
-    unit joins the next only when it `fits` before it (member ranges that ascend)."""
+    unit joins the next only when it `fits` before it (member ranges that ascend). A unit of several
+    copies (a duplicated number, its own same_number Question) leaves a gap of as many numbers less
+    one: it may run on across them when `held` says no sheet at all carries any of them."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -697,11 +712,15 @@ def _runs(
         if part is not None:
             by_part.setdefault((prefix, running, part), []).append(u)
     for (prefix, suffix, running), members in by_running.items():
-        after = by_running.get((prefix, suffix, running + 1))
-        if after is not None:
-            for u in members:
-                if fits(u, after[0]):
-                    join(u, after[0])
+        for u in members:
+            after = by_running.get((prefix, suffix, running + 1))
+            if after is None and held is not None:  # a number a duplicate's copy should have had
+                step = len(units[u])
+                gap = range(running + 1, running + step)
+                if step > 1 and not any(held(prefix, suffix, n) for n in gap):
+                    after = by_running.get((prefix, suffix, running + step))
+            if after is not None and fits(u, after[0]):
+                join(u, after[0])
     for (prefix, running, part), members in by_part.items():
         after = by_part.get((prefix, running, part + 1))
         if after is not None:
@@ -804,10 +823,17 @@ def _span(copies: Sequence[Sequence[MemberRange]]) -> list[_Span]:
 
 def _ascending(before: Sequence[_Span], after: Sequence[_Span]) -> bool:
     """Whether a number's ranges run on to the next's: each of one letters, every copy's below every
-    copy of the next's."""
+    copy of the next's, or touching it at one mark."""
     return all(
-        a[0] is not None and a[0] == b[0] and a[2] < b[1] for a, b in zip(before, after, strict=True)
+        a[0] is not None and a[0] == b[0] and (a[2] < b[1] or _touches(a, b))
+        for a, b in zip(before, after, strict=True)
     )
+
+
+def _touches(a: _Span, b: _Span) -> bool:
+    """Whether two ranges share exactly their one boundary mark, each a range of more than one mark:
+    a member continued on the next sheet runs on."""
+    return a[1] < a[2] == b[1] < b[2]
 
 
 def _joined(first: str, firsts: Sequence[MemberRange], last: str, lasts: Sequence[MemberRange]) -> str:
