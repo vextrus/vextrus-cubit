@@ -167,7 +167,7 @@ ruled on its questions. The numbers and their sources: `docs/research/2026-10-13
    - **F5 the measures** (`scripts/factory/measures.py`): round-1 PASS by area, rounds per ticket including closed PRs, minutes from READY
      to review start, the factory's share of builder hours, and the e2e pass streak on main (the loop section below).
    - File the rest as issues, each with its owed check: the governor's idle slots, the sweep keep rule, generated catalogues that deadlock stacked
-     PRs, symlinked node_modules in verify worktrees, `measures.py`'s `rounds_per_ticket` and READY-to-review minutes.
+     PRs, symlinked node_modules in verify worktrees, and test databases nobody drops (2,927 of them, 39 GB, on 13 Oct; `scripts/owner/clean.sh` only lists them).
 4. **0:45, M1 wave 0 beside it, within O2** (`docs/plans/M1.md`: docs and owner-time tickets now; M1-00's freeze and code only after the
    owner's M0 walk). The "M1 wave 0" section below stands; add to it: M1-24's fresh PR from #700 (ae830596) carries Q15's act in
    `m1-screens.md`; and one spec PR:
