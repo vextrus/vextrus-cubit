@@ -69,8 +69,14 @@ Before the READY commit:
    `scripts/factory/trusted-authors.txt` has its tests run (any other is merge-tree only).
 2. Re-read your whole diff once more against every finding class your ticket's reviews found (re-read it
    for each class, not for the tests alone), and fix what you find.
-3. Put the line crosspr printed last (`Cross-PR: #51 #53 ok` or `Cross-PR: none ok`) in the READY commit
-   message's body.
+3. Run `uv run python -m scripts.factory.review_self` once before READY (the owner's Q14, 13 Oct 2026): it
+   runs review's two lenses on `git diff main...HEAD` in your worktree, with no ledger, no post and no
+   refuter. Fix what is real, delete the lenses' `review_attacks/` files after reading them, and say in
+   the READY body what it found. On a fix round, run it on that round's own diff (`--base <the previous head>`).
+4. A fix round re-runs the previous round's attack tests (the `repro` test files its findings gave) and
+   they must pass on your fix, before you push it.
+5. Put the line crosspr printed last (`Cross-PR: #51 #53 ok` or `Cross-PR: none ok`) in the READY commit
+   message's body, and `Harness net: +a / -r` when the diff touches `.claude`, `scripts`, `tools` or `.github`.
 
 ## The laws
 - The repository is public: write every commit, comment and file as public. No secret or key value is ever
