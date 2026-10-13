@@ -635,3 +635,21 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   orchestrator orders them and closes the later one until the first lands.
 - **A spec's worked money example drew new findings every round** (#700, three rounds). No check yet: one seed table
   that every figure cites (its reshape, ae830596).
+
+## The exploring session beside session 24 (12-13 Oct 2026): M0 dragged on execution, not design
+
+- **A depth review overclaimed until refuted** (an Opus `high` product review: none of its nine "change before M1" claims
+  survived a refuter as cheap-now; the exploring session's own "verified" was once half-checked). No check yet: every claim
+  that changes a plan, a brief or a scope gets one `refuter` before it steers.
+- **One figure was quoted three ways** (round-1 PASS as 24 %, 13-24 % and 32 %, each right only for its window). No check
+  yet: a figure in a brief names its source and window (`docs/research/2026-10-13-why-m0-dragged.md`).
+- **A machine command named no device** (`swapon -a` reads `/etc/fstab`, which lists no swap on this WSL; swap stayed off
+  about 47 minutes). No check yet: a command that changes the machine names its device (`/dev/sdc`).
+- **A workflow stayed red for a week with no owner** (`e2e.yml`: 129 failures on main, 0 passes in 300 runs; the smoke test
+  waits for words the screen no longer says). No check yet: session 25's measures add the e2e pass streak on main.
+- **The guard fails open and matches words, not acts** (no hook sets `onFailure`; `guard.mjs` fails closed only for its
+  `closed` rules; its status, privilege and stamp rules refused read-only queries and notes that merely named a word, four
+  times in one evening). No check yet: session 25's F4 (the PreToolUse guard's `onFailure: "block"`, allow cases in
+  `guard.test.mjs`).
+- **A fix round introduced a new fault** (#728 round 1 changed "ADR 0043" to "ADR 0041" and kept the wrong item; 12 of 16
+  sampled later-round findings came from the previous fix). No check yet: session 25's F1 (`review self` on each fix's own diff).
