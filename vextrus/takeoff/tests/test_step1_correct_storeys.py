@@ -454,3 +454,60 @@ def test_a_sheets_history_names_an_untitled_plan_by_its_place(
     [act] = [a for a in history(nusrat, kr01, sheet["id"]) if a["code"] == "takeoff.step1.corrected"]
 
     assert [(v["title"], v["place"]) for v in act["views"]] == [("", 1), ("", 2)]
+
+
+# Review 3 of #780 ------------------------------------------------------------------------------------
+
+
+def test_a_storeys_undo_read_again_under_it_is_refused_and_takes_nothing_back(
+    demo: Any, nusrat: Api, kr01: uuid.UUID, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sheet, plan = s06_plan(nusrat, kr01)
+    sheet_id = uuid.UUID(sheet["sheet_id"])
+    assert correct(nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor"))).status_code == 200
+    # Read again between the undo reading the views and putting them back: the write finds no row.
+    monkeypatch.setattr(
+        drawings,
+        "put_back_view_storeys",
+        read_again_after(demo, drawings.put_back_view_storeys, sheet_id),
+    )
+
+    refused = nusrat.post(f"{step1(kr01)}/undo", {})
+
+    assert (refused.status_code, refused.json()["code"]) == (409, MOVED_ON)
+    monkeypatch.undo()
+    [_sheet, kept] = s06_plan(nusrat, kr01)
+    assert kept["id"] == plan["id"]  # the re-read went with the undo
+    assert plan_now(nusrat, kr01) == (["floor_2"], "floor_to_floor", "typed")
+    with tenancy.acting_in(demo["developer:shapla"]):
+        [act] = Confirmation.objects.filter(project_id=kr01, act="correct")
+    assert act.undone_at is None  # never stamped undone with nothing put back
+    assert nusrat.post(f"{step1(kr01)}/undo", {}).status_code == 200
+    assert plan_now(nusrat, kr01)[:2] == READ
+
+
+def test_a_storeys_undo_locks_the_sheet_before_reading_its_views(
+    nusrat: Api, kr01: uuid.UUID, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vextrus.takeoff.services import step1 as service
+
+    sheet, plan = s06_plan(nusrat, kr01)
+    assert correct(nusrat, kr01, body(sheet, (plan["id"], "2nd", "floor_to_floor"))).status_code == 200
+    calls: list[str] = []
+
+    def spy(name: str, real: Any) -> Any:
+        def called(*args: Any, **kwargs: Any) -> Any:
+            calls.append(name)
+            return real(*args, **kwargs)
+
+        return called
+
+    monkeypatch.setattr(drawings, "lock_sheet", spy("lock", drawings.lock_sheet))
+    monkeypatch.setattr(service, "_views_now", spy("views", service._views_now))
+    monkeypatch.setattr(
+        drawings, "put_back_view_storeys", spy("put_back", drawings.put_back_view_storeys)
+    )
+
+    assert nusrat.post(f"{step1(kr01)}/undo", {}).status_code == 200
+
+    assert calls[-3:] == ["lock", "views", "put_back"]

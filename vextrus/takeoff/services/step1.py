@@ -2481,15 +2481,18 @@ def _put_back_correction(act: Confirmation) -> None:
     number, title = changed.get("number"), changed.get("title")
     sources = changed.get("sources") or {}
     if changed.get("views"):
+        # The sheet is locked before its views are read, as the correction locks it (review 3 of #780):
+        # a re-read cannot replace them between the read and the write. A view the write still misses
+        # (read again under the undo) is refused with the whole undo, never stamped undone unwritten.
+        drawings.lock_sheet(sheet.id)
         kept = _views_now(sheet.id, changed)
-        drawings.put_back_view_storeys(
-            sheet.id,
-            [
-                replace(was, view=kept[str(was.view)].id)
-                for was in _view_storeys(changed, 0)
-                if str(was.view) in kept
-            ],
-        )
+        put_back = [
+            replace(was, view=kept[str(was.view)].id)
+            for was in _view_storeys(changed, 0)
+            if str(was.view) in kept
+        ]
+        if drawings.put_back_view_storeys(sheet.id, put_back) != {v.view for v in put_back}:
+            raise auth.Refused(said.CORRECTION_MOVED_ON(**_passed_named(act)), status=409)
     back = drawings.put_back_sheet(
         sheet.id,
         number=number[0] if number else None,

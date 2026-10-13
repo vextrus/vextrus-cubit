@@ -70,6 +70,7 @@ from vextrus.drawings.services.anchors import Resolved, resolve
 from vextrus.drawings.services.corrections import (
     ViewStoreys,
     held_answer,
+    lock_sheet,
     put_back_sheet,
     put_back_view_storeys,
     set_sheet_discipline,
@@ -209,6 +210,7 @@ __all__ = [
     "held_answer",
     "hold_plots",
     "kept",
+    "lock_sheet",
     "mark_failed",
     "mark_for_vextrus",
     "mark_read",

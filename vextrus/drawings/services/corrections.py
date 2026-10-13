@@ -9,7 +9,8 @@ title, typed; its Discipline, chosen among the Market's.
     drawings.services.put_back_sheet(sr.id, number="", title="…")  # a correction undone
     drawings.services.typed_view_storeys(sr.id, [(view_id, "3rd, 5th", "at_floor_level")])
     drawings.services.set_view_storeys(sr.id, changes)    # a plan view's storeys, typed (S24-B2)
-    drawings.services.put_back_view_storeys(sr.id, before)
+    drawings.services.lock_sheet(sr.id)                   # before reading the views an undo puts back
+    drawings.services.put_back_view_storeys(sr.id, before)  # the views written
 
 The printed sheet keeps its id and its place in its file; it moves to the Sheet its new number or
 Discipline names (`(set, Building, Discipline, number)`, made when none is), and a Sheet it leaves
@@ -285,10 +286,18 @@ def set_view_storeys(sheet_revision_id: uuid.UUID, changes: Sequence[ViewStoreys
     return _write_view_storeys(sheet_revision_id, changes)
 
 
-def put_back_view_storeys(sheet_revision_id: uuid.UUID, before: Sequence[ViewStoreys]) -> None:
-    """A correction undone: plan views' storeys, meaning and source as they were kept before it. A
-    view gone from the sheet's kept reading (it was read again) holds nothing to put back."""
-    _write_view_storeys(sheet_revision_id, before)
+def lock_sheet(sheet_revision_id: uuid.UUID) -> None:
+    """The printed sheet locked to the caller's transaction, as a re-read of its file locks it before
+    replacing its views (`record_views`): views read after it are those a write in the same transaction
+    finds (`put_back_view_storeys`; review 3 of #780)."""
+    sheet_list._listed(sheet_revision_id, lock=True)
+
+
+def put_back_view_storeys(sheet_revision_id: uuid.UUID, before: Sequence[ViewStoreys]) -> set[uuid.UUID]:
+    """A correction undone: plan views' storeys, meaning and source as they were kept before it; the
+    views written. A view not written (its file read again since: its row replaced) is the caller's
+    to refuse; read the views under `lock_sheet` so none is."""
+    return _write_view_storeys(sheet_revision_id, before)
 
 
 def _write_view_storeys(sheet_revision_id: uuid.UUID, kept: Sequence[ViewStoreys]) -> set[uuid.UUID]:
