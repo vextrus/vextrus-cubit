@@ -8,9 +8,13 @@
 # made for this run only and masked. The real-set walk (G1) never runs here: it runs locally only.
 name: e2e
 
-# On each push to main and nightly (docs/specs/factory.md 3.9); it moves to PRs only after five green
-# runs on main (a measure, not a gate). By hand too.
+# On each pull request, each commit to main and nightly (docs/specs/factory.md 3.9; the owner's Q-R6:
+# e2e becomes required once it runs on PRs). By hand too. Required checks are never filtered by path
+# at the workflow level (a skipped workflow leaves a required check waiting): the `changes` job
+# decides, and `smoke` is skipped by its `if:` on a PR that changes no product path or whose head is
+# not READY, which GitHub reports as passing, as ci.yml does for its heavy jobs.
 on:
+  pull_request:
   push:
     branches: [main]
   schedule:
@@ -22,10 +26,53 @@ permissions:
 
 concurrency:
   group: e2e-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      product: ${{ steps.paths.outputs.product }}
+      ready: ${{ steps.gate.outputs.ready }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: paths
+        name: Does this change touch a product path? (the list of scripts/walk/ready.py)
+        # Fails closed: `git diff` runs as its own command under `shell: bash` (-e -o pipefail), so a
+        # failed one (a bad BASE) fails the step, and so `smoke`, instead of reading as "untouched".
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then echo product=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          # As scripts/walk/ready.py lists them: --no-renames (a rename counts under both names) and -z
+          # (a non-ASCII name is not C-quoted). The list goes to a file so a failed `git diff` fails the step.
+          list="$RUNNER_TEMP/changed.z"
+          git diff --no-renames --name-only -z "$BASE"...HEAD > "$list"
+          if grep -zqE '^(vextrus/|engine/|web/src/|pyproject\.toml$|uv\.lock$)' "$list"; then
+            echo product=true
+          else
+            echo product=false
+          fi >> "$GITHUB_OUTPUT"
+      - id: gate
+        name: Is this head READY? (a pull request's smoke runs only then; main's always does)
+        # Fails closed, as ci.yml's gate (scripts/factory/ci_gate.py; issue #466).
+        shell: bash
+        env:
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -m scripts.factory.ci_gate "$HEAD" >> "$GITHUB_OUTPUT"
+
   smoke:
+    needs: changes
+    # A failed `changes` job fails smoke (the first step), never skips it as "not concerned".
+    if: >-
+      !cancelled() && (needs.changes.result != 'success' ||
+      (needs.changes.outputs.product == 'true' && needs.changes.outputs.ready == 'true'))
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     services:
@@ -49,6 +96,11 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: The `changes` job must have passed
+        if: needs.changes.result != 'success'
+        run: |
+          echo "the changes job: ${{ needs.changes.result }}" >&2
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

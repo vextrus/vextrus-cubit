@@ -678,7 +678,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **A fix round introduced a new fault** (#728 round 1 changed "ADR 0043" to "ADR 0041" and kept the wrong item; 12 of 16
   sampled later-round findings came from the previous fix). No check yet: session 25's F1 (`review self` on each fix's own diff).
 
-## Session 25 (13 Oct 2026): eleven merges, e2e green for the first time, one G1 walk; the watcher's misses cost the most
+## Session 25 (13 Oct 2026): nineteen merges, e2e green for the first time, one G1 walk; the watcher's misses cost the most
 
 - **The e2e test was right and CI was wrong** (e2e.yml never installed the ACadSharp dumper, so every read failed at the
   second reader; the brief blamed the test's words). Check: `scripts/tests/acceptance/ts25e2e/` (#749). e2e then went green
@@ -700,3 +700,16 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **The exploring session's diagnosis missed the factory's own gate friction**: design gates on test-only web PRs, the Cut
   parser, catalogue caps crossed only after a main merge, an engine timing test failing an unrelated PR's CI.
   No check yet: each is filed with its owed check (#759, #761, #764; the design gate is FX5 in session 26's brief).
+- **An orchestrator's READY commit claimed a fix its tree did not hold** (D2 #773: the builder's push predated the fix
+  message; round 2 caught it). No check yet: FX1's ci_gate change should refuse a READY commit whose subject names a fix round
+  while the tree equals its parent's; until then, diff before writing the subject.
+- **Fixes to UI tickets made new faults in round 2 on D1, D2 and D4 alike** (copy naming, the confirmed bar, the sheet filter).
+  No check yet: FX4's delta review re-runs the earlier rounds' attack tests on each fix.
+- **The real-drawing lock, not the builders, set session 25's pace at the close**: five engine-path tickets each owed a 25-45
+  min run, strictly serial. No check yet: the owner's Q-R10 (one integration run) is session 26's rule.
+- **The orchestrator's own fix direction contradicted the spec** (D1 #774: "name a copy by title first" against m0-screens
+  6.7's mark first; round 3 caught it). No check yet: every fix message the orchestrator writes cites the spec line its
+  direction follows.
+- **The orchestrator passed drawing phrases to builders in its messages** (E1: the two phrases a set prints where a member
+  continues on the next sheet), and a builder and an acceptance writer copied them into code and a commit message; verify's
+  leak scan stopped both before any push, so the commits held. Check: `tools/leakscan/` (run by `scripts/verify.py`).

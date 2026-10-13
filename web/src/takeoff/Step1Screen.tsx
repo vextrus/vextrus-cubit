@@ -811,6 +811,7 @@ function Step1({
     <>
       {focusedRow.question ? <QuestionCard entry={focusedRow.question} readOnly={readOnly} context={cardContext(model)} onOpen={openSheetOf} answerer={answerer} /> : null}
       <SheetFacts
+        projectId={project.id}
         row={focusedRow}
         showTitle={mode === 'list'}
         readOnly={readOnly !== null}
