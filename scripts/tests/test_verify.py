@@ -5,7 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from scripts.verify import Check, chains_of, flakes_in, plan, pytest_workers, run_command
+from scripts.verify import (
+    Check,
+    chains_of,
+    ci_node_command,
+    flakes_in,
+    plan,
+    pytest_workers,
+    run_command,
+)
 
 ENTRIES = [("scripts/tests/test_x.py :: test_a", "scripts/tests/test_x.py", "test_a")]
 
@@ -123,3 +131,22 @@ def test_contract_fixtures_runs_after_the_export_in_its_chain(paths: list[str]) 
     [chain] = [c for c in chains_of(checks) if any(check.name == "contract-fixtures" for _, check in c)]
     names = [check.name for _, check in chain]
     assert names.index("openapi-export") < names.index("contract-fixtures")
+
+
+def test_a_root_file_change_plans_the_node_tests() -> None:
+    """CLAUDE.md is read by a harness node test (p6-docs-runbook), outside NODE_TEST_ROOTS' folders."""
+    checks = plan(["CLAUDE.md"], have=lambda tool: True)
+    assert "node-test" in [check.name for check in checks]
+
+
+def test_a_trailing_yaml_comment_stays_out_of_the_node_argv(tmp_path: Path) -> None:
+    workflow = tmp_path / "ci.yml"
+    workflow.write_text("jobs:\n  harness:\n    steps:\n      - run: node --test 'a/*.mjs'  # why\n")
+    assert ci_node_command(workflow) == ("node", "--test", "a/*.mjs")
+
+
+def test_a_workflow_with_no_harness_job_refuses_cleanly(tmp_path: Path) -> None:
+    workflow = tmp_path / "ci.yml"
+    workflow.write_text("jobs:\n  other:\n    steps: []\n")
+    with pytest.raises(SystemExit, match="harness job has 0"):
+        ci_node_command(workflow)

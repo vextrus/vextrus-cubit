@@ -178,13 +178,19 @@ def vitest_port(root: Path) -> int:
 
 CI_WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml"
 NODE_TEST_ROOTS = (".claude/", "scripts/", "tools/mod/", ".github/", "docs/")
-"""The paths node tests can read: a change under any of them plans CI's harness node command."""
+"""The folders node tests can read; a root-level file (CLAUDE.md, CONTEXT.md ...) is read too."""
+
+
+def reads_node_tests(path: str) -> bool:
+    return path.startswith(NODE_TEST_ROOTS) or "/" not in path
 
 
 def ci_node_command(workflow: Path = CI_WORKFLOW) -> tuple[str, ...]:
     """The argv of the one `run: node --test ...` step of ci.yml's `harness` job (quoted globs: Node 24
     runs a directory argument as a file)."""
     lines = workflow.read_text().splitlines()
+    if "  harness:" not in lines:
+        raise SystemExit("verify: ci.yml's harness job has 0 `node --test` steps, not one")
     start = lines.index("  harness:")
     end = next(
         (
@@ -195,7 +201,7 @@ def ci_node_command(workflow: Path = CI_WORKFLOW) -> tuple[str, ...]:
         len(lines),
     )
     commands = [
-        shlex.split(line.strip().removeprefix("- ").removeprefix("run:").strip())
+        shlex.split(line.strip().removeprefix("- ").removeprefix("run:").strip(), comments=True)
         for line in lines[start:end]
         if line.strip().removeprefix("- ").startswith("run: node --test")
     ]
@@ -267,7 +273,7 @@ def plan_with_notes(
             checks.append(Check("openapi-export", (*export, "--output", schema)))
         contract = ("uv", "run", "python", "-m", "tools.lint.contract_fixtures", "--schema", schema)
         checks.append(Check("contract-fixtures", contract))
-    if any(p.startswith(NODE_TEST_ROOTS) for p in paths):
+    if any(reads_node_tests(p) for p in paths):
         # CI's harness step itself (S26-FX10), never a restated copy: the two cannot drift.
         checks.append(Check("node-test", ci_node_command()))
     if any(p.startswith(".claude/workflows/") for p in paths):
