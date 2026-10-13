@@ -186,7 +186,7 @@ checked by the server's `figure()` formatter, C16), already isolated left to rig
 
 | Kind | Form | Notes |
 |---|---|---|
-| Money | one rule: **a grid cell carries paisa and no symbol** (its header says "Amount (৳)" or "Rate (৳)"): 3,68,247.77; **the strip carries whole taka with the symbol** (৳11,29,91,003) and under each figure its short form in the Market's words ("11.30 crore"; the MD reads it first); a figure in prose carries the symbol and paisa where it is a rate or an amount ("৳276.67") and whole taka where it is a total; lakh-and-crore grouping throughout | never ৳0 for a price not entered: "rate not entered" (4.13); the currency word is "taka" (the minor unit "paisa"), never "rupee"; a total's whole-taka rounding is for display only and the three parts add up as displayed |
+| Money | one rule: **a grid cell carries paisa and no symbol** (its header says "Amount (৳)" or "Rate (৳)"): 3,68,247.77; **the strip carries whole taka with the symbol** (৳11,60,82,640) and under each figure its short form in the Market's words ("11.61 crore"; the MD reads it first); a figure in prose carries the symbol and paisa where it is a rate or an amount ("৳276.67") and whole taka where it is a total; lakh-and-crore grouping throughout | never ৳0 for a price not entered: "rate not entered" (4.13); the currency word is "taka" (the minor unit "paisa"), never "rupee"; a total's whole-taka rounding is for display only and the three parts add up as displayed |
 | Quantity | 1,331.00 cft; 4,792.00 sft; 47 nos; 8,350 kg | in the BOQ Item's Billing Unit, rounded as the Rule Set says (each Measurement Line to 2 decimals; nos, bags whole; a Rebar line to 2 decimals of a kg and the item in whole kg, screens.md Priced BOQ ruling 6); the unit always beside the figure, in the cell or its header |
 | Rate | 276.67 (header "Rate (৳) per unit") | "per cft" is the Billing Unit's word; a rate shows its unit once in its column header and in its Rate Analysis |
 | Level | +10′-0″ or +3.048 m, always signed | isolated left to right, in the Display Units; a Display Units switch re-forms every level |
@@ -196,7 +196,7 @@ checked by the server's `figure()` formatter, C16), already isolated left to rig
 | Count | 5 / 7 (n / N), `—` for an N the drawing does not give | M0's Count; "5 / 7" never "71%" |
 | Date | 12 Oct 2026 | m0-screens 1.2; times in the Market's zone, never named |
 | Ratio | "1:1.5:3" | a Mix; "0.22 cft per sft" for an allowance's consumption, with its unit |
-| Rebar Ratio | "5.1 kg per cft" | the Rebar Basis "by ratio" always shows its ratio (4.1.3, 4.10.2, 4.13); a whole-building "3.53 kg per sft" beside the usual range (4.13.1) |
+| Rebar Ratio | "5.1 kg per cft" | the Rebar Basis "by ratio" always shows its ratio (4.1.3, 4.10.2, 4.13); a whole-building "3.52 kg per sft" beside the usual range (4.13.1) |
 
 **Money and quantities are grouped as the Market groups them; coordinates, dimensions and marks
 never** (CONTEXT.md, Display Units). A number typed by the QS is accepted in either grouping
@@ -632,7 +632,7 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
 | Nothing left, Questions open | "Every column that agrees is confirmed" · "2 Questions are open: Q4, Q7. Closed with them open, their 8 columns are priced at the size the sources agree on, or the plan's, and marked awaiting answer." | "Next open Question Q ↵"; ghost "Close with 2 Questions open Shift ↵" |
 | Nothing left, nothing open | "Every column is confirmed or excluded" · "Close Step 6 to measure the frame from it." | "Close Step 6 ↵" |
 | The step is closed, nothing held | "Step 6 is closed" · "Closed by Nusrat Jahan, 12 Oct 2026, 11:20. Later steps stand on it." | "Go to Step 7 ↵" (after Step 8, "Go to the Priced BOQ ↵"); ghost "Reopen Step 6" (opens the dialog below) |
-| The step is closed with Questions open | "Step 6 is closed with 2 Questions open" · "8 columns are awaiting answer: ৳1,31,336 of the total rests on them (T2)." (a Guest: "8 columns are awaiting answer.") | "Answer Q4 ↵"; ghosts "Go to Step 7", "Reopen Step 6" |
+| The step is closed with Questions open | "Step 6 is closed with 2 Questions open" · "8 columns are awaiting answer: ৳1,33,930 of the total rests on them (T2)." (a Guest: "8 columns are awaiting answer.") | "Answer Q4 ↵"; ghosts "Go to Step 7", "Reopen Step 6" |
 | There is nothing to read (no piles, no core, a raft) | "No piles were found on the plans read" · "If this building has none, say so and close the step." | "There are none ↵" (an act under the QS's name; the step closes "Closed, none"); ghost "Open Step 1" |
 | Reading | "Reading the columns: plan 4 of 6" · "Proposals join the list as they are read." | none |
 | A read ended | "Read: 42 Proposals, 2 Questions" · "This line stays until you act." | none |
@@ -681,7 +681,7 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
   **For the ux-critic:** pick mode's crosshair steps with the arrows alone, `Shift` ×8 being 2.6's
   pan; the same collision stands in `W`'s mode (4.8).
 - **Quantities that change** after a later step's act: "Step 8 closed. 14 C2 columns are measured
-  again: 186.34 cft is now 184.72 cft (height to the slab soffit, a 6″ slab)." as a toast and a line in
+  again: 186.34 cft is now 184.66 cft (height to the slab soffit, a 6″ slab)." as a toast and a line in
   the group's Who did what (spec stories 66, 80; O6).
 
 #### 4.1.3 The inspector (320 px; tabs "Selection" and "Questions (4)")
@@ -692,8 +692,8 @@ the right, at most one copper button; it always says what `Enter` will do. At mo
 2. "Enter takes them in this order": 1 "Confirm the 86 columns that agree" · 2 "Answer 4 Questions:
    the largest quantity first" · 3 "Close Step 6".
 3. Cost Basis (QS, Vextrus Engineer and the MD; a Guest sees "Ask the Developer for access to costs"
-   in its place, 1.5): "Allowance until this step is closed: ৳1,00,46,919.54 (columns ৳83,03,563.80; shear walls and lift core
-   ৳17,43,355.74). Measured so far, 14 confirmed columns: ৳2,19,751.11 (X1)"
+   in its place, 1.5): "Allowance until this step is closed: ৳1,02,73,887.54 (columns ৳84,96,486.60; shear walls and lift core
+   ৳17,77,400.94). Measured so far, 14 confirmed columns: ৳2,24,263.45 (X1)"
    (story 98; no flag, no projection: "likely over allowance" is the Summary's, M2).
 4. "Rebar: 81% from the drawing, the rest laps and hooks from rules" (the Rebar of the confirmed columns).
 5. "A Proposal counts toward nothing until you confirm it."
@@ -766,7 +766,7 @@ params; the page owns only the card). The kinds M1 raises, with an invented exam
 | Kind | Title (example) | Body and Trace | Options (pre-pick) |
 |---|---|---|---|
 | `conflict`, size differs (`engine.schedule_plan.size_differs`) | "Which size is C5?" | "The plan draws 10″ × 20″ and the schedule on S-09 gives 10″ × 24″. The label reads C5 (10×24)." Trace: the plan's outline, the schedule row, the label | 1 "10″ × 24″, as the schedule and the label say" (pre-picked: "the schedule and the label agree") · 2 "10″ × 20″, as the plan draws" · 3 "Type a size" · 4 "Keep open, ask the consultant" |
-| `missing`, blank schedule cell (`engine.column.schedule_cell_blank`) | "What is the size of C8 on the 5th to 8th?" | "The column schedule on S-09 leaves the size blank for C8 at 5th to 8th. 4 columns wait on it." | 1 "Type a size" · 2 "Same as C8 at 2nd to 4th: 10″ × 18″" (offered only when a neighbouring band has one; never pre-picked alone) · 3 "Keep open" |
+| `missing`, blank schedule cell (`engine.column.schedule_cell_blank`) | "What is the size of C8 on the 5th to 8th?" | "The column schedule on S-09 leaves the size blank for C8 at 5th to 8th. 4 columns wait on it." | 1 "Type a size" · 2 "Same as C8 at 2nd to 4th: 10″ × 20″" (offered only when a neighbouring band has one; never pre-picked alone) · 3 "Keep open" |
 | `low_confidence`, top floor (`engine.storey.top_proposed`, Step 3) | "Which is the top floor?" | "The plans name the 9th as the highest. A tank room and a stair head sit above it." | 1 "9th" (pre-picked only when two sources agree) · 2 "Roof" · 3 "Keep open" |
 | `check` (rebar only) (`engine.bars_fit.does_not_fit`) | "Do 12 bars of 25 mm fit in C4?" | "The section is 10″ × 20″ with 1½″ cover. With 4 bars across the 10″ face, 40 mm clear between them and 8 mm ties inside 1½″ of cover, the bars as read need 12¼″ across it." | 1 "Use the callout as read" · 2 "Type the bars" · 3 "Keep open" |
 | `missing`, unread walls (`engine.shear_wall.not_read_yet`, O5) | "Shear walls are not read yet" | "9 outlines on 2 plans look like walls. They stay on the allowance until they are read." | none: it is a notice row ("Keep open" only), not an answer; closing the step is not held by it |
@@ -925,7 +925,7 @@ options disabled with "Waiting for the QS. The MD reads Questions and cannot ans
 - **Row columns:** piles: Type ("P1") | Count ("47 / 47") | Diameter ("20″") | Levels ("cut-off −5′-0″,
   toe −70′-0″", **from the datum, Ground +0′-0″**; existing ground level −2′-0″ is held against it) | Length
   ("65′-0″" cut-off to toe) | Quantity (boring in rft and concrete in cft: two figures, "boring 3,196 rft
-  from existing ground · concrete 6,664.98 cft") | State. Caps: Mark ("PC3") | Count | Outline ("5′-0″ × 8′-6″") | Depth
+  from existing ground · concrete 6,665.07 cft") | State. Caps: Mark ("PC3") | Count | Outline ("5′-0″ × 8′-6″") | Depth
   ("3′-0″") | Piles held ("4 piles inside, 4 on the type") | Quantity | State.
 - **States:** 4.1's; the ground-level Question ("No existing ground level is stated. Boring is
   measured from it.") open until answered; `engine.pile.length_missing`: "The length of pile type P2 is
@@ -933,11 +933,11 @@ options disabled with "Waiting for the QS. The MD reads Questions and cannot ans
   piles on the plan and its type says 4".
 - **The datums, said once** (P1): **boring is measured from the existing ground level** (or the working
   platform where one is stated) **to the toe** (47 piles × 68′-0″ = 3,196 rft here); **pile concrete
-  from the cut-off level to the toe** (47 × 65′-0″ × 2.18166 sft = 6,664.98 cft) **plus the over-cast**;
+  from the cut-off level to the toe** (47 × 65′-0″ × 2.18166 sft = 141.81 cft each, 6,665.07 cft; E4a) **plus the over-cast**;
   every pile level on screen names its datum ("−5′-0″ from the datum", "existing ground −2′-0″").
 - **Words:** "Pile type P1, 20″ dia, cut-off −5′-0″, toe −70′-0″, 47 piles"; "head breaking" as its own item;
   "over-cast 2′-0″ above cut-off, broken off": **concrete bought**, its own line under the pile
-  concrete item at that item's rate, 205.08 cft here (47 × 2.18166 sft × 2′-0″), with its cement and chips in
+  concrete item at that item's rate, 204.92 cft here (47 × 4.36 cft; E4b), with its cement and chips in
   the Material Schedule (P1; shown as a separate visible line, story 28); the
   step's Cost Basis in two parts: "Piles and pile caps: measured. The rest of foundations: on
   allowance" (C13, story 101).
@@ -1399,8 +1399,8 @@ figure: `T` on the focused label opens it.
 ```
 ┌ top bar: Takeoff · Drawing Set · Priced BOQ · Material Schedule · Live Model ─────────────────┐
 │ rail │ ┌ strip ─────────────────────────────────────────────────────────────┐ ┌ inspector ┐ │
-│      │ │ Total ৳11,29,91,003 (11.30 crore) │ ৳2,690 per sft │ Measured 6% of total │ │ BOQ Item  │ │
-│      │ │ Measured ৳67,56,094 │ Awaiting answer ৳1,31,336 │ Allowance ৳10,61,03,573 │ │ facts,    │ │
+│      │ │ Total ৳11,60,82,640 (11.61 crore) │ ৳2,764 per sft │ Measured 6% of total │ │ BOQ Item  │ │
+│      │ │ Measured ৳68,20,009 │ Awaiting answer ৳1,33,930 │ Allowance ৳10,91,28,701 │ │ facts,    │ │
 │      │ ├ toolbar: By item | By floor   Show: All ▾   Prices   Imperial | Metric ┤ │ Questions,│ │
 │      │ │ No.   Description                    Unit  Quantity   Rate (৳) Amount (৳) ▪ │ │ Rule Set, │ │
 │      │ │ 2.1   Columns                                                              │ │ Rebar kg/ │ │
@@ -1409,8 +1409,10 @@ figure: `T` on the focused label opens it.
 │      │ │       Measured                        cft  1,331.00   276.67  3,68,247.77 ▪ │ │           │ │
 │      │ │       + 117.12 · Q4, Q7                                       + 32,403.59   │ │           │ │
 │      │ │ 2.1.2 Formwork to columns, plywood    sft  4,792.00    96.50  4,62,428.00 ▪ │ │           │ │
-│      │ │ 2.1.3 Rebar, Grade 500W, in columns   kg       8,350    88.50  7,38,975.00 ▪ │ │           │ │
+│      │ │       + 408.92 · Q4, Q7                                       + 39,460.78   │ │           │ │
+│      │ │ 2.1.3 Rebar, Grade 500W, in columns   kg       8,350    92.36  7,71,206.00 ▪ │ │           │ │
 │      │ │       from the drawing + rules                                              │ │           │ │
+│      │ │       + 672 · Q4, Q7                                          + 62,065.92   │ │           │ │
 │      │ │   ▾ 100 Measurement Lines …                                                 │ │           │ │
 │      │ │ 2.9.1 Casting labour (Labour Contract),  sft 42,000.00  170.00 71,40,000.00 ░│ │           │ │
 │      │ └─────────────────────────────────────────────────────────────────────┘ └────────────┘ │
@@ -1418,13 +1420,13 @@ figure: `T` on the focused label opens it.
 └───────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 - **The strip** (C13) at the top of the canvas, two rows at 1280 and one at 1440. Row one (the
-  headline): **Total** (measured + awaiting answer + allowance, each Element once), **per area** ("৳2,690
+  headline): **Total** (measured + awaiting answer + allowance, each Element once), **per area** ("৳2,764
   per sft of 42,000 sft, entered"), and **the measured share** ("Measured 6% of the total", with a
   three-part bar: measured solid, awaiting answer amber hatched, allowance grey hatched, a legend by
   words and never by colour alone). Row two: **Measured**, **Awaiting answer**, **Allowance**, and the
   **unpriced count** ("14 BOQ Items have no rate yet, from 9 prices not entered"; a link, below).
-  **Money in the strip is whole taka** with its short form in the Market's words beneath ("11.30
-  crore", "1.31 lakh"), the figures adding as displayed (1.3). Each figure is focusable; `T` opens
+  **Money in the strip is whole taka** with its short form in the Market's words beneath ("11.61
+  crore", "1.34 lakh"), the figures adding as displayed (1.3). Each figure is focusable; `T` opens
   its Trace: its breakdown by BOQ Section, each row focusing that section in the grid.
 - **Heights (one budget):** the strip is 72 px at 1280 (two rows of 36 px, each figure with its short
   form beside or beneath it in a smaller size) and 48 px at 1440; the toolbar 32 px; **a grid row is
@@ -1442,13 +1444,13 @@ figure: `T` on the focused label opens it.
 - **The grid** (TanStack Table with Virtual, screens.md; M1.md plan item 12), rows below.
 - **The inspector** (320 px, kept as the frame's): nothing focused, "Priced BOQ of Kadam Residence" /
   "Rule Set: Standard rules, version 1" with "Read the rules" (4.15) / "5 of 7 steps measured: 4
-  closed, 1 closed with a Question open; 2 on allowance" / "Measured Rebar: 38% read from the drawing,
-  62% by ratio" / **"Rebar 3.53 kg per sft of Gross Floor Area so far (usual range 4.5 to 6 for the whole
-  Building)"** with its second line **"Measured: piles, pile caps, column stubs and columns (23,056
+  closed, 1 closed with 2 Questions open; 2 on allowance" / "Measured Rebar: 38% read from the drawing,
+  62% by ratio" / **"Rebar 3.52 kg per sft of Gross Floor Area so far (usual range 4.5 to 6 for the whole
+  Building)"** with its second line **"Measured: piles, pile caps, column stubs and columns (22,993
   kg, 672 kg awaiting answer); on allowance: beams, slabs, core, stairs, tanks, lintels, roof room
-  and the rest of foundations (124,362 kg)"**,
+  and the rest of foundations (1,24,362 kg)"**,
   flagged in amber and never blocking where it falls outside (the whole-building check, over
-  measured, awaiting-answer and **every** allowance row's Rebar, A4a's and A4b's included: 148,090 kg ÷ 42,000
+  measured, awaiting-answer and **every** allowance row's Rebar, A4a's and A4b's included: 1,48,027 kg ÷ 42,000
   sft (T8); a light measured frame is shown against the whole-building range with that said, never
   alone); an item focused, its facts
   (description, Billing Unit, Cost Basis, Rebar Basis and, for Rebar by ratio, its ratio "5.1 kg per
@@ -1494,21 +1496,21 @@ figure: `T` on the focused label opens it.
   ruling 7): hatched, with the word "Allowance", **one row per BOQ Item** the step will bring, each
   its consumption × the Gross Floor Area at current Market Prices, and the step's heading the sum of
   its rows. Every consumption here is G9's, which is B.2 of `docs/research/tax-and-allowances.md` at G+9
-  (6.1). Beams (A1), from its rows: concrete 0.22 cft per sft = 9,240 cft × 276.67 = ৳25,56,430.80;
+  (6.1), and every Rebar kg is priced at the rod item's rate, 92.36 (R3; 4.14.2). Beams (A1), from its rows: concrete 0.22 cft per sft = 9,240 cft × 276.67 = ৳25,56,430.80;
   formwork 0.68 sft per sft = 28,560 sft × 96.50 = ৳27,56,040.00; Rebar 1.14 kg per sft = 47,880 kg ×
-  88.50 = ৳42,37,380.00; **Beams: allowance ৳95,49,850.80**, "Nothing measured yet" while the step is on
+  92.36 = ৳44,22,196.80; **Beams: allowance ৳97,34,667.60**, "Nothing measured yet" while the step is on
   allowance. Slabs (A2): concrete 0.486 cft per sft (0.465 slab, 0.021 edge members) = 20,412 cft
   (৳56,47,388.04); formwork 0.88 sft per sft = 36,960 sft (৳35,66,640.00); Rebar 1.22 kg per sft =
-  51,240 kg (৳45,34,740.00); casting labour 1.00 sft per sft = 42,000 sft (৳71,40,000.00); **Slabs:
-  allowance ৳2,08,88,768.04**. A step in review shows "Measured
-  so far ৳2,19,751.11 of an allowance of ৳1,00,46,919.54" on its heading row (Step 6 at Moment A: its
-  14 confirmed columns, X1: 186.34 cft × 276.67 + 670.88 sft × 96.50 + 1,169 kg × 88.50; A6; story 98); its source
+  51,240 kg (৳47,32,526.40); casting labour 1.00 sft per sft = 42,000 sft (৳71,40,000.00); **Slabs:
+  allowance ৳2,10,86,554.44**. A step in review shows "Measured
+  so far ৳2,24,263.45 of an allowance of ৳1,02,73,887.54" on its heading row (Step 6 at Moment A: its
+  14 confirmed columns, X1: 186.34 cft × 276.67 + 670.88 sft × 96.50 + 1,169 kg × 92.36; A6; story 98); its source
   reads "Vextrus default, low confidence" (editable: 4.15). **Step 6's allowance has two parts, as Step 5
   has two:** the columns part (concrete 0.17 cft per sft = 7,140 cft × 276.67 = ৳19,75,423.80; formwork
-  0.47 sft per sft = 19,740 sft × 96.50 = ৳19,04,910.00; Rebar 1.19 kg per sft = 49,980 kg × 88.50 =
-  ৳44,23,230.00; ৳83,03,563.80) and **"Shear walls and lift core"** (concrete 0.041 cft per sft = 1,722
+  0.47 sft per sft = 19,740 sft × 96.50 = ৳19,04,910.00; Rebar 1.19 kg per sft = 49,980 kg × 92.36 =
+  ৳46,16,152.80; ৳84,96,486.60) and **"Shear walls and lift core"** (concrete 0.041 cft per sft = 1,722
   cft = ৳4,76,425.74; formwork 0.12 sft per sft = 5,040 sft = ৳4,86,360.00; Rebar 0.21 kg per sft =
-  8,820 kg = ৳7,80,570.00; ৳17,43,355.74). Closing the step replaces the columns part whole by the
+  8,820 kg = ৳8,14,615.20; ৳17,77,400.94). Closing the step replaces the columns part whole by the
   measured items (story 99); **the walls-and-core part stays, hatched, until M1-37 reads the walls**
   (4.6), so unread walls never drop out of the total. Items outside the casting-area contract (pile
   caps, grade beams, the column stub from cap top to plinth) carry their own casting labour, RCC
@@ -1523,8 +1525,8 @@ figure: `T` on the focused label opens it.
 - **Quantity × rate = amount** holds on every row (the row's Trace says so: "1,331.00 × 276.67 =
   3,68,247.77"); the web shows the API's three figures and checks nothing (1.10).
 - **Rebar by ratio shows its ratio.** A Rebar quantity by ratio is a derived figure: its Trace reads
-  "Concrete in piles 6,664.98 cft × 1.7 kg per cft (the Rebar Ratio for bored piles, a Rule Set
-  default) = 11,330 kg; split by diameter as assumed" and the row's second line says "by ratio · 1.7 kg per cft".
+  "Concrete in piles 6,665.07 cft × 1.7 kg per cft (the Rebar Ratio for bored piles, a Rule Set
+  default) = 11,331 kg; split by diameter as assumed" and the row's second line says "by ratio · 1.7 kg per cft".
 
 **A BOQ Item opened (`Enter`):** its Measurement Lines expand under it: "100 Measurement Lines"
 over a virtualised table: Element ("C2 at 3/C, 2nd") | Storey | Nos | L | B | H (Display Units) |
@@ -1624,13 +1626,13 @@ the Live Model; the Esc stack of 2.2.
   500W saved. 4 BOQ Items repriced." with Undo `Ctrl Z`. A write refused shows the ErrorBar at the row
   and keeps the text.
 - **Effects shown:** after a price change the page notes "Allowances follow:" and one line per step whose allowance moved
-  (story 114; 8, item 13), as lines under the toast's. On KR-01, Rebar 88.50 to 89.50 is ৳1.00 on
-  each kg (6.1): the toast reads "4 BOQ Items repriced" (M5, M8, M11, M14: 23,056 kg, ৳23,056.00,
-  with W3's 672 kg awaiting answer, ৳672.00), and the lines read Beams +৳47,880.00 (A1), Slabs
-  +৳51,240.00 (A2), "Shear walls and lift core" +৳8,820.00 (A3), the rest of Step 5 +৳7,602.00 (A4b); Steps 9 to 14 do not move (A4a is
-  B.4's ৳ per sft, not a Rate Analysis, so no Rebar price reaches it): the strip's three parts move
-  Measured +৳23,056.00 (T1), Awaiting answer +৳672.00 (T2, W3) and Allowance +৳1,15,542.00 (T3):
-  ৳1,39,270.00 in all.
+  (story 114; 8, item 13), as lines under the toast's. On KR-01, Rebar 88.50 to 89.50 is ৳1.03 on each kg (the rod item's rate is 88.50 × 1.03 +
+  the wire's 1.20: 92.36 becomes 93.39, R3), so the toast reads "4 BOQ Items repriced" (M5, M8, M11,
+  M14: 22,993 kg, ৳23,682.79, with W3's 672 kg awaiting answer, ৳692.16), and the lines read Beams
+  +৳49,316.40 (A1), Slabs +৳52,777.20 (A2), "Shear walls and lift core" +৳9,084.60 (A3), the rest of
+  Step 5 +৳7,830.06 (A4b); Steps 9 to 14 do not move (A4a is B.4's ৳ per sft, not a Rate Analysis, so
+  no Rebar price reaches it): the strip's three parts move Measured +৳23,682.79 (T1), Awaiting answer
+  +৳692.16 (T2, W3) and Allowance +৳1,19,008.26 (T3): ৳1,43,383.21 in all.
 - **States:** loading "Reading prices…"; error "The prices could not be read. Nothing is lost." with
   "Try again"; read-only (the MD): ReadOnlyChip and no field, a Guest "Ask the Developer for access to
   costs"; filter chips include "Not entered (9)" (where "Enter prices" from the Priced BOQ lands, with
@@ -1686,6 +1688,20 @@ the Live Model; the Esc stack of 2.2.
   at 0.00; with "Hired, priced separately" they read "covered by Shutter hire" at 0.00 and the
   shutter-hire BOQ Item carries them; with "Not set" they stay as shown and the shutter-hire line
   says "rate not entered". The rate is always the sum of what is not covered.
+- **Rebar has its own analysis, per 100 kg** (the Library's rod item, qs-defaults 8: cutting wastage
+  and binding wire are Resources of the item, not rod quantity), so a QS can see what ৳92.36 per kg
+  covers. Example, "Rebar, Grade 500W, cut, bent, bound and placed, per 100 kg":
+
+  | Resource | Per 100 kg | Unit | Wastage | Price (৳) | Amount (৳) |
+  |---|---|---|---|---|---|
+  | Rebar, Grade 500W | 100 | kg | 3% | 88.50 | 9,115.50 |
+  | Binding wire (G.I.) | 1.00 | kg | | 120.00 | 120.00 |
+  | Labour: binding | 100 | kg | | covered by Casting labour (Labour Contract) | 0.00 |
+  | **Rate per 100 kg** | | | | | **9,235.50** |
+  | **Rate per kg** | | | | | **92.36** |
+
+  (the wire is 10 kg per ton of rod; the Rebar Basis stays "by ratio" or "from the drawing + rules":
+  the kg are net, and the Material Schedule adds the 3%.)
 - **Editing the lines** (story 93: "edit a Rate Analysis's lines (quantity per unit, wastage), recorded
   under my name"): specified as `E` on a line's quantity or wastage, `Enter` saves, recorded under the
   editor's name, **but C12 has no write route for it** (8, item 1): until it has, the lines are
@@ -1792,13 +1808,15 @@ current set, with each price's change history (`T`); Issued Estimates' frozen se
   scrolling.
     A segmented control switches the cells between **Quantity** and **Amount (৳)** (story 103).
 - **A cell** shows the **gross** quantity, rounded up in the Resource's unit, per cell (C14). Cement,
-  from the seed (C1 to C9, 6.1): **Piling 1,528 bags** (6,870.06 cft of pile concrete × 0.218 = 1,497.67
-  net; × 1.02 = 1,527.63, up to 1,528), **Substructure 277**, and the columns **in the slab casting
+  from the seed (C1 to C9, 6.1): **Piling 1,528 bags** (6,869.99 cft of pile concrete × 0.218 = 1,497.66
+  net; × 1.02 = 1,527.61, up to 1,528), **Substructure 271**, and the columns **in the slab casting
   above them** (story 107: the casting of the 1st floor slab holds the columns of Ground): 27, 33, 33,
   33, 27, 24, 30, 30, 30 and 33 bags in the 1st to the Roof slab castings, 300 in all (each cell rounded
-  up, the total their sum). A cell's Trace (`T`) reads "Cement 1,528 bags (1,497.67 bags net + 2%
+  up, the total their sum). **The 8 columns awaiting answer (Q4, Q7) sit apart**, in the stage cells
+  they will be cast in, amber and never inside the measured figure: 8 bags in the 5th floor slab casting,
+  11 in the 6th, 3 each in the 7th, 8th and 9th, 28 in all (C10). A cell's Trace (`T`) reads "Cement 1,528 bags (1,497.66 bags net + 2%
   wastage)" with the BOQ Items behind it; `Enter` opens that list: each item "1.1.2 RCC 1:1.5:3 in
-  piles · 1,497.67 bags of cement net", a link to the Priced BOQ at that item. While Slabs is on
+  piles · 1,497.66 bags of cement net", a link to the Priced BOQ at that item. While Slabs is on
   allowance its row is in "Not yet by floor"; a Developer's own typed wastage changes every figure.
 - **Lead time:** each Resource row carries "Lead 7 days" (editable by the QS, `E`; the Resource's
   procurement lead) and the focused stage header's inspector line says what to order before it:
@@ -1807,7 +1825,9 @@ current set, with each price's change history (`T`); Issued Estimates' frozen se
 - **Rebar** rows by grade and diameter ("Rebar, Grade 500W, 20 mm") with ton totals per grade and
   diameter in a footer block "Rebar, in ton"; a row from Rebar by ratio carries "assumed split" (with
   a tooltip "The diameters are assumed for Rebar by ratio."), one from the drawing none; the footer
-  repeats the split: "From the drawing: 8.766 ton · Assumed (by ratio): 14.290 ton" (T8).
+  repeats the split: "From the drawing: 8.964 ton · Assumed (by ratio): 14.720 ton", **gross**: the net kg of T8 plus 3% cutting
+  wastage, rounded up in kg (C11; M1.md C14), with the 8 columns awaiting answer apart, "0.693 ton awaiting
+  answer" (W3).
 - **Allowance rows** sit in the "Not yet by floor" column, hatched, "allowance".
 - **Material-and-Labour materials never appear:** a note row at the foot lists them: "Not in this
   schedule: ready-mix concrete (a Material-and-Labour Contract); piling when its contract is Material
@@ -1827,11 +1847,11 @@ per m (BDS 1313) | Weight.
 |---|---|---|---|---|---|---|---|
 | Main bars m1 | 20 mm | straight, floor to floor | 1 × 8 | 10′-0″ (3048 mm) | 80′-0″ (24.384 m) | 2.466 | 60.13 kg |
 | Laps of m1 | 20 mm | 40 × d, 2′-7½″ each | 8 laps | 2′-7½″ (800 mm) | 21′-0″ (6.400 m) | 2.466 | 15.78 kg |
-| Ties t1 | 8 mm | tie, 135° hooks, 3″ (75 mm) | 1 × 14 | 4′-6″ (1372 mm) | 63′-0″ (19.202 m) | 0.395 | 7.59 kg |
+| Ties t1 | 8 mm | tie, 135° hooks, 3″ (75 mm) | 1 × 14 | 4′-6″ (1372 mm) | 63′-0″ (19.208 m) | 0.395 | 7.59 kg |
 
 Worked: 8 × 3.048 m = 24.384 m × 2.466 = 60.13 kg; 8 laps × 0.800 m = 6.400 m = 21′-0″ (8 × 2′-7½″),
 × 2.466 = 15.78 kg; a tie's cutting length is its perimeter inside the cover, 2 × (7″ + 17″) = 48″,
-plus two hooks of 3″ (75 mm, the usual minimum) = 54″ = 4′-6″; 14 ties = 63′-0″ = 19.202 m × 0.395 =
+plus two hooks of 3″ (75 mm, the usual minimum) = 54″ = 4′-6″; 14 ties = 63′-0″ = 19.208 m × 0.395 =
 7.59 kg. **Ties
 are their own rows and their count follows the stated spacing zones:** 20″ end zones at 6″ (4 ties
 each) and the 75″ between at 12″ (6 ties), 14 in the storey; the page never prints a count a zone
@@ -1954,8 +1974,8 @@ it exists a reviewer checks the rows by hand.
 | G4 | Columns by state, Moment B | measured by storey Ground to 9th: 9, 11, 11, 11, 9, 8, 10, 10, 10, 11; awaiting answer 8 (Q4: 2 in 4th and 2 in 5th; Q7: 1 each in 5th to 8th); excluded 2 (Ground, duplicates) | 100 + 8 + 2 = 110 |
 | G5 | Columns by state, Moment A | confirmed 14 (one group); excluded 2; agreeing 86 (6 groups); blocked by Q4 and Q7 8 | 14 + 2 + 86 + 8 = 110 |
 | G6 | Piles | type P1, 20″ dia; cut-off −5′-0″, toe −70′-0″ from the datum; over-cast 2′-0″; head breaking per pile | 47 |
-| G7 | Pile caps | given totals | 1,184.00 cft; sides 1,056.00 sft |
-| G8 | Column stubs, cap top to plinth | one per column position, 10″ × 20″ × 4′-0″ | 11 |
+| G7 | Pile caps | given totals; depth 3′-0″ (4.5's example), the pile head 3″ into the cap: cap bottom −5′-3″, cap top −2′-3″ | 1,184.00 cft; sides 1,056.00 sft |
+| G8 | Column stubs, cap top to plinth | one per column position, 10″ × 20″ × 2′-3″ (cap top −2′-3″, G7, to the plinth at the datum 0′-0″) | 11 |
 | G9 | Allowance consumptions per sft of floor: **the one seed table**, `docs/research/tax-and-allowances.md` B.2 at G+9 (Library defaults, bd-defaults 116-118; an allowance's Rebar is **kg per sft only**, B.2's printed row, never a ratio: B.2's concretes are printed to two places, so no ratio times them reproduces it) | Beams (Step 7): concrete 0.22 cft, formwork 0.68 sft, Rebar 1.14 kg; Slabs (Step 8): concrete 0.465 + edge members 0.021 = 0.486 cft, formwork 0.88 sft, Rebar 1.22 kg, casting area 1.00 sft; Step 6 columns: 0.17 cft, formwork 0.47 sft, Rebar 1.19 kg; Step 6 shear walls and lift core: 0.041 cft, formwork 0.12 sft (0.041 × 2 faces ÷ 8″, B.2's "core both faces"), Rebar 0.21 kg (B.2's core ratio, 0.041 cft × 5.1, to two places); Step 6's B.2 totals 0.59 sft and 1.40 kg are the sums (columns formwork and Rebar are the totals less the core's); the rest of Step 5: Rebar 0.181 kg; stairs 0.05, tanks 0.10, lintels 0.03, roof stair and lift room 0.03 kg | as listed |
 | **Per element** | | | |
 | E1 | Column concrete | 10″ × 20″ = 1.3889 sft × 9′-7″ (10′-0″ less the 5″ slab, J1 until Step 8) | 13.31 cft |
@@ -1965,54 +1985,59 @@ it exists a reviewer checks the rows by hand.
 | E2b | Column formwork, 10″ × 24″ | 2 × (10″ + 24″) = 5′-8″ × 9′-7″ | 54.31 sft |
 | E3b | Column Rebar, 10″ × 24″ | the bars and laps of E3 (60.13 + 15.78); ties 14 × 1.575 m × 0.395 = 8.71 (E3's tie length 1.372 m is its perimeter 2 × (10″ + 20″) less 6″; here 68″ less 6″ = 62″ = 1.575 m) | 84.62 kg |
 | E4 | Pile cross-section | π ÷ 4 × (20 ÷ 12)² | 2.18166 sft |
+| E4a | Pile concrete, cut-off to toe, one pile | 65′-0″ × E4 2.18166 sft | 141.81 cft |
+| E4b | Pile over-cast, one pile | 2′-0″ × E4 2.18166 sft | 4.36 cft |
+| E6a | Column stub concrete | 1.3889 sft × 2′-3″ (G8) | 3.13 cft |
+| E6b | Column stub formwork | 5′-0″ × 2′-3″ | 11.25 sft |
+| E6c | Column stub Rebar, E3's inputs | bars 8 × 0.686 m (2′-3″) × 2.466 = 13.53 kg; laps 8 × 0.800 m × 2.466 = 15.78 kg; ties (2′-3″ at 6″) 5 × 1.372 m × 0.395 = 2.71 kg | 32.02 kg |
 | E5 | Cement, per cft of RCC 1:1.5:3 | 21.8 bags per 100 cft; wastage 2% | 0.218 bag net |
 | **Rates** (৳) | | | |
 | R1 | RCC per cft | the Rate Analysis of 4.14.2: 27,666.96 per 100 cft; outside the casting-area contract + 31.50 casting labour | 276.67; 308.17 |
 | R2 | Formwork per sft | the Rate Analysis of 4.14.2: 9,650.00 per 100 sft; outside the contract + 18.00 shuttering labour | 96.50; 114.50 |
-| R3 | Rebar per kg | the starter price | 88.50 |
+| R3 | Rebar per kg | the Rate Analysis of 4.14.2 (the Library's rod item): rod 1 kg × 1.03 (3% cutting wastage) × 88.50 = 91.155, plus binding wire 0.01 kg (10 kg per ton) × 120.00 = 1.20; binding labour inside the casting-area contract | 92.36 |
 | R4 | Piling | boring per rft; head breaking per head; casting area per sft | 450.00; 345.00; 170.00 |
-| R5 | Sand (F.M. 2.2) per cft | the Library row of 4.14.2; wastage 5% | 60.00 |
+| R5 | Filling sand (F.M. 0.8) per cft | PWD SoR 2022 16.70 (`SAND-FILL`); supplied at the 1.20 compaction factor, the basis of the 6.88 plinth labour (bd-defaults 220) | 16.70 |
 | **Measured** (Steps 2 to 6) | | | |
 | M1 | Boring | G6 47 × 68′-0″ (existing ground to toe) = 3,196 rft × R4 450.00 | 14,38,200.00 |
 | M2 | Pile-head breaking | G6 47 × R4 345.00 | 16,215.00 |
-| M3 | RCC in piles, cut-off to toe | 47 × 65′-0″ × E4 = 6,664.98 cft × R1 276.67 | 18,44,000.02 |
-| M4 | RCC in piles, over-cast | 47 × 2′-0″ × E4 = 205.08 cft × R1 276.67 | 56,739.48 |
-| M5 | Rebar in piles, by ratio | M3 6,664.98 × 1.7 = 11,330 kg × R3 88.50 | 10,02,705.00 |
+| M3 | RCC in piles, cut-off to toe | 47 × E4a 141.81 = 6,665.07 cft × R1 276.67 | 18,44,024.92 |
+| M4 | RCC in piles, over-cast | 47 × E4b 4.36 = 204.92 cft × R1 276.67 | 56,695.22 |
+| M5 | Rebar in piles, by ratio | M3 6,665.07 × 1.7 = 11,330.62, whole kg 11,331 kg × R3 92.36 | 10,46,531.16 |
 | M6 | RCC in pile caps | G7 1,184.00 cft × R1 outside 308.17 | 3,64,873.28 |
 | M7 | Formwork to pile-cap sides | G7 1,056.00 sft × R2 outside 114.50 | 1,20,912.00 |
-| M8 | Rebar in pile caps, by ratio | M6 1,184 × 2.5 = 2,960 kg × R3 88.50 | 2,61,960.00 |
-| M9 | RCC in column stubs | G8 11 × 1.3889 sft × 4′-0″ = 61.11 cft × 308.17 | 18,832.27 |
-| M10 | Formwork to column stubs | G8 11 × 5′-0″ × 4′-0″ = 220.00 sft × 114.50 | 25,190.00 |
-| M11 | Rebar in column stubs, from the drawing + rules | 416 kg × R3 88.50 | 36,816.00 |
+| M8 | Rebar in pile caps, by ratio | M6 1,184 × 2.5 = 2,960 kg × R3 92.36 | 2,73,385.60 |
+| M9 | RCC in column stubs | G8 11 × E6a 3.13 = 34.43 cft × 308.17 | 10,610.29 |
+| M10 | Formwork to column stubs | G8 11 × E6b 11.25 = 123.75 sft × 114.50 | 14,169.38 |
+| M11 | Rebar in column stubs, from the drawing + rules | G8 11 × E6c 32.02 = 352.22, whole kg 352 kg × R3 92.36 | 32,510.72 |
 | M12 | RCC in columns | G4 100 × E1 13.31 = 1,331.00 cft × R1 276.67 | 3,68,247.77 |
 | M13 | Formwork to columns | G4 100 × E2 47.92 = 4,792.00 sft × R2 96.50 | 4,62,428.00 |
-| M14 | Rebar in columns, from the drawing + rules | G4 100 × E3 83.50 = 8,350 kg × R3 88.50 | 7,38,975.00 |
-| **T1** | **Measured** | M1 to M14 | **67,56,093.82** |
+| M14 | Rebar in columns, from the drawing + rules | G4 100 × E3 83.50 = 8,350 kg × R3 92.36 | 7,71,206.00 |
+| **T1** | **Measured** | M1 to M14 | **68,20,009.34** |
 | **Awaiting answer** (8 columns, Q4 and Q7) | | | |
 | W1 | RCC | Q4's 4 at the best candidate, 10″ × 24″ (the schedule and the label agree): 4 × E1b = 4 × 15.97 = 63.88 cft; Q7's 4 at the plan's 10″ × 20″ (no two sources agree: the one ranked first): 4 × E1 = 53.24 cft; 117.12 cft × R1 | 32,403.59 |
 | W2 | Formwork | 4 × E2b = 217.24 sft + 4 × E2 = 191.68 sft = 408.92 sft × R2 | 39,460.78 |
-| W3 | Rebar | 4 × E3b = 338.48 kg + 4 × E3 = 334.00 kg = 672.48, in whole kg (ruling 6) 672 kg × R3 | 59,472.00 |
-| **T2** | **Awaiting answer** | W1 to W3 | **1,31,336.37** |
+| W3 | Rebar | 4 × E3b = 338.48 kg + 4 × E3 = 334.00 kg = 672.48, in whole kg (ruling 6) 672 kg × R3 92.36 | 62,065.92 |
+| **T2** | **Awaiting answer** | W1 to W3 | **1,33,930.29** |
 | **Allowance** (parts not yet measured) | | | |
-| A1 | Beams | G9 × G1: 9,240 cft × 276.67 = 25,56,430.80; 28,560 sft × 96.50 = 27,56,040.00; 47,880 kg × 88.50 = 42,37,380.00 | 95,49,850.80 |
-| A2 | Slabs | 20,412 cft = 56,47,388.04; 36,960 sft = 35,66,640.00; 51,240 kg = 45,34,740.00; casting area 42,000 sft × 170.00 = 71,40,000.00 | 2,08,88,768.04 |
-| A3 | Step 6, shear walls and lift core | 1,722 cft = 4,76,425.74; 5,040 sft = 4,86,360.00; 8,820 kg = 7,80,570.00 | 17,43,355.74 |
-| A4a | Steps 9 to 14, priced from B.4 (`docs/research/tax-and-allowances.md`, "The resulting direct cost", ৳ per sft of materials and labour at B.4's assumed Market Prices, Low; not a Rate Analysis, so no price of the page's R1 to R3 reaches it) | Step 9 stairs 14 × G1 = 5,88,000.00; Step 10 tanks 21 = 8,82,000.00; Step 11 walls and openings 442 = 1,85,64,000.00; Step 12 rooms and finishes 414 = 1,73,88,000.00; Step 13 roof 25 = 10,50,000.00; Step 14 site works and MEP 785 = 3,29,70,000.00 (B.4's 14 + 21 + 442 + 414 + 25 + 785 = 1,701 per sft). Its Rebar (B.2): stairs 0.05, tanks 0.10, lintels 0.03, roof room 0.03 kg per sft = 8,820 kg | 7,14,42,000.00 |
-| A4b | The rest of Step 5 (grade beams, slab on grade, plinth: not read in M1), B.2 consumptions at the page's rates (R1 outside the contract, R2 outside, R3, R5, bd-defaults 219-221) | RCC (0.026 + 0.042) × G1 = 2,856 cft × 308.17 = 8,80,133.52; Rebar 0.181 × G1 = 7,602 kg × R3 = 6,72,777.00; earthwork in excavation 0.55 × G1 = 23,100 cft × 3.88 = 89,628.00; sand filling in plinth 0.20 × G1 = 8,400 cft: labour × 6.88 = 57,792.00, sand 8,400 × 1.05 wastage = 8,820 cft × R5 60.00 = 5,29,200.00; grade-beam sides, 500 rft × 2 sides × 2′-0″ ÷ B.1's 38,400 sft = 0.052 × G1 = 2,184 sft × 114.50 = 2,50,068.00 (B.2's 0.10 also holds the cap sides, which M7 measures). Brick flat soling (bd-defaults 221: no figure) and CC 1:3:6 blinding (no Rate Analysis) are consumptions "rate not entered", allowance lines outside the 14 unpriced Items | 24,79,598.52 |
-| **T3** | **Allowance** | A1 + A2 + A3 + A4a + A4b = 95,49,850.80 + 2,08,88,768.04 + 17,43,355.74 + 7,14,42,000.00 + 24,79,598.52 | **10,61,03,573.10** |
-| A5 | Step 6, columns part (Moment A only) | 7,140 cft = 19,75,423.80; 19,740 sft = 19,04,910.00; 49,980 kg = 44,23,230.00 | 83,03,563.80 |
-| A6 | Step 6 as a whole at Moment A | A5 + A3 | 1,00,46,919.54 |
+| A1 | Beams | G9 × G1: 9,240 cft × 276.67 = 25,56,430.80; 28,560 sft × 96.50 = 27,56,040.00; 47,880 kg × 92.36 = 44,22,196.80 | 97,34,667.60 |
+| A2 | Slabs | 20,412 cft = 56,47,388.04; 36,960 sft = 35,66,640.00; 51,240 kg = 47,32,526.40; casting area 42,000 sft × 170.00 = 71,40,000.00 | 2,10,86,554.44 |
+| A3 | Step 6, shear walls and lift core | 1,722 cft = 4,76,425.74; 5,040 sft = 4,86,360.00; 8,820 kg = 8,14,615.20 | 17,77,400.94 |
+| A4a | Steps 9 to 14, priced from B.4 (`docs/research/tax-and-allowances.md`, "The resulting direct cost", ৳ per sft of materials and labour at B.4's assumed Market Prices, Low; not a Rate Analysis, so no price of the page's R1 to R3 reaches it) | Step 9 stairs 14 × G1 = 5,88,000.00; Step 10 tanks 21 = 8,82,000.00; Step 11 walls and openings 442 = 1,85,64,000.00; Step 12 rooms and finishes 414 = 1,73,88,000.00; Step 13 roof 25 = 10,50,000.00; Step 14 site works and MEP 855 = 3,59,10,000.00 (B.4's 785, whose fire line is 50, with fire at 120 from 7 storeys as M1.md 1022-1023 gives and KR-01 has 10: 9, item 6; B.4's 14 + 21 + 442 + 414 + 25 + 855 = 1,771 per sft). Its Rebar (B.2): stairs 0.05, tanks 0.10, lintels 0.03, roof room 0.03 kg per sft = 8,820 kg | 7,43,82,000.00 |
+| A4b | The rest of Step 5 (grade beams, slab on grade, plinth: not read in M1), B.2 consumptions at the page's rates (R1 outside the contract, R2 outside, R3, R5, bd-defaults 219-221) | RCC (0.026 + 0.042) × G1 = 2,856 cft × 308.17 = 8,80,133.52; Rebar 0.181 × G1 = 7,602 kg × R3 92.36 = 7,02,120.72; earthwork in excavation 0.55 × G1 = 23,100 cft × 3.88 = 89,628.00; sand filling in plinth 0.20 × G1 = 8,400 cft: labour × 6.88 = 57,792.00, and filling sand 8,400 × 1.20 compaction = 10,080 cft × R5 16.70 = 1,68,336.00; grade-beam sides, 500 rft × 2 sides × 2′-0″ ÷ B.1's 38,400 sft = 0.052 × G1 = 2,184 sft × 114.50 = 2,50,068.00 (B.2's 0.10 also holds the cap sides, which M7 measures). Brick flat soling (bd-defaults 221: no figure) and CC 1:3:6 blinding (no Rate Analysis) are consumptions "rate not entered", allowance lines outside the 14 unpriced Items | 21,48,078.24 |
+| **T3** | **Allowance** | A1 + A2 + A3 + A4a + A4b = 97,34,667.60 + 2,10,86,554.44 + 17,77,400.94 + 7,43,82,000.00 + 21,48,078.24 | **10,91,28,701.22** |
+| A5 | Step 6, columns part (Moment A only) | 7,140 cft = 19,75,423.80; 19,740 sft = 19,04,910.00; 49,980 kg = 46,16,152.80 | 84,96,486.60 |
+| A6 | Step 6 as a whole at Moment A | A5 + A3 | 1,02,73,887.54 |
 | **Totals** | | | |
-| T4 | Total | T1 + T2 + T3 = 67,56,093.82 + 1,31,336.37 + 10,61,03,573.10 | 11,29,91,003.29 |
-| T5 | Per sft | T4 ÷ G1 | 2,690.26 |
-| T6 | Measured share | T1 ÷ T4 | 5.98% |
-| T7 | The strip, whole taka | 67,56,094 + 1,31,336 + 10,61,03,573 (adds as displayed) | 11,29,91,003 |
-| T8 | Rebar so far, per sft (the whole-building check, bd-defaults 59-60: 4.5 to 6) | measured: read M11 + M14 = 8,766 kg; by ratio M5 + M8 = 14,290 kg (23,056 kg); awaiting answer W3 672 kg; allowance Rebar, every row: A1 47,880 + A2 51,240 + A3 8,820 + A4a 8,820 + A4b 7,602 = 124,362 kg; whole Building 23,056 + 672 + 124,362 = 148,090 kg ÷ G1. Day one on G9 alone: 0.94 + 1.40 + 1.14 + 1.22 + 0.05 + 0.10 + 0.03 + 0.03 = 4.91 kg per sft (B.3 prints 4.90). What is measured (piles, caps, stubs, 100 columns, with the 8 awaiting: 23,728 kg, 0.56 kg per sft) stands where their allowances (0.759 + 1.19 = 1.95 kg per sft, 81,858 kg) would have been, so a light measured frame pulls the figure below the range; the screen says which steps are measured | 38% of the measured read, 62% ratio; 3.53 kg per sft, amber |
+| T4 | Total | T1 + T2 + T3 = 68,20,009.34 + 1,33,930.29 + 10,91,28,701.22 | 11,60,82,640.85 |
+| T5 | Per sft | T4 ÷ G1 | 2,763.87 |
+| T6 | Measured share | T1 ÷ T4 | 5.88% |
+| T7 | The strip, whole taka | 68,20,009 + 1,33,930 + 10,91,28,701 (adds as displayed: T4 rounds to 11,60,82,641, and the strip's Total is the sum of the figures it shows, 1.3) | 11,60,82,640 |
+| T8 | Rebar so far, per sft (the whole-building check, bd-defaults 59-60: 4.5 to 6) | measured: read M11 + M14 = 352 + 8,350 = 8,702 kg; by ratio M5 + M8 = 11,331 + 2,960 = 14,291 kg (22,993 kg); awaiting answer W3 672 kg; allowance Rebar, every row: A1 47,880 + A2 51,240 + A3 8,820 + A4a 8,820 + A4b 7,602 = 1,24,362 kg; whole Building 22,993 + 672 + 1,24,362 = 1,48,027 kg ÷ G1, net kg (B.3's basis, before the 3% wastage). Day one on G9 alone: 0.94 + 1.40 + 1.14 + 1.22 + 0.05 + 0.10 + 0.03 + 0.03 = 4.91 kg per sft (B.3 prints 4.90). What is measured (piles, caps, stubs, 100 columns, with the 8 awaiting: 23,665 kg, 0.56 kg per sft) stands where their allowances (0.759 + 1.19 = 1.95 kg per sft, 81,858 kg) would have been, so a light measured frame pulls the figure below the range (the seed's columns are light: 11 of 10″ × 20″ a storey, about 0.035 cft of column concrete per sft against G9's 0.17); the screen says which steps are measured | 38% of the measured read, 62% ratio; 3.52 kg per sft, amber |
 | **Moment A** | | | |
-| X1 | Step 6, measured so far | G5 14 × E1 = 186.34 cft × R1 = 51,554.69; 14 × E2 = 670.88 sft × R2 = 64,739.92; 14 × E3 = 1,169 kg × R3 = 1,03,456.50 | 2,19,751.11 |
+| X1 | Step 6, measured so far | G5 14 × E1 = 186.34 cft × R1 = 51,554.69; 14 × E2 = 670.88 sft × R2 = 64,739.92; 14 × E3 = 1,169 kg × R3 92.36 = 1,07,968.84 | 2,24,263.45 |
 | **Cement** (C14: net × 1.02, rounded up per cell; E5) | | | |
-| C1 | Piling | M3 + M4 = 6,870.06 cft × 0.218 = 1,497.67 net | 1,528 bags |
-| C2 | Substructure | M6 + M9 = 1,245.11 cft × 0.218 = 271.43 net | 277 bags |
+| C1 | Piling | M3 + M4 = 6,869.99 cft × 0.218 = 1,497.66 net | 1,528 bags |
+| C2 | Substructure | M6 + M9 = 1,218.43 cft × 0.218 = 265.62 net | 271 bags |
 | C3 | 1st floor slab casting (columns of Ground) | 9 × 13.31 = 119.79 cft → 26.11 net | 27 bags |
 | C4 | 2nd, 3rd, 4th floor slab casting (columns of 1st, 2nd, 3rd) | 11 × 13.31 = 146.41 cft → 31.92 net each | 33 bags each |
 | C5 | 5th floor slab casting (columns of 4th) | 9 × 13.31 = 119.79 cft → 26.11 net | 27 bags |
@@ -2020,6 +2045,9 @@ it exists a reviewer checks the rows by hand.
 | C7 | 7th, 8th, 9th floor slab casting (columns of 6th, 7th, 8th) | 10 × 13.31 = 133.10 cft → 29.02 net each | 30 bags each |
 | C8 | Roof slab casting (columns of 9th) | 11 × 13.31 = 146.41 cft → 31.92 net | 33 bags |
 | C9 | Columns, all pours | the sum of the rounded cells (C3 to C8) | 300 bags |
+| C10 | Columns awaiting answer (Q4, Q7), apart, each cell rounded up on its own | of the 4th: 2 × E1b 15.97 = 31.94 cft → 6.96 net, 8 bags; of the 5th: 2 × E1b + E1 = 45.25 cft → 9.86 net, 11 bags; of the 6th, 7th, 8th: E1 13.31 cft → 2.90 net, 3 bags each | 28 bags |
+| **Rebar, gross** (C14: net × 1.03, 3% cutting wastage, rounded up in kg) | | | |
+| C11 | Rebar, gross | read M11 + M14 8,702 × 1.03 = 8,963.06; by ratio M5 + M8, 14,291 kg × 1.03 = 14,719.73; awaiting W3 672 × 1.03 = 692.16 | 8,964 kg; 14,720 kg; 693 kg |
 
 ### 6.2 Moments, levels and roles
 **The storeys every example draws from** (the Dhaka way: Ground, then 1st above it; G2):
@@ -2045,12 +2073,12 @@ it exists a reviewer checks the rows by hand.
 **Moment B, the money** (4.13–4.16):
 | What | State |
 |---|---|
-| Steps | 2 to 5 closed, 6 closed with Q4 and Q7 open (8 columns awaiting answer), 7 and 8 on allowance |
-| Strip (whole taka, 1.3) | Measured T1 ৳67,56,094 (67.56 lakh) · Awaiting answer T2 ৳1,31,336 (1.31 lakh) · Allowance T3 ৳10,61,03,573 (10.61 crore) · Total T7 ৳11,29,91,003 (11.30 crore) · T5 ৳2,690 per sft · Measured T6 6% of the total · 14 BOQ Items have no rate yet, from 9 prices not entered |
+| Steps | 2 to 5 closed (Step 5's ground-level Question answered since Moment A), 6 closed with Q4 and Q7 open (8 columns awaiting answer), 7 and 8 on allowance |
+| Strip (whole taka, 1.3) | Measured T1 ৳68,20,009 (68.20 lakh) · Awaiting answer T2 ৳1,33,930 (1.34 lakh) · Allowance T3 ৳10,91,28,701 (10.91 crore) · Total T7 ৳11,60,82,640 (11.61 crore) · T5 ৳2,764 per sft · Measured T6 6% of the total · 14 BOQ Items have no rate yet, from 9 prices not entered |
 | Items | M1 to M14, W1 to W3, A1 to A3, A4a and A4b as 6.1; also an "Unclassified" item, an unpriced item, the casting-area line carried by A2 and the shutter-hire line "rate not entered" |
 | Prices | starter prices with their citation; one entered by Nusrat Jahan; one labour rate "low confidence"; one not entered (9 in all) |
 | The piling choice | Labour only (the starter), switchable to Material and labour (rate not entered) |
-| The Material Schedule | cement C1 to C9: 1,528 bags in Piling, 277 in Substructure, 300 across the 1st to Roof slab castings (the columns of the storey below each); no slab concrete while Slabs is on allowance; Rebar T8 8.766 ton from the drawing and 14.290 ton assumed, by diameter; one allowance row; a Material-and-Labour note |
+| The Material Schedule | cement C1 to C9: 1,528 bags in Piling, 271 in Substructure, 300 across the 1st to Roof slab castings (the columns of the storey below each); no slab concrete while Slabs is on allowance; Rebar C11 8.964 ton from the drawing and 14.720 ton assumed (gross, by diameter), 0.693 ton awaiting answer apart; cement awaiting answer C10 28 bags apart; one allowance row; a Material-and-Labour note |
 | Roles | Nusrat Jahan (QS), Kamal Uddin (MD), Arif Rahman (Vextrus Engineer), Farhana Kabir (Guest) as M0's |
 
 The seed's M1 totals are asserted by M1-49's whole-chain test in miniature where the chain runs, and
@@ -2204,7 +2232,7 @@ prefix KW- so that a failed line named in a PR (`KW-F6`) is never taken for the 
   the browser taking them; one `Ctrl V` of a column of figures from Excel lines up in an allowance
   column.
 - [ ] KW-B12 Formwork, Rebar by ratio ("1.7 kg per cft") and the casting-area line are present; the
-  inspector's "Rebar 3.53 kg per sft so far" is there, with the steps it was measured on.
+  inspector's "Rebar 3.52 kg per sft so far" is there, with the steps it was measured on.
 
 **Prices, settings, Material Schedule (4.14–4.16)**
 - [ ] KW-P1 `Enter` on a price → field; type; `Enter` saves and moves down; `Esc` restores; the toast names the
@@ -2285,6 +2313,13 @@ plan or the spec disagree, those win until the owner rules.
    costs"; the MD may later grant it per Project.** Why: a contractor's QS reading the Developer's
    prices, Labour Contract rates and allowances is the commercial exposure the Guest role exists to
    limit. Until the owner rules, builders build the Guest money-blind.
+6. **Fire protection at ৳120 per sft in KR-01's Step 14 (an assumption, the orchestrator's ruling of
+   13 Oct 2026, for the owner to confirm at the M0 walk).** M1.md (lines 1022 to 1023, Q32) gives fire
+   ৳50 per sft below 7 storeys and ৳120 from 7; KR-01 has 10. The owner's A4 ruling makes B.4 the price
+   source for Steps 9 to 14 and says nothing about fire; B.4's 785 for Step 14 embeds the low-rise 50. A4a
+   prices Step 14 at 855 per sft (785 with fire 120), ৳29,40,000.00 more in T3. Recommendation: **keep
+   120 from 7 storeys, as the signed spec says.** Why: an engine built to M1.md computes 120 for this
+   seed, and the seed test must agree with it.
 
 Everything else on this page is a design choice settled here and open to the owner's reversal at the
 M1 walk; the keys of 2 are the likeliest to change after a QS uses them.
