@@ -154,7 +154,27 @@ def _scan(options: argparse.Namespace) -> int:
 
 
 _ORIGIN = "refs/remotes/origin/"
-_SLUG = re.compile(r"[-_/.]")  # a ref name's separators, read as spaces (a slugged multi-word string)
+# A hit location git's scan already made safe: it holds an index, a short sha or nothing of a name.
+_SAFE_WHERE = re.compile(r"(?:name:\d+|unknown|commit:[0-9a-f]{12})(?::\d+)+")
+
+
+def _holds_corpus(corpus: Corpus, name: str) -> bool:
+    """Whether a name (a branch, a path) holds a corpus string, raw or with separators folded."""
+    return corpus.count(name) > 0 or corpus.folded_in(name)
+
+
+def _safe_where(corpus: Corpus, where: str, masked: dict[str, int]) -> str:
+    """A hit location fit to print: a path that holds a corpus string prints `path:<i>[:<line>]` (its
+    index among this branch's masked paths), as the sweep never prints a name that spells one."""
+    if _SAFE_WHERE.fullmatch(where):
+        return where
+    path, _, line = where.rpartition(":")
+    if not path or not line.isdigit():
+        path, line = where, ""
+    if not _holds_corpus(corpus, path):
+        return where
+    index = masked.setdefault(path, len(masked))
+    return f"path:{index}:{line}" if line else f"path:{index}"
 
 
 def _origin_branches(repo: Path) -> list[str]:
@@ -188,7 +208,7 @@ def _sweep(options: argparse.Namespace) -> int:
             cannot += 1
             branches = []
         for i, name in enumerate(branches):
-            named = any(corpus.count(form) for form in (name, _SLUG.sub(" ", name)))
+            named = _holds_corpus(corpus, name)
             label = f"ref:{i}" if named else name
             wheres: list[str] = ["name"] if named else []
             try:
@@ -198,7 +218,8 @@ def _sweep(options: argparse.Namespace) -> int:
                 cannot += 1
                 print(f"{label} cannot-scan")
                 continue
-            wheres += [where for where, _ in result.hits]
+            masked: dict[str, int] = {}
+            wheres += [_safe_where(corpus, where, masked) for where, _ in result.hits]
             for where in dict.fromkeys(wheres):
                 print(f"{label} {where}")
             if wheres:

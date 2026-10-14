@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.leakscan.tests.acceptance._leak import QUILLMOOR, REPO, commit, git
+from tools.leakscan.tests.acceptance._leak import MARIGOLD, QUILLMOOR, REPO, commit, git
 from tools.leakscan.tests.acceptance.ts27sweep.test_sweep_remote import (
     BROKEN_BRANCH,
     _world,
@@ -91,3 +91,46 @@ def test_the_runbook_says_fetch_prune_before_the_sweep() -> None:
     line = next(row for row in text.split("\n") if "tools.leakscan sweep-remote" in row)
     follow = text[text.index(line) : text.index(line) + 400]
     assert "git fetch --prune origin" in follow
+
+
+FOLDED_STRINGS = [
+    "Tamarind Wharf Traders Ltd.",
+    "Plot 17, Juniper Ghat Road",
+    "Lantern & Bellows Foundry",
+    "Zebra Quarry Holdings Pvt",
+]
+FOLDED_BRANCHES = [
+    "fix/quillmoor_estates_gate",
+    "quillmoor/estates-fix",
+    "fix/tamarind-wharf-traders-ltd",
+    "plot-17-juniper-ghat-road",
+    "lantern-bellows-foundry-fix",
+]
+FOLDED_WORDS = ["quillmoor", "tamarind", "juniper", "bellows", "lantern", "zebra", "quarry"]
+
+
+def test_names_spelled_with_other_separators_never_print_in_clear(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    (world.leak.sources / "more.txt").write_text("\n".join(FOLDED_STRINGS) + "\n")
+    world.leak.build()
+    for branch in FOLDED_BRANCHES:
+        git(world.work, "checkout", "-q", "-b", branch, "main")
+        commit(world.work, {"c.txt": "clean\n"}, "feat: a clean change")
+        git(world.work, "push", "-q", "origin", branch)
+    git(world.work, "checkout", "-q", "-b", "paths", "main")
+    path = "docs/zebra-quarry-holdings-pvt-7731-plan.md"
+    commit(world.work, {path: f"one\n{MARIGOLD}\n"}, "docs: a plan")
+    git(world.work, "push", "-q", "origin", "paths")
+    git(world.work, "checkout", "-q", "main")
+    hits = tmp_path / "hits.txt"
+    done = sweep(world, "--hits-file", str(hits))
+    assert done.returncode == 1, done.stdout + done.stderr
+    shown = (done.stdout + done.stderr).lower()
+    for word in FOLDED_WORDS:
+        assert word not in shown, word
+    lines = out_lines(done)
+    assert sum(line.startswith("ref:") and line.endswith(" name") for line in lines) == len(
+        FOLDED_BRANCHES
+    )
+    assert "paths path:0:2" in lines
+    assert sorted(hits.read_text().split()) == sorted([*FOLDED_BRANCHES, "paths"])
