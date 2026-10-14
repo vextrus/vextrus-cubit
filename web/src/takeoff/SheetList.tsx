@@ -559,10 +559,12 @@ function SheetRow({
       </Trans>
     )
   else if (row.sheets.length > 1)
-    // A continuation the server names is titled with its member-mark ranges joined (T-W334).
+    // A continuation the server names is titled with its member-mark ranges joined (T-W334), but only on a
+    // row holding the whole run; a part is titled as its first sheet is drawn, never claiming the sheets
+    // it does not hold (f-1, #322).
     title = (
       <Trans>
-        <DrawingText kind="title" text={(row.kind === 'sheet' ? first?.continuation_title : null) || (first?.title ?? '')} note={note} className="min-w-0" />
+        <DrawingText kind="title" text={(row.kind === 'sheet' && row.wholeRun ? first?.continuation_title : null) || (first?.title ?? '')} note={note} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )

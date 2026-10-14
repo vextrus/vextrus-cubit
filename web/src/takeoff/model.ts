@@ -49,6 +49,12 @@ export interface Row {
   question: QuestionEntry | null
   /** How many sheets share its title as one series (the server's `series`: one title on several runs, no Question); absent when in none. */
   shares?: number
+  /**
+   * The row holds every sheet of its server-named run (T-W334), so it may be titled by the run's
+   * `continuation_title`; a row holding part of a run (its other sheets decided apart, proposed to leave
+   * out or held by a Question) is titled only by what it holds (f-1, #322). Absent when not.
+   */
+  wholeRun?: true
 }
 
 export interface QuestionEntry {
@@ -250,12 +256,45 @@ function seriesSizes(proposals: readonly ProposalOut[]): Map<string, number> {
   return sizes
 }
 
-function sheetRows(sheets: readonly ProposalOut[], sizes: ReadonlyMap<string, number>): Row[] {
+/** A sheet number's series key and running number, for telling what lies between two numbers. */
+function seriesOf(number: string | null): { key: string; running: number } | null {
+  const parts = number ? numberParts(number) : null
+  return parts ? { key: `${parts.prefix}\u0001${parts.suffix}`, running: parts.running } : null
+}
+
+/**
+ * Step 1's rows of `sheets` (in list order), continuations joined. `all` is every Proposal on the page:
+ * a row never spans a number a sheet outside it holds (a copy decided apart, a sheet proposed to leave
+ * out, a Question's), so two members of a run with such a sheet between them are two rows; and only a
+ * row holding all of its run is marked `wholeRun` (f-1, #322). The boundary numbers themselves are not
+ * spanned: a copy of a row's last number decided apart is the next row, not a sheet skipped over.
+ */
+function sheetRows(sheets: readonly ProposalOut[], sizes: ReadonlyMap<string, number>, all: readonly ProposalOut[]): Row[] {
+  const runSize = new Map<string, number>()
+  const runnings = new Map<string, number[]>()
+  for (const p of all) {
+    if (p.continuation) runSize.set(p.continuation, (runSize.get(p.continuation) ?? 0) + 1)
+    const s = seriesOf(p.number)
+    if (!s) continue
+    const known = runnings.get(s.key)
+    if (known) known.push(s.running)
+    else runnings.set(s.key, [s.running])
+  }
+  const between = (a: ProposalOut, b: ProposalOut) => {
+    const x = seriesOf(a.number)
+    const y = seriesOf(b.number)
+    if (!x || !y || x.key !== y.key) return false
+    const low = Math.min(x.running, y.running)
+    const high = Math.max(x.running, y.running)
+    return (runnings.get(x.key) ?? []).some((r) => r > low && r < high)
+  }
   const rows: Row[] = []
   for (const p of sheets) {
     const last = rows.at(-1)
-    if (last && continues(last.sheets.at(-1)!, p)) {
-      rows[rows.length - 1] = { ...last, sheets: [...last.sheets, p], numberTo: p.number }
+    if (last && continues(last.sheets.at(-1)!, p) && !between(last.sheets.at(-1)!, p)) {
+      const held = [...last.sheets, p]
+      const whole = !!p.continuation && held.length === runSize.get(p.continuation)
+      rows[rows.length - 1] = { ...last, sheets: held, numberTo: p.number, ...(whole ? { wholeRun: true as const } : {}) }
       continue
     }
     const shares = p.series ? (sizes.get(p.series) ?? 0) : 0
@@ -378,7 +417,7 @@ export function step1Model(data: Step1Data): Step1Model {
 
   const free = proposals.filter((p) => !heldBy.has(p.id))
   const sizes = seriesSizes(proposals)
-  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null), sizes)
+  const proposedOut = sheetRows(free.filter((p) => !decided(p) && p.proposed_exclusion !== null), sizes, proposals)
   const outIds = new Set(proposedOut.flatMap((r) => r.sheets.map((p) => p.id)))
 
   const coverageDone = data.coverage.unaccounted === 0
@@ -395,7 +434,7 @@ export function step1Model(data: Step1Data): Step1Model {
       const settled = progress?.confirmed ?? mine.filter(decided).length
       return {
         discipline,
-        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes),
+        rows: sheetRows(mine.filter((p) => !heldBy.has(p.id) && !outIds.has(p.id)), sizes, proposals),
         found: progress?.found ?? mine.length,
         settled,
         total: progress ? (progress.total === null ? null : progress.found) : mine.length,
