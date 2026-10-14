@@ -71,7 +71,7 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS
-  first, then by number), lands each as it stands (a conflicting PR is refused, naming `land update`), waits for CI, prints the gates still owed and merges.
+  first, then by number), lands each whose head contains main's tip (a head behind main, or a conflicting PR, is refused, naming `land update`), waits for CI, prints the gates still owed and merges.
 - `scripts.land update <PR>` (words, not a line to type): main into the PR's branch, merging nothing; the
   only path that moves a head (the lander never updates).
 - `uv run python -m scripts.land <PR>`: one PR, the same way.
@@ -135,3 +135,7 @@ Change a PR body as the hand steps do, scanned first:
   under `.claude/worktrees/`, lists its `.venv` and `web/node_modules` (those two exact paths, nothing walked,
   `.private/work/` never touched) when older than N days and the worktree is not current or in use; `--apply`
   removes those by name and keeps their folders.
+- `uv run python -m tools.leakscan sweep-remote [--hits-file <path>]`: at each session close, after
+  `git fetch --prune origin` (a plain fetch keeps refs of branches deleted on origin); range-scans every origin branch against `origin/main` and prints `<branch> <file>:<line>`
+  per hit (a branch named by a corpus string prints `ref:<i> name`), exit 1 with a hit, 2 when a branch cannot
+  be scanned; `--hits-file` lists the hit branches for the owner to delete.
