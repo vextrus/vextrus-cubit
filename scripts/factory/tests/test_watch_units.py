@@ -619,3 +619,24 @@ def test_the_status_contract_reads_rounds_up_to_the_ledger_s_last_round() -> Non
 
 def test_the_watcher_s_last_round_is_the_ledger_s() -> None:
     assert watch.LAST_ROUND == ledger_module.LAST_ROUND
+
+
+def test_no_session_follows_an_old_launch_only_with_an_open_pr(tmp_path: Path) -> None:
+    """S27-W835: with no session, `live_since` drops a PR-less launch older than it, keeps a recent one
+    and an old one whose branch's PR is open; with a session `live_since` changes nothing."""
+    launches = tmp_path / "launches"
+    launches.mkdir()
+    base = {"where": "cloud", "role": "builder", "session_id": "s", "review": None}
+    for ticket, started in (
+        ("old", "2026-09-20T10:00:00Z"),
+        ("pr", "2026-09-20T10:00:00Z"),
+        ("new", "2026-10-04T20:00:00Z"),
+    ):
+        record = {**base, "ticket": ticket, "branch": f"{ticket}-b", "started_at": started}
+        (launches / f"{ticket}-{started[:4]}.json").write_text(json.dumps(record))
+    prs = [{"number": 1, "headRefName": "pr-b", "state": "OPEN", "headRefOid": None}]
+    live = datetime(2026, 10, 3, 20, 0, tzinfo=UTC)
+    got, _ = watch.load_launches(tmp_path, None, prs, live_since=live)
+    assert set(got) == {"pr", "new"}
+    every, _ = watch.load_launches(tmp_path, None, prs)
+    assert set(every) == {"old", "pr", "new"}

@@ -101,10 +101,14 @@ function trimHeld(held, dropped) {
 // One poll's step. `text` is the events text read (null: none), `nowMs` the clock, `waiting` true while
 // a submitted wake has not started, `self` this session's id's first 8 characters (or null). Returns
 // the new state, the lines to submit (null: none) and whether a due wake is held by the hourly cap.
-export function advance(state, text, nowMs, waiting, self = null) {
+export function advance(state, text, nowMs, waiting, self = null, notBefore = null) {
   const s = readWake(state)
   const events = text === null ? [] : parseEvents(text, null)
-  const { fresh, cursor } = text === null ? { fresh: [], cursor: s.cursor } : freshEvents(events, s.cursor)
+  const read = text === null ? { fresh: [], cursor: s.cursor } : freshEvents(events, s.cursor)
+  const cursor = read.cursor
+  // S27-W835: a line stamped before the session's start (`notBefore`, ms) is another session's: the
+  // cursor passes it above (so it is not read again), and it wakes nothing and rides with nothing.
+  const fresh = typeof notBefore === "number" ? read.fresh.filter((e) => Date.parse(e.at) >= notBefore) : read.fresh
   // A time ahead of the clock (the clock stepped back) counts as now: a step back never frees a wake.
   const pushWokeAt = new Map(s.pushWokeAt.map(([t, ms]) => [t, Math.min(ms, nowMs)]).filter(([, ms]) => nowMs - ms < PUSH_EVERY_MS))
   let held = [...s.held]

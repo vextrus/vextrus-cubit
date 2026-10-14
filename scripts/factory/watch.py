@@ -22,6 +22,10 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   head also sends that builder's session one message per set of hits, through `scripts.factory.launch
   say` (which scans it and prefixes the elapsed time), naming each `file:line` and its commit with the
   pushed-hit remedy, and writes a SAY event;
+- With no `session.json` (after `stamp end`) a launch is followed only if plausibly live (S27-W835): its
+  branch's PR is open, or it started within NO_SESSION_LIVE (24 h) of the pass; older records whose
+  branch has no open PR give no event and no builders row. An open-PR launch is
+  followed with no session, as in a session (a PR in flight is live work, whatever its age);
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -448,15 +452,22 @@ def models_check() -> tuple[str, str | None]:
 
 
 # --- the world's records
+NO_SESSION_LIVE = timedelta(hours=24)  # with no session, a launch older than this and PR-less is stale
+
+
 def load_launches(
-    folder: Path, since: datetime | None, prs: list[dict[str, Any]] | None = None
+    folder: Path,
+    since: datetime | None,
+    prs: list[dict[str, Any]] | None = None,
+    live_since: datetime | None = None,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     """The builders' newest launch record per ticket, and the cloud reviews' branches with the head each
     was launched on. A record whose `review` is not null (review_cloud.py's reviewer or refuter) is not a
     builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch.
     With the PR list `prs`: a ticket launched before `since` is still followed while its branch's PR is
     open (carried over); a ticket whose branch's PR ended (merged or closed) after the record started is
-    dropped (the governor's release rule)."""
+    dropped (the governor's release rule). With no session (`since` None) and `live_since` given
+    (S27-W835): a launch started before `live_since` whose branch has no open PR is not followed."""
     newest: dict[str, dict[str, Any]] = {}
     reviews: dict[str, str] = {}
     ended = governor.released_branches([row for row in prs or [] if _has_pr_keys(row)])
@@ -493,6 +504,8 @@ def load_launches(
         if governor.record_released(record, ended)[0]:
             continue  # its branch's PR merged or closed after this record started
         if since is not None and started < since and state != "OPEN":
+            continue
+        if since is None and live_since is not None and started < live_since and state != "OPEN":
             continue
         record["_started"] = started
         if ticket not in newest or started >= newest[ticket]["_started"]:
@@ -699,7 +712,7 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
         if read is not None:
             state["prs"] = read
     prs: list[dict[str, Any]] | None = state.get("prs")
-    records, reviews = load_launches(folder, since, prs)
+    records, reviews = load_launches(folder, since, prs, live_since=at - NO_SESSION_LIVE)
     refs = remote_heads()
     main_sha = refs.get("main") if refs is not None else None
 

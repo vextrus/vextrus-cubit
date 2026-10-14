@@ -173,7 +173,17 @@ let givenBack = []
 // reset the cap (it is the loop guard).
 let sentMemory = []
 
-async function wake($, log, unreadable, statusText) {
+// The session's start in ms from session.json's started_utc, else null (no session: nothing is skipped).
+function sessionStartMs(text) {
+  try {
+    const ms = Date.parse(JSON.parse(text).started_utc)
+    return Number.isFinite(ms) ? ms : null
+  } catch {
+    return null
+  }
+}
+
+async function wake($, log, unreadable, statusText, sessionText) {
   const nowMs = await $.clock.now()
   let held = readWake(await $.store.get(WAKE_STORE))
   held = { ...held, sentAt: [...new Set([...held.sentAt, ...sentMemory])] }
@@ -191,7 +201,7 @@ async function wake($, log, unreadable, statusText) {
   } catch {
     // no id: this session's own STOP-FAILURE wakes like any other
   }
-  const { state, lines, capped } = advance(held, read, nowMs, waiting, self)
+  const { state, lines, capped } = advance(held, read, nowMs, waiting, self, sessionStartMs(sessionText))
   sentMemory = state.sentAt
   // Stored before the submit: a failed write submits nothing, so no line is sent twice.
   await $.store.set(WAKE_STORE, state)
@@ -238,7 +248,8 @@ async function poll($, paths) {
     const { text: log, unreadable } = await readEvents($, paths)
     await $.state.set(READING, { text })
     await $.state.set(EVENTS, { events: bandEvents(log), unreadable })
-    await $.state.set(SESSION, { text: await readSmall($, paths.session, SESSION_MAX) })
+    const sessionText = await readSmall($, paths.session, SESSION_MAX)
+    await $.state.set(SESSION, { text: sessionText })
     await $.state.set(VERDICTS_REF, { byReview: await readVerdicts($, paths, text) })
     await $.state.set(COST, { usd: lastCost(await readSmall($, paths.cost, LOG_READ_MAX)) })
     if (SURFACE === "status") {
@@ -246,7 +257,7 @@ async function poll($, paths) {
       $.ui.status(bandText(status, await $.clock.now(), null, schema))
     }
     if (log !== null) await toastOwnerLines($, log, await $.clock.now())
-    await wake($, log, unreadable, text)
+    await wake($, log, unreadable, text, sessionText)
   } catch {
     // never throw out of the poll
   } finally {
