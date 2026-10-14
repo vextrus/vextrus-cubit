@@ -1,11 +1,17 @@
 {
   "version": 1,
   "shards": [
-    {"name": "takeoff-acceptance", "paths": ["vextrus/takeoff/tests/acceptance"], "ignore": []},
-    {"name": "takeoff-rest", "paths": ["vextrus/takeoff"], "ignore": ["vextrus/takeoff/tests/acceptance"]},
-    {"name": "seed-platform-drawings", "paths": ["vextrus/seed", "vextrus/platform", "vextrus/drawings"], "ignore": []},
-    {"name": "rest-engine-lint", "paths": ["engine", "tools/lint"], "ignore": []},
-    {"name": "rest-scripts", "paths": ["scripts"], "ignore": []},
-    {"name": "rest", "paths": [], "ignore": ["vextrus/takeoff", "vextrus/seed", "vextrus/platform", "vextrus/drawings", "engine", "tools/lint", "scripts"]}
+    {"name": "takeoff-acceptance-flat", "paths": ["vextrus/takeoff/tests/acceptance/tw319", "vextrus/takeoff/tests/acceptance/ts15a1", "vextrus/takeoff/tests/acceptance/ts21c1", "vextrus/takeoff/tests/acceptance/ts15q1", "vextrus/takeoff/tests/acceptance/ts15a2", "vextrus/takeoff/tests/acceptance/ts27g1"], "ignore": []},
+    {"name": "takeoff-acceptance", "paths": ["vextrus/takeoff/tests/acceptance"], "ignore": ["vextrus/takeoff/tests/acceptance/tw319", "vextrus/takeoff/tests/acceptance/ts15a1", "vextrus/takeoff/tests/acceptance/ts21c1", "vextrus/takeoff/tests/acceptance/ts15q1", "vextrus/takeoff/tests/acceptance/ts15a2", "vextrus/takeoff/tests/acceptance/ts27g1"]},
+    {"name": "takeoff-read", "paths": ["vextrus/takeoff/tests/test_read_never_waits.py", "vextrus/takeoff/tests/test_step1_whole.py"], "ignore": []},
+    {"name": "takeoff-rest", "paths": ["vextrus/takeoff"], "ignore": ["vextrus/takeoff/tests/acceptance", "vextrus/takeoff/tests/test_read_never_waits.py", "vextrus/takeoff/tests/test_step1_whole.py"]},
+    {"name": "seed-drawings", "paths": ["vextrus/seed", "vextrus/drawings"], "ignore": []},
+    {"name": "platform", "paths": ["vextrus/platform"], "ignore": []},
+    {"name": "rest-engine", "paths": ["engine"], "ignore": []},
+    {"name": "tools-lint", "paths": ["tools"], "ignore": []},
+    {"name": "scripts-acceptance", "paths": ["scripts/tests/acceptance/ts14b1", "scripts/tests/acceptance/ts14f2", "scripts/tests/acceptance/ts14r1", "scripts/tests/acceptance/ts14r2", "scripts/tests/acceptance/ts26fx4", "scripts/tests/acceptance/ts26fx9"], "ignore": []},
+    {"name": "scripts-factory", "paths": ["scripts/factory"], "ignore": []},
+    {"name": "rest-scripts", "paths": ["scripts"], "ignore": ["scripts/factory", "scripts/tests/acceptance/ts14b1", "scripts/tests/acceptance/ts14f2", "scripts/tests/acceptance/ts14r1", "scripts/tests/acceptance/ts14r2", "scripts/tests/acceptance/ts26fx4", "scripts/tests/acceptance/ts26fx9"]},
+    {"name": "rest", "paths": [], "ignore": ["vextrus/takeoff", "vextrus/seed", "vextrus/platform", "vextrus/drawings", "engine", "tools", "scripts"]}
   ]
 }
