@@ -94,8 +94,11 @@ path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`), so none s
 4. If a cloud slot is idle: #865 (the walk gate blocks sentences that say the walk is not ready).
 
 **The critical path:** W1's writer at 0:15, W1 merged by about 2:30; G4 and #844 landed by then; walk #1 at about 3:00;
-fixes; walk #2 (the repeat mode) at about 5:30. If W1 is not merged by 2:30, walk #1 runs on the old bar anyway (its
-findings still need fixing) and W1 lands before walk #2. C1 and R1 run beside it and never delay a walk.
+walk #2 (the repeat mode) at about 5:00. Walk #1 waits for W1, as the owner ruled: if W1 is late, cut M1-00's review, then
+R1, to protect it; never start walk #1 on the old bar. `scripts.walk.ready` needs the two newest verdicts both PASS with no
+FAIL between them, so if walk #1 FAILs (a BLOCK under the new bar), fix it, then walk #2 is a fresh walk of the fixed head
+and walk #3 its repeat: keep about 3 h of budget for walks #2 and #3 from the moment walk #1 fails. C1 and R1 run beside
+W1 and never delay a walk.
 **Budget:** the draft's 6 h does not hold these first tasks and two walks. Ask the owner once at the start: 8 h
 (recommended). Without an answer, keep 6 h and cut M1-00's review first, then S28-R1; never the walks or S28-W1.
 **Holds (the owner's Q9, applies now):** ask, then proceed on the recommendation for anything reversible and note it in
