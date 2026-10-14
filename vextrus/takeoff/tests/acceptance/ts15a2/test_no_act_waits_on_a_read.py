@@ -22,11 +22,17 @@ tripwire". Three promises, each pinned here:
    once the row is let go. The refusal's code is the builder's to name; the catalogue must word it.
 
 Everything is invented (21c's hand-built sheets, 21a's readers given), no toolchain. Waits on Events
-are fail-safes only; the time bounds are the ticket's 500 ms and a lock wait's tripwire.
+are fail-safes only; the time bounds are the ticket's 500 ms and a lock wait's tripwire, each scaled
+by the machine (`vextrus.testing.timing.scaled`: a load margin, or `VEXTRUS_TIME_SCALE` when larger;
+S29-F2a, #851: the answer measured 0.587 s against 0.5 s while several PRs ran CI together), never a
+fixed wall-clock bound. The proofs that an act does not wait on the read job are Postgres's
+`pg_blocking_pids` (`watched`) and the 503 a held row gives at the 3 s lock_timeout; the time bound
+only catches an act that waits some other way, which waits until the job is let go (FAIL_SAFE).
 
     uv run pytest -rf vextrus/takeoff/tests/acceptance/ts15a2
 """
 
+import importlib
 import json
 import threading
 import time
@@ -66,6 +72,9 @@ from vextrus.testing.drawings import QsProject, drawing
 from vextrus.testing.jev import Offline
 
 pytestmark = pytest.mark.django_db(transaction=True, databases=["default", "owner"])
+
+scaled: Callable[[float], float] = importlib.import_module("vextrus.testing.timing").scaled
+"""A bound in seconds scaled by the machine (S29-F2a; imported by name: built with that ticket)."""
 
 FIRST = "S15A2-STR-R0.dwg"
 PLOT = "S15A2-STR-PLOT.pdf"
@@ -452,8 +461,10 @@ def _within_bound(act: str, overlap: Overlap) -> None:
     assert not overlap.waited_on_the_job, f"the {act} waited on the read job's transaction"
     assert overlap.response.status_code == 200, overlap.response.content
     assert overlap.seconds is not None
-    assert overlap.seconds <= ACT_BOUND, (
-        f"the {act} took {overlap.seconds:.3f} s, over {ACT_BOUND} s, while a file was finishing"
+    bound = scaled(ACT_BOUND)
+    assert overlap.seconds <= bound, (
+        f"the {act} took {overlap.seconds:.3f} s, over {bound:.3f} s (the ticket's {ACT_BOUND} s, "
+        "scaled by the machine), while a file was finishing"
     )
 
 
@@ -526,12 +537,14 @@ def test_an_act_blocked_on_a_held_row_is_refused_in_words_and_changes_nothing(
         assert holder.error is None, holder.error
         assert holder.found, "the Proposal's row was not found to hold"
         act_thread, acted = in_thread(made.do)
-        came_back = waited(acted.done, LOCK_TRIPWIRE)
+        came_back = waited(acted.done, scaled(LOCK_TRIPWIRE))
     finally:
         holder.released.set()
     joined(act_thread, FAIL_SAFE)
     joined(holder_thread, FAIL_SAFE)
-    assert came_back, f"the {act} waited on a held row for over {LOCK_TRIPWIRE} s: no lock_timeout"
+    assert came_back, (
+        f"the {act} waited on a held row for over {scaled(LOCK_TRIPWIRE):.1f} s: no lock_timeout"
+    )
     if acted.error is not None:
         raise acted.error
     refused = acted.result
