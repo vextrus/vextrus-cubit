@@ -22,8 +22,8 @@ product code), so the owner walks M0. It exits 1 today (0 of 2; no G1 walk ran i
   3. The engine integration #844 (G1 + G3, branch s27-eng): re-integrated at 5138e2c80 with both fix rounds (G1: a Discipline
      change re-matches the Plot as a job on the cad queue, migration drawings 0008; the job ran inline only, never in a real cad
      worker; G3: a lintel beam is not a structure word). Round 2 at 33f845ae4 was FIX: G1's re-match skips a held DWG read
-     anyway (50); G3's "framing" counts as structure on an architect's ceiling/partition framing view (55). Both fix rounds
-     were sent at close (s27-g1, s27-g3b; local builders, commit only): merge their READY heads into s27-eng with main, verify,
+     anyway (50); G3's "framing" counts as structure on an architect's ceiling/partition framing view (55). G1's round 2 is
+     pushed (711eeb9a4; review_self not run); G3's round 2 was still running at close (s27-g3b): merge their READY heads into s27-eng with main, verify,
      READY commit, CI, round 3 (delta review), the posting real-drawing run
      (`--accept` the judged gain: G3's 20 re-routed views; G1 changes no measure in the normal read order), land. Then run the
      cad worker once on a real set and watch the match_plot job land.
@@ -33,6 +33,19 @@ product code), so the owner walks M0. It exits 1 today (0 of 2; no G1 walk ran i
 - **M1-00 (the contract freeze, branch m1-00, READY 698e6877, my heading commit def572b97):** built, not yet published: publish
   needs a local verify record for tree 78a03b57c (`scripts.verify` in .private/work/s27/wt/m1-00; it was stopped for memory).
   Then review; merge only after the owner's walk (O2). Check its migrations against drawings 0008 from #844.
+
+## Before the session: the owner's steps (check each in the first 15 minutes)
+1. Remove session 27's gate databases: `vextrus_gate837`, `vextrus_gate837b`, `vextrus_gate842`, `vextrus_gate842b`,
+   `vextrus_gate842c`, `vextrus_gate842d`, `vextrus_gate843`, `vextrus_gate843b`, `vextrus_gate843c`, `vextrus_gate843d`,
+   `vextrus_gate846`, `vextrus_gate846b`, `vextrus_gate846c` and their `_test_*` copies.
+2. Remove session 27's scratch worktrees (36 registered; recursive deletes are refused): `.private/work/s27/wt/*` (keep
+   `eng`, `g6`, `m1-00` and `close` until their PRs land), `.private/work/s27/gate*/tree`, every `*-writer/throwaway`,
+   `g7-writer/tw`, `g6-amend`.
+3. Stop the idle local builder sessions s27-g2 and s27-g7; keep s27-g1 and s27-g3 until #844 lands (s27-g3's round 2 on
+   "framing" was still running at close: its head may be local only on s27-g3b; push it after a leak scan).
+4. Q-R6: add `smoke` to ruleset `main` (id 24103083): every open PR showed `smoke` green in session 27.
+5. Delete the 96 old-product `inc/*` branches with leak hits (`.private/work/s27/sweep-hit-branches.txt`) if not done.
+6. Before M1-06: the key user's `initdb` for the Held-out cluster, when the orchestrator asks.
 
 ## Owner rulings in session 27 (their words)
 - #825: "Yes, always (Recommended)": the lander refuses a head that does not contain main's tip.

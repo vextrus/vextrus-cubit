@@ -798,7 +798,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **New acceptance tests passed the lint and failed CI.** Three engine tests needed the sandbox that CI does not have
   (SandboxUnavailable), so the integration PR went red. No check yet: #848
   (acceptance_lint runs new tests as CI does, or requires the marker).
-- **Design gates failed an item on 5 of 11 walks, each on a head review had passed.** #837 (a note 0 px wide), #842 twice
+- **Design gates failed an item on 5 of 12 walks, each on a head review had passed.** #837 (a note 0 px wide), #842 twice
   (focus lost, then focus kept with no ring) and #843 twice (the bar ahead of the list). The acceptance tests were green
   because they asked whether the thing was reachable in the DOM, not whether it was seen or in the same commit as the list.
   Check: `web/src/ui/focus-inset.node.test.ts` (no `outline-none` beside `focus-inset`); each other fix round owes its own test, named in the gate verdicts (a visible-width floor for the note; a lint for
