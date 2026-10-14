@@ -22,6 +22,16 @@ from vextrus.drawings import services as drawings
 from vextrus.platform.services import jobs
 from vextrus.takeoff.services.read_propose import plot
 
+_PLOTS = frozenset(
+    {
+        drawings.FileState.READ,
+        drawings.FileState.WAITING,
+        drawings.FileState.READING,
+        drawings.FileState.RETRYING,
+    }
+)
+"""A PDF's states whose pages are or will be matched to the set's sheets."""
+
 
 class _Unkept(jobs.StepStore):
     """No step kept: the match is a function of the set as it stands, run whole on every try."""
@@ -51,12 +61,11 @@ def _match(file_id: uuid.UUID, job_id: int | None) -> jobs.StepResult:
 
 def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
     """After the QS changed a file's Discipline (in the change's transaction): a read DWG or PDF of
-    a set with a read PDF has the set's Plot matched again by `match_plot`."""
+    a set with a PDF read or being read has the set's Plot matched again by `match_plot`."""
     view = drawings.file(file_id)
     if view.state != drawings.FileState.READ or view.format not in ("dwg", "pdf"):
         return
-    if not any(
-        f.format == "pdf" and f.state == drawings.FileState.READ for f in drawings.files(view.set_id)
-    ):
+    # A PDF still reading may have matched under the old Discipline: the job runs after it (#844).
+    if not any(f.format == "pdf" and f.state in _PLOTS for f in drawings.files(view.set_id)):
         return
     drawings.queue_plot(view.set_id, match_plot.defer(file_id=file_id))

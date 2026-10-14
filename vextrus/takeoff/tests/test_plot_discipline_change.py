@@ -126,7 +126,13 @@ def test_a_plot_given_a_discipline_lets_go_of_another_disciplines_sheets(qs_proj
     assert _pages(qs, dwg_id) == {n: k for k, n in enumerate(NUMBERS, start=1)}
 
     job_id = _change(qs, pdf_id, "structural")
+    # Queued: its row waits and is polled, never still "8 of 8 matched".
+    assert _status(qs, pdf_id) == words.PLOT_WAITING()
+    with qs.member.acting():
+        assert services.file(pdf_id).plot_pending
     _run(qs, job_id, pdf_id)
+    with qs.member.acting():
+        assert not services.file(pdf_id).plot_pending
 
     assert set(_pages(qs, dwg_id).values()) == {None}
     assert _status(qs, pdf_id) == words.PLOT_WAITING()
@@ -155,3 +161,11 @@ def test_a_file_not_read_queues_no_plot_match(qs_project: QsProject) -> None:
     with qs.member.acting():
         services.set_discipline(waiting, "structural", actor_name=qs.member.user.name)
         assert services.plot_queued(services.file(waiting).set_id) is None
+
+
+def test_a_change_while_a_plot_is_still_reading_queues_the_match(qs_project: QsProject) -> None:
+    """A PDF still in its read job may match under the old Discipline: the job is queued after it."""
+    qs = qs_project
+    dwg_id = _dwg(qs, "KR-GENERAL-NOTES-R0.dwg")
+    add(qs.member, qs.project_id, "KR-STR-R0.pdf", _plot_pdf())  # added, its read job queued
+    _change(qs, dwg_id, "structural")

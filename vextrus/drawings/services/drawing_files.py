@@ -205,6 +205,9 @@ class FileView:
     read_job_id: int | None
     marked_for_vextrus: bool = False
     """A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus")."""
+    plot_pending: bool = False
+    """A read PDF whose set's Plot is to be matched again (`queue_plot`): its row waits, and the
+    list is read again till it is matched."""
 
 
 @dataclass(frozen=True)
@@ -285,9 +288,12 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
     plotting = _plotting({row.drawing_set for row in rows if row.format == FileFormat.PDF})
     for row in rows:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
-        # A PDF whose set's Plot match is queued again waits for it as for its DWG (S27-G1).
-        dwg_read = _dwg_read(row, read_dwgs) and row.drawing_set_id not in plotting
-        state, status = _status(row, job, now, len(matched_pages.get(row.id, ())), dwg_read)
+        # A PDF whose set's Plot match is queued again waits for it as for its DWG, whatever its
+        # pages matched before (S27-G1): they are decided again when the job runs.
+        pending = row.format == FileFormat.PDF and row.drawing_set_id in plotting
+        dwg_read = _dwg_read(row, read_dwgs) and not pending
+        pages = 0 if pending else len(matched_pages.get(row.id, ()))
+        state, status = _status(row, job, now, pages, dwg_read)
         readable = state == FileState.READ or read_anyway_ended(row)
         shown.append(
             FileView(
@@ -312,6 +318,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
                 plot_for=tuple(plot_for.get(row.id, ())),
                 read_job_id=row.read_job_id,
                 marked_for_vextrus=row.id in marked,
+                plot_pending=pending,
             )
         )
     return shown
