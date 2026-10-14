@@ -55,8 +55,9 @@ def test_the_list_is_read_afresh_for_each_call(tmp_path: Path, monkeypatch: pyte
         ".github/flaky-root.txt",
         # Imported by publish.py, allowlist.py and verify.py (which commit a leak-scan hit belongs to).
         "scripts/factory/leakwhere.py",
-        # Imported by review.py (its review slots).
+        # Imported by review.py (its review slots; the revert tier's no-model PASS, S29-F3).
         "scripts/factory/governor.py",
+        "scripts/factory/main_watch.py",
         # Read by the acceptance check (tools/lint/acceptance.py, acceptance_lint.py) at the base.
         "tools/lint/acceptance_legacy.txt",
         "docs/rulings.md",

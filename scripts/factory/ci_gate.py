@@ -15,6 +15,9 @@ Prints exactly one line, `ready=true` or `ready=false` (a step appends it to `$G
 - A builder's answer to a status message (the owner's Q-R6) keeps READY: an empty commit (its tree its
   parent's) whose only `Factory-` trailer is `Factory-Status:`, on a head that is READY by these rules; a
   chain of them too. A commit with any file change never does, whatever trailers it carries.
+- The main watcher's revert (S29-F3) reads READY with no trailer: one commit on main whose tree is main
+  at its parent with exactly one first-parent merge reverted (`main_watch.reverted_merge`, by trees).
+  READY only lets the heavy jobs run on it; their result decides it.
 - A commit git cannot read exits non-zero, so the step fails closed, as the workflows' path steps do.
 """
 
@@ -23,7 +26,9 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from pathlib import Path
 
+from scripts.factory import main_watch
 from scripts.factory.trailers import read, status_line
 
 MAIN_REFS = ("refs/remotes/origin/main", "refs/heads/main")
@@ -80,18 +85,35 @@ def _is_clean_merge(sha: str, parents: list[str], cwd: str | os.PathLike[str] | 
     return made.returncode == 0 and made.stdout.split()[:1] == tree.split()
 
 
+def _is_exact_revert(sha: str, cwd: str | os.PathLike[str] | None = None) -> bool:
+    """Whether `sha` is one commit on main whose tree is main at its parent with exactly one
+    first-parent merge reverted (the main watcher's revert, S29-F3; decided by trees, never by its
+    message). It carries no trailer, since nobody ran `verify` on it; CI's heavy jobs run on it as on a
+    READY head, and their result decides it."""
+    parents = _git("rev-list", "--parents", "-n", "1", sha, cwd=cwd).stdout.split()[1:]
+    if len(parents) != 1 or not _on_main(parents[0], cwd):
+        return False
+    return main_watch.reverted_merge(Path(cwd or "."), sha, parents[0]) is not None
+
+
 def ready_commit(
-    sha: str, cwd: str | os.PathLike[str] | None = None, *, clean_merges: bool = False
+    sha: str,
+    cwd: str | os.PathLike[str] | None = None,
+    *,
+    clean_merges: bool = False,
+    reverts: bool = False,
 ) -> str | None:
     """The commit that reads READY under `sha`: `sha` itself, or the first one found by walking back
     over merges of main and empty status replies (the newest commit on that chain carrying the trailer);
     None when the chain reaches a commit that is neither. The walk has no depth cut (the watcher's and
     publish's have none). CI's gate takes any merge whose second parent is on main (GitHub's "Update
     branch" makes it); `clean_merges` takes only one `_is_clean_merge` accepts, as the watcher and
-    merge_ready read it, which is publish's rule."""
+    merge_ready read it, which is publish's rule. `reverts` also takes the main watcher's exact revert
+    (`_is_exact_revert`), for CI's gate and merge_ready's check (e) only (`is_ready`): publish never
+    takes it, so nothing is published as verified that no `verify` ran on."""
     current = _commit(sha, cwd)
     while True:
-        if _reads_ready(current, cwd):
+        if _reads_ready(current, cwd) or (reverts and _is_exact_revert(current, cwd)):
             return current
         parents = _git("rev-list", "--parents", "-n", "1", current, cwd=cwd).stdout.split()[1:]
         merge = (
@@ -105,9 +127,9 @@ def ready_commit(
 
 
 def is_ready(sha: str) -> bool:
-    """READY by the trailer rule, or a chain of merges of main and empty status replies onto a commit
-    that is."""
-    return ready_commit(sha) is not None
+    """READY by the trailer rule (or the main watcher's exact revert), or a chain of merges of main and
+    empty status replies onto a commit that is: CI's gate and merge_ready's check (e)."""
+    return ready_commit(sha, reverts=True) is not None
 
 
 def main(argv: list[str]) -> int:

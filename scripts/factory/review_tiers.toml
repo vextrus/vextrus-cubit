@@ -96,12 +96,14 @@ paths = [
   "tools/leakscan/**",
   # What the gate code above imports or reads (PR #884 round 1 and its sweep): the flaky lists that
   # excuse a failed test (verify.py, land.py), the leak scan's commit finder (publish.py, allowlist.py,
-  # verify.py), the review slots (review.py), the acceptance check's legacy list and rulings register
+  # verify.py), the review slots and the revert tier's
+  # watcher (review.py), the acceptance check's legacy list and rulings register
   # (read at the base) and the import-linter configuration it looks for.
   ".github/flaky.txt",
   ".github/flaky-root.txt",
   "scripts/factory/leakwhere.py",
   "scripts/factory/governor.py",
+  "scripts/factory/main_watch.py",
   "tools/lint/acceptance_legacy.txt",
   "docs/rulings.md",
   ".importlinter",
