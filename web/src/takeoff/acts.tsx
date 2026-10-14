@@ -19,7 +19,26 @@ import type { MachineMessage } from '@/format/machine'
 import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { PlanViewName } from './storeys'
-import { answer, confirm, correct, drawingListQuery, exclude, setList, step1Key, undo, type ActOut, type ProposalOut, type OpenedWith, type Step1Data, type ViewStoreysChange } from './data'
+import {
+  answer,
+  answered,
+  confirm,
+  correct,
+  drawingListQuery,
+  exclude,
+  isWhole,
+  readParts,
+  setList,
+  step1Key,
+  undo,
+  writeParts,
+  type ActOut,
+  type AnswerOut,
+  type ProposalOut,
+  type OpenedWith,
+  type Step1Data,
+  type ViewStoreysChange,
+} from './data'
 import { LeavesConfirmAll } from './LeavesConfirmAll'
 import { REASONS, type QuestionEntry, type Reason } from './model'
 import { AnsweredWords } from './questionWords'
@@ -43,6 +62,11 @@ function makesAct(entry: QuestionEntry, option: string): boolean {
   const q = entry.question
   if (q.kind === 'conflict' && q.code !== 'takeoff.proposals.lists_disagree') return option === 'keep_latest' || option === 'keep_all'
   return q.kind === 'low_confidence'
+}
+
+/** An answer that confirms, leaves out or corrects no sheet: "keep open", or a drawing-list check's (21c). */
+function movesNoSheet(entry: QuestionEntry, option: string): boolean {
+  return option === 'keep_open' || entry.question.kind === 'check'
 }
 
 /** Ctrl Z after an answer: the words of the server's refusal, which this tab does not ask for. */
@@ -412,6 +436,60 @@ function useActs(
       return reloaded(mark)
     },
     [refresh, reloaded],
+  )
+
+  /**
+   * Step 1 read again behind an answer shown from its reply (S27-G7): the four read outside the cache and
+   * written in one batch, so nothing holds the reply's rows meanwhile (`useSettled`), and the rest (the
+   * drawing lists, a sheet's acts, the files band) read again as any act's. Dropped if another act or a
+   * Ctrl Z began since, or Step 1 was left: its own reload is newer. A failed read leaves the reply's rows.
+   */
+  const readBehind = useCallback(
+    async (mark: Mark) => {
+      const whole = isWhole(projectId)
+      void queryClient.invalidateQueries({ queryKey: step1Key(projectId), predicate: (query) => !whole(query) }).catch(() => {})
+      void queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey }).catch(() => {})
+      try {
+        const fresh = await readParts(projectId, ['proposals', 'questions', 'coverage', 'progress'])
+        if (mark.generation === generation.current && mounted.current) writeParts(queryClient, projectId, fresh)
+      } catch {
+        // The reply's rows stay until Step 1 is read again (the next act, or the next visit).
+      }
+    },
+    [projectId, queryClient],
+  )
+
+  /**
+   * Shows an answer from its reply, once its POST has returned (S27-G7, #319): the answered Question and the
+   * Proposals it moved written at once, with Coverage and progress read first when a sheet moved (the
+   * group's "n / N settled" is progress's), all in one batch; then the gate opens and the rest is read
+   * behind (`readBehind`). Whether it could: a reply that does not say which sheets moved, from an answer
+   * that may move some, is shown as any act is, once Step 1 has reloaded (`settle`).
+   */
+  const showAnswer = useCallback(
+    async (reply: AnswerOut, entry: QuestionEntry, option: string, mark: Mark): Promise<boolean> => {
+      const moved = (reply as Partial<AnswerOut>).changed_proposals
+      if (moved === undefined && !movesNoSheet(entry, option)) return false
+      // A read of the four already in flight (a window coming back into view) would land over the reply.
+      await queryClient.cancelQueries({ predicate: isWhole(projectId) })
+      let extra = {}
+      if (moved && moved.length > 0) {
+        try {
+          extra = await readParts(projectId, ['coverage', 'progress'])
+        } catch {
+          return false
+        }
+      }
+      if (mark.generation !== generation.current) return false
+      writeParts(queryClient, projectId, answered(queryClient, projectId, reply, extra))
+      if (mark.owner === acting.current) {
+        pending.current = false
+        if (undos.current === 0) setBusy(false)
+      }
+      void readBehind(mark)
+      return true
+    },
+    [projectId, queryClient, readBehind],
   )
 
   /** Undoes `entry` (none: the user's last act from before this tab), once the undos before it end. */
@@ -822,8 +900,9 @@ function useActs(
       if (mine) mine.answer = makesAct(entry, option)
       let made = 0
       let done: Done | null = null
+      let reply: AnswerOut | null = null
       try {
-        await answer(projectId, entry.question.id, option, text, entry.question.proposals)
+        reply = await answer(projectId, entry.question.id, option, text, entry.question.proposals)
         made = 1
         done = { message: <AnsweredWords entry={entry} option={option} text={text.trim()} /> }
         return true
@@ -844,10 +923,12 @@ function useActs(
           const at = history.current.indexOf(mine)
           history.current = at === -1 ? [] : history.current.slice(at)
         }
-        showDone(done, await settle(mark), mark)
+        // Shown from the reply when it can be; else once Step 1 has reloaded, as any act.
+        const shown = reply !== null && (await showAnswer(reply, entry, option, mark).catch(() => false))
+        showDone(done, shown || (await settle(mark)), mark)
       }
     },
-    [begin, marked, projectId, say, settle, showDone],
+    [begin, marked, projectId, say, settle, showAnswer, showDone],
   )
 
   return { bulk, confirmSheets, excludeSheets, setDrawingList, answerQuestion, undoLast, busy }

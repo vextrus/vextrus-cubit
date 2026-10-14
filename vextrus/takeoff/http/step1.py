@@ -20,6 +20,7 @@ from vextrus.platform.services import deadlocks
 from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
+    Step1AnswerOut,
     Step1AnswerIn,
     Step1AssignIn,
     Step1ConfirmIn,
@@ -196,14 +197,15 @@ def get_drawing_list(
 
 @router.post(
     f"{_PREFIX}/questions/{{question_id}}/answer",
-    response={200: Step1QuestionOut, 400: Refusal, 409: Refusal},
+    response={200: Step1AnswerOut, 400: Refusal, 409: Refusal},
 )
 @declare(acts.CONFIRM, project="project_id")
 def answer_question(
     request: HttpRequest, project_id: uuid.UUID, question_id: uuid.UUID, payload: Step1AnswerIn
-) -> Step1QuestionOut:
+) -> Step1AnswerOut:
     """Answer a Question with one of its options (`keep_open` keeps it open). A held file read
-    anyway has its read job queued again, in the answer's transaction."""
+    anyway has its read job queued again, in the answer's transaction. The reply is the answered
+    Question with the Proposals the answer moved (`changed_proposals`), as the list now words them."""
 
     def act() -> step1.Answered:
         with step1.writing(project_id):
@@ -219,4 +221,10 @@ def answer_question(
                 read_file.read_again(done.read_again)
         return done
 
-    return Step1QuestionOut.from_view(deadlocks.retried(act, what="step1.answer").question)
+    done = deadlocks.retried(act, what="step1.answer")
+    return Step1AnswerOut.model_validate(
+        {
+            **asdict(done.question),
+            "changed_proposals": [Step1ProposalOut.from_view(p) for p in done.moved],
+        }
+    )

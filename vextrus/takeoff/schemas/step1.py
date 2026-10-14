@@ -212,6 +212,16 @@ class Step1QuestionOut(_FromView):
     )
 
 
+class Step1AnswerOut(Step1QuestionOut):
+    """An answer's reply: the answered Question, and the sheets it moved (S27-G7)."""
+
+    changed_proposals: list[Step1ProposalOut] = Field(
+        description="Each Proposal the answer confirmed, left out or corrected, exactly as "
+        "`GET .../step1/proposals` lists it now, and no other; empty when it moved no sheet. "
+        "Step 1's screen shows the answer from these, without reading the whole list again."
+    )
+
+
 class Step1QuestionsOut(Schema):
     questions: list[Step1QuestionOut]
 
