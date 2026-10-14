@@ -789,3 +789,40 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   that does not contain main's tip when main changed paths its tests read since the head's CI ran).
 - **The factory mod's wake replaced the 30-minute Monitor re-arms** from 20:43Z, but its table kept listing tickets after
   their PRs merged. No check yet: #826.
+
+## Session 27 (14 Oct 2026): factory and engine tickets merged, gates failed on heads review had passed, no G1 walk fit the budget
+
+- **A writer's first acceptance commit carried real drawing titles** (S27-G3: 28 leak-scan hits; the branch was abandoned
+  before any push). The writer did not scan its own range. No check yet: #847 (the
+  acceptance-writer contract and the READY report require a leakscan of the range). The pre-push scan stays the backstop.
+- **New acceptance tests passed the lint and failed CI.** Three engine tests needed the sandbox that CI does not have
+  (SandboxUnavailable), so the integration PR went red. No check yet: #848
+  (acceptance_lint runs new tests as CI does, or requires the marker).
+- **Design gates failed an item on 5 of 11 walks, each on a head review had passed.** #837 (a note 0 px wide), #842 twice
+  (focus lost, then focus kept with no ring) and #843 twice (the bar ahead of the list). The acceptance tests were green
+  because they asked whether the thing was reachable in the DOM, not whether it was seen or in the same commit as the list.
+  Check: `web/src/ui/focus-inset.node.test.ts` (no `outline-none` beside `focus-inset`); each other fix round owes its own test, named in the gate verdicts (a visible-width floor for the note; a lint for
+  `outline-none` beside `focus-inset`; one source of truth for the bar and the list's counts). Verify each landed in
+  #837, #842 and #843 at merge. The rule stands: a gate walks every UI head after every fix.
+- **A fix inverts a disagreement and closes only the path the test pinned** (#843: the first fix made the bar and list agree
+  on five answer kinds, and the held-file answer disagreed the other way). The acceptance test pinned only the answers that
+  move no sheet; the writer added the reply-delta contract after the first draft. No check yet: #860
+  (a test per answer kind; the held-file case first).
+- **The lander merged a head that did not contain main's tip** (session 26: D4 #771 on a head from before D7 #805). Fixed:
+  the lander and `merge_ready` refuse such a head, and ADR 0041 is amended on the owner's ruling "Yes, always". Check: `scripts/tests/acceptance/ts27l825/`;
+  the acceptance tests of #845 (`s27-l825`) and the ADR 0041 amendment. Closes #825.
+- **A branch name or path that spells a multiword corpus string with hyphens printed in clear.** `sweep-remote` found 96
+  old-product `inc/*` branches with hits and printed branch names; review rounds 1 and 2 each found one more spelling
+  (hyphen, underscore, path). Check: `tools/leakscan/` tests (#841, folded form on both sides, `ref:<i>` for a name-hit).
+  The pre-push ref test has the same hole: No check yet: #854.
+- **A builder's follow-up list went under `## Cut`** (G6 and M1-00, twice in one day), and the orchestrator added a heading
+  commit by hand each time. No check yet: #849 (publish names the fix, or builder.md).
+- **A timing bound of 500 ms flaked under CI load twice in a day** (ts15a2 [answer] 0.587 s blocked #841's land; G6's cloud
+  verify blocked on load twice and was verified locally). Same class as #823 and #824. No check yet:
+  #851 and #852.
+- **Two cloud builders were refused by the CLOUD_PUSH guard and the cause is unknown** (W835 and SWEEP; each pushed after the orchestrator sent
+  recovery steps). No check yet: #850.
+- **The orchestrator carried a design-gate verdict to a head the gate never walked** (#842 after `land update`); the
+  classifier refused the land, and a real walk of that head then passed. The owner's ruling (14 Oct): "Re-walk every new
+  head". The order is now: update with main, gate that head, land it. No check yet: the lander could refuse a
+  design-gate status older than the head's last main merge (owed with #849's factory batch).
