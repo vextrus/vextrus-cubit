@@ -54,7 +54,7 @@ def test_an_edge_60_on_a_product_file_off_a_boundary_cannot_block() -> None:
     assert finding().could_block is True  # untagged: strict by default
     half = finding(**{"class": "edge"})
     assert half.could_block is True
-    assert half.tag_text == " class=edge boundary=yes"
+    assert half.tag_text == " class=edge boundary=yes observed=no"
 
 
 LAX = "web/src/components/badge.tsx"
@@ -77,7 +77,7 @@ def test_a_half_tagged_confirmed_60_on_a_lax_file_records_fix(tags: dict[str, An
 def test_the_finding_line_carries_the_tags_and_the_ledger_reads_them(tmp_path: Path) -> None:
     item = finding(**{"class": "rule-only", "trust_boundary": False})
     line = f"FINDING {item.id} {item.score} {item.word} {item.named_file}{item.tag_text}"
-    assert line.endswith(f"{PRODUCT} class=rule-only boundary=no")
+    assert line.endswith(f"{PRODUCT} class=rule-only boundary=no observed=no")
     decision = ledger.decide(f"VERDICT: FIX at {H}\n{line}\n".encode(), H)
     assert (decision.verdict, decision.to_file) == ("PASS", ("l1-f1",))
 

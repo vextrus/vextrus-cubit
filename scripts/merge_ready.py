@@ -14,12 +14,12 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
 - (a) no local ledger record (`.private/work/factory/ledger/<PR>-<head>.json`, `scripts/ledger.py`) for
   the head says PASS, or the newest review marker comment on the PR is not the ledger's (a forged or
   newer marker). The record's verdict is the ledger's, so the bar is the ledger's (a standing finding
-  blocks at 75, or at 50 when user-facing or on a trust boundary, or untagged on a strict path; ADR 0041,
-  amended 13 Oct 2026): a PASS whose only standing findings are 50-74 that cannot block may merge, those
-  filed as issues. A newer head than the
-  reviewed one passes only if every commit since it is a merge of main whose own resolution
-  (`git diff-tree --cc`) is empty (a resolved conflict is unreviewed code), or an empty commit whose only
-  factory trailer is `Factory-Status:` (a builder's reply to a status message: the reviewed tree);
+  blocks at 75, or at 50 when observed or on a trust boundary, or untagged on a strict path, and only
+  CONFIRMED; ADR 0041, amended 13 and 14 Oct 2026): a PASS whose only standing findings are 50-74
+  that cannot block may merge, those filed as issues. A newer head than the reviewed one passes only
+  if every commit since it is a merge of main whose own resolution (`git diff-tree --cc`) is empty
+  (a resolved conflict is unreviewed code), or an empty commit whose only factory trailer is
+  `Factory-Status:` (a builder's reply to a status message: the reviewed tree);
 - (b) a record of round 3 or later with no exception, or past round 3 with any but `delta-review`;
 - (c) an item under a `## Cut`, `## Not done` or `## Deferred` heading of the body that links no open
   issue;

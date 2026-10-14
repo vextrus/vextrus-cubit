@@ -79,15 +79,18 @@ round can mend it, BLOCK when the PR's approach cannot. Tag each finding with it
 13 Oct 2026): **user-facing** (a QS or MD would hit it), **edge** (an edge case no user meets in normal
 work) or **rule-only** (it breaks only the factory's own rules); say whether it sits on a trust boundary
 (a tenant wall, a parser of hostile input, a gate, the review record); and name the committed check (a test, lint
-or scan) that would fail on its class. A finding blocks at 75 or more, or at 50 or more when it is
-user-facing or on a trust boundary (or its file matches a `[strict] paths` carve-out); an edge or
-rule-only finding of 50-74 off a trust boundary is filed as an issue that still owes its check and does
-not make your verdict FIX (ADR 0041 item 7, amended 13 Oct 2026). An untagged finding keeps the path bar:
+or scan) that would fail on its class. Judge the change by its intent and its user impact, not by stacking
+defensive edge cases. Say whether you observed it: **observed=yes** only when your attack's input comes
+from a Development Set's conventions, `seed_demo` or the served stack; observed=no when you built the input
+to reach an edge. A finding blocks at 75 or more, or at 50 or more when it is observed or on a trust
+boundary (or its file matches a `[strict] paths` carve-out); any other finding of 50-74 is filed as an
+issue that still owes its check and does not make your verdict FIX (ADR 0041 item 7, amended 13 and 14 Oct
+2026: the class alone no longer decides). A finding a refuter answers UNPROVEN does not block. An untagged finding keeps the path bar:
 50 or more on a strict path (every file is strict unless it matches a `[lax]` glob and no `[strict]`
 carve-out in `scripts/factory/review_tiers.toml`; read that file on main, which may hold a session's
 ruling beyond the web's view components and the docs' Markdown).
 Each finding scored 50 or more also goes on its own line as
-`FINDING <id> <score> - <file> class=<user-facing|edge|rule-only> boundary=<yes|no>` (the refuter's
+`FINDING <id> <score> - <file> class=<user-facing|edge|rule-only> boundary=<yes|no> observed=<yes|no>` (the refuter's
 verdict replaces `-`; the file is the repository path you named, and with none it is judged on a trust
 boundary). Code computes the recorded verdict from these lines; nobody transcribes it.
 

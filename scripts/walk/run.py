@@ -541,24 +541,34 @@ SET_ASIDE = ("walk", "conflicts", "snapshot", "findings", "triage", "drafts")
 """A walk's record (walk.json, its conflict Questions' keys in conflicts.json and its burden taken
 before any act in snapshot.json) and its agent layer's files (issues.py writes triage.json and
 drafts.json)."""
+SET_ASIDE_FOLDERS = ("repro",)
+"""Its misleading findings' reproduction steps (`repro/<finding id>.md`; ids restart each walk)."""
+
+
+def _aside(out_dir: Path, current: Path, name: str, suffix: str) -> None:
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(current.lstat().st_mtime))
+    target = out_dir / f"{name}.{stamp}{suffix}"
+    n = 1
+    while target.exists() or target.is_symlink():
+        n += 1
+        target = out_dir / f"{name}.{stamp}-{n}{suffix}"
+    current.replace(target)
 
 
 def set_aside(out_dir: Path) -> None:
     """An earlier walk's walk.json, conflicts.json, snapshot.json, findings.json, triage.json and
     drafts.json move aside, each to `<name>.<its mtime>.json` (`-2`, `-3` after a move of the same
-    second; never over one), so a new walk exists only once it wrote its own walk.json and is judged
-    only on its own snapshot and findings."""
+    second; never over one), and its repro/ folder to `repro.<its mtime>`, so a new walk exists only
+    once it wrote its own walk.json and is judged only on its own snapshot, findings and reproduction
+    steps."""
     for name in SET_ASIDE:
         current = out_dir / f"{name}.json"
-        if not current.exists():
-            continue
-        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime(current.stat().st_mtime))
-        target = out_dir / f"{name}.{stamp}.json"
-        n = 1
-        while target.exists():
-            n += 1
-            target = out_dir / f"{name}.{stamp}-{n}.json"
-        current.replace(target)
+        if current.exists():
+            _aside(out_dir, current, name, ".json")
+    for name in SET_ASIDE_FOLDERS:
+        current = out_dir / name
+        if current.exists() or current.is_symlink():
+            _aside(out_dir, current, name, "")
 
 
 def hold(walk: Plan, stack: Stack, minutes: float, stopping: list[bool], since: float) -> None:

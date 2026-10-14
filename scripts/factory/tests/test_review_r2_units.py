@@ -149,19 +149,29 @@ def words(run: review.Run) -> dict[str, str]:
     return {item.id: item.word for item in run.findings}
 
 
+def unjudged(run: review.Run) -> dict[str, str]:
+    """The words after a refuter that answered none of its claims: each lens claim it was told is
+    UNJUDGED, which stands (S28-R1: UNPROVEN, which no longer blocks, is only the refuter's answer)."""
+    told = {claim.id for claim in review.refuter_claims(run.findings)}
+    return {
+        item.id: "UNJUDGED" if item.id in told and not ledger.REPLAYED.fullmatch(item.id) else item.word
+        for item in run.findings
+    }
+
+
 def test_two_findings_on_one_line_are_told_apart_by_their_summary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     reply = {"findings": [judged("a.py", 2, "second at line 2", "REFUTED")]}
     run, prompts = refuted_with(tmp_path, monkeypatch, reply)
-    assert words(run)["l1-f2"] == "UNPROVEN"
+    assert words(run)["l1-f2"] == "UNJUDGED"
     assert words(run)["l2-f1"] == "REFUTED"
     assert "replayed" not in prompts[0]
     assert "low" not in prompts[0].split("\n\n")[1]
     assert "ledger" not in prompts[0].lower()
 
 
-def test_verdicts_that_disagree_leave_the_finding_unproven(
+def test_verdicts_that_disagree_leave_the_finding_unjudged(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     reply = {
@@ -171,7 +181,7 @@ def test_verdicts_that_disagree_leave_the_finding_unproven(
         ]
     }
     run, _ = refuted_with(tmp_path, monkeypatch, reply)
-    assert words(run)["l2-f2"] == "UNPROVEN"
+    assert words(run)["l2-f2"] == "UNJUDGED"
 
 
 def test_the_refuter_cannot_touch_a_replayed_or_unknown_finding(
@@ -184,7 +194,7 @@ def test_the_refuter_cannot_touch_a_replayed_or_unknown_finding(
         ]
     }
     run, _ = refuted_with(tmp_path, monkeypatch, reply)
-    assert words(run) == words(claims_run())
+    assert words(run) == unjudged(claims_run())
 
 
 def test_a_refuter_that_fails_refutes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,7 +207,7 @@ def test_a_refuter_that_fails_refutes_nothing(tmp_path: Path, monkeypatch: pytes
     monkeypatch.setattr(review, "run_lens", past_cap)
     monkeypatch.setattr(review, "refuter_tree", lambda run, rv: None)  # matching only, no tree
     review.refute(run, tmp_path, tmp_path, tmp_path)
-    assert words(run) == words(claims_run())
+    assert words(run) == unjudged(claims_run())
     assert run.lenses[-1]["refused"].startswith("refuter ran past")
 
 
@@ -367,8 +377,9 @@ def test_the_sample_is_every_blocker_then_three_others_highest_first() -> None:
 
 def test_the_fix_message_files_the_findings_that_do_not_block_under_their_own_heading() -> None:
     views = [
-        kept("b", 80, OFF).view(),
-        kept("s", 55, ON).view(),
+        kept("b", 80, OFF, "CONFIRMED").view(),
+        kept("s", 55, ON, "CONFIRMED").view(),
+        kept("p", 80, ON).view(),  # S28-R1: a lens's UNPROVEN finding never blocks; it is filed
         kept("f", 60, OFF).view(),
         kept("u", 70, OFF, "-").view(),
         kept("r", 70, OFF, "REFUTED").view(),
@@ -378,7 +389,7 @@ def test_the_fix_message_files_the_findings_that_do_not_block_under_their_own_he
     fix, filed = text.split("File as issues")
     for shown in ("(80): summary b", "(55): summary s"):
         assert shown in fix
-    for shown in ("(70): summary u", "(60): summary f"):
+    for shown in ("(70): summary u", "(60): summary f", "(80): summary p"):
         assert shown in filed
         assert shown not in fix
     for hidden in ("summary r", "summary low"):

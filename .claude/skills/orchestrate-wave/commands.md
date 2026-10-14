@@ -127,7 +127,9 @@ Change a PR body as the hand steps do, scanned first:
   commits the writer's amended test as an `acceptance:` commit on the branch; the builder merges it.
 
 ## 7. G1 walk
-- `uv run python -m scripts.walk.run <sha40>` on main's head, then `/real-set-walk` to finish G1.
+- `uv run python -m scripts.walk.run <sha40>` on main's head, then `/real-set-walk <sha40>` to finish G1.
+- Walk #2 (the owner's ruling Q24): `scripts.walk.run <sha40>` as above, then `/real-set-walk <sha40> --repeat <walk #1's
+  sha40>`: the critics walk walk #1's items, its findings' reproduction steps and the fixes since, not a fresh exploration.
 
 ## Housekeeping
 - `uv run python -m scripts.factory.sweep`: lists stale worktrees and storage; `--apply` removes them.
