@@ -1,0 +1,136 @@
+"""`sweep-remote`'s own seams beyond the acceptance pins: a branch named by a corpus string, the hits
+file when empty, and exit 2 winning over exit 1."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from tools.leakscan.tests.acceptance._leak import MARIGOLD, QUILLMOOR, REPO, commit, git
+from tools.leakscan.tests.acceptance.ts27sweep.test_sweep_remote import (
+    BROKEN_BRANCH,
+    _world,
+    out_lines,
+    sweep,
+)
+
+NAMED = "quillmoor-estates-fix"
+
+
+def _push_named(work: Path, content: str) -> None:
+    git(work, "checkout", "-q", "-b", NAMED, "main")
+    commit(work, {"n.txt": content}, "feat: a clean change")
+    git(work, "push", "-q", "origin", NAMED)
+    git(work, "checkout", "-q", "main")
+
+
+def test_a_branch_named_by_a_corpus_string_prints_an_index_never_its_name(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    _push_named(world.work, "clean\n")
+    done = sweep(world)
+    assert done.returncode == 1, done.stdout + done.stderr
+    # sorted branches: clean, quillmoor-estates-fix
+    assert "ref:1 name" in out_lines(done), done.stdout
+    assert "quillmoor" not in (done.stdout + done.stderr).lower()
+    assert QUILLMOOR.lower() not in (done.stdout + done.stderr).lower()
+
+
+def test_the_hits_file_keeps_the_real_name_of_a_named_branch(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    _push_named(world.work, "clean\n")
+    path = tmp_path / "hits.txt"
+    sweep(world, "--hits-file", str(path))
+    assert path.read_text().split() == [NAMED]
+
+
+def test_the_hits_file_is_written_empty_for_a_clean_sweep(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    path = tmp_path / "hits.txt"
+    path.write_text("stale\n")
+    done = sweep(world, "--hits-file", str(path))
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert path.read_text() == ""
+
+
+def test_exit_2_wins_over_exit_1(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=True, broken=True)
+    done = sweep(world)
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert f"{BROKEN_BRANCH} cannot-scan" in out_lines(done)
+    assert any(line.endswith("new.txt:3") for line in out_lines(done))
+
+
+def test_an_unresolvable_main_exits_2_and_still_writes_the_hits_file(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    git(world.work, "update-ref", "-d", "refs/remotes/origin/main")
+    path = tmp_path / "hits.txt"
+    path.write_text("stale\n")
+    done = sweep(world, "--hits-file", str(path))
+    assert done.returncode == 2, done.stdout + done.stderr
+    assert path.read_text() == ""
+
+
+def test_a_branch_carrying_a_multi_word_string_in_slug_form_prints_an_index(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    slug = "fix/zebra-quarry-holdings-pvt-7731_lane"
+    git(world.work, "checkout", "-q", "-b", slug, "main")
+    commit(world.work, {"s.txt": "clean\n"}, "feat: a clean change")
+    git(world.work, "push", "-q", "origin", slug)
+    git(world.work, "checkout", "-q", "main")
+    path = tmp_path / "hits.txt"
+    done = sweep(world, "--hits-file", str(path))
+    assert done.returncode == 1, done.stdout + done.stderr
+    shown = (done.stdout + done.stderr).lower()
+    assert "zebra" not in shown
+    assert "quarry" not in shown
+    assert any(line.endswith(" name") and line.startswith("ref:") for line in out_lines(done))
+    assert path.read_text().split() == [slug]
+
+
+def test_the_runbook_says_fetch_prune_before_the_sweep() -> None:
+    text = (REPO / ".claude/skills/orchestrate-wave/commands.md").read_text(encoding="utf-8")
+    line = next(row for row in text.split("\n") if "tools.leakscan sweep-remote" in row)
+    follow = text[text.index(line) : text.index(line) + 400]
+    assert "git fetch --prune origin" in follow
+
+
+FOLDED_STRINGS = [
+    "Tamarind Wharf Traders Ltd.",
+    "Plot 17, Juniper Ghat Road",
+    "Lantern & Bellows Foundry",
+    "Zebra Quarry Holdings Pvt",
+]
+FOLDED_BRANCHES = [
+    "fix/quillmoor_estates_gate",
+    "quillmoor/estates-fix",
+    "fix/tamarind-wharf-traders-ltd",
+    "plot-17-juniper-ghat-road",
+    "lantern-bellows-foundry-fix",
+]
+FOLDED_WORDS = ["quillmoor", "tamarind", "juniper", "bellows", "lantern", "zebra", "quarry"]
+
+
+def test_names_spelled_with_other_separators_never_print_in_clear(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    (world.leak.sources / "more.txt").write_text("\n".join(FOLDED_STRINGS) + "\n")
+    world.leak.build()
+    for branch in FOLDED_BRANCHES:
+        git(world.work, "checkout", "-q", "-b", branch, "main")
+        commit(world.work, {"c.txt": "clean\n"}, "feat: a clean change")
+        git(world.work, "push", "-q", "origin", branch)
+    git(world.work, "checkout", "-q", "-b", "paths", "main")
+    path = "docs/zebra-quarry-holdings-pvt-7731-plan.md"
+    commit(world.work, {path: f"one\n{MARIGOLD}\n"}, "docs: a plan")
+    git(world.work, "push", "-q", "origin", "paths")
+    git(world.work, "checkout", "-q", "main")
+    hits = tmp_path / "hits.txt"
+    done = sweep(world, "--hits-file", str(hits))
+    assert done.returncode == 1, done.stdout + done.stderr
+    shown = (done.stdout + done.stderr).lower()
+    for word in FOLDED_WORDS:
+        assert word not in shown, word
+    lines = out_lines(done)
+    assert sum(line.startswith("ref:") and line.endswith(" name") for line in lines) == len(
+        FOLDED_BRANCHES
+    )
+    assert "paths path:0:2" in lines
+    assert sorted(hits.read_text().split()) == sorted([*FOLDED_BRANCHES, "paths"])
