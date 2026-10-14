@@ -56,6 +56,15 @@ function fromEnv(name: string): string | undefined {
 }
 
 /**
+ * `VEXTRUS_TIME_SCALE`, the machine's slowdown factor (scripts/verify.py's `time_scale`), or 1; a
+ * value that is not a number of at least 1 is 1, as `vextrus.testing.timing` keeps its margin.
+ */
+function timeScale(): number {
+  const value = Number(fromEnv('VEXTRUS_TIME_SCALE'))
+  return Number.isFinite(value) && value >= 1 ? value : 1
+}
+
+/**
  * The dev server's port: `VEXTRUS_WEB_PORT`, or 5410. The API reads the same variable for its
  * trusted origins (vextrus/settings/auth.py), so sign-in works on either. A bad value is refused.
  */
@@ -172,6 +181,9 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
     },
     test: {
+      // Vitest's 5 s default, times the machine's slowdown the fast verify sets (S29-F2a).
+      testTimeout: 5000 * timeScale(),
+      hookTimeout: 10000 * timeScale(),
       // Each failing test's name is kept in test-results/failures.log (issue #271).
       // Vitest's own first reporter ('minimal' in an agent session, else 'default') stays first.
       reporters: [configDefaults.reporters[0] ?? 'default', ...(process.env.GITHUB_ACTIONS === 'true' ? ['github-actions'] : []), './scripts/failure-reporter.mjs'],
