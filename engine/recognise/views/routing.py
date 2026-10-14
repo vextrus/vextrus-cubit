@@ -170,12 +170,16 @@ def _draws_structure(text: str, reading: _Reading, *, structural: bool = False) 
     subject is the stair)."""
     tokens = _tokens(text)
     own = _own(text, reading, structural=structural)
-    if own.subject in STRUCTURE_SUBJECTS and _structure_word(own.words, tokens):
-        return True
     named = [(" ".join(tokens[s:e]), k) for s, e, k in reading.building.matches(tokens)]
-    return any(k == FRAMED_SUBJECT for _, k in named) and any(
-        k in STRUCTURE_SUBJECTS and _structure_word(w, tokens) for w, k in named
-    )
+    structure = any(k in STRUCTURE_SUBJECTS and _structure_word(w, tokens) for w, k in named)
+    if own.subject in STRUCTURE_SUBJECTS:
+        if _structure_word(own.words, tokens):
+            return True
+        if own.words in FRAMING_WORDS and structure:
+            # The architect's framing named first hides no beam or column named after it
+            # ("CEILING FRAMING AND BEAM LAYOUT"): read by what it names, not their order.
+            return True
+    return structure and any(k == FRAMED_SUBJECT for _, k in named)
 
 
 def _structure_word(word: str, tokens: Sequence[str]) -> bool:

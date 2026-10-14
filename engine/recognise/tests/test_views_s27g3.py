@@ -160,6 +160,9 @@ def test_a_structural_view_naming_nothing_keeps_every_step_its_sheet_names() -> 
         ("ROOF FRAMING PLAN", True),
         ("SLAB AND FRAMING PLAN", True),
         ("BEAM AND CEILING FRAMING PLAN", True),  # its beam is the structure's
+        ("CEILING FRAMING AND BEAM LAYOUT", True),  # in either order (review_self, round 2)
+        ("PARTITION FRAMING AND COLUMN PLAN", True),
+        ("WINDOW FRAMING AND COLUMN PLAN", False),  # its subject is the opening, as before
     ],
 )
 def test_framing_is_the_structures_only_when_nothing_the_architect_frames_is_named(
