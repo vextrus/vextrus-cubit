@@ -11,8 +11,8 @@
  * Where marks overlap the darker wins (the blend takes the minimum colour and the maximum alpha), as
  * the raster does; off the paper a mark is black at its own alpha, premultiplied.
  */
-import { colourRgb } from './colours'
 import type { DecodedSheet } from './decode'
+import { glyphBox, prepared, workBound } from './prepare'
 import type { ViewTransform } from './view'
 
 /** The engine's atlas: 24 atlas pixels to a text unit, the field spread over 4 of them. */
@@ -204,10 +204,30 @@ interface Uploaded {
   fills: WebGLVertexArrayObject
   fillCount: number
   lines: WebGLVertexArrayObject
+  /** The lines' records and colours, whose instanced attributes a part re-points at its first line. */
+  lineData: WebGLBuffer
+  lineColours: WebGLBuffer
   glyphs: WebGLVertexArrayObject
+  glyphData: WebGLBuffer
+  glyphColours: WebGLBuffer
   atlas: WebGLTexture
   buffers: WebGLBuffer[]
 }
+
+/** A frame being drawn a part at a time (`SheetRenderer.begin`). */
+export interface DrawJob {
+  /** Draws the next part, at most `records` records; true while parts are left. */
+  step(records?: number): boolean
+}
+
+/**
+ * How many records a part of a frame draws: learned from how long parts take on this GPU (it is the
+ * machine's, so every renderer shares it), aiming at PART_MS a frame, between PART_MIN and PART_MAX.
+ */
+const PART_MS = 50
+const PART_MIN = 1 << 10
+const PART_MAX = 1 << 24
+let partSize = 1 << 14
 
 /**
  * How the marks are coloured (4.6, "Colour"): Paper, every colour black on white; CAD-dark, each
@@ -241,6 +261,8 @@ export class SheetRenderer {
   private readonly glyph: Program
   private readonly corners: WebGLBuffer
   private current: Uploaded | null = null
+  /** The frame being drawn; a new one ends it. */
+  private job: DrawJob | null = null
   readonly canvas: HTMLCanvasElement | OffscreenCanvas
 
   constructor(canvas: HTMLCanvasElement | OffscreenCanvas) {
@@ -264,14 +286,29 @@ export class SheetRenderer {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW)
   }
 
-  /** Draws `sheet` at `view` over the whole canvas (its size in device pixels). */
-  draw(sheet: DecodedSheet, view: ViewTransform, { greekBelowPx = 0, greekInk = 0.3, palette = 'paper' }: DrawOptions = {}): void {
+  /** Draws `sheet` at `view` over the whole canvas (its size in device pixels), all at once. */
+  draw(sheet: DecodedSheet, view: ViewTransform, options: DrawOptions = {}): void {
+    const job = this.begin(sheet, view, options)
+    let more = job !== null
+    while (more) more = job!.step(Infinity)
+  }
+
+  /**
+   * Starts drawing `sheet` at `view`: the paper now, its marks a part at a time with `step` (issue #828:
+   * a million lines at once kept a slow GPU, and the page waiting on it, busy for seconds). Marks blend
+   * by minimum or maximum, so the parts give the picture `draw` gives, in any order. Null when the
+   * context is lost; throws SheetGlError for a frame past the work budget, before drawing anything.
+   */
+  begin(sheet: DecodedSheet, view: ViewTransform, { greekBelowPx = 0, greekInk = 0.3, palette = 'paper' }: DrawOptions = {}): DrawJob | null {
     const gl = this.gl
-    if (gl.isContextLost()) return
+    this.job = null
+    if (gl.isContextLost()) return null
     const up = this.upload(sheet)
     const width = gl.drawingBufferWidth
     const height = gl.drawingBufferHeight
-    if (frameWork(sheet, view, width, height) > WORK_PER_PIXEL * width * height + WORK_FLOOR) {
+    const budget = WORK_PER_PIXEL * width * height + WORK_FLOOR
+    // The bound first (linear in the work grid's cells); the count over every record only when it is past the budget.
+    if (workBound(prepared(sheet).work, view, width, height) > budget && frameWork(sheet, view, width, height) > budget) {
       throw new SheetGlError('the sheet draws over itself too many times to draw')
     }
     const dark = palette === 'dark' || palette === 'compare-dark'
@@ -283,6 +320,7 @@ export class SheetRenderer {
     const ground = palette === 'dark' ? CAD_DARK_GROUND : palette === 'compare-dark' ? ([0, 0, 0] as const) : ([1, 1, 1] as const)
     const inkColour = palette === 'compare-dark' ? COMPARE_ORANGE : COMPARE_RED
     const common = (p: Program) => {
+      gl.viewport(0, 0, width, height)
       gl.useProgram(p.program)
       gl.uniform2f(p.uniform('uSize'), width, height)
       gl.uniform1f(p.uniform('uScale'), view.scale)
@@ -298,33 +336,126 @@ export class SheetRenderer {
     gl.uniform4f(this.fill.uniform('uColor'), ...ground, 1)
     gl.bindVertexArray(up.paper)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    // Ink: on white the darker wins; on a dark ground the lighter.
-    gl.enable(gl.BLEND)
-    if (dark) gl.blendEquation(gl.MAX)
-    else gl.blendEquationSeparate(gl.MIN, gl.MAX)
-    gl.blendFunc(gl.ONE, gl.ONE)
-    if (up.fillCount) {
-      gl.uniform1i(this.fill.uniform('uInked'), 1)
-      gl.bindVertexArray(up.fills)
-      gl.drawArrays(gl.TRIANGLES, 0, up.fillCount * 3)
-    }
-    if (sheet.lines.count) {
-      common(this.line)
-      gl.bindVertexArray(up.lines)
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, sheet.lines.count)
-    }
-    if (sheet.glyphs.count) {
-      common(this.glyph)
-      gl.uniform2f(this.glyph.uniform('uAtlasSize'), sheet.atlas.width, sheet.atlas.height)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, up.atlas)
-      gl.uniform1i(this.glyph.uniform('uAtlas'), 0)
-      gl.uniform1f(this.glyph.uniform('uGreekPx'), greekBelowPx)
-      gl.uniform1f(this.glyph.uniform('uGreekInk'), greekInk)
-      gl.bindVertexArray(up.glyphs)
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, sheet.glyphs.count)
-    }
     gl.bindVertexArray(null)
+
+    // Ink: on white the darker wins; on a dark ground the lighter. Fills, then lines, then glyphs, each
+    // from where the part before stopped.
+    const ink = () => {
+      gl.enable(gl.BLEND)
+      if (dark) gl.blendEquation(gl.MAX)
+      else gl.blendEquationSeparate(gl.MIN, gl.MAX)
+      gl.blendFunc(gl.ONE, gl.ONE)
+    }
+    const kinds = [
+      {
+        count: up.fillCount,
+        draw: (first: number, n: number) => {
+          common(this.fill)
+          gl.uniform1i(this.fill.uniform('uInked'), 1)
+          gl.bindVertexArray(up.fills)
+          gl.drawArrays(gl.TRIANGLES, first * 3, n * 3)
+        },
+      },
+      {
+        count: sheet.lines.count,
+        draw: (first: number, n: number) => {
+          common(this.line)
+          gl.bindVertexArray(up.lines)
+          this.pointLines(up, first)
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n)
+        },
+      },
+      {
+        count: sheet.glyphs.count,
+        draw: (first: number, n: number) => {
+          common(this.glyph)
+          gl.uniform2f(this.glyph.uniform('uAtlasSize'), sheet.atlas.width, sheet.atlas.height)
+          gl.activeTexture(gl.TEXTURE0)
+          gl.bindTexture(gl.TEXTURE_2D, up.atlas)
+          gl.uniform1i(this.glyph.uniform('uAtlas'), 0)
+          gl.uniform1f(this.glyph.uniform('uGreekPx'), greekBelowPx)
+          gl.uniform1f(this.glyph.uniform('uGreekInk'), greekInk)
+          gl.bindVertexArray(up.glyphs)
+          this.pointGlyphs(up, first)
+          gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n)
+        },
+      },
+    ]
+    let kind = 0
+    let next = 0
+    const job: DrawJob = {
+      step: (records = partSize) => {
+        if (this.job !== job || this.current !== up || gl.isContextLost()) return false
+        let left = Math.max(1, records)
+        ink()
+        while (left > 0 && kind < kinds.length) {
+          const k = kinds[kind]!
+          const n = Math.min(left, k.count - next)
+          if (n > 0) k.draw(next, n)
+          left -= n
+          next += n
+          if (next >= k.count) {
+            kind++
+            next = 0
+          }
+        }
+        gl.bindVertexArray(null)
+        if (kind < kinds.length) return true
+        this.job = null
+        return false
+      },
+    }
+    this.job = job
+    return job
+  }
+
+  /**
+   * Sizes the next part by how long the last one's frame took (from one part to the next: the GPU's
+   * work and any wait the page had on it, as a browser that reads the canvas back each frame has),
+   * aiming at PART_MS a frame: a fast GPU soon draws a sheet in one part, a slow one never holds the
+   * page long. A fence cannot tell it: some browsers report one finished only about once a second.
+   */
+  static paced(frameMs: number): void {
+    const factor = Math.min(2, Math.max(0.25, PART_MS / Math.max(1, frameMs)))
+    partSize = Math.round(Math.min(PART_MAX, Math.max(PART_MIN, partSize * factor)))
+  }
+
+  /** How many records the next part draws. */
+  static get partRecords(): number {
+    return partSize
+  }
+
+  /** The lines' instanced attributes from line `first` on (a part's first). */
+  private pointLines(up: Uploaded, first: number) {
+    const gl = this.gl
+    gl.bindBuffer(gl.ARRAY_BUFFER, up.lineData)
+    this.point(this.line, 'aSeg', 4, 28, first * 28)
+    this.point(this.line, 'aWeight', 1, 28, first * 28 + 16)
+    gl.bindBuffer(gl.ARRAY_BUFFER, up.lineColours)
+    this.pointColour(this.line, first * 3)
+  }
+
+  private pointGlyphs(up: Uploaded, first: number) {
+    const gl = this.gl
+    gl.bindBuffer(gl.ARRAY_BUFFER, up.glyphData)
+    const at = first * 68
+    this.point(this.glyph, 'aPlace', 4, 68, at)
+    this.point(this.glyph, 'aAxisY', 2, 68, at + 16)
+    this.point(this.glyph, 'aUv', 4, 68, at + 24)
+    this.point(this.glyph, 'aRect', 4, 68, at + 40)
+    this.point(this.glyph, 'aRun', 1, 68, at + 64)
+    gl.bindBuffer(gl.ARRAY_BUFFER, up.glyphColours)
+    this.pointColour(this.glyph, first * 3)
+  }
+
+  private point(p: Program, name: string, size: number, stride: number, offset: number) {
+    const at = p.attribute(name)
+    if (at >= 0) this.gl.vertexAttribPointer(at, size, this.gl.FLOAT, false, stride, offset)
+  }
+
+  private pointColour(p: Program, offset: number) {
+    const at = p.attribute('aColour')
+    if (at >= 0) this.gl.vertexAttribPointer(at, 3, this.gl.UNSIGNED_BYTE, true, 3, offset)
   }
 
   /**
@@ -337,6 +468,7 @@ export class SheetRenderer {
 
   private release() {
     const gl = this.gl
+    this.job = null
     const up = this.current
     if (!up) return
     for (const b of up.buffers) gl.deleteBuffer(b)
@@ -369,6 +501,7 @@ export class SheetRenderer {
       buffers.push(b)
       gl.bindBuffer(gl.ARRAY_BUFFER, b)
       gl.bufferData(gl.ARRAY_BUFFER, array, gl.STATIC_DRAW)
+      return b
     }
     /** Each record's colour as three bytes (the buffer bound last), for CAD-dark. */
     const colour = (p: Program, divisor: number) => {
@@ -385,54 +518,37 @@ export class SheetRenderer {
     data(new Float32Array([0, 0, w, 0, 0, h, w, h]))
     attribute(this.fill, 'aPos', 2, 8, 0, 0)
 
+    const ready = prepared(sheet)
     const t = sheet.triangles
-    const positions = new Float32Array(t.count * 6)
-    for (let i = 0; i < t.count; i++) positions.set(t.f32.subarray(i * t.stride, i * t.stride + 6), i * 6)
     const fills = gl.createVertexArray()
     gl.bindVertexArray(fills)
-    data(positions)
+    data(ready.fillPositions)
     attribute(this.fill, 'aPos', 2, 8, 0, 0)
-    bytes(colours(t, 6, 3))
+    bytes(ready.fillColours)
     colour(this.fill, 0)
 
     const lines = gl.createVertexArray()
     gl.bindVertexArray(lines)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
     attribute(this.line, 'aCorner', 2, 8, 0, 0)
-    data(sheet.lines.f32)
+    const lineData = data(sheet.lines.f32)
     attribute(this.line, 'aSeg', 4, 28, 0, 1)
     attribute(this.line, 'aWeight', 1, 28, 16, 1)
-    bytes(colours(sheet.lines, 5, 1))
+    const lineColours = bytes(ready.lineColours)
     colour(this.line, 1)
 
-    // Each glyph instance with its atlas glyph's rectangles and its run's height, 17 floats.
-    const g = sheet.glyphs
-    const a = sheet.atlasGlyphs
-    const runs = runHeights(sheet)
-    const instances = new Float32Array(g.count * 17)
-    for (let i = 0; i < g.count; i++) {
-      const at = i * g.stride
-      const k = g.u32[at]!
-      const o = i * 17
-      instances.set(g.f32.subarray(at + 1, at + 7), o)
-      instances[o + 6] = a.u16[k * 12]!
-      instances[o + 7] = a.u16[k * 12 + 1]!
-      instances[o + 8] = a.u16[k * 12 + 2]!
-      instances[o + 9] = a.u16[k * 12 + 3]!
-      instances.set(a.f32.subarray(k * 6 + 2, k * 6 + 6), o + 10)
-      instances[o + 16] = runs[i]!
-    }
+    // Each glyph instance with its atlas glyph's rectangles and its run's height, 17 floats (prepare.ts).
     const glyphs = gl.createVertexArray()
     gl.bindVertexArray(glyphs)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
     attribute(this.glyph, 'aCorner', 2, 8, 32, 0)
-    data(instances)
+    const glyphData = data(ready.glyphInstances)
     attribute(this.glyph, 'aPlace', 4, 68, 0, 1)
     attribute(this.glyph, 'aAxisY', 2, 68, 16, 1)
     attribute(this.glyph, 'aUv', 4, 68, 24, 1)
     attribute(this.glyph, 'aRect', 4, 68, 40, 1)
     attribute(this.glyph, 'aRun', 1, 68, 64, 1)
-    bytes(colours(g, 7, 1))
+    const glyphColours = bytes(ready.glyphColours)
     colour(this.glyph, 1)
     gl.bindVertexArray(null)
 
@@ -447,19 +563,9 @@ export class SheetRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-    this.current = { sheet, paper, fills, fillCount: t.count, lines, glyphs, atlas, buffers }
+    this.current = { sheet, paper, fills, fillCount: t.count, lines, lineData, lineColours, glyphs, glyphData, glyphColours, atlas, buffers }
     return this.current
   }
-}
-
-/** Each record's colour (the u32 at word `at`) as RGB bytes, `repeat` times over (a triangle's corners). */
-function colours(records: { count: number; stride: number; u32: Uint32Array }, at: number, repeat: number): Uint8Array {
-  const out = new Uint8Array(records.count * 3 * repeat)
-  for (let i = 0; i < records.count; i++) {
-    const rgb = colourRgb(records.u32[i * records.stride + at]!)
-    for (let r = 0; r < repeat; r++) out.set(rgb, (i * repeat + r) * 3)
-  }
-  return out
 }
 
 /**
@@ -492,16 +598,9 @@ export function frameWork(sheet: DecodedSheet, view: ViewTransform, width: numbe
     const f = t.f32
     box(Math.min(f[o]!, f[o + 2]!, f[o + 4]!), Math.min(f[o + 1]!, f[o + 3]!, f[o + 5]!), Math.max(f[o]!, f[o + 2]!, f[o + 4]!), Math.max(f[o + 1]!, f[o + 3]!, f[o + 5]!), 1)
   }
-  const g = sheet.glyphs
-  const a = sheet.atlasGlyphs
-  for (let i = 0; i < g.count; i++) {
-    const o = i * g.stride
-    const k = g.u32[o]! * 6
-    const [ox, oy, ax, ay, bx, by] = [g.f32[o + 1]!, g.f32[o + 2]!, g.f32[o + 3]!, g.f32[o + 4]!, g.f32[o + 5]!, g.f32[o + 6]!]
-    const [gx0, gy0, gx1, gy1] = [a.f32[k + 2]!, a.f32[k + 3]!, a.f32[k + 4]!, a.f32[k + 5]!]
-    const xs = [gx0 * ax + gy0 * bx, gx1 * ax + gy0 * bx, gx0 * ax + gy1 * bx, gx1 * ax + gy1 * bx]
-    const ys = [gx0 * ay + gy0 * by, gx1 * ay + gy0 * by, gx0 * ay + gy1 * by, gx1 * ay + gy1 * by]
-    box(ox + Math.min(...xs), oy + Math.min(...ys), ox + Math.max(...xs), oy + Math.max(...ys), 1)
+  for (let i = 0; i < sheet.glyphs.count; i++) {
+    const [x0, y0, x1, y1] = glyphBox(sheet, i)
+    box(x0, y0, x1, y1, 1)
   }
   return work
 }
@@ -512,12 +611,10 @@ function clippedLength(x0: number, y0: number, x1: number, y1: number, left: num
   const dy = y1 - y0
   let t0 = 0
   let t1 = 1
-  for (const [p, q] of [
-    [-dx, x0 - left],
-    [dx, right - x0],
-    [-dy, y0 - top],
-    [dy, bottom - y0],
-  ] as const) {
+  // The four edges as (p, q) pairs, without an array per call: a dense sheet counts a million lines a frame.
+  for (let edge = 0; edge < 4; edge++) {
+    const p = edge === 0 ? -dx : edge === 1 ? dx : edge === 2 ? -dy : dy
+    const q = edge === 0 ? x0 - left : edge === 1 ? right - x0 : edge === 2 ? y0 - top : bottom - y0
     if (p === 0) {
       if (q < 0) return null
     } else {
@@ -530,27 +627,7 @@ function clippedLength(x0: number, y0: number, x1: number, y1: number, left: num
   return (t1 - t0) * Math.hypot(dx, dy)
 }
 
-/**
- * Each glyph's run height in mm on paper: the tallest glyph box (its atlas rectangle's height in text
- * units x its y axis's length) among the glyphs of its primitive, so a run below the greeking size
- * draws as bars as a whole, never letter by letter (4.6), and a run is judged by its height as drawn:
- * the y axis alone is not the text height for every font's text units.
- */
-export function runHeights(sheet: DecodedSheet): Float32Array {
-  const g = sheet.glyphs
-  const a = sheet.atlasGlyphs
-  const tallest = new Map<number, number>()
-  const own = new Float32Array(g.count)
-  for (let i = 0; i < g.count; i++) {
-    const o = i * g.stride
-    const k = g.u32[o]! * 6
-    own[i] = (a.f32[k + 5]! - a.f32[k + 3]!) * Math.hypot(g.f32[o + 5]!, g.f32[o + 6]!)
-    const prim = g.u32[o + 8]!
-    tallest.set(prim, Math.max(tallest.get(prim) ?? 0, own[i]!))
-  }
-  for (let i = 0; i < g.count; i++) own[i] = tallest.get(g.u32[i * g.stride + 8]!)!
-  return own
-}
+export { runHeights } from './prepare'
 
 let shared: SheetRenderer | null = null
 

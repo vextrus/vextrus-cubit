@@ -23,8 +23,10 @@ import { Maximize } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
 import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, cn, useKeys } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
-import { decodeSheet, usedExtents, type DecodedSheet } from './decode'
-import { SheetRenderer, type Palette } from './gl'
+import type { DecodedSheet } from './decode'
+import { openDecodedSheet } from './decoded'
+import { SheetRenderer, type DrawJob, type Palette } from './gl'
+import { prepared } from './prepare'
 import { plotMatrix, type PlotPicture, type PlotTransform } from './plot'
 import { BAR_PX, LEGEND_PX, VIEW_MARGIN, ZOOM_STEP, fitBox, fitPaper, panBy, zoomAbout, type PaperBox, type Stage, type ViewTransform } from './view'
 
@@ -119,14 +121,22 @@ export function SheetViewer({
 }: SheetViewerProps) {
   const [attempt, setAttempt] = useState(0)
   const [drawFailed, setDrawFailed] = useState(false)
-  const sheet = useMemo<DecodedSheet | null>(() => {
-    void attempt
-    try {
-      return decodeSheet(buffer)
-    } catch {
-      return null
+  // The sheet decoded off the main thread (issue #828): until it comes the canvas is mounted and
+  // takes keys and focus, blank; a buffer opened before comes back at once, decoded and prepared.
+  const [opened, setOpened] = useState<{ buffer: ArrayBuffer; attempt: number; sheet: DecodedSheet | null } | null>(null)
+  useEffect(() => {
+    let live = true
+    openDecodedSheet(buffer).then(
+      (sheet) => live && setOpened({ buffer, attempt, sheet }),
+      () => live && setOpened({ buffer, attempt, sheet: null }),
+    )
+    return () => {
+      live = false
     }
   }, [buffer, attempt])
+  const current = opened && opened.buffer === buffer && opened.attempt === attempt ? opened : null
+  const refused = current !== null && current.sheet === null
+  const sheet = current?.sheet ?? null
   // After Try again, the drawn sheet takes focus back from the button that has gone (not the page).
   const [focusOnDraw, setFocusOnDraw] = useState(false)
   const retry = useCallback(() => {
@@ -144,7 +154,7 @@ export function SheetViewer({
         </SlotFill>
       ) : null}
       <KeyRegion name="canvas" className="absolute inset-0">
-        {sheet && !drawFailed ? (
+        {!refused && !drawFailed ? (
           <SheetCanvas
             key={attempt}
             sheet={sheet}
@@ -211,7 +221,8 @@ function SheetCanvas({
   notes,
   status,
 }: {
-  sheet: DecodedSheet
+  /** Null while the sheet is decoded: the canvas is there, blank, and takes keys and focus. */
+  sheet: DecodedSheet | null
   label: string
   workingView: PaperBox | null
   focus: boolean
@@ -251,7 +262,12 @@ function SheetCanvas({
   // Focus is taken once, on the first draw after Try again; a later redraw (a new working view, a
   // resize) never takes it back from where the user put it (#115).
   const focusOnce = useRef(focus)
-  const used = useMemo(() => usedExtents(sheet), [sheet])
+  const used = useMemo(() => (sheet ? prepared(sheet).used : null), [sheet])
+  // The sheet the frame drawn next draws: one renderer serves the canvas while its sheet comes.
+  const drawn = useRef(sheet)
+  useLayoutEffect(() => {
+    drawn.current = sheet
+  })
 
   const stage = useCallback((): Stage | null => {
     const canvas = canvasRef.current
@@ -265,16 +281,30 @@ function SheetCanvas({
     frame.current = requestAnimationFrame(() => {
       const r = renderer.current
       const v = view.current
-      if (!r || !v || !areaRef.current) return
-      const now = look.current
-      if (plotRef.current) drawPlot(plotRef.current, v, now.layer === 'read' ? null : now.plot, now.dark, now.layer === 'compare')
+      const toDraw = drawn.current
+      if (!r || !v || !toDraw || !areaRef.current) return
+      const shownLook = look.current
+      if (plotRef.current) drawPlot(plotRef.current, v, shownLook.layer === 'read' ? null : shownLook.plot, shownLook.dark, shownLook.layer === 'compare')
+      let job: DrawJob | null
       try {
-        r.draw(sheet, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: now.palette })
+        job = r.begin(toDraw, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: shownLook.palette })
       } catch {
         failed.current()
+        return
       }
+      // The marks a part a frame (issue #828), each part sized by how long the frame before took: the
+      // page takes keys while a dense sheet draws, and a new view starts a new frame at once.
+      let last = 0
+      const part = () => {
+        if (renderer.current !== r || !job) return
+        const at = performance.now()
+        if (last) SheetRenderer.paced(at - last)
+        last = at
+        if (job.step()) frame.current = requestAnimationFrame(part)
+      }
+      part()
     })
-  }, [sheet])
+  }, [])
 
   // A new look is drawn at once.
   useEffect(() => {
@@ -296,10 +326,15 @@ function SheetCanvas({
 
   const fits = useCallback(() => {
     const s = stage()
-    if (!s) return null
+    if (!s || !sheet) return null
     const whole = fitPaper(sheet.paper, used, s)
     return { whole, working: workingView ? fitBox(workingView, s, VIEW_MARGIN) : whole }
   }, [stage, sheet, used, workingView])
+  // The renderer's effect reads the latest of these, so it makes one renderer for the canvas's life.
+  const latest = useRef({ fits, setView })
+  useLayoutEffect(() => {
+    latest.current = { fits, setView }
+  })
 
   // The renderer, and the canvas sized to its box in device pixels.
   useEffect(() => {
@@ -331,13 +366,14 @@ function SheetCanvas({
         plotRef.current.width = width
         plotRef.current.height = height
       }
-      const f = fits()
+      const { fits: fitsNow, setView: setViewNow } = latest.current
+      const f = fitsNow()
       if (!f) return
       if (!view.current || !moved.current) {
-        setView(f.working, false)
+        setViewNow(f.working, false)
       } else {
         // Keep the middle of the view in the middle.
-        setView(panBy(view.current, (width - before.width) / 2, (height - before.height) / 2), true)
+        setViewNow(panBy(view.current, (width - before.width) / 2, (height - before.height) / 2), true)
       }
     }
     const observer = new ResizeObserver(resize)
@@ -356,7 +392,15 @@ function SheetCanvas({
       renderer.current?.dispose()
       renderer.current = null
     }
-  }, [draw, fits, setView])
+  }, [draw])
+
+  // The sheet, once decoded: fitted to the working view (unless the user has moved it already) and drawn.
+  useEffect(() => {
+    if (!sheet) return
+    const f = latest.current.fits()
+    if (f && (!view.current || !moved.current)) latest.current.setView(f.working, false)
+    else draw()
+  }, [sheet, draw])
 
   const zoomCentre = useCallback(
     (factor: number) => {
