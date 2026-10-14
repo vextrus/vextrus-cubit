@@ -437,9 +437,7 @@ def _proposals_of(project_id: uuid.UUID, among: Q | None = None) -> list[Proposa
     return list(found if among is None else found.filter(among))
 
 
-def proposals(
-    project_id: uuid.UUID, only: Collection[uuid.UUID] | None = None
-) -> list[ProposalView]:
+def proposals(project_id: uuid.UUID, only: Collection[uuid.UUID] | None = None) -> list[ProposalView]:
     """One per printed sheet in the sheet list, by Discipline in the Market's order (a sheet of no
     Discipline last), then number in natural order (S-2 before S-10), unnumbered last. An undecided
     sheet's `kind` is the one its kind Question was answered with while it still stands in that

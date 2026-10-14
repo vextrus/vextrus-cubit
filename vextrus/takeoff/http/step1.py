@@ -20,8 +20,8 @@ from vextrus.platform.services import deadlocks
 from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
-    Step1AnswerOut,
     Step1AnswerIn,
+    Step1AnswerOut,
     Step1AssignIn,
     Step1ConfirmIn,
     Step1CorrectIn,
