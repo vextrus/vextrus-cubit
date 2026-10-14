@@ -111,7 +111,9 @@ export function advance(state, text, nowMs, waiting, self = null, notBefore = nu
   const fresh = typeof notBefore === "number" ? read.fresh.filter((e) => Date.parse(e.at) >= notBefore) : read.fresh
   // A time ahead of the clock (the clock stepped back) counts as now: a step back never frees a wake.
   const pushWokeAt = new Map(s.pushWokeAt.map(([t, ms]) => [t, Math.min(ms, nowMs)]).filter(([, ms]) => nowMs - ms < PUSH_EVERY_MS))
-  let held = [...s.held]
+  // Lines already held (riders, lines held by the cap or a pending wake) are checked the same way; one
+  // that does not start with a time is kept. They are not counted as dropped.
+  let held = typeof notBefore === "number" ? s.held.filter((h) => !(Date.parse(h.line.split(" ")[0]) < notBefore)) : [...s.held]
   for (const e of fresh) {
     const kind = kindOf(e, self)
     let wakes = kind === "wake"

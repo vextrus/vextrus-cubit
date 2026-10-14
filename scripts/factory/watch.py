@@ -22,10 +22,11 @@ Each pass (every `--interval` seconds; `--once` makes one pass and exits):
   head also sends that builder's session one message per set of hits, through `scripts.factory.launch
   say` (which scans it and prefixes the elapsed time), naming each `file:line` and its commit with the
   pushed-hit remedy, and writes a SAY event;
-- With no `session.json` (after `stamp end`) a launch is followed only if plausibly live (S27-W835): its
-  branch's PR is open, or it started within NO_SESSION_LIVE (24 h) of the pass; older records whose
-  branch has no open PR give no event and no builders row. An open-PR launch is
-  followed with no session, as in a session (a PR in flight is live work, whatever its age);
+- With no `session.json` (after `stamp end`, S27-W835) the start of the last ended session
+  (`measures-<started>.json`, left by `stamp end`) stands in for `since`, so the in-session rule applies:
+  a launch of an earlier session is followed only while its branch's PR is open. With no ended session
+  known, a launch is followed if its branch's PR is open or it started within 24 h of the pass
+  (NO_SESSION_LIVE). Either way no stale record gives an event or a builders row;
 - `claude agents --json --all` (only when a local builder is recorded), the usage reading every 15
   minutes (a line in `usage.log`), `gh pr list` every 5 minutes, `jev models-check` once a day (when
   `scripts/factory/jev.py` or `VEXTRUS_JEV_CMD` exists), and every pass `rdlock.json`, `df`,
@@ -452,7 +453,22 @@ def models_check() -> tuple[str, str | None]:
 
 
 # --- the world's records
-NO_SESSION_LIVE = timedelta(hours=24)  # with no session, a launch older than this and PR-less is stale
+
+NO_SESSION_LIVE = timedelta(
+    hours=24
+)  # no session and no ended one known: older PR-less launches are stale
+
+
+def last_ended_start(folder: Path) -> datetime | None:
+    """The start of the newest ended session: the newest `measures-*.json` `stamp end` left."""
+    best: datetime | None = None
+    for path in folder.glob("measures-*.json"):
+        try:
+            began = status.parse_utc(json.loads(path.read_text())["started_utc"])
+        except status.RECORD_ERRORS:
+            continue
+        best = began if best is None or began > best else best
+    return best
 
 
 def load_launches(
@@ -466,8 +482,9 @@ def load_launches(
     builder: it is never tracked as one, only used to tell its verdict commit from the pushed branch.
     With the PR list `prs`: a ticket launched before `since` is still followed while its branch's PR is
     open (carried over); a ticket whose branch's PR ended (merged or closed) after the record started is
-    dropped (the governor's release rule). With no session (`since` None) and `live_since` given
-    (S27-W835): a launch started before `live_since` whose branch has no open PR is not followed."""
+    dropped (the governor's release rule). With no `since` and a `live_since` (no session and
+    no ended session known, S27-W835): a launch older than `live_since` is followed only while its
+    branch has an open PR."""
     newest: dict[str, dict[str, Any]] = {}
     reviews: dict[str, str] = {}
     ended = governor.released_branches([row for row in prs or [] if _has_pr_keys(row)])
@@ -706,13 +723,21 @@ def run_pass(folder: Path, at: datetime, started_at: datetime) -> None:
     watch_said(step)  # before track(): this pass's SAID lines count toward each item's relay
     session = read_session()
     since = status.parse_utc(session["started_utc"]) if session else None
+    ended = None if session else last_ended_start(folder)
+    if ended is not None:
+        since = ended  # no session: the in-session rule, from the start of the last ended session
     if step.due("prs_read_at", PRS_EVERY):
         state["prs_read_at"] = status.utc(at)
         read = gh_prs()
         if read is not None:
             state["prs"] = read
     prs: list[dict[str, Any]] | None = state.get("prs")
-    records, reviews = load_launches(folder, since, prs, live_since=at - NO_SESSION_LIVE)
+    records, reviews = load_launches(
+        folder,
+        since,
+        prs,
+        live_since=at - NO_SESSION_LIVE if session is None and ended is None else None,
+    )
     refs = remote_heads()
     main_sha = refs.get("main") if refs is not None else None
 

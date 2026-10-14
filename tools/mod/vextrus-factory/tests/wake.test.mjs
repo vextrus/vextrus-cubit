@@ -166,3 +166,13 @@ test("advance with notBefore: lines older than the session start pass the cursor
   assert.equal(b.lines?.length, 1)
   assert.ok(b.lines[0].includes("S2-NEW"))
 })
+
+test("advance with notBefore: a rider held from before the session start is absent from the first wake", () => {
+  const start = T0 + 60_000
+  const heldOld = { cursor: null, held: [{ line: line(T0, "READY-WAITING", "S1-OLD", "deadbeef READY 9 min, not merged").trimEnd(), wakes: false }], dropped: 0, pushWokeAt: [], sentAt: [] }
+  const a = advance({ ...heldOld, cursor: { at: iso(T0), hashes: [] } }, line(start + 5000, "BLOCKED", "S2-NEW", "cafe0000 y"), start + 6000, false, null, start)
+  assert.equal(a.lines?.length, 1)
+  assert.ok(a.lines[0].includes("S2-NEW"))
+  assert.ok(!a.lines.join("\n").includes("S1-OLD"))
+  assert.equal(a.state.dropped, 0)
+})
