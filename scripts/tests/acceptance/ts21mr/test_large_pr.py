@@ -212,17 +212,8 @@ def test_a_code_file_past_the_hundredth_still_needs_a_ready_head(
     assert "is not Factory-State: READY" in out
 
 
-def test_the_whole_big_pr_may_merge_when_it_is_clean(
-    tmp_path: Path,
-    hub: tuple[Path, dict[str, str]],
-    monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    shas = world(tmp_path, hub, monkeypatch)
-    code = run_main(tmp_path, shas["head"])
-    out = capsys.readouterr().out
-    assert code == 0, out
-    assert f"merge-ready: PR {w.PR} may be merged" in out
+# Withdrawn by S27-L825 (#825), test_the_whole_big_pr_may_merge_when_it_is_clean:
+# a head that does not contain main's tip is refused (ts27l825); its hub's PR never contains main's tip.
 
 
 def test_a_pull_ref_that_cannot_be_fetched_is_a_refusal_naming_the_fetch(

@@ -95,14 +95,8 @@ def test_a_clean_pr_behind_main_lands_with_no_request_to_bring_main_in(env: Fixt
     assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
 
 
-def test_a_clean_pr_behind_main_is_merged_on_the_head_it_stands_on(env: Fixtures) -> None:
-    done = landing(*env)
-    assert done.code == 0, "not landed as it stands: " + done.out + done.err
-    assert done.lines() == [f"land: PR {PR} merged"], done.out
-    assert done.fake.called("pr", "merge") == [
-        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.reviewed]
-    ]
-    assert done.fake.state["head"] == done.repo.reviewed, "the PR's head moved"
+# Withdrawn by S27-L825 (#825), test_a_clean_pr_behind_main_is_merged_on_the_head_it_stands_on:
+# a head that does not contain main's tip is refused (ts27l825).
 
 
 def test_a_conflicting_pr_is_refused_naming_land_update(env: Fixtures) -> None:
