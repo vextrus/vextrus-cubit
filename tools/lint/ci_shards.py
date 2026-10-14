@@ -10,15 +10,18 @@ only.
     python -m tools.lint.ci_shards [check [root]]   # the problems, one per line; exit 1 if any
     python -m tools.lint.ci_shards matrix           # {"include":[{"shard":"<name>"},...]}, one line
     python -m tools.lint.ci_shards args <name>      # the shard's pytest arguments, one line
+    python -m tools.lint.ci_shards collected [root] # what pytest collects: each id in one shard (#864)
 """
 
 import ast
 import json
+import os
 import re
 import shlex
 import subprocess
 import sys
 import tomllib
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
@@ -48,7 +51,14 @@ class Shard:
         return inside and not any(_under(path, root) for root in self.ignore)
 
     def args(self) -> list[str]:
-        return [*self.paths, *(f"--ignore={path}" for path in self.ignore)]
+        # pytest honours --ignore only for folders found inside its arguments, never for an argument
+        # itself: a shard without paths is given the testpaths, so its --ignore words alone do nothing
+        # (issue #864). --ignore-glob=<p>/* does the same inside a folder and also on an argument.
+        return [
+            *self.paths,
+            *(f"--ignore={path}" for path in self.ignore),
+            *(f"--ignore-glob={path.rstrip('/')}/*" for path in self.ignore),
+        ]
 
 
 def _under(path: str, root: str) -> bool:
@@ -462,6 +472,65 @@ def flaky_problems(root: Path) -> list[str]:
     return found
 
 
+# --- what pytest collects --------------------------------------------------------------------------
+
+INHERITED = ("PYTEST_ADDOPTS", "PYTEST_XDIST_WORKER", "PYTEST_XDIST_WORKER_COUNT", "PYTEST_CURRENT_TEST")
+NO_TESTS = 5  # pytest's exit status for "collected nothing": a shard with no test is not an error
+
+
+def _collect(root: Path, args: list[str]) -> tuple[set[str], str | None]:
+    """The node ids `pytest --collect-only -q <args>` finds in `root`, or why it could not."""
+    env = {key: value for key, value in os.environ.items() if key not in INHERITED}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", *args],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode not in (0, NO_TESTS):
+        tail = (done.stdout + done.stderr).strip().splitlines()[-3:]
+        return set(), f"pytest exited {done.returncode} ({' | '.join(tail)})"
+    return {line for line in done.stdout.splitlines() if "::" in line and not line[0].isspace()}, None
+
+
+def collected_problems(root: Path) -> list[str]:
+    """Each node id collected by two shards (naming both) or by none, measured against what pytest
+    collects with no arguments (the `testpaths`). A collection error is a problem, never a pass."""
+    try:
+        shards = load(root)
+        testpaths(root)
+    except Malformed as error:
+        return str(error).splitlines()
+    except (OSError, KeyError, TypeError, ValueError) as error:
+        return [f"pyproject.toml: no readable testpaths ({error})"]
+    runs: list[tuple[str, list[str]]] = [("all testpaths", [])]
+    runs += [(f"shard {shard.name!r}", shard.args()) for shard in shards]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda run: _collect(root, run[1]), runs))
+    found = [
+        f"{name}: collection failed: {why}"
+        for (name, _), (_, why) in zip(runs, results, strict=True)
+        if why
+    ]
+    if found:
+        return found
+    everything, per_shard = results[0][0], results[1:]
+    owners: dict[str, list[str]] = {}
+    for shard, (ids, _) in zip(shards, per_shard, strict=True):
+        for node in ids:
+            owners.setdefault(node, []).append(shard.name)
+    for node in sorted(everything | owners.keys()):
+        names = owners.get(node, [])
+        if len(names) > 1:
+            found.append(f"{node}: collected by more than one shard ({', '.join(names)})")
+        elif not names:
+            found.append(f"{node}: collected by no shard (CI would never run it)")
+    return found
+
+
 def problems(root: Path) -> list[str]:
     return shard_problems(root) + workflow_problems(root) + flaky_problems(root)
 
@@ -472,6 +541,11 @@ def main(argv: list[str] | None = None) -> int:
     root = Path.cwd()
     if command == "check" and len(rest) <= 1:
         found = problems(Path(rest[0]) if rest else root)
+        for problem in found:
+            print(problem)
+        return 1 if found else 0
+    if command == "collected" and len(rest) <= 1:
+        found = collected_problems(Path(rest[0]).resolve() if rest else root)
         for problem in found:
             print(problem)
         return 1 if found else 0
@@ -495,7 +569,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             print(" ".join(chosen[0].args()))
             return 0
-    print("usage: python -m tools.lint.ci_shards [check [root] | matrix | args <name>]", file=sys.stderr)
+    usage = "[check [root] | collected [root] | matrix | args <name>]"
+    print(f"usage: python -m tools.lint.ci_shards {usage}", file=sys.stderr)
     return 2
 
 

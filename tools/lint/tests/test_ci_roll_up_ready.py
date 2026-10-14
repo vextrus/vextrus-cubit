@@ -22,7 +22,7 @@ import pytest
 from tools.lint.tests.acceptance.ts14c14 import _workflows as wf
 
 ROLL_UPS = (("ci.yml", "ci"), ("engine.yml", "engine"))
-HEAVY = {"python-checks", "python", "toolchain", "check-sandbox"}
+HEAVY = {"python-checks", "python", "shards-collected", "toolchain", "check-sandbox"}
 NO_PATHS = {"python": "false", "web": "false", "engine": "false", "check": "false"}
 PATHS = {
     "docs only": NO_PATHS,
@@ -121,3 +121,15 @@ def test_ci_reads_the_same_web_paths_as_web_yml() -> None:
     pattern = re.compile(r"grep -E '(\^\(web/[^']*)'")
     found = [pattern.findall((wf.WORKFLOWS / name).read_text()) for name in ("ci.yml", "web.yml")]
     assert found[0] == found[1] != [], found
+
+
+def test_the_shard_collection_job_is_skipped_on_a_head_that_is_not_ready() -> None:
+    """It does the locked install and seven collections: S14-C14 (#466) runs such a job only on READY."""
+    flow = wf.load(wf.WORKFLOWS / "ci.yml")
+    job = wf.jobs(flow)["shards-collected"]
+    assert "changes" in wf.needs(job)
+    for ready, runs in (("false", False), ("true", True)):
+        context = wf.pull_request_context("ci", 41, "s99-widget", "a" * 40, 1001)
+        outputs = {"ready": ready} | dict.fromkeys(("python", "web", "engine", "check"), "true")
+        context["needs"] = {need: {"result": "success", "outputs": outputs} for need in wf.needs(job)}
+        assert wf.condition(job, context) is runs, f"ready={ready}"
