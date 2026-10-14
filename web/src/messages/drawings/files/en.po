@@ -82,6 +82,9 @@ msgstr "Plot: {matched} of {pages, plural, one {# page} other {# pages}} matched
 msgid "drawings.files.plot_matched_lines"
 msgstr "Plot: {matched} of {pages, plural, one {# page} other {# pages}} matched; lettering as lines"
 
+msgid "drawings.files.plot_matching"
+msgstr "Plot: matching its pages to sheets."
+
 msgid "drawings.files.plot_waiting"
 msgstr "Plot: waiting for its DWG. Its pages are matched when the DWG is read."
 

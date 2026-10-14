@@ -15,7 +15,7 @@ import { LoadProblem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { MachineText, type MachineMessage } from '@/format/machine'
 import { Button, DrawingText, KeyCombo, Skeleton } from '@/ui'
-import { isMoving, pdfSections, reportQuery, saidOnce, type DisciplineOut, type FileOut } from './data'
+import { isPolled, pdfSections, reportQuery, saidOnce, type DisciplineOut, type FileOut } from './data'
 import { useDisciplineName } from './discipline'
 
 const SCAN = 'engine.pdf_report.scan'
@@ -54,7 +54,16 @@ export function ReportPanel({
   const nameOf = useDisciplineName(disciplines)
   useCloseOnEsc(true, onClose)
   useEffect(() => heading.current?.focus(), [file.id])
-  const report = useQuery(reportQuery(projectId, file.id, isMoving(file)))
+  // Read again while it moves or its Plot is matched again, and once more when that ends, so its
+  // sections say what its header says (S27-G1, #870's gate).
+  const polled = isPolled(file)
+  const report = useQuery(reportQuery(projectId, file.id, polled))
+  const wasPolled = useRef(polled)
+  const { refetch } = report
+  useEffect(() => {
+    if (wasPolled.current && !polled) void refetch()
+    wasPolled.current = polled
+  }, [polled, refetch])
   const r = report.data
   // The top line is 21a's (a file not read in full) or a Discipline choice refused once the file's
   // sheet numbers were read (#159); every other finding is in the API's own sections. Each sentence is

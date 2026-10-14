@@ -32,10 +32,14 @@ def _reader_unsandboxed(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
 
 
-def _plot_pdf() -> bytes:
+def _plot_pdf(note: str = "") -> bytes:
+    """Eight pages, page k naming sheet 0k; `note`, a small text on each, makes its bytes its own."""
     pdf = Pdf()
     fonts = {"F1": truetype_font(pdf)}
-    pages = [Page(content=text(60, 60, n, size=10), fonts=fonts) for n in NUMBERS]
+    pages = [
+        Page(content=text(60, 60, n, size=10) + text(60, 200, note, size=6), fonts=fonts)
+        for n in NUMBERS
+    ]
     return document(pdf, pages, info={"Producer": "DWG To PDF.hdi 27.0.0 (AutoCAD 2027)"})
 
 
@@ -48,7 +52,7 @@ def _dwg(qs: QsProject, name: str) -> uuid.UUID:
 
 
 def _pdf(qs: QsProject, name: str) -> uuid.UUID:
-    file_id = add(qs.member, qs.project_id, name, _plot_pdf()).file.id
+    file_id = add(qs.member, qs.project_id, name, _plot_pdf(name)).file.id
     run_inline(
         read_file.read_file,
         tenant_id=qs.member.developer_id,
@@ -107,9 +111,10 @@ def test_a_dwg_set_to_the_plots_discipline_ends_with_every_sheet_on_its_page(
 
     job_id = _change(qs, dwg_id, "structural")
 
-    # Queued, not run: the request matched nothing, and the row waits rather than "0 of 8 matched".
+    # Queued, not run: the request matched nothing. Its DWG is now of its Discipline and read, so the
+    # row says its pages are being matched: never "0 of 8 matched", nor "waiting for its DWG".
     assert set(_pages(qs, dwg_id).values()) == {None}
-    assert _status(qs, pdf_id) == words.PLOT_WAITING()
+    assert _status(qs, pdf_id) == words.PLOT_MATCHING()
 
     _run(qs, job_id, dwg_id)
 
@@ -189,8 +194,29 @@ def test_a_held_dwg_read_anyway_set_to_the_plots_discipline_is_matched_again(
     assert set(_pages(qs, dwg_id).values()) == {None}
 
     job_id = _change(qs, dwg_id, "structural")
-    assert _status(qs, pdf_id) == words.PLOT_WAITING()
+    assert _status(qs, pdf_id) == words.PLOT_MATCHING()
     _run(qs, job_id, dwg_id)
 
     assert _pages(qs, dwg_id) == {n: k for k, n in enumerate(NUMBERS, start=1)}
     assert _status(qs, pdf_id) == words.PLOT_MATCHED(matched=8, pages=8)
+
+
+def test_a_plot_whose_dwg_is_read_says_it_is_matching_while_another_files_change_is_queued(
+    qs_project: QsProject,
+) -> None:
+    """#870's gate: while a match is queued, a PDF whose own Discipline's DWG is read says its pages
+    are being matched, never "waiting for its DWG"; one with no such DWG read waits."""
+    qs = qs_project
+    _dwg(qs, "KR-STR-R0.dwg")
+    matched = _pdf(qs, "KR-STR-R0.pdf")
+    other = _pdf(qs, "KR-ARC-R0.pdf")
+    assert _status(qs, matched) == words.PLOT_MATCHED(matched=8, pages=8)
+    assert _status(qs, other) == words.PLOT_WAITING()
+
+    job_id = _change(qs, other, "electrical")
+
+    assert _status(qs, matched) == words.PLOT_MATCHING()
+    assert _status(qs, other) == words.PLOT_WAITING()
+    _run(qs, job_id, other)
+    assert _status(qs, matched) == words.PLOT_MATCHED(matched=8, pages=8)
+    assert _status(qs, other) == words.PLOT_WAITING()

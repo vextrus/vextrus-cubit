@@ -288,12 +288,12 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
     plotting = _plotting({row.drawing_set for row in rows if row.format == FileFormat.PDF})
     for row in rows:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
-        # A PDF whose set's Plot match is queued again waits for it as for its DWG, whatever its
-        # pages matched before (S27-G1): they are decided again when the job runs.
+        # A PDF whose set's Plot match is queued again (S27-G1): its pages are decided again when
+        # the job runs, so its row says so, never what it matched before (`_read`).
         pending = row.format == FileFormat.PDF and row.drawing_set_id in plotting
-        dwg_read = _dwg_read(row, read_dwgs) and not pending
-        pages = 0 if pending else len(matched_pages.get(row.id, ()))
-        state, status = _status(row, job, now, pages, dwg_read)
+        dwg_read = _dwg_read(row, read_dwgs)
+        pages = len(matched_pages.get(row.id, ()))
+        state, status = _status(row, job, now, pages, dwg_read, pending)
         readable = state == FileState.READ or read_anyway_ended(row)
         shown.append(
             FileView(
@@ -396,6 +396,7 @@ def _status(
     now: datetime,
     pages_matched: int,
     dwg_read: bool = False,
+    plot_pending: bool = False,
 ) -> tuple[FileState, Message]:
     """4.5's row: the file's columns, with its job's state over them while it is in flight."""
     status = row.read_status
@@ -411,7 +412,7 @@ def _status(
             return _in_flight(row, job, now)
         return FileState.HELD, _HELD[answer]()
     if status == ReadStatus.READ:
-        return FileState.READ, _read(row, pages_matched, dwg_read)
+        return FileState.READ, _read(row, pages_matched, dwg_read, plot_pending)
     if status == ReadStatus.FAILED:
         if unreadable(row):
             return FileState.UNREADABLE, said.OLD_VERSION()
@@ -461,11 +462,13 @@ def unreadable(row: DrawingFile) -> bool:
     return isinstance(finding, dict) and finding.get("code") == said.OLD_VERSION.code
 
 
-def _read(row: DrawingFile, pages_matched: int, dwg_read: bool) -> Message:
+def _read(row: DrawingFile, pages_matched: int, dwg_read: bool, plot_pending: bool = False) -> Message:
     if row.format == FileFormat.PDF:
         pages = row.sheets_total or 0
-        if pages_matched == 0 and not dwg_read:
-            return said.PLOT_WAITING()
+        if (plot_pending or pages_matched == 0) and not dwg_read:
+            return said.PLOT_WAITING()  # no DWG of its Discipline read: nothing to match yet
+        if plot_pending:
+            return said.PLOT_MATCHING()  # its DWG read, its pages matched again (S27-G1)
         report = row.upload_report or {}
         lines = any(page.get("lettering") == "lines" for page in report.get("pages", ()))
         code = said.PLOT_MATCHED_LINES if lines else said.PLOT_MATCHED

@@ -58,6 +58,9 @@ PLOT_MATCHED_LINES = MessageCode("drawings.files.plot_matched_lines", params=("m
 """As PLOT_MATCHED, when its lettering is drawn as lines on some page."""
 PLOT_WAITING = MessageCode("drawings.files.plot_waiting")
 """A PDF read, but none of its pages matched a sheet yet: its DWG is not read."""
+PLOT_MATCHING = MessageCode("drawings.files.plot_matching")
+"""A read PDF whose DWG is read, its pages being matched to sheets again: a Discipline changed and
+its set's Plot match is queued (S27-G1); what it matched before is decided again."""
 REFUSED_SCAN = MessageCode("drawings.files.refused_scan")
 
 SUMMARY = MessageCode(
