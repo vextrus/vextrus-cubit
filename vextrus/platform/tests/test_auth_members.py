@@ -4,7 +4,7 @@ Developer's users, Memberships or events (ticket 07; m0-screens §4.4)."""
 import json
 import uuid
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -14,9 +14,9 @@ from django.utils import timezone
 from vextrus.platform.messages import invitations as codes
 from vextrus.platform.messages import tenancy as tenancy_codes
 from vextrus.platform.models import DomainEvent, Membership, User
-from vextrus.platform.services import events, invitations
+from vextrus.platform.services import events, invitations, tenancy
 from vextrus.testing.auth import Api, accept_as, api_as, invitation, served_operations
-from vextrus.testing.tenancy import Member, add_member
+from vextrus.testing.tenancy import STAFF_EMAIL, Member, add_member
 
 PASSWORD = "a long enough passphrase 7"
 
@@ -137,7 +137,7 @@ def test_one_person_s_acts_newest_first_and_paged(team: dict[str, Member]) -> No
     md = team["md"]
     for n in range(3):
         invitation(md, f"p{n}@example.com", "qs")
-    invitation(team["qs"], "e@example.com")
+    invitation(team["qs"], STAFF_EMAIL)
     api = api_as(md)
 
     mine = api.get("/api/activity", actor=str(md.user.pk)).json()
@@ -282,8 +282,8 @@ def matrix(
     other_staff: User,
 ) -> dict[str, Any]:
     """One Developer: an MD, a QS, a QS given P1 only, an Engineer as a member viewing, Engineers
-    each QS invited, Guests with and without an end date, a revoked QS, and unused invitations the
-    MD and each QS made."""
+    each QS invited (one whose access has Ended), Guests with and without an end date, a revoked
+    QS, and unused invitations the MD and each QS made (each QS's for a staff account's email)."""
     developer = make_developer()
     p1, p2 = uuid.uuid4(), uuid.uuid4()
     viewers = {
@@ -294,10 +294,17 @@ def matrix(
         "guest": sign_in(role="guest", developer_id=developer),
     }
     rows: dict[str, uuid.UUID] = {name: viewer.membership_id for name, viewer in viewers.items()}
-    by_qs, token = invitation(viewers["qs"], staff.email)
-    accept_as(token, staff)
-    by_scoped, token = invitation(viewers["scoped qs"], other_staff.email, project_ids=[p1])
-    accept_as(token, other_staff)
+    # The Engineers each QS invited, as accepted (the two staff accounts go to the unused invitations).
+    _, by_qs = add_member(developer, role="vextrus_engineer")
+    _, by_scoped = add_member(developer, role="vextrus_engineer", projects=[p1])
+    _, rows["ended engineer by qs"] = add_member(
+        developer, role="vextrus_engineer", expires_at=timezone.now() - timedelta(days=1)
+    )
+    with viewers["md"].acting():
+        Membership.objects.filter(id__in=[by_qs, rows["ended engineer by qs"]]).update(
+            invited_by_id=viewers["qs"].user.pk
+        )
+        Membership.objects.filter(id=by_scoped).update(invited_by_id=viewers["scoped qs"].user.pk)
     _, rows["guest until, P2"] = add_member(
         developer, role="guest", projects=[p2], expires_at=timezone.now() + timedelta(days=9)
     )
@@ -306,9 +313,9 @@ def matrix(
         invitations.revoke(rows["revoked qs"])
     rows["engineer by qs"], rows["engineer by scoped qs"] = by_qs, by_scoped
     rows["invitation by md"], _ = invitation(viewers["md"], "rumana@example.com", "qs")
-    rows["invitation by qs"], _ = invitation(viewers["qs"], "e1@example.com")
+    rows["invitation by qs"], _ = invitation(viewers["qs"], staff.email)
     rows["invitation by scoped qs"], _ = invitation(
-        viewers["scoped qs"], "e2@example.com", project_ids=[p1]
+        viewers["scoped qs"], other_staff.email, project_ids=[p1]
     )
     return {"viewers": viewers, "rows": rows}
 
@@ -322,12 +329,14 @@ EXPECTED: dict[str, dict[str, tuple[str, ...]]] = {
         "guest until, P2": ("revoke", "renew"),
         "engineer by qs": ("revoke", "renew"),
         "engineer by scoped qs": ("revoke", "renew"),
+        "ended engineer by qs": ("renew",),
         "invitation by md": ("copy_link", "withdraw"),
         "invitation by qs": ("copy_link", "withdraw"),
         "invitation by scoped qs": ("copy_link", "withdraw"),
     },
     "qs": {
         "engineer by qs": ("revoke", "renew"),
+        "ended engineer by qs": ("renew",),
         "invitation by qs": ("copy_link", "withdraw"),
     },
     "scoped qs": {
@@ -391,3 +400,94 @@ def test_each_row_names_who_invited_it_by_id(matrix: dict[str, Any], staff: User
     assert by_id[str(rows["engineer by qs"])] == str(viewers["qs"].user.pk)
     assert by_id[str(rows["invitation by md"])] == str(viewers["md"].user.pk)
     assert by_id[str(rows["md"])] is None  # made a member directly, invited by no one
+
+
+# One access's acts: those its row counts (S27-G6) ---------------------------------------------------
+
+
+def test_one_access_s_acts_are_those_its_row_counts_and_no_other(
+    team: dict[str, Member], staff: User, sign_in: Callable[..., Member]
+) -> None:
+    """`/api/activity?membership=` lists that access's acceptance and the acts done under it, from
+    its start until it ended: beside its acceptance, the acts Members and access counts on its row,
+    so the panel a row opens agrees with the row. An invitation not used, or another Developer's
+    access, has none."""
+    md = team["md"]
+    base = timezone.now().replace(microsecond=0)
+    first, token = invitation(md, staff.email)
+    accept_as(token, staff)
+    with md.acting():
+        Membership.objects.filter(id=first).update(
+            starts_at=base - timedelta(days=10), accepted_at=base - timedelta(days=10)
+        )
+    for days in (9, 8):
+        with tenancy.acting_in(md.developer_id, user_id=staff.pk):
+            events.record(
+                tenancy_codes.STAFF_OPENED,
+                subject_type="developer",
+                actor_user_id=staff.pk,
+                occurred_at=base - timedelta(days=days),
+            )
+    assert api_as(md).post(f"/api/members/{first}/revoke").status_code == 204
+    with md.acting():
+        Membership.objects.filter(id=first).update(revoked_at=base - timedelta(days=7))
+    second, token = invitation(md, staff.email)
+    accept_as(token, staff)
+    pending, _ = invitation(md, "rumana@example.com", "qs")
+    elsewhere = sign_in(role="md")
+    api = api_as(md)
+
+    listed = {
+        key: api.get("/api/activity", membership=str(key)).json() for key in (first, second, pending)
+    }
+
+    rows = {r["membership_id"]: r for r in api.get("/api/members").json()["vextrus_access"]}
+    acts = {key: [a for a in listed[key] if a["code"] != codes.ACCEPTED.code] for key in listed}
+    assert [datetime.fromisoformat(a["occurred_at"]) for a in acts[first]] == [
+        base - timedelta(days=d) for d in (8, 9)
+    ]
+    for key in (first, second):
+        accepted = [a for a in listed[key] if a["code"] == codes.ACCEPTED.code]
+        assert [a["subject_id"] for a in accepted] == [str(key)]  # its own acceptance, not the other's
+        assert len(acts[key]) == rows[str(key)]["acts"]
+    assert listed[pending] == []
+    assert api_as(elsewhere).get("/api/activity", membership=str(first)).json() == []
+
+
+def test_a_developer_with_more_accepted_accesses_than_a_select_has_columns_still_lists_them(
+    team: dict[str, Member],
+) -> None:
+    """Fix round 1 of S27-G6: counting each row's acts takes no column per Membership, so a Developer
+    past ~832 accepted accesses (Postgres's 1664-column SELECT) still gets its page, each row
+    counted. Half the accesses here have ended (revoked), half are current."""
+    md = team["md"]
+    now = timezone.now()
+    users = User.objects.bulk_create(
+        User(email=f"crowd{n}@example.com", name=f"Crowd {n}") for n in range(900)
+    )
+    with md.acting():
+        Membership.objects.bulk_create(
+            Membership(
+                tenant_id=md.developer_id,
+                user=user,
+                role="guest",
+                starts_at=now - timedelta(days=10),
+                accepted_at=now - timedelta(days=10),
+                revoked_at=now - timedelta(days=1) if n % 2 else None,
+            )
+            for n, user in enumerate(users)
+        )
+    with tenancy.acting_in(md.developer_id, user_id=users[0].pk):
+        events.record(
+            tenancy_codes.STAFF_OPENED,
+            subject_type="developer",
+            actor_user_id=users[0].pk,
+            occurred_at=now - timedelta(days=5),
+        )
+
+    response = api_as(md).get("/api/members")
+
+    assert response.status_code == 200
+    people = {p["email"]: p for p in response.json()["people"]}
+    assert len([e for e in people if e.startswith("crowd")]) == 900
+    assert (people["crowd0@example.com"]["acts"], people["crowd1@example.com"]["acts"]) == (1, 0)

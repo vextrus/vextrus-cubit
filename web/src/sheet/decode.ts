@@ -170,6 +170,20 @@ export function decodeSheet(buffer: ArrayBuffer): DecodedSheet {
   }
 }
 
+/**
+ * The paper a buffer's header says, before it is decoded (the first open's outline, 4.6); null when the
+ * header is not a sheet's. Reads the 24 bytes of the header only: the full checks are `decodeSheet`'s.
+ */
+export function peekPaper(buffer: ArrayBuffer): { widthMm: number; heightMm: number } | null {
+  if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < HEADER_SIZE) return null
+  if (String.fromCharCode(...new Uint8Array(buffer, 0, 4)) !== MAGIC) return null
+  const view = new DataView(buffer)
+  const widthMm = view.getFloat32(16, true)
+  const heightMm = view.getFloat32(20, true)
+  if (!(widthMm > 0 && widthMm <= MAX_PAPER_MM && heightMm > 0 && heightMm <= MAX_PAPER_MM)) return null
+  return { widthMm, heightMm }
+}
+
 function finite(r: Records, words: number[], fourcc: string) {
   for (let i = 0; i < r.count; i++) {
     for (const w of words) if (!Number.isFinite(r.f32[i * r.stride + w]!)) fail(`a ${fourcc} value is not finite`)

@@ -153,3 +153,26 @@ test("READY-NO-VERIFY, LOCAL-IDLE and BUILDER-BLOCKED wake: with no Monitor, not
     assert.ok(r.lines !== null && r.lines[0].includes(`${kind} t1 x`), kind)
   }
 })
+
+test("advance with notBefore: lines older than the session start pass the cursor and wake nothing, then are not re-read", () => {
+  const start = T0 + 60_000
+  const old = line(T0, "BLOCKED", "S1-OLD", "deadbeef x")
+  const first = advance(null, "", T0, false, null, start)
+  const a = advance(first.state, old, start + 1000, false, null, start)
+  assert.equal(a.lines, null)
+  assert.ok(a.state.cursor.at >= iso(T0), "the cursor passed the old line")
+  assert.deepEqual(a.state.held, [])
+  const b = advance(a.state, old + line(start + 5000, "BLOCKED", "S2-NEW", "cafe0000 y"), start + 6000, false, null, start)
+  assert.equal(b.lines?.length, 1)
+  assert.ok(b.lines[0].includes("S2-NEW"))
+})
+
+test("advance with notBefore: a rider held from before the session start is absent from the first wake", () => {
+  const start = T0 + 60_000
+  const heldOld = { cursor: null, held: [{ line: line(T0, "READY-WAITING", "S1-OLD", "deadbeef READY 9 min, not merged").trimEnd(), wakes: false }], dropped: 0, pushWokeAt: [], sentAt: [] }
+  const a = advance({ ...heldOld, cursor: { at: iso(T0), hashes: [] } }, line(start + 5000, "BLOCKED", "S2-NEW", "cafe0000 y"), start + 6000, false, null, start)
+  assert.equal(a.lines?.length, 1)
+  assert.ok(a.lines[0].includes("S2-NEW"))
+  assert.ok(!a.lines.join("\n").includes("S1-OLD"))
+  assert.equal(a.state.dropped, 0)
+})

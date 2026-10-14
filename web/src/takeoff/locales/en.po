@@ -436,6 +436,7 @@ msgstr "top (top from Step 3)"
 msgid "{0, plural, one {# more file} other {# more files}}"
 msgstr "{0, plural, one {# more file} other {# more files}}"
 
+#. placeholder {0}: Number(shares)
 #. placeholder {0}: row.shares
 #: src/takeoff/SheetList.tsx
 msgid "{0, plural, one {# sheet shares this title} other {# sheets share this title}}"

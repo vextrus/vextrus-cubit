@@ -23,7 +23,7 @@ import { SheetRange } from './SheetRange'
 import type { CoverageOut, OpenedWith, ProposalOut, ViewOut } from './data'
 import { DISCIPLINE_ORDER, NOTES_STEP, STEP_DISCIPLINES, listSheet, type DisciplineSection, type QuestionEntry, type Row, type Step1Model } from './model'
 import { AnswerNote, Answering, cardContext, Copy, CopyPlace, OptionWords, copiesNamedByRow, QuestionBody, QuestionTitle, Trace, optionsOf, useKindLine, usePick, usePickSources, type CardContext } from './questionWords'
-import { disciplineName } from './SheetList'
+import { disciplineName, useSharesWords } from './SheetList'
 import { NOT_RECEIVED_NAMES, OTHER_DISCIPLINE, OTHER_VIEW_KIND, REASON_SHORT, STEP_KEYS, STOREY_MEANINGS, UNKNOWN_REASON, VIEW_KINDS } from './words'
 
 function Block({ title, children }: { title?: ReactNode; children: ReactNode }) {
@@ -707,6 +707,7 @@ export function SheetFacts({
   /** The storey strip's slots, the project's (6.8). */
   slots?: readonly string[]
 }) {
+  const sharesWords = useSharesWords()
   const sheet = open && row.sheets.some((s) => s.id === open.id) ? open : row.sheets[0]
   if (!sheet) return null
   const excluded = row.sheets.every((s) => s.decision === 'excluded')
@@ -718,6 +719,7 @@ export function SheetFacts({
             <SheetName sheets={row.sheets} start />
           </span>
           {showTitle ? <DrawingText kind="title" text={sheet.title} truncate={false} className="text-ink-secondary" /> : null}
+          {row.shares ? <span className="text-xs text-ink-secondary">{sharesWords(row.shares)}</span> : null}
           <span className="text-xs text-ink-secondary">
             <Decided sheet={sheet} readOnly={readOnly} />
           </span>

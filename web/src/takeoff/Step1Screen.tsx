@@ -22,6 +22,7 @@ import { useSheetRequest } from './jump'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { useInspectorTab, useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
+import { VextrusAccessNotice } from '@/members'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { problemText } from '@/auth/problem'
 import { SheetViewer, type SheetOutline } from '@/sheet'
@@ -33,13 +34,14 @@ import { sheetAddress } from './paths'
 import { SheetName, useStep1Acts, type SheetChange } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
-import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
+import { fileStates, renderQuery, takeAccounted, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { step1Key } from './data'
 import { FilesBand } from './FilesBand'
 import { ReportPanel } from '@/drawing-set/ReportPanel'
 import { POLL_MS, disciplinesQuery, filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
+import { ActorChip } from './ActorChip'
 import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
 import { stripSlots } from './storeys'
@@ -59,16 +61,28 @@ export function Step1Page() {
   const project = projectRoute.useLoaderData()
   const { data, error, retry } = useStep1(project.id)
   const reading = useRefreshAsFilesFinish(project.id)
-  if (!data) {
-    if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
-    return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
-  }
-  if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet project={project} reading={reading} />
-  if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
-    <KeyScope level="screen" name="step1">
-      <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} reading={reading} />
-    </KeyScope>
+    <>
+      {/* The MD's top bar says who from Vextrus has access, whatever Step 1's own state (§6.12). */}
+      <SlotFill slot="topbar.access">
+        <VextrusAccessNotice session={session} projectCode={project.code} chip={(name) => <ActorChip name={name} role="vextrus_engineer" />} />
+      </SlotFill>
+      {!data ? (
+        error ? (
+          <LoadProblem error={error} onRetry={retry} className="m-4" />
+        ) : (
+          <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
+        )
+      ) : data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0 ? (
+        <NoSheetsYet project={project} reading={reading} />
+      ) : data.proposals.length === 0 && data.questions.length === 0 ? (
+        <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
+      ) : (
+        <KeyScope level="screen" name="step1">
+          <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} reading={reading} />
+        </KeyScope>
+      )}
+    </>
   )
 }
 
@@ -93,12 +107,15 @@ function useRefreshAsFilesFinish(projectId: string): FileOut[] {
     notifyOnChangeProps: ['data'],
   })
   const list = files.data?.files
-  const states = list?.map((f) => `${f.id}:${f.state}`).join(',')
+  const states = list ? fileStates(list) : undefined
   const seen = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (states === undefined || states === seen.current) return
     const first = seen.current === undefined
     seen.current = states
+    // An answer wrote these states with its reply and reads Step 1 behind itself (S27-G7): not read twice.
+    const answered = takeAccounted(qc, projectId)
+    if (!first && states === answered) return
     const step1At = qc.getQueryState([...step1Key(projectId), 'proposals'])?.dataUpdatedAt ?? 0
     const answeredAt = qc.getQueryState(filesQuery(projectId).queryKey)?.dataUpdatedAt ?? 0
     if (!first || step1At <= answeredAt) void qc.invalidateQueries({ queryKey: step1Key(projectId) })
@@ -604,7 +621,8 @@ function Step1({
   /**
    * What the bar shows: while an act and Step 1's reload are in flight, the bar from before it,
    * its button off (the walk, M5: mid-reload it showed the bulk act with Questions still open).
-   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before.
+   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before. An answer shown
+   * from its reply ends `busy` as the reply is written (S27-G7), so the live bar follows the rows then.
    */
   // Taken as the act starts: Step 1 has not changed yet, so it is the bar the QS acted on.
   const [held, setHeld] = useState<{ busy: boolean; bar: BarSpec | null }>({ busy: false, bar: null })
@@ -1137,12 +1155,13 @@ function SheetMode({
         <SpaceKey label={label} run={onSpace} />
         <ZoomKey enabled={selectedView !== null} run={onZoom} />
         {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
-        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0 outline-none">
+        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset group/region absolute inset-0">
           {render.data ? (
             <SheetViewer
               key={sheet.id}
               buffer={render.data}
               label={name}
+              sheetId={sheet.id}
               onRetry={retryRender}
               outlines={outlines}
               selected={selectedView}
@@ -1159,6 +1178,12 @@ function SheetMode({
           ) : (
             <Skeleton rows={6} className="m-6" status={<Trans>Opening <SheetName sheets={[sheet]} />…</Trans>} />
           )}
+          {/* The region's ring above the drawing (F6 lands here): the canvas's layers cover its own inset outline. */}
+          <div
+            aria-hidden
+            data-region-ring=""
+            className="pointer-events-none absolute inset-0 z-[3] group-focus-visible/region:outline-2 group-focus-visible/region:-outline-offset-2 group-focus-visible/region:outline-ring group-focus-visible/region:outline-solid"
+          />
         </div>
       </KeyRegion>
     </>

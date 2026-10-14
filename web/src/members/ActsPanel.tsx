@@ -128,13 +128,14 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
   const { data: session } = useSuspenseQuery(sessionQuery)
   const heading = useRef<HTMLHeadingElement>(null)
   useCloseOnEsc(true, onClose)
-  useEffect(() => heading.current?.focus(), [person.userId])
+  useEffect(() => heading.current?.focus(), [person.membershipId])
 
+  // The row's access: its acceptance and the acts done under it, those its Acts cell counts (#323).
   const acts = useInfiniteQuery({
-    queryKey: ['acts', person.userId],
+    queryKey: ['acts', person.membershipId],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
-      unwrap(api.GET('/api/activity', { params: { query: { actor: person.userId, limit: ACTS_PAGE, ...(pageParam ? { before: pageParam } : {}) } } })),
+      unwrap(api.GET('/api/activity', { params: { query: { membership: person.membershipId, limit: ACTS_PAGE, ...(pageParam ? { before: pageParam } : {}) } } })),
     getNextPageParam: (last) => (last.length === ACTS_PAGE ? (last.at(-1)?.id ?? null) : null),
   })
 
@@ -146,7 +147,8 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
   }
   const projectName = (id: string | null | undefined) => session.projects.find((p) => p.id === id)?.name ?? null
   const all = acts.data?.pages.flat() ?? []
-  const count = all.length
+  // Accepting the invitation opens the access and is listed, but is not an act: the count agrees with the row's.
+  const count = all.filter((act) => act.code !== 'platform.invitations.accepted').length
 
   return (
     <section aria-labelledby="acts-heading" className="flex h-full flex-col">
