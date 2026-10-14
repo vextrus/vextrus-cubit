@@ -282,9 +282,11 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
     now = timezone.now()
     read_dwgs = _read_dwgs({row.drawing_set_id for row in rows if row.format == FileFormat.PDF})
     shown = []
+    plotting = _plotting({row.drawing_set for row in rows if row.format == FileFormat.PDF})
     for row in rows:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
-        dwg_read = _dwg_read(row, read_dwgs)
+        # A PDF whose set's Plot match is queued again waits for it as for its DWG (S27-G1).
+        dwg_read = _dwg_read(row, read_dwgs) and row.drawing_set_id not in plotting
         state, status = _status(row, job, now, len(matched_pages.get(row.id, ())), dwg_read)
         readable = state == FileState.READ or read_anyway_ended(row)
         shown.append(
@@ -334,6 +336,38 @@ def _dwg_read(row: DrawingFile, read_dwgs: set[tuple[uuid.UUID, uuid.UUID | None
     if row.discipline_id is None:
         return any(set_id == row.drawing_set_id for set_id, _ in read_dwgs)
     return (row.drawing_set_id, row.discipline_id) in read_dwgs
+
+
+_PLOTTING = frozenset({"waiting", "running", "retrying", "stopping"})
+
+
+def _plotting(sets: Iterable[DrawingSet]) -> set[uuid.UUID]:
+    """The sets whose Plot match is queued again and still to run (`queue_plot`)."""
+    out = set()
+    for drawing_set in sets:
+        job_id = drawing_set.plot_job_id
+        found = jobs.state(job_id) if job_id is not None else None
+        if found is not None and found.status in _PLOTTING:
+            out.add(drawing_set.id)
+    return out
+
+
+def queue_plot(set_id: uuid.UUID, job_id: int) -> None:
+    """Keep the job that matches the set's Plot again (a module above queues it, S27-G1): till it
+    runs, the set's PDFs with no page matched read "waiting for its DWG", never "0 of N matched"."""
+    DrawingSet.objects.filter(id=_access.drawing_set(set_id).id).update(plot_job_id=job_id)
+
+
+def plot_queued(set_id: uuid.UUID) -> int | None:
+    """The job queued to match the set's Plot again, until it has run (`queue_plot`)."""
+    return _access.drawing_set(set_id).plot_job_id
+
+
+def plot_matched_again(set_id: uuid.UUID, job_id: int | None) -> None:
+    """The set's Plot matched again by the job `queue_plot` kept: let it go (a later one stays)."""
+    if job_id is not None:
+        found = DrawingSet.objects.filter(id=_access.drawing_set(set_id).id, plot_job_id=job_id)
+        found.update(plot_job_id=None)
 
 
 def dwg_read_for(row: DrawingFile) -> bool:
