@@ -184,6 +184,10 @@ msgstr "{markText}, from the file name {file}"
 msgid "Open <0/>"
 msgstr "Open <0/>"
 
+#: src/takeoff/TypedSource.tsx
+msgid "{name} has one source: its number as you typed it, and its title is the title of its view."
+msgstr "{name} has one source: its number as you typed it, and its title is the title of its view."
+
 #: src/takeoff/Bar.tsx
 msgid "Exclude with the reason typed"
 msgstr "Exclude with the reason typed"
@@ -707,6 +711,10 @@ msgstr "{name}: no page matched a sheet"
 #: src/takeoff/SheetList.tsx
 msgid "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
 msgstr "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
+
+#: src/takeoff/Bar.tsx
+msgid "{name} has one source, and its title is the title of its view"
+msgstr "{name} has one source, and its title is the title of its view"
 
 #: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}, Vextrus Engineer"
