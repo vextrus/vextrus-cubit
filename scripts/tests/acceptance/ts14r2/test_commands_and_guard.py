@@ -149,3 +149,11 @@ def test_every_command_a_prompt_quotes_passes_the_guard_and_is_allowed(world: Wo
             assert any(command == p or command.startswith(p + " ") for p in prefixes), (
                 f"{call['agent']} is told to run {command!r}, which no --allowedTools entry allows"
             )
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"

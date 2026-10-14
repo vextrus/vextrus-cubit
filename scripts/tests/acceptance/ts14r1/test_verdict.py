@@ -170,3 +170,11 @@ def test_the_run_prints_one_json_object_naming_the_head(
     summary: Any = json.loads(done.stdout)
     assert isinstance(summary, dict)
     assert head in values(summary)
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"

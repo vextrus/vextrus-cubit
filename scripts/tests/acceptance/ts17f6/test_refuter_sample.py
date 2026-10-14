@@ -154,3 +154,11 @@ def test_a_pass_with_a_replayed_50_on_a_strict_path_is_recorded_fix(world: World
     assert record is not None, why(done)
     assert record["counts"]["confirmed"] == 1, record["counts"]
     assert record["verdict"] == "FIX", f"the record says {record['verdict']}"
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"

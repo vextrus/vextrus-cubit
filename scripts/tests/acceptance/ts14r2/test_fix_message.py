@@ -110,3 +110,11 @@ def test_a_pr_with_no_recorded_review_gets_no_fix_message(world: World) -> None:
     done = world.review("fix-message", "12", "--from-verdict")
     assert done.returncode == 3, why(done)
     assert world.claude_calls() == [], "a lens was started"
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"
