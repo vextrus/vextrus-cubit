@@ -826,3 +826,25 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   classifier refused the land, and a real walk of that head then passed. The owner's ruling (14 Oct): "Re-walk every new
   head". The order is now: update with main, gate that head, land it. No check yet: the lander could refuse a
   design-gate status older than the head's last main merge (owed with #849's factory batch).
+
+## Session 28 (14 Oct 2026): the three first tasks and the G1 fix wave merged; G1 walk #1 failed under the new bar
+- **An integration PR whose fix rounds were merged in as branches cannot take a delta review.** #844's round 3 was refused
+  ("another branch's work"), and `fix-regression` did not hold (the finding predated fix round 1). The remedy was a clean line
+  (round 2's head plus each fix round cherry-picked as commits, the same verified tree) as a new PR, #870, which cost a
+  full round 1. Rule: an integration branch takes each fix round as commits on its own line, never as a merge of the
+  ticket branch. No check yet: owed (review.py's refusal should name the remedy; builder.md and the runbook say so).
+- **An integration PR with a `web/**` file had no design gate planned.** #844 never had one; #870's land was refused for
+  it, and the gate then failed item 1 (an open report not refreshed after a Plot re-match). Plan a gate for every PR that
+  touches `web/**`, integration PRs included. Check: `scripts/merge_ready.py` refuses the land (it did).
+- **A posting real-drawing run needs a review PASS on its head first, and `--ticket` needs a launch record.** Two refused
+  posting runs cost minutes. Check: `scripts/factory/rdlock.py` refuses both (it did); the runbook should order review, then posting.
+- **G1's hold (90 min) ended before the agent layer did.** walk.json came 46 min after the start and the agent layer ran
+  96 min (critics, roles, triage), so the stack stopped while the role walker still worked. No check yet: owed (run.py's
+  hold should end on verdict.json alone, or the default hold should outlast the agent layer's measured p90).
+- **The act-time check failed on a tail, not a regression.** Undo's median was unchanged (654 against 656 ms) and its
+  query count equal (126 on a 3-sheet project) between sessions 26 and 28, but the worst undo moved from 982 to 1,370 ms
+  and p95 over 13 samples is the one or two worst. The walk logs no server time per act, so request time and queueing
+  (reads, the cad worker, more `/drawings/files` polls) cannot be told apart. No check yet: owed (server-side duration
+  and lock wait per act in the walk's record).
+- **Under the new bar (S28-W1) walk #1's misleading findings fell from 8 to 1** (one BLOCKS with its reproduction, 13
+  OTHER filed). Check: `scripts/tests/acceptance/ts28w1/` and the walk verdicts.
