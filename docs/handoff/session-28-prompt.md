@@ -1,7 +1,9 @@
 # Session 28: land the rest of the G1 fix wave, two G1 PASS, then "walk now"; M1-00 merges after the owner's walk
 
-**Budget: 6 h** (unless the owner sets another). Orchestrator: Opus 5.5 `medium` all session (CLAUDE.md). Clock: `uv run python
--m scripts.factory.stamp start --budget 6h --state .private/work/s28/STATE.md --phases "land=90,g1=210,close=45"`.
+**Budget: 8 h recommended, 6 h drafted** (ask the owner once at the start; see "First tasks"). Orchestrator: Opus 5.5 `medium`
+all session (CLAUDE.md; the owner's Q27). Clock: `uv run python -m scripts.factory.stamp start --budget 8h --state
+.private/work/s28/STATE.md --phases "first=150,land=120,g1=240,close=45"` (phases overlap; with 6 h: `--budget 6h` and
+`"first=120,land=90,g1=210,close=45"`). **Read "First tasks, before G1 walk #1" below before launching anything.**
 
 **The goal, in one line:** `uv run python -m scripts.walk.ready origin/main` exits 0 (two counted G1 PASS on main's current
 product code), so the owner walks M0. It exits 1 today (0 of 2; no G1 walk ran in session 27).
@@ -54,34 +56,48 @@ product code), so the owner walks M0. It exits 1 today (0 of 2; no G1 walk ran i
 - Session 27's two cuts (orchestrator, for budget): G1 walk #2 and then walk #1 moved here; S27-G9 (Discipline-qualified
   `?sheet=`) not started.
 
-## The factory review beside session 27, and what it changes here (the owner's rulings, 14 Oct 09:25Z)
-A read-only session ran beside session 27 and reviewed the factory against its measures, the Claude Code docs and current
-practice (`.private/work/s27-explore/synthesis.md`, local; six reports beside it). The owner ruled on eleven questions:
-- **Sessions:** session 28 is this brief ("Session 28 as drafted or at least you can improvise it for better performance");
-  **session 29 is factory-only** (synthesise the review, build the upgrades, verify them); **M1 starts in session 30**, after
-  which product and factory both keep improving themselves each session.
-- **Tokens:** "measure and cap by tokens", Max 20x, "second subscription is right on the table"; the factory must be token
-  efficient without losing quality.
-- **Verify:** "speed up CI, then the fast verify" (CI the full gate, an impact-selected verify before READY).
-- **Fixes:** "Fresh context for fixes, one round, then split." **Review:** one lens plus CI for ordinary PRs, the full panel on
-  "the risk tier written down as paths".
-- **UI builders:** the Chromium probe first; "use local builders for UI tickets until it passes".
-- **Real drawings in the cloud:** "Yes to the probe, and yes to cloud browser walks on the two Development Sets only."
-- **Compute:** no third-party sandboxes, no rented server for now ("stick with our own local machine and Claude Cloud sessions").
-- **Holds (applies now):** "Yes for reversible choices. Spending, scope and irreversible choices still wait for me; in most cases
-  I don't want stalled sessions waiting for my answers where sessions could have finished it's tasks proceeding on the
-  recommendation." Ask, then proceed on the recommendation for anything reversible; note it in STATE.md for the owner.
-- **Display:** freshness first, then one rich band and pane, capped at 1.5 h (session 29).
-- **Subtraction (applies now):** "Record the result as a table in the session 28 measures": one row per gate and lens (what
-  failure it was built for, its last real catch with a PR number, minutes it adds per PR). Session 29 retires gates from it.
+## First tasks, before G1 walk #1 (the owner's rulings, 14 Oct 2026)
+A factory review ran beside session 27 (`docs/research/2026-10-14-factory-review.md`); the owner ruled on 28 questions
+(`docs/plans/factory-s29.md`): session 29 is factory-only, M1 starts in session 30. For this session the owner ruled that G1's
+new bar is "built as session 28's first tasks before walk #1, we'll not take any risk of ending with G1 at 0 of 2 again", and
+that this session takes "every minimum actions applying the evidence rule in session 28 now and have the most necessary
+factory fixes, changes that will have the direct impacts on shortening the loops between us and the M0 walks".
 
-**What session 28 does about it** (the walks keep priority; nothing here may load the machine during a walk):
-1. Collect the subtraction table above from `.private/work/s2*/STATE.md` and the review ledger (an Explore agent, `low`).
-2. If a cloud slot is idle in the land phase, #864 (the rest shard re-runs scripts/ and engine/ tests: CI's critical path,
-   about 11.5 min) may be built as an ordinary cloud ticket; it shortens every later landing.
-3. Session 28's close writes session 29's brief from `synthesis.md`, these rulings and the session 28 measures. Filed by the
-   review: #864, #865 (the walk-gate hook blocks sentences saying the walk is not ready), #866 (why the band and status line
-   go stale).
+Launch at 0:15, beside the land phase: acceptance writers first (Opus `high`), then cloud builders. None touches a product
+path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`), so none stales a walk; keep it that way.
+1. **S28-W1, G1's evidence bar** (cloud, hard; merges before walk #1). Today a PASS needs zero BLOCKS and zero misleading
+   findings on two walks in a row, an item fails when any critic fails it, and misleading findings ran 13, 8, 8, 3, 8 over
+   five walks. In `.claude/workflows/real-set-walk.js` (triage and the critics' briefs):
+   - an item FAILs only on a BLOCKS finding (a wrong number, a blocked demo, blocked signing) or on a misleading finding with
+     reproduction steps on that head; every other finding is OTHER: filed as a walk issue and listed for the owner at
+     sign-off, and its item stays PASS;
+   - a finding is misleading only when the display would lead a QS to a wrong quantity, a wrong sign-off or a wrong belief
+     about what was read, and only with its reproduction steps (kept in the walk's private folder, never in an issue);
+   - a repeat mode for walk #2: the critics walk walk #1's items, its findings' reproduction steps and the fixes since, not a
+     fresh exploration; a new finding there fails the walk only if it BLOCKS; other new findings are filed;
+   - `scripts/walk/verdict.py` and `scripts/walk/ready.py` change only if the tests need it; docs/specs/factory.md 5 "G1" and
+     ADR 0042's history carry the ruling.
+   Acceptance pins: an OTHER finding naming an item leaves the item PASS; a misleading finding without reproduction steps is
+   OTHER; a BLOCKS finding still fails its item and the walk; the repeat mode walks only the prior items and fixes.
+2. **S28-C1, CI speed** (cloud, ordinary `high`): #864 (the `rest` shard re-runs `scripts/` and `engine/` tests, 7,503 tests
+   in 697 s on CI's critical path; a lint that every shard's collected node ids are disjoint and complete) and the slowed
+   web pass as its own parallel job in `web.yml`. Merge it early: every later CI run is shorter.
+3. **S28-R1, the review evidence bar** (cloud, hard: gate code). Measured: blocking findings are already reproduced by attack
+   tests (none of 260 FIX verdicts rested on UNPROVEN findings alone), but since the 13 Oct bar 23 of 30 FIX verdicts rested
+   only on 50-74 findings, many "real but rare". So: an UNPROVEN finding no longer blocks (`scripts/ledger.py` `STANDS`); a
+   50-74 finding blocks only when its input is one a QS would meet (a Development Set, the demo, the served product) or it
+   is on a trust boundary, else it is filed with its owed check; the lens brief in `scripts/factory/review.py` says to judge
+   intent and user impact, not to stack defensive edge cases. It applies to every round after it merges (#844's round 3).
+4. If a cloud slot is idle: #865 (the walk gate blocks sentences that say the walk is not ready).
+
+**Budget:** the draft's 6 h does not hold these first tasks and two walks. Ask the owner once at the start: 8 h
+(recommended). Without an answer, keep 6 h and cut M1-00's review first, then S28-R1; never the walks or S28-W1.
+**Holds (the owner's Q9, applies now):** ask, then proceed on the recommendation for anything reversible and note it in
+STATE.md; spending, scope and irreversible choices wait.
+**Measures at close (for session 29's baselines):** the subtraction table (the owner's Q11: one row per gate and lens: the
+failure it was built for, its last real catch with a PR number, the minutes it adds a PR; an Explore agent at `low` reads
+the STATE logs and the review ledger), and the baseline table of `docs/plans/factory-s29.md` filled with this session's
+numbers. Session 28's close writes session 29's brief from that plan; issues the review filed: #864, #865, #866.
 
 ## The owner's questions still open (one at a time, recommendation first)
 The three from session 27's brief (storeys correction stays quiet; fire allowance ৳120/sft from 7 storeys; "File" and "at x"
