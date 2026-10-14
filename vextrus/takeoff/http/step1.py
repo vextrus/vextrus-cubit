@@ -10,7 +10,7 @@ another Developer, or none at all is the one 404 (`platform.auth.not_found`), an
 import json
 import urllib.parse
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from django.http import HttpRequest
 from ninja import Router
@@ -208,7 +208,9 @@ def answer_question(
     Question with the Proposals the answer moved (`changed_proposals`), as the list now words them."""
 
     def act() -> step1.Answered:
-        with step1.writing(project_id):
+        # The reply's progress is the count this block's end writes the rows from: after a held
+        # file's read job is queued, and never counted a second time (S27-G7's review).
+        with step1.progress_counted() as counted, step1.writing(project_id):
             done = step1.answer(
                 project_id,
                 question_id,
@@ -219,7 +221,8 @@ def answer_question(
             )
             if done.read_again is not None:
                 read_file.read_again(done.read_again)
-        return done
+        written = counted.get(project_id)
+        return replace(done, progress=written if written is not None else step1.progress(project_id))
 
     done = deadlocks.retried(act, what="step1.answer")
     return Step1AnswerOut.model_validate(

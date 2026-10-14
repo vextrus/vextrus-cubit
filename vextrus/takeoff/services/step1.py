@@ -4009,7 +4009,8 @@ class Answered:
     progress: ProgressView | None = None
     """Step 1's progress once the answer is made (`progress`), the one its rows were written from: an
     answer that moves no sheet still closes a Question, and a Discipline's open Questions, status and
-    total are progress's (S27-G7's review)."""
+    total are progress's (S27-G7's review). None when `answer` ran inside an outer act's block, which
+    writes the rows as it ends: its caller counts them there (`progress_counted`)."""
 
 
 def answer(
@@ -4033,21 +4034,18 @@ def answer(
     _in_scope(project_id)
     taken: list[uuid.UUID] = []
     moved: list[uuid.UUID] = []
-    counted: dict[uuid.UUID, ProgressView] = {}
     token = _ANSWER_ACTS.set(taken)
     moving = _ANSWER_MOVED.set(moved)
-    counting = _PROGRESS_COUNTED.set(counted)
     try:
-        with writing(project_id):
+        with progress_counted() as counted, writing(project_id):
             done = _answer(project_id, question_id, option, text, actor_name, seen, taken)
             if done.corrected and done.question.subject_id is not None:
                 moved.append(done.question.subject_id)
             if moved:
                 done = replace(done, moved=tuple(proposals(project_id, only=moved)))
-        # Counted as the rows were written; inside an outer act's block they are written later.
-        return replace(done, progress=counted.get(project_id) or progress(project_id))
+        # Counted as the rows were written; inside an outer act's block, none yet (its caller's).
+        return replace(done, progress=counted.get(project_id))
     finally:
-        _PROGRESS_COUNTED.reset(counting)
         _ANSWER_MOVED.reset(moving)
         _ANSWER_ACTS.reset(token)
 
@@ -4298,8 +4296,20 @@ _PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.Co
 _PROGRESS_COUNTED: contextvars.ContextVar[dict[uuid.UUID, ProgressView] | None] = contextvars.ContextVar(
     "step1_progress_counted", default=None
 )
-"""Inside `answer`: the progress `record_progress` counted as it wrote the rows, by Project, so the
-reply carries it without counting it again."""
+
+
+@contextlib.contextmanager
+def progress_counted() -> Iterator[dict[uuid.UUID, ProgressView]]:
+    """The progress `record_progress` counts as it writes the rows inside the block, by Project, so
+    an answer's reply carries the count the rows were written from, never counting it again
+    (S27-G7). The innermost block is the one filled; open it around the block whose end writes them
+    (`writing`'s, the outermost)."""
+    counted: dict[uuid.UUID, ProgressView] = {}
+    token = _PROGRESS_COUNTED.set(counted)
+    try:
+        yield counted
+    finally:
+        _PROGRESS_COUNTED.reset(token)
 
 
 @contextlib.contextmanager

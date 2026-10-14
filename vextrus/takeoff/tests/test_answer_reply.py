@@ -105,3 +105,24 @@ def test_every_reply_carries_progress_as_it_reads_once_the_answer_is_made(
     after = got(api, f"{path(qs_project.project_id)}/progress")
     assert reply["progress"] == after
     assert after != before
+
+
+def test_reading_a_held_file_anyway_replies_with_progress_as_read_after_its_job_is_queued(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The route queues the held file's read job after the answer, in its transaction: the reply's
+    progress is counted after that, as the rows are written (the review's second lens), so it says
+    a file is reading, as the progress read after it does."""
+    read(qs_project, monkeypatch, UNNUMBERED[:1])
+    held_name = "STR-OLD.dwg"
+    held = uploaded(qs_project.member, qs_project.project_id, held_name)
+    use = readers({held_name: [Sheet("S-03", "BEAM LAYOUT", ("BEAM LAYOUT",))]}, held=[held_name])
+    run_job(qs_project.member, held, monkeypatch, use)
+    api = api_as(qs_project.member)
+    [q] = open_questions(api, qs_project.project_id, "file_misread")
+
+    response = answer(api, qs_project.project_id, q["id"], "read_anyway")
+
+    assert response.status_code == 200, response.content
+    assert response.json()["changed_proposals"] == []
+    assert response.json()["progress"] == got(api, f"{path(qs_project.project_id)}/progress")
