@@ -35,6 +35,11 @@ export interface SheetViewerProps {
   buffer: ArrayBuffer
   /** The sheet's number as drawn ("S-04"): the toolbar's label and the error's subject. */
   label: string
+  /**
+   * The sheet's id, which says whether this session has opened the sheet before (4.6: only a first open
+   * says "for the first time"); a fetch again brings a new buffer for the same sheet. Else the label.
+   */
+  sheetId?: string
   /** The box the sheet opens fitted to, in paper mm (Step 1: the sheet's main view); else the paper. */
   workingView?: PaperBox | null
   /** Try again: the caller fetches the buffer again. Without it, the viewer decodes it again. */
@@ -92,6 +97,9 @@ const OUTLINE_TONE: Record<SheetOutline['tone'], string> = {
   excluded: cn('border-excluded text-excluded'),
 }
 
+/** The sheets this session has opened (by id, else label): only a sheet not among them opens "for the first time". */
+const sheetsOpened = new Set<string>()
+
 const TOOLTIP_KBD = '[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:text-ink-inverse'
 
 /** CAD-dark's ground (4.6); the canvas draws it, so it is a colour, not a token. */
@@ -103,6 +111,7 @@ const GREEK_BELOW_PX = 6
 export function SheetViewer({
   buffer,
   label,
+  sheetId,
   workingView = null,
   onRetry,
   outlines,
@@ -137,9 +146,16 @@ export function SheetViewer({
   const current = opened && opened.buffer === buffer && opened.attempt === attempt ? opened : null
   const refused = current !== null && current.sheet === null
   const sheet = current?.sheet ?? null
-  // A sheet not opened before shows its paper's outline at its fit and a line while it decodes (4.6,
-  // "First open of a sheet"); one kept decoded shows at once, with neither.
-  const firstOpen = useMemo(() => (isDecodedSheetKept(buffer) ? null : peekPaper(buffer)), [buffer])
+  // While a sheet decodes, its paper's outline at its fit; and, the first time this session opens it, the
+  // line "Opening S-04 for the first time…" (4.6, "First open of a sheet"). A sheet opened before but no
+  // longer kept decoded (dropped from the cache, or fetched again) shows the outline alone; one kept
+  // decoded shows at once, with neither.
+  const seen = sheetId ?? label
+  const paper = useMemo(() => (isDecodedSheetKept(buffer) ? null : peekPaper(buffer)), [buffer])
+  const openedBefore = useMemo(() => sheetsOpened.has(seen), [seen])
+  useEffect(() => {
+    if (sheet) sheetsOpened.add(seen)
+  }, [sheet, seen])
   // The canvas region keeps the focus when the canvas gives way to the error (paging into a sheet that
   // cannot be drawn): the canvas held it, and its leaving would drop it to the page.
   const errorRef = useRef<HTMLDivElement>(null)
@@ -186,7 +202,7 @@ export function SheetViewer({
             plot={plot}
             notes={notes}
             status={status}
-            opening={sheet ? null : firstOpen}
+            opening={sheet || !paper ? null : { paper, firstTime: !openedBefore }}
           />
         ) : (
           <div ref={errorRef} tabIndex={-1} className="focus-inset flex h-full items-start justify-center p-4 outline-none">
@@ -254,7 +270,7 @@ function SheetCanvas({
   notes?: ReactNode
   status?: ReactNode
   /** The paper of a sheet opened for the first time, while it decodes: its outline and a line (4.6). */
-  opening: { widthMm: number; heightMm: number } | null
+  opening: { paper: { widthMm: number; heightMm: number }; firstTime: boolean } | null
 }) {
   const { t } = useLingui()
   const areaRef = useRef<HTMLDivElement>(null)
@@ -589,8 +605,8 @@ function SheetCanvas({
               ) : null}
             </div>
           ) : null}
-          {opening ? <FirstOpen paper={opening} label={label} /> : null}
-          {status && !opening ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
+          {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} /> : null}
+          {status && !opening?.firstTime ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
           {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
           <div
             aria-hidden
@@ -607,7 +623,7 @@ function SheetCanvas({
  * 4.6's first open of a sheet, while it decodes: the paper's outline at its fit, a shimmer inside, and
  * top-right "Opening S-04 for the first time…".
  */
-function FirstOpen({ paper, label }: { paper: { widthMm: number; heightMm: number }; label: string }) {
+function FirstOpen({ paper, firstTime, label }: { paper: { widthMm: number; heightMm: number }; firstTime: boolean; label: string }) {
   const ref = useRef<HTMLDivElement>(null)
   // The number isolated left to right inside the line (notation), as text of the line itself.
   const sheetNumber = isolateLtr(label)
@@ -633,9 +649,11 @@ function FirstOpen({ paper, label }: { paper: { widthMm: number; heightMm: numbe
           style={{ insetInlineStart: fit.x, insetBlockStart: fit.y - paper.heightMm * fit.scale, inlineSize: paper.widthMm * fit.scale, blockSize: paper.heightMm * fit.scale }}
         />
       ) : null}
-      <div role="status" className="absolute end-3 top-2 rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">
-        <Trans>Opening {sheetNumber} for the first time…</Trans>
-      </div>
+      {firstTime ? (
+        <div role="status" className="absolute end-3 top-2 rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">
+          <Trans>Opening {sheetNumber} for the first time…</Trans>
+        </div>
+      ) : null}
     </div>
   )
 }

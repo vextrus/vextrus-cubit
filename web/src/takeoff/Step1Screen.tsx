@@ -1136,6 +1136,7 @@ function SheetMode({
               key={sheet.id}
               buffer={render.data}
               label={name}
+              sheetId={sheet.id}
               onRetry={retryRender}
               outlines={outlines}
               selected={selectedView}

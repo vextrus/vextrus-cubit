@@ -3,7 +3,8 @@
  * - paging into a sheet that cannot be drawn keeps the focus in the canvas region (it fell to the page
  *   when the canvas gave way to the error), and Tab reaches Try again;
  * - a sheet opened for the first time shows its paper's outline and "Opening S-04 for the first time…"
- *   while it decodes (m0-screens 4.6); a sheet kept decoded shows neither.
+ *   while it decodes (m0-screens 4.6); a sheet kept decoded shows neither; a sheet this session opened
+ *   before, its buffer fetched again, shows the outline alone (fix round 2: "Opened before: … no line").
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
@@ -18,13 +19,13 @@ import { SheetViewer } from './SheetViewer'
 
 vi.mock('./decoded', { spy: true })
 
-function mount(buffer: ArrayBuffer) {
+function mount(buffer: ArrayBuffer, sheetId?: string) {
   return render(
     <UiProviders>
       <SlotsProvider>
         <KeyScope level="screen" name="sheet">
           <div style={{ width: 800, height: 600, position: 'relative' }}>
-            <SheetViewer buffer={buffer} label="S-04" />
+            <SheetViewer buffer={buffer} label="S-04" sheetId={sheetId} />
           </div>
         </KeyScope>
       </SlotsProvider>
@@ -88,5 +89,26 @@ describe('the first open of a sheet (4.6)', () => {
     await screen.findByRole('group', { name: /S-04/ })
     await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 30_000 }).toBeNull()
     expect(screen.queryByText(/for the first time/)).toBeNull()
+  })
+
+  it('says "for the first time" only once a session: a sheet opened before, its buffer fetched again, shows the outline alone', async () => {
+    // Opened and drawn once.
+    const first = mount(await tiny(), 'sheet-opened-before')
+    await screen.findByRole('group', { name: /S-04/ })
+    await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 30_000 }).toBeNull()
+    first.unmount()
+    // Its decoded sheet dropped, and its buffer fetched again: a new ArrayBuffer, decoding held.
+    decodedSheets.clear()
+    vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>(() => {}))
+    mount(await tiny(), 'sheet-opened-before')
+    await screen.findByRole('group', { name: /S-04/ })
+    await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 10_000 }).not.toBeNull()
+    expect(screen.queryByText(/for the first time/)).toBeNull()
+  })
+
+  it('says it for a sheet this session has not opened, whatever the label', async () => {
+    vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>(() => {}))
+    mount(await tiny(), 'sheet-never-opened')
+    expect(await screen.findByText(/for the first time/)).toBeVisible()
   })
 })
