@@ -5,8 +5,13 @@ would hold a whole shard). A missing or malformed report is a printed problem an
 closed. Standard library only.
 
     python -m tools.lint.slow_files <junit.xml>...
+    python -m tools.lint.slow_files --write-timings .github/ci-timings.json <junit.xml>...
+
+`--write-timings` writes every file's summed seconds (not just the slowest 20) as the plan
+`python -m tools.lint.ci_shards balance` reads; rebuild it from FULL JUnit reports (S29-F1).
 """
 
+import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -51,10 +56,19 @@ def times(paths: list[str]) -> tuple[dict[str, float], list[str]]:
 
 def main(argv: list[str] | None = None) -> int:
     paths = sys.argv[1:] if argv is None else argv
+    out: Path | None = None
+    if paths[:1] == ["--write-timings"] and len(paths) > 2:
+        out, paths = Path(paths[1]), paths[2:]
     if not paths:
-        print("usage: python -m tools.lint.slow_files <junit.xml>...", file=sys.stderr)
+        print(
+            "usage: python -m tools.lint.slow_files [--write-timings <json>] <junit.xml>...",
+            file=sys.stderr,
+        )
         return 2
     totals, problems = times(paths)
+    if out is not None and not problems:
+        files = {file: round(seconds, 2) for file, seconds in sorted(totals.items())}
+        out.write_text(json.dumps({"version": 1, "files": files}, indent=1) + "\n")
     for problem in problems:
         print(problem)
     slowest = sorted(totals.items(), key=lambda item: (-item[1], item[0]))

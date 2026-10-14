@@ -141,6 +141,8 @@ jobs:
         run: node --test '.claude/hooks/**/*.test.mjs' 'scripts/factory/**/*.test.mjs' 'tools/mod/**/*.test.mjs'
       - name: CI shard check (the shards partition the suite; ci.yml reads them; flaky.txt names real tests)
         run: python3 -m tools.lint.ci_shards
+      - name: CI shard balance (no shard predicted over 270 s from .github/ci-timings.json; S29-F1)
+        run: python3 -m tools.lint.ci_shards balance
       - name: Root-only check (a test that removes permissions with chmod carries the root skipif guard)
         run: python3 -m tools.lint.root_only
       - name: Seed figures (a figure that cites a seed row of m1-screens 6.1 agrees with it)
@@ -302,18 +304,9 @@ jobs:
       - name: Migrate, as the owner
         run: uv run manage.py migrate
       - name: Tests of shard ${{ matrix.shard }}, as vextrus_app (every acceptance test runs; ADR 0041)
-        if: matrix.shard != 'rest-engine-lint'
         env:
           SHARD: ${{ matrix.shard }}
         run: uv run pytest -p tools.lint.acceptance_pytest -n 4 -m "not serial and not needs_toolchain and not needs_bwrap and not live" --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD")
-      - name: Tests of shard ${{ matrix.shard }} but tools/lint/tests, four workers
-        if: matrix.shard == 'rest-engine-lint'
-        env:
-          SHARD: ${{ matrix.shard }}
-        run: uv run pytest -p tools.lint.acceptance_pytest -n 4 -m "not serial and not needs_toolchain and not needs_bwrap and not live" --junitxml="junit-$SHARD.xml" $(python3 -m tools.lint.ci_shards args "$SHARD") --ignore=tools/lint/tests
-      - name: tools/lint/tests, serial (no -n until issue 585 is fixed)
-        if: matrix.shard == 'rest-engine-lint'
-        run: uv run pytest -p tools.lint.acceptance_pytest tools/lint/tests
       # The tests marked serial (signals, process groups) fail under xdist: each runs here, in its
       # shard, in a pytest of its own files without -n. tools.lint.ci_shards proves every serial file is named.
       - name: Serial tests of the scripts shard

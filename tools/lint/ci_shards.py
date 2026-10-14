@@ -11,6 +11,7 @@ only.
     python -m tools.lint.ci_shards matrix           # {"include":[{"shard":"<name>"},...]}, one line
     python -m tools.lint.ci_shards args <name>      # the shard's pytest arguments, one line
     python -m tools.lint.ci_shards collected [root] # what pytest collects: each id in one shard (#864)
+    python -m tools.lint.ci_shards balance [root]   # each shard predicted at 270 s or less (S29-F1)
 """
 
 import ast
@@ -28,6 +29,11 @@ from pathlib import Path, PurePath
 SHARDS = ".github/ci-shards.json"
 CI = ".github/workflows/ci.yml"
 FLAKY = ".github/flaky.txt"
+TIMINGS = ".github/ci-timings.json"
+# 6 min on main, less about 0.5 min before a shard starts and about 1 min of set-up in it (S29-F1); the
+# 4 workers are the ones every shard's test run carries (ts29f1 pins `-n 4`).
+BOUND_SECONDS = 270.0
+WORKERS = 4
 PLUGIN = "-p tools.lint.acceptance_pytest"
 MATRIX_JOB = "python"
 AGGREGATOR = "ci"
@@ -531,6 +537,58 @@ def collected_problems(root: Path) -> list[str]:
     return found
 
 
+def timings(root: Path) -> dict[str, float]:
+    """`.github/ci-timings.json`: `{"version": 1, "files": {<test file>: <seconds>}}`, as CI's JUnit
+    report gives them (`tools.lint.slow_files`). Raises `Malformed` (fails closed)."""
+    try:
+        data = json.loads((root / TIMINGS).read_text())
+    except (OSError, ValueError) as error:
+        raise Malformed(f"{TIMINGS}: unreadable ({error})") from None
+    files = data.get("files") if isinstance(data, dict) else None
+    if not isinstance(files, dict) or not files:
+        raise Malformed(f"{TIMINGS}: no files object")
+    seconds: dict[str, float] = {}
+    for path, value in files.items():
+        if isinstance(value, bool) or not isinstance(value, int | float) or value < 0:
+            raise Malformed(f"{TIMINGS}: {path!r}: {value!r} is not a number of seconds")
+        seconds[str(path)] = float(value)
+    return seconds
+
+
+def predicted(root: Path, shards: list[Shard], seconds: dict[str, float]) -> dict[str, float]:
+    """Each shard's predicted wall: the files it owns, a file marked serial in full and every other
+    divided by the workers. A file the timing file does not name counts 0."""
+    wall = {shard.name: 0.0 for shard in shards}
+    for path, value in seconds.items():
+        owners = [shard for shard in shards if shard.owns(path)]
+        if not owners:
+            continue
+        try:
+            serial = is_marked_serial((root / path).read_text(errors="replace"))
+        except OSError:
+            serial = False
+        wall[owners[0].name] += value if serial else value / WORKERS
+    return wall
+
+
+def balance_problems(root: Path) -> list[str]:
+    try:
+        shards, seconds = load(root), timings(root)
+    except Malformed as error:
+        return [str(error)]
+    found = [
+        f"{TIMINGS}: {path}: no such test file (a stale plan; rebuild it from a JUnit report)"
+        for path in sorted(seconds)
+        if not (root / path).is_file()
+    ]
+    found.extend(
+        f"shard {name!r}: predicted {value:.0f} s, over {BOUND_SECONDS:.0f} s; move files in {SHARDS}"
+        for name, value in predicted(root, shards, seconds).items()
+        if value > BOUND_SECONDS
+    )
+    return found
+
+
 def problems(root: Path) -> list[str]:
     return shard_problems(root) + workflow_problems(root) + flaky_problems(root)
 
@@ -546,6 +604,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if found else 0
     if command == "collected" and len(rest) <= 1:
         found = collected_problems(Path(rest[0]).resolve() if rest else root)
+        for problem in found:
+            print(problem)
+        return 1 if found else 0
+    if command == "balance" and len(rest) <= 1:
+        found = balance_problems(Path(rest[0]).resolve() if rest else root)
         for problem in found:
             print(problem)
         return 1 if found else 0
@@ -569,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             print(" ".join(chosen[0].args()))
             return 0
-    usage = "[check [root] | collected [root] | matrix | args <name>]"
+    usage = "[check [root] | collected [root] | balance [root] | matrix | args <name>]"
     print(f"usage: python -m tools.lint.ci_shards {usage}", file=sys.stderr)
     return 2
 
