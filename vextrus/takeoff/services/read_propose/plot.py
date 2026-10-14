@@ -27,8 +27,8 @@ tried here covers (the PDF's own, or the PDF of none), and still with no page is
 `PlotNone.NO_PAGE` naming such a PDF (its own Discipline's first, then the first added: the sheet
 list's order): the match ran, and found none. Any other sheet still holding a page this match did
 not give it lets it go (`PlotNone.NO_PDF`, its words then the set's as it stands): every sheet's
-Plot is decided again, none kept stale from an earlier read (S27-G1, #827). Another read PDF whose copy or reading fails now is
-left out, never named; this file's own fails the file.
+Plot is decided again, none kept stale from an earlier read (S27-G1, #827). Another read PDF
+whose copy or reading fails now is left out, never named; this file's own fails the file.
 What each PDF's pages name is kept for its report (`_keep_names`: 18's reason, or the sheet named);
 which pages are matched, and the page a sheet is used on, the report reads from the sheets' Plots.
 """
@@ -130,8 +130,8 @@ def _keep(
     files were read in cannot change it): the surest page (`_surest`) of the first added PDF with a
     page naming the sheet; else, for a numbered sheet of a Discipline a PDF tried here covers,
     `PlotNone.NO_PAGE` naming it; else a sheet still holding a page lets it go (`PlotNone.NO_PDF`).
-    A sheet whose kept Plot is a page of a PDF that could not be read again now is left as it was. `tried`: the sha256 of each PDF whose pages were matched here. How
-    many sheets got a page."""
+    A sheet whose kept Plot is a page of a PDF that could not be read again now is left as it was.
+    `tried`: the sha256 of each PDF whose pages were matched here. How many sheets got a page."""
     by_candidate = {id(c): s for c, s in zip(candidates, listed, strict=True)}
     by_sha = {pdf.sha256: pdf for pdf in pdfs}
     by_id = {pdf.id: pdf for pdf in pdfs}
