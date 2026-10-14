@@ -143,6 +143,51 @@ describe('continuations (Q3)', () => {
     expect(rows([sheet('S-20', run), sheet('S-21', { ...run, decision: 'confirmed' })]).length).toBe(2)
   })
 
+  it('marks only a row holding every sheet of its run as the whole run (f-1, #322)', () => {
+    const run = (n: string, over: Partial<ProposalOut> = {}) => sheet(n, { title: `WALL ${n}`, continuation: 'r6', continuation_title: 'WALL RUN', ...over })
+    const whole = step1Model(data([run('A-61'), run('A-62'), run('A-63')])).disciplines[0]!.rows
+    expect(whole.map((r) => [r.number, r.numberTo, r.wholeRun ?? false])).toEqual([['A-61', 'A-63', true]])
+    const split = step1Model(data([run('A-61', { decision: 'confirmed' }), run('A-62'), run('A-63')])).disciplines[0]!.rows
+    expect(split.map((r) => [r.number, r.numberTo, r.wholeRun ?? false])).toEqual([
+      ['A-61', null, false],
+      ['A-62', 'A-63', false],
+    ])
+    // A run of one sheet held alone is never a "run" row.
+    expect(step1Model(data([run('A-70', { continuation: 'r7' })])).disciplines[0]!.rows[0]!.wholeRun ?? false).toBe(false)
+  })
+
+  it('never spans a number another row holds: a run breaks where a sheet outside the row lies between (f-1, #322)', () => {
+    const of = { continuation: 'r8', continuation_title: 'CANOPY RUN' }
+    const ps = [sheet('A-81', of), sheet('A-82', { ...of, revision_mark: 'R1' }), sheet('A-82', of), sheet('A-84', of)]
+    const q = question('conflict', { code: 'engine.conflicts.same_number', params: { number: 'A-82' }, proposals: [ps[1]!.id, ps[2]!.id] })
+    const model = step1Model(data(ps, [q]))
+    expect(model.disciplines[0]!.rows.map((r) => [r.number, r.numberTo, r.wholeRun ?? false])).toEqual([
+      ['A-81', null, false],
+      ['A-84', null, false],
+    ])
+    // A sheet proposed to leave out is another row too: it splits its neighbours of the run.
+    const out = step1Model(data([sheet('A-91', of), sheet('A-92', { ...of, proposed_exclusion: 'superseded' }), sheet('A-93', of)]))
+    expect(out.disciplines[0]!.rows.map((r) => [r.number, r.numberTo])).toEqual([
+      ['A-91', null],
+      ['A-93', null],
+    ])
+  })
+
+  it('joins a copy decided with the sheet before it, and leaves its twin decided apart as its own row (f-1, the walk’s shape)', () => {
+    const of = { continuation: 'r85', continuation_title: 'CANOPY RUN' }
+    const ps = [
+      sheet('A-81', { ...of, decision: 'confirmed' }),
+      sheet('A-82', { ...of, decision: 'confirmed', revision_mark: 'R1' }),
+      sheet('A-82', { ...of, decision: 'excluded', excluded_reason: 'superseded' }),
+      sheet('A-84', of),
+    ]
+    expect(step1Model(data(ps)).disciplines[0]!.rows.map((r) => [r.number, r.numberTo, r.sheets.length, r.wholeRun ?? false])).toEqual([
+      ['A-81', 'A-82', 2, false],
+      ['A-82', null, 1, false],
+      ['A-84', null, 1, false],
+    ])
+  })
+
   it('counts a series over every sheet of it, decided or held, and tells no sheet in none', () => {
     const s = { title: 'PARAPET DETAILS', series: 'z1' }
     const model = step1Model(data([sheet('S-40', s), sheet('S-44', s), sheet('S-47', { ...s, decision: 'confirmed' }), sheet('S-50')]))
