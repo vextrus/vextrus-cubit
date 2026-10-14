@@ -101,7 +101,7 @@ ruling: web.save_state.lost_act_resent = never
 Session 25, the owner (13 Oct 2026, 08:20Z), on G1's items: every real defect in an M0 finish-line item fails that
 item, whether or not a critic marks it misleading.
 
-ruling: g1.item_fails_on = any real defect in the item
+Superseded on 14 Oct 2026 by the owner's ruling Q24 (below): g1.item_fails_on = any real defect in the item
 
 Session 25, the owner (13 Oct 2026, 09:36Z), on member-mark ranges: two ranges that share exactly one boundary mark (one
 member's section continued on the next sheet) continue one another.
@@ -124,3 +124,13 @@ starts until every G1-path ticket has merged.
 
 ruling: m0.last_engine_tickets.land = one-integration-run
 ruling: g1.walk_starts_after = every-g1-path-ticket-merged
+
+Session 28, the owner's ruling Q24 (14 Oct 2026; `docs/plans/factory-s29.md`: "G1: BLOCKS fail; a misleading finding
+fails only with a reproduction on that head; walk #2 is a scripted repeat; new non-BLOCK findings on walk #2 are
+filed"), superseding session 25's `g1.item_fails_on` (13 Oct 2026, 08:20Z, above). It backs S28-W1's pins (067a3df29)
+`g1.item_fail_needs`, `g1.reproduction_steps` and `g1.repeat_mode.new_non_blocks`; its other pins (`g1.verdict.turned_pass`,
+`g1.repeat_mode.args`, `g1.repeat_mode.fixes`) are the builder's contract, not a ruling.
+
+ruling: g1.item_fails_on = a BLOCKS finding or a misleading finding with reproduction steps on that head
+ruling: g1.item_fail_needs = a BLOCKS finding or a misleading finding with reproduction steps on that head
+ruling: g1.repeat_mode.new_non_blocks = OTHER

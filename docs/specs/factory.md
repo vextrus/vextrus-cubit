@@ -890,6 +890,15 @@ no third result. An agent-layer item's status is one of three: **PASS** (walked,
 words it; findings of severity OTHER may stand under it), **FAIL** (walked, and it does not hold; a finding under it
 says why) or **NOT_WALKED** (not walked: no time, a crash, a screen that would not open).
 
+- 14 Oct 2026, the owner's ruling Q24 (S28-W1): an item FAILs only on a BLOCKS finding or a misleading finding (one
+  whose display would lead a QS to a wrong quantity, a wrong sign-off or a wrong belief about what was read) with
+  reproduction steps on that head (`.private/work/walks/<sha40>/repro/<finding id>.md`, non-empty, never in an issue or
+  the verdict); every other finding is OTHER: filed as a walk issue, listed for the owner at sign-off, its item PASS.
+  `scripts/walk/verdict.py` turns a critic's FAIL to PASS only when a finding names the item and every finding naming it
+  is OTHER, and lists those ids in `agent_layer.turned_pass`. Walk #2 is a repeat, `/real-set-walk <sha40> --repeat
+  <prior sha40>`: the critics walk walk #1's items, its findings' reproduction steps and the fixes in `<prior>..<sha40>`;
+  a new finding there fails it only if it BLOCKS. Its verdict has a fresh walk's shape and place, and `ready.py` counts it.
+
 **The finish-line item codes.** `M0-FLn` is item n of "The owner's walk" in `docs/specs/M0.md`'s "Finish line" (n = 1
 to 13, the same numbering; session 11 research (private) called them FL1–FL13, and its walk steps, numbered from 4,
 are not the item numbers). The `M0-` prefix keeps them apart from the finish codes FL1 and FL2 (floor finish,
