@@ -27,6 +27,10 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
   tree's `Factory-Verify`, and not a merge of main or an empty status reply onto such a head) when the
   PR changes a file outside the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a
   green `ci` proves nothing ran. A PR of documents alone needs no heavy job and no trailer;
+- (f) a head that does not contain main's tip (the fetched `origin/main`, not GitHub's base; `git
+  merge-base --is-ancestor`), for every PR with no exemption (S27-L825, #825, the owner, 14 Oct 2026):
+  its CI ran before main moved on, so it proves nothing about the merge. `land update <PR>` brings main
+  in;
 - (d) a leak-scan hit (or no leak scan) on the PR's added lines, commit messages, file names, branch
   name, title, body or comments. A problem names the part and the count, never the text.
 
@@ -622,6 +626,20 @@ def review_problems(
     ]
 
 
+def stale_problems(head: str, repo: Path) -> list[str]:
+    """(f): the head contains main's tip, as git fetched it (main itself is not moved)."""
+    fetched = _git(
+        repo, "fetch", "-q", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"
+    )
+    if fetched.returncode != 0:
+        return [f"cannot fetch main from origin to check the head {head[:12]} contains it"]
+    if _git(repo, "merge-base", "--is-ancestor", "refs/remotes/origin/main", head).returncode == 0:
+        return []
+    return [
+        f"the head {head[:12]} does not contain main's tip: run `land update {{PR}}` and review again"
+    ]
+
+
 def ready_problems(head: str, files: list[str], head_ready: Callable[[str], bool]) -> list[str]:
     """(e): the head reads READY by CI's own rule, else the heavy jobs were skipped on it (unless the
     PR changes documents alone, which need none)."""
@@ -675,6 +693,11 @@ def main(
         head_ready = ci_gate.is_ready
     if head_ready is not None:
         found += ready_problems(review["head"], review["files"], head_ready)
+    if facts is fetch_review:
+        found += [
+            problem.replace("{PR}", args[0])
+            for problem in stale_problems(review["head"], Path.cwd() if repo is None else repo)
+        ]
     found += review_problems(
         review,
         ledger_dir=default_ledger_dir() if ledger_dir is None else ledger_dir,

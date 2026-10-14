@@ -6,8 +6,10 @@ out): it refuses (exit 3) unless the local review ledger covers the PR's head (a
 older head followed only by clean merges of main, as `merge_ready` decides), and
 GitHub does not report it CONFLICTING / DIRTY (`gh pr view --json mergeable,mergeStateStatus`; refused
 before it is marked ready, naming `land update`, with no update and no merge), then marks the PR ready,
-lands it as it stands (no update-branch request: the main ruleset no longer requires a branch to be up to
-date, the owner, 7 Oct 2026), waits for CI
+refuses (before it is marked ready, naming `land update`) a head that does not contain main's tip
+(S27-L825, #825, the owner, 14 Oct 2026: its CI ran before main moved on; the ruleset stays, only
+the lander is stricter, and it never makes the update request itself), lands it as it stands otherwise,
+waits for CI
 (read from `gh pr view --json headRefOid,statusCheckRollup`: gh 2.45 has no `gh pr checks --json`),
 reruns the failed jobs **once** and only when every failed test is listed in `.github/flaky.txt`, runs
 `merge_ready`, merges the head CI was green on (`--match-head-commit`) and pulls main. It never raises
@@ -146,6 +148,12 @@ def _land(
             "GitHub reports its branch conflicts with main: its builder must fix it "
             "(`land update` cannot resolve a conflict, and the lander does not update)"
         )
+    behind = getattr(gh, "behind_main", None)
+    if behind is not None and behind(pr, head):
+        raise Refused(
+            f"its head {head[:12]} does not contain main's tip: run `land update {pr}`, "
+            "then let CI and the review cover the new head"
+        )
     gh.mark_ready(pr)
     failed = gh.wait_ci(pr)
     if failed:
@@ -283,6 +291,18 @@ class Gh:
     def fetch(self, pr: int) -> None:
         """Read-only: main and the PR's head into the local object store (no branch moves)."""
         self._run("git", "-C", str(self.repo), "fetch", "-q", "origin", "main", f"refs/pull/{pr}/head")
+
+    def behind_main(self, pr: int, head: str) -> bool:
+        """The head does not contain main's tip (the fetched `origin/main`; `git merge-base
+        --is-ancestor`). A failed fetch is a refusal, not a pass."""
+        try:
+            self._run(
+                "git", "-C", str(self.repo), "fetch", "-q", "--no-tags", "origin",
+                "+refs/heads/main:refs/remotes/origin/main", f"refs/pull/{pr}/head",
+            )  # fmt: skip
+        except subprocess.CalledProcessError:
+            raise Refused("cannot fetch main and the pull ref from origin to compare them") from None
+        return self._git("merge-base", "--is-ancestor", "refs/remotes/origin/main", head) != 0
 
     def head_sha(self, pr: int) -> str:
         return self._run(
