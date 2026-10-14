@@ -9,6 +9,9 @@
  * And an answer that moves no sheet still closes its Question, so a Discipline's open Questions (Step 1's
  * progress) move with it: the reply carries progress, written with the Questions (S27-G7's review).
  *
+ * And the act gate opens with the reply written (the design gate of #843): while the rest of Step 1 is read
+ * behind, the bar names the next Question, not the one answered, and Enter on it answers it, never dropped.
+ *
  * The fakes are 22's and 156's (../acceptance/t22, ../acceptance/t156), with 21c's keep_latest laid over
  * 156's as ts26d7 lays it, and the server closing S-08's Question with it.
  */
@@ -142,5 +145,75 @@ describe('an answer that moves no sheet', () => {
     gate = null
 
     expect([...new Set(seen)].filter((s) => s === '1|2'), 'a state with the Questions number moved and progress not').toEqual([])
+  })
+})
+
+describe('the gate opens with the reply written', () => {
+  it('keeping S-07\'s latest copy with the Proposals list held: the bar names the next Question, not S-07\'s, and Enter on it sends its answer while the list is still held', async () => {
+    const fake = new FakeAnswers()
+    const byKind = fake.byKind()
+    fake.questions = [byKind.same_number!, byKind.check!, byKind.convention!]
+    const copies = fake.questions[0]!
+    let gate: Promise<void> | null = null
+    let release = () => undefined as void
+    let listsAnswered = 0
+    const list = new RegExp(`^/api/projects/${fake.step1.projectId}/takeoff/step1/proposals/?$`)
+    const base = fake.api.handle
+    fake.api.handle = async (request: Request) => {
+      const path = new URL(request.url, location.origin).pathname
+      const waiting = gate
+      if (request.method === 'GET' && list.test(path) && waiting) {
+        await waiting
+        listsAnswered += 1
+      }
+      const response = await base(request)
+      if (request.method === 'POST' && path.endsWith(`/questions/${copies.id}/answer`) && response.ok) {
+        const [latest, older] = copies.proposals.map((id) => fake.step1.proposals.find((p) => p.id === id)!)
+        const at = '2026-10-14T06:00:00.000Z'
+        Object.assign(latest!, { decision: 'confirmed', decided_by: fake.step1.actor, decided_at: at })
+        Object.assign(older!, { decision: 'excluded', excluded_reason: 'superseded', excluded_text: '', decided_by: fake.step1.actor, decided_at: at })
+        const reply = (await response.json()) as Record<string, unknown>
+        return new Response(JSON.stringify({ ...reply, changed_proposals: JSON.parse(JSON.stringify([latest, older])) as unknown }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return response
+    }
+    const { queryClient } = await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    gate = new Promise<void>((resolve) => (release = resolve))
+    const enterButton = () => document.querySelector<HTMLButtonElement>('button[aria-keyshortcuts="Enter"]')
+
+    for (let i = 0; i < 5 && !screen.queryByRole('region', { name: (n: string) => clean(n) === 'Question Q1' }); i++) await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q1' })
+    await userEvent.keyboard('1')
+    expect(clean(document.querySelector('button[aria-keyshortcuts="Enter"]')?.parentElement?.querySelector('.font-medium')?.textContent)).toContain('S-07')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect(bodyText(), 'the rows from the reply, the list still held').toContain('Confirmed 1 / 24, 1 excluded'))
+
+    // With the read behind still held, the bar says what Enter does now: the next Question (the fake's tags
+    // count the open ones, so it is told by its sheets, not its tag), the one focused, not S-07's answered one.
+    const barWhat = () => clean(enterButton()?.parentElement?.querySelector('.font-medium')?.textContent)
+    await waitFor(() => expect(barWhat(), 'the bar after the reply').toMatch(/^Question Q\d+: /))
+    await waitFor(() => expect(barWhat(), 'the bar still names the answered Question').not.toContain('S-07'))
+    const named = /^Question (Q\d+)/.exec(barWhat())![1]!
+    await screen.findByRole('region', { name: (n: string) => clean(n) === `Question ${named}` })
+    expect(listsAnswered, 'the held list not yet answered').toBe(0)
+
+    await userEvent.keyboard('1')
+    await waitFor(() => expect(clean(enterButton()?.textContent)).toMatch(new RegExp(`^Answer ${named}\\b`)))
+    expect(enterButton()!.disabled).toBe(false)
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted, 'Enter on the next Question, sent while the list is held').toHaveLength(2))
+    expect(fake.posted[1]!.question).not.toBe(copies.id)
+    expect(listsAnswered).toBe(0)
+
+    release()
+    gate = null
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    expect(fake.posted).toHaveLength(2)
   })
 })
