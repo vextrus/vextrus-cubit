@@ -28,7 +28,10 @@ jobs:
   shards-collected:
     # The owed check of issue #864: what pytest collects, per shard and in all, proves every test id is in
     # exactly one shard (ci_shards `check` above reads files; this reads collection). It needs the locked
-    # dependencies (the tests import them), so it is not in the harness job.
+    # dependencies (the tests import them), so it is not in the harness job. Like every job that does the
+    # locked install it runs only on a READY head (S14-C14, #466); the `ci` roll-up takes it skipped.
+    needs: changes
+    if: needs.changes.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -359,6 +362,6 @@ jobs:
             exit 1
           fi
           [ "$CHANGES" = success ] && [ "$MARKETS" = success ] && [ "$HARNESS" = success ] \
-            && [ "$SHARDS" = success ] && [ "$COLLECTED" = success ] \
+            && [ "$SHARDS" = success ] && { [ "$COLLECTED" = success ] || [ "$COLLECTED" = skipped ]; } \
             && { [ "$CHECKS" = success ] || [ "$CHECKS" = skipped ]; } \
             && { [ "$PYTHON" = success ] || [ "$PYTHON" = skipped ]; }
