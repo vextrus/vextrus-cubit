@@ -94,6 +94,33 @@ NOT_STRUCTURE_WORDS = frozenset({"lintel", "lintels", "lintel beam", "lintel bea
 architect's (`lintel_layout`), so it is never proposed out as the structural set's duplicate. A lintel
 beam is one phrase ("LINTEL BEAM", "LINTEL-BEAM" and "LINTEL & BEAM" read alike: the tokens keep no
 mark), so its "beam" is the lintel's, beside a slab or a sunshade too."""
+FRAMING_WORDS = frozenset({"framing"})
+"""Beam words (view-default.json) that name the structure only when nothing the architect frames is
+named beside them (`_structure_word`)."""
+ARCHITECTS_FRAMED_WORDS = frozenset(
+    {
+        "ceiling",
+        "ceilings",
+        "partition",
+        "partitions",
+        "aluminium",
+        "aluminum",
+        "glazing",
+        "glass",
+        "curtain",
+        "cladding",
+        "facade",
+        "gypsum",
+        "louver",
+        "louvre",
+        "door",
+        "doors",
+        "window",
+        "windows",
+    }
+)
+"""What an architect's own framing view frames ("FALSE CEILING FRAMING PLAN", "ALUMINIUM PARTITION
+FRAMING"): with one named, "framing" is not the structural set's (#844's review, round 2)."""
 PLUMBING_SUBJECTS = frozenset({"fixture", "toilet"})
 PLUMBING_PART = "plumbing"
 """The Plumbing and sanitary Part, by its Discipline's key."""
@@ -135,19 +162,33 @@ def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
 
 def _draws_structure(text: str, reading: _Reading, *, structural: bool = False) -> bool:
     """Whether the text draws what the structural set governs: its subject (`_own`) is a structure
-    subject named by a word other than a lintel's (`NOT_STRUCTURE_WORDS`), or it names the slab with
-    a structure subject so named, in any order (the slab drawn with its beams is the floor's framing).
+    subject named by a structure word (`_structure_word`), or it names the slab with a structure
+    subject so named, in any order (the slab drawn with its beams is the floor's framing).
     "BEAM LAYOUT PLAN" is, and "SLAB PLAN WITH BEAMS", "TANK SLAB PLAN WITH BEAMS" and "FRAMING
-    LAYOUT" (a beam word); "LINTEL LAYOUT PLAN" is not, nor "SLAB AND
-    LINTEL LAYOUT" (only a lintel's word), nor "STAIR AND BEAM PLAN" (its subject is the stair)."""
-    own = _own(text, reading, structural=structural)
-    if own.subject in STRUCTURE_SUBJECTS and own.words not in NOT_STRUCTURE_WORDS:
-        return True
+    LAYOUT" (a beam word); "LINTEL LAYOUT PLAN" is not, nor "SLAB AND LINTEL LAYOUT" (only a lintel's
+    word), nor "FALSE CEILING FRAMING PLAN" (the architect's framing), nor "STAIR AND BEAM PLAN" (its
+    subject is the stair)."""
     tokens = _tokens(text)
+    own = _own(text, reading, structural=structural)
     named = [(" ".join(tokens[s:e]), k) for s, e, k in reading.building.matches(tokens)]
-    return any(k == FRAMED_SUBJECT for _, k in named) and any(
-        k in STRUCTURE_SUBJECTS and w not in NOT_STRUCTURE_WORDS for w, k in named
-    )
+    structure = any(k in STRUCTURE_SUBJECTS and _structure_word(w, tokens) for w, k in named)
+    if own.subject in STRUCTURE_SUBJECTS:
+        if _structure_word(own.words, tokens):
+            return True
+        if own.words in FRAMING_WORDS and structure:
+            # The architect's framing named first hides no beam or column named after it
+            # ("CEILING FRAMING AND BEAM LAYOUT"): read by what it names, not their order.
+            return True
+    return structure and any(k == FRAMED_SUBJECT for _, k in named)
+
+
+def _structure_word(word: str, tokens: Sequence[str]) -> bool:
+    """Whether a structure subject's word, in a title of these tokens, names the structure: never a
+    lintel's (`NOT_STRUCTURE_WORDS`), and a framing word (`FRAMING_WORDS`) only when the title names
+    nothing the architect frames (`ARCHITECTS_FRAMED_WORDS`)."""
+    if word in NOT_STRUCTURE_WORDS:
+        return False
+    return word not in FRAMING_WORDS or ARCHITECTS_FRAMED_WORDS.isdisjoint(tokens)
 
 
 def _sheet_structure(sheet_title: str | None, titles: Sequence[str | None], reading: _Reading) -> bool:
