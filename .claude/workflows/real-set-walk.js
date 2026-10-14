@@ -193,7 +193,9 @@ async function gate() {
     [
       `You triage G1's agent layer for ${SHA}. The critics, the role walk and any retry returned (JSON, one report each): ${JSON.stringify(reports)}.`,
       `1. Merge their items: an item is FAIL if either says FAIL, PASS if one says PASS and neither FAIL,`,
-      `else NOT_WALKED; list all of ${ITEMS.join(', ')} once each.`,
+      `else NOT_WALKED; list all of ${ITEMS.join(', ')} once each. Every item you list FAIL needs a finding whose item`,
+      'names it (a FAIL walked item must say why): if none of the critics gave one, write one from their report, or',
+      'turn that item to PASS or NOT_WALKED and say why in your reply; the verdict command refuses (exit 2) a FAIL no finding names.',
       '2. Give each finding an id f-1, f-2 and so on; severity BLOCKS for BLOCKS_DEMO, WRONG_NUMBER or',
       'BLOCKS_SIGNING, else OTHER; misleading true for a display that misleads the QS. Drop any finding whose',
       'defect_class or screen is not in scripts/walk/sanitize.py.',
