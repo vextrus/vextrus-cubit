@@ -47,6 +47,29 @@ def test_the_list_is_read_afresh_for_each_call(tmp_path: Path, monkeypatch: pyte
     assert tiers.risk_matches(["a/x.py", "b/x.py"]) == ["b/x.py"]
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        # Read by scripts/verify.py and scripts/land.py to excuse a failed test.
+        ".github/flaky.txt",
+        ".github/flaky-root.txt",
+        # Imported by publish.py, allowlist.py and verify.py (which commit a leak-scan hit belongs to).
+        "scripts/factory/leakwhere.py",
+        # Imported by review.py (its review slots).
+        "scripts/factory/governor.py",
+        # Read by the acceptance check (tools/lint/acceptance.py, acceptance_lint.py) at the base.
+        "tools/lint/acceptance_legacy.txt",
+        "docs/rulings.md",
+        # Whether the acceptance check runs import-linter on a ticket's tree.
+        ".importlinter",
+        "setup.cfg",
+    ],
+)
+def test_the_files_the_listed_gate_code_imports_or_reads_are_risk(path: str) -> None:
+    """A PR that changes what a listed gate imports or reads gets the full panel (PR #884 round 1)."""
+    assert tiers.is_risk([path])
+
+
 @pytest.mark.parametrize("pr", [1, 12, 881])
 def test_the_sample_is_the_hash_of_the_pr_and_head(pr: int) -> None:
     expected = int(hashlib.sha256(f"{pr}:{HEAD}".encode()).hexdigest(), 16) % 5 == 0
