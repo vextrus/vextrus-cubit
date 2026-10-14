@@ -1,13 +1,8 @@
-"""Ticket S17-F1 (session 17, factory speed; verify-ci-speed.md items 4 and 5): CI's python shards run
-pytest with four workers (`-n 4`), the `rest` shard is split into three, the engine's toolchain job
-runs `-n 3`, and `tools/lint/tests` stays serial (no `-n`) until #585 is fixed. No `-n auto` anywhere
-in `.github/workflows`.
-
-What a shard runs is read at CI's boundary: the `python` job's steps in `ci.yml` (a step's `if:` on
-`matrix.shard` is evaluated per shard) with `$(python3 -m tools.lint.ci_shards args "$SHARD")` replaced
-by what that command prints for the shard, and the shard names by `tools.lint.ci_shards matrix`. So the
-workers may live in the step's text or in the shard's printed arguments, as the builder chooses. A
-pytest line whose targets are all single files (the policy-coverage step) is not a shard's test run.
+"""CI's workflows read as text, carried from S17-F1's acceptance tests (ts17f1, withdrawn by S29-F1):
+what a shard runs is read at CI's boundary, the `python` job's steps in `ci.yml` (a step's `if:` on
+`matrix.shard` evaluated per shard) with `$(python3 -m tools.lint.ci_shards args "$SHARD")` replaced by
+what that command prints for the shard, and the shard names by `tools.lint.ci_shards matrix`. A pytest
+line whose targets are all single files (the policy-coverage step) is not a shard's test run.
 Shell-level branching inside one `run:` script is not read: branch by the step's `if:`.
 """
 
@@ -16,7 +11,6 @@ import shlex
 import subprocess
 import sys
 import tomllib
-from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import cache
@@ -29,14 +23,6 @@ WORKFLOWS = ".github/workflows"
 MATRIX_JOB = "python"
 TOOLCHAIN_JOB = "toolchain"
 LINT_TESTS = "tools/lint/tests"
-# The three shards beside `rest` on main (2a63391a7), and what each runs; the ticket splits only `rest`.
-KEPT = {
-    "takeoff-acceptance": (("vextrus/takeoff/tests/acceptance",), ()),
-    "takeoff-rest": (("vextrus/takeoff",), ("vextrus/takeoff/tests/acceptance",)),
-    "seed-platform-drawings": (("vextrus/seed", "vextrus/platform", "vextrus/drawings"), ()),
-}
-# What `rest` ran on main: every test file outside these.
-REST_IGNORED = ("vextrus/takeoff", "vextrus/seed", "vextrus/platform", "vextrus/drawings")
 PYTEST = re.compile(r"(?:\buv run(?:\s+--[\w-]+)*|\s-m)\s+pytest\b")
 ARGS_CALL = re.compile(r"\$\([^()]*tools\.lint\.ci_shards\s+args\b[^()]*\)")
 SHARD_REFS = re.compile(r"\$\{\{\s*matrix\.shard\s*\}\}|\$\{SHARD\}|\$SHARD\b")
@@ -329,94 +315,3 @@ def shard_test_runs(shard: str) -> list[Invocation]:
 
 def holds_lint_tests(run: Invocation) -> bool:
     return any(under(file, LINT_TESTS) for file in run.collects())
-
-
-def new_shards() -> list[str]:
-    names = shard_names()
-    for name in KEPT:
-        assert name in names, f"the shards are {list(names)}: {name!r} is gone"
-    others = [name for name in names if name not in KEPT]
-    assert len(others) == 3, f"the shards are {list(names)}: rest is not split into three"
-    return others
-
-
-# --- the shards ------------------------------------------------------------------------------------
-
-
-def test_rest_becomes_three_shards_beside_the_three_it_had() -> None:
-    assert len(new_shards()) == 3
-    assert len(shard_names()) == 6
-
-
-def test_the_three_new_shards_run_every_test_file_rest_ran_exactly_once() -> None:
-    rest = selected((), REST_IGNORED)
-    counted: Counter[str] = Counter()
-    for shard in new_shards():
-        ran: Counter[str] = Counter()
-        for run in shard_test_runs(shard):
-            ran.update(run.collects())
-        assert ran, f"shard {shard!r} runs no test file"
-        counted.update(ran)
-    dropped = sorted(rest - set(counted))
-    twice = sorted(file for file, times in counted.items() if times > 1)
-    strays = sorted(set(counted) - rest)
-    assert not dropped, f"rest's test files no new shard runs: {dropped[:10]}"
-    assert not twice, f"test files run more than once: {twice[:10]}"
-    assert not strays, f"test files rest did not run, run by a new shard: {strays[:10]}"
-
-
-def test_the_three_shards_beside_rest_still_run_what_they_ran() -> None:
-    for shard, (paths, ignore) in KEPT.items():
-        ran: set[str] = set()
-        for run in shard_test_runs(shard):
-            ran |= run.collects()
-        assert ran == selected(paths, ignore), f"shard {shard!r} runs other files than on main"
-
-
-# --- the workers -----------------------------------------------------------------------------------
-
-
-def test_every_shards_test_run_carries_n_4_but_the_one_holding_tools_lint_tests() -> None:
-    checked = 0
-    for shard in shard_names():
-        for run in shard_test_runs(shard):
-            if holds_lint_tests(run):
-                continue
-            checked += 1
-            workers = run.workers()
-            assert workers == ["4"], (
-                f"shard {shard!r}: pytest {' '.join(run.argv)} carries -n {workers or 'none'}, not -n 4"
-            )
-    assert checked, "no shard's test run was found in the python job"
-
-
-def test_the_run_holding_tools_lint_tests_carries_no_n() -> None:
-    holding = [
-        (shard, run) for shard in shard_names() for run in shard_runs(shard) if holds_lint_tests(run)
-    ]
-    assert holding, f"no shard runs {LINT_TESTS}"
-    for shard, run in holding:
-        assert run.workers() == [], (
-            f"shard {shard!r}: pytest {' '.join(run.argv)} runs {LINT_TESTS} with -n (#585 is open)"
-        )
-
-
-def test_the_engine_toolchain_job_runs_pytest_with_n_3() -> None:
-    job = job_lines((ROOT / ENGINE).read_text(), TOOLCHAIN_JOB)
-    runs = [run for item in steps(job) for run in invocations(item.run)]
-    assert runs, f"{ENGINE}: the {TOOLCHAIN_JOB} job runs no pytest"
-    for run in runs:
-        workers = run.workers()
-        assert workers == ["3"], (
-            f"{ENGINE} {TOOLCHAIN_JOB}: pytest {' '.join(run.argv)} carries -n"
-            f" {workers or 'none'}, not -n 3"
-        )
-
-
-def test_no_workflow_asks_for_n_auto() -> None:
-    files = sorted([*(ROOT / WORKFLOWS).glob("*.yml"), *(ROOT / WORKFLOWS).glob("*.yaml")])
-    assert files
-    for path in files:
-        for number, line in enumerate(path.read_text().splitlines(), start=1):
-            code = "" if line.lstrip().startswith("#") else re.sub(r"\s#\s.*$", "", line)
-            assert not N_AUTO.search(code), f"{path.relative_to(ROOT)}:{number}: {line.strip()}"
