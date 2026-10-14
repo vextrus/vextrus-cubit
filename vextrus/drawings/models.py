@@ -110,6 +110,9 @@ class DrawingSet(models.Model):
         db_index=False,
     )
     created_at = models.DateTimeField(default=timezone.now, editable=False)
+    plot_job_id = models.BigIntegerField(null=True, blank=True)
+    """The set's Plot match queued again after a read file's Discipline changed (S27-G1), while it
+    is to run: its PDFs' rows wait for it (`drawing_files._read`). Cleared by the match it names."""
 
     class Meta:
         constraints: ClassVar = [

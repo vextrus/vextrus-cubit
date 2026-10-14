@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { englishMessages } from '@/i18n/catalogues'
-import { disciplineName, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
+import { disciplineName, isPolled, pdfSectionOf, pdfSections, progressShare, rowActs, saidOnce, tableOrder, type FileOut } from './data'
 
 const msg = (code: string, params: Record<string, string | number> = {}) => ({ code, params })
 
@@ -26,6 +26,7 @@ function f(over: Partial<FileOut>): FileOut {
     added_by_name: 'Nusrat Jahan',
     added_by_vextrus: false,
     marked_for_vextrus: false,
+    plot_pending: false,
     ...over,
   }
 }
@@ -151,5 +152,13 @@ describe('every PDF report code has its section on purpose', () => {
     expect(codes.length).toBeGreaterThan(0)
     // A new code fails here until it is given its section in pdfSectionOf and in this table.
     expect(Object.fromEntries(codes.map((c) => [c, pdfSectionOf(c)]))).toEqual(Object.fromEntries(codes.map((c) => [c, placed[c.slice('engine.pdf_report.'.length)]])))
+  })
+})
+
+describe('isPolled', () => {
+  it('reads the list again while a read PDF waits for its Plot to be matched again (S27-G1)', () => {
+    expect(isPolled(f({ format: 'pdf', state: 'read', plot_pending: true }))).toBe(true)
+    expect(isPolled(f({ format: 'pdf', state: 'read', plot_pending: false }))).toBe(false)
+    expect(isPolled(f({ state: 'reading' }))).toBe(true)
   })
 })
