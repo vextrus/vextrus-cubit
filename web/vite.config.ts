@@ -56,12 +56,16 @@ function fromEnv(name: string): string | undefined {
 }
 
 /**
- * `VEXTRUS_TIME_SCALE`, the machine's slowdown factor (scripts/verify.py's `time_scale`), or 1; a
- * value that is not a number of at least 1 is 1, as `vextrus.testing.timing` keeps its margin.
+ * A project's timeouts scaled by `VEXTRUS_TIME_SCALE`, the machine's slowdown factor the fast verify
+ * sets (scripts/verify.py's `time_scale`; S29-F2a): Vitest's own defaults for the project's kind
+ * (node 5 s and 10 s, browser 15 s and 30 s) times the factor. Unset, or not a number above 1, it sets
+ * nothing and Vitest's defaults stand, so CI's runs are unchanged.
  */
-function timeScale(): number {
-  const value = Number(fromEnv('VEXTRUS_TIME_SCALE'))
-  return Number.isFinite(value) && value >= 1 ? value : 1
+function scaledTimeouts(kind: 'node' | 'browser'): { testTimeout?: number; hookTimeout?: number } {
+  const factor = Number(fromEnv('VEXTRUS_TIME_SCALE'))
+  if (!(Number.isFinite(factor) && factor > 1)) return {}
+  const [test, hook] = kind === 'node' ? [5_000, 10_000] : [15_000, 30_000]
+  return { testTimeout: Math.round(test * factor), hookTimeout: Math.round(hook * factor) }
 }
 
 /**
@@ -181,9 +185,6 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
     },
     test: {
-      // Vitest's 5 s default, times the machine's slowdown the fast verify sets (S29-F2a).
-      testTimeout: 5000 * timeScale(),
-      hookTimeout: 10000 * timeScale(),
       // Each failing test's name is kept in test-results/failures.log (issue #271).
       // Vitest's own first reporter ('minimal' in an agent session, else 'default') stays first.
       reporters: [configDefaults.reporters[0] ?? 'default', ...(process.env.GITHUB_ACTIONS === 'true' ? ['github-actions'] : []), './scripts/failure-reporter.mjs'],
@@ -192,6 +193,7 @@ export default defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: 'node',
+            ...scaledTimeouts('node'),
             environment: 'node',
             include: ['scripts/**/*.test.ts', 'eslint/**/*.test.ts', 'src/**/*.node.test.ts'],
           },
@@ -200,6 +202,7 @@ export default defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: 'browser',
+            ...scaledTimeouts('browser'),
             ...api(0),
             include: ['src/**/*.test.tsx', 'src/**/*.browser.test.ts'],
             exclude: ['src/**/*.tz.test.tsx'],
@@ -219,6 +222,7 @@ export default defineConfig(({ mode }) => {
           extends: true as const,
           test: {
             name: `browser ${timezoneId}`,
+            ...scaledTimeouts('browser'),
             ...api(index + 1),
             include: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],

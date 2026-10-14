@@ -324,6 +324,10 @@ def fast_targets(python: list[str], root: Path) -> tuple[list[str], list[str]]:
                 notes.append(f"fast: nothing imports {path}: runs scripts")
         else:
             notes.append(f"not run in fast: the whole suite for {path} (CI runs it)")
+    # A deleted test file or module is no target (pytest exits 4 on a missing path); its importers are.
+    for gone in sorted(t for t in targets if not (root / t).exists()):
+        targets.discard(gone)
+        notes.append(f"fast: {gone} is not on the tree: its importers stand for it")
     # A file or folder inside a selected folder is run by it.
     kept = sorted(t for t in targets if not any(t != o and t.startswith(f"{o}/") for o in targets))
     return kept, notes
@@ -459,8 +463,9 @@ def plan_with_notes(
         files = [p for p in python if p.endswith((".py", ".pyi")) and (root / p).is_file()]
         # A changed configuration (pyproject.toml, uv.lock, .importlinter) changes what they check.
         whole = any(not p.endswith((".py", ".pyi")) for p in python)
-        named: tuple[str, ...] = (".",) if whole else tuple(files)
-        if named:
+        # Files named on the command line skip ruff's excludes (migrations' format) only with this flag.
+        named: tuple[str, ...] = (".",) if whole else ("--force-exclude", *files)
+        if whole or files:
             checks += [
                 Check("ruff", ("uv", "run", "ruff", "check", *named)),
                 Check("ruff-format", ("uv", "run", "ruff", "format", "--check", *named)),

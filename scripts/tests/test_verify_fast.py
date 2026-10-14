@@ -3,6 +3,8 @@ time scale, the web selection, and the timed-out re-run of a fast web-test."""
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -95,10 +97,39 @@ def test_fast_ruff_and_mypy_name_the_changed_files_that_exist(tmp_path: Path) ->
     root = write(tmp_path, {"vextrus/m/__init__.py": "", "vextrus/m/a.py": "X = 1\n"})
     checks = verify.plan(["vextrus/m/a.py", "vextrus/m/gone.py"], root=root, fast=True, scale=1.0)
     argv = {c.name: c.argv for c in checks}
-    assert argv["ruff"] == ("uv", "run", "ruff", "check", "vextrus/m/a.py")
-    assert argv["ruff-format"] == ("uv", "run", "ruff", "format", "--check", "vextrus/m/a.py")
+    assert argv["ruff"] == ("uv", "run", "ruff", "check", "--force-exclude", "vextrus/m/a.py")
+    assert argv["ruff-format"] == (
+        *("uv", "run", "ruff", "format", "--check", "--force-exclude"),
+        "vextrus/m/a.py",
+    )
     assert argv["mypy"] == ("uv", "run", "mypy", "vextrus/m/a.py")
     assert argv["lint-imports"] == ("uv", "run", "lint-imports")
+
+
+def test_named_files_keep_ruffs_excludes(tmp_path: Path) -> None:
+    """The format exclude of Django's migrations holds for a migration named on the command line."""
+    migration = "vextrus/m/migrations/0001_initial.py"
+    root = write(
+        tmp_path,
+        {
+            "pyproject.toml": '[tool.ruff.format]\nexclude = ["vextrus/*/migrations/*"]\n',
+            migration: "x  =  {'a':1}\n",
+        },
+    )
+    [check] = [
+        c for c in verify.plan([migration], root=root, fast=True, scale=1.0) if c.name == "ruff-format"
+    ]
+    assert check.argv[:3] == ("uv", "run", "ruff")
+    argv = [sys.executable, "-m", *check.argv[2:]]  # this venv's ruff, outside the invented checkout
+    done = subprocess.run(argv, cwd=root, capture_output=True, text=True, check=False)
+    assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_a_deleted_test_file_is_no_pytest_target(tmp_path: Path) -> None:
+    root = write(tmp_path, {"vextrus/m/__init__.py": "", "vextrus/m/a.py": ""})
+    targets, notes = verify.fast_targets(["vextrus/m/tests/test_gone.py", "vextrus/m/a.py"], root)
+    assert targets == ["vextrus/m"]
+    assert notes == ["fast: vextrus/m/tests/test_gone.py is not on the tree: its importers stand for it"]
 
 
 def test_fast_ruff_and_mypy_run_whole_when_the_configuration_changed(tmp_path: Path) -> None:
