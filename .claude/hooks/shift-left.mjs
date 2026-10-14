@@ -13,10 +13,15 @@
 // hit's text; it allows with no output. With no leak corpus (a cloud session) it allows, saying on stderr that the
 // scan was skipped; publish and CI still scan. A check that cannot start or overruns its time is not claimed: the call
 // is allowed with one stderr line saying so (this hook is the early warning; the push, CI and merge gates stay).
+// It reads the call as the shell would, as far as a reader can: `cd` per subshell, `git -C`, `env -C`, wrappers before
+// git, substitutions, heredoc messages, git's abbreviated options, aliases. A call it cannot read plainly (git named at
+// run time, an alias that commits, GIT_DIR set, staging under xargs) is refused with the rule, never guessed. Not
+// judged (an early check, not the gate; the push, CI and merge are): a commit another program runs (`bash -c`, `eval`,
+// `source`, a script), and what the scanner itself does not see.
 // The checks are found by this file's own location (VEXTRUS_PYTHON, else that checkout's .venv, else python3, run
 // with -P so the target folder's own `tools/` never shadows them); VEXTRUS_LEAKSCAN_HOME and _ALLOWLIST pass through.
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,7 +44,7 @@ const CAT_HEREDOC = /^\$\(\s*cat\s+<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[ \t]
 
 /** The end of a `$(` substitution opened at `i` (the index after its `)`), skipping quotes and nested ones. */
 function substitutionEnd(text, i) {
-  let depth = 0;
+  let depth = 1;
   for (let k = i + 1; k < text.length; k += 1) {
     const c = text[k];
     if (c === "\\") k += 1;
@@ -50,17 +55,26 @@ function substitutionEnd(text, i) {
   return text.length;
 }
 
-/** The call as simple commands: `{ words, heredoc, redirected, sub }` each, split at `&& || ; | & ( )` and line
- * breaks; `sub` marks one whose `cd` cannot last (in a subshell, a pipeline or the background). */
-export function commands(text) {
+/** The call as simple commands in the order they run: `{ words, heredoc, redirected, scope, detached }` each, split at
+ * `&& || ; | & ( )` and line breaks. `scope` names the subshell a command runs in (`""` the call's own shell; a `( )`
+ * group or a `$( )`/backquote substitution opens one, whose commands come before the command holding it), so a `cd`
+ * lasts only in its scope; `detached` marks a pipeline member or a background command, whose `cd` lasts nowhere. */
+export function commands(text, prefix = "") {
   const found = [];
-  const fresh = () => ({ words: [], heredoc: null, redirected: false, sub: false });
+  const fresh = () => ({ words: [], heredoc: null, redirected: false, scope: "", detached: false });
   let current = fresh();
   let w = word();
   let pending = [];
   let skipNext = false;
-  let depth = 0;
+  const open = [];
+  let opened = 0;
   let piped = false;
+  const scope = () => [prefix, ...open].filter(Boolean).join("/");
+  const nested = (inner) => {
+    w.dyn = true;
+    w.any = true;
+    found.push(...commands(inner, `${scope()}${scope() ? "/" : ""}${prefix}s${opened++}`));
+  };
   const endWord = () => {
     if (w.any) {
       // Brace expansion ({a,b}, {1..3}) makes words the call alone knows: never replayed as written.
@@ -70,9 +84,10 @@ export function commands(text) {
     }
     w = word();
   };
-  const endCommand = (sub = false) => {
+  const endCommand = (detached = false) => {
     endWord();
-    current.sub ||= sub || piped || depth > 0;
+    current.scope = scope();
+    current.detached ||= detached || piped;
     piped = false;
     if (current.words.length > 0) found.push(current);
     current = fresh();
@@ -87,7 +102,11 @@ export function commands(text) {
     }
     w.dyn = true;
     w.any = true;
-    if (text[i + 1] === "(") return substitutionEnd(text, i + 1);
+    if (text[i + 1] === "(") {
+      const end = substitutionEnd(text, i + 1);
+      nested(text.slice(i + 2, end - 1));
+      return end;
+    }
     if (text[i + 1] === "{") return text.indexOf("}", i) === -1 ? text.length : text.indexOf("}", i) + 1;
     const name = text.slice(i + 1).match(/^(?:[A-Za-z_][A-Za-z0-9_]*|[0-9@*#?$!-])/);
     return i + 1 + (name ? name[0].length : 0);
@@ -132,8 +151,8 @@ export function commands(text) {
           i += 2;
         } else if (text[i] === "$" && /[A-Za-z_({0-9@*#?!-]/.test(text[i + 1] ?? "")) i = dollar(i);
         else if (text[i] === "`") {
-          w.dyn = true;
           const end = text.indexOf("`", i + 1);
+          nested(text.slice(i + 1, end === -1 ? text.length : end));
           i = end === -1 ? text.length : end + 1;
         } else {
           w.v += text[i];
@@ -144,9 +163,8 @@ export function commands(text) {
     } else if (c === "$" && /[A-Za-z_({0-9@*#?!'-]/.test(text[i + 1] ?? "")) {
       i = text[i + 1] === "'" ? ((w.dyn = true), (w.any = true), text.indexOf("'", i + 2) === -1 ? text.length : text.indexOf("'", i + 2) + 1) : dollar(i);
     } else if (c === "`") {
-      w.dyn = true;
-      w.any = true;
       const end = text.indexOf("`", i + 1);
+      nested(text.slice(i + 1, end === -1 ? text.length : end));
       i = end === -1 ? text.length : end + 1;
     } else if (c === "<" && text[i + 1] === "<" && text[i + 2] !== "<") {
       endWord();
@@ -176,11 +194,11 @@ export function commands(text) {
       i += 1;
     } else if (c === "(") {
       endCommand();
-      depth += 1;
+      open.push(`${prefix}p${opened++}`);
       i += 1;
     } else if (c === ")") {
       endCommand();
-      depth = Math.max(0, depth - 1);
+      open.pop();
       i += 1;
     } else if (c === ";") {
       endCommand();
@@ -199,19 +217,26 @@ export function commands(text) {
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const LEADING = new Set(["!", "{", "}", "if", "then", "elif", "else", "do", "while", "until", "time", "command", "builtin", "exec", "nohup"]);
 
-/** The words a command runs: leading reserved words, wrappers and assignments dropped. */
+/** The words a command runs, leading reserved words, wrappers and assignments dropped; `.chdir`: `env -C`'s folder. */
 function program(words) {
   let k = 0;
+  let chdir = null;
   while (k < words.length) {
     const { v, dyn } = words[k];
     if (dyn) break;
     if (LEADING.has(v) || ASSIGNMENT.test(v)) k += 1;
     else if (v === "env") {
       k += 1;
-      while (k < words.length && !words[k].dyn && (ASSIGNMENT.test(words[k].v) || words[k].v.startsWith("-"))) k += 1;
+      while (k < words.length && (ASSIGNMENT.test(words[k].v) || words[k].v.startsWith("-"))) {
+        if (words[k].v === "-C" || words[k].v === "--chdir") chdir = words[(k += 1)] ?? { v: "", dyn: true };
+        else if (words[k].v.startsWith("--chdir=")) chdir = { v: words[k].v.slice(8), dyn: words[k].dyn };
+        k += 1;
+      }
     } else break;
   }
-  return words.slice(k);
+  const ws = words.slice(k);
+  ws.chdir = chdir;
+  return ws;
 }
 
 // Git's options before the verb that take a value in the next word.
@@ -301,7 +326,16 @@ function lines(done, check, prefix = "") {
   return { note: `${check} not run (${done.timedOut ? "it did not answer in time" : `exit ${done.status}`}); CI still runs it` };
 }
 
-const ADD_INTERACTIVE = /^(?:-[A-Za-z]*[pie][A-Za-z]*|--patch|--interactive|--edit|--pathspec-from-file(?:=.*)?)$/;
+const ADD_INTERACTIVE = /^-[A-Za-z]*[pie][A-Za-z]*$/;
+const ADD_INTERACTIVE_LONG = ["--patch", "--interactive", "--edit", "--pathspec-from-file"];
+// git takes any unique prefix of a long option (`--mess` for `--message`): read each as git would.
+const COMMIT_LONG = ["--message", "--file", "--reuse-message", "--reedit-message", "--trailer", "--fixup", "--squash", "--author", "--date", "--cleanup", "--template", "--pathspec-from-file", "--pathspec-file-nul", "--gpg-sign", "--no-gpg-sign", "--untracked-files", "--all", "--amend", "--no-amend", "--include", "--only", "--allow-empty", "--allow-empty-message", "--no-verify", "--verify", "--signoff", "--no-signoff", "--edit", "--no-edit", "--dry-run", "--short", "--branch", "--porcelain", "--long", "--null", "--quiet", "--verbose", "--status", "--no-status", "--reset-author", "--interactive", "--patch", "--no-post-rewrite", "--ahead-behind"];
+function longName(name, known) {
+  if (known.includes(name)) return name;
+  const matches = known.filter((option) => option.startsWith(name));
+  return matches.length === 1 ? matches[0] : name;
+}
+const addInteractive = (v) => ADD_INTERACTIVE.test(v) || (v.startsWith("--") && v.length > 3 && ADD_INTERACTIVE_LONG.includes(longName(v.split("=")[0], ADD_INTERACTIVE_LONG)));
 
 /** The commit's message, its replays and its base, read from `git commit`'s arguments. */
 function commitOf(g, cwd, heredoc) {
@@ -329,7 +363,8 @@ function commitOf(g, cwd, heredoc) {
     }
     if (!v.startsWith("-") || v === "-") paths.push(g.args[k]);
     else if (v.startsWith("--")) {
-      const [name, inline] = v.includes("=") ? [v.slice(0, v.indexOf("=")), { v: v.slice(v.indexOf("=") + 1), dyn }] : [v, null];
+      const [given, inline] = v.includes("=") ? [v.slice(0, v.indexOf("=")), { v: v.slice(v.indexOf("=") + 1), dyn }] : [v, null];
+      const name = longName(given, COMMIT_LONG);
       const arg = () => inline ?? take();
       if (name === "--message") parts.push(arg());
       else if (name === "--file") file = arg();
@@ -454,43 +489,67 @@ const HARMLESS = new Set(["true", "pwd", "ls", "date", "echo", "printf", "set", 
 const GIT_ENV = /^GIT_(?:DIR|WORK_TREE|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|COMMON_DIR|NAMESPACE|CEILING_DIRECTORIES|CONFIG\w*)=/;
 const GIT_PLACE = /^--(?:git-dir|work-tree|namespace|config-env)(?:=|$)/;
 const TOOLS = new Set(["git", "gh"]);
+// Wrappers that append words of their own to the command they run: its operands are never what is written.
+const APPENDS = /^(?:xargs|find|parallel)$/;
+const AUTOCORRECT_OFF = /^(?:0|false|no|off|never|prompt|show)?$/i;
+const isDirectory = (path) => {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 /** The reasons to deny the call, and the notes for stderr. */
 export async function verdict(command, startCwd) {
   const reasons = [];
   const notes = [];
-  let cwd = startCwd;
+  const folders = new Map([["", startCwd]]); // each scope's folder after its cd's
+  const folderOf = (scope) => {
+    for (let at = scope; ; at = at.includes("/") ? at.slice(0, at.lastIndexOf("/")) : "") {
+      if (folders.has(at)) return folders.get(at);
+      if (at === "") return startCwd;
+    }
+  };
   let changed = false; // something earlier in the call may change the index or the files a replay reads
   let gitEnv = false; // git's environment set earlier in the call
   const replays = [];
-  for (const { words, heredoc, redirected, sub } of commands(command)) {
+  for (const { words, heredoc, redirected, scope, detached } of commands(command)) {
     const setsGitEnv = words.some((w) => !w.dyn && GIT_ENV.test(w.v));
+    if (setsGitEnv && !detached) gitEnv = true;
     const ws = program(words);
-    if (ws.length === 0 || (!ws[0].dyn && ["export", "declare", "typeset", "readonly"].includes(ws[0].v))) {
-      if (setsGitEnv && !sub) gitEnv = true;
-      if (ws.length === 0) continue;
-    }
+    if (ws.length === 0) continue;
+    let cwd = folderOf(scope);
     if (!ws[0].dyn && ws[0].v === "cd") {
-      // A cd lasts only in the call's own shell, and only when its folder exists (else the shell stays put).
-      const target = ws[1];
-      if (sub) continue;
-      if (target === undefined || target.dyn || target.v === "-") cwd = null;
+      // A cd lasts in its own scope only, and only when its folder is a folder (else the shell stays put).
+      let t = 1;
+      while (ws[t] && !ws[t].dyn && /^(?:-[LPe@]+|--)$/.test(ws[t].v)) t += 1;
+      const target = ws[t];
+      if (detached) continue;
+      if (target === undefined || target.dyn || target.v === "-") folders.set(scope, null);
       else if (cwd !== null) {
         const next = resolve(cwd, target.v.replace(/^~(?=\/|$)/, process.env.HOME ?? "~"));
-        if (existsSync(next)) cwd = next;
+        if (isDirectory(next)) folders.set(scope, next);
       }
       continue;
     }
+    if (ws.chdir) cwd = ws.chdir.dyn || cwd === null ? null : resolve(cwd, ws.chdir.v);
     // A wrapper (nice, timeout, xargs ...) runs git or gh as a later word: judge it wherever it stands.
     const at = ws.findIndex((w) => !w.dyn && TOOLS.has(basename(w.v)));
     if (at === -1) {
-      if (!(ws.every((w) => !w.dyn) && HARMLESS.has(ws[0].v) && !redirected)) changed = true;
+      if (ws[0].dyn && ws.slice(1).some((w) => !w.dyn && w.v === "commit")) {
+        reasons.push("the shift-left checks cannot read a command named at run time: spell `git commit` out.");
+      } else if (!(ws.every((w) => !w.dyn) && HARMLESS.has(ws[0].v) && !redirected)) changed = true;
       continue;
     }
     const tool = ws.slice(at);
+    const appended = ws.slice(0, at).some((w) => APPENDS.test(basename(w.v)) || w.v === "-exec" || w.v === "-execdir");
     const g = gitOf(tool);
     const gh = basename(tool[0].v) === "gh" && tool[1]?.v === "pr" && tool[2]?.v === "create";
-    if (basename(tool[0].v) === "gh" && !gh) continue;
+    if (basename(tool[0].v) === "gh" && !gh) {
+      changed = true; // gh pr checkout and its kind change the tree
+      continue;
+    }
     if (gh) {
       if (cwd === null) reasons.push("the Cut check cannot read this call's folder: run `gh pr create` from a folder spelled out.");
       else if (changed) reasons.push("the Cut check reads the body file before the call runs: run `gh pr create` alone in its call.");
@@ -509,18 +568,31 @@ export async function verdict(command, startCwd) {
     for (const folder of g.folders) here = folder.dyn || here === null ? null : resolve(here, folder.v);
     let verb = g.verb.v;
     const placed = gitEnv || setsGitEnv || g.globals.some((o) => GIT_PLACE.test(o.v));
-    if (!KNOWN_GIT.has(verb) && here !== null) {
-      // An alias (in the config or `-c alias.x=...`) that commits or runs a shell is a commit the hook cannot read.
-      const alias = gitOut(here, ...g.globals.map((o) => o.v), "config", "--get", `alias.${verb}`);
-      if (alias !== null && /^\s*!|(?:^|\s)commit(?:\s|$)/.test(alias)) verb = "commit-alias";
-    }
-    if (verb === "commit-alias") {
-      reasons.push("the shift-left checks do not follow a git alias that commits or runs a shell: run `git commit` itself.");
-      continue;
+    if (!KNOWN_GIT.has(verb)) {
+      // An alias (in the config or `-c alias.x=...`, followed through chains) that commits or runs a shell, or an
+      // unknown verb git may autocorrect, is a commit the hook cannot read.
+      if (here === null) {
+        reasons.push(`the shift-left checks cannot read this call's folder to resolve \`git ${verb}\`: spell the folder out.`);
+        continue;
+      }
+      const config = (key) => gitOut(here, ...g.globals.map((o) => o.v), "config", "--get", key);
+      let name = verb;
+      let expands = null;
+      for (let hop = 0; hop < 8 && !KNOWN_GIT.has(name); hop += 1) {
+        const alias = config(`alias.${name}`);
+        if (alias === null) break;
+        expands = alias;
+        if (/^\s*!/.test(alias)) break;
+        name = alias.trim().split(/\s+/)[0];
+      }
+      if (expands !== null ? /^\s*!/.test(expands) || name === "commit" : !AUTOCORRECT_OFF.test((config("help.autocorrect") ?? "").trim())) {
+        reasons.push("the shift-left checks do not follow a git alias that commits or runs a shell, nor a verb git may autocorrect: run `git commit` itself.");
+        continue;
+      }
     }
     if (verb === "add" || verb === "rm") {
       const args = g.args;
-      if (here === null || changed || args.some((a) => a.dyn || (verb === "add" && ADD_INTERACTIVE.test(a.v)))) changed = true;
+      if (here === null || changed || appended || args.some((a) => a.dyn || (verb === "add" && addInteractive(a.v)))) changed = true;
       else replays.push({ cwd: here, globals: g.globals, args: verb === "rm" ? ["rm", "--cached", "-q", ...args.map((a) => a.v)] : ["add", ...args.map((a) => a.v)] });
       continue;
     }
@@ -532,7 +604,7 @@ export async function verdict(command, startCwd) {
       reasons.push("the shift-left checks judge the repository and index the call names plainly: run `git commit` without GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE or --git-dir set in the call.");
       continue;
     }
-    if (here === null || changed || g.globals.some((o) => o.dyn)) {
+    if (here === null || changed || appended || g.globals.some((o) => o.dyn)) {
       reasons.push(
         "the shift-left checks judge the staged tree before the call runs, so run `git commit` alone in its call, or after only `cd` and `git add` (spelled out): something earlier in this call could change what it commits.",
       );

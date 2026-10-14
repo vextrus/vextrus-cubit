@@ -99,3 +99,7 @@ for (const [message, quoted] of [
     assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
   });
 }
+
+test("\"not yet ready for your walk\" is negated: allowed without running G1", () => {
+  for (const message of ["The PR is not yet ready for your walk.", "It isn't yet ready for your walk."]) assert.equal(stop(project(1), {}, message), "allowed", message);
+});

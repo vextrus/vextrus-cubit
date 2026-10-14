@@ -247,3 +247,49 @@ test("gh pr create naming a body file that does not exist yet is denied by the C
   assert.match(reason(hook(w, "gh pr create --title x --body-file later.md")), /Cut check cannot read later\.md/);
   assert.match(reason(hook(w, 'echo "## Cut" > b.md && gh pr create --title x --body-file b.md')), /alone in its call/);
 });
+
+// The refuter's second round and review_self's (S29-F2b).
+test("a cd inside a subshell holds for the commit in that subshell, and env -C moves the commit", () => {
+  for (const make of [(w) => `(cd ${w.repo} && git commit -m x)`, (w) => `cd -- ${w.repo} && git commit -m x`, (w) => `cd -P ${w.repo} && git commit -m x`, (w) => `env -C ${w.repo} git commit -m x`]) {
+    const w = leaky();
+    assert.match(reason(hook(w, make(w), { cwd: world().repo })), /leak scan/, make(w));
+  }
+});
+
+test("a cd to a file does not move the commit", () => {
+  const w = leaky();
+  assert.match(reason(hook(w, "cd docs/leak.md; git commit -m x")), /leak scan/);
+});
+
+test("a commit inside a command substitution is judged", () => {
+  for (const command of ["echo $(git commit -m x)", "x=$(git commit -m x)", "echo `git commit -m x`", "echo \"$(git commit -m 'x')\""]) {
+    assert.match(reason(hook(leaky(), command)), /leak scan/, command);
+  }
+});
+
+test("git named at run time before a literal commit is refused", () => {
+  for (const command of ["G=git; $G commit -m x", "$(which git) commit -m x"]) {
+    assert.match(reason(hook(leaky(), command)), /named at run time/, command);
+  }
+});
+
+test("an alias chain that ends in commit, and a verb git may autocorrect, are refused", () => {
+  assert.match(reason(hook(leaky(), "git -c alias.a=b -c alias.b=commit a -m x")), /alias/);
+  assert.match(reason(hook(leaky(), "git -c help.autocorrect=immediate comit -m x")), /autocorrect/);
+  allowed(hook(world(), "git -c alias.st=status st"));
+});
+
+test("an abbreviated long option is read as git reads it", () => {
+  const w = world();
+  assert.ok(reason(hook(w, `git commit -m ok --mess="for ${ZEBRA}"`)).includes("message:"));
+  assert.ok(reason(hook(w, `git commit -m ok --trai="Key: ${ZEBRA}"`)).includes("message:"));
+  write(w.repo, { "docs/leak.md": `${ZEBRA}\n`, "list.txt": "docs/leak.md\n" });
+  assert.match(reason(hook(w, "git commit --pathspec-from=list.txt -m x")), /pathspecs/);
+});
+
+test("staging under xargs or find, and gh pr checkout, before a commit refuse it", () => {
+  const stage = ["git", "add"].join(" ");
+  for (const command of [`echo docs/leak.md | xargs ${stage} && git commit -m x`, `find docs -name leak.md -exec ${stage} {} + && git commit -m x`, "gh pr checkout 12 && git commit -m x"]) {
+    assert.match(reason(hook(world(), command)), /alone in its call/, command);
+  }
+});
