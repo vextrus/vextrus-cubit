@@ -85,14 +85,14 @@ describe('the first open of a sheet (4.6)', () => {
   it('shows neither for a sheet kept decoded', async () => {
     const buffer = await tiny()
     await openDecodedSheet(buffer)
-    mount(buffer)
+    mount(buffer, 'sheet-kept')
     await screen.findByRole('group', { name: /S-04/ })
     expect(document.querySelector('[data-first-open]')).toBeNull()
     expect(screen.queryByText(/for the first time/)).toBeNull()
   })
 
   it('takes the outline and the line away once the sheet is drawn', async () => {
-    mount(await tiny())
+    mount(await tiny(), 'sheet-drawn')
     await screen.findByRole('group', { name: /S-04/ })
     await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 30_000 }).toBeNull()
     expect(screen.queryByText(/for the first time/)).toBeNull()
@@ -130,7 +130,7 @@ describe('the first open of a sheet (4.6)', () => {
     expect(screen.queryByText(/for the first time/)).toBeNull()
   })
 
-  it('fits the paper from its header while the sheet decodes: the views\' outlines show, and the legend stays above the CAD-dark ground', async () => {
+  it('fits the paper from its header while the sheet decodes: the views\' outlines and the legend paint above the CAD-dark ground', async () => {
     vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>(() => {}))
     render(
       <UiProviders>
@@ -153,7 +153,12 @@ describe('the first open of a sheet (4.6)', () => {
     await expect.poll(() => document.querySelector('[data-outline="plan"]'), { timeout: 10_000 }).not.toBeNull()
     const ground = document.querySelector('[data-first-open]')!.parentElement!
     const legend = document.querySelector('[data-legend]')!
-    // The same layer, the legend later: it paints above the ground.
-    expect(ground.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const outline = document.querySelector<HTMLElement>('[data-outline="plan"]')!
+    // The outlines and the legend paint above the ground: on its layer or higher, and after it.
+    const z = (el: Element) => Number(getComputedStyle(el).zIndex) || 0
+    for (const above of [outline, legend.closest('.absolute')!]) {
+      expect(z(above), 'below the ground').toBeGreaterThanOrEqual(z(ground))
+      expect(ground.compareDocumentPosition(above) & Node.DOCUMENT_POSITION_FOLLOWING, 'before the ground').toBeTruthy()
+    }
   })
 })

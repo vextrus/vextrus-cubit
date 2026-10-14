@@ -606,9 +606,10 @@ function SheetCanvas({
             className={cn('absolute inset-0 z-[1] h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
           />
           <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
-          {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
-          {/* Before the legend and notes (the same layer): on CAD-dark its ground must not cover them. */}
+          {/* The first open's paper and line on the canvas's layer, before the outlines and the legend, so both
+              paint above its ground (on CAD-dark it is opaque). */}
           {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} dark={dark} /> : null}
+          {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
               {legend ? <div className="rounded-md bg-paper/90 px-2 py-1 text-ink-secondary">{legend}</div> : null}
@@ -654,7 +655,7 @@ function FirstOpen({ paper, firstTime, label, dark }: { paper: { widthMm: number
   return (
     // On CAD-dark the ground is the drawing's own off-paper shade and the paper its #101318, so the first
     // open does not flash light before the dark sheet comes (the re-gate on #842).
-    <div ref={ref} className="pointer-events-none absolute inset-0 z-[2]" style={dark ? { backgroundColor: CAD_DARK_OFF_PAPER_HEX } : undefined}>
+    <div ref={ref} className="pointer-events-none absolute inset-0 z-[1]" style={dark ? { backgroundColor: CAD_DARK_OFF_PAPER_HEX } : undefined}>
       {fit ? (
         <div
           aria-hidden
