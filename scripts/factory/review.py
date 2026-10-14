@@ -14,7 +14,8 @@ naming the check it owes.
    in `tools/leakscan/allowlist.txt`, nothing removed) and docs-only (every path on the safe docs
    list of `review_tiers.toml`) get no model and a PASS by code (the owner's ruling Q3, 5 Oct 2026),
    and so does revert (the merged head is main with exactly one first-parent merge reverted, a
-   culprit the main watcher logged and `gh` reads red: `main_watch.watcher_revert`, S29-F3);
+   culprit the main watcher logged and `gh` reads red, with no later commit of main read green:
+   `main_watch.watcher_revert`, S29-F3);
    small (under 150 changed lines, every path on that file's small list) gets lens B; EVERYTHING ELSE
    gets lens A and lens B (the lists name what is safe, never the walls); a change under
    `web/src/messages/` adds the `ux-critic` words lens.
@@ -687,8 +688,8 @@ NO_MODEL = ("allowlist-only", "docs-only", "revert")
 def light(main: Path, merged: str, base: str) -> bool:
     """The merged head is `base` with exactly one of its first-parent merges reverted, decided by
     trees (`main_watch.light_tier`), never by a title, a message or a branch name; and that merge is
-    a culprit the main watcher logged in this checkout whose run on main `gh` reads red
-    (`main_watch.watcher_revert`)."""
+    a culprit the main watcher logged in this checkout whose run on main `gh` reads red, and no
+    first-parent commit of `base` after it reads green (`main_watch.watcher_revert`)."""
     log = main / main_watch.DEFAULT_LOG
     return main_watch.watcher_revert(main, merged, base, log, main_watch.Gh(rerun=False))
 

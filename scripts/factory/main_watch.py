@@ -21,15 +21,19 @@ One pass (`once`):
    only `git revert -m 1 <culprit>`'s tree and the PR is opened against main, its body naming the
    culprit's PR and the red run.
 4. Every revert this log opened that is now on main is logged `landed` once, and `after_landed` runs.
+5. Every other revert this log opened whose culprit main has since run green past (a first-parent
+   commit after it reads success: a flake, a fix-forward) is stale: its `revert/<short>` branch is
+   deleted from origin, which closes its PR unlanded, and it is logged `stale` once.
 
 The log (default `.private/work/factory/main-watch.log`): one line per event, `YYYY-MM-DDTHH:MM:SSZ
 <event> <short> ...`; each (event, short) once. Events: `red`, `culprit`, `revert-opened`, `landed`
 (the measure: main red after a bad merge, from `red` to `landed`), and `wait`, `no-green`,
-`still-red`, `not-a-merge`, `conflict`, `already-reverted`, `error`.
+`still-red`, `not-a-merge`, `conflict`, `already-reverted`, `stale`, `error`.
 
 `light_tier(repo, head, base=)` answers "revert" when the head's tree is exactly main with one
 first-parent merge reverted, else None (decided by trees, never a message); the review's no-model
-`revert` tier is `watcher_revert`: that, for a merge this log names as a culprit.
+`revert` tier is `watcher_revert`: that, for a merge this log names as a culprit and main is still red
+since (no first-parent commit after it reads success).
 """
 
 from __future__ import annotations
@@ -242,6 +246,9 @@ def open_revert(repo: Path, forge: Forge, log: Log, bad: str) -> None:
     if not is_merge(repo, bad):
         log.write("not-a-merge", short, "a red commit that is not a merge is left to the orchestrator")
         return
+    if log.has("stale", short):
+        log.write("already-reverted", short, "its revert went stale once main ran green past it")
+        return
     if already_reverted(repo, bad) and log.has("revert-opened", short):
         log.write("already-reverted", short, branch_of(bad))
         return
@@ -288,6 +295,33 @@ def landed(repo: Path, log: Log, hook: Callable[[Path, str], None]) -> None:
             hook(repo, full)
 
 
+def green_since(repo: Path, forge: Forge, merge: str, base: str = MAIN) -> bool:
+    """Whether a first-parent commit of `base` after `merge` (newest first, at most WALK) reads
+    success: main has run green past `merge`, so it is no longer the culprit `culprit()` would name. A
+    merge not on `base`'s line, or more than WALK commits back, counts as green past (never blamed)."""
+    if not ok(repo, "merge-base", "--is-ancestor", merge, base):
+        return True
+    line = git(repo, "rev-list", "--first-parent", f"--max-count={WALK + 1}", f"{merge}..{base}").split()
+    return len(line) > WALK or any(forge.conclusion(sha) == "success" for sha in line)
+
+
+def stale(repo: Path, forge: Forge, log: Log) -> None:
+    """Every revert this log opened, not on main, whose culprit main has run green past: its branch is
+    deleted from origin (GitHub closes its PR unlanded) and `stale` is logged once. A green run past
+    the culprit means main is green with its code in it: landing the revert would revert a good merge."""
+    for short in list(log.opened()):
+        if log.has("landed", short) or log.has("stale", short):
+            continue
+        full = git(repo, "rev-parse", "--verify", "-q", f"{short}^{{commit}}", check=False)
+        if not full or reverted_on_main(repo, full) or not green_since(repo, forge, full):
+            continue
+        done = "was already gone"
+        if ok(repo, "rev-parse", "--verify", "-q", f"{REVERTS}{short}"):
+            git(repo, "push", "-q", "origin", f":refs/heads/{branch_of(full)}")
+            done = "deleted, closing its PR"
+        log.write("stale", short, f"main ran green past it: {branch_of(full)} {done}")
+
+
 def after_landed(repo: Path, culprit_sha: str) -> None:
     """F5's hook point: the post-merge real-drawing run on main after a revert lands. Empty until F5."""
 
@@ -300,6 +334,7 @@ def once(*, repo: Path, forge: Forge, log: Path) -> None:
     if bad is not None:
         open_revert(repo, forge, events, bad)
     landed(repo, events, after_landed)
+    stale(repo, forge, events)
 
 
 # --- the light path ------------------------------------------------------------------------------
@@ -344,17 +379,19 @@ def _reverted_merge(repo: Path, head: str, base: str) -> str | None:
 def watcher_revert(repo: Path, head: str, base: str, log: Path, forge: Forge) -> bool:
     """The review's no-model `revert` tier: `light_tier`'s exact inverse, of a merge this watcher
     logged as its `culprit` in `log` AND whose run on main the forge reads red (a line appended to the
-    log alone earns nothing), and never of a merge that itself reverts one (a revert of the watcher's
-    revert would land its culprit again). Any other revert, of any old merge, gets its lenses: a
-    wall's removal is never passed by code. A forge that cannot answer is no."""
+    log alone earns nothing) AND that is still the culprit: no first-parent commit of `base` after it
+    reads success (`green_since`; a flake or a fix-forward main ran green past is a good merge now).
+    Never of a merge that itself reverts one (a revert of the watcher's revert would land its culprit
+    again). Any other revert, of any old merge, gets its lenses: a wall's removal is never passed by
+    code. A forge that cannot answer is no."""
     merge = reverted_merge(repo, head, base)
     if merge is None or not Log(log).has("culprit", short_of(merge)):
         return False
     if reverted_merge(repo, merge, f"{merge}^1") is not None:
         return False
     try:
-        return forge.conclusion(merge) == "failure"
-    except FORGE_FAILED:
+        return forge.conclusion(merge) == "failure" and not green_since(repo, forge, merge, base)
+    except (*FORGE_FAILED, *UNREADABLE):
         return False
 
 

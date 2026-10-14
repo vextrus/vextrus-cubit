@@ -29,23 +29,25 @@ def landed(world: World, number: int, text: str) -> str:
 RED_GH = """#!{python}
 import json, os, sys
 if sys.argv[1:3] == ["run", "list"]:
+    commit = sys.argv[sys.argv.index("--commit") + 1]
+    conclusion = "success" if commit == {green!r} else "{conclusion}"
     print(json.dumps([{{"databaseId": 1, "workflowName": "ci", "status": "completed",
-                       "conclusion": "{conclusion}", "url": "u"}}]))
+                       "conclusion": conclusion, "url": "u"}}]))
     sys.exit(0)
 os.execv({real!r}, [{real!r}, *sys.argv[1:]])
 """
 
 
-def logged_culprit(world: World, merge: str, conclusion: str = "failure") -> None:
+def logged_culprit(world: World, merge: str, conclusion: str = "failure", *, green: str = "") -> None:
     """The main watcher's log in the review's checkout names `merge` as its culprit, and the fake
-    `gh` answers `run list` with one `ci` run of that conclusion (every other call goes to the
-    world's own fake)."""
+    `gh` answers `run list` with one `ci` run of that conclusion (`success` for the commit `green`;
+    every other call goes to the world's own fake)."""
     main_watch.Log(world.main / main_watch.DEFAULT_LOG).write(
         "culprit", main_watch.short_of(merge), "#12"
     )
     real = world.bin / "gh-world"
     (world.bin / "gh").rename(real)
-    script = RED_GH.format(python=sys.executable, conclusion=conclusion, real=str(real))
+    script = RED_GH.format(python=sys.executable, conclusion=conclusion, green=green, real=str(real))
     (world.bin / "gh").write_text(script)
     (world.bin / "gh").chmod(0o755)
 
@@ -97,6 +99,88 @@ def test_a_forged_culprit_line_for_a_merge_main_ran_green_gets_its_lenses(
     done = world.run("13", "--round", "1")
     assert done.returncode == 0, why(done)
     assert world.lens_calls(), "a revert of a merge gh reads green was passed by code"
+
+
+def test_a_culprits_revert_after_main_ran_green_past_it_gets_its_lenses(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> None:
+    """Merge #12 ran red (a flake), the watcher logged it; #14 then ran green on top, so main is green
+    with #12's code in it: a revert of #12 is a revert of a good merge, never passed by code."""
+    world = World(tmp_path_factory.mktemp("world"))
+    bad = landed(world, 12, "RATES: dict[str, int] = {'a': 1}\n")
+    world.pr(14, {"vextrus/rates/other.py": "OTHER = 1\n"})
+    git(world.main, "merge", "-q", "--no-ff", "-m", "Merge pull request #14", "pr14")
+    git(world.main, "push", "-q", "origin", "main")
+    green = git(world.main, "rev-parse", "HEAD")
+    logged_culprit(world, bad, green=green)
+    world.pr(13, {CODE: BASE_FILES[CODE]})
+    done = world.run("13", "--round", "1")
+    assert done.returncode == 0, why(done)
+    assert world.lens_calls(), "a revert of a merge main ran green past was passed by code"
+
+
+def flaky_then_green(repo: Repo) -> tuple[str, str]:
+    """Main: root (green), #12 (red), #13 (its run as the test sets it); (#12, #13)."""
+    bad = repo.merge(12, {"app/bad.py": "BAD = 1\n"})
+    later = repo.merge(13, {"app/later.py": "LATER = 1\n"})
+    return bad, later
+
+
+def main_tip_revert(repo: Repo, merge: str) -> str:
+    """A head on the watcher's clone: origin's main tip with `merge` reverted."""
+    git(repo.watch, "fetch", "-q", "origin")
+    git(repo.watch, "checkout", "-q", "-B", "r", "origin/main")
+    git(repo.watch, "revert", "--no-edit", "-m", "1", merge)
+    return git(repo.watch, "rev-parse", "HEAD")
+
+
+@pytest.mark.parametrize(("later_run", "light"), [("success", False), ("failure", True), (None, True)])
+def test_a_culprits_revert_is_light_only_while_main_is_still_red_past_it(
+    tmp_path: Path, later_run: str | None, light: bool
+) -> None:
+    repo = Repo(tmp_path)
+    bad, later = flaky_then_green(repo)
+    log = tmp_path / "w.log"
+    main_watch.Log(log).write("culprit", main_watch.short_of(bad), "#12")
+    head = main_tip_revert(repo, bad)
+    assert main_watch.light_tier(repo.watch, head) == "revert"
+    forge = FakeForge({repo.root_sha: "success", bad: "failure", later: later_run})
+    assert main_watch.watcher_revert(repo.watch, head, "origin/main", log, forge) is light
+
+
+def test_the_watcher_closes_its_revert_once_main_runs_green_past_the_culprit(tmp_path: Path) -> None:
+    repo = Repo(tmp_path)
+    bad = repo.merge(12, {"app/bad.py": "BAD = 1\n"})
+    forge = FakeForge({repo.root_sha: "success", bad: "failure"})
+    log = tmp_path / "w.log"
+    main_watch.once(repo=repo.watch, forge=forge, log=log)
+    assert len(repo.revert_branches()) == 1
+    later = repo.merge(13, {"app/later.py": "LATER = 1\n"})
+    forge.runs[later] = None
+    main_watch.once(repo=repo.watch, forge=forge, log=log)
+    assert len(repo.revert_branches()) == 1, "a revert was closed while main had not run green"
+    forge.runs[later] = "success"
+    main_watch.once(repo=repo.watch, forge=forge, log=log)
+    main_watch.once(repo=repo.watch, forge=forge, log=log)
+    assert repo.revert_branches() == [], "the stale revert's branch (and so its PR) is still open"
+    text = log.read_text()
+    assert text.count(" stale ") == 1, text
+    assert len(forge.opened) == 1, "the stale culprit was reverted again"
+    assert "app/bad.py" in repo.files_at("refs/heads/main")
+
+
+def test_a_landed_revert_is_never_stale(tmp_path: Path) -> None:
+    repo = Repo(tmp_path)
+    bad = repo.merge(12, {"app/bad.py": "BAD = 1\n"})
+    forge = FakeForge({repo.root_sha: "success", bad: "failure"})
+    log = tmp_path / "w.log"
+    main_watch.once(repo=repo.watch, forge=forge, log=log)
+    landing = repo.land(forge.opened[0]["number"], forge.opened[0]["head"])
+    forge.runs[landing] = "success"
+    main_watch.once(repo=repo.watch, forge=forge, log=log)
+    text = log.read_text()
+    assert " landed " in text
+    assert " stale " not in text
 
 
 def test_a_revert_of_the_watchers_revert_is_not_passed_by_code(tmp_path: Path) -> None:
