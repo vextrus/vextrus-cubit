@@ -8,4 +8,4 @@ msgstr ""
 
 #. vextrus/platform/messages/stubs.py (M1-00): a route declared before it is built (501); nothing was read or changed.
 msgid "platform.stubs.not_built"
-msgstr "This part of Vextrus is not ready yet, so nothing was shown or changed."
+msgstr "This part of Vextrus is not ready yet, so nothing was shown or changed. Come back to it later, and tell Vextrus if you were expecting it to work."
