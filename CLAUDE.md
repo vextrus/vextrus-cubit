@@ -52,7 +52,7 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every action;
     per-page viewport emulation only; never touch another agent's page.
   - A UI ticket walks m0-screens §8 by keyboard itself before its PR (keys, empty routes, focus rings).
-  - A backend ticket that words codes in `web/src/messages/` gets a `ux-critic` review of those words.
+  - A backend ticket that words codes in `web/src/messages/` gets a `ux-critic` review of those words; a fix message or gate brief asking for words first reads the tests that pin them (#822).
   - Every suite run's output is kept in a file under `.private/work/` (pytest with `-rf`).
   - Never delete recursively: delete files by name, or leave build output and say so.
   - Message only finished agents; wait for running ones (a message to a running one starts a copy).

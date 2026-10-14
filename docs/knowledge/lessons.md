@@ -713,3 +713,79 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **The orchestrator passed drawing phrases to builders in its messages** (E1: the two phrases a set prints where a member
   continues on the next sheet), and a builder and an acceptance writer copied them into code and a commit message; verify's
   leak scan stopped both before any push, so the commits held. Check: `tools/leakscan/` (run by `scripts/verify.py`).
+
+## Session 26 (13-14 Oct 2026): every factory fix and every M0 ticket merged (23 PRs); the delta review carried nine capped PRs; G1 walk #1 failed on older code a deeper walk found
+
+- **The delta review counted a replayed attack that failed again as CONFIRMED, with no refuter** (D4 #771 r6, FX1 #786
+  r3 and FX2 #794 r3: three false FIX verdicts; two refuter runs proved them false; every delta review was held from 17:47Z
+  to 20:29Z). A replay failed when its own staleness guard tripped, or when it called a seam the fix had removed. Check:
+  `scripts/tests/acceptance/ts26fx9/` (replayed attacks are judged, staleness failures are STALE, a same-head re-round
+  only after a FIX that rested on unconfirmed replays) and `scripts/factory/tests/test_review_delta.py` (#808). The
+  orchestrator's ruling holds: no same-head re-review after a refuter-CONFIRMED replay (no refuter shopping).
+- **The delta review past the round cap merged nine PRs that session 25's cap would have closed** (#774 #783 #765 #794
+  #786 #801 #805 #737 #771; 21 delta runs at $1.19 each, against $3.05 for a full round). Check:
+  `scripts/tests/acceptance/ts26fx4/test_delta_review.py` (#789).
+- **A review started on a head whose CI was red** (session 25 spent $12.05 on 3 such runs); today FX7 refused at least
+  three (#804 r1, #748 r4, #794 r3's first try). Check: `scripts/tests/acceptance/ts26fx4/test_ci_first.py` (#789).
+- **GitHub reported a completed `ci` job as in progress, so FX7 held D4's round 7 until a ci re-run** (~10 min). No check
+  yet: #819 (review reads the run's own conclusion when the rollup disagrees, or prints the re-run command). #788 is a different case: it covers a head with no ci check at all, not a
+  stale one.
+- **verify did not run CI's harness node tests**: it ran only `.claude/hooks/**`, while CI runs `.claude/**`, `scripts/**`
+  and `tools/mod/**`. FX2's local verify passed, then CI failed a runbook test that reads SKILL.md, and FX7 refused the
+  round. Check: `scripts/tests/acceptance/ts26fx10/test_node_tests.py` (#806; verify reads the argv from `ci.yml`).
+- **verify did not run CI's slowed-fake web pass** (`VITE_FAKE_API_LATENCY_MS`). B2 #780 passed review r4, then CI
+  failed its own toast test, and two more of its tests were flaky under latency. D7 #805 passed its gate, then CI found
+  a regression in two tests. That is about 2.5 h over two tickets. Check: `scripts/tests/acceptance/ts26fx11/` (#809;
+  the latency is read from `web.yml`, so it cannot drift).
+- **merge_ready accepted only "None." and "Nothing." as an empty Cut, and builder.md named no empty-Cut words.**
+  Publish refused FX1's body twice: once for notes after "Nothing cut.", once for "Nothing cut." itself. It now also
+  accepts "None cut.", "Nothing cut." and "Nothing was cut.", and builder.md says "None.". Check:
+  `scripts/tests/acceptance/ts26fx8/` (#792).
+- **publish's Cut check caught bad bodies before any PR opened** (FX1 twice). Session 25 lost 4 refused lands to the
+  same parser. Check: `scripts/tests/acceptance/ts26fx6/test_publish_cut_check.py` (#782).
+- **A cloud launch was REFUSED (the prompt-leak scan) but the orchestrator read only `| tail -1`**, which shows the
+  `record:` line. The pipe also hid exit 2. 47 min were lost on E1's fix round. Cause: pasted reviewer summaries in the
+  prompt hit the scan. Rule until the check lands: read the whole launch output; never pipe it; never paste review
+  summaries into a cloud prompt; write invented examples. No check yet: #820 (`scripts.factory.launch` prints the REFUSED line last as well as first; it already exits 2 and prints it first).
+- **`rdlock run --head <sha>` recorded origin's head, but `scripts/real-drawings <branch>` read the stale local branch**
+  (E1 at its older head): one wasted run, stopped. Check:
+  `scripts/factory/tests/test_s25f3_fixes.py` (`test_a_run_of_the_runner_refuses_when_the_local_branch_is_not_the_head`,
+  #737).
+- **The fake API hid a real-API behaviour.** B2's typed storeys correction showed ", corrected" on the fake API. On the
+  real API it raised the title-vs-plans Check, and the row read "Question" instead. Only the integration gate on the real
+  API found it (#811 item 1 FAIL). B2 had passed review four times by then. Rule: the design gate walks the real API,
+  never the fake. No check yet: #821 (a backend test for each server-dependent promise a fake-API test makes, named in the PR).
+  #812 lists the gate's other leftovers.
+- **The orchestrator's gate-fix message asked for words that committed acceptance tests contradict** (D6 #801: the
+  header "File, where" and one ", x" phrasing for options, while `ts25d1` and `ts24a3` pin "File" and the option's "at x").
+  The builder cut one of them, the re-walk failed item 1 on both, and the orchestrator reversed itself (header stays
+  "File"; options keep "at x"). That cost one fix round and one gate walk. **This is the second time** (session 25: D1's
+  "title first" against m0-screens 6.7). No check yet: #822; until it lands, CLAUDE.md's "mistake made twice" list carries it.
+- **Design gates on every UI PR found real defects that review had passed.** 12 walks failed 5 items: D1 (File cell),
+  D4 (Jump to rows), D6 twice (tooltip split, row label wrap) and B2 in #811 (real-API storeys). Each was on a head whose
+  latest review was PASS. D7 passed all three of its walks, but those walks filed #807, #813 and #814. In total the gates
+  filed 9 issues (#791 #795 #796 #803 #807 #810 #812 #813 #814). Keep a gate walk on every UI head after any fix, delta PASS or not. Check:
+  `scripts/merge_ready.py` (the required design-gate status) and `tools/lint/tests/acceptance/ts26fx0/` (#783).
+- **A builder edited an acceptance test inside a product commit** (FX10, #804). CI's acceptance check refused it. The
+  orchestrator rebuilt the branch as #806 (the test edit as its own `acceptance:` commit). The check worked. Check:
+  `tools/lint/acceptance.py` (ci.yml's "Acceptance check" step, `.github/workflows/ci.yml:117-121`).
+- **Cloud builders were still BLOCKED by web load after FX3 merged** (D1, B2, D6 from 16:40Z on), and each was verified
+  locally. FX3 re-runs a timed-out file alone, but the cloud verify still timed out. No check yet: #823 (a verify record naming the step and file that timed out in the cloud).
+- **`web` eslint/config.test.ts timed out on CI all session** (FX1's land refused once). No check yet:
+  #824 (raise the timeouts with the reason, or list them as flakes with the reason).
+- **The watcher's misses (#761) are closed:** BLOCKED without a reason, carried-over launches and `Factory-Status:`
+  replies now write events, and a status-only commit keeps a READY head READY. Check:
+  `scripts/factory/tests/acceptance/ts26fx1/` (#786). The factory mod's wake replaced the Monitors at 20:43Z. Check:
+  `tools/mod/vextrus-factory/tests/` and `scripts/factory/tests/test_wake_kinds.py` (#794).
+- **The integration land (Q-R10) found what the separate PRs did not.** The first no-post gained a conflict (E1 not
+  acceptable). Round 1 of #811 BLOCKED on three tickets: E1 read a sheet-reference range as a member range, B2 had a
+  re-read status and a storeys cap below the engine's, and D5 dropped a numberless back-in. Each had passed review on
+  its own PR. No check: the owner's Q-R10
+  (one integration review and one no-post run before posting) is the rule; no test replaces a real-drawing run.
+- **The lander merged a head whose CI ran before another PR changed main, and main went red** (D4 #771 on a head from
+  before D7 #805: each passed alone; together Jump to read D7's test seed of Step 1's cache and three shell.test tests
+  failed). Every PR that merged main then inherited the red (F1 #748 and M1-24 #798 refused at land) until the hotfix
+  #817 (the seed in the API's real shapes, typed from the OpenAPI types). No check yet: #825 (the lander refuses a head
+  that does not contain main's tip when main changed paths its tests read since the head's CI ran).
+- **The factory mod's wake replaced the 30-minute Monitor re-arms** from 20:43Z, but its table kept listing tickets after
+  their PRs merged. No check yet: #826.
