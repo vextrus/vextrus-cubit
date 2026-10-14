@@ -63,6 +63,8 @@ def _parser() -> argparse.ArgumentParser:
     allow.add_argument("locations", nargs="+")
     verify = commands.add_parser("verify-stamp", parents=[common], allow_abbrev=False)
     verify.add_argument("name")
+    sweep = commands.add_parser("sweep-remote", allow_abbrev=False)
+    sweep.add_argument("--hits-file", type=Path)
     return parser
 
 
@@ -77,7 +79,7 @@ def _report(
     total = result.total if result is not None else 0
     scanned = result.scanned if result is not None else 0
     short = corpus.sha256[:12] if corpus is not None else ""
-    if options.json:
+    if getattr(options, "json", False):
         summary = {
             "hits": total,
             "scanned": scanned,
@@ -87,7 +89,7 @@ def _report(
         }
         print(json.dumps({"hits": [{"where": where, "n": n} for where, n in hits], "summary": summary}))
         return
-    if not options.quiet:
+    if not getattr(options, "quiet", False):
         for where, n in hits:
             print(f"HIT {where} {n}")
     if status == "cannot-scan":
@@ -149,6 +151,91 @@ def _scan(options: argparse.Namespace) -> int:
         core.write_stamp(stamp[0], corpus.sha256, stamp[1])
     _report(result, corpus, options, "hits" if result.total else "clean", None)
     return 1 if result.total else 0
+
+
+_ORIGIN = "refs/remotes/origin/"
+# A hit location git's scan already made safe: it holds an index, a short sha or nothing of a name.
+_SAFE_WHERE = re.compile(r"(?:name:\d+|unknown|commit:[0-9a-f]{12})(?::\d+)+")
+
+
+def _holds_corpus(corpus: Corpus, name: str) -> bool:
+    """Whether a name (a branch, a path) holds a corpus string, raw or with separators folded."""
+    return corpus.count(name) > 0 or corpus.folded_in(name)
+
+
+def _safe_where(corpus: Corpus, where: str, masked: dict[str, int]) -> str:
+    """A hit location fit to print: a path that holds a corpus string prints `path:<i>[:<line>]` (its
+    index among this branch's masked paths), as the sweep never prints a name that spells one."""
+    if _SAFE_WHERE.fullmatch(where):
+        return where
+    path, _, line = where.rpartition(":")
+    if not path or not line.isdigit():
+        path, line = where, ""
+    if not _holds_corpus(corpus, path):
+        return where
+    index = masked.setdefault(path, len(masked))
+    return f"path:{index}:{line}" if line else f"path:{index}"
+
+
+def _origin_branches(repo: Path) -> list[str]:
+    """Every `origin/*` branch but HEAD and main, sorted (a name is printed only through `_label`)."""
+    done = core.git(repo, "for-each-ref", "--format=%(refname)", _ORIGIN)
+    if done.returncode != 0:
+        raise CannotScan("bad-range")
+    names = [ref[len(_ORIGIN) :] for ref in done.stdout.split("\n") if ref.startswith(_ORIGIN)]
+    return sorted(name for name in names if name not in ("HEAD", "main"))
+
+
+def _sweep(options: argparse.Namespace) -> int:
+    """Range-scans every origin branch against `origin/main`, commit by commit: `<branch> <where>` per
+    hit (a branch whose name holds a corpus string prints `ref:<i>`, its index, and `ref:<i> name`),
+    then one summary line. 1 with a hit, 0 with none, 2 when a branch cannot be scanned (2 wins).
+    Writes no stamp. `--hits-file` lists the real names of the hit branches, one per line (the owner's
+    local file)."""
+    corpus = _corpus(options)
+    hit_names: list[str] = []
+    cannot = 0
+    branches: list[str] = []
+    if corpus is None:
+        print("leakscan: skipped no-corpus (cloud)")
+    else:
+        repo = Path.cwd()
+        branches = _origin_branches(repo)
+        try:
+            base = scan.resolve(repo, f"{_ORIGIN}main")
+        except CannotScan:
+            print("leakscan: cannot-scan main")
+            cannot += 1
+            branches = []
+        for i, name in enumerate(branches):
+            named = _holds_corpus(corpus, name)
+            label = f"ref:{i}" if named else name
+            wheres: list[str] = ["name"] if named else []
+            try:
+                head = scan.resolve(repo, f"{_ORIGIN}{name}")
+                result = scan.scan_range(corpus, repo, base, head, None)
+            except CannotScan:
+                cannot += 1
+                print(f"{label} cannot-scan")
+                continue
+            masked: dict[str, int] = {}
+            wheres += [_safe_where(corpus, where, masked) for where, _ in result.hits]
+            for where in dict.fromkeys(wheres):
+                print(f"{label} {where}")
+            if wheres:
+                hit_names.append(name)
+        print(
+            f"leakscan: sweep branches={len(branches)} hit-branches={len(hit_names)} "
+            f"cannot-scan={cannot}"
+        )
+    if options.hits_file is not None:
+        try:
+            options.hits_file.write_text("".join(f"{name}\n" for name in hit_names), encoding="utf-8")
+        except OSError:
+            raise CannotScan("source-unreadable") from None
+    if cannot:
+        return 2
+    return 1 if hit_names else 0
 
 
 def _build(options: argparse.Namespace) -> int:
@@ -238,7 +325,7 @@ def run(argv: Sequence[str]) -> int:
     except UsageError:
         print(
             "leakscan: usage: python -m tools.leakscan "
-            "build|range|file|text --stdin|pr|dir|bodies|allow|verify-stamp ...",
+            "build|range|file|text --stdin|pr|dir|bodies|allow|verify-stamp|sweep-remote ...",
             file=sys.stderr,
         )
         return USAGE
@@ -249,6 +336,8 @@ def run(argv: Sequence[str]) -> int:
             return _allow(options)
         if options.command == "verify-stamp":
             return _verify(options)
+        if options.command == "sweep-remote":
+            return _sweep(options)
         return _scan(options)
     except UsageError:
         print("leakscan: usage error", file=sys.stderr)

@@ -153,3 +153,7 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
   before merging'"): **item 1's up-to-date requirement is gone** (ADR 0025, Amended). The ruleset still enforces a
   PR, CI and the two statuses; the orchestrator no longer merges `main` into a PR before posting its statuses. The
   lander lands a PR as it stands; `land update` is the only update, and a conflicting PR is refused, naming it.
+- 14 Oct 2026 (session 27; the owner, on #825: "Yes, always"): **the lander no longer lands a head behind main.**
+  The head must contain main's tip (the fetched `origin/main`), for every PR, documents included; `scripts.land`
+  and `scripts.merge_ready` refuse a stale head, naming `land update`, and the lander still never updates. The
+  ruleset stays as the owner set it (7 Oct); only the lander is stricter.
