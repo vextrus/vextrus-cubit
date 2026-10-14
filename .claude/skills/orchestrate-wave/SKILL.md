@@ -48,7 +48,7 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    rule-only 50-74 off a trust boundary to file as issues, each naming the check it owes (`fix-message` prints it). A finding after the cap
    becomes an issue (`needs-triage`, "found after the cap").
 6. **Land.** `uv run python -m scripts.land <PR> [<PR> ...]` orders them itself (engine PRs with a ledger PASS
-   first), needs a ledger PASS for each head, lands it as it stands (no update; a PR GitHub reports conflicting is refused, naming `land update`), waits for CI, prints the gates still
+   first), needs a ledger PASS for each head, lands it only when its head contains main's tip (a head behind main, or one GitHub reports conflicting, is refused, naming `land update`; the lander never updates), waits for CI, prints the gates still
    owed and merges after `scripts.merge_ready` (`commands.md`). The guard accepts only these exact
    lines, typed by you in the main checkout. **design-gate**, from the independent gate's verdict, never the
    builder's: `sudo -n -u vxkeys /usr/local/lib/vextrus/post-status design-gate <PR> <full sha> --passed <items>
