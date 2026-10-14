@@ -23,10 +23,11 @@ import { sessionQuery, type Session } from '@/app/session'
 import { LoadProblem, ProblemBar, can, problemOf, sameSession, usePageTitle, useSignedInAgain, type Problem } from '@/auth'
 import { EMPTY, useFormat } from '@/format'
 import { Button, Skeleton, cn, useToast } from '@/ui'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/ui/primitives/dialog'
 import { ActsPanel } from './ActsPanel'
 import { InviteDialog } from './InviteDialog'
 import { LinkShown } from './LinkShown'
+import { RevokeDialog } from './RevokeDialog'
 import { inviteLink, membersFrom, membersQuery, newLink, renew, revoke, withdraw, type InvitationRow, type MemberAction, type Members, type PersonRow } from './data'
 
 
@@ -266,13 +267,11 @@ function VextrusTable({
           <Trans>No one from Vextrus has access.</Trans>
         </EmptyRow>
       ) : (
-        rows.map((row, i) => {
+        rows.map((row) => {
           const last = row.lastActAt ? f.date(row.lastActAt) : ''
           const count = row.acts
           const who = row.name
-          // A person's acts are counted for the person, not for each invitation: said once, on their
-          // first row (the API lists the current access first); their other rows say "—" (gate 20a r2).
-          const counted = rows.findIndex((r) => r.userId === row.userId) === i
+          // Each row counts the acts done under that access, from its start until it ended (#323).
           return (
             <tr key={row.membershipId} className={cn('border-b border-border last:border-b-0', row.ended && 'text-muted-foreground')}>
               <Cell title={row.name}>
@@ -286,9 +285,7 @@ function VextrusTable({
               <UntilCell row={row} />
               {/* Whole, never cut: it may wrap. With none, words only: there is nothing to open. */}
               <td className="h-row px-2 py-1 align-middle">
-                {!counted ? (
-                  <span className="text-muted-foreground">{EMPTY}</span>
-                ) : count === 0 ? (
+                {count === 0 ? (
                   <span className="text-muted-foreground">
                     <Trans>No acts yet</Trans>
                   </span>
@@ -444,7 +441,6 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
     },
   }
 
-  const revokingName = revoking?.name ?? ''
   const email = shown?.email ?? ''
   return (
     <PageLayout
@@ -520,50 +516,30 @@ export function MembersView({ session, members, failed, onRetry }: { session: Se
 
       {manages ? <InviteDialog session={session} open={inviting} onOpenChange={setInviting} /> : null}
 
-      <Dialog open={revoking !== null} onOpenChange={(open) => (open ? undefined : setRevoking(null))}>
-        <DialogContent
-          className="sm:max-w-[420px]"
-          onCloseAutoFocus={(event) => {
-            // Confirmed: the Revoke button goes with its row, so focus goes to the section's heading;
-            // cancelled, back to the Revoke button, as a dialog's close does.
-            const id = refocus.current
-            if (!id) return
-            event.preventDefault()
-            refocus.current = null
-            document.getElementById(id)?.focus()
-          }}
-        >
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>End {revokingName}’s access now?</Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans>Their next click is refused. What they did stays under their name.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setRevoking(null)}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                const row = revoking
-                setRevoking(null)
-                if (row) refocus.current = row.role === 'vextrus_engineer' ? 'vextrus' : 'people'
-                if (!row) return
-                const name = row.name
-                void run(`revoke:${row.membershipId}`, async (current) => {
-                  await revoke(row.membershipId)
-                  if (current()) toast.show({ message: <Trans>{name}’s access has ended.</Trans> })
-                })
-              }}
-            >
-              <Trans>End access</Trans>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RevokeDialog
+        name={revoking?.name ?? null}
+        onCancel={() => setRevoking(null)}
+        onCloseAutoFocus={(event) => {
+          // Confirmed: the Revoke button goes with its row, so focus goes to the section's heading;
+          // cancelled, back to the Revoke button, as a dialog's close does.
+          const id = refocus.current
+          if (!id) return
+          event.preventDefault()
+          refocus.current = null
+          document.getElementById(id)?.focus()
+        }}
+        onConfirm={() => {
+          const row = revoking
+          setRevoking(null)
+          if (!row) return
+          refocus.current = row.role === 'vextrus_engineer' ? 'vextrus' : 'people'
+          const name = row.name
+          void run(`revoke:${row.membershipId}`, async (current) => {
+            await revoke(row.membershipId)
+            if (current()) toast.show({ message: <Trans>{name}’s access has ended.</Trans> })
+          })
+        }}
+      />
 
       <Dialog open={shown !== null} onOpenChange={(open) => (open ? undefined : setShown(null))}>
         <DialogContent className="sm:max-w-[480px]" aria-describedby={undefined}>

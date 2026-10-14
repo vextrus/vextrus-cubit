@@ -143,10 +143,13 @@ export function saidOnce(said: readonly MachineMessage[], lists: readonly (reado
 /** How often the list is read again while a file is moving (§4.5: "watch them read"). */
 export const POLL_MS = 2000
 
+/** The Drawing Set's files, one GET (`filesQuery`'s, also read outside the cache by an answer: S27-G7). */
+export const readFiles = (projectId: string) => unwrap(api.GET('/api/projects/{project_id}/drawings/files', { params: { path: { project_id: projectId } } }))
+
 export function filesQuery(projectId: string) {
   return queryOptions({
     queryKey: ['drawing-set', projectId, 'files'],
-    queryFn: () => unwrap(api.GET('/api/projects/{project_id}/drawings/files', { params: { path: { project_id: projectId } } })),
+    queryFn: () => readFiles(projectId),
     staleTime: 0,
     refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? POLL_MS : false),
   })

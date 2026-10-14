@@ -40,6 +40,7 @@ const FIELD_OF: Readonly<Record<string, Field>> = {
   'platform.invitations.already_member': 'email',
   'platform.invitations.already_invited': 'email',
   'platform.invitations.access_ended': 'email',
+  'platform.invitations.no_vextrus_account': 'email',
   'platform.invitations.role_not_yours': 'role',
   'platform.invitations.choose_a_project': 'projects',
   'platform.invitations.projects_not_yours': 'projects',
@@ -179,7 +180,11 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
               autoComplete="off"
               maxLength={254}
               value={email}
-              onChange={(event) => setEmail(event.currentTarget.value)}
+              onChange={(event) => {
+                setEmail(event.currentTarget.value)
+                // A refusal about the email was about the one sent: an edited email has not been refused (design gate, S27-G6).
+                setErrors(({ email: _refused, ...rest }) => rest)
+              }}
               error={errors.email !== undefined ? <Words words={errors.email} /> : undefined}
             />
 

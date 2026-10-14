@@ -6,7 +6,8 @@ the Engineer's acts from the event log in words, newest first ('Confirmed S-07 b
 before as superseded ...')". docs/specs/M0.md, walk step 10: the MD invites a Vextrus Engineer, who
 "confirms one excluded sheet back in under their own name; the MD sees that act".
 
-The Engineer is invited by the MD and accepts (one act, `platform.invitations.accepted`), then takes
+The Engineer is invited by the MD and accepts (`platform.invitations.accepted`: in the event log, but
+not counted as an act on Members and access, S27-G6, f-18), then takes
 Step 1's acts over HTTP as the screen does, on T-W319's invented Project (`tw319.cost`). The MD reads
 `GET /api/members` (the row's `acts`) and `GET /api/activity?actor=<them>` (the codes, newest first).
 
@@ -112,14 +113,14 @@ def events_by(md: Member, engineer: Member) -> list[str]:
 # The Engineer's acts on Members and access --------------------------------------------------------
 
 
-def test_the_md_sees_the_engineer_s_three_acts_after_an_exclude_and_a_confirm_back_in(
+def test_the_md_sees_the_engineer_s_two_acts_after_an_exclude_and_a_confirm_back_in(
     setting: tuple[CostProject, Member, Member, OverHttp],
 ) -> None:
     project, md, engineer, way = setting
     way.exclude([project.proposal_of[ACTED_ON]])
     way.confirm([project.proposal_of[ACTED_ON]])
 
-    assert row_of(md, engineer)["acts"] == 3
+    assert row_of(md, engineer)["acts"] == 2, "accepting the invitation is not an act"
 
 
 def test_the_engineer_s_acts_read_newest_first_from_the_confirm_back_in(
@@ -140,7 +141,7 @@ def test_an_undo_is_one_more_act_of_the_engineer(
     way.confirm([project.proposal_of[ACTED_ON]])
     way.undo()
 
-    assert row_of(md, engineer)["acts"] == 4
+    assert row_of(md, engineer)["acts"] == 3, "accepting the invitation is not an act"
     assert codes_of(md, engineer)[:2] == [UNDONE, CONFIRMED_BACK_IN]
 
 

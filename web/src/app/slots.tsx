@@ -12,6 +12,8 @@ import { createPortal } from 'react-dom'
 import { cn } from '@/ui/cn'
 
 export type SlotName =
+  /** The top bar, after the AccessChip: who from Vextrus has access, for the MD (m0-screens §6.12). */
+  | 'topbar.access'
   /** The canvas toolbar, after the step and its Count: the sheet label, the viewer's switches (16, 22). */
   | 'toolbar.start'
   /** The canvas toolbar's end, before the keys button (the viewer's tools, "More"). */
