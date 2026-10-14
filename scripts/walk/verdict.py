@@ -654,6 +654,10 @@ def _agent_layer(layer: object) -> dict[str, Any]:
     ids = [f["id"] for f in findings]
     if len(set(ids)) != len(ids):
         raise Malformed("two findings share an id")
+    named = {f["item"] for f in findings}
+    for item in ITEMS:
+        if status.get(item) == "FAIL" and item not in named:
+            raise Malformed(f"item {item} is FAIL and no finding names it")
     drafted = sum(1 for f in findings if f["issue"] is not None and f["dedup_comment_on"] is None)
     comments = sum(1 for f in findings if f["dedup_comment_on"] is not None and f["issue"] is None)
     if drafted + comments != len(findings):
