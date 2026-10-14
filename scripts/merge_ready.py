@@ -39,6 +39,10 @@ of round n whose head's round n-1 record is a FIX that rested only on unconfirme
 (`replays_only`); the newest round's record of a head is the one read.
 
 It prints each finding and exits 0 (ready) or 1 (not ready). It reads; it never posts or merges.
+
+`python -m scripts.merge_ready --cut-body <file>` runs (c) alone on a body file, offline, before a PR
+exists (the shift-left hook on `gh pr create`, S29-F2b): the body has a Cut section and each item
+links an issue; whether the issue is open is read at merge.
 """
 
 import json
@@ -405,6 +409,33 @@ def scan_problems(facts: dict[str, Any], scan: Scan) -> list[str]:
     return found
 
 
+def body_cut_problems(body: str) -> list[str]:
+    """(c) before a PR exists (the shift-left hook on `gh pr create --body-file`, S29-F2b): the body
+    has a Cut section, and each item under a Cut, Not done or Deferred heading links an issue (whether
+    the issue is open is read at merge, by (c))."""
+    found = []
+    if not any(
+        (heading := HEADING.match(line)) and re.match(r"cut\b", heading[1].strip(), re.IGNORECASE)
+        for line in body.splitlines()
+    ):
+        found.append("the body has no '## Cut' section: add one ('None.' when nothing was cut)")
+    return found + cut_problems(body, lambda _number: True)
+
+
+def _cut_body_main(file: Path) -> int:
+    """`python -m scripts.merge_ready --cut-body <file>`: (c) on a body file, offline; exit 1 with a
+    problem per line, 2 when the file cannot be read."""
+    try:
+        body = file.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        print("merge-ready: cannot read the body file", file=sys.stderr)
+        return 2
+    found = body_cut_problems(body)
+    for problem in found:
+        print(f"merge-ready: {problem}")
+    return 1 if found else 0
+
+
 def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository."""
     found = []
@@ -671,6 +702,8 @@ def main(
     head_ready: Callable[[str], bool] | None = None,
 ) -> int:
     args = sys.argv[1:] if argv is None else argv
+    if len(args) == 2 and args[0] == "--cut-body":
+        return _cut_body_main(Path(args[1]))
     if len(args) != 1 or not args[0].isdigit():
         print("usage: python -m scripts.merge_ready <PR number>", file=sys.stderr)
         return 2

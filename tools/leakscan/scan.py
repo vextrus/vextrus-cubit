@@ -306,6 +306,14 @@ def scan_commit(corpus: Corpus, result: Result, repo: Path, sha: str, names: lis
     else:
         patch = _run(repo, "diff-tree", "-p", "-r", "--root", *common, sha, "--")
         raw = _run(repo, "diff-tree", "-r", "-z", "--root", "--no-renames", sha, "--")
+    _scan_changes(corpus, result, repo, patch, raw, names)
+
+
+def _scan_changes(
+    corpus: Corpus, result: Result, repo: Path, patch: str, raw: str, names: list[str]
+) -> None:
+    """A change's added lines (`patch`, a unified diff) and the binary blobs its raw `-z` listing
+    (`raw`) adds. New file names are appended to `names`."""
     fields = raw.split("\0")
     changed: list[tuple[str, str, str]] = []
     i = 0
@@ -344,6 +352,36 @@ def scan_range(corpus: Corpus, repo: Path, base: str, head: str, ref: str | None
     if ref is not None:
         result.test(corpus, "ref", ref)
     return result
+
+
+def scan_staged(corpus: Corpus, repo: Path, base: str | None, message: str | None) -> Result:
+    """What `git commit` would add (the shift-left check, S29-F2b): the index (`GIT_INDEX_FILE` when
+    set) against `base` (`HEAD` by default; the empty tree before the first commit), its added lines
+    by `<path>:<line>`, the binary blobs it adds and every file name it touches, and the commit message
+    by `message:<line>`."""
+    result = Result()
+    if base is None:
+        head = git(repo, "rev-parse", "--verify", "-q", "HEAD^{commit}")
+        base = head.stdout.strip() if head.returncode == 0 else _empty_tree(repo)
+    else:
+        base = resolve(repo, base)
+    common = ["--no-color", "--no-ext-diff", "--no-textconv", "--text", "--unified=0", "--no-renames"]
+    patch = _run(repo, "diff", "--cached", "-p", *common, base, "--")
+    raw = _run(repo, "diff", "--cached", "--raw", "-z", "--no-abbrev", "--no-renames", base, "--")
+    names: list[str] = []
+    _scan_changes(corpus, result, repo, patch, raw, names)
+    if message is not None:
+        rows = [(f"message:{n}", n, text) for n, text in enumerate(message.split("\n"), start=1)]
+        result.block(corpus, rows)
+    scan_names(corpus, result, names)
+    return result
+
+
+def _empty_tree(repo: Path) -> str:
+    done = git(repo, "hash-object", "-t", "tree", "/dev/null")
+    if done.returncode != 0:
+        raise CannotScan("bad-range")
+    return done.stdout.strip()
 
 
 def scan_lines(corpus: Corpus, data: bytes, label: str) -> Result:

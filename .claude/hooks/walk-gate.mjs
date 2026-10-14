@@ -3,7 +3,10 @@
 // owner was told "walk now" twice with no agent walking first (spec D3). A last message asking for the walk is
 // blocked unless `python3 -m scripts.walk.ready origin/main` exits 0 within 8 s. A phrase inside a longer word
 // ("sidewalk now", "walk nowhere") does not count, and each block reason quotes the words that matched, so a message
-// that only discusses the rule can be rephrased. Fails closed where it matters: ready.py absent (G1 not installed),
+// that only discusses the rule can be rephrased. A phrase that asks for no walk passes without G1 (#865): one negated in
+// its own clause ("not", "never", "cannot", "n't", straight or curly; the clause ends at . ! ? ; : , or a line break),
+// or one inside a closed quote (double, single, curly), a code span or a fenced block. A plain claim anywhere in the
+// message still blocks, and the reason quotes it. Fails closed where it matters: ready.py absent (G1 not installed),
 // failing, or hung blocks. Every other failure (no message, garbage stdin, a builder session) lets the stop through.
 // stop_hook_active is not honoured: Claude Code's cap of 8 blocks in a row is the backstop, and a second "walk now" is
 // no more true than the first.
@@ -17,7 +20,32 @@ const project = process.env.CLAUDE_PROJECT_DIR || "";
 const DEADLINE_MS = 10_000;
 // Fails toward blocking: only a letter before a phrase frees it (markdown's `_` and `*` do not), and after it only the
 // two false matches "walk nowhere" and "walked"; "walkthrough" and "walking" still block.
-const PHRASES = /(?<![A-Za-z])(?:walk now(?!here)|ready for your walk|please walk(?!ed))/i;
+const PHRASES = /(?<![A-Za-z])(?:walk now(?!here)|ready for your walk|please walk(?!ed))/gi;
+// What frees a phrase: closed quotes and code on one line (a single quote only between non-letters, so "don't" opens
+// none), closed fenced blocks; then a negation word in the phrase's own clause.
+const QUOTED = [/```[\s\S]*?```/g, /`[^`\n]+`/g, /"[^"\n]*"/g, /“[^“”\n]*”/g, /‘[^‘’\n]*’/g, /(?<![A-Za-z0-9])'[^'\n]*'(?![A-Za-z0-9])/g];
+const BOUNDARY = /[.!?;:,\n]/;
+const NEGATION = /(?<![A-Za-z])(?:not|never|cannot)(?![A-Za-z])|[A-Za-z]n['’]t(?![A-Za-z])/i;
+
+/** The message with quoted and code text blanked to spaces (same length, line breaks kept). */
+function unquoted(message) {
+  let text = message;
+  for (const pattern of QUOTED) text = text.replace(pattern, (span) => span.replace(/[^\n]/g, " "));
+  return text;
+}
+
+/** The first phrase that asks for a walk (not quoted, not negated in its clause), as written; or undefined. */
+export function walkRequest(message) {
+  const text = unquoted(message);
+  for (const match of text.matchAll(PHRASES)) {
+    let start = match.index;
+    while (start > 0 && !BOUNDARY.test(text[start - 1])) start -= 1;
+    let end = match.index + match[0].length;
+    while (end < text.length && !BOUNDARY.test(text[end])) end += 1;
+    if (!NEGATION.test(text.slice(start, end))) return message.slice(match.index, match.index + match[0].length);
+  }
+  return undefined;
+}
 
 const git = (...args) => {
   const done = spawnSync("git", ["-C", project, ...args], { encoding: "utf8", timeout: 1_000 });
@@ -46,7 +74,7 @@ function verdict() {
   } catch {
     return null;
   }
-  const matched = typeof message === "string" ? message.match(PHRASES)?.[0] : undefined;
+  const matched = typeof message === "string" ? walkRequest(message) : undefined;
   if (matched === undefined) return null;
   if (project === "" || !mainCheckout()) return null;
   const asked = `Your last message asks the owner to walk ("${matched}").`;
