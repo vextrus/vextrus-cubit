@@ -146,3 +146,41 @@ def test_a_structural_view_naming_nothing_keeps_every_step_its_sheet_names() -> 
     assert plan.kind is ViewKind.PLAN
     assert plan.steps == ("slabs", "beams")
     assert plan.exclusion is None
+
+
+@pytest.mark.parametrize(
+    ("title", "draws"),
+    [
+        ("FALSE CEILING FRAMING PLAN", False),
+        ("PARTITION FRAMING LAYOUT", False),
+        ("ALUMINIUM FRAMING PLAN", False),
+        ("GLAZING FRAMING LAYOUT", False),
+        ("FRAMING PLAN OF WINDOWS", False),
+        ("FRAMING LAYOUT", True),  # the acceptance's A-15
+        ("ROOF FRAMING PLAN", True),
+        ("SLAB AND FRAMING PLAN", True),
+        ("BEAM AND CEILING FRAMING PLAN", True),  # its beam is the structure's
+    ],
+)
+def test_framing_is_the_structures_only_when_nothing_the_architect_frames_is_named(
+    title: str, draws: bool
+) -> None:
+    """Fix round 2 (#844's review): "framing" beside a ceiling, a partition, aluminium, glazing or an
+    opening is the architect's own framing view, not the structural set's."""
+    assert routing_part._draws_structure(title, READING) is draws
+
+
+def test_the_architects_framing_plan_beside_a_floor_plan_stays_in_walls_and_rooms() -> None:
+    _, found = _found(
+        ["GROUND FLOOR PLAN", "FALSE CEILING FRAMING PLAN"],
+        title="GROUND FLOOR PLAN AND FALSE CEILING FRAMING",
+        stated=None,
+        discipline="architectural",
+    )
+
+    routes = {v.title: (v.steps, v.exclusion) for v in found}
+
+    assert routes == {
+        "GROUND FLOOR PLAN": (("walls", "rooms"), None),
+        "FALSE CEILING FRAMING PLAN": (("walls", "rooms"), None),
+    }
