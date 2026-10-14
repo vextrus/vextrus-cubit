@@ -93,7 +93,7 @@
                   "FAIL",
                   "NOT_WALKED"
                 ],
-                "description": "The item's status, one of three: PASS: walked, and the item holds as docs/specs/M0.md words it (findings of severity OTHER may stand under it); FAIL: walked, and the item does not hold as worded (a finding under it says why); NOT_WALKED: not walked (no time, a crash, a screen that would not open). Only PASS lets the walk's `result` be PASS: FAIL and NOT_WALKED both fail it."
+                "description": "The item's status, one of three: PASS: walked, and the item holds as docs/specs/M0.md words it (findings of severity OTHER may stand under it); FAIL: walked, and the item does not hold as worded (a BLOCKS finding, or a misleading finding with reproduction steps on that head, under it says why: the owner's ruling Q24, 14 Oct 2026); NOT_WALKED: not walked (no time, a crash, a screen that would not open). Only PASS lets the walk's `result` be PASS: FAIL and NOT_WALKED both fail it."
               }
             }
           }
@@ -119,6 +119,14 @@
         "dedup_comments": {
           "type": "integer",
           "minimum": 0
+        },
+        "turned_pass": {
+          "type": "array",
+          "description": "The owner's ruling Q24 (14 Oct 2026): the ids of the OTHER findings (severity OTHER, not a misleading finding with reproduction steps) under each item a critic failed that the verdict lists PASS, because at least one finding names the item and every finding naming it is OTHER; [] when nothing was turned, also with no agent layer. Absent from a verdict written before S28-W1.",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+          }
         }
       }
     },

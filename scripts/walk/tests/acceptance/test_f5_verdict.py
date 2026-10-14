@@ -294,11 +294,14 @@ def test_other_findings_that_do_not_mislead_still_pass() -> None:
 @pytest.mark.parametrize("status", ["NOT_WALKED", "FAIL"])
 def test_an_item_not_walked_or_failed_fails_the_walk(status: str) -> None:
     # S27-G8: an item FAIL is judged only with a finding naming it (factory.md 5, "a finding under it").
-    under = [_finding(1, item="M0-FL7")] if status == "FAIL" else []
+    # S28-W1 (Q24): and only a BLOCKS (or reproduced misleading) finding keeps it FAIL.
+    blocks = _finding(1, item="M0-FL7", severity="BLOCKS")
+    under = [blocks] if status == "FAIL" else []
     verdict = _evaluate(layer=_layer(under, {"M0-FL7": status}))
 
     assert verdict["result"] == "FAIL"
     assert {"item": "M0-FL7", "status": status} in verdict["agent_layer"]["items"]
+    assert verdict["agent_layer"]["turned_pass"] == []  # S28-W1: only OTHER findings turn a FAIL
 
 
 def test_an_item_failed_with_no_finding_naming_it_is_not_judged() -> None:

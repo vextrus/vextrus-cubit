@@ -194,3 +194,7 @@ proposer may run inside the product's read (ADR 0011; still open).
   Development Sets' text to Jev under the cloud key; every other set's text stays under the local key. The lines
   above that said "until ADR 0013 is amended" now say so. The vision question (ADR 0011) stays open; session 13's
   Q8 allows only a development-time prototype after S1.
+- 14 Oct 2026 (session 28, the owner's ruling Q24, `docs/plans/factory-s29.md`): G1's evidence bar. An item fails only
+  on a BLOCKS finding or a misleading finding with reproduction steps on that head; every other finding is OTHER, filed
+  and listed for the owner, its item PASS (`agent_layer.turned_pass` records the turned ids); walk #2 is a scripted
+  repeat (`/real-set-walk <sha40> --repeat <prior sha40>`) whose new non-BLOCKS findings are filed (S28-W1).
