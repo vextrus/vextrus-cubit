@@ -307,8 +307,9 @@ export class SheetRenderer {
     const width = gl.drawingBufferWidth
     const height = gl.drawingBufferHeight
     const budget = WORK_PER_PIXEL * width * height + WORK_FLOOR
-    // The bound first (linear in the work grid's cells); the count over every record only when it is past the budget.
-    if (workBound(prepared(sheet).work, view, width, height) > budget && frameWork(sheet, view, width, height) > budget) {
+    // The bound first (linear in the work grid's cells); the count over every record only when it is past
+    // the budget, or not a number (a scale so large its square overflows): never skipped on a NaN.
+    if (!(workBound(prepared(sheet).work, view, width, height) <= budget) && !(frameWork(sheet, view, width, height) <= budget)) {
       throw new SheetGlError('the sheet draws over itself too many times to draw')
     }
     const dark = palette === 'dark' || palette === 'compare-dark'
@@ -386,7 +387,8 @@ export class SheetRenderer {
     const job: DrawJob = {
       step: (records = partSize) => {
         if (this.job !== job || this.current !== up || gl.isContextLost()) return false
-        let left = Math.max(1, records)
+        // Whole records: a part starts and ends on one (its attributes point at a record's first byte).
+        let left = Math.max(1, Math.floor(records) || 1)
         ink()
         while (left > 0 && kind < kinds.length) {
           const k = kinds[kind]!
@@ -456,6 +458,16 @@ export class SheetRenderer {
   private pointColour(p: Program, offset: number) {
     const at = p.attribute('aColour')
     if (at >= 0) this.gl.vertexAttribPointer(at, 3, this.gl.UNSIGNED_BYTE, true, 3, offset)
+  }
+
+  /** Ends the frame being drawn and leaves the canvas empty (a new sheet is on its way). */
+  clear(): void {
+    const gl = this.gl
+    this.job = null
+    if (gl.isContextLost()) return
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight)
+    gl.clearColor(0, 0, 0, 0)
+    gl.clear(gl.COLOR_BUFFER_BIT)
   }
 
   /**

@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import tinySheetUrl from '../../../engine/render/fixtures/tiny-sheet.bin?url'
 import { decodeSheet } from './decode'
-import { SheetRenderer, type Palette } from './gl'
+import { SheetGlError, SheetRenderer, type Palette } from './gl'
 
 async function tinySheet() {
   return decodeSheet(await (await fetch(tinySheetUrl)).arrayBuffer())
@@ -30,13 +30,13 @@ const VIEW = { scale: 4, x: 0, y: 592 }
 
 describe('a frame drawn in parts', () => {
   for (const palette of ['paper', 'dark', 'compare', 'compare-dark'] as Palette[]) {
-    it(`gives the picture of one draw, on ${palette}, in parts of 1, 7 and 50 records`, async () => {
+    it(`gives the picture of one draw, on ${palette}, in parts of 1, 7, 50 and 2.5 records (a part is whole records)`, async () => {
       const sheet = await tinySheet()
       const whole = renderer()
       whole.draw(sheet, VIEW, { palette, greekBelowPx: 8 })
       const expected = pixels(whole)
       expect(new Set(Array.from({ length: expected.length / 4 }, (_, i) => expected.slice(i * 4, i * 4 + 4).join())).size, 'the tiny sheet draws marks on its paper').toBeGreaterThan(10)
-      for (const size of [1, 7, 50]) {
+      for (const size of [1, 7, 50, 2.5]) {
         const r = renderer()
         const job = r.begin(sheet, VIEW, { palette, greekBelowPx: 8 })!
         let parts = 0
@@ -49,6 +49,11 @@ describe('a frame drawn in parts', () => {
       }
     })
   }
+
+  it('refuses a frame at a scale whose work overflows, as the count refuses it, never drawing it on a bound that is not a number', async () => {
+    const sheet = await tinySheet()
+    expect(() => renderer().begin(sheet, { scale: 1e160, x: 0, y: 592 })).toThrow(SheetGlError)
+  })
 
   it('ends the frame being drawn when a new one begins', async () => {
     const sheet = await tinySheet()

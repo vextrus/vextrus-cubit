@@ -117,15 +117,20 @@ function decoder(): Worker {
     keepPrepared(reply.sheet, reply.ready)
     wait.resolve(reply.sheet)
   }
-  // A Worker that fails (it could not load, or ran out of memory) fails what it was asked; the next ask starts a new one.
-  w.onerror = (event) => {
-    event.preventDefault()
+  // A Worker that fails (it could not load, or ran out of memory), or a reply that cannot be read, fails
+  // what it was asked, never leaves it waiting; the next ask starts a new Worker.
+  const stop = () => {
     w.terminate()
     if (worker === w) worker = null
     const failed = [...waiting.values()]
     waiting.clear()
     for (const f of failed) f.reject(new SheetBufferError('the sheet decoder stopped'))
   }
+  w.onerror = (event) => {
+    event.preventDefault()
+    stop()
+  }
+  w.onmessageerror = stop
   worker = w
   return w
 }

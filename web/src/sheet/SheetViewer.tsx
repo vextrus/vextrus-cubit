@@ -395,8 +395,13 @@ function SheetCanvas({
   }, [draw])
 
   // The sheet, once decoded: fitted to the working view (unless the user has moved it already) and drawn.
+  // While a new one decodes the canvas is empty, never the sheet before it.
   useEffect(() => {
-    if (!sheet) return
+    if (!sheet) {
+      cancelAnimationFrame(frame.current)
+      renderer.current?.clear()
+      return
+    }
     const f = latest.current.fits()
     if (f && (!view.current || !moved.current)) latest.current.setView(f.working, false)
     else draw()
