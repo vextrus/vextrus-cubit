@@ -24,11 +24,12 @@ Problem wording is the builder's; only exit codes, shard names and paths are ass
 
 import json
 import os
-import re
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+from tools.lint.ci_shards import is_marked_serial
 
 ROOT = Path(__file__).resolve().parents[5]
 CI = ROOT / ".github" / "workflows" / "ci.yml"
@@ -38,7 +39,6 @@ BOUND = 270.0
 WORKERS = 4
 SEAM = "tools.lint.ci_shards balance"
 SCRUB = ("PYTEST_ADDOPTS", "PYTEST_XDIST_WORKER", "PYTEST_XDIST_WORKER_COUNT", "PYTEST_CURRENT_TEST")
-SERIAL = re.compile(r"pytest\.mark\.serial\b")
 
 # Files CI measured over 100 s (JUnit seconds summed, run 38616022347, main 1474ed4d0): a timing file
 # that is measured names each, and none of them near zero.
@@ -218,7 +218,8 @@ def test_the_committed_plan_predicts_every_shard_at_270_seconds_or_less() -> Non
             inside = not paths or any(_under(file, path) for path in paths)
             if not inside or any(_under(file, path) for path in ignore):
                 continue
-            serial = (ROOT / file).is_file() and SERIAL.search((ROOT / file).read_text(errors="replace"))
+            path = ROOT / file
+            serial = path.is_file() and is_marked_serial(path.read_text(errors="replace"))
             total += seconds if serial else seconds / WORKERS
         predicted[shard["name"]] = round(total, 1)
     over = {name: seconds for name, seconds in predicted.items() if seconds > BOUND}

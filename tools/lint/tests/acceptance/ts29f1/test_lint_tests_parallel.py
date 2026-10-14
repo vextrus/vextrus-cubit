@@ -8,13 +8,18 @@ and no `-n` on `tools/lint/tests`; this plan item supersedes those, so that file
 other promises are carried here unchanged: every other shard's test run carries `-n 4`, the engine's
 toolchain job `-n 3`, and no workflow asks for `-n auto`. Its readers are carried in `_ci_reader`.
 
+A serial file runs in the shard that owns it: the serial steps are keyed to shard names, the shards'
+main runs deselect serial tests, and `collected` does not read `-m`, so a rebalance that moved a serial
+file to another shard would drop it unseen.
+
 The required checks keep their names: `ci`, `web` and `engine` are the jobs that roll each workflow
 up, run whatever came before (`if: always()`), and `ci` still needs the shards' test job.
 """
 
+import json
 import re
 
-from tools.lint.ci_shards import jobs, needs
+from tools.lint.ci_shards import is_marked_serial, jobs, needs
 from tools.lint.tests.acceptance.ts29f1._ci_reader import (
     ENGINE,
     LINT_TESTS,
@@ -25,6 +30,7 @@ from tools.lint.tests.acceptance.ts29f1._ci_reader import (
     holds_lint_tests,
     invocations,
     job_lines,
+    repo_test_files,
     shard_names,
     shard_runs,
     shard_test_runs,
@@ -88,3 +94,33 @@ def test_the_required_checks_keep_their_names_and_roll_up_their_workflow() -> No
             f"{workflow}: the {check!r} job does not run if: always()..."
         )
     assert "python" in needs(jobs((ROOT / ".github" / "workflows" / "ci.yml").read_text())["ci"])
+
+
+def _owner(file: str) -> str | None:
+    def under(path: str, root: str) -> bool:
+        return path == root.rstrip("/") or path.startswith(f"{root.rstrip('/')}/")
+
+    for shard in json.loads((ROOT / ".github" / "ci-shards.json").read_text())["shards"]:
+        paths, ignore = shard.get("paths", []), shard.get("ignore", [])
+        if (not paths or any(under(file, p) for p in paths)) and not any(under(file, p) for p in ignore):
+            return str(shard["name"])
+    return None
+
+
+def test_every_serial_file_is_named_by_a_serial_run_of_the_shard_that_owns_it() -> None:
+    serial = [
+        file
+        for file in repo_test_files()
+        if "/acceptance/" not in file and is_marked_serial((ROOT / file).read_text(errors="replace"))
+    ]
+    assert serial, "no test file is marked serial"
+    for file in serial:
+        shard = _owner(file)
+        assert shard, f"{file}: in no shard"
+        named = False
+        for run in shard_runs(shard):
+            words = list(run.argv)
+            marks = [words[at + 1] for at, word in enumerate(words[:-1]) if word == "-m"]
+            if any(mark.lstrip().startswith("serial") for mark in marks) and file in words:
+                named = True
+        assert named, f"{file}: marked serial, but no serial run of its shard {shard!r} names it"
