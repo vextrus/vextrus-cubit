@@ -15,7 +15,8 @@
 //   environment, and the interpreter `VEXTRUS_PYTHON` when set (as the walk gate does).
 // Every corpus string is invented (tools/leakscan/tests/acceptance/_leak.py's); every repository is made in a
 // temporary folder. Not pinned: no corpus (cloud sessions have none), `git commit -a`/`-F`/`--amend`, a compound call
-// that stages and commits in one command.
+// that stages and commits in one command beyond its being
+// denied (one case below; how it is denied is the builder's).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -189,6 +190,12 @@ test("git commit with an acceptance: message that also stages a non-acceptance f
 test("git commit with an acceptance: message staging only acceptance paths, with both counts, is allowed", () => {
   const world = fixture({ [ACCEPTANCE_FILE]: "def test_a() -> None:\n    assert True\n" });
   allowed(hook(world, `git commit -m "acceptance: t1 pins the widget" ${COUNTS}`));
+});
+
+test("git add then git commit in one Bash call, staging a leak hit, is denied (the scan cannot be skipped by staging in the same call)", () => {
+  const world = fixture();
+  write(world.repo, { "docs/leak.md": `the owner is ${ZEBRA} here\n` });
+  denied(hook(world, 'git add docs/leak.md && git commit -m "docs: a note"'));
 });
 
 test("a Bash call that is not a commit or a PR is untouched, even with a leak hit staged", () => {

@@ -99,7 +99,7 @@ const NEGATED = [
   ["negation on its own line", "Status:\nNot ready for your walk."],
 ];
 for (const [kind, message] of NEGATED) {
-  test(`negated (${kind}): "${message}" is allowed without running G1`, () => allowedWithoutG1(message));
+  test(`negated (${kind}): ${JSON.stringify(message)} is allowed without running G1`, () => allowedWithoutG1(message));
 }
 
 // Allowed: the phrase quoted or in code.
