@@ -54,6 +54,35 @@ product code), so the owner walks M0. It exits 1 today (0 of 2; no G1 walk ran i
 - Session 27's two cuts (orchestrator, for budget): G1 walk #2 and then walk #1 moved here; S27-G9 (Discipline-qualified
   `?sheet=`) not started.
 
+## The factory review beside session 27, and what it changes here (the owner's rulings, 14 Oct 09:25Z)
+A read-only session ran beside session 27 and reviewed the factory against its measures, the Claude Code docs and current
+practice (`.private/work/s27-explore/synthesis.md`, local; six reports beside it). The owner ruled on eleven questions:
+- **Sessions:** session 28 is this brief ("Session 28 as drafted or at least you can improvise it for better performance");
+  **session 29 is factory-only** (synthesise the review, build the upgrades, verify them); **M1 starts in session 30**, after
+  which product and factory both keep improving themselves each session.
+- **Tokens:** "measure and cap by tokens", Max 20x, "second subscription is right on the table"; the factory must be token
+  efficient without losing quality.
+- **Verify:** "speed up CI, then the fast verify" (CI the full gate, an impact-selected verify before READY).
+- **Fixes:** "Fresh context for fixes, one round, then split." **Review:** one lens plus CI for ordinary PRs, the full panel on
+  "the risk tier written down as paths".
+- **UI builders:** the Chromium probe first; "use local builders for UI tickets until it passes".
+- **Real drawings in the cloud:** "Yes to the probe, and yes to cloud browser walks on the two Development Sets only."
+- **Compute:** no third-party sandboxes, no rented server for now ("stick with our own local machine and Claude Cloud sessions").
+- **Holds (applies now):** "Yes for reversible choices. Spending, scope and irreversible choices still wait for me; in most cases
+  I don't want stalled sessions waiting for my answers where sessions could have finished it's tasks proceeding on the
+  recommendation." Ask, then proceed on the recommendation for anything reversible; note it in STATE.md for the owner.
+- **Display:** freshness first, then one rich band and pane, capped at 1.5 h (session 29).
+- **Subtraction (applies now):** "Record the result as a table in the session 28 measures": one row per gate and lens (what
+  failure it was built for, its last real catch with a PR number, minutes it adds per PR). Session 29 retires gates from it.
+
+**What session 28 does about it** (the walks keep priority; nothing here may load the machine during a walk):
+1. Collect the subtraction table above from `.private/work/s2*/STATE.md` and the review ledger (an Explore agent, `low`).
+2. If a cloud slot is idle in the land phase, #864 (the rest shard re-runs scripts/ and engine/ tests: CI's critical path,
+   about 11.5 min) may be built as an ordinary cloud ticket; it shortens every later landing.
+3. Session 28's close writes session 29's brief from `synthesis.md`, these rulings and the session 28 measures. Filed by the
+   review: #864, #865 (the walk-gate hook blocks sentences saying the walk is not ready), #866 (why the band and status line
+   go stale).
+
 ## The owner's questions still open (one at a time, recommendation first)
 The three from session 27's brief (storeys correction stays quiet; fire allowance ৳120/sft from 7 storeys; "File" and "at x"
 words) and whether M1-00 may merge right after the walk: ask at the walk. New: (1) the MD's Vextrus-access notice shows only on
