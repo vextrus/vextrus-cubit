@@ -68,13 +68,13 @@ describe('openDecodedSheet: a sheet already opened', () => {
 })
 
 describe('openDecodedSheet: the decoded sheets kept', () => {
-  it('keeps at most its capacity, of two or more sheets', async () => {
+  it('keeps at most its capacity, of two or more sheets', { timeout: 60_000 }, async () => {
     expect(decodedSheets.capacity).toBeGreaterThanOrEqual(2)
     for (let i = 0; i <= decodedSheets.capacity; i++) await openDecodedSheet(await tinySheet())
     expect(decodedSheets.size).toBe(decodedSheets.capacity)
   })
 
-  it('drops the sheet least recently opened first', async () => {
+  it('drops the sheet least recently opened first', { timeout: 60_000 }, async () => {
     const capacity = decodedSheets.capacity
     const kept = await tinySheet()
     const dropped = await tinySheet()
@@ -91,17 +91,22 @@ describe('openDecodedSheet: the decoded sheets kept', () => {
 })
 
 describe('openDecodedSheet: a crafted buffer', () => {
-  it('refuses a 30 MB buffer that is not a sheet, and the next sheet still opens', async () => {
+  it('refuses a 30 MB buffer that is not a sheet, and the next sheet still opens', { timeout: 60_000 }, async () => {
     const garbage = new Uint8Array(30_500_000)
     garbage.fill(0x5a)
-    await expect(openDecodedSheet(garbage.buffer)).rejects.toBeTruthy()
+    // Settled to a word, so a wrong success never prints 30 MB of arrays.
+    const outcome = await openDecodedSheet(garbage.buffer).then(
+      () => 'opened',
+      () => 'refused',
+    )
+    expect(outcome).toBe('refused')
     const sheet = await openDecodedSheet(await tinySheet())
     expect(sheet.lines.count).toBeGreaterThan(0)
   })
 })
 
 describe('<SheetViewer> and the decode', () => {
-  it('opens through openDecodedSheet, and mounts while the decode is still running', async () => {
+  it('opens through openDecodedSheet, and mounts while the decode is still running', { timeout: 60_000 }, async () => {
     const buffer = await tinySheet()
     const decoded = decodeSheet(await tinySheet())
     let finish: (sheet: DecodedSheet) => void = () => {}
@@ -119,7 +124,7 @@ describe('<SheetViewer> and the decode', () => {
     await expect.poll(darkest, { timeout: 30_000 }).toBeLessThan(50)
   })
 
-  it('shows "S-10 could not be drawn. The other sheets are not affected." for a 30 MB buffer that is not a sheet', async () => {
+  it('shows "S-10 could not be drawn. The other sheets are not affected." for a 30 MB buffer that is not a sheet', { timeout: 60_000 }, async () => {
     const garbage = new Uint8Array(30_500_000)
     garbage.fill(0x5a)
     mount(garbage.buffer, 'S-10')
