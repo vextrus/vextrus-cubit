@@ -459,7 +459,8 @@ STRICT = "vextrus/rates/table.py"
     [
         (["PASS", "BLOCK"], [(80, "CONFIRMED", STRICT)], "BLOCK"),  # 1: a lens's BLOCK wins
         (["BLOCK"], [], "BLOCK"),
-        (["PASS"], [(75, "UNPROVEN", LAX)], "FIX"),  # 2: a standing finding that could block
+        (["PASS"], [(75, "CONFIRMED", LAX)], "FIX"),  # 2: a standing finding that could block
+        (["FIX"], [(75, "UNPROVEN", LAX)], "PASS"),  # S28-R1: a lens's UNPROVEN one never blocks
         (["PASS"], [(50, "CONFIRMED", STRICT)], "FIX"),
         (["FIX"], [(80, "-", STRICT)], "FIX"),  # 3: a lens's FIX over an unrefuted one
         (["PASS", "FIX"], [(50, "-", None)], "FIX"),  # no file: judged strict

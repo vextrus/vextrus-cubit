@@ -41,9 +41,10 @@ naming the check it owes.
    50-74, highest score first, each with its repro and what its replay showed (exit, output tail), go
    to ONE batched `refuter` process, started only when one that could block is among them. Its
    verdict per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded;
-   a refuter that fails or answers outside its schema confirms nothing (UNPROVEN, which never blocks
-   since S28-R1: it is filed). A finding of 50-74 that cannot block left out stands unjudged (`-`): it
-   is filed as an issue, never blocks.
+   a refuter that fails or answers outside its schema confirms nothing (UNPROVEN: since S28-R1 a
+   lens's UNPROVEN finding never blocks and is filed; an earlier round's replayed attack still
+   does). A finding of 50-74 that cannot block left out stands unjudged (`-`): it is filed as an
+   issue, never blocks.
 7. **Record (code).** The `VERDICT`/`FINDING` lines (each finding's file its fifth field) go to a
    file and `scripts.ledger record` is called in
    this process: the verdict is decided there and nowhere else, its leak scan runs and it posts the one
@@ -1616,7 +1617,8 @@ def earlier_rounds(
             views = []
         standing = [
             view for view in views if isinstance(view, dict)
-            and view.get("status") in ledger.STANDS and int(view.get("score") or 0) >= 50
+            and ledger.stands(str(view.get("id")), str(view.get("status")))
+            and int(view.get("score") or 0) >= 50
         ]  # fmt: skip
         if standing:
             run.not_kept.append(number)
@@ -2531,14 +2533,21 @@ def view_judged(view: dict[str, Any]) -> ledger.Judged:
 
 
 def standing(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The findings that block: CONFIRMED (S28-R1: never UNPROVEN nor REFUTED), and over the bar
+    """The findings that block: standing (`ledger.stands`: CONFIRMED, or an earlier round's replayed
+    attack still UNPROVEN; never a lens's UNPROVEN nor a REFUTED one) and over the bar
     (`ledger.could_block`)."""
-    return [v for v in views if v["status"] in ledger.STANDS and ledger.blocks(view_judged(v))]
+    return [
+        v for v in views
+        if ledger.stands(str(v["id"]), str(v["status"])) and ledger.blocks(view_judged(v))
+    ]  # fmt: skip
 
 
 def to_file(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The findings to file as issues rather than fix (`ledger.to_file`)."""
-    return [v for v in views if ledger.to_file(*view_judged(v))]
+    return [
+        v for v in views
+        if ledger.to_file(*view_judged(v), replayed=ledger.REPLAYED.fullmatch(str(v["id"])) is not None)
+    ]  # fmt: skip
 
 
 def fix_message(run: Run) -> str:

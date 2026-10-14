@@ -367,8 +367,9 @@ def test_the_sample_is_every_blocker_then_three_others_highest_first() -> None:
 
 def test_the_fix_message_files_the_findings_that_do_not_block_under_their_own_heading() -> None:
     views = [
-        kept("b", 80, OFF).view(),
-        kept("s", 55, ON).view(),
+        kept("b", 80, OFF, "CONFIRMED").view(),
+        kept("s", 55, ON, "CONFIRMED").view(),
+        kept("p", 80, ON).view(),  # S28-R1: a lens's UNPROVEN finding never blocks; it is filed
         kept("f", 60, OFF).view(),
         kept("u", 70, OFF, "-").view(),
         kept("r", 70, OFF, "REFUTED").view(),
@@ -378,7 +379,7 @@ def test_the_fix_message_files_the_findings_that_do_not_block_under_their_own_he
     fix, filed = text.split("File as issues")
     for shown in ("(80): summary b", "(55): summary s"):
         assert shown in fix
-    for shown in ("(70): summary u", "(60): summary f"):
+    for shown in ("(70): summary u", "(60): summary f", "(80): summary p"):
         assert shown in filed
         assert shown not in fix
     for hidden in ("summary r", "summary low"):

@@ -71,7 +71,8 @@ def test_a_lens_whose_session_died_is_launched_again_and_collect_records_once_bo
     launcher = Launcher(monkeypatch, cloud.head)
     hand_off(cloud)
     assert [model for model, _ in launcher.launched] == [review.LENS_A.model, review.LENS_B.model]
-    cloud.answer(launcher.nonce_of(review.LENS_B.model), "FIX", [FIX])  # lens A's session died
+    # lens A's session died; BLOCK, since a cloud finding no refuter saw never blocks (S28-R1)
+    cloud.answer(launcher.nonce_of(review.LENS_B.model), "BLOCK", [FIX])
     with pytest.raises(review.Refused, match="lens-a: no accepted verdict"):
         collect(cloud)
     hand_off(cloud, frozenset({"lens-a"}))  # the rerun, lens A named as dead: lens A only
@@ -87,7 +88,7 @@ def test_a_lens_whose_session_died_is_launched_again_and_collect_records_once_bo
     collect(cloud)
     (recorded,) = list(cloud.ledger_dir.iterdir())
     record = json.loads(recorded.read_text())
-    assert (record["verdict"], record["counts"]["reviewers"]) == ("FIX", 2)
+    assert (record["verdict"], record["counts"]["reviewers"]) == ("BLOCK", 2)
 
 
 def test_collect_takes_each_lens_s_newest_accepted_verdict(

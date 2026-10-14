@@ -20,31 +20,32 @@
   head's tree); any other 50-74 (its class no longer decides) is filed as an issue that owes its
   check. A class outside user-facing, edge and rule-only, or a boundary or observed tag but yes or
   no, is refused. An untagged finding keeps the path bar (the owner's ruling, 7 Oct 2026): 75 or
-  more, or 50 or more on a strict path (strict by default: lax only on a `[lax]` glob with no `[strict]` carve-out, the file read
-  afresh for each decision; no file, a climbing or absolute path, or an unreadable list is judged
-  strict; review.py and `fetch-verdict` drop a file that is not in the head's tree). The verdict
-  follows the bar (S24-L1), in this order: BLOCK when any lens says BLOCK; else FIX while a
-  finding that could block stands (a refuter or its replay CONFIRMED it: an UNPROVEN finding never
-  blocks, S28-R1); else PASS, whatever a lens's FIX or PASS line says (a lens's FIX over findings
-  that cannot block, or refuted or unproven ones, records PASS). One that
-  could block with no refuter verdict is refused here; in `fetch-verdict` (a cloud lens's findings
-  carry none) a lens's FIX over such a finding records FIX, and `record` refuses a PASS over one.
-  Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
+  more, or 50 or more on a strict path (strict by default: lax only on a `[lax]` glob with no
+  `[strict]` carve-out, the file read afresh for each decision; no file, a climbing or absolute
+  path, or an unreadable list is judged strict; review.py and `fetch-verdict` drop a file that is
+  not in the head's tree). The verdict follows the bar (S24-L1), in this order: BLOCK when any lens
+  says BLOCK; else FIX while a finding that could block stands (CONFIRMED, or an earlier round's
+  replayed attack still UNPROVEN: a lens's UNPROVEN finding never blocks, S28-R1); else PASS,
+  whatever a lens's FIX or PASS line says (a lens's FIX over findings that cannot block, or refuted
+  or unproven ones, records PASS). One that could block with no refuter verdict is refused here;
+  in `fetch-verdict` (a cloud lens's findings carry none) a lens's FIX over such a finding records
+  FIX, and `record` refuses a PASS over one. Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
 - `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
   line `{"to_file": [<id>, ...]}`, the findings of 50 or more, not REFUTED, that do not block (50-74
-  tagged neither observed nor on a trust boundary, or untagged off the strict paths; and an UNPROVEN
-  one at any score), to be filed as issues rather than fixed, each naming the check it owes.
+  tagged neither observed nor on a trust boundary, or untagged off the strict paths; and a lens's
+  UNPROVEN one at any score), to be filed as issues rather than fixed, each naming the check it owes.
 - `record <PR> --round n --head <sha> --from <file> [--exception … --reason …]`: decides, leak-scans
   what it will post and write, posts one marker comment
   (`<!-- vextrus-review round=N head=<sha> verdict=V findings=k -->`), then writes
   `<ledger>/<PR>-<head>.json` atomically, once: a record is never overwritten. A head is reviewed once,
   with one exception (S26-FX9): a `delta-review` round n may re-review the head round n-1 recorded when
-  that round's record carries `replays_only` (a FIX that rested only on replayed attacks no refuter
-  confirmed); its record is `<PR>-<head>-r<n>.json`, and the newest round's record of a head is the
-  one read. Since S28-R1 an UNPROVEN finding never blocks, so no new FIX rests on unconfirmed replays
-  and no new record carries `replays_only`; records already written with it are still read. A
-  FINDING whose id is `r<n>-<id>` is an earlier round's attack replayed (review.py names them so).
-  The record of truth is local: refused in a cloud session (`CLAUDE_CODE_REMOTE=true`).
+  that round's FIX rested only on replayed attacks no refuter confirmed (its record's `replays_only`;
+  never after a refuter-confirmed replay or a lens's finding: no refuter shopping); its record is
+  `<PR>-<head>-r<n>.json`, and the newest round's record of a head is the one read. A FINDING whose
+  id is `r<n>-<id>` is an earlier round's attack replayed (review.py names them so): its attack failed
+  by name on its own round, so UNPROVEN there still stands (S28-R1 keeps it: only a lens's finding no
+  refuter confirmed stops blocking). The record of truth is local: refused in a cloud session
+  (`CLAUDE_CODE_REMOTE=true`).
 - `fetch-verdict <PR> --launch <launch record> --round n` (a cloud review): fetches the review branch the
   launch record names and records its verdict file only if the branch's tip is one commit on the PR's
   head adding only that file, and the file's nonce, head and PR match the launch record and the PR's
@@ -67,7 +68,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -93,6 +94,8 @@ RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
 # The refuter word under which a finding that could block blocks (S28-R1: UNPROVEN no longer does).
 STANDS = {"CONFIRMED"}
 REFUTER_WORDS = ("CONFIRMED", "REFUTED", "UNPROVEN")  # what a refuter may answer
+# An earlier round's replayed attack, as review.py names its FINDING (`r<round>-<id>`).
+REPLAYED = re.compile(r"r[1-9][0-9]*-\S+")
 MAX_ROUND = 3  # the last round an exception other than a delta review may open
 LAST_ROUND = 9  # delta reviews only past MAX_ROUND; a ceiling, so a typo never opens round 400
 OK, BAD, REFUSED = 0, 2, 3
@@ -138,6 +141,8 @@ class Decision:
     # verdict, which `commit_record` refuses under a PASS; the ids to file as issues, in input order).
     unrefuted_blocking: int = 0
     to_file: tuple[str, ...] = ()
+    # Recorded, never printed: a FIX that rests only on replayed attacks no refuter confirmed (S26-FX9).
+    replays_only: bool = False
 
     def line(self) -> str:
         return json.dumps(
@@ -295,15 +300,27 @@ def to_file(
     kind: str | None = None,
     boundary: bool | None = None,
     observed: bool | None = None,
+    *,
+    replayed: bool = False,
 ) -> bool:
     """A finding of 50 or more, not REFUTED, that does not block: a 50-74 that cannot block (whatever
-    its word, `-` included), or an UNPROVEN one that could (S28-R1: it never blocks). Filed with its
-    owed check, not fixed."""
+    its word, `-` included), or a lens's UNPROVEN one that could (S28-R1: it never blocks; an earlier
+    round's `replayed` attack still does). Filed with its owed check, not fixed."""
     return (
         word != "REFUTED"
         and score >= BLOCK_AT_ON_STRICT_PATH
-        and (word == "UNPROVEN" or not could_block(score, file, kind, boundary, observed))
+        and (
+            (word == "UNPROVEN" and not replayed)
+            or not could_block(score, file, kind, boundary, observed)
+        )
     )
+
+
+def stands(name: str, word: str) -> bool:
+    """The refuter word lets a finding over the bar block: CONFIRMED; or UNPROVEN on an earlier
+    round's replayed attack (`r<n>-<id>`), whose test failed by name on its own round and fails again
+    (S26-FX9). A lens's UNPROVEN finding never blocks (the owner's ruling, 14 Oct 2026, S28-R1)."""
+    return word in STANDS or (word == "UNPROVEN" and REPLAYED.fullmatch(name) is not None)
 
 
 def blocks(finding: Judged) -> bool:
@@ -371,31 +388,55 @@ def decide(data: bytes, head: str) -> Decision:
 def judge(verdicts: Sequence[str], findings: dict[str, Judged], sha256: str) -> Decision:
     """The decision from the reviewers' verdicts and the findings by id, as the bar reads them."""
     judged = [Judged(*finding) for finding in findings.values()]
-    decided = verdict(verdicts, judged)
+    decided = verdict(verdicts, findings)
     return Decision(
         decided,
         counts(len(verdicts), judged),
         sha256,
         sum(finding.word == "-" and blocks(finding) for finding in judged),
-        tuple(name for name, finding in findings.items() if to_file(*Judged(*finding))),
+        tuple(
+            name
+            for name, finding in findings.items()
+            if to_file(*Judged(*finding), replayed=REPLAYED.fullmatch(name) is not None)
+        ),
+        decided == "FIX" and rests_on_replays(findings),
     )
 
 
-def verdict(verdicts: Sequence[str], findings: Sequence[Judged]) -> str:
+def rests_on_replays(findings: dict[str, Judged]) -> bool:
+    """Every finding that could block and stands is an earlier round's replayed attack that no
+    refuter confirmed (UNPROVEN), and there is one: the only FIX a same-head delta review may follow.
+    A refuter-confirmed replay rules it out (no refuter shopping); a lens's UNPROVEN finding does not
+    stand (S28-R1), so it neither counts nor rules it out."""
+    standing = [
+        (name, finding) for name, finding in findings.items()
+        if stands(name, finding.word) and blocks(finding)
+    ]  # fmt: skip
+    return bool(standing) and all(
+        REPLAYED.fullmatch(name) is not None and finding.word == "UNPROVEN" for name, finding in standing
+    )
+
+
+def verdict(verdicts: Sequence[str], findings: Sequence[Judged] | Mapping[str, Judged]) -> str:
     """The bar's verdict (S24-L1): BLOCK when any lens says BLOCK (the approach, which only a lens
     can judge); else FIX while a finding that could block stands (CONFIRMED; S28-R1: an UNPROVEN one
     never blocks), or when a
     lens says FIX over one that could block with no refuter verdict (reachable only through
     `fetch-verdict`: `decide` refuses such a finding first); else PASS, whatever a lens's FIX or PASS
-    line says (a 50-74 that cannot block is filed, never fixed). No lens's verdict is no PASS."""
+    line says (a 50-74 that cannot block is filed, never fixed). No lens's verdict is no PASS.
+    Findings by id (a list: a lens's, none replayed)."""
     if not verdicts:
         raise ValueError("no lens's verdict: the bar decides nothing")
     if "BLOCK" in verdicts:
         return "BLOCK"
-    blocking = [finding.word for finding in (Judged(*one) for one in findings) if blocks(finding)]
-    if any(word in STANDS for word in blocking):
+    named = findings.items() if isinstance(findings, Mapping) else (("", one) for one in findings)
+    blocking = [
+        (name, finding.word) for name, finding in ((n, Judged(*one)) for n, one in named)
+        if blocks(finding)
+    ]  # fmt: skip
+    if any(stands(name, word) for name, word in blocking):
         return "FIX"
-    if "FIX" in verdicts and "-" in blocking:
+    if "FIX" in verdicts and any(word == "-" for _name, word in blocking):
         return "FIX"
     return "PASS"
 
@@ -620,6 +661,8 @@ def commit_record(
             "exception": exception,
             "source": source,
             "recorded_at": utc_now(),
+            # Only on a FIX resting on unconfirmed replays: every other record keeps its old shape.
+            **({"replays_only": True} if decision.replays_only and source == "review-pr" else {}),
         },
     )
     with journal_path(ledger_dir).open("a") as journal:  # under the ledger lock, as every record
