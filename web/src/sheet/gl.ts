@@ -415,7 +415,8 @@ export class SheetRenderer {
    * Sizes the next part by how long the last one's frame took (from one part to the next: the GPU's
    * work and any wait the page had on it, as a browser that reads the canvas back each frame has),
    * aiming at PART_MS a frame: a fast GPU soon draws a sheet in one part, a slow one never holds the
-   * page long. A fence cannot tell it: some browsers report one finished only about once a second.
+   * page long. A fence alone cannot tell it: where the browser reads the canvas back, the page has
+   * already waited on the GPU before any fence is polled.
    */
   static paced(frameMs: number): void {
     const factor = Math.min(2, Math.max(0.25, PART_MS / Math.max(1, frameMs)))
