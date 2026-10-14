@@ -25,7 +25,9 @@ whole, then the better fit, then the larger text; `_surest`), or an earlier page
 it (the PDFs first added first, each page in order). A sheet with a number, of a Discipline a PDF
 tried here covers (the PDF's own, or the PDF of none), and still with no page is kept as
 `PlotNone.NO_PAGE` naming such a PDF (its own Discipline's first, then the first added: the sheet
-list's order): the match ran, and found none. Another read PDF whose copy or reading fails now is
+list's order): the match ran, and found none. Any other sheet still holding a page this match did
+not give it lets it go (`PlotNone.NO_PDF`, its words then the set's as it stands): every sheet's
+Plot is decided again, none kept stale from an earlier read (S27-G1, #827). Another read PDF whose copy or reading fails now is
 left out, never named; this file's own fails the file.
 What each PDF's pages name is kept for its report (`_keep_names`: 18's reason, or the sheet named);
 which pages are matched, and the page a sheet is used on, the report reads from the sheets' Plots.
@@ -127,8 +129,8 @@ def _keep(
     outcome a function of the set's read PDFs' pages and its listed sheets alone, so the order its
     files were read in cannot change it): the surest page (`_surest`) of the first added PDF with a
     page naming the sheet; else, for a numbered sheet of a Discipline a PDF tried here covers,
-    `PlotNone.NO_PAGE` naming it. A sheet whose kept Plot is a page of a PDF that could not be read
-    again now is left as it was. `tried`: the sha256 of each PDF whose pages were matched here. How
+    `PlotNone.NO_PAGE` naming it; else a sheet still holding a page lets it go (`PlotNone.NO_PDF`).
+    A sheet whose kept Plot is a page of a PDF that could not be read again now is left as it was. `tried`: the sha256 of each PDF whose pages were matched here. How
     many sheets got a page."""
     by_candidate = {id(c): s for c, s in zip(candidates, listed, strict=True)}
     by_sha = {pdf.sha256: pdf for pdf in pdfs}
@@ -148,11 +150,15 @@ def _keep(
         drawings.record_plot(sheet.id, m)
         given.add(sheet.id)
     for sheet in listed:
-        if sheet.id in given or sheet.id in left or sheet.number is None:
+        if sheet.id in given or sheet.id in left:
             continue
         covering = [pdf for pdf in _covering(sheet, pdfs) if pdf.sha256 in tried]
-        if covering:
+        if covering and sheet.number is not None:
             drawings.record_plot(sheet.id, drawings.PlotNone.NO_PAGE, pdf_file_id=covering[0].id)
+        elif sheet.plot.page is not None:
+            # A page an earlier match kept that this one did not give: let go, never kept stale
+            # (#827: a General sheet kept a Structural Plot's page after the Structural DWG's read).
+            drawings.record_plot(sheet.id, drawings.PlotNone.NO_PDF)
     return len(given)
 
 
