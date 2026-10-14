@@ -442,9 +442,8 @@ function useActs(
    * Step 1 read again behind an answer shown from its reply (S27-G7): the four read outside the cache and
    * written in one batch, so nothing holds the reply's rows meanwhile (`useSettled`), then the rest (the
    * drawing lists, a sheet's acts, the files band) read again as after any act, asked after the four so they
-   * do not queue ahead of them. The write is dropped if a Ctrl Z began since or Step 1 was left; a failed
-   * read leaves the reply's rows. The gate stays shut until it ends, as after any act: an act's key is
-   * dropped meanwhile, never sent against rows not yet read again.
+   * do not queue ahead of them. The write is dropped if another act or a Ctrl Z began since (its own reload is
+   * newer) or Step 1 was left; a failed read leaves the reply's rows. The gate is already open (`showAnswer`).
    */
   const readBehind = useCallback(
     async (mark: Mark) => {
@@ -461,10 +460,6 @@ function useActs(
         // The reply's rows stay until Step 1 is read again (the next act, or the next visit).
       }
       await rest
-      if (mark.owner === acting.current) {
-        pending.current = false
-        if (undos.current === 0) setBusy(false)
-      }
     },
     [projectId, queryClient],
   )
@@ -494,6 +489,13 @@ function useActs(
       }
       if (mark.generation !== generation.current) return false
       writeParts(queryClient, projectId, answered(queryClient, projectId, reply, read))
+      // The gate opens with the reply written (the design gate of #843): the bar then says what Enter does on
+      // the next Question, and Enter there acts, never dropped while the rest is read behind. The Questions were
+      // read again above, so no Question the server closed is on screen to act on.
+      if (mark.owner === acting.current) {
+        pending.current = false
+        if (undos.current === 0) setBusy(false)
+      }
       void readBehind(mark)
       return true
     },
