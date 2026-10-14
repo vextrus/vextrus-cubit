@@ -1134,12 +1134,13 @@ function SheetMode({
         <SpaceKey label={label} run={onSpace} />
         <ZoomKey enabled={selectedView !== null} run={onZoom} />
         {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
-        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0 outline-none">
+        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset group/region absolute inset-0">
           {render.data ? (
             <SheetViewer
               key={sheet.id}
               buffer={render.data}
               label={name}
+              sheetId={sheet.id}
               onRetry={retryRender}
               outlines={outlines}
               selected={selectedView}
@@ -1156,6 +1157,12 @@ function SheetMode({
           ) : (
             <Skeleton rows={6} className="m-6" status={<Trans>Opening <SheetName sheets={[sheet]} />…</Trans>} />
           )}
+          {/* The region's ring above the drawing (F6 lands here): the canvas's layers cover its own inset outline. */}
+          <div
+            aria-hidden
+            data-region-ring=""
+            className="pointer-events-none absolute inset-0 z-[3] group-focus-visible/region:outline-2 group-focus-visible/region:-outline-offset-2 group-focus-visible/region:outline-ring group-focus-visible/region:outline-solid"
+          />
         </div>
       </KeyRegion>
     </>
