@@ -6,10 +6,15 @@ edge-case or rule-only finding scoring 50-74 is filed as an issue that still owe
 The owner's answer to Q13's open question (session 25's start): a finding of 50-74 on a trust boundary
 (a tenant wall, a parser of hostile input, a gate, a ledger: builder.md's list) STILL blocks.
 
-So a standing finding (CONFIRMED or UNPROVEN) makes the verdict FIX when it scores 75 or more, or when it
-is user-facing and scores 50 or more, or when it sits on a trust boundary and scores 50 or more. An edge
-or rule-only finding of 50-74 off a trust boundary never blocks and needs no refuter verdict. A finding
-that could block with no refuter verdict (`-`) is still refused (exit 2), as S17-F6 and S24-L1 pinned.
+S28-R1 (the owner's ruling, 14 Oct 2026; ts28r1) amends it: UNPROVEN no longer stands, and a user-facing
+50-74 blocks only when its lens tags it `observed=yes` (a third tag; a line without it reads no). Below,
+"user-facing" at 50-74 off a boundary carries `observed=yes`.
+
+So a standing finding (CONFIRMED; UNPROVEN too until S28-R1) makes the verdict FIX when it scores 75 or
+more, or when it is user-facing and scores 50 or more, or when it sits on a trust boundary and scores 50
+or more. An edge or rule-only finding of 50-74 off a trust boundary never blocks and needs no refuter
+verdict. A finding that could block with no refuter verdict (`-`) is still refused (exit 2), as S17-F6
+and S24-L1 pinned.
 
 Seam (assumed here: the authority names the tags, not their spelling): the decision input's FINDING line
 carries two trailing tags after its file, `class=<user-facing|edge|rule-only>` and
@@ -34,8 +39,12 @@ def lens(word: str) -> str:
     return f"VERDICT: {word} at {H}"
 
 
-def finding(name: str, score: int, word: str, kind: str, boundary: str) -> str:
-    return f"FINDING {name} {score} {word} {LAX} class={kind} boundary={boundary}"
+def finding(
+    name: str, score: int, word: str, kind: str, boundary: str, observed: str | None = None
+) -> str:
+    """A tagged line; S28-R1's `observed=` third tag only when given (a line without it reads no)."""
+    tags = f"class={kind} boundary={boundary}" + ("" if observed is None else f" observed={observed}")
+    return f"FINDING {name} {score} {word} {LAX} {tags}"
 
 
 @pytest.fixture(autouse=True)
@@ -74,12 +83,13 @@ def verdict_of(code: int, output: str) -> str:
     return str(loaded["verdict"])
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
+@pytest.mark.parametrize("word", ["CONFIRMED"])  # S28-R1: UNPROVEN no longer stands (ts28r1)
 @pytest.mark.parametrize("said", ["PASS", "FIX"])
-def test_a_standing_user_facing_50_off_a_trust_boundary_decides_fix(
+def test_a_standing_observed_user_facing_50_off_a_trust_boundary_decides_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], said: str, word: str
 ) -> None:
-    rows = (lens(said), finding("f1", 50, word, "user-facing", "no"))
+    """S28-R1 (14 Oct 2026): a user-facing 50-74 blocks when its input is one a QS would meet."""
+    rows = (lens(said), finding("f1", 50, word, "user-facing", "no", observed="yes"))
     assert verdict_of(*decide(tmp_path, capsys, *rows)) == "FIX"
 
 
@@ -105,7 +115,7 @@ def test_a_standing_edge_or_rule_only_75_off_a_trust_boundary_decides_fix(
     assert verdict_of(*decide(tmp_path, capsys, *rows)) == "FIX"
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
+@pytest.mark.parametrize("word", ["CONFIRMED"])  # S28-R1: UNPROVEN no longer stands (ts28r1)
 @pytest.mark.parametrize("kind", ["edge", "rule-only"])
 def test_a_standing_50_on_a_trust_boundary_still_decides_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str, word: str
@@ -130,7 +140,7 @@ def test_the_worst_of_several_tagged_findings_decides(
         finding("f1", 74, "CONFIRMED", "edge", "no"),
         finding("f2", 70, "CONFIRMED", "rule-only", "no"),
         finding("f3", 49, "CONFIRMED", "user-facing", "yes"),
-        finding("f4", 55, "UNPROVEN", "edge", "yes"),
+        finding("f4", 55, "CONFIRMED", "edge", "yes"),  # S28-R1: UNPROVEN no longer stands
     )
     assert verdict_of(*decide(tmp_path, capsys, *rows)) == "FIX"
 
@@ -143,18 +153,30 @@ def test_a_lens_block_decides_block_over_a_filed_edge_finding(
 
 
 @pytest.mark.parametrize(
-    ("score", "kind", "boundary"),
-    [(60, "user-facing", "no"), (50, "edge", "yes"), (60, "rule-only", "yes"), (75, "edge", "no")],
-    ids=["user-facing-60", "edge-50-on-a-boundary", "rule-only-60-on-a-boundary", "edge-75"],
+    ("score", "kind", "boundary", "observed"),
+    [
+        (60, "user-facing", "no", "yes"),  # S28-R1: observed, so it could block
+        (50, "edge", "yes", None),
+        (60, "rule-only", "yes", None),
+        (75, "edge", "no", None),
+    ],
+    ids=["user-facing-60-observed", "edge-50-on-a-boundary", "rule-only-60-on-a-boundary", "edge-75"],
 )
 def test_a_finding_that_could_block_with_no_refuter_verdict_is_refused_naming_it(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str], score: int, kind: str, boundary: str
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    score: int,
+    kind: str,
+    boundary: str,
+    observed: str | None,
 ) -> None:
     """An edge 60 off a trust boundary with no refuter verdict decides (it cannot block); one that
     could block, with none, is refused naming its id."""
     unjudged = (lens("PASS"), finding("f1", 60, "-", "edge", "no"))
     assert verdict_of(*decide(tmp_path, capsys, *unjudged)) == "PASS"
-    code, out = decide(tmp_path, capsys, lens("PASS"), finding("f1", score, "-", kind, boundary))
+    code, out = decide(
+        tmp_path, capsys, lens("PASS"), finding("f1", score, "-", kind, boundary, observed)
+    )
     assert code == 2, out
     assert "f1" in out
     assert '"verdict"' not in out

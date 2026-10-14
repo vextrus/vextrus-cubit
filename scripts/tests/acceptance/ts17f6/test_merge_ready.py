@@ -125,7 +125,7 @@ def test_a_pr_with_a_standing_75_may_not_merge(tmp_path: Path) -> None:
     ],
 )
 def test_a_pr_with_a_standing_50_on_a_strict_path_may_not_merge(tmp_path: Path, path: str) -> None:
-    record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 50 UNPROVEN {path}")
+    record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 50 CONFIRMED {path}")  # S28-R1
     assert record["verdict"] == "FIX"
     found = gate(tmp_path, ledger_dir, marker)
     assert any("FIX" in problem for problem in found), found

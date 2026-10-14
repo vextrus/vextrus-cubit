@@ -28,25 +28,29 @@ import pytest
 LAX = "web/src/components/badge.tsx"
 EDGE = f"{LAX} class=edge boundary=no"
 USER = f"{LAX} class=user-facing boundary=no"
+OBSERVED = f"{USER} observed=yes"  # S28-R1's third tag (the owner's ruling, 14 Oct 2026)
 HEADS = {
     601: "6010000000000000000000000000000000000001",
     602: "6020000000000000000000000000000000000002",
     603: "6030000000000000000000000000000000000003",
     604: "6040000000000000000000000000000000000004",
     605: "6050000000000000000000000000000000000005",
+    606: "6060000000000000000000000000000000000006",
 }
 # PR: (round, the recorded verdict, its decision lines with the head's sha filled in)
 ROUNDS: dict[int, tuple[int, str, tuple[str, ...]]] = {
     # an edge 62 off a trust boundary: recorded FIX under the old bar, PASS under the new
     601: (1, "FIX", ("VERDICT: FIX at {h}", f"FINDING f1 62 CONFIRMED {EDGE}")),
-    # a user-facing 60: FIX before and after
-    602: (1, "FIX", ("VERDICT: FIX at {h}", f"FINDING f1 60 CONFIRMED {USER}")),
+    # a user-facing 60 a QS would meet (observed=yes): FIX before and after
+    602: (1, "FIX", ("VERDICT: FIX at {h}", f"FINDING f1 60 CONFIRMED {OBSERVED}")),
     # nothing found: PASS before and after
     603: (1, "PASS", ("VERDICT: PASS at {h}",)),
     # a round 2: no row
     604: (2, "PASS", ("VERDICT: PASS at {h}",)),
     # a lens BLOCK: BLOCK before and after
     605: (1, "BLOCK", ("VERDICT: BLOCK at {h}", f"FINDING f1 55 CONFIRMED {EDGE}")),
+    # S28-R1: a user-facing 60 kept before the observed= tag reads as not observed: FIX, then PASS
+    606: (1, "FIX", ("VERDICT: FIX at {h}", f"FINDING f1 60 CONFIRMED {USER}")),
 }
 
 
@@ -98,12 +102,18 @@ def test_the_summary_counts_round_1_and_its_pass_before_and_after(
     world: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     summary, _ = rescore(world, capsys)
-    assert summary == {"rounds": 4, "pass_before": 1, "pass_after": 2}
+    assert summary == {"rounds": 5, "pass_before": 1, "pass_after": 3}  # S28-R1: 606 added
 
 
 @pytest.mark.parametrize(
     ("pr", "before", "after"),
-    [(601, "FIX", "PASS"), (602, "FIX", "FIX"), (603, "PASS", "PASS"), (605, "BLOCK", "BLOCK")],
+    [
+        (601, "FIX", "PASS"),
+        (602, "FIX", "FIX"),
+        (603, "PASS", "PASS"),
+        (605, "BLOCK", "BLOCK"),
+        (606, "FIX", "PASS"),
+    ],
 )
 def test_each_round_1_record_is_one_row_with_its_recorded_then_its_rescored_verdict(
     world: Path, capsys: pytest.CaptureFixture[str], pr: int, before: str, after: str

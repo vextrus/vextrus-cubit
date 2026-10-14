@@ -7,7 +7,7 @@ every finding scored 60-65 on a lax path, so no finding could block.
 
 The rule (S24-L1), for `decide` and `record`:
 - BLOCK when any lens says BLOCK (the approach is wrong, which only a lens can say);
-- otherwise FIX when a finding that could block stands (CONFIRMED or UNPROVEN);
+- otherwise FIX when a finding that could block stands (CONFIRMED; UNPROVEN too until S28-R1);
 - otherwise PASS, whatever the lenses' FIX or PASS lines say.
 A finding that could block with no refuter verdict (`-`) is still refused (exit 2).
 
@@ -138,7 +138,7 @@ def test_a_lens_pass_with_a_refuted_80_decides_pass(
     assert got == "PASS", got
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
+@pytest.mark.parametrize("word", ["CONFIRMED"])  # S28-R1: UNPROVEN no longer stands (ts28r1)
 @pytest.mark.parametrize("said", ["PASS", "FIX"])
 def test_a_standing_60_on_a_strict_path_decides_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], said: str, word: str
@@ -148,7 +148,7 @@ def test_a_standing_60_on_a_strict_path_decides_fix(
     assert listed(tmp_path, capsys, *rows) == []
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
+@pytest.mark.parametrize("word", ["CONFIRMED"])  # S28-R1: UNPROVEN no longer stands (ts28r1)
 def test_a_lens_pass_with_a_standing_75_on_a_lax_path_decides_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], word: str
 ) -> None:
