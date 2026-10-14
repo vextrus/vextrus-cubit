@@ -74,6 +74,11 @@ trailers it carries. A BLOCKED head with
 no one-line `Factory-Reason` reads as no outcome here (as the guard reads it), but the watcher writes
 `BLOCKED <sha8> no reason given`.
 
+The main watcher's revert (S29-F3) carries no trailer: nobody ran `verify` on it. `ci_gate.is_ready` (CI's gate and
+`merge_ready`'s check e) still reads it READY when it is one commit on main whose tree is main at its parent with
+exactly one first-parent merge reverted (`main_watch.reverted_merge`, by trees), so CI's heavy jobs run and decide it;
+publish and the watcher never read it READY (`ready_commit` without `reverts=True`).
+
 ### What each consumer does with them
 
 - **The guard's READY push gate** (`.claude/hooks/guard.mjs`): for a push whose head's message carries

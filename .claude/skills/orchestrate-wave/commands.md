@@ -37,6 +37,7 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - The kinds that wake it: READY, BLOCKED, LEAK-HIT, BUDGET-PASSED, LOCAL-IDLE and every other kind, but
   READY-WAITING, BUILDER-QUIET, FLOOR-CROSSED, SAID and SAY (they ride along) and PUSH and COMMIT past the
   first per ticket in 15 min.
+- `uv run python -m scripts.factory.main_watch run [--interval 120]` (or `once`): the main watcher; when main goes red it opens `revert/<short sha>` of the culprit merge against main (review tier `revert`, no model) and logs `red`, `culprit`, `revert-opened`, `landed` in `.private/work/factory/main-watch.log`.
 
 ## Real drawings
 - `uv run python -m scripts.factory.rdlock run --kind <kind> --head <sha> --ticket <ticket> -- <cmd>`: one real-drawing
@@ -66,7 +67,7 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
   starts no lens (exit 3).
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
-  An allowlist-only PR and a docs-only PR (`review_tiers.toml` `docs_only`) get no model and pass by code
+  An allowlist-only PR, a docs-only PR (`review_tiers.toml` `docs_only`) and the main watcher's revert of its logged culprit get no model and pass by code
   checks (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3 retires it; the ledger holds the verdict.
 
 ## 6. Land
