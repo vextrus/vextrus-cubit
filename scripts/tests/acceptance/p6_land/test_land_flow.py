@@ -32,6 +32,7 @@ from scripts.tests.acceptance.p6_land._fakegh import (
     rollup,
     update_request,
 )
+from scripts.tests.acceptance.ts29f4._world import risk
 
 FORBIDDEN = {"checkout", "switch", "reset", "push", "branch", "worktree", "merge", "rebase"}
 MOVED = "d" * 40
@@ -218,15 +219,18 @@ def test_e_a_head_moved_by_land_update_lands_on_the_new_head(env: Fixtures) -> N
     assert "Traceback" not in done.err
 
 
-def test_j_a_reviewed_green_pr_one_commit_behind_main_is_refused_naming_land_update(
+def test_j_a_reviewed_green_ordinary_pr_one_commit_behind_main_with_no_overlap_lands_as_it_stands(
     env: Fixtures,
 ) -> None:
-    """S27-L825 (#825) replaces "lands as it stands": a head that does not contain main's tip is
-    refused naming `land update`, never merged, and the lander still asks GitHub for no update."""
+    """S29-F4 (the owner's rulings Q19 and Q20, 14 Oct 2026) narrows S27-L825 (#825): an ordinary PR
+    whose files overlap nothing merged since its CI ran (`pr.txt` against main's `main.txt`) lands on
+    its own green CI, as it stands; the lander still asks GitHub for no update."""
+    risk(env[1])
     done = landing(*env, behind=True)
-    assert not done.fake.called("pr", "merge"), "a head that does not contain main's tip was merged"
-    line = done.refused_plainly()
-    assert "land update" in line, "the refusal does not name `land update`: " + line
+    assert done.code == 0, "refused for being behind main though nothing overlaps: " + done.out
+    assert done.fake.called("pr", "merge") == [
+        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.reviewed]
+    ]
     assert not done.fake.called("pr", "update-branch"), "gh 2.45 has no `gh pr update-branch`"
     assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
 

@@ -28,6 +28,7 @@ from scripts.tests.acceptance.ts14l6._fake import (
     with_ci,
     without_ci,
 )
+from scripts.tests.acceptance.ts29f4._world import risk
 
 PR = 12
 NO_TEST_LOG = "ci\tdecide\t2026-10-05T03:09:45.1234567Z ##[error]Process completed with exit code 1.\n"
@@ -158,13 +159,16 @@ def test_a_new_head_whose_ci_check_never_comes_is_refused_not_merged_on_the_old_
     assert lines[0].startswith(f"land: refused: PR {PR}"), done.out
 
 
-def test_landing_alone_refuses_a_head_behind_main_and_moves_nothing(env: Fixtures) -> None:
-    """S27-L825 (#825) replaces "landing alone merges the head as it stands": with no `land update`,
-    landing never moves the head, and a head that does not contain main's tip is refused, not
-    merged."""
+def test_landing_alone_merges_an_ordinary_head_behind_main_as_it_stands_and_moves_nothing(
+    env: Fixtures,
+) -> None:
+    """S29-F4 (the owner's rulings Q19 and Q20, 14 Oct 2026) narrows S27-L825 (#825): with no `land
+    update`, landing never moves the head; an ordinary PR whose files overlap nothing merged since its
+    CI ran (`scripts/feature.py` against main's `main.txt`) is merged on the head it stands on."""
+    risk(env[1])
     done = landing(
         *env, new_rollups=[with_ci()], old_rollups=[without_ci(), with_ci()], update_first=False
     )
-    assert done.fake.merged() == [], "a head that does not contain main's tip was merged"
+    assert done.code == 0, "refused for being behind main though nothing overlaps: " + done.out
+    assert [merge["sha"] for merge in done.fake.merged()] == [done.old], done.out
     assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
-    assert done.code == 3, done.out + done.err

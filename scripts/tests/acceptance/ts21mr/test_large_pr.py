@@ -17,6 +17,7 @@ import pytest
 
 from scripts import merge_ready
 from scripts.tests.acceptance.ts21mr import _world as w
+from scripts.tests.acceptance.ts29f4._world import risk
 
 
 @pytest.fixture(scope="module")
@@ -212,19 +213,21 @@ def test_a_code_file_past_the_hundredth_still_needs_a_ready_head(
     assert "is not Factory-State: READY" in out
 
 
-def test_the_whole_big_pr_is_refused_while_its_head_does_not_contain_main_s_tip(
+def test_the_whole_big_ordinary_pr_behind_main_with_no_overlap_may_be_merged(
     tmp_path: Path,
     hub: tuple[Path, dict[str, str]],
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """S27-L825 (#825) replaces "may merge when it is clean": main moved on after this PR's fork, so
-    its head does not contain main's tip and `merge_ready` refuses it, naming `land update`."""
+    """S29-F4 (the owner's rulings Q19 and Q20, 14 Oct 2026) narrows S27-L825 (#825): main moved on
+    after this PR's fork with `main-only.txt` alone, which none of its 150 files (one with a space in
+    its name, one with a non-ASCII word) overlaps, so the ordinary PR may merge when it is clean."""
+    risk(monkeypatch)
     shas = world(tmp_path, hub, monkeypatch)
     code = run_main(tmp_path, shas["head"])
     out = capsys.readouterr().out
-    assert code == 1, "a head that does not contain main's tip was merged: " + out
-    assert "land update" in out, out
+    assert code == 0, "refused for being behind main though nothing overlaps: " + out
+    assert f"merge-ready: PR {w.PR} may be merged" in out, out
 
 
 def test_a_pull_ref_that_cannot_be_fetched_is_a_refusal_naming_the_fetch(
