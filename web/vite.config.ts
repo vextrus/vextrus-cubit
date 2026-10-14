@@ -56,6 +56,19 @@ function fromEnv(name: string): string | undefined {
 }
 
 /**
+ * A project's timeouts scaled by `VEXTRUS_TIME_SCALE`, the machine's slowdown factor the fast verify
+ * sets (scripts/verify.py's `time_scale`; S29-F2a): Vitest's own defaults for the project's kind
+ * (node 5 s and 10 s, browser 15 s and 30 s) times the factor. Unset, or not a number above 1, it sets
+ * nothing and Vitest's defaults stand, so CI's runs are unchanged.
+ */
+function scaledTimeouts(kind: 'node' | 'browser'): { testTimeout?: number; hookTimeout?: number } {
+  const factor = Number(fromEnv('VEXTRUS_TIME_SCALE'))
+  if (!(Number.isFinite(factor) && factor > 1)) return {}
+  const [test, hook] = kind === 'node' ? [5_000, 10_000] : [15_000, 30_000]
+  return { testTimeout: Math.round(test * factor), hookTimeout: Math.round(hook * factor) }
+}
+
+/**
  * The dev server's port: `VEXTRUS_WEB_PORT`, or 5410. The API reads the same variable for its
  * trusted origins (vextrus/settings/auth.py), so sign-in works on either. A bad value is refused.
  */
@@ -180,6 +193,7 @@ export default defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: 'node',
+            ...scaledTimeouts('node'),
             environment: 'node',
             include: ['scripts/**/*.test.ts', 'eslint/**/*.test.ts', 'src/**/*.node.test.ts'],
           },
@@ -188,6 +202,7 @@ export default defineConfig(({ mode }) => {
           extends: true,
           test: {
             name: 'browser',
+            ...scaledTimeouts('browser'),
             ...api(0),
             include: ['src/**/*.test.tsx', 'src/**/*.browser.test.ts'],
             exclude: ['src/**/*.tz.test.tsx'],
@@ -207,6 +222,7 @@ export default defineConfig(({ mode }) => {
           extends: true as const,
           test: {
             name: `browser ${timezoneId}`,
+            ...scaledTimeouts('browser'),
             ...api(index + 1),
             include: ['src/**/*.tz.test.tsx'],
             setupFiles: ['./src/test/setup.ts'],

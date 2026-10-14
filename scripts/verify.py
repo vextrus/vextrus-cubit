@@ -27,9 +27,19 @@ A `web-test` that fails with every failing test's error vitest's `Error: Test ti
 own `web-test-rerun` check; it passes only if every re-run passes, and any other failure stands.
 `web-test-slowed` is CI's second pass: `web-test` with `VITE_FAKE_API_LATENCY_MS` read from
 `.github/workflows/web.yml`; its timed-out files are re-run alone the same way, latency kept.
+Each check's record keeps its `started_at` and `ended_at` (its re-runs included), and the record its
+`mode`.
+
+`--fast` (S29-F2a; the owner's Q3: "a fast verify before READY; CI is the full gate") plans less:
+pytest on the changed modules and the modules importing them (`fast_targets`, read from the files under
+the root), never an unrelated module or the whole suite; ruff and mypy on the changed Python files;
+`web-test` on the changed web files' tests alone; no `web-test-slowed` (CI runs it). Its test checks
+carry `VEXTRUS_TIME_SCALE` (`time_scale`), which `vextrus.testing.timing` and the web tests' timeouts
+read. A fast pass prints `Verify-Mode: fast` on the line before the unchanged trailer.
 The caller wraps it in an explicit timeout. Exit codes: 0 every check passed, 1 one failed, 2 refused.
 """
 
+import ast
 import hashlib
 import json
 import os
@@ -147,7 +157,9 @@ def pytest_checks(targets: list[str], workers: int) -> list[Check]:
     if workers <= 1:
         return [Check("pytest", (*base, *plugin, *targets))]
     lint = LINT_TESTS in targets or not targets or "tools/lint" in targets
-    rest = [t for t in targets if t != "tools/lint"]
+    # A fast plan may name single files; one under tools/lint/tests runs in the serial run too.
+    lint_files = [t for t in targets if t.startswith(f"{LINT_TESTS}/")]
+    rest = [t for t in targets if t != "tools/lint" and t not in lint_files]
     checks: list[Check] = []
     if rest or not targets:
         # Named even with folders given, so the parallel run states what it leaves to the serial one.
@@ -155,7 +167,190 @@ def pytest_checks(targets: list[str], workers: int) -> list[Check]:
         checks.append(Check("pytest", (*base, "-n", str(workers), *ignore, *plugin, *rest)))
     if lint:
         checks.append(Check("pytest-lint", (*base, *plugin, LINT_TESTS)))
+    elif lint_files:
+        checks.append(Check("pytest-lint", (*base, *plugin, *lint_files)))
     return checks
+
+
+TIME_SCALE = "VEXTRUS_TIME_SCALE"
+TIME_SCALE_CAP = 4.0
+"""At most this factor, so `vextrus.testing.timing`'s 0.5 s act bound (x max(3, factor)) stays under
+the 3 s lock_timeout it must still catch."""
+
+
+def time_scale() -> float:
+    """The machine's slowdown factor for the fast plan's test checks: `VEXTRUS_TIME_SCALE` when given,
+    else the one-minute load average per CPU; never below 1.0 nor above `TIME_SCALE_CAP`."""
+    given = os.environ.get(TIME_SCALE, "").strip()
+    try:
+        factor = float(given) if given else os.getloadavg()[0] / (os.cpu_count() or 1)
+    except ValueError, OSError:
+        factor = 1.0
+    if factor != factor:  # NaN
+        factor = 1.0
+    return round(min(TIME_SCALE_CAP, max(1.0, factor)), 2)
+
+
+PYTHON_ROOTS = ("vextrus", "engine", "tools", "scripts")
+SKIPPED_DIRS = frozenset({"__pycache__", "node_modules", "migrations"})
+
+
+def dotted(path: str) -> str | None:
+    """A repo path's module name (`vextrus/alpha/rules.py`: `vextrus.alpha.rules`), or None."""
+    if not path.endswith((".py", ".pyi")):
+        return None
+    parts = path.rsplit(".", 1)[0].split("/")
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    if not parts or not all(part.isidentifier() for part in parts):
+        return None
+    return ".".join(parts)
+
+
+def is_test_file(path: str) -> bool:
+    name = path.rsplit("/", 1)[-1]
+    return name.endswith(".py") and (name.startswith("test_") or name.endswith("_test.py"))
+
+
+def imported_by(path: str, text: str) -> set[str]:
+    """The module names a Python file imports: `import a.b`, `from a import b` (both `a` and `a.b`),
+    relative imports resolved from its package, and `importlib.import_module("a.b")` with a literal."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError, ValueError:
+        return set()
+    own = dotted(path) or ""
+    package = own.split(".") if path.endswith(("__init__.py", "__init__.pyi")) else own.split(".")[:-1]
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = node.module or ""
+            if node.level:
+                anchor = package[: len(package) - (node.level - 1)] if node.level > 1 else package
+                base = ".".join([*anchor, *([base] if base else [])])
+            if base:
+                found.add(base)
+            found.update(f"{base}.{alias.name}" if base else alias.name for alias in node.names)
+        elif (
+            isinstance(node, ast.Call)
+            and (
+                (isinstance(node.func, ast.Attribute) and node.func.attr == "import_module")
+                or (isinstance(node.func, ast.Name) and node.func.id == "import_module")
+            )
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            found.add(node.args[0].value)
+    return found
+
+
+def python_files(root: Path) -> list[str]:
+    """The Python files under the root's code folders and at its top, as repo paths."""
+    found = [p.name for p in root.glob("*.py") if p.is_file()]
+    for top in PYTHON_ROOTS:
+        for folder, dirs, files in os.walk(root / top):
+            dirs[:] = [d for d in dirs if d not in SKIPPED_DIRS and not d.startswith(".")]
+            relative = Path(folder).relative_to(root).as_posix()
+            found += [f"{relative}/{name}" for name in files if name.endswith((".py", ".pyi"))]
+    return sorted(found)
+
+
+def fast_unit(path: str) -> str | None:
+    """What a fast plan runs for one Python file of the change, before its importers: a test file
+    itself; a conftest's or a test helper's folder; `scripts/<sub>` for a scripts package; the module
+    (`vextrus/<m>`, `engine/<m>`, `tools/<m>`); None for a top-level scripts file (its importing tests
+    stand for it) and for the shared configuration (CI runs the whole suite for it)."""
+    if is_test_file(path):
+        return path
+    parts = path.split("/")
+    folder = "/".join(parts[:-1])
+    if parts[-1] == "conftest.py" or "tests" in parts[:-1]:
+        return folder if len(parts) > 2 else None
+    if parts[0] == "scripts":
+        return folder if len(parts) > 2 else None
+    target = pytest_target(path)
+    return None if target in (None, ".") else target
+
+
+def fast_targets(python: list[str], root: Path) -> tuple[list[str], list[str]]:
+    """The pytest targets of a fast plan and a note for each change left to CI. Each changed file's
+    `fast_unit`, and each file importing a changed module (read under `root`): a test file itself, any
+    other its `fast_unit`; a test file importing a selected test file is selected too. A top-level
+    scripts file nothing imports runs `scripts` (the full plan's target)."""
+    changed = {name: path for path in python if (name := dotted(path))}
+    texts: dict[str, set[str]] = {}
+    for path in python_files(root):
+        try:
+            texts[path] = imported_by(path, (root / path).read_text())
+        except OSError, UnicodeDecodeError:
+            continue
+
+    def importers(names: set[str]) -> set[str]:
+        return {
+            path
+            for path, imports in texts.items()
+            if any(i == n or i.startswith(f"{n}.") for i in imports for n in names)
+        }
+
+    targets: set[str] = set()
+    notes: list[str] = []
+    for path in python:
+        unit = fast_unit(path)
+        if unit is not None:
+            targets.add(unit)
+    tests: set[str] = set()
+    for importer in importers(set(changed)) - set(python):
+        if is_test_file(importer):
+            tests.add(importer)
+        elif (unit := fast_unit(importer)) is not None:
+            targets.add(unit)
+    # Test files importing selected test files (an acceptance test that imports another's helpers).
+    frontier = {t for t in {*tests, *targets} if is_test_file(t)}
+    while frontier:
+        names = {name for t in frontier if (name := dotted(t))}
+        frontier = {i for i in importers(names) if is_test_file(i)} - tests - targets
+        tests |= frontier
+    targets |= tests
+    for path in python:
+        if fast_unit(path) is not None:
+            continue
+        name = dotted(path)
+        if path.startswith("scripts/") and name is not None:
+            if not importers({name}):
+                targets.add("scripts")
+                notes.append(f"fast: nothing imports {path}: runs scripts")
+        else:
+            notes.append(f"not run in fast: the whole suite for {path} (CI runs it)")
+    # A deleted test file or module is no target (pytest exits 4 on a missing path); its importers are.
+    for gone in sorted(t for t in targets if not (root / t).exists()):
+        targets.discard(gone)
+        notes.append(f"fast: {gone} is not on the tree: its importers stand for it")
+    # A file or folder inside a selected folder is run by it.
+    kept = sorted(t for t in targets if not any(t != o and t.startswith(f"{o}/") for o in targets))
+    return kept, notes
+
+
+WEB_TEST_SUFFIXES = (".test.tsx", ".test.ts", ".node.test.ts", ".browser.test.ts")
+WEB_TEST_FILE = re.compile(r"\.(?:node\.|browser\.)?test\.tsx?$")
+
+
+def fast_web_tests(paths: list[str], root: Path) -> list[str]:
+    """The web test files (relative to `web/`) a fast plan names: each changed test file, and each
+    changed source file's own tests beside it (`Panel.tsx`: `Panel.test.tsx`, ...)."""
+    found: list[str] = []
+    for path in paths:
+        if not path.startswith("web/") or not path.endswith((".ts", ".tsx")):
+            continue
+        if WEB_TEST_FILE.search(path):
+            candidates = [path]
+        else:
+            stem = re.sub(r"\.tsx?$", "", path)
+            candidates = [f"{stem}{suffix}" for suffix in WEB_TEST_SUFFIXES]
+        found += [c.removeprefix("web/") for c in candidates if (root / c).is_file()]
+    return sorted(set(found))
 
 
 BROWSER_PORTS = 3  # one per browser project of web/vite.config.ts
@@ -239,18 +434,45 @@ WORDS_INPUTS = frozenset({"tools/lint/words.py", "tools/lint/words_allowlist.tom
 
 
 def plan_with_notes(
-    paths: Iterable[str], *, have: Have = _have, root: Path | None = None
+    paths: Iterable[str],
+    *,
+    have: Have = _have,
+    root: Path | None = None,
+    fast: bool = False,
+    scale: float | None = None,
 ) -> tuple[list[Check], list[str]]:
     """The checks for these changed paths, in run order, and a note for each check left out. `root` is
     the checkout's root (default: the current folder): the schema path is absolute because `api:types`
-    runs from `web/`."""
+    runs from `web/`. `fast` plans the fast verify (the module docstring), its test checks carrying
+    `scale` (default: `time_scale()`) as `VEXTRUS_TIME_SCALE`."""
     paths = sorted(set(paths))
     root = Path.cwd() if root is None else root
     schema = str(root.resolve() / WEB_SCHEMA)
+    timed = {TIME_SCALE: str(time_scale() if scale is None else scale)} if fast else {}
     checks: list[Check] = []
     notes: list[str] = []
     python = [p for p in paths if PYTHON.search(p)]
-    if python:
+    if python and fast:
+        targets, said = fast_targets(python, root)
+        notes += said
+        db = {"VEXTRUS_DB_NAME": worktree_db_name(root), **timed}
+        if targets:
+            checks += [
+                Check(c.name, c.argv, {**c.env, **db}) for c in pytest_checks(targets, pytest_workers())
+            ]
+        files = [p for p in python if p.endswith((".py", ".pyi")) and (root / p).is_file()]
+        # A changed configuration (pyproject.toml, uv.lock, .importlinter) changes what they check.
+        whole = any(not p.endswith((".py", ".pyi")) for p in python)
+        # Files named on the command line skip ruff's excludes (migrations' format) only with this flag.
+        named: tuple[str, ...] = (".",) if whole else ("--force-exclude", *files)
+        if whole or files:
+            checks += [
+                Check("ruff", ("uv", "run", "ruff", "check", *named)),
+                Check("ruff-format", ("uv", "run", "ruff", "format", "--check", *named)),
+                Check("mypy", ("uv", "run", "mypy", *([] if whole else files))),
+            ]
+        checks.append(Check("lint-imports", ("uv", "run", "lint-imports")))
+    elif python:
         targets = sorted({target for p in python if (target := pytest_target(p)) is not None})
         if "." in targets:
             targets = []
@@ -282,18 +504,24 @@ def plan_with_notes(
             Check("typecheck", ("npm", "--prefix", "web", "run", "typecheck")),
             Check("lint", ("npm", "--prefix", "web", "run", "lint")),
             Check("messages-check", ("npm", "--prefix", "web", "run", "messages:check")),
-            Check(
-                "web-test",
-                ("npm", "--prefix", "web", "test"),
-                {"VEXTRUS_VITEST_PORT": str(vitest_port(root))},
-            ),
-            # CI's second pass (web.yml): every FakeApi answer waits, so a latency race fails here.
-            Check(
-                SLOWED,
-                ("npm", "--prefix", "web", "test"),
-                {"VEXTRUS_VITEST_PORT": str(vitest_port(root)), LATENCY_KEY: ci_latency()},
-            ),
         ]
+        port = {"VEXTRUS_VITEST_PORT": str(vitest_port(root))}
+        if not fast:
+            checks += [
+                Check("web-test", ("npm", "--prefix", "web", "test"), port),
+                # CI's second pass (web.yml): every FakeApi answer waits, so a latency race fails here.
+                Check(
+                    SLOWED,
+                    ("npm", "--prefix", "web", "test"),
+                    {**port, LATENCY_KEY: ci_latency()},
+                ),
+            ]
+        elif named_tests := fast_web_tests(paths, root):
+            # The changed files' own tests; the slowed pass and the rest of the suite are CI's.
+            argv = ("npm", "--prefix", "web", "test", "--", *named_tests)
+            checks.append(Check("web-test", argv, {**port, **timed}))
+        else:
+            notes.append("not run in fast: web-test (no test names a changed web file; CI runs it)")
     if fixtures:
         # Reply fixtures against the exported schema (S17-F5); an acceptance-only change exports it too.
         if not web:
@@ -322,8 +550,15 @@ def plan_with_notes(
     return checks, notes
 
 
-def plan(paths: Iterable[str], *, have: Have = _have, root: Path | None = None) -> list[Check]:
-    return plan_with_notes(paths, have=have, root=root)[0]
+def plan(
+    paths: Iterable[str],
+    *,
+    have: Have = _have,
+    root: Path | None = None,
+    fast: bool = False,
+    scale: float | None = None,
+) -> list[Check]:
+    return plan_with_notes(paths, have=have, root=root, fast=fast, scale=scale)[0]
 
 
 def flaky_entries(root: Path, name: str = FLAKY) -> list[tuple[str, str, str]]:
@@ -579,9 +814,10 @@ def main(
     leak: Callable[[Path, str], tuple[bool, list[str]]] = leak_scan,
 ) -> int:
     args = sys.argv[1:] if argv is None else argv
-    if args:
-        print("usage: python -m scripts.verify (on the staged tree)", file=sys.stderr)
+    if args not in ([], ["--fast"]):
+        print("usage: python -m scripts.verify [--fast] (on the staged tree)", file=sys.stderr)
         return 2
+    fast = args == ["--fast"]
     if subprocess.run(["git", "diff", "--quiet"], check=False).returncode != 0:
         print(
             "verify: tracked files differ from the index: stage them (or stash them) and verify the "
@@ -598,7 +834,7 @@ def main(
     if refused:
         return 1
     (root / WEB_SCHEMA).parent.mkdir(parents=True, exist_ok=True)
-    checks, notes = plan_with_notes(changed_paths(), root=root)
+    checks, notes = plan_with_notes(changed_paths(), root=root, fast=fast)
     for note in notes:
         print(f"verify: {note}", file=sys.stderr)
     if not checks:
@@ -618,6 +854,7 @@ def main(
     names = [check.name for check in checks]
 
     def settle(index: int, check: Check) -> dict[str, object]:
+        began = utc_now()
         code, output = run(check)
         raw, flakes, root_only, reruns = code, [], [], 0
         # The cross-PR check's exit stands: no root-only or flaky excuse covers a conflict.
@@ -642,10 +879,12 @@ def main(
             # Each timed-out file alone, vitest's workers capped: a pool under load times a slow
             # test out; only a file that passes alone is excused (the owner's Q-R3).
             codes = []
+            # A fast plan's argv already names its files after `--`: the re-run names one alone.
+            bare = check.argv[: check.argv.index("--")] if "--" in check.argv else check.argv
             for file in files:
                 alone = Check(
                     f"{check.name}-rerun",
-                    (*check.argv, "--", file, "--maxWorkers=1"),
+                    (*bare, "--", file, "--maxWorkers=1"),
                     check.env,
                 )
                 again, rerun = run(alone)
@@ -656,6 +895,7 @@ def main(
                 code = 0
             else:
                 code = raw = next(c for c in codes if c != 0)
+        ended = utc_now()  # after every re-run: the check's whole time
         stem = check.name if names.count(check.name) == 1 else f"{check.name}-{index}"
         name = outputs / f"{stem}.txt"
         (root / name).write_text(output)
@@ -675,6 +915,8 @@ def main(
             "flakes": flakes,
             "root_only": root_only,
             "output_file": name.as_posix(),
+            "started_at": began,
+            "ended_at": ended,
         }
 
     # The web checks keep their order (each needs the one before) in one chain; every other check is
@@ -692,6 +934,7 @@ def main(
     ok = all(result["exit_code"] == 0 for result in results)
     record = {"schema_version": 1, "tree": tree, "written_at": utc_now(), "ok": ok, "checks": results}
     record["started_at"] = started_at
+    record["mode"] = "fast" if fast else "full"
     folder = common / "vextrus"
     folder.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(dir=folder, prefix=".verify-", suffix=".tmp")
@@ -701,6 +944,9 @@ def main(
     if not ok:
         print(f"verify: failed; outputs under {outputs.as_posix()}/")
         return 1
+    if fast:
+        # A plain trailer the builder copies beside Factory-Verify (any new Factory-* key is malformed).
+        print("Verify-Mode: fast")
     print(f"Factory-Verify: {tree} ok")
     return 0
 

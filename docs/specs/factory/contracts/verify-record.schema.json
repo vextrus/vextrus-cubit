@@ -11,6 +11,7 @@
     "tree": {"type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The tree id of the staged index (`git write-tree`) the checks ran on. Equal to the file name's <tree> and to the tree of the commit made from that index."},
     "written_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "description": "UTC to the second."},
     "started_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "description": "UTC to the second, taken before the first check starts; a run's minutes are started_at to written_at. Optional: a record without it (written before S17-F4) is not measured."},
+    "mode": {"enum": ["fast", "full"], "description": "`fast` from `verify --fast` (S29-F2a: the changed modules and their importers, the changed web files' tests, no slowed web pass; CI is the full gate), `full` otherwise. Optional: a record written before S29-F2a has none."},
     "ok": {"type": "boolean", "description": "True only when every check's exit_code is 0."},
     "checks": {
       "type": "array",
@@ -27,7 +28,9 @@
           "raw_exit_code": {"type": "integer", "minimum": 0, "maximum": 255, "description": "The command's own exit code. Differs from exit_code only when the command failed on listed flakes alone."},
           "flakes": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "description": "Test ids from .github/flaky.txt that failed in this run and were recorded as flakes, not failures. [] when none."},
           "root_only": {"type": "array", "items": {"type": "string", "minLength": 1, "maxLength": 300}, "description": "Test lines from .github/flaky-root.txt that failed in this run, which ran as root (uid 0), and were recorded as root-only, not failures (exit_code 0, raw_exit_code the command's own). Optional; [] or absent when none."},
-          "output_file": {"type": "string", "minLength": 1, "description": "The file holding the command's output (CLAUDE.md: every suite run's output is kept in a file), a path relative to the repository root; the file is never committed."}
+          "output_file": {"type": "string", "minLength": 1, "description": "The file holding the command's output (CLAUDE.md: every suite run's output is kept in a file), a path relative to the repository root; the file is never committed."},
+          "started_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "description": "UTC to the second, just before the check ran (S29-F2a, #823). Optional: a record written before S29-F2a has none."},
+          "ended_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", "description": "UTC to the second, after the check and its re-runs (flakes, timed-out files) ended. Optional, as started_at."}
         }
       }
     }

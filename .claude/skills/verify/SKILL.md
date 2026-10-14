@@ -34,6 +34,12 @@ file run again alone with `--maxWorkers=1`, and passes only if each passes; any 
 `$(git rev-parse --git-common-dir)/vextrus/verify-<tree>.json`, shared by every worktree, never committed;
 the guard's READY push gate reads it.
 
+`--fast` (`uv run python -m scripts.verify --fast`; CI is the full gate) runs pytest on the changed
+modules and the modules importing them, ruff and mypy on the changed files, `web-test` on the changed
+web files' tests only and no slowed pass, its test checks scaled by `VEXTRUS_TIME_SCALE`; crosspr still
+runs. A fast pass prints `Verify-Mode: fast` before the trailer: copy both lines. Each check's record keeps
+its `started_at` and `ended_at`.
+
 Exit 0 and a last line `Factory-Verify: <tree> ok` mean every check passed: put that exact line in your
 commit's trailers beside `Factory-State: READY`. Exit 1: read the named output files, fix, stage, run it
 again. Never hand-write the trailer or the record.
