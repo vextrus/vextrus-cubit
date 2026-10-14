@@ -101,16 +101,15 @@ def collect(cloud: Cloud) -> review.Run:
 
 
 def test_a_lens_a_pass_and_a_lens_b_fix_record_one_fix(cloud: Cloud) -> None:
-    """Refuted: each cloud verdict was recorded alone and the first fetched (a PASS) hid the FIX. Since
-    S28-R1 a cloud lens's finding (UNPROVEN: no refuter ran) never blocks, so only a BLOCK shows it."""
+    """Refuted: each cloud verdict was recorded alone and the first fetched (a PASS) hid the FIX."""
     cloud.hand_off("lens-a", A_NONCE)
     cloud.hand_off("lens-b", B_NONCE)
     cloud.answer(A_NONCE, "PASS", [])
-    cloud.answer(B_NONCE, "BLOCK", [FIX])
+    cloud.answer(B_NONCE, "FIX", [FIX])
     run = collect(cloud)
     record = json.loads((cloud.ledger_dir / f"{PR}-{cloud.head}.json").read_text())
-    assert (record["verdict"], record["counts"]["reviewers"]) == ("BLOCK", 2)
-    assert run.verdict == "BLOCK"
+    assert (record["verdict"], record["counts"]["reviewers"]) == ("FIX", 2)
+    assert run.verdict == "FIX"
     assert review.from_verdict(PR, cloud.main).count("the rate drops its unit") == 1
 
 

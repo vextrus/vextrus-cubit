@@ -85,7 +85,7 @@ from a Development Set's conventions, `seed_demo` or the served stack; observed=
 to reach an edge. A finding blocks at 75 or more, or at 50 or more when it is observed or on a trust
 boundary (or its file matches a `[strict] paths` carve-out); any other finding of 50-74 is filed as an
 issue that still owes its check and does not make your verdict FIX (ADR 0041 item 7, amended 13 and 14 Oct
-2026: the class alone no longer decides). Only a finding a refuter or its replay CONFIRMED blocks. An untagged finding keeps the path bar:
+2026: the class alone no longer decides). A finding a refuter answers UNPROVEN does not block. An untagged finding keeps the path bar:
 50 or more on a strict path (every file is strict unless it matches a `[lax]` glob and no `[strict]`
 carve-out in `scripts/factory/review_tiers.toml`; read that file on main, which may hold a session's
 ruling beyond the web's view components and the docs' Markdown).

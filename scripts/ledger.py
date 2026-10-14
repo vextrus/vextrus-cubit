@@ -8,28 +8,28 @@
   round at or below the highest already recorded for the PR (a round cannot be relabelled lower).
 - `decide --from <file> --head <sha>`: the verdict, computed here and nowhere else, from the reviewers'
   and refuters' final lines, one per line: `VERDICT: PASS|FIX|BLOCK at <40-hex>` (one per reviewer lens)
-  and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> [<file>] [class=<c> boundary=<yes|no>
-  observed=<yes|no>]` (the refuter's verdict; `-`: none run; the file the reviewer named; the lens's
-  tags: class and boundary both or neither, observed after them, a tagged line without it read as
+  and `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|UNJUDGED|-> [<file>] [class=<c>
+  boundary=<yes|no> observed=<yes|no>]` (the refuter's verdict; UNJUDGED: told to a refuter that never
+  answered it, or a cloud lens's finding, and it stands; `-`: none run; the file the reviewer named; the
+  lens's tags: class and boundary both or neither, observed after them, a tagged line without it read as
   `observed=no`). The bar (the owner's ruling, 14 Oct 2026, S28-R1, amending Q13 of 13 Oct; ADR 0041
-  items 5 and 7 amended): a tagged finding "could block" when it scores 75 or more, or 50 or more
-  when its lens observed it (`observed=yes`: the attack's input comes from a Development Set's
-  conventions, `seed_demo` or the served stack) or it sits on a trust boundary (a tenant wall, a
-  parser of hostile input, a gate, a ledger: the lens says `boundary=yes`, or its file matches a
-  `[strict] paths` carve-out of `scripts/factory/review_tiers.toml`, or it names no plain file of the
-  head's tree); any other 50-74 (its class no longer decides) is filed as an issue that owes its
-  check. A class outside user-facing, edge and rule-only, or a boundary or observed tag but yes or
-  no, is refused. An untagged finding keeps the path bar (the owner's ruling, 7 Oct 2026): 75 or
-  more, or 50 or more on a strict path (strict by default: lax only on a `[lax]` glob with no
-  `[strict]` carve-out, the file read afresh for each decision; no file, a climbing or absolute
-  path, or an unreadable list is judged strict; review.py and `fetch-verdict` drop a file that is
-  not in the head's tree). The verdict follows the bar (S24-L1), in this order: BLOCK when any lens
-  says BLOCK; else FIX while a finding that could block stands (CONFIRMED, or an earlier round's
-  replayed attack still UNPROVEN: a lens's UNPROVEN finding never blocks, S28-R1); else PASS,
-  whatever a lens's FIX or PASS line says (a lens's FIX over findings that cannot block, or refuted
-  or unproven ones, records PASS). One that could block with no refuter verdict is refused here;
-  in `fetch-verdict` (a cloud lens's findings carry none) a lens's FIX over such a finding records
-  FIX, and `record` refuses a PASS over one. Prints one JSON line `{"verdict", "counts",
+  items 5 and 7 amended): a tagged finding "could block" when it scores 75 or more, or 50 or more when
+  its lens observed it (`observed=yes`: the attack's input comes from a Development Set's conventions,
+  `seed_demo` or the served stack) or it sits on a trust boundary (a tenant wall, a parser of hostile
+  input, a gate, a ledger: the lens says `boundary=yes`, or its file matches a `[strict] paths` carve-out
+  of `scripts/factory/review_tiers.toml`, or it names no plain file of the head's tree); any other 50-74
+  (its class no longer decides) is filed as an issue that owes its check. A class outside user-facing,
+  edge and rule-only, or a boundary or observed tag but yes or no, is refused. An untagged finding keeps
+  the path bar (the owner's ruling, 7 Oct 2026): 75 or more, or 50 or more on a strict path (strict by
+  default: lax only on a `[lax]` glob with no `[strict]` carve-out, the file read afresh for each
+  decision; no file, a climbing or absolute path, or an unreadable list is judged strict; review.py and
+  `fetch-verdict` drop a file that is not in the head's tree). The verdict follows the bar (S24-L1), in
+  this order: BLOCK when any lens says BLOCK; else FIX while a finding that could block stands (CONFIRMED
+  or UNJUDGED, or an earlier round's replayed attack still UNPROVEN: a lens's UNPROVEN finding never
+  blocks, S28-R1); else PASS, whatever a lens's FIX or PASS line says (a lens's FIX over findings that
+  cannot block, or refuted or unproven ones, records PASS). One that could block with no refuter verdict
+  is refused here; in `fetch-verdict` (a cloud lens's findings carry none) a lens's FIX over such a
+  finding records FIX, and `record` refuses a PASS over one. Prints one JSON line `{"verdict", "counts",
   "decision_input_sha256"}`: counts and ids, never text.
 - `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
   line `{"to_file": [<id>, ...]}`, the findings of 50 or more, not REFUTED, that do not block (50-74
@@ -82,7 +82,7 @@ RECORD_NAME = re.compile(r"([0-9a-f]{40})(?:-r([1-9][0-9]*))?\.json")
 NONCE = re.compile(r"[0-9a-f]{32}")
 VERDICT = re.compile(r"VERDICT: (PASS|FIX|BLOCK) at (\S+)")
 FINDING = re.compile(
-    r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|-)(?: (\S+))?"
+    r"FINDING (\S+) (-?[0-9]{1,4}) (CONFIRMED|REFUTED|UNPROVEN|UNJUDGED|-)(?: (\S+))?"
     r"(?: class=(\S*) boundary=(\S*)(?: observed=(\S*))?)?"
 )
 # The classes a lens tags a finding with (the owner's Q13); since S28-R1 the class alone decides no
@@ -92,8 +92,11 @@ BOUNDARY = {"yes": True, "no": False}  # also the observed tag's words
 EXCEPTIONS = ("security75", "crash", "false-statement", "fix-regression", "delta-review")
 DELTA = "delta-review"  # the fix-only review past the cap (the owner's Q-R1, 13 Oct 2026)
 RANK = {"PASS": 0, "FIX": 1, "BLOCK": 2}
-# The refuter word under which a finding that could block blocks (S28-R1: UNPROVEN no longer does).
-STANDS = {"CONFIRMED"}
+# The words under which a finding that could block blocks (S28-R1: UNPROVEN no longer does): a
+# refuter's or a replay's CONFIRMED, and UNJUDGED, a claim the refuter was told and never answered (it
+# failed, ran past its cap, answered outside its schema, left the claim out or gave it two verdicts)
+# or a cloud lens's finding no refuter saw: unjudged, never read as the refuter's UNPROVEN.
+STANDS = {"CONFIRMED", "UNJUDGED"}
 REFUTER_WORDS = ("CONFIRMED", "REFUTED", "UNPROVEN")  # what a refuter may answer
 # An earlier round's replayed attack, as review.py names its FINDING (`r<round>-<id>`).
 REPLAYED = re.compile(r"r[1-9][0-9]*-\S+")

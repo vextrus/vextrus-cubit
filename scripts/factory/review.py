@@ -2112,7 +2112,9 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     """One batched refuter judges the sample (`refuter_claims`); its verdict per finding (matched by
     file and line) is the one recorded. A finding of 50-74 that cannot block left out of the sample
     stands unjudged (`-`): it cannot block and is filed, not fixed. A refuter that fails, runs past its
-    cap or answers outside its schema refutes nothing: each finding it was told stays UNPROVEN."""
+    cap or answers outside its schema judges nothing: each lens finding it was told stays UNJUDGED,
+    which still stands (S28-R1: UNPROVEN, which no longer blocks, is only the refuter's own answer);
+    an earlier round's replayed attack stays UNPROVEN, which also still stands (`ledger.stands`)."""
     assert run.head is not None
     assert run.slot is not None
     claims = refuter_claims(run.findings)
@@ -2120,6 +2122,9 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     for item in run.findings:
         if item.score >= 50 and item.word != "CONFIRMED" and item.id not in told:
             item.word, item.method = "-", None
+    for claim in claims:
+        if ledger.REPLAYED.fullmatch(claim.id) is None:
+            claim.word, claim.method = "UNJUDGED", None  # until the refuter itself answers
     if not claims:
         return
     refuter_tree(run, rv)
@@ -2156,7 +2161,7 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
             judged.setdefault(matches[0].id, set()).add(verdict["verdict"])
     for claim in claims:
         words = judged.get(claim.id, set())
-        if len(words) == 1:  # two verdicts that disagree leave the finding UNPROVEN
+        if len(words) == 1:  # two verdicts that disagree leave it unjudged
             claim.word, claim.method = words.pop(), "refuter"
 
 
@@ -2458,9 +2463,9 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
                     item["line"],
                     item["summary"],
                     None,
-                    # A cloud reviewer's finding was never replayed or refuted here: UNPROVEN, which
-                    # never blocks since S28-R1 (it is filed); only a lens's BLOCK stops the head.
-                    "UNPROVEN" if item["score"] >= 50 else "-",
+                    # A cloud reviewer's finding was never replayed or refuted here: UNJUDGED, which
+                    # stands (S28-R1: UNPROVEN no longer blocks, and no refuter said it).
+                    "UNJUDGED" if item["score"] >= 50 else "-",
                     **Finding.tags(item),
                 )
             )

@@ -111,8 +111,9 @@ stays, capped, and the orchestrator does what the owner did.
    whether it observed it: `observed=yes` when the attack's input comes from a Development Set's
    conventions, `seed_demo` or the served stack; ADR 0041, amended 13 and 14 Oct 2026); an untagged
    finding blocks at 50 on a strict path (every file is strict unless it matches a `[lax]` glob and no
-   `[strict]` carve-out in `scripts/factory/review_tiers.toml`). Only a CONFIRMED finding blocks: an
-   UNPROVEN one never does (an earlier round's replayed attack aside). A standing 50-74 neither observed
+   `[strict]` carve-out in `scripts/factory/review_tiers.toml`). A finding the refuter answered UNPROVEN
+   never blocks (an earlier round's replayed attack aside); CONFIRMED blocks, and so does UNJUDGED (told to
+   a refuter that never answered it, or a cloud lens's finding). A standing 50-74 neither observed
    nor on a trust boundary, or an UNPROVEN one, is filed as an issue naming the check it owes. Each serious finding (one that blocks, or a repeated class) leaves a committed check. A finding after the second round is filed as an issue, unless it is a security hole
    scoring 75 or more, a crash or false statement a QS meets, or a regression the first fix round introduced
    (`fix-regression`, the owner, 5 Oct 2026).

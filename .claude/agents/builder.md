@@ -61,8 +61,8 @@ In a cloud session a browser walk (chrome-devtools) is local-only: the cloud has
   Set's conventions, `seed_demo` or the served stack, or on a trust boundary; an untagged one at 50 or more
   on a strict path: every file unless it matches a `[lax]` glob and no `[strict]` carve-out in
   `scripts/factory/review_tiers.toml`; or a repeated class) leaves a committed check: a test, lint or scan
-  that fails on the class. A finding of 50-74 neither observed nor on a trust boundary is filed as an issue
-  that names the check it still owes (the owner's ruling, 14 Oct 2026).
+  that fails on the class. A finding of 50-74 neither observed nor on a trust boundary, user-facing or not,
+  is filed as an issue that names the check it still owes (the owner's ruling, 14 Oct 2026).
 - On the trust boundary (a tenant wall, a parser of hostile input, a gate, a ledger), ask a `refuter` agent
   to break your claim before READY.
 - If you add or change words under `web/src/messages/**`, ask `ux-critic` for the words-only design gate
