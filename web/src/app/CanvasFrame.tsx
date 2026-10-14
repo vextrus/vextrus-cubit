@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { AppLink, PATHS } from './AppLink'
 import { usePerfFlag } from './perf'
-import { coverageQuery } from '@/takeoff/data'
+import { coverageQuery, useSettled } from '@/takeoff/data'
 import type { Step1Counts } from '@/takeoff/model'
 import type { ProjectSummary, Session } from './session'
 import { useCloseOnEsc, useInspectorTab, useShell } from './shell'
@@ -29,11 +29,13 @@ import { SlotOutlet } from './slots'
 import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 
 /**
- * Coverage's unaccounted views, read from Step 1's own Coverage query (shared with the status bar); null until read.
- * Step 1 is confirmed only with none unaccounted (m0-screens 6.11).
+ * Coverage's unaccounted views for the frame, from the same snapshot as the Count (`useSettled`, S26-D7): it moves
+ * when Step 1's reload has ended, in the render the Count, the rows and the status bar's Coverage move in; null until
+ * read. Step 1 is confirmed only with none unaccounted (m0-screens 6.11).
  */
 function useUnaccounted(projectId: string): number | null {
-  return useQuery(coverageQuery(projectId)).data?.unaccounted ?? null
+  const coverage = useQuery(coverageQuery(projectId)).data
+  return useSettled(projectId, coverage ? { unaccounted: coverage.unaccounted } : null)?.unaccounted ?? null
 }
 
 /** Step 1's state mark (screens.md): a Question wins, then all confirmed (6.11: and no view unaccounted), then Proposals ready; none before. */
