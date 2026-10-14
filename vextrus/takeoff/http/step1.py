@@ -226,5 +226,6 @@ def answer_question(
         {
             **asdict(done.question),
             "changed_proposals": [Step1ProposalOut.from_view(p) for p in done.moved],
+            "progress": asdict(done.progress) if done.progress is not None else None,
         }
     )

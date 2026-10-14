@@ -212,16 +212,6 @@ class Step1QuestionOut(_FromView):
     )
 
 
-class Step1AnswerOut(Step1QuestionOut):
-    """An answer's reply: the answered Question, and the sheets it moved (S27-G7)."""
-
-    changed_proposals: list[Step1ProposalOut] = Field(
-        description="Each Proposal the answer confirmed, left out or corrected, exactly as "
-        "`GET .../step1/proposals` lists it now, and no other; empty when it moved no sheet. "
-        "Step 1's screen shows the answer from these, without reading the whole list again."
-    )
-
-
 class Step1QuestionsOut(Schema):
     questions: list[Step1QuestionOut]
 
@@ -282,6 +272,20 @@ class Step1ProgressOut(_FromView):
     not_received: list[str]
     qs: list[str]
     """The names of the QS members who may open the Project (m0-screens §6.12's read-only bar)."""
+
+
+class Step1AnswerOut(Step1QuestionOut):
+    """An answer's reply: the answered Question, the sheets it moved and Step 1's progress (S27-G7)."""
+
+    changed_proposals: list[Step1ProposalOut] = Field(
+        description="Each Proposal the answer confirmed, left out or corrected, exactly as "
+        "`GET .../step1/proposals` lists it now, and no other; empty when it moved no sheet. "
+        "Step 1's screen shows the answer from these, without reading the whole list again."
+    )
+    progress: Step1ProgressOut = Field(
+        description="Step 1's progress once the answer is made, as `GET .../step1/progress` reads it: "
+        "a Discipline's open Questions, status and total move with every answer, a sheet moved or not."
+    )
 
 
 class Step1ActOut(_FromView):

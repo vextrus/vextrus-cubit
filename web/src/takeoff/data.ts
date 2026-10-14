@@ -152,14 +152,15 @@ export function writeParts(queryClient: QueryClient, projectId: string, parts: P
 
 /**
  * The four as an answer's reply leaves them (S27-G7, #319): each Proposal it moved (`changed_proposals`) in
- * place of the one listed, and the answered Question in place of the one asked. `read`: what the caller read
- * again since the reply (`readParts`): the Questions (an answer can close others: a conflict's copies), and
- * Coverage and progress when a sheet moved. A reply that does not say which sheets moved writes no Proposal
- * (the caller knows the answer moved none).
+ * place of the one listed, the answered Question in place of the one asked, and Step 1's progress as the
+ * reply carries it. `read`: what the caller read again since the reply (`readParts`): the Questions (an
+ * answer can close others: a conflict's copies), and Coverage when a sheet moved (progress too, from a reply
+ * without it). A reply that does not say which sheets moved writes no Proposal (the caller knows the answer
+ * moved none).
  */
 export function answered(queryClient: QueryClient, projectId: string, reply: AnswerOut | QuestionOut, read: Partial<Omit<Step1Parts, 'proposals'>> = {}): Partial<Step1Parts> {
-  const { changed_proposals: moved, ...question } = reply as Partial<AnswerOut> & QuestionOut
-  const parts: Partial<Step1Parts> = { ...read }
+  const { changed_proposals: moved, progress, ...question } = reply as Partial<AnswerOut> & QuestionOut
+  const parts: Partial<Step1Parts> = { ...(progress ? { progress } : {}), ...read }
   const questions = read.questions ?? queryClient.getQueryData<readonly QuestionOut[]>([...step1Key(projectId), 'questions'])
   if (questions) parts.questions = questions.map((q) => (q.id === question.id ? question : q))
   const proposals = queryClient.getQueryData<readonly ProposalOut[]>([...step1Key(projectId), 'proposals'])

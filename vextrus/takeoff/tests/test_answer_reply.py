@@ -1,6 +1,7 @@
 """S27-G7 (#319): an answer's reply carries the Proposals it moved (`changed_proposals`), each exactly as
-the list words it; here the paths the acceptance tests leave out: a typed number (a correction, not a
-confirm or an exclusion) and `proposals`' `only` against the whole list."""
+the list words it, and Step 1's progress as it then reads; here the paths the acceptance tests leave out:
+a typed number (a correction, not a confirm or an exclusion), `proposals`' `only` against the whole list,
+and the progress (a Discipline's open Questions move with an answer that moves no sheet: the review)."""
 
 from typing import Any
 
@@ -11,6 +12,7 @@ from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     KEEP_OPEN,
     Sheet,
     answer,
+    got,
     jev_says,
     open_questions,
     proposals,
@@ -18,6 +20,9 @@ from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     run_job,
     the,
     uploaded,
+)
+from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
+    step1 as path,
 )
 from vextrus.testing.auth import api_as
 from vextrus.testing.drawings import QsProject
@@ -81,3 +86,22 @@ def test_only_some_sheets_are_those_rows_of_the_whole_list_unchanged(
 
     assert only == [whole[0], whole[-1]]
     assert none == []
+
+
+def test_every_reply_carries_progress_as_it_reads_once_the_answer_is_made(
+    qs_project: QsProject, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Answering the missing number moves no sheet but closes its Question: the Discipline's open
+    Questions fall, and the reply's progress says so, as the progress read after it does."""
+    read(qs_project, monkeypatch, UNNUMBERED)
+    api = api_as(qs_project.member)
+    before = got(api, f"{path(qs_project.project_id)}/progress")
+    [q] = open_questions(api, qs_project.project_id, "missing")
+
+    response = answer(api, qs_project.project_id, q["id"], "no_number")
+
+    assert response.status_code == 200, response.content
+    reply = response.json()
+    after = got(api, f"{path(qs_project.project_id)}/progress")
+    assert reply["progress"] == after
+    assert after != before

@@ -6,6 +6,9 @@
  * act (the timing walk on a 221-sheet set, answer 2). So the Questions are read again before the answer
  * shows: no state after the reply shows the Question the server closed.
  *
+ * And an answer that moves no sheet still closes its Question, so a Discipline's open Questions (Step 1's
+ * progress) move with it: the reply carries progress, written with the Questions (S27-G7's review).
+ *
  * The fakes are 22's and 156's (../acceptance/t22, ../acceptance/t156), with 21c's keep_latest laid over
  * 156's as ts26d7 lays it, and the server closing S-08's Question with it.
  */
@@ -86,5 +89,58 @@ describe('an answer that closes another Question too', () => {
     gate = null
 
     expect([...new Set(seen)].filter((n) => n === '2'), 'a state showing S-08\'s closed Question still open').toEqual([])
+  })
+})
+
+describe('an answer that moves no sheet', () => {
+  it('answering S-13\'s check with the Proposals, Coverage and progress GETs held: Structural\'s open Questions in progress fall in the same write as the Questions number', async () => {
+    const fake = new FakeAnswers()
+    const byKind = fake.byKind()
+    fake.questions = [byKind.check!, byKind.same_number!]
+    const check = fake.questions[0]!
+    let gate: Promise<void> | null = null
+    let release = () => undefined as void
+    const held = new RegExp(`^/api/projects/${fake.step1.projectId}/takeoff/step1/(proposals|coverage|progress)/?$`)
+    const progressPath = `/api/projects/${fake.step1.projectId}/takeoff/step1/progress`
+    const base = fake.api.handle
+    fake.api.handle = async (request: Request) => {
+      const path = new URL(request.url, location.origin).pathname
+      const waiting = gate
+      if (request.method === 'GET' && held.test(path) && waiting) await waiting
+      const response = await base(request)
+      if (request.method === 'POST' && path.endsWith(`/questions/${check.id}/answer`) && response.ok) {
+        // The server's reply: the Question, no sheet moved, and progress as it now reads.
+        const progress = (await (await base(new Request(new URL(progressPath, location.origin)))).json()) as unknown
+        const reply = (await response.json()) as Record<string, unknown>
+        return new Response(JSON.stringify({ ...reply, changed_proposals: [], progress }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return response
+    }
+    const { queryClient } = await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    const structuralOpen = () =>
+      queryClient.getQueryData<{ disciplines: { discipline: string | null; open_questions: number }[] }>(['step1', fake.step1.projectId, 'progress'])?.disciplines.find((d) => d.discipline === 'structural')
+        ?.open_questions
+    await waitFor(() => expect(bodyText()).toContain('Confirmed 0 / 24'))
+    await waitFor(() => expect(questionsNow()).toBe('2'))
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    expect(structuralOpen()).toBe(2)
+    gate = new Promise<void>((resolve) => (release = resolve))
+
+    const seen: string[] = []
+    const mo = new MutationObserver(() => seen.push(`${questionsNow()}|${String(structuralOpen())}`))
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true })
+    for (let i = 0; i < 5 && !screen.queryByRole('region', { name: (n: string) => clean(n) === 'Question Q2' }); i++) await userEvent.keyboard('q')
+    await screen.findByRole('region', { name: (n: string) => clean(n) === 'Question Q2' })
+    expect(check.options[0]!.key).toBe('not_sent_yet')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect(questionsNow(), 'the Questions number with the reads held').toBe('1'))
+    expect(structuralOpen(), 'progress\'s open Questions with the reads held').toBe(1)
+    mo.disconnect()
+    release()
+    gate = null
+
+    expect([...new Set(seen)].filter((s) => s === '1|2'), 'a state with the Questions number moved and progress not').toEqual([])
   })
 })

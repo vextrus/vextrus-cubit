@@ -470,11 +470,11 @@ function useActs(
   )
 
   /**
-   * Shows an answer from its reply, once its POST has returned (S27-G7, #319): the Proposals it moved, with
-   * the Questions read again (an answer can close others), and Coverage and progress when a sheet moved (the
-   * group's "n / N settled" is progress's), all written in one batch; the rest is then read behind
-   * (`readBehind`). Whether it could: a reply that does not say which sheets moved, from an answer that may
-   * move some, is shown as any act is, once Step 1 has reloaded (`settle`).
+   * Shows an answer from its reply, once its POST has returned (S27-G7, #319): the Proposals it moved and
+   * Step 1's progress (the group's "n / N settled", a Discipline's open Questions), with the Questions read
+   * again (an answer can close others) and Coverage when a sheet moved, all written in one batch; the rest is
+   * then read behind (`readBehind`). Whether it could: a reply that does not say which sheets moved, from an
+   * answer that may move some, is shown as any act is, once Step 1 has reloaded (`settle`).
    */
   const showAnswer = useCallback(
     async (reply: AnswerOut, entry: QuestionEntry, option: string, mark: Mark): Promise<boolean> => {
@@ -482,9 +482,13 @@ function useActs(
       if (moved === undefined && !movesNoSheet(entry, option)) return false
       // A read of the four already in flight (a window coming back into view) would land over the reply.
       await queryClient.cancelQueries({ predicate: isWhole(projectId) })
+      // The Questions always (an answer can close others); Coverage when a sheet moved; progress from a reply without it.
+      const parts: ('questions' | 'coverage' | 'progress')[] = ['questions']
+      if (moved && moved.length > 0) parts.push('coverage')
+      if ((reply as Partial<AnswerOut>).progress === undefined && moved && moved.length > 0) parts.push('progress')
       let read
       try {
-        read = await readParts(projectId, moved && moved.length > 0 ? ['questions', 'coverage', 'progress'] : ['questions'])
+        read = await readParts(projectId, parts)
       } catch {
         return false
       }

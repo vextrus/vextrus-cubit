@@ -4006,6 +4006,10 @@ class Answered:
     """Each Proposal the answer confirmed, left out or corrected, as `proposals` lists it once the
     answer is made; none when it moved no sheet (S27-G7: Step 1's screen shows the answer from these,
     without reading the whole list again). Read for these sheets alone (`proposals`' `only`)."""
+    progress: ProgressView | None = None
+    """Step 1's progress once the answer is made (`progress`), the one its rows were written from: an
+    answer that moves no sheet still closes a Question, and a Discipline's open Questions, status and
+    total are progress's (S27-G7's review)."""
 
 
 def answer(
@@ -4029,17 +4033,21 @@ def answer(
     _in_scope(project_id)
     taken: list[uuid.UUID] = []
     moved: list[uuid.UUID] = []
+    counted: dict[uuid.UUID, ProgressView] = {}
     token = _ANSWER_ACTS.set(taken)
     moving = _ANSWER_MOVED.set(moved)
+    counting = _PROGRESS_COUNTED.set(counted)
     try:
         with writing(project_id):
             done = _answer(project_id, question_id, option, text, actor_name, seen, taken)
             if done.corrected and done.question.subject_id is not None:
                 moved.append(done.question.subject_id)
-            if not moved:
-                return done
-            return replace(done, moved=tuple(proposals(project_id, only=moved)))
+            if moved:
+                done = replace(done, moved=tuple(proposals(project_id, only=moved)))
+        # Counted as the rows were written; inside an outer act's block they are written later.
+        return replace(done, progress=counted.get(project_id) or progress(project_id))
     finally:
+        _PROGRESS_COUNTED.reset(counting)
         _ANSWER_MOVED.reset(moving)
         _ANSWER_ACTS.reset(token)
 
@@ -4287,6 +4295,11 @@ def _natural(text: str) -> list[tuple[int, int, str]]:
 _PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.ContextVar(
     "step1_progress_at_end", default=None
 )
+_PROGRESS_COUNTED: contextvars.ContextVar[dict[uuid.UUID, ProgressView] | None] = contextvars.ContextVar(
+    "step1_progress_counted", default=None
+)
+"""Inside `answer`: the progress `record_progress` counted as it wrote the rows, by Project, so the
+reply carries it without counting it again."""
 
 
 @contextlib.contextmanager
@@ -4429,7 +4442,10 @@ def record_progress(project_id: uuid.UUID) -> None:
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
             )
         tenant_id = _tenant()
-        for row in progress(project_id).disciplines:
+        counted = progress(project_id)
+        if (kept := _PROGRESS_COUNTED.get()) is not None:
+            kept[project_id] = counted
+        for row in counted.disciplines:
             status = row.status
             StepProgress.objects.update_or_create(
                 tenant_id=tenant_id,
