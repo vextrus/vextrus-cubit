@@ -112,7 +112,8 @@ def test_a4_stop_failure_is_registered_once_for_every_error_type() -> None:
 # A.5
 def test_a5_the_guard_entry_and_every_required_deny_are_intact() -> None:
     settings = load(MAIN)
-    assert settings["hooks"]["PreToolUse"] == [GUARD_ENTRY]
+    # Amended by S29-F2b: the shift-left checks are a second PreToolUse group; the guard's stays first.
+    assert settings["hooks"]["PreToolUse"][0] == GUARD_ENTRY
     deny = settings["permissions"]["deny"]
     missing = [rule for rule in REQUIRED_DENY if rule not in deny]
     assert not missing, f"required denies missing: {missing}"

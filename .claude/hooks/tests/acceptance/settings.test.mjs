@@ -37,8 +37,10 @@ function registered(event, command, matcherOk) {
   return registrations().filter((r) => r.event === event && r.hook.command === command && matcherOk(r.matcher));
 }
 
-test("the guard is the only PreToolUse hook, with its literal entry", () => {
-  assert.deepEqual(settings().hooks.PreToolUse, [{ matcher: "Bash|Edit|Write|NotebookEdit", hooks: [GUARD] }]);
+// Amended by S29-F2b (docs/plans/factory-s29.md item 2): the shift-left checks at `git commit` and `gh pr create` are
+// a second PreToolUse group (`ts29f2b/shift-left.test.mjs` pins it); the guard's group stays first.
+test("the guard's PreToolUse group comes first, with its literal entry", () => {
+  assert.deepEqual(settings().hooks.PreToolUse[0], { matcher: "Bash|Edit|Write|NotebookEdit", hooks: [GUARD] });
 });
 
 test("the existing SessionStart and PostToolUse registrations are intact", () => {
@@ -104,9 +106,10 @@ test("hooks register only on the events the spec names", () => {
   for (const event of Object.keys(settings().hooks)) assert.ok(allowed.includes(event), `unexpected hook event ${event}`);
 });
 
-test("no new hook registers on PreToolUse, so none can allow or deny a tool", () => {
+test("on PreToolUse only the guard and the shift-left checks register, so no other hook can allow or deny a tool", () => {
+  const permitted = [GUARD.command, node("shift-left.mjs")];
   for (const { event, hook } of registrations()) {
-    if (event === "PreToolUse") assert.equal(hook.command, GUARD.command);
+    if (event === "PreToolUse") assert.ok(permitted.includes(hook.command), hook.command);
   }
 });
 
