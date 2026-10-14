@@ -124,7 +124,7 @@ export function ReportPanel({
                         <Trans>How close</Trans>
                       </th>
                       <th className="w-[64px] px-1 py-1 text-end text-xs font-semibold text-ink-secondary">
-                        <Trans>Texts</Trans>
+                        <Trans>Sheets</Trans>
                       </th>
                     </tr>
                   </thead>
@@ -141,7 +141,7 @@ export function ReportPanel({
                         <td className="px-1 py-1 align-top">
                           <MachineText message={row.how_close} />
                         </td>
-                        <td className="num px-1 py-1 text-end align-top">{f.integer(row.texts)}</td>
+                        <td className="num px-1 py-1 text-end align-top">{f.integer(row.sheets)}</td>
                       </tr>
                     ))}
                   </tbody>

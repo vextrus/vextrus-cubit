@@ -59,10 +59,6 @@ msgstr "Actions"
 msgid "Add files"
 msgstr "Add files"
 
-#: src/drawing-set/ReportPanel.tsx
-msgid "Texts"
-msgstr "Texts"
-
 #: src/drawing-set/DrawingSetPage.tsx
 msgid "No drawings yet."
 msgstr "No drawings yet."
