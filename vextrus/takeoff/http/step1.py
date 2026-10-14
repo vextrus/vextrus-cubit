@@ -10,7 +10,7 @@ another Developer, or none at all is the one 404 (`platform.auth.not_found`), an
 import json
 import urllib.parse
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 from django.http import HttpRequest
 from ninja import Router
@@ -21,6 +21,7 @@ from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
     Step1AnswerIn,
+    Step1AnswerOut,
     Step1AssignIn,
     Step1ConfirmIn,
     Step1CorrectIn,
@@ -196,17 +197,20 @@ def get_drawing_list(
 
 @router.post(
     f"{_PREFIX}/questions/{{question_id}}/answer",
-    response={200: Step1QuestionOut, 400: Refusal, 409: Refusal},
+    response={200: Step1AnswerOut, 400: Refusal, 409: Refusal},
 )
 @declare(acts.CONFIRM, project="project_id")
 def answer_question(
     request: HttpRequest, project_id: uuid.UUID, question_id: uuid.UUID, payload: Step1AnswerIn
-) -> Step1QuestionOut:
+) -> Step1AnswerOut:
     """Answer a Question with one of its options (`keep_open` keeps it open). A held file read
-    anyway has its read job queued again, in the answer's transaction."""
+    anyway has its read job queued again, in the answer's transaction. The reply is the answered
+    Question with the Proposals the answer moved (`changed_proposals`), as the list now words them."""
 
     def act() -> step1.Answered:
-        with step1.writing(project_id):
+        # The reply's progress is the count this block's end writes the rows from: after a held
+        # file's read job is queued, and never counted a second time (S27-G7's review).
+        with step1.progress_counted() as counted, step1.writing(project_id):
             done = step1.answer(
                 project_id,
                 question_id,
@@ -217,6 +221,14 @@ def answer_question(
             )
             if done.read_again is not None:
                 read_file.read_again(done.read_again)
-        return done
+        written = counted.get(project_id)
+        return replace(done, progress=written if written is not None else step1.progress(project_id))
 
-    return Step1QuestionOut.from_view(deadlocks.retried(act, what="step1.answer").question)
+    done = deadlocks.retried(act, what="step1.answer")
+    return Step1AnswerOut.model_validate(
+        {
+            **asdict(done.question),
+            "changed_proposals": [Step1ProposalOut.from_view(p) for p in done.moved],
+            "progress": asdict(done.progress) if done.progress is not None else None,
+        }
+    )

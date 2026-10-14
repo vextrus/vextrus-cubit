@@ -34,7 +34,7 @@ import { sheetAddress } from './paths'
 import { SheetName, useStep1Acts, type SheetChange } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
-import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
+import { fileStates, renderQuery, takeAccounted, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { step1Key } from './data'
 import { FilesBand } from './FilesBand'
@@ -107,12 +107,15 @@ function useRefreshAsFilesFinish(projectId: string): FileOut[] {
     notifyOnChangeProps: ['data'],
   })
   const list = files.data?.files
-  const states = list?.map((f) => `${f.id}:${f.state}`).join(',')
+  const states = list ? fileStates(list) : undefined
   const seen = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (states === undefined || states === seen.current) return
     const first = seen.current === undefined
     seen.current = states
+    // An answer wrote these states with its reply and reads Step 1 behind itself (S27-G7): not read twice.
+    const answered = takeAccounted(qc, projectId)
+    if (!first && states === answered) return
     const step1At = qc.getQueryState([...step1Key(projectId), 'proposals'])?.dataUpdatedAt ?? 0
     const answeredAt = qc.getQueryState(filesQuery(projectId).queryKey)?.dataUpdatedAt ?? 0
     if (!first || step1At <= answeredAt) void qc.invalidateQueries({ queryKey: step1Key(projectId) })
@@ -618,7 +621,8 @@ function Step1({
   /**
    * What the bar shows: while an act and Step 1's reload are in flight, the bar from before it,
    * its button off (the walk, M5: mid-reload it showed the bulk act with Questions still open).
-   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before.
+   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before. An answer shown
+   * from its reply ends `busy` as the reply is written (S27-G7), so the live bar follows the rows then.
    */
   // Taken as the act starts: Step 1 has not changed yet, so it is the bar the QS acted on.
   const [held, setHeld] = useState<{ busy: boolean; bar: BarSpec | null }>({ busy: false, bar: null })
