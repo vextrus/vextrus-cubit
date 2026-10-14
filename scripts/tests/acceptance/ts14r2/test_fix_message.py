@@ -30,6 +30,11 @@ from scripts.tests.acceptance.ts14r2._world import (
     why,
 )
 
+# S29-F7 (the owner's rulings Q5, Q15, 14 Oct 2026; docs/plans/factory-s29.md 7): off the risk tier the
+# refuter samples one in five heads, so a test of the refuter itself opens a risk-tier PR (an engine
+# path), where the refuter runs on every head as it did here before.
+RISK_SMALL = {"engine/recognise/badge.py": "BADGE: int = 3\n"}
+
 
 @pytest.fixture
 def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
@@ -49,9 +54,10 @@ OTHER = item(90, 2, "the other change loses every Storey", None, file="web/src/c
 
 
 def reviewed(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     world.lenses(
         review_reply("FIX", [REPLAYED, CONFIRMED, REFUTED, UNPROVEN, LOW]),
+        opus=review_reply("PASS"),  # S29-F7: lens A of the risk tier finds nothing
         write=WRITE,
         refuter={
             "findings": [

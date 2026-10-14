@@ -26,7 +26,6 @@ from scripts.tests.acceptance.ts14r2._world import (
     ATTACK,
     NORMAL,
     PASSING,
-    SMALL,
     World,
     flag,
     fresh,
@@ -38,10 +37,29 @@ from scripts.tests.acceptance.ts14r2._world import (
     why,
 )
 
+# S29-F7 (the owner's rulings Q5, Q15, 14 Oct 2026; docs/plans/factory-s29.md 7): off the risk tier the
+# refuter samples one in five heads, so a test of the refuter itself opens a risk-tier PR (an engine
+# path), where the refuter runs on every head as it did here before.
+RISK_SMALL = {"engine/recognise/badge.py": "BADGE: int = 3\n"}
+
+
+def lens_a_finds_nothing(made: World) -> World:
+    """S29-F7: a risk-tier PR gets lens A (opus) beside lens B; lens A answers PASS with no finding, so
+    the findings are lens B's alone, as on the one-lens PR these tests were written for."""
+    scripted = made.lenses
+
+    def lenses(reply: Any = None, **given: Any) -> None:
+        given.setdefault("opus", review_reply("PASS"))
+        scripted(reply, **given)
+
+    setattr(made, "lenses", lenses)  # noqa: B010
+    return made
+
 
 @pytest.fixture
 def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
-    yield from fresh(tmp_path_factory)
+    for made in fresh(tmp_path_factory):
+        yield lens_a_finds_nothing(made)
 
 
 REPLAYS = "tests/test_count_fails.py"
@@ -70,7 +88,7 @@ def expected(lines: list[str], head: str) -> ledger.Decision:
 
 
 def test_one_refuter_is_told_every_unreplayed_finding_of_50_or_more_and_no_other(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     world.lenses(review_reply("FIX", [REPLAYED, REPRO_PASSES, NO_REPRO, LOW]), write=WRITE)
     done = world.run("12", "--round", "1")
     calls = refuters(world)
@@ -108,7 +126,7 @@ def test_one_refuter_takes_the_unreplayed_findings_of_both_lenses(world: World) 
 def test_no_refuter_runs_when_nothing_of_50_or_more_is_left_unreplayed(
     world: World, findings: list[dict[str, object]]
 ) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(review_reply("PASS", findings), write=WRITE)
     done = world.run("12", "--round", "1")
     assert done.returncode == 0, why(done)
@@ -118,7 +136,7 @@ def test_no_refuter_runs_when_nothing_of_50_or_more_is_left_unreplayed(
 
 
 def test_the_refuter_s_verdict_per_finding_is_the_one_recorded(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(
         review_reply("FIX", [REPLAYED, REPRO_PASSES, NO_REPRO, LOW, NO_REPRO_TOO]),
         write=WRITE,
@@ -152,7 +170,7 @@ def test_the_refuter_s_verdict_per_finding_is_the_one_recorded(world: World) -> 
 
 
 def test_a_refuted_finding_no_longer_holds_back_a_pass(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(
         review_reply("PASS", [NO_REPRO, LOW]),
         refuter={"findings": [judged(NO_REPRO, "REFUTED")]},
@@ -166,7 +184,7 @@ def test_a_refuted_finding_no_longer_holds_back_a_pass(world: World) -> None:
 
 
 def test_the_refuter_cannot_refute_a_finding_its_replay_confirmed(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(
         review_reply("FIX", [REPLAYED, NO_REPRO]),
         write=WRITE,
@@ -193,7 +211,7 @@ def test_the_refuter_cannot_refute_a_finding_its_replay_confirmed(world: World) 
 def test_a_refuter_reply_outside_its_schema_refutes_nothing(
     world: World, reply: dict[str, object]
 ) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(review_reply("PASS", [NO_REPRO]), refuter=reply)
     done = world.run("12", "--round", "1")
     assert len(refuters(world)) == 1, f"no refuter was started; {why(done)}"
@@ -202,7 +220,7 @@ def test_a_refuter_reply_outside_its_schema_refutes_nothing(
 
 
 def test_the_refuter_runs_on_sonnet_5_5_high_and_is_capped(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     world.lenses(review_reply("FIX", [NO_REPRO]))
     done = world.run("12", "--round", "1")
     calls = refuters(world)
@@ -221,7 +239,7 @@ def test_the_refuter_runs_on_sonnet_5_5_high_and_is_capped(world: World) -> None
 
 
 def test_the_refuter_s_prompt_never_mentions_the_ledger(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     world.lenses(review_reply("FIX", [NO_REPRO]))
     done = world.run("12", "--round", "1")
     calls = refuters(world)
