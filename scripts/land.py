@@ -8,7 +8,8 @@ GitHub does not report it CONFLICTING / DIRTY (`gh pr view --json mergeable,merg
 before it is marked ready, naming `land update`, with no update and no merge), then marks the PR ready,
 refuses (before it is marked ready, naming `land update`) a head that does not contain main's tip
 (S27-L825, #825, the owner, 14 Oct 2026: its CI ran before main moved on; the ruleset stays, only
-the lander is stricter, and it never makes the update request itself), lands it as it stands otherwise,
+the lander is stricter, and it never makes the update request itself),
+lands it with no update of its own otherwise,
 waits for CI
 (read from `gh pr view --json headRefOid,statusCheckRollup`: gh 2.45 has no `gh pr checks --json`),
 reruns the failed jobs **once** and only when every failed test is listed in `.github/flaky.txt`, runs
