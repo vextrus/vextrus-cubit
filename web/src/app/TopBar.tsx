@@ -2,7 +2,8 @@
  * The top bar (docs/design/m0-screens.md §4.1), start to end: the brand mark; the project switcher
  * (only the projects the member may open; on pages outside a project, the Developer's name), never a
  * building picker (§1.10); text navigation with only Takeoff and Drawing Set in M0; the AccessChip for
- * anyone whose access has an end date or covers chosen projects; then "Jump to…  Ctrl K" and the user
+ * anyone whose access has an end date or covers chosen projects (and, filled by a screen, the MD's notice of
+ * who from Vextrus has access, §6.12); then "Jump to…  Ctrl K" and the user
  * menu (the Developer switcher for a user with more than one Membership, "Members and access" but for
  * a Guest, "Keys", and "Sign out", which ends the session at the API and clears everything held). No
  * Revision label in M0. It is the first F6 region.
@@ -21,6 +22,7 @@ import { AppLink, PATHS, useGo } from './AppLink'
 import { roleName } from './roles'
 import type { ProjectSummary, Session } from './session'
 import { useShell } from './shell'
+import { SlotOutlet } from './slots'
 
 const Code = ({ code }: { code: string }) => (
   <bdi dir="ltr" className="num text-xs text-muted-foreground">
@@ -193,6 +195,7 @@ export function TopBar({ session, project }: { session: Session; project: Projec
           until={until ? f.date(until) : null}
           daysLeft={until ? f.daysUntil(until) : null}
         />
+        <SlotOutlet name="topbar.access" className="ms-2" />
       </div>
       <button
         type="button"
