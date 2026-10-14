@@ -20,7 +20,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, Crosshair, Layers, MoreHorizont
 import { AppLink, PATHS, useGo } from '@/app/AppLink'
 import { useSheetRequest } from './jump'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
-import { useShell } from '@/app/shell'
+import { useInspectorTab, useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
 import { VextrusAccessNotice } from '@/members'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
@@ -793,6 +793,13 @@ function Step1({
     },
   ])
 
+  // Coverage's panel fills the inspector's Selection tab (4.1), so opening it brings that tab forward from Questions.
+  const [, setInspectorTab] = useInspectorTab()
+  const openCoverage = () => {
+    setPanel('coverage')
+    setInspectorTab('selection')
+  }
+
   const fromList = () => {
     const row = rowByKey(focused) ?? model.rows.find((r) => r.sheets.length > 0) ?? null
     if (row && row.sheets.length > 0) openRow(row)
@@ -837,7 +844,7 @@ function Step1({
         <ModeSwitch mode={mode} title={spaceLabel} onList={() => mode === 'sheet' && toList()} onSheet={() => mode === 'list' && fromList()} />
       </SlotFill>
       <SlotFill slot="status.end" order={0}>
-        <button type="button" onClick={() => setPanel('coverage')} className="hover:text-foreground hover:underline">
+        <button type="button" onClick={openCoverage} className="hover:text-foreground hover:underline">
           <CoverageLine coverage={coverage} />
         </button>
       </SlotFill>

@@ -293,6 +293,10 @@ msgstr "Still reading {name}: sheet {at} of {of}."
 msgid "{n, plural, one {Views (#)} other {Views (#)}}"
 msgstr "{n, plural, one {Views (#)} other {Views (#)}}"
 
+#: src/takeoff/Step1Inspector.tsx
+msgid "Settled by the Dhaka convention"
+msgstr "Settled by the Dhaka convention"
+
 #: src/takeoff/Step1Screen.tsx
 msgid "Exclude the focused sheet, with a reason"
 msgstr "Exclude the focused sheet, with a reason"
@@ -600,6 +604,10 @@ msgstr "Question {tag}"
 #: src/takeoff/Step1Inspector.tsx
 msgid "the title of its view"
 msgstr "the title of its view"
+
+#: src/takeoff/Step1Inspector.tsx
+msgid "Settled by the Dhaka convention, {date}, {time}"
+msgstr "Settled by the Dhaka convention, {date}, {time}"
 
 #: src/takeoff/Step1Inspector.tsx
 msgid "No open Questions."

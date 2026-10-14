@@ -1363,7 +1363,8 @@ and sheet mode alike (6.18). The toast sits just above it.
   its Plot page: "…, and its Plot page matches") · "3 views;
   storeys 8th, 9th. Enter confirms it and opens the next open sheet." with the ghost "Confirm all 56
   that agree" (the bulk act of 6.4, by mouse) and "Confirm S-20 ↵". For a sheet with one source (5):
-  "E-02 has one source: number and title from its title block" · "No drawing list and no Plot to check
+  "E-02 has one source: number and title from its title block" (a sheet whose title block gives no title and
+  whose one view is titled: "E-02 has one source, and its title is the title of its view") · "No drawing list and no Plot to check
   it against. Enter confirms it and opens the next open sheet." · "Confirm E-02 ↵". For a proposed
   exclusion: "Leave out S-39: for information" · "It stays in the count with its reason. X picks
   another reason." · "Leave out S-39 ↵". For a sheet a Question holds: that Question's bar. After the

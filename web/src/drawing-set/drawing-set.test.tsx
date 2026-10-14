@@ -421,12 +421,15 @@ describe("the design gate's walk (review round 2)", () => {
     set.files.push(f)
     set.reports.set(f.id, {
       fonts: [msg('engine.font_report.summary', { fonts: 1 })],
-      font_rows: [{ asked: msg('engine.font_report.asked', { asked: 'Romans', kind: 'shx' }), how_close: msg('engine.font_report.how_close', { how_close: 'single_stroke', drawn_with: 'Relief SingleLine' }), texts: 12 }],
+      font_rows: [
+        // The t20b fixture's row type predates `sheets` (the API serves it): added beside its fields.
+        Object.assign({ asked: msg('engine.font_report.asked', { asked: 'Romans', kind: 'shx' }), how_close: msg('engine.font_report.how_close', { how_close: 'single_stroke', drawn_with: 'Relief SingleLine' }), texts: 12 }, { sheets: 3 }),
+      ],
     })
     const panel = await openReport(api, 'KR-ARC-R0.dwg')
     const table = await within(panel).findByRole('table', { name: 'Fonts' })
-    expect(within(table).getAllByRole('columnheader').map((h) => clean(h.textContent))).toEqual(['The drawing asks for', 'Vextrus draws it with', 'How close', 'Texts'])
-    expect(within(table).getAllByRole('cell').map((c) => clean(c.textContent))).toEqual(['Romans (AutoCAD lettering)', 'Relief SingleLine', 'Single-stroke, like the plot', '12'])
+    expect(within(table).getAllByRole('columnheader').map((h) => clean(h.textContent))).toEqual(['The drawing asks for', 'Vextrus draws it with', 'How close', 'Sheets'])
+    expect(within(table).getAllByRole('cell').map((c) => clean(c.textContent))).toEqual(['Romans (AutoCAD lettering)', 'Relief SingleLine', 'Single-stroke, like the plot', '3'])
   })
 
   it('M6: closes the report by a button that says "Close" and its key', async () => {
