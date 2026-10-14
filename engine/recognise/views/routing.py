@@ -89,9 +89,11 @@ STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
 FRAMED_SUBJECT = "slab"
 """The subject an architectural plan draws the structure with when it names a structure subject too
 (`_draws_structure`): a slab outline with its beams."""
-NOT_STRUCTURE_WORDS = frozenset({"lintel", "lintels"})
+NOT_STRUCTURE_WORDS = frozenset({"lintel", "lintels", "lintel beam", "lintel beams"})
 """Beam words an Architectural plan names without drawing the structure: a lintel layout is the
-architect's (`lintel_layout`), so it is never proposed out as the structural set's duplicate."""
+architect's (`lintel_layout`), so it is never proposed out as the structural set's duplicate. A lintel
+beam is one phrase ("LINTEL BEAM", "LINTEL-BEAM" and "LINTEL & BEAM" read alike: the tokens keep no
+mark), so its "beam" is the lintel's, beside a slab or a sunshade too."""
 PLUMBING_SUBJECTS = frozenset({"fixture", "toilet"})
 PLUMBING_PART = "plumbing"
 """The Plumbing and sanitary Part, by its Discipline's key."""
