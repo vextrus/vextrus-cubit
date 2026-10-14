@@ -50,6 +50,9 @@ WRONG_ACCOUNT = MessageCode("platform.invitations.wrong_account", params=("email
 ENGINEER_NOT_STAFF = MessageCode("platform.invitations.engineer_not_staff")
 """A Vextrus Engineer's invitation is accepted only with an account of Vextrus's staff (the owner's
 ruling, 28 Sep 2026)."""
+NO_VEXTRUS_ACCOUNT = MessageCode("platform.invitations.no_vextrus_account")
+"""Inviting a Vextrus Engineer by an email with no active Vextrus staff account: refused at invite
+time, as acceptance would refuse it (#831)."""
 SIGN_IN_FIRST = MessageCode("platform.invitations.sign_in_first", params=("email",))
 """The invited email has an account: sign in with it to accept."""
 NAME_REQUIRED = MessageCode("platform.invitations.name_required")

@@ -17,7 +17,7 @@ from vextrus.platform.messages import invitations as codes
 from vextrus.platform.models import Membership
 from vextrus.platform.services import auth, invitations, tenancy
 from vextrus.testing.auth import Api, api_as, invitation, served_operations
-from vextrus.testing.tenancy import Member
+from vextrus.testing.tenancy import STAFF_EMAIL, Member
 
 PASSWORD = "a long enough passphrase 7"
 
@@ -70,7 +70,7 @@ def test_a_qs_cannot_widen_an_engineer_beyond_their_own_projects(
     developer = make_developer()
     mine, other = uuid.uuid4(), uuid.uuid4()
     qs = sign_in(role="qs", developer_id=developer, projects=[mine])
-    engineer, _ = invitation(qs, "e@example.com", project_ids=[mine])
+    engineer, _ = invitation(qs, STAFF_EMAIL, project_ids=[mine])
 
     with qs.acting():
         with pytest.raises(auth.NotFound):
@@ -139,7 +139,7 @@ def test_an_engineer_s_end_date_cannot_be_removed_by_inviting_without_one(
 ) -> None:
     response = api_as(team["md"]).post(
         "/api/members/invitations",
-        {"email": "e@example.com", "role": "vextrus_engineer", "expires_at": None},
+        {"email": STAFF_EMAIL, "role": "vextrus_engineer", "expires_at": None},
     )
 
     with team["md"].acting():

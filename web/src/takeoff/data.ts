@@ -8,7 +8,7 @@
  *   await undo(project.id)                        // the acting user's own last act
  */
 import { useState } from 'react'
-import { queryOptions, useIsFetching, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { notifyManager, queryOptions, useIsFetching, useQueries, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/api/client'
 import type { components } from '@/api/schema.gen'
 import { sessionQuery } from '@/app/session'
@@ -17,6 +17,7 @@ import { sessionEpoch } from '@/auth/actions'
 export type ProposalOut = components['schemas']['Step1ProposalOut']
 export type ViewOut = components['schemas']['Step1ViewOut']
 export type QuestionOut = components['schemas']['Step1QuestionOut']
+export type AnswerOut = components['schemas']['Step1AnswerOut']
 export type CoverageOut = components['schemas']['Step1CoverageOut']
 export type ProgressOut = components['schemas']['Step1ProgressOut']
 export type DisciplineProgress = components['schemas']['Step1DisciplineProgressOut']
@@ -29,10 +30,18 @@ const path = (project_id: string) => ({ params: { path: { project_id } } })
 
 export const step1Key = (projectId: string) => ['step1', projectId] as const
 
+/** Step 1's four reads the rows, the frame's Count and Coverage are drawn from (`useSettled`), each one GET. */
+const read = {
+  proposals: async (projectId: string) => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/proposals', path(projectId)))).proposals,
+  questions: async (projectId: string) => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/questions', path(projectId)))).questions,
+  coverage: (projectId: string) => unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/coverage', path(projectId))),
+  progress: (projectId: string) => unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/progress', path(projectId))),
+}
+
 export function proposalsQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'proposals'],
-    queryFn: async () => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/proposals', path(projectId)))).proposals,
+    queryFn: () => read.proposals(projectId),
   })
 }
 
@@ -48,21 +57,21 @@ export function historyQuery(projectId: string, proposal: string) {
 export function questionsQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'questions'],
-    queryFn: async () => (await unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/questions', path(projectId)))).questions,
+    queryFn: () => read.questions(projectId),
   })
 }
 
 export function coverageQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'coverage'],
-    queryFn: () => unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/coverage', path(projectId))),
+    queryFn: () => read.coverage(projectId),
   })
 }
 
 export function progressQuery(projectId: string) {
   return queryOptions({
     queryKey: [...step1Key(projectId), 'progress'],
-    queryFn: () => unwrap(api.GET('/api/projects/{project_id}/takeoff/step1/progress', path(projectId))),
+    queryFn: () => read.progress(projectId),
   })
 }
 
@@ -121,6 +130,71 @@ export interface Step1Parts {
 
 const WHOLE = ['proposals', 'questions', 'coverage', 'progress']
 
+/** Whether a query is one of the four `useSettled` holds the snapshot for. */
+export const isWhole = (projectId: string) => (query: { queryKey: readonly unknown[] }) =>
+  query.queryKey[0] === 'step1' && query.queryKey[1] === projectId && WHOLE.includes(query.queryKey[2] as string)
+
+/**
+ * Some of the four read now, outside the cache: no query is marked fetching, so `useSettled` holds nothing
+ * while they are read, and the caller writes what it read in one batch (`writeParts`), all four moving in one render.
+ */
+export async function readParts<K extends keyof Step1Parts>(projectId: string, parts: readonly K[]): Promise<Pick<Step1Parts, K>> {
+  const values = await Promise.all(parts.map((part) => read[part](projectId)))
+  return Object.fromEntries(parts.map((part, i) => [part, values[i]])) as Pick<Step1Parts, K>
+}
+
+/** The files' states as Step 1 compares them to know a file moved (`useRefreshAsFilesFinish`). */
+export const fileStates = (files: readonly { id: string; state: string }[]) => files.map((f) => `${f.id}:${f.state}`).join(',')
+
+const accounted = new WeakMap<QueryClient, Map<string, string>>()
+
+/**
+ * The files' states an answer wrote with its reply (a held file read anyway or set aside), the rest of Step 1
+ * read behind by the answer itself: Step 1's own refresh on a file moving is then not asked for again (S27-G7,
+ * the re-gate of #843: a second whole reload, and the snapshot held at the state before the answer meanwhile).
+ */
+export function accountFiles(queryClient: QueryClient, projectId: string, states: string) {
+  const byProject = accounted.get(queryClient) ?? new Map<string, string>()
+  byProject.set(projectId, states)
+  accounted.set(queryClient, byProject)
+}
+
+/** The states an answer accounted for, taken once (`accountFiles`). */
+export function takeAccounted(queryClient: QueryClient, projectId: string): string | undefined {
+  const byProject = accounted.get(queryClient)
+  const states = byProject?.get(projectId)
+  byProject?.delete(projectId)
+  return states
+}
+
+/** Writes some of the four in one batch: every reader of the snapshot renders them together. */
+export function writeParts(queryClient: QueryClient, projectId: string, parts: Partial<Step1Parts>) {
+  notifyManager.batch(() => {
+    for (const [part, value] of Object.entries(parts)) if (value !== undefined) queryClient.setQueryData([...step1Key(projectId), part], value)
+  })
+}
+
+/**
+ * The four as an answer's reply leaves them (S27-G7, #319): each Proposal it moved (`changed_proposals`) in
+ * place of the one listed, the answered Question in place of the one asked, and Step 1's progress as the
+ * reply carries it. `read`: what the caller read again since the reply (`readParts`): the Questions (an
+ * answer can close others: a conflict's copies), and Coverage when a sheet moved (progress too, from a reply
+ * without it). A reply that does not say which sheets moved writes no Proposal (the caller knows the answer
+ * moved none).
+ */
+export function answered(queryClient: QueryClient, projectId: string, reply: AnswerOut | QuestionOut, read: Partial<Omit<Step1Parts, 'proposals'>> = {}): Partial<Step1Parts> {
+  const { changed_proposals: moved, progress, ...question } = reply as Partial<AnswerOut> & QuestionOut
+  const parts: Partial<Step1Parts> = { ...(progress ? { progress } : {}), ...read }
+  const questions = read.questions ?? queryClient.getQueryData<readonly QuestionOut[]>([...step1Key(projectId), 'questions'])
+  if (questions) parts.questions = questions.map((q) => (q.id === question.id ? question : q))
+  const proposals = queryClient.getQueryData<readonly ProposalOut[]>([...step1Key(projectId), 'proposals'])
+  if (proposals && moved && moved.length > 0) {
+    const byId = new Map(moved.map((p) => [p.id, p]))
+    parts.proposals = proposals.map((p) => byId.get(p.id) ?? p)
+  }
+  return parts
+}
+
 /**
  * The Proposals, Questions, Coverage and progress that the rows, the frame's Count and the status bar's
  * Coverage are drawn from, as one snapshot: while any of the four is reloading, the last whole snapshot
@@ -132,8 +206,7 @@ const WHOLE = ['proposals', 'questions', 'coverage', 'progress']
  */
 export function useSettled<T extends object>(projectId: string, fresh: T | null): T | null {
   const queryClient = useQueryClient()
-  const fetching =
-    useIsFetching({ predicate: (query) => query.queryKey[0] === 'step1' && query.queryKey[1] === projectId && WHOLE.includes(query.queryKey[2] as string) }) > 0
+  const fetching = useIsFetching({ predicate: isWhole(projectId) }) > 0
   const person = queryClient.getQueryData(sessionQuery.queryKey)?.user.id ?? ''
   const key = `${sessionEpoch(queryClient)}:${person}:${projectId}`
   const [held, setHeld] = useState<{ key: string; value: T | null }>({ key, value: fresh })
@@ -237,7 +310,7 @@ export async function setList(projectId: string, discipline: string, text: strin
  * Answers a Question with one of its options (21c); `text` only for "Type a number". `keep_open` keeps it open.
  * `held`: the sheets the QS saw it hold (S15-Q1: a kind Question that grew since is refused, 409).
  */
-export async function answer(projectId: string, questionId: string, option: string, text = '', held?: readonly string[]): Promise<QuestionOut> {
+export async function answer(projectId: string, questionId: string, option: string, text = '', held?: readonly string[]): Promise<AnswerOut> {
   return unwrap(
     api.POST('/api/projects/{project_id}/takeoff/step1/questions/{question_id}/answer', {
       params: { path: { project_id: projectId, question_id: questionId } },

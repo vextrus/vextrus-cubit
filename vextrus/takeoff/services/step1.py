@@ -50,7 +50,7 @@ import json
 import re
 import uuid
 from collections import Counter
-from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from decimal import Decimal
@@ -437,18 +437,24 @@ def _proposals_of(project_id: uuid.UUID, among: Q | None = None) -> list[Proposa
     return list(found if among is None else found.filter(among))
 
 
-def proposals(project_id: uuid.UUID) -> list[ProposalView]:
+def proposals(project_id: uuid.UUID, only: Collection[uuid.UUID] | None = None) -> list[ProposalView]:
     """One per printed sheet in the sheet list, by Discipline in the Market's order (a sheet of no
     Discipline last), then number in natural order (S-2 before S-10), unnumbered last. An undecided
     sheet's `kind` is the one its kind Question was answered with while it still stands in that
     Question's Discipline (`_kinds_answered`, read as its confirmation reads it; never stored on the
-    sheet: S18-Q1), else the kind as read, else Jev's pick."""
+    sheet: S18-Q1), else the kind as read, else Jev's pick.
+
+    `only`: just these printed sheets' rows (by sheet id), each exactly as the whole list words it
+    (its group, its agreeing and its storeys are still read across the set), with the per-row reads
+    made for them alone: an answer's reply (`Answered.moved`, S27-G7)."""
     from vextrus.takeoff.services import groups  # it reads 19b's candidates of the read job's
 
     sheets = _sheets(project_id)
+    shown_ids = None if only is None else set(only)
+    listed = sheets if shown_ids is None else [s for s in sheets if s.id in shown_ids]
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
     answered = _kinds_answered(
-        project_id, [p.id for s in sheets if not s.decision and (p := by_sheet.get(s.id)) is not None]
+        project_id, [p.id for s in listed if not s.decision and (p := by_sheet.get(s.id)) is not None]
     )
     drawing_set = _set_of(project_id)
     files = files_of(project_id)
@@ -456,7 +462,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
     of_set = drawings.views_of_set(drawing_set.id, anchors=False) if drawing_set else {}
     viewed = [of_set.get(s.id, []) for s in sheets]  # read once: each row's and the groups'
     grouped = groups.among(sheets, viewed, {f.id: f.group for f in files}, sheet_conventions())
-    stamps = {s.confirmation_id for s in sheets if s.confirmation_id}
+    stamps = {s.confirmation_id for s in listed if s.confirmation_id}
     # Who and when, from the act that decided each sheet (a decision put back by an undo keeps its
     # own act's name and time).
     acts = list(Confirmation.objects.filter(id__in=stamps))
@@ -474,8 +480,10 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
         [*(k for k in titled.values() if k), *(v.storeys for vs in viewed for v in vs)]
     )
     titled = {text: _to_top(keys, highest) for text, keys in titled.items()}
+    if shown_ids is not None:
+        viewed = [vs for s, vs in zip(sheets, viewed, strict=True) if s.id in shown_ids]
     shown = _as_coverage_stands(
-        project_id, sheets, [[_view_to_top(v, highest) for v in vs] for vs in viewed]
+        project_id, listed, [[_view_to_top(v, highest) for v in vs] for vs in viewed]
     )
     return [
         replace(
@@ -488,7 +496,7 @@ def proposals(project_id: uuid.UUID) -> list[ProposalView]:
             corrected=s.id in corrected,
             **asdict(grouped.get(s.id, groups.ALONE)),
         )
-        for s, views in zip(sheets, shown, strict=True)
+        for s, views in zip(listed, shown, strict=True)
     ]
 
 
@@ -1529,6 +1537,8 @@ def _act(
     )
     code = _event_of(act, before)
     payload = {"sheets": sheets - views, "views": views} if code == said.EXCLUDED else {"sheets": sheets}
+    if answering and (moved := _ANSWER_MOVED.get()) is not None:
+        moved.extend(sheet.id for sheet in before)
     if answering:
         # One answer, one event: the first act an answer takes is the answer's event (keep_latest
         # confirms one copy and leaves the others out: two acts, one answer).
@@ -1544,6 +1554,10 @@ def _act(
 _ANSWER_ACTS: contextvars.ContextVar[list[uuid.UUID] | None] = contextvars.ContextVar(
     "step1_answer_acts", default=None
 )
+_ANSWER_MOVED: contextvars.ContextVar[list[uuid.UUID] | None] = contextvars.ContextVar(
+    "step1_answer_moved", default=None
+)
+"""Inside `answer`: the printed sheets its acts confirmed or left out, as they take them."""
 
 
 _EVENTS = {
@@ -3988,6 +4002,15 @@ class Answered:
     corrected: bool = False
     """A sheet's number or Discipline was corrected: the set's Questions were asked again
     (`_after_act`: a typed number another sheet has is a conflict)."""
+    moved: tuple[ProposalView, ...] = ()
+    """Each Proposal the answer confirmed, left out or corrected, as `proposals` lists it once the
+    answer is made; none when it moved no sheet (S27-G7: Step 1's screen shows the answer from these,
+    without reading the whole list again). Read for these sheets alone (`proposals`' `only`)."""
+    progress: ProgressView | None = None
+    """Step 1's progress once the answer is made (`progress`), the one its rows were written from: an
+    answer that moves no sheet still closes a Question, and a Discipline's open Questions, status and
+    total are progress's (S27-G7's review). None when `answer` ran inside an outer act's block, which
+    writes the rows as it ends: its caller counts them there (`progress_counted`)."""
 
 
 def answer(
@@ -4010,11 +4033,20 @@ def answer(
     auth.require(acts.CONFIRM, project_id)
     _in_scope(project_id)
     taken: list[uuid.UUID] = []
+    moved: list[uuid.UUID] = []
     token = _ANSWER_ACTS.set(taken)
+    moving = _ANSWER_MOVED.set(moved)
     try:
-        with writing(project_id):
-            return _answer(project_id, question_id, option, text, actor_name, seen, taken)
+        with progress_counted() as counted, writing(project_id):
+            done = _answer(project_id, question_id, option, text, actor_name, seen, taken)
+            if done.corrected and done.question.subject_id is not None:
+                moved.append(done.question.subject_id)
+            if moved:
+                done = replace(done, moved=tuple(proposals(project_id, only=moved)))
+        # Counted as the rows were written; inside an outer act's block, none yet (its caller's).
+        return replace(done, progress=counted.get(project_id))
     finally:
+        _ANSWER_MOVED.reset(moving)
         _ANSWER_ACTS.reset(token)
 
 
@@ -4261,6 +4293,23 @@ def _natural(text: str) -> list[tuple[int, int, str]]:
 _PROGRESS_AT_END: contextvars.ContextVar[set[uuid.UUID] | None] = contextvars.ContextVar(
     "step1_progress_at_end", default=None
 )
+_PROGRESS_COUNTED: contextvars.ContextVar[dict[uuid.UUID, ProgressView] | None] = contextvars.ContextVar(
+    "step1_progress_counted", default=None
+)
+
+
+@contextlib.contextmanager
+def progress_counted() -> Iterator[dict[uuid.UUID, ProgressView]]:
+    """The progress `record_progress` counts as it writes the rows inside the block, by Project, so
+    an answer's reply carries the count the rows were written from, never counting it again
+    (S27-G7). The innermost block is the one filled; open it around the block whose end writes them
+    (`writing`'s, the outermost)."""
+    counted: dict[uuid.UUID, ProgressView] = {}
+    token = _PROGRESS_COUNTED.set(counted)
+    try:
+        yield counted
+    finally:
+        _PROGRESS_COUNTED.reset(token)
 
 
 @contextlib.contextmanager
@@ -4403,7 +4452,10 @@ def record_progress(project_id: uuid.UUID) -> None:
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
             )
         tenant_id = _tenant()
-        for row in progress(project_id).disciplines:
+        counted = progress(project_id)
+        if (kept := _PROGRESS_COUNTED.get()) is not None:
+            kept[project_id] = counted
+        for row in counted.disciplines:
             status = row.status
             StepProgress.objects.update_or_create(
                 tenant_id=tenant_id,

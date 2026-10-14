@@ -139,7 +139,16 @@ describe('the link’s page (§4.2)', () => {
 
   it('gives a Vextrus Engineer’s invitation with no account words that say why and what to do, and no form', async () => {
     const api = new FakeApi()
-    const token = await invited(api, { email: 'sabbir@vextrus.example', role: 'vextrus_engineer', expires_at: END_26_OCT })
+    // Made while the email was a Vextrus account's, or by a hand around the form: inviting refuses it now
+    // (#831), and the link's page still refuses it (the second wall).
+    const token = 'tok-sabbir'
+    api.addMembership(api.developer('Shapla Homes Ltd'), null, 'vextrus_engineer', {
+      invitedBy: api.user(PEOPLE.md).id,
+      invitedEmail: 'sabbir@vextrus.example',
+      expiresAt: END_26_OCT,
+      token,
+      inviteExpiresAt: new Date(api.now() + 7 * 86_400_000).toISOString(),
+    })
     await join(`/join#${token}`, { as: null, api })
     expect(line()).toBe('Kamal Uddin invited you as a Vextrus Engineer until 26 Oct 2026.')
     expect(
