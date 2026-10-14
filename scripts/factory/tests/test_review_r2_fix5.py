@@ -69,7 +69,7 @@ def cloud(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Cloud:
 
 
 def hand_off(cloud: Cloud, relaunch: frozenset[str] = frozenset()) -> None:
-    run = review.Run(pr=PR, round_=1, head=cloud.head, tier="normal")
+    run = review.Run(pr=PR, round_=1, head=cloud.head, tier="risk")
     review.hand_off(run, [review.LENS_A, review.LENS_B], cloud.main, cloud.records, relaunch)
 
 
@@ -171,13 +171,13 @@ def follow(cloud: Cloud, monkeypatch: pytest.MonkeyPatch, text: str, which: int 
     monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (head, head))
     monkeypatch.setattr(review, "changes", lambda *_: ([("vextrus/rates/table.py", 400, 0)], []))
     monkeypatch.setattr(review, "merge_bases", lambda *_: 1)
-    monkeypatch.setattr(review, "tier", lambda *_, **__: "normal")
+    monkeypatch.setattr(review, "tier", lambda *_, **__: "risk")
     review.review(review.Run(pr=PR, round_=args.round), args, cloud.main)
 
 
 def round3(cloud: Cloud) -> review.Run:
     args = review.parse(["run", str(PR), *R3, "--where", "cloud"])
-    run = review.Run(pr=PR, round_=3, head=cloud.head, tier="normal")
+    run = review.Run(pr=PR, round_=3, head=cloud.head, tier="risk")
     run.exception, run.reason = args.exception, args.reason
     return run
 

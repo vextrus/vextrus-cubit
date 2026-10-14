@@ -1,16 +1,21 @@
-# The review tiers' path lists, read by scripts/factory/review.py and its tests. The lists name what
-# is SAFE, never the walls (PR #478 review, round 2), and they are kept SHORT: refining word lists to
-# rescue more paths kept letting walls through (PR #489 review, round 1).
+# The review tiers' path lists, read by scripts/factory/review.py, scripts/factory/tiers.py and their
+# tests. The no-model lists name what is SAFE, never the walls (PR #478 review, round 2), and they are
+# kept SHORT: refining word lists to rescue more paths kept letting walls through (PR #489 review,
+# round 1).
 #
 # - allowlist-only (no model) is decided in code: only 64-hex lines added to the leak-scan allowlist.
 # - docs-only (no model, PASS by code): every changed path matches `docs_only.paths`, none matches
 #   `docs_only.never`, and each is a text file (`.md` or `.txt` with a line count; checked in code).
-# - small (one lens): under 150 changed lines, no binary file, every changed path matches
-#   `small.paths` and none matches `small.never`.
-# - normal (two lenses): everything else. A path nobody listed is normal; every test change is normal.
+# - risk (lens A and lens B; the refuter on every head): any changed path matches `risk.paths`.
+# - ordinary (one lens, lens B; the refuter on one head in five): everything else, whatever its size.
+#
+# The risk list does name walls (the owner's rulings Q5 and Q15, 14 Oct 2026: "the full panel on a risk
+# tier written down as paths"). A wall it misses is never let through unreviewed: it gets one lens, CI,
+# the refuter on one head in five and the replay of every reproduction; a missing or unreadable list
+# makes every path risk (scripts/factory/tiers.py).
 #
 # Patterns are globs on the repository path: `*` is any run of characters but `/`, `**/` any number
-# of folders (none included), a trailing `/**` everything below a folder. `never` ignores case.
+# of folders (none included), a trailing `/**` everything below a folder. `never` and `risk` ignore case.
 
 [docs_only]
 # Plain reading for people: research notes, notes, the lessons list.
@@ -35,37 +40,63 @@ never = [
   "docs/knowledge/jev-nodes.md",
 ]
 
-[small]
-# One lens only for the translation catalogues (their words also get the ux-critic words lens).
-# `web/src/components/**` is the one other entry: the S14-R1 acceptance tests pin a three-line badge
-# component as small (test_tier.py, test_a_small_pr_gets_one_lens), and acceptance tests never change.
+[risk]
+# The full panel (S29-F7; Q5, Q15). Judged against docs/architecture.md's module map and the tree. Out,
+# by judgement: summary, exports, assistant and revisions (readings of boq's money, no money of their
+# own), measurement (its quantities reach money only through takeoff and boq), drawings but its tenant
+# wall and upload parser (its files are read in engine/read's sandbox, which is risk), live_model, seed,
+# the web's view code, the other tools/lint scans, the lockfiles (CI builds them).
 paths = [
-  "web/src/messages/**/*.po",
-  "web/src/messages/**/*.json",
-  "web/src/components/**",
-]
-# No test, ever (a wall's own tests are a wall), and no instruction file or dotfile.
-never = [
-  "**/CLAUDE*.md",
-  "**/AGENTS*.md",
-  "**/*.local.md",
-  "**/.*",
-  "**/.*/**",
-  "docs/plans/**",
-  "docs/specs/**",
-  "docs/adr/**",
-  "docs/agents/**",
-  "docs/handoff/**",
-  "docs/knowledge/jev-nodes.md",
-  "**/tests/**",
-  "**/test/**",
-  "**/__tests__/**",
-  "**/acceptance/**",
-  "**/test_*",
-  "**/*_test.*",
-  "**/*.test.*",
-  "**/*.spec.*",
-  "**/conftest.py",
+  # The engine: the hostile-drawing readers and the recognisers.
+  "engine/**",
+  "vextrus/takeoff/**",
+  # Money.
+  "vextrus/boq/**",
+  "vextrus/rates/**",
+  # Access and members: tenancy, RLS, Memberships, auth, invitations, ended access.
+  "vextrus/platform/**",
+  "vextrus/projects/**",
+  "vextrus/settings/auth.py",
+  "vextrus/settings/tenancy.py",
+  "web/src/members/**",
+  "web/src/auth/**",
+  "web/src/routes/(auth)/**",
+  # The API's sign-in and CSRF, the middleware, and the walls earlier reviews found outside those
+  # modules (PR #489 round 1, finding 2): drawings' tenant wall and the upload parser that runs before
+  # sign-in.
+  "vextrus/api.py",
+  "vextrus/settings/base.py",
+  "vextrus/settings/uploads.py",
+  "vextrus/drawings/uploads.py",
+  "vextrus/drawings/services/_access.py",
+  # The real drawings' custody (nothing from them enters git).
+  "scripts/real_drawings/**",
+  # Any module's migrations.
+  "**/migrations/**",
+  # The factory's gate code, this list and its reader among it: a PR never relaxes its own tier.
+  "scripts/factory/review*",
+  "scripts/factory/tiers.py",
+  "scripts/factory/ci_gate.py",
+  "scripts/factory/publish.py",
+  "scripts/factory/allowlist.py",
+  "scripts/ledger.py",
+  "scripts/merge_ready.py",
+  "scripts/land.py",
+  "tools/lint/acceptance*.py",
+  "tools/leakscan/**",
+  ".github/workflows/**",
+  # The hooks, the settings and the agents (review.py gives .claude/agents to its lenses as prompts).
+  ".claude/hooks/**",
+  ".claude/settings.json",
+  ".claude/agents/**",
+  "scripts/git-hooks/**",
+  "scripts/factory/*.settings.json",
+  # What an agent's tools and what pytest runs are read from (a gate's own configuration).
+  ".mcp.json",
+  "pyproject.toml",
+  "conftest.py",
+  # The scorer.
+  "tools/scorer/**",
 ]
 
 [strict]

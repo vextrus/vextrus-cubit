@@ -99,7 +99,7 @@ def test_a_second_cloud_run_of_the_round_is_refused_and_the_first_hand_off_is_in
     monkeypatch.setattr(review, "merged_head", lambda main, pr, head: (head, head))
     monkeypatch.setattr(review, "changes", lambda *_: ([("vextrus/rates/table.py", 400, 0)], []))
     monkeypatch.setattr(review, "merge_bases", lambda *_: 1)
-    monkeypatch.setattr(review, "tier", lambda *_, **__: "normal")
+    monkeypatch.setattr(review, "tier", lambda *_, **__: "risk")
     args = review.parse(["run", str(PR), "--round", "1", "--where", "cloud"])
     second: list[str] = []
     launched: list[str] = []
