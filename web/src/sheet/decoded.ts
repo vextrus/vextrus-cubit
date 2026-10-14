@@ -52,6 +52,11 @@ export function openDecodedSheet(buffer: ArrayBuffer): Promise<DecodedSheet> {
   return entry.sheet
 }
 
+/** Whether `buffer`'s sheet is kept and decoded already, so opening it again shows it at once. */
+export function isDecodedSheetKept(buffer: ArrayBuffer): boolean {
+  return (kept.get(buffer)?.bytes ?? 0) > 0
+}
+
 /** The decoded sheets kept: how many, at most how many, and dropping them all. */
 export const decodedSheets = {
   get size(): number {
@@ -81,32 +86,48 @@ function bytesOf(sheet: DecodedSheet): number {
 
 let worker: Worker | null = null
 let nextId = 1
-const waiting = new Map<number, { resolve: (sheet: DecodedSheet) => void; reject: (error: Error) => void }>()
+const waiting = new Map<number, { buffer: ArrayBuffer; resolve: (sheet: DecodedSheet) => void; reject: (error: Error) => void }>()
+/** Set when no Worker can start here (no Worker at all, or its script failed before it started): decode on this thread. */
+let noWorker = typeof Worker === 'undefined'
 
 function decode(buffer: ArrayBuffer): Promise<DecodedSheet> {
   if (!(buffer instanceof ArrayBuffer)) return Promise.reject(new SheetBufferError('a sheet buffer is an ArrayBuffer'))
-  if (typeof Worker === 'undefined') {
-    // No Worker (a script outside a browser): on this thread, as before.
-    return new Promise((resolve) => {
-      const sheet = decodeSheet(buffer)
-      keepPrepared(sheet, prepareSheet(sheet))
-      resolve(sheet)
-    })
-  }
+  const w = noWorker ? null : decoder()
+  if (!w) return here(buffer)
   const id = nextId++
   return new Promise<DecodedSheet>((resolve, reject) => {
-    waiting.set(id, { resolve, reject })
+    waiting.set(id, { buffer, resolve, reject })
     const request: DecodeRequest = { id, buffer }
     // A copy, not a transfer: the caller's buffer stays whole.
-    decoder().postMessage(request)
+    w.postMessage(request)
   })
 }
 
-function decoder(): Worker {
+/** On this thread, as before the Worker: where there is none, or its script could not start. */
+function here(buffer: ArrayBuffer): Promise<DecodedSheet> {
+  return new Promise((resolve) => {
+    const sheet = decodeSheet(buffer)
+    keepPrepared(sheet, prepareSheet(sheet))
+    resolve(sheet)
+  })
+}
+
+function decoder(): Worker | null {
   if (worker) return worker
-  const w = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' })
+  let w: Worker
+  try {
+    w = new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' })
+  } catch {
+    noWorker = true
+    return null
+  }
+  let started = false
   w.onmessage = (event: MessageEvent<DecodeReply>) => {
     const reply = event.data
+    if ('started' in reply) {
+      started = true
+      return
+    }
     const wait = waiting.get(reply.id)
     if (!wait) return
     waiting.delete(reply.id)
@@ -117,14 +138,20 @@ function decoder(): Worker {
     keepPrepared(reply.sheet, reply.ready)
     wait.resolve(reply.sheet)
   }
-  // A Worker that fails (it could not load, or ran out of memory), or a reply that cannot be read, fails
-  // what it was asked, never leaves it waiting; the next ask starts a new Worker.
+  // A Worker whose script never started (a stale page after a new release, a blocked script) hands
+  // what it was asked to this thread, and so does every later open. One that started and then failed
+  // (it ran out of memory), or a reply that cannot be read, fails what it was asked, never leaves it
+  // waiting; the next ask starts a new Worker.
   const stop = () => {
     w.terminate()
     if (worker === w) worker = null
     const failed = [...waiting.values()]
     waiting.clear()
-    for (const f of failed) f.reject(new SheetBufferError('the sheet decoder stopped'))
+    if (!started) noWorker = true
+    for (const f of failed) {
+      if (started) f.reject(new SheetBufferError('the sheet decoder stopped'))
+      else here(f.buffer).then(f.resolve, f.reject)
+    }
   }
   w.onerror = (event) => {
     event.preventDefault()

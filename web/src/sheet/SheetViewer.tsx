@@ -21,10 +21,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Trans, useLingui } from '@lingui/react/macro'
 import { Maximize } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
-import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, cn, useKeys } from '@/ui'
+import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, cn, isolateLtr, useKeys } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
-import type { DecodedSheet } from './decode'
-import { openDecodedSheet } from './decoded'
+import { peekPaper, type DecodedSheet } from './decode'
+import { isDecodedSheetKept, openDecodedSheet } from './decoded'
 import { SheetRenderer, type DrawJob, type Palette } from './gl'
 import { prepared } from './prepare'
 import { plotMatrix, type PlotPicture, type PlotTransform } from './plot'
@@ -137,6 +137,18 @@ export function SheetViewer({
   const current = opened && opened.buffer === buffer && opened.attempt === attempt ? opened : null
   const refused = current !== null && current.sheet === null
   const sheet = current?.sheet ?? null
+  // A sheet not opened before shows its paper's outline at its fit and a line while it decodes (4.6,
+  // "First open of a sheet"); one kept decoded shows at once, with neither.
+  const firstOpen = useMemo(() => (isDecodedSheetKept(buffer) ? null : peekPaper(buffer)), [buffer])
+  // The canvas region keeps the focus when the canvas gives way to the error (paging into a sheet that
+  // cannot be drawn): the canvas held it, and its leaving would drop it to the page.
+  const errorRef = useRef<HTMLDivElement>(null)
+  const failedNow = refused || drawFailed
+  useLayoutEffect(() => {
+    if (!failedNow) return
+    const active = document.activeElement
+    if (!active || active === document.body) errorRef.current?.focus({ preventScroll: true })
+  }, [failedNow])
   // After Try again, the drawn sheet takes focus back from the button that has gone (not the page).
   const [focusOnDraw, setFocusOnDraw] = useState(false)
   const retry = useCallback(() => {
@@ -174,9 +186,10 @@ export function SheetViewer({
             plot={plot}
             notes={notes}
             status={status}
+            opening={sheet ? null : firstOpen}
           />
         ) : (
-          <div className="flex h-full items-start justify-center p-4">
+          <div ref={errorRef} tabIndex={-1} className="focus-inset flex h-full items-start justify-center p-4 outline-none">
             <ErrorBar
               className="w-full max-w-xl"
               action={
@@ -220,6 +233,7 @@ function SheetCanvas({
   plot,
   notes,
   status,
+  opening,
 }: {
   /** Null while the sheet is decoded: the canvas is there, blank, and takes keys and focus. */
   sheet: DecodedSheet | null
@@ -239,6 +253,8 @@ function SheetCanvas({
   plot: SheetPlot | null
   notes?: ReactNode
   status?: ReactNode
+  /** The paper of a sheet opened for the first time, while it decodes: its outline and a line (4.6). */
+  opening: { widthMm: number; heightMm: number } | null
 }) {
   const { t } = useLingui()
   const areaRef = useRef<HTMLDivElement>(null)
@@ -573,7 +589,8 @@ function SheetCanvas({
               ) : null}
             </div>
           ) : null}
-          {status ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
+          {opening ? <FirstOpen paper={opening} label={label} /> : null}
+          {status && !opening ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
           {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
           <div
             aria-hidden
@@ -583,6 +600,43 @@ function SheetCanvas({
         </div>
       </LtrCanvas>
     </>
+  )
+}
+
+/**
+ * 4.6's first open of a sheet, while it decodes: the paper's outline at its fit, a shimmer inside, and
+ * top-right "Opening S-04 for the first time…".
+ */
+function FirstOpen({ paper, label }: { paper: { widthMm: number; heightMm: number }; label: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  // The number isolated left to right inside the line (notation), as text of the line itself.
+  const sheetNumber = isolateLtr(label)
+  const [box, setBox] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    const area = ref.current?.parentElement
+    if (!area) return
+    const measure = () => setBox({ width: area.clientWidth, height: area.clientHeight })
+    const observer = new ResizeObserver(measure)
+    observer.observe(area)
+    measure()
+    return () => observer.disconnect()
+  }, [])
+  const fit = box && box.width > 0 && box.height > 0 ? fitPaper(paper, null, { width: box.width, height: box.height, top: LEGEND_PX, bottom: BAR_PX }) : null
+  return (
+    <div ref={ref} className="pointer-events-none absolute inset-0 z-[2]">
+      {fit ? (
+        <div
+          aria-hidden
+          data-first-open=""
+          className="skeleton absolute rounded-[1px] border border-border"
+          // Inside LtrCanvas: inline start is the left, as the drawing's.
+          style={{ insetInlineStart: fit.x, insetBlockStart: fit.y - paper.heightMm * fit.scale, inlineSize: paper.widthMm * fit.scale, blockSize: paper.heightMm * fit.scale }}
+        />
+      ) : null}
+      <div role="status" className="absolute end-3 top-2 rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">
+        <Trans>Opening {sheetNumber} for the first time…</Trans>
+      </div>
+    </div>
   )
 }
 

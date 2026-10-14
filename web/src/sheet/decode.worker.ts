@@ -15,7 +15,7 @@ export interface DecodeRequest {
 }
 
 /** What comes back: the sheet and its prepared arrays, or a refusal. */
-export type DecodeReply = { id: number; sheet: DecodedSheet; ready: PreparedSheet } | { id: number; refused: true }
+export type DecodeReply = { id: number; sheet: DecodedSheet; ready: PreparedSheet } | { id: number; refused: true } | { started: true }
 
 interface WorkerScope {
   onmessage: ((event: MessageEvent<DecodeRequest>) => void) | null
@@ -33,6 +33,9 @@ function buffersOf(value: unknown, into = new Set<ArrayBuffer>(), depth = 0): Se
   }
   return into
 }
+
+// Loaded: the main thread now knows a later failure is a decode's, not the script's (`decoded.ts`).
+scope.postMessage({ started: true })
 
 scope.onmessage = (event) => {
   const { id, buffer } = event.data
