@@ -12,7 +12,9 @@ naming the check it owes.
    (`git merge-tree`, no worktree touched). A head that does not merge exits 3, nothing started.
 3. **Tier (code).** From the changed paths and lines: allowlist-only (every added line a 64-hex hash
    in `tools/leakscan/allowlist.txt`, nothing removed) and docs-only (every path on the safe docs
-   list of `review_tiers.toml`) get no model and a PASS by code (the owner's ruling Q3, 5 Oct 2026);
+   list of `review_tiers.toml`) get no model and a PASS by code (the owner's ruling Q3, 5 Oct 2026),
+   and so does revert (the merged head is main with exactly one first-parent merge reverted, a
+   culprit the main watcher logged and `gh` reads red: `main_watch.watcher_revert`, S29-F3);
    small (under 150 changed lines, every path on that file's small list) gets lens B; EVERYTHING ELSE
    gets lens A and lens B (the lists name what is safe, never the walls); a change under
    `web/src/messages/` adds the `ux-critic` words lens.
@@ -95,7 +97,7 @@ from pathlib import Path, PurePosixPath
 from typing import IO, Any
 
 from scripts import ledger
-from scripts.factory import lens_pytest, review_cloud
+from scripts.factory import lens_pytest, main_watch, review_cloud
 from scripts.factory.governor import REVIEW_SLOTS
 
 REPOSITORY = ledger.REPOSITORY
@@ -676,6 +678,19 @@ def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
     if lines < SMALL_LINES and not binary and all(listed("small", path) for path in paths):
         return "small"
     return "normal"
+
+
+# The tiers passed by code with no model: `tier`'s two, and the main watcher's revert.
+NO_MODEL = ("allowlist-only", "docs-only", "revert")
+
+
+def light(main: Path, merged: str, base: str) -> bool:
+    """The merged head is `base` with exactly one of its first-parent merges reverted, decided by
+    trees (`main_watch.light_tier`), never by a title, a message or a branch name; and that merge is
+    a culprit the main watcher logged in this checkout whose run on main `gh` reads red
+    (`main_watch.watcher_revert`)."""
+    log = main / main_watch.DEFAULT_LOG
+    return main_watch.watcher_revert(main, merged, base, log, main_watch.Gh(rerun=False))
 
 
 def prepare(main: Path, path: Path, sha: str, *, clean: bool) -> None:
@@ -1424,9 +1439,11 @@ def review_round(run: Run, args: argparse.Namespace, main: Path, held: contextli
         delta_review(run, args, main, ledger_dir)
         return
     run.tier = tier(rows, allowlist_added, bases=bases)
-    if cloud and run.tier in ("allowlist-only", "docs-only"):
+    if run.tier not in NO_MODEL and bases == 1 and light(main, run.merged, run.base):
+        run.tier = "revert"
+    if cloud and run.tier in NO_MODEL:
         raise Refused(f"a {run.tier} PR is passed by code, with no reviewer: run it without --where")
-    if run.tier in ("allowlist-only", "docs-only"):
+    if run.tier in NO_MODEL:
         record(run, args, ledger_dir, ["PASS"], factory / "verdicts")
         return
     lenses = tier_lenses(run.tier, run.paths)
