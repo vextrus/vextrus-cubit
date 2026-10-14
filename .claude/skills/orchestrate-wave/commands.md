@@ -135,3 +135,7 @@ Change a PR body as the hand steps do, scanned first:
   under `.claude/worktrees/`, lists its `.venv` and `web/node_modules` (those two exact paths, nothing walked,
   `.private/work/` never touched) when older than N days and the worktree is not current or in use; `--apply`
   removes those by name and keeps their folders.
+- `uv run python -m tools.leakscan sweep-remote [--hits-file <path>]`: at each session close, after
+  `git fetch origin`; range-scans every origin branch against `origin/main` and prints `<branch> <file>:<line>`
+  per hit (a branch named by a corpus string prints `ref:<i> name`), exit 1 with a hit, 2 when a branch cannot
+  be scanned; `--hits-file` lists the hit branches for the owner to delete.
