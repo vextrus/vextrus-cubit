@@ -46,8 +46,8 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
 - **Every serious finding leaves a committed check** (a test, lint or scan that fails on its class): 75, or 50
-  when user-facing or on a trust boundary, or a repeated class (ADR 0041, 13 Oct); an edge or rule-only 50-74
-  off one is filed, naming its owed check. `docs/knowledge/lessons.md` points each lesson at its check.
+  when user-facing on an input a QS meets (`observed=yes`) or on a trust boundary, or a repeated class (ADR 0041;
+  14 Oct: UNPROVEN never blocks); any other 50-74 is filed, naming its owed check (`docs/knowledge/lessons.md`).
 - **A mistake made twice gets a check; if no check can catch it, it goes into this file.**
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every action;
     per-page viewport emulation only; never touch another agent's page.
