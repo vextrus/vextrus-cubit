@@ -218,20 +218,17 @@ def test_e_a_head_moved_by_land_update_lands_on_the_new_head(env: Fixtures) -> N
     assert "Traceback" not in done.err
 
 
-def test_j_a_reviewed_green_pr_one_commit_behind_main_lands(env: Fixtures) -> None:
-    """Amendment 1: `gh pr update-branch` is an unknown command on gh 2.45, so a lander that calls it
-    refuses every PR behind main with a false "conflicts with main". S17-F7: it lands as it stands,
-    main not brought in."""
+def test_j_a_reviewed_green_pr_one_commit_behind_main_is_refused_naming_land_update(
+    env: Fixtures,
+) -> None:
+    """S27-L825 (#825) replaces "lands as it stands": a head that does not contain main's tip is
+    refused naming `land update`, never merged, and the lander still asks GitHub for no update."""
     done = landing(*env, behind=True)
-    assert "conflicts with main" not in done.out
+    assert not done.fake.called("pr", "merge"), "a head that does not contain main's tip was merged"
+    line = done.refused_plainly()
+    assert "land update" in line, "the refusal does not name `land update`: " + line
     assert not done.fake.called("pr", "update-branch"), "gh 2.45 has no `gh pr update-branch`"
     assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
-    assert done.code == 0, done.out + done.err
-    assert done.fake.state["head"] == done.repo.reviewed, "the PR's head moved"
-    assert done.fake.called("pr", "merge") == [
-        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.reviewed]
-    ]
-    assert done.lines() == [f"land: PR {PR} merged"]
 
 
 def test_f_a_head_pushed_after_ci_went_green_is_not_merged(env: Fixtures) -> None:
@@ -267,7 +264,8 @@ def test_g_a_head_that_already_holds_main_is_not_updated(env: Fixtures) -> None:
 
 
 def test_h_the_lander_never_moves_a_branch_or_a_worktree(env: Fixtures) -> None:
-    done = landing(*env, behind=True)
+    # S27-L825: on a head that contains main's tip (one behind main is refused).
+    done = landing(*env, behind=False)
     assert done.code == 0, done.out + done.err
     ran = {
         sub

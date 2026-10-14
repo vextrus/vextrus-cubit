@@ -60,6 +60,15 @@ def normalise(text: str) -> str:
     return " ".join(unicodedata.normalize("NFKC", text).split()).upper()
 
 
+_NOT_ALNUM = re.compile(r"[\W_]+")
+
+
+def fold(text: str) -> str:
+    """For names written with separators: NFKC, case-folded, every run of characters that are not letters
+    or digits one space, trimmed (so `Plot 17, Ghat Road` and `plot-17-ghat-road` meet)."""
+    return _NOT_ALNUM.sub(" ", unicodedata.normalize("NFKC", text).casefold()).strip()
+
+
 def keeps(normalised: str) -> bool:
     """A corpus string: 8 or more characters with a run of three letters."""
     return len(normalised) >= MIN_LENGTH and _LETTER_RUN.search(normalised) is not None
@@ -129,11 +138,15 @@ class Corpus:
         self.sha256 = hashlib.sha256(data).hexdigest()
         allowed = allowlist()
         self._by_prefix: dict[str, list[str]] = {}
+        self._folded_by_prefix: dict[str, set[str]] = {}
         self.strings = 0
         for value in data.decode("utf-8").splitlines():
             self.strings += keeps(value)
             if keeps(value) and digest(value) not in allowed:
                 self._by_prefix.setdefault(value[:MIN_LENGTH], []).append(value)
+                folded = fold(value)
+                if keeps(folded.upper()):
+                    self._folded_by_prefix.setdefault(folded[:MIN_LENGTH], set()).add(folded)
 
     @classmethod
     def load(cls) -> Corpus:
@@ -170,6 +183,16 @@ class Corpus:
 
     def count(self, text: str) -> int:
         return len(self.found(text))
+
+    def folded_in(self, name: str) -> bool:
+        """Whether a name (a branch, a path) holds a corpus string once both are `fold`ed. Never print
+        what matched."""
+        line = fold(name)
+        for start in range(len(line) - MIN_LENGTH + 1):
+            candidates = self._folded_by_prefix.get(line[start : start + MIN_LENGTH])
+            if candidates is not None and any(line.startswith(value, start) for value in candidates):
+                return True
+        return False
 
 
 # ---------------------------------------------------------------------------------------------- stamps
