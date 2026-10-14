@@ -1129,3 +1129,21 @@ def test_a_verdict_that_cannot_be_written_is_an_error_not_a_fail(
 
     assert verdict.main(argv) == 2
     assert not (folder / "verdict.json").exists()
+
+
+def test_draft_refuses_an_item_fail_no_finding_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    items = [{"item": "M0-FL9", "status": "FAIL"}]  # the findings all name M0-FL5
+    folder = _triage_folder(tmp_path, items)
+    monkeypatch.setattr(issues, "leakscan_text", lambda text: 0)
+
+    assert issues.main(["draft", SHA, "--walks-dir", str(tmp_path)]) == 2
+    assert not (folder / "public" / "issue-drafts.json").exists()
+
+
+def test_the_triage_prompt_never_lets_a_fail_item_become_pass() -> None:
+    text = " ".join((ROOT / ".claude" / "workflows" / "real-set-walk.js").read_text().split())
+    assert "Never turn a FAIL item to PASS" in text
+    assert "list that item NOT_WALKED and put its reason in the reasons you return" in text
+    assert "to PASS or NOT_WALKED" not in text
