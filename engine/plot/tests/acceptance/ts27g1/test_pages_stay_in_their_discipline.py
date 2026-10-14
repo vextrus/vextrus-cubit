@@ -8,11 +8,12 @@ matches none of its pages: the General sheets share its bare numbers (01 to 08),
 ticket each page named the General sheet of its number.
 
 The sets are synthetic, built in the test's folder by the repo's writers. The text pages are the PDF
-writer's, read by 12's `page_text`, and matched by `registration.match` (its signature: 18's). The
+writer's, read by 12's `page_text` run directly (`VEXTRUS_SANDBOX=off`, allowed only inside a
+test), and matched by `registration.match` (its signature: 18's). The
 pages with no text reuse ticket 157's stroked fixture (its sheets' bodies differ only by their ink)
 through the harness's export, numbered 01 and 02 in an Architectural DWG (the harness's default
 conventions have no General Discipline; the rule is the same for any two known Disciplines); that
-part needs the toolchain:
+part needs the toolchain and bubblewrap:
 
     uv run pytest -m "needs_toolchain or not needs_toolchain" -rf engine/plot/tests/acceptance/ts27g1
 """
@@ -35,6 +36,14 @@ from engine.read import pdf as pdf_reader
 from engine.recognise.types import PlotMatch, SheetCandidate, SheetLocation, Sourced, ValueSource
 
 NUMBERS = [f"{k:02d}" for k in range(1, 9)]
+
+
+@pytest.fixture(autouse=True)
+def _sandbox(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The text pages read with no bubblewrap (CI's shards have none), as engine/plot's own tests
+    read theirs; the harness's tests (`needs_bwrap`) keep the sandbox they read under."""
+    if request.node.get_closest_marker("needs_bwrap") is None:
+        monkeypatch.setenv("VEXTRUS_SANDBOX", "off")
 
 
 # Pages with text ------------------------------------------------------------------------------------
@@ -185,6 +194,7 @@ def _ink_named(export: Any) -> dict[int, str | None]:
 
 
 @pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
 def test_the_stroked_set_is_architectural_sheets_and_a_structural_plot_with_no_text(
     architectural_drawing: bytes, tmp_path: Path
 ) -> None:
@@ -203,6 +213,7 @@ def test_the_stroked_set_is_architectural_sheets_and_a_structural_plot_with_no_t
 
 
 @pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
 def test_a_structural_page_with_no_text_is_never_matched_to_an_architectural_sheet_by_its_ink(
     architectural_drawing: bytes, tmp_path: Path
 ) -> None:
@@ -213,6 +224,7 @@ def test_a_structural_page_with_no_text_is_never_matched_to_an_architectural_she
 
 
 @pytest.mark.needs_toolchain
+@pytest.mark.needs_bwrap
 def test_a_page_with_no_text_of_a_pdf_with_no_discipline_is_still_matched_by_its_ink(
     architectural_drawing: bytes, tmp_path: Path
 ) -> None:
