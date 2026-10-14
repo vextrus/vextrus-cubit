@@ -20,6 +20,10 @@ runs with no tenant and sees no tenant's rows (it fails closed); the session is 
 block, so a failure in saving it cannot undo the request's committed writes. It must come after the
 authentication middleware.
 
+**Server time** (S29-M0b): the whole request, its retries included, runs on one clock
+(`services.timing`); a route that reports a wait (Step 1's acts: the write lock) answers with
+`Server-Timing`.
+
 `AdminTimeZoneMiddleware` comes straight after it: a request to the admin with a current Developer
 runs (view and template) in that Developer's Market's time zone, so the admin shows a time as the
 web does (ADR 0038). `TIME_ZONE` stays UTC; any other request is left as it is.
@@ -34,7 +38,7 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
-from vextrus.platform.services import deadlocks, markets, tenancy
+from vextrus.platform.services import deadlocks, markets, tenancy, timing
 
 
 class TenantMiddleware:
@@ -42,9 +46,11 @@ class TenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        response: HttpResponse = deadlocks.requests(
-            lambda: self._once(request), done=lambda r: bool(getattr(r, "streaming", False))
-        )
+        with timing.request() as timed:
+            response: HttpResponse = deadlocks.requests(
+                lambda: self._once(request), done=lambda r: bool(getattr(r, "streaming", False))
+            )
+        timing.write(response, timed)
         return response
 
     def _once(self, request: HttpRequest) -> HttpResponse:

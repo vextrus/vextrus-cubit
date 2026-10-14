@@ -68,7 +68,16 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import activity, auth, events, invitations, jev, markets, tenancy
+from vextrus.platform.services import (
+    activity,
+    auth,
+    events,
+    invitations,
+    jev,
+    markets,
+    tenancy,
+    timing,
+)
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -1138,6 +1147,15 @@ def progress(project_id: uuid.UUID) -> ProgressView:
     row, last), and the Market's expected Disciplines not yet received. Every sheet found is counted,
     a sheet proposed out and a sheet left out among them (m0-screens: excluded sheets stay in the
     count); a sheet left out is settled."""
+    rows, files = _progress_rows(project_id)
+    return ProgressView(rows, _not_received(files), invitations.qs_of(project_id))
+
+
+def _progress_rows(
+    project_id: uuid.UUID,
+) -> tuple[list[DisciplineProgress], list[drawings.FileView]]:
+    """`progress`'s rows, and the set's files they were counted from (read once: `_not_received`
+    reads the same)."""
     sheets = _facts(project_id)
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
@@ -1217,7 +1235,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 ),
             )
         )
-    return ProgressView(rows, _not_received(project_id), invitations.qs_of(project_id))
+    return rows, files
 
 
 def _outstanding(
@@ -1245,12 +1263,13 @@ def proposed_out(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     return bool(sheet.proposed_exclusion) and not sheet.number
 
 
-def _not_received(project_id: uuid.UUID) -> list[str]:
+def _not_received(files: Sequence[drawings.FileView]) -> list[str]:
+    """The Market's expected Disciplines no file of `files` (the set's) is of."""
     tenant_id = tenancy.current_tenant_id()
     if tenant_id is None:
         return []
     expected = EXPECTED.get(markets.of_developer(tenant_id).code, ())
-    received = {f.discipline for f in files_of(project_id)}
+    received = {f.discipline for f in files}
     # A Discipline expected only from some storey count (Fire from 7) is listed while the count is not
     # known: M0 reads no storey count for the Building.
     return [e.discipline for e in expected if e.discipline not in received]
@@ -1291,6 +1310,26 @@ class _Lists:
         return self.given or self.read
 
 
+_GIVEN = (RegisterSource.PASTED, RegisterSource.TYPED)
+
+
+def _standing_lists(
+    project_id: uuid.UUID, discipline: str
+) -> tuple[DrawingRegister | None, DrawingRegister | None]:
+    """The Discipline's standing list the QS gave (pasted or typed) and the one read on a sheet, each
+    as `_standing` finds it, in one statement."""
+    standing = DrawingRegister.objects.filter(project_id=project_id, discipline=discipline).filter(
+        Q(confirmation__isnull=True) | Q(confirmation__undone_at__isnull=True)
+    )
+    given = standing.filter(source__in=_GIVEN).order_by("-entered_at", "-id")[:1]
+    read = standing.filter(source=RegisterSource.SHEET).order_by("-entered_at", "-id")[:1]
+    found = list(given.union(read, all=True))
+    return (
+        next((r for r in found if r.source in _GIVEN), None),
+        next((r for r in found if r.source == RegisterSource.SHEET), None),
+    )
+
+
 def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) -> DrawingRegister | None:
     """The latest list of these sources for the Discipline whose act was not undone."""
     return (
@@ -1302,8 +1341,7 @@ def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) ->
 
 
 def _lists(project_id: uuid.UUID, discipline: str) -> _Lists:
-    given = _standing(project_id, discipline, (RegisterSource.PASTED, RegisterSource.TYPED))
-    read = _standing(project_id, discipline, (RegisterSource.SHEET,))
+    given, read = _standing_lists(project_id, discipline)
     settled = None
     if given is not None and read is not None:
         answered = Question.objects.filter(
@@ -1358,9 +1396,14 @@ def _discipline(key: object) -> str:
 
 
 def _conventions() -> SheetConventions:
-    """13's default sheet conventions under the Market's Disciplines (as 21b reads the sheets)."""
-    market = tuple(DisciplineConvention(d.key, tuple(d.prefixes)) for d in drawings.disciplines())
-    return replace(default_conventions(), disciplines=market)
+    """13's default sheet conventions under the Market's Disciplines (as 21b reads the sheets); inside
+    an act, read once (`_remembered`: no act writes the Library's Disciplines)."""
+
+    def read() -> SheetConventions:
+        market = tuple(DisciplineConvention(d.key, tuple(d.prefixes)) for d in drawings.disciplines())
+        return replace(default_conventions(), disciplines=market)
+
+    return _remembered(("conventions",), read)
 
 
 def _parse(text: object) -> register.Parsed:
@@ -2660,12 +2703,19 @@ def undo(project_id: uuid.UUID) -> ActView:
         ).order_by("-at", "-id")
         act = None
         passed: Confirmation | None = None
-        for candidate in mine.iterator():
-            if candidate.act == ConfirmationAct.CORRECT and not _correction_stands(candidate):
-                passed = passed or candidate
-                continue
-            act = Confirmation.objects.select_for_update().get(id=candidate.id)
-            break
+        # The latest is read with its row locked, in one statement: almost always the act taken back.
+        latest = mine.select_for_update(of=("self",)).first()
+        if latest is not None and not (
+            latest.act == ConfirmationAct.CORRECT and not _correction_stands(latest)
+        ):
+            act = latest
+        else:
+            for candidate in mine.iterator():
+                if candidate.act == ConfirmationAct.CORRECT and not _correction_stands(candidate):
+                    passed = passed or candidate
+                    continue
+                act = Confirmation.objects.select_for_update().get(id=candidate.id)
+                break
         if act is None:
             if passed is not None:
                 raise auth.Refused(said.CORRECTION_MOVED_ON(**_passed_named(passed)), status=409)
@@ -2929,11 +2979,23 @@ def _put_back_sheet(
             )
             proposal.save(update_fields=["status", "confirmation", "rejected_reason"])
         own = _excluded_on_their_own(project_id, sheet_id)
-        for row in Coverage.objects.select_for_update().filter(
-            project_id=project_id, sheet_revision_id=sheet_id
-        ):
-            if row.view_id not in own:  # a view the QS left out by an act of its own stays out
-                _put_back(row)
+        rows = [  # a view the QS left out by an act of its own stays out
+            row
+            for row in Coverage.objects.select_for_update().filter(
+                project_id=project_id, sheet_revision_id=sheet_id
+            )
+            if row.view_id not in own
+        ]
+        # The steps standing for the views proposed unaccounted, read once for the sheet, by the act
+        # deciding it as it stands (a sheet off the sheet list: none), not once a view (S29-M0b).
+        unaccounted = [row for row in rows if row.proposed_status == CoverageStatus.UNACCOUNTED]
+        steps: dict[uuid.UUID, list[CoverageStep]] = {}
+        if unaccounted:
+            fact = _facts_by_id(project_id).get(sheet_id)
+            deciding = fact.confirmation_id if fact is not None else None
+            steps = _steps_standing(unaccounted, {sheet_id: deciding})
+        for row in rows:
+            _put_back(row, standing=[s.step for s in steps.get(row.id, [])])
         return
     earlier, prior = standing
     if prior["decision"] != "excluded" and _held_first(project_id, sheet_id, proposal):
@@ -4312,6 +4374,10 @@ def progress_counted() -> Iterator[dict[uuid.UUID, ProgressView]]:
         _PROGRESS_COUNTED.reset(token)
 
 
+LOCK_WAIT = "lock"
+"""The name an act's `Server-Timing` gives its wait for Step 1's write lock (`lock_writes`)."""
+
+
 @contextlib.contextmanager
 def writing(project_id: uuid.UUID) -> Iterator[None]:
     """An act's transaction on Step 1 (#227): Step 1's write lock on the Project taken first
@@ -4338,12 +4404,28 @@ def _set_of(project_id: uuid.UUID) -> drawings.SetView | None:
     return _remembered(("set", project_id), lambda: drawings.set_of(project_id))
 
 
+def set_of(project_id: uuid.UUID) -> drawings.SetView | None:
+    """`_set_of`, for the conflicts' pass after an act (`proposals.set_conflicts`)."""
+    return _set_of(project_id)
+
+
 def files_of(project_id: uuid.UUID) -> list[drawings.FileView]:
     """The files of the Project's Drawing Set (`drawings.files`), none before its first. Read every
     time, never remembered: a file's state is its read job's, which a worker moves on its own
     connection, outside Step 1's write lock."""
     drawing_set = _set_of(project_id)
     return drawings.files(drawing_set.id) if drawing_set else []
+
+
+_KEPT_THROUGH_WRITES = frozenset({"scope", "set", "conventions"})
+"""What an act reads once for the whole act, its writes notwithstanding (S29-M0b): the Project's scope
+check, its Drawing Set and the Market's sheet conventions, rows no Step 1 act writes (an act neither
+adds a file, nor moves a Project, a Membership or a Library Discipline). Everything else is read
+again after a write."""
+
+
+def _kept_through_writes(key: Hashable) -> bool:
+    return isinstance(key, tuple) and bool(key) and key[0] in _KEPT_THROUGH_WRITES
 
 
 def _remembered[T](key: Hashable, read: Callable[[], T]) -> T:
@@ -4383,7 +4465,8 @@ def reads_between_writes() -> Iterator[None]:
         execute: Callable[..., Any], sql: str, params: Any, many: bool, context: Any
     ) -> Any:
         if not _reading(sql):
-            memo.clear()
+            for key in [key for key in memo if not _kept_through_writes(key)]:
+                del memo[key]
         return execute(sql, params, many, context)
 
     token = _READS.set(memo)
@@ -4407,7 +4490,8 @@ def lock_writes(project_id: uuid.UUID) -> None:
     again in the same transaction, it is already held; an act aborted anyway is run again
     (`platform.services.deadlocks`)."""
     assert connection.in_atomic_block, "Step 1's write lock is a transaction's"
-    with connection.cursor() as cursor:
+    # The wait is measured, never changed: an act's answer reports it (`Server-Timing`'s `lock`).
+    with connection.cursor() as cursor, timing.waited(LOCK_WAIT):
         cursor.execute(
             "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-write:{project_id}"]
         )
@@ -4452,10 +4536,15 @@ def record_progress(project_id: uuid.UUID) -> None:
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
             )
         tenant_id = _tenant()
-        counted = progress(project_id)
+        # The rows alone, unless a reply keeps the whole count (an answer's): the Disciplines not
+        # received and the QS names are no row's (S29-M0b).
         if (kept := _PROGRESS_COUNTED.get()) is not None:
+            counted = progress(project_id)
             kept[project_id] = counted
-        for row in counted.disciplines:
+            disciplines = counted.disciplines
+        else:
+            disciplines = _progress_rows(project_id)[0]
+        for row in disciplines:
             status = row.status
             StepProgress.objects.update_or_create(
                 tenant_id=tenant_id,
