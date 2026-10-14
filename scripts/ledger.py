@@ -454,7 +454,10 @@ def counts(reviewers: int, findings: Sequence[Judged]) -> dict[str, int]:
         "confirmed": words.count("CONFIRMED"),
         "refuted": words.count("REFUTED"),
         "unproven": words.count("UNPROVEN"),
-        "unrefuted_ge_50": sum(finding[0] >= 50 and finding[1] == "-" for finding in findings),
+        # No refuter verdict: none run (`-`), or told and never answered (UNJUDGED, S28-R1).
+        "unrefuted_ge_50": sum(
+            finding[0] >= 50 and finding[1] in ("-", "UNJUDGED") for finding in findings
+        ),
     }
 
 

@@ -24,7 +24,7 @@
         "confirmed": {"type": "integer", "minimum": 0, "description": "Refuter lines CONFIRMED."},
         "refuted": {"type": "integer", "minimum": 0, "description": "Refuter lines REFUTED; refuted findings do not count in `findings`."},
         "unproven": {"type": "integer", "minimum": 0, "description": "Refuter lines UNPROVEN; since S28-R1 such a finding never blocks (an earlier round's replayed attack aside) and is filed."},
-        "unrefuted_ge_50": {"type": "integer", "minimum": 0, "description": "Findings of 50 or more with no refuter line."}
+        "unrefuted_ge_50": {"type": "integer", "minimum": 0, "description": "Findings of 50 or more with no refuter verdict: no refuter line (`-`), or UNJUDGED (told to a refuter that never answered it, or a cloud lens's finding; S28-R1)."}
       }
     },
     "decision_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "description": "sha256 of the bytes of the `--from` file the verdict was decided from (the reviewers' and refuters' final lines), so a record can be re-checked against the saved input."},
