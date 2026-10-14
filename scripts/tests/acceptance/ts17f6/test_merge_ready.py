@@ -125,10 +125,19 @@ def test_a_pr_with_a_standing_75_may_not_merge(tmp_path: Path) -> None:
     ],
 )
 def test_a_pr_with_a_standing_50_on_a_strict_path_may_not_merge(tmp_path: Path, path: str) -> None:
-    record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 50 UNPROVEN {path}")
+    record, marker, ledger_dir = recorded(tmp_path, f"FINDING f1 50 CONFIRMED {path}")  # S28-R1
     assert record["verdict"] == "FIX"
     found = gate(tmp_path, ledger_dir, marker)
     assert any("FIX" in problem for problem in found), found
+
+
+def test_a_pr_whose_only_finding_is_an_unproven_50_on_a_strict_path_may_merge(tmp_path: Path) -> None:
+    """S28-R1 (the owner's ruling, 14 Oct 2026): an UNPROVEN finding no longer blocks."""
+    record, marker, ledger_dir = recorded(
+        tmp_path, "FINDING f1 50 UNPROVEN engine/read/libredwg/reader.py"
+    )
+    assert record["verdict"] == "PASS", f"scripts.ledger: an UNPROVEN 50 recorded {record['verdict']}"
+    assert gate(tmp_path, ledger_dir, marker) == []
 
 
 def test_a_pr_with_a_49_on_a_strict_path_may_merge(tmp_path: Path) -> None:

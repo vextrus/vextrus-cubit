@@ -44,6 +44,17 @@ was 17 of 53, and 4 of 27 on product code, where strict is the default; in a sam
 broke only the factory's own rules. `scripts/factory/rescore.py` re-decides the recorded round-1 verdicts under this
 bar (the Q14 pilot's baseline).
 
+**Amended 14 Oct 2026 (session 28, S28-R1)** (the owner's ruling, `docs/plans/factory-s29.md`; `docs/rulings.md`):
+items 5 and 7 — a finding the refuter answered UNPROVEN no longer blocks; one it CONFIRMED does. Two holds of the
+builder's under Q9 (reversible, not the owner's words; the owner may overrule them): a claim the refuter was told
+and never answered, UNJUDGED, still stands (a refuter outage never records a PASS), and an earlier round's replayed
+attack that fails again at its own place still stands until a refuter judges it (S26-FX9). A tagged
+50–74 blocks only when its lens observed it (`observed=yes`: the attack's input comes from a Development Set's
+conventions, `seed_demo` or the served stack) or it sits on a trust boundary, its class alone deciding nothing; any
+other is filed with its owed check; 75 and more unchanged; a tagged line without `observed=` reads as no. Why: none
+of 260 FIX verdicts rested on UNPROVEN findings alone, and since the 13 Oct bar 23 of 30 FIX verdicts rested only on
+50–74 findings, many real but rare.
+
 The owner decides product and scope and walks each milestone's finish line on real drawings; everything
 between is done by agents, without waiting for the owner:
 

@@ -132,11 +132,15 @@ def test_a_finding_of_50_or_more_with_no_refuter_verdict_is_refused(
             "FIX",
             counts(reviewers=2, findings=1, findings_ge_50=1, confirmed=1),
         ),
-        ("FINDING f1 75 UNPROVEN", "FIX", counts(reviewers=2, findings=1, findings_ge_50=1, unproven=1)),
+        (
+            "FINDING f1 75 UNPROVEN",
+            "PASS",
+            counts(reviewers=2, findings=1, findings_ge_50=1, unproven=1),
+        ),
         ("FINDING f1 75 REFUTED", "PASS", counts(reviewers=2, findings_ge_50=1, refuted=1)),
         ("FINDING f2 49 -", "PASS", counts(reviewers=2, findings=1)),
     ],
-    ids=["confirmed-stands", "unproven-stands", "refuted-dropped", "below-50-stands-but-passes"],
+    ids=["confirmed-stands", "unproven-passes", "refuted-dropped", "below-50-stands-but-passes"],
 )
 def test_a_finding_stands_unless_refuted_and_only_50_or_more_raises_pass_to_fix(
     tmp_path: Path,

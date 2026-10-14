@@ -78,8 +78,18 @@ or at 50 when a QS or MD would meet it (user-facing) or when it sits on a trust 
 hostile input, a gate, a ledger); an edge or rule-only finding of 50-74 off a trust boundary is filed with its owed check.
 
 ruling: review.bar.block_at = 75
-ruling: review.bar.user_facing_block_at = 50
 ruling: review.bar.trust_boundary_block_at = 50
+
+Session 28, the owner (14 Oct 2026; `docs/plans/factory-s29.md`, `docs/handoff/session-28-prompt.md` "First tasks"
+item 3, S28-R1), on the review evidence bar, replacing `review.bar.user_facing_block_at = 50` above: an UNPROVEN
+finding no longer blocks; a 50-74 finding blocks only when its lens observed it (`observed=yes`: the attack's input
+comes from a Development Set's conventions, `seed_demo` or the served stack) or it sits on a trust boundary, else it
+is filed with its owed check; 75 and more unchanged. The hold (the owner's Q9): a tagged FINDING line without
+`observed=` reads as `observed=no`.
+
+ruling: review.bar.unproven_blocks = no
+ruling: review.bar.block_50_74_requires = observed-or-boundary
+ruling: review.finding.observed_default = no
 
 Session 25, the owner (13 Oct 2026, 07:16Z), on the save state after a lost act: "New words, no retry": once the
 connection is back the status bar reads "Not saved: your last change did not reach Vextrus. Do it again."; nothing

@@ -7,10 +7,10 @@ and refuting a sample rather than every finding."
 
 S18-F6 (lesson (e): listing the walls never converged): strict is the default, and only a short list is
 lax, the web's view components and the docs' Markdown, less the walls inside them (`_paths.py` holds the
-table). So a finding that stands (CONFIRMED or UNPROVEN) raises a PASS to FIX when it scores 75 or more,
-or 50 or more when its file is strict. One of 50-74 on a lax path does not block (it is listed for
-filing: test_to_file.py), and needs no refuter verdict. A finding of 50 or more that could block still
-needs one.
+table). So a finding that stands (CONFIRMED; UNPROVEN too until S28-R1, 14 Oct 2026) raises a PASS to
+FIX when it scores 75 or more, or 50 or more when its file is strict. One of 50-74 on a lax path does
+not block (it is listed for filing: test_to_file.py), and needs no refuter verdict. A finding of 50 or
+more that could block still needs one.
 
 Seam (named by S17-F6): the decision input's FINDING line carries the finding's file as an optional
 fifth field, `FINDING <id> <score 0-100> <CONFIRMED|REFUTED|UNPROVEN|-> <file>`, the repository path the
@@ -82,7 +82,8 @@ def test_a_standing_74_on_a_lax_path_passes(
     assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 74 {word} {path}")) == "PASS"
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
+# S28-R1 (the owner's ruling, 14 Oct 2026): an UNPROVEN finding no longer stands (ts28r1 pins it).
+@pytest.mark.parametrize("word", ["CONFIRMED"])
 @pytest.mark.parametrize("path", ["web/src/ui/Button.tsx", "docs/milestones.md"])
 def test_a_standing_75_on_a_lax_path_raises_pass_to_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str, word: str
@@ -104,12 +105,28 @@ def test_a_standing_50_on_a_doc_a_gate_reads_raises_pass_to_fix(
     assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 50 CONFIRMED {path}")) == "FIX"
 
 
-@pytest.mark.parametrize("word", ["CONFIRMED", "UNPROVEN"])
+@pytest.mark.parametrize("word", ["CONFIRMED"])  # S28-R1: UNPROVEN no longer stands
 @pytest.mark.parametrize("path", ELSEWHERE)
 def test_a_standing_50_on_a_path_off_the_lax_list_raises_pass_to_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str, word: str
 ) -> None:
     assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 50 {word} {path}")) == "FIX"
+
+
+@pytest.mark.parametrize(
+    ("score", "path"),
+    [
+        (50, "vextrus/rates/table.py"),
+        (75, "web/src/ui/Button.tsx"),
+        (90, "engine/read/libredwg/reader.py"),
+    ],
+)
+def test_an_unproven_finding_no_longer_raises_pass_to_fix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], score: int, path: str
+) -> None:
+    """S28-R1 (the owner's ruling, 14 Oct 2026): an UNPROVEN finding no longer blocks."""
+    got = verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 {score} UNPROVEN {path}"))
+    assert got == "PASS", f"scripts.ledger: an UNPROVEN {score} decided {got}"
 
 
 @pytest.mark.parametrize("path", CRAFTED)
@@ -147,7 +164,7 @@ def test_the_worst_of_several_findings_decides(
         "FINDING f1 74 CONFIRMED web/src/ui/Button.tsx",
         "FINDING f2 74 CONFIRMED docs/milestones.md",
         "FINDING f3 49 CONFIRMED vextrus/rates/table.py",
-        "FINDING f4 55 UNPROVEN web/src/api/client.ts",
+        "FINDING f4 55 CONFIRMED web/src/api/client.ts",  # S28-R1: UNPROVEN no longer stands
     )
     assert verdict_of(*decide(tmp_path, capsys, *rows)) == "FIX"
 

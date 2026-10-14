@@ -36,13 +36,15 @@ naming the check it owes.
    (tracked files reset to the merged head first): a non-zero exit with `FAILED <test_file>` is
    CONFIRMED (the lenses' `review_attacks/` folders stay, less their pytest config files). The
    refuter judges a sample (the owner's ruling, 7 Oct 2026): every other finding that could block (75
-   or more, or 50 or more when tagged user-facing or on a trust boundary, or untagged on a strict path,
+   or more, or 50 or more when tagged observed or on a trust boundary, or untagged on a strict path,
    `ledger.could_block`), plus at most 3 of the others of
    50-74, highest score first, each with its repro and what its replay showed (exit, output tail), go
    to ONE batched `refuter` process, started only when one that could block is among them. Its
    verdict per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded;
-   a refuter that fails or answers outside its schema refutes nothing (UNPROVEN stands). A finding of
-   50-74 that cannot block left out stands unjudged (`-`): it is filed as an issue, never blocks.
+   a refuter that fails or answers outside its schema confirms nothing (UNPROVEN: since S28-R1 a
+   lens's UNPROVEN finding never blocks and is filed; an earlier round's replayed attack still
+   does). A finding of 50-74 that cannot block left out stands unjudged (`-`): it is filed as an
+   issue, never blocks.
 7. **Record (code).** The `VERDICT`/`FINDING` lines (each finding's file its fifth field) go to a
    file and `scripts.ledger record` is called in
    this process: the verdict is decided there and nowhere else, its leak scan runs and it posts the one
@@ -158,16 +160,15 @@ FINDING_SCHEMA: dict[str, Any] = {
         },
         "line": {"type": "integer", "minimum": 0},
         "summary": {"type": "string", "description": "the failing scenario, in public words"},
-        # The owner's Q13 (13 Oct 2026): the class and the trust boundary decide a 50-74. Offered, not
-        # required: a reply without them keeps the path bar.
+        # The owner's Q13 (13 Oct 2026) and S28-R1 (14 Oct): observed and the trust boundary decide a
+        # 50-74. Offered, not required: a reply without class and trust_boundary keeps the path bar.
         "class": {
             "enum": list(ledger.CLASSES),
             "description": (
                 "user-facing: a QS or MD would hit it; edge: an edge case no user meets in normal "
-                "work; rule-only: it breaks only the factory's own rules (a 50-74 user-facing "
-                "finding blocks; an edge or rule-only one off a trust boundary is filed). Give it "
-                "with trust_boundary or neither: one without the other reads as user-facing on a "
-                "trust boundary"
+                "work; rule-only: it breaks only the factory's own rules (the class alone no longer "
+                "decides a 50-74: observed or trust_boundary does). Give it with trust_boundary or "
+                "neither: one without the other reads as user-facing on a trust boundary"
             ),
         },
         "trust_boundary": {
@@ -175,6 +176,16 @@ FINDING_SCHEMA: dict[str, Any] = {
             "description": (
                 "true when the finding sits on a trust boundary (a tenant wall, a parser of hostile "
                 "input, a gate, the review record): there a 50-74 blocks whatever its class"
+            ),
+        },
+        "observed": {
+            "type": "boolean",
+            "description": (
+                "true only when your attack test's input comes from a Development Set's conventions, "
+                "seed_demo or the served stack (an input a QS would meet); false when you built it to "
+                "reach an edge. Given with class and trust_boundary; missing reads as false. A 50-74 "
+                "blocks only when observed or on a trust boundary, else it is filed with its "
+                "owed_check"
             ),
         },
         "owed_check": {
@@ -379,6 +390,7 @@ class Finding:
     on_tree: bool = False  # the file is exactly a file of the reviewed head's tree (`mark_on_tree`)
     kind: str | None = None  # the lens's class tag (`ledger.CLASSES`); None: untagged, the path bar
     boundary: bool | None = None  # the lens's trust-boundary tag; None with `kind`
+    observed: bool | None = None  # the lens's observed tag (S28-R1); None with `kind`
     owed_check: str | None = None  # the check the finding owes, as the lens named it
 
     @classmethod
@@ -386,12 +398,18 @@ class Finding:
         """The lens's tags of one finding, and its owed check when it named one. Neither tag: untagged
         (the path bar). A tag without its partner, or with a value outside the schema, reads as the
         stricter one (PR #757 round 1): a missing or bad class is user-facing and a missing or bad
-        boundary is a trust boundary, so a half-tagged 50-74 can block and is never filed as untagged."""
+        boundary is a trust boundary, so a half-tagged 50-74 can block and is never filed as untagged.
+        A tagged finding without `observed` reads as not observed (the owner's Q9: a reply before
+        S28-R1 carries none); one with a value but true or false reads as observed (the stricter)."""
         kind, boundary, owed = item.get("class"), item.get("trust_boundary"), item.get("owed_check")
+        observed = item.get("observed")
         tagged = kind is not None or boundary is not None
         return {
             "kind": (kind if kind in ledger.CLASSES else "user-facing") if tagged else None,
             "boundary": (boundary if isinstance(boundary, bool) else True) if tagged else None,
+            "observed": (
+                (observed if isinstance(observed, bool) else observed is not None) if tagged else None
+            ),
             "owed_check": owed if isinstance(owed, str) and owed.strip() else None,
         }
 
@@ -403,16 +421,18 @@ class Finding:
 
     @property
     def could_block(self) -> bool:
-        """The review bar (`ledger.could_block`): 75 or more; else 50 or more when user-facing or on a
+        """The review bar (`ledger.could_block`): 75 or more; else 50 or more when observed or on a
         trust boundary (tagged), or on a strict path (untagged)."""
-        return ledger.could_block(self.score, self.named_file, self.kind, self.boundary)
+        return ledger.could_block(self.score, self.named_file, self.kind, self.boundary, self.observed)
 
     @property
     def tag_text(self) -> str:
-        """The FINDING line's tags (` class=<class> boundary=<yes|no>`), empty when untagged."""
+        """The FINDING line's tags (` class=<class> boundary=<yes|no> observed=<yes|no>`), empty when
+        untagged."""
         if self.kind is None or self.boundary is None:
             return ""
-        return f" class={self.kind} boundary={'yes' if self.boundary else 'no'}"
+        yes = {True: "yes", False: "no"}
+        return f" class={self.kind} boundary={yes[self.boundary]} observed={yes[self.observed is True]}"
 
     def view(self) -> dict[str, Any]:
         return {
@@ -426,6 +446,7 @@ class Finding:
             "on_tree": self.on_tree,
             "class": self.kind,
             "trust_boundary": self.boundary,
+            "observed": self.observed,
             "owed_check": self.owed_check,
         }
 
@@ -760,6 +781,17 @@ def resolve(pr: int) -> str:
 # ---------------------------------------------------------------------------------------------- lenses
 
 
+# What every lens is told of the evidence bar (the owner's ruling, 14 Oct 2026, S28-R1).
+BAR_TEXT = (
+    "Judge the change by its intent and its user impact, not by stacking defensive edge cases: report",
+    "what a QS or MD would meet or what crosses a trust boundary, not every input you can build.",
+    "Tag each finding: `class`, `trust_boundary` and `observed` (observed=yes, true, only when your",
+    "attack test's input comes from a Development Set's conventions, `seed_demo` or the served stack;",
+    "observed=no, false, when you built the input to reach an edge). A finding scored 50 to 74 is",
+    "fixed only when observed or on a trust boundary; any other is filed with its `owed_check`.",
+)
+
+
 def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] | None = None) -> str:
     """The lens's prompt (stdin). It names the PR, the heads, the worktree, the slot, the files holding
     the change's diff and log, and nothing about where verdicts are kept."""
@@ -803,6 +835,7 @@ def brief(run: Run, lens: Lens, rv: Path, slot: Path, facts: tuple[Path, Path] |
             "the way the module it tests is marked.",
             "Never push, commit or post anything. Public words only.",
             lens.task,
+            *BAR_TEXT,
             *(
                 [GUARD_ATTACK]
                 if lens.writes and any(path.startswith(GUARD_PATHS) for path in run.paths)
@@ -1580,7 +1613,8 @@ def earlier_rounds(
             views = []
         standing = [
             view for view in views if isinstance(view, dict)
-            and view.get("status") in ledger.STANDS and int(view.get("score") or 0) >= 50
+            and ledger.stands(str(view.get("id")), str(view.get("status")))
+            and int(view.get("score") or 0) >= 50
         ]  # fmt: skip
         if standing:
             run.not_kept.append(number)
@@ -2078,7 +2112,9 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     """One batched refuter judges the sample (`refuter_claims`); its verdict per finding (matched by
     file and line) is the one recorded. A finding of 50-74 that cannot block left out of the sample
     stands unjudged (`-`): it cannot block and is filed, not fixed. A refuter that fails, runs past its
-    cap or answers outside its schema refutes nothing: each finding it was told stays UNPROVEN."""
+    cap or answers outside its schema judges nothing: each lens finding it was told stays UNJUDGED,
+    which still stands (S28-R1: UNPROVEN, which no longer blocks, is only the refuter's own answer);
+    an earlier round's replayed attack stays UNPROVEN, which also still stands (`ledger.stands`)."""
     assert run.head is not None
     assert run.slot is not None
     claims = refuter_claims(run.findings)
@@ -2086,6 +2122,9 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     for item in run.findings:
         if item.score >= 50 and item.word != "CONFIRMED" and item.id not in told:
             item.word, item.method = "-", None
+    for claim in claims:
+        if ledger.REPLAYED.fullmatch(claim.id) is None:
+            claim.word, claim.method = "UNJUDGED", None  # until the refuter itself answers
     if not claims:
         return
     refuter_tree(run, rv)
@@ -2122,7 +2161,7 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
             judged.setdefault(matches[0].id, set()).add(verdict["verdict"])
     for claim in claims:
         words = judged.get(claim.id, set())
-        if len(words) == 1:  # two verdicts that disagree leave the finding UNPROVEN
+        if len(words) == 1:  # two verdicts that disagree leave it unjudged
             claim.word, claim.method = words.pop(), "refuter"
 
 
@@ -2424,8 +2463,9 @@ def collect_round(run: Run, args: argparse.Namespace, main: Path, held: contextl
                     item["line"],
                     item["summary"],
                     None,
-                    # A cloud reviewer's finding was never replayed or refuted here: it stands.
-                    "UNPROVEN" if item["score"] >= 50 else "-",
+                    # A cloud reviewer's finding was never replayed or refuted here: UNJUDGED, which
+                    # stands (S28-R1: UNPROVEN no longer blocks, and no refuter said it).
+                    "UNJUDGED" if item["score"] >= 50 else "-",
                     **Finding.tags(item),
                 )
             )
@@ -2459,8 +2499,9 @@ def fix_text(pr: int, head: str | None, views: list[dict[str, Any]]) -> str:
         parts += [f"Fix round for PR {pr} at {head}:", *lines(blocking)]
     if filed:
         heading = (
-            f"File as issues for PR {pr} at {head} (50-74 that cannot block: edge or rule-only off a "
-            "trust boundary, or untagged off the strict paths; each still owes its committed check):"
+            f"File as issues for PR {pr} at {head} (50 or more that do not block: a 50-74 neither "
+            "observed nor on a trust boundary, or untagged off the strict paths, or one no refuter "
+            "confirmed; each still owes its committed check):"
         )
         parts += [heading, *lines(filed, owed=True)]
     return "\n".join(parts)
@@ -2480,22 +2521,34 @@ def view_file(view: dict[str, Any]) -> str | None:
 
 def view_judged(view: dict[str, Any]) -> ledger.Judged:
     """A kept finding as the ledger's bar reads it (its tags only when both are there and valid: a
-    finding kept before the tags keeps the path bar)."""
+    finding kept before the tags keeps the path bar; one kept before S28-R1 reads as not observed)."""
     tags = Finding.tags(view)
     return ledger.Judged(
-        int(view["score"]), str(view["status"]), view_file(view), tags["kind"], tags["boundary"]
+        int(view["score"]),
+        str(view["status"]),
+        view_file(view),
+        tags["kind"],
+        tags["boundary"],
+        tags["observed"],
     )
 
 
 def standing(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The findings that block: CONFIRMED or UNPROVEN, never REFUTED, and over the bar
+    """The findings that block: standing (`ledger.stands`: CONFIRMED, or an earlier round's replayed
+    attack still UNPROVEN; never a lens's UNPROVEN nor a REFUTED one) and over the bar
     (`ledger.could_block`)."""
-    return [v for v in views if v["status"] in ledger.STANDS and ledger.blocks(view_judged(v))]
+    return [
+        v for v in views
+        if ledger.stands(str(v["id"]), str(v["status"])) and ledger.blocks(view_judged(v))
+    ]  # fmt: skip
 
 
 def to_file(views: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The findings to file as issues rather than fix (`ledger.to_file`)."""
-    return [v for v in views if ledger.to_file(*view_judged(v))]
+    return [
+        v for v in views
+        if ledger.to_file(*view_judged(v), replayed=ledger.REPLAYED.fullmatch(str(v["id"])) is not None)
+    ]  # fmt: skip
 
 
 def fix_message(run: Run) -> str:
