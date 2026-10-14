@@ -102,3 +102,29 @@ def test_a_branch_that_changes_nothing_is_not_light(tmp_path: Path) -> None:
     cut(repo, "revert/empty")
     git(repo.watch, "commit", "-q", "--allow-empty", "-m", "Revert nothing")
     assert light_tier(repo, head(repo)) is None
+
+
+def test_a_revert_of_a_merge_inside_a_landed_pr_is_not_light(tmp_path: Path) -> None:
+    """Only main's first-parent merges count: reverting part of a landed PR (a merge on its branch) is
+    a change like any other."""
+    repo = Repo(tmp_path)
+    history(repo)
+    dev = repo.dev
+    git(dev, "fetch", "-q", "origin")
+    git(dev, "checkout", "-q", "-B", "feat", "origin/main")
+    git(dev, "checkout", "-q", "-b", "sub")
+    (dev / "app" / "x.py").write_text("X = 1\n")
+    git(dev, "add", "app/x.py")
+    git(dev, "commit", "-q", "-m", "x")
+    git(dev, "checkout", "-q", "feat")
+    git(dev, "merge", "-q", "--no-ff", "-m", "Merge branch 'sub' into feat", "sub")
+    inner = git(dev, "rev-parse", "HEAD")
+    (dev / "app" / "y.py").write_text("Y = 1\n")
+    git(dev, "add", "app/y.py")
+    git(dev, "commit", "-q", "-m", "y")
+    git(dev, "checkout", "-q", "-B", "main", "origin/main")
+    git(dev, "merge", "-q", "--no-ff", "-m", "Merge pull request #73 from vextrus/feat", "feat")
+    git(dev, "push", "-q", "origin", "main")
+    cut(repo, "revert/inner")
+    git(repo.watch, "revert", "--no-edit", "-m", "1", inner)
+    assert light_tier(repo, head(repo)) is None
