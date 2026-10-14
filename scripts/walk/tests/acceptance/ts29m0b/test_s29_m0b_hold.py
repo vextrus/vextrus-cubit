@@ -25,7 +25,6 @@ import pytest
 
 from scripts.walk import run
 
-ROOT = Path(__file__).resolve().parents[5]
 SHA = "0123456789abcdef0123456789abcdef01234567"
 MINUTE = 60.0
 GIVE_UP = 1000 * MINUTE
@@ -60,6 +59,32 @@ class FakeClock:
         return getattr(real_time, name)
 
 
+def _repo(root: Path) -> str:
+    """A git repository of one empty commit at `root` (the walk takes a commit of its root); its sha."""
+
+    def git(*args: str) -> str:
+        return subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "-c",
+                "user.name=walk",
+                "-c",
+                "user.email=walk@example.invalid",
+                *args,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+
+    root.mkdir(parents=True, exist_ok=True)
+    git("init", "-q")
+    git("commit", "-q", "--allow-empty", "-m", "synthetic")
+    return git("rev-parse", "HEAD")
+
+
 def _plan(out_dir: Path) -> run.Plan:
     return run.Plan(
         sha=SHA,
@@ -84,10 +109,9 @@ def _hold(
     return clock
 
 
-def test_the_hold_minutes_default_to_150(monkeypatch: pytest.MonkeyPatch) -> None:
-    head = subprocess.run(
-        ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
-    ).stdout.strip()
+def test_the_hold_minutes_default_to_150(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "repo"
+    head = _repo(root)
     given: dict[str, Any] = {}
 
     def fake_run(root: Path, walk: run.Plan, **kwargs: Any) -> int:
@@ -96,7 +120,7 @@ def test_the_hold_minutes_default_to_150(monkeypatch: pytest.MonkeyPatch) -> Non
 
     monkeypatch.setattr(run, "run", fake_run)
     monkeypatch.setattr(run, "set_files", lambda root, slugs: {slug: [] for slug in slugs})
-    code = run.main([head, "--root", str(ROOT), "--web-port", "5511", "--api-port", "8811"])
+    code = run.main([head, "--root", str(root), "--web-port", "5511", "--api-port", "8811"])
 
     assert code == 0
     assert given.get("hold_minutes") == 150, (
@@ -125,9 +149,8 @@ def test_with_no_verdict_the_hold_ends_at_its_cap(
 def test_the_hold_waits_for_the_folder_the_verdict_is_written_to(tmp_path: Path) -> None:
     """verdict.py writes `<walks-dir>/<sha40>/verdict.json` (its default `.private/work/walks`); the
     walk's own folder is that one, so the hold sees the verdict the agent layer writes."""
-    head = subprocess.run(
-        ["git", "-C", str(ROOT), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
-    ).stdout.strip()
-    walk = run.plan(head, root=ROOT, web_port=5511, api_port=8811)
+    root = tmp_path / "repo"
+    head = _repo(root)
+    walk = run.plan(head, root=root, web_port=5511, api_port=8811)
 
-    assert walk.out_dir == ROOT / ".private" / "work" / "walks" / head
+    assert walk.out_dir == root / ".private" / "work" / "walks" / head
