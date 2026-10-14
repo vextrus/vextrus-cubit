@@ -35,8 +35,20 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Max, Q, QuerySet
-from django.db.models.functions import Lower, Now
+from django.db.models import (
+    Case,
+    Count,
+    DateTimeField,
+    F,
+    Max,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+    Value,
+    When,
+)
+from django.db.models.functions import Coalesce, Least, Lower, Now
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
@@ -774,22 +786,43 @@ def acts_under(found: QuerySet[DomainEvent], membership_id: uuid.UUID) -> QueryS
     return found.filter(accepted | during)
 
 
+_STILL_OPEN = datetime(9999, 12, 31, tzinfo=UTC)
+"""The end of a period that has not ended, for a bound every act lies before."""
+
+
+def _ended_by(now: datetime) -> Coalesce:
+    """When a Membership's access ended, as `auth.ending` reads it, or `_STILL_OPEN`: the earlier of
+    its revocation and its end date once passed (Postgres's LEAST skips a NULL)."""
+    passed = Case(
+        When(expires_at__lte=now, then=F("expires_at")), default=None, output_field=DateTimeField()
+    )
+    return Coalesce(Least("revoked_at", passed), Value(_STILL_OPEN, output_field=DateTimeField()))
+
+
 def _acts_by_period(
     viewer: CurrentMembership, rows: list[Membership], now: datetime
 ) -> dict[uuid.UUID, tuple[int, datetime | None]]:
     """Each accepted Membership's count of acts and their latest, among the acts the viewer may see:
-    those done under it (`_during`). Accepting the invitation is not an act."""
+    those its user did from its start until it ended (as `_during`). Accepting the invitation is not
+    an act. One row per Membership, each with two correlated subqueries: the query's width never
+    grows with the Developer's Memberships (Postgres caps a SELECT at 1664 columns)."""
     if not rows or not auth.allows(viewer.role, auth.SEE_ACTS):
         return {}
-    visible = (
+    acts = (
         visible_events(viewer)
-        .filter(actor_user_id__in={row.user_id for row in rows})
         .exclude(kind=codes.ACCEPTED.code)
+        .filter(actor_user_id=OuterRef("user_id"), occurred_at__gte=OuterRef("since"))
+        .filter(occurred_at__lt=OuterRef("ended"))
+        .order_by()
+        .values("actor_user_id")
     )
-    within: dict[str, Count | Max] = {}
-    for i, row in enumerate(rows):
-        during = _during(row, now)
-        within[f"n{i}"] = Count("id", filter=during)
-        within[f"l{i}"] = Max("occurred_at", filter=during)
-    found = visible.order_by().aggregate(**within)
-    return {row.id: (found[f"n{i}"], found[f"l{i}"]) for i, row in enumerate(rows)}
+    found = (
+        Membership.objects.filter(id__in=[row.id for row in rows])
+        .annotate(since=Coalesce("accepted_at", "starts_at"), ended=_ended_by(now))
+        .annotate(
+            n=Coalesce(Subquery(acts.annotate(n=Count("id")).values("n")), Value(0)),
+            last=Subquery(acts.annotate(last=Max("occurred_at")).values("last")),
+        )
+        .values_list("id", "n", "last")
+    )
+    return {membership_id: (n, last) for membership_id, n, last in found}

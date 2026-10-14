@@ -180,7 +180,11 @@ export function InviteDialog({ session, open, onOpenChange }: { session: Session
               autoComplete="off"
               maxLength={254}
               value={email}
-              onChange={(event) => setEmail(event.currentTarget.value)}
+              onChange={(event) => {
+                setEmail(event.currentTarget.value)
+                // A refusal about the email was about the one sent: an edited email has not been refused (design gate, S27-G6).
+                setErrors(({ email: _refused, ...rest }) => rest)
+              }}
               error={errors.email !== undefined ? <Words words={errors.email} /> : undefined}
             />
 

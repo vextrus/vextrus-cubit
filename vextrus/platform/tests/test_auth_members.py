@@ -452,3 +452,42 @@ def test_one_access_s_acts_are_those_its_row_counts_and_no_other(
         assert len(acts[key]) == rows[str(key)]["acts"]
     assert listed[pending] == []
     assert api_as(elsewhere).get("/api/activity", membership=str(first)).json() == []
+
+
+def test_a_developer_with_more_accepted_accesses_than_a_select_has_columns_still_lists_them(
+    team: dict[str, Member],
+) -> None:
+    """Fix round 1 of S27-G6: counting each row's acts takes no column per Membership, so a Developer
+    past ~832 accepted accesses (Postgres's 1664-column SELECT) still gets its page, each row
+    counted. Half the accesses here have ended (revoked), half are current."""
+    md = team["md"]
+    now = timezone.now()
+    users = User.objects.bulk_create(
+        User(email=f"crowd{n}@example.com", name=f"Crowd {n}") for n in range(900)
+    )
+    with md.acting():
+        Membership.objects.bulk_create(
+            Membership(
+                tenant_id=md.developer_id,
+                user=user,
+                role="guest",
+                starts_at=now - timedelta(days=10),
+                accepted_at=now - timedelta(days=10),
+                revoked_at=now - timedelta(days=1) if n % 2 else None,
+            )
+            for n, user in enumerate(users)
+        )
+    with tenancy.acting_in(md.developer_id, user_id=users[0].pk):
+        events.record(
+            tenancy_codes.STAFF_OPENED,
+            subject_type="developer",
+            actor_user_id=users[0].pk,
+            occurred_at=now - timedelta(days=5),
+        )
+
+    response = api_as(md).get("/api/members")
+
+    assert response.status_code == 200
+    people = {p["email"]: p for p in response.json()["people"]}
+    assert len([e for e in people if e.startswith("crowd")]) == 900
+    assert (people["crowd0@example.com"]["acts"], people["crowd1@example.com"]["acts"]) == (1, 0)

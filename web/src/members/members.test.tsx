@@ -547,6 +547,29 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
     const bar = await screen.findByRole('alert')
     expect(text(bar)).toBe('This invitation is no longer open: it was used, withdrawn or has run out. Invite them again if they still need access.')
   })
+
+  it('says an access already ended, revoked meanwhile, in words that promise no act on its row (S27-G6 fix round 1)', async () => {
+    const api = new FakeApi()
+    api.failOnce((method, path) => method === 'POST' && path.endsWith('/renew'), 409, { code: 'platform.invitations.already_ended', params: {} })
+    await members(PEOPLE.md, api)
+    await userEvent.click(within(row(/^People at/, 'Farhana Kabir')).getByRole('button', { name: /^Renew 30 days for / }))
+    const bar = await screen.findByRole('alert')
+    expect(text(bar)).toBe('This access has already ended.')
+  })
+
+  it('drops the refusal under the Email field once the email is edited (S27-G6 design gate)', async () => {
+    await members(PEOPLE.md)
+    const dialog = await openInvite()
+    await userEvent.click(within(dialog).getByRole('radio', { name: 'Vextrus Engineer' }))
+    const email = within(dialog).getByLabelText('Email')
+    await userEvent.type(email, 'nobody@vextrus.example')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Create link' }))
+    await waitFor(() => expect(email).toHaveAttribute('aria-invalid', 'true'))
+    expect(text(dialog)).toContain('No Vextrus account has this email.')
+    await userEvent.type(email, 'x')
+    expect(email).not.toHaveAttribute('aria-invalid', 'true')
+    expect(text(dialog)).not.toContain('No Vextrus account has this email.')
+  })
 })
 
 describe('where focus and words go after an act (design gate 20a r1)', () => {

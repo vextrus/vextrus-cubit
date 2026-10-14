@@ -13,7 +13,7 @@ msgid "platform.invitations.access_ended"
 msgstr "Access for {email} has ended. Renew it from their row under People instead of inviting them again."
 
 msgid "platform.invitations.already_ended"
-msgstr "This access has already ended. Their row now shows what is left to do."
+msgstr "This access has already ended."
 
 msgid "platform.invitations.already_invited"
 msgstr "{email} already has an invitation not used yet. Copy its link, or withdraw it first."
