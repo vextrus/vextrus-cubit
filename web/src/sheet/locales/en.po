@@ -28,6 +28,10 @@ msgid "Zoom in"
 msgstr "Zoom in"
 
 #: src/sheet/SheetViewer.tsx
+msgid "Opening {sheetNumber} for the first time…"
+msgstr "Opening {sheetNumber} for the first time…"
+
+#: src/sheet/SheetViewer.tsx
 msgid "Zoom out"
 msgstr "Zoom out"
 

@@ -77,6 +77,7 @@ const TRIAGED = {
     dedup_comments: { type: 'integer' },
     merged: { type: 'integer' },
     refused: { type: 'boolean' },
+    not_walked: { type: 'array', items: { enum: ITEMS } },
   },
   required: ['findings', 'issues_drafted', 'dedup_comments', 'merged', 'refused'],
 }
@@ -193,7 +194,11 @@ async function gate() {
     [
       `You triage G1's agent layer for ${SHA}. The critics, the role walk and any retry returned (JSON, one report each): ${JSON.stringify(reports)}.`,
       `1. Merge their items: an item is FAIL if either says FAIL, PASS if one says PASS and neither FAIL,`,
-      `else NOT_WALKED; list all of ${ITEMS.join(', ')} once each.`,
+      `else NOT_WALKED; list all of ${ITEMS.join(', ')} once each. Every item you list FAIL needs a finding whose item`,
+      'names it (a FAIL walked item must say why): if none of the critics gave one, write one from their report',
+      '(mapping its defect_class and screen to the nearest allowed value). Never turn a FAIL item to PASS; if no finding can',
+      `be kept, list that item NOT_WALKED and write its reason into ${FOLDER}/triage-reasons.md (never into what you return). Issues draft and the verdict command`,
+      'refuse (exit 2) a FAIL item no finding names.',
       '2. Give each finding an id f-1, f-2 and so on; severity BLOCKS for BLOCKS_DEMO, WRONG_NUMBER or',
       'BLOCKS_SIGNING, else OTHER; misleading true for a display that misleads the QS. Drop any finding whose',
       'defect_class or screen is not in scripts/walk/sanitize.py.',
@@ -206,7 +211,7 @@ async function gate() {
       'then gh issue create --label walk --title <its title> --body-file <its body file>; for each "comments" entry:',
       'the same scan, then gh issue comment <number> --body-file <its body file>. Never an inline --body.',
       `7. Run: uv run python -m scripts.walk.issues record ${SHA} --created <n>=<issue number> for each new draft.`,
-      'Return the counts: findings, issues_drafted, dedup_comments, merged, refused.',
+      `${CLOSED_WORDS} Return only the counts: findings, issues_drafted, dedup_comments, merged, refused, and not_walked (the item codes you made NOT_WALKED): no free text.`,
     ].join(' '),
     { label: 'triage', phase: 'Triage', model: 'opus', schema: TRIAGED },
   )

@@ -6,9 +6,10 @@
  * the focused sheet; the screen owns the keys); a click focuses a row, a double-click opens it.
  */
 import { Fragment, createContext, forwardRef, useContext, type ReactNode } from 'react'
+import { plural } from '@lingui/core/macro'
 import { Plural, Trans, useLingui } from '@lingui/react/macro'
 import { useFormat } from '@/format'
-import { DrawingText, StatusMark, cn, isolateLtr } from '@/ui'
+import { DrawingText, StatusMark, cn, isolateLtr, isolateOwn } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import type { ProposalOut } from './data'
 import { SheetRange } from './SheetRange'
@@ -515,6 +516,8 @@ function SheetRow({
   const first = row.sheets[0]
   const excluded = row.sheets.length > 0 && row.sheets.every((s) => s.decision === 'excluded')
   const count = f.integer(row.sheets.length)
+  const sharesWords = useSharesWords()
+  const note = row.shares ? sharesWords(row.shares) : undefined
   let title: ReactNode
   const q = row.question?.question
   // A Question holding several sheets of different numbers (two plans drawing one thing; corrections make
@@ -559,14 +562,17 @@ function SheetRow({
     // A continuation the server names is titled with its member-mark ranges joined (T-W334).
     title = (
       <Trans>
-        <DrawingText kind="title" text={(row.kind === 'sheet' ? first?.continuation_title : null) || (first?.title ?? '')} className="min-w-0" />
+        <DrawingText kind="title" text={(row.kind === 'sheet' ? first?.continuation_title : null) || (first?.title ?? '')} note={note} className="min-w-0" />
         <span className="shrink-0 whitespace-nowrap">, {count} sheets</span>
       </Trans>
     )
-  else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
+  else title = <DrawingText kind="title" text={first?.title ?? ''} note={note} className="min-w-0" />
   // One title on several runs that draw different things: told, never asked (the owner, 5 Oct 2026, #334).
+  // The note gives way first (it shrinks and truncates); the shared title truncates last (#670).
   const shares = row.shares ? (
-    <span className="ms-2 shrink-0 whitespace-nowrap text-ink-secondary">
+    // The gap is a leading en space in the text, so it goes with the note when the note is cut to nothing.
+    <span className="min-w-0 shrink-[1000] truncate whitespace-pre text-ink-secondary">
+      {'\u2002'}
       <Plural value={row.shares} one="# sheet shares this title" other="# sheets share this title" />
     </span>
   ) : null
@@ -631,7 +637,7 @@ function SheetRow({
         )}
       </span>
       {/* Only the title truncates; ", 2 copies" stays whole (M19: a cell that also truncated clipped it to "…" right to left). */}
-      <span role="gridcell" className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
+      <span role="gridcell" title={note ? `${isolateOwn(first?.title ?? '')} · ${note}` : undefined} className="flex min-w-0 items-baseline overflow-hidden whitespace-nowrap">
         {title}
         {shares}
       </span>
@@ -696,4 +702,10 @@ function FileName({ name }: { name: string }) {
       {tail || extension ? <span className="shrink-0">{tail}{extension}</span> : null}
     </bdi>
   )
+}
+
+/** "3 sheets share this title": one title on several runs, told (the owner, 5 Oct 2026, #334). */
+export function useSharesWords(): (shares: number) => string {
+  const { t } = useLingui()
+  return (shares) => t({ message: plural(Number(shares), { one: '# sheet shares this title', other: '# sheets share this title' }) })
 }

@@ -21,10 +21,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Trans, useLingui } from '@lingui/react/macro'
 import { Maximize } from 'lucide-react'
 import { SlotFill } from '@/app/slots'
-import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, cn, useKeys } from '@/ui'
+import { Button, DrawingText, ErrorBar, KeyCombo, KeyRegion, LtrCanvas, cn, isolateLtr, useKeys } from '@/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
-import { decodeSheet, usedExtents, type DecodedSheet } from './decode'
-import { SheetRenderer, type Palette } from './gl'
+import { peekPaper, type DecodedSheet } from './decode'
+import { isDecodedSheetKept, openDecodedSheet } from './decoded'
+import { SheetRenderer, type DrawJob, type Palette } from './gl'
+import { prepared } from './prepare'
 import { plotMatrix, type PlotPicture, type PlotTransform } from './plot'
 import { BAR_PX, LEGEND_PX, VIEW_MARGIN, ZOOM_STEP, fitBox, fitPaper, panBy, zoomAbout, type PaperBox, type Stage, type ViewTransform } from './view'
 
@@ -33,6 +35,11 @@ export interface SheetViewerProps {
   buffer: ArrayBuffer
   /** The sheet's number as drawn ("S-04"): the toolbar's label and the error's subject. */
   label: string
+  /**
+   * The sheet's id, which says whether this session has opened the sheet before (4.6: only a first open
+   * says "for the first time"); a fetch again brings a new buffer for the same sheet. Else the label.
+   */
+  sheetId?: string
   /** The box the sheet opens fitted to, in paper mm (Step 1: the sheet's main view); else the paper. */
   workingView?: PaperBox | null
   /** Try again: the caller fetches the buffer again. Without it, the viewer decodes it again. */
@@ -90,10 +97,15 @@ const OUTLINE_TONE: Record<SheetOutline['tone'], string> = {
   excluded: cn('border-excluded text-excluded'),
 }
 
+/** The sheets this session has opened (by id, else label): only a sheet not among them opens "for the first time". */
+const sheetsOpened = new Set<string>()
+
 const TOOLTIP_KBD = '[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:text-ink-inverse'
 
 /** CAD-dark's ground (4.6); the canvas draws it, so it is a colour, not a token. */
 const CAD_DARK_HEX = '#101318'
+/** Off the paper on CAD-dark, as the drawing clears it (gl.ts, CAD_DARK_OFF_PAPER). */
+const CAD_DARK_OFF_PAPER_HEX = '#0a0c10'
 
 /** Text shorter than this on screen, in CSS px, draws as a grey bar (4.6). */
 const GREEK_BELOW_PX = 6
@@ -101,6 +113,7 @@ const GREEK_BELOW_PX = 6
 export function SheetViewer({
   buffer,
   label,
+  sheetId,
   workingView = null,
   onRetry,
   outlines,
@@ -119,14 +132,46 @@ export function SheetViewer({
 }: SheetViewerProps) {
   const [attempt, setAttempt] = useState(0)
   const [drawFailed, setDrawFailed] = useState(false)
-  const sheet = useMemo<DecodedSheet | null>(() => {
-    void attempt
-    try {
-      return decodeSheet(buffer)
-    } catch {
-      return null
+  // The sheet decoded off the main thread (issue #828): until it comes the canvas is mounted and
+  // takes keys and focus, blank; a buffer opened before comes back at once, decoded and prepared.
+  const [opened, setOpened] = useState<{ buffer: ArrayBuffer; attempt: number; sheet: DecodedSheet | null } | null>(null)
+  useEffect(() => {
+    let live = true
+    openDecodedSheet(buffer).then(
+      (sheet) => live && setOpened({ buffer, attempt, sheet }),
+      () => live && setOpened({ buffer, attempt, sheet: null }),
+    )
+    return () => {
+      live = false
     }
   }, [buffer, attempt])
+  const current = opened && opened.buffer === buffer && opened.attempt === attempt ? opened : null
+  const refused = current !== null && current.sheet === null
+  const sheet = current?.sheet ?? null
+  // While a sheet decodes, its paper's outline at its fit; and, the first time this session opens it, the
+  // line "Opening S-04 for the first time…" (4.6, "First open of a sheet"). A sheet opened before but no
+  // longer kept decoded (dropped from the cache, or fetched again) shows the outline alone; one kept
+  // decoded shows at once, with neither.
+  const seen = sheetId ?? label
+  const header = useMemo(() => peekPaper(buffer), [buffer])
+  const paper = useMemo(() => (isDecodedSheetKept(buffer) ? null : header), [buffer, header])
+  // Read again for each buffer: Try again hands the mounted viewer a new one for a sheet it has opened.
+  const openedBefore = useMemo(() => {
+    void buffer
+    return sheetsOpened.has(seen)
+  }, [seen, buffer])
+  useEffect(() => {
+    if (sheet) sheetsOpened.add(seen)
+  }, [sheet, seen])
+  // The canvas region keeps the focus when the canvas gives way to the error (paging into a sheet that
+  // cannot be drawn): the canvas held it, and its leaving would drop it to the page.
+  const errorRef = useRef<HTMLDivElement>(null)
+  const failedNow = refused || drawFailed
+  useLayoutEffect(() => {
+    if (!failedNow) return
+    const active = document.activeElement
+    if (!active || active === document.body) errorRef.current?.focus({ preventScroll: true })
+  }, [failedNow])
   // After Try again, the drawn sheet takes focus back from the button that has gone (not the page).
   const [focusOnDraw, setFocusOnDraw] = useState(false)
   const retry = useCallback(() => {
@@ -144,7 +189,7 @@ export function SheetViewer({
         </SlotFill>
       ) : null}
       <KeyRegion name="canvas" className="absolute inset-0">
-        {sheet && !drawFailed ? (
+        {!refused && !drawFailed ? (
           <SheetCanvas
             key={attempt}
             sheet={sheet}
@@ -164,9 +209,11 @@ export function SheetViewer({
             plot={plot}
             notes={notes}
             status={status}
+            opening={sheet || !paper ? null : { paper, firstTime: !openedBefore }}
+            headerPaper={header}
           />
         ) : (
-          <div className="flex h-full items-start justify-center p-4">
+          <div ref={errorRef} tabIndex={-1} className="focus-inset flex h-full items-start justify-center p-4">
             <ErrorBar
               className="w-full max-w-xl"
               action={
@@ -210,8 +257,11 @@ function SheetCanvas({
   plot,
   notes,
   status,
+  opening,
+  headerPaper,
 }: {
-  sheet: DecodedSheet
+  /** Null while the sheet is decoded: the canvas is there, blank, and takes keys and focus. */
+  sheet: DecodedSheet | null
   label: string
   workingView: PaperBox | null
   focus: boolean
@@ -228,6 +278,10 @@ function SheetCanvas({
   plot: SheetPlot | null
   notes?: ReactNode
   status?: ReactNode
+  /** The paper of a sheet opened for the first time, while it decodes: its outline and a line (4.6). */
+  opening: { paper: { widthMm: number; heightMm: number }; firstTime: boolean } | null
+  /** The paper the buffer's header says: F, Shift F and the first fit work from it while the sheet decodes. */
+  headerPaper: { widthMm: number; heightMm: number } | null
 }) {
   const { t } = useLingui()
   const areaRef = useRef<HTMLDivElement>(null)
@@ -251,7 +305,12 @@ function SheetCanvas({
   // Focus is taken once, on the first draw after Try again; a later redraw (a new working view, a
   // resize) never takes it back from where the user put it (#115).
   const focusOnce = useRef(focus)
-  const used = useMemo(() => usedExtents(sheet), [sheet])
+  const used = useMemo(() => (sheet ? prepared(sheet).used : null), [sheet])
+  // The sheet the frame drawn next draws: one renderer serves the canvas while its sheet comes.
+  const drawn = useRef(sheet)
+  useLayoutEffect(() => {
+    drawn.current = sheet
+  })
 
   const stage = useCallback((): Stage | null => {
     const canvas = canvasRef.current
@@ -265,16 +324,30 @@ function SheetCanvas({
     frame.current = requestAnimationFrame(() => {
       const r = renderer.current
       const v = view.current
-      if (!r || !v || !areaRef.current) return
-      const now = look.current
-      if (plotRef.current) drawPlot(plotRef.current, v, now.layer === 'read' ? null : now.plot, now.dark, now.layer === 'compare')
+      const toDraw = drawn.current
+      if (!r || !v || !toDraw || !areaRef.current) return
+      const shownLook = look.current
+      if (plotRef.current) drawPlot(plotRef.current, v, shownLook.layer === 'read' ? null : shownLook.plot, shownLook.dark, shownLook.layer === 'compare')
+      let job: DrawJob | null
       try {
-        r.draw(sheet, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: now.palette })
+        job = r.begin(toDraw, v, { greekBelowPx: GREEK_BELOW_PX * (window.devicePixelRatio || 1), greekInk: greekInk(areaRef.current), palette: shownLook.palette })
       } catch {
         failed.current()
+        return
       }
+      // The marks a part a frame (issue #828), each part sized by how long the frame before took: the
+      // page takes keys while a dense sheet draws, and a new view starts a new frame at once.
+      let last = 0
+      const part = () => {
+        if (renderer.current !== r || !job) return
+        const at = performance.now()
+        if (last) SheetRenderer.paced(at - last)
+        last = at
+        if (job.step()) frame.current = requestAnimationFrame(part)
+      }
+      part()
     })
-  }, [sheet])
+  }, [])
 
   // A new look is drawn at once.
   useEffect(() => {
@@ -296,10 +369,16 @@ function SheetCanvas({
 
   const fits = useCallback(() => {
     const s = stage()
-    if (!s) return null
-    const whole = fitPaper(sheet.paper, used, s)
+    const paperNow = sheet?.paper ?? headerPaper
+    if (!s || !paperNow) return null
+    const whole = fitPaper(paperNow, sheet ? used : null, s)
     return { whole, working: workingView ? fitBox(workingView, s, VIEW_MARGIN) : whole }
-  }, [stage, sheet, used, workingView])
+  }, [stage, sheet, used, workingView, headerPaper])
+  // The renderer's effect reads the latest of these, so it makes one renderer for the canvas's life.
+  const latest = useRef({ fits, setView })
+  useLayoutEffect(() => {
+    latest.current = { fits, setView }
+  })
 
   // The renderer, and the canvas sized to its box in device pixels.
   useEffect(() => {
@@ -331,13 +410,14 @@ function SheetCanvas({
         plotRef.current.width = width
         plotRef.current.height = height
       }
-      const f = fits()
+      const { fits: fitsNow, setView: setViewNow } = latest.current
+      const f = fitsNow()
       if (!f) return
       if (!view.current || !moved.current) {
-        setView(f.working, false)
+        setViewNow(f.working, false)
       } else {
         // Keep the middle of the view in the middle.
-        setView(panBy(view.current, (width - before.width) / 2, (height - before.height) / 2), true)
+        setViewNow(panBy(view.current, (width - before.width) / 2, (height - before.height) / 2), true)
       }
     }
     const observer = new ResizeObserver(resize)
@@ -356,7 +436,20 @@ function SheetCanvas({
       renderer.current?.dispose()
       renderer.current = null
     }
-  }, [draw, fits, setView])
+  }, [draw])
+
+  // The sheet, once decoded: fitted to the working view (unless the user has moved it already) and drawn.
+  // While a new one decodes the canvas is empty, never the sheet before it.
+  useEffect(() => {
+    if (!sheet) {
+      cancelAnimationFrame(frame.current)
+      renderer.current?.clear()
+      return
+    }
+    const f = latest.current.fits()
+    if (f && (!view.current || !moved.current)) latest.current.setView(f.working, false)
+    else draw()
+  }, [sheet, draw])
 
   const zoomCentre = useCallback(
     (factor: number) => {
@@ -513,6 +606,9 @@ function SheetCanvas({
             className={cn('absolute inset-0 z-[1] h-full w-full', layer === 'plot' && 'invisible', layer === 'compare' && (dark ? 'mix-blend-screen' : 'mix-blend-multiply'))}
           />
           <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
+          {/* The first open's paper and line on the canvas's layer, before the outlines and the legend, so both
+              paint above its ground (on CAD-dark it is opaque). */}
+          {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} dark={dark} /> : null}
           {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
@@ -524,7 +620,7 @@ function SheetCanvas({
               ) : null}
             </div>
           ) : null}
-          {status ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
+          {status && !opening?.firstTime ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
           {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
           <div
             aria-hidden
@@ -534,6 +630,53 @@ function SheetCanvas({
         </div>
       </LtrCanvas>
     </>
+  )
+}
+
+/**
+ * 4.6's first open of a sheet, while it decodes: the paper's outline at its fit, a shimmer inside, and
+ * top-right "Opening S-04 for the first time…".
+ */
+function FirstOpen({ paper, firstTime, label, dark }: { paper: { widthMm: number; heightMm: number }; firstTime: boolean; label: string; dark: boolean }) {
+  const ref = useRef<HTMLDivElement>(null)
+  // The number isolated left to right inside the line (notation), as text of the line itself.
+  const sheetNumber = isolateLtr(label)
+  const [box, setBox] = useState<{ width: number; height: number } | null>(null)
+  useLayoutEffect(() => {
+    const area = ref.current?.parentElement
+    if (!area) return
+    const measure = () => setBox({ width: area.clientWidth, height: area.clientHeight })
+    const observer = new ResizeObserver(measure)
+    observer.observe(area)
+    measure()
+    return () => observer.disconnect()
+  }, [])
+  const fit = box && box.width > 0 && box.height > 0 ? fitPaper(paper, null, { width: box.width, height: box.height, top: LEGEND_PX, bottom: BAR_PX }) : null
+  return (
+    // On CAD-dark the ground is the drawing's own off-paper shade and the paper its #101318, so the first
+    // open does not flash light before the dark sheet comes (the re-gate on #842).
+    <div ref={ref} className="pointer-events-none absolute inset-0 z-[1]" style={dark ? { backgroundColor: CAD_DARK_OFF_PAPER_HEX } : undefined}>
+      {fit ? (
+        <div
+          aria-hidden
+          data-first-open=""
+          className={cn('absolute rounded-[1px] border', dark ? 'border-ink-secondary' : 'skeleton border-border')}
+          // Inside LtrCanvas: inline start is the left, as the drawing's.
+          style={{
+            insetInlineStart: fit.x,
+            insetBlockStart: fit.y - paper.heightMm * fit.scale,
+            inlineSize: paper.widthMm * fit.scale,
+            blockSize: paper.heightMm * fit.scale,
+            ...(dark ? { backgroundColor: CAD_DARK_HEX } : {}),
+          }}
+        />
+      ) : null}
+      {firstTime ? (
+        <div role="status" className="absolute end-3 top-2 rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">
+          <Trans>Opening {sheetNumber} for the first time…</Trans>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

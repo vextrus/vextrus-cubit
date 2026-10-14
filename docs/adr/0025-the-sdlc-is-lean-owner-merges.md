@@ -59,4 +59,6 @@ green while the product failed (docs/postmortem.md; docs/research/sdlc-claude-co
   unticked it himself at 19:28Z: "unticked myself of 'Require branches to be up to date before merging'". The
   ruleset still requires a PR, CI green and the two statuses; main's CI still runs after every merge. The
   lander (`scripts/land.py`, #611) lands a PR as it stands; `land update <PR>` is the only command that brings
-  main into a branch, and a PR GitHub reports conflicting is refused, naming `land update`.
+  main into a branch, and a PR GitHub reports conflicting is refused, naming `land update`. Since 14 Oct 2026
+  (ADR 0041, Amended) a head that does not contain main's tip is refused too, naming `land update`, which
+  merges main into the PR (the only path that moves a head); the ruleset is unchanged.
