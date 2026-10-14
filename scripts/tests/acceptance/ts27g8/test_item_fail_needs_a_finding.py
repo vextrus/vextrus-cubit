@@ -126,6 +126,7 @@ def test_an_item_fail_with_a_finding_naming_it_is_judged_fail() -> None:
     assert judged["result"] == "FAIL"
     assert {"item": ITEM, "status": "FAIL"} in judged["agent_layer"]["items"]
     assert judged["agent_layer"]["findings"] == [finding]
+    assert judged["agent_layer"]["turned_pass"] == []  # S28-W1: a BLOCKS finding turns nothing
 
 
 def test_an_item_pass_with_no_finding_is_judged_pass() -> None:
@@ -169,6 +170,7 @@ def test_the_command_writes_a_fail_verdict_for_an_item_fail_a_finding_names(tmp_
     written = json.loads((folder / "verdict.json").read_text())
     assert written["result"] == "FAIL"
     assert {"item": ITEM, "status": "FAIL"} in written["agent_layer"]["items"]
+    assert written["agent_layer"]["turned_pass"] == []  # S28-W1: a BLOCKS finding turns nothing
 
 
 def test_a_triaged_item_fail_no_finding_names_never_lands_as_a_verdict(

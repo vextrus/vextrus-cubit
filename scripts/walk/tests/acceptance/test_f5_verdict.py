@@ -301,6 +301,7 @@ def test_an_item_not_walked_or_failed_fails_the_walk(status: str) -> None:
 
     assert verdict["result"] == "FAIL"
     assert {"item": "M0-FL7", "status": status} in verdict["agent_layer"]["items"]
+    assert verdict["agent_layer"]["turned_pass"] == []  # S28-W1: only OTHER findings turn a FAIL
 
 
 def test_an_item_failed_with_no_finding_naming_it_is_not_judged() -> None:
