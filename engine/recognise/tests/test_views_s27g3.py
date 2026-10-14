@@ -37,6 +37,42 @@ def test_a_title_draws_the_structure_by_its_words_in_any_order(title: str, draws
 
 
 @pytest.mark.parametrize(
+    ("title", "draws"),
+    [
+        ("LINTEL BEAM AND SUNSHADE PLAN", False),
+        ("LINTEL-BEAM & CHAJJA PLAN", False),
+        ("SLAB AND LINTEL BEAMS PLAN", False),
+        ("LINTEL & BEAM AND SLAB PLAN", False),
+        ("SLAB PLAN WITH BEAMS", True),
+        ("LINTEL BEAM, SLAB AND COLUMN PLAN", True),  # the column is the structure's
+    ],
+)
+def test_a_lintel_beams_beam_is_the_lintels_beside_a_slab(title: str, draws: bool) -> None:
+    """Fix round 1 (#844's review): "beam" in a lintel beam's phrase is a lintel's word, so a lintel
+    beam named with a slab, sunshade or chajja stays the architect's."""
+    assert routing_part._draws_structure(title, READING) is draws
+
+
+@pytest.mark.parametrize(
+    ("sheet_title", "exclusion"),
+    [
+        ("LINTEL BEAM AND SUNSHADE PLAN", None),
+        ("SLAB AND LINTEL-BEAM PLAN", None),
+        ("SLAB PLAN WITH BEAMS", ExclusionReason.DUPLICATE),
+    ],
+)
+def test_a_lintel_beam_and_slab_plan_stays_in_walls_and_rooms(
+    sheet_title: str, exclusion: ExclusionReason | None
+) -> None:
+    _, found = _found([sheet_title], title=sheet_title, stated=None, discipline="architectural")
+
+    plan = _plan(found)
+
+    assert (plan.exclusion.reason if plan.exclusion else None) == exclusion
+    assert plan.steps == (() if exclusion else ("walls", "rooms"))
+
+
+@pytest.mark.parametrize(
     ("sheet_title", "exclusion"),
     [
         ("SLAB PLAN WITH BEAMS", ExclusionReason.DUPLICATE),
