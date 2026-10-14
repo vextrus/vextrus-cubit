@@ -1145,5 +1145,13 @@ def test_draft_refuses_an_item_fail_no_finding_names(
 def test_the_triage_prompt_never_lets_a_fail_item_become_pass() -> None:
     text = " ".join((ROOT / ".claude" / "workflows" / "real-set-walk.js").read_text().split())
     assert "Never turn a FAIL item to PASS" in text
-    assert "list that item NOT_WALKED and put its reason in the reasons you return" in text
+    assert "list that item NOT_WALKED and write its reason into ${FOLDER}/triage-reasons.md" in text
     assert "to PASS or NOT_WALKED" not in text
+
+
+def test_the_triage_result_holds_no_free_text() -> None:
+    text = (ROOT / ".claude" / "workflows" / "real-set-walk.js").read_text()
+    triaged = text[text.index("const TRIAGED = {") : text.index("const JUDGED = {")]
+    assert "type: 'string'" not in triaged  # counts, a boolean and item codes only
+    assert "not_walked: { type: 'array', items: { enum: ITEMS } }" in triaged
+    assert "${CLOSED_WORDS}" in text[text.index("async function gate") :]
