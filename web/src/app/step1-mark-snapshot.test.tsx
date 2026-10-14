@@ -4,12 +4,14 @@
  * when the held reload ends they move in one render. The class: the mark never says Confirmed beside a Coverage
  * line that says "unaccounted", nor beside a Count that is not all settled; and arriving on a confirmed Step 1
  * never shows "Proposals ready" first.
+ * Round 2: nor is the mark drawn while a file is still reading, or downgraded while Coverage is not yet read.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import { waitFor } from '@testing-library/react'
 import { page } from 'vitest/browser'
 import { FakeApi, PEOPLE, mountApp } from '@/app/testing'
 import { FakeStep1 } from '@/acceptance/t22/step1.fixture'
+import { FakeDrawingSet, file, msg } from '@/acceptance/t20b/drawings.fixture'
 
 beforeEach(async () => {
   await page.viewport(1440, 900)
@@ -116,4 +118,48 @@ describe('the ✓, the rail’s mark, the Count and Coverage’s line change in 
     mo.disconnect()
     expect(marks).not.toContain('Proposals ready')
   })
+})
+
+describe('the mark waits for what 6.11 asks beyond the sheets (S27-G4 fix round 2)', () => {
+  it('draws no ✓ and no Confirmed mark while a file is still reading, though every sheet is decided and none unaccounted', async () => {
+    const api = new FakeApi()
+    await settled(api, 0)
+    const set = new FakeDrawingSet(api, 'KR-01')
+    set.files.push(file({ name: 'ZQ-ELE-R0.dwg', state: 'reading', status: msg('drawings.files.reading') }))
+    await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api })
+    await waitFor(() => expect(coverageLine()).toBe('0'))
+    await waitFor(() => expect(clean(document.body.textContent)).toContain('Still reading ZQ-ELE-R0.dwg'))
+    expect(toolbarTick()).toBe(false)
+    expect(railMarks()).not.toContain('Confirmed')
+  })
+
+  for (const coverage of ['held', 'failed'] as const) {
+    it(`never shows "Proposals ready" on a confirmed Step 1 whose Coverage is ${coverage} (proposals and questions cached)`, async () => {
+      const api = new FakeApi()
+      await settled(api, 0)
+      const inner = api.handle
+      let release = () => {}
+      const gate = new Promise<void>((r) => (release = r))
+      api.handle = async (request: Request) => {
+        if (request.method === 'GET' && new URL(request.url).pathname.endsWith('/step1/coverage')) {
+          if (coverage === 'held') await gate
+          else return new Response(JSON.stringify({}), { status: 500, headers: { 'Content-Type': 'application/json' } })
+        }
+        return inner(request)
+      }
+      const marks: (string | null)[] = []
+      const mo = new MutationObserver(() => marks.push(...railMarks()))
+      mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true })
+      // As Jump to leaves the cache: proposals and questions there (24 sheets, 22 confirmed, 2 excluded), Coverage not.
+      await mountApp('/p/KR-01/takeoff/2', { as: PEOPLE.qs, api, step1: { 'KR-01': { found: 24, confirmed: 22, excluded: 2, questionsOpen: 0 } } })
+      await new Promise((r) => setTimeout(r, 400))
+      expect(marks).not.toContain('Proposals ready')
+      if (coverage === 'held') {
+        release()
+        await waitFor(() => expect(railMarks()).toEqual(['Confirmed']))
+        expect(marks).not.toContain('Proposals ready')
+      }
+      mo.disconnect()
+    })
+  }
 })

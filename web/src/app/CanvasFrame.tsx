@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { AppLink, PATHS } from './AppLink'
 import { usePerfFlag } from './perf'
+import { filesQuery, isMoving } from '@/drawing-set/data'
 import { coverageQuery, useSettled } from '@/takeoff/data'
 import type { Step1Counts } from '@/takeoff/model'
 import type { ProjectSummary, Session } from './session'
@@ -29,19 +30,35 @@ import { SlotOutlet } from './slots'
 import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 
 /**
- * Coverage's unaccounted views for the frame, from the same snapshot as the Count (`useSettled`, S26-D7): it moves
- * when Step 1's reload has ended, in the render the Count, the rows and the status bar's Coverage move in; null until
- * read. Step 1 is confirmed only with none unaccounted (m0-screens 6.11).
+ * What 6.11 asks of Step 1 beyond its sheets: Coverage's unaccounted views, from the same snapshot as the Count
+ * (`useSettled`, S26-D7), and the files still reading, as the Step 1 bar counts them (waiting, reading or retrying;
+ * a stopping file adds no sheets). Each is null until read.
  */
-function useUnaccounted(projectId: string): number | null {
-  const coverage = useQuery(coverageQuery(projectId)).data
-  return useSettled(projectId, coverage ? { unaccounted: coverage.unaccounted } : null)?.unaccounted ?? null
+interface Step1Gates {
+  unaccounted: number | null
+  reading: number | null
 }
 
-/** Step 1's state mark (screens.md): a Question wins, then all confirmed (6.11: and no view unaccounted), then Proposals ready; none before. */
-function step1Mark(s: Step1Counts, unaccounted: number | null): 'question' | 'confirmed' | 'proposal' | null {
+function useStep1Gates(projectId: string): Step1Gates {
+  const coverage = useQuery(coverageQuery(projectId)).data
+  const unaccounted = useSettled(projectId, coverage ? { unaccounted: coverage.unaccounted } : null)?.unaccounted ?? null
+  const files = useQuery({ ...filesQuery(projectId), refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? 2000 : false) })
+  // A files answer that cannot be had says nothing is reading: the mark must not hang on a list it cannot get.
+  const reading = files.data ? files.data.files.filter((f) => isMoving(f) && f.state !== 'stopping').length : files.isError ? 0 : null
+  return { unaccounted, reading }
+}
+
+/**
+ * Step 1's state mark (screens.md): a Question wins; then, with every sheet decided, confirmed (6.11: and no view
+ * unaccounted and no file reading), else Proposals ready, and no mark while Coverage or the files are unread, never a
+ * downgrade on what has not been read; then Proposals ready; none before.
+ */
+function step1Mark(s: Step1Counts, gates: Step1Gates): 'question' | 'confirmed' | 'proposal' | null {
   if (s.questionsOpen > 0) return 'question'
-  if (s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found && unaccounted === 0) return 'confirmed'
+  if (s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found) {
+    if (gates.unaccounted === null || gates.reading === null) return null
+    return gates.unaccounted === 0 && gates.reading === 0 ? 'confirmed' : 'proposal'
+  }
   if (s.found !== null && s.found > 0) return 'proposal'
   return null
 }
@@ -59,7 +76,7 @@ function StepRail({ project, step1, current }: { project: ProjectSummary; step1:
   const f = useFormat()
   const language = useLanguage()
   const [open, setOpen] = useState(false)
-  const unaccounted = useUnaccounted(project.id)
+  const gates = useStep1Gates(project.id)
   useCloseOnEsc(open, () => setOpen(false))
   const side = language.dir === 'rtl' ? 'left' : 'right'
   return (
@@ -92,7 +109,7 @@ function StepRail({ project, step1, current }: { project: ProjectSummary; step1:
                 <Glyph size={20} aria-hidden />
                 {step.number === 1 ? (
                   <span className="absolute -end-1.5 -bottom-1 rounded-xs bg-chrome">
-                    <StepMark mark={step1Mark(step1, unaccounted)} />
+                    <StepMark mark={step1Mark(step1, gates)} />
                   </span>
                 ) : null}
               </span>
@@ -147,7 +164,7 @@ function Toolbar({ session, project, step1, step }: { session: Session; project:
   const number = step.number
   const s = step1
   const excluded = s.excluded
-  const confirmed = step1Mark(s, useUnaccounted(project.id)) === 'confirmed'
+  const confirmed = step1Mark(s, useStep1Gates(project.id)) === 'confirmed'
   return (
     <div data-region="toolbar" role="toolbar" aria-label={t`The step's tools`} className="focus-inset flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
       <span className="text-sm whitespace-nowrap text-ink-secondary">
