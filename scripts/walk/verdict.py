@@ -5,7 +5,10 @@ walk-verdict.schema.json, whose PASS rule this applies and nothing else).
 The scripted walk (`web/e2e/real/walk.spec.ts`) only records raw numbers into `walk.json`; every limit
 lives in `.private/work/walk-expect/<set>.json` (never in git, never from a walk's own recording). A
 check with no expectation is UNSET, and UNSET fails PASS. An absent agent layer fails PASS. A walk
-whose leak scan hit is not judged at all.
+whose leak scan hit is not judged at all. An item fails only on a BLOCKS finding or a misleading one
+with reproduction steps on that head (`<D>/<sha40>/repro/<finding id>.md`, non-empty); every other
+finding is OTHER, and an item a critic failed on OTHER findings only is PASS, its finding ids listed in
+`agent_layer.turned_pass` (the owner's ruling Q24, 14 Oct 2026).
 
     python -m scripts.walk.verdict <sha40> --leak-hits N [--ref main] [--walks-dir D] [--expect-dir D]
         [--smoke]
@@ -42,6 +45,7 @@ from scripts.walk.measures import MEASURES, attach
 from scripts.walk.sanitize import (
     ALLOWED_KEYS,
     CHECK_IDS,
+    ID,
     ITEMS,
     SLUG,
     is_number,
@@ -623,6 +627,11 @@ def _finding(raw: object) -> dict[str, Any]:
     return {**clean, "issue": issue, "dedup_comment_on": comment}
 
 
+def _other(finding: Mapping[str, Any]) -> bool:
+    """An OTHER finding: filed as a walk issue, listed for the owner, never failing its item."""
+    return finding["severity"] != "BLOCKS" and finding["misleading"] is not True
+
+
 def _agent_layer(layer: object) -> dict[str, Any]:
     if layer is None:
         return {
@@ -632,6 +641,7 @@ def _agent_layer(layer: object) -> dict[str, Any]:
             "misleading": 0,
             "issues_drafted": 0,
             "dedup_comments": 0,
+            "turned_pass": [],
         }
     if not isinstance(layer, Mapping) or set(layer) != {"items", "findings"}:
         raise Malformed("the agent layer is not {items, findings}")
@@ -658,6 +668,15 @@ def _agent_layer(layer: object) -> dict[str, Any]:
     for item in ITEMS:
         if status.get(item) == "FAIL" and item not in named:
             raise Malformed(f"item {item} is FAIL and no finding names it")
+    # The owner's ruling Q24 (14 Oct 2026): a critic's FAIL stands only on a BLOCKS finding or a
+    # misleading one (reproduced: `_judge` unsets an unreproduced one first). An item every finding
+    # naming it is OTHER is PASS, and those finding ids are recorded.
+    turned: list[str] = []
+    for item in ITEMS:
+        under = [f for f in findings if f["item"] == item]
+        if status.get(item) == "FAIL" and all(_other(f) for f in under):
+            status[item] = "PASS"
+            turned += [f["id"] for f in under]
     drafted = sum(1 for f in findings if f["issue"] is not None and f["dedup_comment_on"] is None)
     comments = sum(1 for f in findings if f["dedup_comment_on"] is not None and f["issue"] is None)
     if drafted + comments != len(findings):
@@ -670,6 +689,7 @@ def _agent_layer(layer: object) -> dict[str, Any]:
         "misleading": sum(1 for f in findings if f["misleading"] is True),
         "issues_drafted": drafted,
         "dedup_comments": comments,
+        "turned_pass": turned,
     }
 
 
@@ -874,6 +894,34 @@ def read_expectations(walk: Mapping[str, Any], expect_dir: Path) -> dict[str, An
     return expect
 
 
+REPRO_DIR = "repro"
+"""A misleading finding's reproduction steps: `<D>/<sha40>/repro/<finding id>.md`, private (never in an
+issue draft, the summary or the verdict; only whether a non-empty one exists is read)."""
+
+
+def _has_repro(folder: Path, finding_id: object) -> bool:
+    if not isinstance(finding_id, str) or not ID.fullmatch(finding_id):
+        return False
+    path = folder / REPRO_DIR / f"{finding_id}.md"
+    return not path.is_symlink() and path.is_file() and bool(path.read_bytes().strip())
+
+
+def reproduced(findings: Mapping[str, Any], folder: Path) -> dict[str, Any]:
+    """The agent layer with each misleading finding that has no non-empty reproduction file on this
+    head made not misleading: OTHER (the owner's ruling Q24, 14 Oct 2026). Anything malformed is left
+    for `evaluate` to refuse."""
+    raw = findings.get("findings")
+    if not isinstance(raw, list):
+        return dict(findings)
+    kept = [
+        {**f, "misleading": False}
+        if isinstance(f, Mapping) and f.get("misleading") is True and not _has_repro(folder, f.get("id"))
+        else f
+        for f in raw
+    ]
+    return {**findings, "findings": kept}
+
+
 def _judge(args: argparse.Namespace, folder: Path) -> int:
     """Judges the walk in `folder` and writes its verdict; the caller holds the walk's lock."""
     try:
@@ -886,6 +934,8 @@ def _judge(args: argparse.Namespace, folder: Path) -> int:
         findings = _read_json(findings_path) if findings_path.exists() else None
         if findings is not None and not isinstance(findings, Mapping):
             raise Malformed("findings.json is not an object")
+        if findings is not None:
+            findings = reproduced(findings, folder)
         expect = read_expectations(walk, args.expect_dir)
         # The burden, from snapshot.json by each set's expectation (a set it cannot measure fails
         # its snapshot checks closed), inside the lock like the rest of the judgement.
