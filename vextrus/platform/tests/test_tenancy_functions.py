@@ -280,9 +280,12 @@ def test_access_revoked_after_its_end_date_passed_expired_and_no_revoker_is_name
 ) -> None:
     developer, kamal = shapla
     until = timezone.now() - timedelta(days=1)
-    guest, membership = add_member(developer, role="guest", expires_at=until)
-
+    guest, membership = add_member(
+        developer, role="guest", expires_at=timezone.now() + timedelta(days=1)
+    )
     revoke_as(kamal, developer, membership)
+    # Its end date then moved before the revocation (`revoke` refuses an access already Ended).
+    set_membership(developer, membership, expires_at=until)
 
     [ended] = ended_for(guest)
     assert (ended.how, ended.ended_at, ended.revoked_by) == ("expired", until, None)
