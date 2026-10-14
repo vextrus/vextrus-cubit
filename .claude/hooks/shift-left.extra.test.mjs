@@ -177,3 +177,73 @@ test("garbage stdin, another tool, or a call naming neither git nor gh: allowed 
   }
   allowed(hook(w, "ls -la"));
 });
+
+// The refuter's round (S29-F2b): each spelling below committed a staged leak with no denial and no stderr note.
+/** A world with a leak staged in docs/leak.md, line 1. */
+function leaky() {
+  const w = world();
+  write(w.repo, { "docs/leak.md": `${ZEBRA}\n` });
+  git(w.repo, "add", "docs/leak.md");
+  return w;
+}
+
+test("a wrapper before git (nice, timeout, xargs) does not hide the commit", () => {
+  for (const command of ['nice git commit -m "docs: n"', 'timeout 30 git commit -m "docs: n"', 'nice -n 5 /usr/bin/git commit -m "docs: n"']) {
+    assert.match(reason(hook(leaky(), command)), /leak scan/, command);
+  }
+});
+
+test("a git alias that commits or runs a shell is refused by name", () => {
+  for (const command of ['git -c alias.zz=commit zz -m "docs: n"', "git -c 'alias.yy=!git commit' yy -m x"]) {
+    assert.match(reason(hook(leaky(), command)), /alias/, command);
+  }
+});
+
+test("a cd that cannot apply (a missing folder, a subshell, the background, a pipeline) leaves the folder as it was", () => {
+  for (const make of [(w) => `cd ${w.root}/missing; git commit -m x`, (w) => `(cd ${w.root}); git commit -m x`, (w) => `cd ${w.root} & git commit -m x`, (w) => `cd ${w.root} | cat; git commit -m x`]) {
+    const w = leaky();
+    assert.match(reason(hook(w, make(w))), /leak scan|alone in its call/, make(w));
+  }
+});
+
+test("GIT_DIR, GIT_INDEX_FILE or --git-dir set in the call refuses the commit", () => {
+  for (const make of [(w) => `GIT_DIR=${w.repo}/.git git commit -m x`, (w) => `env GIT_INDEX_FILE=/tmp/x git commit -m x`, (w) => `export GIT_DIR=${w.repo}/.git; git commit -m x`, (w) => `git --git-dir=${w.repo}/.git commit -m x`]) {
+    const w = leaky();
+    assert.match(reason(hook(w, make(w), { cwd: w.root })), /GIT_DIR/, make(w));
+  }
+});
+
+test("a message read from standard input or built at run time is named as not scanned", () => {
+  const w = world();
+  write(w.repo, { "docs/b.md": "clean\n" });
+  git(w.repo, "add", "docs/b.md");
+  for (const command of ['echo "docs: n" | git commit -F -', 'git commit -F - <<< "docs: n"', 'git commit -m "$(date)"']) {
+    const done = hook(w, command);
+    allowed(done);
+    assert.match(done.stderr, /commit message was not scanned/, command);
+  }
+});
+
+test("--fixup with -m still scans the -m text", () => {
+  const w = world();
+  assert.ok(reason(hook(w, `git commit --fixup HEAD -m "for ${ZEBRA}"`)).includes("message:1"));
+});
+
+test("brace expansion in git add, or --pathspec-from-file, is never replayed as written: refused", () => {
+  const w = world();
+  write(w.repo, { "docs/leak.md": `${ZEBRA}\n`, "docs/b.md": "clean\n", "list.txt": "docs/leak.md\n" });
+  assert.match(reason(hook(w, "git add docs/{leak,b}.md && git commit -m x")), /alone in its call/);
+  assert.match(reason(hook(w, "git commit --pathspec-from-file=list.txt -m x")), /pathspecs/);
+});
+
+test("a comment line holding an apostrophe does not hide what follows it", () => {
+  const w = world();
+  write(w.repo, { "docs/leak.md": `${ZEBRA}\n` });
+  assert.match(reason(hook(w, "# don't forget\ngit add docs/leak.md && git commit -m x")), /leak scan/);
+});
+
+test("gh pr create naming a body file that does not exist yet is denied by the Cut check", () => {
+  const w = world();
+  assert.match(reason(hook(w, "gh pr create --title x --body-file later.md")), /Cut check cannot read later\.md/);
+  assert.match(reason(hook(w, 'echo "## Cut" > b.md && gh pr create --title x --body-file b.md')), /alone in its call/);
+});

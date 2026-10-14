@@ -82,3 +82,20 @@ for (const [message, quoted] of [
     assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
   });
 }
+
+// S29-F2b (#865), review_self and the adversary lens: a negation frees a phrase only before it in its own clause, and
+// a clause also starts after "and", "but", "yet", "so" or a dash; an inch mark opens no quote.
+for (const [message, quoted] of [
+  ["The PR is ready for your walk and doesn't touch the engine.", "ready for your walk"],
+  ["Please walk the build and don't skip page 3.", "Please walk"],
+  ["The gate isn't failing and main is ready for your walk.", "ready for your walk"],
+  ["Don't worry — ready for your walk.", "ready for your walk"],
+  ["Can't find a failure - walk now", "walk now"],
+  ['The 6" wall prices now, ready for your walk, see "Takeoff".', "ready for your walk"],
+]) {
+  test(`a claim beside an unrelated negation or an inch mark still blocks: ${JSON.stringify(message)}`, () => {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+    assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
+  });
+}
