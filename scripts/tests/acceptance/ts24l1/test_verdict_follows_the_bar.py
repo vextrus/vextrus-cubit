@@ -148,6 +148,15 @@ def test_a_standing_60_on_a_strict_path_decides_fix(
     assert listed(tmp_path, capsys, *rows) == []
 
 
+@pytest.mark.parametrize("said", ["PASS", "FIX"])
+def test_an_unproven_60_on_a_strict_path_decides_pass(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], said: str
+) -> None:
+    """S28-R1 (the owner's ruling, 14 Oct 2026): an UNPROVEN finding no longer blocks."""
+    got = decided(tmp_path, capsys, lens(said), f"FINDING f1 60 UNPROVEN {STRICT}")
+    assert got == "PASS", f"scripts.ledger: an UNPROVEN 60 decided {got}"
+
+
 @pytest.mark.parametrize("word", ["CONFIRMED"])  # S28-R1: UNPROVEN no longer stands (ts28r1)
 def test_a_lens_pass_with_a_standing_75_on_a_lax_path_decides_fix(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], word: str

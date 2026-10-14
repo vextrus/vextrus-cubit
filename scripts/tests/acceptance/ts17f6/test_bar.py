@@ -113,6 +113,22 @@ def test_a_standing_50_on_a_path_off_the_lax_list_raises_pass_to_fix(
     assert verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 50 {word} {path}")) == "FIX"
 
 
+@pytest.mark.parametrize(
+    ("score", "path"),
+    [
+        (50, "vextrus/rates/table.py"),
+        (75, "web/src/ui/Button.tsx"),
+        (90, "engine/read/libredwg/reader.py"),
+    ],
+)
+def test_an_unproven_finding_no_longer_raises_pass_to_fix(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], score: int, path: str
+) -> None:
+    """S28-R1 (the owner's ruling, 14 Oct 2026): an UNPROVEN finding no longer blocks."""
+    got = verdict_of(*decide(tmp_path, capsys, PASS, f"FINDING f1 {score} UNPROVEN {path}"))
+    assert got == "PASS", f"scripts.ledger: an UNPROVEN {score} decided {got}"
+
+
 @pytest.mark.parametrize("path", CRAFTED)
 def test_a_crafted_form_of_a_lax_looking_path_is_judged_strict(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], path: str
