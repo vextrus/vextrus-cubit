@@ -14,7 +14,7 @@ from vextrus.platform.messages import invitations as codes
 from vextrus.platform.models import DomainEvent, Membership, MembershipProject, User
 from vextrus.platform.services import auth, invitations, tenancy
 from vextrus.testing.auth import Api, accept_as, api_as, invitation
-from vextrus.testing.tenancy import Member, add_member
+from vextrus.testing.tenancy import STAFF_EMAIL, Member, add_member
 
 PASSWORD = "a long enough passphrase 7"
 
@@ -39,7 +39,9 @@ def membership(member: Member, membership_id: uuid.UUID) -> Membership:
 
 @pytest.mark.parametrize("role", ["qs", "md", "guest", "vextrus_engineer"])
 def test_the_md_invites_every_role(team: dict[str, Member], role: str) -> None:
-    response = invite(api_as(team["md"]), f"new-{role}@example.com", role)
+    email = STAFF_EMAIL if role == "vextrus_engineer" else f"new-{role}@example.com"
+
+    response = invite(api_as(team["md"]), email, role)
 
     assert response.status_code == 201  # type: ignore[attr-defined]
     made = membership(team["md"], uuid.UUID(response.json()["membership_id"]))  # type: ignore[attr-defined]
@@ -51,7 +53,7 @@ def test_a_qs_invites_only_a_vextrus_engineer(team: dict[str, Member], role: str
     qs = api_as(team["qs"])
 
     assert refusal(invite(qs, "x@example.com", role)) == (403, codes.ROLE_NOT_YOURS.code)
-    assert invite(qs, "arif@example.com", "vextrus_engineer").status_code == 201  # type: ignore[attr-defined]
+    assert invite(qs, STAFF_EMAIL, "vextrus_engineer").status_code == 201  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize("inviter", ["vextrus_engineer", "guest"])
@@ -68,19 +70,19 @@ def test_a_qs_given_chosen_projects_invites_only_to_those(
     qs = sign_in(role="qs", projects=[mine, also_mine])
     api = api_as(qs)
 
-    assert refusal(invite(api, "a@example.com", "vextrus_engineer")) == (
+    assert refusal(invite(api, STAFF_EMAIL, "vextrus_engineer")) == (
         403,
         codes.PROJECTS_NOT_YOURS.code,
     )
-    assert refusal(invite(api, "a@example.com", "vextrus_engineer", project_ids=[str(other)])) == (
+    assert refusal(invite(api, STAFF_EMAIL, "vextrus_engineer", project_ids=[str(other)])) == (
         404,
         "platform.auth.not_found",
     )
-    assert refusal(invite(api, "a@example.com", "vextrus_engineer", project_ids=[])) == (
+    assert refusal(invite(api, STAFF_EMAIL, "vextrus_engineer", project_ids=[])) == (
         400,
         codes.CHOOSE_A_PROJECT.code,
     )
-    made = invite(api, "a@example.com", "vextrus_engineer", project_ids=[str(mine)])
+    made = invite(api, STAFF_EMAIL, "vextrus_engineer", project_ids=[str(mine)])
     assert made.status_code == 201  # type: ignore[attr-defined]
     with qs.acting():
         assert list(
@@ -94,7 +96,7 @@ def test_an_engineer_s_access_ends_30_days_ahead_by_default_a_guest_s_only_if_ch
     team: dict[str, Member],
 ) -> None:
     md = api_as(team["md"])
-    engineer = invite(md, "e@example.com", "vextrus_engineer").json()  # type: ignore[attr-defined]
+    engineer = invite(md, STAFF_EMAIL, "vextrus_engineer").json()  # type: ignore[attr-defined]
     guest = invite(md, "g@example.com", "guest").json()  # type: ignore[attr-defined]
     until = timezone.now() + timedelta(days=5)
     dated = invite(md, "d@example.com", "guest", expires_at=until.isoformat()).json()  # type: ignore[attr-defined]
@@ -405,15 +407,17 @@ def test_access_without_an_end_date_is_not_renewed(team: dict[str, Member]) -> N
     assert refusal(response) == (409, codes.NO_END_DATE.code)
 
 
-def test_a_qs_ends_only_an_engineer_they_invited(team: dict[str, Member], other_staff: User) -> None:
+def test_a_qs_ends_only_an_engineer_they_invited(
+    team: dict[str, Member], staff: User, other_staff: User
+) -> None:
     qs = api_as(team["qs"])
-    mine, _ = invitation(team["qs"], "mine@example.com")
-    theirs, _ = invitation(team["md"], "theirs@example.com")
+    mine, _ = invitation(team["qs"], staff.email)
     _, token = invitation(team["qs"], other_staff.email)
     accept_as(token, other_staff)
     joined = membership(team["md"], _id_of(team["md"], other_staff.email))
 
     assert qs.post(f"/api/members/invitations/{mine}/withdraw").status_code == 204
+    theirs, _ = invitation(team["md"], staff.email)  # withdrawn, the email may be invited again
     assert refusal(qs.post(f"/api/members/invitations/{theirs}/withdraw")) == (
         403,
         codes.NOT_YOURS_TO_CHANGE.code,
@@ -524,15 +528,35 @@ def test_a_vextrus_engineer_s_invitation_is_accepted_with_a_staff_account(
     assert membership(team["md"], membership_id).user_id == staff.pk
 
 
+def _engineer_invitation_unchecked(member: Member, email: str) -> tuple[uuid.UUID, str]:
+    """A Vextrus Engineer's invitation for `email` written without `invite`'s check: as one made
+    while its account was staff, which is no longer (the owner can unmark staff at any time)."""
+    token, token_hash = tenancy.new_invitation_token(member.developer_id)
+    now = timezone.now()
+    with member.acting():
+        made = Membership.objects.create(
+            tenant_id=member.developer_id,
+            role="vextrus_engineer",
+            invited_by_id=member.user.pk,
+            invited_email=email,
+            expires_at=now + timedelta(days=30),
+            invite_token_hash=token_hash,
+            invite_expires_at=now + timedelta(days=7),
+        )
+    return made.id, token
+
+
 def test_anyone_else_is_refused_a_vextrus_engineer_s_invitation_which_stays_unused(
     team: dict[str, Member],
 ) -> None:
-    membership_id, token = invitation(team["md"], "outsider@example.com")
+    """The second wall: `invite` refuses an email with no staff account (ts27g6), and accepting
+    refuses one all the same, for an account no longer staff when the link is used."""
+    membership_id, token = _engineer_invitation_unchecked(team["md"], "outsider@example.com")
     User.objects.create_user("outsider@example.com", "Outsider", PASSWORD)
 
     signed_in = signed_in_as(User.objects.get(email="outsider@example.com"))
     refused = signed_in.post("/api/invitations/accept", {"token": token})
-    other_id, other_token = invitation(team["md"], "newcomer@example.com")
+    other_id, other_token = _engineer_invitation_unchecked(team["md"], "newcomer@example.com")
     joined = accept_new(other_token, name="Newcomer")[1]
 
     assert refusal(refused) == (403, codes.ENGINEER_NOT_STAFF.code)

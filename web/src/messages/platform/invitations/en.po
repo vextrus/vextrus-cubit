@@ -48,6 +48,9 @@ msgstr "This access has no end date to renew."
 msgid "platform.invitations.no_longer_open"
 msgstr "This invitation is no longer open: it was used, withdrawn or has run out. Invite them again if they still need access."
 
+msgid "platform.invitations.no_vextrus_account"
+msgstr "No Vextrus account has this email. A Vextrus Engineer is invited by the email of their Vextrus account."
+
 msgid "platform.invitations.not_yours_to_change"
 msgstr "You can change only the access of a Vextrus Engineer you invited. Ask an MD to change this."
 

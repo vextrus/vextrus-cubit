@@ -13,9 +13,10 @@ only those, or fewer; one outside them is "not found", like any Project outside 
 `tenancy.invitation_by_token`. Its token carries its tenant and is shown once; only its hash is kept,
 and accepting clears even that. A lost link is replaced (`reissue_link`), which stops the old one.
 
-**A Vextrus Engineer** is one of Vextrus's staff: their invitation is accepted only with an account
-the owner marked `is_vextrus_staff` (`manage.py set_staff`); anyone else is refused and the
-invitation stays unused (the owner's ruling, 28 Sep 2026).
+**A Vextrus Engineer** is one of Vextrus's staff: their invitation is made only for the email of an
+active account the owner marked `is_vextrus_staff` (`manage.py set_staff`), and accepted only with
+such an account; anyone else is refused and the invitation stays unused (the owner's ruling, 28 Sep
+2026). The second check stands: staff can be unmarked between the invitation and its acceptance.
 
 **End dates:** a Vextrus Engineer's access always ends (30 days by default, renewable); anyone
 else's where the Developer wants it. The tenant middleware checks every request, so the next request
@@ -93,6 +94,8 @@ def invite(
     if role not in _INVITES.get(inviter.role, frozenset()):
         raise Refused(codes.ROLE_NOT_YOURS(role=role))
     email = _clean_email(email)
+    if role == Role.VEXTRUS_ENGINEER and not _staff_accounts().filter(email__iexact=email).exists():
+        raise Refused(codes.NO_VEXTRUS_ACCOUNT(), status=409)
     now = timezone.now()
     if role == Role.VEXTRUS_ENGINEER and expires_at is None:
         expires_at = now + timedelta(days=RENEW_DAYS)
@@ -141,10 +144,13 @@ def withdraw(membership_id: uuid.UUID) -> None:
 
 
 def revoke(membership_id: uuid.UUID) -> None:
-    """End someone's access now: their next request is refused; what they did stays theirs."""
+    """End someone's access now: their next request is refused; what they did stays theirs. Access
+    that has Ended already (its end date passed) is refused as ended: only Renew is left on it."""
     actor = auth.acting_membership(auth.MANAGE_ACCESS)
     membership = _member(actor, membership_id)
-    _still(_MEMBER, membership.id, revoked_at=Now())
+    if _expired(membership, timezone.now()):
+        raise Refused(codes.ALREADY_ENDED(), status=409)
+    _still(_CURRENT, membership.id, revoked_at=Now())
     _record(codes.REVOKED, membership.id, actor)
 
 
@@ -331,7 +337,8 @@ class Person:
     invited_by: str | None
     invited_by_id: uuid.UUID | None
     acts: int
-    """How many acts the Developer's event log holds under their name (those the viewer may see)."""
+    """How many acts the Developer's event log holds under their name done under this access, from
+    `since` until it ended (those the viewer may see); accepting the invitation is not one."""
     last_act_at: datetime | None
     actions: tuple[Action, ...]
     """What the viewer may do to it now: `revoke`, `renew`."""
@@ -379,7 +386,12 @@ def members() -> Members:
     revoked_by = _revokers(tenant_id, [row.id for row in rows if row.revoked_at is not None])
     user_ids = {row.user_id for row in rows} | {row.invited_by_id for row in rows}
     users = {user.pk: user for user in User.objects.filter(id__in=[i for i in user_ids if i])}
-    acts = _acts_by_actor(viewer)
+    periods = {
+        row.id: (row.user_id, row.accepted_at or row.starts_at, _ended_at(row, now))
+        for row in rows
+        if row.user_id is not None
+    }
+    acts = _acts_by_period(viewer, periods)
 
     people: list[Person] = []
     vextrus: list[Person] = []
@@ -412,7 +424,7 @@ def members() -> Members:
             continue
         user = users[row.user_id]
         ended_at, how = auth.ending(row.revoked_at, row.expires_at, now) or (None, None)
-        count, last = acts.get(user.pk, (0, None))
+        count, last = acts.get(row.id, (0, None))
         person = Person(
             membership_id=row.id,
             user_id=user.pk,
@@ -480,9 +492,15 @@ def visible_events(viewer: CurrentMembership) -> QuerySet[DomainEvent]:
 # Helpers ------------------------------------------------------------------------------------------
 
 
+def _staff_accounts() -> QuerySet[User]:
+    """The accounts of Vextrus's staff now, read from their rows (the owner sets them): who may be
+    invited, and accepted, as a Vextrus Engineer."""
+    return User.objects.filter(is_vextrus_staff=True, is_active=True)
+
+
 def _is_staff(user: User) -> bool:
-    """Whether the account is one of Vextrus's staff now, read from its row (the owner sets it)."""
-    return User.objects.filter(pk=user.pk, is_vextrus_staff=True, is_active=True).exists()
+    """Whether the account is one of Vextrus's staff now."""
+    return _staff_accounts().filter(pk=user.pk).exists()
 
 
 def _clean_email(email: str) -> str:
@@ -603,7 +621,19 @@ def _actions(viewer: CurrentMembership, membership: Membership, now: datetime) -
         return ("copy_link", "withdraw") if _open(membership, now) else ()
     if membership.revoked_at is not None:
         return ()
+    if _expired(membership, now):
+        return ("renew",)  # Ended: nothing is left to revoke (`revoke` refuses it)
     return ("revoke", "renew") if membership.expires_at is not None else ("revoke",)
+
+
+def _expired(membership: Membership, now: datetime) -> bool:
+    """Ended by its end date passing, unrevoked: Renew is the one act left on it."""
+    return membership.expires_at is not None and membership.expires_at <= now
+
+
+def _ended_at(membership: Membership, now: datetime) -> datetime | None:
+    ended = auth.ending(membership.revoked_at, membership.expires_at, now)
+    return ended[0] if ended else None
 
 
 def _member(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
@@ -617,13 +647,14 @@ def _member(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
 
 _PENDING = Q(user__isnull=True, revoked_at__isnull=True)
 _MEMBER = Q(user__isnull=False, revoked_at__isnull=True)
+_CURRENT = _MEMBER & (Q(expires_at__isnull=True) | Q(expires_at__gt=Now()))
 
 
 def _still(state: Q, membership_id: uuid.UUID, **changes: object) -> None:
     """Change a Membership only while it is still in the state just checked: an accept or a
     revocation committed in between refuses the act, rather than recording it on the wrong state."""
     if Membership.objects.filter(state, id=membership_id).update(**changes) != 1:
-        raise Refused(codes.ALREADY_ENDED() if state is _MEMBER else codes.NO_LONGER_OPEN(), status=409)
+        raise Refused(codes.NO_LONGER_OPEN() if state is _PENDING else codes.ALREADY_ENDED(), status=409)
 
 
 def _record(kind: MessageCode, membership_id: uuid.UUID, actor: CurrentMembership) -> None:
@@ -720,15 +751,28 @@ def _revokers(tenant_id: uuid.UUID, membership_ids: list[uuid.UUID]) -> dict[uui
     return {subject: names[actor] for subject, actor in by_membership.items() if actor in names}
 
 
-def _acts_by_actor(viewer: CurrentMembership) -> dict[uuid.UUID, tuple[int, datetime | None]]:
-    """Each actor's count of acts and their latest, among the acts the viewer may see."""
-    if not auth.allows(viewer.role, auth.SEE_ACTS):
+def _acts_by_period(
+    viewer: CurrentMembership,
+    periods: dict[uuid.UUID, tuple[uuid.UUID, datetime, datetime | None]],
+) -> dict[uuid.UUID, tuple[int, datetime | None]]:
+    """Each Membership's count of acts and their latest, among the acts the viewer may see: those its
+    user did from its start until it ended (`periods`: membership -> (user, start, end or None)).
+    Accepting the invitation is not an act."""
+    if not periods or not auth.allows(viewer.role, auth.SEE_ACTS):
         return {}
-    visible = visible_events(viewer).filter(actor_user_id__isnull=False)
-    return {
-        row["actor_user_id"]: (row["count"], row["last"])
-        for row in visible.order_by()
-        .values("actor_user_id")
-        .annotate(count=Count("id"), last=Max("occurred_at"))
-        if row["actor_user_id"] is not None
-    }
+    visible = (
+        visible_events(viewer)
+        .filter(actor_user_id__in={user for user, _, _ in periods.values()})
+        .exclude(kind=codes.ACCEPTED.code)
+    )
+    keys = list(periods)
+    within: dict[str, Count | Max] = {}
+    for i, membership_id in enumerate(keys):
+        user_id, start, end = periods[membership_id]
+        during = Q(actor_user_id=user_id, occurred_at__gte=start)
+        if end is not None:
+            during &= Q(occurred_at__lt=end)
+        within[f"n{i}"] = Count("id", filter=during)
+        within[f"l{i}"] = Max("occurred_at", filter=during)
+    found = visible.order_by().aggregate(**within)
+    return {key: (found[f"n{i}"], found[f"l{i}"]) for i, key in enumerate(keys)}

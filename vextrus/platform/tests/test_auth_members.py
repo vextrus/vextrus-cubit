@@ -16,7 +16,7 @@ from vextrus.platform.messages import tenancy as tenancy_codes
 from vextrus.platform.models import DomainEvent, Membership, User
 from vextrus.platform.services import events, invitations
 from vextrus.testing.auth import Api, accept_as, api_as, invitation, served_operations
-from vextrus.testing.tenancy import Member, add_member
+from vextrus.testing.tenancy import STAFF_EMAIL, Member, add_member
 
 PASSWORD = "a long enough passphrase 7"
 
@@ -137,7 +137,7 @@ def test_one_person_s_acts_newest_first_and_paged(team: dict[str, Member]) -> No
     md = team["md"]
     for n in range(3):
         invitation(md, f"p{n}@example.com", "qs")
-    invitation(team["qs"], "e@example.com")
+    invitation(team["qs"], STAFF_EMAIL)
     api = api_as(md)
 
     mine = api.get("/api/activity", actor=str(md.user.pk)).json()
@@ -282,8 +282,8 @@ def matrix(
     other_staff: User,
 ) -> dict[str, Any]:
     """One Developer: an MD, a QS, a QS given P1 only, an Engineer as a member viewing, Engineers
-    each QS invited, Guests with and without an end date, a revoked QS, and unused invitations the
-    MD and each QS made."""
+    each QS invited (one whose access has Ended), Guests with and without an end date, a revoked
+    QS, and unused invitations the MD and each QS made (each QS's for a staff account's email)."""
     developer = make_developer()
     p1, p2 = uuid.uuid4(), uuid.uuid4()
     viewers = {
@@ -294,10 +294,17 @@ def matrix(
         "guest": sign_in(role="guest", developer_id=developer),
     }
     rows: dict[str, uuid.UUID] = {name: viewer.membership_id for name, viewer in viewers.items()}
-    by_qs, token = invitation(viewers["qs"], staff.email)
-    accept_as(token, staff)
-    by_scoped, token = invitation(viewers["scoped qs"], other_staff.email, project_ids=[p1])
-    accept_as(token, other_staff)
+    # The Engineers each QS invited, as accepted (the two staff accounts go to the unused invitations).
+    _, by_qs = add_member(developer, role="vextrus_engineer")
+    _, by_scoped = add_member(developer, role="vextrus_engineer", projects=[p1])
+    _, rows["ended engineer by qs"] = add_member(
+        developer, role="vextrus_engineer", expires_at=timezone.now() - timedelta(days=1)
+    )
+    with viewers["md"].acting():
+        Membership.objects.filter(id__in=[by_qs, rows["ended engineer by qs"]]).update(
+            invited_by_id=viewers["qs"].user.pk
+        )
+        Membership.objects.filter(id=by_scoped).update(invited_by_id=viewers["scoped qs"].user.pk)
     _, rows["guest until, P2"] = add_member(
         developer, role="guest", projects=[p2], expires_at=timezone.now() + timedelta(days=9)
     )
@@ -306,9 +313,9 @@ def matrix(
         invitations.revoke(rows["revoked qs"])
     rows["engineer by qs"], rows["engineer by scoped qs"] = by_qs, by_scoped
     rows["invitation by md"], _ = invitation(viewers["md"], "rumana@example.com", "qs")
-    rows["invitation by qs"], _ = invitation(viewers["qs"], "e1@example.com")
+    rows["invitation by qs"], _ = invitation(viewers["qs"], staff.email)
     rows["invitation by scoped qs"], _ = invitation(
-        viewers["scoped qs"], "e2@example.com", project_ids=[p1]
+        viewers["scoped qs"], other_staff.email, project_ids=[p1]
     )
     return {"viewers": viewers, "rows": rows}
 
@@ -322,12 +329,14 @@ EXPECTED: dict[str, dict[str, tuple[str, ...]]] = {
         "guest until, P2": ("revoke", "renew"),
         "engineer by qs": ("revoke", "renew"),
         "engineer by scoped qs": ("revoke", "renew"),
+        "ended engineer by qs": ("renew",),
         "invitation by md": ("copy_link", "withdraw"),
         "invitation by qs": ("copy_link", "withdraw"),
         "invitation by scoped qs": ("copy_link", "withdraw"),
     },
     "qs": {
         "engineer by qs": ("revoke", "renew"),
+        "ended engineer by qs": ("renew",),
         "invitation by qs": ("copy_link", "withdraw"),
     },
     "scoped qs": {
