@@ -301,6 +301,20 @@ def test_an_item_not_walked_or_failed_fails_the_walk(status: str) -> None:
     assert {"item": "M0-FL7", "status": status} in verdict["agent_layer"]["items"]
 
 
+def test_an_item_failed_with_no_finding_naming_it_is_not_judged() -> None:
+    # S27-G8: FAIL is "walked, and it does not hold; a finding under it says why" (factory.md 5).
+    refusal = ""
+    try:
+        verdict = _evaluate(layer=_layer([], {"M0-FL7": "FAIL"}))
+    except ValueError as error:
+        refusal = str(error)
+    if not refusal:
+        words = "scripts.walk.verdict accepted an item FAIL with no finding naming it"
+        pytest.fail(f"{words}: result {verdict['result']}")
+
+    assert "M0-FL7" in refusal
+
+
 def test_an_absent_agent_layer_fails_with_every_item_not_walked() -> None:
     verdict = _evaluate(layer=None)
 
