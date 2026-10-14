@@ -248,7 +248,10 @@ export interface Step1Acts {
   /** Answers a Question with one of its options (`text`: the number typed for "Type a number"). */
   answerQuestion(entry: QuestionEntry, option: string, text?: string): Promise<boolean>
   undoLast(): Promise<void>
-  /** An act or an undo is in flight, until Step 1 has reloaded: keys that act are dropped meanwhile. */
+  /**
+   * An act or an undo is in flight, until Step 1 has reloaded (an answer shown from its reply: until the reply is
+   * written, the rest read behind): keys that act are dropped meanwhile.
+   */
   busy: boolean
 }
 
@@ -286,7 +289,7 @@ function useActs(
   const history = useRef<Entry[]>([])
   /** Counts the correction refusals, so each is newer than the typing that cleared the one before. */
   const refusals = useRef(0)
-  /** An act in flight: another (a second Enter, a key held down) is dropped until it and its reload end. */
+  /** An act in flight: another (a second Enter, a key held down) is dropped until it and its reload end (an answer's: its reply written). */
   const pending = useRef(false)
   /** Counts the acts begun: the one holding `pending` is the newest (a refused correction frees it before its reload ends). */
   const acting = useRef(0)
@@ -483,7 +486,10 @@ function useActs(
       if ((reply as Partial<AnswerOut>).progress === undefined && moved && moved.length > 0) parts.push('progress')
       let read
       try {
-        read = await readParts(projectId, parts)
+        // A held file's answer moves its file in the files band (§6.13): read again before the gate opens, so the
+        // bar is never drawn from a band that still shows the file held.
+        const band = entry.question.kind === 'file_misread' ? queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey }) : null
+        ;[read] = await Promise.all([readParts(projectId, parts), band])
       } catch {
         return false
       }

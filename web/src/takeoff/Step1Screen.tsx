@@ -604,7 +604,8 @@ function Step1({
   /**
    * What the bar shows: while an act and Step 1's reload are in flight, the bar from before it,
    * its button off (the walk, M5: mid-reload it showed the bulk act with Questions still open).
-   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before.
+   * Enter still reads the live bar, so a key pressed meanwhile is dropped as before. An answer shown
+   * from its reply ends `busy` as the reply is written (S27-G7), so the live bar follows the rows then.
    */
   // Taken as the act starts: Step 1 has not changed yet, so it is the bar the QS acted on.
   const [held, setHeld] = useState<{ busy: boolean; bar: BarSpec | null }>({ busy: false, bar: null })
