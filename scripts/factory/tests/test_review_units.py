@@ -580,6 +580,14 @@ def test_a_head_already_recorded_starts_nothing(tmp_path: Path, monkeypatch: pyt
         ("scripts/factory/review_self.py", "risk"),
         ("scripts/factory/review_tiers.toml", "risk"),
         ("scripts/factory/tiers.py", "risk"),
+        # Gate code the listed gate code imports or reads (S29-F7's own review).
+        ("scripts/factory/trailers.py", "risk"),
+        ("scripts/factory/lens_pytest.py", "risk"),
+        ("scripts/factory/crosspr.py", "risk"),
+        ("scripts/factory/trusted-authors.txt", "risk"),
+        ("scripts/verify.py", "risk"),
+        ("tools/lint/engine_paths.py", "risk"),
+        (".github/engine-paths.txt", "risk"),
     ],
 )
 def test_lint_and_nested_config_paths_are_ordinary_and_the_review_code_risk(
@@ -1106,6 +1114,9 @@ def test_plain_docs_stay_docs_only() -> None:
         "vextrus/takeoff/http/upload.py",
         "vextrus/projects/services/access.py",
         "vextrus/drawings/services/_access.py",
+        "vextrus/routers.py",
+        "vextrus/urls.py",
+        "vextrus/settings/db.py",
         "vextrus/settings/tenancy.py",
         "vextrus/platform/admin/tenancy.py",
         "vextrus/platform/http/middleware.py",
