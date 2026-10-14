@@ -43,9 +43,9 @@ merging (ADR 0041), one question at a time, your recommendation first and the re
    most two fix rounds (a third only under a recorded exception: `security75`, `crash`, `false-statement` or
    `fix-regression`). A `web/**` PR also gets `ux-critic` (the walk, or the words-only gate). One message per round:
    elapsed, what held, each finding with its score, failing scenario and fix direction; each fix with a test that
-   fails without it, and a committed check for a finding that blocks (75 or more, or 50 or more when user-facing or on a
-   trust boundary; untagged, on a strict path) or a repeated class; the ledger's `to-file` lists the standing edge or
-   rule-only 50-74 off a trust boundary to file as issues, each naming the check it owes (`fix-message` prints it). A finding after the cap
+   fails without it, and a committed check for a finding that blocks (CONFIRMED; 75 or more, or 50 or more when observed or
+   on a trust boundary; untagged, on a strict path) or a repeated class; the ledger's `to-file` lists the standing 50-74
+   neither observed nor on a trust boundary, and the UNPROVEN ones, to file as issues, each naming the check it owes (`fix-message` prints it). A finding after the cap
    becomes an issue (`needs-triage`, "found after the cap").
 6. **Land.** `uv run python -m scripts.land <PR> [<PR> ...]` orders them itself (engine PRs with a ledger PASS
    first), needs a ledger PASS for each head, lands it only when its head contains main's tip (a head behind main, or one GitHub reports conflicting, is refused, naming `land update`; the lander never updates), waits for CI, prints the gates still

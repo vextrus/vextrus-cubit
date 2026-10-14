@@ -29,7 +29,8 @@
   whatever a lens's FIX or PASS line says (a lens's FIX over findings that cannot block, or refuted
   or unproven ones, records PASS). One that could block with no refuter verdict is refused here;
   in `fetch-verdict` (a cloud lens's findings carry none) a lens's FIX over such a finding records
-  FIX, and `record` refuses a PASS over one. Prints one JSON line `{"verdict", "counts", "decision_input_sha256"}`: counts and ids, never text.
+  FIX, and `record` refuses a PASS over one. Prints one JSON line `{"verdict", "counts",
+  "decision_input_sha256"}`: counts and ids, never text.
 - `to-file --from <file> --head <sha>`: the same input (refused as `decide` refuses it); prints one JSON
   line `{"to_file": [<id>, ...]}`, the findings of 50 or more, not REFUTED, that do not block (50-74
   tagged neither observed nor on a trust boundary, or untagged off the strict paths; and a lens's
