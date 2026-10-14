@@ -169,3 +169,28 @@ def test_a_change_while_a_plot_is_still_reading_queues_the_match(qs_project: QsP
     dwg_id = _dwg(qs, "KR-GENERAL-NOTES-R0.dwg")
     add(qs.member, qs.project_id, "KR-STR-R0.pdf", _plot_pdf())  # added, its read job queued
     _change(qs, dwg_id, "structural")
+
+
+def test_a_held_dwg_read_anyway_set_to_the_plots_discipline_is_matched_again(
+    qs_project: QsProject,
+) -> None:
+    """#844 r2: a DWG held and read anyway counts as read in the sheet list (its sheets listed, its
+    set's PDFs plotted against them), so its Discipline changed queues the match as a read DWG's."""
+    qs = qs_project
+    dwg_id = add(qs.member, qs.project_id, "KR-GENERAL-NOTES-R0.dwg", drawing(marker="held")).file.id
+    read_dwg(qs.member, dwg_id, NUMBERS, titles=[f"PLAN {n}" for n in NUMBERS], mark_read=False)
+    with qs.member.acting():
+        services.quarantine(dwg_id, {"code": "engine.decoders_agree.disagree", "params": {}})
+        services.answer_held(dwg_id, "read_anyway")
+        services.mark_read(dwg_id)  # its re-read ended: its sheets listed
+        plot.match(dwg_id)
+        assert services.file(dwg_id).state == services.FileState.HELD
+    pdf_id = _pdf(qs, "KR-STR-R0.pdf")
+    assert set(_pages(qs, dwg_id).values()) == {None}
+
+    job_id = _change(qs, dwg_id, "structural")
+    assert _status(qs, pdf_id) == words.PLOT_WAITING()
+    _run(qs, job_id, dwg_id)
+
+    assert _pages(qs, dwg_id) == {n: k for k, n in enumerate(NUMBERS, start=1)}
+    assert _status(qs, pdf_id) == words.PLOT_MATCHED(matched=8, pages=8)

@@ -60,12 +60,23 @@ def _match(file_id: uuid.UUID, job_id: int | None) -> jobs.StepResult:
 
 
 def follow_discipline(file_id: uuid.UUID, actor_name: str = "") -> None:
-    """After the QS changed a file's Discipline (in the change's transaction): a read DWG or PDF of
-    a set with a PDF read or being read has the set's Plot matched again by `match_plot`."""
+    """After the QS changed a file's Discipline (in the change's transaction): a DWG or PDF read as
+    the sheet list counts it (read, or held and read anyway with its sheets listed) of a set with a
+    PDF read or being read has the set's Plot matched again by `match_plot`."""
     view = drawings.file(file_id)
-    if view.state != drawings.FileState.READ or view.format not in ("dwg", "pdf"):
+    if view.format not in ("dwg", "pdf") or not _listed(view):
         return
     # A PDF still reading may have matched under the old Discipline: the job runs after it (#844).
     if not any(f.format == "pdf" and f.state in _PLOTS for f in drawings.files(view.set_id)):
         return
     drawings.queue_plot(view.set_id, match_plot.defer(file_id=file_id))
+
+
+def _listed(view: drawings.FileView) -> bool:
+    """Whether the file is read as the sheet list counts it: read, or held and read anyway once its
+    read has ended, its sheets then listed and its set's PDFs plotted against them (#844 r2)."""
+    if view.state == drawings.FileState.READ:
+        return True
+    return view.state == drawings.FileState.HELD and any(
+        sheet.file_id == view.id for sheet in drawings.sheets(view.set_id)
+    )
