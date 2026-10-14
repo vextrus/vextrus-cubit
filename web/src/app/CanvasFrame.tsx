@@ -9,6 +9,7 @@
  * toolbar, status bar and inspector take items through slots (slots.tsx).
  */
 import { useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Trans, useLingui } from '@lingui/react/macro'
 import { ChevronRight, Keyboard } from 'lucide-react'
 import { onSaveState, saveState } from '@/api/saves'
@@ -20,16 +21,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/ui/primitives/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/ui/primitives/tooltip'
 import { AppLink, PATHS } from './AppLink'
 import { usePerfFlag } from './perf'
+import { coverageQuery } from '@/takeoff/data'
 import type { Step1Counts } from '@/takeoff/model'
 import type { ProjectSummary, Session } from './session'
 import { useCloseOnEsc, useInspectorTab, useShell } from './shell'
 import { SlotOutlet } from './slots'
 import { TAKEOFF_STEPS, type TakeoffStep } from './steps'
 
-/** Step 1's state mark (screens.md): a Question wins, then all confirmed, then Proposals ready; none before. */
-function step1Mark(s: Step1Counts): 'question' | 'confirmed' | 'proposal' | null {
+/**
+ * Coverage's unaccounted views, read from Step 1's own Coverage query (shared with the status bar); null until read.
+ * Step 1 is confirmed only with none unaccounted (m0-screens 6.11).
+ */
+function useUnaccounted(projectId: string): number | null {
+  return useQuery(coverageQuery(projectId)).data?.unaccounted ?? null
+}
+
+/** Step 1's state mark (screens.md): a Question wins, then all confirmed (6.11: and no view unaccounted), then Proposals ready; none before. */
+function step1Mark(s: Step1Counts, unaccounted: number | null): 'question' | 'confirmed' | 'proposal' | null {
   if (s.questionsOpen > 0) return 'question'
-  if (s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found) return 'confirmed'
+  if (s.found !== null && s.found > 0 && s.confirmed + s.excluded >= s.found && unaccounted === 0) return 'confirmed'
   if (s.found !== null && s.found > 0) return 'proposal'
   return null
 }
@@ -47,6 +57,7 @@ function StepRail({ project, step1, current }: { project: ProjectSummary; step1:
   const f = useFormat()
   const language = useLanguage()
   const [open, setOpen] = useState(false)
+  const unaccounted = useUnaccounted(project.id)
   useCloseOnEsc(open, () => setOpen(false))
   const side = language.dir === 'rtl' ? 'left' : 'right'
   return (
@@ -79,7 +90,7 @@ function StepRail({ project, step1, current }: { project: ProjectSummary; step1:
                 <Glyph size={20} aria-hidden />
                 {step.number === 1 ? (
                   <span className="absolute -end-1.5 -bottom-1 rounded-xs bg-chrome">
-                    <StepMark mark={step1Mark(step1)} />
+                    <StepMark mark={step1Mark(step1, unaccounted)} />
                   </span>
                 ) : null}
               </span>
@@ -127,13 +138,14 @@ function ConfirmedCount({ counts, format }: { counts: Step1Counts; format: (valu
   return <Count n={counts.confirmed} N={counts.found} format={format} />
 }
 
-function Toolbar({ session, step1, step }: { session: Session; step1: Step1Counts; step: TakeoffStep }) {
+function Toolbar({ session, project, step1, step }: { session: Session; project: ProjectSummary; step1: Step1Counts; step: TakeoffStep }) {
   const { t, i18n } = useLingui()
   const f = useFormat()
   const shell = useShell()
   const number = step.number
   const s = step1
   const excluded = s.excluded
+  const confirmed = step1Mark(s, useUnaccounted(project.id)) === 'confirmed'
   return (
     <div data-region="toolbar" role="toolbar" aria-label={t`The step's tools`} className="focus-inset flex h-toolbar shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-chrome px-2">
       <span className="text-sm whitespace-nowrap text-ink-secondary">
@@ -142,6 +154,7 @@ function Toolbar({ session, step1, step }: { session: Session; step1: Step1Count
       <span className="text-sm font-semibold whitespace-nowrap">{i18n._(step.name)}</span>
       {step.number === 1 ? (
         <span className="text-sm whitespace-nowrap text-ink-secondary">
+          {confirmed ? <ConfirmedGlyph size={12} className="me-1 inline align-middle text-confirmed" /> : null}
           <Trans>
             Confirmed <ConfirmedCount counts={s} format={f.integer} />
           </Trans>
@@ -226,7 +239,7 @@ export function CanvasFrame({ session, project, step1, step, children }: { sessi
           <StepRail project={project} step1={step1} current={step} />
         </div>
         <main className="flex min-w-0 flex-1 flex-col">
-          <Toolbar session={session} step1={step1} step={step} />
+          <Toolbar session={session} project={project} step1={step1} step={step} />
           <div data-region="canvas" data-canvas-area="" className="focus-inset relative min-h-0 flex-1 overflow-hidden bg-background">
             {children}
           </div>

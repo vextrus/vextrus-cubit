@@ -427,6 +427,8 @@ export function OneSourceWhat({ sheet, name }: { sheet: ProposalOut | undefined;
   if (sheet && !sheet.number && !sheet.title.trim()) return <Trans>{name} has neither a number nor a title in its title block</Trans>
   const typed = typedSourceWords(sheet, name)
   if (typed) return typed
+  // The title of a sheet whose title block gives none is read from its one view (6.6, 6.7), as the inspector says.
+  if (sheet?.title_source === 'view_title') return <Trans>{name} has one source, and its title is the title of its view</Trans>
   return <Trans>{name} has one source: number and title from its title block</Trans>
 }
 

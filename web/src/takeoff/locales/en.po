@@ -708,6 +708,10 @@ msgid "found; no drawing list; numbering runs {range}; {listed} missing; {twice}
 msgstr "found; no drawing list; numbering runs {range}; {listed} missing; {twice} twice"
 
 #: src/takeoff/Bar.tsx
+msgid "{name} has one source, and its title is the title of its view"
+msgstr "{name} has one source, and its title is the title of its view"
+
+#: src/takeoff/Bar.tsx
 msgid "{Name} is confirmed by {by}, Vextrus Engineer"
 msgstr "{Name} is confirmed by {by}, Vextrus Engineer"
 
