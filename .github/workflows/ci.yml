@@ -25,6 +25,34 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  shards-collected:
+    # The owed check of issue #864: what pytest collects, per shard and in all, proves every test id is in
+    # exactly one shard (ci_shards `check` above reads files; this reads collection). It needs the locked
+    # dependencies (the tests import them), so it is not in the harness job.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      UV_PYTHON_DOWNLOADS: never
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: .python-version
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install the locked dependencies, building nothing
+        env:
+          UV_PYTHON: ${{ steps.python.outputs.python-path }}
+        run: uv sync --locked --no-build
+      - name: Each test is collected by exactly one shard
+        run: uv run python -m tools.lint.ci_shards collected
+
   changes:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -306,7 +334,7 @@ jobs:
   ci:
     # The one check to require: green when every job passed or was skipped as not concerned.
     if: always()
-    needs: [changes, markets, harness, shards, python-checks, python]
+    needs: [changes, markets, harness, shards, shards-collected, python-checks, python]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -318,10 +346,11 @@ jobs:
           MARKETS: ${{ needs.markets.result }}
           HARNESS: ${{ needs.harness.result }}
           SHARDS: ${{ needs.shards.result }}
+          COLLECTED: ${{ needs.shards-collected.result }}
           CHECKS: ${{ needs.python-checks.result }}
           PYTHON: ${{ needs.python.result }}
         run: |
-          echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS python-checks=$CHECKS python=$PYTHON"
+          echo "changes=$CHANGES markets=$MARKETS harness=$HARNESS shards=$SHARDS collected=$COLLECTED python-checks=$CHECKS python=$PYTHON"
           # A pull request's head that is not Factory-State: READY ran no heavy job: that is no pass, unless
           # its changes need none (the documents alone): such a head passes whatever its trailer says. The
           # web counts here too: web.yml's own `web` check is a skipped job on such a head, and passes.
@@ -330,6 +359,6 @@ jobs:
             exit 1
           fi
           [ "$CHANGES" = success ] && [ "$MARKETS" = success ] && [ "$HARNESS" = success ] \
-            && [ "$SHARDS" = success ] \
+            && [ "$SHARDS" = success ] && [ "$COLLECTED" = success ] \
             && { [ "$CHECKS" = success ] || [ "$CHECKS" = skipped ]; } \
             && { [ "$PYTHON" = success ] || [ "$PYTHON" = skipped ]; }
