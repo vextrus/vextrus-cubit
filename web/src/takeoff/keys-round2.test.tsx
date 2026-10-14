@@ -15,6 +15,15 @@ beforeEach(async () => {
   await page.viewport(1440, 900)
 })
 
+/** The outline of `view`, once the sheet is decoded (off the main thread, #828) and its outlines laid over it. */
+async function outlineOf(view: string): Promise<HTMLElement> {
+  return waitFor(() => {
+    const outline = document.querySelector<HTMLElement>(`[data-outline="${view}"]`)
+    expect(outline).not.toBeNull()
+    return outline!
+  })
+}
+
 describe('X after the focus leaves a Shift selection', () => {
   it('excludes the focused row, not the selection it left (focus moved by a route other than the arrow keys)', async () => {
     const s = seed()
@@ -45,7 +54,7 @@ describe('the stated scale in the status bar (round 3: by paper position, select
 
   it('shows the scale of the view under the pointer with the outlines hidden', async () => {
     await openSheet(seed(), 'S-02')
-    const rect = (await waitFor(() => document.querySelector<HTMLElement>(`[data-outline="${DETAIL_VIEW}"]`)!)).getBoundingClientRect()
+    const rect = (await outlineOf(DETAIL_VIEW)).getBoundingClientRect()
     await userEvent.keyboard('o')
     await waitFor(() => expect(document.querySelector('[data-outline]')).toBeNull())
     const area = await canvasOf('S-02')
@@ -87,7 +96,7 @@ describe('the sheet keys in the ? overlay and focus after O (round 3)', () => {
 
   it('moves focus to the sheet’s canvas when O hides the outline that holds it', async () => {
     await openSheet(seed(), 'S-02')
-    const outline = await waitFor(() => document.querySelector<HTMLElement>(`[data-outline="${PLAN_VIEW}"]`)!)
+    const outline = await outlineOf(PLAN_VIEW)
     outline.focus()
     expect(document.activeElement).toBe(outline)
     await userEvent.keyboard('o')
