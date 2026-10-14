@@ -218,8 +218,17 @@ def test_e_a_head_moved_by_land_update_lands_on_the_new_head(env: Fixtures) -> N
     assert "Traceback" not in done.err
 
 
-# Withdrawn by S27-L825 (#825), test_j_a_reviewed_green_pr_one_commit_behind_main_lands:
-# a head that does not contain main's tip is refused (ts27l825).
+def test_j_a_reviewed_green_pr_one_commit_behind_main_is_refused_naming_land_update(
+    env: Fixtures,
+) -> None:
+    """S27-L825 (#825) replaces "lands as it stands": a head that does not contain main's tip is
+    refused naming `land update`, never merged, and the lander still asks GitHub for no update."""
+    done = landing(*env, behind=True)
+    assert not done.fake.called("pr", "merge"), "a head that does not contain main's tip was merged"
+    line = done.refused_plainly()
+    assert "land update" in line, "the refusal does not name `land update`: " + line
+    assert not done.fake.called("pr", "update-branch"), "gh 2.45 has no `gh pr update-branch`"
+    assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
 
 
 def test_f_a_head_pushed_after_ci_went_green_is_not_merged(env: Fixtures) -> None:

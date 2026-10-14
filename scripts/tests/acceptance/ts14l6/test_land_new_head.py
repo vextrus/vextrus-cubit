@@ -158,6 +158,13 @@ def test_a_new_head_whose_ci_check_never_comes_is_refused_not_merged_on_the_old_
     assert lines[0].startswith(f"land: refused: PR {PR}"), done.out
 
 
-# Withdrawn by S27-L825 (#825),
-# test_landing_alone_merges_the_head_as_it_stands_once_its_own_ci_check_succeeded:
-# a head that does not contain main's tip is refused (ts27l825).
+def test_landing_alone_refuses_a_head_behind_main_and_moves_nothing(env: Fixtures) -> None:
+    """S27-L825 (#825) replaces "landing alone merges the head as it stands": with no `land update`,
+    landing never moves the head, and a head that does not contain main's tip is refused, not
+    merged."""
+    done = landing(
+        *env, new_rollups=[with_ci()], old_rollups=[without_ci(), with_ci()], update_first=False
+    )
+    assert done.fake.merged() == [], "a head that does not contain main's tip was merged"
+    assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
+    assert done.code == 3, done.out + done.err
