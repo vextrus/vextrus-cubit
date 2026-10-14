@@ -36,10 +36,6 @@ msgstr "People at {developer}"
 msgid "Renew or revoke"
 msgstr "Renew or revoke"
 
-#: src/members/MembersPage.tsx
-msgid "End {revokingName}’s access now?"
-msgstr "End {revokingName}’s access now?"
-
 #: src/members/ActsPanel.tsx
 msgid "{date}, {time}"
 msgstr "{date}, {time}"
@@ -56,7 +52,7 @@ msgstr "{days, plural, =0 {(today)} one {(# day)} other {(# days)}}"
 msgid "{named} as {why}"
 msgstr "{named} as {why}"
 
-#: src/members/MembersPage.tsx
+#: src/members/RevokeDialog.tsx
 msgid "Their next click is refused. What they did stays under their name."
 msgstr "Their next click is refused. What they did stays under their name."
 
@@ -81,6 +77,7 @@ msgid "Copy this link and send it to {email}. It works once, until {date}."
 msgstr "Copy this link and send it to {email}. It works once, until {date}."
 
 #: src/members/MembersPage.tsx
+#: src/members/VextrusAccessNotice.tsx
 msgid "Revoke access for {who}"
 msgstr "Revoke access for {who}"
 
@@ -101,7 +98,7 @@ msgid "Renew 30 days"
 msgstr "Renew 30 days"
 
 #: src/members/InviteDialog.tsx
-#: src/members/MembersPage.tsx
+#: src/members/RevokeDialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -125,7 +122,7 @@ msgstr "a sheet with no number or title"
 msgid "From"
 msgstr "From"
 
-#: src/members/MembersPage.tsx
+#: src/members/RevokeDialog.tsx
 msgid "End access"
 msgstr "End access"
 
@@ -147,6 +144,7 @@ msgid "Role: {roleWord}"
 msgstr "Role: {roleWord}"
 
 #: src/members/MembersPage.tsx
+#: src/members/VextrusAccessNotice.tsx
 msgid "Revoke"
 msgstr "Revoke"
 
@@ -157,6 +155,10 @@ msgstr "Ended {date}"
 #: src/members/InviteDialog.tsx
 msgid "End their access on a date"
 msgstr "End their access on a date"
+
+#: src/members/VextrusAccessNotice.tsx
+msgid "{name}, {role}, has access until {date}"
+msgstr "{name}, {role}, has access until {date}"
 
 #: src/members/LinkShown.tsx
 msgid "The link sent before no longer works. Send this one instead."
@@ -176,8 +178,13 @@ msgid "{0, plural, one {Confirmed # sheet back in, excluded before:} other {Conf
 msgstr "{0, plural, one {Confirmed # sheet back in, excluded before:} other {Confirmed # sheets back in, excluded before:}}"
 
 #: src/members/MembersPage.tsx
+#: src/members/VextrusAccessNotice.tsx
 msgid "{name}’s access has ended."
 msgstr "{name}’s access has ended."
+
+#: src/members/RevokeDialog.tsx
+msgid "End {who}’s access now?"
+msgstr "End {who}’s access now?"
 
 #: src/members/InviteDialog.tsx
 msgid "Read only: a Guest can look at the drawings and the Takeoff of the chosen projects, and change nothing."

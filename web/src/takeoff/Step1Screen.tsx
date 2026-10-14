@@ -22,6 +22,7 @@ import { useSheetRequest } from './jump'
 import { sessionQuery, type ProjectSummary, type Session } from '@/app/session'
 import { useShell } from '@/app/shell'
 import { SlotFill } from '@/app/slots'
+import { VextrusAccessNotice } from '@/members'
 import { LoadProblem, readOnlyRole, usePageTitle, useReadOnlyToast } from '@/auth'
 import { problemText } from '@/auth/problem'
 import { SheetViewer, type SheetOutline } from '@/sheet'
@@ -40,6 +41,7 @@ import { FilesBand } from './FilesBand'
 import { ReportPanel } from '@/drawing-set/ReportPanel'
 import { POLL_MS, disciplinesQuery, filesQuery, isMoving, type FileOut } from '@/drawing-set/data'
 import { nextOpenRow, step1Model, type Reason, type Row, type Step1Model } from './model'
+import { ActorChip } from './ActorChip'
 import { SheetList, disciplineName } from './SheetList'
 import { OTHER_VIEW_KIND, VIEW_KINDS } from './words'
 import { stripSlots } from './storeys'
@@ -59,16 +61,28 @@ export function Step1Page() {
   const project = projectRoute.useLoaderData()
   const { data, error, retry } = useStep1(project.id)
   const reading = useRefreshAsFilesFinish(project.id)
-  if (!data) {
-    if (error) return <LoadProblem error={error} onRetry={retry} className="m-4" />
-    return <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
-  }
-  if (data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0) return <NoSheetsYet project={project} reading={reading} />
-  if (data.proposals.length === 0 && data.questions.length === 0) return <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
   return (
-    <KeyScope level="screen" name="step1">
-      <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} reading={reading} />
-    </KeyScope>
+    <>
+      {/* The MD's top bar says who from Vextrus has access, whatever Step 1's own state (§6.12). */}
+      <SlotFill slot="topbar.access">
+        <VextrusAccessNotice session={session} projectCode={project.code} chip={(name) => <ActorChip name={name} role="vextrus_engineer" />} />
+      </SlotFill>
+      {!data ? (
+        error ? (
+          <LoadProblem error={error} onRetry={retry} className="m-4" />
+        ) : (
+          <Skeleton rows={10} className="m-4" status={<Trans>Opening Step 1…</Trans>} />
+        )
+      ) : data.proposals.length === 0 && data.questions.length === 0 && reading.length > 0 ? (
+        <NoSheetsYet project={project} reading={reading} />
+      ) : data.proposals.length === 0 && data.questions.length === 0 ? (
+        <NoSheets project={project} readOnly={readOnlyRole(session) !== null} />
+      ) : (
+        <KeyScope level="screen" name="step1">
+          <Step1 session={session} project={project} model={step1Model(data)} coverage={data.coverage} drawn={data} reading={reading} />
+        </KeyScope>
+      )}
+    </>
   )
 }
 
