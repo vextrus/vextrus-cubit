@@ -830,10 +830,11 @@ export class FakeApi {
       const actor = query.get('actor')
       const limit = Math.min(Number(query.get('limit') ?? 50), 200)
       const before = query.get('before')
-      // One access's acts: those its row counts (`actsDuring`); none for an invitation not used or another Developer's.
+      // One access's: its acceptance and the acts its row counts (`actsDuring`); none for an invitation not used or another Developer's.
       const membershipId = query.get('membership')
       const access = membershipId === null ? null : this.memberships.find((m) => m.id === membershipId && m.tenant === viewer.tenant && m.userId !== null)
-      const during = membershipId === null ? null : new Set(access ? this.actsDuring(access).map((a) => a.id) : [])
+      const accepted = access ? this.acts.filter((a) => a.code === 'platform.invitations.accepted' && a.subjectId === access.id) : []
+      const during = membershipId === null ? null : new Set([...(access ? this.actsDuring(access) : []), ...accepted].map((a) => a.id))
       let list = this.acts
         .filter((a) => a.tenant === viewer.tenant && (actor === null || a.actorId === actor) && (during === null || during.has(a.id)))
         .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))

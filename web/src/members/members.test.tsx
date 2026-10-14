@@ -612,8 +612,12 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     const panel = await screen.findByRole('region', { name: named(/^Sadia Karim \(Vextrus\)$/) })
     expect(within(panel).getByText('Their acts, newest first')).toBeVisible()
     const items = await within(panel).findAllByRole('listitem')
-    // The acts under this access, as the row counts them: accepting the invitation is not one (#323).
-    expect(items.map((li) => text(li))).toEqual(['Sadia Karim (Vextrus) created this project · Nilgiri Bhaban · 28 Sep 2026, 15:42'])
+    // The access's acceptance and the act under it; the row counts the act only (#323).
+    expect(items.map((li) => text(li))).toEqual([
+      'Sadia Karim (Vextrus) created this project · Nilgiri Bhaban · 28 Sep 2026, 15:42',
+      'Sadia Karim (Vextrus) accepted the invitation · 28 Sep 2026, 12:00',
+    ])
+    expect(text(within(panel).getByText(/acts? shown$/))).toBe('1 act shown')
     expect(api.calls()).toContain('GET /api/activity')
     // Esc closes the panel; focus is back on the Acts button.
     await userEvent.keyboard('{Escape}')

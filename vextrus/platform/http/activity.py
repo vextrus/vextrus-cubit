@@ -38,8 +38,8 @@ class ActsQuery(Schema):
     actor: uuid.UUID | None = None
     """Only this person's acts."""
     membership: uuid.UUID | None = None
-    """Only the acts done under this access, from its start until it ended, accepting its invitation
-    left out: those Members and access counts on its row."""
+    """Only this access's: its acceptance (not an act) and the acts done under it, from its start until
+    it ended, those Members and access counts on its row."""
     project: uuid.UUID | None = None
     """Only acts on this Project."""
     before: uuid.UUID | None = None

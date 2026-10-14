@@ -92,9 +92,9 @@ def acts(
     before: uuid.UUID | None = None,
     limit: int = 50,
 ) -> list[ActView]:
-    """The acting Developer's acts, newest first: all, or one person's, or those done under one
-    access (`membership_id`: as Members and access counts them on its row), or one Project's;
-    `before` an act's id to read on from it."""
+    """The acting Developer's acts, newest first: all, or one person's, or one access's
+    (`membership_id`: its acceptance and the acts done under it, those Members and access counts on
+    its row), or one Project's; `before` an act's id to read on from it."""
     viewer = auth.require(auth.SEE_ACTS, project_id)
     assert viewer is not None
     found = invitations.visible_events(viewer)

@@ -91,9 +91,8 @@ async function actsLines(api: FakeApi): Promise<string[]> {
   const panel = await screen.findByRole("region", {
     name: named(/^Arif Rahman \(Vextrus\)$/),
   });
-  // Both acts done under his access: the seed's project and the one planted (accepting is not an act, #323).
   await waitFor(() =>
-    expect(within(panel).getAllByRole("listitem").length).toBeGreaterThan(1),
+    expect(within(panel).getAllByRole("listitem").length).toBeGreaterThan(2),
   );
   return within(panel)
     .getAllByRole("listitem")

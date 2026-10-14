@@ -760,15 +760,18 @@ def _during(membership: Membership, now: datetime) -> Q:
 
 
 def acts_under(found: QuerySet[DomainEvent], membership_id: uuid.UUID) -> QuerySet[DomainEvent]:
-    """Of `found`, the acts done under this accepted Membership of the acting Developer, the one
-    Members and access counts on its row (`Person.acts`); none for another or an invitation not used."""
+    """Of `found`, this accepted Membership's events in the acting Developer: its acceptance, which
+    opens it and is not an act, and the acts done under it, those Members and access counts on its row
+    (`Person.acts`). None for another Developer's Membership or an invitation not used."""
     viewer = auth.acting_membership(auth.SEE_ACTS)
     membership = Membership.objects.filter(
         id=membership_id, tenant_id=viewer.tenant_id, user__isnull=False
     ).first()
     if membership is None:
         return found.none()
-    return found.filter(_during(membership, timezone.now())).exclude(kind=codes.ACCEPTED.code)
+    accepted = Q(kind=codes.ACCEPTED.code, subject_id=membership.id)
+    during = _during(membership, timezone.now()) & ~Q(kind=codes.ACCEPTED.code)
+    return found.filter(accepted | during)
 
 
 def _acts_by_period(

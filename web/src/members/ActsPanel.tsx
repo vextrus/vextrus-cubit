@@ -130,7 +130,7 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
   useCloseOnEsc(true, onClose)
   useEffect(() => heading.current?.focus(), [person.membershipId])
 
-  // The acts done under the row's access, as its Acts cell counts them (#323): the panel agrees with the row.
+  // The row's access: its acceptance and the acts done under it, those its Acts cell counts (#323).
   const acts = useInfiniteQuery({
     queryKey: ['acts', person.membershipId],
     initialPageParam: null as string | null,
@@ -147,7 +147,8 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
   }
   const projectName = (id: string | null | undefined) => session.projects.find((p) => p.id === id)?.name ?? null
   const all = acts.data?.pages.flat() ?? []
-  const count = all.length
+  // Accepting the invitation opens the access and is listed, but is not an act: the count agrees with the row's.
+  const count = all.filter((act) => act.code !== 'platform.invitations.accepted').length
 
   return (
     <section aria-labelledby="acts-heading" className="flex h-full flex-col">

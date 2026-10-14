@@ -408,10 +408,10 @@ def test_each_row_names_who_invited_it_by_id(matrix: dict[str, Any], staff: User
 def test_one_access_s_acts_are_those_its_row_counts_and_no_other(
     team: dict[str, Member], staff: User, sign_in: Callable[..., Member]
 ) -> None:
-    """`/api/activity?membership=` lists the acts done under that access, from its start until it
-    ended, accepting its invitation left out: the acts Members and access counts on its row, so the
-    panel a row opens agrees with the row. An invitation not used, or another Developer's access,
-    has none."""
+    """`/api/activity?membership=` lists that access's acceptance and the acts done under it, from
+    its start until it ended: beside its acceptance, the acts Members and access counts on its row,
+    so the panel a row opens agrees with the row. An invitation not used, or another Developer's
+    access, has none."""
     md = team["md"]
     base = timezone.now().replace(microsecond=0)
     first, token = invitation(md, staff.email)
@@ -442,11 +442,13 @@ def test_one_access_s_acts_are_those_its_row_counts_and_no_other(
     }
 
     rows = {r["membership_id"]: r for r in api.get("/api/members").json()["vextrus_access"]}
-    assert [datetime.fromisoformat(a["occurred_at"]) for a in listed[first]] == [
+    acts = {key: [a for a in listed[key] if a["code"] != codes.ACCEPTED.code] for key in listed}
+    assert [datetime.fromisoformat(a["occurred_at"]) for a in acts[first]] == [
         base - timedelta(days=d) for d in (8, 9)
     ]
-    assert codes.ACCEPTED.code not in {a["code"] for a in listed[first] + listed[second]}
     for key in (first, second):
-        assert len(listed[key]) == rows[str(key)]["acts"]
+        accepted = [a for a in listed[key] if a["code"] == codes.ACCEPTED.code]
+        assert [a["subject_id"] for a in accepted] == [str(key)]  # its own acceptance, not the other's
+        assert len(acts[key]) == rows[str(key)]["acts"]
     assert listed[pending] == []
     assert api_as(elsewhere).get("/api/activity", membership=str(first)).json() == []
