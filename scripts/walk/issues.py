@@ -273,6 +273,10 @@ def _triage(folder: Path) -> dict[str, Any]:
         if item is None or status is None:
             raise Refused("an item or its status is outside its closed set")
         items.append({"item": item, "status": status})  # the allowlist's own words, rebuilt
+    named = {f.get("item") for f in layer["findings"] if isinstance(f, dict)}
+    for entry in items:
+        if entry["status"] == "FAIL" and entry["item"] not in named:
+            raise Refused(f"item {entry['item']} is FAIL and no finding names it")
     return {"items": items, "findings": layer["findings"]}
 
 
