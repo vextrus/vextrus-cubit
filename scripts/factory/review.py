@@ -423,9 +423,7 @@ class Finding:
     def could_block(self) -> bool:
         """The review bar (`ledger.could_block`): 75 or more; else 50 or more when observed or on a
         trust boundary (tagged), or on a strict path (untagged)."""
-        return ledger.could_block(
-            self.score, self.named_file, self.kind, self.boundary, self.observed
-        )
+        return ledger.could_block(self.score, self.named_file, self.kind, self.boundary, self.observed)
 
     @property
     def tag_text(self) -> str:
@@ -434,9 +432,7 @@ class Finding:
         if self.kind is None or self.boundary is None:
             return ""
         yes = {True: "yes", False: "no"}
-        return (
-            f" class={self.kind} boundary={yes[self.boundary]} observed={yes[self.observed is True]}"
-        )
+        return f" class={self.kind} boundary={yes[self.boundary]} observed={yes[self.observed is True]}"
 
     def view(self) -> dict[str, Any]:
         return {
