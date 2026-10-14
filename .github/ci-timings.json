@@ -1,6 +1,6 @@
 {
  "version": 1,
- "note": "Seconds per test file, summed as JUnit gives them, from one full local run of the suite (S29-F1, 14 Oct 2026: pytest -n 4, CI's -m expression, then the serial files alone), each multiplied by 1.27, the ratio of CI's worker-seconds (run 38616022347, 6724) to that run's (5297). Rebuild from a CI run's full JUnit reports with: python -m tools.lint.slow_files --write-timings .github/ci-timings.json junit-*.xml",
+ "note": "Seconds per test file, summed as JUnit gives them, from one full local run of the suite (S29-F1, 14 Oct 2026: pytest -n 4, CI's -m expression, then the serial files alone), each multiplied by 1.27, the ratio of CI's worker-seconds (run 38616022347, 6724) to that run's (5297). Rebuild from a run's reports of BOTH kinds: each CI shard writes junit-<shard>.xml (the -n 4 run) and, where it has serial files, junit-serial-<name>.xml (the serial step), kept only in the runner's workspace (ci.yml uploads nothing), so produce them by running the same two commands locally with --junitxml and pass all to: python -m tools.lint.slow_files --write-timings .github/ci-timings.json junit-*.xml. python -m tools.lint.ci_shards balance fails when a serial-marked file has no timing.",
  "files": {
   "engine/check/tests/acceptance/t17/test_pasted_list.py": 0.01,
   "engine/check/tests/acceptance/t18/test_render_f1_in_the_catalogue.py": 0.01,

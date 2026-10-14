@@ -571,6 +571,29 @@ def predicted(root: Path, shards: list[Shard], seconds: dict[str, float]) -> dic
     return wall
 
 
+def _untimed_serial(root: Path, shards: list[Shard], seconds: dict[str, float]) -> list[str]:
+    """Each test file marked serial that a shard owns and the timing file does not name: a serial file
+    is the one kind counted in full, so a plan that drops it understates its shard (S29-F1 fix round)."""
+    try:
+        paths = test_files(root, testpaths(root))
+    except OSError, KeyError, ValueError, tomllib.TOMLDecodeError:
+        return []
+    found: list[str] = []
+    for path in paths:
+        if path in seconds or not any(shard.owns(path) for shard in shards):
+            continue
+        try:
+            serial = is_marked_serial((root / path).read_text(errors="replace"))
+        except OSError:
+            continue
+        if serial:
+            found.append(
+                f"{TIMINGS}: {path}: marked serial but has no timing (counted in full, so a plan "
+                "without it understates its shard; rebuild from the shard's serial JUnit report too)"
+            )
+    return found
+
+
 def balance_problems(root: Path) -> list[str]:
     try:
         shards, seconds = load(root), timings(root)
@@ -581,6 +604,7 @@ def balance_problems(root: Path) -> list[str]:
         for path in sorted(seconds)
         if not (root / path).is_file()
     ]
+    found.extend(_untimed_serial(root, shards, seconds))
     found.extend(
         f"shard {name!r}: predicted {value:.0f} s, over {BOUND_SECONDS:.0f} s; move files in {SHARDS}"
         for name, value in predicted(root, shards, seconds).items()
