@@ -3,9 +3,10 @@ act, so the walk can tell the server's work from waiting on a lock.
 
 The tenant middleware opens one `request()` around the whole request (its retries included). A route
 names the waits it reports (`report("lock")`, written 0 when nothing waited); code that waits measures
-the wait under that name (`waited("lock")`). The header is written only on a response whose route
-reported a wait, as `app;dur=<ms>, <name>;dur=<ms>`: `app` is the request's time less every wait
-reported, each in milliseconds to a tenth. Outside a request (a job, the seed) nothing is measured.
+the wait under that name (`waited("lock")`). The header is written only on a response whose request
+reported or measured a wait (any route that takes Step 1's write lock), as `app;dur=<ms>,
+<name>;dur=<ms>`: `app` is the request's time less every wait, each in milliseconds to a tenth. Outside
+a request (a job, the seed) nothing is measured.
 
     with timing.request() as timed:
         response = view(request)
@@ -84,6 +85,6 @@ def header(timed: Timed, *, now: float | None = None) -> str:
 
 
 def write(response: HttpResponse, timed: Timed) -> None:
-    """The header on `response` when its route reported a wait; else the response as it is."""
+    """The header on `response` when its request reported or measured a wait; else as it is."""
     if timed.waits:
         response[HEADER] = header(timed)
