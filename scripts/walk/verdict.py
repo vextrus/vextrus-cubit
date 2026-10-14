@@ -902,8 +902,11 @@ issue draft, the summary or the verdict; only whether a non-empty one exists is 
 def _has_repro(folder: Path, finding_id: object) -> bool:
     if not isinstance(finding_id, str) or not ID.fullmatch(finding_id):
         return False
-    path = folder / REPRO_DIR / f"{finding_id}.md"
-    return not path.is_symlink() and path.is_file() and bool(path.read_bytes().strip())
+    steps = folder / REPRO_DIR
+    path = steps / f"{finding_id}.md"
+    if steps.is_symlink() or path.is_symlink() or not path.is_file():
+        return False
+    return bool(path.read_bytes().strip())
 
 
 def reproduced(findings: Mapping[str, Any], folder: Path) -> dict[str, Any]:

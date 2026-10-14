@@ -29,7 +29,10 @@ export const meta = {
   ],
 }
 
-const WORDS = typeof args === 'string' ? args.trim().split(/\s+/) : [String((args && args.sha) || '').trim()]
+const WORDS =
+  typeof args === 'string'
+    ? args.trim().split(/\s+/)
+    : [String((args && args.sha) || '').trim(), ...(args && args.repeat !== undefined ? ['--repeat', String(args.repeat).trim()] : [])]
 const [SHA = '', FLAG, PRIOR = '', ...EXTRA] = WORDS
 if (!/^[0-9a-f]{40}$/.test(SHA)) throw new Error('real-set-walk takes a full 40-hex sha')
 if (FLAG !== undefined && (FLAG !== '--repeat' || !/^[0-9a-f]{40}$/.test(PRIOR) || EXTRA.length > 0)) {
