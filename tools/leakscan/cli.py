@@ -154,6 +154,7 @@ def _scan(options: argparse.Namespace) -> int:
 
 
 _ORIGIN = "refs/remotes/origin/"
+_SLUG = re.compile(r"[-_/.]")  # a ref name's separators, read as spaces (a slugged multi-word string)
 
 
 def _origin_branches(repo: Path) -> list[str]:
@@ -187,7 +188,7 @@ def _sweep(options: argparse.Namespace) -> int:
             cannot += 1
             branches = []
         for i, name in enumerate(branches):
-            named = corpus.count(name) > 0
+            named = any(corpus.count(form) for form in (name, _SLUG.sub(" ", name)))
             label = f"ref:{i}" if named else name
             wheres: list[str] = ["name"] if named else []
             try:

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.leakscan.tests.acceptance._leak import QUILLMOOR, commit, git
+from tools.leakscan.tests.acceptance._leak import QUILLMOOR, REPO, commit, git
 from tools.leakscan.tests.acceptance.ts27sweep.test_sweep_remote import (
     BROKEN_BRANCH,
     _world,
@@ -67,3 +67,27 @@ def test_an_unresolvable_main_exits_2_and_still_writes_the_hits_file(tmp_path: P
     done = sweep(world, "--hits-file", str(path))
     assert done.returncode == 2, done.stdout + done.stderr
     assert path.read_text() == ""
+
+
+def test_a_branch_carrying_a_multi_word_string_in_slug_form_prints_an_index(tmp_path: Path) -> None:
+    world = _world(tmp_path, hits=False)
+    slug = "fix/zebra-quarry-holdings-pvt-7731_lane"
+    git(world.work, "checkout", "-q", "-b", slug, "main")
+    commit(world.work, {"s.txt": "clean\n"}, "feat: a clean change")
+    git(world.work, "push", "-q", "origin", slug)
+    git(world.work, "checkout", "-q", "main")
+    path = tmp_path / "hits.txt"
+    done = sweep(world, "--hits-file", str(path))
+    assert done.returncode == 1, done.stdout + done.stderr
+    shown = (done.stdout + done.stderr).lower()
+    assert "zebra" not in shown
+    assert "quarry" not in shown
+    assert any(line.endswith(" name") and line.startswith("ref:") for line in out_lines(done))
+    assert path.read_text().split() == [slug]
+
+
+def test_the_runbook_says_fetch_prune_before_the_sweep() -> None:
+    text = (REPO / ".claude/skills/orchestrate-wave/commands.md").read_text(encoding="utf-8")
+    line = next(row for row in text.split("\n") if "tools.leakscan sweep-remote" in row)
+    follow = text[text.index(line) : text.index(line) + 400]
+    assert "git fetch --prune origin" in follow
