@@ -70,7 +70,8 @@ path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`), so none s
    five walks. In `.claude/workflows/real-set-walk.js` (triage and the critics' briefs):
    - an item FAILs only on a BLOCKS finding (a wrong number, a blocked demo, blocked signing) or on a misleading finding with
      reproduction steps on that head; every other finding is OTHER: filed as a walk issue and listed for the owner at
-     sign-off, and its item stays PASS;
+     sign-off, and its item stays PASS. Triage step 1 changes with it: today "an item is FAIL if either says FAIL"; after
+     W1, triage turns a critic's FAIL into PASS when the only findings naming the item are OTHER (never the reverse);
    - a finding is misleading only when the display would lead a QS to a wrong quantity, a wrong sign-off or a wrong belief
      about what was read, and only with its reproduction steps (kept in the walk's private folder, never in an issue);
    - a repeat mode for walk #2: the critics walk walk #1's items, its findings' reproduction steps and the fixes since, not a
@@ -85,11 +86,16 @@ path (`vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`), so none s
 3. **S28-R1, the review evidence bar** (cloud, hard: gate code). Measured: blocking findings are already reproduced by attack
    tests (none of 260 FIX verdicts rested on UNPROVEN findings alone), but since the 13 Oct bar 23 of 30 FIX verdicts rested
    only on 50-74 findings, many "real but rare". So: an UNPROVEN finding no longer blocks (`scripts/ledger.py` `STANDS`); a
-   50-74 finding blocks only when its input is one a QS would meet (a Development Set, the demo, the served product) or it
-   is on a trust boundary, else it is filed with its owed check; the lens brief in `scripts/factory/review.py` says to judge
+   50-74 finding blocks only when its input is one a QS would meet or it is on a trust boundary, else it is filed with its
+   owed check. Mechanically: each lens tags a finding `observed=yes|no` beside `class=` and `boundary=` on its FINDING line
+   (`yes` when the attack test's input comes from a Development Set's conventions, `seed_demo` or the served stack), and
+   `ledger.could_block` for 50-74 requires `observed=yes` or `boundary=yes` (75 and more unchanged); the lens brief in `scripts/factory/review.py` says to judge
    intent and user impact, not to stack defensive edge cases. It applies to every round after it merges (#844's round 3).
 4. If a cloud slot is idle: #865 (the walk gate blocks sentences that say the walk is not ready).
 
+**The critical path:** W1's writer at 0:15, W1 merged by about 2:30; G4 and #844 landed by then; walk #1 at about 3:00;
+fixes; walk #2 (the repeat mode) at about 5:30. If W1 is not merged by 2:30, walk #1 runs on the old bar anyway (its
+findings still need fixing) and W1 lands before walk #2. C1 and R1 run beside it and never delay a walk.
 **Budget:** the draft's 6 h does not hold these first tasks and two walks. Ask the owner once at the start: 8 h
 (recommended). Without an answer, keep 6 h and cut M1-00's review first, then S28-R1; never the walks or S28-W1.
 **Holds (the owner's Q9, applies now):** ask, then proceed on the recommendation for anything reversible and note it in

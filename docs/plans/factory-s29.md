@@ -38,7 +38,7 @@ of a PR's life. Most of the fix is subtraction and parallelism, not new gates.
 | 10 | Display: freshness first, then one rich band and pane, at most 1.5 h. |
 | 11 | A subtraction pass over every gate and lens; the table is in session 28's measures. |
 | 12 | 8 h, items 1-4 then 5-9, cut from the bottom, a measured before and after for each. |
-| 13 | The owner switches accounts before a fresh session; the factory does nothing about it. |
+| 13 | The owner switches accounts before a fresh session; the factory does nothing about switching (it still measures tokens, Q2). |
 | 14 | From session 30, factory work at most 25 % of builder-hours; each factory change names the measure it moves and is reverted if it has not moved in two sessions; adding or removing a gate an ADR set is the owner's. |
 | 16 | Split: a blocking finding outside the ticket's acceptance scope is filed as a new ticket (test first) and the PR lands; inside scope or a regression: one more fresh rebuild, never a third, then back to planning, smaller. "Don't stuck at code review and adversarial loop forever". |
 | 19, 20 | Landing: #825's refusal stays for risk-tier PRs and PRs overlapping anything merged since their CI ran; ordinary PRs with no overlap merge on their own green CI; a gate is walked again only when the update changed `web/**` it covered. Condition: a main watcher that reverts a red main's culprit at once. |
@@ -94,11 +94,13 @@ Order matters: F3 before F4; F1 first because every later PR's CI pays for it. A
 7. **F7 Review tiers and the bar** (cloud, hard; amends ADR 0043): `review_tiers.toml` gets the risk tier as paths; ordinary
    PRs get one clean-context lens plus CI; the refuter samples one in five off the risk tier; a 50-74 finding blocks only on
    an input a QS would meet (a Development Set, the demo, the served product) or on a trust boundary, the rest filed with
-   their owed check; the lens brief says to judge intent and user impact; lenses use the 5-minute cache.
+   their owed check (session 28's R1 tag `observed=yes|no`, if it merged); the lens brief says to judge intent and user impact; lenses use the 5-minute cache.
 
 ## Wave 2 (items 5-9 of Q12), in a fresh orchestrator
 8. **F8 Probes** (cloud, 10 min each): Chromium installed by the cloud setup script and driven headless; the drawings repo
-   cloned with a read-only token in a cloud session (ADR 0042's route). Record both results.
+   cloned with a read-only token in a cloud session (ADR 0042's route); `uv run pytest -m needs_bwrap` in a cloud session,
+   because the real-drawing runner sandboxes its job (`scripts/real_drawings/sandbox.py`) and a cloud run without it is not
+   the local check. Record all three results.
 9. **F9 Cloud walks** (after F8 passes): design gates and practice G1 walks on the two Development Sets in cloud; a verdict
    file only comes back (Q17); `--no-post` runs in cloud, in parallel, with no lock; UI builders move to cloud and drive the
    served product on the real API before READY, committing their evidence (Q6). Counted G1 walks stay local (Q18).
