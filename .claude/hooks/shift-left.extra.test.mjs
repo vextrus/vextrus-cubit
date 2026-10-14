@@ -287,6 +287,74 @@ test("an abbreviated long option is read as git reads it", () => {
   assert.match(reason(hook(w, "git commit --pathspec-from=list.txt -m x")), /pathspecs/);
 });
 
+// S29-F2b-F1 (PR #887's review): the hook never runs the call's git configuration; `&>`, `&>>`, `>|` write; `~` is HOME.
+test("a -c in the call never runs inside the hook: a commit with it is refused, a stage with it is not replayed", () => {
+  for (const make of [(m) => `git -c core.fsmonitor='touch ${m}' commit -am "docs: a"`, (m) => `git -c core.fsmonitor='touch ${m}' add docs/b.md && git commit -m x`]) {
+    const w = world();
+    write(w.repo, { "docs/a.md": "changed\n", "docs/b.md": "clean\n" });
+    const marker = join(w.root, "ran");
+    const why = reason(hook(w, make(marker)));
+    assert.ok(!existsSync(marker), `the hook ran the call's fsmonitor: ${make(marker)}`);
+    assert.match(why, /-c is judged only without it|alone in its call/, make(marker));
+  }
+  assert.match(reason(hook(world(), "git --exec-path=/nowhere commit -m x")), /-c is judged only without it/);
+  assert.match(reason(hook(world(), "git --config-env=alias.zz=E zz -m x")), /alias/);
+});
+
+test("the repository's own fsmonitor and filter drivers do not run inside the hook, and the scan still runs", () => {
+  const w = world();
+  const marker = join(w.root, "ran");
+  git(w.repo, "config", "core.fsmonitor", `touch ${marker}`);
+  git(w.repo, "config", "filter.x.clean", `touch ${marker}; cat`);
+  git(w.repo, "config", "filter.x.required", "true");
+  write(w.repo, { ".gitattributes": "*.md filter=x\n", "docs/leak.md": `${ZEBRA}\n` });
+  assert.ok(!existsSync(marker), "the set-up ran the marker");
+  assert.match(reason(hook(w, "git add docs/leak.md && git commit -m x")), /leak scan/);
+  assert.ok(!existsSync(marker), "the hook ran the repository's fsmonitor or filter");
+});
+
+test("review_self on the fix round: another repository's filter, a read-only verb under -c, and -C --output=", () => {
+  const a = world();
+  const b = world();
+  const marker = join(b.root, "ran");
+  git(b.repo, "config", "filter.y.clean", `touch ${marker}; cat`);
+  write(b.repo, { ".gitattributes": "*.md filter=y\n", "docs/c.md": "clean\n" });
+  write(a.repo, { "docs/leak.md": `${ZEBRA}\n` });
+  git(a.repo, "add", "docs/leak.md");
+  assert.match(reason(hook(a, `cd ${b.repo} && git add docs/c.md && cd ${a.repo} && git commit -m x`)), /leak scan/);
+  assert.ok(!existsSync(marker), "the hook ran the other repository's filter");
+  assert.match(reason(hook(world(), "git -c core.fsmonitor=true status && git commit -m x")), /alone in its call/);
+  const w = world();
+  const out = join(w.root, "written");
+  hook(w, `git commit -C --output=${out}`);
+  assert.ok(!existsSync(out), "the hook's git log took the call's word as an option");
+});
+
+test("&>, &>> and >| write a file, so a commit after them in the call is refused", () => {
+  for (const op of ["&>", "&>>", ">|"]) {
+    const command = `echo "${ZEBRA}" ${op} docs/leak.md && git add docs/leak.md && git commit -m x`;
+    assert.match(reason(hook(world(), command)), /alone in its call/, op);
+  }
+});
+
+test("an unquoted ~ in git -C or a pathspec is HOME, as the shell reads it; ~user is refused", () => {
+  const w = leaky();
+  const home = { HOME: w.root };
+  assert.match(reason(hook(w, "git -C ~/repo commit -m x", { cwd: w.root, env: home })), /leak scan/);
+  assert.match(reason(hook(w, "env -C ~/repo git commit -m x", { cwd: w.root, env: home })), /leak scan/);
+  const v = world();
+  write(v.repo, { "docs/leak.md": `${ZEBRA}\n` });
+  assert.match(reason(hook(v, "git add ~/repo/docs/leak.md && git commit -m x", { env: { HOME: v.root } })), /leak scan/);
+  assert.match(reason(hook(leaky(), "git -C ~nobody/repo commit -m x")), /alone in its call/);
+});
+
+test("a commit outside any repository says on stderr that nothing was scanned", () => {
+  const w = world();
+  const done = hook(w, "git commit -m x", { cwd: w.root });
+  allowed(done);
+  assert.match(done.stderr, /no repository at .*nothing was scanned/);
+});
+
 test("staging under xargs or find, and gh pr checkout, before a commit refuse it", () => {
   const stage = ["git", "add"].join(" ");
   for (const command of [`echo docs/leak.md | xargs ${stage} && git commit -m x`, `find docs -name leak.md -exec ${stage} {} + && git commit -m x`, "gh pr checkout 12 && git commit -m x"]) {

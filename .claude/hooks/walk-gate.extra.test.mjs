@@ -100,6 +100,21 @@ for (const [message, quoted] of [
   });
 }
 
+// S29-F2b-F1 (PR #887, finding 50): a negation counts only when it governs the claim's own verb phrase, never in a
+// relative clause of the subject.
+for (const message of [
+  "The PR that doesn't touch the engine is ready for your walk.",
+  "Every page that was not rendering is ready for your walk.",
+  "The page that never loaded now loads, ready for your walk.",
+  "What isn't broken: please walk the BOQ.",
+  "Not yet\nPlease walk the BOQ.",
+]) {
+  test(`a negation in a relative clause or an earlier clause frees nothing: ${JSON.stringify(message)}`, () => {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+  });
+}
+
 test("\"not yet ready for your walk\" is negated: allowed without running G1", () => {
   for (const message of ["The PR is not yet ready for your walk.", "It isn't yet ready for your walk."]) assert.equal(stop(project(1), {}, message), "allowed", message);
 });

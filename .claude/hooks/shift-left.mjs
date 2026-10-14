@@ -15,7 +15,10 @@
 // is allowed with one stderr line saying so (this hook is the early warning; the push, CI and merge gates stay).
 // It reads the call as the shell would, as far as a reader can: `cd` per subshell, `git -C`, `env -C`, wrappers before
 // git, substitutions, heredoc messages, git's abbreviated options, aliases. A call it cannot read plainly (git named at
-// run time, an alias that commits, GIT_DIR set, staging under xargs) is refused with the rule, never guessed. Not
+// run time, an alias that commits, GIT_DIR set, staging under xargs) is refused with the rule, never guessed. The
+// call's own git configuration is never run by the hook: a stage carrying git's global options (`-c` above all) is not
+// replayed, a commit carrying one is refused, and every git the hook runs (the checks' included) has the fsmonitor
+// and each filter driver turned off at command scope. Not
 // judged (an early check, not the gate; the push, CI and merge are): a commit another program runs (`bash -c`, `eval`,
 // `source`, a script), and what the scanner itself does not see.
 // The checks are found by this file's own location (VEXTRUS_PYTHON, else that checkout's .venv, else python3, run
@@ -37,7 +40,7 @@ const SHOWN = 5;
 // ------------------------------------------------------------------------------------------------ the command's words
 
 /** A word: its value as the shell would pass it, and whether part of it is only known at run time. */
-const word = () => ({ v: "", dyn: false, any: false, brace: false });
+const word = () => ({ v: "", dyn: false, any: false, brace: false, tilde: false });
 
 // `$(cat <<'EOF' ... EOF)`: the usual way to pass a long commit message; its body is the value.
 const CAT_HEREDOC = /^\$\(\s*cat\s+<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1[ \t]*\n([\s\S]*?)\n[ \t]*\2[ \t]*\n\s*\)/;
@@ -79,6 +82,12 @@ export function commands(text, prefix = "") {
     if (w.any) {
       // Brace expansion ({a,b}, {1..3}) makes words the call alone knows: never replayed as written.
       if (w.brace && /\{[^{}]*(?:,|\.\.)[^{}]*\}/.test(w.v)) w.dyn = true;
+      // An unquoted leading `~` is the shell's: `~` and `~/...` are HOME; `~user` is only known at run time.
+      if (w.tilde) {
+        const home = process.env.HOME;
+        if (/^~(?:\/|$)/.test(w.v) && home) w.v = home + w.v.slice(1);
+        else w.dyn = true;
+      }
       if (skipNext) skipNext = false;
       else current.words.push(w);
     }
@@ -178,9 +187,12 @@ export function commands(text, prefix = "") {
     } else if (c === ">" || c === "<" || (c === "&" && text[i + 1] === ">")) {
       if (/^[0-9]+$/.test(w.v) && !w.dyn) w = word();
       else endWord();
-      current.redirected ||= c === ">";
+      // Any operator holding `>` may write a file: `>`, `>>`, `&>`, `&>>`, `>|`, `<>`.
+      const from = i;
       i += 1;
       while (text[i] === ">" || text[i] === "&" || text[i] === "<") i += 1;
+      if (text[i] === "|" && text[i - 1] === ">") i += 1;
+      current.redirected ||= text.slice(from, i).includes(">");
       skipNext = true;
     } else if ((c === "&" || c === "|") && text[i + 1] === c) {
       endCommand();
@@ -205,6 +217,7 @@ export function commands(text, prefix = "") {
       i += 1;
     } else {
       if (c === "{") w.brace = true;
+      if (c === "~" && !w.any) w.tilde = true;
       w.v += c;
       w.any = true;
       i += 1;
@@ -270,13 +283,13 @@ function run(file, args, options) {
 }
 
 /** A check run in parallel with the others: resolves to `{ status, stdout, timedOut }`, killed at the deadline. */
-function python(args, cwd, env = {}) {
+function python(args, cwd, env = quiet()) {
   return new Promise((done) => {
     let stdout = "";
     let timedOut = false;
     let child;
     try {
-      child = spawn(PYTHON, ["-P", ...args], { cwd, stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, PYTHONPATH: OWN, ...env } });
+      child = spawn(PYTHON, ["-P", ...args], { cwd, stdio: ["ignore", "pipe", "ignore"], env: { ...env, PYTHONPATH: OWN } });
     } catch {
       done({ status: null, stdout: "", timedOut: false });
       return;
@@ -294,10 +307,52 @@ function python(args, cwd, env = {}) {
   });
 }
 
+/** The environment of every git this hook runs, the checks' included: command-scope configuration (it outranks every
+ * file) that turns off what runs a program by itself, the fsmonitor and each filter driver in `drivers`. The call's own
+ * `-c`, `--exec-path` and `--config-env` never reach a git the hook runs. */
+function quiet(drivers = []) {
+  const pairs = [["core.fsmonitor", "false"], ["log.showSignature", "false"]];
+  for (const name of drivers) pairs.push(...["clean", "smudge", "process"].map((key) => [`filter.${name}.${key}`, ""]), [`filter.${name}.required`, "false"]);
+  const env = { ...process.env };
+  let n = /^[0-9]+$/.test(env.GIT_CONFIG_COUNT ?? "") ? Number(env.GIT_CONFIG_COUNT) : 0;
+  for (const [key, value] of pairs) {
+    env[`GIT_CONFIG_KEY_${n}`] = key;
+    env[`GIT_CONFIG_VALUE_${n}`] = value;
+    n += 1;
+  }
+  env.GIT_CONFIG_COUNT = String(n);
+  return env;
+}
+
+/** The filter drivers the repository's configuration names (a `.gitattributes` line runs one at `git add`). */
+function filterDrivers(top) {
+  const done = run("git", ["config", "--name-only", "--get-regexp", "^filter\\..+\\.(clean|smudge|process)$"], { cwd: top, env: quiet(), timeout: 5_000 });
+  const keys = done.status === 0 ? done.stdout.split("\n").filter(Boolean) : [];
+  return [...new Set(keys.map((key) => key.slice("filter.".length, key.lastIndexOf("."))))];
+}
+
 function gitOut(cwd, ...args) {
-  const done = run("git", args, { cwd, timeout: 5_000 });
+  const done = run("git", args, { cwd, env: quiet(), timeout: 5_000 });
   return done.status === 0 ? done.stdout.trim() : null;
 }
+
+/** The call's own `-c key=value` pairs (keys lower-cased, the last one winning), or null when one is unreadable. */
+function configOf(globals) {
+  const given = new Map();
+  for (let k = 0; k < globals.length; k += 1) {
+    const { v, dyn } = globals[k];
+    if (/^--config-env(?:=|$)/.test(v)) return null;
+    if (v !== "-c") continue;
+    const pair = globals[(k += 1)];
+    if (pair === undefined || pair.dyn || dyn) return null;
+    const at = pair.v.indexOf("=");
+    given.set((at === -1 ? pair.v : pair.v.slice(0, at)).toLowerCase(), at === -1 ? "true" : pair.v.slice(at + 1));
+  }
+  return given;
+}
+
+// Git's options before the verb that change nothing a commit records: any other one refuses the commit.
+const PLAIN_GLOBALS = new Set(["--no-pager", "-P", "-p", "--paginate", "--no-optional-locks", "--no-replace-objects", "--no-lazy-fetch", "--no-advice"]);
 
 /** The leak scan's JSON answer: `{ deny?, note? }` (deny: the reason; note: one stderr line). */
 function leakVerdict(done, label, where = (w) => w) {
@@ -404,34 +459,33 @@ function commitOf(g, cwd, heredoc) {
         message = null;
       }
     }
-  } else if (reuse !== null) message = reuse.dyn ? null : gitOut(cwd, "log", "-1", "--format=%B", reuse.v);
+  } else if (reuse !== null) message = reuse.dyn ? null : gitOut(cwd, "log", "-1", "--format=%B", "--end-of-options", reuse.v);
   else if (amend) message = gitOut(cwd, "log", "-1", "--format=%B", "HEAD");
   if (message !== null && trailers.length > 0) {
     message = trailers.some((t) => t.dyn) ? null : `${message.replace(/\n+$/, "")}\n\n${trailers.map((t) => t.v).join("\n")}`;
   }
   const replays = [];
-  if (all) replays.push({ cwd, globals: g.globals, args: ["add", "-u"] });
-  if (paths.length > 0 || fromFile) replays.push({ cwd, globals: g.globals, args: ["add", "--", ...paths.map((p) => p.v)], dyn: fromFile || paths.some((p) => p.dyn) });
+  if (all) replays.push({ cwd, args: ["add", "-u"] });
+  if (paths.length > 0 || fromFile) replays.push({ cwd, args: ["add", "--", ...paths.map((p) => p.v)], dyn: fromFile || paths.some((p) => p.dyn) });
   return { message: fixup ? null : message, scanned: message, replays, amend };
 }
 
 /** The verdict on one `git commit`: the reasons to deny and the notes for stderr. */
-async function checkCommit(cwd, globals, commit, replays) {
-  const top = gitOut(cwd, ...globals, "rev-parse", "--show-toplevel");
-  if (top === null) return { reasons: [], notes: [] };
+async function checkCommit(cwd, commit, replays) {
+  const top = gitOut(cwd, "rev-parse", "--show-toplevel");
+  if (top === null) return { reasons: [], notes: [`no repository at ${cwd}, so nothing was scanned; the push and CI scan`] };
   const folder = mkdtempSync(join(tmpdir(), "shift-left-"));
   const index = join(folder, "index");
   const messageFile = join(folder, "message");
-  const env = {};
+  const all = [...replays, ...commit.replays];
+  // The drivers of every folder a replay runs in, not only the commit's repository's.
+  const env = quiet([...new Set([top, ...all.map((r) => r.cwd)])].flatMap(filterDrivers));
   try {
-    const all = [...replays, ...commit.replays];
     if (all.length > 0) {
-      const real = gitOut(cwd, ...globals, "rev-parse", "--git-path", "index");
+      const real = gitOut(cwd, "rev-parse", "--git-path", "index");
       if (real !== null && existsSync(resolve(cwd, real))) copyFileSync(resolve(cwd, real), index);
       env.GIT_INDEX_FILE = index;
-      for (const replay of all) {
-        run("git", [...replay.globals.map((g) => g.v), ...replay.args], { cwd: replay.cwd, env: { ...process.env, GIT_INDEX_FILE: index }, stdio: "ignore", timeout: 10_000 });
-      }
+      for (const replay of all) run("git", replay.args, { cwd: replay.cwd, env, stdio: "ignore", timeout: 10_000 });
     }
     const base = commit.amend ? gitOut(top, "rev-parse", "-q", "--verify", "HEAD^") : null;
     const baseArgs = base ? ["--base", base] : [];
@@ -528,7 +582,7 @@ export async function verdict(command, startCwd) {
       if (detached) continue;
       if (target === undefined || target.dyn || target.v === "-") folders.set(scope, null);
       else if (cwd !== null) {
-        const next = resolve(cwd, target.v.replace(/^~(?=\/|$)/, process.env.HOME ?? "~"));
+        const next = resolve(cwd, target.v);
         if (isDirectory(next)) folders.set(scope, next);
       }
       continue;
@@ -575,7 +629,13 @@ export async function verdict(command, startCwd) {
         reasons.push(`the shift-left checks cannot read this call's folder to resolve \`git ${verb}\`: spell the folder out.`);
         continue;
       }
-      const config = (key) => gitOut(here, ...g.globals.map((o) => o.v), "config", "--get", key);
+      // The call's own `-c` is read here, never given to git; the files' configuration comes from git.
+      const given = configOf(g.globals);
+      if (given === null) {
+        reasons.push("the shift-left checks do not follow a git alias that commits or runs a shell, nor a verb git may autocorrect: run `git commit` itself.");
+        continue;
+      }
+      const config = (key) => (given.has(key.toLowerCase()) ? given.get(key.toLowerCase()) : gitOut(here, "config", "--get", key));
       let name = verb;
       let expands = null;
       for (let hop = 0; hop < 8 && !KNOWN_GIT.has(name); hop += 1) {
@@ -592,19 +652,25 @@ export async function verdict(command, startCwd) {
     }
     if (verb === "add" || verb === "rm") {
       const args = g.args;
-      if (here === null || changed || appended || args.some((a) => a.dyn || (verb === "add" && addInteractive(a.v)))) changed = true;
-      else replays.push({ cwd: here, globals: g.globals, args: verb === "rm" ? ["rm", "--cached", "-q", ...args.map((a) => a.v)] : ["add", ...args.map((a) => a.v)] });
+      // A stage carrying git's global options (`-c` above all) is never replayed, with them or without.
+      if (here === null || changed || appended || g.globals.length > 0 || args.some((a) => a.dyn || (verb === "add" && addInteractive(a.v)))) changed = true;
+      else replays.push({ cwd: here, args: verb === "rm" ? ["rm", "--cached", "-q", ...args.map((a) => a.v)] : ["add", ...args.map((a) => a.v)] });
       continue;
     }
     if (verb !== "commit") {
-      if (!READ_ONLY_GIT.has(verb) || redirected) changed = true;
+      // A read-only verb under the call's own configuration (`-c core.fsmonitor=...`) may run anything.
+      if (!READ_ONLY_GIT.has(verb) || redirected || g.globals.some((o) => !PLAIN_GLOBALS.has(o.v))) changed = true;
       continue;
     }
     if (placed) {
       reasons.push("the shift-left checks judge the repository and index the call names plainly: run `git commit` without GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE or --git-dir set in the call.");
       continue;
     }
-    if (here === null || changed || appended || g.globals.some((o) => o.dyn)) {
+    if (g.globals.some((o) => !PLAIN_GLOBALS.has(o.v))) {
+      reasons.push("the shift-left checks never run a call's own git configuration, and a commit with -c is judged only without it: run `git commit` without -c, --exec-path, --config-env or git's other global options.");
+      continue;
+    }
+    if (here === null || changed || appended) {
       reasons.push(
         "the shift-left checks judge the staged tree before the call runs, so run `git commit` alone in its call, or after only `cd` and `git add` (spelled out): something earlier in this call could change what it commits.",
       );
@@ -615,7 +681,7 @@ export async function verdict(command, startCwd) {
       reasons.push("the shift-left checks cannot read this commit's pathspecs: spell them out.");
       continue;
     }
-    const found = await checkCommit(here, g.globals.map((o) => o.v), commit, replays);
+    const found = await checkCommit(here, commit, replays);
     reasons.push(...found.reasons);
     notes.push(...found.notes);
   }

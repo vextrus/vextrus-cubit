@@ -3,13 +3,14 @@
 // owner was told "walk now" twice with no agent walking first (spec D3). A last message asking for the walk is
 // blocked unless `python3 -m scripts.walk.ready origin/main` exits 0 within 8 s. A phrase inside a longer word
 // ("sidewalk now", "walk nowhere") does not count, and each block reason quotes the words that matched, so a message
-// that only discusses the rule can be rephrased. A phrase that asks for no walk passes without G1 (#865): one negated
-// before it in its own clause ("not", "never", "cannot", "n't", straight or curly; a clause starts after . ! ? ; : , a
-// line break, a dash, "and", "but", "so" or "yet", but not the "yet" of "not yet ready"), or one inside a closed quote
-// (double, single, curly), a code span or a fenced block. A negation after the phrase ("ready for your walk and doesn't touch the engine") frees nothing. A
-// plain claim anywhere in the message still blocks, and the reason quotes it. Fails closed where it matters: ready.py
-// absent (G1 not installed),
-// failing, or hung blocks. Every other failure (no message, garbage stdin, a builder session) lets the stop through.
+// that only discusses the rule can be rephrased. A phrase that asks for no walk passes without G1 (#865): one whose own
+// verb phrase is negated ("not", "never", "cannot", "n't", straight or curly, right before it or before a few bridge
+// words: "is not yet ready for your walk", "do not walk now", "won't ask you to walk now"), or one inside a closed
+// quote (double, single, curly), a code span or a fenced block. A negation anywhere else (after the phrase, in an
+// earlier clause, in a relative clause of the subject: "the PR that doesn't touch the engine is ready for your walk")
+// frees nothing: a plain claim anywhere in the message still blocks, and the reason quotes it. Fails closed where it
+// matters: ready.py absent (G1 not installed), failing, or hung blocks. Every other failure (no message, garbage stdin,
+// a builder session) lets the stop through.
 // stop_hook_active is not honoured: Claude Code's cap of 8 blocks in a row is the backstop, and a second "walk now" is
 // no more true than the first.
 import { spawnSync } from "node:child_process";
@@ -24,10 +25,15 @@ const DEADLINE_MS = 10_000;
 // two false matches "walk nowhere" and "walked"; "walkthrough" and "walking" still block.
 const PHRASES = /(?<![A-Za-z])(?:walk now(?!here)|ready for your walk|please walk(?!ed))/gi;
 // What frees a phrase: closed quotes and code on one line (a single quote only between non-letters, so "don't" opens
-// none, nor an inch mark: 6"), closed fenced blocks; then a negation word before the phrase in its own clause.
+// none, nor an inch mark: 6"), closed fenced blocks; then a negation that governs the phrase (GOVERNED).
 const QUOTED = [/```[\s\S]*?```/g, /`[^`\n]+`/g, /(?<![A-Za-z0-9])"[^"\n]*"/g, /“[^“”\n]*”/g, /‘[^‘’\n]*’/g, /(?<![A-Za-z0-9])'[^'\n]*'(?![A-Za-z0-9])/g];
-const CLAUSE_START = /[.!?;:,\n—–]|\s-\s|(?<![A-Za-z])(?:and|but|so)(?![A-Za-z])|(?<!(?:(?<![A-Za-z])(?:not|never)|n['’]t)\s+)(?<![A-Za-z])yet(?![A-Za-z])/gi;
-const NEGATION = /(?<![A-Za-z])(?:not|never|cannot)(?![A-Za-z])|[A-Za-z]n['’]t(?![A-Za-z])/i;
+// A negation frees a phrase only when it governs it: the text before the phrase ends with the negation and at most a
+// few words from this closed set ("not yet ready", "never say walk now", "won't ask you to walk now"). No finite verb
+// and no noun is in it, so a negation in a relative clause of the subject ("the PR that doesn't touch the engine is
+// ready for your walk") or in an earlier clause frees nothing.
+const BRIDGE = "yet|be|been|ever|even|still|say|ask|asking|tell|telling|invite|inviting|want|wanting|need|you|to";
+// Spaces and tabs only between them: a line break ends the negation's reach ("Not yet\nPlease walk the BOQ." blocks).
+const GOVERNED = new RegExp(`(?:(?<![A-Za-z])(?:not|never|cannot)|[A-Za-z]n['’]t)(?:[ \\t]+(?:${BRIDGE}))*[ \\t]+$`, "i");
 
 /** The message with quoted and code text blanked to spaces (same length, line breaks kept). */
 function unquoted(message) {
@@ -36,14 +42,11 @@ function unquoted(message) {
   return text;
 }
 
-/** The first phrase that asks for a walk (not quoted, not negated before it in its clause), as written; or undefined. */
+/** The first phrase that asks for a walk (not quoted, not governed by a negation), as written; or undefined. */
 export function walkRequest(message) {
   const text = unquoted(message);
   for (const match of text.matchAll(PHRASES)) {
-    const before = text.slice(0, match.index);
-    let start = 0;
-    for (const boundary of before.matchAll(CLAUSE_START)) start = boundary.index + boundary[0].length;
-    if (!NEGATION.test(before.slice(start))) return message.slice(match.index, match.index + match[0].length);
+    if (!GOVERNED.test(text.slice(0, match.index))) return message.slice(match.index, match.index + match[0].length);
   }
   return undefined;
 }
