@@ -45,9 +45,9 @@ civil engineer and the CEO and co-founder. The previous product (Vextrus Cubit) 
 - **Second review lens:** the adversary agent, a lens of `scripts.factory.review run <PR> --round <n>` (ADR 0043; `/review-pr` until S14-R3).
 - **Acceptance tests come first,** by `acceptance-writer`, before the builder starts; builders never
   change them (CI's acceptance check).
-- **Every serious finding leaves a committed check** (a test, lint or scan that fails on its class): 75, or 50 on
-  an input a QS meets (`observed=yes`) or a trust boundary, or a repeated class (ADR 0041; 14 Oct: UNPROVEN never
-  blocks); any other 50-74 is filed, naming its owed check. `docs/knowledge/lessons.md` points each lesson at its check.
+- **Every serious finding leaves a committed check** (a test, lint or scan that fails on its class): 75, or 50
+  when user-facing on an input a QS meets (`observed=yes`) or on a trust boundary, or a repeated class (ADR 0041;
+  14 Oct: UNPROVEN never blocks); any other 50-74 is filed, naming its owed check (`docs/knowledge/lessons.md`).
 - **A mistake made twice gets a check; if no check can catch it, it goes into this file.**
   - Parallel agents share one chrome-devtools browser: select your own page by URL before every action;
     per-page viewport emulation only; never touch another agent's page.

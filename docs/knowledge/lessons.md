@@ -848,3 +848,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   and lock wait per act in the walk's record).
 - **Under the new bar (S28-W1) walk #1's misleading findings fell from 8 to 1** (one BLOCKS with its reproduction, 13
   OTHER filed). Check: `scripts/tests/acceptance/ts28w1/` and the walk verdicts.
+- **A docs-only PR can break a pinned docs test that CI does not run on it.** The close PR reworded CLAUDE.md's bar line
+  and dropped "user-facing", which `scripts/tests/acceptance/ts25f2/test_bar_docs_agree.py` pins; `ci.yml`'s changes step
+  runs no Python on docs-only heads, so only main's push run would have failed. Review round 1 caught it. No check yet:
+  owed (the changes step runs the docs-pinning tests when CLAUDE.md, `docs/` or `.claude/` change).
