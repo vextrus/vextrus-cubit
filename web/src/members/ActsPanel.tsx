@@ -128,13 +128,14 @@ export function ActsPanel({ person, onClose }: { person: PersonRow; onClose: () 
   const { data: session } = useSuspenseQuery(sessionQuery)
   const heading = useRef<HTMLHeadingElement>(null)
   useCloseOnEsc(true, onClose)
-  useEffect(() => heading.current?.focus(), [person.userId])
+  useEffect(() => heading.current?.focus(), [person.membershipId])
 
+  // The acts done under the row's access, as its Acts cell counts them (#323): the panel agrees with the row.
   const acts = useInfiniteQuery({
-    queryKey: ['acts', person.userId],
+    queryKey: ['acts', person.membershipId],
     initialPageParam: null as string | null,
     queryFn: ({ pageParam }) =>
-      unwrap(api.GET('/api/activity', { params: { query: { actor: person.userId, limit: ACTS_PAGE, ...(pageParam ? { before: pageParam } : {}) } } })),
+      unwrap(api.GET('/api/activity', { params: { query: { membership: person.membershipId, limit: ACTS_PAGE, ...(pageParam ? { before: pageParam } : {}) } } })),
     getNextPageParam: (last) => (last.length === ACTS_PAGE ? (last.at(-1)?.id ?? null) : null),
   })
 

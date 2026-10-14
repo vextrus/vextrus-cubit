@@ -644,3 +644,19 @@ def test_an_unusable_link_s_answer_is_still_the_bare_refusal(team: dict[str, Mem
             404,
             b'{"code": "platform.invitations.unusable", "params": {}}',
         ), unusable
+
+
+def test_a_staff_email_matched_only_by_upper_casing_is_not_a_staff_account_s(
+    team: dict[str, Member], staff: User
+) -> None:
+    """The refuter's case (S27-G6): Postgres upper-cases the dotless i (U+0131) to "I", so an email
+    no account has could pass a case-blind match against a staff email; it is compared lower-cased,
+    as accepting compares it, and refused at invite time."""
+    lookalike = staff.email.replace("i", chr(0x131), 1)  # the dotless i
+    assert lookalike != staff.email
+
+    response = invite(api_as(team["md"]), lookalike, "vextrus_engineer")
+
+    assert refusal(response) == (409, codes.NO_VEXTRUS_ACCOUNT.code)
+    with team["md"].acting():
+        assert not Membership.objects.filter(invited_email=lookalike).exists()

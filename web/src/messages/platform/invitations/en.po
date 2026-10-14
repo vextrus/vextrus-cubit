@@ -13,7 +13,7 @@ msgid "platform.invitations.access_ended"
 msgstr "Access for {email} has ended. Renew it from their row under People instead of inviting them again."
 
 msgid "platform.invitations.already_ended"
-msgstr "This access has already ended."
+msgstr "This access has already ended. Their row now shows what is left to do."
 
 msgid "platform.invitations.already_invited"
 msgstr "{email} already has an invitation not used yet. Copy its link, or withdraw it first."
@@ -49,7 +49,7 @@ msgid "platform.invitations.no_longer_open"
 msgstr "This invitation is no longer open: it was used, withdrawn or has run out. Invite them again if they still need access."
 
 msgid "platform.invitations.no_vextrus_account"
-msgstr "No Vextrus account has this email. A Vextrus Engineer is invited by the email of their Vextrus account."
+msgstr "No Vextrus account has this email. Check it, or ask the Vextrus Engineer which email their Vextrus account uses."
 
 msgid "platform.invitations.not_yours_to_change"
 msgstr "You can change only the access of a Vextrus Engineer you invited. Ask an MD to change this."

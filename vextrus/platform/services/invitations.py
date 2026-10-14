@@ -36,7 +36,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q, QuerySet
-from django.db.models.functions import Now
+from django.db.models.functions import Lower, Now
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
 
@@ -94,7 +94,7 @@ def invite(
     if role not in _INVITES.get(inviter.role, frozenset()):
         raise Refused(codes.ROLE_NOT_YOURS(role=role))
     email = _clean_email(email)
-    if role == Role.VEXTRUS_ENGINEER and not _staff_accounts().filter(email__iexact=email).exists():
+    if role == Role.VEXTRUS_ENGINEER and not _is_staff_email(email):
         raise Refused(codes.NO_VEXTRUS_ACCOUNT(), status=409)
     now = timezone.now()
     if role == Role.VEXTRUS_ENGINEER and expires_at is None:
@@ -386,12 +386,7 @@ def members() -> Members:
     revoked_by = _revokers(tenant_id, [row.id for row in rows if row.revoked_at is not None])
     user_ids = {row.user_id for row in rows} | {row.invited_by_id for row in rows}
     users = {user.pk: user for user in User.objects.filter(id__in=[i for i in user_ids if i])}
-    periods = {
-        row.id: (row.user_id, row.accepted_at or row.starts_at, _ended_at(row, now))
-        for row in rows
-        if row.user_id is not None
-    }
-    acts = _acts_by_period(viewer, periods)
+    acts = _acts_by_period(viewer, [row for row in rows if row.user_id is not None], now)
 
     people: list[Person] = []
     vextrus: list[Person] = []
@@ -501,6 +496,13 @@ def _staff_accounts() -> QuerySet[User]:
 def _is_staff(user: User) -> bool:
     """Whether the account is one of Vextrus's staff now."""
     return _staff_accounts().filter(pk=user.pk).exists()
+
+
+def _is_staff_email(email: str) -> bool:
+    """Whether `email` is a staff account's, compared lower-cased as `accept` compares it and the
+    unique index keys it. `iexact` upper-cases, which folds the dotless i (U+0131) into "I": it would
+    match an email that no account has, and that no staff account could accept."""
+    return _staff_accounts().annotate(lower=Lower("email")).filter(lower=email.lower()).exists()
 
 
 def _clean_email(email: str) -> str:
@@ -631,11 +633,6 @@ def _expired(membership: Membership, now: datetime) -> bool:
     return membership.expires_at is not None and membership.expires_at <= now
 
 
-def _ended_at(membership: Membership, now: datetime) -> datetime | None:
-    ended = auth.ending(membership.revoked_at, membership.expires_at, now)
-    return ended[0] if ended else None
-
-
 def _member(actor: CurrentMembership, membership_id: uuid.UUID) -> Membership:
     membership = _changeable(actor, membership_id)
     if membership.user_id is None:
@@ -751,28 +748,45 @@ def _revokers(tenant_id: uuid.UUID, membership_ids: list[uuid.UUID]) -> dict[uui
     return {subject: names[actor] for subject, actor in by_membership.items() if actor in names}
 
 
+def _during(membership: Membership, now: datetime) -> Q:
+    """The acts done under an accepted Membership: its user's, from its start until it ended."""
+    during = Q(
+        actor_user_id=membership.user_id, occurred_at__gte=membership.accepted_at or membership.starts_at
+    )
+    ended = auth.ending(membership.revoked_at, membership.expires_at, now)
+    if ended is not None:
+        during &= Q(occurred_at__lt=ended[0])
+    return during
+
+
+def acts_under(found: QuerySet[DomainEvent], membership_id: uuid.UUID) -> QuerySet[DomainEvent]:
+    """Of `found`, the acts done under this accepted Membership of the acting Developer, the one
+    Members and access counts on its row (`Person.acts`); none for another or an invitation not used."""
+    viewer = auth.acting_membership(auth.SEE_ACTS)
+    membership = Membership.objects.filter(
+        id=membership_id, tenant_id=viewer.tenant_id, user__isnull=False
+    ).first()
+    if membership is None:
+        return found.none()
+    return found.filter(_during(membership, timezone.now())).exclude(kind=codes.ACCEPTED.code)
+
+
 def _acts_by_period(
-    viewer: CurrentMembership,
-    periods: dict[uuid.UUID, tuple[uuid.UUID, datetime, datetime | None]],
+    viewer: CurrentMembership, rows: list[Membership], now: datetime
 ) -> dict[uuid.UUID, tuple[int, datetime | None]]:
-    """Each Membership's count of acts and their latest, among the acts the viewer may see: those its
-    user did from its start until it ended (`periods`: membership -> (user, start, end or None)).
-    Accepting the invitation is not an act."""
-    if not periods or not auth.allows(viewer.role, auth.SEE_ACTS):
+    """Each accepted Membership's count of acts and their latest, among the acts the viewer may see:
+    those done under it (`_during`). Accepting the invitation is not an act."""
+    if not rows or not auth.allows(viewer.role, auth.SEE_ACTS):
         return {}
     visible = (
         visible_events(viewer)
-        .filter(actor_user_id__in={user for user, _, _ in periods.values()})
+        .filter(actor_user_id__in={row.user_id for row in rows})
         .exclude(kind=codes.ACCEPTED.code)
     )
-    keys = list(periods)
     within: dict[str, Count | Max] = {}
-    for i, membership_id in enumerate(keys):
-        user_id, start, end = periods[membership_id]
-        during = Q(actor_user_id=user_id, occurred_at__gte=start)
-        if end is not None:
-            during &= Q(occurred_at__lt=end)
+    for i, row in enumerate(rows):
+        during = _during(row, now)
         within[f"n{i}"] = Count("id", filter=during)
         within[f"l{i}"] = Max("occurred_at", filter=during)
     found = visible.order_by().aggregate(**within)
-    return {key: (found[f"n{i}"], found[f"l{i}"]) for i, key in enumerate(keys)}
+    return {row.id: (found[f"n{i}"], found[f"l{i}"]) for i, row in enumerate(rows)}

@@ -4,7 +4,7 @@ Developer's users, Memberships or events (ticket 07; m0-screens §4.4)."""
 import json
 import uuid
 from collections.abc import Callable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -14,7 +14,7 @@ from django.utils import timezone
 from vextrus.platform.messages import invitations as codes
 from vextrus.platform.messages import tenancy as tenancy_codes
 from vextrus.platform.models import DomainEvent, Membership, User
-from vextrus.platform.services import events, invitations
+from vextrus.platform.services import events, invitations, tenancy
 from vextrus.testing.auth import Api, accept_as, api_as, invitation, served_operations
 from vextrus.testing.tenancy import STAFF_EMAIL, Member, add_member
 
@@ -400,3 +400,53 @@ def test_each_row_names_who_invited_it_by_id(matrix: dict[str, Any], staff: User
     assert by_id[str(rows["engineer by qs"])] == str(viewers["qs"].user.pk)
     assert by_id[str(rows["invitation by md"])] == str(viewers["md"].user.pk)
     assert by_id[str(rows["md"])] is None  # made a member directly, invited by no one
+
+
+# One access's acts: those its row counts (S27-G6) ---------------------------------------------------
+
+
+def test_one_access_s_acts_are_those_its_row_counts_and_no_other(
+    team: dict[str, Member], staff: User, sign_in: Callable[..., Member]
+) -> None:
+    """`/api/activity?membership=` lists the acts done under that access, from its start until it
+    ended, accepting its invitation left out: the acts Members and access counts on its row, so the
+    panel a row opens agrees with the row. An invitation not used, or another Developer's access,
+    has none."""
+    md = team["md"]
+    base = timezone.now().replace(microsecond=0)
+    first, token = invitation(md, staff.email)
+    accept_as(token, staff)
+    with md.acting():
+        Membership.objects.filter(id=first).update(
+            starts_at=base - timedelta(days=10), accepted_at=base - timedelta(days=10)
+        )
+    for days in (9, 8):
+        with tenancy.acting_in(md.developer_id, user_id=staff.pk):
+            events.record(
+                tenancy_codes.STAFF_OPENED,
+                subject_type="developer",
+                actor_user_id=staff.pk,
+                occurred_at=base - timedelta(days=days),
+            )
+    assert api_as(md).post(f"/api/members/{first}/revoke").status_code == 204
+    with md.acting():
+        Membership.objects.filter(id=first).update(revoked_at=base - timedelta(days=7))
+    second, token = invitation(md, staff.email)
+    accept_as(token, staff)
+    pending, _ = invitation(md, "rumana@example.com", "qs")
+    elsewhere = sign_in(role="md")
+    api = api_as(md)
+
+    listed = {
+        key: api.get("/api/activity", membership=str(key)).json() for key in (first, second, pending)
+    }
+
+    rows = {r["membership_id"]: r for r in api.get("/api/members").json()["vextrus_access"]}
+    assert [datetime.fromisoformat(a["occurred_at"]) for a in listed[first]] == [
+        base - timedelta(days=d) for d in (8, 9)
+    ]
+    assert codes.ACCEPTED.code not in {a["code"] for a in listed[first] + listed[second]}
+    for key in (first, second):
+        assert len(listed[key]) == rows[str(key)]["acts"]
+    assert listed[pending] == []
+    assert api_as(elsewhere).get("/api/activity", membership=str(first)).json() == []

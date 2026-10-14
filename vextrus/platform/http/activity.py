@@ -37,6 +37,9 @@ class ActOut(Schema):
 class ActsQuery(Schema):
     actor: uuid.UUID | None = None
     """Only this person's acts."""
+    membership: uuid.UUID | None = None
+    """Only the acts done under this access, from its start until it ended, accepting its invitation
+    left out: those Members and access counts on its row."""
     project: uuid.UUID | None = None
     """Only acts on this Project."""
     before: uuid.UUID | None = None
@@ -62,6 +65,7 @@ def list_acts(request: HttpRequest, filters: Query[ActsQuery]) -> list[ActOut]:
         )
         for act in activity.acts(
             actor_user_id=filters.actor,
+            membership_id=filters.membership,
             project_id=filters.project,
             before=filters.before,
             limit=filters.limit,

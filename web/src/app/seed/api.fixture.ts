@@ -472,7 +472,24 @@ export class FakeApi {
     if (!ROLES.access.includes(viewer.role) || !this.changeable(viewer, m)) return []
     if (m.userId === null) return ['copy_link', 'withdraw']
     if (m.revokedAt !== null) return []
+    if (this.expired(m)) return ['renew'] // Ended: nothing is left to revoke (#669)
     return m.expiresAt !== null ? ['renew', 'revoke'] : ['revoke']
+  }
+
+  /** Ended by its end date passing, unrevoked: Renew is the one act left on it. */
+  private expired(m: Membership): boolean {
+    return m.expiresAt !== null && Date.parse(m.expiresAt) <= this.now()
+  }
+
+  /** The acts its user did under this access, from its start until it ended; accepting it is not one (#323). */
+  private actsDuring(m: Membership): Act[] {
+    const from = Date.parse(m.since)
+    const end = this.ending(m)
+    const until = end ? Date.parse(end.at) : Infinity
+    return this.acts.filter((a) => {
+      const at = Date.parse(a.at)
+      return a.tenant === m.tenant && a.actorId === m.userId && a.code !== 'platform.invitations.accepted' && at >= from && at < until
+    })
   }
 
   private members(viewer: Membership): MembersOut {
@@ -505,7 +522,7 @@ export class FakeApi {
       }
       const user = this.users.find((u) => u.id === m.userId)!
       const end = this.ending(m)
-      const mine = this.acts.filter((a) => a.tenant === viewer.tenant && a.actorId === user.id)
+      const mine = this.actsDuring(m)
       const revoker = this.acts.find((a) => a.code === 'platform.invitations.revoked' && a.subjectId === m.id && a.actorId)
       const person: PersonOut = {
         membership_id: m.id,
@@ -745,6 +762,10 @@ export class FakeApi {
       if (!(INVITES[inviter.role] ?? []).includes(role)) throw new Refused(403, refusal('platform.invitations.role_not_yours', { role }))
       const email = String(body.email ?? '').trim()
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Refused(400, refusal('platform.invitations.invalid_email'))
+      // A Vextrus Engineer is invited only by the email of a Vextrus staff account (#831).
+      if (role === 'vextrus_engineer' && !this.users.some((u) => u.staff && u.email.toLowerCase() === email.toLowerCase())) {
+        throw new Refused(409, refusal('platform.invitations.no_vextrus_account'))
+      }
       let expiresAt = (body.expires_at as string | null | undefined) ?? null
       if (role === 'vextrus_engineer' && expiresAt === null) expiresAt = new Date(this.now() + 30 * DAY).toISOString()
       if (expiresAt !== null && Date.parse(expiresAt) <= this.now()) throw new Refused(400, refusal('platform.invitations.end_in_past'))
@@ -794,6 +815,7 @@ export class FakeApi {
       if (m.userId === null) throw new Refused(404, refusal('platform.auth.not_found'))
       if (m.revokedAt !== null) throw new Refused(409, refusal('platform.invitations.already_ended'))
       if (match[2] === 'revoke') {
+        if (this.expired(m)) throw new Refused(409, refusal('platform.invitations.already_ended'))
         m.revokedAt = new Date(this.now()).toISOString()
         this.record(actor.tenant, 'platform.invitations.revoked', actor.userId, m.id)
         return [204, null]
@@ -808,7 +830,13 @@ export class FakeApi {
       const actor = query.get('actor')
       const limit = Math.min(Number(query.get('limit') ?? 50), 200)
       const before = query.get('before')
-      let list = this.acts.filter((a) => a.tenant === viewer.tenant && (actor === null || a.actorId === actor)).sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
+      // One access's acts: those its row counts (`actsDuring`); none for an invitation not used or another Developer's.
+      const membershipId = query.get('membership')
+      const access = membershipId === null ? null : this.memberships.find((m) => m.id === membershipId && m.tenant === viewer.tenant && m.userId !== null)
+      const during = membershipId === null ? null : new Set(access ? this.actsDuring(access).map((a) => a.id) : [])
+      let list = this.acts
+        .filter((a) => a.tenant === viewer.tenant && (actor === null || a.actorId === actor) && (during === null || during.has(a.id)))
+        .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id))
       if (before) list = list.slice(list.findIndex((a) => a.id === before) + 1)
       return [200, list.slice(0, limit).map((a) => this.actOut(a))]
     }

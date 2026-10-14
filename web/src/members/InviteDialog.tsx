@@ -40,6 +40,7 @@ const FIELD_OF: Readonly<Record<string, Field>> = {
   'platform.invitations.already_member': 'email',
   'platform.invitations.already_invited': 'email',
   'platform.invitations.access_ended': 'email',
+  'platform.invitations.no_vextrus_account': 'email',
   'platform.invitations.role_not_yours': 'role',
   'platform.invitations.choose_a_project': 'projects',
   'platform.invitations.projects_not_yours': 'projects',

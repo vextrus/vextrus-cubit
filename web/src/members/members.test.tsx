@@ -38,6 +38,11 @@ async function seen(el: HTMLElement) {
   await waitFor(() => expect(el).toBeVisible())
 }
 
+/** The seed's API with Sadia Karim, one of Vextrus's staff, whose email a Vextrus Engineer may be invited by (#831). */
+function withSadia(): FakeApi {
+  return new FakeApi({ extend: (api) => void api.addUser('sadia@vextrus.example', 'Sadia Karim', true) })
+}
+
 async function members(as: string, api = new FakeApi()) {
   const app = await mountApp('/members', { as, api })
   await screen.findByRole('table', { name: named(/^People at /) })
@@ -135,7 +140,8 @@ describe('the MD’s page (§4.4)', () => {
     const jamal = row(/^People at/, 'Jamal Hossain')
     expect(cells(jamal)[5]).toBe('Ended 20\u00a0Sep\u00a02026') // the date never breaks
     expect(jamal.className).toContain('text-muted-foreground')
-    expect(buttons(jamal)).toEqual(['Renew 30 days', 'Revoke'])
+    // Ended: Renew only; there is nothing left to revoke (#669, #323).
+    expect(buttons(jamal)).toEqual(['Renew 30 days'])
     // Listed after everyone whose access is current.
     const names = within(table(/^People at/))
       .getAllByRole('row')
@@ -160,8 +166,8 @@ describe('the MD’s page (§4.4)', () => {
     expect(screen.getByRole('heading', { name: 'Vextrus access' })).toBeVisible()
     expect(screen.getByText('Vextrus sees your data only while an invitation below is current. You can end it at any time.')).toBeVisible()
     const arif = row(/^Vextrus access$/, 'Arif Rahman')
-    expect(cells(arif).slice(0, 6)).toEqual(['Arif Rahman', 'Kamal Uddin', 'All projects', '26 Sep 2026', '26 Oct 2026', '2 acts, last 26 Sep 2026'])
-    expect(buttons(arif)).toEqual(['2 acts, last 26 Sep 2026', 'Renew 30 days', 'Revoke'])
+    expect(cells(arif).slice(0, 6)).toEqual(['Arif Rahman', 'Kamal Uddin', 'All projects', '26 Sep 2026', '26 Oct 2026', '1 act, last 26 Sep 2026'])
+    expect(buttons(arif)).toEqual(['1 act, last 26 Sep 2026', 'Renew 30 days', 'Revoke'])
   })
 
   it('tells a QS the access they may end, and their MD any (the owner’s ruling, 29 Sep 2026)', async () => {
@@ -219,7 +225,7 @@ describe('the role matrix (§1.4)', () => {
     await members(PEOPLE.qs)
     expect(screen.getByRole('button', { name: 'Invite' })).toBeVisible()
     for (const name of ['Kamal Uddin', 'Farhana Kabir', 'Jamal Hossain']) expect(buttons(row(/^People at/, name))).toEqual([])
-    expect(buttons(row(/^Vextrus access$/, 'Arif Rahman'))).toEqual(['2 acts, last 26 Sep 2026'])
+    expect(buttons(row(/^Vextrus access$/, 'Arif Rahman'))).toEqual(['1 act, last 26 Sep 2026'])
     expect(buttons(row(/^Invitations not used yet$/, 'rumana@shapla-homes.example'))).toEqual([])
     const dialog = await openInvite()
     expect(within(dialog).queryByRole('radiogroup', { name: 'Role' })).toBeNull()
@@ -229,7 +235,7 @@ describe('the role matrix (§1.4)', () => {
   })
 
   it('QS: Copy link and Withdraw on the invitation of an Engineer the QS invited', async () => {
-    const api = new FakeApi()
+    const api = withSadia()
     await members(PEOPLE.qs, api)
     const dialog = await openInvite()
     await userEvent.type(within(dialog).getByLabelText('Email'), 'sadia@vextrus.example')
@@ -330,7 +336,7 @@ describe('the invite dialog (§4.4)', () => {
   })
 
   it('takes a typed date and sends the end of that day in the Market’s time zone', async () => {
-    const api = new FakeApi()
+    const api = withSadia()
     await members(PEOPLE.md, api)
     const dialog = await openInvite()
     await userEvent.click(within(dialog).getByRole('radio', { name: 'Vextrus Engineer' }))
@@ -423,7 +429,7 @@ describe('the invite dialog (§4.4)', () => {
       throw new DOMException('Denied', 'NotAllowedError')
     })
     try {
-      await members(PEOPLE.md)
+      await members(PEOPLE.md, withSadia())
       const dialog = await openInvite()
       await userEvent.click(within(dialog).getByRole('radio', { name: 'Vextrus Engineer' }))
       await userEvent.type(within(dialog).getByLabelText('Email'), 'sadia@vextrus.example')
@@ -486,7 +492,7 @@ describe('the acts on a row (§4.4, "Wording of acts")', () => {
     await waitFor(() => expect(cells(row(/^Vextrus access$/, 'Arif Rahman'))[4]).toBe('Revoked by Kamal Uddin, 28\u00a0Sep\u00a02026'))
     const arif = row(/^Vextrus access$/, 'Arif Rahman')
     expect(arif.className).toContain('text-muted-foreground')
-    expect(buttons(arif)).toEqual(['2 acts, last 26 Sep 2026'])
+    expect(buttons(arif)).toEqual(['1 act, last 26 Sep 2026'])
   })
 
   it('Cancel on the confirm ends nothing', async () => {
@@ -600,16 +606,14 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     // The MD sees the act listed under the Engineer's name, marked (Vextrus).
     api.signInAs(PEOPLE.md)
     await queryClient.invalidateQueries()
-    const acts = await waitFor(() => within(row(/^Vextrus access$/, 'Sadia Karim')).getByRole('button', { name: named(/^2 acts, last 28 Sep 2026, by Sadia Karim$/) }))
+    const acts = await waitFor(() => within(row(/^Vextrus access$/, 'Sadia Karim')).getByRole('button', { name: named(/^1 act, last 28 Sep 2026, by Sadia Karim$/) }))
     await userEvent.click(acts)
     expect(acts).toHaveAttribute('aria-expanded', 'true')
     const panel = await screen.findByRole('region', { name: named(/^Sadia Karim \(Vextrus\)$/) })
     expect(within(panel).getByText('Their acts, newest first')).toBeVisible()
     const items = await within(panel).findAllByRole('listitem')
-    expect(items.map((li) => text(li))).toEqual([
-      'Sadia Karim (Vextrus) created this project · Nilgiri Bhaban · 28 Sep 2026, 15:42',
-      'Sadia Karim (Vextrus) accepted the invitation · 28 Sep 2026, 12:00',
-    ])
+    // The acts under this access, as the row counts them: accepting the invitation is not one (#323).
+    expect(items.map((li) => text(li))).toEqual(['Sadia Karim (Vextrus) created this project · Nilgiri Bhaban · 28 Sep 2026, 15:42'])
     expect(api.calls()).toContain('GET /api/activity')
     // Esc closes the panel; focus is back on the Acts button.
     await userEvent.keyboard('{Escape}')
@@ -638,27 +642,33 @@ describe('finish line step 10 in miniature: invite, act as the Engineer, see the
     expect(within(arif).queryByRole('button', { name: named(/acts/) })).toBeNull()
   })
 
-  it('counts a person’s acts once, on their first row, not again on each ended invitation (design gate 20a r2)', async () => {
+  it('counts on each access row the acts done under it, an earlier revoked row’s too (#323)', async () => {
     const api = new FakeApi()
-    api.addMembership(api.developer('Shapla Homes Ltd'), api.user(PEOPLE.engineer), 'vextrus_engineer', {
+    const shapla = api.developer('Shapla Homes Ltd')
+    api.addMembership(shapla, api.user(PEOPLE.engineer), 'vextrus_engineer', {
       invitedBy: api.user(PEOPLE.md).id,
       since: '2026-09-10T04:00:00Z',
       expiresAt: '2026-09-20T17:59:00Z',
       revokedAt: '2026-09-15T04:00:00Z',
     })
+    api.addAct(shapla.id, 'projects.projects.created', api.user(PEOPLE.engineer).id, null, '2026-09-12T09:42:00Z', api.project('KR-01').id)
     await members(PEOPLE.md, api)
     const arif = within(table(/^Vextrus access$/))
       .getAllByRole('row')
       .filter((r) => text(r.querySelector('td')) === 'Arif Rahman')
     expect(arif).toHaveLength(2)
-    expect(cells(arif[0]!)[5]).toBe('2 acts, last 26 Sep 2026')
-    expect(cells(arif[1]!)[5]).toBe('—')
-    expect(within(arif[1]!).queryByRole('button', { name: named(/acts/) })).toBeNull()
+    expect(cells(arif[0]!)[5]).toBe('1 act, last 26 Sep 2026')
+    expect(cells(arif[1]!)[5]).toBe('1 act, last 12 Sep 2026')
+    // Each row's Acts opens the acts done under that access, the ones it counts.
+    await userEvent.click(within(arif[1]!).getByRole('button', { name: named(/^1 act, last 12 Sep 2026, by Arif Rahman$/) }))
+    const panel = await screen.findByRole('region', { name: named(/^Arif Rahman \(Vextrus\)$/) })
+    const items = await within(panel).findAllByRole('listitem')
+    expect(items.map((li) => text(li))).toEqual(['Arif Rahman (Vextrus) created this project · Kadam Residence · 12 Sep 2026, 15:42'])
   })
 
   it('names whose acts the Acts button opens, its words first (words gate 20a r1)', async () => {
     await members(PEOPLE.md)
-    expect(within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: named(/^2 acts, last 26 Sep 2026, by Arif Rahman$/) })).toBeVisible()
+    expect(within(row(/^Vextrus access$/, 'Arif Rahman')).getByRole('button', { name: named(/^1 act, last 26 Sep 2026, by Arif Rahman$/) })).toBeVisible()
     expect(within(row(/^People at/, 'Farhana Kabir')).getByRole('button', { name: named(/^Revoke access for Farhana Kabir$/) })).toBeVisible()
   })
 })
