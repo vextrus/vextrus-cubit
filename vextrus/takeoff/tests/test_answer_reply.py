@@ -12,6 +12,7 @@ from vextrus.takeoff.tests.acceptance.t21c.step1_whole import (
     KEEP_OPEN,
     Sheet,
     answer,
+    confirm,
     got,
     jev_says,
     open_questions,
@@ -119,10 +120,16 @@ def test_reading_a_held_file_anyway_replies_with_progress_as_read_after_its_job_
     use = readers({held_name: [Sheet("S-03", "BEAM LAYOUT", ("BEAM LAYOUT",))]}, held=[held_name])
     run_job(qs_project.member, held, monkeypatch, use)
     api = api_as(qs_project.member)
+    # S-01 decided: nothing but the held file keeps Structural from confirmed.
+    [s01] = proposals(api, qs_project.project_id)
+    assert confirm(api, qs_project.project_id, [s01["id"]]).status_code == 200
     [q] = open_questions(api, qs_project.project_id, "file_misread")
 
     response = answer(api, qs_project.project_id, q["id"], "read_anyway")
 
     assert response.status_code == 200, response.content
     assert response.json()["changed_proposals"] == []
-    assert response.json()["progress"] == got(api, f"{path(qs_project.project_id)}/progress")
+    after = got(api, f"{path(qs_project.project_id)}/progress")
+    assert response.json()["progress"] == after
+    [structural] = [d for d in after["disciplines"] if d["discipline"] == "structural"]
+    assert structural["status"] != "confirmed", structural
