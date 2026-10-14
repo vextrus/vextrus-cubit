@@ -12,7 +12,7 @@ import { Plural, Trans } from '@lingui/react/macro'
 import { useLingui } from '@lingui/react'
 import { notifyManager, useQueryClient } from '@tanstack/react-query'
 import { ApiRefused } from '@/api/client'
-import { filesQuery } from '@/drawing-set/data'
+import { filesQuery, readFiles } from '@/drawing-set/data'
 import { problemOf, problemText } from '@/auth/problem'
 import { useFormat } from '@/format'
 import type { MachineMessage } from '@/format/machine'
@@ -20,12 +20,14 @@ import { useToast } from '@/ui'
 import { DrawingText } from '@/ui/DrawingText'
 import { PlanViewName } from './storeys'
 import {
+  accountFiles,
   answer,
   answered,
   confirm,
   correct,
   drawingListQuery,
   exclude,
+  fileStates,
   isWhole,
   readParts,
   setList,
@@ -485,16 +487,24 @@ function useActs(
       if (moved && moved.length > 0) parts.push('coverage')
       if ((reply as Partial<AnswerOut>).progress === undefined && moved && moved.length > 0) parts.push('progress')
       let read
+      let band: Awaited<ReturnType<typeof readFiles>> | null = null
       try {
-        // A held file's answer moves its file in the files band (§6.13): read again before the gate opens, so the
-        // bar is never drawn from a band that still shows the file held.
-        const band = entry.question.kind === 'file_misread' ? queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey }) : null
-        ;[read] = await Promise.all([readParts(projectId, parts), band])
+        // A held file's answer moves its file in the files band (§6.13): read again with the Questions and written
+        // with them, so the bar, the rows and the band move in one render.
+        ;[read, band] = await Promise.all([readParts(projectId, parts), entry.question.kind === 'file_misread' ? readFiles(projectId) : null])
       } catch {
         return false
       }
       if (mark.generation !== generation.current) return false
-      writeParts(queryClient, projectId, answered(queryClient, projectId, reply, read))
+      const files = band
+      notifyManager.batch(() => {
+        writeParts(queryClient, projectId, answered(queryClient, projectId, reply, read))
+        if (files) {
+          // Step 1's refresh on a file moving would read it all again, holding the state before the answer meanwhile.
+          accountFiles(queryClient, projectId, fileStates(files.files))
+          queryClient.setQueryData(filesQuery(projectId).queryKey, files)
+        }
+      })
       // The gate opens with the reply written (the design gate of #843): the bar then says what Enter does on
       // the next Question, and Enter there acts, never dropped while the rest is read behind. The Questions were
       // read again above, so no Question the server closed is on screen to act on.

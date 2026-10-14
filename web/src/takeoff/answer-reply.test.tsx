@@ -12,6 +12,11 @@
  * And the act gate opens with the reply written (the design gate of #843): while the rest of Step 1 is read
  * behind, the bar names the next Question, not the one answered, and Enter on it answers it, never dropped.
  *
+ * A held file read anyway moves its file in the files band (held to waiting), which Step 1's own refresh on a
+ * file moving would answer by reading the whole of Step 1 again, the screen held at the state before the answer
+ * meanwhile (the re-gate of #843: the bar on the next Question, the list still counting the answered one, and
+ * two whole reloads). The answer writes the band with its reply and reads Step 1 behind once.
+ *
  * The fakes are 22's and 156's (../acceptance/t22, ../acceptance/t156), with 21c's keep_latest laid over
  * 156's as ts26d7 lays it, and the server closing S-08's Question with it.
  */
@@ -21,6 +26,7 @@ import userEvent from '@testing-library/user-event'
 import { page } from 'vitest/browser'
 import { PEOPLE, mountApp } from '@/app/testing'
 import { FakeAnswers } from '../acceptance/t156/answer.fixture'
+import { FakeDrawingSet, file, msg } from '../acceptance/t20b/drawings.fixture'
 
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -215,5 +221,67 @@ describe('the gate opens with the reply written', () => {
     gate = null
     await waitFor(() => expect(queryClient.isFetching()).toBe(0))
     expect(fake.posted).toHaveLength(2)
+  })
+})
+
+describe('a held file read anyway', () => {
+  it('with the Proposals list held: the Questions tab and "Needs you" drop with the reply, the file shows waiting, and Step 1 is read again once', async () => {
+    const fake = new FakeAnswers()
+    fake.questions = fake.step1.questions.map((q) => ({ ...q, proposals: q.subject_id ? fake.step1.proposals.filter((p) => p.sheet_id === q.subject_id).map((p) => p.id) : [] }))
+    const held = fake.questions.find((q) => q.kind === 'file_misread')!
+    const set = new FakeDrawingSet(fake.api, 'KR-01')
+    const heldFile = file({ id: held.subject_id!, name: 'KR-STR-old.dwg', state: 'held', status: msg('drawings.files.held') })
+    set.files = [file({ name: 'KR-STR-R0.dwg', state: 'read', status: msg('drawings.files.read', { sheets: 13 }), sheets_found: 13 }), heldFile]
+    let gate: Promise<void> | null = null
+    let release = () => undefined as void
+    let listsAsked = 0
+    const list = new RegExp(`^/api/projects/${fake.step1.projectId}/takeoff/step1/proposals/?$`)
+    const progressPath = `/api/projects/${fake.step1.projectId}/takeoff/step1/progress`
+    const base = fake.api.handle
+    fake.api.handle = async (request: Request) => {
+      const path = new URL(request.url, location.origin).pathname
+      const waiting = gate
+      if (request.method === 'GET' && list.test(path) && waiting) {
+        listsAsked += 1
+        await waiting
+      }
+      const response = await base(request)
+      if (request.method === 'POST' && path.endsWith(`/questions/${held.id}/answer`) && response.ok) {
+        // 21c's read anyway: the file's read job is queued again.
+        Object.assign(heldFile, { state: 'waiting', status: msg('drawings.files.waiting', { ahead: 0 }) })
+        const progress = (await (await base(new Request(new URL(progressPath, location.origin)))).json()) as unknown
+        const reply = (await response.json()) as Record<string, unknown>
+        return new Response(JSON.stringify({ ...reply, changed_proposals: [], progress }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      return response
+    }
+    const { queryClient } = await mountApp('/p/KR-01/takeoff/1', { as: PEOPLE.qs, api: fake.api })
+    await waitFor(() => expect(bodyText()).toMatch(/Confirmed 0 \/ \d+/))
+    const open = fake.questions.filter((q) => q.status === 'open').length
+    const needs = () => /Needs you: (\d+) Questions? open/.exec(bodyText())?.[1] ?? '(none)'
+    await waitFor(() => expect([questionsNow(), needs()]).toEqual([String(open), String(open)]))
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    gate = new Promise<void>((resolve) => (release = resolve))
+
+    const seen: string[] = []
+    const mo = new MutationObserver(() => seen.push(`${questionsNow()}|${needs()}`))
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true })
+    const barWhat = () => clean(document.querySelector('button[aria-keyshortcuts="Enter"]')?.parentElement?.querySelector('.font-medium')?.textContent)
+    for (let i = 0; i < 8 && !barWhat().includes('KR-STR-old.dwg'); i++) await userEvent.keyboard('q')
+    expect(barWhat(), 'the bar on the held file\'s Question').toMatch(/^Question Q\d+: .*KR-STR-old\.dwg/)
+    expect(held.options[0]!.key).toBe('read_anyway')
+    await userEvent.keyboard('1')
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(fake.posted).toHaveLength(1))
+    await waitFor(() => expect([questionsNow(), needs()], 'the tab and "Needs you" with the list held').toEqual([String(open - 1), String(open - 1)]))
+    expect(bodyText()).toContain('KR-STR-old.dwg is waiting to be read')
+    mo.disconnect()
+    release()
+    gate = null
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0))
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+    expect([...new Set(seen)].filter((s) => { const [tab, n] = s.split('|'); return tab !== n }), 'a state whose tab and "Needs you" disagree').toEqual([])
+    expect(listsAsked, 'the Proposals list asked for again once, not twice').toBe(1)
   })
 })

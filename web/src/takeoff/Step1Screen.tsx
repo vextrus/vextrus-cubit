@@ -33,7 +33,7 @@ import { sheetAddress } from './paths'
 import { SheetName, useStep1Acts, type SheetChange } from './acts'
 import { PAPER_AS_READ, useSheetLook, type LookSetting } from './SheetLook'
 import { Bar, ExclusionPicker, useBar, type BarSpec } from './Bar'
-import { renderQuery, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
+import { fileStates, renderQuery, takeAccounted, useStep1, type CoverageOut, type ProposalOut, type Step1Data, type ViewOut } from './data'
 import { DrawingListDialog } from './DrawingListDialog'
 import { step1Key } from './data'
 import { FilesBand } from './FilesBand'
@@ -93,12 +93,15 @@ function useRefreshAsFilesFinish(projectId: string): FileOut[] {
     notifyOnChangeProps: ['data'],
   })
   const list = files.data?.files
-  const states = list?.map((f) => `${f.id}:${f.state}`).join(',')
+  const states = list ? fileStates(list) : undefined
   const seen = useRef<string | undefined>(undefined)
   useEffect(() => {
     if (states === undefined || states === seen.current) return
     const first = seen.current === undefined
     seen.current = states
+    // An answer wrote these states with its reply and reads Step 1 behind itself (S27-G7): not read twice.
+    const answered = takeAccounted(qc, projectId)
+    if (!first && states === answered) return
     const step1At = qc.getQueryState([...step1Key(projectId), 'proposals'])?.dataUpdatedAt ?? 0
     const answeredAt = qc.getQueryState(filesQuery(projectId).queryKey)?.dataUpdatedAt ?? 0
     if (!first || step1At <= answeredAt) void qc.invalidateQueries({ queryKey: step1Key(projectId) })

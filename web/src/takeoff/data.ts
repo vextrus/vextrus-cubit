@@ -143,6 +143,30 @@ export async function readParts<K extends keyof Step1Parts>(projectId: string, p
   return Object.fromEntries(parts.map((part, i) => [part, values[i]])) as Pick<Step1Parts, K>
 }
 
+/** The files' states as Step 1 compares them to know a file moved (`useRefreshAsFilesFinish`). */
+export const fileStates = (files: readonly { id: string; state: string }[]) => files.map((f) => `${f.id}:${f.state}`).join(',')
+
+const accounted = new WeakMap<QueryClient, Map<string, string>>()
+
+/**
+ * The files' states an answer wrote with its reply (a held file read anyway or set aside), the rest of Step 1
+ * read behind by the answer itself: Step 1's own refresh on a file moving is then not asked for again (S27-G7,
+ * the re-gate of #843: a second whole reload, and the snapshot held at the state before the answer meanwhile).
+ */
+export function accountFiles(queryClient: QueryClient, projectId: string, states: string) {
+  const byProject = accounted.get(queryClient) ?? new Map<string, string>()
+  byProject.set(projectId, states)
+  accounted.set(queryClient, byProject)
+}
+
+/** The states an answer accounted for, taken once (`accountFiles`). */
+export function takeAccounted(queryClient: QueryClient, projectId: string): string | undefined {
+  const byProject = accounted.get(queryClient)
+  const states = byProject?.get(projectId)
+  byProject?.delete(projectId)
+  return states
+}
+
 /** Writes some of the four in one batch: every reader of the snapshot renders them together. */
 export function writeParts(queryClient: QueryClient, projectId: string, parts: Partial<Step1Parts>) {
   notifyManager.batch(() => {
