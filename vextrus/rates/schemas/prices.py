@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from ninja import Schema
+from pydantic import Field
 
 from vextrus.platform.schemas.money import MoneySchema
 
@@ -22,10 +23,18 @@ class PriceRowOut(Schema):
     source: str | None
 
 
+class PriceMoneyIn(Schema):
+    """An amount as typed and its ISO 4217 code: a request's own schema, as a decimal's input schema
+    differs from its reply's (one component name each)."""
+
+    amount: Decimal
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+
+
 class PriceIn(Schema):
     """A Market Price entered or changed."""
 
-    price: MoneySchema
+    price: PriceMoneyIn
 
 
 class RateLineOut(Schema):

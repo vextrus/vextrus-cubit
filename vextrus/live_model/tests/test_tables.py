@@ -81,8 +81,17 @@ def test_the_tables_are_the_owner_s_ruling_and_no_more() -> None:
     assert tables == T | L
 
 
-def test_live_model_s_services_expose_nothing_yet() -> None:
-    assert [name for name in vars(services) if not name.startswith("_")] == []
+def test_live_model_s_services_expose_only_the_frozen_types_yet() -> None:
+    """M1-00 froze C7's types here; M1-08 adds the services."""
+    assert sorted(name for name in vars(services) if not name.startswith("_")) == [
+        "Snapshot",
+        "SnapshotElement",
+        "StateChange",
+        "TraceAnchor",
+        "TraceEntry",
+        "TraceKind",
+        "changes",
+    ]
 
 
 @pytest.mark.django_db
