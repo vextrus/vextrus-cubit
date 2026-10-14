@@ -5,8 +5,8 @@
 // ("sidewalk now", "walk nowhere") does not count, and each block reason quotes the words that matched, so a message
 // that only discusses the rule can be rephrased. A phrase that asks for no walk passes without G1 (#865): one negated
 // before it in its own clause ("not", "never", "cannot", "n't", straight or curly; a clause starts after . ! ? ; : , a
-// line break, a dash, "and" or "but"; "not yet ready" stays negated), or one inside a closed quote (double, single, curly), a code span
-// or a fenced block. A negation after the phrase ("ready for your walk and doesn't touch the engine") frees nothing. A
+// line break, a dash, "and", "but", "so" or "yet", but not the "yet" of "not yet ready"), or one inside a closed quote
+// (double, single, curly), a code span or a fenced block. A negation after the phrase ("ready for your walk and doesn't touch the engine") frees nothing. A
 // plain claim anywhere in the message still blocks, and the reason quotes it. Fails closed where it matters: ready.py
 // absent (G1 not installed),
 // failing, or hung blocks. Every other failure (no message, garbage stdin, a builder session) lets the stop through.
@@ -26,7 +26,7 @@ const PHRASES = /(?<![A-Za-z])(?:walk now(?!here)|ready for your walk|please wal
 // What frees a phrase: closed quotes and code on one line (a single quote only between non-letters, so "don't" opens
 // none, nor an inch mark: 6"), closed fenced blocks; then a negation word before the phrase in its own clause.
 const QUOTED = [/```[\s\S]*?```/g, /`[^`\n]+`/g, /(?<![A-Za-z0-9])"[^"\n]*"/g, /“[^“”\n]*”/g, /‘[^‘’\n]*’/g, /(?<![A-Za-z0-9])'[^'\n]*'(?![A-Za-z0-9])/g];
-const CLAUSE_START = /[.!?;:,\n—–]|\s-\s|(?<![A-Za-z])(?:and|but)(?![A-Za-z])/gi;
+const CLAUSE_START = /[.!?;:,\n—–]|\s-\s|(?<![A-Za-z])(?:and|but|so)(?![A-Za-z])|(?<!(?:(?<![A-Za-z])(?:not|never)|n['’]t)\s+)(?<![A-Za-z])yet(?![A-Za-z])/gi;
 const NEGATION = /(?<![A-Za-z])(?:not|never|cannot)(?![A-Za-z])|[A-Za-z]n['’]t(?![A-Za-z])/i;
 
 /** The message with quoted and code text blanked to spaces (same length, line breaks kept). */

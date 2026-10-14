@@ -103,3 +103,11 @@ for (const [message, quoted] of [
 test("\"not yet ready for your walk\" is negated: allowed without running G1", () => {
   for (const message of ["The PR is not yet ready for your walk.", "It isn't yet ready for your walk."]) assert.equal(stop(project(1), {}, message), "allowed", message);
 });
+
+test("a negation before \"so\" or a free-standing \"yet\" frees nothing after it", () => {
+  for (const [message, quoted] of [["I didn't touch the engine so the PR is ready for your walk.", "ready for your walk"], ["It wasn't green yet it is ready for your walk.", "ready for your walk"]]) {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+    assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
+  }
+});
