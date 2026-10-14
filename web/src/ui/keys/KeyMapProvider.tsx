@@ -66,7 +66,8 @@ function reachesMapWhileTyping(combo: string): boolean {
 function ownedByWidget(target: Element | null, combo: string): boolean {
   if (!target || !WIDGET_KEYS.has(combo)) return false
   if (combo === 'Space') return target.closest(`${PRESSABLE},${RADIO}`) !== null || target.closest(WIDGETS) !== null
-  if (combo === 'Enter') return target.closest(PRESSABLE) !== null || target.closest(ENTER_WIDGETS) !== null
+  // A radio drawn as a button (Segmented's, Radix's ToggleGroup) is a radio still: Enter reaches the map.
+  if (combo === 'Enter') return (target.closest(PRESSABLE) !== null && target.closest(RADIO) === null) || target.closest(ENTER_WIDGETS) !== null
   return target.closest(WIDGETS) !== null
 }
 

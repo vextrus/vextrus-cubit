@@ -161,7 +161,7 @@ class ViewView:
     storeys_meaning: str | None
     storeys_source: str | None
     """Where its storeys were read: None for its own title, else "sheet_title" (T-W318) or
-    "title_line" (S15-E3)."""
+    "title_line" (S15-E3); "typed" once the QS corrected them, "typed_part" for a part plan."""
     subject: str | None
     layer: str | None
     steps: tuple[str, ...]
@@ -655,6 +655,12 @@ def _drop_sheet_if_empty(sheet_id: uuid.UUID) -> None:
         Sheet.objects.filter(id=sheet_id).delete()
 
 
+TYPED_PART = "typed_part"
+TYPED_STOREYS = ("typed", TYPED_PART)
+"""A view's `storeys_source` once the QS typed its storeys: `typed`, or `typed_part` for a part plan
+(read from `title_line`), which keeps standing out of the same-storey comparison."""
+
+
 def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidate]) -> list[ViewView]:
     """Keep a printed sheet's views as its file's kept reading read them, in reading order,
     replacing that reading's earlier views of it (never one the QS decided)."""
@@ -678,6 +684,10 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
         earlier = View.objects.filter(sheet_revision=sheet_revision, reader_version=kept.reader_version)
         if earlier.exclude(decision="").exists():
             raise auth.Refused(refusal.DECIDED(file=name), status=409)
+        # Storeys the QS typed for a view stand over a re-read, as a typed number or title does (review
+        # 1 of #691; review of #777): a view of the same place, kind and title keeps them; a standing
+        # correction is undone by its undo, never by the file read again.
+        typed = {(v.ordinal, v.kind, v.title): v for v in earlier if v.storeys_source in TYPED_STOREYS}
         earlier.delete()
         made = []
         for ordinal, candidate in enumerate(candidates, start=1):  # its candidate's place, kept or not
@@ -695,6 +705,8 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
                 (source, _length(View, "storeys_source")),
             ):
                 continue
+            title = _text.read(candidate.title)
+            stood = typed.get((ordinal, str(candidate.kind), title))
             made.append(
                 View(
                     tenant_id=row.tenant_id,
@@ -702,15 +714,15 @@ def record_views(sheet_revision_id: uuid.UUID, candidates: Sequence[ViewCandidat
                     reader_version=kept.reader_version,
                     ordinal=ordinal,
                     kind=str(candidate.kind),
-                    title=_text.read(candidate.title),
+                    title=title,
                     box=[_decimal(v) for v in _box(candidate)],
                     drawing_unit=_UNITS.get(kept.insunits, ""),
                     not_to_scale=candidate.not_to_scale,
                     stated_scale_text=scale,
                     storeys_as_stated=_text.read(candidate.storeys_as_stated),
-                    storeys=_text.read_json(list(candidate.storeys)),
-                    storeys_meaning=meaning,
-                    storeys_source=source,
+                    storeys=stood.storeys if stood else _text.read_json(list(candidate.storeys)),
+                    storeys_meaning=stood.storeys_meaning if stood else meaning,
+                    storeys_source=stood.storeys_source if stood else source,
                     subject=subject,
                     layer=layer,
                     steps=_text.read_json(list(candidate.steps)),

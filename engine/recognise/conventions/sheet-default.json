@@ -17,7 +17,7 @@
     {"field": "issue_date", "words": ["issue date", "date of issue", "date"], "position": null}
   ],
   "revision_mark_pattern": "(?i)(?:^|[\\s_.-])(R\\d{1,2}|REV[\\s._-]?[A-Z0-9]{1,2})(?=$|[\\s_.-])",
-  "member_range_pattern": "(?i)(?<![A-Z0-9])(?P<a>[A-Z]{1,3})(?P<low>\\d{1,4})(?:\\s?[-\u2013]\\s?|\\s(?:TO|THRU)\\s)(?P<b>[A-Z]{1,3})(?P<high>\\d{1,4})(?![A-Z0-9])",
+  "member_range_pattern": "(?i)(?<![A-Z0-9])(?P<a>[A-Z]{1,3})-?(?P<low>\\d{1,4})(?:\\s?[-\u2013]\\s?|\\s(?:TO|THRU)\\s)(?P<b>[A-Z]{1,3})-?(?P<high>\\d{1,4})(?![A-Z0-9])",
   "storey_words": [
     {"storey": "pile", "words": ["pile", "piles", "pile head"]},
     {"storey": "pile_cap", "words": ["pile cap", "pile caps", "pilecap", "pilecaps"]},
@@ -48,6 +48,7 @@
   "ordinal_suffixes": ["st", "nd", "rd", "th"],
   "range_words": ["to", "thru", "through", "upto", "up to", "till", "until"],
   "list_words": ["and"],
+  "citation_words": ["see", "refer to", "refer", "ref", "details on", "details in", "detail on", "detail in", "as per"],
   "register_words": ["drawing list", "list of drawings", "drawing register", "drawing index", "index of drawings", "sheet index", "list of sheets", "sheet list", "schedule of drawings", "drawing schedule"],
   "sheet_kinds": {
     "structural": ["site_plan", "grid_layout", "pile_layout", "pile_details", "pile_cap_layout", "pile_cap_details", "foundation_layout", "foundation_details", "column_layout", "column_schedule", "shear_wall_details", "beam_layout", "beam_details", "slab_layout", "slab_details", "stair_details", "retaining_wall_details", "tank_details", "roof_structure_details", "details"],

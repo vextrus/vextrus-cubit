@@ -646,9 +646,14 @@ def _view(view: ViewView) -> ViewCandidate:
         ViewCandidate,
         ViewKind,
     )
+    from vextrus.drawings import services as drawings
 
     reason = view.proposed_exclusion
     sources = {str(s) for s in StoreysSource}
+    # A part plan the QS corrected (`typed_part`) is still a part plan; a plain typed view has no source.
+    standing = (
+        StoreysSource.TITLE_LINE if view.storeys_source == drawings.TYPED_PART else view.storeys_source
+    )
     return ViewCandidate(
         box=Box(*(float(v) for v in view.box)),
         kind=ViewKind(view.kind),
@@ -659,9 +664,7 @@ def _view(view: ViewView) -> ViewCandidate:
         storeys=tuple(view.storeys),
         storeys_meaning=None if view.storeys_meaning is None else StoreysMeaning(view.storeys_meaning),
         # Where they were read, kept: a part plan's (`title_line`) sits out of same_storey (S15-E3).
-        storeys_source=StoreysSource(view.storeys_source)
-        if view.storeys and view.storeys_source in sources
-        else None,
+        storeys_source=StoreysSource(standing) if view.storeys and standing in sources else None,
         subject=view.subject,
         layer=None if view.layer is None else Layer(view.layer),
         steps=tuple(view.steps),

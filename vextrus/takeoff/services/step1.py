@@ -68,7 +68,7 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import auth, events, invitations, jev, markets, tenancy
+from vextrus.platform.services import activity, auth, events, invitations, jev, markets, tenancy
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -205,7 +205,8 @@ class SheetViewView:
     storeys_meaning: str | None
     storeys_source: str | None
     """Where its storeys were read: None for its own title, "sheet_title" for its sheet's (T-W318),
-    "title_line" for a bracketed line under its title (S15-E3)."""
+    "title_line" for a bracketed line under its title (S15-E3), "typed" once the QS corrected them
+    (S24-B2; the steps after Step 1 read a typed view as one of its own title)."""
     steps: list[str]
     part: str | None
     proposed_exclusion: str | None
@@ -339,6 +340,8 @@ class HistoryAct:
     """An exclusion's "other" words, as the QS typed them."""
     changes: dict[str, dict[str, str | None]] | None = None
     """A correction's `{number?, title?: {old, new, old_source}}`."""
+    views: list[dict[str, Any]] | None = None
+    """A correction's plan views' storeys: `{title, old, new}` each, storey keys low to high (S24-B2)."""
 
 
 @dataclass(frozen=True)
@@ -758,7 +761,9 @@ def _sheet_view_view(view: drawings.ViewView) -> SheetViewView:
         storeys=list(view.storeys),
         storeys_as_stated=view.storeys_as_stated,
         storeys_meaning=view.storeys_meaning,
-        storeys_source=view.storeys_source,
+        # A part plan the QS corrected is "typed" to the web, as any other (the part-plan standing is the
+        # steps' business).
+        storeys_source="typed" if view.storeys_source == drawings.TYPED_PART else view.storeys_source,
         steps=list(view.steps),
         part=view.part,
         proposed_exclusion=view.proposed_exclusion,
@@ -1122,9 +1127,10 @@ def _counted(row: Coverage) -> str:
 
 def progress(project_id: uuid.UUID) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
-    row, last), and the Market's expected Disciplines not yet received. A sheet proposed out with no
-    number is not counted unless the QS confirmed it."""
-    sheets = [s for s in _facts(project_id) if _counted_sheet(s)]
+    row, last), and the Market's expected Disciplines not yet received. Every sheet found is counted,
+    a sheet proposed out and a sheet left out among them (m0-screens: excluded sheets stay in the
+    count); a sheet left out is settled."""
+    sheets = _facts(project_id)
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
     decided: Counter[str | None] = Counter()
@@ -1226,12 +1232,9 @@ def _outstanding(
 
 def proposed_out(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     """The read proposed the sheet out and it has no number (a cover, a stale layout; #162): it is
-    asked nothing, and Step 1 does not count it unless the QS confirms it in."""
+    asked nothing. It stays in Step 1's count (#322), settled once the QS confirms it in or leaves
+    it out."""
     return bool(sheet.proposed_exclusion) and not sheet.number
-
-
-def _counted_sheet(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
-    return not proposed_out(sheet) or sheet.decision == "confirmed"
 
 
 def _not_received(project_id: uuid.UUID) -> list[str]:
@@ -1568,6 +1571,47 @@ def _record(row: Confirmation, code: MessageCode, payload: dict[str, int] | None
         project_id=row.project_id,
         payload=payload or {},
     )
+
+
+def act_params(events: Sequence[activity.ActView]) -> dict[uuid.UUID, dict[str, Any]]:
+    """What the acts-read adds to a "confirmed back in" event (the log keeps ids and counts only):
+    `excluded_before`, one `{sheet, reason}` per sheet it confirmed back in, the sheet's number and
+    the code of the reason it was excluded for, from the act's `before` (m0-screens 4.4). Codes and
+    numbers only, and the title of a sheet that has no number."""
+    back_in = {
+        e.subject_id: e
+        for e in events
+        if e.code == said.CONFIRMED_BACK_IN.code and e.subject_type == "confirmation" and e.subject_id
+    }
+    if not back_in:
+        return {}
+    found: dict[uuid.UUID, dict[str, Any]] = {}
+    sets: dict[uuid.UUID, uuid.UUID | None] = {}
+    for act in Confirmation.objects.filter(id__in=list(back_in)):
+        earlier = {
+            key: prior["reason"]
+            for key, prior in act.before.get("sheets", {}).items()
+            if prior and prior.get("decision") == "excluded" and prior.get("reason")
+        }
+        if act.project_id not in sets:
+            drawing_set = drawings.set_of(act.project_id)
+            sets[act.project_id] = drawing_set.id if drawing_set else None
+        set_id = sets[act.project_id]
+        if not earlier or set_id is None:
+            continue
+        named = drawings.sheets(set_id, anchors=False, among=[uuid.UUID(k) for k in earlier])
+        entries = [
+            {
+                "sheet": sheet.number or "",
+                "reason": earlier[str(sheet.id)],
+                # A numberless sheet is named by its title, as the Step 1 list does.
+                **({"title": sheet.title} if not sheet.number and sheet.title else {}),
+            }
+            for sheet in named
+            if str(sheet.id) in earlier
+        ]
+        found[back_in[act.id].id] = {"excluded_before": entries}
+    return found
 
 
 def _chosen(
@@ -2179,14 +2223,17 @@ def correct(
     *,
     number: object = None,
     title: object = None,
+    views: Sequence[tuple[object, object, object]] | None = None,
     opened: Mapping[str, object] | None = None,
     actor_name: str,
 ) -> ActView:
-    """The QS corrects a sheet's number or title (m0-screens 2.2 and 6.9, `E`), one act: the sheet
-    stays a Proposal (an excluded one stays out); a confirmed one is refused (409), its Confirmation
-    to be undone first. A value given as it already is changes nothing; none changed is refused
-    (400). The act keeps what it changed (`before["corrected"]`) for its undo, and the set's
-    Questions are asked again: a number another sheet of the Discipline has is a conflict."""
+    """The QS corrects a sheet's number, title or plan views' storeys (m0-screens 2.2 and 6.9, `E`),
+    one act: the sheet stays a Proposal (an excluded one stays out); a confirmed one is refused (409),
+    its Confirmation to be undone first. `views` are `(view, storeys as typed, meaning)`: the view's
+    storeys and meaning are then the QS's, marked typed. A value given as it already is changes
+    nothing; none changed is refused (400). The act keeps what it changed (`before["corrected"]`) for
+    its undo, and the set's Questions are asked again: a number another sheet of the Discipline has is
+    a conflict, and the storeys the plans name are compared with the title's again."""
     auth.require(acts.CORRECT, project_id)
     with transaction.atomic(), writing(project_id):
         [(sheet, _proposal)] = _chosen(project_id, [proposal])
@@ -2219,6 +2266,20 @@ def correct(
             changed["number"] = [sheet.number or "", drawings.typed_number(number)]
         if isinstance(title, str) and title.strip() != sheet.title:
             changed["title"] = [sheet.title, drawings.typed_title(title)]
+        if views:
+            _refuse_if_views_read_again(opened, sheet, views)
+        viewed = drawings.typed_view_storeys(sheet.id, views or [])
+        if viewed:
+            # The sheet is locked (`typed_view_storeys`): these are the views just read and judged.
+            read = drawings.views(sheet.id)
+            _refuse_if_storeys_moved(opened, viewed, sheet, read)
+            places = _plan_places(read)
+            by_id = {v.id: v for v in read}
+            changed["views"] = []
+            for b, a in viewed:
+                if b.view not in by_id:  # read again since (review 2 of #780): refused, never a 500
+                    raise _storeys_since(opened, sheet, b.view, "", 0)
+                changed["views"].append(_view_change(b, a, by_id[b.view], places[b.view]))
         if len(changed) == 1:
             raise auth.Refused(said.NOTHING_TO_CORRECT(), status=400)
         # Where each value was read, for its undo (the reading's source, not the correction's).
@@ -2257,8 +2318,151 @@ def correct(
             asked.save(update_fields=["status", "answer", "answered_by", "answered_at"])
         if "title" in changed:
             drawings.set_sheet_title(sheet.id, changed["title"][1])
+        if viewed:
+            written = drawings.set_view_storeys(sheet.id, [after for _before, after in viewed])
+            # A view not written was read again under the act: refused, the whole act with it, never
+            # answered as corrected with its storeys left as read (review 2 of #780).
+            for v in changed["views"]:
+                if uuid.UUID(v["view"]) not in written:
+                    raise _storeys_since(opened, sheet, uuid.UUID(v["view"]), v["title"], v["place"])
         _after_act(project_id, corrected=True)
     return _act_view(act)
+
+
+def _refuse_if_views_read_again(
+    opened: Mapping[str, object] | None,
+    sheet: drawings.SheetView,
+    views: Sequence[tuple[object, object, object]],
+) -> None:
+    """A view the form opened with that is no longer the sheet's (its file read again since: its rows
+    replaced, with new ids) is refused as changed since (409, whose words say to open the form
+    again), not as a view unknown to the sheet (400), judged before the views are looked up (review 1
+    of #811). It is named as the form named it (`opened["views"]`' `title` and `place`), else by its
+    place among the views sent."""
+    seen = (opened or {}).get("views")
+    if not isinstance(seen, Mapping):
+        return
+    drawings.lock_sheet(sheet.id)  # the views read are those the correction then judges
+    now = {v.id for v in drawings.views(sheet.id)}
+    for at, (view, _storeys, _meaning) in enumerate(views, start=1):
+        was = seen.get(str(view))
+        if not isinstance(view, uuid.UUID) or view in now or not isinstance(was, Mapping):
+            continue
+        title, place = was.get("title"), was.get("place")
+        named = title if isinstance(title, str) else ""
+        counted = place if isinstance(place, int) and not isinstance(place, bool) and place > 0 else at
+        raise _storeys_since(opened, sheet, view, named, counted)
+
+
+def _refuse_if_storeys_moved(
+    opened: Mapping[str, object] | None,
+    viewed: Sequence[tuple[drawings.ViewStoreys, drawings.ViewStoreys]],
+    sheet: drawings.SheetView,
+    read: Sequence[drawings.ViewView],
+) -> None:
+    """A view's storeys another person corrected since the form opened are theirs, not silently
+    overwritten (409), as a number or title is: `opened["views"]` holds, per view the form sends, the
+    storeys (keys) and meaning it opened with. A view the form sent no opened state for is not judged."""
+    seen = (opened or {}).get("views")
+    if not isinstance(seen, Mapping):
+        return
+    titles = {v.id: v.title for v in read}
+    places = _plan_places(read)
+    for before, _after in viewed:
+        was = seen.get(str(before.view))
+        if not isinstance(was, Mapping):
+            continue
+        storeys, meaning = was.get("storeys"), was.get("meaning")
+        # A view's opened state of other types is unreadable, so not judged (review 1 of #780, 50).
+        if storeys is None:
+            storeys = []
+        if not isinstance(storeys, list) or not all(isinstance(k, str) for k in storeys):
+            continue
+        if meaning is not None and not isinstance(meaning, str):
+            continue
+        if (list(before.storeys), before.meaning or "") != (storeys, meaning or ""):
+            raise _storeys_since(
+                opened, sheet, before.view, titles.get(before.view, ""), places.get(before.view, 0)
+            )
+
+
+def _storeys_since(
+    opened: Mapping[str, object] | None,
+    sheet: drawings.SheetView,
+    view: uuid.UUID,
+    title: str,
+    place: int,
+) -> auth.Refused:
+    """A plan view's storeys changed under the correction (409, nothing written): the view named by
+    its title, or, untitled, by its place among the sheet's plans (`titled` "no"; review 2 of #780)."""
+    named = _label(str((opened or {}).get("number") or ""), sheet)
+    title = title.strip()
+    return auth.Refused(
+        said.STOREYS_CORRECTED_SINCE(
+            view=title[:80],
+            view_id=str(view),
+            titled="yes" if title else "no",
+            place=place,
+            **named,
+        ),
+        status=409,
+    )
+
+
+def _plan_places(read: Sequence[drawings.ViewView]) -> dict[uuid.UUID, int]:
+    """Each plan view's place among its sheet's plans, from 1 in reading order: an untitled plan is
+    named by it ("plan view 2 (untitled)"), as the correction form names it (review 2 of #780)."""
+    plans = sorted((v for v in read if (v.confirmed_kind or v.kind) == "plan"), key=lambda v: v.ordinal)
+    return {v.id: n for n, v in enumerate(plans, start=1)}
+
+
+def _view_change(
+    before: drawings.ViewStoreys, after: drawings.ViewStoreys, view: drawings.ViewView, place: int
+) -> dict[str, Any]:
+    """A plan view's storeys correction as the act keeps it: each of storeys, meaning and source as
+    `[before, after]` (the undo puts the first back, and stands only while the second is kept), the
+    view's title for the sheet's history, and its place and kind: with its title, what a re-read
+    carries the typed storeys by (`drawings.record_views`), for the undo to find the view again."""
+    return {
+        "view": str(before.view),
+        "title": view.title,
+        "place": place,  # among the sheet's plans: an untitled one's name in its history
+        "ordinal": view.ordinal,
+        "kind": view.kind,
+        "storeys": [list(before.storeys), list(after.storeys)],
+        "meaning": [before.meaning, after.meaning],
+        "source": [before.source, after.source],
+    }
+
+
+def _view_storeys(changed: Mapping[str, Any], side: int) -> list[drawings.ViewStoreys]:
+    """The views a correction changed, as they were (`side` 0) or as it left them (`side` 1)."""
+    return [
+        drawings.ViewStoreys(
+            uuid.UUID(v["view"]),
+            tuple(v["storeys"][side]),
+            v["meaning"][side],
+            v["source"][side],
+        )
+        for v in changed.get("views") or []
+    ]
+
+
+def _views_now(sheet_id: uuid.UUID, changed: Mapping[str, Any]) -> dict[str, drawings.ViewView]:
+    """The views a correction changed as the sheet keeps them now, by the act's view id: the same
+    row, or the one a re-read carried its typed storeys to (same place, kind and title; review 1 of
+    #780). A view the reading no longer holds is not here: it holds nothing to put back."""
+    kept = drawings.views(sheet_id)
+    by_id = {str(v.id): v for v in kept}
+    by_place = {(v.ordinal, v.kind, v.title): v for v in kept}
+    found: dict[str, drawings.ViewView] = {}
+    for one in changed.get("views") or []:
+        now = by_id.get(one["view"]) or by_place.get(
+            (one.get("ordinal"), one.get("kind"), one.get("title"))
+        )
+        if now is not None:
+            found[one["view"]] = now
+    return found
 
 
 def _correction_act(
@@ -2327,6 +2531,16 @@ def _correction_stands(act: Confirmation) -> bool:
         return False
     if title and sheet.title != title[1]:
         return False
+    if changed.get("views"):
+        kept = _views_now(sheet.id, changed)
+        for left in _view_storeys(changed, 1):
+            now = kept.get(str(left.view))  # a view the reading no longer holds: nothing to put back
+            if now is not None and (tuple(now.storeys), now.storeys_meaning, now.storeys_source) != (
+                left.storeys,
+                left.meaning,
+                left.source,
+            ):
+                return False
     asked = changed.get("question")
     if asked and number:
         question = Question.objects.filter(project_id=act.project_id, id=uuid.UUID(asked["id"])).first()
@@ -2343,8 +2557,9 @@ def _correction_stands(act: Confirmation) -> bool:
 
 def _put_back_correction(act: Confirmation) -> None:
     """A correction undone (`_correction_stands` first): the number and title it changed go back to
-    its own `before`, with their sources, and the `missing` Question it answered asks again as the
-    sheet stands now, with the answer (a "keep open") it had before the correction."""
+    its own `before`, with their sources, and so do its plan views' storeys, meaning and source; the
+    `missing` Question it answered asks again as the sheet stands now, with the answer (a "keep
+    open") it had before the correction."""
     changed = act.before.get("corrected") or {}
     try:
         sheet = _sheet(uuid.UUID(changed["sheet"]))
@@ -2352,6 +2567,19 @@ def _put_back_correction(act: Confirmation) -> None:
         return  # off the sheet list since
     number, title = changed.get("number"), changed.get("title")
     sources = changed.get("sources") or {}
+    if changed.get("views"):
+        # The sheet is locked before its views are read, as the correction locks it (review 3 of #780):
+        # a re-read cannot replace them between the read and the write. A view the write still misses
+        # (read again under the undo) is refused with the whole undo, never stamped undone unwritten.
+        drawings.lock_sheet(sheet.id)
+        kept = _views_now(sheet.id, changed)
+        put_back = [
+            replace(was, view=kept[str(was.view)].id)
+            for was in _view_storeys(changed, 0)
+            if str(was.view) in kept
+        ]
+        if drawings.put_back_view_storeys(sheet.id, put_back) != {v.view for v in put_back}:
+            raise auth.Refused(said.CORRECTION_MOVED_ON(**_passed_named(act)), status=409)
     back = drawings.put_back_sheet(
         sheet.id,
         number=number[0] if number else None,
@@ -2403,7 +2631,7 @@ def _passed_named(correction: Confirmation) -> dict[str, str]:
 def undo(project_id: uuid.UUID) -> ActView:
     """Take back the acting user's own last act on Step 1 not yet undone (a confirmation, an
     exclusion, a drawing list, a correction); refused as `answer_stays` when that act answered a
-    Question. A correction's number and title go back (`_put_back_correction`). Each
+    Question. A correction's number, title and views' storeys go back (`_put_back_correction`). Each
     sheet it still decides goes back to what it carried before the act (another person's decision
     included), or to undecided; its Proposal and its views' Coverage
     follow. A sheet another act has decided since is left as that act decided it."""
@@ -2602,7 +2830,17 @@ def _given_by(code: str, act: Confirmation, sheet: str) -> dict[str, Any]:
                 name: {"old": made[name][0], "new": made[name][1], "old_source": sources.get(name)}
                 for name in ("number", "title")
                 if name in made
-            }
+            },
+            "views": [
+                {
+                    "title": v.get("title") or "",
+                    "place": v.get("place"),
+                    "old": v["storeys"][0],
+                    "new": v["storeys"][1],
+                }
+                for v in made.get("views") or []
+            ]
+            or None,
         }
     return {}
 

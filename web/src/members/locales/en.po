@@ -44,9 +44,17 @@ msgstr "End {revokingName}’s access now?"
 msgid "{date}, {time}"
 msgstr "{date}, {time}"
 
+#: src/members/ActsPanel.tsx
+msgid "the work of others"
+msgstr "the work of others"
+
 #: src/members/DateField.tsx
 msgid "{days, plural, =0 {(today)} one {(# day)} other {(# days)}}"
 msgstr "{days, plural, =0 {(today)} one {(# day)} other {(# days)}}"
+
+#: src/members/ActsPanel.tsx
+msgid "{named} as {why}"
+msgstr "{named} as {why}"
 
 #: src/members/MembersPage.tsx
 msgid "Their next click is refused. What they did stays under their name."
@@ -59,6 +67,10 @@ msgstr "Name"
 #: src/members/MembersPage.tsx
 msgid "New link for {email}"
 msgstr "New link for {email}"
+
+#: src/members/ActsPanel.tsx
+msgid "a cover or index"
+msgstr "a cover or index"
 
 #: src/members/MembersPage.tsx
 msgid "Renew 30 days for {who}"
@@ -105,6 +117,10 @@ msgstr "{name} (Vextrus)"
 msgid "Link copied"
 msgstr "Link copied"
 
+#: src/members/ActsPanel.tsx
+msgid "a sheet with no number or title"
+msgstr "a sheet with no number or title"
+
 #: src/members/MembersPage.tsx
 msgid "From"
 msgstr "From"
@@ -112,6 +128,10 @@ msgstr "From"
 #: src/members/MembersPage.tsx
 msgid "End access"
 msgstr "End access"
+
+#: src/members/ActsPanel.tsx
+msgid "blank"
+msgstr "blank"
 
 #: src/members/MembersPage.tsx
 msgid "Invited by"
@@ -142,9 +162,18 @@ msgstr "End their access on a date"
 msgid "The link sent before no longer works. Send this one instead."
 msgstr "The link sent before no longer works. Send this one instead."
 
+#: src/members/ActsPanel.tsx
+msgid "superseded"
+msgstr "superseded"
+
 #: src/members/MembersPage.tsx
 msgid "Withdraw the invitation for {who}"
 msgstr "Withdraw the invitation for {who}"
+
+#. placeholder {0}: sheets.length
+#: src/members/ActsPanel.tsx
+msgid "{0, plural, one {Confirmed # sheet back in, excluded before:} other {Confirmed # sheets back in, excluded before:}}"
+msgstr "{0, plural, one {Confirmed # sheet back in, excluded before:} other {Confirmed # sheets back in, excluded before:}}"
 
 #: src/members/MembersPage.tsx
 msgid "{name}’s access has ended."
@@ -211,9 +240,17 @@ msgstr "Access ends on"
 msgid "Members and access"
 msgstr "Members and access"
 
+#: src/members/ActsPanel.tsx
+msgid "{named} back in, excluded before as {why}"
+msgstr "{named} back in, excluded before as {why}"
+
 #: src/members/MembersPage.tsx
 msgid "Acts"
 msgstr "Acts"
+
+#: src/members/ActsPanel.tsx
+msgid "a duplicate"
+msgstr "a duplicate"
 
 #: src/members/ActsPanel.tsx
 #: src/members/MembersPage.tsx
@@ -223,6 +260,10 @@ msgstr "No acts yet"
 #: src/members/MembersPage.tsx
 msgid "Copy or withdraw"
 msgstr "Copy or withdraw"
+
+#: src/members/ActsPanel.tsx
+msgid "something else"
+msgstr "something else"
 
 #: src/members/MembersPage.tsx
 msgid "No invitations are waiting to be used."
@@ -236,6 +277,10 @@ msgstr "Chosen projects"
 msgid "Who can open {developer}’s projects"
 msgstr "Who can open {developer}’s projects"
 
+#: src/members/ActsPanel.tsx
+msgid "Confirmed {named} back in, excluded before as {why}"
+msgstr "Confirmed {named} back in, excluded before as {why}"
+
 #: src/members/MembersPage.tsx
 msgid "{joined}, {code}"
 msgstr "{joined}, {code}"
@@ -247,6 +292,10 @@ msgstr "{name}’s access now ends on {date}."
 #: src/members/MembersPage.tsx
 msgid "{count, plural, one {# act, last {last}, by {who}} other {# acts, last {last}, by {who}}}"
 msgstr "{count, plural, one {# act, last {last}, by {who}} other {# acts, last {last}, by {who}}}"
+
+#: src/members/ActsPanel.tsx
+msgid "something Vextrus has no words for yet"
+msgstr "something Vextrus has no words for yet"
 
 #: src/members/InviteDialog.tsx
 msgid "Create link"
@@ -284,6 +333,10 @@ msgstr "{count, plural, one {# act shown} other {# acts shown}}"
 #: src/members/ActsPanel.tsx
 msgid "Close"
 msgstr "Close"
+
+#: src/members/ActsPanel.tsx
+msgid "for information"
+msgstr "for information"
 
 #: src/members/MembersPage.tsx
 msgid "Until"

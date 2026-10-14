@@ -25,7 +25,7 @@ class ActOut(Schema):
     id: uuid.UUID
     code: str
     """The act's kind: one of the schema's `EventCode`s, worded by the web with `params`."""
-    params: dict[str, str | int]
+    params: dict[str, str | int | list[dict[str, str]]]
     actor: ActorOut | None
     project_id: uuid.UUID | None
     building_id: uuid.UUID | None

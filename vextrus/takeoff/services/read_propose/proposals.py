@@ -557,7 +557,11 @@ def view_candidate(view: drawings.ViewView) -> ViewCandidate:
     x0, y0, x1, y1 = (float(v) for v in view.box)
     meaning = StoreysMeaning(view.storeys_meaning) if view.storeys and view.storeys_meaning else None
     sources = {str(s) for s in StoreysSource}
-    source = view.storeys_source if meaning and view.storeys_source in sources else None
+    # A part plan the QS corrected (`typed_part`) is still a part plan: it sits out of same_storey.
+    kept = (
+        StoreysSource.TITLE_LINE if view.storeys_source == drawings.TYPED_PART else view.storeys_source
+    )
+    source = kept if meaning and kept in sources else None
     return ViewCandidate(
         box=Box(x0, y0, x1, y1),
         kind=ViewKind(view.kind),
@@ -698,8 +702,19 @@ def set_questions(
         found.storey_titles,
         options=options(STOREY_TITLE_OPTIONS),
         stale=_stale(found, conflicts),
+        typed=_typed(viewed),
     )
     return asked
+
+
+def _typed(viewed: Sequence[Sequence[drawings.ViewView]]) -> set[int]:
+    """The sheets, by index, with a plan whose storeys the QS typed (S24-B2): their title's
+    disagreement with the plans is the QS's own correction (`storey_questions.TYPED`)."""
+    return {
+        i
+        for i, vs in enumerate(viewed)
+        if any(v.kind == ViewKind.PLAN and v.storeys_source in drawings.TYPED_STOREYS for v in vs)
+    }
 
 
 def _read_set(

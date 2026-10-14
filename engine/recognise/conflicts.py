@@ -33,7 +33,12 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   one apart: "09"/"10", "S-09"/"S-10" and "9"/"10" (padding is no part of a running number); or when
   their running numbers match and their suffixes are single Latin letters one apart: "S-101A"/"S-101B".
   "S-101"/"S-101A" do not run on; a number with no running number (no digit, or one of `RUNNING_LIMIT` or
-  more) runs on with none. Copies of one number are one place in a run. A run is in number order, a part
+  more) runs on with none. A number drawn by several sheets of one title (a duplicate, its own
+  `same_number` Question) leaves its next numbers out: it runs on across as many numbers less one as it
+  has copies ("S-41", "S-42" twice, "S-44": 43 is the second copy's), when its copies are different
+  drawings (their member ranges ascend one after the other, never the same or none) and no sheet of
+  the group and Discipline carries a number in the gap, with any suffix ("S-43A", "S-43.1" hold it).
+  Copies of one number are one place in a run. A run is in number order, a part
   by its number ("S-01/9" before "S-01/10"); a revision mark written after a number ("S-01 R1",
   `split_revision`) is split off before it is read, so "S-01 R1"/"S-01 R2" are one number, never a run
   (#100). A sheet whose views contradict its title block (`contradicted`: its views name only subjects
@@ -65,9 +70,15 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   none, or a title with no range: its normal form), so a title with a range never joins the same words
   without one. A range's marks share their letters and ascend, below `RUNNING_LIMIT`; else it is no
   range. Two sheets of such a title run on only when their numbers do and each range of the first lies
-  below the next's, of one letters ("GB2-GB5" then "GB6-GB9"; "GB2-GB5" then "GB4-GB8" do not); the run's
+  below the next's, or touches it at one mark when each spans more than one (the owner's ruling Q-R9: a
+  member continued on the next sheet), of one letters ("GB2-GB5" then "GB6-GB9" or "GB5-GB9"; "GB2-GB5"
+  then "GB4-GB8", or "GB2-GB5" again, do not); the run's
   title is the first sheet's as drawn, each range running on to the last sheet's second mark ("GRADE BEAM
-  GB2-GB9 DETAILS"), its joiner kept.
+  GB2-GB9 DETAILS"), its joiner kept. A range that cites sheets is no member range (`Citations`): one
+  a citation word comes right before ("SEE S-12 TO S-14", "REF. Q-12 TO Q-14"; the conventions'
+  `citation_words`), or both of whose marks are, as printed, the numbers of sheets of the set, of any
+  Discipline; so two titles that differ only by the sheets they cite are two titles, as before E1,
+  and a stair's "TR-1 TO TR-2" is a member range where no sheet TR-1 is.
 - **A series** (T-W334; the owner's ruling of 5 Oct 2026; no Question, never exported): one title on two
   places or more that do not all run on, no consecutive pair parted on what its views draw, and no
   contradicted sheet among them that, its contradiction set aside, would run on from or into another of
@@ -75,8 +86,10 @@ dict or a set, `in` or `.index()` by a candidate; everything goes by position.
   told apart like any run), whose runs draw different things (`_apart`). What a run draws, in this
   order: (a) the storeys its views state, not symbolic; (b) the member marks its views' titles name (a
   range, or a word of one to three letters then one to four digits, "GRADE BEAM GB7"; a section size's
-  second number, '11"X17"', is never a mark, E1, and "B-1" is never read: such marks restart on every
-  floor) and its own titles' ranges, each an interval; and only when it has neither, (c) the storeys,
+  second number, '11"X17"', is never a mark, E1, and "B-1" is never read; a range of such marks,
+  "B-1 TO B-6", is read first, so runs that overlap in no mark are apart ("RB-1 - RB-5" and
+  "REB-2 - REB-4"), and then not at all, since such marks restart on every floor) and its
+  own titles' ranges, each an interval; and only when it has neither, (c) the storeys,
   not symbolic, of the plan views of the nearest sheet numbered before it (its group, Discipline and
   prefix) whose title reads as a plan (17's `describe`): the layout each floor's details follow; when
   that plan states only symbolic storeys (a tank's), the layer of the run's own titles, else of that
@@ -139,6 +152,7 @@ import re
 import unicodedata
 from collections.abc import Callable, Collection, Hashable, Iterable, Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 from typing import TYPE_CHECKING, NoReturn, Protocol
 
 from engine.messages import conflicts as codes
@@ -148,6 +162,7 @@ from engine.recognise.types import (
     Series,
     SheetCandidate,
     SheetConventions,
+    SheetField,
     Sourced,
     StoreysMeaning,
     StoreysSource,
@@ -294,7 +309,10 @@ def compare(
     reader = _Reader(recognisers, Numbers(conventions, recognisers))
     numbers = [reader.key(sheet) for sheet in sheets]
     pattern = None if conventions is None else conventions.member_range_pattern
-    keyed = [(None, (), "") if s.title is None else _keyed(s.title.value, pattern) for s in sheets]
+    cites = Citations(conventions, sheets)
+    keyed = [
+        (None, (), "") if s.title is None else _keyed(s.title.value, pattern, cites) for s in sheets
+    ]
     titles = [key for key, _, _ in keyed]
     ranges = [found for _, found, _ in keyed]
     cleaned = [text for _, _, text in keyed]  # the text each title's ranges lie in
@@ -319,6 +337,16 @@ def compare(
     continuations: list[tuple[int, Continuation]] = []
     series: list[tuple[int, Series]] = []
     by_title: list[tuple[int, Conflict]] = []
+    carried: set[tuple[object, str, str, int]] = set()
+    for s in sheets:  # every running number a sheet of a group and Discipline carries, in any suffix
+        if s.discipline is None or s.number is None:
+            continue
+        if (parts := reader.parts(s)) is not None:
+            carried.add((s.group, s.discipline.value, parts[0], parts[1]))
+        for head_text, held in _held(reader, s.number.value):  # "S1-43.1" carries 43 too (#781)
+            head = reader.numbers.parts_in(head_text + "0", s.discipline.value)
+            if head is not None:
+                carried.add((s.group, s.discipline.value, head[0], held))
     for group in _grouped(
         (i, (s.group, s.discipline.value, titles[i]))
         for i, s in enumerate(sheets)
@@ -330,6 +358,25 @@ def compare(
         alone = [any(contradicted(sheets[i], views[i], conventions) for i in unit) for unit in units]
 
         spans = [_span([ranges[i] for i in unit]) for unit in units]
+        gkey = (sheets[group[0]].group, sheets[group[0]].discipline.value)  # type: ignore[union-attr]
+
+        successive = [_successive([ranges[i] for i in unit]) for unit in units]
+
+        def crosses(
+            u: int,
+            prefix: str,
+            running: int,
+            step: int,
+            gkey: tuple[object, str] = gkey,
+            successive: list[bool] = successive,
+        ) -> bool:
+            """Whether unit `u`, its copies `step` numbers wide, may run on across the numbers a
+            duplicate left out: its copies are successive ranges and no sheet carries any number
+            between them, with any suffix."""
+            return successive[u] and not any(
+                (*gkey, prefix, n) in carried for n in range(running + 1, running + step)
+            )
+
         drawn = [_Drawn(unit, views, reader) for unit in units]
         stale: list[bool] = []  # a consecutive pair parted because its views draw different things
 
@@ -348,7 +395,7 @@ def compare(
                 return False
             return True
 
-        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits)
+        runs = _runs(units, [reader.parts(sheets[unit[0]]) for unit in units], alone, fits, crosses)
         members_of = [[i for unit in run for i in unit] for run in runs]
         for run, members in zip(runs, members_of, strict=True):
             places.join(members)
@@ -364,9 +411,9 @@ def compare(
             title = _drawn(sheets[ordered[0]])
             candidates = tuple(sheets[i] for i in ordered)
             if (
-                not _blocking(units, alone, reader, sheets, spans)
+                not _blocking(units, alone, reader, sheets, spans, crosses)
                 and not stale
-                and _apart(members_of, views, ranges, reader, plans, pattern)
+                and _apart(members_of, views, ranges, reader, plans, pattern, cites)
             ):
                 series.append((min(ordered), Series(title, candidates)))
                 continue
@@ -387,6 +434,7 @@ def _blocking(
     reader: _Reader,
     sheets: Sequence[SheetCandidate],
     spans: list[list[_Span]],
+    crosses: Callable[[int, str, int, int], bool] | None = None,
 ) -> bool:
     """Whether a contradicted unit blocks its title's series: only one that, its contradiction set
     aside, would run on from or into another unit of its title (by number and ascending ranges, #102:
@@ -399,6 +447,7 @@ def _blocking(
         [reader.parts(sheets[unit[0]]) for unit in units],
         [False] * len(units),
         lambda before, after: _ascending(spans[before], spans[after]),
+        crosses,
     )
     at = {id(unit): u for u, unit in enumerate(units)}  # by position: `_runs` returns the very units
     return any(len(run) > 1 and any(alone[at[id(unit)]] for unit in run) for run in free)
@@ -555,13 +604,19 @@ class Numbers:
         self.revision = None if conventions is None else conventions.revision_mark_pattern
         self._read: dict[str, tuple[str, int, str] | None] = {}
 
-    def parts(self, number: str) -> tuple[str, int, str] | None:
-        """The number's (prefix mark, running number, suffix mark), or none; a revision mark written
-        after it ("S-01 R1") split off first (#100), so its digits never make a running number."""
+    def printed(self, number: str) -> tuple[str, int, str] | None:
+        """The number's prefix, running number and suffix as its clean form prints them
+        (`number_parts`), or none; a revision mark written after it ("S-01 R1") split off first
+        (#100), so its digits never make a running number. Each number is read once."""
         if number not in self._read:
             unrevised = split_revision(number, self.revision)[0]
-            self._read[number] = read_number(self.recognisers, unrevised)
+            self._read[number] = number_parts(self.recognisers, unrevised)
         return self._read[number]
+
+    def parts(self, number: str) -> tuple[str, int, str] | None:
+        """The number's (prefix mark, running number, suffix mark), or none (`printed`)."""
+        parts = self.printed(number)
+        return None if parts is None else (mark(parts[0]), parts[1], mark(parts[2]))
 
     def parts_in(self, number: str, discipline: str) -> tuple[str, int, str] | None:
         """The parts within a Discipline: its own prefix as none."""
@@ -630,12 +685,6 @@ def number_parts(recognisers: Recognisers, number: str) -> tuple[str, int, str] 
     return prefix, running, suffix
 
 
-def read_number(recognisers: Recognisers, number: str) -> tuple[str, int, str] | None:
-    """A number's (prefix mark, running number, suffix mark): what two numbers are compared by."""
-    parts = number_parts(recognisers, number)
-    return None if parts is None else (mark(parts[0]), parts[1], mark(parts[2]))
-
-
 def _normal(value: Sourced | None) -> str | None:
     return None if value is None else normal(value.value)
 
@@ -671,10 +720,14 @@ def _runs(
     parts: list[tuple[str, int, str] | None],
     alone: Sequence[bool],
     fits: Callable[[int, int], bool] = lambda _before, _after: True,
+    crosses: Callable[[int, str, int, int], bool] | None = None,
 ) -> list[list[list[int]]]:
     """The units (copies of one number) joined into runs of numbers that run on, in number order (a
     part by its number: "S-01/9" before "S-01/10", #100); a unit `alone` joins none (#102), and a
-    unit joins the next only when it `fits` before it (member ranges that ascend)."""
+    unit joins the next only when it `fits` before it (member ranges that ascend). A unit of several
+    copies (a duplicated number, its own same_number Question) leaves a gap of as many numbers less
+    one: it may run on across them when `crosses` allows (its copies are different drawings, and no
+    sheet carries a number in the gap)."""
     parent = list(range(len(units)))
 
     def root(u: int) -> int:
@@ -697,11 +750,13 @@ def _runs(
         if part is not None:
             by_part.setdefault((prefix, running, part), []).append(u)
     for (prefix, suffix, running), members in by_running.items():
-        after = by_running.get((prefix, suffix, running + 1))
-        if after is not None:
-            for u in members:
-                if fits(u, after[0]):
-                    join(u, after[0])
+        for u in members:
+            after = by_running.get((prefix, suffix, running + 1))
+            step = len(units[u])
+            if after is None and step > 1 and crosses is not None and crosses(u, prefix, running, step):
+                after = by_running.get((prefix, suffix, running + step))
+            if after is not None and fits(u, after[0]):
+                join(u, after[0])
     for (prefix, running, part), members in by_part.items():
         after = by_part.get((prefix, running, part + 1))
         if after is not None:
@@ -728,8 +783,9 @@ def _runs(
 @dataclass(frozen=True)
 class MemberRange:
     """A range of member marks as a title draws it ("GB2-GB5", "W3 TO W6"): the marks' letters (in
-    normal form, one for both), the lowest and highest number, and where it lies in the drawn text
-    (`at` to `end`; `high_at` where its second mark starts)."""
+    normal form, one for both), the lowest and highest number, where it lies in the drawn text
+    (`at` to `end`; `high_at` where its second mark starts), and whether a mark is `hyphenated` (a
+    joiner between its letters and its number, "B-1": such marks restart on every floor)."""
 
     letters: str
     low: int
@@ -737,16 +793,76 @@ class MemberRange:
     at: int
     high_at: int
     end: int
+    hyphenated: bool = False
 
 
 RANGE_DIGITS = len(str(RUNNING_LIMIT)) - 1
 """The most digits a mark's number may have: one of `RUNNING_LIMIT` or more is no range."""
 
 
-def member_ranges(text: str, pattern: str | None) -> tuple[MemberRange, ...]:
+class Citations:
+    """What tells a range in a title as sheets it cites, never member marks: a citation word before
+    it (the conventions' `citation_words`), with nothing between but punctuation and the words that
+    label a sheet number (the number field's title-block words, each word alone, plural or not:
+    "SEE S-12 TO S-14", "REF. Q-12 TO Q-14", "(SEE: S-12 TO S-14)", "SEE SHEET S-12 TO S-14",
+    "REFER TO DWG NO. S-12 TO S-14"); or both its marks, as printed (normal form, a revision mark
+    split off), numbers of the set's sheets, of any Discipline ("Q-12 TO Q-14" where sheets Q-12 and
+    Q-14 are). A mark that only shares a prefix with sheets ("TR-1" where no sheet TR-1 is) is a
+    member mark."""
+
+    def __init__(self, conventions: SheetConventions | None, sheets: Iterable[SheetCandidate]) -> None:
+        words = () if conventions is None else conventions.citation_words
+        phrases = [r"\s+".join(map(re.escape, w.split())) for w in words if w.split()]
+        labels = sorted(
+            {
+                word
+                for f in (() if conventions is None else conventions.title_block_fields)
+                if f.field == SheetField.NUMBER
+                for phrase in f.words
+                for word in phrase.casefold().split()
+            },
+            key=lambda word: (-len(word), word),
+        )
+        label = (
+            rf"(?:[\W_]{{0,6}}(?:{'|'.join(map(re.escape, labels))})s?){{0,{LABEL_WORDS}}}"
+            if labels
+            else ""
+        )
+        self.cue = (
+            re.compile(rf"(?<!\w)(?:{'|'.join(phrases)}){label}[\W_]{{0,6}}$", re.IGNORECASE)
+            if phrases
+            else None
+        )
+        revision = None if conventions is None else conventions.revision_mark_pattern
+        self.numbers = frozenset(
+            n
+            for s in sheets
+            if s.number is not None
+            and (n := normal(split_revision(s.number.value, revision)[0])) is not None
+        )
+
+    def cites(self, before: str, low: str, high: str) -> bool:
+        """Whether a range whose marks are printed `low` and `high`, after the text `before`, cites
+        sheets."""
+        if self.cue is not None and self.cue.search(before[-CUE_REACH:]) is not None:
+            return True
+        return normal(low) in self.numbers and normal(high) in self.numbers
+
+
+LABEL_WORDS = 3
+"""The most sheet-number label words between a citation word and its range ("DWG NO.", "SHEET NO.")."""
+
+CUE_REACH = 64
+"""How much of the text before a range is searched for a citation word: the words right before it."""
+
+
+def member_ranges(
+    text: str, pattern: str | None, cited: Citations | None = None
+) -> tuple[MemberRange, ...]:
     """The member ranges a text draws, by the conventions' pattern (none: none); a match whose marks'
     letters differ or are missing, whose numbers are missing, not decimal digits, descend or reach
-    `RUNNING_LIMIT` is no range. A text longer than a pattern runs on has none (`pattern_finditer`).
+    `RUNNING_LIMIT` is no range, nor a range `cited` tells as sheets ("SEE S-12 TO S-14",
+    `Citations`). A text longer than a pattern runs on has none (`pattern_finditer`).
     Titles are read in their clean form (`_keyed`), so a format character or a fullwidth digit never
     hides a range their normal form shows."""
     if pattern is None:
@@ -761,26 +877,37 @@ def member_ranges(text: str, pattern: str | None) -> tuple[MemberRange, ...]:
         letters = normal(match.group("a"))
         if letters is None or letters != normal(match.group("b")) or int(low) > int(high):
             continue
+        hyphenated = match.end("a") < match.start("low") or match.end("b") < match.start("high")
+        if cited is not None and cited.cites(
+            text[: match.start()],
+            text[match.start("a") : match.end("low")],
+            text[match.start("b") : match.end("high")],
+        ):
+            continue  # sheets cited, never members
         found.append(
-            MemberRange(letters, int(low), int(high), match.start(), match.start("b"), match.end())
+            MemberRange(
+                letters, int(low), int(high), match.start(), match.start("b"), match.end(), hyphenated
+            )
         )
     return tuple(found)
 
 
-def range_key(title: str, pattern: str | None) -> Hashable | None:
+def range_key(title: str, pattern: str | None, cited: Citations | None = None) -> Hashable | None:
     """What a title is grouped by: its normal form, or, when it draws member ranges, the normal forms
     of the words around them ("GRADE BEAM GB2-GB5 DETAILS" and "GRADE BEAM GB6-GB9 DETAILS" are one
     title, never "GRADE BEAM DETAILS"); none when nothing is left."""
-    return _keyed(title, pattern)[0]
+    return _keyed(title, pattern, cited)[0]
 
 
-def _keyed(title: str, pattern: str | None) -> tuple[Hashable | None, tuple[MemberRange, ...], str]:
+def _keyed(
+    title: str, pattern: str | None, cited: Citations | None = None
+) -> tuple[Hashable | None, tuple[MemberRange, ...], str]:
     """A title's key (`range_key`), its ranges, and the clean text they lie in: the ranges are read
     in the title's clean form, whose case folded is its normal form, so the key never parts titles
     the normal form joins."""
     text = clean(title)
     whole = text.casefold() or None
-    found = member_ranges(text, pattern) if whole is not None else ()
+    found = member_ranges(text, pattern, cited) if whole is not None else ()
     if not found:
         return whole, (), text
     edges = [0, *(i for r in found for i in (r.at, r.end)), len(text)]
@@ -804,10 +931,51 @@ def _span(copies: Sequence[Sequence[MemberRange]]) -> list[_Span]:
 
 def _ascending(before: Sequence[_Span], after: Sequence[_Span]) -> bool:
     """Whether a number's ranges run on to the next's: each of one letters, every copy's below every
-    copy of the next's."""
+    copy of the next's, or touching it at one mark."""
     return all(
-        a[0] is not None and a[0] == b[0] and a[2] < b[1] for a, b in zip(before, after, strict=True)
+        a[0] is not None and a[0] == b[0] and (a[2] < b[1] or _touches(a, b))
+        for a, b in zip(before, after, strict=True)
     )
+
+
+_LEADING = re.compile(r"([^\W\d_]+[\W_]*|)(\d{1,4})")
+"""A number's first running number, the letters and separators before it kept ("S-43.1": "S-", 43)."""
+
+
+def _held(reader: _Reader, number: str) -> list[tuple[str, int]]:
+    """The running numbers a number holds besides its own, each with the text before it: its first
+    (`_LEADING`), and the one before its part ("S1-43.1" and "S-1.43.1" hold 43, under "S1-" and
+    "S-1."; #781), the digits that end 13's prefix before its separators."""
+    held = [(lead[1], int(lead[2]))] if (lead := _LEADING.match(clean(number))) is not None else []
+    parts = reader.numbers.printed(number)
+    if parts is not None:
+        prefix = parts[0]
+        end = len(prefix)
+        while end and not prefix[end - 1].isalnum():
+            end -= 1
+        start = end
+        while start and end - start < 4 and prefix[start - 1].isdecimal():
+            start -= 1
+        if start < end < len(prefix) and not (start and prefix[start - 1].isdecimal()):
+            held.append((prefix[:start], int(prefix[start:end])))
+    return held
+
+
+def _successive(copies: Sequence[Sequence[MemberRange]]) -> bool:
+    """Whether a number's copies are different drawings of one member family: each draws ranges, and
+    the copies' ranges, taken in order of their lowest mark, ascend one after the other (touching at
+    a mark allowed). Copies with no range, or drawing the same or overlapping ranges, are one
+    drawing twice, never the next sheet the number left out."""
+    if len(copies) < 2 or not all(copies) or len({len(c) for c in copies}) != 1:
+        return False
+    spans = sorted((_span([c]) for c in copies), key=lambda one: one[0][1])
+    return all(_ascending(a, b) for a, b in pairwise(spans))
+
+
+def _touches(a: _Span, b: _Span) -> bool:
+    """Whether two ranges share exactly their one boundary mark, each a range of more than one mark:
+    a member continued on the next sheet runs on."""
+    return a[1] < a[2] == b[1] < b[2]
 
 
 def _joined(first: str, firsts: Sequence[MemberRange], last: str, lasts: Sequence[MemberRange]) -> str:
@@ -838,10 +1006,23 @@ def unsized(text: str) -> str:
     return _SIZE_TIMES.sub(lambda match: match.group(1) + " ", text)
 
 
-def _marks(text: str, pattern: str | None) -> list[tuple[str, int, int]]:
+def _named(ranges: Iterable[MemberRange], hyphenated: bool = False) -> list[tuple[str, int, int]]:
+    """The ranges a series reads, each an interval: a range of hyphenated marks ("B-1 TO B-6") is
+    left unread, as a single "B-1" is (`_MARK`), since such marks restart on every floor, unless
+    `hyphenated` reads it (`_apart`'s first reading)."""
+    return [(r.letters, r.low, r.high) for r in ranges if hyphenated or not r.hyphenated]
+
+
+def _marks(
+    text: str,
+    pattern: str | None,
+    hyphenated: bool = False,
+    cited: Citations | None = None,
+) -> list[tuple[str, int, int]]:
     """The member marks a view's title names, each an interval: its ranges and its single marks; a
-    section size is no mark (`unsized`)."""
-    found = [(r.letters, r.low, r.high) for r in member_ranges(clean(text), pattern)]
+    section size is no mark (`unsized`), nor a range of hyphenated marks (`_named`) or of cited
+    sheets (`member_ranges`)."""
+    found = _named(member_ranges(clean(text), pattern, cited), hyphenated)
     for match in _MARK.finditer(unsized(text)):
         letters = normal(match.group(1))
         if letters is not None:
@@ -903,9 +1084,30 @@ def _apart(
     reader: _Reader,
     plans: _Plans,
     pattern: str | None,
+    cites: Citations,
 ) -> bool:
-    """Whether a title's runs draw different things (a series), by what each run draws: (a) the
-    storeys its views state, (b) the member marks its views' titles and its own titles' ranges name,
+    """Whether a title's runs draw different things (a series): by every mark read, a hyphenated
+    range ("RB-1 - RB-5" against "REB-2 - REB-4") telling runs apart when no two overlap; else by
+    the marks unhyphenated only, since hyphenated marks restart on every floor ("B-1 TO B-6" on each
+    floor's details: the floor of the plan before each run parts them, S19-B4's E1)."""
+    if _drawn_apart(runs, views, ranges, reader, plans, pattern, cites, True):
+        return True
+    return _drawn_apart(runs, views, ranges, reader, plans, pattern, cites, False)
+
+
+def _drawn_apart(
+    runs: Sequence[Sequence[int]],
+    views: Sequence[Sequence[ViewCandidate]],
+    ranges: Sequence[Sequence[MemberRange]],
+    reader: _Reader,
+    plans: _Plans,
+    pattern: str | None,
+    cites: Citations,
+    hyphenated: bool,
+) -> bool:
+    """Whether a title's runs draw different things, by what each run draws: (a) the
+    storeys its views state, (b) the member marks its views' titles and its own titles' ranges name
+    (hyphenated ones only when `hyphenated`, `_named`; none citing sheets, `cites`),
     and (c) only when it has neither, the storeys of the plan views of the nearest plan sheet before
     it, or, when that plan states only symbolic storeys, a layer: its own titles' (17's `describe`),
     else that plan's views' (S19-B4's E3; keyed `layer:<key>`, so a layer never equals a storey).
@@ -916,8 +1118,14 @@ def _apart(
     marks: list[tuple[str, int, int, int]] = []
     for run, members in enumerate(runs):
         storeys = {s for i in members for v in views[i] for s in v.storeys if not reader.symbolic(s)}
-        named = [(r.letters, r.low, r.high) for i in members for r in ranges[i]]
-        named += [m for i in members for v in views[i] if v.title for m in _marks(v.title, pattern)]
+        named = [m for i in members for m in _named(ranges[i], hyphenated)]
+        named += [
+            m
+            for i in members
+            for v in views[i]
+            if v.title
+            for m in _marks(v.title, pattern, hyphenated, cites)
+        ]
         if not storeys and not named and (plan := plans.before(members[0])) is not None:
             storeys = {
                 s
