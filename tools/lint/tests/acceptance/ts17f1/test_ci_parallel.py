@@ -9,6 +9,11 @@ by what that command prints for the shard, and the shard names by `tools.lint.ci
 workers may live in the step's text or in the shard's printed arguments, as the builder chooses. A
 pytest line whose targets are all single files (the policy-coverage step) is not a shard's test run.
 Shell-level branching inside one `run:` script is not read: branch by the step's `if:`.
+
+Withdrawn by S29-F1 (docs/plans/factory-s29.md item 1, "shards rebalanced on measured step times;
+`tools/lint/tests` in parallel"): the pins on six shards, on the three shards beside `rest` running what
+they ran, and on `tools/lint/tests` running with no `-n` (#585 is closed, fixed by #614). S29-F1's own
+tests (ts29f1) pin the rebalanced plan and the four workers in their place.
 """
 
 import re
@@ -16,7 +21,6 @@ import shlex
 import subprocess
 import sys
 import tomllib
-from collections import Counter
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import cache
@@ -29,14 +33,6 @@ WORKFLOWS = ".github/workflows"
 MATRIX_JOB = "python"
 TOOLCHAIN_JOB = "toolchain"
 LINT_TESTS = "tools/lint/tests"
-# The three shards beside `rest` on main (2a63391a7), and what each runs; the ticket splits only `rest`.
-KEPT = {
-    "takeoff-acceptance": (("vextrus/takeoff/tests/acceptance",), ()),
-    "takeoff-rest": (("vextrus/takeoff",), ("vextrus/takeoff/tests/acceptance",)),
-    "seed-platform-drawings": (("vextrus/seed", "vextrus/platform", "vextrus/drawings"), ()),
-}
-# What `rest` ran on main: every test file outside these.
-REST_IGNORED = ("vextrus/takeoff", "vextrus/seed", "vextrus/platform", "vextrus/drawings")
 PYTEST = re.compile(r"(?:\buv run(?:\s+--[\w-]+)*|\s-m)\s+pytest\b")
 ARGS_CALL = re.compile(r"\$\([^()]*tools\.lint\.ci_shards\s+args\b[^()]*\)")
 SHARD_REFS = re.compile(r"\$\{\{\s*matrix\.shard\s*\}\}|\$\{SHARD\}|\$SHARD\b")
@@ -331,48 +327,6 @@ def holds_lint_tests(run: Invocation) -> bool:
     return any(under(file, LINT_TESTS) for file in run.collects())
 
 
-def new_shards() -> list[str]:
-    names = shard_names()
-    for name in KEPT:
-        assert name in names, f"the shards are {list(names)}: {name!r} is gone"
-    others = [name for name in names if name not in KEPT]
-    assert len(others) == 3, f"the shards are {list(names)}: rest is not split into three"
-    return others
-
-
-# --- the shards ------------------------------------------------------------------------------------
-
-
-def test_rest_becomes_three_shards_beside_the_three_it_had() -> None:
-    assert len(new_shards()) == 3
-    assert len(shard_names()) == 6
-
-
-def test_the_three_new_shards_run_every_test_file_rest_ran_exactly_once() -> None:
-    rest = selected((), REST_IGNORED)
-    counted: Counter[str] = Counter()
-    for shard in new_shards():
-        ran: Counter[str] = Counter()
-        for run in shard_test_runs(shard):
-            ran.update(run.collects())
-        assert ran, f"shard {shard!r} runs no test file"
-        counted.update(ran)
-    dropped = sorted(rest - set(counted))
-    twice = sorted(file for file, times in counted.items() if times > 1)
-    strays = sorted(set(counted) - rest)
-    assert not dropped, f"rest's test files no new shard runs: {dropped[:10]}"
-    assert not twice, f"test files run more than once: {twice[:10]}"
-    assert not strays, f"test files rest did not run, run by a new shard: {strays[:10]}"
-
-
-def test_the_three_shards_beside_rest_still_run_what_they_ran() -> None:
-    for shard, (paths, ignore) in KEPT.items():
-        ran: set[str] = set()
-        for run in shard_test_runs(shard):
-            ran |= run.collects()
-        assert ran == selected(paths, ignore), f"shard {shard!r} runs other files than on main"
-
-
 # --- the workers -----------------------------------------------------------------------------------
 
 
@@ -388,17 +342,6 @@ def test_every_shards_test_run_carries_n_4_but_the_one_holding_tools_lint_tests(
                 f"shard {shard!r}: pytest {' '.join(run.argv)} carries -n {workers or 'none'}, not -n 4"
             )
     assert checked, "no shard's test run was found in the python job"
-
-
-def test_the_run_holding_tools_lint_tests_carries_no_n() -> None:
-    holding = [
-        (shard, run) for shard in shard_names() for run in shard_runs(shard) if holds_lint_tests(run)
-    ]
-    assert holding, f"no shard runs {LINT_TESTS}"
-    for shard, run in holding:
-        assert run.workers() == [], (
-            f"shard {shard!r}: pytest {' '.join(run.argv)} runs {LINT_TESTS} with -n (#585 is open)"
-        )
 
 
 def test_the_engine_toolchain_job_runs_pytest_with_n_3() -> None:
