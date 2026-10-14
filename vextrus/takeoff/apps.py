@@ -12,7 +12,11 @@ class TakeoffConfig(AppConfig):
         from vextrus.platform.services import activity
         from vextrus.takeoff.services import step1
         from vextrus.takeoff.services.read_propose import proposals
+        from vextrus.takeoff.tasks import match_plot
 
         drawings.before_discipline_change(step1.lock_writes)  # Step 1's write lock first (#227)
+        # The set's Plot matched again, as a job outside the QS's request (S27-G1): first, as its
+        # row is written before Step 1's progress lock, which the next follow takes last (#227).
+        drawings.on_discipline_changed(match_plot.follow_discipline)
         drawings.on_discipline_changed(proposals.follow_discipline)
         activity.on_params(step1.act_params)  # the acts name the sheets (S25-D5)

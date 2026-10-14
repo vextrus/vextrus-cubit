@@ -51,7 +51,7 @@ UPDATABLE = {
         "unmatched_pages",
         "upload_report",
     },
-    "drawings_drawingset": {"current_state_id", "name"},
+    "drawings_drawingset": {"current_state_id", "name", "plot_job_id"},
     "drawings_drawingsetstate": {"reader", "reader_version", "status"},
     "drawings_readstep": set(),
     "drawings_revision": set(),

@@ -30,6 +30,11 @@ export function isMoving(file: Pick<FileOut, 'state'>): boolean {
   return MOVING.has(file.state)
 }
 
+/** Whether the list is read again for the file: it moves, or its Plot is to be matched again. */
+export function isPolled(file: Pick<FileOut, 'state' | 'plot_pending'>): boolean {
+  return isMoving(file) || file.plot_pending === true
+}
+
 /**
  * The acts §4.5's table gives a row, for a role that changes the Drawing Set (`change`) or one that
  * only looks. "Mark for Vextrus" and "Open the Question" have no operation yet (not built in M0's 20b).
@@ -151,7 +156,7 @@ export function filesQuery(projectId: string) {
     queryKey: ['drawing-set', projectId, 'files'],
     queryFn: () => readFiles(projectId),
     staleTime: 0,
-    refetchInterval: (query) => (query.state.data?.files.some(isMoving) ? POLL_MS : false),
+    refetchInterval: (query) => (query.state.data?.files.some(isPolled) ? POLL_MS : false),
   })
 }
 

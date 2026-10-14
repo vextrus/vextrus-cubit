@@ -143,7 +143,7 @@ NARROWER = {
     "drawings_artefact": {"SELECT", "INSERT"},  # a kept ReadArtefact: an anchor may name it (14)
     # Never deleted; UPDATE only on its reading's columns, never its contents or its set (14).
     "drawings_drawingfile": {"SELECT", "INSERT"},
-    "drawings_drawingset": {"SELECT", "INSERT"},  # UPDATE only its name and state (14)
+    "drawings_drawingset": {"SELECT", "INSERT"},  # UPDATE only its name, state, Plot job (14, S27-G1)
     "drawings_drawingsetstate": {"SELECT", "INSERT"},  # UPDATE only its status and reader (14)
     "drawings_revision": {"SELECT", "INSERT"},  # never updated or deleted (14)
     "drawings_sheet": {"SELECT", "INSERT", "DELETE"},  # UPDATE only what a reading may change (14)

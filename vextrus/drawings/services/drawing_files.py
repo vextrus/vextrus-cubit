@@ -205,6 +205,9 @@ class FileView:
     read_job_id: int | None
     marked_for_vextrus: bool = False
     """A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus")."""
+    plot_pending: bool = False
+    """A read PDF whose set's Plot is to be matched again (`queue_plot`): its row waits, and the
+    list is read again till it is matched."""
 
 
 @dataclass(frozen=True)
@@ -282,10 +285,15 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
     now = timezone.now()
     read_dwgs = _read_dwgs({row.drawing_set_id for row in rows if row.format == FileFormat.PDF})
     shown = []
+    plotting = _plotting({row.drawing_set for row in rows if row.format == FileFormat.PDF})
     for row in rows:
         job = jobs.state(row.read_job_id) if row.read_job_id is not None else None
+        # A PDF whose set's Plot match is queued again (S27-G1): its pages are decided again when
+        # the job runs, so its row says so, never what it matched before (`_read`).
+        pending = row.format == FileFormat.PDF and row.drawing_set_id in plotting
         dwg_read = _dwg_read(row, read_dwgs)
-        state, status = _status(row, job, now, len(matched_pages.get(row.id, ())), dwg_read)
+        pages = len(matched_pages.get(row.id, ()))
+        state, status = _status(row, job, now, pages, dwg_read, pending)
         readable = state == FileState.READ or read_anyway_ended(row)
         shown.append(
             FileView(
@@ -310,6 +318,7 @@ def _views(rows: list[DrawingFile]) -> list[FileView]:
                 plot_for=tuple(plot_for.get(row.id, ())),
                 read_job_id=row.read_job_id,
                 marked_for_vextrus=row.id in marked,
+                plot_pending=pending,
             )
         )
     return shown
@@ -336,6 +345,38 @@ def _dwg_read(row: DrawingFile, read_dwgs: set[tuple[uuid.UUID, uuid.UUID | None
     return (row.drawing_set_id, row.discipline_id) in read_dwgs
 
 
+_PLOTTING = frozenset({"waiting", "running", "retrying", "stopping"})
+
+
+def _plotting(sets: Iterable[DrawingSet]) -> set[uuid.UUID]:
+    """The sets whose Plot match is queued again and still to run (`queue_plot`)."""
+    out = set()
+    for drawing_set in sets:
+        job_id = drawing_set.plot_job_id
+        found = jobs.state(job_id) if job_id is not None else None
+        if found is not None and found.status in _PLOTTING:
+            out.add(drawing_set.id)
+    return out
+
+
+def queue_plot(set_id: uuid.UUID, job_id: int) -> None:
+    """Keep the job that matches the set's Plot again (a module above queues it, S27-G1): till it
+    runs, the set's PDFs with no page matched read "waiting for its DWG", never "0 of N matched"."""
+    DrawingSet.objects.filter(id=_access.drawing_set(set_id).id).update(plot_job_id=job_id)
+
+
+def plot_queued(set_id: uuid.UUID) -> int | None:
+    """The job queued to match the set's Plot again, until it has run (`queue_plot`)."""
+    return _access.drawing_set(set_id).plot_job_id
+
+
+def plot_matched_again(set_id: uuid.UUID, job_id: int | None) -> None:
+    """The set's Plot matched again by the job `queue_plot` kept: let it go (a later one stays)."""
+    if job_id is not None:
+        found = DrawingSet.objects.filter(id=_access.drawing_set(set_id).id, plot_job_id=job_id)
+        found.update(plot_job_id=None)
+
+
 def dwg_read_for(row: DrawingFile) -> bool:
     return _dwg_read(row, _read_dwgs({row.drawing_set_id}))
 
@@ -355,6 +396,7 @@ def _status(
     now: datetime,
     pages_matched: int,
     dwg_read: bool = False,
+    plot_pending: bool = False,
 ) -> tuple[FileState, Message]:
     """4.5's row: the file's columns, with its job's state over them while it is in flight."""
     status = row.read_status
@@ -370,7 +412,7 @@ def _status(
             return _in_flight(row, job, now)
         return FileState.HELD, _HELD[answer]()
     if status == ReadStatus.READ:
-        return FileState.READ, _read(row, pages_matched, dwg_read)
+        return FileState.READ, _read(row, pages_matched, dwg_read, plot_pending)
     if status == ReadStatus.FAILED:
         if unreadable(row):
             return FileState.UNREADABLE, said.OLD_VERSION()
@@ -420,11 +462,13 @@ def unreadable(row: DrawingFile) -> bool:
     return isinstance(finding, dict) and finding.get("code") == said.OLD_VERSION.code
 
 
-def _read(row: DrawingFile, pages_matched: int, dwg_read: bool) -> Message:
+def _read(row: DrawingFile, pages_matched: int, dwg_read: bool, plot_pending: bool = False) -> Message:
     if row.format == FileFormat.PDF:
         pages = row.sheets_total or 0
-        if pages_matched == 0 and not dwg_read:
-            return said.PLOT_WAITING()
+        if (plot_pending or pages_matched == 0) and not dwg_read:
+            return said.PLOT_WAITING()  # no DWG of its Discipline read: nothing to match yet
+        if plot_pending:
+            return said.PLOT_MATCHING()  # its DWG read, its pages matched again (S27-G1)
         report = row.upload_report or {}
         lines = any(page.get("lettering") == "lines" for page in report.get("pages", ()))
         code = said.PLOT_MATCHED_LINES if lines else said.PLOT_MATCHED

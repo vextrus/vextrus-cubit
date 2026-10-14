@@ -168,6 +168,26 @@ describe('the words gate, round 1', () => {
     expect(under('Pictures')).toContain('No pictures.')
   })
 
+  it("reads an open PDF's report again once its Plot is matched again, so its header and Pages agree (S27-G1)", async () => {
+    const { api, set } = drawingSet()
+    // The acceptance fake's own FileOut predates `plot_pending`; the API sends it (FileOut's schema).
+    const pdf = { ...file({ name: 'KR-STR-R0.pdf', state: 'read', status: msg('drawings.files.plot_matching') }), plot_pending: true }
+    set.files.push(pdf)
+    set.reports.set(pdf.id, { pages: [msg('drawings.reports.pages_matched', { matched: 11, pages: 12 })] })
+    await open(api)
+    await waitFor(() => rowOf('KR-STR-R0.pdf'))
+    await userEvent.click(rowOf('KR-STR-R0.pdf'))
+    const panel = await screen.findByRole('region', { name: /KR-STR-R0\.pdf/ })
+    await waitFor(() => expect(clean(panel.textContent)).toContain('11 of 12 pages matched to a sheet.'))
+    expect(clean(panel.textContent)).toContain('Plot: matching its pages to sheets.')
+    // The job lands, between two of the report's reads: the file's row and its report change at once.
+    set.files[0] = Object.assign({}, pdf, { plot_pending: false, status: msg('drawings.files.plot_matched', { matched: 9, pages: 12 }) })
+    set.reports.set(pdf.id, { pages: [msg('drawings.reports.pages_matched', { matched: 9, pages: 12 })] })
+    await waitFor(() => expect(clean(panel.textContent)).toContain('Plot: 9 of 12 pages matched'), { timeout: 8000 })
+    await waitFor(() => expect(clean(panel.textContent)).toContain('9 of 12 pages matched to a sheet.'), { timeout: 8000 })
+    expect(clean(panel.textContent)).not.toContain('11 of 12')
+  })
+
   it("never counts a replaced copy as added, and says no count when nothing was added or already here", async () => {
     const { api, set } = drawingSet()
     const here = file({ name: 'KR-STR-R0.dwg', state: 'waiting', status: msg('drawings.files.waiting', { ahead: 0 }) })

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from ninja import Schema
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from engine.messages import Message
 from vextrus.drawings.services import (
@@ -32,6 +32,11 @@ class DisciplineOut(Schema):
         return cls(key=view.key, labels=view.labels)
 
 
+def _sent_always(schema: dict[str, Any]) -> None:
+    """No default in the schema: the web's types make a field with one required (S27-G1)."""
+    schema.pop("default", None)
+
+
 class FileOut(Schema):
     id: uuid.UUID
     name: str
@@ -54,6 +59,10 @@ class FileOut(Schema):
     """Added by a Vextrus Engineer: the name is shown with "(Vextrus)" (m0-screens 1.4)."""
     marked_for_vextrus: bool
     """A file that could not be read, marked for Vextrus to look at ("Mark for Vextrus")."""
+    plot_pending: bool = Field(default=False, json_schema_extra=_sent_always)
+    """A read PDF whose set's Plot is to be matched again after a Discipline changed: the list is
+    read again till it is matched. Always sent; optional in the schema, so a client built before it
+    (and its typed fakes) reads its absence as false."""
 
     @classmethod
     def from_view(cls, view: FileView) -> FileOut:
@@ -72,6 +81,7 @@ class FileOut(Schema):
             added_by_name=view.added_by_name,
             added_by_vextrus=view.added_by_vextrus,
             marked_for_vextrus=view.marked_for_vextrus,
+            plot_pending=view.plot_pending,
         )
 
 

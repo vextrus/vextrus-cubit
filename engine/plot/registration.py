@@ -16,8 +16,12 @@ strokes, and their pages are matched by the text on the page). Text and numbers 
 normal form (`engine.recognise.conflicts.normal`). A text item that is the number, whole, names it more
 surely than one that holds it among other words ("SEE S-102"); between two of a kind the larger text
 does (a title block's number is its largest text). A page of a PDF whose file has a Discipline default
-names that Discipline's sheets first: a number of another Discipline's sheet on it (a cross-reference,
-or a number two Disciplines share) is set aside when one of its own is there. A page whose surest
+never names a sheet of another known Discipline, by its text or its ink (S27-G1, #827: a Structural
+Plot read before its DWG named the General notes' sheets of its bare numbers): a number of such a
+sheet on it (a cross-reference, or a number two Disciplines share) is not that sheet's, and a page
+naming only those names none, so the PDF waits for its own DWG. Of the rest it names its own
+Discipline's sheets first: a sheet of no Discipline is set aside when one of its own is there, and
+named when none is. A PDF of no Discipline names any sheet. A page whose surest
 number is two sheets' numbers equally, or whose number several sheets carry and whose size cannot
 tell them apart, names several. Then the title tells them apart (`title_read`, S21-C3: a structural
 page's grid and detail marks, other sheets' numbers, are larger than its title block's number): of
@@ -171,6 +175,7 @@ def match(
                 if all(p is not None for p in papers):
                     fitting = [i for i, p in enumerate(papers) if p is not None and _fits_paper(page, p)]
                 discipline = (disciplines or {}).get(page.source_sha256)
+                fitting = [i for i in fitting if not _foreign(sheets[i], discipline)]
                 fitting = [i for i in fitting if _of(sheets[i], discipline)] or fitting
             inked = (
                 by_ink(
@@ -364,7 +369,9 @@ def _elsewhere(
         text = normal(item.text)
         if text is not None:
             named.update(by_number.get(text, ()))
-    fits = {i for i in named - taken if _in_place(place, keys[i])}
+    fits = {
+        i for i in named - taken if _in_place(place, keys[i]) and not _foreign(sheets[i], discipline)
+    }
     fits = {i for i in fits if _of(sheets[i], discipline)} or fits
     return fits if len(fits) <= MAX_TITLE_READS else set()
 
@@ -739,6 +746,12 @@ def _sheet_named(
         d = sheets[i].discipline
         return discipline is not None and d is not None and d.value == discipline
 
+    if discipline is not None:  # another known Discipline's sheets are never this page's (#827)
+        by_number = {
+            n: kept
+            for n, ids in by_number.items()
+            if (kept := [i for i in ids if not _foreign(sheets[i], discipline)])
+        }
     best: dict[str, tuple[bool, float]] = {}  # number -> (whole, height) of its surest mention
     for item in page.items:
         text = normal(item.text)
@@ -913,6 +926,14 @@ def _as_sure(a: tuple[bool, float], b: tuple[bool, float]) -> bool:
 
 def _paper(buffers: SheetBuffers | None) -> Paper | None:
     return buffers.paper if buffers is not None else None
+
+
+def _foreign(sheet: SheetCandidate, discipline: str | None) -> bool:
+    """Whether the sheet is of a known Discipline other than the PDF's known one (#827): never a
+    page of that PDF's, by its text or its ink. A sheet of no Discipline, or a PDF of none: no."""
+    return (
+        discipline is not None and sheet.discipline is not None and sheet.discipline.value != discipline
+    )
 
 
 def _of(sheet: SheetCandidate, discipline: str | None) -> bool:
