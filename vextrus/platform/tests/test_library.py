@@ -35,14 +35,18 @@ def test_sync_runs_each_module_s_sync_in_layer_order_as_the_owner(
     written = library.sync()
 
     assert calls == [("drawings", ["BD"], "owner"), ("takeoff", ["BD"], "owner")]
-    assert written == {"drawings": 8, "takeoff": 14}
+    # Only the two faked here: a module with Library rows of its own adds its own count (M1-00, A21).
+    assert {module: written[module] for module in ("drawings", "takeoff")} == {
+        "drawings": 8,
+        "takeoff": 14,
+    }
 
 
 @pytest.mark.django_db(databases=["default", "owner"])
 def test_the_command_reports_what_it_wrote(capsys: pytest.CaptureFixture[str]) -> None:
     call_command("sync_library")
 
-    # The tests' setup has synced already (vextrus/testing/tenancy.py); drawings writes the
-    # Markets' Disciplines (14) and takeoff its Takeoff Steps and Checks (19a), so two modules have
-    # rows, and none is left to write.
-    assert "sync_library: 0 rows from 2 module(s)" in capsys.readouterr().out
+    # The tests' setup has synced already (vextrus/testing/tenancy.py), so none is left to write; it
+    # counts every module with a `library.sync`, however many modules have rows (M1-00, A21).
+    modules = len(library.sync())
+    assert f"sync_library: 0 rows from {modules} module(s)" in capsys.readouterr().out

@@ -3,3 +3,7 @@
 Each ticket writes its own submodule (`services/<name>.py`); this file re-exports them, and a
 re-export line is the only shared edit.
 """
+
+from vextrus.measurement.services.lines import MeasurementLine
+
+__all__ = ["MeasurementLine"]

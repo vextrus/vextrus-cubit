@@ -1,0 +1,11 @@
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+
+#. vextrus/platform/messages/stubs.py (M1-00): a route declared before it is built (501); nothing was read or changed.
+msgid "platform.stubs.not_built"
+msgstr "This part of Vextrus is not ready yet, so nothing was shown or changed."

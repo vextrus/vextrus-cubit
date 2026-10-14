@@ -19,3 +19,19 @@ UNDO = Act("takeoff.undo", Grant.CHANGE)
 """Undo one's own last act on Step 1."""
 DRAWING_LIST = Act("takeoff.drawing_list", Grant.CHANGE)
 """Read a pasted list or a typed range back, and set it as a Discipline's drawing list."""
+
+# M1's acts (docs/plans/M1.md C9, C17, C19; declared by M1-00's stubs, built by M1-11a, M1-11b, M1-11c,
+# M1-25 and M1-32a). Every role looks at the steps, the model and the storeys (LOOK above); only the QS
+# and the Vextrus Engineer act on them.
+READ = Act("takeoff.read", Grant.CHANGE)
+"""Start a step's read (C5's chain run)."""
+ANSWER = Act("takeoff.answer", Grant.CHANGE)
+"""Answer a step's Question, by an option or a typed value."""
+CLOSE = Act("takeoff.close", Grant.CHANGE)
+"""Close a step, with or without Questions open, or reopen it."""
+ACTIVE = Act("takeoff.active", Grant.CHANGE)
+"""Report the QS's active time on a step."""
+PROFILE = Act("takeoff.profile", Grant.CHANGE)
+"""Confirm a Drafting Profile's conventions."""
+STOREYS = Act("takeoff.storeys", Grant.CHANGE)
+"""Type a storey's level, or correct the storeys a view shows."""
