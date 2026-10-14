@@ -59,6 +59,8 @@ from engine.recognise.views.routing import (
     _Own,
     _own,
     _proposal,
+    _routed_by_sheet,
+    _sheet_structure,
     kind_steps,
     working_view,
 )
@@ -173,7 +175,11 @@ def find(
         found.append(_View(None, None, ViewKind.TITLE_BLOCK, block))
     on_sheet = _subjects_in_order(sheet.title.value, reading) if sheet.title is not None else ()
     held_words = storeys.words(sheet_conventions)
-    made = [_candidate(v, paper, reading, discipline, on_sheet, held_words) for v in found]
+    shown = [" ".join(v.title.shown.split()) if v.title is not None else None for v in found]
+    by_sheet = discipline == "architectural" and _sheet_structure(
+        sheet.title.value if sheet.title is not None else None, shown, reading
+    )
+    made = [_candidate(v, paper, reading, discipline, on_sheet, held_words, by_sheet) for v in found]
     result = FoundViews(storeys.inherit(made, sheet, on_sheet, held_words, reading))
     result.paper = (paper.region[2], paper.region[3])
     result.limits = _report(budget)
@@ -199,6 +205,7 @@ def _candidate(
     discipline: str | None,
     on_sheet: Sequence[str] = (),
     storey_words: SheetConventions | None = None,
+    sheet_structure: bool = False,
 ) -> ViewCandidate:
     title = " ".join(view.title.shown.split()) if view.title is not None else None
     scale = view.scale
@@ -210,10 +217,13 @@ def _candidate(
     lines = [" ".join(u.shown.split()) for u in view.lines]
     named = _subjects_in_order(title, reading) if title is not None else ()
     stated = storeys.read(title, view.kind, subject, lines, storey_words, discipline, named)
-    structure = title is not None and _draws_structure(title, reading)
+    if discipline == "architectural":
+        routed, structure = _routed_by_sheet(own, title, sheet_structure, on_sheet, reading)
+    else:
+        routed, structure = own.subject, title is not None and _draws_structure(title, reading)
     steps, part, exclusion = _proposal(
         view.kind,
-        own.subject,
+        routed,
         discipline,
         on_sheet,
         notes=reading.notes,

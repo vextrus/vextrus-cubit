@@ -23,11 +23,14 @@ say); on a sheet whose title names none either it has no Step (unaccounted until
 or Step 1 tells it from the kind the sheet is confirmed as,
 `vextrus/takeoff/services/step1.py`). An
 Architectural plan drawing the structure (a column or beam subject, named by a word not a lintel's:
-`NOT_STRUCTURE_WORDS`) is excluded as a `duplicate` (the structural set governs); an Architectural
-fixture plan or toilet detail goes to Steps 11 and 12 and to the Plumbing and sanitary Part as well;
-another Architectural view to Steps 11 and 12. The Step keys are the seed's (`vextrus/seed/drawings.py`)
-until 19a's Library names them. **Not built:** a view that draws
-only a base plan is not yet told (proposed out as `blank`, Q7); nothing here reads a view's content.
+`NOT_STRUCTURE_WORDS`; or the slab named with one, in any order: `_draws_structure`) is excluded as a
+`duplicate` (the structural set governs); an Architectural fixture plan or toilet detail goes to Steps
+11 and 12 and to the Plumbing and sanitary Part as well; another Architectural view to Steps 11 and 12.
+An Architectural view whose own title names no building subject is routed by its sheet's title
+(`_routed_by_sheet`): a plan on a beam layout's sheet is out as a duplicate, a section on a toilet
+details sheet goes to the Plumbing and sanitary Part. The Step keys are the seed's
+(`vextrus/seed/drawings.py`) until 19a's Library names them. **Not built:** a view that draws only a
+base plan is not yet told (proposed out as `blank`, Q7); nothing here reads a view's content.
 
 **The working view** (`working_view`) is the first plan in reading order not proposed out: the view 16
 and 22 open a sheet fitted to; none when the sheet has no such plan.
@@ -82,10 +85,13 @@ building element as well is proposed for both (`_own`)."""
 ARCHITECTURAL_STEPS = ("walls", "rooms")
 """Steps 11 and 12: walls and openings, rooms and finishes."""
 STRUCTURE_SUBJECTS = frozenset({"column", "beam", "shear_wall"})
+"""What an architectural plan draws that the structural set governs."""
+FRAMED_SUBJECT = "slab"
+"""The subject an architectural plan draws the structure with when it names a structure subject too
+(`_draws_structure`): a slab outline with its beams."""
 NOT_STRUCTURE_WORDS = frozenset({"lintel", "lintels"})
 """Beam words an Architectural plan names without drawing the structure: a lintel layout is the
 architect's (`lintel_layout`), so it is never proposed out as the structural set's duplicate."""
-"""What an architectural plan draws that the structural set governs."""
 PLUMBING_SUBJECTS = frozenset({"fixture", "toilet"})
 PLUMBING_PART = "plumbing"
 """The Plumbing and sanitary Part, by its Discipline's key."""
@@ -126,11 +132,51 @@ def _own(text: str, reading: _Reading, *, structural: bool = True) -> _Own:
 
 
 def _draws_structure(text: str, reading: _Reading, *, structural: bool = False) -> bool:
-    """Whether the text's subject (`_own`) is one the structural set governs, named by a word other
-    than a lintel's (`NOT_STRUCTURE_WORDS`): "BEAM LAYOUT PLAN" is, "LINTEL LAYOUT PLAN" is not, nor
-    "STAIR AND BEAM PLAN" (its subject is the stair)."""
+    """Whether the text draws what the structural set governs: its subject (`_own`) is a structure
+    subject named by a word other than a lintel's (`NOT_STRUCTURE_WORDS`), or it names the slab with
+    a structure subject so named, in any order (the slab drawn with its beams is the floor's framing).
+    "BEAM LAYOUT PLAN" is, and "SLAB PLAN WITH BEAMS", "TANK SLAB PLAN WITH BEAMS" and "FRAMING
+    LAYOUT" (a beam word); "LINTEL LAYOUT PLAN" is not, nor "SLAB AND
+    LINTEL LAYOUT" (only a lintel's word), nor "STAIR AND BEAM PLAN" (its subject is the stair)."""
     own = _own(text, reading, structural=structural)
-    return own.subject in STRUCTURE_SUBJECTS and own.words not in NOT_STRUCTURE_WORDS
+    if own.subject in STRUCTURE_SUBJECTS and own.words not in NOT_STRUCTURE_WORDS:
+        return True
+    tokens = _tokens(text)
+    named = [(" ".join(tokens[s:e]), k) for s, e, k in reading.building.matches(tokens)]
+    return any(k == FRAMED_SUBJECT for _, k in named) and any(
+        k in STRUCTURE_SUBJECTS and w not in NOT_STRUCTURE_WORDS for w, k in named
+    )
+
+
+def _sheet_structure(sheet_title: str | None, titles: Sequence[str | None], reading: _Reading) -> bool:
+    """Whether a view whose own title names nothing takes the structure from its sheet's title
+    (`_routed_by_sheet`): the sheet's title draws it (`_draws_structure`) and no view's own title on
+    the sheet does. When one does, that view is the one the sheet's title names: on "GROUND FLOOR PLAN
+    AND COLUMN LAYOUT" the column layout is out and the floor plan beside it stays in Steps 11 and 12."""
+    return (
+        sheet_title is not None
+        and _draws_structure(sheet_title, reading)
+        and not any(t is not None and _draws_structure(t, reading) for t in titles)
+    )
+
+
+def _routed_by_sheet(
+    own: _Own,
+    title: str | None,
+    sheet_structure: bool,
+    on_sheet: Sequence[str],
+    reading: _Reading,
+) -> tuple[str | None, bool]:
+    """The subject and structure an Architectural view is routed by (`_proposal`'s `subject` and
+    `structure`): its own title's, or its sheet's title's when its own names no building subject
+    ("SECTION 1-1" on "TOILET DETAILS", "3RD FLOOR PLAN" on "SLAB PLAN WITH BEAMS"), as a
+    Structural view takes its sheet's subjects. From the sheet, the subject is the first plumbing
+    subject (`PLUMBING_SUBJECTS`) its title names, else none (in Steps 11 and 12 it decides only the
+    Part), and the structure `sheet_structure` (`_sheet_structure`). The view's own subject
+    (`ViewCandidate.subject`) stays as its title says; words only, never the sheet's recognised kind."""
+    if own.subject is not None:
+        return own.subject, title is not None and _draws_structure(title, reading)
+    return next((s for s in on_sheet if s in PLUMBING_SUBJECTS), None), sheet_structure
 
 
 def _proposal(
