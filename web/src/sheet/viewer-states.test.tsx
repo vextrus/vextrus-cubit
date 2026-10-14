@@ -20,7 +20,11 @@ import { SheetViewer } from './SheetViewer'
 vi.mock('./decoded', { spy: true })
 
 function mount(buffer: ArrayBuffer, sheetId?: string) {
-  return render(
+  return render(tree(buffer, sheetId))
+}
+
+function tree(buffer: ArrayBuffer, sheetId?: string) {
+  return (
     <UiProviders>
       <SlotsProvider>
         <KeyScope level="screen" name="sheet">
@@ -29,7 +33,7 @@ function mount(buffer: ArrayBuffer, sheetId?: string) {
           </div>
         </KeyScope>
       </SlotsProvider>
-    </UiProviders>,
+    </UiProviders>
   )
 }
 
@@ -48,7 +52,8 @@ describe('the canvas region and the focus', () => {
     let refuse: (error: Error) => void = () => {}
     vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>((_, reject) => (refuse = reject)))
     mount(garbage)
-    // Paged in: the canvas takes the focus while the sheet decodes, as Step 1 gives it.
+    // Paged in by a key: the canvas takes the focus while the sheet decodes, as Step 1 gives it.
+    await userEvent.keyboard('{Shift}')
     const canvas = await screen.findByRole('group', { name: /S-04/ })
     canvas.focus()
     expect(document.activeElement).toBe(canvas)
@@ -57,6 +62,8 @@ describe('the canvas region and the focus', () => {
     expect(clean(alert.textContent)).toContain('S-04 could not be drawn. The other sheets are not affected.')
     expect(document.activeElement, 'the focus fell to the page').not.toBe(document.body)
     expect(alert.closest('[tabindex="-1"]')?.contains(document.activeElement) || alert.closest('[tabindex="-1"]') === document.activeElement, 'focus in the canvas region').toBe(true)
+    // And its ring shows (m0-screens 8.7): focus-inset's outline, never cancelled.
+    expect(getComputedStyle(document.activeElement!).outlineStyle, 'the focused region shows no ring').not.toBe('none')
     await userEvent.tab()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Try again' }))
   })
@@ -110,5 +117,16 @@ describe('the first open of a sheet (4.6)', () => {
     vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>(() => {}))
     mount(await tiny(), 'sheet-never-opened')
     expect(await screen.findByText(/for the first time/)).toBeVisible()
+  })
+
+  it('says it once for a sheet given a new buffer by Try again in the same viewer', async () => {
+    const view = mount(await tiny(), 'sheet-tried-again')
+    await screen.findByRole('group', { name: /S-04/ })
+    await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 30_000 }).toBeNull()
+    // Try again fetched the sheet again: the same viewer, a new buffer, its decode held.
+    vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>(() => {}))
+    view.rerender(tree(await tiny(), 'sheet-tried-again'))
+    await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 10_000 }).not.toBeNull()
+    expect(screen.queryByText(/for the first time/)).toBeNull()
   })
 })

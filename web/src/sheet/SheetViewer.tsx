@@ -104,6 +104,8 @@ const TOOLTIP_KBD = '[&_kbd]:border-ink-secondary [&_kbd]:bg-inverse [&_kbd]:tex
 
 /** CAD-dark's ground (4.6); the canvas draws it, so it is a colour, not a token. */
 const CAD_DARK_HEX = '#101318'
+/** Off the paper on CAD-dark, as the drawing clears it (gl.ts, CAD_DARK_OFF_PAPER). */
+const CAD_DARK_OFF_PAPER_HEX = '#0a0c10'
 
 /** Text shorter than this on screen, in CSS px, draws as a grey bar (4.6). */
 const GREEK_BELOW_PX = 6
@@ -152,7 +154,11 @@ export function SheetViewer({
   // decoded shows at once, with neither.
   const seen = sheetId ?? label
   const paper = useMemo(() => (isDecodedSheetKept(buffer) ? null : peekPaper(buffer)), [buffer])
-  const openedBefore = useMemo(() => sheetsOpened.has(seen), [seen])
+  // Read again for each buffer: Try again hands the mounted viewer a new one for a sheet it has opened.
+  const openedBefore = useMemo(() => {
+    void buffer
+    return sheetsOpened.has(seen)
+  }, [seen, buffer])
   useEffect(() => {
     if (sheet) sheetsOpened.add(seen)
   }, [sheet, seen])
@@ -205,7 +211,7 @@ export function SheetViewer({
             opening={sheet || !paper ? null : { paper, firstTime: !openedBefore }}
           />
         ) : (
-          <div ref={errorRef} tabIndex={-1} className="focus-inset flex h-full items-start justify-center p-4 outline-none">
+          <div ref={errorRef} tabIndex={-1} className="focus-inset flex h-full items-start justify-center p-4">
             <ErrorBar
               className="w-full max-w-xl"
               action={
@@ -605,7 +611,7 @@ function SheetCanvas({
               ) : null}
             </div>
           ) : null}
-          {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} /> : null}
+          {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} dark={dark} /> : null}
           {status && !opening?.firstTime ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
           {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
           <div
@@ -623,7 +629,7 @@ function SheetCanvas({
  * 4.6's first open of a sheet, while it decodes: the paper's outline at its fit, a shimmer inside, and
  * top-right "Opening S-04 for the first time…".
  */
-function FirstOpen({ paper, firstTime, label }: { paper: { widthMm: number; heightMm: number }; firstTime: boolean; label: string }) {
+function FirstOpen({ paper, firstTime, label, dark }: { paper: { widthMm: number; heightMm: number }; firstTime: boolean; label: string; dark: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   // The number isolated left to right inside the line (notation), as text of the line itself.
   const sheetNumber = isolateLtr(label)
@@ -639,14 +645,22 @@ function FirstOpen({ paper, firstTime, label }: { paper: { widthMm: number; heig
   }, [])
   const fit = box && box.width > 0 && box.height > 0 ? fitPaper(paper, null, { width: box.width, height: box.height, top: LEGEND_PX, bottom: BAR_PX }) : null
   return (
-    <div ref={ref} className="pointer-events-none absolute inset-0 z-[2]">
+    // On CAD-dark the ground is the drawing's own off-paper shade and the paper its #101318, so the first
+    // open does not flash light before the dark sheet comes (the re-gate on #842).
+    <div ref={ref} className="pointer-events-none absolute inset-0 z-[2]" style={dark ? { backgroundColor: CAD_DARK_OFF_PAPER_HEX } : undefined}>
       {fit ? (
         <div
           aria-hidden
           data-first-open=""
-          className="skeleton absolute rounded-[1px] border border-border"
+          className={cn('absolute rounded-[1px] border', dark ? 'border-ink-secondary' : 'skeleton border-border')}
           // Inside LtrCanvas: inline start is the left, as the drawing's.
-          style={{ insetInlineStart: fit.x, insetBlockStart: fit.y - paper.heightMm * fit.scale, inlineSize: paper.widthMm * fit.scale, blockSize: paper.heightMm * fit.scale }}
+          style={{
+            insetInlineStart: fit.x,
+            insetBlockStart: fit.y - paper.heightMm * fit.scale,
+            inlineSize: paper.widthMm * fit.scale,
+            blockSize: paper.heightMm * fit.scale,
+            ...(dark ? { backgroundColor: CAD_DARK_HEX } : {}),
+          }}
         />
       ) : null}
       {firstTime ? (

@@ -1130,7 +1130,7 @@ function SheetMode({
         <SpaceKey label={label} run={onSpace} />
         <ZoomKey enabled={selectedView !== null} run={onZoom} />
         {/* F6 lands here, inside the key region, so Space and the sheet's keys work from it (M17). */}
-        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0 outline-none">
+        <div ref={region} tabIndex={-1} data-region-focus="" className="focus-inset absolute inset-0">
           {render.data ? (
             <SheetViewer
               key={sheet.id}
