@@ -487,16 +487,15 @@ function useActs(
       if (moved && moved.length > 0) parts.push('coverage')
       if ((reply as Partial<AnswerOut>).progress === undefined && moved && moved.length > 0) parts.push('progress')
       let read
-      let band: Awaited<ReturnType<typeof readFiles>> | null = null
+      let files: Awaited<ReturnType<typeof readFiles>> | null
       try {
         // A held file's answer moves its file in the files band (§6.13): read again with the Questions and written
         // with them, so the bar, the rows and the band move in one render.
-        ;[read, band] = await Promise.all([readParts(projectId, parts), entry.question.kind === 'file_misread' ? readFiles(projectId) : null])
+        ;[read, files] = await Promise.all([readParts(projectId, parts), entry.question.kind === 'file_misread' ? readFiles(projectId) : null])
       } catch {
         return false
       }
       if (mark.generation !== generation.current) return false
-      const files = band
       notifyManager.batch(() => {
         writeParts(queryClient, projectId, answered(queryClient, projectId, reply, read))
         if (files) {
