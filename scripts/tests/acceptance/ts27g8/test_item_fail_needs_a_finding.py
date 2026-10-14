@@ -118,7 +118,8 @@ def test_an_item_fail_whose_findings_name_only_other_items_is_refused() -> None:
 
 
 def test_an_item_fail_with_a_finding_naming_it_is_judged_fail() -> None:
-    finding = _finding(1, ITEM)
+    # S28-W1 (Q24): only a BLOCKS or a reproduced misleading finding keeps an item FAIL.
+    finding = _finding(1, ITEM, severity="BLOCKS")
 
     judged = _evaluate(_layer({ITEM: "FAIL"}, [finding]))
 
@@ -159,7 +160,8 @@ def test_the_command_writes_no_verdict_for_an_item_fail_no_finding_names(tmp_pat
 
 def test_the_command_writes_a_fail_verdict_for_an_item_fail_a_finding_names(tmp_path: Path) -> None:
     walks, expect_dir, folder = _lay_out(tmp_path)
-    (folder / "findings.json").write_text(json.dumps(_layer({ITEM: "FAIL"}, [_finding(1, ITEM)])))
+    blocks = _finding(1, ITEM, severity="BLOCKS")  # S28-W1 (Q24): an OTHER one would turn the item PASS
+    (folder / "findings.json").write_text(json.dumps(_layer({ITEM: "FAIL"}, [blocks])))
 
     code = _verdict_cli(walks, expect_dir)
 
