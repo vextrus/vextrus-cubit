@@ -151,20 +151,16 @@ export function writeParts(queryClient: QueryClient, projectId: string, parts: P
 }
 
 /**
- * The four as an answer's reply leaves them (S27-G7, #319): the answered Question in place of the one asked,
- * and each Proposal it moved (`changed_proposals`) in place of the one listed. `moved` null: the reply does
- * not say which sheets moved, so only the Questions are written (the caller knows the answer moved none).
- * Coverage and progress are the caller's (`readParts`), read before when a sheet moved.
+ * The four as an answer's reply leaves them (S27-G7, #319): each Proposal it moved (`changed_proposals`) in
+ * place of the one listed, and the answered Question in place of the one asked. `read`: what the caller read
+ * again since the reply (`readParts`): the Questions (an answer can close others: a conflict's copies), and
+ * Coverage and progress when a sheet moved. A reply that does not say which sheets moved writes no Proposal
+ * (the caller knows the answer moved none).
  */
-export function answered(
-  queryClient: QueryClient,
-  projectId: string,
-  reply: AnswerOut | QuestionOut,
-  extra: Partial<Pick<Step1Parts, 'coverage' | 'progress'>> = {},
-): Partial<Step1Parts> {
+export function answered(queryClient: QueryClient, projectId: string, reply: AnswerOut | QuestionOut, read: Partial<Omit<Step1Parts, 'proposals'>> = {}): Partial<Step1Parts> {
   const { changed_proposals: moved, ...question } = reply as Partial<AnswerOut> & QuestionOut
-  const parts: Partial<Step1Parts> = { ...extra }
-  const questions = queryClient.getQueryData<readonly QuestionOut[]>([...step1Key(projectId), 'questions'])
+  const parts: Partial<Step1Parts> = { ...read }
+  const questions = read.questions ?? queryClient.getQueryData<readonly QuestionOut[]>([...step1Key(projectId), 'questions'])
   if (questions) parts.questions = questions.map((q) => (q.id === question.id ? question : q))
   const proposals = queryClient.getQueryData<readonly ProposalOut[]>([...step1Key(projectId), 'proposals'])
   if (proposals && moved && moved.length > 0) {

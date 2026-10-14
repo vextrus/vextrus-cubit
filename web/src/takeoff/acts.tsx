@@ -440,31 +440,41 @@ function useActs(
 
   /**
    * Step 1 read again behind an answer shown from its reply (S27-G7): the four read outside the cache and
-   * written in one batch, so nothing holds the reply's rows meanwhile (`useSettled`), and the rest (the
-   * drawing lists, a sheet's acts, the files band) read again as any act's. Dropped if another act or a
-   * Ctrl Z began since, or Step 1 was left: its own reload is newer. A failed read leaves the reply's rows.
+   * written in one batch, so nothing holds the reply's rows meanwhile (`useSettled`), then the rest (the
+   * drawing lists, a sheet's acts, the files band) read again as after any act, asked after the four so they
+   * do not queue ahead of them. The write is dropped if a Ctrl Z began since or Step 1 was left; a failed
+   * read leaves the reply's rows. The gate stays shut until it ends, as after any act: an act's key is
+   * dropped meanwhile, never sent against rows not yet read again.
    */
   const readBehind = useCallback(
     async (mark: Mark) => {
       const whole = isWhole(projectId)
-      void queryClient.invalidateQueries({ queryKey: step1Key(projectId), predicate: (query) => !whole(query) }).catch(() => {})
-      void queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey }).catch(() => {})
+      const four = readParts(projectId, ['proposals', 'questions', 'coverage', 'progress'])
+      const rest = Promise.all([
+        queryClient.invalidateQueries({ queryKey: step1Key(projectId), predicate: (query) => !whole(query) }),
+        queryClient.invalidateQueries({ queryKey: filesQuery(projectId).queryKey }),
+      ]).catch(() => {})
       try {
-        const fresh = await readParts(projectId, ['proposals', 'questions', 'coverage', 'progress'])
+        const fresh = await four
         if (mark.generation === generation.current && mounted.current) writeParts(queryClient, projectId, fresh)
       } catch {
         // The reply's rows stay until Step 1 is read again (the next act, or the next visit).
+      }
+      await rest
+      if (mark.owner === acting.current) {
+        pending.current = false
+        if (undos.current === 0) setBusy(false)
       }
     },
     [projectId, queryClient],
   )
 
   /**
-   * Shows an answer from its reply, once its POST has returned (S27-G7, #319): the answered Question and the
-   * Proposals it moved written at once, with Coverage and progress read first when a sheet moved (the
-   * group's "n / N settled" is progress's), all in one batch; then the gate opens and the rest is read
-   * behind (`readBehind`). Whether it could: a reply that does not say which sheets moved, from an answer
-   * that may move some, is shown as any act is, once Step 1 has reloaded (`settle`).
+   * Shows an answer from its reply, once its POST has returned (S27-G7, #319): the Proposals it moved, with
+   * the Questions read again (an answer can close others), and Coverage and progress when a sheet moved (the
+   * group's "n / N settled" is progress's), all written in one batch; the rest is then read behind
+   * (`readBehind`). Whether it could: a reply that does not say which sheets moved, from an answer that may
+   * move some, is shown as any act is, once Step 1 has reloaded (`settle`).
    */
   const showAnswer = useCallback(
     async (reply: AnswerOut, entry: QuestionEntry, option: string, mark: Mark): Promise<boolean> => {
@@ -472,20 +482,14 @@ function useActs(
       if (moved === undefined && !movesNoSheet(entry, option)) return false
       // A read of the four already in flight (a window coming back into view) would land over the reply.
       await queryClient.cancelQueries({ predicate: isWhole(projectId) })
-      let extra = {}
-      if (moved && moved.length > 0) {
-        try {
-          extra = await readParts(projectId, ['coverage', 'progress'])
-        } catch {
-          return false
-        }
+      let read
+      try {
+        read = await readParts(projectId, moved && moved.length > 0 ? ['questions', 'coverage', 'progress'] : ['questions'])
+      } catch {
+        return false
       }
       if (mark.generation !== generation.current) return false
-      writeParts(queryClient, projectId, answered(queryClient, projectId, reply, extra))
-      if (mark.owner === acting.current) {
-        pending.current = false
-        if (undos.current === 0) setBusy(false)
-      }
+      writeParts(queryClient, projectId, answered(queryClient, projectId, reply, read))
       void readBehind(mark)
       return true
     },
