@@ -565,8 +565,9 @@ function SheetRow({
     )
   else title = <DrawingText kind="title" text={first?.title ?? ''} className="min-w-0" />
   // One title on several runs that draw different things: told, never asked (the owner, 5 Oct 2026, #334).
+  // The note gives way first (it shrinks and truncates); the shared title truncates last (#670).
   const shares = row.shares ? (
-    <span className="ms-2 shrink-0 whitespace-nowrap text-ink-secondary">
+    <span className="ms-2 min-w-0 shrink-[1000] truncate whitespace-nowrap text-ink-secondary">
       <Plural value={row.shares} one="# sheet shares this title" other="# sheets share this title" />
     </span>
   ) : null
