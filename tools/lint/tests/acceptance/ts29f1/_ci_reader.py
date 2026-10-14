@@ -1,19 +1,9 @@
-"""Ticket S17-F1 (session 17, factory speed; verify-ci-speed.md items 4 and 5): CI's python shards run
-pytest with four workers (`-n 4`), the `rest` shard is split into three, the engine's toolchain job
-runs `-n 3`, and `tools/lint/tests` stays serial (no `-n`) until #585 is fixed. No `-n auto` anywhere
-in `.github/workflows`.
-
-What a shard runs is read at CI's boundary: the `python` job's steps in `ci.yml` (a step's `if:` on
-`matrix.shard` is evaluated per shard) with `$(python3 -m tools.lint.ci_shards args "$SHARD")` replaced
-by what that command prints for the shard, and the shard names by `tools.lint.ci_shards matrix`. So the
-workers may live in the step's text or in the shard's printed arguments, as the builder chooses. A
-pytest line whose targets are all single files (the policy-coverage step) is not a shard's test run.
+"""CI's workflows read as text, carried from S17-F1's acceptance tests (ts17f1, withdrawn by S29-F1):
+what a shard runs is read at CI's boundary, the `python` job's steps in `ci.yml` (a step's `if:` on
+`matrix.shard` evaluated per shard) with `$(python3 -m tools.lint.ci_shards args "$SHARD")` replaced by
+what that command prints for the shard, and the shard names by `tools.lint.ci_shards matrix`. A pytest
+line whose targets are all single files (the policy-coverage step) is not a shard's test run.
 Shell-level branching inside one `run:` script is not read: branch by the step's `if:`.
-
-Withdrawn by S29-F1 (docs/plans/factory-s29.md item 1, "shards rebalanced on measured step times;
-`tools/lint/tests` in parallel"): the pins on six shards, on the three shards beside `rest` running what
-they ran, and on `tools/lint/tests` running with no `-n` (#585 is closed, fixed by #614). S29-F1's own
-tests (ts29f1) pin the rebalanced plan and the four workers in their place.
 """
 
 import re
@@ -325,41 +315,3 @@ def shard_test_runs(shard: str) -> list[Invocation]:
 
 def holds_lint_tests(run: Invocation) -> bool:
     return any(under(file, LINT_TESTS) for file in run.collects())
-
-
-# --- the workers -----------------------------------------------------------------------------------
-
-
-def test_every_shards_test_run_carries_n_4_but_the_one_holding_tools_lint_tests() -> None:
-    checked = 0
-    for shard in shard_names():
-        for run in shard_test_runs(shard):
-            if holds_lint_tests(run):
-                continue
-            checked += 1
-            workers = run.workers()
-            assert workers == ["4"], (
-                f"shard {shard!r}: pytest {' '.join(run.argv)} carries -n {workers or 'none'}, not -n 4"
-            )
-    assert checked, "no shard's test run was found in the python job"
-
-
-def test_the_engine_toolchain_job_runs_pytest_with_n_3() -> None:
-    job = job_lines((ROOT / ENGINE).read_text(), TOOLCHAIN_JOB)
-    runs = [run for item in steps(job) for run in invocations(item.run)]
-    assert runs, f"{ENGINE}: the {TOOLCHAIN_JOB} job runs no pytest"
-    for run in runs:
-        workers = run.workers()
-        assert workers == ["3"], (
-            f"{ENGINE} {TOOLCHAIN_JOB}: pytest {' '.join(run.argv)} carries -n"
-            f" {workers or 'none'}, not -n 3"
-        )
-
-
-def test_no_workflow_asks_for_n_auto() -> None:
-    files = sorted([*(ROOT / WORKFLOWS).glob("*.yml"), *(ROOT / WORKFLOWS).glob("*.yaml")])
-    assert files
-    for path in files:
-        for number, line in enumerate(path.read_text().splitlines(), start=1):
-            code = "" if line.lstrip().startswith("#") else re.sub(r"\s#\s.*$", "", line)
-            assert not N_AUTO.search(code), f"{path.relative_to(ROOT)}:{number}: {line.strip()}"

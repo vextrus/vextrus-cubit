@@ -27,6 +27,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[5]
@@ -77,7 +78,7 @@ def _said(result: subprocess.CompletedProcess[str]) -> str:
 
 def _root(
     tmp_path: Path,
-    shards: list[dict[str, object]],
+    shards: Sequence[Mapping[str, object]],
     timings: dict[str, float] | None,
     files: list[str],
     serial: tuple[str, ...] = (),
