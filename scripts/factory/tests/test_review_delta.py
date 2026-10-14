@@ -520,21 +520,25 @@ def test_a_replay_failing_elsewhere_than_on_its_own_round_is_stale_and_handed_as
 
 
 @pytest.mark.parametrize(
-    ("findings", "rests"),
+    ("findings", "decided"),
     [
-        ({"r1-l1-f1": ledger.Judged(80, "UNPROVEN", None)}, True),
-        ({"r1-l1-f1": ledger.Judged(80, "CONFIRMED", None)}, False),  # the refuter confirmed it
+        ({"r1-l1-f1": ledger.Judged(80, "UNPROVEN", None)}, "PASS"),  # S28-R1: it never blocks
+        ({"r1-l1-f1": ledger.Judged(80, "CONFIRMED", None)}, "FIX"),  # the refuter confirmed it
         ({"r1-l1-f1": ledger.Judged(80, "UNPROVEN", None),
-          "l1-f1": ledger.Judged(80, "UNPROVEN", None)}, False),  # a lens finding stands too
-        ({"r1-l1-f1": ledger.Judged(80, "REFUTED", None)}, False),  # nothing stands: PASS
+          "l1-f1": ledger.Judged(80, "UNPROVEN", None)}, "PASS"),
+        ({"r1-l1-f1": ledger.Judged(80, "REFUTED", None)}, "PASS"),  # nothing stands
     ],
-    ids=["unproven-replay", "confirmed-replay", "lens-finding", "refuted"],
+    ids=["unproven-replay", "confirmed-replay", "unproven-lens-finding", "refuted"],
 )  # fmt: skip
-def test_a_fix_rests_on_replays_only_when_no_refuter_confirmed_one_and_no_lens_finding_stands(
-    findings: dict[str, ledger.Judged], rests: bool
+def test_an_unconfirmed_replay_no_longer_makes_a_fix_and_unproven_ones_are_filed(
+    findings: dict[str, ledger.Judged], decided: str
 ) -> None:
+    """S28-R1 retires S26-FX9's `replays_only`: a FIX rests only on CONFIRMED findings now, so no new
+    record carries it (records already written with it are still read: `check_head`)."""
     decision = ledger.judge(["PASS"], findings, "0" * 64)
-    assert decision.replays_only is rests, decision
+    assert decision.verdict == decided, decision
+    unproven = tuple(name for name, one in findings.items() if one.word == "UNPROVEN")
+    assert decision.to_file == unproven, decision
 
 
 def seed(store: Path, name: str, round_: int, verdict: str, *, replays_only: bool | None) -> None:
