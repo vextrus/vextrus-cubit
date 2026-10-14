@@ -129,4 +129,31 @@ describe('the first open of a sheet (4.6)', () => {
     await expect.poll(() => document.querySelector('[data-first-open]'), { timeout: 10_000 }).not.toBeNull()
     expect(screen.queryByText(/for the first time/)).toBeNull()
   })
+
+  it('fits the paper from its header while the sheet decodes: the views\' outlines show, and the legend stays above the CAD-dark ground', async () => {
+    vi.mocked(openDecodedSheet).mockImplementation(() => new Promise<DecodedSheet>(() => {}))
+    render(
+      <UiProviders>
+        <SlotsProvider>
+          <KeyScope level="screen" name="sheet">
+            <div style={{ width: 800, height: 600, position: 'relative' }}>
+              <SheetViewer
+                buffer={await tiny()}
+                label="S-04"
+                sheetId="sheet-with-views"
+                dark
+                legend={<span data-legend="">Legend</span>}
+                outlines={[{ id: 'plan', box: { x0: 20, y0: 20, x1: 120, y1: 100 }, tag: 'Plan, 1:100', tone: 'proposal' }]}
+              />
+            </div>
+          </KeyScope>
+        </SlotsProvider>
+      </UiProviders>,
+    )
+    await expect.poll(() => document.querySelector('[data-outline="plan"]'), { timeout: 10_000 }).not.toBeNull()
+    const ground = document.querySelector('[data-first-open]')!.parentElement!
+    const legend = document.querySelector('[data-legend]')!
+    // The same layer, the legend later: it paints above the ground.
+    expect(ground.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })

@@ -153,7 +153,8 @@ export function SheetViewer({
   // longer kept decoded (dropped from the cache, or fetched again) shows the outline alone; one kept
   // decoded shows at once, with neither.
   const seen = sheetId ?? label
-  const paper = useMemo(() => (isDecodedSheetKept(buffer) ? null : peekPaper(buffer)), [buffer])
+  const header = useMemo(() => peekPaper(buffer), [buffer])
+  const paper = useMemo(() => (isDecodedSheetKept(buffer) ? null : header), [buffer, header])
   // Read again for each buffer: Try again hands the mounted viewer a new one for a sheet it has opened.
   const openedBefore = useMemo(() => {
     void buffer
@@ -209,6 +210,7 @@ export function SheetViewer({
             notes={notes}
             status={status}
             opening={sheet || !paper ? null : { paper, firstTime: !openedBefore }}
+            headerPaper={header}
           />
         ) : (
           <div ref={errorRef} tabIndex={-1} className="focus-inset flex h-full items-start justify-center p-4">
@@ -256,6 +258,7 @@ function SheetCanvas({
   notes,
   status,
   opening,
+  headerPaper,
 }: {
   /** Null while the sheet is decoded: the canvas is there, blank, and takes keys and focus. */
   sheet: DecodedSheet | null
@@ -277,6 +280,8 @@ function SheetCanvas({
   status?: ReactNode
   /** The paper of a sheet opened for the first time, while it decodes: its outline and a line (4.6). */
   opening: { paper: { widthMm: number; heightMm: number }; firstTime: boolean } | null
+  /** The paper the buffer's header says: F, Shift F and the first fit work from it while the sheet decodes. */
+  headerPaper: { widthMm: number; heightMm: number } | null
 }) {
   const { t } = useLingui()
   const areaRef = useRef<HTMLDivElement>(null)
@@ -364,10 +369,11 @@ function SheetCanvas({
 
   const fits = useCallback(() => {
     const s = stage()
-    if (!s || !sheet) return null
-    const whole = fitPaper(sheet.paper, used, s)
+    const paperNow = sheet?.paper ?? headerPaper
+    if (!s || !paperNow) return null
+    const whole = fitPaper(paperNow, sheet ? used : null, s)
     return { whole, working: workingView ? fitBox(workingView, s, VIEW_MARGIN) : whole }
-  }, [stage, sheet, used, workingView])
+  }, [stage, sheet, used, workingView, headerPaper])
   // The renderer's effect reads the latest of these, so it makes one renderer for the canvas's life.
   const latest = useRef({ fits, setView })
   useLayoutEffect(() => {
@@ -601,6 +607,8 @@ function SheetCanvas({
           />
           <canvas ref={plotRef} aria-hidden data-plot="" className={cn('absolute inset-0 z-0 h-full w-full', layer === 'read' && 'invisible')} />
           {hasOutlines && showOutlines && shown ? <Outlines outlines={outlines} view={shown} selected={selected} onSelect={onSelect} dark={dark} /> : null}
+          {/* Before the legend and notes (the same layer): on CAD-dark its ground must not cover them. */}
+          {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} dark={dark} /> : null}
           {legend || notes ? (
             <div className="pointer-events-none absolute start-3 top-2 z-[2] flex flex-col items-start gap-1 text-xs">
               {legend ? <div className="rounded-md bg-paper/90 px-2 py-1 text-ink-secondary">{legend}</div> : null}
@@ -611,7 +619,6 @@ function SheetCanvas({
               ) : null}
             </div>
           ) : null}
-          {opening ? <FirstOpen paper={opening.paper} firstTime={opening.firstTime} label={label} dark={dark} /> : null}
           {status && !opening?.firstTime ? <div className="pointer-events-none absolute end-3 top-2 z-[2] rounded-md bg-paper/90 px-2 py-1 text-xs text-ink-secondary">{status}</div> : null}
           {/* The focus ring above the drawing: the canvas would cover the region's own inset outline. */}
           <div
