@@ -1142,12 +1142,15 @@ def _counted(row: Coverage) -> str:
     return "excluded" if row.status == CoverageStatus.EXCLUDED else "assigned"
 
 
-def progress(project_id: uuid.UUID) -> ProgressView:
+def progress(project_id: uuid.UUID, *, rows_only: bool = False) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
     row, last), and the Market's expected Disciplines not yet received. Every sheet found is counted,
     a sheet proposed out and a sheet left out among them (m0-screens: excluded sheets stay in the
-    count); a sheet left out is settled."""
+    count); a sheet left out is settled. `rows_only`: the rows alone, the Disciplines not received and
+    the QS names left empty (`record_progress`'s: no row holds them, S29-M0b)."""
     rows, files = _progress_rows(project_id)
+    if rows_only:
+        return ProgressView(rows, [])
     return ProgressView(rows, _not_received(files), invitations.qs_of(project_id))
 
 
@@ -1310,26 +1313,6 @@ class _Lists:
         return self.given or self.read
 
 
-_GIVEN = (RegisterSource.PASTED, RegisterSource.TYPED)
-
-
-def _standing_lists(
-    project_id: uuid.UUID, discipline: str
-) -> tuple[DrawingRegister | None, DrawingRegister | None]:
-    """The Discipline's standing list the QS gave (pasted or typed) and the one read on a sheet, each
-    as `_standing` finds it, in one statement."""
-    standing = DrawingRegister.objects.filter(project_id=project_id, discipline=discipline).filter(
-        Q(confirmation__isnull=True) | Q(confirmation__undone_at__isnull=True)
-    )
-    given = standing.filter(source__in=_GIVEN).order_by("-entered_at", "-id")[:1]
-    read = standing.filter(source=RegisterSource.SHEET).order_by("-entered_at", "-id")[:1]
-    found = list(given.union(read, all=True))
-    return (
-        next((r for r in found if r.source in _GIVEN), None),
-        next((r for r in found if r.source == RegisterSource.SHEET), None),
-    )
-
-
 def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) -> DrawingRegister | None:
     """The latest list of these sources for the Discipline whose act was not undone."""
     return (
@@ -1341,7 +1324,8 @@ def _standing(project_id: uuid.UUID, discipline: str, sources: Iterable[str]) ->
 
 
 def _lists(project_id: uuid.UUID, discipline: str) -> _Lists:
-    given, read = _standing_lists(project_id, discipline)
+    given = _standing(project_id, discipline, (RegisterSource.PASTED, RegisterSource.TYPED))
+    read = _standing(project_id, discipline, (RegisterSource.SHEET,))
     settled = None
     if given is not None and read is not None:
         answered = Question.objects.filter(
@@ -2703,19 +2687,12 @@ def undo(project_id: uuid.UUID) -> ActView:
         ).order_by("-at", "-id")
         act = None
         passed: Confirmation | None = None
-        # The latest is read with its row locked, in one statement: almost always the act taken back.
-        latest = mine.select_for_update(of=("self",)).first()
-        if latest is not None and not (
-            latest.act == ConfirmationAct.CORRECT and not _correction_stands(latest)
-        ):
-            act = latest
-        else:
-            for candidate in mine.iterator():
-                if candidate.act == ConfirmationAct.CORRECT and not _correction_stands(candidate):
-                    passed = passed or candidate
-                    continue
-                act = Confirmation.objects.select_for_update().get(id=candidate.id)
-                break
+        for candidate in mine.iterator():
+            if candidate.act == ConfirmationAct.CORRECT and not _correction_stands(candidate):
+                passed = passed or candidate
+                continue
+            act = Confirmation.objects.select_for_update().get(id=candidate.id)
+            break
         if act is None:
             if passed is not None:
                 raise auth.Refused(said.CORRECTION_MOVED_ON(**_passed_named(passed)), status=409)
@@ -4453,7 +4430,8 @@ def _reading(sql: str) -> bool:
 def reads_between_writes() -> Iterator[None]:
     """An act's repeated reads of the same rows answered once until its next write (S15-A2's 500 ms
     bound, #638): every statement the act's connection runs that is not a plain read
-    (`_reading`) forgets them all, before it runs, so a read after a write is read again. Another
+    (`_reading`) forgets them, before it runs, so a read after a write is read again; only the rows
+    no act writes (`_KEPT_THROUGH_WRITES`) are kept for the whole act. Another
     transaction's writes are not waited for: Step 1's write lock keeps a read job's writes out
     while an act holds it (`lock_writes`). A block inside another shares the outer one's."""
     if _READS.get() is not None:
@@ -4536,15 +4514,12 @@ def record_progress(project_id: uuid.UUID) -> None:
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
             )
         tenant_id = _tenant()
-        # The rows alone, unless a reply keeps the whole count (an answer's): the Disciplines not
-        # received and the QS names are no row's (S29-M0b).
-        if (kept := _PROGRESS_COUNTED.get()) is not None:
-            counted = progress(project_id)
+        # The rows alone, unless a reply keeps the whole count (an answer's).
+        kept = _PROGRESS_COUNTED.get()
+        counted = progress(project_id, rows_only=kept is None)
+        if kept is not None:
             kept[project_id] = counted
-            disciplines = counted.disciplines
-        else:
-            disciplines = _progress_rows(project_id)[0]
-        for row in disciplines:
+        for row in counted.disciplines:
             status = row.status
             StepProgress.objects.update_or_create(
                 tenant_id=tenant_id,

@@ -1,7 +1,7 @@
 """The statements a Step 1 act runs through the API (S29-M0b): an act reads its Project's scope, its
 Drawing Set and the Market's sheet conventions once, its progress rows count the set's files once, and
-an undo reads the standing steps once a sheet, never once a view. Measured at S29-M0b: confirm 165
-(main 178), exclude 166 (main 182), undo 100 (main 126), on 3 sheets."""
+an undo reads the standing steps once a sheet, never once a view. Measured at S29-M0b: confirm 166
+(main 178), exclude 167 (main 182), undo 102 (main 126), on 3 sheets."""
 
 import uuid
 from collections.abc import Callable
@@ -20,9 +20,9 @@ from vextrus.testing.tenancy import Member
 
 pytestmark = pytest.mark.django_db
 
-CONFIRM = 165
-EXCLUDE = 166
-UNDO = 100
+CONFIRM = 166
+EXCLUDE = 167
+UNDO = 102
 
 
 def step1_of(qs: QsProject, sheets: int, *, views: int = 1) -> tuple[Member, list[uuid.UUID]]:
