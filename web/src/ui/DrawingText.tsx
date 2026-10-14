@@ -21,12 +21,15 @@ export function DrawingText({
   kind,
   className,
   truncate = true,
+  note,
 }: {
   text: string
   kind: DrawingTextKind
   className?: string
   /** Cut with an ellipsis when it does not fit (default); off where the text may wrap. */
   truncate?: boolean
+  /** A line told beside the text, kept in the tooltip a cut text shows (a title's series note). */
+  note?: string
 }) {
   const ref = useRef<HTMLElement>(null)
   const [cut, setCut] = useState(false)
@@ -51,7 +54,7 @@ export function DrawingText({
       ref={ref}
       dir={notation ? 'ltr' : 'auto'}
       data-notation={notation ? kind : undefined}
-      title={cut ? (notation ? isolateLtr(text) : isolateOwn(text)) : undefined}
+      title={cut ? (notation ? isolateLtr(text) : isolateOwn(text)) + (note ? ` · ${note}` : '') : undefined}
       className={cn(truncate && 'inline-block max-w-full truncate align-bottom', className)}
     >
       {text}
