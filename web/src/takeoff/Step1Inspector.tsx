@@ -1095,7 +1095,10 @@ function AnsweredLine({ entry }: { entry: QuestionEntry }) {
       </span>
       {by ? (
         <span className="text-xs text-ink-secondary">
-          {date ? (
+          {by === 'convention' ? (
+            // The service signs a boundary-storey answer `convention` (6.7: settled by the Dhaka convention); the line says so in words.
+            date ? <Trans>Settled by the Dhaka convention, {date}, {time}</Trans> : <Trans>Settled by the Dhaka convention</Trans>
+          ) : date ? (
             <Trans>
               {by}, {date}, {time}
             </Trans>
