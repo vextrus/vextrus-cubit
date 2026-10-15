@@ -5,7 +5,7 @@ ports (`VEXTRUS_WEB_PORT`, `VEXTRUS_API_URL`) and both workers. `web/e2e/real/wa
 writes them to `walk.json`."
 
     python -m scripts.walk.run <sha40> [--root R] [--print-plan] [--set <slug> ...]
-        [--smoke <file> ...] [--hold-minutes N]
+        [--smoke <file> ...] [--hold-minutes N] [--jev-from <sha40>]
 
 It runs in the foreground (the orchestrator detaches it) and:
 1. takes `.private/work/factory/g1.pid` (a live one refuses: one walk at a time; f3's governor reads it);
@@ -27,6 +27,13 @@ It runs in the foreground (the orchestrator detaches it) and:
    stops what it started, by process group (never by pattern), drops
    `vextrus_walk_<sha8>` (once step 3 began; a failed drop is an event line, never the walk's code)
    and frees g1.pid.
+
+Before step 7 drops the database, the walk's Jev answers are written to `jev-answers.json` in its folder
+(`scripts/walk/jev_answers.py`; a failed export is an event line, never the walk's code). `--jev-from
+<sha40>` (a repeat walk; the owner, 15 Oct 2026: "Re-run #2; #3 reuses its Jev answers") seeds those
+rows from the earlier walk's folder into the fresh database after `seed_demo`, before the stack serves;
+the file missing, malformed or holding another model than the pinned one refuses (exit 2) before any
+step. `walk.json` then records `jev_from` and `jev_seeded`.
 
 `--smoke <file>` (repeatable) walks those files as the set `smoke` into
 `.private/work/walks-smoke/<sha40>/` (a `"smoke": true` walk.json), never holds, and never writes a
@@ -334,6 +341,78 @@ def prepare_database(walk: Plan, password: str, log: Path) -> None:
         _step(name, [python, "manage.py", *args], cwd=walk.worktree, env=env, log=log)
 
 
+JEV_ANSWERS = "jev-answers.json"
+JEV_MODULE = CODE / "scripts" / "walk" / "jev_answers.py"
+"""The seam is this checkout's file, run by the walked checkout's python, so the walked head need not
+carry it."""
+PINNED_MODEL = re.compile(r'SHEET_TYPE\s*=\s*Node\(.*?\bmodel="([^"]+)"', re.DOTALL)
+
+
+def pinned_model() -> str:
+    """The sheet_type node's pinned model, read from the product's source text (no Django here)."""
+    text = (CODE / "vextrus" / "platform" / "services" / "jev.py").read_text(encoding="utf-8")
+    found = PINNED_MODEL.search(text)
+    if not found:
+        raise WalkError("the pinned Jev model cannot be read")
+    return found.group(1)
+
+
+def check_jev_answers(path: Path) -> int:
+    """The earlier walk's answers file, or a refusal naming why: missing, malformed or another model.
+    Returns the row count."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        raise WalkError("the earlier walk's jev-answers.json is missing") from None
+    try:
+        rows = json.loads(text)
+    except ValueError:
+        raise WalkError("the earlier walk's jev-answers.json is malformed") from None
+    if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+        raise WalkError("the earlier walk's jev-answers.json is malformed")
+    pinned = pinned_model()
+    if any(row.get("model_version") != pinned for row in rows):
+        raise WalkError("the earlier walk's jev-answers.json holds a model other than the pinned one")
+    return len(rows)
+
+
+def _jev_step(walk: Plan, action: str, file: Path, log: Path) -> subprocess.CompletedProcess[str]:
+    python = str(walk.worktree / ".venv" / "bin" / "python")
+    env = _child_env(walk, {"PYTHONPATH": os.pathsep.join([str(walk.worktree), str(CODE)])})
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a", encoding="utf-8") as out:
+        out.write(f"--- {utc()} jev_answers {action}\n")
+        out.flush()
+        done = subprocess.run(
+            [python, str(JEV_MODULE), action, str(file)],
+            cwd=walk.worktree,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=out,
+            text=True,
+            check=False,
+            timeout=STEP_TIMEOUT,
+        )
+    if done.returncode != 0:
+        raise WalkError(f"jev_answers {action} exited {done.returncode}")
+    return done
+
+
+def export_jev_answers(walk: Plan, log: Path) -> int:
+    """Writes the walk's Jev answers to `jev-answers.json` in its folder; returns 0."""
+    _jev_step(walk, "export", walk.out_dir / JEV_ANSWERS, log)
+    return 0
+
+
+def seed_jev_answers(walk: Plan, source: Path, log: Path) -> int:
+    """Inserts the earlier walk's answers into the fresh database; returns the rows inserted."""
+    done = _jev_step(walk, "seed", source, log)
+    try:
+        return int(done.stdout.strip().splitlines()[-1])
+    except ValueError, IndexError:
+        raise WalkError("jev_answers seed printed no count") from None
+
+
 def drop_database(walk: Plan, log: Path) -> None:
     """Drops the walk's own database (it holds data read from real drawings), connected to
     `postgres` as `vextrus`, whose password psql reads from the owner's pass file (never argv or the
@@ -609,7 +688,24 @@ def _said(error: BaseException) -> str:
     return str(error) if isinstance(error, WalkError) else ""
 
 
-def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold_minutes: float) -> int:
+def record_jev(walk: Plan, source: str, seeded: int) -> None:
+    """Adds `jev_from` and `jev_seeded` to the walk's own walk.json."""
+    path = walk.out_dir / "walk.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["jev_from"] = source
+    record["jev_seeded"] = seeded
+    path.write_text(json.dumps(record), encoding="utf-8")
+
+
+def run(
+    root: Path,
+    walk: Plan,
+    *,
+    sets: dict[str, list[str]],
+    smoke: bool,
+    hold_minutes: float,
+    jev_from: str | None = None,
+) -> int:
     events = Events(root, walk.sha8, smoke=smoke)
     pidfile = root / ".private" / "work" / "factory" / "g1.pid"
     acquire(pidfile, pid=os.getpid())
@@ -626,16 +722,23 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
     try:
         with _signals(stopping, holding):
             walk.out_dir.mkdir(parents=True, exist_ok=True)
+            source = None
+            if jev_from is not None:
+                source = walk.out_dir.parent / jev_from / JEV_ANSWERS
+                check_jev_answers(source)
             set_aside(walk.out_dir)
             prepare_checkout(root, walk, log)
             made_database = True  # from here the database may exist: the walk drops it
             prepare_database(walk, password, log)
+            seeded = seed_jev_answers(walk, source, log) if source is not None else None
             serve(walk, password, stack)
             if not smoke:
                 write_sign_in(sign_in, password)
             code = walk_spec(root, walk, password, sets, smoke=smoke, started_at=started_at)
             if not (walk.out_dir / "walk.json").exists():
                 raise WalkError(f"the walk wrote no walk.json (playwright exited {code})")
+            if jev_from is not None and seeded is not None:
+                record_jev(walk, jev_from, seeded)
             passed = judge_checks(root, walk, events)
             events(f"done {'PASS' if passed else 'FAIL'}")
             print(f"walk: {walk.sha8} script layer {'PASS' if passed else 'FAIL'} (playwright {code})")
@@ -661,6 +764,11 @@ def run(root: Path, walk: Plan, *, sets: dict[str, list[str]], smoke: bool, hold
         sign_in.unlink(missing_ok=True)
         stack.stop()
         if made_database:
+            if not smoke:
+                try:
+                    export_jev_answers(walk, log)
+                except WalkError, OSError, subprocess.SubprocessError:
+                    events("jev export failed")  # never the walk's code
             try:
                 drop_database(walk, log)
             except WalkError, OSError, subprocess.SubprocessError:
@@ -680,12 +788,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--web-port", type=int)
     parser.add_argument("--api-port", type=int)
     parser.add_argument("--hold-minutes", type=float, default=HOLD_MINUTES)
+    parser.add_argument(
+        "--jev-from", help="the earlier walk's sha40, whose jev-answers.json seeds this one"
+    )
     try:
         args = parser.parse_args(argv)
     except SystemExit:
         return 2
     root = args.root.resolve()
     smoke = args.smoke is not None
+    if args.jev_from is not None and not SHA.fullmatch(args.jev_from):
+        print("walk: refused (--jev-from takes a full 40-hex sha)", file=sys.stderr)
+        return 2
     try:
         web_port, api_port = (args.web_port, args.api_port)
         if web_port is None or api_port is None:
@@ -710,7 +824,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"walk: refused ({type(error).__name__})", file=sys.stderr)
         return 2
     try:
-        return run(root, walk, sets=sets, smoke=smoke, hold_minutes=args.hold_minutes)
+        return run(
+            root, walk, sets=sets, smoke=smoke, hold_minutes=args.hold_minutes, jev_from=args.jev_from
+        )
     except AlreadyRunning:
         print("walk: refused (a walk is already running)", file=sys.stderr)
         return 2
