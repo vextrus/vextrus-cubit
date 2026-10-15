@@ -22,8 +22,9 @@ It runs in the foreground (the orchestrator detaches it) and:
 6. appends `<UTC> WALK - <sha8> started|check <id> PASS|FAIL|UNSET|done PASS|done FAIL|error` to
    `.private/work/factory/events.log` (each check judged against `.private/work/walk-expect/`, with no
    agent layer, so this is never a verdict);
-7. keeps the stack served for `/real-set-walk`'s agent layer until `verdict.json` appears, SIGTERM, or
-   `--hold-minutes` pass; then stops what it started, by process group (never by pattern), drops
+7. keeps the stack served for `/real-set-walk`'s agent layer until `verdict.json` appears in the walk's
+   folder, SIGTERM, or `--hold-minutes` pass (150 by default: a cap above the agent layer's run); then
+   stops what it started, by process group (never by pattern), drops
    `vextrus_walk_<sha8>` (once step 3 began; a failed drop is an event line, never the walk's code)
    and frees g1.pid.
 
@@ -571,6 +572,11 @@ def set_aside(out_dir: Path) -> None:
             _aside(out_dir, current, name, "")
 
 
+HOLD_MINUTES = 150
+"""The hold's cap, a safety only: the hold ends when the agent layer's verdict.json is written. Walk #1
+of 9101c005 held for 90 minutes under an agent layer of 96, and lost the stack (S29-M0b)."""
+
+
 def hold(walk: Plan, stack: Stack, minutes: float, stopping: list[bool], since: float) -> None:
     """Keeps the stack served for the agent layer until this walk's verdict exists, a signal, or time."""
     deadline = time.monotonic() + minutes * 60
@@ -673,7 +679,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--web-port", type=int)
     parser.add_argument("--api-port", type=int)
-    parser.add_argument("--hold-minutes", type=float, default=120)
+    parser.add_argument("--hold-minutes", type=float, default=HOLD_MINUTES)
     try:
         args = parser.parse_args(argv)
     except SystemExit:

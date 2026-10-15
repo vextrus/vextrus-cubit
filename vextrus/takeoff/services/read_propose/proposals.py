@@ -796,7 +796,7 @@ def set_conflicts(project_id: uuid.UUID) -> int:
     undecided again asked again, and a boundary storey settled or asked again as its third plan's
     claim went or came back (`_boundaries`); how many are open. No Check is run (its runs are the
     reads'), and no progress row written (the act's `step1._after_act` writes them after)."""
-    drawing_set = drawings.set_of(project_id)
+    drawing_set = step1.set_of(project_id)
     if drawing_set is None:
         listed: list[drawings.SheetView] = []
         groups: dict[uuid.UUID, str] = {}
