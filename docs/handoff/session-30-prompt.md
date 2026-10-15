@@ -5,13 +5,18 @@
 `.private/work/s29/close/measures.md` (the measures) first.
 
 **The goals, in order:**
-1. **M0's walks.** G1 walk #2 started on main 1e6062eeacebb57713025246bf2ec9dacb04fb87 after #885 (session 29, 01:25Z 15 Oct; the owner's ruling "Wait for
-   M0b, walk #2 ~01:00Z"). Read its verdict (`.private/work/walks/<sha40>/verdict.json`) before anything else. If it
-   PASSed: walk #3 is its repeat, `/real-set-walk <sha40> --repeat <walk #2 sha40>` after `scripts.walk.run <sha40>
-   --hold-minutes 150`, on a quiet machine (no real-drawing run, no local builder), with no product path landed between
-   (`ready.py`: `vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`). `uv run python -m scripts.walk.ready
-   origin/main` must exit 0 before the owner is told to walk. If walk #2 FAILed: its BLOCKS and reproductions are the
-   first tickets; walk #2's `act_times` (request, app and lock per act kind) now split undo's tail into work and queueing.
+1. **M0's walks.** G1 walk #2 ran on main 1e6062eeacebb57713025246bf2ec9dacb04fb87 (after #885; 01:25Z 15 Oct; the
+   owner's ruling "Wait for M0b, walk #2 ~01:00Z"). **Script layer: 15 of 16 PASS; FAIL `bulk_confirmable_share` on the
+   Edison set**: electrical 31 of 39 bulk-confirmable (0.795 against 0.8; walk #1 had 32), plumbing 24 to 22, the Sample
+   Project's structural 32 to 31. The likeliest cause is #882 (a run's row now breaks where a sheet of its series lies
+   strictly between two members, so a few sheets leave bulk rows); unproven. The agent layer was not run (the script
+   layer's FAIL fails the walk; the session's usage window and budget were spent) and no verdict.json was written.
+   `act_p95_during_read` PASSed on both sets: Edison undo p95 652 ms (walk #1 1,159) with lock wait p95 7.8 ms, so undo's
+   tail was server work, not queueing, and #885's statement cut moved it. First ticket: diagnose the bulk drop on the
+   real set (which sheets left bulk rows, and whether the break is right for them); if #882's rule is too eager, fix
+   it with a pin; then walk #2 again (fresh) and walk #3 as its repeat on a quiet machine with no product path landed
+   between (`ready.py`: `vextrus/`, `engine/`, `web/src/`, `pyproject.toml`, `uv.lock`). `uv run python -m
+   scripts.walk.ready origin/main` must exit 0 before the owner is told to walk.
 2. **M1 starts** (docs/plans/M1.md; Q23: never held hostage). M1-00 merges only after the owner's M0 walk (O2).
 3. **Session 29's unfinished factory items** (Q14: at most 25 % of builder-hours from session 30), each with its measure.
 
@@ -63,4 +68,3 @@ grid aria-required-children), #894 (fast verify gaps), #895 (F2b replan), #897 (
    `.private/work/s29/gate882/tree`, `.private/work/s29/m0b/tree`, `.private/work/s29/close-wt`, the writers'
    throwaways under `.private/work/s29/*-writer/`, and `.private/work/s29/m0a-writer/scratch`.
 3. Drop the gate database `vextrus_gate882` and the S29 local builders' databases with their `_test_*` copies.
-4. Keep walk #2's stack until its verdict.json exists (the hold ends on it, cap 150 minutes).
