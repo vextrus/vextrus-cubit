@@ -877,3 +877,8 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   test). That is F5's case; carried to session 30.
 - **The first PR of the new flow:** #882 (M0a f-1) went acceptance, build, a fresh-context fix round before review,
   review PASS, gate PASS, real-drawing check clean, merged at 124 minutes open-to-merge. Check: the ledger and the statuses.
+- **A Step 1 row rule changed the bulk share and no gate before the walk saw it** (#882; walk #2's
+  `bulk_confirmable_share` fell one sheet under 0.8 on the Edison set; cause unproven). The design gate walked the
+  Sample Project's reproduction and the real-drawing check compares engine outputs, not Step 1's rows. No check yet:
+  owed (the real-drawing check, or a scripted Step 1 pass on the Development Sets, reports bulk-confirmable sheets per
+  Discipline against main for any PR touching `web/src/takeoff/model.ts` or `_is_whole_run`).
