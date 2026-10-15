@@ -49,7 +49,7 @@ def cloud(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Cloud:
 
 
 def hand_off(cloud: Cloud, relaunch: frozenset[str] = frozenset()) -> None:
-    run = review.Run(pr=PR, round_=1, head=cloud.head, tier="normal")
+    run = review.Run(pr=PR, round_=1, head=cloud.head, tier="risk")
     review.hand_off(run, [review.LENS_A, review.LENS_B], cloud.main, cloud.records, relaunch)
 
 

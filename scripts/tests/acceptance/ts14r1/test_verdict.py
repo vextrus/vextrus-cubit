@@ -26,6 +26,11 @@ from scripts.tests.acceptance.ts14r1._world import (
     why,
 )
 
+# S29-F7 (the owner's rulings Q5, Q15, 14 Oct 2026; docs/plans/factory-s29.md 7): off the risk tier the
+# refuter samples one in five heads, so a test of the refuter itself opens a risk-tier PR (an engine
+# path), where the refuter runs on every head as it did here before.
+RISK_SMALL = {"engine/recognise/badge.py": "BADGE: int = 3\n"}
+
 FAILS = "tests/test_attack_fails.py"
 PASSES = "tests/test_attack_passes.py"
 
@@ -109,7 +114,7 @@ def test_a_finding_of_50_or_more_nobody_confirmed_is_never_recorded_as_a_pass(
     tmp_path_factory: pytest.TempPathFactory, repro: str | None, write: dict[str, str]
 ) -> None:
     world = World(tmp_path_factory.mktemp("world"))
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(review_reply("PASS", [finding(60, repro)]), write=write)
     done = world.run("12", "--round", "1")
     assert world.lens_calls(), f"no lens was started; {why(done)}"
@@ -165,3 +170,11 @@ def test_the_run_prints_one_json_object_naming_the_head(
     summary: Any = json.loads(done.stdout)
     assert isinstance(summary, dict)
     assert head in values(summary)
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"

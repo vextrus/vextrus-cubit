@@ -16,9 +16,11 @@ naming the check it owes.
    and so does revert (the merged head is main with exactly one first-parent merge reverted, a
    culprit the main watcher logged and `gh` reads red, with no later commit of main read green:
    `main_watch.watcher_revert`, S29-F3);
-   small (under 150 changed lines, every path on that file's small list) gets lens B; EVERYTHING ELSE
-   gets lens A and lens B (the lists name what is safe, never the walls); a change under
-   `web/src/messages/` adds the `ux-critic` words lens.
+   risk (any path off the review bar's lax set, a `conftest.py`, or on that file's `[risk]` or
+   `[docs_only] never` list, `scripts.factory.tiers.is_risk`) gets lens A and lens B; a PR whose every
+   path is on the lax set and on none of those is ordinary whatever its size and gets lens B (the
+   owner's rulings Q5 and Q15, 14 Oct 2026; S30-F7); a change under `web/src/messages/` adds the
+   `ux-critic` words lens.
 4. **Slot (code).** Review slot N is claimed by an exclusive `flock` on `.slot<N>.lock`, held until the
    run ends (two concurrent runs never share one). The read-only `.private/work/factory/review/slot<N>`
    and the runnable `.claude/worktrees/rv<N>` both hold the merged head.
@@ -38,10 +40,13 @@ naming the check it owes.
 6. **Replay (code).** Each finding of 50 or more with a `repro` has its test file run here, in `rv<N>`
    (tracked files reset to the merged head first): a non-zero exit with `FAILED <test_file>` is
    CONFIRMED (the lenses' `review_attacks/` folders stay, less their pytest config files). The
-   refuter judges a sample (the owner's ruling, 7 Oct 2026): every other finding that could block (75
-   or more, or 50 or more when tagged observed or on a trust boundary, or untagged on a strict path,
-   `ledger.could_block`), plus at most 3 of the others of
-   50-74, highest score first, each with its repro and what its replay showed (exit, output tail), go
+   refuter runs on every risk head and on one ordinary head in five (`tiers.refuter_sampled`; the
+   owner's Q21, 14 Oct 2026: a finding blocks only with a reproduction on that head): on an ordinary
+   head it does not sample, a finding no replay confirmed stays UNPROVEN, never blocks and is filed.
+   Where it runs, it judges a sample (the owner's ruling, 7 Oct 2026): every other finding that
+   could block (75 or more, or 50 or more when tagged observed or on a trust boundary, or untagged on
+   a strict path, `ledger.could_block`), plus at most 3 of the others of 50-74, highest score first,
+   each with its repro and what its replay showed (exit, output tail), go
    to ONE batched `refuter` process, started only when one that could block is among them. Its
    verdict per finding (CONFIRMED, REFUTED or UNPROVEN, matched by file and line) is the one recorded;
    a refuter that fails or answers outside its schema confirms nothing (UNPROVEN: since S28-R1 a
@@ -98,7 +103,7 @@ from pathlib import Path, PurePosixPath
 from typing import IO, Any
 
 from scripts import ledger
-from scripts.factory import lens_pytest, main_watch, review_cloud
+from scripts.factory import lens_pytest, main_watch, review_cloud, tiers
 from scripts.factory.governor import REVIEW_SLOTS
 
 REPOSITORY = ledger.REPOSITORY
@@ -107,7 +112,6 @@ SHA = re.compile(r"[0-9a-f]{40}")
 HASH_LINE = re.compile(r"[0-9a-f]{64}")
 ALLOWLIST = "tools/leakscan/allowlist.txt"
 MESSAGES = "web/src/messages/"
-SMALL_LINES = 150
 MAX_SLOTS = REVIEW_SLOTS
 LENS_TIMEOUT = 45 * 60  # seconds; VEXTRUS_REVIEW_LENS_TIMEOUT overrides it
 TIMEOUT_ENV = "VEXTRUS_REVIEW_LENS_TIMEOUT"
@@ -120,11 +124,14 @@ COLOUR = ("FORCE_COLOR", "PY_COLORS", "CLICOLOR_FORCE", "PYTEST_ADDOPTS")
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 FAILING = {"FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR"}
 
-# The tiers' path lists: what is SAFE for no model (docs-only) or one lens (small); every other path
-# is normal (PR #478 review, round 2: the denylist of walls kept missing walls).
+# The tiers' path lists: what is SAFE for no model (docs-only; PR #478 review, round 2: the denylist of
+# walls kept missing walls); the risk list, read by `scripts.factory.tiers`, decides one lens or two.
 TIERS_FILE = Path(__file__).with_name("review_tiers.toml")
 # Secret-looking variables never reach a lens, its tests or a replay (TYPESAFE_API_KEY for one).
 SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PASSWD", re.IGNORECASE)
+# Claude Code's switches that turn its default 5-minute prompt cache off (`DISABLE_PROMPT_CACHING` and
+# its per-model forms): never inherited by a lens (the owner's Q22, 14 Oct 2026: lenses use the cache).
+NO_CACHE = "DISABLE_PROMPT_CACHING"
 
 
 # What a lens may do: read, write its attack test in its own worktree, read git, and run tests.
@@ -466,6 +473,7 @@ class Run:
     reason: str | None = None
     base: str | None = None  # main's sha at the fetch
     tier: str | None = None
+    refuter: str | None = None  # the refuter's sample (S29-F7): every head, sampled or not sampled
     slot: int | None = None
     verdict: str | None = None
     paths: list[str] = field(default_factory=list)  # the changed paths
@@ -628,7 +636,7 @@ glob_regex = ledger.glob_regex
 
 @functools.cache
 def tier_lists() -> dict[str, tuple[list[re.Pattern[str]], list[re.Pattern[str]]]]:
-    """`{tier: (paths, never)}` from `review_tiers.toml`; empty (every path normal) if unreadable."""
+    """`{tier: (paths, never)}` from `review_tiers.toml`; empty (no path docs-only) if unreadable."""
     try:
         data = tomllib.loads(TIERS_FILE.read_text())
         return {
@@ -636,10 +644,10 @@ def tier_lists() -> dict[str, tuple[list[re.Pattern[str]], list[re.Pattern[str]]
                 [glob_regex(item) for item in data[name]["paths"]],
                 [glob_regex(item, ignore_case=True) for item in data[name]["never"]],
             )
-            for name in ("docs_only", "small")
+            for name in ("docs_only",)
         }
     except OSError, ValueError, KeyError, TypeError:
-        return {"docs_only": ([], []), "small": ([], [])}
+        return {"docs_only": ([], [])}
 
 
 def listed(name: str, path: str) -> bool:
@@ -657,7 +665,8 @@ def docs_only(path: str) -> bool:
 
 
 def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
-    """The review tier. A criss-cross history (`bases` > 1) never gets a no-model tier."""
+    """The review tier: allowlist-only, docs-only, risk or ordinary. A criss-cross history (`bases` > 1)
+    never gets a no-model tier; size no longer decides (Q5, Q15)."""
     paths = [path for path, _, _ in rows]
     if not rows:
         raise Refused("the PR changes nothing against main")
@@ -674,11 +683,7 @@ def tier(rows: Rows, allowlist_added: list[str], *, bases: int = 1) -> str:
     text = all(a is not None and r is not None for _, a, r in rows)  # numstat `-`: a binary
     if no_model and text and all(docs_only(path) for path in paths):
         return "docs-only"
-    lines = sum((a or 0) + (r or 0) for _, a, r in rows)
-    binary = any(a is None or r is None for _, a, r in rows)
-    if lines < SMALL_LINES and not binary and all(listed("small", path) for path in paths):
-        return "small"
-    return "normal"
+    return "risk" if tiers.is_risk(paths) else "ordinary"
 
 
 # The tiers passed by code with no model: `tier`'s two, and the main watcher's revert.
@@ -805,6 +810,8 @@ BAR_TEXT = (
     "attack test's input comes from a Development Set's conventions, `seed_demo` or the served stack;",
     "observed=no, false, when you built the input to reach an edge). A finding scored 50 to 74 is",
     "fixed only when observed or on a trust boundary; any other is filed with its `owed_check`.",
+    "A finding blocks only with a reproduction on that head: the failing test you give as `repro`,",
+    "or a refuter's run of it. A finding nothing reproduces is filed, never fixed in the round.",
 )
 
 
@@ -945,7 +952,7 @@ def lens_env(slot: int) -> dict[str, str]:
     env = {
         key: value
         for key, value in os.environ.items()
-        if key != "CLAUDE_PROJECT_DIR" and not SECRET_NAME.search(key)
+        if key != "CLAUDE_PROJECT_DIR" and not SECRET_NAME.search(key) and not key.startswith(NO_CACHE)
     }
     env["VEXTRUS_DB_NAME"] = f"vextrus_rv_slot{slot}"
     return env
@@ -1894,9 +1901,10 @@ def mark_on_tree(findings: list[Finding], main: Path, commit: str | None) -> Non
 
 
 def tier_lenses(tier: str, paths: list[str]) -> list[Lens]:
-    """The lenses a model tier requires: lens B (small) or lens A and lens B, and the words lens when
-    a change is under web/src/messages/."""
-    lenses = [LENS_B] if tier == "small" else [LENS_A, LENS_B]
+    """The lenses a model tier requires: lens B (ordinary) or lens A and lens B (risk, and any other
+    name: a hand-off from before S29-F7 says `small` or `normal`), and the words lens when a change is
+    under web/src/messages/."""
+    lenses = [LENS_B] if tier == "ordinary" else [LENS_A, LENS_B]
     if any(path.startswith(MESSAGES) for path in paths):
         lenses.append(WORDS)
     return lenses
@@ -2135,6 +2143,16 @@ def refute(run: Run, rv: Path, slot: Path, main: Path) -> None:
     an earlier round's replayed attack stays UNPROVEN, which also still stands (`ledger.stands`)."""
     assert run.head is not None
     assert run.slot is not None
+    if run.tier == "ordinary" and not tiers.refuter_sampled(run.pr, run.head):
+        # Q21: off the risk tier the refuter runs on one head in five, and not on this one. A finding
+        # no replay confirmed stays UNPROVEN (a lens's UNPROVEN never blocks: it is filed); a replayed
+        # one still blocks.
+        run.refuter = "not sampled"
+        for item in run.findings:
+            if item.score >= 50 and item.word != "CONFIRMED" and not item.could_block:
+                item.word, item.method = "-", None
+        return
+    run.refuter = "sampled" if run.tier == "ordinary" else "every head"
     claims = refuter_claims(run.findings)
     told = {claim.id for claim in claims}
     for item in run.findings:
@@ -2618,6 +2636,7 @@ def summary(run: Run, code: int, why: str | None) -> dict[str, Any]:
         "merged": run.merged,
         "round": run.round_,
         "tier": run.tier,
+        **({"refuter": run.refuter} if run.refuter else {}),
         "slot": run.slot,
         "verdict": run.verdict,
         "exit": code,

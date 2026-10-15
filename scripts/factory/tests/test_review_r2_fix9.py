@@ -173,7 +173,7 @@ def test_fetch_verdicts_collect_advice_runs_as_printed_in_round_3(
 ) -> None:
     cloud = Cloud(tmp_path)
     launcher = Launcher(monkeypatch, cloud.head)
-    run = review.Run(pr=PR, round_=3, head=cloud.head, tier="normal")
+    run = review.Run(pr=PR, round_=3, head=cloud.head, tier="risk")
     run.exception, run.reason = "fix-regression", R3[-1]
     review.hand_off(run, [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
     _, nonce = launcher.launched[0]
