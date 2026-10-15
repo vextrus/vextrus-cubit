@@ -4,7 +4,8 @@
 // fixes merged since (<prior>..<sha40>), not a fresh exploration; the prior walk is passed by path.
 //
 // It starts only when .private/work/walks/<sha40>/walk.json exists (the orchestrator started
-// `python -m scripts.walk.run <sha40>` detached; run.py keeps the stack served until verdict.json is
+// `python -m scripts.walk.run <sha40>` detached, with `--jev-from <earlier walk's sha40>` on a repeat walk
+// (walk #3 starts from walk #2's Jev answers; the owner, 15 Oct 2026); run.py keeps the stack served until verdict.json is
 // written) and takes the served URLs from walk.json. ux-critic (by eye) and qs-critic (the burden lens)
 // walk the same served stack, each on its own browser page selected by URL. A triage agent writes the
 // findings in the contract's shape and drafts issues only from scripts/walk/sanitize.py's allowlisted
