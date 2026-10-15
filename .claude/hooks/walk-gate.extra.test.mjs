@@ -82,3 +82,18 @@ for (const [message, quoted] of [
     assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
   });
 }
+
+// Fix round 1 (PR #900, finding 55): a quoted or code span that ends in a full stop (US punctuation) must still end the
+// sentence, so a negation in the earlier sentence frees nothing in the next. The control has the stop outside the quote.
+for (const [message, quoted] of [
+  ['The verdict isn\'t "red." Walk now.', "Walk now"],
+  ["G1 did not say “fail.” Please walk the build.", "Please walk"],
+  ["The head is not `failing.` Ready for your walk.", "Ready for your walk"],
+  ['The verdict isn\'t "red". Walk now.', "Walk now"],
+]) {
+  test(`a stop inside a closing quote still ends the sentence: ${JSON.stringify(message)}`, () => {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+    assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
+  });
+}
