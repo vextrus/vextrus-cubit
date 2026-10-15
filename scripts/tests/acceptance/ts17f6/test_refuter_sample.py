@@ -26,7 +26,6 @@ import pytest
 
 from scripts.tests.acceptance.ts14r2._world import (
     ATTACK,
-    SMALL,
     World,
     fresh,
     item,
@@ -35,6 +34,25 @@ from scripts.tests.acceptance.ts14r2._world import (
     review_reply,
     why,
 )
+
+# S29-F7 (the owner's rulings Q5, Q15, 14 Oct 2026; docs/plans/factory-s29.md 7): off the risk tier the
+# refuter samples one in five heads, so a test of the refuter itself opens a risk-tier PR (an engine
+# path), where the refuter runs on every head as it did here before.
+RISK_SMALL = {"engine/recognise/badge.py": "BADGE: int = 3\n"}
+
+
+def lens_a_finds_nothing(made: World) -> World:
+    """S29-F7: a risk-tier PR gets lens A (opus) beside lens B; lens A answers PASS with no finding, so
+    the findings are lens B's alone, as on the one-lens PR these tests were written for."""
+    scripted = made.lenses
+
+    def lenses(reply: Any = None, **given: Any) -> None:
+        given.setdefault("opus", review_reply("PASS"))
+        scripted(reply, **given)
+
+    setattr(made, "lenses", lenses)  # noqa: B010
+    return made
+
 
 BADGE = "web/src/components/badge.tsx"  # off the strict paths
 RATES = "vextrus/rates/table.py"
@@ -52,7 +70,8 @@ OTHERS = [O74, O70, O65, O60, O55]
 
 @pytest.fixture
 def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
-    yield from fresh(tmp_path_factory)
+    for made in fresh(tmp_path_factory):
+        yield lens_a_finds_nothing(made)
 
 
 def refuters(world: World) -> list[dict[str, Any]]:
@@ -66,7 +85,7 @@ def told(world: World, done: Any) -> str:
 
 
 def test_no_refuter_starts_when_no_unreplayed_finding_could_block(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(review_reply("PASS", [O74, O60]))
     done = world.run("12", "--round", "1")
     assert done.returncode == 0, why(done)
@@ -78,7 +97,7 @@ def test_no_refuter_starts_when_no_unreplayed_finding_could_block(world: World) 
 
 
 def test_the_refuter_is_told_every_unreplayed_finding_that_could_block(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     strict_60 = item(60, 50, "a rate of zero is priced as missing", None, file=RATES)
     strict_50 = item(50, 51, "the policy lets a second tenant read a row", None, file=MIGRATION)
     world.lenses(review_reply("FIX", [BLOCKER, strict_60, strict_50]))
@@ -89,7 +108,7 @@ def test_the_refuter_is_told_every_unreplayed_finding_that_could_block(world: Wo
 
 
 def test_at_most_three_others_ride_along_the_highest_scored_first(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     world.lenses(review_reply("FIX", [O55, O60, BLOCKER, O65, O70, O74]))
     done = world.run("12", "--round", "1")
     text = told(world, done)
@@ -100,7 +119,7 @@ def test_at_most_three_others_ride_along_the_highest_scored_first(world: World) 
 
 
 def test_the_others_left_unjudged_do_not_block_once_the_blocker_is_refuted(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     world.lenses(
         review_reply("PASS", [BLOCKER, *OTHERS]),
         refuter={"findings": [judged(BLOCKER, "REFUTED")]},
@@ -114,7 +133,7 @@ def test_the_others_left_unjudged_do_not_block_once_the_blocker_is_refuted(world
 
 
 def test_a_pass_with_a_replayed_74_off_a_strict_path_is_recorded_pass(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     found = item(74, 2, "the badge count leaves out a deleted Element", REPLAYS, file=BADGE)
     world.lenses(review_reply("PASS", [found]), write={REPLAYS: ATTACK})
     done = world.run("12", "--round", "1")
@@ -126,7 +145,7 @@ def test_a_pass_with_a_replayed_74_off_a_strict_path_is_recorded_pass(world: Wor
 
 
 def test_a_pass_with_a_replayed_50_on_a_strict_path_is_recorded_fix(world: World) -> None:
-    head = world.pr(12, SMALL)
+    head = world.pr(12, RISK_SMALL)
     found = item(50, 2, "a negative rate is accepted", REPLAYS, file=RATES)
     world.lenses(review_reply("PASS", [found]), write={REPLAYS: ATTACK})
     done = world.run("12", "--round", "1")
@@ -135,3 +154,11 @@ def test_a_pass_with_a_replayed_50_on_a_strict_path_is_recorded_fix(world: World
     assert record is not None, why(done)
     assert record["counts"]["confirmed"] == 1, record["counts"]
     assert record["verdict"] == "FIX", f"the record says {record['verdict']}"
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"

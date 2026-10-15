@@ -68,7 +68,11 @@ SKILL.md keeps the gate lines (design-gate, real-drawings) word for word: the gu
 - `uv run python -m scripts.factory.review fix-message <PR> --from-verdict`: the fix message of the PR's
   latest recorded round (one line per standing finding), for the builder's fix round.
   An allowlist-only PR, a docs-only PR (`review_tiers.toml` `docs_only`) and the main watcher's revert of its logged culprit get no model and pass by code
-  checks (ADR 0043). `/review-pr <PR> <head> <round>` stays until S14-R3 retires it; the ledger holds the verdict.
+  checks (ADR 0043). A PR with any path on `review_tiers.toml`'s `[risk]` list, or on none of its `[ordinary]`
+  globs (plain product work), is `risk`: lens A and lens B, the refuter on every head; every other PR is
+  `ordinary`: lens B alone, the refuter on one head in five
+  (`scripts.factory.tiers`; the cost line's `refuter`), where a finding nothing reproduced is filed, never
+  blocking (S29-F7; Q5, Q15, Q21). `/review-pr <PR> <head> <round>` stays until S14-R3 retires it; the ledger holds the verdict.
 
 ## 6. Land
 - `uv run python -m scripts.land <PR> [<PR> ...]`: it orders the PRs itself (engine PRs with a ledger PASS

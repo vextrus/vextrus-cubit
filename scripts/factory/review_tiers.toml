@@ -1,16 +1,26 @@
-# The review tiers' path lists, read by scripts/factory/review.py and its tests. The lists name what
-# is SAFE, never the walls (PR #478 review, round 2), and they are kept SHORT: refining word lists to
-# rescue more paths kept letting walls through (PR #489 review, round 1).
+# The review tiers' path lists, read by scripts/factory/review.py, scripts/factory/tiers.py and their
+# tests. The no-model lists name what is SAFE, never the walls (PR #478 review, round 2), and they are
+# kept SHORT: refining word lists to rescue more paths kept letting walls through (PR #489 review,
+# round 1).
 #
 # - allowlist-only (no model) is decided in code: only 64-hex lines added to the leak-scan allowlist.
 # - docs-only (no model, PASS by code): every changed path matches `docs_only.paths`, none matches
 #   `docs_only.never`, and each is a text file (`.md` or `.txt` with a line count; checked in code).
-# - small (one lens): under 150 changed lines, no binary file, every changed path matches
-#   `small.paths` and none matches `small.never`.
-# - normal (two lenses): everything else. A path nobody listed is normal; every test change is normal.
+# - risk (lens A and lens B; the refuter on every head): any changed path matches `risk.paths` OR
+#   matches no `ordinary.paths` glob.
+# - ordinary (one lens, lens B; the refuter on one head in five): every changed path matches
+#   `ordinary.paths` and none `risk.paths`, whatever its size.
+#
+# RISK IS THE DEFAULT (lesson (e), as in `[strict]` below): PR #884 listed the walls and its review
+# found one missed in each of two rounds, so `ordinary` names only plain product work and scripts/,
+# tools/, .github/, .claude/, the root's files and any folder nobody listed are risk. The risk list
+# still names walls (the owner's rulings Q5 and Q15, 14 Oct 2026: "the full panel on a risk tier
+# written down as paths"), including the risk modules inside the ordinary folders. A missing or
+# unreadable `risk` or `ordinary` list makes every path risk (scripts/factory/tiers.py). `ordinary`
+# globs keep case, as `[lax]` does.
 #
 # Patterns are globs on the repository path: `*` is any run of characters but `/`, `**/` any number
-# of folders (none included), a trailing `/**` everything below a folder. `never` ignores case.
+# of folders (none included), a trailing `/**` everything below a folder. `never` and `risk` ignore case.
 
 [docs_only]
 # Plain reading for people: research notes, notes, the lessons list.
@@ -35,37 +45,118 @@ never = [
   "docs/knowledge/jev-nodes.md",
 ]
 
-[small]
-# One lens only for the translation catalogues (their words also get the ux-critic words lens).
-# `web/src/components/**` is the one other entry: the S14-R1 acceptance tests pin a three-line badge
-# component as small (test_tier.py, test_a_small_pr_gets_one_lens), and acceptance tests never change.
+[risk]
+# The full panel (S29-F7; Q5, Q15). Judged against docs/architecture.md's module map and the tree. Out,
+# by judgement: summary, exports, assistant and revisions (readings of boq's money, no money of their
+# own), measurement (its quantities reach money only through takeoff and boq), drawings but its tenant
+# wall and upload parser (its files are read in engine/read's sandbox, which is risk), live_model, seed,
+# the web's view code: each is on `[ordinary] paths` below. Everything else outside both lists (the
+# other tools/lint scans, the lockfiles, scripts/, .github/, .claude/) is risk by default.
 paths = [
-  "web/src/messages/**/*.po",
-  "web/src/messages/**/*.json",
-  "web/src/components/**",
-]
-# No test, ever (a wall's own tests are a wall), and no instruction file or dotfile.
-never = [
+  # The engine: the hostile-drawing readers and the recognisers.
+  "engine/**",
+  "vextrus/takeoff/**",
+  # Money.
+  "vextrus/boq/**",
+  "vextrus/rates/**",
+  # Access and members: tenancy, RLS, Memberships, auth, invitations, ended access.
+  "vextrus/platform/**",
+  "vextrus/projects/**",
+  "vextrus/settings/auth.py",
+  "vextrus/settings/tenancy.py",
+  "web/src/members/**",
+  "web/src/auth/**",
+  "web/src/routes/(auth)/**",
+  # The API's sign-in and CSRF, the middleware, and the walls earlier reviews found outside those
+  # modules (PR #489 round 1, finding 2): drawings' tenant wall and the upload parser that runs before
+  # sign-in.
+  "vextrus/api.py",
+  "vextrus/routers.py",
+  "vextrus/urls.py",
+  "vextrus/settings/base.py",
+  "vextrus/settings/db.py",
+  "vextrus/settings/uploads.py",
+  "vextrus/drawings/uploads.py",
+  "vextrus/drawings/services/_access.py",
+  # The real drawings' custody (nothing from them enters git).
+  "scripts/real_drawings/**",
+  # Any module's migrations.
+  "**/migrations/**",
+  # The factory's gate code, this list and its reader among it: a PR never relaxes its own tier.
+  "scripts/factory/review*",
+  "scripts/factory/tiers.py",
+  "scripts/factory/ci_gate.py",
+  "scripts/factory/publish.py",
+  "scripts/factory/allowlist.py",
+  "scripts/factory/trailers.py",
+  "scripts/factory/lens_pytest.py",
+  "scripts/factory/crosspr.py",
+  "scripts/factory/trusted-authors.txt",
+  "scripts/verify.py",
+  "tools/lint/engine_paths.py",
+  ".github/engine-paths.txt",
+  "scripts/ledger.py",
+  "scripts/merge_ready.py",
+  "scripts/land.py",
+  "tools/lint/acceptance*.py",
+  "tools/leakscan/**",
+  # What the gate code above imports or reads (PR #884 round 1 and its sweep): the flaky lists that
+  # excuse a failed test (verify.py, land.py), the leak scan's commit finder (publish.py, allowlist.py,
+  # verify.py), the review slots and the revert tier's
+  # watcher (review.py), the acceptance check's legacy list and rulings register
+  # (read at the base) and the import-linter configuration it looks for.
+  ".github/flaky.txt",
+  ".github/flaky-root.txt",
+  "scripts/factory/leakwhere.py",
+  "scripts/factory/governor.py",
+  "scripts/factory/main_watch.py",
+  "tools/lint/acceptance_legacy.txt",
+  "docs/rulings.md",
+  ".importlinter",
+  "setup.cfg",
+  # PR #884 round 2: the CI matrix's builder and its shard list (ci.yml's jobs come from them), and
+  # what the real-drawing check's matcher reads beside .github/engine-paths.txt.
+  "tools/lint/ci_shards.py",
+  ".github/ci-shards.json",
+  ".github/checkout-also.txt",
+  ".github/workflows/**",
+  # The hooks, the settings and the agents (review.py gives .claude/agents to its lenses as prompts).
+  ".claude/hooks/**",
+  ".claude/settings.json",
+  ".claude/agents/**",
+  "scripts/git-hooks/**",
+  "scripts/factory/*.settings.json",
+  # What an agent's tools and what pytest runs are read from (a gate's own configuration).
+  ".mcp.json",
+  "pyproject.toml",
+  "conftest.py",
+  # The scorer.
+  "tools/scorer/**",
+  # The files Claude Code loads as instructions in any folder (the docs-only never-list's), so none
+  # is ordinary inside an ordinary folder.
   "**/CLAUDE*.md",
   "**/AGENTS*.md",
   "**/*.local.md",
-  "**/.*",
-  "**/.*/**",
-  "docs/plans/**",
-  "docs/specs/**",
-  "docs/adr/**",
-  "docs/agents/**",
-  "docs/handoff/**",
-  "docs/knowledge/jev-nodes.md",
-  "**/tests/**",
-  "**/test/**",
-  "**/__tests__/**",
-  "**/acceptance/**",
-  "**/test_*",
-  "**/*_test.*",
-  "**/*.test.*",
-  "**/*.spec.*",
-  "**/conftest.py",
+]
+
+[ordinary]
+# Plain product work outside the risk modules, and nothing else (S29-F7-R): a path on no glob here is
+# risk. `[risk] paths` above wins inside these folders (web/src/members, web/src/auth, the drawings
+# wall, any migrations, docs/rulings.md, the instruction files).
+paths = [
+  # The web's product code and its tests.
+  "web/src/**",
+  # The modules docs/architecture.md maps that the risk list leaves out (its "Out, by judgement").
+  "vextrus/assistant/**",
+  "vextrus/drawings/**",
+  "vextrus/exports/**",
+  "vextrus/live_model/**",
+  "vextrus/measurement/**",
+  "vextrus/revisions/**",
+  "vextrus/seed/**",
+  "vextrus/summary/**",
+  # The docs (plans, specs, ADRs, briefs and notes among them).
+  "docs/**",
 ]
 
 [strict]

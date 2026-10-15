@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from scripts import ledger
 from scripts.factory import review
 
 pytestmark = pytest.mark.serial  # signals and process groups: not under xdist (see ci.yml)
@@ -61,21 +62,33 @@ def test_docs_only_is_markdown_under_docs() -> None:
         ".github/workflows/ci.yml",
         "scripts/ledger.py",
         "tools/leakscan/core.py",
-        "vextrus/accounts/auth.py",
-        "vextrus/tenancy/tenant_wall.py",
+        "vextrus/platform/services/auth.py",
+        "vextrus/platform/services/tenancy.py",
         "engine/readers/dxf.py",
         "vextrus/rates/migrations/0002_x.py",
+        "vextrus/summary/migrations/0002_x.py",
     ],
 )
-def test_a_small_change_on_a_trust_boundary_is_normal(path: str) -> None:
-    assert review.tier([(path, 3, 0)], []) == "normal"
+def test_a_small_change_on_a_trust_boundary_is_risk(path: str) -> None:
+    assert review.tier([(path, 3, 0)], []) == "risk"
+    assert review.tier_lenses("risk", [path]) == [review.LENS_A, review.LENS_B]
 
 
-def test_a_small_change_is_small_and_a_large_or_binary_one_normal() -> None:
-    assert review.tier([("web/src/components/badge.tsx", 3, 1)], []) == "small"
-    assert review.tier([("web/src/messages/rates/en.po", 149, 0)], []) == "small"
-    assert review.tier([("vextrus/rates/table.py", 100, 50)], []) == "normal"
-    assert review.tier([("web/public/logo.png", None, None)], []) == "normal"
+def test_size_no_longer_decides_the_tier() -> None:
+    """S29-F7: a long or binary change of plain product work is ordinary; a short one on the risk list,
+    risk."""
+    assert review.tier([("web/src/components/badge.tsx", 3, 1)], []) == "ordinary"
+    assert review.tier([("web/src/messages/rates/en.po", 149, 0)], []) == "ordinary"
+    assert review.tier([("web/src/components/table.tsx", 600, 0)], []) == "ordinary"
+    assert review.tier([("web/src/assets/logo.png", None, None)], []) == "ordinary"
+    assert review.tier([("vextrus/rates/table.py", 1, 0)], []) == "risk"
+    assert review.tier_lenses("ordinary", ["web/src/components/table.tsx"]) == [review.LENS_B]
+
+
+@pytest.mark.parametrize("name", ["small", "normal", "delta", ""])
+def test_a_tier_name_from_before_the_risk_tier_requires_both_lenses(name: str) -> None:
+    """A hand-off written before S29-F7 says `small` or `normal`: `collect` keeps the fuller floor."""
+    assert review.tier_lenses(name, []) == [review.LENS_A, review.LENS_B]
 
 
 def test_an_empty_change_is_refused() -> None:
@@ -483,21 +496,22 @@ def test_the_words_lens_cannot_write_and_no_lens_starts_agents(tmp_path: Path) -
 
 
 @pytest.mark.parametrize(
-    "path",
+    ("path", "expected"),
     [
-        ".mcp.json",
-        ".gitignore",
-        "pyproject.toml",
-        "uv.lock",
-        "conftest.py",
-        "web/package.json",
-        "vextrus/settings/base.py",
-        "vextrus/api/middleware.py",
+        (".mcp.json", "risk"),
+        (".gitignore", "risk"),
+        ("pyproject.toml", "risk"),
+        ("uv.lock", "risk"),
+        ("conftest.py", "risk"),
+        ("web/package.json", "risk"),
+        ("vextrus/settings/base.py", "risk"),
+        ("vextrus/api.py", "risk"),
     ],
 )
-def test_harness_and_config_paths_are_never_small(path: str) -> None:
-    """Refuted: these took the one-lens tier."""
-    assert review.tier([(path, 1, 0)], []) == "normal"
+def test_harness_and_config_paths_take_the_risk_lists_tier(path: str, expected: str) -> None:
+    """Once refuted as one-lens paths; S29-F7-R: a root or config file is on no ordinary list, so
+    risk by default."""
+    assert review.tier([(path, 1, 0)], []) == expected
 
 
 def staged_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, forge: bool) -> tuple[Path, list[str]]:
@@ -554,21 +568,33 @@ def test_a_head_already_recorded_starts_nothing(tmp_path: Path, monkeypatch: pyt
 
 
 @pytest.mark.parametrize(
-    "path",
+    ("path", "expected"),
     [
-        "web/eslint/vextrus.js",
-        "web/scripts/lint-css.mjs",
-        "vextrus/testing/database.py",
-        "web/.npmrc",
-        "web/eslint.config.js",
-        "web/vite.config.ts",
-        "web/tsconfig.app.json",
-        "scripts/factory/review.py",
+        # S29-F7-R: lint and config outside web/src/ are on no ordinary list: risk by default.
+        ("web/eslint/vextrus.js", "risk"),
+        ("web/scripts/lint-css.mjs", "risk"),
+        ("vextrus/testing/database.py", "risk"),
+        ("web/.npmrc", "risk"),
+        ("web/eslint.config.js", "risk"),
+        ("web/vite.config.ts", "risk"),
+        ("web/tsconfig.app.json", "risk"),
+        ("scripts/factory/review.py", "risk"),
+        ("scripts/factory/review_self.py", "risk"),
+        ("scripts/factory/review_tiers.toml", "risk"),
+        ("scripts/factory/tiers.py", "risk"),
+        # Gate code the listed gate code imports or reads (S29-F7's own review).
+        ("scripts/factory/trailers.py", "risk"),
+        ("scripts/factory/lens_pytest.py", "risk"),
+        ("scripts/factory/crosspr.py", "risk"),
+        ("scripts/factory/trusted-authors.txt", "risk"),
+        ("scripts/verify.py", "risk"),
+        ("tools/lint/engine_paths.py", "risk"),
+        (".github/engine-paths.txt", "risk"),
     ],
 )
-def test_lint_test_harness_and_nested_config_paths_are_never_small(path: str) -> None:
-    """Refuted in the fix round: these still took the one-lens tier."""
-    assert review.tier([(path, 1, 0)], []) == "normal"
+def test_lint_and_nested_config_paths_and_the_review_code_are_risk(path: str, expected: str) -> None:
+    """The review code, its tier list and the list's reader are risk: a PR never relaxes its tier."""
+    assert review.tier([(path, 1, 0)], []) == expected
 
 
 def test_an_ignored_file_beside_the_repro_is_gone_before_replay(
@@ -661,7 +687,7 @@ def test_a_non_ascii_path_is_read_as_itself(tmp_path: Path, path: str, words: bo
     git(root, "commit", "-q", "-m", "a non-ASCII path")
     rows, added = review.changes(root, git(root, "rev-parse", "HEAD"))
     assert [row[0] for row in rows] == [path]
-    assert (review.tier(rows, added) == "normal") is not words
+    assert review.tier(rows, added) == ("ordinary" if words else "risk")
     assert any(name.startswith(review.MESSAGES) for name, _, _ in rows) is words
 
 
@@ -882,7 +908,7 @@ def test_an_uncaught_error_exits_non_zero_and_its_cost_line_says_so(
     """Round 2: a UnicodeDecodeError left a traceback and a cost line saying exit 0."""
 
     def crash(run: review.Run, args: object, main: Path) -> None:
-        run.tier = "small"
+        run.tier = "ordinary"
         raise UnicodeDecodeError("utf-8", b"\xe9", 0, 1, "invalid continuation byte")
 
     monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
@@ -904,7 +930,7 @@ def test_a_refusal_after_the_tier_has_its_exit_in_the_cost_line(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def refuse(run: review.Run, args: object, main: Path) -> None:
-        run.tier = "normal"
+        run.tier = "risk"
         raise review.Refused("a lens gave no answer")
 
     monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
@@ -1089,6 +1115,8 @@ def test_plain_docs_stay_docs_only() -> None:
         "vextrus/projects/services/access.py",
         "vextrus/drawings/services/_access.py",
         "vextrus/routers.py",
+        "vextrus/urls.py",
+        "vextrus/settings/db.py",
         "vextrus/settings/tenancy.py",
         "vextrus/platform/admin/tenancy.py",
         "vextrus/platform/http/middleware.py",
@@ -1097,9 +1125,9 @@ def test_plain_docs_stay_docs_only() -> None:
         "scripts/real_drawings/sandbox.py",
     ],
 )
-def test_the_repos_walls_are_never_small(path: str) -> None:
-    """Finding 2: a 25-line change to these took one lens."""
-    assert review.tier([(path, 25, 0)], []) == "normal"
+def test_the_repos_walls_are_risk(path: str) -> None:
+    """Finding 2: a 25-line change to these took one lens; S29-F7 lists each on the risk tier."""
+    assert review.tier([(path, 25, 0)], []) == "risk"
 
 
 @pytest.mark.parametrize("expression", ["live", "not live", "needs_toolchain or live", "(live)"])
@@ -1328,29 +1356,31 @@ def test_the_replays_lock_wait_is_bounded(tmp_path: Path, monkeypatch: pytest.Mo
 
 
 @pytest.mark.parametrize(
-    "path",
+    ("path", "expected"),
     [
-        "vextrus/drawings/http/files.py",
-        "vextrus/projects/http/invitations.py",
-        "vextrus/takeoff/http/step1.py",
-        "vextrus/drawings/acts.py",
-        "docs/plans/M1.md",
-        "docs/specs/factory.md",
-        "vextrus/a_module_nobody_listed/thing.py",
-        "engine/read/anything.py",
-        "scripts/factory/review.py",
-        ".claude/agents/pr-reviewer.md",
-        ".github/workflows/ci.yml",
-        "docs/research/CLAUDE.md",
-        "docs/research/.hidden/x.md",
-        "vextrus/rates/tests/conftest.py",
-        "scripts/tests/acceptance/ts99/test_x.py",
+        ("vextrus/drawings/http/files.py", "ordinary"),
+        ("vextrus/projects/http/invitations.py", "risk"),
+        ("vextrus/takeoff/http/step1.py", "risk"),
+        ("vextrus/drawings/acts.py", "ordinary"),
+        ("docs/plans/M1.md", "ordinary"),
+        ("docs/specs/factory.md", "ordinary"),
+        ("vextrus/a_module_nobody_listed/thing.py", "risk"),
+        ("engine/read/anything.py", "risk"),
+        ("scripts/factory/review.py", "risk"),
+        (".claude/agents/pr-reviewer.md", "risk"),
+        (".github/workflows/ci.yml", "risk"),
+        ("docs/research/CLAUDE.md", "risk"),
+        ("docs/research/.hidden/x.md", "ordinary"),
+        ("vextrus/rates/tests/conftest.py", "risk"),
+        ("scripts/tests/acceptance/ts99/test_x.py", "risk"),
     ],
 )
-def test_a_path_no_safe_list_names_is_normal(path: str) -> None:
-    """Round 2 finding 1: a denylist of walls kept missing walls; now only listed paths are safe."""
-    assert review.tier([(path, 30, 0)], []) == "normal"
-    assert review.tier([(path, 30, 0), ("docs/research/a.md", 1, 0)], []) == "normal"
+def test_a_path_no_safe_list_names_gets_a_model(path: str, expected: str) -> None:
+    """Round 2 finding 1: a denylist of walls kept missing walls, so only listed paths are safe from
+    a model; S29-F7: a path off the risk list gets one lens (and CI), never none; S29-F7-R: a path
+    on no ordinary list is risk."""
+    assert review.tier([(path, 30, 0)], []) == expected
+    assert review.tier([(path, 30, 0), ("docs/research/a.md", 1, 0)], []) == expected
 
 
 @pytest.mark.parametrize(
@@ -1358,41 +1388,38 @@ def test_a_path_no_safe_list_names_is_normal(path: str) -> None:
     [
         ("docs/research/x.md", "docs-only"),
         ("docs/knowledge/lessons.md", "docs-only"),
-        ("web/src/messages/rates/en.po", "small"),
-        ("web/src/messages/rates/bn.json", "small"),
-        ("web/src/components/badge.tsx", "small"),
+        ("web/src/messages/rates/en.po", "ordinary"),
+        ("web/src/messages/rates/bn.json", "ordinary"),
+        ("web/src/components/badge.tsx", "ordinary"),
     ],
 )
 def test_listed_safe_paths_take_their_tier(path: str, expected: str) -> None:
     assert review.tier([(path, 30, 0)], []) == expected
 
 
-def test_the_safe_lists_live_in_one_committed_data_file() -> None:
+def test_the_tier_lists_live_in_one_committed_data_file() -> None:
     import tomllib
 
     data = tomllib.loads(review.TIERS_FILE.read_text())
     assert review.TIERS_FILE == review.HARNESS / "scripts" / "factory" / "review_tiers.toml"
-    assert set(data["docs_only"]["never"]) <= set(data["small"]["never"])
-    # Shrunk on purpose (PR #489 review, round 1): small is the catalogues and the one component
-    # folder ts14r1 pins, nothing else.
-    assert data["small"]["paths"] == [
-        "web/src/messages/**/*.po",
-        "web/src/messages/**/*.json",
-        "web/src/components/**",
-    ]
-    for name in ("docs_only", "small"):
-        for pattern in [*data[name]["paths"], *data[name]["never"]]:
-            review.glob_regex(pattern)
+    assert "small" not in data, "S29-F7: size no longer decides a tier"
+    # The risk list holds its own reader and itself: a PR never relaxes its own tier.
+    assert {"scripts/factory/tiers.py", "scripts/factory/review*", ".claude/agents/**"} <= set(
+        data["risk"]["paths"]
+    )
+    for pattern in [*data["docs_only"]["paths"], *data["docs_only"]["never"], *data["risk"]["paths"]]:
+        review.glob_regex(pattern)
 
 
-def test_without_the_data_file_every_path_is_normal(
+def test_without_the_data_file_no_path_is_docs_only_and_every_path_is_risk(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(review, "TIERS_FILE", tmp_path / "missing.toml")
+    monkeypatch.setattr(ledger, "TIERS_FILE", tmp_path / "missing.toml")
     review.tier_lists.cache_clear()
     try:
-        assert review.tier([("docs/research/x.md", 1, 0)], []) == "normal"
-        assert review.tier([("web/src/components/badge.tsx", 1, 0)], []) == "normal"
+        assert review.tier([("docs/research/x.md", 1, 0)], []) == "risk"
+        assert review.tier([("web/src/components/badge.tsx", 1, 0)], []) == "risk"
     finally:
         monkeypatch.undo()
         review.tier_lists.cache_clear()
@@ -1485,6 +1512,7 @@ STOPPABLE = """
 import os, sys
 sys.path.insert(0, {repo!r})
 from pathlib import Path
+from scripts import ledger
 from scripts.factory import review
 review.install_stop_handlers()
 try:
@@ -1527,7 +1555,7 @@ def test_a_stopped_run_exits_128_plus_the_signal_and_logs_it(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def stopped(run: review.Run, args: object, main: Path) -> None:
-        run.tier = "normal"
+        run.tier = "risk"
         raise review.Stopped(15)
 
     monkeypatch.setattr(review, "main_checkout", lambda: tmp_path)
@@ -1560,11 +1588,11 @@ def test_the_ledger_record_is_never_cut_by_a_stop_signal() -> None:
 # ---------------------------------------------------------------- PR #478 review, round 3
 
 
-def test_the_session_brief_is_never_docs_only_nor_small() -> None:
+def test_the_session_brief_is_never_docs_only() -> None:
     """Round 3 finding 1: docs/handoff/** was on the safe docs list, yet the session brief is what
     the orchestrator obeys (CLAUDE.md "Start here")."""
     for path in ("docs/handoff/session-15-prompt.md", "docs/handoff/notes.md"):
-        assert review.tier([(path, 3, 0)], []) == "normal"
+        assert review.tier([(path, 3, 0)], []) == "ordinary"
 
 
 @pytest.mark.parametrize(
@@ -1593,23 +1621,13 @@ def test_text_docs_stay_docs_only() -> None:
         "engine/read/tests/test_sandbox.py",
         "tools/leakscan/tests/test_scan.py",
         ".claude/hooks/tests/test_guard.py",
-        "scripts/factory/tests/test_review_units.py",
-        "scripts/tests/test_ledger.py",
-        "vextrus/accounts/tests/test_auth_flow.py",
         "vextrus/projects/tests/test_access.py",
-        "vextrus/drawings/tests/test_uploads.py",
-        "vextrus/tenancy/tests/test_models.py",
-        "vextrus/x/guards/tests/test_y.py",
+        "vextrus/rates/tests/test_table.py",
     ],
 )
-def test_the_tests_of_a_wall_are_never_small(path: str) -> None:
-    """Round 3 finding 3: `**/tests/**/test_*.py` made the walls' own tests small."""
-    assert review.tier([(path, 5, 0)], []) == "normal"
-
-
-def test_a_plain_modules_tests_are_normal_too() -> None:
-    """PR #489 review, round 1: no test is small, a plain module's included."""
-    assert review.tier([("vextrus/rates/tests/test_table.py", 5, 0)], []) == "normal"
+def test_the_tests_inside_a_risk_module_are_risk(path: str) -> None:
+    """Round 3 finding 3: a wall's own tests are a wall; inside a risk module's folder they are risk."""
+    assert review.tier([(path, 5, 0)], []) == "risk"
 
 
 # ---------------------------------------------------------------- PR #489 review, round 1
@@ -1630,18 +1648,25 @@ def test_a_plain_modules_tests_are_normal_too() -> None:
         "web/src/messages/rates.ts",
     ],
 )
-def test_every_test_and_anything_off_the_short_list_is_normal(path: str) -> None:
-    """Finding 1: any `**/tests/**/test_*.py` could be a wall's own test, and word lists missed them."""
-    assert review.tier([(path, 5, 0)], []) == "normal"
+def test_a_test_off_the_risk_list_gets_one_lens_never_none(path: str) -> None:
+    """Finding 1: any `**/tests/**/test_*.py` could be a wall's own test; S29-F7: off the risk list it
+    is ordinary (one lens and CI), and the risk modules' tests are risk."""
+    expected = (
+        "risk"
+        if path.startswith(("vextrus/takeoff/", "vextrus/platform/", "vextrus/projects/", "engine/"))
+        else "ordinary"
+    )
+    assert review.tier([(path, 5, 0)], []) == expected
 
 
-def test_a_messages_only_change_is_small() -> None:
-    assert review.tier([("web/src/messages/drawings/files/en.po", 12, 3)], []) == "small"
+def test_a_messages_only_change_is_ordinary() -> None:
+    assert review.tier([("web/src/messages/drawings/files/en.po", 12, 3)], []) == "ordinary"
     rows: review.Rows = [
         ("web/src/messages/drawings/files/en.po", 2, 0),
         ("web/src/messages/boq/en.po", 2, 0),
     ]
-    assert review.tier(rows, []) == "small"
+    assert review.tier(rows, []) == "ordinary"
+    assert review.tier_lenses("ordinary", [path for path, _, _ in rows]) == [review.LENS_B, review.WORDS]
 
 
 @pytest.mark.parametrize(
