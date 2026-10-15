@@ -1804,8 +1804,10 @@ def _is_whole_run(
     `continues` build it: in the Discipline's sheets in list order (`_sheets`, the order `proposals`
     returns) less those an open Question holds and the undecided ones proposed out (their own list),
     a row is a stretch of next-to-each-other sheets of one run (`groups.among`, T-W334) decided alike
-    (never two sheets decided apart). A run split by another sheet is two rows; part of a row, or a
-    row and another sheet, is not one."""
+    (never two sheets decided apart), and never spans a number of the same series any sheet of the
+    Project holds strictly between two of its members (`_spans`: a held, proposed-out or decided-apart
+    sheet's; a copy of a boundary number is not between; S29-M0a). A run split by another sheet is
+    two rows; part of a row, or a row and another sheet, is not one."""
     from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
 
     sheets = _sheets(project_id)
@@ -1830,6 +1832,7 @@ def _is_whole_run(
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
     mine = [(s, by_sheet.get(s.id)) for s in sheets if s.discipline == first.discipline]
     held = _holding(project_id, mine)
+    runnings = _runnings([s.number for s in sheets])  # every sheet, as the web's every Proposal
     rows: list[list[drawings.SheetView]] = []
     for sheet, _p in mine:
         if sheet.id in held or (sheet.decision is None and sheet.proposed_exclusion):
@@ -1840,12 +1843,45 @@ def _is_whole_run(
             and run_of(last) == run_of(sheet)
             and state_of(last) == state_of(sheet)
             and run_of(sheet)
+            and not _spans(runnings, last.number, sheet.number)
         ):
             rows[-1].append(sheet)
         else:
             rows.append([sheet])
     wanted = {sheet.id for sheet, _p in chosen}
     return any({s.id for s in row} == wanted for row in rows)
+
+
+# The web's `numberParts`: JS `.` stops at a line end and `\d` is ASCII only (a Bengali digit is
+# no running number).
+_NUMBER_PARTS = re.compile(r"([^\n\r\u2028\u2029]*?)([0-9]+)([^0-9]*)")
+
+
+def _series_of(number: str | None) -> tuple[str, int] | None:
+    """A sheet number's series (its text either side of its last digits) and running number, as the
+    web's `seriesOf`: "S-07" is ("S-", "") 7; none for no number or one without digits."""
+    m = _NUMBER_PARTS.fullmatch(number.strip()) if number else None
+    return (f"{m[1]}\x01{m[3]}", int(m[2])) if m else None
+
+
+def _runnings(numbers: Iterable[str | None]) -> dict[str, list[int]]:
+    """Every running number the given sheets hold, by series (each copy counted)."""
+    runnings: dict[str, list[int]] = {}
+    for number in numbers:
+        found = _series_of(number)
+        if found:
+            runnings.setdefault(found[0], []).append(found[1])
+    return runnings
+
+
+def _spans(runnings: Mapping[str, Sequence[int]], a: str | None, b: str | None) -> bool:
+    """Whether a running number of `a`'s and `b`'s one series lies strictly between theirs, as the
+    web's `sheetRows` `between`: the boundary numbers themselves (a copy of either) are not between."""
+    x, y = _series_of(a), _series_of(b)
+    if x is None or y is None or x[0] != y[0]:
+        return False
+    low, high = sorted((x[1], y[1]))
+    return any(low < r < high for r in runnings.get(x[0], ()))
 
 
 def _holding(
