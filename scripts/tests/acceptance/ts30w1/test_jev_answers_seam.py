@@ -10,14 +10,18 @@ The owner's ruling (15 Oct 2026): "Re-run #2; #3 reuses its Jev answers". The co
 4. "A walk ... with `--jev-from` and a stand-in Jev that answers differently on each call keeps the
    seeded answers: no live call for a seeded key."
 
-run.py reaches the walk's database only through the walked checkout's `manage.py` (as it runs
-`seed_demo`), so the seam is a management command of platform's, which owns JevAnswer (the name is
-this file's choice; no authority names it): `manage.py jev_answers export <file>` and
-`manage.py jev_answers seed <file>`. The walk's Projects are made by the seed's QS
-(`nusrat@shapla-homes.example`, web/e2e/real/walk.spec.ts) in her Developer, Shapla Homes Ltd; the
-test makes that Developer and that QS, so a command finding the tenant by either lands.
+run.py reaches the walk's database only through the walked checkout's python (as it runs
+`seed_demo`), so the seam is a module of the walk's own, `scripts/walk/jev_answers.py`, run as
+`python -m scripts.walk.jev_answers export|seed <file>` with that checkout's python and Django
+settings; here its `main(argv)` is called in-process and answers 0. It lives outside every product
+path (`vextrus/`, `engine/`, `web/src/`, scripts/walk/ready.py's `is_product_path`): a seam landed
+between walk #2 and walk #3 on a product path would make #3 walk other product code, no longer a
+repeat (the orchestrator, S30). The module's name is the orchestrator's. The walk's Projects are
+made by the seed's QS (`nusrat@shapla-homes.example`, web/e2e/real/walk.spec.ts) in her Developer,
+Shapla Homes Ltd; the test makes that Developer and that QS, so a seed finding the tenant by either
+lands.
 
-The tests commit (`transaction=True`): the command may write or read through either alias.
+The tests commit (`transaction=True`): the seam may write or read through either alias.
 
 Synthetic rows only: the facts are `INVENTED_SHEETS` (vextrus/testing/jev.py), never drawing text.
 """
@@ -32,7 +36,7 @@ from typing import Any
 
 import httpx
 import pytest
-from django.core.management import call_command
+from django.core.management import get_commands
 
 from vextrus.platform.database import OWNER_ALIAS
 from vextrus.platform.models import JevAnswer
@@ -40,7 +44,7 @@ from vextrus.platform.services import jev, tenancy
 from vextrus.testing.jev import INVENTED_SHEETS, STAND_IN_KINDS, STAND_IN_QUESTION, Offline
 from vextrus.testing.tenancy import add_member
 
-importlib.import_module("vextrus.platform.management.commands.jev_answers")  # the seam
+jev_answers: Any = importlib.import_module("scripts.walk.jev_answers")  # the seam
 
 QS_EMAIL = "nusrat@shapla-homes.example"
 DEVELOPER = "Shapla Homes Ltd"
@@ -136,7 +140,7 @@ def test_the_export_holds_each_answer_in_the_seven_columns_and_nothing_else(
     _keep(second, rows[1])
     target = tmp_path / "jev-answers.json"
 
-    call_command("jev_answers", "export", str(target))
+    assert jev_answers.main(["export", str(target)]) == 0
 
     text = target.read_text(encoding="utf-8")
     exported = _rows_in(text)
@@ -181,7 +185,7 @@ def test_a_seeded_answer_is_kept_and_jev_is_not_called_for_its_key(
 
     jev_offline.use(httpx.MockTransport(changeable))
 
-    call_command("jev_answers", "seed", str(source))
+    assert jev_answers.main(["seed", str(source)]) == 0
 
     with tenancy.acting_in(developer, user_id=user.pk):
         first = jev.ask("sheet_type", _facts(sheet), STAND_IN_QUESTION, STAND_IN_KINDS)
@@ -206,7 +210,7 @@ def test_the_seed_puts_every_row_under_the_walks_tenant(
     source = tmp_path / "jev-answers.json"
     source.write_text(json.dumps(rows), encoding="utf-8")
 
-    call_command("jev_answers", "seed", str(source))
+    assert jev_answers.main(["seed", str(source)]) == 0
 
     kept = {
         row.cache_key: row for row in JevAnswer.objects.using(OWNER_ALIAS).filter(tenant_id=developer)
@@ -220,3 +224,14 @@ def test_the_seed_puts_every_row_under_the_walks_tenant(
         assert row.choice == wanted["choice"]
         assert row.confidence == Decimal(wanted["confidence"])
         assert row.probabilities == wanted["probabilities"]
+
+
+def test_the_seam_adds_no_product_path() -> None:
+    """The seam is the walk's own code, so landing it leaves the walked product code as it was."""
+    from scripts.walk.ready import is_product_path
+
+    checkout = Path(__file__).resolve().parents[4]
+    seam = Path(jev_answers.__file__).resolve().relative_to(checkout).as_posix()
+    assert seam == "scripts/walk/jev_answers.py"
+    assert not is_product_path(seam)
+    assert "jev_answers" not in get_commands(), "no management command under vextrus/ for it"

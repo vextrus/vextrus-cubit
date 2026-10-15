@@ -11,8 +11,9 @@ The owner's ruling (15 Oct 2026): "Re-run #2; #3 reuses its Jev answers". The co
    flag)."
 
 The seams (this file's choice; no authority names them): `run.run(..., jev_from=<sha40>)` is the flag
-`--jev-from`; `run.export_jev_answers` writes the file and `run.seed_jev_answers` inserts the rows,
-returning how many (`jev_seeded`). run.py itself adds the two keys to walk.json (a patched
+`--jev-from`; `run.export_jev_answers` writes the file and `run.seed_jev_answers` inserts the rows
+(each through `python -m scripts.walk.jev_answers`, test_jev_answers_seam.py's seam), returning how
+many (`jev_seeded`). run.py itself adds the two keys to walk.json (a patched
 `walk_spec` stands in for the spec here). The pinned model is read from the declared node
 (`jev.SHEET_TYPE.model`).
 
