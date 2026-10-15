@@ -167,7 +167,8 @@ YAML
     ;;
   status)
     ant beta:sessions retrieve --session-id "$(sid "${2:-session}")" \
-      --transform '{status,stop_reason,list_cost:usage.list_cost,active_seconds:usage.active_seconds,budget,outcomes:outcome_evaluations}'
+      --transform '{status,stop_reason,list_cost:usage.list_cost,active_seconds:usage.active_seconds,budget,outcomes:outcome_evaluations}' \
+      --format yaml                          # the default table folds the outcomes into "[...1 item...]"
     ;;
   watch)
     ant beta:sessions connect "$(sid "${2:-session}")" --web
