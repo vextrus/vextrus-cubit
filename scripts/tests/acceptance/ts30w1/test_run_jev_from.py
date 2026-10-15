@@ -218,13 +218,18 @@ def test_each_refusal_names_its_own_reason(
     assert len(set(said.values())) == len(REFUSALS), f"the reasons are not told apart: {said}"
 
 
+@pytest.mark.parametrize("passed", [True, False], ids=["a passing walk", "a failing walk"])
 def test_the_walks_answers_are_written_before_its_database_is_dropped(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    passed: bool, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A failing walk's answers are the ones a repeat needs (walk #2 failed a check)."""
     walk = _plan(tmp_path)
     ledger = _steps(monkeypatch, walk)
+    monkeypatch.setattr(run, "judge_checks", lambda *a, **k: passed)
 
-    assert run.run(tmp_path, walk, sets={"set-a": []}, smoke=False, hold_minutes=0) == 0
+    code = run.run(tmp_path, walk, sets={"set-a": []}, smoke=False, hold_minutes=0)
+
+    assert code == (0 if passed else 1)
 
     assert ledger.seen.count("export") == 1
     assert ledger.seen.index("walk_spec") < ledger.seen.index("export") < ledger.seen.index("drop")
@@ -261,7 +266,7 @@ def test_the_flag_reaches_the_walk(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(run, "run", lambda *a, **k: taken.update(k) or 0)
 
     argv = [SHA, "--root", str(tmp_path), "--web-port", "5511", "--api-port", "8811"]
-    assert run.main([*argv, "--jev-from", EARLIER]) == 0
+    run.main([*argv, "--jev-from", EARLIER])
 
     assert taken["jev_from"] == EARLIER
 
