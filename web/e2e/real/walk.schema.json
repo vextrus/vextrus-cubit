@@ -11,6 +11,8 @@
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "started_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
     "smoke": { "const": true },
+    "jev_from": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "jev_seeded": { "type": "integer", "minimum": 0 },
     "urls": {
       "type": "object",
       "additionalProperties": false,
