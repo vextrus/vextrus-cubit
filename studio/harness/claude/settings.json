@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "opus",
+  "effortLevel": "high",
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": ["Workflow", "mcp__chrome-devtools", "mcp__browser", "Read(~/vextrus-cubit/**)"],
+    "deny": [
+      "Edit(~/vextrus-cubit/**)",
+      "Write(~/vextrus-cubit/**)",
+      "Read(~/.pgpass)",
+      "Read(~/.bashrc)",
+      "Read(~/.config/gh/**)",
+      "Bash(git push *)",
+      "Bash(git remote add *)",
+      "Bash(rm -r *)",
+      "Bash(rm -rf *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "env": {
+    "CLAUDE_CODE_WORKFLOW_MAX_CONCURRENT_AGENTS": "6"
+  }
+}
