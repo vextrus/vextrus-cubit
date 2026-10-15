@@ -6,15 +6,17 @@
 //   check on the message as publish makes the PR body of it (`python -m scripts.merge_ready --cut-message`).
 // - `gh pr create`: the leak scan of the body file (`tools.leakscan file --no-stamp`) and the Cut check
 //   (`scripts.merge_ready --cut-body`, offline: an item must link an issue; whether it is open is read at merge).
-// It denies (exit 0, `permissionDecision: "deny"`, naming the check and `<path>:<line>`, never the hit's text) only when
-// it judges the call exactly and a check fails. Whenever it cannot judge (a word quoted inside `git` or `commit`, git's
-// environment or global options in the call, a folder or message known only at run time, standard input, an unquoted
-// heredoc delimiter, anything earlier in the call that may change the index, an unknown git verb with commit's
-// options, no corpus, a check that does not answer) it allows, with one line on stderr. A message passed as
-// `-m "$(cat <<'EOF' ... EOF)"` (a quoted delimiter) is literal, so it is judged. It never writes the index and never
-// fires a git hook: `git add` (and `commit -a`'s `add -u`) earlier in the call is replayed on a copy of the index, with
-// `-c core.hooksPath=/dev/null`; every git it runs has optional locks, hooks and the fsmonitor off. The checks are
-// found by this file's own location (VEXTRUS_PYTHON, else that checkout's .venv, else python3, run with -P).
+// It denies (exit 0, `permissionDecision: "deny"`, naming the check and `<path>:<line>`, never the hit's text) only
+// when it judges the call exactly and a check fails. Whenever it cannot judge (a word quoted inside `git` or `commit`,
+// git's environment or global options in the call, a folder or message known only at run time (a `cd` or `-C` to `~` or
+// to no existing folder among them), standard input, an unquoted heredoc delimiter, anything earlier in the call that
+// may change the index (a `git add` with an unquoted glob among them, as the shell expands it and git would not), an
+// unknown git verb with commit's options, no corpus, a check that does not answer) it allows, with one line on stderr.
+// A message passed as `-m "$(cat <<'EOF' ... EOF)"` (a quoted delimiter) is literal, so it is judged. It never writes
+// the index and never fires a git hook: `git add` (and `commit -a`'s `add -u`) earlier in the call is replayed on a
+// copy of the index, with `-c core.hooksPath=/dev/null`; every git it runs has optional locks, hooks and the fsmonitor
+// off (and the acceptance check's diff no external diff or textconv). The checks are found by this file's own location
+// (VEXTRUS_PYTHON, else that checkout's .venv, else python3, run with -P).
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -30,7 +32,8 @@ const SHOWN = 5;
 
 // ------------------------------------------------------------------------------------------------ the call's words
 
-const word = () => ({ v: "", dyn: false, quoted: false, any: false, unquotedHeredoc: false });
+// `glob`: an unquoted `*`, `?`, `[` or `{`, which the shell expands before git sees the word.
+const word = () => ({ v: "", dyn: false, quoted: false, any: false, unquotedHeredoc: false, glob: false });
 // `"$(cat <<'EOF' ... EOF)"`: how builders pass a long message; with a quoted delimiter its body is literal.
 const CAT_HEREDOC = /^\$\(\s*cat\s+<<(-?)\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\2[ \t]*\n([\s\S]*?)\n\t*\3[ \t]*\n\s*\)/;
 
@@ -47,17 +50,19 @@ function substitutionEnd(text, i) {
   return text.length;
 }
 
-/** The call as simple commands: `{ words, heredoc, depth, piped, background, redirected }` each, and `hidden`: a
+/** The call as simple commands: `{ words, heredoc, depth, piped, background, redirected, joined }` each (`joined`: the
+ * `&&` or `||` before it, else null), and `hidden`: a
  * substitution or backquote whose text names a commit or a PR (run inside, so never judged). */
 export function parse(text) {
   const found = [];
-  const fresh = () => ({ words: [], heredoc: null, depth: 0, piped: false, background: false, redirected: false });
+  const fresh = () => ({ words: [], heredoc: null, depth: 0, piped: false, background: false, redirected: false, joined: null });
   let current = fresh();
   let w = word();
   let depth = 0;
   let pending = [];
   let skipNext = false;
   let pipedNext = false;
+  let joinedNext = null;
   let hidden = false;
   const inner = (body) => {
     w.dyn = true;
@@ -71,10 +76,13 @@ export function parse(text) {
     }
     w = word();
   };
-  const endCommand = ({ piped = false, background = false } = {}) => {
+  const endCommand = ({ piped = false, background = false, joined = null } = {}) => {
     endWord();
-    Object.assign(current, { depth, piped: current.piped || piped || pipedNext, background });
+    // A newline after `&&`, `||` or `|` ends no command: the next line's command keeps the join.
+    if (current.words.length === 0 && !piped && !background && joined === null) return;
+    Object.assign(current, { depth, piped: current.piped || piped || pipedNext, background, joined: joinedNext });
     pipedNext = piped;
+    joinedNext = joined;
     if (current.words.length > 0) found.push(current);
     current = fresh();
   };
@@ -166,7 +174,7 @@ export function parse(text) {
       current.redirected ||= text.slice(from, i).includes(">");
       skipNext = true;
     } else if ((c === "&" || c === "|") && text[i + 1] === c) {
-      endCommand();
+      endCommand({ joined: c + c });
       i += 2;
     } else if (c === "|") {
       endCommand({ piped: true });
@@ -180,7 +188,7 @@ export function parse(text) {
       if (c === ")") depth = Math.max(0, depth - 1);
       i += 1;
     } else {
-      Object.assign(w, { v: w.v + c, any: true });
+      Object.assign(w, { v: w.v + c, any: true, glob: w.glob || "*?[{".includes(c) });
       i += 1;
     }
   }
@@ -319,6 +327,7 @@ async function checkPullRequest(path, shown) {
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const LEADING = new Set(["!", "{", "}", "if", "then", "elif", "else", "do", "while", "until", "time"]);
+const BRANCHING = new Set(["if", "then", "elif", "else", "do", "while", "until"]);
 const READ_ONLY_GIT = new Set(["status", "diff", "log", "show", "rev-parse", "ls-files", "branch", "describe", "fetch", "rev-list", "notes", "worktree", "remote", "config", "blame", "grep", "shortlog", "cat-file", "merge-base", "for-each-ref", "ls-remote"]);
 const KNOWN_GIT = new Set([...READ_ONLY_GIT, "add", "rm", "commit", "push", "pull", "merge", "rebase", "checkout", "switch", "reset", "restore", "stash", "mv", "tag", "cherry-pick", "revert", "clone", "init", "apply", "am", "clean", "update-index", "read-tree"]);
 const HARMLESS = new Set(["true", "pwd", "ls", "date", "echo", "printf", "cat", "test", "["]);
@@ -331,6 +340,15 @@ const isDirectory = (path) => {
   } catch {
     return false;
   }
+};
+/** The folder a `cd` or `git -C` word names from `from`; null (known only at run time) when the shell would change the
+ * word first (`~`, a run-time word), it is not an existing folder, or (`physical`: `git -C`, `cd -P`) a `..` in it may
+ * climb out of a symlink. */
+const folderOf = (from, w, physical = false) => {
+  if (from === null || w === undefined || w.dyn || w.v.startsWith("~")) return null;
+  if (physical && w.v.split("/").includes("..")) return null;
+  const folder = resolve(from, w.v);
+  return isDirectory(folder) ? folder : null;
 };
 
 /** A commit's message and index from its arguments: `{ message, cannot, all, paths }` (`cannot`: why not readable). */
@@ -399,10 +417,18 @@ export async function verdict(command, startCwd) {
   const gitEnv = /\bGIT_[A-Z_]+=/.test(command);
   let cwd = startCwd; // null: known only at run time
   let changed = false; // something earlier in the call may change the index or a file a check reads
+  let maySkip = false; // a `cd` after `&&` ran only if the commands before it succeeded
+  const groups = []; // each open `{`: true when it may not run (after `&&` or `||`, or inside such a group)
   const replays = [];
-  for (const { words, heredoc, depth, piped, background, redirected } of commands) {
+  for (const { words, heredoc, depth, piped, background, redirected, joined } of commands) {
+    // Past the end of its `&&` chain, such a `cd` may not have run, so the folder is unknown.
+    if (maySkip && joined !== "&&") (cwd = null), (maySkip = false);
     let k = 0;
-    while (k < words.length && !words[k].quoted && (LEADING.has(words[k].v) || ASSIGNMENT.test(words[k].v))) k += 1;
+    while (k < words.length && !words[k].quoted && (LEADING.has(words[k].v) || ASSIGNMENT.test(words[k].v))) {
+      if (words[k].v === "{") groups.push(joined !== null || groups.includes(true));
+      if (words[k].v === "}") groups.pop();
+      k += 1;
+    }
     const ws = words.slice(k);
     if (ws.length === 0) continue;
     const [head] = ws;
@@ -414,10 +440,15 @@ export async function verdict(command, startCwd) {
     }
     const tool = basename(head.v);
     if (tool === "cd") {
-      const target = ws.find((w, n) => n > 0 && !/^-[LPe@]*$/.test(w.v));
       if (nested) continue;
-      if (target === undefined || target.dyn || target.v === "-") cwd = null;
-      else if (cwd !== null && isDirectory(resolve(cwd, target.v))) cwd = resolve(cwd, target.v);
+      const options = ws.slice(1).filter((w) => /^-[LPe@]+$/.test(w.v));
+      const targets = ws.slice(1).filter((w) => !options.includes(w));
+      // A `cd` after `||` or in a branch or loop may not run; one with no target, `-` or more than one target fails
+      // or goes elsewhere.
+      const branched = groups.includes(true) || words.slice(0, k).some((w) => BRANCHING.has(w.v));
+      if (joined === "||" || branched || targets.length !== 1 || targets[0].v === "-") cwd = null;
+      else cwd = folderOf(cwd, targets[0], options.some((w) => w.v.includes("P")));
+      maySkip ||= joined === "&&" && cwd !== null;
       continue;
     }
     if ((tool === "git" || tool === "gh") && head.quoted) {
@@ -448,8 +479,7 @@ export async function verdict(command, startCwd) {
     let at = 1;
     while (at < ws.length && ws[at].v.startsWith("-") && !ws[at].quoted) {
       if (ws[at].v === "-C") {
-        const folder = ws[at + 1];
-        here = folder === undefined || folder.dyn || here === null ? null : resolve(here, folder.v);
+        here = folderOf(here, ws[at + 1], true);
         at += 2;
       } else {
         odd = true;
@@ -465,7 +495,7 @@ export async function verdict(command, startCwd) {
       continue;
     }
     if (verb.v === "add") {
-      if (nested || here === null || odd || gitEnv || changed || args.some((a) => a.dyn || ADD_INTERACTIVE.test(a.v))) changed = true;
+      if (nested || here === null || odd || gitEnv || changed || args.some((a) => a.dyn || a.glob || ADD_INTERACTIVE.test(a.v))) changed = true;
       else replays.push({ cwd: here, args: args.map((a) => a.v) });
       continue;
     }

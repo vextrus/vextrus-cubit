@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -162,4 +162,103 @@ test("a commit run by a wrapper (env, bash -c) is noted, never a silent pass", (
 test("a commit with pathspecs is judged on its message only: the Cut check runs, the staged tree is noted", () => {
   const done = hook(world(), `${READY("- the export")} -- a.md`);
   assert.match(reasonOf(done) ?? "", /\bCut\b/);
+});
+
+// PR #902 round 1 (50): `cd ~/b` was read as a folder under the event's folder, so the wrong repository's index was
+// judged: a clean commit in ~/b denied over the start's staged change, a violating one passed silently.
+function tilde(violating) {
+  const w = world();
+  const b = join(w.root, "b");
+  mkdirSync(b);
+  git(b, "init", "-q", "-b", "s99-x1");
+  writeFileSync(join(b, "a.md"), "a\n");
+  git(b, "add", "--", "a.md");
+  git(b, "commit", "-q", "-m", "base");
+  const dirty = violating === "start" ? w.repo : b;
+  mkdirSync(join(dirty, "x/tests/acceptance"), { recursive: true });
+  writeFileSync(join(dirty, "x/tests/acceptance/t.py"), "X = 1\n");
+  git(dirty, "add", "--", "x/tests/acceptance/t.py");
+  const event = { tool_name: "Bash", tool_input: { command: 'cd ~/b && git commit -m "docs: a"' }, cwd: w.repo };
+  return spawnSync(process.execPath, [HOOK], { input: JSON.stringify(event), env: environment({ ...w.seams, VEXTRUS_PYTHON: PYTHON, HOME: w.root }), encoding: "utf8" });
+}
+
+test("cd ~/b: a clean commit in ~/b is not denied over the starting folder's staged change; it is noted", () => {
+  const done = tilde("start");
+  assert.equal(done.stdout.trim(), "", done.stdout);
+  assert.match(done.stderr, /known only at run time/);
+});
+
+test("cd ~/b: a violating commit in ~/b is never a silent pass", () => {
+  const done = tilde("b");
+  assert.ok(done.stdout.trim() !== "" || /not judged/.test(done.stderr), `${done.stdout}${done.stderr}`);
+});
+
+test("cd into a folder that does not exist leaves the commit's folder unknown: noted, not judged in the start", () => {
+  const w = world();
+  mkdirSync(join(w.repo, "x/tests/acceptance"), { recursive: true });
+  writeFileSync(join(w.repo, "x/tests/acceptance/t.py"), "X = 1\n");
+  git(w.repo, "add", "--", "x/tests/acceptance/t.py");
+  const done = hook(w, 'cd nowhere; git commit -m "docs: a"');
+  assert.equal(done.stdout.trim(), "", done.stdout);
+  assert.match(done.stderr, /known only at run time/);
+});
+
+// PR #902 round 1 (50): an unquoted glob in `git add` was replayed as a git pathspec, whose `*` crosses `/`.
+test("git add docs/*.md is not replayed (the shell expands the glob, not git): noted, never denied over a file it never stages", () => {
+  const w = world();
+  mkdirSync(join(w.repo, "docs/tests/acceptance"), { recursive: true });
+  writeFileSync(join(w.repo, "docs/a.md"), "a\n");
+  writeFileSync(join(w.repo, "docs/tests/acceptance/t.md"), "t\n");
+  const globbed = hook(w, 'git add docs/*.md && git commit -m "docs: a note"');
+  assert.equal(globbed.stdout.trim(), "", globbed.stdout);
+  assert.match(globbed.stderr, /not scanned/);
+  assert.equal(hook(w, 'git add docs/a.md && git commit -m "docs: a note"').stdout.trim(), "");
+});
+
+test("parse: an unquoted glob character marks the word; a quoted one does not", () => {
+  const { commands } = parse("git add docs/*.md 'b*' c? {d,e} \"f[1]\"");
+  assert.deepEqual(commands[0].words.slice(2).map((w) => w.glob), [true, false, true, true, false]);
+});
+
+// The refuter on the round's fix: a `cd` that may not run, or runs elsewhere than its words say, judged the wrong
+// repository. Each such folder is now unknown, so the commit is noted; a plain `cd` and `cd A && git commit` stay judged.
+function twoRepos() {
+  const w = world();
+  const clean = join(w.root, "clean");
+  mkdirSync(join(clean, "sub"), { recursive: true });
+  git(clean, "init", "-q", "-b", "s99-x1");
+  writeFileSync(join(clean, "a.md"), "a\n");
+  git(clean, "add", "--", "a.md");
+  git(clean, "commit", "-q", "-m", "base");
+  mkdirSync(join(w.repo, "x/tests/acceptance"), { recursive: true });
+  writeFileSync(join(w.repo, "x/tests/acceptance/t.py"), "X = 1\n");
+  git(w.repo, "add", "--", "x/tests/acceptance/t.py");
+  symlinkSync(join(w.repo, "x"), join(clean, "lnk"));
+  return { w, clean };
+}
+
+test("a cd that may not run, or that runs elsewhere than its words say, leaves the folder unknown: noted, never judged", () => {
+  const { w, clean } = twoRepos();
+  for (const command of [
+    `test -d /nonexistent && cd ${clean}; git commit -m "docs: a"`,
+    `cd ${clean} || cd ${w.repo}; git commit -m "docs: a"`,
+    `cd ${clean} extra; git commit -m "docs: a"`,
+    `cd ${clean}; git -C lnk/.. commit -m "docs: a"`,
+    `cd -P ${clean}/lnk/..; git commit -m "docs: a"`,
+    `if test -d /nonexistent; then cd ${clean}; fi; git commit -m "docs: a"`,
+    `test -d /nonexistent &&\ncd ${clean}\ngit commit -m "docs: a"`,
+    `test -d /tmp ||\ncd ${clean}\ngit commit -m "docs: a"`,
+    `test -d /tmp || {\ncd ${clean}\n}\ngit commit -m "docs: a"`,
+  ]) {
+    const done = hook(w, command);
+    assert.equal(done.stdout.trim(), "", `${command}: ${done.stdout}`);
+    assert.match(done.stderr, /known only at run time/, command);
+  }
+});
+
+test("a plain cd, and cd A && git commit, are still judged in that folder", () => {
+  const { w, clean } = twoRepos();
+  assert.equal(hook(w, `cd ${clean} && git commit -m "docs: a"`).stdout.trim(), "");
+  assert.match(reasonOf(hook(w, `cd ${clean}; cd ${w.repo}; git commit -m "docs: a"`)) ?? "", /acceptance check/);
+  assert.match(reasonOf(hook(w, `true && cd ${w.repo} && git commit -m "docs: a"`)) ?? "", /acceptance check/);
 });

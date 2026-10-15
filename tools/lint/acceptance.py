@@ -261,7 +261,20 @@ def staged_problems(root: Path, message: str, base: str | None = None) -> list[s
         return None if kinds and all(kind == "D" for kind in kinds) else message
 
     def config_diff(name: str) -> str:
-        return _git(root, "diff", "--cached", "--unified=0", base, "--", name)
+        # No diff.external program and no textconv driver runs inside the hook; the diff stays unified
+        # and plain.
+        return _git(
+            root,
+            "diff",
+            "--cached",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            "--unified=0",
+            base,
+            "--",
+            name,
+        )
 
     return commit_problems("the staged commit", subject, files, counted, config_diff)
 

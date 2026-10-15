@@ -97,3 +97,23 @@ def test_the_command_line_prints_problems_and_exits_1(tmp_path: Path) -> None:
     assert done.returncode == 1
     assert TEST in done.stdout
     assert acceptance.main(["--staged"]) == 2
+
+
+def test_no_external_diff_or_textconv_runs_and_the_config_line_is_still_named(tmp_path: Path) -> None:
+    # PR #902 round 1 (55, a trust boundary): the hook runs this before the call is allowed, so a
+    # repository's diff.external program or textconv driver must never run inside it (nor turn the diff
+    # non-unified or coloured).
+    tripwire = tmp_path / "ran"
+    program = tmp_path / "tripwire.sh"
+    program.write_text(f"#!/bin/sh\necho ran >> {tripwire}\necho opaque\n")
+    program.chmod(0o755)
+    repo = _repo(tmp_path, {})
+    _git(repo, "config", "diff.external", str(program))
+    _git(repo, "config", "diff.tw.textconv", str(program))
+    _git(repo, "config", "color.diff", "always")
+    (repo / ".gitattributes").write_text("conftest.py diff=tw\n")
+    (repo / "conftest.py").write_text("collect_ignore = ['tests/acceptance']\n")
+    _git(repo, "add", ".gitattributes", "conftest.py")
+    (found,) = acceptance.staged_problems(repo, "chore: tidy\n")
+    assert "naming the acceptance tests in conftest.py" in found
+    assert not tripwire.exists()
