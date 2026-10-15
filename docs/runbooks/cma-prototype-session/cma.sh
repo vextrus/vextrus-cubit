@@ -7,7 +7,7 @@
 #   cma.sh apply [--yes]             create or update the five agents and the environment (ant apply)
 #   cma.sh smoke                     a $4 setup check: mounts, DXF counts, a WebGL screenshot; not the work
 #   cma.sh launch                    the real session: kickoff + outcome 1, budget $70
-#   cma.sh outcome <2|3>             send the next outcome (only after the previous one ended)
+#   cma.sh outcome <2|3>             send the next outcome's rubric to the Lead, then the outcome
 #   cma.sh budget <cents>            change the session's cap (e.g. 13000 = $130); resumes a paused session
 #   cma.sh status                    status, stop reason, list cost, outcome results
 #   cma.sh watch                     open the Console session viewer locally (every thread)
@@ -156,7 +156,20 @@ grep -v '^#' "$here/outcomes/1-dissect.event.yaml" | indent)"
     ;;
   outcome)
     case "${2:-}" in 2) f=2-prototype ;; 3) f=3-spec ;; *) die "usage: cma.sh outcome <2|3>" ;; esac
-    { echo "events:"; grep -v '^#' "$here/outcomes/$f.event.yaml" | indent; } |
+    # The grader alone receives an outcome's rubric; the agent sees only its description (outcome 1
+    # showed this). So a message carrying the rubric goes first, then the outcome itself.
+    { cat <<YAML
+events:
+  - type: user.message
+    content:
+      - type: text
+        text: >-
+          From the owner. Outcome $2 follows this message. Here is the rubric its grader will use,
+          word for word: write to exactly its paths and meet every criterion before you ask for a
+          grade. Keep within the budget I set for it; record anything deferred in CHECKPOINT.md.
+      - {type: text, text: "@./outcomes/$f.rubric.md"}
+YAML
+      grep -v '^#' "$here/outcomes/$f.event.yaml" | indent; } |
       (cd "$here" && ant beta:sessions:events send --session-id "$(sid)" > /dev/null)
     echo "sent outcome $2"
     ;;

@@ -163,6 +163,8 @@ cp ~/vextrus-cubit/docs/runbooks/cma-prototype-session/claude-lock.json ~/vextru
    cma.sh budget 14000
    cma.sh outcome 2
    ```
+   `cma.sh outcome` also sends the rubric to the Lead as a message just before the outcome itself,
+   because the platform gives an outcome's rubric to its grader only (outcome 1's Lead never saw it).
    Do the same for outcome 3 with `cma.sh budget 18500` and `cma.sh outcome 3`. A `failed` result means
    the grader found the rubric and the task in contradiction. Read its explanation, fix the rubric file,
    and send the outcome again.
