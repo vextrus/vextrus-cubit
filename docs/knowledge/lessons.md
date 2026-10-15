@@ -867,16 +867,19 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 - **A refused round 1 followed by a recorded round 2 strands a PR's ledger** (#884): no round can be recorded again. The
   PR was closed and reopened as #896. No check yet: owed (#897).
 - **Listing walls as paths did not converge, again** (F7: every round CONFIRMED a missed gate or access file; lesson (e)
-  of review_tiers.toml). Back to planning (#898). Check: none until the replan; the replan owes a tree-walking test.
+  of review_tiers.toml). Back to planning (#898). No check yet: owed (#898: a test that walks the tree for access walls and conftest files).
 - **A shell-parsing hook judged as a wall did not converge** (F2b: each round found a new spelling that slips past). The
   replan frames it as advisory (#895). Rule: a convenience check is written and reviewed as advisory, never as a wall.
+  No check yet: owed (#895).
 - **A cloud box could not pass the slowed web pass on files the PR never touched** (M0b-F1: 4 timeouts, verify unrecordable
-  for 90 minutes). A fresh local builder recorded the verify in 12 minutes. Check: #893 (F2a, held) scales web timeouts by
-  `VEXTRUS_TIME_SCALE`; until it lands, a cloud builder blocked only on untouched slowed tests is finished locally.
+  for 90 minutes). A fresh local builder recorded the verify in 12 minutes. No check yet: owed (#893, F2a, held,
+  scales web timeouts by `VEXTRUS_TIME_SCALE`); until it lands, a cloud builder blocked only on untouched slowed tests is
+  finished locally.
 - **A test-only change under `vextrus/` costs the real-drawing check's full run** (#893: a timing helper and an amended
-  test). That is F5's case; carried to session 30.
+  test). That is F5's case; carried to session 30. No check yet: owed (F5: the check's scope is the reading job's
+  import closure).
 - **The first PR of the new flow:** #882 (M0a f-1) went acceptance, build, a fresh-context fix round before review,
-  review PASS, gate PASS, real-drawing check clean, merged at 124 minutes open-to-merge. Check: the ledger and the statuses.
+  review PASS, gate PASS, real-drawing check clean, merged at 124 minutes open-to-merge. Check: `scripts/merge_ready.py` (it refused nothing missing).
 - **A Step 1 row rule changed the bulk share and no gate before the walk saw it** (#882; walk #2's
   `bulk_confirmable_share` fell one sheet under 0.8 on the Edison set; cause unproven). The design gate walked the
   Sample Project's reproduction and the real-drawing check compares engine outputs, not Step 1's rows. No check yet:
