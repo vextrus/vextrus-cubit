@@ -4,7 +4,9 @@ act, so the walk can tell the server's work from waiting on a lock.
 The tenant middleware opens one `request()` around the whole request (its retries included). A route
 names the waits it reports (`report("lock")`, written 0 when nothing waited); code that waits measures
 the wait under that name (`waited("lock")`). The header is written only on a response whose request
-reported or measured a wait (any route that takes Step 1's write lock), as `app;dur=<ms>,
+reported or measured a wait (any route that takes Step 1's write lock) and passed its Project's scope
+check (`admitted()`, the tenant wall's: a request refused there, or before it, is never told in the
+header how long another Developer's Project is written; #885's review), as `app;dur=<ms>,
 <name>;dur=<ms>`: `app` is the request's time less every wait, each in milliseconds to a tenth. Outside
 a request (a job, the seed) nothing is measured.
 
@@ -31,6 +33,8 @@ class Timed:
 
     started: float = field(default_factory=time.perf_counter)
     waits: dict[str, float] = field(default_factory=dict)
+    admitted: bool = False
+    """The request passed its Project's scope check (`admitted()`): only then is the header written."""
 
 
 _TIMED: contextvars.ContextVar[Timed | None] = contextvars.ContextVar("server_timing", default=None)
@@ -62,6 +66,14 @@ def report(*names: str) -> None:
         timed.waits.setdefault(name, 0.0)
 
 
+def admitted() -> None:
+    """The request has passed its Project's scope check (the tenant wall): its answer may now carry
+    the header. Called by the check itself, never by a route."""
+    timed = _TIMED.get()
+    if timed is not None:
+        timed.admitted = True
+
+
 @contextlib.contextmanager
 def waited(name: str) -> Iterator[None]:
     """The block's time added to the wait `name`, in a request (a retried act's waits add up)."""
@@ -85,6 +97,7 @@ def header(timed: Timed, *, now: float | None = None) -> str:
 
 
 def write(response: HttpResponse, timed: Timed) -> None:
-    """The header on `response` when its request reported or measured a wait; else as it is."""
-    if timed.waits:
+    """The header on `response` when its request was admitted and reported or measured a wait; else
+    as it is."""
+    if timed.admitted and timed.waits:
         response[HEADER] = header(timed)

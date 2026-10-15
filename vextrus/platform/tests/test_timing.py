@@ -13,15 +13,27 @@ METRICS = re.compile(r"app;dur=[0-9]+\.[0-9], lock;dur=[0-9]+\.[0-9]")
 def test_a_request_that_reports_a_wait_answers_with_app_and_the_wait() -> None:
     response = HttpResponse()
     with timing.request() as timed:
+        timing.admitted()
         timing.report("lock")
     timing.write(response, timed)
     assert METRICS.fullmatch(response[timing.HEADER]), response[timing.HEADER]
 
 
+def test_a_request_not_admitted_carries_no_header_whatever_it_waited() -> None:
+    """Refused at its Project's scope (or before it): the tenant wall's refusal reads no lock time."""
+    response = HttpResponse()
+    with timing.request() as timed:
+        timing.report("lock")
+        with timing.waited("lock"):
+            pass
+    timing.write(response, timed)
+    assert timing.HEADER not in response
+
+
 def test_a_request_that_reports_nothing_carries_no_header() -> None:
     response = HttpResponse()
     with timing.request() as timed:
-        pass
+        timing.admitted()
     timing.write(response, timed)
     assert timing.HEADER not in response
 

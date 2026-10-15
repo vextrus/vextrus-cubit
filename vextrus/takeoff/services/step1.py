@@ -1662,6 +1662,7 @@ def _chosen(
     sheet list (another Project's, another Developer's, none) is not found, and nothing is done. So
     is a sheet of a held file read anyway that its read job has not proposed yet: its Questions (its
     number, its Discipline) are raised with its Proposal, so it is not decided before them."""
+    _in_scope(project_id)  # first: another Developer's Project is not found, whatever is named
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NOTHING_CHOSEN(), status=400)
     named_ids: list[uuid.UUID] = []
@@ -2029,6 +2030,7 @@ def _exclude(
     auth.require(acts.EXCLUDE, project_id)
     words = text if reason == OTHER else ""
     with writing(project_id):
+        _in_scope(project_id)  # first: so is an act naming views alone (`_chosen` checks the rest)
         views, ids = _views_chosen(project_id, ids)
         chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
@@ -4372,8 +4374,11 @@ _READS: contextvars.ContextVar[dict[Hashable, Any] | None] = contextvars.Context
 
 def _in_scope(project_id: uuid.UUID) -> None:
     """Refuse a Project not in the acting Membership's scope as not found (`projects.get`); inside an
-    act, checked once (`_remembered`: a refusal is never remembered, so it refuses again)."""
+    act, checked once (`_remembered`: a refusal is never remembered, so it refuses again). Passed, the
+    request is admitted to `Server-Timing` (`timing.admitted`): a refusal here, or before it, carries
+    no header (#885's review)."""
     _remembered(("scope", project_id), lambda: projects.get(project_id))
+    timing.admitted()
 
 
 def _set_of(project_id: uuid.UUID) -> drawings.SetView | None:
