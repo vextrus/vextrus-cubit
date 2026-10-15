@@ -16,7 +16,7 @@ from django.http import HttpRequest
 from ninja import Router
 
 from vextrus.platform.http.acts import Refusal, declare
-from vextrus.platform.services import deadlocks
+from vextrus.platform.services import deadlocks, timing
 from vextrus.takeoff import acts
 from vextrus.takeoff.schemas.step1 import (
     Step1ActOut,
@@ -93,6 +93,7 @@ def get_progress(request: HttpRequest, project_id: uuid.UUID) -> Step1ProgressOu
 @router.post(f"{_PREFIX}/confirm", response={200: Step1ActOut, 400: Refusal, 409: Refusal})
 @declare(acts.CONFIRM, project="project_id")
 def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn) -> Step1ActOut:
+    timing.report(step1.LOCK_WAIT)
     view = deadlocks.retried(
         lambda: step1.confirm(
             project_id, payload.proposals, kind=payload.kind, actor_name=actor(request)
@@ -105,6 +106,7 @@ def confirm(request: HttpRequest, project_id: uuid.UUID, payload: Step1ConfirmIn
 @router.post(f"{_PREFIX}/exclude", response={200: Step1ActOut, 400: Refusal})
 @declare(acts.EXCLUDE, project="project_id")
 def exclude(request: HttpRequest, project_id: uuid.UUID, payload: Step1ExcludeIn) -> Step1ActOut:
+    timing.report(step1.LOCK_WAIT)
     view = deadlocks.retried(
         lambda: step1.exclude(
             project_id, payload.proposals, payload.reason, payload.text, actor_name=actor(request)
@@ -163,6 +165,7 @@ def correct(request: HttpRequest, project_id: uuid.UUID, payload: Step1CorrectIn
 @declare(acts.UNDO, project="project_id")
 def undo(request: HttpRequest, project_id: uuid.UUID, payload: Step1UndoIn) -> Step1ActOut:
     """Undo one's own last act on Step 1: the sheets it undecided are compared again (in the act)."""
+    timing.report(step1.LOCK_WAIT)
     return Step1ActOut.from_view(deadlocks.retried(lambda: step1.undo(project_id), what="step1.undo"))
 
 
@@ -206,6 +209,7 @@ def answer_question(
     """Answer a Question with one of its options (`keep_open` keeps it open). A held file read
     anyway has its read job queued again, in the answer's transaction. The reply is the answered
     Question with the Proposals the answer moved (`changed_proposals`), as the list now words them."""
+    timing.report(step1.LOCK_WAIT)
 
     def act() -> step1.Answered:
         # The reply's progress is the count this block's end writes the rows from: after a held
