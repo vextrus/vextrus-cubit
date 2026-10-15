@@ -128,6 +128,16 @@ the session cap.
    DXF entity counts, a WebGL screenshot of the Claude Design model in headless Chromium, and the disk
    and memory. Then fetch what it wrote (`cma.sh fetch smoke`) and look at the design screenshot. Fix
    whatever failed before going on.
+   **What the first smoke check found (15 Oct), and what changed:** the system `python3` couldn't import
+   the environment's pip packages, so the Lead now makes its own venv with uv as its first step.
+   WebGL in software takes about 80 s per screenshot, so the prompt now sets waits and a one-frame
+   `?shot` mode. The DWG archive also carries the consultant's plotted PDFs for Architecture and
+   Structural, and the agents now use them to check renders. three.js is pinned to 0.184.0, the
+   version the Claude Design model loads. `fetch` no longer pipes into `ant files download`, and it
+   skips the session's copies of your uploads. The sandbox reported 15 GiB of memory and 29 GB of free
+   disk, more than the documented minimum. To pick up these changes: `git pull`, then
+   `cma.sh apply --yes` (a new agent version and an updated environment), then `cma.sh fetch smoke`. A
+   second smoke check is optional.
 7. **Launch:** `cma.sh launch`. One call creates the session with its mounts and its $70 cap, and sends
    your kickoff message (`kickoff.md`, in your words) followed by outcome 1. It prints the session's
    Console link.

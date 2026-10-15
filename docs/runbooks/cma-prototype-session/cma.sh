@@ -103,8 +103,8 @@ case "${1:-}" in
         printf 'FAILED\t%s\n' "$rel"         # never trust the exit code alone: the size is shown too
       fi
     done < <(find "$edison" -iname '*.dwg' -print0) | tee "$work/dxf.tsv"
-    tar -czf "$work/edison-dwg.tar.gz" -C "$edison" .
-    tar -czf "$work/edison-dxf.tar.gz" -C "$work/dxf" .
+    tar -czf "$work/edison-dwg.tar.gz" --exclude='*Zone.Identifier' -C "$edison" .
+    tar -czf "$work/edison-dxf.tar.gz" --exclude='*Zone.Identifier' -C "$work/dxf" .
     cp -- "$2" "$work/live-model-g9-v2.html"
     ls -lh "$work"/edison-*.tar.gz "$work/live-model-g9-v2.html"
     echo "check dxf.tsv: a DXF far smaller than its neighbours is a thin conversion"
@@ -138,8 +138,8 @@ case "${1:-}" in
           count the DXF files and, with ezdxf, the entities in the three largest; run `git -C
           /workspace/vextrus-cubit log -1 --oneline`; open the Claude Design HTML in Chromium with
           --use-angle=swiftshader --enable-unsafe-swiftshader and save a screenshot to
-          /mnt/session/outputs/smoke/design.png; report `df -h /workspace` and `free -h`; check that
-          `python3 -c "import ezdxf, ifcopenshell"` works and that three.js is under `npm root -g`.
+          /mnt/session/outputs/smoke/design.png; report `df -h /workspace` and `free -h`; make the
+          analysis venv the system prompt names and check that ezdxf and ifcopenshell import there.
           Then stop and report in ten lines.
 YAML
 )"
@@ -174,13 +174,20 @@ YAML
     ;;
   fetch)
     s=$(sid "${2:-session}"); out="$work/outputs/$s"; mkdir -p "$out"
+    # The listing also holds the session's read-only copies of the uploads (downloadable: false); only the
+    # files the session wrote to /mnt/session/outputs/ can be downloaded. The list goes to a file first:
+    # `ant files download` reads a piped stdin as a request body, so it gets /dev/null.
     ant beta:files list --scope-id "$s" --beta managed-agents-2026-04-01 \
-      --transform '{id,filename}' --format jsonl |
-      while IFS= read -r line; do
-        id=$(jq -r .id <<<"$line"); name=$(jq -r .filename <<<"$line" | tr '/' '_')
-        ant files download --file-id "$id" --output "$out/$name" && echo "$name"
+      --transform '{id,filename,downloadable}' --format jsonl > "$out/.files.jsonl"
+    jq -r 'select(.downloadable == true) | [.id, .filename] | @tsv' "$out/.files.jsonl" |
+      while IFS=$'\t' read -r id name; do
+        name=${name//\//_}
+        ant files download --file-id "$id" --output "$out/$name" < /dev/null && echo "$name"
       done
-    [ -f "$out/outputs.tar.gz" ] && mkdir -p "$out/tree" && tar -xzf "$out/outputs.tar.gz" -C "$out/tree" && echo "unpacked: $out/tree"
+    echo "$(jq -s 'map(select(.downloadable != true)) | length' "$out/.files.jsonl") upload copies skipped"
+    if [ -f "$out/outputs.tar.gz" ]; then
+      mkdir -p "$out/tree" && tar -xzf "$out/outputs.tar.gz" -C "$out/tree" && echo "unpacked: $out/tree"
+    fi
     ;;
   *) sed -n '2,15p' "$0"; exit 1 ;;
 esac

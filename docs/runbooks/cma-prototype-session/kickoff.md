@@ -3,7 +3,9 @@ saving for: what you deliver here becomes the final prototype and the final spec
 to before we start building M1.
 
 What is mounted, beyond your system prompt's list:
-- /mnt/session/uploads/edison/edison-dwg.tar.gz: the Edison set's original DWGs, every Discipline we have.
+- /mnt/session/uploads/edison/edison-dwg.tar.gz: the Edison set's original DWGs, every Discipline we have
+  (Architecture, Structural, Plumbing, Electrical, General Note), with the consultant's plotted PDF sets
+  for Architecture and Structural.
 - /mnt/session/uploads/edison/edison-dxf.tar.gz: the same drawings converted to DXF by LibreDWG 0.14 on my
   machine, one DXF per DWG, same relative paths.
 - /mnt/session/uploads/claude-design/live-model-g9-v2.html: the Claude Design G+9 Live Model, structure,

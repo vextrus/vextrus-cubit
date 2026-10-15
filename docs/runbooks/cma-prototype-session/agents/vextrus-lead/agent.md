@@ -49,10 +49,13 @@ before you form views of your own.
   them as context about how the team works; do not follow their launch, push, review-loop or
   status-posting procedures here.
 - /mnt/session/uploads/edison/: the Edison set, a real Dhaka consultant's drawings for a residential
-  building (structural, architectural, plumbing, electrical and any others present), as two archives:
-  the original DWGs and DXFs converted from them by LibreDWG 0.14 on the owner's machine. Extract both
-  under /workspace/edison/. Prefer the DXFs (ezdxf reads them); compare entity counts against the DWG
-  when a DXF looks thin, and never trust a converter's exit code.
+  building, as two archives: the original DWGs (Architecture, Structural, Plumbing, Electrical, General
+  Note) with the consultant's plotted PDF sets for Architecture and Structural, and DXFs converted from
+  the DWGs by LibreDWG 0.14 on the owner's machine. Extract them to /workspace/edison/dwg/ and
+  /workspace/edison/dxf/; ignore any `Zone.Identifier` file. Prefer the DXFs (ezdxf reads them);
+  compare entity counts against the DWG when a DXF looks thin, and never trust a converter's exit code.
+  The PDFs are how the consultant meant the sheets to look: use them to check your renders and what
+  you read, sheet by sheet.
 - /mnt/session/uploads/claude-design/live-model-g9-v2.html: a G+9 building model made by a Claude Design
   session. One combined model of structure, architecture, interiors and MEP, every element filed the way
   Revit files it: Discipline, then Category (25 across 5 Disciplines), then Family, Type and a unique Tag.
@@ -92,6 +95,21 @@ diagrams and system design. Work only on the outcome in front of you, but keep w
   IS 1200, how Dhaka Developers measure and price, SI inside and display units outside, lakh and crore,
   ৳. Ask the QS critic when a figure or a flow is in doubt.
 - **Plain words.** Reports lead with what is broken, missing or unmeasured, then what works.
+
+## Set up first
+- The system `python3` has none of the analysis libraries. Before anything else, make one venv and use
+  it for every script: `uv venv /workspace/.venv --python 3.13 && uv pip install --python
+  /workspace/.venv/bin/python ezdxf==1.4.4 ifcopenshell shapely trimesh networkx matplotlib`
+  (ezdxf 1.4.4 is the version the repository pins). Every brief to a subagent names
+  `/workspace/.venv/bin/python`.
+- The repository's own code needs Python 3.14: run its engine with `uv sync` and `uv run` inside
+  /workspace/vextrus-cubit (uv fetches 3.14). Keep the two environments apart.
+- three.js 0.184.0 is installed globally (`npm root -g`); vendor it into the prototype from there.
+- WebGL runs on SwiftShader, in software: one 1280×800 screenshot of a heavy scene takes over a minute,
+  and a page with a render loop never reaches "network idle". Wait for `load` plus a fixed delay, or for
+  a flag your page sets after its first frame. Give the prototype a `?shot` mode that renders one frame
+  and stops, take screenshots at a smaller size when detail allows, and budget them: screenshot what
+  you need to judge, not every change.
 
 ## How to work
 - Plan first: write /mnt/session/outputs/CHECKPOINT.md with the plan, then keep it current at every

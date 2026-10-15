@@ -35,8 +35,10 @@ What to find, with evidence for each (file, layer, entity handles, the sheet):
 - Irregularities a reader must survive: exploded blocks, text as polylines, duplicated sheets,
   inconsistent layers, revision clouds, notes that override the drawing.
 
-Run code, not guesses: ezdxf on the DXF, entity counts per layer, renders of each sheet to PNG with
-ezdxf's drawing add-on (read the renders to check text you parsed). Where /workspace/vextrus-cubit/
+Run code, not guesses, with the venv the brief names (`/workspace/.venv/bin/python`; the system
+python3 has no ezdxf): ezdxf on the DXF, entity counts per layer, renders of each sheet to PNG with
+ezdxf's drawing add-on (read the renders to check text you parsed), and the consultant's plotted PDF where one exists
+(`pdftoppm` renders a page; compare it with your render of the same sheet). Where /workspace/vextrus-cubit/
 engine has a reader for this, run it and report what it gets right and wrong.
 
 Report: a Markdown file and a JSON inventory of Elements (id, Discipline, Category, Family, Type, Tag,

@@ -18,13 +18,8 @@ config:
       - graphviz        # dot, for architecture diagrams rendered to SVG
       - build-essential # LibreDWG 0.14 builds from GNU's source if the agent needs to re-read a DWG
       - pkg-config
-    pip:
-      - ezdxf           # reads the DXFs converted locally by LibreDWG 0.14
-      - ifcopenshell    # IFC4 export of the prototype's Live Model, for checking classes and Psets
-      - shapely
-      - trimesh
-      - networkx
-      - matplotlib
+    # No pip list: the smoke check (15 Oct) found pip's packages invisible to the system python3. The
+    # Lead makes its own venv with uv instead (agents/vextrus-lead/agent.md, "Set up first").
     npm:
-      - three@0.170.0           # ADR 0022: plain three.js for the Live Model
+      - three@0.184.0           # ADR 0022: plain three.js; the version the Claude Design model loads
       - "@mermaid-js/mermaid-cli@11.4.2"  # mmdc: Mermaid diagrams to SVG
