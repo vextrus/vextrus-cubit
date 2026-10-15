@@ -5,7 +5,7 @@
 `.private/work/s29/close/measures.md` (the measures) first.
 
 **The goals, in order:**
-1. **M0's walks.** G1 walk #2 started on main after #885 (session 29, about 01:45Z 15 Oct; the owner's ruling "Wait for
+1. **M0's walks.** G1 walk #2 started on main 1e6062eeacebb57713025246bf2ec9dacb04fb87 after #885 (session 29, 01:25Z 15 Oct; the owner's ruling "Wait for
    M0b, walk #2 ~01:00Z"). Read its verdict (`.private/work/walks/<sha40>/verdict.json`) before anything else. If it
    PASSed: walk #3 is its repeat, `/real-set-walk <sha40> --repeat <walk #2 sha40>` after `scripts.walk.run <sha40>
    --hold-minutes 150`, on a quiet machine (no real-drawing run, no local builder), with no product path landed between
@@ -18,8 +18,8 @@
 ## Where session 29 left things (15 Oct 2026, about 01:30Z)
 - **Merged:** #882 (S29-M0a, walk #1's f-1: a Step 1 row shows only the run sheets it holds; the server's whole-run check
   follows the web's rows), #886 (S29-F1, CI speed: timing file, shard balance check, lint tests in parallel), #883 (S29-F3,
-  the main watcher: reverts a red main's culprit; the review passes the revert by code), and #885 if its posting run was
-  clean (S29-M0b: undo 126 to 102 statements, `Server-Timing: app, lock` on Step 1's acts but never past the tenant wall,
+  the main watcher: reverts a red main's culprit; the review passes the revert by code), and #885 (its posting run
+  clean; S29-M0b: undo 126 to 102 statements, `Server-Timing: app, lock` on Step 1's acts but never past the tenant wall,
   `act_times` in walk.json, the walk's hold ends on verdict.json).
 - **Held open:** #893 (S29-F2a, `verify --fast`: 3.6-4.2 min against 25 min full; review PASS; it owes the real-drawing
   check and a design gate because it touches `vextrus/testing` and `web/vite.config.ts`; land after walk #3, it is a
@@ -55,3 +55,12 @@ Filed in session 29: #881 (copy order of one number, server vs web), #888 #889 (
 merge in a revert's window), #890 (Cut section check), #891 (undo toast offers an act the server refuses), #892 (Step 1
 grid aria-required-children), #894 (fast verify gaps), #895 (F2b replan), #897 (ledger gap after a refused round 1),
 #898 (F7 replan); a t16 viewer flake noted on #245; a `test_watch.py::test_w12` SIGTERM timeout seen once (file if it repeats).
+
+## Before the session: the owner's steps (check each in the first 15 minutes)
+1. Stop the idle local sessions s29-m0a, s29-m0a-f1 and s29-m0b-v (their work is merged), and the cloud sessions of
+   S29-F7-F1 (superseded by F7-R) if still open.
+2. Remove the session's scratch worktrees: `.claude/worktrees/S29-M0a`, `S29-M0a-F1`, `S29-M0b-V`,
+   `.private/work/s29/gate882/tree`, `.private/work/s29/m0b/tree`, `.private/work/s29/close-wt`, the writers'
+   throwaways under `.private/work/s29/*-writer/`, and `.private/work/s29/m0a-writer/scratch`.
+3. Drop the gate database `vextrus_gate882` and the S29 local builders' databases with their `_test_*` copies.
+4. Keep walk #2's stack until its verdict.json exists (the hold ends on it, cap 150 minutes).
