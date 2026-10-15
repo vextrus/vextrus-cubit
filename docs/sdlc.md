@@ -35,7 +35,8 @@ should remove as much as it adds."
    was not verified**, then what was verified and how.
 7. **Gate each PR** (ADR 0025's ruleset: a PR and CI green; since 7 Oct 2026 a branch need not be up to date
    with `main`, but since 14 Oct 2026 (ADR 0041, Amended) the lander and `merge_ready` refuse a head that does
-   not contain main's tip, naming `land update`, the only update (it merges main into the PR); a conflicting PR
+   not contain main's tip when its PR is risk-tier or its files overlap main's since it left main (S29-F4), naming
+   `land update`, the only update (it merges main into the PR); a conflicting PR
    is refused, naming it too):
    - **engine PRs** (by path: `engine/**` and the reading modules, the list in the milestone's plan)
      carry the `real-drawings` status, which the orchestrator starts with one command and accepts
