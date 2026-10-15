@@ -4,7 +4,7 @@ A small local harness for Claude Code, made to work the way the Managed Agents s
 (`docs/research/2026-10-15-cma-session-lessons.md`). It has one lead, specialists with their own model
 and effort, work given as outcomes graded by an independent grader, code checks as the first judge, and
 the product looked at in a browser. It has no factory ceremony. The evidence behind it is
-`docs/research/2026-10-15-local-harness.md`, and its first use is `docs/handoff/session-31-prompt.md`.
+`docs/research/2026-10-15-local-harness.md`, and its first use is `docs/handoff/studio-01-prompt.md`.
 
 This folder is the public template. The workspace it makes, `~/vextrus-studio`, is private and stays
 on the owner's machine, because it holds the Edison set's dissection and the prototype built from it.

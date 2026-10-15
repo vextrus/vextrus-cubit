@@ -3,7 +3,7 @@
 15 Oct 2026. Question: how do we get, on the owner's own machine and Max subscription, the working
 style that made one Claude Managed Agents session productive (`2026-10-15-cma-session-lessons.md`),
 without rebuilding the factory? This file collects what the official docs and Anthropic's engineering
-posts say, with sources, and ends with the design they support (`studio/`, `docs/handoff/session-31-prompt.md`).
+posts say, with sources, and ends with the design they support (`studio/`, `docs/handoff/studio-01-prompt.md`).
 
 **Not read.** The owner's four claude.dev posts (building-effective-agent-automations,
 claude-code-in-the-cloud, getting-started-with-claude-code-mods, spending-your-effort) did not resolve

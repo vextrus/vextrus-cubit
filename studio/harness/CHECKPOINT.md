@@ -15,4 +15,5 @@ Updated at every milestone. Times from `date -u`.
 ## Open questions for the owner
 
 ## Next step
-- Session 31 phase 0 (docs/handoff/session-31-prompt.md in the product repository).
+- Studio session 1, phase 0: `BRIEF.md` in this folder (a copy of the product repo's
+  `docs/handoff/studio-01-prompt.md`). No other brief applies here.

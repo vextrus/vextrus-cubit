@@ -1,4 +1,4 @@
-# Session 31: the prototype made right, in the Vextrus Studio
+# Studio session 1: the prototype made right, in the Vextrus Studio
 
 **The owner, 15 Oct 2026:**
 - "our next biggest goal should be critically reviewing the protype locally and then with multi-agentic
@@ -7,7 +7,8 @@
 - "100% focus on local Claude Code raw ... not following the path of our factory setup"
 - "without making it perfect as I intended it to be, Outcome 3 spec generation is pointless"
 
-**Where:** `~/vextrus-studio`, made by `studio/bootstrap.sh`. It is a private, local-only git repo with
+**Not the factory's session 31.** Session 30 may have left its own draft named session 31; ignore it here.
+**Where:** `~/vextrus-studio`, made by `studio/bootstrap.sh`, which copies this brief there as `BRIEF.md`. It is a private, local-only git repo with
 its own small `CLAUDE.md`, agents and workflows (`studio/README.md`). Not in `~/vextrus-cubit`: the
 factory's hooks, gates and launch scripts are not used in this session and are not changed by it.
 
@@ -24,14 +25,14 @@ did and deferred), and, in the product repo, `docs/research/2026-10-15-cma-sessi
 
 ## Start
 ```sh
-cd ~/vextrus-cubit && git fetch origin && git checkout claude/vextrus-m1-prototype-spec-ew6hgy  # or its worktree
+cd ~/vextrus-cma && git pull    # the branch's worktree; the main checkout stays on main
 studio/bootstrap.sh            # once; picks the newest .private/work/cma/outputs/sesn_*/tree
 cd ~/vextrus-studio && claude
 ```
 First message to paste:
 
-> Read CLAUDE.md, CHECKPOINT.md and ~/vextrus-cubit/docs/handoff/session-31-prompt.md, and run session 31.
-> My budget today is <N> hours.
+> Read CLAUDE.md, CHECKPOINT.md and BRIEF.md (all in this folder) and run studio session 1. Use no other
+> brief. My budget today is <N> hours.
 
 ## Phase 0: ready to work (at most 45 min)
 1. **Read the owner's four posts** on this machine (they did not resolve from the cloud):

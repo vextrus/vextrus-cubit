@@ -23,6 +23,7 @@ touch "$studio/checks/.keep" "$studio/shots/owner/.keep"
 
 # The harness
 cp "$here/harness/CLAUDE.md" "$here/harness/CHECKPOINT.md" "$here/harness/OWNER-REVIEW.md" "$studio/"
+cp "$here/../docs/handoff/studio-01-prompt.md" "$studio/BRIEF.md"     # the session brief, inside the studio
 cp -R "$here/harness/claude" "$studio/.claude"
 cp "$here/harness/mcp.json" "$studio/.mcp.json"
 cp "$here/harness/outcomes/RUBRIC-TEMPLATE.md" "$studio/outcomes/"
@@ -36,7 +37,7 @@ cp -R "$cma/." "$studio/cma/"
 chmod -R a-w "$studio/cma"
 cp -R "$cma/private/02-prototype" "$studio/proto"
 cp -R "$cma/private/01-dissect" "$studio/data"
-tracked=(CLAUDE.md CHECKPOINT.md OWNER-REVIEW.md .claude .mcp.json .gitignore outcomes checks shots cma proto data)
+tracked=(CLAUDE.md CHECKPOINT.md OWNER-REVIEW.md BRIEF.md .claude .mcp.json .gitignore outcomes checks shots cma proto data)
 if [ -d "$cma/public/02-prototype" ]; then cp -R "$cma/public/02-prototype" "$studio/generator"; tracked+=(generator); fi
 chmod -R u+w "$studio/proto" "$studio/data"
 if [ -d "$studio/generator" ]; then chmod -R u+w "$studio/generator"; fi
@@ -67,4 +68,4 @@ git -C "$studio" -c user.name="Vextrus Studio" -c user.email="studio@localhost" 
 echo
 echo "done: $(git -C "$studio" ls-files | wc -l) files in the studio's first commit. Next:"
 echo "  cd $studio && claude"
-echo "  then paste the first message from docs/handoff/session-31-prompt.md"
+echo "  then paste the first message from BRIEF.md (\"Read CLAUDE.md, CHECKPOINT.md and BRIEF.md ...\")"

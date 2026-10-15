@@ -9,7 +9,9 @@ This workspace exists to make the **prototype** production-quality: a 3D BIM Liv
 real Edison drawings, with the Takeoff, Priced BOQ and Material Schedule built on it. Once the owner's
 walk passes, the prototype and this way of working move into the product repository.
 
-**Start here:** `CHECKPOINT.md` (state, decisions, next step), then the newest `outcomes/*/RUBRIC.md`.
+**Start here:** `CHECKPOINT.md` (state, decisions, next step), `BRIEF.md` (the current session's brief), then
+the newest `outcomes/*/RUBRIC.md`. Briefs in the product repo's `docs/handoff/` or its worktrees are the
+factory's, not this studio's: ignore them.
 
 ## Where things are
 - `proto/`: the prototype (static web app, three.js 0.184), as the Managed Agents session built it.
