@@ -6,18 +6,18 @@
 # - allowlist-only (no model) is decided in code: only 64-hex lines added to the leak-scan allowlist.
 # - docs-only (no model, PASS by code): every changed path matches `docs_only.paths`, none matches
 #   `docs_only.never`, and each is a text file (`.md` or `.txt` with a line count; checked in code).
-# - risk (lens A and lens B; the refuter on every head): any changed path matches `risk.paths` OR
-#   matches no `ordinary.paths` glob.
-# - ordinary (one lens, lens B; the refuter on one head in five): every changed path matches
-#   `ordinary.paths` and none `risk.paths`, whatever its size.
+# - risk (lens A and lens B; the refuter on every head): any changed path that is not ordinary.
+# - ordinary (one lens, lens B; the refuter on one head in five): every changed path is on the review
+#   bar's lax set (`[lax] paths` less `[strict] paths` below, as scripts/ledger.py judges it) and on no
+#   `**/conftest.py`, no `[risk] paths` glob and no `[docs_only] never` glob, whatever its size.
 #
-# RISK IS THE DEFAULT (lesson (e), as in `[strict]` below): PR #884 listed the walls and its review
-# found one missed in each of two rounds, so `ordinary` names only plain product work and scripts/,
-# tools/, .github/, .claude/, the root's files and any folder nobody listed are risk. The risk list
-# still names walls (the owner's rulings Q5 and Q15, 14 Oct 2026: "the full panel on a risk tier
-# written down as paths"), including the risk modules inside the ordinary folders. A missing or
-# unreadable `risk` or `ordinary` list makes every path risk (scripts/factory/tiers.py). `ordinary`
-# globs keep case, as `[lax]` does.
+# RISK IS THE DEFAULT (lesson (e), as in `[strict]` below): there is no ordinary list of its own
+# (S30-F7, issue #898: PR #896's `[ordinary]` folders gave four access files one lens), so scripts/,
+# tools/, .github/, .claude/, vextrus/, engine/, the root's files, every .ts and .py and any folder
+# nobody listed are risk. The risk list still names walls (the owner's rulings Q5 and Q15, 14 Oct 2026:
+# "the full panel on a risk tier written down as paths"), the web views that reach access among them.
+# A missing or unreadable `[risk]`, `[docs_only] never`, `[strict]` or `[lax]` list makes every path
+# risk (scripts/factory/tiers.py).
 #
 # Patterns are globs on the repository path: `*` is any run of characters but `/`, `**/` any number
 # of folders (none included), a trailing `/**` everything below a folder. `never` and `risk` ignore case.
@@ -46,12 +46,11 @@ never = [
 ]
 
 [risk]
-# The full panel (S29-F7; Q5, Q15). Judged against docs/architecture.md's module map and the tree. Out,
-# by judgement: summary, exports, assistant and revisions (readings of boq's money, no money of their
-# own), measurement (its quantities reach money only through takeoff and boq), drawings but its tenant
-# wall and upload parser (its files are read in engine/read's sandbox, which is risk), live_model, seed,
-# the web's view code: each is on `[ordinary] paths` below. Everything else outside both lists (the
-# other tools/lint scans, the lockfiles, scripts/, .github/, .claude/) is risk by default.
+# The full panel (S29-F7; Q5, Q15). Judged against docs/architecture.md's module map and the tree.
+# Only a path on the lax set can be ordinary, so the globs here that sit off it (.py, .ts, the root's
+# files) name the walls for the reader and for ts29f7's risk table; the ones that bite are those inside
+# the lax globs: the web's members and auth screens, the instruction files, and the web views the
+# access tree walk marks (scripts/tests/acceptance/ts30f7).
 paths = [
   # The engine: the hostile-drawing readers and the recognisers.
   "engine/**",
@@ -67,6 +66,27 @@ paths = [
   "web/src/members/**",
   "web/src/auth/**",
   "web/src/routes/(auth)/**",
+  # The web views that reach access (S30-F7, issue #898's tree walk: each imports web/src/auth,
+  # web/src/members or the API transport, or handles a role or a Membership to decide what a person
+  # sees). By name: their folders hold many plain views.
+  "web/src/app/CanvasFrame.tsx",
+  "web/src/app/Frame.tsx",
+  "web/src/app/JumpTo.tsx",
+  "web/src/app/TopBar.tsx",
+  "web/src/app/testing.tsx",
+  "web/src/drawing-set/DrawingSetPage.tsx",
+  "web/src/drawing-set/ReportPanel.tsx",
+  "web/src/projects/NewProjectDialog.tsx",
+  "web/src/projects/ProjectsPage.tsx",
+  "web/src/takeoff/ActorChip.tsx",
+  "web/src/takeoff/Bar.tsx",
+  "web/src/takeoff/DrawingListDialog.tsx",
+  "web/src/takeoff/SheetHistory.tsx",
+  "web/src/takeoff/SheetLook.tsx",
+  "web/src/takeoff/Step1Screen.tsx",
+  "web/src/takeoff/acts.tsx",
+  "web/src/takeoff/words.tsx",
+  "web/src/ui/ReadOnlyChip.tsx",
   # The API's sign-in and CSRF, the middleware, and the walls earlier reviews found outside those
   # modules (PR #489 round 1, finding 2): drawings' tenant wall and the upload parser that runs before
   # sign-in.
@@ -133,30 +153,10 @@ paths = [
   # The scorer.
   "tools/scorer/**",
   # The files Claude Code loads as instructions in any folder (the docs-only never-list's), so none
-  # is ordinary inside an ordinary folder.
+  # is ordinary inside a lax folder.
   "**/CLAUDE*.md",
   "**/AGENTS*.md",
   "**/*.local.md",
-]
-
-[ordinary]
-# Plain product work outside the risk modules, and nothing else (S29-F7-R): a path on no glob here is
-# risk. `[risk] paths` above wins inside these folders (web/src/members, web/src/auth, the drawings
-# wall, any migrations, docs/rulings.md, the instruction files).
-paths = [
-  # The web's product code and its tests.
-  "web/src/**",
-  # The modules docs/architecture.md maps that the risk list leaves out (its "Out, by judgement").
-  "vextrus/assistant/**",
-  "vextrus/drawings/**",
-  "vextrus/exports/**",
-  "vextrus/live_model/**",
-  "vextrus/measurement/**",
-  "vextrus/revisions/**",
-  "vextrus/seed/**",
-  "vextrus/summary/**",
-  # The docs (plans, specs, ADRs, briefs and notes among them).
-  "docs/**",
 ]
 
 [strict]

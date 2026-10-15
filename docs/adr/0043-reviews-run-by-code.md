@@ -41,6 +41,10 @@ This list names walls, which item 2 said no tier does. The owner's rulings choos
 bounded: a wall the list misses still gets one lens, CI, the replay of every reproduction and the refuter
 on one head in five, never no model. The words lens is unchanged.
 
+**Amended 15 Oct 2026 (S30-F7, issue #898):** the `[ordinary]` list is gone (its folders gave four access files
+one lens, PR #896's round 1): a path is ordinary only on the bar's lax set (`[lax]` less `[strict]`, `ledger.on_strict_path`
+false) and on no `conftest.py`, `[risk]` or `[docs_only] never` glob; `[risk]` names the web views that reach access.
+
 ## Consequences
 `/review-pr` stays only until S14-R3 retires it. The command card (`.claude/skills/orchestrate-wave/commands.md`)
 and CLAUDE.md name the command.

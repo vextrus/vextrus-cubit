@@ -16,10 +16,11 @@ naming the check it owes.
    and so does revert (the merged head is main with exactly one first-parent merge reverted, a
    culprit the main watcher logged and `gh` reads red, with no later commit of main read green:
    `main_watch.watcher_revert`, S29-F3);
-   risk (any path on that file's `[risk]` list or on none of its `[ordinary]` globs,
-   `scripts.factory.tiers.is_risk`) gets lens A and lens B; plain product work, every path on an
-   `[ordinary]` glob, is ordinary whatever its size and gets lens B (the owner's rulings Q5 and Q15,
-   14 Oct 2026; S29-F7-R); a change under `web/src/messages/` adds the `ux-critic` words lens.
+   risk (any path off the review bar's lax set, a `conftest.py`, or on that file's `[risk]` or
+   `[docs_only] never` list, `scripts.factory.tiers.is_risk`) gets lens A and lens B; a PR whose every
+   path is on the lax set and on none of those is ordinary whatever its size and gets lens B (the
+   owner's rulings Q5 and Q15, 14 Oct 2026; S30-F7); a change under `web/src/messages/` adds the
+   `ux-critic` words lens.
 4. **Slot (code).** Review slot N is claimed by an exclusive `flock` on `.slot<N>.lock`, held until the
    run ends (two concurrent runs never share one). The read-only `.private/work/factory/review/slot<N>`
    and the runnable `.claude/worktrees/rv<N>` both hold the merged head.

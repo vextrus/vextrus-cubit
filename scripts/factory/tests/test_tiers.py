@@ -38,13 +38,40 @@ def test_an_unusable_tier_list_makes_every_path_risk(
     assert not tiers.is_risk([]), "an empty change is never risk"
 
 
+LISTS = (
+    "[docs_only]\npaths = ['n/**']\nnever = ['p/**']\n[risk]\npaths = ['a/m/**']\n"
+    "[strict]\npaths = ['a/w/**']\n[lax]\npaths = ['a/**/*.tsx']\n"
+)
+
+
 def test_the_list_is_read_afresh_for_each_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tiers_file = tmp_path / "review_tiers.toml"
     monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
-    tiers_file.write_text("[risk]\npaths = ['a/**']\n[ordinary]\npaths = ['a/**', 'b/**']\n")
-    assert tiers.risk_matches(["a/x.py", "b/x.py"]) == ["a/x.py"]
-    tiers_file.write_text("[risk]\npaths = ['b/**']\n[ordinary]\npaths = ['a/**', 'b/**']\n")
-    assert tiers.risk_matches(["a/x.py", "b/x.py"]) == ["b/x.py"]
+    tiers_file.write_text(LISTS)
+    assert tiers.risk_matches(["a/x.tsx", "a/m/x.tsx"]) == ["a/m/x.tsx"]
+    tiers_file.write_text(LISTS.replace("'a/m/**'", "'a/x.tsx'"))
+    assert tiers.risk_matches(["a/x.tsx", "a/m/x.tsx"]) == ["a/x.tsx"]
+
+
+def test_a_leftover_ordinary_list_makes_nothing_ordinary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S30-F7: there is no second ordinary list; an `[ordinary]` table is read by nobody."""
+    tiers_file = tmp_path / "review_tiers.toml"
+    monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
+    tiers_file.write_text(LISTS + "[ordinary]\npaths = ['**']\n")
+    assert tiers.risk_matches(["a/x.py", "b/x.tsx", "a/x.tsx"]) == ["a/x.py", "b/x.tsx"]
+
+
+@pytest.mark.parametrize("path", ["a/x.tsx:12", "a/x.tsx#L3", "a/x.tsx:1-4"])
+def test_a_path_the_bar_shortens_is_judged_as_it_is(
+    path: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The bar drops a location suffix before it judges; a changed file so named is no view: risk."""
+    tiers_file = tmp_path / "review_tiers.toml"
+    monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
+    tiers_file.write_text(LISTS)
+    assert tiers.risk_matches([path, "a/x.tsx"]) == [path]
 
 
 @pytest.mark.parametrize(
@@ -110,30 +137,52 @@ def test_a_path_on_no_ordinary_list_is_risk(path: str) -> None:
     assert tiers.risk_matches(["web/src/components/a.tsx", path]) == [path]
 
 
-@pytest.mark.parametrize(
-    "path",
-    [
-        "web/src/components/badge.tsx",
-        "docs/notes/howto.md",
-        "docs/handoff/session-29-prompt.md",
-        "vextrus/exports/services.py",
-        "vextrus/drawings/models.py",
-        "vextrus/measurement/quantities.py",
-    ],
-)
+@pytest.mark.parametrize("path", ["web/src/components/badge.tsx", "docs/notes/howto.md"])
 def test_plain_product_work_stays_ordinary(path: str) -> None:
     assert not tiers.is_risk([path])
 
 
-@pytest.mark.parametrize("text", [None, "[risk]\npaths = ['a/**']\n", "[ordinary]\npaths = []\n"])
-def test_an_unusable_ordinary_list_makes_every_path_risk(
+@pytest.mark.parametrize(
+    "path",
+    [
+        # S30-F7: once on PR #896's `[ordinary]` folders, off the bar's lax set or a never glob now.
+        "docs/handoff/session-29-prompt.md",
+        "vextrus/exports/services.py",
+        "vextrus/drawings/models.py",
+        "vextrus/measurement/quantities.py",
+        "web/src/ui/cn.ts",
+        # The web views the access tree walk marks (issue #898), named on `[risk]`.
+        "web/src/app/TopBar.tsx",
+        "web/src/takeoff/Step1Screen.tsx",
+        "web/src/ui/ReadOnlyChip.tsx",
+        # pytest's configuration in any folder, also inside a lax glob's reach.
+        "web/src/ui/conftest.py",
+    ],
+)
+def test_what_896_called_ordinary_off_the_lax_set_is_risk(path: str) -> None:
+    assert tiers.risk_matches(["web/src/components/badge.tsx", path]) == [path]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        None,
+        "[risk]\npaths = ['a/**']\n",
+        LISTS.replace("never = ['p/**']\n", ""),
+        LISTS.replace("never = ['p/**']", "never = []"),
+        LISTS.replace("never = ['p/**']", "never = ['p/**', '']"),
+        LISTS.replace("never = ['p/**']", "never = 'p/**'"),
+        LISTS.replace("[strict]\npaths = ['a/w/**']\n", ""),
+    ],
+)
+def test_an_unusable_list_makes_every_path_risk(
     text: str | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     tiers_file = tmp_path / "review_tiers.toml"
     if text is not None:
         tiers_file.write_text(text)
     monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
-    assert tiers.risk_matches(["b/x.py", "web/src/a.tsx"]) == ["b/x.py", "web/src/a.tsx"]
+    assert tiers.risk_matches(["b/x.py", "a/x.tsx"]) == ["b/x.py", "a/x.tsx"]
 
 
 @pytest.mark.parametrize("pr", [1, 12, 881])
