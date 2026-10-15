@@ -852,3 +852,28 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
   and dropped "user-facing", which `scripts/tests/acceptance/ts25f2/test_bar_docs_agree.py` pins; `ci.yml`'s changes step
   runs no Python on docs-only heads, so only main's push run would have failed. Review round 1 caught it. No check yet:
   owed (the changes step runs the docs-pinning tests when CLAUDE.md, `docs/` or `.claude/` change).
+
+## Session 29 (14-15 Oct 2026): the factory's wave 1 half landed; M0's f-1 fixed; the usage window ran out at 1 h 40
+- **Eight Opus `high` acceptance writers and six builders at once used the whole session window in 100 minutes.** Every
+  builder stalled about 75 minutes (STOP-FAILURE rate_limit; four BUDGET-PASSED rows that were not overruns). The governor
+  held launches at 100 % but launched into 21 % of the window without a forecast. No check yet: owed (the governor's
+  `cloud-session` and `local-agent` units refuse a launch whose expected spend would cross the window's floor).
+- **Builders wrote notes after `## Cut` three times** (M0a-F1, F2b, F2a); publish refused each head and each needed an
+  empty re-commit and a message round. No check yet: owed (#890: the verify runs merge_ready's Cut parser on the READY message).
+- **Two parallel tickets editing one gate file deadlock each other's crosspr** (F3 and F7 in `scripts/factory/review.py`):
+  each verify refused while the other PR was open. The remedy was to close one PR for a while and land the other first.
+  Rule: tickets that share a file are launched in sequence, or one is told at launch that it lands second. No check yet:
+  owed (the launch refuses a ticket whose plan names a file an open ticket's branch changes, unless `--after <ticket>`).
+- **A refused round 1 followed by a recorded round 2 strands a PR's ledger** (#884): no round can be recorded again. The
+  PR was closed and reopened as #896. No check yet: owed (#897).
+- **Listing walls as paths did not converge, again** (F7: every round CONFIRMED a missed gate or access file; lesson (e)
+  of review_tiers.toml). Back to planning (#898). Check: none until the replan; the replan owes a tree-walking test.
+- **A shell-parsing hook judged as a wall did not converge** (F2b: each round found a new spelling that slips past). The
+  replan frames it as advisory (#895). Rule: a convenience check is written and reviewed as advisory, never as a wall.
+- **A cloud box could not pass the slowed web pass on files the PR never touched** (M0b-F1: 4 timeouts, verify unrecordable
+  for 90 minutes). A fresh local builder recorded the verify in 12 minutes. Check: #893 (F2a, held) scales web timeouts by
+  `VEXTRUS_TIME_SCALE`; until it lands, a cloud builder blocked only on untouched slowed tests is finished locally.
+- **A test-only change under `vextrus/` costs the real-drawing check's full run** (#893: a timing helper and an amended
+  test). That is F5's case; carried to session 30.
+- **The first PR of the new flow:** #882 (M0a f-1) went acceptance, build, a fresh-context fix round before review,
+  review PASS, gate PASS, real-drawing check clean, merged at 124 minutes open-to-merge. Check: the ledger and the statuses.
