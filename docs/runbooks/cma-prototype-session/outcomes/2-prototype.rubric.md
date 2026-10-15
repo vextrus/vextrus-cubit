@@ -20,9 +20,9 @@ Grade each criterion on its own. Paths are under /mnt/session/outputs/.
    marked allowances; every figure opens its Trace to Elements.
 6. Quantities in the Priced BOQ are computed by code from the model's geometry, and the QS critic's review
    of them (method, deductions, units) is recorded with each finding fixed or explained.
-7. Life Phases (As designed, As built, As maintained) and the 4D and 5D readings are shown as working
-   previews on the same Element identities (for example: construction stages that raise the building
-   over time, cost by stage), clearly marked as previews.
+7. Life Phases (As designed, As built, As maintained) and the 4D and 5D readings each have one preview on
+   the same Element identities (for example a construction-stage slider that raises the building, and
+   cost by stage), clearly marked as a preview; previews may use stated sample values.
 8. It meets docs/research/viewer-3d-budgets.md on the sandbox or says by how much it misses; the agent
    measured load time, frame time and memory in headless Chromium and recorded them.
 9. `private/02-prototype/screenshots/` holds screenshots of every screen and of the model by

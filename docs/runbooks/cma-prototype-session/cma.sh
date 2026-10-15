@@ -168,6 +168,7 @@ events:
           word for word: write to exactly its paths and meet every criterion before you ask for a
           grade. Keep within the budget I set for it; record anything deferred in CHECKPOINT.md.
       - {type: text, text: "@./outcomes/$f.rubric.md"}
+$( [ -f "$here/outcomes/$f.notes.md" ] && printf '      - {type: text, text: "@./outcomes/%s.notes.md"}' "$f" )
 YAML
       grep -v '^#' "$here/outcomes/$f.event.yaml" | indent; } |
       (cd "$here" && ant beta:sessions:events send --session-id "$(sid)" > /dev/null)
