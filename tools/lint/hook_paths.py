@@ -1,9 +1,11 @@
 """The guard's registration is pinned (docs/specs/factory.md 3.5, 3.7; PR f2).
 
 A missing or mistyped hook path silently disables a gate, so this lint asserts, of the settings:
-- the PreToolUse event has exactly one entry, equal to the expected literal: matcher
+- the PreToolUse event's first entry equals the guard's literal: matcher
   `Bash|Edit|Write|NotebookEdit`, one command hook `node "$CLAUDE_PROJECT_DIR"/.claude/hooks/guard.mjs`,
-  timeout 10;
+  timeout 10; after it at most one more entry, equal to the shift-left checks' literal (S29-F2b): matcher
+  `Bash`, one command hook `node "$CLAUDE_PROJECT_DIR"/.claude/hooks/shift-left.mjs`, timeout 15. Any
+  other PreToolUse entry could allow or deny a tool, so it is a problem;
 - `permissions.deny` holds every secret-file rule (Read and Edit of seven files) and the two record rules
   (the leak stamps and the ledger), and the three earlier denies;
 - no `permissions.allow` rule reads or edits a secret file;
@@ -29,6 +31,16 @@ GUARD_ENTRY: dict[str, Any] = {
             "type": "command",
             "command": 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/guard.mjs',
             "timeout": 10,
+        }
+    ],
+}
+SHIFT_LEFT_ENTRY: dict[str, Any] = {
+    "matcher": "Bash",
+    "hooks": [
+        {
+            "type": "command",
+            "command": 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/shift-left.mjs',
+            "timeout": 15,
         }
     ],
 }
@@ -71,17 +83,24 @@ def problems(settings: dict[str, Any], root: Path) -> list[str]:
     if not isinstance(hooks, dict):
         return ["settings: no hooks block"]
     entries = hooks.get("PreToolUse")
-    if not isinstance(entries, list) or len(entries) != 1:
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 2:
         found.append(
-            "PreToolUse: expected exactly one entry (the guard), "
-            f"found {len(entries) if isinstance(entries, list) else 0}"
+            "PreToolUse: expected the guard's entry and at most the shift-left checks' after it, "
+            f"found {len(entries) if isinstance(entries, list) else 0} entries"
         )
-    elif entries[0] != GUARD_ENTRY:
-        found.append(
-            "PreToolUse: the guard's entry differs from the expected literal "
-            f"(matcher {GUARD_ENTRY['matcher']!r}, "
-            f"command {GUARD_ENTRY['hooks'][0]['command']!r}, timeout 10)"
-        )
+    else:
+        if entries[0] != GUARD_ENTRY:
+            found.append(
+                "PreToolUse: the guard's entry (the first) differs from the expected literal "
+                f"(matcher {GUARD_ENTRY['matcher']!r}, "
+                f"command {GUARD_ENTRY['hooks'][0]['command']!r}, timeout 10)"
+            )
+        if len(entries) == 2 and entries[1] != SHIFT_LEFT_ENTRY:
+            found.append(
+                "PreToolUse: the second entry differs from the shift-left checks' literal "
+                f"(matcher {SHIFT_LEFT_ENTRY['matcher']!r}, "
+                f"command {SHIFT_LEFT_ENTRY['hooks'][0]['command']!r}, timeout 15)"
+            )
     for event, groups in hooks.items():
         for group in groups if isinstance(groups, list) else []:
             for hook in group.get("hooks", []) if isinstance(group, dict) else []:

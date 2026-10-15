@@ -8,7 +8,10 @@ paths:
 - **Hooks** (`.claude/hooks/`): `guard.mjs` (the refusals in CLAUDE.md's Law, plus staging `.private/` or
   drawings, deleting untracked files and edits to reference drawings; its test: `node --test
   .claude/hooks/guard.test.mjs`); `state.mjs` prints the checkout's state at session start;
-  `after-bash.mjs` runs `sync` after each commit.
+  `after-bash.mjs` runs `sync` after each commit; `shift-left.mjs` is the advisory early warning at `git
+  commit` (leak scan, acceptance check, a READY message's Cut) and `gh pr create` (leak scan, Cut): it denies
+  only a call it judges exactly, else allows with one stderr line (its test: `node --test
+  .claude/hooks/shift-left.extra.test.mjs`).
 - **Launches:** `uv run python -m scripts.factory.launch cloud|say|local ...` from the main checkout
   (`scripts/factory/launch.py`; its contract: `docs/specs/factory/contracts/launch-cli.md`). It judges
   each cloud launch's debug log and refuses a bundled session or one cloned at the wrong branch. Every

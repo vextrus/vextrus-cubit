@@ -39,6 +39,11 @@ of round n whose head's round n-1 record is a FIX that rested only on unconfirme
 (`replays_only`); the newest round's record of a head is the one read.
 
 It prints each finding and exits 0 (ready) or 1 (not ready). It reads; it never posts or merges.
+
+`python -m scripts.merge_ready --cut-body <file>` runs (c) alone on a PR body file, and `--cut-message
+<file>` on a READY commit's message as publish makes its body (the trailers set aside), offline, before a
+PR exists (the advisory shift-left hook at `gh pr create` and `git commit`, S30-F2d, #890): each item
+links an issue; whether the issue is open is read at merge, never here.
 """
 
 import json
@@ -405,6 +410,36 @@ def scan_problems(facts: dict[str, Any], scan: Scan) -> list[str]:
     return found
 
 
+def body_cut_problems(body: str) -> list[str]:
+    """(c) before a PR exists, offline (the shift-left hook, S30-F2d): each item under a Cut, Not done
+    or Deferred heading links an issue (whether the issue is open is read at merge, by (c))."""
+    return cut_problems(body, lambda _number: True)
+
+
+def message_cut_problems(message: str) -> list[str]:
+    """(c) on a READY commit's message as publish makes the PR body of it (its Factory and attribution
+    trailers set aside, #890); a message with no `Factory-State: READY` line has none."""
+    from scripts.factory import publish, trailers  # lazy: publish imports this module
+
+    if not any(trailers.looks_ready(line) for line in message.splitlines()):
+        return []
+    return body_cut_problems(publish.pr_body(message, "0" * 40)[1])
+
+
+def _cut_main(flag: str, file: Path) -> int:
+    """`--cut-body <file>` or `--cut-message <file>`: (c) offline; exit 1 with a problem per line, 2
+    when the file cannot be read."""
+    try:
+        text = file.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        print("merge-ready: cannot read the file", file=sys.stderr)
+        return 2
+    found = body_cut_problems(text) if flag == "--cut-body" else message_cut_problems(text)
+    for problem in found:
+        print(f"merge-ready: {problem}")
+    return 1 if found else 0
+
+
 def cut_problems(body: str, issue_open: IssueOpen) -> list[str]:
     """(c) Each item under a Cut, Not done or Deferred heading links an open issue of this repository."""
     found = []
@@ -671,6 +706,8 @@ def main(
     head_ready: Callable[[str], bool] | None = None,
 ) -> int:
     args = sys.argv[1:] if argv is None else argv
+    if len(args) == 2 and args[0] in ("--cut-body", "--cut-message"):
+        return _cut_main(args[0], Path(args[1]))
     if len(args) != 1 or not args[0].isdigit():
         print("usage: python -m scripts.merge_ready <PR number>", file=sys.stderr)
         return 2

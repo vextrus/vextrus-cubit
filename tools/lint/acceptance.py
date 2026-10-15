@@ -24,6 +24,10 @@
 Standard library only.
 
     python -m tools.lint.acceptance <base> [<head>]
+    python -m tools.lint.acceptance --staged --message-file <f> [--base <rev>]
+
+The second form judges the commit `git commit` would make, by the per-commit rules (the shift-left
+hook, `.claude/hooks/shift-left.mjs`, runs it before every commit; S29-F2b).
 
 Acceptance paths: `<anything>/tests/acceptance/…` (pytest, the engine's tests among them),
 `web/src/acceptance/…` (vitest) and `web/e2e/acceptance/…` (Playwright).
@@ -32,6 +36,7 @@ Acceptance paths: `<anything>/tests/acceptance/…` (pytest, the engine's tests 
 import re
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 ACCEPTANCE = re.compile(r"(?:^|/)tests/acceptance/|^web/(?:src|e2e)/acceptance/")
@@ -169,36 +174,58 @@ def _is_one_side(root: Path, commit: str, parents: list[str], path: str) -> bool
     return _blob(root, commit, path) in {_blob(root, parent, path) for parent in parents}
 
 
+def commit_problems(
+    label: str,
+    subject: str,
+    files: list[str],
+    counted: Callable[[], str | None],
+    config_diff: Callable[[str], str],
+) -> list[str]:
+    """One commit's problems under the rules above (CI's commits and the shift-left hook's staged one):
+    `label` names it, `counted()` is its message when its counts are owed (None: exempt), and
+    `config_diff(name)` is its `--unified=0` diff of a test configuration file."""
+    found = []
+    touched = [name for name in files if is_acceptance(name)]
+    labelled = subject.startswith(PREFIX)
+    if touched and not labelled:
+        found.append(
+            f"{label} changes {touched[0]} (an acceptance test) but its message does not "
+            f"start with {PREFIX!r}: only the acceptance-writer's commits change acceptance tests"
+        )
+    if labelled and (other := [name for name in files if not is_acceptance(name)]):
+        found.append(
+            f"{label} is an {PREFIX!r} commit but also changes {other[0]}: an acceptance "
+            "commit changes acceptance tests only"
+        )
+    if labelled and (message := counted()) is not None:
+        found.extend(
+            f"{label} is an {PREFIX!r} commit whose message {problem} "
+            "(docs/specs/factory/contracts/trailers.md 3)"
+            for problem in count_problems(message)
+        )
+    for name in filter(CONFIG.search, files):
+        if NAMES_ACCEPTANCE.search(config_diff(name)):
+            found.append(
+                f"{label} changes a line naming the acceptance tests in {name}: acceptance "
+                "tests are never skipped, excluded or reconfigured from outside"
+            )
+    return found
+
+
 def problems(root: Path, base: str, head: str = "HEAD") -> list[str]:
     found = []
     exempt = legacy(root, base)
     for commit, subject, files in commits(root, base, head):
-        touched = [name for name in files if is_acceptance(name)]
-        labelled = subject.startswith(PREFIX)
-        if touched and not labelled:
-            found.append(
-                f"{commit[:12]} changes {touched[0]} (an acceptance test) but its message does not "
-                f"start with {PREFIX!r}: only the acceptance-writer's commits change acceptance tests"
-            )
-        if labelled and (other := [name for name in files if not is_acceptance(name)]):
-            found.append(
-                f"{commit[:12]} is an {PREFIX!r} commit but also changes {other[0]}: an acceptance "
-                "commit changes acceptance tests only"
-            )
-        if labelled and commit not in exempt and not only_deletes(root, commit):
-            message = _git(root, "log", "-1", "--format=%B", commit)
-            found.extend(
-                f"{commit[:12]} is an {PREFIX!r} commit whose message {problem} "
-                "(docs/specs/factory/contracts/trailers.md 3)"
-                for problem in count_problems(message)
-            )
-        for name in filter(CONFIG.search, files):
-            diff = _git(root, "show", "--format=", "--unified=0", commit, "--", name)
-            if NAMES_ACCEPTANCE.search(diff):
-                found.append(
-                    f"{commit[:12]} changes a line naming the acceptance tests in {name}: acceptance "
-                    "tests are never skipped, excluded or reconfigured from outside"
-                )
+
+        def counted(commit: str = commit) -> str | None:
+            if commit in exempt or only_deletes(root, commit):
+                return None
+            return _git(root, "log", "-1", "--format=%B", commit)
+
+        def config_diff(name: str, commit: str = commit) -> str:
+            return _git(root, "show", "--format=", "--unified=0", commit, "--", name)
+
+        found += commit_problems(commit[:12], subject, files, counted, config_diff)
     for commit, files in merges(root, base, head):
         if touched := [name for name in files if is_acceptance(name)]:
             found.append(
@@ -217,10 +244,62 @@ def _git(root: Path, *args: str) -> str:
     return done.stdout
 
 
+def staged_problems(root: Path, message: str, base: str | None = None) -> list[str]:
+    """The commit `git commit` would make (the shift-left hook, S29-F2b): the index (`GIT_INDEX_FILE`
+    when set) against `base` (default `HEAD`; the empty tree before the first commit) under `message`.
+    A merge being concluded (`MERGE_HEAD`) is judged by the merge rule in CI, not here."""
+    if _git_ok(root, "rev-parse", "-q", "--verify", "MERGE_HEAD") is not None:
+        return []
+    if base is None:
+        head = _git_ok(root, "rev-parse", "-q", "--verify", "HEAD^{commit}")
+        base = (head or _git(root, "hash-object", "-t", "tree", "/dev/null")).strip()
+    status = _files(_git(root, "diff", "--cached", "--name-status", "--no-renames", "-z", base, "--"))
+    kinds, files = status[0::2], status[1::2]
+    subject = message.split("\n", 1)[0].strip()
+
+    def counted() -> str | None:
+        return None if kinds and all(kind == "D" for kind in kinds) else message
+
+    def config_diff(name: str) -> str:
+        return _git(root, "diff", "--cached", "--unified=0", base, "--", name)
+
+    return commit_problems("the staged commit", subject, files, counted, config_diff)
+
+
+def _git_ok(root: Path, *args: str) -> str | None:
+    done = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, check=False)
+    return done.stdout if done.returncode == 0 else None
+
+
+USAGE = (
+    "usage: python -m tools.lint.acceptance <base> [<head>]\n"
+    "       python -m tools.lint.acceptance --staged --message-file <f> [--base <rev>]"
+)
+
+
+def _staged_main(args: list[str]) -> int:
+    options = dict(zip(args[1::2], args[2::2], strict=False))
+    known = {"--message-file", "--base"}
+    if len(args) % 2 == 0 or "--message-file" not in options or set(options) - known:
+        print(USAGE, file=sys.stderr)
+        return 2
+    try:
+        message = Path(options["--message-file"]).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        print("acceptance: cannot read the message file", file=sys.stderr)
+        return 2
+    found = staged_problems(Path.cwd(), message, options.get("--base"))
+    for problem in found:
+        print(problem)
+    return 1 if found else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
+    if args[:1] == ["--staged"]:
+        return _staged_main(args)
     if not args or len(args) > 2:
-        print("usage: python -m tools.lint.acceptance <base> [<head>]", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         return 2
     found = problems(Path.cwd(), args[0], args[1] if len(args) == 2 else "HEAD")
     for problem in found:

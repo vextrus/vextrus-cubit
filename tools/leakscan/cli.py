@@ -53,6 +53,9 @@ def _parser() -> argparse.ArgumentParser:
     text = commands.add_parser("text", parents=[common], allow_abbrev=False)
     text.add_argument("--stdin", action="store_true", required=True)
     text.add_argument("--no-stamp", action="store_true")
+    staged = commands.add_parser("staged", parents=[common], allow_abbrev=False)
+    staged.add_argument("--base")
+    staged.add_argument("--message-file", type=Path)
     pr = commands.add_parser("pr", parents=[common], allow_abbrev=False)
     pr.add_argument("number", type=int)
     folder = commands.add_parser("dir", parents=[common], allow_abbrev=False)
@@ -139,6 +142,14 @@ def _scan(options: argparse.Namespace) -> int:
         result = scan.scan_lines(corpus, data, "file" if command == "file" else "stdin")
         name = hashlib.sha256(data).hexdigest()
         stamp = (name, f"sha256:{name}")
+    elif command == "staged":
+        message = None
+        if options.message_file is not None:
+            try:
+                message = options.message_file.read_bytes().decode("utf-8", "replace")
+            except OSError:
+                raise CannotScan("source-unreadable") from None
+        result = scan.scan_staged(corpus, Path.cwd(), options.base, message)
     elif command == "dir":
         result = scan.scan_dir(corpus, options.path)
     elif command == "pr":
@@ -325,7 +336,7 @@ def run(argv: Sequence[str]) -> int:
     except UsageError:
         print(
             "leakscan: usage: python -m tools.leakscan "
-            "build|range|file|text --stdin|pr|dir|bodies|allow|verify-stamp|sweep-remote ...",
+            "build|range|file|text --stdin|staged|pr|dir|bodies|allow|verify-stamp|sweep-remote ...",
             file=sys.stderr,
         )
         return USAGE

@@ -114,6 +114,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/shift-left.mjs",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PostToolUse": [
