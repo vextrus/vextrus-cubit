@@ -322,6 +322,7 @@ const LEADING = new Set(["!", "{", "}", "if", "then", "elif", "else", "do", "whi
 const READ_ONLY_GIT = new Set(["status", "diff", "log", "show", "rev-parse", "ls-files", "branch", "describe", "fetch", "rev-list", "notes", "worktree", "remote", "config", "blame", "grep", "shortlog", "cat-file", "merge-base", "for-each-ref", "ls-remote"]);
 const KNOWN_GIT = new Set([...READ_ONLY_GIT, "add", "rm", "commit", "push", "pull", "merge", "rebase", "checkout", "switch", "reset", "restore", "stash", "mv", "tag", "cherry-pick", "revert", "clone", "init", "apply", "am", "clean", "update-index", "read-tree"]);
 const HARMLESS = new Set(["true", "pwd", "ls", "date", "echo", "printf", "cat", "test", "["]);
+const RUNS_A_COMMIT = /\bgit\b[\s\S]*\bcommit\b|\bgh\b[\s\S]*\bpr\b[\s\S]*\bcreate\b/;
 const COMMIT_SHAPED = /^(?:-[A-Za-z]*[mFa]|--(?:message|file|all|amend)\b)/;
 const ADD_INTERACTIVE = /^(?:-[A-Za-z]*[pie][A-Za-z]*|--(?:patch|interactive|edit|pathspec-from-file)\b.*)$/;
 const isDirectory = (path) => {
@@ -386,7 +387,7 @@ function commitArgs(args, cwd) {
       }
     }
   }
-  return { message, cannot, all, paths };
+  return { message, cannot, all, paths, fromFile: file !== null };
 }
 
 /** The reasons to deny the call and the notes for its one stderr line. */
@@ -435,7 +436,10 @@ export async function verdict(command, startCwd) {
       continue;
     }
     if (tool !== "git") {
-      if (!(HARMLESS.has(tool) && !redirected && !heredoc)) changed = true;
+      if (HARMLESS.has(tool) && !redirected && !heredoc) continue;
+      changed = true;
+      // A wrapper (`env`, `command`, `bash -c '...'`) that runs git or gh: noted, never a silent pass.
+      if (RUNS_A_COMMIT.test(ws.map((w) => w.v).join(" "))) notes.push(`a commit or PR run by ${tool} is not judged`);
       continue;
     }
     // git's global options: only a spelled-out -C is read; any other one is the call's own configuration.
@@ -482,8 +486,10 @@ async function judgeCommit(args, { here, nested, odd, changed, replays }) {
   if (nested) return { reasons: [], notes: ["a commit in a subshell, pipeline or background is not judged"] };
   if (here === null) return { reasons: [], notes: ["a commit whose folder is known only at run time is not judged"] };
   if (odd) return { reasons: [], notes: ["a commit under git's environment or global options set in the call is not judged"] };
-  const { message, cannot, all, paths } = commitArgs(args, here);
+  const { message, cannot, all, paths, fromFile } = commitArgs(args, here);
   if (message === null) return { reasons: [], notes: [`a commit is not judged: ${cannot}`] };
+  // The file is read before the call runs: an earlier command in it may write the file.
+  if (fromFile && changed) return { reasons: [], notes: ["a commit whose message file an earlier command in the call may write is not judged"] };
   let indexCannot = cannot;
   if (changed) indexCannot ??= "something earlier in the call may change what it commits";
   if (paths) indexCannot ??= "it names pathspecs";

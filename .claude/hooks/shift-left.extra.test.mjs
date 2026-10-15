@@ -137,6 +137,28 @@ test("gh pr create with a literal --body whose Cut item links no issue is denied
   assert.match(reasonOf(hook(world(), 'gh pr create --title t --body "## Cut\n- the export"')) ?? "", /\bCut\b/);
 });
 
+// review_self (lens-a, 50): the message file is read before the call runs, so a file an earlier command writes is
+// judged on its stale text; such a commit is noted, never denied (and never passed on a stale clean file).
+test("a commit -F <file> after a command that may write the file is not judged: one note, no deny", () => {
+  const w = world();
+  const stale = `ready: S99-X1\n\n## Cut\n- the export\n\nFactory-State: READY\nFactory-Verify: ${"0".repeat(40)} ok\n`;
+  writeFileSync(join(w.repo, "msg.txt"), stale);
+  const done = hook(w, "cat > msg.txt <<'EOF'\nready: S99-X1\n\n## Cut\nNone.\n\nFactory-State: READY\nEOF\ngit commit -F msg.txt");
+  assert.equal(done.stdout.trim(), "", done.stdout);
+  assert.equal(done.stderr.trim().split("\n").length, 1, done.stderr);
+  assert.match(done.stderr, /message file/);
+});
+
+// review_self (lens-b, under 50): a commit run by a wrapper was a silent pass.
+test("a commit run by a wrapper (env, bash -c) is noted, never a silent pass", () => {
+  for (const command of ['env git commit -m "docs: a"', "bash -c 'git commit -m x'", 'command gh pr create --body-file b.md']) {
+    const done = hook(world(), command);
+    assert.equal(done.stdout.trim(), "", command);
+    assert.equal(done.stderr.trim().split("\n").length, 1, `${command}: ${done.stderr}`);
+    assert.match(done.stderr, /not judged/, command);
+  }
+});
+
 test("a commit with pathspecs is judged on its message only: the Cut check runs, the staged tree is noted", () => {
   const done = hook(world(), `${READY("- the export")} -- a.md`);
   assert.match(reasonOf(done) ?? "", /\bCut\b/);
