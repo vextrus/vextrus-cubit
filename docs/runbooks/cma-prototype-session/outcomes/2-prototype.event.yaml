@@ -1,0 +1,13 @@
+# Sent by `cma.sh outcome 2`, only after outcome 1 has ended.
+type: user.define_outcome
+description: >-
+  Outcome 2 of 3. Build the final Vextrus prototype: a static web app whose 3D Live Model is the Edison
+  Building assembled by code from outcome 1's inventory, filed and shown the way the Claude Design G+9
+  model files and shows its elements, and which walks the product's flow on this Building (Drawing Set,
+  Takeoff Steps with Confirmation and Questions, the Live Model, the Priced BOQ, the Material Schedule,
+  the MD's figure), with Life Phases and 4D/5D as marked previews. Every Element carries its Trace and
+  its state (read, inferred, placeholder).
+rubric:
+  type: text
+  content: "@./outcomes/2-prototype.rubric.md"
+max_iterations: 5

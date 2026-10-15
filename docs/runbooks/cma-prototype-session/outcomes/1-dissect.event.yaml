@@ -1,0 +1,12 @@
+# Sent by `cma.sh launch` inside the session's initial_events, after the kickoff message.
+type: user.define_outcome
+description: >-
+  Outcome 1 of 3. Dissect every Discipline of the Edison set (structural, architectural and every MEP
+  Discipline present) into conventions, an Element inventory with Traces, storeys, grid and
+  cross-discipline Relations; run the repository's engine readers on it and record their gaps; and
+  review the Claude Design G+9 model against what real drawings give. Write the results under
+  /mnt/session/outputs/ as the rubric says, keeping Edison content under private/.
+rubric:
+  type: text
+  content: "@./outcomes/1-dissect.rubric.md"
+max_iterations: 4

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://platform.claude.com/schemas/ant/beta/environment.json
+# The sandbox for the one Managed Agents prototype session (README.md). Ubuntu 24.04, up to 8 GB RAM and
+# 10 GB disk; Python 3.10-3.13, Node 22, Playwright with Chromium, LibreOffice, ImageMagick, pandoc are
+# pre-installed. Packages below are cached across sessions that share this environment.
+#
+# Networking is unrestricted because the research phase must reach sites nobody can list in advance.
+# The cost of that choice: anything in the sandbox could leave it. So the sandbox holds no secret (the
+# GitHub token is injected by Anthropic's git proxy and never enters it; the repository token is
+# read-only), and the agents' permission policy is `auto` (the server evaluates each call).
+name: vextrus-cma-prototype
+description: One long session that dissects the Edison set and builds the final Vextrus prototype and spec.
+config:
+  type: cloud
+  networking:
+    type: unrestricted
+  packages:
+    apt:
+      - graphviz        # dot, for architecture diagrams rendered to SVG
+      - build-essential # LibreDWG 0.14 builds from GNU's source if the agent needs to re-read a DWG
+      - pkg-config
+    pip:
+      - ezdxf           # reads the DXFs converted locally by LibreDWG 0.14
+      - ifcopenshell    # IFC4 export of the prototype's Live Model, for checking classes and Psets
+      - shapely
+      - trimesh
+      - networkx
+      - matplotlib
+    npm:
+      - three@0.170.0           # ADR 0022: plain three.js for the Live Model
+      - "@mermaid-js/mermaid-cli@11.4.2"  # mmdc: Mermaid diagrams to SVG

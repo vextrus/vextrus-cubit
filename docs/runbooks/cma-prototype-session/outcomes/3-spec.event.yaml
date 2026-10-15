@@ -1,0 +1,12 @@
+# Sent by `cma.sh outcome 3`, only after outcome 2 has ended.
+type: user.define_outcome
+description: >-
+  Outcome 3 of 3. Write the final single spec of the whole Vextrus product, VEXTRUS-SPEC.md, from the
+  repository's plan and what outcomes 1 and 2 proved: every module and feature through the later
+  modules, the Live Model's schema, the drawing-to-model pipeline, the system design, with Mermaid
+  diagrams rendered to SVG; plus the ADR proposals, the glossary delta, the M1 delta and the owner's
+  questions. Everything under public/03-spec/, with no Edison content.
+rubric:
+  type: text
+  content: "@./outcomes/3-spec.rubric.md"
+max_iterations: 4
