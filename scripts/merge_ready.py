@@ -28,9 +28,10 @@ Beside them, the review gate (docs/specs/factory.md 2.2 "Gate to merge"; `review
   PR changes a file outside the documents (`LIGHT_PATHS`): CI skips the heavy jobs on such a head, so a
   green `ci` proves nothing ran. A PR of documents alone needs no heavy job and no trailer;
 - (f) a head that does not contain main's tip (the fetched `origin/main`, not GitHub's base; `git
-  merge-base --is-ancestor`), for every PR with no exemption (S27-L825, #825, the owner, 14 Oct 2026):
-  its CI ran before main moved on, so it proves nothing about the merge. `land update <PR>` brings main
-  in;
+  merge-base --is-ancestor`) when its PR is on the risk tier (`scripts.factory.tiers.is_risk`) or its
+  files overlap those main changed since the head's merge-base with that main (S27-L825, #825, narrowed
+  by S29-F4, the owner's rulings Q19 and Q20, 14 Oct 2026): its CI ran without them. An ordinary PR with
+  no overlap merges on its own green CI. `land update <PR>` brings main in;
 - (d) a leak-scan hit (or no leak scan) on the PR's added lines, commit messages, file names, branch
   name, title, body or comments. A problem names the part and the count, never the text.
 
@@ -49,7 +50,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from scripts.factory import ci_gate
+from scripts.factory import ci_gate, tiers
 from scripts.factory.trailers import status_line
 from scripts.ledger import default_ledger_dir
 
@@ -626,18 +627,133 @@ def review_problems(
     ]
 
 
-def stale_problems(head: str, repo: Path) -> list[str]:
-    """(f): the head contains main's tip, as git fetched it (main itself is not moved)."""
+def _names(repo: Path, start: str, end: str) -> list[str]:
+    """The files changed from `start` to `end`, every name as written; Unfetchable if git cannot."""
+    done = subprocess.run(
+        ["git", "-C", str(repo), *_DIFF, "--no-renames", "--name-only", "-z", start, end],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        check=False,
+    )
+    if done.returncode != 0:
+        raise Unfetchable(f"cannot read the files changed from {start[:12]} to {end[:12]}")
+    return [path for path in done.stdout.split("\0") if path]
+
+
+def _merge_bases(repo: Path, one: str, other: str) -> list[str]:
+    """Every merge-base of the two (`--all`: a criss-cross history has several, and measuring from one
+    alone can hide a file changed on the other path)."""
+    done = _git(repo, "merge-base", "--all", one, other)
+    bases = done.stdout.split()
+    if done.returncode != 0 or not bases or not all(SHA.fullmatch(base) for base in bases):
+        raise Unfetchable(f"cannot find where {one[:12]} left main")
+    return bases
+
+
+def _changed_since(repo: Path, bases: list[str], end: str) -> set[str]:
+    return {path for base in bases for path in _names(repo, base, end)}
+
+
+def _overlap(files: set[str], theirs: set[str]) -> list[str]:
+    """`files` that meet `theirs`: the same path, or one a folder of the other (a file and a folder of
+    one name clash as surely as one file changed twice)."""
+    folders = {path[:at] for path in theirs for at, char in enumerate(path) if char == "/"}
+
+    def meets(path: str) -> bool:
+        parents = (path[:at] for at, char in enumerate(path) if char == "/")
+        return path in theirs or path in folders or any(parent in theirs for parent in parents)
+
+    return sorted(path for path in files if meets(path))
+
+
+def _shown(path: str) -> str:
+    """A file name as one printable piece: a PR's author picks its names, and a line break or other
+    control character in one must not start a line of its own in what the orchestrator reads."""
+    return "".join(char if char.isprintable() else "?" for char in path)
+
+
+def behind_problem(pr: int, head: str, repo: Path) -> str | None:
+    """(f) on main as git last fetched it (`refs/remotes/origin/main`, never moved here): None when the
+    head contains main's tip, or when it is behind but its PR is ordinary (`tiers.is_risk` false on its
+    files) and its files meet none changed on main since its head's merge-base with that main (its CI
+    ran without them, but on nothing it touches). Else why, naming `land update` and each overlapping
+    file (or folder: a file and a folder of one name clash). Both sides are measured from every such
+    merge-base, never from the base GitHub reports. A head or main git cannot read is a problem, never
+    a pass."""
+    main = "refs/remotes/origin/main"
+    if not SHA.fullmatch(head):
+        return f"the head {_shown(head[:12])} is not a full sha: run again"
+    if _git(repo, "merge-base", "--is-ancestor", main, head).returncode == 0:
+        return None
+    try:
+        since = _merge_bases(repo, head, main)
+        files = _changed_since(repo, since, head)
+        overlap = _overlap(files, _changed_since(repo, since, main))
+    except Unfetchable as error:
+        return f"the head {head[:12]} does not contain main's tip and {error}: run again"
+    why = []
+    if tiers.is_risk(sorted(files)):
+        why.append("the PR is on the risk tier")
+    if overlap:
+        why.append("its files overlap main's since its merge-base: " + ", ".join(map(_shown, overlap)))
+    if not why:
+        return None
+    return (
+        f"the head {head[:12]} does not contain main's tip and {' and '.join(why)}: "
+        f"run `land update {pr}`, then let CI and the review cover the new head"
+    )
+
+
+def stale_problems(pr: int, head: str, repo: Path) -> list[str]:
+    """(f): main fetched (it is not moved), then `behind_problem`."""
     fetched = _git(
         repo, "fetch", "-q", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"
     )
     if fetched.returncode != 0:
         return [f"cannot fetch main from origin to check the head {head[:12]} contains it"]
-    if _git(repo, "merge-base", "--is-ancestor", "refs/remotes/origin/main", head).returncode == 0:
-        return []
-    return [
-        f"the head {head[:12]} does not contain main's tip: run `land update {{PR}}` and review again"
-    ]
+    problem = behind_problem(pr, head, repo)
+    return [] if problem is None else [problem]
+
+
+def rewalk_files(walked: str, head: str, *, repo: Path) -> list[str]:
+    """The `web/**` files the design gate covered that changed between the head it walked (`walked`:
+    the commit its `design-gate` status was posted on) and the PR's head now, read from git in `repo`
+    (whose `refs/remotes/origin/main` the caller fetched). Covered: the PR's own files, at the walk or
+    now (each from its merge-base with that main). Empty: the gate's verdict carries to `head`, which
+    still needs its own `design-gate` status (posted through `post-status`). Raises Unfetchable when git
+    cannot read them: an empty answer always means nothing to walk."""
+    main = "refs/remotes/origin/main"
+    covered = {
+        *_changed_since(repo, _merge_bases(repo, walked, main), walked),
+        *_changed_since(repo, _merge_bases(repo, head, main), head),
+    }
+    return [path for path in _names(repo, walked, head) if path.startswith("web/") and path in covered]
+
+
+def rewalk(walked: str, head: str, repo: Path) -> int:
+    """`python -m scripts.merge_ready rewalk <walked> <head>`: main fetched, then `rewalk_files`. Exit 0
+    when the design gate's verdict carries (the orchestrator posts it on `head` through `post-status`),
+    1 when it is walked again (each file printed) or git cannot tell."""
+    if not (SHA.fullmatch(walked) and SHA.fullmatch(head)):
+        print("usage: python -m scripts.merge_ready rewalk <walked sha40> <head sha40>", file=sys.stderr)
+        return 2
+    fetched = _git(
+        repo, "fetch", "-q", "--no-tags", "origin", "+refs/heads/main:refs/remotes/origin/main"
+    )
+    try:
+        if fetched.returncode != 0:
+            raise Unfetchable("cannot fetch main from origin")
+        files = rewalk_files(walked, head, repo=repo)
+    except Unfetchable as error:
+        print(f"rewalk: {error}: walk the design gate again")
+        return 1
+    for path in files:
+        print(f"rewalk: {_shown(path)} changed since the walk")
+    if files:
+        return 1
+    print(f"rewalk: the design gate's verdict on {walked[:12]} carries to {head[:12]}")
+    return 0
 
 
 def ready_problems(head: str, files: list[str], head_ready: Callable[[str], bool]) -> list[str]:
@@ -672,7 +788,12 @@ def main(
 ) -> int:
     args = sys.argv[1:] if argv is None else argv
     if len(args) != 1 or not args[0].isdigit():
-        print("usage: python -m scripts.merge_ready <PR number>", file=sys.stderr)
+        if len(args) == 3 and args[0] == "rewalk":
+            return rewalk(args[1], args[2], Path.cwd() if repo is None else repo)
+        print(
+            "usage: python -m scripts.merge_ready <PR number> | {rewalk} <walked sha40> <head sha40>",
+            file=sys.stderr,
+        )
         return 2
     pr = int(args[0])
     pull = get(pr)
@@ -694,10 +815,7 @@ def main(
     if head_ready is not None:
         found += ready_problems(review["head"], review["files"], head_ready)
     if facts is fetch_review:
-        found += [
-            problem.replace("{PR}", args[0])
-            for problem in stale_problems(review["head"], Path.cwd() if repo is None else repo)
-        ]
+        found += stale_problems(pr, review["head"], Path.cwd() if repo is None else repo)
     found += review_problems(
         review,
         ledger_dir=default_ledger_dir() if ledger_dir is None else ledger_dir,

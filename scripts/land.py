@@ -7,8 +7,10 @@ older head followed only by clean merges of main, as `merge_ready` decides), and
 GitHub does not report it CONFLICTING / DIRTY (`gh pr view --json mergeable,mergeStateStatus`; refused
 before it is marked ready, naming `land update`, with no update and no merge), then marks the PR ready,
 refuses (before it is marked ready, naming `land update`) a head that does not contain main's tip
-(S27-L825, #825, the owner, 14 Oct 2026: its CI ran before main moved on; the ruleset stays, only
-the lander is stricter, and it never makes the update request itself),
+only when its PR is on the risk tier or its files overlap those main changed since its head's
+merge-base with the fetched main (S27-L825, #825, narrowed by S29-F4, the owner's rulings Q19 and Q20,
+14 Oct 2026: an ordinary PR with no overlap lands on its own green CI; the ruleset stays, and the lander
+never makes the update request itself),
 lands it with no update of its own otherwise,
 waits for CI
 (read from `gh pr view --json headRefOid,statusCheckRollup`: gh 2.45 has no `gh pr checks --json`),
@@ -30,7 +32,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from scripts.ledger import default_ledger_dir
-from scripts.merge_ready import Unfetchable, changed_files, fetch_pull
+from scripts.merge_ready import Unfetchable, behind_problem, changed_files, fetch_pull
 from tools.lint.engine_paths import matching, read_patterns
 
 REPOSITORY = "vextrus/vextrus-cubit"
@@ -150,11 +152,8 @@ def _land(
             "(`land update` cannot resolve a conflict, and the lander does not update)"
         )
     behind = getattr(gh, "behind_main", None)
-    if behind is not None and behind(pr, head):
-        raise Refused(
-            f"its head {head[:12]} does not contain main's tip: run `land update {pr}`, "
-            "then let CI and the review cover the new head"
-        )
+    if behind is not None and (problem := behind(pr, head)):
+        raise Refused(problem)
     gh.mark_ready(pr)
     failed = gh.wait_ci(pr)
     if failed:
@@ -293,9 +292,10 @@ class Gh:
         """Read-only: main and the PR's head into the local object store (no branch moves)."""
         self._run("git", "-C", str(self.repo), "fetch", "-q", "origin", "main", f"refs/pull/{pr}/head")
 
-    def behind_main(self, pr: int, head: str) -> bool:
-        """The head does not contain main's tip (the fetched `origin/main`; `git merge-base
-        --is-ancestor`). A failed fetch is a refusal, not a pass."""
+    def behind_main(self, pr: int, head: str) -> str | None:
+        """Why a head behind main may not land as it stands (`merge_ready.behind_problem` on the
+        fetched `origin/main`: a risk-tier PR, or files that overlap main's since its merge-base);
+        None when it may. A failed fetch is a refusal, not a pass."""
         try:
             self._run(
                 "git", "-C", str(self.repo), "fetch", "-q", "--no-tags", "origin",
@@ -303,7 +303,7 @@ class Gh:
             )  # fmt: skip
         except subprocess.CalledProcessError:
             raise Refused("cannot fetch main and the pull ref from origin to compare them") from None
-        return self._git("merge-base", "--is-ancestor", "refs/remotes/origin/main", head) != 0
+        return behind_problem(pr, head, self.repo)
 
     def head_sha(self, pr: int) -> str:
         return self._run(

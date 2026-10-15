@@ -30,6 +30,7 @@ from scripts.tests.acceptance.p6_land._fakegh import (
     rollup,
     update_request,
 )
+from scripts.tests.acceptance.ts29f4._world import risk
 
 
 @dataclass
@@ -95,14 +96,18 @@ def test_a_clean_pr_behind_main_lands_with_no_request_to_bring_main_in(env: Fixt
     assert done.fake.updates() == [], "the lander asked GitHub to bring main in"
 
 
-def test_a_clean_pr_behind_main_is_refused_naming_land_update_not_merged(env: Fixtures) -> None:
-    """S27-L825 (#825) replaces "merged on the head it stands on": a head that does not contain
-    main's tip is refused, naming `land update`, and its head is not moved."""
+def test_a_clean_ordinary_pr_behind_main_with_no_overlap_is_merged_on_the_head_it_stands_on(
+    env: Fixtures,
+) -> None:
+    """S29-F4 (the owner's rulings Q19 and Q20, 14 Oct 2026) narrows S27-L825 (#825), which had
+    replaced this promise: an ordinary PR whose files overlap nothing merged since its CI ran lands on
+    the head it stands on, and its head is not moved."""
+    risk(env[1])
     done = landing(*env)
-    assert not done.fake.called("pr", "merge"), "a head that does not contain main's tip was merged"
-    assert done.code == 3, done.out + done.err
-    assert len(done.lines()) == 1, done.out
-    assert "land update" in done.lines()[0], done.out
+    assert done.code == 0, "refused for being behind main though nothing overlaps: " + done.out
+    assert done.fake.called("pr", "merge") == [
+        ["pr", "merge", str(PR), "--merge", "--match-head-commit", done.repo.reviewed]
+    ]
     assert done.fake.state["head"] == done.repo.reviewed, "the PR's head moved"
 
 

@@ -1,4 +1,7 @@
-"""S27-L825 (issue #825): the lander never merges a PR head that does not contain main's tip.
+"""S27-L825 (issue #825), narrowed by S29-F4 (the owner's rulings Q19 and Q20, 14 Oct 2026): the lander
+refuses a head behind main only for a risk-tier PR or one whose files overlap main's since its CI ran
+(`ts29f4/test_land_overlap.py`); an ordinary PR with no overlap, as each here, lands on its own green
+CI. The history below is #825's.
 
 Session 26: the lander merged D4 (#771) on a head whose CI ran before D7 (#805) merged; each passed
 alone, together they broke main. The orchestrator's rule (14 Oct 2026): the head must contain main's
@@ -24,9 +27,9 @@ import pytest
 from scripts import land
 from scripts.tests.acceptance.p6_land._fakegh import PR, PrRepo, install, record, rollup
 from scripts.tests.acceptance.ts27l825 import _world as w
+from scripts.tests.acceptance.ts29f4._world import risk
 
-LANDED_STALE = "the lander merged a head that does not contain main's tip"
-NO_REFUSAL = "a head behind main was not refused (exit 3)"
+BEHIND_REFUSED = "refused for being behind main though nothing overlaps"
 FIRST, SECOND = 21, 22
 
 
@@ -35,6 +38,7 @@ def land_one(
 ) -> tuple[int, list[str], PrRepo, list[list[str]]]:
     """Land PR 12, reviewed and CI green on its head; `behind`: main moved on after its branch was cut
     and GitHub reports it MERGEABLE / CLEAN (no conflict)."""
+    risk(monkeypatch)
     repo = PrRepo(tmp_path, behind=behind)
     record(tmp_path / "ledger", repo.reviewed)
     fake = install(tmp_path, monkeypatch, head=repo.reviewed, views=[rollup("green", repo.reviewed)])
@@ -54,21 +58,21 @@ def land_one(
     return code, lines, repo, fake.called("pr", "merge")
 
 
-def test_a_head_that_does_not_contain_main_s_tip_is_refused_naming_land_update(
+def test_an_ordinary_head_behind_main_with_no_overlap_lands(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
     code, lines, _repo, _merged = land_one(tmp_path, monkeypatch, capfd, behind=True)
-    assert code == 3, f"{NO_REFUSAL}: {lines}"
-    assert len(lines) == 1, lines
-    assert lines[0].startswith(f"land: refused: PR {PR}"), lines
-    assert "land update" in lines[0], f"the refusal does not name `land update`: {lines[0]}"
+    assert code == 0, f"{BEHIND_REFUSED}: {lines}"
+    assert lines == [f"land: PR {PR} merged"], f"{BEHIND_REFUSED}: {lines}"
 
 
-def test_a_head_that_does_not_contain_main_s_tip_is_not_merged(
+def test_an_ordinary_head_behind_main_with_no_overlap_is_merged_as_it_stands(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
-    _code, _lines, _repo, merged = land_one(tmp_path, monkeypatch, capfd, behind=True)
-    assert merged == [], f"{LANDED_STALE}: {merged}"
+    _code, lines, repo, merged = land_one(tmp_path, monkeypatch, capfd, behind=True)
+    assert merged == [["pr", "merge", str(PR), "--merge", "--match-head-commit", repo.reviewed]], (
+        f"{BEHIND_REFUSED}: {lines}"
+    )
 
 
 def test_a_head_that_contains_main_s_tip_still_lands(
@@ -80,11 +84,12 @@ def test_a_head_that_contains_main_s_tip_still_lands(
     assert lines == [f"land: PR {PR} merged"], lines
 
 
-def test_after_the_first_pr_merges_the_second_now_behind_main_is_refused_not_merged(
+def test_after_the_first_pr_merges_the_second_now_behind_main_with_no_overlap_lands_too(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
 ) -> None:
     """Two reviewed PRs, both cut from main's tip and CI green: the first lands and main moves on to
-    its merge, so the second's head no longer contains main's tip."""
+    its merge, so the second's head no longer contains main's tip; they share no file."""
+    risk(monkeypatch)
     with monkeypatch.context() as patch:
         for key, value in w.git_env(tmp_path).items():
             patch.setenv(key, value)
@@ -108,8 +113,5 @@ def test_after_the_first_pr_merges_the_second_now_behind_main_is_refused_not_mer
     out, err = capfd.readouterr()
     assert "Traceback" not in err, err
     merged = [call[2] for call in w.merges(tmp_path)]
-    assert merged == [str(FIRST)], f"{LANDED_STALE} (merged: {merged}): {out}"
-    assert codes == [0, 3], f"{NO_REFUSAL}: {codes}: {out}"
-    refusals = [line for line in out.splitlines() if line.startswith(f"land: refused: PR {SECOND}")]
-    assert len(refusals) == 1, out
-    assert "land update" in refusals[0], out
+    assert codes == [0, 0], f"{BEHIND_REFUSED}: {codes}: {out}"
+    assert merged == [str(FIRST), str(SECOND)], f"{BEHIND_REFUSED} (merged: {merged}): {out}"

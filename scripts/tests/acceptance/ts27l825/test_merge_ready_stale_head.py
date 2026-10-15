@@ -1,6 +1,8 @@
-"""S27-L825 (issue #825): `merge_ready`, the last check before any merge, refuses a PR head that does
-not contain main's tip, naming the head and `land update` (the orchestrator's rule, 14 Oct 2026: `git
-merge-base --is-ancestor origin/main <head>` fails; always, no path heuristics).
+"""S27-L825 (issue #825), narrowed by S29-F4 (the owner's rulings Q19 and Q20, 14 Oct 2026):
+`merge_ready` once refused every head that did not contain main's tip; now it refuses a head behind main
+only for a risk-tier PR or one whose files overlap main's since its CI ran
+(`ts29f4/test_merge_ready_overlap.py`). The stale PR here is ordinary and overlaps nothing, so it may
+be merged on its own green CI.
 
 Driven through `scripts.merge_ready.main([<PR>], get=..., ledger_dir=, repo=, scan=, issue_open=,
 head_ready=)` with the real `fetch_review` (it fetches the pull ref and main from `origin`), in a fresh
@@ -21,10 +23,11 @@ import pytest
 from scripts import merge_ready
 from scripts.tests.acceptance.ts21mr import _world as mr
 from scripts.tests.acceptance.ts27l825 import _world as w
+from scripts.tests.acceptance.ts29f4._world import risk
 
 STALE, FRESH = 31, 32
 FILES = {STALE: "pkg/stale.py", FRESH: "pkg/fresh.py"}
-PASSED_STALE = "merge_ready passed a head that does not contain main's tip"
+BEHIND_REFUSED = "refused for being behind main though nothing overlaps"
 
 
 @pytest.fixture(scope="module")
@@ -50,6 +53,7 @@ def judge(
 ) -> tuple[int, str, str]:
     """merge_ready on `pr`; GitHub reports `shas[base]` as the PR's base."""
     path, shas = hub
+    risk(monkeypatch)
     head = shas[str(pr)]
     gh_answer = mr.answer(head, shas[base], [FILES[pr]], [f"pr {pr} change"])
     gh_answer["data"]["repository"]["pullRequest"]["headRefName"] = f"s27-pr{pr}"
@@ -66,31 +70,26 @@ def judge(
     return code, capsys.readouterr().out, head
 
 
-def test_a_head_that_does_not_contain_main_s_tip_is_refused_naming_it_and_land_update(
+def test_an_ordinary_head_behind_main_with_no_overlap_may_be_merged(
     tmp_path: Path,
     hub: tuple[Path, dict[str, str]],
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    code, out, head = judge(tmp_path, hub, monkeypatch, capsys, STALE)
-    assert code == 1, f"{PASSED_STALE}: {out}"
-    named = [
-        line
-        for line in out.splitlines()
-        if line.startswith("merge-ready: ") and head[:12] in line and "land update" in line
-    ]
-    assert named, f"no `merge-ready:` line names the head {head[:12]} and `land update`: {out}"
+    code, out, _head = judge(tmp_path, hub, monkeypatch, capsys, STALE)
+    assert code == 0, f"{BEHIND_REFUSED}: {out}"
+    assert f"merge-ready: PR {STALE} may be merged" in out, out
 
 
-def test_a_stale_head_is_refused_even_when_github_reports_an_older_main_as_its_base(
+def test_it_may_be_merged_when_github_reports_an_older_main_as_its_base(
     tmp_path: Path,
     hub: tuple[Path, dict[str, str]],
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     code, out, _head = judge(tmp_path, hub, monkeypatch, capsys, STALE, base="fork")
-    assert code == 1, f"{PASSED_STALE}: {out}"
-    assert "land update" in out, out
+    assert code == 0, f"{BEHIND_REFUSED}: {out}"
+    assert f"merge-ready: PR {STALE} may be merged" in out, out
 
 
 def test_a_head_that_contains_main_s_tip_may_be_merged(
