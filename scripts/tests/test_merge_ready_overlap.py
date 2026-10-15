@@ -129,12 +129,23 @@ def test_the_rewalk_command_line(
     assert git(repo, "rev-parse", MAIN) == fork
 
 
-def test_a_criss_cross_history_is_measured_from_every_merge_base(repo: Path) -> None:
-    """Main and the head each merged both of two side commits, so they have two merge-bases. From the
-    one where `docs/f.md` reads `fork`, main's net change to it is nothing (it reverted it): only the
-    other base shows main changed the file the head changes too."""
-    side_a = branch_off(repo, "a", {"x.txt": "a\n"})
+def test_a_criss_cross_history_is_measured_from_every_merge_base(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Main and the head each merged both of two side commits, so they have two merge-bases. From
+    `side_a`, which lacks `docs/f.md`, main's net change to it is nothing (it added it, then dropped
+    it): only `side_m` shows main changed the file the head changes too. The dates are pinned, `side_a`
+    newest, so git's one pick (newest first) is the base that hides the overlap on every run."""
+
+    def at(second: int) -> None:
+        for key in ("GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE"):
+            monkeypatch.setenv(key, f"2026-10-15T10:00:{second:02d}Z")
+
+    at(1)
     side_m = branch_off(repo, "m", {"docs/f.md": "one\n"})
+    at(2)
+    side_a = branch_off(repo, "a", {"x.txt": "a\n"})
+    at(3)
     git(repo, "checkout", "-q", "-b", "main-line", side_m)
     git(repo, "merge", "-q", "--no-edit", side_a)
     git(repo, "rm", "-q", "docs/f.md")
