@@ -19,19 +19,11 @@ from scripts.tests.acceptance.ts14r1._world import World, why
 LONG_VIEW = {
     "web/src/components/table.tsx": "".join(f"export const ROW_{i} = {i}\n" for i in range(600))
 }
-VIEW_TEST = {
-    "web/src/components/badge.test.tsx": "import { it } from 'vitest'\n\nit('counts', () => {})\n"
-}
 ENGINE = {"engine/recognise/walls.py": "".join(f"WALL_{i}: int = {i}\n" for i in range(600))}
-WORDS = {"web/src/messages/rates.ts": "export const rates = { title: 'Rates' }\n"}
 
 
 def reviewers(world: World) -> list[str]:
     return [call["agent"] for call in world.lens_calls() if call["agent"] != "ux-critic"]
-
-
-def words_lenses(world: World) -> list[dict[str, Any]]:
-    return [call for call in world.lens_calls() if call["agent"] == "ux-critic"]
 
 
 def reviewed(world: World, pr: int, changes: dict[str, str]) -> dict[str, Any]:
@@ -42,7 +34,9 @@ def reviewed(world: World, pr: int, changes: dict[str, str]) -> dict[str, Any]:
     return cost
 
 
-@pytest.mark.parametrize("changes", [LONG_VIEW, VIEW_TEST], ids=["a long view", "a view's test"])
+# S30-F7 (issue #898): a view's test (`*.test.tsx`, a `[strict]` carve-out) is risk, and a messages
+# catalogue is off the bar's lax set; ts30f7 supersedes those two cases, left out of this carried copy.
+@pytest.mark.parametrize("changes", [LONG_VIEW], ids=["a long view"])
 def test_an_ordinary_pr_gets_one_lens(
     changes: dict[str, str], tmp_path_factory: pytest.TempPathFactory
 ) -> None:
@@ -77,18 +71,4 @@ def test_one_risk_path_gives_a_mixed_pr_both_lenses(
     )
     assert cost.get("tier") == "risk", (
         f"scripts.factory.review names a mixed PR's tier {cost.get('tier')!r}"
-    )
-
-
-def test_an_ordinary_pr_changing_the_messages_gets_one_lens_and_the_words_lens(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> None:
-    world = World(tmp_path_factory.mktemp("world"))
-    cost = reviewed(world, 12, LONG_VIEW | WORDS)
-    assert (len(reviewers(world)), len(words_lenses(world))) == (1, 1), (
-        f"scripts.factory.review gives an ordinary PR with words "
-        f"{[call['agent'] for call in world.lens_calls()]}"
-    )
-    assert cost.get("tier") == "ordinary", (
-        f"scripts.factory.review names an ordinary PR's tier {cost.get('tier')!r}"
     )
