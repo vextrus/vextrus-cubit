@@ -39,10 +39,18 @@ const NEGATIONS = /(?<![A-Za-z])(?:no|not|never|cannot|nothing|nobody|none|neith
 // A clause ends at . ! ? ; : or a line break (the negation's scope, and the sentence a question ends).
 const CLAUSE_END = /[.!?;:\n]/;
 
-/** The message with quoted and code text blanked to spaces (same length; line breaks and . ! ? ; : kept, so a stop inside a closing quote still ends the sentence). */
+/** The message with quoted and code text blanked to spaces (same length; line breaks kept). A stop is kept only as the span's last character before its closing mark (US punctuation: "red." ends the sentence); a stop deeper inside, like the dot in `ready.py` or “v2.1”, is blanked. */
 function unquoted(message) {
   let text = message;
-  for (const pattern of QUOTED) text = text.replace(pattern, (span) => span.replace(/[^\n.!?;:]/g, " "));
+  for (const pattern of QUOTED) {
+    text = text.replace(pattern, (span) => {
+      const out = span.replace(/[^\n]/g, " ").split("");
+      const close = span.startsWith("```") ? 3 : 1;
+      const last = span.length - close - 1;
+      if (last > 0 && /[.!?;:]/.test(span[last])) out[last] = span[last];
+      return out.join("");
+    });
+  }
   return text;
 }
 

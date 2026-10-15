@@ -97,3 +97,19 @@ for (const [message, quoted] of [
     assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
   });
 }
+
+// Fix round 2 (PR #900, finding 55): a stop deeper inside a span (a file name, a version number) is not a sentence end,
+// so it neither hides a question's "?" nor splits a double negative in two. Only the stop just before the closing mark
+// counts (rows above).
+for (const [message, quoted] of [
+  ["Don't you want to walk now that `ready.py` is green?", "walk now"],
+  ["Won't you walk now, with `scripts.walk.ready` green?", "walk now"],
+  ["Don't you want to walk now, per “G1 v2.1”?", "walk now"],
+  ["No test in `walk-gate.test.mjs` gives a reason not to walk now.", "walk now"],
+]) {
+  test(`a stop inside a span does not end the sentence: ${JSON.stringify(message)}`, () => {
+    const answer = stop(project(1), {}, message);
+    assert.equal(answer.decision, "block", message);
+    assert.ok(answer.reason.includes(`("${quoted}")`), answer.reason);
+  });
+}
