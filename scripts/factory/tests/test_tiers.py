@@ -21,7 +21,7 @@ def test_risk_matches_keeps_the_order_given_and_ignores_case() -> None:
 
 
 def test_risk_matches_reads_a_generator_once() -> None:
-    assert tiers.risk_matches(path for path in ["engine/a.py", "web/b.tsx"]) == ["engine/a.py"]
+    assert tiers.risk_matches(path for path in ["engine/a.py", "web/src/b.tsx"]) == ["engine/a.py"]
 
 
 @pytest.mark.parametrize(
@@ -41,9 +41,9 @@ def test_an_unusable_tier_list_makes_every_path_risk(
 def test_the_list_is_read_afresh_for_each_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tiers_file = tmp_path / "review_tiers.toml"
     monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
-    tiers_file.write_text("[risk]\npaths = ['a/**']\n")
+    tiers_file.write_text("[risk]\npaths = ['a/**']\n[ordinary]\npaths = ['a/**', 'b/**']\n")
     assert tiers.risk_matches(["a/x.py", "b/x.py"]) == ["a/x.py"]
-    tiers_file.write_text("[risk]\npaths = ['b/**']\n")
+    tiers_file.write_text("[risk]\npaths = ['b/**']\n[ordinary]\npaths = ['a/**', 'b/**']\n")
     assert tiers.risk_matches(["a/x.py", "b/x.py"]) == ["b/x.py"]
 
 
@@ -69,6 +69,71 @@ def test_the_list_is_read_afresh_for_each_call(tmp_path: Path, monkeypatch: pyte
 def test_the_files_the_listed_gate_code_imports_or_reads_are_risk(path: str) -> None:
     """A PR that changes what a listed gate imports or reads gets the full panel (PR #884 round 1)."""
     assert tiers.is_risk([path])
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # PR #884 round 2: the CI matrix's builder, its shard list and the workflow it builds.
+        "tools/lint/ci_shards.py",
+        ".github/ci-shards.json",
+        ".github/workflows/ci.yml",
+        # Fed to the real-drawing check's matcher beside .github/engine-paths.txt.
+        ".github/checkout-also.txt",
+    ],
+)
+def test_round_twos_gate_files_are_risk(path: str) -> None:
+    assert tiers.is_risk([path])
+    assert tiers.risk_matches([path]) == [path]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        # A gate nobody has listed yet is risk by default (lesson (e)): risk unless plainly product.
+        "tools/newgate/x.py",
+        ".github/new.txt",
+        ".claude/skills/new/SKILL.md",
+        "scripts/new_gate.py",
+        "Makefile",
+        "web/package.json",
+        "vextrus/settings/job.py",
+        "vextrus/newmodule/models.py",
+        # An instruction file Claude Code loads, inside an ordinary folder.
+        "web/src/CLAUDE.md",
+        "docs/plans/AGENTS.md",
+        "vextrus/exports/CLAUDE.local.md",
+    ],
+)
+def test_a_path_on_no_ordinary_list_is_risk(path: str) -> None:
+    assert tiers.is_risk([path])
+    assert tiers.risk_matches(["web/src/components/a.tsx", path]) == [path]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "web/src/components/badge.tsx",
+        "docs/notes/howto.md",
+        "docs/handoff/session-29-prompt.md",
+        "vextrus/exports/services.py",
+        "vextrus/drawings/models.py",
+        "vextrus/measurement/quantities.py",
+    ],
+)
+def test_plain_product_work_stays_ordinary(path: str) -> None:
+    assert not tiers.is_risk([path])
+
+
+@pytest.mark.parametrize("text", [None, "[risk]\npaths = ['a/**']\n", "[ordinary]\npaths = []\n"])
+def test_an_unusable_ordinary_list_makes_every_path_risk(
+    text: str | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tiers_file = tmp_path / "review_tiers.toml"
+    if text is not None:
+        tiers_file.write_text(text)
+    monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
+    assert tiers.risk_matches(["b/x.py", "web/src/a.tsx"]) == ["b/x.py", "web/src/a.tsx"]
 
 
 @pytest.mark.parametrize("pr", [1, 12, 881])

@@ -584,8 +584,9 @@ workflow named like any built-in command or alias in `docs-raw/commands.md`'s li
 
 The review itself is no longer a workflow: ADR 0043 supersedes ADR 0042's review part with
 `uv run python -m scripts.factory.review run <PR> --round <n>` (no model on allowlist-only, docs-only or the main watcher's
-revert PRs; S29-F7: one lens on an `ordinary` PR, both on a `risk` PR, a path on `review_tiers.toml`'s `[risk]` list; the
-refuter on every risk head and one ordinary head in five).
+revert PRs; S29-F7: one lens on an `ordinary` PR, both on a `risk` PR; the refuter on every risk head and one ordinary
+head in five). A path is risk when it is on `review_tiers.toml`'s `[risk]` list or on no `[ordinary]` glob: only plain
+product work is ordinary, so an unlisted gate file is risk by default (S29-F7-R; PR #884's two rounds each found one).
 
 | Workflow | What it does | PR | Check | Tier |
 |---|---|---|---|---|
