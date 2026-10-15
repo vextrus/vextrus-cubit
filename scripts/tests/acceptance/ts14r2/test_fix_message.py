@@ -30,6 +30,11 @@ from scripts.tests.acceptance.ts14r2._world import (
     why,
 )
 
+# S29-F7 (the owner's rulings Q5, Q15, 14 Oct 2026; docs/plans/factory-s29.md 7): off the risk tier the
+# refuter samples one in five heads, so a test of the refuter itself opens a risk-tier PR (an engine
+# path), where the refuter runs on every head as it did here before.
+RISK_SMALL = {"engine/recognise/badge.py": "BADGE: int = 3\n"}
+
 
 @pytest.fixture
 def world(tmp_path_factory: pytest.TempPathFactory) -> Iterator[World]:
@@ -49,9 +54,10 @@ OTHER = item(90, 2, "the other change loses every Storey", None, file="web/src/c
 
 
 def reviewed(world: World) -> None:
-    world.pr(12, SMALL)
+    world.pr(12, RISK_SMALL)
     world.lenses(
         review_reply("FIX", [REPLAYED, CONFIRMED, REFUTED, UNPROVEN, LOW]),
+        opus=review_reply("PASS"),  # S29-F7: lens A of the risk tier finds nothing
         write=WRITE,
         refuter={
             "findings": [
@@ -104,3 +110,11 @@ def test_a_pr_with_no_recorded_review_gets_no_fix_message(world: World) -> None:
     done = world.review("fix-message", "12", "--from-verdict")
     assert done.returncode == 3, why(done)
     assert world.claude_calls() == [], "a lens was started"
+
+
+def test_the_pr_these_tests_open_is_on_the_risk_tier() -> None:
+    """S29-F7: the refuter runs on every head of the risk tier only (one in five off it), so the PR
+    these tests open must stay on it, or they would test a sample."""
+    import scripts.factory.tiers as tiers  # type: ignore[import-not-found, unused-ignore]
+
+    assert tiers.is_risk(list(RISK_SMALL)), f"{list(RISK_SMALL)} is not on the risk tier"

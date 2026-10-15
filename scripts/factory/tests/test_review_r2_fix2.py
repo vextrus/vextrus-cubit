@@ -40,7 +40,7 @@ class Launcher:
 def handed(tmp_path: Path) -> tuple[review.Run, Path]:
     records = tmp_path / "cloud"
     records.mkdir(exist_ok=True)
-    return review.Run(pr=PR, round_=1, head=H, tier="normal"), records
+    return review.Run(pr=PR, round_=1, head=H, tier="risk"), records
 
 
 def manifest(records: Path) -> dict[str, Any]:

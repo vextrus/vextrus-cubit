@@ -20,8 +20,9 @@
  *     in rounds until each kind has act_samples_min samples (the set's expectation; 5 when it has none)
  *     or every read has ended (`reads_ended_before_samples`; `kind_not_offered` when a kind never answered;
  *     `reads_timed_out` for a read that never ended), each timed from its key to its answer and
- *     recorded with the answer's status. An act counts as during a read only if the API showed a file
- *     reading both before and after it.
+ *     recorded with the answer's status and its server time (the answer's Server-Timing `app` and
+ *     `lock`: act-timer.ts). An act counts as during a read only if the API showed a file reading both
+ *     before and after it; `act_times` gives each kind's spread of those acts.
  *
  * walk.json (walk.schema.json) records each file's end state and read time (the first Project), the
  * acts (the third), and Questions per Discipline by kind with the burden counts (the snapshot). Beside
@@ -38,7 +39,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { actWhileReading, FILE_TIMEOUT_MS, type ActKind } from './act-driver'
-import { timedAct, type ActRecord } from './act-timer'
+import { actTimes, timedAct, type ActRecord, type ActTimes } from './act-timer'
 
 const QS = 'nusrat@shapla-homes.example' // the seed's QS (docs/design/m0-screens.md §7)
 const MOVING = new Set(['waiting', 'reading', 'stopping', 'retrying'])
@@ -79,6 +80,8 @@ type SetRecord = {
   confirm_targets: number
   files: FileRecord[]
   acts: ActRecord[]
+  /** Per act kind, the measured acts' request, app and lock times (their spread; S29-M0b). */
+  act_times?: ActTimes
   /** Only when true: every read ended before each kind of act had its samples. */
   reads_ended_before_samples?: boolean
   /** Only when true: some kind of act never answered (never offered, or every act of it failed). */
@@ -340,6 +343,8 @@ async function actsProject(
     },
   })
   record.acts.push(...acts.acts)
+  const times = actTimes(record.acts)
+  if (Object.keys(times).length > 0) record.act_times = times
   if (acts.reads_ended_before_samples) record.reads_ended_before_samples = true
   if (acts.kind_not_offered) record.kind_not_offered = true
   if (acts.reads_timed_out > 0) record.reads_timed_out = acts.reads_timed_out

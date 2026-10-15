@@ -98,7 +98,7 @@ class Launcher:
 
 
 def hand_off(cloud: Cloud) -> None:
-    run = review.Run(pr=PR, round_=1, head=cloud.head, tier="normal")
+    run = review.Run(pr=PR, round_=1, head=cloud.head, tier="risk")
     review.hand_off(run, [review.LENS_A, review.LENS_B], cloud.main, cloud.records)
 
 

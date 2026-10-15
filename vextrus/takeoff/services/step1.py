@@ -68,7 +68,16 @@ from engine.recognise.conflicts import Numbers, recognisers
 from engine.recognise.sheets import default_conventions
 from engine.recognise.types import DisciplineConvention, SheetConventions, ValueSource
 from vextrus.drawings import services as drawings
-from vextrus.platform.services import activity, auth, events, invitations, jev, markets, tenancy
+from vextrus.platform.services import (
+    activity,
+    auth,
+    events,
+    invitations,
+    jev,
+    markets,
+    tenancy,
+    timing,
+)
 from vextrus.projects import services as projects
 from vextrus.takeoff import acts
 from vextrus.takeoff.library import EXPECTED, SHEETS, STEPS
@@ -1133,11 +1142,23 @@ def _counted(row: Coverage) -> str:
     return "excluded" if row.status == CoverageStatus.EXCLUDED else "assigned"
 
 
-def progress(project_id: uuid.UUID) -> ProgressView:
+def progress(project_id: uuid.UUID, *, rows_only: bool = False) -> ProgressView:
     """Step 1's n / N per Discipline, in the sheet list's order (a sheet of no Discipline on its own
     row, last), and the Market's expected Disciplines not yet received. Every sheet found is counted,
     a sheet proposed out and a sheet left out among them (m0-screens: excluded sheets stay in the
-    count); a sheet left out is settled."""
+    count); a sheet left out is settled. `rows_only`: the rows alone, the Disciplines not received and
+    the QS names left empty (`record_progress`'s: no row holds them, S29-M0b)."""
+    rows, files = _progress_rows(project_id)
+    if rows_only:
+        return ProgressView(rows, [])
+    return ProgressView(rows, _not_received(files), invitations.qs_of(project_id))
+
+
+def _progress_rows(
+    project_id: uuid.UUID,
+) -> tuple[list[DisciplineProgress], list[drawings.FileView]]:
+    """`progress`'s rows, and the set's files they were counted from (read once: `_not_received`
+    reads the same)."""
     sheets = _facts(project_id)
     order: list[str | None] = []
     found: Counter[str | None] = Counter()
@@ -1217,7 +1238,7 @@ def progress(project_id: uuid.UUID) -> ProgressView:
                 ),
             )
         )
-    return ProgressView(rows, _not_received(project_id), invitations.qs_of(project_id))
+    return rows, files
 
 
 def _outstanding(
@@ -1245,12 +1266,13 @@ def proposed_out(sheet: drawings.SheetView | drawings.SheetFacts) -> bool:
     return bool(sheet.proposed_exclusion) and not sheet.number
 
 
-def _not_received(project_id: uuid.UUID) -> list[str]:
+def _not_received(files: Sequence[drawings.FileView]) -> list[str]:
+    """The Market's expected Disciplines no file of `files` (the set's) is of."""
     tenant_id = tenancy.current_tenant_id()
     if tenant_id is None:
         return []
     expected = EXPECTED.get(markets.of_developer(tenant_id).code, ())
-    received = {f.discipline for f in files_of(project_id)}
+    received = {f.discipline for f in files}
     # A Discipline expected only from some storey count (Fire from 7) is listed while the count is not
     # known: M0 reads no storey count for the Building.
     return [e.discipline for e in expected if e.discipline not in received]
@@ -1358,9 +1380,14 @@ def _discipline(key: object) -> str:
 
 
 def _conventions() -> SheetConventions:
-    """13's default sheet conventions under the Market's Disciplines (as 21b reads the sheets)."""
-    market = tuple(DisciplineConvention(d.key, tuple(d.prefixes)) for d in drawings.disciplines())
-    return replace(default_conventions(), disciplines=market)
+    """13's default sheet conventions under the Market's Disciplines (as 21b reads the sheets); inside
+    an act, read once (`_remembered`: no act writes the Library's Disciplines)."""
+
+    def read() -> SheetConventions:
+        market = tuple(DisciplineConvention(d.key, tuple(d.prefixes)) for d in drawings.disciplines())
+        return replace(default_conventions(), disciplines=market)
+
+    return _remembered(("conventions",), read)
 
 
 def _parse(text: object) -> register.Parsed:
@@ -1635,6 +1662,7 @@ def _chosen(
     sheet list (another Project's, another Developer's, none) is not found, and nothing is done. So
     is a sheet of a held file read anyway that its read job has not proposed yet: its Questions (its
     number, its Discipline) are raised with its Proposal, so it is not decided before them."""
+    _in_scope(project_id)  # first: another Developer's Project is not found, whatever is named
     if not isinstance(ids, (list, tuple)) or not ids:
         raise auth.Refused(said.NOTHING_CHOSEN(), status=400)
     named_ids: list[uuid.UUID] = []
@@ -1776,8 +1804,10 @@ def _is_whole_run(
     `continues` build it: in the Discipline's sheets in list order (`_sheets`, the order `proposals`
     returns) less those an open Question holds and the undecided ones proposed out (their own list),
     a row is a stretch of next-to-each-other sheets of one run (`groups.among`, T-W334) decided alike
-    (never two sheets decided apart). A run split by another sheet is two rows; part of a row, or a
-    row and another sheet, is not one."""
+    (never two sheets decided apart), and never spans a number of the same series any sheet of the
+    Project holds strictly between two of its members (`_spans`: a held, proposed-out or decided-apart
+    sheet's; a copy of a boundary number is not between; S29-M0a). A run split by another sheet is
+    two rows; part of a row, or a row and another sheet, is not one."""
     from vextrus.takeoff.services import groups  # as `proposals`: it reads 19b's candidates
 
     sheets = _sheets(project_id)
@@ -1802,6 +1832,7 @@ def _is_whole_run(
     by_sheet = {p.subject_id: p for p in _proposals_of(project_id)}
     mine = [(s, by_sheet.get(s.id)) for s in sheets if s.discipline == first.discipline]
     held = _holding(project_id, mine)
+    runnings = _runnings([s.number for s in sheets])  # every sheet, as the web's every Proposal
     rows: list[list[drawings.SheetView]] = []
     for sheet, _p in mine:
         if sheet.id in held or (sheet.decision is None and sheet.proposed_exclusion):
@@ -1812,12 +1843,45 @@ def _is_whole_run(
             and run_of(last) == run_of(sheet)
             and state_of(last) == state_of(sheet)
             and run_of(sheet)
+            and not _spans(runnings, last.number, sheet.number)
         ):
             rows[-1].append(sheet)
         else:
             rows.append([sheet])
     wanted = {sheet.id for sheet, _p in chosen}
     return any({s.id for s in row} == wanted for row in rows)
+
+
+# The web's `numberParts`: JS `.` stops at a line end and `\d` is ASCII only (a Bengali digit is
+# no running number).
+_NUMBER_PARTS = re.compile(r"([^\n\r\u2028\u2029]*?)([0-9]+)([^0-9]*)")
+
+
+def _series_of(number: str | None) -> tuple[str, int] | None:
+    """A sheet number's series (its text either side of its last digits) and running number, as the
+    web's `seriesOf`: "S-07" is ("S-", "") 7; none for no number or one without digits."""
+    m = _NUMBER_PARTS.fullmatch(number.strip()) if number else None
+    return (f"{m[1]}\x01{m[3]}", int(m[2])) if m else None
+
+
+def _runnings(numbers: Iterable[str | None]) -> dict[str, list[int]]:
+    """Every running number the given sheets hold, by series (each copy counted)."""
+    runnings: dict[str, list[int]] = {}
+    for number in numbers:
+        found = _series_of(number)
+        if found:
+            runnings.setdefault(found[0], []).append(found[1])
+    return runnings
+
+
+def _spans(runnings: Mapping[str, Sequence[int]], a: str | None, b: str | None) -> bool:
+    """Whether a running number of `a`'s and `b`'s one series lies strictly between theirs, as the
+    web's `sheetRows` `between`: the boundary numbers themselves (a copy of either) are not between."""
+    x, y = _series_of(a), _series_of(b)
+    if x is None or y is None or x[0] != y[0]:
+        return False
+    low, high = sorted((x[1], y[1]))
+    return any(low < r < high for r in runnings.get(x[0], ()))
 
 
 def _holding(
@@ -2002,6 +2066,7 @@ def _exclude(
     auth.require(acts.EXCLUDE, project_id)
     words = text if reason == OTHER else ""
     with writing(project_id):
+        _in_scope(project_id)  # first: so is an act naming views alone (`_chosen` checks the rest)
         views, ids = _views_chosen(project_id, ids)
         chosen = _chosen(project_id, ids) if ids or not views else []
         act = _act(
@@ -2929,11 +2994,23 @@ def _put_back_sheet(
             )
             proposal.save(update_fields=["status", "confirmation", "rejected_reason"])
         own = _excluded_on_their_own(project_id, sheet_id)
-        for row in Coverage.objects.select_for_update().filter(
-            project_id=project_id, sheet_revision_id=sheet_id
-        ):
-            if row.view_id not in own:  # a view the QS left out by an act of its own stays out
-                _put_back(row)
+        rows = [  # a view the QS left out by an act of its own stays out
+            row
+            for row in Coverage.objects.select_for_update().filter(
+                project_id=project_id, sheet_revision_id=sheet_id
+            )
+            if row.view_id not in own
+        ]
+        # The steps standing for the views proposed unaccounted, read once for the sheet, by the act
+        # deciding it as it stands (a sheet off the sheet list: none), not once a view (S29-M0b).
+        unaccounted = [row for row in rows if row.proposed_status == CoverageStatus.UNACCOUNTED]
+        steps: dict[uuid.UUID, list[CoverageStep]] = {}
+        if unaccounted:
+            fact = _facts_by_id(project_id).get(sheet_id)
+            deciding = fact.confirmation_id if fact is not None else None
+            steps = _steps_standing(unaccounted, {sheet_id: deciding})
+        for row in rows:
+            _put_back(row, standing=[s.step for s in steps.get(row.id, [])])
         return
     earlier, prior = standing
     if prior["decision"] != "excluded" and _held_first(project_id, sheet_id, proposal):
@@ -4312,6 +4389,10 @@ def progress_counted() -> Iterator[dict[uuid.UUID, ProgressView]]:
         _PROGRESS_COUNTED.reset(token)
 
 
+LOCK_WAIT = "lock"
+"""The name an act's `Server-Timing` gives its wait for Step 1's write lock (`lock_writes`)."""
+
+
 @contextlib.contextmanager
 def writing(project_id: uuid.UUID) -> Iterator[None]:
     """An act's transaction on Step 1 (#227): Step 1's write lock on the Project taken first
@@ -4329,13 +4410,21 @@ _READS: contextvars.ContextVar[dict[Hashable, Any] | None] = contextvars.Context
 
 def _in_scope(project_id: uuid.UUID) -> None:
     """Refuse a Project not in the acting Membership's scope as not found (`projects.get`); inside an
-    act, checked once (`_remembered`: a refusal is never remembered, so it refuses again)."""
+    act, checked once (`_remembered`: a refusal is never remembered, so it refuses again). Passed, the
+    request is admitted to `Server-Timing` (`timing.admitted`): a refusal here, or before it, carries
+    no header (#885's review)."""
     _remembered(("scope", project_id), lambda: projects.get(project_id))
+    timing.admitted()
 
 
 def _set_of(project_id: uuid.UUID) -> drawings.SetView | None:
     """The Project's Drawing Set (`drawings.set_of`); inside an act, read once between its writes."""
     return _remembered(("set", project_id), lambda: drawings.set_of(project_id))
+
+
+def set_of(project_id: uuid.UUID) -> drawings.SetView | None:
+    """`_set_of`, for the conflicts' pass after an act (`proposals.set_conflicts`)."""
+    return _set_of(project_id)
 
 
 def files_of(project_id: uuid.UUID) -> list[drawings.FileView]:
@@ -4344,6 +4433,17 @@ def files_of(project_id: uuid.UUID) -> list[drawings.FileView]:
     connection, outside Step 1's write lock."""
     drawing_set = _set_of(project_id)
     return drawings.files(drawing_set.id) if drawing_set else []
+
+
+_KEPT_THROUGH_WRITES = frozenset({"scope", "set", "conventions"})
+"""What an act reads once for the whole act, its writes notwithstanding (S29-M0b): the Project's scope
+check, its Drawing Set and the Market's sheet conventions, rows no Step 1 act writes (an act neither
+adds a file, nor moves a Project, a Membership or a Library Discipline). Everything else is read
+again after a write."""
+
+
+def _kept_through_writes(key: Hashable) -> bool:
+    return isinstance(key, tuple) and bool(key) and key[0] in _KEPT_THROUGH_WRITES
 
 
 def _remembered[T](key: Hashable, read: Callable[[], T]) -> T:
@@ -4371,7 +4471,8 @@ def _reading(sql: str) -> bool:
 def reads_between_writes() -> Iterator[None]:
     """An act's repeated reads of the same rows answered once until its next write (S15-A2's 500 ms
     bound, #638): every statement the act's connection runs that is not a plain read
-    (`_reading`) forgets them all, before it runs, so a read after a write is read again. Another
+    (`_reading`) forgets them, before it runs, so a read after a write is read again; only the rows
+    no act writes (`_KEPT_THROUGH_WRITES`) are kept for the whole act. Another
     transaction's writes are not waited for: Step 1's write lock keeps a read job's writes out
     while an act holds it (`lock_writes`). A block inside another shares the outer one's."""
     if _READS.get() is not None:
@@ -4383,7 +4484,8 @@ def reads_between_writes() -> Iterator[None]:
         execute: Callable[..., Any], sql: str, params: Any, many: bool, context: Any
     ) -> Any:
         if not _reading(sql):
-            memo.clear()
+            for key in [key for key in memo if not _kept_through_writes(key)]:
+                del memo[key]
         return execute(sql, params, many, context)
 
     token = _READS.set(memo)
@@ -4407,7 +4509,8 @@ def lock_writes(project_id: uuid.UUID) -> None:
     again in the same transaction, it is already held; an act aborted anyway is run again
     (`platform.services.deadlocks`)."""
     assert connection.in_atomic_block, "Step 1's write lock is a transaction's"
-    with connection.cursor() as cursor:
+    # The wait is measured, never changed: an act's answer reports it (`Server-Timing`'s `lock`).
+    with connection.cursor() as cursor, timing.waited(LOCK_WAIT):
         cursor.execute(
             "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-write:{project_id}"]
         )
@@ -4452,8 +4555,10 @@ def record_progress(project_id: uuid.UUID) -> None:
                 "select pg_advisory_xact_lock(hashtextextended(%s, 0))", [f"step1-progress:{project_id}"]
             )
         tenant_id = _tenant()
-        counted = progress(project_id)
-        if (kept := _PROGRESS_COUNTED.get()) is not None:
+        # The rows alone, unless a reply keeps the whole count (an answer's).
+        kept = _PROGRESS_COUNTED.get()
+        counted = progress(project_id, rows_only=kept is None)
+        if kept is not None:
             kept[project_id] = counted
         for row in counted.disciplines:
             status = row.status

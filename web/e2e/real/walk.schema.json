@@ -11,6 +11,8 @@
     "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "started_at": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
     "smoke": { "const": true },
+    "jev_from": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "jev_seeded": { "type": "integer", "minimum": 0 },
     "urls": {
       "type": "object",
       "additionalProperties": false,
@@ -28,6 +30,27 @@
   },
   "$defs": {
     "count": { "type": "integer", "minimum": 0 },
+    "spread": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p50", "p95", "max", "count"],
+      "properties": {
+        "p50": { "type": "number", "minimum": 0 },
+        "p95": { "type": "number", "minimum": 0 },
+        "max": { "type": "number", "minimum": 0 },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "act_time": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ms"],
+      "properties": {
+        "ms": { "$ref": "#/$defs/spread" },
+        "app_ms": { "$ref": "#/$defs/spread" },
+        "lock_ms": { "$ref": "#/$defs/spread" }
+      }
+    },
     "set": {
       "type": "object",
       "additionalProperties": false,
@@ -69,6 +92,17 @@
             }
           }
         },
+        "act_times": {
+          "type": "object",
+          "description": "Per act kind, the acts' spread: ms (key to answer, as each act's ms), app_ms and lock_ms (the server's own work and its wait for Step 1's write lock, from the answer's Server-Timing `app` and `lock`; written only when some act of the kind carried them). Numbers only.",
+          "additionalProperties": false,
+          "properties": {
+            "confirm": { "$ref": "#/$defs/act_time" },
+            "undo": { "$ref": "#/$defs/act_time" },
+            "exclude": { "$ref": "#/$defs/act_time" },
+            "answer": { "$ref": "#/$defs/act_time" }
+          }
+        },
         "acts": {
           "type": "array",
           "description": "Each act on Step 1, timed from its key to its answer; read_running only if a file read both before and after it.",
@@ -80,7 +114,9 @@
               "kind": { "enum": ["confirm", "undo", "exclude", "answer"] },
               "ms": { "type": "number", "minimum": 0 },
               "read_running": { "type": "boolean" },
-              "status": { "type": "integer", "minimum": 0 }
+              "status": { "type": "integer", "minimum": 0 },
+              "app_ms": { "type": "number", "minimum": 0, "description": "The server's own work on the act: its answer's Server-Timing app, when it carried one." },
+              "lock_ms": { "type": "number", "minimum": 0, "description": "Its wait for Step 1's write lock: the answer's Server-Timing lock, when it carried one." }
             }
           }
         },

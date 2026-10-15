@@ -1,16 +1,26 @@
-# The review tiers' path lists, read by scripts/factory/review.py and its tests. The lists name what
-# is SAFE, never the walls (PR #478 review, round 2), and they are kept SHORT: refining word lists to
-# rescue more paths kept letting walls through (PR #489 review, round 1).
+# The review tiers' path lists, read by scripts/factory/review.py, scripts/factory/tiers.py and their
+# tests. The no-model lists name what is SAFE, never the walls (PR #478 review, round 2), and they are
+# kept SHORT: refining word lists to rescue more paths kept letting walls through (PR #489 review,
+# round 1).
 #
 # - allowlist-only (no model) is decided in code: only 64-hex lines added to the leak-scan allowlist.
 # - docs-only (no model, PASS by code): every changed path matches `docs_only.paths`, none matches
 #   `docs_only.never`, and each is a text file (`.md` or `.txt` with a line count; checked in code).
-# - small (one lens): under 150 changed lines, no binary file, every changed path matches
-#   `small.paths` and none matches `small.never`.
-# - normal (two lenses): everything else. A path nobody listed is normal; every test change is normal.
+# - risk (lens A and lens B; the refuter on every head): any changed path that is not ordinary.
+# - ordinary (one lens, lens B; the refuter on one head in five): every changed path is on the review
+#   bar's lax set (`[lax] paths` less `[strict] paths` below, as scripts/ledger.py judges it) and on no
+#   `**/conftest.py`, no `[risk] paths` glob and no `[docs_only] never` glob, whatever its size.
+#
+# RISK IS THE DEFAULT (lesson (e), as in `[strict]` below): there is no ordinary list of its own
+# (S30-F7, issue #898: PR #896's `[ordinary]` folders gave four access files one lens), so scripts/,
+# tools/, .github/, .claude/, vextrus/, engine/, the root's files, every .ts and .py and any folder
+# nobody listed are risk. The risk list still names walls (the owner's rulings Q5 and Q15, 14 Oct 2026:
+# "the full panel on a risk tier written down as paths"), the web views that reach access among them.
+# A missing or unreadable `[risk]`, `[docs_only] never`, `[strict]` or `[lax]` list makes every path
+# risk (scripts/factory/tiers.py).
 #
 # Patterns are globs on the repository path: `*` is any run of characters but `/`, `**/` any number
-# of folders (none included), a trailing `/**` everything below a folder. `never` ignores case.
+# of folders (none included), a trailing `/**` everything below a folder. `never` and `risk` ignore case.
 
 [docs_only]
 # Plain reading for people: research notes, notes, the lessons list.
@@ -35,37 +45,123 @@ never = [
   "docs/knowledge/jev-nodes.md",
 ]
 
-[small]
-# One lens only for the translation catalogues (their words also get the ux-critic words lens).
-# `web/src/components/**` is the one other entry: the S14-R1 acceptance tests pin a three-line badge
-# component as small (test_tier.py, test_a_small_pr_gets_one_lens), and acceptance tests never change.
+[risk]
+# The full panel (S29-F7; Q5, Q15). Judged against docs/architecture.md's module map and the tree.
+# Only a path on the lax set can be ordinary, so the globs here that sit off it (.py, .ts, the root's
+# files) name the walls for the reader and for ts29f7's risk table; the ones that bite are those inside
+# the lax globs: the web's members and auth screens, the instruction files, and the web views the
+# access tree walk marks (scripts/tests/acceptance/ts30f7).
 paths = [
-  "web/src/messages/**/*.po",
-  "web/src/messages/**/*.json",
-  "web/src/components/**",
-]
-# No test, ever (a wall's own tests are a wall), and no instruction file or dotfile.
-never = [
+  # The engine: the hostile-drawing readers and the recognisers.
+  "engine/**",
+  "vextrus/takeoff/**",
+  # Money.
+  "vextrus/boq/**",
+  "vextrus/rates/**",
+  # Access and members: tenancy, RLS, Memberships, auth, invitations, ended access.
+  "vextrus/platform/**",
+  "vextrus/projects/**",
+  "vextrus/settings/auth.py",
+  "vextrus/settings/tenancy.py",
+  "web/src/members/**",
+  "web/src/auth/**",
+  "web/src/routes/(auth)/**",
+  # The web views that reach access (S30-F7, issue #898's tree walk: each imports web/src/auth,
+  # web/src/members or the API transport, or handles a role or a Membership to decide what a person
+  # sees). By name: their folders hold many plain views. SheetList, Step1Inspector and questionWords
+  # take the read-only role (`'md' | 'guest'`) as a prop and gate the acts on it (S30-F7's refuter;
+  # scripts/factory/tests/test_tiers.py walks the tree for that mark).
+  "web/src/app/CanvasFrame.tsx",
+  "web/src/app/Frame.tsx",
+  "web/src/app/JumpTo.tsx",
+  "web/src/app/TopBar.tsx",
+  "web/src/app/testing.tsx",
+  "web/src/drawing-set/DrawingSetPage.tsx",
+  "web/src/drawing-set/ReportPanel.tsx",
+  "web/src/projects/NewProjectDialog.tsx",
+  "web/src/projects/ProjectsPage.tsx",
+  "web/src/takeoff/ActorChip.tsx",
+  "web/src/takeoff/Bar.tsx",
+  "web/src/takeoff/DrawingListDialog.tsx",
+  "web/src/takeoff/SheetHistory.tsx",
+  "web/src/takeoff/SheetList.tsx",
+  "web/src/takeoff/SheetLook.tsx",
+  "web/src/takeoff/Step1Inspector.tsx",
+  "web/src/takeoff/Step1Screen.tsx",
+  "web/src/takeoff/questionWords.tsx",
+  "web/src/takeoff/acts.tsx",
+  "web/src/takeoff/words.tsx",
+  "web/src/ui/ReadOnlyChip.tsx",
+  # The API's sign-in and CSRF, the middleware, and the walls earlier reviews found outside those
+  # modules (PR #489 round 1, finding 2): drawings' tenant wall and the upload parser that runs before
+  # sign-in.
+  "vextrus/api.py",
+  "vextrus/routers.py",
+  "vextrus/urls.py",
+  "vextrus/settings/base.py",
+  "vextrus/settings/db.py",
+  "vextrus/settings/uploads.py",
+  "vextrus/drawings/uploads.py",
+  "vextrus/drawings/services/_access.py",
+  # The real drawings' custody (nothing from them enters git).
+  "scripts/real_drawings/**",
+  # Any module's migrations.
+  "**/migrations/**",
+  # The factory's gate code, this list and its reader among it: a PR never relaxes its own tier.
+  "scripts/factory/review*",
+  "scripts/factory/tiers.py",
+  "scripts/factory/ci_gate.py",
+  "scripts/factory/publish.py",
+  "scripts/factory/allowlist.py",
+  "scripts/factory/trailers.py",
+  "scripts/factory/lens_pytest.py",
+  "scripts/factory/crosspr.py",
+  "scripts/factory/trusted-authors.txt",
+  "scripts/verify.py",
+  "tools/lint/engine_paths.py",
+  ".github/engine-paths.txt",
+  "scripts/ledger.py",
+  "scripts/merge_ready.py",
+  "scripts/land.py",
+  "tools/lint/acceptance*.py",
+  "tools/leakscan/**",
+  # What the gate code above imports or reads (PR #884 round 1 and its sweep): the flaky lists that
+  # excuse a failed test (verify.py, land.py), the leak scan's commit finder (publish.py, allowlist.py,
+  # verify.py), the review slots and the revert tier's
+  # watcher (review.py), the acceptance check's legacy list and rulings register
+  # (read at the base) and the import-linter configuration it looks for.
+  ".github/flaky.txt",
+  ".github/flaky-root.txt",
+  "scripts/factory/leakwhere.py",
+  "scripts/factory/governor.py",
+  "scripts/factory/main_watch.py",
+  "tools/lint/acceptance_legacy.txt",
+  "docs/rulings.md",
+  ".importlinter",
+  "setup.cfg",
+  # PR #884 round 2: the CI matrix's builder and its shard list (ci.yml's jobs come from them), and
+  # what the real-drawing check's matcher reads beside .github/engine-paths.txt.
+  "tools/lint/ci_shards.py",
+  ".github/ci-shards.json",
+  ".github/checkout-also.txt",
+  ".github/workflows/**",
+  # The hooks, the settings and the agents (review.py gives .claude/agents to its lenses as prompts).
+  ".claude/hooks/**",
+  ".claude/settings.json",
+  ".claude/agents/**",
+  "scripts/git-hooks/**",
+  "scripts/factory/*.settings.json",
+  # What an agent's tools and what pytest runs are read from (a gate's own configuration).
+  ".mcp.json",
+  "pyproject.toml",
+  "conftest.py",
+  # The scorer.
+  "tools/scorer/**",
+  # The files Claude Code loads as instructions in any folder (the docs-only never-list's), so none
+  # is ordinary inside a lax folder.
   "**/CLAUDE*.md",
   "**/AGENTS*.md",
   "**/*.local.md",
-  "**/.*",
-  "**/.*/**",
-  "docs/plans/**",
-  "docs/specs/**",
-  "docs/adr/**",
-  "docs/agents/**",
-  "docs/handoff/**",
-  "docs/knowledge/jev-nodes.md",
-  "**/tests/**",
-  "**/test/**",
-  "**/__tests__/**",
-  "**/acceptance/**",
-  "**/test_*",
-  "**/*_test.*",
-  "**/*.test.*",
-  "**/*.spec.*",
-  "**/conftest.py",
 ]
 
 [strict]

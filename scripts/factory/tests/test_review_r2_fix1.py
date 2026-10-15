@@ -55,7 +55,7 @@ class Cloud:
         entry = {"label": label, "state": "launched", "branch": branch, "review_file": str(review_file)}
         self.lenses.append(entry)
         required = ["lens-a", "lens-b"]
-        manifest = {"pr": PR, "head": self.head, "round": 1, "tier": "normal",
+        manifest = {"pr": PR, "head": self.head, "round": 1, "tier": "risk",
                     "required": required, "lenses": self.lenses}  # fmt: skip
         review.handoff_path(self.records, PR, self.head, 1).write_text(json.dumps(manifest))
 
@@ -227,7 +227,7 @@ def test_the_cloud_hand_off_names_every_lens_for_collect(
 
     monkeypatch.setattr(review_cloud, "run", launch_one)
     monkeypatch.setattr(subprocess, "run", lambda *_, **__: subprocess.CompletedProcess([], 0))
-    run = review.Run(pr=PR, round_=1, head="a" * 40, tier="normal")
+    run = review.Run(pr=PR, round_=1, head="a" * 40, tier="risk")
     records = tmp_path / "cloud"
     records.mkdir()
     review.hand_off(run, [review.LENS_A, review.LENS_B], tmp_path, records)
