@@ -1,6 +1,8 @@
 /*
  * G1's act timer, extracted from walk.spec.ts (S18-WALK1). It listens for responses before the keys are
- * pressed, so an answer that reaches Playwright in the same batch as its request is never lost.
+ * pressed, so an answer that reaches Playwright in the same batch as its request is never lost. An act's `ms`
+ * is measured on the monotonic clock (performance.now()): this machine's wall clock jumps forward 1.1 to 1.5 s
+ * every 32.5 s (S30-W2).
  */
 import type { Page, Request, Response } from '@playwright/test'
 
@@ -115,14 +117,14 @@ export async function timedAct(
   const onRequest = (r: Request) => {
     if (isAct(r)) {
       requests.push(r)
-      sentAt.set(r, Date.now())
+      sentAt.set(r, performance.now())
       wake()
     }
   }
   const onResponse = (r: Response) => {
     const req = r.request()
     if (isAct(req)) {
-      answers.set(req, { status: r.status(), at: Date.now(), timing: serverTiming(timingHeader(r)) })
+      answers.set(req, { status: r.status(), at: performance.now(), timing: serverTiming(timingHeader(r)) })
       wake()
     }
   }
@@ -145,16 +147,16 @@ export async function timedAct(
     })
 
   try {
-    let started = Date.now()
+    let started = performance.now()
     for (const [i, key] of keys.entries()) {
       if (i > 0) await page.waitForTimeout(400) // the screen settles between keys (a sheet opening)
-      started = Date.now()
+      started = performance.now()
       await page.keyboard.press(key)
     }
     let seen = await until(() => requests.length > 0, 4000)
     if (!seen && kind === 'answer') {
       // An option picked by its number may wait for Enter (the card's own key).
-      started = Date.now()
+      started = performance.now()
       await page.keyboard.press('Enter')
       seen = await until(() => requests.length > 0, 4000)
     }
