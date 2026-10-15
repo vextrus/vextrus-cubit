@@ -7,7 +7,6 @@
     "allow": ["Workflow", "mcp__chrome-devtools", "mcp__browser", "Read(~/vextrus-cubit/**)"],
     "deny": [
       "Edit(~/vextrus-cubit/**)",
-      "Write(~/vextrus-cubit/**)",
       "Read(~/.pgpass)",
       "Read(~/.bashrc)",
       "Read(~/.config/gh/**)",
