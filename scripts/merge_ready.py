@@ -641,12 +641,30 @@ def _names(repo: Path, start: str, end: str) -> list[str]:
     return [path for path in done.stdout.split("\0") if path]
 
 
-def _merge_base(repo: Path, one: str, other: str) -> str:
-    done = _git(repo, "merge-base", one, other)
-    base = done.stdout.strip()
-    if done.returncode != 0 or not SHA.fullmatch(base):
+def _merge_bases(repo: Path, one: str, other: str) -> list[str]:
+    """Every merge-base of the two (`--all`: a criss-cross history has several, and measuring from one
+    alone can hide a file changed on the other path)."""
+    done = _git(repo, "merge-base", "--all", one, other)
+    bases = done.stdout.split()
+    if done.returncode != 0 or not bases or not all(SHA.fullmatch(base) for base in bases):
         raise Unfetchable(f"cannot find where {one[:12]} left main")
-    return base
+    return bases
+
+
+def _changed_since(repo: Path, bases: list[str], end: str) -> set[str]:
+    return {path for base in bases for path in _names(repo, base, end)}
+
+
+def _overlap(files: set[str], theirs: set[str]) -> list[str]:
+    """`files` that meet `theirs`: the same path, or one a folder of the other (a file and a folder of
+    one name clash as surely as one file changed twice)."""
+    folders = {path[:at] for path in theirs for at, char in enumerate(path) if char == "/"}
+
+    def meets(path: str) -> bool:
+        parents = (path[:at] for at, char in enumerate(path) if char == "/")
+        return path in theirs or path in folders or any(parent in theirs for parent in parents)
+
+    return sorted(path for path in files if meets(path))
 
 
 def _shown(path: str) -> str:
@@ -660,19 +678,22 @@ def behind_problem(pr: int, head: str, repo: Path) -> str | None:
     head contains main's tip, or when it is behind but its PR is ordinary (`tiers.is_risk` false on its
     files) and its files meet none changed on main since its head's merge-base with that main (its CI
     ran without them, but on nothing it touches). Else why, naming `land update` and each overlapping
-    file. Both sides are measured from that merge-base, never from the base GitHub reports. A head or
-    main git cannot read is a problem, never a pass."""
+    file (or folder: a file and a folder of one name clash). Both sides are measured from every such
+    merge-base, never from the base GitHub reports. A head or main git cannot read is a problem, never
+    a pass."""
     main = "refs/remotes/origin/main"
+    if not SHA.fullmatch(head):
+        return f"the head {_shown(head[:12])} is not a full sha: run again"
     if _git(repo, "merge-base", "--is-ancestor", main, head).returncode == 0:
         return None
     try:
-        since = _merge_base(repo, head, main)
-        files = _names(repo, since, head)
-        overlap = sorted(set(files) & set(_names(repo, since, main)))
+        since = _merge_bases(repo, head, main)
+        files = _changed_since(repo, since, head)
+        overlap = _overlap(files, _changed_since(repo, since, main))
     except Unfetchable as error:
         return f"the head {head[:12]} does not contain main's tip and {error}: run again"
     why = []
-    if tiers.is_risk(files):
+    if tiers.is_risk(sorted(files)):
         why.append("the PR is on the risk tier")
     if overlap:
         why.append("its files overlap main's since its merge-base: " + ", ".join(map(_shown, overlap)))
@@ -704,8 +725,8 @@ def rewalk_files(walked: str, head: str, *, repo: Path) -> list[str]:
     cannot read them: an empty answer always means nothing to walk."""
     main = "refs/remotes/origin/main"
     covered = {
-        *_names(repo, _merge_base(repo, walked, main), walked),
-        *_names(repo, _merge_base(repo, head, main), head),
+        *_changed_since(repo, _merge_bases(repo, walked, main), walked),
+        *_changed_since(repo, _merge_bases(repo, head, main), head),
     }
     return [path for path in _names(repo, walked, head) if path.startswith("web/") and path in covered]
 

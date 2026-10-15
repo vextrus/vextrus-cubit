@@ -127,3 +127,40 @@ def test_the_rewalk_command_line(
     assert merge_ready.main(["rewalk", walked, NOWHERE], repo=repo) == 1
     assert merge_ready.main(["rewalk", "abc", screen], repo=repo) == 2
     assert git(repo, "rev-parse", MAIN) == fork
+
+
+def test_a_criss_cross_history_is_measured_from_every_merge_base(repo: Path) -> None:
+    """Main and the head each merged both of two side commits, so they have two merge-bases. From the
+    one where `docs/f.md` reads `fork`, main's net change to it is nothing (it reverted it): only the
+    other base shows main changed the file the head changes too."""
+    side_a = branch_off(repo, "a", {"x.txt": "a\n"})
+    side_m = branch_off(repo, "m", {"docs/f.md": "one\n"})
+    git(repo, "checkout", "-q", "-b", "main-line", side_m)
+    git(repo, "merge", "-q", "--no-edit", side_a)
+    git(repo, "rm", "-q", "docs/f.md")
+    main = commit(repo, {"y.txt": "y\n"}, "main drops f")
+    git(repo, "checkout", "-q", "-b", "head-line", side_a)
+    git(repo, "merge", "-q", "--no-edit", side_m)
+    head = commit(repo, {"docs/f.md": "two\n"}, "the head changes f")
+    git(repo, "update-ref", MAIN, main)
+    bases = git(repo, "merge-base", "--all", head, main).split()
+    assert sorted(bases) == sorted([side_a, side_m]), bases
+    assert git(repo, "merge-base", head, main) == side_a, "git picked the base that shows the overlap"
+    problem = merge_ready.behind_problem(7, head, repo)
+    assert problem is not None
+    assert "docs/f.md" in problem
+
+
+def test_a_file_and_a_folder_of_one_name_overlap(repo: Path) -> None:
+    git(repo, "update-ref", MAIN, branch_off(repo, "m", {"docs/d": "a file\n"}))
+    head = branch_off(repo, "p", {"docs/d/x.md": "in a folder\n"})
+    problem = merge_ready.behind_problem(7, head, repo)
+    assert problem is not None
+    assert "docs/d/x.md" in problem
+
+
+def test_a_head_that_is_not_a_full_sha_is_a_problem(repo: Path) -> None:
+    git(repo, "update-ref", MAIN, branch_off(repo, "m", {"main.txt": "main\n"}))
+    problem = merge_ready.behind_problem(7, MAIN, repo)
+    assert problem is not None
+    assert "not a full sha" in problem

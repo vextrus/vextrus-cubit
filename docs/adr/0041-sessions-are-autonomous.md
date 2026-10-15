@@ -168,3 +168,8 @@ process could read the keys and the App's key through it: ADR 0026's refuter #5)
   The head must contain main's tip (the fetched `origin/main`), for every PR, documents included; `scripts.land`
   and `scripts.merge_ready` refuse a stale head, naming `land update`, and the lander still never updates. The
   ruleset stays as the owner set it (7 Oct); only the lander is stricter.
+- 14 Oct 2026 (session 29's plan, F4; the owner's rulings Q19 and Q20): **the 14 Oct refusal narrows to risk or
+  overlap.** A head behind main is refused only for a risk-tier PR (`scripts.factory.tiers.is_risk`) or one whose
+  files overlap those main changed since the head's merge-bases with the fetched main, naming `land update` and each
+  overlapping file; an ordinary PR with no overlap lands on its own green CI. A design gate is walked again only when
+  `python -m scripts.merge_ready rewalk` names a covered `web/**` file changed since the walk.
