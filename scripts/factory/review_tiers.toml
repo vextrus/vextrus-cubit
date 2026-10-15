@@ -68,7 +68,9 @@ paths = [
   "web/src/routes/(auth)/**",
   # The web views that reach access (S30-F7, issue #898's tree walk: each imports web/src/auth,
   # web/src/members or the API transport, or handles a role or a Membership to decide what a person
-  # sees). By name: their folders hold many plain views.
+  # sees). By name: their folders hold many plain views. SheetList, Step1Inspector and questionWords
+  # take the read-only role (`'md' | 'guest'`) as a prop and gate the acts on it (S30-F7's refuter;
+  # scripts/factory/tests/test_tiers.py walks the tree for that mark).
   "web/src/app/CanvasFrame.tsx",
   "web/src/app/Frame.tsx",
   "web/src/app/JumpTo.tsx",
@@ -82,8 +84,11 @@ paths = [
   "web/src/takeoff/Bar.tsx",
   "web/src/takeoff/DrawingListDialog.tsx",
   "web/src/takeoff/SheetHistory.tsx",
+  "web/src/takeoff/SheetList.tsx",
   "web/src/takeoff/SheetLook.tsx",
+  "web/src/takeoff/Step1Inspector.tsx",
   "web/src/takeoff/Step1Screen.tsx",
+  "web/src/takeoff/questionWords.tsx",
   "web/src/takeoff/acts.tsx",
   "web/src/takeoff/words.tsx",
   "web/src/ui/ReadOnlyChip.tsx",

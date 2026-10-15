@@ -30,7 +30,7 @@ The model tiers are `ordinary` and `risk`; `small` and `normal` are gone, and si
   and lens B, and the refuter on every head. So does a path on no `[ordinary]` glob: risk is the default
   (S29-F7-R; PR #884's review found a missed gate file in each of two rounds). `scripts/factory/tiers.py`
   reads both lists for the review and the landing; a list that cannot be read makes every path risk.
-- **Ordinary**: a PR whose every path is plain product work (`[ordinary] paths`: `web/src`, the modules
+- **Ordinary** (superseded 15 Oct 2026, below): a PR whose every path is plain product work (`[ordinary] paths`: `web/src`, the modules
   off the risk list, `docs`) and none on `[risk]` gets lens B alone, plus CI. The refuter runs on one ordinary head in five,
   decided by code from the PR and its head (`tiers.refuter_sampled`).
 - **The bar** (Q21: "a finding blocks only with a reproduction on that head"): on an ordinary head the

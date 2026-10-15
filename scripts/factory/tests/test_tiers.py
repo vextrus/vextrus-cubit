@@ -3,6 +3,8 @@
 risk head, and a lens's environment that keeps the prompt cache on (S29-F7)."""
 
 import hashlib
+import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -183,6 +185,34 @@ def test_an_unusable_list_makes_every_path_risk(
         tiers_file.write_text(text)
     monkeypatch.setattr(ledger, "TIERS_FILE", tiers_file)
     assert tiers.risk_matches(["b/x.py", "a/x.tsx"]) == ["b/x.py", "a/x.tsx"]
+
+
+# A view that takes the read-only role as a prop and gates the acts on it, without importing `@/auth`
+# (S30-F7's refuter: ts30f7's tree walk marks imports and nouns, not a `readOnly` prop or a `'guest'`).
+ROLE_PROP = re.compile(r"""\breadOnly\??\s*:|(?<!role=)["']guest["']""")
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_no_ordinary_view_takes_the_read_only_role() -> None:
+    done = subprocess.run(
+        ["git", "ls-tree", "-r", "-z", "--name-only", "HEAD"], cwd=ROOT, capture_output=True, check=True
+    )
+    tree = [name.decode() for name in done.stdout.split(b"\0") if name]
+    risk = set(tiers.risk_matches(tree))
+    marked = [
+        path
+        for path in tree
+        if path not in risk
+        and path.endswith((".ts", ".tsx"))
+        and ROLE_PROP.search((ROOT / path).read_text(errors="replace"))
+    ]
+    assert not marked, f"views that take the read-only role judged ordinary (one lens): {marked}"
+
+
+def test_the_read_only_mark_catches_the_views_the_refuter_found() -> None:
+    for path in ("web/src/takeoff/SheetList.tsx", "web/src/takeoff/Step1Inspector.tsx"):
+        assert ROLE_PROP.search((ROOT / path).read_text()), path
+    assert not ROLE_PROP.search('<ReadOnlyChip role="guest" /> <TextField readOnly size="md" />')
 
 
 @pytest.mark.parametrize("pr", [1, 12, 881])

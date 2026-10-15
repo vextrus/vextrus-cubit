@@ -8,7 +8,8 @@ the landing (S29-F4) share.
   paths` carve-outs) and on no `**/conftest.py`, no `[risk] paths` glob and no `[docs_only] never`
   glob (those two case ignored). Everything else is risk: there is no second ordinary list (S30-F7,
   issue #898: PR #896's `[ordinary]` folders gave access files one lens). The file is read for each
-  call. A tiers file that cannot be read, or any of those four lists missing, empty or unusable,
+  call, and `on_strict_path` reads it again for each path: the bar's own fail-closed reader, kept
+  rather than copied. A tiers file that cannot be read, or any of those four lists missing, empty or unusable,
   makes every given path risk: the tier fails closed. An empty change is not risk.
 - `refuter_sampled(pr, head)`: the one ordinary head in five the refuter runs on, decided by code from
   the PR and its head (`int(sha256("<pr>:<head>"), 16) % 5 == 0`), so a rerun of the same head is
@@ -33,7 +34,7 @@ def never_globs() -> list[str] | None:
     missing, empty or holds anything but non-blank strings."""
     try:
         tables = tomllib.loads(ledger.TIERS_FILE.read_bytes().decode())
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     table = tables.get(DOCS_ONLY_TABLE)
     never = table.get("never") if isinstance(table, dict) else None
