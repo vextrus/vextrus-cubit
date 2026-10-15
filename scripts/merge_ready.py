@@ -787,9 +787,9 @@ def main(
     head_ready: Callable[[str], bool] | None = None,
 ) -> int:
     args = sys.argv[1:] if argv is None else argv
-    if len(args) == 3 and args[0] == "rewalk":
-        return rewalk(args[1], args[2], Path.cwd() if repo is None else repo)
     if len(args) != 1 or not args[0].isdigit():
+        if len(args) == 3 and args[0] == "rewalk":
+            return rewalk(args[1], args[2], Path.cwd() if repo is None else repo)
         print(
             "usage: python -m scripts.merge_ready <PR number> | {rewalk} <walked sha40> <head sha40>",
             file=sys.stderr,
