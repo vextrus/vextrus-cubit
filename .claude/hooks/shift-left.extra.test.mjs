@@ -262,3 +262,40 @@ test("a plain cd, and cd A && git commit, are still judged in that folder", () =
   assert.match(reasonOf(hook(w, `cd ${clean}; cd ${w.repo}; git commit -m "docs: a"`)) ?? "", /acceptance check/);
   assert.match(reasonOf(hook(w, `true && cd ${w.repo} && git commit -m "docs: a"`)) ?? "", /acceptance check/);
 });
+
+// PR #902 round 2 (55): a `git add` the shell may not run (after `||`, after a `&&` whose left side is not a git add and
+// before a `;`, in an if or while) was replayed as if it ran, so a commit that holds no hit was denied. Such an add is now a change the
+// hook cannot judge: the staged tree is noted, never denied; an add certain to run is still replayed.
+test("a git add that may not run is not replayed: the staged tree is noted, never denied over a file it may not stage", () => {
+  const w = world({ corpus: true });
+  writeFileSync(join(w.repo, "leak.md"), `x\n${CORPUS_LINE}\n`);
+  const wrong = [];
+  for (const command of [
+    'git diff --quiet -- leak.md || git add leak.md; git commit -m "docs: a note"',
+    'test -f nowhere || git add leak.md; git commit -m "docs: a note"',
+    'test -f nowhere && git add leak.md; git commit -m "docs: a note"',
+    '[ -f nowhere ] && git add leak.md; git commit -m "docs: a note"',
+    'ls nowhere && git add leak.md; git commit -m "docs: a note"',
+    'git diff --quiet && git add leak.md; git commit -m "docs: a note"',
+    'test -f nowhere ||\ngit add leak.md\ngit commit -m "docs: a note"',
+    'if test -f nowhere; then git add leak.md; else git commit -m "docs: a note"; fi',
+  ]) {
+    const done = hook(w, command);
+    if (done.stdout.trim() !== "" || !/not scanned/.test(done.stderr)) wrong.push(command);
+  }
+  assert.deepEqual(wrong, []);
+});
+
+// The adversary lens on the round (55): `cd A && git add F && git commit` must stay judged, as the commit runs only if
+// the add did.
+test("a git add certain to run before the commit is still replayed: after ';', after a git add, or '&&' on to the commit", () => {
+  const w = world({ corpus: true });
+  writeFileSync(join(w.repo, "leak.md"), `x\n${CORPUS_LINE}\n`);
+  for (const command of [
+    'git status; git add leak.md && git commit -m "docs: a note"',
+    'git add a.md && git add leak.md; git commit -m "docs: a note"',
+    `cd ${w.repo} && git add leak.md && git commit -m "docs: a note"`,
+    'git status && git add leak.md && git commit -m "docs: a note"',
+    'test -f nowhere && git add leak.md &&\ngit commit -m "docs: a note"',
+  ]) assert.match(reasonOf(hook(w, command)) ?? "", /leak scan.*leak\.md:2/, command);
+});

@@ -10,7 +10,9 @@
 // when it judges the call exactly and a check fails. Whenever it cannot judge (a word quoted inside `git` or `commit`,
 // git's environment or global options in the call, a folder or message known only at run time (a `cd` or `-C` to `~` or
 // to no existing folder among them), standard input, an unquoted heredoc delimiter, anything earlier in the call that
-// may change the index (a `git add` with an unquoted glob among them, as the shell expands it and git would not), an
+// may change the index (a `git add` with an unquoted glob among them, as the shell expands it and git would not, and a
+// `git add` that may not run: after `||`, in an if or a loop, or after a `&&` whose left side is not a git add unless
+// `&&` joins it on to the commit, which then runs only if it did), an
 // unknown git verb with commit's options, no corpus, a check that does not answer) it allows, with one line on stderr.
 // A message passed as `-m "$(cat <<'EOF' ... EOF)"` (a quoted delimiter) is literal, so it is judged. It never writes
 // the index and never fires a git hook: `git add` (and `commit -a`'s `add -u`) earlier in the call is replayed on a
@@ -419,18 +421,25 @@ export async function verdict(command, startCwd) {
   let changed = false; // something earlier in the call may change the index or a file a check reads
   let maySkip = false; // a `cd` after `&&` ran only if the commands before it succeeded
   const groups = []; // each open `{`: true when it may not run (after `&&` or `||`, or inside such a group)
+  let inBranch = false; // an if, while or until opened earlier (its `fi` or `done` is itself a change)
+  let lastAdd = false; // the command before was a replayed `git add`
+  let addMayFail = false; // a replayed `git add` whose left side may fail: judged only while `&&` joins it on to the commit
   const replays = [];
   for (const { words, heredoc, depth, piped, background, redirected, joined } of commands) {
     // Past the end of its `&&` chain, such a `cd` may not have run, so the folder is unknown.
     if (maySkip && joined !== "&&") (cwd = null), (maySkip = false);
+    if (addMayFail && joined !== "&&") (changed = true), (addMayFail = false);
     let k = 0;
     while (k < words.length && !words[k].quoted && (LEADING.has(words[k].v) || ASSIGNMENT.test(words[k].v))) {
       if (words[k].v === "{") groups.push(joined !== null || groups.includes(true));
       if (words[k].v === "}") groups.pop();
+      if (["if", "while", "until"].includes(words[k].v)) inBranch = true;
       k += 1;
     }
     const ws = words.slice(k);
     if (ws.length === 0) continue;
+    const afterAdd = lastAdd;
+    lastAdd = false;
     const [head] = ws;
     const nested = depth > 0 || piped || background;
     if (head.dyn) {
@@ -495,8 +504,10 @@ export async function verdict(command, startCwd) {
       continue;
     }
     if (verb.v === "add") {
-      if (nested || here === null || odd || gitEnv || changed || args.some((a) => a.dyn || a.glob || ADD_INTERACTIVE.test(a.v))) changed = true;
-      else replays.push({ cwd: here, args: args.map((a) => a.v) });
+      // An add the shell may not run is never replayed as if it ran.
+      const mayNotRun = joined === "||" || inBranch || groups.includes(true);
+      if (mayNotRun || nested || here === null || odd || gitEnv || changed || args.some((a) => a.dyn || a.glob || ADD_INTERACTIVE.test(a.v))) changed = true;
+      else (replays.push({ cwd: here, args: args.map((a) => a.v) }), (lastAdd = true), (addMayFail ||= joined === "&&" && !afterAdd));
       continue;
     }
     if (verb.v !== "commit") {
