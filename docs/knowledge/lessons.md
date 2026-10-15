@@ -856,7 +856,7 @@ with `Check:` and a path on main, or `No check:` / `No check yet:` and the reaso
 ## Session 29 (14-15 Oct 2026): the factory's wave 1 half landed; M0's f-1 fixed; the usage window ran out at 1 h 40
 - **Eight Opus `high` acceptance writers and six builders at once used the whole session window in 100 minutes.** Every
   builder stalled about 75 minutes (STOP-FAILURE rate_limit; four BUDGET-PASSED rows that were not overruns). The governor
-  held launches at 100 % but launched into 21 % of the window without a forecast. No check yet: owed (the governor's
+  held launches once the session window read 100 % (the weekly window read 21 %), but it launched without forecasting spend. No check yet: owed (the governor's
   `cloud-session` and `local-agent` units refuse a launch whose expected spend would cross the window's floor).
 - **Builders wrote notes after `## Cut` three times** (M0a-F1, F2b, F2a); publish refused each head and each needed an
   empty re-commit and a message round. No check yet: owed (#890: the verify runs merge_ready's Cut parser on the READY message).
