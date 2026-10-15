@@ -19,7 +19,8 @@
 set -euo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-root=$(git -C "$here" rev-parse --show-toplevel)
+# The main checkout (where .private/ lives), even when this runs from a worktree of the branch.
+root=$(dirname -- "$(git -C "$here" rev-parse --path-format=absolute --git-common-dir)")
 work="$root/.private/work/cma"
 edison="${EDISON_DIR:-$root/.private/reference/edison}"
 dwg2dxf="${DWG2DXF:-/opt/vextrus/libredwg/bin/dwg2dxf}"

@@ -98,6 +98,15 @@ the session cap.
 
 ## Steps
 
+**Run `cma.sh` from its own worktree, never by switching the main checkout.** The factory's sessions
+use the main checkout. `cma.sh` finds the main checkout's `.private/` from any worktree, but
+`claude-lock.json` lives beside the runbook. Copy it into the worktree, or the next `apply` creates
+duplicate agents:
+```sh
+git -C ~/vextrus-cubit worktree add ~/vextrus-cma claude/vextrus-m1-prototype-spec-ew6hgy
+cp ~/vextrus-cubit/docs/runbooks/cma-prototype-session/claude-lock.json ~/vextrus-cma/docs/runbooks/cma-prototype-session/
+```
+
 0. **Workspace and key.** In the Console (platform.claude.com), create a workspace `vextrus-cma` with
    its own API key. Uploaded files are visible to the whole workspace, so a workspace of its own keeps
    the drawings away from other keys. Put the key in `~/.bashrc` as `ANTHROPIC_API_KEY`, the same way

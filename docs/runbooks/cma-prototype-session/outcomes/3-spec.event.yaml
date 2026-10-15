@@ -9,4 +9,4 @@ description: >-
 rubric:
   type: text
   content: "@./outcomes/3-spec.rubric.md"
-max_iterations: 4
+max_iterations: 3

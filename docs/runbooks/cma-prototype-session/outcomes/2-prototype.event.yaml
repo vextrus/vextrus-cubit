@@ -10,4 +10,4 @@ description: >-
 rubric:
   type: text
   content: "@./outcomes/2-prototype.rubric.md"
-max_iterations: 5
+max_iterations: 3
